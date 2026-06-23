@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Última actualización: 2026-06-23 · repo privado `nexolabs-gh/nikodym` · sobre commit `74ae984`_
+_Última actualización: 2026-06-23 · repo privado `nexolabs-gh/nikodym` · sobre commit `5d31fbf`_
 
 ## Estado actual
 **Nikodym RiskLib** en **fase de diseño**. El esqueleto de la arquitectura está completo: spec maestra v1.0, roadmap por fases y andamiaje de los 25 documentos de diseño (SDD). Parámetros normativos CMF extraídos y verificados visualmente. **Cero código aún** — y así sigue hasta terminar toda la especificación.
