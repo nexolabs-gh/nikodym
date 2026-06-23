@@ -11,6 +11,7 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado actual (2026-06-23)
 **Fase de diseño. CERO código** hasta tener TODA la arquitectura + roadmap + los 25 SDD especificados. Recién entonces se programa (Fase 0).
+**Tanda 0 (verificación) ✅ cerrada:** spec + normativa CMF re-verificadas (verificación adversarial multi-agente + render visual de las 6 tablas CMF críticas). Valores normativos **triple-verificados** (texto oficial + render visual + CNC v2022), cero errores en cifras; 12 correcciones de trazabilidad/coherencia/notación aplicadas. **Próximo: Tanda 1 (Fundación)** — SDD 01-05, 24, 25.
 
 ## Reglas de trabajo durables
 - **Cero código ahora**: solo documentos de arquitectura/diseño (markdown).
@@ -21,7 +22,7 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Decisiones de diseño fijadas
 - **Licencia** Apache-2.0 (open-source). Evitar dependencias copyleft (GPL) — p.ej. `scikit-survival` queda fuera del core.
-- **CMF ≠ IFRS 9**: dos motores separados (`provisioning/cmf` con PE=PI·PDI·EAD, B-1; `provisioning/ifrs9` con ECL), provisión = **máximo** (piso prudencial CMF).
+- **CMF ≠ IFRS 9**: dos motores separados (`provisioning/cmf` con PE=PI·PDI·Exposición, B-1; `provisioning/ifrs9` con ECL), provisión = **máximo** (piso prudencial CMF).
 - **MVP Fase 1**: scorecard de **comportamiento** (sin reject inference; originación es sub-fase posterior).
 - **Stack**: pandas, **OptBinning** (binning), **statsmodels** (inferencia), **lifelines** (survival), Optuna, SHAP, MLflow, **Quarto** (reporte HTML+PDF), Claude (capa IA opcional, documenta nunca calcula). Empaquetado **uv + hatchling**, `src/` layout. Config **Pydantic v2** (núcleo config-driven → la UI es editor del mismo config). Gobernanza **SR 11-7** en el núcleo.
 

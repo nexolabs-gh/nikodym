@@ -26,7 +26,7 @@
 | **F3** | Provisiones CMF | Motor B-1 | M | Provisión regulatoria chilena |
 | **F4** | IFRS 9 / ECL | ECL + piso CMF | XL | Pérdida esperada multi-norma |
 | **F5** | Forward-looking | Lifetime + escenarios | XL | Term-structure, macro, Markov |
-| **F6** | Stress & validación | Backtesting | L | Stress test + validación formal |
+| **F6** | Validación avanzada | Backtesting | L | Validación formal + backtesting |
 | **F7** | UI visual | Producto no-code | L | Drag-and-drop sobre la API |
 | **F+** | Originación | Reject inference | M | Scorecard de admisión |
 
@@ -71,7 +71,7 @@ Esfuerzo relativo: S < M < L < XL.
 **Dependencias.** F1 (pipeline, binning, model).
 
 ## F3 — Provisiones CMF (norma local)
-**Objetivo.** Motor de pérdida esperada estandarizada `PE = PI·PDI·EAD` del Capítulo B-1.
+**Objetivo.** Motor de pérdida esperada estandarizada `PE = PI·PDI·Exposición` del Capítulo B-1.
 **SDDs.** 15 provisioning-cmf.
 **Entregables.**
 - Matrices por cartera (comercial individual A1–C6, grupal, consumo 2025, vivienda PVG) como **datos versionados** ([`normativa_cmf_parametros.md`](normativa_cmf_parametros.md)).
@@ -101,8 +101,8 @@ Esfuerzo relativo: S < M < L < XL.
 **DoD.** Curvas lifetime PD reproducibles por ambas rutas (survival y matriz); consistencia PIT en la cadena; tests numéricos.
 **Dependencias.** F1 (regresión). Cierra el lifetime de F4.
 
-## F6 — Stress & validación avanzada
-**Objetivo.** Validación formal y backtesting integrados.
+## F6 — Validación avanzada
+**Objetivo.** Validación formal y backtesting integrados. (El módulo `stress/` se construye en F5; aquí se valida y se hace backtesting.)
 **SDDs.** 22 validation.
 **Entregables.** Discriminación (ROC/AUC, Gini, KS), calibración (Hosmer-Lemeshow, binomial, traffic-light, Brier), estabilidad (PSI), backtesting realizado-vs-estimado (t-test ECB).
 **DoD.** Suite de validación ejecutable sobre cualquier modelo del repo; reportes Quarto de validación.

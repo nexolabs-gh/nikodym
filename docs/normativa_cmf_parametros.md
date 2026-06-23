@@ -17,7 +17,7 @@
 
 2. **Estructura del cálculo.** Para cada deudor/operación: `Provisión = Exposición × PI × PDI`. La **Exposición** de un crédito contingente se obtiene aplicando el factor de conversión del **Capítulo B-3** al monto contingente (ver §6). En la cartera en incumplimiento individual comercial el cómputo es por rango de pérdida esperada (`Provisión = E × PP/100`, ver §1.3).
 
-3. **Procedencia de los valores.** Las tablas marcadas **VERIFICADO** fueron extraídas del **texto oficial CMF/SBIF** con `pdftotext -layout`. Además, el **2026-06-23 se verificaron VISUALMENTE** (render del PDF oficial) las tablas más críticas: comercial individual A1–B4 (hoja 3), hipotecaria vivienda PVG (hoja 12), PDI de consumo (Circular 2.346) y avales (hoja 14). Resultado: comercial individual, vivienda y consumo **coinciden 100 %**; en avales se **detectó y corrigió** un error de la columna *Escala Internacional* (ver §5.2). Las circulares fuente se citan bajo cada tabla.
+3. **Procedencia de los valores.** Las tablas marcadas **VERIFICADO** fueron extraídas del **texto oficial CMF/SBIF** con `pdftotext -layout`. Además, el **2026-06-23 se verificaron VISUALMENTE** (render del PDF oficial) las tablas más críticas: comercial individual A1–B4 (hoja 3), hipotecaria vivienda PVG (hoja 12), PDI de consumo (Circular 2.346) y avales (hoja 18). Resultado: comercial individual, vivienda y consumo **coinciden 100 %**; en avales se **detectó y corrigió** un error de la columna *Escala Internacional* (ver §5.2). Las circulares fuente se citan bajo cada tabla.
 
 4. **Versión del PDF fuente de las matrices.** El PDF consolidado usado (`norma_6545_1.pdf`) se rotula "vigente hasta 31-12-2021". Sin embargo, las **tablas comercial individual, comercial grupal, hipotecaria, incumplimiento y B-3 NO fueron modificadas** por la reforma 2022 ni por la Circular 2.346/2024 (que **solo** introdujo el numeral 3.1.3 de consumo). Por lo tanto **siguen vigentes a 2026**. La matriz de **consumo** sí proviene del texto vigente 2025 (Circular 2.346). Antes de pasar a producción conviene revalidar contra el PDF del CNC versión 2022 publicado en cmfchile.cl (ver §7).
 
@@ -43,7 +43,7 @@
 | **Subestándar** | B4 | 45,00 | 97,5 | 43,87500 | VERIFICADO |
 
 > **Fuente:** CNC, Capítulo B-1, numeral 2.1, **hoja 3**. Circular N° **3.573 / 30.12.2014**. PDF consolidado: `http://www.sbif.cl/sbifweb3/internet/archivos/norma_6545_1.pdf`.
-> **Nota:** `PE = PI × PDI`. Estos parámetros son la base mínima para deudores comerciales evaluados individualmente en cartera en cumplimiento (Normal/Subestándar).
+> **Nota:** `PE(%) = PI(%) × PDI(%) / 100`. Estos parámetros son la base mínima para deudores comerciales evaluados individualmente en cartera en cumplimiento (Normal/Subestándar).
 
 ### 1.2 Definición de categorías (resumen)
 
@@ -160,7 +160,7 @@ Donde `EG` = exposición grupal, `EA` = % de exposición avalada, y los parámet
 
 ## 3. Cartera consumo — Modelo estandarizado vigente (2025)
 
-Numeral **3.1.3** del Capítulo B-1, introducido por **Circular N° 2.346 / 06.03.2024**, vigente desde el **cierre contable de enero 2025**. `PE = PI × PDI`, aplicado uniformemente a todas las colocaciones y contingentes de consumo del deudor con el banco y filiales en Chile (incluye leasing de consumo; excluye filiales/sucursales en el exterior).
+Numeral **3.1.3** del Capítulo B-1, introducido por **Circular N° 2.346 / 06.03.2024**, vigente desde el **cierre contable de enero 2025**. `PE(%) = PI(%) × PDI(%) / 100`, aplicado uniformemente a todas las colocaciones y contingentes de consumo del deudor con el banco y filiales en Chile (incluye leasing de consumo; excluye filiales/sucursales en el exterior).
 
 ### 3.1 Matriz de PI (%) — 3 factores
 
@@ -194,7 +194,7 @@ Factores: (1) nivel de mora máximo de consumo en el banco al cierre del mes; (2
 
 ## 4. Cartera hipotecaria vivienda (método estándar)
 
-Numeral **3.1.1** del Capítulo B-1 (método estándar vigente desde 2016). `PE = PI × PDI`. `PVG = Capital insoluto del préstamo / Valor de la garantía hipotecaria` (valor de tasación en UF al otorgamiento).
+Numeral **3.1.1** del Capítulo B-1 (método estándar vigente desde 2016). `PE(%) = PI(%) × PDI(%) / 100`. `PVG = Capital insoluto del préstamo / Valor de la garantía hipotecaria` (valor de tasación en UF al otorgamiento).
 
 | Tramo PVG | Parámetro | Mora 0 | Mora 1–29 | Mora 30–59 | Mora 60–89 | Cartera en incumplimiento |
 |---|---|---|---|---|---|---|
@@ -211,7 +211,7 @@ Numeral **3.1.1** del Capítulo B-1 (método estándar vigente desde 2016). `PE 
 | | PDI (%) | 27,2000 | 29,0300 | 29,5900 | 30,1558 | 30,2436 |
 | | PE (%) | 0,7453 | 8,2532 | 15,7064 | 24,2355 | 30,2436 |
 
-> **Estado: VERIFICADO** (extraído del PDF semilla B-1 *y* del consolidado `norma_6545_1.pdf`; ambos coinciden). **Fuente:** CNC, Capítulo B-1, numeral 3.1.1, hoja 12. Circular N° **3.584 / 22.06.2015** (sobre base de Circular 3.573/2014).
+> **Estado: VERIFICADO** (extraído del PDF semilla B-1 *y* del consolidado `norma_6545_1.pdf`; ambos coinciden). **Fuente:** CNC, Capítulo B-1, numeral 3.1.1, hoja 12. Circular N° **3.638 / 06.07.2018** (circular que rotula la hoja vigente del consolidado; parámetros introducidos por Circular **3.573 / 30.12.2014**). **Verificado visualmente 2026-06-23** (render hoja 12, pie "Circular N° 3.638 / 06.07.2018").
 > **Regla:** si un deudor tiene más de un préstamo hipotecario y uno presenta atraso ≥ 90 días, todos pasan a cartera en incumplimiento (cada uno provisionado por su propio PVG).
 
 ### 4.1 Factor de mitigación MP (créditos con seguro estatal de remate)
@@ -225,7 +225,7 @@ Para créditos hipotecarios de programas habitacionales/subsidio del Estado con 
 | 80 % < PVG ≤ 90 % | 95 % | 96 % |
 | PVG > 90 % | 84 % | 89 % |
 
-> **Estado: VERIFICADO.** **Fuente:** CNC, Capítulo B-1, numeral 3.1.1, hoja 13. Circular N° 3.584/2015. (En el PDF el "100 %" aparece como una celda fusionada que cubre los tramos PVG ≤ 40 % y 40 % < PVG ≤ 80 % para ambas columnas de V.)
+> **Estado: VERIFICADO.** **Fuente:** CNC, Capítulo B-1, numeral 3.1.1, hoja 13. Circular N° **3.638 / 06.07.2018** (circular que rotula la hoja vigente del consolidado). **Verificado visualmente 2026-06-23** (render hoja 13). (En el PDF el "100 %" aparece como una celda fusionada que cubre los tramos PVG ≤ 40 % y 40 % < PVG ≤ 80 % para ambas columnas de V.)
 
 ---
 
@@ -251,7 +251,7 @@ Para créditos hipotecarios de programas habitacionales/subsidio del Estado con 
 | A / A2 | 0,04 | 90,0 | 0,10 | 82,5 |
 | BBB- / Baa3 | 0,10 | 82,5 | 0,25 | 87,5 |
 
-> **Estado: ✅ VERIFICADO VISUALMENTE (corregido) — 2026-06-23, render del PDF oficial, hoja 14.** **Fuente:** CNC, Capítulo B-1, numeral 4.1 letra a), **hoja 14** (Circular N° **3.584/2015**). **CORRECCIÓN respecto a la extracción inicial por `pdftotext`:** la columna *Escala Internacional* está **corrida una categoría** respecto a la Nacional, por celdas fusionadas que `pdftotext` no respeta. En la **escala Internacional**, las categorías **AA/Aa2 y A/A2 comparten 0,04 / 90,0** (celda fusionada) y **BBB-/Baa3 = 0,10 / 82,5**. En la **escala Nacional** hay un valor por fila: `0,04/90,0` · `0,10/82,5` · `0,25/87,5` (coinciden con A1/A2/A3 de §1.1). La extracción inicial replicó erróneamente los valores nacionales en la columna internacional; **corregido tras verificación visual**.
+> **Estado: ✅ VERIFICADO VISUALMENTE (corregido) — 2026-06-23, render del PDF oficial, hoja 18.** **Fuente:** CNC, Capítulo B-1, numeral 4.1 letra a), **hoja 18** (Circular N° **3.638 / 06.07.2018**). _(Re-verificado visualmente 2026-06-23: el render de la hoja 18 muestra el pie "Circular N° 3.638 / 06.07.2018"; la cita previa "hoja 14 / Circular 3.584/2015" era incorrecta. En el CNC v2022 `cir_2249.pdf` la misma tabla figura como "hoja 17" por distinta paginación del PDF.)_ **CORRECCIÓN respecto a la extracción inicial por `pdftotext`:** la columna *Escala Internacional* está **corrida una categoría** respecto a la Nacional, por celdas fusionadas que `pdftotext` no respeta. En la **escala Internacional**, las categorías **AA/Aa2 y A/A2 comparten 0,04 / 90,0** (celda fusionada) y **BBB-/Baa3 = 0,10 / 82,5**. En la **escala Nacional** hay un valor por fila: `0,04/90,0` · `0,10/82,5` · `0,25/87,5` (coinciden con A1/A2/A3 de §1.1). La extracción inicial replicó erróneamente los valores nacionales en la columna internacional; **corregido tras verificación visual**.
 > **Aforos/haircuts financieros:** los factores de descuento por volatilidad de tasas/monedas aplicables a garantías financieras (letra c) **NO** están tabulados en el Capítulo B-1: la norma dice que "los fija esta Superintendencia". → **PENDIENTE**: requieren la circular específica de factores de descuento (probablemente vinculada al Capítulo 7-12 de la RAN). No localizada en esta pasada.
 
 ### 5.3 RAN 21-10 — Garantías como mitigadores (requisitos)
@@ -310,6 +310,8 @@ Para calcular provisiones (Capítulo B-1), la **Exposición** de un crédito con
 - Factores de descuento por volatilidad (tasas/monedas) para **garantías financieras** del B-1 letra c) — la norma los remite a una circular específica de la CMF (no localizada esta pasada).
 - ~~Asignación de columna *Internacional* para la fila BBB-/Baa3 (§5.2)~~ → **RESUELTO** (verificación visual 2026-06-23): la escala Internacional está corrida (AA/Aa2 y A/A2 comparten 0,04/90,0; BBB-/Baa3 = 0,10/82,5). Tabla §5.2 corregida.
 - Tabla de CCF para **capital/APR (RAN 21-6)** — fuera del alcance pedido (es para Basilea, no para provisiones); se deja anotada para evitar que se confunda con el B-3.
+
+**Vigilancia regulatoria (verificado 2026-06-23):** ninguna circular **enactada** posterior a 2024 modifica los valores del modelo estándar de provisiones del Capítulo B-1. Existe una **consulta pública en curso** (Res. Exenta N° 273 de 06-01-2025 y su segunda versión Res. Exenta N° 10.976 de 21-10-2025), enmarcada en garantías como mitigadores (nuevo Cap. 21-10 de la RAN); su origen proponía tocar el B-1, pero en la segunda consulta (oct-2025) el alcance contable quedó acotado a los Capítulos **B-6/B-7** (ajustes de referencias cruzadas, **sin** modificar las matrices PI/PDI/PE estándar). **Acción:** vigilar la enacción de esta circular y del Cap. 21-10 antes de uso productivo; no asumir aún cambios a las tablas vigentes.
 
 ---
 

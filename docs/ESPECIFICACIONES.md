@@ -124,14 +124,14 @@ Pipeline:
 - Motor **`cmf_standard`**: pérdida esperada estandarizada **`PE = PI · PDI · Exposición`** (Cap. **B-1** CNC).
 - **Matrices regulatorias por cartera**: comercial individual (categorías A1–A6/B1–B4/C1–C6), comercial grupal (mora + garantías), consumo (modelo 2025: PI por mora banco/sistema + tenencia hipotecaria; PDI por producto), vivienda (mora × LTV).
 - **Créditos contingentes** (Cap. B-3): factores de conversión (CCF).
-- **Garantías** (RAN 21-10): admisibilidad, aforos, valorización → reducen PDI.
+- **Garantías** (Cap. B-1 num. 4; RAN 21-10 regula admisibilidad y condiciones): mitigan la pérdida esperada por **tres canales** según el tipo — avales/fianzas por **sustitución** de la calidad crediticia (PI·PDI del aval sobre la porción avalada), garantías reales por **tasa de recuperación**, garantías financieras por **descuento del valor razonable ajustado** de la exposición. Los aforos numéricos del modelo estándar viven en el B-1 (PVG/PVB/PTVG); los haircuts de garantías financieras los fija la CMF en circular específica.
 - **Provisiones adicionales** por riesgos no capturados.
-- **Parámetros numéricos**: extraídos y verificados contra texto oficial CMF/SBIF en [`docs/normativa_cmf_parametros.md`](normativa_cmf_parametros.md) (comercial individual A1–C6, grupal, consumo 2025, vivienda PVG, contingentes B-3, garantías). **Requieren validación humana contra el CNC v2022 vigente antes de uso productivo**; 2 pendientes menores documentados (haircuts de garantías financieras y mapeo BBB-/Baa3). Las matrices se tratan como **datos versionados**, no constantes hardcodeadas.
+- **Parámetros numéricos**: extraídos y verificados contra texto oficial CMF/SBIF en [`docs/normativa_cmf_parametros.md`](normativa_cmf_parametros.md) (comercial individual A1–C6, grupal, consumo 2025, vivienda PVG, contingentes B-3, garantías). **Requieren validación humana contra el CNC v2022 vigente antes de uso productivo**; 1 pendiente menor documentado (haircuts/factores de descuento de garantías financieras del B-1 letra c, que la norma remite a circular específica de la CMF; el mapeo BBB-/Baa3 quedó resuelto por verificación visual 2026-06-23). Las matrices se tratan como **datos versionados**, no constantes hardcodeadas.
 
 > **🔴 Decisión de diseño dura: CMF ≠ IFRS 9.** Son **dos motores separados**. La provisión final aplica el **máximo** entre el ECL contable (IFRS 9) y el **piso prudencial CMF**. El módulo `provisioning/` orquesta ambos y expone el comparativo. Montarlo como un solo "motor ECL" **incumple CMF**.
 
 ### 5.5 IFRS 9 / ECL (Fase 4)
-- **PD**: 12m y **lifetime**, **term structure**, **PIT vs TTC**. Transformación PIT con **Vasicek monofactorial**: `PD_PIT(Z)=Φ[(Φ⁻¹(PD_TTC)−√ρ·Z)/√(1−ρ)]` (convención de signo de Z fijada y documentada).
+- **PD**: 12m y **lifetime**, **term structure**, **PIT vs TTC**. Transformación PIT con **Vasicek monofactorial**: `PD_PIT(Z)=Φ[(Φ⁻¹(PD_TTC)−√ρ·Z)/√(1−ρ)]` (convención: Z ~ N(0,1), índice de ciclo con **Z>0 = expansión → menor PD** y **Z<0 = recesión → mayor PD**; el signo −√ρ·Z implementa esa orientación. Al portar fórmulas ASRF/Basilea —factor sistémico con signo + y peor caso evaluado en el cuantil superior— invertir el signo).
 - **LGD**: distribución bimodal → **beta regression / fractional response / Tobit / workout LGD** (no OLS plano). `LGD = 1 − recovery`.
 - **EAD/CCF**: `EAD = drawn + CCF·(límite − drawn)`.
 - **Staging / SICR**: Stage 1/2/3; triggers (ratio PD lifetime vs origen ≥2×, backstop ≥3× PIT, downgrade por notches, cualitativos); backstops 30 dpd (SICR) / 90 dpd (default); *low credit risk exemption*. Umbrales **parametrizables por cartera**.
@@ -147,7 +147,9 @@ Pipeline:
 - **Survival (lifetime PD)**: Kaplan-Meier, Cox PH (Schoenfeld), AFT, y **discrete-time hazard** (logística/cloglog person-period) — **estándar IFRS 9 lifetime, reusa el stack de scoring**. `S(t)=∏(1−h_j)`, `PD_marg(t)=S(t−1)·h(t)`.
 - **Cadena de integración**: `macro_projection → satellite_model → pd_lgd_term_structure → ecl_engine → scenario_weighting`. **Consistencia PIT** en toda la cadena.
 
-### 5.7 Stress testing & validación avanzada (Fase 6)
+### 5.7 Stress testing (Fase 5) y validación avanzada (Fase 6)
+
+> **Nota de fase:** el módulo `stress/` (SDD-21) se produce en **T5/F5** porque consume los escenarios macro/satellite de §5.6; la **validación formal y el backtesting** (SDD-22) son **F6**. (Alineado con `ROADMAP.md` e `00-INDICE.md`.)
 - Frameworks de referencia (conceptual): **EBA EU-wide**, **Fed CCAR/DFAST**, **ICAAP**; reverse stress testing.
 - Sensibilidad de provisiones/ECL a shocks macro vía satellite models.
 - **Validación**: discriminación (ROC/AUC, Gini, KS), calibración (Hosmer-Lemeshow, binomial, traffic-light, Brier), estabilidad (PSI), backtesting realizado-vs-estimado (t-test ECB para LGD/EAD).
@@ -191,7 +193,7 @@ src/nikodym/
 ├── scorecard/    # escalado, offset/PDO, puntos por atributo
 ├── calibration/  # anclaje PD, PIT/TTC (Vasicek)
 ├── provisioning/ # orquesta CMF vs IFRS 9 → máximo (piso regulatorio)
-│   ├── cmf/      # motor estándar B-1 (PE=PI·PDI·EAD, matrices, B-3, garantías)
+│   ├── cmf/      # motor estándar B-1 (PE=PI·PDI·Exposición, matrices, B-3, garantías)
 │   └── ifrs9/    # PD/LGD/EAD, staging (SICR), motor ECL (12m/lifetime)
 ├── forward/      # macro ARIMA/VAR, escenarios, satellite models (Wilson logit)
 ├── survival/     # KM, Cox, AFT, discrete-time hazard → lifetime PD [lifelines+statsmodels]
@@ -227,7 +229,8 @@ src/nikodym/
 | Reporte | Quarto, jinja2, matplotlib, plotly | permisivas ✅ |
 | IA (opcional) | anthropic (Claude) | — (API) |
 | Build / entorno | **uv + hatchling**, pyproject.toml | permisivas ✅ |
-| Calidad | pytest, hypothesis, ruff, mypy, pre-commit | permisivas ✅ |
+| Calidad (test/dev) | pytest, ruff, mypy, pre-commit | permisivas ✅ |
+| Property-based testing | hypothesis | MPL-2.0 (copyleft débil, scope por archivo) — solo dev/test, **no se redistribuye** en el wheel ✅ |
 
 **Gestión de dependencias:** `[project.optional-dependencies]` para extras de usuario (`[xgboost]`, `[catboost]`, `[forecasting]`, `[ui]`, `[all]`); `[dependency-groups]` (PEP 735) para dev/test/docs. Backends pesados tras import perezoso con mensaje claro.
 
@@ -273,10 +276,10 @@ Tres pilares: desarrollo sólido · **effective challenge** (validación indepen
 | **0** | **Fundaciones & gobierno** | Repo Apache-2.0, `pyproject.toml` (uv+hatchling, `src/`), CI; `core` (Study + config Pydantic), `data` (validación, target, particiones, missing), `audit`+`governance` (semillas, lineage, model card), `tracking` (MLflow local). Todo lo posterior es auditable desde aquí. |
 | **1** | **Scorecard comportamiento (MVP open-source)** | Pipeline §5.2 completo, sin reject inference. Reporte Quarto. **Release público inicial** — escaparate de la consultora. |
 | **2** | **Machine Learning** | SVM/RF/XGBoost/LightGBM/**CatBoost** + Optuna + SHAP + monotonic constraints sobre el mismo pipeline. |
-| **3** | **Provisiones CMF (norma local)** | Motor `cmf_standard` (B-1: PE=PI·PDI·EAD con matrices por cartera, B-3, garantías) + capa de comparación/piso. Quick-win regulatorio chileno. |
+| **3** | **Provisiones CMF (norma local)** | Motor `cmf_standard` (B-1: PE=PI·PDI·Exposición con matrices por cartera, B-3, garantías) + capa de comparación/piso. Quick-win regulatorio chileno. |
 | **4** | **IFRS 9 / ECL core** | PD (12m/lifetime, PIT/TTC Vasicek), LGD, EAD/CCF, staging (SICR), motor ECL; `provisioning/` toma el **máximo** CMF vs IFRS 9. |
-| **5** | **Forward-looking & dinámica** | ARIMA/VAR macro, satellite models, escenarios ponderados, Markov (cohort/duration), survival discrete-time (lifetime PD). |
-| **6** | **Stress testing & validación avanzada** | Escenarios severos, sensibilidad, backtesting, tests de calibración, monitoreo. |
+| **5** | **Forward-looking & dinámica** | ARIMA/VAR macro, satellite models, escenarios ponderados, Markov (cohort/duration), survival discrete-time (lifetime PD); **stress testing** (escenarios severos, sensibilidad). |
+| **6** | **Validación avanzada** | Backtesting (realizado-vs-estimado), tests de calibración, discriminación/estabilidad, monitoreo. |
 | **7** | **UI visual** | MVP Streamlit sobre la API (editor del config). |
 | **+** | **Originación & reject inference** | Sub-fase insertable cuando haya caso de uso: muestra TTD, reject inference (parcelling/fuzzy/reweighting validado por outcomes). |
 

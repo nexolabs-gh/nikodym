@@ -48,7 +48,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **22** | `validation` | Validación | F6 | T6 | 11, 16 | ⬜ Pendiente |
 | **23** | `ui` (Streamlit, editor de config) | Producto | F7 | T6 | 05, todos | ⬜ Pendiente |
 
-**25 SDD · 6 tandas.** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
+**25 SDD · 7 tandas (T0–T6; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
 
 ## Tandas de producción
 
