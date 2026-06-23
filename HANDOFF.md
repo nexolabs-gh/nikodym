@@ -1,53 +1,53 @@
 # HANDOFF
 
-_Última actualización: 2026-06-23 · repo privado `nexolabs-gh/nikodym` · sobre commit `a37cad3`_
+_Última actualización: 2026-06-23 · repo privado `nexolabs-gh/nikodym` · sobre commit `ed047b4`_
 
 ## Estado actual
-**Nikodym RiskLib** en **fase de diseño**. **Tanda 0 (Verificación) cerrada**: la spec maestra, el roadmap, el índice de SDD, la plantilla y los parámetros normativos CMF fueron re-verificados a fondo y corregidos. **Los valores normativos CMF están triple-verificados** (texto oficial + render visual del PDF + CNC v2022) — **cero errores en cifras**. **Cero código aún** — y así sigue hasta terminar toda la especificación (los 25 SDD). El esqueleto documental está sólido y consistente; el siguiente paso es producir los SDD.
+**Nikodym RiskLib** en **fase de diseño** (cero código). **Tanda 0 (Verificación) ✅** y **Tanda 1 (Fundación) ✅ producida e integrada**. Los **7 SDD de Fundación** están escritos, verificados (3 ciclos adversariales multi-agente + re-verificación de APIs externas con context7) e integrados por DanIA → marcados **Aprobado** en el índice y en sus headers:
 
-## Hecho en esta sesión (Tanda 0)
-- **Verificación adversarial multi-frente** (workflow de 29 agentes: aritmética, coherencia cross-documento, licencias del stack, fórmulas cuantitativas, normativa CMF contra texto oficial, vigencia vs CNC v2022) + **verificación VISUAL** propia de las 6 tablas CMF críticas contra el render del PDF oficial.
-- **Resultado normativo:** comercial individual, vivienda (60/60 celdas), factor MP, avales y consumo 2025 **coinciden 100%** con la fuente oficial y con el CNC v2022. Vigencia 2026 confirmada (ninguna circular enactada cambió las tablas).
-- **12 correcciones aplicadas** (trazabilidad/coherencia/notación, ningún valor regulatorio):
-  - `PE = PI × PDI` → `PE(%) = PI(%)×PDI(%)/100` (la prosa omitía el /100; las tablas siempre bien). normativa §1.1/§3/§4.
-  - Cita de circular de hipotecaria y factor MP: `3.584/2015` → **`3.638/2018`** (verificado visualmente en el pie de hojas 12-13). normativa §4/§4.1.
-  - Avales: cita `hoja 14` → **`hoja 18`** (verificado visualmente). normativa §5.2 + advertencia.
-  - INDICE: `6 tandas` → `7 tandas (T0–T6)`.
-  - ESPEC §5.4: `2 pendientes CMF` → `1` (BBB-/Baa3 ya estaba resuelto).
-  - Terminología motor CMF: `EAD` → `Exposición` (EAD es término IFRS 9). ESPEC/AGENTS/ROADMAP.
-  - Garantías: "reducen PDI" → 3 canales reales (sustitución/recuperación/descuento); RAN 21-10 = admisibilidad, no aforos. ESPEC §5.4.
-  - hypothesis reetiquetada MPL-2.0 (copyleft débil, solo dev/test, sin riesgo). ESPEC §7.
-  - Vasicek: documentada la convención de signo de Z (Z>0=expansión→menor PD). ESPEC §5.5.
-  - Nota de vigilancia regulatoria (consulta pública CMF Res. Exenta 273/2025 → alcance final B-6/B-7, no toca el modelo estándar). normativa §7.
-  - **COH-02 (decisión de Cami):** stress movido a **F5** (depende de los escenarios macro de F5); F6 renombrada "Validación avanzada". ESPEC §5.7/§11 + ROADMAP.
+| SDD | Módulo | Archivo |
+|---|---|---|
+| 01 | `core` (Study, Registry, config, seeding, lineage, base classes, excepciones) | `docs/design/01-core.md` |
+| 02 | `data` (carga, esquema pandera, target, particiones, mini-DSL de reglas) | `docs/design/02-data.md` |
+| 03 | `audit` + `governance` (AuditSink, model card, inventario SR 11-7) | `docs/design/03-audit-governance.md` |
+| 04 | `tracking` (MLflow: runs, registry, aliases+tags) | `docs/design/04-tracking.md` |
+| 05 | Convenciones API + schema de config global | `docs/design/05-convenciones-config.md` |
+| 24 | Estrategia de testing | `docs/design/24-testing.md` |
+| 25 | Packaging + CI (uv/hatchling, extras) | `docs/design/25-packaging-ci.md` |
 
-## En curso / a medias
-- Nada a medias. Tanda 0 cerrada y consistente.
+**Total ahora: 26 SDD** (antes 25): el reporte Quarto se separó de SDD-04 → nuevo **SDD-26 `report`** en T2/F1 (decisión de alcance de Cami).
 
 ## Próximos pasos
-1. **Sesión nueva = Tanda 1 (Fundación):** producir SDD **01 `core`, 02 `data`, 03 `audit+governance`, 04 `tracking+report`, 05 `convenciones+config`, 24 `testing`, 25 `packaging/CI`** — con **fan-out** (1 agente por SDD, plantilla común `docs/design/_PLANTILLA-SDD.md`), integrados y revisados por DanIA.
-2. Luego Tandas 2–6 (Scoring → ML → Provisiones → Forward → Validación/UI).
-3. **Solo al terminar TODA la spec se empieza a programar** (Fase 0).
+1. **PRÓXIMA SESIÓN = "Tanda 1 Rev"** (sesión de revisión). **Regla de Cami: tras cada tanda hay una sesión de revisión antes de avanzar.** Releer con ojo fresco los 7 SDD aprobados + el molde (01/05), validar coherencia/completitud/implementabilidad de extremo a extremo, y resolver las decisiones abiertas que quedaron delegadas (abajo). Recién al cerrar Tanda 1 Rev se pasa a Tanda 2.
+2. **Luego Tanda 2 — Scoring (F1, MVP open-source):** SDD **06 `binning`, 07 `selection`, 08 `model`, 09 `scorecard`, 10 `calibration`, 11 `performance`+`stability`, 26 `report`**. Mismo método que T1: diseño paralelo → redacción → verificación adversarial → corrección → cierre, integrado por DanIA.
+3. Solo al terminar TODA la spec (los 26 SDD) se empieza a programar (Fase 0).
 
-## Decisiones / contexto a recordar
-- **Licencia Apache-2.0**; la ganancia es reputación para la consultora Nikodym → calidad ejemplar es requisito.
-- **CMF ≠ IFRS 9**: dos motores separados, provisión = **máximo** (piso prudencial CMF).
-- **Fase 1 = scorecard de comportamiento** (sin reject inference).
-- **No reinventar**: OptBinning (binning), statsmodels (inferencia), lifelines (survival). **Evitar GPL** en el core (`scikit-survival` fuera — confirmado GPL-3.0).
-- **Núcleo config-driven con Pydantic v2** → "UI = editor del config". `core/` sin deps pesadas; ML/UI tras extras.
-- **stress está en F5**, no F6 (decisión Tanda 0). F6 = validación avanzada.
-- Principio crítico: **doble verificación trazada de toda info externa** (instituciones financieras → un número errado es riesgo regulatorio).
+## Decisiones / contexto a recordar (el molde de T1 rige toda la librería)
+- **`core` NO depende de sklearn** (D-CORE-1, núcleo liviano §4 principio 9). Los estimadores de dominio que quieran compat sklearn (`check_estimator`, Pipeline) **multiheredan `sklearn.base.BaseEstimator`** en su módulo. `check_estimator` (sklearn ≥1.6) exige esa herencia; las bases de `core` no la pretenden.
+- **Identidad del config = `config_hash`** = sha256 del **JSON canónico** (`model_dump(mode="json", by_alias=True, exclude=INFRA_SECTIONS)`, `sort_keys=True`). `INFRA_SECTIONS = {name, governance, audit, tracking, report}` se **excluyen** (la identidad es el experimento, no la plomería → idempotencia del inventario). `frozen=True` NO hace el modelo hashable; la identidad es el hash, no `__hash__`.
+- **Excepciones:** raíz `NikodymError` + núcleo en `core.exceptions`; cada dominio define sus subclases en su módulo (todas heredan de `NikodymError`).
+- **`FanOutSink`** (en `core.audit`) combina varios `AuditSink` (governance + tracking) bajo el único hook `Study.set_audit_sink`.
+- **Uniones discriminadas:** de **nivel sección** → `type` == key del `Registry` (orquestador). **Anidadas** (p.ej. `data.partition.strategy`) → **factory local**, no Registry.
+- **Naming (D-CONV-1):** identificadores en inglés para stats/sklearn/IFRS9 (`fit`, `pd`, `lgd`); en español para regulatorio CMF (`pi`, `pdi`, `pe`). Docstrings/mensajes siempre en español.
+- **Inventario (frontera 03↔04):** `governance` (03) **define** el `Protocol ModelInventory` (escritura `register(InventoryEntry)→str` idempotente por `config_hash`; lectura `get_active`/`list_versions` → `InventoryRecord` liviano). `tracking` (04) lo **implementa** (`MLflowInventory`, aliases+tags, NO stages). Dirección de import: 04→03 (tracking importa governance; governance no importa tracking).
+- **CMF ≠ IFRS 9** (dos motores, provisión = máximo). **MVP = scorecard de comportamiento.** **Stack** y licencias sin copyleft (GPL fuera; `scikit-survival` fuera del core; `hypothesis` MPL solo dev/test).
+
+## Decisiones abiertas a resolver en Tanda 1 Rev (delegadas en §12 de cada SDD)
+- **`eda/`** está en el árbol de paquetes (ESPEC §6.3) pero **ningún SDD lo cubre**. Decidir: plegarlo en SDD-02 (data) / SDD-11 (performance+stability) o darle SDD propio. (En SDD-05 §5.1 figura como sección `eda` "SDD por confirmar".)
+- **Formato del `data_hash`** para datasets grandes (sha256 del parquet canónico vs incremental/muestreado) — coordinación DanIA + SDD-02.
+- **Política de migración de `schema_version`** (solo levantar en v1 vs auto-migrar) — SDD-05.
+- **Contrato concreto de `ProvisionResultLike`/`ECLResultLike`** (campos, dataclass vs Pydantic) — se fija en SDD-15/16 (T4); `core` solo deja el Protocol mínimo.
+- Esquema fino de tags/aliases del inventario y metadatos `ui_*` (coordinación 03↔04 y 05↔23).
 
 ## Callejones sin salida / no reintentar
-- **Screenshot de PDF en el visor de Chrome (PDFium) no funciona** (sale en negro). Para verificación visual de PDFs: descargar el PDF (`curl`) y leerlo con la herramienta **Read renderizada por páginas** (sí funciona). Localizar páginas con `pdftotext -f N -l N` antes de leer la imagen.
-- **`pdftotext` NO respeta celdas fusionadas** → en tablas con celdas combinadas (avales, factor MP, estudiantiles PDI) los valores salen corridos. Para esas tablas SIEMPRE verificar por render visual, no solo texto extraído. (Así se detectó el error histórico de avales.)
-- PDFs oficiales descargables a /tmp y verificados esta sesión: `norma_6545_1.pdf` (consolidado, tablas en pág PDF: comercial=12, incumplimiento=18, vivienda=21, factor MP=22, avales=27), `cir_2346_2024.pdf` (consumo, matrices pág 3-4), `cir_2249_2020.pdf` (CNC v2022).
+- **NO reintroducir 4 claims técnicos que la verificación tumbó (con context7):** (1) `SeedSequence.spawn()` es **posicional**, no acepta nombre → el seeding por nombre usa `SeedSequence(entropy=[root_seed, hash_estable(nombre)])`. (2) En **sklearn ≥1.6**, sin heredar `BaseEstimator` **no** se pasa `check_estimator` (los tags viven en `BaseEstimator`). (3) `DataFrame.eval`/`query` **no** son sandbox seguro (inyección de código; `@`-prefix alcanza locales) → reglas por mini-DSL declarativo, no `df.eval`. (4) **Model Stages de MLflow deprecados** desde 2.9 → usar aliases+tags.
+- **Gotcha de workflows:** en los scripts JS de `Workflow`, las strings de prompt son template literals con backticks; **no** usar backticks internos para código (rompe el parseo) — usar comillas simples.
+- Verificación visual de PDFs (Tanda 0): screenshot del visor PDFium de Chrome sale en negro; descargar PDF y leer con Read renderizado por páginas. `pdftotext` no respeta celdas fusionadas (tablas CMF) → verificar por render visual.
 
-## Dudas abiertas / bloqueos
-- **Pendiente normativo real** (no rellenado a ojo): haircuts/factores de descuento de garantías financieras del B-1 letra c) — la norma los delega a circular específica de la CMF (no localizada). Documentado en normativa §5.2/§7.
-- **Vigilancia:** consulta pública CMF (Res. Exenta 273/2025 y 10.976/2025) — vigilar su enacción antes de uso productivo; en oct-2025 su alcance contable quedó en B-6/B-7, sin tocar las matrices estándar.
-- Branding y momento de pasar el repo de **privado → público** (al terminar la librería).
-- pandas vs polars interno (según volúmenes reales).
+## Dudas abiertas / bloqueos (preexistentes, no urgentes)
+- **Pendiente normativo CMF:** haircuts/factores de descuento de garantías financieras del B-1 letra c) (la norma los remite a circular específica no localizada). Documentado en `normativa_cmf_parametros.md` §5.2/§7.
+- **Vigilancia:** consulta pública CMF (Res. Exenta 273/2025, 10.976/2025) — vigilar enacción antes de uso productivo; en oct-2025 su alcance quedó en B-6/B-7, sin tocar las matrices estándar.
+- Momento privado→público del repo (al terminar la librería). pandas vs polars interno (según volúmenes reales).
 
 ## Repo
 Privado en GitHub: **`nexolabs-gh/nikodym`** (https://github.com/nexolabs-gh/nikodym), branch `main`. Push directo a `main` autorizado en el cierre. Commits con co-autoría de Claude.

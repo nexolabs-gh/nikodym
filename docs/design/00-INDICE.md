@@ -22,13 +22,13 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 
 | SDD | Módulo | Dominio | Fase | Tanda | Depende de | Estado |
 |---|---|---|---|---|---|---|
-| **01** | `core` | Fundación | F0 | T1 | — | ⬜ Pendiente |
-| **02** | `data` | Fundación | F0 | T1 | 01 | ⬜ Pendiente |
-| **03** | `audit` + `governance` | Fundación | F0 | T1 | 01 | ⬜ Pendiente |
-| **04** | `tracking` + `report` | Fundación | F0 | T1 | 01, 03 | ⬜ Pendiente |
-| **05** | Convenciones API + schema de config global | Fundación | F0 | T1 | 01 | ⬜ Pendiente |
-| **24** | Estrategia de testing | Ingeniería | F0 | T1 | 01, 05 | ⬜ Pendiente |
-| **25** | Packaging + CI (uv, hatchling, extras) | Ingeniería | F0 | T1 | — | ⬜ Pendiente |
+| **01** | `core` | Fundación | F0 | T1 | — | ✅ Aprobado |
+| **02** | `data` | Fundación | F0 | T1 | 01 | ✅ Aprobado |
+| **03** | `audit` + `governance` | Fundación | F0 | T1 | 01 | ✅ Aprobado |
+| **04** | `tracking` (MLflow) | Fundación | F0 | T1 | 01, 03 | ✅ Aprobado |
+| **05** | Convenciones API + schema de config global | Fundación | F0 | T1 | 01 | ✅ Aprobado |
+| **24** | Estrategia de testing | Ingeniería | F0 | T1 | 01, 05 | ✅ Aprobado |
+| **25** | Packaging + CI (uv, hatchling, extras) | Ingeniería | F0 | T1 | — | ✅ Aprobado |
 | **06** | `binning` | Scoring | F1 | T2 | 02, 05 | ⬜ Pendiente |
 | **07** | `selection` | Scoring | F1 | T2 | 06 | ⬜ Pendiente |
 | **08** | `model` (logística + stepwise) | Scoring | F1 | T2 | 07 | ⬜ Pendiente |
@@ -47,8 +47,9 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **21** | `stress` (stress testing, sensibilidad) | Forward | F5 | T5 | 20 | ⬜ Pendiente |
 | **22** | `validation` | Validación | F6 | T6 | 11, 16 | ⬜ Pendiente |
 | **23** | `ui` (Streamlit, editor de config) | Producto | F7 | T6 | 05, todos | ⬜ Pendiente |
+| **26** | `report` (Quarto HTML+PDF, capa IA, export) | Reporte | F1 | T2 | 01 | ⬜ Pendiente |
 
-**25 SDD · 7 tandas (T0–T6; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
+**26 SDD · 7 tandas (T0–T6; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
 
 ## Tandas de producción
 
@@ -56,7 +57,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 |---|---|---|---|
 | **T0 — Verificación** | (ninguno nuevo) | Doble-check de TODO lo ya hecho (spec, normativa CMF, índice, roadmap, plantilla) contra fuente oficial; corregir antes de avanzar. | — |
 | **T1 — Fundación** | 01, 02, 03, 04, 05, 24, 25 | El núcleo del que todo cuelga; sin esto nada es auditable. | T0 |
-| **T2 — Scoring (F1)** | 06, 07, 08, 09, 10, 11 | El MVP open-source. | T1 |
+| **T2 — Scoring (F1)** | 06, 07, 08, 09, 10, 11, 26 | El MVP open-source + reporte Quarto (release público). | T1 |
 | **T3 — ML (F2)** | 12, 13, 14 | Benchmark predictivo + explicabilidad. | T2 |
 | **T4 — Provisiones (F3-F4)** | 15, 16, 17 | CMF + IFRS 9 + piso regulatorio. | T2 (PD); T5 parcial (lifetime) |
 | **T5 — Forward-looking (F5)** | 18, 19, 20, 21 | Lifetime PD, escenarios, stress. | T2 |

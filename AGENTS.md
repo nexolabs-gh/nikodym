@@ -10,14 +10,15 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
 ## Estado actual (2026-06-23)
-**Fase de diseño. CERO código** hasta tener TODA la arquitectura + roadmap + los 25 SDD especificados. Recién entonces se programa (Fase 0).
-**Tanda 0 (verificación) ✅ cerrada:** spec + normativa CMF re-verificadas (verificación adversarial multi-agente + render visual de las 6 tablas CMF críticas). Valores normativos **triple-verificados** (texto oficial + render visual + CNC v2022), cero errores en cifras; 12 correcciones de trazabilidad/coherencia/notación aplicadas. **Próximo: Tanda 1 (Fundación)** — SDD 01-05, 24, 25.
+**Fase de diseño. CERO código** hasta tener TODA la arquitectura + roadmap + los **26 SDD** especificados. Recién entonces se programa (Fase 0).
+**Tanda 0 (verificación) ✅ cerrada.** **Tanda 1 (Fundación) ✅ producida:** los 7 SDD (01 `core`, 02 `data`, 03 `audit`+`governance`, 04 `tracking`, 05 convenciones+config, 24 testing, 25 packaging/CI) escritos, verificados (3 ciclos adversariales + context7) e integrados por DanIA → marcados **Aprobado** por integración. Se fijó el molde (core sin sklearn; identidad por `config_hash` JSON canónico que excluye infraestructura; excepciones raíz `NikodymError` + subclases por módulo; `FanOutSink`; uniones anidadas con factory local; naming inglés stats/IFRS9 + español CMF). **Cambio de alcance:** `report` separado de SDD-04 → nuevo **SDD-26** (`report` Quarto) en T2/F1 (por eso 26 SDD).
+**Próximo: Tanda 1 Rev** (sesión de revisión de los 7 SDD; tras cada tanda hay una sesión de revisión). Luego Tanda 2 (Scoring, MVP): SDD 06-11 + 26.
 
 ## Reglas de trabajo durables
 - **Cero código ahora**: solo documentos de arquitectura/diseño (markdown).
 - **Doble verificación trazada de toda info externa** (internet/normativa) contra fuente oficial, ideal por render visual del original. Proyecto delicado: lo usarán instituciones financieras; un número errado es riesgo regulatorio. (Principio no negociable #11.)
-- **Verificación antes de ampliar**: re-verificar lo hecho (Tanda 0) antes de producir más.
-- **Proceso de producción**: 25 SDD en tandas (ver índice), **fan-out de agentes** (1 por SDD, plantilla común `docs/design/_PLANTILLA-SDD.md`), **integración y revisión por DanIA**. Sesiones frescas con `HANDOFF.md` como puente.
+- **Verificación antes de ampliar**: re-verificar lo hecho antes de producir más. **Tras cada tanda hay una sesión de revisión** (p.ej. "Tanda 1 Rev") antes de pasar a la siguiente.
+- **Proceso de producción**: 26 SDD en tandas (ver índice), **fan-out de agentes** (1 por SDD, plantilla común `docs/design/_PLANTILLA-SDD.md`), **integración y revisión por DanIA**. Patrón validado en T1: diseño paralelo → redacción → verificación adversarial multi-lente → corrección → cierre. Sesiones frescas con `HANDOFF.md` como puente.
 - Decisiones de fondo: una recomendación, no menú. Conciso y ejecutivo.
 
 ## Decisiones de diseño fijadas
@@ -30,7 +31,8 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 - `ESPECIFICACIONES.md` — spec maestra v1.0.
 - `ROADMAP.md` — fases F0–F7 (+ originación), DoD por fase.
 - `normativa_cmf_parametros.md` — parámetros CMF verificados (tablas PI/PDI por cartera).
-- `design/00-INDICE.md` — los 25 SDD y las tandas (T0 verificación → T1 fundación → …).
+- `design/00-INDICE.md` — los 26 SDD y las tandas (T0 verificación → T1 fundación ✅ → T2 scoring → …).
+- `design/01-core.md` … `05`, `24`, `25` — los 7 SDD de Tanda 1 (Fundación), **Aprobados**.
 - `design/_PLANTILLA-SDD.md` — plantilla de cada documento de diseño.
 
 ## Git
