@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Última actualización: 2026-06-23 · sin repo git aún (pendiente `git init`)_
+_Última actualización: 2026-06-23 · repo privado `nexolabs-gh/nikodym` · sobre commit `74ae984`_
 
 ## Estado actual
 **Nikodym RiskLib** en **fase de diseño**. El esqueleto de la arquitectura está completo: spec maestra v1.0, roadmap por fases y andamiaje de los 25 documentos de diseño (SDD). Parámetros normativos CMF extraídos y verificados visualmente. **Cero código aún** — y así sigue hasta terminar toda la especificación.
@@ -39,5 +39,8 @@ _Última actualización: 2026-06-23 · sin repo git aún (pendiente `git init`)_
 
 ## Dudas abiertas / bloqueos
 - Licencia exacta: Apache-2.0 (recomendada) vs MIT — confirmar.
-- `git init` + branding del repo público (parte de Fase 0).
+- Branding y momento de pasar el repo de **privado → público** (al terminar la librería).
 - pandas vs polars interno (según volúmenes reales).
+
+## Repo
+Privado en GitHub: **`nexolabs-gh/nikodym`** (https://github.com/nexolabs-gh/nikodym), branch `main`. Se trabaja aquí mientras se construye; se moverá a público al terminar. Commits con co-autoría de Claude.

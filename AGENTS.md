@@ -33,4 +33,4 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 - `design/_PLANTILLA-SDD.md` — plantilla de cada documento de diseño.
 
 ## Git
-Aún **no es repo git**. Pendiente `git init` (parte de Fase 0 / decisión de branding del repo). Hasta entonces, sin commit/push.
+Repo **privado** en GitHub: **`nexolabs-gh/nikodym`** (cuenta `nexolabs-gh`), branch `main`. Se trabaja aquí mientras se construye la librería; **se moverá a un repo público al terminar**. Push directo a `main` autorizado en el cierre de sesión. Commits con `Co-Authored-By: Claude Opus 4.8`. `.gitignore` veta datos y secretos por defecto (proyecto regulatorio).
