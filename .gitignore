@@ -1,0 +1,64 @@
+# === Datos y secretos — NUNCA versionar (proyecto regulatorio) ===
+.env
+.env.*
+*.key
+*.pem
+secrets/
+credentials*
+data/
+*.csv
+*.parquet
+*.xlsx
+*.xls
+*.feather
+*.dta
+*.sav
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+*.whl
+
+# === Entornos / uv ===
+.venv/
+venv/
+env/
+.uv/
+uv.lock.bak
+
+# === Testing / calidad ===
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# === MLflow / artefactos de modelos ===
+mlruns/
+mlartifacts/
+*.joblib
+*.pkl
+
+# === Quarto / reportes generados ===
+/.quarto/
+*_files/
+_site/
+
+# === Jupyter ===
+.ipynb_checkpoints/
+
+# === OS / IDE ===
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
