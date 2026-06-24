@@ -6,6 +6,20 @@ excepciones. ``core`` no depende de scikit-learn ni de ningún backend pesado (D
 superficie pública se re-exporta aquí a medida que se construyen los submódulos de la Fundación.
 """
 
+from nikodym.core.config import (
+    INFRA_SECTIONS,
+    SCHEMA_VERSION,
+    NikodymBaseConfig,
+    NikodymConfig,
+    ReproConfig,
+    RunConfig,
+    config_hash,
+    dump_config,
+    load_config,
+    loads_config,
+    migrate,
+    migration,
+)
 from nikodym.core.exceptions import (
     ArtifactExistsError,
     ArtifactNotFoundError,
@@ -26,6 +40,8 @@ from nikodym.core.exceptions import (
 from nikodym.core.seeding import SeedManager
 
 __all__ = [
+    "INFRA_SECTIONS",
+    "SCHEMA_VERSION",
     "ArtifactExistsError",
     "ArtifactNotFoundError",
     "ConfigError",
@@ -34,12 +50,22 @@ __all__ = [
     "DuplicateRegistrationError",
     "MigrationNotFoundError",
     "MissingDependencyError",
+    "NikodymBaseConfig",
+    "NikodymConfig",
     "NikodymError",
     "NotFittedError",
     "RegistryError",
     "RegulatoryError",
+    "ReproConfig",
     "ReproducibilityError",
+    "RunConfig",
     "SeedManager",
     "UnknownComponentError",
     "UntrustedStudyError",
+    "config_hash",
+    "dump_config",
+    "load_config",
+    "loads_config",
+    "migrate",
+    "migration",
 ]

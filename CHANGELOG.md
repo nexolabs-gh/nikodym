@@ -13,6 +13,11 @@ marcadas como experimentales hasta la 1.0).
   regulatorio, cobertura objetivo 100 %).
 - `nikodym.core.seeding`: `SeedManager` — derivación determinista por nombre vía
   `SeedSequence(entropy=[root_seed, hashlib])` (código regulatorio, cobertura objetivo 100 %).
+- `nikodym.core.config`: configuración declarativa (Pydantic v2). `NikodymConfig` *frozen*
+  construible sin argumentos, secciones `ReproConfig`/`RunConfig`; `config_hash` (SHA-256 del
+  JSON canónico que excluye `INFRA_SECTIONS`, estable e idéntico entre procesos); `load_config`/
+  `dump_config` (round-trip YAML con `safe_load`); version-gate `migrate` + decorador `@migration`
+  (registro vacío en 1.0.0, cadena lineal validada en import-time). Experimental (SemVer 0.x).
 - `nikodym.utils.optional`: `require_extra` / `has_extra` / `EXTRA_TO_DISTRIBUTIONS`
   (import perezoso de extras con mensaje accionable).
 - Paths regulatorios declarados (`nikodym.provisioning.cmf`, `nikodym.provisioning.ifrs9`)

@@ -85,6 +85,7 @@ test = [
 lint = [
   "ruff>=0.5",
   "mypy>=1.10",
+  "types-PyYAML>=6.0",     # stubs de PyYAML para mypy --strict (DEV-ONLY, nunca en el wheel)
 ]
 docs = [
   "mkdocs-material>=9.5",  # docs del repo; Quarto (binario externo) NO es dep pip
