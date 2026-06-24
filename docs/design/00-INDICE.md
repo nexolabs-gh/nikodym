@@ -8,6 +8,8 @@
 | **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.0 · [`docs/ROADMAP.md`](../ROADMAP.md) |
 
 > **Tanda 1 Rev (2026-06-24):** los 7 SDD de Fundación (01-05, 24, 25) se revisaron de forma adversarial e integraron sus correcciones (cabecera "rev. Tanda 1 Rev" en cada uno). Cambios de alcance: **+SDD-27 `eda`** (de 26 a **27 SDD**); **D2** revierte el `data_hash` a hash de contenido lógico (SDD-02). Detalle de hallazgos y decisiones en el cierre de la sesión.
+>
+> **Hito 0 — Contratos transversales (2026-06-24):** antes de codificar F0 se estabilizó la *extensibilidad* de los 4 contratos que cruzan todas las capas (orquestación DAG vía `requires`/`provides`; resultados/metrics/overlay con puerta de extensión estructurada; frontera datos transversal-vs-longitudinal; owner del ensamblado de corrida). Decisiones en [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md) (CT-1…CT-4), propagadas a SDD-01/02/03 (cabecera "rev. Hito 0"). Estrategia de construcción confirmada: **mixto-troncal-más-incremental** (spike troncal acotado → código F0 → incremental por capa con diseño *just-in-time*).
 
 Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nikodym RiskLib a nivel implementable, **antes de escribir código**. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) y cubre un módulo del árbol `src/nikodym/`.
 

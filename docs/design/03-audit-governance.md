@@ -9,7 +9,7 @@
 | **Estado** | Aprobado |
 | **Depende de** | SDD-01 (`core`: `AuditSink`/`AuditEvent`, `LineageBundle`, `RunContext`, `Study`, excepciones) |
 | **Lo consumen** | SDD-04 (`tracking`: provee la infra MLflow Registry que `governance` usa como inventario), SDD-21 (`stress`: registro auditable de escenarios/overlays), SDD-22 (`validation`: effective challenge), SDD-26 (`report`: consume model card), SDD-23 (UI) |
-| **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
+| **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 · rev. **Hito 0 (Contratos transversales)** 2026-06-24 |
 
 ---
 
@@ -134,7 +134,11 @@ class ModelCard(BaseModel):                             # Pydantic, serializable
     assumptions: list[str]                              # supuestos (config + del trail)
     limitations: list[str]                              # limitaciones (incl. caveats de determinismo)
     data_description: "DataCardSection | None"          # artefacto ("data","data_card") de SDD-02; None si el run no tuvo paso de datos
-    metrics: dict[str, float]                           # métricas clave (de study.results; KS/AUC/PSI/...)
+    metrics: dict[str, float]                           # métricas ESCALARES clave (de study.results["metrics"]; KS/AUC/PSI/...)
+    metric_sections: dict[str, Any] = {}                # CT-2 (Hito 0): puerta de extensión ESTRUCTURADA. Vacío en scoring.
+                                                        # Secciones que NO son un escalar (ECL por stage×escenario, term-structure,
+                                                        # matrices Markov) que el card renderiza aparte. El SHAPE interno lo fijan
+                                                        # SDD-16/17/20; aquí solo se garantiza crecimiento ADITIVO (no romper API).
     decisions: list["DecisionRecord"]                   # descartes/cortes/umbrales (de los AuditEvent "decision")
     determinism_caveats: list[str]                      # del bundle (p.ej. GBDT multihilo)
     review_date: datetime                               # fecha de emisión
@@ -185,6 +189,7 @@ class InventoryRecord(BaseModel):                       # salida de LECTURA del 
     model_card_uri: str | None                          # PUNTERO al model_card.json artefacto (NO el card completo)
     created_at: datetime
 
+@runtime_checkable                                      # CT-4 (Hito 0): asserts defensivos isinstance(x, ModelInventory); consistente con Step/ProvisionResultLike (SDD-01)
 class ModelInventory(Protocol):                         # CONTRATO de inventario; lo implementa SDD-04 (tracking)
     """Contrato del inventario de modelos (SR 11-7). SDD-03 lo DEFINE; SDD-04 (MLflowInventory) lo cumple.
     ESCRITURA: register(InventoryEntry) — ficha completa; el ModelCard se guarda como ARTEFACTO.
@@ -207,7 +212,11 @@ class OverlayRecord(BaseModel):
     overlay_id: str; scope: str                         # p.ej. "ifrs9.stage2.consumo"
     justification: str                                  # OBLIGATORIO no vacío (§8)
     author: str
-    value_before: float; value_after: float
+    value_before: float; value_after: float             # caso ESCALAR (overlay simple); intacto
+    payload: dict[str, Any] | None = None               # CT-2 (Hito 0): overlay VECTORIAL/curva (IFRS 9: PD term-structure,
+                                                        # matriz de provisión por banda). None en el caso escalar. Crecimiento
+                                                        # aditivo; el shape lo fija SDD-17 — el control anti earnings-management
+                                                        # no se rompe al pasar de un float a una curva.
     approved_by: str | None
     ts: datetime
 class ScenarioRecord(BaseModel):
@@ -230,7 +239,12 @@ def publish_inventory(entry: InventoryEntry, *,
       - publish_to_inventory=False -> inventory=NullInventory (no-op, register -> "").
       - publish_to_inventory=True  + extra 'tracking' instalado -> inventory=MLflowInventory (SDD-04).
       - publish_to_inventory=True  + extra AUSENTE -> MissingDependencyError ("pip install nikodym[tracking]"),
-        NO NullInventory: una petición EXPLÍCITA de publicar que no se puede honrar debe fallar ruidoso (§8)."""
+        NO NullInventory: una petición EXPLÍCITA de publicar que no se puede honrar debe fallar ruidoso (§8).
+    OWNER del ensamblado (CT-4, Hito 0): esa resolución vive en una CAPA FINA de API/runner FUERA de core
+    (función `assemble_run(config) -> (AuditSink, ModelInventory)` en `nikodym.api`/runner), que también
+    compone JsonlAuditSink + sink de tracking en FanOutSink y se lo pasa a Study.set_audit_sink. core sigue
+    recibiendo el sink YA compuesto (núcleo liviano D-CORE-1). Se materializa al codificar F0; ver
+    _CONTRATOS-TRANSVERSALES.md CT-4."""
     ...
 ```
 

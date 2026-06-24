@@ -9,7 +9,7 @@
 | **Estado** | Aprobado |
 | **Depende de** | — (es la raíz del árbol; no depende de ningún módulo `nikodym`) |
 | **Lo consumen** | Todos: SDD-02…25 (toda la librería cuelga de `core`) |
-| **Autor / Fecha** | DanIA (síntesis multi-agente + verificación adversarial, context7) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
+| **Autor / Fecha** | DanIA (síntesis multi-agente + verificación adversarial, context7) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 · rev. **Hito 0 (Contratos transversales)** 2026-06-24 |
 
 ---
 
@@ -161,9 +161,13 @@ class FanOutSink:         ...   # AuditSink compositor: __init__(sinks: list[Aud
                                 # (permite combinar el sink de governance (SDD-03) y el de tracking (SDD-04))
 
 # nikodym/core/steps.py
+ArtifactKey = tuple[str, str]   # (domain, key) — la clave namespaced del ArtifactStore (§6)
+
 @runtime_checkable              # permite isinstance(obj, Step) en el despacho de §7 (StepAdapter)
 class Step(Protocol):           # lo que un dominio implementa para ser orquestable (ver §7)
     name: str                   # == nombre de su sección de config (== domain)
+    requires: tuple[ArtifactKey, ...]   # claves que LEE del ArtifactStore (() = no depende de upstream). CT-1
+    provides: tuple[ArtifactKey, ...]   # claves que ESCRIBE. CT-1
     def execute(self, study: "Study", rng: numpy.random.Generator) -> Any: ...
 
 # Los estimadores de dominio (fit/transform/predict/compute) NO implementan execute ni name: el orquestador
@@ -171,11 +175,17 @@ class Step(Protocol):           # lo que un dominio implementa para ser orquesta
 class StepAdapter:              # adapta un BaseNikodymEstimator al Protocol Step (ver §7 y "Claves de I/O", §6)
     def __init__(self, domain: str, estimator: "BaseNikodymEstimator") -> None: ...
     name: str                   # == domain
+    requires: tuple[ArtifactKey, ...]   # derivado de las CLAVES DE I/O del dominio (§6): hace explícita en la firma la dependencia que ya estaba en prosa
+    provides: tuple[ArtifactKey, ...]   # idem para la salida namespaced del dominio
     def execute(self, study: "Study", rng: numpy.random.Generator) -> Any: ...
-        # 1) lee sus inputs de study.artifacts bajo las CLAVES DE I/O del dominio (§6);
+        # 1) lee sus inputs de study.artifacts bajo las CLAVES DE I/O del dominio (§6, == self.requires);
         # 2) llama estimator.fit(...) y luego transform/predict/predict_proba/compute según la familia;
-        # 3) escribe la salida en study.artifacts bajo la clave namespaced estándar del dominio (§6);
+        # 3) escribe la salida en study.artifacts bajo la clave namespaced estándar del dominio (§6, == self.provides);
         # 4) devuelve el resultado. El mapeo (familia -> método; claves de entrada/salida por dominio) lo fija §6.
+
+# CT-1 (Contratos transversales, Hito 0): requires/provides expresan el DAG en la FIRMA desde v1.
+# El motor v1 ejecuta en orden de declaración (§7) y solo VALIDA prerequisitos; el scheduler topológico
+# (orden derivado del grafo, fan-in/fan-out real de forward/stress F5) se difiere SIN tocar esta firma.
 
 # nikodym/core/results.py  (protocolos de salida económica; los implementan SDD-15/16; ver D-CORE-6)
 @runtime_checkable
@@ -185,6 +195,10 @@ class ProvisionResultLike(Protocol):   # contrato mínimo de la salida de provis
     por_cartera: "Mapping[str, float]" # total desglosado por cartera (comercial/consumo/vivienda) — lo leen report/governance sin reabrir componentes
     motor: str                         # etiqueta del motor que lo produjo (p.ej. "cmf_standard", "ifrs9_ecl") — distingue origen sin isinstance
     def to_frame(self) -> "pandas.DataFrame": ...   # vista tabular plana para report/export; método (no materializa hasta pedirlo)
+    def term_structure(self) -> "pandas.DataFrame | None": ...   # CT-2 (Hito 0): puerta de extensión temporal.
+        # None si el motor NO es multi-período (CMF agregado, scoring); DataFrame tidy [escenario, t, componente, valor]
+        # si lo es (ECL lifetime, F4). El SHAPE interno lo fija SDD-16; aquí solo se garantiza que el contrato CREZCA
+        # por extensión (aditivo) y nunca por ruptura. report/governance lo consultan sin reabrir el motor.
 @runtime_checkable
 class ECLResultLike(ProvisionResultLike, Protocol):   # añade lo específico IFRS 9
     por_instrumento: "pandas.DataFrame"  # columnas PD, LGD, EAD, ECL, stage (Literal 1/2/3) — granularidad por instrumento
@@ -368,6 +382,7 @@ class NikodymConfig(NikodymBaseConfig):  # raíz; la UI genera su formulario des
 2. `run_context.status = "running"`; emitir `AuditEvent("run_start")`; **iniciar** el `LineageBundle` (git SHA + dirty, `config_hash`, `root_seed`, `uv.lock` hash, `library_versions`, `determinism_caveats`). `data_hash` queda pendiente (los datos se cargan en el primer step).
 3. Por cada paso `name`:
    a. `cls = REGISTRY.resolve(domain, type)`; `obj = cls.from_config(sub_cfg)`; `step = obj if isinstance(obj, Step) else StepAdapter(domain, obj)` — un `Step` nativo (p.ej. `DataStep` de SDD-02) se usa tal cual; un estimador de dominio se **envuelve** en `StepAdapter` (§4), que conoce las claves de I/O (§6).
+   a-bis. **Validación de prerequisitos (CT-1).** Antes de ejecutar, verificar que cada `key ∈ step.requires` está presente en `study.artifacts` → si falta, `ArtifactNotFoundError` con la clave y el paso (diagnóstico **antes** de entrar al `execute`, no dentro). Pre-run global (opcional): un `requires` que ningún paso aguas arriba `provides` es config inejecutable → `ConfigError`. Esto sustituye un "prerequisite registry" ad-hoc para reglas cross-sección (p.ej. `provisioning` requiere `calibration`). El **orden de ejecución v1 sigue siendo el orden de declaración**; el grafo `requires`/`provides` solo se valida, no reordena (el scheduler topológico se difiere a F5).
    b. `rng = seed_manager.generator_for(name)` (Generator determinista por nombre).
    c. Inyectar el `AuditSink` en el componente (`step._audit = self._audit`).
    d. `result = step.execute(study, rng)` — el paso lee/escribe `study.artifacts` con claves *namespaced* y registra decisiones vía `log_decision(...)`. El step de datos (SDD-02) completa el `data_hash` del bundle.
@@ -456,6 +471,7 @@ Detalle transversal en **SDD-24**; lo específico de `core`:
 - **D-CORE-4 — Persistencia del `Study` como directorio** (YAML legible + JSON + joblib por artefacto), no un blob único. *Porqué:* auditabilidad/diff; recarga selectiva; robustez. **El azar no se persiste** (se reconstruye desde `root_seed`).
 - **D-CORE-5 — `NotFittedError` desciende solo de `NikodymError`** (coherente con D-CORE-1). *Caveat (documentado):* un `except sklearn.exceptions.NotFittedError` no atrapa el de Nikodym; los estimadores de dominio que usen `check_is_fitted` de sklearn reciben además el tipo de sklearn, y pueden definir un `NotFittedError(NikodymError, sklearn.exceptions.NotFittedError)` local si necesitan capturar ambos.
 - **D-CORE-6 — `ProvisionResultLike`/`ECLResultLike` se quedan como `Protocol` (structural typing), no `dataclass`/Pydantic en core** (Tanda 1 Rev, decisión D4). *Porqué:* un tipo concreto en `core` invertiría la dependencia (forzaría a `provisioning/cmf` e `ifrs9` —SDD-15/16— a importar y heredar un tipo económico de `core`, violando el núcleo liviano §4.9 y reabriendo la circularidad que el Protocol resuelve), y un base compartido difuminaría que **CMF≠IFRS 9 son dos motores separados** (§5.4). *Contrato mínimo endurecido* (§4 `results.py`): `componentes`, `total`, `por_cartera`, `motor`, `to_frame()`; ECL añade `por_instrumento`, `por_escenario`. El Protocol **declara** el invariante `PE=PI·PDI·exposicion` y el piso prudencial, pero **no los ejecuta**: la validación cuantitativa es de los dominios (SDD-15/16/17), no de `core` (§1: "core no calcula riesgo"). El `dataclass` vs Pydantic de la *implementación* sigue delegado a SDD-15/16 (T4).
+- **D-CORE-7 — Estabilización de contratos transversales (Hito 0).** Ver [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md). Tres consecuencias en `core`, todas **aditivas** (no rompen el molde de Tanda 1 Rev): **(CT-1)** `Step`/`StepAdapter` declaran `requires`/`provides` (`ArtifactKey = tuple[str,str]`) → la **firma** expresa el DAG desde v1; el motor v1 **valida** prerequisitos (§7 a-bis) pero ejecuta en orden de declaración; el **scheduler topológico** (fan-in/fan-out de forward/stress) se difiere a F5 sin tocar la firma. **(CT-2)** `ProvisionResultLike` gana `term_structure() -> DataFrame | None` como **puerta de extensión temporal** (None en CMF agregado/scoring; curva lifetime en ECL/F4); el *shape* interno lo fija SDD-16. **(CT-4)** el Protocol `ModelInventory` (SDD-03) lleva `@runtime_checkable`, y el **ensamblado de la corrida** (componer `JsonlAuditSink`+sink de tracking en `FanOutSink`; resolver `NullInventory`/`MLflowInventory`/`MissingDependencyError`) vive en una **capa fina de API/runner fuera de `core`** (`assemble_run`, no contamina el núcleo liviano D-CORE-1): `core` sigue recibiendo el `AuditSink` ya compuesto vía `set_audit_sink`. *Validación con código (DoD F0):* un `Step` dummy con **fan-in** (dos `requires` de dos dominios) y un payload estructurado dummy estresan CT-1/CT-2 mientras cambiarlos es gratis.
 
 **Decisiones abiertas (delegadas).**
 - **Alcance de SDD-04 — RESUELTO (checkpoint Cami, 2026-06-23).** SDD-04 = `tracking` (MLflow) en F0/T1; el reporte Quarto se separa a **SDD-26 `report`** en T2/F1 (índice actualizado, alineado con el ROADMAP).
