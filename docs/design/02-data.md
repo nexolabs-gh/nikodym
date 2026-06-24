@@ -9,7 +9,7 @@
 | **Estado** | Aprobado |
 | **Depende de** | SDD-01 (`core`) |
 | **Lo consumen** | SDD-06 (`binning`), 07 (`selection`), 08 (`model`), 09–11, 15/16 (`provisioning`), 19 (`markov`), 22 (`validation`); en general todo dominio que parta de un dataset particionado |
-| **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 |
+| **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
 
 ---
 
@@ -23,7 +23,7 @@
 - Define **`TargetDefinition`** (deriva la etiqueta binaria `target` y la marca de `indeterminado`/`excluido` desde reglas declarativas: definición de "malo", ventana de desempeño, exclusiones).
 - Define **`Partitioner`** (asigna cada observación a Desarrollo/Holdout/OOT/TTD según una **estrategia discriminada** — temporal | aleatoria | por-cohorte —; sugerencia automática **editable**).
 - Fija la **política de missing y special values** (catálogo de centinelas, normalización a `NaN`, marcado para que `binning` los trate como bin propio).
-- Calcula y **publica el `data_hash`** (sha256 del Parquet canónico del DataFrame de entrada validado) y completa ese campo del `LineageBundle` durante el run (SDD-01 §9).
+- Calcula y **publica el `data_hash`** (sha256 del **contenido lógico** del DataFrame validado, computado **por bloques**; ver §7 y D-DATA-2) y completa ese campo del `LineageBundle` durante el run (SDD-01 §9).
 - Aporta el sub-config **`DataConfig`** (la sección `data` de `NikodymConfig`).
 
 **Límites explícitos (qué NO hace, y quién lo hace).**
@@ -73,7 +73,7 @@
   - **Through-the-Door (TTD):** **toda la población que pasó por la puerta** (incl. indeterminados/excluidos y, en originación, rechazados), usada para análisis de representatividad y *swap-set*; en F1 (comportamiento) sin reject inference (ESPECIFICACIONES §5.2). TTD es un **rol superpuesto**, no una partición disjunta de Dev/HO/OOT (ver §6, invariantes).
 - **Fuga de información (leakage).** Que un parámetro estimado vea datos que luego se usan para evaluar. `data` lo previene **estructuralmente**: las particiones son **disjuntas** (Dev ∩ HO ∩ OOT = ∅) y la asignación es **determinista por semilla** y **estable** (una observación no cambia de partición entre corridas). La regla operativa *"fit en Dev, transform en el resto"* la cumplen los módulos consumidores; `data` la **habilita** entregando particiones limpias.
 - **Missing vs special values.** *Missing* = ausencia genuina (`NaN`/`null`). *Special values* = **centinelas** con significado de negocio (p.ej. `-99999` = "sin historia crediticia", `-1` = "no aplica"). No se imputan ciegamente: se **normalizan a `NaN` pero se conserva su etiqueta** para que `binning` (SDD-06) les dé un **bin propio** (información, no ruido). `data` produce el **catálogo de special values** y la máscara correspondiente.
-- **`data_hash`.** Huella criptográfica del dataset de entrada **ya validado**. Ancla la reproducibilidad: `(data_hash + config_hash + root_seed) → resultado`. Default propuesto (resuelve la decisión abierta de SDD-01 §12): **sha256 del Parquet canónico** del DataFrame de entrada (ver §7 y D-DATA-2).
+- **`data_hash`.** Huella criptográfica del dataset de entrada **ya validado**. Ancla la reproducibilidad: `(data_hash + config_hash + root_seed) → resultado`. Default (Tanda 1 Rev, D2): **sha256 del contenido lógico** del DataFrame, computado **por bloques** sobre `(esquema canónico + hash_pandas_object(index=True) por chunk)` — **independiente del formato de serialización** (no hashea bytes de Parquet). Ver §7 y D-DATA-2.
 
 > **Fórmulas / parámetros normativos:** `data` no contiene ninguno. Los umbrales de mora, ventanas y exclusiones son **parámetros del usuario** en `DataConfig`, no constantes regulatorias. Las fórmulas cuantitativas viven en sus dominios y se citan desde `ESPECIFICACIONES.md` (00-INDICE §Convenciones).
 
@@ -124,8 +124,10 @@ class Partitioner:
     def __init__(self, config: "PartitionConfig") -> None: ...
     @classmethod
     def from_config(cls, cfg: "PartitionConfig") -> "Partitioner": ...
-    def split(self, lf: "LabeledFrame", *, rng: "numpy.random.Generator",
+    def split(self, lf: "LabeledFrame", *, root_seed: int, rng: "numpy.random.Generator",
               audit: "AuditSink | None" = None) -> "PartitionResult": ...
+        # root_seed (crudo) es OBLIGATORIO: la identidad estable de partición es u=uniform01(blake2b(f"{root_seed}:{idx}"))
+        # (§7/§9). El Generator NO expone su seed de origen, por eso rng no basta. rng se usa para sorteos auxiliares.
     def suggest(self, lf: "LabeledFrame") -> "PartitionConfig": ...   # sugerencia automática EDITABLE (ver §7)
 
 class Partition(str, Enum):
@@ -155,8 +157,27 @@ class MaskedFrame(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 # nikodym/data/hashing.py
-def data_hash(df: "pandas.DataFrame") -> str: ...
-    # sha256 del Parquet canónico (orden de columnas estable, índice incluido); D-DATA-2
+def data_hash(df: "pandas.DataFrame", *, block_size: int = 1_000_000) -> str: ...
+    # sha256 del CONTENIDO LÓGICO, por bloques (D-DATA-2):
+    #   h = sha256(); h.update(encabezado de esquema canónico [(col, dtype_canonico) ordenado por col])
+    #   por cada bloque de filas en orden de índice estable: h.update(hash_pandas_object(bloque, index=True).values.tobytes())
+    # O(n) tiempo, O(block_size) memoria; NO materializa Parquet; independiente del writer/versión de pyarrow.
+
+# nikodym/data/card.py
+class DataCardSection(BaseModel):    # sección de DATOS del model card; la consume governance (SDD-03 ModelCard.data_description)
+    """Resumen auditable del dataset de entrada. Se construye desde TargetSummary + PartitionResult + DataConfig."""
+    source: str                       # origen NORMALIZADO del dataset (basename, no ruta absoluta — coherente con config_hash, SDD-01 §5)
+    n_rows: int
+    n_features: int
+    target_col: str
+    bad_rate: float                   # tasa de malos global (de TargetSummary)
+    class_counts: dict[str, int]      # conteos por label_status (bueno/malo/indeterminado/excluido)
+    partition_sizes: dict[str, int]   # == PartitionResult.sizes
+    partition_bad_rates: dict[str, float]   # == PartitionResult.bad_rates
+    performance_window_months: int | None
+    exclusions_by_reason: dict[str, int]    # motivo de exclusión -> conteo (de TargetSummary)
+    data_hash: str
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 # nikodym/data/step.py
 @register("standard", domain="data")     # type == key Registry == sección de config (D-CONV-2)
@@ -176,7 +197,8 @@ class DataStep:                          # NO-estimador; implementa el Protocol 
 | `"splits"` | `PartitionResult` | asignación de particiones + roles TTD + tamaños |
 | `"labels"` | `LabeledFrame` | etiquetado (target + status + summary) |
 | `"special"` | `MaskedFrame` | máscara y catálogo de special values (input de binning) |
-| `"data_hash"` | `str` | sha256 del Parquet canónico (también escrito en `LineageBundle.data_hash`) |
+| `"data_hash"` | `str` | sha256 del contenido lógico por bloques (también escrito en `LineageBundle.data_hash`) |
+| `"data_card"` | `DataCardSection` | resumen del dataset para el model card (lo lee SDD-03; ver §4 `DataCardSection`) |
 
 **Ejemplo de uso (extremo a extremo, pseudocódigo):**
 
@@ -196,11 +218,13 @@ print(splits.sizes)                                # {'desarrollo': 70000, 'hold
 # Uso standalone (sin Study), p.ej. en notebook/UI:
 from nikodym.core import SeedManager
 from nikodym.data import DataLoader, SchemaValidator, TargetDefinition, Partitioner
-rng    = SeedManager(seed=42).generator_for("data")   # mismo rng derivado por nombre que usa core
+sm     = SeedManager(42)                               # SDD-01 §4: SeedManager(root_seed: int) — posicional
+rng    = sm.generator_for("data")                     # mismo rng derivado por nombre que usa core
 raw    = DataLoader.from_config(cfg.load).load("cartera.parquet")
 valid  = SchemaValidator.from_config(cfg.schema).validate(raw)      # DataValidationError si falla
 labeled = TargetDefinition.from_config(cfg.target).apply(valid)
-result  = Partitioner.from_config(cfg.partition).split(labeled, rng=rng)
+result  = Partitioner.from_config(cfg.partition).split(labeled, root_seed=sm.root_seed, rng=rng)
+# root_seed explícito ⇒ la identidad de partición es idéntica a la corrida orquestada por core (§9).
 ```
 
 ---
@@ -272,9 +296,11 @@ class Predicate(NikodymBaseConfig):
     op: Literal["==", "!=", "<", "<=", ">", ">=", "in", "notin", "isna", "notna"] = Field(
         ..., title="Operador (allowlist cerrada)",
         description="Único conjunto permitido. 'isna'/'notna' ignoran 'value'.")
-    value: float | int | str | bool | tuple[float | int | str | bool, ...] | None = Field(
-        None, title="Valor de comparación",
-        description="Escalar para comparadores; tupla para 'in'/'notin'; None para 'isna'/'notna'.")
+    value: bool | int | float | str | tuple[bool | int | float | str, ...] | None = Field(
+        None, title="Valor de comparación", strict=True,
+        description="Escalar para comparadores; tupla para 'in'/'notin'; None para 'isna'/'notna'. "
+                    "strict=True: sin coerción bool→int→float (un `true` de YAML no se vuelve 1) para no alterar la máscara. "
+                    "Orden de la unión bool→int→float deliberado: el más específico primero.")
 
 class Rule(NikodymBaseConfig):
     """Conjunción/disyunción de predicados (un nivel). Se evalúa vectorizado; sin eval de Python."""
@@ -423,9 +449,9 @@ Regla: `partition == "fuera_de_modelo"` ⟺ `label_status ∈ {indeterminado, ex
    c. Evaluar `indeterminate_rule` (mini-DSL) sobre lo no-excluido → `indeterminado`.
    d. Evaluar `bad_rule` (mini-DSL) sobre lo restante → `malo (target=1)`; el resto (o `good_rule` si se dio) → `bueno (target=0)`.
    e. `target = <NA>` para indeterminado/excluido. Construir `TargetSummary` (conteos, tasa de malos, exclusiones por motivo) y `log_decision` por cada motivo de exclusión con su conteo.
-5. **Particionar.** `result = Partitioner(cfg.partition).split(labeled, rng=rng)` (usa el `rng` que `core` inyectó en `execute`; ver §9). Resolución del splitter por unión discriminada **anidada** vía **factory local** de `data` — `splitter = _SPLITTERS[cfg.partition.strategy.type](cfg.partition.strategy)` con `_SPLITTERS = {"temporal": TemporalSplitter, "random": RandomSplitter, "cohort": CohortSplitter}` —, **no** el Registry global de `core` (`splitter` no es un dominio/sección de `NikodymConfig`; D-CONV-2 y el test cruzado union↔Registry de SDD-05 §11/SDD-24 aplican solo a uniones de **nivel sección**). Asignación **determinista y estable** (ver "Decisión de partición" abajo). Las filas indeterminadas/excluidas → `partition="fuera_de_modelo"`. Calcular `ttd` (True para todas salvo, si `ttd_includes_excluded=False`, las fuera-de-modelo). Verificar `min_bads_per_partition`.
-6. **`data_hash`.** `h = data_hash(masked.frame_final)`; escribir en artefacto `"data_hash"` **y** completar `study.run_context.lineage.data_hash` (SDD-01 §7 paso 3.d: "el step de datos completa el `data_hash` del bundle").
-7. **Publicar artefactos** (`study.artifacts.set("data", k, v)` para `frame/splits/labels/special/data_hash`). Devolver `PartitionResult`.
+5. **Particionar.** `result = Partitioner(cfg.partition).split(labeled, root_seed=study.seed_manager.root_seed, rng=rng)` (pasa el `root_seed` crudo —ancla de la identidad de partición— y el `rng` que `core` inyectó en `execute`, para los sorteos auxiliares; ver §9). Resolución del splitter por unión discriminada **anidada** vía **factory local** de `data` — `splitter = _SPLITTERS[cfg.partition.strategy.type](cfg.partition.strategy)` con `_SPLITTERS = {"temporal": TemporalSplitter, "random": RandomSplitter, "cohort": CohortSplitter}` —, **no** el Registry global de `core` (`splitter` no es un dominio/sección de `NikodymConfig`; D-CONV-2 y el test cruzado union↔Registry de SDD-05 §11/SDD-24 aplican solo a uniones de **nivel sección**). Asignación **determinista y estable** (ver "Decisión de partición" abajo). Las filas indeterminadas/excluidas → `partition="fuera_de_modelo"`. Calcular `ttd` (True para todas salvo, si `ttd_includes_excluded=False`, las fuera-de-modelo). Verificar `min_bads_per_partition`.
+6. **`data_hash`.** `h = data_hash(result.frame)` (el **frame final**: validado + special→NaN + etiquetado + particionado, el mismo artefacto `"frame"`); escribir en artefacto `"data_hash"` **y** completar `study.run_context.lineage.data_hash` (SDD-01 §7 paso 3.d: "el step de datos completa el `data_hash` del bundle").
+7. **Construir el `DataCardSection`** (desde `TargetSummary` + `PartitionResult` + `DataConfig`, con `source` normalizado a basename) y **publicar artefactos** (`study.artifacts.set("data", k, v)` para `frame/splits/labels/special/data_hash/data_card`). Devolver `PartitionResult`.
 
 **`Partitioner.suggest(labeled)` — sugerencia automática editable.** Heurística (editable por el usuario; **nunca** se aplica sin pasar por config):
 - Si existe una columna fecha plausible (dtype datetime) con rango temporal amplio → proponer `temporal` con `oot_from` = percentil 80 de fechas (último ~20% como OOT) y `holdout_fraction=0.2`.
@@ -440,9 +466,9 @@ Devuelve un `PartitionConfig` que la UI/usuario **edita y confirma**; `suggest` 
 **Decisiones algorítmicas y alternativas descartadas.**
 - *Pandera vs Pydantic para esquema tabular.* **Pandera** (D-DATA-3): API declarativa nativa para DataFrames (`DataFrameSchema`/`Column`/`Check`), validación vectorizada, `lazy=True` que **agrega todos los errores** (un solo `DataValidationError` con el reporte completo, no falla en el primer error — crítico para auditoría), soporta backend pandas **y** polars con la misma definición. Pydantic valida fila a fila (lento, sin agregación vectorizada). *Descartada:* Pydantic por-fila.
 - *`sklearn.model_selection.train_test_split`.* Descartado para la identidad de partición: depende del orden/estado y no da estabilidad por-observación cross-run. Se usa hash-por-índice propio (también evita meter sklearn en un módulo de Fundación, coherente con núcleo liviano).
-- *`data_hash` = sha256 del Parquet canónico* (D-DATA-2) vs hash del CSV crudo o de `pd.util.hash_pandas_object`. Parquet canónico (vía `pyarrow`, orden de columnas fijado, índice incluido, compresión desactivada o fija) da un hash **estable cross-plataforma** del *contenido lógico* (no del estilo de serialización CSV). `hash_pandas_object` es por-fila y sensible a dtype/orden; el CSV crudo es sensible a formato. Para datasets muy grandes (decisión abierta de SDD-01 §12) se ofrece `data_hash` sobre una **muestra determinista + metadatos de forma** como fallback (no default v1).
+- *`data_hash` = sha256 del contenido lógico por bloques* (D-DATA-2, **revisado en Tanda 1 Rev**) vs sha256 de los bytes del Parquet canónico (default anterior) vs `joblib.hash` vs hash del CSV crudo. **Por qué se cambió:** el byte-stream de Parquet **no es canónico** — `pyarrow.parquet` embebe `created_by` (versión del writer) en el footer y varía compresión/versión/row-groups, así que datos lógicamente idénticos con distinta versión de pyarrow dan bytes (y hash) distintos. Pinear pyarrow no es robustez: ata la **identidad criptográfica del dato** a una versión de librería — el mismo error que `core` ya evitó hasheando el JSON canónico del config y no el texto YAML (SDD-01 D-CORE-3). El nuevo `data_hash` hashea el **contenido lógico** (`hash_pandas_object(index=True)` por bloques + esquema canónico): vectorizado, O(n), independiente del writer. La objeción "`hash_pandas_object` es sensible a dtype/orden" se neutraliza: el **dtype** ya está fijado/coaccionado por pandera antes de hashear; el **orden de filas** se fija al **índice estable** (el mismo que ancla la partición, §7) → reordenar la entrada no cambia el hash; el **orden de columnas** se ordena canónicamente. *Descartado `joblib.hash`* (hashea un pickle: frágil cross-versión de numpy/pickle, reintroduce el acoplamiento que se busca eliminar). *Descartado el fallback muestreado del default anterior:* como **ancla regulatoria es inaceptable** — colisiona (dos datasets que difieren fuera de la muestra dan el mismo hash) y rompe el invariante "cambia si cambia cualquier valor" (§6) y la garantía `(data+config+seed)→resultado` de SR 11-7. El hash por bloques es barato y completo, hace innecesario el muestreo; si se quisiera un modo muestreado, sería **opt-in NO-regulatorio** y se etiquetaría en el lineage como *hash parcial*.
 
-**Complejidad / rendimiento.** Carga y validación O(n·c) (n filas, c columnas), vectorizado. Particionado O(n) (un hash por fila). El `data_hash` materializa un Parquet en memoria: O(n·c) en tiempo y espacio temporal; para n grande, el fallback muestreado lo acota (decisión abierta §12). Backend polars (lazy) opcional para n que no entra en memoria pandas (D-DATA-1).
+**Complejidad / rendimiento.** Carga y validación O(n·c) (n filas, c columnas), vectorizado. Particionado O(n) (un hash por fila). El `data_hash` es **O(n) en tiempo y O(block_size) en memoria** (hash por bloques, sin materializar Parquet) → escala a millones de filas con el **mismo** algoritmo que para datasets chicos (no hace falta fallback muestreado). Backend polars (lazy) opcional para n que no entra en memoria pandas (D-DATA-1).
 
 ---
 
@@ -468,10 +494,10 @@ Toda excepción de `data` desciende de `NikodymError` (`DataValidationError`/`Co
 
 ## 9. Reproducibilidad y auditoría
 
-- **Estocásticos y semilla.** El único componente con azar es `Partitioner` (estrategia `random` y desempates de estratificación). `DataStep.execute(study, rng)` **usa el `rng` que `core` le inyecta** (`generator_for("data")`, derivado por nombre, SDD-01 §7 paso 3.b/3.d) y lo **propaga** a `Partitioner.split(..., rng=rng)`; **no** vuelve a llamar `seed_manager.generator_for("data")` dentro de `execute` (sería redundante y podría divergir). En uso *standalone* (sin `Study`) el rng se obtiene explícito: `SeedManager(seed).generator_for("data")` (ver §4), para mantener idéntica la derivación. **La identidad de partición cuelga de un hash determinista del `root_seed` (crudo) + índice de fila** —`u = uniform01(blake2b(f"{root_seed}:{idx}"))`—, no del estado del `Generator` ni del orden de filas → re-ejecutar es bit-idéntico y reordenar la entrada no reasigna observaciones (invariante §6). *Por qué `root_seed` crudo y no `generator_for("data")` para la identidad:* la identidad de partición debe ser **estable e independiente del nombre del step** que la calcule (anclada solo a la semilla raíz del experimento), mientras que `generator_for("data")` se reserva para los **sorteos auxiliares** (desempates de estratificación) que sí siguen el patrón único de derivación-por-nombre de `core`. Ambos caminos son deterministas; la separación es deliberada. `_stable_hash` usa `hashlib`/`blake2b`, **nunca** `hash()` builtin (regla dura de `core` §9).
-- **Qué completa `data` en el `LineageBundle`.** El campo **`data_hash`** (sha256 del Parquet canónico del dataset validado) — resuelve la decisión abierta de SDD-01 §12 (D-DATA-2). Se escribe durante el run (SDD-01 §7 paso 3.d), no antes (los datos se cargan en este paso).
+- **Estocásticos y semilla.** El único componente con azar es `Partitioner` (estrategia `random` y desempates de estratificación). `DataStep.execute(study, rng)` **usa el `rng` que `core` le inyecta** (`generator_for("data")`, derivado por nombre, SDD-01 §7 paso 3.b/3.d) y lo **propaga** a `Partitioner.split(root_seed=study.seed_manager.root_seed, rng=rng)`, pasando **además** el `root_seed` crudo (la firma de `split` lo exige; ver §4) porque la identidad de partición cuelga de él, no del `rng`; **no** vuelve a llamar `seed_manager.generator_for("data")` dentro de `execute` (sería redundante y podría divergir). En uso *standalone* (sin `Study`) ambos se obtienen explícitos del mismo `SeedManager`: `sm = SeedManager(seed)`; `split(labeled, root_seed=sm.root_seed, rng=sm.generator_for("data"))` (ver §4), para mantener **idéntica** la derivación. **La identidad de partición cuelga de un hash determinista del `root_seed` (crudo) + índice de fila** —`u = uniform01(blake2b(f"{root_seed}:{idx}"))`—, no del estado del `Generator` ni del orden de filas → re-ejecutar es bit-idéntico y reordenar la entrada no reasigna observaciones (invariante §6). *Por qué `root_seed` crudo y no `generator_for("data")` para la identidad:* la identidad de partición debe ser **estable e independiente del nombre del step** que la calcule (anclada solo a la semilla raíz del experimento), mientras que `generator_for("data")` se reserva para los **sorteos auxiliares** (desempates de estratificación) que sí siguen el patrón único de derivación-por-nombre de `core`. Ambos caminos son deterministas; la separación es deliberada. `_stable_hash` usa `hashlib`/`blake2b`, **nunca** `hash()` builtin (regla dura de `core` §9).
+- **Qué completa `data` en el `LineageBundle`.** El campo **`data_hash`** (sha256 del contenido lógico por bloques del dataset validado; D-DATA-2 revisado) — resuelve la decisión abierta de SDD-01 §12. Se escribe durante el run (SDD-01 §7 paso 3.d), no antes (los datos se cargan en este paso).
 - **Qué eventos emite** (vía `AuditSink`, los persiste SDD-03): `log_decision` por cada **exclusión** (motivo + conteo), cada **special value** normalizado (centinela + conteo), cada **columna sobre `max_missing_rate`**, el **resumen de target** (tasa de malos por clase) y el **resumen de particiones** (tamaños + tasa de malos por partición). Cada uno con `(regla, umbral, valor, accion)` en español. Estas decisiones alimentan el model card (SDD-03) — un auditor reconstruye *qué población entró, qué se excluyó y por qué*.
-- **Determinismo y caveats.** `(data + config + seed) → frame/splits/data_hash idénticos`. Sin caveat de paralelismo (no hay GBDT aquí). Único caveat: el `data_hash` requiere que el orden canónico de columnas sea estable (lo fija `data_hash()`); por eso se serializa con orden de columnas ordenado determinísticamente, no el orden de llegada.
+- **Determinismo y caveats.** `(data + config + seed) → frame/splits/data_hash idénticos`. Sin caveat de paralelismo (no hay GBDT aquí). Caveats del `data_hash`: (a) requiere orden **canónico de columnas** y orden **estable de índice** (ambos fijados por `data_hash()`), no el orden de llegada; (b) pandas **no garantiza por escrito** la bit-estabilidad de `hash_pandas_object` entre *majors* → se exige un **golden-test cross-versión** del `data_hash` (pineado a la versión de `uv.lock`, §11) — pero ahora protege un algoritmo de contenido completo, no un byte-stream no-canónico.
 
 ---
 
@@ -486,7 +512,7 @@ Toda excepción de `data` desciende de `NikodymError` (`DataValidationError`/`Co
 | pandas | ≥ 2.0 | BSD-3 ✅ | DataFrame, máscaras del mini-DSL (sin `df.eval`), I/O CSV. *Piso ≥ 2.0 alineado con SDD-25 (fuente única del piso).* | siempre (data) |
 | pandera | ≥ 0.20 | **MIT** ✅ | `DataFrameSchema`/`Column`/`Check`, `validate(lazy=True)`, `SchemaErrors`, `register_check_method`. Verificado (context7): API y backend pandas+polars. | siempre (data) |
 | numpy | ≥ 1.22 | BSD ✅ | máscaras, `Generator` (heredado de core) | siempre (data) |
-| pyarrow | ≥ 12 | Apache-2.0 ✅ | Parquet canónico para `data_hash`; lectura Parquet | siempre (data) |
+| pyarrow | ≥ 12 | Apache-2.0 ✅ | lectura/escritura Parquet (DataLoader). **NO** interviene en `data_hash` (que hashea contenido lógico vía `hash_pandas_object`, D-DATA-2 revisado). | siempre (data) |
 | (stdlib) | — | PSF | `hashlib` (blake2b/sha256), `pathlib`, `datetime` | — |
 | polars | ≥ 0.20 | **MIT** ✅ | backend de carga opcional (D-DATA-1), lazy para volúmenes grandes | **`[polars]`** opcional, import perezoso |
 
@@ -521,7 +547,7 @@ Detalle transversal en **SDD-24**; lo específico de `data`:
 
 **Decisiones resueltas en este SDD (trazabilidad).**
 - **D-DATA-1 — Interfaz pandas, backend polars opcional.** La API pública (`DataLoader.load`, artefactos) es **pandas**; `polars` es un **extra opcional** (`[polars]`, import perezoso) que solo acelera la carga/normalización internamente y colapsa a pandas en la frontera. *Porqué:* respeta D-DATA de la spec ("pandas; polars interno opcional si el volumen lo exige") sin obligar a todo el ecosistema a conocer polars; mantiene contratos I/O uniformes (SDD-05 §6). *Alternativa descartada:* exponer polars en la API (rompería la uniformidad pandas de todos los dominios consumidores). **Reversible** si los volúmenes reales lo exigen (decisión D2 de la spec, depende de clientes).
-- **D-DATA-2 — `data_hash` = sha256 del Parquet canónico** (orden de columnas estable + índice; vía pyarrow). Resuelve la decisión abierta de SDD-01 §12. *Porqué:* hash del *contenido lógico* estable cross-plataforma e independiente del formato de origen (CSV vs Parquet vs DataFrame en memoria). *Alternativa descartada:* `hash_pandas_object` (sensible a dtype/orden) y hash del archivo crudo (sensible a formato). *Fallback documentado* para datasets enormes: muestra determinista + metadatos de forma (no default v1).
+- **D-DATA-2 — `data_hash` = sha256 del contenido lógico por bloques** (`hash_pandas_object(index=True)` por chunk + esquema canónico; orden de columnas y de índice fijados). **Revisado en Tanda 1 Rev (decisión D2): SUPERSEDE el default anterior** (sha256 de los bytes del Parquet canónico). *Porqué:* el byte-stream de Parquet **no es canónico** (`created_by` con la versión del writer en el footer + compresión/versión/row-groups variables) → hasheaba la *plomería*, no el dato, y obligaba a pinear pyarrow para fingir estabilidad; el nuevo algoritmo hashea el **contenido lógico**, es O(n)/O(bloque), escala a datasets grandes con el mismo código y es independiente del writer (coherente con D-CORE-3 de `core`, que hashea el JSON canónico, no el YAML). *Alternativas descartadas:* sha256 de bytes Parquet (no canónico cross-versión), `joblib.hash` (pickle frágil cross-versión), CSV crudo (sensible a formato), y el **fallback muestreado** del default anterior (colisiona → inaceptable como ancla regulatoria SR 11-7). *Caveat:* pandas no garantiza por escrito la bit-estabilidad de `hash_pandas_object` entre majors → golden-test cross-versión obligatorio (§11), pineado por `uv.lock`. Verificado context7 (apache/arrow: footer `created_by`/`WriterProperties`; pandas: `hash_pandas_object(index=)`).
 - **D-DATA-3 — Esquema con pandera (no Pydantic por-fila).** *Porqué:* validación vectorizada, `lazy=True` que agrega todos los errores (auditoría), misma definición para pandas y polars; licencia MIT. *Alternativa descartada:* Pydantic fila a fila (lento, sin agregación). SDD-05 ya admite "pandera o pydantic"; aquí se fija **pandera**.
 - **D-DATA-4 — Componentes de `data` son no-estimador** (SDD-05 §4.2): contrato funcional propio (`load`/`validate`/`apply`/`split`), no `fit/predict`; usan `AuditableMixin` para `log_decision`. *Porqué:* un validador/splitter no tiene parámetros que "aprender"; meterlo en el contrato sklearn sería forzado. La regla *"fit en Dev"* la cumplen binning/selection/model, no `data`.
 - **D-DATA-5 — TTD es rol booleano superpuesto**, no una cuarta partición disjunta. *Porqué:* TTD = "toda la población que pasó por la puerta" (incl. indeterminados/excluidos y, futuro, rechazados), conceptualmente ortogonal a Dev/HO/OOT; modelarlo como partición disjunta rompería la unicidad. *Consecuencia:* `partition ∈ {dev,ho,oot,fuera_de_modelo}` + columna `ttd` aparte.
@@ -530,13 +556,13 @@ Detalle transversal en **SDD-24**; lo específico de `data`:
 **Decisiones abiertas (delegadas).**
 - **Reject inference / muestra TTD de originación.** Fuera de F1 (comportamiento; ESPECIFICACIONES §5.2 y "sub-fase originación"). `data` deja el **gancho** `ttd` y la noción de "rechazados"; el tratamiento (parcelling/fuzzy/reweighting) es de la sub-fase de originación. *Responsable:* DanIA + SDD de originación (post-F1).
 - **Política de imputación de missing** (más allá de marcar special→NaN). Decisión: **no imputar en `data`** (binning trata NaN como bin propio, SDD-06). Si algún modelo ML (SDD-12) exige imputación previa, vivirá en su pipeline, no aquí. *Responsable:* SDD-06/SDD-12 (confirmar que ningún consumidor exige imputación en `data`).
-- **`data_hash` para datasets que no caben en memoria** (muestra+metadatos vs hash incremental por chunks Parquet). *Sugerencia v1:* Parquet canónico completo; fallback muestreado documentado. *Responsable:* DanIA (cuando haya volumen real, D2 de la spec).
-- **Catálogo de columnas estándar de salida** (`target`/`label_status`/`partition`/`ttd`): nombres fijos vs configurables. *Sugerencia:* `target_col` configurable; `label_status`/`partition`/`ttd` con nombres fijos prefijables. *Responsable:* SDD-05↔SDD-06 (que los consume).
+- **`data_hash` para datasets que no caben en memoria — RESUELTO (Tanda 1 Rev, D2):** el hash **por bloques** (O(n)/O(bloque)) es el **mismo** algoritmo para chico y grande; **no** se necesita fallback muestreado. Si en el futuro un volumen extremo lo exigiera, un modo muestreado sería **opt-in NO-regulatorio**, etiquetado en el lineage como *hash parcial*. *Responsable:* cerrado.
+- **Catálogo de columnas de salida + qué columnas son features + accessor de particiones (deuda de diseño de T2, no de T1).** (a) Nombres de `target`/`label_status`/`partition`/`ttd`: `target_col` configurable; los otros con nombres fijos prefijables. (b) **Qué columnas son predictores NO lo decide `data`** (es agnóstico al modelado): lo declaran `binning`/`selection` (SDD-06/07), p.ej. `feature_columns` opcional con default "todas las no-estructurales" — **no** un rol por columna en `ColumnSpec`. (c) `PartitionResult` ganará dos accessors de conveniencia `mask(partition) -> Series[bool]` y `subset(partition) -> DataFrame` (azúcar aditiva sobre la columna `partition` ya existente, que excluye `fuera_de_modelo` del fit), para que los consumidores no filtren por la columna a mano. *Responsable:* SDD-05↔SDD-06/07 al diseñar T2 (cambios aditivos, no rompen el contrato actual de SDD-02).
 
 **Riesgos.**
 - **Mini-DSL mal especificado por el cliente** (regla que silenciosamente etiqueta mal, p.ej. operador o umbral equivocado) → mitigación: validar columnas/operadores referidos + reportar conteos por clase en el `summary` + `log_decision` (un revisor ve la tasa de malos y detecta una regla absurda). El mini-DSL **no** introduce riesgo de inyección (sin `eval`), solo riesgo de *configuración errónea*, mitigado por la traza.
 - **Leakage sutil por orden de filas** → mitigado por hash-por-índice (estabilidad cross-run, test de propiedad §11).
-- **`data_hash` no estable cross-versión de pyarrow** (cambios de formato Parquet entre releases) → mitigación: fijar opciones de escritura (compresión, versión de formato) en `data_hash()` y registrar `pyarrow` en `library_versions` del lineage (SDD-01); test de golden-hash con la versión pineada en `uv.lock`.
+- **Bit-estabilidad de `hash_pandas_object` cross-versión de pandas** (no garantizada por escrito entre majors) → mitigación: golden-test cross-versión del `data_hash` pineado a la versión de `uv.lock` + registrar `pandas` en `library_versions` del lineage (SDD-01). *Nota:* el cambio D2 (contenido lógico, no bytes Parquet) **elimina** el riesgo previo de inestabilidad por versión del writer de pyarrow, a costa de este caveat acotado y testeable.
 - **Explosión de reglas de exclusión** difícil de auditar → mitigación: cada `ExclusionRule` lleva `name` obligatorio y emite `log_decision` con su conteo (trazabilidad por motivo).
 
 ---

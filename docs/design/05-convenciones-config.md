@@ -8,14 +8,14 @@
 | **Tanda de producción** | T1 (Fundación) |
 | **Estado** | Aprobado |
 | **Depende de** | SDD-01 (`core`) |
-| **Lo consumen** | Todos los SDD de dominio (02, 06–23), SDD-24 (testing), SDD-23 (UI) |
-| **Autor / Fecha** | DanIA (síntesis multi-agente + verificación adversarial, context7) / 2026-06-23 |
+| **Lo consumen** | Todos los SDD de dominio (02, 06–23, **26 report, 27 eda**), SDD-24 (testing), SDD-23 (UI) |
+| **Autor / Fecha** | DanIA (síntesis multi-agente + verificación adversarial, context7) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
 
 ---
 
 ## 1. Propósito y responsabilidad
 
-**Qué resuelve (una frase).** Fija el **estándar único** de cómo se ve, se nombra, se valida y se serializa la API pública y la configuración de **toda** la librería, para que los 25 módulos sean consistentes, auditables e intercambiables por contrato — y para que la UI sea una proyección automática del config, no código duplicado.
+**Qué resuelve (una frase).** Fija el **estándar único** de cómo se ve, se nombra, se valida y se serializa la API pública y la configuración de **toda** la librería, para que los módulos (27 SDD) sean consistentes, auditables e intercambiables por contrato — y para que la UI sea una proyección automática del config, no código duplicado.
 
 **Responsabilidad única (qué SÍ hace).**
 - Define las **convenciones de API** estilo scikit-learn que todo estimador/transformer/motor de Nikodym cumple, y **cuándo** se usan las clases base propias (forecasting/survival/ECL/CMF).
@@ -25,7 +25,7 @@
 
 **Límites explícitos (qué NO hace, y quién lo hace).**
 - **No implementa** infraestructura: el loader/dumper, el `config_hash`, el motor de migraciones, el `Registry`, las clases base y la **jerarquía de excepciones** **viven en `core` (SDD-01)**. SDD-05 dice *qué forma tiene y qué garantías da*; SDD-01 dice *qué código lo carga, valida, versiona, hashea y ejecuta*.
-- **No define los sub-configs de cada dominio**: cada SDD (02, 06–23) define el suyo **siguiendo** estas convenciones.
+- **No define los sub-configs de cada dominio**: cada SDD (02, 06–23, 26, 27) define el suyo **siguiendo** estas convenciones.
 - **No produce el lineage bundle ni el model card**: SDD-05/01 producen el `config_hash` y la serialización; **SDD-03** los consume.
 - **No es la especificación de la UI**: el mapa de widgets es **SDD-23**; aquí solo se fija el *contrato de metadatos*.
 
@@ -134,7 +134,7 @@ class NikodymConfig(NikodymBaseConfig):
     run: RunConfig = Field(default_factory=RunConfig)
     # — pipeline (orden de declaración = orden canónico de pasos; SDD-01 §7) —
     data: "DataConfig | None" = None            # SDD-02
-    eda: "EdaConfig | None" = None              # (eda/: tasa de default por período; SDD por confirmar)
+    eda: "EdaConfig | None" = None              # SDD-27 (eda/: tasa de default por período + estabilidad temporal; T2/F1)
     binning: "BinningConfig | None" = None      # SDD-06
     selection: "SelectionConfig | None" = None  # SDD-07
     model: "ModelConfig | None" = None          # SDD-08/12 (unión discriminada; incluye logit y ML)
@@ -158,11 +158,16 @@ class NikodymConfig(NikodymBaseConfig):
 
     @model_validator(mode="after")
     def _check_cross_section(self) -> "Self":
-        # ejemplo de invariante inter-sección sobre campos DECLARADOS; la regla de negocio
-        # "provisioning requiere calibration" la fija SDD-17 (orquestación), citada aquí, no hardcodeada.
-        if self.provisioning is not None and self.calibration is None:
-            raise ValueError("provisioning requiere una sección 'calibration' (regla de SDD-17).")
+        # SOLO invariantes ESTRUCTURALES sobre campos declarados (core NO conoce dominios, frontera §1).
+        # Ej.: si run.steps nombra una sección, esa sección debe estar activa (no-None).
+        if self.run.steps:
+            inactivas = [s for s in self.run.steps if getattr(self, s, None) is None]
+            if inactivas:
+                raise ValueError(f"run.steps referencia secciones inactivas (None): {inactivas}.")
         return self
+        # Las reglas de DOMINIO (p.ej. "provisioning requiere calibration") NO van aquí: son prerequisitos
+        # de pipeline que valida el ORQUESTADOR en runtime (SDD-01 §7 / SDD-17), no el parse del schema raíz.
+        # Meterlas en core.config sería hardcodear dominio en el núcleo (C05, Tanda 1 Rev).
 ```
 
 > **Ninguna sección es obligatoria a nivel de schema** (todas `| None = None`): un `NikodymConfig()` sin argumentos es construible (DoD F0: "Study mínimo" creable/serializable, SDD-01 §11). El **orquestador** valida en runtime los prerequisitos de cada pipeline (p.ej. un paso de scoring exige `data` y `binning`).
@@ -187,7 +192,14 @@ ModelConfig = Annotated[Union[LogitModelConfig, XGBoostModelConfig], Field(discr
 
 **5.3 Defaults defendibles (convención).** `extra="forbid"` (un typo es error, no se ignora — riesgo regulatorio); `frozen=True` (inmutable; evita mutación accidental — **no** vuelve el modelo hashable con campos `list`/`dict` ni congela anidados, por eso la identidad es el `config_hash`, D-CORE-3); **todas las secciones opcionales** (`None`), prerequisitos validados en runtime; numéricos con `ge/le`; categóricos como `Literal`/`Enum`. Cada campo lleva `title` y `description` **obligatorios** (contrato UI, §5.5). *Regla:* preferir tuplas/modelos sobre `list`/`dict` crudos en los sub-configs cuando sea posible.
 
-**5.4 Versionado y migración.** `schema_version` SemVer en la raíz. Al cargar, `core.config` compara contra la versión actual y aplica una cadena **lineal** de migraciones registradas `@migration("1.0.0", "1.1.0")` (funciones puras `dict→dict` que corren **antes** de `model_validate`); si falta un salto → `MigrationNotFoundError`; si la versión es mayor que la del paquete → `ConfigVersionError`. **Caso borde:** un dict crudo sin `schema_version` asume la versión base mínima `"1.0.0"` antes de migrar. **Política v1:** levantar; migradores explícitos después. (Aplica R5 §12 al config.)
+**5.4 Versionado y migración (RESUELTO, Tanda 1 Rev, D3).** `schema_version` SemVer en la raíz. Política: **"version-gate ahora; el contrato de migración queda fijado pero vacío en v1"**. Al cargar, `core.config` compara `schema_version` contra la versión actual del schema del paquete y:
+- (a) **igual** → carga;
+- (b) **menor** (config viejo) **con** la cadena de migradores registrada → **migra y carga** (auto-migrar NO es adivinar: corre la transformación EXPLÍCITA registrada);
+- (c) **menor sin migrador** registrado → `MigrationNotFoundError(from, to)` (**nunca** migración silenciosa);
+- (d) **mayor** que el schema del paquete → `ConfigVersionError`;
+- (e) dict crudo **sin** `schema_version` → asume la base mínima `"1.0.0"` antes de evaluar.
+
+Los migradores son funciones puras `dict→dict` decoradas `@migration("1.0.0", "1.1.0")`, encadenadas linealmente por SemVer, que corren **antes** de `model_validate`. **En 1.0.0 NO existe ningún migrador** (no hay versión anterior de la cual migrar): en la práctica v1 solo levanta/valida, pero el **mecanismo** (registro + encadenado) se especifica e implementa como punto de extensión vacío, para que el primer bump (1.0.0→1.1.0) tenga un lugar canónico. **Se prefiere el migrador externo `dict→dict`** sobre un `model_validator(mode="before")` dentro de `NikodymConfig`: la migración es una transformación cross-versión del documento crudo, no una validación del modelo vigente, y meterla en `mode="before"` ensuciaría el modelo con lógica de versiones viejas y dispararía en cada construcción (incl. la UI in-memory). *Auto-migración heurística (adivinar/rellenar sin migrador) DESCARTADA:* cambiaría el `config_hash`/identidad del experimento sin traza (R5 §12, inaceptable regulatorio). (Verificado context7: pydantic v2 soporta tanto la transformación pre-validate como discriminated unions por versión —descartada por costo, D-CONV-5.)
 
 **5.5 Identidad, round-trip YAML y UI.**
 - **Carga:** `NikodymConfig.model_validate(yaml.safe_load(text))` (tras migración).
@@ -208,7 +220,7 @@ Convenciones universales que todo módulo respeta:
 - **Output económico (provisioning):** `ProvisionResultLike`/`ECLResultLike` (Protocols en `core.results`, SDD-01 §4) con todas las columnas regulatorias; invariante `PE = PI·PDI·Exposición` fila a fila (verificable a mano); provisión final = `max(CMF, IFRS 9)` (§5.4, piso prudencial; lo toma SDD-17).
 - **Config:** input YAML/dict → `NikodymConfig` frozen; identidad por `config_hash` (JSON canónico).
 
-**Invariantes universales.** `get_params(self) == campos del sub-config`; post-`fit` existe ≥1 atributo con sufijo `_`; el discriminador `type` de toda unión **de nivel sección** ∈ keys del `Registry` (las uniones **anidadas** se resuelven por factory local y quedan fuera de este cruce, §3); round-trip preserva igualdad de valores y `config_hash` estable bajo reordenamiento de claves y versión de PyYAML.
+**Invariantes universales.** `set(get_params(self)) == set(config_cls.model_fields) − {"type"}` — el `type` discriminador es campo del sub-config pero **no** kwarg de `__init__` (lo excluye `from_config`), y `_audit` es atributo del estimador (no campo de sub-config), ya excluido de `get_params` (SDD-01 §4, regla dura 5). El gancho `instancia → clase de sub-config` es `config_cls: ClassVar` de `BaseNikodymEstimator` (SDD-01 §4, añadido en Tanda 1 Rev, C08); sin él `_validate_config` y el check de SDD-24 §7.2 no son programables. Además: post-`fit` existe ≥1 atributo con sufijo `_`; el discriminador `type` de toda unión **de nivel sección** ∈ keys del `Registry` (las uniones **anidadas** se resuelven por factory local y quedan fuera de este cruce, §3); round-trip preserva igualdad de valores y `config_hash` estable bajo reordenamiento de claves y versión de PyYAML.
 
 ---
 
@@ -233,8 +245,8 @@ Convenciones universales que todo módulo respeta:
 - **Campo desconocido en YAML** (typo) → `ValidationError` (`extra_forbidden`) → `ConfigError`. Nunca silencioso.
 - **Discriminador `type` no registrado** → `ValidationError` (`union_tag_invalid`) listando los tags válidos.
 - **`schema_version` mayor que el del paquete** → `ConfigVersionError`; **menor sin migración** → `MigrationNotFoundError(from, to)`; **dict sin `schema_version`** → asume `"1.0.0"`.
-- **Componente estocástico activo:** `seed=42` por defecto garantiza reproducibilidad; un dominio que exija seed explícita lo valida en su `model_validator`.
-- **`provisioning` sin `calibration`** → `ValueError` en `model_validator` → `ConfigError` (regla de SDD-17).
+- **Componente estocástico activo:** `seed=42` por defecto garantiza reproducibilidad. Si un dominio exige seed **explícita**, la validación **NO** puede vivir en el `model_validator` del sub-config (no ve `repro.seed`, que está en la raíz): se valida en el `model_validator` de la **raíz** `NikodymConfig` (que sí ve ambas secciones) o como prerequisito de runtime del orquestador.
+- **`provisioning` sin `calibration`** → es una **regla de DOMINIO**, validada en **runtime por el orquestador** (SDD-01 §7 / SDD-17), **no** en el parse del schema raíz (core no conoce dominios; C05). Falla como prerequisito de pipeline (`ConfigError`/`RegulatoryError` según el caso), no como `model_validator` de `NikodymConfig`.
 - **Float `NaN`/`inf` en el config** → rechazado por `field_validator` (finitud).
 - **Mutar un config frozen** → Pydantic levanta → `ConfigError`.
 - **`set_params` con clave inexistente** → `ValueError` **propio de `BaseNikodymEstimator`** (introspección propia, NO de sklearn; coherente con D-CORE-1), envuelto como `ConfigError` donde aplique.
@@ -280,11 +292,15 @@ Operativizado por **SDD-24**; el contrato que SDD-05 impone:
 - **D-CONV-2 — Uniones discriminadas con `type` == key del Registry == `domain.name` del paso** como mecanismo único de selección. *Porqué:* validación temprana + un solo identificador config↔código↔orquestador.
 - **D-CONV-3 — Identidad por `config_hash` (JSON canónico)**, YAML solo para legibilidad. *Porqué:* hash estable cross-version (PyYAML no interviene); `frozen=True` no basta para identidad (no hashable con campos mutables).
 - **D-CONV-4 — `check_estimator` solo a estimadores de dominio que multiheredan `BaseEstimator`**; familias propias con batería Nikodym (SDD-24). *Porqué:* en sklearn ≥1.6 los tags exigen heredar `BaseEstimator`; el duck typing no basta.
+- **D-CONV-5 — Versionado del schema por migrador `dict→dict` + modelo único vigente, NO discriminated-union-por-versión** (Tanda 1 Rev, D3). *Porqué:* mantener N árboles de ~22 secciones en paralelo por cada bump no escala; el migrador externo (§5.4) es el patrón estándar de evolución incremental. Pydantic soporta ambos (verificado context7); se descarta el segundo por costo, no por imposibilidad.
+
+**Decisiones resueltas en Tanda 1 Rev (trazabilidad).**
+- **D3 — Política de migración de `schema_version`:** version-gate + migradores `@migration` dict→dict (vacíos en 1.0.0; `fail` ruidoso si falta el migrador; nunca migración silenciosa). Cadena **lineal** por SemVer. Detalle en §5.4.
+- **D5 — Metadatos `ui_*`:** **dict `ui_*` suelto** vía `json_schema_extra={"ui_widget","ui_group","ui_order"}` en v1 (no modelo tipado, que acoplaría SDD-05↔SDD-23 antes de tiempo). Los campos de inventario con vocabulario cerrado (`cartera`/`motor`/`fase`/`estado_validacion` en `GovernanceConfig`, SDD-03 §5) son `Literal` → la UI los renderiza como **selectbox** por el mapeo de §5.5, sin código nuevo.
 
 **Decisiones abiertas (delegadas).**
 - **Alcance de SDD-04 — RESUELTO (checkpoint Cami, 2026-06-23):** SDD-04 = `tracking` (MLflow) en F0/T1; el reporte Quarto pasa a **SDD-26 `report`** en T2/F1 (índice actualizado).
-- `json_schema_extra` con claves `ui_*` sueltas vs modelo de metadatos UI tipado. *Sugerencia:* dict `ui_*` en v1. *Responsable:* SDD-05↔SDD-23.
-- Forma de la cadena de migraciones (lineal vs grafo). *Sugerencia:* lineal por SemVer en v1.
+- Modelo de metadatos UI **tipado** (vs dict `ui_*` suelto) → diferido a v2, cuando SDD-23 (UI) lo justifique. *Responsable:* SDD-05↔SDD-23.
 
 **Riesgos.**
 - **Explosión de tamaño de `NikodymConfig`** (~22 secciones) → UX de la UI. *Mitigación:* `ui_group` + secciones opcionales (`None`).

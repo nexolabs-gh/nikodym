@@ -3,9 +3,11 @@
 | | |
 |---|---|
 | **Documento** | Índice de Documentos de Diseño (SDD) |
-| **Versión** | 1.0 |
-| **Fecha** | 2026-06-23 |
+| **Versión** | 1.1 (Tanda 1 Rev) |
+| **Fecha** | 2026-06-24 |
 | **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.0 · [`docs/ROADMAP.md`](../ROADMAP.md) |
+
+> **Tanda 1 Rev (2026-06-24):** los 7 SDD de Fundación (01-05, 24, 25) se revisaron de forma adversarial e integraron sus correcciones (cabecera "rev. Tanda 1 Rev" en cada uno). Cambios de alcance: **+SDD-27 `eda`** (de 26 a **27 SDD**); **D2** revierte el `data_hash` a hash de contenido lógico (SDD-02). Detalle de hallazgos y decisiones en el cierre de la sesión.
 
 Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nikodym RiskLib a nivel implementable, **antes de escribir código**. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) y cubre un módulo del árbol `src/nikodym/`.
 
@@ -48,8 +50,11 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **22** | `validation` | Validación | F6 | T6 | 11, 16 | ⬜ Pendiente |
 | **23** | `ui` (Streamlit, editor de config) | Producto | F7 | T6 | 05, todos | ⬜ Pendiente |
 | **26** | `report` (Quarto HTML+PDF, capa IA, export) | Reporte | F1 | T2 | 01 | ⬜ Pendiente |
+| **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | 🟡 Borrador |
 
-**26 SDD · 7 tandas (T0–T6; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
+**27 SDD · 7 tandas (T0–T6; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
+
+> **SDD-27 `eda`** se creó en **Tanda 1 Rev** (decisión D1): el paquete `eda/` figuraba en el árbol de paquetes (ESPEC §6.3) y en el config (SDD-05 §5.1) pero ningún SDD lo cubría — quedaba huérfano. Es el **paso 1 del pipeline de scorecard** (pre-binning, F1/T2), depende de 02 (`data`). **Aguas abajo** 06 (binning), 11 (performance+stability, deslindado) y 26 (report) **consumen sus diagnósticos** (tasa de default por período, figuras), pero NO es una dependencia dura de build de esos SDD — por eso no aparece en su columna "Depende de" (corren sobre el frame de `data`); el orden T2 garantiza que `eda` se diseñe primero.
 
 ## Tandas de producción
 
@@ -57,7 +62,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 |---|---|---|---|
 | **T0 — Verificación** | (ninguno nuevo) | Doble-check de TODO lo ya hecho (spec, normativa CMF, índice, roadmap, plantilla) contra fuente oficial; corregir antes de avanzar. | — |
 | **T1 — Fundación** | 01, 02, 03, 04, 05, 24, 25 | El núcleo del que todo cuelga; sin esto nada es auditable. | T0 |
-| **T2 — Scoring (F1)** | 06, 07, 08, 09, 10, 11, 26 | El MVP open-source + reporte Quarto (release público). | T1 |
+| **T2 — Scoring (F1)** | 27, 06, 07, 08, 09, 10, 11, 26 | EDA + el MVP open-source + reporte Quarto (release público). | T1 |
 | **T3 — ML (F2)** | 12, 13, 14 | Benchmark predictivo + explicabilidad. | T2 |
 | **T4 — Provisiones (F3-F4)** | 15, 16, 17 | CMF + IFRS 9 + piso regulatorio. | T2 (PD); T5 parcial (lifetime) |
 | **T5 — Forward-looking (F5)** | 18, 19, 20, 21 | Lifetime PD, escenarios, stress. | T2 |

@@ -9,7 +9,7 @@
 | **Estado** | Aprobado |
 | **Depende de** | — (es la raíz del árbol; no depende de ningún módulo `nikodym`) |
 | **Lo consumen** | Todos: SDD-02…25 (toda la librería cuelga de `core`) |
-| **Autor / Fecha** | DanIA (síntesis multi-agente + verificación adversarial, context7) / 2026-06-23 |
+| **Autor / Fecha** | DanIA (síntesis multi-agente + verificación adversarial, context7) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
 
 ---
 
@@ -81,8 +81,8 @@ class Study:
     def __init__(self, config: NikodymConfig, *, name: str | None = None) -> None: ...
     config: NikodymConfig            # fuente de verdad, frozen (ver §5)
     artifacts: ArtifactStore         # objetos producidos por los pasos (namespaced)
-    results: dict[str, Any]          # métricas/tablas intermedias serializables
-    run_context: RunContext          # poblado en run() (lineage, estado, timestamps)
+    results: dict[str, Any]          # métricas/tablas intermedias serializables (namespace results["metrics"]: dict[str,float] — contrato §6)
+    run_context: RunContext          # presente desde __init__ (status="created"); poblado en run() (lineage, estado, timestamps)
     seed_manager: SeedManager        # reconstruible desde config.repro.seed; NO se serializa (§6)
     # orquestación (modelo de pasos en §7)
     def run(self, steps: list[str] | None = None) -> "Study": ...   # ejecuta el pipeline; devuelve self
@@ -139,11 +139,13 @@ class LineageBundle(BaseModel):
     schema_version: str
 
 class RunContext(BaseModel):
-    run_id: str
-    started_at: datetime
-    finished_at: datetime | None
-    status: Literal["created", "running", "done", "failed"]
-    lineage: LineageBundle | None
+    # run_id/started_at son None hasta run(); así un Study recién construido (status="created") serializa
+    # a run_metadata.json SIN valores ficticios (DoD F0: un Study vacío se crea, serializa y recarga).
+    run_id: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    status: Literal["created", "running", "done", "failed"] = "created"
+    lineage: LineageBundle | None = None
 
 # nikodym/core/audit.py  (interfaces hacia SDD-03)
 class AuditEvent(BaseModel):
@@ -159,16 +161,37 @@ class FanOutSink:         ...   # AuditSink compositor: __init__(sinks: list[Aud
                                 # (permite combinar el sink de governance (SDD-03) y el de tracking (SDD-04))
 
 # nikodym/core/steps.py
+@runtime_checkable              # permite isinstance(obj, Step) en el despacho de §7 (StepAdapter)
 class Step(Protocol):           # lo que un dominio implementa para ser orquestable (ver §7)
     name: str                   # == nombre de su sección de config (== domain)
     def execute(self, study: "Study", rng: numpy.random.Generator) -> Any: ...
 
-# nikodym/core/results.py  (protocolos de salida económica; los implementan SDD-15/16)
+# Los estimadores de dominio (fit/transform/predict/compute) NO implementan execute ni name: el orquestador
+# los envuelve en un StepAdapter que los adapta al Protocol Step (así core no conoce la API de cada dominio).
+class StepAdapter:              # adapta un BaseNikodymEstimator al Protocol Step (ver §7 y "Claves de I/O", §6)
+    def __init__(self, domain: str, estimator: "BaseNikodymEstimator") -> None: ...
+    name: str                   # == domain
+    def execute(self, study: "Study", rng: numpy.random.Generator) -> Any: ...
+        # 1) lee sus inputs de study.artifacts bajo las CLAVES DE I/O del dominio (§6);
+        # 2) llama estimator.fit(...) y luego transform/predict/predict_proba/compute según la familia;
+        # 3) escribe la salida en study.artifacts bajo la clave namespaced estándar del dominio (§6);
+        # 4) devuelve el resultado. El mapeo (familia -> método; claves de entrada/salida por dominio) lo fija §6.
+
+# nikodym/core/results.py  (protocolos de salida económica; los implementan SDD-15/16; ver D-CORE-6)
+@runtime_checkable
 class ProvisionResultLike(Protocol):   # contrato mínimo de la salida de provisión (resuelve la circularidad, §12)
-    componentes: "pandas.DataFrame"    # incluye PI, PDI, Exposición, PE (CMF) — invariante PE=PI·PDI·Exposición
-    total: float
-class ECLResultLike(ProvisionResultLike, Protocol):
-    ...                                 # añade PD/LGD/EAD/ECL/stage por instrumento (IFRS 9)
+    componentes: "pandas.DataFrame"    # incluye PI, PDI, exposicion, PE (CMF) — invariante PE=PI·PDI·exposicion (lo VALIDA SDD-15, no el Protocol)
+    total: float                       # provisión agregada
+    por_cartera: "Mapping[str, float]" # total desglosado por cartera (comercial/consumo/vivienda) — lo leen report/governance sin reabrir componentes
+    motor: str                         # etiqueta del motor que lo produjo (p.ej. "cmf_standard", "ifrs9_ecl") — distingue origen sin isinstance
+    def to_frame(self) -> "pandas.DataFrame": ...   # vista tabular plana para report/export; método (no materializa hasta pedirlo)
+@runtime_checkable
+class ECLResultLike(ProvisionResultLike, Protocol):   # añade lo específico IFRS 9
+    por_instrumento: "pandas.DataFrame"  # columnas PD, LGD, EAD, ECL, stage (Literal 1/2/3) — granularidad por instrumento
+    por_escenario: "Mapping[str, float]" # ECL por escenario ponderado (base/adverso/severo; nunca el escenario medio, ESPEC §5.6)
+    # La herencia ECL<-Provision es reutilización del contrato de LECTURA (total/componentes/to_frame para report/governance),
+    # NO parentesco de dominio: CMF e IFRS 9 son dos motores SEPARADOS (§5.4). El piso prudencial (max) lo aplica SDD-17.
+# (@runtime_checkable solo verifica PRESENCIA de atributos para asserts defensivos; la verificación estructural real es estática (mypy).)
 ```
 
 **Jerarquía de excepciones** (`nikodym/core/exceptions.py`) — aloja la **raíz `NikodymError`** y las excepciones del **núcleo**. **Regla única:** toda excepción de la librería **desciende de `NikodymError`**; los módulos de dominio **pueden definir sus propias subclases** (de `NikodymError` o de la excepción de core que corresponda) **alojadas en su propio módulo** (p.ej. `DataValidationError` ya en core, pero `GovernanceError`/`TrackingError` viven en su módulo). Así `except NikodymError` captura todo sin centralizar cada clase. SDD-05 §4.3 referencia este árbol y fija mensajes/uso:
@@ -195,13 +218,17 @@ class MissingDependencyError(NikodymError): ...     # extra no instalado al usar
 
 ```python
 class BaseNikodymEstimator:          # raíz PROPIA (no hereda de sklearn; ver D-CORE-1)
+    config_cls: ClassVar[type[NikodymBaseConfig]]          # cada estimador concreto fija su clase de sub-config (espejo de @register)
+        # GANCHO instancia -> clase de sub-config: from_config/_validate_config y el check de SDD-24 §7.2 lo usan.
+        # Sin él ese puente no existe (el Registry mapea (domain,name)->clase de estimador, no estimador->config).
     def get_params(self, deep: bool = True) -> dict: ...   # introspección de la firma de __init__ (semántica sklearn)
     def set_params(self, **params) -> "Self": ...          # clave inexistente -> ValueError propio -> ConfigError
     @classmethod
-    def from_config(cls, cfg: NikodymBaseConfig) -> "Self": ...   # mapea campos del sub-config a kwargs (params espejo)
-    def _validate_config(self) -> None: ...                # reconstruye el sub-config desde get_params() y re-valida
+    def from_config(cls, cfg: NikodymBaseConfig) -> "Self": ...   # mapea campos del sub-config a kwargs; EXCLUYE `type` (no es kwarg de __init__) -> evita TypeError
+    def _validate_config(self) -> None: ...                # reconstruye cls.config_cls desde get_params() y re-valida
     def _check_fitted(self) -> None: ...                   # levanta NotFittedError propio
     # convención: sin lógica en __init__; validación en fit/compute; atributos fiteados con sufijo _
+    # invariante (SDD-24 §7.2): set(get_params()) == set(config_cls.model_fields) − {"type"}  ("_audit" no es campo de sub-config)
 
 class NikodymTransformer(AuditableMixin, BaseNikodymEstimator): ...   # fit/transform (+ fit_transform)
 class NikodymClassifier(AuditableMixin, BaseNikodymEstimator): ...    # fit/predict/predict_proba
@@ -262,7 +289,7 @@ class NikodymBaseConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)   # typo en YAML -> ValidationError; sin mutación accidental
 
 class ReproConfig(NikodymBaseConfig):
-    seed: int = 42                       # default defendible: reproducible y explícito (§4 principio 1)
+    seed: int = Field(default=42, ge=0)  # default defendible y explícito (§4 principio 1); ge=0 porque SeedSequence rechaza entropía negativa
     strict_determinism: bool = False     # True -> fuerza single-thread en GBDT (caveat multihilo)
 
 class RunConfig(NikodymBaseConfig):
@@ -281,7 +308,7 @@ class NikodymConfig(NikodymBaseConfig):  # raíz; la UI genera su formulario des
 
 **Defaults defendibles.** `extra="forbid"` (un campo desconocido es error, no se ignora — proyecto regulatorio); `frozen=True` (evita mutación accidental; **no** congela contenedores anidados ni vuelve el modelo hashable — la identidad es el `config_hash`, no `__hash__`; ver D-CORE-3); `seed=42` (reproducible *out of the box*, siempre en el lineage); `data` opcional (un `Study` se construye y serializa sin datos; el orquestador exige `data` presente al ejecutar un paso que lo requiera — §8).
 
-**`config_hash` (identidad de lineage).** `config_hash = sha256(json_canónico)` donde `json_canónico = json.dumps(cfg.model_dump(mode="json", by_alias=True, exclude=INFRA_SECTIONS), sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. (`by_alias=True` para que un campo con alias —p.ej. `schema` por colisión con `BaseModel.schema()`— se serialice por su nombre canónico YAML; ver SDD-05 §5.3.) El hash representa el **experimento** (datos + método + semilla), no la *plomería*: se **excluyen las secciones de infraestructura** `INFRA_SECTIONS = {"name", "governance", "audit", "tracking", "report"}` para que cambiar el URI de MLflow, la plantilla de reporte o el nombre del estudio **no** altere la identidad ni la idempotencia del inventario (SDD-03/04). Hashear el **JSON con claves ordenadas** (no el texto YAML) desacopla además la identidad del estilo y la versión de PyYAML y del orden de declaración de campos → el mismo experimento produce el mismo hash entre releases (mitiga R3/R5).
+**`config_hash` (identidad de lineage).** `config_hash = sha256(json_canónico)` donde `json_canónico = json.dumps(cfg.model_dump(mode="json", by_alias=True, exclude=INFRA_SECTIONS), sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. (`by_alias=True` para que un campo con alias —p.ej. `schema` por colisión con `BaseModel.schema()`— se serialice por su nombre canónico YAML; ver SDD-05 §5.3.) El hash representa el **experimento** (datos + método + semilla), no la *plomería*: se **excluyen las secciones de infraestructura** `INFRA_SECTIONS = {"name", "governance", "audit", "tracking", "report"}` para que cambiar el URI de MLflow, la plantilla de reporte o el nombre del estudio **no** altere la identidad ni la idempotencia del inventario (SDD-03/04). Hashear el **JSON con claves ordenadas** (no el texto YAML) desacopla además la identidad del estilo y la versión de PyYAML y del orden de declaración de campos → el mismo experimento produce el mismo hash entre releases (mitiga R3/R5). **Rutas en `data`.** La sección `data` **sí** entra al `config_hash` (sus parámetros de método: target, particiones, reglas), pero la **ruta de origen** (`data.load.source`) es infraestructura local: el contenido de los datos lo ancla el `data_hash` del lineage, no la ruta. Para que el hash sea estable cross-máquina, `data.load.source` se **normaliza** antes de hashear (se aporta su basename, no la ruta absoluta); el mecanismo exacto lo fija SDD-02/05. (Ver Riesgos §12.)
 
 **Serialización YAML y UI.** El YAML es el formato de persistencia/edición legible (§5.1, §6.2). Carga: `NikodymConfig.model_validate(yaml.safe_load(...))`. Volcado legible: `yaml.safe_dump(cfg.model_dump(mode="json", by_alias=True), sort_keys=False)` (orden de declaración, para revisores). La UI Streamlit (SDD-23) se genera desde `NikodymConfig.model_json_schema()` + introspección, sin duplicar lógica (§4 principio 6). Edición incremental: la UI trabaja sobre un **borrador mutable** (dict) y materializa un `NikodymConfig` *frozen* al correr (reconcilia `frozen=True` con la edición). Preservación de comentarios (ruamel) **diferida** a la UI/CLI.
 
@@ -290,6 +317,13 @@ class NikodymConfig(NikodymBaseConfig):  # raíz; la UI genera su formulario des
 ## 6. Contratos de datos (I/O)
 
 **Input.** Un `NikodymConfig` válido. En `run()`, los datasets que los pasos de dominio leen/escriben en el `ArtifactStore` o vía `data/` (SDD-02). `core` no parsea datos crudos.
+
+**Claves de I/O entre pasos (contrato que usa el `StepAdapter`, §4).** Los pasos se comunican **solo** por el `ArtifactStore`, con claves *namespaced* `(domain, key)`. `core` fija el **esqueleto del contrato** (qué método lee/escribe qué) y cada SDD de dominio declara sus claves concretas en su §6:
+- El `StepAdapter` de un transformer lee `study.artifacts.get("data", "frame")` (o la salida del paso previo) y escribe su resultado bajo `(domain, "output")` o la clave que el dominio documente.
+- El `StepAdapter` de un classifier/forecaster lee features/target del artefacto upstream y escribe predicciones/scores bajo su `domain`.
+- **`results` (métricas).** Las métricas escalares van a `study.results["metrics"]` como `dict[str, float]` (namespace canónico que `governance`/SDD-03 lee para el model card sin adivinar claves); el resto de `results[domain]` es libre por dominio. Cada SDD productor de métricas (06+) escribe bajo este namespace.
+
+
 
 **Output.** El `Study` con `artifacts`, `results` y `run_context` poblados, persistible como **directorio**:
 
@@ -325,7 +359,7 @@ class NikodymConfig(NikodymBaseConfig):  # raíz; la UI genera su formulario des
 
 **Construcción del `Study`.**
 1. `config` (frozen) validado. Crear `SeedManager(config.repro.seed)`; `apply_global()` (ver §9).
-2. Inicializar `ArtifactStore(audit=NullAuditSink())`, `results = {}`, `run_context.status = "created"`.
+2. Inicializar `ArtifactStore(audit=NullAuditSink())`, `results = {}`, `run_context = RunContext()` (con `status="created"` por default; serializable sin correr — §4/§6).
 
 **Auto-registro de componentes** (import time). Cada dominio decora sus clases con `@register(name, domain=...)`. `core` mantiene una **lista explícita** de subpaquetes de dominio y los importa con `try/except ImportError` (tolerante a extras ausentes: un extra no instalado solo omite sus registros, no rompe `core`), disparado al importar `nikodym` (no `entry_points` en v1, coherente con §6.1). Colisión `(domain, name)` → `DuplicateRegistrationError` en import time.
 
@@ -333,7 +367,7 @@ class NikodymConfig(NikodymBaseConfig):  # raíz; la UI genera su formulario des
 1. Determinar la lista de pasos (ver "Modelo de orquestación"). Validar prerequisitos (p.ej. un paso que requiere `data` exige `config.data`).
 2. `run_context.status = "running"`; emitir `AuditEvent("run_start")`; **iniciar** el `LineageBundle` (git SHA + dirty, `config_hash`, `root_seed`, `uv.lock` hash, `library_versions`, `determinism_caveats`). `data_hash` queda pendiente (los datos se cargan en el primer step).
 3. Por cada paso `name`:
-   a. `cls = REGISTRY.resolve(domain, type)`; `step = cls.from_config(sub_cfg)`.
+   a. `cls = REGISTRY.resolve(domain, type)`; `obj = cls.from_config(sub_cfg)`; `step = obj if isinstance(obj, Step) else StepAdapter(domain, obj)` — un `Step` nativo (p.ej. `DataStep` de SDD-02) se usa tal cual; un estimador de dominio se **envuelve** en `StepAdapter` (§4), que conoce las claves de I/O (§6).
    b. `rng = seed_manager.generator_for(name)` (Generator determinista por nombre).
    c. Inyectar el `AuditSink` en el componente (`step._audit = self._audit`).
    d. `result = step.execute(study, rng)` — el paso lee/escribe `study.artifacts` con claves *namespaced* y registra decisiones vía `log_decision(...)`. El step de datos (SDD-02) completa el `data_hash` del bundle.
@@ -421,18 +455,19 @@ Detalle transversal en **SDD-24**; lo específico de `core`:
 - **D-CORE-3 — Identidad del config vía `config_hash` (sha256 del JSON canónico), no `__hash__`.** `frozen=True` evita mutación accidental pero **no** vuelve el modelo hashable (campos `list`/`dict`) ni congela anidados. *Regla:* los sub-configs evitan `dict`/`list` crudos cuando sea posible (preferir modelos/tuplas); la igualdad/identidad para lineage es el `config_hash`. *Porqué:* el hash debe ser estable, no atado a `__hash__` ni a PyYAML.
 - **D-CORE-4 — Persistencia del `Study` como directorio** (YAML legible + JSON + joblib por artefacto), no un blob único. *Porqué:* auditabilidad/diff; recarga selectiva; robustez. **El azar no se persiste** (se reconstruye desde `root_seed`).
 - **D-CORE-5 — `NotFittedError` desciende solo de `NikodymError`** (coherente con D-CORE-1). *Caveat (documentado):* un `except sklearn.exceptions.NotFittedError` no atrapa el de Nikodym; los estimadores de dominio que usen `check_is_fitted` de sklearn reciben además el tipo de sklearn, y pueden definir un `NotFittedError(NikodymError, sklearn.exceptions.NotFittedError)` local si necesitan capturar ambos.
+- **D-CORE-6 — `ProvisionResultLike`/`ECLResultLike` se quedan como `Protocol` (structural typing), no `dataclass`/Pydantic en core** (Tanda 1 Rev, decisión D4). *Porqué:* un tipo concreto en `core` invertiría la dependencia (forzaría a `provisioning/cmf` e `ifrs9` —SDD-15/16— a importar y heredar un tipo económico de `core`, violando el núcleo liviano §4.9 y reabriendo la circularidad que el Protocol resuelve), y un base compartido difuminaría que **CMF≠IFRS 9 son dos motores separados** (§5.4). *Contrato mínimo endurecido* (§4 `results.py`): `componentes`, `total`, `por_cartera`, `motor`, `to_frame()`; ECL añade `por_instrumento`, `por_escenario`. El Protocol **declara** el invariante `PE=PI·PDI·exposicion` y el piso prudencial, pero **no los ejecuta**: la validación cuantitativa es de los dominios (SDD-15/16/17), no de `core` (§1: "core no calcula riesgo"). El `dataclass` vs Pydantic de la *implementación* sigue delegado a SDD-15/16 (T4).
 
 **Decisiones abiertas (delegadas).**
 - **Alcance de SDD-04 — RESUELTO (checkpoint Cami, 2026-06-23).** SDD-04 = `tracking` (MLflow) en F0/T1; el reporte Quarto se separa a **SDD-26 `report`** en T2/F1 (índice actualizado, alineado con el ROADMAP).
-- Formato del `data_hash` para datasets grandes (sha256 del parquet canónico vs incremental/muestreado). *Responsable:* DanIA + autor **SDD-02**.
-- Política de migración de `schema_version` (solo levantar vs auto-migrar). *Responsable:* **SDD-05** (default v1: levantar).
+- **Formato del `data_hash` — RESUELTO (Tanda 1 Rev, D2):** hash del **contenido lógico por bloques** (`hash_pandas_object` + esquema canónico), que **reemplaza** el sha256 de los bytes del Parquet (no canónico cross-versión) y elimina el fallback muestreado. Detalle en **SDD-02** (D-DATA-2 revisado).
+- **Política de migración de `schema_version` — RESUELTO (Tanda 1 Rev, D3):** *version-gate* + migradores `@migration` dict→dict (registro **vacío en v1**; `fail` ruidoso si falta el migrador, nunca migración silenciosa). Detalle en **SDD-05 §5.4**.
 - Granularidad de los `AuditEvent` que emiten `core` vs los dominios. *Responsable:* **SDD-03**.
-- Contrato concreto de `ProvisionResultLike`/`ECLResultLike` (campos exactos, `dataclass` vs Pydantic de la implementación). `core` fija el **Protocol mínimo**; la implementación es de **SDD-15/16**.
 
 **Riesgos.**
 - **Pickle/joblib ata la recarga a versiones de libs.** *Mitigación:* `library_versions` en el lineage + warning en `load`; formatos estables por dominio a futuro.
 - **Determinismo frágil** (R3): `hash()` builtin no estable → `_stable_hash` usa `hashlib`; GBDT multihilo → caveat + `strict_determinism`.
 - **Drift discriminador `type` vs keys del Registry** → test de propiedad cruzado (SDD-24).
+- **`config_hash` cross-máquina:** la sección `data` entra al hash; sin normalizar `data.load.source` (ruta absoluta), el mismo experimento en otra máquina daría hash distinto. *Mitigación:* normalizar la ruta (basename) antes de hashear; el contenido lo ancla el `data_hash`. Mecanismo en SDD-02/05; test de estabilidad cross-máquina en SDD-24.
 
 ---
 

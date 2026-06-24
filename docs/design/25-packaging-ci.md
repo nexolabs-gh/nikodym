@@ -9,7 +9,7 @@
 | **Estado** | Aprobado |
 | **Depende de** | — (no depende de ningún módulo `nikodym`; define el contenedor del que todos dependen) |
 | **Lo consumen** | Todos los SDD (cada dominio declara su extra y sus deps aquí); en especial SDD-01 (`uv_lock_hash` del `LineageBundle`), SDD-24 (CI de tests), SDD-05 (extra `[sweep]`), SDD-12/13/14/18/20/23/26 (extras de dominio). |
-| **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 |
+| **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
 
 ---
 
@@ -84,6 +84,12 @@ def require_extra(extra: str, *modules: str) -> tuple:
     MissingDependencyError con la instrucción de instalación.
 
     Ejemplo: xgb, = require_extra("xgboost", "xgboost")
+
+    Contrato para un `extra` NO presente en EXTRA_TO_DISTRIBUTIONS: funciona igual
+    (el mensaje usa el nombre literal `extra` → "pip install nikodym[<extra>]"), pero
+    el test de biyección (§11) garantiza que TODO extra real de
+    [project.optional-dependencies] (menos "all") esté en el mapa, así que en la práctica
+    el `extra` siempre está catalogado; un nombre fuera del mapa es un bug de quien llama.
     """
     ...
 
@@ -101,6 +107,7 @@ def has_extra(extra: str, *modules: str) -> bool:
 # la dist).
 EXTRA_TO_DISTRIBUTIONS: dict[str, tuple[str, ...]] = {
     "scoring":     ("optbinning", "statsmodels", "scikit-learn"),
+    "ml":          ("sklearn",),          # SVM/RF nativos de sklearn (módulo import = "sklearn")
     "xgboost":     ("xgboost",),
     "lightgbm":    ("lightgbm",),
     "catboost":    ("catboost",),
@@ -111,6 +118,7 @@ EXTRA_TO_DISTRIBUTIONS: dict[str, tuple[str, ...]] = {
     "tracking":    ("mlflow",),
     "ui":          ("streamlit",),
     "sweep":       ("hydra-core", "omegaconf"),
+    "polars":      ("polars",),           # backend de carga opcional (SDD-02 D-DATA-1)
     # "all" se compone por unión (ver §5); "report" (Quarto) es binario externo, ver §8/§12.
 }
 ```
@@ -157,7 +165,10 @@ m.fit(X, y)                          # MissingDependencyError con la instrucció
 ```toml
 # ─────────────────────────── build backend ───────────────────────────
 [build-system]
-requires = ["hatchling>=1.24"]              # piso coherente con §10 (build reproducible, PyPA)
+requires = ["hatchling>=1.27"]              # ≥1.27: emite core-metadata 2.4 (License-Expression) por
+                                            # defecto y soporta license-files como array de globs (PEP 639
+                                            # final). 1.24-1.25 NO escriben la metadata SPDX como manda el
+                                            # spec final → piso subido en Tanda 1 Rev (C15). Verificado context7.
 build-backend = "hatchling.build"
 
 # ─────────────────────────── metadata (PEP 621) ──────────────────────
@@ -188,9 +199,14 @@ dependencies = [
   "pydantic>=2.5",        # config, LineageBundle, AuditEvent (MIT)
   "numpy>=1.22",          # SeedSequence/Generator (BSD)
   "pandas>=2.0",          # DataFrame, contrato de I/O universal (BSD) — SDD-05 §6
+  "pandera>=0.20",        # validación de esquema tabular (MIT) — "siempre (data)" en SDD-02 §10; nikodym.data lo importa
+  "pyarrow>=12",          # lectura Parquet (Apache-2.0) — dep base de data (SDD-02 §10)
   "joblib>=1.3",          # persistencia de artefactos (BSD)
   "PyYAML>=6.0",          # round-trip YAML legible (MIT)
 ]
+# NOTA (Tanda 1 Rev, C01): pandera y pyarrow son BASE (no extra) porque nikodym.data los importa
+# incondicionalmente (SchemaValidator y lectura Parquet). Sin ellos, `import nikodym.data` daría
+# ModuleNotFoundError y rompería el DoD F0. Licencias permisivas (MIT / Apache-2.0), sin copyleft.
 
 [project.urls]
 Homepage = "https://github.com/nexolabs-gh/nikodym"
@@ -220,11 +236,14 @@ survival    = ["lifelines>=0.28"]                     # MIT — KM/Cox/AFT (SDD-
 tracking = ["mlflow>=2.10"]                # Apache-2.0 (runs/registry, SDD-04)
 ui       = ["streamlit>=1.30"]             # Apache-2.0 (editor de config, SDD-23)
 sweep    = ["hydra-core>=1.3", "omegaconf>=2.3"]   # MIT / BSD-3 (barridos CLI, SDD-05 §5.6)
+polars   = ["polars>=0.20"]                # MIT — backend de carga opcional de data (D-DATA-1, SDD-02 §8/§10)
+# SVM/RF nativos de sklearn (SDD-12): solo requieren scikit-learn>=1.6 (no un backend extra).
+ml       = ["scikit-learn>=1.6"]           # BSD — modelos sklearn-native (SVM/RandomForest); GBDT van en sus extras
 # Meta-extra: TODO lo redistribuible. Excluye explícitamente copyleft (scikit-survival GPL-3.0).
 all = [
-  "nikodym[scoring]", "nikodym[xgboost]", "nikodym[lightgbm]", "nikodym[catboost]",
+  "nikodym[scoring]", "nikodym[ml]", "nikodym[xgboost]", "nikodym[lightgbm]", "nikodym[catboost]",
   "nikodym[tuning]", "nikodym[explain]", "nikodym[forecasting]", "nikodym[survival]",
-  "nikodym[tracking]", "nikodym[ui]", "nikodym[sweep]",
+  "nikodym[tracking]", "nikodym[ui]", "nikodym[sweep]", "nikodym[polars]",
 ]
 
 # ───────────── GRUPOS de DESARROLLO (PEP 735 — NO se redistribuyen) ─────────────
@@ -263,8 +282,9 @@ exclude = ["/.github", "/docs", "/.venv", "*.parquet", "*.csv"]   # nunca datos 
 # ─────────────────────────── uv (lock/resolución) ───────────────────────────
 [tool.uv]
 required-version = ">=0.5"
-# default-groups: qué grupos sincroniza `uv sync` sin flags. Por defecto solo "dev"
-# (que ya incluye test/lint/docs). En CI se pinea explícito con --group.
+default-groups = ["dev"]    # qué grupos sincroniza `uv sync` sin flags (RESUELTO, Tanda 1 Rev): solo "dev"
+                            # (que ya incluye test/lint/docs vía include-group). En CI se pinea explícito con --group;
+                            # para un entorno limpio sin grupos: `uv sync --no-default-groups` (§4.2).
 
 # ─────────────────────────── ruff / mypy / pytest ───────────────────────────
 [tool.ruff]
@@ -294,24 +314,36 @@ module = [
   "optbinning.*", "lifelines.*", "pmdarima.*", "shap.*", "catboost.*",
   "xgboost.*", "lightgbm.*", "statsmodels.*", "scipy.*",
   "mlflow.*", "streamlit.*", "hydra.*", "omegaconf.*", "pandera.*",
+  "pyarrow.*", "polars.*",   # pyarrow es dep BASE (C01); polars es extra opcional (C07)
 ]
 ignore_missing_imports = true               # libs sin stubs; relajar SOLO el import, no el strict del código propio
 
+# ── [tool.pytest.ini_options] y [tool.coverage.*]: CONTENIDO transcrito VERBATIM de SDD-24 ──
+# (Tanda 1 Rev, C02/C12): SDD-24 es DUEÑO del contenido (markers, filterwarnings, fail_under,
+# exclude_also); SDD-25 lo COPIA tal cual y CABLA los jobs (§7). NO se mantiene una lista de
+# markers ni un bloque de coverage divergente: con --strict-markers, divergir rompe la colección.
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "--strict-markers --strict-config -ra"
 testpaths = ["tests"]
-markers = [
-  "slow: marca tests lentos (excluibles con -m 'not slow')",
-  "extra_ml: requiere extras de ML (xgboost/lightgbm/catboost)",
-  "repro: tests de reproducibilidad determinista",
+markers = [   # ← lista canónica de SDD-24 §5 (copiada exacta)
+  "slow: test lento, excluible en el loop rápido",
+  "requires_xgboost: requiere el extra [xgboost]",
+  "requires_lightgbm: requiere el extra [lightgbm]",
+  "requires_catboost: requiere el extra [catboost]",
+  "requires_forecasting: requiere el extra [forecasting]",
+  "gbdt_nondeterministic: reproducibilidad no garantizada (GBDT multihilo)",
 ]
+filterwarnings = ["error"]   # D-TEST-1 de SDD-24: un warning no manejado FALLA el test (regulatorio)
 
 [tool.coverage.run]
 source = ["nikodym"]
 branch = true
 [tool.coverage.report]
-exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:"]
+fail_under = 90              # gate GLOBAL (SDD-24 §11). El 100% por-módulo se cabla en un job aparte (§7).
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "^\\s*\\.\\.\\.\\s*$"]
+                            # exclude_also (no exclude_lines): AÑADE a los defaults (preserva 'pragma: no cover');
+                            # el patrón de Ellipsis va ANCLADO (^...$) — copiado de SDD-24 §5.
 ```
 
 **Matriz de extras (resumen canónico, fuente para la doc y para `EXTRA_TO_DISTRIBUTIONS`):**
@@ -319,6 +351,7 @@ exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECK
 | Extra | Distribuciones | Licencia | SDD que lo usa | Piso sklearn |
 |---|---|---|---|---|
 | `scoring` | optbinning, statsmodels, scikit-learn, scipy | Apache/BSD ✅ | 06–11 | **≥1.6** |
+| `ml` | scikit-learn (SVM/RandomForest nativos) | BSD ✅ | 12 | **≥1.6** |
 | `xgboost` | xgboost (+sklearn) | Apache-2.0 ✅ | 12 | **≥1.6** |
 | `lightgbm` | lightgbm (+sklearn) | MIT ✅ | 12 | **≥1.6** |
 | `catboost` | catboost (+sklearn) | Apache-2.0 ✅ | 12 | **≥1.6** |
@@ -329,6 +362,7 @@ exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECK
 | `tracking` | mlflow | Apache-2.0 ✅ | 04 | — |
 | `ui` | streamlit | Apache-2.0 ✅ | 23 | — |
 | `sweep` | hydra-core, omegaconf | MIT/BSD-3 ✅ | 05 | — |
+| `polars` | polars | MIT ✅ | 02 | — |
 | `all` | unión de los anteriores | sin copyleft ✅ | — | ≥1.6 |
 | `report` *(reservado)* | — *(lo define SDD-26)* | permisivo (TBD) | 26 | — |
 | ~~scikit-survival~~ | — | **GPL-3.0 ❌** | research only | **EXCLUIDO** |
@@ -377,8 +411,10 @@ SDD-25 no procesa datos de negocio; sus "datos" son artefactos de build y CI.
 
 **Flujo de CI (push/PR → GitHub Actions).**
 1. **Job `quality`** (rápido, una versión de Python): checkout → `astral-sh/setup-uv` → `uv sync --locked --group lint` → `ruff check` + `ruff format --check` → `mypy` (`strict = true`, todo el paquete; ver §5).
-2. **Job `test`** (matriz `python: [3.11, 3.12, 3.13] × os: [ubuntu, macos, windows]`): `uv sync --locked --group test --extra scoring` → `pytest --cov`. Un job adicional con `--all-extras` para la suite ML (marcado `extra_ml`).
-3. **Job `build`**: `uv build` → smoke test (`uv run --isolated --no-project --with dist/*.whl -c "import nikodym; print(nikodym.__version__)"`) + verificación anti-copyleft (escanea metadata del wheel y el lock).
+2. **Job `test`** (matriz `python: [3.11, 3.12, 3.13] × os: [ubuntu, macos, windows]`): `uv sync --locked --group test --extra scoring` → `pytest --cov`. Un job `test-all` con `--all-extras` corre la suite completa (incl. los tests marcados `requires_xgboost`/`requires_lightgbm`/`requires_catboost`/`requires_forecasting` y el meta-test de familias de SDD-24, que exige `[all]`); los `gbdt_nondeterministic` van `xfail`.
+   - **Subset en ramas (no-`main`/no-PR):** solo `python=3.12 × os=ubuntu` con `--extra scoring` (sin matriz completa ni `--all-extras`), para feedback rápido; la matriz completa se reserva a `main` y PRs.
+2bis. **Job `coverage-regulatory`** (cablea el 100% por-módulo que delega SDD-24 §11): `pytest --cov=nikodym.core.exceptions --cov=nikodym.core.seeding --cov=nikodym.provisioning.cmf --cov=nikodym.provisioning.ifrs9 --cov-fail-under=100` (código regulatorio: 0 branches sin testear). El gate global 90 lo impone `fail_under=90` del job `test`.
+3. **Job `build`**: `uv build` → smoke test (`uv run --isolated --no-project --with dist/*.whl -c "import nikodym; print(nikodym.__version__)"`) + **verificación anti-copyleft** (mecánica en §11/C16: `uv export` del cierre transitivo → parser SPDX → lista vetada GPL/LGPL/AGPL → **FALLAR ante licencia ausente**) + verificación de que el wheel emite `License-Expression: Apache-2.0` (requiere hatchling≥1.27, C15).
 4. **Job `lock-check`**: `uv lock --check` (el lock está al día con `pyproject.toml`).
 5. **Job `release`** (solo en tag `v*`): `uv build && uv publish` vía **Trusted Publishing (OIDC)**, sin tokens en secretos.
 
@@ -423,7 +459,7 @@ SDD-25 no procesa datos de negocio; sus "datos" son artefactos de build y CI.
 
 | Herramienta | Versión mín. | Licencia | Rol | Redistribuida en wheel |
 |---|---|---|---|---|
-| hatchling | ≥1.24 | MIT ✅ | build backend (PEP 517) | No (build-only) |
+| hatchling | ≥1.27 | MIT ✅ | build backend (PEP 517); ≥1.27 por metadata PEP 639/License-Expression (C15) | No (build-only) |
 | uv | ≥0.5 | Apache-2.0/MIT ✅ | gestor/lock/build/publish | No (tooling) |
 | ruff | ≥0.5 | MIT ✅ | lint + format (`[dependency-groups].lint`) | No |
 | mypy | ≥1.10 | MIT ✅ | type-check `strict = true` (todo el paquete; ver §5) | No |
@@ -432,7 +468,7 @@ SDD-25 no procesa datos de negocio; sus "datos" son artefactos de build y CI.
 | pre-commit | ≥3.7 | MIT ✅ | hooks locales (`dev`) | No |
 | mkdocs-material | ≥9.5 | MIT ✅ | docs del repo (`docs`) | No |
 
-**Núcleo base redistribuido** (`[project.dependencies]`): pydantic, numpy, pandas, joblib, PyYAML — todas MIT/BSD (coherente con SDD-01 §10; pandas se añade por ser el contrato de I/O universal de SDD-05 §6).
+**Núcleo base redistribuido** (`[project.dependencies]`, 7 deps): pydantic, numpy, pandas, **pandera, pyarrow**, joblib, PyYAML — todas MIT/BSD/Apache (coherente con SDD-01 §10; pandas por ser el contrato de I/O universal de SDD-05 §6; **pandera y pyarrow** como deps base de `data` —SDD-02 §10, C01—, que `nikodym.data` importa incondicionalmente).
 
 **Extras redistribuidos:** ver tabla §5 — todas permisivas. **Vetado en cualquier tabla redistribuida:** GPL/LGPL/AGPL (en particular `scikit-survival` GPL-3.0). `hypothesis` (MPL-2.0) confinado a `[dependency-groups]`.
 
@@ -445,13 +481,17 @@ SDD-25 no procesa datos de negocio; sus "datos" son artefactos de build y CI.
 Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que SDD-25 aporta):
 
 - **Build + smoke (CI).** `uv build` produce wheel+sdist; `uv run --isolated --no-project --with dist/*.whl -c "import nikodym"` confirma que el wheel instala e importa en un entorno limpio (atrapa módulos no incluidos / `src/` mal mapeado).
-- **Núcleo liviano (test de aislamiento).** Tras `import nikodym` en un entorno **solo-base** (sin extras), inspeccionar `sys.modules`: ausentes `sklearn`, `xgboost`, `lightgbm`, `catboost`, `mlflow`, `streamlit`, `lifelines`, `statsmodels`. Invariante §6.
+- **Núcleo liviano (test de aislamiento).** Tras `import nikodym` en un entorno **solo-base** (sin extras), inspeccionar `sys.modules`: **ausentes** `sklearn`, `xgboost`, `lightgbm`, `catboost`, `mlflow`, `streamlit`, `lifelines`, `statsmodels`. **Presentes y aceptables** (deps base): `pandas`, `pandera`, `pyarrow`, `numpy`, `pydantic`, `joblib`, `yaml` — `nikodym.data` los importa y son parte del núcleo F0 (C01). `polars` **ausente** (es extra opcional). Invariante §6.
 - **Import perezoso (mensaje al usuario).** En un entorno sin el extra `xgboost`, usar el backend levanta `MissingDependencyError` cuyo mensaje **contiene** `"nikodym[xgboost]"`. Test parametrizado sobre todos los extras de `EXTRA_TO_DISTRIBUTIONS`.
 - **Contenido del wheel.** Abrir el `.whl` (zip) y verificar: contiene `nikodym/__init__.py`; **no** contiene `tests/`, `*.parquet`, `*.csv`; los metadatos (`METADATA`) listan los extras de `[project.optional-dependencies]` y **no** los `[dependency-groups]`.
-- **Anti-copyleft.** Sobre el lock + metadata del wheel, fallar si aparece una licencia GPL/LGPL/AGPL. (Usa la clasificación SPDX de la metadata instalada.)
+- **Anti-copyleft (mecánica especificada, C16).** Mitigación central de R-LIC; el verificador se define explícito (un invariante "verificable en CI" cuyo verificador no esté definido no garantiza nada):
+  - **Entrada/herramienta:** `uv export --format requirements-txt --all-extras --no-dev` produce el **cierre transitivo** del lock (no solo deps directas); por cada distribución se obtiene su SPDX de la metadata instalada (`importlib.metadata` → campo `License-Expression` de core-metadata 2.4 si existe; si no, se normaliza el `License` legacy y los classifiers Trove con un parser SPDX). *(pip-licenses opera sobre el entorno instalado, no sobre el lock; por eso se prefiere `uv export` como fuente.)*
+  - **Lista CERRADA de SPDX vetados:** toda variante de `GPL-*`, `LGPL-*`, `AGPL-*` (p.ej. `GPL-2.0-only`, `GPL-3.0-or-later`, `LGPL-2.1`, `AGPL-3.0`). `MPL-2.0` se tolera **solo** en `[dependency-groups]` (no en deps redistribuidas).
+  - **Política ante licencia AUSENTE/AMBIGUA: `FALLAR` por defecto** (allowlist explícita por dist conocida, no denylist): ninguna licencia no clasificada pasa en silencio — un falso negativo derrotaría la garantía.
+  - **Alcance:** el cierre transitivo del lock, no solo deps directas. Falla el build nombrando la distribución y su SPDX infractor.
 - **Lock al día.** `uv lock --check` no produce cambios (el lock refleja `pyproject.toml`).
 - **Coherencia de versión.** `nikodym.__version__` parsea como SemVer y, en release, coincide con el tag git.
-- **Coherencia extra↔config (propiedad).** El test cruza **CLAVES de extra**: `set(EXTRA_TO_DISTRIBUTIONS) == set([project.optional-dependencies]) - {"all"}` (más `report`, que está reservado y aún sin deps pip — se excluye hasta que SDD-26 lo defina). **No** compara la lista exacta de distribuciones por extra: las tuplas del mapa son los **módulos importables a probar** con `require_extra`, que legítimamente difieren de las deps del extra en §5 (p.ej. `scipy` es transitivo de `scoring` y no se prueba). Atrapa drift de claves entre `pyproject.toml` y el mapa de mensajes.
+- **Coherencia extra↔config (propiedad).** El test cruza **CLAVES de extra**: `set(EXTRA_TO_DISTRIBUTIONS) == set([project.optional-dependencies]) - {"all"}` (más `report`, que está reservado y aún sin deps pip — se excluye hasta que SDD-26 lo defina). **No** compara la lista exacta de distribuciones por extra: las tuplas del mapa son los **módulos importables a probar** con `require_extra`, que legítimamente difieren de las deps del extra en §5 (p.ej. `scipy` es transitivo de `scoring` y no se prueba). Atrapa drift de claves entre `pyproject.toml` y el mapa de mensajes. **Cruce de tres vías (Tanda 1 Rev, C07):** además se asevera que **todo extra nombrado en un mensaje `require_extra`/`MissingDependencyError` de cualquier SDD** (p.ej. `nikodym[polars]` que dispara `LoadConfig.backend="polars"` de SDD-02) **exista** en `[project.optional-dependencies]` — así un extra prometido por un SDD pero ausente del packaging (como pasó con `polars`) falla el test, no degrada en silencio con `pip WARNING: does not provide the extra`.
 - **Matriz de Python.** La suite base corre en 3.11/3.12/3.13 (la matriz de CI es el "test").
 
 **Fixtures.** Wheel construido en un tmpdir; entorno virtual efímero (`uv venv`) para el smoke; un módulo de dominio *dummy* que llama `require_extra("inexistente", "modulo_que_no_existe")` para validar el mensaje sin depender de un backend real.
@@ -462,7 +502,7 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
 
 **Decisiones resueltas en este SDD (trazabilidad).**
 - **D-PKG-1 — hatchling como build backend** (no setuptools/poetry/flit). *Porqué:* mínimo, PEP 621 puro, sin `setup.py`, versión dinámica desde `__init__.py`; lo fija D-PKG (ESPEC §3.3). *Alternativa descartada:* `poetry` (su tabla `[tool.poetry]` precede a PEP 621 y duplica metadata; menos estándar). **Reversible** sin tocar código de `nikodym` (solo `[build-system]`).
-- **D-PKG-2 — Frontera núcleo-base ↔ extras.** Base = pydantic+numpy+pandas+joblib+PyYAML (livianas, permisivas, suficientes para `Study`/config/lineage). Todo ML/forecasting/UI/tracking tras extra con import perezoso. *Porqué:* núcleo liviano (§4 principio 9) + `import nikodym` siempre funciona. *Nota:* se **añade pandas a la base** (SDD-01 §10 no lo listaba) porque es el contrato de I/O universal de SDD-05 §6; se señala al integrador para conciliar con SDD-01. *Nota de alcance:* los extras `tuning` (optuna, MIT) y `explain` (shap MIT + matplotlib PSF) no figuraban en la lista ejemplar del encargo; se **derivan deliberadamente** de ESPEC §7 (stack con licencias) y de SDD-13 (tuning) / SDD-14 (explicabilidad). No son invención fuera de alcance: completan el mapa para que `[all]` y `EXTRA_TO_DISTRIBUTIONS` sean coherentes.
+- **D-PKG-2 — Frontera núcleo-base ↔ extras.** Base = pydantic+numpy+pandas+joblib+PyYAML (livianas, permisivas, suficientes para `Study`/config/lineage). Todo ML/forecasting/UI/tracking tras extra con import perezoso. *Porqué:* núcleo liviano (§4 principio 9) + `import nikodym` siempre funciona. *Nota (conciliado):* la base incluye **pandas** (contrato de I/O universal, SDD-05 §6) y, desde Tanda 1 Rev, **pandera + pyarrow** (deps base de `data`, SDD-02 §10, C01). La conciliación con SDD-01 **ya está hecha**: SDD-01 §10 (Nota) distingue explícitamente "dep de distribución" vs "import de core" y delega el mapa a SDD-25 — *no queda nada que señalar al integrador* (el claim anterior quedó stale, corregido en Tanda 1 Rev). *Nota de alcance:* los extras `tuning` (optuna, MIT) y `explain` (shap MIT + matplotlib PSF) no figuraban en la lista ejemplar del encargo; se **derivan deliberadamente** de ESPEC §7 (stack con licencias) y de SDD-13 (tuning) / SDD-14 (explicabilidad). No son invención fuera de alcance: completan el mapa para que `[all]` y `EXTRA_TO_DISTRIBUTIONS` sean coherentes.
 - **D-PKG-3 — `[dependency-groups]` (PEP 735) para test/lint/docs/dev, no extras.** *Porqué:* no se publican en el wheel → permiten `hypothesis` (MPL-2.0) sin redistribuir copyleft; uv los gestiona nativamente. *Alternativa descartada:* un extra `[dev]` (se publicaría en metadata; ensucia y arrastra copyleft débil al artefacto).
 - **D-PKG-4 — `scikit-learn>=1.6` en todos los extras de dominio.** *Porqué:* `check_estimator`/tags modernos lo exigen (D-CONV-4, SDD-05 §4). *Consecuencia:* es regla dura verificable en CI, no un default ajustable.
 - **D-PKG-5 — `requires-python>=3.11`, matriz 3.11–3.13.** *Porqué:* 3.11 es el piso razonable a 2026 (mejoras de typing/perf); evita cargar compat de 3.9/3.10. *Reversible* si un cliente institucional exige 3.10.
@@ -472,11 +512,11 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
 - **`report` (Quarto) no es un extra pip.** Quarto es binario externo; el contrato de detección/mensaje es de **SDD-26**. El nombre del extra `[report]` queda **reservado** en la matriz §5 para SDD-26 (que decidirá si agrega deps pip como jinja2/plotly junto al binario Quarto). *Responsable:* DanIA + autor SDD-26. Acotada a T2/F1: no bloquea este SDD.
 - **Trusted Publishing (OIDC) vs token PyPI** para el job `release`. *Sugerencia:* OIDC (sin secretos). *Responsable:* DanIA al armar el repo público.
 - **`hatch-vcs` (versión por tag) vs `__init__.py`** — reevaluar al primer release público (SDD-26/F1).
-- **Política de `default-groups` de uv** (¿`dev` por defecto, o vacío para entornos limpios?). *Sugerencia:* default `dev` localmente, explícito en CI.
+- **Política de `default-groups` de uv — RESUELTO (Tanda 1 Rev):** `default-groups = ["dev"]` en `[tool.uv]` (dev incluye test/lint/docs); entorno limpio con `--no-default-groups`. Ver §5.
 - **Email de contacto público del paquete.** El `authors.email` viaja en la metadata pública del wheel (PyPI). `admin@nxlabs.cl` es personal/administrativo; para una librería que es escaparate de la consultora Nikodym, conviene un alias de proyecto (p.ej. `contacto@`/`opensource@`). *Sugerencia:* alias de proyecto. *Responsable:* DanIA + Cami al armar el repo público (F1).
 
 **Riesgos.**
-- **R-LIC — copyleft transitivo se cuela al wheel.** *Mitigación:* job anti-copyleft que escanea el lock + metadata y falla el build; `hypothesis` confinado a `[dependency-groups]`; `scikit-survival` sin extra. (Es el riesgo regulatorio/reputacional más caro: un wheel "Apache-2.0" con GPL transitivo daña la marca Nikodym.)
+- **R-LIC — copyleft transitivo se cuela al wheel.** *Mitigación (mecánica especificada, C16):* job anti-copyleft con **`uv export` del cierre transitivo → parser SPDX → lista CERRADA vetada (GPL/LGPL/AGPL) → FALLAR ante licencia ausente/ambigua** (allowlist, no denylist); `hypothesis` confinado a `[dependency-groups]`; `scikit-survival` sin extra. Detalle en §11. (Es el riesgo regulatorio/reputacional más caro: un wheel "Apache-2.0" con GPL transitivo daña la marca Nikodym.)
 - **R3 (determinismo, ESPEC §12) — entorno no pineado.** *Mitigación:* `uv.lock` + `--locked` en CI + hash al lineage.
 - **Drift `pyproject.toml`↔`EXTRA_TO_DISTRIBUTIONS`↔mensajes.** *Mitigación:* test de propiedad cruzado (§11).
 - **Matriz de CI lenta/cara** (3 Python × 3 OS × extras ML). *Mitigación:* matriz completa solo en `main`/PR; subset en ramas; cache de uv; suite ML marcada y separable.
@@ -489,7 +529,7 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
 - **ESPECIFICACIONES.md** §3.3 (D-LIC Apache-2.0 sin copyleft; D-PKG `uv`+`hatchling`, `pyproject.toml`, `src/` layout), §4 (principios 1 reproducibilidad, 9 núcleo liviano con extras e import perezoso, 8 no reinventar, 10 calidad ejemplar como marketing, 11 verificación de datos externos), §6.3 (árbol de paquetes), §7 (stack con licencias: tabla fuente de los extras; `scikit-survival` GPL-3.0 vetado; `hypothesis` MPL-2.0 dev-only no redistribuido; `[project.optional-dependencies]` para extras y `[dependency-groups]` PEP 735 para test/lint/docs/dev), §9 (lineage bundle incl. `uv.lock`), §10 (CI: ruff, mypy strict —aquí `strict = true` en todo el paquete, que cubre la API pública—, tests, build, pre-commit; SemVer, changelog), §11 F0 DoD (`pyproject.toml` uv+hatchling, CI), §12 (R3 determinismo → pin `uv.lock`, R5).
 - **ROADMAP.md** F0 (entregables: `src/` layout, `pyproject.toml` uv+hatchling con extras declarados; CI ruff/mypy/pytest, pre-commit, plantillas issue/PR; DoD CI verde), F1 (release público v0.1.0 en PyPI).
 - **00-INDICE.md** SDD-25 (Packaging+CI, F0/T1, depende de —, Ingeniería), §Convenciones (fórmulas/parámetros se citan, no se reescriben).
-- **SDD-01 (`core`)** §4 (jerarquía `core.exceptions`, base para `MissingDependencyError` propuesta), §9 (`LineageBundle.uv_lock_hash`, `library_versions`, `determinism_caveats`, `strict_determinism`), §10 (deps base del núcleo: pydantic/numpy/joblib/PyYAML — este SDD añade pandas, señalado al integrador), D-CORE-1 (`core` no depende de sklearn; multiherencia en dominios).
+- **SDD-01 (`core`)** §4 (jerarquía `core.exceptions`, base para `MissingDependencyError` propuesta), §9 (`LineageBundle.uv_lock_hash`, `library_versions`, `determinism_caveats`, `strict_determinism`), §10 (deps base del núcleo: pydantic/numpy/joblib/PyYAML; **conciliación ya hecha** —SDD-01 §10 distingue dep de distribución vs import de core y delega el mapa a SDD-25—: la distribución añade además pandas + pandera + pyarrow como deps base de `data`, C01), D-CORE-1 (`core` no depende de sklearn; multiherencia en dominios).
 - **SDD-05 (convenciones+config)** §4 (D-CONV-4: `check_estimator` solo en estimadores de dominio que multiheredan `BaseEstimator`, requiere sklearn ≥1.6), §5.6 (extra `[sweep]` Hydra/OmegaConf, import perezoso), §10 (sklearn dep de los extras, no de `core`).
 - **Verificado vía context7 (mecánica de packaging, doc oficial):**
   - **hatchling/Hatch** (`/pypa/hatch`): `[build-system] requires=["hatchling"]` + `build-backend="hatchling.build"`; `[tool.hatch.version] path=...`; `[tool.hatch.build.targets.wheel] packages=["src/foo"]`; `[tool.hatch.build.targets.sdist] include/exclude`; `[project.optional-dependencies]` para features opcionales; `dynamic=["version"]`.

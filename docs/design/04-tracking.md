@@ -9,7 +9,7 @@
 | **Estado** | Aprobado |
 | **Depende de** | SDD-01 (`core`), SDD-03 (`audit`+`governance`) |
 | **Lo consumen** | SDD-03 (governance lee el inventario), SDD-23 (UI: vincula corridas/modelos), SDD-26 (report: enlaza al run), dominios (vía orquestación del `Study`) |
-| **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 |
+| **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
 
 ---
 
@@ -133,11 +133,14 @@ class MLflowInventory:
     # --- métodos del Protocol ModelInventory (SDD-03 §4.2): lo que governance consume ---
     def register(self, entry: "InventoryEntry") -> str: ...
         # ESCRITURA: client.create_model_version(name, source=runs:/<run_id>/model, run_id, tags={...})
-        # + set_model_version_tag (config_hash, data_hash, git_sha, métricas clave, cartera/motor)
-        # + set_registered_model_alias para los aliases declarados (champion/production, gobernados por SDD-03).
-        # Idempotencia por config_hash (§7, D-TRK-7): si ya existe una versión con tag
-        # nikodym.config_hash == entry.config_hash, NO crea otra; devuelve esa version id.
-        # -> version id del Registry. Sin backend DB -> RegistryUnavailableError o None (§8, D-TRK-2).
+        # + set_model_version_tag para las 3 capas del esquema canónico (D5, prefijo nikodym.):
+        #     (B) identidad: nikodym.config_hash/data_hash/git_sha/root_seed/run_id/schema_version/model_card_uri
+        #     (C) descriptivos (vocab cerrado, de GovernanceConfig): nikodym.cartera/motor/fase/estado_validacion/autor/proxima_revision
+        #   (las métricas NO van como tags: van como metrics del run y en entry.metrics)
+        # + set_registered_model_alias para los aliases declarados por governance (champion/challenger/production).
+        # Idempotencia por la ancla (model_name, nikodym.config_hash) (§7, D-TRK-7): si ya existe una versión
+        # de ese model_name con ese config_hash, NO crea otra; devuelve esa version id.
+        # -> version id del Registry. Sin backend DB -> levanta RegistryUnavailableError (NUNCA None silencioso; §8, D-TRK-2).
     def get_active(self, model_name: str) -> "InventoryRecord | None": ...
         # versión apuntada por el alias activo (default 'champion'); None si no hay alias. Devuelve InventoryRecord (liviano).
     def list_versions(self, model_name: str) -> list["InventoryRecord"]: ...   # del Protocol; rehidrata InventoryRecord desde tags
@@ -168,15 +171,22 @@ class RegisteredModelInfo(BaseModel):
 
 **Convenciones de naming en MLflow (claves estables, contrato auditable).** Tags y params con prefijo `nikodym.` para no colisionar con autolog ni con MLflow:
 
-| Clave MLflow | Tipo | Origen |
+Esquema canónico de inventario en **3 capas** (D5): governance DEFINE el vocabulario (SDD-03 §4.2/§5), tracking lo ESCRIBE.
+
+| Clave MLflow | Tipo | Origen / vocabulario |
 |---|---|---|
-| `nikodym.config_hash` | tag | `core.config.io.config_hash(study.config)` (identidad, SDD-05) |
-| `nikodym.schema_version` | tag | `config.schema_version` |
-| `nikodym.git_sha` / `nikodym.git_dirty` | tag | `LineageBundle` |
-| `nikodym.root_seed` | tag | `LineageBundle.root_seed` |
-| `nikodym.uv_lock_hash` / `nikodym.data_hash` | tag | `LineageBundle` |
-| `cfg.<sección>.<campo>` | param | config aplanado (§7) |
-| `<dominio>.<métrica>` | metric | `Study.results` numérico |
+| `nikodym.config_hash` | tag (B) | `core.config.io.config_hash(study.config)` — **ancla de idempotencia** (identidad, SDD-05) |
+| `nikodym.schema_version` | tag (B) | `config.schema_version` |
+| `nikodym.git_sha` / `nikodym.git_dirty` | tag (B) | `LineageBundle` |
+| `nikodym.root_seed` | tag (B) | `LineageBundle.root_seed` |
+| `nikodym.uv_lock_hash` / `nikodym.data_hash` | tag (B) | `LineageBundle` |
+| `nikodym.run_id` | tag (B) | `RunContext.run_id` (liga la versión al run) |
+| `nikodym.model_card_uri` | tag (B) | puntero al `model_card.json` (el card NO se reconstruye desde tags) |
+| `nikodym.cartera` / `nikodym.motor` / `nikodym.fase` | tag (C) | vocab CERRADO `Literal` de `GovernanceConfig` (SDD-03 §5) |
+| `nikodym.estado_validacion` / `nikodym.autor` / `nikodym.proxima_revision` | tag (C) | `GovernanceConfig` / `next_review_date` (ISO-8601) |
+| **alias** `champion` / `challenger` / `production` | alias (A) | `set_registered_model_alias` (1 alias→1 versión); gobernados por SDD-03 |
+| `cfg.<sección>.<campo>` | param | config aplanado, **excluyendo infra** (§7; ver fuga de params §8/§12) |
+| `<dominio>.<métrica>` | metric | `study.results["metrics"]` numérico (SDD-01 §6) |
 
 **Ejemplo de uso (extremo a extremo, pseudocódigo) — el camino que activa la orquestación:**
 
@@ -232,8 +242,11 @@ class TrackingConfig(NikodymBaseConfig):
         description="Nombre bajo el que se versiona en el Model Registry. None => config.name.")
     register_on_success: bool = Field(
         False, title="Registrar modelo al terminar",
-        description="Si True y hay backend de Registry, registra el artefacto-modelo al cerrar el run. "
-                    "Default False: el registro es una decisión de gobierno (SDD-03), no automática.")
+        description="RESERVADO v1 (no dispara): el disparador CANÓNICO del registro es "
+                    "governance.publish_to_inventory (SDD-03), un acto de gobierno SR 11-7, no un efecto "
+                    "colateral del run. Default False; se mantiene el campo para v2 (atajo de orquestación), "
+                    "pero en v1 publish_to_inventory tiene precedencia y register_on_success no gatilla "
+                    "register() por su cuenta (la idempotencia por config_hash, D-TRK-7, evita duplicados si ambos se activaran).")
     autolog: bool = Field(
         False, title="Autologging de MLflow",
         description="Default False (regla dura): el tracking NO debe alterar el cálculo ('la IA documenta, "
@@ -254,7 +267,7 @@ class TrackingConfig(NikodymBaseConfig):
 
 **Serialización YAML y UI.** Round-trip estándar (SDD-05 §5.5): `model_dump(mode="json")` ↔ `model_validate`. La UI (SDD-23) renderiza desde `model_json_schema()`: `tracking_uri`/`registry_uri`/`experiment_name` → `text_input`, los `bool` → `checkbox`.
 
-**`TrackingConfig` y el `config_hash` (resuelto, requiere coordinación con SDD-05).** El destino de tracking **no es parte del cálculo**, pero el `config_hash` es la **clave de idempotencia del inventario** (D-TRK-7; SDD-03 §7): si `tracking_uri`/`registry_uri` entraran al hash, **mover el destino de tracking rompería la idempotencia del registro del mismo modelo** (otro hash → versión duplicada). Por eso la decisión se cierra a favor de **excluir las secciones de infraestructura (`tracking`/`report`/`audit`) del `config_hash` de cálculo** que indexa el inventario; opcionalmente se mantiene un hash separado "de corrida completa" para auditoría. La materialización del hash vive en SDD-05 (`core.config.io.config_hash`): **requiere un PR a SDD-05** para fijar el conjunto de secciones excluidas. *Trazado en §12 (D-TRK-8); impacto de molde reportado al integrador.*
+**`TrackingConfig` y el `config_hash` (RESUELTO y APLICADO).** El destino de tracking **no es parte del cálculo**, pero el `config_hash` es la **clave de idempotencia del inventario** (D-TRK-7; SDD-03 §7): si `tracking_uri`/`registry_uri` entraran al hash, **mover el destino de tracking rompería la idempotencia del registro del mismo modelo** (otro hash → versión duplicada). Por eso las secciones de infraestructura se **excluyen del `config_hash`** vía `INFRA_SECTIONS = {"name", "governance", "audit", "tracking", "report"}`, **ya aplicado literal** en SDD-01 §5 y SDD-05 §5.5 (`model_dump(..., exclude=INFRA_SECTIONS)`). *No queda PR pendiente a SDD-05* — el conjunto excluido ya está fijado en el molde. *Trazado en §12 (D-TRK-9).*
 
 ---
 
@@ -282,7 +295,7 @@ class TrackingConfig(NikodymBaseConfig):
 
 > **Caveat de servibilidad (v1).** El artefacto `model/` se serializa con `joblib` del `SerializationMixin` (D-TRK-6), **no** como un MLflow Model con `MLmodel`/flavor. Por tanto, la entrada de inventario en v1 apunta a un artefacto de **trazabilidad/auditoría**, **no** a un modelo `pyfunc`-cargable (`mlflow.pyfunc.load_model(runs:/.../model)` **no** lo reconoce como servible). El serving vía flavors MLflow queda en T2+ (§12). Un validador no debe esperar servir directamente la versión registrada de v1.
 
-**Aplanado del config (params).** El árbol `NikodymConfig` se aplana a claves punteadas `cfg.<sección>.<campo>` con valores escalares; `list`/`dict` se serializan a su JSON compacto (MLflow params son strings; **límite verificado: MLflow trunca params largos**, §8). El config completo y fiel va **siempre** como artefacto `study/config.yaml` (la fuente de verdad; los params son índice navegable, no la copia canónica).
+**Aplanado del config (params).** El árbol `NikodymConfig` se aplana a claves punteadas `cfg.<sección>.<campo>` con valores escalares; `list`/`dict` se serializan a su JSON compacto (MLflow params son strings; **límite verificado: MLflow trunca params largos**, §8). **Redacción de infraestructura (anti-fuga):** las secciones de infra (`tracking`/`audit`/`governance`) NO se aplanan a params crudos — pueden arrastrar `tracking_uri`/`registry_uri`/rutas/credenciales; se **excluyen o redactan** (p.ej. `cfg.tracking.tracking_uri = "<redactado>"`). El config completo y fiel va **siempre** como artefacto `study/config.yaml` (la fuente de verdad; los params son índice navegable, no la copia canónica). *(Riesgo §12.)*
 
 **Invariantes (pre/post).**
 - *Pre:* `config.tracking is not None and config.tracking.enabled` (si no, el módulo es no-op); MLflow importable (si no y `fail_on_tracking_error=False` → warning + no-op).
@@ -301,7 +314,7 @@ class TrackingConfig(NikodymBaseConfig):
 1. `tracking_uri = config.tracking_uri or "<cwd>/mlruns"`; `mlflow.set_tracking_uri(tracking_uri)`.
 2. `registry_uri = config.registry_uri or tracking_uri`; `mlflow.set_registry_uri(registry_uri)`.
 3. `experiment = config.experiment_name or study.config.name`; `mlflow.set_experiment(experiment)`.
-4. Determinar `registry_db_backed = registry_uri.startswith(("sqlite", "postgresql", "mysql", "http", "https"))` → habilita o no `register_model` (D-TRK-2).
+4. Determinar `registry_db_backed = registry_uri.startswith(("sqlite", "postgresql", "mysql", "http", "https"))` → habilita o no `register_model` (D-TRK-2). *Caveat:* el prefijo es una **heurística** (un `http(s)://` apunta a un servidor MLflow que **podría** estar respaldado por file store, en cuyo caso no soporta Registry); por eso el chequeo definitivo es **capturar `MlflowException` en `create_model_version`** y traducirla a `RegistryUnavailableError` — la heurística solo evita la llamada en el caso obvio (file store local).
 
 **Apertura y logging del run (`start_run` + `run_end`).**
 1. `run = mlflow.start_run(run_name=run_name or study.name)` → `RunHandle(run_id, experiment_id, artifact_uri, tracking_uri)`.
@@ -311,12 +324,12 @@ class TrackingConfig(NikodymBaseConfig):
    a. `log_metrics(study.results)`: por cada par cuyo valor es numérico finito → `mlflow.log_metric(key, value)`; los no-numéricos → acumular en `results.json` y `mlflow.log_dict(..., "results.json")`.
    b. Si `log_study_artifacts`: `study.save(tmp)` y `mlflow.log_artifacts(tmp, "study")` (run autocontenido).
    c. Si `log_models`: cada estimador fiteado del `ArtifactStore` → `mlflow.log_artifact(joblib, "model")` (serialización ya definida por `SerializationMixin`, SDD-01; **no** se usa `mlflow.sklearn.log_model` en v1 para no acoplar a sklearn — D-TRK-6).
-   d. Si `register_on_success and registry_db_backed and log_models`: governance arma el `InventoryEntry` y `MLflowInventory.register(entry)` lo escribe (idempotente por `config_hash`, ver abajo). En F0 el registro lo gatilla normalmente `governance` (SDD-03), no la orquestación del run (D-TRK-4).
+   d. **Registro al inventario — disparador único:** lo gatilla **`governance.publish_to_inventory`** (SDD-03), no la orquestación del run. `register_on_success` está **reservado** y no dispara en v1 (D-TRK-4/C04). Cuando governance decide publicar (y `registry_db_backed and log_models`): arma el `InventoryEntry` y `MLflowInventory.register(entry)` lo escribe (idempotente por `config_hash`, ver abajo). Si ambos flags se activaran, la idempotencia por `config_hash` (D-TRK-7) garantiza una sola versión.
    e. Cerrar el run (status `FINISHED`/`FAILED` según excepción del `Study`).
 
 **Idempotencia del inventario por `config_hash` (en `MLflowInventory.register`, D-TRK-7).** Es el contrato que `governance` promete (SDD-03 §7): `register(entry)` **no duplica** versiones del mismo experimento.
-1. Pre-chequeo del backend: si `not registry_db_backed` → no se invoca `create_model_version` (D-TRK-2); se devuelve `None`+warning o `RegistryUnavailableError` (§8) según `fail_on_tracking_error`.
-2. Buscar versión existente con tag `nikodym.config_hash == entry.config_hash` (`client.search_model_versions(f"name='{name}'")` filtrando por el tag, verificado context7). Si existe → **devolver esa version id** (idempotente; no crea otra).
+1. Pre-chequeo del backend: si `not registry_db_backed` → no se invoca `create_model_version` (D-TRK-2); **`register` levanta `RegistryUnavailableError`** (es el contrato del `Protocol ModelInventory` de SDD-03: nunca None silencioso). *(El atajo de bajo nivel `TrackingRecorder.register_model` —no el método del Protocol— sí degrada a `None`+warning, porque es una conveniencia, no el contrato de inventario.)*
+2. Buscar versión existente del mismo `model_name` con tag `nikodym.config_hash == entry.config_hash` (`client.search_model_versions(f"name='{name}'")` filtrando por el tag, verificado context7). Si existe → **devolver esa version id** (idempotente por la ancla `(model_name, config_hash)`; no crea otra).
 3. Si no existe → `client.create_model_version(name, source=f"runs:/{entry.run_id}/model", run_id=entry.run_id, tags={...})`; luego `set_model_version_tag` para `nikodym.config_hash`/`data_hash`/`git_sha`/métricas/cartera/motor y `set_registered_model_alias` para los aliases declarados por governance. Devolver la nueva version id.
 
 > Esta idempotencia es a nivel de **versión del Registry por `config_hash`** (barata, es lo que pide SDD-03), **distinta** de "deduplicar runs" (que sí se difiere; §12): dos `Study.run()` idénticos siguen produciendo dos runs MLflow, pero `register` los consolida en **una sola** versión de inventario.
@@ -341,7 +354,7 @@ class TrackingConfig(NikodymBaseConfig):
 
 - **MLflow no instalado** (extra `[tracking]` ausente): import perezoso falla → si `fail_on_tracking_error=False` (default), warning claro ("instala `nikodym[tracking]` para habilitar tracking") y **no-op**; si `True`, `TrackingError`. `core` nunca depende de que esté.
 - **Servidor MLflow ausente / tracking_uri remoto inalcanzable** → **fallback a file store local** con warning (no aborta el cálculo): se reintenta con `./mlruns`. Coherente con DoD F0 (local) y con `fail_on_tracking_error=False`.
-- **Registry sin backend de base de datos** (file store) y se pide registrar → el wrapper de Nikodym **pre-chequea** el esquema del `registry_uri` (`registry_db_backed == False`, §7 paso 4), **OMITE** la llamada a `mlflow.register_model`/`create_model_version` y devuelve `None`+warning (no aborta; verificado context7: "Model Registry requires a database-backed store"). No es MLflow quien devuelve `None`: si por defensa se invocara contra un file store, MLflow lanzaría `MlflowException` (capturada y traducida a `RegistryUnavailableError`). El run y sus artefactos sí se persisten; el modelo queda como artefacto `runs:/.../model`, registrable luego contra un backend DB (D-TRK-2).
+- **Registry sin backend de base de datos** (file store) y se pide registrar → el wrapper **pre-chequea** el esquema del `registry_uri` (`registry_db_backed == False`, §7 paso 4) y **OMITE** la llamada a `create_model_version` (verificado context7: "Model Registry requires a database-backed store"). **Dos comportamientos según el método:** (a) `MLflowInventory.register(entry)` —el método del `Protocol ModelInventory`— **levanta `RegistryUnavailableError`** (contrato regulatorio: la publicación pedida no se puede honrar, falla ruidoso); (b) el atajo de bajo nivel `TrackingRecorder.register_model(...)` degrada a `None`+warning (conveniencia, no el contrato de inventario). En ambos, el run y sus artefactos sí se persisten; el modelo queda como artefacto `runs:/.../model`, registrable luego contra un backend DB (D-TRK-2). Si por defensa se invocara `create_model_version` contra un file store, MLflow lanzaría `MlflowException` (capturada y traducida a `RegistryUnavailableError`).
 - **Artefacto no serializable** (objeto sin pickle/joblib): se captura por artefacto, se omite ese fichero con warning y se anota en `results.json` la causa; el resto del run no se pierde (degradación elegante).
 - **Métrica no numérica o `NaN`/`inf`** en `Study.results`: no se loguea como metric (MLflow rechaza no-finitos); va a `results.json`.
 - **Param demasiado largo** (config con listas grandes): MLflow trunca/limita params → el valor en param es el JSON compacto recortado; la copia fiel siempre está en `study/config.yaml` (la verdad canónica, §6).
@@ -355,7 +368,11 @@ class TrackingConfig(NikodymBaseConfig):
 ```python
 class TrackingError(NikodymError): ...          # raíz del módulo (desciende de NikodymError, SDD-01 §4)
 class ModelNotFoundError(TrackingError): ...     # MLflowInventory.get_version de una versión inexistente
-class RegistryUnavailableError(TrackingError): ...# registrar sin backend DB y fail_on_tracking_error=True
+# RegistryUnavailableError NO se define aquí: es parte del CONTRATO del Protocol ModelInventory, que
+# DEFINE governance (SDD-03). tracking lo IMPORTA de nikodym.governance (dependencia normal 04 -> 03)
+# y lo levanta desde MLflowInventory.register cuando el backend no soporta Registry. Definirlo también
+# aquí duplicaría la clase y rompería el `except RegistryUnavailableError` del consumidor.
+from nikodym.governance.exceptions import RegistryUnavailableError   # (GovernanceError -> NikodymError)
 ```
 
 Todas descienden de `NikodymError` (regla de SDD-01 §4); mensajes en español con la regla/valor cuando aplica.
@@ -393,11 +410,11 @@ Todas descienden de `NikodymError` (regla de SDD-01 §4); mensajes en español c
 
 Detalle transversal en SDD-24; lo específico de `tracking`:
 
-- **MLflow local temporal (integración).** Fixture que fija `tracking_uri`/`registry_uri` a un `tmp_path` (file store): correr un `Study` mínimo (fixture de SDD-01) con `TrackingSink`, y verificar que en `mlruns/` aparece un run con (a) tag `nikodym.config_hash` == `config_hash(study.config)`, (b) los params `cfg.*` esperados, (c) las metrics numéricas, (d) los artefactos `study/config.yaml` y `study/lineage.json`. Sin servidor (file store, DoD F0).
+- **MLflow local temporal (integración).** Fixture que fija `tracking_uri`/`registry_uri` a un `tmp_path` (file store): correr un `Study` mínimo (fixture de SDD-01) con `TrackingSink`, y verificar **vía `MlflowClient`** (no parseando ficheros del store: el layout interno no es API estable, §12) que el run tiene (a) tag `nikodym.config_hash` == `config_hash(study.config)`, (b) los params `cfg.*` esperados (infra redactada), (c) las metrics numéricas, (d) los artefactos `study/config.yaml` y `study/lineage.json`. Sin servidor (file store, DoD F0).
 - **Registry sobre sqlite temporal (contrato del Protocol de SDD-03).** `registry_uri="sqlite:///<tmp>/registry.db"`: `MLflowInventory.register(InventoryEntry)` crea una versión con tags (`config_hash`/`data_hash`/...) y alias; `list_versions`/`get_version`/`latest_version(alias=...)` la recuperan con `run_id` y `config_hash` ligados. Verifica que `MLflowInventory` **cumple el `Protocol ModelInventory`** que consume governance (SDD-03 §4.2), contra un `InventoryEntry` real.
 - **Idempotencia por `config_hash` (D-TRK-7).** Dos `register(entry)` con el mismo `config_hash` → **una sola** versión (la segunda devuelve la version id existente, no duplica). `entry` con `config_hash` distinto → versión nueva.
 - **Aliases (no stages, D-TRK-8).** `register` con aliases declarados → `get_model_version_by_alias(name, "champion")` resuelve a la versión; reasignar el alias a otra versión lo mueve (sin tocar `stages`).
-- **Caso borde Registry sin DB.** Con file store, el wrapper pre-chequea el backend, **omite** la llamada y devuelve `None` + warning (no levanta `MlflowException`); el run sí persiste. (Aísla la restricción verificada de MLflow.)
+- **Caso borde Registry sin DB (dos métodos, dos contratos).** Con file store, el wrapper pre-chequea el backend y **omite** la llamada a `create_model_version` (no levanta `MlflowException`); el run sí persiste. Dos asserts distintos (coherente con §7/§8): **(a)** `MLflowInventory.register(entry)` —método del `Protocol ModelInventory`— **levanta `RegistryUnavailableError`** (falla ruidoso, contrato regulatorio); **(b)** el atajo de bajo nivel `TrackingRecorder.register_model(...)` **devuelve `None` + warning** (conveniencia, no el contrato de inventario). (Aísla la restricción verificada de MLflow: "Model Registry requires a database-backed store".)
 - **Degradación elegante (mock).** `monkeypatch` que hace fallar `mlflow.start_run`: con `fail_on_tracking_error=False` el `Study.run()` **termina OK** (cálculo intacto) y emite warning; con `True` levanta `TrackingError`. Test de que **el tracking jamás tumba el cálculo** por defecto.
 - **`enabled=False` / MLflow ausente.** Simular ausencia de MLflow (mock de import) → no-op, sin error, `Study` corre.
 - **`autolog=False` por defecto.** Verificar que no se llama `mlflow.autolog()` salvo `config.autolog=True` (test de que el tracking no parchea el cálculo).
@@ -418,11 +435,10 @@ Detalle transversal en SDD-24; lo específico de `tracking`:
 - **D-TRK-6 — Serialización de modelos vía `joblib` (SerializationMixin de core), no `mlflow.<flavor>.log_model` en v1.** *Porqué:* no acoplar a sklearn ni a un flavor; el `SerializationMixin` (SDD-01) ya define el formato. Los flavors MLflow (señales, `pyfunc`) quedan como mejora por dominio en T2+. *Consecuencia (caveat §6):* la versión de inventario v1 es un artefacto joblib de trazabilidad, **no** un modelo `pyfunc`-servible.
 - **D-TRK-7 — Idempotencia del inventario por `config_hash` en `MLflowInventory.register`.** *Porqué:* es el contrato que `governance` consume (SDD-03 §7): `register(entry)` busca una versión con tag `nikodym.config_hash == entry.config_hash` y, si existe, la devuelve sin crear otra (verificado context7: `search_model_versions` + tags). *Distinción:* esto es idempotencia **a nivel de versión del Registry**, NO "deduplicación de runs" (que sí se difiere). `tracking` **implementa** el `Protocol ModelInventory` de SDD-03 (`MLflowInventory`), no lo redefine.
 - **D-TRK-8 — Promoción del inventario vía `aliases`+`tags`, NO `stages` (deprecados).** *Porqué:* los Model Stages (`Staging`/`Production`/`Archived`) están **deprecados desde MLflow 2.9** y serán removidos (verificado context7); el inventario regulatorio (evidencia SR 11-7, vive años) no debe atarse a una API que MLflow va a quitar. *Resolución:* `ModelVersionRef.aliases: list[str]` + `tags: dict[str,str]`; promoción con `client.set_registered_model_alias`/`set_model_version_tag`. Alineado con SDD-03 §7. *Compat:* no se mantiene `stage` ni siquiera como legacy en v1 (API limpia desde el inicio).
-- **D-TRK-9 — `TrackingConfig`/infra (`tracking`/`report`/`audit`) EXCLUIDOS del `config_hash` de cálculo.** *Porqué:* el destino de tracking no es parte del cómputo y el `config_hash` indexa el inventario (D-TRK-7); incluirlo rompería la idempotencia al mover el destino (§5). *Resolución:* excluir esas secciones del hash de cálculo; opcional hash separado de "corrida completa". *Requiere PR a SDD-05* (la materialización del hash vive en `core.config.io.config_hash`).
+- **D-TRK-9 — `TrackingConfig`/infra EXCLUIDOS del `config_hash` de cálculo (RESUELTO y APLICADO).** *Porqué:* el destino de tracking no es parte del cómputo y el `config_hash` indexa el inventario (D-TRK-7); incluirlo rompería la idempotencia al mover el destino (§5). *Resolución:* `INFRA_SECTIONS = {"name","governance","audit","tracking","report"}` excluidas del hash, **ya aplicado literal** en SDD-01 §5 y SDD-05 §5.5. **No hay PR pendiente** (el claim anterior "requiere PR a SDD-05" quedó *stale* tras la integración de T1; corregido en Tanda 1 Rev).
 
 **Decisiones abiertas (delegadas).**
 - **Política de promoción del inventario** (qué alias —`champion`/`production`— se asigna, quién aprueba, próxima revisión). *Responsable:* **SDD-03 (governance)** — `tracking` solo expone la escritura/lectura del Registry (aliases+tags, D-TRK-8). El **esquema fino de tags/aliases canónicos** (`cartera`, `motor`, `estado`, `config_hash`) lo cierra SDD-03 ↔ SDD-04 (ya abierto en SDD-03 §12).
-- **Exclusión de infra del `config_hash`** (D-TRK-9): la decisión está tomada en este SDD; su **materialización requiere PR a SDD-05** (`core.config.io.config_hash` con conjunto de secciones excluidas). *Responsable de aplicar el PR:* integrador ↔ autor SDD-05.
 - **Deduplicación de `run`s por `config_hash`** (evitar runs redundantes idénticos a nivel de run MLflow, distinto de la idempotencia del inventario que sí va en v1, D-TRK-7). *Sugerencia:* fuera de v1; el `config_hash` ya permite agrupar a posteriori. *Responsable:* DanIA.
 - **Flavors MLflow por dominio** (`pyfunc`/`signature` para scorecards y motores de provisión, despliegue/serving → modelo servible, cf. caveat §6). *Responsable:* SDD del dominio en T2+.
 
@@ -431,6 +447,8 @@ Detalle transversal en SDD-24; lo específico de `tracking`:
 - **Confusión file-store vs Registry** (un usuario espera inventario con file store y no lo obtiene) → mitigado por warning explícito (D-TRK-2) y doc del `registry_uri` sqlite en F0.
 - **Cardinalidad de tags** si se taguea cada decisión → mitigado: las decisiones van a `decisions.jsonl` + contador, no a tags individuales (§7).
 - **Acoplamiento de versión MLflow** (params/registry API evolucionan) → versión mínima fijada y verificada (context7); tests de integración con MLflow local en CI (SDD-24/25).
+- **Fuga de datos vía params/artefactos** (config aplanado arrastra `tracking_uri`/rutas/credenciales; `decisions.jsonl` podría llevar valores con PII) → mitigación: redacción/exclusión de las secciones de infra del aplanado a params (§6); los `log_decision` registran regla/umbral/conteo, no filas crudas (coordinación con SDD-03, que veta PII en el trail). Redacción fina de valores sensibles diferida y listada como riesgo conocido.
+- **Layout interno del file store no es API estable.** La estructura `<tracking_uri>/<experiment_id>/<run_id>/{params,metrics,tags,artifacts}` (§6) es el layout INTERNO del file store de MLflow, no un contrato público. *Mitigación:* los tests **no** deben afirmar sobre rutas internas; leen de vuelta vía `MlflowClient` (API estable). El diagrama de §6 es ilustrativo.
 
 ---
 

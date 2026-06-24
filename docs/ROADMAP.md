@@ -36,21 +36,22 @@ Esfuerzo relativo: S < M < L < XL.
 
 ## F0 — Fundaciones & gobierno
 **Objetivo.** El núcleo del que todo cuelga, auditable desde el primer commit.
-**SDDs.** 01 core · 02 data · 03 audit+governance · 04 tracking+report · 05 convenciones+config · 24 testing · 25 packaging/CI.
+**SDDs.** 01 core · 02 data · 03 audit+governance · 04 tracking · 05 convenciones+config · 24 testing · 25 packaging/CI. *(El reporte Quarto se separó a **SDD-26 `report`** en T2/F1; ver índice.)*
 **Entregables.**
 - Repo Apache-2.0, `src/` layout, `pyproject.toml` (uv + hatchling, extras declarados).
 - `core`: objeto `Study`, config Pydantic v2 (round-trip YAML), registry, orquestación.
 - `data`: validación de esquema, definición de target, particiones (Dev/HO/OOT/TTD), missing/special.
 - `audit` + `governance`: semilla global, lineage bundle, model card, inventario.
-- `tracking` (MLflow local) + `report` (esqueleto Quarto + capa IA opcional).
+- `tracking` (MLflow local). *(El `report` Quarto + capa IA es **SDD-26**, producido en T2/F1, no en F0.)*
 - CI (ruff, mypy, pytest), pre-commit, plantillas de issues/PR.
 **DoD.** CI verde; un `Study` vacío se crea, serializa y recarga; una corrida trivial emite lineage + model card reproducibles; cobertura base.
 **Dependencias.** Ninguna.
 
 ## F1 — Scorecard de comportamiento (MVP open-source)
 **Objetivo.** Pipeline de scorecard completo, sin reject inference. **Es el activo de marketing.**
-**SDDs.** 06 binning · 07 selection · 08 model · 09 scorecard · 10 calibration · 11 performance+stability.
+**SDDs.** 27 eda · 06 binning · 07 selection · 08 model · 09 scorecard · 10 calibration · 11 performance+stability · 26 report.
 **Entregables.**
+- EDA de riesgo (SDD-27): tasa de default por período/cohorte, estabilidad temporal (señal de redesarrollo), perfiles univariados.
 - Binning OptBinning monótono (WoE), ajuste en Dev → transform al resto.
 - Selección: PSI/CSI, IV, ROC/KS/Gini por muestra y período; correlación; descarte por negocio.
 - Stepwise (Wald/LR, statsmodels), regla de signos, IV-contribution ≤ 90%.
