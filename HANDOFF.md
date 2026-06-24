@@ -1,6 +1,6 @@
 # HANDOFF
 
-_Última actualización: 2026-06-24 · repo privado `nexolabs-gh/nikodym` · sobre commit `e439ee2`_
+_Última actualización: 2026-06-24 · repo privado `nexolabs-gh/nikodym` · sobre commit `59aaad3`_
 
 ## Estado actual
 **Nikodym RiskLib — F0 (Fundación): B1 `core` COMPLETO ✅.** Diseño de Fundación cerrado (Tanda 0/1/1Rev + Hito 0). F0 troceado en 4 bloques: **B1 `core` ✅ (este commit)** · B2 `data` (siguiente) · B3 `audit`+`governance`+`tracking`+`api` · B4 `testing`+CI+3 criterios Hito 0.

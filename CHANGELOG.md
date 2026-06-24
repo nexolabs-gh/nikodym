@@ -22,3 +22,13 @@ marcadas como experimentales hasta la 1.0).
   (import perezoso de extras con mensaje accionable).
 - Paths regulatorios declarados (`nikodym.provisioning.cmf`, `nikodym.provisioning.ifrs9`)
   para el gate de cobertura regulatoria; su implementación llega en F3/F4.
+- `nikodym.core` (resto de la Fundación, 9 módulos): primer `Study` end-to-end con lineage
+  reproducible. `audit` (`AuditEvent`/`AuditKind`/`AuditSink`, `NullAuditSink`/`InMemoryAuditSink`/
+  `FanOutSink`); `results` (Protocols económicos `ProvisionResultLike`/`ECLResultLike` con
+  `term_structure()`, CT-2); `base` (`BaseNikodymEstimator` raíz propia + 6 familias, semántica
+  `get_params`/`set_params`/`from_config` estilo scikit-learn sin heredarlo); `mixins`
+  (`AuditableMixin`, `SerializationMixin` con puerta `trust`); `registry`/`artifacts` (registro y
+  almacén *namespaced* `(domain, key)`); `steps` (`Step`/`StepAdapter`, `requires`/`provides`, CT-1);
+  `lineage` (`LineageBundle`/`RunContext`); `study` (`Study`: orquestador motor v1 con validación de
+  prerequisitos CT-1, persistencia en directorio atómico, recarga con verificación de `config_hash`
+  y reproducibilidad). Experimental (SemVer 0.x): orquestación y Protocols de resultados crecerán.
