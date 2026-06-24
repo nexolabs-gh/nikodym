@@ -91,7 +91,7 @@ class NikodymConfig(NikodymBaseConfig):
     # al importar `nikodym.data`). En F0 el módulo data no existe; el placeholder `Any` permite
     # construir `NikodymConfig()` hoy y, como por defecto es None, no altera el `config_hash` al
     # endurecerlo (con `data=None` ambas anotaciones serializan a `null`).
-    data: Any | None = Field(
+    data: Any = Field(
         default=None,
         title="Datos",
         description="Sección de origen y validación de datos (se define en la capa data).",

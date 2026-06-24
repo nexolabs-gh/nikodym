@@ -75,6 +75,18 @@ def test_apply_global_warns_without_pythonhashseed(monkeypatch: pytest.MonkeyPat
         SeedManager(42).apply_global()
 
 
+def test_apply_global_propaga_pythonhashseed_a_subprocesos(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sin ``PYTHONHASHSEED`` fijo, ``apply_global`` fija uno determinista para subprocesos."""
+    monkeypatch.delenv("PYTHONHASHSEED", raising=False)
+    with pytest.warns(UserWarning, match="PYTHONHASHSEED"):
+        SeedManager(42).apply_global()
+    # queda fijado de forma determinista (mismo valor en dos invocaciones con la misma semilla)
+    valor = os.environ["PYTHONHASHSEED"]
+    assert valor == str(SeedManager(42).int_seed_for("python-hashseed"))
+
+
 def test_apply_global_silent_and_deterministic_with_pythonhashseed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

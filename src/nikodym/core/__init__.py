@@ -6,6 +6,24 @@ excepciones. ``core`` no depende de scikit-learn ni de ningún backend pesado (D
 superficie pública se re-exporta aquí a medida que se construyen los submódulos de la Fundación.
 """
 
+from nikodym.core.artifacts import ArtifactStore
+from nikodym.core.audit import (
+    AuditEvent,
+    AuditKind,
+    AuditSink,
+    FanOutSink,
+    InMemoryAuditSink,
+    NullAuditSink,
+)
+from nikodym.core.base import (
+    BaseECLModel,
+    BaseForecaster,
+    BaseNikodymEstimator,
+    BaseProvisionModel,
+    BaseSurvivalEstimator,
+    NikodymClassifier,
+    NikodymTransformer,
+)
 from nikodym.core.config import (
     INFRA_SECTIONS,
     SCHEMA_VERSION,
@@ -37,29 +55,61 @@ from nikodym.core.exceptions import (
     UnknownComponentError,
     UntrustedStudyError,
 )
+from nikodym.core.lineage import LineageBundle, RunContext
+from nikodym.core.mixins import AuditableMixin, SerializationMixin
+from nikodym.core.registry import REGISTRY, Registry, register
+from nikodym.core.results import ECLResultLike, ProvisionResultLike
 from nikodym.core.seeding import SeedManager
+from nikodym.core.steps import ArtifactKey, Step, StepAdapter
+from nikodym.core.study import Study
 
 __all__ = [
     "INFRA_SECTIONS",
+    "REGISTRY",
     "SCHEMA_VERSION",
     "ArtifactExistsError",
+    "ArtifactKey",
     "ArtifactNotFoundError",
+    "ArtifactStore",
+    "AuditEvent",
+    "AuditKind",
+    "AuditSink",
+    "AuditableMixin",
+    "BaseECLModel",
+    "BaseForecaster",
+    "BaseNikodymEstimator",
+    "BaseProvisionModel",
+    "BaseSurvivalEstimator",
     "ConfigError",
     "ConfigVersionError",
     "DataValidationError",
     "DuplicateRegistrationError",
+    "ECLResultLike",
+    "FanOutSink",
+    "InMemoryAuditSink",
+    "LineageBundle",
     "MigrationNotFoundError",
     "MissingDependencyError",
     "NikodymBaseConfig",
+    "NikodymClassifier",
     "NikodymConfig",
     "NikodymError",
+    "NikodymTransformer",
     "NotFittedError",
+    "NullAuditSink",
+    "ProvisionResultLike",
+    "Registry",
     "RegistryError",
     "RegulatoryError",
     "ReproConfig",
     "ReproducibilityError",
     "RunConfig",
+    "RunContext",
     "SeedManager",
+    "SerializationMixin",
+    "Step",
+    "StepAdapter",
+    "Study",
     "UnknownComponentError",
     "UntrustedStudyError",
     "config_hash",
@@ -68,4 +118,5 @@ __all__ = [
     "loads_config",
     "migrate",
     "migration",
+    "register",
 ]

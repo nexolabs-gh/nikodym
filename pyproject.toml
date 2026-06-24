@@ -86,6 +86,7 @@ lint = [
   "ruff>=0.5",
   "mypy>=1.10",
   "types-PyYAML>=6.0",     # stubs de PyYAML para mypy --strict (DEV-ONLY, nunca en el wheel)
+  "pandas-stubs>=2.0",
 ]
 docs = [
   "mkdocs-material>=9.5",  # docs del repo; Quarto (binario externo) NO es dep pip
@@ -141,7 +142,7 @@ module = [
   "optbinning.*", "lifelines.*", "pmdarima.*", "shap.*", "catboost.*",
   "xgboost.*", "lightgbm.*", "statsmodels.*", "scipy.*",
   "mlflow.*", "streamlit.*", "hydra.*", "omegaconf.*", "pandera.*",
-  "pyarrow.*", "polars.*",
+  "pyarrow.*", "polars.*", "joblib.*",
 ]
 ignore_missing_imports = true               # libs sin stubs; relajar SOLO el import, no el strict del código propio
 

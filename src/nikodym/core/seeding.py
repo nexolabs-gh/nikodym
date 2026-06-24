@@ -65,10 +65,14 @@ class SeedManager:
     def apply_global(self) -> None:
         """Siembra los RNG globales del proceso, siendo honesto sobre sus límites.
 
-        Siembra ``random.seed`` con una semilla derivada y **advierte** si ``PYTHONHASHSEED``
-        no está fijo en el entorno (no puede cambiarse en runtime; solo tiene efecto si se fija
-        antes de arrancar el intérprete). **No** llama ``np.random.seed`` legacy: el azar de
-        NumPy va siempre por ``Generator`` derivado (:meth:`generator_for`).
+        Siembra ``random.seed`` con una semilla derivada y **advierte** si ``PYTHONHASHSEED`` no
+        está fijo en el entorno (no puede cambiarse para el proceso vivo; solo tiene efecto si se
+        fija antes de arrancar el intérprete). En ese caso fija además un ``PYTHONHASHSEED``
+        determinista en el entorno como *hint* para los **subprocesos** que se spawneen después
+        (joblib/loky, GBDT multihilo, workers de stress/forward), que de otro modo heredarían uno
+        aleatorio y reintroducirían no-determinismo silencioso (SDD-01 §9). **No** llama
+        ``np.random.seed``
+        legacy: el azar de NumPy va siempre por ``Generator`` derivado (:meth:`generator_for`).
         """
         hashseed = os.environ.get("PYTHONHASHSEED")
         if hashseed is None or hashseed == "random":
@@ -78,4 +82,6 @@ class SeedManager:
                 "intérprete (p. ej. PYTHONHASHSEED=0) para reproducibilidad plena.",
                 stacklevel=2,
             )
+            # Propaga un valor determinista a subprocesos spawneados DESPUÉS (no al proceso vivo).
+            os.environ["PYTHONHASHSEED"] = str(self.int_seed_for("python-hashseed"))
         random.seed(self.int_seed_for("python-random"))
