@@ -1,54 +1,62 @@
 # HANDOFF
 
-_Última actualización: 2026-06-24 · repo privado `nexolabs-gh/nikodym` · sobre commit `ef4854c`_
+_Última actualización: 2026-06-24 · repo privado `nexolabs-gh/nikodym` · sobre commit `f309821`_
 
 ## Estado actual
-**Nikodym RiskLib** — fin de la fase de diseño de Fundación, **a punto de empezar a codificar F0**. **Tanda 0 ✅ · Tanda 1 (Fundación) ✅ · Tanda 1 Rev ✅ · Hito 0 (Contratos transversales) ✅.** 27 SDD; los 7 de Fundación (01 `core`, 02 `data`, 03 `audit`+`governance`, 04 `tracking`, 05 convenciones+config, 24 testing, 25 packaging/CI) **Aprobados + revisados**; 01/02/03 además llevan "rev. Hito 0". SDD-27 `eda` en Borrador (se verifica en T2). **Ninguna línea de código aún.**
+**Nikodym RiskLib — F0 (Fundación) EN CURSO, programando.** Diseño de Fundación cerrado (Tanda 0/1/1Rev + Hito 0). **Ya hay código**: arrancó F0 y el **Bloque 1a quedó verde**. El plan completo de F0 está cerrado (17 módulos en orden topológico, 61 archivos) y F0 se troceó en **4 bloques**:
+- **B1 · `core`** ← en curso. (B1a ✅ hecho; B1b… = resto de core, pendiente.)
+- **B2 · `data`** (panel transversal, `data_hash` lógico).
+- **B3 · `audit` + `governance` + `tracking` + `api`** (gobernanza y ensamblado `assemble_run`).
+- **B4 · `testing` + tests del DoD + CI + los 3 criterios del Hito 0.**
 
-**Estrategia de construcción confirmada (Cami): MIXTO-TRONCAL-MÁS-INCREMENTAL.** Refina el giro a incremental por capa. Regla: *diseña de extremo a extremo lo caro de cambiar (contratos transversales); difiere just-in-time lo barato (lógica intra-capa).*
+Regla de oro vigente (Cami): **mixto-troncal-más-incremental** — diseña de extremo a extremo lo caro de cambiar (contratos transversales, ya hechos en Hito 0); difiere just-in-time lo barato. Cada bloque: **programa → `ruff`+`mypy --strict`+`pytest`+cobertura verde → ajusta → sigue**.
 
 ## Hecho en esta sesión
-- **Análisis de estrategia de construcción** (workflow multi-agente: 4 lectores de madurez de los SDD de Fundación + panel de 4 lentes —arquitecto, regulatorio, open-source, riesgo— que **refutaron** la opción antes de decidir). Convergencia unánime: el molde está maduro (4/5) pero 4 contratos transversales estaban dimensionados solo para scoring lineal/escalar y se romperían en F4/F5.
-- **Hito 0 ejecutado.** Nuevo doc [`docs/design/_CONTRATOS-TRANSVERSALES.md`](docs/design/_CONTRATOS-TRANSVERSALES.md) (CT-1…CT-4) + propagación a SDD-01/02/03 + nota en `00-INDICE.md`. Todo **aditivo** (no rompe Tanda 1 Rev). Cami revisó el doc maestro y lo aprobó.
-  - **CT-1** (orquestación): `Step`/`StepAdapter` declaran `requires`/`provides` (`ArtifactKey = tuple[str,str]`) → la **firma expresa el DAG** desde v1; el motor v1 solo **valida** prerequisitos (orden = declaración); el **scheduler topológico** (fan-in/fan-out de forward/stress) se difiere a F5 sin tocar la firma. Resuelve de paso el "prerequisite registry" cross-sección.
-  - **CT-2** (resultados/gobernanza): puerta de extensión tipada y opcional, el escalar de scoring intacto — `ProvisionResultLike.term_structure() -> DataFrame|None`, `ModelCard.metric_sections: dict[str,Any]={}`, `OverlayRecord.payload: dict|None`. El *shape* interno lo fijan SDD-16/17/20.
-  - **CT-3** (datos): frontera escrita en SDD-02 §12 (D-DATA-7): `data` = panel **transversal** de scorecard; IFRS9/forward traen su **capa longitudinal** propia (mismo mecanismo de `data_hash`).
-  - **CT-4** (owner): `ModelInventory` con `@runtime_checkable`; el ensamblado de corrida (componer sinks en `FanOutSink`, resolver `NullInventory`/`MLflowInventory`/`MissingDependencyError`) vive en `assemble_run` en **capa fina api/runner fuera de `core`**.
+- **Workflow de comprensión** (fan-out de 9 lectores + síntesis) sobre los 9 docs de Fundación → **plan de construcción de F0**: orden topológico de 17 módulos, 61 archivos, alcance F0 (incluye/difiere), 9 conflictos y 8 riesgos. (Resultado efímero en `/tmp`; lo esencial está abajo.)
+- **B1a construido y 100% verde** (este commit):
+  - Esqueleto: `pyproject.toml` (uv+hatchling≥1.27, `src/` layout, 7 deps base, extras, grupos PEP 735), `uv.lock` (Python 3.12, numpy 2.5, pydantic 2.13), `LICENSE` Apache-2.0, `README.md`, `CHANGELOG.md`.
+  - `src/nikodym/`: `__init__.py` (`__version__="0.1.0"`), `py.typed`, `core/exceptions.py` (jerarquía completa `NikodymError`+subclases, **cobertura 100%**), `core/seeding.py` (`SeedManager`, derivación por nombre con `hashlib`+`SeedSequence`, **cobertura 100%**, golden values congelados), `utils/optional.py` (`require_extra`/`has_extra`/`EXTRA_TO_DISTRIBUTIONS`), `core/__init__.py`, `utils/__init__.py`, `provisioning/{cmf,ifrs9}/__init__.py` (paths regulatorios declarados para el gate).
+  - Tests: `tests/unit/test_exceptions.py`, `tests/unit/test_optional.py`, `tests/repro/test_seeding_golden.py`, `tests/conftest.py`. **44 passed.**
+  - Verificado: `ruff check`+`format`, `mypy --strict` (9 archivos), cobertura **100% global**, gate regulatorio **100%** (forma robusta, ver abajo), `uv build` wheel+sdist + smoke import aislado, núcleo liviano (sin sklearn/mlflow al `import nikodym`).
 
 ## En curso / a medias
-Nada a medias. Hito 0 cerrado, contexto y HANDOFF al día.
+Nada a medias. B1a está cerrado y verde. Working tree limpio salvo los archivos nuevos de B1a (este commit).
 
 ## Próximos pasos
-1. **PRÓXIMA SESIÓN = PROGRAMAR F0 (Fundación).** El plan y el troncal ya están. **Leer primero** `docs/design/_CONTRATOS-TRANSVERSALES.md` (especialmente §4 criterios de aceptación) + los SDD 01/05 (core/config), luego 02/03/04, y 24/25 para test/packaging. Montar: `src/nikodym/` (layout `src/`), `pyproject.toml` (uv + hatchling ≥1.27, deps base + extras), `core` (Study, config Pydantic, Registry, SeedManager, LineageBundle, exceptions, Step/StepAdapter), y llegar a un **primer `Study` end-to-end con lineage reproducible** (DoD F0, ROADMAP).
-2. **Criterios de aceptación añadidos por el Hito 0** (no olvidar — son lo que valida el troncal con código): (a) un `Step` **dummy con fan-in** (dos `requires` de dos dominios) que estrese el bus de I/O y la validación pre-run; (b) un test que pase un `metric_sections`/`payload` estructurado dummy (ECL-like) por `ModelCard`/`OverlayRecord` para verificar la puerta de extensión CT-2; (c) el job `coverage-regulatory` **verifica existencia** de los módulos declarados regulatorios (hoy `provisioning/*` no existe → pasaría 0/0=100% por vacuidad).
-3. **Validar el molde con código real**: si un contrato no compila/funciona (StepAdapter, seeding por nombre, config_hash, requires/provides), **reabrir el SDD** correspondiente — esperado y barato.
-4. Tras F0 validado: **T2 diseño** (scoring: 27 eda, 06-11, 26) → **F1 código** → **release público v0.1.0** (SemVer 0.x honesto). Y así por capa.
-- **Forma de trabajo**: yo-solo + fan-out de lectura. Sin equipo persistente hasta que haya tracks paralelos separables.
+**Arrancar B1b = resto de `core`**, en este **orden topológico** (cada módulo: programar + test + verde antes de seguir). Leer primero `docs/design/01-core.md` y `05-convenciones-config.md` (ya rigen todo core) + `_CONTRATOS-TRANSVERSALES.md`:
 
-## Decisiones / contexto a recordar (el molde rige toda la librería)
-- **`core` NO depende de sklearn**; compat sklearn por multiherencia en el módulo del estimador. **`config_cls: ClassVar`** = gancho instancia→sub-config.
-- **Identidad = `config_hash`** = sha256 JSON canónico, `exclude=INFRA_SECTIONS` (`{name, governance, audit, tracking, report}`). `data.load.source` normalizado a basename.
-- **`data_hash` = contenido lógico por bloques** (`hash_pandas_object(index=True)` + esquema canónico), NO bytes de Parquet. Golden-test cross-versión obligatorio.
-- **Orquestación**: orquestador resuelve `(sección → (domain, type) → clase)`; `Step` nativo se usa tal cual, estimador se envuelve en `StepAdapter`; `Step` y los Result/Inventory Protocols son `@runtime_checkable`. Métricas escalares → `results["metrics"]: dict[str,float]`. **(Hito 0)** `Step` ya lleva `requires`/`provides`.
-- **Inventario (03↔04)**: governance DEFINE `Protocol ModelInventory` + vocabulario (Literal); tracking IMPLEMENTA (`MLflowInventory`). Ancla `(model_name, nikodym.config_hash)`; aliases+tags (NO stages). `register` sin backend DB → `RegistryUnavailableError`; `publish_to_inventory=True` sin extra → `MissingDependencyError`. **(Hito 0)** el ensamblado lo hace `assemble_run` en capa api/runner, no `core`.
-- **Excepciones**: raíz `NikodymError`; subclases por módulo. **Naming D-CONV-1**: inglés stats/IFRS9, español CMF (`pi/pdi/pe`); prosa siempre español.
-- **CMF ≠ IFRS 9** (dos motores, provisión = máximo). **MVP F1 = scorecard de comportamiento.**
-- **Packaging**: deps base = pydantic/numpy/pandas/**pandera/pyarrow**/joblib/PyYAML. `hatchling>=1.27`. Anti-copyleft: `uv export` + parser SPDX + lista vetada GPL/LGPL/AGPL + FALLAR ante licencia ausente.
-- **(Hito 0) Contratos transversales crecen por extensión ADITIVA, nunca ruptura. SemVer 0.x honesto**: marcar experimental las APIs que crecerán (results/overlay/metrics/orquestación).
+1. **`core/config/`** (4 módulos, decisión tomada): `schema.py` (`NikodymBaseConfig`/`NikodymConfig` + secciones `|None`, `ReproConfig` seed=42 ge=0, `RunConfig` fail_fast forzado True) · `hashing.py` (`config_hash` = sha256 JSON canónico, `exclude=INFRA_SECTIONS={name,governance,audit,tracking,report}`, `by_alias=True`, `sort_keys=True`) · `loader.py` (round-trip YAML) · `migration.py` (`@migration` dict→dict, registro **vacío** en 1.0.0, version-gate 5 ramas). **`NikodymConfig()` sin args construible (DoD F0).** ⚠️ Verificar Pydantic v2 `model_rebuild`/`by_alias`/`frozen` con **context7** (no de memoria); el forward-ref `DataConfig` se resuelve con `model_rebuild()` al importar `nikodym.data` (B2).
+2. **`core/audit.py`**: `AuditEvent`, `AuditSink` (Protocol), `NullAuditSink`, `InMemoryAuditSink`, `FanOutSink` (compositor CT-4).
+3. **`core/results.py`**: SOLO Protocols `ProvisionResultLike`/`ECLResultLike` con `term_structure()->DataFrame|None` (CT-2). `@runtime_checkable`. Sin clases concretas (esas son F3/F4).
+4. **`core/base.py` + `core/mixins.py`**: `BaseNikodymEstimator` (raíz propia NO sklearn, `config_cls: ClassVar`, `from_config` excl. `type`, `get_params/set_params`, `_check_fitted`) + 6 familias; `AuditableMixin` (`_audit=NullAuditSink()` nunca None), `SerializationMixin`.
+5. **`core/registry.py` + `core/artifacts.py`**: `Registry`/`REGISTRY`/`register` namespaced; `ArtifactStore` (domain,key) con `ArtifactNotFoundError`/`ArtifactExistsError`.
+6. **`core/steps.py`**: `ArtifactKey=tuple[str,str]`, `Step` Protocol `@runtime_checkable` con `requires`/`provides` (CT-1), `StepAdapter`.
+7. **`core/lineage.py`**: `LineageBundle` + `RunContext` (status="created" serializa sin valores ficticios, DoD F0).
+8. **`core/study.py` + `core/__init__.py`**: `Study` (validación pre-run CT-1 → `ArtifactNotFoundError` antes de execute; orden de declaración, scheduler topológico diferido F5; `save`/`load` directorio atómico; `set_audit_sink` recibe el sink ya compuesto; `lineage_bundle` congelado). Validar que `fail_fast=False`/`register_on_success` NO sean no-op silenciosos (warning ruidoso).
+
+Cierre de B1 = primer `Study` end-to-end con lineage reproducible. Luego B2 (`data`), B3, B4 (incl. los **3 criterios del Hito 0**: Step dummy con fan-in CT-1; payload estructurado dummy CT-2; gate `coverage-regulatory` que verifica existencia de paths). Forma de trabajo: **yo-solo + fan-out de lectura**, sin equipo persistente.
+
+## Decisiones / contexto a recordar
+- **Decisiones de conflicto ya tomadas (integrador, técnicas):** `MissingDependencyError` vive SOLO en `core/exceptions.py` (otros la importan); `core/config/` = 4 módulos; `assemble_run` → `nikodym/api.py`; `results.py` en F0 = solo Protocols; forward-ref `DataConfig` → `model_rebuild()`; config muerto v1 → warning ruidoso.
+- **Gotchas ya implementados en B1a (mantener):** seeding usa `_stable_hash` con `hashlib.sha256` (NUNCA `hash()` builtin ni `spawn()`); entropía compuesta `SeedSequence(entropy=[root_seed, _stable_hash(name)])`; `int_seed_for` deriva un uint32 de la misma SeedSequence; `apply_global` advierte si `PYTHONHASHSEED` no está fijo y NO llama `np.random.seed` legacy.
+- **🔧 4 DESVIACIONES de los SDD que el código destapó — RATIFICAR al revisar el SDD (reabrir SDD es esperado y barato):**
+  1. **mypy `python_version = "3.12"`** (no 3.11): los stubs de **numpy 2.x** usan PEP 695 (`type X = …`), que mypy solo parsea con target ≥3.12. El runtime 3.11 lo cubren los tests. → SDD-25 §5.
+  2. **`EXTRA_TO_DISTRIBUTIONS`**: usar nombres de **import**, no de distribución — `scikit-learn`→`sklearn`, `hydra-core`→`hydra`. Como estaba en el SDD, `require_extra` fallaría siempre. → SDD-25 §4.1.
+  3. **Gate `coverage-regulatory`**: el comando exacto del SDD (`--cov=nikodym.core.seeding` por nombre de módulo) **rompe** con numpy 2.x ("cannot load module more than once per process"). Forma robusta usada: `coverage run -m pytest` + `coverage report --include="…exceptions.py,…seeding.py,…cmf/__init__.py,…ifrs9/__init__.py" --fail-under=100`. → SDD-25 §7 (cablear así el job de CI en B4).
+  4. **`[tool.ruff.lint.per-file-ignores]`**: `"tests/**" = ["D"]` (los tests no exigen docstring por función). → SDD-24/25.
+- **Comandos verde (entorno):** `uv sync --no-default-groups --group test --group lint --python 3.12` (rápido) o `uv sync` (dev completo). Verificar: `uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync mypy && uv run --no-sync pytest --cov=nikodym --cov-report=term-missing`.
 
 ## Callejones sin salida / no reintentar
-- **NO reintroducir 4 claims que la verificación tumbó (context7):** (1) `SeedSequence.spawn()` es posicional → seeding por nombre usa `SeedSequence(entropy=[root_seed, hash_estable(nombre)])` con **`hashlib`**, NO `hash()` builtin. (2) En sklearn ≥1.6, sin heredar `BaseEstimator` no se pasa `check_estimator`. (3) `DataFrame.eval`/`query` NO son sandbox (inyección) → mini-DSL declarativo. (4) Model Stages de MLflow deprecados desde 2.9 → aliases+tags.
-- **NO hashear bytes de Parquet para `data_hash`** (no canónico cross-versión; D2 lo revirtió a contenido lógico).
-- **`isinstance` sobre un Protocol exige `@runtime_checkable`** — ya aplicado a `Step`, Result Protocols y (Hito 0) `ModelInventory`.
-- **NO inflar el "troncal" con diseño especulativo de F4/F5.** El Hito 0 fijó SOLO firmas/puertas de extensión, NO las matemáticas de ECL ni el shape final de term-structure (eso es de SDD-16/17/20). Diferir lo barato de cambiar es la regla.
-- **Gotcha de workflows**: en los scripts JS de `Workflow`, las prompts son template literals con backticks; **no** usar backticks internos (rompe el parseo) — comillas simples; `${...}` sí es válido. Pasar `run_in_background` al Workflow **falla** (ya corre en background por defecto).
-- Verificación visual de PDFs: descargar y leer con Read por páginas; `pdftotext` no respeta celdas fusionadas (tablas CMF).
+- **NO** fijar mypy `python_version="3.11"` con numpy 2.x instalado: rompe al parsear los stubs (PEP 695). Usar 3.12 (ver desviación 1).
+- **NO** correr el gate regulatorio con `--cov=nikodym.core.seeding` por **nombre de módulo**: dispara el doble-load de numpy 2.x. Usar `coverage report --include=<rutas>` (desviación 3).
+- **NO** reintroducir los 4 claims que la verificación (context7) tumbó en Tanda 1 Rev: `spawn()` posicional (usar entropía compuesta con `hashlib`); sin heredar `BaseEstimator` no pasa `check_estimator` (≥1.6); `DataFrame.eval`/`query` NO son sandbox (mini-DSL declarativo); Model Stages de MLflow deprecados (aliases+tags).
+- **NO** hashear bytes de Parquet para `data_hash` (contenido lógico por bloques, `hash_pandas_object`).
+- **Workflow JS gotchas**: prompts son template literals — sin backticks internos (usar comillas simples); `${...}` sí; no pasar `run_in_background` (ya corre en background).
 
 ## Dudas abiertas / bloqueos (preexistentes, no urgentes)
-- **Pendiente normativo CMF:** haircuts/factores de descuento de garantías financieras del B-1 letra c) (norma remite a circular no localizada). En `normativa_cmf_parametros.md` §5.2/§7.
-- **Vigilancia:** consulta pública CMF (Res. Exenta 273/2025, 10.976/2025) — en oct-2025 su alcance quedó en B-6/B-7, sin tocar matrices estándar.
-- **Deudas diferidas con owner (Hito 0 §5):** pickle/joblib del `ArtifactStore` (frágil/RCE) → owner F3; motor topológico DAG → F5; capa de datos longitudinal → F4/F5; presupuesto de CI (matriz 3×3 + Hypothesis) → F1; `mypy strict` sobre wrappers sin stubs (statsmodels/lifelines) → cast/ignore localizados F1/F5.
-- Momento privado→público del repo (al terminar). pandas vs polars interno (según volúmenes reales).
+- **Pendiente normativo CMF:** haircuts/factores de descuento de garantías financieras del B-1 letra c) (en `normativa_cmf_parametros.md` §5.2/§7).
+- **Deudas diferidas con owner (Hito 0 §5):** pickle/joblib del `ArtifactStore` → F3; motor topológico DAG → F5; capa de datos longitudinal → F4/F5; matriz CI 3×3 + Hypothesis → F1; `mypy strict` sobre wrappers sin stubs (statsmodels/lifelines) → cast/ignore localizados F1/F5.
+- Momento privado→público del repo (al terminar). Alias de email del paquete (`admin@nxlabs.cl` → alias de proyecto) y Trusted Publishing OIDC al armar el release público (F1).
 
 ## Repo
 Privado en GitHub: **`nexolabs-gh/nikodym`** (https://github.com/nexolabs-gh/nikodym), branch `main`. Push directo a `main` autorizado en el cierre. Commits con co-autoría de Claude.

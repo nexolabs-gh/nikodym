@@ -1,0 +1,167 @@
+# ─────────────────────────── build backend ───────────────────────────
+[build-system]
+requires = ["hatchling>=1.27"]              # ≥1.27: emite core-metadata 2.4 (License-Expression) y
+                                            # soporta license-files como globs (PEP 639 final). SDD-25 §5/C15.
+build-backend = "hatchling.build"
+
+# ─────────────────────────── metadata (PEP 621) ──────────────────────
+[project]
+name = "nikodym"
+description = "Librería de riesgo de crédito: scoring, ML, provisiones CMF e IFRS 9/ECL, forward-looking y stress testing."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"                      # SPDX (PEP 639); LICENSE en la raíz
+license-files = ["LICENSE"]
+authors = [{ name = "Nikodym", email = "admin@nxlabs.cl" }]
+keywords = ["credit-risk", "ifrs9", "ecl", "cmf", "scorecard", "provisioning"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+dynamic = ["version"]                       # ver [tool.hatch.version]
+
+# Núcleo BASE: se instala SIEMPRE con `pip install nikodym`. Solo deps permisivas y livianas.
+dependencies = [
+  "pydantic>=2.5",        # config, LineageBundle, AuditEvent (MIT)
+  "numpy>=1.22",          # SeedSequence/Generator (BSD)
+  "pandas>=2.0",          # DataFrame, contrato de I/O universal (BSD) — SDD-05 §6
+  "pandera>=0.20",        # validación de esquema tabular (MIT) — dep base de data (SDD-02 §10)
+  "pyarrow>=12",          # lectura Parquet (Apache-2.0) — dep base de data (SDD-02 §10)
+  "joblib>=1.3",          # persistencia de artefactos (BSD)
+  "PyYAML>=6.0",          # round-trip YAML legible (MIT)
+]
+
+[project.urls]
+Homepage = "https://github.com/nexolabs-gh/nikodym"
+Source = "https://github.com/nexolabs-gh/nikodym"
+Documentation = "https://github.com/nexolabs-gh/nikodym#readme"
+Changelog = "https://github.com/nexolabs-gh/nikodym/blob/main/CHANGELOG.md"
+
+# ───────────────── EXTRAS de USUARIO (se redistribuyen en el wheel) ───────────────
+[project.optional-dependencies]
+# MVP scorecard (F1). sklearn>=1.6 OBLIGATORIO: check_estimator/tags (D-CONV-4).
+scoring = [
+  "optbinning>=0.19",     # Apache-2.0 — binning/WoE/monotonía
+  "statsmodels>=0.14",    # BSD — inferencia/stepwise/p-values
+  "scikit-learn>=1.6",    # BSD — pipeline/check_estimator; PISO 1.6 (regla dura)
+  "scipy>=1.10",          # BSD — arrastrado por statsmodels/sklearn, explícito
+]
+# Backends ML (F2). Cada GBDT es un extra independiente (instalación selectiva).
+xgboost  = ["xgboost>=2.0",  "scikit-learn>=1.6"]   # Apache-2.0
+lightgbm = ["lightgbm>=4.0", "scikit-learn>=1.6"]   # MIT
+catboost = ["catboost>=1.2", "scikit-learn>=1.6"]   # Apache-2.0
+tuning   = ["optuna>=3.5"]                          # MIT
+explain  = ["shap>=0.44", "matplotlib>=3.7"]        # MIT / PSF
+# Forward-looking (F5).
+forecasting = ["statsmodels>=0.14", "pmdarima>=2.0"]  # BSD / MIT
+survival    = ["lifelines>=0.28"]                     # MIT — NO scikit-survival (GPL-3.0)
+# Infraestructura opcional.
+tracking = ["mlflow>=2.10"]                # Apache-2.0 (runs/registry, SDD-04)
+ui       = ["streamlit>=1.30"]             # Apache-2.0 (editor de config, SDD-23)
+sweep    = ["hydra-core>=1.3", "omegaconf>=2.3"]   # MIT / BSD-3 (barridos CLI)
+polars   = ["polars>=0.20"]                # MIT — backend de carga opcional de data
+# SVM/RF nativos de sklearn (SDD-12): solo requieren scikit-learn>=1.6.
+ml       = ["scikit-learn>=1.6"]           # BSD — modelos sklearn-native (SVM/RandomForest)
+# Meta-extra: TODO lo redistribuible. Excluye copyleft (scikit-survival GPL-3.0).
+all = [
+  "nikodym[scoring]", "nikodym[ml]", "nikodym[xgboost]", "nikodym[lightgbm]", "nikodym[catboost]",
+  "nikodym[tuning]", "nikodym[explain]", "nikodym[forecasting]", "nikodym[survival]",
+  "nikodym[tracking]", "nikodym[ui]", "nikodym[sweep]", "nikodym[polars]",
+]
+
+# ───────────── GRUPOS de DESARROLLO (PEP 735 — NO se redistribuyen) ─────────────
+[dependency-groups]
+test = [
+  "pytest>=8.1",
+  "pytest-cov>=5.0",
+  "hypothesis>=6.100",     # MPL-2.0 (copyleft DÉBIL) — DEV-ONLY, nunca en el wheel
+]
+lint = [
+  "ruff>=0.5",
+  "mypy>=1.10",
+]
+docs = [
+  "mkdocs-material>=9.5",  # docs del repo; Quarto (binario externo) NO es dep pip
+]
+dev = [
+  { include-group = "test" },
+  { include-group = "lint" },
+  { include-group = "docs" },
+  "pre-commit>=3.7",
+]
+
+# ─────────────────────────── hatchling (build) ───────────────────────────
+[tool.hatch.version]
+path = "src/nikodym/__init__.py"           # __version__ = "x.y.z" (fuente única del SemVer)
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nikodym"]                 # SOLO el paquete; tests/docs NO entran al wheel
+exclude = ["*.parquet", "*.csv"]           # defensa en profundidad: ningún dato en el wheel
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/CHANGELOG.md", "/LICENSE", "/README.md"]
+exclude = ["/.github", "/docs", "/.venv", "*.parquet", "*.csv"]   # nunca datos en el sdist
+
+# ─────────────────────────── uv (lock/resolución) ───────────────────────────
+[tool.uv]
+required-version = ">=0.5"
+default-groups = ["dev"]    # qué grupos sincroniza `uv sync` sin flags (dev incluye test/lint/docs).
+                            # Entorno limpio sin grupos: `uv sync --no-default-groups`.
+
+# ─────────────────────────── ruff / mypy / pytest ───────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF", "D"]   # D = docstrings (en español)
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+[tool.ruff.lint.per-file-ignores]
+# Los tests no exigen docstrings por función (convención de SDD-24; el contenido es el contrato).
+"tests/**" = ["D"]
+
+[tool.mypy]
+python_version = "3.12"                      # 3.12 (no 3.11) por los stubs de numpy 2.x: usan PEP 695
+                                            # (`type X = ...`), que mypy solo parsea con target ≥3.12. El
+                                            # runtime 3.11 lo cubre la matriz de tests. Desviación de SDD-25
+                                            # (que fijó 3.11) a ratificar al revisar el SDD.
+mypy_path = "src"                           # src/ layout: encuentra el paquete sin requerir install
+packages = ["nikodym"]
+strict = true                               # STRICT por defecto en TODO el paquete (ESPEC §10, §12).
+[[tool.mypy.overrides]]
+# Toda lib de terceros sin stubs de tipos que el paquete importe (base o extras).
+module = [
+  "optbinning.*", "lifelines.*", "pmdarima.*", "shap.*", "catboost.*",
+  "xgboost.*", "lightgbm.*", "statsmodels.*", "scipy.*",
+  "mlflow.*", "streamlit.*", "hydra.*", "omegaconf.*", "pandera.*",
+  "pyarrow.*", "polars.*",
+]
+ignore_missing_imports = true               # libs sin stubs; relajar SOLO el import, no el strict del código propio
+
+# ── [tool.pytest.ini_options] y [tool.coverage.*]: contenido transcrito de SDD-24 (dueño), copiado por SDD-25 §5 ──
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "--strict-markers --strict-config -ra"
+testpaths = ["tests"]
+markers = [
+  "slow: test lento, excluible en el loop rápido",
+  "requires_xgboost: requiere el extra [xgboost]",
+  "requires_lightgbm: requiere el extra [lightgbm]",
+  "requires_catboost: requiere el extra [catboost]",
+  "requires_forecasting: requiere el extra [forecasting]",
+  "gbdt_nondeterministic: reproducibilidad no garantizada (GBDT multihilo)",
+]
+filterwarnings = ["error"]   # D-TEST-1 de SDD-24: un warning no manejado FALLA el test (regulatorio)
+
+[tool.coverage.run]
+source = ["nikodym"]
+branch = true
+[tool.coverage.report]
+fail_under = 90              # gate GLOBAL (SDD-24 §11). El 100% por-módulo se cabla en un job aparte (CI).
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "^\\s*\\.\\.\\.\\s*$"]

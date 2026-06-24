@@ -1,0 +1,19 @@
+# Changelog
+
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/);
+el proyecto sigue [SemVer](https://semver.org/lang/es/) (0.x honesto: APIs que crecerán
+marcadas como experimentales hasta la 1.0).
+
+## [No publicado]
+
+### Añadido (F0 — Fundación, en curso)
+- Esqueleto del paquete: `pyproject.toml` (uv + hatchling, layout `src/`, 7 deps base,
+  extras de usuario y grupos de desarrollo PEP 735), `LICENSE` Apache-2.0, `README`, `CHANGELOG`.
+- `nikodym.core.exceptions`: jerarquía de excepciones con raíz `NikodymError` (código
+  regulatorio, cobertura objetivo 100 %).
+- `nikodym.core.seeding`: `SeedManager` — derivación determinista por nombre vía
+  `SeedSequence(entropy=[root_seed, hashlib])` (código regulatorio, cobertura objetivo 100 %).
+- `nikodym.utils.optional`: `require_extra` / `has_extra` / `EXTRA_TO_DISTRIBUTIONS`
+  (import perezoso de extras con mensaje accionable).
+- Paths regulatorios declarados (`nikodym.provisioning.cmf`, `nikodym.provisioning.ifrs9`)
+  para el gate de cobertura regulatoria; su implementación llega en F3/F4.
