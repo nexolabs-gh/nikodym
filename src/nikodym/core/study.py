@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from nikodym.core.artifacts import ArtifactStore
 from nikodym.core.audit import AuditEvent, AuditKind, AuditSink, NullAuditSink
+from nikodym.core.base import BaseNikodymEstimator
 from nikodym.core.config import NikodymConfig, config_hash, dump_config, load_config
 from nikodym.core.exceptions import (
     ArtifactNotFoundError,
@@ -88,6 +89,20 @@ def _advertir_drift_versiones(guardadas: dict[str, str]) -> None:
             f"Versiones de librerías distintas de la corrida original (original, actual): {drift}",
             stacklevel=2,
         )
+
+
+def _component_type(sub_cfg: Any) -> str:
+    """Lee el discriminador ``type`` de una sección de config; default v1 = ``standard``."""
+    if isinstance(sub_cfg, dict):
+        raw = sub_cfg.get("type", "standard")
+    else:
+        raw = getattr(sub_cfg, "type", "standard")
+    if not isinstance(raw, str):
+        raise ConfigError(
+            "El discriminador 'type' de la sección de config debe ser texto; "
+            f"se recibió {type(raw).__name__}."
+        )
+    return raw
 
 
 class Study:
@@ -187,16 +202,66 @@ class Study:
     def _resolve_steps(self, nombres: list[str] | None) -> list[Step]:
         """Resuelve los nombres de paso a objetos :class:`Step` (config → REGISTRY → StepAdapter).
 
-        En F0 ``NikodymConfig`` no tiene secciones de dominio orquestables: el pipeline por defecto
-        (``nombres is None``) es vacío y cualquier nombre explícito es inejecutable. La resolución
-        completa vía ``REGISTRY``/``StepAdapter`` se materializa con el primer dominio (T2+).
+        ``data`` es el primer dominio orquestable de F0-B2: se registra al importar
+        :mod:`nikodym.data`. El import es perezoso para que ``import nikodym.core`` no arrastre
+        pandas/pandera/pyarrow. El pipeline por defecto sigue siendo vacío si no hay secciones
+        activas; si ``config.data`` existe, ``steps=None`` lo incluye en orden de declaración.
         """
         if nombres is None:
-            return []
+            nombres = self._default_step_names()
+        return [self._resolve_step(nombre) for nombre in nombres]
+
+    def _default_step_names(self) -> list[str]:
+        """Deriva el pipeline v1 desde secciones activas del config raíz."""
+        return ["data"] if self.config.data is not None else []
+
+    def _resolve_step(self, name: str) -> Step:
+        """Resuelve un paso por nombre de sección usando el ``REGISTRY`` global."""
+        sub_cfg = getattr(self.config, name, None)
+        if sub_cfg is None:
+            raise ConfigError(
+                f"Los pasos ['{name}'] no son secciones de dominio activas: la orquestación de "
+                "dominios exige una sección de config no nula y registrada."
+            )
+        self._ensure_domain_registered(name)
+        sub_cfg = self._coerce_domain_config(name, sub_cfg)
+
+        from nikodym.core.registry import REGISTRY
+        from nikodym.core.steps import Step, StepAdapter
+
+        component_type = _component_type(sub_cfg)
+        component_cls = REGISTRY.resolve(name, component_type)
+        factory = getattr(component_cls, "from_config", None)
+        if not callable(factory):
+            raise ConfigError(
+                f"El componente '{component_type}' del dominio '{name}' no expone from_config()."
+            )
+        component = factory(sub_cfg)
+        if isinstance(component, Step):
+            return component
+        if isinstance(component, BaseNikodymEstimator):
+            return StepAdapter(name, component)
         raise ConfigError(
-            f"Los pasos {nombres} no son secciones de dominio activas: en F0 sólo el pipeline por "
-            "defecto (steps=None) es ejecutable; la orquestación de dominios llega en T2."
+            f"El componente '{component_type}' del dominio '{name}' no implementa Step ni es un "
+            "BaseNikodymEstimator adaptable."
         )
+
+    def _ensure_domain_registered(self, name: str) -> None:
+        """Importa perezosamente dominios con auto-registro, sin contaminar el import de core."""
+        if name == "data":
+            import importlib
+
+            importlib.import_module("nikodym.data")
+
+    def _coerce_domain_config(self, name: str, sub_cfg: Any) -> Any:
+        """Coacciona configs opacos si la sección se creó antes de importar su dominio."""
+        if name == "data":
+            from nikodym.data.config import DataConfig
+
+            if not isinstance(sub_cfg, DataConfig):
+                sub_cfg = DataConfig.model_validate(sub_cfg)
+                self.config = self.config.model_copy(update={"data": sub_cfg})
+        return sub_cfg
 
     def _validate_pipeline(self, pasos: list[Step]) -> None:
         """Validación pre-run global (CT-1): cada ``requires`` debe tener proveedor aguas arriba.

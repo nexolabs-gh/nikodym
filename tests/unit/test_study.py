@@ -15,6 +15,7 @@ import pytest
 
 from nikodym.core import study as study_mod
 from nikodym.core.audit import InMemoryAuditSink
+from nikodym.core.base import BaseNikodymEstimator
 from nikodym.core.config import NikodymConfig, config_hash
 from nikodym.core.config.schema import RunConfig
 from nikodym.core.exceptions import (
@@ -25,11 +26,21 @@ from nikodym.core.exceptions import (
     UntrustedStudyError,
 )
 from nikodym.core.mixins import AuditableMixin
+from nikodym.core.registry import REGISTRY
+from nikodym.core.steps import StepAdapter
 from nikodym.core.study import Study
 
 
 def _config(**run_kwargs: object) -> NikodymConfig:
     return NikodymConfig(run=RunConfig(**run_kwargs)) if run_kwargs else NikodymConfig()
+
+
+def _minimal_data_dict() -> dict[str, object]:
+    """Blob mínimo de ``data`` para cubrir resolución perezosa sin repetir fixtures de data."""
+    return {
+        "target": {"bad_rule": {"all_of": [{"col": "max_dpd_12m", "op": ">=", "value": 90}]}},
+        "partition": {"strategy": {"type": "random"}, "min_bads_per_partition": 0},
+    }
 
 
 # --- Construcción / DoD F0 --------------------------------------------------------------------
@@ -351,6 +362,83 @@ def test_run_inyecta_sink_en_paso_auditable(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setattr(study, "_resolve_steps", lambda nombres: [_PasoAuditable()])
     study.run()
     assert any(e.kind == "decision" for e in sink.events)
+
+
+def test_component_type_dict_default_y_tipo_invalido() -> None:
+    """El resolver lee ``type`` desde dict opaco y rechaza discriminadores no textuales."""
+    assert study_mod._component_type({}) == "standard"
+    with pytest.raises(ConfigError, match="discriminador"):
+        study_mod._component_type({"type": 123})
+
+
+def test_resolve_step_componente_sin_from_config_levanta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un registro sin ``from_config`` falla con diagnóstico explícito."""
+    import nikodym.data
+
+    class _NoFactory:
+        """Clase registrada inválida para cubrir el error del seam dinámico."""
+
+    study = Study(NikodymConfig(data=nikodym.data.DataConfig.model_validate(_minimal_data_dict())))
+    monkeypatch.setattr(REGISTRY, "resolve", lambda _domain, _name: _NoFactory)
+
+    with pytest.raises(ConfigError, match="no expone from_config"):
+        study._resolve_step("data")
+
+
+def test_resolve_step_adapta_estimador_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un ``BaseNikodymEstimator`` registrado se envuelve en ``StepAdapter``."""
+    import nikodym.data
+
+    class _Estimator(BaseNikodymEstimator):
+        """Estimador mínimo para cubrir la rama de adaptación."""
+
+        @classmethod
+        def from_config(cls, cfg: object) -> _Estimator:
+            return cls()
+
+    study = Study(NikodymConfig(data=nikodym.data.DataConfig.model_validate(_minimal_data_dict())))
+    monkeypatch.setattr(REGISTRY, "resolve", lambda _domain, _name: _Estimator)
+
+    step = study._resolve_step("data")
+
+    assert isinstance(step, StepAdapter)
+    assert step.name == "data"
+    assert step.estimator.__class__ is _Estimator
+
+
+def test_resolve_step_rechaza_objeto_no_adaptable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un componente que no es ``Step`` ni estimador base falla de forma ruidosa."""
+    import nikodym.data
+
+    class _NoAdaptable:
+        """Componente inválido con factory válida pero sin contrato orquestable."""
+
+        @classmethod
+        def from_config(cls, cfg: object) -> object:
+            return object()
+
+    study = Study(NikodymConfig(data=nikodym.data.DataConfig.model_validate(_minimal_data_dict())))
+    monkeypatch.setattr(REGISTRY, "resolve", lambda _domain, _name: _NoAdaptable)
+
+    with pytest.raises(ConfigError, match="no implementa Step"):
+        study._resolve_step("data")
+
+
+def test_registro_y_coercion_perezosa_cubren_dominios_no_data() -> None:
+    """El import perezoso sólo actúa en data; la coerción convierte blobs dict de data."""
+    study = Study(_config())
+    study._ensure_domain_registered("binning")
+    sentinel = object()
+    assert study._coerce_domain_config("binning", sentinel) is sentinel
+
+    coerced = study._coerce_domain_config("data", _minimal_data_dict())
+
+    import nikodym.data
+
+    assert isinstance(coerced, nikodym.data.DataConfig)
+    assert study.config.data is coerced
 
 
 def test_save_sobre_existente_reescribe(tmp_path: Path) -> None:

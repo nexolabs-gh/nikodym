@@ -14,10 +14,30 @@ inversión de la dependencia vive en este lado (``data`` conoce a ``core``, no a
 """
 
 from nikodym.core.config import schema as _schema
+from nikodym.data.card import DataCardSection
 from nikodym.data.config import DataConfig
+from nikodym.data.hashing import data_hash
 from nikodym.data.loading import DataLoader
+from nikodym.data.partition import Partitioner, PartitionResult
+from nikodym.data.schema import SchemaValidator
+from nikodym.data.special import MaskedFrame, SpecialValuePolicy
+from nikodym.data.step import DataStep
+from nikodym.data.target import LabeledFrame, TargetDefinition
 
 # Registra la clase real del sub-config de datos en el hook de `core`.
 _schema._DATA_CONFIG_CLS = DataConfig
 
-__all__ = ["DataConfig", "DataLoader"]
+__all__ = [
+    "DataCardSection",
+    "DataConfig",
+    "DataLoader",
+    "DataStep",
+    "LabeledFrame",
+    "MaskedFrame",
+    "PartitionResult",
+    "Partitioner",
+    "SchemaValidator",
+    "SpecialValuePolicy",
+    "TargetDefinition",
+    "data_hash",
+]
