@@ -11,11 +11,12 @@ from nikodym.core.config import schema as _schema_mod
 def _vista_core_solo(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fuerza la vista *core-only*: sin capa ``data`` cargada, la sección ``data`` es un blob opaco.
 
-    ``nikodym.data``/``nikodym.audit`` (importados por otros tests de la sesión) pueblan hooks
-    *process-wide*; aquí se neutralizan para probar el núcleo en aislamiento.
+    ``nikodym.data``/``nikodym.audit``/``nikodym.governance`` (importados por otros tests de la
+    sesión) pueblan hooks *process-wide*; aquí se neutralizan para probar el núcleo en aislamiento.
     """
     monkeypatch.setattr(_schema_mod, "_DATA_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_AUDIT_CONFIG_CLS", None)
+    monkeypatch.setattr(_schema_mod, "_GOVERNANCE_CONFIG_CLS", None)
 
 
 def test_construye_sin_argumentos() -> None:
@@ -27,6 +28,7 @@ def test_construye_sin_argumentos() -> None:
     assert cfg.run.fail_fast is True
     assert cfg.data is None
     assert cfg.audit is None
+    assert cfg.governance is None
 
 
 def test_repro_defaults() -> None:

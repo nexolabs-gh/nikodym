@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 if TYPE_CHECKING:
     from nikodym.audit.config import AuditConfig
     from nikodym.data.config import DataConfig
+    from nikodym.governance.config import GovernanceConfig
 
 __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
 
@@ -31,6 +32,7 @@ __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
 # Reemplaza el `model_rebuild()` del SDD-02 §5: Pydantic v2 no re-narra un campo ya resuelto (B2a).
 _DATA_CONFIG_CLS: type[BaseModel] | None = None
 _AUDIT_CONFIG_CLS: type[BaseModel] | None = None
+_GOVERNANCE_CONFIG_CLS: type[BaseModel] | None = None
 
 
 class NikodymBaseConfig(BaseModel):
@@ -119,6 +121,15 @@ class NikodymConfig(NikodymBaseConfig):
             title="Auditoría",
             description="Sección de infraestructura para persistencia del audit-trail (SDD-03).",
         )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto sin importar `nikodym.governance` en runtime.
+        governance: GovernanceConfig | None
+    else:
+        governance: Any = Field(
+            default=None,
+            title="Gobernanza",
+            description="Sección de infraestructura para model card e inventario (SDD-03).",
+        )
 
     @field_validator("data", mode="before")
     @classmethod
@@ -162,6 +173,26 @@ class NikodymConfig(NikodymBaseConfig):
             raise ValueError(
                 "audit debe ser JSON-canónico y determinista (sin sets, objetos no serializables "
                 "ni floats no finitos), o importa `nikodym.audit` para validarlo como AuditConfig."
+            ) from exc
+        return valor
+
+    @field_validator("governance", mode="before")
+    @classmethod
+    def _valida_governance(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``governance`` sin importarla desde ``core``."""
+        if valor is None:
+            return valor
+        if _GOVERNANCE_CONFIG_CLS is not None:
+            if isinstance(valor, _GOVERNANCE_CONFIG_CLS):
+                return valor
+            return _GOVERNANCE_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "governance debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.governance` para "
+                "validarlo como GovernanceConfig."
             ) from exc
         return valor
 
