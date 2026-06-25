@@ -3,8 +3,8 @@
 _Última actualización: 2026-06-24 · repo privado `nexolabs-gh/nikodym` · sobre commit `1067afa`_
 
 ## 🤖 Modo autónomo (rutina)
-**Estado:** `IDLE`  _(IDLE = libre · `RUNNING [ts]` = corrida en curso desde ts. Lock <60 min ⇒ corrida viva; >120 min ⇒ huérfano, rescatar.)_
-Última corrida: 2026-06-24 20:40 · ítem **B2b.1** · `6d699e2` · ✓ HECHO _(piloto supervisado por Cami; cadena Codex→maestro→push validada)_
+**Estado:** `IDLE`  _(IDLE = libre · `RUNNING [ts]` = corrida en curso. El lock de OS del wrapper garantiza exclusión; un `RUNNING` visto al arrancar = corrida muerta → rescatar, no abortar.)_
+Última corrida: 2026-06-24 20:53 · ítem **B2b.2** · `bdbea17` · ✓ HECHO _(rescate del maestro DanIA en vivo; la 1ª corrida headless se cortó por monitor en background — prompt corregido)_
 Ciclo en la skill **auto-desarrollo** §2 (rescate §4); playbook en `docs/AUTONOMY.md`; bitácora en `AUTONOMY-LOG.md`. Worker Codex en tmux `nikodym`; maestro fresco por cron horario (:17).
 
 ## Backlog priorizado (cola autónoma)
@@ -12,7 +12,7 @@ Ciclo en la skill **auto-desarrollo** §2 (rescate §4); playbook en `docs/AUTON
 > Cada ítem es autocontenido = un módulo + sus tests, dejando los 4 gates verdes (cobertura 100%). El worker
 > deja el árbol verde **sin commitear**; el maestro revisa, commitea y pushea (R7).
 1. [x] **B2b.1** — `data/loading.py` (`DataLoader`): CSV/Parquet + passthrough de DataFrame con copia defensiva, `engine="pyarrow"` explícito, `backend="polars"` perezoso, `from_config`. SDD-02 §4. + `tests/unit/test_data_loading.py`. ✓ `6d699e2` (266 tests, 100%).
-2. [ ] **B2b.2** — `data/schema.py` (`SchemaValidator`): builder `DataConfig.schema_`→`pa.DataFrameSchema` (`import pandera.pandas as pa`), `validate(df, lazy=True)`→`DataValidationError` (reporte español); no-nulos=`nullable=False`, unicidad=`unique=`. SDD-02 §7.
+2. [x] **B2b.2** — `data/schema.py` (`SchemaValidator`): `SchemaConfig`→`pa.DataFrameSchema` (`import pandera.pandas as pa`), `validate(df, lazy=True)`→`DataValidationError` (reporte español). SDD-02 §7. ✓ `bdbea17` (282 tests, 100%). _Nota ratificada: `index_col`=nombre del índice existente (no `set_index`); `SchemaValidator` no exportado en `data.__init__`._
 3. [ ] **B2b.3** — `data/hashing.py` (`data_hash`): sha256 por bloques (`hash_pandas_object`), **endianness `<u8` explícito**, `-0.0→0.0`, `index=True`, defaults `hash_key`/`encoding`, golden cross-versión. SDD-02.
 4. [ ] **B2b.4** — `data/special.py` (`SpecialValuePolicy`): centinelas→NaN + `special_mask` + `special_catalog`. SDD-02.
 5. [ ] **B2c.1** — `data/target.py` (definición de target/etiqueta). SDD-02.
@@ -22,9 +22,9 @@ Ciclo en la skill **auto-desarrollo** §2 (rescate §4); playbook en `docs/AUTON
 9. [ ] **B4** — `testing` + CI (`.github/workflows`, matriz) + 3 criterios de cierre del Hito 0.
 
 ## Estado actual
-**Nikodym RiskLib — F0 (Fundación): B1 `core` ✅ + B2a `data` (config) ✅ COMPLETOS.** F0 troceado en 4 bloques: B1 `core` ✅ · **B2 `data` EN CURSO (B2a ✅, B2b.1 ✅, sigue B2b.2)** · B3 `audit`+`governance`+`tracking`+`api` · B4 `testing`+CI+3 criterios Hito 0.
+**Nikodym RiskLib — F0 (Fundación): B1 `core` ✅ + B2a `data` (config) ✅ COMPLETOS.** F0 troceado en 4 bloques: B1 `core` ✅ · **B2 `data` EN CURSO (B2a ✅, B2b.1 ✅, B2b.2 ✅, sigue B2b.3)** · B3 `audit`+`governance`+`tracking`+`api` · B4 `testing`+CI+3 criterios Hito 0.
 
-**B2 por dentro:** B2a ✅ (config + endurecimiento) · **B2b EN CURSO** (B2b.1 `loading` ✅ `6d699e2` · sigue B2b.2 `schema/validator` · B2b.3 `hashing` · B2b.4 `special`) · B2c (target·partition) · B2d (card·step, `Study` end-to-end de datos).
+**B2 por dentro:** B2a ✅ (config) · **B2b EN CURSO** (B2b.1 `loading` ✅ `6d699e2` · B2b.2 `schema` ✅ `bdbea17` · sigue B2b.3 `hashing` · B2b.4 `special`) · B2c (target·partition) · B2d (card·step, `Study` end-to-end de datos).
 
 Regla de oro vigente: **mixto-troncal-más-incremental** — cada módulo: programa → `ruff`+`mypy --strict`+`pytest`+cobertura verde → ajusta → sigue. Nunca avanzar en rojo. Reabrir un SDD por feedback del código es esperado y barato (este bloque reabrió 2 mecanismos del SDD-02 §5, ver abajo).
 
