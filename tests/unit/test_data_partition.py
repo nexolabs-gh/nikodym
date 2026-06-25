@@ -444,6 +444,15 @@ def test_labeledframe_sin_columnas_requeridas_levanta_datavalidationerror() -> N
         Partitioner(cfg).split(lf, root_seed=ROOT_SEED, rng=_rng())
 
 
+def test_labeledframe_con_indice_duplicado_levanta_datavalidationerror() -> None:
+    df = _base_frame()
+    df.index = pd.Index(["dup", "dup", *[f"op-{i:02d}" for i in range(10)]], name="loan_id")
+    cfg = _random_config(dev_fraction=0.5, holdout_fraction=0.25, oot_fraction=0.25)
+
+    with pytest.raises(DataValidationError, match="índice único"):
+        _split(cfg, df)
+
+
 def test_label_status_invalido_levanta_datavalidationerror() -> None:
     df = _base_frame()
     df["label_status"] = ["gris"] * len(df)
@@ -553,6 +562,28 @@ def test_min_bads_per_partition_violado_levanta_datavalidationerror() -> None:
     )
 
     with pytest.raises(DataValidationError, match="Piso de malos"):
+        _split(cfg, df)
+
+
+def test_particion_evaluable_sin_buenos_levanta_datavalidationerror() -> None:
+    index = pd.Index(["dev-good", "dev-bad", "oot-bad"], name="loan_id")
+    df = pd.DataFrame(
+        {
+            "target": pd.Series([0, 1, 1], index=index, dtype="Int8"),
+            "label_status": pd.Categorical(
+                ["bueno", "malo", "malo"],
+                categories=["bueno", "malo", "indeterminado", "excluido"],
+            ),
+            "fecha": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-02-01"]),
+        },
+        index=index,
+    )
+    cfg = PartitionConfig(
+        strategy=TemporalSplitConfig(date_col="fecha", oot_from="2024-02-01", holdout_fraction=0.0),
+        min_bads_per_partition=1,
+    )
+
+    with pytest.raises(DataValidationError, match="sin buenos"):
         _split(cfg, df)
 
 

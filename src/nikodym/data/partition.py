@@ -144,11 +144,13 @@ class Partitioner:
 
         sizes = _partition_sizes(frame[PARTITION_COL])
         bad_counts = _bad_counts(frame, lf.target_col)
+        good_counts = _good_counts(frame, lf.target_col)
         bad_rates = _bad_rates(sizes, bad_counts)
         _validate_non_empty_partitions(sizes, self.config.strategy)
         _validate_min_bads(
             sizes,
             bad_counts,
+            good_counts,
             self.config.min_bads_per_partition,
             strategy.type,
         )
@@ -281,7 +283,10 @@ def _split_cohort(
 def _split_random_stratified(
     frame: pd.DataFrame, strategy: RandomSplitConfig, root_seed: int
 ) -> pd.Series:
-    """Asigna fracciones por estrato con umbrales estables por observación."""
+    """Conserva identidad insert-stable hasta resolver la estratificación exacta.
+
+    stratify_by: bad-rate exacta vs insert-stability = R0 pendiente de Cami.
+    """
     assert strategy.stratify_by is not None
     assignments = pd.Series(index=frame.index, dtype="object")
     uniforms = _uniform_by_index(frame.index, root_seed)
@@ -302,6 +307,15 @@ def _split_random_stratified(
 
 def _validate_labeled_frame(lf: LabeledFrame) -> None:
     """Valida columnas estructurales del resultado de target."""
+    if not lf.frame.index.is_unique:
+        duplicates = lf.frame.index[lf.frame.index.duplicated()].unique()
+        sample = ", ".join(repr(value) for value in duplicates[:5])
+        raise DataValidationError(
+            "El LabeledFrame debe tener índice único para particionar de forma reproducible; "
+            f"valores duplicados detectados: {sample}. "
+            "Defina un identificador de observación único antes de llamar a Partitioner."
+        )
+
     missing = [
         column for column in (lf.target_col, lf.status_col) if column not in lf.frame.columns
     ]
@@ -433,6 +447,15 @@ def _bad_counts(frame: pd.DataFrame, target_col: str) -> dict[str, int]:
     }
 
 
+def _good_counts(frame: pd.DataFrame, target_col: str) -> dict[str, int]:
+    """Cuenta buenos por partición a partir de ``target == 0``."""
+    good_mask = frame[target_col].eq(0).fillna(False).astype("bool")
+    return {
+        partition.value: int((frame[PARTITION_COL].eq(partition.value) & good_mask).sum())
+        for partition in Partition
+    }
+
+
 def _bad_rates(sizes: Mapping[str, int], bad_counts: Mapping[str, int]) -> dict[str, float]:
     """Calcula tasa de malos, con ``0.0`` cuando el denominador es cero."""
     return {
@@ -479,12 +502,26 @@ def _required_model_partitions(strategy: StrategyConfig) -> tuple[Partition, ...
 def _validate_min_bads(
     sizes: Mapping[str, int],
     bad_counts: Mapping[str, int],
+    good_counts: Mapping[str, int],
     min_bads_per_partition: int,
     strategy_type: str,
 ) -> None:
-    """Verifica el piso de malos por partición evaluable."""
+    """Verifica piso de malos y presencia de buenos por partición evaluable."""
     if min_bads_per_partition == 0:
         return
+
+    zero_good = [
+        partition
+        for partition in (Partition.DESARROLLO, Partition.HOLDOUT, Partition.OOT)
+        if sizes[partition.value] > 0 and good_counts[partition.value] == 0
+    ]
+    if zero_good:
+        details = ", ".join(f"{partition.value}=0 buenos" for partition in zero_good)
+        raise DataValidationError(
+            "Partición(es) sin buenos detectada(s): "
+            f"estrategia='{strategy_type}', observado={details}. "
+            "Un conjunto evaluable requiere al menos un bueno y un malo por partición."
+        )
 
     violations = [
         (partition, bad_counts[partition.value])

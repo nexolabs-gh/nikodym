@@ -31,6 +31,21 @@ Ciclo en la skill **auto-desarrollo** §2 (rescate §4); playbook en `docs/AUTON
    - [ ] **B4.4 (⚠ DECISIÓN CAMI = R0: ¿soportar Windows en v0.1.0?)** — portabilidad Windows: `Study.save` (`core/study.py:372`) lanza `PermissionError [WinError 5]` en el swap atómico (rename sobre destino existente/bloqueado) → hacerlo Windows-safe; + revisar otros usos de EOL/paths. NO reproducible localmente (necesita runner Windows). Al cerrarlo, añadir `windows-latest` a la matriz del CI. _(El hash-EOL ya se mitigó en B4.3 v2 con `write_bytes`.)_
    - [ ] **B4.5 (⚠ DECISIÓN CAMI = R0: ¿soportar Python 3.13 en v0.1.0?)** — `ortools` (vía optbinning/scoring) no tiene wheel cp313 en 9.10.4067. Subir ortools a ≥9.11 (verificar techo de optbinning y cascada del lock) o dejar 3.13 fuera del job con `--extra scoring`. Al cerrarlo, añadir `3.13` a la matriz del CI.
 
+## 🔧 Backlog de FIXES (revisión adversarial independiente, 2026-06-25) — PRIORITARIO antes de F1
+> El **revisor del paso 6.5** (subagente Claude adversarial, motor cruzado) re-revisó los módulos de la noche y halló
+> bugs **MATERIALES** que los 4 gates + 100% cobertura + la revisión del maestro nocturno NO vieron. Arreglar ANTES
+> de avanzar a F1. El revisor del ciclo los valida en cada push (ya probado E2E con FIX-partition).
+10. [ ] **FIX-hashing** — `data/hashing.py` `data_hash` **no es reproducible con índice duplicado** (`sort_index` no es orden total → reordenar filas de igual índice cambia el hash; rompe SR 11-7 y el invariante §7). Arreglar: hash invariante a permutación (ordenar los `uint64` de `hash_pandas_object` antes del sha256) **o** fail-fast `DataValidationError` si `index.has_duplicates`. + test índice duplicado (hoy falla) + test `category`. SDD-02 §6/§7.
+11. [ ] **FIX-target** — `data/target.py`: (a) `NaT` en `observation_date`/`cutoff` se trata como ventana madurada → etiqueta **bueno** (censurado inseguro): `mask = (matured>cutoff) | obs.isna() | cutoff.isna()` → `excluido(ventana_incompleta)`; (b) `exclusions_by_reason[reason]=count` **sobrescribe** (subcuenta si 2 reglas comparten nombre → cifra regulatoria errada en el model card): `get(reason,0)+count` + `model_validator` que rechace nombres duplicados / colisión con `"ventana_incompleta"`. + tests. SDD-02 §3/§12.
+12. [x] **FIX-partition (B2c.2)** — índice duplicado → `DataValidationError` tipado + cero-buenos → guard simétrico. ✓ **(E2E supervisada: worker Codex → gates → revisor RECHAZÓ una regresión → re-trabajo → revisor APROBÓ → push).** _`stratify_by` exacto = R0-stratify, abajo._
+
+> **R0 (decisión de Cami, NO autónomo) — ampliado por la revisión:**
+> - **R0-stratify** — `partition.py` `stratify_by`: estratificación **EXACTA** (preservar bad-rate en Dev/HO/OOT) vs **insert-stability** documentada (§7/§9: insertar filas no reasigna) están en **tensión matemática** (lo reveló el revisor). Por ahora `stratify_by` quedó **revertido a umbral-global insert-stable** (funcionalmente no-op; nota en `partition.py:286`). Cami decide qué garantía prioriza el path estratificado.
+> - **R0-A** — Producir **SDD-06…11, 26** (Tanda 2 de diseño) para desbloquear el grueso de F1 (hoy solo existe SDD-27).
+> - **R0-B** — Aprobar **SDD-27** (eda, hoy Borrador) → desbloquea **EDA (B5.1–B5.7)**, ya troceado por el planificador (ver Próximos pasos).
+> - **R0-C** — Release público **v0.1.0** / repo público / PyPI (evento sensible/irreversible).
+> - **R0-D** — **B4.4** Windows / **B4.5** Python 3.13 (heredados).
+
 ## Estado actual
 **Nikodym RiskLib — F0 (Fundación) ✅ CERRADO: B1 `core` ✅ + B2 `data` ✅ + B3 (audit/governance/tracking/api) ✅ + B4 ✅ (B4.1 `testing`, B4.2 criterios Hito 0, B4.3 CI verde en GitHub).** El CI nace verde (run `28156768899`, matriz acotada ubuntu+macos × 3.11/3.12). **Siguiente fase: T2 scoring → F1 → release público v0.1.0** (backlog autónomo B1–B4 agotado; ver Próximos pasos). Deuda de alcance pendiente de decisión de Cami (R0): **B4.4 Windows** (`Study.save` no Windows-safe) y **B4.5 Python 3.13** (`ortools` sin wheel cp313); al resolverlas se amplía la matriz del CI.
 
