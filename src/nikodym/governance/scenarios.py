@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -28,6 +29,12 @@ class OverlayRecord(BaseModel):
     payload: dict[str, Any] | None = None
     approved_by: str | None = None
     ts: datetime
+
+    @field_validator("payload", mode="before")
+    @classmethod
+    def _payload_snapshot(cls, value: Any) -> Any:
+        """Toma snapshot profundo del payload estructurado CT-2."""
+        return deepcopy(value)
 
     @field_validator("justification")
     @classmethod

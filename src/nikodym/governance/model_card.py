@@ -7,11 +7,12 @@ import math
 import warnings
 from calendar import monthrange
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from nikodym.audit import EnvironmentSnapshot, capture_environment, read_trail
 from nikodym.core.audit import AuditEvent
@@ -64,6 +65,12 @@ class ModelCard(BaseModel):
     review_date: datetime
     next_review_date: datetime
     environment: EnvironmentSnapshot
+
+    @field_validator("metric_sections", mode="before")
+    @classmethod
+    def _metric_sections_snapshot(cls, value: Any) -> Any:
+        """Toma snapshot profundo de payloads estructurados CT-2 al construir el card."""
+        return deepcopy(value)
 
     def to_json(self) -> str:
         """Serializa el model card a JSON canónico para diff/auditoría."""
@@ -251,7 +258,7 @@ def _metric_sections(results: dict[str, Any]) -> dict[str, Any]:
     raw = results.get("metric_sections", {})
     if not isinstance(raw, dict):
         raise GovernanceError("study.results['metric_sections'] debe ser un dict.")
-    return dict(raw)
+    return cast("dict[str, Any]", deepcopy(raw))
 
 
 def _data_description(study: Study) -> DataCardSectionLike | None:
