@@ -15,8 +15,9 @@ inversión de la dependencia vive en este lado (``data`` conoce a ``core``, no a
 
 from nikodym.core.config import schema as _schema
 from nikodym.data.config import DataConfig
+from nikodym.data.loading import DataLoader
 
 # Registra la clase real del sub-config de datos en el hook de `core`.
 _schema._DATA_CONFIG_CLS = DataConfig
 
-__all__ = ["DataConfig"]
+__all__ = ["DataConfig", "DataLoader"]
