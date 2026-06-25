@@ -1,0 +1,401 @@
+name: CI
+
+"on":
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Install tooling
+        run: uv sync --locked --python 3.12 --group lint
+
+      - name: Ruff check
+        run: uv run --no-sync ruff check .
+
+      - name: Ruff format
+        run: uv run --no-sync ruff format --check .
+
+      - name: Mypy
+        run: uv run --no-sync mypy
+
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    env:
+      HYPOTHESIS_PROFILE: ci
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON((github.event_name == 'pull_request' || github.ref == 'refs/heads/main') && '[{"python-version":"3.11","os":"ubuntu-latest"},{"python-version":"3.12","os":"ubuntu-latest"},{"python-version":"3.13","os":"ubuntu-latest"},{"python-version":"3.11","os":"macos-latest"},{"python-version":"3.12","os":"macos-latest"},{"python-version":"3.13","os":"macos-latest"},{"python-version":"3.11","os":"windows-latest"},{"python-version":"3.12","os":"windows-latest"},{"python-version":"3.13","os":"windows-latest"}]' || '[{"python-version":"3.12","os":"ubuntu-latest"}]') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: uv sync --locked --python ${{ matrix.python-version }} --group test --extra scoring
+
+      - name: Pytest
+        run: uv run --no-sync pytest -q --cov=nikodym --cov-report=term-missing
+
+  test-all:
+    name: Tests all extras
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      HYPOTHESIS_PROFILE: ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Install all extras
+        run: uv sync --locked --python 3.12 --all-extras --group test
+
+      - name: Pytest
+        run: uv run --no-sync pytest -q --cov=nikodym --cov-report=term-missing
+
+  coverage-regulatory:
+    name: Regulatory coverage
+    runs-on: ubuntu-latest
+    env:
+      HYPOTHESIS_PROFILE: ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Install test dependencies
+        run: uv sync --locked --python 3.12 --group test --extra scoring
+
+      - name: Coverage regulatorio
+        shell: bash
+        run: |
+          regulatory_include="$(
+            uv run --no-sync python -c \
+              "from nikodym.testing.regulatory import regulatory_coverage_include_arg; print(regulatory_coverage_include_arg())"
+          )"
+          uv run --no-sync coverage run -m pytest
+          uv run --no-sync coverage report --include="$regulatory_include" --fail-under=100
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Smoke test wheel
+        run: uv run --isolated --no-project --with dist/*.whl python -c "import nikodym; print(nikodym.__version__)"
+
+      - name: Verify wheel license metadata
+        shell: bash
+        run: |
+          wheel="$(ls dist/*.whl | head -n 1)"
+          uv run --isolated --no-project python - "$wheel" <<'PY'
+          from __future__ import annotations
+
+          import email.parser
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          wheel_path = Path(sys.argv[1])
+          with zipfile.ZipFile(wheel_path) as wheel:
+              metadata_name = next(
+                  name for name in wheel.namelist() if name.endswith(".dist-info/METADATA")
+              )
+              metadata = email.parser.Parser().parsestr(
+                  wheel.read(metadata_name).decode("utf-8")
+              )
+
+          license_expression = metadata.get("License-Expression")
+          if license_expression != "Apache-2.0":
+              raise SystemExit(
+                  "License-Expression inválida en el wheel: "
+                  f"{license_expression!r}; esperado 'Apache-2.0'."
+              )
+          PY
+
+      - name: Export runtime dependency closure
+        run: uv export --format requirements-txt --all-extras --no-dev > dist/runtime-requirements.txt
+
+      - name: Install runtime dependency closure
+        run: uv sync --locked --python 3.12 --all-extras --no-dev
+
+      - name: Verify runtime licenses
+        shell: bash
+        run: |
+          uv run --no-sync python - dist/runtime-requirements.txt dist/license-report.json <<'PY'
+          from __future__ import annotations
+
+          import json
+          import re
+          import sys
+          from importlib import metadata
+          from pathlib import Path
+
+          from packaging.requirements import InvalidRequirement, Requirement
+
+          requirements_path = Path(sys.argv[1])
+          report_path = Path(sys.argv[2])
+
+          copyleft_re = re.compile(
+              r"\b(?:AGPL|LGPL|GPL)(?:[- ]?(?:v?\d+(?:\.\d+)?))?"
+              r"(?:[- ]?(?:only|or-later|\+))?\b",
+              re.IGNORECASE,
+          )
+          permissive_re = re.compile(
+              "|".join(
+                  re.escape(token)
+                  for token in (
+                      "Apache-2.0",
+                      "Apache 2.0",
+                      "Apache License",
+                      "Apache Software License",
+                      "BSD",
+                      "MIT",
+                      "MPL-2.0",
+                      "Mozilla Public License",
+                      "Matplotlib",
+                      "Python Software Foundation",
+                      "PSF",
+                      "ISC",
+                      "Zlib",
+                      "zlib/libpng",
+                      "The Unlicense",
+                      "Unlicense",
+                      "CC0",
+                  )
+              ),
+              re.IGNORECASE,
+          )
+          # Metadata incompleta verificada contra fuentes oficiales:
+          # - huey: repo GitHub coleifer/huey, MIT.
+          # - skops: PyPI histórico y LICENSE del repo skops-dev/skops, MIT.
+          metadata_allowlist = {
+              "huey": "MIT",
+              "skops": "MIT",
+          }
+
+          def normalized(name: str) -> str:
+              return re.sub(r"[-_.]+", "-", name).lower()
+
+          def requirement_names(path: Path) -> set[str]:
+              names: set[str] = set()
+              errors: list[str] = []
+              for raw_line in path.read_text(encoding="utf-8").splitlines():
+                  line = raw_line.strip()
+                  if (
+                      not line
+                      or line.startswith("#")
+                      or line.startswith("--")
+                      or line.startswith("-e ")
+                  ):
+                      continue
+                  if line.endswith("\\"):
+                      line = line[:-1].strip()
+                  try:
+                      requirement = Requirement(line)
+                  except InvalidRequirement:
+                      errors.append(line)
+                      continue
+                  if requirement.marker is not None and not requirement.marker.evaluate():
+                      continue
+                  names.add(normalized(requirement.name))
+              if errors:
+                  joined = "\n  - ".join(errors)
+                  raise SystemExit(f"No se pudieron parsear estas dependencias:\n  - {joined}")
+              return names
+
+          failures: list[str] = []
+          report: list[dict[str, object]] = []
+
+          for name in sorted(requirement_names(requirements_path)):
+              try:
+                  dist = metadata.distribution(name)
+              except metadata.PackageNotFoundError:
+                  failures.append(f"{name}: distribución no instalada para leer metadata real")
+                  continue
+
+              meta = dist.metadata
+              normalized_name = normalized(meta["Name"])
+              license_expression = meta.get("License-Expression")
+              legacy_license = meta.get("License")
+              license_classifiers = [
+                  classifier
+                  for classifier in meta.get_all("Classifier", [])
+                  if classifier.startswith("License ::")
+              ]
+              specific_classifiers = [
+                  classifier
+                  for classifier in license_classifiers
+                  if classifier != "License :: OSI Approved"
+              ]
+              evidence = [
+                  value
+                  for value in (
+                      license_expression,
+                      *specific_classifiers,
+                      legacy_license if legacy_license and len(legacy_license) < 500 else None,
+                      metadata_allowlist.get(normalized_name),
+                  )
+                  if value and value.strip() and value.strip().upper() != "UNKNOWN"
+              ]
+              evidence_text = "\n".join(evidence)
+
+              status = "ok"
+              if not evidence:
+                  status = "fail"
+                  failures.append(f"{meta['Name']}: licencia ausente")
+              elif copyleft_re.search(evidence_text):
+                  status = "fail"
+                  failures.append(f"{meta['Name']}: licencia copyleft detectada: {evidence!r}")
+              elif not permissive_re.search(evidence_text):
+                  status = "fail"
+                  failures.append(f"{meta['Name']}: licencia ambigua/no clasificada: {evidence!r}")
+
+              report.append(
+                  {
+                      "name": meta["Name"],
+                      "version": dist.version,
+                      "license_expression": license_expression,
+                      "license": legacy_license,
+                      "license_classifiers": license_classifiers,
+                      "status": status,
+                  }
+              )
+
+          report_path.write_text(
+              json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+
+          if failures:
+              print("Verificación anti-copyleft falló:", file=sys.stderr)
+              for failure in failures:
+                  print(f"  - {failure}", file=sys.stderr)
+              raise SystemExit(1)
+
+          print(f"Licencias runtime verificadas: {len(report)} distribuciones.")
+          PY
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: dist/license-report.json
+
+  lock-check:
+    name: Lock check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Check lockfile
+        run: uv lock --check
+
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Validate tag version
+        shell: bash
+        run: |
+          version="$(
+            uv run --isolated --no-project --with dist/*.whl python -c \
+              "import nikodym; print(nikodym.__version__)"
+          )"
+          test "v${version}" = "${GITHUB_REF_NAME}"
+
+      - name: Publish to PyPI
+        run: uv publish
