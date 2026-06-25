@@ -6,9 +6,11 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+from nikodym.core.exceptions import DataValidationError
 from nikodym.data.hashing import data_hash
 
 GOLDEN_DATA_HASH = "9c5118ad5b593e577783c64f5268b5ae7d755e799353099f30e0498e8ea19f68"
+GOLDEN_CATEGORY_DATA_HASH = "65191931e5ccb9956156e85d7ffff3ec6989b0e8e702884831a39059a37468cc"
 
 
 def _canonical_frame() -> pd.DataFrame:
@@ -31,6 +33,21 @@ def _canonical_frame() -> pd.DataFrame:
     )
 
 
+def _categorical_frame() -> pd.DataFrame:
+    idx = pd.Index(["op-001", "op-002", "op-003", "op-004"], name="loan_id")
+    return pd.DataFrame(
+        {
+            "dias_mora": [0, 15, 90, 30],
+            "segmento": pd.Categorical(
+                ["retail", "pyme", "retail", "empresa"],
+                categories=["empresa", "pyme", "retail"],
+                ordered=False,
+            ),
+        },
+        index=idx,
+    ).astype({"dias_mora": "int64"})
+
+
 def test_data_hash_golden_value_pineado_a_pandas_de_uv_lock() -> None:
     # Golden calculado con pandas 2.3.3, versión pineada en uv.lock para este entorno.
     result = data_hash(_canonical_frame())
@@ -45,6 +62,30 @@ def test_data_hash_es_determinista_en_llamadas_y_copias_independientes() -> None
 
     assert data_hash(df) == data_hash(df)
     assert data_hash(df) == data_hash(df.copy(deep=True))
+
+
+def test_data_hash_rechaza_indice_duplicado_con_mensaje_especifico() -> None:
+    idx = pd.Index(["op-001", "op-001", "op-002"], name="loan_id")
+    df = pd.DataFrame({"saldo": [100.0, 200.0, 300.0]}, index=idx, dtype="float64")
+
+    with pytest.raises(DataValidationError) as exc_info:
+        data_hash(df)
+
+    message = str(exc_info.value).lower()
+    assert "índice" in message
+    assert "duplicad" in message
+    assert "1 etiqueta" in message
+
+
+def test_data_hash_category_es_reproducible_y_tiene_golden() -> None:
+    df = _categorical_frame()
+
+    result = data_hash(df)
+
+    assert isinstance(df["segmento"].dtype, pd.CategoricalDtype)
+    assert result == data_hash(df)
+    assert result == data_hash(df.copy(deep=True))
+    assert result == GOLDEN_CATEGORY_DATA_HASH
 
 
 def test_data_hash_es_invariante_al_orden_de_columnas() -> None:

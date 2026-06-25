@@ -20,6 +20,8 @@ from typing import Final
 import pandas as pd
 from pandas.util import hash_pandas_object
 
+from nikodym.core.exceptions import DataValidationError
+
 __all__ = ["data_hash"]
 
 _PANDAS_HASH_KEY: Final = "0123456789123456"
@@ -50,12 +52,15 @@ def data_hash(df: pd.DataFrame, *, block_size: int = 1_000_000) -> str:
 
     Raises
     ------
+    DataValidationError
+        Si el índice contiene etiquetas duplicadas.
     ValueError
         Si ``block_size`` es menor que 1.
     """
     if block_size < 1:
         raise ValueError("block_size debe ser mayor o igual a 1.")
 
+    _validate_unique_index(df)
     frame = _canonical_frame(df)
     digest = hashlib.sha256()
     digest.update(_schema_header(frame))
@@ -72,6 +77,20 @@ def data_hash(df: pd.DataFrame, *, block_size: int = 1_000_000) -> str:
         digest.update(block_hashes.tobytes())
 
     return digest.hexdigest()
+
+
+def _validate_unique_index(df: pd.DataFrame) -> None:
+    """Falla temprano si el índice no identifica observaciones de forma única."""
+    if not df.index.has_duplicates:
+        return
+
+    duplicates = df.index[df.index.duplicated()].unique()
+    sample = ", ".join(repr(value) for value in duplicates[:5])
+    raise DataValidationError(
+        "data_hash requiere un índice único para garantizar reproducibilidad; "
+        f"el índice contiene {len(duplicates)} etiqueta(s) duplicada(s): {sample}. "
+        "Defina un identificador de observación único antes de calcular data_hash."
+    )
 
 
 def _canonical_frame(df: pd.DataFrame) -> pd.DataFrame:
