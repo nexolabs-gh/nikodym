@@ -61,12 +61,7 @@ xgboost  = ["xgboost>=2.0",  "scikit-learn>=1.6"]   # Apache-2.0
 lightgbm = ["lightgbm>=4.0", "scikit-learn>=1.6"]   # MIT
 catboost = ["catboost>=1.2", "scikit-learn>=1.6"]   # Apache-2.0
 tuning   = ["optuna>=3.5"]                          # MIT
-explain = [                 # MIT / PSF / BSD
-  "shap>=0.44",
-  "matplotlib>=3.7",
-  "numba>=0.60",            # constraint explícito: evita llvmlite viejo incompatible con Py 3.12
-  "llvmlite>=0.43",
-]
+explain  = ["shap>=0.44", "matplotlib>=3.7"]        # MIT / PSF
 # Forward-looking (F5).
 forecasting = ["statsmodels>=0.14", "pmdarima>=2.0"]  # BSD / MIT
 survival    = ["lifelines>=0.28"]                     # MIT — NO scikit-survival (GPL-3.0)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -28,8 +26,13 @@ from nikodym.data.partition import (
 )
 from nikodym.data.target import LabeledFrame, TargetSummary
 
-if "HYPOTHESIS_PROFILE" not in os.environ:
-    settings.load_profile("nikodym_deterministic")
+settings.register_profile(
+    "nikodym_deterministic",
+    derandomize=True,
+    deadline=None,
+    max_examples=25,
+)
+settings.load_profile("nikodym_deterministic")
 
 ROOT_SEED = 20_240_624
 
