@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Self
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 if TYPE_CHECKING:
+    from nikodym.audit.config import AuditConfig
     from nikodym.data.config import DataConfig
 
 __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
@@ -29,6 +30,7 @@ __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
 # None (core en solitario), `data` se trata como un blob JSON-canónico opaco (ver `_valida_data`).
 # Reemplaza el `model_rebuild()` del SDD-02 §5: Pydantic v2 no re-narra un campo ya resuelto (B2a).
 _DATA_CONFIG_CLS: type[BaseModel] | None = None
+_AUDIT_CONFIG_CLS: type[BaseModel] | None = None
 
 
 class NikodymBaseConfig(BaseModel):
@@ -108,6 +110,15 @@ class NikodymConfig(NikodymBaseConfig):
             title="Datos",
             description="Sección de origen y validación de datos (capa `data`, SDD-02).",
         )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto sin importar `nikodym.audit` en runtime.
+        audit: AuditConfig | None
+    else:
+        audit: Any = Field(
+            default=None,
+            title="Auditoría",
+            description="Sección de infraestructura para persistencia del audit-trail (SDD-03).",
+        )
 
     @field_validator("data", mode="before")
     @classmethod
@@ -132,6 +143,25 @@ class NikodymConfig(NikodymBaseConfig):
             raise ValueError(
                 "data debe ser JSON-canónico y determinista (sin sets, objetos no serializables ni "
                 "floats no finitos), o importa `nikodym.data` para validarlo como DataConfig."
+            ) from exc
+        return valor
+
+    @field_validator("audit", mode="before")
+    @classmethod
+    def _valida_audit(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``audit`` sin importar la capa desde ``core``."""
+        if valor is None:
+            return valor
+        if _AUDIT_CONFIG_CLS is not None:
+            if isinstance(valor, _AUDIT_CONFIG_CLS):
+                return valor
+            return _AUDIT_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "audit debe ser JSON-canónico y determinista (sin sets, objetos no serializables "
+                "ni floats no finitos), o importa `nikodym.audit` para validarlo como AuditConfig."
             ) from exc
         return valor
 

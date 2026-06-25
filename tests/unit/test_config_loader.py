@@ -20,11 +20,11 @@ from nikodym.core.exceptions import ConfigError, ConfigVersionError
 def _vista_core_solo(monkeypatch: pytest.MonkeyPatch) -> None:
     """Vista *core-only*: sin capa ``data`` cargada, la sección ``data`` es un blob opaco.
 
-    Neutraliza el hook ``_DATA_CONFIG_CLS`` (poblado *process-wide* al importar ``nikodym.data``
-    en otros tests) para probar el loader del núcleo en aislamiento; el round-trip con un
-    ``DataConfig`` real se cubre en ``test_data_config.py``.
+    Neutraliza hooks poblados *process-wide* al importar dominios en otros tests para probar el
+    loader del núcleo en aislamiento; el round-trip con configs reales se cubre en sus módulos.
     """
     monkeypatch.setattr(_schema_mod, "_DATA_CONFIG_CLS", None)
+    monkeypatch.setattr(_schema_mod, "_AUDIT_CONFIG_CLS", None)
 
 
 def test_round_trip_string() -> None:
