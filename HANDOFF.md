@@ -2,10 +2,29 @@
 
 _Última actualización: 2026-06-24 · repo privado `nexolabs-gh/nikodym` · sobre commit `1067afa`_
 
-## Estado actual
-**Nikodym RiskLib — F0 (Fundación): B1 `core` ✅ + B2a `data` (config) ✅ COMPLETOS.** F0 troceado en 4 bloques: B1 `core` ✅ · **B2 `data` EN CURSO (B2a ✅, sigue B2b)** · B3 `audit`+`governance`+`tracking`+`api` · B4 `testing`+CI+3 criterios Hito 0.
+## 🤖 Modo autónomo (rutina)
+**Estado:** `IDLE`  _(IDLE = libre · `RUNNING [ts]` = corrida en curso desde ts. Lock <60 min ⇒ corrida viva; >120 min ⇒ huérfano, rescatar.)_
+Última corrida: 2026-06-24 20:40 · ítem **B2b.1** · `6d699e2` · ✓ HECHO _(piloto supervisado por Cami; cadena Codex→maestro→push validada)_
+Ciclo en la skill **auto-desarrollo** §2 (rescate §4); playbook en `docs/AUTONOMY.md`; bitácora en `AUTONOMY-LOG.md`. Worker Codex en tmux `nikodym`; maestro fresco por cron horario (:17).
 
-**B2 por dentro:** **B2a ✅ (config + endurecimiento)** ← este commit · B2b (primitivas: loading·schema/validator·hashing·special) · B2c (target·partition) · B2d (card·step, `Study` end-to-end de datos).
+## Backlog priorizado (cola autónoma)
+> La rutina consume esto en orden, de arriba a abajo. Marca `[x]` al terminar; **NO** borres ni renumeres.
+> Cada ítem es autocontenido = un módulo + sus tests, dejando los 4 gates verdes (cobertura 100%). El worker
+> deja el árbol verde **sin commitear**; el maestro revisa, commitea y pushea (R7).
+1. [x] **B2b.1** — `data/loading.py` (`DataLoader`): CSV/Parquet + passthrough de DataFrame con copia defensiva, `engine="pyarrow"` explícito, `backend="polars"` perezoso, `from_config`. SDD-02 §4. + `tests/unit/test_data_loading.py`. ✓ `6d699e2` (266 tests, 100%).
+2. [ ] **B2b.2** — `data/schema.py` (`SchemaValidator`): builder `DataConfig.schema_`→`pa.DataFrameSchema` (`import pandera.pandas as pa`), `validate(df, lazy=True)`→`DataValidationError` (reporte español); no-nulos=`nullable=False`, unicidad=`unique=`. SDD-02 §7.
+3. [ ] **B2b.3** — `data/hashing.py` (`data_hash`): sha256 por bloques (`hash_pandas_object`), **endianness `<u8` explícito**, `-0.0→0.0`, `index=True`, defaults `hash_key`/`encoding`, golden cross-versión. SDD-02.
+4. [ ] **B2b.4** — `data/special.py` (`SpecialValuePolicy`): centinelas→NaN + `special_mask` + `special_catalog`. SDD-02.
+5. [ ] **B2c.1** — `data/target.py` (definición de target/etiqueta). SDD-02.
+6. [ ] **B2c.2** — `data/partition.py` (`PartitionStrategy`: temporal/random/cohort) con **Hypothesis** para determinismo y anti-leakage. SDD-02.
+7. [ ] **B2d** — `data/step.py` (`DataStep @register(domain="data")`) + `Study.run(steps=["data"])` end-to-end de datos. SDD-02 + CT-1.
+8. [ ] **B3.1** — integración `audit`/`governance`/`tracking`/`api` (cableado + `assemble_run`/`ModelInventory`, CT-4). SDD-03.
+9. [ ] **B4** — `testing` + CI (`.github/workflows`, matriz) + 3 criterios de cierre del Hito 0.
+
+## Estado actual
+**Nikodym RiskLib — F0 (Fundación): B1 `core` ✅ + B2a `data` (config) ✅ COMPLETOS.** F0 troceado en 4 bloques: B1 `core` ✅ · **B2 `data` EN CURSO (B2a ✅, B2b.1 ✅, sigue B2b.2)** · B3 `audit`+`governance`+`tracking`+`api` · B4 `testing`+CI+3 criterios Hito 0.
+
+**B2 por dentro:** B2a ✅ (config + endurecimiento) · **B2b EN CURSO** (B2b.1 `loading` ✅ `6d699e2` · sigue B2b.2 `schema/validator` · B2b.3 `hashing` · B2b.4 `special`) · B2c (target·partition) · B2d (card·step, `Study` end-to-end de datos).
 
 Regla de oro vigente: **mixto-troncal-más-incremental** — cada módulo: programa → `ruff`+`mypy --strict`+`pytest`+cobertura verde → ajusta → sigue. Nunca avanzar en rojo. Reabrir un SDD por feedback del código es esperado y barato (este bloque reabrió 2 mecanismos del SDD-02 §5, ver abajo).
 
