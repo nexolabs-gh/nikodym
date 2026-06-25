@@ -1,8 +1,27 @@
 """Fixtures raíz de la suite de tests de Nikodym."""
 
+import os
+
 import pytest
+from hypothesis import settings
 
 from nikodym.core.seeding import SeedManager
+
+settings.register_profile("dev", max_examples=50, deadline=None)
+settings.register_profile(
+    "ci",
+    derandomize=True,
+    max_examples=200,
+    deadline=None,
+    print_blob=True,
+)
+settings.register_profile(
+    "nikodym_deterministic",
+    derandomize=True,
+    max_examples=25,
+    deadline=None,
+)
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "dev"))
 
 
 @pytest.fixture(autouse=True)

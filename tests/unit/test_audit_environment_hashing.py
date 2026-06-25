@@ -26,7 +26,7 @@ _GOLDEN_DATAFRAME_HASH = "d7c517674c4908b4292bf9ee2a832301e6a88fb26a3668d6f8fc64
 def test_hash_file_golden_y_errores(tmp_path: Path) -> None:
     """``hash_file`` produce sha256 estable y envuelve errores con ``AuditError``."""
     path = tmp_path / "entrada.txt"
-    path.write_text("abcñ\n", encoding="utf-8")
+    path.write_bytes("abcñ\n".encode())
 
     assert hash_file(path) == _GOLDEN_FILE_HASH
 
@@ -51,7 +51,7 @@ def test_hash_dataframe_delega_a_data_hash_golden() -> None:
 def test_capture_environment_deterministico_con_inyeccion(tmp_path: Path) -> None:
     """Reloj, plataforma y versiones inyectadas generan un snapshot bit-idéntico."""
     lock = tmp_path / "uv.lock"
-    lock.write_text("lock\n", encoding="utf-8")
+    lock.write_bytes(b"lock\n")
     versions = {"nikodym": "0.1.0", "pydantic": "2.13.0"}
 
     snapshot = capture_environment(
@@ -82,7 +82,7 @@ def test_capture_environment_deterministico_con_inyeccion(tmp_path: Path) -> Non
 def test_capture_environment_defaults_y_warnings(tmp_path: Path) -> None:
     """El set default es estable; paquetes/lock ausentes producen snapshot parcial con warning."""
     lock = tmp_path / "uv.lock"
-    lock.write_text("lock\n", encoding="utf-8")
+    lock.write_bytes(b"lock\n")
     default_snapshot = capture_environment(
         uv_lock_path=lock,
         now=lambda: datetime(2026, 6, 25, 9, 15, 0, tzinfo=UTC),
