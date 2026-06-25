@@ -17,13 +17,14 @@ máscaras booleanas vectorizadas con una *allowlist* cerrada de operadores; **nu
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
 from pydantic import ConfigDict, Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
 
 __all__ = [
+    "EXCLUSION_WINDOW_REASON",
     "CohortSplitConfig",
     "ColumnSpec",
     "CsvOptions",
@@ -42,6 +43,8 @@ __all__ = [
     "TargetConfig",
     "TemporalSplitConfig",
 ]
+
+EXCLUSION_WINDOW_REASON: Final = "ventana_incompleta"
 
 
 # ── carga ─────────────────────────────────────────────────────────────────────
@@ -262,6 +265,25 @@ class TargetConfig(NikodymBaseConfig):
         title="Ventana de desempeño",
         description="Si se da, las observaciones sin ventana madurada se excluyen.",
     )
+
+    @model_validator(mode="after")
+    def _exclusion_reasons_unicos_y_no_reservados(self) -> TargetConfig:
+        """Rechaza motivos duplicados y colisiones con razones reservadas del sistema."""
+        seen: set[str] = set()
+        for exclusion in self.exclusion_rules:
+            reason = exclusion.name
+            if reason == EXCLUSION_WINDOW_REASON:
+                raise ValueError(
+                    "el motivo de exclusión 'ventana_incompleta' está reservado para la "
+                    "ventana de desempeño incompleta; use otro ExclusionRule.name."
+                )
+            if reason in seen:
+                raise ValueError(
+                    f"motivo de exclusión duplicado: '{reason}'. Cada ExclusionRule.name debe "
+                    "ser único para preservar la trazabilidad regulatoria."
+                )
+            seen.add(reason)
+        return self
 
 
 # ── missing / special values ──────────────────────────────────────────────────

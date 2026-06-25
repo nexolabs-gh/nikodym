@@ -5,7 +5,10 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
+from pydantic import ValidationError
 
+import nikodym.data.config as data_config_module
+import nikodym.data.target as data_target_module
 from nikodym.core.audit import InMemoryAuditSink
 from nikodym.core.exceptions import ConfigError, DataValidationError
 from nikodym.data.config import (
@@ -194,6 +197,147 @@ def test_ventana_incompleta_excluye_por_motivo_golden() -> None:
         "valor": 1,
         "accion": "marcar_excluido",
     }
+
+
+def test_ventana_con_nat_excluye_por_prudencia_golden() -> None:
+    """Fechas faltantes en la ventana son censura insegura y se excluyen."""
+    df = pd.DataFrame(
+        {
+            "max_dpd_12m": [120, 0, 0, 0, 0],
+            "observation_date": pd.to_datetime(
+                ["2023-01-01", "2023-01-01", None, "2023-01-01", None]
+            ),
+            "data_cutoff": pd.to_datetime(["2024-02-01", "2024-02-01", "2024-02-01", None, None]),
+        },
+        index=pd.Index(
+            ["bad_mature", "good_mature", "nat_observation", "nat_cutoff", "nat_both"],
+            name="loan_id",
+        ),
+    )
+    cfg = TargetConfig(
+        bad_rule=_bad_rule(),
+        window=PerformanceWindow(
+            observation_date_col="observation_date",
+            months=12,
+            data_cutoff_col="data_cutoff",
+        ),
+    )
+
+    labeled = TargetDefinition(cfg).apply(df)
+
+    assert labeled.frame["label_status"].astype(str).tolist() == [
+        "malo",
+        "bueno",
+        "excluido",
+        "excluido",
+        "excluido",
+    ]
+    assert labeled.frame["target"].tolist() == [1, 0, pd.NA, pd.NA, pd.NA]
+    assert labeled.summary.exclusions_by_reason == {"ventana_incompleta": 3}
+
+
+def test_ventana_con_fechas_validas_maduras_no_excluye_control_golden() -> None:
+    """Fechas válidas con ventana madura quedan etiquetadas como bueno/malo."""
+    df = pd.DataFrame(
+        {
+            "max_dpd_12m": [120, 0],
+            "observation_date": pd.to_datetime(["2023-01-01", "2023-02-01"]),
+            "data_cutoff": pd.to_datetime(["2024-01-01", "2024-02-15"]),
+        },
+        index=pd.Index(["bad", "good"], name="loan_id"),
+    )
+    cfg = TargetConfig(
+        bad_rule=_bad_rule(),
+        window=PerformanceWindow(
+            observation_date_col="observation_date",
+            months=12,
+            data_cutoff_col="data_cutoff",
+        ),
+    )
+
+    labeled = TargetDefinition(cfg).apply(df)
+
+    assert labeled.frame["label_status"].astype(str).tolist() == ["malo", "bueno"]
+    assert labeled.frame["target"].tolist() == [1, 0]
+    assert labeled.summary.exclusions_by_reason == {}
+
+
+def test_targetconfig_rechaza_exclusion_rules_con_reason_duplicado() -> None:
+    """Dos exclusiones con el mismo motivo degradan la trazabilidad y se rechazan."""
+    with pytest.raises(ValidationError, match=r"motivo de exclusión duplicado.*fraude"):
+        TargetConfig(
+            bad_rule=_bad_rule(),
+            exclusion_rules=(
+                _fraud_exclusion(),
+                ExclusionRule(name="fraude", rule=_rule(_predicate("estado", "==", "fallecido"))),
+            ),
+        )
+
+
+def test_targetconfig_rechaza_colision_con_reason_reservado_de_ventana() -> None:
+    """El motivo del sistema para ventana incompleta no puede declararlo el usuario."""
+    with pytest.raises(ValidationError, match=r"ventana_incompleta.*reservado"):
+        TargetConfig(
+            bad_rule=_bad_rule(),
+            exclusion_rules=(
+                ExclusionRule(
+                    name="ventana_incompleta",
+                    rule=_rule(_predicate("fraud_flag", "==", True)),
+                ),
+            ),
+        )
+
+
+def test_reason_de_ventana_compartido_entre_config_y_target() -> None:
+    """La config y el etiquetador usan la misma razón reservada del sistema."""
+    assert (
+        data_config_module.EXCLUSION_WINDOW_REASON
+        == data_target_module.EXCLUSION_WINDOW_REASON
+        == "ventana_incompleta"
+    )
+
+
+def test_exclusions_by_reason_acumula_fuentes_con_mismo_reason_golden() -> None:
+    """El resumen acumula conteos si dos fuentes internas comparten razón."""
+    df = pd.DataFrame(
+        {
+            "max_dpd_12m": [120, 0, 0, 0],
+            "motivo": ["ok", "ok", "ok", "manual"],
+            "observation_date": pd.to_datetime(
+                ["2023-01-01", "2023-01-01", "2024-06-01", "2023-01-01"]
+            ),
+            "data_cutoff": pd.to_datetime(["2024-02-01", "2024-02-01", "2025-01-31", "2024-02-01"]),
+        },
+        index=pd.Index(["bad", "good", "window", "manual"], name="loan_id"),
+    )
+    cfg = TargetConfig.model_construct(
+        target_col="target",
+        bad_rule=_bad_rule(),
+        good_rule=None,
+        indeterminate_rule=None,
+        exclusion_rules=(
+            ExclusionRule(
+                name=data_target_module.EXCLUSION_WINDOW_REASON,
+                rule=_rule(_predicate("motivo", "==", "manual")),
+            ),
+        ),
+        window=PerformanceWindow(
+            observation_date_col="observation_date",
+            months=12,
+            data_cutoff_col="data_cutoff",
+        ),
+    )
+
+    labeled = TargetDefinition(cfg).apply(df)
+
+    assert labeled.frame["label_status"].astype(str).tolist() == [
+        "malo",
+        "bueno",
+        "excluido",
+        "excluido",
+    ]
+    assert labeled.frame["target"].tolist() == [1, 0, pd.NA, pd.NA]
+    assert labeled.summary.exclusions_by_reason == {"ventana_incompleta": 2}
 
 
 def test_columna_de_fecha_no_datetime_levanta_datavalidationerror() -> None:

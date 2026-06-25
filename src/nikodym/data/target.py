@@ -18,7 +18,13 @@ from pydantic import BaseModel, ConfigDict
 
 from nikodym.core.audit import AuditEvent, AuditSink
 from nikodym.core.exceptions import ConfigError, DataValidationError
-from nikodym.data.config import ExclusionRule, Predicate, Rule, TargetConfig
+from nikodym.data.config import (
+    EXCLUSION_WINDOW_REASON,
+    ExclusionRule,
+    Predicate,
+    Rule,
+    TargetConfig,
+)
 
 __all__ = ["LabeledFrame", "TargetDefinition", "TargetSummary"]
 
@@ -34,7 +40,6 @@ STATUS_VALUES: Final[tuple[LabelStatus, ...]] = (
     "indeterminado",
     "excluido",
 )
-EXCLUSION_WINDOW_REASON: Final = "ventana_incompleta"
 _ALLOWED_OPS: Final[set[str]] = {"==", "!=", "<", "<=", ">", ">=", "in", "notin", "isna", "notna"}
 _ORDERED_OPS: Final[set[str]] = {"<", "<=", ">", ">="}
 _SCALAR_OPS: Final[set[str]] = {"==", "!=", "<", "<=", ">", ">="}
@@ -197,7 +202,7 @@ def _window_incomplete_mask(df: pd.DataFrame, config: TargetConfig) -> pd.Series
     _validate_datetime_column(df, cutoff_col, "data_cutoff_col")
 
     matured_until = df[observation_col] + pd.offsets.DateOffset(months=window.months)
-    mask = matured_until > df[cutoff_col]
+    mask = (matured_until > df[cutoff_col]) | df[observation_col].isna() | df[cutoff_col].isna()
     return mask.fillna(False).astype("bool")
 
 
@@ -218,7 +223,7 @@ def _validate_datetime_column(df: pd.DataFrame, column: str, field_name: str) ->
 def _apply_exclusions(
     status: pd.Series, exclusion_masks: list[tuple[str, pd.Series]], audit: AuditSink | None
 ) -> tuple[pd.Series, dict[str, int]]:
-    """Aplica exclusiones por motivo, con primera regla ganadora para el resumen."""
+    """Aplica exclusiones con primera regla ganadora por fila y conteo acumulado por motivo."""
     excluded_mask = _false_mask(status.index)
     exclusions_by_reason: dict[str, int] = {}
     for reason, mask in exclusion_masks:
@@ -229,7 +234,7 @@ def _apply_exclusions(
 
         status.loc[new_exclusions] = "excluido"
         excluded_mask = excluded_mask | new_exclusions
-        exclusions_by_reason[reason] = count
+        exclusions_by_reason[reason] = exclusions_by_reason.get(reason, 0) + count
         _log_decision(
             audit,
             regla="exclusion",
