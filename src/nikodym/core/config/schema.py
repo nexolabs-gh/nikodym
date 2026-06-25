@@ -14,11 +14,21 @@ legible.
 from __future__ import annotations
 
 import json
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+if TYPE_CHECKING:
+    from nikodym.data.config import DataConfig
+
 __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
+
+# Hook poblado por `nikodym.data` al importarse: la clase real del sub-config de la sección `data`.
+# `core` NO importa `data` (núcleo liviano, D-CORE-1); `data` registra aquí su `DataConfig` para que
+# `NikodymConfig` valide/coaccione esa sección sin que el núcleo conozca el módulo. Mientras sea
+# None (core en solitario), `data` se trata como un blob JSON-canónico opaco (ver `_valida_data`).
+# Reemplaza el `model_rebuild()` del SDD-02 §5: Pydantic v2 no re-narra un campo ya resuelto (B2a).
+_DATA_CONFIG_CLS: type[BaseModel] | None = None
 
 
 class NikodymBaseConfig(BaseModel):
@@ -87,35 +97,41 @@ class NikodymConfig(NikodymBaseConfig):
     )
     repro: ReproConfig = Field(default_factory=ReproConfig, title="Reproducibilidad")
     run: RunConfig = Field(default_factory=RunConfig, title="Orquestación")
-    # TODO(B2/SDD-02): endurecer a `DataConfig | None` (forward-ref resuelto con `model_rebuild()`
-    # al importar `nikodym.data`). En F0 el módulo data no existe; el placeholder `Any` permite
-    # construir `NikodymConfig()` hoy y, como por defecto es None, no altera el `config_hash` al
-    # endurecerlo (con `data=None` ambas anotaciones serializan a `null`).
-    data: Any = Field(
-        default=None,
-        title="Datos",
-        description="Sección de origen y validación de datos (se define en la capa data).",
-    )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `DataConfig` la hace `_valida_data` vía el hook `_DATA_CONFIG_CLS`
+        # (Pydantic v2 no puede re-narrar un campo ya resuelto con `model_rebuild`; ver B2a).
+        data: DataConfig | None
+    else:
+        data: Any = Field(
+            default=None,
+            title="Datos",
+            description="Sección de origen y validación de datos (capa `data`, SDD-02).",
+        )
 
-    @field_validator("data")
+    @field_validator("data", mode="before")
     @classmethod
-    def _data_json_canonica(cls, valor: Any) -> Any:
-        """Exige que el placeholder ``data`` sea JSON-canónico y determinista.
+    def _valida_data(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``data`` según haya o no capa ``data`` cargada.
 
-        Mientras ``data`` sea ``Any`` (hasta endurecerlo a ``DataConfig`` en B2), un ``set``,
-        un objeto no serializable o un float no finito dentro de ``data`` entraría al
-        ``config_hash`` y lo volvería no determinista entre procesos (el orden de iteración de
-        un ``set`` depende de ``PYTHONHASHSEED``) o lo corromperían en silencio: ambos rompen la
-        identidad de la corrida. Se rechazan al construir, con ``ConfigError`` vía Pydantic.
+        Con ``nikodym.data`` importado (``_DATA_CONFIG_CLS`` poblado), un ``dict`` se valida y
+        coacciona a :class:`DataConfig` (``extra='forbid'``, tipos, mini-DSL); una instancia ya
+        validada pasa tal cual. Sin la capa cargada, ``data`` es un *blob* opaco: se exige
+        JSON-canónico y determinista (sin sets —cuyo orden depende de ``PYTHONHASHSEED``—, objetos
+        no serializables ni floats no finitos) para no corromper el ``config_hash`` entre procesos.
         """
         if valor is None:
             return valor
+        if _DATA_CONFIG_CLS is not None:
+            if isinstance(valor, _DATA_CONFIG_CLS):
+                return valor
+            return _DATA_CONFIG_CLS.model_validate(valor)
         try:
             json.dumps(valor, allow_nan=False)
         except (TypeError, ValueError) as exc:
             raise ValueError(
-                "data debe ser JSON-canónico y determinista (sin sets, objetos no serializables "
-                "ni floats no finitos); se endurecerá a DataConfig en B2."
+                "data debe ser JSON-canónico y determinista (sin sets, objetos no serializables ni "
+                "floats no finitos), o importa `nikodym.data` para validarlo como DataConfig."
             ) from exc
         return valor
 

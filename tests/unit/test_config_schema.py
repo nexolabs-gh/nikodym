@@ -4,6 +4,18 @@ import pytest
 from pydantic import ValidationError
 
 from nikodym.core.config import NikodymConfig, ReproConfig, RunConfig
+from nikodym.core.config import schema as _schema_mod
+
+
+@pytest.fixture(autouse=True)
+def _vista_core_solo(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fuerza la vista *core-only*: sin capa ``data`` cargada, la sección ``data`` es un blob opaco.
+
+    ``nikodym.data`` (importado por otros tests de la sesión) puebla el hook ``_DATA_CONFIG_CLS``
+    *process-wide*; aquí se neutraliza para probar el núcleo en aislamiento (la integración con
+    ``DataConfig`` se cubre en ``test_data_config.py``).
+    """
+    monkeypatch.setattr(_schema_mod, "_DATA_CONFIG_CLS", None)
 
 
 def test_construye_sin_argumentos() -> None:

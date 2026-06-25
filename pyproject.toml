@@ -31,8 +31,12 @@ dependencies = [
   "pydantic>=2.5",        # config, LineageBundle, AuditEvent (MIT)
   "numpy>=1.22",          # SeedSequence/Generator (BSD)
   "pandas>=2.0",          # DataFrame, contrato de I/O universal (BSD) — SDD-05 §6
-  "pandera>=0.20",        # validación de esquema tabular (MIT) — dep base de data (SDD-02 §10)
-  "pyarrow>=12",          # lectura Parquet (Apache-2.0) — dep base de data (SDD-02 §10)
+  "pandera>=0.24",        # validación de esquema tabular (MIT) — dep base de data (SDD-02 §10).
+                          # PISO 0.24: desde v0.24 hay que `import pandera.pandas` (el top-level emite
+                          # FutureWarning → con filterwarnings=error rompería tests). Desviación de SDD-02
+                          # (que fijó >=0.20) a ratificar al revisar el SDD.
+  "pyarrow>=14",          # lectura Parquet (Apache-2.0) — dep base de data (SDD-02 §10). PISO 14 (no 12):
+                          # rango realmente probado con pandas 2.x. Desviación de SDD-02 a ratificar.
   "joblib>=1.3",          # persistencia de artefactos (BSD)
   "PyYAML>=6.0",          # round-trip YAML legible (MIT)
 ]

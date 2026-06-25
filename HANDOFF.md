@@ -1,63 +1,65 @@
 # HANDOFF
 
-_Última actualización: 2026-06-24 · repo privado `nexolabs-gh/nikodym` · sobre commit `59aaad3`_
+_Última actualización: 2026-06-24 · repo privado `nexolabs-gh/nikodym` · sobre commit `1067afa`_
 
 ## Estado actual
-**Nikodym RiskLib — F0 (Fundación): B1 `core` COMPLETO ✅.** Diseño de Fundación cerrado (Tanda 0/1/1Rev + Hito 0). F0 troceado en 4 bloques: **B1 `core` ✅ (este commit)** · B2 `data` (siguiente) · B3 `audit`+`governance`+`tracking`+`api` · B4 `testing`+CI+3 criterios Hito 0.
+**Nikodym RiskLib — F0 (Fundación): B1 `core` ✅ + B2a `data` (config) ✅ COMPLETOS.** F0 troceado en 4 bloques: B1 `core` ✅ · **B2 `data` EN CURSO (B2a ✅, sigue B2b)** · B3 `audit`+`governance`+`tracking`+`api` · B4 `testing`+CI+3 criterios Hito 0.
 
-**B1 `core` por dentro:** B1a ✅ (esqueleto + `exceptions` + `seeding`) · B1b ✅ (`core/config`) · **B1c ✅ (resto de `core`: audit · results · base/mixins · registry/artifacts · steps · lineage · study)** ← este commit. **Primer `Study` end-to-end con lineage reproducible (DoD F0).**
+**B2 por dentro:** **B2a ✅ (config + endurecimiento)** ← este commit · B2b (primitivas: loading·schema/validator·hashing·special) · B2c (target·partition) · B2d (card·step, `Study` end-to-end de datos).
 
-Regla de oro vigente: **mixto-troncal-más-incremental** — cada módulo: programa → `ruff`+`mypy --strict`+`pytest`+cobertura verde → ajusta → sigue. Nunca avanzar en rojo. Reabrir un SDD por feedback del código es esperado y barato.
+Regla de oro vigente: **mixto-troncal-más-incremental** — cada módulo: programa → `ruff`+`mypy --strict`+`pytest`+cobertura verde → ajusta → sigue. Nunca avanzar en rojo. Reabrir un SDD por feedback del código es esperado y barato (este bloque reabrió 2 mecanismos del SDD-02 §5, ver abajo).
 
-## Hecho en esta sesión (B1c · resto de `core`, 9 módulos)
-- **`src/nikodym/core/`** 9 módulos nuevos en orden topológico: `audit.py` (`AuditEvent` BaseModel frozen+forbid, `AuditKind` Literal, `AuditSink` Protocol, `NullAuditSink`/`InMemoryAuditSink`/`FanOutSink` CT-4) · `results.py` (Protocols `ProvisionResultLike`/`ECLResultLike` @runtime_checkable, `term_structure()` CT-2, pandas bajo TYPE_CHECKING) · `base.py` (`BaseNikodymEstimator` raíz propia + 6 familias; `get_params`/`set_params`/`from_config`/`_validate_config`/`_check_fitted` semántica sklearn) · `mixins.py` (`AuditableMixin` `_audit` nunca None, `SerializationMixin` save/load joblib + trust) · `registry.py` (`Registry`/`REGISTRY`/`register` namespaced) · `artifacts.py` (`ArtifactStore` (domain,key), emite `AuditEvent("artifact")` en cada escritura) · `steps.py` (`ArtifactKey`, `Step` Protocol CT-1, `StepAdapter`) · `lineage.py` (`LineageBundle`/`RunContext` BaseModel forbid, DoD F0) · `study.py` (`Study` orquestador: motor v1 CT-1, save/load directorio atómico, trust gate, reproducibilidad).
-- **Método ultracode:** workflow de comprensión (10 agentes: 7 blueprints + contratos + convenciones + APIs context7) → código por DanIA módulo-a-módulo → **revisión adversarial (workflow 27 agentes, 6 dimensiones → 19 hallazgos confirmados)** → integración por DanIA → **2ª pasada de fidelidad-contrato (workflow → 3 hallazgos)** → integración.
-- **Tests:** `tests/unit/test_{audit,results,base_mixins,registry,artifacts,steps,lineage,study}.py` + fixture `PYTHONHASHSEED` autouse movido a `tests/conftest.py`. **230 passed.**
-- **Verde total:** `ruff` + `mypy --strict` (23 archivos) + cobertura **100% global** + gate regulatorio **100%** + `uv build` wheel + smoke import aislado + núcleo liviano (core no arrastra pandas/sklearn/mlflow/joblib en runtime).
-- **pyproject:** añadidos `pandas-stubs>=2.0` y `joblib.*` (overrides mypy), ambos dev-only. `uv.lock` actualizado.
+## Hecho en esta sesión (B2a · config + endurecimiento de `data`)
+- **`src/nikodym/data/config.py`** (NUEVO): árbol Pydantic completo de `DataConfig` (SDD-02 §5) — `CsvOptions`/`LoadingConfig` · `ColumnSpec`/`SchemaConfig` · `PerformanceWindow` · mini-DSL `Predicate`/`Rule`/`ExclusionRule` (allowlist cerrada de operadores, **sin `eval`/`df.eval`**, D-DATA-6) · `TargetConfig` · `SpecialValueSpec`/`MissingConfig` · `TemporalSplitConfig`/`RandomSplitConfig`/`CohortSplitConfig` + `PartitionStrategy` (unión discriminada **anidada** por factory local) + `PartitionConfig` · `DataConfig` (alias `schema` + `populate_by_name`). `model_validator`: fracciones random suman 1.0, `Rule` no vacía.
+- **`src/nikodym/data/__init__.py`** (NUEVO): registra `DataConfig` en el hook `_DATA_CONFIG_CLS` de `core/config/schema` al importarse.
+- **`src/nikodym/core/config/schema.py`** (endurecido): `data: Any` → `DataConfig | None`. Patrón verificado: `if TYPE_CHECKING: data: DataConfig | None` (vista mypy estricta) / `else: data: Any` (runtime) + `field_validator("data", mode="before")` que coacciona vía el hook. Quitado el viejo `_data_json_canonica` (su protección JSON-canónica se conserva como fallback cuando el hook es None = core en solitario).
+- **`pyproject.toml`**: pisos `pandera>=0.24` (obliga `import pandera.pandas`) y `pyarrow>=14`. `uv.lock` actualizado (instalados pandera 0.32, pyarrow 24).
+- **`.gitignore`**: `data/` → `/data/` (anclado a raíz). **Bug cazado**: `data/` ignoraba el paquete fuente `src/nikodym/data/` → git no lo trackeaba (se habría perdido al commitear), el wheel lo excluía, y **ruff lo saltaba** (respeta .gitignore) → "verde" falso. Lo descubrí inspeccionando el wheel.
+- **Tests**: `tests/unit/test_data_config.py` (NUEVO, 19 tests: estructura, alias, unión discriminada, model_validators, integración con `NikodymConfig` vía hook, golden `config_hash`, round-trip YAML). Fixtures autouse `_vista_core_solo` (monkeypatch hook=None) añadidas a `test_config_schema.py` y `test_config_loader.py` para aislar la vista core-only (el hook es process-wide).
+- **Verde total**: `ruff` + `ruff format` + `mypy --strict` (25 archivos) + **249 tests** + **cobertura 100%** global + gate regulatorio 100% + `uv build` (wheel incluye `nikodym/data/`) + núcleo liviano (`import nikodym.core` NO arrastra `data`/pandera/pyarrow/pandas, verificado). Golden `config_hash` por defecto **invariante** (`02b667fc…`).
 
 ## En curso / a medias
-Nada a medias. B1c cerrado y verde. Working tree = los 9 módulos + 8 tests + conftest + pyproject/uv.lock + __init__ (este commit).
+Nada a medias. B2a cerrado y verde.
 
 ## Próximos pasos
-**Arrancar B2 = capa `data` (SDD-02).** Es un sub-bloque independiente → **buen momento para sesión fresca** (este HANDOFF es el puente; warm start). Leer primero `docs/design/02-data.md` y `_CONTRATOS-TRANSVERSALES.md` (CT-3: frontera transversal scorecard vs longitudinal IFRS9/forward).
-- B2 endurece el placeholder `NikodymConfig.data` (hoy `Any`=None) a `DataConfig | None` vía `model_rebuild()` al importar `nikodym.data` (con `data=None` el golden `config_hash` NO cambia).
-- `data_hash` = hash del contenido lógico por bloques (`hash_pandas_object`), NO bytes Parquet (D2). El campo ya existe en `LineageBundle`; el cálculo vive en `data/`.
-- Deps base de `data`: pandas (ya), **pandera + pyarrow** (declaradas en overrides mypy, faltan instalar/usar).
-- Método sugerido (validado): fan-out de comprensión (APIs con context7) → código por DanIA → revisión adversarial → integración.
+**Arrancar B2b = primitivas de `data` (sin orquestación)** — leer primero `docs/design/02-data.md` §4/§7/§10 (ya leído íntegro esta sesión) y el bloque de hallazgos de comprensión (workflow guardado, ver abajo). Método sugerido (validado): fan-out de comprensión con context7 → código por DanIA módulo-a-módulo → revisión adversarial.
+- **`loading.py`** (`DataLoader`): carga CSV/Parquet, passthrough de DataFrame en memoria con copia defensiva; `engine="pyarrow"` explícito (no 'auto'); `backend="polars"` opcional con import perezoso. `from_config`.
+- **`schema.py`** (`SchemaValidator`): builder `DataConfig.schema_` → `pa.DataFrameSchema` (`import pandera.pandas as pa`); `validate(df, lazy=True)` → captura `pa.errors.SchemaErrors` → re-empaqueta en **`DataValidationError`** (de `core.exceptions`) con reporte en español. no-nulos = `nullable=False` (NO un Check); unicidad = `unique=`/`unique=[...]`.
+- **`hashing.py`** (`data_hash`): sha256 del contenido lógico por bloques (`hash_pandas_object`, D2). **Fix de endianness obligatorio**: usar `.astype('<u8').tobytes()` (little-endian explícito), NO `.values.tobytes()` (endian-nativo, no reproducible cross-arquitectura). Normalizar `-0.0→0.0`. Defaults explícitos `hash_key`/`encoding`. Golden-test cross-versión. `index=True` (en Nikodym el índice ES el identificador de observación).
+- **`special.py`** (`SpecialValuePolicy`): centinelas → NaN + `special_mask` + `special_catalog`.
+- Cada módulo con sus tests canónicos + golden values. Apuntar a cobertura 100% (gate formal de `data` es global ≥90, pero mantener el estándar del proyecto).
 
-Tras B2: B3 (audit/governance/tracking/api, incl. `assemble_run` CT-4 y `ModelInventory`) → B4 (testing+CI+3 criterios Hito 0). Luego T2 diseño scoring → F1 código → release público v0.1.0.
+Tras B2b: B2c (target·partition, con Hypothesis para determinismo/anti-leakage) → B2d (card·step, `DataStep @register(domain="data")`, `Study.run(steps=["data"])` end-to-end). Luego B3 → B4 → T2 scoring → F1 → release v0.1.0.
 
 ## Decisiones / contexto a recordar
-- **Decisiones de integrador B1c (técnicas; ratificar al revisar SDD):**
-  - **steps/study**: la resolución config→pasos y `StepAdapter.execute` se **difieren a T2** (F0 no tiene secciones de dominio orquestables) — diferido RUIDOSO (`ConfigError`/`NotImplementedError`, nunca no-op silencioso). El motor CT-1 (`_validate_pipeline` pre-run global + `_check_prerequisites` por paso) SÍ está implementado y probado con pipelines dummy vía monkeypatch del seam `_resolve_steps`.
-  - **`register_on_success` NO implementado**: el campo no existe en `RunConfig` (solo `steps`/`fail_fast`); el warning ruidoso se difiere hasta que el campo exista (deuda). `fail_fast=False` SÍ → warning ruidoso.
-  - **study**: `name` override vía `config.model_copy`; `run(steps=)` > `config.run.steps`; `lineage_bundle()` en `created` → `NikodymError`; `load(trust=False)` con artefactos joblib → `UntrustedStudyError`; `config_hash` mismatch al recargar → `ReproducibilityError` (detecta divergencia ACCIDENTAL, no manipulación maliciosa — documentado); `uv_lock_hash`/`data_hash` = None en F0.
-  - **lineage**: `LineageBundle`/`RunContext` sin `frozen` (RunContext muta en run()), con `extra="forbid"`. `AuditEvent` frozen+forbid.
-  - **seeding (reabierto)**: `apply_global` ahora propaga `PYTHONHASHSEED` a subprocesos vía `os.environ` (SDD-01 §9, antes faltaba).
-- **Hallazgos de las 2 revisiones adversariales CERRADOS en B1c (mantener):**
-  - Corrida fallida ahora **conserva el lineage** (se inicia tras `run_start`, orden SDD §7.3: run_start → iniciar bundle) → evidencia SR 11-7 no se pierde en fallo.
-  - `save` **atómico real**: aparta el destino previo a un respaldo lateral antes del swap y lo restaura si falla (antes hacía rmtree(destino) antes de os.replace → ventana de pérdida).
-  - `set_params` anidado sobre no-estimador → `ConfigError` (antes `AttributeError` crudo, violaba "todo desciende de NikodymError").
-  - `git_dirty`/git-ausente → caveat en `determinism_caveats` (working tree sucio = no reproducible-garantizado).
-  - `_emit` tipado con `AuditKind` → eliminado el único `# type: ignore` del core.
-  - `StepAdapter.domain` eliminado (superficie extra no contractual; `name` es la única fuente).
-- **Desviaciones de SDD a ratificar (acumuladas):** las 4 de B1a + 3 de B1b + B1c: `pandas-stubs`/`joblib.*` overrides; `StepAdapter.__init__` añade `*, requires/provides` (mecanismo de derivación I/O diferido a SDD-06+); resolución de pasos diferida a T2.
-- **Comandos verde:** `uv sync --no-default-groups --group test --group lint --python 3.12`. Verificar: `uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync mypy && uv run --no-sync pytest -q --cov=nikodym --cov-report=term-missing`. Gate regulatorio: `coverage run -m pytest` + `coverage report --include="*/nikodym/core/exceptions.py,*/nikodym/core/seeding.py,*/nikodym/provisioning/cmf/__init__.py,*/nikodym/provisioning/ifrs9/__init__.py" --fail-under=100`.
+- **Desviaciones de SDD-02 a ratificar (B2a; integrador):**
+  - **`model_rebuild()` del SDD §5 NO funciona**: Pydantic 2.13 no re-narra un campo ya resuelto (probado: placeholder `Any` o modelo dummy → `model_rebuild(force=True)` con namespace explícito NO intercambia el tipo). Reemplazo: **hook `_DATA_CONFIG_CLS` (módulo `schema`) + `field_validator`**; `nikodym.data` lo puebla al importarse. Más robusto (valida en construcción) y mantiene el núcleo liviano.
+  - **`Predicate.value` SIN `strict=True`**: `Field(strict=True)` revienta sobre una unión en Pydantic 2.13 (`Unable to apply constraint 'strict' to schema of type 'union'`) y rompería list→tuple del round-trip. El **modo unión smart** (default) + orden `bool|int|float` ya evita la coerción que el SDD buscaba (verificado: `True`→bool, `1`→int, `[1,2,3]`→tuple).
+  - **Defaults de `Field` en keyword `default=`** (no posicional): mypy sin plugin pydantic no reconoce un default posicional → cree que el modelo requiere args → rompe `default_factory=Clase`. Coherente con el core.
+  - **`pandera>=0.24` con `import pandera.pandas as pa`** (NO `import pandera`): el top-level emite `FutureWarning` desde 0.24 → con `filterwarnings=["error"]` rompe los tests. **`pyarrow>=14`**.
+  - Acumuladas previas (B1): `pandas-stubs`/`joblib.*` overrides; `StepAdapter` `*, requires/provides`; resolución de pasos diferida a T2; `mypy` en 3.12 no 3.11.
+- **Hook `_DATA_CONFIG_CLS` (cómo razonar sobre tests):** es global de proceso. Al colectar, cualquier test que importe `nikodym.data` lo deja seteado para toda la sesión. Los tests core-only (`test_config_schema`, `test_config_loader`) lo neutralizan con `monkeypatch.setattr(schema, "_DATA_CONFIG_CLS", None)`; `test_data_config` lo fija a `DataConfig`. Con hook None → `data` es blob JSON-canónico opaco; con hook seteado → se coacciona a `DataConfig` (extra=forbid).
 
 ## Callejones sin salida / no reintentar
-- **NO** correr cobertura por submódulo (`--cov=nikodym.core.audit` etc.) → doble-load numpy 2.x ("cannot load module more than once"). Usar `--cov=nikodym` (paquete entero) y mirar el reporte por archivo, o el gate regulatorio con `--include=<rutas>`.
-- **`apply_global` advierte sobre `PYTHONHASHSEED`** si no está fijo → con `filterwarnings=error` rompe cualquier test que construya un `Study`. Cubierto por el fixture autouse `_pythonhashseed_fijo` en `tests/conftest.py` (setea "0"); los tests del seeding que prueban el aviso hacen `monkeypatch.delenv` en su cuerpo.
-- **`ArtifactStore.keys()` dispara `SIM118`** (ruff cree que es `dict.keys()`); es método propio → `# noqa: SIM118` puntual.
-- **mypy 3.12** (no 3.11) por stubs numpy 2.x. **NO** fijar 3.11.
-- **Colisión módulo/función `migration`** (B1b): `import nikodym.core.config.migration` agarra el decorador; usar `from ... import X` para los privados.
-- **Workflow JS gotchas:** `parallel()` ya devuelve `Promise<array>` (NO envolver en `Promise.all`); prompts son template literals (sin backticks internos); `Date.now()`/`Math.random()` prohibidos.
+- **NO usar `model_rebuild()` para narrar `NikodymConfig.data`** — no funciona en Pydantic 2.13 (ver arriba). El hook+validador es la vía.
+- **NO `Field(strict=True)` sobre uniones** en Pydantic 2.13 — usar el modo smart (default).
+- **NO defaults posicionales en `Field(...)`** si el modelo es target de `default_factory` — keyword `default=`.
+- **`ruff` respeta `.gitignore`**: si un paquete fuente cae bajo un patrón ignorado, ruff lo SALTA silenciosamente (verde falso). Verificar el wheel/`git status` cuando se añade un subpaquete nuevo. El patrón de datos es `/data/` (raíz), no `data/`.
+- **NO `import pandera as pa`** (top-level) — `FutureWarning` rompe con `filterwarnings=error`. Usar `import pandera.pandas as pa`.
+- Heredados de B1 (siguen vigentes): NO cobertura por submódulo (`--cov=nikodym.core.audit` → doble-load numpy); `ArtifactStore.keys()` → `# noqa: SIM118`; colisión módulo/función `migration` (usar `from ... import X`); workflow JS: `parallel()` ya devuelve array, prompts sin backticks internos, `Date.now()`/`Math.random()` prohibidos.
+
+## Comandos verde
+- Sync: `uv sync --no-default-groups --group test --group lint --python 3.12`
+- Verificar: `uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync mypy && uv run --no-sync pytest -q --cov=nikodym --cov-report=term-missing`
+- Gate regulatorio (100%): `uv run --no-sync coverage run -m pytest && uv run --no-sync coverage report --include="*/nikodym/core/exceptions.py,*/nikodym/core/seeding.py,*/nikodym/provisioning/cmf/__init__.py,*/nikodym/provisioning/ifrs9/__init__.py" --fail-under=100`
+- Liviano: `uv run --no-sync python -c "import nikodym.core, sys; assert not [m for m in ('nikodym.data','pandera','pyarrow','pandas') if m in sys.modules]"`
 
 ## Dudas abiertas / bloqueos (preexistentes, no urgentes)
-- **Pendiente normativo CMF:** haircuts/factores de descuento de garantías financieras del B-1 letra c) (`normativa_cmf_parametros.md` §5.2/§7) → F3.
-- **Deudas con owner (Hito 0 §5):** pickle/joblib del `ArtifactStore` → F3; motor topológico DAG (scheduler) → F5; capa datos longitudinal → F4/F5; matriz CI 3×3 + Hypothesis → F1; `assemble_run`/`ModelInventory` (CT-4) → B3 (api/runner, fuera de core).
-- **T2 (al materializar StepAdapter.execute):** propagar `_audit` al estimador envuelto (`paso.estimator`), o sus `log_decision` caen al NullAuditSink (TODO anclado en `study.py:_run_one`); fijar el mecanismo de derivación de `requires`/`provides` por dominio (SDD-06+).
-- Momento privado→público del repo (al terminar). Alias de email del paquete y Trusted Publishing OIDC al armar el release público (F1).
+- **Pendiente normativo CMF:** haircuts/factores de descuento de garantías financieras del B-1 letra c) → F3.
+- **Deudas con owner (Hito 0 §5):** pickle/joblib del `ArtifactStore` → F3; motor topológico DAG → F5; capa datos longitudinal → F4/F5; matriz CI 3×3 + Hypothesis → F1; `assemble_run`/`ModelInventory` (CT-4) → B3.
+- **T2 (al materializar `StepAdapter.execute`):** propagar `_audit` al estimador envuelto; fijar derivación de `requires`/`provides` por dominio (SDD-06+).
+- **Plugin mypy de pandera** (`plugins=["pandera.mypy"]`): NO se añadió en B2a (config.py es Pydantic puro). Decidir en B2b si hace falta al importar pandera (probablemente no, usamos `DataFrameSchema` imperativo, no `DataFrameModel`).
+- Momento privado→público del repo (al terminar). Alias de email y Trusted Publishing OIDC en el release público (F1).
 
 ## Repo
 Privado en GitHub: **`nexolabs-gh/nikodym`** (https://github.com/nexolabs-gh/nikodym), branch `main`. Push directo a `main` autorizado en el cierre. Commits con co-autoría de Claude.

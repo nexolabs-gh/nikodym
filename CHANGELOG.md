@@ -32,3 +32,12 @@ marcadas como experimentales hasta la 1.0).
   `lineage` (`LineageBundle`/`RunContext`); `study` (`Study`: orquestador motor v1 con validación de
   prerequisitos CT-1, persistencia en directorio atómico, recarga con verificación de `config_hash`
   y reproducibilidad). Experimental (SemVer 0.x): orquestación y Protocols de resultados crecerán.
+- `nikodym.data` (B2a — capa `data`, configuración + endurecimiento, SDD-02 §5): sub-config
+  declarativo `DataConfig` (`nikodym/data/config.py`): árbol Pydantic completo (Loading/Schema/Target/
+  Missing/Partition), mini-DSL declarativo `Predicate`/`Rule` (allowlist cerrada de operadores, sin
+  `eval`), unión discriminada **anidada** de la estrategia de partición (temporal/random/cohort) por
+  factory local, `model_validator` de fracciones (suman 1) y de regla no vacía, alias `schema` con
+  `populate_by_name`. Endurecido `NikodymConfig.data` de `Any` a `DataConfig | None` (tipado estricto
+  para mypy; coerción en runtime vía hook `_DATA_CONFIG_CLS` que `nikodym.data` puebla al importarse —
+  el núcleo sigue liviano, no importa `data`). Golden `config_hash` por defecto **invariante**. Deps
+  base activadas: `pandera>=0.24` (uso `import pandera.pandas`) y `pyarrow>=14`. Experimental (SemVer 0.x).

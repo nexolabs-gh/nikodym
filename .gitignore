@@ -5,7 +5,8 @@
 *.pem
 secrets/
 credentials*
-data/
+/data/                       # datasets en la raíz (anclado: NO veta el paquete fuente `src/nikodym/data/`, SDD-02).
+                             # Los ficheros de datos en cualquier ruta los vetan los patrones por extensión de abajo.
 *.csv
 *.parquet
 *.xlsx
