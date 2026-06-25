@@ -5,9 +5,10 @@
 > propio de Nikodym. Bitácora: `AUTONOMY-LOG.md`. Cola de trabajo: bloque "Backlog priorizado" del `HANDOFF.md`.
 
 ## Cómo se opera (resumen)
-- Un **maestro fresco** (cron horario, Claude Opus, effort máximo) abre una corrida, toma el primer ítem
-  `[ ]` del backlog, se lo asigna a un **worker Codex** (`gpt-5.5 xhigh fast`) en el tmux `nikodym`,
-  monitorea, **revisa el diff + corre los gates + pushea él** (R7), y reescribe el HANDOFF.
+- Un **maestro fresco** (scheduler-loop en tmux `autodev-cron`, Claude Opus, effort máximo) abre una corrida,
+  toma el primer ítem `[ ]` del backlog, se lo asigna a un **worker Codex** (`gpt-5.5 xhigh fast`) en el tmux
+  `nikodym`, monitorea, **revisa el diff + corre los gates + lo somete a un revisor independiente (subagente
+  Claude adversarial, BLOQUEANTE) + pushea él** (R7), y reescribe el HANDOFF.
 - El maestro **NO** escribe código (R1); el worker sí. El worker deja el working tree VERDE pero **sin
   commitear** — el maestro revisa y commitea/pushea.
 
@@ -59,10 +60,14 @@ uv run --no-sync python -c "import nikodym.core, sys; assert not [m for m in ('n
 - Decisión de producto / normativa CMF ambigua → R0: NO improvisar; saltar el ítem o dejar `⚠ BLOQUEADO`.
 
 ## Cadencia e infraestructura
-- Cron horario al minuto **:17** (launchd `cl.nexolabs.autodesarrollo.nikodym`, plist en `~/Library/LaunchAgents/`).
-- Wrapper: `…/AutoDesarrollo/scripts/auto-ciclo-maestro.sh`. Prompt del maestro: `…/AutoDesarrollo/scripts/prompt-maestro-nocturno.md`.
+- **Scheduler-loop en tmux `autodev-cron`** (`scripts/scheduler-loop.sh`), NO launchd: en macOS launchd no
+  accede a `~/Documents` por TCC (`Operation not permitted`); el tmux server, lanzado por el terminal, sí.
+  Pausa 600s entre corridas; **AUTO-PAUSA** tras 2 corridas sin avance (backlog agotado → se detiene y avisa).
+- Wrapper de una corrida: `…/AutoDesarrollo/scripts/auto-ciclo-maestro.sh`. Prompt del maestro:
+  `…/AutoDesarrollo/scripts/prompt-maestro-nocturno.md`. Revisor: `…/AutoDesarrollo/scripts/prompt-revisor.md`.
 - Locks: OS (`/tmp/autodesarrollo-nikodym.lockd`, atómico) + aplicación (bloque "Modo autónomo" del HANDOFF).
-- Logs por corrida: `…/AutoDesarrollo/logs/maestro-<fecha>.log`; índice en `…/AutoDesarrollo/logs/cron.log`.
+- Logs: `…/AutoDesarrollo/logs/scheduler.log`, `maestro-<fecha>.log`, índice `cron.log`.
 - Anti-sleep: `caffeinate` (el Mac debe quedar encendido/enchufado y sin cerrar la tapa).
+- **Parar:** `tmux kill-session -t autodev-cron`. **Relanzar:** lanzar `scheduler-loop.sh` en una sesión tmux nueva.
 
 > El ciclo completo está en la skill **auto-desarrollo** §2; rescate de corridas cortadas en §4.
