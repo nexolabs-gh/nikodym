@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from nikodym.audit.config import AuditConfig
     from nikodym.data.config import DataConfig
     from nikodym.governance.config import GovernanceConfig
+    from nikodym.tracking.config import TrackingConfig
 
 __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
 
@@ -33,6 +34,7 @@ __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
 _DATA_CONFIG_CLS: type[BaseModel] | None = None
 _AUDIT_CONFIG_CLS: type[BaseModel] | None = None
 _GOVERNANCE_CONFIG_CLS: type[BaseModel] | None = None
+_TRACKING_CONFIG_CLS: type[BaseModel] | None = None
 
 
 class NikodymBaseConfig(BaseModel):
@@ -130,6 +132,15 @@ class NikodymConfig(NikodymBaseConfig):
             title="Gobernanza",
             description="Sección de infraestructura para model card e inventario (SDD-03).",
         )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto sin importar `nikodym.tracking` ni MLflow en runtime.
+        tracking: TrackingConfig | None
+    else:
+        tracking: Any = Field(
+            default=None,
+            title="Tracking",
+            description="Sección de infraestructura para MLflow runs/registry (SDD-04).",
+        )
 
     @field_validator("data", mode="before")
     @classmethod
@@ -193,6 +204,26 @@ class NikodymConfig(NikodymBaseConfig):
                 "governance debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.governance` para "
                 "validarlo como GovernanceConfig."
+            ) from exc
+        return valor
+
+    @field_validator("tracking", mode="before")
+    @classmethod
+    def _valida_tracking(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``tracking`` sin importar MLflow desde ``core``."""
+        if valor is None:
+            return valor
+        if _TRACKING_CONFIG_CLS is not None:
+            if isinstance(valor, _TRACKING_CONFIG_CLS):
+                return valor
+            return _TRACKING_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "tracking debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.tracking` para "
+                "validarlo como TrackingConfig."
             ) from exc
         return valor
 

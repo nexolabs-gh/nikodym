@@ -29,9 +29,9 @@ Gate regulatorio (100% en módulos críticos):
 uv run --no-sync coverage run -m pytest
 uv run --no-sync coverage report --include="*/nikodym/core/exceptions.py,*/nikodym/core/seeding.py,*/nikodym/provisioning/cmf/__init__.py,*/nikodym/provisioning/ifrs9/__init__.py" --fail-under=100
 ```
-Núcleo liviano (core no arrastra data/pandera/pyarrow/pandas):
+Núcleo liviano (core no arrastra data/pandera/pyarrow/pandas/tracking/mlflow):
 ```
-uv run --no-sync python -c "import nikodym.core, sys; assert not [m for m in ('nikodym.data','pandera','pyarrow','pandas') if m in sys.modules]"
+uv run --no-sync python -c "import nikodym.core, sys; assert not [m for m in ('nikodym.data','pandera','pyarrow','pandas','nikodym.tracking','mlflow') if m in sys.modules]"
 ```
 
 ## Convenciones que el worker DEBE respetar

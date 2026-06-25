@@ -17,6 +17,7 @@ def _vista_core_solo(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_schema_mod, "_DATA_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_AUDIT_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_GOVERNANCE_CONFIG_CLS", None)
+    monkeypatch.setattr(_schema_mod, "_TRACKING_CONFIG_CLS", None)
 
 
 def test_construye_sin_argumentos() -> None:
@@ -29,6 +30,7 @@ def test_construye_sin_argumentos() -> None:
     assert cfg.data is None
     assert cfg.audit is None
     assert cfg.governance is None
+    assert cfg.tracking is None
 
 
 def test_repro_defaults() -> None:
