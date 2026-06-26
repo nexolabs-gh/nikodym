@@ -86,6 +86,14 @@ def test_literal_tags_devuelve_vacio_para_anotacion_no_literal() -> None:
     assert _literal_tags(Literal["a", "b", 1]) == ["a", "b"]
 
 
+def test_config_cls_for_domain_resuelve_eda() -> None:
+    """El helper interno resuelve ``EdaConfig`` cuando la capa ``eda`` pobló su hook."""
+    import nikodym.eda  # noqa: F401
+    from nikodym.eda.config import EdaConfig
+
+    assert _config_cls_for_domain("eda") is EdaConfig
+
+
 def test_config_cls_for_domain_falla_si_hook_no_esta_cargado(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

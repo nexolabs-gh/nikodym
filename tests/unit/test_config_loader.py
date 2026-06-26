@@ -18,12 +18,13 @@ from nikodym.core.exceptions import ConfigError, ConfigVersionError
 
 @pytest.fixture(autouse=True)
 def _vista_core_solo(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Vista *core-only*: sin capa ``data`` cargada, la sección ``data`` es un blob opaco.
+    """Vista *core-only*: sin capas de dominio cargadas, sus secciones son blobs opacos.
 
     Neutraliza hooks poblados *process-wide* al importar dominios en otros tests para probar el
     loader del núcleo en aislamiento; el round-trip con configs reales se cubre en sus módulos.
     """
     monkeypatch.setattr(_schema_mod, "_DATA_CONFIG_CLS", None)
+    monkeypatch.setattr(_schema_mod, "_EDA_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_AUDIT_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_GOVERNANCE_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_TRACKING_CONFIG_CLS", None)
