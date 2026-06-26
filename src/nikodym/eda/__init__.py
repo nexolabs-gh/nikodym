@@ -28,6 +28,7 @@ from nikodym.eda.exceptions import EdaError
 if TYPE_CHECKING:
     from nikodym.eda.default_rate import DefaultRateAnalyzer, DefaultRateResult
     from nikodym.eda.stability import StabilityResult, TemporalStabilityAnalyzer
+    from nikodym.eda.univariate import UnivariateProfiler, UnivariateResult
 
 # Registra la clase real del sub-config EDA en el hook de `core`.
 _schema._EDA_CONFIG_CLS = EdaConfig
@@ -37,6 +38,8 @@ _LAZY_EXPORTS: Final = {
     "DefaultRateResult": ("nikodym.eda.default_rate", "DefaultRateResult"),
     "StabilityResult": ("nikodym.eda.stability", "StabilityResult"),
     "TemporalStabilityAnalyzer": ("nikodym.eda.stability", "TemporalStabilityAnalyzer"),
+    "UnivariateProfiler": ("nikodym.eda.univariate", "UnivariateProfiler"),
+    "UnivariateResult": ("nikodym.eda.univariate", "UnivariateResult"),
 }
 
 __all__ = [
@@ -51,6 +54,8 @@ __all__ = [
     "TemporalStabilityAnalyzer",
     "TemporalStabilityConfig",
     "UnivariateConfig",
+    "UnivariateProfiler",
+    "UnivariateResult",
 ]
 
 
