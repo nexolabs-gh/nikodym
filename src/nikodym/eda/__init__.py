@@ -27,6 +27,7 @@ from nikodym.eda.exceptions import EdaError
 
 if TYPE_CHECKING:
     from nikodym.eda.default_rate import DefaultRateAnalyzer, DefaultRateResult
+    from nikodym.eda.quality import DataQualityProfiler, QualityResult
     from nikodym.eda.stability import StabilityResult, TemporalStabilityAnalyzer
     from nikodym.eda.univariate import UnivariateProfiler, UnivariateResult
 
@@ -36,6 +37,8 @@ _schema._EDA_CONFIG_CLS = EdaConfig
 _LAZY_EXPORTS: Final = {
     "DefaultRateAnalyzer": ("nikodym.eda.default_rate", "DefaultRateAnalyzer"),
     "DefaultRateResult": ("nikodym.eda.default_rate", "DefaultRateResult"),
+    "DataQualityProfiler": ("nikodym.eda.quality", "DataQualityProfiler"),
+    "QualityResult": ("nikodym.eda.quality", "QualityResult"),
     "StabilityResult": ("nikodym.eda.stability", "StabilityResult"),
     "TemporalStabilityAnalyzer": ("nikodym.eda.stability", "TemporalStabilityAnalyzer"),
     "UnivariateProfiler": ("nikodym.eda.univariate", "UnivariateProfiler"),
@@ -43,12 +46,14 @@ _LAZY_EXPORTS: Final = {
 }
 
 __all__ = [
+    "DataQualityProfiler",
     "DefaultRateAnalyzer",
     "DefaultRateConfig",
     "DefaultRateResult",
     "EdaConfig",
     "EdaError",
     "QualityConfig",
+    "QualityResult",
     "SamplingConfig",
     "StabilityResult",
     "TemporalStabilityAnalyzer",
