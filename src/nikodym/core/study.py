@@ -16,6 +16,7 @@ recarga tiene una puerta de confianza ``trust`` (vector *pickle*) y verifica el 
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import shutil
@@ -25,7 +26,7 @@ import warnings
 from datetime import UTC, datetime
 from importlib import metadata
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from nikodym.core.artifacts import ArtifactStore
 from nikodym.core.audit import AuditEvent, AuditKind, AuditSink, NullAuditSink
@@ -49,6 +50,15 @@ __all__ = ["Study"]
 
 # Librerías cuya versión se congela en el lineage (evidencia reproducible de la corrida).
 _LIBRERIAS_LINEAGE = ("nikodym", "numpy", "pandas", "pydantic", "PyYAML")
+_DOMAIN_MODULES: Final[dict[str, str]] = {
+    "data": "nikodym.data",
+    "eda": "nikodym.eda",
+}
+_DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
+    "data": ("nikodym.data.config", "DataConfig"),
+    "eda": ("nikodym.eda.config", "EdaConfig"),
+}
+_DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = ("data", "eda")
 
 
 def _estado_git() -> tuple[str | None, bool]:
@@ -202,10 +212,9 @@ class Study:
     def _resolve_steps(self, nombres: list[str] | None) -> list[Step]:
         """Resuelve los nombres de paso a objetos :class:`Step` (config → REGISTRY → StepAdapter).
 
-        ``data`` es el primer dominio orquestable de F0-B2: se registra al importar
-        :mod:`nikodym.data`. El import es perezoso para que ``import nikodym.core`` no arrastre
-        pandas/pandera/pyarrow. El pipeline por defecto sigue siendo vacío si no hay secciones
-        activas; si ``config.data`` existe, ``steps=None`` lo incluye en orden de declaración.
+        Los dominios orquestables se registran al importar su paquete. El import es perezoso para
+        que ``import nikodym.core`` no arrastre pandas/pandera/pyarrow ni dominios aguas abajo. El
+        pipeline por defecto sigue siendo vacío si no hay secciones activas.
         """
         if nombres is None:
             nombres = self._default_step_names()
@@ -213,7 +222,11 @@ class Study:
 
     def _default_step_names(self) -> list[str]:
         """Deriva el pipeline v1 desde secciones activas del config raíz."""
-        return ["data"] if self.config.data is not None else []
+        return [
+            domain
+            for domain in _DEFAULT_DOMAIN_ORDER
+            if getattr(self.config, domain, None) is not None
+        ]
 
     def _resolve_step(self, name: str) -> Step:
         """Resuelve un paso por nombre de sección usando el ``REGISTRY`` global."""
@@ -248,19 +261,21 @@ class Study:
 
     def _ensure_domain_registered(self, name: str) -> None:
         """Importa perezosamente dominios con auto-registro, sin contaminar el import de core."""
-        if name == "data":
-            import importlib
-
-            importlib.import_module("nikodym.data")
+        module_name = _DOMAIN_MODULES.get(name)
+        if module_name is not None:
+            importlib.import_module(module_name)
 
     def _coerce_domain_config(self, name: str, sub_cfg: Any) -> Any:
         """Coacciona configs opacos si la sección se creó antes de importar su dominio."""
-        if name == "data":
-            from nikodym.data.config import DataConfig
+        config_spec = _DOMAIN_CONFIG_CLASSES.get(name)
+        if config_spec is None:
+            return sub_cfg
 
-            if not isinstance(sub_cfg, DataConfig):
-                sub_cfg = DataConfig.model_validate(sub_cfg)
-                self.config = self.config.model_copy(update={"data": sub_cfg})
+        module_name, class_name = config_spec
+        config_cls = getattr(importlib.import_module(module_name), class_name)
+        if not isinstance(sub_cfg, config_cls):
+            sub_cfg = config_cls.model_validate(sub_cfg)
+            self.config = self.config.model_copy(update={name: sub_cfg})
         return sub_cfg
 
     def _validate_pipeline(self, pasos: list[Step]) -> None:

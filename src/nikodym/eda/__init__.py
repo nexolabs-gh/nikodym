@@ -2,9 +2,9 @@
 
 Al importarse, registra :class:`EdaConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.eda`` se valida como sub-config real sin que
-``import nikodym.core`` arrastre ``nikodym.eda`` ni dependencias tabulares. Los analizadores se
-exponen de forma perezosa para que ``import nikodym.eda`` tampoco importe pandas hasta que el
-usuario pida un analizador concreto.
+``import nikodym.core`` arrastre ``nikodym.eda`` ni dependencias tabulares. El paquete importa
+``eda.step`` al final para ejecutar ``@register("standard", domain="eda")``; el resto de la
+superficie pública se mantiene en el mapa de reexportación perezosa.
 
 **Experimental (SemVer 0.x).**
 """
@@ -27,8 +27,10 @@ from nikodym.eda.exceptions import EdaError
 
 if TYPE_CHECKING:
     from nikodym.eda.default_rate import DefaultRateAnalyzer, DefaultRateResult
+    from nikodym.eda.figures import FigureSpec
     from nikodym.eda.quality import DataQualityProfiler, QualityResult
     from nikodym.eda.stability import StabilityResult, TemporalStabilityAnalyzer
+    from nikodym.eda.step import EdaResult, EdaStep
     from nikodym.eda.univariate import UnivariateProfiler, UnivariateResult
 
 # Registra la clase real del sub-config EDA en el hook de `core`.
@@ -38,6 +40,9 @@ _LAZY_EXPORTS: Final = {
     "DefaultRateAnalyzer": ("nikodym.eda.default_rate", "DefaultRateAnalyzer"),
     "DefaultRateResult": ("nikodym.eda.default_rate", "DefaultRateResult"),
     "DataQualityProfiler": ("nikodym.eda.quality", "DataQualityProfiler"),
+    "EdaResult": ("nikodym.eda.step", "EdaResult"),
+    "EdaStep": ("nikodym.eda.step", "EdaStep"),
+    "FigureSpec": ("nikodym.eda.figures", "FigureSpec"),
     "QualityResult": ("nikodym.eda.quality", "QualityResult"),
     "StabilityResult": ("nikodym.eda.stability", "StabilityResult"),
     "TemporalStabilityAnalyzer": ("nikodym.eda.stability", "TemporalStabilityAnalyzer"),
@@ -52,6 +57,9 @@ __all__ = [
     "DefaultRateResult",
     "EdaConfig",
     "EdaError",
+    "EdaResult",
+    "EdaStep",
+    "FigureSpec",
     "QualityConfig",
     "QualityResult",
     "SamplingConfig",
@@ -62,6 +70,10 @@ __all__ = [
     "UnivariateProfiler",
     "UnivariateResult",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="eda") al importar
+# `nikodym.eda`, sin contaminar `import nikodym.core`.
+importlib.import_module("nikodym.eda.step")
 
 
 def __getattr__(name: str) -> Any:

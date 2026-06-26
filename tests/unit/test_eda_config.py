@@ -182,11 +182,14 @@ def test_eda_error_desciende_de_nikodym_error() -> None:
         raise EdaError("fallo descriptivo")
 
 
-def test_import_eda_no_arrastra_stack_tabular_en_proceso_fresco() -> None:
-    """Importar ``nikodym.eda`` no arrastra pandas/pandera/pyarrow."""
+def test_import_core_liviano_e_import_eda_registra_step_en_proceso_fresco() -> None:
+    """``core`` sigue liviano; ``import nikodym.eda`` registra ``EdaStep``."""
     code = (
-        "import nikodym.eda, sys;"
+        "import nikodym.core, sys;"
         "bloqueados=[m for m in ('pandas','pandera','pyarrow') if m in sys.modules];"
-        "assert not bloqueados, bloqueados"
+        "assert not bloqueados, bloqueados;"
+        "import nikodym.eda;"
+        "from nikodym.core.registry import REGISTRY;"
+        "assert REGISTRY.resolve('eda','standard').__name__ == 'EdaStep'"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
