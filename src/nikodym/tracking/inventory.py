@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.governance.exceptions import RegistryUnavailableError
 from nikodym.governance.inventory import InventoryEntry, InventoryRecord
+from nikodym.tracking._registry import _registry_db_backed
 from nikodym.tracking.config import TrackingConfig
 from nikodym.tracking.exceptions import ModelNotFoundError, TrackingError
 from nikodym.utils.optional import require_extra
@@ -185,8 +186,6 @@ def _entry_tags(entry: InventoryEntry) -> dict[str, str]:
     }
     tags.update(required)
     tags.update({key: value for key, value in optional.items() if value is not None})
-    for key, value in entry.metrics.items():
-        tags[f"nikodym.metric.{key}"] = str(value)
     return tags
 
 
@@ -258,10 +257,3 @@ def _call_search_registered_models(client: Any) -> list[Any]:
     if callable(list_models):
         return list(list_models())
     return []
-
-
-def _registry_db_backed(uri: str | None) -> bool:
-    """Heurística defensiva: file store local no soporta Model Registry."""
-    if uri is None:
-        return False
-    return uri.startswith(("sqlite://", "postgresql://", "mysql://", "http://", "https://"))

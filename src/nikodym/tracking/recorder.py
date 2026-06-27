@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict
 from nikodym.core.config import INFRA_SECTIONS, NikodymConfig, config_hash
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.lineage import LineageBundle
+from nikodym.tracking._registry import _registry_db_backed
 from nikodym.tracking.config import TrackingConfig
 from nikodym.tracking.exceptions import TrackingError
 from nikodym.tracking.inventory import ModelVersionRef
@@ -370,13 +371,6 @@ class TrackingRecorder:
             self._warning_sink(message)
             return
         warnings.warn(message, UserWarning, stacklevel=3)
-
-
-def _registry_db_backed(uri: str | None) -> bool:
-    """Heurística defensiva: file store local no soporta Model Registry."""
-    if uri is None:
-        return False
-    return uri.startswith(("sqlite://", "postgresql://", "mysql://", "http://", "https://"))
 
 
 def _version_timestamp(value: Any) -> Any:

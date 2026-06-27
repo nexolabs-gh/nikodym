@@ -238,6 +238,16 @@ def test_mlflow_inventory_implementa_protocol_e_idempotencia() -> None:
     assert inventory.list_models()[0].n_versions == 2
 
 
+def test_mlflow_inventory_metrics_no_se_escriben_como_tags() -> None:
+    """Las metricas quedan en entry.metrics, no en tags ``nikodym.metric.*``."""
+    entry = _entry()
+    tags = inventory_mod._entry_tags(entry)
+
+    assert entry.metrics == {"auc": 0.8}
+    assert "nikodym.config_hash" in tags
+    assert not [key for key in tags if key.startswith("nikodym.metric.")]
+
+
 def test_mlflow_inventory_modelo_version_ausente() -> None:
     """Lecturas inexistentes devuelven ``None`` o levantan la excepción propia."""
     inventory = MLflowInventory(
