@@ -143,6 +143,38 @@ def test_columna_cien_por_ciento_missing_produce_tramo_missing() -> None:
     assert_frame_equal(profile, expected)
 
 
+def test_columna_categorica_completamente_faltante_produce_tramo_missing() -> None:
+    """Una categórica 100% faltante produce solo el tramo ``missing``."""
+    index = pd.Index(["op-1", "op-2", "op-3", "op-4"], name="loan_id")
+    df = pd.DataFrame(
+        {
+            "target": pd.Series([0, 1, 0, 0], index=index, dtype="Int8"),
+            "segmento": pd.Series(
+                pd.array([pd.NA, pd.NA, pd.NA, pd.NA], dtype="string"),
+                index=index,
+            ),
+        },
+        index=index,
+    )
+    assert not pd.api.types.is_numeric_dtype(df["segmento"].dtype)
+
+    profile = (
+        UnivariateProfiler.from_config(UnivariateConfig())
+        .profile(df, target_col="target", columns=("segmento",))
+        .profiles["segmento"]
+    )
+
+    expected = pd.DataFrame(
+        {
+            "tramo": ["missing"],
+            "n": pd.Series([4], dtype="int64"),
+            "coverage": [1.0],
+            "default_rate": [0.25],
+        }
+    )
+    assert_frame_equal(profile, expected)
+
+
 def test_numerica_con_infinitos_preserva_conteos_y_los_trata_como_missing() -> None:
     index = pd.Index([f"op-{position}" for position in range(6)], name="loan_id")
     df = pd.DataFrame(
