@@ -268,7 +268,7 @@ class TargetConfig(NikodymBaseConfig):
 
     @model_validator(mode="after")
     def _exclusion_reasons_unicos_y_no_reservados(self) -> TargetConfig:
-        """Rechaza motivos duplicados y colisiones con razones reservadas del sistema."""
+        """Rechaza duplicados en orden de declaración y colisiones con razones reservadas."""
         seen: set[str] = set()
         for exclusion in self.exclusion_rules:
             reason = exclusion.name

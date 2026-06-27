@@ -202,6 +202,8 @@ def _window_incomplete_mask(df: pd.DataFrame, config: TargetConfig) -> pd.Series
     _validate_datetime_column(df, cutoff_col, "data_cutoff_col")
 
     matured_until = df[observation_col] + pd.offsets.DateOffset(months=window.months)
+    # Intención regulatoria: NaT en observación/corte implica ventana no madurada; se excluye como
+    # ``ventana_incompleta`` (censura segura, nunca se asume "bueno").
     mask = (matured_until > df[cutoff_col]) | df[observation_col].isna() | df[cutoff_col].isna()
     return mask.fillna(False).astype("bool")
 

@@ -373,9 +373,11 @@ class Study:
 
         Layout: ``config.yaml`` + ``run_metadata.json`` + ``lineage.json`` (si hay lineage) +
         ``artifacts/<domain>/<key>.joblib``. Al **sobrescribir**, el directorio previo se aparta a
-        un respaldo lateral antes de colocar el nuevo y se restaura si el *swap* falla, de modo que
-        nunca hay un instante sin un directorio válido en ``path``. El azar (``seed_manager``) no se
-        guarda: se reconstruye en :meth:`load`. Devuelve el ``Path`` del directorio final.
+        un respaldo lateral antes de colocar el nuevo y se restaura si el *swap* falla. En el
+        doble-fallo (falla el *swap* y también la restauración), el estudio previo queda preservado
+        en el respaldo lateral ``.old.*`` y ``path`` podría quedar transitoriamente sin directorio
+        válido; se prioriza no perder datos. El azar (``seed_manager``) no se guarda: se reconstruye
+        en :meth:`load`. Devuelve el ``Path`` del directorio final.
         """
         import joblib
 

@@ -79,12 +79,19 @@ def test_data_hash_rechaza_indice_duplicado_con_mensaje_especifico() -> None:
 
 def test_data_hash_category_es_reproducible_y_tiene_golden() -> None:
     df = _categorical_frame()
+    distinto_orden_categorias = _categorical_frame()
+    distinto_orden_categorias["segmento"] = distinto_orden_categorias[
+        "segmento"
+    ].cat.reorder_categories(["retail", "pyme", "empresa"], ordered=False)
 
     result = data_hash(df)
 
     assert isinstance(df["segmento"].dtype, pd.CategoricalDtype)
     assert result == data_hash(df)
     assert result == data_hash(df.copy(deep=True))
+    # Esperado: pandas hashea ``category`` por contenido lógico con ``categorize=True``; cambiar
+    # el orden declarado de ``categories`` no debe mover el ancla ni el golden.
+    assert result == data_hash(distinto_orden_categorias)
     assert result == GOLDEN_CATEGORY_DATA_HASH
 
 

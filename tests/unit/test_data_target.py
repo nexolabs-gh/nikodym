@@ -223,6 +223,8 @@ def test_ventana_con_nat_excluye_por_prudencia_golden() -> None:
         ),
     )
 
+    # La única exclusión es ``ventana_incompleta``: las filas con NaT deben acumular 3 casos y
+    # ``bad_mature``/``good_mature`` deben quedar fuera de esa máscara para no contaminar el conteo.
     labeled = TargetDefinition(cfg).apply(df)
 
     assert labeled.frame["label_status"].astype(str).tolist() == [

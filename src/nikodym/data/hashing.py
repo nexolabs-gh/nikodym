@@ -7,7 +7,8 @@ e índice internamente, y trabaja sobre una copia para no mutar el ``DataFrame``
 Ratificación B2b.3: fijar el orden estable por índice mediante ``sort_index`` agrega un coste
 ``O(n log n)`` al preprocesamiento respecto del pseudocódigo ``O(n)`` del SDD-02 §7. Se acepta
 porque el índice es el identificador regulatorio de observación y la invariancia ante permutaciones
-de filas importa más que evitar ese ordenamiento.
+de filas importa más que evitar ese ordenamiento. Esa invariancia aplica solo con índice único; un
+índice duplicado se rechaza fail-fast con ``DataValidationError``.
 
 **Experimental (SemVer 0.x).**
 """
