@@ -19,15 +19,24 @@ from nikodym.core.config import schema as _schema
 # Registra la clase real del sub-config binning en el hook de `core`.
 _schema._BINNING_CONFIG_CLS = BinningConfig
 
-_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {}
+_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "BinningCardSection": ("nikodym.binning.results", "BinningCardSection"),
+    "BinningResult": ("nikodym.binning.results", "BinningResult"),
+    "BinningVariableSummary": ("nikodym.binning.results", "BinningVariableSummary"),
+    "iv_band": ("nikodym.binning.results", "iv_band"),
+}
 
 __all__ = [
+    "BinningCardSection",
     "BinningConfig",
     "BinningError",
     "BinningFitError",
+    "BinningResult",
     "BinningTransformError",
+    "BinningVariableSummary",
     "MonotonicTrend",
     "VariableBinningConfig",
+    "iv_band",
 ]
 
 
