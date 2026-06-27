@@ -2,7 +2,7 @@
 
 ``EdaStep`` implementa el :class:`~nikodym.core.steps.Step` nativo del dominio ``eda``:
 lee los artefactos ya producidos por ``data``, selecciona la población de análisis, orquesta los
-analizadores descriptivos y publica los cinco artefactos estables del dominio ``eda``.
+analizadores descriptivos y publica los seis artefactos estables del dominio ``eda``.
 
 DECISIÓN AUTÓNOMA (frontera, revisión de Cami): ``splits`` no figura en ``requires`` porque sólo
 se necesita cuando ``analysis_partition != "todas"``; el paso lo lee condicionalmente y filtra por
@@ -24,6 +24,7 @@ from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
 from nikodym.data.partition import PARTITION_COL, TTD_COL, PartitionResult
+from nikodym.eda.card import EdaCardSection
 from nikodym.eda.config import EdaConfig
 from nikodym.eda.default_rate import DefaultRateAnalyzer, DefaultRateResult
 from nikodym.eda.exceptions import EdaError
@@ -44,11 +45,17 @@ EDA_ARTIFACTS: Final[tuple[str, ...]] = (
     "univariate",
     "quality",
     "figures",
+    "eda_card",
+)
+_QUALITY_FLAG_COLUMNS: Final[tuple[str, ...]] = (
+    "near_constant",
+    "near_unique",
+    "high_cardinality",
 )
 
 
 class EdaResult(BaseModel):
-    """Resultado agregado de ``EdaStep`` con los cinco artefactos EDA."""
+    """Resultado agregado de ``EdaStep`` con los cinco sub-resultados EDA."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
@@ -123,7 +130,8 @@ class EdaStep(AuditableMixin):
             quality=quality,
             figures=figures,
         )
-        self._publish_artifacts(study, result)
+        eda_card = self._build_eda_card(result=result)
+        self._publish_artifacts(study, result, eda_card)
         return result
 
     def _partition_frame(self, study: Study, frame: pd.DataFrame) -> pd.DataFrame:
@@ -166,13 +174,31 @@ class EdaStep(AuditableMixin):
         )
         return frame_part.sample(n=max_rows, random_state=rng).copy(deep=True)
 
-    def _publish_artifacts(self, study: Study, result: EdaResult) -> None:
-        """Publica los cinco artefactos estables del dominio ``eda``."""
+    def _build_eda_card(self, *, result: EdaResult) -> EdaCardSection:
+        """Construye el resumen EDA leyendo campos ya calculados por ``EdaResult``."""
+        by_column = result.quality.by_column
+        return EdaCardSection(
+            overall_default_rate=result.default_rate.overall_rate,
+            n_periods=len(result.default_rate.by_period),
+            stability_flagged=result.stability.flagged,
+            stability_metric_used=result.stability.metric_used,
+            stability_threshold=result.stability.threshold,
+            stability_value=float(getattr(result.stability, result.stability.metric_used)),
+            n_columns_profiled=len(result.univariate.profiles),
+            quality_flag_counts={
+                flag: int(by_column[flag].sum()) for flag in _QUALITY_FLAG_COLUMNS
+            },
+            n_figures=len(result.figures),
+        )
+
+    def _publish_artifacts(self, study: Study, result: EdaResult, eda_card: EdaCardSection) -> None:
+        """Publica los seis artefactos estables del dominio ``eda``."""
         study.artifacts.set("eda", "default_rate", result.default_rate)
         study.artifacts.set("eda", "stability", result.stability)
         study.artifacts.set("eda", "univariate", result.univariate)
         study.artifacts.set("eda", "quality", result.quality)
         study.artifacts.set("eda", "figures", result.figures)
+        study.artifacts.set("eda", "eda_card", eda_card)
 
 
 def _as_dataframe(value: object) -> pd.DataFrame:

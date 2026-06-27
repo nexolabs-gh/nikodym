@@ -19,6 +19,7 @@ from nikodym.data.config import (
     TargetConfig,
 )
 from nikodym.data.step import INPUT_FRAME_KEY
+from nikodym.eda.card import EdaCardSection
 from nikodym.eda.config import (
     DefaultRateConfig,
     EdaConfig,
@@ -129,7 +130,7 @@ def _run_pipeline_artifacts() -> tuple[object, ...]:
     return tuple(study.artifacts.get("eda", key) for key in EDA_ARTIFACTS)
 
 
-def test_study_run_data_eda_end_to_end_puebla_los_cinco_artefactos() -> None:
+def test_study_run_data_eda_end_to_end_puebla_los_seis_artefactos() -> None:
     """``Study.run(steps=['data','eda'])`` publica todos los artefactos EDA."""
     study = _study()
     _inject_frame(study)
@@ -141,6 +142,9 @@ def test_study_run_data_eda_end_to_end_puebla_los_cinco_artefactos() -> None:
         assert study.artifacts.has("eda", key)
     assert study.artifacts.get("eda", "default_rate").overall_rate == pytest.approx(4 / 12)
     assert len(study.artifacts.get("eda", "figures")) == 3
+    eda_card = study.artifacts.get("eda", "eda_card")
+    assert isinstance(eda_card, EdaCardSection)
+    assert eda_card.n_figures == 3
 
 
 def test_eda_no_muta_frame_de_data_en_corrida_cross_domain() -> None:

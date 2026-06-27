@@ -14,6 +14,7 @@ from nikodym.core.registry import REGISTRY
 from nikodym.core.study import Study
 from nikodym.data.partition import PARTITION_COL, TTD_COL, PartitionResult
 from nikodym.data.target import STATUS_COL, LabeledFrame, TargetSummary
+from nikodym.eda.card import EdaCardSection
 from nikodym.eda.config import (
     DefaultRateConfig,
     EdaConfig,
@@ -145,17 +146,25 @@ def test_edastep_registrado_requires_provides_from_config_y_reexports() -> None:
     step = EdaStep.from_config(cfg)
 
     assert REGISTRY.resolve("eda", "standard") is EdaStep
+    assert eda.__getattr__("EdaCardSection") is EdaCardSection
     assert eda.__getattr__("EdaStep") is EdaStep
     assert eda.__getattr__("EdaResult") is EdaResult
     assert eda.__getattr__("FigureSpec") is FigureSpec
     assert step.config is cfg
     assert step.name == "eda"
     assert step.requires == (("data", "frame"), ("data", "labels"))
-    assert EDA_ARTIFACTS == ("default_rate", "stability", "univariate", "quality", "figures")
+    assert EDA_ARTIFACTS == (
+        "default_rate",
+        "stability",
+        "univariate",
+        "quality",
+        "figures",
+        "eda_card",
+    )
     assert step.provides == tuple(("eda", key) for key in EDA_ARTIFACTS)
 
 
-def test_execute_publica_cinco_artefactos_figures_y_no_muta_data() -> None:
+def test_execute_publica_seis_artefactos_figures_card_y_no_muta_data() -> None:
     """``execute`` puebla artefactos EDA, no muta frame/labels y produce figuras golden."""
     frame = _frame()
     study = _study_with_data(frame)
@@ -175,6 +184,10 @@ def test_execute_publica_cinco_artefactos_figures_y_no_muta_data() -> None:
     assert study.artifacts.get("eda", "univariate") is result.univariate
     assert study.artifacts.get("eda", "quality") is result.quality
     assert study.artifacts.get("eda", "figures") == result.figures
+    eda_card = study.artifacts.get("eda", "eda_card")
+    assert isinstance(eda_card, EdaCardSection)
+    assert eda_card.overall_default_rate == result.default_rate.overall_rate
+    assert eda_card.n_figures == len(result.figures)
     assert_frame_equal(study.artifacts.get("data", "frame"), frame_before)
     assert_frame_equal(study.artifacts.get("data", "labels").frame, labels_before)
 

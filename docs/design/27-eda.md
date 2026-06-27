@@ -186,9 +186,21 @@ class EdaResult(BaseModel):
     quality: "QualityResult"
     figures: tuple["FigureSpec", ...]
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+class EdaCardSection(BaseModel):
+    """Resumen auditable de EDA para SDD-26. Se construye desde EdaResult; no recalcula."""
+    overall_default_rate: float
+    n_periods: int
+    stability_flagged: bool
+    stability_metric_used: str
+    stability_threshold: float
+    stability_value: float
+    n_columns_profiled: int
+    quality_flag_counts: dict[str, int]
+    n_figures: int
 ```
 
-**Artefactos que `EdaStep.execute` escribe en `study.artifacts`** (dominio `"eda"`, claves estables — consumidas por SDD-06/11/26):
+**Artefactos que `EdaStep.execute` escribe en `study.artifacts`** (dominio `"eda"`, claves estables — consumidas por SDD-06/11/26). `EdaResult` mantiene los cinco sub-resultados; `"eda_card"` es un resumen derivado y separado para `report`:
 
 | clave | tipo | contenido |
 |---|---|---|
@@ -197,6 +209,7 @@ class EdaResult(BaseModel):
 | `"univariate"` | `UnivariateResult` | perfiles univariados feature↔target + IV descriptivo |
 | `"quality"` | `QualityResult` | missing/cardinalidad/flags por columna |
 | `"figures"` | `tuple[FigureSpec, ...]` | recetas de figura para SDD-26 (no imágenes) |
+| `"eda_card"` | `EdaCardSection` | resumen auditable del EDA para SDD-26, construido sin recalcular analizadores |
 
 **Ejemplo de uso (extremo a extremo, pseudocódigo):**
 
@@ -320,7 +333,7 @@ class EdaConfig(NikodymBaseConfig):
 - Vía API standalone: cada analizador recibe directamente un `pandas.DataFrame` con la columna target y, según el eje, la columna fecha o cohorte.
 - **Columnas que `eda` lee del frame** (todas producidas por SDD-02, no las crea `eda`): `target` (nombre configurable, Int8 0/1/`<NA>`), `label_status`, `partition`, `ttd`, más la columna fecha/cohorte y las features a perfilar.
 
-**Output.** El `EdaResult` (y sus cinco artefactos namespaced bajo `"eda"`). Todas las tablas son `pandas.DataFrame` con **columnas nombradas** (SDD-05 §6: no ndarray pelado), serializables; las figuras son `FigureSpec` (datos + receta, no bytes de imagen). `eda` **no añade columnas al frame** ni lo muta: el frame que `binning` (SDD-06) consume es el de `data`, no uno transformado por `eda` (refuerza el límite "no transforma el dato para el modelo").
+**Output.** El `EdaResult` (cinco sub-resultados) y sus seis artefactos namespaced bajo `"eda"`: los cinco sub-resultados más `"eda_card"`. Todas las tablas son `pandas.DataFrame` con **columnas nombradas** (SDD-05 §6: no ndarray pelado), serializables; las figuras son `FigureSpec` (datos + receta, no bytes de imagen). `eda` **no añade columnas al frame** ni lo muta: el frame que `binning` (SDD-06) consume es el de `data`, no uno transformado por `eda` (refuerza el límite "no transforma el dato para el modelo").
 
 **Invariantes (pre/post) — verificables en tests (§11):**
 - *No mutación del input:* el `frame` del dominio `"data"` es idéntico antes y después de `eda.execute` (igualdad estructural; `eda` opera sobre copias/agregaciones). `eda` nunca llama `artifacts.set("data", ...)`.
@@ -351,7 +364,8 @@ class EdaConfig(NikodymBaseConfig):
    - **Muestreo:** si `cfg.sampling.enabled` y `len(frame_part) > max_rows`, perfilar sobre `frame_part.sample(n=max_rows, random_state=rng)` (usa el `rng` inyectado; §9). La tasa por período (paso 3) **no** se muestrea.
 6. **Calidad descriptiva.** `DataQualityProfiler.profile`: por columna `dtype`, `missing_rate` (NaN ya incluye special→NaN de SDD-02), `cardinality`; flags `near_constant` (un valor concentra ≥ `near_constant_threshold` de no-nulos) y `near_unique`/`high_cardinality`. Solo tabla; ninguna eliminación.
 7. **Figuras.** Construir `FigureSpec` (datos + receta): línea de `default_rate` por período (señal temporal), barras de `default_rate` por tramo para las top-N columnas por IV descriptivo (o por orden de config), heatmap opcional cohorte×período de la tasa. **No** se renderiza imagen aquí: SDD-26 (report) las dibuja con matplotlib/plotly.
-8. **Publicar artefactos** (`study.artifacts.set("eda", k, v)` para los cinco). Devolver `EdaResult`.
+8. **Card EDA.** Construir `EdaCardSection` leyendo los cinco sub-resultados ya calculados: tasa global, número de períodos, indicador de estabilidad usado, columnas perfiladas, conteo de flags de calidad y número de figuras. **No recalcula** ningún analizador.
+9. **Publicar artefactos** (`study.artifacts.set("eda", k, v)` para los seis). Devolver `EdaResult`.
 
 **`Partitioner`-independencia.** `eda` **no** re-particiona: lee la columna `partition` que SDD-02 ya fijó. Si SDD-02 expone en T2 los **accessors de particiones** que propone su §12 (`PartitionResult.subset(partition) -> DataFrame` / `mask(partition) -> Series[bool]`), `eda` usará `subset(...)` en lugar de filtrar la columna a mano (frontera a confirmar, §12 D-EDA-2).
 
@@ -429,7 +443,7 @@ Mensajes en **español**, incluyendo la regla/columna/valor observado cuando apl
 - **Estabilidad y auditoría.** Con una serie de tasas que dispara el umbral: `stability.flagged == True` y se emitió **exactamente un** `AuditEvent(kind="decision", regla="estabilidad_temporal")` (aseverado con `InMemoryAuditSink` de core, SDD-24 §9). Con < 2 períodos: `flagged == False` y decisión `no_evaluable`.
 - **Reproducibilidad (`assert_bitwise_reproducible`, SDD-24 §4).** Sin muestreo: dos `execute` con mismo frame+config → tablas bit-idénticas. Con muestreo: dos corridas con `SeedManager(42).generator_for("eda")` → misma muestra y mismas tablas; muestra re-derivada (no serializada).
 - **Casos borde (§8).** Período `n_eligible==0` → `default_rate` NaN marcado, sin `ZeroDivisionError`; columna 100% missing → perfil con tramo "missing"; partición vacía → `EdaError`; eje `period` sin fecha → `EdaError`; config inválida (`n_quantile_bins=1`) → `ConfigError` en parse.
-- **Integración (`integration/`, SDD-24).** Pipeline `data → eda` end-to-end sobre `tests/data/synthetic_behavior.parquet`: `study.run(steps=["data","eda"])` puebla `artifacts["eda"]` con los cinco artefactos y un `StabilityResult` coherente; `eda` consume `artifacts["data"]` sin tocarlo.
+- **Integración (`integration/`, SDD-24).** Pipeline `data → eda` end-to-end sobre `tests/data/synthetic_behavior.parquet`: `study.run(steps=["data","eda"])` puebla `artifacts["eda"]` con los seis artefactos y un `StabilityResult` coherente; `eda` consume `artifacts["data"]` sin tocarlo.
 - **Fixtures.** Frame sintético con eje temporal de varios meses y tasa de default conocida por período (determinista, seed fija, en `tests/data/`); `EdaConfig` mínimo y completo; `InMemoryAuditSink` para aseverar la decisión de estabilidad.
 
 ---
@@ -441,6 +455,7 @@ Mensajes en **español**, incluyendo la regla/columna/valor observado cuando apl
 - **D-EDA-2 — `eda` lee la columna `partition` de SDD-02; no re-particiona.** Si SDD-02 expone en T2 los **accessors de particiones** que su §12 propone (`subset(partition)` / `mask(partition)`), `eda` usará `subset(...)`. *Frontera a confirmar:* la firma exacta del accessor (hoy SDD-02 §4 expone `PartitionResult` con columna `partition`, suficiente para filtrar; el accessor es azúcar aditiva).
 - **D-EDA-3 — IV univariado de `eda` es DESCRIPTIVO (pre-binning), opt-in y etiquetado.** El IV "de verdad" (sobre el binning supervisado) es de SDD-06. *Riesgo:* que un usuario confunda ambos. *Mitigación:* `compute_descriptive_iv=False` por defecto + etiqueta explícita "pre-binning" en la tabla/figura. **A confirmar con SDD-06** que no haya solapamiento de nombres.
 - **D-EDA-4 — `eda` emite `FigureSpec` declarativas; SDD-26 las renderiza; matplotlib/plotly son extra perezoso.** *Frontera a confirmar:* el contrato exacto de `FigureSpec` debe casar con lo que SDD-26 (report) espera consumir; el nombre/agrupación del extra de gráficos (propio vs compartido con report) lo fija SDD-25/SDD-26.
+- **D-EDA-5 — `eda_card` es un artefacto separado y no un sexto campo de `EdaResult`.** Los nombres exactos del card quedan fijados en `EdaCardSection`. El recuento de flags de calidad se expone como `quality_flag_counts: dict[str, int]` sobre los tres flags booleanos (`near_constant`, `near_unique`, `high_cardinality`), excluyendo `missing_rate` porque es continuo. Si Cami prefiere además un conteo de columnas con `missing_rate > 0` o un total agregado, sería un ajuste aditivo de un campo.
 
 **Decisiones abiertas (delegadas a la revisión de Tanda 2).**
 - **Qué columnas son "features" lo decide SDD-06/07, no `eda`.** `UnivariateConfig.columns=None` perfila todas las no-estructurales como **alcance del diagnóstico**, sin pronunciarse sobre cuáles entran al modelo. *Responsable:* DanIA (integración) + autores SDD-06/07.

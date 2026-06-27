@@ -26,6 +26,7 @@ from nikodym.eda.config import (
 from nikodym.eda.exceptions import EdaError
 
 if TYPE_CHECKING:
+    from nikodym.eda.card import EdaCardSection
     from nikodym.eda.default_rate import DefaultRateAnalyzer, DefaultRateResult
     from nikodym.eda.figures import FigureSpec
     from nikodym.eda.quality import DataQualityProfiler, QualityResult
@@ -37,9 +38,10 @@ if TYPE_CHECKING:
 _schema._EDA_CONFIG_CLS = EdaConfig
 
 _LAZY_EXPORTS: Final = {
+    "DataQualityProfiler": ("nikodym.eda.quality", "DataQualityProfiler"),
     "DefaultRateAnalyzer": ("nikodym.eda.default_rate", "DefaultRateAnalyzer"),
     "DefaultRateResult": ("nikodym.eda.default_rate", "DefaultRateResult"),
-    "DataQualityProfiler": ("nikodym.eda.quality", "DataQualityProfiler"),
+    "EdaCardSection": ("nikodym.eda.card", "EdaCardSection"),
     "EdaResult": ("nikodym.eda.step", "EdaResult"),
     "EdaStep": ("nikodym.eda.step", "EdaStep"),
     "FigureSpec": ("nikodym.eda.figures", "FigureSpec"),
@@ -55,6 +57,7 @@ __all__ = [
     "DefaultRateAnalyzer",
     "DefaultRateConfig",
     "DefaultRateResult",
+    "EdaCardSection",
     "EdaConfig",
     "EdaError",
     "EdaResult",
