@@ -21,6 +21,7 @@ import json
 import os
 import shutil
 import tempfile
+import time
 import uuid
 import warnings
 from datetime import UTC, datetime
@@ -59,6 +60,8 @@ _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "eda": ("nikodym.eda.config", "EdaConfig"),
 }
 _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = ("data", "eda")
+_REPLACE_RETRY_ATTEMPTS: Final = 3
+_REPLACE_RETRY_BACKOFF_SECONDS: Final = 0.05
 
 
 def _estado_git() -> tuple[str | None, bool]:
@@ -99,6 +102,27 @@ def _advertir_drift_versiones(guardadas: dict[str, str]) -> None:
             f"Versiones de librerías distintas de la corrida original (original, actual): {drift}",
             stacklevel=2,
         )
+
+
+def _replace_path(src: Path, dst: Path) -> None:
+    """Mueve ``src`` a ``dst`` con reintentos ante locks transitorios del sistema de archivos."""
+    attempt = 0
+    while True:
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            attempt += 1
+            if attempt >= _REPLACE_RETRY_ATTEMPTS:
+                raise
+            time.sleep(_REPLACE_RETRY_BACKOFF_SECONDS)
+
+
+def _missing_backup_path(destino: Path) -> Path:
+    """Reserva y libera una ruta única inexistente para respaldos laterales."""
+    respaldo = Path(tempfile.mkdtemp(prefix=f".{destino.name}.old.", dir=destino.parent))
+    respaldo.rmdir()
+    return respaldo
 
 
 def _component_type(sub_cfg: Any) -> str:
@@ -381,21 +405,17 @@ class Study:
                 carpeta.mkdir(parents=True, exist_ok=True)
                 joblib.dump(self.artifacts.get(dominio, clave), carpeta / f"{clave}.joblib")
             if destino.exists():
-                respaldo = Path(
-                    tempfile.mkdtemp(prefix=f".{destino.name}.old.", dir=destino.parent)
-                )
-                os.replace(destino, respaldo)
+                respaldo = _missing_backup_path(destino)
+                _replace_path(destino, respaldo)
             try:
-                os.replace(tmp, destino)
+                _replace_path(tmp, destino)
             except BaseException:
                 if respaldo is not None:
-                    os.replace(respaldo, destino)  # restaurar el estudio previo intacto
+                    _replace_path(respaldo, destino)  # restaurar el estudio previo intacto
                     respaldo = None
                 raise
         except BaseException:
             shutil.rmtree(tmp, ignore_errors=True)
-            if respaldo is not None:
-                shutil.rmtree(respaldo, ignore_errors=True)
             raise
         if respaldo is not None:
             shutil.rmtree(respaldo, ignore_errors=True)

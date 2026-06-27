@@ -47,10 +47,9 @@ jobs:
       HYPOTHESIS_PROFILE: ci
     strategy:
       fail-fast: false
-      # Desviación deliberada de SDD-25 §7: Windows queda para B4.4
-      # (Study.save no es Windows-safe); Linux/macOS cubren Python 3.11-3.13.
+      # SDD-25 §7: matriz base v0.1.0 en Linux/macOS/Windows para Python 3.11-3.13.
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - name: Checkout

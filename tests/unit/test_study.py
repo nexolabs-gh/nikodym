@@ -442,12 +442,78 @@ def test_registro_y_coercion_perezosa_cubren_dominios_no_data() -> None:
 
 
 def test_save_sobre_existente_reescribe(tmp_path: Path) -> None:
-    """Re-guardar sobre un directorio existente lo reemplaza (rama ``destino.exists()``)."""
-    study = Study(_config())
+    """Re-guardar sobre un directorio existente lo reemplaza por el nuevo Study."""
+    study = Study(NikodymConfig(name="primero"))
     destino = tmp_path / "estudio"
     study.save(destino)
-    study.save(destino)
+    Study(NikodymConfig(name="segundo")).save(destino)
     assert (destino / "config.yaml").exists()
+    assert Study.load(destino, trust=True).config.name == "segundo"
+
+
+def test_save_usa_respaldo_inexistente_al_sobrescribir(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """El respaldo lateral se crea como ruta inexistente antes de ``os.replace``."""
+    destino = Study(_config()).save(tmp_path / "estudio")
+    real = study_mod.os.replace
+
+    def _assert_respaldo_inexistente(src: object, dst: object) -> None:
+        if src == destino:
+            assert ".old." in str(dst)
+            assert not Path(dst).exists()
+        real(src, dst)
+
+    monkeypatch.setattr(study_mod.os, "replace", _assert_respaldo_inexistente)
+    Study(NikodymConfig(name="nuevo")).save(destino)
+    assert Study.load(destino, trust=True).config.name == "nuevo"
+
+
+def test_save_reintenta_replace_transitorio(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Un ``PermissionError`` transitorio en ``os.replace`` se reintenta y termina verde."""
+    destino = tmp_path / "estudio"
+    real = study_mod.os.replace
+    calls = 0
+
+    def _flaky_replace(src: object, dst: object) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise PermissionError("handle transitorio")
+        real(src, dst)
+
+    monkeypatch.setattr(study_mod.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(study_mod.os, "replace", _flaky_replace)
+
+    Study(_config()).save(destino)
+
+    assert calls == 2
+    assert (destino / "config.yaml").exists()
+
+
+def test_save_reintentos_agotados_limpia_tmp(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Si el lock persiste, ``save`` falla sin dejar destino parcial ni temporales."""
+    destino = tmp_path / "estudio"
+    calls = 0
+
+    def _locked_replace(_src: object, _dst: object) -> None:
+        nonlocal calls
+        calls += 1
+        raise PermissionError("handle retenido")
+
+    monkeypatch.setattr(study_mod.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(study_mod.os, "replace", _locked_replace)
+
+    with pytest.raises(PermissionError, match="handle retenido"):
+        Study(_config()).save(destino)
+
+    assert calls == study_mod._REPLACE_RETRY_ATTEMPTS
+    assert not destino.exists()
+    assert not list(tmp_path.glob(".estudio.*"))
 
 
 def test_load_con_artefactos_trust_true(tmp_path: Path) -> None:
