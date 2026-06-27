@@ -57,7 +57,7 @@ from nikodym.core.exceptions import (
 )
 from nikodym.core.lineage import LineageBundle, RunContext
 from nikodym.core.mixins import AuditableMixin, SerializationMixin
-from nikodym.core.registry import REGISTRY, Registry, register
+from nikodym.core.registry import REGISTRY, Registry, register, unregister
 from nikodym.core.results import ECLResultLike, ProvisionResultLike
 from nikodym.core.seeding import SeedManager
 from nikodym.core.steps import ArtifactKey, Step, StepAdapter
@@ -119,4 +119,5 @@ __all__ = [
     "migrate",
     "migration",
     "register",
+    "unregister",
 ]

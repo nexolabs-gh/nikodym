@@ -17,7 +17,9 @@ def assert_bitwise_reproducible(
     """Ejecuta ``run`` dos veces y asevera igualdad bit a bit del resultado.
 
     ``normalize`` permite retirar campos legítimamente no deterministas, como timestamps de
-    lineage, antes de serializar ambos resultados.
+    lineage, antes de serializar ambos resultados. La comparación asume estructuras con orden de
+    iteración determinista; úsalo para canonicalizar payloads que ``pickle`` no pueda ordenar por sí
+    mismo.
     """
     first = run()
     second = run()
@@ -34,7 +36,13 @@ def assert_bitwise_reproducible(
 
 
 def _canonical_bytes(value: Any) -> bytes:
-    """Serializa ``value`` a bytes deterministas con pickle protocolo 5."""
+    """Serializa ``value`` con pickle protocolo 5 para la comparación interna.
+
+    ``pickle`` no garantiza una representación canónica para estructuras cuyo orden de iteración
+    puede variar, como ``set``/``frozenset`` o diccionarios construidos con órdenes distintos. Dos
+    objetos semánticamente iguales pueden producir bytes distintos; en esos casos, quien llama debe
+    pasar ``normalize`` a ``assert_bitwise_reproducible``.
+    """
     try:
         return pickle.dumps(value, protocol=5)
     except Exception as exc:

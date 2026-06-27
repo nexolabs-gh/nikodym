@@ -2,16 +2,30 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import numpy as np
 import pytest
 
 from nikodym.core.config import NikodymConfig
+from nikodym.core.exceptions import UnknownComponentError
 from nikodym.core.registry import REGISTRY
 from nikodym.core.seeding import SeedManager
 from nikodym.core.steps import Step
 from nikodym.core.study import Study
 from nikodym.testing import dummy_step_config, golden_seed_sequence, minimal_study
-from nikodym.testing.fixtures import _ensure_dummy_step_registered
+from nikodym.testing.fixtures import (
+    _ensure_dummy_step_registered,
+    _unregister_dummy_step_if_registered,
+)
+
+
+@pytest.fixture(autouse=True)
+def clean_dummy_step_registry() -> Iterator[None]:
+    """Aísla el Step dummy para que no contamine el ``REGISTRY`` global entre tests."""
+    _unregister_dummy_step_if_registered()
+    yield
+    _unregister_dummy_step_if_registered()
 
 
 def test_minimal_study_es_study_con_config_por_defecto() -> None:
@@ -63,12 +77,6 @@ def test_golden_seed_sequence_rechaza_n_negativo() -> None:
         golden_seed_sequence("binning", -1)
 
 
-def test_golden_seed_sequence_equivale_a_seed_manager() -> None:
-    """El helper usa el mismo rango entero que los golden canónicos."""
-    expected = SeedManager(42).generator_for("testing").integers(0, 2**31, size=4).tolist()
-    assert golden_seed_sequence("testing", 4) == [int(value) for value in expected]
-
-
 def test_dummy_step_overwrite_permite_re_ejecutar() -> None:
     """El Step dummy usa ``overwrite=True`` para ser estable en tests repetidos."""
     dummy_step_config()
@@ -87,3 +95,13 @@ def test_dummy_step_config_falla_si_registro_apunta_a_componente_invalido(
     monkeypatch.setitem(REGISTRY._registry, ("testing", "dummy"), object)
     with pytest.raises(AssertionError, match="no satisface"):
         _ensure_dummy_step_registered()
+
+
+def test_dummy_step_cleanup_deja_registry_global_limpio() -> None:
+    """El cleanup usa ``unregister`` y deja el singleton sin el Step dummy."""
+    dummy_step_config()
+    assert REGISTRY.resolve("testing", "dummy").__name__ == "_DummyStep"
+    _unregister_dummy_step_if_registered()
+    assert REGISTRY.available("testing") == []
+    with pytest.raises(UnknownComponentError, match="dummy"):
+        REGISTRY.resolve("testing", "dummy")

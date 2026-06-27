@@ -81,3 +81,9 @@ def _ensure_dummy_step_registered() -> None:
     factory = getattr(resolved, "from_config", None)
     if not callable(factory) or not isinstance(factory(None), Step):
         raise AssertionError("El componente dummy registrado no satisface el Protocol Step.")
+
+
+def _unregister_dummy_step_if_registered() -> None:
+    """Limpia el step dummy del ``REGISTRY`` global si fue registrado por tests."""
+    if _DUMMY_NAME in REGISTRY.available(_DUMMY_DOMAIN):
+        REGISTRY.unregister(_DUMMY_NAME, domain=_DUMMY_DOMAIN)

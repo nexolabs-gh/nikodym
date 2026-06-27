@@ -15,7 +15,7 @@ from typing import TypeVar
 
 from nikodym.core.exceptions import DuplicateRegistrationError, UnknownComponentError
 
-__all__ = ["REGISTRY", "Registry", "register"]
+__all__ = ["REGISTRY", "Registry", "register", "unregister"]
 
 T = TypeVar("T")
 
@@ -63,6 +63,22 @@ class Registry:
             )
         return self._registry[clave]
 
+    def unregister(self, name: str, *, domain: str) -> None:
+        """Elimina la clase registrada bajo ``(domain, name)``.
+
+        Una pareja ausente levanta :class:`~nikodym.core.exceptions.UnknownComponentError`, en
+        vez de comportarse como no-op, para mantener la misma semántica ruidosa de ``resolve``:
+        pedir un componente inexistente es un error de contrato. Los cleanup donde la ausencia sea
+        esperada deben comprobar ``available(domain)`` antes de llamar a este método.
+        """
+        clave = (domain, name)
+        if clave not in self._registry:
+            raise UnknownComponentError(
+                f"No hay componente '{name}' en el dominio '{domain}' para desregistrar. "
+                f"Disponibles: {self.available(domain)}."
+            )
+        del self._registry[clave]
+
     def available(self, domain: str) -> list[str]:
         """Lista las ``name`` registradas bajo ``domain`` (orden de inserción); ``[]`` si no hay."""
         return [name for (dom, name) in self._registry if dom == domain]
@@ -77,3 +93,8 @@ def register(name: str, *, domain: str) -> Callable[[type[T]], type[T]]:
     Es la forma que usan los dominios: ``@register("logit", domain="model")``.
     """
     return REGISTRY.register(name, domain=domain)
+
+
+def unregister(name: str, *, domain: str) -> None:
+    """Azúcar de módulo: elimina una entrada del singleton :data:`REGISTRY`."""
+    REGISTRY.unregister(name, domain=domain)

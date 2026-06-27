@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from nikodym.core.exceptions import DuplicateRegistrationError, UnknownComponentError
-from nikodym.core.registry import REGISTRY, Registry, register
+from nikodym.core.registry import REGISTRY, Registry, register, unregister
 
 
 def test_register_resolve_round_trip() -> None:
@@ -82,6 +82,34 @@ def test_available_lista_solo_su_domain() -> None:
     assert reg.available("inexistente") == []
 
 
+def test_unregister_elimina_componente_registrado() -> None:
+    """``unregister`` elimina una pareja existente sin afectar otros dominios."""
+    reg = Registry()
+
+    @reg.register("default", domain="model")
+    class Model:
+        pass
+
+    @reg.register("default", domain="binning")
+    class Binner:
+        pass
+
+    reg.unregister("default", domain="model")
+
+    assert reg.available("model") == []
+    assert reg.resolve("binning", "default") is Binner
+    with pytest.raises(UnknownComponentError, match=r"'default'.*'model'"):
+        reg.resolve("model", "default")
+
+
+def test_unregister_desconocido_levanta() -> None:
+    """``unregister`` ausente levanta ``UnknownComponentError`` como ``resolve``."""
+    reg = Registry()
+
+    with pytest.raises(UnknownComponentError, match=r"'logit'.*'model'"):
+        reg.unregister("logit", domain="model")
+
+
 def test_register_azucar_delega_en_singleton() -> None:
     """La función azúcar ``register`` registra en el singleton ``REGISTRY``."""
     dominio = "__test_azucar__"
@@ -93,4 +121,31 @@ def test_register_azucar_delega_en_singleton() -> None:
     try:
         assert REGISTRY.resolve(dominio, "dummy") is Dummy
     finally:
-        del REGISTRY._registry[(dominio, "dummy")]
+        if "dummy" in REGISTRY.available(dominio):
+            REGISTRY.unregister("dummy", domain=dominio)
+
+
+def test_unregister_azucar_delega_en_singleton() -> None:
+    """La función azúcar ``unregister`` elimina desde el singleton ``REGISTRY``."""
+    dominio = "__test_unregister_azucar__"
+
+    @register("dummy", domain=dominio)
+    class Dummy:
+        pass
+
+    try:
+        assert REGISTRY.resolve(dominio, "dummy") is Dummy
+        unregister("dummy", domain=dominio)
+        assert REGISTRY.available(dominio) == []
+        with pytest.raises(UnknownComponentError, match="dummy"):
+            REGISTRY.resolve(dominio, "dummy")
+    finally:
+        if "dummy" in REGISTRY.available(dominio):
+            REGISTRY.unregister("dummy", domain=dominio)
+
+
+def test_unregister_reexportado_desde_core() -> None:
+    """``nikodym.core`` reexporta ``unregister`` igual que ``register``."""
+    import nikodym.core as core
+
+    assert core.unregister is unregister
