@@ -426,17 +426,25 @@ def test_resolve_step_rechaza_objeto_no_adaptable(monkeypatch: pytest.MonkeyPatc
         study._resolve_step("data")
 
 
-def test_registro_y_coercion_perezosa_cubren_dominios_no_data() -> None:
-    """El import perezoso sólo actúa en data; la coerción convierte blobs dict de data."""
+def test_registro_y_coercion_perezosa_cubren_data_y_binning() -> None:
+    """El import perezoso y la coerción cubren dominios ``data`` y ``binning``."""
     study = Study(_config())
-    study._ensure_domain_registered("binning")
     sentinel = object()
-    assert study._coerce_domain_config("binning", sentinel) is sentinel
+    study._ensure_domain_registered("desconocido")
+    assert study._coerce_domain_config("desconocido", sentinel) is sentinel
+
+    study._ensure_domain_registered("binning")
+    coerced_binning = study._coerce_domain_config("binning", {"max_n_bins": 6})
+
+    import nikodym.binning
 
     coerced = study._coerce_domain_config("data", _minimal_data_dict())
 
     import nikodym.data
 
+    assert isinstance(coerced_binning, nikodym.binning.BinningConfig)
+    assert coerced_binning.max_n_bins == 6
+    assert study.config.binning is coerced_binning
     assert isinstance(coerced, nikodym.data.DataConfig)
     assert study.config.data is coerced
 

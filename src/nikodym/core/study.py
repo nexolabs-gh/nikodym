@@ -54,12 +54,14 @@ _LIBRERIAS_LINEAGE = ("nikodym", "numpy", "pandas", "pydantic", "PyYAML")
 _DOMAIN_MODULES: Final[dict[str, str]] = {
     "data": "nikodym.data",
     "eda": "nikodym.eda",
+    "binning": "nikodym.binning",
 }
 _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "data": ("nikodym.data.config", "DataConfig"),
     "eda": ("nikodym.eda.config", "EdaConfig"),
+    "binning": ("nikodym.binning.config", "BinningConfig"),
 }
-_DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = ("data", "eda")
+_DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = ("data", "eda", "binning")
 _REPLACE_RETRY_ATTEMPTS: Final = 3
 _REPLACE_RETRY_BACKOFF_SECONDS: Final = 0.05
 

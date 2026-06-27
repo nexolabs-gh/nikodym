@@ -3,6 +3,8 @@
 Al importarse, registra :class:`BinningConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.binning`` se valida como sub-config real
 sin que ``import nikodym.core`` arrastre ``nikodym.binning`` ni dependencias de scoring.
+El paquete importa ``binning.step`` al final para ejecutar ``@register("standard",
+domain="binning")``; ese módulo mantiene imports pesados dentro de ``execute``.
 
 **Experimental (SemVer 0.x).**
 """
@@ -22,6 +24,7 @@ _schema._BINNING_CONFIG_CLS = BinningConfig
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "BinningCardSection": ("nikodym.binning.results", "BinningCardSection"),
     "BinningResult": ("nikodym.binning.results", "BinningResult"),
+    "BinningStep": ("nikodym.binning.step", "BinningStep"),
     "BinningVariableSummary": ("nikodym.binning.results", "BinningVariableSummary"),
     "WoEBinner": ("nikodym.binning.transformer", "WoEBinner"),
     "iv_band": ("nikodym.binning.results", "iv_band"),
@@ -33,6 +36,7 @@ __all__ = [
     "BinningError",
     "BinningFitError",
     "BinningResult",
+    "BinningStep",
     "BinningTransformError",
     "BinningVariableSummary",
     "MonotonicTrend",
@@ -40,6 +44,10 @@ __all__ = [
     "WoEBinner",
     "iv_band",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="binning") al importar
+# `nikodym.binning`, sin contaminar `import nikodym.core` ni cargar scoring.
+importlib.import_module("nikodym.binning.step")
 
 
 def __getattr__(name: str) -> Any:
