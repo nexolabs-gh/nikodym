@@ -14,7 +14,7 @@ import pytest
 from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
 
 # Identidad SHA-256 de NikodymConfig() por defecto (sin INFRA_SECTIONS). Congelado a mano.
-GOLDEN_DEFAULT_CONFIG_HASH = "08d94c4c2edc389b76d09ac60f7eb85b2384ea0c8fbf0920acd3a57d1f7cec43"
+GOLDEN_DEFAULT_CONFIG_HASH = "d8ddb93aa72799228c94b0979694a94991a59281c6baa1867ee28c23126143df"
 
 
 def _hash_en_subproceso(hashseed: str) -> str:

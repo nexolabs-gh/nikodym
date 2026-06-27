@@ -31,8 +31,8 @@ from nikodym.data.config import (
 )
 
 # Golden de NikodymConfig() por defecto (idéntico a tests/repro/test_config_hash_golden.py): el
-# endurecimiento de `data` y la carga de la capa `data` NO deben moverlo (data=None, eda=None).
-GOLDEN_DEFAULT_CONFIG_HASH = "08d94c4c2edc389b76d09ac60f7eb85b2384ea0c8fbf0920acd3a57d1f7cec43"
+# endurecimiento de `data` y la carga de la capa `data` NO deben moverlo con secciones None.
+GOLDEN_DEFAULT_CONFIG_HASH = "d8ddb93aa72799228c94b0979694a94991a59281c6baa1867ee28c23126143df"
 
 
 @pytest.fixture(autouse=True)

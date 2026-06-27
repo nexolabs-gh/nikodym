@@ -2,9 +2,10 @@
 
 Define la base común inmutable :class:`NikodymBaseConfig` y el config raíz
 :class:`NikodymConfig`, que agrega las secciones transversales del experimento:
-reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y el enganche opcional
-a datos (``data``) y análisis exploratorio (``eda``). El config es *frozen*: su identidad se fija
-por ``config_hash`` (ver :mod:`nikodym.core.config.hashing`), no por mutación.
+reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y los enganches
+opcionales a datos (``data``), análisis exploratorio (``eda``) y binning (``binning``). El config
+es *frozen*: su identidad se fija por ``config_hash`` (ver :mod:`nikodym.core.config.hashing`), no
+por mutación.
 ``NikodymConfig()`` debe construir sin argumentos —todas las secciones tienen valor por defecto—
 de modo que la UI sea un editor del mismo objeto. **Experimental (SemVer 0.x):** las secciones de
 dominio se añaden de forma aditiva por capa; el orden de declaración define el pipeline por
@@ -20,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 if TYPE_CHECKING:
     from nikodym.audit.config import AuditConfig
+    from nikodym.binning.config import BinningConfig
     from nikodym.data.config import DataConfig
     from nikodym.eda.config import EdaConfig
     from nikodym.governance.config import GovernanceConfig
@@ -34,6 +36,7 @@ __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
 # Reemplaza el `model_rebuild()` del SDD-02 §5: Pydantic v2 no re-narra un campo ya resuelto (B2a).
 _DATA_CONFIG_CLS: type[BaseModel] | None = None
 _EDA_CONFIG_CLS: type[BaseModel] | None = None
+_BINNING_CONFIG_CLS: type[BaseModel] | None = None
 _AUDIT_CONFIG_CLS: type[BaseModel] | None = None
 _GOVERNANCE_CONFIG_CLS: type[BaseModel] | None = None
 _TRACKING_CONFIG_CLS: type[BaseModel] | None = None
@@ -90,7 +93,7 @@ class NikodymConfig(NikodymBaseConfig):
     ``NikodymConfig()`` construye sin argumentos con todos los valores por defecto (DoD F0). Las
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
-    ``data``, ``eda``).
+    ``data``, ``eda``, ``binning``).
     """
 
     schema_version: str = Field(
@@ -125,6 +128,16 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="EDA",
             description="Sección de análisis exploratorio descriptivo (capa `eda`, SDD-27).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `BinningConfig` la hace `_valida_binning` vía hook diferido.
+        binning: BinningConfig | None
+    else:
+        binning: Any = Field(
+            default=None,
+            title="Binning",
+            description="Sección de binning supervisado WoE/IV (capa `binning`, SDD-06).",
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto sin importar `nikodym.audit` en runtime.
@@ -203,6 +216,33 @@ class NikodymConfig(NikodymBaseConfig):
             raise ValueError(
                 "eda debe ser JSON-canónico y determinista (sin sets, objetos no serializables ni "
                 "floats no finitos), o importa `nikodym.eda` para validarlo como EdaConfig."
+            ) from exc
+        return valor
+
+    @field_validator("binning", mode="before")
+    @classmethod
+    def _valida_binning(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``binning`` según haya o no capa ``binning`` cargada.
+
+        Con ``nikodym.binning`` importado (``_BINNING_CONFIG_CLS`` poblado), un ``dict`` se valida
+        y coacciona a :class:`BinningConfig` (``extra='forbid'`` y rangos); una instancia ya
+        validada pasa tal cual. Sin la capa cargada, ``binning`` es un *blob* opaco: se exige
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos)
+        para no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _BINNING_CONFIG_CLS is not None:
+            if isinstance(valor, _BINNING_CONFIG_CLS):
+                return valor
+            return _BINNING_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "binning debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.binning` para validarlo "
+                "como BinningConfig."
             ) from exc
         return valor
 

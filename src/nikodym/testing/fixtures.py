@@ -41,7 +41,16 @@ class _DummyStep:
 
 def minimal_study() -> Study:
     """Devuelve ``Study(NikodymConfig())`` sin argumentos adicionales (DoD F0)."""
-    return Study(NikodymConfig(data=None, eda=None, audit=None, governance=None, tracking=None))
+    return Study(
+        NikodymConfig(
+            data=None,
+            eda=None,
+            binning=None,
+            audit=None,
+            governance=None,
+            tracking=None,
+        )
+    )
 
 
 def dummy_step_config() -> NikodymConfig:
@@ -57,6 +66,7 @@ def dummy_step_config() -> NikodymConfig:
         run=RunConfig(steps=[]),
         data=None,
         eda=None,
+        binning=None,
         audit=None,
         governance=None,
         tracking=None,

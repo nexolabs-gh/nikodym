@@ -19,7 +19,11 @@ if TYPE_CHECKING:
 
 __all__ = ["discriminated_union_tags", "nikodym_config_strategy"]
 
-_SECTION_MODULES: dict[str, str] = {"data": "nikodym.data", "eda": "nikodym.eda"}
+_SECTION_MODULES: dict[str, str] = {
+    "binning": "nikodym.binning",
+    "data": "nikodym.data",
+    "eda": "nikodym.eda",
+}
 _REGISTRY_SECTION_MODULES: dict[str, str] = {"data": "nikodym.data"}
 
 
@@ -66,6 +70,7 @@ def nikodym_config_strategy(
     run = st.builds(RunConfig, steps=st.none(), fail_fast=st.booleans())
     data = _data_config_strategy(st) if "data" in allowed else st.none()
     eda = _eda_config_strategy(st) if "eda" in allowed else st.none()
+    binning = _binning_config_strategy(st) if "binning" in allowed else st.none()
     return cast(
         "SearchStrategy[NikodymConfig]",
         st.builds(
@@ -76,6 +81,7 @@ def nikodym_config_strategy(
             run=run,
             data=data,
             eda=eda,
+            binning=binning,
             audit=st.none(),
             governance=st.none(),
             tracking=st.none(),
@@ -134,6 +140,67 @@ def _data_config_strategy(st: Any) -> Any:
             ttd_includes_excluded=st.booleans(),
             min_bads_per_partition=st.integers(min_value=0, max_value=100),
         ),
+    )
+
+
+def _binning_config_strategy(st: Any) -> Any:
+    """Estrategia compacta de ``BinningConfig`` que respeta rangos y literales."""
+    importlib.import_module("nikodym.binning")
+    from nikodym.binning.config import BinningConfig, VariableBinningConfig
+
+    monotonic_trends = [
+        "auto",
+        "auto_heuristic",
+        "auto_asc_desc",
+        "ascending",
+        "descending",
+        "concave",
+        "convex",
+        "peak",
+        "peak_heuristic",
+        "valley",
+        "valley_heuristic",
+    ]
+    override = st.builds(
+        VariableBinningConfig,
+        name=st.sampled_from(["ingreso", "saldo", "mora_ult_6m"]),
+        dtype=st.sampled_from(["numerical", "categorical", "auto"]),
+        monotonic_trend=st.one_of(st.none(), st.sampled_from(monotonic_trends)),
+        max_n_bins=st.one_of(st.none(), st.integers(min_value=2, max_value=20)),
+        min_bin_size=st.one_of(st.none(), st.floats(min_value=0.0, max_value=0.5, allow_nan=False)),
+        cat_cutoff=st.one_of(st.none(), st.floats(min_value=0.0, max_value=0.5, allow_nan=False)),
+    )
+    return st.builds(
+        BinningConfig,
+        feature_columns=st.one_of(st.just("*"), st.just(("ingreso", "saldo"))),
+        exclude_columns=st.just(()),
+        categorical_columns=st.just(()),
+        variable_overrides=st.one_of(st.just(()), st.tuples(override)),
+        max_n_prebins=st.integers(min_value=2, max_value=50),
+        min_prebin_size=st.floats(min_value=0.001, max_value=0.5, allow_nan=False),
+        min_n_bins=st.none(),
+        max_n_bins=st.one_of(st.none(), st.integers(min_value=2, max_value=20)),
+        min_bin_size=st.one_of(st.none(), st.floats(min_value=0.0, max_value=0.5, allow_nan=False)),
+        min_bin_n_event=st.one_of(st.none(), st.integers(min_value=1, max_value=20)),
+        min_bin_n_nonevent=st.one_of(st.none(), st.integers(min_value=1, max_value=20)),
+        monotonic_trend=st.one_of(st.none(), st.sampled_from(monotonic_trends)),
+        min_event_rate_diff=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+        max_pvalue=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0, allow_nan=False)),
+        max_pvalue_policy=st.sampled_from(["consecutive", "all"]),
+        solver=st.sampled_from(["cp", "mip"]),
+        mip_solver=st.sampled_from(["bop", "cbc"]),
+        time_limit=st.integers(min_value=1, max_value=3600),
+        require_optimal=st.booleans(),
+        n_jobs=st.one_of(st.none(), st.sampled_from([-1, 1, 2])),
+        special_handling=st.sampled_from(["separate", "as_missing"]),
+        metric_special=st.one_of(st.just("empirical"), st.floats(allow_nan=False)),
+        metric_missing=st.one_of(st.just("empirical"), st.floats(allow_nan=False)),
+        cat_cutoff=st.one_of(st.none(), st.floats(min_value=0.0, max_value=0.5, allow_nan=False)),
+        cat_unknown=st.one_of(st.none(), st.just("empirical"), st.floats(allow_nan=False)),
+        split_digits=st.one_of(st.none(), st.integers(min_value=0, max_value=10)),
+        output_suffix=st.sampled_from(["__woe", "_woe"]),
+        keep_structural_columns=st.booleans(),
+        fail_on_non_binnable=st.booleans(),
     )
 
 
@@ -206,6 +273,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._DATA_CONFIG_CLS
     if domain == "eda" and core_schema._EDA_CONFIG_CLS is not None:
         return core_schema._EDA_CONFIG_CLS
+    if domain == "binning" and core_schema._BINNING_CONFIG_CLS is not None:
+        return core_schema._BINNING_CONFIG_CLS
     raise AssertionError(f"No hay config_cls cargada para el dominio '{domain}'.")
 
 
