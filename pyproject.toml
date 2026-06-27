@@ -124,6 +124,11 @@ exclude = ["/.github", "/docs", "/.venv", "*.parquet", "*.csv"]   # nunca datos 
 required-version = ">=0.5"
 default-groups = ["dev"]    # qué grupos sincroniza `uv sync` sin flags (dev incluye test/lint/docs).
                             # Entorno limpio sin grupos: `uv sync --no-default-groups`.
+# `ortools` llega solo como transitiva de `optbinning` en el extra `scoring`; este constraint
+# acota la resolución al primer tramo con wheels cp313 sin convertirla en dependencia directa de Nikodym.
+# No usamos override: si una versión upstream fija un techo, uv debe elegir otra versión compatible
+# dentro de nuestro rango declarado en vez de reemplazar metadata de terceros.
+constraint-dependencies = ["ortools>=9.12"]
 
 # ─────────────────────────── ruff / mypy / pytest ───────────────────────────
 [tool.ruff]

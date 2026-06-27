@@ -48,11 +48,10 @@ jobs:
     strategy:
       fail-fast: false
       # Desviación deliberada de SDD-25 §7: Windows queda para B4.4
-      # (Study.save no es Windows-safe) y Python 3.13 para B4.5
-      # (ortools no publica wheel cp313 en el lock actual).
+      # (Study.save no es Windows-safe); Linux/macOS cubren Python 3.11-3.13.
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
