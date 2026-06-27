@@ -443,7 +443,7 @@ Toda excepción del módulo desciende de `NikodymError`; los mensajes son en esp
 - **Model card / report.** `BinningCardSection` y las tablas por variable alimentan SDD-26: el auditor debe poder reconstruir qué cortes se aprendieron, con qué población, qué WoE/IV resultó y qué variables no pasaron.
 - **Lineage.** `binning` no completa `data_hash` ni `config_hash`; los consume implícitamente vía `Study`. Su contribución al lineage es el conjunto de artefactos y decisiones emitidas.
 
-**Riesgo verificado de entorno (2026-06-27).** En este repo, `uv.lock` resuelve `optbinning==0.20.0`, `ortools==9.15.6755` y `scikit-learn==1.9.0`. La importación funciona, pero una prueba de `OptimalBinning.fit(...)` expuso incompatibilidad runtime: OptBinning 0.20.0 llama `sklearn.utils.validation.check_array(force_all_finite=...)`, keyword no aceptado por scikit-learn 1.9.0. El SDD diseña contra la API de 0.20.0, pero la implementación de B2/F1 debe fijar una matriz compatible (p. ej. constraint de scikit-learn o parche upstream) antes de cerrar código.
+**Riesgo verificado de entorno (2026-06-27, resuelto en B6.0).** En este repo, `uv.lock` resuelve `optbinning==0.20.0`, `ortools==9.15.6755` y `scikit-learn==1.7.2`. La matriz se fija con dos constraints de resolución: `ortools>=9.12` mantiene wheels cp313 y `scikit-learn<1.8` evita el `TypeError` introducido cuando sklearn eliminó el keyword deprecado `force_all_finite`. El piso `scikit-learn>=1.6` del extra `scoring` se mantiene por D-CONV-4. Smoke empírico real en Python 3.12 y 3.13: `OptimalBinning.fit(...)` termina `status=OPTIMAL` con un split válido; solo emite el `FutureWarning` esperado (`force_all_finite` renombrado a `ensure_all_finite`), capturado puntualmente en el test de compatibilidad. La solución es reversible: retirar/subir el techo cuando OptBinning publique una versión que use `ensure_all_finite` y no fije `ortools<9.12`.
 
 ## 10. Dependencias
 
@@ -466,7 +466,7 @@ Toda excepción del módulo desciende de `NikodymError`; los mensajes son en esp
 |---|---|---|---|---|
 | optbinning | **0.20.0 en `uv.lock`** (`pyproject`: `>=0.19`) | Apache-2.0 ✅ | `OptimalBinning`, `BinningProcess`, WoE/IV, monotonía | extra `[scoring]` |
 | ortools | 9.15.6755 en `uv.lock` por constraint `>=9.12` | Apache-2.0 ✅ | solver CP/MIP transitivo de OptBinning | transitive `[scoring]` |
-| scikit-learn | 1.9.0 en entorno verificado | BSD-3 ✅ | CART pre-binning, `BaseEstimator`/`TransformerMixin`, compat sklearn | extra `[scoring]` |
+| scikit-learn | 1.7.2 en `uv.lock` (`pyproject`: `>=1.6`; constraint uv `<1.8`) | BSD-3 ✅ | CART pre-binning, `BaseEstimator`/`TransformerMixin`, compat sklearn | extra `[scoring]` |
 | scipy | transitiva/extra scoring | BSD ✅ | dependencia científica de OptBinning/sklearn | extra `[scoring]` |
 | pandas/numpy | base | BSD ✅ | DataFrame/Series y arrays | base |
 | ropwr | 1.2.0 transitiva | Apache-2.0 ✅ | dependencia de OptBinning | transitive `[scoring]` |
@@ -487,7 +487,7 @@ Marco transversal en SDD-24. Casos específicos:
 - **Contrato `Step`.** `BinningStep.requires` exige los cuatro artefactos de `data`; falta uno → `ArtifactNotFoundError` antes de ejecutar. `provides` se verifica tras ejecución.
 - **No mutación.** Snapshot de `study.artifacts.get("data","frame")` antes/después de `BinningStep.execute` permanece igual.
 - **Config.** Round-trip YAML de `BinningConfig`; cambio de `max_n_bins` o `monotonic_trend` cambia `config_hash`; `binning` sin importar `nikodym.binning` se mantiene como JSON canónico opaco y al importar se valida como `BinningConfig`.
-- **Compatibilidad OptBinning.** Test explícito de import y fit contra la matriz bloqueada. Debe capturar la deuda actual `optbinning 0.20.0` + `scikit-learn 1.9.0`; no cerrar F1 con un fit que dependa de parche manual no documentado.
+- **Compatibilidad OptBinning.** Test explícito de import y fit real contra la matriz bloqueada (`optbinning 0.20.0`, `ortools 9.15.6755`, `scikit-learn 1.7.2`). Debe fallar si reaparece el `TypeError` por `force_all_finite`; el `FutureWarning` esperado de sklearn 1.6/1.7 se captura solo dentro del test para no relajar `filterwarnings=error`.
 - **Contrato sklearn.** `WoEBinner` multihereda sklearn en el módulo de dominio y pasa checks relevantes de transformer (ajustados para DataFrame/feature names si el check estándar exige ndarray).
 
 Fixtures: `behavior_binning_small.parquet` con variables numéricas/categóricas, special values, missing, particiones Dev/HO/OOT y target conocido; `BinningConfig` mínimo y otro con overrides; `InMemoryAuditSink`.
@@ -504,7 +504,7 @@ Fixtures: `behavior_binning_small.parquet` con variables numéricas/categóricas
 - **D-BIN-7 — `require_optimal=True`.** En un proyecto regulatorio, solución factible no probada no pasa en silencio; se falla o se acepta solo con override auditado.
 
 **Decisiones para revisión de Cami.**
-- **DEUDA A2/optbinning.** El constraint `ortools>=9.12` (Python 3.13, B4.5) degradó `optbinning 0.21.0 → 0.20.0` porque 0.21 fija `ortools<9.12`. Este SDD diseña contra la API real de **0.20.0** verificada en el lock. Pendiente: (i) revisar diferencias API 0.20 vs 0.21 si se prioriza 0.21; (ii) resolver la tensión Python 3.13 (`ortools>=9.12`) vs OptBinning 0.21 (`ortools<9.12`) al endurecer binning; (iii) resolver la incompatibilidad runtime observada con `scikit-learn 1.9.0`.
+- **DEUDA A2/optbinning — RESUELTA en B6.0.** `optbinning 0.21.0` sigue sin servir para Python 3.13 porque fija `ortools<9.12`; por eso la matriz queda en **OptBinning 0.20.0 + OR-Tools 9.15.6755 + scikit-learn 1.7.2**. La incompatibilidad runtime observada con sklearn 1.9.0 se cerró con el constraint reversible `scikit-learn<1.8`: sklearn 1.6/1.7 mantiene `force_all_finite` como keyword deprecado y emite solo `FutureWarning`. El test `tests/unit/test_binning_compatibility.py` ejerce un fit real y captura ese warning de forma local.
 - **Convención de signo WoE.** Confirmar `ln(%Goods/%Bads)` frente a la alternativa `ln(%Bads/%Goods)`, y propagar a SDD-08/09 (signos de β, puntos de scorecard y reason codes).
 - **Monotonicidad por defecto.** Confirmar `auto_asc_desc` vs `auto`. `auto_asc_desc` es más defendible pero puede perder poder si hay U-shapes genuinas; `auto` puede elegir tendencias no monotónicas.
 - **Special values.** Confirmar default `separate` vs tratarlos como missing. La separación es más informativa pero aumenta nº de bins y requiere explicar centinelas.
@@ -514,7 +514,7 @@ Fixtures: `behavior_binning_small.parquet` con variables numéricas/categóricas
 - **Variables no binneables.** Confirmar default `fail_on_non_binnable=False` (omitir y auditar) vs fallar toda la corrida ante cualquier variable problemática.
 
 **Riesgos.**
-- **Compatibilidad de dependencias.** Ya se observó un fallo OptBinning 0.20.0 + scikit-learn 1.9.0. Mitigación: pin/constraint compatible o parche upstream antes de F1.
+- **Compatibilidad de dependencias.** Mitigado en B6.0 con matriz lockeada `optbinning 0.20.0` + `ortools 9.15.6755` + `scikit-learn 1.7.2`. Riesgo residual: retirar el techo `<1.8` solo cuando OptBinning use `ensure_all_finite` y mantenga compatibilidad con `ortools>=9.12`.
 - **Sobreajuste por bins finos.** Mitigación: `min_bin_size`, `max_n_bins`, monotonía, y revisión de IV sospechoso.
 - **Leakage accidental.** Mitigación: tests que demuestren que cambiar OOT no cambia cortes/WoE/IV.
 - **Confusión EDA vs binning final.** Mitigación: nombres de artefactos separados y etiquetas `descriptive_iv` vs `iv`.

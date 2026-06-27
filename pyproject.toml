@@ -128,7 +128,10 @@ default-groups = ["dev"]    # qué grupos sincroniza `uv sync` sin flags (dev in
 # acota la resolución al primer tramo con wheels cp313 sin convertirla en dependencia directa de Nikodym.
 # No usamos override: si una versión upstream fija un techo, uv debe elegir otra versión compatible
 # dentro de nuestro rango declarado en vez de reemplazar metadata de terceros.
-constraint-dependencies = ["ortools>=9.12"]
+# `optbinning 0.20.0` llama `sklearn.utils.check_array(force_all_finite=...)`; sklearn 1.6/1.7
+# lo mantiene con FutureWarning, pero 1.8 lo elimina. El techo es reversible cuando OptBinning publique
+# una versión que use `ensure_all_finite` y no fije `ortools<9.12`.
+constraint-dependencies = ["ortools>=9.12", "scikit-learn<1.8"]
 
 # ─────────────────────────── ruff / mypy / pytest ───────────────────────────
 [tool.ruff]
