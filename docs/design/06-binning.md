@@ -432,6 +432,7 @@ Toda excepción del módulo desciende de `NikodymError`; los mensajes son en esp
 - **Paralelismo.** `n_jobs=None` por defecto. Si se habilita paralelismo, debe quedar en `BinningCardSection` y pasar `assert_bitwise_reproducible`.
 - **Solver y `time_limit`.** La reproducibilidad regulatoria exige no aceptar soluciones parciales silenciosas. `require_optimal=True` es el default; cualquier factible no óptimo es decisión auditada.
 - **Golden values.** Tests con dataset pequeño deben fijar cortes, WoE por bin, IV total y transform de missing/special. Los valores se comparan contra cálculos manuales y contra OptBinning 0.20.0 bloqueado.
+- **Warnings externos ratificados.** `WoEBinner` silencia localmente el `FutureWarning` conocido de sklearn 1.6/1.7 (`force_all_finite`) y el `RuntimeWarning: invalid value encountered in scalar divide` emitido internamente por `optbinning.binning.auto_monotonic` durante el heurístico de monotonía `auto_asc_desc`. Este último no proviene de cálculos Nikodym ni se publica: es benigno mientras la variable ajustada pase los guards posteriores. Si cualquier WoE publicable queda no finito, `_validate_finite_woe_table` falla ruidosamente con `BinningFitError` antes de exponer tablas, `summary` o transformaciones.
 - **Audit trail (`log_decision`).** Registrar, como mínimo:
   - variable no binneable y razón (`constant`, `all_missing`, `single_class`, `solver_status`);
   - monotonía forzada u override por variable;

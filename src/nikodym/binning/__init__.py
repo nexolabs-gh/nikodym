@@ -23,6 +23,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "BinningCardSection": ("nikodym.binning.results", "BinningCardSection"),
     "BinningResult": ("nikodym.binning.results", "BinningResult"),
     "BinningVariableSummary": ("nikodym.binning.results", "BinningVariableSummary"),
+    "WoEBinner": ("nikodym.binning.transformer", "WoEBinner"),
     "iv_band": ("nikodym.binning.results", "iv_band"),
 }
 
@@ -36,6 +37,7 @@ __all__ = [
     "BinningVariableSummary",
     "MonotonicTrend",
     "VariableBinningConfig",
+    "WoEBinner",
     "iv_band",
 ]
 
