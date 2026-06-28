@@ -31,16 +31,28 @@ from nikodym.selection.exceptions import (
 # Registra la clase real del sub-config selection en el hook de `core`.
 _schema._SELECTION_CONFIG_CLS = SelectionConfig
 
-_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {}
+_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "SelectionCardSection": ("nikodym.selection.results", "SelectionCardSection"),
+    "SelectionDecisionReason": ("nikodym.selection.results", "SelectionDecisionReason"),
+    "SelectionResult": ("nikodym.selection.results", "SelectionResult"),
+    "VariableSelectionDecision": (
+        "nikodym.selection.results",
+        "VariableSelectionDecision",
+    ),
+}
 
 __all__ = [
     "CorrelationSelectionConfig",
+    "SelectionCardSection",
     "SelectionConfig",
+    "SelectionDecisionReason",
     "SelectionError",
     "SelectionFitError",
     "SelectionPriority",
+    "SelectionResult",
     "SelectionTransformError",
     "StabilitySelectionConfig",
+    "VariableSelectionDecision",
     "VifSelectionConfig",
 ]
 
