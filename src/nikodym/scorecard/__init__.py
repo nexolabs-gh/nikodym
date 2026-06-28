@@ -32,6 +32,8 @@ from nikodym.scorecard.exceptions import (
 _schema._SCORECARD_CONFIG_CLS = ScorecardConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "PointsScaler": ("nikodym.scorecard.scaler", "PointsScaler"),
+    "Scorecard": ("nikodym.scorecard.transformer", "Scorecard"),
     "ScorecardBinPoint": ("nikodym.scorecard.results", "ScorecardBinPoint"),
     "ScorecardCardSection": ("nikodym.scorecard.results", "ScorecardCardSection"),
     "ScorecardResult": ("nikodym.scorecard.results", "ScorecardResult"),
@@ -40,8 +42,10 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
 __all__ = [
     "InterceptAllocation",
     "PointOverrideConfig",
+    "PointsScaler",
     "RoundingMethod",
     "ScoreDirection",
+    "Scorecard",
     "ScorecardBinPoint",
     "ScorecardCardSection",
     "ScorecardConfig",
