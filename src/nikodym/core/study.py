@@ -58,6 +58,7 @@ _DOMAIN_MODULES: Final[dict[str, str]] = {
     "selection": "nikodym.selection",
     "model": "nikodym.model",
     "scorecard": "nikodym.scorecard",
+    "calibration": "nikodym.calibration",
 }
 _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "data": ("nikodym.data.config", "DataConfig"),
@@ -66,6 +67,7 @@ _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "selection": ("nikodym.selection.config", "SelectionConfig"),
     "model": ("nikodym.model.config", "ModelConfig"),
     "scorecard": ("nikodym.scorecard.config", "ScorecardConfig"),
+    "calibration": ("nikodym.calibration.config", "CalibrationConfig"),
 }
 _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
     "data",
@@ -74,6 +76,7 @@ _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
     "selection",
     "model",
     "scorecard",
+    "calibration",
 )
 _REPLACE_RETRY_ATTEMPTS: Final = 3
 _REPLACE_RETRY_BACKOFF_SECONDS: Final = 0.05

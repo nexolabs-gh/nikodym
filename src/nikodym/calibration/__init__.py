@@ -2,8 +2,10 @@
 
 Al importarse, registra :class:`CalibrationConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.calibration`` se valida como sub-config real
-sin que ``import nikodym.core`` arrastre ``nikodym.calibration`` ni dependencias de scoring. La
-lógica pesada de calibración se cargará bajo demanda cuando se implemente B10.2/B10.4.
+sin que ``import nikodym.core`` arrastre ``nikodym.calibration`` ni dependencias de scoring. El
+paquete importa ``calibration.step`` al final para ejecutar ``@register("standard",
+domain="calibration")`` sin arrastrar pandas/scipy/sklearn; el motor y DTOs se reexportan de forma
+perezosa.
 
 **Experimental (SemVer 0.x).**
 """
@@ -51,6 +53,11 @@ __all__ = [
     "CalibrationTransformError",
     "PDCalibrator",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="calibration") al
+# importar `nikodym.calibration`, sin contaminar `import nikodym.core` ni cargar
+# pandas/scipy/sklearn.
+importlib.import_module("nikodym.calibration.step")
 
 
 def __getattr__(name: str) -> Any:
