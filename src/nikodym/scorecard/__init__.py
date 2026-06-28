@@ -31,16 +31,23 @@ from nikodym.scorecard.exceptions import (
 # Registra la clase real del sub-config scorecard en el hook de `core`.
 _schema._SCORECARD_CONFIG_CLS = ScorecardConfig
 
-_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {}
+_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "ScorecardBinPoint": ("nikodym.scorecard.results", "ScorecardBinPoint"),
+    "ScorecardCardSection": ("nikodym.scorecard.results", "ScorecardCardSection"),
+    "ScorecardResult": ("nikodym.scorecard.results", "ScorecardResult"),
+}
 
 __all__ = [
     "InterceptAllocation",
     "PointOverrideConfig",
     "RoundingMethod",
     "ScoreDirection",
+    "ScorecardBinPoint",
+    "ScorecardCardSection",
     "ScorecardConfig",
     "ScorecardError",
     "ScorecardFitError",
+    "ScorecardResult",
     "ScorecardTransformError",
 ]
 
