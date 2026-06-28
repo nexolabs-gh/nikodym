@@ -2,11 +2,16 @@
 
 Al importarse, registra :class:`ReportConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.report`` se valida como sub-config real sin
-que ``import nikodym.core`` arrastre ``nikodym.report`` ni dependencias de render/IA. B26.1 solo
-publica config y excepciones; ``report.step`` se añadirá en un bloque posterior.
+que ``import nikodym.core`` arrastre ``nikodym.report`` ni dependencias de render/IA. Los DTOs de
+resultados se reexportan de forma perezosa; ``report.step`` se añadirá en un bloque posterior.
 
 **Experimental (SemVer 0.x).**
 """
+
+from __future__ import annotations
+
+import importlib
+from typing import Any, Final
 
 from nikodym.core.config import schema as _schema
 from nikodym.report.config import (
@@ -28,7 +33,16 @@ from nikodym.report.exceptions import (
 # Registra la clase real del sub-config report en el hook de `core`.
 _schema._REPORT_CONFIG_CLS = ReportConfig
 
+_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "AiNarrationBlock": ("nikodym.report.results", "AiNarrationBlock"),
+    "ReportInputBundle": ("nikodym.report.results", "ReportInputBundle"),
+    "ReportManifest": ("nikodym.report.results", "ReportManifest"),
+    "ReportResult": ("nikodym.report.results", "ReportResult"),
+    "ReportSection": ("nikodym.report.results", "ReportSection"),
+}
+
 __all__ = [
+    "AiNarrationBlock",
     "AiNarrationConfig",
     "HtmlRenderConfig",
     "QuartoRenderConfig",
@@ -37,7 +51,22 @@ __all__ = [
     "ReportDependencyError",
     "ReportError",
     "ReportExportError",
+    "ReportInputBundle",
     "ReportInputError",
+    "ReportManifest",
     "ReportRenderError",
+    "ReportResult",
+    "ReportSection",
     "SectionPolicyConfig",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Carga DTOs de ``report`` bajo demanda para preservar el import liviano."""
+    if name not in _LAZY_EXPORTS:
+        raise AttributeError(f"module 'nikodym.report' has no attribute {name!r}")
+
+    module_name, attribute_name = _LAZY_EXPORTS[name]
+    value = getattr(importlib.import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
