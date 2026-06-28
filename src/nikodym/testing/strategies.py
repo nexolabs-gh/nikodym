@@ -28,6 +28,7 @@ _SECTION_MODULES: dict[str, str] = {
     "performance": "nikodym.performance",
     "scorecard": "nikodym.scorecard",
     "selection": "nikodym.selection",
+    "stability": "nikodym.stability",
 }
 _REGISTRY_SECTION_MODULES: dict[str, str] = {"data": "nikodym.data"}
 
@@ -81,6 +82,7 @@ def nikodym_config_strategy(
     scorecard = _scorecard_config_strategy(st) if "scorecard" in allowed else st.none()
     calibration = _calibration_config_strategy(st) if "calibration" in allowed else st.none()
     performance = _performance_config_strategy(st) if "performance" in allowed else st.none()
+    stability = _stability_config_strategy(st) if "stability" in allowed else st.none()
     return cast(
         "SearchStrategy[NikodymConfig]",
         st.builds(
@@ -97,6 +99,7 @@ def nikodym_config_strategy(
             scorecard=scorecard,
             calibration=calibration,
             performance=performance,
+            stability=stability,
             audit=st.none(),
             governance=st.none(),
             tracking=st.none(),
@@ -461,6 +464,41 @@ def _performance_config_strategy(st: Any) -> Any:
     )
 
 
+def _stability_config_strategy(st: Any) -> Any:
+    """Estrategia compacta de ``StabilityConfig`` que respeta rangos y columnas."""
+    importlib.import_module("nikodym.stability")
+    from nikodym.stability.config import StabilityConfig
+
+    stable = st.floats(min_value=0.0, max_value=0.24, allow_nan=False)
+    gap = st.floats(min_value=1e-6, max_value=0.76, allow_nan=False)
+    return st.builds(
+        lambda psi_stable_threshold, threshold_gap, **kwargs: StabilityConfig(
+            psi_stable_threshold=psi_stable_threshold,
+            psi_review_threshold=psi_stable_threshold + threshold_gap,
+            **kwargs,
+        ),
+        score_column=st.just("score"),
+        pd_column=st.just("pd_calibrated"),
+        partition_column=st.just("partition"),
+        score_direction=st.sampled_from(["higher_is_lower_risk", "higher_is_higher_risk"]),
+        psi_bins=st.integers(min_value=2, max_value=50),
+        csi_bins=st.integers(min_value=2, max_value=50),
+        psi_stable_threshold=stable,
+        threshold_gap=gap,
+        smoothing=st.floats(min_value=1e-12, max_value=1.0, allow_nan=False),
+        comparisons=st.one_of(
+            st.just(("dev_vs_holdout", "dev_vs_oot")),
+            st.just(("dev_vs_holdout",)),
+            st.just(("dev_vs_oot",)),
+        ),
+        temporal_axis=st.sampled_from(["none", "period", "cohort"]),
+        temporal_column=st.one_of(st.none(), st.just("periodo"), st.just("cohorte")),
+        temporal_freq=st.sampled_from(["M", "Q", "Y"]),
+        include_pd_stability=st.booleans(),
+        csi_source=st.just("score_points"),
+    )
+
+
 def discriminated_union_tags() -> dict[str, list[str]]:
     """Devuelve tags ``type`` de uniones discriminadas de nivel sección.
 
@@ -494,6 +532,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._CALIBRATION_CONFIG_CLS
     if domain == "performance" and core_schema._PERFORMANCE_CONFIG_CLS is not None:
         return core_schema._PERFORMANCE_CONFIG_CLS
+    if domain == "stability" and core_schema._STABILITY_CONFIG_CLS is not None:
+        return core_schema._STABILITY_CONFIG_CLS
     raise AssertionError(f"No hay config_cls cargada para el dominio '{domain}'.")
 
 

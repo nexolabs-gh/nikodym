@@ -5,7 +5,8 @@ Define la base común inmutable :class:`NikodymBaseConfig` y el config raíz
 reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y los enganches
 opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``), selección
 pre-modelo (``selection``), modelo PD (``model``), escalamiento de scorecard (``scorecard``) y
-calibración de PD (``calibration``) y desempeño post-modelo (``performance``). El config es
+calibración de PD (``calibration``), desempeño post-modelo (``performance``) y estabilidad
+post-modelo (``stability``). El config es
 *frozen*: su identidad se fija por
 ``config_hash`` (ver
 :mod:`nikodym.core.config.hashing`), no por mutación.
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from nikodym.performance.config import PerformanceConfig
     from nikodym.scorecard.config import ScorecardConfig
     from nikodym.selection.config import SelectionConfig
+    from nikodym.stability.config import StabilityConfig
     from nikodym.tracking.config import TrackingConfig
 
 __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
@@ -50,6 +52,7 @@ _MODEL_CONFIG_CLS: type[BaseModel] | None = None
 _SCORECARD_CONFIG_CLS: type[BaseModel] | None = None
 _CALIBRATION_CONFIG_CLS: type[BaseModel] | None = None
 _PERFORMANCE_CONFIG_CLS: type[BaseModel] | None = None
+_STABILITY_CONFIG_CLS: type[BaseModel] | None = None
 _AUDIT_CONFIG_CLS: type[BaseModel] | None = None
 _GOVERNANCE_CONFIG_CLS: type[BaseModel] | None = None
 _TRACKING_CONFIG_CLS: type[BaseModel] | None = None
@@ -107,7 +110,7 @@ class NikodymConfig(NikodymBaseConfig):
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
     ``data``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``, ``calibration``,
-    ``performance``).
+    ``performance``, ``stability``).
     """
 
     schema_version: str = Field(
@@ -206,6 +209,16 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Desempeño",
             description="Sección de métricas de desempeño post-modelo (capa `performance`).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `StabilityConfig` la hace `_valida_stability` vía hook diferido.
+        stability: StabilityConfig | None
+    else:
+        stability: Any = Field(
+            default=None,
+            title="Estabilidad",
+            description="Sección de métricas de estabilidad post-modelo (capa `stability`).",
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto sin importar `nikodym.audit` en runtime.
@@ -446,6 +459,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "performance debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.performance` para "
                 "validarlo como PerformanceConfig."
+            ) from exc
+        return valor
+
+    @field_validator("stability", mode="before")
+    @classmethod
+    def _valida_stability(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``stability`` según haya o no capa cargada.
+
+        Con ``nikodym.stability`` importado (``_STABILITY_CONFIG_CLS`` poblado), un ``dict`` se
+        valida y coacciona a :class:`StabilityConfig` (``extra='forbid'`` y rangos); una instancia
+        ya validada pasa tal cual. Sin la capa cargada, ``stability`` es un *blob* opaco: se exige
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos)
+        para no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _STABILITY_CONFIG_CLS is not None:
+            if isinstance(valor, _STABILITY_CONFIG_CLS):
+                return valor
+            return _STABILITY_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "stability debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.stability` para "
+                "validarlo como StabilityConfig."
             ) from exc
         return valor
 
