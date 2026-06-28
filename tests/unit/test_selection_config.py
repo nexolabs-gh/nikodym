@@ -35,8 +35,8 @@ from nikodym.selection.exceptions import (
 )
 from nikodym.testing.strategies import _config_cls_for_domain, nikodym_config_strategy
 
-# Golden nuevo tras añadir la sección computacional `model=None` al payload del config_hash.
-GOLDEN_DEFAULT_CONFIG_HASH = "a49eb906df2316440ef7808d6a5e434339ed64f1f9fd682a2e2820a15145ee6f"
+# Golden nuevo tras añadir la sección computacional `scorecard=None` al payload del config_hash.
+GOLDEN_DEFAULT_CONFIG_HASH = "129bdaf76bb5f46067428d36c3fe8bcf737637b1f5878f45105c7f95134517a5"
 
 
 @pytest.fixture(autouse=True)

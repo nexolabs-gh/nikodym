@@ -3,9 +3,10 @@
 Define la base común inmutable :class:`NikodymBaseConfig` y el config raíz
 :class:`NikodymConfig`, que agrega las secciones transversales del experimento:
 reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y los enganches
-opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``) y selección
-pre-modelo (``selection``) y modelo PD (``model``). El config es *frozen*: su identidad se fija
-por ``config_hash`` (ver :mod:`nikodym.core.config.hashing`), no por mutación.
+opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``), selección
+pre-modelo (``selection``), modelo PD (``model``) y escalamiento de scorecard (``scorecard``). El
+config es *frozen*: su identidad se fija por ``config_hash`` (ver
+:mod:`nikodym.core.config.hashing`), no por mutación.
 ``NikodymConfig()`` debe construir sin argumentos —todas las secciones tienen valor por defecto—
 de modo que la UI sea un editor del mismo objeto. **Experimental (SemVer 0.x):** las secciones de
 dominio se añaden de forma aditiva por capa; el orden de declaración define el pipeline por
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from nikodym.eda.config import EdaConfig
     from nikodym.governance.config import GovernanceConfig
     from nikodym.model.config import ModelConfig
+    from nikodym.scorecard.config import ScorecardConfig
     from nikodym.selection.config import SelectionConfig
     from nikodym.tracking.config import TrackingConfig
 
@@ -41,6 +43,7 @@ _EDA_CONFIG_CLS: type[BaseModel] | None = None
 _BINNING_CONFIG_CLS: type[BaseModel] | None = None
 _SELECTION_CONFIG_CLS: type[BaseModel] | None = None
 _MODEL_CONFIG_CLS: type[BaseModel] | None = None
+_SCORECARD_CONFIG_CLS: type[BaseModel] | None = None
 _AUDIT_CONFIG_CLS: type[BaseModel] | None = None
 _GOVERNANCE_CONFIG_CLS: type[BaseModel] | None = None
 _TRACKING_CONFIG_CLS: type[BaseModel] | None = None
@@ -97,7 +100,7 @@ class NikodymConfig(NikodymBaseConfig):
     ``NikodymConfig()`` construye sin argumentos con todos los valores por defecto (DoD F0). Las
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
-    ``data``, ``eda``, ``binning``, ``selection``, ``model``).
+    ``data``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``).
     """
 
     schema_version: str = Field(
@@ -166,6 +169,16 @@ class NikodymConfig(NikodymBaseConfig):
             description=(
                 "Sección de modelo logístico PD sobre variables WoE (capa `model`, SDD-08)."
             ),
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `ScorecardConfig` la hace `_valida_scorecard` vía hook diferido.
+        scorecard: ScorecardConfig | None
+    else:
+        scorecard: Any = Field(
+            default=None,
+            title="Scorecard",
+            description=("Sección de escalamiento log-odds a puntos (capa `scorecard`, SDD-09)."),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto sin importar `nikodym.audit` en runtime.
@@ -325,6 +338,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "model debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.model` para validarlo "
                 "como ModelConfig."
+            ) from exc
+        return valor
+
+    @field_validator("scorecard", mode="before")
+    @classmethod
+    def _valida_scorecard(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``scorecard`` según haya o no capa cargada.
+
+        Con ``nikodym.scorecard`` importado (``_SCORECARD_CONFIG_CLS`` poblado), un ``dict`` se
+        valida y coacciona a :class:`ScorecardConfig` (``extra='forbid'`` y rangos); una instancia
+        ya validada pasa tal cual. Sin la capa cargada, ``scorecard`` es un *blob* opaco: se exige
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos) para
+        no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _SCORECARD_CONFIG_CLS is not None:
+            if isinstance(valor, _SCORECARD_CONFIG_CLS):
+                return valor
+            return _SCORECARD_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "scorecard debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.scorecard` para "
+                "validarlo como ScorecardConfig."
             ) from exc
         return valor
 

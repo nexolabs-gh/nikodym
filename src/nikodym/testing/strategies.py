@@ -24,6 +24,7 @@ _SECTION_MODULES: dict[str, str] = {
     "data": "nikodym.data",
     "eda": "nikodym.eda",
     "model": "nikodym.model",
+    "scorecard": "nikodym.scorecard",
     "selection": "nikodym.selection",
 }
 _REGISTRY_SECTION_MODULES: dict[str, str] = {"data": "nikodym.data"}
@@ -75,6 +76,7 @@ def nikodym_config_strategy(
     binning = _binning_config_strategy(st) if "binning" in allowed else st.none()
     selection = _selection_config_strategy(st) if "selection" in allowed else st.none()
     model = _model_config_strategy(st) if "model" in allowed else st.none()
+    scorecard = _scorecard_config_strategy(st) if "scorecard" in allowed else st.none()
     return cast(
         "SearchStrategy[NikodymConfig]",
         st.builds(
@@ -88,6 +90,7 @@ def nikodym_config_strategy(
             binning=binning,
             selection=selection,
             model=model,
+            scorecard=scorecard,
             audit=st.none(),
             governance=st.none(),
             tracking=st.none(),
@@ -358,6 +361,40 @@ def _model_config_strategy(st: Any) -> Any:
     )
 
 
+def _scorecard_config_strategy(st: Any) -> Any:
+    """Estrategia compacta de ``ScorecardConfig`` que respeta rangos y overrides."""
+    importlib.import_module("nikodym.scorecard")
+    from nikodym.scorecard.config import PointOverrideConfig, ScorecardConfig
+
+    override = st.builds(
+        PointOverrideConfig,
+        feature=st.sampled_from(["ingreso", "saldo", "mora_ult_6m"]),
+        bin_label=st.sampled_from(["(-inf, 0]", "(0, 1]", "missing"]),
+        points=st.integers(min_value=-500, max_value=500),
+        reason=st.sampled_from(["alineamiento negocio", "corrección auditoría"]),
+    )
+    return st.builds(
+        ScorecardConfig,
+        pdo=st.floats(min_value=1.0, max_value=100.0, allow_nan=False),
+        target_score=st.floats(min_value=100.0, max_value=1000.0, allow_nan=False),
+        target_odds=st.floats(min_value=1.0, max_value=500.0, allow_nan=False),
+        score_direction=st.sampled_from(["higher_is_lower_risk", "higher_is_higher_risk"]),
+        intercept_allocation=st.just("uniform"),
+        rounding_method=st.sampled_from(
+            ["none", "nearest_integer", "floor_integer", "ceil_integer"]
+        ),
+        output_suffix=st.sampled_from(["__points", "_points"]),
+        score_column=st.sampled_from(["score", "score_total"]),
+        min_score=st.one_of(st.none(), st.floats(min_value=0.0, max_value=500.0, allow_nan=False)),
+        max_score=st.one_of(
+            st.none(),
+            st.floats(min_value=501.0, max_value=1200.0, allow_nan=False),
+        ),
+        clip=st.just(False),
+        point_overrides=st.one_of(st.just(()), st.tuples(override)),
+    )
+
+
 def discriminated_union_tags() -> dict[str, list[str]]:
     """Devuelve tags ``type`` de uniones discriminadas de nivel sección.
 
@@ -385,6 +422,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._SELECTION_CONFIG_CLS
     if domain == "model" and core_schema._MODEL_CONFIG_CLS is not None:
         return core_schema._MODEL_CONFIG_CLS
+    if domain == "scorecard" and core_schema._SCORECARD_CONFIG_CLS is not None:
+        return core_schema._SCORECARD_CONFIG_CLS
     raise AssertionError(f"No hay config_cls cargada para el dominio '{domain}'.")
 
 
