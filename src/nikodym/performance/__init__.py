@@ -3,7 +3,9 @@
 Al importarse, registra :class:`PerformanceConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.performance`` se valida como sub-config real
 sin que ``import nikodym.core`` arrastre ``nikodym.performance`` ni dependencias de scoring.
-Los DTOs tabulares se reexportan de forma perezosa.
+El paquete importa ``performance.step`` al final para ejecutar ``@register("standard",
+domain="performance")`` sin arrastrar pandas/pandera/sklearn; los DTOs tabulares se reexportan de
+forma perezosa.
 
 **Experimental (SemVer 0.x).**
 """
@@ -34,6 +36,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "DiscriminantMetricRecord": ("nikodym.performance.results", "DiscriminantMetricRecord"),
     "PerformanceCardSection": ("nikodym.performance.results", "PerformanceCardSection"),
     "PerformanceResult": ("nikodym.performance.results", "PerformanceResult"),
+    "PerformanceStep": ("nikodym.performance.step", "PerformanceStep"),
 }
 
 __all__ = [
@@ -47,12 +50,18 @@ __all__ = [
     "PerformanceMetricError",
     "PerformancePartition",
     "PerformanceResult",
+    "PerformanceStep",
     "ScoreDirection",
 ]
 
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="performance") al
+# importar `nikodym.performance`, sin contaminar `import nikodym.core` ni cargar
+# pandas/pandera/sklearn.
+importlib.import_module("nikodym.performance.step")
+
 
 def __getattr__(name: str) -> Any:
-    """Carga DTOs de performance bajo demanda para preservar el import liviano."""
+    """Carga componentes de performance bajo demanda para preservar el import liviano."""
     if name not in _LAZY_EXPORTS:
         raise AttributeError(f"module 'nikodym.performance' has no attribute {name!r}")
 

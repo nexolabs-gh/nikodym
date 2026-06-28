@@ -249,9 +249,9 @@ def test_campos_performance_tienen_metadatos_ui() -> None:
 
 
 def test_performance_public_api_minimo() -> None:
-    """El paquete expone solo config/excepciones livianas en B11.1."""
+    """El paquete expone config/excepciones y el step perezoso en B11.4."""
     assert performance_pkg.PerformanceConfig is PerformanceConfig
-    assert "PerformanceStep" not in performance_pkg.__all__
+    assert "PerformanceStep" in performance_pkg.__all__
 
 
 def test_performance_errors_descienden_de_nikodym_error() -> None:
