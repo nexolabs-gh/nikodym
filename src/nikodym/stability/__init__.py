@@ -3,7 +3,9 @@
 Al importarse, registra :class:`StabilityConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.stability`` se valida como sub-config real
 sin que ``import nikodym.core`` arrastre ``nikodym.stability`` ni dependencias tabulares/scoring.
-Las excepciones se reexportan de forma perezosa.
+El paquete importa ``stability.step`` al final para ejecutar ``@register("standard",
+domain="stability")`` sin arrastrar pandas/pandera/sklearn; los DTOs tabulares se reexportan de
+forma perezosa.
 
 **Experimental (SemVer 0.x).**
 """
@@ -35,6 +37,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "StabilityMetricError": ("nikodym.stability.exceptions", "StabilityMetricError"),
     "StabilityMetricRecord": ("nikodym.stability.results", "StabilityMetricRecord"),
     "StabilityResult": ("nikodym.stability.results", "StabilityResult"),
+    "StabilityStep": ("nikodym.stability.step", "StabilityStep"),
     "TemporalStabilityRecord": ("nikodym.stability.results", "TemporalStabilityRecord"),
 }
 
@@ -51,10 +54,16 @@ __all__ = [
     "StabilityMetricError",
     "StabilityMetricRecord",
     "StabilityResult",
+    "StabilityStep",
     "TemporalAxis",
     "TemporalFrequency",
     "TemporalStabilityRecord",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="stability") al
+# importar `nikodym.stability`, sin contaminar `import nikodym.core` ni cargar
+# pandas/pandera/sklearn.
+importlib.import_module("nikodym.stability.step")
 
 
 def __getattr__(name: str) -> Any:
