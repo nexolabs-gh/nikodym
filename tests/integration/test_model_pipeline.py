@@ -27,6 +27,9 @@ from nikodym.data.step import INPUT_FRAME_KEY
 from nikodym.model.config import IvContributionConfig, ModelConfig, SignPolicyConfig, StepwiseConfig
 from nikodym.model.exceptions import ModelFitError
 from nikodym.model.step import MODEL_ARTIFACTS
+from nikodym.scorecard.config import ScorecardConfig
+from nikodym.scorecard.results import ScorecardCardSection, ScorecardResult
+from nikodym.scorecard.step import SCORECARD_ARTIFACTS
 from nikodym.selection.config import (
     CorrelationSelectionConfig,
     SelectionConfig,
@@ -232,6 +235,20 @@ def _study(*, model: ModelConfig | None = None) -> Study:
     )
 
 
+def _study_with_scorecard() -> Study:
+    """Study con el pipeline de scorecard completo activado."""
+    return Study(
+        NikodymConfig(
+            repro=ReproConfig(seed=ROOT_SEED),
+            data=_data_config(),
+            binning=_binning_config(),
+            selection=_selection_config(),
+            model=_model_config(),
+            scorecard=ScorecardConfig(rounding_method="none"),
+        )
+    )
+
+
 def _inject_frame(study: Study, frame: pd.DataFrame | None = None) -> None:
     """Inyecta el frame crudo bajo la clave pública de ``DataStep``."""
     study.artifacts.set("data", INPUT_FRAME_KEY, _raw_frame() if frame is None else frame)
@@ -365,3 +382,72 @@ def test_fail_if_no_features_true_con_todo_excluido_falla_en_pipeline_real() -> 
 
     with pytest.raises(ModelFitError, match="mínimo"):
         study.run(steps=["data", "binning", "selection", "model"])
+
+
+def test_study_run_data_binning_selection_model_scorecard_end_to_end_goldens() -> None:
+    """``Study.run`` ejecuta scorecard y publica sus cuatro artefactos con goldens estables."""
+    study = _study_with_scorecard()
+    _inject_frame(study)
+
+    assert study.run(steps=["data", "binning", "selection", "model", "scorecard"]) is study
+
+    for key in SCORECARD_ARTIFACTS:
+        assert study.artifacts.has("scorecard", key)
+    result = study.artifacts.get("scorecard", "result")
+    card = study.artifacts.get("scorecard", "card")
+    scorecard = study.artifacts.get("scorecard", "scorecard")
+    score = study.artifacts.get("scorecard", "score")
+    raw_pd_frame = study.artifacts.get("model", "raw_pd_frame")
+
+    assert isinstance(result, ScorecardResult)
+    assert isinstance(card, ScorecardCardSection)
+    assert result.factor == pytest.approx(28.85390081777927)
+    assert result.offset == pytest.approx(487.1228762045055)
+    assert result.points_columns == ("score__points", "segment__points")
+    assert card.n_variables == 2
+    assert score.index.equals(raw_pd_frame.index)
+    assert score.columns.tolist() == [
+        "partition",
+        "target",
+        "linear_predictor",
+        "pd_raw",
+        "score__points",
+        "segment__points",
+        "score",
+    ]
+
+    assert scorecard["feature"].tolist() == [
+        "score",
+        "score",
+        "score",
+        "score",
+        "segment",
+        "segment",
+        "segment",
+        "segment",
+        "segment",
+    ]
+    assert scorecard["bin_label"].tolist() == [
+        "(-inf, 1.50)",
+        "[1.50, inf)",
+        "Special",
+        "Missing",
+        "[A]",
+        "[B]",
+        "[Z]",
+        "Special",
+        "Missing",
+    ]
+    assert scorecard["raw_points"].tolist()[:6] == pytest.approx(
+        [
+            243.35076202549377,
+            254.55593289723237,
+            249.42241946163548,
+            249.42241946163548,
+            237.3249636184908,
+            264.6634107745877,
+        ]
+    )
+    assert score.loc["op-000", "score"] == pytest.approx(480.67572564398454)
+    assert score.loc["op-005", "score"] == pytest.approx(519.2193436718201)
+    assert score.loc["op-029", "score"] == pytest.approx(491.8808965167223)

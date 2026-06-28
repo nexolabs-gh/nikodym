@@ -57,6 +57,7 @@ _DOMAIN_MODULES: Final[dict[str, str]] = {
     "binning": "nikodym.binning",
     "selection": "nikodym.selection",
     "model": "nikodym.model",
+    "scorecard": "nikodym.scorecard",
 }
 _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "data": ("nikodym.data.config", "DataConfig"),
@@ -64,8 +65,16 @@ _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "binning": ("nikodym.binning.config", "BinningConfig"),
     "selection": ("nikodym.selection.config", "SelectionConfig"),
     "model": ("nikodym.model.config", "ModelConfig"),
+    "scorecard": ("nikodym.scorecard.config", "ScorecardConfig"),
 }
-_DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = ("data", "eda", "binning", "selection", "model")
+_DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
+    "data",
+    "eda",
+    "binning",
+    "selection",
+    "model",
+    "scorecard",
+)
 _REPLACE_RETRY_ATTEMPTS: Final = 3
 _REPLACE_RETRY_BACKOFF_SECONDS: Final = 0.05
 

@@ -2,9 +2,10 @@
 
 Al importarse, registra :class:`ScorecardConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.scorecard`` se valida como sub-config real
-sin que ``import nikodym.core`` arrastre ``nikodym.scorecard`` ni dependencias de scoring. La
-lógica pesada de escalamiento y el ``ScorecardStep`` se añadirán en B9.2-B9.4 y se cargarán bajo
-demanda; B9.1 solo cablea el config.
+sin que ``import nikodym.core`` arrastre ``nikodym.scorecard`` ni dependencias de scoring. El
+paquete importa ``scorecard.step`` al final para ejecutar ``@register("standard",
+domain="scorecard")`` sin arrastrar pandas/sklearn; los transformadores y DTOs tabulares se
+reexportan de forma perezosa.
 
 **Experimental (SemVer 0.x).**
 """
@@ -37,6 +38,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "ScorecardBinPoint": ("nikodym.scorecard.results", "ScorecardBinPoint"),
     "ScorecardCardSection": ("nikodym.scorecard.results", "ScorecardCardSection"),
     "ScorecardResult": ("nikodym.scorecard.results", "ScorecardResult"),
+    "ScorecardStep": ("nikodym.scorecard.step", "ScorecardStep"),
 }
 
 __all__ = [
@@ -52,8 +54,13 @@ __all__ = [
     "ScorecardError",
     "ScorecardFitError",
     "ScorecardResult",
+    "ScorecardStep",
     "ScorecardTransformError",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="scorecard") al
+# importar `nikodym.scorecard`, sin contaminar `import nikodym.core` ni cargar pandas/sklearn.
+importlib.import_module("nikodym.scorecard.step")
 
 
 def __getattr__(name: str) -> Any:
