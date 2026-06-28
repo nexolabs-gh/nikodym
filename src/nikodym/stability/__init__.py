@@ -27,21 +27,33 @@ from nikodym.stability.config import (
 _schema._STABILITY_CONFIG_CLS = StabilityConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "CsiRecord": ("nikodym.stability.results", "CsiRecord"),
+    "PsiRecord": ("nikodym.stability.results", "PsiRecord"),
+    "StabilityCardSection": ("nikodym.stability.results", "StabilityCardSection"),
     "StabilityDataError": ("nikodym.stability.exceptions", "StabilityDataError"),
     "StabilityError": ("nikodym.stability.exceptions", "StabilityError"),
     "StabilityMetricError": ("nikodym.stability.exceptions", "StabilityMetricError"),
+    "StabilityMetricRecord": ("nikodym.stability.results", "StabilityMetricRecord"),
+    "StabilityResult": ("nikodym.stability.results", "StabilityResult"),
+    "TemporalStabilityRecord": ("nikodym.stability.results", "TemporalStabilityRecord"),
 }
 
 __all__ = [
+    "CsiRecord",
     "CsiSource",
+    "PsiRecord",
     "ScoreDirection",
+    "StabilityCardSection",
     "StabilityComparison",
     "StabilityConfig",
     "StabilityDataError",
     "StabilityError",
     "StabilityMetricError",
+    "StabilityMetricRecord",
+    "StabilityResult",
     "TemporalAxis",
     "TemporalFrequency",
+    "TemporalStabilityRecord",
 ]
 
 
