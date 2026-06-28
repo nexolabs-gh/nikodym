@@ -5,8 +5,8 @@ Define la base común inmutable :class:`NikodymBaseConfig` y el config raíz
 reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y los enganches
 opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``), selección
 pre-modelo (``selection``), modelo PD (``model``), escalamiento de scorecard (``scorecard``) y
-calibración de PD (``calibration``), desempeño post-modelo (``performance``) y estabilidad
-post-modelo (``stability``). El config es
+calibración de PD (``calibration``), desempeño post-modelo (``performance``), estabilidad
+post-modelo (``stability``) y reporte auditable (``report``). El config es
 *frozen*: su identidad se fija por
 ``config_hash`` (ver
 :mod:`nikodym.core.config.hashing`), no por mutación.
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from nikodym.governance.config import GovernanceConfig
     from nikodym.model.config import ModelConfig
     from nikodym.performance.config import PerformanceConfig
+    from nikodym.report.config import ReportConfig
     from nikodym.scorecard.config import ScorecardConfig
     from nikodym.selection.config import SelectionConfig
     from nikodym.stability.config import StabilityConfig
@@ -53,6 +54,7 @@ _SCORECARD_CONFIG_CLS: type[BaseModel] | None = None
 _CALIBRATION_CONFIG_CLS: type[BaseModel] | None = None
 _PERFORMANCE_CONFIG_CLS: type[BaseModel] | None = None
 _STABILITY_CONFIG_CLS: type[BaseModel] | None = None
+_REPORT_CONFIG_CLS: type[BaseModel] | None = None
 _AUDIT_CONFIG_CLS: type[BaseModel] | None = None
 _GOVERNANCE_CONFIG_CLS: type[BaseModel] | None = None
 _TRACKING_CONFIG_CLS: type[BaseModel] | None = None
@@ -110,7 +112,7 @@ class NikodymConfig(NikodymBaseConfig):
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
     ``data``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``, ``calibration``,
-    ``performance``, ``stability``).
+    ``performance``, ``stability``, ``report``).
     """
 
     schema_version: str = Field(
@@ -219,6 +221,16 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Estabilidad",
             description="Sección de métricas de estabilidad post-modelo (capa `stability`).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `ReportConfig` la hace `_valida_report` vía hook diferido.
+        report: ReportConfig | None
+    else:
+        report: Any = Field(
+            default=None,
+            title="Reporte",
+            description="Sección de generación de reporte auditable (capa `report`, SDD-26).",
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto sin importar `nikodym.audit` en runtime.
@@ -486,6 +498,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "stability debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.stability` para "
                 "validarlo como StabilityConfig."
+            ) from exc
+        return valor
+
+    @field_validator("report", mode="before")
+    @classmethod
+    def _valida_report(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``report`` según haya o no capa cargada.
+
+        Con ``nikodym.report`` importado (``_REPORT_CONFIG_CLS`` poblado), un ``dict`` se valida y
+        coacciona a :class:`ReportConfig` (``extra='forbid'`` y rangos); una instancia ya validada
+        pasa tal cual. Sin la capa cargada, ``report`` es un *blob* opaco: se exige JSON-canónico
+        y determinista (sin sets, objetos no serializables ni floats no finitos) para no corromper
+        el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _REPORT_CONFIG_CLS is not None:
+            if isinstance(valor, _REPORT_CONFIG_CLS):
+                return valor
+            return _REPORT_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "report debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.report` para validarlo "
+                "como ReportConfig."
             ) from exc
         return valor
 
