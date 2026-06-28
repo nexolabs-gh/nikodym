@@ -35,6 +35,7 @@ _schema._REPORT_CONFIG_CLS = ReportConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "AiNarrationBlock": ("nikodym.report.results", "AiNarrationBlock"),
+    "ReportBuilder": ("nikodym.report.builder", "ReportBuilder"),
     "ReportInputBundle": ("nikodym.report.results", "ReportInputBundle"),
     "ReportManifest": ("nikodym.report.results", "ReportManifest"),
     "ReportResult": ("nikodym.report.results", "ReportResult"),
@@ -47,6 +48,7 @@ __all__ = [
     "HtmlRenderConfig",
     "QuartoRenderConfig",
     "ReportAIError",
+    "ReportBuilder",
     "ReportConfig",
     "ReportDependencyError",
     "ReportError",
