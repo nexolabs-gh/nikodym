@@ -75,7 +75,12 @@ def _usar_fake_binning_process(fake_binning_process: object) -> None:
 
 def _config(**kwargs: Any) -> CalibrationConfig:
     """Config base de calibration con filas mínimas bajas para fixtures sintéticos."""
-    return CalibrationConfig(target_pd=0.23, min_fit_rows=1, **kwargs)
+    return CalibrationConfig(
+        target_pd=0.23,
+        anchor_source="business_input",
+        min_fit_rows=1,
+        **kwargs,
+    )
 
 
 def _coefficients() -> pd.DataFrame:
@@ -327,7 +332,11 @@ def _pipeline_study() -> Study:
                 iv_contribution=IvContributionConfig(action="flag"),
             ),
             scorecard=ScorecardConfig(rounding_method="none"),
-            calibration=CalibrationConfig(target_pd=0.31, min_fit_rows=1),
+            calibration=CalibrationConfig(
+                target_pd=0.31,
+                anchor_source="business_input",
+                min_fit_rows=1,
+            ),
         )
     )
 

@@ -13,10 +13,12 @@ from hypothesis import given, settings
 from pydantic import ValidationError
 
 import nikodym.calibration  # importa la capa: puebla el hook _CALIBRATION_CONFIG_CLS
+from nikodym.calibration.calibrator import PDCalibrator
 from nikodym.calibration.config import CalibrationConfig
 from nikodym.calibration.exceptions import (
     CalibrationError,
     CalibrationFitError,
+    CalibrationOffsetExceededError,
     CalibrationTransformError,
 )
 from nikodym.core.config import (
@@ -46,9 +48,10 @@ def _calibration_defaults() -> dict[str, Any]:
         "method": "intercept_offset",
         "target_pd": 0.05,
         "anchor_kind": "through_the_cycle",
-        "anchor_source": "business_input",
+        "anchor_source": "development_observed",
         "fit_partition": "desarrollo",
         "target_tolerance": 1e-12,
+        "max_abs_offset": None,
         "max_iter": 100,
         "min_fit_rows": 30,
         "require_both_classes_for_supervised": True,
@@ -86,6 +89,36 @@ def test_round_trip_yaml_calibrationconfig() -> None:
     text = yaml.safe_dump(cfg.model_dump(mode="json"), sort_keys=False, allow_unicode=True)
     raw = yaml.safe_load(text)
     assert CalibrationConfig.model_validate(raw) == cfg
+
+
+def test_round_trip_yaml_default_ancla_media_observada_desarrollo() -> None:
+    """El default YAML usa ``development_observed`` y ancla a la media Dev del target."""
+    pd = pytest.importorskip("pandas")
+    cfg = CalibrationConfig()
+    text = yaml.safe_dump(cfg.model_dump(mode="json"), sort_keys=False, allow_unicode=True)
+    loaded = CalibrationConfig.model_validate(yaml.safe_load(text))
+    eta = [-2.4, -1.8, -1.1, -0.6, -0.2, 0.3, 0.8, 1.4] * 5
+    target = [0, 0, 0, 1, 0, 1, 0, 1] * 5
+    expected_rate = sum(target) / len(target)
+    frame = pd.DataFrame(
+        {
+            "partition": ["desarrollo"] * len(eta),
+            "target": target,
+            "linear_predictor": eta,
+            "pd_raw": [_sigmoid(value) for value in eta],
+        }
+    )
+
+    calibrator = PDCalibrator.from_config(loaded).fit(frame)
+    calibrated = calibrator.transform(frame)
+
+    assert loaded.anchor_source == "development_observed"
+    assert loaded.target_pd == 0.05
+    assert calibrator.target_pd_ == pytest.approx(expected_rate)
+    assert calibrated["pd_calibrated"].mean() == pytest.approx(
+        expected_rate,
+        abs=loaded.target_tolerance,
+    )
 
 
 def test_nikodymconfig_calibration_instancia() -> None:
@@ -169,6 +202,18 @@ def test_target_tolerance_invalida_levanta_configerror(target_tolerance: object)
     """``target_tolerance`` debe ser positiva, finita y no booleana."""
     with pytest.raises(ConfigError, match="target_tolerance"):
         CalibrationConfig(target_tolerance=target_tolerance)  # type: ignore[arg-type]
+
+
+def test_max_abs_offset_none_es_valido() -> None:
+    """``max_abs_offset=None`` conserva el comportamiento audit-only por defecto."""
+    assert CalibrationConfig(max_abs_offset=None).max_abs_offset is None
+
+
+@pytest.mark.parametrize("max_abs_offset", [0.0, -1e-12, math.nan, math.inf, True, "-1"])
+def test_max_abs_offset_invalido_levanta_configerror(max_abs_offset: object) -> None:
+    """``max_abs_offset`` opcional exige número finito estrictamente positivo."""
+    with pytest.raises(ConfigError, match="max_abs_offset"):
+        CalibrationConfig(max_abs_offset=max_abs_offset)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -256,6 +301,17 @@ def test_calibration_errors_descienden_de_nikodym_error() -> None:
     for error_cls in (CalibrationError, CalibrationFitError, CalibrationTransformError):
         with pytest.raises(CalibrationError, match="fallo calibration"):
             raise error_cls("fallo calibration")
+    with pytest.raises(CalibrationFitError, match="max_abs_offset") as exc_info:
+        raise CalibrationOffsetExceededError(
+            offset=2.5,
+            max_abs_offset=1.0,
+            method="intercept_offset",
+            partition="desarrollo",
+        )
+    assert exc_info.value.offset == 2.5
+    assert exc_info.value.max_abs_offset == 1.0
+    assert exc_info.value.method == "intercept_offset"
+    assert exc_info.value.partition == "desarrollo"
 
 
 def test_import_calibration_liviano_y_registra_hook_en_proceso_fresco() -> None:
@@ -314,3 +370,8 @@ def test_config_cls_for_domain_resuelve_calibration() -> None:
 def test_config_hash_default_con_calibration_none_golden() -> None:
     """El golden por defecto incluye la clave computacional ``calibration`` con valor None."""
     assert config_hash(NikodymConfig()) == GOLDEN_DEFAULT_CONFIG_HASH
+
+
+def _sigmoid(value: float) -> float:
+    """Calcula sigmoid escalar para construir el fixture YAML sin depender del calibrador."""
+    return 1.0 / (1.0 + math.exp(-value))

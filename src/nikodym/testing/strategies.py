@@ -415,6 +415,10 @@ def _calibration_config_strategy(st: Any) -> Any:
             ["business_input", "historical_default_rate", "development_observed"]
         ),
         target_tolerance=st.floats(min_value=1e-12, max_value=1e-4, allow_nan=False),
+        max_abs_offset=st.one_of(
+            st.none(),
+            st.floats(min_value=1e-6, max_value=10.0, allow_nan=False),
+        ),
         max_iter=st.integers(min_value=1, max_value=500),
         min_fit_rows=st.integers(min_value=1, max_value=10_000),
         require_both_classes_for_supervised=st.just(True),

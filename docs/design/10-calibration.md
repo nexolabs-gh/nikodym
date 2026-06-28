@@ -33,7 +33,7 @@
 - **No genera puntos ni scorecard.** `scorecard` (SDD-09) convierte log-odds a puntos; `calibration` ajusta probabilidades.
 - **No mide discriminación, estabilidad ni performance formal.** SDD-11 consume `pd_calibrated` y calcula KS/Gini/AUC, PSI, tabla de rendimiento, calibración observada y estabilidad multi-partición.
 - **No calcula matrices regulatorias CMF ni provisiones.** SDD-15 usa matrices PI/PDI/PE CMF; SDD-16/17 usan PD calibrada como insumo de ECL/provisión cuando corresponda.
-- **No decide la tasa central concreta del banco.** La PD objetivo es input de negocio/normativo/histórico en config. El default numérico es ilustrativo y queda R0 para Cami (D-CAL-2).
+- **No inventa una tasa central exógena del banco.** Por default estima el ancla TTC como long-run average del target en Desarrollo; si la institución trae una tasa de negocio/histórica/regulatoria, entra explícitamente por config.
 - **No convierte una PD TTC a PIT macroeconómica de IFRS 9.** La transformación PIT/TTC con Vasicek, term-structure y escenarios vive en SDD-16/18/20. SDD-10 solo ancla la PD transversal de scorecard.
 - **No calcula reason codes ni SHAP.** SDD-14 explica el modelo; `calibration` solo publica cómo cambió el nivel de PD.
 - **No muta artefactos aguas arriba.** Lee `model` y publica copias defensivas bajo `"calibration"`.
@@ -61,6 +61,7 @@ data ─► binning ─► selection ─► model ─► scorecard ─► calibr
 
 **Normativa CMF relevante.**
 - `docs/normativa_cmf_parametros.md` §Advertencias y §§1-6 documentan matrices estándar PI/PDI/PE para provisiones CMF; esas tablas **no** son una tasa central universal de scorecard.
+- CMF Chile usa matrices fijas de PI/PD para modelos **estándar** como piso prudencial de provisiones. La calibración de SDD-10 aplica a **modelos internos** de scorecard; no se halló texto CMF que prescriba una tasa central concreta para modelos internos, por lo que no se inventa cita CMF.
 - En la fuente oficial CMF, CNC Capítulo B-1 Anexo N°1, I y III.2.A/B, las metodologías internas grupales deben estimar riesgo **a través del ciclo**, con medida de largo plazo, al menos 5 años de información histórica e inclusión de un período recesivo cuando aplique; las ponderaciones de PI no deben distorsionar la perspectiva tendencial/largo plazo.
 - CNC Capítulo B-1 Anexo N°2 §2.2 exige documentar el procedimiento de calibración cuando la PI se calcula mediante tasas de incumplimiento.
 - ESPECIFICACIONES §5.2 ubica “Calibración de PD: anclaje a tendencia central” como paso posterior a scorecard; §5.5 separa PIT/TTC y Vasicek para IFRS 9; §5.7 ubica tests formales de calibración en validación.
@@ -180,9 +181,12 @@ class PDCalibrator(NikodymTransformer):
         method: CalibrationMethod = "intercept_offset",
         target_pd: float = 0.05,
         anchor_kind: AnchorKind = "through_the_cycle",
-        anchor_source: AnchorSource = "business_input",
+        anchor_source: AnchorSource = "development_observed",
         target_tolerance: float = 1e-12,
+        max_abs_offset: float | None = None,
         max_iter: int = 100,
+        min_fit_rows: int = 30,
+        require_both_classes_for_supervised: bool = True,
         pd_raw_column: str = "pd_raw",
         linear_predictor_column: str = "linear_predictor",
         pd_calibrated_column: str = "pd_calibrated",
@@ -269,46 +273,55 @@ from pydantic import Field, model_validator
 from nikodym.core.config import NikodymBaseConfig
 
 class CalibrationConfig(NikodymBaseConfig):
-    type: Literal["standard"] = "standard"
-    method: CalibrationMethod = Field("intercept_offset", title="Método de calibración")
+    type: Literal["standard"] = Field(default="standard")
+    method: CalibrationMethod = Field(default="intercept_offset", title="Método de calibración")
     target_pd: float = Field(
-        0.05,
+        default=0.05,
         gt=0.0,
         lt=1.0,
         title="PD objetivo",
-        description="Default ilustrativo R0; debe reemplazarse por ancla aprobada.",
+        description=(
+            "Placeholder ilustrativo. No se usa cuando "
+            "anchor_source='development_observed'."
+        ),
     )
-    anchor_kind: AnchorKind = Field("through_the_cycle", title="Tipo de ancla")
-    anchor_source: AnchorSource = Field("business_input", title="Fuente de la ancla")
-    fit_partition: Literal["desarrollo"] = Field("desarrollo", title="Partición de ajuste")
-    target_tolerance: float = Field(1e-12, gt=0.0, title="Tolerancia de media PD")
-    max_iter: int = Field(100, ge=1, title="Iteraciones máximas del solver")
-    min_fit_rows: int = Field(30, ge=1, title="Mínimo de filas de Desarrollo")
+    anchor_kind: AnchorKind = Field(default="through_the_cycle", title="Tipo de ancla")
+    anchor_source: AnchorSource = Field(
+        default="development_observed",
+        title="Fuente de la ancla",
+    )
+    fit_partition: Literal["desarrollo"] = Field(default="desarrollo", title="Partición de ajuste")
+    target_tolerance: float = Field(default=1e-12, gt=0.0, title="Tolerancia de media PD")
+    max_abs_offset: float | None = Field(default=None, title="Máximo offset absoluto")
+    max_iter: int = Field(default=100, ge=1, title="Iteraciones máximas del solver")
+    min_fit_rows: int = Field(default=30, ge=1, title="Mínimo de filas de Desarrollo")
     require_both_classes_for_supervised: bool = Field(
-        True, title="Exigir ambas clases para Platt/isotónica")
-    pd_raw_column: str = Field("pd_raw", title="Columna PD cruda")
-    linear_predictor_column: str = Field("linear_predictor", title="Columna logit crudo")
-    pd_calibrated_column: str = Field("pd_calibrated", title="Columna PD calibrada")
+        default=True, title="Exigir ambas clases para Platt/isotónica")
+    pd_raw_column: str = Field(default="pd_raw", title="Columna PD cruda")
+    linear_predictor_column: str = Field(default="linear_predictor", title="Columna logit crudo")
+    pd_calibrated_column: str = Field(default="pd_calibrated", title="Columna PD calibrada")
     linear_predictor_calibrated_column: str = Field(
-        "linear_predictor_calibrated", title="Columna logit calibrado")
-    partition_column: str = Field("partition", title="Columna partición")
-    target_column: str = Field("target", title="Columna target")
+        default="linear_predictor_calibrated", title="Columna logit calibrado")
+    partition_column: str = Field(default="partition", title="Columna partición")
+    target_column: str = Field(default="target", title="Columna target")
 ```
 
 **Validaciones de config.**
 - `0 < target_pd < 1`; no se admiten `0`, `1`, `NaN`, `inf` ni bool.
 - `method="intercept_offset"` admite `anchor_source` externo o `development_observed`; si `development_observed`, `target_pd` puede ser normalizado desde Dev en `fit`, pero el valor final queda materializado en `parameters`.
 - `method in {"platt_scaling", "isotonic"}` exige target de Desarrollo 0/1 con ambas clases si `require_both_classes_for_supervised=True`.
+- `max_abs_offset=None` conserva el comportamiento audit-only; si se informa, debe ser finito y mayor que 0.
 - Columnas de entrada/salida no pueden ser vacías ni colisionar entre sí.
 - `fit_partition` queda fijado a `"desarrollo"` en v1; no se parametriza para evitar leakage.
 - `anchor_kind="point_in_time"` es permitido solo si `anchor_source` no es `"external_regulatory"` CMF estándar, salvo override explícito futuro; default TTC.
 
-**Defaults defendibles, todos R0 para Cami cuando implican negocio.**
+**Defaults defendibles.**
 - `method="intercept_offset"`: preserva ranking, es determinista, auditable y coincide con la lógica log-odds de la scorecard.
-- `target_pd=0.05`: **placeholder ilustrativo**, no normativo. Debe ser reemplazado por la tasa central aprobada para la cartera/segmento antes de uso productivo.
+- `anchor_source="development_observed"`: estima la tasa central TTC como long-run average del target de Desarrollo; fundamento Basel/CRR Art.180 + EBA GL 2017/16 (“PDs from long-run averages of one-year default rates”).
+- `target_pd=0.05`: **placeholder ilustrativo**, no normativo. Con `anchor_source="development_observed"` no se usa; solo aplica cuando `anchor_source ∈ {"business_input", "historical_default_rate", "external_regulatory"}`.
 - `anchor_kind="through_the_cycle"`: coherente con tasa central y con CMF internal-methods; IFRS 9 PIT se resuelve aguas abajo.
-- `anchor_source="business_input"`: evita fingir que la CMF publica una tasa central universal.
 - `target_tolerance=1e-12`: suficientemente estricta para goldens y reproducibilidad en float64.
+- `max_abs_offset=None`: por default audita offsets extremos sin fallar; `max_abs_offset>0` activa un guard hard.
 - `min_fit_rows=30`: guard técnico mínimo; la suficiencia estadística real se evalúa en SDD-11/22.
 
 **Hook diferido en `core.config.schema`.** F1 debe extender el patrón real ya usado por `data`/`eda`/`binning`/`selection`/`model`/`scorecard`:
@@ -420,7 +433,7 @@ Desde `model`:
 - **Target de Desarrollo no binario en método supervisado:** `CalibrationFitError`.
 - **Desarrollo con una sola clase en Platt/isotónica:** `CalibrationFitError` si `require_both_classes_for_supervised=True`.
 - **Solver no converge al offset:** `CalibrationFitError` con `target_pd`, bracket, iteraciones y media alcanzada.
-- **Offset extremo:** se publica y se audita; si Cami quiere guard hard (`max_abs_offset`), queda como extensión de config.
+- **Offset extremo:** con `max_abs_offset=None` se publica y se audita; si `abs(offset)`/`abs(post_offset)` excede `max_abs_offset`, falla con `CalibrationOffsetExceededError` y atributos `offset`, `max_abs_offset`, `method`, `partition`.
 - **`platt_scaling` con `slope <= 0`:** `CalibrationFitError` por inversión de ranking.
 - **`isotonic` crea demasiados empates:** permitido si está configurado, pero `ties_created` se registra; SDD-11 mide impacto.
 - **HO/OOT con target missing:** permitido; target no se usa para transformar.
@@ -506,6 +519,7 @@ Fixtures: `behavior_calibration_small.parquet`, `raw_pd_frame` sintético con `p
 **Fuentes verificadas / citas.**
 - **ESPECIFICACIONES.md** §4 (principios 1 reproducibilidad, 2 auditabilidad, 5 config declarativa, 9 núcleo liviano, 10 calidad, 11 doble verificación), §5.2 (pipeline scorecard; “Calibración de PD: anclaje a tendencia central”), §5.5 (PD 12m/lifetime, PIT/TTC, Vasicek), §5.7 (tests de calibración en validación), §6.3 (`calibration/` = anclaje PD, PIT/TTC).
 - **docs/normativa_cmf_parametros.md** Advertencias y §§1-6: matrices estándar CMF PI/PDI/PE y `PE = PI·PDI·Exposición`; no fijan tasa central universal para scorecard.
+- **Basel/CRR Art.180 + EBA GL 2017/16:** fundamento prudencial para que las PD provengan de promedios de largo plazo de tasas de default a un año (“PDs from long-run averages of one-year default rates”); se adopta como default TTC de modelos internos vía `development_observed`.
 - **CMF oficial:** Compendio de Normas Contables Bancos, versión 2022, Capítulo B-1 Anexo N°1 I, III.2.A y III.2.B: metodologías internas grupales con enfoque “a través del ciclo”, medida de largo plazo, horizonte mínimo de 5 años con período recesivo y PI sin distorsionar perspectiva tendencial/largo plazo. Anexo N°2 §2.2: documentar procedimiento de calibración cuando la PI se calcula mediante tasas de incumplimiento. PDF oficial descargado desde `cmfchile.cl` y verificado localmente con `pdftotext` el 2026-06-28.
 - **SDD-08 (`model`)** §1/§4/§6 y código implementado: `raw_pd_frame` real con `partition`, `target`, `linear_predictor`, `pd_raw`; artefactos `estimator`, `coefficients`, `final_features`, `final_woe_columns`.
 - **SDD-09 (`scorecard`)** §1/§2/§6: scorecard no calibra PD; `Offset`/`PDO` son escala de puntos.
@@ -514,11 +528,11 @@ Fixtures: `behavior_calibration_small.parquet`, `raw_pd_frame` sintético con `p
 ## Decisiones para revisión de Cami
 
 - **D-CAL-1 — Método default.** Recomendación: `method="intercept_offset"`. Ajusta el intercepto/log-odds para igualar la tasa central, preserva ranking exactamente, es determinista y auditable. Platt e isotónica quedan opt-in.
-- **D-CAL-2 — Tasa central default (R0).** Recomendación de diseño: `target_pd` es parámetro obligatorio de negocio/normativa en config; el valor `0.05` es solo placeholder ilustrativo para ejemplos/tests, no contrato. Cami debe definir política de ancla por cartera/segmento.
+- **D-CAL-2 — Tasa central default (RESUELTA 2026-06-28).** Recomendación de diseño original: `target_pd` es parámetro obligatorio de negocio/normativa en config; el valor `0.05` es solo placeholder ilustrativo para ejemplos/tests, no contrato. Cami debe definir política de ancla por cartera/segmento. **Resolución:** el default de `anchor_source` pasa a `"development_observed"` y la tasa central se estima como long-run average TTC del target en Desarrollo, con fundamento Basel/CRR Art.180 + EBA GL 2017/16 (“PDs from long-run averages of one-year default rates”). `target_pd=0.05` permanece como placeholder explícito y solo aplica si la fuente es `business_input`, `historical_default_rate` o `external_regulatory`. CMF Chile conserva matrices fijas de PD para modelos estándar/piso prudencial de provisiones; esta calibración aplica a modelos internos, y no se halló texto CMF que prescriba una tasa central concreta para ellos.
 - **D-CAL-3 — TTC vs PIT.** Recomendación: default `anchor_kind="through_the_cycle"` para SDD-10, por tasa central y lectura CMF. PIT se permite solo como input explícito; transformación macro/Vasicek queda en IFRS 9/forward.
 - **D-CAL-4 — Calibrar `linear_predictor`, no `score`.** Recomendación: usar `model.raw_pd_frame.linear_predictor` y publicar `pd_calibrated`. El `score` de SDD-09 es escala operativa y no debe absorber calibración.
 - **D-CAL-5 — Artefactos de salida.** Recomendación: publicar `"calibrated_pd_frame"`, `"parameters"`, `"result"`, `"card"` bajo dominio `"calibration"`. Confirmar nombres antes de implementar para evitar churn en SDD-11/26.
 - **D-CAL-6 — Métodos supervisados opt-in.** Recomendación: Platt requiere `slope>0`; isotónica permitida pero debe reportar empates. Ninguno desplaza el default offset mientras el objetivo sea preservar ranking regulatorio.
 - **D-CAL-7 — Frontera con SDD-11.** Recomendación: SDD-10 solo ancla y reporta medias/tolerancia técnica; Hosmer-Lemeshow, binomial, Brier, traffic-light, deciles, KS/Gini/AUC y PSI viven en SDD-11/22.
 - **D-CAL-8 — Frontera con provisiones.** Recomendación: SDD-15/16/17 consumen `pd_calibrated`, pero CMF estándar conserva sus matrices PI/PDI/PE propias; no mezclar calibración de scorecard con motor estándar.
-- **D-CAL-9 — Guard de offset extremo (R0).** Recomendación inicial: auditar offset extremo sin fallar por defecto. Si Cami quiere una barrera regulatoria dura (`max_abs_offset`), añadirla antes de aprobar SDD-10.
+- **D-CAL-9 — Guard de offset extremo (RESUELTA 2026-06-28).** Recomendación inicial: auditar offset extremo sin fallar por defecto. Si Cami quiere una barrera regulatoria dura (`max_abs_offset`), añadirla antes de aprobar SDD-10. **Resolución:** `max_abs_offset: float | None = None` queda implementado como guard opcional. Con `None` se mantiene el default audit-only; con valor positivo finito, `intercept_offset` valida `offset` y Platt/isotónica validan el `post_offset` de reanclaje, fallando con `CalibrationOffsetExceededError` si el umbral se supera.

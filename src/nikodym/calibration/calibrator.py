@@ -29,7 +29,11 @@ from nikodym.calibration.config import (
     CalibrationConfig,
     CalibrationMethod,
 )
-from nikodym.calibration.exceptions import CalibrationFitError, CalibrationTransformError
+from nikodym.calibration.exceptions import (
+    CalibrationFitError,
+    CalibrationOffsetExceededError,
+    CalibrationTransformError,
+)
 from nikodym.calibration.results import (
     CalibrationCardSection,
     CalibrationParameters,
@@ -92,9 +96,10 @@ class PDCalibrator(NikodymTransformer):
         method: CalibrationMethod = "intercept_offset",
         target_pd: float = 0.05,
         anchor_kind: AnchorKind = "through_the_cycle",
-        anchor_source: AnchorSource = "business_input",
+        anchor_source: AnchorSource = "development_observed",
         fit_partition: Literal["desarrollo"] = "desarrollo",
         target_tolerance: float = 1e-12,
+        max_abs_offset: float | None = None,
         max_iter: int = 100,
         min_fit_rows: int = 30,
         require_both_classes_for_supervised: bool = True,
@@ -112,6 +117,7 @@ class PDCalibrator(NikodymTransformer):
         self.anchor_source = anchor_source
         self.fit_partition = fit_partition
         self.target_tolerance = target_tolerance
+        self.max_abs_offset = max_abs_offset
         self.max_iter = max_iter
         self.min_fit_rows = min_fit_rows
         self.require_both_classes_for_supervised = require_both_classes_for_supervised
@@ -695,6 +701,7 @@ def _fit_intercept_offset(
                 achieved_mean=achieved,
             )
         )
+    _enforce_max_abs_offset(estimator, offset=delta, method="intercept_offset")
     return FitState(
         method="intercept_offset",
         target_pd=target_pd,
@@ -756,6 +763,7 @@ def _fit_platt_scaling(
         brentq=brentq,
         np=np,
     )
+    _enforce_max_abs_offset(estimator, offset=post_offset, method="platt_scaling")
     return FitState(
         method="platt_scaling",
         target_pd=target_pd,
@@ -808,6 +816,7 @@ def _fit_isotonic(
         brentq=brentq,
         np=np,
     )
+    _enforce_max_abs_offset(estimator, offset=post_offset, method="isotonic")
     calibrated_dev = _clip_probability_array(expit(base_linear + post_offset), np=np)
     ties_created = _ties_created(raw_pd_dev, calibrated_dev, np=np)
     knots = tuple(
@@ -879,6 +888,25 @@ def _solve_offset(
             )
         )
     return delta, achieved, (lower, upper), iterations
+
+
+def _enforce_max_abs_offset(
+    estimator: PDCalibrator,
+    *,
+    offset: float,
+    method: CalibrationMethod,
+) -> None:
+    """Aplica el guard opcional del offset de reanclaje a tasa central."""
+    max_abs_offset = estimator.max_abs_offset
+    if max_abs_offset is None:
+        return
+    if abs(float(offset)) > float(max_abs_offset):
+        raise CalibrationOffsetExceededError(
+            offset=_normalize_float(float(offset)),
+            max_abs_offset=float(max_abs_offset),
+            method=method,
+            partition=_FIT_PARTITION,
+        )
 
 
 def _offset_bracket(

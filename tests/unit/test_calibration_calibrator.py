@@ -16,9 +16,21 @@ from sklearn.base import clone
 import nikodym.calibration.calibrator as calibrator_module
 from nikodym.calibration.calibrator import PDCalibrator
 from nikodym.calibration.config import CalibrationConfig
-from nikodym.calibration.exceptions import CalibrationFitError, CalibrationTransformError
+from nikodym.calibration.exceptions import (
+    CalibrationFitError,
+    CalibrationOffsetExceededError,
+    CalibrationTransformError,
+)
 from nikodym.core.audit import InMemoryAuditSink
 from nikodym.core.exceptions import ConfigError, MissingDependencyError, NotFittedError
+
+
+def test_defaults_estimador_coinciden_con_calibrationconfig() -> None:
+    """Los defaults públicos de ``PDCalibrator`` reflejan ``CalibrationConfig``."""
+    params = PDCalibrator().get_params()
+    expected = CalibrationConfig().model_dump(exclude={"type"})
+
+    assert params == expected
 
 
 def test_intercept_offset_golden_constante_no_muta_y_publica_resultado() -> None:
@@ -27,7 +39,11 @@ def test_intercept_offset_golden_constante_no_muta_y_publica_resultado() -> None
     frame = _raw_frame([eta0, eta0, eta0, eta0], target=[0, 1, 0, 1])
     original = frame.copy(deep=True)
 
-    calibrator = PDCalibrator(target_pd=target_pd, min_fit_rows=1).fit(frame)
+    calibrator = PDCalibrator(
+        target_pd=target_pd,
+        anchor_source="business_input",
+        min_fit_rows=1,
+    ).fit(frame)
     transformed = calibrator.transform(frame)
 
     expected_delta = _logit(target_pd) - eta0
@@ -69,7 +85,11 @@ def test_intercept_offset_golden_media_central_ranking_y_fit_transform() -> None
     target_pd = 0.23
     expected_delta = _bisect_delta(eta[:6], target_pd)
 
-    calibrator = PDCalibrator(target_pd=target_pd, min_fit_rows=1)
+    calibrator = PDCalibrator(
+        target_pd=target_pd,
+        anchor_source="business_input",
+        min_fit_rows=1,
+    )
     transformed = calibrator.fit_transform(frame)
 
     dev_mean = transformed.loc[transformed["partition"].eq("desarrollo"), "pd_calibrated"].mean()
@@ -82,6 +102,99 @@ def test_intercept_offset_golden_media_central_ranking_y_fit_transform() -> None
     )
     assert calibrator.ranking_preserved_ is True
     assert calibrator.ties_created_ == 0
+
+
+def test_max_abs_offset_none_y_guard_intercept_offset() -> None:
+    """El guard opcional falla sólo cuando el offset absoluto supera el umbral informado."""
+    frame = _raw_frame([-5.0, -5.0, -5.0, -5.0], target=[0, 1, 0, 1])
+    expected_delta = _logit(0.95) + 5.0
+
+    sin_guard = PDCalibrator(
+        target_pd=0.95,
+        anchor_source="business_input",
+        min_fit_rows=1,
+        max_abs_offset=None,
+    ).fit(frame)
+    holgado = PDCalibrator(
+        target_pd=0.95,
+        anchor_source="business_input",
+        min_fit_rows=1,
+        max_abs_offset=8.0,
+    ).fit(frame)
+
+    assert sin_guard.offset_ == pytest.approx(expected_delta)
+    assert holgado.offset_ == pytest.approx(expected_delta)
+    with pytest.raises(CalibrationOffsetExceededError, match="max_abs_offset") as exc_info:
+        PDCalibrator(
+            target_pd=0.95,
+            anchor_source="business_input",
+            min_fit_rows=1,
+            max_abs_offset=1.0,
+        ).fit(frame)
+    assert exc_info.value.offset == pytest.approx(expected_delta)
+    assert exc_info.value.max_abs_offset == 1.0
+    assert exc_info.value.method == "intercept_offset"
+    assert exc_info.value.partition == "desarrollo"
+
+
+def test_max_abs_offset_cubre_post_offset_platt_scaling() -> None:
+    """En Platt el guard se aplica al ``post_offset`` de reanclaje a tasa central."""
+    eta = [-2.0, -1.2, -0.8, -0.2, 0.1, 0.6, 1.1, 1.8]
+    target = [0, 0, 1, 0, 1, 0, 1, 1]
+    frame = _raw_frame(eta, target=target)
+
+    ok = PDCalibrator(
+        method="platt_scaling",
+        target_pd=0.9,
+        anchor_source="business_input",
+        min_fit_rows=1,
+        max_iter=500,
+        max_abs_offset=3.0,
+    ).fit(frame)
+
+    assert ok.post_offset_ is not None
+    assert ok.post_offset_ < 3.0
+    with pytest.raises(CalibrationOffsetExceededError, match="platt_scaling") as exc_info:
+        PDCalibrator(
+            method="platt_scaling",
+            target_pd=0.9,
+            anchor_source="business_input",
+            min_fit_rows=1,
+            max_iter=500,
+            max_abs_offset=1.0,
+        ).fit(frame)
+    assert exc_info.value.method == "platt_scaling"
+    assert exc_info.value.offset > 1.0
+
+
+def test_max_abs_offset_cubre_post_offset_isotonic() -> None:
+    """En isotónica el guard se aplica al ``post_offset`` final de reanclaje."""
+    eta = [-2.0, -1.0, 0.0, 1.0, 2.0, 3.0]
+    target = [0, 1, 0, 1, 0, 1]
+    frame = _raw_frame(eta, target=target)
+
+    ok = PDCalibrator(
+        method="isotonic",
+        target_pd=0.9,
+        anchor_source="business_input",
+        min_fit_rows=1,
+        max_iter=500,
+        max_abs_offset=1_000.0,
+    ).fit(frame)
+
+    assert ok.post_offset_ is not None
+    assert ok.post_offset_ < 1_000.0
+    with pytest.raises(CalibrationOffsetExceededError, match="isotonic") as exc_info:
+        PDCalibrator(
+            method="isotonic",
+            target_pd=0.9,
+            anchor_source="business_input",
+            min_fit_rows=1,
+            max_iter=500,
+            max_abs_offset=1.0,
+        ).fit(frame)
+    assert exc_info.value.method == "isotonic"
+    assert exc_info.value.offset > 1.0
 
 
 def test_fit_filtra_fuera_de_modelo_y_anchor_development_observed_auditado() -> None:
@@ -104,6 +217,21 @@ def test_fit_filtra_fuera_de_modelo_y_anchor_development_observed_auditado() -> 
         "calibration_fuera_de_modelo"
     ) == 2
     assert "calibration_anchor" in [event.payload["regla"] for event in audit.events]
+
+
+def test_business_input_permite_target_no_binario_y_observed_rate_none() -> None:
+    """Con ancla externa, target no binario no bloquea pero se publica tasa observada ``None``."""
+    frame = _raw_frame([-1.0, 0.0, 1.0], target=[0.2, 0.4, 0.6])
+
+    calibrator = PDCalibrator(
+        target_pd=0.25,
+        anchor_source="business_input",
+        min_fit_rows=1,
+    ).fit(frame)
+
+    assert calibrator.target_pd_ == pytest.approx(0.25)
+    assert calibrator.observed_default_rate_dev_ is None
+    assert calibrator.parameters_.observed_default_rate_dev is None
 
 
 def test_contrato_roto_pd_raw_vs_sigmoid_falla_aunque_target_tolerance_sea_alto() -> None:
@@ -253,9 +381,12 @@ def test_anchor_development_observed_y_supervisado_exigen_target_binario_ambas_c
 
 def test_solver_no_converge_publica_contexto() -> None:
     with pytest.raises(CalibrationFitError, match="target_pd"):
-        PDCalibrator(target_pd=0.87, min_fit_rows=1, max_iter=1).fit(
-            _raw_frame([-2.0, -1.0, 0.0, 1.0, 2.0])
-        )
+        PDCalibrator(
+            target_pd=0.87,
+            anchor_source="business_input",
+            min_fit_rows=1,
+            max_iter=1,
+        ).fit(_raw_frame([-2.0, -1.0, 0.0, 1.0, 2.0]))
 
 
 def test_checks_finales_de_media_fallan_con_contexto(
@@ -270,7 +401,9 @@ def test_checks_finales_de_media_fallan_con_contexto(
 
     monkeypatch.setattr(calibrator_module, "_transform_with_state", wrong_mean)
     with pytest.raises(CalibrationFitError, match="media_alcanzada"):
-        PDCalibrator(target_pd=0.2, min_fit_rows=1).fit(_raw_frame([-1.0, 0.0, 1.0]))
+        PDCalibrator(target_pd=0.2, anchor_source="business_input", min_fit_rows=1).fit(
+            _raw_frame([-1.0, 0.0, 1.0])
+        )
 
 
 def test_verificacion_local_de_offset_falla_si_solver_devuelve_media_invalida(
@@ -282,7 +415,9 @@ def test_verificacion_local_de_offset_falla_si_solver_devuelve_media_invalida(
 
     monkeypatch.setattr(calibrator_module, "_solve_offset", bad_solve)
     with pytest.raises(CalibrationFitError, match="target_pd"):
-        PDCalibrator(target_pd=0.2, min_fit_rows=1).fit(_raw_frame([-1.0, 0.0, 1.0]))
+        PDCalibrator(target_pd=0.2, anchor_source="business_input", min_fit_rows=1).fit(
+            _raw_frame([-1.0, 0.0, 1.0])
+        )
 
 
 def test_platt_e_isotonic_traducen_fallo_del_estimador(
@@ -391,6 +526,7 @@ def test_clone_safe_from_config_set_params_y_runtime_config() -> None:
 
     assert cloned.get_params()["target_pd"] == 0.08
     assert cloned.get_params()["min_fit_rows"] == 1
+    assert cloned.get_params()["max_abs_offset"] is None
     assert from_dict.get_params()["method"] == "intercept_offset"
     assert cloned.set_params(target_pd=0.09).get_params()["target_pd"] == 0.09
 

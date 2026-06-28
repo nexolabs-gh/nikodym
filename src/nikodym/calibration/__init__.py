@@ -24,6 +24,7 @@ from nikodym.calibration.config import (
 from nikodym.calibration.exceptions import (
     CalibrationError,
     CalibrationFitError,
+    CalibrationOffsetExceededError,
     CalibrationTransformError,
 )
 from nikodym.core.config import schema as _schema
@@ -47,6 +48,7 @@ __all__ = [
     "CalibrationError",
     "CalibrationFitError",
     "CalibrationMethod",
+    "CalibrationOffsetExceededError",
     "CalibrationParameters",
     "CalibrationResult",
     "CalibrationStep",
