@@ -21,6 +21,7 @@ __all__ = ["discriminated_union_tags", "nikodym_config_strategy"]
 
 _SECTION_MODULES: dict[str, str] = {
     "binning": "nikodym.binning",
+    "calibration": "nikodym.calibration",
     "data": "nikodym.data",
     "eda": "nikodym.eda",
     "model": "nikodym.model",
@@ -77,6 +78,7 @@ def nikodym_config_strategy(
     selection = _selection_config_strategy(st) if "selection" in allowed else st.none()
     model = _model_config_strategy(st) if "model" in allowed else st.none()
     scorecard = _scorecard_config_strategy(st) if "scorecard" in allowed else st.none()
+    calibration = _calibration_config_strategy(st) if "calibration" in allowed else st.none()
     return cast(
         "SearchStrategy[NikodymConfig]",
         st.builds(
@@ -91,6 +93,7 @@ def nikodym_config_strategy(
             selection=selection,
             model=model,
             scorecard=scorecard,
+            calibration=calibration,
             audit=st.none(),
             governance=st.none(),
             tracking=st.none(),
@@ -395,6 +398,32 @@ def _scorecard_config_strategy(st: Any) -> Any:
     )
 
 
+def _calibration_config_strategy(st: Any) -> Any:
+    """Estrategia compacta de ``CalibrationConfig`` que respeta rangos y columnas."""
+    importlib.import_module("nikodym.calibration")
+    from nikodym.calibration.config import CalibrationConfig
+
+    return st.builds(
+        CalibrationConfig,
+        method=st.sampled_from(["intercept_offset", "platt_scaling", "isotonic"]),
+        target_pd=st.floats(min_value=1e-6, max_value=0.5, allow_nan=False),
+        anchor_kind=st.sampled_from(["through_the_cycle", "point_in_time"]),
+        anchor_source=st.sampled_from(
+            ["business_input", "historical_default_rate", "development_observed"]
+        ),
+        target_tolerance=st.floats(min_value=1e-12, max_value=1e-4, allow_nan=False),
+        max_iter=st.integers(min_value=1, max_value=500),
+        min_fit_rows=st.integers(min_value=1, max_value=10_000),
+        require_both_classes_for_supervised=st.just(True),
+        pd_raw_column=st.just("pd_raw"),
+        linear_predictor_column=st.just("linear_predictor"),
+        pd_calibrated_column=st.just("pd_calibrated"),
+        linear_predictor_calibrated_column=st.just("linear_predictor_calibrated"),
+        partition_column=st.just("partition"),
+        target_column=st.just("target"),
+    )
+
+
 def discriminated_union_tags() -> dict[str, list[str]]:
     """Devuelve tags ``type`` de uniones discriminadas de nivel sección.
 
@@ -424,6 +453,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._MODEL_CONFIG_CLS
     if domain == "scorecard" and core_schema._SCORECARD_CONFIG_CLS is not None:
         return core_schema._SCORECARD_CONFIG_CLS
+    if domain == "calibration" and core_schema._CALIBRATION_CONFIG_CLS is not None:
+        return core_schema._CALIBRATION_CONFIG_CLS
     raise AssertionError(f"No hay config_cls cargada para el dominio '{domain}'.")
 
 

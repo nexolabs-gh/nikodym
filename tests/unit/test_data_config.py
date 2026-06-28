@@ -30,9 +30,9 @@ from nikodym.data.config import (
     TemporalSplitConfig,
 )
 
-# Golden de NikodymConfig() por defecto (idéntico a tests/repro/test_config_hash_golden.py): B9.1
-# añadió la clave computacional `scorecard=None`; cargar `data` no debe moverlo adicionalmente.
-GOLDEN_DEFAULT_CONFIG_HASH = "129bdaf76bb5f46067428d36c3fe8bcf737637b1f5878f45105c7f95134517a5"
+# Golden de NikodymConfig() por defecto (idéntico a tests/repro/test_config_hash_golden.py): B10.1
+# añadió la clave computacional `calibration=None`; cargar `data` no debe moverlo adicionalmente.
+GOLDEN_DEFAULT_CONFIG_HASH = "9a2e945451a36f22d448a4091d2ae765ac3ab14e43aebf142ac355b6481a5d8e"
 
 
 @pytest.fixture(autouse=True)

@@ -31,7 +31,7 @@ from nikodym.model.config import (
 from nikodym.model.exceptions import ModelError, ModelFitError, ModelTransformError
 from nikodym.testing.strategies import _config_cls_for_domain, nikodym_config_strategy
 
-GOLDEN_DEFAULT_CONFIG_HASH = "129bdaf76bb5f46067428d36c3fe8bcf737637b1f5878f45105c7f95134517a5"
+GOLDEN_DEFAULT_CONFIG_HASH = "9a2e945451a36f22d448a4091d2ae765ac3ab14e43aebf142ac355b6481a5d8e"
 
 
 @pytest.fixture(autouse=True)
