@@ -4,8 +4,8 @@ Define la base común inmutable :class:`NikodymBaseConfig` y el config raíz
 :class:`NikodymConfig`, que agrega las secciones transversales del experimento:
 reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y los enganches
 opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``) y selección
-pre-modelo (``selection``). El config es *frozen*: su identidad se fija por ``config_hash`` (ver
-:mod:`nikodym.core.config.hashing`), no por mutación.
+pre-modelo (``selection``) y modelo PD (``model``). El config es *frozen*: su identidad se fija
+por ``config_hash`` (ver :mod:`nikodym.core.config.hashing`), no por mutación.
 ``NikodymConfig()`` debe construir sin argumentos —todas las secciones tienen valor por defecto—
 de modo que la UI sea un editor del mismo objeto. **Experimental (SemVer 0.x):** las secciones de
 dominio se añaden de forma aditiva por capa; el orden de declaración define el pipeline por
@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from nikodym.data.config import DataConfig
     from nikodym.eda.config import EdaConfig
     from nikodym.governance.config import GovernanceConfig
+    from nikodym.model.config import ModelConfig
     from nikodym.selection.config import SelectionConfig
     from nikodym.tracking.config import TrackingConfig
 
@@ -39,6 +40,7 @@ _DATA_CONFIG_CLS: type[BaseModel] | None = None
 _EDA_CONFIG_CLS: type[BaseModel] | None = None
 _BINNING_CONFIG_CLS: type[BaseModel] | None = None
 _SELECTION_CONFIG_CLS: type[BaseModel] | None = None
+_MODEL_CONFIG_CLS: type[BaseModel] | None = None
 _AUDIT_CONFIG_CLS: type[BaseModel] | None = None
 _GOVERNANCE_CONFIG_CLS: type[BaseModel] | None = None
 _TRACKING_CONFIG_CLS: type[BaseModel] | None = None
@@ -95,7 +97,7 @@ class NikodymConfig(NikodymBaseConfig):
     ``NikodymConfig()`` construye sin argumentos con todos los valores por defecto (DoD F0). Las
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
-    ``data``, ``eda``, ``binning``, ``selection``).
+    ``data``, ``eda``, ``binning``, ``selection``, ``model``).
     """
 
     schema_version: str = Field(
@@ -151,6 +153,18 @@ class NikodymConfig(NikodymBaseConfig):
             title="Selección",
             description=(
                 "Sección de selección pre-modelo de variables WoE (capa `selection`, SDD-07)."
+            ),
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `ModelConfig` la hace `_valida_model` vía hook diferido.
+        model: ModelConfig | None
+    else:
+        model: Any = Field(
+            default=None,
+            title="Modelo",
+            description=(
+                "Sección de modelo logístico PD sobre variables WoE (capa `model`, SDD-08)."
             ),
         )
     if TYPE_CHECKING:
@@ -284,6 +298,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "selection debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.selection` para validarlo "
                 "como SelectionConfig."
+            ) from exc
+        return valor
+
+    @field_validator("model", mode="before")
+    @classmethod
+    def _valida_model(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``model`` según haya o no capa ``model`` cargada.
+
+        Con ``nikodym.model`` importado (``_MODEL_CONFIG_CLS`` poblado), un ``dict`` se valida y
+        coacciona a :class:`ModelConfig` (``extra='forbid'`` y rangos); una instancia ya validada
+        pasa tal cual. Sin la capa cargada, ``model`` es un *blob* opaco: se exige JSON-canónico y
+        determinista (sin sets, objetos no serializables ni floats no finitos) para no corromper el
+        ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _MODEL_CONFIG_CLS is not None:
+            if isinstance(valor, _MODEL_CONFIG_CLS):
+                return valor
+            return _MODEL_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "model debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.model` para validarlo "
+                "como ModelConfig."
             ) from exc
         return valor
 

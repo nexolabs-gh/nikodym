@@ -23,6 +23,7 @@ _SECTION_MODULES: dict[str, str] = {
     "binning": "nikodym.binning",
     "data": "nikodym.data",
     "eda": "nikodym.eda",
+    "model": "nikodym.model",
     "selection": "nikodym.selection",
 }
 _REGISTRY_SECTION_MODULES: dict[str, str] = {"data": "nikodym.data"}
@@ -73,6 +74,7 @@ def nikodym_config_strategy(
     eda = _eda_config_strategy(st) if "eda" in allowed else st.none()
     binning = _binning_config_strategy(st) if "binning" in allowed else st.none()
     selection = _selection_config_strategy(st) if "selection" in allowed else st.none()
+    model = _model_config_strategy(st) if "model" in allowed else st.none()
     return cast(
         "SearchStrategy[NikodymConfig]",
         st.builds(
@@ -85,6 +87,7 @@ def nikodym_config_strategy(
             eda=eda,
             binning=binning,
             selection=selection,
+            model=model,
             audit=st.none(),
             governance=st.none(),
             tracking=st.none(),
@@ -310,6 +313,51 @@ def _selection_config_strategy(st: Any) -> Any:
     )
 
 
+def _model_config_strategy(st: Any) -> Any:
+    """Estrategia compacta de ``ModelConfig`` que respeta rangos y overrides."""
+    importlib.import_module("nikodym.model")
+    from nikodym.model.config import (
+        IvContributionConfig,
+        ModelConfig,
+        SignPolicyConfig,
+        StepwiseConfig,
+    )
+
+    return st.builds(
+        ModelConfig,
+        engine=st.sampled_from(["logit", "glm_binomial"]),
+        fit_intercept=st.booleans(),
+        optimizer=st.sampled_from(["newton", "bfgs", "lbfgs"]),
+        fit_maxiter=st.integers(min_value=1, max_value=500),
+        tol=st.floats(min_value=1e-12, max_value=1e-3, allow_nan=False),
+        alpha=st.floats(min_value=1e-6, max_value=0.5, allow_nan=False),
+        stepwise=st.builds(
+            StepwiseConfig,
+            enabled=st.booleans(),
+            direction=st.sampled_from(["none", "forward", "backward", "bidirectional"]),
+            criterion=st.sampled_from(["wald_pvalue", "lr_test", "both"]),
+            entry_p_value=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+            exit_p_value=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+            max_iter=st.integers(min_value=1, max_value=200),
+            min_features=st.integers(min_value=1, max_value=20),
+        ),
+        sign_policy=st.builds(
+            SignPolicyConfig,
+            expected_beta_sign=st.just("negative"),
+            action=st.sampled_from(["exclude", "flag", "fail"]),
+            fail_on_forced_inverted=st.booleans(),
+        ),
+        iv_contribution=st.builds(
+            IvContributionConfig,
+            threshold=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+            action=st.sampled_from(["exclude", "flag", "fail"]),
+        ),
+        force_include=st.just(()),
+        force_exclude=st.one_of(st.just(()), st.just(("mora_ult_6m",))),
+        fail_if_no_features=st.booleans(),
+    )
+
+
 def discriminated_union_tags() -> dict[str, list[str]]:
     """Devuelve tags ``type`` de uniones discriminadas de nivel sección.
 
@@ -335,6 +383,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._BINNING_CONFIG_CLS
     if domain == "selection" and core_schema._SELECTION_CONFIG_CLS is not None:
         return core_schema._SELECTION_CONFIG_CLS
+    if domain == "model" and core_schema._MODEL_CONFIG_CLS is not None:
+        return core_schema._MODEL_CONFIG_CLS
     raise AssertionError(f"No hay config_cls cargada para el dominio '{domain}'.")
 
 

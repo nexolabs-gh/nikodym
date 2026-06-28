@@ -8,7 +8,7 @@
 | **Tanda de producción** | T2 (Scoring) |
 | **Estado** | 🟡 Borrador |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config), SDD-06 (`binning`), SDD-07 (`selection`) |
-| **Lo consumen** | SDD-09 (`scorecard`), SDD-10 (`calibration`), SDD-11 (`performance` + `stability`), SDD-12 (`ml`, benchmark), SDD-18 (`survival`, reuso conceptual), SDD-26 (`report`) |
+| **Lo consumen** | SDD-09 (`scorecard`), SDD-10 (`calibration`), SDD-11 (`performance` + `stability`), SDD-12 (`ml`, benchmark), SDD-18 (`survival`, reuso conceptual, no contrato de datos), SDD-26 (`report`) |
 | **Autor / Fecha** | DanIA (redacción SDD-08 para T2) / 2026-06-27 |
 
 ---
