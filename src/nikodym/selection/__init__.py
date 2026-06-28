@@ -3,8 +3,9 @@
 Al importarse, registra :class:`SelectionConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.selection`` se valida como sub-config real
 sin que ``import nikodym.core`` arrastre ``nikodym.selection`` ni dependencias de scoring. La
-lógica de selección (``selector.py``/``step.py``) se materializa en B7.3; esta capa inicial deja la
-superficie preparada con reexportación perezosa.
+lógica pesada de selección (``selector.py``) se carga bajo demanda; el paquete importa
+``selection.step`` al final para ejecutar ``@register("standard", domain="selection")`` sin
+arrastrar dependencias de scoring.
 
 **Experimental (SemVer 0.x).**
 """
@@ -25,6 +26,7 @@ from nikodym.selection.config import (
 from nikodym.selection.exceptions import (
     SelectionError,
     SelectionFitError,
+    SelectionForcedVifConflictError,
     SelectionTransformError,
 )
 
@@ -36,6 +38,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "SelectionCardSection": ("nikodym.selection.results", "SelectionCardSection"),
     "SelectionDecisionReason": ("nikodym.selection.results", "SelectionDecisionReason"),
     "SelectionResult": ("nikodym.selection.results", "SelectionResult"),
+    "SelectionStep": ("nikodym.selection.step", "SelectionStep"),
     "VariableSelectionDecision": (
         "nikodym.selection.results",
         "VariableSelectionDecision",
@@ -50,13 +53,19 @@ __all__ = [
     "SelectionDecisionReason",
     "SelectionError",
     "SelectionFitError",
+    "SelectionForcedVifConflictError",
     "SelectionPriority",
     "SelectionResult",
+    "SelectionStep",
     "SelectionTransformError",
     "StabilitySelectionConfig",
     "VariableSelectionDecision",
     "VifSelectionConfig",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="selection") al
+# importar `nikodym.selection`, sin contaminar `import nikodym.core` ni cargar scoring.
+importlib.import_module("nikodym.selection.step")
 
 
 def __getattr__(name: str) -> Any:

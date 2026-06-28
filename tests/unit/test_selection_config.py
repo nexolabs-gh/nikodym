@@ -27,7 +27,12 @@ from nikodym.selection.config import (
     StabilitySelectionConfig,
     VifSelectionConfig,
 )
-from nikodym.selection.exceptions import SelectionError, SelectionFitError, SelectionTransformError
+from nikodym.selection.exceptions import (
+    SelectionError,
+    SelectionFitError,
+    SelectionForcedVifConflictError,
+    SelectionTransformError,
+)
 from nikodym.testing.strategies import _config_cls_for_domain, nikodym_config_strategy
 
 # Golden nuevo tras añadir la sección computacional `selection=None` al payload del config_hash.
@@ -233,7 +238,12 @@ def test_campos_selection_tienen_metadatos_ui() -> None:
 
 def test_selection_errors_descienden_de_nikodym_error() -> None:
     """Las excepciones de ``selection`` cuelgan de la raíz propia de la capa."""
-    for error_cls in (SelectionError, SelectionFitError, SelectionTransformError):
+    for error_cls in (
+        SelectionError,
+        SelectionFitError,
+        SelectionForcedVifConflictError,
+        SelectionTransformError,
+    ):
         with pytest.raises(SelectionError, match="fallo selection"):
             raise error_cls("fallo selection")
 

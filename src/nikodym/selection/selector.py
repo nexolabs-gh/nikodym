@@ -30,7 +30,11 @@ from nikodym.selection.config import (
     StabilitySelectionConfig,
     VifSelectionConfig,
 )
-from nikodym.selection.exceptions import SelectionFitError, SelectionTransformError
+from nikodym.selection.exceptions import (
+    SelectionFitError,
+    SelectionForcedVifConflictError,
+    SelectionTransformError,
+)
 
 _SCORING_EXTRA_MESSAGE = (
     "FeatureSelector requiere scikit-learn/statsmodels; instale nikodym[scoring]."
@@ -1085,7 +1089,7 @@ def _apply_vif_filter(
             break
         removable = [feature for feature in remaining if states[feature].forced != "include"]
         if not removable:
-            raise SelectionFitError(
+            raise SelectionForcedVifConflictError(
                 "VIF excede el umbral sólo entre variables force_include; "
                 f"umbral={threshold}, valores={vif_values!r}."
             )
