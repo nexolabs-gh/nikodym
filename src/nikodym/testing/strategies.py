@@ -23,6 +23,7 @@ _SECTION_MODULES: dict[str, str] = {
     "binning": "nikodym.binning",
     "data": "nikodym.data",
     "eda": "nikodym.eda",
+    "selection": "nikodym.selection",
 }
 _REGISTRY_SECTION_MODULES: dict[str, str] = {"data": "nikodym.data"}
 
@@ -71,6 +72,7 @@ def nikodym_config_strategy(
     data = _data_config_strategy(st) if "data" in allowed else st.none()
     eda = _eda_config_strategy(st) if "eda" in allowed else st.none()
     binning = _binning_config_strategy(st) if "binning" in allowed else st.none()
+    selection = _selection_config_strategy(st) if "selection" in allowed else st.none()
     return cast(
         "SearchStrategy[NikodymConfig]",
         st.builds(
@@ -82,6 +84,7 @@ def nikodym_config_strategy(
             data=data,
             eda=eda,
             binning=binning,
+            selection=selection,
             audit=st.none(),
             governance=st.none(),
             tracking=st.none(),
@@ -252,6 +255,61 @@ def _eda_config_strategy(st: Any) -> Any:
     )
 
 
+def _selection_config_strategy(st: Any) -> Any:
+    """Estrategia compacta de ``SelectionConfig`` que respeta rangos y overrides."""
+    importlib.import_module("nikodym.selection")
+    from nikodym.selection.config import (
+        CorrelationSelectionConfig,
+        SelectionConfig,
+        StabilitySelectionConfig,
+        VifSelectionConfig,
+    )
+
+    prioridades = ("iv", "auc", "ks", "gini", "name")
+    return st.builds(
+        SelectionConfig,
+        feature_columns=st.one_of(st.just("*"), st.just(("ingreso", "saldo"))),
+        exclude_columns=st.just(()),
+        force_include=st.just(()),
+        force_exclude=st.one_of(st.just(()), st.just(("mora_ult_6m",))),
+        min_iv=st.floats(min_value=0.0, max_value=0.5, allow_nan=False),
+        max_iv=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0, allow_nan=False)),
+        max_iv_action=st.sampled_from(["flag", "exclude"]),
+        compute_univariate_metrics=st.booleans(),
+        min_auc=st.one_of(st.none(), st.floats(min_value=0.5, max_value=1.0, allow_nan=False)),
+        min_ks=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0, allow_nan=False)),
+        min_gini=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0, allow_nan=False)),
+        priority_order=st.one_of(
+            st.just(("iv", "auc", "ks", "name")),
+            st.permutations(prioridades),
+        ),
+        correlation=st.builds(
+            CorrelationSelectionConfig,
+            enabled=st.booleans(),
+            method=st.sampled_from(["pearson", "spearman", "kendall"]),
+            threshold=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
+            clustering_method=st.sampled_from(["none", "connected_components"]),
+        ),
+        vif=st.builds(
+            VifSelectionConfig,
+            enabled=st.booleans(),
+            threshold=st.floats(min_value=1.0, max_value=20.0, allow_nan=False),
+            add_intercept=st.booleans(),
+            max_iterations=st.one_of(st.none(), st.integers(min_value=1, max_value=20)),
+        ),
+        stability=st.builds(
+            StabilitySelectionConfig,
+            enabled=st.booleans(),
+            action=st.sampled_from(["report_only", "exclude"]),
+            stable_threshold=st.floats(min_value=0.0, max_value=0.25, allow_nan=False),
+            review_threshold=st.floats(min_value=0.0, max_value=0.5, allow_nan=False),
+            smoothing=st.floats(min_value=1e-9, max_value=1e-3, allow_nan=False),
+        ),
+        keep_structural_columns=st.booleans(),
+        fail_if_no_features=st.booleans(),
+    )
+
+
 def discriminated_union_tags() -> dict[str, list[str]]:
     """Devuelve tags ``type`` de uniones discriminadas de nivel sección.
 
@@ -275,6 +333,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._EDA_CONFIG_CLS
     if domain == "binning" and core_schema._BINNING_CONFIG_CLS is not None:
         return core_schema._BINNING_CONFIG_CLS
+    if domain == "selection" and core_schema._SELECTION_CONFIG_CLS is not None:
+        return core_schema._SELECTION_CONFIG_CLS
     raise AssertionError(f"No hay config_cls cargada para el dominio '{domain}'.")
 
 

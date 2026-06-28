@@ -30,9 +30,9 @@ from nikodym.data.config import (
     TemporalSplitConfig,
 )
 
-# Golden de NikodymConfig() por defecto (idéntico a tests/repro/test_config_hash_golden.py): el
-# endurecimiento de `data` y la carga de la capa `data` NO deben moverlo con secciones None.
-GOLDEN_DEFAULT_CONFIG_HASH = "d8ddb93aa72799228c94b0979694a94991a59281c6baa1867ee28c23126143df"
+# Golden de NikodymConfig() por defecto (idéntico a tests/repro/test_config_hash_golden.py): B7.1
+# añadió la clave computacional `selection=None`; cargar `data` no debe moverlo adicionalmente.
+GOLDEN_DEFAULT_CONFIG_HASH = "bab6163162feb10dbc604a36def53997a9bd5fe8dcd6727f77c173ddd1185e0e"
 
 
 @pytest.fixture(autouse=True)

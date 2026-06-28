@@ -14,7 +14,8 @@ import pytest
 from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
 
 # Identidad SHA-256 de NikodymConfig() por defecto (sin INFRA_SECTIONS). Congelado a mano.
-GOLDEN_DEFAULT_CONFIG_HASH = "d8ddb93aa72799228c94b0979694a94991a59281c6baa1867ee28c23126143df"
+# B7.1: se añadió la clave computacional `selection=None`, por eso el golden cambió.
+GOLDEN_DEFAULT_CONFIG_HASH = "bab6163162feb10dbc604a36def53997a9bd5fe8dcd6727f77c173ddd1185e0e"
 
 
 def _hash_en_subproceso(hashseed: str) -> str:

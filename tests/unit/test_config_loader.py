@@ -25,6 +25,7 @@ def _vista_core_solo(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setattr(_schema_mod, "_DATA_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_EDA_CONFIG_CLS", None)
+    monkeypatch.setattr(_schema_mod, "_SELECTION_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_AUDIT_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_GOVERNANCE_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_TRACKING_CONFIG_CLS", None)
