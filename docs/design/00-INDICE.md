@@ -36,7 +36,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **06** | `binning` | Scoring | F1 | T2 | 02, 05 | 🟡 Borrador |
 | **07** | `selection` | Scoring | F1 | T2 | 06 | 🟡 Borrador |
 | **08** | `model` (logística + stepwise) | Scoring | F1 | T2 | 07 | 🟡 Borrador |
-| **09** | `scorecard` | Scoring | F1 | T2 | 08 | ⬜ Pendiente |
+| **09** | `scorecard` | Scoring | F1 | T2 | 08 | 🟡 Borrador |
 | **10** | `calibration` | Scoring | F1 | T2 | 08 | ⬜ Pendiente |
 | **11** | `performance` + `stability` | Scoring | F1 | T2 | 09, 10 | ⬜ Pendiente |
 | **12** | `ml` (SVM/RF/XGB/LGBM/CatBoost) | ML | F2 | T3 | 06, 08 | ⬜ Pendiente |
