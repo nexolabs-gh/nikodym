@@ -18,7 +18,8 @@ from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
 # B8.1: se añadió la clave computacional `model=None`, por eso el golden cambió.
 # B9.1: se añadió la clave computacional `scorecard=None`, por eso el golden cambió.
 # B10.1: se añadió la clave computacional `calibration=None`, por eso el golden cambió.
-GOLDEN_DEFAULT_CONFIG_HASH = "9a2e945451a36f22d448a4091d2ae765ac3ab14e43aebf142ac355b6481a5d8e"
+# B11.1: se añadió la clave computacional `performance=None`, por eso el golden cambió.
+GOLDEN_DEFAULT_CONFIG_HASH = "dd752b5c2bcffce04a7a0d58a49c723dade3630a1c4750a2bfe29e52b92cc7db"
 
 
 def _hash_en_subproceso(hashseed: str) -> str:

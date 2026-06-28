@@ -25,6 +25,7 @@ _SECTION_MODULES: dict[str, str] = {
     "data": "nikodym.data",
     "eda": "nikodym.eda",
     "model": "nikodym.model",
+    "performance": "nikodym.performance",
     "scorecard": "nikodym.scorecard",
     "selection": "nikodym.selection",
 }
@@ -79,6 +80,7 @@ def nikodym_config_strategy(
     model = _model_config_strategy(st) if "model" in allowed else st.none()
     scorecard = _scorecard_config_strategy(st) if "scorecard" in allowed else st.none()
     calibration = _calibration_config_strategy(st) if "calibration" in allowed else st.none()
+    performance = _performance_config_strategy(st) if "performance" in allowed else st.none()
     return cast(
         "SearchStrategy[NikodymConfig]",
         st.builds(
@@ -94,6 +96,7 @@ def nikodym_config_strategy(
             model=model,
             scorecard=scorecard,
             calibration=calibration,
+            performance=performance,
             audit=st.none(),
             governance=st.none(),
             tracking=st.none(),
@@ -424,6 +427,36 @@ def _calibration_config_strategy(st: Any) -> Any:
     )
 
 
+def _performance_config_strategy(st: Any) -> Any:
+    """Estrategia compacta de ``PerformanceConfig`` que respeta rangos y columnas."""
+    importlib.import_module("nikodym.performance")
+    from nikodym.performance.config import PerformanceConfig
+
+    threshold_values = st.floats(min_value=0.0, max_value=1.0, allow_nan=False)
+    return st.builds(
+        PerformanceConfig,
+        score_column=st.just("score"),
+        pd_column=st.just("pd_calibrated"),
+        target_column=st.just("target"),
+        partition_column=st.just("partition"),
+        score_direction=st.sampled_from(["higher_is_lower_risk", "higher_is_higher_risk"]),
+        evaluation_source=st.sampled_from(["pd_calibrated", "score"]),
+        partitions=st.one_of(
+            st.just(("desarrollo", "holdout", "oot")),
+            st.just(("desarrollo",)),
+            st.just(("holdout", "oot")),
+        ),
+        n_deciles=st.integers(min_value=2, max_value=50),
+        min_rows_per_partition=st.integers(min_value=1, max_value=10_000),
+        min_events_per_partition=st.integers(min_value=1, max_value=1_000),
+        optional_thresholds=st.dictionaries(
+            keys=st.sampled_from(["auc_min", "gini_min", "ks_min", "psi_max", "csi_max"]),
+            values=threshold_values,
+            max_size=3,
+        ),
+    )
+
+
 def discriminated_union_tags() -> dict[str, list[str]]:
     """Devuelve tags ``type`` de uniones discriminadas de nivel sección.
 
@@ -455,6 +488,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._SCORECARD_CONFIG_CLS
     if domain == "calibration" and core_schema._CALIBRATION_CONFIG_CLS is not None:
         return core_schema._CALIBRATION_CONFIG_CLS
+    if domain == "performance" and core_schema._PERFORMANCE_CONFIG_CLS is not None:
+        return core_schema._PERFORMANCE_CONFIG_CLS
     raise AssertionError(f"No hay config_cls cargada para el dominio '{domain}'.")
 
 
