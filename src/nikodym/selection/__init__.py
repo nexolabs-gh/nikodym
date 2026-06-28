@@ -32,6 +32,7 @@ from nikodym.selection.exceptions import (
 _schema._SELECTION_CONFIG_CLS = SelectionConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "FeatureSelector": ("nikodym.selection.selector", "FeatureSelector"),
     "SelectionCardSection": ("nikodym.selection.results", "SelectionCardSection"),
     "SelectionDecisionReason": ("nikodym.selection.results", "SelectionDecisionReason"),
     "SelectionResult": ("nikodym.selection.results", "SelectionResult"),
@@ -43,6 +44,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
 
 __all__ = [
     "CorrelationSelectionConfig",
+    "FeatureSelector",
     "SelectionCardSection",
     "SelectionConfig",
     "SelectionDecisionReason",
