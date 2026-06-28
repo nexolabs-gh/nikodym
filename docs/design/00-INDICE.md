@@ -35,7 +35,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **25** | Packaging + CI (uv, hatchling, extras) | Ingeniería | F0 | T1 | — | ✅ Aprobado |
 | **06** | `binning` | Scoring | F1 | T2 | 02, 05 | 🟡 Borrador |
 | **07** | `selection` | Scoring | F1 | T2 | 06 | 🟡 Borrador |
-| **08** | `model` (logística + stepwise) | Scoring | F1 | T2 | 07 | ⬜ Pendiente |
+| **08** | `model` (logística + stepwise) | Scoring | F1 | T2 | 07 | 🟡 Borrador |
 | **09** | `scorecard` | Scoring | F1 | T2 | 08 | ⬜ Pendiente |
 | **10** | `calibration` | Scoring | F1 | T2 | 08 | ⬜ Pendiente |
 | **11** | `performance` + `stability` | Scoring | F1 | T2 | 09, 10 | ⬜ Pendiente |
