@@ -5,8 +5,8 @@ Define la base común inmutable :class:`NikodymBaseConfig` y el config raíz
 reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y los enganches
 opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``), selección
 pre-modelo (``selection``), modelo PD (``model``), escalamiento de scorecard (``scorecard``),
-calibración de PD (``calibration``), survival/lifetime PD (``survival``), provisiones CMF
-(``provisioning_cmf``), desempeño
+calibración de PD (``calibration``), survival/lifetime PD (``survival``), matrices Markov de
+migración (``markov``), provisiones CMF (``provisioning_cmf``), desempeño
 post-modelo (``performance``), estabilidad post-modelo (``stability``) y reporte auditable
 (``report``). El config es
 *frozen*: su identidad se fija por
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from nikodym.data.config import DataConfig
     from nikodym.eda.config import EdaConfig
     from nikodym.governance.config import GovernanceConfig
+    from nikodym.markov.config import MarkovConfig
     from nikodym.model.config import ModelConfig
     from nikodym.performance.config import PerformanceConfig
     from nikodym.provisioning.cmf.config import CmfProvisioningConfig
@@ -57,6 +58,7 @@ _MODEL_CONFIG_CLS: type[BaseModel] | None = None
 _SCORECARD_CONFIG_CLS: type[BaseModel] | None = None
 _CALIBRATION_CONFIG_CLS: type[BaseModel] | None = None
 _SURVIVAL_CONFIG_CLS: type[BaseModel] | None = None
+_MARKOV_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_CMF_CONFIG_CLS: type[BaseModel] | None = None
 _PERFORMANCE_CONFIG_CLS: type[BaseModel] | None = None
 _STABILITY_CONFIG_CLS: type[BaseModel] | None = None
@@ -117,8 +119,9 @@ class NikodymConfig(NikodymBaseConfig):
     ``NikodymConfig()`` construye sin argumentos con todos los valores por defecto (DoD F0). Las
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
-    ``data``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``, ``calibration``,
-    ``survival``, ``provisioning_cmf``, ``performance``, ``stability``, ``report``).
+    ``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,
+    ``calibration``, ``survival``, ``provisioning_cmf``, ``performance``, ``stability``,
+    ``report``).
     """
 
     schema_version: str = Field(
@@ -143,6 +146,16 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Datos",
             description="Sección de origen y validación de datos (capa `data`, SDD-02).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `MarkovConfig` la hace `_valida_markov` vía hook diferido.
+        markov: MarkovConfig | None = None
+    else:
+        markov: Any = Field(
+            default=None,
+            title="Markov",
+            description="Sección de matrices Markov de migración y PD lifetime (SDD-19).",
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -312,6 +325,33 @@ class NikodymConfig(NikodymBaseConfig):
             raise ValueError(
                 "data debe ser JSON-canónico y determinista (sin sets, objetos no serializables ni "
                 "floats no finitos), o importa `nikodym.data` para validarlo como DataConfig."
+            ) from exc
+        return valor
+
+    @field_validator("markov", mode="before")
+    @classmethod
+    def _valida_markov(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``markov`` según haya o no capa cargada.
+
+        Con ``nikodym.markov`` importado (``_MARKOV_CONFIG_CLS`` poblado), un ``dict`` se valida y
+        coacciona a :class:`MarkovConfig` (``extra='forbid'`` y rangos); una instancia ya validada
+        pasa tal cual. Sin la capa cargada, ``markov`` es un *blob* opaco: se exige JSON-canónico y
+        determinista (sin sets, objetos no serializables ni floats no finitos) para no corromper el
+        ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _MARKOV_CONFIG_CLS is not None:
+            if isinstance(valor, _MARKOV_CONFIG_CLS):
+                return valor
+            return _MARKOV_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "markov debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.markov` para "
+                "validarlo como MarkovConfig."
             ) from exc
         return valor
 

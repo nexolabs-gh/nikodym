@@ -51,6 +51,7 @@ def test_from_config_registro_reexport_contrato_orden_e_import_liviano() -> None
     assert step.provides == tuple(("survival", key) for key in SURVIVAL_ARTIFACTS)
     assert study_module._DEFAULT_DOMAIN_ORDER == (
         "data",
+        "markov",
         "eda",
         "binning",
         "selection",
