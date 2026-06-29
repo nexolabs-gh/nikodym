@@ -3,8 +3,8 @@
 Al importarse, registra :class:`MarkovConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.markov`` se valida como sub-config real sin
 que ``import nikodym.core`` arrastre ``nikodym.markov`` ni dependencias numéricas opcionales. Este
-paquete no importa scipy, numpy ni pandas en top-level; los motores concretos llegarán en B19.2+
-y cargarán sus dependencias dentro de ``fit``/``execute``.
+paquete no importa scipy ni pandas en top-level; los motores concretos cargan sus dependencias
+dentro de ``fit``/``execute``.
 
 **Experimental (SemVer 0.x).**
 """
@@ -84,6 +84,10 @@ __all__ = [
     "validate_generator",
     "validate_transition_matrix",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="markov") al importar
+# `nikodym.markov`, sin contaminar `import nikodym.core` ni cargar pandas/scipy.
+importlib.import_module("nikodym.markov.step")
 
 
 def __getattr__(name: str) -> Any:

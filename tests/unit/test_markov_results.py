@@ -533,7 +533,7 @@ def test_markov_results_import_liviano_y_exports_publicos() -> None:
         "blocked=[m for m in ('pandas','scipy') if m in sys.modules];"
         "assert not blocked, blocked;"
         "assert 'numpy' in baseline;"
-        "assert 'nikodym.markov.step' not in sys.modules;"
+        "assert 'nikodym.markov.step' in sys.modules;"
         "assert 'nikodym.markov.transition' not in sys.modules"
     )
     subprocess.run([sys.executable, "-c", code], check=True)

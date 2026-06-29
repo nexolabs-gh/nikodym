@@ -305,7 +305,8 @@ def test_import_markov_liviano_y_registra_hook_en_proceso_fresco() -> None:
         "from nikodym.markov.config import MarkovConfig;"
         "bloqueados=[m for m in ('scipy','pandas') if m in sys.modules];"
         "assert not bloqueados, bloqueados;"
-        "assert 'nikodym.markov.step' not in sys.modules;"
+        "assert 'nikodym.markov.step' in sys.modules;"
+        "assert 'nikodym.markov.transition' not in sys.modules;"
         "cfg=NikodymConfig(markov={'states': {'states': ['A', 'default']}});"
         "assert isinstance(cfg.markov, MarkovConfig)"
     )
