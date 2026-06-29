@@ -1,8 +1,8 @@
 """Motor base de provisiones regulatorias CMF B-1 (SDD-15 §4/§7).
 
-``CmfProvisioningEngine`` calcula provisiones deterministas sobre exposiciones directas usando las
-matrices versionadas de ``provisioning.cmf``. No implementa contingentes B-3, sustitución por
-avales ni garantías financieras: esos flujos pertenecen al siguiente bloque de F3.
+``CmfProvisioningEngine`` calcula provisiones deterministas sobre exposiciones directas,
+contingentes B-3, sustitución proporcional por avales y guardrails de garantías financieras usando
+las matrices versionadas de ``provisioning.cmf``.
 
 El módulo mantiene import liviano: ``pandas`` y ``Decimal`` se resuelven bajo demanda dentro de
 ``calculate``.
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias, cast
 
@@ -29,6 +29,8 @@ from nikodym.provisioning.cmf.exceptions import (
     CmfInputError,
     CmfMappingError,
     CmfMatrixError,
+    CmfMissingRegulatoryDataError,
+    CmfProvisioningError,
 )
 from nikodym.provisioning.cmf.matrices import (
     CmfMatrixBundle,
@@ -106,6 +108,31 @@ _STUDENT_MATRIX = "commercial_group_student_v2018"
 _GENERIC_MATRIX = "commercial_group_generic_factoring_v2020"
 _CONSUMER_MATRIX = "consumer_standard_v2025"
 _HOUSING_MATRIX = "housing_pvg_v2018"
+_GUARANTEE_SUBSTITUTION_MATRIX = "commercial_group_guarantee_substitution_v2018"
+_GUARANTEE_AVAL_MATRIX = "guarantee_aval_quality_v2018"
+_CONTINGENT_MATRIX = "contingent_b3_v2016"
+_AVAL_COVERAGE_COL = "aval_coverage_pct"
+_AVAL_RATING_SCALE_COL = "aval_rating_scale"
+_AVAL_RATING_CATEGORY_COL = "aval_rating_category"
+_CONTINGENT_SUBTYPE_COL = "contingent_subtype"
+_FINANCIAL_GUARANTEE_AMOUNT_COLS = (
+    "financial_guarantee_amount",
+    "financial_guarantee_value",
+    "financial_guarantee_fair_value",
+)
+_FINANCIAL_GUARANTEE_FLAG_COLS = (
+    "financial_guarantee_requires_haircut",
+    "requires_financial_guarantee_haircut",
+)
+_FINANCIAL_GUARANTEE_TYPE_COLS = (
+    "guarantee_type",
+    "guarantee_kind",
+    "guarantee_class",
+    "financial_guarantee_type",
+)
+_FINANCIAL_GUARANTEE_TYPE_VALUES = frozenset(
+    {"financial", "financial_guarantee", "garantia_financiera", "garantía_financiera"}
+)
 _CATEGORIES_ORDER: tuple[str, ...] = (
     "A1",
     "A2",
@@ -136,7 +163,7 @@ _BOOLEAN_NO = frozenset({"0", "false", "f", "no", "n"})
 
 
 class CmfProvisioningEngine:
-    """Calcula provisiones CMF B-1 sobre exposiciones directas."""
+    """Calcula provisiones CMF B-1/B-3 con garantías verificadas o fail-fast."""
 
     config_cls: ClassVar[type[CmfProvisioningConfig]] = CmfProvisioningConfig
 
@@ -194,14 +221,38 @@ class CmfProvisioningEngine:
                 pd_category=pd_categories.get(row_id),
                 consumer_state=consumer_states.get(row_id),
             )
-            exposure = _direct_exposure(row, cfg=cfg, decimal=decimal)
-            resolved = _resolve_provision(
+            exposure = _resolve_exposure(
                 context,
-                exposure=exposure,
                 cfg=cfg,
                 bundle=self.matrices,
                 decimal=decimal,
                 pd=pd,
+            )
+            _enforce_financial_guarantee_policy(
+                context,
+                exposure=exposure,
+                cfg=cfg,
+                decimal=decimal,
+                pd=pd,
+                matrix_version=self.matrices.manifest.version,
+            )
+            resolved = _resolve_provision(
+                context,
+                exposure=exposure.exposure_amount,
+                cfg=cfg,
+                bundle=self.matrices,
+                decimal=decimal,
+                pd=pd,
+            )
+            resolved = _apply_guarantee_substitution(
+                context,
+                resolution=resolved,
+                exposure=exposure.exposure_amount,
+                cfg=cfg,
+                bundle=self.matrices,
+                decimal=decimal,
+                pd=pd,
+                matrix_version=self.matrices.manifest.version,
             )
             rounded_provision = _round_provision(
                 resolved.provision_amount,
@@ -212,9 +263,9 @@ class CmfProvisioningEngine:
                 row_id=str(row_id),
                 portfolio=resolved.portfolio,
                 method=resolved.method,
-                exposure_amount=exposure,
-                direct_exposure_amount=exposure,
-                contingent_exposure_amount=decimal.zero,
+                exposure_amount=exposure.exposure_amount,
+                direct_exposure_amount=exposure.direct_exposure_amount,
+                contingent_exposure_amount=exposure.contingent_exposure_amount,
                 pi_percent=resolved.pi_percent,
                 pdi_percent=resolved.pdi_percent,
                 pe_percent=resolved.pe_percent,
@@ -225,8 +276,8 @@ class CmfProvisioningEngine:
                 pd_source_value=(
                     None if context.pd_category is None else context.pd_category.pd_value
                 ),
-                guarantee_treatment="none",
-                warnings=(),
+                guarantee_treatment=resolved.guarantee_treatment,
+                warnings=(*exposure.warnings, *resolved.warnings),
             )
             records.append(record)
             detail_rows.append(
@@ -234,6 +285,7 @@ class CmfProvisioningEngine:
                     record,
                     source_reference=resolved.source_reference,
                     matrix_version=self.matrices.manifest.version,
+                    ccf_percent=exposure.ccf_percent,
                 )
             )
             detail_index.append(row_id)
@@ -290,6 +342,17 @@ class ConsumerState:
 
 
 @dataclass(frozen=True)
+class ExposureResolution:
+    """Exposición directa más contingente B-3 convertida."""
+
+    direct_exposure_amount: Decimal
+    contingent_exposure_amount: Decimal
+    exposure_amount: Decimal
+    ccf_percent: Decimal | None
+    warnings: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class RowContext:
     """Fila de entrada más contexto regulatorio precomputado."""
 
@@ -330,6 +393,8 @@ class ProvisionResolution:
     pe_percent: Decimal
     provision_amount: Decimal
     source_reference: str
+    guarantee_treatment: str = "none"
+    warnings: tuple[str, ...] = ()
 
 
 def _import_pandas() -> Any:
@@ -359,7 +424,7 @@ def _as_dataframe(frame: object, *, pd: Any) -> DataFrame:
 
 
 def _validate_base_contract(frame: DataFrame, *, cfg: CmfProvisioningConfig) -> None:
-    """Valida índice, columnas base y carteras soportadas por B15.4."""
+    """Valida índice, columnas base y carteras soportadas por el motor CMF."""
     duplicated = frame.columns[frame.columns.duplicated()].astype(str).tolist()
     if duplicated:
         raise CmfInputError(f"El frame CMF contiene columnas duplicadas: {duplicated}.")
@@ -484,6 +549,180 @@ def _direct_exposure(row: Any, *, cfg: CmfProvisioningConfig, decimal: DecimalRu
     return exposure
 
 
+def _resolve_exposure(
+    context: RowContext,
+    *,
+    cfg: CmfProvisioningConfig,
+    bundle: CmfMatrixBundle,
+    decimal: DecimalRuntime,
+    pd: Any,
+) -> ExposureResolution:
+    """Calcula exposición directa más contingente B-3 convertido."""
+    direct_exposure = _direct_exposure(context.row, cfg=cfg, decimal=decimal)
+    contingent_amount = _optional_decimal_from_row(
+        context.row,
+        cfg.exposure.contingent_amount_col,
+        pd=pd,
+        decimal=decimal,
+    )
+    if contingent_amount == decimal.zero:
+        return ExposureResolution(
+            direct_exposure_amount=direct_exposure,
+            contingent_exposure_amount=decimal.zero,
+            exposure_amount=direct_exposure,
+            ccf_percent=None,
+        )
+    if contingent_amount < decimal.zero and not cfg.exposure.allow_negative_exposure:
+        raise CmfInputError(
+            "Exposición contingente negativa no permitida por config: "
+            f"columna={cfg.exposure.contingent_amount_col!r}, valor={contingent_amount}."
+        )
+    contingent_row = _contingent_row(
+        context,
+        cfg=cfg,
+        bundle=bundle,
+        pd=pd,
+        matrix_version=bundle.manifest.version,
+    )
+    matrix_ccf = _required_percent(
+        contingent_row.ccf_percent,
+        row=contingent_row,
+        field_name="ccf_percent",
+        decimal=decimal,
+    )
+    ccf = decimal.hundred if _is_default_for_contingent(context, cfg=cfg, pd=pd) else matrix_ccf
+    contingent_exposure = contingent_amount * ccf / decimal.hundred
+    total_exposure = direct_exposure + contingent_exposure
+    return ExposureResolution(
+        direct_exposure_amount=direct_exposure,
+        contingent_exposure_amount=contingent_exposure,
+        exposure_amount=total_exposure,
+        ccf_percent=ccf,
+    )
+
+
+def _optional_decimal_from_row(
+    row: Any,
+    column: str,
+    *,
+    pd: Any,
+    decimal: DecimalRuntime,
+) -> Decimal:
+    """Lee un Decimal opcional: columna ausente o nula equivale a cero."""
+    if column not in row.index or _is_missing(row[column], pd):
+        return decimal.zero
+    return _decimal_from_value(row[column], column=column, decimal=decimal)
+
+
+def _contingent_row(
+    context: RowContext,
+    *,
+    cfg: CmfProvisioningConfig,
+    bundle: CmfMatrixBundle,
+    pd: Any,
+    matrix_version: str,
+) -> CmfMatrixRow:
+    """Busca el CCF B-3 por tipo contingente y subtipo cuando corresponde."""
+    row = context.row
+    if cfg.exposure.contingent_type_col not in row.index:
+        raise CmfInputError(
+            "Falta columna de tipo contingente B-3 para exposición contingente positiva: "
+            f"cartera={row[cfg.portfolio_col]!r}, fila={context.row_id!r}, "
+            f"columna={cfg.exposure.contingent_type_col!r}."
+        )
+    contingent_type = _text_value(
+        row[cfg.exposure.contingent_type_col],
+        column=cfg.exposure.contingent_type_col,
+        row_id=context.row_id,
+        pd=pd,
+    )
+    dimensions = {"contingent_type": contingent_type}
+    if contingent_type == "otros_compromisos_credito":
+        if _CONTINGENT_SUBTYPE_COL not in row.index or _is_missing(
+            row[_CONTINGENT_SUBTYPE_COL],
+            pd,
+        ):
+            return _raise_unmapped_contingent(
+                context,
+                cfg=cfg,
+                observed=f"{contingent_type}|<sin_subtipo>",
+                matrix_version=matrix_version,
+            )
+        dimensions["contingent_subtype"] = _text_value(
+            row[_CONTINGENT_SUBTYPE_COL],
+            column=_CONTINGENT_SUBTYPE_COL,
+            row_id=context.row_id,
+            pd=pd,
+        )
+    try:
+        return _lookup_by_dimensions(bundle, _CONTINGENT_MATRIX, dimensions)
+    except CmfMatrixError as exc:
+        raise _unmapped_contingent_error(
+            context,
+            cfg=cfg,
+            observed=str(dimensions),
+            matrix_version=matrix_version,
+        ) from exc
+
+
+def _raise_unmapped_contingent(
+    context: RowContext,
+    *,
+    cfg: CmfProvisioningConfig,
+    observed: str,
+    matrix_version: str,
+) -> CmfMatrixRow:
+    """Levanta o traduce un contingente no mapeado según config."""
+    raise _unmapped_contingent_error(
+        context,
+        cfg=cfg,
+        observed=observed,
+        matrix_version=matrix_version,
+    )
+
+
+def _unmapped_contingent_error(
+    context: RowContext,
+    *,
+    cfg: CmfProvisioningConfig,
+    observed: str,
+    matrix_version: str,
+) -> CmfProvisioningError:
+    """Construye el error regulatorio para contingentes B-3 sin fila verificada."""
+    message = (
+        "Tipo contingente B-3 no mapeado contra las ocho filas verificadas: "
+        f"cartera={context.row[cfg.portfolio_col]!r}, regla=docs/normativa_cmf_parametros.md §6, "
+        f"matrix_version={matrix_version!r}, valor_observado={observed}."
+    )
+    if cfg.matrices.fail_on_unmapped_contingent_type:
+        return CmfMissingRegulatoryDataError(message)
+    return CmfMappingError(message)
+
+
+def _is_default_for_contingent(
+    context: RowContext,
+    *,
+    cfg: CmfProvisioningConfig,
+    pd: Any,
+) -> bool:
+    """Lee el flag de incumplimiento que fuerza CCF B-3 a 100 %."""
+    row = context.row
+    if cfg.exposure.is_default_col not in row.index or _is_missing(
+        row[cfg.exposure.is_default_col],
+        pd,
+    ):
+        raise CmfInputError(
+            "Contingente B-3 exige indicador de incumplimiento para aplicar override normativo: "
+            f"cartera={row[cfg.portfolio_col]!r}, fila={context.row_id!r}, "
+            f"columna={cfg.exposure.is_default_col!r}."
+        )
+    return _bool_dimension(
+        row[cfg.exposure.is_default_col],
+        column=cfg.exposure.is_default_col,
+        row_id=context.row_id,
+    )
+
+
 def _resolve_provision(
     context: RowContext,
     *,
@@ -531,7 +770,7 @@ def _resolve_provision(
         )
     if portfolio == "housing":
         return _resolve_housing(context, exposure=exposure, cfg=cfg, bundle=bundle, decimal=decimal)
-    raise CmfMappingError(f"Cartera CMF no soportada en B15.4: {portfolio!r}.")
+    raise CmfMappingError(f"Cartera CMF no soportada por el motor CMF: {portfolio!r}.")
 
 
 def _resolve_commercial_individual(
@@ -897,6 +1136,226 @@ def _resolve_housing(
     )
 
 
+def _apply_guarantee_substitution(
+    context: RowContext,
+    *,
+    resolution: ProvisionResolution,
+    exposure: Decimal,
+    cfg: CmfProvisioningConfig,
+    bundle: CmfMatrixBundle,
+    decimal: DecimalRuntime,
+    pd: Any,
+    matrix_version: str,
+) -> ProvisionResolution:
+    """Aplica sustitución proporcional por avales cuando la fila la declara."""
+    if not cfg.guarantees.enable_aval_substitution:
+        return resolution
+    coverage = _optional_decimal_from_row(
+        context.row,
+        _AVAL_COVERAGE_COL,
+        pd=pd,
+        decimal=decimal,
+    )
+    if coverage == decimal.zero:
+        return resolution
+    if coverage < decimal.zero or coverage > decimal.hundred:
+        raise CmfInputError(
+            "Cobertura de aval fuera de [0, 100]: "
+            f"cartera={resolution.portfolio!r}, regla=docs/normativa_cmf_parametros.md §2.d, "
+            f"matrix_version={matrix_version!r}, valor_observado={coverage}."
+        )
+    _require_columns(
+        context.row.to_frame().T,
+        (_AVAL_RATING_SCALE_COL, _AVAL_RATING_CATEGORY_COL),
+        portfolio=resolution.portfolio,
+        row_id=context.row_id,
+    )
+    aval_row = _aval_quality_row(context, bundle=bundle, pd=pd)
+    aval_pi = _required_percent(
+        aval_row.pi_percent,
+        row=aval_row,
+        field_name="pi_percent",
+        decimal=decimal,
+    )
+    aval_pdi = _required_percent(
+        aval_row.pdi_percent,
+        row=aval_row,
+        field_name="pdi_percent",
+        decimal=decimal,
+    )
+    aval_pe = aval_pi * aval_pdi / decimal.hundred
+    method = (
+        "metodo_2_pi_pdi"
+        if resolution.pi_percent is not None and resolution.pdi_percent is not None
+        else "metodo_1_pe_directa"
+    )
+    formula_row = _lookup_by_dimensions(
+        bundle,
+        _GUARANTEE_SUBSTITUTION_MATRIX,
+        {"row_type": "formula", "method": method},
+    )
+    guaranteed_share = coverage / decimal.hundred
+    unguaranteed_share = (decimal.hundred - coverage) / decimal.hundred
+    if method == "metodo_2_pi_pdi":
+        group_pi = resolution.pi_percent
+        group_pdi = resolution.pdi_percent
+        assert group_pi is not None and group_pdi is not None
+        provision = (
+            exposure * unguaranteed_share * group_pi / decimal.hundred * group_pdi / decimal.hundred
+        ) + (exposure * guaranteed_share * aval_pe / decimal.hundred)
+    else:
+        provision = (exposure * unguaranteed_share * resolution.pe_percent / decimal.hundred) + (
+            exposure * guaranteed_share * aval_pe / decimal.hundred
+        )
+    effective_pe = (
+        provision / exposure * decimal.hundred if exposure != decimal.zero else decimal.zero
+    )
+    return replace(
+        resolution,
+        matrix_row_id=f"{resolution.matrix_row_id}|{formula_row.row_id}|{aval_row.row_id}",
+        pe_percent=effective_pe,
+        provision_amount=provision,
+        source_reference=_join_source_texts(
+            (
+                resolution.source_reference,
+                _source_reference(formula_row),
+                _source_reference(aval_row),
+            )
+        ),
+        guarantee_treatment="aval_substitution",
+    )
+
+
+def _aval_quality_row(context: RowContext, *, bundle: CmfMatrixBundle, pd: Any) -> CmfMatrixRow:
+    """Busca PI/PDI del aval por categoría y escala de rating externo."""
+    rating_scale = _normaliza_rating_scale(
+        _text_value(
+            context.row[_AVAL_RATING_SCALE_COL],
+            column=_AVAL_RATING_SCALE_COL,
+            row_id=context.row_id,
+            pd=pd,
+        )
+    )
+    rating_category = _normaliza_rating_category(
+        _text_value(
+            context.row[_AVAL_RATING_CATEGORY_COL],
+            column=_AVAL_RATING_CATEGORY_COL,
+            row_id=context.row_id,
+            pd=pd,
+        )
+    )
+    try:
+        return _lookup_by_dimensions(
+            bundle,
+            _GUARANTEE_AVAL_MATRIX,
+            {"rating_category": rating_category, "rating_scale": rating_scale},
+        )
+    except CmfMatrixError as exc:
+        raise CmfMappingError(
+            "Aval sin equivalencia de calidad crediticia verificada: "
+            "regla=docs/normativa_cmf_parametros.md §5.2, "
+            f"rating_scale={rating_scale!r}, rating_category={rating_category!r}."
+        ) from exc
+
+
+def _normaliza_rating_scale(value: str) -> str:
+    """Normaliza escala de rating del aval a la dimensión versionada."""
+    normalized = value.strip().lower()
+    aliases = {
+        "internacional": "international",
+        "international": "international",
+        "nacional": "national",
+        "national": "national",
+    }
+    mapped = aliases.get(normalized)
+    if mapped is None:
+        raise CmfMappingError(f"Escala de rating de aval no soportada: {value!r}.")
+    return mapped
+
+
+def _normaliza_rating_category(value: str) -> str:
+    """Normaliza espacios en categoría de rating sin alterar la escala normativa."""
+    return value.strip().replace(" / ", "/")
+
+
+def _enforce_financial_guarantee_policy(
+    context: RowContext,
+    *,
+    exposure: ExposureResolution,
+    cfg: CmfProvisioningConfig,
+    decimal: DecimalRuntime,
+    pd: Any,
+    matrix_version: str,
+) -> None:
+    """Falla ante garantías financieras con haircuts pendientes salvo recupero explícito."""
+    if not _requires_financial_guarantee_haircut(context.row, pd=pd, decimal=decimal):
+        return
+    policy = cfg.guarantees.financial_guarantee_policy
+    if policy == "ignore_if_missing":
+        return
+    recoverable_col = _recoverable_column(context.row, cfg)
+    recoverable = None
+    if recoverable_col is not None and not _is_missing(context.row[recoverable_col], pd):
+        recoverable = _decimal_from_value(
+            context.row[recoverable_col],
+            column=recoverable_col,
+            decimal=decimal,
+        )
+    if policy == "use_recoverable_amount" and recoverable is not None:
+        if recoverable < decimal.zero:
+            raise CmfInputError(
+                "recoverable_amount de garantía financiera no puede ser negativo: "
+                f"fila={context.row_id!r}, valor_observado={recoverable}."
+            )
+        return
+    raise CmfMissingRegulatoryDataError(
+        "Garantía financiera requiere aforo/haircut no verificado: "
+        f"cartera={context.row[cfg.portfolio_col]!r}, regla=docs/normativa_cmf_parametros.md §5.2, "
+        f"matrix_version={matrix_version!r}, "
+        f"valor_observado={_financial_guarantee_observed(context.row)}; "
+        f"exposure_amount={exposure.exposure_amount}."
+    )
+
+
+def _requires_financial_guarantee_haircut(
+    row: Any,
+    *,
+    pd: Any,
+    decimal: DecimalRuntime,
+) -> bool:
+    """Detecta columnas explícitas que declaran garantía financiera."""
+    for column in _FINANCIAL_GUARANTEE_FLAG_COLS:
+        if column in row.index and not _is_missing(row[column], pd):
+            return _bool_dimension(row[column], column=column, row_id=row.name)
+    for column in _FINANCIAL_GUARANTEE_AMOUNT_COLS:
+        if column in row.index and not _is_missing(row[column], pd):
+            amount = _decimal_from_value(row[column], column=column, decimal=decimal)
+            if amount < decimal.zero:
+                raise CmfInputError(
+                    f"La columna '{column}' no puede ser negativa para garantía financiera."
+                )
+            if amount > decimal.zero:
+                return True
+    for column in _FINANCIAL_GUARANTEE_TYPE_COLS:
+        if column in row.index and not _is_missing(row[column], pd):
+            observed = str(row[column]).strip().lower()
+            if observed in _FINANCIAL_GUARANTEE_TYPE_VALUES:
+                return True
+    return False
+
+
+def _financial_guarantee_observed(row: Any) -> str:
+    """Resume el primer marcador de garantía financiera observado."""
+    for column in (
+        *_FINANCIAL_GUARANTEE_FLAG_COLS,
+        *_FINANCIAL_GUARANTEE_AMOUNT_COLS,
+        *_FINANCIAL_GUARANTEE_TYPE_COLS,
+    ):
+        if column in row.index:
+            return f"{column}={row[column]!r}"
+    return "<sin_columna_explicita>"
+
+
 def _category_for_individual(
     context: RowContext,
     *,
@@ -1006,6 +1465,26 @@ def _lookup_exact(bundle: CmfMatrixBundle, key: CmfLookupKey) -> CmfMatrixRow:
         raise CmfMatrixError(
             "Lookup CMF no resolvió una fila exacta: "
             f"matrix_id={key.matrix_id!r}, dimensions={dimensions!r}, coincidencias={len(matches)}."
+        )
+    return matches[0]
+
+
+def _lookup_by_dimensions(
+    bundle: CmfMatrixBundle,
+    matrix_id: str,
+    dimensions: Mapping[str, str],
+) -> CmfMatrixRow:
+    """Busca una única fila que contenga las dimensiones regulatorias provistas."""
+    matches = [
+        row
+        for row in bundle.get_rows(matrix_id)
+        if all(row.dimensions.get(key) == value for key, value in dimensions.items())
+    ]
+    if len(matches) != 1:
+        raise CmfMatrixError(
+            "Lookup CMF por dimensiones parciales no resolvió una fila exacta: "
+            f"matrix_id={matrix_id!r}, dimensions={dict(dimensions)!r}, "
+            f"coincidencias={len(matches)}."
         )
     return matches[0]
 
@@ -1337,6 +1816,15 @@ def _join_sources(rows: tuple[CmfMatrixRow, CmfMatrixRow]) -> str:
     return "; ".join(sources)
 
 
+def _join_source_texts(sources: tuple[str, ...]) -> str:
+    """Une referencias ya construidas preservando orden y sin duplicados."""
+    unique: list[str] = []
+    for source in sources:
+        if source not in unique:
+            unique.append(source)
+    return "; ".join(unique)
+
+
 def _round_provision(
     value: Decimal,
     *,
@@ -1355,6 +1843,7 @@ def _detail_row(
     *,
     source_reference: str,
     matrix_version: str,
+    ccf_percent: Decimal | None,
 ) -> dict[str, object]:
     """Convierte un record validado a la fila canónica de ``detail``."""
     return {
@@ -1372,7 +1861,7 @@ def _detail_row(
         "pe_percent": record.pe_percent,
         "provision_amount": record.provision_amount,
         "guarantee_treatment": record.guarantee_treatment,
-        "ccf_percent": None,
+        "ccf_percent": ccf_percent,
         "warning_codes": record.warnings,
         "source_reference": source_reference,
         "matrix_version": matrix_version,
@@ -1483,7 +1972,7 @@ def _card(
                 "matrix_sha256": matrix_bundle.manifest.yaml_sha256,
                 "pe_consistency_tolerance_percent": _PE_CONSISTENCY_TOLERANCE_PERCENT,
                 "summary_rows": len(summary.index),
-                "scope": "base_direct_exposures_without_b3_or_guarantees",
+                "scope": "b1_b3_aval_substitution_financial_guarantee_guardrails",
             }
         },
     )
@@ -1519,7 +2008,7 @@ def _emit_audit(
             kind="decision",
             step=None,
             payload={
-                "regla": "cmf_b1_engine_base",
+                "regla": "cmf_b1_b3_engine",
                 "umbral": {
                     "rounding": cfg.exposure.rounding,
                     "pe_tolerance_percent": _PE_CONSISTENCY_TOLERANCE_PERCENT,

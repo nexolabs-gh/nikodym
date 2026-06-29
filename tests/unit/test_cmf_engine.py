@@ -1,4 +1,4 @@
-"""Tests del motor base ``provisioning.cmf.engine`` (B15.4)."""
+"""Tests del motor ``provisioning.cmf.engine`` (B15.4/B15.5)."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.provisioning.cmf.config import (
     CmfExposureConfig,
     CmfGuaranteeConfig,
+    CmfMatrixConfig,
     CmfPdMappingConfig,
     CmfProvisioningConfig,
 )
@@ -28,6 +29,7 @@ from nikodym.provisioning.cmf.exceptions import (
     CmfInputError,
     CmfMappingError,
     CmfMatrixError,
+    CmfMissingRegulatoryDataError,
 )
 from nikodym.provisioning.cmf.matrices import CmfMatrixBundle, CmfMatrixRow, load_cmf_matrices
 
@@ -76,7 +78,7 @@ def test_engine_calcula_goldens_canonicos_y_no_muta_input() -> None:
         "matrix_sha256": result.matrix_bundle.manifest.yaml_sha256,
         "pe_consistency_tolerance_percent": "0.0001",
         "summary_rows": 6,
-        "scope": "base_direct_exposures_without_b3_or_guarantees",
+        "scope": "b1_b3_aval_substitution_financial_guarantee_guardrails",
     }
 
 
@@ -176,6 +178,461 @@ def test_engine_calcula_leasing_estudiantil_y_pvg_derivado() -> None:
 
 
 @pytest.mark.parametrize(
+    ("row_id", "contingent_type", "contingent_subtype", "ccf_percent"),
+    [
+        ("a", "avales_fianzas", None, "100"),
+        ("b", "cartas_credito_exterior_confirmadas", None, "20"),
+        ("c", "cartas_credito_documentarias_emitidas", None, "20"),
+        ("d", "boletas_garantia", None, "50"),
+        ("e", "lineas_libre_disposicion", None, "35"),
+        ("f_cae", "otros_compromisos_credito", "cae_ley_20027", "15"),
+        ("f_otros", "otros_compromisos_credito", "otros", "100"),
+        ("g", "otros_creditos_contingentes", None, "100"),
+    ],
+)
+def test_engine_calcula_las_ocho_filas_contingentes_b3(
+    row_id: str,
+    contingent_type: str,
+    contingent_subtype: str | None,
+    ccf_percent: str,
+) -> None:
+    """B-3 usa la matriz verificada: ocho filas reales, cifra a cifra."""
+    frame = pd.DataFrame(
+        [
+            _contingent_row(
+                contingent_type=contingent_type,
+                contingent_subtype=contingent_subtype,
+                contingent_amount=1_000,
+                is_default=False,
+            )
+        ],
+        index=[row_id],
+    )
+
+    result = _engine().calculate(frame, as_of_date="2026-01-31")
+    record = result.records[0]
+    expected_contingent = Decimal("1000") * Decimal(ccf_percent) / Decimal("100")
+
+    assert record.direct_exposure_amount == Decimal("0")
+    assert record.contingent_exposure_amount == expected_contingent
+    assert record.exposure_amount == expected_contingent
+    assert record.provision_amount == _expected_decimal(expected_contingent, "0.04", "90.0")
+    assert result.detail.loc[row_id, "ccf_percent"] == Decimal(ccf_percent)
+    assert result.detail.loc[row_id, "contingent_exposure_amount"] == expected_contingent
+
+
+def test_engine_contingente_b3_fuerza_ccf_100_en_incumplimiento() -> None:
+    """El override B-3 de incumplimiento reemplaza el CCF de matriz por 100 %."""
+    frame = pd.DataFrame(
+        [
+            _contingent_row(
+                contingent_type="lineas_libre_disposicion",
+                contingent_subtype=None,
+                contingent_amount=1_000,
+                is_default=True,
+            )
+        ],
+        index=["default"],
+    )
+
+    result = _engine().calculate(frame, as_of_date="2026-01-31")
+
+    assert result.records[0].contingent_exposure_amount == Decimal("1000")
+    assert result.detail.loc["default", "ccf_percent"] == Decimal("100")
+    assert result.records[0].provision_amount == _expected_decimal(
+        Decimal("1000"),
+        "0.04",
+        "90.0",
+    )
+
+
+@pytest.mark.parametrize(
+    ("frame", "error_cls", "match"),
+    [
+        (
+            pd.DataFrame(
+                [
+                    {
+                        "cmf_portfolio": "commercial_individual",
+                        "cmf_category": "A1",
+                        "exposure_amount": 0,
+                        "contingent_amount": 100,
+                        "is_default": False,
+                    }
+                ],
+                index=["sin_tipo"],
+            ),
+            CmfInputError,
+            "tipo contingente",
+        ),
+        (
+            pd.DataFrame(
+                [
+                    {
+                        "cmf_portfolio": "commercial_individual",
+                        "cmf_category": "A1",
+                        "exposure_amount": 0,
+                        "contingent_amount": 100,
+                        "contingent_type": "otros_compromisos_credito",
+                        "is_default": False,
+                    }
+                ],
+                index=["sin_subtipo"],
+            ),
+            CmfMissingRegulatoryDataError,
+            "sin_subtipo",
+        ),
+        (
+            pd.DataFrame(
+                [
+                    {
+                        "cmf_portfolio": "commercial_individual",
+                        "cmf_category": "A1",
+                        "exposure_amount": 0,
+                        "contingent_amount": 100,
+                        "contingent_type": "tipo_no_verificado",
+                        "is_default": False,
+                    }
+                ],
+                index=["unmapped"],
+            ),
+            CmfMissingRegulatoryDataError,
+            "Tipo contingente B-3",
+        ),
+        (
+            pd.DataFrame(
+                [
+                    {
+                        "cmf_portfolio": "commercial_individual",
+                        "cmf_category": "A1",
+                        "exposure_amount": 0,
+                        "contingent_amount": 100,
+                        "contingent_type": "avales_fianzas",
+                    }
+                ],
+                index=["sin_default"],
+            ),
+            CmfInputError,
+            "incumplimiento",
+        ),
+        (
+            pd.DataFrame(
+                [
+                    {
+                        "cmf_portfolio": "commercial_individual",
+                        "cmf_category": "A1",
+                        "exposure_amount": 0,
+                        "contingent_amount": -1,
+                        "contingent_type": "avales_fianzas",
+                        "is_default": False,
+                    }
+                ],
+                index=["negativo"],
+            ),
+            CmfInputError,
+            "contingente negativa",
+        ),
+    ],
+)
+def test_engine_rechaza_contingentes_b3_invalidos(
+    frame: pd.DataFrame,
+    error_cls: type[Exception],
+    match: str,
+) -> None:
+    """Los bordes B-3 fallan sin aproximaciones regulatorias."""
+    with pytest.raises(error_cls, match=match):
+        _engine().calculate(frame, as_of_date="2026-01-31")
+
+
+def test_engine_tipo_contingente_no_mapeado_respeta_excepcion_configurada() -> None:
+    """La config no-default cambia la excepción, pero no inventa CCF."""
+    cfg = CmfProvisioningConfig(matrices=CmfMatrixConfig(fail_on_unmapped_contingent_type=False))
+    frame = pd.DataFrame(
+        [
+            _contingent_row(
+                contingent_type="tipo_no_verificado",
+                contingent_subtype=None,
+                contingent_amount=100,
+                is_default=False,
+            )
+        ]
+    )
+
+    with pytest.raises(CmfMappingError, match="Tipo contingente B-3"):
+        CmfProvisioningEngine.from_config(cfg).calculate(frame, as_of_date="2026-01-31")
+
+
+def test_engine_aval_sustituye_solo_tramo_cubierto_con_formula_2d() -> None:
+    """Cobertura 40 % usa PI/PDI del aval solo en el tramo avalado."""
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_group_generic_factoring",
+                "days_past_due": 0,
+                "ptvg_bucket": "sin_garantia",
+                "factoring_recourse_type": "sin_responsabilidad_cedente_o_generica",
+                "exposure_amount": 100_000,
+                "aval_coverage_pct": 40,
+                "aval_rating_scale": "national",
+                "aval_rating_category": "AA / Aa2",
+            }
+        ],
+        index=["aval"],
+    )
+    expected_debtor_leg = (
+        Decimal("100000")
+        * Decimal("60")
+        / Decimal("100")
+        * Decimal("4.91")
+        / Decimal("100")
+        * Decimal("56.9")
+        / Decimal("100")
+    )
+    expected_aval_leg = (
+        Decimal("100000")
+        * Decimal("40")
+        / Decimal("100")
+        * Decimal("0.04")
+        / Decimal("100")
+        * Decimal("90.0")
+        / Decimal("100")
+    )
+
+    result = _engine().calculate(frame, as_of_date="2026-01-31")
+    record = result.records[0]
+
+    assert record.guarantee_treatment == "aval_substitution"
+    assert result.detail.loc["aval", "guarantee_treatment"] == "aval_substitution"
+    assert record.provision_amount == expected_debtor_leg + expected_aval_leg
+    assert record.pe_percent == record.provision_amount / Decimal("100000") * Decimal("100")
+    assert "metodo_2_pi_pdi" in record.matrix_row_id
+    assert "aa_aa2_national" in record.matrix_row_id
+
+
+def test_engine_aval_con_pe_directa_cubre_metodo_1() -> None:
+    """La fórmula PE directa se usa cuando la fila base no publica PI/PDI."""
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_individual",
+                "cmf_category": "C3",
+                "exposure_amount": 1_000,
+                "aval_coverage_pct": 50,
+                "aval_rating_scale": "international",
+                "aval_rating_category": "AA/Aa2",
+            }
+        ],
+        index=["c3_aval"],
+    )
+    expected = (
+        Decimal("1000") * Decimal("50") / Decimal("100") * Decimal("25") / Decimal("100")
+    ) + (
+        Decimal("1000")
+        * Decimal("50")
+        / Decimal("100")
+        * Decimal("0.04")
+        / Decimal("100")
+        * Decimal("90.0")
+        / Decimal("100")
+    )
+
+    result = _engine().calculate(frame, as_of_date="2026-01-31")
+
+    assert result.records[0].provision_amount == expected
+    assert "metodo_1_pe_directa" in result.records[0].matrix_row_id
+
+
+@pytest.mark.parametrize("coverage", [Decimal("-0.01"), Decimal("100.01")])
+def test_engine_rechaza_aval_con_cobertura_fuera_de_rango(coverage: Decimal) -> None:
+    """La cobertura de aval debe quedar dentro de [0, 100]."""
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_group_generic_factoring",
+                "days_past_due": 0,
+                "ptvg_bucket": "sin_garantia",
+                "factoring_recourse_type": "sin_responsabilidad_cedente_o_generica",
+                "exposure_amount": 100_000,
+                "aval_coverage_pct": coverage,
+                "aval_rating_scale": "national",
+                "aval_rating_category": "AA/Aa2",
+            }
+        ]
+    )
+
+    with pytest.raises(CmfInputError, match="Cobertura de aval"):
+        _engine().calculate(frame, as_of_date="2026-01-31")
+
+
+def test_engine_rechaza_aval_sin_rating_verificado() -> None:
+    """Un rating de aval fuera de la matriz §5.2 no se aproxima por similitud."""
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_group_generic_factoring",
+                "days_past_due": 0,
+                "ptvg_bucket": "sin_garantia",
+                "factoring_recourse_type": "sin_responsabilidad_cedente_o_generica",
+                "exposure_amount": 100_000,
+                "aval_coverage_pct": 40,
+                "aval_rating_scale": "national",
+                "aval_rating_category": "CCC/Caa",
+            }
+        ]
+    )
+
+    with pytest.raises(CmfMappingError, match="Aval sin equivalencia"):
+        _engine().calculate(frame, as_of_date="2026-01-31")
+
+
+def test_engine_aval_deshabilitado_no_sustituye_tramos() -> None:
+    """La sustitución por aval es opt-in vía la config existente."""
+    cfg = CmfProvisioningConfig(guarantees=CmfGuaranteeConfig(enable_aval_substitution=False))
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_group_generic_factoring",
+                "days_past_due": 0,
+                "ptvg_bucket": "sin_garantia",
+                "factoring_recourse_type": "sin_responsabilidad_cedente_o_generica",
+                "exposure_amount": 100_000,
+                "aval_coverage_pct": 40,
+                "aval_rating_scale": "national",
+                "aval_rating_category": "AA/Aa2",
+            }
+        ]
+    )
+
+    result = CmfProvisioningEngine.from_config(cfg).calculate(frame, as_of_date="2026-01-31")
+
+    assert result.records[0].guarantee_treatment == "none"
+    assert result.records[0].provision_amount == _expected(100_000, "4.91", "56.9")
+
+
+def test_engine_garantia_financiera_falla_por_default_sin_haircut_verificado() -> None:
+    """No se imputan aforos financieros pendientes de normativa."""
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_individual",
+                "cmf_category": "A1",
+                "exposure_amount": 1_000,
+                "financial_guarantee_amount": 100,
+            }
+        ]
+    )
+
+    with pytest.raises(CmfMissingRegulatoryDataError, match="Garantía financiera"):
+        _engine().calculate(frame, as_of_date="2026-01-31")
+
+
+def test_engine_garantia_financiera_respeta_politicas_no_default() -> None:
+    """Las políticas explícitas no inventan haircuts y exigen recupero cuando aplica."""
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_individual",
+                "cmf_category": "A1",
+                "exposure_amount": 1_000,
+                "financial_guarantee_amount": 100,
+                "recoverable_amount": 80,
+            }
+        ]
+    )
+    ignore_cfg = CmfProvisioningConfig(
+        guarantees=CmfGuaranteeConfig(financial_guarantee_policy="ignore_if_missing")
+    )
+    recoverable_cfg = CmfProvisioningConfig(
+        guarantees=CmfGuaranteeConfig(
+            financial_guarantee_policy="use_recoverable_amount",
+            recoverable_amount_col="recoverable_amount",
+        )
+    )
+    negative = frame.assign(recoverable_amount=-1)
+
+    assert CmfProvisioningEngine.from_config(ignore_cfg).calculate(
+        frame,
+        as_of_date="2026-01-31",
+    ).records[0].provision_amount == _expected(1_000, "0.04", "90.0")
+    assert CmfProvisioningEngine.from_config(recoverable_cfg).calculate(
+        frame,
+        as_of_date="2026-01-31",
+    ).records[0].provision_amount == _expected(1_000, "0.04", "90.0")
+    with pytest.raises(CmfInputError, match="recoverable_amount"):
+        CmfProvisioningEngine.from_config(recoverable_cfg).calculate(
+            negative,
+            as_of_date="2026-01-31",
+        )
+
+
+def test_engine_no_regresion_fila_sin_contingente_ni_aval() -> None:
+    """Una fila base sin B-3 ni aval conserva exactamente el resultado B15.4."""
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_individual",
+                "cmf_category": "A1",
+                "exposure_amount": 1_000_000,
+            }
+        ],
+        index=["base"],
+    )
+
+    result = _engine().calculate(frame, as_of_date="2026-01-31")
+
+    assert result.records[0].direct_exposure_amount == Decimal("1000000")
+    assert result.records[0].contingent_exposure_amount == Decimal("0")
+    assert result.records[0].exposure_amount == Decimal("1000000")
+    assert result.records[0].provision_amount == Decimal("360.00000")
+    assert result.records[0].guarantee_treatment == "none"
+    assert result.detail.loc["base", "ccf_percent"] is None
+
+
+def test_engine_determinismo_orden_estable_y_finitud_b15_5() -> None:
+    """Dos corridas B15.5 son byte-equivalentes, ordenadas y no negativas."""
+    frame = pd.DataFrame(
+        [
+            _contingent_row(
+                contingent_type="boletas_garantia",
+                contingent_subtype=None,
+                contingent_amount=1_000,
+                is_default=False,
+            ),
+            {
+                "cmf_portfolio": "commercial_group_generic_factoring",
+                "days_past_due": 0,
+                "ptvg_bucket": "sin_garantia",
+                "factoring_recourse_type": "sin_responsabilidad_cedente_o_generica",
+                "exposure_amount": 100_000,
+                "aval_coverage_pct": 40,
+                "aval_rating_scale": "national",
+                "aval_rating_category": "AA/Aa2",
+            },
+        ],
+        index=["contingente", "aval"],
+    )
+
+    result_1 = _engine().calculate(frame, as_of_date="2026-01-31")
+    result_2 = _engine().calculate(frame, as_of_date="2026-01-31")
+
+    assert _stable_payload(result_1) == _stable_payload(result_2)
+    assert list(result_1.detail.index) == ["contingente", "aval"]
+    for record in result_1.records:
+        for value in (
+            record.exposure_amount,
+            record.direct_exposure_amount,
+            record.contingent_exposure_amount,
+            record.pe_percent,
+            record.provision_amount,
+            record.pi_percent,
+            record.pdi_percent,
+        ):
+            if value is not None:
+                assert value.is_finite()
+                assert value >= Decimal("0")
+
+
+@pytest.mark.parametrize(
     ("policy", "expected"),
     [("currency_2dp", Decimal("0.03")), ("integer_currency", Decimal("0"))],
 )
@@ -208,6 +665,7 @@ def test_engine_redondea_y_audita_politica_explicita(policy: str, expected: Deci
         "pe_tolerance_percent": "0.0001",
     }
     assert audit.events[0].payload["accion"] == "calcular_provision_cmf"
+    assert audit.events[0].payload["regla"] == "cmf_b1_b3_engine"
 
 
 @pytest.mark.parametrize(
@@ -519,6 +977,59 @@ def test_engine_cubre_ramas_defensivas_de_helpers_privados() -> None:
     )
     assert engine_module._recoverable_column(pd.Series({"otro": 1}), cfg_with_recoverable) is None
 
+    assert engine_module._normaliza_rating_scale("internacional") == "international"
+    assert engine_module._normaliza_rating_scale("nacional") == "national"
+    assert engine_module._normaliza_rating_category("AA / Aa2") == "AA/Aa2"
+    with pytest.raises(CmfMappingError, match="Escala"):
+        engine_module._normaliza_rating_scale("global")
+    assert engine_module._requires_financial_guarantee_haircut(
+        pd.Series({"financial_guarantee_requires_haircut": True}, name="r"),
+        pd=pd_module,
+        decimal=decimal,
+    )
+    assert engine_module._requires_financial_guarantee_haircut(
+        pd.Series({"financial_guarantee_amount": 1}, name="r"),
+        pd=pd_module,
+        decimal=decimal,
+    )
+    assert not engine_module._requires_financial_guarantee_haircut(
+        pd.Series({"financial_guarantee_amount": 0}, name="r"),
+        pd=pd_module,
+        decimal=decimal,
+    )
+    assert engine_module._requires_financial_guarantee_haircut(
+        pd.Series({"guarantee_type": "garantía_financiera"}, name="r"),
+        pd=pd_module,
+        decimal=decimal,
+    )
+    assert not engine_module._requires_financial_guarantee_haircut(
+        pd.Series({"guarantee_type": "hipoteca"}, name="r"),
+        pd=pd_module,
+        decimal=decimal,
+    )
+    with pytest.raises(CmfInputError, match="booleana"):
+        engine_module._requires_financial_guarantee_haircut(
+            pd.Series({"financial_guarantee_requires_haircut": "quizas"}, name="r"),
+            pd=pd_module,
+            decimal=decimal,
+        )
+    with pytest.raises(CmfInputError, match="negativa"):
+        engine_module._requires_financial_guarantee_haircut(
+            pd.Series({"financial_guarantee_amount": -1}, name="r"),
+            pd=pd_module,
+            decimal=decimal,
+        )
+    assert engine_module._financial_guarantee_observed(
+        pd.Series({"financial_guarantee_amount": 1})
+    ).startswith("financial_guarantee_amount=")
+    assert (
+        engine_module._financial_guarantee_observed(pd.Series({"otra": 1}))
+        == "<sin_columna_explicita>"
+    )
+    assert engine_module._join_source_texts(("docs §1", "docs §1", "docs §2")) == (
+        "docs §1; docs §2"
+    )
+
     consumer_context = engine_module.RowContext(
         row_id="r",
         row=pd.Series({"cmf_product_type": "creditos_en_cuotas"}),
@@ -611,6 +1122,26 @@ def _consumer_row(
     }
 
 
+def _contingent_row(
+    *,
+    contingent_type: str,
+    contingent_subtype: str | None,
+    contingent_amount: int,
+    is_default: bool,
+) -> dict[str, object]:
+    row: dict[str, object] = {
+        "cmf_portfolio": "commercial_individual",
+        "cmf_category": "A1",
+        "exposure_amount": 0,
+        "contingent_amount": contingent_amount,
+        "contingent_type": contingent_type,
+        "is_default": is_default,
+    }
+    if contingent_subtype is not None:
+        row["contingent_subtype"] = contingent_subtype
+    return row
+
+
 def _expected(exposure: int, pi_percent: str, pdi_percent: str) -> Decimal:
     return (
         Decimal(str(exposure))
@@ -618,6 +1149,19 @@ def _expected(exposure: int, pi_percent: str, pdi_percent: str) -> Decimal:
         / Decimal("100")
         * Decimal(pdi_percent)
         / Decimal("100")
+    )
+
+
+def _expected_decimal(exposure: Decimal, pi_percent: str, pdi_percent: str) -> Decimal:
+    return exposure * Decimal(pi_percent) / Decimal("100") * Decimal(pdi_percent) / Decimal("100")
+
+
+def _stable_payload(result: Any) -> tuple[str, str, tuple[str, ...], str]:
+    return (
+        result.detail.astype(str).to_csv(),
+        result.summary.astype(str).to_csv(),
+        tuple(record.model_dump_json() for record in result.records),
+        result.card.model_dump_json(),
     )
 
 
