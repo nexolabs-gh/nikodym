@@ -34,15 +34,24 @@ from nikodym.report.exceptions import (
 _schema._REPORT_CONFIG_CLS = ReportConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "AIClient": ("nikodym.report.ai", "AIClient"),
+    "AINarrator": ("nikodym.report.ai", "AINarrator"),
+    "AIRequest": ("nikodym.report.ai", "AIRequest"),
+    "AIResponse": ("nikodym.report.ai", "AIResponse"),
     "AiNarrationBlock": ("nikodym.report.results", "AiNarrationBlock"),
     "ReportBuilder": ("nikodym.report.builder", "ReportBuilder"),
     "ReportInputBundle": ("nikodym.report.results", "ReportInputBundle"),
     "ReportManifest": ("nikodym.report.results", "ReportManifest"),
     "ReportResult": ("nikodym.report.results", "ReportResult"),
     "ReportSection": ("nikodym.report.results", "ReportSection"),
+    "RuleBasedNarrator": ("nikodym.report.ai", "RuleBasedNarrator"),
 }
 
 __all__ = [
+    "AIClient",
+    "AINarrator",
+    "AIRequest",
+    "AIResponse",
     "AiNarrationBlock",
     "AiNarrationConfig",
     "HtmlRenderConfig",
@@ -59,6 +68,7 @@ __all__ = [
     "ReportRenderError",
     "ReportResult",
     "ReportSection",
+    "RuleBasedNarrator",
     "SectionPolicyConfig",
 ]
 
