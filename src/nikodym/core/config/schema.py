@@ -6,7 +6,8 @@ reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y lo
 opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``), selección
 pre-modelo (``selection``), modelo PD (``model``), escalamiento de scorecard (``scorecard``),
 calibración de PD (``calibration``), survival/lifetime PD (``survival``), matrices Markov de
-migración (``markov``), provisiones CMF (``provisioning_cmf``), desempeño
+migración (``markov``), forward-looking (``forward``), provisiones CMF (``provisioning_cmf``),
+desempeño
 post-modelo (``performance``), estabilidad post-modelo (``stability``) y reporte auditable
 (``report``). El config es
 *frozen*: su identidad se fija por
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
     from nikodym.calibration.config import CalibrationConfig
     from nikodym.data.config import DataConfig
     from nikodym.eda.config import EdaConfig
+    from nikodym.forward.config import ForwardConfig
     from nikodym.governance.config import GovernanceConfig
     from nikodym.markov.config import MarkovConfig
     from nikodym.model.config import ModelConfig
@@ -59,6 +61,7 @@ _SCORECARD_CONFIG_CLS: type[BaseModel] | None = None
 _CALIBRATION_CONFIG_CLS: type[BaseModel] | None = None
 _SURVIVAL_CONFIG_CLS: type[BaseModel] | None = None
 _MARKOV_CONFIG_CLS: type[BaseModel] | None = None
+_FORWARD_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_CMF_CONFIG_CLS: type[BaseModel] | None = None
 _PERFORMANCE_CONFIG_CLS: type[BaseModel] | None = None
 _STABILITY_CONFIG_CLS: type[BaseModel] | None = None
@@ -120,8 +123,8 @@ class NikodymConfig(NikodymBaseConfig):
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
     ``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,
-    ``calibration``, ``survival``, ``provisioning_cmf``, ``performance``, ``stability``,
-    ``report``).
+    ``calibration``, ``survival``, ``forward``, ``provisioning_cmf``, ``performance``,
+    ``stability``, ``report``).
     """
 
     schema_version: str = Field(
@@ -230,6 +233,16 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Survival",
             description="Sección de survival analysis y lifetime PD (capa `survival`, SDD-18).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `ForwardConfig` la hace `_valida_forward` vía hook diferido.
+        forward: ForwardConfig | None = None
+    else:
+        forward: Any = Field(
+            default=None,
+            title="Forward-looking",
+            description="Sección de proyección macro forward-looking y PIT/TTC (SDD-20).",
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -540,6 +553,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "survival debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.survival` para "
                 "validarlo como SurvivalConfig."
+            ) from exc
+        return valor
+
+    @field_validator("forward", mode="before")
+    @classmethod
+    def _valida_forward(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``forward`` según haya o no capa cargada.
+
+        Con ``nikodym.forward`` importado (``_FORWARD_CONFIG_CLS`` poblado), un ``dict`` se valida
+        y coacciona a :class:`ForwardConfig` (``extra='forbid'`` y rangos); una instancia ya
+        validada pasa tal cual. Sin la capa cargada, ``forward`` es un *blob* opaco: se exige
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos) para
+        no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _FORWARD_CONFIG_CLS is not None:
+            if isinstance(valor, _FORWARD_CONFIG_CLS):
+                return valor
+            return _FORWARD_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "forward debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.forward` para "
+                "validarlo como ForwardConfig."
             ) from exc
         return valor
 

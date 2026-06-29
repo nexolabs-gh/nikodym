@@ -13,7 +13,7 @@ def _vista_core_solo(monkeypatch: pytest.MonkeyPatch) -> None:
 
     ``nikodym.data``/``nikodym.eda``/``nikodym.binning``/``nikodym.selection``/``nikodym.audit``/
     ``nikodym.model``/``nikodym.scorecard``/``nikodym.calibration``/
-    ``nikodym.provisioning.cmf``/``nikodym.performance``/``nikodym.stability``/
+    ``nikodym.forward``/``nikodym.provisioning.cmf``/``nikodym.performance``/``nikodym.stability``/
     ``nikodym.governance`` (importados por otros tests) pueblan hooks
     *process-wide*; aquí se neutralizan para probar el núcleo en aislamiento.
     """
@@ -24,6 +24,7 @@ def _vista_core_solo(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(_schema_mod, "_MODEL_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_SCORECARD_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_CALIBRATION_CONFIG_CLS", None)
+    monkeypatch.setattr(_schema_mod, "_FORWARD_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_PROVISIONING_CMF_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_PERFORMANCE_CONFIG_CLS", None)
     monkeypatch.setattr(_schema_mod, "_STABILITY_CONFIG_CLS", None)
@@ -46,6 +47,7 @@ def test_construye_sin_argumentos() -> None:
     assert cfg.model is None
     assert cfg.scorecard is None
     assert cfg.calibration is None
+    assert cfg.forward is None
     assert cfg.provisioning_cmf is None
     assert cfg.performance is None
     assert cfg.stability is None

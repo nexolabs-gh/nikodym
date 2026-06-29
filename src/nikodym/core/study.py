@@ -54,6 +54,7 @@ _LIBRERIAS_LINEAGE = ("nikodym", "numpy", "pandas", "pydantic", "PyYAML")
 _DOMAIN_MODULES: Final[dict[str, str]] = {
     "data": "nikodym.data",
     "markov": "nikodym.markov",
+    "forward": "nikodym.forward",
     "eda": "nikodym.eda",
     "binning": "nikodym.binning",
     "selection": "nikodym.selection",
@@ -69,6 +70,7 @@ _DOMAIN_MODULES: Final[dict[str, str]] = {
 _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "data": ("nikodym.data.config", "DataConfig"),
     "markov": ("nikodym.markov.config", "MarkovConfig"),
+    "forward": ("nikodym.forward.config", "ForwardConfig"),
     "eda": ("nikodym.eda.config", "EdaConfig"),
     "binning": ("nikodym.binning.config", "BinningConfig"),
     "selection": ("nikodym.selection.config", "SelectionConfig"),
@@ -91,6 +93,7 @@ _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
     "scorecard",
     "calibration",
     "survival",
+    "forward",
     "performance",
     "stability",
     "report",
