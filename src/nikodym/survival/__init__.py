@@ -38,12 +38,17 @@ from nikodym.survival.exceptions import (
 )
 
 if TYPE_CHECKING:
+    from nikodym.survival.discrete_hazard import DiscreteTimeHazardModel
     from nikodym.survival.kaplan_meier import KaplanMeierSurvivalModel
 
 # Registra la clase real del sub-config survival en el hook de `core`.
 _schema._SURVIVAL_CONFIG_CLS = SurvivalConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "DiscreteTimeHazardModel": (
+        "nikodym.survival.discrete_hazard",
+        "DiscreteTimeHazardModel",
+    ),
     "KaplanMeierSurvivalModel": (
         "nikodym.survival.kaplan_meier",
         "KaplanMeierSurvivalModel",
@@ -56,6 +61,7 @@ __all__ = [
     "CoxAftConfig",
     "DiscreteHazardConfig",
     "DiscreteHazardLink",
+    "DiscreteTimeHazardModel",
     "KaplanMeierConfig",
     "KaplanMeierSurvivalModel",
     "PdSource",

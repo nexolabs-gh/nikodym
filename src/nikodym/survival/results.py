@@ -23,7 +23,7 @@ import copy
 import math
 from collections.abc import Mapping
 from decimal import Decimal
-from numbers import Real
+from numbers import Integral, Real
 from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -467,8 +467,8 @@ def _normalize_stat_value(value: Any) -> float | int | str | None:
         return value
     if isinstance(value, bool):
         return str(value)
-    if isinstance(value, int):
-        return value
+    if isinstance(value, Integral):
+        return int(value)
     if isinstance(value, float):
         if not math.isfinite(value):
             return None
