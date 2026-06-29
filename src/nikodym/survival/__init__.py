@@ -9,6 +9,11 @@ concretos llegarán en B18.3-B18.5 y cargarán sus dependencias dentro de ``fit`
 **Experimental (SemVer 0.x).**
 """
 
+from __future__ import annotations
+
+import importlib
+from typing import TYPE_CHECKING, Any, Final
+
 from nikodym.core.config import schema as _schema
 from nikodym.survival.base import BaseSurvivalModel
 from nikodym.survival.config import (
@@ -32,8 +37,18 @@ from nikodym.survival.exceptions import (
     SurvivalTransformError,
 )
 
+if TYPE_CHECKING:
+    from nikodym.survival.kaplan_meier import KaplanMeierSurvivalModel
+
 # Registra la clase real del sub-config survival en el hook de `core`.
 _schema._SURVIVAL_CONFIG_CLS = SurvivalConfig
+
+_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "KaplanMeierSurvivalModel": (
+        "nikodym.survival.kaplan_meier",
+        "KaplanMeierSurvivalModel",
+    ),
+}
 
 __all__ = [
     "AftFamily",
@@ -42,6 +57,7 @@ __all__ = [
     "DiscreteHazardConfig",
     "DiscreteHazardLink",
     "KaplanMeierConfig",
+    "KaplanMeierSurvivalModel",
     "PdSource",
     "SurvivalConfig",
     "SurvivalConfigError",
@@ -54,3 +70,14 @@ __all__ = [
     "SurvivalTimeGridConfig",
     "SurvivalTransformError",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Carga estimadores survival bajo demanda para preservar el import liviano."""
+    if name not in _LAZY_EXPORTS:
+        raise AttributeError(f"module 'nikodym.survival' has no attribute {name!r}")
+
+    module_name, attribute_name = _LAZY_EXPORTS[name]
+    value = getattr(importlib.import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
