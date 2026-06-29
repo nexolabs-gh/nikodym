@@ -98,6 +98,7 @@ test = [
   "hypothesis>=6.100",     # MPL-2.0 (copyleft DÉBIL) — DEV-ONLY, nunca en el wheel
   "optbinning>=0.19",      # DEV-ONLY: la suite F1 ejerce scoring real
   "statsmodels>=0.14",     # DEV-ONLY: logística/VIF reales en tests de model/selection
+  "lifelines>=0.28",       # DEV-ONLY: la suite de survival ejerce Cox/AFT reales en tests
   "scikit-learn>=1.6,<1.8",# DEV-ONLY: clone/check_estimator; mismo techo operativo que tool.uv
   "scipy>=1.10",           # DEV-ONLY: dependencia numérica explícita de scoring
 ]

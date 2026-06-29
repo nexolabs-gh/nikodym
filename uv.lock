@@ -2612,6 +2612,7 @@ xgboost = [
 dev = [
     { name = "coverage", extra = ["toml"] },
     { name = "hypothesis" },
+    { name = "lifelines" },
     { name = "mkdocs-material" },
     { name = "mypy" },
     { name = "optbinning" },
@@ -2638,6 +2639,7 @@ lint = [
 test = [
     { name = "coverage", extra = ["toml"] },
     { name = "hypothesis" },
+    { name = "lifelines" },
     { name = "optbinning" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -2712,6 +2714,7 @@ provides-extras = ["ai", "all", "catboost", "explain", "forecasting", "lightgbm"
 dev = [
     { name = "coverage", extras = ["toml"], specifier = "<7.10" },
     { name = "hypothesis", specifier = ">=6.100" },
+    { name = "lifelines", specifier = ">=0.28" },
     { name = "mkdocs-material", specifier = ">=9.5" },
     { name = "mypy", specifier = ">=1.10" },
     { name = "optbinning", specifier = ">=0.19" },
@@ -2735,6 +2738,7 @@ lint = [
 test = [
     { name = "coverage", extras = ["toml"], specifier = "<7.10" },
     { name = "hypothesis", specifier = ">=6.100" },
+    { name = "lifelines", specifier = ">=0.28" },
     { name = "optbinning", specifier = ">=0.19" },
     { name = "pytest", specifier = ">=8.1" },
     { name = "pytest-cov", specifier = ">=5.0,<6.0" },

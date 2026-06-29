@@ -38,6 +38,7 @@ from nikodym.survival.exceptions import (
 )
 
 if TYPE_CHECKING:
+    from nikodym.survival.cox_aft import AFTSurvivalModel, CoxPHSurvivalModel
     from nikodym.survival.discrete_hazard import DiscreteTimeHazardModel
     from nikodym.survival.kaplan_meier import KaplanMeierSurvivalModel
 
@@ -45,6 +46,14 @@ if TYPE_CHECKING:
 _schema._SURVIVAL_CONFIG_CLS = SurvivalConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "AFTSurvivalModel": (
+        "nikodym.survival.cox_aft",
+        "AFTSurvivalModel",
+    ),
+    "CoxPHSurvivalModel": (
+        "nikodym.survival.cox_aft",
+        "CoxPHSurvivalModel",
+    ),
     "DiscreteTimeHazardModel": (
         "nikodym.survival.discrete_hazard",
         "DiscreteTimeHazardModel",
@@ -56,9 +65,11 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
 }
 
 __all__ = [
+    "AFTSurvivalModel",
     "AftFamily",
     "BaseSurvivalModel",
     "CoxAftConfig",
+    "CoxPHSurvivalModel",
     "DiscreteHazardConfig",
     "DiscreteHazardLink",
     "DiscreteTimeHazardModel",
