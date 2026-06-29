@@ -37,7 +37,7 @@ from nikodym.report.exceptions import (
     ReportRenderError,
 )
 
-GOLDEN_DEFAULT_CONFIG_HASH = "7911009efacfd4a83e7a021bafbbea72014bc171ad9e8a20158c2d629e854ac2"
+GOLDEN_DEFAULT_CONFIG_HASH = "046c75d4cc1be29232900a9e709a7da9288bf6478c9a83ec04b75d95dcb7d59f"
 
 
 @pytest.fixture(autouse=True)

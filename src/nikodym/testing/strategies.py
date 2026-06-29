@@ -578,6 +578,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._SCORECARD_CONFIG_CLS
     if domain == "calibration" and core_schema._CALIBRATION_CONFIG_CLS is not None:
         return core_schema._CALIBRATION_CONFIG_CLS
+    if domain == "survival" and core_schema._SURVIVAL_CONFIG_CLS is not None:
+        return core_schema._SURVIVAL_CONFIG_CLS
     if domain == "provisioning_cmf" and core_schema._PROVISIONING_CMF_CONFIG_CLS is not None:
         return core_schema._PROVISIONING_CMF_CONFIG_CLS
     if domain == "performance" and core_schema._PERFORMANCE_CONFIG_CLS is not None:

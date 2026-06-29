@@ -62,6 +62,7 @@ _DOMAIN_MODULES: Final[dict[str, str]] = {
     "performance": "nikodym.performance",
     "stability": "nikodym.stability",
     "report": "nikodym.report",
+    "survival": "nikodym.survival",
     "provisioning_cmf": "nikodym.provisioning.cmf",
 }
 _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
@@ -75,6 +76,7 @@ _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "performance": ("nikodym.performance.config", "PerformanceConfig"),
     "stability": ("nikodym.stability.config", "StabilityConfig"),
     "report": ("nikodym.report.config", "ReportConfig"),
+    "survival": ("nikodym.survival.config", "SurvivalConfig"),
     "provisioning_cmf": ("nikodym.provisioning.cmf.config", "CmfProvisioningConfig"),
 }
 _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
@@ -88,6 +90,7 @@ _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
     "performance",
     "stability",
     "report",
+    "survival",
     "provisioning_cmf",
 )
 _REPLACE_RETRY_ATTEMPTS: Final = 3
