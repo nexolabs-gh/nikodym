@@ -26,7 +26,6 @@ from nikodym.markov.exceptions import (
     MarkovFitError,
     MarkovInputError,
     MarkovTransformError,
-    NonStochasticMatrixError,
 )
 from nikodym.markov.results import MarkovDiagnostics
 
@@ -550,7 +549,6 @@ def _project_matrices(
     return tuple(projected)
 
 
-# NOTA: validación local; B19.4 la promoverá a funciones públicas en term_structure.py.
 def _validate_stochastic_matrix(
     matrix: NDArrayFloat,
     *,
@@ -560,48 +558,33 @@ def _validate_stochastic_matrix(
     normalize_within_tolerance: bool,
     np: Any,
 ) -> tuple[NDArrayFloat, tuple[str, ...]]:
+    from nikodym.markov.term_structure import validate_transition_matrix
+
+    validate_transition_matrix(
+        matrix,
+        states=states,
+        absorbing_states=absorbing_states,
+        tol=tol,
+    )
     candidate = np.array(matrix, dtype="float64", copy=True)
-    if candidate.shape != (len(states), len(states)):
-        raise NonStochasticMatrixError(
-            f"La matriz P debe ser cuadrada de dimensión {len(states)}; shape={candidate.shape}."
-        )
     warnings: list[str] = []
     absorbing = set(absorbing_states)
     for row_index, state in enumerate(states):
         row = candidate[row_index, :]
-        if not bool(np.all(np.isfinite(row))):
-            raise NonStochasticMatrixError(f"La fila de P contiene valores no finitos: {state!r}.")
-        low = float(np.min(row))
-        high = float(np.max(row))
-        if low < -tol or high > 1.0 + tol:
-            raise NonStochasticMatrixError(
-                "La matriz P contiene probabilidades fuera de [0, 1]: "
-                f"state={state!r}, min={low}, max={high}, tol={tol}."
-            )
         row[(row < 0.0) & (row >= -tol)] = 0.0
         row[(row > 1.0) & (row <= 1.0 + tol)] = 1.0
         if state in absorbing:
             expected = np.zeros(len(states), dtype="float64")
             expected[row_index] = 1.0
-            if not bool(np.allclose(row, expected, rtol=0.0, atol=tol)):
-                raise NonStochasticMatrixError(
-                    f"El estado absorbente {state!r} debe tener fila identidad en P."
-                )
             candidate[row_index, :] = expected
             continue
         row_sum = float(np.sum(row))
-        if math.isclose(row_sum, 1.0, rel_tol=0.0, abs_tol=tol):
-            if row_sum != 1.0 and normalize_within_tolerance:
-                candidate[row_index, :] = row / row_sum
-                warnings.append(f"normalized_stochastic_row:{state}")
-            continue
-        raise NonStochasticMatrixError(
-            f"La fila de P no suma 1: state={state!r}, row_sum={row_sum}, tol={tol}."
-        )
+        if row_sum != 1.0 and normalize_within_tolerance:
+            candidate[row_index, :] = row / row_sum
+            warnings.append(f"normalized_stochastic_row:{state}")
     return _normalize_array(candidate, np=np), tuple(warnings)
 
 
-# NOTA: validación local; B19.4 la promoverá a funciones públicas en term_structure.py.
 def _validate_generator(
     generator: NDArrayFloat,
     *,
@@ -610,41 +593,24 @@ def _validate_generator(
     tol: float,
     np: Any,
 ) -> NDArrayFloat:
+    from nikodym.markov.term_structure import validate_generator
+
+    validate_generator(
+        generator,
+        states=states,
+        absorbing_states=absorbing_states,
+        tol=tol,
+    )
     candidate = np.array(generator, dtype="float64", copy=True)
-    if candidate.shape != (len(states), len(states)):
-        raise InvalidGeneratorError(
-            f"El generador Q debe ser cuadrado de dimensión {len(states)}; shape={candidate.shape}."
-        )
     absorbing = set(absorbing_states)
     for row_index, state in enumerate(states):
         row = candidate[row_index, :]
-        if not bool(np.all(np.isfinite(row))):
-            raise InvalidGeneratorError(f"La fila de Q contiene valores no finitos: {state!r}.")
         if state in absorbing:
-            if not bool(np.allclose(row, 0.0, rtol=0.0, atol=tol)):
-                raise InvalidGeneratorError(
-                    f"El estado absorbente {state!r} debe tener fila cero en Q."
-                )
             candidate[row_index, :] = 0.0
             continue
         diagonal = float(row[row_index])
         off_diagonal = np.delete(row, row_index)
-        min_offdiag = float(np.min(off_diagonal)) if off_diagonal.size else 0.0
-        if min_offdiag < -tol:
-            raise InvalidGeneratorError(
-                "El generador Q contiene intensidad off-diagonal negativa: "
-                f"state={state!r}, min_offdiag={min_offdiag}, tol={tol}."
-            )
         off_diagonal[(off_diagonal < 0.0) & (off_diagonal >= -tol)] = 0.0
-        if diagonal > tol:
-            raise InvalidGeneratorError(
-                f"La diagonal de Q debe ser no positiva: state={state!r}, diag={diagonal}."
-            )
-        row_sum = float(np.sum(row))
-        if not math.isclose(row_sum, 0.0, rel_tol=0.0, abs_tol=tol):
-            raise InvalidGeneratorError(
-                f"La fila de Q no suma 0: state={state!r}, row_sum={row_sum}, tol={tol}."
-            )
         candidate[row_index, row_index] = -float(np.sum(candidate[row_index, :]) - diagonal)
     return _normalize_array(candidate, np=np)
 

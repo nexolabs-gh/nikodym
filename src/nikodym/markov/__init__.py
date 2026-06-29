@@ -41,10 +41,19 @@ from nikodym.markov.exceptions import (
 _schema._MARKOV_CONFIG_CLS = MarkovConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "aalen_johansen": ("nikodym.markov.term_structure", "aalen_johansen"),
+    "chapman_kolmogorov": ("nikodym.markov.term_structure", "chapman_kolmogorov"),
+    "diagnose_embedding": ("nikodym.markov.term_structure", "diagnose_embedding"),
+    "markov_term_structure": ("nikodym.markov.term_structure", "markov_term_structure"),
     "MarkovStep": ("nikodym.markov.step", "MarkovStep"),
     "TransitionMatrixEstimator": (
         "nikodym.markov.transition",
         "TransitionMatrixEstimator",
+    ),
+    "validate_generator": ("nikodym.markov.term_structure", "validate_generator"),
+    "validate_transition_matrix": (
+        "nikodym.markov.term_structure",
+        "validate_transition_matrix",
     ),
 }
 
@@ -68,6 +77,12 @@ __all__ = [
     "NonStochasticMatrixError",
     "ProjectionMode",
     "TransitionMatrixEstimator",
+    "aalen_johansen",
+    "chapman_kolmogorov",
+    "diagnose_embedding",
+    "markov_term_structure",
+    "validate_generator",
+    "validate_transition_matrix",
 ]
 
 
