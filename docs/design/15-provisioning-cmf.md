@@ -8,7 +8,7 @@
 | **Fase** | F3 |
 | **Tanda de producción** | T4 (Provisiones) |
 | **Estado** | 🟡 Borrador |
-| **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config), SDD-08 (`model`) |
+| **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config); SDD-08 (`model`) solo cuando `pd_mapping.method="pd_breaks"` |
 | **Lo consumen** | SDD-16 (`provisioning/ifrs9`, comparación futura), SDD-17 (`provisioning`, orquestación/piso), SDD-22 (`validation`), SDD-23 (`ui`), SDD-26 (`report`) |
 | **Autor / Fecha** | DanIA (redacción SDD-15 para T4) / 2026-06-29 |
 
@@ -24,7 +24,7 @@
 - Resuelve la matriz aplicable por cartera: comercial individual A1-C6, comercial grupal, consumo, vivienda PVG, avales/fianzas y garantias admisibles segun B-1.
 - Calcula PI, PDI, PE y monto de provision por fila, preservando trazabilidad de matriz/fila normativa usada.
 - Trata la cartera individual en incumplimiento C1-C6 con su regla propia: `Tasa de Perdida Esperada = (E - R) / E` y `Provision = E * (PP/100)`, no como una multiplicacion PI/PDI ordinaria.
-- Consume la PD que publica F1 (SDD-08 `model.raw_pd_frame`) como insumo trazable para asignacion o contraste de PI, sin permitir que una PD libre reemplace parametros regulatorios sin una politica explicita y auditada.
+- Puede consumir la PD que publica F1 (SDD-08 `model.raw_pd_frame`) como insumo trazable para asignacion o contraste de PI **solo si la config lo pide**; el caso natural standalone opera con categoria/tramo regulatorio y exposicion en `data.frame`.
 - Publica artefactos namespaced bajo `"provisioning_cmf"`: detalle por fila, resumen por cartera, bundle de matrices usadas, resultado agregado y card de provision.
 - Aporta el sub-config **`CmfProvisioningConfig`** (seccion `provisioning_cmf` de `NikodymConfig`), computacional y por tanto incluido en el `config_hash`.
 - Registra con `log_decision` la version normativa activa, politicas de mapeo PD->PI, garantias aplicadas/omitidas, contingentes B-3, redondeo y cualquier fila excluida.
@@ -35,14 +35,14 @@
 - **No construye term-structures lifetime.** SDD-18/19/20/21 cubren survival, Markov, forward-looking y stress.
 - **No decide si un banco puede usar metodologia interna en vez del modelo estandar.** Este SDD cubre el modelo estandar B-1; una metodologia interna de PI/PDI requeriria SDD separado o extension explicita.
 - **No inventa haircuts de garantias financieras.** Si el dato no esta verificado en `docs/normativa_cmf_parametros.md`, el motor falla o marca `FALTA-DATO` segun config no-default.
-- **No muta `data.frame`, `model.raw_pd_frame` ni artefactos aguas arriba.** Lee copias defensivas y publica resultados propios.
+- **No muta `data.frame`, `model.raw_pd_frame` si existe, ni artefactos aguas arriba.** Lee copias defensivas y publica resultados propios.
 - **No arrastra `provisioning` al nucleo.** `import nikodym.core` no importa `nikodym.provisioning`, matrices regulatorias ni pandas extra fuera de lo ya base.
 
 ## 2. Contexto y ubicación en la arquitectura
 
-- **Capa:** Provisiones regulatorias locales (F3/T4). Corre despues de `data` y `model`; puede correr sin scorecard/puntos si existe `model.raw_pd_frame` y las columnas regulatorias requeridas en `data.frame`.
+- **Capa:** Provisiones regulatorias locales (F3/T4). Corre despues de `data`; `model` es dependencia condicional, requerida solo cuando `pd_mapping.method="pd_breaks"` usa una PD aguas arriba para asignar categoria.
 - **Quien lo invoca:** `Study.run()` como seccion `provisioning_cmf` de `NikodymConfig`, o API programatica para calcular provisiones CMF sobre un frame ya validado.
-- **A quien invoca:** `core` (`Step`, `ArtifactKey`, `ArtifactStore`, `AuditableMixin`, excepciones), `data` (`frame`, `labels`, `splits`), `model` (`raw_pd_frame`) y los datos versionados del paquete `nikodym.provisioning.cmf`.
+- **A quien invoca:** `core` (`Step`, `ArtifactKey`, `ArtifactStore`, `AuditableMixin`, excepciones), `data` (`frame` como input duro; `labels`/`splits` solo en rutas PD configuradas), `model` (`raw_pd_frame` solo en rutas PD configuradas) y los datos versionados del paquete `nikodym.provisioning.cmf`.
 
 ```text
 data -> ... -> model
@@ -53,12 +53,12 @@ data -> ... -> model
              PI/PDI/E/provision
 ```
 
-**Interaccion con `Study` y config declarativo.** `CmfProvisioningStep` es un `Step` nativo registrado con `@register("standard", domain="provisioning_cmf")`. Declara `requires`/`provides` (CT-1), lee `data.frame` y `model.raw_pd_frame`, carga el bundle normativo activo, calcula resultados y escribe sus artefactos bajo `"provisioning_cmf"`. El `rng` se recibe por contrato homogeneo; v1 no usa azar y debe hacer `del rng`.
+**Interaccion con `Study` y config declarativo.** `CmfProvisioningStep` es un `Step` nativo registrado con `@register("standard", domain="provisioning_cmf")`. Declara `requires`/`provides` (CT-1), con dependencia dura solo sobre `data.frame`; las dependencias `model.raw_pd_frame`, `data.labels` y `data.splits` se validan dentro de `execute` solo cuando `pd_mapping.method="pd_breaks"` las hace necesarias. Luego carga el bundle normativo activo, calcula resultados y escribe sus artefactos bajo `"provisioning_cmf"`. El `rng` se recibe por contrato homogeneo; v1 no usa azar y debe hacer `del rng`.
 
 **Orden canonico propuesto.** Al implementar SDD-15:
 - `_DOMAIN_MODULES["provisioning_cmf"] = "nikodym.provisioning.cmf"`;
 - `_DOMAIN_CONFIG_CLASSES["provisioning_cmf"] = ("nikodym.provisioning.cmf.config", "CmfProvisioningConfig")`;
-- `_DEFAULT_DOMAIN_ORDER` agrega `"provisioning_cmf"` despues de `"model"` para F3 minimo. Si Cami decide consumir PD calibrada de SDD-10 como fuente default, el orden pasa a ser despues de `"calibration"` (ver D-CMF-2).
+- `_DEFAULT_DOMAIN_ORDER` ubica `"provisioning_cmf"` despues de `"model"`/`"calibration"` si esas secciones estan presentes, y despues de `"data"` en el caso standalone. El orden no implica dependencia dura: `requires` sigue siendo solo `data.frame`; `pd_breaks` valida su proveedor PD condicional dentro de `execute`.
 
 **Paquete fisico troceable.**
 
@@ -101,7 +101,7 @@ Las matrices de `docs/normativa_cmf_parametros.md` expresan PI, PDI y PE en porc
 
 **Exposicion.** Para colocaciones directas, la exposicion base es el saldo configurado. Para creditos contingentes, la exposicion se calcula como `monto_contingente * CCF_B3`. Si el cliente/operacion esta en incumplimiento segun B-1, el factor B-3 se fuerza a `100%` (fuente: `docs/normativa_cmf_parametros.md` §6; CNC Capitulo B-3). Si hay saldo directo y contingente, la exposicion total es la suma de ambos componentes, salvo regla especifica de cartera.
 
-**PI desde PD F1.** La PD de F1 llega desde `("model", "raw_pd_frame")`, columna `pd_raw` (SDD-08). En el modelo estandar B-1, esa PD **no reemplaza automaticamente** los parametros PI de las matrices regulatorias. La ruta segura v1 es:
+**PI desde PD F1 (opcional).** Si `pd_mapping.method="pd_breaks"`, la PD de F1 llega por default desde `("model", "raw_pd_frame")`, columna `pd_raw` (SDD-08), o desde el artefacto configurado. En el modelo estandar B-1, esa PD **no reemplaza automaticamente** los parametros PI de las matrices regulatorias. La ruta segura v1 es:
 - si la matriz B-1 pide categoria/tramo (A1-B4, C1-C6, mora, PVG, PVB/PTVG, producto), la PI se toma de la fila normativa resultante;
 - la PD F1 se usa para asignar una categoria CMF solo si `pd_mapping.method="pd_breaks"` trae umbrales explicitos del usuario, versionados en config y auditados;
 - si no hay categoria/tramo ni mapping explicito, se levanta `CmfMappingError`.
@@ -109,7 +109,7 @@ Las matrices de `docs/normativa_cmf_parametros.md` expresan PI, PDI y PE en porc
 **Cartera individual en incumplimiento C1-C6.** Para C1-C6 no se aplica `PI * PDI`. La norma define `Tasa de Perdida Esperada = (E - R) / E`; esa tasa se encasilla en C1-C6 y se aplica `PP` segun tabla: C1 `2%`, C2 `10%`, C3 `25%`, C4 `40%`, C5 `65%`, C6 `90%` (fuente: `docs/normativa_cmf_parametros.md` §1.3; CNC B-1 numeral 2.2, hoja 9, Circular 3.573/2014).
 
 **Garantias.**
-- Avales/fianzas pueden sustituir la calidad crediticia del deudor por la del avalista en la proporcion avalada. La tabla verificada contiene tres filas: `AA/Aa2`, `A/A2`, `BBB-/Baa3`, con PI/PDI por escala internacional/nacional (fuente: `docs/normativa_cmf_parametros.md` §5.2; CNC B-1 numeral 4.1 letra a, hoja 18, Circular 3.638/2018).
+- Avales/fianzas pueden sustituir la calidad crediticia del deudor por la del avalista en la proporcion avalada. Flujo obligatorio: rating externo del avalista -> equivalencia de calidad crediticia de `docs/normativa_cmf_parametros.md` §5.2 -> parametros PI/PDI o PE del aval -> formula de sustitucion proporcional de §2.d -> provision final. La tabla verificada contiene las filas `AA/Aa2`, `A/A2`, `BBB-/Baa3`, con PI/PDI por escala internacional/nacional (fuente: `docs/normativa_cmf_parametros.md` §5.2; CNC B-1 numeral 4.1 letra a, hoja 18, Circular 3.638/2018).
 - Garantias reales, bienes en leasing, PVG/PVB/PTVG y factoring operan por la matriz de cartera correspondiente (fuente: `docs/normativa_cmf_parametros.md` §§2, 4, 5.1).
 - Garantias financieras requieren aforos/haircuts que `docs/normativa_cmf_parametros.md` marca como **PENDIENTE** (§5.2). En v1, si una fila requiere ese descuento y no trae `recoverable_amount` ya calculado por el usuario, el default es fallar con `CmfMissingRegulatoryDataError`.
 
@@ -128,41 +128,27 @@ Las matrices de `docs/normativa_cmf_parametros.md` expresan PI, PDI y PE en porc
 | `guarantee_aval_quality_v2018` | Avales/fianzas: equivalencia de calidad crediticia por escala | §5.2 | CNC B-1 num. 4.1 letra a, hoja 18, Circular 3.638/2018 |
 | `contingent_b3_v2016` | CCF contables B-3 para creditos contingentes | §6 | CNC B-3 num. 3, hojas 1-2, Circular 3.604/2016 |
 
-**Extracto de control: comercial individual A1-B4.** Estos numeros no deben copiarse a ramas de codigo; viven en el archivo de datos versionado y se testean contra esta fuente.
+**Extracto de control: comercial individual A1-B4.** Estos numeros no deben copiarse a ramas de codigo; viven en el archivo de datos versionado y se testean contra esta fuente. El SDD conserva solo filas golden para pruebas; la tabla normativa completa se cita desde `docs/normativa_cmf_parametros.md`.
 
 | Categoria | PI (%) | PDI (%) | PE (%) |
 |---|---:|---:|---:|
 | A1 | 0,04 | 90,0 | 0,03600 |
-| A2 | 0,10 | 82,5 | 0,08250 |
-| A3 | 0,25 | 87,5 | 0,21875 |
-| A4 | 2,00 | 87,5 | 1,75000 |
-| A5 | 4,75 | 90,0 | 4,27500 |
-| A6 | 10,00 | 90,0 | 9,00000 |
-| B1 | 15,00 | 92,5 | 13,87500 |
-| B2 | 22,00 | 92,5 | 20,35000 |
-| B3 | 33,00 | 97,5 | 32,17500 |
 | B4 | 45,00 | 97,5 | 43,87500 |
 
-Fuente de todos los valores de la tabla: `docs/normativa_cmf_parametros.md` §1.1; CNC B-1 numeral 2.1, hoja 3, Circular 3.573/2014.
+Fuente de la tabla completa A1-A6/B1-B4: `docs/normativa_cmf_parametros.md` §1.1; CNC B-1 numeral 2.1, hoja 3, Circular 3.573/2014.
 
 **Extracto de control: consumo vigente 2025.** Matriz PI por cuatro tramos de mora (`0 a 7`, `8 a 30`, `31 a 60`, `61 a 89` dias), tenencia de hipotecario y mora sistema >30 dias: valores `3,3%`, `14,6%`, `6,6%`, `19,8%`; `20,4%`, `41,6%`, `30,6%`, `48,5%`; `50,2%`, `63,0%`, `65,1%`, `66,3%`; `62,6%`, `81,7%`, `72,3%`, `86,9%`. Si el deudor esta en incumplimiento, `PI = 100%`. La PDI por producto/hipotecario es `33,2%`, `47,7%`, `49,5%`, `56,6%`, `60,3%` segun la tabla §3.2. Fuente: `docs/normativa_cmf_parametros.md` §3; Circular 2.346/2024, B-1 numeral 3.1.3, vigente desde cierre contable enero 2025.
 
 **Extracto de control: vivienda PVG.** La matriz cubre cuatro tramos PVG (`PVG <= 40%`, `40% < PVG <= 80%`, `80% < PVG <= 90%`, `PVG > 90%`) y cinco estados de mora (`0`, `1-29`, `30-59`, `60-89`, incumplimiento). Incluye PI, PDI y PE para cada cruce, mas MP para creditos con seguro estatal de remate: `100%`, `95%`, `96%`, `84%`, `89%` segun PVG y valor vivienda. Fuente: `docs/normativa_cmf_parametros.md` §4 y §4.1; CNC B-1 numeral 3.1.1, hojas 12-13, Circular 3.638/2018. Los valores completos deben residir en `housing_pvg_v2018`, no en el motor.
 
-**Extracto de control: creditos contingentes B-3.** La tabla contable B-3 esta marcada **VERIFICADO** en `docs/normativa_cmf_parametros.md` §6 y debe implementarse como matriz activa por default:
+**Extracto de control: creditos contingentes B-3.** La tabla contable B-3 esta marcada **VERIFICADO** en `docs/normativa_cmf_parametros.md` §6 y debe implementarse como matriz activa por default. El SDD conserva solo filas golden para pruebas; la tabla normativa completa se cita desde la fuente parametrica:
 
 | fila B-3 | tipo de credito contingente | CCF |
 |---|---|---:|
 | a) | Avales y fianzas | 100% |
-| b) | Cartas de credito del exterior confirmadas | 20% |
-| c) | Cartas de credito documentarias emitidas | 20% |
-| d) | Boletas de garantia | 50% |
-| e) | Lineas de credito de libre disposicion (tarjetas, sobregiros pactados) | 35% |
 | f) CAE | Otros compromisos de credito - creditos para estudios superiores Ley N° 20.027 | 15% |
-| f) otros | Otros compromisos de credito - otros | 100% |
-| g) | Otros creditos contingentes | 100% |
 
-Fuente de todos los valores: `docs/normativa_cmf_parametros.md` §6; CNC Capitulo B-3, numeral 3, hojas 1-2, Circular 3.604/2016. El rubro f) requiere logica condicional (`CAE Ley 20.027` vs otros), y si el cliente/operacion esta en incumplimiento segun B-1, el CCF se fuerza a `100%`. No mezclar estos CCF contables de provisiones con tablas de capital/APR/Basilea.
+Fuente de la tabla completa: `docs/normativa_cmf_parametros.md` §6; CNC Capitulo B-3, numeral 3, hojas 1-2, Circular 3.604/2016. El rubro f) requiere logica condicional (`CAE Ley 20.027` vs otros), y si el cliente/operacion esta en incumplimiento segun B-1, el CCF se fuerza a `100%`. No mezclar estos CCF contables de provisiones con tablas de capital/APR/Basilea.
 
 ## 4. API pública (contrato)
 
@@ -244,10 +230,10 @@ class CmfProvisionResult(BaseModel):
     records: tuple[CmfProvisionRecord, ...]
     card: CmfProvisionCard
     matrix_bundle: CmfMatrixBundle
-    def term_structure(self) -> "pandas.DataFrame": ...
+    def term_structure(self) -> "pandas.DataFrame | None": ...
 ```
 
-`term_structure()` cumple CT-2: para CMF v1 retorna una estructura monoperiodo con `as_of_date`, `portfolio`, `exposure_amount`, `provision_amount` y `pe_percent`. SDD-16/17 podran comparar contra IFRS 9 sin romper el contrato.
+`term_structure()` cumple CT-2 y D-CORE-7: para CMF agregado retorna `None`, porque el modelo estandar B-1 no publica una curva lifetime ni una estructura multi-periodo. SDD-16 fija el shape tidy de ECL lifetime; SDD-17 debe comparar el resultado agregado CMF usando `summary`/`card` y consumir `term_structure()` solo cuando no sea `None`.
 
 ```python
 # nikodym/provisioning/cmf/engine.py
@@ -260,7 +246,7 @@ class CmfProvisioningEngine:
         self,
         frame: "pandas.DataFrame",
         *,
-        pd_frame: "pandas.DataFrame",
+        pd_frame: "pandas.DataFrame | None" = None,
         as_of_date: str,
         audit: "AuditSink | None" = None,
     ) -> CmfProvisionResult: ...
@@ -273,9 +259,6 @@ class CmfProvisioningStep(AuditableMixin):
     name: str = "provisioning_cmf"
     requires: tuple[ArtifactKey, ...] = (
         ("data", "frame"),
-        ("data", "labels"),
-        ("data", "splits"),
-        ("model", "raw_pd_frame"),
     )
     provides: tuple[ArtifactKey, ...] = (
         ("provisioning_cmf", "detail"),
@@ -288,6 +271,8 @@ class CmfProvisioningStep(AuditableMixin):
     def from_config(cls, cfg: CmfProvisioningConfig) -> "CmfProvisioningStep": ...
     def execute(self, study: "Study", rng: "numpy.random.Generator") -> "CmfProvisionResult": ...
 ```
+
+**Dependencias condicionales (no CT-1 duras).** `requires` declara solo lo que siempre se lee. Si `pd_mapping.method="provided_cmf_category"`, `execute` no debe leer `model.raw_pd_frame`, `data.labels` ni `data.splits`: calcula standalone con categoria/tramo regulatorio y exposicion en `data.frame`. Si `pd_mapping.method="pd_breaks"`, `execute` debe validar antes de calcular que existen el artefacto PD configurado (`(cfg.pd_mapping.pd_source_domain, cfg.pd_mapping.pd_source_key)`, por default `("model", "raw_pd_frame")`) y `("data", "labels")`/`("data", "splits")` para reconciliar poblacion, particion y target. La falta de esos artefactos en esa ruta es `ArtifactNotFoundError` o `CmfConfigError` con mensaje que cite `pd_mapping.method`.
 
 **Artefactos que `CmfProvisioningStep.execute` escribe en `study.artifacts`.**
 
@@ -319,9 +304,11 @@ class CmfMatrixConfig(NikodymBaseConfig):
     fail_on_source_mismatch: bool = Field(True, title="Fallar ante hash/fuente inconsistente")
 
 class CmfPdMappingConfig(NikodymBaseConfig):
-    pd_source_domain: Literal["model", "calibration"] = Field("model", title="Dominio fuente PD")
-    pd_source_key: str = Field("raw_pd_frame", title="Artefacto fuente PD")
-    pd_column: str = Field("pd_raw", title="Columna PD")
+    pd_source_domain: Literal["model", "calibration"] = Field(
+        "model", title="Dominio fuente PD; solo se lee con method='pd_breaks'")
+    pd_source_key: str = Field(
+        "raw_pd_frame", title="Artefacto fuente PD; solo se lee con method='pd_breaks'")
+    pd_column: str = Field("pd_raw", title="Columna PD; solo se lee con method='pd_breaks'")
     method: Literal["provided_cmf_category", "pd_breaks"] = Field(
         "provided_cmf_category", title="Metodo PD a categoria/PI")
     pd_breaks: tuple[float, ...] = Field(default_factory=tuple, title="Cortes PD para categorias")
@@ -347,6 +334,7 @@ class CmfProvisioningConfig(NikodymBaseConfig):
     type: Literal["standard"] = "standard"
     as_of_date_col: str = Field("as_of_date", title="Fecha de calculo")
     portfolio_col: str = Field("cmf_portfolio", title="Cartera CMF")
+    debtor_id_col: str = Field("debtor_id", title="Identificador de deudor")
     category_col: str = Field("cmf_category", title="Categoria CMF")
     days_past_due_col: str = Field("days_past_due", title="Dias de mora")
     product_type_col: str = Field("cmf_product_type", title="Tipo producto CMF")
@@ -358,7 +346,8 @@ class CmfProvisioningConfig(NikodymBaseConfig):
 
 **Validaciones de config.**
 - `pd_mapping.method="pd_breaks"` exige `pd_breaks` estrictamente crecientes y `len(categories) == len(pd_breaks) + 1`; categorias permitidas dependen de la cartera declarada.
-- `pd_mapping.method="provided_cmf_category"` exige que `category_col` exista en el frame para carteras que lo necesiten.
+- `pd_mapping.method="pd_breaks"` exige en runtime el artefacto PD configurado y los artefactos de poblacion `data.labels`/`data.splits`; esos artefactos no son `requires` duros del Step.
+- `pd_mapping.method="provided_cmf_category"` exige que `category_col` exista en el frame para carteras que lo necesiten y no lee artefactos de modelo; es el modo standalone sobre categoria/tramo regulatorio + exposicion.
 - `matrices.fail_on_unmapped_contingent_type=True` levanta `CmfMappingError` si una fila contingente no calza con ninguna de las ocho filas B-3 verificadas.
 - `exposure.allow_negative_exposure=False` rechaza exposiciones directas o contingentes negativas.
 - `guarantees.financial_guarantee_policy="use_recoverable_amount"` exige columna `recoverable_amount` validada por usuario; no calcula haircuts no verificados.
@@ -366,7 +355,7 @@ class CmfProvisioningConfig(NikodymBaseConfig):
 **Defaults defendibles.**
 - `active_version="cmf_b1_b3_2025_01"` apunta al conjunto compatible con consumo vigente 2025 de `docs/normativa_cmf_parametros.md` §3.
 - La matriz B-3 contable esta activa y verificada por default segun `docs/normativa_cmf_parametros.md` §6; los contingentes no-default no se bloquean por diseño, solo fallan si el tipo no puede mapearse.
-- `method="provided_cmf_category"` evita mapear PD F1 a categorias regulatorias con cortes inventados.
+- `method="provided_cmf_category"` evita mapear PD F1 a categorias regulatorias con cortes inventados y permite correr `provisioning.cmf` sin `model.raw_pd_frame`.
 - `financial_guarantee_policy="fail"` evita aceptar mitigacion con aforos pendientes.
 - `rounding="none"` publica el calculo economico exacto; el redondeo contable queda como decision explicita (D-CMF-5).
 
@@ -381,12 +370,14 @@ class CmfProvisioningConfig(NikodymBaseConfig):
 
 **Inputs de `CmfProvisioningStep` via `Study`.**
 
-| dominio | clave | uso |
-|---|---|---|
-| `data` | `"frame"` | frame validado, etiquetado, particionado; contiene columnas regulatorias y exposicion |
-| `data` | `"labels"` | contrato target/status; permite distinguir filas modelables/excluidas si aplica |
-| `data` | `"splits"` | particiones y roles; auditoria de poblacion usada |
-| `model` | `"raw_pd_frame"` | indice original + `partition`, `target`, `linear_predictor`, `pd_raw` de SDD-08 |
+| dominio | clave | obligatoriedad | uso |
+|---|---|---|---|
+| `data` | `"frame"` | duro (`requires`) | frame validado; contiene columnas regulatorias, identificador de deudor cuando aplique y exposicion |
+| `data` | `"labels"` | condicional (`pd_mapping.method="pd_breaks"`) | contrato target/status para reconciliar la poblacion modelada con la provisionada |
+| `data` | `"splits"` | condicional (`pd_mapping.method="pd_breaks"`) | particiones y roles para auditar la fuente PD |
+| `model`/`calibration` | `cfg.pd_mapping.pd_source_key` | condicional (`pd_mapping.method="pd_breaks"`) | indice original + columna PD configurada; por default `model.raw_pd_frame.pd_raw` de SDD-08 |
+
+**Agregacion de consumo a nivel deudor.** `data` no implementa reglas regulatorias CMF; solo entrega columnas transversales validadas. La agregacion de consumo exigida por B-1 (todas las colocaciones y contingentes de consumo del deudor con el banco y filiales en Chile dentro del frame de entrada) es responsabilidad de `provisioning.cmf`: agrupa por `debtor_id_col`, calcula el estado regulatorio del deudor (`max(days_past_due)`, hipotecario sistema, mora sistema >30d) y aplica la PI resultante a cada exposicion de consumo. Si el frame no cubre el perimetro completo configurado, el usuario debe proveer los flags ya consolidados; el motor no consulta fuentes externas.
 
 **Columnas minimas por cartera.**
 
@@ -396,7 +387,7 @@ class CmfProvisioningConfig(NikodymBaseConfig):
 | `commercial_group_leasing` | `days_past_due`, `leasing_asset_type`, `pvb`, `exposure_amount` |
 | `commercial_group_student` | `student_payment_due`, `days_past_due`, `student_loan_type`, `exposure_amount` |
 | `commercial_group_generic_factoring` | `days_past_due`, `ptvg_bucket` o `guarantee_value`, `factoring_recourse_type`, `exposure_amount` |
-| `consumer` | `days_past_due`, `has_housing_loan_system`, `system_dpd30_last_3m`, `consumer_product_type`, `exposure_amount` |
+| `consumer` | `debtor_id`, `days_past_due`, `has_housing_loan_system`, `system_dpd30_last_3m`, `consumer_product_type`, `exposure_amount` |
 | `housing` | `days_past_due`, `pvg` o `loan_balance` + `mortgage_guarantee_value`, `exposure_amount`, flags de seguro estatal si aplica |
 | contingentes B-3 | `contingent_amount`, `contingent_type`, `is_default`; tipo mapeable a las ocho filas verificadas de `docs/normativa_cmf_parametros.md` §6 |
 | avales/fianzas | `aval_coverage_pct`, `aval_rating_scale`, `aval_rating_category` cuando `enable_aval_substitution=True` |
@@ -418,8 +409,8 @@ class CmfProvisioningConfig(NikodymBaseConfig):
 - `warning_codes`.
 
 **Invariantes.**
-- *No mutacion:* no modifica `data.frame` ni `model.raw_pd_frame`.
-- *Alineacion:* `pd_frame.index` debe contener las filas que se calculan o la config debe permitir `pd_mapping.method="provided_cmf_category"` sin PD por fila para matrices puramente regulatorias; default exige trazabilidad PD si el frame fue modelado.
+- *No mutacion:* no modifica `data.frame` ni `model.raw_pd_frame`/`calibrated_pd_frame` cuando existan.
+- *Alineacion:* en `pd_mapping.method="pd_breaks"`, `pd_frame.index` debe contener las filas que se calculan y reconciliar con `data.labels`/`data.splits`; en `provided_cmf_category`, no hay obligacion de PD por fila.
 - *Finitud:* exposicion, PI, PDI, PE y provision publicables son finitos y no negativos.
 - *Trazabilidad normativa:* cada fila calculada referencia `matrix_id`, `matrix_row_id`, `matrix_version` y fuente.
 - *B-3:* si una exposicion contingente no puede mapear a CCF verificado, falla por default; no usa factores por similitud semantica.
@@ -431,21 +422,23 @@ class CmfProvisioningConfig(NikodymBaseConfig):
 **`CmfProvisioningStep.execute(study, rng)` - secuencia canonica.**
 1. **Descartar azar.** `del rng`; el motor CMF v1 es determinista.
 2. **Leer config.** Resolver `study.config.provisioning_cmf` o `CmfProvisioningConfig()` en invocacion programatica.
-3. **Validar prerequisitos CT-1.** Exigir `data.frame`, `data.labels`, `data.splits` y `model.raw_pd_frame`.
+3. **Validar prerequisitos CT-1.** Exigir solo `data.frame` como `requires` duro.
+3-bis. **Validar prerequisitos condicionales.** Si `pd_mapping.method="pd_breaks"`, exigir el artefacto PD configurado y `data.labels`/`data.splits`; si `method="provided_cmf_category"`, no leer esos artefactos.
 4. **Cargar matrices.** `load_cmf_matrices(cfg.matrices)`, validar hash, version, fuentes y estado `VERIFICADO` o `FALTA-DATO` segun politica.
-5. **Copias defensivas.** Copiar frame y PD frame; validar indice unico.
-6. **Alinear PD.** Unir `pd_column` por indice; registrar filas sin PD si config lo permite.
+5. **Copias defensivas.** Copiar frame y, si aplica, PD frame; validar indice unico.
+6. **Alinear PD condicional.** En `pd_breaks`, unir `pd_column` por indice y reconciliar con `labels`/`splits`; en `provided_cmf_category`, omitir PD.
 7. **Validar columnas regulatorias.** Resolver cartera por `portfolio_col`; validar columnas minimas por cartera.
-8. **Calcular exposicion.** Directa + contingente convertido por B-3 usando la matriz contable verificada; aplicar override `100%` en incumplimiento; si el tipo contingente no calza con ninguna fila B-3, fallar por default.
-9. **Resolver matriz/fila.** Para cada fila, seleccionar matriz por cartera y row key por categoria/tramo/mora/producto/garantia.
-10. **Aplicar garantias.** Avales por sustitucion proporcional; garantias reales via PVG/PVB/PTVG; financieras solo con datos verificados o recoverable amount configurado.
-11. **Calcular provision.**
+8. **Consolidar reglas por deudor cuando aplique.** Para consumo, agrupar por `debtor_id_col` dentro del frame y calcular los factores de PI a nivel deudor; las demas carteras se resuelven por operacion salvo regla especifica.
+9. **Calcular exposicion.** Directa + contingente convertido por B-3 usando la matriz contable verificada; aplicar override `100%` en incumplimiento; si el tipo contingente no calza con ninguna fila B-3, fallar por default.
+10. **Resolver matriz/fila.** Para cada fila, seleccionar matriz por cartera y row key por categoria/tramo/mora/producto/garantia.
+11. **Aplicar garantias.** Avales por flujo rating externo -> §5.2 -> parametros del aval -> formula §2.d; garantias reales via PVG/PVB/PTVG; financieras solo con datos verificados o recoverable amount configurado.
+12. **Calcular provision.**
     - A1-B4, comercial grupal y consumo: `Provision = E * (PI/100) * (PDI/100)`.
     - Vivienda PVG: `Provision = E * (PE_tabulada/100)` usando la PE publicada por la matriz, no recomputada desde PI/PDI. PI y PDI se conservan como campos auditables y se verifica su coherencia con PE solo con tolerancia.
     - C1-C6: `Provision = E * (PP/100)`.
-12. **Construir DTOs.** `CmfProvisionRecord`, `CmfPortfolioSummary`, `CmfProvisionCard`, `CmfProvisionResult`.
-13. **Auditar decisiones.** Version normativa, mapping PD, garantias, B-3, rows excluidas, redondeo y warnings.
-14. **Publicar artefactos.** Escribir las cinco claves `provides` bajo `"provisioning_cmf"`.
+13. **Construir DTOs.** `CmfProvisionRecord`, `CmfPortfolioSummary`, `CmfProvisionCard`, `CmfProvisionResult`.
+14. **Auditar decisiones.** Version normativa, mapping PD, agregacion consumo por deudor, garantias, B-3, rows excluidas, redondeo y warnings.
+15. **Publicar artefactos.** Escribir las cinco claves `provides` bajo `"provisioning_cmf"`.
 
 **`CmfProvisioningEngine.calculate(...)` - detalle de resolucion.**
 1. Normalizar porcentajes como `Decimal` desde strings de matriz (`"0.04"`, `"90.0"`), no desde literales float.
@@ -465,10 +458,11 @@ class CmfProvisioningConfig(NikodymBaseConfig):
 
 ## 8. Casos borde y manejo de errores
 
-- **Falta `data.frame` o `model.raw_pd_frame`:** `ArtifactNotFoundError` por CT-1.
+- **Falta `data.frame`:** `ArtifactNotFoundError` por CT-1.
+- **Falta artefacto PD, `data.labels` o `data.splits` con `pd_mapping.method="pd_breaks"`:** `ArtifactNotFoundError` o `CmfConfigError` condicional, no prerequisito duro del Step.
 - **Frame sin columnas regulatorias requeridas:** `CmfInputError` listando cartera, columnas faltantes y primera fila afectada.
 - **Indice duplicado:** `CmfInputError`; no se permite alinear PD/exposicion de forma ambigua.
-- **PD fuera de `[0,1]` o no finita:** `CmfInputError`, aunque el default no use PD como PI.
+- **PD fuera de `[0,1]` o no finita:** `CmfInputError` solo si `pd_mapping.method="pd_breaks"` o si se provee PD para auditoria.
 - **Categoria CMF desconocida:** `CmfMappingError` con categoria y cartera.
 - **`pd_breaks` incompletos o no monotonomos:** `CmfConfigError`.
 - **Exposicion negativa:** `CmfInputError` salvo config explicita no-default.
@@ -485,11 +479,11 @@ Toda excepcion propia desciende de `NikodymError`; mensajes en español e incluy
 ## 9. Reproducibilidad y auditoría
 
 - **Componentes estocasticos.** Ninguno. `CmfProvisioningStep.execute(study, rng)` recibe `rng` por contrato y debe hacer `del rng`.
-- **Determinismo esperado.** `(data_hash + config_hash + matrix_bundle.sha256 + model.raw_pd_frame + uv.lock) -> detalle, summary, card y term_structure identicos`.
+- **Determinismo esperado.** `(data_hash + config_hash + matrix_bundle.sha256 + artefacto PD si aplica + uv.lock) -> detalle, summary, card identicos; term_structure() retorna None en CMF agregado`.
 - **Datos normativos versionados.** `CmfMatrixManifest` registra: version, fecha de vigencia, fecha de extraccion, fuentes oficiales, `docs/normativa_cmf_parametros.md` section refs, hash sha256 del YAML canonico, autor/verificador y estado (`verified`, `pending_reconciliation`, `deprecated`).
 - **Audit trail (`log_decision`).** Registrar:
   - version de matrices y hash;
-  - politica PD->PI y fuente PD usada;
+  - politica PD->PI y fuente PD usada si aplica;
   - conteo por cartera/categoria;
   - contingentes B-3 convertidos y override `100%` por incumplimiento;
   - garantias aplicadas, omitidas o fallidas;
@@ -504,14 +498,14 @@ Toda excepcion propia desciende de `NikodymError`; mensajes en español e incluy
 
 **Internas.**
 - SDD-01 (`core`): `Step`, `ArtifactKey`, `ArtifactStore`, `AuditableMixin`, `NikodymError`, `MissingDependencyError`, lineage y `config_hash`.
-- SDD-02 (`data`): `frame`, `labels`, `splits`, `data_hash`, target/particiones y validacion de esquema.
+- SDD-02 (`data`): `frame` como input duro; `labels`/`splits`, `data_hash`, target/particiones y validacion de esquema cuando la ruta PD los requiere.
 - SDD-05: `NikodymBaseConfig`, hooks diferidos, `INFRA_SECTIONS`, round-trip YAML.
-- SDD-08 (`model`): `raw_pd_frame` con `pd_raw`, `linear_predictor`, `partition`, `target`.
+- SDD-08 (`model`): `raw_pd_frame` con `pd_raw`, `linear_predictor`, `partition`, `target`, solo para `pd_mapping.method="pd_breaks"` o comparaciones auditadas.
 - SDD-03/26 (aguas abajo): governance/report consumen `CmfProvisionCard`.
 
 **Aguas abajo.**
-- SDD-16 (`provisioning/ifrs9`) podra comparar metodologia IFRS 9 contra `CmfProvisionResult.term_structure()`.
-- SDD-17 (`provisioning`) aplica el maximo entre CMF e IFRS 9 y publica provision final.
+- SDD-16 (`provisioning/ifrs9`) define la term-structure ECL lifetime; CMF agregado retorna `None` por CT-2.
+- SDD-17 (`provisioning`) aplica el maximo entre CMF e IFRS 9 usando el agregado CMF (`summary`/`card`) y la term-structure solo cuando exista.
 - SDD-22 (`validation`) usa detalle/summary para backtesting regulatorio.
 - SDD-23 (`ui`) edita config y muestra brechas `FALTA-DATO`.
 - SDD-26 (`report`) presenta card, detalle y fuentes.
@@ -537,17 +531,17 @@ Marco transversal en SDD-24. Casos especificos:
 - **Goldens consumo 2025.** Sin hipotecario, sin mora sistema, mora `0 a 7`, producto `creditos_en_cuotas`: PI `6,6%`, PDI `56,6%`; E=`100.000` -> provision `3.735,6`; fuente `docs/normativa_cmf_parametros.md` §3.
 - **Goldens vivienda PVG.** PVG `>90%`, mora `60-89`, E=`100.000`: PE `24,2355%`, provision `24.235,5`; fuente `docs/normativa_cmf_parametros.md` §4.
 - **Goldens comercial grupal.** Generica sin garantia, mora `0`, E=`100.000`: PI `4,91%`, PDI `56,9%`, provision `2.793,79`; fuente `docs/normativa_cmf_parametros.md` §2.c.
-- **B-3 contable verificado.** Tests para las ocho filas reales: a=`100%`, b=`20%`, c=`20%`, d=`50%`, e=`35%`, f-CAE=`15%`, f-otros=`100%`, g=`100%`; override incumplimiento `100%` se prueba como regla verificada. Tipo contingente no mapeado levanta `CmfMappingError`.
+- **B-3 contable verificado.** Tests para las ocho filas reales contra `docs/normativa_cmf_parametros.md` §6; el SDD conserva como golden solo a) y f)-CAE en §3. Override incumplimiento `100%` se prueba como regla verificada. Tipo contingente no mapeado levanta `CmfMappingError`.
 - **Avales.** Cobertura `40%` con aval A1 reduce/sustituye solo el tramo avalado y deja el resto con PI/PDI del deudor; prueba contra formulas de `docs/normativa_cmf_parametros.md` §2.d y tabla §5.2.
 - **Garantia financiera faltante.** Fila que requiere haircut financiero sin `recoverable_amount` levanta `CmfMissingRegulatoryDataError`.
-- **No mutacion.** Snapshots profundos de `data.frame` y `model.raw_pd_frame` permanecen iguales tras `execute`.
-- **Contratos CT-1.** Falta `model.raw_pd_frame` -> `ArtifactNotFoundError`; falta columna regulatoria -> `CmfInputError`.
+- **No mutacion.** Snapshots profundos de `data.frame` y, si se usan, `model.raw_pd_frame`/`calibrated_pd_frame` permanecen iguales tras `execute`.
+- **Contratos CT-1.** Falta `data.frame` -> `ArtifactNotFoundError`; en modo standalone falta de `model.raw_pd_frame` no bloquea; con `pd_mapping.method="pd_breaks"`, falta del artefacto PD configurado o de `data.labels`/`data.splits` falla antes de calcular. Falta columna regulatoria -> `CmfInputError`.
 - **Config.** Round-trip YAML; cambiar `active_version`, `pd_mapping.method`, `pd_breaks`, `financial_guarantee_policy` o `rounding` cambia `config_hash`.
-- **Reproducibilidad.** Dos corridas con mismo frame, PD frame, config y matrices producen `detail`, `summary`, `card` y `term_structure()` byte-equivalentes.
+- **Reproducibilidad.** Dos corridas con mismo frame, artefacto PD si aplica, config y matrices producen `detail`, `summary`, `card` byte-equivalentes y `term_structure() is None` para CMF agregado.
 - **Import liviano.** `import nikodym.core` no importa `nikodym.provisioning`; `import nikodym.provisioning.cmf` no carga matrices completas hasta pedirlas.
 - **Cobertura regulatoria 100%.** `src/nikodym/provisioning/cmf/**` debe quedar en el grupo de cobertura 100% junto con los modulos regulatorios ya definidos.
 
-Fixtures: `cmf_small_exposures.parquet` sintetico sin datos reales, `raw_pd_frame` sintetico de SDD-08, matriz YAML canonica minima con todas las filas verificadas, `InMemoryAuditSink` y casos por cartera.
+Fixtures: `cmf_small_exposures.parquet` sintetico sin datos reales, `raw_pd_frame` sintetico de SDD-08 solo para casos `pd_breaks`, matriz YAML canonica minima con todas las filas verificadas, `InMemoryAuditSink` y casos por cartera.
 
 ## 12. Decisiones abiertas y riesgos
 
@@ -564,7 +558,7 @@ Fixtures: `cmf_small_exposures.parquet` sintetico sin datos reales, `raw_pd_fram
 - **docs/normativa_cmf_parametros.md** Advertencias, §§1-7: fuente primaria interna de numeros para B-1/B-3 recopilados, verificados visualmente 2026-06-23, con pendientes explicitos.
 - **ROADMAP.md** F3: motor B-1, matrices por cartera como datos versionados, contingentes B-3, avales y garantias.
 - **SDD-02 (`data`)**: `frame`, `labels`, `splits`, `data_hash`, frontera datos transversales.
-- **SDD-08 (`model`)**: `raw_pd_frame` con `pd_raw`; etiqueta de PD cruda no calibrada.
+- **SDD-08 (`model`)**: `raw_pd_frame` con `pd_raw`; etiqueta de PD cruda no calibrada, dependencia condicional de `pd_mapping.method="pd_breaks"`.
 - **_CONTRATOS-TRANSVERSALES.md** CT-1 (`requires`/`provides`), CT-2 (`ProvisionResultLike.term_structure()`), CT-4 (core liviano).
 - **CNC CMF Capitulo B-1**: provisiones por riesgo de credito, categorias A1-C6, matrices comercial/grupal/consumo/vivienda, garantias.
 - **CNC CMF Capitulo B-3**: creditos contingentes y factores de conversion contables para provisiones, segun tabla verificada en `docs/normativa_cmf_parametros.md` §6.
@@ -573,7 +567,7 @@ Fixtures: `cmf_small_exposures.parquet` sintetico sin datos reales, `raw_pd_fram
 ## Decisiones para revision de Cami
 
 - **D-CMF-1 - Dominio y clave de config `provisioning_cmf`.** Recomendacion: usar dominio plano `"provisioning_cmf"` para evitar ambiguedad con SDD-17 (`provisioning`) y con IFRS 9. Confirmar si Cami prefiere config anidado futuro `provisioning.cmf`.
-- **D-CMF-2 - Fuente default de PD para mapeo PI.** Recomendacion conservadora: default `model.raw_pd_frame.pd_raw` solo como insumo trazable; PI regulatoria sale de matrices/categorias. Si Cami quiere PD calibrada de SDD-10 como default, cambiar dependencia/orden a `calibration.calibrated_pd_frame`.
+- **D-CMF-2 - Fuente default de PD para mapeo PI.** Recomendacion conservadora: no usar PD por default (`provided_cmf_category`). Si el usuario activa `pd_mapping.method="pd_breaks"`, usar `model.raw_pd_frame.pd_raw` como fuente inicial trazable; si Cami quiere PD calibrada de SDD-10 como fuente recomendada, cambiar esa ruta condicional a `calibration.calibrated_pd_frame`.
 - **D-CMF-3 - Cortes PD -> categorias CMF.** No hay cortes regulatorios recopilados para convertir PD continua F1 a A1-B4/C. Recomendacion: no hardcodear; exigir `pd_breaks` configurados por usuario o columna `cmf_category` provista. FALTA-DATO si se pretendia un mapping estandar Nikodym.
 - **D-CMF-4 - Revalidar B-3 antes del release F3.** La tabla B-3 contable queda activa por default con los factores verificados de `docs/normativa_cmf_parametros.md` §6. Recomendacion: antes del release F3, revalidar la tabla completa contra el PDF vigente del Compendio y, si la norma cambio, emitir una nueva matriz `contingent_b3_vYYYY_MM` versionada.
 - **D-CMF-5 - Redondeo contable.** Recomendacion: calcular y auditar sin redondeo (`rounding="none"`) y dejar redondeo de moneda como opcion explicita. Cami decide si v1 debe redondear a pesos/centavos por defecto.
