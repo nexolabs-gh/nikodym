@@ -116,9 +116,9 @@ def test_from_config_registro_reexport_y_contrato_step_exacto() -> None:
 
 
 def test_core_study_cablea_performance_en_orden_por_defecto() -> None:
-    """``Study`` resuelve ``performance`` como dominio perezoso después de ``calibration``."""
+    """``Study`` resuelve ``performance`` después de ``survival`` en el orden por defecto."""
     order = study_module._DEFAULT_DOMAIN_ORDER
-    assert order[order.index("calibration") + 1] == "performance"
+    assert order.index("calibration") < order.index("survival") < order.index("performance")
     assert study_module._DOMAIN_MODULES["performance"] == "nikodym.performance"
     assert study_module._DOMAIN_CONFIG_CLASSES["performance"] == (
         "nikodym.performance.config",

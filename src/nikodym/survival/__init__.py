@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from nikodym.survival.cox_aft import AFTSurvivalModel, CoxPHSurvivalModel
     from nikodym.survival.discrete_hazard import DiscreteTimeHazardModel
     from nikodym.survival.kaplan_meier import KaplanMeierSurvivalModel
+    from nikodym.survival.step import SurvivalStep
 
 # Registra la clase real del sub-config survival en el hook de `core`.
 _schema._SURVIVAL_CONFIG_CLS = SurvivalConfig
@@ -62,6 +63,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
         "nikodym.survival.kaplan_meier",
         "KaplanMeierSurvivalModel",
     ),
+    "SurvivalStep": ("nikodym.survival.step", "SurvivalStep"),
 }
 
 __all__ = [
@@ -84,9 +86,14 @@ __all__ = [
     "SurvivalInputError",
     "SurvivalLicenseError",
     "SurvivalMethod",
+    "SurvivalStep",
     "SurvivalTimeGridConfig",
     "SurvivalTransformError",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="survival") al importar
+# `nikodym.survival`, sin contaminar `import nikodym.core` ni cargar pandas/lifelines/statsmodels.
+importlib.import_module("nikodym.survival.step")
 
 
 def __getattr__(name: str) -> Any:

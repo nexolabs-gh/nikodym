@@ -87,10 +87,10 @@ _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
     "model",
     "scorecard",
     "calibration",
+    "survival",
     "performance",
     "stability",
     "report",
-    "survival",
     "provisioning_cmf",
 )
 _REPLACE_RETRY_ATTEMPTS: Final = 3
