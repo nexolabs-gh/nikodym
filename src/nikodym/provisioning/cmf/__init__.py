@@ -1,7 +1,54 @@
 """Motor de provisiones CMF (Chile): ``PE = PI·PDI·Exposición`` (B-1).
 
-**Declarado, no implementado en F0.** Su código llega en F3 (SDD-15). Este módulo existe ya
-para que el gate de cobertura regulatoria verifique la existencia del path (criterio Hito 0):
-sin él, un ``--cov-fail-under=100`` sobre una lista vacía pasaría ``0/0 = 100 %`` por vacuidad.
-Nomenclatura CMF (regla dura D-CONV-1): ``pi``/``pdi``/``pe``, nunca ``pd``/``lgd``/``ead``.
+Al importarse, registra :class:`CmfProvisioningConfig` en el hook diferido de
+:mod:`nikodym.core.config.schema`. Así ``NikodymConfig.provisioning_cmf`` se valida como
+sub-config real sin que ``import nikodym.core`` arrastre ``nikodym.provisioning`` ni dependencias
+tabulares pesadas. Nomenclatura CMF (regla dura D-CONV-1): ``pi``/``pdi``/``pe``, nunca
+``pd``/``lgd``/``ead``.
+
+**Experimental (SemVer 0.x).**
 """
+
+from nikodym.core.config import schema as _schema
+from nikodym.provisioning.cmf.config import (
+    CmfExposureConfig,
+    CmfFinancialGuaranteePolicy,
+    CmfGuaranteeConfig,
+    CmfMatrixConfig,
+    CmfPdMappingConfig,
+    CmfPdMappingMethod,
+    CmfPdSourceDomain,
+    CmfProvisioningConfig,
+    CmfRoundingPolicy,
+)
+from nikodym.provisioning.cmf.exceptions import (
+    CmfCalculationError,
+    CmfConfigError,
+    CmfInputError,
+    CmfMappingError,
+    CmfMatrixError,
+    CmfMissingRegulatoryDataError,
+    CmfProvisioningError,
+)
+
+# Registra la clase real del sub-config provisioning_cmf en el hook de `core`.
+_schema._PROVISIONING_CMF_CONFIG_CLS = CmfProvisioningConfig
+
+__all__ = [
+    "CmfCalculationError",
+    "CmfConfigError",
+    "CmfExposureConfig",
+    "CmfFinancialGuaranteePolicy",
+    "CmfGuaranteeConfig",
+    "CmfInputError",
+    "CmfMappingError",
+    "CmfMatrixConfig",
+    "CmfMatrixError",
+    "CmfMissingRegulatoryDataError",
+    "CmfPdMappingConfig",
+    "CmfPdMappingMethod",
+    "CmfPdSourceDomain",
+    "CmfProvisioningConfig",
+    "CmfProvisioningError",
+    "CmfRoundingPolicy",
+]

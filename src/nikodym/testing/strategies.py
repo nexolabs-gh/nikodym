@@ -26,6 +26,7 @@ _SECTION_MODULES: dict[str, str] = {
     "eda": "nikodym.eda",
     "model": "nikodym.model",
     "performance": "nikodym.performance",
+    "provisioning_cmf": "nikodym.provisioning.cmf",
     "scorecard": "nikodym.scorecard",
     "selection": "nikodym.selection",
     "stability": "nikodym.stability",
@@ -81,6 +82,9 @@ def nikodym_config_strategy(
     model = _model_config_strategy(st) if "model" in allowed else st.none()
     scorecard = _scorecard_config_strategy(st) if "scorecard" in allowed else st.none()
     calibration = _calibration_config_strategy(st) if "calibration" in allowed else st.none()
+    provisioning_cmf = (
+        _cmf_provisioning_config_strategy(st) if "provisioning_cmf" in allowed else st.none()
+    )
     performance = _performance_config_strategy(st) if "performance" in allowed else st.none()
     stability = _stability_config_strategy(st) if "stability" in allowed else st.none()
     return cast(
@@ -98,6 +102,7 @@ def nikodym_config_strategy(
             model=model,
             scorecard=scorecard,
             calibration=calibration,
+            provisioning_cmf=provisioning_cmf,
             performance=performance,
             stability=stability,
             audit=st.none(),
@@ -464,6 +469,49 @@ def _performance_config_strategy(st: Any) -> Any:
     )
 
 
+def _cmf_provisioning_config_strategy(st: Any) -> Any:
+    """Estrategia compacta de ``CmfProvisioningConfig`` que respeta validadores CMF."""
+    importlib.import_module("nikodym.provisioning.cmf")
+    from nikodym.provisioning.cmf.config import (
+        CmfExposureConfig,
+        CmfGuaranteeConfig,
+        CmfPdMappingConfig,
+        CmfProvisioningConfig,
+    )
+
+    pd_mapping = st.one_of(
+        st.builds(CmfPdMappingConfig),
+        st.builds(
+            CmfPdMappingConfig,
+            method=st.just("pd_breaks"),
+            pd_breaks=st.just((0.02, 0.10, 0.30)),
+            categories=st.just(("A1", "A4", "B2", "B4")),
+        ),
+    )
+    guarantees = st.one_of(
+        st.builds(
+            CmfGuaranteeConfig,
+            financial_guarantee_policy=st.sampled_from(["fail", "ignore_if_missing"]),
+        ),
+        st.builds(
+            CmfGuaranteeConfig,
+            financial_guarantee_policy=st.just("use_recoverable_amount"),
+            recoverable_amount_col=st.just("recoverable_amount"),
+        ),
+    )
+    return st.builds(
+        CmfProvisioningConfig,
+        category_col=st.just("cmf_category"),
+        pd_mapping=pd_mapping,
+        exposure=st.builds(
+            CmfExposureConfig,
+            allow_negative_exposure=st.booleans(),
+            rounding=st.sampled_from(["none", "currency_2dp", "integer_currency"]),
+        ),
+        guarantees=guarantees,
+    )
+
+
 def _stability_config_strategy(st: Any) -> Any:
     """Estrategia compacta de ``StabilityConfig`` que respeta rangos y columnas."""
     importlib.import_module("nikodym.stability")
@@ -530,6 +578,8 @@ def _config_cls_for_domain(domain: str) -> type[Any]:
         return core_schema._SCORECARD_CONFIG_CLS
     if domain == "calibration" and core_schema._CALIBRATION_CONFIG_CLS is not None:
         return core_schema._CALIBRATION_CONFIG_CLS
+    if domain == "provisioning_cmf" and core_schema._PROVISIONING_CMF_CONFIG_CLS is not None:
+        return core_schema._PROVISIONING_CMF_CONFIG_CLS
     if domain == "performance" and core_schema._PERFORMANCE_CONFIG_CLS is not None:
         return core_schema._PERFORMANCE_CONFIG_CLS
     if domain == "stability" and core_schema._STABILITY_CONFIG_CLS is not None:

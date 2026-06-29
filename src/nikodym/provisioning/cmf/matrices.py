@@ -18,7 +18,7 @@ from typing import Any, Literal, Protocol, cast
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.provisioning.cmf.exceptions import CmfMatrixError
 
 __all__ = [
     "CMF_MATRIX_IDS",
@@ -58,12 +58,6 @@ _EXPECTED_DEFAULT_PP: Mapping[str, tuple[str, str]] = {
     "C5": ("65", "gt_50_le_80_percent"),
     "C6": ("90", "gt_80_percent"),
 }
-
-
-class CmfMatrixError(NikodymError):
-    """Error al cargar o validar matrices regulatorias CMF."""
-
-    # B15.2 moverá esta excepción a exceptions.py.
 
 
 class CmfMatrixConfigLike(Protocol):
