@@ -2,8 +2,9 @@
 
 Al importarse, registra :class:`ReportConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.report`` se valida como sub-config real sin
-que ``import nikodym.core`` arrastre ``nikodym.report`` ni dependencias de render/IA. Los DTOs de
-resultados se reexportan de forma perezosa; ``report.step`` se añadirá en un bloque posterior.
+que ``import nikodym.core`` arrastre ``nikodym.report`` ni dependencias de render/IA. El paquete
+importa ``report.step`` al final para ejecutar ``@register("standard", domain="report")`` sin
+cargar Jinja2, Quarto ni SDKs IA; los DTOs y componentes pesados se reexportan de forma perezosa.
 
 **Experimental (SemVer 0.x).**
 """
@@ -46,6 +47,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "ReportManifest": ("nikodym.report.results", "ReportManifest"),
     "ReportResult": ("nikodym.report.results", "ReportResult"),
     "ReportSection": ("nikodym.report.results", "ReportSection"),
+    "ReportStep": ("nikodym.report.step", "ReportStep"),
     "RuleBasedNarrator": ("nikodym.report.ai", "RuleBasedNarrator"),
 }
 
@@ -72,9 +74,14 @@ __all__ = [
     "ReportRenderError",
     "ReportResult",
     "ReportSection",
+    "ReportStep",
     "RuleBasedNarrator",
     "SectionPolicyConfig",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="report") al importar
+# `nikodym.report`, sin contaminar `import nikodym.core` ni cargar Jinja2/Quarto/SDKs IA.
+importlib.import_module("nikodym.report.step")
 
 
 def __getattr__(name: str) -> Any:

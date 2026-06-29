@@ -282,9 +282,10 @@ def test_campos_report_tienen_metadatos_ui() -> None:
 
 
 def test_report_public_api_minimo() -> None:
-    """El paquete expone config/excepciones y no intenta importar ``report.step`` en B26.1."""
+    """El paquete expone config, excepciones y el step registrado en B26.6."""
     assert report_pkg.ReportConfig is ReportConfig
-    assert "ReportStep" not in report_pkg.__all__
+    assert "ReportStep" in report_pkg.__all__
+    assert report_pkg.ReportStep.__name__ == "ReportStep"
     assert report_pkg.ReportError is ReportError
 
 

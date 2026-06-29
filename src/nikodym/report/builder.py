@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Final, NoReturn, TypeAlias, cast
 
 from pydantic import BaseModel
 
+from nikodym.report._manifest import REPORT_TEMPLATE_VERSION, REPORT_TITLE, html_report_id
 from nikodym.report.config import ReportConfig
 from nikodym.report.exceptions import ReportInputError
 from nikodym.report.results import (
@@ -172,11 +173,11 @@ class ReportBuilder:
         """Ensambla metadatos pre-render; el renderer completa el ``sha256`` real."""
         output_format = _output_format_from_path(path, self.config)
         return ReportManifest(
-            report_id=f"{self.config.basename}-{bundle.lineage.config_hash[:12]}",
-            title="Reporte scorecard",
+            report_id=html_report_id(bundle, self.config),
+            title=REPORT_TITLE,
             created_from_lineage_at=bundle.lineage.created_at.isoformat(),
             template_id=self.config.html.template_id,
-            template_version=self.config.schema_version,
+            template_version=REPORT_TEMPLATE_VERSION,
             output_format=output_format,
             path=path,
             sha256="",

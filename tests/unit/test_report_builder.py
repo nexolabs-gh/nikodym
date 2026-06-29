@@ -95,7 +95,7 @@ def test_collect_orden_canonico_y_manifest_pre_render_golden() -> None:
         "eda.figures": (_FigureSpec(figure_id="default_rate", title="Default rate"),)
     }
     assert manifest.model_dump(mode="json") == {
-        "report_id": "scorecard_report-cfg123456789",
+        "report_id": "45760c500091db31",
         "title": "Reporte scorecard",
         "created_from_lineage_at": "2026-06-24T09:30:00+00:00",
         "template_id": "scorecard_basic_v1",

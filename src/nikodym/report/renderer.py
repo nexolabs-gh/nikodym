@@ -28,6 +28,7 @@ from typing import Any, Final, Literal, TypeAlias, cast
 
 from pydantic import BaseModel
 
+from nikodym.report._manifest import REPORT_TEMPLATE_VERSION, REPORT_TITLE, html_report_id
 from nikodym.report.builder import CANONICAL_SECTION_ORDER
 from nikodym.report.config import (
     AiNarrationConfig,
@@ -53,7 +54,6 @@ __all__ = ["HtmlReportRenderer", "QuartoReportRenderer"]
 JSONValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | None
 TableCell: TypeAlias = str
 
-_TEMPLATE_VERSION: Final = "1.0.0"
 _HTML_TEMPLATE_ID: Final = "scorecard_basic_v1"
 _QUARTO_SOURCE_NAME: Final = "scorecard_report.qmd"
 _CSS_NIKODYM: Final = """
@@ -215,9 +215,9 @@ class HtmlReportRenderer:
         )
         try:
             rendered = environment.from_string(_HTML_TEMPLATE).render(
-                title="Reporte scorecard",
+                title=REPORT_TITLE,
                 template_id=self.config.html.template_id,
-                template_version=_TEMPLATE_VERSION,
+                template_version=REPORT_TEMPLATE_VERSION,
                 created_from_lineage_at=bundle.lineage.created_at.isoformat(),
                 lineage=_lineage_view(bundle),
                 css=_css_for_theme(self.config.html.theme),
@@ -231,6 +231,33 @@ class HtmlReportRenderer:
                 f"'{self.config.html.template_id}', acción='revise el bundle y la plantilla'."
             ) from exc
         return _normalize_newlines(rendered)
+
+    def build_manifest(self, html: str) -> ReportManifest:
+        """Construye el manifiesto HTML canónico sin escribir archivos."""
+        bundle = self._last_bundle
+        if bundle is None:
+            raise ReportExportError(
+                "No se puede construir el manifest report.html porque no hay bundle "
+                "renderizado; acción='llame HtmlReportRenderer.render antes de build_manifest'."
+            )
+
+        normalized_html = _normalize_newlines(html)
+        digest = hashlib.sha256(normalized_html.encode("utf-8")).hexdigest()
+        ai_used = any(block.generated for block in self._last_ai_blocks)
+        return ReportManifest(
+            report_id=html_report_id(bundle, self.config),
+            title=REPORT_TITLE,
+            created_from_lineage_at=bundle.lineage.created_at.isoformat(),
+            template_id=self.config.html.template_id,
+            template_version=REPORT_TEMPLATE_VERSION,
+            output_format="html",
+            path="",
+            sha256=digest,
+            deterministic=self.config.html.deterministic_ids and not ai_used,
+            ai_enabled=self.config.ai.enabled or bool(self._last_ai_blocks),
+            ai_used=ai_used,
+            sections=_ordered_sections(bundle.sections),
+        )
 
     def write(self, html: str, *, output_dir: str) -> ReportManifest:
         """Escribe el HTML en disco y devuelve un manifiesto reproducible."""
@@ -246,7 +273,6 @@ class HtmlReportRenderer:
         output_path = directory / filename
         normalized_html = _normalize_newlines(html)
         payload = normalized_html.encode("utf-8")
-        digest = hashlib.sha256(payload).hexdigest()
         temp_path = directory / f".{filename}.tmp"
 
         try:
@@ -260,21 +286,8 @@ class HtmlReportRenderer:
                 "acción='verifique permisos y espacio disponible'."
             ) from exc
 
-        ai_used = any(block.generated for block in self._last_ai_blocks)
-        return ReportManifest(
-            report_id=_report_id(bundle, self.config),
-            title="Reporte scorecard",
-            created_from_lineage_at=bundle.lineage.created_at.isoformat(),
-            template_id=self.config.html.template_id,
-            template_version=_TEMPLATE_VERSION,
-            output_format="html",
-            path=_manifest_path(directory, filename),
-            sha256=digest,
-            deterministic=self.config.html.deterministic_ids and not ai_used,
-            ai_enabled=self.config.ai.enabled or bool(self._last_ai_blocks),
-            ai_used=ai_used,
-            sections=_ordered_sections(bundle.sections),
-        )
+        manifest = self.build_manifest(normalized_html)
+        return manifest.model_copy(update={"path": _manifest_path(directory, filename)})
 
 
 class QuartoReportRenderer:
@@ -674,11 +687,6 @@ def _manifest_path(directory: Path, filename: str) -> str:
     if directory.is_absolute():
         return filename
     return (directory / filename).as_posix()
-
-
-def _report_id(bundle: ReportInputBundle, config: ReportConfig) -> str:
-    raw = f"{bundle.lineage.config_hash}:{config.html.template_id}:{config.basename}"
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
 def _is_dataframe_like(value: object) -> bool:
