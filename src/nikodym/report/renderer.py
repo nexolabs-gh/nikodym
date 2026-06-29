@@ -1,0 +1,685 @@
+# ruff: noqa: E501
+"""Renderizadores determinísticos de reportes HTML y Quarto opcional (SDD-26 §4/§7).
+
+``HtmlReportRenderer`` transforma un :class:`~nikodym.report.results.ReportInputBundle` en HTML
+standalone usando Jinja2 con import perezoso. La salida básica es reproducible byte a byte:
+no usa reloj, UUIDs, rutas locales absolutas ni orden dependiente de ``hash()``.
+
+``QuartoReportRenderer`` mantiene Quarto como ruta derivada y no crítica: detecta el binario solo
+cuando está habilitado, invoca el comando de forma mockeable y conserva el HTML básico como
+artefacto primario.
+
+**Experimental (SemVer 0.x).**
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import os
+import re
+import shutil
+import subprocess
+import warnings
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any, Final, Literal, TypeAlias, cast
+
+from pydantic import BaseModel
+
+from nikodym.report.builder import CANONICAL_SECTION_ORDER
+from nikodym.report.config import (
+    AiNarrationConfig,
+    HtmlRenderConfig,
+    QuartoRenderConfig,
+    ReportConfig,
+    SectionPolicyConfig,
+)
+from nikodym.report.exceptions import (
+    ReportDependencyError,
+    ReportExportError,
+    ReportRenderError,
+)
+from nikodym.report.results import (
+    AiNarrationBlock,
+    ReportInputBundle,
+    ReportManifest,
+    ReportSection,
+)
+
+__all__ = ["HtmlReportRenderer", "QuartoReportRenderer"]
+
+JSONValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | None
+TableCell: TypeAlias = str
+
+_TEMPLATE_VERSION: Final = "1.0.0"
+_HTML_TEMPLATE_ID: Final = "scorecard_basic_v1"
+_QUARTO_SOURCE_NAME: Final = "scorecard_report.qmd"
+_CSS_NIKODYM: Final = """
+:root{color-scheme:light;--ink:#17202a;--muted:#5f6b7a;--line:#d8dee6;--soft:#f6f8fb;--accent:#0b6bcb;--warn:#8a5a00}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#fff;line-height:1.45}
+main{max-width:1120px;margin:0 auto;padding:32px 28px 48px}
+header{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:26px}
+h1{font-size:30px;margin:0 0 8px}
+h2{font-size:22px;margin:30px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+h3{font-size:16px;margin:18px 0 8px}
+p{margin:8px 0}
+.muted{color:var(--muted)}
+.status{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.missing{border-left:4px solid var(--warn);background:#fff8e8;padding:10px 12px;margin:10px 0}
+.ai-label{display:inline-block;font-size:12px;font-weight:700;color:#7b2f00;background:#fff1dd;padding:2px 6px;margin-bottom:4px}
+dl{display:grid;grid-template-columns:minmax(140px,240px) 1fr;gap:8px 14px;margin:10px 0}
+dt{font-weight:700;color:#2f3a45}
+dd{margin:0;min-width:0}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px solid var(--line);padding:8px;margin:0}
+table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:13px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--soft);font-weight:700}
+.truncated{font-size:12px;color:var(--warn);font-weight:700}
+.figure{border:1px solid var(--line);padding:8px;margin:8px 0;background:#fff}
+""".strip()
+_CSS_PLAIN: Final = """
+body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;line-height:1.45}
+main{max-width:1080px;margin:0 auto;padding:24px}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ccc;padding:5px;text-align:left}
+pre{white-space:pre-wrap}
+""".strip()
+_HTML_TEMPLATE: Final = """<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{{ title }}</title>
+  <style>{{ css }}</style>
+</head>
+<body>
+<main>
+  <header id="report-header">
+    <h1>{{ title }}</h1>
+    <p class="muted">Plantilla {{ template_id }} v{{ template_version }} · creado desde lineage {{ created_from_lineage_at }}</p>
+    <p class="muted">config_hash={{ lineage.config_hash }} · data_hash={{ lineage.data_hash }} · git_sha={{ lineage.git_sha }} · root_seed={{ lineage.root_seed }}</p>
+  </header>
+
+  {% for section in sections %}
+  <section id="{{ section.html_id }}" data-section-id="{{ section.id }}">
+    <h2>{{ section.title }}</h2>
+    <p class="status">estado={{ section.status }} · fuente={{ section.source }}</p>
+    {% if section.status == "missing" %}
+    <div class="missing">Sección requerida ausente; el reporte parcial no inventa números ni oculta la ausencia.</div>
+    {% endif %}
+
+    {% if section.narration %}
+    <div class="narration">
+      {% if section.narration.label %}<span class="ai-label">{{ section.narration.label }}</span>{% endif %}
+      <p>{{ section.narration.text }}</p>
+      {% if section.narration.warning %}<p class="muted">{{ section.narration.warning }}</p>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if section.payload_items %}
+    <h3>Payload</h3>
+    <dl>
+      {% for item in section.payload_items %}
+      <dt>{{ item.key }}</dt><dd>{% if item.multiline %}<pre>{{ item.value }}</pre>{% else %}{{ item.value }}{% endif %}</dd>
+      {% endfor %}
+    </dl>
+    {% endif %}
+
+    {% if section.metric_items %}
+    <h3>Métricas estructuradas</h3>
+    <dl>
+      {% for item in section.metric_items %}
+      <dt>{{ item.key }}</dt><dd>{% if item.multiline %}<pre>{{ item.value }}</pre>{% else %}{{ item.value }}{% endif %}</dd>
+      {% endfor %}
+    </dl>
+    {% endif %}
+
+    {% for table in section.tables %}
+    <h3>Tabla {{ table.key }}</h3>
+    <table id="{{ table.html_id }}">
+      <thead><tr>{% for column in table.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in table.rows %}
+        <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if table.truncated %}<p class="truncated">… (mostrando {{ table.shown_rows }} de {{ table.total_rows }} filas)</p>{% endif %}
+    {% endfor %}
+
+    {% for figure in section.figures %}
+    <div class="figure" id="{{ figure.html_id }}">
+      <strong>{{ figure.key }}</strong>
+      <pre>{{ figure.payload }}</pre>
+    </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</main>
+</body>
+</html>
+"""
+
+
+class HtmlReportRenderer:
+    """Render HTML standalone determinístico con Jinja2."""
+
+    def __init__(
+        self,
+        config: ReportConfig | HtmlRenderConfig | None = None,
+        *,
+        basename: str | None = None,
+        sections: SectionPolicyConfig | None = None,
+        ai: AiNarrationConfig | None = None,
+    ) -> None:
+        """Construye el renderer desde ``ReportConfig`` o ``HtmlRenderConfig``."""
+        self.config = _coerce_report_config(
+            config,
+            basename=basename,
+            sections=sections,
+            ai=ai,
+        )
+        self._last_bundle: ReportInputBundle | None = None
+        self._last_ai_blocks: tuple[AiNarrationBlock, ...] = ()
+
+    @classmethod
+    def from_config(cls, cfg: ReportConfig) -> HtmlReportRenderer:
+        """Construye ``HtmlReportRenderer`` desde ``NikodymConfig.report``."""
+        return cls(cfg)
+
+    def render(
+        self,
+        bundle: ReportInputBundle,
+        *,
+        ai_blocks: tuple[AiNarrationBlock, ...] = (),
+    ) -> str:
+        """Renderiza HTML standalone byte-determinístico desde el bundle lógico."""
+        try:
+            from jinja2 import Environment, StrictUndefined
+        except ModuleNotFoundError as exc:
+            raise ReportDependencyError(
+                "No se pudo renderizar report.html: falta Jinja2. "
+                "Instale nikodym con dependencias base actualizadas y vuelva a ejecutar."
+            ) from exc
+
+        self._last_bundle = bundle
+        self._last_ai_blocks = ai_blocks
+        environment = Environment(
+            autoescape=True,
+            undefined=StrictUndefined,
+            trim_blocks=True,
+            lstrip_blocks=True,
+            keep_trailing_newline=True,
+        )
+        try:
+            rendered = environment.from_string(_HTML_TEMPLATE).render(
+                title="Reporte scorecard",
+                template_id=self.config.html.template_id,
+                template_version=_TEMPLATE_VERSION,
+                created_from_lineage_at=bundle.lineage.created_at.isoformat(),
+                lineage=_lineage_view(bundle),
+                css=_css_for_theme(self.config.html.theme),
+                sections=_section_views(bundle, ai_blocks, self.config),
+            )
+        except ReportRenderError:
+            raise
+        except Exception as exc:
+            raise ReportRenderError(
+                "No se pudo renderizar report.html: dominio='report', plantilla="
+                f"'{self.config.html.template_id}', acción='revise el bundle y la plantilla'."
+            ) from exc
+        return _normalize_newlines(rendered)
+
+    def write(self, html: str, *, output_dir: str) -> ReportManifest:
+        """Escribe el HTML en disco y devuelve un manifiesto reproducible."""
+        bundle = self._last_bundle
+        if bundle is None:
+            raise ReportExportError(
+                "No se puede exportar report.html porque no hay bundle renderizado; "
+                "acción='llame HtmlReportRenderer.render antes de write'."
+            )
+
+        directory = _prepare_output_dir(output_dir)
+        filename = f"{self.config.basename}.html"
+        output_path = directory / filename
+        normalized_html = _normalize_newlines(html)
+        payload = normalized_html.encode("utf-8")
+        digest = hashlib.sha256(payload).hexdigest()
+        temp_path = directory / f".{filename}.tmp"
+
+        try:
+            temp_path.write_bytes(payload)
+            temp_path.replace(output_path)
+        except OSError as exc:
+            temp_path.unlink(missing_ok=True)
+            raise ReportExportError(
+                "No se pudo escribir el reporte HTML: dominio='report', "
+                f"clave='{filename}', output_dir='{output_dir}', "
+                "acción='verifique permisos y espacio disponible'."
+            ) from exc
+
+        ai_used = any(block.generated for block in self._last_ai_blocks)
+        return ReportManifest(
+            report_id=_report_id(bundle, self.config),
+            title="Reporte scorecard",
+            created_from_lineage_at=bundle.lineage.created_at.isoformat(),
+            template_id=self.config.html.template_id,
+            template_version=_TEMPLATE_VERSION,
+            output_format="html",
+            path=_manifest_path(directory, filename),
+            sha256=digest,
+            deterministic=self.config.html.deterministic_ids and not ai_used,
+            ai_enabled=self.config.ai.enabled or bool(self._last_ai_blocks),
+            ai_used=ai_used,
+            sections=_ordered_sections(bundle.sections),
+        )
+
+
+class QuartoReportRenderer:
+    """Render opcional vía binario externo ``quarto`` para artefactos derivados."""
+
+    def __init__(self, config: ReportConfig | QuartoRenderConfig | None = None) -> None:
+        """Construye el renderer Quarto desde ``ReportConfig`` o ``QuartoRenderConfig``."""
+        if isinstance(config, QuartoRenderConfig):
+            self.config = ReportConfig(quarto=config)
+        elif config is None:
+            self.config = ReportConfig()
+        else:
+            self.config = config
+
+    @classmethod
+    def from_config(cls, cfg: ReportConfig) -> QuartoReportRenderer:
+        """Construye ``QuartoReportRenderer`` desde ``NikodymConfig.report``."""
+        return cls(cfg)
+
+    def render(self, bundle: ReportInputBundle, *, output_dir: str) -> ReportManifest:
+        """Renderiza HTML básico y, si procede, invoca Quarto de forma opcional."""
+        html_renderer = HtmlReportRenderer.from_config(self.config)
+        html = html_renderer.render(bundle)
+
+        if not self.config.quarto.enabled:
+            return html_renderer.write(html, output_dir=output_dir)
+
+        quarto_path = shutil.which("quarto")
+        if quarto_path is None:
+            if self.config.quarto.fail_if_unavailable:
+                raise ReportDependencyError(
+                    "Quarto no está disponible para report: instale Quarto desde "
+                    "https://quarto.org y asegure que el binario 'quarto' esté en PATH."
+                )
+            warnings.warn(
+                "Quarto no está disponible; se usó HTML básico determinístico.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return html_renderer.write(html, output_dir=output_dir)
+
+        manifest = html_renderer.write(html, output_dir=output_dir)
+        self._invoke_quarto(quarto_path, output_dir=output_dir, html_path=manifest.path)
+        return manifest
+
+    def _invoke_quarto(self, quarto_path: str, *, output_dir: str, html_path: str) -> None:
+        """Invoca Quarto sobre una fuente mínima derivada del HTML primario."""
+        directory = _prepare_output_dir(output_dir)
+        source = directory / _QUARTO_SOURCE_NAME
+        source.write_text(
+            "\n".join(
+                (
+                    "---",
+                    "title: Reporte scorecard",
+                    "format: html",
+                    "---",
+                    "",
+                    f"Reporte HTML primario: {html_path}",
+                    "",
+                )
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+        formats = self.config.quarto.formats or ("pdf",)
+        for output_format in formats:
+            command = [
+                quarto_path,
+                "render",
+                source.name,
+                "--to",
+                output_format,
+                "--output",
+                f"{self.config.basename}.{output_format}",
+            ]
+            try:
+                subprocess.run(
+                    command,
+                    cwd=directory,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except subprocess.CalledProcessError as exc:
+                raise ReportRenderError(
+                    "Quarto falló al renderizar report: dominio='report', "
+                    f"formato='{output_format}', acción='revise la instalación de Quarto'."
+                ) from exc
+
+
+def _coerce_report_config(
+    config: ReportConfig | HtmlRenderConfig | None,
+    *,
+    basename: str | None,
+    sections: SectionPolicyConfig | None,
+    ai: AiNarrationConfig | None,
+) -> ReportConfig:
+    if isinstance(config, HtmlRenderConfig):
+        return ReportConfig(
+            basename=basename or "scorecard_report",
+            html=config,
+            sections=sections or SectionPolicyConfig(),
+            ai=ai or AiNarrationConfig(),
+        )
+    if config is None:
+        if basename is None and sections is None and ai is None:
+            return ReportConfig()
+        return ReportConfig(
+            basename=basename or "scorecard_report",
+            sections=sections or SectionPolicyConfig(),
+            ai=ai or AiNarrationConfig(),
+        )
+    return config
+
+
+def _section_views(
+    bundle: ReportInputBundle,
+    ai_blocks: tuple[AiNarrationBlock, ...],
+    config: ReportConfig,
+) -> list[dict[str, Any]]:
+    sections_by_id = {section.id: section for section in bundle.sections}
+    narratives = {block.section_id: block for block in ai_blocks}
+    views: list[dict[str, Any]] = []
+    for section_id in CANONICAL_SECTION_ORDER:
+        section = sections_by_id.get(section_id)
+        if section is None:
+            continue
+        views.append(
+            {
+                "id": section.id,
+                "html_id": _element_id("section", section.id),
+                "title": section.title,
+                "status": section.status,
+                "source": _section_source(section),
+                "payload_items": _mapping_items(section.payload),
+                "metric_items": _mapping_items(section.metric_sections),
+                "tables": _tables_for_section(bundle, section.id, config.sections.max_table_rows),
+                "figures": _figures_for_section(bundle, section.id),
+                "narration": _narration_view(narratives.get(section.id), config.ai.label_ai_text),
+            }
+        )
+    return views
+
+
+def _ordered_sections(sections: tuple[ReportSection, ...]) -> tuple[ReportSection, ...]:
+    order = {section_id: index for index, section_id in enumerate(CANONICAL_SECTION_ORDER)}
+    return tuple(sorted(sections, key=lambda section: (order.get(section.id, 999), section.id)))
+
+
+def _lineage_view(bundle: ReportInputBundle) -> dict[str, str]:
+    lineage = bundle.lineage
+    return {
+        "git_sha": _display_scalar(lineage.git_sha, key_path=("git_sha",)),
+        "data_hash": _display_scalar(lineage.data_hash, key_path=("data_hash",)),
+        "config_hash": _display_scalar(lineage.config_hash, key_path=("config_hash",)),
+        "root_seed": _display_scalar(lineage.root_seed, key_path=("root_seed",)),
+    }
+
+
+def _section_source(section: ReportSection) -> str:
+    domain = section.source_domain or "sin_dominio"
+    key = section.source_key or "sin_clave"
+    return f"{domain}.{key}"
+
+
+def _mapping_items(value: Mapping[str, Any]) -> list[dict[str, str | bool]]:
+    items: list[dict[str, str | bool]] = []
+    for raw_key in sorted(value, key=str):
+        key = str(raw_key)
+        rendered = _display_value(value[raw_key], key_path=(key,))
+        items.append({"key": key, "value": rendered, "multiline": "\n" in rendered})
+    return items
+
+
+def _narration_view(block: AiNarrationBlock | None, label_ai_text: bool) -> dict[str, str] | None:
+    if block is None:
+        return None
+    label = "Narrativa generada por IA" if label_ai_text and block.generated else ""
+    warning = block.warning or ""
+    return {"text": block.text, "label": label, "warning": warning}
+
+
+def _tables_for_section(
+    bundle: ReportInputBundle,
+    section_id: str,
+    max_rows: int,
+) -> list[dict[str, Any]]:
+    tables: list[dict[str, Any]] = []
+    prefix = f"{section_id}."
+    for key in sorted(bundle.tables, key=str):
+        if key == section_id or key.startswith(prefix):
+            tables.append(_table_view(key, bundle.tables[key], max_rows=max_rows))
+    return tables
+
+
+def _table_view(key: str, table: Any, *, max_rows: int) -> dict[str, Any]:
+    if not _is_dataframe_like(table):
+        raise ReportRenderError(
+            f"Tabla no renderizable en report: clave='{key}', acción='publique un DataFrame'."
+        )
+    columns = tuple(table.columns)
+    records = cast(list[Mapping[Any, Any]], table.to_dict(orient="records"))
+    rows = [
+        tuple(
+            _display_scalar(record.get(column), key_path=(key, str(column))) for column in columns
+        )
+        for record in records
+    ]
+    visible_rows = rows[:max_rows]
+    return {
+        "key": key,
+        "html_id": _element_id("table", key),
+        "columns": [str(column) for column in columns],
+        "rows": visible_rows,
+        "total_rows": len(rows),
+        "shown_rows": len(visible_rows),
+        "truncated": len(rows) > len(visible_rows),
+    }
+
+
+def _figures_for_section(bundle: ReportInputBundle, section_id: str) -> list[dict[str, str]]:
+    figures: list[dict[str, str]] = []
+    prefix = f"{section_id}."
+    for key in sorted(bundle.figures, key=str):
+        if key == section_id or key.startswith(prefix):
+            figures.append(
+                {
+                    "key": key,
+                    "html_id": _element_id("figure", key),
+                    "payload": _display_value(bundle.figures[key], key_path=(key,)),
+                }
+            )
+    return figures
+
+
+def _display_value(value: Any, *, key_path: tuple[str, ...]) -> str:
+    if isinstance(value, Mapping):
+        rendered = {
+            str(key): _display_json_value(value[key], key_path=(*key_path, str(key)))
+            for key in sorted(value, key=str)
+        }
+        return json.dumps(rendered, sort_keys=True, ensure_ascii=False, indent=2)
+    if isinstance(value, tuple | list):
+        return json.dumps(
+            [_display_json_value(item, key_path=key_path) for item in value],
+            ensure_ascii=False,
+            indent=2,
+        )
+    if isinstance(value, set | frozenset):
+        ordered = sorted(value, key=lambda item: _stable_json(_canonical_value(item)))
+        return json.dumps(
+            [_display_json_value(item, key_path=key_path) for item in ordered],
+            ensure_ascii=False,
+            indent=2,
+        )
+    if isinstance(value, BaseModel):
+        return _display_value(value.model_dump(mode="python"), key_path=key_path)
+    if _is_dataframe_like(value):
+        return "[tabla referenciada]"
+    return _display_scalar(value, key_path=key_path)
+
+
+def _display_json_value(value: Any, *, key_path: tuple[str, ...]) -> JSONValue:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _display_json_value(value[key], key_path=(*key_path, str(key)))
+            for key in sorted(value, key=str)
+        }
+    if isinstance(value, tuple | list):
+        return [_display_json_value(item, key_path=key_path) for item in value]
+    if isinstance(value, set | frozenset):
+        ordered = sorted(value, key=lambda item: _stable_json(_canonical_value(item)))
+        return [_display_json_value(item, key_path=key_path) for item in ordered]
+    if isinstance(value, BaseModel):
+        return _display_json_value(value.model_dump(mode="python"), key_path=key_path)
+    if _is_dataframe_like(value):
+        return "[tabla referenciada]"
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        return _format_float(value, key_path=key_path)
+    if isinstance(value, str):
+        return value
+    return {"unsupported_type": type(value).__name__}
+
+
+def _display_scalar(value: Any, *, key_path: tuple[str, ...]) -> str:
+    if value is None:
+        return "No disponible"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    if isinstance(value, float):
+        return _format_float(value, key_path=key_path)
+    if isinstance(value, BaseModel):
+        return _display_value(value.model_dump(mode="python"), key_path=key_path)
+    if isinstance(value, Mapping | Sequence) and not isinstance(value, str | bytes | bytearray):
+        return _display_value(value, key_path=key_path)
+    return str(value)
+
+
+def _format_float(value: float, *, key_path: tuple[str, ...]) -> str:
+    if value == 0.0:
+        value = 0.0
+    if not math.isfinite(value):
+        if math.isnan(value):
+            return "nan"
+        return "inf" if value > 0 else "-inf"
+    key = ".".join(key_path).lower()
+    if _is_percent_key(key):
+        return f"{value:.4f}"
+    if _is_six_decimal_key(key):
+        return f"{value:.6f}"
+    return f"{value:.6f}"
+
+
+def _is_percent_key(key: str) -> bool:
+    return any(token in key for token in ("pct", "percent", "porcentaje", "tasa", "rate"))
+
+
+def _is_six_decimal_key(key: str) -> bool:
+    return any(token in key for token in ("pd", "psi", "csi", "auc", "ks", "gini"))
+
+
+def _canonical_value(value: Any) -> JSONValue:
+    if isinstance(value, Mapping):
+        return {str(key): _canonical_value(value[key]) for key in sorted(value, key=str)}
+    if isinstance(value, tuple | list):
+        return [_canonical_value(item) for item in value]
+    if isinstance(value, set | frozenset):
+        return [_canonical_value(item) for item in sorted(value, key=str)]
+    if isinstance(value, bool) or value is None:
+        return value
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        if value == 0.0:
+            return 0.0
+        if math.isfinite(value):
+            return value
+        if math.isnan(value):
+            return {"non_finite_float": "nan"}
+        return {"non_finite_float": "inf" if value > 0 else "-inf"}
+    if isinstance(value, str):
+        return value
+    return {"unsupported_type": type(value).__name__}
+
+
+def _stable_json(value: Any) -> str:
+    return json.dumps(
+        _canonical_value(value),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+
+
+def _element_id(kind: str, raw_id: str) -> str:
+    """Deriva IDs HTML siempre determinísticos desde el tipo y la clave lógica."""
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", raw_id.strip().lower()).strip("-")
+    return f"{kind}-{slug or 'sin-id'}"
+
+
+def _css_for_theme(theme: Literal["nikodym", "plain"]) -> str:
+    return _CSS_NIKODYM if theme == "nikodym" else _CSS_PLAIN
+
+
+def _normalize_newlines(text: str) -> str:
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    if not normalized.endswith("\n"):
+        return f"{normalized}\n"
+    return normalized
+
+
+def _prepare_output_dir(output_dir: str) -> Path:
+    directory = Path(output_dir)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ReportExportError(
+            "No se pudo crear el directorio de salida del reporte: dominio='report', "
+            f"output_dir='{output_dir}', acción='verifique permisos de la ruta padre'."
+        ) from exc
+    if not directory.is_dir() or not os.access(directory, os.W_OK):
+        raise ReportExportError(
+            "El directorio de salida del reporte no es escribible: dominio='report', "
+            f"output_dir='{output_dir}', acción='ajuste permisos o use otra ruta'."
+        )
+    return directory
+
+
+def _manifest_path(directory: Path, filename: str) -> str:
+    if directory.is_absolute():
+        return filename
+    return (directory / filename).as_posix()
+
+
+def _report_id(bundle: ReportInputBundle, config: ReportConfig) -> str:
+    raw = f"{bundle.lineage.config_hash}:{config.html.template_id}:{config.basename}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def _is_dataframe_like(value: object) -> bool:
+    return all(hasattr(value, attribute) for attribute in ("columns", "copy", "select_dtypes"))
