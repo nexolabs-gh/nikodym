@@ -42,7 +42,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **12** | `ml` (SVM/RF/XGB/LGBM/CatBoost) | ML | F2 | T3 | 06, 08 | ⬜ Pendiente |
 | **13** | `tuning` (Optuna) | ML | F2 | T3 | 12 | ⬜ Pendiente |
 | **14** | `explain` (SHAP + reason codes) | ML | F2 | T3 | 12 | ⬜ Pendiente |
-| **15** | `provisioning/cmf` (B-1, matrices, B-3, garantías) | Provisiones | F3 | T4 | 08, 02 | ⬜ Pendiente |
+| **15** | `provisioning/cmf` (B-1, matrices, B-3, garantías) | Provisiones | F3 | T4 | 08, 02 | 🟡 Borrador |
 | **16** | `provisioning/ifrs9` (PD/LGD/EAD, staging, ECL) | Provisiones | F4 | T4 | 10, 18 | ⬜ Pendiente |
 | **17** | `provisioning` (orquestación / piso regulatorio) | Provisiones | F4 | T4 | 15, 16 | ⬜ Pendiente |
 | **18** | `survival` (KM/Cox/AFT/discrete-time) | Forward | F5 | T5 | 08 | ⬜ Pendiente |
