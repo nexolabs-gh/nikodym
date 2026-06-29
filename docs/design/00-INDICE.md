@@ -45,7 +45,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **15** | `provisioning/cmf` (B-1, matrices, B-3, garantías) | Provisiones | F3 | T4 | 08, 02 | 🟡 Borrador |
 | **16** | `provisioning/ifrs9` (PD/LGD/EAD, staging, ECL) | Provisiones | F4 | T4 | 10, 18 | ⬜ Pendiente |
 | **17** | `provisioning` (orquestación / piso regulatorio) | Provisiones | F4 | T4 | 15, 16 | ⬜ Pendiente |
-| **18** | `survival` (KM/Cox/AFT/discrete-time) | Forward | F5 | T5 | 08 | ⬜ Pendiente |
+| **18** | `survival` (KM/Cox/AFT/discrete-time) | Forward | F5 | T5 | 08 | 🟡 Borrador |
 | **19** | `markov` (transición, term structure) | Forward | F5 | T5 | 02 | ⬜ Pendiente |
 | **20** | `forward` (macro ARIMA/VAR, satellite, escenarios) | Forward | F5 | T5 | 18, 19 | ⬜ Pendiente |
 | **21** | `stress` (stress testing, sensibilidad) | Forward | F5 | T5 | 20 | ⬜ Pendiente |
