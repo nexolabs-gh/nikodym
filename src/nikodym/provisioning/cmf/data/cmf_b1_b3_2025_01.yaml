@@ -1,0 +1,1248 @@
+version: cmf_b1_b3_2025_01
+schema_version: "1.0"
+matrices:
+  - matrix_id: commercial_individual_performing_v2014
+    rows:
+      - row_id: A1
+        dimensions:
+          portfolio_type: normal
+          category: A1
+        pi_percent: "0,04"
+        pdi_percent: "90,0"
+        pe_percent: "0,03600"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: A2
+        dimensions:
+          portfolio_type: normal
+          category: A2
+        pi_percent: "0,10"
+        pdi_percent: "82,5"
+        pe_percent: "0,08250"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: A3
+        dimensions:
+          portfolio_type: normal
+          category: A3
+        pi_percent: "0,25"
+        pdi_percent: "87,5"
+        pe_percent: "0,21875"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: A4
+        dimensions:
+          portfolio_type: normal
+          category: A4
+        pi_percent: "2,00"
+        pdi_percent: "87,5"
+        pe_percent: "1,75000"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: A5
+        dimensions:
+          portfolio_type: normal
+          category: A5
+        pi_percent: "4,75"
+        pdi_percent: "90,0"
+        pe_percent: "4,27500"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: A6
+        dimensions:
+          portfolio_type: normal
+          category: A6
+        pi_percent: "10,00"
+        pdi_percent: "90,0"
+        pe_percent: "9,00000"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: B1
+        dimensions:
+          portfolio_type: substandard
+          category: B1
+        pi_percent: "15,00"
+        pdi_percent: "92,5"
+        pe_percent: "13,87500"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: B2
+        dimensions:
+          portfolio_type: substandard
+          category: B2
+        pi_percent: "22,00"
+        pdi_percent: "92,5"
+        pe_percent: "20,35000"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: B3
+        dimensions:
+          portfolio_type: substandard
+          category: B3
+        pi_percent: "33,00"
+        pdi_percent: "97,5"
+        pe_percent: "32,17500"
+        status: verified
+        source_ref: "§1.1"
+      - row_id: B4
+        dimensions:
+          portfolio_type: substandard
+          category: B4
+        pi_percent: "45,00"
+        pdi_percent: "97,5"
+        pe_percent: "43,87500"
+        status: verified
+        source_ref: "§1.1"
+  - matrix_id: commercial_individual_default_v2014
+    rows:
+      - row_id: C1
+        dimensions:
+          portfolio_type: default
+          category: C1
+          expected_loss_range: hasta_3_percent
+          expected_loss_range_label: "Hasta 3 %"
+        pp_percent: "2"
+        status: verified
+        source_ref: "§1.3"
+      - row_id: C2
+        dimensions:
+          portfolio_type: default
+          category: C2
+          expected_loss_range: gt_3_le_20_percent
+          expected_loss_range_label: "Mas de 3 % hasta 20 %"
+        pp_percent: "10"
+        status: verified
+        source_ref: "§1.3"
+      - row_id: C3
+        dimensions:
+          portfolio_type: default
+          category: C3
+          expected_loss_range: gt_20_le_30_percent
+          expected_loss_range_label: "Mas de 20 % hasta 30 %"
+        pp_percent: "25"
+        status: verified
+        source_ref: "§1.3"
+      - row_id: C4
+        dimensions:
+          portfolio_type: default
+          category: C4
+          expected_loss_range: gt_30_le_50_percent
+          expected_loss_range_label: "Mas de 30 % hasta 50 %"
+        pp_percent: "40"
+        status: verified
+        source_ref: "§1.3"
+      - row_id: C5
+        dimensions:
+          portfolio_type: default
+          category: C5
+          expected_loss_range: gt_50_le_80_percent
+          expected_loss_range_label: "Mas de 50 % hasta 80 %"
+        pp_percent: "65"
+        status: verified
+        source_ref: "§1.3"
+      - row_id: C6
+        dimensions:
+          portfolio_type: default
+          category: C6
+          expected_loss_range: gt_80_percent
+          expected_loss_range_label: "Mas de 80 %"
+        pp_percent: "90"
+        status: verified
+        source_ref: "§1.3"
+  - matrix_id: commercial_group_leasing_v2018
+    rows:
+      - row_id: pi_dpd_0_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: "0"
+          asset_type: inmobiliario
+        pi_percent: "0,79"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_dpd_0_no_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: "0"
+          asset_type: no_inmobiliario
+        pi_percent: "1,61"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_dpd_1_29_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: "1_29"
+          asset_type: inmobiliario
+        pi_percent: "7,94"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_dpd_1_29_no_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: "1_29"
+          asset_type: no_inmobiliario
+        pi_percent: "12,02"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_dpd_30_59_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: "30_59"
+          asset_type: inmobiliario
+        pi_percent: "28,76"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_dpd_30_59_no_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: "30_59"
+          asset_type: no_inmobiliario
+        pi_percent: "40,88"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_dpd_60_89_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: "60_89"
+          asset_type: inmobiliario
+        pi_percent: "58,76"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_dpd_60_89_no_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: "60_89"
+          asset_type: no_inmobiliario
+        pi_percent: "69,38"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_default_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: incumplimiento
+          asset_type: inmobiliario
+        pi_percent: "100,00"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pi_default_no_inmobiliario
+        dimensions:
+          row_type: pi_by_dpd_asset
+          days_past_due_bucket: incumplimiento
+          asset_type: no_inmobiliario
+        pi_percent: "100,00"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_le_40_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_le_40
+          asset_type: inmobiliario
+        pdi_percent: "0,05"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_le_40_no_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_le_40
+          asset_type: no_inmobiliario
+        pdi_percent: "18,2"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_gt_40_le_50_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_gt_40_le_50
+          asset_type: inmobiliario
+        pdi_percent: "0,05"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_gt_40_le_50_no_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_gt_40_le_50
+          asset_type: no_inmobiliario
+        pdi_percent: "57,00"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_gt_50_le_80_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_gt_50_le_80
+          asset_type: inmobiliario
+        pdi_percent: "5,10"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_gt_50_le_80_no_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_gt_50_le_80
+          asset_type: no_inmobiliario
+        pdi_percent: "68,40"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_gt_80_le_90_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_gt_80_le_90
+          asset_type: inmobiliario
+        pdi_percent: "23,20"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_gt_80_le_90_no_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_gt_80_le_90
+          asset_type: no_inmobiliario
+        pdi_percent: "75,10"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_gt_90_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_gt_90
+          asset_type: inmobiliario
+        pdi_percent: "36,20"
+        status: verified
+        source_ref: "§2.a"
+      - row_id: pdi_pvb_gt_90_no_inmobiliario
+        dimensions:
+          row_type: pdi_by_pvb_asset
+          pvb_bucket: pvb_gt_90
+          asset_type: no_inmobiliario
+        pdi_percent: "78,90"
+        status: verified
+        source_ref: "§2.a"
+  - matrix_id: commercial_group_student_v2018
+    rows:
+      - row_id: pi_due_yes_dpd_0_cae
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: "0"
+          student_loan_type: cae
+        pi_percent: "5,2"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_dpd_0_corfo_otros
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: "0"
+          student_loan_type: corfo_otros
+        pi_percent: "2,9"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_dpd_1_29_cae
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: "1_29"
+          student_loan_type: cae
+        pi_percent: "37,2"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_dpd_1_29_corfo_otros
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: "1_29"
+          student_loan_type: corfo_otros
+        pi_percent: "15,0"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_dpd_30_59_cae
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: "30_59"
+          student_loan_type: cae
+        pi_percent: "59,0"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_dpd_30_59_corfo_otros
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: "30_59"
+          student_loan_type: corfo_otros
+        pi_percent: "43,4"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_dpd_60_89_cae
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: "60_89"
+          student_loan_type: cae
+        pi_percent: "72,8"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_dpd_60_89_corfo_otros
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: "60_89"
+          student_loan_type: corfo_otros
+        pi_percent: "71,9"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_default_cae
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: incumplimiento
+          student_loan_type: cae
+        pi_percent: "100,0"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_yes_default_corfo_otros
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "yes"
+          days_past_due_bucket: incumplimiento
+          student_loan_type: corfo_otros
+        pi_percent: "100,0"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_no_cae
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "no"
+          days_past_due_bucket: n/a
+          student_loan_type: cae
+        pi_percent: "41,6"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pi_due_no_corfo_otros
+        dimensions:
+          row_type: pi_by_due_dpd_type
+          payment_due: "no"
+          days_past_due_bucket: n/a
+          student_loan_type: corfo_otros
+        pi_percent: "16,5"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pdi_due_yes_cae
+        dimensions:
+          row_type: pdi_by_due_type
+          payment_due: "yes"
+          student_loan_type: cae
+        pdi_percent: "70,9"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pdi_due_yes_corfo_otros
+        dimensions:
+          row_type: pdi_by_due_type
+          payment_due: "yes"
+          student_loan_type: corfo_otros
+        pdi_percent: "70,9"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pdi_due_no_cae
+        dimensions:
+          row_type: pdi_by_due_type
+          payment_due: "no"
+          student_loan_type: cae
+        pdi_percent: "50,3"
+        status: verified
+        source_ref: "§2.b"
+      - row_id: pdi_due_no_corfo_otros
+        dimensions:
+          row_type: pdi_by_due_type
+          payment_due: "no"
+          student_loan_type: corfo_otros
+        pdi_percent: "45,8"
+        status: verified
+        source_ref: "§2.b"
+  - matrix_id: commercial_group_generic_factoring_v2020
+    rows:
+      - row_id: pi_dpd_0_ptvg_le_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "0"
+          ptvg_bucket: con_garantia_ptvg_le_100
+        pi_percent: "1,86"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_0_ptvg_gt_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "0"
+          ptvg_bucket: con_garantia_ptvg_gt_100
+        pi_percent: "2,68"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_0_sin_garantia
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "0"
+          ptvg_bucket: sin_garantia
+        pi_percent: "4,91"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_1_29_ptvg_le_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "1_29"
+          ptvg_bucket: con_garantia_ptvg_le_100
+        pi_percent: "11,60"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_1_29_ptvg_gt_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "1_29"
+          ptvg_bucket: con_garantia_ptvg_gt_100
+        pi_percent: "13,45"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_1_29_sin_garantia
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "1_29"
+          ptvg_bucket: sin_garantia
+        pi_percent: "22,93"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_30_59_ptvg_le_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "30_59"
+          ptvg_bucket: con_garantia_ptvg_le_100
+        pi_percent: "25,33"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_30_59_ptvg_gt_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "30_59"
+          ptvg_bucket: con_garantia_ptvg_gt_100
+        pi_percent: "26,92"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_30_59_sin_garantia
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "30_59"
+          ptvg_bucket: sin_garantia
+        pi_percent: "45,30"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_60_89_ptvg_le_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "60_89"
+          ptvg_bucket: con_garantia_ptvg_le_100
+        pi_percent: "41,31"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_60_89_ptvg_gt_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "60_89"
+          ptvg_bucket: con_garantia_ptvg_gt_100
+        pi_percent: "41,31"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_dpd_60_89_sin_garantia
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: "60_89"
+          ptvg_bucket: sin_garantia
+        pi_percent: "61,63"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_default_ptvg_le_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: incumplimiento
+          ptvg_bucket: con_garantia_ptvg_le_100
+        pi_percent: "100,00"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_default_ptvg_gt_100
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: incumplimiento
+          ptvg_bucket: con_garantia_ptvg_gt_100
+        pi_percent: "100,00"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pi_default_sin_garantia
+        dimensions:
+          row_type: pi_by_dpd_ptvg
+          days_past_due_bucket: incumplimiento
+          ptvg_bucket: sin_garantia
+        pi_percent: "100,00"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_ptvg_le_60_sin_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: con_garantia
+          ptvg_bucket: ptvg_le_60
+          recourse_type: sin_responsabilidad_cedente_o_generica
+        pdi_percent: "5,0"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_ptvg_le_60_con_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: con_garantia
+          ptvg_bucket: ptvg_le_60
+          recourse_type: con_responsabilidad_cedente
+        pdi_percent: "3,2"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_ptvg_gt_60_le_75_sin_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: con_garantia
+          ptvg_bucket: ptvg_gt_60_le_75
+          recourse_type: sin_responsabilidad_cedente_o_generica
+        pdi_percent: "20,3"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_ptvg_gt_60_le_75_con_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: con_garantia
+          ptvg_bucket: ptvg_gt_60_le_75
+          recourse_type: con_responsabilidad_cedente
+        pdi_percent: "12,8"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_ptvg_gt_75_le_90_sin_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: con_garantia
+          ptvg_bucket: ptvg_gt_75_le_90
+          recourse_type: sin_responsabilidad_cedente_o_generica
+        pdi_percent: "32,2"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_ptvg_gt_75_le_90_con_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: con_garantia
+          ptvg_bucket: ptvg_gt_75_le_90
+          recourse_type: con_responsabilidad_cedente
+        pdi_percent: "20,3"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_ptvg_gt_90_sin_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: con_garantia
+          ptvg_bucket: ptvg_gt_90
+          recourse_type: sin_responsabilidad_cedente_o_generica
+        pdi_percent: "43,0"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_ptvg_gt_90_con_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: con_garantia
+          ptvg_bucket: ptvg_gt_90
+          recourse_type: con_responsabilidad_cedente
+        pdi_percent: "27,1"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_sin_garantia_sin_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: sin_garantia
+          ptvg_bucket: sin_garantia
+          recourse_type: sin_responsabilidad_cedente_o_generica
+        pdi_percent: "56,9"
+        status: verified
+        source_ref: "§2.c"
+      - row_id: pdi_sin_garantia_con_responsabilidad
+        dimensions:
+          row_type: pdi_by_ptvg_recourse
+          guarantee_status: sin_garantia
+          ptvg_bucket: sin_garantia
+          recourse_type: con_responsabilidad_cedente
+        pdi_percent: "35,9"
+        status: verified
+        source_ref: "§2.c"
+  - matrix_id: commercial_group_guarantee_substitution_v2018
+    rows:
+      - row_id: metodo_1_pe_directa
+        dimensions:
+          row_type: formula
+          method: metodo_1_pe_directa
+          formula: "Provision = EG*(1-EA/100)*(PE_grupo/100) + EG*(EA/100)*(PE_aval/100)"
+          aval_parameter_sources: "§1.1; §5.2"
+        status: verified
+        source_ref: "§2.d"
+      - row_id: metodo_2_pi_pdi
+        dimensions:
+          row_type: formula
+          method: metodo_2_pi_pdi
+          formula: "Provision = EG*(1-EA/100)*(PI_grupo/100)*(PDI_grupo/100) + EG*(EA/100)*(PE_aval/100)"
+          aval_parameter_sources: "§1.1; §5.2"
+        status: verified
+        source_ref: "§2.d"
+  - matrix_id: consumer_standard_v2025
+    rows:
+      - row_id: pi_dpd_0_7_housing_yes_system_dpd30_no
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "0_7"
+          has_housing_loan: "yes"
+          system_dpd30: "no"
+        pi_percent: "3,3"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_0_7_housing_yes_system_dpd30_yes
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "0_7"
+          has_housing_loan: "yes"
+          system_dpd30: "yes"
+        pi_percent: "14,6"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_0_7_housing_no_system_dpd30_no
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "0_7"
+          has_housing_loan: "no"
+          system_dpd30: "no"
+        pi_percent: "6,6"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_0_7_housing_no_system_dpd30_yes
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "0_7"
+          has_housing_loan: "no"
+          system_dpd30: "yes"
+        pi_percent: "19,8"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_8_30_housing_yes_system_dpd30_no
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "8_30"
+          has_housing_loan: "yes"
+          system_dpd30: "no"
+        pi_percent: "20,4"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_8_30_housing_yes_system_dpd30_yes
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "8_30"
+          has_housing_loan: "yes"
+          system_dpd30: "yes"
+        pi_percent: "41,6"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_8_30_housing_no_system_dpd30_no
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "8_30"
+          has_housing_loan: "no"
+          system_dpd30: "no"
+        pi_percent: "30,6"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_8_30_housing_no_system_dpd30_yes
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "8_30"
+          has_housing_loan: "no"
+          system_dpd30: "yes"
+        pi_percent: "48,5"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_31_60_housing_yes_system_dpd30_no
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "31_60"
+          has_housing_loan: "yes"
+          system_dpd30: "no"
+        pi_percent: "50,2"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_31_60_housing_yes_system_dpd30_yes
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "31_60"
+          has_housing_loan: "yes"
+          system_dpd30: "yes"
+        pi_percent: "63,0"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_31_60_housing_no_system_dpd30_no
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "31_60"
+          has_housing_loan: "no"
+          system_dpd30: "no"
+        pi_percent: "65,1"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_31_60_housing_no_system_dpd30_yes
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "31_60"
+          has_housing_loan: "no"
+          system_dpd30: "yes"
+        pi_percent: "66,3"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_61_89_housing_yes_system_dpd30_no
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "61_89"
+          has_housing_loan: "yes"
+          system_dpd30: "no"
+        pi_percent: "62,6"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_61_89_housing_yes_system_dpd30_yes
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "61_89"
+          has_housing_loan: "yes"
+          system_dpd30: "yes"
+        pi_percent: "81,7"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_61_89_housing_no_system_dpd30_no
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "61_89"
+          has_housing_loan: "no"
+          system_dpd30: "no"
+        pi_percent: "72,3"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_dpd_61_89_housing_no_system_dpd30_yes
+        dimensions:
+          row_type: pi_by_debtor_state
+          days_past_due_bucket: "61_89"
+          has_housing_loan: "no"
+          system_dpd30: "yes"
+        pi_percent: "86,9"
+        status: verified
+        source_ref: "§3"
+      - row_id: pi_default
+        dimensions:
+          row_type: pi_default
+          debtor_default_status: incumplimiento
+        pi_percent: "100"
+        status: verified
+        source_ref: "§3"
+      - row_id: pdi_housing_yes_leasing_auto
+        dimensions:
+          row_type: pdi_by_product_housing
+          has_housing_loan: "yes"
+          consumer_product_type: leasing_auto
+        pdi_percent: "33,2"
+        status: verified
+        source_ref: "§3"
+      - row_id: pdi_housing_yes_installment_loans
+        dimensions:
+          row_type: pdi_by_product_housing
+          has_housing_loan: "yes"
+          consumer_product_type: installment_loans
+        pdi_percent: "47,7"
+        status: verified
+        source_ref: "§3"
+      - row_id: pdi_housing_yes_cards_lines_other
+        dimensions:
+          row_type: pdi_by_product_housing
+          has_housing_loan: "yes"
+          consumer_product_type: cards_lines_other
+        pdi_percent: "49,5"
+        status: verified
+        source_ref: "§3"
+      - row_id: pdi_housing_no_leasing_auto
+        dimensions:
+          row_type: pdi_by_product_housing
+          has_housing_loan: "no"
+          consumer_product_type: leasing_auto
+        pdi_percent: "33,2"
+        status: verified
+        source_ref: "§3"
+      - row_id: pdi_housing_no_installment_loans
+        dimensions:
+          row_type: pdi_by_product_housing
+          has_housing_loan: "no"
+          consumer_product_type: installment_loans
+        pdi_percent: "56,6"
+        status: verified
+        source_ref: "§3"
+      - row_id: pdi_housing_no_cards_lines_other
+        dimensions:
+          row_type: pdi_by_product_housing
+          has_housing_loan: "no"
+          consumer_product_type: cards_lines_other
+        pdi_percent: "60,3"
+        status: verified
+        source_ref: "§3"
+  - matrix_id: housing_pvg_v2018
+    rows:
+      - row_id: pvg_le_40_mora_0
+        dimensions:
+          pvg_bucket: pvg_le_40
+          mora_bucket: "0"
+        pi_percent: "1,0916"
+        pdi_percent: "0,0225"
+        pe_percent: "0,0002"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_le_40_mora_1_29
+        dimensions:
+          pvg_bucket: pvg_le_40
+          mora_bucket: "1_29"
+        pi_percent: "21,3407"
+        pdi_percent: "0,0441"
+        pe_percent: "0,0094"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_le_40_mora_30_59
+        dimensions:
+          pvg_bucket: pvg_le_40
+          mora_bucket: "30_59"
+        pi_percent: "46,0536"
+        pdi_percent: "0,0482"
+        pe_percent: "0,0222"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_le_40_mora_60_89
+        dimensions:
+          pvg_bucket: pvg_le_40
+          mora_bucket: "60_89"
+        pi_percent: "75,1614"
+        pdi_percent: "0,0482"
+        pe_percent: "0,0362"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_le_40_incumplimiento
+        dimensions:
+          pvg_bucket: pvg_le_40
+          mora_bucket: incumplimiento
+        pi_percent: "100"
+        pdi_percent: "0,0537"
+        pe_percent: "0,0537"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_40_le_80_mora_0
+        dimensions:
+          pvg_bucket: pvg_gt_40_le_80
+          mora_bucket: "0"
+        pi_percent: "1,9158"
+        pdi_percent: "2,1955"
+        pe_percent: "0,0421"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_40_le_80_mora_1_29
+        dimensions:
+          pvg_bucket: pvg_gt_40_le_80
+          mora_bucket: "1_29"
+        pi_percent: "27,4332"
+        pdi_percent: "2,8233"
+        pe_percent: "0,7745"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_40_le_80_mora_30_59
+        dimensions:
+          pvg_bucket: pvg_gt_40_le_80
+          mora_bucket: "30_59"
+        pi_percent: "52,0824"
+        pdi_percent: "2,9192"
+        pe_percent: "1,5204"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_40_le_80_mora_60_89
+        dimensions:
+          pvg_bucket: pvg_gt_40_le_80
+          mora_bucket: "60_89"
+        pi_percent: "78,9511"
+        pdi_percent: "2,9192"
+        pe_percent: "2,3047"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_40_le_80_incumplimiento
+        dimensions:
+          pvg_bucket: pvg_gt_40_le_80
+          mora_bucket: incumplimiento
+        pi_percent: "100"
+        pdi_percent: "3,0413"
+        pe_percent: "3,0413"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_80_le_90_mora_0
+        dimensions:
+          pvg_bucket: pvg_gt_80_le_90
+          mora_bucket: "0"
+        pi_percent: "2,5150"
+        pdi_percent: "21,5527"
+        pe_percent: "0,5421"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_80_le_90_mora_1_29
+        dimensions:
+          pvg_bucket: pvg_gt_80_le_90
+          mora_bucket: "1_29"
+        pi_percent: "27,9300"
+        pdi_percent: "21,6600"
+        pe_percent: "6,0496"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_80_le_90_mora_30_59
+        dimensions:
+          pvg_bucket: pvg_gt_80_le_90
+          mora_bucket: "30_59"
+        pi_percent: "52,5800"
+        pdi_percent: "21,9200"
+        pe_percent: "11,5255"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_80_le_90_mora_60_89
+        dimensions:
+          pvg_bucket: pvg_gt_80_le_90
+          mora_bucket: "60_89"
+        pi_percent: "79,6952"
+        pdi_percent: "22,1331"
+        pe_percent: "17,6390"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_80_le_90_incumplimiento
+        dimensions:
+          pvg_bucket: pvg_gt_80_le_90
+          mora_bucket: incumplimiento
+        pi_percent: "100"
+        pdi_percent: "22,2310"
+        pe_percent: "22,2310"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_90_mora_0
+        dimensions:
+          pvg_bucket: pvg_gt_90
+          mora_bucket: "0"
+        pi_percent: "2,7400"
+        pdi_percent: "27,2000"
+        pe_percent: "0,7453"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_90_mora_1_29
+        dimensions:
+          pvg_bucket: pvg_gt_90
+          mora_bucket: "1_29"
+        pi_percent: "28,4300"
+        pdi_percent: "29,0300"
+        pe_percent: "8,2532"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_90_mora_30_59
+        dimensions:
+          pvg_bucket: pvg_gt_90
+          mora_bucket: "30_59"
+        pi_percent: "53,0800"
+        pdi_percent: "29,5900"
+        pe_percent: "15,7064"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_90_mora_60_89
+        dimensions:
+          pvg_bucket: pvg_gt_90
+          mora_bucket: "60_89"
+        pi_percent: "80,3677"
+        pdi_percent: "30,1558"
+        pe_percent: "24,2355"
+        status: verified
+        source_ref: "§4"
+      - row_id: pvg_gt_90_incumplimiento
+        dimensions:
+          pvg_bucket: pvg_gt_90
+          mora_bucket: incumplimiento
+        pi_percent: "100"
+        pdi_percent: "30,2436"
+        pe_percent: "30,2436"
+        status: verified
+        source_ref: "§4"
+      - row_id: mp_pvg_le_40_v_le_1000
+        dimensions:
+          row_type: mitigation_factor_mp
+          pvg_bucket: pvg_le_40
+          valor_vivienda_bucket: v_le_1000_uf
+        mp_percent: "100"
+        status: verified
+        source_ref: "§4.1"
+      - row_id: mp_pvg_le_40_v_gt_1000_le_2000
+        dimensions:
+          row_type: mitigation_factor_mp
+          pvg_bucket: pvg_le_40
+          valor_vivienda_bucket: v_gt_1000_le_2000_uf
+        mp_percent: "100"
+        status: verified
+        source_ref: "§4.1"
+      - row_id: mp_pvg_gt_40_le_80_v_le_1000
+        dimensions:
+          row_type: mitigation_factor_mp
+          pvg_bucket: pvg_gt_40_le_80
+          valor_vivienda_bucket: v_le_1000_uf
+        mp_percent: "100"
+        status: verified
+        source_ref: "§4.1"
+      - row_id: mp_pvg_gt_40_le_80_v_gt_1000_le_2000
+        dimensions:
+          row_type: mitigation_factor_mp
+          pvg_bucket: pvg_gt_40_le_80
+          valor_vivienda_bucket: v_gt_1000_le_2000_uf
+        mp_percent: "100"
+        status: verified
+        source_ref: "§4.1"
+      - row_id: mp_pvg_gt_80_le_90_v_le_1000
+        dimensions:
+          row_type: mitigation_factor_mp
+          pvg_bucket: pvg_gt_80_le_90
+          valor_vivienda_bucket: v_le_1000_uf
+        mp_percent: "95"
+        status: verified
+        source_ref: "§4.1"
+      - row_id: mp_pvg_gt_80_le_90_v_gt_1000_le_2000
+        dimensions:
+          row_type: mitigation_factor_mp
+          pvg_bucket: pvg_gt_80_le_90
+          valor_vivienda_bucket: v_gt_1000_le_2000_uf
+        mp_percent: "96"
+        status: verified
+        source_ref: "§4.1"
+      - row_id: mp_pvg_gt_90_v_le_1000
+        dimensions:
+          row_type: mitigation_factor_mp
+          pvg_bucket: pvg_gt_90
+          valor_vivienda_bucket: v_le_1000_uf
+        mp_percent: "84"
+        status: verified
+        source_ref: "§4.1"
+      - row_id: mp_pvg_gt_90_v_gt_1000_le_2000
+        dimensions:
+          row_type: mitigation_factor_mp
+          pvg_bucket: pvg_gt_90
+          valor_vivienda_bucket: v_gt_1000_le_2000_uf
+        mp_percent: "89"
+        status: verified
+        source_ref: "§4.1"
+  - matrix_id: guarantee_aval_quality_v2018
+    rows:
+      - row_id: aa_aa2_international
+        dimensions:
+          rating_category: "AA/Aa2"
+          rating_scale: international
+          visual_correction: "2026-06-23"
+        pi_percent: "0,04"
+        pdi_percent: "90,0"
+        status: verified
+        source_ref: "§5.2"
+      - row_id: aa_aa2_national
+        dimensions:
+          rating_category: "AA/Aa2"
+          rating_scale: national
+          visual_correction: "2026-06-23"
+        pi_percent: "0,04"
+        pdi_percent: "90,0"
+        status: verified
+        source_ref: "§5.2"
+      - row_id: a_a2_international
+        dimensions:
+          rating_category: "A/A2"
+          rating_scale: international
+          visual_correction: "2026-06-23"
+        pi_percent: "0,04"
+        pdi_percent: "90,0"
+        status: verified
+        source_ref: "§5.2"
+      - row_id: a_a2_national
+        dimensions:
+          rating_category: "A/A2"
+          rating_scale: national
+          visual_correction: "2026-06-23"
+        pi_percent: "0,10"
+        pdi_percent: "82,5"
+        status: verified
+        source_ref: "§5.2"
+      - row_id: bbb_baa3_international
+        dimensions:
+          rating_category: "BBB-/Baa3"
+          rating_scale: international
+          visual_correction: "2026-06-23"
+        pi_percent: "0,10"
+        pdi_percent: "82,5"
+        status: verified
+        source_ref: "§5.2"
+      - row_id: bbb_baa3_national
+        dimensions:
+          rating_category: "BBB-/Baa3"
+          rating_scale: national
+          visual_correction: "2026-06-23"
+        pi_percent: "0,25"
+        pdi_percent: "87,5"
+        status: verified
+        source_ref: "§5.2"
+  - matrix_id: contingent_b3_v2016
+    rows:
+      - row_id: a
+        dimensions:
+          contingent_type: avales_fianzas
+          contingent_type_label: "a) Avales y fianzas"
+        ccf_percent: "100"
+        status: verified
+        source_ref: "§6"
+      - row_id: b
+        dimensions:
+          contingent_type: cartas_credito_exterior_confirmadas
+          contingent_type_label: "b) Cartas de credito del exterior confirmadas"
+        ccf_percent: "20"
+        status: verified
+        source_ref: "§6"
+      - row_id: c
+        dimensions:
+          contingent_type: cartas_credito_documentarias_emitidas
+          contingent_type_label: "c) Cartas de credito documentarias emitidas"
+        ccf_percent: "20"
+        status: verified
+        source_ref: "§6"
+      - row_id: d
+        dimensions:
+          contingent_type: boletas_garantia
+          contingent_type_label: "d) Boletas de garantia"
+        ccf_percent: "50"
+        status: verified
+        source_ref: "§6"
+      - row_id: e
+        dimensions:
+          contingent_type: lineas_libre_disposicion
+          contingent_type_label: "e) Lineas de credito de libre disposicion"
+        ccf_percent: "35"
+        status: verified
+        source_ref: "§6"
+      - row_id: f_cae
+        dimensions:
+          contingent_type: otros_compromisos_credito
+          contingent_subtype: cae_ley_20027
+          contingent_type_label: "f) Otros compromisos de credito - CAE Ley 20.027"
+        ccf_percent: "15"
+        status: verified
+        source_ref: "§6"
+      - row_id: f_otros
+        dimensions:
+          contingent_type: otros_compromisos_credito
+          contingent_subtype: otros
+          contingent_type_label: "f) Otros compromisos de credito - Otros"
+        ccf_percent: "100"
+        status: verified
+        source_ref: "§6"
+      - row_id: g
+        dimensions:
+          contingent_type: otros_creditos_contingentes
+          contingent_type_label: "g) Otros creditos contingentes"
+        ccf_percent: "100"
+        status: verified
+        source_ref: "§6"

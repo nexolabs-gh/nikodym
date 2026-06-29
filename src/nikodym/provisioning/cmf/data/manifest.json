@@ -1,0 +1,149 @@
+{
+  "version": "cmf_b1_b3_2025_01",
+  "effective_date": "2025-01-31",
+  "extraction_date": "2026-06-23",
+  "official_sources": [
+    {
+      "id": "cnc_consolidado_b1_b3",
+      "circular": "3.573/2014; 3.638/2018; 3.604/2016",
+      "url": "http://www.sbif.cl/sbifweb3/internet/archivos/norma_6545_1.pdf",
+      "role": "Fuente primaria de B-1/B-3 consolidado para matrices comerciales, vivienda, avales y contingentes.",
+      "status": "verified"
+    },
+    {
+      "id": "circular_consumo_2024",
+      "circular": "2.346/2024",
+      "url": "https://www.cmfchile.cl/normativa/cir_2346_2024.pdf",
+      "role": "Fuente primaria de consumo vigente desde cierre contable de enero 2025.",
+      "status": "verified"
+    },
+    {
+      "id": "pdf_semilla_b1",
+      "circular": "3.584/2015",
+      "url": "https://sbif.cl/sbifweb/internet/archivos/norma_10821_3.pdf",
+      "role": "Confirmacion cruzada de vivienda y garantias.",
+      "status": "verified"
+    },
+    {
+      "id": "cnc_version_2022",
+      "circular": "2.243/2019",
+      "url": "https://www.cmfchile.cl/institucional/mercados/ver_archivo.php?archivo=/web/compendio/cir/cir_2249_2020.pdf",
+      "role": "Version vigente base; revalidacion pendiente antes de uso productivo.",
+      "status": "referenced"
+    },
+    {
+      "id": "ran_garantias_21_10",
+      "circular": "RAN 21-10",
+      "url": "https://www.cmfchile.cl/portal/prensa/615/w3-article-89303.html",
+      "role": "Contexto de garantias; sin tabla numerica nueva verificada para B-1.",
+      "status": "pending"
+    }
+  ],
+  "normativa_refs": [
+    "§1.1",
+    "§1.3",
+    "§2.a",
+    "§2.b",
+    "§2.c",
+    "§2.d",
+    "§3",
+    "§4",
+    "§4.1",
+    "§5.2",
+    "§5.3",
+    "§6",
+    "§7"
+  ],
+  "yaml_sha256": "6272bd0dfa5821db8def039014d7288b694b520f51ddda5a0b52349ce2e8d794",
+  "author": "DanIA",
+  "verifier": "Extraccion asistida y verificacion visual registrada en docs/normativa_cmf_parametros.md",
+  "status": "verified",
+  "matrices": [
+    {
+      "matrix_id": "commercial_individual_performing_v2014",
+      "status": "verified",
+      "source_ref": "§1.1",
+      "effective_date": "2014-12-30",
+      "source_normative": "CNC B-1 numeral 2.1, hoja 3, Circular 3.573/2014"
+    },
+    {
+      "matrix_id": "commercial_individual_default_v2014",
+      "status": "verified",
+      "source_ref": "§1.3",
+      "effective_date": "2014-12-30",
+      "source_normative": "CNC B-1 numeral 2.2, hoja 9, Circular 3.573/2014"
+    },
+    {
+      "matrix_id": "commercial_group_leasing_v2018",
+      "status": "verified",
+      "source_ref": "§2.a",
+      "effective_date": "2018-07-06",
+      "source_normative": "CNC B-1 numeral 3.1.2, hojas 13-14, Circular 3.638/2018"
+    },
+    {
+      "matrix_id": "commercial_group_student_v2018",
+      "status": "verified",
+      "source_ref": "§2.b",
+      "effective_date": "2018-07-06",
+      "source_normative": "CNC B-1 numeral 3.1.2, hojas 14-15, Circular 3.638/2018"
+    },
+    {
+      "matrix_id": "commercial_group_generic_factoring_v2020",
+      "status": "verified",
+      "source_ref": "§2.c",
+      "effective_date": "2020-05-22",
+      "source_normative": "CNC B-1 numeral 3.1.2, hojas 15-16, Circular 2.257/2020"
+    },
+    {
+      "matrix_id": "commercial_group_guarantee_substitution_v2018",
+      "status": "verified",
+      "source_ref": "§2.d",
+      "effective_date": "2018-07-06",
+      "source_normative": "CNC B-1 numeral 4.1 letra a, hojas 18-19, Circular 3.638/2018"
+    },
+    {
+      "matrix_id": "consumer_standard_v2025",
+      "status": "verified",
+      "source_ref": "§3",
+      "effective_date": "2025-01-31",
+      "source_normative": "Circular 2.346/2024, B-1 numeral 3.1.3"
+    },
+    {
+      "matrix_id": "housing_pvg_v2018",
+      "status": "verified",
+      "source_ref": "§4; §4.1",
+      "effective_date": "2018-07-06",
+      "source_normative": "CNC B-1 numeral 3.1.1, hojas 12-13, Circular 3.638/2018"
+    },
+    {
+      "matrix_id": "guarantee_aval_quality_v2018",
+      "status": "verified",
+      "source_ref": "§5.2",
+      "effective_date": "2018-07-06",
+      "source_normative": "CNC B-1 numeral 4.1 letra a, hoja 18, Circular 3.638/2018"
+    },
+    {
+      "matrix_id": "contingent_b3_v2016",
+      "status": "verified",
+      "source_ref": "§6",
+      "effective_date": "2016-03-29",
+      "source_normative": "CNC B-3 numeral 3, hojas 1-2, Circular 3.604/2016"
+    }
+  ],
+  "pending_items": [
+    {
+      "id": "financial_guarantee_haircuts",
+      "source_ref": "§5.2",
+      "status": "pending",
+      "marker": "FALTA-DATO",
+      "description": "Aforos o haircuts de garantias financieras no tabulados en B-1; requieren circular especifica de factores de descuento."
+    },
+    {
+      "id": "ran_21_10_numeric_tables",
+      "source_ref": "§5.3",
+      "status": "pending",
+      "marker": "FALTA-DATO",
+      "description": "RAN 21-10 regula requisitos de garantias; no se extrajo tabla numerica nueva para el modelo estandar B-1."
+    }
+  ]
+}
