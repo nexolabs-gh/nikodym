@@ -2,14 +2,16 @@
 
 Al importarse, registra :class:`StressConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.stress`` se valida como sub-config real sin
-que ``import nikodym.core`` importe ``nikodym.stress`` ni motores económicos futuros. En B21.1 el
-paquete expone solo config y excepciones; los DTOs, engine y step se agregan en los bloques
-siguientes.
+que ``import nikodym.core`` importe ``nikodym.stress`` ni motores económicos futuros. En B21.2 los
+DTOs de resultados se exportan bajo demanda para no arrastrar ``pandas`` ni engines.
 
 **Experimental (SemVer 0.x).**
 """
 
 from __future__ import annotations
+
+import importlib
+from typing import Any, Final
 
 from nikodym.core.config import schema as _schema
 from nikodym.stress.config import (
@@ -42,14 +44,26 @@ from nikodym.stress.exceptions import (
 # Registra la clase real del sub-config stress en el hook de `core`.
 _schema._STRESS_CONFIG_CLS = StressConfig
 
+_RESULT_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "ReverseStressResult": ("nikodym.stress.results", "ReverseStressResult"),
+    "StressCard": ("nikodym.stress.results", "StressCard"),
+    "StressDiagnostics": ("nikodym.stress.results", "StressDiagnostics"),
+    "StressResult": ("nikodym.stress.results", "StressResult"),
+    "StressScenarioResult": ("nikodym.stress.results", "StressScenarioResult"),
+    "StressSensitivityResult": ("nikodym.stress.results", "StressSensitivityResult"),
+}
+
 __all__ = [
     "NonMonotonicStressError",
     "ReverseStressConfig",
     "ReverseStressError",
+    "ReverseStressResult",
     "SensitivitySweepConfig",
+    "StressCard",
     "StressConfig",
     "StressConfigError",
     "StressDependencyError",
+    "StressDiagnostics",
     "StressDirection",
     "StressEngineError",
     "StressError",
@@ -60,9 +74,23 @@ __all__ = [
     "StressOperation",
     "StressOutputConfig",
     "StressOutputError",
+    "StressResult",
     "StressScenarioConfig",
     "StressScenarioError",
+    "StressScenarioResult",
+    "StressSensitivityResult",
     "StressShockConfig",
     "StressTargetConfig",
     "StressValidationConfig",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Carga DTOs de resultados bajo demanda."""
+    if name not in _RESULT_EXPORTS:
+        raise AttributeError(f"module 'nikodym.stress' has no attribute {name!r}")
+
+    module_name, attribute_name = _RESULT_EXPORTS[name]
+    value = getattr(importlib.import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value

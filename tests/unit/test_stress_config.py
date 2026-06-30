@@ -13,7 +13,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-import nikodym.stress as stress_pkg  # importa la capa: puebla el hook
+import nikodym.stress as stress_pkg
 import nikodym.stress.config as stress_config_module
 from nikodym.core import study as study_module
 from nikodym.core.config import (
@@ -743,11 +743,13 @@ def test_core_study_cablea_stress_en_orden_por_defecto() -> None:
 
 
 def test_import_stress_liviano_y_registra_hook_en_proceso_fresco() -> None:
-    """``import nikodym.stress`` registra hook sin arrastrar pandas ni motores pesados."""
+    """``import nikodym.stress`` registra hook sin arrastrar engines pesados."""
     code = (
         "import nikodym.stress, sys;"
+        "assert 'nikodym.stress.results' not in sys.modules;"
+        "from nikodym.core.config import schema as _schema;"
+        "assert _schema._STRESS_CONFIG_CLS is nikodym.stress.StressConfig;"
         "from nikodym.core.config import NikodymConfig;"
-        "from nikodym.stress.config import StressConfig;"
         "bloqueados=[m for m in ('pandas','scipy','statsmodels','nikodym.provisioning') "
         "if m in sys.modules];"
         "assert not bloqueados, bloqueados;"
@@ -756,7 +758,13 @@ def test_import_stress_liviano_y_registra_hook_en_proceso_fresco() -> None:
         "'require_dominates_forward_adverse':False}],"
         "'validation':{'require_dominates_forward_adverse':False,"
         "'fail_on_falta_dato':False,'fail_on_missing_ecl_engine':False}});"
-        "assert isinstance(cfg.stress, StressConfig)"
+        "assert type(cfg.stress).__name__ == 'StressConfig';"
+        "assert type(cfg.stress).__module__ == 'nikodym.stress.config';"
+        "bloqueados=[m for m in ('pandas','scipy','statsmodels','nikodym.provisioning') "
+        "if m in sys.modules];"
+        "assert not bloqueados, bloqueados;"
+        "assert 'nikodym.stress.results' not in sys.modules;"
+        "assert isinstance(cfg.stress, nikodym.stress.StressConfig)"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
 
