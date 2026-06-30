@@ -6,10 +6,9 @@ reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y lo
 opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``), selección
 pre-modelo (``selection``), modelo PD (``model``), escalamiento de scorecard (``scorecard``),
 calibración de PD (``calibration``), survival/lifetime PD (``survival``), matrices Markov de
-migración (``markov``), forward-looking (``forward``), provisiones CMF (``provisioning_cmf``),
-desempeño
-post-modelo (``performance``), estabilidad post-modelo (``stability``) y reporte auditable
-(``report``). El config es
+migración (``markov``), forward-looking (``forward``), stress testing (``stress``), provisiones CMF
+(``provisioning_cmf``), desempeño post-modelo (``performance``), estabilidad post-modelo
+(``stability``) y reporte auditable (``report``). El config es
 *frozen*: su identidad se fija por
 ``config_hash`` (ver
 :mod:`nikodym.core.config.hashing`), no por mutación.
@@ -42,6 +41,7 @@ if TYPE_CHECKING:
     from nikodym.scorecard.config import ScorecardConfig
     from nikodym.selection.config import SelectionConfig
     from nikodym.stability.config import StabilityConfig
+    from nikodym.stress.config import StressConfig
     from nikodym.survival.config import SurvivalConfig
     from nikodym.tracking.config import TrackingConfig
 
@@ -62,6 +62,7 @@ _CALIBRATION_CONFIG_CLS: type[BaseModel] | None = None
 _SURVIVAL_CONFIG_CLS: type[BaseModel] | None = None
 _MARKOV_CONFIG_CLS: type[BaseModel] | None = None
 _FORWARD_CONFIG_CLS: type[BaseModel] | None = None
+_STRESS_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_CMF_CONFIG_CLS: type[BaseModel] | None = None
 _PERFORMANCE_CONFIG_CLS: type[BaseModel] | None = None
 _STABILITY_CONFIG_CLS: type[BaseModel] | None = None
@@ -123,7 +124,7 @@ class NikodymConfig(NikodymBaseConfig):
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
     ``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,
-    ``calibration``, ``survival``, ``forward``, ``provisioning_cmf``, ``performance``,
+    ``calibration``, ``survival``, ``forward``, ``stress``, ``provisioning_cmf``, ``performance``,
     ``stability``, ``report``).
     """
 
@@ -243,6 +244,16 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Forward-looking",
             description="Sección de proyección macro forward-looking y PIT/TTC (SDD-20).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `StressConfig` la hace `_valida_stress` vía hook diferido.
+        stress: StressConfig | None = None
+    else:
+        stress: Any = Field(
+            default=None,
+            title="Stress testing",
+            description="Sección de stress testing, sensibilidad y reverse stress (SDD-21).",
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -580,6 +591,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "forward debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.forward` para "
                 "validarlo como ForwardConfig."
+            ) from exc
+        return valor
+
+    @field_validator("stress", mode="before")
+    @classmethod
+    def _valida_stress(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``stress`` según haya o no capa cargada.
+
+        Con ``nikodym.stress`` importado (``_STRESS_CONFIG_CLS`` poblado), un ``dict`` se valida
+        y coacciona a :class:`StressConfig` (``extra='forbid'`` y rangos); una instancia ya
+        validada pasa tal cual. Sin la capa cargada, ``stress`` es un *blob* opaco: se exige
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos) para
+        no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _STRESS_CONFIG_CLS is not None:
+            if isinstance(valor, _STRESS_CONFIG_CLS):
+                return valor
+            return _STRESS_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "stress debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.stress` para "
+                "validarlo como StressConfig."
             ) from exc
         return valor
 

@@ -32,7 +32,7 @@ from nikodym.data.config import (
 
 # Golden de NikodymConfig() por defecto (idéntico a tests/repro/test_config_hash_golden.py): B11.5
 # añadió la clave computacional `stability=None`; cargar `data` no debe moverlo adicionalmente.
-GOLDEN_DEFAULT_CONFIG_HASH = "0e1016e38154a09a93e3e4b1a551b71afa06b257b58f6081ce2f4e24fb4e4c69"
+GOLDEN_DEFAULT_CONFIG_HASH = "145f9c1d1d7674f0aec6c435774649ac97b7e98aad656b4f6e171155f15b747e"
 
 
 @pytest.fixture(autouse=True)

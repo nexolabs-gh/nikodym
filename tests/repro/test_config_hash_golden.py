@@ -23,7 +23,8 @@ from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
 # B15.2: se añadió la clave computacional `provisioning_cmf=None`, por eso el golden cambió.
 # B18.1: se añadió la clave computacional `survival=None`, por eso el golden cambió.
 # B20.1: se añadió la clave computacional `forward=None`, por eso el golden cambió.
-GOLDEN_DEFAULT_CONFIG_HASH = "0e1016e38154a09a93e3e4b1a551b71afa06b257b58f6081ce2f4e24fb4e4c69"
+# B21.1: se añadió la clave computacional `stress=None`, por eso el golden cambió.
+GOLDEN_DEFAULT_CONFIG_HASH = "145f9c1d1d7674f0aec6c435774649ac97b7e98aad656b4f6e171155f15b747e"
 
 
 def _hash_en_subproceso(hashseed: str) -> str:
