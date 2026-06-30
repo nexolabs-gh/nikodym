@@ -54,6 +54,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "ForwardDiagnostics": ("nikodym.forward.results", "ForwardDiagnostics"),
     "ForwardEclInput": ("nikodym.forward.results", "ForwardEclInput"),
     "ForwardResult": ("nikodym.forward.results", "ForwardResult"),
+    "ForwardStep": ("nikodym.forward.step", "ForwardStep"),
     "MacroDiagnostics": ("nikodym.forward.results", "MacroDiagnostics"),
     "MacroProjectionResult": ("nikodym.forward.results", "MacroProjectionResult"),
     "SatelliteDiagnostics": ("nikodym.forward.results", "SatelliteDiagnostics"),
@@ -75,6 +76,7 @@ __all__ = [
     "ForwardPredictionError",
     "ForwardResult",
     "ForwardScenarioError",
+    "ForwardStep",
     "ForwardValidationConfig",
     "MacroDiagnostics",
     "MacroModelConfig",
@@ -100,6 +102,10 @@ __all__ = [
     "TtcReversionConfig",
     "TtcReversionMethod",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="forward") al
+# importar `nikodym.forward`, sin contaminar `import nikodym.core` ni cargar dependencias pesadas.
+importlib.import_module("nikodym.forward.step")
 
 
 def __getattr__(name: str) -> Any:
