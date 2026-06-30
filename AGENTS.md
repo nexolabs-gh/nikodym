@@ -9,6 +9,11 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
+## Estado operativo AutoDesarrollo (2026-06-30)
+Latido **PAUSADO** por reset operativo. No hay `autodev-cron`, `autodev-watchdog`, maestro headless, revisor ni gates corriendo. La maquinaria es **multi-motor por rol**: perfil actual recomendado `AUTODESARROLLO_PERFIL=codex-only`, pero se puede correr `claude-only` o mixto con `MAESTRO_MOTOR`, `WORKER_MOTOR`/`MOTOR`, `REVISOR_MOTOR`, `PLANIFICADOR_MOTOR`. No hay fallback oculto entre motores: el cambio debe ser explícito.
+
+Rol del maestro: supervisor/orquestador, no programador de código de Nikodym. B21.3 `stress/engine.py` quedó WIP local sin commit/push; leer `HANDOFF.md` antes de tocarlo.
+
 ## Estado actual (2026-06-24)
 **27 SDD en total** (antes 26): en Tanda 1 Rev se creó **SDD-27 `eda`** (huérfano del árbol que ningún SDD cubría).
 **Tanda 0 ✅ · Tanda 1 (Fundación) ✅ · Tanda 1 Rev ✅ cerrada.** Los 7 SDD de Fundación (01 `core`, 02 `data`, 03 `audit`+`governance`, 04 `tracking`, 05 convenciones+config, 24 testing, 25 packaging/CI) están **Aprobados + revisados** (cabecera "rev. Tanda 1 Rev"). Tanda 1 Rev: revisión adversarial multi-agente (context7) → integró 1 crítico + 7 altos + ~medios, ratificó las 5 decisiones abiertas, y re-verificó (2ª pasada, residuos corregidos). Molde fijado (core sin sklearn; identidad por `config_hash` JSON canónico que excluye INFRA_SECTIONS; excepciones `NikodymError` + subclases por módulo; `FanOutSink`; uniones anidadas con factory local; naming inglés stats/IFRS9 + español CMF; `StepAdapter` + claves de I/O; `config_cls` ClassVar). SDD-27 `eda` queda en **Borrador** (verificación formal en Tanda 2).
@@ -36,7 +41,7 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 - **Licencia** Apache-2.0 (open-source). Evitar dependencias copyleft (GPL) — p.ej. `scikit-survival` queda fuera del core.
 - **CMF ≠ IFRS 9**: dos motores separados (`provisioning/cmf` con PE=PI·PDI·Exposición, B-1; `provisioning/ifrs9` con ECL), provisión = **máximo** (piso prudencial CMF).
 - **MVP Fase 1**: scorecard de **comportamiento** (sin reject inference; originación es sub-fase posterior).
-- **Stack**: pandas (+ **pandera/pyarrow** deps base de `data`), **OptBinning** (binning), **statsmodels** (inferencia), **lifelines** (survival), Optuna, SHAP, MLflow, **Quarto** (reporte HTML+PDF), Claude (capa IA opcional, documenta nunca calcula). Empaquetado **uv + hatchling** (≥1.27), `src/` layout. Config **Pydantic v2** (núcleo config-driven → la UI es editor del mismo config). Gobernanza **SR 11-7** en el núcleo.
+- **Stack**: pandas (+ **pandera/pyarrow** deps base de `data`), **OptBinning** (binning), **statsmodels** (inferencia), **lifelines** (survival), Optuna, SHAP, MLflow, **Quarto** (reporte HTML+PDF), capa IA opcional inyectable (documenta/narra, nunca calcula). Empaquetado **uv + hatchling** (≥1.27), `src/` layout. Config **Pydantic v2** (núcleo config-driven → la UI es editor del mismo config). Gobernanza **SR 11-7** en el núcleo.
 - **`data_hash`** (Tanda 1 Rev, D2): hash del **contenido lógico por bloques** (`hash_pandas_object`), NO los bytes del Parquet (no canónico cross-versión). Inventario MLflow por **aliases+tags** con prefijo `nikodym.` (no stages, deprecados), ancla idempotencia `(model_name, nikodym.config_hash)`.
 - **Contratos transversales (Hito 0, CT-1…CT-4)**: orquestación expresa el DAG en la firma (`Step.requires`/`provides`, `ArtifactKey`), motor v1 solo valida prerequisitos; contratos de lectura (resultados/metrics/overlay) crecen por **extensión aditiva**, nunca ruptura; `data` = panel transversal de scorecard, IFRS9/forward traen capa longitudinal propia; el ensamblado de corrida (sink+inventory) vive en capa fina api/runner (`assemble_run`), no en `core`. **SemVer 0.x honesto**: APIs que crecerán (results/overlay/metrics/orquestación) marcadas experimental hasta 1.0.
 
@@ -51,4 +56,4 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 - `design/_PLANTILLA-SDD.md` — plantilla de cada documento de diseño.
 
 ## Git
-Repo **privado** en GitHub: **`nexolabs-gh/nikodym`** (cuenta `nexolabs-gh`), branch `main`. Se trabaja aquí mientras se construye la librería; **se moverá a un repo público al terminar**. Push directo a `main` autorizado en el cierre de sesión. Commits con `Co-Authored-By: Claude Opus 4.8`. `.gitignore` veta datos y secretos por defecto (proyecto regulatorio).
+Repo **privado** en GitHub: **`nexolabs-gh/nikodym`** (cuenta `nexolabs-gh`), branch `main`. Se trabaja aquí mientras se construye la librería; **se moverá a un repo público al terminar**. Push directo a `main` autorizado en el cierre de sesión. No inventar coautoría: trailer solo si la herramienta que participó lo exige. `.gitignore` veta datos y secretos por defecto (proyecto regulatorio).

@@ -5,10 +5,14 @@
 > propio de Nikodym. Bitácora: `AUTONOMY-LOG.md`. Cola de trabajo: bloque "Backlog priorizado" del `HANDOFF.md`.
 
 ## Cómo se opera (resumen)
-- Un **maestro fresco** (scheduler-loop en tmux `autodev-cron`, Claude Opus, effort máximo) abre una corrida,
-  toma el primer ítem `[ ]` del backlog, se lo asigna a un **worker Codex** (`gpt-5.5 xhigh fast`) en el tmux
-  `nikodym`, monitorea, **revisa el diff + corre los gates + lo somete a un revisor independiente (subagente
-  Claude adversarial, BLOQUEANTE) + pushea él** (R7), y reescribe el HANDOFF.
+- El latido está **PAUSADO** desde el reset operativo del 2026-06-30. No hay scheduler/watchdog/maestro/revisor/gates
+  corriendo; queda solo el panel `tmux nikodym` idle para inspección.
+- La maquinaria de AutoDesarrollo es **multi-motor por rol**. El perfil actual recomendado para reanudar es
+  `AUTODESARROLLO_PERFIL=codex-only`, pero también existen sesiones `claude-only` o mixtas vía
+  `MAESTRO_MOTOR`, `WORKER_MOTOR`/`MOTOR`, `REVISOR_MOTOR` y `PLANIFICADOR_MOTOR`.
+- Un **maestro fresco** (scheduler-loop en tmux `autodev-cron`) abre una corrida, toma el primer ítem `[ ]` del
+  backlog, se lo asigna a un **worker** en el tmux `nikodym`, monitorea, **revisa el diff + corre los gates +
+  lo somete a un revisor independiente BLOQUEANTE + pushea él** (R7), y reescribe el HANDOFF.
 - El maestro **NO** escribe código (R1); el worker sí. El worker deja el working tree VERDE pero **sin
   commitear** — el maestro revisa y commitea/pushea.
 
@@ -49,7 +53,8 @@ uv run --no-sync python -c "import nikodym.core, sys; assert not [m for m in ('n
 
 ## Commits y push
 - Mensajes estilo repo: `feat(data): B2b.x — <qué> (verde, 100%)` / `docs:` / `fix:`. Ver `git log --oneline`.
-- Trailer obligatorio: `Co-Authored-By: Claude <noreply@anthropic.com>`.
+- No inventar coautoría. Agregar trailer solo si la herramienta/entorno realmente lo requiere; con perfil full Codex
+  no se agrega trailer de Claude. Si participaron motores distintos, documentar la combinación en HANDOFF/bitácora.
 - **Push directo a `main`** autorizado (repo privado `nexolabs-gh/nikodym`). `add` EXPLÍCITO, nunca `git add .` a ciegas.
 
 ## Particularidades / bloqueos posibles
@@ -60,14 +65,16 @@ uv run --no-sync python -c "import nikodym.core, sys; assert not [m for m in ('n
 - Decisión de producto / normativa CMF ambigua → R0: NO improvisar; saltar el ítem o dejar `⚠ BLOQUEADO`.
 
 ## Cadencia e infraestructura
-- **Scheduler-loop en tmux `autodev-cron`** (`scripts/scheduler-loop.sh`), NO launchd: en macOS launchd no
+- **Scheduler-loop en tmux `autodev-cron`** (`scripts/scheduler-loop.sh`), actualmente apagado. NO launchd: en macOS launchd no
   accede a `~/Documents` por TCC (`Operation not permitted`); el tmux server, lanzado por el terminal, sí.
-  Pausa 600s entre corridas; **AUTO-PAUSA** tras 2 corridas sin avance (backlog agotado → se detiene y avisa).
+  Pausa 600s entre corridas; **AUTO-PAUSA** tras corridas sin avance (backlog agotado → se detiene y avisa).
 - Wrapper de una corrida: `…/AutoDesarrollo/scripts/auto-ciclo-maestro.sh`. Prompt del maestro:
   `…/AutoDesarrollo/scripts/prompt-maestro-nocturno.md`. Revisor: `…/AutoDesarrollo/scripts/prompt-revisor.md`.
 - Locks: OS (`/tmp/autodesarrollo-nikodym.lockd`, atómico) + aplicación (bloque "Modo autónomo" del HANDOFF).
 - Logs: `…/AutoDesarrollo/logs/scheduler.log`, `maestro-<fecha>.log`, índice `cron.log`.
 - Anti-sleep: `caffeinate` (el Mac debe quedar encendido/enchufado y sin cerrar la tapa).
-- **Parar:** `tmux kill-session -t autodev-cron`. **Relanzar:** lanzar `scheduler-loop.sh` en una sesión tmux nueva.
+- **Parar:** `tmux kill-session -t autodev-cron`. **Relanzar ejemplo actual:**
+  `tmux new-session -d -s autodev-cron -c /Users/camilogonzalez/Documents/Proyectos/AutoDesarrollo 'AUTODESARROLLO_PERFIL=codex-only MAX_CORRIDA=5400 LIMITE_VACIAS=3 bash scripts/scheduler-loop.sh 2>&1 | tee -a logs/scheduler.log'`
+  Para full Claude o mixto, cambiar `AUTODESARROLLO_PERFIL`/roles antes de relanzar.
 
 > El ciclo completo está en la skill **auto-desarrollo** §2; rescate de corridas cortadas en §4.
