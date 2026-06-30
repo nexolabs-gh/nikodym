@@ -58,6 +58,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "MacroProjectionResult": ("nikodym.forward.results", "MacroProjectionResult"),
     "SatelliteDiagnostics": ("nikodym.forward.results", "SatelliteDiagnostics"),
     "SatelliteResult": ("nikodym.forward.results", "SatelliteResult"),
+    "ScenarioWeighting": ("nikodym.forward.scenarios", "ScenarioWeighting"),
     "ScenarioDiagnostics": ("nikodym.forward.results", "ScenarioDiagnostics"),
 }
 
@@ -92,6 +93,7 @@ __all__ = [
     "ScenarioConfig",
     "ScenarioDefinitionConfig",
     "ScenarioDiagnostics",
+    "ScenarioWeighting",
     "TargetComponent",
     "TermStructureSource",
     "TtcAnchor",
