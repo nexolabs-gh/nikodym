@@ -180,7 +180,8 @@ def test_from_config_registro_reexport_contrato_orden_e_import_liviano() -> None
         "import nikodym.core, sys;"
         "assert 'nikodym.markov' not in sys.modules;"
         "import nikodym.markov;"
-        "blocked=[m for m in ('pandas','scipy') if m in sys.modules];"
+        "blocked=[m for m in ('pandas','scipy','numpy','nikodym.markov.transition') "
+        "if m in sys.modules];"
         "assert not blocked, blocked;"
         "assert 'MarkovStep' in nikodym.markov.__all__"
     )

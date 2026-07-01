@@ -6,6 +6,11 @@ excepciones. ``core`` no depende de scikit-learn ni de ningún backend pesado (D
 superficie pública se re-exporta aquí a medida que se construyen los submódulos de la Fundación.
 """
 
+from __future__ import annotations
+
+import importlib
+from typing import Any, Final
+
 from nikodym.core.artifacts import ArtifactStore
 from nikodym.core.audit import (
     AuditEvent,
@@ -59,9 +64,12 @@ from nikodym.core.lineage import LineageBundle, RunContext
 from nikodym.core.mixins import AuditableMixin, SerializationMixin
 from nikodym.core.registry import REGISTRY, Registry, register, unregister
 from nikodym.core.results import ECLResultLike, ProvisionResultLike
-from nikodym.core.seeding import SeedManager
 from nikodym.core.steps import ArtifactKey, Step, StepAdapter
-from nikodym.core.study import Study
+
+_LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "SeedManager": ("nikodym.core.seeding", "SeedManager"),
+    "Study": ("nikodym.core.study", "Study"),
+}
 
 __all__ = [
     "INFRA_SECTIONS",
@@ -121,3 +129,14 @@ __all__ = [
     "register",
     "unregister",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Carga exports stateful bajo demanda para preservar el núcleo liviano."""
+    if name not in _LAZY_EXPORTS:
+        raise AttributeError(f"module 'nikodym.core' has no attribute {name!r}")
+
+    module_name, attribute_name = _LAZY_EXPORTS[name]
+    value = getattr(importlib.import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value

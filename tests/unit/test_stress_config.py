@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 import yaml
 from pydantic import ValidationError
@@ -30,6 +31,7 @@ from nikodym.stress.config import (
     SensitivitySweepConfig,
     StressConfig,
     StressInputConfig,
+    StressMetric,
     StressOutputConfig,
     StressScenarioConfig,
     StressShockConfig,
@@ -380,18 +382,86 @@ def test_tuplas_float_rechazan_shape_escalar() -> None:
             shock_value=1.0,
             severity_grid=1.0,  # type: ignore[arg-type]
         )
+    with pytest.raises(StressConfigError, match="booleano"):
+        SensitivitySweepConfig(
+            name="grid",
+            factor="unemployment",
+            shock_value=1.0,
+            severity_grid=np.array([False, True]),
+        )
+    with pytest.raises(StressConfigError, match="booleano"):
+        ReverseStressConfig(
+            factor="unemployment",
+            shock_value=1.0,
+            bracket=np.array([False, True]),
+        )
+
+
+@pytest.mark.parametrize("value", [True, np.bool_(True), np.array(True)])
+def test_reverse_max_iterations_rechaza_bool_like(value: object) -> None:
+    """``max_iterations`` no acepta booleanos coercibles a ``1``."""
+    with pytest.raises(StressConfigError, match=r"max_iterations.*booleano"):
+        ReverseStressConfig(factor="unemployment", shock_value=1.0, max_iterations=value)
 
 
 def test_stressconfig_vacio_falla() -> None:
     """Una sección stress sin escenarios, sensibilidad ni reverse es inválida."""
     with pytest.raises(StressConfigError, match="al menos"):
         StressConfig()
+    disabled_reverse = ReverseStressConfig(factor="unemployment", shock_value=1.0)
+    with pytest.raises(StressConfigError, match="al menos"):
+        StressConfig(scenarios=(), sensitivities=(), reverse=(disabled_reverse,))
+
+
+def test_stressconfig_con_reverse_enabled_sin_escenarios_es_trabajo_declarado() -> None:
+    """Un reverse habilitado cuenta como trabajo declarativo aunque el motor lo difiera."""
+    reverse = ReverseStressConfig(
+        enabled=True,
+        target=StressTargetConfig(
+            name="pd_objetivo",
+            metric="pd_cumulative",
+            threshold=0.25,
+            scenario_name="solo_reverse",
+            requires_economic_engine=False,
+        ),
+        factor="unemployment",
+        shock_value=1.0,
+    )
+    cfg = StressConfig(
+        scenarios=(),
+        sensitivities=(),
+        reverse=(reverse,),
+        validation=_validation_relajada(),
+    )
+    assert cfg.reverse[0].enabled is True
+
+
+def test_reverse_forward_only_no_exige_engine_economico() -> None:
+    """Targets reverse forward-only no piden engine ECL con validación estricta."""
+    reverse = ReverseStressConfig(
+        enabled=True,
+        target=StressTargetConfig(
+            name="pd_objetivo",
+            metric="pd_marginal",
+            threshold=0.10,
+            scenario_name="solo_reverse",
+        ),
+        factor="unemployment",
+        shock_value=1.0,
+    )
+
+    cfg = StressConfig(scenarios=(), sensitivities=(), reverse=(reverse,))
+
+    assert cfg.reverse[0].target is not None
+    assert cfg.reverse[0].target.metric == "pd_marginal"
 
 
 def test_scenario_names_unicos_y_no_reservados() -> None:
     """Los escenarios de stress no aceptan duplicados ni nombres de promedio."""
     with pytest.raises(StressScenarioError, match="reservado"):
         StressScenarioConfig(name="mean", shocks=(_shock(),))
+    with pytest.raises(StressScenarioError, match="reservado"):
+        StressScenarioConfig(name="Mean", shocks=(_shock(),))
     with pytest.raises(StressScenarioError, match="duplicados"):
         _cfg(scenarios=(_scenario(name="uno"), _scenario(name="uno")))
 
@@ -411,9 +481,34 @@ def test_base_forward_scenario_acepta_custom_y_rechaza_reservados() -> None:
             base_forward_scenario="weighted_mean_input",
             shocks=(_shock(),),
         )
+    with pytest.raises(StressScenarioError, match="reservado"):
+        StressScenarioConfig(
+            name="x",
+            base_forward_scenario="Weighted_Mean_Input",
+            shocks=(_shock(),),
+        )
 
 
-@pytest.mark.parametrize("periods", [(), (0,), (-1,), (True,)])
+def test_shock_cero_solo_permitido_en_escenario_custom() -> None:
+    """Un escenario severo no puede declarar shocks nulos; custom sí puede ser identidad."""
+    with pytest.raises(StressScenarioError, match=r"shock\.value == 0"):
+        StressScenarioConfig(
+            name="severe_zero",
+            shocks=(_shock(value=0.0),),
+            require_dominates_forward_adverse=False,
+        )
+
+    custom = StressScenarioConfig(
+        name="custom_identity",
+        kind="custom",
+        shocks=(_shock(value=-0.0),),
+        require_dominates_forward_adverse=False,
+    )
+    assert custom.kind == "custom"
+    assert custom.shocks[0].value == 0.0
+
+
+@pytest.mark.parametrize("periods", [(), (0,), (-1,), (True,), (np.bool_(True),)])
 def test_periods_deben_ser_all_o_periodos_positivos(periods: tuple[int, ...]) -> None:
     """``periods`` acepta ``all`` o una tupla no vacía de períodos positivos."""
     with pytest.raises(StressConfigError, match="periods"):
@@ -425,6 +520,29 @@ def test_periods_all_explicito_y_shape_invalido() -> None:
     assert StressShockConfig(factor="gdp", value=1.0, periods="all").periods == "all"
     with pytest.raises(ValidationError):
         StressShockConfig(factor="gdp", value=1.0, periods=1)  # type: ignore[arg-type]
+
+
+def test_bool_like_numpy_defensivo_config() -> None:
+    """El guard bool-like cubre escalares NumPy y objetos defensivos."""
+
+    class FakeBoolShapeNone:
+        """Objeto tipo NumPy con dtype bool y shape ausente."""
+
+        __module__ = "numpy"
+        dtype = type("Dtype", (), {"kind": "b"})()
+        shape = None
+
+    class FakeBoolBadShape:
+        """Objeto tipo NumPy con dtype bool y shape no iterable."""
+
+        __module__ = "numpy"
+        dtype = type("Dtype", (), {"kind": "b"})()
+        shape = object()
+
+    assert stress_config_module._is_bool_like(np.array(True)) is True
+    assert stress_config_module._is_bool_like(np.array(1)) is False
+    assert stress_config_module._is_bool_like(FakeBoolShapeNone()) is False
+    assert stress_config_module._is_bool_like(FakeBoolBadShape()) is False
 
 
 @pytest.mark.parametrize("grid", [(), (0.0, 0.5, 0.5), (0.0, -0.1), (0.0, math.inf)])
@@ -461,28 +579,90 @@ def test_reverse_target_obligatorio_si_enabled() -> None:
         ReverseStressConfig(enabled=True, factor="gdp", shock_value=1.0)
 
 
-def test_targets_economicos_requieren_engine_por_default() -> None:
-    """Targets económicos fallan ruidoso si no hay engine conectado."""
+@pytest.mark.parametrize(
+    ("metric", "input_cfg", "expected_missing"),
+    [
+        ("ecl", StressInputConfig(provision_engine_artifact=("engines", "provision")), "ecl"),
+        ("loss", StressInputConfig(provision_engine_artifact=("engines", "provision")), "ecl"),
+        ("ratio", StressInputConfig(provision_engine_artifact=("engines", "provision")), "ecl"),
+        ("provision", StressInputConfig(ecl_engine_artifact=("engines", "ecl")), "provision"),
+        (
+            "provision",
+            StressInputConfig(provision_engine_artifact=("engines", "provision")),
+            "ecl",
+        ),
+    ],
+)
+def test_targets_economicos_requieren_engine_correcto(
+    metric: StressMetric,
+    input_cfg: StressInputConfig,
+    expected_missing: str,
+) -> None:
+    """Targets económicos fallan si falta el engine específico de su métrica."""
     reverse = ReverseStressConfig(
         enabled=True,
         target=StressTargetConfig(
-            name="ecl_25",
-            metric="ecl",
+            name=f"{metric}_25",
+            metric=metric,
             threshold=25.0,
             scenario_name="severe_plus",
         ),
         factor="unemployment",
         shock_value=1.0,
     )
-    with pytest.raises(StressDependencyError, match="engine"):
-        _cfg(reverse=(reverse,), validation=_validation_relajada(fail_on_missing_ecl_engine=True))
+    with pytest.raises(StressDependencyError, match=expected_missing):
+        _cfg(
+            input=input_cfg,
+            reverse=(reverse,),
+            validation=_validation_relajada(fail_on_missing_ecl_engine=True),
+        )
 
 
-def test_operation_relative_sin_politica_falla_falta_dato_str_7() -> None:
-    """Shocks relativos sin política explícita de ceros/negativos fallan."""
+@pytest.mark.parametrize(
+    ("metric", "input_cfg"),
+    [
+        ("ecl", StressInputConfig(ecl_engine_artifact=("engines", "ecl"))),
+        (
+            "provision",
+            StressInputConfig(
+                ecl_engine_artifact=("engines", "ecl"),
+                provision_engine_artifact=("engines", "provision"),
+            ),
+        ),
+    ],
+)
+def test_targets_economicos_aceptan_engines_requeridos(
+    metric: StressMetric,
+    input_cfg: StressInputConfig,
+) -> None:
+    """Targets económicos aceptan solo la combinación mínima consistente."""
+    reverse = ReverseStressConfig(
+        enabled=True,
+        target=StressTargetConfig(
+            name=f"{metric}_25",
+            metric=metric,
+            threshold=25.0,
+            scenario_name="severe_plus",
+        ),
+        factor="unemployment",
+        shock_value=1.0,
+    )
+
+    cfg = _cfg(
+        input=input_cfg,
+        reverse=(reverse,),
+        validation=_validation_relajada(fail_on_missing_ecl_engine=True),
+    )
+
+    assert cfg.reverse[0].target is not None
+
+
+def test_operation_relative_se_acepta_por_api_publica() -> None:
+    """Los shocks relativos se validan en runtime contra el valor base observado."""
     scenario = _scenario(shocks=(_shock(operation="relative"),))
-    with pytest.raises(StressConfigError, match="FALTA-DATO-STR-7"):
-        _cfg(scenarios=(scenario,))
+    cfg = _cfg(scenarios=(scenario,))
+
+    assert cfg.scenarios[0].shocks[0].operation == "relative"
 
 
 def test_source_official_sin_metadata_falla_falta_dato_str_2() -> None:
@@ -493,11 +673,14 @@ def test_source_official_sin_metadata_falla_falta_dato_str_2() -> None:
         _cfg(scenarios=(scenario,), validation=validation)
 
 
-def test_dominancia_forward_adverse_no_demostrable_falla_por_default() -> None:
-    """La dominancia frente a adverse no se inventa si no hay metadata comparable."""
+def test_dominancia_forward_adverse_se_difiere_a_runtime() -> None:
+    """La dominancia necesita macro_projection y no debe bloquear config puro."""
     scenario = StressScenarioConfig(name="severe_plus", shocks=(_shock(),))
-    with pytest.raises(StressFaltaDatoError, match="FALTA-DATO-STR-1"):
-        StressConfig(scenarios=(scenario,))
+    cfg = StressConfig(scenarios=(scenario,))
+
+    assert cfg.validation.fail_on_falta_dato is True
+    assert cfg.validation.require_dominates_forward_adverse is True
+    assert cfg.scenarios[0].require_dominates_forward_adverse is True
 
 
 def test_reverse_target_scenario_name_debe_existir_si_hay_escenarios() -> None:
@@ -516,6 +699,29 @@ def test_reverse_target_scenario_name_debe_existir_si_hay_escenarios() -> None:
     )
     with pytest.raises(StressScenarioError, match="scenario_name"):
         _cfg(reverse=(reverse,))
+
+
+def test_reverse_deshabilitado_no_valida_target_ni_engines() -> None:
+    """Un reverse de borrador disabled no bloquea config por target/engine."""
+    disabled_reverse = ReverseStressConfig(
+        enabled=False,
+        target=StressTargetConfig(
+            name="provision_draft",
+            metric="provision",
+            threshold=25.0,
+            scenario_name="no_existe",
+        ),
+        factor="unemployment",
+        shock_value=1.0,
+    )
+
+    cfg = _cfg(
+        input=StressInputConfig(),
+        reverse=(disabled_reverse,),
+        validation=_validation_relajada(fail_on_missing_ecl_engine=True),
+    )
+
+    assert cfg.reverse[0].enabled is False
 
 
 def test_reverse_sin_target_pasa_si_no_esta_habilitado() -> None:
@@ -572,6 +778,18 @@ def test_dominancia_global_activa_no_falla_si_escenario_no_la_exige() -> None:
         (StressShockConfig, {"factor": "gdp", "value": True}, StressScenarioError, "booleano"),
         (
             StressShockConfig,
+            {"factor": "gdp", "value": np.bool_(True)},
+            StressScenarioError,
+            "booleano",
+        ),
+        (
+            StressShockConfig,
+            {"factor": "gdp", "value": np.array(True)},
+            StressScenarioError,
+            "booleano",
+        ),
+        (
+            StressShockConfig,
             {"factor": "gdp", "value": "no-numero"},
             StressScenarioError,
             "finito",
@@ -581,6 +799,12 @@ def test_dominancia_global_activa_no_falla_si_escenario_no_la_exige() -> None:
             {"name": "x", "shocks": (_shock(),), "weight": math.inf},
             StressScenarioError,
             "finito",
+        ),
+        (
+            StressScenarioConfig,
+            {"name": "x", "shocks": (_shock(),), "severity": np.bool_(True)},
+            StressScenarioError,
+            "booleano",
         ),
         (
             StressTargetConfig,
@@ -647,6 +871,12 @@ def test_output_metrics_no_puede_ser_vacio() -> None:
     """La salida de stress debe publicar al menos una métrica."""
     with pytest.raises(StressConfigError, match="metrics"):
         StressOutputConfig(metrics=())
+
+
+def test_output_metrics_rechaza_duplicados() -> None:
+    """Las métricas duplicadas duplican filas de impacto y se rechazan en config."""
+    with pytest.raises(StressConfigError, match="duplicadas"):
+        StressOutputConfig(metrics=("pd_marginal", "pd_marginal"))
 
 
 @pytest.mark.parametrize(
@@ -750,7 +980,7 @@ def test_import_stress_liviano_y_registra_hook_en_proceso_fresco() -> None:
         "from nikodym.core.config import schema as _schema;"
         "assert _schema._STRESS_CONFIG_CLS is nikodym.stress.StressConfig;"
         "from nikodym.core.config import NikodymConfig;"
-        "bloqueados=[m for m in ('pandas','scipy','statsmodels','nikodym.provisioning') "
+        "bloqueados=[m for m in ('pandas','numpy','scipy','statsmodels','nikodym.provisioning') "
         "if m in sys.modules];"
         "assert not bloqueados, bloqueados;"
         "cfg=NikodymConfig(stress={'scenarios':[{'name':'severe_plus',"
@@ -760,7 +990,7 @@ def test_import_stress_liviano_y_registra_hook_en_proceso_fresco() -> None:
         "'fail_on_falta_dato':False,'fail_on_missing_ecl_engine':False}});"
         "assert type(cfg.stress).__name__ == 'StressConfig';"
         "assert type(cfg.stress).__module__ == 'nikodym.stress.config';"
-        "bloqueados=[m for m in ('pandas','scipy','statsmodels','nikodym.provisioning') "
+        "bloqueados=[m for m in ('pandas','numpy','scipy','statsmodels','nikodym.provisioning') "
         "if m in sys.modules];"
         "assert not bloqueados, bloqueados;"
         "assert 'nikodym.stress.results' not in sys.modules;"

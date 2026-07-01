@@ -528,13 +528,17 @@ def test_markov_results_import_liviano_y_exports_publicos() -> None:
     code = (
         "import sys;"
         "import nikodym.markov.config;"
-        "baseline=set(sys.modules);"
-        "import nikodym.markov.results;"
-        "blocked=[m for m in ('pandas','scipy') if m in sys.modules];"
+        "blocked=[m for m in "
+        "('numpy','pandas','scipy','nikodym.markov.transition') "
+        "if m in sys.modules];"
         "assert not blocked, blocked;"
-        "assert 'numpy' in baseline;"
         "assert 'nikodym.markov.step' in sys.modules;"
-        "assert 'nikodym.markov.transition' not in sys.modules"
+        "import nikodym.markov.results;"
+        "blocked=[m for m in "
+        "('numpy','pandas','scipy','nikodym.markov.transition') "
+        "if m in sys.modules];"
+        "assert not blocked, blocked;"
+        "assert 'EmbeddingDiagnostics' in nikodym.markov.results.__all__"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
 

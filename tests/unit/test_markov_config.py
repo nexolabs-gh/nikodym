@@ -298,15 +298,18 @@ def test_core_study_cablea_markov_en_orden_por_defecto() -> None:
 
 
 def test_import_markov_liviano_y_registra_hook_en_proceso_fresco() -> None:
-    """``import nikodym.markov`` registra hook sin arrastrar scipy ni pandas."""
+    """``import nikodym.markov`` registra hook y step sin arrastrar motores pesados."""
     code = (
         "import nikodym.markov, sys;"
+        "from nikodym.core.registry import REGISTRY;"
         "from nikodym.core.config import NikodymConfig;"
         "from nikodym.markov.config import MarkovConfig;"
-        "bloqueados=[m for m in ('scipy','pandas') if m in sys.modules];"
+        "bloqueados=[m for m in "
+        "('numpy','scipy','pandas','nikodym.markov.transition') "
+        "if m in sys.modules];"
         "assert not bloqueados, bloqueados;"
         "assert 'nikodym.markov.step' in sys.modules;"
-        "assert 'nikodym.markov.transition' not in sys.modules;"
+        "assert REGISTRY.resolve('markov','standard') is nikodym.markov.MarkovStep;"
         "cfg=NikodymConfig(markov={'states': {'states': ['A', 'default']}});"
         "assert isinstance(cfg.markov, MarkovConfig)"
     )

@@ -25,7 +25,7 @@ import math
 from collections.abc import Mapping
 from decimal import Decimal
 from numbers import Integral, Real
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypeAlias, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -87,6 +87,7 @@ _FORWARD_TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "pd_source",
     "warning_codes",
 )
+_FORWARD_TERM_STRUCTURE_OPTIONAL_ECL_COLUMNS: frozenset[str] = frozenset({"lgd", "lgd_base"})
 _SCENARIO_WEIGHT_COLUMNS: tuple[str, ...] = (
     "scenario",
     "weight",
@@ -109,10 +110,12 @@ _EclChain: TypeAlias = Literal[
 _ECL_CHAIN: _EclChain = (
     "macro_projection → satellite_model → pd_lgd_term_structure → ecl_engine → scenario_weighting"
 )
+FORWARD_ECL_CONTRACT_VERSION: Final = "SDD-20:1.0.0"
 _FLOAT_ATOL = 1e-12
 _FLOAT_RTOL = 1e-12
 
 __all__ = [
+    "FORWARD_ECL_CONTRACT_VERSION",
     "ForwardCard",
     "ForwardDiagnostics",
     "ForwardEclInput",
@@ -525,6 +528,7 @@ class ForwardEclInput(BaseModel):
         return _copy_and_validate_dataframe(
             value,
             expected_columns=_FORWARD_TERM_STRUCTURE_COLUMNS,
+            optional_columns=_FORWARD_TERM_STRUCTURE_OPTIONAL_ECL_COLUMNS,
             field_name="term_structure_frame",
         )
 
@@ -665,6 +669,7 @@ def _copy_and_validate_dataframe(
     value: Any,
     *,
     expected_columns: tuple[str, ...],
+    optional_columns: frozenset[str] = frozenset(),
     field_name: str,
 ) -> Any:
     if not _is_dataframe_like(value):
@@ -672,7 +677,12 @@ def _copy_and_validate_dataframe(
 
     copied = _copy_dataframe(value)
     observed_columns = tuple(str(column) for column in copied.columns)
-    if observed_columns != expected_columns:
+    expected_observed_columns = tuple(
+        column
+        for column in expected_columns
+        if column in observed_columns or column not in optional_columns
+    )
+    if observed_columns != expected_observed_columns:
         raise ValueError(
             f"{field_name} debe tener exactamente las columnas canónicas de SDD-20 §6."
         )
@@ -725,8 +735,9 @@ def _validate_scenario_weight_values(frame: Any) -> None:
 
 def _validate_forward_term_structure_values(frame: Any) -> None:
     previous_by_curve: dict[tuple[Any, ...], tuple[int, float, float]] = {}
+    columns = tuple(str(column) for column in frame.columns)
     for row in frame.itertuples(index=False):
-        values = dict(zip(_FORWARD_TERM_STRUCTURE_COLUMNS, row, strict=True))
+        values = dict(zip(columns, row, strict=True))
         period = _integer_value(values["period"], field_name="period")
         if period < 1:
             raise ValueError("period debe ser mayor o igual a 1.")
@@ -748,11 +759,12 @@ def _validate_forward_term_structure_values(frame: Any) -> None:
         for field_name in (
             "pd_marginal_base",
             "pd_cumulative_base",
-            "lgd",
-            "lgd_base",
             "ttc_reversion_weight",
         ):
             _optional_probability(values[field_name], field_name=field_name)
+        for field_name in ("lgd", "lgd_base"):
+            if field_name in values:
+                _optional_probability(values[field_name], field_name=field_name)
         _optional_frame_float(values["satellite_adjustment"], field_name="satellite_adjustment")
         _check_pd_cumulative_consistency(survival, pd_cumulative)
 

@@ -50,6 +50,7 @@ from nikodym.forward.exceptions import (
 _schema._FORWARD_CONFIG_CLS = ForwardConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "FORWARD_ECL_CONTRACT_VERSION": ("nikodym.forward.results", "FORWARD_ECL_CONTRACT_VERSION"),
     "ForwardCard": ("nikodym.forward.results", "ForwardCard"),
     "ForwardDiagnostics": ("nikodym.forward.results", "ForwardDiagnostics"),
     "ForwardEclInput": ("nikodym.forward.results", "ForwardEclInput"),
@@ -64,6 +65,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
 }
 
 __all__ = [
+    "FORWARD_ECL_CONTRACT_VERSION",
     "ForwardCard",
     "ForwardConfig",
     "ForwardConfigError",

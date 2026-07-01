@@ -13,6 +13,7 @@ activa.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from itertools import pairwise
 from math import isfinite
 from typing import Any, Literal, Self
@@ -49,6 +50,7 @@ __all__ = [
 
 _RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weighted_mean_input"})
 _ECONOMIC_METRICS: frozenset[str] = frozenset({"ecl", "provision", "loss", "ratio"})
+_ECL_ENGINE_METRICS: frozenset[str] = frozenset({"ecl", "loss", "ratio"})
 
 
 class StressInputConfig(NikodymBaseConfig):
@@ -183,7 +185,7 @@ class StressShockConfig(NikodymBaseConfig):
             periods = tuple(value)
         except TypeError:
             return value
-        if any(isinstance(period, bool) for period in periods):
+        if any(_is_bool_like(period) for period in periods):
             raise StressConfigError("periods debe contener enteros, no booleanos.")
         return value
 
@@ -272,6 +274,14 @@ class StressScenarioConfig(NikodymBaseConfig):
         """Valida nombre, escenario base y shocks del escenario."""
         _check_stress_scenario_name(self.name)
         _check_forward_scenario_name(self.base_forward_scenario, field="base_forward_scenario")
+        if self.kind == "severe":
+            zero_factors = [shock.factor for shock in self.shocks if shock.value == 0.0]
+            if zero_factors:
+                raise StressScenarioError(
+                    "scenario.kind='severe' exige shocks no nulos; "
+                    f"shock.value == 0 en factores={zero_factors}. Use kind='custom' para "
+                    "escenarios de identidad o pruebas controladas."
+                )
         return self
 
 
@@ -507,6 +517,14 @@ class ReverseStressConfig(NikodymBaseConfig):
         """Normaliza ``-0.0`` en el bracket antes del hash."""
         return _finite_float_tuple(value, field="reverse.bracket", error_cls=StressConfigError)
 
+    @field_validator("max_iterations", mode="before")
+    @classmethod
+    def _check_max_iterations_no_bool(cls, value: Any) -> Any:
+        """Rechaza booleanos antes de que Pydantic los convierta a enteros."""
+        if _is_bool_like(value):
+            raise StressConfigError("reverse.max_iterations debe ser entero, no booleano.")
+        return value
+
     @field_validator("monotonicity_check_points", mode="before")
     @classmethod
     def _check_monotonicity_check_points_finitos(cls, value: Any) -> Any:
@@ -558,15 +576,26 @@ class StressOutputConfig(NikodymBaseConfig):
     include_baseline_rows: bool = Field(
         default=True,
         title="Incluir baseline",
-        description="Incluye filas baseline para medir impactos absolutos y relativos.",
+        description=(
+            "Incluye filas baseline para medir impactos absolutos y relativos. "
+            "B21.3 solo soporta True porque stress.impact exige value_base/value_stress; "
+            "False queda diferido hasta que existan filas baseline dedicadas."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Salida", "ui_order": 5},
     )
 
     @model_validator(mode="after")
     def _check_metrics(self) -> Self:
-        """Valida que la lista de métricas no esté vacía."""
+        """Valida que la lista de métricas no esté vacía ni duplicada."""
         if not self.metrics:
             raise StressConfigError("output.metrics no puede estar vacío.")
+        duplicated = tuple(
+            metric for metric in dict.fromkeys(self.metrics) if self.metrics.count(metric) > 1
+        )
+        if duplicated:
+            raise StressConfigError(
+                f"output.metrics no puede contener métricas duplicadas: {duplicated}."
+            )
         return self
 
 
@@ -682,13 +711,15 @@ class StressConfig(NikodymBaseConfig):
     @model_validator(mode="after")
     def _check_invariantes(self) -> Self:
         """Valida invariantes cruzados de SDD-21 §5."""
-        if not self.scenarios and not self.sensitivities and not self.reverse:
+        has_executable_work = bool(
+            self.scenarios or self.sensitivities or any(reverse.enabled for reverse in self.reverse)
+        )
+        if not has_executable_work:
             raise StressConfigError(
                 "stress exige al menos un escenario, una sensibilidad o un reverse stress."
             )
         _check_unique_scenario_names(self.scenarios)
         _check_reverse_targets(self)
-        _check_relative_policy(self)
         _check_missing_economic_engine(self)
         _check_falta_dato(self)
         return self
@@ -696,7 +727,7 @@ class StressConfig(NikodymBaseConfig):
 
 def _finite_float(value: Any, *, field: str, error_cls: type[StressError]) -> float:
     """Convierte a float finito y normaliza ``-0.0`` para identidad reproducible."""
-    if isinstance(value, bool):
+    if _is_bool_like(value):
         raise error_cls(f"{field} debe ser un número finito, no booleano.")
     try:
         numeric = float(value)
@@ -707,11 +738,32 @@ def _finite_float(value: Any, *, field: str, error_cls: type[StressError]) -> fl
     return 0.0 if numeric == 0.0 else numeric
 
 
+def _is_bool_like(value: Any) -> bool:
+    """Detecta booleanos nativos y escalares booleanos NumPy sin importar NumPy al cargar."""
+    if isinstance(value, bool):
+        return True
+    value_type = type(value)
+    if value_type.__module__.split(".", maxsplit=1)[0] != "numpy":
+        return False
+    if value_type.__name__ in {"bool", "bool_"}:
+        return True
+    dtype = getattr(value, "dtype", None)
+    if getattr(dtype, "kind", None) != "b":
+        return False
+    shape = getattr(value, "shape", None)
+    if shape is None:
+        return False
+    try:
+        return tuple(shape) == ()
+    except TypeError:
+        return False
+
+
 def _finite_float_tuple(
     value: Any, *, field: str, error_cls: type[StressError]
 ) -> tuple[float, ...] | Any:
     """Normaliza secuencias de floats finitos preservando el orden declarado."""
-    if not isinstance(value, (list, tuple)):
+    if isinstance(value, str | bytes | bytearray | Mapping) or not isinstance(value, Iterable):
         return value
     return tuple(
         _finite_float(item, field=f"{field}[{index}]", error_cls=error_cls)
@@ -788,7 +840,7 @@ def _check_stress_scenario_name(name: str) -> None:
     stripped = name.strip()
     if not stripped:
         raise StressScenarioError("scenario.name no puede estar vacío.")
-    if stripped in _RESERVED_SCENARIO_NAMES:
+    if stripped.lower() in _RESERVED_SCENARIO_NAMES:
         raise StressScenarioError(
             f"scenario.name usa un nombre reservado para escenarios medios: {stripped!r}."
         )
@@ -799,7 +851,7 @@ def _check_forward_scenario_name(name: str, *, field: str) -> None:
     stripped = name.strip()
     if not stripped:
         raise StressScenarioError(f"{field} no puede estar vacío.")
-    if stripped in _RESERVED_SCENARIO_NAMES:
+    if stripped.lower() in _RESERVED_SCENARIO_NAMES:
         raise StressScenarioError(
             f"{field} usa un nombre reservado para escenarios medios: {stripped!r}."
         )
@@ -832,7 +884,7 @@ def _check_reverse_targets(cfg: StressConfig) -> None:
     """Valida que los reverse habilitados apunten a escenarios existentes cuando aplica."""
     scenario_names = {scenario.name.strip() for scenario in cfg.scenarios}
     for reverse in cfg.reverse:
-        if reverse.target is None:
+        if not reverse.enabled or reverse.target is None:
             continue
         if scenario_names and reverse.target.scenario_name.strip() not in scenario_names:
             raise StressScenarioError(
@@ -841,49 +893,33 @@ def _check_reverse_targets(cfg: StressConfig) -> None:
             )
 
 
-def _check_relative_policy(cfg: StressConfig) -> None:
-    """Falla ante shocks relativos sin política de factores cero/negativos (FALTA-DATO-STR-7)."""
-    relative_fields: list[str] = []
-    for scenario in cfg.scenarios:
-        relative_fields.extend(
-            f"scenario:{scenario.name}:{shock.factor}"
-            for shock in scenario.shocks
-            if shock.operation == "relative"
-        )
-    relative_fields.extend(
-        f"sensitivity:{sweep.name}:{sweep.factor}"
-        for sweep in cfg.sensitivities
-        if sweep.operation == "relative"
-    )
-    relative_fields.extend(
-        f"reverse:{reverse.factor}" for reverse in cfg.reverse if reverse.operation == "relative"
-    )
-    if relative_fields:
-        raise StressConfigError(
-            "FALTA-DATO-STR-7: operation='relative' exige política explícita para factores que "
-            f"pueden ser cero o negativos; pendientes={relative_fields}."
-        )
-
-
 def _check_missing_economic_engine(cfg: StressConfig) -> None:
     """Valida targets económicos que requieren engine conectado."""
     if not cfg.validation.fail_on_missing_ecl_engine:
         return
-    has_engine = (
-        cfg.input.ecl_engine_artifact is not None or cfg.input.provision_engine_artifact is not None
-    )
-    missing = [
-        reverse.target.name
-        for reverse in cfg.reverse
-        if reverse.target is not None
-        and reverse.target.requires_economic_engine
-        and reverse.target.metric in _ECONOMIC_METRICS
-        and not has_engine
-    ]
-    if missing:
+    has_ecl = cfg.input.ecl_engine_artifact is not None
+    has_provision = cfg.input.provision_engine_artifact is not None
+    missing_ecl: list[str] = []
+    missing_provision: list[str] = []
+    for reverse in cfg.reverse:
+        if not reverse.enabled:
+            continue
+        target = reverse.target
+        if (
+            target is None
+            or not target.requires_economic_engine
+            or target.metric not in _ECONOMIC_METRICS
+        ):
+            continue
+        if target.metric in _ECL_ENGINE_METRICS | {"provision"} and not has_ecl:
+            missing_ecl.append(target.name)
+        if target.metric == "provision" and not has_provision:
+            missing_provision.append(target.name)
+    if missing_ecl or missing_provision:
         raise StressDependencyError(
-            "Targets económicos requieren ecl_engine_artifact/provision_engine_artifact o un "
-            f"engine pasado por API: {missing}."
+            "Targets económicos requieren engines consistentes: "
+            f"ecl_engine_artifact faltante={missing_ecl}; "
+            f"provision_engine_artifact faltante={missing_provision}."
         )
 
 
@@ -902,14 +938,3 @@ def _check_falta_dato(cfg: StressConfig) -> None:
             "FALTA-DATO-STR-2: source='official' exige metadata externa de archivo/hash/fuente; "
             f"sin evidencia={official_shocks}."
         )
-    if cfg.validation.require_dominates_forward_adverse:
-        undemonstrated = [
-            scenario.name
-            for scenario in cfg.scenarios
-            if scenario.require_dominates_forward_adverse
-        ]
-        if undemonstrated:
-            raise StressFaltaDatoError(
-                "FALTA-DATO-STR-1: no se puede demostrar dominancia frente a forward adverse "
-                f"sin metadata comparable; escenarios={undemonstrated}."
-            )

@@ -49,6 +49,8 @@ _TERM_COLUMNS: tuple[str, ...] = (
     "segment",
     "partition",
     "source_model",
+    "method",
+    "pd_source",
     "period",
     "time_value",
     "macro_variable_set",
@@ -123,6 +125,8 @@ class FakeTermStructureFrame:
                     "retail",
                     "desarrollo",
                     "survival",
+                    "survival",
+                    "survival",
                     1,
                     1.0,
                     "unemployment",
@@ -183,19 +187,59 @@ class FakeImpactFrame:
         )
 
 
+class FakeScenarioFrame:
+    """Frame-like no pandas para probar la defensa de ``scenarios``."""
+
+    columns = pd.Index(_SCENARIO_COLUMNS)
+
+    def copy(self, *, deep: bool) -> FakeScenarioFrame:
+        """Devuelve una copia lógica falsa."""
+        assert deep is True
+        return self
+
+    def select_dtypes(self, *, include: list[str]) -> pd.DataFrame:
+        """Emula la API mínima usada por el DTO."""
+        assert include in (["float"], ["object"])
+        return pd.DataFrame()
+
+    def itertuples(self, *, index: bool) -> Any:
+        """Entrega una fila válida para pasar la validación duck-typed."""
+        assert index is False
+        return iter(
+            [
+                (
+                    "severe_downturn",
+                    "severe",
+                    "severe",
+                    1.0,
+                    "unemployment",
+                    "additive",
+                    0.0,
+                    0.0,
+                    1,
+                    "user",
+                    (),
+                )
+            ]
+        )
+
+
 def test_stress_scenario_result_golden_copias_y_normalizacion() -> None:
     """``StressScenarioResult`` envuelve frames SDD-21 §6 sin mutabilidad externa."""
-    macro = _scenario_frame()
+    scenario_frame = _scenario_frame()
+    macro = _macro_projection_frame()
     term = _term_structure_frame()
     impact = _impact_frame()
     result = _scenario_result(
+        scenario_frame=scenario_frame,
         stressed_macro_frame=macro,
         stressed_term_structure_frame=term,
         impact_frame=impact,
         severity=Decimal("1.0"),
     )
 
-    macro.loc[0, "applied_shock"] = 99.0
+    scenario_frame.loc[0, "applied_shock"] = 99.0
+    macro.loc[0, "projected_value"] = 99.0
     term.loc["id-1|1", "pd_marginal_stress"] = 99.0
     impact.loc[0, "value_stress"] = 99.0
 
@@ -203,6 +247,7 @@ def test_stress_scenario_result_golden_copias_y_normalizacion() -> None:
         "scenario_name",
         "scenario_kind",
         "severity",
+        "scenario_frame",
         "stressed_macro_frame",
         "stressed_term_structure_frame",
         "impact_frame",
@@ -210,16 +255,19 @@ def test_stress_scenario_result_golden_copias_y_normalizacion() -> None:
     )
     assert result.scenario_name == "severe_downturn"
     assert result.severity == pytest.approx(1.0)
+    assert result.scenario_frame is not result.scenario_frame
     assert result.stressed_macro_frame is not result.stressed_macro_frame
     assert result.stressed_term_structure_frame is not result.stressed_term_structure_frame
     assert result.impact_frame is not result.impact_frame
-    assert_frame_equal(result.stressed_macro_frame, _normalized_scenario_frame())
+    assert_frame_equal(result.scenario_frame, _normalized_scenario_frame())
+    assert_frame_equal(result.stressed_macro_frame, _normalized_macro_projection_frame())
     assert_frame_equal(result.stressed_term_structure_frame, _normalized_term_structure_frame())
     assert_frame_equal(result.impact_frame, _normalized_impact_frame())
+    assert result.scenario_frame.loc[0, "shock_value"] == 0.0
     assert result.stressed_macro_frame.loc[0, "shock_value"] == 0.0
     assert result.stressed_term_structure_frame.loc["id-1|1", "macro_variable_set"] == (
         "unemployment",
-        0.0,
+        "inflation",
     )
     assert math.copysign(1.0, result.impact_frame.loc[1, "absolute_delta"]) == 1.0
 
@@ -233,6 +281,8 @@ def test_stress_scenario_result_golden_copias_y_normalizacion() -> None:
         _scenario_result(extra="no permitido")
     with pytest.raises(ValidationError, match="mean"):
         _scenario_result(scenario_name="mean")
+    with pytest.raises(ValidationError, match="mean"):
+        _scenario_result(scenario_name="Mean")
     with pytest.raises(ValidationError, match="mayores o iguales"):
         _scenario_result(severity=-0.01)
     with pytest.raises(ValidationError, match="warning_codes"):
@@ -344,6 +394,13 @@ def test_diagnostics_y_card_golden_payloads_copias_y_defaults() -> None:
     assert card_sets.metric_sections["custom"]["set"] == {0.0, 2.0}
     assert card_sets.metric_sections["custom"]["frozenset"] == frozenset({0.0, 3.0})
     assert card_sets.metric_sections["custom"]["numpy_zero"] == 0.0
+    assert StressCard(summary={"ok": np.bool_(True)}).summary["ok"] is True
+    assert (
+        StressCard(
+            summary={"ok": True}, metric_sections={"custom": {"flag": np.array(True)}}
+        ).metric_sections["custom"]["flag"]
+        is True
+    )
     assert StressCard(summary={"ok": True}).metric_sections == {
         "scenario_impacts": {},
         "sensitivity_curves": {},
@@ -378,6 +435,10 @@ def test_diagnostics_y_card_golden_payloads_copias_y_defaults() -> None:
         StressCard(summary={"bad": math.inf})
     with pytest.raises(ValidationError, match="summary"):
         StressCard(summary={"bad": Decimal("NaN")})
+    with pytest.raises(ValueError, match="float"):
+        stress_results._normalize_required_float(np.bool_(True))
+    with pytest.raises(ValueError, match="entero"):
+        stress_results._integer_value(np.bool_(True), field_name="period")
     with pytest.raises(ValidationError, match="summary"):
         StressCard(summary={"bad": object()})
     with pytest.raises(ValidationError, match="summary"):
@@ -394,6 +455,10 @@ def test_diagnostics_y_card_golden_payloads_copias_y_defaults() -> None:
         StressCard(summary={"ok": True}, metric_sections={"bad": math.inf})
     with pytest.raises(ValidationError, match="metric_sections"):
         StressCard(summary={"ok": True}, metric_sections={"bad": Decimal("NaN")})
+    with pytest.raises(ValidationError, match="metric_sections"):
+        StressCard(summary={"ok": True}, metric_sections={"bad": np.array([math.nan])})
+    with pytest.raises(ValidationError, match="arreglos NumPy"):
+        StressCard(summary={"ok": True}, metric_sections={"bad": np.array([1.0])})
     with pytest.raises(ValidationError, match="metric_sections"):
         StressCard(summary={"ok": True}, metric_sections={math.nan: {"value": 1.0}})
     with pytest.raises(ValidationError, match="metric_sections"):
@@ -421,6 +486,64 @@ def test_diagnostics_y_card_golden_payloads_copias_y_defaults() -> None:
         )
     with pytest.raises(ValidationError, match="card_texts"):
         StressCard(summary={"ok": True}, assumptions=(" ",))
+
+
+def test_bool_like_numpy_defensivo_results() -> None:
+    """El guard bool-like cubre escalares NumPy y objetos defensivos."""
+
+    class FakeBoolShapeNone:
+        """Objeto tipo NumPy con dtype bool y shape ausente."""
+
+        __module__ = "numpy"
+        dtype = type("Dtype", (), {"kind": "b"})()
+        shape = None
+
+    class FakeBoolBadShape:
+        """Objeto tipo NumPy con dtype bool y shape no iterable."""
+
+        __module__ = "numpy"
+        dtype = type("Dtype", (), {"kind": "b"})()
+        shape = object()
+
+    assert stress_results._is_bool_like(np.array(True)) is True
+    assert stress_results._contains_nonfinite(np.array([math.nan]), allow_none=False) is True
+    assert (
+        stress_results._contains_nonfinite(
+            np.array([{"x": math.inf}], dtype=object), allow_none=False
+        )
+        is True
+    )
+    assert (
+        stress_results._contains_nonfinite(
+            np.array(["NaT"], dtype="datetime64[ns]"), allow_none=False
+        )
+        is True
+    )
+    assert stress_results._contains_nonfinite(np.array(["ok"]), allow_none=False) is False
+
+    class NonHashableKey:
+        """Objeto no hashable para celdas escalares opcionales."""
+
+        __hash__ = None
+
+    with pytest.raises(ValueError, match="escalar"):
+        stress_results._validate_optional_scalar_cell(NonHashableKey(), field_name="row_id")
+    assert stress_results._is_bool_like(FakeBoolShapeNone()) is False
+    assert stress_results._is_bool_like(FakeBoolBadShape()) is False
+
+
+def test_numpy_array_contains_nonfinite_fallback_sin_numpy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El helper lazy degrada si NumPy no puede importarse."""
+
+    def fail_import(name: str) -> object:
+        if name == "numpy":
+            raise ModuleNotFoundError(name)
+        return __import__(name)
+
+    monkeypatch.setattr(stress_results.importlib, "import_module", fail_import)
+    assert stress_results._numpy_array_contains_nonfinite(np.array([1.0]), allow_none=False) is None
 
 
 def test_sensitivity_y_reverse_result_golden_copias_y_validaciones() -> None:
@@ -660,33 +783,47 @@ def test_sensitivity_y_reverse_result_golden_copias_y_validaciones() -> None:
 
 def test_stress_result_ct2_tidy_term_structure_none_y_exports() -> None:
     """``StressResult`` cumple CT-2 y expone DTOs vía ``nikodym.stress``."""
+    scenario_frame = _scenario_frame()
     term = _term_structure_frame()
     impact = _impact_frame()
-    result = _result(stress_term_structure_frame=term, stress_impact_frame=impact)
+    result = _result(
+        stress_scenario_frame=scenario_frame,
+        stress_term_structure_frame=term,
+        stress_impact_frame=impact,
+    )
 
+    scenario_frame.loc[0, "applied_shock"] = 99.0
     term.loc["id-1|1", "pd_marginal_stress"] = 99.0
     impact.loc[0, "value_stress"] = 99.0
 
+    observed_scenarios = result.scenarios()
     observed_term = result.term_structure()
     observed_impact = result.tidy()
     assert observed_term is not None
+    assert result.stress_scenario_frame is not result.stress_scenario_frame
     assert result.stress_term_structure_frame is not result.stress_term_structure_frame
     assert result.stress_impact_frame is not result.stress_impact_frame
+    assert_frame_equal(result.stress_scenario_frame, _normalized_scenario_frame())
     assert_frame_equal(result.stress_term_structure_frame, _normalized_term_structure_frame())
     assert_frame_equal(result.stress_impact_frame, _normalized_impact_frame())
+    assert_frame_equal(observed_scenarios, _normalized_scenario_frame())
     assert_frame_equal(observed_term, _normalized_term_structure_frame())
     assert_frame_equal(observed_impact, _normalized_impact_frame())
+    assert tuple(observed_scenarios.columns) == _SCENARIO_COLUMNS
     assert tuple(observed_term.columns) == _TERM_COLUMNS
     assert tuple(observed_impact.columns) == _IMPACT_COLUMNS
 
+    observed_scenarios.loc[0, "applied_shock"] = 77.0
     observed_term.loc["id-1|2", "pd_cumulative_stress"] = 77.0
     observed_impact.loc[0, "value_stress"] = 77.0
+    assert_frame_equal(result.scenarios(), _normalized_scenario_frame())
     assert_frame_equal(result.term_structure(), _normalized_term_structure_frame())
     assert_frame_equal(result.tidy(), _normalized_impact_frame())
 
     assert inspect.signature(StressResult.term_structure).return_annotation == (
         "pandas.DataFrame | None"
     )
+    assert inspect.signature(StressResult.scenarios).return_annotation == "pandas.DataFrame"
     assert inspect.signature(StressResult.tidy).return_annotation == "pandas.DataFrame"
     optional_adjustment = _result(
         stress_term_structure_frame=_term_structure_frame(
@@ -811,6 +948,9 @@ def test_stress_result_ct2_tidy_term_structure_none_y_exports() -> None:
     fake_term = _result(stress_term_structure_frame=FakeTermStructureFrame())
     with pytest.raises(StressOutputError, match=r"pandas\.DataFrame"):
         fake_term.term_structure()
+    fake_scenario = _result(stress_scenario_frame=FakeScenarioFrame())
+    with pytest.raises(StressOutputError, match=r"pandas\.DataFrame"):
+        fake_scenario.scenarios()
     fake_impact = _result(stress_impact_frame=FakeImpactFrame())
     with pytest.raises(StressOutputError, match=r"pandas\.DataFrame"):
         fake_impact.tidy()
@@ -822,20 +962,44 @@ def test_stress_result_ct2_tidy_term_structure_none_y_exports() -> None:
 @pytest.mark.parametrize(
     ("frame_kind", "updates", "message"),
     [
-        ("scenario", {"operation": ["manual", "additive", "additive"]}, "operation"),
-        ("scenario", {"stress_scenario": [None, "severe_downturn", "severe_downturn"]}, "scenario"),
+        (
+            "stress_scenario",
+            {"macro_variable": [None, "unemployment", "gdp"]},
+            "macro_variable",
+        ),
+        (
+            "stress_scenario",
+            {"operation": ["multiply", "additive", "additive"]},
+            "operation",
+        ),
+        (
+            "stress_scenario",
+            {"period": [0, 2, 3]},
+            "period debe ser mayor",
+        ),
+        (
+            "stress_scenario",
+            {"source": ["sin_fuente", "user", "user"]},
+            "source",
+        ),
+        ("scenario", {"scenario": ["Average", "severe_downturn", "severe_downturn"]}, "mean"),
+        ("scenario", {"scenario": [None, "severe_downturn", "severe_downturn"]}, "scenario"),
         ("scenario", {"macro_variable": [None, "unemployment", "gdp"]}, "macro_variable"),
         ("scenario", {"period": [0, 2, 3]}, "period debe ser mayor"),
         ("scenario", {"warning_codes": ["WARN", (), ()]}, "warning_codes"),
         ("scenario", {"warning_codes": [(1,), (), ()]}, "contener textos"),
-        ("scenario", {"applied_shock": [math.nan, 0.50, 0.0]}, "NaN"),
+        ("scenario", {"projected_value": [math.nan, 2.5, 1.0]}, "NaN"),
+        ("scenario", {"is_reasonable_supportable": [1, True, True]}, "booleano"),
         ("term", {"scenario_kind": ["otro", "severe", "severe"]}, "scenario_kind"),
         ("term", {"period": [0, 2, 3]}, "period debe ser mayor"),
-        ("term", {"period": [1, 1, 3]}, "period debe crecer"),
+        ("term", {"period": [1, 1, 3]}, "period debe ser contiguo"),
+        ("term", {"period": [2, 3, 4]}, "period debe ser contiguo"),
+        ("term", {"period": [1, 3, 4]}, "period debe ser contiguo"),
         ("term", {"time_value": [-1.0, 2.0, 3.0]}, "time_value"),
         ("term", {"source_model": [None, "survival", "survival"]}, "source_model"),
         ("term", {"source_model": [np.datetime64("NaT"), "survival", "survival"]}, "NaN"),
         ("term", {"row_id": [(None,), "id-1", "id-1"]}, "row_id"),
+        ("term", {"row_id": [np.array([1]), "id-1", "id-1"]}, "row_id"),
         ("term", {"segment": [{"bad": None}, "retail", "retail"]}, "segment"),
         ("term", {"partition": [frozenset({None}), None, None]}, "partition"),
         ("term", {"macro_variable_set": [None, ("unemployment",), ("gdp",)]}, "macro_variable_set"),
@@ -843,6 +1007,12 @@ def test_stress_result_ct2_tidy_term_structure_none_y_exports() -> None:
         (
             "term",
             {"macro_variable_set": [("unemployment", None), ("unemployment",), ("gdp",)]},
+            "macro_variable_set",
+        ),
+        ("term", {"macro_variable_set": [(1,), ("unemployment",), ("gdp",)]}, "macro_variable_set"),
+        (
+            "term",
+            {"macro_variable_set": [("",), ("unemployment",), ("gdp",)]},
             "macro_variable_set",
         ),
         (
@@ -889,6 +1059,7 @@ def test_stress_result_ct2_tidy_term_structure_none_y_exports() -> None:
         ),
         ("term", {"pd_basis": [None, "pit", "pit"]}, "pd_basis"),
         ("term", {"pd_basis": [" ", "pit", "pit"]}, "pd_basis"),
+        ("term", {"pd_basis": ["through-cycle", "pit", "pit"]}, "pd_basis debe ser pit"),
         ("term", {"hazard_stress": [1.20, 0.20, 0.125]}, r"\[0, 1\]"),
         ("term", {"basis_state": ["otro", "blended", "ttc"]}, "basis_state"),
         (
@@ -897,6 +1068,14 @@ def test_stress_result_ct2_tidy_term_structure_none_y_exports() -> None:
             "survival_stress",
         ),
         ("term", {"survival_stress": [0.85, 0.72, 0.63]}, "1 - survival_stress"),
+        (
+            "term",
+            {
+                "survival_stress": [0.90, 0.80, 0.70],
+                "pd_cumulative_stress": [0.10, 0.20, 0.30],
+            },
+            r"survival_stress\(t-1\)",
+        ),
         (
             "term",
             {
@@ -955,7 +1134,10 @@ def test_stress_results_valida_frames_sdd21(
 ) -> None:
     """Los frames publicados rechazan columnas/valores fuera del contrato SDD-21 §6."""
     frame = _frame_for_kind(frame_kind, updates)
-    if frame_kind == "scenario":
+    if frame_kind == "stress_scenario":
+        with pytest.raises(ValidationError, match=message):
+            _result(stress_scenario_frame=frame)
+    elif frame_kind == "scenario":
         with pytest.raises(ValidationError, match=message):
             _scenario_result(stressed_macro_frame=frame)
     elif frame_kind == "term":
@@ -980,26 +1162,39 @@ def test_stress_results_valida_frames_sdd21(
             )
 
 
+@pytest.mark.parametrize("periods", ([2, 3, 4], [1, 3, 4]))
+def test_stress_scenario_result_exige_term_structure_contigua(periods: list[int]) -> None:
+    """El DTO por escenario también rechaza horizontes lifetime faltantes."""
+    with pytest.raises(ValidationError, match="period debe ser contiguo"):
+        _scenario_result(stressed_term_structure_frame=_term_structure_frame(period=periods))
+
+
 @pytest.mark.parametrize(
     ("frame_kind", "payload_field", "updates", "message"),
     [
         (
-            "scenario",
-            "stressed_macro_frame",
+            "stress_scenario",
+            "scenario_frame",
             {"stress_scenario": ["otro_downturn", "severe_downturn", "severe_downturn"]},
-            "stressed_macro_frame.stress_scenario",
+            "scenario_frame.stress_scenario",
         ),
         (
-            "scenario",
-            "stressed_macro_frame",
+            "stress_scenario",
+            "scenario_frame",
             {"scenario_kind": ["custom", "severe", "severe"]},
-            "stressed_macro_frame.scenario_kind",
+            "scenario_frame.scenario_kind",
+        ),
+        (
+            "stress_scenario",
+            "scenario_frame",
+            {"severity": [2.0, 1.0, 1.0]},
+            "scenario_frame.severity",
         ),
         (
             "scenario",
             "stressed_macro_frame",
-            {"severity": [2.0, 1.0, 1.0]},
-            "stressed_macro_frame.severity",
+            {"scenario": ["otro_downturn", "severe_downturn", "severe_downturn"]},
+            "stressed_macro_frame.scenario",
         ),
         (
             "term",
@@ -1054,9 +1249,23 @@ def test_stress_scenario_result_exige_frames_del_mismo_contexto(
 def test_stress_results_validaciones_estructurales() -> None:
     """Errores estructurales cubren columnas exactas, tipos frame y no finitos."""
     with pytest.raises(ValidationError, match=r"pandas\.DataFrame"):
+        _scenario_result(scenario_frame="no es DataFrame")
+    with pytest.raises(ValidationError, match=r"pandas\.DataFrame"):
         _scenario_result(stressed_macro_frame="no es DataFrame")
     with pytest.raises(ValidationError, match="columnas canónicas"):
-        _scenario_result(stressed_macro_frame=_scenario_frame().drop(columns=["warning_codes"]))
+        _result(stress_scenario_frame=_scenario_frame().drop(columns=["warning_codes"]))
+    with pytest.raises(ValidationError, match="columnas canónicas"):
+        _scenario_result(
+            stressed_macro_frame=_macro_projection_frame().drop(columns=["warning_codes"])
+        )
+    bad_projected = _macro_projection_frame()
+    bad_projected.loc[1, "projected_value"] = 2.75
+    with pytest.raises(ValidationError, match=r"model_value \+ shock_value"):
+        _scenario_result(stressed_macro_frame=bad_projected)
+    bad_shock = _macro_projection_frame()
+    bad_shock.loc[1, "shock_value"] = Decimal("0.25")
+    with pytest.raises(ValidationError, match=r"model_value \+ shock_value"):
+        _scenario_result(stressed_macro_frame=bad_shock)
     with pytest.raises(ValidationError, match="columnas canónicas"):
         _result(stress_term_structure_frame=_term_structure_frame().drop(columns=["warning_codes"]))
     with pytest.raises(ValidationError, match="columnas canónicas"):
@@ -1440,15 +1649,12 @@ def test_stress_results_validaciones_estructurales() -> None:
     duplicated_index_term = _term_structure_frame()
     duplicated_index_term.index = pd.Index(["dup", "dup", "dup"], name="curve_id")
     macro_variable_set_position = duplicated_index_term.columns.get_loc("macro_variable_set")
-    duplicated_index_term.iat[0, macro_variable_set_position] = (
-        "unemployment",
-        Decimal("-0"),
-    )
+    duplicated_index_term.iat[0, macro_variable_set_position] = ("unemployment", "inflation")
     duplicated_index_result = _result(stress_term_structure_frame=duplicated_index_term)
     observed_term = duplicated_index_result.term_structure()
     assert observed_term is not None
     observed_macro_set = observed_term.iat[0, macro_variable_set_position]
-    assert observed_macro_set == ("unemployment", 0.0)
+    assert observed_macro_set == ("unemployment", "inflation")
     with pytest.raises(ValidationError, match="bracket"):
         ReverseStressResult(
             target_name="capital_floor",
@@ -1483,13 +1689,13 @@ def test_stress_results_import_liviano_y_exports_publicos() -> None:
         "import sys;"
         "import nikodym.stress;"
         "assert 'nikodym.stress.results' not in sys.modules;"
-        "blocked=[m for m in ('pandas','scipy','statsmodels','nikodym.provisioning') "
+        "blocked=[m for m in ('pandas','numpy','scipy','statsmodels','nikodym.provisioning') "
         "if m in sys.modules];"
         "assert not blocked, blocked;"
         "assert 'StressResult' in nikodym.stress.__all__;"
         "_=nikodym.stress.StressResult;"
         "assert 'nikodym.stress.results' in sys.modules;"
-        "blocked=[m for m in ('pandas','scipy','statsmodels','nikodym.provisioning') "
+        "blocked=[m for m in ('pandas','numpy','scipy','statsmodels','nikodym.provisioning') "
         "if m in sys.modules];"
         "assert not blocked, blocked"
     )
@@ -1506,7 +1712,8 @@ def _frame_for_kind(frame_kind: str, updates: dict[str, Any]) -> pd.DataFrame:
     factories = {
         "impact": _impact_frame,
         "reverse": _reverse_path_frame,
-        "scenario": _scenario_frame,
+        "scenario": _macro_projection_frame,
+        "stress_scenario": _scenario_frame,
         "term": _term_structure_frame,
     }
     return factories[frame_kind](**updates)
@@ -1517,6 +1724,7 @@ def _scenario_result(
     scenario_name: str = "severe_downturn",
     scenario_kind: str = "severe",
     severity: Any = 1.0,
+    scenario_frame: Any = _DEFAULT,
     stressed_macro_frame: Any = _DEFAULT,
     stressed_term_structure_frame: Any = _DEFAULT,
     impact_frame: Any = _DEFAULT,
@@ -1527,7 +1735,8 @@ def _scenario_result(
         "scenario_name": scenario_name,
         "scenario_kind": scenario_kind,
         "severity": severity,
-        "stressed_macro_frame": _scenario_frame()
+        "scenario_frame": _scenario_frame() if scenario_frame is _DEFAULT else scenario_frame,
+        "stressed_macro_frame": _macro_projection_frame()
         if stressed_macro_frame is _DEFAULT
         else stressed_macro_frame,
         "stressed_term_structure_frame": _term_structure_frame()
@@ -1574,6 +1783,7 @@ def _result(
     sensitivity_results: tuple[StressSensitivityResult, ...] = (),
     reverse_results: tuple[ReverseStressResult, ...] = (),
     publish_stressed_term_structure: bool = True,
+    stress_scenario_frame: Any = _DEFAULT,
     stress_term_structure_frame: Any = _DEFAULT,
     stress_impact_frame: Any = _DEFAULT,
     diagnostics: StressDiagnostics | None = None,
@@ -1585,6 +1795,9 @@ def _result(
         "sensitivity_results": sensitivity_results,
         "reverse_results": reverse_results,
         "publish_stressed_term_structure": publish_stressed_term_structure,
+        "stress_scenario_frame": _scenario_frame()
+        if stress_scenario_frame is _DEFAULT
+        else stress_scenario_frame,
         "stress_term_structure_frame": _term_structure_frame()
         if stress_term_structure_frame is _DEFAULT
         else stress_term_structure_frame,
@@ -1606,11 +1819,30 @@ def _scenario_frame(**updates: Any) -> pd.DataFrame:
         "base_forward_scenario": ["severe", "severe", "severe"],
         "severity": [1.0, 1.0, 1.0],
         "macro_variable": ["unemployment", "unemployment", "gdp"],
-        "operation": ["additive", "additive", "relative"],
+        "operation": ["additive", "additive", "additive"],
         "shock_value": pd.Series([Decimal("-0"), 0.50, -0.0], dtype=object),
-        "applied_shock": [-0.0, 0.50, -0.0],
+        "applied_shock": [0.0, 0.50, 0.0],
         "period": [1, 2, 3],
         "source": ["user", "user", "user"],
+        "warning_codes": [(), ("WARN-STR-1",), ()],
+    }
+    payload.update(updates)
+    return pd.DataFrame(payload)
+
+
+def _macro_projection_frame(**updates: Any) -> pd.DataFrame:
+    payload: dict[str, Any] = {
+        "scenario": ["severe_downturn", "severe_downturn", "severe_downturn"],
+        "scenario_weight": [1.0, 1.0, 1.0],
+        "period": [1, 2, 3],
+        "time_value": [1.0, 2.0, 3.0],
+        "macro_variable": ["unemployment", "unemployment", "gdp"],
+        "projected_value": [1.0, 2.5, 1.0],
+        "model_value": [1.0, 2.0, 1.0],
+        "shock_value": pd.Series([Decimal("-0"), 0.50, -0.0], dtype=object),
+        "method": ["arima", "arima", "arima"],
+        "model_id": ["macro-1", "macro-1", "macro-1"],
+        "is_reasonable_supportable": [True, True, True],
         "warning_codes": [(), ("WARN-STR-1",), None],
     }
     payload.update(updates)
@@ -1627,9 +1859,11 @@ def _term_structure_frame(**updates: Any) -> pd.DataFrame:
         "segment": ["retail", "retail", "retail"],
         "partition": ["desarrollo", "desarrollo", "desarrollo"],
         "source_model": ["survival", "survival", "survival"],
+        "method": ["survival", "survival", "survival"],
+        "pd_source": ["survival", "survival", "survival"],
         "period": [1, 2, 3],
         "time_value": [1.0, 2.0, 3.0],
-        "macro_variable_set": [("unemployment", Decimal("-0")), ("unemployment",), ("gdp",)],
+        "macro_variable_set": [("unemployment", "inflation"), ("unemployment",), ("gdp",)],
         "hazard_base": [0.10, 0.20, 0.125],
         "hazard_stress": [0.10, 0.20, 0.125],
         "survival_stress": [0.90, 0.72, 0.63],
@@ -1708,6 +1942,10 @@ def _baseline_metric_frame(**updates: Any) -> pd.DataFrame:
     }
     payload.update(updates)
     return pd.DataFrame(payload)
+
+
+def _normalized_macro_projection_frame() -> pd.DataFrame:
+    return _normalize_frame(_macro_projection_frame())
 
 
 def _normalized_scenario_frame() -> pd.DataFrame:

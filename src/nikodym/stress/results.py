@@ -17,6 +17,7 @@ publicados normalizan ``-0.0`` como ``0.0``.
 from __future__ import annotations
 
 import copy
+import importlib
 import math
 from collections.abc import Mapping
 from decimal import Decimal
@@ -33,7 +34,21 @@ if TYPE_CHECKING:
 else:
     DataFrameLike: TypeAlias = Any
 
-_SCENARIO_FRAME_COLUMNS: tuple[str, ...] = (
+_MACRO_PROJECTION_COLUMNS: tuple[str, ...] = (
+    "scenario",
+    "scenario_weight",
+    "period",
+    "time_value",
+    "macro_variable",
+    "projected_value",
+    "model_value",
+    "shock_value",
+    "method",
+    "model_id",
+    "is_reasonable_supportable",
+    "warning_codes",
+)
+_SCENARIO_COLUMNS: tuple[str, ...] = (
     "stress_scenario",
     "scenario_kind",
     "base_forward_scenario",
@@ -55,6 +70,8 @@ _STRESS_TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "segment",
     "partition",
     "source_model",
+    "method",
+    "pd_source",
     "period",
     "time_value",
     "macro_variable_set",
@@ -97,7 +114,6 @@ _REVERSE_PATH_COLUMNS: tuple[str, ...] = (
     "threshold",
     "decision",
 )
-_SCENARIO_OPTIONAL_MISSING_COLUMNS: frozenset[str] = frozenset({"warning_codes"})
 _STRESS_TERM_STRUCTURE_OPTIONAL_MISSING_COLUMNS: frozenset[str] = frozenset(
     {
         "hazard_base",
@@ -124,7 +140,6 @@ _METRIC_SECTION_KEYS: tuple[str, ...] = (
     "falta_dato",
 )
 _SCENARIO_KINDS: frozenset[str] = frozenset({"severe", "custom", "sensitivity", "reverse"})
-_OPERATIONS: frozenset[str] = frozenset({"additive", "relative"})
 _METRICS: frozenset[str] = frozenset(
     {"pd_marginal", "pd_cumulative", "lgd", "ecl", "provision", "loss", "ratio"}
 )
@@ -153,12 +168,18 @@ class StressScenarioResult(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
     _DATAFRAME_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"impact_frame", "stressed_macro_frame", "stressed_term_structure_frame"}
+        {
+            "impact_frame",
+            "scenario_frame",
+            "stressed_macro_frame",
+            "stressed_term_structure_frame",
+        }
     )
 
     scenario_name: str
     scenario_kind: Literal["severe", "custom", "sensitivity", "reverse"]
     severity: float
+    scenario_frame: DataFrameLike
     stressed_macro_frame: DataFrameLike | None
     stressed_term_structure_frame: DataFrameLike | None
     impact_frame: DataFrameLike
@@ -176,19 +197,30 @@ class StressScenarioResult(BaseModel):
         """Exige severidad finita y no negativa."""
         return _normalize_non_negative_float(value)
 
+    @field_validator("scenario_frame", mode="before")
+    @classmethod
+    def _copia_scenario_frame(cls, value: Any) -> Any:
+        """Copia y valida la tabla pública ``stress.scenarios``."""
+        copied = _copy_and_validate_dataframe(
+            value,
+            expected_columns=_SCENARIO_COLUMNS,
+            field_name="scenario_frame",
+        )
+        _validate_stress_scenario_values(copied)
+        return copied
+
     @field_validator("stressed_macro_frame", mode="before")
     @classmethod
     def _copia_macro_frame(cls, value: Any) -> Any:
-        """Copia y valida el frame de shocks macro cuando fue publicado."""
+        """Copia y valida la proyección macro estresada cuando fue publicada."""
         if value is None:
             return None
         copied = _copy_and_validate_dataframe(
             value,
-            expected_columns=_SCENARIO_FRAME_COLUMNS,
+            expected_columns=_MACRO_PROJECTION_COLUMNS,
             field_name="stressed_macro_frame",
-            optional_missing_columns=_SCENARIO_OPTIONAL_MISSING_COLUMNS,
         )
-        _validate_scenario_frame_values(copied)
+        _validate_stressed_macro_projection_values(copied)
         return copied
 
     @field_validator("stressed_term_structure_frame", mode="before")
@@ -228,9 +260,14 @@ class StressScenarioResult(BaseModel):
     @model_validator(mode="after")
     def _check_frames_del_escenario(self) -> StressScenarioResult:
         """Valida que los frames publicados pertenezcan al escenario envolvente."""
-        _validate_scenario_context_frame(
+        _validate_macro_projection_context_frame(
             self.stressed_macro_frame,
             field_name="stressed_macro_frame",
+            scenario_name=self.scenario_name,
+        )
+        _validate_scenario_context_frame(
+            self.scenario_frame,
+            field_name="scenario_frame",
             scenario_name=self.scenario_name,
             scenario_kind=self.scenario_kind,
             severity=self.severity,
@@ -537,17 +574,30 @@ class StressResult(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
     _DATAFRAME_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"stress_impact_frame", "stress_term_structure_frame"}
+        {"stress_impact_frame", "stress_scenario_frame", "stress_term_structure_frame"}
     )
 
     scenario_results: tuple[StressScenarioResult, ...]
     sensitivity_results: tuple[StressSensitivityResult, ...] = ()
     reverse_results: tuple[ReverseStressResult, ...] = ()
     publish_stressed_term_structure: bool = True
+    stress_scenario_frame: DataFrameLike
     stress_term_structure_frame: DataFrameLike | None
     stress_impact_frame: DataFrameLike
     diagnostics: StressDiagnostics
     card: StressCard
+
+    @field_validator("stress_scenario_frame", mode="before")
+    @classmethod
+    def _copia_stress_scenario(cls, value: Any) -> Any:
+        """Copia y valida el agregado público ``stress.scenarios``."""
+        copied = _copy_and_validate_dataframe(
+            value,
+            expected_columns=_SCENARIO_COLUMNS,
+            field_name="stress_scenario_frame",
+        )
+        _validate_stress_scenario_values(copied)
+        return copied
 
     @field_validator("stress_term_structure_frame", mode="before")
     @classmethod
@@ -643,6 +693,18 @@ class StressResult(BaseModel):
             raise StressOutputError("stress_term_structure_frame debe ser un pandas.DataFrame.")
         return cast("pandas.DataFrame", _copy_dataframe(frame))
 
+    def scenarios(self) -> pandas.DataFrame:
+        """Retorna una copia de la tabla pública de escenarios/shocks aplicados."""
+        frame = self.stress_scenario_frame
+
+        import pandas as pd
+
+        if not isinstance(frame, pd.DataFrame):
+            from nikodym.stress.exceptions import StressOutputError
+
+            raise StressOutputError("stress_scenario_frame debe ser un pandas.DataFrame.")
+        return cast("pandas.DataFrame", _copy_dataframe(frame))
+
     def tidy(self) -> pandas.DataFrame:
         """Retorna una copia de la tabla de impactos de stress."""
         frame = self.stress_impact_frame
@@ -733,22 +795,76 @@ def _normalize_optional_missing_cells(
             frame[frame.columns[column_position]] = series
 
 
-def _validate_scenario_frame_values(frame: Any) -> None:
+def _validate_stressed_macro_projection_values(frame: Any) -> None:
     for row in frame.itertuples(index=False):
-        values = dict(zip(_SCENARIO_FRAME_COLUMNS, row, strict=True))
+        values = dict(zip(_MACRO_PROJECTION_COLUMNS, row, strict=True))
+        _validate_scenario_name(values["scenario"])
+        _normalize_non_negative_float(values["scenario_weight"])
+        period = _integer_value(values["period"], field_name="period")
+        if period < 1:
+            raise ValueError("period debe ser mayor o igual a 1.")
+        _required_non_negative_float(values["time_value"], field_name="time_value")
+        _validate_non_empty_text(values["macro_variable"], field_name="macro_variable")
+        projected_value = _normalize_required_float(values["projected_value"])
+        model_value = _normalize_required_float(values["model_value"])
+        shock_value = _normalize_required_float(values["shock_value"])
+        _validate_macro_projection_identity(
+            projected_value=projected_value,
+            model_value=model_value,
+            shock_value=shock_value,
+            scenario=str(values["scenario"]),
+            macro_variable=str(values["macro_variable"]),
+            period=period,
+        )
+        _validate_non_empty_text(values["method"], field_name="method")
+        _validate_non_empty_text(values["model_id"], field_name="model_id")
+        if not isinstance(values["is_reasonable_supportable"], bool):
+            raise ValueError("is_reasonable_supportable debe ser booleano.")
+        _validate_warning_codes_cell(values["warning_codes"])
+
+
+def _validate_macro_projection_identity(
+    *,
+    projected_value: float,
+    model_value: float,
+    shock_value: float,
+    scenario: str,
+    macro_variable: str,
+    period: int,
+) -> None:
+    expected = _normalize_required_float(model_value + shock_value)
+    if math.isclose(
+        projected_value,
+        expected,
+        rel_tol=_FLOAT_RTOL,
+        abs_tol=_FLOAT_ATOL,
+    ):
+        return
+    raise ValueError(
+        "stressed_macro_frame.projected_value debe ser model_value + shock_value: "
+        f"scenario={scenario!r}, macro_variable={macro_variable!r}, period={period}, "
+        f"projected_value={projected_value}, model_value={model_value}, "
+        f"shock_value={shock_value}, esperado={expected}."
+    )
+
+
+def _validate_stress_scenario_values(frame: Any) -> None:
+    for row in frame.itertuples(index=False):
+        values = dict(zip(_SCENARIO_COLUMNS, row, strict=True))
         _validate_scenario_name(values["stress_scenario"])
         _validate_kind(values["scenario_kind"])
         _validate_scenario_name(values["base_forward_scenario"])
         _normalize_non_negative_float(values["severity"])
         _validate_non_empty_text(values["macro_variable"], field_name="macro_variable")
-        if values["operation"] not in _OPERATIONS:
+        if values["operation"] not in {"additive", "relative"}:
             raise ValueError("operation debe ser additive o relative.")
         _normalize_required_float(values["shock_value"])
         _normalize_required_float(values["applied_shock"])
         period = _integer_value(values["period"], field_name="period")
         if period < 1:
             raise ValueError("period debe ser mayor o igual a 1.")
-        _validate_non_empty_text(values["source"], field_name="source")
+        if values["source"] not in {"user", "institutional", "official", "default_a_confirmar"}:
+            raise ValueError("source de escenario stress no es válido.")
         _validate_warning_codes_cell(values["warning_codes"])
 
 
@@ -763,6 +879,8 @@ def _validate_stress_term_structure_values(frame: Any) -> None:
         _validate_optional_scalar_cell(values["row_id"], field_name="row_id")
         _validate_optional_scalar_cell(values["segment"], field_name="segment")
         _validate_optional_scalar_cell(values["partition"], field_name="partition")
+        _validate_non_empty_text(values["method"], field_name="method")
+        _validate_non_empty_text(values["pd_source"], field_name="pd_source")
         period = _integer_value(values["period"], field_name="period")
         if period < 1:
             raise ValueError("period debe ser mayor o igual a 1.")
@@ -795,7 +913,9 @@ def _validate_stress_term_structure_values(frame: Any) -> None:
             values["satellite_adjustment_stress"],
             field_name="satellite_adjustment_stress",
         )
-        _validate_non_empty_text(values["pd_basis"], field_name="pd_basis")
+        pd_basis = _validate_non_empty_text(values["pd_basis"], field_name="pd_basis")
+        if pd_basis not in {"pit", "ttc"}:
+            raise ValueError("pd_basis debe ser pit o ttc.")
         if values["basis_state"] not in _BASIS_STATES:
             raise ValueError("basis_state debe ser pit, blended o ttc.")
         _validate_warning_codes_cell(values["warning_codes"])
@@ -806,10 +926,19 @@ def _validate_stress_term_structure_values(frame: Any) -> None:
         previous_survival = 1.0
         if previous is not None:
             previous_period, previous_survival, previous_cumulative = previous
-            if period <= previous_period:
-                raise ValueError("period debe crecer estrictamente dentro de cada curva.")
+            if period != previous_period + 1:
+                raise ValueError("period debe ser contiguo dentro de cada curva.")
             if pd_cumulative_stress < previous_cumulative - _FLOAT_ATOL:
                 raise ValueError("pd_cumulative_stress no puede decrecer dentro de una curva.")
+        elif period != 1:
+            raise ValueError("period debe ser contiguo dentro de cada curva.")
+        if not math.isclose(
+            previous_survival * (1.0 - hazard_stress),
+            survival_stress,
+            rel_tol=_FLOAT_RTOL,
+            abs_tol=_FLOAT_ATOL,
+        ):
+            raise ValueError("survival_stress debe ser survival_stress(t-1) * (1 - hazard_stress).")
         if not math.isclose(
             previous_survival * hazard_stress,
             pd_marginal_stress,
@@ -993,6 +1122,20 @@ def _validate_scenario_context_frame(
             raise ValueError(f"{field_name}.severity debe coincidir con severity.")
 
 
+def _validate_macro_projection_context_frame(
+    frame: Any,
+    *,
+    field_name: str,
+    scenario_name: str,
+) -> None:
+    if frame is None:
+        return
+    for row in frame.itertuples(index=False):
+        values = dict(zip(_MACRO_PROJECTION_COLUMNS, row, strict=True))
+        if values["scenario"] != scenario_name:
+            raise ValueError(f"{field_name}.scenario debe coincidir con scenario_name.")
+
+
 def _validate_reverse_direction(direction: str, *, threshold: float, metric_value: float) -> None:
     if (
         direction == "at_least"
@@ -1059,10 +1202,30 @@ def _validate_no_nonfinite_frame(
                 raise ValueError(f"{field_name} no puede publicar NaN ni infinitos.")
 
 
+def _is_bool_like(value: Any) -> bool:
+    if isinstance(value, bool):
+        return True
+    value_type = type(value)
+    if value_type.__module__.split(".", maxsplit=1)[0] != "numpy":
+        return False
+    if value_type.__name__ in {"bool", "bool_"}:
+        return True
+    dtype = getattr(value, "dtype", None)
+    if getattr(dtype, "kind", None) != "b":
+        return False
+    shape = getattr(value, "shape", None)
+    if shape is None:
+        return False
+    try:
+        return tuple(shape) == ()
+    except TypeError:
+        return False
+
+
 def _contains_nonfinite(value: Any, *, allow_none: bool = True) -> bool:
     if value is None:
         return not allow_none
-    if isinstance(value, bool):
+    if _is_bool_like(value):
         return False
     if _is_missing_optional_cell(value):
         return True
@@ -1070,6 +1233,9 @@ def _contains_nonfinite(value: Any, *, allow_none: bool = True) -> bool:
         return not value.is_finite()
     if isinstance(value, Real):
         return not math.isfinite(float(value))
+    array_nonfinite = _numpy_array_contains_nonfinite(value, allow_none=allow_none)
+    if array_nonfinite is not None:
+        return array_nonfinite
     if isinstance(value, Mapping):
         return any(_contains_nonfinite(key, allow_none=allow_none) for key in value) or any(
             _contains_nonfinite(item, allow_none=allow_none) for item in value.values()
@@ -1118,6 +1284,8 @@ def _stress_curve_key(values: Mapping[str, Any], severity: float) -> tuple[Any, 
         _missing_to_none(values["segment"]),
         _missing_to_none(values["partition"]),
         _missing_to_none(values["source_model"]),
+        _missing_to_none(values["method"]),
+        _missing_to_none(values["pd_source"]),
         _missing_to_none(values["stress_scenario"]),
         _missing_to_none(values["base_forward_scenario"]),
         severity,
@@ -1137,7 +1305,7 @@ def _validate_kind(value: Any) -> None:
 
 def _validate_scenario_name(value: Any) -> str:
     normalized = _validate_non_empty_text(value, field_name="scenario")
-    if normalized in _RESERVED_SCENARIOS:
+    if normalized.lower() in _RESERVED_SCENARIOS:
         raise ValueError("scenario no puede ser mean, average ni weighted_mean_input.")
     return normalized
 
@@ -1167,6 +1335,8 @@ def _validate_macro_variable_set_cell(value: Any) -> None:
             raise ValueError("macro_variable_set no puede estar vacío.")
         if _contains_missing_cell(value):
             raise ValueError("macro_variable_set no puede contener faltantes.")
+        for item in value:
+            _validate_non_empty_text(item, field_name="macro_variable_set")
         return
     raise ValueError("macro_variable_set debe ser texto o una colección no vacía.")
 
@@ -1174,11 +1344,19 @@ def _validate_macro_variable_set_cell(value: Any) -> None:
 def _validate_optional_scalar_cell(value: Any, *, field_name: str) -> None:
     if value is None:
         return
-    if _contains_nonfinite(value, allow_none=False) or isinstance(
-        value,
-        Mapping | list | tuple | set | frozenset,
+    if (
+        _contains_nonfinite(value, allow_none=False)
+        or _is_numpy_array(value)
+        or isinstance(
+            value,
+            Mapping | list | tuple | set | frozenset,
+        )
     ):
         raise ValueError(f"{field_name} debe ser escalar o None.")
+    try:
+        hash(value)
+    except TypeError as exc:
+        raise ValueError(f"{field_name} debe ser escalar o None.") from exc
 
 
 def _contains_missing_cell(value: Any) -> bool:
@@ -1203,13 +1381,13 @@ def _validate_non_empty_text(value: Any, *, field_name: str) -> str:
 
 
 def _integer_value(value: Any, *, field_name: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
+    if _is_bool_like(value) or not isinstance(value, int):
         raise ValueError(f"{field_name} debe ser entero.")
     return value
 
 
 def _optional_integer_value(value: Any, *, field_name: str) -> int:
-    if isinstance(value, bool):
+    if _is_bool_like(value):
         raise ValueError(f"{field_name} debe ser entero.")
     if isinstance(value, int):
         return value
@@ -1251,7 +1429,7 @@ def _optional_frame_float(value: Any, *, field_name: str) -> float | None:
 def _is_missing_optional_cell(value: Any) -> bool:
     if value is None:
         return True
-    if isinstance(value, bool):
+    if _is_bool_like(value):
         return False
     if isinstance(value, Real):
         return math.isnan(float(value))
@@ -1284,7 +1462,7 @@ def _normalize_non_negative_float(value: Any) -> float:
 
 
 def _normalize_required_float(value: Any) -> float:
-    if isinstance(value, bool):
+    if _is_bool_like(value):
         raise ValueError("Los valores float deben ser números finitos.")
     if isinstance(value, Decimal):
         if not value.is_finite():
@@ -1305,8 +1483,8 @@ def _normalize_float(value: float) -> float:
 
 
 def _normalize_summary_value(value: Any) -> str | int | float | bool:
-    if isinstance(value, bool):
-        return value
+    if _is_bool_like(value):
+        return bool(value)
     if isinstance(value, str):
         return value
     if isinstance(value, Integral):
@@ -1323,8 +1501,8 @@ def _normalize_frame_cell(value: Any) -> Any:
         if value.is_finite() and float(value) == 0.0:
             return 0.0
         return value
-    if isinstance(value, bool):
-        return value
+    if _is_bool_like(value):
+        return bool(value)
     if isinstance(value, Integral):
         return int(value)
     if isinstance(value, Real):
@@ -1348,8 +1526,10 @@ def _normalize_frame_cell(value: Any) -> Any:
 
 def _normalize_metric_payload(value: Any) -> Any:
     _ensure_no_missing_or_nonfinite(value, field_name="metric_sections")
-    if isinstance(value, bool):
-        return value
+    if _is_bool_like(value):
+        return bool(value)
+    if _is_numpy_array(value):
+        raise ValueError("metric_sections no admite arreglos NumPy; use listas JSON.")
     if isinstance(value, Integral):
         return int(value)
     if isinstance(value, Decimal):
@@ -1388,8 +1568,8 @@ def _ensure_no_missing_or_nonfinite(value: Any, *, field_name: str) -> None:
 
 
 def _normalize_public_string_atom(value: Any) -> str:
-    if isinstance(value, bool):
-        return str(value)
+    if _is_bool_like(value):
+        return str(bool(value))
     if isinstance(value, Integral):
         return str(int(value))
     if isinstance(value, Decimal):
@@ -1397,6 +1577,35 @@ def _normalize_public_string_atom(value: Any) -> str:
     if isinstance(value, Real):
         return str(_normalize_float(float(value)))
     return str(value)
+
+
+def _is_numpy_array(value: Any) -> bool:
+    value_type = type(value)
+    return (
+        value_type.__module__.split(".", maxsplit=1)[0] == "numpy"
+        and value_type.__name__ == "ndarray"
+    )
+
+
+def _numpy_array_contains_nonfinite(value: Any, *, allow_none: bool) -> bool | None:
+    if not _is_numpy_array(value):
+        return None
+    try:
+        np = cast("Any", importlib.import_module("numpy"))
+    except ModuleNotFoundError:
+        return None
+    array = np.asarray(value)
+    if bool(array.dtype.hasobject):
+        return any(
+            _contains_nonfinite(item, allow_none=allow_none) for item in array.reshape(-1).tolist()
+        )
+    if bool(np.issubdtype(array.dtype, np.number)):
+        return bool((~np.isfinite(array)).any())
+    if bool(np.issubdtype(array.dtype, np.datetime64)) or bool(
+        np.issubdtype(array.dtype, np.timedelta64)
+    ):
+        return bool(np.isnat(array).any())
+    return False
 
 
 def _default_metric_sections() -> dict[str, Any]:

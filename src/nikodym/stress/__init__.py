@@ -45,16 +45,21 @@ from nikodym.stress.exceptions import (
 _schema._STRESS_CONFIG_CLS = StressConfig
 
 _RESULT_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "EclEngineLike": ("nikodym.stress.engine", "EclEngineLike"),
+    "ProvisionEngineLike": ("nikodym.stress.engine", "ProvisionEngineLike"),
     "ReverseStressResult": ("nikodym.stress.results", "ReverseStressResult"),
     "StressCard": ("nikodym.stress.results", "StressCard"),
     "StressDiagnostics": ("nikodym.stress.results", "StressDiagnostics"),
     "StressResult": ("nikodym.stress.results", "StressResult"),
     "StressScenarioResult": ("nikodym.stress.results", "StressScenarioResult"),
     "StressSensitivityResult": ("nikodym.stress.results", "StressSensitivityResult"),
+    "StressTestEngine": ("nikodym.stress.engine", "StressTestEngine"),
 }
 
 __all__ = [
+    "EclEngineLike",
     "NonMonotonicStressError",
+    "ProvisionEngineLike",
     "ReverseStressConfig",
     "ReverseStressError",
     "ReverseStressResult",
@@ -81,6 +86,7 @@ __all__ = [
     "StressSensitivityResult",
     "StressShockConfig",
     "StressTargetConfig",
+    "StressTestEngine",
     "StressValidationConfig",
 ]
 

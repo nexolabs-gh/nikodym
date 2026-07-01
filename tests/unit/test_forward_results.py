@@ -541,6 +541,21 @@ def test_forward_result_envuelve_frames_ecl_term_structure_y_copias() -> None:
         _result(extra="no permitido")
 
 
+def test_forward_ecl_input_permite_lgd_faltante() -> None:
+    """El contrato hacia ECL acepta LGD ausente para que SDD-16 pueda aportarla."""
+    term = _term_structure_frame().drop(columns=["lgd", "lgd_base"])
+
+    ecl_input = _ecl_input(term_structure_frame=term)
+
+    assert tuple(ecl_input.term_structure_frame.columns) == tuple(term.columns)
+    partial_term = _term_structure_frame().drop(columns=["lgd"])
+    partial_ecl_input = _ecl_input(term_structure_frame=partial_term)
+    assert tuple(partial_ecl_input.term_structure_frame.columns) == tuple(partial_term.columns)
+    forward_results._validate_forward_term_structure_values(partial_term)
+    with pytest.raises(ValidationError, match="columnas canónicas"):
+        _result(forward_term_structure_frame=term)
+
+
 def test_forward_result_none_diagnostico_y_validaciones() -> None:
     """Modo diagnóstico retorna ``None`` y rechaza contratos estructurales rotos."""
     diagnostic = _result(

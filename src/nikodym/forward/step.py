@@ -120,7 +120,6 @@ _WEIGHT_GROUP_COLUMNS: Final[tuple[str, ...]] = (
 )
 _MACRO_HISTORY_ARTIFACT: Final[ArtifactKey] = ("forward", "macro_history")
 _PANDAS_EXTRA_MESSAGE: Final = "ForwardStep requiere pandas; instale las dependencias base."
-_CONTRACT_VERSION: Final = "SDD-20:1.0.0"
 
 
 @register("standard", domain="forward")
@@ -685,7 +684,7 @@ def _ecl_input(
     diagnostics: ForwardDiagnostics,
 ) -> ForwardEclInput:
     """Construye el gancho ECL sin importar ``nikodym.provisioning.ifrs9``."""
-    from nikodym.forward.results import ForwardEclInput
+    from nikodym.forward.results import FORWARD_ECL_CONTRACT_VERSION, ForwardEclInput
 
     return ForwardEclInput(
         term_structure_frame=forward_term_structure.copy(deep=True),
@@ -696,7 +695,7 @@ def _ecl_input(
             "pit_warnings": diagnostics.pit_warnings,
             "pit_decisions": diagnostics.pit_decisions,
         },
-        contract_version=_CONTRACT_VERSION,
+        contract_version=FORWARD_ECL_CONTRACT_VERSION,
     )
 
 

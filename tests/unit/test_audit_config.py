@@ -85,7 +85,7 @@ def test_import_core_no_arrastra_audit_ni_stack_tabular() -> None:
     """El gate liviano se preserva en un proceso fresco."""
     code = (
         "import nikodym.core, sys;"
-        "mods=('nikodym.audit','nikodym.data','pandera','pyarrow','pandas');"
+        "mods=('nikodym.audit','nikodym.data','pandera','pyarrow','pandas','numpy');"
         "assert not [m for m in mods if m in sys.modules]"
     )
     subprocess.run(
