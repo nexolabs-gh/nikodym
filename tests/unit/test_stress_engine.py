@@ -38,6 +38,7 @@ from nikodym.stress.config import (
 )
 from nikodym.stress.engine import EclEngineLike, ProvisionEngineLike, StressTestEngine
 from nikodym.stress.exceptions import (
+    NonMonotonicStressError,
     ReverseStressError,
     StressDependencyError,
     StressEngineError,
@@ -763,7 +764,7 @@ def test_stress_engine_golden_satellite_ecl_y_attrs() -> None:
     size_event = audit_by_rule["stress_size_estimate"]
     assert size_event["accion"] == "diagnose"
     assert size_event["umbral"] == {
-        "expression": "term_structure_rows * scenario_count",
+        "expression": "term_structure_rows * (scenario_count + sensitivity_evaluations)",
         "configurable_limit": None,
     }
     assert size_event["valor"]["macro_rows"] == len(macro.index)
@@ -793,7 +794,7 @@ def test_stress_engine_golden_satellite_ecl_y_attrs() -> None:
         abs=1e-10,
     )
     assert result.diagnostics.scenario_count == 1
-    assert result.diagnostics.dependency_versions["nikodym.stress.engine"] == "B21.3"
+    assert result.diagnostics.dependency_versions["nikodym.stress.engine"] == "B21.4"
     assert result.card.metric_sections["scenario_impacts"]["metrics"] == (
         "pd_marginal",
         "pd_cumulative",
@@ -3295,22 +3296,6 @@ def test_publicacion_term_structure_none_y_features_diferidas_en_run() -> None:
     with pytest.raises(StressEngineError, match="include_baseline_rows=False"):
         _run_forward_only(no_baseline_cfg)
 
-    sensitivity_cfg = StressConfig.model_construct(
-        type="standard",
-        input=StressInputConfig(),
-        scenarios=(_scenario(),),
-        sensitivities=(SensitivitySweepConfig(name="grid_x", factor="x", shock_value=1.0),),
-        reverse=(),
-        output=StressOutputConfig(metrics=("pd_marginal",)),
-        validation=StressValidationConfig(
-            require_dominates_forward_adverse=False,
-            fail_on_falta_dato=False,
-            fail_on_missing_ecl_engine=True,
-        ),
-    )
-    with pytest.raises(StressEngineError, match=r"B21\.4"):
-        _run_forward_only(sensitivity_cfg)
-
     reverse_cfg = StressConfig.model_construct(
         type="standard",
         input=StressInputConfig(),
@@ -4292,6 +4277,7 @@ def test_helpers_satellite_economicos_y_frames_privados() -> None:
             forward_ecl_term_structure=term,
             context=missing_ecl_context,
             cfg=_cfg(metrics=("ecl",)),
+            metrics=("ecl",),
         )
 
     missing_provision_context = engine_module._RunContext(
@@ -4314,6 +4300,7 @@ def test_helpers_satellite_economicos_y_frames_privados() -> None:
             forward_ecl_term_structure=stress_term,
             context=missing_provision_context,
             cfg=_cfg(metrics=("provision",)),
+            metrics=("provision",),
         )
 
     with pytest.raises(StressOutputError, match="baseline"):
@@ -5208,12 +5195,12 @@ def test_helpers_numericos_missing_e_imports(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_stubs_diferidos_y_export_lazy_import_guard() -> None:
-    """Sensibilidad/reverse quedan explícitos y ``nikodym.stress`` sigue liviano."""
+    """Reverse queda diferido, sensibilidad exige contexto y ``nikodym.stress`` sigue liviano."""
     cfg = _cfg(metrics=("pd_marginal",))
     engine = StressTestEngine.from_config(cfg)
     with pytest.raises(StressEngineError, match="run\\(\\.\\.\\.\\) primero"):
         engine.run_scenario(cfg.scenarios[0])
-    with pytest.raises(StressEngineError, match=r"B21\.4"):
+    with pytest.raises(StressEngineError, match="run\\(\\.\\.\\.\\) primero"):
         engine.run_sensitivity(SensitivitySweepConfig(name="grid_x", factor="x", shock_value=1.0))
     with pytest.raises(ReverseStressError, match=r"B21\.5"):
         engine.run_reverse_stress(
@@ -5428,3 +5415,431 @@ def _ecl_input(term: pd.DataFrame) -> ForwardEclInput:
         pit_consistency={"basis": "pit"},
         contract_version=FORWARD_ECL_CONTRACT_VERSION,
     )
+
+
+# ─────────────────────────────── B21.4 sensibilidad ───────────────────────────────
+
+
+def _sweep_cfg(
+    sweep: SensitivitySweepConfig,
+    *,
+    metrics: tuple[str, ...],
+    fail_on_missing_ecl_engine: bool = True,
+) -> StressConfig:
+    """Construye un ``StressConfig`` con un barrido de sensibilidad para los tests B21.4."""
+    return StressConfig(
+        scenarios=(_scenario(),),
+        sensitivities=(sweep,),
+        output=StressOutputConfig(metrics=metrics),  # type: ignore[arg-type]
+        validation=StressValidationConfig(
+            require_dominates_forward_adverse=False,
+            fail_on_falta_dato=False,
+            fail_on_missing_ecl_engine=fail_on_missing_ecl_engine,
+        ),
+    )
+
+
+def test_run_sensitivity_golden_ecl_creciente() -> None:
+    """El barrido ECL reproduce los goldens SDD-21 §11 y publica una curva creciente."""
+    sweep = SensitivitySweepConfig(
+        name="ecl_sweep",
+        factor="x",
+        shock_value=1.0,
+        severity_grid=(0.0, 1.0, 1.25),
+        metric="ecl",
+    )
+    cfg = _sweep_cfg(sweep, metrics=("ecl",))
+    macro = _macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0})
+    term = _forward_term_structure([0.02])
+    audit = InMemoryAuditSink()
+
+    result = StressTestEngine.from_config(cfg).run(
+        forward_ecl_input=_ecl_input(term),
+        macro_projection=macro,
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term,
+        scenario_weighting=ScenarioWeightingStub(),
+        ecl_engine=EclStub(),
+        audit=audit,
+    )
+
+    assert result.diagnostics.sensitivity_count == 1
+    sweep_result = result.sensitivity_results[0]
+    assert sweep_result.sweep_name == "ecl_sweep"
+    assert sweep_result.factor == "x"
+    assert sweep_result.severity_grid == (0.0, 1.0, 1.25)
+    assert sweep_result.monotonicity_flag == "increasing"
+
+    frame = sweep_result.sensitivity_frame.sort_values("severity").reset_index(drop=True)
+    assert set(frame["scenario_kind"]) == {"sensitivity"}
+    by_sev = {round(float(row.severity), 4): row for row in frame.itertuples(index=False)}
+    assert by_sev[0.0].value_base == pytest.approx(9.0, abs=1e-10)
+    assert by_sev[0.0].value_stress == pytest.approx(9.0, abs=1e-10)
+    assert by_sev[0.0].absolute_delta == pytest.approx(0.0, abs=1e-12)
+    assert by_sev[1.0].value_base == pytest.approx(9.0, abs=1e-10)
+    assert by_sev[1.0].value_stress == pytest.approx(14.6484363909, abs=1e-10)
+    assert by_sev[1.0].absolute_delta == pytest.approx(5.6484363909, abs=1e-10)
+    assert by_sev[1.25].value_stress == pytest.approx(16.5272197816, abs=1e-10)
+    delta_ecl = float(by_sev[1.25].value_stress) - float(by_sev[1.0].value_stress)
+    assert delta_ecl == pytest.approx(1.8787833907, abs=1e-10)
+    # PD implícita en severidad 1.25 (ECL = PD * 0.45 * 1000).
+    assert float(by_sev[1.25].value_stress) / 450.0 == pytest.approx(0.0367271551, abs=1e-10)
+
+    # El baseline público usa M(x) = value_base, no el value_stress de un severity=0 sintético.
+    baseline = sweep_result.baseline_metric_frame
+    assert baseline["value_base"].tolist() == pytest.approx([9.0], abs=1e-10)
+    assert baseline["metric"].tolist() == ["ecl"]
+
+    # El baseline y la curva aparecen también en result.tidy().
+    tidy = result.tidy()
+    sensitivity_tidy = tidy[tidy["scenario_kind"] == "sensitivity"]
+    assert len(sensitivity_tidy.index) == 3
+    assert 0.0 in {round(float(value), 4) for value in sensitivity_tidy["severity"].tolist()}
+
+    # El audit del barrido registra la métrica efectiva y la monotonicidad.
+    sweep_events = [
+        event.payload for event in audit.events if event.payload["regla"] == "stress_sensitivity"
+    ]
+    assert len(sweep_events) == 1
+    assert sweep_events[0]["umbral"]["metric"] == "ecl"
+    assert sweep_events[0]["umbral"]["group_cols"] == ("scenario",)
+    assert sweep_events[0]["valor"]["monotonicity_flag"] == "increasing"
+    assert sweep_events[0]["valor"]["n_sensitivity_evaluations"] == 3
+    assert sweep_events[0]["accion"] == "evaluate"
+
+    # run_sensitivity standalone (contexto ya cargado) reproduce el barrido.
+    engine = StressTestEngine.from_config(cfg)
+    engine.run(
+        forward_ecl_input=_ecl_input(term),
+        macro_projection=macro,
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term,
+        scenario_weighting=ScenarioWeightingStub(),
+        ecl_engine=EclStub(),
+    )
+    standalone = engine.run_sensitivity(sweep)
+    assert standalone.monotonicity_flag == "increasing"
+    assert standalone.sensitivity_frame.sort_values("severity")["value_stress"].tolist() == (
+        pytest.approx(frame["value_stress"].tolist(), abs=1e-10)
+    )
+
+
+def test_run_sensitivity_group_cols_agrega_por_segmento() -> None:
+    """``group_cols=('segment',)`` colapsa cuentas a una fila por segmento (agregación real)."""
+
+    class SegmentedEclStub:
+        """Engine ECL que publica ``account_id`` y ``segment`` como dimensiones."""
+
+        def calculate(self, ecl_input: ForwardEclInput) -> pd.DataFrame:
+            """Calcula ECL por cuenta conservando ``account_id`` y ``segment``."""
+            term = ecl_input.term_structure_frame
+            assert term is not None
+            return pd.DataFrame(
+                {
+                    "period": term["period"].tolist(),
+                    "account_id": term["row_id"].tolist(),
+                    "segment": term["segment"].tolist(),
+                    "ecl": (term["pd_marginal"].astype(float) * term["lgd"].astype(float) * 1000.0),
+                }
+            )
+
+    acc1 = _forward_term_structure([0.02])
+    acc1.loc[:, "row_id"] = "acc-1"
+    acc1.loc[:, "segment"] = "retail"
+    acc2 = _forward_term_structure([0.03])
+    acc2.loc[:, "row_id"] = "acc-2"
+    acc2.loc[:, "segment"] = "retail"
+    term = pd.concat([acc1, acc2], ignore_index=True)
+    macro = _macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0})
+
+    def run_with(group_cols: tuple[str, ...]) -> pd.DataFrame:
+        sweep = SensitivitySweepConfig(
+            name="seg_sweep",
+            factor="x",
+            shock_value=1.0,
+            severity_grid=(0.0, 1.0),
+            metric="ecl",
+            group_cols=group_cols,
+        )
+        result = StressTestEngine.from_config(_sweep_cfg(sweep, metrics=("ecl",))).run(
+            forward_ecl_input=_ecl_input(term),
+            macro_projection=macro,
+            satellite_model=SatelliteStub(),
+            forward_term_structure=term,
+            scenario_weighting=ScenarioWeightingStub(),
+            ecl_engine=SegmentedEclStub(),
+        )
+        return result.sensitivity_results[0].sensitivity_frame
+
+    fine = run_with(("account_id", "segment"))
+    coarse = run_with(("segment",))
+
+    fine_sev1 = fine[fine["severity"] == 1.0]
+    coarse_sev1 = coarse[coarse["severity"] == 1.0]
+    # Fine: dos filas por severidad (una por cuenta); coarse: una fila por segmento.
+    assert len(fine_sev1.index) == 2
+    assert len(coarse_sev1.index) == 1
+    # El segmento agrega la suma de ambas cuentas, no las deja separadas.
+    assert coarse_sev1.iloc[0]["value_stress"] == pytest.approx(
+        float(fine_sev1["value_stress"].sum()), abs=1e-10
+    )
+    assert coarse_sev1.iloc[0]["value_base"] == pytest.approx(
+        float(fine_sev1["value_base"].sum()), abs=1e-10
+    )
+    assert json.loads(coarse_sev1.iloc[0]["group_key"]) == {"segment": "retail"}
+
+
+def test_run_sensitivity_group_cols_dimension_no_publicada_falla() -> None:
+    """Agrupar por una dimensión que el impacto no publica levanta ``StressEngineError``."""
+    sweep = SensitivitySweepConfig(
+        name="bad_group",
+        factor="x",
+        shock_value=1.0,
+        severity_grid=(0.0, 1.0),
+        metric="ecl",
+        group_cols=("segment",),
+    )
+    term = _forward_term_structure([0.02])
+    with pytest.raises(StressEngineError, match="agrupa por 'segment'"):
+        StressTestEngine.from_config(_sweep_cfg(sweep, metrics=("ecl",))).run(
+            forward_ecl_input=_ecl_input(term),
+            macro_projection=_macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0}),
+            satellite_model=SatelliteStub(),
+            forward_term_structure=term,
+            scenario_weighting=ScenarioWeightingStub(),
+            ecl_engine=EclStub(),
+        )
+
+
+def test_run_sensitivity_no_monotonico_marca_flag_y_bloquea() -> None:
+    """Un engine no monotónico marca ``non_monotonic`` y bloquea si ``require_monotonic``."""
+
+    class NonMonotonicEclStub:
+        """Engine ECL convexo en PD: sube y baja a lo largo de la grilla."""
+
+        def calculate(self, ecl_input: ForwardEclInput) -> pd.DataFrame:
+            """Calcula ECL = 1000·(pd_marginal - 0.03)² (no monotónico en severidad)."""
+            term = ecl_input.term_structure_frame
+            assert term is not None
+            pd_marginal = term["pd_marginal"].astype(float)
+            return pd.DataFrame(
+                {
+                    "period": term["period"].tolist(),
+                    "ecl": (1000.0 * (pd_marginal - 0.03) ** 2),
+                }
+            )
+
+    term = _forward_term_structure([0.02])
+    macro = _macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0})
+
+    def build(require_monotonic: bool) -> StressConfig:
+        sweep = SensitivitySweepConfig(
+            name="nm_sweep",
+            factor="x",
+            shock_value=1.0,
+            severity_grid=(0.0, 1.0, 2.0),
+            metric="ecl",
+            require_monotonic=require_monotonic,
+        )
+        return _sweep_cfg(sweep, metrics=("ecl",))
+
+    lenient = StressTestEngine.from_config(build(False)).run(
+        forward_ecl_input=_ecl_input(term),
+        macro_projection=macro,
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term,
+        scenario_weighting=ScenarioWeightingStub(),
+        ecl_engine=NonMonotonicEclStub(),
+    )
+    assert lenient.sensitivity_results[0].monotonicity_flag == "non_monotonic"
+
+    with pytest.raises(NonMonotonicStressError, match="no es monotónico"):
+        StressTestEngine.from_config(build(True)).run(
+            forward_ecl_input=_ecl_input(term),
+            macro_projection=macro,
+            satellite_model=SatelliteStub(),
+            forward_term_structure=term,
+            scenario_weighting=ScenarioWeightingStub(),
+            ecl_engine=NonMonotonicEclStub(),
+        )
+
+
+def test_run_sensitivity_forward_only_sin_engine() -> None:
+    """Un barrido ``pd_marginal`` corre sin engine ECL y publica ``forward_only``."""
+    sweep = SensitivitySweepConfig(
+        name="pd_sweep",
+        factor="x",
+        shock_value=1.0,
+        severity_grid=(0.0, 1.0, 2.0),
+        metric="pd_marginal",
+        group_cols=("scenario",),
+    )
+    term = _forward_term_structure([0.02])
+    result = StressTestEngine.from_config(_sweep_cfg(sweep, metrics=("pd_marginal",))).run(
+        forward_ecl_input=_ecl_input(term),
+        macro_projection=_macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0}),
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term,
+        scenario_weighting=ScenarioWeightingStub(),
+    )
+    sweep_result = result.sensitivity_results[0]
+    assert sweep_result.monotonicity_flag == "increasing"
+    frame = sweep_result.sensitivity_frame.sort_values("severity").reset_index(drop=True)
+    assert set(frame["engine_source"]) == {"forward_only"}
+    by_sev = {round(float(row.severity), 4): row for row in frame.itertuples(index=False)}
+    assert by_sev[0.0].value_stress == pytest.approx(0.02, abs=1e-10)
+    assert by_sev[1.0].value_stress == pytest.approx(0.0325520809, abs=1e-10)
+
+
+def test_run_sensitivity_degradacion_sin_ecl_engine() -> None:
+    """Métrica económica sin engine y ``fail=False`` degrada con FALTA-DATO-STR-5, sin crash."""
+    sweep = SensitivitySweepConfig(
+        name="ecl_degradado",
+        factor="x",
+        shock_value=1.0,
+        severity_grid=(0.0, 1.0),
+        metric="ecl",
+    )
+    term = _forward_term_structure([0.02])
+    result = StressTestEngine.from_config(
+        _sweep_cfg(sweep, metrics=("pd_marginal",), fail_on_missing_ecl_engine=False)
+    ).run(
+        forward_ecl_input=_ecl_input(term),
+        macro_projection=_macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0}),
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term,
+        scenario_weighting=ScenarioWeightingStub(),
+    )
+    sweep_result = result.sensitivity_results[0]
+    assert sweep_result.monotonicity_flag == "flat"
+    assert len(sweep_result.sensitivity_frame.index) == 0
+    assert len(sweep_result.baseline_metric_frame.index) == 0
+    assert "FALTA-DATO-STR-5" in result.diagnostics.warning_codes
+    assert "FALTA-DATO-STR-5" in result.diagnostics.falta_dato_codes
+
+
+def test_run_sensitivity_ratio_agregado_unico() -> None:
+    """Un barrido de ratio publica el ratio agregado por período/grupo."""
+    sweep = SensitivitySweepConfig(
+        name="ratio_sweep",
+        factor="x",
+        shock_value=1.0,
+        severity_grid=(0.0, 1.0),
+        metric="ratio",
+    )
+    term = _forward_term_structure([0.02])
+    result = StressTestEngine.from_config(_sweep_cfg(sweep, metrics=("ratio",))).run(
+        forward_ecl_input=_ecl_input(term),
+        macro_projection=_macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0}),
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term,
+        scenario_weighting=ScenarioWeightingStub(),
+        ecl_engine=RatioEclStub(),
+    )
+    frame = result.sensitivity_results[0].sensitivity_frame
+    assert set(frame["metric"]) == {"ratio"}
+    assert frame.iloc[0]["value_base"] == pytest.approx(0.60)
+    assert frame.iloc[0]["value_stress"] == pytest.approx(0.70)
+
+
+def test_run_sensitivity_nombres_unicos_y_sin_colision() -> None:
+    """Los barridos no pueden colisionar con escenarios ni repetirse entre sí."""
+    term = _forward_term_structure([0.02])
+    macro = _macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0})
+
+    def run(sensitivities: tuple[SensitivitySweepConfig, ...]) -> None:
+        cfg = StressConfig(
+            scenarios=(_scenario(),),
+            sensitivities=sensitivities,
+            output=StressOutputConfig(metrics=("pd_marginal",)),
+            validation=StressValidationConfig(
+                require_dominates_forward_adverse=False,
+                fail_on_falta_dato=False,
+                fail_on_missing_ecl_engine=True,
+            ),
+        )
+        StressTestEngine.from_config(cfg).run(
+            forward_ecl_input=_ecl_input(term),
+            macro_projection=macro,
+            satellite_model=SatelliteStub(),
+            forward_term_structure=term,
+            scenario_weighting=ScenarioWeightingStub(),
+        )
+
+    with pytest.raises(StressScenarioError, match="colisiona con un escenario"):
+        run(
+            (
+                SensitivitySweepConfig(
+                    name="severe_plus", factor="x", shock_value=1.0, metric="pd_marginal"
+                ),
+            )
+        )
+    with pytest.raises(StressScenarioError, match="no puede repetir"):
+        run(
+            (
+                SensitivitySweepConfig(
+                    name="dup", factor="x", shock_value=1.0, metric="pd_marginal"
+                ),
+                SensitivitySweepConfig(
+                    name="dup", factor="x", shock_value=1.0, metric="pd_marginal"
+                ),
+            )
+        )
+
+
+def test_helpers_sensibilidad_monotonicidad_y_group_key() -> None:
+    """Cobertura directa de los helpers de clasificación, parseo y agregación del barrido."""
+    classify = engine_module._classify_monotonicity
+    combine = engine_module._combine_monotonicity
+    assert classify([1.0, 2.0, 3.0], tol=1e-9) == "increasing"
+    assert classify([3.0, 2.0, 1.0], tol=1e-9) == "decreasing"
+    assert classify([1.0, 1.0, 1.0], tol=1e-9) == "flat"
+    assert classify([1.0, 3.0, 2.0], tol=1e-9) == "non_monotonic"
+    assert classify([1.0], tol=1e-9) == "flat"
+    assert combine(["increasing", "flat"]) == "increasing"
+    assert combine(["decreasing", "flat"]) == "decreasing"
+    assert combine(["increasing", "decreasing"]) == "non_monotonic"
+    assert combine(["non_monotonic", "increasing"]) == "non_monotonic"
+    assert combine(["flat", "flat"]) == "flat"
+    assert combine([]) == "flat"
+
+    parse = engine_module._parse_impact_group_key
+    assert parse('{"segment":"retail"}') == {"segment": "retail"}
+    assert parse("portfolio") is None
+    assert parse("123") is None
+    assert parse(123) is None
+
+    aggregate = engine_module._aggregate_sweep_metric
+    assert aggregate([0.5], metric="ratio") == pytest.approx(0.5)
+    assert aggregate([9.0, 7.0], metric="ecl") == pytest.approx(16.0)
+    assert aggregate([0.2, 0.4], metric="pd_marginal") == pytest.approx(0.3)
+    with pytest.raises(StressOutputError, match="una fila agregada única"):
+        aggregate([0.5, 0.6], metric="ratio")
+
+    sweep = SensitivitySweepConfig(name="probe", factor="x", shock_value=1.0, metric="ecl")
+    zero_base = engine_module._sensitivity_impact_row(
+        sweep=sweep,
+        severity=0.0,
+        coarse={
+            "value_base": 0.0,
+            "value_stress": 0.0,
+            "group_key": "portfolio",
+            "period": 1,
+            "engine_source": "ecl_engine",
+            "warning_codes": (),
+        },
+    )
+    assert zero_base["relative_delta"] is None
+    positive_base = engine_module._sensitivity_impact_row(
+        sweep=sweep,
+        severity=1.0,
+        coarse={
+            "value_base": 10.0,
+            "value_stress": 15.0,
+            "group_key": "portfolio",
+            "period": 1,
+            "engine_source": "ecl_engine",
+            "warning_codes": (),
+        },
+    )
+    assert positive_base["relative_delta"] == pytest.approx(0.5)

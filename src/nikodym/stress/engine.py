@@ -1,9 +1,9 @@
-"""Motor determinista de stress testing severo (SDD-21 B21.3).
+"""Motor determinista de stress testing severo (SDD-21 B21.3/B21.4).
 
-El módulo implementa la primera parte ejecutable del contrato ``stress``: escenarios severos,
-shocks macro, propagación satellite en escala logit y métricas forward/ECL/provisión básicas. No
-implementa aún barridos de sensibilidad ni reverse stress; esos contratos quedan como errores
-explícitos hasta B21.4/B21.5.
+El módulo implementa los contratos ejecutables de ``stress``: escenarios severos, shocks macro,
+propagación satellite en escala logit, métricas forward/ECL/provisión básicas (B21.3) y barridos
+deterministas de sensibilidad por factor (B21.4). El reverse stress queda como error explícito
+hasta B21.5.
 
 No importa ``pandas``, ``numpy`` ni motores de provisión al cargar el módulo. Esas dependencias se
 cargan perezosamente dentro de los métodos de ejecución.
@@ -51,6 +51,7 @@ from nikodym.stress.config import (
     StressTargetConfig,
 )
 from nikodym.stress.exceptions import (
+    NonMonotonicStressError,
     ReverseStressError,
     StressDependencyError,
     StressEngineError,
@@ -339,7 +340,16 @@ _FORWARD_ECL_CONTRACT_VERSION = FORWARD_ECL_CONTRACT_VERSION
 _FORWARD_ECL_CHAIN = (
     "macro_projection → satellite_model → pd_lgd_term_structure → ecl_engine → scenario_weighting"
 )
-_STRESS_ENGINE_VERSION = "B21.3"
+_STRESS_ENGINE_VERSION = "B21.4"
+_SENSITIVITY_BASELINE_COLUMNS: tuple[str, ...] = (
+    "sweep_name",
+    "factor",
+    "metric",
+    "engine_source",
+    "group_key",
+    "period_label",
+    "value_base",
+)
 _RESERVED_SCENARIO_NAMES = frozenset({"mean", "average", "weighted_mean_input"})
 _WEIGHTED_MEAN_INPUT_COLUMN = "weighted_mean_input"
 _RUNTIME_STATE_ATTRIBUTE_NAMES = frozenset(
@@ -577,7 +587,17 @@ class StressTestEngine:
             for scenario in self.config.scenarios
         )
         self.scenario_results_ = scenario_results
-        self.sensitivity_results_ = ()
+
+        _validate_unique_sensitivity_names(self.config)
+        sensitivity_results: list[StressSensitivityResult] = []
+        sensitivity_frames: list[DataFrame] = []
+        sensitivity_warnings: list[str] = []
+        for sweep in self.config.sensitivities:
+            sweep_result, sweep_warnings = self._run_sensitivity(sweep)
+            sensitivity_results.append(sweep_result)
+            sensitivity_frames.append(sweep_result.sensitivity_frame)
+            sensitivity_warnings.extend(sweep_warnings)
+        self.sensitivity_results_ = tuple(sensitivity_results)
         self.reverse_results_ = ()
 
         stress_scenario_frame = _concat_required_frames(
@@ -593,19 +613,25 @@ class StressTestEngine:
         if not self.config.output.publish_stressed_term_structure:
             stress_term_structure = None
         stress_impact = _concat_required_frames(
-            tuple(result.impact_frame for result in scenario_results),
+            (
+                *tuple(result.impact_frame for result in scenario_results),
+                *tuple(sensitivity_frames),
+            ),
             columns=_IMPACT_COLUMNS,
             pd=pd,
         )
         warning_codes = _dedupe_iterable(
-            code for result in scenario_results for code in result.warning_codes
+            (
+                *(code for result in scenario_results for code in result.warning_codes),
+                *sensitivity_warnings,
+            )
         )
         falta_dato_codes = tuple(
             code for code in warning_codes if code.startswith("FALTA-DATO-STR")
         )
         diagnostics = StressDiagnostics(
             scenario_count=len(scenario_results),
-            sensitivity_count=0,
+            sensitivity_count=len(sensitivity_results),
             reverse_count=0,
             falta_dato_codes=falta_dato_codes,
             warning_codes=warning_codes,
@@ -613,6 +639,7 @@ class StressTestEngine:
         )
         card = _build_card(
             scenario_results=scenario_results,
+            sensitivity_results=tuple(sensitivity_results),
             stress_impact=stress_impact,
             stress_scenarios=stress_scenario_frame,
             stress_term_structure=stress_term_structure,
@@ -620,7 +647,7 @@ class StressTestEngine:
         )
         result = StressResult(
             scenario_results=scenario_results,
-            sensitivity_results=(),
+            sensitivity_results=tuple(sensitivity_results),
             reverse_results=(),
             publish_stressed_term_structure=self.config.output.publish_stressed_term_structure,
             stress_scenario_frame=stress_scenario_frame,
@@ -633,10 +660,14 @@ class StressTestEngine:
         _emit_audit_decision(
             audit,
             regla="stress_result",
-            umbral={"scenario_count": diagnostics.scenario_count},
+            umbral={
+                "scenario_count": diagnostics.scenario_count,
+                "sensitivity_count": diagnostics.sensitivity_count,
+            },
             valor={
                 "scenario_rows": len(stress_scenario_frame.index),
                 "impact_rows": len(stress_impact.index),
+                "sensitivity_rows": sum(len(frame.index) for frame in sensitivity_frames),
                 "term_structure_rows": 0
                 if stress_term_structure is None
                 else len(stress_term_structure.index),
@@ -654,6 +685,20 @@ class StressTestEngine:
         severity: float = 1.0,
     ) -> StressScenarioResult:
         """Ejecuta un escenario/severidad sobre el contexto cargado por ``run``."""
+        return self._run_scenario(
+            scenario,
+            severity=severity,
+            metrics=tuple(self.config.output.metrics),
+        )
+
+    def _run_scenario(
+        self,
+        scenario: StressScenarioConfig,
+        *,
+        severity: float,
+        metrics: tuple[StressMetric, ...],
+    ) -> StressScenarioResult:
+        """Ejecuta un escenario para el conjunto de métricas efectivas indicado."""
         context = self._require_context()
         severity_value = _non_negative_float(severity, field_name="severity")
         _emit_scenario_config(context.audit, scenario=scenario, severity=severity_value)
@@ -700,6 +745,7 @@ class StressTestEngine:
             forward_ecl_term_structure=term_result.forward_ecl_term_structure,
             context=context,
             cfg=self.config,
+            metrics=metrics,
             macro_warning_codes=impact_warning_codes,
             pd=context.pd,
         )
@@ -711,7 +757,7 @@ class StressTestEngine:
             regla="stress_economic_engine",
             umbral={
                 "scenario": scenario.name,
-                "metrics": tuple(self.config.output.metrics),
+                "metrics": tuple(metrics),
             },
             valor={
                 "engine_source": tuple(dict.fromkeys(impact_frame["engine_source"].tolist())),
@@ -737,11 +783,88 @@ class StressTestEngine:
             warning_codes=warning_codes,
         )
 
-    def run_sensitivity(self, sweep: SensitivitySweepConfig) -> object:
-        """Declara explícitamente que sensibilidad se implementa en B21.4."""
-        raise StressEngineError(
-            f"run_sensitivity({sweep.name!r}) está diferido a B21.4; B21.3 solo ejecuta escenarios."
+    def run_sensitivity(self, sweep: SensitivitySweepConfig) -> StressSensitivityResult:
+        """Ejecuta un barrido determinista de sensibilidad de un factor (SDD-21 §3/§7 B21.4).
+
+        Fija ``sweep.factor`` y recorre la grilla ordenada de severidades llamando ``run_scenario``
+        por severidad. La métrica ``sweep.metric`` se reagrega según ``sweep.group_cols`` antes de
+        calcular ``Sensitivity(j, a) = M(x + a·δ) - M(x)`` y la monotonicidad. Exige haber
+        ejecutado ``run(...)`` para cargar el contexto forward.
+        """
+        result, _ = self._run_sensitivity(sweep)
+        return result
+
+    def _run_sensitivity(
+        self,
+        sweep: SensitivitySweepConfig,
+    ) -> tuple[StressSensitivityResult, tuple[str, ...]]:
+        """Ejecuta el barrido y devuelve el resultado más los warnings acumulados."""
+        context = self._require_context()
+        scenario = _sensitivity_scenario(sweep)
+        grid = tuple(
+            _non_negative_float(value, field_name="sensitivity.severity_grid")
+            for value in sweep.severity_grid
         )
+        per_severity: list[tuple[float, list[dict[str, Any]]]] = []
+        warnings_seen: list[str] = []
+        for severity in grid:
+            scenario_result = self._run_scenario(
+                scenario,
+                severity=severity,
+                metrics=(sweep.metric,),
+            )
+            warnings_seen.extend(scenario_result.warning_codes)
+            metric_rows = [
+                row
+                for row in _iter_impact_rows(scenario_result.impact_frame)
+                if row["metric"] == sweep.metric
+            ]
+            per_severity.append((severity, _aggregate_sweep_impacts(metric_rows, sweep=sweep)))
+        sensitivity_frame = _sensitivity_frame(per_severity, sweep=sweep, pd=context.pd)
+        baseline_frame = _sensitivity_baseline_frame(per_severity, sweep=sweep, pd=context.pd)
+        monotonicity_flag = _sweep_monotonicity_flag(
+            per_severity,
+            tol=self.config.validation.metric_tol,
+        )
+        engine_sources = _dedupe_iterable(
+            row["engine_source"] for _, rows in per_severity for row in rows
+        )
+        warning_codes = _dedupe(warnings_seen)
+        blocked = sweep.require_monotonic and monotonicity_flag == "non_monotonic"
+        _emit_audit_decision(
+            context.audit,
+            regla="stress_sensitivity",
+            umbral={
+                "sweep": sweep.name,
+                "factor": sweep.factor,
+                "metric": sweep.metric,
+                "group_cols": tuple(sweep.group_cols),
+                "require_monotonic": sweep.require_monotonic,
+            },
+            valor={
+                "severity_grid": grid,
+                "monotonicity_flag": monotonicity_flag,
+                "n_sensitivity_evaluations": len(grid),
+                "sensitivity_rows": len(sensitivity_frame.index),
+                "engine_sources": engine_sources,
+                "warning_codes": warning_codes,
+            },
+            accion="block" if blocked else "evaluate",
+        )
+        if blocked:
+            raise NonMonotonicStressError(
+                f"El barrido {sweep.name!r} sobre {sweep.factor!r} no es monotónico en la métrica "
+                f"{sweep.metric!r}; grilla evaluada={grid}, flag={monotonicity_flag!r}."
+            )
+        result = StressSensitivityResult(
+            sweep_name=sweep.name,
+            factor=sweep.factor,
+            severity_grid=grid,
+            sensitivity_frame=sensitivity_frame,
+            baseline_metric_frame=baseline_frame,
+            monotonicity_flag=monotonicity_flag,
+        )
+        return result, warning_codes
 
     def run_reverse_stress(
         self,
@@ -763,19 +886,16 @@ class StressTestEngine:
 def _reject_deferred_features(cfg: StressConfig) -> None:
     if not cfg.output.include_baseline_rows:
         raise StressEngineError(
-            "output.include_baseline_rows=False está diferido: B21.3 publica impactos "
+            "output.include_baseline_rows=False está diferido: stress publica impactos "
             "comparables con value_base/value_stress obligatorios."
         )
-    if cfg.sensitivities:
-        names = [sweep.name for sweep in cfg.sensitivities]
-        raise StressEngineError(f"Sensibilidades diferidas a B21.4: {names}.")
     enabled_reverse = [reverse.factor for reverse in cfg.reverse if reverse.enabled]
     if enabled_reverse:
         raise ReverseStressError(f"Reverse stress diferido a B21.5: {enabled_reverse}.")
-    if not cfg.scenarios:
+    if not cfg.scenarios and not cfg.sensitivities:
         raise StressEngineError(
-            "B21.3 exige al menos un escenario severe/custom ejecutable; "
-            "sensibilidades y reverse stress están diferidos."
+            "stress exige al menos un escenario o una sensibilidad ejecutable; "
+            "el reverse stress está diferido a B21.5."
         )
 
 
@@ -2095,6 +2215,7 @@ def _build_impact_frame(
     forward_ecl_term_structure: DataFrame,
     context: _RunContext,
     cfg: StressConfig,
+    metrics: Sequence[StressMetric],
     macro_warning_codes: tuple[str, ...],
     pd: Any,
 ) -> tuple[DataFrame, tuple[str, ...]]:
@@ -2102,7 +2223,7 @@ def _build_impact_frame(
         scenario,
         severity=severity,
         stress_term_structure=stress_term_structure,
-        metrics=cfg.output.metrics,
+        metrics=metrics,
         cfg=cfg,
         audit=context.audit,
         warning_codes=macro_warning_codes,
@@ -2113,6 +2234,7 @@ def _build_impact_frame(
         forward_ecl_term_structure=forward_ecl_term_structure,
         context=context,
         cfg=cfg,
+        metrics=metrics,
         scenario_warning_codes=macro_warning_codes,
     )
     rows.extend(economic_rows)
@@ -2223,9 +2345,10 @@ def _economic_impact_rows(
     forward_ecl_term_structure: DataFrame,
     context: _RunContext,
     cfg: StressConfig,
+    metrics: Sequence[StressMetric],
     scenario_warning_codes: tuple[str, ...] = (),
 ) -> tuple[list[dict[str, Any]], tuple[str, ...]]:
-    requested = set(cfg.output.metrics) & _ECONOMIC_METRICS
+    requested = set(metrics) & _ECONOMIC_METRICS
     if not requested:
         return [], ()
     if context.ecl_engine is None:
@@ -2777,9 +2900,269 @@ def _forward_lgd_insert_position(columns: Sequence[str]) -> int:
     return len(columns)
 
 
+def _sensitivity_scenario(sweep: SensitivitySweepConfig) -> StressScenarioConfig:
+    """Construye el escenario sintético ``custom`` que ejecuta un barrido de sensibilidad."""
+    return StressScenarioConfig(
+        name=sweep.name,
+        kind="custom",
+        base_forward_scenario=sweep.base_forward_scenario,
+        shocks=(
+            StressShockConfig(
+                factor=sweep.factor,
+                operation=sweep.operation,
+                value=sweep.shock_value,
+                source="user",
+            ),
+        ),
+        require_dominates_forward_adverse=False,
+    )
+
+
+def _validate_unique_sensitivity_names(cfg: StressConfig) -> None:
+    """Valida que los nombres de barridos sean únicos y no colisionen con escenarios."""
+    scenario_names = {scenario.name for scenario in cfg.scenarios}
+    seen: set[str] = set()
+    for sweep in cfg.sensitivities:
+        if sweep.name in scenario_names:
+            raise StressScenarioError(
+                f"El barrido {sweep.name!r} colisiona con un escenario de stress del mismo nombre."
+            )
+        if sweep.name in seen:
+            raise StressScenarioError(
+                f"stress.sensitivities no puede repetir el nombre de barrido {sweep.name!r}."
+            )
+        seen.add(sweep.name)
+
+
+def _iter_impact_rows(frame: DataFrame) -> Iterable[dict[str, Any]]:
+    """Itera un impact frame tidy como dicts keyed por columnas canónicas SDD-21 §6."""
+    for row in frame.itertuples(index=False):
+        yield dict(zip(_IMPACT_COLUMNS, row, strict=True))
+
+
+def _aggregate_sweep_impacts(
+    metric_rows: list[dict[str, Any]],
+    *,
+    sweep: SensitivitySweepConfig,
+) -> list[dict[str, Any]]:
+    """Reagrega los impactos de una severidad según ``group_cols`` (agregación real)."""
+    buckets: dict[tuple[str, str, Any], dict[str, Any]] = {}
+    order: list[tuple[str, str, Any]] = []
+    for row in metric_rows:
+        coarse_key = _sweep_group_key(row, sweep=sweep)
+        key = (str(row["engine_source"]), coarse_key, row["period"])
+        bucket = buckets.get(key)
+        if bucket is None:
+            bucket = {"value_base": [], "value_stress": [], "warning_codes": []}
+            buckets[key] = bucket
+            order.append(key)
+        bucket["value_base"].append(row["value_base"])
+        bucket["value_stress"].append(row["value_stress"])
+        bucket["warning_codes"].extend(_warning_tuple(row["warning_codes"]))
+    aggregated: list[dict[str, Any]] = []
+    for engine_source, coarse_key, period in order:
+        bucket = buckets[(engine_source, coarse_key, period)]
+        aggregated.append(
+            {
+                "engine_source": engine_source,
+                "group_key": coarse_key,
+                "period": period,
+                "value_base": _aggregate_sweep_metric(bucket["value_base"], metric=sweep.metric),
+                "value_stress": _aggregate_sweep_metric(
+                    bucket["value_stress"], metric=sweep.metric
+                ),
+                "warning_codes": _dedupe(bucket["warning_codes"]),
+            }
+        )
+    return aggregated
+
+
+def _sweep_group_key(row: Mapping[str, Any], *, sweep: SensitivitySweepConfig) -> str:
+    """Deriva la clave de grupo del barrido restringida a ``group_cols``."""
+    payload: dict[str, Any] = {}
+    parsed: dict[str, Any] | None = None
+    parsed_ready = False
+    for column in sweep.group_cols:
+        if column == "scenario":
+            payload[column] = sweep.name
+            continue
+        if not parsed_ready:
+            parsed = _parse_impact_group_key(row["group_key"])
+            parsed_ready = True
+        if parsed is None or column not in parsed:
+            raise StressEngineError(
+                f"El barrido {sweep.name!r} agrupa por {column!r}, pero el impacto no publicó esa "
+                f"dimensión (group_key={row['group_key']!r})."
+            )
+        payload[column] = parsed[column]
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _parse_impact_group_key(group_key: Any) -> dict[str, Any] | None:
+    """Parsea el ``group_key`` del impacto a dict cuando es un JSON de objeto."""
+    if not isinstance(group_key, str):
+        return None
+    try:
+        parsed = json.loads(group_key)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if isinstance(parsed, dict):
+        return cast("dict[str, Any]", parsed)
+    return None
+
+
+def _aggregate_sweep_metric(values: list[Any], *, metric: str) -> float:
+    """Agrega la métrica del barrido: suma económica, media de probabilidad, ratio único."""
+    numeric = [_required_float(value, field_name=f"sensitivity.{metric}") for value in values]
+    if metric == "ratio":
+        if len(numeric) != 1:
+            raise StressOutputError(
+                "El barrido de métrica 'ratio' exige una fila agregada única por grupo/período; "
+                f"se recibieron {len(numeric)}."
+            )
+        return _clean_float(numeric[0], field_name="sensitivity.ratio")
+    if metric in _FORWARD_ONLY_METRICS:
+        return _clean_float(math.fsum(numeric) / len(numeric), field_name=f"sensitivity.{metric}")
+    return _clean_float(math.fsum(numeric), field_name=f"sensitivity.{metric}")
+
+
+def _sensitivity_frame(
+    per_severity: list[tuple[float, list[dict[str, Any]]]],
+    *,
+    sweep: SensitivitySweepConfig,
+    pd: Any,
+) -> DataFrame:
+    """Construye el impact frame tidy del barrido con ``scenario_kind='sensitivity'``."""
+    rows: list[dict[str, Any]] = []
+    for severity, aggregated in per_severity:
+        for coarse in aggregated:
+            rows.append(_sensitivity_impact_row(sweep=sweep, severity=severity, coarse=coarse))
+    frame = pd.DataFrame.from_records(rows, columns=_IMPACT_COLUMNS)
+    return _normalize_frame(frame)
+
+
+def _sensitivity_impact_row(
+    *,
+    sweep: SensitivitySweepConfig,
+    severity: float,
+    coarse: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Construye una fila de impacto tidy del barrido de sensibilidad."""
+    value_base = coarse["value_base"]
+    value_stress = coarse["value_stress"]
+    absolute_delta = _clean_float(value_stress - value_base, field_name="absolute_delta")
+    relative_delta: float | None = None
+    if not math.isclose(value_base, 0.0, rel_tol=0.0, abs_tol=_FLOAT_ATOL):
+        relative_delta = _clean_float(absolute_delta / value_base, field_name="relative_delta")
+    return {
+        "stress_scenario": sweep.name,
+        "scenario_kind": "sensitivity",
+        "severity": severity,
+        "metric": sweep.metric,
+        "value_base": value_base,
+        "value_stress": value_stress,
+        "absolute_delta": absolute_delta,
+        "relative_delta": relative_delta,
+        "group_key": coarse["group_key"],
+        "period": coarse["period"],
+        "engine_source": coarse["engine_source"],
+        "warning_codes": coarse["warning_codes"],
+    }
+
+
+def _sensitivity_baseline_frame(
+    per_severity: list[tuple[float, list[dict[str, Any]]]],
+    *,
+    sweep: SensitivitySweepConfig,
+    pd: Any,
+) -> DataFrame:
+    """Construye el baseline público ``M(x)`` (value_base) por grupo/período del barrido."""
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for _, aggregated in per_severity:
+        for coarse in aggregated:
+            period_label = json.dumps(coarse["period"])
+            key = (str(coarse["engine_source"]), str(coarse["group_key"]), period_label)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(
+                {
+                    "sweep_name": sweep.name,
+                    "factor": sweep.factor,
+                    "metric": sweep.metric,
+                    "engine_source": coarse["engine_source"],
+                    "group_key": coarse["group_key"],
+                    "period_label": period_label,
+                    "value_base": coarse["value_base"],
+                }
+            )
+    frame = pd.DataFrame.from_records(rows, columns=_SENSITIVITY_BASELINE_COLUMNS)
+    return _normalize_frame(frame)
+
+
+def _sweep_monotonicity_flag(
+    per_severity: list[tuple[float, list[dict[str, Any]]]],
+    *,
+    tol: float,
+) -> Literal["increasing", "decreasing", "flat", "non_monotonic"]:
+    """Clasifica la monotonicidad por grupo/período/engine, excluyendo severidad y escenario."""
+    sequences: dict[tuple[str, str, Any], list[float]] = {}
+    order: list[tuple[str, str, Any]] = []
+    for _, aggregated in per_severity:
+        for coarse in aggregated:
+            key = (str(coarse["engine_source"]), str(coarse["group_key"]), coarse["period"])
+            if key not in sequences:
+                sequences[key] = []
+                order.append(key)
+            sequences[key].append(coarse["value_stress"])
+    flags = [_classify_monotonicity(sequences[key], tol=tol) for key in order]
+    return _combine_monotonicity(flags)
+
+
+def _classify_monotonicity(
+    values: list[float],
+    *,
+    tol: float,
+) -> Literal["increasing", "decreasing", "flat", "non_monotonic"]:
+    """Clasifica una secuencia ordenada por severidad ascendente dentro de una tolerancia."""
+    increasing = False
+    decreasing = False
+    for index in range(1, len(values)):
+        delta = values[index] - values[index - 1]
+        if delta > tol:
+            increasing = True
+        elif delta < -tol:
+            decreasing = True
+    if increasing and decreasing:
+        return "non_monotonic"
+    if increasing:
+        return "increasing"
+    if decreasing:
+        return "decreasing"
+    return "flat"
+
+
+def _combine_monotonicity(
+    flags: list[Literal["increasing", "decreasing", "flat", "non_monotonic"]],
+) -> Literal["increasing", "decreasing", "flat", "non_monotonic"]:
+    """Combina las clasificaciones por grupo en una sola bandera del barrido."""
+    if "non_monotonic" in flags:
+        return "non_monotonic"
+    directions = {flag for flag in flags if flag in ("increasing", "decreasing")}
+    if len(directions) > 1:
+        return "non_monotonic"
+    if "increasing" in directions:
+        return "increasing"
+    if "decreasing" in directions:
+        return "decreasing"
+    return "flat"
+
+
 def _build_card(
     *,
     scenario_results: tuple[StressScenarioResult, ...],
+    sensitivity_results: tuple[StressSensitivityResult, ...],
     stress_impact: DataFrame,
     stress_scenarios: DataFrame,
     stress_term_structure: DataFrame | None,
@@ -2790,9 +3173,11 @@ def _build_card(
     scenario_sources = tuple(
         dict.fromkeys(str(value) for value in stress_scenarios["source"].tolist())
     )
+    sensitivity_rows = sum(len(result.sensitivity_frame.index) for result in sensitivity_results)
     return StressCard(
         summary={
             "scenario_count": len(scenario_results),
+            "sensitivity_count": len(sensitivity_results),
             "scenario_rows": len(stress_scenarios.index),
             "impact_rows": len(stress_impact.index),
             "term_structure_rows": term_rows,
@@ -2807,14 +3192,19 @@ def _build_card(
                 "rows": len(stress_scenarios.index),
                 "sources": scenario_sources,
             },
+            "sensitivity_curves": {
+                "sweeps": tuple(result.sweep_name for result in sensitivity_results),
+                "monotonicity": tuple(result.monotonicity_flag for result in sensitivity_results),
+                "rows": sensitivity_rows,
+            },
             "term_structure_summary": {
                 "published": stress_term_structure is not None,
                 "rows": term_rows,
             },
             "falta_dato": {"codes": diagnostics.falta_dato_codes},
         },
-        assumptions=("Stress determinista sin Monte Carlo en B21.3.",),
-        limitations=("Sensibilidad y reverse stress se implementan en B21.4/B21.5.",),
+        assumptions=("Stress determinista sin Monte Carlo en B21.3/B21.4.",),
+        limitations=("El reverse stress se implementa en B21.5.",),
     )
 
 
@@ -2916,21 +3306,24 @@ def _emit_size_estimate(
     term_structure_rows: int,
 ) -> None:
     scenario_count = len(cfg.scenarios)
+    sensitivity_evaluations = sum(len(sweep.severity_grid) for sweep in cfg.sensitivities)
     _emit_audit_decision(
         audit,
         regla="stress_size_estimate",
         umbral={
-            "expression": "term_structure_rows * scenario_count",
+            "expression": "term_structure_rows * (scenario_count + sensitivity_evaluations)",
             "configurable_limit": None,
         },
         valor={
             "macro_rows": macro_rows,
             "term_structure_rows": term_structure_rows,
             "scenario_count": scenario_count,
-            "estimated_stress_term_structure_rows": term_structure_rows * scenario_count,
-            "estimated_sensitivity_evaluations": 0,
+            "sensitivity_count": len(cfg.sensitivities),
+            "estimated_stress_term_structure_rows": term_structure_rows
+            * (scenario_count + sensitivity_evaluations),
+            "estimated_sensitivity_evaluations": sensitivity_evaluations,
             "estimated_reverse_evaluations": 0,
-            "scope": "B21.3 scenarios only; sensitivity/reverse deferred",
+            "scope": "B21.4 scenarios + sensitivity; reverse deferred",
         },
         accion="diagnose",
     )
@@ -2977,7 +3370,7 @@ def _concat_optional_frames(
     columns: tuple[str, ...],
     pd: Any,
 ) -> DataFrame:
-    present = [frame for frame in frames if frame is not None]
+    present = [frame for frame in frames if frame is not None and len(frame.index) > 0]
     if not present:
         return cast("DataFrame", pd.DataFrame(columns=columns))
     return _normalize_frame(pd.concat(present, ignore_index=True).loc[:, list(columns)])
@@ -2989,9 +3382,10 @@ def _concat_required_frames(
     columns: tuple[str, ...],
     pd: Any,
 ) -> DataFrame:
-    if not frames:
+    present = [frame for frame in frames if len(frame.index) > 0]
+    if not present:
         return cast("DataFrame", pd.DataFrame(columns=columns))
-    return _normalize_frame(pd.concat(frames, ignore_index=True).loc[:, list(columns)])
+    return _normalize_frame(pd.concat(present, ignore_index=True).loc[:, list(columns)])
 
 
 def _validate_macro_projection_values(
