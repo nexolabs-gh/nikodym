@@ -9,10 +9,10 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado operativo AutoDesarrollo (2026-06-30)
-Latido **PAUSADO** por reset operativo. No hay `autodev-cron`, `autodev-watchdog`, maestro headless, revisor ni gates corriendo. La maquinaria es **multi-motor por rol**: perfil actual recomendado `AUTODESARROLLO_PERFIL=codex-only`, pero se puede correr `claude-only` o mixto con `MAESTRO_MOTOR`, `WORKER_MOTOR`/`MOTOR`, `REVISOR_MOTOR`, `PLANIFICADOR_MOTOR`. No hay fallback oculto entre motores: el cambio debe ser explícito.
+## Estado operativo AutoDesarrollo (2026-07-02)
+Latido **PAUSADO**. No hay `autodev-cron`, `autodev-watchdog`, maestro headless, revisor ni gates corriendo; queda solo `autodev-caffeine`. La corrida supervisada real posterior al pulido ya se ejecuto sobre B21.4: el worker Codex llego a gates verdes, pero el revisor Codex rechazo tras 2 ciclos y el codigo fue revertido. La maquinaria sigue siendo **multi-motor por rol**: perfil actual recomendado `AUTODESARROLLO_PERFIL=codex-only`, pero se puede correr `claude-only` o mixto con `MAESTRO_MOTOR`, `WORKER_MOTOR`/`MOTOR`, `REVISOR_MOTOR`, `PLANIFICADOR_MOTOR`. No hay fallback oculto entre motores: el cambio debe ser explícito.
 
-Rol del maestro: supervisor/orquestador, no programador de código de Nikodym. B21.3 `stress/engine.py` quedó WIP local sin commit/push; leer `HANDOFF.md` antes de tocarlo.
+Rol del maestro: supervisor/orquestador, no programador de código de Nikodym. B21.3 ya quedo cerrado; el primer item ejecutable es B21.4 `stress/engine.py` sensibilidad, empezando por la agregacion real de `SensitivitySweepConfig.group_cols`. Leer `HANDOFF.md` antes de tocarlo.
 
 ## Estado actual (2026-06-24)
 **27 SDD en total** (antes 26): en Tanda 1 Rev se creó **SDD-27 `eda`** (huérfano del árbol que ningún SDD cubría).

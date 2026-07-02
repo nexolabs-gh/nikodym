@@ -5,8 +5,11 @@
 > propio de Nikodym. Bitácora: `AUTONOMY-LOG.md`. Cola de trabajo: bloque "Backlog priorizado" del `HANDOFF.md`.
 
 ## Cómo se opera (resumen)
-- El latido está **PAUSADO** desde el reset operativo del 2026-06-30. No hay scheduler/watchdog/maestro/revisor/gates
-  corriendo; queda solo el panel `tmux nikodym` idle para inspección.
+- El latido está **PAUSADO**. No hay scheduler/watchdog/maestro/revisor/gates corriendo; queda solo
+  `autodev-caffeine`. El worker `tmux nikodym` se cierra al terminar cada corrida.
+- La corrida supervisada real del 2026-07-02 ya se ejecuto sobre B21.4. Llego a gates verdes, pero
+  el revisor rechazo tras 2 ciclos; el codigo se descarto y el siguiente intento debe partir por
+  agregacion real de `SensitivitySweepConfig.group_cols`.
 - La maquinaria de AutoDesarrollo es **multi-motor por rol**. El perfil actual recomendado para reanudar es
   `AUTODESARROLLO_PERFIL=codex-only`, pero también existen sesiones `claude-only` o mixtas vía
   `MAESTRO_MOTOR`, `WORKER_MOTOR`/`MOTOR`, `REVISOR_MOTOR` y `PLANIFICADOR_MOTOR`.
