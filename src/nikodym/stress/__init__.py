@@ -44,6 +44,8 @@ from nikodym.stress.exceptions import (
 # Registra la clase real del sub-config stress en el hook de `core`.
 _schema._STRESS_CONFIG_CLS = StressConfig
 
+# Exports perezosos: DTOs de resultados, engine y el paso orquestable. El módulo destino se importa
+# sólo al acceder al nombre, para no arrastrar `pandas`/engines al importar `nikodym.stress`.
 _RESULT_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "EclEngineLike": ("nikodym.stress.engine", "EclEngineLike"),
     "ProvisionEngineLike": ("nikodym.stress.engine", "ProvisionEngineLike"),
@@ -53,6 +55,7 @@ _RESULT_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "StressResult": ("nikodym.stress.results", "StressResult"),
     "StressScenarioResult": ("nikodym.stress.results", "StressScenarioResult"),
     "StressSensitivityResult": ("nikodym.stress.results", "StressSensitivityResult"),
+    "StressStep": ("nikodym.stress.step", "StressStep"),
     "StressTestEngine": ("nikodym.stress.engine", "StressTestEngine"),
 }
 
@@ -85,14 +88,19 @@ __all__ = [
     "StressScenarioResult",
     "StressSensitivityResult",
     "StressShockConfig",
+    "StressStep",
     "StressTargetConfig",
     "StressTestEngine",
     "StressValidationConfig",
 ]
 
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="stress") al importar
+# `nikodym.stress`, sin contaminar `import nikodym.core` ni cargar pandas/engines/results.
+importlib.import_module("nikodym.stress.step")
+
 
 def __getattr__(name: str) -> Any:
-    """Carga DTOs de resultados bajo demanda."""
+    """Carga DTOs de resultados, engine y el paso orquestable bajo demanda."""
     if name not in _RESULT_EXPORTS:
         raise AttributeError(f"module 'nikodym.stress' has no attribute {name!r}")
 
