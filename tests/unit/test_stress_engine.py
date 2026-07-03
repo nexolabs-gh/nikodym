@@ -12,6 +12,7 @@ import warnings
 from dataclasses import dataclass
 from datetime import date, time
 from decimal import Decimal
+from itertools import pairwise
 from types import SimpleNamespace
 from typing import Any, ClassVar
 
@@ -29,7 +30,9 @@ from nikodym.stress.config import (
     ReverseStressConfig,
     SensitivitySweepConfig,
     StressConfig,
+    StressDirection,
     StressInputConfig,
+    StressMetric,
     StressOutputConfig,
     StressScenarioConfig,
     StressShockConfig,
@@ -3296,35 +3299,6 @@ def test_publicacion_term_structure_none_y_features_diferidas_en_run() -> None:
     with pytest.raises(StressEngineError, match="include_baseline_rows=False"):
         _run_forward_only(no_baseline_cfg)
 
-    reverse_cfg = StressConfig.model_construct(
-        type="standard",
-        input=StressInputConfig(),
-        scenarios=(_scenario(),),
-        sensitivities=(),
-        reverse=(
-            ReverseStressConfig(
-                enabled=True,
-                target=StressTargetConfig(
-                    name="pd_target",
-                    metric="pd_marginal",
-                    threshold=0.05,
-                    scenario_name="severe_plus",
-                    requires_economic_engine=False,
-                ),
-                factor="x",
-                shock_value=1.0,
-            ),
-        ),
-        output=StressOutputConfig(metrics=("pd_marginal",)),
-        validation=StressValidationConfig(
-            require_dominates_forward_adverse=False,
-            fail_on_falta_dato=False,
-            fail_on_missing_ecl_engine=True,
-        ),
-    )
-    with pytest.raises(ReverseStressError, match=r"B21\.5"):
-        _run_forward_only(reverse_cfg)
-
 
 def test_engines_invalidos_missing_relajado_y_source_official() -> None:
     """Ramas de dependencia económica y fuente official quedan auditables."""
@@ -3723,6 +3697,8 @@ def test_dependencias_economicas_y_ramas_de_escenario_defensivas() -> None:
     with pytest.raises(StressDependencyError, match="provisión requiere ECL"):
         _run_forward_only(provision_cfg)
 
+    # Un reverse habilitado (sin escenarios ni sensibilidades) es trabajo ejecutable válido:
+    # _reject_deferred_features no debe bloquearlo.
     reverse_only_cfg = StressConfig(
         scenarios=(),
         reverse=(
@@ -3746,8 +3722,7 @@ def test_dependencias_economicas_y_ramas_de_escenario_defensivas() -> None:
             fail_on_missing_ecl_engine=True,
         ),
     )
-    with pytest.raises(ReverseStressError, match=r"B21\.5"):
-        _run_forward_only(reverse_only_cfg)
+    assert engine_module._reject_deferred_features(reverse_only_cfg) is None
 
     no_scenarios_cfg = StressConfig.model_construct(
         type="standard",
@@ -5194,15 +5169,15 @@ def test_helpers_numericos_missing_e_imports(monkeypatch: pytest.MonkeyPatch) ->
         engine_module._import_pandas()
 
 
-def test_stubs_diferidos_y_export_lazy_import_guard() -> None:
-    """Reverse queda diferido, sensibilidad exige contexto y ``nikodym.stress`` sigue liviano."""
+def test_metodos_exigen_contexto_y_export_lazy_import_guard() -> None:
+    """Escenario/sensibilidad/reverse exigen ``run(...)`` y ``nikodym.stress`` sigue liviano."""
     cfg = _cfg(metrics=("pd_marginal",))
     engine = StressTestEngine.from_config(cfg)
     with pytest.raises(StressEngineError, match="run\\(\\.\\.\\.\\) primero"):
         engine.run_scenario(cfg.scenarios[0])
     with pytest.raises(StressEngineError, match="run\\(\\.\\.\\.\\) primero"):
         engine.run_sensitivity(SensitivitySweepConfig(name="grid_x", factor="x", shock_value=1.0))
-    with pytest.raises(ReverseStressError, match=r"B21\.5"):
+    with pytest.raises(StressEngineError, match="run\\(\\.\\.\\.\\) primero"):
         engine.run_reverse_stress(
             StressTargetConfig(
                 name="pd_target",
@@ -5843,3 +5818,386 @@ def test_helpers_sensibilidad_monotonicidad_y_group_key() -> None:
         },
     )
     assert positive_base["relative_delta"] == pytest.approx(0.5)
+
+
+# ─────────────────────────────── B21.5 reverse stress ───────────────────────────────
+
+_LOGIT_002 = math.log(0.02 / 0.98)
+
+
+def _ecl_at_severity(severity: float) -> float:
+    """Golden cerrado ``ECL(a) = 450 * sigmoid(logit(0.02) + 0.5 * a)`` (SDD-21 §11)."""
+    pd_marginal = 1.0 / (1.0 + math.exp(-(_LOGIT_002 + 0.5 * severity)))
+    return pd_marginal * 0.45 * 1000.0
+
+
+def _loaded_reverse_engine(
+    *,
+    ecl_engine: Any | None = None,
+    metrics: tuple[str, ...] = ("ecl",),
+    term: pd.DataFrame | None = None,
+) -> StressTestEngine:
+    """Construye y ejecuta ``run`` para dejar el contexto forward listo para reverse stress."""
+    term_frame = term if term is not None else _forward_term_structure([0.02])
+    macro = _macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0})
+    cfg = _cfg(metrics=metrics)
+    engine = StressTestEngine.from_config(cfg)
+    engine.run(
+        forward_ecl_input=_ecl_input(term_frame),
+        macro_projection=macro,
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term_frame,
+        scenario_weighting=ScenarioWeightingStub(),
+        ecl_engine=ecl_engine if ecl_engine is not None else EclStub(),
+    )
+    return engine
+
+
+def _closed_reverse_severity(base_hazard: float, target_pd: float) -> float:
+    """Severidad cerrada ``a`` tal que ``sigmoid(logit(base_hazard) + 0.5*a) = target_pd``."""
+    logit_target = math.log(target_pd / (1.0 - target_pd))
+    logit_base = math.log(base_hazard / (1.0 - base_hazard))
+    return (logit_target - logit_base) / 0.5
+
+
+def _reverse_setup(
+    *,
+    metric: StressMetric = "ecl",
+    threshold: float = 25.0,
+    direction: StressDirection = "at_least",
+    shock_value: float = 1.0,
+    scenario_name: str = "severe_plus",
+    group_filter: dict[str, str | int | float | bool] | None = None,
+    bracket: tuple[float, float] = (0.0, 5.0),
+    metric_tol: float = 1e-8,
+    severity_tol: float = 1e-6,
+    max_iterations: int = 64,
+) -> tuple[StressTargetConfig, ReverseStressConfig]:
+    """Arma el par ``(target, reverse)`` para los tests de bisección."""
+    target = StressTargetConfig(
+        name="reverse_target",
+        metric=metric,
+        threshold=threshold,
+        direction=direction,
+        scenario_name=scenario_name,
+        group_filter=group_filter or {},
+        requires_economic_engine=False,
+    )
+    reverse = ReverseStressConfig(
+        enabled=True,
+        target=target,
+        factor="x",
+        shock_value=shock_value,
+        bracket=bracket,
+        metric_tol=metric_tol,
+        severity_tol=severity_tol,
+        max_iterations=max_iterations,
+    )
+    return target, reverse
+
+
+def test_run_reverse_stress_golden_at_least_biseccion_real() -> None:
+    """Golden SDD-21 §11: ECL >= 25 converge a severidad 2.1172139081 por bisección REAL."""
+    engine = _loaded_reverse_engine()
+    target, reverse = _reverse_setup(threshold=25.0, direction="at_least")
+
+    result = engine.run_reverse_stress(target, reverse)
+
+    # A10-(a): el golden se deriva por inversión cerrada del logit, pero DEBE ejercer la bisección.
+    assert result.converged is True
+    assert result.iterations > 0
+    assert result.target_name == "reverse_target"
+    assert result.metric == "ecl"
+    assert result.direction == "at_least"
+    assert result.bracket == (0.0, 5.0)
+    assert result.severity == pytest.approx(2.1172139081, abs=1e-6)
+    # El ancla es el hazard base 0.02 del escenario forward "severe" (base de "severe_plus").
+    assert result.severity == pytest.approx(_closed_reverse_severity(0.02, 25.0 / 450.0), abs=1e-6)
+    assert result.metric_value == pytest.approx(25.0, abs=1e-4)
+    assert result.metric_value >= 25.0 - 1e-9
+    # PD objetivo golden: 25 / (0.45 * 1000) = 0.0555555556.
+    assert result.metric_value / 450.0 == pytest.approx(0.0555555556, abs=1e-6)
+
+    frame = result.reverse_path_frame
+    assert not frame.empty
+    assert tuple(frame.columns) == (
+        "target_name",
+        "iteration",
+        "lo",
+        "hi",
+        "mid",
+        "metric_value",
+        "threshold",
+        "decision",
+    )
+    # El path reconstruye la bisección completa: una fila por iteración 0..iterations.
+    assert frame["iteration"].tolist() == list(range(len(frame.index)))
+    assert len(frame.index) == result.iterations + 1
+    assert set(frame["target_name"]) == {"reverse_target"}
+    assert (frame["threshold"] == 25.0).all()
+    # lo/hi se estrechan monótonamente y el mid final coincide con la severidad publicada.
+    widths = (frame["hi"] - frame["lo"]).tolist()
+    assert all(later <= earlier + 1e-12 for earlier, later in pairwise(widths))
+    assert frame["decision"].tolist()[-1] == "converged"
+    assert set(frame["decision"].tolist()[:-1]) <= {"move_lo", "move_hi"}
+    assert float(frame["mid"].iloc[-1]) == pytest.approx(result.severity, abs=0.0)
+    assert widths[-1] <= reverse.severity_tol
+    # mid = lo + (hi - lo) / 2 en cada fila (nunca (lo + hi) / 2).
+    for row in frame.itertuples(index=False):
+        lo_value = float(row.lo)
+        hi_value = float(row.hi)
+        assert float(row.mid) == pytest.approx(lo_value + (hi_value - lo_value) / 2.0)
+
+
+def test_run_reverse_stress_convergencia_por_metric_tol() -> None:
+    """Si un mid cae dentro de ``metric_tol`` del umbral, converge en la iteración 0."""
+    engine = _loaded_reverse_engine()
+    threshold = _ecl_at_severity(2.5)  # exactamente M(mid_0) con mid_0 = 2.5.
+    target, reverse = _reverse_setup(threshold=threshold, direction="at_least")
+
+    result = engine.run_reverse_stress(target, reverse)
+
+    assert result.converged is True
+    assert result.iterations == 0
+    assert result.severity == pytest.approx(2.5, abs=1e-12)
+    assert result.metric_value == pytest.approx(threshold, abs=1e-8)
+    frame = result.reverse_path_frame
+    assert len(frame.index) == 1
+    assert frame["decision"].tolist() == ["converged"]
+
+
+def test_run_reverse_stress_at_most_metrica_decreciente() -> None:
+    """Convención A10-(b): ``at_most`` reporta la menor severidad con ``M(a) <= threshold``."""
+    engine = _loaded_reverse_engine()
+    # shock_value=-1 hace decreciente a ECL(a) = 450 * sigmoid(logit(0.02) - 0.5 * a).
+    target, reverse = _reverse_setup(threshold=5.0, direction="at_most", shock_value=-1.0)
+
+    result = engine.run_reverse_stress(target, reverse)
+
+    assert result.converged is True
+    assert result.direction == "at_most"
+    assert result.iterations > 0
+    assert result.metric_value <= 5.0 + 1e-9
+    # a* donde ECL decreciente cruza 5.0 por abajo.
+    expected = (math.log(5.0 / 445.0) - _LOGIT_002) / -0.5
+    assert result.severity == pytest.approx(expected, abs=1e-5)
+    assert result.reverse_path_frame["decision"].tolist()[-1] == "converged"
+
+
+def test_run_reverse_stress_sin_bracket_incluye_m_lo_m_hi_threshold() -> None:
+    """Target fuera de ``[lo, hi]`` levanta ``ReverseStressError`` con M(lo), M(hi) y threshold."""
+    engine = _loaded_reverse_engine()
+
+    # (i) el extremo hi no cruza el umbral (target inalcanzable en el bracket).
+    target_hi, reverse_hi = _reverse_setup(threshold=1000.0, direction="at_least")
+    with pytest.raises(ReverseStressError, match="no queda bracketed") as exc_hi:
+        engine.run_reverse_stress(target_hi, reverse_hi)
+    message_hi = str(exc_hi.value)
+    assert "M(lo)=9.0" in message_hi
+    assert "threshold=1000.0" in message_hi
+    assert "hi no cruza" in message_hi
+
+    # (ii) el extremo lo ya cruza el umbral (target trivialmente cumplido).
+    target_lo, reverse_lo = _reverse_setup(threshold=5.0, direction="at_least")
+    with pytest.raises(ReverseStressError, match="lo ya cruza") as exc_lo:
+        engine.run_reverse_stress(target_lo, reverse_lo)
+    message_lo = str(exc_lo.value)
+    assert "M(lo)=9.0" in message_lo
+    assert "threshold=5.0" in message_lo
+
+
+def test_run_reverse_stress_no_monotonico() -> None:
+    """Una métrica no monotónica en los puntos de diagnóstico levanta NonMonotonicStressError."""
+
+    class HumpEclStub:
+        """Engine ECL con forma de joroba: sube y luego baja al crecer ``pd_marginal``."""
+
+        def calculate(self, ecl_input: ForwardEclInput) -> pd.DataFrame:
+            """Publica ECL = pd_marginal * (0.25 - pd_marginal) * 1e5 (no monotónica)."""
+            term = ecl_input.term_structure_frame
+            assert term is not None
+            pdm = term["pd_marginal"].astype(float)
+            return pd.DataFrame(
+                {"period": term["period"].tolist(), "ecl": pdm * (0.25 - pdm) * 100000.0}
+            )
+
+    engine = _loaded_reverse_engine(ecl_engine=HumpEclStub())
+    target, reverse = _reverse_setup(threshold=500.0, direction="at_least")
+
+    with pytest.raises(NonMonotonicStressError, match="no es monotónica"):
+        engine.run_reverse_stress(target, reverse)
+
+
+def test_run_reverse_stress_no_converge_falla_explicito() -> None:
+    """Sin convergencia dentro de ``max_iterations`` v1 falla explícito (no devuelve parcial)."""
+    engine = _loaded_reverse_engine()
+    target, reverse = _reverse_setup(threshold=25.0, direction="at_least", max_iterations=1)
+
+    with pytest.raises(ReverseStressError, match="no convergió en 1 iteraciones"):
+        engine.run_reverse_stress(target, reverse)
+
+
+def test_run_reverse_stress_group_filter() -> None:
+    """``group_filter`` restringe ``M(a)``; un filtro sin filas coincidentes falla explícito."""
+    engine = _loaded_reverse_engine()
+
+    # Filtro que sí matchea la única fila (period 1): converge como el golden.
+    target_ok, reverse_ok = _reverse_setup(threshold=25.0, group_filter={"period": 1})
+    result = engine.run_reverse_stress(target_ok, reverse_ok)
+    assert result.converged is True
+    assert result.severity == pytest.approx(2.1172139081, abs=1e-6)
+
+    # Filtro que no matchea ninguna fila: ReverseStressError explícito.
+    target_ko, reverse_ko = _reverse_setup(threshold=25.0, group_filter={"period": 99})
+    with pytest.raises(ReverseStressError, match="no produjo filas de métrica"):
+        engine.run_reverse_stress(target_ko, reverse_ko)
+
+
+def test_reverse_row_matches_filter_ramas() -> None:
+    """Cubre el matcheo de ``group_filter`` incluyendo group_key JSON no-objeto."""
+    row_object = {
+        "period": 1,
+        "engine_source": "ecl_engine",
+        "group_key": '{"segment":"retail"}',
+    }
+    assert engine_module._reverse_row_matches_filter(row_object, {}) is True
+    assert (
+        engine_module._reverse_row_matches_filter(row_object, {"segment": "retail", "period": 1})
+        is True
+    )
+    assert engine_module._reverse_row_matches_filter(row_object, {"segment": "corp"}) is False
+    row_non_object = {"period": 1, "engine_source": "ecl_engine", "group_key": "[]"}
+    assert engine_module._reverse_row_matches_filter(row_non_object, {"segment": "retail"}) is False
+
+
+def test_run_cablea_reverse_results_y_size_estimate() -> None:
+    """``run`` ejecuta reverse habilitados, ignora deshabilitados y publica card/diagnostics."""
+    enabled = ReverseStressConfig(
+        enabled=True,
+        target=StressTargetConfig(
+            name="pd_target",
+            metric="pd_cumulative",
+            threshold=0.05,
+            direction="at_least",
+            scenario_name="severe_plus",
+            requires_economic_engine=False,
+        ),
+        factor="x",
+        shock_value=1.0,
+    )
+    disabled = ReverseStressConfig(enabled=False, factor="x", shock_value=1.0)
+    cfg = StressConfig(
+        scenarios=(_scenario(),),
+        reverse=(enabled, disabled),
+        output=StressOutputConfig(metrics=("pd_cumulative",)),
+        validation=StressValidationConfig(
+            require_dominates_forward_adverse=False,
+            fail_on_falta_dato=False,
+            fail_on_missing_ecl_engine=True,
+        ),
+    )
+    term = _forward_term_structure([0.02])
+    macro = _macro_projection(periods=(1,), adverse={1: 1.0}, severe={1: 0.0})
+    audit = InMemoryAuditSink()
+    engine = StressTestEngine.from_config(cfg)
+
+    result = engine.run(
+        forward_ecl_input=_ecl_input(term),
+        macro_projection=macro,
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term,
+        scenario_weighting=ScenarioWeightingStub(),
+        audit=audit,
+    )
+
+    assert result.diagnostics.reverse_count == 1
+    assert len(result.reverse_results) == 1
+    reverse_result = result.reverse_results[0]
+    assert reverse_result.target_name == "pd_target"
+    assert reverse_result.metric == "pd_cumulative"
+    assert reverse_result.converged is True
+    assert engine.reverse_results_ == result.reverse_results
+    assert result.card.summary["reverse_count"] == 1
+    assert result.card.metric_sections["reverse_stress"]["targets"] == ("pd_target",)
+    assert result.card.metric_sections["reverse_stress"]["converged"] == (True,)
+
+    reverse_events = [
+        event.payload for event in audit.events if event.payload["regla"] == "stress_reverse"
+    ]
+    assert len(reverse_events) == 1
+    assert reverse_events[0]["accion"] == "solve"
+    assert reverse_events[0]["valor"]["converged"] is True
+    assert reverse_events[0]["umbral"]["direction"] == "at_least"
+
+    size_event = next(
+        event.payload for event in audit.events if event.payload["regla"] == "stress_size_estimate"
+    )
+    assert size_event["valor"]["estimated_reverse_evaluations"] == 5 + 2 + 64
+
+
+def _dual_base_forward_term() -> pd.DataFrame:
+    """Term-structure con dos escenarios de distinto hazard base (severe 0.02, adverse 0.05)."""
+    severe = _forward_term_structure([0.02])
+    adverse = _forward_term_structure([0.05])
+    adverse.loc[:, "scenario"] = "adverse"
+    adverse.loc[:, "scenario_weight"] = 0.0
+    return pd.concat([severe, adverse], ignore_index=True)
+
+
+def test_run_reverse_stress_honra_scenario_name_ancla_la_base() -> None:
+    """``target.scenario_name`` resuelve la base forward: distinta base ⇒ distinta severidad."""
+    term = _dual_base_forward_term()
+    macro = _macro_projection(periods=(1,), adverse={1: 0.0}, severe={1: 0.0})
+    cfg = StressConfig(
+        scenarios=(
+            StressScenarioConfig(
+                name="rev_on_severe",
+                base_forward_scenario="severe",
+                shocks=(StressShockConfig(factor="x", value=1.0),),
+                require_dominates_forward_adverse=False,
+            ),
+            StressScenarioConfig(
+                name="rev_on_adverse",
+                base_forward_scenario="adverse",
+                shocks=(StressShockConfig(factor="x", value=1.0),),
+                require_dominates_forward_adverse=False,
+            ),
+        ),
+        output=StressOutputConfig(metrics=("pd_cumulative",)),
+        validation=StressValidationConfig(
+            require_dominates_forward_adverse=False,
+            fail_on_falta_dato=False,
+            fail_on_missing_ecl_engine=True,
+        ),
+    )
+    engine = StressTestEngine.from_config(cfg)
+    engine.run(
+        forward_ecl_input=_ecl_input(term),
+        macro_projection=macro,
+        satellite_model=SatelliteStub(),
+        forward_term_structure=term,
+        scenario_weighting=ScenarioWeightingStub(),
+    )
+
+    target_severe, reverse_severe = _reverse_setup(
+        metric="pd_cumulative", threshold=0.1, scenario_name="rev_on_severe"
+    )
+    target_adverse, reverse_adverse = _reverse_setup(
+        metric="pd_cumulative", threshold=0.1, scenario_name="rev_on_adverse"
+    )
+    result_severe = engine.run_reverse_stress(target_severe, reverse_severe)
+    result_adverse = engine.run_reverse_stress(target_adverse, reverse_adverse)
+
+    # La severidad cambia porque el ancla (hazard base) cambia con scenario_name: NO se ignora.
+    assert result_severe.severity == pytest.approx(_closed_reverse_severity(0.02, 0.1), abs=1e-5)
+    assert result_adverse.severity == pytest.approx(_closed_reverse_severity(0.05, 0.1), abs=1e-5)
+    assert result_severe.severity != pytest.approx(result_adverse.severity, abs=1e-3)
+
+
+def test_run_reverse_stress_scenario_name_inexistente_falla() -> None:
+    """Un ``scenario_name`` ausente de ``stress.scenarios`` levanta el error (no lo ignora)."""
+    engine = _loaded_reverse_engine()
+    target, reverse = _reverse_setup(scenario_name="escenario_fantasma")
+
+    with pytest.raises(StressScenarioError, match="ausente en stress"):
+        engine.run_reverse_stress(target, reverse)

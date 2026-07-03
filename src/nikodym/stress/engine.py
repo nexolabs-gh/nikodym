@@ -23,7 +23,7 @@ import json
 import math
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass, is_dataclass, replace
 from dataclasses import fields as dataclass_fields
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
@@ -350,6 +350,16 @@ _SENSITIVITY_BASELINE_COLUMNS: tuple[str, ...] = (
     "period_label",
     "value_base",
 )
+_REVERSE_PATH_COLUMNS: tuple[str, ...] = (
+    "target_name",
+    "iteration",
+    "lo",
+    "hi",
+    "mid",
+    "metric_value",
+    "threshold",
+    "decision",
+)
 _RESERVED_SCENARIO_NAMES = frozenset({"mean", "average", "weighted_mean_input"})
 _WEIGHTED_MEAN_INPUT_COLUMN = "weighted_mean_input"
 _RUNTIME_STATE_ATTRIBUTE_NAMES = frozenset(
@@ -598,7 +608,12 @@ class StressTestEngine:
             sensitivity_frames.append(sweep_result.sensitivity_frame)
             sensitivity_warnings.extend(sweep_warnings)
         self.sensitivity_results_ = tuple(sensitivity_results)
-        self.reverse_results_ = ()
+        reverse_results = tuple(
+            self.run_reverse_stress(cast("StressTargetConfig", reverse.target), reverse)
+            for reverse in self.config.reverse
+            if reverse.enabled
+        )
+        self.reverse_results_ = reverse_results
 
         stress_scenario_frame = _concat_required_frames(
             tuple(result.scenario_frame for result in scenario_results),
@@ -632,7 +647,7 @@ class StressTestEngine:
         diagnostics = StressDiagnostics(
             scenario_count=len(scenario_results),
             sensitivity_count=len(sensitivity_results),
-            reverse_count=0,
+            reverse_count=len(reverse_results),
             falta_dato_codes=falta_dato_codes,
             warning_codes=warning_codes,
             dependency_versions=self.dependency_versions_,
@@ -640,6 +655,7 @@ class StressTestEngine:
         card = _build_card(
             scenario_results=scenario_results,
             sensitivity_results=tuple(sensitivity_results),
+            reverse_results=reverse_results,
             stress_impact=stress_impact,
             stress_scenarios=stress_scenario_frame,
             stress_term_structure=stress_term_structure,
@@ -648,7 +664,7 @@ class StressTestEngine:
         result = StressResult(
             scenario_results=scenario_results,
             sensitivity_results=tuple(sensitivity_results),
-            reverse_results=(),
+            reverse_results=reverse_results,
             publish_stressed_term_structure=self.config.output.publish_stressed_term_structure,
             stress_scenario_frame=stress_scenario_frame,
             stress_term_structure_frame=stress_term_structure,
@@ -870,12 +886,166 @@ class StressTestEngine:
         self,
         target: StressTargetConfig,
         reverse: ReverseStressConfig,
-    ) -> object:
-        """Declara explícitamente que reverse stress se implementa en B21.5."""
-        raise ReverseStressError(
-            "run_reverse_stress está diferido a B21.5; "
-            f"target={target.name!r}, factor={reverse.factor!r}."
+    ) -> ReverseStressResult:
+        """Resuelve la severidad mínima que cruza ``target`` por bisección monotónica (SDD-21 §3).
+
+        Evalúa ``M(a)`` fijando ``reverse.factor`` a la severidad ``a`` sobre el escenario forward
+        base del escenario de stress referido por ``target.scenario_name`` (obligatorio; si no
+        existe se levanta ``StressScenarioError``) y agregando la métrica ``target.metric`` (suma
+        económica, media de probabilidad o ratio único) restringida a ``target.group_filter``. La
+        bisección usa
+        ``mid = lo + (hi - lo) / 2`` (nunca ``(lo + hi) / 2``, por estabilidad numérica) y se
+        detiene cuando ``abs(M(mid) - threshold) <= metric_tol`` o ``(hi - lo) <= severity_tol``
+        **con el punto ya cumpliendo la dirección**, garantizando un resultado interpretable.
+
+        Convención de dirección (fija la ambigüedad A10-(b) del SDD-21): ``direction='at_least'``
+        reporta la **menor severidad** con ``M(a) >= threshold`` (métrica creciente);
+        ``direction='at_most'`` reporta la **menor severidad** con ``M(a) <= threshold`` (métrica
+        decreciente). Exige haber ejecutado ``run(...)`` para cargar el contexto forward; las
+        evaluaciones intermedias de ``M`` se ejecutan sin emitir auditoría por escenario y solo se
+        registra el resumen ``stress_reverse``.
+        """
+        context = self._require_context()
+        self._context = replace(context, audit=None)
+        try:
+            return self._run_reverse_stress(target, reverse, audit=context.audit)
+        finally:
+            self._context = context
+
+    def _run_reverse_stress(
+        self,
+        target: StressTargetConfig,
+        reverse: ReverseStressConfig,
+        *,
+        audit: AuditSink | None,
+    ) -> ReverseStressResult:
+        """Ejecuta la bisección determinista con el contexto ya silenciado."""
+        pd = self._require_context().pd
+        base_forward_scenario = _reverse_base_forward_scenario(self.config, target)
+        scenario = _reverse_scenario(target, reverse, base_forward_scenario=base_forward_scenario)
+        threshold = target.threshold
+        direction = target.direction
+        warnings_seen: list[str] = []
+        sources_seen: list[str] = []
+
+        def evaluate(severity: float) -> float:
+            scenario_result = self._run_scenario(
+                scenario,
+                severity=severity,
+                metrics=(target.metric,),
+            )
+            warnings_seen.extend(scenario_result.warning_codes)
+            value, sources, warns = _reverse_metric_value(
+                scenario_result.impact_frame,
+                target=target,
+            )
+            warnings_seen.extend(warns)
+            sources_seen.extend(sources)
+            return value
+
+        monotonicity_values = [evaluate(point) for point in reverse.monotonicity_check_points]
+        monotonicity_flag = _classify_monotonicity(
+            monotonicity_values,
+            tol=self.config.validation.metric_tol,
         )
+        if monotonicity_flag == "non_monotonic":
+            raise NonMonotonicStressError(
+                f"La métrica {target.metric!r} del target {target.name!r} no es monotónica en "
+                f"monotonicity_check_points={reverse.monotonicity_check_points}; "
+                f"valores observados={tuple(monotonicity_values)}."
+            )
+
+        lo, hi = reverse.bracket
+        metric_lo = evaluate(lo)
+        metric_hi = evaluate(hi)
+        if not _reverse_satisfies(metric_hi, direction, threshold):
+            raise ReverseStressError(
+                f"El target {target.name!r} no queda bracketed en {reverse.bracket}: "
+                f"M(lo)={metric_lo}, M(hi)={metric_hi}, threshold={threshold}, "
+                f"direction={direction!r}; el extremo hi no cruza el umbral."
+            )
+        if _reverse_satisfies(metric_lo, direction, threshold):
+            raise ReverseStressError(
+                f"El target {target.name!r} no queda bracketed en {reverse.bracket}: "
+                f"M(lo)={metric_lo}, M(hi)={metric_hi}, threshold={threshold}, "
+                f"direction={direction!r}; el extremo lo ya cruza el umbral."
+            )
+
+        path_rows: list[dict[str, Any]] = []
+        converged = False
+        severity = 0.0
+        metric_value = 0.0
+        iterations = 0
+        for iteration in range(reverse.max_iterations):
+            mid = lo + (hi - lo) / 2.0
+            value = evaluate(mid)
+            satisfies = _reverse_satisfies(value, direction, threshold)
+            within_tol = (
+                abs(value - threshold) <= reverse.metric_tol or (hi - lo) <= reverse.severity_tol
+            )
+            if satisfies and within_tol:
+                path_rows.append(
+                    _reverse_path_row(
+                        target.name, iteration, lo, hi, mid, value, threshold, "converged"
+                    )
+                )
+                converged = True
+                severity, metric_value, iterations = mid, value, iteration
+                break
+            decision = "move_hi" if satisfies else "move_lo"
+            path_rows.append(
+                _reverse_path_row(target.name, iteration, lo, hi, mid, value, threshold, decision)
+            )
+            if decision == "move_lo":
+                lo = mid
+            else:
+                hi = mid
+        else:
+            raise ReverseStressError(
+                f"La bisección del target {target.name!r} no convergió en "
+                f"{reverse.max_iterations} iteraciones (bracket={reverse.bracket}, "
+                f"threshold={threshold})."
+            )
+
+        result = ReverseStressResult(
+            target_name=target.name,
+            metric=target.metric,
+            threshold=threshold,
+            direction=direction,
+            severity=severity,
+            metric_value=metric_value,
+            iterations=iterations,
+            bracket=reverse.bracket,
+            converged=converged,
+            reverse_path_frame=_reverse_path_frame(path_rows, pd=pd),
+        )
+        _emit_audit_decision(
+            audit,
+            regla="stress_reverse",
+            umbral={
+                "target": target.name,
+                "metric": target.metric,
+                "threshold": threshold,
+                "direction": direction,
+                "factor": reverse.factor,
+                "bracket": reverse.bracket,
+                "severity_tol": reverse.severity_tol,
+                "metric_tol": reverse.metric_tol,
+                "max_iterations": reverse.max_iterations,
+            },
+            valor={
+                "severity": severity,
+                "metric_value": metric_value,
+                "iterations": iterations,
+                "converged": converged,
+                "path_rows": len(path_rows),
+                "monotonicity_flag": monotonicity_flag,
+                "engine_sources": _dedupe_iterable(sources_seen),
+                "warning_codes": _dedupe(warnings_seen),
+            },
+            accion="solve",
+        )
+        return result
 
     def _require_context(self) -> _RunContext:
         if self._context is None:
@@ -889,13 +1059,13 @@ def _reject_deferred_features(cfg: StressConfig) -> None:
             "output.include_baseline_rows=False está diferido: stress publica impactos "
             "comparables con value_base/value_stress obligatorios."
         )
-    enabled_reverse = [reverse.factor for reverse in cfg.reverse if reverse.enabled]
-    if enabled_reverse:
-        raise ReverseStressError(f"Reverse stress diferido a B21.5: {enabled_reverse}.")
-    if not cfg.scenarios and not cfg.sensitivities:
+    if (
+        not cfg.scenarios
+        and not cfg.sensitivities
+        and not any(reverse.enabled for reverse in cfg.reverse)
+    ):
         raise StressEngineError(
-            "stress exige al menos un escenario o una sensibilidad ejecutable; "
-            "el reverse stress está diferido a B21.5."
+            "stress exige al menos un escenario, una sensibilidad o un reverse stress ejecutable."
         )
 
 
@@ -2918,6 +3088,131 @@ def _sensitivity_scenario(sweep: SensitivitySweepConfig) -> StressScenarioConfig
     )
 
 
+def _reverse_base_forward_scenario(cfg: StressConfig, target: StressTargetConfig) -> str:
+    """Resuelve el escenario forward base honrando ``target.scenario_name`` (SDD-21 §5).
+
+    ``target.scenario_name`` referencia un escenario de stress declarado (config §5 y
+    ``_check_reverse_targets``); reverse stress ancla ``M(a)`` en su ``base_forward_scenario``. El
+    escenario forward base define el macro y la term-structure del cálculo, por lo que ignorarlo
+    cambiaría el número regulatorio en silencio. Si el nombre no existe, se levanta el error del SDD
+    en vez de degradar a un escenario por default.
+    """
+    for scenario in cfg.scenarios:
+        if scenario.name.strip() == target.scenario_name.strip():
+            return scenario.base_forward_scenario
+    raise StressScenarioError(
+        f"El target {target.name!r} referencia scenario_name={target.scenario_name!r}, "
+        "ausente en stress.scenarios; reverse stress exige un escenario de stress declarado."
+    )
+
+
+def _reverse_scenario(
+    target: StressTargetConfig,
+    reverse: ReverseStressConfig,
+    *,
+    base_forward_scenario: str,
+) -> StressScenarioConfig:
+    """Construye el escenario sintético ``custom`` que evalúa ``M(a)`` para reverse stress.
+
+    ``base_forward_scenario`` proviene del escenario de stress referido por ``target.scenario_name``
+    (ver :func:`_reverse_base_forward_scenario`): define el macro y la term-structure sobre los que
+    se calcula ``M(a)``, por lo que honrarlo es requisito regulatorio y no un detalle cosmético.
+    """
+    return StressScenarioConfig(
+        name=target.name,
+        kind="custom",
+        base_forward_scenario=base_forward_scenario,
+        shocks=(
+            StressShockConfig(
+                factor=reverse.factor,
+                operation=reverse.operation,
+                value=reverse.shock_value,
+                source="user",
+            ),
+        ),
+        require_dominates_forward_adverse=False,
+    )
+
+
+def _reverse_satisfies(value: float, direction: str, threshold: float) -> bool:
+    """Indica si ``value`` cumple el target en la dirección declarada, dentro de tolerancia."""
+    if math.isclose(value, threshold, rel_tol=_FLOAT_ATOL, abs_tol=_FLOAT_ATOL):
+        return True
+    if direction == "at_least":
+        return value > threshold
+    return value < threshold
+
+
+def _reverse_metric_value(
+    impact_frame: DataFrame,
+    *,
+    target: StressTargetConfig,
+) -> tuple[float, tuple[str, ...], tuple[str, ...]]:
+    """Agrega ``M(a)`` desde el impact frame según ``target.metric`` y ``target.group_filter``."""
+    values: list[Any] = []
+    sources: list[str] = []
+    warnings_seen: list[str] = []
+    for row in _iter_impact_rows(impact_frame):
+        if not _reverse_row_matches_filter(row, target.group_filter):
+            continue
+        values.append(row["value_stress"])
+        sources.append(str(row["engine_source"]))
+        warnings_seen.extend(_warning_tuple(row["warning_codes"]))
+    if not values:
+        raise ReverseStressError(
+            f"El target {target.name!r} no produjo filas de métrica {target.metric!r} "
+            f"para el filtro de grupo {target.group_filter!r}."
+        )
+    value = _aggregate_sweep_metric(values, metric=target.metric)
+    return value, _dedupe_iterable(sources), _dedupe(warnings_seen)
+
+
+def _reverse_row_matches_filter(
+    row: Mapping[str, Any],
+    group_filter: Mapping[str, Any],
+) -> bool:
+    """Filtra una fila de impacto por ``group_filter`` (period, engine_source o dimensiones)."""
+    if not group_filter:
+        return True
+    view: dict[str, Any] = {
+        "period": row["period"],
+        "engine_source": row["engine_source"],
+    }
+    parsed = _parse_impact_group_key(row["group_key"])
+    if parsed is not None:
+        view.update(parsed)
+    return all(view.get(key) == value for key, value in group_filter.items())
+
+
+def _reverse_path_row(
+    target_name: str,
+    iteration: int,
+    lo: float,
+    hi: float,
+    mid: float,
+    metric_value: float,
+    threshold: float,
+    decision: str,
+) -> dict[str, Any]:
+    """Construye una fila del path de bisección reverse (``stress.reverse_path``, SDD-21 §6)."""
+    return {
+        "target_name": target_name,
+        "iteration": iteration,
+        "lo": lo,
+        "hi": hi,
+        "mid": mid,
+        "metric_value": metric_value,
+        "threshold": threshold,
+        "decision": decision,
+    }
+
+
+def _reverse_path_frame(rows: list[dict[str, Any]], *, pd: Any) -> DataFrame:
+    """Construye el frame tidy ``stress.reverse_path`` con las columnas canónicas SDD-21 §6."""
+    frame = pd.DataFrame.from_records(rows, columns=_REVERSE_PATH_COLUMNS)
+    return _normalize_frame(frame)
+
+
 def _validate_unique_sensitivity_names(cfg: StressConfig) -> None:
     """Valida que los nombres de barridos sean únicos y no colisionen con escenarios."""
     scenario_names = {scenario.name for scenario in cfg.scenarios}
@@ -3163,6 +3458,7 @@ def _build_card(
     *,
     scenario_results: tuple[StressScenarioResult, ...],
     sensitivity_results: tuple[StressSensitivityResult, ...],
+    reverse_results: tuple[ReverseStressResult, ...],
     stress_impact: DataFrame,
     stress_scenarios: DataFrame,
     stress_term_structure: DataFrame | None,
@@ -3174,10 +3470,12 @@ def _build_card(
         dict.fromkeys(str(value) for value in stress_scenarios["source"].tolist())
     )
     sensitivity_rows = sum(len(result.sensitivity_frame.index) for result in sensitivity_results)
+    reverse_rows = sum(len(result.reverse_path_frame.index) for result in reverse_results)
     return StressCard(
         summary={
             "scenario_count": len(scenario_results),
             "sensitivity_count": len(sensitivity_results),
+            "reverse_count": len(reverse_results),
             "scenario_rows": len(stress_scenarios.index),
             "impact_rows": len(stress_impact.index),
             "term_structure_rows": term_rows,
@@ -3197,14 +3495,22 @@ def _build_card(
                 "monotonicity": tuple(result.monotonicity_flag for result in sensitivity_results),
                 "rows": sensitivity_rows,
             },
+            "reverse_stress": {
+                "targets": tuple(result.target_name for result in reverse_results),
+                "converged": tuple(result.converged for result in reverse_results),
+                "iterations": tuple(result.iterations for result in reverse_results),
+                "rows": reverse_rows,
+            },
             "term_structure_summary": {
                 "published": stress_term_structure is not None,
                 "rows": term_rows,
             },
             "falta_dato": {"codes": diagnostics.falta_dato_codes},
         },
-        assumptions=("Stress determinista sin Monte Carlo en B21.3/B21.4.",),
-        limitations=("El reverse stress se implementa en B21.5.",),
+        assumptions=("Stress determinista sin Monte Carlo en B21.3/B21.4/B21.5.",),
+        limitations=(
+            "Reverse stress por bisección monotónica determinista; sin optimizadores heurísticos.",
+        ),
     )
 
 
@@ -3307,6 +3613,11 @@ def _emit_size_estimate(
 ) -> None:
     scenario_count = len(cfg.scenarios)
     sensitivity_evaluations = sum(len(sweep.severity_grid) for sweep in cfg.sensitivities)
+    reverse_evaluations = sum(
+        len(reverse.monotonicity_check_points) + 2 + reverse.max_iterations
+        for reverse in cfg.reverse
+        if reverse.enabled
+    )
     _emit_audit_decision(
         audit,
         regla="stress_size_estimate",
@@ -3322,8 +3633,8 @@ def _emit_size_estimate(
             "estimated_stress_term_structure_rows": term_structure_rows
             * (scenario_count + sensitivity_evaluations),
             "estimated_sensitivity_evaluations": sensitivity_evaluations,
-            "estimated_reverse_evaluations": 0,
-            "scope": "B21.4 scenarios + sensitivity; reverse deferred",
+            "estimated_reverse_evaluations": reverse_evaluations,
+            "scope": "B21.3-B21.5 scenarios + sensitivity + reverse",
         },
         accion="diagnose",
     )
