@@ -30,7 +30,7 @@ from nikodym.performance.exceptions import (
 )
 from nikodym.testing.strategies import _config_cls_for_domain, nikodym_config_strategy
 
-GOLDEN_DEFAULT_CONFIG_HASH = "2c8c7ccbeae14e121d4c69d34777146b984208192998b3098943d0321c827ddb"
+GOLDEN_DEFAULT_CONFIG_HASH = "70dbc51fb6c230afac21fb20fa1d28e6e766d09759d5d765d82ab5cd5aacc1a8"
 
 
 @pytest.fixture(autouse=True)

@@ -41,7 +41,7 @@ from nikodym.provisioning.ifrs9.exceptions import (
 )
 
 # Golden del config_hash por defecto tras añadir la sección computacional `provisioning_ifrs9`.
-GOLDEN_DEFAULT_CONFIG_HASH = "2c8c7ccbeae14e121d4c69d34777146b984208192998b3098943d0321c827ddb"
+GOLDEN_DEFAULT_CONFIG_HASH = "70dbc51fb6c230afac21fb20fa1d28e6e766d09759d5d765d82ab5cd5aacc1a8"
 # Golden anterior (antes de B16.1); el hash DEBE moverse respecto a este valor.
 GOLDEN_PREVIO_SIN_IFRS9 = "145f9c1d1d7674f0aec6c435774649ac97b7e98aad656b4f6e171155f15b747e"
 

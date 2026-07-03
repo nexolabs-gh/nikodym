@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from nikodym.stress.config import StressConfig
     from nikodym.survival.config import SurvivalConfig
     from nikodym.tracking.config import TrackingConfig
+    from nikodym.validation.config import ValidationConfig
 
 __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
 
@@ -71,6 +72,7 @@ _PROVISIONING_IFRS9_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_CONFIG_CLS: type[BaseModel] | None = None
 _PERFORMANCE_CONFIG_CLS: type[BaseModel] | None = None
 _STABILITY_CONFIG_CLS: type[BaseModel] | None = None
+_VALIDATION_CONFIG_CLS: type[BaseModel] | None = None
 _REPORT_CONFIG_CLS: type[BaseModel] | None = None
 _AUDIT_CONFIG_CLS: type[BaseModel] | None = None
 _GOVERNANCE_CONFIG_CLS: type[BaseModel] | None = None
@@ -130,7 +132,7 @@ class NikodymConfig(NikodymBaseConfig):
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
     ``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,
     ``calibration``, ``survival``, ``forward``, ``stress``, ``provisioning_cmf``,
-    ``provisioning_ifrs9``, ``performance``, ``stability``, ``report``).
+    ``provisioning_ifrs9``, ``performance``, ``stability``, ``validation``, ``report``).
     """
 
     schema_version: str = Field(
@@ -319,6 +321,19 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Estabilidad",
             description="Sección de métricas de estabilidad post-modelo (capa `stability`).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `ValidationConfig` la hace `_valida_validation` vía hook diferido.
+        validation: ValidationConfig | None = None
+    else:
+        validation: Any = Field(
+            default=None,
+            title="Validación avanzada",
+            description=(
+                "Sección de validación avanzada: calibración, backtesting y semáforo "
+                "(capa `validation`, SDD-22)."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -787,6 +802,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "stability debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.stability` para "
                 "validarlo como StabilityConfig."
+            ) from exc
+        return valor
+
+    @field_validator("validation", mode="before")
+    @classmethod
+    def _valida_validation(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``validation`` según haya o no capa cargada.
+
+        Con ``nikodym.validation`` importado (``_VALIDATION_CONFIG_CLS`` poblado), un ``dict`` se
+        valida y coacciona a :class:`ValidationConfig` (``extra='forbid'`` y rangos); una instancia
+        ya validada pasa tal cual. Sin la capa cargada, ``validation`` es un *blob* opaco: se exige
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos)
+        para no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _VALIDATION_CONFIG_CLS is not None:
+            if isinstance(valor, _VALIDATION_CONFIG_CLS):
+                return valor
+            return _VALIDATION_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "validation debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.validation` para "
+                "validarlo como ValidationConfig."
             ) from exc
         return valor
 
