@@ -5,13 +5,13 @@ Son **dos motores separados** (ESPEC §5.4): :mod:`nikodym.provisioning.cmf`
 es el **máximo** de ambos (piso prudencial CMF), que orquesta esta capa fina (SDD-17).
 
 Al importarse, este paquete registra :class:`ProvisioningConfig` en el hook diferido de
-:mod:`nikodym.core.config.schema`. Así ``NikodymConfig.provisioning`` se valida como sub-config real
-sin que ``import nikodym.core`` arrastre ``nikodym.provisioning`` ni dependencias tabulares pesadas.
-B17.2 añade los DTOs puros de resultados (``results``) y B17.3 el ``ProvisioningOrchestrator``
-determinista (piso prudencial CMF vs IFRS 9); el step llega en B17.4. Ni los DTOs ni el orchestrator
-importan ``pandas`` en runtime al cargar el módulo (``pandas`` se usa perezosamente dentro de
-``compare``), de modo que ``import nikodym.provisioning`` sigue siendo liviano; **aún no** se
-registra el step.
+:mod:`nikodym.core.config.schema` e importa :mod:`nikodym.provisioning.step` para ejecutar
+``@register("standard", domain="provisioning")`` del :class:`ProvisioningStep`. Así
+``NikodymConfig.provisioning`` se valida como sub-config real y el step queda disponible en el
+``REGISTRY`` sin que ``import nikodym.core`` arrastre ``nikodym.provisioning`` ni dependencias
+tabulares pesadas. Ni los DTOs, ni el orchestrator, ni el step importan ``pandas`` al cargar el
+módulo (``pandas`` se usa perezosamente dentro de ``compare``), de modo que
+``import nikodym.provisioning`` sigue siendo liviano.
 
 **Experimental (SemVer 0.x).**
 """
@@ -40,11 +40,14 @@ from nikodym.provisioning.results import (
     ProvisionOrchestrationCard,
     ProvisionOrchestrationResult,
 )
+from nikodym.provisioning.step import PROVISIONING_ARTIFACTS, ProvisioningStep
 
-# Registra la clase real del sub-config `provisioning` en el hook de `core`.
+# Registra la clase real del sub-config `provisioning` en el hook de `core`. El import de `step`
+# (arriba) ejecuta @register("standard", domain="provisioning") sin cargar pandas.
 _schema._PROVISIONING_CONFIG_CLS = ProvisioningConfig
 
 __all__ = [
+    "PROVISIONING_ARTIFACTS",
     "ProvisionComparisonRecord",
     "ProvisionComparisonSummary",
     "ProvisionOrchestrationCard",
@@ -60,4 +63,5 @@ __all__ = [
     "ProvisioningNumericReconciliation",
     "ProvisioningOrchestrator",
     "ProvisioningRoundingPolicy",
+    "ProvisioningStep",
 ]

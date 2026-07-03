@@ -66,6 +66,7 @@ def test_from_config_registro_reexport_contrato_orden_e_import_liviano() -> None
         "report",
         "provisioning_ifrs9",
         "provisioning_cmf",
+        "provisioning",
     )
 
     step.emit(
