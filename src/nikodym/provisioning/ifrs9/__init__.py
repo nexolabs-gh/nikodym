@@ -23,6 +23,7 @@ from nikodym.provisioning.ifrs9.config import (
     IfrsScenarioConfig,
     IfrsStagingConfig,
 )
+from nikodym.provisioning.ifrs9.ead import EadEngine
 from nikodym.provisioning.ifrs9.exceptions import (
     IfrsConfigError,
     IfrsEadError,
@@ -49,6 +50,7 @@ _schema._PROVISIONING_IFRS9_CONFIG_CLS = IfrsProvisioningConfig
 
 __all__ = [
     "BaseEclModel",
+    "EadEngine",
     "IfrsConfigError",
     "IfrsEadConfig",
     "IfrsEadError",
