@@ -120,6 +120,7 @@ def test_from_config_registro_exports_ct1_dinamico_e_import_liviano(tmp_path: Pa
         "import nikodym.forward;"
         "blocked=[m for m in ('statsmodels','pmdarima','pandas','scipy') if m in sys.modules];"
         "assert not blocked, blocked;"
+        "assert 'nikodym.provisioning.ifrs9' not in sys.modules;"
         "assert 'nikodym.forward.step' in sys.modules;"
         "assert 'nikodym.forward.results' not in sys.modules;"
         "assert 'ForwardStep' in nikodym.forward.__all__"
@@ -161,7 +162,6 @@ def test_execute_publica_artifacts_ct2_auditoria_warning_codes_no_mutacion(
     assert set(term["basis_state"]) == {"pit", "ttc"}
     assert term.loc[term.index[0], "warning_codes"] == ("UPSTREAM-CODE",)
     assert study.artifacts.keys()[-10:] == [("forward", key) for key in FORWARD_ARTIFACTS]
-    assert "nikodym.provisioning.ifrs9" not in sys.modules
 
     assert_frame_equal(study.artifacts.get("forward", "macro_history"), macro_snapshot)
     assert_frame_equal(study.artifacts.get("survival", "term_structure"), term_snapshot)

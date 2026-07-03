@@ -1,8 +1,57 @@
 """Motor de provisiones IFRS 9: pérdida crediticia esperada (ECL).
 
-**Declarado, no implementado en F0.** Su código llega en F4 (SDD-16). Aquí vivirán las
-implementaciones de ``term_structure()`` / ``metric_sections`` / ``payload`` (puertas de
-extensión CT-2); su *shape* interno NO se fija ahora. El módulo existe ya para que el gate de
-cobertura regulatoria verifique la existencia del path (criterio Hito 0). Nomenclatura IFRS 9
-(D-CONV-1): ``pd``/``lgd``/``ead``.
+Al importarse, registra :class:`IfrsProvisioningConfig` en el hook diferido de
+:mod:`nikodym.core.config.schema`. Así ``NikodymConfig.provisioning_ifrs9`` se valida como
+sub-config real sin que ``import nikodym.core`` arrastre ``nikodym.provisioning`` ni dependencias
+numéricas pesadas (scipy/statsmodels/pandas). El motor, los resultados y el step llegan en los
+bloques siguientes de SDD-16 (B16.2+); **B16.1 aporta solo config y excepciones**. Nomenclatura
+IFRS 9 (regla dura D-CONV-1): ``pd``/``lgd``/``ead``.
+
+**Experimental (SemVer 0.x).**
 """
+
+from __future__ import annotations
+
+from nikodym.core.config import schema as _schema
+from nikodym.provisioning.ifrs9.config import (
+    IfrsEadConfig,
+    IfrsEclConfig,
+    IfrsLgdConfig,
+    IfrsPdConfig,
+    IfrsProvisioningConfig,
+    IfrsScenarioConfig,
+    IfrsStagingConfig,
+)
+from nikodym.provisioning.ifrs9.exceptions import (
+    IfrsConfigError,
+    IfrsEadError,
+    IfrsEclError,
+    IfrsInputError,
+    IfrsLgdError,
+    IfrsPdError,
+    IfrsProvisioningError,
+    IfrsStagingError,
+    IfrsTermStructureError,
+)
+
+# Registra la clase real del sub-config provisioning_ifrs9 en el hook de `core`.
+_schema._PROVISIONING_IFRS9_CONFIG_CLS = IfrsProvisioningConfig
+
+__all__ = [
+    "IfrsConfigError",
+    "IfrsEadConfig",
+    "IfrsEadError",
+    "IfrsEclConfig",
+    "IfrsEclError",
+    "IfrsInputError",
+    "IfrsLgdConfig",
+    "IfrsLgdError",
+    "IfrsPdConfig",
+    "IfrsPdError",
+    "IfrsProvisioningConfig",
+    "IfrsProvisioningError",
+    "IfrsScenarioConfig",
+    "IfrsStagingConfig",
+    "IfrsStagingError",
+    "IfrsTermStructureError",
+]
