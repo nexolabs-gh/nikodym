@@ -44,6 +44,7 @@ from nikodym.provisioning.ifrs9.results import (
     IfrsProvisionResult,
     IfrsStageRecord,
 )
+from nikodym.provisioning.ifrs9.staging import StagingEngine
 
 # Registra la clase real del sub-config provisioning_ifrs9 en el hook de `core`.
 _schema._PROVISIONING_IFRS9_CONFIG_CLS = IfrsProvisioningConfig
@@ -73,6 +74,7 @@ __all__ = [
     "IfrsStagingError",
     "IfrsTermStructureError",
     "LgdEngine",
+    "StagingEngine",
     "marginal_to_horizon",
     "vasicek_pit",
 ]
