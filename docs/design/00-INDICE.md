@@ -49,7 +49,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **19** | `markov` (transición, term structure) | Forward | F5 | T5 | 02 | 🟡 Borrador |
 | **20** | `forward` (macro ARIMA/VAR, satellite, escenarios) | Forward | F5 | T5 | 18, 19 | 🟡 Borrador |
 | **21** | `stress` (stress testing, sensibilidad) | Forward | F5 | T5 | 20 | 🟡 Borrador |
-| **22** | `validation` | Validación | F6 | T6 | 11, 16 | ⬜ Pendiente |
+| **22** | `validation` | Validación | F6 | T6 | 11, 16 | 🟡 Borrador |
 | **23** | `ui` (Streamlit, editor de config) | Producto | F7 | T6 | 05, todos | ⬜ Pendiente |
 | **26** | `report` (Quarto HTML+PDF, capa IA, export) | Reporte | F1 | T2 | 01 | 🟡 Borrador |
 | **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Aprobado |
