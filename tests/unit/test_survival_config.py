@@ -41,7 +41,7 @@ from nikodym.survival.exceptions import (
 )
 from nikodym.testing.strategies import _config_cls_for_domain
 
-GOLDEN_DEFAULT_CONFIG_HASH = "c534dee874e28f6f6974d793dab65acaff7fa3d0bb9b0ae4d35fb318453b1af3"
+GOLDEN_DEFAULT_CONFIG_HASH = "2c8c7ccbeae14e121d4c69d34777146b984208192998b3098943d0321c827ddb"
 
 
 @pytest.fixture(autouse=True)

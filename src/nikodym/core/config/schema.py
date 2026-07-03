@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from nikodym.model.config import ModelConfig
     from nikodym.performance.config import PerformanceConfig
     from nikodym.provisioning.cmf.config import CmfProvisioningConfig
+    from nikodym.provisioning.config import ProvisioningConfig
     from nikodym.provisioning.ifrs9.config import IfrsProvisioningConfig
     from nikodym.report.config import ReportConfig
     from nikodym.scorecard.config import ScorecardConfig
@@ -67,6 +68,7 @@ _FORWARD_CONFIG_CLS: type[BaseModel] | None = None
 _STRESS_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_CMF_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_IFRS9_CONFIG_CLS: type[BaseModel] | None = None
+_PROVISIONING_CONFIG_CLS: type[BaseModel] | None = None
 _PERFORMANCE_CONFIG_CLS: type[BaseModel] | None = None
 _STABILITY_CONFIG_CLS: type[BaseModel] | None = None
 _REPORT_CONFIG_CLS: type[BaseModel] | None = None
@@ -282,6 +284,20 @@ class NikodymConfig(NikodymBaseConfig):
             title="Provisiones IFRS 9",
             description=(
                 "Sección de provisiones contables IFRS 9/ECL (capa `provisioning_ifrs9`, SDD-16)."
+            ),
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `ProvisioningConfig` la hace `_valida_provisioning` vía hook
+        # diferido.
+        provisioning: ProvisioningConfig | None = None
+    else:
+        provisioning: Any = Field(
+            default=None,
+            title="Provisiones (orquestación)",
+            description=(
+                "Sección de orquestación CMF vs IFRS 9 y piso prudencial máximo(ECL, CMF) "
+                "(capa `provisioning`, SDD-17)."
             ),
         )
     if TYPE_CHECKING:
@@ -690,6 +706,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "provisioning_ifrs9 debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.provisioning.ifrs9` para "
                 "validarlo como IfrsProvisioningConfig."
+            ) from exc
+        return valor
+
+    @field_validator("provisioning", mode="before")
+    @classmethod
+    def _valida_provisioning(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``provisioning`` según haya o no capa cargada.
+
+        Con ``nikodym.provisioning`` importado (``_PROVISIONING_CONFIG_CLS`` poblado), un ``dict``
+        se valida y coacciona a :class:`ProvisioningConfig` (``extra='forbid'`` y rangos); una
+        instancia ya validada pasa tal cual. Sin la capa cargada, ``provisioning`` es un *blob*
+        opaco: se exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats
+        no finitos) para no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _PROVISIONING_CONFIG_CLS is not None:
+            if isinstance(valor, _PROVISIONING_CONFIG_CLS):
+                return valor
+            return _PROVISIONING_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "provisioning debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.provisioning` para "
+                "validarlo como ProvisioningConfig."
             ) from exc
         return valor
 
