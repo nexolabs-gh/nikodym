@@ -44,7 +44,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **14** | `explain` (SHAP + reason codes) | ML | F2 | T3 | 12 | ⬜ Pendiente |
 | **15** | `provisioning/cmf` (B-1, matrices, B-3, garantías) | Provisiones | F3 | T4 | 08, 02 | 🟡 Borrador |
 | **16** | `provisioning/ifrs9` (PD/LGD/EAD, staging, ECL) | Provisiones | F4 | T4 | 10, 18 | 🟡 Borrador |
-| **17** | `provisioning` (orquestación / piso regulatorio) | Provisiones | F4 | T4 | 15, 16 | ⬜ Pendiente |
+| **17** | `provisioning` (orquestación / piso regulatorio) | Provisiones | F4 | T4 | 15, 16 | 🟡 Borrador |
 | **18** | `survival` (KM/Cox/AFT/discrete-time) | Forward | F5 | T5 | 08 | 🟡 Borrador |
 | **19** | `markov` (transición, term structure) | Forward | F5 | T5 | 02 | 🟡 Borrador |
 | **20** | `forward` (macro ARIMA/VAR, satellite, escenarios) | Forward | F5 | T5 | 18, 19 | 🟡 Borrador |
