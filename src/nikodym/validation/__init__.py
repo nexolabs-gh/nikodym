@@ -38,24 +38,36 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "ValidationConfigError": ("nikodym.validation.exceptions", "ValidationConfigError"),
     "ValidationDataError": ("nikodym.validation.exceptions", "ValidationDataError"),
     "ValidationError": ("nikodym.validation.exceptions", "ValidationError"),
+    "BacktestRecord": ("nikodym.validation.results", "BacktestRecord"),
+    "CalibrationTestRecord": ("nikodym.validation.results", "CalibrationTestRecord"),
+    "DiscriminationRecord": ("nikodym.validation.results", "DiscriminationRecord"),
+    "GradeBinomialRecord": ("nikodym.validation.results", "GradeBinomialRecord"),
+    "ValidationCardSection": ("nikodym.validation.results", "ValidationCardSection"),
+    "ValidationResult": ("nikodym.validation.results", "ValidationResult"),
 }
 
 __all__ = [
     "BacktestError",
     "BacktestParameter",
+    "BacktestRecord",
     "BacktestingValidationConfig",
     "CalibrationTestError",
+    "CalibrationTestRecord",
     "CalibrationValidationConfig",
     "DiscriminationPartition",
+    "DiscriminationRecord",
     "DiscriminationValidationConfig",
+    "GradeBinomialRecord",
     "HlGrouping",
     "PdTest",
     "StabilityValidationConfig",
+    "ValidationCardSection",
     "ValidationConfig",
     "ValidationConfigError",
     "ValidationDataError",
     "ValidationError",
     "ValidationFamily",
+    "ValidationResult",
 ]
 
 
