@@ -34,6 +34,7 @@ from nikodym.provisioning.ifrs9.exceptions import (
     IfrsStagingError,
     IfrsTermStructureError,
 )
+from nikodym.provisioning.ifrs9.lgd import LgdEngine
 from nikodym.provisioning.ifrs9.pd_pit import marginal_to_horizon, vasicek_pit
 from nikodym.provisioning.ifrs9.results import (
     IfrsEclRecord,
@@ -69,6 +70,7 @@ __all__ = [
     "IfrsStagingConfig",
     "IfrsStagingError",
     "IfrsTermStructureError",
+    "LgdEngine",
     "marginal_to_horizon",
     "vasicek_pit",
 ]
