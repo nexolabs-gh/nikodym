@@ -25,6 +25,7 @@ from nikodym.provisioning.ifrs9.config import (
 )
 from nikodym.provisioning.ifrs9.ead import EadEngine
 from nikodym.provisioning.ifrs9.ecl import EclEngine
+from nikodym.provisioning.ifrs9.engine import IfrsProvisioningEngine
 from nikodym.provisioning.ifrs9.exceptions import (
     IfrsConfigError,
     IfrsEadError,
@@ -46,11 +47,16 @@ from nikodym.provisioning.ifrs9.results import (
     IfrsStageRecord,
 )
 from nikodym.provisioning.ifrs9.staging import StagingEngine
+from nikodym.provisioning.ifrs9.step import (
+    IFRS9_PROVISIONING_ARTIFACTS,
+    IfrsProvisioningStep,
+)
 
 # Registra la clase real del sub-config provisioning_ifrs9 en el hook de `core`.
 _schema._PROVISIONING_IFRS9_CONFIG_CLS = IfrsProvisioningConfig
 
 __all__ = [
+    "IFRS9_PROVISIONING_ARTIFACTS",
     "BaseEclModel",
     "EadEngine",
     "EclEngine",
@@ -69,7 +75,9 @@ __all__ = [
     "IfrsProvisionCard",
     "IfrsProvisionResult",
     "IfrsProvisioningConfig",
+    "IfrsProvisioningEngine",
     "IfrsProvisioningError",
+    "IfrsProvisioningStep",
     "IfrsScenarioConfig",
     "IfrsStageRecord",
     "IfrsStagingConfig",
