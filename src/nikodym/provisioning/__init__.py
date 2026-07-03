@@ -7,9 +7,11 @@ es el **máximo** de ambos (piso prudencial CMF), que orquesta esta capa fina (S
 Al importarse, este paquete registra :class:`ProvisioningConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.provisioning`` se valida como sub-config real
 sin que ``import nikodym.core`` arrastre ``nikodym.provisioning`` ni dependencias tabulares pesadas.
-B17.2 añade los DTOs puros de resultados (``results``); orchestrator y step llegan en los bloques
-siguientes de SDD-17 (B17.3+). Los DTOs no importan ``pandas`` en runtime, de modo que
-``import nikodym.provisioning`` sigue siendo liviano; **aún no** se registra el step.
+B17.2 añade los DTOs puros de resultados (``results``) y B17.3 el ``ProvisioningOrchestrator``
+determinista (piso prudencial CMF vs IFRS 9); el step llega en B17.4. Ni los DTOs ni el orchestrator
+importan ``pandas`` en runtime al cargar el módulo (``pandas`` se usa perezosamente dentro de
+``compare``), de modo que ``import nikodym.provisioning`` sigue siendo liviano; **aún no** se
+registra el step.
 
 **Experimental (SemVer 0.x).**
 """
@@ -31,6 +33,7 @@ from nikodym.provisioning.exceptions import (
     ProvisioningError,
     ProvisioningInputError,
 )
+from nikodym.provisioning.orchestrator import ProvisioningOrchestrator
 from nikodym.provisioning.results import (
     ProvisionComparisonRecord,
     ProvisionComparisonSummary,
@@ -55,5 +58,6 @@ __all__ = [
     "ProvisioningError",
     "ProvisioningInputError",
     "ProvisioningNumericReconciliation",
+    "ProvisioningOrchestrator",
     "ProvisioningRoundingPolicy",
 ]
