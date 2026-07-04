@@ -219,6 +219,28 @@ def test_fit_filtra_fuera_de_modelo_y_anchor_development_observed_auditado() -> 
     assert "calibration_anchor" in [event.payload["regla"] for event in audit.events]
 
 
+def test_construccion_directa_fuente_no_dev_sin_target_pd_falla_en_fit() -> None:
+    """M1 (ruta directa): ``PDCalibrator(anchor_source='external_regulatory')`` sin target_pd.
+
+    Reproduce el bug: sin el guard anclaría al placeholder 0.05 etiquetado 'external_regulatory'.
+    El default es ``None`` y ``fit`` revalida la config → ``ConfigError`` explícito, no un ancla
+    inventada. Cubre la ruta que no pasa por ``CalibrationConfig`` (construcción directa).
+    """
+    frame = _raw_frame([-1.0, 0.0, 1.0], target=[0, 1, 0])
+    with pytest.raises(ConfigError, match="target_pd"):
+        PDCalibrator(anchor_source="external_regulatory", min_fit_rows=1).fit(frame)
+
+
+def test_construccion_directa_fuente_no_dev_con_target_pd_usa_ese_valor() -> None:
+    """M1 (ruta directa): con target_pd explícito, la fuente no-Dev ancla a ESE valor."""
+    frame = _raw_frame([-1.0, 0.0, 1.0], target=[0, 1, 0])
+    calibrator = PDCalibrator(
+        anchor_source="external_regulatory", target_pd=0.03, min_fit_rows=1
+    ).fit(frame)
+    assert calibrator.target_pd_ == pytest.approx(0.03)
+    assert calibrator.parameters_.anchor_source == "external_regulatory"
+
+
 def test_business_input_permite_target_no_binario_y_observed_rate_none() -> None:
     """Con ancla externa, target no binario no bloquea pero se publica tasa observada ``None``."""
     frame = _raw_frame([-1.0, 0.0, 1.0], target=[0.2, 0.4, 0.6])

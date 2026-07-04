@@ -38,6 +38,9 @@ __all__ = [
 ]
 
 _SUPERVISED_METHODS: frozenset[str] = frozenset({"platt_scaling", "isotonic"})
+_EXPLICIT_ANCHOR_SOURCES: frozenset[str] = frozenset(
+    {"business_input", "historical_default_rate", "external_regulatory"}
+)
 _COLUMN_FIELDS: tuple[str, ...] = (
     "pd_raw_column",
     "linear_predictor_column",
@@ -63,16 +66,18 @@ class CalibrationConfig(NikodymBaseConfig):
         description="Método usado para transformar PD cruda en PD calibrada.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Método", "ui_order": 1},
     )
-    target_pd: float = Field(
-        default=0.05,
+    target_pd: float | None = Field(
+        default=None,
         gt=0.0,
         lt=1.0,
         title="PD objetivo",
         description=(
-            "Placeholder ilustrativo. Con anchor_source='development_observed' no se usa: "
-            "la tasa central TTC se estima como promedio de largo plazo observado en Desarrollo. "
-            "Sólo aplica con anchor_source en {'business_input', 'historical_default_rate', "
-            "'external_regulatory'}."
+            "Tasa central de anclaje en (0, 1). Con anchor_source='development_observed' NO se usa "
+            "(la tasa central TTC se estima como promedio de largo plazo observado en Desarrollo), "
+            "por eso el default es None. Con anchor_source en {'business_input', "
+            "'historical_default_rate', 'external_regulatory'} es OBLIGATORIA y explícita: esas "
+            "fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la "
+            "configuración falla en vez de anclar a un número inventado."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Ancla", "ui_order": 1},
     )
@@ -221,15 +226,31 @@ class CalibrationConfig(NikodymBaseConfig):
     @model_validator(mode="after")
     def _check_invariantes(self) -> Self:
         """Valida finitud, ancla y nombres de columnas definidos por SDD-10 §5/§8."""
-        _require_finite("target_pd", self.target_pd)
+        if self.target_pd is not None:
+            _require_finite("target_pd", self.target_pd)
         _require_finite("target_tolerance", self.target_tolerance)
         if self.max_abs_offset is not None:
             _require_positive_finite("max_abs_offset", self.max_abs_offset)
 
+        # ── Coherencia del ancla (SDD-10 §5): nunca etiquetar una salida con una fuente/visión que
+        # no se corresponde con el número realmente usado (criterio: o se ancla de verdad, o falla).
+        if self.anchor_kind == "point_in_time" and self.anchor_source == "development_observed":
+            raise ConfigError(
+                "anchor_kind='point_in_time' es incoherente con "
+                "anchor_source='development_observed': la media observada de Desarrollo es una "
+                "tasa de largo plazo (TTC) por definición; etiquetar esa salida como point_in_time "
+                "sería una etiqueta falsa. Use anchor_kind='through_the_cycle' o una fuente PIT."
+            )
         if self.anchor_kind == "point_in_time" and self.anchor_source == "external_regulatory":
             raise ConfigError(
                 "anchor_kind='point_in_time' no es compatible con "
                 "anchor_source='external_regulatory' en v1."
+            )
+        if self.anchor_source in _EXPLICIT_ANCHOR_SOURCES and self.target_pd is None:
+            raise ConfigError(
+                f"anchor_source='{self.anchor_source}' exige fijar target_pd explícito en (0, 1): "
+                "esta fuente no deriva la tasa central de los datos y no existe un placeholder "
+                "válido; sin target_pd no hay ancla (no se ancla al antiguo 0.05 por defecto)."
             )
 
         columns = _column_values(self)

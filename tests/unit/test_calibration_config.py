@@ -46,7 +46,7 @@ def _calibration_defaults() -> dict[str, Any]:
     return {
         "type": "standard",
         "method": "intercept_offset",
-        "target_pd": 0.05,
+        "target_pd": None,
         "anchor_kind": "through_the_cycle",
         "anchor_source": "development_observed",
         "fit_partition": "desarrollo",
@@ -113,7 +113,7 @@ def test_round_trip_yaml_default_ancla_media_observada_desarrollo() -> None:
     calibrated = calibrator.transform(frame)
 
     assert loaded.anchor_source == "development_observed"
-    assert loaded.target_pd == 0.05
+    assert loaded.target_pd is None
     assert calibrator.target_pd_ == pytest.approx(expected_rate)
     assert calibrated["pd_calibrated"].mean() == pytest.approx(
         expected_rate,
@@ -167,7 +167,9 @@ def test_nikodymconfig_calibration_core_only_rechaza_json_no_canonico(
     [
         CalibrationConfig(method="platt_scaling"),
         CalibrationConfig(target_pd=0.04),
-        CalibrationConfig(anchor_kind="point_in_time", anchor_source="business_input"),
+        CalibrationConfig(
+            anchor_kind="point_in_time", anchor_source="business_input", target_pd=0.03
+        ),
         CalibrationConfig(target_tolerance=1e-10),
     ],
 )
@@ -252,6 +254,48 @@ def test_invariantes_invalidas_levantan_configerror(
     """Las invariantes de SDD-10 §5/§8 fallan con ``ConfigError`` propio."""
     with pytest.raises(ConfigError, match=match):
         CalibrationConfig(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "anchor_source",
+    ["business_input", "historical_default_rate", "external_regulatory"],
+)
+def test_fuente_explicita_sin_target_pd_levanta_configerror(anchor_source: str) -> None:
+    """M1: las 3 fuentes no-Dev exigen target_pd explícito; sin él, raise (no ancla al 0.05)."""
+    with pytest.raises(ConfigError, match="exige fijar target_pd explícito"):
+        CalibrationConfig(anchor_source=anchor_source)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "anchor_source",
+    ["business_input", "historical_default_rate", "external_regulatory"],
+)
+def test_fuente_explicita_con_target_pd_usa_ese_valor(anchor_source: str) -> None:
+    """M1: con target_pd explícito, la fuente no-Dev conserva ESE valor como ancla."""
+    cfg = CalibrationConfig(anchor_source=anchor_source, target_pd=0.03)  # type: ignore[arg-type]
+    assert cfg.target_pd == 0.03
+    assert cfg.anchor_source == anchor_source
+
+
+def test_development_observed_no_exige_target_pd() -> None:
+    """development_observed sigue derivando de datos: ``target_pd=None`` es válido."""
+    cfg = CalibrationConfig(anchor_source="development_observed")
+    assert cfg.target_pd is None
+
+
+def test_point_in_time_con_development_observed_levanta_configerror() -> None:
+    """BAJO: point_in_time + development_observed (TTC intrínseco) es etiqueta falsa → raise."""
+    with pytest.raises(ConfigError, match="point_in_time"):
+        CalibrationConfig(anchor_kind="point_in_time", anchor_source="development_observed")
+
+
+def test_point_in_time_con_fuente_pit_explicita_sigue_valido() -> None:
+    """point_in_time sigue siendo válido con una fuente PIT-capaz + target_pd explícito."""
+    cfg = CalibrationConfig(
+        anchor_kind="point_in_time", anchor_source="historical_default_rate", target_pd=0.04
+    )
+    assert cfg.anchor_kind == "point_in_time"
+    assert cfg.target_pd == 0.04
 
 
 def test_calibration_finitud_after_validator_defensiva() -> None:

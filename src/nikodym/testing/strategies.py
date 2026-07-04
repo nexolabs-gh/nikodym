@@ -414,28 +414,40 @@ def _calibration_config_strategy(st: Any) -> Any:
     importlib.import_module("nikodym.calibration")
     from nikodym.calibration.config import CalibrationConfig
 
-    return st.builds(
-        CalibrationConfig,
-        method=st.sampled_from(["intercept_offset", "platt_scaling", "isotonic"]),
-        target_pd=st.floats(min_value=1e-6, max_value=0.5, allow_nan=False),
-        anchor_kind=st.sampled_from(["through_the_cycle", "point_in_time"]),
-        anchor_source=st.sampled_from(
-            ["business_input", "historical_default_rate", "development_observed"]
-        ),
-        target_tolerance=st.floats(min_value=1e-12, max_value=1e-4, allow_nan=False),
-        max_abs_offset=st.one_of(
-            st.none(),
-            st.floats(min_value=1e-6, max_value=10.0, allow_nan=False),
-        ),
-        max_iter=st.integers(min_value=1, max_value=500),
-        min_fit_rows=st.integers(min_value=1, max_value=10_000),
-        require_both_classes_for_supervised=st.just(True),
-        pd_raw_column=st.just("pd_raw"),
-        linear_predictor_column=st.just("linear_predictor"),
-        pd_calibrated_column=st.just("pd_calibrated"),
-        linear_predictor_calibrated_column=st.just("linear_predictor_calibrated"),
-        partition_column=st.just("partition"),
-        target_column=st.just("target"),
+    # Pares (anchor_kind, anchor_source) coherentes con los guards de SDD-10 §5: point_in_time sólo
+    # con fuentes PIT-capaces (no development_observed, TTC intrínseco; external_regulatory ya queda
+    # fuera del muestreo). target_pd siempre explícito, así que las fuentes no-Dev son válidas.
+    anchor = st.sampled_from(
+        [
+            ("through_the_cycle", "business_input"),
+            ("through_the_cycle", "historical_default_rate"),
+            ("through_the_cycle", "development_observed"),
+            ("point_in_time", "business_input"),
+            ("point_in_time", "historical_default_rate"),
+        ]
+    )
+    return anchor.flatmap(
+        lambda pair: st.builds(
+            CalibrationConfig,
+            method=st.sampled_from(["intercept_offset", "platt_scaling", "isotonic"]),
+            target_pd=st.floats(min_value=1e-6, max_value=0.5, allow_nan=False),
+            anchor_kind=st.just(pair[0]),
+            anchor_source=st.just(pair[1]),
+            target_tolerance=st.floats(min_value=1e-12, max_value=1e-4, allow_nan=False),
+            max_abs_offset=st.one_of(
+                st.none(),
+                st.floats(min_value=1e-6, max_value=10.0, allow_nan=False),
+            ),
+            max_iter=st.integers(min_value=1, max_value=500),
+            min_fit_rows=st.integers(min_value=1, max_value=10_000),
+            require_both_classes_for_supervised=st.just(True),
+            pd_raw_column=st.just("pd_raw"),
+            linear_predictor_column=st.just("linear_predictor"),
+            pd_calibrated_column=st.just("pd_calibrated"),
+            linear_predictor_calibrated_column=st.just("linear_predictor_calibrated"),
+            partition_column=st.just("partition"),
+            target_column=st.just("target"),
+        )
     )
 
 

@@ -94,7 +94,7 @@ class PDCalibrator(NikodymTransformer):
         self,
         *,
         method: CalibrationMethod = "intercept_offset",
-        target_pd: float = 0.05,
+        target_pd: float | None = None,
         anchor_kind: AnchorKind = "through_the_cycle",
         anchor_source: AnchorSource = "development_observed",
         fit_partition: Literal["desarrollo"] = "desarrollo",
@@ -619,7 +619,9 @@ def _resolve_target_pd(
     """Resuelve el ancla final; ``development_observed`` materializa la media del target Dev."""
     del pd
     if estimator.anchor_source != "development_observed":
-        return _normalize_float(float(estimator.target_pd))
+        # Las fuentes no-Dev exigen target_pd explícito; ``_validate_runtime_config`` (al inicio de
+        # ``fit``) ya rechazó ``target_pd=None`` para estas fuentes, así que aquí es un float real.
+        return _normalize_float(float(cast(float, estimator.target_pd)))
 
     target = _binary_target_array(
         fit_frame,
