@@ -58,6 +58,7 @@ def test_from_config_registro_reexport_contrato_orden_e_import_liviano() -> None
         "model",
         "scorecard",
         "calibration",
+        "ml",
         "survival",
         "forward",
         "stress",

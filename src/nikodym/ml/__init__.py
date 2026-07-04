@@ -5,9 +5,10 @@ Al importarse, registra :class:`MLConfig` en el hook diferido de
 sub-config real, **sin** que ``import nikodym.core`` ni ``import nikodym.ml`` arrastren dependencias
 de machine learning (scikit-learn/xgboost/lightgbm/catboost) ni tabulares (pandas/numpy): los
 backends y el estimador se importan de forma **perezosa** en bloques posteriores (B12.2+). Las
-excepciones se reexportan perezosas. El registro del :class:`MLStep`
-(``@register('standard', domain='ml')``) llega en B12.5; aquí solo se puebla el hook de config.
-Nomenclatura en inglés técnico para APIs; docstrings y errores en español.
+excepciones se reexportan perezosas. Al final se importa ``ml.step`` para ejecutar
+``@register('standard', domain='ml')`` sin arrastrar ``pandas``/``numpy`` ni los backends ML (el
+step los carga perezosamente dentro de ``execute``). Nomenclatura en inglés técnico para APIs;
+docstrings y errores en español.
 
 **Experimental (SemVer 0.x).**
 """
@@ -40,7 +41,12 @@ from nikodym.ml.config import (
 _schema._ML_CONFIG_CLS = MLConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "MLBackendMetadata": ("nikodym.ml.results", "MLBackendMetadata"),
+    "MLCardSection": ("nikodym.ml.results", "MLCardSection"),
     "MLChallenger": ("nikodym.ml.estimator", "MLChallenger"),
+    "MLComparisonRecord": ("nikodym.ml.results", "MLComparisonRecord"),
+    "MLResult": ("nikodym.ml.results", "MLResult"),
+    "MLStep": ("nikodym.ml.step", "MLStep"),
     "MLBackendError": ("nikodym.ml.exceptions", "MLBackendError"),
     "MLComparisonError": ("nikodym.ml.exceptions", "MLComparisonError"),
     "MLConfigError": ("nikodym.ml.exceptions", "MLConfigError"),
@@ -59,10 +65,13 @@ __all__ = [
     "FeatureSource",
     "LightGBMParams",
     "MLBackendError",
+    "MLBackendMetadata",
     "MLBackendName",
+    "MLCardSection",
     "MLChallenger",
     "MLComparisonConfig",
     "MLComparisonError",
+    "MLComparisonRecord",
     "MLConfig",
     "MLConfigError",
     "MLDataError",
@@ -72,6 +81,8 @@ __all__ = [
     "MLMonotonicError",
     "MLOutputConfig",
     "MLPredictError",
+    "MLResult",
+    "MLStep",
     "MLTrainConfig",
     "MonotonicConfig",
     "MonotonicMode",
@@ -79,6 +90,10 @@ __all__ = [
     "SvmParams",
     "XGBoostParams",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="ml") al importar
+# `nikodym.ml`, sin arrastrar pandas/numpy ni los backends ML (el step los carga en `execute`).
+importlib.import_module("nikodym.ml.step")
 
 
 def __getattr__(name: str) -> Any:
