@@ -213,7 +213,9 @@ def test_forwardinput_defaults_golden_con_macro_explicita() -> None:
 
 def test_round_trip_yaml_forwardconfig_y_nikodymconfig() -> None:
     """Serializar y recargar ``forward`` por YAML preserva igualdad exacta."""
-    cfg = NikodymConfig(forward=_cfg(macro=MacroModelConfig(kind="sarima")))
+    cfg = NikodymConfig(
+        forward=_cfg(macro=MacroModelConfig(kind="sarima", seasonal_order=(1, 0, 0, 4)))
+    )
     text = dump_config(cfg)
     assert loads_config(text) == cfg
 
@@ -364,7 +366,9 @@ def test_pmdarima_auto_order_solo_univariado_arima_sarima_arimax() -> None:
         _cfg(
             input=one_var,
             satellite=SatelliteConfig(factor_cols=("gdp",)),
-            macro=MacroModelConfig(kind="sarima", use_pmdarima_auto_order=True),
+            macro=MacroModelConfig(
+                kind="sarima", seasonal_order=(1, 0, 0, 4), use_pmdarima_auto_order=True
+            ),
         ).macro.use_pmdarima_auto_order
         is True
     )
@@ -373,6 +377,28 @@ def test_pmdarima_auto_order_solo_univariado_arima_sarima_arimax() -> None:
         _cfg(macro=MacroModelConfig(kind="var", use_pmdarima_auto_order=True))
     with pytest.raises(ForwardConfigError, match="univariado"):
         _cfg(macro=MacroModelConfig(kind="arima", use_pmdarima_auto_order=True))
+
+
+def test_sarima_exige_seasonal_order_estacional() -> None:
+    """A1: ``kind='sarima'`` sin un ``seasonal_order`` estacional real aborta (no ARIMA plano).
+
+    Reproduce el bug: antes ``seasonal_order=None`` (o un orden degenerado) corría como ARIMA
+    plano pero se etiquetaba SARIMA. Ahora se exige un orden estacional genuino.
+    """
+    # Bug directo: kind='sarima' con el default seasonal_order=None -> raise claro.
+    with pytest.raises(ForwardConfigError, match="seasonal_order"):
+        MacroModelConfig(kind="sarima")
+    # Orden estacional degenerado: período s<2 -> no es estacional -> raise.
+    with pytest.raises(ForwardConfigError, match="s>=2"):
+        MacroModelConfig(kind="sarima", seasonal_order=(1, 0, 0, 1))
+    # Todos los términos estacionales nulos -> equivale a ARIMA sin estacionalidad -> raise.
+    with pytest.raises(ForwardConfigError, match="no nulo"):
+        MacroModelConfig(kind="sarima", seasonal_order=(0, 0, 0, 4))
+    # SARIMA legítimo (P>0, s>=2) se acepta.
+    valid = MacroModelConfig(kind="sarima", seasonal_order=(1, 1, 0, 12))
+    assert valid.seasonal_order == (1, 1, 0, 12)
+    # kind='arima' con seasonal_order=None sigue siendo válido (no aplica la exigencia).
+    assert MacroModelConfig(kind="arima").seasonal_order is None
 
 
 def test_auto_arima_random_exige_random_state() -> None:

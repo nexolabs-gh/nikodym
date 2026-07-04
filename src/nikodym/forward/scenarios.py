@@ -161,6 +161,8 @@ class ScenarioWeighting:
         _require_columns(anchor, ("period",), error_cls=ForwardPredictionError)
         _ensure_hazard_column(anchor, pd=pd, error_cls=ForwardPredictionError)
         _warn_if_anchor_basis_unresolved(anchor, cfg=cfg)
+        if cfg.ttc_reversion.ttc_anchor == "historical_mean":
+            anchor = _historical_mean_anchor(anchor, cfg=cfg)
         anchor_lookup = _anchor_lookup(forward, anchor)
         working = forward.copy(deep=True)
         lambdas: list[float] = []
@@ -389,6 +391,44 @@ def _observed_scenarios(series: Any) -> tuple[str, ...]:
             raise ForwardScenarioError("scenario contiene valores vacíos.")
         values.append(scenario)
     return tuple(dict.fromkeys(values))
+
+
+def _historical_mean_anchor(anchor: DataFrame, *, cfg: ForwardConfig) -> DataFrame:
+    """Colapsa el ancla TTC a la media histórica de hazards por curva (ancla plana).
+
+    Implementa ``ttc_anchor='historical_mean'`` de verdad: en vez de revertir hacia la
+    term-structure de entrada período a período (``input_term_structure``), la PIT revierte
+    hacia un ancla TTC **plana** igual a la media aritmética de los hazards de cada curva. El
+    ancla deja de ser la curva base y pasa a ser una media de largo plazo real, coherente con
+    la etiqueta ``historical_mean`` que publican card/diagnostics/log. La media se computa por
+    curva (columnas de identidad, sin ``period``) y se difunde a todos sus períodos.
+    """
+    working = anchor.copy(deep=True)
+    identity_columns = tuple(column for column in _IDENTITY_COLUMNS if column in working.columns)
+    keys = [_row_key(cast("Any", row), identity_columns) for row in working.itertuples(index=False)]
+    hazards = [
+        _probability(
+            float(value),
+            field_name="hazard TTC histórico",
+            tol=cfg.validation.probability_tol,
+            error_cls=ForwardPredictionError,
+        )
+        for value in working["hazard"].tolist()
+    ]
+    grouped: dict[tuple[Any, ...], list[float]] = {}
+    for key, hazard in zip(keys, hazards, strict=True):
+        grouped.setdefault(key, []).append(hazard)
+    means = {
+        key: _probability(
+            math.fsum(values) / len(values),
+            field_name="hazard TTC medio",
+            tol=cfg.validation.probability_tol,
+            error_cls=ForwardPredictionError,
+        )
+        for key, values in grouped.items()
+    }
+    working["hazard"] = [means[key] for key in keys]
+    return working
 
 
 def _anchor_lookup(forward: DataFrame, anchor: DataFrame) -> _AnchorLookup:

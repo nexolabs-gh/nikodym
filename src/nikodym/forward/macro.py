@@ -185,6 +185,7 @@ class MacroProjectionModel(AuditableMixin):
         np = _import_numpy()
         _check_fitted(self)
         periods = _validate_horizon(horizon)
+        _check_scenario_frame_consumible(scenario_frame, kind=self.config_.macro.kind)
         future_times = _future_time_values(
             self.time_index_,
             horizon=periods,
@@ -631,6 +632,24 @@ def _matrix_forecast_state(
         for index, variable in enumerate(variables)
     }
     return _ForecastState(values=values, warnings=warnings_seen)
+
+
+def _check_scenario_frame_consumible(scenario_frame: DataFrame | None, *, kind: str) -> None:
+    """Aborta si se proveen trayectorias por escenario que el kind no puede consumir.
+
+    Solo ``arimax`` aplica trayectorias exógenas futuras por escenario. Para los demás
+    kinds (``arima``/``sarima``/``auto_arima``/``var``/``vecm``) el ``scenario_frame`` se
+    descartaría en silencio y ``projected_value(adverse)`` quedaría idéntico a ``base``,
+    falseando el ECL ponderado. Si el usuario provee trayectorias que no se pueden usar, se
+    levanta un error explícito en vez de degradar en silencio (nunca etiquetar sin calcular).
+    """
+    if scenario_frame is None or kind == "arimax":
+        return
+    raise MacroProjectionError(
+        f"scenario_frame aporta trayectorias macro por escenario, pero kind={kind!r} no las "
+        "consume; solo 'arimax' aplica exógenas futuras por escenario. Exprese los escenarios "
+        "mediante shocks o use kind='arimax'."
+    )
 
 
 def _future_exogenous_values(

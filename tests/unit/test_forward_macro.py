@@ -171,6 +171,29 @@ def test_predict_sin_horizon_y_no_fiteado_fallan_controlado() -> None:
             fitted.predict(horizon=horizon)
 
 
+def test_scenario_frame_por_trayectoria_no_consumible_aborta_en_kind_no_arimax() -> None:
+    """C2: pasar trayectorias por escenario a un kind que no las consume aborta (no silencio).
+
+    Reproduce el bug: antes ``kind='arima'`` (default) descartaba el ``scenario_frame`` en
+    silencio, dejando ``projected_value(adverse)==base`` y falseando el ECL ponderado. Ahora
+    se levanta ``MacroProjectionError`` explícito. ``arimax`` sí consume las trayectorias y no
+    aborta (cubierto por ``test_arimax_exige_exogenas_futuras_y_proyecta_con_frame_por_escenario``).
+    """
+    trajectory = pd.DataFrame(
+        {
+            "scenario": ["base", "adverse", "severe"],
+            "period": [21, 21, 21],
+            "y": [3.0, 5.0, 7.0],
+        }
+    )
+    arima_model = MacroProjectionModel.from_config(_cfg()).fit(_ar1_golden_frame())
+    # Sin scenario_frame el proyector sigue funcionando (control).
+    assert not arima_model.predict(horizon=1).empty
+    # Con trayectorias por escenario en un kind que no las consume -> raise claro.
+    with pytest.raises(MacroProjectionError, match="no las consume"):
+        arima_model.predict(horizon=1, scenario_frame=trajectory)
+
+
 def test_ljung_box_publica_pvalues_y_falla_si_config_lo_exige() -> None:
     values = [0.0]
     for index in range(1, 60):

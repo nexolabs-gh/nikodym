@@ -235,6 +235,35 @@ class MacroModelConfig(NikodymBaseConfig):
             raise ForwardConfigError("auto_arima_random=True exige random_state explícito.")
         return self
 
+    @model_validator(mode="after")
+    def _check_sarima_seasonal_order(self) -> Self:
+        """Exige un ``seasonal_order`` estacional real cuando ``kind='sarima'``.
+
+        Sin esta validación, ``kind='sarima'`` con ``seasonal_order=None`` (o un orden
+        estacional degenerado como ``(0, 0, 0, s)`` o ``s<2``) corre como ARIMA plano en
+        ``statsmodels`` pero se etiqueta ``SARIMA`` en diagnostics/card/log: el audit trail
+        miente. Se aborta con error explícito en vez de degradar en silencio.
+        """
+        if self.kind != "sarima":
+            return self
+        if self.seasonal_order is None:
+            raise ForwardConfigError(
+                "kind='sarima' exige seasonal_order (P,D,Q,s) explícito; sin él correría "
+                "como ARIMA plano etiquetado SARIMA."
+            )
+        seasonal_p, seasonal_d, seasonal_q, seasonal_periods = self.seasonal_order
+        if seasonal_periods < 2:
+            raise ForwardConfigError(
+                "kind='sarima' exige un período estacional s>=2 en seasonal_order; "
+                f"recibido s={seasonal_periods}."
+            )
+        if (seasonal_p, seasonal_d, seasonal_q) == (0, 0, 0):
+            raise ForwardConfigError(
+                "kind='sarima' exige al menos un término estacional (P, D o Q) no nulo; "
+                "seasonal_order=(0,0,0,s) equivale a ARIMA sin estacionalidad."
+            )
+        return self
+
 
 class SatelliteConfig(NikodymBaseConfig):
     """Configuración del modelo satellite PD/LGD."""

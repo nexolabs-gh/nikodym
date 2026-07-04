@@ -460,6 +460,64 @@ def test_apply_ttc_reversion_golden_logit_y_estados() -> None:
     assert base["pd_cumulative"].is_monotonic_increasing
 
 
+def test_apply_ttc_reversion_historical_mean_usa_media_no_curva_base() -> None:
+    """C1: ``ttc_anchor='historical_mean'`` revierte hacia la media, no la curva de entrada.
+
+    Reproduce el bug: antes ``historical_mean`` reutilizaba el ancla período a período (idéntico
+    a ``input_term_structure``) pero lo etiquetaba media histórica; el número no correspondía a la
+    etiqueta. Ahora el ancla TTC es plana e igual a la media aritmética de los hazards por curva.
+    """
+    forward = _forward_term_structure([0.02, 0.03, 0.04, 0.05, 0.06])
+    anchor_hazards = [0.01, 0.02, 0.03, 0.10, 0.20]
+    anchor = _ttc_anchor(anchor_hazards)
+    mean_hazard = math.fsum(anchor_hazards) / len(anchor_hazards)
+
+    historical = ScenarioWeighting.from_config(
+        _cfg(
+            ttc_reversion=TtcReversionConfig(
+                reasonable_supportable_periods=2,
+                reversion_periods=2,
+                ttc_anchor="historical_mean",
+            )
+        )
+    )
+    reverted = historical.apply_ttc_reversion(
+        forward.copy(deep=True), ttc_anchor=anchor.copy(deep=True)
+    )
+    base = reverted[reverted["scenario"] == "base"].sort_values("period").reset_index(drop=True)
+
+    # Períodos full-TTC (peso 0) usan la media histórica, no el hazard período a período del ancla.
+    assert base["basis_state"].tolist() == ["pit", "pit", "blended", "ttc", "ttc"]
+    assert base.loc[3, "hazard"] == pytest.approx(mean_hazard, abs=1e-12)
+    assert base.loc[4, "hazard"] == pytest.approx(mean_hazard, abs=1e-12)
+    # El período blended mezcla PIT con la media, no con el hazard período 3 del ancla.
+    assert base.loc[2, "hazard"] == pytest.approx(
+        _sigmoid(0.5 * _logit(0.04) + 0.5 * _logit(mean_hazard)), abs=1e-12
+    )
+
+    # Contraste: input_term_structure sí revierte hacia el hazard período a período del ancla.
+    input_anchor = ScenarioWeighting.from_config(
+        _cfg(
+            ttc_reversion=TtcReversionConfig(
+                reasonable_supportable_periods=2,
+                reversion_periods=2,
+                ttc_anchor="input_term_structure",
+            )
+        )
+    )
+    input_reverted = input_anchor.apply_ttc_reversion(
+        forward.copy(deep=True), ttc_anchor=anchor.copy(deep=True)
+    )
+    input_base = (
+        input_reverted[input_reverted["scenario"] == "base"]
+        .sort_values("period")
+        .reset_index(drop=True)
+    )
+    assert input_base.loc[3, "hazard"] == pytest.approx(0.10, abs=1e-12)
+    assert input_base.loc[4, "hazard"] == pytest.approx(0.20, abs=1e-12)
+    assert input_base.loc[3, "hazard"] != pytest.approx(mean_hazard, abs=1e-6)
+
+
 def test_apply_ttc_reversion_advierte_ancla_pit_y_valida_invariantes() -> None:
     weighting = ScenarioWeighting.from_config(_cfg())
     forward = _forward_term_structure([0.02, 0.03, 0.04, 0.05, 0.06])
