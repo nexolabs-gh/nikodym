@@ -29,7 +29,7 @@ from nikodym.provisioning.exceptions import (
 )
 
 # Golden del config_hash por defecto tras añadir la sección computacional `provisioning`.
-GOLDEN_DEFAULT_CONFIG_HASH = "0be3798f51c14940597f44e8fb8ac19ec23c88f9c2ab29d94fecd800e093902e"
+GOLDEN_DEFAULT_CONFIG_HASH = "2dc342f1fd7be6d5ec32bca5a4c3cc4badf1da11f6876b280f7ca9662f857f3e"
 # Golden anterior (antes de B17.1, con provisioning_ifrs9 ya presente); el hash DEBE moverse.
 GOLDEN_PREVIO_SIN_PROVISIONING = "c534dee874e28f6f6974d793dab65acaff7fa3d0bb9b0ae4d35fb318453b1af3"
 

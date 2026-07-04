@@ -5,7 +5,8 @@ Define la base común inmutable :class:`NikodymBaseConfig` y el config raíz
 reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y los enganches
 opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``), selección
 pre-modelo (``selection``), modelo PD (``model``), escalamiento de scorecard (``scorecard``),
-calibración de PD (``calibration``), challenger de machine learning (``ml``), survival/lifetime PD
+calibración de PD (``calibration``), challenger de machine learning (``ml``), explicabilidad
+unificada (``explain``), survival/lifetime PD
 (``survival``), matrices Markov de
 migración (``markov``), forward-looking (``forward``), stress testing (``stress``), provisiones CMF
 (``provisioning_cmf``), provisiones IFRS 9/ECL (``provisioning_ifrs9``), desempeño post-modelo
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from nikodym.calibration.config import CalibrationConfig
     from nikodym.data.config import DataConfig
     from nikodym.eda.config import EdaConfig
+    from nikodym.explain.config import ExplainConfig
     from nikodym.forward.config import ForwardConfig
     from nikodym.governance.config import GovernanceConfig
     from nikodym.markov.config import MarkovConfig
@@ -61,6 +63,7 @@ __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
 # Reemplaza el `model_rebuild()` del SDD-02 §5: Pydantic v2 no re-narra un campo ya resuelto (B2a).
 _DATA_CONFIG_CLS: type[BaseModel] | None = None
 _EDA_CONFIG_CLS: type[BaseModel] | None = None
+_EXPLAIN_CONFIG_CLS: type[BaseModel] | None = None
 _BINNING_CONFIG_CLS: type[BaseModel] | None = None
 _SELECTION_CONFIG_CLS: type[BaseModel] | None = None
 _MODEL_CONFIG_CLS: type[BaseModel] | None = None
@@ -136,7 +139,7 @@ class NikodymConfig(NikodymBaseConfig):
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
     ``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,
-    ``calibration``, ``tuning``, ``ml``, ``survival``, ``forward``, ``stress``,
+    ``calibration``, ``tuning``, ``ml``, ``explain``, ``survival``, ``forward``, ``stress``,
     ``provisioning_cmf``, ``provisioning_ifrs9``, ``performance``, ``stability``, ``validation``,
     ``report``).
     """
@@ -263,6 +266,20 @@ class NikodymConfig(NikodymBaseConfig):
             description=(
                 "Sección del challenger de machine learning que reta al scorecard "
                 "(capa `ml`, SDD-12)."
+            ),
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `ExplainConfig` la hace `_valida_explain` vía el hook
+        # `_EXPLAIN_CONFIG_CLS`. Declarado tras `ml` (pipeline por defecto: ml ⟶ explain).
+        explain: ExplainConfig | None = None
+    else:
+        explain: Any = Field(
+            default=None,
+            title="Explicabilidad",
+            description=(
+                "Sección de explicabilidad unificada scorecard + SHAP y reason codes "
+                "(capa `explain`, SDD-14)."
             ),
         )
     if TYPE_CHECKING:
@@ -670,6 +687,33 @@ class NikodymConfig(NikodymBaseConfig):
             raise ValueError(
                 "ml debe ser JSON-canónico y determinista (sin sets, objetos no serializables ni "
                 "floats no finitos), o importa `nikodym.ml` para validarlo como MLConfig."
+            ) from exc
+        return valor
+
+    @field_validator("explain", mode="before")
+    @classmethod
+    def _valida_explain(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``explain`` según haya o no capa ``explain`` cargada.
+
+        Con ``nikodym.explain`` importado (``_EXPLAIN_CONFIG_CLS`` poblado), un ``dict`` se valida y
+        coacciona a :class:`ExplainConfig` (``extra='forbid'``, explainer/reason codes tipados); una
+        instancia ya validada pasa tal cual. Sin la capa cargada, ``explain`` es un *blob* opaco: se
+        exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos)
+        para no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _EXPLAIN_CONFIG_CLS is not None:
+            if isinstance(valor, _EXPLAIN_CONFIG_CLS):
+                return valor
+            return _EXPLAIN_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "explain debe ser JSON-canónico y determinista (sin sets, objetos no serializables "
+                "ni floats no finitos), o importa `nikodym.explain` para validarlo como "
+                "ExplainConfig."
             ) from exc
         return valor
 
