@@ -45,7 +45,7 @@ def _binning_defaults() -> dict[str, Any]:
         "min_event_rate_diff": 0.0,
         "max_pvalue": None,
         "max_pvalue_policy": "consecutive",
-        "solver": "cp",
+        "solver": "mip",
         "mip_solver": "bop",
         "time_limit": 100,
         "require_optimal": True,

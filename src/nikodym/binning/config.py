@@ -232,9 +232,12 @@ class BinningConfig(NikodymBaseConfig):
     )
 
     solver: Literal["cp", "mip"] = Field(
-        default="cp",
+        default="mip",
         title="Solver",
-        description="Solver de OptBinning para el problema de binning óptimo.",
+        description=(
+            "Solver de OptBinning para el binning óptimo. Default 'mip': el solver 'cp' se cuelga "
+            "indefinidamente (ignora time_limit) sobre variables continuas con ortools>=9.12."
+        ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Solver", "ui_order": 1},
     )
     mip_solver: Literal["bop", "cbc"] = Field(

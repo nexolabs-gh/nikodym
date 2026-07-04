@@ -91,7 +91,7 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
         min_event_rate_diff: float = 0.0,
         max_pvalue: float | None = None,
         max_pvalue_policy: Literal["consecutive", "all"] = "consecutive",
-        solver: Literal["cp", "mip"] = "cp",
+        solver: Literal["cp", "mip"] = "mip",
         mip_solver: Literal["bop", "cbc"] = "bop",
         time_limit: int = 100,
         require_optimal: bool = True,
@@ -216,13 +216,13 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
                 f"razones={skipped!r}."
             )
 
-        fit_params = _build_binning_fit_params(self, process_columns)
         categorical_variables = _categorical_variables_for_fit(
             frame=working,
             columns=process_columns,
             categorical_columns=self.categorical_columns,
             variable_overrides=self.variable_overrides,
         )
+        fit_params = _build_binning_fit_params(self, process_columns, categorical_variables)
         special_codes = _special_codes_for_process(
             special_state.codes,
             process_columns,
@@ -673,8 +673,20 @@ def _record_skip(
 def _build_binning_fit_params(
     estimator: WoEBinner,
     process_columns: list[str],
+    categorical_variables: list[str],
 ) -> dict[str, dict[str, object]]:
-    """Construye kwargs por variable para ``OptimalBinning.set_params``."""
+    """Construye kwargs por variable para ``OptimalBinning.set_params``.
+
+    Fija el ``dtype`` explícito de cada variable (``numerical`` salvo las resueltas como
+    categóricas por Nikodym). Es el fix de la causa raíz del P0: ``BinningProcess.fit`` con
+    ``check_input=True`` pasa por ``sklearn.check_array(dtype=None)``, que colapsa un DataFrame
+    heterogéneo (cualquier columna object mezclada con numéricas) a un único array ``object``.
+    OptBinning entonces auto-detecta ``dtype == object`` para **todas** las columnas y trata las
+    numéricas continuas como categóricas (colapsan a 1 bin, IV=0, y ``selection`` las descarta en
+    silencio). Al declarar el ``dtype`` por variable, Nikodym es la única fuente de verdad y la
+    detección de OptBinning deja de importar; es robusto entre plataformas y versiones de numpy.
+    """
+    categorical_set = set(categorical_variables)
     overrides = {override.name: override for override in estimator.variable_overrides}
     params: dict[str, dict[str, object]] = {}
     for column in process_columns:
@@ -689,6 +701,7 @@ def _build_binning_fit_params(
             "min_bin_n_nonevent": estimator.min_bin_n_nonevent,
             "cat_cutoff": _none_if_zero(estimator.cat_cutoff),
             "cat_unknown": estimator.cat_unknown,
+            "dtype": "categorical" if column in categorical_set else "numerical",
         }
         if estimator.monotonic_trend is not None:
             column_params["monotonic_trend"] = estimator.monotonic_trend

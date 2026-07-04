@@ -459,6 +459,78 @@ def test_woebinner_ejerce_optbinning_real_en_subprocess() -> None:
     assert completed.stdout.strip() == "ok"
 
 
+def test_woebinner_default_binnea_numericas_continuas_reales_en_subprocess() -> None:
+    """Regresión B0 (P0): con OptBinning REAL y config DEFAULT, las numéricas continuas
+    mezcladas con una categórica se binnean de verdad (dtype numerical, IV>0, bins monótonos).
+
+    Este es el test que habría cazado la ruta principal rota: (a) el solver default 'cp' se cuelga
+    sobre continuas → aquí el subprocess haría timeout; (b) ``check_array(dtype=None)`` colapsa el
+    frame mixto (float + object) a un array object y OptBinning trataba TODA numérica como
+    categorical (1 bin, IV=0, descartada en silencio) → aquí las numéricas quedarían fuera de
+    ``feature_columns_``. Se corre en subprocess para no cargar OR-Tools en el proceso pytest.
+    """
+    script = textwrap.dedent(
+        """
+        import numpy as np
+        import pandas as pd
+        from nikodym.binning.transformer import WoEBinner
+
+        rng = np.random.default_rng(20260704)
+        n = 2500
+        income = rng.uniform(0.0, 1.0, n)   # continua con señal
+        util = rng.uniform(0.0, 1.0, n)     # continua con señal
+        region = rng.choice(["A", "B", "C"], n)   # categórica (columna object)
+        lin = -0.5 - 2.5 * income + 2.0 * util + (region == "C") * 1.2
+        p = 1.0 / (1.0 + np.exp(-lin))
+        y = (rng.uniform(0.0, 1.0, n) < p).astype(int)
+        X = pd.DataFrame({"income": income, "util": util, "region": region})
+
+        # Config 100% DEFAULT: sin override de solver ni de dtype.
+        binner = WoEBinner()
+        woe = binner.fit_transform(X, pd.Series(y))
+
+        selected = set(binner.feature_columns_)
+        assert {"income", "util"} <= selected, f"numericas descartadas: {selected}"
+
+        summary = binner.summary_.set_index("name")
+        for col in ("income", "util"):
+            row = summary.loc[col]
+            assert row["dtype"] == "numerical", (col, row["dtype"])
+            assert row["status"] == "OPTIMAL", (col, row["status"])
+            assert bool(row["selected"]) is True
+            assert int(row["n_bins"]) >= 3, (col, row["n_bins"])
+            assert float(row["iv"]) > 0.05, (col, row["iv"])
+        assert summary.loc["region", "dtype"] == "categorical"
+
+        # Bins monótonos por defecto (monotonic_trend='auto_asc_desc') en una numérica.
+        table = binner.tables_["income"]
+        is_interval = table["Bin"].astype(str).str.startswith(("[", "("))
+        woe_bins = table.loc[is_interval, "WoE"].astype(float).tolist()
+        assert len(woe_bins) >= 3
+        diffs = [b - a for a, b in zip(woe_bins, woe_bins[1:])]
+        non_decreasing = all(d >= -1e-9 for d in diffs)
+        non_increasing = all(d <= 1e-9 for d in diffs)
+        assert non_decreasing or non_increasing, woe_bins
+
+        # La transformación WoE produce columnas finitas para las numéricas.
+        for col in ("income", "util"):
+            values = woe[f"{col}__woe"].to_numpy(dtype="float64")
+            assert np.isfinite(values).all()
+
+        print("ok")
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    assert completed.stdout.strip() == "ok"
+
+
 def test_reexport_woebinner_sin_sklearn_falla_con_missing_dependency_espanol() -> None:
     """El export lazy traduce sklearn ausente a ``MissingDependencyError`` accionable."""
     script = textwrap.dedent(
@@ -1033,12 +1105,15 @@ def test_ramas_de_error_y_helpers_internos(monkeypatch: pytest.MonkeyPatch) -> N
             variable_overrides=overrides,
         ),
         ["score"],
+        ["score"],
     )
     assert params["score"]["dtype"] == "categorical"
     assert params["score"]["monotonic_trend"] == "ascending"
     assert params["score"]["max_n_bins"] == 3
     assert "min_bin_size" not in params["score"]
     assert transformer_module._none_if_zero(0) is None
+    # Sin override de dtype, Nikodym fija el dtype explícito (fix B0): 'numerical' si la variable
+    # no está en el set categórico resuelto, 'categorical' si lo está.
     default_override_params = transformer_module._build_binning_fit_params(
         _binner(
             feature_columns=("score",),
@@ -1046,8 +1121,9 @@ def test_ramas_de_error_y_helpers_internos(monkeypatch: pytest.MonkeyPatch) -> N
             variable_overrides=(VariableBinningConfig(name="score"),),
         ),
         ["score"],
+        [],
     )
-    assert "dtype" not in default_override_params["score"]
+    assert default_override_params["score"]["dtype"] == "numerical"
     assert "monotonic_trend" not in default_override_params["score"]
 
     cat_frame = pd.DataFrame({"obj": ["a", "b"], "num": [1, 2]})
