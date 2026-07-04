@@ -6,9 +6,10 @@ búsqueda y el config declarativo (:class:`TuningConfig`), y **puebla el hook di
 se valide como sub-config real, **sin** arrastrar ``optuna``/``pandas``/``numpy`` ni backends ML.
 Los DTOs de resultados (:mod:`nikodym.tuning.results`) se reexportan de forma **perezosa** (vía
 ``__getattr__``) porque anotan ``MLConfig``/``MLChallenger`` y usan ``pandas``: cargarlos traería
-``nikodym.ml``, que se difiere hasta que el usuario los pida. El cableado del ``TuningStep`` y el
-``@register`` se difieren a B13.4. Nomenclatura en inglés técnico para APIs; docstrings y errores en
-español.
+``nikodym.ml``, que se difiere hasta que el usuario los pida. Al final se importa ``tuning.step``
+para ejecutar ``@register('standard', domain='tuning')`` **sin** arrastrar optuna/pandas/numpy ni
+los backends ML (el step los carga perezosamente dentro de ``execute``; patrón idéntico a
+``ml.__init__``). Nomenclatura en inglés técnico para APIs; docstrings y errores en español.
 
 **Experimental (SemVer 0.x).**
 """
@@ -58,6 +59,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "TuningCardSection": ("nikodym.tuning.results", "TuningCardSection"),
     "TuningOptimizer": ("nikodym.tuning.optimizer", "TuningOptimizer"),
     "TuningResult": ("nikodym.tuning.results", "TuningResult"),
+    "TuningStep": ("nikodym.tuning.step", "TuningStep"),
     "TuningTrialRecord": ("nikodym.tuning.results", "TuningTrialRecord"),
 }
 
@@ -84,12 +86,18 @@ __all__ = [
     "TuningSampler",
     "TuningSamplerConfig",
     "TuningSearchSpaceError",
+    "TuningStep",
     "TuningTrialRecord",
     "TuningValidationConfig",
     "ValidationStrategy",
     "default_search_space",
     "suggest_params",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="tuning") al importar
+# `nikodym.tuning`, sin arrastrar optuna/pandas/numpy ni los backends ML (el step los carga en
+# `execute`; mismo patrón que `nikodym.ml.__init__`).
+importlib.import_module("nikodym.tuning.step")
 
 
 def __getattr__(name: str) -> Any:
