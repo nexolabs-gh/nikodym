@@ -123,23 +123,27 @@ class MarkovStep(AuditableMixin):
             deep=True
         )
         estimator = _fit_estimator(frame.copy(deep=True), cfg=cfg)
-        projected = _projected_matrices(
-            frame.copy(deep=True),
-            estimator=estimator,
-            cfg=cfg,
-            np=np,
-        )
 
         from nikodym.markov.term_structure import diagnose_embedding, markov_term_structure
 
+        # M2: el embedding se diagnostica ANTES de proyectar para que, cuando la política
+        # 'regularize' produzca un generador regularizado, la term-structure y el artefacto
+        # generator lo reflejen de verdad (no un no-op con P^t crudo y generator=None).
         embedding = diagnose_embedding(
             estimator.transition_matrix_,
             delta_t=cfg.estimation.interval,
             config=cfg,
         )
+        projected = _projected_matrices(
+            frame.copy(deep=True),
+            estimator=estimator,
+            cfg=cfg,
+            np=np,
+            embedding=embedding,
+        )
         term_structure = markov_term_structure(projected, config=cfg)
         transition_matrix = estimator.transition_matrix_frame_.copy(deep=True)
-        generator = _generator_frame(estimator)
+        generator = _generator_frame(estimator, embedding=embedding, cfg=cfg, np=np)
         diagnostics = _diagnostics_from_estimator(
             estimator,
             cfg=cfg,
@@ -310,6 +314,7 @@ def _projected_matrices(
     estimator: TransitionMatrixEstimator,
     cfg: MarkovConfig,
     np: Any,
+    embedding: EmbeddingDiagnostics,
 ) -> Mapping[int | float, NDArrayFloat]:
     """Proyecta matrices acumuladas con las funciones libres de ``term_structure``."""
     _reject_unsupported_projection(cfg)
@@ -318,6 +323,12 @@ def _projected_matrices(
         from nikodym.markov.term_structure import aalen_johansen
 
         return aalen_johansen(frame.copy(deep=True), config=cfg)
+    if _is_regularized_embedding(embedding):
+        # M2: la política 'regularize' regularizó el generador. La PD publicada se proyecta desde
+        # ese generador (P(0,t) = expm(Q_reg · t · Δt)) en vez del P^t crudo: el usuario pidió un
+        # modelo continuo válido y P no embebía. Cuando P sí embebe (adjusted=False), este branch no
+        # se activa y se conserva el P^t exacto.
+        return _projected_from_regularized_generator(embedding, horizons=horizons, cfg=cfg, np=np)
     if cfg.estimation.method == "cohort":
         from nikodym.markov.term_structure import chapman_kolmogorov
 
@@ -362,12 +373,98 @@ def _horizons(cfg: MarkovConfig) -> tuple[int | float, ...]:
     return cfg.dynamics.horizon_periods
 
 
-def _generator_frame(estimator: TransitionMatrixEstimator) -> DataFrame | None:
-    """Devuelve copia del generador si el método lo estimó; cohort publica ``None``."""
+_GENERATOR_COLUMNS: Final[tuple[str, ...]] = (
+    "from_state",
+    "to_state",
+    "intensity",
+    "time_at_risk",
+    "transition_count",
+    "source",
+)
+
+
+def _is_regularized_embedding(embedding: EmbeddingDiagnostics) -> bool:
+    """Indica si el embedding produjo un generador regularizado usable (política regularize)."""
+    return (
+        embedding.embedding_status == "regularized_principal_log"
+        and embedding.generator_candidate is not None
+    )
+
+
+def _generator_frame(
+    estimator: TransitionMatrixEstimator,
+    *,
+    embedding: EmbeddingDiagnostics,
+    cfg: MarkovConfig,
+    np: Any,
+) -> DataFrame | None:
+    """Publica el generador: el regularizado del embedding, el del método duration, o ``None``.
+
+    M2: cuando la política 'regularize' regularizó el generador, se publica con
+    ``source='regularized_embedding'`` en vez de dejar el artefacto en ``None`` mientras
+    ``embedding_adjusted=True`` (flag que mentiría). El generador viene del log de la matriz, por lo
+    que ``time_at_risk``/``transition_count`` no aplican (0.0; la columna ``source`` lo desambigua).
+    """
+    if _is_regularized_embedding(embedding):
+        return _regularized_generator_frame(embedding, cfg=cfg, np=np)
     generator = estimator.generator_frame_
     if generator is None:
         return None
     return generator.copy(deep=True)
+
+
+def _regularized_generator_frame(
+    embedding: EmbeddingDiagnostics,
+    *,
+    cfg: MarkovConfig,
+    np: Any,
+) -> DataFrame:
+    """Construye el generador regularizado del embedding en el formato tidy del artefacto."""
+    pd = _import_pandas()
+    generator = np.array(embedding.generator_candidate, dtype="float64", copy=True)
+    states = cfg.states.states
+    rows: list[dict[str, Any]] = []
+    for from_index, from_state in enumerate(states):
+        for to_index, to_state in enumerate(states):
+            intensity = float(generator[from_index, to_index])
+            rows.append(
+                {
+                    "from_state": from_state,
+                    "to_state": to_state,
+                    "intensity": 0.0 if intensity == 0.0 else intensity,
+                    "time_at_risk": 0.0,
+                    "transition_count": 0.0,
+                    "source": "regularized_embedding",
+                }
+            )
+    return cast("DataFrame", pd.DataFrame.from_records(rows, columns=_GENERATOR_COLUMNS))
+
+
+def _projected_from_regularized_generator(
+    embedding: EmbeddingDiagnostics,
+    *,
+    horizons: tuple[int | float, ...],
+    cfg: MarkovConfig,
+    np: Any,
+) -> dict[int | float, NDArrayFloat]:
+    """Proyecta ``P(0,t) = expm(Q_reg · t · Δt)`` desde el generador regularizado del embedding."""
+    from nikodym.markov.term_structure import validate_transition_matrix
+
+    expm = _import_expm()
+    generator = np.array(embedding.generator_candidate, dtype="float64", copy=True)
+    interval = cfg.estimation.interval
+    projected: dict[int | float, NDArrayFloat] = {}
+    for horizon in horizons:
+        matrix = np.array(expm(generator * (float(horizon) * interval)), dtype="float64", copy=True)
+        validate_transition_matrix(
+            matrix,
+            states=cfg.states.states,
+            absorbing_states=cfg.states.absorbing_states,
+            tol=cfg.validation.stochastic_tol,
+        )
+        matrix[matrix == 0.0] = 0.0
+        projected[horizon] = cast("NDArrayFloat", matrix)
+    return projected
 
 
 def _diagnostics_from_estimator(
@@ -524,6 +621,16 @@ def _import_numpy() -> Any:
         return importlib.import_module("numpy")
     except ModuleNotFoundError as exc:
         raise MissingDependencyError(_MARKOV_NUMPY_MESSAGE) from exc
+
+
+def _import_expm() -> Any:
+    """Importa ``scipy.linalg.expm`` localmente para la proyección por generador regularizado."""
+    try:
+        return importlib.import_module("scipy.linalg").expm
+    except ModuleNotFoundError as exc:
+        raise MissingDependencyError(
+            "MarkovStep con embedding regularizado requiere scipy.linalg; instale nikodym[markov]."
+        ) from exc
 
 
 def _as_dataframe(value: object, pd: Any, artifact: str) -> DataFrame:

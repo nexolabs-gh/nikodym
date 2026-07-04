@@ -254,6 +254,47 @@ def test_markov_term_structure_marginal_negativa_y_hazard_no_definido() -> None:
         markov_term_structure({}, config=cfg)
 
 
+def test_markov_term_structure_horizontes_no_consecutivos_abortan() -> None:
+    """A2: horizontes discretos no consecutivos abortan; consecutivos dan marginal per-período.
+
+    Con (2, 4, 6) el marginal PD_cum(t)-PD_cum(t_previo) abarca varios períodos pero se rotula como
+    uno solo (mal distribuido -> ECL descontada mal). La validación telescópica no lo ve. Se exige
+    resolución período a período desde 1 o se aborta. Aalen-Johansen queda exento (event-times).
+    """
+    cfg = _cfg(states=("A", "default"))  # projection_mode='homogeneous' (discreto)
+    p = np.array([[0.9, 0.1], [0.0, 1.0]], dtype="float64")
+
+    consecutive = markov_term_structure(
+        chapman_kolmogorov([p], homogeneous=True, horizons=[1, 2, 3]),
+        config=cfg,
+    )
+    # Marginal correcto por período: PD_cum(t) - PD_cum(t-1).
+    assert consecutive.loc["state:A|1", "pd_marginal"] == pytest.approx(0.10)
+    assert consecutive.loc["state:A|2", "pd_marginal"] == pytest.approx(0.09)
+    assert consecutive.loc["state:A|3", "pd_marginal"] == pytest.approx(0.081)
+
+    # Horizontes no consecutivos -> raise explícito (no marginal silenciosamente mal distribuido).
+    with pytest.raises(MarkovTransformError, match="consecutivos"):
+        markov_term_structure(
+            chapman_kolmogorov([p], homogeneous=True, horizons=[2, 4, 6]),
+            config=cfg,
+        )
+    # Un solo horizonte > 1 también deja fuera períodos previos -> raise.
+    with pytest.raises(MarkovTransformError, match="consecutivos"):
+        markov_term_structure({3: np.array([[0.7, 0.3], [0.0, 1.0]])}, config=cfg)
+
+    # Aalen-Johansen exento: event-times no consecutivos NO abortan (incrementos son saltos reales).
+    aj_cfg = _cfg(states=("A", "default"), projection_mode="aalen_johansen")
+    term_aj = markov_term_structure(
+        {
+            3.0: np.array([[0.5, 0.5], [0.0, 1.0]]),
+            7.0: np.array([[0.0, 1.0], [0.0, 1.0]]),
+        },
+        config=aj_cfg,
+    )
+    assert sorted(term_aj["period"].tolist()) == [3, 7]
+
+
 def test_diagnose_embedding_valido_invalido_forbid_y_regularize() -> None:
     valid_cfg = _cfg(states=("A", "default"))
     matrix = np.array([[0.8, 0.2], [0.0, 1.0]], dtype="float64")
@@ -422,6 +463,36 @@ def test_aalen_johansen_simple_product_integral_golden() -> None:
     assert term.loc["state:A|1", "pd_cumulative"] == pytest.approx(1.0 / 3.0)
     assert term.loc["state:A|2", "pd_cumulative"] == pytest.approx(2.0 / 3.0)
     assert term.loc["state:A|2", "method"] == "aalen_johansen"
+
+
+def test_aalen_johansen_risk_set_cierra_en_event_time_no_snapshot() -> None:
+    """C3: una entidad sale del conjunto en riesgo en su event_time real, no en el snapshot.
+
+    Ejemplo cerrado (auditoría): 2 cuentas A->default con event_times 3 y 7, snapshots {0, 10}. En
+    t=7 la cuenta que transitó en t=3 ya NO está en riesgo -> hazard=1/1 -> pd_cum=1.0. Antes del
+    fix el intervalo de riesgo se cerraba en el snapshot 10, ambas seguían contadas -> hazard=1/2 ->
+    pd_cum=0.75 (Y_i sobreestimado -> hazard subestimado -> sub-provisión IFRS9).
+    """
+    cfg = _cfg(states=("A", "default"), projection_mode="aalen_johansen")
+    frame = pd.DataFrame(
+        {
+            "id": [1, 1, 2, 2],
+            "time": [0.0, 10.0, 0.0, 10.0],
+            "state": ["A", "default", "A", "default"],
+            "event_time": [math.nan, 3.0, math.nan, 7.0],
+        }
+    )
+
+    projected = aalen_johansen(frame, config=cfg)
+
+    assert list(projected) == [3.0, 7.0]
+    # En t=3 solo transitó una cuenta (ambas en riesgo): hazard=1/2 -> pd_cum=0.5.
+    assert projected[3.0][0, 1] == pytest.approx(0.5)
+    # En t=7 la cuenta que ya hizo default en t=3 salió del risk set: hazard=1/1 -> pd_cum=1.0.
+    assert projected[7.0][0, 1] == pytest.approx(1.0)
+
+    term = markov_term_structure(projected, config=cfg)
+    assert term.loc["state:A|7", "pd_cumulative"] == pytest.approx(1.0)
 
 
 def test_aalen_johansen_solo_en_projection_mode_y_valida_input() -> None:

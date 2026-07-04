@@ -443,6 +443,12 @@ def markov_term_structure(
             key=lambda item: item[0],
         )
     )
+    ordered_periods = tuple(
+        _period_number(time_value, ordinal=ordinal)
+        for ordinal, (time_value, _raw_horizon, _matrix) in enumerate(ordered, start=1)
+    )
+    if config.dynamics.projection_mode != "aalen_johansen":
+        _validate_consecutive_periods(ordered_periods)
     for ordinal, (time_value, _raw_horizon, matrix) in enumerate(ordered, start=1):
         candidate = np.array(matrix, dtype="float64", copy=True)
         validate_transition_matrix(
@@ -626,15 +632,17 @@ def _aj_intervals_and_events(
                     f"from_state={from_state!r}, to_state={to_state!r}."
                 )
             weight = _row_weight(current_row, config=config)
-            intervals.append(
-                _RiskInterval(
-                    from_state=from_state,
-                    start_time=start,
-                    end_time=end,
-                    weight=weight,
-                )
-            )
             if from_state == to_state:
+                # Sin transición: la entidad permanece en riesgo en `from_state` todo el
+                # intervalo, hasta el siguiente snapshot.
+                intervals.append(
+                    _RiskInterval(
+                        from_state=from_state,
+                        start_time=start,
+                        end_time=end,
+                        weight=weight,
+                    )
+                )
                 continue
             event_col = config.input.transition_time_col
             if event_col is None or bool(pd.isna(next_row[event_col])):
@@ -644,6 +652,19 @@ def _aj_intervals_and_events(
                 raise MarkovInputError(
                     "transition_time_col debe quedar dentro del intervalo de transición."
                 )
+            # C3: la entidad sale del conjunto en riesgo en su event_time REAL, no en el siguiente
+            # snapshot. Si el intervalo de riesgo se cerrara en `end` (próximo snapshot), una
+            # entidad que ya transitó seguiría contada en el risk set de eventos posteriores dentro
+            # del mismo intervalo -> Y_i sobreestimado -> hazard subestimado -> PD subestimada
+            # (sub-provisión IFRS9). El intervalo de riesgo termina en event_time.
+            intervals.append(
+                _RiskInterval(
+                    from_state=from_state,
+                    start_time=start,
+                    end_time=event_time,
+                    weight=weight,
+                )
+            )
             events.append(
                 _AjEvent(
                     event_time=event_time,
@@ -804,6 +825,25 @@ def _regularize_generator(
 def _validate_delta_t(delta_t: float) -> None:
     if isinstance(delta_t, bool) or not math.isfinite(float(delta_t)) or float(delta_t) <= 0.0:
         raise MarkovEmbeddingError(f"delta_t debe ser positivo y finito: {delta_t!r}.")
+
+
+def _validate_consecutive_periods(periods: tuple[int, ...]) -> None:
+    """Exige períodos consecutivos ``1..k`` para un PD marginal genuinamente per-período.
+
+    A2: el marginal se computa como ``PD_cum(t) - PD_cum(t_previo)``. Con horizontes discretos no
+    consecutivos (p.ej. ``(2, 4, 6)``) ese incremento abarca varios períodos pero se rotula como
+    uno solo -> marginal mal distribuido en el tiempo y ECL descontada incorrectamente; la
+    validación telescópica (suma = acumulada) no lo detecta. Se exige resolución período a período
+    desde 1 o se aborta con error explícito (nunca degradar en silencio). Aalen-Johansen queda
+    exento: sus tiempos son event-times y los incrementos son saltos genuinos en esos instantes.
+    """
+    expected = tuple(range(1, len(periods) + 1))
+    if periods != expected:
+        raise MarkovTransformError(
+            "La term-structure discreta exige horizontes consecutivos desde 1 para un PD marginal "
+            f"por período honesto; períodos observados={periods}, esperados={expected}. Solicite "
+            "horizon_periods consecutivos o use projection_mode='aalen_johansen'."
+        )
 
 
 def _period_number(time_value: float, *, ordinal: int) -> int:

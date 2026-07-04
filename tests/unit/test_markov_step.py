@@ -261,6 +261,75 @@ def test_duration_publica_generador_y_evaluation_times() -> None:
     )
 
 
+def _non_embeddable_panel() -> pd.DataFrame:
+    """Panel cohort cuya matriz de transición no embebe (oscilación A<->B fuerte).
+
+    Matriz resultante P (A,B,default):
+        A -> [0.10, 0.85, 0.05]
+        B -> [0.80, 0.05, 0.15]
+    Requiere regularización de embedding y su generador regularizado cambia la PD a default frente
+    al ``P^t`` crudo (en t=1: P^t A->default=0.05, expm(Q_reg)=0.09545...).
+    """
+    from_a = ["A"] * 2 + ["B"] * 17 + ["default"] * 1
+    from_b = ["A"] * 16 + ["B"] * 1 + ["default"] * 3
+    ids: list[int] = []
+    times: list[int] = []
+    states: list[str] = []
+    entity = 0
+    for origin, targets in (("A", from_a), ("B", from_b)):
+        for target in targets:
+            entity += 1
+            ids += [entity, entity]
+            times += [1, 2]
+            states += [origin, target]
+    return pd.DataFrame({"id": ids, "time": times, "state": states})
+
+
+def test_embedding_regularize_usa_y_publica_el_generador_regularizado() -> None:
+    """M2: con embedding_policy='regularize', la PD publicada y el generador reflejan la
+    regularización de verdad (no un no-op con P^t crudo y generator=None).
+
+    Antes del fix: la term-structure usaba P^t crudo, el artefacto generator salía None y
+    embedding_adjusted=True mentía. Ahora la PD se proyecta desde expm(Q_reg·t) y el generador se
+    publica con source='regularized_embedding'.
+    """
+    cfg = _cfg(
+        states=("A", "B", "default"),
+        dynamics=MarkovDynamicsConfig(
+            horizon_periods=(1, 2, 3),
+            embedding_policy="regularize",
+        ),
+    )
+    cfg = cfg.model_copy(
+        update={
+            "validation": cfg.validation.model_copy(
+                update={"stochastic_tol": 1e-8, "generator_tol": 1e-8}
+            )
+        }
+    )
+
+    result = _run_direct(cfg, _non_embeddable_panel())
+
+    # 1. El generador regularizado se publica (antes: None) con la fuente correcta.
+    assert result.generator_frame is not None
+    assert set(result.generator_frame["source"].tolist()) == {"regularized_embedding"}
+    assert result.card.metric_sections["generator_summary"]["source"] == ("regularized_embedding",)
+
+    # 2. El flag ya no miente: la regularización ocurrió y ahora afecta las salidas.
+    assert result.diagnostics.embedding_status == "regularized_principal_log"
+    assert result.diagnostics.embedding_adjusted is True
+
+    # 3. La PD publicada refleja el generador regularizado (expm(Q_reg·t)), no el P^t crudo (0.05).
+    term = result.term_structure_frame
+    assert term is not None
+    pd_cum_t1 = float(term.loc["state:A|1", "pd_cumulative"])
+    assert pd_cum_t1 == pytest.approx(0.0954545454, abs=1e-9)
+    assert pd_cum_t1 != pytest.approx(0.05, abs=1e-3)
+    # Curva lifetime monótona y coherente por período.
+    a_curve = term.loc[term["row_id"] == "state:A", "pd_cumulative"].tolist()
+    assert a_curve == sorted(a_curve)
+
+
 def test_aalen_johansen_proyecta_event_times_con_estimator_base() -> None:
     """La ruta Aalen-Johansen usa la función libre y mantiene un estimador publicado."""
     cfg = _cfg(
@@ -351,7 +420,7 @@ def test_config_dict_y_helpers_de_dependencias_faltantes(monkeypatch: pytest.Mon
     real_import = step_module.importlib.import_module
 
     def fake_import(name: str) -> Any:
-        if name in {"pandas", "numpy"}:
+        if name in {"pandas", "numpy", "scipy.linalg"}:
             raise ModuleNotFoundError(name)
         return real_import(name)
 
@@ -360,6 +429,8 @@ def test_config_dict_y_helpers_de_dependencias_faltantes(monkeypatch: pytest.Mon
         step_module._import_pandas()
     with pytest.raises(MissingDependencyError, match="numpy"):
         step_module._import_numpy()
+    with pytest.raises(MissingDependencyError, match="scipy.linalg"):
+        step_module._import_expm()
 
 
 def test_determinismo_resultado_identico() -> None:
