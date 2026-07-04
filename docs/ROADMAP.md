@@ -27,7 +27,7 @@
 | **F4** | IFRS 9 / ECL | ECL + piso CMF | XL | Pérdida esperada multi-norma |
 | **F5** | Forward-looking | Lifetime + escenarios | XL | Term-structure, macro, Markov |
 | **F6** | Validación avanzada | Backtesting | L | Validación formal + backtesting |
-| **F7** | UI visual | Producto no-code | L | Drag-and-drop sobre la API |
+| **F7** | UI visual | **App React premium** | L | Web premium sobre la API (local + demo) |
 | **F+** | Originación | Reject inference | M | Scorecard de admisión |
 
 Esfuerzo relativo: S < M < L < XL.
@@ -110,11 +110,16 @@ Esfuerzo relativo: S < M < L < XL.
 **Dependencias.** F1–F5.
 
 ## F7 — UI visual
-**Objetivo.** Interfaz drag-and-drop sobre la API (editor del config Pydantic).
-**SDDs.** 23 ui.
-**Entregables.** App Streamlit que construye el `Study` editando el config; visor de resultados y reportes; **cero lógica propia** (todo invoca la API).
-**DoD.** Un modelo F1 completo construible 100% desde la UI, idéntico al hecho por código.
-**Dependencias.** Todo el core.
+> **Rumbo actualizado (2026-07-04): UI = app React/Vite premium, NO Streamlit.** Streamlit se descartó (no vende a un gerente C-level; la primera impresión mata el lead). El borrador `design/23-ui.md` (Streamlit) queda **OBSOLETO**. F7 sale del alcance autónomo del latido: es producto co-estratégico construido a mano por el equipo con revisión visual.
+
+**Objetivo.** Web premium sobre la API que construye y visualiza el `Study` (editor del config Pydantic), para dos públicos: analistas técnicos (MVP/benchmark rápido) y gerentes de riesgo no-técnicos (demo de venta).
+**SDDs.** 23 ui *(a re-escribir para React; el borrador Streamlit queda obsoleto)*.
+**Stack.** React + Vite + Tailwind + shadcn/ui + charts premium; backend **FastAPI**; **cero lógica propia** (todo invoca la API de la lib).
+**Dos modos de despliegue.**
+- **Local (analista):** `pip install nikodym[ui]` trae el React ya buildeado + levanta FastAPI local; los datos no salen de su máquina.
+- **Hosteada (comercial):** `nikodym.cl/demo`, dataset **sintético** precargado, flujo guiado "arma tu modelito en pocos pasos" + CTA de lead comercial.
+**DoD.** Un modelo F1 completo construible 100% desde la UI, idéntico al hecho por código; look&feel premium aprobado por revisión visual.
+**Dependencias.** Todo el core (motor V1 ✅ completo 2026-07-04).
 
 ## F+ — Originación & reject inference (insertable)
 **Objetivo.** Scorecard de admisión cuando haya caso de uso.
