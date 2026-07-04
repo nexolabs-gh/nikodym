@@ -56,6 +56,7 @@ _schema._TUNING_CONFIG_CLS = TuningConfig
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "SamplerMetadata": ("nikodym.tuning.results", "SamplerMetadata"),
     "TuningCardSection": ("nikodym.tuning.results", "TuningCardSection"),
+    "TuningOptimizer": ("nikodym.tuning.optimizer", "TuningOptimizer"),
     "TuningResult": ("nikodym.tuning.results", "TuningResult"),
     "TuningTrialRecord": ("nikodym.tuning.results", "TuningTrialRecord"),
 }
@@ -77,6 +78,7 @@ __all__ = [
     "TuningMetric",
     "TuningObjectiveConfig",
     "TuningOptimizeError",
+    "TuningOptimizer",
     "TuningPruner",
     "TuningResult",
     "TuningSampler",
