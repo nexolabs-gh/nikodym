@@ -37,7 +37,9 @@ from nikodym.ml.exceptions import MLComparisonError, MLConfigError, MLDataError
 from nikodym.ml.results import MLBackendMetadata, MLCardSection, MLComparisonRecord, MLResult
 from nikodym.ml.step import (
     MLStep,
+    _apply_tuning_best_config,
     _as_dataframe,
+    _as_ml_config,
     _as_string_tuple,
     _better,
     _build_backend_metadata,
@@ -734,6 +736,78 @@ def test_import_ml_es_liviano() -> None:
     subprocess.run([sys.executable, "-c", code], check=True)
 
 
+# ═══════════════════════════ consumo opcional de tuning (deuda B-ML-TUN, SDD-13 §6) ═══════════════
+def test_e2e_consume_tuning_best_config_usa_theta_estrella() -> None:
+    """Con ``('tuning','best_config')`` presente, ``ml`` usa θ* y difiere del baseline."""
+    baseline = _study(_rf_config(monotonic=MonotonicConfig(mode="off")))
+    baseline.run(["ml"])
+
+    ml_cfg = _rf_config(monotonic=MonotonicConfig(mode="off"))
+    study = _study(ml_cfg)
+    best_config = ml_cfg.model_copy(
+        update={
+            "hyperparameters": RandomForestParams(n_estimators=3, max_depth=1, min_samples_leaf=8)
+        }
+    )
+    study.artifacts.set("tuning", "best_config", best_config)
+    study.run(["ml"])
+
+    metadata = study.artifacts.get("ml", "backend_metadata")
+    assert metadata.hyperparameters["n_estimators"] == 3
+    assert metadata.hyperparameters["max_depth"] == 1
+    valores = _decisions(study, "ml_backend")
+    assert valores[0]["hyperparameters_source"] == "tuning"
+    assert valores[0]["hyperparameters"]["n_estimators"] == 3
+    assert study.artifacts.get("ml", "card").summary["hyperparameters_source"] == "tuning"
+    # θ* degenerado ⇒ predicciones distintas al baseline sin tuning (rev. aditiva real).
+    base_pd = baseline.artifacts.get("ml", "pd_frame")["pd_hat"].to_numpy()
+    tuned_pd = study.artifacts.get("ml", "pd_frame")["pd_hat"].to_numpy()
+    assert not np.allclose(base_pd, tuned_pd)
+
+
+def test_e2e_sin_tuning_source_config_intacto() -> None:
+    """Sin ``('tuning','best_config')``, ``ml`` usa ``cfg.hyperparameters`` y marca ``config``."""
+    study = _study(_rf_config(monotonic=MonotonicConfig(mode="off")))
+    study.run(["ml"])
+
+    metadata = study.artifacts.get("ml", "backend_metadata")
+    assert metadata.hyperparameters["n_estimators"] == 25  # el de la config manual, no tuneado
+    assert _decisions(study, "ml_backend")[0]["hyperparameters_source"] == "config"
+    assert study.artifacts.get("ml", "card").summary["hyperparameters_source"] == "config"
+
+
+def test_apply_tuning_best_config_sustituye_solo_hyperparameters() -> None:
+    """Presente ⇒ toma **sólo** ``best_config.hyperparameters``; ausente ⇒ ``cfg`` intacto."""
+    ml_cfg = _rf_config(monotonic=MonotonicConfig(mode="off"))
+
+    # ausente: cfg intacto y source='config' (misma instancia, sin copia).
+    empty = types.SimpleNamespace(artifacts=_FakeStore({}))
+    same, source_absent = _apply_tuning_best_config(empty, ml_cfg)
+    assert source_absent == "config"
+    assert same is ml_cfg
+
+    # presente y divergente en más que hyperparameters: sólo se toman los hyperparameters (θ*).
+    divergent = ml_cfg.model_copy(
+        update={
+            "feature_source": "selection_woe",
+            "hyperparameters": RandomForestParams(n_estimators=9),
+        }
+    )
+    present = types.SimpleNamespace(artifacts=_FakeStore({("tuning", "best_config"): divergent}))
+    effective, source_present = _apply_tuning_best_config(present, ml_cfg)
+    assert source_present == "tuning"
+    assert effective.hyperparameters.n_estimators == 9
+    assert effective.feature_source == ml_cfg.feature_source == "binning_woe"
+
+
+def test_as_ml_config_rechaza_tipo_invalido() -> None:
+    """``tuning.best_config`` que no sea ``MLConfig`` levanta ``MLDataError`` (defensivo)."""
+    ml_cfg = _rf_config()
+    assert _as_ml_config(ml_cfg) is ml_cfg
+    with pytest.raises(MLDataError, match="MLConfig"):
+        _as_ml_config(object())
+
+
 # ═══════════════════════════ utilidades de test ═══════════════════════════
 class _FakeStore:
     """``ArtifactStore`` mínimo para tests unitarios de lectores (sólo ``get``)."""
@@ -743,3 +817,6 @@ class _FakeStore:
 
     def get(self, domain: str, key: str) -> Any:
         return self._data[(domain, key)]
+
+    def has(self, domain: str, key: str) -> bool:
+        return (domain, key) in self._data

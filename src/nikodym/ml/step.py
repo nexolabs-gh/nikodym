@@ -15,6 +15,16 @@ bajo ``domain='ml'``.
 monotonía por variable. Un ``requires`` ausente levanta
 :class:`~nikodym.core.exceptions.ArtifactNotFoundError` **antes** de ejecutar.
 
+**Consumo OPCIONAL de ``tuning`` (rev. aditiva SDD-13 §6, deuda B-ML-TUN).** Si el ``ArtifactStore``
+contiene ``("tuning","best_config")`` al ejecutar (``tuning`` corre **antes** en el orden por
+defecto), ``ml`` sustituye **sólo** sus ``hyperparameters`` por los tuneados ``θ*`` antes de
+construir el challenger; el resto de la ``MLConfig`` efectiva queda invariante. Ausente ese
+artefacto, ``ml`` usa ``cfg.hyperparameters`` y su comportamiento es **byte-idéntico** al de SDD-12.
+Es un ``requires`` **opcional** (comprobación oportunista, **no** dependencia dura): una corrida sin
+``tuning`` nunca falla por su ausencia. Mismo patrón aditivo con que ``validation`` consume la PD de
+``ml`` (deuda B-VAL). La señal ``hyperparameters_source ∈ {"tuning", "config"}`` queda en la
+decisión ``ml_backend`` y en la card para que el reporte distinga ``θ*`` de la config manual.
+
 **Monotonía correcta por variable (SDD-12 §7).** El estimador (``from_binning``) aplica ``-1``
 uniforme; el step **deriva** la dirección real por variable desde las tablas WoE de ``binning``
 (``-1`` si la tendencia WoE es monótona, ``0`` si es no monótona/invertida) y la pasa **explícita**
@@ -83,6 +93,8 @@ _DATA_DOMAIN: Final = "data"
 _MODEL_DOMAIN: Final = "model"
 _BINNING_DOMAIN: Final = "binning"
 _SELECTION_DOMAIN: Final = "selection"
+# Dominio del artefacto opcional aguas arriba (θ* tuneado, rev. aditiva SDD-13 §6, deuda B-ML-TUN).
+_TUNING_DOMAIN: Final = "tuning"
 # Columnas internas del frame analítico de comparación (nombres estables, aislados del config).
 _CMP_PARTITION: Final = "partition"
 _CMP_TARGET: Final = "target"
@@ -143,6 +155,7 @@ class MLStep(AuditableMixin):
                 "feature_source='data_raw' está diferido (FALTA-DATO-ML-1): use 'binning_woe' o "
                 "'selection_woe'. El modo crudo exige política de imputación por variable."
             )
+        cfg, hyperparameters_source = _apply_tuning_best_config(study, cfg)
         requires = _requires_for(cfg)
         _require_present(study, requires)
 
@@ -190,7 +203,9 @@ class MLStep(AuditableMixin):
 
         importances = _top_importances(challenger, cfg)
         backend_metadata = _build_backend_metadata(cfg, challenger, importances)
-        card = _build_card(cfg, challenger, comparison, importances)
+        card = _build_card(
+            cfg, challenger, comparison, importances, hyperparameters_source=hyperparameters_source
+        )
         result = MLResult(
             estimator=challenger,
             pd_frame=pd_frame,
@@ -208,6 +223,7 @@ class MLStep(AuditableMixin):
             monotonic_explicit=monotonic_explicit,
             comparison=comparison,
             calibrated=calibrated is not None,
+            hyperparameters_source=hyperparameters_source,
         )
         _publish_artifacts(
             study, challenger, pd_frame, calibrated, comparison, backend_metadata, result, card
@@ -249,6 +265,7 @@ class MLStep(AuditableMixin):
         monotonic_explicit: dict[str, int] | None,
         comparison: tuple[MLComparisonRecord, ...],
         calibrated: bool,
+        hyperparameters_source: str,
     ) -> None:
         """Registra el ``log_decision`` §9: backend/semilla/features/monotonía/train/comparación."""
         self.log_decision(
@@ -258,6 +275,7 @@ class MLStep(AuditableMixin):
                 "backend": cfg.backend,
                 "backend_version": challenger.backend_version_,
                 "hyperparameters": _hyperparameters_dict(cfg),
+                "hyperparameters_source": hyperparameters_source,
             },
             accion="entrenar_challenger",
         )
@@ -363,6 +381,36 @@ def _require_present(study: Study, requires: tuple[ArtifactKey, ...]) -> None:
                 f"El paso 'ml' requiere el artefacto ('{domain}', '{key}'), "
                 "ausente del ArtifactStore."
             )
+
+
+# ─────────────────────── consumo opcional de tuning (rev. aditiva B-ML-TUN) ───────────────────────
+
+
+def _apply_tuning_best_config(study: Study, cfg: MLConfig) -> tuple[MLConfig, str]:
+    """Sustituye ``hyperparameters`` por los de ``tuning.best_config`` si el artefacto está.
+
+    ``requires`` **opcional** (SDD-13 §6, deuda B-ML-TUN): si ``("tuning","best_config")`` existe en
+    el ``ArtifactStore`` (``tuning`` corrió antes), toma **sólo** ``best_config.hyperparameters``
+    (``θ*``) y los reemplaza en la ``MLConfig`` efectiva vía ``model_copy`` (el resto invariante;
+    defensivo aunque el productor ya garantice el invariante SDD-13 §6). Ausente el artefacto,
+    devuelve ``cfg`` intacto y el comportamiento es byte-idéntico a SDD-12. Devuelve
+    ``(cfg_efectiva, source)`` con ``source ∈ {"tuning", "config"}``.
+    """
+    if not study.artifacts.has(_TUNING_DOMAIN, "best_config"):
+        return cfg, "config"
+    best_config = _as_ml_config(study.artifacts.get(_TUNING_DOMAIN, "best_config"))
+    tuned = cfg.model_copy(update={"hyperparameters": best_config.hyperparameters})
+    return tuned, "tuning"
+
+
+def _as_ml_config(value: object) -> MLConfig:
+    """Valida que ``tuning.best_config`` sea una ``MLConfig`` antes de leer sus hiperparámetros."""
+    if isinstance(value, MLConfig):
+        return value
+    raise MLDataError(
+        f"El artefacto 'tuning.best_config' debe ser una MLConfig (SDD-13 §6); "
+        f"tipo observado={type(value).__name__}."
+    )
 
 
 # ─────────────────────────── lectura de artefactos ───────────────────────────
@@ -833,12 +881,15 @@ def _build_card(
     challenger: MLChallenger,
     comparison: tuple[MLComparisonRecord, ...],
     importances: tuple[tuple[str, float], ...],
+    *,
+    hyperparameters_source: str = "config",
 ) -> MLCardSection:
     """Ensambla la tarjeta CT-2 con curvas de comparación, importancias y determinismo (§9)."""
     summary: dict[str, str | int | float | bool] = {
         "backend": cfg.backend,
         "backend_version": str(challenger.backend_version_),
         "feature_source": cfg.feature_source,
+        "hyperparameters_source": hyperparameters_source,
         "n_features": len(challenger.feature_names_in_),
         "seed": int(challenger.seed_),
         "n_threads": int(challenger.n_threads_),
