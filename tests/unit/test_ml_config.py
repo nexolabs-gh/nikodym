@@ -46,7 +46,7 @@ from nikodym.ml.exceptions import (
 )
 
 # Golden del config_hash por defecto tras añadir la sección computacional `ml`.
-GOLDEN_DEFAULT_CONFIG_HASH = "33e1dcce02a205cb2bc0fcfb1341c80b5251c5b2e6e478e4ecd392f67f0cf746"
+GOLDEN_DEFAULT_CONFIG_HASH = "0be3798f51c14940597f44e8fb8ac19ec23c88f9c2ab29d94fecd800e093902e"
 # Golden anterior (antes de B12.1, con validation ya presente); el hash DEBE moverse.
 GOLDEN_PREVIO_SIN_ML = "70dbc51fb6c230afac21fb20fa1d28e6e766d09759d5d765d82ab5cd5aacc1a8"
 
@@ -434,10 +434,16 @@ def test_config_hash_se_movio_por_seccion_ml() -> None:
 
 
 def test_config_hash_es_puramente_aditivo_sobre_ml() -> None:
-    """Quitar solo ``ml:null`` del payload default reproduce el hash previo (aditivo)."""
+    """Quitar ``ml:null`` (y ``tuning:null``, añadida después) reproduce el hash previo (aditivo).
+
+    B13.2 añadió ``tuning:null`` al payload canónico; para reconstruir el estado inmediatamente
+    anterior a ``ml`` hay que retirar ambas claves computacionales nuevas.
+    """
     payload = NikodymConfig().model_dump(mode="json", by_alias=True, exclude=set(INFRA_SECTIONS))
     assert payload["ml"] is None
+    assert payload["tuning"] is None
     del payload["ml"]
+    del payload["tuning"]
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     previo = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     assert previo == GOLDEN_PREVIO_SIN_ML

@@ -51,7 +51,7 @@ from nikodym.stress.exceptions import (
     StressScenarioError,
 )
 
-GOLDEN_DEFAULT_CONFIG_HASH = "33e1dcce02a205cb2bc0fcfb1341c80b5251c5b2e6e478e4ecd392f67f0cf746"
+GOLDEN_DEFAULT_CONFIG_HASH = "0be3798f51c14940597f44e8fb8ac19ec23c88f9c2ab29d94fecd800e093902e"
 
 
 @pytest.fixture(autouse=True)

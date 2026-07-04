@@ -28,7 +28,8 @@ from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
 # B17.1: se añadió la clave computacional `provisioning=None` (orquestación); el golden cambió.
 # B22.1: se añadió la clave computacional `validation=None` (validación avanzada); el golden cambió.
 # B12.1: se añadió la clave computacional `ml=None` (challenger ML, SDD-12); el golden cambió.
-GOLDEN_DEFAULT_CONFIG_HASH = "33e1dcce02a205cb2bc0fcfb1341c80b5251c5b2e6e478e4ecd392f67f0cf746"
+# B13.2: se añadió la clave computacional `tuning=None` (tuning Optuna, SDD-13); el golden cambió.
+GOLDEN_DEFAULT_CONFIG_HASH = "0be3798f51c14940597f44e8fb8ac19ec23c88f9c2ab29d94fecd800e093902e"
 
 
 def _hash_en_subproceso(hashseed: str) -> str:

@@ -39,7 +39,7 @@ from nikodym.validation.exceptions import (
 )
 
 # Golden del config_hash por defecto tras añadir la sección computacional `validation`.
-GOLDEN_DEFAULT_CONFIG_HASH = "33e1dcce02a205cb2bc0fcfb1341c80b5251c5b2e6e478e4ecd392f67f0cf746"
+GOLDEN_DEFAULT_CONFIG_HASH = "0be3798f51c14940597f44e8fb8ac19ec23c88f9c2ab29d94fecd800e093902e"
 # Golden anterior (antes de B22.1, con provisioning ya presente); el hash DEBE moverse.
 GOLDEN_PREVIO_SIN_VALIDATION = "2c8c7ccbeae14e121d4c69d34777146b984208192998b3098943d0321c827ddb"
 
@@ -329,14 +329,17 @@ def test_config_hash_se_movio_por_seccion_validation() -> None:
 def test_config_hash_es_puramente_aditivo_sobre_validation() -> None:
     """Quitar ``validation:null`` (y las secciones posteriores) reproduce el hash previo (aditivo).
 
-    B12.1 añadió ``ml:null`` DESPUÉS de ``validation`` en el schema; para reconstruir el estado
-    inmediatamente anterior a ``validation`` hay que retirar ambas claves computacionales nuevas.
+    B12.1 añadió ``ml:null`` y B13.2 ``tuning:null`` DESPUÉS de ``validation`` en el schema; para
+    reconstruir el estado inmediatamente anterior a ``validation`` hay que retirar las tres claves
+    computacionales nuevas.
     """
     payload = NikodymConfig().model_dump(mode="json", by_alias=True, exclude=set(INFRA_SECTIONS))
     assert payload["validation"] is None
     assert payload["ml"] is None
+    assert payload["tuning"] is None
     del payload["validation"]
     del payload["ml"]
+    del payload["tuning"]
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     previo = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     assert previo == GOLDEN_PREVIO_SIN_VALIDATION

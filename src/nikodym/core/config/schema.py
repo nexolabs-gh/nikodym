@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from nikodym.stress.config import StressConfig
     from nikodym.survival.config import SurvivalConfig
     from nikodym.tracking.config import TrackingConfig
+    from nikodym.tuning.config import TuningConfig
     from nikodym.validation.config import ValidationConfig
 
 __all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
@@ -65,6 +66,7 @@ _SELECTION_CONFIG_CLS: type[BaseModel] | None = None
 _MODEL_CONFIG_CLS: type[BaseModel] | None = None
 _SCORECARD_CONFIG_CLS: type[BaseModel] | None = None
 _CALIBRATION_CONFIG_CLS: type[BaseModel] | None = None
+_TUNING_CONFIG_CLS: type[BaseModel] | None = None
 _ML_CONFIG_CLS: type[BaseModel] | None = None
 _SURVIVAL_CONFIG_CLS: type[BaseModel] | None = None
 _MARKOV_CONFIG_CLS: type[BaseModel] | None = None
@@ -134,8 +136,9 @@ class NikodymConfig(NikodymBaseConfig):
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
     ``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,
-    ``calibration``, ``ml``, ``survival``, ``forward``, ``stress``, ``provisioning_cmf``,
-    ``provisioning_ifrs9``, ``performance``, ``stability``, ``validation``, ``report``).
+    ``calibration``, ``tuning``, ``ml``, ``survival``, ``forward``, ``stress``,
+    ``provisioning_cmf``, ``provisioning_ifrs9``, ``performance``, ``stability``, ``validation``,
+    ``report``).
     """
 
     schema_version: str = Field(
@@ -234,6 +237,20 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Calibración",
             description="Sección de calibración de PD cruda a PD calibrada (capa `calibration`).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `TuningConfig` la hace `_valida_tuning` vía el hook
+        # `_TUNING_CONFIG_CLS`. Declarado antes de `ml` (pipeline por defecto: tuning ⟶ ml).
+        tuning: TuningConfig | None = None
+    else:
+        tuning: Any = Field(
+            default=None,
+            title="Tuning de hiperparámetros",
+            description=(
+                "Sección de búsqueda de hiperparámetros con Optuna que afina el challenger "
+                "(capa `tuning`, SDD-13)."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -600,6 +617,33 @@ class NikodymConfig(NikodymBaseConfig):
                 "calibration debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.calibration` para "
                 "validarlo como CalibrationConfig."
+            ) from exc
+        return valor
+
+    @field_validator("tuning", mode="before")
+    @classmethod
+    def _valida_tuning(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``tuning`` según haya o no capa ``tuning`` cargada.
+
+        Con ``nikodym.tuning`` importado (``_TUNING_CONFIG_CLS`` poblado), un ``dict`` se valida y
+        coacciona a :class:`TuningConfig` (``extra='forbid'``, espacio de búsqueda tipado); una
+        instancia ya validada pasa tal cual. Sin la capa cargada, ``tuning`` es un *blob* opaco: se
+        exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats no
+        finitos) para no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _TUNING_CONFIG_CLS is not None:
+            if isinstance(valor, _TUNING_CONFIG_CLS):
+                return valor
+            return _TUNING_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "tuning debe ser JSON-canónico y determinista (sin sets, objetos no serializables "
+                "ni floats no finitos), o importa `nikodym.tuning` para validarlo como "
+                "TuningConfig."
             ) from exc
         return valor
 
