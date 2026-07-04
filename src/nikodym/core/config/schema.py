@@ -5,7 +5,8 @@ Define la base común inmutable :class:`NikodymBaseConfig` y el config raíz
 reproducibilidad (:class:`ReproConfig`), orquestación (:class:`RunConfig`) y los enganches
 opcionales a datos (``data``), análisis exploratorio (``eda``), binning (``binning``), selección
 pre-modelo (``selection``), modelo PD (``model``), escalamiento de scorecard (``scorecard``),
-calibración de PD (``calibration``), survival/lifetime PD (``survival``), matrices Markov de
+calibración de PD (``calibration``), challenger de machine learning (``ml``), survival/lifetime PD
+(``survival``), matrices Markov de
 migración (``markov``), forward-looking (``forward``), stress testing (``stress``), provisiones CMF
 (``provisioning_cmf``), provisiones IFRS 9/ECL (``provisioning_ifrs9``), desempeño post-modelo
 (``performance``), estabilidad post-modelo (``stability``) y reporte auditable (``report``). El
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from nikodym.forward.config import ForwardConfig
     from nikodym.governance.config import GovernanceConfig
     from nikodym.markov.config import MarkovConfig
+    from nikodym.ml.config import MLConfig
     from nikodym.model.config import ModelConfig
     from nikodym.performance.config import PerformanceConfig
     from nikodym.provisioning.cmf.config import CmfProvisioningConfig
@@ -63,6 +65,7 @@ _SELECTION_CONFIG_CLS: type[BaseModel] | None = None
 _MODEL_CONFIG_CLS: type[BaseModel] | None = None
 _SCORECARD_CONFIG_CLS: type[BaseModel] | None = None
 _CALIBRATION_CONFIG_CLS: type[BaseModel] | None = None
+_ML_CONFIG_CLS: type[BaseModel] | None = None
 _SURVIVAL_CONFIG_CLS: type[BaseModel] | None = None
 _MARKOV_CONFIG_CLS: type[BaseModel] | None = None
 _FORWARD_CONFIG_CLS: type[BaseModel] | None = None
@@ -131,7 +134,7 @@ class NikodymConfig(NikodymBaseConfig):
     secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
     en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
     ``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,
-    ``calibration``, ``survival``, ``forward``, ``stress``, ``provisioning_cmf``,
+    ``calibration``, ``ml``, ``survival``, ``forward``, ``stress``, ``provisioning_cmf``,
     ``provisioning_ifrs9``, ``performance``, ``stability``, ``validation``, ``report``).
     """
 
@@ -231,6 +234,19 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Calibración",
             description="Sección de calibración de PD cruda a PD calibrada (capa `calibration`).",
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `MLConfig` la hace `_valida_ml` vía el hook `_ML_CONFIG_CLS`.
+        ml: MLConfig | None = None
+    else:
+        ml: Any = Field(
+            default=None,
+            title="Challenger ML",
+            description=(
+                "Sección del challenger de machine learning que reta al scorecard "
+                "(capa `ml`, SDD-12)."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -584,6 +600,32 @@ class NikodymConfig(NikodymBaseConfig):
                 "calibration debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.calibration` para "
                 "validarlo como CalibrationConfig."
+            ) from exc
+        return valor
+
+    @field_validator("ml", mode="before")
+    @classmethod
+    def _valida_ml(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``ml`` según haya o no capa ``ml`` cargada.
+
+        Con ``nikodym.ml`` importado (``_ML_CONFIG_CLS`` poblado), un ``dict`` se valida y
+        coacciona a :class:`MLConfig` (``extra='forbid'``, hiperparámetros tipados por backend);
+        una instancia ya validada pasa tal cual. Sin la capa cargada, ``ml`` es un *blob* opaco: se
+        exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats no
+        finitos) para no corromper el ``config_hash`` entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _ML_CONFIG_CLS is not None:
+            if isinstance(valor, _ML_CONFIG_CLS):
+                return valor
+            return _ML_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "ml debe ser JSON-canónico y determinista (sin sets, objetos no serializables ni "
+                "floats no finitos), o importa `nikodym.ml` para validarlo como MLConfig."
             ) from exc
         return valor
 
