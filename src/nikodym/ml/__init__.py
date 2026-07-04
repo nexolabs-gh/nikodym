@@ -40,6 +40,7 @@ from nikodym.ml.config import (
 _schema._ML_CONFIG_CLS = MLConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "MLChallenger": ("nikodym.ml.estimator", "MLChallenger"),
     "MLBackendError": ("nikodym.ml.exceptions", "MLBackendError"),
     "MLComparisonError": ("nikodym.ml.exceptions", "MLComparisonError"),
     "MLConfigError": ("nikodym.ml.exceptions", "MLConfigError"),
@@ -59,6 +60,7 @@ __all__ = [
     "LightGBMParams",
     "MLBackendError",
     "MLBackendName",
+    "MLChallenger",
     "MLComparisonConfig",
     "MLComparisonError",
     "MLConfig",
