@@ -10,12 +10,14 @@ económico y la despliega a lo largo de los ``periods`` solicitados. Enfoques de
   de una fuente CCF cuando ``method='ccf'`` es un contrato de runtime (SDD-16 §6/§8): el config solo
   garantiza que no se informen ambas a la vez; si falta cualquiera se levanta :class:`IfrsEadError`.
 
-**Perfil de exposición por período (CT-3).** Si el ``frame`` trae ``exposure_profile_col``, esa
-columna aporta la EAD(t) longitudinal y se usa por período. Si no existe, la EAD se despliega
-**constante** en todos los ``periods`` y cada fila publica el código de aviso ``FALTA-DATO-IFRS-4``
-en la columna ``warning_codes`` (el panel longitudinal económico completo se difiere por CT-3). El
-aviso viaja por la columna ``warning_codes`` (homóloga a survival/markov/forward), nunca por un
-``warnings.warn`` crudo, de modo que no rompe ``filterwarnings=error``.
+**Perfil de exposición por período (CT-3, diferido).** El panel EAD(t) longitudinal real (fila x
+período) está diferido a CT-3: la EAD se despliega **constante** en todos los ``periods`` y cada
+fila publica el código de aviso ``FALTA-DATO-IFRS-4`` en la columna ``warning_codes``. Informar
+``IfrsEadConfig.exposure_profile_col`` (una columna escalar) no honra un perfil por período, así que
+se rechaza en construcción del config (:class:`IfrsConfigError`) en vez de aplanarlo a constante sin
+aviso (degradación silenciosa con etiqueta falsa). El aviso viaja por la columna ``warning_codes``
+(homóloga a survival/markov/forward), nunca por un ``warnings.warn`` crudo, de modo que no rompe
+``filterwarnings=error``.
 
 **Piso D-IFRS-13.** En el enfoque ``ccf``, ante ``credit_limit < drawn`` el término
 ``CCF*(limite - drawn)`` es negativo y la EAD se acota por default a ``EAD >= drawn`` (no se permite
@@ -91,7 +93,7 @@ class EadEngine:
         ----------
         frame
             DataFrame económico con las columnas que exige el enfoque (``ead`` provista, o
-            ``drawn``/``credit_limit``/CCF), y opcionalmente ``exposure_profile_col``. No se muta.
+            ``drawn``/``credit_limit``/CCF). No se muta.
         periods
             Secuencia de períodos (enteros ``>= 1``) sobre los que desplegar la EAD(t); no vacía.
 
@@ -120,14 +122,13 @@ class EadEngine:
     def _estimate_level(
         self, frame: DataFrame, numpy: Any
     ) -> tuple[NDArrayFloat, list[tuple[str, ...]]]:
-        """Resuelve la EAD por operación y sus ``warning_codes`` según perfil y enfoque."""
+        """Resuelve la EAD por operación y sus ``warning_codes`` según el enfoque.
+
+        El perfil EAD(t) longitudinal está diferido a CT-3 (``IfrsEadConfig`` rechaza
+        ``exposure_profile_col``): la EAD se despliega constante por período y cada fila marca el
+        aviso ``FALTA-DATO-IFRS-4``.
+        """
         config = self._config
-        profile_col = config.exposure_profile_col
-        if profile_col is not None and profile_col in frame.columns:
-            # Perfil longitudinal declarado: la EAD(t) proviene de la columna de perfil (sin CT-3).
-            level = _column(frame, profile_col, numpy)
-            return level, [() for _ in range(level.shape[0])]
-        # Sin perfil longitudinal: EAD constante por período; se marca CT-3 en cada fila.
         if config.method == "provided":
             level = _column(frame, config.ead_col, numpy)
             floored = numpy.zeros(level.shape[0], dtype=bool)

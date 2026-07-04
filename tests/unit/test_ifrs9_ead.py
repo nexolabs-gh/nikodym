@@ -2,8 +2,9 @@
 
 Goldens verificables a mano (SDD-16 §11): ``EAD = drawn + CCF*(limite - drawn)`` con
 ``drawn=800``, ``limite=1000``, ``CCF=0.5`` -> ``EAD=900``; EAD provista directa; despliegue por
-período (constante con aviso CT-3 ``FALTA-DATO-IFRS-4`` cuando no hay perfil longitudinal, y por la
-columna ``exposure_profile_col`` cuando sí); piso D-IFRS-13 ``EAD >= drawn`` ante ``credit_limit <
+período (siempre constante con aviso CT-3 ``FALTA-DATO-IFRS-4``: el perfil EAD(t) longitudinal está
+diferido a CT-3 y ``exposure_profile_col`` se rechaza en config); piso D-IFRS-13 ``EAD >= drawn``
+ante ``credit_limit <
 drawn``; y errores controlados (``IfrsEadError``) ante EAD negativa, falta de fuente CCF, columnas
 faltantes o ``periods`` inválidos. Cobertura de los guards de dependencia perezosa.
 """
@@ -21,7 +22,7 @@ import nikodym.provisioning.ifrs9.ead as ead_module
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.provisioning.ifrs9 import EadEngine
 from nikodym.provisioning.ifrs9.config import IfrsEadConfig
-from nikodym.provisioning.ifrs9.exceptions import IfrsEadError
+from nikodym.provisioning.ifrs9.exceptions import IfrsConfigError, IfrsEadError
 
 _CT3 = "FALTA-DATO-IFRS-4"
 _FLOORED = "ead_floored_limit_below_drawn"
@@ -87,23 +88,16 @@ def test_perfil_ausente_constante_con_ct3() -> None:
     assert list(out.index) == ["op1", "op1", "op1"]
 
 
-def test_perfil_presente_usa_columna_sin_ct3() -> None:
-    cfg = IfrsEadConfig(method="provided", exposure_profile_col="exposure_profile")
-    frame = pd.DataFrame({"ead": [900.0], "exposure_profile": [750.0]})
-    out = EadEngine.from_config(cfg).estimate(frame, periods=[1, 2])
+def test_exposure_profile_col_diferido_ct3_levanta() -> None:
+    """Regresión: informar ``exposure_profile_col`` levanta (perfil EAD(t) diferido a CT-3).
 
-    # Con perfil longitudinal declarado se usa la columna de perfil y no se marca CT-3.
-    np.testing.assert_allclose(out["ead"].to_numpy(), [750.0, 750.0], rtol=1e-12)
-    assert list(out["warning_codes"]) == [(), ()]
-
-
-def test_perfil_configurado_pero_ausente_cae_a_constante_ct3() -> None:
-    # exposure_profile_col configurado pero no presente en el frame → fallback constante + CT-3.
-    cfg = IfrsEadConfig(method="provided", exposure_profile_col="exposure_profile")
-    frame = pd.DataFrame({"ead": [900.0]})
-    out = EadEngine.from_config(cfg).estimate(frame, periods=[1])
-    np.testing.assert_allclose(out["ead"].to_numpy(), [900.0], rtol=1e-12)
-    assert list(out["warning_codes"]) == [(_CT3,)]
+    Antes, una columna escalar ``exposure_profile_col`` se leía y se aplanaba **constante** en todos
+    los períodos SIN aviso, etiquetando una EAD constante como perfil EAD(t) honrado: degradación
+    silenciosa con etiqueta falsa. Ahora el config la rechaza en construcción (fail-fast); el
+    despliegue constante honesto con aviso CT-3 lo cubre ``test_perfil_ausente_constante_con_ct3``.
+    """
+    with pytest.raises(IfrsConfigError, match="diferido a CT-3"):
+        IfrsEadConfig(method="provided", exposure_profile_col="exposure_profile")
 
 
 def test_orden_operacion_mayor_multiples_filas() -> None:

@@ -265,29 +265,40 @@ class IfrsEadConfig(NikodymBaseConfig):
     )
     exposure_profile_col: str | None = Field(
         default=None,
-        title="Perfil EAD(t) longitudinal",
+        title="Perfil EAD(t) longitudinal (diferido a CT-3)",
         description=(
-            "Columna con el perfil de exposición EAD(t) por período, si existe panel longitudinal."
+            "Reservado para el perfil de exposición EAD(t) por período (panel longitudinal). "
+            "Diferido a CT-3: informarlo no se soporta en v1 y levanta IfrsConfigError, porque "
+            "una columna escalar no representa EAD(t) por período."
         ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "EAD", "ui_order": 7},
     )
 
     @model_validator(mode="after")
     def _check_ead(self) -> Self:
-        """Valida columnas y la exclusividad ccf_col/ccf_value de SDD-16 §5.
+        """Valida columnas, la exclusividad ccf_col/ccf_value y el guard EAD(t) de SDD-16 §5.
 
         La *presencia* de una fuente CCF cuando ``method='ccf'`` es un contrato de runtime (§6/§8);
         aquí solo se prohíbe informar **ambas** fuentes a la vez, para que el config por defecto
         siga construyendo sin argumentos.
+
+        Guard CT-3 (fail-fast): informar ``exposure_profile_col`` levanta en construcción. El perfil
+        EAD(t) longitudinal real (panel fila x período) está diferido a CT-3; una columna escalar no
+        puede representarlo, y honrarla aplanándola a constante sin aviso sería una degradación
+        silenciosa con etiqueta falsa. Se rechaza aquí, no se degrada en silencio.
         """
         _require_non_empty_strings(
             {"ead_col": self.ead_col, "drawn_col": self.drawn_col, "limit_col": self.limit_col},
             context="ead",
         )
-        _require_non_empty_if_set(
-            {"ccf_col": self.ccf_col, "exposure_profile_col": self.exposure_profile_col},
-            context="ead",
-        )
+        if self.exposure_profile_col is not None:
+            raise IfrsConfigError(
+                "exposure_profile_col (perfil EAD(t) longitudinal por período) está "
+                "diferido a CT-3 y no se soporta en v1: una columna escalar no "
+                "representa EAD(t) por período. Use method='provided'/'ccf' (EAD "
+                "desplegada constante con aviso FALTA-DATO-IFRS-4) o espere CT-3."
+            )
+        _require_non_empty_if_set({"ccf_col": self.ccf_col}, context="ead")
         if self.method == "ccf" and self.ccf_col is not None and self.ccf_value is not None:
             raise IfrsConfigError("ead.method='ccf' admite ccf_col o ccf_value, no ambos a la vez.")
         return self

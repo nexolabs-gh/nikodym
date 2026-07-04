@@ -146,7 +146,6 @@ def _config_no_trivial() -> IfrsProvisioningConfig:
             drawn_col="saldo",
             limit_col="cupo",
             ccf_value=0.5,
-            exposure_profile_col="perfil_ead",
         ),
         staging=IfrsStagingConfig(
             sicr_pd_ratio_threshold=2.5,
@@ -292,11 +291,28 @@ def test_ead_columnas_obligatorias_vacias_levantan(field: str) -> None:
         IfrsEadConfig(**{field: " "})
 
 
-@pytest.mark.parametrize("field", ["ccf_col", "exposure_profile_col"])
+@pytest.mark.parametrize("field", ["ccf_col"])
 def test_ead_columnas_opcionales_vacias_levantan(field: str) -> None:
     """Las columnas opcionales de EAD no pueden quedar en blanco si se informan."""
     with pytest.raises(IfrsConfigError, match="ead"):
         IfrsEadConfig(**{field: " "})
+
+
+def test_ead_exposure_profile_col_diferido_ct3_levanta() -> None:
+    """Informar ``exposure_profile_col`` levanta: perfil EAD(t) diferido a CT-3.
+
+    Guard fail-fast en construcción del config: una columna escalar no representa
+    EAD(t) por período, así que se rechaza en vez de aplanarla a constante sin aviso
+    (degradación silenciosa con etiqueta falsa). El panel EAD(t) real está diferido a
+    CT-3 (SDD-16); el despliegue constante honesto con aviso ``FALTA-DATO-IFRS-4`` sigue
+    disponible sin ``exposure_profile_col``.
+    """
+    with pytest.raises(IfrsConfigError, match="diferido a CT-3") as exc_info:
+        IfrsEadConfig(exposure_profile_col="perfil_ead")
+    mensaje = str(exc_info.value)
+    # Mensaje accionable: nombra la alternativa honesta (EAD constante + aviso) y el diferido.
+    assert "FALTA-DATO-IFRS-4" in mensaje
+    assert "no se soporta en v1" in mensaje
 
 
 def test_ead_ccf_ambas_fuentes_levanta() -> None:
