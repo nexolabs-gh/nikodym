@@ -21,10 +21,11 @@ no tienen sink de auditoría.
 importar este módulo no arrastra ``scipy``/``sklearn``. ``numpy``/``pandas`` son dependencias base.
 
 Robustez regulatoria (§8): con ``N < min`` técnico o muestra degenerada no se afirma significancia;
-el registro queda ``not_evaluable`` reportando el estadístico/p-valor si son computables. Ni la
-desviación muestral cero (t-test) ni la varianza binomial cero (PD, ``p_hat`` en ``{0, 1}``) dividen
-por cero: el registro es ``not_evaluable``. Los floats normalizan ``-0.0`` a ``0.0`` y jamás escapa
-``NaN``/``inf``.
+el registro queda ``not_evaluable`` reportando el estadístico/p-valor si son computables. La
+degeneración se decide en el **origen** (rango de errores nulo en el t-test; ``p_hat`` fuera de
+``(0, 1)`` en el binomial), no en el estadístico derivado, para que un residuo ~1e-17 por
+cancelación catastrófica NO produzca un ``fail`` regulatorio falso ni un veredicto no reproducible
+entre plataformas. Los floats normalizan ``-0.0`` a ``0.0`` y jamás escapa ``NaN``/``inf``.
 
 FALTA-DATO-VAL-1: la forma exacta del t-test ECB (simple vs ponderado por exposición, orientación y
 valor crítico según la versión vigente del PDF) queda por verificar; el default es el t-test pareado
@@ -221,13 +222,22 @@ def binomial_realised_vs_predicted(
 def _student_t_test(errors: np.ndarray, n: int, *, one_sided: bool) -> tuple[float, float] | None:
     """Estadístico ``T = sqrt(N)*e_bar/s`` y p-valor ``t`` de Student; ``None`` si ``s`` no sirve.
 
-    Se llama solo con ``n >= 2`` (``ddof=1`` exige dos observaciones). ``s = 0`` (todos los errores
-    iguales) o ``s`` no finito (desborde) devuelve ``None`` -> el llamador marca ``not_evaluable``.
+    Se llama solo con ``n >= 2`` (``ddof=1`` exige dos observaciones). La **degeneración se ve en
+    el ORIGEN**, comparando ``max(errors) == min(errors)`` (dispersión real nula), **no** en la
+    ``np.std`` derivada: con errores estructuralmente idénticos la resta de la media deja un residuo
+    ~1e-17 por *cancelación catastrófica* (y su reducción varía por arquitectura/BLAS). Confiar en
+    ``std <= 0`` daría un veredicto REGULATORIO ``fail`` desde puro ruido de punto flotante y NO
+    reproducible cross-plataforma (SDD-22 §8). El ``max``/``min`` es selección exacta, sin reducción
+    sensible: dos segmentos con dispersión real cero reciben SIEMPRE el mismo veredicto
+    ``not_evaluable``, sea el error representable o no. ``s`` no finito (desborde a inf) o ``s``
+    subdesbordado a ``0`` con rango no nulo también degenera a ``None``.
     """
+    error_max = float(np.max(errors))
+    error_min = float(np.min(errors))
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         sample_std = float(np.std(errors, ddof=1))
         mean_error = float(np.mean(errors))
-    if not math.isfinite(sample_std) or sample_std <= 0.0:
+    if error_max == error_min or not math.isfinite(sample_std) or sample_std <= 0.0:
         return None
     t_stat = math.sqrt(n) * mean_error / sample_std
     stats = _import_scipy_stats()
@@ -241,14 +251,20 @@ def _student_t_test(errors: np.ndarray, n: int, *, one_sided: bool) -> tuple[flo
 
 
 def _standardized_deviation(defaults: int, n: int, p_hat: float) -> float | None:
-    """Desviación ``z = (D - N*p_hat)/sqrt(N*p_hat*(1-p_hat))``; ``None`` si var=0 (§8).
+    """Desviación ``z = (D - N*p_hat)/sqrt(N*p_hat*(1-p_hat))``; ``None`` si degenera (§8).
 
     Estadístico descriptivo del backtesting de PD (aproximación normal). El p-valor del contraste
-    lo aporta el kernel reusado; este ``z`` solo resume la magnitud de la desviación.
+    lo aporta el kernel reusado; este ``z`` solo resume la magnitud de la desviación. La
+    degeneración se decide en el ORIGEN: ``p_hat`` fuera del intervalo abierto ``(0, 1)`` anula la
+    varianza binomial ``N*p_hat*(1-p_hat)`` (mismo criterio robusto que el t-test, decidido en el
+    parámetro, no en la varianza derivada). A diferencia del t-test, la varianza binomial es un
+    **producto** de
+    positivos (sin resta de la media): no sufre cancelación catastrófica, así que el chequeo en el
+    origen es equivalente a ``variance <= 0`` para los insumos válidos y se adopta por consistencia.
     """
-    variance = n * p_hat * (1.0 - p_hat)
-    if variance <= 0.0:
+    if not 0.0 < p_hat < 1.0:
         return None
+    variance = n * p_hat * (1.0 - p_hat)
     z = (defaults - n * p_hat) / math.sqrt(variance)
     return _normalize_float(float(z))
 

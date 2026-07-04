@@ -1,11 +1,13 @@
 """Capa ``validation`` de Nikodym: validación avanzada (calibración, backtesting, semáforo, SDD-22).
 
 Al importarse, registra :class:`ValidationConfig` en el hook diferido de
-:mod:`nikodym.core.config.schema`. Así ``NikodymConfig.validation`` se valida como sub-config real
-sin que ``import nikodym.core`` arrastre ``nikodym.validation`` ni dependencias
-tabulares/estadísticas (pandas/pandera/scipy/sklearn). B22.1 aporta **solo config y excepciones**;
-los DTOs, evaluadores y el step llegan en los bloques siguientes (B22.2+) y se reexportan de forma
-perezosa. Nomenclatura en inglés técnico para APIs; docstrings y errores en español.
+:mod:`nikodym.core.config.schema` e importa :mod:`nikodym.validation.step` para ejecutar
+``@register("standard", domain="validation")`` del :class:`ValidationStep`. Así
+``NikodymConfig.validation`` se valida como sub-config real y el step queda en el ``REGISTRY`` sin
+que ``import nikodym.core`` ni ``import nikodym.validation`` arrastren dependencias
+tabulares/estadísticas (pandas/pandera/scipy/sklearn): el step importa el evaluador y pandas de
+forma **perezosa** dentro de ``execute``. Los DTOs, el evaluador y el step se reexportan perezosos.
+Nomenclatura en inglés técnico para APIs; docstrings y errores en español.
 
 **Experimental (SemVer 0.x).**
 """
@@ -44,9 +46,13 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "GradeBinomialRecord": ("nikodym.validation.results", "GradeBinomialRecord"),
     "ValidationCardSection": ("nikodym.validation.results", "ValidationCardSection"),
     "ValidationResult": ("nikodym.validation.results", "ValidationResult"),
+    "ValidationEvaluator": ("nikodym.validation.evaluator", "ValidationEvaluator"),
+    "ValidationStep": ("nikodym.validation.step", "ValidationStep"),
+    "VALIDATION_ARTIFACTS": ("nikodym.validation.step", "VALIDATION_ARTIFACTS"),
 }
 
 __all__ = [
+    "VALIDATION_ARTIFACTS",
     "BacktestError",
     "BacktestParameter",
     "BacktestRecord",
@@ -66,9 +72,16 @@ __all__ = [
     "ValidationConfigError",
     "ValidationDataError",
     "ValidationError",
+    "ValidationEvaluator",
     "ValidationFamily",
     "ValidationResult",
+    "ValidationStep",
 ]
+
+# Import perezoso a nivel paquete para ejecutar @register("standard", domain="validation") al
+# importar `nikodym.validation`, sin contaminar `import nikodym.core` ni cargar pandas/scipy/sklearn
+# (el step importa el evaluador y pandas dentro de execute).
+importlib.import_module("nikodym.validation.step")
 
 
 def __getattr__(name: str) -> Any:

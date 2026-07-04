@@ -234,10 +234,18 @@ def _hl_not_evaluable(n_groups: int, degrees_of_freedom: int) -> CalibrationTest
 
 
 def _asymptotic_z(defaults: int, n: int, p_hat: float) -> float | None:
-    """Calcula el ``z`` asintótico del test binomial; ``None`` si la varianza es cero (§8)."""
-    variance = n * p_hat * (1.0 - p_hat)
-    if variance <= 0.0:
+    """Calcula el ``z`` asintótico del test binomial; ``None`` si degenera en el origen (§8).
+
+    La degeneración se decide en el ORIGEN: ``p_hat`` fuera del intervalo abierto ``(0, 1)`` anula
+    la varianza binomial ``N*p_hat*(1-p_hat)`` (criterio robusto consistente con el
+    t-test/backtesting, decidido en el parámetro, no en la varianza). La varianza binomial es un
+    **producto** de positivos, sin resta de la media: no sufre cancelación catastrófica, así que el
+    chequeo en el origen es equivalente a ``variance <= 0`` para los insumos válidos y se adopta por
+    consistencia.
+    """
+    if not 0.0 < p_hat < 1.0:
         return None
+    variance = n * p_hat * (1.0 - p_hat)
     z = (defaults - n * p_hat) / math.sqrt(variance)
     return _normalize_float(float(z))
 
