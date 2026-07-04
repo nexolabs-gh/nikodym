@@ -185,6 +185,7 @@ markers = [
   "requires_lightgbm: requiere el extra [lightgbm]",
   "requires_catboost: requiere el extra [catboost]",
   "requires_forecasting: requiere el extra [forecasting]",
+  "requires_explain: requiere el extra [explain]",
   "gbdt_nondeterministic: reproducibilidad no garantizada (GBDT multihilo)",
 ]
 filterwarnings = ["error"]   # D-TEST-1 de SDD-24: un warning no manejado FALLA el test (regulatorio)
