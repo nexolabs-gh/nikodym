@@ -39,7 +39,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **09** | `scorecard` | Scoring | F1 | T2 | 08 | 🟡 Borrador |
 | **10** | `calibration` | Scoring | F1 | T2 | 08 | 🟡 Borrador |
 | **11** | `performance` + `stability` | Scoring | F1 | T2 | 09, 10 | 🟡 Borrador |
-| **12** | `ml` (SVM/RF/XGB/LGBM/CatBoost) | ML | F2 | T3 | 06, 08 | ⬜ Pendiente |
+| **12** | `ml` (SVM/RF/XGB/LGBM/CatBoost) | ML | F2 | T3 | 06, 08 | 🟡 Borrador |
 | **13** | `tuning` (Optuna) | ML | F2 | T3 | 12 | ⬜ Pendiente |
 | **14** | `explain` (SHAP + reason codes) | ML | F2 | T3 | 12 | ⬜ Pendiente |
 | **15** | `provisioning/cmf` (B-1, matrices, B-3, garantías) | Provisiones | F3 | T4 | 08, 02 | 🟡 Borrador |
