@@ -189,6 +189,7 @@ class BinningStep(AuditableMixin):
         """Registra decisiones auditables derivadas de los atributos fiteados del binner."""
         self._log_skipped_variables(binner.skipped_variables_)
         self._log_monotonicity_overrides(feature_columns)
+        self._log_monotonicity_auto_resolved(feature_columns, summary)
         self._log_summary_diagnostics(summary, pd)
         self._log_unknown_categories(binner.unknown_categories_)
 
@@ -238,6 +239,34 @@ class BinningStep(AuditableMixin):
                 umbral="auto",
                 valor={"variable": variable, "monotonic_trend": trend},
                 accion="aplicar_restriccion",
+            )
+
+    def _log_monotonicity_auto_resolved(
+        self,
+        feature_columns: tuple[str, ...],
+        summary: DataFrame,
+    ) -> None:
+        """Registra la tendencia AUTO-RESUELTA por variable cuando el modo es automático.
+
+        En modo ``auto*`` OptBinning no fuerza una dirección explícita, así que el log de decisiones
+        quedaba mudo sobre monotonía en la ruta por defecto. Nikodym deriva la dirección real de los
+        bins ajustados (``WoEBinner``) y aquí la registra por variable, etiquetada HONESTO como
+        ``monotonia_auto_resuelta`` (no fue forzada, por eso no es ``monotonia_forzada``).
+        """
+        override_by_name = {override.name: override for override in self.config.variable_overrides}
+        resolved = _resolved_trends_by_variable(summary)
+        for variable in feature_columns:
+            mode = _effective_monotonic_mode(self.config, override_by_name.get(variable))
+            if mode not in _AUTO_MONOTONIC_TRENDS:
+                continue
+            trend = resolved.get(variable)
+            if trend is None:
+                continue
+            self.log_decision(
+                regla="monotonia_auto_resuelta",
+                umbral=mode,
+                valor={"variable": variable, "monotonic_trend": trend},
+                accion="registrar_tendencia",
             )
 
     def _log_summary_diagnostics(self, summary: DataFrame, pd: Any) -> None:
@@ -630,6 +659,28 @@ def _effective_forced_trend(
     if trend is None or trend in _AUTO_MONOTONIC_TRENDS:
         return None
     return trend
+
+
+def _effective_monotonic_mode(
+    config: BinningConfig,
+    override: VariableBinningConfig | None,
+) -> str | None:
+    """Devuelve el modo de monotonía efectivo (el override tiene prioridad sobre el global)."""
+    if override is not None and override.monotonic_trend is not None:
+        return override.monotonic_trend
+    return config.monotonic_trend
+
+
+def _resolved_trends_by_variable(summary: DataFrame) -> dict[str, str]:
+    """Mapa ``variable→tendencia resuelta`` para filas seleccionadas con dirección concreta."""
+    resolved: dict[str, str] = {}
+    for row in summary.to_dict(orient="records"):
+        if not bool(row.get("selected", False)):
+            continue
+        trend = row.get("monotonic_trend")
+        if isinstance(trend, str) and trend:
+            resolved[str(row["name"])] = trend
+    return resolved
 
 
 def _effective_max_n_bins(

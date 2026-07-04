@@ -288,6 +288,118 @@ def test_golden_woe_iv_result_y_binning_card() -> None:
     assert card.iv_by_variable == {"score": pytest.approx(log3)}
 
 
+def test_card_monotonicity_by_variable_lleva_direccion_real_en_modo_auto() -> None:
+    """M4 (prueba central): con config DEFAULT (``auto_asc_desc``) la card refleja la tendencia
+    monótona REAL de los bins por variable seleccionada —numérica → dirección concreta, categórica →
+    None—. Antes del fix salía toda ``None``: auditoría verde que mentía por omisión."""
+    cfg = BinningConfig(
+        feature_columns=("score", "segment"),
+        categorical_columns=("segment",),
+        solver="mip",
+        max_n_prebins=4,
+        max_n_bins=4,
+        min_bin_size=0.1,
+        time_limit=5,
+        monotonic_trend="auto_asc_desc",
+    )
+    study = _study_with_data(config=cfg)
+
+    BinningStep.from_config(cfg).execute(study, np.random.default_rng(1))
+    card = study.artifacts.get("binning", "binning_card")
+
+    assert isinstance(card, BinningCardSection)
+    assert card.monotonicity_by_variable == {"score": "ascending", "segment": None}
+
+
+def test_log_monotonia_auto_resuelta_en_auto_y_forzada_en_forzado() -> None:
+    """M4: en modo auto el log emite ``monotonia_auto_resuelta`` con la tendencia derivada; el
+    ``monotonia_forzada`` existente sigue reservado a la tendencia explícita forzada (solo ahí)."""
+    auto_cfg = BinningConfig(
+        feature_columns=("score",),
+        solver="mip",
+        max_n_prebins=4,
+        max_n_bins=4,
+        min_bin_size=0.1,
+        time_limit=5,
+        monotonic_trend="auto_asc_desc",
+    )
+    study = _study_with_data(config=auto_cfg)
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+    step = BinningStep.from_config(auto_cfg)
+    step._audit = sink
+    step.execute(study, np.random.default_rng(1))
+
+    reglas = [event.payload["regla"] for event in sink.events if event.kind == "decision"]
+    assert "monotonia_auto_resuelta" in reglas
+    assert "monotonia_forzada" not in reglas
+    auto_event = next(
+        event for event in sink.events if event.payload.get("regla") == "monotonia_auto_resuelta"
+    )
+    assert auto_event.payload["valor"] == {"variable": "score", "monotonic_trend": "ascending"}
+    assert auto_event.payload["accion"] == "registrar_tendencia"
+    assert auto_event.payload["umbral"] == "auto_asc_desc"
+
+    forced_cfg = BinningConfig(
+        feature_columns=("score",),
+        solver="mip",
+        max_n_prebins=4,
+        max_n_bins=4,
+        min_bin_size=0.1,
+        time_limit=5,
+        monotonic_trend="ascending",
+    )
+    forced_study = _study_with_data(config=forced_cfg)
+    forced_sink = InMemoryAuditSink()
+    forced_study.set_audit_sink(forced_sink)
+    forced_step = BinningStep.from_config(forced_cfg)
+    forced_step._audit = forced_sink
+    forced_step.execute(forced_study, np.random.default_rng(1))
+
+    forced_reglas = [
+        event.payload["regla"] for event in forced_sink.events if event.kind == "decision"
+    ]
+    assert "monotonia_forzada" in forced_reglas
+    assert "monotonia_auto_resuelta" not in forced_reglas
+
+
+def test_log_monotonicity_auto_resolved_y_helpers_cubren_ramas() -> None:
+    """Cubre las ramas de ``_log_monotonicity_auto_resolved`` y helpers: emite solo para variables
+    en modo auto con dirección concreta; omite categóricas (trend None) y variables forzadas por
+    override (modo no auto)."""
+    cfg = BinningConfig(
+        feature_columns=("score", "segment", "otra"),
+        monotonic_trend="auto_asc_desc",
+        variable_overrides=(VariableBinningConfig(name="otra", monotonic_trend="descending"),),
+    )
+    step = BinningStep.from_config(cfg)
+    sink = InMemoryAuditSink()
+    step._audit = sink
+    summary = pd.DataFrame(
+        [
+            {"name": "score", "selected": True, "monotonic_trend": "ascending"},
+            {"name": "segment", "selected": True, "monotonic_trend": None},
+            {"name": "otra", "selected": True, "monotonic_trend": "descending"},
+            {"name": "skipped", "selected": False, "monotonic_trend": None},
+        ]
+    )
+
+    step._log_monotonicity_auto_resolved(("score", "segment", "otra"), summary)
+
+    payloads = [event.payload for event in sink.events]
+    assert [payload["regla"] for payload in payloads] == ["monotonia_auto_resuelta"]
+    assert payloads[0]["valor"] == {"variable": "score", "monotonic_trend": "ascending"}
+    assert payloads[0]["umbral"] == "auto_asc_desc"
+
+    override = cfg.variable_overrides[0]
+    assert step_module._effective_monotonic_mode(cfg, override) == "descending"
+    assert step_module._effective_monotonic_mode(cfg, None) == "auto_asc_desc"
+    assert step_module._resolved_trends_by_variable(summary) == {
+        "score": "ascending",
+        "otra": "descending",
+    }
+
+
 def test_execute_con_keep_structural_columns_false_publica_solo_woe() -> None:
     cfg = BinningConfig(
         feature_columns=("score",),

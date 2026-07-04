@@ -763,6 +763,93 @@ def test_monotonia_auto_asc_desc_produce_event_rate_monotona() -> None:
     assert rates == sorted(rates) or rates == sorted(rates, reverse=True)
 
 
+@pytest.mark.parametrize(
+    ("rates", "expected"),
+    [
+        ([0.1, 0.4, 0.9], "ascending"),
+        ([0.9, 0.4, 0.1], "descending"),
+        ([0.1, 0.9, 0.2], None),  # pico: no monótona → None honesto, no una dirección falsa
+        ([0.5, 0.5, 0.5], None),  # plana: sin dirección
+        ([0.5], None),  # un solo bin: sin dirección
+    ],
+)
+def test_classify_monotonic_trend_direcciones_y_no_monotonas(
+    rates: list[float], expected: str | None
+) -> None:
+    """La clasificación event rate→dirección distingue asc/desc y no inventa en secuencias no
+    monótonas o planas (criterio rector M4)."""
+    assert transformer_module._classify_monotonic_trend(rates) == expected
+
+
+def test_summary_monotonic_trend_numerica_direccion_categorica_none() -> None:
+    """M4: ``summary_`` lleva la dirección monótona real por numérica seleccionada y ``None`` por
+    categórica. Antes del fix el transformer hardcodeaba ``None`` para TODAS."""
+    index = _index(16)
+    X = pd.DataFrame(
+        {
+            "risk": [0] * 4 + [1] * 4 + [2] * 4 + [3] * 4,
+            "grp": ["A", "B"] * 8,
+        },
+        index=index,
+    )
+    y = pd.Series([0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1], index=index)
+
+    binner = _binner(
+        feature_columns=("risk", "grp"),
+        categorical_columns=("grp",),
+        monotonic_trend="auto_asc_desc",
+    ).fit(X, y)
+
+    summary = binner.summary_.set_index("name")
+    assert summary.loc["risk", "monotonic_trend"] == "ascending"
+    assert summary.loc["grp", "monotonic_trend"] is None
+
+
+def test_summary_monotonic_trend_round_trip_real_en_subprocess() -> None:
+    """Convención de monotonía contra OptBinning REAL: en modo ``auto_asc_desc`` la dirección se
+    resuelve a la real de los bins, y forzar ``ascending``/``descending`` (sobre datos que soportan
+    esa dirección) produce esa misma dirección en la card (round-trip). Esto fija que la derivación
+    usa la convención de OptBinning —``monotonic_trend`` sobre event rate, no sobre WoE que va al
+    revés— sin invertir el signo. Subprocess para no cargar OR-Tools dentro del proceso pytest."""
+    script = textwrap.dedent(
+        """
+        import numpy as np
+        import pandas as pd
+        from nikodym.binning.transformer import WoEBinner
+
+        def derived_trend(x, y, trend):
+            binner = WoEBinner(feature_columns=("v",), monotonic_trend=trend).fit(
+                pd.DataFrame({"v": x}), pd.Series(y)
+            )
+            return binner.summary_.set_index("name").loc["v", "monotonic_trend"]
+
+        rng = np.random.default_rng(20260704)
+        n = 3000
+        # Señal ascendente: mayor v -> mayor event rate.
+        up = rng.uniform(0.0, 1.0, n)
+        y_up = (rng.uniform(0.0, 1.0, n) < 1.0 / (1.0 + np.exp(-(-0.4 + 3.0 * up)))).astype(int)
+        # Señal descendente: mayor v -> menor event rate.
+        down = rng.uniform(0.0, 1.0, n)
+        y_down = (rng.uniform(0.0, 1.0, n) < 1.0 / (1.0 + np.exp(-(0.4 - 3.0 * down)))).astype(int)
+
+        assert derived_trend(up, y_up, "auto_asc_desc") == "ascending"
+        assert derived_trend(up, y_up, "ascending") == "ascending"
+        assert derived_trend(down, y_down, "auto_asc_desc") == "descending"
+        assert derived_trend(down, y_down, "descending") == "descending"
+        print("ok")
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    assert completed.stdout.strip() == "ok"
+
+
 def test_iv_cero_se_conserva_y_normaliza_menos_cero() -> None:
     """Una variable válida sin poder predictivo se conserva con ``iv_band='none'``."""
     index = _index(8)

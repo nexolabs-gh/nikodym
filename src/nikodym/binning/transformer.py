@@ -34,6 +34,7 @@ import math
 import warnings
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from itertools import pairwise
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias, cast
 
 from nikodym.binning.config import BinningConfig, MonotonicTrend, VariableBinningConfig
@@ -66,6 +67,7 @@ __all__ = ["WoEBinner"]
 
 _STRUCTURAL_COLUMNS: tuple[str, ...] = ("target", "label_status", "partition", "ttd")
 _KNOWN_SKLEARN_FORCE_ALL_FINITE_WARNING = ".*force_all_finite.*"
+_SPECIAL_BIN_LABELS: frozenset[str] = frozenset({"Special", "Missing"})
 
 
 class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: ignore[misc]
@@ -809,7 +811,14 @@ def _collect_fitted_outputs(
         _validate_finite_woe_table(column, table, np, pd)
         tables[column] = table
         binned_columns.append(column)
-        rows.append(_summary_row(row, selected=True, skipped_reason=None))
+        rows.append(
+            _summary_row(
+                row,
+                selected=True,
+                skipped_reason=None,
+                monotonic_trend=_derive_monotonic_trend(table, dtype, pd),
+            )
+        )
 
     fitted_summary = cast(DataFrame, pd.DataFrame(rows))
     if not fitted_summary.empty:
@@ -822,8 +831,14 @@ def _summary_row(
     *,
     selected: bool,
     skipped_reason: str | None,
+    monotonic_trend: str | None = None,
 ) -> dict[str, object]:
-    """Normaliza una fila de ``process.summary()`` y añade flags Nikodym."""
+    """Normaliza una fila de ``process.summary()`` y añade flags Nikodym.
+
+    ``monotonic_trend`` es la tendencia monótona CONCRETA que exhiben los bins ajustados de una
+    variable seleccionada (derivada en ``_derive_monotonic_trend``); queda ``None`` para categóricas
+    y para variables descartadas (sin bins ni tendencia).
+    """
     iv = _safe_float(row.get("iv", 0.0))
     js = _safe_float(row.get("js", 0.0))
     gini = _safe_float(row.get("gini", 0.0))
@@ -845,9 +860,64 @@ def _summary_row(
         "iv_band": band,
         "is_suspicious_iv": band == "suspicious",
         "is_zero_iv": iv == 0.0,
-        "monotonic_trend": None,
+        "monotonic_trend": monotonic_trend,
         "skipped_reason": skipped_reason,
     }
+
+
+def _derive_monotonic_trend(table: DataFrame, dtype: str, pd: Any) -> str | None:
+    """Deriva la tendencia monótona real de los bins ajustados de una variable seleccionada.
+
+    OptBinning no persiste la tendencia resuelta en modo auto: ``get_binned_variable(col)`` devuelve
+    el string de entrada (p.ej. ``'auto_asc_desc'``), no la dirección elegida. Por eso se deriva del
+    ground truth: la secuencia de event rate de los bins numéricos regulares, en orden de bin. Se
+    respeta la MISMA convención de OptBinning (``monotonic_trend`` describe el *event rate*, no el
+    WoE, que va en sentido inverso), de modo que forzar ``ascending`` produce ``'ascending'`` y
+    ``descending`` produce ``'descending'`` (round-trip). Categóricas sin orden numérico → ``None``.
+    """
+    if dtype != "numerical":
+        return None
+    return _classify_monotonic_trend(_regular_bin_event_rates(table, pd))
+
+
+def _regular_bin_event_rates(table: DataFrame, pd: Any) -> list[float]:
+    """Event rate (``Event/Count``) de los bins numéricos regulares, en orden de bin.
+
+    Excluye los bins ``Special``/``Missing`` y la fila ``Totals`` (que no participan de la
+    monotonía del solver) y los bins vacíos (``Count == 0``, sin event rate definido).
+    """
+    labels = table["Bin"].astype(str).tolist()
+    is_totals = [str(index) == "Totals" for index in table.index]
+    counts = pd.to_numeric(table["Count"], errors="coerce").fillna(0.0).tolist()
+    events = pd.to_numeric(table["Event"], errors="coerce").fillna(0.0).tolist()
+    rates: list[float] = []
+    for label, totals, count, event in zip(labels, is_totals, counts, events, strict=True):
+        if totals or label in _SPECIAL_BIN_LABELS or count <= 0:
+            continue
+        rates.append(event / count)
+    return rates
+
+
+def _classify_monotonic_trend(event_rates: list[float]) -> str | None:
+    """Clasifica una secuencia de event rate en la dirección monótona de OptBinning.
+
+    Devuelve ``'ascending'``/``'descending'`` sólo si la secuencia es efectivamente monótona; ante
+    una secuencia plana o no monótona devuelve ``None`` en vez de inventar una dirección (criterio
+    rector: ningún campo de auditoría miente por omisión).
+    """
+    tolerance = 1e-12
+    diffs = [later - earlier for earlier, later in pairwise(event_rates)]
+    ascending = all(diff >= -tolerance for diff in diffs) and any(
+        diff > tolerance for diff in diffs
+    )
+    descending = all(diff <= tolerance for diff in diffs) and any(
+        diff < -tolerance for diff in diffs
+    )
+    if ascending:
+        return "ascending"
+    if descending:
+        return "descending"
+    return None
 
 
 def _append_skipped_summary(
