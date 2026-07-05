@@ -108,9 +108,7 @@ def test_markovconfig_defaults_golden() -> None:
             "generator_tol": 1e-10,
             "imaginary_tol": 1e-10,
             "normalize_within_tolerance": True,
-            "fail_on_missing_periods": True,
         },
-        "fail_on_falta_dato": True,
     }
 
 
@@ -144,9 +142,7 @@ def test_round_trip_yaml_markovconfig() -> None:
             generator_tol=1e-9,
             imaginary_tol=1e-9,
             normalize_within_tolerance=False,
-            fail_on_missing_periods=False,
         ),
-        fail_on_falta_dato=False,
     )
     text = yaml.safe_dump(cfg.model_dump(mode="json", by_alias=True), sort_keys=False)
     raw = yaml.safe_load(text)

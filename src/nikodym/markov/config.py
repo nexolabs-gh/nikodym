@@ -271,7 +271,7 @@ class MarkovDynamicsConfig(NikodymBaseConfig):
 
 
 class MarkovValidationConfig(NikodymBaseConfig):
-    """Configuración de tolerancias numéricas y fallas de validación Markov."""
+    """Configuración de tolerancias numéricas de validación Markov."""
 
     stochastic_tol: float = Field(
         default=1e-10,
@@ -302,12 +302,6 @@ class MarkovValidationConfig(NikodymBaseConfig):
         title="Normalizar dentro de tolerancia",
         description="Si es True, corrige residuos numéricos dentro de tolerancia y audita.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Validación", "ui_order": 4},
-    )
-    fail_on_missing_periods: bool = Field(
-        default=True,
-        title="Fallar ante períodos faltantes",
-        description="Si es True, faltas de soporte temporal no homogéneo abortan la proyección.",
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Validación", "ui_order": 5},
     )
 
 
@@ -353,14 +347,8 @@ class MarkovConfig(NikodymBaseConfig):
     validation: MarkovValidationConfig = Field(
         default_factory=MarkovValidationConfig,
         title="Validación",
-        description="Tolerancias numéricas y política ante períodos faltantes.",
+        description="Tolerancias numéricas de cierre estocástico y generador.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Validación", "ui_order": 1},
-    )
-    fail_on_falta_dato: bool = Field(
-        default=True,
-        title="Fallar ante FALTA-DATO",
-        description="Si es True, brechas críticas FALTA-DATO abortan en vez de solo advertir.",
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Gobernanza", "ui_order": 1},
     )
 
     @model_validator(mode="after")

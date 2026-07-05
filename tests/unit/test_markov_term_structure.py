@@ -630,7 +630,6 @@ def test_aalen_johansen_defensas_de_eventos_y_pesos() -> None:
         estimation=MarkovEstimationConfig(use_weights=True),
         dynamics=MarkovDynamicsConfig(projection_mode="aalen_johansen"),
         validation=MarkovValidationConfig(),
-        fail_on_falta_dato=True,
     )
     fallback_weight = pd.DataFrame(
         {
@@ -652,7 +651,6 @@ def test_aalen_johansen_defensas_de_eventos_y_pesos() -> None:
         estimation=MarkovEstimationConfig(),
         dynamics=MarkovDynamicsConfig(projection_mode="aalen_johansen"),
         validation=MarkovValidationConfig(),
-        fail_on_falta_dato=True,
     )
     with pytest.raises(MarkovInputError, match="transition_time_col"):
         aalen_johansen(pd.DataFrame(), config=no_event_col_cfg)

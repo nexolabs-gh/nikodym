@@ -437,7 +437,6 @@ def test_errores_de_pesos_particion_tiempo_y_exposure() -> None:
         estimation=MarkovEstimationConfig(use_weights=True),
         dynamics=MarkovDynamicsConfig(),
         validation=MarkovValidationConfig(),
-        fail_on_falta_dato=True,
     )
     with pytest.raises(MarkovInputError, match="weight_col"):
         TransitionMatrixEstimator.from_config(weighted).fit(_cohort_frame())
@@ -500,7 +499,6 @@ def test_helpers_defensivos_numericos_y_weight_col_none() -> None:
         estimation=MarkovEstimationConfig(use_weights=True),
         dynamics=MarkovDynamicsConfig(),
         validation=MarkovValidationConfig(),
-        fail_on_falta_dato=True,
     )
     assert transition_module._transition_weight({}, cfg=weighted) == 1.0
     with pytest.raises(MarkovTransformError, match=r"\[0, 1\]"):
