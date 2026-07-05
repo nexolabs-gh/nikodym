@@ -30,6 +30,15 @@ from nikodym.stress.exceptions import (
 )
 
 StressOperation = Literal["additive", "relative"]
+# ``StressMetric`` enumera las métricas de impacto reportables. ``loss`` es un ALIAS DOCUMENTADO de
+# ``ecl``: por la identidad contable IFRS 9 ``ECL ≡ expected credit loss ≡ expected loss``, ambas
+# métricas designan la misma cantidad. Cuando el engine económico publica solo la columna ``ecl``
+# (sin una columna ``loss`` propia y distinta), pedir ``metric="loss"`` devuelve exactamente los
+# mismos valores que ``metric="ecl"`` (resolución por fallback documentada en
+# ``nikodym.stress.engine._METRIC_COLUMNS``, garantizada por test y con rastro de auditoría
+# ``stress_metric_alias``). ``loss`` no está en las métricas por defecto; se ofrece como etiqueta
+# equivalente para consumidores que prefieren ese nombre. Si un engine publicara una columna
+# ``loss`` propia, cada métrica tomaría su columna canónica sin colapsar.
 StressMetric = Literal["pd_marginal", "pd_cumulative", "lgd", "ecl", "provision", "loss", "ratio"]
 StressDirection = Literal["at_least", "at_most"]
 

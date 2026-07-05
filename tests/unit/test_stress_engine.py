@@ -2766,6 +2766,104 @@ def test_engine_economico_rechaza_columnas_duplicadas_antes_de_resolver_metricas
         )
 
 
+def test_metric_column_loss_es_alias_documentado_de_ecl_con_fail_fast() -> None:
+    """`loss` cae por fallback a `ecl` (identidad IFRS 9) sin relajar el fail-fast (M5)."""
+    solo_ecl = pd.DataFrame({"period": [1], "ecl": [10.0]})
+    # Fallback documentado: con solo la columna "ecl", `loss` resuelve a "ecl".
+    assert engine_module._metric_column(solo_ecl, metric="loss", field_name="x") == "ecl"
+    # `ecl` como métrica también toma su propia columna.
+    assert engine_module._metric_column(solo_ecl, metric="ecl", field_name="x") == "ecl"
+    # Columna canónica presente: `loss` toma "loss" y NO colapsa a otra columna.
+    solo_loss = pd.DataFrame({"period": [1], "loss": [10.0]})
+    assert engine_module._metric_column(solo_loss, metric="loss", field_name="x") == "loss"
+    # ≥2 columnas de la tupla `loss` (incluido el par loss+ecl) → raise ambigüedad, jamás elige
+    # una en silencio. `ecl` está en la tupla de `loss` por el fallback, así que coexistir con
+    # "loss" es genuinamente ambiguo y se aborta (fail-fast intacto).
+    with pytest.raises(StressOutputError, match=r"ambiguas.*'loss'"):
+        engine_module._metric_column(
+            pd.DataFrame({"period": [1], "loss": [10.0], "ecl": [11.0]}),
+            metric="loss",
+            field_name="x",
+        )
+    with pytest.raises(StressOutputError, match=r"ambiguas.*'loss'"):
+        engine_module._metric_column(
+            pd.DataFrame({"period": [1], "loss": [10.0], "expected_loss": [11.0]}),
+            metric="loss",
+            field_name="x",
+        )
+    # Ninguna columna reconocida → raise faltante.
+    with pytest.raises(StressOutputError, match=r"no publicó una columna reconocida.*'loss'"):
+        engine_module._metric_column(
+            pd.DataFrame({"period": [1], "otra": [10.0]}),
+            metric="loss",
+            field_name="x",
+        )
+
+
+def test_metric_rows_loss_con_columna_propia_no_registra_alias() -> None:
+    """Si el engine publica una columna `loss` propia, no hay fallback ni nota de alias."""
+    audit = InMemoryAuditSink()
+    rows = engine_module._metric_rows_from_engine_frames(
+        _scenario(),
+        severity=1.0,
+        metric="loss",
+        value_base_frame=pd.DataFrame({"period": [1], "loss": [10.0]}),
+        value_stress_frame=pd.DataFrame({"period": [1], "loss": [12.0]}),
+        engine_source="ecl_engine",
+        audit=audit,
+    )
+    assert rows[0]["metric"] == "loss"
+    assert rows[0]["value_base"] == pytest.approx(10.0)
+    assert rows[0]["value_stress"] == pytest.approx(12.0)
+    assert not [event for event in audit.events if event.payload["regla"] == "stress_metric_alias"]
+
+
+def test_stress_metric_loss_identico_a_ecl_y_deja_rastro_de_auditoria() -> None:
+    """`metric="loss"` reporta los mismos valores que `ecl` (identidad IFRS 9), con auditoría."""
+    macro = _macro_projection(periods=(1,), include_adverse=False)
+    term = _forward_term_structure([0.02])
+
+    def _run(metric: str, audit: InMemoryAuditSink) -> Any:
+        return StressTestEngine.from_config(_cfg(metrics=(metric,))).run(
+            forward_ecl_input=_ecl_input(term),
+            macro_projection=macro,
+            satellite_model=SatelliteStub(),
+            forward_term_structure=term,
+            scenario_weighting=ScenarioWeightingStub(),
+            ecl_engine=EclStub(),
+            audit=audit,
+        )
+
+    ecl_audit = InMemoryAuditSink()
+    loss_audit = InMemoryAuditSink()
+    ecl_tidy = _run("ecl", ecl_audit).tidy().reset_index(drop=True)
+    loss_tidy = _run("loss", loss_audit).tidy().reset_index(drop=True)
+
+    # La ÚNICA diferencia es la etiqueta `metric`; el resto (valores, deltas, grupos) es idéntico.
+    assert set(ecl_tidy["metric"]) == {"ecl"}
+    assert set(loss_tidy["metric"]) == {"loss"}
+    numeric_cols = [column for column in ecl_tidy.columns if column != "metric"]
+    pd.testing.assert_frame_equal(loss_tidy[numeric_cols], ecl_tidy[numeric_cols])
+
+    # El alias deja rastro auditable: `loss` registra `stress_metric_alias` → columna `ecl`.
+    alias_events = [
+        event.payload
+        for event in loss_audit.events
+        if event.payload["regla"] == "stress_metric_alias"
+    ]
+    assert alias_events, "El fallback loss→ecl debe dejar rastro de auditoría."
+    alias = alias_events[0]
+    assert alias["accion"] == "alias"
+    assert alias["valor"]["metric"] == "loss"
+    assert alias["valor"]["resolved_column"] == "ecl"
+    assert alias["valor"]["engine_source"] == "ecl_engine"
+    assert alias["umbral"]["canonical_column"] == "loss"
+    # `ecl` es la métrica canónica: no genera nota de alias (cero ruido en la ruta por defecto).
+    assert not [
+        event for event in ecl_audit.events if event.payload["regla"] == "stress_metric_alias"
+    ]
+
+
 def test_lgd_solicitado_sin_datos_falla_o_emite_falta_dato() -> None:
     """LGD pedido no puede desaparecer del impacto sin señal FALTA-DATO."""
     term = _forward_term_structure([0.02])

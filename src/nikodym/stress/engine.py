@@ -265,9 +265,22 @@ _FORWARD_ONLY_METRICS: frozenset[str] = frozenset({"pd_marginal", "pd_cumulative
 _ECL_METRICS: frozenset[str] = frozenset({"ecl", "loss", "ratio"})
 _PROVISION_METRICS: frozenset[str] = frozenset({"provision"})
 _ECONOMIC_METRICS: frozenset[str] = _ECL_METRICS | _PROVISION_METRICS
+# Columnas reconocidas por métrica, en orden de prioridad. ``_metric_column`` toma la primera de
+# la tupla presente en el frame (y hace fail-fast si hay ≥2 o ninguna).
+#
+# ``loss`` es un ALIAS DOCUMENTADO de ``ecl``: por la identidad contable IFRS 9
+# ``ECL ≡ expected credit loss ≡ expected loss``, la cantidad de ``loss`` es la misma que la de
+# ``ecl``. Cuando el engine económico típico publica solo la columna ``ecl`` (sin una columna
+# ``loss`` propia y distinta), pedir ``metric="loss"`` resuelve — por fallback declarado — a la
+# columna ``ecl`` y devuelve exactamente los mismos valores que ``ecl``. Esa equivalencia NO es
+# silenciosa: está garantizada por test y deja rastro de auditoría (``stress_metric_alias``, ver
+# ``_metric_rows_from_engine_frames``) cada vez que ``loss`` cae por fallback a otra columna. Si el
+# engine SÍ publica una columna ``loss`` propia y distinta de ``ecl``, cada métrica toma su columna
+# canónica sin colapsar. El fail-fast por ambigüedad (≥2 columnas de la tupla presentes) o por
+# ausencia (ninguna) se conserva intacto en ``_metric_column``.
 _METRIC_COLUMNS: Mapping[str, tuple[str, ...]] = {
     "ecl": ("ecl", "expected_credit_loss", "expected_loss"),
-    "loss": ("loss", "expected_loss", "ecl"),
+    "loss": ("loss", "expected_loss", "ecl"),  # alias de "ecl" por identidad IFRS 9 (ver arriba)
     "ratio": ("ratio", "coverage_ratio", "ecl_ratio"),
     "provision": ("provision", "provision_amount", "required_provision"),
 }
@@ -2589,6 +2602,7 @@ def _economic_impact_rows(
                 value_stress_frame=stressed_ecl,
                 engine_source="ecl_engine",
                 warning_codes=scenario_warning_codes,
+                audit=context.audit,
             )
         )
     if requested & _PROVISION_METRICS:
@@ -2627,6 +2641,7 @@ def _economic_impact_rows(
                 value_stress_frame=stressed_provision,
                 engine_source="provision_engine",
                 warning_codes=scenario_warning_codes,
+                audit=context.audit,
             )
         )
     return rows, ()
@@ -2641,6 +2656,7 @@ def _metric_rows_from_engine_frames(
     value_stress_frame: DataFrame,
     engine_source: str,
     warning_codes: tuple[str, ...] = (),
+    audit: AuditSink | None = None,
 ) -> list[dict[str, Any]]:
     base_column = _metric_column(value_base_frame, metric=metric, field_name="baseline")
     stress_column = _metric_column(value_stress_frame, metric=metric, field_name="stress")
@@ -2650,6 +2666,12 @@ def _metric_rows_from_engine_frames(
             f"para métrica {metric!r}: baseline={base_column!r}, stress={stress_column!r}."
         )
     column = base_column
+    _emit_metric_alias_decision(
+        audit,
+        metric=metric,
+        resolved_column=column,
+        engine_source=engine_source,
+    )
     base_values = _aggregate_metric_frame(value_base_frame, column=column, metric=metric)
     stress_values = _aggregate_metric_frame(value_stress_frame, column=column, metric=metric)
     if set(base_values) != set(stress_values):
@@ -2675,6 +2697,13 @@ def _metric_rows_from_engine_frames(
 
 
 def _metric_column(frame: DataFrame, *, metric: str, field_name: str) -> str:
+    """Resuelve la columna que publica ``metric`` en ``frame`` (prioridad ``_METRIC_COLUMNS``).
+
+    Fail-fast intacto: si el frame trae ≥2 columnas de la tupla → ``StressOutputError`` de
+    ambigüedad; si no trae ninguna → ``StressOutputError`` de faltante. El único fallback tolerado
+    es el alias documentado ``loss`` → ``ecl`` (identidad IFRS 9, ver ``_METRIC_COLUMNS``), que
+    además deja rastro de auditoría vía ``_emit_metric_alias_decision``.
+    """
     matches = [column for column in _METRIC_COLUMNS[metric] if column in frame.columns]
     if len(matches) == 1:
         return matches[0]
@@ -2684,6 +2713,41 @@ def _metric_column(frame: DataFrame, *, metric: str, field_name: str) -> str:
         )
     raise StressOutputError(
         f"El engine publicó columnas ambiguas en {field_name} para {metric!r}: {tuple(matches)}."
+    )
+
+
+def _emit_metric_alias_decision(
+    audit: AuditSink | None,
+    *,
+    metric: str,
+    resolved_column: str,
+    engine_source: str,
+) -> None:
+    """Deja rastro auditable cuando ``metric`` resuelve por fallback a una columna con otro nombre.
+
+    Solo aplica al alias documentado ``loss`` → columna ``ecl``/``expected_loss`` (identidad
+    IFRS 9 ``ECL ≡ expected credit loss ≡ expected loss``). Con la columna canónica presente
+    (``loss`` → ``"loss"``) no hay alias que registrar y no se emite nada. El objetivo es que el
+    número etiquetado ``loss`` nunca provenga de otra columna de forma silenciosa.
+    """
+    canonical_column = _METRIC_COLUMNS[metric][0]
+    if metric != "loss" or resolved_column == canonical_column:
+        return
+    _emit_audit_decision(
+        audit,
+        regla="stress_metric_alias",
+        umbral={
+            "metric": metric,
+            "canonical_column": canonical_column,
+            "recognized_columns": _METRIC_COLUMNS[metric],
+            "identity": "ECL = expected_credit_loss = expected_loss (IFRS 9)",
+        },
+        valor={
+            "metric": metric,
+            "resolved_column": resolved_column,
+            "engine_source": engine_source,
+        },
+        accion="alias",
     )
 
 
