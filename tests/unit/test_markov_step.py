@@ -429,7 +429,7 @@ def test_config_dict_y_helpers_de_dependencias_faltantes(monkeypatch: pytest.Mon
         step_module._import_pandas()
     with pytest.raises(MissingDependencyError, match="numpy"):
         step_module._import_numpy()
-    with pytest.raises(MissingDependencyError, match="scipy.linalg"):
+    with pytest.raises(MissingDependencyError, match=r"scipy\.linalg"):
         step_module._import_expm()
 
 

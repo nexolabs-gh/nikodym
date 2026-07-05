@@ -409,6 +409,16 @@ def _import_binning_process() -> type[Any]:
 def _validate_runtime_config(estimator: WoEBinner) -> None:
     """Revalida hiperparámetros y aplica límites reales de OptBinning 0.20.0."""
     estimator._validate_config()
+    if estimator.solver == "cp":
+        # Fail-fast en la primera línea de ``fit``, antes de tocar datos o construir el solve:
+        # ``cp`` sigue siendo un valor válido del schema/hash (no se elimina del Literal), pero
+        # invocarlo cuelga el producto en silencio, el peor fallo. Se aborta con raise explícito
+        # de modo que el solver ``cp`` jamás llegue a ejecutarse.
+        raise BinningFitError(
+            "solver='cp' está deshabilitado: se cuelga indefinidamente en variables numéricas "
+            "continuas ignorando time_limit (OR-Tools CP-SAT + optbinning 0.20/numpy 2.4). "
+            "Usa solver='mip' (default)."
+        )
     if estimator.split_digits is not None and estimator.split_digits > 8:
         raise BinningFitError(
             "OptBinning 0.20.0 admite split_digits entre 0 y 8; "

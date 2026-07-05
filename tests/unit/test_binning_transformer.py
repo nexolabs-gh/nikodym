@@ -1024,6 +1024,10 @@ def test_ramas_de_error_y_helpers_internos(monkeypatch: pytest.MonkeyPatch) -> N
 
     with pytest.raises(BinningFitError, match="split_digits"):
         _binner(feature_columns=("score",), split_digits=9).fit(x, y)
+    with pytest.raises(BinningFitError, match=r"solver='cp' está deshabilitado"):
+        # Fail-fast: seleccionar el solver 'cp' (colgado en optbinning 0.20/numpy 2.4) aborta en
+        # la primera línea de fit, antes de invocar el solver; nunca cuelga el gate.
+        _binner(feature_columns=("score",), solver="cp").fit(x, y)
     with pytest.raises(BinningFitError, match=r"pandas\.DataFrame"):
         _binner(feature_columns=("score",)).fit([1, 2, 3], y)
     with pytest.raises(BinningFitError, match="DataFrame vacío"):
