@@ -413,6 +413,43 @@ def test_coeficientes_fijos_csv_y_errores_de_signo(tmp_path: Path) -> None:
         )
 
 
+def test_fixed_coefficients_relaja_min_history_con_piso_minimo(tmp_path: Path) -> None:
+    """ÍTEM 1 auditoría: en ``fixed_coefficients`` no se ajusta regresión, así que
+    ``min_history_periods`` (garantía de fiabilidad del AJUSTE) se relaja; se conserva el piso de
+    >=1 observación finita por factor para que ``reference_macro`` (la media de centrado) esté
+    definida. El modo ``fit`` no cambia (sigue exigiendo el umbral completo).
+    """
+    path = _fixed_table(tmp_path / "coefficients.csv")
+
+    # Historia corta (2 < min_history_periods=5) pero con >=1 obs válida por factor: ajusta OK.
+    short = SatelliteModel.from_config(
+        _cfg(mode="fixed_coefficients", coefficient_table_path=str(path), min_history_periods=5)
+    ).fit(_term_structure([0.02, 0.03]), _macro_history([0.0, 1.0]))
+    assert short.diagnostics_.mode == "fixed_coefficients"
+    assert short.reference_macro_["x"] == pytest.approx(0.5)
+
+    # Piso mínimo (=1 obs, factor constante) sigue ajustando: la constante se exceptúa en este modo.
+    single = SatelliteModel.from_config(
+        _cfg(mode="fixed_coefficients", coefficient_table_path=str(path), min_history_periods=5)
+    ).fit(_term_structure([0.02, 0.03]), _macro_history([0.7]))
+    assert single.reference_macro_["x"] == pytest.approx(0.7)
+
+    # 0 obs por factor -> reference_macro indefinido -> error claro (piso mínimo violado).
+    empty_macro = pd.DataFrame(
+        {"period": pd.Series([], dtype="int64"), "x": pd.Series([], dtype="float64")}
+    )
+    with pytest.raises(SatelliteModelError, match="reference_macro"):
+        SatelliteModel.from_config(
+            _cfg(mode="fixed_coefficients", coefficient_table_path=str(path), min_history_periods=5)
+        ).fit(_term_structure([0.02, 0.03]), empty_macro)
+
+    # Regresión intacta: modo ``fit`` con historia corta sigue levantando FALTA-DATO-FWD-5.
+    with pytest.raises(SatelliteModelError, match="historia insuficiente"):
+        SatelliteModel.from_config(_cfg(min_history_periods=5)).fit(
+            _term_structure([0.02, 0.03]), _macro_history([0.0, 1.0])
+        )
+
+
 def test_hazard_ausente_se_deriva_y_casos_no_derivables(tmp_path: Path) -> None:
     cfg = _cfg(
         mode="fixed_coefficients",

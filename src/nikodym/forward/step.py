@@ -585,6 +585,13 @@ def _finalize_forward_term_structure(
 ) -> DataFrame:
     """Normaliza columnas, ``pd_basis`` y warnings antes de construir los DTOs finales."""
     working = frame.copy(deep=True)
+    # pd_basis="pit" es la etiqueta SEMÁNTICA del output forward y es intencional: forward publica
+    # una proyección PIT (que en la cola revierte hacia el ancla TTC), y así la consume el gate
+    # pit_mode="consume_pit" de IFRS9 (provisioning/ifrs9/engine.py exige pd_basis='pit'). El
+    # diagnóstico por fila (pit/ttc/blended) vive en la columna basis_state, que queda intacta. El
+    # pd_basis per-fila que calcula scenarios.apply_ttc_reversion se sobrescribe aquí a propósito:
+    # su valor por fila no forma parte del contrato de salida (cambiarlo por basis_state falsearía
+    # la etiqueta y rompería el contrato con IFRS9).
     working["pd_basis"] = "pit"
     if extra_warning_codes:
         working["warning_codes"] = [

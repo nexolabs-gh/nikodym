@@ -278,6 +278,11 @@ def _prepare_macro_frame(
         if not bool(np.all(np.isfinite(values))):
             raise ForwardInputError(f"La columna macro {column!r} contiene valores no finitos.")
         copied[column] = values
+    # Este es el ajuste de la PROYECCIÓN macro (ARIMA/VAR/…), que ocurre en TODOS los modos
+    # satellite (incl. fixed_coefficients: aun con coeficientes de tabla se necesita proyectar la
+    # macro a futuro). Por eso min_history sí es una garantía real de fiabilidad aquí y NO se
+    # exceptúa para fixed_coefficients, a diferencia del chequeo de historia del satellite
+    # (satellite._prepare_macro_history), que sí se relaja porque en ese modo no ajusta regresión.
     min_history = cfg.satellite.min_history_periods
     if len(copied.index) < min_history:
         raise ForwardFitError(

@@ -270,7 +270,15 @@ def _prepare_macro_history(
     if bool(copied.duplicated(subset=[time_col], keep=False).any()):
         raise ForwardInputError("macro_history contiene períodos duplicados.")
     copied = copied.sort_values(time_col, kind="mergesort").reset_index(drop=True)
-    if len(copied.index) < cfg.satellite.min_history_periods:
+    is_fixed_coefficients = cfg.satellite.mode == "fixed_coefficients"
+    # min_history_periods garantiza la FIABILIDAD DEL AJUSTE de la regresión satellite. En
+    # mode="fixed_coefficients" no se ajusta ninguna regresión (los coeficientes vienen de una
+    # tabla) y la historia solo alimenta reference_macro (la media por factor para centrar), así
+    # que el umbral es irrelevante y se relaja. Se conserva un piso mínimo de validez (abajo): >=1
+    # observación finita por factor para que la media esté bien definida. El chequeo hermano de
+    # forward/macro.py NO se relaja: ese es el ajuste de la proyección macro (serie de tiempo real,
+    # que sí ocurre en este modo) y su min_history sigue siendo una garantía legítima.
+    if not is_fixed_coefficients and len(copied.index) < cfg.satellite.min_history_periods:
         raise SatelliteModelError(
             "FALTA-DATO-FWD-5: historia insuficiente para ajustar satellite; "
             f"observaciones={len(copied.index)}, "
@@ -280,10 +288,12 @@ def _prepare_macro_history(
         values = copied[column].to_numpy(dtype="float64")
         if not bool(np.all(np.isfinite(values))):
             raise ForwardInputError(f"El factor macro {column!r} contiene valores no finitos.")
-        if (
-            int(pd.Series(values).nunique(dropna=False)) < 2
-            and cfg.satellite.mode != "fixed_coefficients"
-        ):
+        if values.size == 0:
+            raise SatelliteModelError(
+                "FALTA-DATO-FWD-5: sin observaciones macro para el factor "
+                f"{column!r}; reference_macro (media de centrado) quedaría indefinido."
+            )
+        if int(pd.Series(values).nunique(dropna=False)) < 2 and not is_fixed_coefficients:
             raise SatelliteModelError(f"El factor macro {column!r} es constante.")
         copied[column] = values
     reference = {
