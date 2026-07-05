@@ -536,6 +536,61 @@ def test_duration_errores_de_generador_por_exposure_cero() -> None:
         )
 
 
+def test_duration_aplica_min_origin_count_consistente_con_cohort() -> None:
+    # Reproduce el bug: `min_origin_count` se aplicaba en cohort pero se ignoraba en
+    # silencio en duration. Estado A con un único origen (origin_count=1) y
+    # time_at_risk>0, así los guards de riesgo NO lo atrapan: solo min_origin_count debe.
+    frame = pd.DataFrame(
+        {
+            "id": [1, 1],
+            "time": [0, 1],
+            "state": ["A", "default"],
+            "exposure": [1.0, 0.0],
+        }
+    )
+    duration_cfg = MarkovConfig(
+        input=MarkovInputConfig(
+            id_col="id",
+            time_col="time",
+            state_col="state",
+            exposure_time_col="exposure",
+        ),
+        states=_states(states=("A", "default")),
+        estimation=MarkovEstimationConfig(method="duration", min_origin_count=2),
+    )
+    with pytest.raises(MarkovFitError, match="origen suficiente") as duration_exc:
+        TransitionMatrixEstimator.from_config(duration_cfg).fit(frame)
+    assert "'A'" in str(duration_exc.value)
+    assert "min_origin_count=2" in str(duration_exc.value)
+
+    # Mismo dataset por cohort ya levantaba idéntico: la inconsistencia queda cerrada.
+    cohort_cfg = _cfg(
+        states=_states(states=("A", "default")),
+        estimation=MarkovEstimationConfig(min_origin_count=2),
+    )
+    with pytest.raises(MarkovFitError, match="origen suficiente") as cohort_exc:
+        TransitionMatrixEstimator.from_config(cohort_cfg).fit(frame)
+    assert str(cohort_exc.value) == str(duration_exc.value)
+
+
+def test_duration_min_origin_count_uno_datos_validos_sigue_ajustando() -> None:
+    # Regresión: con el default `min_origin_count=1` el ajuste de datos válidos no cambia.
+    cfg = MarkovConfig(
+        input=MarkovInputConfig(
+            id_col="id",
+            time_col="time",
+            state_col="state",
+            exposure_time_col="exposure",
+        ),
+        states=_states(states=("A", "default")),
+        estimation=MarkovEstimationConfig(method="duration", min_origin_count=1),
+    )
+    estimator = TransitionMatrixEstimator.from_config(cfg).fit(_duration_frame())
+    assert_allclose(estimator.generator_, np.array([[-0.2, 0.2], [0.0, 0.0]]), atol=1e-12)
+    assert estimator.state_counts_ == {"A": 5.0, "default": 0.0}
+    assert estimator.time_at_risk_ == {"A": 5.0, "default": 0.0}
+
+
 def test_transform_errors_not_fitted_horizons_y_term_structure() -> None:
     estimator = TransitionMatrixEstimator.from_config(_cfg())
     with pytest.raises(NotFittedError, match="no está fiteado"):

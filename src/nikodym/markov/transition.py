@@ -456,6 +456,12 @@ def _fit_duration(
             counts[state_index[transition.from_state], state_index[transition.to_state]] += (
                 transition.weight
             )
+    # Guard de suficiencia de datos idéntico a cohort: `origin_counts` (weighted) es el
+    # análogo directo de `state_counts` en `_fit_cohort`. Se aplica ANTES de dividir por
+    # `time_at_risk`/construir el generador para fail-fast, y además del guard de riesgo
+    # positivo (no lo reemplaza): con `min_origin_count>1` un estado no absorbente por
+    # debajo del mínimo se rechaza igual que en cohort, sin degradación silenciosa.
+    _check_min_origin_counts(origin_counts, cfg=cfg)
     generator = _zero_matrix(cfg, np=np)
     absorbing = set(cfg.states.absorbing_states)
     for state in cfg.states.states:
