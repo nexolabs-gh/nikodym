@@ -472,7 +472,8 @@ def test_invoke_run_carga_el_stack_de_computo_de_dominio(tmp_path: Path) -> None
                 assert m in sys.modules, "no cargó el stack de cómputo al invocar: " + m
             print("ok")
             """
-        )
+        ),
+        encoding="utf-8",
     )
     completed = subprocess.run(
         [sys.executable, str(script), str(parquet)],

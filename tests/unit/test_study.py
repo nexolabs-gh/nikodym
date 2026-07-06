@@ -77,6 +77,51 @@ def test_dod_f0_save_load_round_trip(tmp_path: Path) -> None:
     assert recargado.config.name == study.config.name
 
 
+def test_save_load_round_trip_contenido_no_ascii(tmp_path: Path) -> None:
+    """Blindaje Windows/UTF-8: un ``Study`` con config acentuado (tildes/ñ/—) round-trips íntegro.
+
+    En Windows el encoding por defecto es cp1252; sin ``encoding="utf-8"`` explícito, ``study.save``
+    escribiría ``config.yaml``/``run_metadata.json``/``lineage.json`` en cp1252 y la relectura UTF-8
+    corrompería el artefacto, rompiendo la reproducibilidad byte-a-byte cross-plataforma.
+    """
+    from nikodym.governance import GovernanceConfig
+
+    config = NikodymConfig(
+        name="Análisis de cartera — Peña María",
+        governance=GovernanceConfig(
+            model_name="Modelo Peña María",
+            purpose="Análisis de comportamiento — cartera de José Ñuñez",
+            author="José Ñuñez",
+        ),
+    )
+    study = Study(config)
+    study.set_audit_sink(InMemoryAuditSink())
+    study.run()  # run trivial (sin pasos) → done + lineage → save escribe los tres ficheros
+
+    destino = study.save(tmp_path / "estudio")
+
+    # run_metadata.json y lineage.json se escriben y re-leen íntegros como UTF-8.
+    meta = json.loads((destino / "run_metadata.json").read_text(encoding="utf-8"))
+    assert meta["status"] == "done"
+    lineage_json = json.loads((destino / "lineage.json").read_text(encoding="utf-8"))
+    assert lineage_json["config_hash"]
+    # config.yaml conserva el contenido acentuado (prueba directa del write_text UTF-8).
+    config_yaml = (destino / "config.yaml").read_text(encoding="utf-8")
+    assert "Análisis de cartera — Peña María" in config_yaml
+    assert "José Ñuñez" in config_yaml
+
+    recargado = Study.load(destino, trust=True)
+    assert recargado.config.name == "Análisis de cartera — Peña María"
+    governance = recargado.config.governance
+    assert governance is not None
+    assert governance.purpose == "Análisis de comportamiento — cartera de José Ñuñez"
+    assert governance.author == "José Ñuñez"
+    lineage = recargado.run_context.lineage
+    original_lineage = study.run_context.lineage
+    assert lineage is not None and original_lineage is not None
+    assert lineage.config_hash == original_lineage.config_hash
+
+
 # --- run trivial y con pasos (vía seam _resolve_steps) ----------------------------------------
 
 
