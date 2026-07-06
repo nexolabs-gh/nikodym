@@ -30,7 +30,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install tooling
-        run: uv sync --locked --python 3.12 --group lint
+        run: uv sync --locked --python 3.12 --group lint --extra ui
 
       - name: Ruff check
         run: uv run --no-sync ruff check .
