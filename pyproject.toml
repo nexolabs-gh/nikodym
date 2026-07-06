@@ -188,7 +188,14 @@ markers = [
   "requires_explain: requiere el extra [explain]",
   "gbdt_nondeterministic: reproducibilidad no garantizada (GBDT multihilo)",
 ]
-filterwarnings = ["error"]   # D-TEST-1 de SDD-24: un warning no manejado FALLA el test (regulatorio)
+filterwarnings = [
+  "error",   # D-TEST-1 de SDD-24: un warning no manejado FALLA el test (regulatorio)
+  # Deprecación PENDIENTE de matplotlib (``set_bad``) disparada por libs de terceros (shap/
+  # matplotlib) al importar el stack de explain con el extra [ml]; no es código nuestro y es
+  # benigna. En arm64/macOS local no aparece; en el job all-extras (Linux) sí. Acotada por
+  # mensaje+categoría para no enmascarar otros warnings.
+  "ignore:The set_bad function will be deprecated:PendingDeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["nikodym"]

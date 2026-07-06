@@ -160,7 +160,11 @@ def test_execute_publica_artifacts_ct2_auditoria_warning_codes_no_mutacion(
     }
     assert set(term["pd_basis"]) == {"pit"}
     assert set(term["basis_state"]) == {"pit", "ttc"}
-    assert term.loc[term.index[0], "warning_codes"] == ("UPSTREAM-CODE",)
+    # El invariante del test es la NO-mutación del código inyectado. ``warning_codes`` puede además
+    # contener códigos upstream legítimos que varían por plataforma/BLAS (p. ej.
+    # ``ConvergenceWarning`` del MLE de statsmodels: en x86/Linux avisa, en arm64/macOS no); eso es
+    # información de auditoría honesta, no debe tragarse. Por eso se valida presencia, no igualdad.
+    assert "UPSTREAM-CODE" in term.loc[term.index[0], "warning_codes"]
     assert study.artifacts.keys()[-10:] == [("forward", key) for key in FORWARD_ARTIFACTS]
 
     assert_frame_equal(study.artifacts.get("forward", "macro_history"), macro_snapshot)

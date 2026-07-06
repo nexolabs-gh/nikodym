@@ -1,0 +1,14 @@
+# Datos regulatorios (matrices CMF/IFRS9) verificados por hash SHA256 sobre los BYTES CRUDOS
+# del archivo (ver provisioning/cmf/matrices.py: hashlib.sha256(yaml_bytes)). Forzamos LF para
+# que el hash sea estable entre plataformas: en Windows, autocrlf convertiría a CRLF y cambiaría
+# los bytes → la verificación de hash falla y la colección de tests aborta.
+*.yaml text eol=lf
+*.yml text eol=lf
+*.sha256 text eol=lf
+*.json text eol=lf
+
+# Código y config: LF también (normalización estándar de un proyecto Python).
+*.py text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.lock text eol=lf

@@ -276,8 +276,13 @@ class LogisticPDModel(ClassifierMixin, BaseEstimator, NikodymClassifier):  # typ
         values = frame.loc[:, list(self.final_woe_columns_)].to_numpy(dtype="float64", copy=True)
         if not bool(np.isfinite(values).all()):
             raise ModelTransformError("LogisticPDModel no puede puntuar columnas WoE no finitas.")
-        linear = values @ self.coef_.reshape(-1)
-        linear = linear + float(self.intercept_[0])
+        # El guard de finitud de abajo ES el mecanismo intencionado para detectar un predictor
+        # no finito (p. ej. coeficientes ±inf). numpy emite ``RuntimeWarning: invalid value
+        # encountered in matmul`` de forma dependiente de plataforma/BLAS (x86 sí, arm64 no); con
+        # ``filterwarnings=error`` eso rompería el test en Linux/Windows antes de llegar al guard.
+        with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
+            linear = values @ self.coef_.reshape(-1)
+            linear = linear + float(self.intercept_[0])
         if not bool(np.isfinite(linear).all()):
             raise ModelTransformError("El predictor lineal produjo valores no finitos.")
         return cast(Series, pd.Series(linear, index=frame.index, name="linear_predictor"))
