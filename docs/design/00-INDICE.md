@@ -50,13 +50,15 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **20** | `forward` (macro ARIMA/VAR, satellite, escenarios) | Forward | F5 | T5 | 18, 19 | 🟡 Borrador |
 | **21** | `stress` (stress testing, sensibilidad) | Forward | F5 | T5 | 20 | 🟡 Borrador |
 | **22** | `validation` | Validación | F6 | T6 | 11, 16 | 🟡 Borrador |
-| **23** | `ui` (Streamlit, editor de config) | Producto | F7 | T6 | 05, todos | 🟡 Borrador |
+| **23** | `ui` (React/Vite + FastAPI, editor de config) | Producto | F7 | T6 | 05, 01, 03, 26, todos | 🟡 Borrador |
 | **26** | `report` (Quarto HTML+PDF, capa IA, export) | Reporte | F1 | T2 | 01 | 🟡 Borrador |
 | **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Aprobado |
 
 **27 SDD · 7 tandas (T0–T6; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
 
 > **SDD-27 `eda`** se creó en **Tanda 1 Rev** (decisión D1): el paquete `eda/` figuraba en el árbol de paquetes (ESPEC §6.3) y en el config (SDD-05 §5.1) pero ningún SDD lo cubría — quedaba huérfano. Es el **paso 1 del pipeline de scorecard** (pre-binning, F1/T2), depende de 02 (`data`). **Aguas abajo** 06 (binning), 11 (performance+stability, deslindado) y 26 (report) **consumen sus diagnósticos** (tasa de default por período, figuras), pero NO es una dependencia dura de build de esos SDD — por eso no aparece en su columna "Depende de" (corren sobre el frame de `data`); el orden T2 garantiza que `eda` se diseñe primero.
+>
+> **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7) y el SDD se re-redactó para el stack **web premium React/Vite + Tailwind + shadcn/ui sobre backend FastAPI** (cero lógica de dominio en front ni back; el backend solo invoca la API pública `nikodym.run` y serializa artefactos). Especifica además la **API pública mínima `nikodym.run(config) → Study`** (export perezoso PEP 562) y los dos modos de deploy (local con motor real · demo comercial con corridas pre-cacheadas). Sus deps se ampliaron a 01/03/26 (además de 05 y todos). Sigue en 🟡 Borrador (pendiente de revisión de integración).
 
 ## Tandas de producción
 
@@ -68,7 +70,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **T3 — ML (F2)** | 12, 13, 14 | Benchmark predictivo + explicabilidad. | T2 |
 | **T4 — Provisiones (F3-F4)** | 15, 16, 17 | CMF + IFRS 9 + piso regulatorio. | T2 (PD); T5 parcial (lifetime) |
 | **T5 — Forward-looking (F5)** | 18, 19, 20, 21 | Lifetime PD, escenarios, stress. | T2 |
-| **T6 — Validación + UI (F6-F7)** | 22, 23 | Backtesting y producto no-code. | T2–T5 |
+| **T6 — Validación + UI (F6-F7)** | 22, 23 | Backtesting y producto no-code (UI = web premium React/Vite + FastAPI sobre la API pública). | T2–T5 |
 
 > **Nota de dependencia cruzada:** IFRS 9 lifetime (SDD-16) usa la term-structure de `survival`/`markov` (T5). Se especifica en T4 con interfaz abstracta y se conecta cuando T5 esté lista (ver roadmap, dependencia F4↔F5).
 
