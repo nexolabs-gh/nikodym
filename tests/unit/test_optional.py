@@ -1,9 +1,14 @@
 """Tests del import perezoso de extras (SDD-25 §4, §11)."""
 
+import tomllib
+from pathlib import Path
+
 import pytest
 
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.utils import optional
+
+_PYPROJECT = Path(__file__).resolve().parents[2] / "pyproject.toml"
 
 
 def test_require_extra_returns_imported_modules() -> None:
@@ -34,3 +39,22 @@ def test_extra_map_keys_are_known_extras() -> None:
     assert "all" not in optional.EXTRA_TO_DISTRIBUTIONS
     assert "scoring" in optional.EXTRA_TO_DISTRIBUTIONS
     assert optional.EXTRA_TO_DISTRIBUTIONS["scoring"] == ("optbinning", "statsmodels", "sklearn")
+
+
+def test_extra_map_keys_son_extras_reales_del_pyproject() -> None:
+    """Toda clave del mapa es un extra de usuario declarado en el pyproject (sin claves fantasma).
+
+    Nota: la relación es ⊆, no biyección exacta: ``ai``/``report`` viven en el pyproject pero no
+    gatean vía ``require_extra`` (sus imports son perezosos en otras capas), por lo que no tienen
+    fila en el mapa. Esa asimetría es pre-existente a B23.2 y ortogonal a la migración de ``ui``.
+    """
+    with _PYPROJECT.open("rb") as handle:
+        pyproject = tomllib.load(handle)
+    extras = set(pyproject["project"]["optional-dependencies"]) - {"all"}
+    assert set(optional.EXTRA_TO_DISTRIBUTIONS) <= extras
+    assert "ui" in extras and "ui" in optional.EXTRA_TO_DISTRIBUTIONS
+
+
+def test_extra_ui_mapea_a_fastapi_y_uvicorn() -> None:
+    """El extra ``ui`` (SDD-23, B23.2) resuelve los módulos ``fastapi`` y ``uvicorn``."""
+    assert optional.EXTRA_TO_DISTRIBUTIONS["ui"] == ("fastapi", "uvicorn")
