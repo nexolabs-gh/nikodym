@@ -12,6 +12,7 @@ del contrato del estimador (deuda B14.4(2)), el import liviano y el no-reúso de
 from __future__ import annotations
 
 import ast
+import importlib.util
 import re
 import subprocess
 import sys
@@ -424,6 +425,10 @@ def test_targets_scorecard_corre_sin_shap() -> None:
     assert result.comparison == ()
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("shap") is not None,
+    reason="Prueba la puerta de dependencia con la ausencia REAL de shap; el job all-extras lo instala.",
+)
 def test_targets_ml_sin_shap_levanta_missing_dependency() -> None:
     """``targets='ml'`` sin el extra ``[explain]`` ⇒ ``MissingDependencyError`` con el extra."""
     sys.modules.pop("shap", None)
