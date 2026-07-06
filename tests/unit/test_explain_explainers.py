@@ -481,7 +481,7 @@ def test_resolve_explainer_espacio_efectivo_y_caveat(
 
 @pytest.mark.skipif(
     importlib.util.find_spec("shap") is not None,
-    reason="Prueba la puerta de dependencia con la ausencia REAL de shap; el job all-extras lo instala.",
+    reason="Requiere la ausencia REAL de shap; el job all-extras lo instala.",
 )
 def test_resolve_explainer_sin_extra_shap_levanta_missing_dependency() -> None:
     """Sin ``shap`` instalado, construir un explainer ML nombra el extra [explain]."""
