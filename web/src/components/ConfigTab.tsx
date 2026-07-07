@@ -4,7 +4,9 @@ import {
   CircleCheck,
   CloudOff,
   Download,
+  FilePlus2,
   Loader2,
+  Sparkles,
   Upload,
 } from "lucide-react"
 
@@ -21,6 +23,7 @@ import {
   ApiError,
   configFromYaml,
   configToYaml,
+  getPreset,
   validateConfig,
 } from "@/lib/api"
 import { type Path, getAtPath, setAtPath } from "@/lib/config-store"
@@ -62,6 +65,30 @@ type ValidationState =
   | { kind: "valid"; hash: string }
   | { kind: "invalid"; count: number; lookup: Map<string, string> }
   | { kind: "unreachable" }
+
+/**
+ * Qué se sembró en el form (SDD-23 §3.2). `preset` = configuración estándar del backend (default);
+ * `defaults` = "empezar de cero" con los defaults vacíos del schema (elección explícita);
+ * `fallback` = defaults porque el preset no estaba disponible al montar (backend caído).
+ */
+type SeedState =
+  | { kind: "preset"; name: string; datasetId: string }
+  | { kind: "defaults" }
+  | { kind: "fallback" }
+
+/** Aviso sobrio de qué config se cargó (o `null` mientras aún no se resuelve la siembra). */
+function seedNotice(seed: SeedState | null): string | null {
+  switch (seed?.kind) {
+    case "preset":
+      return `Cargada la configuración estándar: ${seed.name} · dataset ${seed.datasetId}`
+    case "fallback":
+      return "Config vacío del schema (backend no disponible)."
+    case "defaults":
+      return "Config vacío del schema (empezar de cero)."
+    default:
+      return null
+  }
+}
 
 /** Descarga `text` como archivo `filename` vía Blob + anchor (efecto DOM, no puro). */
 function triggerDownload(text: string, filename: string) {
@@ -136,22 +163,60 @@ export function ConfigTab() {
   const [loaded, setLoaded] = useState<LoadedSchema | null>(null)
   const [config, setConfig] = useState<Record<string, unknown>>({})
   const [validation, setValidation] = useState<ValidationState>({ kind: "idle" })
+  const [seed, setSeed] = useState<SeedState | null>(null)
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
+  const [presetBusy, setPresetBusy] = useState(false)
+  const [presetError, setPresetError] = useState<string | null>(null)
   const requestSeq = useRef(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Al montar: carga el schema y siembra el PRESET ESTÁNDAR por defecto (SDD §3.2) → "sin tocar
+  // nada" = un config F1 completo y válido. Muestra primero los defaults del schema (form al toque)
+  // y sustituye por el preset cuando llega; si el backend está caído, se queda en los defaults sin
+  // crashear (fallback), y la validación en vivo ya existente correrá sobre lo que quede sembrado.
   useEffect(() => {
     let alive = true
-    void loadSchema().then((result) => {
+    void loadSchema().then(async (result) => {
       if (!alive) return
       setLoaded(result)
       setConfig(structuredClone(result.payload.defaults))
+      try {
+        const preset = await getPreset()
+        if (!alive) return
+        setConfig(preset.config)
+        setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
+      } catch {
+        if (!alive) return
+        setSeed({ kind: "fallback" }) // ya está en defaults; solo se narra el fallback
+      }
     })
     return () => {
       alive = false
     }
   }, [])
+
+  // "Configuración estándar": recarga el preset del backend y lo siembra (getPreset → setConfig).
+  const handleLoadPreset = useCallback(async () => {
+    setPresetError(null)
+    setPresetBusy(true)
+    try {
+      const preset = await getPreset()
+      setConfig(preset.config)
+      setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
+    } catch (err) {
+      setPresetError(yamlErrorMessage(err))
+    } finally {
+      setPresetBusy(false)
+    }
+  }, [])
+
+  // "Empezar de cero": siembra el config mínimo del schema (defaults vacíos) — sin backend.
+  const handleStartBlank = useCallback(() => {
+    setPresetError(null)
+    setConfig(structuredClone(loaded?.payload.defaults ?? {}))
+    setSeed({ kind: "defaults" })
+  }, [loaded])
 
   // Validación en vivo: en cada cambio del config re-valida en el backend con debounce
   // (~350ms). El timer previo se cancela en el cleanup; el contador `requestSeq` descarta
@@ -260,12 +325,55 @@ export function ConfigTab() {
           {error ? <span className="opacity-70"> ({error})</span> : null}
         </div>
 
-        {/* Barra de estado + acciones (SDD §3.3 hash en vivo · §3.4 round-trip YAML). */}
+        {/* Aviso sobrio de qué config se sembró (SDD §3.2): preset estándar por defecto / vacío. */}
+        {seedNotice(seed) ? (
+          <p
+            className={
+              seed?.kind === "preset"
+                ? "flex items-center gap-1.5 text-xs text-brand-cyan/90"
+                : "text-xs text-brand-placeholder"
+            }
+          >
+            {seed?.kind === "preset" ? (
+              <CircleCheck className="size-3.5" aria-hidden="true" />
+            ) : null}
+            {seedNotice(seed)}
+          </p>
+        ) : null}
+
+        {/* Barra de estado + acciones (SDD §3.2 preset · §3.3 hash en vivo · §3.4 round-trip YAML). */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
           <div role="status" aria-live="polite" className="min-h-5">
             <HashStatus state={validation} />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadPreset}
+              disabled={presetBusy || backendDown}
+              title={
+                backendDown
+                  ? "Requiere el backend"
+                  : "Recargar la configuración estándar (lista para correr)"
+              }
+            >
+              {presetBusy ? (
+                <Loader2 className="animate-spin" aria-hidden="true" />
+              ) : (
+                <Sparkles aria-hidden="true" />
+              )}
+              Configuración estándar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStartBlank}
+              title="Vaciar el formulario y armar el config desde cero"
+            >
+              <FilePlus2 aria-hidden="true" />
+              Empezar de cero
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -296,6 +404,9 @@ export function ConfigTab() {
             />
           </div>
         </div>
+        {presetError ? (
+          <p className="text-xs text-destructive">{presetError}</p>
+        ) : null}
         {yamlError ? (
           <p className="text-xs text-destructive">{yamlError}</p>
         ) : backendDown ? (

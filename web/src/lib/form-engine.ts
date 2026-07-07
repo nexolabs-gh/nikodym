@@ -22,6 +22,7 @@ export interface JsonSchema {
   default?: unknown
   enum?: unknown[]
   const?: unknown
+  examples?: unknown[]
   minimum?: number
   maximum?: number
   exclusiveMinimum?: number
@@ -112,6 +113,7 @@ export function resolveRef(schema: JsonSchema, defs: Defs = {}): JsonSchema {
     ...target,
     title: schema.title ?? target.title,
     description: schema.description ?? target.description,
+    examples: schema.examples ?? target.examples,
   }
 }
 
@@ -135,6 +137,7 @@ export function unwrapNullable(schema: JsonSchema): {
         ...base,
         title: schema.title ?? base.title,
         description: schema.description ?? base.description,
+        examples: schema.examples ?? base.examples,
         default: schema.default ?? base.default,
         ui_widget: schema.ui_widget ?? base.ui_widget,
         ui_group: schema.ui_group ?? base.ui_group,
@@ -186,6 +189,28 @@ export function fieldLabel(name: string, schema: JsonSchema): string {
   return typeof schema.title === "string" && schema.title.length > 0
     ? schema.title
     : name
+}
+
+/** Formatea un valor de `examples` como hint legible (string tal cual; el resto vía JSON). */
+function formatExample(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value)
+}
+
+/**
+ * Placeholder/hint de un campo de entrada libre (text/number), ayuda en campos del SDD §5:
+ * usa los `examples` del schema (Pydantic `Field(examples=[...])`) formateados como sugerencia
+ * ("p. ej. …"); si el schema no trae examples, cae en la `description`. `undefined` si no hay
+ * ninguno. Puro y sin inventar ejemplos (restricción del goal): solo transporta lo que trae el
+ * schema del backend. Hoy los modelos no declaran `examples`, así que el comportamiento efectivo
+ * sigue siendo la `description` como placeholder; esto es refuerzo para cuando el usuario borra un
+ * campo o empieza de cero, y queda listo si mañana se añaden `examples` al backend.
+ */
+export function fieldPlaceholder(schema: JsonSchema): string | undefined {
+  const examples = Array.isArray(schema.examples) ? schema.examples : []
+  if (examples.length > 0) {
+    return `p. ej. ${examples.map(formatExample).join(", ")}`
+  }
+  return typeof schema.description === "string" ? schema.description : undefined
 }
 
 /**

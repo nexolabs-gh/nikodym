@@ -8,6 +8,7 @@ import {
   discriminatorProperty,
   enumOptions,
   fieldLabel,
+  fieldPlaceholder,
   hasBothBounds,
   multiselectOptions,
   numericBounds,
@@ -419,5 +420,54 @@ describe("multiselect (B23.5a §5)", () => {
 
   it("valor no-array de partida se trata como vacío", () => {
     expect(toggleMultiselect(null, "b", true, OPTIONS)).toEqual(["b"])
+  })
+})
+
+describe("fieldPlaceholder — ayuda en campos (examples > description)", () => {
+  it("usa el primer example como sugerencia 'p. ej. …'", () => {
+    expect(
+      fieldPlaceholder({ type: "string", examples: ["target_default"] }),
+    ).toBe("p. ej. target_default")
+  })
+
+  it("varios examples se unen por coma en orden", () => {
+    expect(
+      fieldPlaceholder({ type: "string", examples: ["a", "b", "c"] }),
+    ).toBe("p. ej. a, b, c")
+  })
+
+  it("examples no-string se formatean vía JSON (números, arrays)", () => {
+    expect(fieldPlaceholder({ type: "number", examples: [0.7] })).toBe(
+      "p. ej. 0.7",
+    )
+    expect(
+      fieldPlaceholder({ type: "array", examples: [["x", "y"]] }),
+    ).toBe('p. ej. ["x","y"]')
+  })
+
+  it("examples tiene prioridad sobre description", () => {
+    expect(
+      fieldPlaceholder({
+        type: "string",
+        description: "Nombre de la columna objetivo",
+        examples: ["default_12m"],
+      }),
+    ).toBe("p. ej. default_12m")
+  })
+
+  it("sin examples cae en la description (comportamiento actual del schema)", () => {
+    expect(
+      fieldPlaceholder({ type: "string", description: "Nombre de la columna" }),
+    ).toBe("Nombre de la columna")
+  })
+
+  it("examples vacío o ausente → cae en la description", () => {
+    expect(
+      fieldPlaceholder({ type: "string", examples: [], description: "d" }),
+    ).toBe("d")
+  })
+
+  it("sin examples ni description → undefined (no inventa ejemplos)", () => {
+    expect(fieldPlaceholder({ type: "string" })).toBeUndefined()
   })
 })

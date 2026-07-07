@@ -27,6 +27,7 @@ import {
   discriminatorProperty,
   enumOptions,
   fieldLabel,
+  fieldPlaceholder,
   multiselectOptions,
   numericBounds,
   orderedFields,
@@ -245,6 +246,7 @@ function NumberField(props: FieldRendererProps) {
       min={min}
       max={max}
       step={step}
+      placeholder={fieldPlaceholder(resolved)}
       onChange={(event) => {
         const text = event.target.value
         onChange(path, text === "" ? undefined : Number(text))
@@ -254,7 +256,8 @@ function NumberField(props: FieldRendererProps) {
 }
 
 function TextField(props: FieldRendererProps) {
-  const { schema, path, onChange } = props
+  const { schema, path, defs, onChange } = props
+  const resolved = resolveRef(unwrapNullable(schema).schema, defs)
   const raw = currentValue(props)
   const value = typeof raw === "string" ? raw : raw == null ? "" : String(raw)
   return (
@@ -262,9 +265,7 @@ function TextField(props: FieldRendererProps) {
       id={path.join(".")}
       type="text"
       value={value}
-      placeholder={
-        typeof schema.description === "string" ? schema.description : undefined
-      }
+      placeholder={fieldPlaceholder(resolved)}
       onChange={(event) => onChange(path, event.target.value)}
     />
   )

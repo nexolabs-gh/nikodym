@@ -51,6 +51,19 @@ export interface ConfigFromYamlResponse {
   config_hash: string
 }
 
+/**
+ * GET /api/config/preset — preset estándar F1 (SDD-23 §3.2/§5): un config completo, curado y
+ * *domain-agnostic* que corre end-to-end, más su identidad (`config_hash`) y el `dataset_id`
+ * recomendado. La validez la produce el backend (Pydantic); el front solo lo transporta (§3.3).
+ */
+export interface PresetResponse {
+  config: ConfigDict
+  config_hash: string
+  dataset_id: string
+  name: string
+  description: string
+}
+
 /** Columna de un dataset sintético. */
 export interface DatasetColumn {
   name: string
@@ -154,6 +167,14 @@ export function configFromYaml(
     method: "POST",
     body: JSON.stringify({ yaml: yamlText }),
   })
+}
+
+/**
+ * GET /api/config/preset — preset estándar F1 (SDD-23 §3.2/§5): el config curado listo para correr
+ * que la UI siembra por defecto. El front no reimplementa su lógica: el backend lo compone y valida.
+ */
+export function getPreset(): Promise<PresetResponse> {
+  return request<PresetResponse>("/api/config/preset")
 }
 
 /** GET /api/datasets — datasets sintéticos deterministas disponibles. */
