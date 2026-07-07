@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 
 import { AppSidebar } from "@/components/AppSidebar"
+import { ConfigTab } from "@/components/ConfigTab"
 import { EmptyState } from "@/components/EmptyState"
 import { Card } from "@/components/ui/card"
 import { API_BASE } from "@/lib/api"
@@ -104,14 +105,18 @@ function App() {
             </p>
           </header>
 
-          <Card className="shadow-card">
-            <EmptyState
-              icon={Icon}
-              title="Próximamente"
-              description={section.empty}
-              tag={section.tag}
-            />
-          </Card>
+          {active === "config" ? (
+            <ConfigTab />
+          ) : (
+            <Card className="shadow-card">
+              <EmptyState
+                icon={Icon}
+                title="Próximamente"
+                description={section.empty}
+                tag={section.tag}
+              />
+            </Card>
+          )}
 
           <p className="mt-8 font-mono text-xs text-brand-placeholder">
             Backend: {API_BASE}

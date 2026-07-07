@@ -1,0 +1,2810 @@
+{
+  "json_schema": {
+    "$defs": {
+      "ReproConfig": {
+        "additionalProperties": false,
+        "description": "Parámetros de reproducibilidad del experimento.",
+        "properties": {
+          "seed": {
+            "default": 42,
+            "description": "Semilla raíz del azar (>= 0; SeedSequence rechaza entropía negativa).",
+            "minimum": 0,
+            "title": "Semilla",
+            "type": "integer"
+          },
+          "strict_determinism": {
+            "default": false,
+            "description": "True fuerza single-thread en GBDT a costa de velocidad (caveat multihilo).",
+            "title": "Determinismo estricto",
+            "type": "boolean"
+          }
+        },
+        "title": "ReproConfig",
+        "type": "object"
+      },
+      "RunConfig": {
+        "additionalProperties": false,
+        "description": "Parámetros de orquestación de la corrida.",
+        "properties": {
+          "steps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "None = pipeline por defecto (las secciones no-None en orden de declaración).",
+            "title": "Pasos a ejecutar"
+          },
+          "fail_fast": {
+            "default": true,
+            "description": "v1: forzado a True; False queda reservado para v2 (lo valida el orquestador).",
+            "title": "Fallar rápido",
+            "type": "boolean"
+          }
+        },
+        "title": "RunConfig",
+        "type": "object"
+      },
+      "Data_CohortSplitConfig": {
+        "additionalProperties": false,
+        "description": "Partición por cohorte (vintage): OOT = cohortes reservadas; Dev/HO in-cohort.",
+        "properties": {
+          "type": {
+            "const": "cohort",
+            "default": "cohort",
+            "description": "Discriminador del factory local _SPLITTERS.",
+            "title": "Tipo de estrategia",
+            "type": "string"
+          },
+          "cohort_col": {
+            "description": "Columna de añada/vintage de cada observación.",
+            "title": "Columna de cohorte",
+            "type": "string"
+          },
+          "oot_cohorts": {
+            "description": "Valores de cohorte que forman el OOT.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Cohortes reservadas como OOT",
+            "type": "array"
+          },
+          "holdout_fraction": {
+            "default": 0.2,
+            "description": "Proporción reservada como Holdout del subconjunto in-cohort.",
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "Fracción Holdout dentro de in-cohort",
+            "type": "number"
+          }
+        },
+        "required": [
+          "cohort_col",
+          "oot_cohorts"
+        ],
+        "title": "CohortSplitConfig",
+        "type": "object"
+      },
+      "Data_ColumnSpec": {
+        "additionalProperties": false,
+        "description": "Especificación declarativa de una columna esperada del dataset.",
+        "properties": {
+          "name": {
+            "description": "Identificador de la columna.",
+            "title": "Nombre de columna",
+            "type": "string"
+          },
+          "dtype": {
+            "description": "Tipo lógico esperado (se traduce a un dtype de pandera).",
+            "enum": [
+              "int",
+              "float",
+              "str",
+              "bool",
+              "category",
+              "datetime"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          },
+          "nullable": {
+            "default": true,
+            "description": "Si False, un nulo viola la validación.",
+            "title": "Admite nulos",
+            "type": "boolean"
+          },
+          "required": {
+            "default": true,
+            "description": "Si False y ausente, se omite sin error ('strict' lo respeta).",
+            "title": "Obligatoria",
+            "type": "boolean"
+          },
+          "coerce": {
+            "default": false,
+            "description": "Castea al dtype declarado durante la validación (pandera coerce).",
+            "title": "Coercionar tipo",
+            "type": "boolean"
+          },
+          "ge": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cota inferior inclusiva del valor.",
+            "title": "Mínimo (>=)"
+          },
+          "le": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Cota superior inclusiva del valor.",
+            "title": "Máximo (<=)"
+          },
+          "isin": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Conjunto cerrado de valores admitidos.",
+            "title": "Valores permitidos (categórico)"
+          },
+          "unique": {
+            "default": false,
+            "description": "Exige unicidad de los valores de la columna.",
+            "title": "Valores únicos",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "dtype"
+        ],
+        "title": "ColumnSpec",
+        "type": "object"
+      },
+      "Data_CsvOptions": {
+        "additionalProperties": false,
+        "description": "Opciones de lectura de un CSV (separadores y codificación).",
+        "properties": {
+          "sep": {
+            "default": ",",
+            "description": "Delimitador de campos del CSV.",
+            "title": "Separador",
+            "type": "string"
+          },
+          "decimal": {
+            "default": ".",
+            "description": "Carácter del punto decimal.",
+            "title": "Separador decimal",
+            "type": "string"
+          },
+          "encoding": {
+            "default": "utf-8",
+            "description": "Codificación de texto del fichero.",
+            "title": "Codificación",
+            "type": "string"
+          }
+        },
+        "title": "CsvOptions",
+        "type": "object"
+      },
+      "Data_ExclusionRule": {
+        "additionalProperties": false,
+        "description": "Regla de exclusión estructural con motivo nombrado (se registra en el audit-trail).",
+        "properties": {
+          "name": {
+            "description": "Etiqueta del motivo (auditoría).",
+            "title": "Motivo de exclusión",
+            "type": "string"
+          },
+          "rule": {
+            "$ref": "#/$defs/Data_Rule",
+            "description": "Predicados que marcan la fila como excluida.",
+            "title": "Regla de exclusión"
+          }
+        },
+        "required": [
+          "name",
+          "rule"
+        ],
+        "title": "ExclusionRule",
+        "type": "object"
+      },
+      "Data_LoadingConfig": {
+        "additionalProperties": false,
+        "description": "Origen y formato del dataset crudo a cargar.",
+        "properties": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Ruta a CSV/Parquet; None si se inyecta un DataFrame en memoria por API.",
+            "title": "Ruta del dataset"
+          },
+          "file_format": {
+            "default": "auto",
+            "description": "'auto' infiere el formato por la extensión.",
+            "enum": [
+              "auto",
+              "csv",
+              "parquet"
+            ],
+            "title": "Formato",
+            "type": "string"
+          },
+          "backend": {
+            "default": "pandas",
+            "description": "polars opcional para grandes volúmenes (D-DATA-1); la API expone pandas.",
+            "enum": [
+              "pandas",
+              "polars"
+            ],
+            "title": "Backend de carga",
+            "type": "string"
+          },
+          "csv_options": {
+            "$ref": "#/$defs/Data_CsvOptions",
+            "description": "Parámetros de lectura del CSV.",
+            "title": "Opciones CSV"
+          }
+        },
+        "title": "LoadingConfig",
+        "type": "object"
+      },
+      "Data_MissingConfig": {
+        "additionalProperties": false,
+        "description": "Política de missing y special values del dataset.",
+        "properties": {
+          "special_values": {
+            "description": "Centinelas a normalizar a NaN conservando su etiqueta.",
+            "items": {
+              "$ref": "#/$defs/Data_SpecialValueSpec"
+            },
+            "title": "Catálogo de special values",
+            "type": "array"
+          },
+          "max_missing_rate": {
+            "default": 0.99,
+            "description": "Columnas sobre el umbral se reportan como decisión (las elimina selection, no data).",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Tasa máxima de missing por columna",
+            "type": "number"
+          }
+        },
+        "title": "MissingConfig",
+        "type": "object"
+      },
+      "Data_PartitionConfig": {
+        "additionalProperties": false,
+        "description": "Configuración de particiones: estrategia, rol TTD y piso de malos.",
+        "properties": {
+          "strategy": {
+            "description": "Una de temporal/random/cohort (por 'type').",
+            "discriminator": {
+              "mapping": {
+                "cohort": "#/$defs/CohortSplitConfig",
+                "random": "#/$defs/RandomSplitConfig",
+                "temporal": "#/$defs/TemporalSplitConfig"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Data_TemporalSplitConfig"
+              },
+              {
+                "$ref": "#/$defs/Data_RandomSplitConfig"
+              },
+              {
+                "$ref": "#/$defs/Data_CohortSplitConfig"
+              }
+            ],
+            "title": "Estrategia de partición"
+          },
+          "ttd_includes_excluded": {
+            "default": true,
+            "description": "TTD = toda la población que pasó por la puerta (rol superpuesto a Dev/HO/OOT).",
+            "title": "TTD incluye indeterminados/excluidos",
+            "type": "boolean"
+          },
+          "min_bads_per_partition": {
+            "default": 30,
+            "description": "Por debajo se emite DataValidationError (partición no evaluable).",
+            "minimum": 0,
+            "title": "Mínimo de malos por partición",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "strategy"
+        ],
+        "title": "PartitionConfig",
+        "type": "object"
+      },
+      "Data_PerformanceWindow": {
+        "additionalProperties": false,
+        "description": "Ventana de desempeño tras la fecha de observación (madurez del target).",
+        "properties": {
+          "observation_date_col": {
+            "description": "Columna con la fecha de observación.",
+            "title": "Fecha de observación",
+            "type": "string"
+          },
+          "months": {
+            "default": 12,
+            "description": "Largo de la ventana.",
+            "maximum": 120,
+            "minimum": 1,
+            "title": "Meses de ventana de desempeño",
+            "type": "integer"
+          },
+          "data_cutoff_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Si se da, una ventana no madurada se marca 'excluido' por ventana incompleta.",
+            "title": "Fecha de corte de datos"
+          }
+        },
+        "required": [
+          "observation_date_col"
+        ],
+        "title": "PerformanceWindow",
+        "type": "object"
+      },
+      "Data_Predicate": {
+        "additionalProperties": false,
+        "description": "Comparación atómica ``columna op valor`` evaluada por un parser propio con *allowlist*.",
+        "properties": {
+          "col": {
+            "description": "Nombre de la columna del predicado.",
+            "title": "Columna sobre la que opera",
+            "type": "string"
+          },
+          "op": {
+            "description": "Único conjunto permitido. 'isna'/'notna' ignoran 'value'.",
+            "enum": [
+              "==",
+              "!=",
+              "<",
+              "<=",
+              ">",
+              ">=",
+              "in",
+              "notin",
+              "isna",
+              "notna"
+            ],
+            "title": "Operador (allowlist cerrada)",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Escalar para comparadores; tupla para 'in'/'notin'; None para 'isna'/'notna'. El modo de unión smart de Pydantic + el orden bool->int->float (lo más específico primero) evita la coerción (un `true` no se vuelve 1) y conserva list->tuple en el round-trip. (SDD-02 §5 pedía strict=True; Pydantic 2.13 no lo aplica a una unión.)",
+            "title": "Valor de comparación"
+          }
+        },
+        "required": [
+          "col",
+          "op"
+        ],
+        "title": "Predicate",
+        "type": "object"
+      },
+      "Data_RandomSplitConfig": {
+        "additionalProperties": false,
+        "description": "Partición aleatoria estable Dev/HO/OOT (pseudo-OOT) por fracciones que suman 1.",
+        "properties": {
+          "type": {
+            "const": "random",
+            "default": "random",
+            "description": "Discriminador del factory local _SPLITTERS.",
+            "title": "Tipo de estrategia",
+            "type": "string"
+          },
+          "dev_fraction": {
+            "default": 0.7,
+            "description": "Proporción de la partición Dev.",
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Fracción Desarrollo",
+            "type": "number"
+          },
+          "holdout_fraction": {
+            "default": 0.15,
+            "description": "Proporción de la partición HO.",
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "Fracción Holdout",
+            "type": "number"
+          },
+          "oot_fraction": {
+            "default": 0.15,
+            "description": "Proporción reservada como OOT aleatorio.",
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "Fracción OOT (pseudo-OOT aleatorio)",
+            "type": "number"
+          },
+          "stratify_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Columna por la que estratificar el sorteo (p.ej. target).",
+            "title": "Estratificar por columna"
+          }
+        },
+        "title": "RandomSplitConfig",
+        "type": "object"
+      },
+      "Data_Rule": {
+        "additionalProperties": false,
+        "description": "Conjunción/disyunción de predicados (un nivel); se evalúa vectorizada, sin ``eval``.",
+        "properties": {
+          "all_of": {
+            "description": "Todos deben cumplirse.",
+            "items": {
+              "$ref": "#/$defs/Data_Predicate"
+            },
+            "title": "Predicados unidos por AND",
+            "type": "array"
+          },
+          "any_of": {
+            "description": "Al menos uno debe cumplirse.",
+            "items": {
+              "$ref": "#/$defs/Data_Predicate"
+            },
+            "title": "Predicados unidos por OR",
+            "type": "array"
+          }
+        },
+        "title": "Rule",
+        "type": "object"
+      },
+      "Data_SchemaConfig": {
+        "additionalProperties": false,
+        "description": "Esquema declarativo del dataset: columnas esperadas, estrictez e índice.",
+        "properties": {
+          "columns": {
+            "description": "Especificación de cada columna del dataset.",
+            "items": {
+              "$ref": "#/$defs/Data_ColumnSpec"
+            },
+            "title": "Columnas esperadas",
+            "type": "array"
+          },
+          "strict": {
+            "default": false,
+            "description": "True: solo las declaradas; 'filter': descarta extras; False: permite extras.",
+            "enum": [
+              true,
+              false,
+              "filter"
+            ],
+            "title": "Estrictez de columnas"
+          },
+          "ordered": {
+            "default": false,
+            "description": "Exige el orden declarado de columnas.",
+            "title": "Validar orden de columnas",
+            "type": "boolean"
+          },
+          "index_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Columna que actúa de identificador de observación (índice).",
+            "title": "Columna índice"
+          },
+          "unique_keys": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Columnas cuya combinación debe ser única por fila.",
+            "title": "Llave(s) de unicidad de fila"
+          }
+        },
+        "title": "SchemaConfig",
+        "type": "object"
+      },
+      "Data_SpecialValueSpec": {
+        "additionalProperties": false,
+        "description": "Catálogo de centinelas de una o varias columnas (special values).",
+        "properties": {
+          "columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "const": "*",
+                "type": "string"
+              }
+            ],
+            "default": "*",
+            "description": "'*' aplica a todas las columnas; o una tupla de nombres.",
+            "title": "Columnas afectadas"
+          },
+          "sentinels": {
+            "description": "Valores que significan ausencia/no-aplica; se normalizan a NaN conservando etiqueta.",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Centinelas",
+            "type": "array"
+          },
+          "label": {
+            "description": "Nombre del bin que usará binning (SDD-06).",
+            "title": "Etiqueta del special",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sentinels",
+          "label"
+        ],
+        "title": "SpecialValueSpec",
+        "type": "object"
+      },
+      "Data_TargetConfig": {
+        "additionalProperties": false,
+        "description": "Definición declarativa del target binario (bueno/malo/indeterminado/excluido).",
+        "properties": {
+          "target_col": {
+            "default": "target",
+            "description": "Columna 0/1 (NA si indeterminado/excluido) que produce la capa.",
+            "title": "Nombre de la columna target derivada",
+            "type": "string"
+          },
+          "bad_rule": {
+            "$ref": "#/$defs/Data_Rule",
+            "description": "Mini-DSL columna/op/valor, p.ej. all_of=[{col:dpd_12m, op:'>=', value:90}]. malo=1.",
+            "title": "Regla de 'malo'"
+          },
+          "good_rule": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Data_Rule"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Si None: bueno = NOT bad AND NOT indeterminate AND NOT excluded.",
+            "title": "Regla de 'bueno'"
+          },
+          "indeterminate_rule": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Data_Rule"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Mini-DSL; estas filas se excluyen del ajuste (target NA).",
+            "title": "Regla de 'indeterminado' (zona gris)"
+          },
+          "exclusion_rules": {
+            "description": "Reglas de exclusión con motivo nombrado.",
+            "items": {
+              "$ref": "#/$defs/Data_ExclusionRule"
+            },
+            "title": "Exclusiones estructurales",
+            "type": "array"
+          },
+          "window": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Data_PerformanceWindow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Si se da, las observaciones sin ventana madurada se excluyen.",
+            "title": "Ventana de desempeño"
+          }
+        },
+        "required": [
+          "bad_rule"
+        ],
+        "title": "TargetConfig",
+        "type": "object"
+      },
+      "Data_TemporalSplitConfig": {
+        "additionalProperties": false,
+        "description": "Partición temporal: OOT por fecha de corte; Dev/HO in-time.",
+        "properties": {
+          "type": {
+            "const": "temporal",
+            "default": "temporal",
+            "description": "Discriminador del factory local _SPLITTERS.",
+            "title": "Tipo de estrategia",
+            "type": "string"
+          },
+          "date_col": {
+            "description": "Fecha que define el corte OOT.",
+            "title": "Columna de fecha para el corte OOT",
+            "type": "string"
+          },
+          "oot_from": {
+            "description": "Filas con date_col >= oot_from van a OOT; el resto a Dev/HO.",
+            "title": "Fecha inicio OOT (ISO 8601)",
+            "type": "string"
+          },
+          "holdout_fraction": {
+            "default": 0.2,
+            "description": "Proporción reservada como Holdout del subconjunto in-time.",
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "Fracción Holdout dentro de in-time",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date_col",
+          "oot_from"
+        ],
+        "title": "TemporalSplitConfig",
+        "type": "object"
+      },
+      "Binning_VariableBinningConfig": {
+        "additionalProperties": false,
+        "description": "Overrides de binning para una variable específica.",
+        "properties": {
+          "name": {
+            "description": "Nombre de la variable cruda a la que aplica este override.",
+            "title": "Variable",
+            "type": "string",
+            "ui_group": "Overrides por variable",
+            "ui_order": 1,
+            "ui_widget": "text_input"
+          },
+          "dtype": {
+            "default": "auto",
+            "description": "'auto' deja que el transformer infiera el tipo; los otros valores lo fuerzan.",
+            "enum": [
+              "numerical",
+              "categorical",
+              "auto"
+            ],
+            "title": "Tipo",
+            "type": "string",
+            "ui_group": "Overrides por variable",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          },
+          "monotonic_trend": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "auto_heuristic",
+                  "auto_asc_desc",
+                  "ascending",
+                  "descending",
+                  "concave",
+                  "convex",
+                  "peak",
+                  "peak_heuristic",
+                  "valley",
+                  "valley_heuristic"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Monotonía de event rate para esta variable; None usa el default global.",
+            "title": "Monotonía específica",
+            "ui_group": "Overrides por variable",
+            "ui_order": 3,
+            "ui_widget": "selectbox"
+          },
+          "max_n_bins": {
+            "anyOf": [
+              {
+                "maximum": 50,
+                "minimum": 2,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Número máximo de bins finales para esta variable; None usa el valor global.",
+            "title": "Máximo de bins específico",
+            "ui_group": "Overrides por variable",
+            "ui_order": 4,
+            "ui_widget": "slider"
+          },
+          "min_bin_size": {
+            "anyOf": [
+              {
+                "maximum": 0.5,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Fracción mínima por bin final para esta variable; None usa el valor global.",
+            "title": "Tamaño mínimo específico",
+            "ui_group": "Overrides por variable",
+            "ui_order": 5,
+            "ui_widget": "number_input"
+          },
+          "cat_cutoff": {
+            "anyOf": [
+              {
+                "maximum": 0.5,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Frecuencia bajo la cual se agrupan niveles categóricos raros; None usa global.",
+            "title": "Umbral rare levels específico",
+            "ui_group": "Overrides por variable",
+            "ui_order": 6,
+            "ui_widget": "number_input"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "VariableBinningConfig",
+        "type": "object"
+      },
+      "Selection_CorrelationSelectionConfig": {
+        "additionalProperties": false,
+        "description": "Configuración del filtro por correlación entre columnas WoE candidatas.",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "description": "Activa el descarte de variables WoE con correlación absoluta alta.",
+            "title": "Filtrar por correlación",
+            "type": "boolean",
+            "ui_group": "Correlación",
+            "ui_order": 1,
+            "ui_widget": "checkbox"
+          },
+          "method": {
+            "default": "pearson",
+            "description": "Método usado sobre Desarrollo para medir asociación entre columnas WoE.",
+            "enum": [
+              "pearson",
+              "spearman",
+              "kendall"
+            ],
+            "title": "Método de correlación",
+            "type": "string",
+            "ui_group": "Correlación",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          },
+          "threshold": {
+            "default": 0.75,
+            "description": "Si |rho| supera este valor, se conserva la variable con mayor prioridad.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Umbral |rho|",
+            "type": "number",
+            "ui_group": "Correlación",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "clustering_method": {
+            "default": "none",
+            "description": "Agrupación opcional por componentes conectados del grafo de correlación.",
+            "enum": [
+              "none",
+              "connected_components"
+            ],
+            "title": "Clustering por correlación",
+            "type": "string",
+            "ui_group": "Correlación",
+            "ui_order": 4,
+            "ui_widget": "selectbox"
+          }
+        },
+        "title": "CorrelationSelectionConfig",
+        "type": "object"
+      },
+      "Selection_StabilitySelectionConfig": {
+        "additionalProperties": false,
+        "description": "Configuración del diagnóstico PSI/CSI por característica.",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "description": "Activa el diagnóstico de estabilidad por variable/bin contra Desarrollo.",
+            "title": "Calcular PSI/CSI por característica",
+            "type": "boolean",
+            "ui_group": "Estabilidad",
+            "ui_order": 1,
+            "ui_widget": "checkbox"
+          },
+          "action": {
+            "default": "report_only",
+            "description": "'report_only' evita usar Holdout/OOT como criterio activo de inclusión.",
+            "enum": [
+              "report_only",
+              "exclude"
+            ],
+            "title": "Acción ante inestabilidad",
+            "type": "string",
+            "ui_group": "Estabilidad",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          },
+          "stable_threshold": {
+            "default": 0.1,
+            "description": "Valor bajo el cual la característica se reporta como estable.",
+            "minimum": 0.0,
+            "title": "PSI/CSI estable hasta",
+            "type": "number",
+            "ui_group": "Estabilidad",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "review_threshold": {
+            "default": 0.25,
+            "description": "Valor bajo el cual la característica queda en banda de revisión.",
+            "minimum": 0.0,
+            "title": "PSI/CSI revisar hasta",
+            "type": "number",
+            "ui_group": "Estabilidad",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "smoothing": {
+            "default": 1e-06,
+            "description": "Suavizado positivo aplicado antes de ln(actual/expected) en PSI/CSI.",
+            "exclusiveMinimum": 0.0,
+            "title": "Suavizado de proporciones",
+            "type": "number",
+            "ui_group": "Estabilidad",
+            "ui_order": 5,
+            "ui_widget": "number_input"
+          }
+        },
+        "title": "StabilitySelectionConfig",
+        "type": "object"
+      },
+      "Selection_VifSelectionConfig": {
+        "additionalProperties": false,
+        "description": "Configuración del filtro iterativo por multicolinealidad VIF.",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "description": "Activa el descarte iterativo de variables con VIF sobre el umbral.",
+            "title": "Filtrar por VIF",
+            "type": "boolean",
+            "ui_group": "VIF",
+            "ui_order": 1,
+            "ui_widget": "checkbox"
+          },
+          "threshold": {
+            "default": 5.0,
+            "description": "VIF máximo aceptado para variables retenidas tras la poda iterativa.",
+            "minimum": 1.0,
+            "title": "Umbral VIF",
+            "type": "number",
+            "ui_group": "VIF",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "add_intercept": {
+            "default": true,
+            "description": "Si True, agrega constante explícita antes de calcular VIF por feature.",
+            "title": "Agregar intercepto en regresiones auxiliares",
+            "type": "boolean",
+            "ui_group": "VIF",
+            "ui_order": 3,
+            "ui_widget": "checkbox"
+          },
+          "max_iterations": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Límite opcional de rondas de eliminación por VIF; None itera hasta cumplir.",
+            "title": "Máximo de iteraciones",
+            "ui_group": "VIF",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          }
+        },
+        "title": "VifSelectionConfig",
+        "type": "object"
+      },
+      "Model_IvContributionConfig": {
+        "additionalProperties": false,
+        "description": "Política de aporte máximo individual de IV en el modelo final.",
+        "properties": {
+          "threshold": {
+            "default": 0.9,
+            "description": "Contribución máxima permitida de una variable al IV total del modelo final.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Máximo aporte individual de IV",
+            "type": "number",
+            "ui_group": "IV-contribution",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "action": {
+            "default": "exclude",
+            "description": "Acción cuando una variable concentra más IV que el umbral configurado.",
+            "enum": [
+              "exclude",
+              "flag",
+              "fail"
+            ],
+            "title": "Acción ante IV-contribution excesivo",
+            "type": "string",
+            "ui_group": "IV-contribution",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          }
+        },
+        "title": "IvContributionConfig",
+        "type": "object"
+      },
+      "Model_SignPolicyConfig": {
+        "additionalProperties": false,
+        "description": "Política de validación del signo esperado de coeficientes WoE.",
+        "properties": {
+          "expected_beta_sign": {
+            "const": "negative",
+            "default": "negative",
+            "description": "Con WoE=ln(%Goods/%Bads), el beta esperado para riesgo es negativo.",
+            "title": "Signo esperado de beta para WoE",
+            "type": "string",
+            "ui_group": "Signos beta",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "action": {
+            "default": "exclude",
+            "description": "Acción cuando una variable WoE queda con beta contrario al riesgo esperado.",
+            "enum": [
+              "exclude",
+              "flag",
+              "fail"
+            ],
+            "title": "Acción ante signo invertido",
+            "type": "string",
+            "ui_group": "Signos beta",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          },
+          "fail_on_forced_inverted": {
+            "default": true,
+            "description": "Impide que un override de negocio conserve una relación contraria al riesgo.",
+            "title": "Fallar si una variable forzada queda invertida",
+            "type": "boolean",
+            "ui_group": "Signos beta",
+            "ui_order": 3,
+            "ui_widget": "checkbox"
+          }
+        },
+        "title": "SignPolicyConfig",
+        "type": "object"
+      },
+      "Model_StepwiseConfig": {
+        "additionalProperties": false,
+        "description": "Configuración del stepwise estadístico dentro del modelo logístico PD.",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "description": "Activa la selección iterativa dentro del ajuste logístico.",
+            "title": "Activar stepwise",
+            "type": "boolean",
+            "ui_group": "Stepwise",
+            "ui_order": 1,
+            "ui_widget": "checkbox"
+          },
+          "direction": {
+            "default": "bidirectional",
+            "description": "'none' desactiva el stepwise y usa todos los candidatos salvo exclusiones, signos e IV-contribution.",
+            "enum": [
+              "none",
+              "forward",
+              "backward",
+              "bidirectional"
+            ],
+            "title": "Dirección del stepwise",
+            "type": "string",
+            "ui_group": "Stepwise",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          },
+          "criterion": {
+            "default": "wald_pvalue",
+            "description": "Contraste usado para entrada/salida de variables durante el stepwise.",
+            "enum": [
+              "wald_pvalue",
+              "lr_test",
+              "both"
+            ],
+            "title": "Criterio estadístico",
+            "type": "string",
+            "ui_group": "Stepwise",
+            "ui_order": 3,
+            "ui_widget": "selectbox"
+          },
+          "entry_p_value": {
+            "default": 0.05,
+            "description": "Umbral máximo para que una variable candidata entre al modelo.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "p-value máximo de entrada",
+            "type": "number",
+            "ui_group": "Stepwise",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "exit_p_value": {
+            "default": 0.05,
+            "description": "Umbral máximo aceptado para conservar una variable dentro del modelo.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "p-value máximo para permanecer",
+            "type": "number",
+            "ui_group": "Stepwise",
+            "ui_order": 5,
+            "ui_widget": "number_input"
+          },
+          "max_iter": {
+            "default": 100,
+            "description": "Límite de rondas del algoritmo stepwise; no controla las iteraciones del ajuste statsmodels, que viven en ModelConfig.fit_maxiter.",
+            "minimum": 1,
+            "title": "Máximo de iteraciones stepwise",
+            "type": "integer",
+            "ui_group": "Stepwise",
+            "ui_order": 6,
+            "ui_widget": "number_input"
+          },
+          "min_features": {
+            "default": 1,
+            "description": "Cantidad mínima de variables WoE finales requeridas para aceptar el modelo.",
+            "minimum": 1,
+            "title": "Mínimo de variables finales",
+            "type": "integer",
+            "ui_group": "Stepwise",
+            "ui_order": 7,
+            "ui_widget": "number_input"
+          }
+        },
+        "title": "StepwiseConfig",
+        "type": "object"
+      },
+      "Scorecard_PointOverrideConfig": {
+        "additionalProperties": false,
+        "description": "Override manual auditado para una pareja ``feature``/``bin_label``.",
+        "properties": {
+          "feature": {
+            "description": "Nombre de la variable cuyo bin recibe un override manual de puntos.",
+            "title": "Variable",
+            "type": "string",
+            "ui_group": "Overrides",
+            "ui_order": 1,
+            "ui_widget": "text_input"
+          },
+          "bin_label": {
+            "description": "Etiqueta del bin al que se le fuerza un puntaje publicado.",
+            "title": "Bin",
+            "type": "string",
+            "ui_group": "Overrides",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "description": "Puntos publicados para la pareja variable/bin indicada.",
+            "title": "Puntos forzados",
+            "ui_group": "Overrides",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "reason": {
+            "description": "Razón auditable que explica por qué el override manual es necesario.",
+            "title": "Justificación",
+            "type": "string",
+            "ui_group": "Overrides",
+            "ui_order": 4,
+            "ui_widget": "text_area"
+          }
+        },
+        "required": [
+          "feature",
+          "bin_label",
+          "points",
+          "reason"
+        ],
+        "title": "PointOverrideConfig",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Config raíz declarativo: agrega las secciones transversales del experimento.\n\n``NikodymConfig()`` construye sin argumentos con todos los valores por defecto (DoD F0). Las\nsecciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;\nen F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,\n``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,\n``calibration``, ``tuning``, ``ml``, ``explain``, ``survival``, ``forward``, ``stress``,\n``provisioning_cmf``, ``provisioning_ifrs9``, ``performance``, ``stability``, ``validation``,\n``report``).",
+    "properties": {
+      "schema_version": {
+        "default": "1.0.0",
+        "description": "SemVer del schema del config; gobierna la migración al cargar.",
+        "title": "Versión del schema",
+        "type": "string"
+      },
+      "name": {
+        "default": "nikodym-study",
+        "description": "Etiqueta humana del experimento; infraestructural, no entra al config_hash.",
+        "title": "Nombre del estudio",
+        "type": "string"
+      },
+      "repro": {
+        "$ref": "#/$defs/ReproConfig",
+        "title": "Reproducibilidad"
+      },
+      "run": {
+        "$ref": "#/$defs/RunConfig",
+        "title": "Orquestación"
+      },
+      "data": {
+        "additionalProperties": false,
+        "description": "Sección de origen y validación de datos (capa `data`, SDD-02).",
+        "properties": {
+          "type": {
+            "const": "standard",
+            "default": "standard",
+            "description": "== @register('standard', domain='data') (D-CONV-2).",
+            "title": "Tipo de sección de datos",
+            "type": "string"
+          },
+          "load": {
+            "$ref": "#/$defs/Data_LoadingConfig",
+            "description": "Origen y formato del dataset.",
+            "title": "Carga"
+          },
+          "schema": {
+            "$ref": "#/$defs/Data_SchemaConfig",
+            "description": "Validación declarativa de columnas/tipos/rangos.",
+            "title": "Esquema"
+          },
+          "missing": {
+            "$ref": "#/$defs/Data_MissingConfig",
+            "description": "Política de missing y catálogo de special values.",
+            "title": "Missing/special"
+          },
+          "target": {
+            "$ref": "#/$defs/Data_TargetConfig",
+            "description": "Reglas declarativas de bueno/malo/excluido.",
+            "title": "Definición de target"
+          },
+          "partition": {
+            "$ref": "#/$defs/Data_PartitionConfig",
+            "description": "Estrategia de partición Dev/HO/OOT + rol TTD.",
+            "title": "Particiones"
+          }
+        },
+        "required": [
+          "target",
+          "partition"
+        ],
+        "title": "Datos",
+        "type": "object"
+      },
+      "markov": {
+        "default": null,
+        "description": "Sección de matrices Markov de migración y PD lifetime (SDD-19).",
+        "title": "Markov"
+      },
+      "eda": {
+        "default": null,
+        "description": "Sección de análisis exploratorio descriptivo (capa `eda`, SDD-27).",
+        "title": "EDA"
+      },
+      "binning": {
+        "additionalProperties": false,
+        "description": "Sección de binning supervisado WoE/IV (capa `binning`, SDD-06).",
+        "properties": {
+          "type": {
+            "const": "standard",
+            "default": "standard",
+            "description": "== @register('standard', domain='binning') (D-CONV-2).",
+            "title": "Tipo de sección binning",
+            "type": "string",
+            "ui_group": "General",
+            "ui_order": 0,
+            "ui_widget": "hidden"
+          },
+          "feature_columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "const": "*",
+                "type": "string"
+              }
+            ],
+            "default": "*",
+            "description": "'*' = todas las no estructurales del frame de data.",
+            "title": "Variables candidatas",
+            "ui_group": "Variables",
+            "ui_order": 1,
+            "ui_widget": "multiselect"
+          },
+          "exclude_columns": {
+            "description": "Columnas a excluir del binning aunque entren por feature_columns='*'.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variables excluidas",
+            "type": "array",
+            "ui_group": "Variables",
+            "ui_order": 2,
+            "ui_widget": "multiselect"
+          },
+          "categorical_columns": {
+            "description": "Variables que OptBinning debe tratar como categóricas aunque pandas no lo infiera.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variables categóricas",
+            "type": "array",
+            "ui_group": "Variables",
+            "ui_order": 3,
+            "ui_widget": "multiselect"
+          },
+          "variable_overrides": {
+            "description": "Ajustes específicos de tipo, monotonía, número de bins o rare levels.",
+            "items": {
+              "$ref": "#/$defs/Binning_VariableBinningConfig"
+            },
+            "title": "Overrides por variable",
+            "type": "array",
+            "ui_group": "Variables",
+            "ui_order": 4,
+            "ui_widget": "section"
+          },
+          "max_n_prebins": {
+            "default": 20,
+            "description": "Límite de prebins candidatos antes de resolver el binning óptimo.",
+            "maximum": 200,
+            "minimum": 2,
+            "title": "Máximo de prebins",
+            "type": "integer",
+            "ui_group": "Restricciones",
+            "ui_order": 1,
+            "ui_widget": "slider"
+          },
+          "min_prebin_size": {
+            "default": 0.05,
+            "description": "Fracción mínima de observaciones por prebin candidato.",
+            "exclusiveMinimum": 0.0,
+            "maximum": 0.5,
+            "title": "Tamaño mínimo de prebin",
+            "type": "number",
+            "ui_group": "Restricciones",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "min_n_bins": {
+            "anyOf": [
+              {
+                "maximum": 50,
+                "minimum": 2,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Número mínimo de bins finales; None deja la decisión al solver.",
+            "title": "Mínimo de bins",
+            "ui_group": "Restricciones",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "max_n_bins": {
+            "anyOf": [
+              {
+                "maximum": 50,
+                "minimum": 2,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 8,
+            "description": "Número máximo de bins finales por variable.",
+            "title": "Máximo de bins",
+            "ui_group": "Restricciones",
+            "ui_order": 4,
+            "ui_widget": "slider"
+          },
+          "min_bin_size": {
+            "anyOf": [
+              {
+                "maximum": 0.5,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0.05,
+            "description": "Fracción mínima de observaciones por bin final; None usa el default del motor.",
+            "title": "Tamaño mínimo de bin",
+            "ui_group": "Restricciones",
+            "ui_order": 5,
+            "ui_widget": "number_input"
+          },
+          "min_bin_n_event": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 1,
+            "description": "Mínimo de eventos/defaults requeridos en cada bin final.",
+            "title": "Mínimo de malos por bin",
+            "ui_group": "Restricciones",
+            "ui_order": 6,
+            "ui_widget": "number_input"
+          },
+          "min_bin_n_nonevent": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 1,
+            "description": "Mínimo de no-eventos/no-defaults requeridos en cada bin final.",
+            "title": "Mínimo de buenos por bin",
+            "ui_group": "Restricciones",
+            "ui_order": 7,
+            "ui_widget": "number_input"
+          },
+          "monotonic_trend": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "auto_heuristic",
+                  "auto_asc_desc",
+                  "ascending",
+                  "descending",
+                  "concave",
+                  "convex",
+                  "peak",
+                  "peak_heuristic",
+                  "valley",
+                  "valley_heuristic"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "auto_asc_desc",
+            "description": "Default Nikodym: escoger automáticamente event rate ascendente/descendente.",
+            "title": "Monotonía por defecto",
+            "ui_group": "Monotonía",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "min_event_rate_diff": {
+            "default": 0.0,
+            "description": "Separación mínima de tasa de evento entre bins consecutivos.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Diferencia mínima de event rate",
+            "type": "number",
+            "ui_group": "Monotonía",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "max_pvalue": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Restricción opcional de p-valor máximo; None desactiva esta restricción.",
+            "title": "p-valor máximo entre bins",
+            "ui_group": "Monotonía",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "max_pvalue_policy": {
+            "default": "consecutive",
+            "description": "Aplica la restricción de p-valor sobre bins consecutivos o todos los pares.",
+            "enum": [
+              "consecutive",
+              "all"
+            ],
+            "title": "Política p-valor",
+            "type": "string",
+            "ui_group": "Monotonía",
+            "ui_order": 4,
+            "ui_widget": "selectbox"
+          },
+          "solver": {
+            "default": "mip",
+            "description": "Solver de OptBinning para el binning óptimo. Default 'mip': el solver 'cp' se cuelga indefinidamente (ignora time_limit) sobre variables continuas con ortools>=9.12.",
+            "enum": [
+              "cp",
+              "mip"
+            ],
+            "title": "Solver",
+            "type": "string",
+            "ui_group": "Solver",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "mip_solver": {
+            "default": "bop",
+            "description": "Solver MIP transitivo cuando solver='mip'.",
+            "enum": [
+              "bop",
+              "cbc"
+            ],
+            "title": "MIP solver",
+            "type": "string",
+            "ui_group": "Solver",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          },
+          "time_limit": {
+            "default": 100,
+            "description": "Tiempo máximo de optimización por variable antes de evaluar status del solver.",
+            "maximum": 3600,
+            "minimum": 1,
+            "title": "Límite de tiempo por variable (segundos)",
+            "type": "integer",
+            "ui_group": "Solver",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "require_optimal": {
+            "default": true,
+            "description": "Si True, una solución no probada óptima falla ruidosamente.",
+            "title": "Exigir status óptimo",
+            "type": "boolean",
+            "ui_group": "Solver",
+            "ui_order": 4,
+            "ui_widget": "checkbox"
+          },
+          "n_jobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "None = 1 core. Para reproducibilidad regulatoria se recomienda no usar -1.",
+            "title": "Paralelismo de BinningProcess",
+            "ui_group": "Solver",
+            "ui_order": 5,
+            "ui_widget": "number_input"
+          },
+          "special_handling": {
+            "default": "separate",
+            "description": "'separate' usa special_codes; 'as_missing' los deja como missing.",
+            "enum": [
+              "separate",
+              "as_missing"
+            ],
+            "title": "Tratamiento de special values",
+            "type": "string",
+            "ui_group": "Missing y special",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "metric_special": {
+            "anyOf": [
+              {
+                "const": "empirical",
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "default": "empirical",
+            "description": "'empirical' usa el WoE observado del bin special; un float fuerza ese valor.",
+            "title": "WoE para special",
+            "ui_group": "Missing y special",
+            "ui_order": 2,
+            "ui_widget": "number_or_select"
+          },
+          "metric_missing": {
+            "anyOf": [
+              {
+                "const": "empirical",
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "default": "empirical",
+            "description": "'empirical' usa el WoE observado del bin missing; un float fuerza ese valor.",
+            "title": "WoE para missing",
+            "ui_group": "Missing y special",
+            "ui_order": 3,
+            "ui_widget": "number_or_select"
+          },
+          "cat_cutoff": {
+            "anyOf": [
+              {
+                "maximum": 0.5,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0.01,
+            "description": "Frecuencia bajo la cual OptBinning agrupa niveles categóricos raros.",
+            "title": "Umbral de rare levels",
+            "ui_group": "Categóricas",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "cat_unknown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "None en OptBinning asigna WoE neutral 0 cuando metric='woe'.",
+            "title": "Valor para categoría no vista",
+            "ui_group": "Categóricas",
+            "ui_order": 2,
+            "ui_widget": "text_or_number"
+          },
+          "split_digits": {
+            "anyOf": [
+              {
+                "maximum": 10,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Número de decimales para representar cortes; None conserva precisión del motor.",
+            "title": "Dígitos de cortes",
+            "ui_group": "Salida",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "output_suffix": {
+            "default": "__woe",
+            "description": "Sufijo que se agrega al nombre crudo para las columnas transformadas a WoE.",
+            "title": "Sufijo de columnas WoE",
+            "type": "string",
+            "ui_group": "Salida",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "keep_structural_columns": {
+            "default": true,
+            "description": "Incluye columnas estructurales mínimas junto a las columnas WoE publicadas.",
+            "title": "Conservar columnas estructurales de data",
+            "type": "boolean",
+            "ui_group": "Salida",
+            "ui_order": 3,
+            "ui_widget": "checkbox"
+          },
+          "fail_on_non_binnable": {
+            "default": false,
+            "description": "Si True, una variable constante, 100% missing o no soportada aborta el fit.",
+            "title": "Fallar ante variable no binneable",
+            "type": "boolean",
+            "ui_group": "Salida",
+            "ui_order": 4,
+            "ui_widget": "checkbox"
+          }
+        },
+        "title": "Binning",
+        "type": "object"
+      },
+      "selection": {
+        "additionalProperties": false,
+        "description": "Sección de selección pre-modelo de variables WoE (capa `selection`, SDD-07).",
+        "properties": {
+          "type": {
+            "const": "standard",
+            "default": "standard",
+            "description": "== @register('standard', domain='selection') (D-CONV-2).",
+            "title": "Tipo de sección selection",
+            "type": "string",
+            "ui_group": "General",
+            "ui_order": 0,
+            "ui_widget": "hidden"
+          },
+          "feature_columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "const": "*",
+                "type": "string"
+              }
+            ],
+            "default": "*",
+            "description": "'*' = todas las variables seleccionadas por el proceso de binning.",
+            "title": "Variables candidatas",
+            "ui_group": "Variables",
+            "ui_order": 1,
+            "ui_widget": "multiselect"
+          },
+          "exclude_columns": {
+            "description": "Columnas WoE o features a excluir antes de aplicar filtros de selección.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclusiones técnicas",
+            "type": "array",
+            "ui_group": "Variables",
+            "ui_order": 2,
+            "ui_widget": "multiselect"
+          },
+          "force_include": {
+            "description": "Variables que negocio exige conservar salvo que sean inexistentes o inválidas.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Forzar inclusión",
+            "type": "array",
+            "ui_group": "Variables",
+            "ui_order": 3,
+            "ui_widget": "multiselect"
+          },
+          "force_exclude": {
+            "description": "Variables que negocio exige descartar siempre antes del modelo.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Forzar exclusión",
+            "type": "array",
+            "ui_group": "Variables",
+            "ui_order": 4,
+            "ui_widget": "multiselect"
+          },
+          "min_iv": {
+            "default": 0.02,
+            "description": "Umbral mínimo de Information Value final publicado por binning.",
+            "minimum": 0.0,
+            "title": "IV mínimo",
+            "type": "number",
+            "ui_group": "IV",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "max_iv": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 0.5,
+            "description": "Umbral de IV alto a flaggear o excluir; None desactiva esta regla.",
+            "title": "IV sospechoso",
+            "ui_group": "IV",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "max_iv_action": {
+            "default": "flag",
+            "description": "Acción ante IV superior a max_iv: marcar para revisión o excluir.",
+            "enum": [
+              "flag",
+              "exclude"
+            ],
+            "title": "Acción ante IV alto",
+            "type": "string",
+            "ui_group": "IV",
+            "ui_order": 3,
+            "ui_widget": "selectbox"
+          },
+          "compute_univariate_metrics": {
+            "default": true,
+            "description": "Calcula métricas univariadas en Desarrollo usando score de riesgo -WoE.",
+            "title": "Calcular AUC/KS/Gini univariado",
+            "type": "boolean",
+            "ui_group": "Métricas univariadas",
+            "ui_order": 1,
+            "ui_widget": "checkbox"
+          },
+          "min_auc": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.5,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filtro opcional por AUC univariado; None lo deja solo como diagnóstico.",
+            "title": "AUC mínimo",
+            "ui_group": "Métricas univariadas",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "min_ks": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filtro opcional por KS univariado; None lo deja solo como diagnóstico.",
+            "title": "KS mínimo",
+            "ui_group": "Métricas univariadas",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "min_gini": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Filtro opcional por Gini univariado; None lo deja solo como diagnóstico.",
+            "title": "Gini mínimo",
+            "ui_group": "Métricas univariadas",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "priority_order": {
+            "default": [
+              "iv",
+              "auc",
+              "ks",
+              "name"
+            ],
+            "description": "Ranking determinista para conservar variables ante correlación o VIF.",
+            "items": {
+              "enum": [
+                "iv",
+                "auc",
+                "ks",
+                "gini",
+                "name"
+              ],
+              "type": "string"
+            },
+            "title": "Orden de prioridad para desempates",
+            "type": "array",
+            "ui_group": "Ranking",
+            "ui_order": 1,
+            "ui_widget": "multiselect"
+          },
+          "correlation": {
+            "$ref": "#/$defs/Selection_CorrelationSelectionConfig",
+            "description": "Parámetros del filtro por correlación entre columnas WoE.",
+            "title": "Correlación",
+            "ui_group": "Correlación",
+            "ui_order": 1,
+            "ui_widget": "section"
+          },
+          "vif": {
+            "$ref": "#/$defs/Selection_VifSelectionConfig",
+            "description": "Parámetros del filtro iterativo por multicolinealidad.",
+            "title": "VIF",
+            "ui_group": "VIF",
+            "ui_order": 1,
+            "ui_widget": "section"
+          },
+          "stability": {
+            "$ref": "#/$defs/Selection_StabilitySelectionConfig",
+            "description": "Parámetros del diagnóstico PSI/CSI pre-modelo por característica.",
+            "title": "Estabilidad",
+            "ui_group": "Estabilidad",
+            "ui_order": 1,
+            "ui_widget": "section"
+          },
+          "keep_structural_columns": {
+            "default": true,
+            "description": "Incluye columnas estructurales junto a las columnas WoE seleccionadas.",
+            "title": "Conservar columnas estructurales",
+            "type": "boolean",
+            "ui_group": "Salida",
+            "ui_order": 1,
+            "ui_widget": "checkbox"
+          },
+          "fail_if_no_features": {
+            "default": true,
+            "description": "Si True, una selección vacía aborta en vez de publicar solo diagnóstico.",
+            "title": "Fallar si no queda ninguna variable",
+            "type": "boolean",
+            "ui_group": "Salida",
+            "ui_order": 2,
+            "ui_widget": "checkbox"
+          }
+        },
+        "title": "Selección",
+        "type": "object"
+      },
+      "model": {
+        "additionalProperties": false,
+        "description": "Sección de modelo logístico PD sobre variables WoE (capa `model`, SDD-08).",
+        "properties": {
+          "type": {
+            "const": "standard",
+            "default": "standard",
+            "description": "== @register('standard', domain='model') (D-MOD-6).",
+            "title": "Tipo de sección model",
+            "type": "string",
+            "ui_group": "General",
+            "ui_order": 0,
+            "ui_widget": "hidden"
+          },
+          "engine": {
+            "default": "logit",
+            "description": "Logit por defecto; GLM Binomial queda reservado para pesos/familia GLM.",
+            "enum": [
+              "logit",
+              "glm_binomial"
+            ],
+            "title": "Motor statsmodels",
+            "type": "string",
+            "ui_group": "Ajuste",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "fit_intercept": {
+            "default": true,
+            "description": "Incluye constante explícita para estimar la tasa base antes de scorecard.",
+            "title": "Incluir intercepto",
+            "type": "boolean",
+            "ui_group": "Ajuste",
+            "ui_order": 2,
+            "ui_widget": "checkbox"
+          },
+          "optimizer": {
+            "default": "newton",
+            "description": "Método de optimización permitido para el fit de statsmodels Logit.",
+            "enum": [
+              "newton",
+              "bfgs",
+              "lbfgs"
+            ],
+            "title": "Optimizador Logit",
+            "type": "string",
+            "ui_group": "Ajuste",
+            "ui_order": 3,
+            "ui_widget": "selectbox"
+          },
+          "fit_maxiter": {
+            "default": 100,
+            "description": "Iteraciones máximas del ajuste statsmodels; override deliberado de Nikodym sobre el default maxiter=35 de statsmodels. No controla StepwiseConfig.max_iter.",
+            "minimum": 1,
+            "title": "Iteraciones máximas del ajuste",
+            "type": "integer",
+            "ui_group": "Ajuste",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "tol": {
+            "default": 1e-08,
+            "description": "Tolerancia numérica usada por el ajuste statsmodels cuando aplica.",
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerancia de convergencia",
+            "type": "number",
+            "ui_group": "Ajuste",
+            "ui_order": 5,
+            "ui_widget": "number_input"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Nivel alpha usado para intervalos de confianza de coeficientes.",
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Nivel alpha para intervalos",
+            "type": "number",
+            "ui_group": "Inferencia",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "stepwise": {
+            "$ref": "#/$defs/Model_StepwiseConfig",
+            "description": "Parámetros de entrada/salida iterativa de variables dentro del modelo.",
+            "title": "Stepwise",
+            "ui_group": "Stepwise",
+            "ui_order": 1,
+            "ui_widget": "section"
+          },
+          "sign_policy": {
+            "$ref": "#/$defs/Model_SignPolicyConfig",
+            "description": "Política ante coeficientes WoE con signo contrario al riesgo esperado.",
+            "title": "Signos beta",
+            "ui_group": "Signos beta",
+            "ui_order": 1,
+            "ui_widget": "section"
+          },
+          "iv_contribution": {
+            "$ref": "#/$defs/Model_IvContributionConfig",
+            "description": "Política ante concentración excesiva de IV en una variable final.",
+            "title": "IV-contribution",
+            "ui_group": "IV-contribution",
+            "ui_order": 1,
+            "ui_widget": "section"
+          },
+          "force_include": {
+            "description": "Variables que negocio exige conservar salvo fallo estadístico ruidoso.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Forzar inclusión",
+            "type": "array",
+            "ui_group": "Variables",
+            "ui_order": 1,
+            "ui_widget": "multiselect"
+          },
+          "force_exclude": {
+            "description": "Variables que negocio exige descartar antes del ajuste del modelo.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Forzar exclusión",
+            "type": "array",
+            "ui_group": "Variables",
+            "ui_order": 2,
+            "ui_widget": "multiselect"
+          },
+          "fail_if_no_features": {
+            "default": true,
+            "description": "Si True, una selección final vacía aborta en vez de aceptar solo intercepto.",
+            "title": "Fallar si no queda ninguna variable",
+            "type": "boolean",
+            "ui_group": "Salida",
+            "ui_order": 1,
+            "ui_widget": "checkbox"
+          }
+        },
+        "title": "Modelo",
+        "type": "object"
+      },
+      "scorecard": {
+        "additionalProperties": false,
+        "description": "Sección de escalamiento log-odds a puntos (capa `scorecard`, SDD-09).",
+        "properties": {
+          "type": {
+            "const": "standard",
+            "default": "standard",
+            "description": "== @register('standard', domain='scorecard') (D-SCR-7).",
+            "title": "Tipo de sección scorecard",
+            "type": "string",
+            "ui_group": "General",
+            "ui_order": 0,
+            "ui_widget": "hidden"
+          },
+          "pdo": {
+            "default": 20.0,
+            "description": "Puntos necesarios para duplicar los odds definidos por la dirección.",
+            "exclusiveMinimum": 0.0,
+            "title": "PDO",
+            "type": "number",
+            "ui_group": "Escala",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "target_score": {
+            "default": 600.0,
+            "description": "Score asignado a una observación con los odds objetivo configurados.",
+            "title": "Score objetivo",
+            "type": "number",
+            "ui_group": "Escala",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "target_odds": {
+            "default": 50.0,
+            "description": "Odds de referencia asociados al score objetivo según la dirección.",
+            "exclusiveMinimum": 0.0,
+            "title": "Odds objetivo buenos/malos",
+            "type": "number",
+            "ui_group": "Escala",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "score_direction": {
+            "default": "higher_is_lower_risk",
+            "description": "Define si un score mayor representa menor riesgo o mayor riesgo.",
+            "enum": [
+              "higher_is_lower_risk",
+              "higher_is_higher_risk"
+            ],
+            "title": "Dirección del score",
+            "type": "string",
+            "ui_group": "Escala",
+            "ui_order": 4,
+            "ui_widget": "selectbox"
+          },
+          "intercept_allocation": {
+            "const": "uniform",
+            "default": "uniform",
+            "description": "Distribuye el intercepto de forma uniforme entre variables finales.",
+            "title": "Distribución del intercepto",
+            "type": "string",
+            "ui_group": "Escala",
+            "ui_order": 5,
+            "ui_widget": "selectbox"
+          },
+          "rounding_method": {
+            "default": "nearest_integer",
+            "description": "Método para publicar puntos por atributo a partir de puntos crudos.",
+            "enum": [
+              "none",
+              "nearest_integer",
+              "floor_integer",
+              "ceil_integer"
+            ],
+            "title": "Redondeo de puntos",
+            "type": "string",
+            "ui_group": "Publicación",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "output_suffix": {
+            "default": "__points",
+            "description": "Sufijo usado para crear una columna de puntos por variable final.",
+            "title": "Sufijo columnas de puntos",
+            "type": "string",
+            "ui_group": "Salida",
+            "ui_order": 1,
+            "ui_widget": "text_input"
+          },
+          "score_column": {
+            "default": "score",
+            "description": "Nombre de la columna que contendrá el score total por registro.",
+            "title": "Columna score total",
+            "type": "string",
+            "ui_group": "Salida",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "min_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Límite inferior opcional para diagnóstico o clipping del score total.",
+            "title": "Score mínimo permitido",
+            "ui_group": "Rango",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "max_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Límite superior opcional para diagnóstico o clipping del score total.",
+            "title": "Score máximo permitido",
+            "ui_group": "Rango",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "clip": {
+            "default": false,
+            "description": "Si True, recorta el score total a los límites configurados y lo audita.",
+            "title": "Recortar scores fuera de rango",
+            "type": "boolean",
+            "ui_group": "Rango",
+            "ui_order": 3,
+            "ui_widget": "checkbox"
+          },
+          "point_overrides": {
+            "description": "Overrides manuales auditables por pareja variable/bin; vacío por defecto.",
+            "items": {
+              "$ref": "#/$defs/Scorecard_PointOverrideConfig"
+            },
+            "title": "Overrides manuales de puntos",
+            "type": "array",
+            "ui_group": "Overrides",
+            "ui_order": 1,
+            "ui_widget": "table"
+          }
+        },
+        "title": "Scorecard",
+        "type": "object"
+      },
+      "calibration": {
+        "additionalProperties": false,
+        "description": "Sección de calibración de PD cruda a PD calibrada (capa `calibration`).",
+        "properties": {
+          "type": {
+            "const": "standard",
+            "default": "standard",
+            "description": "== @register('standard', domain='calibration') (SDD-10 §4).",
+            "title": "Tipo de sección calibration",
+            "type": "string",
+            "ui_group": "General",
+            "ui_order": 0,
+            "ui_widget": "hidden"
+          },
+          "method": {
+            "default": "intercept_offset",
+            "description": "Método usado para transformar PD cruda en PD calibrada.",
+            "enum": [
+              "intercept_offset",
+              "platt_scaling",
+              "isotonic"
+            ],
+            "title": "Método de calibración",
+            "type": "string",
+            "ui_group": "Método",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "target_pd": {
+            "anyOf": [
+              {
+                "exclusiveMaximum": 1.0,
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Tasa central de anclaje en (0, 1). Con anchor_source='development_observed' NO se usa (la tasa central TTC se estima como promedio de largo plazo observado en Desarrollo), por eso el default es None. Con anchor_source en {'business_input', 'historical_default_rate', 'external_regulatory'} es OBLIGATORIA y explícita: esas fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la configuración falla en vez de anclar a un número inventado.",
+            "title": "PD objetivo",
+            "ui_group": "Ancla",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "anchor_kind": {
+            "default": "through_the_cycle",
+            "description": "Define si el anclaje representa una visión TTC o PIT.",
+            "enum": [
+              "through_the_cycle",
+              "point_in_time"
+            ],
+            "title": "Tipo de ancla",
+            "type": "string",
+            "ui_group": "Ancla",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          },
+          "anchor_source": {
+            "default": "development_observed",
+            "description": "Origen auditable de la tasa central. Por default se deriva del target de Desarrollo como long-run average TTC.",
+            "enum": [
+              "business_input",
+              "historical_default_rate",
+              "development_observed",
+              "external_regulatory"
+            ],
+            "title": "Fuente de la ancla",
+            "type": "string",
+            "ui_group": "Ancla",
+            "ui_order": 3,
+            "ui_widget": "selectbox"
+          },
+          "fit_partition": {
+            "const": "desarrollo",
+            "default": "desarrollo",
+            "description": "Partición fija usada para ajustar calibration; no se parametriza en v1.",
+            "title": "Partición de ajuste",
+            "type": "string",
+            "ui_group": "Ajuste",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "target_tolerance": {
+            "default": 1e-12,
+            "description": "Tolerancia máxima entre la media PD calibrada y la PD objetivo.",
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerancia de media PD",
+            "type": "number",
+            "ui_group": "Ajuste",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "max_abs_offset": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Guard opcional del desplazamiento de reanclaje a tasa central. Con None se audita el offset extremo sin fallar; si se informa, debe ser finito y mayor que 0.",
+            "title": "Máximo offset absoluto",
+            "ui_group": "Ajuste",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "max_iter": {
+            "default": 100,
+            "description": "Máximo de iteraciones permitidas al resolver parámetros de calibración.",
+            "minimum": 1,
+            "title": "Iteraciones máximas del solver",
+            "type": "integer",
+            "ui_group": "Ajuste",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "min_fit_rows": {
+            "default": 30,
+            "description": "Guard técnico mínimo de filas en Desarrollo para aceptar el ajuste.",
+            "minimum": 1,
+            "title": "Mínimo de filas de Desarrollo",
+            "type": "integer",
+            "ui_group": "Ajuste",
+            "ui_order": 5,
+            "ui_widget": "number_input"
+          },
+          "require_both_classes_for_supervised": {
+            "default": true,
+            "description": "Si el método es supervisado, exige clases 0 y 1 en Desarrollo durante fit.",
+            "title": "Exigir ambas clases para Platt/isotónica",
+            "type": "boolean",
+            "ui_group": "Ajuste",
+            "ui_order": 6,
+            "ui_widget": "checkbox"
+          },
+          "pd_raw_column": {
+            "default": "pd_raw",
+            "description": "Columna de entrada con la probabilidad de default cruda del modelo.",
+            "title": "Columna PD cruda",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+            "ui_widget": "text_input"
+          },
+          "linear_predictor_column": {
+            "default": "linear_predictor",
+            "description": "Columna de entrada con el predictor lineal crudo del modelo.",
+            "title": "Columna logit crudo",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "pd_calibrated_column": {
+            "default": "pd_calibrated",
+            "description": "Columna de salida que contendrá la probabilidad de default calibrada.",
+            "title": "Columna PD calibrada",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 3,
+            "ui_widget": "text_input"
+          },
+          "linear_predictor_calibrated_column": {
+            "default": "linear_predictor_calibrated",
+            "description": "Columna de salida que contendrá el predictor lineal calibrado.",
+            "title": "Columna logit calibrado",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 4,
+            "ui_widget": "text_input"
+          },
+          "partition_column": {
+            "default": "partition",
+            "description": "Columna estructural que identifica Desarrollo, Holdout, OOT y exclusiones.",
+            "title": "Columna partición",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 5,
+            "ui_widget": "text_input"
+          },
+          "target_column": {
+            "default": "target",
+            "description": "Columna binaria 0/1 usada por métodos supervisados durante fit.",
+            "title": "Columna target",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 6,
+            "ui_widget": "text_input"
+          }
+        },
+        "title": "Calibración",
+        "type": "object"
+      },
+      "tuning": {
+        "default": null,
+        "description": "Sección de búsqueda de hiperparámetros con Optuna que afina el challenger (capa `tuning`, SDD-13).",
+        "title": "Tuning de hiperparámetros"
+      },
+      "ml": {
+        "default": null,
+        "description": "Sección del challenger de machine learning que reta al scorecard (capa `ml`, SDD-12).",
+        "title": "Challenger ML"
+      },
+      "explain": {
+        "default": null,
+        "description": "Sección de explicabilidad unificada scorecard + SHAP y reason codes (capa `explain`, SDD-14).",
+        "title": "Explicabilidad"
+      },
+      "survival": {
+        "default": null,
+        "description": "Sección de survival analysis y lifetime PD (capa `survival`, SDD-18).",
+        "title": "Survival"
+      },
+      "forward": {
+        "default": null,
+        "description": "Sección de proyección macro forward-looking y PIT/TTC (SDD-20).",
+        "title": "Forward-looking"
+      },
+      "stress": {
+        "default": null,
+        "description": "Sección de stress testing, sensibilidad y reverse stress (SDD-21).",
+        "title": "Stress testing"
+      },
+      "provisioning_cmf": {
+        "default": null,
+        "description": "Sección de provisiones regulatorias CMF B-1/B-3 (capa `provisioning_cmf`).",
+        "title": "Provisiones CMF"
+      },
+      "provisioning_ifrs9": {
+        "default": null,
+        "description": "Sección de provisiones contables IFRS 9/ECL (capa `provisioning_ifrs9`, SDD-16).",
+        "title": "Provisiones IFRS 9"
+      },
+      "provisioning": {
+        "default": null,
+        "description": "Sección de orquestación CMF vs IFRS 9 y piso prudencial máximo(ECL, CMF) (capa `provisioning`, SDD-17).",
+        "title": "Provisiones (orquestación)"
+      },
+      "performance": {
+        "additionalProperties": false,
+        "description": "Sección de métricas de desempeño post-modelo (capa `performance`).",
+        "properties": {
+          "schema_version": {
+            "default": "1.0.0",
+            "description": "Versión local del schema de performance para migraciones futuras.",
+            "title": "Versión del sub-schema performance",
+            "type": "string",
+            "ui_group": "General",
+            "ui_order": 0,
+            "ui_widget": "hidden"
+          },
+          "type": {
+            "const": "standard",
+            "default": "standard",
+            "description": "== @register('standard', domain='performance') (SDD-11 §4).",
+            "title": "Tipo de sección performance",
+            "type": "string",
+            "ui_group": "General",
+            "ui_order": 1,
+            "ui_widget": "hidden"
+          },
+          "score_column": {
+            "default": "score",
+            "description": "Columna con el score operacional publicado por scorecard.",
+            "title": "Columna score",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+            "ui_widget": "text_input"
+          },
+          "pd_column": {
+            "default": "pd_calibrated",
+            "description": "Columna con la probabilidad de default calibrada post-modelo.",
+            "title": "Columna PD calibrada",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "target_column": {
+            "default": "target",
+            "description": "Columna binaria 0/1 usada para métricas supervisadas de desempeño.",
+            "title": "Columna target",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 3,
+            "ui_widget": "text_input"
+          },
+          "partition_column": {
+            "default": "partition",
+            "description": "Columna que identifica Desarrollo, Holdout y OOT.",
+            "title": "Columna partición",
+            "type": "string",
+            "ui_group": "Columnas",
+            "ui_order": 4,
+            "ui_widget": "text_input"
+          },
+          "score_direction": {
+            "default": "higher_is_lower_risk",
+            "description": "Define si un score mayor representa menor riesgo o mayor riesgo.",
+            "enum": [
+              "higher_is_lower_risk",
+              "higher_is_higher_risk"
+            ],
+            "title": "Dirección del score",
+            "type": "string",
+            "ui_group": "Ranking",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "evaluation_source": {
+            "default": "pd_calibrated",
+            "description": "Fuente primaria para ordenar riesgo al calcular KS, AUC, Gini y gains.",
+            "enum": [
+              "pd_calibrated",
+              "score"
+            ],
+            "title": "Fuente principal de ranking",
+            "type": "string",
+            "ui_group": "Ranking",
+            "ui_order": 2,
+            "ui_widget": "selectbox"
+          },
+          "partitions": {
+            "default": [
+              "desarrollo",
+              "holdout",
+              "oot"
+            ],
+            "description": "Particiones sobre las que se reportan métricas de desempeño.",
+            "items": {
+              "enum": [
+                "desarrollo",
+                "holdout",
+                "oot"
+              ],
+              "type": "string"
+            },
+            "title": "Particiones a evaluar",
+            "type": "array",
+            "ui_group": "Población",
+            "ui_order": 1,
+            "ui_widget": "multiselect"
+          },
+          "n_deciles": {
+            "default": 10,
+            "description": "Cantidad de grupos ordenados por riesgo para la tabla de deciles/gains.",
+            "maximum": 50,
+            "minimum": 2,
+            "title": "Número de grupos de gains",
+            "type": "integer",
+            "ui_group": "Métricas",
+            "ui_order": 1,
+            "ui_widget": "number_input"
+          },
+          "min_rows_per_partition": {
+            "default": 30,
+            "description": "Mínimo de filas por partición para aceptar el cálculo de desempeño.",
+            "minimum": 1,
+            "title": "Mínimo técnico de filas",
+            "type": "integer",
+            "ui_group": "Población",
+            "ui_order": 2,
+            "ui_widget": "number_input"
+          },
+          "min_events_per_partition": {
+            "default": 1,
+            "description": "Mínimo de eventos de default por partición para métricas supervisadas.",
+            "minimum": 1,
+            "title": "Mínimo técnico de malos",
+            "type": "integer",
+            "ui_group": "Población",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "optional_thresholds": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Ej.: {'auc_min': 0.60, 'ks_min': 0.20}. Vacío por defecto.",
+            "title": "Umbrales institucionales opcionales",
+            "type": "object",
+            "ui_group": "Métricas",
+            "ui_order": 2,
+            "ui_widget": "key_value"
+          }
+        },
+        "title": "Desempeño",
+        "type": "object"
+      },
+      "stability": {
+        "default": null,
+        "description": "Sección de métricas de estabilidad post-modelo (capa `stability`).",
+        "title": "Estabilidad"
+      },
+      "validation": {
+        "default": null,
+        "description": "Sección de validación avanzada: calibración, backtesting y semáforo (capa `validation`, SDD-22).",
+        "title": "Validación avanzada"
+      },
+      "report": {
+        "default": null,
+        "description": "Sección de generación de reporte auditable (capa `report`, SDD-26).",
+        "title": "Reporte"
+      },
+      "audit": {
+        "default": null,
+        "description": "Sección de infraestructura para persistencia del audit-trail (SDD-03).",
+        "title": "Auditoría"
+      },
+      "governance": {
+        "default": null,
+        "description": "Sección de infraestructura para model card e inventario (SDD-03).",
+        "title": "Gobernanza"
+      },
+      "tracking": {
+        "default": null,
+        "description": "Sección de infraestructura para MLflow runs/registry (SDD-04).",
+        "title": "Tracking"
+      }
+    },
+    "title": "NikodymConfig",
+    "type": "object"
+  },
+  "defaults": {
+    "schema_version": "1.0.0",
+    "name": "nikodym-study",
+    "repro": {
+      "seed": 42,
+      "strict_determinism": false
+    },
+    "run": {
+      "steps": null,
+      "fail_fast": true
+    },
+    "data": null,
+    "markov": null,
+    "eda": null,
+    "binning": null,
+    "selection": null,
+    "model": null,
+    "scorecard": null,
+    "calibration": null,
+    "tuning": null,
+    "ml": null,
+    "explain": null,
+    "survival": null,
+    "forward": null,
+    "stress": null,
+    "provisioning_cmf": null,
+    "provisioning_ifrs9": null,
+    "provisioning": null,
+    "performance": null,
+    "stability": null,
+    "validation": null,
+    "report": null,
+    "audit": null,
+    "governance": null,
+    "tracking": null
+  },
+  "section_order": [
+    "schema_version",
+    "name",
+    "repro",
+    "run",
+    "data",
+    "markov",
+    "eda",
+    "binning",
+    "selection",
+    "model",
+    "scorecard",
+    "calibration",
+    "tuning",
+    "ml",
+    "explain",
+    "survival",
+    "forward",
+    "stress",
+    "provisioning_cmf",
+    "provisioning_ifrs9",
+    "provisioning",
+    "performance",
+    "stability",
+    "validation",
+    "report",
+    "audit",
+    "governance",
+    "tracking"
+  ]
+}
