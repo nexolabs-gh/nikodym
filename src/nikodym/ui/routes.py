@@ -1,8 +1,9 @@
 """Endpoints REST del backend (SDD-23 §4.2): solo-lectura/validación (B23.2) + ejecución (B23.3).
 
-Expone los **8** endpoints del contrato: ``GET /api/schema`` (schema del config + defaults + orden
+Expone los endpoints del contrato: ``GET /api/schema`` (schema del config + defaults + orden
 de secciones), ``POST /api/validate`` (validación **por reconstrucción**, siempre 200),
-``GET /api/datasets`` (catálogo sintético), ``POST /api/run`` (ejecución síncrona),
+``GET /api/datasets`` (catálogo sintético), ``GET /api/config/preset`` (preset estándar F1 listo
+para correr, SDD-23 §3.2/§5), ``POST /api/run`` (ejecución síncrona),
 ``GET /api/results/{run_id}`` / ``GET /api/report/{run_id}`` (lectura de una corrida persistida) y
 el round-trip YAML ``POST /api/config/to-yaml`` / ``POST /api/config/from-yaml`` (reúso de SDD-05,
 §3.4). La lógica de cada endpoint vive en funciones **puras** (sin FastAPI), testeables sin
@@ -24,7 +25,7 @@ import nikodym
 from nikodym.core.config import NikodymConfig, config_hash, dump_config, loads_config
 from nikodym.core.config.schema import build_full_json_schema
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
-from nikodym.ui import datasets, runs
+from nikodym.ui import datasets, presets, runs
 from nikodym.ui.exceptions import UiDatasetError, UiRunNotFoundError
 
 if TYPE_CHECKING:
@@ -36,6 +37,7 @@ __all__ = [
     "config_from_yaml",
     "config_to_yaml",
     "datasets_payload",
+    "preset_payload",
     "run_pipeline",
     "schema_payload",
     "validate_config",
@@ -152,6 +154,32 @@ def datasets_payload() -> list[dict[str, Any]]:
     return datasets.list_datasets()
 
 
+def preset_payload() -> dict[str, Any]:
+    """Compone la respuesta de ``GET /api/config/preset`` (preset estándar F1, SDD-23 §3.2/§5).
+
+    Sirve el preset estándar —un config F1 completo, curado y *domain-agnostic* (ver
+    :mod:`nikodym.ui.presets`), alineado a un dataset sintético— más su ``config_hash`` de
+    identidad y el ``dataset_id`` recomendado para correrlo. El ``config`` se entrega tal cual y su
+    validez la establece ``NikodymConfig.model_validate`` (la verdad de validación es Pydantic; no
+    se reimplementa el schema, §3.3); el ``config_hash`` ancla la identidad de la corrida
+    (SDD-05 §5.5).
+
+    Returns
+    -------
+    dict
+        ``{config, config_hash, dataset_id, name, description}``.
+    """
+    preset = presets.standard_preset()
+    model = NikodymConfig.model_validate(preset["config"])
+    return {
+        "config": preset["config"],
+        "config_hash": config_hash(model),
+        "dataset_id": preset["dataset_id"],
+        "name": preset["name"],
+        "description": preset["description"],
+    }
+
+
 def run_pipeline(config: Any, dataset_id: Any, *, workdir: Path) -> dict[str, Any]:
     """Ejecuta una corrida síncrona y la persiste; devuelve ``{run_id, status}`` (SDD-23 §7).
 
@@ -194,7 +222,7 @@ def _format_errors(exc: ValidationError) -> list[dict[str, Any]]:
 
 
 def build_router() -> APIRouter:
-    """Construye el ``APIRouter`` con los 8 endpoints (import perezoso de FastAPI)."""
+    """Construye el ``APIRouter`` con los endpoints del contrato (import perezoso de FastAPI)."""
     from fastapi import APIRouter, HTTPException, Request
     from fastapi.responses import HTMLResponse
 
@@ -220,6 +248,11 @@ def build_router() -> APIRouter:
     async def datasets_endpoint() -> list[dict[str, Any]]:
         """Lista los datasets sintéticos disponibles."""
         return datasets_payload()
+
+    @router.get("/config/preset")
+    async def config_preset_endpoint() -> dict[str, Any]:
+        """Sirve el preset estándar F1: un config completo listo para correr sin editar nada."""
+        return preset_payload()
 
     @router.post("/run")
     async def run_endpoint(payload: dict[str, Any], request: Request) -> dict[str, Any]:
