@@ -40,6 +40,17 @@ export interface ValidateResponse {
   errors: ValidationErrorItem[]
 }
 
+/** POST /api/config/to-yaml — YAML canónico del config (`dump_config`, SDD-05 §5.5). */
+export interface ConfigToYamlResponse {
+  yaml: string
+}
+
+/** POST /api/config/from-yaml — config cargado + migrado desde YAML (`loads_config`, SDD-05 §5.4). */
+export interface ConfigFromYamlResponse {
+  config: ConfigDict
+  config_hash: string
+}
+
 /** Columna de un dataset sintético. */
 export interface DatasetColumn {
   name: string
@@ -116,6 +127,32 @@ export function validateConfig(config: ConfigDict): Promise<ValidateResponse> {
   return request<ValidateResponse>("/api/validate", {
     method: "POST",
     body: JSON.stringify({ config }),
+  })
+}
+
+/**
+ * POST /api/config/to-yaml — exporta el config editado a YAML canónico (round-trip, SDD-23
+ * §3.4). El backend reconstruye `NikodymConfig` y delega en `dump_config`; lanza `ApiError`
+ * (422 con `{detail:[{loc,msg,type}]}`) si el config no reconstruye un modelo válido.
+ */
+export function configToYaml(config: ConfigDict): Promise<ConfigToYamlResponse> {
+  return request<ConfigToYamlResponse>("/api/config/to-yaml", {
+    method: "POST",
+    body: JSON.stringify({ config }),
+  })
+}
+
+/**
+ * POST /api/config/from-yaml — carga (y migra) un YAML a config + `config_hash` para poblar el
+ * form (round-trip, SDD-23 §3.4). El backend es la fuente: NO se parsea YAML en el front. Lanza
+ * `ApiError` (422 con `{detail:"…"}`) si el YAML es malformado o falla la migración/validación.
+ */
+export function configFromYaml(
+  yamlText: string,
+): Promise<ConfigFromYamlResponse> {
+  return request<ConfigFromYamlResponse>("/api/config/from-yaml", {
+    method: "POST",
+    body: JSON.stringify({ yaml: yamlText }),
   })
 }
 

@@ -18,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { type Path, parseJsonInput } from "@/lib/config-store"
+import { errorAtPath } from "@/lib/validation"
 import {
   type Defs,
   type JsonSchema,
@@ -48,6 +49,17 @@ export interface FieldRendererProps {
   depth?: number
   /** Oculta el label propio: lo pinta el contenedor (p.ej. el toggle activar/None). */
   hideLabel?: boolean
+  /**
+   * Lookup `pathKey→msg` de los errores del backend (SDD §3.3): cada campo pinta el
+   * mensaje de su `path` si matchea. El front SOLO lo pinta; la verdad es Pydantic.
+   */
+  errors?: Map<string, string>
+}
+
+/** Error de validación del backend para un campo (SDD §3.3): el front SOLO lo pinta. */
+function FieldError({ message }: { message: string | undefined }) {
+  if (!message) return null
+  return <p className="text-xs text-destructive">{message}</p>
 }
 
 /**
@@ -78,9 +90,9 @@ export function FieldRenderer(props: FieldRendererProps) {
   )
 }
 
-/** Label + tooltip + el widget hijo. Con `hideLabel`, solo pinta el hijo. */
+/** Label + tooltip + el widget hijo + el error del backend. Con `hideLabel`, solo el hijo. */
 function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
-  const { name, schema, path, required, hideLabel, children } = props
+  const { name, schema, path, required, hideLabel, children, errors } = props
   if (hideLabel) return <>{children}</>
   const id = path.join(".")
   const label = fieldLabel(name, schema)
@@ -106,6 +118,7 @@ function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
         ) : null}
       </div>
       {children}
+      <FieldError message={errorAtPath(errors, path)} />
     </div>
   )
 }
@@ -277,7 +290,7 @@ function TextareaField(props: FieldRendererProps) {
 // ---------------------------------------------------------------------------
 
 function GroupField(props: FieldRendererProps) {
-  const { name, schema, path, value, defs, onChange, depth = 0, hideLabel } =
+  const { name, schema, path, value, defs, onChange, depth = 0, hideLabel, errors } =
     props
   const resolved = resolveRef(unwrapNullable(schema).schema, defs)
   const fields = orderedFields(resolved)
@@ -297,6 +310,8 @@ function GroupField(props: FieldRendererProps) {
           {label}
         </legend>
       )}
+      {/* Error a nivel del grupo (raro; validador de modelo). Los hijos pintan el suyo. */}
+      {hideLabel ? null : <FieldError message={errorAtPath(errors, path)} />}
       <GroupFieldList
         fields={fields}
         path={path}
@@ -305,6 +320,7 @@ function GroupField(props: FieldRendererProps) {
         onChange={onChange}
         required={required}
         depth={depth}
+        errors={errors}
       />
     </fieldset>
   )
@@ -329,8 +345,10 @@ function GroupFieldList(props: {
   onChange: (path: Path, value: unknown) => void
   required: Set<string>
   depth: number
+  errors?: Map<string, string>
 }) {
-  const { fields, path, groupValue, defs, onChange, required, depth } = props
+  const { fields, path, groupValue, defs, onChange, required, depth, errors } =
+    props
   if (fields.length === 0) {
     return <p className="text-xs text-brand-placeholder">Sin campos.</p>
   }
@@ -347,6 +365,7 @@ function GroupFieldList(props: {
           onChange={onChange}
           required={required.has(childName)}
           depth={depth + 1}
+          errors={errors}
         />
       ))}
     </>
@@ -364,7 +383,7 @@ function GroupFieldList(props: {
  * que los campos de la anterior se descartan (SDD §5, ejemplo `model` logit↔xgboost).
  */
 function DiscriminatedField(props: FieldRendererProps) {
-  const { schema, path, value, defs, onChange, depth = 0 } = props
+  const { schema, path, value, defs, onChange, depth = 0, errors } = props
   const propName = discriminatorProperty(schema)
   const branches = discriminatedBranches(schema, defs)
   const current = asRecord(value)
@@ -412,6 +431,7 @@ function DiscriminatedField(props: FieldRendererProps) {
             onChange={onChange}
             required={required}
             depth={depth}
+            errors={errors}
           />
         </fieldset>
       ) : null}
@@ -430,7 +450,7 @@ function DiscriminatedField(props: FieldRendererProps) {
  * para reflejar lo que emite `model_dump` de Pydantic.
  */
 function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
-  const { name, schema, path, value, defs, onChange, baseSchema, required } =
+  const { name, schema, path, value, defs, onChange, baseSchema, required, errors } =
     props
   const depth = props.depth ?? 0
   const label = fieldLabel(name, schema)
@@ -471,6 +491,8 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
           <span className="text-xs text-brand-placeholder">(desactivado · None)</span>
         )}
       </div>
+      {/* El toggle es dueño del `path`: pinta aquí su error (el hijo va con hideLabel). */}
+      <FieldError message={errorAtPath(errors, path)} />
       {active ? (
         <div className="pl-1">
           <FieldRenderer
@@ -483,6 +505,7 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
             required={required}
             depth={depth}
             hideLabel
+            errors={errors}
           />
         </div>
       ) : null}

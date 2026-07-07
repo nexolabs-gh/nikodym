@@ -1,12 +1,12 @@
 /**
  * Carga del JSON-Schema de `NikodymConfig` para el motor de formulario.
  *
- * En runtime hace fetch real a `GET /api/schema` (SDD-23 §4.2). Trae un **snapshot**
- * bundleado (`fixtures/schema.json`) como fallback offline y como relleno cuando el
- * backend devuelve las secciones F1 **opacas** (ver nota D-UI-B234b: hoy
- * `schema_payload` NO inlinea los sub-configs diferidos `_*_CONFIG_CLS`, así que las
- * secciones F1 llegan como `{title, description}` sin campos; el snapshot las trae
- * expandidas desde el Pydantic real). Nunca crashea: degrada a fixture con un aviso.
+ * En runtime hace fetch real a `GET /api/schema` (SDD-23 §4.2). Desde **B23.4c** el backend
+ * ya devuelve el schema **completo** (materializa los dominios instalados vía
+ * `build_full_json_schema`), así que las secciones F1 llegan expandidas y `loadSchema` usa la
+ * rama "backend". El **snapshot** bundleado (`fixtures/schema.json`) queda como fallback
+ * offline (backend caído) y como respaldo defensivo si, por lo que sea, una sección F1 llegara
+ * sin expandir (`fixture-opaque`, hoy inesperado). Nunca crashea: degrada a fixture con un aviso.
  */
 
 import { API_BASE } from "@/lib/api"
@@ -70,9 +70,10 @@ export async function fetchSchema(): Promise<SchemaPayload> {
 }
 
 /**
- * Carga el schema para el form: intenta el backend; si falla la red usa el snapshot
- * offline; si el backend responde pero con las secciones F1 opacas, usa el snapshot
- * (que sí las trae expandidas). Siempre devuelve un payload usable + la fuente.
+ * Carga el schema para el form: intenta el backend (rama normal desde B23.4c, que ya expande
+ * las secciones F1); si falla la red usa el snapshot offline; si —caso defensivo— el backend
+ * respondiera con las secciones F1 sin expandir, cae al snapshot (que sí las trae expandidas).
+ * Siempre devuelve un payload usable + la fuente.
  */
 export async function loadSchema(): Promise<LoadedSchema> {
   try {
