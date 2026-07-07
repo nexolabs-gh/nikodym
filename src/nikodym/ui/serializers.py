@@ -19,6 +19,7 @@ import json
 import warnings
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 from pydantic import BaseModel
 
 from nikodym.core.exceptions import NikodymError
@@ -72,7 +73,8 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
         ``{status, run_id, error, model_card, <dominio>...}``. ``error`` es ``None`` salvo en fallo;
         ``model_card`` es ``None`` si no hay gobernanza o la corrida no produjo card; cada
         clave de dominio (binning/selection/model/scorecard/calibration/performance) trae su *card*
-        serializada o ``None`` si el artefacto está ausente (nunca se fabrica).
+        serializada, **fusionada** con los frames ricos graficables de ese dominio (§6), o ``None``
+        si el dominio no corrió (nunca se fabrica).
     """
     status = study.run_context.status
     payload: dict[str, Any] = {
@@ -85,7 +87,137 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
         payload[domain] = (
             dump_dto(study.artifacts.get(domain, key)) if study.artifacts.has(domain, key) else None
         )
+    _augment_with_rich_artifacts(study, payload)
     return payload
+
+
+def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
+    """Fusiona (merge aditivo) los frames ricos graficables en cada objeto de dominio (§6).
+
+    Puramente aditivo: **no** toca las *cards* ya presentes ni el motor; solo lee más claves de
+    ``study.artifacts`` y las proyecta bajo el guard de finitud. Las claves ricas se agregan solo
+    cuando el dominio corrió (su card es un ``dict``); un artefacto rico concreto ausente entra como
+    ``None`` (nunca se fabrica). No hay colisión de nombres con las claves de las cards.
+    """
+    if isinstance(payload["binning"], dict):
+        payload["binning"]["tables_by_variable"] = _binning_tables(study)
+    if isinstance(payload["selection"], dict):
+        payload["selection"]["decisions"] = _selection_decisions(study)
+    if isinstance(payload["model"], dict):
+        payload["model"]["coefficients"] = _domain_records(study, "model", "coefficients")
+    if isinstance(payload["scorecard"], dict):
+        payload["scorecard"]["points"] = _domain_records(study, "scorecard", "scorecard")
+        payload["scorecard"]["score_values"] = _score_values(study)
+    if isinstance(payload["calibration"], dict):
+        payload["calibration"]["isotonic_knots"] = _isotonic_knots(study)
+    if isinstance(payload["performance"], dict):
+        payload["performance"]["deciles"] = _domain_records(
+            study, "performance", "performance_table"
+        )
+        payload["performance"]["discriminant"] = _domain_records(
+            study, "performance", "discriminant_metrics"
+        )
+
+
+def _domain_records(study: Study, domain: str, key: str) -> list[dict[str, Any]] | None:
+    """Proyecta el ``DataFrame`` ``(domain, key)`` a records; ``None`` si el artefacto falta."""
+    if not study.artifacts.has(domain, key):
+        return None
+    return _frame_records(study.artifacts.get(domain, key))
+
+
+def _frame_records(frame: pd.DataFrame) -> list[dict[str, Any]]:
+    """Proyecta un ``DataFrame`` a records, coaccionando cada celda a un tipo JSON nativo (§6).
+
+    Las celdas de los frames del motor no son siempre tipos nativos de Python: los campos
+    ``float | None`` de los DTOs fila-nivel se materializan como ``NaN`` (p. ej. ``iv`` en la fila
+    *intercept* de coeficientes, o ``auc``/``gini``/``ks`` de una partición sin métricas), y la
+    columna ``Bin`` de una tabla OptBinning **categórica** trae ``numpy.ndarray`` por bin
+    (``array(['independiente'])``), además de escalares ``numpy``. :func:`_to_json_native` los
+    normaliza uniformemente: ``NaN`` → ``None`` (ausente, igual que ``model_dump`` de un DTO
+    nullable); ``ndarray``/``list``/``tuple`` → lista nativa (recursiva); escalar ``numpy`` → su
+    ``.item()``. **No** fabrica números. Un ``Inf`` genuino **no** es ausente: sobrevive a la
+    coacción y el guard de finitud lo rechaza (falla ruidoso), como en :func:`to_records`.
+    """
+    records = [
+        {str(column): _to_json_native(value) for column, value in row.items()}
+        for row in frame.to_dict(orient="records")
+    ]
+    _ensure_json_safe(records, context="tabla de resultados")
+    return records
+
+
+def _to_json_native(value: Any) -> Any:
+    """Coacciona una celda a un tipo JSON nativo (``NaN`` float → ``None``; ``Inf`` sobrevive).
+
+    Cubre los tipos ``numpy`` que ``json.dumps`` no serializa: ``ndarray`` → lista (recursiva),
+    escalar (``np.integer``/``np.floating``/``np.bool_``/``np.str_``) → su ``.item()``. Preserva la
+    semántica de ausencia: ``float('nan')`` (incl. ``np.float64('nan')``, subclase de ``float``) →
+    ``None``; ``Inf`` se mantiene finito-inválido para que el guard lo rechace, no lo enmascara.
+    """
+    if isinstance(value, float):  # incl. np.float64 (subclase): NaN→None, resto→float nativo
+        return None if value != value else float(value)
+    if isinstance(value, np.ndarray):
+        return [_to_json_native(item) for item in value.tolist()]
+    if isinstance(value, np.generic):  # escalar numpy no-float (int/bool/str/…) → nativo, recursivo
+        return _to_json_native(value.item())
+    if isinstance(value, (list, tuple)):
+        return [_to_json_native(item) for item in value]
+    return value
+
+
+def _binning_tables(study: Study) -> dict[str, list[dict[str, Any]]] | None:
+    """Tablas OptBinning por variable → ``{feature: records}``; ``None`` si el artefacto falta.
+
+    Cada valor es la tabla ``binning_table`` normalizada del motor, proyectada fila a fila con sus
+    columnas canónicas de OptBinning (conteos, tasas y métricas por *bin*, con la fila ``Totals``
+    incluida tal como viene). El detalle de columnas está en el mapa de serialización de SDD-23 §6.
+    """
+    if not study.artifacts.has("binning", "tables"):
+        return None
+    tables: dict[str, pd.DataFrame] = study.artifacts.get("binning", "tables")
+    return {str(feature): _frame_records(frame) for feature, frame in tables.items()}
+
+
+def _selection_decisions(study: Study) -> list[dict[str, Any]] | None:
+    """Decisiones de selección por variable (DTOs ``VariableSelectionDecision``) → records.
+
+    ``None`` si el resultado de selección está ausente. Se excluyen a propósito
+    ``correlation_matrix``/``vif_table``/``stability`` (fuera de alcance de esta capa).
+    """
+    if not study.artifacts.has("selection", "result"):
+        return None
+    return [dump_dto(decision) for decision in study.artifacts.get("selection", "result").decisions]
+
+
+def _score_values(study: Study) -> list[float] | None:
+    """Columna de score fila-nivel como ``list[float]`` (para el histograma); ``None`` si ausente.
+
+    El nombre de la columna es dinámico: se lee de ``ScorecardCardSection.score_column`` (default
+    ``"score"``). Se emite el array completo (la demo está pre-cacheada) bajo el guard de finitud.
+    """
+    if not study.artifacts.has("scorecard", "score"):
+        return None
+    score_column = study.artifacts.get("scorecard", "card").score_column
+    values: list[float] = study.artifacts.get("scorecard", "score")[score_column].tolist()
+    _ensure_json_safe(values, context="scorecard.score_values")
+    return values
+
+
+def _isotonic_knots(study: Study) -> list[list[float]] | None:
+    """Knots isotónicos → ``[[x, y], ...]``; ``None`` si el método no es isotónico o falta.
+
+    ``CalibrationParameters.isotonic_knots`` es una tupla vacía cuando el método no es isotónico
+    (p. ej. ``intercept_offset``): se respeta como ``None``, sin fabricar una curva de fiabilidad.
+    """
+    if not study.artifacts.has("calibration", "parameters"):
+        return None
+    knots = study.artifacts.get("calibration", "parameters").isotonic_knots
+    if not knots:
+        return None
+    pairs = [[float(x), float(y)] for x, y in knots]
+    _ensure_json_safe(pairs, context="calibration.isotonic_knots")
+    return pairs
 
 
 def to_records(frame: pd.DataFrame) -> list[dict[str, Any]]:
