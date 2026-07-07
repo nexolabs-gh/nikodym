@@ -141,7 +141,7 @@ def test_wire_dataset_source_cablea_load_source() -> None:
     """Cablea ``data.load.source`` sin mutar el dict original (copia defensiva)."""
     config = {"data": {"load": {"source": None}, "schema": {}}}
     wired = routes._wire_dataset_source(config, Path("/tmp/x.parquet"))
-    assert wired["data"]["load"]["source"] == "/tmp/x.parquet"
+    assert wired["data"]["load"]["source"] == str(Path("/tmp/x.parquet"))
     assert config["data"]["load"]["source"] is None  # el original no se mutó
 
 
@@ -221,7 +221,7 @@ def test_run_endpoint_dependencia_faltante_422(
 ) -> None:
     """``/run`` traduce ``MissingDependencyError`` a 422 con el mensaje del motor (§4.2/§8)."""
     pytest.importorskip("fastapi")
-    pytest.importorskip("httpx")
+    pytest.importorskip("httpx2")
     from fastapi.testclient import TestClient
 
     import nikodym

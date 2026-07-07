@@ -101,6 +101,9 @@ test = [
   "lifelines>=0.28",       # DEV-ONLY: la suite de survival ejerce Cox/AFT reales en tests
   "scikit-learn>=1.6,<1.8",# DEV-ONLY: clone/check_estimator; mismo techo operativo que tool.uv
   "scipy>=1.10",           # DEV-ONLY: dependencia numérica explícita de scoring
+  "httpx2>=2.5",           # DEV-ONLY: cliente HTTP de starlette.testclient (TestClient) para los
+                           # tests de endpoints FastAPI de la UI; NO va al wheel. Starlette deprecó
+                           # httpx en favor de httpx2; sin él, filterwarnings=error tumba la colección.
 ]
 lint = [
   "ruff>=0.5",

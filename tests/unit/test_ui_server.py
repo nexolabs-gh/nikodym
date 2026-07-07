@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 
 pytest.importorskip("fastapi")
-pytest.importorskip("httpx")
+pytest.importorskip("httpx2")
 
 from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 from fastapi.testclient import TestClient

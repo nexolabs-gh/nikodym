@@ -83,9 +83,7 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
     }
     for domain, key in _CARD_KEY_BY_DOMAIN.items():
         payload[domain] = (
-            dump_dto(study.artifacts.get(domain, key))
-            if study.artifacts.has(domain, key)
-            else None
+            dump_dto(study.artifacts.get(domain, key)) if study.artifacts.has(domain, key) else None
         )
     return payload
 

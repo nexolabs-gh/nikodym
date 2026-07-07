@@ -62,9 +62,7 @@ def load_results(run_id: str, *, workdir: Path) -> dict[str, Any]:
     """Lee el JSON de resultados de una corrida; ``run_id`` desconocido → ``UiRunNotFoundError``."""
     results_path = _run_dir(workdir, run_id) / _RESULTS_FILENAME
     if not results_path.is_file():
-        raise UiRunNotFoundError(
-            f"no existe la corrida '{run_id}' bajo el directorio de trabajo."
-        )
+        raise UiRunNotFoundError(f"no existe la corrida '{run_id}' bajo el directorio de trabajo.")
     loaded: dict[str, Any] = json.loads(results_path.read_text(encoding="utf-8"))
     return loaded
 
