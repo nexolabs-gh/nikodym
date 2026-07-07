@@ -14,6 +14,7 @@ __all__ = [
     "UiDatasetError",
     "UiDependencyError",
     "UiError",
+    "UiRunNotFoundError",
     "UiSerializationError",
 ]
 
@@ -24,6 +25,10 @@ class UiError(NikodymError):
 
 class UiDatasetError(UiError):
     """Dataset sintético desconocido, subida inválida o ruta fuera del ``workdir``."""
+
+
+class UiRunNotFoundError(UiError):
+    """``run_id`` desconocido, inválido o cuya ruta escaparía del ``workdir`` (→ 404)."""
 
 
 class UiSerializationError(UiError):

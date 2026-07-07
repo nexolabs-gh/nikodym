@@ -16,11 +16,13 @@ from typing import Any
 import pytest
 
 pytest.importorskip("fastapi")
-pytest.importorskip("httpx2")
+pytest.importorskip("httpx")
 
+from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 from fastapi.testclient import TestClient
 
 from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
+from nikodym.ui import datasets as datasets_module
 from nikodym.ui import server
 from nikodym.ui.server import create_app
 from nikodym.ui.settings import UiConfig
@@ -30,6 +32,24 @@ from nikodym.ui.settings import UiConfig
 def client() -> TestClient:
     """``TestClient`` sobre la app construida con ajustes por defecto."""
     return TestClient(create_app(UiConfig()))
+
+
+@pytest.fixture
+def client_tmp(tmp_path: Path) -> TestClient:
+    """``TestClient`` con el ``workdir`` en un tmp aislado (para /run, /results, /report)."""
+    return TestClient(create_app(UiConfig(workdir=str(tmp_path))))
+
+
+def _patch_materialize(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Materializa el frame de 30 filas (predecible por la fake binning) en vez del real."""
+
+    def materialize(dataset_id: str, *, workdir: Path) -> Path:
+        path = Path(workdir) / "datasets" / f"{dataset_id}.parquet"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_behavior_parquet(path)
+        return path
+
+    monkeypatch.setattr(datasets_module, "materialize", materialize)
 
 
 def _f1_config() -> NikodymConfig:
@@ -208,3 +228,91 @@ def test_json_error_shape_es_serializable(client: TestClient) -> None:
     assert cuerpo["valid"] is False
     for error in cuerpo["errors"]:
         assert set(error) == {"loc", "msg", "type"}
+
+
+# ─────────────────────────── /run, /results, /report (B23.3) ───────────────────────────
+
+_DOMAIN_CARDS = ("binning", "selection", "model", "scorecard", "calibration", "performance")
+
+
+def test_run_config_invalido_422(client_tmp: TestClient) -> None:
+    """``POST /api/run`` con un config inválido → 422 con el detalle estructurado."""
+    respuesta = client_tmp.post(
+        "/api/run", json={"config": {"repro": {"seed": -1}}, "dataset_id": "consumo_comportamiento"}
+    )
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"][0]["loc"] == ["repro", "seed"]
+
+
+def test_run_dataset_desconocido_404(client_tmp: TestClient) -> None:
+    """``POST /api/run`` con un ``dataset_id`` desconocido → 404."""
+    config = full_f1_config("x.parquet").model_dump(mode="json", by_alias=True)
+    respuesta = client_tmp.post("/api/run", json={"config": config, "dataset_id": "no_existe"})
+    assert respuesta.status_code == 404
+
+
+def test_run_ok_y_results_con_cards(
+    client_tmp: TestClient, fake_binning_process: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Una corrida OK → 200 ``{run_id, status:"done"}``; ``/results`` sirve las cards de dominio."""
+    del fake_binning_process
+    _patch_materialize(monkeypatch)
+    config = full_f1_config("placeholder.parquet").model_dump(mode="json", by_alias=True)
+
+    run = client_tmp.post(
+        "/api/run", json={"config": config, "dataset_id": "consumo_comportamiento"}
+    )
+    assert run.status_code == 200
+    cuerpo = run.json()
+    assert cuerpo["status"] == "done"
+    run_id = cuerpo["run_id"]
+
+    resultados = client_tmp.get(f"/api/results/{run_id}")
+    assert resultados.status_code == 200
+    payload = resultados.json()
+    assert payload["status"] == "done"
+    for domain in _DOMAIN_CARDS:
+        assert isinstance(payload[domain], dict), domain
+
+
+def test_run_fallida_200_status_failed(
+    client_tmp: TestClient, fake_binning_process: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Una corrida que falla a mitad → 200 ``status:"failed"`` (nunca un 500 opaco)."""
+    del fake_binning_process
+    _patch_materialize(monkeypatch)
+    config = failing_config("placeholder.parquet").model_dump(mode="json", by_alias=True)
+
+    respuesta = client_tmp.post(
+        "/api/run", json={"config": config, "dataset_id": "consumo_comportamiento"}
+    )
+    assert respuesta.status_code == 200
+    assert respuesta.json()["status"] == "failed"
+
+
+def test_results_run_id_desconocido_404(client_tmp: TestClient) -> None:
+    """``GET /api/results/{run_id}`` con un id desconocido → 404."""
+    assert client_tmp.get("/api/results/" + "0" * 32).status_code == 404
+
+
+def test_report_presente_200_text_html(client_tmp: TestClient, tmp_path: Path) -> None:
+    """``GET /api/report/{run_id}`` con un ``report.html`` presente → 200 ``text/html``."""
+    run_id = "a" * 32
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "report.html").write_text("<h1>Reporte</h1>", encoding="utf-8")
+
+    respuesta = client_tmp.get(f"/api/report/{run_id}")
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"].startswith("text/html")
+    assert respuesta.text == "<h1>Reporte</h1>"
+
+
+def test_report_sin_reporte_404(client_tmp: TestClient) -> None:
+    """``GET /api/report/{run_id}`` sin reporte → 404."""
+    assert client_tmp.get("/api/report/" + "0" * 32).status_code == 404
+
+
+def test_report_run_id_invalido_404(client_tmp: TestClient) -> None:
+    """``GET /api/report/{run_id}`` con un id no-uuid → 404 (path traversal bloqueado)."""
+    assert client_tmp.get("/api/report/no-uuid").status_code == 404

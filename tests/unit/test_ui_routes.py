@@ -12,9 +12,13 @@ import ast
 import re
 from pathlib import Path
 
+import pytest
+from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
+
 from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui import routes
+from nikodym.ui.exceptions import UiDatasetError
 
 # ─────────────────────────────── lógica pura de endpoints ───────────────────────────────
 
@@ -128,3 +132,117 @@ def test_ui_no_reimplementa_formulas_de_dominio() -> None:
     fuente = "\n".join(ruta.read_text(encoding="utf-8") for ruta in _modulos_ui())
     assert not re.search(r"\broc_auc\b", fuente, re.IGNORECASE)
     assert not re.search(r"\bwoe\b", fuente, re.IGNORECASE)
+
+
+# ─────────────────────────────── cableado de dataset (_wire_dataset_source) ───────────────────────
+
+
+def test_wire_dataset_source_cablea_load_source() -> None:
+    """Cablea ``data.load.source`` sin mutar el dict original (copia defensiva)."""
+    config = {"data": {"load": {"source": None}, "schema": {}}}
+    wired = routes._wire_dataset_source(config, Path("/tmp/x.parquet"))
+    assert wired["data"]["load"]["source"] == "/tmp/x.parquet"
+    assert config["data"]["load"]["source"] is None  # el original no se mutó
+
+
+def test_wire_dataset_source_sin_data_no_falla() -> None:
+    """Un config sin sección ``data`` se devuelve intacto (no se inventa estructura)."""
+    assert routes._wire_dataset_source({"repro": {"seed": 7}}, Path("/tmp/x.parquet")) == {
+        "repro": {"seed": 7}
+    }
+
+
+def test_wire_dataset_source_load_no_dict_se_ignora() -> None:
+    """Si ``data.load`` no es un dict, no se cablea (no se corrompe el config)."""
+    wired = routes._wire_dataset_source({"data": {"load": "opaco"}}, Path("/tmp/x.parquet"))
+    assert wired == {"data": {"load": "opaco"}}
+
+
+# ─────────────────────────── run_pipeline (lógica pura, sin FastAPI) ───────────────────────────
+
+
+def _fake_materialize(tmp_path: Path) -> object:
+    """Devuelve un ``materialize`` que escribe el frame de 30 filas (predecible por fake bin)."""
+
+    def materialize(dataset_id: str, *, workdir: Path) -> Path:
+        path = Path(workdir) / "datasets" / f"{dataset_id}.parquet"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_behavior_parquet(path)
+        return path
+
+    del tmp_path
+    return materialize
+
+
+def test_run_pipeline_ok_persiste_y_devuelve_done(
+    fake_binning_process: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Una corrida válida devuelve ``{run_id, status:"done"}`` y persiste ``results.json``."""
+    del fake_binning_process
+    monkeypatch.setattr(datasets_module, "materialize", _fake_materialize(tmp_path))
+    config = full_f1_config("placeholder.parquet").model_dump(mode="json", by_alias=True)
+
+    result = routes.run_pipeline(config, "consumo_comportamiento", workdir=tmp_path)
+
+    assert result["status"] == "done"
+    assert (tmp_path / "runs" / result["run_id"] / "results.json").is_file()
+
+
+def test_run_pipeline_config_invalido_propaga_validation_error(tmp_path: Path) -> None:
+    """Un config inválido propaga ``ValidationError`` (el endpoint lo traduce a 422)."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        routes.run_pipeline({"repro": {"seed": -1}}, "consumo_comportamiento", workdir=tmp_path)
+
+
+def test_run_pipeline_dataset_desconocido_propaga_ui_dataset_error(tmp_path: Path) -> None:
+    """Un ``dataset_id`` desconocido propaga ``UiDatasetError`` (el endpoint lo traduce a 404)."""
+    config = full_f1_config("placeholder.parquet").model_dump(mode="json", by_alias=True)
+    with pytest.raises(UiDatasetError):
+        routes.run_pipeline(config, "dataset_inexistente", workdir=tmp_path)
+
+
+def test_run_pipeline_corrida_fallida_status_failed(
+    fake_binning_process: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Una corrida que falla a mitad devuelve ``status="failed"`` sin propagar (D-UI-2)."""
+    del fake_binning_process
+    monkeypatch.setattr(datasets_module, "materialize", _fake_materialize(tmp_path))
+    config = failing_config("placeholder.parquet").model_dump(mode="json", by_alias=True)
+
+    result = routes.run_pipeline(config, "consumo_comportamiento", workdir=tmp_path)
+
+    assert result["status"] == "failed"
+
+
+def test_run_endpoint_dependencia_faltante_422(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``/run`` traduce ``MissingDependencyError`` a 422 con el mensaje del motor (§4.2/§8)."""
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx")
+    from fastapi.testclient import TestClient
+
+    import nikodym
+    from nikodym.core.exceptions import MissingDependencyError
+    from nikodym.ui.server import create_app
+    from nikodym.ui.settings import UiConfig
+
+    def _materialize(dataset_id: str, *, workdir: Path) -> Path:
+        return Path(workdir) / "datasets" / f"{dataset_id}.parquet"
+
+    def _raise_missing(config: object) -> object:
+        raise MissingDependencyError("instale nikodym[tracking] para publicar al inventario.")
+
+    monkeypatch.setattr(datasets_module, "materialize", _materialize)
+    monkeypatch.setattr(nikodym, "run", _raise_missing)
+
+    client = TestClient(create_app(UiConfig(workdir=str(tmp_path))))
+    config = full_f1_config("placeholder.parquet").model_dump(mode="json", by_alias=True)
+    respuesta = client.post(
+        "/api/run", json={"config": config, "dataset_id": "consumo_comportamiento"}
+    )
+
+    assert respuesta.status_code == 422
+    assert "nikodym[tracking]" in respuesta.json()["detail"]
