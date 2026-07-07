@@ -34,6 +34,21 @@ def test_schema_payload_shape() -> None:
     assert payload["defaults"]["repro"]["seed"] == 42  # defaults resueltos del config vacío
 
 
+def test_schema_payload_expande_dominios_f1() -> None:
+    """``/schema`` entrega el schema COMPLETO: secciones F1 con ``properties`` (no opacas).
+
+    Con el extra ``scoring`` instalado (job del CI), el motor de formulario del front recibe los
+    campos reales de cada sección de dominio F1, no el schema opaco. La materialización vive en el
+    core (``build_full_json_schema``); ``nikodym.ui`` sigue domain-agnostic (ver test AST abajo).
+    """
+    payload = routes.schema_payload()
+    props = payload["json_schema"]["properties"]
+    assert "properties" in props["binning"], "binning llegó opaca al front"
+    for seccion in ("data", "selection", "model", "scorecard", "calibration", "performance"):
+        assert "properties" in props[seccion], f"{seccion} llegó opaca"
+    assert len(payload["json_schema"]["$defs"]) > 2  # opaco traía 2 (ReproConfig/RunConfig)
+
+
 def test_validate_config_valido_devuelve_hash() -> None:
     """Un config válido reconstruye el modelo y devuelve su ``config_hash``."""
     cfg = NikodymConfig(repro=ReproConfig(seed=7))

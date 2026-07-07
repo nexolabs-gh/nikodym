@@ -23,6 +23,8 @@ defecto y el orden del YAML legible.
 
 from __future__ import annotations
 
+import copy
+import importlib
 import json
 from typing import TYPE_CHECKING, Any, Self
 
@@ -54,7 +56,13 @@ if TYPE_CHECKING:
     from nikodym.tuning.config import TuningConfig
     from nikodym.validation.config import ValidationConfig
 
-__all__ = ["NikodymBaseConfig", "NikodymConfig", "ReproConfig", "RunConfig"]
+__all__ = [
+    "NikodymBaseConfig",
+    "NikodymConfig",
+    "ReproConfig",
+    "RunConfig",
+    "build_full_json_schema",
+]
 
 # Hook poblado por `nikodym.data` al importarse: la clase real del sub-config de la sección `data`.
 # `core` NO importa `data` (núcleo liviano, D-CORE-1); `data` registra aquí su `DataConfig` para que
@@ -1061,3 +1069,89 @@ class NikodymConfig(NikodymBaseConfig):
             if inactivas:
                 raise ValueError(f"run.steps referencia secciones inactivas (None): {inactivas}.")
         return self
+
+
+# ───────────────────────── Schema completo por composición (F7-UI, SDD-23) ─────────────────────
+# `NikodymConfig` declara las secciones de dominio como campos `Any` en runtime (núcleo liviano):
+# `model_json_schema()` las emite OPACAS (`{title, description}` sin `properties`), porque Pydantic
+# v2 no puede re-narrar un campo `Any` con `model_rebuild` (verificado). Para que la UI genere el
+# formulario desde el schema, se COMPONE el schema completo empotrando el `model_json_schema()` de
+# cada sub-config de dominio DISPONIBLE. Esto vive en el core (no en `nikodym.ui`, que sigue
+# domain-agnostic) y solo importa dominios AL LLAMARSE (no al importar `core.config`).
+
+
+def _prefixar_refs(nodo: Any, prefijo: str) -> Any:
+    """Reescribe recursivamente ``#/$defs/X`` → ``#/$defs/<prefijo>X`` en un sub-schema."""
+    if isinstance(nodo, dict):
+        salida: dict[str, Any] = {}
+        for clave, valor in nodo.items():
+            if clave == "$ref" and isinstance(valor, str) and valor.startswith("#/$defs/"):
+                salida[clave] = "#/$defs/" + prefijo + valor[len("#/$defs/") :]
+            else:
+                salida[clave] = _prefixar_refs(valor, prefijo)
+        return salida
+    if isinstance(nodo, list):
+        return [_prefixar_refs(item, prefijo) for item in nodo]
+    return nodo
+
+
+def _empotrar_seccion(
+    props: dict[str, Any],
+    defs: dict[str, Any],
+    nombre: str,
+    sub_schema: dict[str, Any],
+) -> None:
+    """Empotra el schema de un sub-config en la sección ``nombre`` del schema raíz.
+
+    Prefija/hoistea los ``$defs`` del sub-config (evita colisiones entre dominios) y conserva el
+    ``title``/``description`` de la sección raíz (las etiquetas que ve la UI). Muta ``props`` y
+    ``defs`` del schema raíz (una copia; nunca el schema cacheado de ``NikodymConfig``).
+    """
+    prefijo = f"{nombre}__"
+    sub_defs = sub_schema.pop("$defs", {})
+    sub_schema = _prefixar_refs(sub_schema, prefijo)
+    for def_nombre, def_schema in sub_defs.items():
+        defs[prefijo + def_nombre] = _prefixar_refs(def_schema, prefijo)
+    seccion_raiz = props.get(nombre, {})
+    if "title" in seccion_raiz:
+        sub_schema["title"] = seccion_raiz["title"]
+    if "description" in seccion_raiz:
+        sub_schema["description"] = seccion_raiz["description"]
+    props[nombre] = sub_schema
+
+
+def build_full_json_schema() -> dict[str, Any]:
+    """JSON-Schema de :class:`NikodymConfig` con las secciones de dominio DISPONIBLES expandidas.
+
+    El schema raíz declara las secciones de dominio como campos ``Any`` (diseño de núcleo liviano),
+    así que ``model_json_schema()`` las emite **opacas**. Esta función materializa los dominios
+    instalados —importándolos con el mapa canónico
+    :data:`nikodym.core.study._DOMAIN_CONFIG_CLASSES`, lo que además puebla los hooks
+    ``_*_CONFIG_CLS``— y **compone** el schema completo empotrando el ``model_json_schema()`` de
+    cada sub-config. Un dominio cuyo extra no esté instalado queda **opaco** (se omite sin romper).
+
+    No muta :class:`NikodymConfig` ni su schema cacheado (trabaja sobre copias). El import dinámico
+    de dominios ocurre **solo al llamar** esta función (contexto backend/schema); ``import
+    nikodym.core.config`` NO arrastra dominios (núcleo liviano, SDD-23 §4.1/§9). Mismo ``shape`` que
+    ``NikodymConfig.model_json_schema()``: es un ``dict`` JSON-Schema Draft 2020-12.
+    """
+    # Import perezoso: reusa el mapa canónico de dominios sin ciclo de import (``study`` importa
+    # ``schema`` en top-level) y sin arrastrar dominios al importar ``core.config``.
+    from nikodym.core.exceptions import MissingDependencyError
+    from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
+
+    schema = copy.deepcopy(NikodymConfig.model_json_schema())
+    defs: dict[str, Any] = schema.setdefault("$defs", {})
+    props: dict[str, Any] = schema.get("properties", {})
+
+    # Todas las claves de ``_DOMAIN_CONFIG_CLASSES`` son campos de ``NikodymConfig`` (mismo core),
+    # así que están en ``props``; ``_empotrar_seccion`` usa ``props.get`` defensivamente igual.
+    for nombre, (modulo, clase) in _DOMAIN_CONFIG_CLASSES.items():
+        try:
+            config_cls = getattr(importlib.import_module(modulo), clase)
+        except (ImportError, MissingDependencyError, AttributeError):
+            # Extra del dominio ausente → la sección queda opaca (degrada sin romper).
+            continue
+        _empotrar_seccion(props, defs, nombre, copy.deepcopy(config_cls.model_json_schema()))
+
+    return schema

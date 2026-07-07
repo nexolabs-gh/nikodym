@@ -21,6 +21,7 @@ from pydantic import ValidationError
 
 import nikodym
 from nikodym.core.config import NikodymConfig, config_hash
+from nikodym.core.config.schema import build_full_json_schema
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.ui import datasets, runs
 from nikodym.ui.exceptions import UiDatasetError, UiRunNotFoundError
@@ -44,14 +45,19 @@ def schema_payload() -> dict[str, Any]:
     Returns
     -------
     dict
-        ``{json_schema, defaults, section_order}``: el JSON-Schema de ``NikodymConfig``, los
-        defaults resueltos del config vacío y el orden de declaración de las secciones para el form.
+        ``{json_schema, defaults, section_order}``: el JSON-Schema **completo** de ``NikodymConfig``
+        (secciones de dominio instaladas con sus ``properties``, vía
+        :func:`~nikodym.core.config.schema.build_full_json_schema`), los defaults resueltos del
+        config vacío y el orden de declaración de las secciones para el form.
     """
+    # El schema completo lo compone el CORE (``build_full_json_schema``): materializa los dominios
+    # instalados y empotra sus sub-schemas, degradando por extra ausente. ``nikodym.ui`` sigue
+    # domain-agnostic (no importa binning/model/…: la materialización vive en el core, SDD-23 §11).
     # ``model_validate({})`` construye el config por defecto (todas las secciones opcionales) sin
     # enumerar argumentos: equivale a ``NikodymConfig()`` en runtime y satisface a mypy (la vista
     # TYPE_CHECKING del schema marca varias secciones como requeridas).
     return {
-        "json_schema": NikodymConfig.model_json_schema(),
+        "json_schema": build_full_json_schema(),
         "defaults": NikodymConfig.model_validate({}).model_dump(mode="json", by_alias=True),
         "section_order": list(NikodymConfig.model_fields),
     }
