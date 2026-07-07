@@ -8,7 +8,7 @@ import {
   type SetStateAction,
 } from "react"
 
-import type { RunStatus } from "@/lib/api"
+import type { ResultsResponse, RunStatus } from "@/lib/api"
 import type { ValidationState } from "@/lib/validation"
 
 /** Identidad de la última corrida disparada (SDD-23 §7.4): id + estado terminal. */
@@ -33,8 +33,8 @@ export interface AppState {
   setValidation: Dispatch<SetStateAction<ValidationState>>
   lastRun: LastRun | null
   setLastRun: Dispatch<SetStateAction<LastRun | null>>
-  results: Record<string, unknown> | null
-  setResults: Dispatch<SetStateAction<Record<string, unknown> | null>>
+  results: ResultsResponse | null
+  setResults: Dispatch<SetStateAction<ResultsResponse | null>>
 }
 
 const AppStateContext = createContext<AppState | null>(null)
@@ -45,7 +45,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [datasetId, setDatasetId] = useState<string | null>(null)
   const [validation, setValidation] = useState<ValidationState>({ kind: "idle" })
   const [lastRun, setLastRun] = useState<LastRun | null>(null)
-  const [results, setResults] = useState<Record<string, unknown> | null>(null)
+  const [results, setResults] = useState<ResultsResponse | null>(null)
 
   // Los setters de useState son estables → el value solo cambia con el estado real.
   const value = useMemo<AppState>(

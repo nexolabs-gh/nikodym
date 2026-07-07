@@ -7,6 +7,12 @@
  * dominio; la verdad vive en el backend (Pydantic). Este módulo solo transporta.
  */
 
+import type { ResultsResponse } from "@/lib/results-types"
+
+// Los DTOs de resultados (B27) viven en `results-types.ts`; se re-exportan aquí para
+// que store y consumidores los tomen de la misma superficie que el resto de la API.
+export type { ResultsResponse } from "@/lib/results-types"
+
 /** Base del backend; configurable por entorno, con default local. */
 export const API_BASE: string =
   import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
@@ -89,8 +95,7 @@ export interface RunResponse {
   status: RunStatus
 }
 
-/** GET /api/results/{run_id} — ModelCard + DTOs por dominio (forma abierta). */
-export type ResultsResponse = Record<string, unknown>
+// `ResultsResponse` se define y tipa en `results-types.ts` (re-exportado arriba).
 
 // ---------------------------------------------------------------------------
 // Helper de transporte
