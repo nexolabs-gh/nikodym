@@ -1,0 +1,49 @@
+/* ===== Tokens de marca Nikodym =====
+   FUENTE CANÓNICA: `Pagina Nikodym/app/globals.css` (bloque :root --brand-* + @theme inline).
+   Portados 1:1 desde la web en producción para que la identidad viaje idéntica.
+   Identidad: navy #051528/#0a2240, acento único #1a46b0 (#2e6ff2 sobre navy),
+   cyan #4fc3e8 reservado a detalle. Rebrand = tocar solo este bloque. */
+:root {
+  --brand-accent: #1a46b0; /* azul profundo (botones, subrayado, links sobre claro) */
+  --brand-accent-dark: #2e6ff2; /* hover / texto de acento sobre navy / foco de teclado */
+  --brand-dark: #051528;
+  --brand-ink: #122035;
+  --brand-gray: #5e708a;
+  --brand-paper: #ffffff;
+  --brand-offwhite: #f4f7fc;
+  --brand-deep-green: #051528; /* banda oscura (nombre heredado del clon) */
+  --brand-mid-green: #0a2240;
+  --brand-panel: #081d36;
+  --brand-panel-raised: #0d2547; /* paneles elevados: dropdowns, pills, chrome */
+  --brand-cyan: #4fc3e8;
+  --brand-line: #dbe3ee;
+  --brand-placeholder: #9fb0c6;
+}
+
+/* Utilidades de color de marca expuestas a Tailwind.
+   Namespaced `brand-*` a propósito: NO deben colisionar con los tokens semánticos
+   de shadcn (--accent, --muted, etc.), que se mapean aparte en index.css. */
+@theme inline {
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-dark: var(--brand-accent-dark);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-gray: var(--brand-gray);
+  --color-brand-paper: var(--brand-paper);
+  --color-brand-offwhite: var(--brand-offwhite);
+  --color-brand-mid-green: var(--brand-mid-green);
+  --color-brand-panel: var(--brand-panel);
+  --color-brand-panel-raised: var(--brand-panel-raised);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-brand-line: var(--brand-line);
+  --color-brand-placeholder: var(--brand-placeholder);
+
+  /* Tipografía de la casa (vía Fontshare en index.html) */
+  --font-display: "Cabinet Grotesk", system-ui, sans-serif;
+  --font-heading: "Cabinet Grotesk", system-ui, sans-serif;
+  --font-sans: "Satoshi", system-ui, sans-serif;
+  --font-mono: "Spline Sans Mono", ui-monospace, monospace;
+
+  /* Sombra de la casa: navy profundo, nunca glow de acento */
+  --shadow-card: 0 24px 48px -16px rgba(5, 21, 40, 0.35);
+}

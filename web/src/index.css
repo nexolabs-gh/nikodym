@@ -1,0 +1,150 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./styles/tokens.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Mapeo de los tokens semánticos de shadcn a Tailwind (fuentes y sombra viven
+   en tokens.css; aquí solo las variables de color de shadcn + radios). */
+@theme inline {
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ===== Tema Nikodym: chrome navy oscuro por defecto =====
+   Los tokens semánticos de shadcn se re-anclan a la paleta de marca (navy/acento),
+   no al gris neutro por defecto. La app es de tema oscuro navy; `:root` y `.dark`
+   comparten valores para que las variantes `dark:` de los componentes calcen. */
+:root {
+  --background: var(--brand-dark); /* #051528 canvas navy profundo */
+  --foreground: var(--brand-offwhite); /* #f4f7fc texto claro */
+  --card: var(--brand-panel); /* #081d36 panel elevado */
+  --card-foreground: var(--brand-offwhite);
+  --popover: var(--brand-panel-raised); /* #0d2547 */
+  --popover-foreground: var(--brand-offwhite);
+  --primary: var(--brand-accent); /* #1a46b0 acento de la casa */
+  --primary-foreground: #ffffff;
+  --secondary: var(--brand-panel-raised); /* #0d2547 */
+  --secondary-foreground: var(--brand-offwhite);
+  --muted: var(--brand-mid-green); /* #0a2240 */
+  --muted-foreground: var(--brand-placeholder); /* #9fb0c6 */
+  --accent: var(--brand-panel-raised); /* subtle bg (NO es el acento de marca) */
+  --accent-foreground: var(--brand-offwhite);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: var(--brand-accent-dark); /* #2e6ff2 foco de teclado de la casa */
+  --chart-1: var(--brand-accent-dark);
+  --chart-2: var(--brand-cyan);
+  --chart-3: var(--brand-accent);
+  --chart-4: var(--brand-placeholder);
+  --chart-5: var(--brand-gray);
+  --radius: 0.625rem;
+  --sidebar: var(--brand-panel);
+  --sidebar-foreground: var(--brand-offwhite);
+  --sidebar-primary: var(--brand-accent);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--brand-panel-raised);
+  --sidebar-accent-foreground: var(--brand-offwhite);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: var(--brand-accent-dark);
+}
+
+.dark {
+  --background: var(--brand-dark);
+  --foreground: var(--brand-offwhite);
+  --card: var(--brand-panel);
+  --card-foreground: var(--brand-offwhite);
+  --popover: var(--brand-panel-raised);
+  --popover-foreground: var(--brand-offwhite);
+  --primary: var(--brand-accent);
+  --primary-foreground: #ffffff;
+  --secondary: var(--brand-panel-raised);
+  --secondary-foreground: var(--brand-offwhite);
+  --muted: var(--brand-mid-green);
+  --muted-foreground: var(--brand-placeholder);
+  --accent: var(--brand-panel-raised);
+  --accent-foreground: var(--brand-offwhite);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: var(--brand-accent-dark);
+  --chart-1: var(--brand-accent-dark);
+  --chart-2: var(--brand-cyan);
+  --chart-3: var(--brand-accent);
+  --chart-4: var(--brand-placeholder);
+  --chart-5: var(--brand-gray);
+  --sidebar: var(--brand-panel);
+  --sidebar-foreground: var(--brand-offwhite);
+  --sidebar-primary: var(--brand-accent);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--brand-panel-raised);
+  --sidebar-accent-foreground: var(--brand-offwhite);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: var(--brand-accent-dark);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+  }
+  h1,
+  h2 {
+    text-wrap: balance;
+  }
+  /* Foco de teclado de la casa (los inputs traen su propio ring) */
+  :where(a, button, input[type="checkbox"]):focus-visible {
+    outline: 2px solid var(--brand-accent-dark);
+    outline-offset: 2px;
+  }
+}
