@@ -10,12 +10,16 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 
-from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
+from nikodym.core.config import NikodymConfig, ReproConfig, config_hash, dump_config, loads_config
+from nikodym.core.config.migration import _MIGRATORS, migration
+from nikodym.core.exceptions import ConfigError
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui import routes
 from nikodym.ui.exceptions import UiDatasetError
@@ -77,6 +81,77 @@ def test_validate_config_campo_desconocido() -> None:
 def test_datasets_payload_es_el_catalogo() -> None:
     """``/datasets`` delega en ``list_datasets`` sin transformar."""
     assert routes.datasets_payload() == datasets_module.list_datasets()
+
+
+# ─────────────────────────────── round-trip YAML (config_to_yaml / config_from_yaml) ─────────
+
+
+def test_config_to_yaml_round_trip_preserva_hash() -> None:
+    """``to-yaml`` de un config F1 vuelve a cargar con el MISMO ``config_hash`` (round-trip)."""
+    cfg = full_f1_config("cartera.parquet")
+    resultado = routes.config_to_yaml(cfg.model_dump(mode="json", by_alias=True))
+    assert set(resultado) == {"yaml"}
+    recargado = loads_config(resultado["yaml"])
+    assert config_hash(recargado) == config_hash(cfg)
+
+
+def test_config_to_yaml_config_invalido_propaga_validation_error() -> None:
+    """Un config inválido propaga ``ValidationError`` (el endpoint lo traduce a 422)."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        routes.config_to_yaml({"repro": {"seed": -1}})
+
+
+def test_config_from_yaml_valido_devuelve_config_y_hash() -> None:
+    """``from-yaml`` de un YAML F1 válido reconstruye el ``config`` y su ``config_hash``."""
+    cfg = full_f1_config("cartera.parquet")
+    resultado = routes.config_from_yaml(dump_config(cfg))
+    assert set(resultado) == {"config", "config_hash"}
+    assert resultado["config"] == cfg.model_dump(mode="json", by_alias=True)
+    assert resultado["config_hash"] == config_hash(cfg)
+
+
+def test_config_from_yaml_malformado_levanta_config_error() -> None:
+    """Un YAML sintácticamente roto propaga ``ConfigError`` (el endpoint lo traduce a 422)."""
+    with pytest.raises(ConfigError):
+        routes.config_from_yaml("clave: : : roto\n")
+
+
+def test_config_from_yaml_schema_no_mapeado_levanta_config_error() -> None:
+    """Un campo desconocido (``extra='forbid'``) propaga ``ConfigError`` desde ``loads_config``."""
+    with pytest.raises(ConfigError):
+        routes.config_from_yaml("campo_que_no_existe: 1\n")
+
+
+def test_config_from_yaml_entrada_no_str_levanta_config_error() -> None:
+    """Una entrada que no es ``str`` (p. ej. el ``yaml`` ausente → ``None``) da ``ConfigError``."""
+    with pytest.raises(ConfigError):
+        routes.config_from_yaml(None)
+
+
+@pytest.fixture
+def _registro_limpio() -> Iterator[None]:
+    """Aísla el registro global de migradores: lo vacía y lo restaura tras el test (SDD-05 §5.4)."""
+    original = dict(_MIGRATORS)
+    _MIGRATORS.clear()
+    try:
+        yield
+    finally:
+        _MIGRATORS.clear()
+        _MIGRATORS.update(original)
+
+
+def test_config_from_yaml_migra_version_anterior(_registro_limpio: None) -> None:
+    """``from-yaml`` aplica la migración de SDD-05: un ``schema_version`` viejo sube al actual."""
+
+    @migration("0.9.0", "1.0.0")
+    def _subir(raw: dict[str, Any]) -> dict[str, Any]:
+        return {**raw, "schema_version": "1.0.0"}
+
+    resultado = routes.config_from_yaml('schema_version: "0.9.0"\nname: migrado\n')
+    assert resultado["config"]["schema_version"] == "1.0.0"
+    assert resultado["config"]["name"] == "migrado"
 
 
 # ─────────────────────────────── contrato AST de la frontera ───────────────────────────────

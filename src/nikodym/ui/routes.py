@@ -1,14 +1,15 @@
 """Endpoints REST del backend (SDD-23 §4.2): solo-lectura/validación (B23.2) + ejecución (B23.3).
 
-Expone los **6** endpoints del contrato: ``GET /api/schema`` (schema del config + defaults + orden
+Expone los **8** endpoints del contrato: ``GET /api/schema`` (schema del config + defaults + orden
 de secciones), ``POST /api/validate`` (validación **por reconstrucción**, siempre 200),
-``GET /api/datasets`` (catálogo sintético), ``POST /api/run`` (ejecución síncrona), y
-``GET /api/results/{run_id}`` / ``GET /api/report/{run_id}`` (lectura de una corrida persistida). La
-lógica de cada endpoint vive en funciones **puras** (sin FastAPI), testeables sin servidor;
-:func:`build_router` solo las cablea a un ``APIRouter`` con import **perezoso** de FastAPI. El
-backend es *domain-agnostic*: no importa módulos de dominio ni reimplementa rangos/enums/finitud ni
-fórmulas de riesgo — la verdad de validación es Pydantic y todo cómputo pasa por ``nikodym.run``
-(SDD-23 §3.3, §4.2, §11).
+``GET /api/datasets`` (catálogo sintético), ``POST /api/run`` (ejecución síncrona),
+``GET /api/results/{run_id}`` / ``GET /api/report/{run_id}`` (lectura de una corrida persistida) y
+el round-trip YAML ``POST /api/config/to-yaml`` / ``POST /api/config/from-yaml`` (reúso de SDD-05,
+§3.4). La lógica de cada endpoint vive en funciones **puras** (sin FastAPI), testeables sin
+servidor; :func:`build_router` solo las cablea a un ``APIRouter`` con import **perezoso** de
+FastAPI. El backend es *domain-agnostic*: no importa módulos de dominio ni reimplementa
+rangos/enums/finitud ni fórmulas de riesgo — la verdad de validación es Pydantic y todo cómputo
+pasa por ``nikodym.run`` (SDD-23 §3.3, §4.2, §11).
 """
 
 from __future__ import annotations
@@ -20,9 +21,9 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 import nikodym
-from nikodym.core.config import NikodymConfig, config_hash
+from nikodym.core.config import NikodymConfig, config_hash, dump_config, loads_config
 from nikodym.core.config.schema import build_full_json_schema
-from nikodym.core.exceptions import MissingDependencyError
+from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.ui import datasets, runs
 from nikodym.ui.exceptions import UiDatasetError, UiRunNotFoundError
 
@@ -32,6 +33,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "build_router",
+    "config_from_yaml",
+    "config_to_yaml",
     "datasets_payload",
     "run_pipeline",
     "schema_payload",
@@ -85,6 +88,65 @@ def validate_config(config: Any) -> dict[str, Any]:
     return {"valid": True, "config_hash": config_hash(model), "errors": []}
 
 
+def config_to_yaml(config: Any) -> dict[str, Any]:
+    """Exporta un config editado a YAML canónico (round-trip, SDD-23 §3.4; reúso de SDD-05).
+
+    Reconstruye ``NikodymConfig`` y delega el volcado en ``dump_config`` (YAML en orden de
+    declaración, ``allow_unicode``): la serialización la posee SDD-05, no se reimplementa (§3.3).
+
+    Parameters
+    ----------
+    config : Any
+        Dict del config editado (o cualquier valor a reconstruir).
+
+    Returns
+    -------
+    dict
+        ``{yaml}`` con el YAML canónico del config.
+
+    Raises
+    ------
+    pydantic.ValidationError
+        Si ``config`` no reconstruye un modelo válido; se **propaga** para que el endpoint responda
+        **422** (config válido es precondición de exportar), igual que :func:`run_pipeline`.
+    """
+    model = NikodymConfig.model_validate(config)
+    return {"yaml": dump_config(model)}
+
+
+def config_from_yaml(text: Any) -> dict[str, Any]:
+    """Carga un config desde YAML (con migración) y devuelve el modelo + su hash (SDD-23 §3.4).
+
+    Delega en ``loads_config`` (SDD-05 §5.4-5.5): parsea el YAML, **migra** si el ``schema_version``
+    es anterior y valida, envolviendo cualquier fallo (YAML malformado, migración o validación) en
+    ``ConfigError`` — que se propaga sin enmascarar (SDD-23 §8). No se reimplementa nada (§3.3).
+
+    Parameters
+    ----------
+    text : Any
+        Contenido YAML del config; se exige un ``str`` (``loads_config`` requiere texto).
+
+    Returns
+    -------
+    dict
+        ``{config, config_hash}``: el config reconstruido (``model_dump`` JSON con alias) y su
+        ``config_hash`` (identidad estable, SDD-05 §5.5).
+
+    Raises
+    ------
+    ConfigError
+        Si ``text`` no es un ``str``, o si el YAML no carga/migra/valida (mensaje del motor,
+        propagado tal cual desde ``loads_config``).
+    """
+    if not isinstance(text, str):
+        raise ConfigError(f"el YAML del config debe ser un string, no {type(text).__name__}.")
+    model = loads_config(text)
+    return {
+        "config": model.model_dump(mode="json", by_alias=True),
+        "config_hash": config_hash(model),
+    }
+
+
 def datasets_payload() -> list[dict[str, Any]]:
     """Compone la respuesta de ``GET /api/datasets`` (catálogo sintético estable)."""
     return datasets.list_datasets()
@@ -132,7 +194,7 @@ def _format_errors(exc: ValidationError) -> list[dict[str, Any]]:
 
 
 def build_router() -> APIRouter:
-    """Construye el ``APIRouter`` con los 6 endpoints (import perezoso de FastAPI)."""
+    """Construye el ``APIRouter`` con los 8 endpoints (import perezoso de FastAPI)."""
     from fastapi import APIRouter, HTTPException, Request
     from fastapi.responses import HTMLResponse
 
@@ -182,6 +244,26 @@ def build_router() -> APIRouter:
             return runs.load_results(run_id, workdir=workdir)
         except UiRunNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.post("/config/to-yaml")
+    async def config_to_yaml_endpoint(payload: dict[str, Any]) -> dict[str, Any]:
+        """Exporta ``{config}`` a YAML canónico; config inválido → 422 (round-trip, SDD-23 §3.4)."""
+        try:
+            return config_to_yaml(payload.get("config"))
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail=_format_errors(exc)) from exc
+
+    @router.post("/config/from-yaml")
+    async def config_from_yaml_endpoint(payload: dict[str, Any]) -> dict[str, Any]:
+        """Carga ``{yaml}`` (con migración) → ``{config, config_hash}``; error → 422 (SDD-23 §3.4).
+
+        Un ``ConfigError`` (YAML malformado, schema no-mapeado, migración fallida o entrada no-str)
+        se traduce a **422** con el mensaje del motor, sin enmascararlo como 500 (SDD-23 §8).
+        """
+        try:
+            return config_from_yaml(payload.get("yaml"))
+        except ConfigError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @router.get("/report/{run_id}")
     async def report_endpoint(run_id: str, request: Request) -> HTMLResponse:

@@ -21,7 +21,7 @@ pytest.importorskip("httpx2")
 from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 from fastapi.testclient import TestClient
 
-from nikodym.core.config import NikodymConfig, ReproConfig, config_hash
+from nikodym.core.config import NikodymConfig, ReproConfig, config_hash, dump_config, loads_config
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui import server
 from nikodym.ui.server import create_app
@@ -154,6 +154,48 @@ def test_endpoint_datasets(client: TestClient) -> None:
     assert respuesta.status_code == 200
     ids = [descriptor["id"] for descriptor in respuesta.json()]
     assert ids == ["consumo_comportamiento", "hipotecario_comportamiento"]
+
+
+# ─────────────────────────── round-trip YAML (/config/to-yaml, /config/from-yaml) ───────────
+
+
+def test_endpoint_config_to_yaml_round_trip(client: TestClient) -> None:
+    """``POST /api/config/to-yaml`` → 200 ``{yaml}`` que recarga con el MISMO ``config_hash``."""
+    cfg = full_f1_config("cartera.parquet")
+    respuesta = client.post(
+        "/api/config/to-yaml", json={"config": cfg.model_dump(mode="json", by_alias=True)}
+    )
+    assert respuesta.status_code == 200
+    yaml_text = respuesta.json()["yaml"]
+    assert config_hash(loads_config(yaml_text)) == config_hash(cfg)
+
+
+def test_endpoint_config_to_yaml_invalido_422(client: TestClient) -> None:
+    """Un config inválido → 422 con el detalle estructurado ``[{loc,msg,type}]``."""
+    respuesta = client.post("/api/config/to-yaml", json={"config": {"repro": {"seed": -1}}})
+    assert respuesta.status_code == 422
+    detalle = respuesta.json()["detail"]
+    assert detalle[0]["loc"] == ["repro", "seed"]
+    assert set(detalle[0]) == {"loc", "msg", "type"}
+
+
+def test_endpoint_config_from_yaml_valido(client: TestClient) -> None:
+    """``POST /api/config/from-yaml`` con un YAML F1 → 200 ``{config, config_hash}``."""
+    cfg = full_f1_config("cartera.parquet")
+    respuesta = client.post("/api/config/from-yaml", json={"yaml": dump_config(cfg)})
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["config_hash"] == config_hash(cfg)
+    assert cuerpo["config"] == cfg.model_dump(mode="json", by_alias=True)
+
+
+def test_endpoint_config_from_yaml_malformado_422(client: TestClient) -> None:
+    """Un YAML malformado → 422 con el mensaje (string) del motor, no un 500 opaco."""
+    respuesta = client.post("/api/config/from-yaml", json={"yaml": "clave: : : roto\n"})
+    assert respuesta.status_code == 422
+    detalle = respuesta.json()["detail"]
+    assert isinstance(detalle, str)
+    assert "malformado" in detalle
 
 
 # ─────────────────────────────── bootstrap de create_app ───────────────────────────────
