@@ -58,3 +58,54 @@ export function setAtPath<T>(obj: T, path: Path, value: unknown): T {
     rest.length === 0 ? value : setAtPath(record[head], rest, value)
   return record as unknown as T
 }
+
+/**
+ * Devuelve una copia de `obj` SIN la clave/índice en `path` (inmutable: clona solo el
+ * camino tocado). Si algún tramo no existe, devuelve `obj` sin cambios. Complementa a
+ * `setAtPath`; se usa donde borrar la clave (en vez de dejar `null`) refleja mejor lo
+ * que emite el código. Nota B23.5a: el toggle activar/None usa `setAtPath(path, null)`
+ * porque `model_dump` de Pydantic emite `null`, no omite la clave (ver FieldRenderer).
+ */
+export function removeAtPath<T>(obj: T, path: Path): T {
+  if (path.length === 0) return obj
+  const [head, ...rest] = path
+  const base: unknown = obj
+
+  if (typeof head === "number") {
+    if (!Array.isArray(base) || head < 0 || head >= base.length) return obj
+    const arr = [...base]
+    if (rest.length === 0) arr.splice(head, 1)
+    else arr[head] = removeAtPath(arr[head], rest)
+    return arr as unknown as T
+  }
+
+  if (!isPlainObject(base) || !(head in base)) return obj
+  const record = { ...base }
+  if (rest.length === 0) delete record[head]
+  else record[head] = removeAtPath(record[head], rest)
+  return record as unknown as T
+}
+
+/** Resultado de parsear el texto del editor JSON fallback (§5/§8). */
+export type JsonParseResult =
+  | { ok: true; value: ConfigValue }
+  | { ok: false; error: string }
+
+/**
+ * Parsea `text` como JSON para el editor fallback de tipos exóticos (SDD §5/§8). Solo
+ * valida **sintaxis** local: si parsea, devuelve el valor; si no, el mensaje de error.
+ * La validación **semántica** contra el schema es del backend (`POST /api/validate`,
+ * B23.5b). Texto vacío ⇒ `null` (sección sin valor), no error.
+ */
+export function parseJsonInput(text: string): JsonParseResult {
+  const trimmed = text.trim()
+  if (trimmed === "") return { ok: true, value: null }
+  try {
+    return { ok: true, value: JSON.parse(trimmed) as ConfigValue }
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}

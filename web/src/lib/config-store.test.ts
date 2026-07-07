@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { getAtPath, setAtPath } from "./config-store"
+import {
+  getAtPath,
+  parseJsonInput,
+  removeAtPath,
+  setAtPath,
+} from "./config-store"
 
 describe("setAtPath (inmutable)", () => {
   it("fija un valor anidado sin mutar el original", () => {
@@ -48,5 +53,61 @@ describe("getAtPath", () => {
 
   it("lee índices de array", () => {
     expect(getAtPath({ cols: ["x", "y"] }, ["cols", 0])).toBe("x")
+  })
+})
+
+describe("removeAtPath (inmutable)", () => {
+  it("borra la clave anidada sin mutar el original", () => {
+    const original = { data: { load: { source: "a.csv", extra: 1 } } }
+    const next = removeAtPath(original, ["data", "load", "extra"])
+    expect(next).toEqual({ data: { load: { source: "a.csv" } } })
+    expect(original.data.load.extra).toBe(1) // intacto
+    expect(next.data).not.toBe(original.data)
+  })
+
+  it("borra una clave de nivel superior", () => {
+    expect(removeAtPath({ a: 1, b: 2 }, ["b"])).toEqual({ a: 1 })
+  })
+
+  it("no crea claves cuando un tramo no existe", () => {
+    const original = { a: {} }
+    const next = removeAtPath(original, ["a", "b", "c"])
+    expect(next).toEqual({ a: {} })
+    expect("b" in (next.a as Record<string, unknown>)).toBe(false)
+  })
+
+  it("elimina un elemento de array por índice", () => {
+    expect(removeAtPath({ cols: ["a", "b", "c"] }, ["cols", 1])).toEqual({
+      cols: ["a", "c"],
+    })
+  })
+
+  it("índice fuera de rango → sin cambios", () => {
+    const original = { cols: ["a"] }
+    expect(removeAtPath(original, ["cols", 5])).toEqual({ cols: ["a"] })
+  })
+
+  it("path vacío → sin cambios", () => {
+    const original = { a: 1 }
+    expect(removeAtPath(original, [])).toBe(original)
+  })
+})
+
+describe("parseJsonInput (editor JSON fallback §5/§8)", () => {
+  it("parsea JSON válido y devuelve el valor", () => {
+    expect(parseJsonInput('{"a": [1, 2], "b": "x"}')).toEqual({
+      ok: true,
+      value: { a: [1, 2], b: "x" },
+    })
+  })
+
+  it("texto vacío ⇒ null (sección sin valor), no error", () => {
+    expect(parseJsonInput("   ")).toEqual({ ok: true, value: null })
+  })
+
+  it("JSON inválido ⇒ ok:false con mensaje de sintaxis", () => {
+    const result = parseJsonInput("{ no es json ")
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.length).toBeGreaterThan(0)
   })
 })

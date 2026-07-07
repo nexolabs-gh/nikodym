@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Info } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
@@ -16,17 +17,23 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import type { Path } from "@/lib/config-store"
+import { type Path, parseJsonInput } from "@/lib/config-store"
 import {
   type Defs,
   type JsonSchema,
+  defaultForSchema,
+  discriminatedBranches,
+  discriminatorProperty,
   enumOptions,
   fieldLabel,
+  multiselectOptions,
   numericBounds,
   orderedFields,
   resolveRef,
   resolveWidget,
+  toggleMultiselect,
   unwrapNullable,
+  variantDefaults,
 } from "@/lib/form-engine"
 import { cn } from "@/lib/utils"
 
@@ -39,16 +46,26 @@ export interface FieldRendererProps {
   onChange: (path: Path, value: unknown) => void
   required?: boolean
   depth?: number
+  /** Oculta el label propio: lo pinta el contenedor (p.ej. el toggle activar/None). */
+  hideLabel?: boolean
 }
 
 /**
  * Despacha un campo del schema al widget del mapeo §5 (via `resolveWidget`) y pinta
  * label (title) + tooltip (description) + el widget. Los sub-modelos (`group`) se
- * renderizan recursivamente. STUBs de B23.5: `discriminated`, `multiselect`, `json`.
+ * renderizan recursivamente. B23.5a implementa `discriminated`, el toggle activar/None
+ * de `X | None`, `multiselect` y el editor `json` fallback.
  */
 export function FieldRenderer(props: FieldRendererProps) {
   const { schema, defs, depth = 0 } = props
   const kind = resolveWidget(schema, { defs, required: props.required })
+
+  // Sección opcional `X | None`: se antepone el toggle activar/None (SDD §5). La unión
+  // discriminada tiene su propio flujo (Select de variante) y no se trata como nullable.
+  const { schema: base, nullable } = unwrapNullable(resolveRef(schema, defs))
+  if (nullable && kind !== "discriminated") {
+    return <NullableField {...props} baseSchema={base} depth={depth} />
+  }
 
   if (kind === "group") {
     return <GroupField {...props} depth={depth} />
@@ -61,9 +78,10 @@ export function FieldRenderer(props: FieldRendererProps) {
   )
 }
 
-/** Label + tooltip + el widget hijo. */
+/** Label + tooltip + el widget hijo. Con `hideLabel`, solo pinta el hijo. */
 function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
-  const { name, schema, path, required, children } = props
+  const { name, schema, path, required, hideLabel, children } = props
+  if (hideLabel) return <>{children}</>
   const id = path.join(".")
   const label = fieldLabel(name, schema)
   const description =
@@ -110,11 +128,11 @@ function WidgetSwitch(
     case "textarea":
       return <TextareaField {...props} />
     case "discriminated":
-      return <DiscriminatedStub {...props} />
+      return <DiscriminatedField {...props} />
     case "multiselect":
-      return <StubField {...props} note="Selección múltiple — B23.5" />
+      return <MultiselectField {...props} />
     default:
-      return <StubField {...props} note="Editor JSON — B23.5" />
+      return <JsonField {...props} />
   }
 }
 
@@ -259,15 +277,13 @@ function TextareaField(props: FieldRendererProps) {
 // ---------------------------------------------------------------------------
 
 function GroupField(props: FieldRendererProps) {
-  const { name, schema, path, value, defs, onChange, depth = 0 } = props
+  const { name, schema, path, value, defs, onChange, depth = 0, hideLabel } =
+    props
   const resolved = resolveRef(unwrapNullable(schema).schema, defs)
   const fields = orderedFields(resolved)
   const label = fieldLabel(name, schema)
   const required = new Set(resolved.required ?? [])
-  const groupValue =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : undefined
+  const groupValue = asRecord(value)
 
   return (
     <fieldset
@@ -276,83 +292,305 @@ function GroupField(props: FieldRendererProps) {
         depth > 0 && "border-l-2 border-l-brand-accent/40",
       )}
     >
-      <legend className="px-1 font-display text-sm font-medium text-brand-offwhite">
-        {label}
-      </legend>
-      {fields.length === 0 ? (
-        <p className="text-xs text-brand-placeholder">Sin campos.</p>
-      ) : (
-        fields.map(([childName, childSchema]) => (
-          <FieldRenderer
-            key={childName}
-            name={childName}
-            schema={childSchema}
-            path={[...path, childName]}
-            value={groupValue?.[childName]}
-            defs={defs}
-            onChange={onChange}
-            required={required.has(childName)}
-            depth={depth + 1}
-          />
-        ))
+      {hideLabel ? null : (
+        <legend className="px-1 font-display text-sm font-medium text-brand-offwhite">
+          {label}
+        </legend>
       )}
+      <GroupFieldList
+        fields={fields}
+        path={path}
+        groupValue={groupValue}
+        defs={defs}
+        onChange={onChange}
+        required={required}
+        depth={depth}
+      />
     </fieldset>
   )
 }
 
+/** Estrecha un `value` a un objeto plano (Record) o `undefined`. */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
+/**
+ * Lista de campos `[name, schema]` renderizados recursivamente. Comparte el render de
+ * grupo entre `GroupField` y el subform de la unión discriminada (no se duplica).
+ */
+function GroupFieldList(props: {
+  fields: [string, JsonSchema][]
+  path: Path
+  groupValue: Record<string, unknown> | undefined
+  defs: Defs
+  onChange: (path: Path, value: unknown) => void
+  required: Set<string>
+  depth: number
+}) {
+  const { fields, path, groupValue, defs, onChange, required, depth } = props
+  if (fields.length === 0) {
+    return <p className="text-xs text-brand-placeholder">Sin campos.</p>
+  }
+  return (
+    <>
+      {fields.map(([childName, childSchema]) => (
+        <FieldRenderer
+          key={childName}
+          name={childName}
+          schema={childSchema}
+          path={[...path, childName]}
+          value={groupValue?.[childName]}
+          defs={defs}
+          onChange={onChange}
+          required={required.has(childName)}
+          depth={depth + 1}
+        />
+      ))}
+    </>
+  )
+}
+
 // ---------------------------------------------------------------------------
-// STUBs (B23.5): unión discriminada, multiselect, json
+// Unión discriminada (B23.5a §5) — Select de variante + subform condicional
 // ---------------------------------------------------------------------------
 
-function DiscriminatedStub(props: FieldRendererProps) {
-  const { schema, path, onChange } = props
-  const discProp = schema.discriminator?.propertyName ?? "type"
-  const branches = schema.oneOf ?? schema.anyOf ?? []
-  const mapping = schema.discriminator?.mapping
-  const options = mapping
-    ? Object.keys(mapping)
-    : branches
-        .map((branch) => branch.properties?.[discProp]?.const)
-        .filter((tag): tag is string => typeof tag === "string")
-  const raw = props.value
-  const current =
-    raw && typeof raw === "object" && !Array.isArray(raw)
-      ? (raw as Record<string, unknown>)[discProp]
-      : undefined
-  const selectValue =
-    current === undefined || current === null ? null : String(current)
+/**
+ * Unión discriminada: `Select` del tag (`discriminator.propertyName`) + los campos de
+ * SOLO la variante elegida (render recursivo compartido con `GroupField`). Al cambiar de
+ * tag se reemplaza el subobjeto completo por los defaults de la nueva variante, con lo
+ * que los campos de la anterior se descartan (SDD §5, ejemplo `model` logit↔xgboost).
+ */
+function DiscriminatedField(props: FieldRendererProps) {
+  const { schema, path, value, defs, onChange, depth = 0 } = props
+  const propName = discriminatorProperty(schema)
+  const branches = discriminatedBranches(schema, defs)
+  const current = asRecord(value)
+  const tag = current?.[propName]
+  const selectValue = typeof tag === "string" ? tag : null
+  const active = branches.find((branch) => branch.tag === selectValue)
+
+  const handleTagChange = (next: string | null) => {
+    if (next === null) return
+    const branch = branches.find((b) => b.tag === next)
+    onChange(path, branch ? variantDefaults(branch.schema) : { [propName]: next })
+  }
+
+  const subFields = active
+    ? orderedFields(active.schema).filter(([n]) => n !== propName)
+    : []
+  const required = new Set(active?.schema.required ?? [])
+
   return (
-    <div className="space-y-2">
-      <Select
-        value={selectValue}
-        onValueChange={(next) => onChange([...path, discProp], next)}
-      >
-        <SelectTrigger className="w-full">
+    <div className="space-y-3">
+      <Select value={selectValue} onValueChange={handleTagChange}>
+        <SelectTrigger id={path.join(".")} className="w-full">
           <SelectValue placeholder="Elige variante…" />
         </SelectTrigger>
         <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
+          {branches.map((branch) => (
+            <SelectItem key={branch.tag} value={branch.tag}>
+              {branch.tag}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <p className="text-xs text-brand-placeholder">
-        Subform condicional de la variante — B23.5.
-      </p>
+      {active && subFields.length > 0 ? (
+        <fieldset
+          className={cn(
+            "space-y-4 rounded-lg border border-white/10 bg-white/[0.02] p-4",
+            depth > 0 && "border-l-2 border-l-brand-accent/40",
+          )}
+        >
+          <GroupFieldList
+            fields={subFields}
+            path={path}
+            groupValue={current}
+            defs={defs}
+            onChange={onChange}
+            required={required}
+            depth={depth}
+          />
+        </fieldset>
+      ) : null}
     </div>
   )
 }
 
-function StubField(props: FieldRendererProps & { note: string }) {
-  const value = currentValue(props)
+// ---------------------------------------------------------------------------
+// Toggle activar/None (B23.5a §5) — sección opcional `X | None`
+// ---------------------------------------------------------------------------
+
+/**
+ * Sección opcional `X | None`: `Switch` "activar" antepuesto. Desactivado ⇒ el campo vale
+ * `null` (sección apagada) y no se renderiza el subform; activado ⇒ se siembra el default
+ * de la variante base y se renderiza (SDD §5). Se persiste `null` (no se omite la clave)
+ * para reflejar lo que emite `model_dump` de Pydantic.
+ */
+function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
+  const { name, schema, path, value, defs, onChange, baseSchema, required } =
+    props
+  const depth = props.depth ?? 0
+  const label = fieldLabel(name, schema)
+  const description =
+    typeof schema.description === "string" ? schema.description : undefined
+  const active = value !== null && value !== undefined
+  const id = path.join(".")
+
+  const handleToggle = (next: boolean) => {
+    onChange(path, next ? defaultForSchema(baseSchema, defs) : null)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Switch
+          id={id}
+          checked={active}
+          onCheckedChange={handleToggle}
+          aria-label={`Activar ${label}`}
+        />
+        <Label htmlFor={id} className="text-brand-offwhite/90">
+          {label}
+          {required ? <span className="text-brand-cyan"> *</span> : null}
+        </Label>
+        {description ? (
+          <Tooltip>
+            <TooltipTrigger
+              className="text-brand-placeholder transition-colors hover:text-brand-cyan"
+              aria-label={`Ayuda: ${label}`}
+            >
+              <Info className="size-3.5" />
+            </TooltipTrigger>
+            <TooltipContent>{description}</TooltipContent>
+          </Tooltip>
+        ) : null}
+        {active ? null : (
+          <span className="text-xs text-brand-placeholder">(desactivado · None)</span>
+        )}
+      </div>
+      {active ? (
+        <div className="pl-1">
+          <FieldRenderer
+            name={name}
+            schema={baseSchema}
+            path={path}
+            value={value}
+            defs={defs}
+            onChange={onChange}
+            required={required}
+            depth={depth}
+            hideLabel
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Multiselect (B23.5a §5) — grupo de checkboxes sobre el enum de los items
+// ---------------------------------------------------------------------------
+
+/**
+ * `tuple[Literal, ...]` / array de enum: grupo de checkboxes con opciones = `enum` de los
+ * items. El valor es el array de tags marcados en orden estable (= orden del enum, SDD §5).
+ */
+function MultiselectField(props: FieldRendererProps) {
+  const { schema, path, value, defs, onChange } = props
+  const resolved = resolveRef(unwrapNullable(schema).schema, defs)
+  const options = multiselectOptions(resolved)
+  const selected = new Set(Array.isArray(value) ? value : [])
+  const base = path.join(".")
+
+  return (
+    <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+      {options.length === 0 ? (
+        <p className="text-xs text-brand-placeholder">Sin opciones.</p>
+      ) : (
+        options.map((option) => {
+          const key = String(option)
+          const optionId = `${base}.${key}`
+          return (
+            <label
+              key={key}
+              htmlFor={optionId}
+              className="flex items-center gap-2 text-sm text-brand-offwhite/90"
+            >
+              <input
+                id={optionId}
+                type="checkbox"
+                checked={selected.has(option)}
+                onChange={(event) =>
+                  onChange(
+                    path,
+                    toggleMultiselect(value, option, event.target.checked, options),
+                  )
+                }
+                className="size-4 accent-brand-accent-dark"
+              />
+              {key}
+            </label>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Editor JSON fallback (B23.5a §5/§8) — tipos no mapeados / exóticos
+// ---------------------------------------------------------------------------
+
+/**
+ * Editor JSON de un subárbol no mapeado (SDD §5/§8). `JSON.parse` LOCAL: si parsea,
+ * propaga el valor; si no, marca el error de SINTAXIS y NO propaga (el config conserva el
+ * último valor válido). La validación semántica contra el schema es del backend (B23.5b).
+ * Sin Monaco/CodeMirror: un `textarea` basta y evita bundle pesado.
+ */
+function JsonField(props: FieldRendererProps) {
+  const { path, value, onChange } = props
+  const [text, setText] = useState(() =>
+    value === undefined ? "" : JSON.stringify(value, null, 2),
+  )
+  const [error, setError] = useState<string | null>(null)
+
+  const handleChange = (next: string) => {
+    setText(next)
+    const result = parseJsonInput(next)
+    if (result.ok) {
+      setError(null)
+      onChange(path, result.value)
+    } else {
+      setError(result.error)
+    }
+  }
+
   return (
     <div className="space-y-1.5">
-      <pre className="max-h-32 overflow-auto rounded-lg border border-white/10 bg-white/[0.02] p-2.5 font-mono text-xs text-brand-placeholder">
-        {value === undefined ? "—" : JSON.stringify(value, null, 2)}
-      </pre>
-      <p className="text-xs text-brand-placeholder">{props.note}</p>
+      <textarea
+        id={path.join(".")}
+        value={text}
+        rows={5}
+        spellCheck={false}
+        aria-invalid={error !== null}
+        onChange={(event) => handleChange(event.target.value)}
+        className={cn(
+          "w-full rounded-lg border bg-transparent px-2.5 py-1.5 font-mono text-xs outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30",
+          error
+            ? "border-destructive focus-visible:border-destructive"
+            : "border-input focus-visible:border-ring",
+        )}
+      />
+      {error ? (
+        <p className="text-xs text-destructive">JSON inválido: {error}</p>
+      ) : (
+        <p className="text-xs text-brand-placeholder">
+          Editor JSON (tipo no mapeado). Se valida en el backend al ejecutar.
+        </p>
+      )}
     </div>
   )
 }

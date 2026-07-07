@@ -283,3 +283,102 @@ export function resolveWidget(
   // (7) No mapeado / exótico.
   return "json"
 }
+
+// ---------------------------------------------------------------------------
+// Unión discriminada (B23.5a §5) — ramas, tag y defaults de variante
+// ---------------------------------------------------------------------------
+
+/** Propiedad discriminadora de una unión (`discriminator.propertyName`, o "type"). */
+export function discriminatorProperty(schema: JsonSchema): string {
+  return schema.discriminator?.propertyName ?? "type"
+}
+
+/**
+ * Ramas de una unión discriminada, resueltas y etiquetadas por su tag, en el orden
+ * de `oneOf`/`anyOf`: `[{ tag, schema }]`. El tag sale de `properties[propName].const`
+ * de cada rama (camino robusto), **no** de `discriminator.mapping`: el `mapping`
+ * referencia nombres SIN el prefijo de namespace (`RandomSplitConfig`) que no existen
+ * en `$defs` (`Data_RandomSplitConfig`) y por tanto no resuelve — el `const` de la rama
+ * es la fuente fiable (SDD §5; verificado contra `fixtures/schema.json`).
+ */
+export function discriminatedBranches(
+  schema: JsonSchema,
+  defs: Defs = {},
+): { tag: string; schema: JsonSchema }[] {
+  const propName = discriminatorProperty(schema)
+  const branches = schema.oneOf ?? schema.anyOf ?? []
+  const out: { tag: string; schema: JsonSchema }[] = []
+  for (const branch of branches) {
+    const resolved = resolveRef(branch, defs)
+    const tag = resolved.properties?.[propName]?.const
+    if (typeof tag === "string") out.push({ tag, schema: resolved })
+  }
+  return out
+}
+
+/**
+ * Sub-objeto por defecto de una variante (rama de objeto): por cada propiedad con
+ * `const` (p.ej. el tag discriminador) o con `default` en el schema, siembra ese valor;
+ * los campos sin default se dejan sin sembrar (los pinta vacíos el widget y el backend
+ * los exige). Reproduce lo que emite el modelo Pydantic por defecto (SDD §5).
+ */
+export function variantDefaults(branchSchema: JsonSchema): Record<string, unknown> {
+  const props = branchSchema.properties ?? {}
+  const out: Record<string, unknown> = {}
+  for (const [name, prop] of Object.entries(props)) {
+    if (prop.const !== undefined) out[name] = prop.const
+    else if ("default" in prop) out[name] = prop.default
+  }
+  return out
+}
+
+/**
+ * Valor semilla al ACTIVAR una sección opcional (`X | None`, SDD §5): el `default` del
+ * schema si existe y no es null; en su defecto un valor por tipo (objeto→defaults de sus
+ * campos, array→[], número→cota inferior o 0, string→primer enum o "", bool→false). El
+ * resultado es siempre no-null, para distinguir "activado vacío" de "desactivado" (None).
+ */
+export function defaultForSchema(schema: JsonSchema, defs: Defs = {}): unknown {
+  const resolved = resolveRef(schema, defs)
+  if (resolved.default !== undefined && resolved.default !== null) {
+    return resolved.default
+  }
+  const type = schemaType(resolved)
+  if (type === "object" || resolved.properties) return variantDefaults(resolved)
+  if (type === "array") return []
+  if (type === "boolean") return false
+  if (type === "integer" || type === "number") {
+    return numericBounds(resolved).min ?? 0
+  }
+  if (type === "string") {
+    const options = enumOptions(resolved)
+    return options.length > 0 ? options[0] : ""
+  }
+  return {}
+}
+
+// ---------------------------------------------------------------------------
+// Multiselect (B23.5a §5) — `tuple[Literal, ...]` / array de enum
+// ---------------------------------------------------------------------------
+
+/** Opciones de un multiselect (`array` de `enum`/`const`): el `enum` de sus `items`. */
+export function multiselectOptions(schema: JsonSchema): unknown[] {
+  return schema.items ? enumOptions(schema.items) : []
+}
+
+/**
+ * Alterna `option` en el valor de un multiselect y devuelve el array resultante en ORDEN
+ * ESTABLE (= el de `options`, no el de marcado). Pura; el widget la invoca en cada
+ * check/uncheck. Los valores fuera de `options` se descartan (canónico).
+ */
+export function toggleMultiselect(
+  current: unknown,
+  option: unknown,
+  checked: boolean,
+  options: unknown[],
+): unknown[] {
+  const selected = new Set(Array.isArray(current) ? current : [])
+  if (checked) selected.add(option)
+  else selected.delete(option)
+  return options.filter((o) => selected.has(o))
+}
