@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildErrorLookup,
+  canRun,
   describeApiError,
   errorAtPath,
   pathKey,
@@ -89,5 +90,49 @@ describe("describeApiError (422 de los endpoints YAML)", () => {
     expect(describeApiError(null, "fallback")).toBe("fallback")
     expect(describeApiError({ detail: [] }, "fallback")).toBe("fallback")
     expect(describeApiError({ other: 1 }, "fallback")).toBe("fallback")
+  })
+})
+
+describe("canRun (gate de la corrida, SDD §8)", () => {
+  it("config válido + dataset ⇒ ok, sin motivo", () => {
+    expect(canRun({ kind: "valid", hash: "abc123" }, "consumo")).toEqual({
+      ok: true,
+    })
+  })
+
+  it("config no válido ⇒ bloquea con motivo de config, aunque haya dataset", () => {
+    expect(canRun({ kind: "idle" }, "consumo")).toEqual({
+      ok: false,
+      reason: "Necesitas un config válido",
+    })
+    expect(canRun({ kind: "checking" }, "consumo")).toEqual({
+      ok: false,
+      reason: "Necesitas un config válido",
+    })
+    expect(
+      canRun({ kind: "invalid", count: 2, lookup: new Map() }, "consumo"),
+    ).toEqual({ ok: false, reason: "Necesitas un config válido" })
+    expect(canRun({ kind: "unreachable" }, "consumo")).toEqual({
+      ok: false,
+      reason: "Necesitas un config válido",
+    })
+  })
+
+  it("config válido pero sin dataset (null o vacío) ⇒ bloquea por dataset", () => {
+    expect(canRun({ kind: "valid", hash: "abc123" }, null)).toEqual({
+      ok: false,
+      reason: "Falta elegir dataset",
+    })
+    expect(canRun({ kind: "valid", hash: "abc123" }, "")).toEqual({
+      ok: false,
+      reason: "Falta elegir dataset",
+    })
+  })
+
+  it("prioriza el motivo del config sobre el del dataset", () => {
+    expect(canRun({ kind: "idle" }, null)).toEqual({
+      ok: false,
+      reason: "Necesitas un config válido",
+    })
   })
 })

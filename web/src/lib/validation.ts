@@ -72,3 +72,34 @@ export function describeApiError(body: unknown, fallback: string): string {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
+
+/**
+ * Estado de la validación en vivo (SDD-23 §3.3/§7): la verdad la produce el backend
+ * (`POST /api/validate`); el front solo transporta el `config_hash` o los errores. Vive
+ * aquí (módulo compartido) para que Config, Ejecutar y el sidebar lean el mismo tipo.
+ */
+export type ValidationState =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "valid"; hash: string }
+  | { kind: "invalid"; count: number; lookup: Map<string, string> }
+  | { kind: "unreachable" }
+
+/**
+ * Gate PURO de la corrida (SDD-23 §8): solo se puede ejecutar con un config **válido**
+ * (hay `config_hash`) y un `datasetId` elegido. Devuelve el motivo del bloqueo para
+ * pintarlo en texto sobrio. NO valida dominio: la validez ya la produjo el backend en
+ * `validation`; aquí solo se combinan los dos prerequisitos. Testeable sin React ni DOM.
+ */
+export function canRun(
+  validation: ValidationState,
+  datasetId: string | null,
+): { ok: boolean; reason?: string } {
+  if (validation.kind !== "valid") {
+    return { ok: false, reason: "Necesitas un config válido" }
+  }
+  if (datasetId === null || datasetId === "") {
+    return { ok: false, reason: "Falta elegir dataset" }
+  }
+  return { ok: true }
+}

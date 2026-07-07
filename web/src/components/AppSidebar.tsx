@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react"
 
 import { AppHeader } from "@/components/AppHeader"
 import { cn } from "@/lib/utils"
+import { useAppState } from "@/state/appStore"
 
 interface AppSidebarProps {
   items: readonly { value: string; label: string; icon: LucideIcon }[]
@@ -18,6 +19,10 @@ interface AppSidebarProps {
  * control total. Responsive: rail de iconos (w-16) en < lg, expandido (w-60) en lg+.
  */
 export function AppSidebar({ items, active, onSelect }: AppSidebarProps) {
+  // Estado de corrida REAL desde el store (SDD-23 §7.4): run_id/config_hash/dataset.
+  const { lastRun, validation, datasetId } = useAppState()
+  const configHash = validation.kind === "valid" ? validation.hash : null
+
   return (
     <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col border-r border-white/10 bg-sidebar lg:w-60">
       <AppHeader />
@@ -59,23 +64,42 @@ export function AppSidebar({ items, active, onSelect }: AppSidebarProps) {
         })}
       </nav>
 
-      {/* Slot de meta-info de corrida (placeholders; B23.5 lo cablea). Oculto en rail. */}
+      {/* Slot de meta-info de corrida, cableado al store. Sin corrida: guiones. Oculto en rail. */}
       <div className="hidden border-t border-white/10 px-4 py-4 lg:block">
         <p className="mb-2 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-brand-gray">
           Estado de corrida
         </p>
         <dl className="space-y-1 font-mono text-xs text-brand-placeholder">
           <div className="flex justify-between gap-2">
-            <dt className="text-brand-gray">Corrida</dt>
-            <dd>—</dd>
+            <dt className="shrink-0 text-brand-gray">Corrida</dt>
+            <dd
+              className={cn(
+                "min-w-0 truncate text-right",
+                lastRun?.status === "failed" && "text-amber-200/80",
+                lastRun?.status === "done" && "text-brand-cyan",
+              )}
+              title={lastRun?.runId}
+            >
+              {lastRun ? lastRun.runId : "—"}
+            </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="text-brand-gray">config_hash</dt>
-            <dd>—</dd>
+            <dt className="shrink-0 text-brand-gray">config_hash</dt>
+            <dd
+              className="min-w-0 truncate text-right"
+              title={configHash ?? undefined}
+            >
+              {configHash ?? "—"}
+            </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="text-brand-gray">Dataset</dt>
-            <dd>—</dd>
+            <dt className="shrink-0 text-brand-gray">Dataset</dt>
+            <dd
+              className="min-w-0 truncate text-right"
+              title={datasetId ?? undefined}
+            >
+              {datasetId ?? "—"}
+            </dd>
           </div>
         </dl>
       </div>

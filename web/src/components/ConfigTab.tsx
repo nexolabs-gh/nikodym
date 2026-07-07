@@ -35,7 +35,12 @@ import {
   isRenderableSection,
   loadSchema,
 } from "@/lib/schema"
-import { buildErrorLookup, describeApiError } from "@/lib/validation"
+import {
+  type ValidationState,
+  buildErrorLookup,
+  describeApiError,
+} from "@/lib/validation"
+import { useAppState } from "@/state/appStore"
 
 const SOURCE_BANNER: Record<
   SchemaSource,
@@ -54,17 +59,6 @@ const SOURCE_BANNER: Record<
     text: "Backend no disponible; usando el snapshot local del schema (fixtures/schema.json).",
   },
 }
-
-/**
- * Estado de la validación en vivo (SDD-23 §3.3/§7): la verdad la produce el backend
- * (`POST /api/validate`); el front solo transporta el `config_hash` o los errores.
- */
-type ValidationState =
-  | { kind: "idle" }
-  | { kind: "checking" }
-  | { kind: "valid"; hash: string }
-  | { kind: "invalid"; count: number; lookup: Map<string, string> }
-  | { kind: "unreachable" }
 
 /**
  * Qué se sembró en el form (SDD-23 §3.2). `preset` = configuración estándar del backend (default);
@@ -160,9 +154,12 @@ function HashStatus({ state }: { state: ValidationState }) {
  * El round-trip YAML (§3.4) descarga/carga el config **vía el backend** (no se parsea YAML aquí).
  */
 export function ConfigTab() {
+  // El config, su validación y el dataset elegido viven en el store compartido
+  // (useAppState) para que Ejecutar/Resultados/sidebar los lean; el resto del estado
+  // (schema cargado, narración de siembra, acciones YAML) es local a esta pestaña.
+  const { config, setConfig, setDatasetId, validation, setValidation } =
+    useAppState()
   const [loaded, setLoaded] = useState<LoadedSchema | null>(null)
-  const [config, setConfig] = useState<Record<string, unknown>>({})
-  const [validation, setValidation] = useState<ValidationState>({ kind: "idle" })
   const [seed, setSeed] = useState<SeedState | null>(null)
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
@@ -185,6 +182,7 @@ export function ConfigTab() {
         const preset = await getPreset()
         if (!alive) return
         setConfig(preset.config)
+        setDatasetId(preset.dataset_id) // el preset trae el dataset recomendado (habilita Ejecutar)
         setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
       } catch {
         if (!alive) return
@@ -194,7 +192,7 @@ export function ConfigTab() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [setConfig, setDatasetId])
 
   // "Configuración estándar": recarga el preset del backend y lo siembra (getPreset → setConfig).
   const handleLoadPreset = useCallback(async () => {
@@ -203,20 +201,22 @@ export function ConfigTab() {
     try {
       const preset = await getPreset()
       setConfig(preset.config)
+      setDatasetId(preset.dataset_id) // el preset trae el dataset recomendado (habilita Ejecutar)
       setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
     } catch (err) {
       setPresetError(yamlErrorMessage(err))
     } finally {
       setPresetBusy(false)
     }
-  }, [])
+  }, [setConfig, setDatasetId])
 
   // "Empezar de cero": siembra el config mínimo del schema (defaults vacíos) — sin backend.
   const handleStartBlank = useCallback(() => {
     setPresetError(null)
     setConfig(structuredClone(loaded?.payload.defaults ?? {}))
+    setDatasetId(null) // "de cero" no trae dataset → Ejecutar queda bloqueado hasta elegir uno
     setSeed({ kind: "defaults" })
-  }, [loaded])
+  }, [loaded, setConfig, setDatasetId])
 
   // Validación en vivo: en cada cambio del config re-valida en el backend con debounce
   // (~350ms). El timer previo se cancela en el cleanup; el contador `requestSeq` descarta
@@ -245,11 +245,14 @@ export function ConfigTab() {
         })
     }, 350)
     return () => clearTimeout(timer)
-  }, [config, loaded])
+  }, [config, loaded, setValidation])
 
-  const setField = useCallback((path: Path, value: unknown) => {
-    setConfig((current) => setAtPath(current, path, value))
-  }, [])
+  const setField = useCallback(
+    (path: Path, value: unknown) => {
+      setConfig((current) => setAtPath(current, path, value))
+    },
+    [setConfig],
+  )
 
   const handleDownloadYaml = async () => {
     setYamlError(null)

@@ -11,6 +11,7 @@ import {
 import { AppSidebar } from "@/components/AppSidebar"
 import { ConfigTab } from "@/components/ConfigTab"
 import { EmptyState } from "@/components/EmptyState"
+import { RunTab } from "@/components/RunTab"
 import { Card } from "@/components/ui/card"
 import { API_BASE } from "@/lib/api"
 
@@ -107,6 +108,8 @@ function App() {
 
           {active === "config" ? (
             <ConfigTab />
+          ) : active === "ejecutar" ? (
+            <RunTab onNavigate={setActive} />
           ) : (
             <Card className="shadow-card">
               <EmptyState
