@@ -4,18 +4,26 @@ import { ArrowRight, ChartColumn, CircleAlert, Play } from "lucide-react"
 import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
 import { DiscriminationChart } from "@/components/charts/DiscriminationChart"
 import { IvChart } from "@/components/charts/IvChart"
+import { PsiByComparisonChart } from "@/components/charts/PsiByComparisonChart"
+import { StabilityBandLegend } from "@/components/charts/StabilityBandLegend"
+import { StabilityCsiChart } from "@/components/charts/StabilityCsiChart"
+import { bandColor, bandLabel } from "@/components/charts/chart-theme"
 import { EmptyState } from "@/components/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   EMPTY,
+  bandsPresent,
+  csiBars,
   discriminantRows,
   formatBool,
   formatCount,
   formatMetric,
   formatPValue,
   formatPercent,
+  psiBars,
   sortByIv,
+  temporalScore,
 } from "@/lib/results-format"
 import type { Coefficient } from "@/lib/results-types"
 import { useAppState } from "@/state/appStore"
@@ -74,6 +82,20 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const finalFeatures = results.model?.final_features ?? []
   const sc = results.scorecard
   const cal = results.calibration
+
+  // Estabilidad (PSI/CSI): la sección se muestra solo si la corrida la calculó.
+  const stab = results.stability ?? null
+  const stabMetrics = stab?.stability_metrics ?? null
+  const scorePsi = psiBars(stabMetrics, "score_psi")
+  const pdPsi = psiBars(stabMetrics, "pd_psi")
+  const csi = csiBars(stabMetrics)
+  const temporal = temporalScore(stabMetrics)
+  const hasStability =
+    stab !== null &&
+    (scorePsi.length > 0 ||
+      pdPsi.length > 0 ||
+      csi.length > 0 ||
+      temporal !== null)
 
   return (
     <div className="space-y-6">
@@ -146,6 +168,79 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
               </table>
             </div>
           </details>
+        </ResultsSection>
+      ) : null}
+
+      {/* a.2 Estabilidad del score (PSI/CSI): drift de score/PD y de las variables en OOT.
+          Guard por presencia: si estabilidad no corrió, la sección no se renderiza. */}
+      {hasStability && stab ? (
+        <ResultsSection
+          title="Estabilidad del score"
+          description="Deriva del score y de la PD calibrada entre particiones (PSI), y desplazamiento de cada variable (CSI). Umbrales de referencia dibujados como líneas."
+        >
+          <StabilityBandLegend bands={bandsPresent(stabMetrics)} />
+
+          {/* 1+2. PSI del score y de la PD calibrada, lado a lado (mismo formato). */}
+          {scorePsi.length > 0 || pdPsi.length > 0 ? (
+            <div className="grid gap-x-6 gap-y-4 lg:grid-cols-2">
+              {scorePsi.length > 0 ? (
+                <StabilitySubchart title="PSI del score">
+                  <PsiByComparisonChart
+                    rows={scorePsi}
+                    stableThreshold={stab.stable_threshold}
+                    reviewThreshold={stab.review_threshold}
+                  />
+                </StabilitySubchart>
+              ) : null}
+              {pdPsi.length > 0 ? (
+                <StabilitySubchart title="PSI de la PD calibrada">
+                  <PsiByComparisonChart
+                    rows={pdPsi}
+                    stableThreshold={stab.stable_threshold}
+                    reviewThreshold={stab.review_threshold}
+                  />
+                </StabilitySubchart>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* 3. CSI por característica (destaca la peor). */}
+          {csi.length > 0 ? (
+            <StabilitySubchart title="CSI por característica">
+              <StabilityCsiChart
+                rows={csi}
+                worst={stab.worst_csi_feature}
+                stableThreshold={stab.stable_threshold}
+                reviewThreshold={stab.review_threshold}
+              />
+            </StabilitySubchart>
+          ) : null}
+
+          {/* 4. (Opcional) escalar de estabilidad temporal del score. */}
+          {temporal ? (
+            <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-3 text-xs">
+              <span className="text-brand-placeholder">
+                PSI temporal del score
+              </span>
+              <span className="font-mono tabular-nums text-brand-offwhite">
+                {formatMetric(temporal.value)}
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[0.7rem]"
+                style={{
+                  backgroundColor: `${bandColor(temporal.band)}1a`,
+                  color: bandColor(temporal.band),
+                }}
+              >
+                <span
+                  className="size-1.5 rounded-full"
+                  style={{ backgroundColor: bandColor(temporal.band) }}
+                  aria-hidden="true"
+                />
+                {bandLabel(temporal.band)}
+              </span>
+            </div>
+          ) : null}
         </ResultsSection>
       ) : null}
 
@@ -307,6 +402,24 @@ function ResultsSection({
         {children}
       </CardContent>
     </Card>
+  )
+}
+
+/** Encabezado + contenedor de un mini-chart de estabilidad (título tenue sobre el chart). */
+function StabilitySubchart({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+        {title}
+      </p>
+      {children}
+    </div>
   )
 }
 

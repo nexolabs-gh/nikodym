@@ -215,6 +215,80 @@ export interface CalibrationResult {
   dependency_versions?: Record<string, unknown>
 }
 
+// --- stability --------------------------------------------------------------
+
+/**
+ * Banda de estabilidad (enum del backend `StabilityBand`). El dataset actual solo
+ * produce `stable`, pero el contrato define las cuatro: la UI DEBE manejarlas todas
+ * (no hardcodear "todo verde"). `not_evaluable` = métrica sin valor comparable.
+ */
+export type StabilityBand = "stable" | "review" | "redevelop" | "not_evaluable"
+
+/** Acción auditada mapeada 1:1 desde la banda (`StabilityAction` del backend). */
+export type StabilityAction = "none" | "vigilar" | "redesarrollar"
+
+/** Métrica de estabilidad (`StabilityMetricName`). Las tres primeras son PSI/CSI. */
+export type StabilityMetricName = "score_psi" | "pd_psi" | "csi" | "temporal_score"
+
+/**
+ * Fila RESUMEN de `stability.stability_metrics` (una por métrica/comparación). Para
+ * `metric:"csi"` el `feature` es la variable y `value` su CSI; para las PSI el `feature`
+ * es `score`/`pd_calibrated`. `value` puede venir nulo (métrica no evaluable → `NaN`→`null`).
+ */
+export interface StabilityMetricRow {
+  metric: StabilityMetricName
+  comparison: string
+  feature: string
+  value: number | null
+  stable_threshold: number
+  review_threshold: number
+  band: StabilityBand
+  action: StabilityAction
+}
+
+/**
+ * Fila bin-level de `stability.psi_table` (detalle fino de PSI del score/PD y CSI). No se
+ * grafica en este batch (opcional en el pedido); se tipa para fidelidad del contrato.
+ */
+export interface PsiTableRow {
+  metric: StabilityMetricName
+  comparison: string
+  feature: string
+  bin_label: string
+  expected_count: number
+  actual_count: number
+  expected_pct: number
+  actual_pct: number
+  component_value: number
+  total_value: number
+  band: StabilityBand
+}
+
+/**
+ * Bloque `stability` de `GET /api/results` (`StabilityCardSection` + frames ricos
+ * fusionados por el serializer). Es `null` en la respuesta si estabilidad no corrió.
+ * `stability_metrics`/`psi_table` vienen `null` si el frame concreto está ausente.
+ */
+export interface StabilityResponse {
+  score_direction: string
+  csi_source: string
+  /** Comparaciones evaluadas, p.ej. `["dev_vs_holdout","dev_vs_oot"]`. */
+  comparisons: string[]
+  psi_bins: number
+  stable_threshold: number
+  review_threshold: number
+  /** PSI máximo por comparación (puede venir nulo por comparación no evaluable). */
+  max_psi_by_comparison: Record<string, number | null>
+  /** Banda peor-caso por comparación. */
+  bands_by_comparison: Record<string, string>
+  worst_csi_feature: string | null
+  worst_csi_value: number | null
+  dependency_versions?: Record<string, string>
+  metric_sections?: Record<string, unknown>
+  stability_metrics?: StabilityMetricRow[] | null
+  psi_table?: PsiTableRow[] | null
+}
+
 // --- top-level --------------------------------------------------------------
 
 /**
@@ -234,4 +308,6 @@ export interface ResultsResponse {
   scorecard?: ScorecardResult
   calibration?: CalibrationResult
   performance?: PerformanceResult
+  /** Estabilidad post-modelo (PSI/CSI). `null` si no corrió; ausente en payloads viejos. */
+  stability?: StabilityResponse | null
 }

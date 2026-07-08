@@ -5,7 +5,11 @@
  * filas para las tablas. Lógica pura, testeable con vitest sin React ni DOM (node).
  */
 
-import type { PerformanceResult } from "@/lib/results-types"
+import type {
+  PerformanceResult,
+  StabilityBand,
+  StabilityMetricRow,
+} from "@/lib/results-types"
 
 /** Placeholder uniforme para valores ausentes/no finitos en toda la pestaña. */
 export const EMPTY = "—"
@@ -131,4 +135,126 @@ export function sortByIv(
   return Object.entries(ivByVariable)
     .map(([feature, iv]) => ({ feature, iv }))
     .sort((a, b) => b.iv - a.iv)
+}
+
+// --- estabilidad (PSI/CSI) --------------------------------------------------
+
+/**
+ * Orden canónico de comparaciones en los charts de PSI (las temporales al final). Una
+ * comparación fuera de esta lista se ordena después, preservando su orden de llegada.
+ */
+const COMPARISON_ORDER = ["dev_vs_holdout", "dev_vs_oot", "period"] as const
+
+/** Índice de orden de una comparación (desconocida → al final). */
+function comparisonOrder(comparison: string): number {
+  const i = COMPARISON_ORDER.indexOf(comparison as (typeof COMPARISON_ORDER)[number])
+  return i === -1 ? COMPARISON_ORDER.length : i
+}
+
+/**
+ * Etiqueta legible de una comparación de estabilidad. Fallback (comparación no prevista):
+ * el propio slug, para no ocultar nada. Presentación pura, sin lógica de dominio.
+ */
+export function comparisonLabel(comparison: string): string {
+  switch (comparison) {
+    case "dev_vs_holdout":
+      return "Dev vs Holdout"
+    case "dev_vs_oot":
+      return "Dev vs OOT"
+    case "period":
+      return "Temporal"
+    default:
+      return comparison
+  }
+}
+
+/** Barra de PSI por comparación (una por comparison), coloreada por banda. */
+export interface PsiBarRow {
+  comparison: string
+  label: string
+  value: number | null
+  band: StabilityBand
+}
+
+/**
+ * Filas de PSI por comparación para una métrica dada (`score_psi` o `pd_psi`), ordenadas
+ * por el orden canónico de comparaciones. NO recalcula: `value`/`band` vienen del artefacto.
+ */
+export function psiBars(
+  rows: StabilityMetricRow[] | null | undefined,
+  metric: "score_psi" | "pd_psi",
+): PsiBarRow[] {
+  if (!rows) return []
+  return rows
+    .filter((r) => r.metric === metric)
+    .map((r) => ({
+      comparison: r.comparison,
+      label: comparisonLabel(r.comparison),
+      value: r.value,
+      band: r.band,
+    }))
+    .sort((a, b) => comparisonOrder(a.comparison) - comparisonOrder(b.comparison))
+}
+
+/** Barra de CSI por característica, coloreada por banda. */
+export interface CsiBarRow {
+  feature: string
+  value: number | null
+  band: StabilityBand
+}
+
+/**
+ * Filas de CSI por característica (`metric == "csi"`) ordenadas de mayor a menor CSI
+ * (nulos al final). Solo selecciona/reordena lo que el backend ya calculó.
+ */
+export function csiBars(
+  rows: StabilityMetricRow[] | null | undefined,
+): CsiBarRow[] {
+  if (!rows) return []
+  return rows
+    .filter((r) => r.metric === "csi")
+    .map((r) => ({ feature: r.feature, value: r.value, band: r.band }))
+    .sort(
+      (a, b) =>
+        (b.value ?? Number.NEGATIVE_INFINITY) -
+        (a.value ?? Number.NEGATIVE_INFINITY),
+    )
+}
+
+/** Escalar de estabilidad temporal (`metric == "temporal_score"`). */
+export interface TemporalScore {
+  value: number | null
+  band: StabilityBand
+}
+
+/**
+ * Extrae el escalar `temporal_score` (una sola fila) o `null` si no está. NO fabrica una
+ * serie temporal: el detalle por período no viene en `stability_metrics`.
+ */
+export function temporalScore(
+  rows: StabilityMetricRow[] | null | undefined,
+): TemporalScore | null {
+  if (!rows) return null
+  const row = rows.find((r) => r.metric === "temporal_score")
+  return row ? { value: row.value, band: row.band } : null
+}
+
+/**
+ * Bandas presentes en un conjunto de filas de estabilidad, en el orden semántico
+ * canónico (estable → revisar → redesarrollar → no evaluable). Alimenta la leyenda: se
+ * muestran siempre las tres primarias más `not_evaluable` solo si aparece en los datos.
+ */
+export function bandsPresent(
+  rows: StabilityMetricRow[] | null | undefined,
+): StabilityBand[] {
+  const order: StabilityBand[] = [
+    "stable",
+    "review",
+    "redevelop",
+    "not_evaluable",
+  ]
+  const present = new Set((rows ?? []).map((r) => r.band))
+  return order.filter(
+    (b) => b !== "not_evaluable" || present.has("not_evaluable"),
+  )
 }

@@ -2,15 +2,20 @@ import { describe, expect, it } from "vitest"
 
 import {
   EMPTY,
+  bandsPresent,
+  comparisonLabel,
+  csiBars,
   discriminantRows,
   formatBool,
   formatCount,
   formatMetric,
   formatPValue,
   formatPercent,
+  psiBars,
   sortByIv,
+  temporalScore,
 } from "./results-format"
-import type { ResultsResponse } from "./results-types"
+import type { ResultsResponse, StabilityMetricRow } from "./results-types"
 
 /**
  * Fixture tipado con VALORES REALES del preset estándar (recorte de `results_real.json`,
@@ -331,5 +336,180 @@ describe("resiliencia a corrida failed/parcial", () => {
     }
     expect(discriminantRows(failed.performance)).toEqual([])
     expect(sortByIv(failed.binning?.iv_by_variable)).toEqual([])
+    // Helpers de estabilidad: robustos a `stability` ausente/`null`.
+    expect(psiBars(failed.stability?.stability_metrics, "score_psi")).toEqual([])
+    expect(csiBars(failed.stability?.stability_metrics)).toEqual([])
+    expect(temporalScore(failed.stability?.stability_metrics)).toBeNull()
+  })
+})
+
+/**
+ * Filas de `stability_metrics` con VALORES REALES del preset (PSI del score/PD ≈ 0.01,
+ * todo en banda `stable`) más filas sintéticas de otras bandas/comparaciones para probar
+ * el orden y el manejo de todos los enums (no solo el caso "todo verde").
+ */
+const stabilityMetrics: StabilityMetricRow[] = [
+  {
+    metric: "score_psi",
+    comparison: "dev_vs_oot",
+    feature: "score",
+    value: 0.0198,
+    stable_threshold: 0.1,
+    review_threshold: 0.25,
+    band: "stable",
+    action: "none",
+  },
+  {
+    metric: "score_psi",
+    comparison: "dev_vs_holdout",
+    feature: "score",
+    value: 0.0127,
+    stable_threshold: 0.1,
+    review_threshold: 0.25,
+    band: "stable",
+    action: "none",
+  },
+  {
+    metric: "pd_psi",
+    comparison: "dev_vs_holdout",
+    feature: "pd_calibrated",
+    value: 0.0132,
+    stable_threshold: 0.1,
+    review_threshold: 0.25,
+    band: "stable",
+    action: "none",
+  },
+  {
+    metric: "csi",
+    comparison: "dev_vs_oot",
+    feature: "ingreso_mensual",
+    value: 0.31,
+    stable_threshold: 0.1,
+    review_threshold: 0.25,
+    band: "redevelop",
+    action: "redesarrollar",
+  },
+  {
+    metric: "csi",
+    comparison: "dev_vs_oot",
+    feature: "deuda_ingreso",
+    value: 0.12,
+    stable_threshold: 0.1,
+    review_threshold: 0.25,
+    band: "review",
+    action: "vigilar",
+  },
+  {
+    metric: "csi",
+    comparison: "dev_vs_oot",
+    feature: "segmento",
+    value: null,
+    stable_threshold: 0.1,
+    review_threshold: 0.25,
+    band: "not_evaluable",
+    action: "none",
+  },
+  {
+    metric: "temporal_score",
+    comparison: "period",
+    feature: "score",
+    value: 0.04,
+    stable_threshold: 0.1,
+    review_threshold: 0.25,
+    band: "stable",
+    action: "none",
+  },
+]
+
+describe("comparisonLabel", () => {
+  it("etiqueta las comparaciones conocidas", () => {
+    expect(comparisonLabel("dev_vs_holdout")).toBe("Dev vs Holdout")
+    expect(comparisonLabel("dev_vs_oot")).toBe("Dev vs OOT")
+    expect(comparisonLabel("period")).toBe("Temporal")
+  })
+
+  it("cae al propio slug para comparaciones no previstas", () => {
+    expect(comparisonLabel("dev_vs_2025q1")).toBe("dev_vs_2025q1")
+  })
+})
+
+describe("psiBars", () => {
+  it("filtra por métrica y ordena por comparación canónica (holdout antes que oot)", () => {
+    const rows = psiBars(stabilityMetrics, "score_psi")
+    expect(rows.map((r) => r.comparison)).toEqual([
+      "dev_vs_holdout",
+      "dev_vs_oot",
+    ])
+    expect(rows[0]).toEqual({
+      comparison: "dev_vs_holdout",
+      label: "Dev vs Holdout",
+      value: 0.0127,
+      band: "stable",
+    })
+  })
+
+  it("aísla la PD calibrada de la del score", () => {
+    const rows = psiBars(stabilityMetrics, "pd_psi")
+    expect(rows).toHaveLength(1)
+    expect(rows[0].value).toBe(0.0132)
+  })
+
+  it("devuelve [] cuando falta el frame de métricas", () => {
+    expect(psiBars(null, "score_psi")).toEqual([])
+    expect(psiBars(undefined, "pd_psi")).toEqual([])
+  })
+})
+
+describe("csiBars", () => {
+  it("ordena por CSI desc y deja los nulos al final", () => {
+    const rows = csiBars(stabilityMetrics)
+    expect(rows.map((r) => r.feature)).toEqual([
+      "ingreso_mensual",
+      "deuda_ingreso",
+      "segmento",
+    ])
+    expect(rows[0].band).toBe("redevelop")
+    expect(rows[2].value).toBeNull()
+  })
+
+  it("devuelve [] cuando falta el frame de métricas", () => {
+    expect(csiBars(undefined)).toEqual([])
+  })
+})
+
+describe("temporalScore", () => {
+  it("extrae el escalar temporal cuando está presente", () => {
+    expect(temporalScore(stabilityMetrics)).toEqual({
+      value: 0.04,
+      band: "stable",
+    })
+  })
+
+  it("devuelve null si no hay fila temporal", () => {
+    const sinTemporal = stabilityMetrics.filter(
+      (r) => r.metric !== "temporal_score",
+    )
+    expect(temporalScore(sinTemporal)).toBeNull()
+    expect(temporalScore(null)).toBeNull()
+  })
+})
+
+describe("bandsPresent", () => {
+  it("incluye las tres bandas primarias y not_evaluable solo si aparece", () => {
+    expect(bandsPresent(stabilityMetrics)).toEqual([
+      "stable",
+      "review",
+      "redevelop",
+      "not_evaluable",
+    ])
+  })
+
+  it("omite not_evaluable cuando no está en los datos (caso todo estable)", () => {
+    const soloEstable = stabilityMetrics.filter((r) => r.band === "stable")
+    expect(bandsPresent(soloEstable)).toEqual([
+      "stable",
+      "review",
+      "redevelop",
+    ])
   })
 })

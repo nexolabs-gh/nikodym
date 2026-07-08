@@ -34,6 +34,39 @@ export const METRIC_COLORS = {
 export const BAR_PRIMARY = BRAND.accentDark
 
 /**
+ * Paleta SEMÁNTICA de bandas de estabilidad (PSI/CSI), tipo semáforo sobre navy:
+ * estable=verde (ok), revisar=ámbar (vigilar), redesarrollar=rojo (alerta), no
+ * evaluable=gris neutro. Los verdes/rojos usan las variantes -400 de Tailwind, que
+ * respiran mejor sobre el fondo oscuro (mismo espíritu suave que el `amber-200/90`
+ * de la app). Accesibilidad: SIEMPRE acompañadas de etiqueta (`BAND_LABELS`), nunca
+ * el color como único distintivo. Etiquetas en español (SDD-11: banda→acción).
+ */
+export const BAND_COLORS: Record<string, string> = {
+  stable: "#34d399", // emerald-400 → estable / ok
+  review: BRAND.amber, // ámbar → revisar / vigilar
+  redevelop: "#f87171", // red-400 → redesarrollar / alerta
+  not_evaluable: BRAND.gray, // gris neutro → sin valor comparable
+} as const
+
+/** Etiqueta humana de cada banda (leyenda accesible). */
+export const BAND_LABELS: Record<string, string> = {
+  stable: "Estable",
+  review: "Revisar",
+  redevelop: "Redesarrollar",
+  not_evaluable: "No evaluable",
+} as const
+
+/** Color de una banda; fallback neutro para un valor de enum no previsto (robustez). */
+export function bandColor(band: string): string {
+  return BAND_COLORS[band] ?? BRAND.gray
+}
+
+/** Etiqueta de una banda; fallback al propio slug si el enum crece (no oculta nada). */
+export function bandLabel(band: string): string {
+  return BAND_LABELS[band] ?? band
+}
+
+/**
  * Color del punto/barra del forest plot según si el signo del coeficiente es el
  * esperado por el backend (`sign_ok`). No recalcula nada: solo mapea el flag a color.
  */
