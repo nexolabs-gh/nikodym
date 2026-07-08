@@ -11,11 +11,20 @@ import {
   formatMetric,
   formatPValue,
   formatPercent,
+  gainsSeries,
+  liftByDecile,
+  partitionLabel,
+  primaryPartition,
   psiBars,
+  scoreHistogram,
   sortByIv,
   temporalScore,
 } from "./results-format"
-import type { ResultsResponse, StabilityMetricRow } from "./results-types"
+import type {
+  DecileRow,
+  ResultsResponse,
+  StabilityMetricRow,
+} from "./results-types"
 
 /**
  * Fixture tipado con VALORES REALES del preset estándar (recorte de `results_real.json`,
@@ -511,5 +520,191 @@ describe("bandsPresent", () => {
       "review",
       "redevelop",
     ])
+  })
+})
+
+/**
+ * Factory de filas de deciles: solo hace falta declarar los campos relevantes del test;
+ * el resto toma valores plausibles (invariantes de conteo respetados). Reduce el ruido.
+ */
+function makeDecile(
+  partial: Partial<DecileRow> & { partition: string; decile: number },
+): DecileRow {
+  return {
+    n_total: 100,
+    n_bad: 20,
+    n_good: 80,
+    bad_rate: 0.2,
+    good_rate: 0.8,
+    mean_pd: 0.2,
+    min_pd: 0.1,
+    max_pd: 0.3,
+    mean_score: 500,
+    min_score: 480,
+    max_score: 520,
+    cum_total: 100,
+    cum_bad: 20,
+    cum_good: 80,
+    cum_bad_capture_rate: 0.5,
+    cum_good_capture_rate: 0.5,
+    lift: 1,
+    ks_at_decile: 0,
+    ...partial,
+  }
+}
+
+/**
+ * Deciles de 2 particiones × 3 deciles, con orden deliberadamente barajado (holdout
+ * primero, deciles fuera de orden) para verificar que los helpers reordenan.
+ */
+const deciles: DecileRow[] = [
+  makeDecile({ partition: "holdout", decile: 2, cum_bad_capture_rate: 0.65 }),
+  makeDecile({ partition: "desarrollo", decile: 3, cum_bad_capture_rate: 1.0, lift: 0.5 }),
+  makeDecile({ partition: "holdout", decile: 1, cum_bad_capture_rate: 0.35 }),
+  makeDecile({ partition: "desarrollo", decile: 1, cum_bad_capture_rate: 0.4, lift: 2.0 }),
+  makeDecile({ partition: "holdout", decile: 3, cum_bad_capture_rate: 1.0 }),
+  makeDecile({ partition: "desarrollo", decile: 2, cum_bad_capture_rate: 0.7, lift: 1.5 }),
+]
+
+describe("partitionLabel", () => {
+  it("etiqueta las particiones conocidas y cae al slug para las demás", () => {
+    expect(partitionLabel("desarrollo")).toBe("Desarrollo")
+    expect(partitionLabel("holdout")).toBe("Holdout")
+    expect(partitionLabel("oot")).toBe("OOT")
+    expect(partitionLabel("2025q1")).toBe("2025q1")
+  })
+})
+
+describe("primaryPartition", () => {
+  it("prefiere desarrollo cuando está presente", () => {
+    expect(primaryPartition(deciles)).toBe("desarrollo")
+  })
+
+  it("cae a la primera partición cuando la preferida no está", () => {
+    expect(primaryPartition(deciles, "oot")).toBe("holdout")
+  })
+
+  it("devuelve null sin deciles", () => {
+    expect(primaryPartition(undefined)).toBeNull()
+    expect(primaryPartition([])).toBeNull()
+  })
+})
+
+describe("gainsSeries", () => {
+  it("ordena particiones (canónico) y arma una fila por decil más el origen (0,0)", () => {
+    const { partitions, data } = gainsSeries(deciles)
+    expect(partitions).toEqual(["desarrollo", "holdout"])
+    // 3 deciles + 1 fila ancla de origen.
+    expect(data).toHaveLength(4)
+    expect(data[0]).toEqual({
+      decile: 0,
+      random: 0,
+      desarrollo: 0,
+      holdout: 0,
+    })
+  })
+
+  it("mapea cum_bad_capture_rate por partición y la diagonal random = k/N", () => {
+    const { data } = gainsSeries(deciles)
+    // N = 3 (deciles presentes) → decil 1 → 1/3.
+    expect(data[1]).toEqual({
+      decile: 1,
+      random: 1 / 3,
+      desarrollo: 0.4,
+      holdout: 0.35,
+    })
+    // Último decil: ganancia 100% y diagonal en 1.0.
+    expect(data[3]).toEqual({
+      decile: 3,
+      random: 1,
+      desarrollo: 1.0,
+      holdout: 1.0,
+    })
+  })
+
+  it("pone null en el decil que una partición no tiene (sin fabricar valores)", () => {
+    const parcial = [
+      makeDecile({ partition: "desarrollo", decile: 1, cum_bad_capture_rate: 0.5 }),
+      makeDecile({ partition: "desarrollo", decile: 2, cum_bad_capture_rate: 1.0 }),
+      makeDecile({ partition: "oot", decile: 1, cum_bad_capture_rate: 0.3 }),
+    ]
+    const { partitions, data } = gainsSeries(parcial)
+    expect(partitions).toEqual(["desarrollo", "oot"])
+    expect(data[2]).toEqual({ decile: 2, random: 1, desarrollo: 1.0, oot: null })
+  })
+
+  it("devuelve serie vacía sin deciles", () => {
+    expect(gainsSeries(undefined)).toEqual({ partitions: [], data: [] })
+    expect(gainsSeries([])).toEqual({ partitions: [], data: [] })
+  })
+})
+
+describe("liftByDecile", () => {
+  it("filtra por partición (default desarrollo) y ordena por decil asc", () => {
+    const rows = liftByDecile(deciles)
+    expect(rows.map((r) => r.decile)).toEqual([1, 2, 3])
+    expect(rows.map((r) => r.lift)).toEqual([2.0, 1.5, 0.5])
+  })
+
+  it("respeta la partición pedida y devuelve [] si no está presente", () => {
+    expect(liftByDecile(deciles, "holdout").map((r) => r.decile)).toEqual([
+      1, 2, 3,
+    ])
+    expect(liftByDecile(deciles, "oot")).toEqual([])
+    expect(liftByDecile(undefined)).toEqual([])
+  })
+})
+
+describe("scoreHistogram", () => {
+  it("agrupa en bins de ancho uniforme y conserva el total", () => {
+    const values = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    const h = scoreHistogram(values, 5)
+    expect(h).not.toBeNull()
+    if (!h) return
+    expect(h.bins).toHaveLength(5)
+    expect(h.min).toBe(0)
+    expect(h.max).toBe(9)
+    expect(h.binWidth).toBeCloseTo(1.8, 10)
+    // El máximo cae en el último bin (borde derecho = max): no se pierde la cola.
+    expect(h.bins[4].x1).toBe(9)
+    // Suma de frecuencias == nº de valores finitos (invariante).
+    expect(h.bins.reduce((s, b) => s + b.count, 0)).toBe(10)
+    expect(h.count).toBe(10)
+    // Distribución uniforme → 2 por bin.
+    expect(h.bins.map((b) => b.count)).toEqual([2, 2, 2, 2, 2])
+    expect(h.mean).toBeCloseTo(4.5, 10)
+    expect(h.median).toBeCloseTo(4.5, 10)
+  })
+
+  it("usa ~24 bins por defecto", () => {
+    const values = Array.from({ length: 101 }, (_, i) => i)
+    const h = scoreHistogram(values)
+    expect(h?.bins).toHaveLength(24)
+  })
+
+  it("mediana impar = valor central", () => {
+    const h = scoreHistogram([1, 2, 3, 4, 5], 5)
+    expect(h?.median).toBe(3)
+  })
+
+  it("ignora valores no finitos y cuenta solo los finitos", () => {
+    const h = scoreHistogram([1, 2, Number.NaN, 3, Number.POSITIVE_INFINITY], 3)
+    expect(h?.count).toBe(3)
+    expect(h?.min).toBe(1)
+    expect(h?.max).toBe(3)
+  })
+
+  it("caso degenerado (todos iguales): un solo bin de ancho 0", () => {
+    const h = scoreHistogram([5, 5, 5], 10)
+    expect(h?.binWidth).toBe(0)
+    expect(h?.bins).toEqual([{ x0: 5, x1: 5, center: 5, count: 3 }])
+    expect(h?.mean).toBe(5)
+    expect(h?.median).toBe(5)
+  })
+
+  it("devuelve null sin valores finitos o sin datos", () => {
+    expect(scoreHistogram(undefined)).toBeNull()
+    expect(scoreHistogram([])).toBeNull()
+    expect(scoreHistogram([Number.NaN, Number.POSITIVE_INFINITY])).toBeNull()
   })
 })

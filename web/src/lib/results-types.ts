@@ -26,6 +26,39 @@ export interface PartitionMetrics {
   ks: number
 }
 
+/**
+ * Fila de la tabla de deciles/gains (`performance.deciles`), espejo del DTO
+ * `DecilePerformanceRecord` del backend. Hay una fila por (partición × decil): los
+ * deciles se ordenan por riesgo DESCENDENTE (decil 1 = 10% más riesgoso), así que
+ * `cum_bad_capture_rate` es la ganancia acumulada (% de malos capturados hasta ese
+ * decil) y crece hasta 1.0 en el último. Todos los floats son requeridos y finitos
+ * (el DTO fila-nivel los valida), por eso NO son nullable. La UI solo los grafica.
+ */
+export interface DecileRow {
+  partition: string
+  decile: number
+  n_total: number
+  n_bad: number
+  n_good: number
+  bad_rate: number
+  good_rate: number
+  mean_pd: number
+  min_pd: number
+  max_pd: number
+  mean_score: number
+  min_score: number
+  max_score: number
+  cum_total: number
+  cum_bad: number
+  cum_good: number
+  /** Ganancia acumulada: fracción de malos capturados hasta este decil (0–1). */
+  cum_bad_capture_rate: number
+  cum_good_capture_rate: number
+  /** Lift del decil: bad_rate del decil / bad_rate global (1 = azar). */
+  lift: number
+  ks_at_decile: number
+}
+
 /** Fila de discriminación por partición (`performance.discriminant`). */
 export interface DiscriminantRow {
   partition: string
@@ -54,7 +87,8 @@ export interface PerformanceResult {
   n_deciles: number
   thresholds?: Record<string, unknown>
   bands_by_partition?: Record<string, unknown>
-  deciles?: unknown[]
+  /** Tabla de deciles/gains (30 filas: 10 deciles × 3 particiones en el preset). */
+  deciles?: DecileRow[]
   metric_sections?: Record<string, unknown>
   dependency_versions?: Record<string, unknown>
 }
@@ -182,7 +216,8 @@ export interface ScorecardResult {
   max_score: number | null
   overrides_count: number
   points?: unknown[]
-  score_values?: unknown[]
+  /** Score fila-nivel crudo (~6000 floats) para el histograma; `null`/ausente si falta. */
+  score_values?: number[]
   metric_sections?: Record<string, unknown>
   dependency_versions?: Record<string, unknown>
 }

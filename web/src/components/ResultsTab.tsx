@@ -3,8 +3,11 @@ import { ArrowRight, ChartColumn, CircleAlert, Play } from "lucide-react"
 
 import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
 import { DiscriminationChart } from "@/components/charts/DiscriminationChart"
+import { GainsChart } from "@/components/charts/GainsChart"
 import { IvChart } from "@/components/charts/IvChart"
+import { LiftChart } from "@/components/charts/LiftChart"
 import { PsiByComparisonChart } from "@/components/charts/PsiByComparisonChart"
+import { ScoreHistogramChart } from "@/components/charts/ScoreHistogramChart"
 import { StabilityBandLegend } from "@/components/charts/StabilityBandLegend"
 import { StabilityCsiChart } from "@/components/charts/StabilityCsiChart"
 import { bandColor, bandLabel } from "@/components/charts/chart-theme"
@@ -21,7 +24,12 @@ import {
   formatMetric,
   formatPValue,
   formatPercent,
+  gainsSeries,
+  liftByDecile,
+  partitionLabel,
+  primaryPartition,
   psiBars,
+  scoreHistogram,
   sortByIv,
   temporalScore,
 } from "@/lib/results-format"
@@ -36,11 +44,11 @@ interface ResultsTabProps {
 /**
  * Pestaña Resultados (SDD-23 §1/§7.5): FORMATEA/GRAFICA los artefactos que la corrida
  * ya dejó en el store (`results`), con CERO lógica de dominio (cada número/barra viene
- * del artefacto). Primer batch de visores premium (Recharts): discriminación, forest de
- * coeficientes e IV por variable; los valores exactos quedan a mano en tablas/detalle.
- * Los visores restantes (curvas WoE, gains/lift, histograma de score, calibración) son
- * un batch posterior; aquí no se adelantan. Robusta a corridas `failed`/parciales:
- * muestra el `error` y solo las secciones presentes.
+ * del artefacto). Visores premium (Recharts): discriminación, gains/lift por decil,
+ * estabilidad (PSI/CSI), forest de coeficientes, IV por variable e histograma del score;
+ * los valores exactos quedan a mano en tablas/detalle. Las curvas WoE por variable y la
+ * confiabilidad de calibración son un batch posterior; aquí no se adelantan. Robusta a
+ * corridas `failed`/parciales: muestra el `error` y solo las secciones presentes.
  */
 export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const { results, lastRun, validation } = useAppState()
@@ -82,6 +90,16 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const finalFeatures = results.model?.final_features ?? []
   const sc = results.scorecard
   const cal = results.calibration
+
+  // Deciles → gains/lift (2º batch de visores). Guard por presencia: si la corrida no dejó
+  // la tabla de deciles, las secciones no se renderizan.
+  const deciles = results.performance?.deciles
+  const gains = gainsSeries(deciles)
+  const liftPartition = primaryPartition(deciles)
+  const lift = liftPartition ? liftByDecile(deciles, liftPartition) : []
+
+  // Histograma de la distribución del score (binning de PRESENTACIÓN, helper testeado).
+  const scoreHist = scoreHistogram(sc?.score_values)
 
   // Estabilidad (PSI/CSI): la sección se muestra solo si la corrida la calculó.
   const stab = results.stability ?? null
@@ -171,6 +189,26 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
         </ResultsSection>
       ) : null}
 
+      {/* a.1 Discriminación acumulada (gains/lift): la curva de ganancias vs. el azar y el
+          lift por decil. Guard por presencia: sin tabla de deciles, no se renderiza. */}
+      {gains.data.length > 0 || lift.length > 0 ? (
+        <ResultsSection
+          title="Discriminación acumulada — Gains y Lift"
+          description="Curva de ganancias: % de malos capturados (eje Y) al recorrer los deciles del más al menos riesgoso (eje X); la diagonal punteada es el modelo aleatorio. El lift por decil mide cuántas veces más concentra malos que la media (1× = azar)."
+        >
+          {gains.data.length > 0 ? (
+            <Subchart title="Curva de ganancias (captura acumulada de malos)">
+              <GainsChart series={gains} />
+            </Subchart>
+          ) : null}
+          {lift.length > 0 && liftPartition ? (
+            <Subchart title={`Lift por decil — ${partitionLabel(liftPartition)}`}>
+              <LiftChart rows={lift} partition={liftPartition} />
+            </Subchart>
+          ) : null}
+        </ResultsSection>
+      ) : null}
+
       {/* a.2 Estabilidad del score (PSI/CSI): drift de score/PD y de las variables en OOT.
           Guard por presencia: si estabilidad no corrió, la sección no se renderiza. */}
       {hasStability && stab ? (
@@ -184,36 +222,36 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           {scorePsi.length > 0 || pdPsi.length > 0 ? (
             <div className="grid gap-x-6 gap-y-4 lg:grid-cols-2">
               {scorePsi.length > 0 ? (
-                <StabilitySubchart title="PSI del score">
+                <Subchart title="PSI del score">
                   <PsiByComparisonChart
                     rows={scorePsi}
                     stableThreshold={stab.stable_threshold}
                     reviewThreshold={stab.review_threshold}
                   />
-                </StabilitySubchart>
+                </Subchart>
               ) : null}
               {pdPsi.length > 0 ? (
-                <StabilitySubchart title="PSI de la PD calibrada">
+                <Subchart title="PSI de la PD calibrada">
                   <PsiByComparisonChart
                     rows={pdPsi}
                     stableThreshold={stab.stable_threshold}
                     reviewThreshold={stab.review_threshold}
                   />
-                </StabilitySubchart>
+                </Subchart>
               ) : null}
             </div>
           ) : null}
 
           {/* 3. CSI por característica (destaca la peor). */}
           {csi.length > 0 ? (
-            <StabilitySubchart title="CSI por característica">
+            <Subchart title="CSI por característica">
               <StabilityCsiChart
                 rows={csi}
                 worst={stab.worst_csi_feature}
                 stableThreshold={stab.stable_threshold}
                 reviewThreshold={stab.review_threshold}
               />
-            </StabilitySubchart>
+            </Subchart>
           ) : null}
 
           {/* 4. (Opcional) escalar de estabilidad temporal del score. */}
@@ -366,6 +404,17 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           </dl>
         </ResultsSection>
       ) : null}
+
+      {/* f. Distribución del score: histograma de la muestra cruda (binning de presentación).
+          Guard por presencia: si `score_values` falta o viene vacío, no se renderiza. */}
+      {scoreHist ? (
+        <ResultsSection
+          title="Distribución del score"
+          description={`Histograma de los ${formatCount(scoreHist.count)} puntajes de la muestra. Eje X = score, Y = frecuencia; se marcan la media y la mediana como referencia del centro.`}
+        >
+          <ScoreHistogramChart histogram={scoreHist} />
+        </ResultsSection>
+      ) : null}
     </div>
   )
 }
@@ -405,8 +454,8 @@ function ResultsSection({
   )
 }
 
-/** Encabezado + contenedor de un mini-chart de estabilidad (título tenue sobre el chart). */
-function StabilitySubchart({
+/** Encabezado + contenedor de un sub-chart dentro de una sección (título tenue sobre el chart). */
+function Subchart({
   title,
   children,
 }: {

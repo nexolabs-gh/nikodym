@@ -6,6 +6,7 @@
  */
 
 import type {
+  DecileRow,
   PerformanceResult,
   StabilityBand,
   StabilityMetricRow,
@@ -257,4 +258,231 @@ export function bandsPresent(
   return order.filter(
     (b) => b !== "not_evaluable" || present.has("not_evaluable"),
   )
+}
+
+// --- deciles: gains / lift --------------------------------------------------
+
+/** Orden canónico de particiones en los charts (desconocida → al final). */
+const PARTITION_ORDER = ["desarrollo", "holdout", "oot"] as const
+
+/** Índice de orden de una partición (fuera del orden canónico → al final). */
+function partitionRank(partition: string): number {
+  const i = PARTITION_ORDER.indexOf(
+    partition as (typeof PARTITION_ORDER)[number],
+  )
+  return i === -1 ? PARTITION_ORDER.length : i
+}
+
+/**
+ * Etiqueta legible de una partición. Fallback: el propio slug (no oculta nada).
+ * Presentación pura, sin lógica de dominio.
+ */
+export function partitionLabel(partition: string): string {
+  switch (partition) {
+    case "desarrollo":
+      return "Desarrollo"
+    case "holdout":
+      return "Holdout"
+    case "oot":
+      return "OOT"
+    default:
+      return partition
+  }
+}
+
+/**
+ * Partición "principal" para los charts de una sola serie (lift): la preferida
+ * (`desarrollo` por defecto) si está presente, si no la primera que aparezca; `null`
+ * si no hay deciles. NO calcula nada: solo elige qué partición mostrar.
+ */
+export function primaryPartition(
+  deciles: DecileRow[] | undefined,
+  preferred = "desarrollo",
+): string | null {
+  if (!deciles || deciles.length === 0) return null
+  if (deciles.some((d) => d.partition === preferred)) return preferred
+  return deciles[0]?.partition ?? null
+}
+
+/**
+ * Punto de la curva de ganancias. `decile` es el eje X (0 = ancla de origen, ver más
+ * abajo); `random` es la diagonal del modelo aleatorio; cada clave de partición trae su
+ * `cum_bad_capture_rate` en ese decil (o `null` si esa partición no tiene ese decil).
+ */
+export interface GainsRow {
+  decile: number
+  random: number
+  [partition: string]: number | null
+}
+
+/** Serie de ganancias lista para Recharts: qué particiones hay y los puntos por decil. */
+export interface GainsSeries {
+  /** Particiones presentes, en orden canónico (desarrollo → holdout → oot → …). */
+  partitions: string[]
+  data: GainsRow[]
+}
+
+/**
+ * Deriva la curva de ganancias (gains) desde `performance.deciles`: para cada partición,
+ * `cum_bad_capture_rate` (Y, 0–1) por decil (X). Añade la diagonal `random` (modelo
+ * aleatorio: decil k → k/N, con N = nº de deciles presentes) y una fila ANCLA en el
+ * origen (decil 0 → 0 en todas las series): 0 deciles examinados capturan 0% de malos,
+ * es el punto definitorio (0,0) —igual estatus que la diagonal de referencia—, NO un
+ * dato fabricado del backend. CERO cálculo de dominio: solo selecciona/reordena lo que el
+ * backend ya materializó y añade referencias de lectura.
+ */
+export function gainsSeries(deciles: DecileRow[] | undefined): GainsSeries {
+  if (!deciles || deciles.length === 0) return { partitions: [], data: [] }
+
+  const partitions = [...new Set(deciles.map((d) => d.partition))].sort(
+    (a, b) => partitionRank(a) - partitionRank(b),
+  )
+  const decileNums = [...new Set(deciles.map((d) => d.decile))].sort(
+    (a, b) => a - b,
+  )
+  if (decileNums.length === 0) return { partitions: [], data: [] }
+  const maxDecile = decileNums[decileNums.length - 1] ?? 1
+
+  // Índice (partición|decil) → ganancia acumulada, para armar cada fila del eje X.
+  const capture = new Map<string, number>()
+  for (const d of deciles) {
+    capture.set(`${d.partition}|${d.decile}`, d.cum_bad_capture_rate)
+  }
+
+  const origin: GainsRow = { decile: 0, random: 0 }
+  for (const p of partitions) origin[p] = 0
+
+  const data: GainsRow[] = [origin]
+  for (const k of decileNums) {
+    const row: GainsRow = { decile: k, random: maxDecile > 0 ? k / maxDecile : 0 }
+    for (const p of partitions) {
+      const v = capture.get(`${p}|${k}`)
+      row[p] = v === undefined ? null : v
+    }
+    data.push(row)
+  }
+
+  return { partitions, data }
+}
+
+/** Fila de lift por decil (para el chart de barras de una partición). */
+export interface LiftRow {
+  decile: number
+  lift: number
+  bad_rate: number
+  n_total: number
+}
+
+/**
+ * Lift por decil de UNA partición (default `desarrollo`), ordenado por decil ascendente.
+ * NO recalcula: `lift`/`bad_rate` vienen del artefacto. Devuelve `[]` si la partición no
+ * está presente.
+ */
+export function liftByDecile(
+  deciles: DecileRow[] | undefined,
+  partition = "desarrollo",
+): LiftRow[] {
+  if (!deciles || deciles.length === 0) return []
+  return deciles
+    .filter((d) => d.partition === partition)
+    .sort((a, b) => a.decile - b.decile)
+    .map((d) => ({
+      decile: d.decile,
+      lift: d.lift,
+      bad_rate: d.bad_rate,
+      n_total: d.n_total,
+    }))
+}
+
+// --- histograma del score (PRESENTACIÓN pura, testeada) ---------------------
+
+/** Un bin del histograma: [x0, x1) con su punto medio y su frecuencia. */
+export interface HistogramBin {
+  /** Límite inferior del bin (score). */
+  x0: number
+  /** Límite superior del bin (score). */
+  x1: number
+  /** Punto medio del bin (posición del eje X). */
+  center: number
+  /** Frecuencia (nº de observaciones en el bin). */
+  count: number
+}
+
+/** Histograma del score + estadísticos descriptivos de la muestra dibujada. */
+export interface ScoreHistogram {
+  bins: HistogramBin[]
+  /** Ancho de bin ((max−min)/nBins); 0 en el caso degenerado (todos iguales). */
+  binWidth: number
+  min: number
+  max: number
+  /** Nº de valores finitos considerados. */
+  count: number
+  /** Media de la muestra dibujada (referencia de lectura, no un corte de dominio). */
+  mean: number
+  /** Mediana de la muestra dibujada (referencia de lectura). */
+  median: number
+}
+
+/**
+ * Agrupa los ~6000 scores crudos en bins de ancho uniforme para DIBUJAR el histograma.
+ * Esto es PRESENTACIÓN (min/max/ancho de bin), NO lógica de dominio: no umbraliza ni
+ * decide cortes de riesgo. La media/mediana son estadísticos descriptivos de la MISMA
+ * muestra que se dibuja (referencias de lectura, igual naturaleza que el conteo por bin).
+ * Helper puro y testeable. Devuelve `null` si no hay valores finitos (guard por presencia).
+ * El valor máximo cae en el último bin (borde derecho cerrado) para no perder la cola.
+ */
+export function scoreHistogram(
+  values: readonly number[] | undefined,
+  binCount = 24,
+): ScoreHistogram | null {
+  if (!values || values.length === 0) return null
+  const finite = values.filter((v) => Number.isFinite(v))
+  if (finite.length === 0) return null
+
+  const bins = Math.max(1, Math.floor(binCount))
+  let min = finite[0]
+  let max = finite[0]
+  let sum = 0
+  for (const v of finite) {
+    if (v < min) min = v
+    if (v > max) max = v
+    sum += v
+  }
+  const mean = sum / finite.length
+
+  const sorted = [...finite].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  const median =
+    sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+
+  const range = max - min
+  // Degenerado (todos iguales): un solo bin centrado en el valor común.
+  if (range === 0) {
+    return {
+      bins: [{ x0: min, x1: max, center: min, count: finite.length }],
+      binWidth: 0,
+      min,
+      max,
+      count: finite.length,
+      mean,
+      median,
+    }
+  }
+
+  const binWidth = range / bins
+  const counts = new Array<number>(bins).fill(0)
+  for (const v of finite) {
+    let idx = Math.floor((v - min) / binWidth)
+    if (idx >= bins) idx = bins - 1 // el máximo cae en el último bin
+    if (idx < 0) idx = 0
+    counts[idx] += 1
+  }
+
+  const out: HistogramBin[] = counts.map((count, i) => {
+    const x0 = min + i * binWidth
+    const x1 = i === bins - 1 ? max : min + (i + 1) * binWidth
+    return { x0, x1, center: (x0 + x1) / 2, count }
+  })
+
+  return { bins: out, binWidth, min, max, count: finite.length, mean, median }
 }

@@ -30,8 +30,30 @@ export const METRIC_COLORS = {
   ks: BRAND.placeholder,
 } as const
 
-/** Color primario de barras de una sola serie (IV). */
+/** Color primario de barras de una sola serie (IV, histograma). */
 export const BAR_PRIMARY = BRAND.accentDark
+
+/**
+ * Paleta por partición (gains/lift): desarrollo DESTACADO (cyan brillante), holdout/oot
+ * TENUES (azul medio / gris), para leer "desarrollo vs el resto" de un vistazo. MISMO
+ * color = MISMA partición. Accesibilidad: el color nunca es el único distintivo (leyenda
+ * + labels de eje textuales acompañan siempre).
+ */
+export const PARTITION_COLORS: Record<string, string> = {
+  desarrollo: BRAND.cyan,
+  holdout: BRAND.accentDark,
+  oot: BRAND.gray,
+} as const
+
+/** Color de una partición; fallback neutro para una partición no prevista (robustez). */
+export function partitionColor(partition: string): string {
+  return PARTITION_COLORS[partition] ?? BRAND.placeholder
+}
+
+/** ¿Es la partición la principal (desarrollo)? Decide el resalte visual en los charts. */
+export function isPrimaryPartition(partition: string): boolean {
+  return partition === "desarrollo"
+}
 
 /**
  * Paleta SEMÁNTICA de bandas de estabilidad (PSI/CSI), tipo semáforo sobre navy:
