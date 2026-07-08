@@ -58,13 +58,28 @@ class CalibrationConfig(NikodymBaseConfig):
         default="standard",
         title="Tipo de sección calibration",
         description="== @register('standard', domain='calibration') (SDD-10 §4).",
-        json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 0},
+        json_schema_extra={
+            "ui_widget": "hidden",
+            "ui_group": "General",
+            "ui_order": 0,
+            "ui_help": "Identificador interno del tipo de sección; no requiere edición.",
+        },
     )
     method: CalibrationMethod = Field(
         default="intercept_offset",
         title="Método de calibración",
         description="Método usado para transformar PD cruda en PD calibrada.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Método", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "selectbox",
+            "ui_group": "Método",
+            "ui_order": 1,
+            "ui_help": (
+                "Cómo se pasa de PD cruda a PD calibrada: desplazamiento de intercepto (solo "
+                "ajusta el nivel, preserva el orden de riesgo; es el default) o escalamiento de "
+                "Platt / isotónica (ambos re-entrenan con el target de Desarrollo antes de "
+                "anclar)."
+            ),
+        },
     )
     target_pd: float | None = Field(
         default=None,
@@ -79,13 +94,32 @@ class CalibrationConfig(NikodymBaseConfig):
             "fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la "
             "configuración falla en vez de anclar a un número inventado."
         ),
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Ancla", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Ancla",
+            "ui_order": 1,
+            "ui_help": (
+                "Tasa central (PD promedio) a la que se ancla la calibración. Debe informarse "
+                "si la fuente de la ancla no se deriva de Desarrollo; si se deja vacía con "
+                "anchor_source='development_observed', se calcula sola como el promedio "
+                "observado."
+            ),
+        },
     )
     anchor_kind: AnchorKind = Field(
         default="through_the_cycle",
         title="Tipo de ancla",
         description="Define si el anclaje representa una visión TTC o PIT.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Ancla", "ui_order": 2},
+        json_schema_extra={
+            "ui_widget": "selectbox",
+            "ui_group": "Ancla",
+            "ui_order": 2,
+            "ui_help": (
+                "Etiqueta si la tasa de ancla representa una visión de largo plazo (through the "
+                "cycle) o del momento actual (point in time). Debe ser coherente con la fuente "
+                "elegida en anchor_source."
+            ),
+        },
     )
     anchor_source: AnchorSource = Field(
         default="development_observed",
@@ -94,20 +128,46 @@ class CalibrationConfig(NikodymBaseConfig):
             "Origen auditable de la tasa central. Por default se deriva del target de Desarrollo "
             "como long-run average TTC."
         ),
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Ancla", "ui_order": 3},
+        json_schema_extra={
+            "ui_widget": "selectbox",
+            "ui_group": "Ancla",
+            "ui_order": 3,
+            "ui_help": (
+                "De dónde sale la tasa central: puede fijarse a mano (negocio, histórico o "
+                "regulatorio, informando PD objetivo) o calcularse sola como el promedio "
+                "observado en Desarrollo (opción por defecto, sin PD objetivo)."
+            ),
+        },
     )
     fit_partition: Literal["desarrollo"] = Field(
         default="desarrollo",
         title="Partición de ajuste",
         description="Partición fija usada para ajustar calibration; no se parametriza en v1.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Ajuste", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "selectbox",
+            "ui_group": "Ajuste",
+            "ui_order": 1,
+            "ui_help": (
+                "Partición usada para ajustar la calibración. Fija en Desarrollo en esta "
+                "versión; no editable en la práctica."
+            ),
+        },
     )
     target_tolerance: float = Field(
         default=1e-12,
         gt=0.0,
         title="Tolerancia de media PD",
         description="Tolerancia máxima entre la media PD calibrada y la PD objetivo.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Ajuste", "ui_order": 2},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Ajuste",
+            "ui_order": 2,
+            "ui_help": (
+                "Margen de error máximo tolerado entre la PD calibrada promedio y la PD "
+                "objetivo. Si el ajuste no logra acercarse lo suficiente, el proceso falla en "
+                "vez de publicar un número impreciso."
+            ),
+        },
     )
     max_abs_offset: float | None = Field(
         default=None,
@@ -116,63 +176,136 @@ class CalibrationConfig(NikodymBaseConfig):
             "Guard opcional del desplazamiento de reanclaje a tasa central. Con None se audita "
             "el offset extremo sin fallar; si se informa, debe ser finito y mayor que 0."
         ),
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Ajuste", "ui_order": 3},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Ajuste",
+            "ui_order": 3,
+            "ui_help": (
+                "Tope opcional al tamaño del desplazamiento usado para anclar la PD. Con un "
+                "valor definido, un desplazamiento mayor hace fallar el ajuste; déjelo vacío "
+                "para solo dejarlo registrado en auditoría sin bloquear."
+            ),
+        },
     )
     max_iter: int = Field(
         default=100,
         ge=1,
         title="Iteraciones máximas del solver",
         description="Máximo de iteraciones permitidas al resolver parámetros de calibración.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Ajuste", "ui_order": 4},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Ajuste",
+            "ui_order": 4,
+            "ui_help": (
+                "Máximo de iteraciones que el solver numérico puede usar para encontrar el "
+                "ajuste. Suba este valor solo si el ajuste falla por no converger."
+            ),
+        },
     )
     min_fit_rows: int = Field(
         default=30,
         ge=1,
         title="Mínimo de filas de Desarrollo",
         description="Guard técnico mínimo de filas en Desarrollo para aceptar el ajuste.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Ajuste", "ui_order": 5},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Ajuste",
+            "ui_order": 5,
+            "ui_help": (
+                "Mínimo de filas de Desarrollo exigido para aceptar el ajuste; evita calibrar "
+                "con una muestra demasiado chica."
+            ),
+        },
     )
     require_both_classes_for_supervised: bool = Field(
         default=True,
         title="Exigir ambas clases para Platt/isotónica",
         description="Si el método es supervisado, exige clases 0 y 1 en Desarrollo durante fit.",
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Ajuste", "ui_order": 6},
+        json_schema_extra={
+            "ui_widget": "checkbox",
+            "ui_group": "Ajuste",
+            "ui_order": 6,
+            "ui_help": (
+                "Exige que Desarrollo tenga casos con y sin incumplimiento antes de ajustar "
+                "Platt o isotónica. En esta versión debe mantenerse activado si se usa alguno "
+                "de esos métodos."
+            ),
+        },
     )
     pd_raw_column: str = Field(
         default="pd_raw",
         title="Columna PD cruda",
         description="Columna de entrada con la probabilidad de default cruda del modelo.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+            "ui_help": "Columna de entrada con la PD cruda (sin calibrar) que entrega el modelo.",
+        },
     )
     linear_predictor_column: str = Field(
         default="linear_predictor",
         title="Columna logit crudo",
         description="Columna de entrada con el predictor lineal crudo del modelo.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+            "ui_help": (
+                "Columna de entrada con el logit (predictor lineal) crudo del modelo, antes de "
+                "calibrar."
+            ),
+        },
     )
     pd_calibrated_column: str = Field(
         default="pd_calibrated",
         title="Columna PD calibrada",
         description="Columna de salida que contendrá la probabilidad de default calibrada.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 3,
+            "ui_help": "Columna de salida donde queda escrita la PD ya calibrada.",
+        },
     )
     linear_predictor_calibrated_column: str = Field(
         default="linear_predictor_calibrated",
         title="Columna logit calibrado",
         description="Columna de salida que contendrá el predictor lineal calibrado.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 4},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 4,
+            "ui_help": "Columna de salida con el logit (predictor lineal) ya calibrado.",
+        },
     )
     partition_column: str = Field(
         default="partition",
         title="Columna partición",
         description="Columna estructural que identifica Desarrollo, Holdout, OOT y exclusiones.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 5},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 5,
+            "ui_help": (
+                "Columna que indica a qué partición pertenece cada fila (Desarrollo, Holdout, "
+                "OOT u otra); define qué filas se usan para el ajuste."
+            ),
+        },
     )
     target_column: str = Field(
         default="target",
         title="Columna target",
         description="Columna binaria 0/1 usada por métodos supervisados durante fit.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 6},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 6,
+            "ui_help": (
+                "Columna binaria de incumplimiento observado (0/1), usada para calcular la "
+                "tasa central automática y para ajustar Platt e isotónica."
+            ),
+        },
     )
 
     @field_validator("target_pd", mode="before")

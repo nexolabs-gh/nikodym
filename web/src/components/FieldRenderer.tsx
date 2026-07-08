@@ -26,6 +26,7 @@ import {
   discriminatedBranches,
   discriminatorProperty,
   enumOptions,
+  fieldHelp,
   fieldLabel,
   fieldPlaceholder,
   multiselectOptions,
@@ -97,8 +98,7 @@ function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
   if (hideLabel) return <>{children}</>
   const id = path.join(".")
   const label = fieldLabel(name, schema)
-  const description =
-    typeof schema.description === "string" ? schema.description : undefined
+  const help = fieldHelp(schema)
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
@@ -106,7 +106,7 @@ function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
           {label}
           {required ? <span className="text-brand-cyan"> *</span> : null}
         </Label>
-        {description ? (
+        {help ? (
           <Tooltip>
             <TooltipTrigger
               className="text-brand-placeholder transition-colors hover:text-brand-cyan"
@@ -114,7 +114,7 @@ function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
             >
               <Info className="size-3.5" />
             </TooltipTrigger>
-            <TooltipContent>{description}</TooltipContent>
+            <TooltipContent>{help}</TooltipContent>
           </Tooltip>
         ) : null}
       </div>
@@ -455,8 +455,7 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
     props
   const depth = props.depth ?? 0
   const label = fieldLabel(name, schema)
-  const description =
-    typeof schema.description === "string" ? schema.description : undefined
+  const help = fieldHelp(schema)
   const active = value !== null && value !== undefined
   const id = path.join(".")
 
@@ -477,7 +476,7 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
           {label}
           {required ? <span className="text-brand-cyan"> *</span> : null}
         </Label>
-        {description ? (
+        {help ? (
           <Tooltip>
             <TooltipTrigger
               className="text-brand-placeholder transition-colors hover:text-brand-cyan"
@@ -485,7 +484,7 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
             >
               <Info className="size-3.5" />
             </TooltipTrigger>
-            <TooltipContent>{description}</TooltipContent>
+            <TooltipContent>{help}</TooltipContent>
           </Tooltip>
         ) : null}
         {active ? null : (

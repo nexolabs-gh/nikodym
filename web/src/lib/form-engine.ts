@@ -42,6 +42,8 @@ export interface JsonSchema {
   ui_widget?: string
   ui_group?: string
   ui_order?: number
+  /** Texto de ayuda HUMANO por campo (tooltip ⓘ); si falta, el front cae en `description`. */
+  ui_help?: string
   [key: string]: unknown
 }
 
@@ -142,6 +144,7 @@ export function unwrapNullable(schema: JsonSchema): {
         ui_widget: schema.ui_widget ?? base.ui_widget,
         ui_group: schema.ui_group ?? base.ui_group,
         ui_order: schema.ui_order ?? base.ui_order,
+        ui_help: schema.ui_help ?? base.ui_help,
       },
       nullable: true,
     }
@@ -189,6 +192,18 @@ export function fieldLabel(name: string, schema: JsonSchema): string {
   return typeof schema.title === "string" && schema.title.length > 0
     ? schema.title
     : name
+}
+
+/**
+ * Texto de ayuda del tooltip ⓘ (contrato B31): el `ui_help` humano curado en el backend, con
+ * fallback a la `description` técnica de Pydantic mientras un campo aún no tenga `ui_help`.
+ * `undefined` si el campo no trae ninguno de los dos (no se pinta tooltip).
+ */
+export function fieldHelp(schema: JsonSchema): string | undefined {
+  if (typeof schema.ui_help === "string" && schema.ui_help.length > 0) {
+    return schema.ui_help
+  }
+  return typeof schema.description === "string" ? schema.description : undefined
 }
 
 /** Formatea un valor de `examples` como hint legible (string tal cual; el resto vía JSON). */

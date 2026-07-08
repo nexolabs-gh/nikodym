@@ -7,6 +7,7 @@ import {
   discriminatedBranches,
   discriminatorProperty,
   enumOptions,
+  fieldHelp,
   fieldLabel,
   fieldPlaceholder,
   groupedFields,
@@ -300,6 +301,15 @@ describe("orderedFields y fieldLabel", () => {
   it("fieldLabel usa title o cae al nombre", () => {
     expect(fieldLabel("pdo", { title: "PDO" })).toBe("PDO")
     expect(fieldLabel("pdo", {})).toBe("pdo")
+  })
+
+  it("fieldHelp prefiere ui_help y cae en description (B31)", () => {
+    expect(
+      fieldHelp({ ui_help: "Ayuda humana.", description: "Jerga técnica." }),
+    ).toBe("Ayuda humana.")
+    expect(fieldHelp({ description: "Jerga técnica." })).toBe("Jerga técnica.")
+    expect(fieldHelp({ ui_help: "", description: "Fallback." })).toBe("Fallback.")
+    expect(fieldHelp({})).toBeUndefined()
   })
 })
 

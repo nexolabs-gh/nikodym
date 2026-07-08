@@ -41,25 +41,57 @@ class PointOverrideConfig(NikodymBaseConfig):
         default=...,
         title="Variable",
         description="Nombre de la variable cuyo bin recibe un override manual de puntos.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Overrides", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Overrides",
+            "ui_order": 1,
+            "ui_help": (
+                "Nombre exacto de la variable, tal como aparece en el modelo, cuyo bin se "
+                "fuerza manualmente."
+            ),
+        },
     )
     bin_label: str = Field(
         default=...,
         title="Bin",
         description="Etiqueta del bin al que se le fuerza un puntaje publicado.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Overrides", "ui_order": 2},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Overrides",
+            "ui_order": 2,
+            "ui_help": (
+                "Etiqueta exacta del bin, tal como aparece en la tabla de binning de esa "
+                "variable. Si no calza exactamente, el override no se aplica."
+            ),
+        },
     )
     points: int | float = Field(
         default=...,
         title="Puntos forzados",
         description="Puntos publicados para la pareja variable/bin indicada.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Overrides", "ui_order": 3},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Overrides",
+            "ui_order": 3,
+            "ui_help": (
+                "Puntaje que se publica para esta variable/bin en vez del calculado por "
+                "fórmula a partir del WoE y el coeficiente."
+            ),
+        },
     )
     reason: str = Field(
         default=...,
         title="Justificación",
         description="Razón auditable que explica por qué el override manual es necesario.",
-        json_schema_extra={"ui_widget": "text_area", "ui_group": "Overrides", "ui_order": 4},
+        json_schema_extra={
+            "ui_widget": "text_area",
+            "ui_group": "Overrides",
+            "ui_order": 4,
+            "ui_help": (
+                "Explicación obligatoria de por qué se fuerza este puntaje manualmente; "
+                "queda registrada para auditoría y no puede quedar vacía."
+            ),
+        },
     )
 
     @model_validator(mode="after")
@@ -79,81 +111,187 @@ class ScorecardConfig(NikodymBaseConfig):
         default="standard",
         title="Tipo de sección scorecard",
         description="== @register('standard', domain='scorecard') (D-SCR-7).",
-        json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 0},
+        json_schema_extra={
+            "ui_widget": "hidden",
+            "ui_group": "General",
+            "ui_order": 0,
+            "ui_help": "Identificador interno del tipo de sección; no requiere edición.",
+        },
     )
     pdo: float = Field(
         default=20.0,
         gt=0.0,
         title="PDO",
         description="Puntos necesarios para duplicar los odds definidos por la dirección.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Escala", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Escala",
+            "ui_order": 1,
+            "ui_help": (
+                "Cuántos puntos de score se necesitan para duplicar el ratio de buenos "
+                "sobre malos (odds). Un PDO menor hace el score más sensible: la misma "
+                "diferencia de riesgo se traduce en más puntos de separación."
+            ),
+        },
     )
     target_score: float = Field(
         default=600.0,
         title="Score objetivo",
         description="Score asignado a una observación con los odds objetivo configurados.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Escala", "ui_order": 2},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Escala",
+            "ui_order": 2,
+            "ui_help": (
+                "Puntaje que recibe una observación cuyos odds de buenos/malos son "
+                "exactamente los odds objetivo. Es el punto de anclaje de toda la escala."
+            ),
+        },
     )
     target_odds: float = Field(
         default=50.0,
         gt=0.0,
         title="Odds objetivo buenos/malos",
         description="Odds de referencia asociados al score objetivo según la dirección.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Escala", "ui_order": 3},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Escala",
+            "ui_order": 3,
+            "ui_help": (
+                "Odds buenos/malos (ej. 50 significa 50 buenos por cada malo) usados como "
+                "referencia para anclar la escala junto con el score objetivo."
+            ),
+        },
     )
     score_direction: ScoreDirection = Field(
         default="higher_is_lower_risk",
         title="Dirección del score",
         description="Define si un score mayor representa menor riesgo o mayor riesgo.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Escala", "ui_order": 4},
+        json_schema_extra={
+            "ui_widget": "selectbox",
+            "ui_group": "Escala",
+            "ui_order": 4,
+            "ui_help": (
+                "Define si un score más alto significa menor riesgo (convención habitual) "
+                "o mayor riesgo. Cambiarlo invierte el sentido de todos los puntajes."
+            ),
+        },
     )
     intercept_allocation: InterceptAllocation = Field(
         default="uniform",
         title="Distribución del intercepto",
         description="Distribuye el intercepto de forma uniforme entre variables finales.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Escala", "ui_order": 5},
+        json_schema_extra={
+            "ui_widget": "selectbox",
+            "ui_group": "Escala",
+            "ui_order": 5,
+            "ui_help": (
+                "Cómo se reparte el intercepto del modelo entre las variables finales al "
+                "calcular los puntos. Hoy solo existe reparto uniforme (a partes iguales)."
+            ),
+        },
     )
     rounding_method: RoundingMethod = Field(
         default="nearest_integer",
         title="Redondeo de puntos",
         description="Método para publicar puntos por atributo a partir de puntos crudos.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Publicación", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "selectbox",
+            "ui_group": "Publicación",
+            "ui_order": 1,
+            "ui_help": (
+                "Cómo se redondean los puntos calculados por fórmula antes de publicarlos: "
+                "sin redondeo, al entero más cercano, hacia abajo o hacia arriba. Afecta el "
+                "puntaje final, no solo su presentación."
+            ),
+        },
     )
     output_suffix: str = Field(
         default="__points",
         title="Sufijo columnas de puntos",
         description="Sufijo usado para crear una columna de puntos por variable final.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Salida", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Salida",
+            "ui_order": 1,
+            "ui_help": (
+                "Texto que se agrega al nombre de cada variable para nombrar su columna de "
+                "puntos (variable + este sufijo). No puede quedar vacío."
+            ),
+        },
     )
     score_column: str = Field(
         default="score",
         title="Columna score total",
         description="Nombre de la columna que contendrá el score total por registro.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Salida", "ui_order": 2},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "Salida",
+            "ui_order": 2,
+            "ui_help": (
+                "Nombre de la columna con el puntaje total por registro (suma de los "
+                "puntos de todas las variables). No puede coincidir en terminación con el "
+                "sufijo de puntos ni quedar vacío."
+            ),
+        },
     )
     min_score: float | None = Field(
         default=None,
         title="Score mínimo permitido",
         description="Límite inferior opcional para diagnóstico o clipping del score total.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Rango", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Rango",
+            "ui_order": 1,
+            "ui_help": (
+                "Puntaje mínimo de referencia para detectar scores fuera de rango. Si "
+                "además se activa recortar, los scores por debajo se ajustan a este valor."
+            ),
+        },
     )
     max_score: float | None = Field(
         default=None,
         title="Score máximo permitido",
         description="Límite superior opcional para diagnóstico o clipping del score total.",
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Rango", "ui_order": 2},
+        json_schema_extra={
+            "ui_widget": "number_input",
+            "ui_group": "Rango",
+            "ui_order": 2,
+            "ui_help": (
+                "Puntaje máximo de referencia para detectar scores fuera de rango. Si "
+                "además se activa recortar, los scores por encima se ajustan a este valor."
+            ),
+        },
     )
     clip: bool = Field(
         default=False,
         title="Recortar scores fuera de rango",
         description="Si True, recorta el score total a los límites configurados y lo audita.",
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Rango", "ui_order": 3},
+        json_schema_extra={
+            "ui_widget": "checkbox",
+            "ui_group": "Rango",
+            "ui_order": 3,
+            "ui_help": (
+                "Si se activa, los scores fuera de los límites mínimo/máximo se recortan a "
+                "esos límites y la operación queda auditada. Requiere haber definido al "
+                "menos un límite."
+            ),
+        },
     )
     point_overrides: tuple[PointOverrideConfig, ...] = Field(
         default_factory=tuple,
         title="Overrides manuales de puntos",
         description="Overrides manuales auditables por pareja variable/bin; vacío por defecto.",
-        json_schema_extra={"ui_widget": "table", "ui_group": "Overrides", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "table",
+            "ui_group": "Overrides",
+            "ui_order": 1,
+            "ui_help": (
+                "Lista de overrides manuales de puntaje por variable/bin, cada uno con su "
+                "justificación auditada. Vacía por defecto: el scorecard se calcula "
+                "íntegramente por fórmula."
+            ),
+        },
     )
 
     @field_validator("pdo", "target_odds", mode="before")
