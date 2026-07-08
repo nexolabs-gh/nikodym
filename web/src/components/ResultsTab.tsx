@@ -1,6 +1,9 @@
 import { type ReactNode, useId } from "react"
 import { ArrowRight, ChartColumn, CircleAlert, Play } from "lucide-react"
 
+import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
+import { DiscriminationChart } from "@/components/charts/DiscriminationChart"
+import { IvChart } from "@/components/charts/IvChart"
 import { EmptyState } from "@/components/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -23,11 +26,13 @@ interface ResultsTabProps {
 }
 
 /**
- * Pestaña Resultados v1 SOBRIA (SDD-23 §1/§7.5): FORMATEA en tablas/definiciones los
- * artefactos que la corrida ya dejó en el store (`results`), sin gráficos ni cálculo
- * propio (CERO lógica de dominio: cada número viene del artefacto). Los visores premium
- * (forest, curvas WoE, gains/lift, histograma) son un bloque posterior; aquí no se adelantan.
- * Robusta a corridas `failed`/parciales: muestra el `error` y solo las secciones presentes.
+ * Pestaña Resultados (SDD-23 §1/§7.5): FORMATEA/GRAFICA los artefactos que la corrida
+ * ya dejó en el store (`results`), con CERO lógica de dominio (cada número/barra viene
+ * del artefacto). Primer batch de visores premium (Recharts): discriminación, forest de
+ * coeficientes e IV por variable; los valores exactos quedan a mano en tablas/detalle.
+ * Los visores restantes (curvas WoE, gains/lift, histograma de score, calibración) son
+ * un batch posterior; aquí no se adelantan. Robusta a corridas `failed`/parciales:
+ * muestra el `error` y solo las secciones presentes.
  */
 export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const { results, lastRun, validation } = useAppState()
@@ -102,36 +107,45 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
         </CardContent>
       </Card>
 
-      {/* a. Discriminación: KS/AUC/Gini por partición. */}
+      {/* a. Discriminación: chart de barras AUC/Gini/KS por partición; valores exactos en detalle. */}
       {rows.length > 0 ? (
         <ResultsSection
           title="Discriminación"
-          description="Poder de ordenamiento por partición (máximos de la evaluación)."
+          description="Poder de ordenamiento por partición (máximos de la evaluación, escala 0–1)."
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
-                  <th className="py-2 pr-3 font-medium">Partición</th>
-                  <NumHead>AUC</NumHead>
-                  <NumHead>Gini</NumHead>
-                  <NumHead>KS</NumHead>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.partition} className="border-b border-white/5">
-                    <td className="py-2 pr-3 text-brand-offwhite">
-                      {r.partition}
-                    </td>
-                    <NumCell>{formatMetric(r.auc)}</NumCell>
-                    <NumCell>{formatMetric(r.gini)}</NumCell>
-                    <NumCell>{formatMetric(r.ks)}</NumCell>
+          <DiscriminationChart rows={rows} />
+          <details className="group mt-2">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-brand-placeholder transition-colors hover:text-brand-cyan">
+              <span className="text-brand-gray transition-transform group-open:rotate-90">
+                ›
+              </span>
+              Ver valores exactos
+            </summary>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+                    <th className="py-2 pr-3 font-medium">Partición</th>
+                    <NumHead>AUC</NumHead>
+                    <NumHead>Gini</NumHead>
+                    <NumHead>KS</NumHead>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.partition} className="border-b border-white/5">
+                      <td className="py-2 pr-3 text-brand-offwhite">
+                        {r.partition}
+                      </td>
+                      <NumCell>{formatMetric(r.auc)}</NumCell>
+                      <NumCell>{formatMetric(r.gini)}</NumCell>
+                      <NumCell>{formatMetric(r.ks)}</NumCell>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
         </ResultsSection>
       ) : null}
 
@@ -182,12 +196,13 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
         </ResultsSection>
       ) : null}
 
-      {/* c. Coeficientes (sobrio, sin forest plot todavía). */}
+      {/* c. Coeficientes: forest plot (β ± IC) arriba, tabla completa como detalle numérico. */}
       {coefs.length > 0 ? (
         <ResultsSection
           title="Coeficientes"
-          description="Estimación de la regresión (una fila por término)."
+          description="Estimación de la regresión: β y su intervalo de confianza por variable (excluye el intercepto)."
         >
+          <CoefficientForestChart coefficients={coefs} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -210,32 +225,13 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
         </ResultsSection>
       ) : null}
 
-      {/* d. IV por variable, ordenado desc. */}
+      {/* d. IV por variable: barras horizontales ordenadas desc (el chart cubre la tabla). */}
       {ivRows.length > 0 ? (
         <ResultsSection
           title="IV por variable"
           description="Information Value total de cada variable (mayor a menor)."
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
-                  <th className="py-2 pr-3 font-medium">Variable</th>
-                  <NumHead>IV</NumHead>
-                </tr>
-              </thead>
-              <tbody>
-                {ivRows.map((r) => (
-                  <tr key={r.feature} className="border-b border-white/5">
-                    <td className="py-2 pr-3 font-mono text-brand-offwhite">
-                      {r.feature}
-                    </td>
-                    <NumCell>{formatMetric(r.iv)}</NumCell>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <IvChart rows={ivRows} />
         </ResultsSection>
       ) : null}
 

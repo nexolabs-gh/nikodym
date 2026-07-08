@@ -65,7 +65,7 @@ const SECTIONS: SectionDef[] = [
     label: "Resultados",
     icon: ChartColumn,
     title: "Resultados",
-    cardDescription: "ModelCard, métricas y charts premium de los artefactos.",
+    cardDescription: "Métricas, artefactos y visores de la corrida.",
     empty:
       "WoE/IV, coeficientes, KS/AUC/Gini, gains/lift, scorecard y calibración — solo formateo de artefactos ya materializados.",
     tag: "B23.5",

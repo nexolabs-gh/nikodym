@@ -245,9 +245,9 @@ describe("formatPercent", () => {
 })
 
 describe("formatCount", () => {
-  it("agrupa miles con punto (determinista, sin ICU)", () => {
-    expect(formatCount(3961)).toBe("3.961")
-    expect(formatCount(1234567)).toBe("1.234.567")
+  it("agrupa miles con coma inequívoca (determinista, sin ICU)", () => {
+    expect(formatCount(3961)).toBe("3,961")
+    expect(formatCount(1234567)).toBe("1,234,567")
     expect(formatCount(0)).toBe("0")
     expect(formatCount(924)).toBe("924")
   })

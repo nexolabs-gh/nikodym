@@ -45,14 +45,16 @@ export function formatPercent(
 }
 
 /**
- * Formatea un conteo entero con separador de miles "." (convención es-CL, sin depender
- * de `toLocaleString`/ICU para ser determinista). Ausente/no finito → `EMPTY`.
+ * Formatea un conteo entero con separador de miles "," INEQUÍVOCO (convención anglo:
+ * coma = miles, punto = decimal), sin depender de `toLocaleString`/ICU para ser
+ * determinista. Así "3,961" (conteo) no se confunde con "0.71" (métrica decimal).
+ * Ausente/no finito → `EMPTY`.
  */
 export function formatCount(x: number | null | undefined): string {
   if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
   return Math.trunc(x)
     .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
 }
 
 /** Booleano legible en español; `null`/`undefined` → `EMPTY`. */
