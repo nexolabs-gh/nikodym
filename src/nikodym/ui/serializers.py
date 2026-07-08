@@ -34,9 +34,9 @@ if TYPE_CHECKING:
 __all__ = ["dump_dto", "serialize_study", "to_records"]
 
 # Mapa canónico dominio → clave de su *card* en ``study.artifacts``. La clave NO es uniforme:
-# binning/selection/model usan ``"<dom>_card"``; scorecard/calibration/performance usan ``"card"``.
-# La fuente de verdad es ``report/builder.py:_CARD_ARTIFACTS`` (SDD-23 §6); se replica aquí (no se
-# importa ``report``) para conservar la frontera *domain-agnostic* del backend.
+# binning/selection/model usan ``"<dom>_card"``; scorecard/calibration/performance/stability usan
+# ``"card"``. La fuente de verdad es ``report/builder.py:_CARD_ARTIFACTS`` (SDD-23 §6); se replica
+# aquí (no se importa ``report``) para conservar la frontera *domain-agnostic* del backend.
 # ``tests/unit/test_ui_serializers.py`` coteja este mapa contra el canónico para detectar deriva.
 _CARD_KEY_BY_DOMAIN: dict[str, str] = {
     "binning": "binning_card",
@@ -45,6 +45,7 @@ _CARD_KEY_BY_DOMAIN: dict[str, str] = {
     "scorecard": "card",
     "calibration": "card",
     "performance": "card",
+    "stability": "card",
 }
 
 # Mensaje estable de fallo. ``run_context`` NO persiste el mensaje del ``NikodymError`` de dominio
@@ -72,9 +73,9 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
     dict
         ``{status, run_id, error, model_card, <dominio>...}``. ``error`` es ``None`` salvo en fallo;
         ``model_card`` es ``None`` si no hay gobernanza o la corrida no produjo card; cada
-        clave de dominio (binning/selection/model/scorecard/calibration/performance) trae su *card*
-        serializada, **fusionada** con los frames ricos graficables de ese dominio (§6), o ``None``
-        si el dominio no corrió (nunca se fabrica).
+        clave de dominio (binning/selection/model/scorecard/calibration/performance/stability) trae
+        su *card* serializada, **fusionada** con los frames ricos graficables de ese dominio (§6), o
+        ``None`` si el dominio no corrió (nunca se fabrica).
     """
     status = study.run_context.status
     payload: dict[str, Any] = {
@@ -116,6 +117,17 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
         )
         payload["performance"]["discriminant"] = _domain_records(
             study, "performance", "discriminant_metrics"
+        )
+    if isinstance(payload["stability"], dict):
+        # Dos frames graficables (SDD-11 §6). ``psi_table`` trae los bins de PSI del score, de la
+        # PD calibrada y del CSI por característica juntos; la columna ``metric`` los distingue
+        # (``score_psi``/``pd_psi``/``csi``) y cada bin lleva su ``band``. ``stability_metrics``
+        # resume una fila por métrica/comparación (incluye ``temporal_score``). Los CSI por
+        # característica viven DENTRO de ambos frames (filas ``metric == "csi"``), no en clave
+        # aparte. ``_domain_records`` aplica el guard de finitud y ``NaN`` → ``None``.
+        payload["stability"]["psi_table"] = _domain_records(study, "stability", "psi_table")
+        payload["stability"]["stability_metrics"] = _domain_records(
+            study, "stability", "stability_metrics"
         )
 
 

@@ -2,9 +2,9 @@
 
 Un **preset estándar** es un config F1 COMPLETO y curado, alineado a las columnas de un dataset
 sintético del registro (:mod:`nikodym.ui.datasets`), que corre end-to-end
-(data→binning→selection→model→scorecard→calibration→performance) y produce un scorecard **sin que el
-usuario rellene ningún campo**. El front lo carga por defecto para que, "sin tocar nada, ya
-funcione" (feedback de producto).
+(data→binning→selection→model→scorecard→calibration→performance→stability) y produce un scorecard
+**sin que el usuario rellene ningún campo**. El front lo carga por defecto para que, "sin tocar
+nada, ya funcione" (feedback de producto).
 
 El preset es un **dict JSON-able literal**: NO se construye con ``BinningConfig(...)``/
 ``ModelConfig(...)`` porque ``nikodym.ui`` es *domain-agnostic* (SDD-23 §3.3; el test AST
@@ -17,7 +17,9 @@ a mano: regenerarlo con el mismo procedimiento si cambia una sección de dominio
 Los valores están curados para un **escaparate metodológicamente defendible** sobre el dataset
 ``consumo_comportamiento`` (6000 filas), verificado end-to-end: binning MIP con ``time_limit``
 corto, **selección de variables activa** (stepwise bidireccional + filtros de correlación y VIF),
-estabilidad desactivada y políticas de signo/IV en modo ``flag``. Sobre este dataset la selección
+**estabilidad post-modelo activa** (PSI del score y de la PD calibrada dev_vs_holdout/dev_vs_oot,
+CSI por característica y estabilidad temporal por cohorte, con umbrales 0.10/0.25) y políticas de
+signo/IV en modo ``flag``. Sobre este dataset la selección
 NO poda features —verificado: da las mismas métricas que el pipeline sin filtros (desarrollo
 AUC≈0.71, Gini≈0.42, KS≈0.32)— pero deja ver el motor haciendo selección real, no un pipeline
 crudo. Las 5 features numéricas producen el scorecard; ``segmento`` (ruido, sin señal de riesgo)
@@ -332,7 +334,25 @@ _STANDARD_CONFIG: dict[str, Any] = {
         "min_events_per_partition": 1,
         "optional_thresholds": {},
     },
-    "stability": None,
+    "stability": {
+        "schema_version": "1.0.0",
+        "type": "standard",
+        "score_column": "score",
+        "pd_column": "pd_calibrated",
+        "partition_column": "partition",
+        "score_direction": "higher_is_lower_risk",
+        "psi_bins": 10,
+        "csi_bins": 10,
+        "psi_stable_threshold": 0.1,
+        "psi_review_threshold": 0.25,
+        "smoothing": 1e-06,
+        "comparisons": ["dev_vs_holdout", "dev_vs_oot"],
+        "temporal_axis": "period",
+        "temporal_column": None,
+        "temporal_freq": "M",
+        "include_pd_stability": True,
+        "csi_source": "score_points",
+    },
     "validation": None,
     "report": None,
     "audit": None,
@@ -358,8 +378,8 @@ def standard_preset() -> dict[str, Any]:
         "name": "Preset estándar F1 — consumo (comportamiento)",
         "description": (
             "Config F1 completo y curado, listo para correr sin tocar nada: scorecard de "
-            "comportamiento (data→binning→selection→model→scorecard→calibration→performance) sobre "
-            "el dataset sintético de consumo."
+            "comportamiento (data→binning→selection→model→scorecard→calibration→performance→"
+            "stability) sobre el dataset sintético de consumo."
         ),
         "config": deepcopy(_STANDARD_CONFIG),
         "dataset_id": STANDARD_DATASET_ID,

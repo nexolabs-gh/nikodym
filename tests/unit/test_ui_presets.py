@@ -18,7 +18,9 @@ from nikodym.ui.presets import STANDARD_DATASET_ID, standard_preset
 
 # ``config_hash`` del preset estándar F1: identidad estable del literal (SDD-05 §5.5). Si cambia una
 # sección de dominio del preset, regenerar el literal y actualizar este valor conscientemente.
-_EXPECTED_CONFIG_HASH = "15237f30d6d1d24ce3a5021e8e95dc7064cb380e621f807d1e920e5e31523158"
+# Actualizado en B32a al ACTIVAR la sección ``stability`` (antes ``None``): el preset cambió de
+# verdad (estabilidad post-modelo entra al ``config_hash`` global) → hash legítimamente nuevo.
+_EXPECTED_CONFIG_HASH = "f53ffc9f11eaac299a42c857fd7704401361603d91fba584ce439382bb1f59a9"
 
 
 # ─────────────────────────────── validez y hash estable ───────────────────────────────

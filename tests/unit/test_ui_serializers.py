@@ -139,6 +139,10 @@ def test_artefactos_ricos_cards_intactas(f1_study: Study) -> None:
     payload = serialize_study(f1_study, governance=_GOVERNANCE)
 
     for domain, key in serializers._CARD_KEY_BY_DOMAIN.items():
+        # ``stability`` está en el mapa canónico pero el fixture F1 no lo ejecuta: se salta el
+        # dominio ausente (su card no está publicada) en vez de fabricarlo.
+        if not f1_study.artifacts.has(domain, key):
+            continue
         card = dump_dto(f1_study.artifacts.get(domain, key))
         # Cada clave/valor de la card original persiste sin cambios dentro del objeto de dominio.
         for card_key, card_value in card.items():
@@ -192,6 +196,85 @@ def test_isotonic_knots_proyecta_pares() -> None:
 
     study = SimpleNamespace(artifacts=_ConKnots())
     assert serializers._isotonic_knots(study) == [[0.0, 0.1], [1.0, 0.9]]  # type: ignore[arg-type]
+
+
+def test_stability_augment_proyecta_frames() -> None:
+    """La rama de estabilidad proyecta ``psi_table``/``stability_metrics`` a records (aditivo §6).
+
+    ``psi_table`` mezcla PSI de score/PD y CSI por característica (columna ``metric``); ambos frames
+    se proyectan con el guard de finitud reutilizando ``_domain_records`` (como los demás dominios).
+    """
+    psi_table = pd.DataFrame(
+        {
+            "metric": ["score_psi", "csi"],
+            "comparison": ["dev_vs_oot", "dev_vs_oot"],
+            "feature": ["score", "ingreso_mensual__points"],
+            "bin_label": ["bin_00", "bin_00"],
+            "expected_count": [10, 10],
+            "actual_count": [9, 11],
+            "expected_pct": [0.5, 0.5],
+            "actual_pct": [0.45, 0.55],
+            "component_value": [0.005, 0.004],
+            "total_value": [0.02, 0.01],
+            "band": ["stable", "stable"],
+        }
+    )
+    stability_metrics = pd.DataFrame(
+        {
+            "metric": ["score_psi", "csi"],
+            "comparison": ["dev_vs_oot", "dev_vs_oot"],
+            "feature": ["score", "ingreso_mensual__points"],
+            "value": [0.02, 0.01],
+            "stable_threshold": [0.1, 0.1],
+            "review_threshold": [0.25, 0.25],
+            "band": ["stable", "stable"],
+            "action": ["none", "none"],
+        }
+    )
+    frames = {
+        ("stability", "psi_table"): psi_table,
+        ("stability", "stability_metrics"): stability_metrics,
+    }
+
+    class _ConEstabilidad:
+        def has(self, domain: str, key: str) -> bool:
+            return (domain, key) in frames
+
+        def get(self, domain: str, key: str) -> object:
+            return frames[(domain, key)]
+
+    study = SimpleNamespace(artifacts=_ConEstabilidad())
+    payload = {domain: None for domain in serializers._CARD_KEY_BY_DOMAIN}
+    payload["stability"] = {"score_direction": "higher_is_lower_risk"}  # card ya presente (dict)
+    serializers._augment_with_rich_artifacts(study, payload)  # type: ignore[arg-type]
+
+    psi_records = payload["stability"]["psi_table"]
+    assert len(psi_records) == 2
+    assert psi_records[0]["metric"] == "score_psi"
+    assert {"metric", "comparison", "feature", "bin_label", "expected_count", "band"} <= set(
+        psi_records[0]
+    )
+    metric_records = payload["stability"]["stability_metrics"]
+    assert len(metric_records) == 2
+    assert {"metric", "comparison", "feature", "value", "band", "action"} <= set(metric_records[0])
+    # aditivo: la clave de la card original persiste sin cambios.
+    assert payload["stability"]["score_direction"] == "higher_is_lower_risk"
+
+
+def test_stability_augment_frames_ausentes_a_none() -> None:
+    """Estabilidad presente (card) pero sin frames ricos → claves proyectadas a None (defensivo)."""
+
+    class _SinFrames:
+        def has(self, domain: str, key: str) -> bool:
+            return False
+
+    study = SimpleNamespace(artifacts=_SinFrames())
+    payload = {domain: None for domain in serializers._CARD_KEY_BY_DOMAIN}
+    payload["stability"] = {"score_direction": "x"}
+    serializers._augment_with_rich_artifacts(study, payload)  # type: ignore[arg-type]
+
+    assert payload["stability"]["psi_table"] is None
+    assert payload["stability"]["stability_metrics"] is None
 
 
 def test_frame_records_ausente_a_null_pero_inf_falla() -> None:
