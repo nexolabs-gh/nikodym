@@ -27,7 +27,12 @@ import {
   validateConfig,
 } from "@/lib/api"
 import { type Path, getAtPath, setAtPath } from "@/lib/config-store"
-import { fieldLabel, orderedFields, resolveRef } from "@/lib/form-engine"
+import {
+  type Defs,
+  type JsonSchema,
+  groupedFields,
+  resolveRef,
+} from "@/lib/form-engine"
 import {
   F1_SECTIONS,
   type LoadedSchema,
@@ -147,13 +152,85 @@ function HashStatus({ state }: { state: ValidationState }) {
 }
 
 /**
- * Pestaña Config: auto-genera el formulario desde `/api/schema` (SDD-23 §3.2) para las
- * secciones del flujo F1, cada una como un grupo (accordion), y valida EN VIVO por
- * reconstrucción en el backend (SDD-23 §3.3/§7, B23.5b): en cada edición hace `POST
- * /api/validate` (debounced) y pinta el `config_hash` en vivo o los errores inline por campo.
- * El round-trip YAML (§3.4) descarga/carga el config **vía el backend** (no se parsea YAML aquí).
+ * Formulario de UNA sección F1 (`section`), agrupando sus campos por `ui_group` (contrato
+ * SDD-05 §5.5): si la sección declara grupos, los pinta como sub-accordions (abiertos por
+ * defecto) con el título del grupo; si no (caso `data`, sub-modelos sin `ui_group`), los pinta
+ * planos en una tarjeta. Los `path` de cada campo (`[section, name]`) no cambian, así que la
+ * validación en vivo, el `config_hash` y el round-trip YAML siguen operando igual (B30).
  */
-export function ConfigTab() {
+function ConfigSectionForm(props: {
+  sectionKey: string
+  schema: JsonSchema
+  defs: Defs
+  config: Record<string, unknown>
+  setField: (path: Path, value: unknown) => void
+  errors?: Map<string, string>
+}) {
+  const { sectionKey, schema, defs, config, setField, errors } = props
+  const groups = groupedFields(schema)
+  const required = new Set(schema.required ?? [])
+  const renderField = ([name, fieldSchema]: [string, JsonSchema]) => (
+    <FieldRenderer
+      key={name}
+      name={name}
+      schema={fieldSchema}
+      path={[sectionKey, name]}
+      value={getAtPath(config, [sectionKey, name])}
+      defs={defs}
+      onChange={setField}
+      required={required.has(name)}
+      errors={errors}
+    />
+  )
+
+  // Sección sin grupos declarados (p.ej. `data`: sub-modelos sin ui_group) → lista plana.
+  if (groups.length <= 1) {
+    const fields = groups[0]?.fields ?? []
+    return (
+      <div className="space-y-5 rounded-xl border border-white/10 bg-card p-5 shadow-card">
+        {fields.length === 0 ? (
+          <p className="text-sm text-brand-placeholder">
+            Esta sección no tiene campos configurables.
+          </p>
+        ) : (
+          fields.map(renderField)
+        )}
+      </div>
+    )
+  }
+
+  // Varios grupos → un accordion por grupo, todos abiertos por defecto. La `value` es el índice
+  // (no el título) para no depender de que los títulos sean únicos.
+  return (
+    <Accordion
+      defaultValue={groups.map((_, index) => String(index))}
+      className="rounded-xl border border-white/10 bg-card px-4 shadow-card"
+    >
+      {groups.map((grp, index) => (
+        <AccordionItem key={index} value={String(index)}>
+          <AccordionTrigger className="font-display text-base">
+            {grp.group ?? "General"}
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="space-y-5 pt-1 pb-2">{grp.fields.map(renderField)}</div>
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  )
+}
+
+/**
+ * Pestaña Config: auto-genera el formulario desde `/api/schema` (SDD-23 §3.2). Desde B30 muestra
+ * SOLO la sección F1 elegida en el sidebar (`section`) — no las 7 apiladas — con sus campos
+ * agrupados por `ui_group` (ver `ConfigSectionForm`). La barra superior (siembra del preset,
+ * `config_hash` en vivo y round-trip YAML) es global al config y persiste al navegar entre
+ * secciones; el estado del config vive en el store compartido, así que los valores editados
+ * en una sección se conservan al cambiar a otra. Valida EN VIVO por reconstrucción en el backend
+ * (SDD-23 §3.3/§7, B23.5b): en cada edición hace `POST /api/validate` (debounced) y pinta el
+ * `config_hash` o los errores inline por campo. El round-trip YAML (§3.4) va **vía el backend**.
+ */
+export function ConfigTab({ section }: { section: string }) {
   // El config, su validación y el dataset elegido viven en el store compartido
   // (useAppState) para que Ejecutar/Resultados/sidebar los lean; el resto del estado
   // (schema cargado, narración de siembra, acciones YAML) es local a esta pestaña.
@@ -298,14 +375,12 @@ export function ConfigTab() {
   const { payload, source, error } = loaded
   const properties = payload.json_schema.properties ?? {}
   const defs = payload.json_schema.$defs ?? {}
-  const sections = payload.section_order.filter(
-    (section) =>
-      (F1_SECTIONS as readonly string[]).includes(section) &&
-      isRenderableSection(properties[section]),
-  )
-  const omitted = payload.section_order.filter(
-    (section) => !(F1_SECTIONS as readonly string[]).includes(section),
-  )
+  // Solo la sección activa (elegida en el sidebar); si el schema no la trae renderable, se avisa.
+  const rawSection = properties[section]
+  const sectionRenderable =
+    (F1_SECTIONS as readonly string[]).includes(section) &&
+    isRenderableSection(rawSection)
+  const resolvedSection = sectionRenderable ? resolveRef(rawSection, defs) : null
   const banner = SOURCE_BANNER[source]
   const errorLookup =
     validation.kind === "invalid" ? validation.lookup : undefined
@@ -418,48 +493,20 @@ export function ConfigTab() {
           </p>
         ) : null}
 
-        {sections.length === 0 ? (
-          <p className="text-sm text-brand-placeholder">
-            El schema no trae secciones F1 renderables.
-          </p>
+        {sectionRenderable && resolvedSection ? (
+          <ConfigSectionForm
+            sectionKey={section}
+            schema={resolvedSection}
+            defs={defs}
+            config={config}
+            setField={setField}
+            errors={errorLookup}
+          />
         ) : (
-          <Accordion defaultValue={[sections[0]]} className="rounded-xl border border-white/10 bg-card px-4 shadow-card">
-            {sections.map((section) => {
-              const resolved = resolveRef(properties[section], defs)
-              const fields = orderedFields(resolved)
-              const required = new Set(resolved.required ?? [])
-              return (
-                <AccordionItem key={section} value={section}>
-                  <AccordionTrigger className="font-display text-base">
-                    {fieldLabel(section, resolved)}
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-5 pt-1 pb-2">
-                      {fields.map(([name, schema]) => (
-                        <FieldRenderer
-                          key={name}
-                          name={name}
-                          schema={schema}
-                          path={[section, name]}
-                          value={getAtPath(config, [section, name])}
-                          defs={defs}
-                          onChange={setField}
-                          required={required.has(name)}
-                          errors={errorLookup}
-                        />
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              )
-            })}
-          </Accordion>
+          <p className="text-sm text-brand-placeholder">
+            La sección «{section}» no está disponible en el schema cargado.
+          </p>
         )}
-
-        <p className="text-xs leading-relaxed text-brand-placeholder">
-          <span className="text-brand-gray">Secciones no-F1 omitidas en B23.4b:</span>{" "}
-          {omitted.join(", ") || "—"}. Se expondrán por flujo elegido en B23.5+.
-        </p>
 
         <details className="text-xs text-brand-placeholder">
           <summary className="cursor-pointer text-brand-gray">

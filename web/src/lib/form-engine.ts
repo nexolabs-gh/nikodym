@@ -233,6 +233,61 @@ export function orderedFields(objectSchema: JsonSchema): [string, JsonSchema][] 
     .map(({ entry }) => entry)
 }
 
+/** Un grupo de campos de una sección (`ui_group`): su título y sus campos ya ordenados. */
+export interface FieldGroup {
+  /** Título del grupo (`ui_group`), o `null` si sus campos no declaran grupo. */
+  group: string | null
+  fields: [string, JsonSchema][]
+}
+
+/**
+ * Agrupa los campos de un objeto por `ui_group` (contrato SDD-05 §5.5) para pintarlos como
+ * sub-fieldsets/accordions dentro de su sección.
+ *
+ * OJO — `ui_order` es LOCAL a cada grupo (cada grupo numera sus campos 1,2,3…), no global a la
+ * sección; por eso el orden de los GRUPOS sale del **orden de declaración** (que en el schema
+ * refleja el orden de dominio: General → Variables → Restricciones → …), y el orden DENTRO de
+ * cada grupo sale de `ui_order` (con la declaración como desempate). Ordenar por `ui_order`
+ * global —como hace `orderedFields`— entremezclaría los grupos, así que aquí NO se reutiliza.
+ *
+ * Los campos sin `ui_group` caen en un grupo `group: null` (consúmelo como "General" o sin
+ * encabezado). Puro y testeable con fixtures; la validación autoritativa sigue siendo del backend.
+ */
+export function groupedFields(objectSchema: JsonSchema): FieldGroup[] {
+  const props = objectSchema.properties ?? {}
+  const NO_GROUP = "" // sentinela interno: los `ui_group` reales tienen longitud > 0
+  const buckets = new Map<string, { name: string; schema: JsonSchema; index: number }[]>()
+  const order: string[] = [] // orden de aparición (declaración) de cada grupo
+  let index = 0
+  for (const [name, schema] of Object.entries(props)) {
+    const raw = schema.ui_group
+    const key = typeof raw === "string" && raw.length > 0 ? raw : NO_GROUP
+    let bucket = buckets.get(key)
+    if (!bucket) {
+      bucket = []
+      buckets.set(key, bucket)
+      order.push(key)
+    }
+    bucket.push({ name, schema, index })
+    index += 1
+  }
+  return order.map((key) => ({
+    group: key === NO_GROUP ? null : key,
+    fields: buckets
+      .get(key)!
+      .slice()
+      .sort((a, b) => {
+        const ao = a.schema.ui_order
+        const bo = b.schema.ui_order
+        if (ao !== undefined && bo !== undefined) return ao - bo || a.index - b.index
+        if (ao !== undefined) return -1
+        if (bo !== undefined) return 1
+        return a.index - b.index
+      })
+      .map(({ name, schema }): [string, JsonSchema] => [name, schema]),
+  }))
+}
+
 // ---------------------------------------------------------------------------
 // resolveWidget — el corazón del mapeo §5
 // ---------------------------------------------------------------------------

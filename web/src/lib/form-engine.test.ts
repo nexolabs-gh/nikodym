@@ -9,6 +9,7 @@ import {
   enumOptions,
   fieldLabel,
   fieldPlaceholder,
+  groupedFields,
   hasBothBounds,
   multiselectOptions,
   numericBounds,
@@ -299,6 +300,77 @@ describe("orderedFields y fieldLabel", () => {
   it("fieldLabel usa title o cae al nombre", () => {
     expect(fieldLabel("pdo", { title: "PDO" })).toBe("PDO")
     expect(fieldLabel("pdo", {})).toBe("pdo")
+  })
+})
+
+describe("groupedFields (agrupado por ui_group, B30)", () => {
+  // Réplica del shape real (fixtures/schema.json): grupos declarados en bloque y `ui_order`
+  // LOCAL a cada grupo (numerado desde 1; `type` de General en 0).
+  const BINNING_LIKE: JsonSchema = {
+    type: "object",
+    properties: {
+      type: { type: "string", const: "standard", ui_group: "General", ui_order: 0 },
+      feature_columns: { type: "array", ui_group: "Variables", ui_order: 1 },
+      exclude_columns: { type: "array", ui_group: "Variables", ui_order: 2 },
+      max_n_prebins: { type: "integer", ui_group: "Restricciones", ui_order: 1 },
+      min_prebin_size: { type: "number", ui_group: "Restricciones", ui_order: 2 },
+      monotonic_trend: { type: "string", ui_group: "Monotonía", ui_order: 1 },
+    },
+  }
+
+  it("agrupa por ui_group y ordena los grupos por orden de declaración", () => {
+    const groups = groupedFields(BINNING_LIKE)
+    expect(groups.map((g) => g.group)).toEqual([
+      "General",
+      "Variables",
+      "Restricciones",
+      "Monotonía",
+    ])
+  })
+
+  it("dentro de cada grupo ordena por ui_order (local), no por el global", () => {
+    const groups = groupedFields(BINNING_LIKE)
+    const variables = groups.find((g) => g.group === "Variables")!
+    expect(variables.fields.map(([n]) => n)).toEqual([
+      "feature_columns",
+      "exclude_columns",
+    ])
+    // Aunque max_n_prebins y feature_columns comparten ui_order=1, quedan en grupos
+    // distintos (no se entremezclan como haría un sort global por ui_order).
+    const restricciones = groups.find((g) => g.group === "Restricciones")!
+    expect(restricciones.fields.map(([n]) => n)).toEqual([
+      "max_n_prebins",
+      "min_prebin_size",
+    ])
+  })
+
+  it("ordena por ui_order aunque la declaración vaya al revés", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        b: { type: "string", ui_group: "G", ui_order: 2 },
+        a: { type: "string", ui_group: "G", ui_order: 1 },
+      },
+    }
+    expect(groupedFields(schema)[0].fields.map(([n]) => n)).toEqual(["a", "b"])
+  })
+
+  it("campos sin ui_group caen en un grupo group=null (caso data)", () => {
+    const schema: JsonSchema = {
+      type: "object",
+      properties: {
+        load: { $ref: "#/$defs/Load" },
+        target: { $ref: "#/$defs/Target" },
+      },
+    }
+    const groups = groupedFields(schema)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].group).toBeNull()
+    expect(groups[0].fields.map(([n]) => n)).toEqual(["load", "target"])
+  })
+
+  it("objeto sin properties → sin grupos", () => {
+    expect(groupedFields({ type: "object" })).toEqual([])
   })
 })
 
