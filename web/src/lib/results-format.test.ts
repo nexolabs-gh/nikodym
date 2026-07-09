@@ -8,6 +8,7 @@ import {
   csiBars,
   csiComparisonLabel,
   discriminantRows,
+  featureDisplayLabel,
   formatBool,
   formatCount,
   formatMetric,
@@ -537,6 +538,18 @@ describe("csiComparisonLabel", () => {
   it("null cuando no hay CSI", () => {
     expect(csiComparisonLabel(undefined)).toBeNull()
     expect(csiComparisonLabel([])).toBeNull()
+  })
+})
+
+describe("featureDisplayLabel", () => {
+  it("quita el sufijo interno __points de la columna de puntos", () => {
+    expect(featureDisplayLabel("ingreso_mensual__points")).toBe(
+      "ingreso_mensual",
+    )
+  })
+
+  it("deja intacto un nombre sin sufijo", () => {
+    expect(featureDisplayLabel("deuda_ingreso")).toBe("deuda_ingreso")
   })
 })
 

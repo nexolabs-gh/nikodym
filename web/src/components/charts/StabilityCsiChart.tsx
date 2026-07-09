@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts"
 
+import { featureDisplayLabel } from "@/lib/results-format"
 import type { CsiBarRow } from "@/lib/results-format"
 
 import {
@@ -40,7 +41,7 @@ function CsiTooltip({ active, payload }: CsiTooltipProps) {
   return (
     <div className="rounded-lg bg-brand-panel-raised px-3 py-2 text-xs shadow-card ring-1 ring-white/10">
       <p className="mb-1 font-mono font-medium text-brand-offwhite">
-        {d.feature}
+        {featureDisplayLabel(d.feature)}
       </p>
       <p className="text-brand-placeholder">
         CSI{" "}
@@ -112,10 +113,11 @@ export function StabilityCsiChart({
           <YAxis
             type="category"
             dataKey="feature"
-            width={140}
+            width={150}
             tickLine={false}
             axisLine={AXIS_LINE}
             tick={FEATURE_TICK}
+            tickFormatter={featureDisplayLabel}
           />
           <ReferenceLine
             x={stableThreshold}

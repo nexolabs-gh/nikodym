@@ -256,6 +256,15 @@ export function csiComparisonLabel(
   return comparison.replace(/_/g, " ").replace(/\boot\b/gi, "OOT")
 }
 
+/**
+ * Nombre de una característica para mostrar al usuario: quita el sufijo interno de la columna
+ * de puntos del scorecard (`__points`). El analista piensa en la variable ("ingreso_mensual"),
+ * no en la columna derivada. Presentación pura; el nombre real se conserva para keys/lineage.
+ */
+export function featureDisplayLabel(feature: string): string {
+  return feature.replace(/__points$/, "")
+}
+
 /** Escalar de estabilidad temporal (`metric == "temporal_score"`). */
 export interface TemporalScore {
   value: number | null
