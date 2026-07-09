@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from nikodym.core.exceptions import NikodymError
 from nikodym.governance import GovernanceConfig, ModelCardBuilder
 from nikodym.ui.exceptions import UiSerializationError
+from nikodym.ui.reliability import reliability_curve
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -111,6 +112,7 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
         payload["scorecard"]["score_values"] = _score_values(study)
     if isinstance(payload["calibration"], dict):
         payload["calibration"]["isotonic_knots"] = _isotonic_knots(study)
+        payload["calibration"]["reliability"] = _reliability_curve(study)
     if isinstance(payload["performance"], dict):
         payload["performance"]["deciles"] = _domain_records(
             study, "performance", "performance_table"
@@ -230,6 +232,20 @@ def _isotonic_knots(study: Study) -> list[list[float]] | None:
     pairs = [[float(x), float(y)] for x, y in knots]
     _ensure_json_safe(pairs, context="calibration.isotonic_knots")
     return pairs
+
+
+def _reliability_curve(study: Study) -> dict[str, Any] | None:
+    """Curva de confiabilidad derivada del ``calibrated_pd_frame``; ``None`` si el frame falta.
+
+    Artefacto rico derivado (no un número del motor): delega en
+    :func:`nikodym.ui.reliability.reliability_curve`, que agrupa la PD calibrada en deciles de igual
+    frecuencia por partición y emite predicho-vs-observado + Brier/ECE (SDD-23 §6). El propio módulo
+    aplica el guard de finitud sobre su salida. ``None`` si no hay artefacto de origen (nunca se
+    fabrica), igual que :func:`_isotonic_knots`/:func:`_binning_tables`.
+    """
+    if not study.artifacts.has("calibration", "calibrated_pd_frame"):
+        return None
+    return reliability_curve(study.artifacts.get("calibration", "calibrated_pd_frame"))
 
 
 def to_records(frame: pd.DataFrame) -> list[dict[str, Any]]:

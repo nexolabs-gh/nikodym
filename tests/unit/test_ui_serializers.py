@@ -44,17 +44,19 @@ _RICH_KEYS_BY_DOMAIN = {
     "selection": ("decisions",),
     "model": ("coefficients",),
     "scorecard": ("points", "score_values"),
-    "calibration": ("isotonic_knots",),
+    "calibration": ("isotonic_knots", "reliability"),
     "performance": ("deciles", "discriminant"),
 }
 # Subconjunto que el preset estándar F1 produce con CONTENIDO no vacío (DoD B27, §6). Excluye
 # ``isotonic_knots``: el preset calibra por ``intercept_offset`` → knots vacíos → expuestos None.
+# ``reliability`` SÍ es no vacío: es la curva derivada del ``calibrated_pd_frame`` (B35a).
 _NONEMPTY_RICH = (
     ("binning", "tables_by_variable"),
     ("selection", "decisions"),
     ("model", "coefficients"),
     ("scorecard", "points"),
     ("scorecard", "score_values"),
+    ("calibration", "reliability"),
     ("performance", "deciles"),
     ("performance", "discriminant"),
 )
@@ -158,6 +160,36 @@ def test_isotonic_knots_none_si_no_isotonico(f1_study: Study) -> None:
     assert payload["calibration"]["isotonic_knots"] is None
 
 
+def test_reliability_en_payload_shape(f1_study: Study) -> None:
+    """Con calibración corrida, ``calibration.reliability`` trae el shape §6 de la curva (B35a)."""
+    payload = serialize_study(f1_study, governance=_GOVERNANCE)
+    reliability = payload["calibration"]["reliability"]
+
+    assert reliability["strategy"] == "quantile"
+    assert reliability["n_bins"] == 10
+    # ``by_partition`` es una LISTA; la primera partición del orden canónico es ``desarrollo``.
+    assert isinstance(reliability["by_partition"], list)
+    primera = reliability["by_partition"][0]
+    assert primera["partition"] == "desarrollo"
+    assert set(primera) == {"partition", "n", "brier", "ece", "bins"}
+    assert set(primera["bins"][0]) == {
+        "bin",
+        "n",
+        "mean_predicted_pd",
+        "observed_default_rate",
+        "ci_low",
+        "ci_high",
+        "pd_lo",
+        "pd_hi",
+    }
+    # ``fuera_de_modelo`` (0 filas) se excluye: solo particiones modelables con n>0.
+    assert {part["partition"] for part in reliability["by_partition"]} <= {
+        "desarrollo",
+        "holdout",
+        "oot",
+    }
+
+
 def test_artefactos_ricos_ausentes_si_dominio_no_corrio(tmp_path: Path) -> None:
     """Study no ejecutado: ningún dominio es dict → no se fabrica ninguna clave rica."""
     parquet = tmp_path / "cartera.parquet"
@@ -182,6 +214,7 @@ def test_helpers_ricos_artefacto_ausente_devuelven_none() -> None:
     assert serializers._selection_decisions(study) is None  # type: ignore[arg-type]
     assert serializers._score_values(study) is None  # type: ignore[arg-type]
     assert serializers._isotonic_knots(study) is None  # type: ignore[arg-type]
+    assert serializers._reliability_curve(study) is None  # type: ignore[arg-type]
 
 
 def test_isotonic_knots_proyecta_pares() -> None:
