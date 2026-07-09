@@ -6,6 +6,7 @@ import {
   binnedVariables,
   comparisonLabel,
   csiBars,
+  csiComparisonLabel,
   discriminantRows,
   formatBool,
   formatCount,
@@ -362,6 +363,22 @@ describe("resiliencia a corrida failed/parcial", () => {
  * todo en banda `stable`) más filas sintéticas de otras bandas/comparaciones para probar
  * el orden y el manejo de todos los enums (no solo el caso "todo verde").
  */
+const csiRow = (
+  feature: string,
+  comparison: string,
+  value: number | null,
+  band: StabilityMetricRow["band"],
+): StabilityMetricRow => ({
+  metric: "csi",
+  comparison,
+  feature,
+  value,
+  stable_threshold: 0.1,
+  review_threshold: 0.25,
+  band,
+  action: "none",
+})
+
 const stabilityMetrics: StabilityMetricRow[] = [
   {
     metric: "score_psi",
@@ -488,6 +505,38 @@ describe("csiBars", () => {
 
   it("devuelve [] cuando falta el frame de métricas", () => {
     expect(csiBars(undefined)).toEqual([])
+  })
+
+  it("muestra solo la comparación temporal (dev_vs_oot), descarta holdout", () => {
+    const mixed: StabilityMetricRow[] = [
+      csiRow("ingreso_mensual", "dev_vs_oot", 0.2, "review"),
+      csiRow("ingreso_mensual", "dev_vs_holdout", 0.9, "redevelop"),
+      csiRow("deuda_ingreso", "dev_vs_oot", 0.05, "stable"),
+      csiRow("deuda_ingreso", "dev_vs_holdout", 0.8, "redevelop"),
+    ]
+    const rows = csiBars(mixed)
+    // Una barra por feature (no dos), con los valores de OOT (no los de holdout).
+    expect(rows.map((r) => r.feature)).toEqual([
+      "ingreso_mensual",
+      "deuda_ingreso",
+    ])
+    expect(rows.map((r) => r.value)).toEqual([0.2, 0.05])
+  })
+
+  it("cae a la comparación presente si no hay OOT", () => {
+    const soloHoldout = [csiRow("segmento", "dev_vs_holdout", 0.03, "stable")]
+    expect(csiBars(soloHoldout).map((r) => r.feature)).toEqual(["segmento"])
+  })
+})
+
+describe("csiComparisonLabel", () => {
+  it("formatea la comparación mostrada (OOT preferida)", () => {
+    expect(csiComparisonLabel(stabilityMetrics)).toBe("dev vs OOT")
+  })
+
+  it("null cuando no hay CSI", () => {
+    expect(csiComparisonLabel(undefined)).toBeNull()
+    expect(csiComparisonLabel([])).toBeNull()
   })
 })
 

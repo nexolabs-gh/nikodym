@@ -210,18 +210,50 @@ export interface CsiBarRow {
  * Filas de CSI por característica (`metric == "csi"`) ordenadas de mayor a menor CSI
  * (nulos al final). Solo selecciona/reordena lo que el backend ya calculó.
  */
+/**
+ * Elige la comparación de CSI a mostrar: prefiere la temporal (dev_vs_oot) — el drift
+ * out-of-time es el que degrada un scorecard en producción; el holdout es un split aleatorio
+ * (ruido ~0). Fallback a la primera comparación presente. `null` si no hay filas CSI.
+ */
+function selectCsiComparison(csiRows: StabilityMetricRow[]): string | null {
+  const comparisons = [...new Set(csiRows.map((r) => r.comparison))]
+  return comparisons.find((c) => c.includes("oot")) ?? comparisons[0] ?? null
+}
+
+/**
+ * Barras de CSI por característica, de UNA sola comparación (la temporal; ver
+ * `selectCsiComparison`), ordenadas por CSI desc con los nulos al final. Mostrar una única
+ * comparación evita barras ambiguas con la misma etiqueta (el CSI se reporta por
+ * feature×comparación). Solo lee/filtra/ordena; CERO cálculo.
+ */
 export function csiBars(
   rows: StabilityMetricRow[] | null | undefined,
 ): CsiBarRow[] {
   if (!rows) return []
-  return rows
-    .filter((r) => r.metric === "csi")
+  const csi = rows.filter((r) => r.metric === "csi")
+  const comparison = selectCsiComparison(csi)
+  if (comparison === null) return []
+  return csi
+    .filter((r) => r.comparison === comparison)
     .map((r) => ({ feature: r.feature, value: r.value, band: r.band }))
     .sort(
       (a, b) =>
         (b.value ?? Number.NEGATIVE_INFINITY) -
         (a.value ?? Number.NEGATIVE_INFINITY),
     )
+}
+
+/**
+ * Label legible de la comparación de CSI que muestra `csiBars` (para el título del visor):
+ * "dev vs OOT" / "dev vs holdout". `null` si no hay CSI. Presentación pura.
+ */
+export function csiComparisonLabel(
+  rows: StabilityMetricRow[] | null | undefined,
+): string | null {
+  if (!rows) return null
+  const comparison = selectCsiComparison(rows.filter((r) => r.metric === "csi"))
+  if (comparison === null) return null
+  return comparison.replace(/_/g, " ").replace(/\boot\b/gi, "OOT")
 }
 
 /** Escalar de estabilidad temporal (`metric == "temporal_score"`). */

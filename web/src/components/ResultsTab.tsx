@@ -27,6 +27,7 @@ import {
   bandsPresent,
   binnedVariables,
   csiBars,
+  csiComparisonLabel,
   discriminantRows,
   formatBool,
   formatCount,
@@ -135,6 +136,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const scorePsi = psiBars(stabMetrics, "score_psi")
   const pdPsi = psiBars(stabMetrics, "pd_psi")
   const csi = csiBars(stabMetrics)
+  const csiCmp = csiComparisonLabel(stabMetrics)
   const temporal = temporalScore(stabMetrics)
   const hasStability =
     stab !== null &&
@@ -272,10 +274,12 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
 
           {/* 3. CSI por característica (destaca la peor). */}
           {csi.length > 0 ? (
-            <Subchart title="CSI por característica">
+            <Subchart
+              title={`CSI por característica${csiCmp ? ` — ${csiCmp}` : ""}`}
+            >
               <StabilityCsiChart
                 rows={csi}
-                worst={stab.worst_csi_feature}
+                worst={csi[0]?.feature ?? null}
                 stableThreshold={stab.stable_threshold}
                 reviewThreshold={stab.review_threshold}
               />
