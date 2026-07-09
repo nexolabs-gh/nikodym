@@ -225,6 +225,49 @@ export interface ScorecardResult {
 // --- calibration ------------------------------------------------------------
 
 /**
+ * Un bin del reliability diagram (curva de confiabilidad): compara la PD predicha
+ * media del bin con la tasa de default observada, ambas en [0,1]. `ci_low`/`ci_high`
+ * son la banda de Wilson 95% de la tasa OBSERVADA (eje Y); `pd_lo`/`pd_hi` acotan la PD
+ * predicha dentro del bin (eje X). Todos los floats son requeridos y finitos (el DTO
+ * fila-nivel los valida). La UI solo los grafica; CERO recálculo.
+ */
+export interface ReliabilityBin {
+  bin: number
+  n: number
+  mean_predicted_pd: number
+  observed_default_rate: number
+  ci_low: number
+  ci_high: number
+  pd_lo: number
+  pd_hi: number
+}
+
+/**
+ * Curva de confiabilidad de UNA partición, con sus escalares de calibración: `brier`
+ * (Brier score, menor = mejor) y `ece` (Expected Calibration Error). Los bins vienen en
+ * orden de riesgo (decil ascendente).
+ */
+export interface ReliabilityPartition {
+  partition: string
+  n: number
+  brier: number
+  ece: number
+  bins: ReliabilityBin[]
+}
+
+/**
+ * Sección `calibration.reliability` (reliability diagram por partición, B35a backend).
+ * `by_partition` es una LISTA en orden desarrollo → holdout → oot. Puede venir ausente/
+ * `null` (backend no la emite) o con `by_partition` vacío → el visor NO se renderiza
+ * (guard por presencia). Ver `reliabilityCurve` en `results-format`.
+ */
+export interface ReliabilityCurve {
+  strategy: string
+  n_bins: number
+  by_partition: ReliabilityPartition[]
+}
+
+/**
  * Sección de calibración de PD. Para `method:"intercept_offset"`, `slope`/`intercept`/
  * `isotonic_knots` vienen nulos (son de la variante isotónica).
  */
@@ -246,6 +289,8 @@ export interface CalibrationResult {
   pd_raw_column: string
   pd_calibrated_column: string
   isotonic_knots: unknown[] | null
+  /** Reliability diagram por partición (B35a). Ausente/`null` si el backend no lo emite. */
+  reliability?: ReliabilityCurve | null
   metric_sections?: Record<string, unknown>
   dependency_versions?: Record<string, unknown>
 }

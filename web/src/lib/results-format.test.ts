@@ -21,6 +21,7 @@ import {
   partitionLabel,
   primaryPartition,
   psiBars,
+  reliabilityCurve,
   scoreHistogram,
   sortByIv,
   temporalScore,
@@ -28,6 +29,7 @@ import {
 } from "./results-format"
 import type {
   BinningResult,
+  CalibrationResult,
   DecileRow,
   ResultsResponse,
   StabilityMetricRow,
@@ -356,6 +358,8 @@ describe("resiliencia a corrida failed/parcial", () => {
     expect(psiBars(failed.stability?.stability_metrics, "score_psi")).toEqual([])
     expect(csiBars(failed.stability?.stability_metrics)).toEqual([])
     expect(temporalScore(failed.stability?.stability_metrics)).toBeNull()
+    // Confiabilidad: robusto a `calibration` ausente en una corrida parcial.
+    expect(reliabilityCurve(failed.calibration)).toBeNull()
   })
 })
 
@@ -1093,5 +1097,212 @@ describe("binnedVariables", () => {
     expect(
       binnedVariables({ ...binningWithTables, tables_by_variable: undefined }),
     ).toEqual([])
+  })
+})
+
+// --- calibración: curva de confiabilidad (reliability diagram) --------------
+
+/** Base de `CalibrationResult` sin `reliability` (para armar fixtures del reliability). */
+const calibrationBase: CalibrationResult = {
+  method: "intercept_offset",
+  target_pd: 0.2,
+  anchor_kind: "through_the_cycle",
+  anchor_source: "business_input",
+  fit_partition: "desarrollo",
+  n_fit: 3961,
+  raw_mean_pd_dev: 0.23327442565008835,
+  calibrated_mean_pd_dev: 0.2,
+  observed_default_rate_dev: 0.23327442565008835,
+  offset: -0.21844701788025583,
+  slope: null,
+  intercept: null,
+  ranking_preserved: true,
+  ties_created: 0,
+  pd_raw_column: "pd_raw",
+  pd_calibrated_column: "pd_calibrated",
+  isotonic_knots: null,
+}
+
+/**
+ * `calibration.reliability` con el SHAPE REAL del payload (B35a): `by_partition` como LISTA
+ * y el primer bin de dev con los VALORES REALES del goal. El orden de entrada está barajado
+ * (oot → desarrollo → holdout) a propósito, para verificar que el helper reordena al canónico.
+ * Que compile como `CalibrationResult` ya verifica el contrato de tipos del payload.
+ */
+const calibrationWithReliability: CalibrationResult = {
+  ...calibrationBase,
+  reliability: {
+    strategy: "quantile",
+    n_bins: 10,
+    by_partition: [
+      {
+        partition: "oot",
+        n: 1200,
+        brier: 0.1802,
+        ece: 0.0512,
+        bins: [
+          {
+            bin: 1,
+            n: 120,
+            mean_predicted_pd: 0.05,
+            observed_default_rate: 0.07,
+            ci_low: 0.03,
+            ci_high: 0.11,
+            pd_lo: 0.01,
+            pd_hi: 0.08,
+          },
+        ],
+      },
+      {
+        partition: "desarrollo",
+        n: 3961,
+        brier: 0.1615,
+        ece: 0.0338,
+        bins: [
+          {
+            bin: 1,
+            n: 397,
+            mean_predicted_pd: 0.0429,
+            observed_default_rate: 0.0403,
+            ci_low: 0.025,
+            ci_high: 0.064,
+            pd_lo: 0.0075,
+            pd_hi: 0.0613,
+          },
+          {
+            bin: 2,
+            n: 396,
+            mean_predicted_pd: 0.0812,
+            observed_default_rate: 0.0854,
+            ci_low: 0.061,
+            ci_high: 0.115,
+            pd_lo: 0.0614,
+            pd_hi: 0.101,
+          },
+        ],
+      },
+      {
+        partition: "holdout",
+        n: 1000,
+        brier: 0.171,
+        ece: 0.0421,
+        bins: [
+          {
+            bin: 1,
+            n: 100,
+            mean_predicted_pd: 0.045,
+            observed_default_rate: 0.05,
+            ci_low: 0.02,
+            ci_high: 0.1,
+            pd_lo: 0.01,
+            pd_hi: 0.07,
+          },
+        ],
+      },
+    ],
+  },
+}
+
+describe("reliabilityCurve", () => {
+  it("normaliza el payload y reordena particiones al orden canónico", () => {
+    const view = reliabilityCurve(calibrationWithReliability)
+    expect(view).not.toBeNull()
+    if (!view) return
+    expect(view.strategy).toBe("quantile")
+    expect(view.nBins).toBe(10)
+    // Entrada barajada (oot, desarrollo, holdout) → salida canónica.
+    expect(view.partitions.map((p) => p.partition)).toEqual([
+      "desarrollo",
+      "holdout",
+      "oot",
+    ])
+  })
+
+  it("expone los escalares Brier/ECE por partición", () => {
+    const view = reliabilityCurve(calibrationWithReliability)
+    const dev = view?.partitions.find((p) => p.partition === "desarrollo")
+    expect(dev?.n).toBe(3961)
+    expect(dev?.brier).toBeCloseTo(0.1615, 12)
+    expect(dev?.ece).toBeCloseTo(0.0338, 12)
+  })
+
+  it("mapea cada bin a (pred, obs, CI, pd) y deriva el offset del error bar de Wilson", () => {
+    const view = reliabilityCurve(calibrationWithReliability)
+    const dev = view?.partitions.find((p) => p.partition === "desarrollo")
+    expect(dev?.points).toHaveLength(2)
+    const b1 = dev?.points[0]
+    expect(b1?.bin).toBe(1)
+    expect(b1?.n).toBe(397)
+    expect(b1?.pred).toBeCloseTo(0.0429, 12)
+    expect(b1?.obs).toBeCloseTo(0.0403, 12)
+    expect(b1?.ciLow).toBeCloseTo(0.025, 12)
+    expect(b1?.ciHigh).toBeCloseTo(0.064, 12)
+    expect(b1?.pdLo).toBeCloseTo(0.0075, 12)
+    expect(b1?.pdHi).toBeCloseTo(0.0613, 12)
+    // ciError = [obs − ciLow, ciHigh − obs].
+    expect(b1?.ciError[0]).toBeCloseTo(0.0403 - 0.025, 12)
+    expect(b1?.ciError[1]).toBeCloseTo(0.064 - 0.0403, 12)
+  })
+
+  it("clampa a 0 los offsets del error bar cuando el observado cae fuera del IC", () => {
+    // Bin sintético con obs < ciLow y obs > ciHigh imposible a la vez; se prueban dos bins.
+    const edge: CalibrationResult = {
+      ...calibrationBase,
+      reliability: {
+        strategy: "uniform",
+        n_bins: 2,
+        by_partition: [
+          {
+            partition: "desarrollo",
+            n: 10,
+            brier: 0.2,
+            ece: 0.1,
+            bins: [
+              {
+                bin: 1,
+                n: 5,
+                mean_predicted_pd: 0.02,
+                observed_default_rate: 0.02,
+                ci_low: 0.03, // obs < ci_low → offset inferior clampa a 0
+                ci_high: 0.05,
+                pd_lo: 0.0,
+                pd_hi: 0.04,
+              },
+              {
+                bin: 2,
+                n: 5,
+                mean_predicted_pd: 0.09,
+                observed_default_rate: 0.09,
+                ci_low: 0.05,
+                ci_high: 0.08, // obs > ci_high → offset superior clampa a 0
+                pd_lo: 0.06,
+                pd_hi: 0.1,
+              },
+            ],
+          },
+        ],
+      },
+    }
+    const view = reliabilityCurve(edge)
+    const pts = view?.partitions[0]?.points
+    expect(pts?.[0]?.ciError[0]).toBe(0)
+    expect(pts?.[1]?.ciError[1]).toBe(0)
+  })
+
+  it("devuelve null si falta calibration, reliability o by_partition está vacío", () => {
+    expect(reliabilityCurve(undefined)).toBeNull()
+    // Calibración sin el campo reliability (backend no lo emite).
+    expect(reliabilityCurve(calibrationBase)).toBeNull()
+    // reliability presente pero explícitamente null.
+    expect(
+      reliabilityCurve({ ...calibrationBase, reliability: null }),
+    ).toBeNull()
+    // by_partition vacío → guard por presencia.
+    expect(
+      reliabilityCurve({
+        ...calibrationBase,
+        reliability: { strategy: "quantile", n_bins: 10, by_partition: [] },
+      }),
+    ).toBeNull()
   })
 })

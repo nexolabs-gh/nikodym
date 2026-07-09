@@ -1,6 +1,7 @@
 import { type ReactNode, useId, useState } from "react"
 import { ArrowRight, ChartColumn, CircleAlert, Play } from "lucide-react"
 
+import { CalibrationReliabilityChart } from "@/components/charts/CalibrationReliabilityChart"
 import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
 import { DiscriminationChart } from "@/components/charts/DiscriminationChart"
 import { GainsChart } from "@/components/charts/GainsChart"
@@ -11,7 +12,11 @@ import { ScoreHistogramChart } from "@/components/charts/ScoreHistogramChart"
 import { StabilityBandLegend } from "@/components/charts/StabilityBandLegend"
 import { StabilityCsiChart } from "@/components/charts/StabilityCsiChart"
 import { WoeByBinChart } from "@/components/charts/WoeByBinChart"
-import { bandColor, bandLabel } from "@/components/charts/chart-theme"
+import {
+  bandColor,
+  bandLabel,
+  partitionColor,
+} from "@/components/charts/chart-theme"
 import { EmptyState } from "@/components/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -40,12 +45,17 @@ import {
   partitionLabel,
   primaryPartition,
   psiBars,
+  reliabilityCurve,
   scoreHistogram,
   sortByIv,
   temporalScore,
   variableBinning,
 } from "@/lib/results-format"
-import type { VariableBinning } from "@/lib/results-format"
+import type {
+  ReliabilityPartitionView,
+  ReliabilityView,
+  VariableBinning,
+} from "@/lib/results-format"
 import type { Coefficient } from "@/lib/results-types"
 import { useAppState } from "@/state/appStore"
 
@@ -70,6 +80,12 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   // declara antes de cualquier return condicional (reglas de hooks); su default real (mayor
   // IV) se resuelve más abajo contra los datos, cuando ya existen.
   const [woeVariable, setWoeVariable] = useState<string | null>(null)
+
+  // Partición seleccionada en la tabla de detalle de confiabilidad (estado local). Su default
+  // real ('oot' si está) se resuelve más abajo contra los datos, cuando ya existen.
+  const [reliabilityPartition, setReliabilityPartition] = useState<string | null>(
+    null,
+  )
 
   // Sin resultados: estado vacío sobrio con CTA a Ejecutar (como RunTab navega a "resultados").
   if (results === null) {
@@ -119,6 +135,20 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const finalFeatures = results.model?.final_features ?? []
   const sc = results.scorecard
   const cal = results.calibration
+
+  // Confiabilidad de calibración (reliability diagram, último visor). Guard por presencia:
+  // si el backend no emitió `reliability` o `by_partition` viene vacío, `reliabilityCurve`
+  // devuelve null y la sección no se renderiza. La tabla de detalle default a 'oot' (el drift
+  // out-of-time es el caso que más importa); cae a la primera partición si OOT no está.
+  const reliability = reliabilityCurve(cal)
+  const activeReliabilityPartition = reliability
+    ? (reliabilityPartition &&
+      reliability.partitions.some((p) => p.partition === reliabilityPartition)
+        ? reliabilityPartition
+        : (reliability.partitions.find((p) => p.partition === "oot")?.partition ??
+          reliability.partitions[0]?.partition ??
+          null))
+    : null
 
   // Deciles → gains/lift (2º batch de visores). Guard por presencia: si la corrida no dejó
   // la tabla de deciles, las secciones no se renderizan.
@@ -471,6 +501,25 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
         </ResultsSection>
       ) : null}
 
+      {/* e.1 Confiabilidad de calibración (reliability diagram): predicho vs observado por
+          decil de riesgo, con la diagonal ideal y la banda de Wilson. Contigua a la escala/
+          calibración (parámetros → evidencia). Guard por presencia: sin `reliability` (o con
+          `by_partition` vacío), no se renderiza. */}
+      {reliability ? (
+        <ResultsSection
+          title="Confiabilidad de calibración"
+          description="Cada punto compara la PD predicha (eje X) con la tasa de default observada (eje Y) por decil de riesgo. Sobre la diagonal = el modelo SUBESTIMA el riesgo; bajo la diagonal = lo SOBREESTIMA. La banda vertical es el intervalo de Wilson 95%."
+        >
+          <ReliabilityChips partitions={reliability.partitions} />
+          <CalibrationReliabilityChart view={reliability} />
+          <ReliabilityDetail
+            view={reliability}
+            active={activeReliabilityPartition}
+            onSelect={setReliabilityPartition}
+          />
+        </ResultsSection>
+      ) : null}
+
       {/* f. Distribución del score: histograma de la muestra cruda (binning de presentación).
           Guard por presencia: si `score_values` falta o viene vacío, no se renderiza. */}
       {scoreHist ? (
@@ -662,6 +711,118 @@ function WoeDetailTable({ detail }: { detail: VariableBinning }) {
           </tfoot>
         ) : null}
       </table>
+    </div>
+  )
+}
+
+/**
+ * Chips de calibración por partición: un chip por partición con su punto de color, el Brier
+ * (4 decimales, menor = mejor) y el ECE (%). Deja claro qué partición es cada chip. Solo
+ * presenta escalares ya normalizados por `reliabilityCurve`.
+ */
+function ReliabilityChips({
+  partitions,
+}: {
+  partitions: ReliabilityPartitionView[]
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      {partitions.map((p) => (
+        <span
+          key={p.partition}
+          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5"
+        >
+          <span
+            className="size-2 shrink-0 rounded-full"
+            style={{ backgroundColor: partitionColor(p.partition) }}
+            aria-hidden="true"
+          />
+          <span className="text-brand-offwhite">{partitionLabel(p.partition)}</span>
+          <span className="text-brand-gray">·</span>
+          <span className="text-brand-placeholder">Brier</span>
+          <span className="font-mono tabular-nums text-brand-offwhite">
+            {formatMetric(p.brier, 4)}
+          </span>
+          <span className="text-brand-gray">·</span>
+          <span className="text-brand-placeholder">ECE</span>
+          <span className="font-mono tabular-nums text-brand-offwhite">
+            {formatPercent(p.ece, 2)}
+          </span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Detalle numérico de confiabilidad: selector de partición (default 'oot') + tabla por bin
+ * (PD predicha, default observado y su IC de Wilson). Reusa el patrón del visor WoE. Solo
+ * presenta valores ya normalizados; CERO cálculo.
+ */
+function ReliabilityDetail({
+  view,
+  active,
+  onSelect,
+}: {
+  view: ReliabilityView
+  active: string | null
+  onSelect: (partition: string) => void
+}) {
+  const detail = active
+    ? (view.partitions.find((p) => p.partition === active) ?? null)
+    : null
+  if (!active || !detail) return null
+
+  return (
+    <div className="space-y-3">
+      <div className="min-w-56 max-w-xs">
+        <Select
+          value={active}
+          onValueChange={(v) => {
+            if (v) onSelect(v)
+          }}
+        >
+          <SelectTrigger className="w-full" aria-label="Partición a detallar">
+            <SelectValue placeholder="Elige partición…" />
+          </SelectTrigger>
+          <SelectContent>
+            {view.partitions.map((p) => (
+              <SelectItem key={p.partition} value={p.partition}>
+                {partitionLabel(p.partition)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+              <th className="py-2 pr-3 font-medium">Bin</th>
+              <NumHead>n</NumHead>
+              <NumHead>PD predicha</NumHead>
+              <NumHead>Default observado</NumHead>
+              <NumHead>IC Wilson 95%</NumHead>
+            </tr>
+          </thead>
+          <tbody>
+            {detail.points.map((pt) => (
+              <tr key={pt.bin} className="border-b border-white/5">
+                <td className="py-2 pr-3 font-mono text-brand-offwhite">
+                  {pt.bin}
+                </td>
+                <NumCell>{formatCount(pt.n)}</NumCell>
+                <NumCell>{formatPercent(pt.pred, 2)}</NumCell>
+                <NumCell>{formatPercent(pt.obs, 2)}</NumCell>
+                <NumCell>
+                  [{formatPercent(pt.ciLow, 2)}, {formatPercent(pt.ciHigh, 2)}]
+                </NumCell>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

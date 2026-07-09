@@ -8,6 +8,7 @@
 import type {
   BinningResult,
   BinRow,
+  CalibrationResult,
   DecileRow,
   PerformanceResult,
   StabilityBand,
@@ -693,4 +694,87 @@ export function monotonicityLabel(m: BinMonotonicity): string {
     default:
       return "Categórica"
   }
+}
+
+// --- calibración: curva de confiabilidad (reliability diagram) ---------------
+
+/**
+ * Punto graficable del reliability diagram (un bin). `pred`/`obs` son las coordenadas
+ * (PD predicha vs default observado); `ciError` es el par de offsets `[obs − ciLow,
+ * ciHigh − obs]` (ambos ≥ 0) que el `ErrorBar` vertical de Recharts dibuja como banda de
+ * Wilson alrededor del punto. Todos los valores vienen del artefacto; solo se derivan los
+ * offsets del error bar (resta, no cálculo de dominio).
+ */
+export interface ReliabilityPoint {
+  bin: number
+  n: number
+  /** PD predicha media del bin (eje X). */
+  pred: number
+  /** Tasa de default observada del bin (eje Y). */
+  obs: number
+  ciLow: number
+  ciHigh: number
+  pdLo: number
+  pdHi: number
+  /** Offsets `[obs − ciLow, ciHigh − obs]` para el ErrorBar vertical (banda de Wilson). */
+  ciError: [number, number]
+}
+
+/** Curva de confiabilidad de UNA partición: puntos graficables + escalares Brier/ECE. */
+export interface ReliabilityPartitionView {
+  partition: string
+  n: number
+  brier: number
+  ece: number
+  points: ReliabilityPoint[]
+}
+
+/** Reliability diagram normalizado para el chart: metadatos + particiones ordenadas. */
+export interface ReliabilityView {
+  strategy: string
+  nBins: number
+  /** Particiones presentes, en orden canónico (desarrollo → holdout → oot → …). */
+  partitions: ReliabilityPartitionView[]
+}
+
+/**
+ * Normaliza `calibration.reliability` (reliability diagram, B35a) a una estructura tipada
+ * lista para el chart y la tabla: por partición, sus escalares Brier/ECE y los puntos
+ * (predicho vs observado) con los offsets del error bar de Wilson ya derivados. Reordena
+ * las particiones al orden canónico. CERO cálculo de dominio: solo lee/reordena y resta
+ * para los offsets del IC. Guard por presencia: devuelve `null` si `reliability` falta o
+ * su `by_partition` viene vacío (el visor no se renderiza).
+ */
+export function reliabilityCurve(
+  calibration: CalibrationResult | undefined,
+): ReliabilityView | null {
+  const reliability = calibration?.reliability
+  if (!reliability) return null
+  const byPartition = reliability.by_partition
+  if (!Array.isArray(byPartition) || byPartition.length === 0) return null
+
+  const partitions: ReliabilityPartitionView[] = byPartition
+    .map((p) => ({
+      partition: p.partition,
+      n: p.n,
+      brier: p.brier,
+      ece: p.ece,
+      points: (p.bins ?? []).map((b) => ({
+        bin: b.bin,
+        n: b.n,
+        pred: b.mean_predicted_pd,
+        obs: b.observed_default_rate,
+        ciLow: b.ci_low,
+        ciHigh: b.ci_high,
+        pdLo: b.pd_lo,
+        pdHi: b.pd_hi,
+        ciError: [
+          Math.max(0, b.observed_default_rate - b.ci_low),
+          Math.max(0, b.ci_high - b.observed_default_rate),
+        ] as [number, number],
+      })),
+    }))
+    .sort((a, b) => partitionRank(a.partition) - partitionRank(b.partition))
+
+  return { strategy: reliability.strategy, nBins: reliability.n_bins, partitions }
 }
