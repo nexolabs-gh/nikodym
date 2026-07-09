@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   EMPTY,
   bandsPresent,
+  binnedVariables,
   comparisonLabel,
   csiBars,
   discriminantRows,
@@ -13,14 +14,18 @@ import {
   formatPercent,
   gainsSeries,
   liftByDecile,
+  monotonicityLabel,
+  normalizeBinLabel,
   partitionLabel,
   primaryPartition,
   psiBars,
   scoreHistogram,
   sortByIv,
   temporalScore,
+  variableBinning,
 } from "./results-format"
 import type {
+  BinningResult,
   DecileRow,
   ResultsResponse,
   StabilityMetricRow,
@@ -706,5 +711,325 @@ describe("scoreHistogram", () => {
     expect(scoreHistogram(undefined)).toBeNull()
     expect(scoreHistogram([])).toBeNull()
     expect(scoreHistogram([Number.NaN, Number.POSITIVE_INFINITY])).toBeNull()
+  })
+})
+
+// --- binning: WoE por bin ---------------------------------------------------
+
+/**
+ * Fixture con VALORES REALES del preset (recorte de `results_real.json`, sección binning):
+ * una variable numérica (Bin string) con monotonicidad, una categórica (Bin array) sin
+ * monotonicidad, filas Special/Missing vacías (Count=0) y la fila Totals (Bin/WoE ""). Que
+ * compile como `BinningResult` ya verifica el contrato de tipos del payload.
+ */
+const binningWithTables: BinningResult = {
+  n_variables_requested: 2,
+  n_variables_binned: 2,
+  n_variables_skipped: 0,
+  iv_by_variable: {
+    ingreso_mensual: 0.3047503805275573,
+    segmento: 0.002922409359928141,
+  },
+  monotonicity_by_variable: {
+    ingreso_mensual: "descending",
+    segmento: null,
+  },
+  tables_by_variable: {
+    ingreso_mensual: [
+      {
+        Bin: "(-inf, 242795.88)",
+        Count: 210,
+        "Count (%)": 0.053016914920474625,
+        "Non-event": 120,
+        Event: 90,
+        "Event rate": 0.42857142857142855,
+        WoE: -0.9022313209522836,
+        IV: 0.052230099369214925,
+        JS: 0.006315960381075309,
+      },
+      {
+        Bin: "[913196.97, inf)",
+        Count: 565,
+        "Count (%)": 0.14264074728603887,
+        "Non-event": 518,
+        Event: 47,
+        "Event rate": 0.0831858407079646,
+        WoE: 1.2099142471453597,
+        IV: 0.14482341390398523,
+        JS: 0.01707370995208068,
+      },
+      {
+        Bin: "Special",
+        Count: 0,
+        "Count (%)": 0,
+        "Non-event": 0,
+        Event: 0,
+        "Event rate": 0,
+        WoE: 0,
+        IV: 0,
+        JS: 0,
+      },
+      {
+        Bin: "Missing",
+        Count: 0,
+        "Count (%)": 0,
+        "Non-event": 0,
+        Event: 0,
+        "Event rate": 0,
+        WoE: 0,
+        IV: 0,
+        JS: 0,
+      },
+      {
+        Bin: "",
+        Count: 3961,
+        "Count (%)": 1,
+        "Non-event": 3037,
+        Event: 924,
+        "Event rate": 0.23327442565008835,
+        WoE: "",
+        IV: 0.3047503805275573,
+        JS: 0.03671318287070641,
+      },
+    ],
+    segmento: [
+      {
+        Bin: ["independiente"],
+        Count: 1353,
+        "Count (%)": 0.34158040898762937,
+        "Non-event": 1052,
+        Event: 301,
+        "Event rate": 0.22246858832224686,
+        WoE: 0.061424735144714804,
+        IV: 0.001267615654035145,
+        JS: 0.00015842705149731427,
+      },
+      {
+        Bin: ["asalariado"],
+        Count: 1303,
+        "Count (%)": 0.328957334006564,
+        "Non-event": 1001,
+        Event: 302,
+        "Event rate": 0.23177283192632386,
+        WoE: 0.008414368536286299,
+        IV: 0.000023238413162702974,
+        JS: 0.000002904793075991785,
+      },
+      {
+        Bin: "",
+        Count: 3961,
+        "Count (%)": 1,
+        "Non-event": 3037,
+        Event: 924,
+        "Event rate": 0.23327442565008835,
+        WoE: "",
+        IV: 0.002922409359928141,
+        JS: 0.0003652349497844324,
+      },
+    ],
+  },
+}
+
+describe("normalizeBinLabel", () => {
+  it("bin numérico (string) pasa tal cual", () => {
+    expect(normalizeBinLabel("[242795.88, 354256.50)")).toBe(
+      "[242795.88, 354256.50)",
+    )
+    expect(normalizeBinLabel("(-inf, 242795.88)")).toBe("(-inf, 242795.88)")
+  })
+
+  it("bin categórico (array) se une con ', '", () => {
+    expect(normalizeBinLabel(["independiente"])).toBe("independiente")
+    expect(normalizeBinLabel(["a", "b"])).toBe("a, b")
+    // Categorías numéricas agrupadas → se stringifican.
+    expect(normalizeBinLabel([1, 2])).toBe("1, 2")
+  })
+})
+
+describe("monotonicityLabel", () => {
+  it("mapea asc/desc/categórica", () => {
+    expect(monotonicityLabel("ascending")).toBe("Monótona ascendente")
+    expect(monotonicityLabel("descending")).toBe("Monótona descendente")
+    expect(monotonicityLabel(null)).toBe("Categórica")
+  })
+})
+
+describe("variableBinning", () => {
+  it("variable numérica: excluye Totals y bins vacíos, normaliza campos", () => {
+    const d = variableBinning(binningWithTables, "ingreso_mensual")
+    expect(d).not.toBeNull()
+    if (!d) return
+    // Solo los 2 bins reales (Special/Missing con Count=0 y Totals fuera).
+    expect(d.rows).toHaveLength(2)
+    expect(d.rows.map((r) => r.binLabel)).toEqual([
+      "(-inf, 242795.88)",
+      "[913196.97, inf)",
+    ])
+    expect(d.rows[0].woe).toBeCloseTo(-0.9022313209522836, 12)
+    expect(d.rows[1].woe).toBeCloseTo(1.2099142471453597, 12)
+    expect(d.rows[0].eventRate).toBeCloseTo(0.42857142857142855, 12)
+    expect(d.rows[0].count).toBe(210)
+    // Ninguna fila graficable arrastra el WoE string de Totals.
+    expect(d.rows.every((r) => r.woe !== null)).toBe(true)
+    expect(d.monotonicity).toBe("descending")
+    expect(d.ivTotal).toBeCloseTo(0.3047503805275573, 12)
+  })
+
+  it("fila Totals se expone como agregado (pie de tabla), no como bin", () => {
+    const d = variableBinning(binningWithTables, "ingreso_mensual")
+    expect(d?.total).not.toBeNull()
+    expect(d?.total?.totalCount).toBe(3961)
+    expect(d?.total?.baseEventRate).toBeCloseTo(0.23327442565008835, 12)
+    expect(d?.total?.ivTotal).toBeCloseTo(0.3047503805275573, 12)
+    // El WoE "" de Totals no se cuela: el agregado no expone WoE (solo IV/tasa base).
+    expect(d?.rows.some((r) => r.binLabel === "")).toBe(false)
+  })
+
+  it("variable categórica: Bin array → label unido, monotonicidad null", () => {
+    const d = variableBinning(binningWithTables, "segmento")
+    expect(d).not.toBeNull()
+    if (!d) return
+    expect(d.rows).toHaveLength(2)
+    expect(d.rows[0].binLabel).toBe("independiente")
+    expect(d.rows[1].binLabel).toBe("asalariado")
+    expect(d.monotonicity).toBeNull()
+  })
+
+  it("filtra por Count==0, NO por el nombre 'Special'/'Missing'", () => {
+    // Un bin 'Special' con datos (Count>0) SÍ debe graficarse; un bin normal vacío, no.
+    const binning: BinningResult = {
+      n_variables_requested: 1,
+      n_variables_binned: 1,
+      n_variables_skipped: 0,
+      iv_by_variable: { x: 0.1 },
+      tables_by_variable: {
+        x: [
+          {
+            Bin: "Special",
+            Count: 12,
+            "Count (%)": 0.5,
+            "Non-event": 8,
+            Event: 4,
+            "Event rate": 0.3333,
+            WoE: 0.1,
+            IV: 0.01,
+            JS: 0.001,
+          },
+          {
+            Bin: "(-inf, 0)",
+            Count: 0,
+            "Count (%)": 0,
+            "Non-event": 0,
+            Event: 0,
+            "Event rate": 0,
+            WoE: 0.5,
+            IV: 0,
+            JS: 0,
+          },
+        ],
+      },
+    }
+    const d = variableBinning(binning, "x")
+    expect(d?.rows.map((r) => r.binLabel)).toEqual(["Special"])
+  })
+
+  it("WoE numérico no finito se normaliza a null (nunca NaN)", () => {
+    const binning: BinningResult = {
+      n_variables_requested: 1,
+      n_variables_binned: 1,
+      n_variables_skipped: 0,
+      iv_by_variable: { x: 0.1 },
+      tables_by_variable: {
+        x: [
+          {
+            Bin: "(-inf, 0)",
+            Count: 5,
+            "Count (%)": 1,
+            "Non-event": 3,
+            Event: 2,
+            "Event rate": 0.4,
+            WoE: Number.NaN,
+            IV: 0.01,
+            JS: 0.001,
+          },
+        ],
+      },
+    }
+    const d = variableBinning(binning, "x")
+    expect(d?.rows[0].woe).toBeNull()
+  })
+
+  it("ivTotal cae a la fila Totals si falta en iv_by_variable", () => {
+    const binning: BinningResult = {
+      n_variables_requested: 1,
+      n_variables_binned: 1,
+      n_variables_skipped: 0,
+      iv_by_variable: {},
+      tables_by_variable: {
+        x: [
+          {
+            Bin: "(-inf, 0)",
+            Count: 5,
+            "Count (%)": 0.5,
+            "Non-event": 3,
+            Event: 2,
+            "Event rate": 0.4,
+            WoE: 0.2,
+            IV: 0.02,
+            JS: 0.001,
+          },
+          {
+            Bin: "",
+            Count: 10,
+            "Count (%)": 1,
+            "Non-event": 6,
+            Event: 4,
+            "Event rate": 0.4,
+            WoE: "",
+            IV: 0.07,
+            JS: 0.005,
+          },
+        ],
+      },
+    }
+    const d = variableBinning(binning, "x")
+    expect(d?.ivTotal).toBeCloseTo(0.07, 12)
+  })
+
+  it("devuelve null si la variable no tiene tabla o el binning falta", () => {
+    expect(variableBinning(binningWithTables, "no_existe")).toBeNull()
+    expect(variableBinning(undefined, "x")).toBeNull()
+    expect(
+      variableBinning(
+        { ...binningWithTables, tables_by_variable: undefined },
+        "ingreso_mensual",
+      ),
+    ).toBeNull()
+  })
+})
+
+describe("binnedVariables", () => {
+  it("lista solo las variables con tabla, ordenadas por IV desc", () => {
+    const vars = binnedVariables(binningWithTables)
+    expect(vars.map((v) => v.feature)).toEqual(["ingreso_mensual", "segmento"])
+    expect(vars[0].iv).toBeGreaterThan(vars[1].iv)
+  })
+
+  it("IV cae a la fila Totals si falta en iv_by_variable", () => {
+    const binning: BinningResult = {
+      ...binningWithTables,
+      iv_by_variable: {},
+    }
+    const vars = binnedVariables(binning)
+    // ingreso_mensual (IV Totals 0.3048) sigue delante de segmento (0.0029).
+    expect(vars[0].feature).toBe("ingreso_mensual")
+    expect(vars[0].iv).toBeCloseTo(0.3047503805275573, 12)
+  })
+
+  it("binning ausente o sin tablas → []", () => {
+    expect(binnedVariables(undefined)).toEqual([])
+    expect(
+      binnedVariables({ ...binningWithTables, tables_by_variable: undefined }),
+    ).toEqual([])
   })
 })

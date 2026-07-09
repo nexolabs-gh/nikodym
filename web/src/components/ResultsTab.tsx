@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from "react"
+import { type ReactNode, useId, useState } from "react"
 import { ArrowRight, ChartColumn, CircleAlert, Play } from "lucide-react"
 
 import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
@@ -10,13 +10,22 @@ import { PsiByComparisonChart } from "@/components/charts/PsiByComparisonChart"
 import { ScoreHistogramChart } from "@/components/charts/ScoreHistogramChart"
 import { StabilityBandLegend } from "@/components/charts/StabilityBandLegend"
 import { StabilityCsiChart } from "@/components/charts/StabilityCsiChart"
+import { WoeByBinChart } from "@/components/charts/WoeByBinChart"
 import { bandColor, bandLabel } from "@/components/charts/chart-theme"
 import { EmptyState } from "@/components/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   EMPTY,
   bandsPresent,
+  binnedVariables,
   csiBars,
   discriminantRows,
   formatBool,
@@ -26,13 +35,16 @@ import {
   formatPercent,
   gainsSeries,
   liftByDecile,
+  monotonicityLabel,
   partitionLabel,
   primaryPartition,
   psiBars,
   scoreHistogram,
   sortByIv,
   temporalScore,
+  variableBinning,
 } from "@/lib/results-format"
+import type { VariableBinning } from "@/lib/results-format"
 import type { Coefficient } from "@/lib/results-types"
 import { useAppState } from "@/state/appStore"
 
@@ -46,12 +58,17 @@ interface ResultsTabProps {
  * ya dejó en el store (`results`), con CERO lógica de dominio (cada número/barra viene
  * del artefacto). Visores premium (Recharts): discriminación, gains/lift por decil,
  * estabilidad (PSI/CSI), forest de coeficientes, IV por variable e histograma del score;
- * los valores exactos quedan a mano en tablas/detalle. Las curvas WoE por variable y la
- * confiabilidad de calibración son un batch posterior; aquí no se adelantan. Robusta a
+ * los valores exactos quedan a mano en tablas/detalle. Incluye la curva WoE por bin con
+ * detalle por variable; la confiabilidad de calibración es un batch posterior. Robusta a
  * corridas `failed`/parciales: muestra el `error` y solo las secciones presentes.
  */
 export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const { results, lastRun, validation } = useAppState()
+
+  // Variable seleccionada en el visor de WoE por bin (estado local, no store global). Se
+  // declara antes de cualquier return condicional (reglas de hooks); su default real (mayor
+  // IV) se resuelve más abajo contra los datos, cuando ya existen.
+  const [woeVariable, setWoeVariable] = useState<string | null>(null)
 
   // Sin resultados: estado vacío sobrio con CTA a Ejecutar (como RunTab navega a "resultados").
   if (results === null) {
@@ -85,6 +102,17 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   // Solo derivación/selección de artefactos ya calculados (helpers puros).
   const rows = discriminantRows(results.performance)
   const ivRows = sortByIv(results.binning?.iv_by_variable)
+
+  // WoE por bin (3er batch): variables con tabla, ordenadas por IV desc para el selector; la
+  // seleccionada cae a la de mayor IV si el estado local aún no eligió una válida.
+  const woeVars = binnedVariables(results.binning)
+  const activeWoeVar =
+    woeVariable && woeVars.some((v) => v.feature === woeVariable)
+      ? woeVariable
+      : (woeVars[0]?.feature ?? null)
+  const woeDetail = activeWoeVar
+    ? variableBinning(results.binning, activeWoeVar)
+    : null
   const fit = results.model?.fit_statistics
   const coefs = results.model?.coefficients ?? []
   const finalFeatures = results.model?.final_features ?? []
@@ -368,6 +396,40 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
         </ResultsSection>
       ) : null}
 
+      {/* d.1 Análisis por variable (WoE): detalle del binning de la variable elegida (curva
+          WoE por bin + tasa de default + tabla). Contigua al IV (panorámica → detalle).
+          Guard por presencia: sin tablas de binning, no se renderiza. */}
+      {woeVars.length > 0 && activeWoeVar && woeDetail ? (
+        <ResultsSection
+          title="Análisis por variable (WoE)"
+          description="Weight of Evidence por bin de la variable elegida y su tasa de default (línea, eje derecho). WoE>0 = bin protector (menor riesgo); WoE<0 = mayor riesgo."
+        >
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <div className="min-w-56">
+              <Select
+                value={activeWoeVar}
+                onValueChange={(v) => setWoeVariable(v)}
+              >
+                <SelectTrigger className="w-full" aria-label="Variable a analizar">
+                  <SelectValue placeholder="Elige variable…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {woeVars.map((v) => (
+                    <SelectItem key={v.feature} value={v.feature}>
+                      <span className="font-mono">{v.feature}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <WoeHeaderChips detail={woeDetail} />
+          </div>
+
+          <WoeByBinChart rows={woeDetail.rows} />
+          <WoeDetailTable detail={woeDetail} />
+        </ResultsSection>
+      ) : null}
+
       {/* e. Escala / calibración (compacto). */}
       {sc || cal ? (
         <ResultsSection
@@ -523,6 +585,80 @@ function NumCell({ children }: { children: ReactNode }) {
     <td className="py-2 pl-3 text-right font-mono tabular-nums text-brand-gray">
       {children}
     </td>
+  )
+}
+
+/** Chips del header del visor WoE: IV total + monotonicidad + nº de bins. Solo presenta. */
+function WoeHeaderChips({ detail }: { detail: VariableBinning }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-accent-dark/30 bg-brand-accent/10 px-2.5 py-0.5">
+        <span className="text-brand-placeholder">IV</span>
+        <span className="font-mono tabular-nums text-brand-accent-dark">
+          {formatMetric(detail.ivTotal)}
+        </span>
+      </span>
+      <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-brand-placeholder">
+        {monotonicityLabel(detail.monotonicity)}
+      </span>
+      <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-brand-placeholder">
+        {detail.rows.length} {detail.rows.length === 1 ? "bin" : "bins"}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Tabla de detalle del binning de una variable: una fila por bin real y la fila Totals
+ * distinguida al pie (WoE del agregado no aplica → EMPTY). Formatos consistentes con el
+ * resto de la pestaña. Solo presenta valores ya normalizados por `variableBinning`.
+ */
+function WoeDetailTable({ detail }: { detail: VariableBinning }) {
+  const { rows, total } = detail
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+            <th className="py-2 pr-3 font-medium">Bin</th>
+            <NumHead>Count</NumHead>
+            <NumHead>Count (%)</NumHead>
+            <NumHead>Event rate</NumHead>
+            <NumHead>WoE</NumHead>
+            <NumHead>IV</NumHead>
+            <NumHead>JS</NumHead>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.binLabel} className="border-b border-white/5">
+              <td className="py-2 pr-3 font-mono text-brand-offwhite">
+                {r.binLabel}
+              </td>
+              <NumCell>{formatCount(r.count)}</NumCell>
+              <NumCell>{formatPercent(r.countPct)}</NumCell>
+              <NumCell>{formatPercent(r.eventRate)}</NumCell>
+              <NumCell>{formatMetric(r.woe)}</NumCell>
+              <NumCell>{formatMetric(r.iv)}</NumCell>
+              <NumCell>{formatMetric(r.js)}</NumCell>
+            </tr>
+          ))}
+        </tbody>
+        {total ? (
+          <tfoot>
+            <tr className="border-t border-white/15 text-brand-offwhite">
+              <td className="py-2 pr-3 font-medium">Total</td>
+              <NumCell>{formatCount(total.totalCount)}</NumCell>
+              <NumCell>{formatPercent(total.countPct)}</NumCell>
+              <NumCell>{formatPercent(total.baseEventRate)}</NumCell>
+              <NumCell>{EMPTY}</NumCell>
+              <NumCell>{formatMetric(total.ivTotal)}</NumCell>
+              <NumCell>{formatMetric(total.js)}</NumCell>
+            </tr>
+          </tfoot>
+        ) : null}
+      </table>
+    </div>
   )
 }
 

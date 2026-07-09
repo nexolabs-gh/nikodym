@@ -6,6 +6,8 @@
  */
 
 import type {
+  BinningResult,
+  BinRow,
   DecileRow,
   PerformanceResult,
   StabilityBand,
@@ -485,4 +487,169 @@ export function scoreHistogram(
   })
 
   return { bins: out, binWidth, min, max, count: finite.length, mean, median }
+}
+
+// --- binning: WoE por bin (detalle por variable, 3er batch de visores) -------
+
+/**
+ * Normaliza la etiqueta de un bin a un string legible. Un bin NUMÉRICO ya llega como
+ * string ("[a, b)"); un bin CATEGÓRICO llega como array (`["independiente"]`) → se une con
+ * ", ". Presentación pura: no reordena ni reinterpreta las categorías.
+ */
+export function normalizeBinLabel(bin: string | (string | number)[]): string {
+  return Array.isArray(bin) ? bin.map(String).join(", ") : bin
+}
+
+/**
+ * WoE a `number` o `null`. La fila Totals trae el WoE como string vacío (`""`), y cualquier
+ * WoE no numérico/no finito se trata como `null` (nunca NaN). NO recalcula el WoE: solo lo
+ * lee y lo normaliza para graficar/formatear.
+ */
+function woeToNumber(woe: number | string): number | null {
+  return typeof woe === "number" && Number.isFinite(woe) ? woe : null
+}
+
+/** ¿Es la fila el agregado Totals? Convención del backend: `Bin` es el string vacío. */
+function isTotalsRow(row: BinRow): boolean {
+  return typeof row.Bin === "string" && row.Bin === ""
+}
+
+/**
+ * Fila normalizada de un bin real (Count>0, sin Totals): alimenta a la vez la curva WoE y
+ * la tabla de detalle. Todos los campos vienen del artefacto; solo se normaliza la etiqueta
+ * y el WoE string→null.
+ */
+export interface BinDetailRow {
+  binLabel: string
+  count: number
+  countPct: number
+  nonEvent: number
+  event: number
+  eventRate: number
+  /** WoE del bin (number); `null` solo si el payload no trajo un número finito. */
+  woe: number | null
+  iv: number
+  js: number
+}
+
+/** Agregado de la variable (fila Totals) para el pie de la tabla de detalle. */
+export interface BinTotal {
+  totalCount: number
+  baseEventRate: number
+  ivTotal: number
+  countPct: number
+  nonEvent: number
+  event: number
+  js: number
+}
+
+/** Monotonicidad de un binning numérico; `null` = categórica / no aplicable. */
+export type BinMonotonicity = "ascending" | "descending" | null
+
+/** Detalle de binning de UNA variable: filas graficables + agregado + metadatos. */
+export interface VariableBinning {
+  variable: string
+  /** Bins reales (Count>0, sin la fila Totals): alimentan el chart y la tabla. */
+  rows: BinDetailRow[]
+  /** Fila Totals (pie de tabla); `null` si el payload no la trajo. */
+  total: BinTotal | null
+  /** IV total de la variable (de `iv_by_variable`; fallback a la fila Totals). */
+  ivTotal: number | null
+  /** Monotonicidad declarada por el binning (asc/desc) o `null` (categórica). */
+  monotonicity: BinMonotonicity
+}
+
+/**
+ * Deriva el detalle de binning de una variable desde `binning.tables_by_variable[var]`.
+ * Separa la fila Totals (`Bin==""`) del resto, filtra los bins vacíos (Count==0, p.ej.
+ * "Special"/"Missing" sin datos — el filtro es por Count, NO por el nombre) para no ensuciar
+ * chart ni tabla, y normaliza etiquetas y el WoE string→null. CERO cálculo de riesgo: solo
+ * lee/normaliza/reordena campos ya materializados por el motor. Devuelve `null` si la
+ * variable no tiene tabla.
+ */
+export function variableBinning(
+  binning: BinningResult | undefined,
+  variable: string,
+): VariableBinning | null {
+  const table = binning?.tables_by_variable?.[variable]
+  if (!table || table.length === 0) return null
+
+  const rows: BinDetailRow[] = table
+    .filter((r) => !isTotalsRow(r) && r.Count > 0)
+    .map((r) => ({
+      binLabel: normalizeBinLabel(r.Bin),
+      count: r.Count,
+      countPct: r["Count (%)"],
+      nonEvent: r["Non-event"],
+      event: r.Event,
+      eventRate: r["Event rate"],
+      woe: woeToNumber(r.WoE),
+      iv: r.IV,
+      js: r.JS,
+    }))
+
+  const totalsRow = table.find(isTotalsRow) ?? null
+  const total: BinTotal | null = totalsRow
+    ? {
+        totalCount: totalsRow.Count,
+        baseEventRate: totalsRow["Event rate"],
+        ivTotal: totalsRow.IV,
+        countPct: totalsRow["Count (%)"],
+        nonEvent: totalsRow["Non-event"],
+        event: totalsRow.Event,
+        js: totalsRow.JS,
+      }
+    : null
+
+  const ivFromMap = binning?.iv_by_variable?.[variable]
+  const ivTotal =
+    typeof ivFromMap === "number" && Number.isFinite(ivFromMap)
+      ? ivFromMap
+      : (total?.ivTotal ?? null)
+
+  const rawMono = binning?.monotonicity_by_variable?.[variable]
+  const monotonicity: BinMonotonicity =
+    rawMono === "ascending" || rawMono === "descending" ? rawMono : null
+
+  return { variable, rows, total, ivTotal, monotonicity }
+}
+
+/** Variable con tabla de binning (para el selector), con su IV total. */
+export interface BinnedVariable {
+  feature: string
+  iv: number
+}
+
+/**
+ * Variables que tienen tabla de binning, ordenadas por IV DESC (para el selector). El IV
+ * sale de `iv_by_variable`; si faltara, se cae a la fila Totals de la tabla y, en último
+ * término, a 0. Solo reordena lo que el backend ya calculó (no umbraliza ni filtra por IV).
+ */
+export function binnedVariables(
+  binning: BinningResult | undefined,
+): BinnedVariable[] {
+  const tables = binning?.tables_by_variable
+  if (!tables) return []
+  return Object.keys(tables)
+    .map((feature) => {
+      const ivFromMap = binning.iv_by_variable?.[feature]
+      if (typeof ivFromMap === "number" && Number.isFinite(ivFromMap)) {
+        return { feature, iv: ivFromMap }
+      }
+      const totals = tables[feature]?.find(isTotalsRow)
+      return { feature, iv: totals ? totals.IV : 0 }
+    })
+    .sort((a, b) => b.iv - a.iv)
+}
+
+/** Etiqueta humana de la monotonicidad (chip del header). Presentación pura. */
+export function monotonicityLabel(m: BinMonotonicity): string {
+  switch (m) {
+    case "ascending":
+      return "Monótona ascendente"
+    case "descending":
+      return "Monótona descendente"
+    default:
+      return "Categórica"
+  }
 }

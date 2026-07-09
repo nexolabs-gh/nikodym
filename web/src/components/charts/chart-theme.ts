@@ -97,6 +97,20 @@ export function coefColor(signOk: boolean | null | undefined): string {
   return BRAND.cyan // esperado, o no evaluable
 }
 
+/**
+ * Color de una barra WoE según su SIGNO (no recalcula nada; solo mapea el signo ya
+ * materializado a un token de marca). WoE>0 = bin protector (menor riesgo) → verde
+ * "estable"; WoE<0 = mayor riesgo → rojo "redesarrollar"; 0/`null` (p.ej. Totals) → gris
+ * neutro. Reutiliza la paleta semáforo de `BAND_COLORS` (no introduce HEX nuevos).
+ * Accesibilidad: el color nunca es el único distintivo — eje, tabla y tooltip dan el número.
+ */
+export function woeColor(woe: number | null | undefined): string {
+  if (woe === null || woe === undefined || !Number.isFinite(woe) || woe === 0) {
+    return BRAND.gray
+  }
+  return woe > 0 ? BAND_COLORS.stable : BAND_COLORS.redevelop
+}
+
 /** Props comunes de ejes: tenues, tipografía chica, sin líneas pesadas. */
 export const AXIS_TICK = { fill: BRAND.placeholder, fontSize: 11 }
 export const AXIS_LINE = { stroke: "rgba(255,255,255,0.14)" }

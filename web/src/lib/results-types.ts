@@ -98,8 +98,8 @@ export interface PerformanceResult {
 /**
  * Fila de una tabla de binning (`binning.tables_by_variable[var]`). La última fila
  * es el total: su `Bin` es `""` y su `WoE` viene como string vacío (por eso los
- * tipos unión). Este bloque v1 NO renderiza estas tablas (es visor premium
- * posterior); se tipa para fidelidad del contrato.
+ * tipos unión). La pestaña Resultados SÍ renderiza estas tablas (visor "Análisis por
+ * variable (WoE)": curva WoE por bin + tabla de detalle); ver `variableBinning`.
  */
 export interface BinRow {
   Bin: string | (string | number)[]
