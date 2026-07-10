@@ -19,6 +19,7 @@ import { AppSidebar, type NavItem } from "@/components/AppSidebar"
 import { ConfigTab } from "@/components/ConfigTab"
 import { DatosTab } from "@/components/DatosTab"
 import { EmptyState } from "@/components/EmptyState"
+import { LandingLauncher } from "@/components/LandingLauncher"
 import { ReporteTab } from "@/components/ReporteTab"
 import { ResultsTab } from "@/components/ResultsTab"
 import { RunTab } from "@/components/RunTab"
@@ -169,11 +170,17 @@ function configKeyOf(active: string): string | null {
 }
 
 function App() {
+  // Nivel-0: la landing/launcher se ve ANTES del workspace; entrar la deja atrás.
+  const [view, setView] = useState<"landing" | "workspace">("landing")
   const [active, setActive] = useState<string>(configValue(CONFIG_SECTIONS[0].key))
 
   // "config" a secas (p.ej. una navegación programática) cae en la primera sub-sección.
   const navigate = (value: string) =>
     setActive(value === "config" ? configValue(CONFIG_SECTIONS[0].key) : value)
+
+  if (view === "landing") {
+    return <LandingLauncher onEnter={() => setView("workspace")} />
+  }
 
   const configKey = configKeyOf(active)
   const configSection = configKey
@@ -187,7 +194,12 @@ function App() {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <AppSidebar items={NAV} active={active} onSelect={setActive} />
+      <AppSidebar
+        items={NAV}
+        active={active}
+        onSelect={setActive}
+        onHome={() => setView("landing")}
+      />
 
       <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-4xl px-6 py-10 lg:px-10">

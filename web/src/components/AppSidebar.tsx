@@ -20,6 +20,8 @@ interface AppSidebarProps {
   items: readonly NavItem[]
   active: string
   onSelect: (value: string) => void
+  /** Volver a la landing/launcher (click en la marca). */
+  onHome?: () => void
 }
 
 /** Botón de navegación (hoja): icono + label + barra cyan de "activo". `indent` para sub-items. */
@@ -77,14 +79,14 @@ function NavButton({
  * sub-secciones), que se pintan anidados con un encabezado de grupo (solo en lg) y un
  * separador; en el rail los hijos quedan como su propia pila de iconos.
  */
-export function AppSidebar({ items, active, onSelect }: AppSidebarProps) {
+export function AppSidebar({ items, active, onSelect, onHome }: AppSidebarProps) {
   // Estado de corrida REAL desde el store (SDD-23 §7.4): run_id/config_hash/dataset.
   const { lastRun, validation, datasetId } = useAppState()
   const configHash = validation.kind === "valid" ? validation.hash : null
 
   return (
     <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col border-r border-white/10 bg-sidebar lg:w-60">
-      <AppHeader />
+      <AppHeader onHome={onHome} />
 
       <nav
         aria-label="Secciones"
