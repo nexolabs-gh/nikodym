@@ -204,10 +204,10 @@ function App() {
       <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-4xl px-6 py-10 lg:px-10">
           <header className="mb-8">
-            <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-brand-cyan">
+            <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
               {eyebrow}
             </p>
-            <h1 className="font-display text-2xl font-bold text-brand-offwhite sm:text-3xl">
+            <h1 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
               {title}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
@@ -236,7 +236,7 @@ function App() {
             </Card>
           ) : null}
 
-          <p className="mt-8 font-mono text-xs text-brand-placeholder">
+          <p className="mt-8 font-mono text-xs text-muted-foreground">
             Backend: {API_BASE}
           </p>
         </div>

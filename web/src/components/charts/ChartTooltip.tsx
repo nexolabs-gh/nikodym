@@ -43,9 +43,9 @@ export function ChartTooltip({
     !hideLabel && label !== undefined && label !== null && label !== ""
 
   return (
-    <div className="rounded-lg bg-brand-panel-raised px-3 py-2 text-xs shadow-card ring-1 ring-white/10">
+    <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
       {showLabel ? (
-        <p className="mb-1.5 font-medium text-brand-offwhite">{label}</p>
+        <p className="mb-1.5 font-medium text-foreground">{label}</p>
       ) : null}
       <ul className="space-y-1">
         {payload.map((item, i) => {
@@ -61,8 +61,8 @@ export function ChartTooltip({
                 style={{ backgroundColor: item.color ?? "var(--brand-gray)" }}
                 aria-hidden="true"
               />
-              <span className="text-brand-placeholder">{item.name}</span>
-              <span className="ml-auto pl-3 font-mono tabular-nums text-brand-offwhite">
+              <span className="text-muted-foreground">{item.name}</span>
+              <span className="ml-auto pl-3 font-mono tabular-nums text-foreground">
                 {value}
               </span>
             </li>

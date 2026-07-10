@@ -43,8 +43,8 @@ function GainsTooltip({ active, label, payload }: GainsTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
   const decile = typeof label === "number" ? label : Number(label)
   return (
-    <div className="rounded-lg bg-brand-panel-raised px-3 py-2 text-xs shadow-card ring-1 ring-white/10">
-      <p className="mb-1.5 font-medium text-brand-offwhite">
+    <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
+      <p className="mb-1.5 font-medium text-foreground">
         {decile === 0 ? "Origen" : `Decil ${decile}`}
       </p>
       <ul className="space-y-1">
@@ -58,8 +58,8 @@ function GainsTooltip({ active, label, payload }: GainsTooltipProps) {
               style={{ backgroundColor: item.color ?? "var(--brand-gray)" }}
               aria-hidden="true"
             />
-            <span className="text-brand-placeholder">{item.name}</span>
-            <span className="ml-auto pl-3 font-mono tabular-nums text-brand-offwhite">
+            <span className="text-muted-foreground">{item.name}</span>
+            <span className="ml-auto pl-3 font-mono tabular-nums text-foreground">
               {typeof item.value === "number" ? pct(item.value) : EMPTY}
             </span>
           </li>

@@ -28,10 +28,10 @@ export function FlowStepper({ steps, current }: FlowStepperProps) {
                   className={cn(
                     "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors",
                     isActive
-                      ? "border-brand-accent bg-brand-accent text-white"
+                      ? "border-brand-accent bg-brand-accent text-primary-foreground"
                       : isComplete
                         ? "border-brand-accent-dark/60 bg-brand-accent/20 text-brand-accent-dark"
-                        : "border-white/15 text-brand-placeholder",
+                        : "border-border text-muted-foreground",
                   )}
                   aria-current={isActive ? "step" : undefined}
                 >
@@ -41,8 +41,8 @@ export function FlowStepper({ steps, current }: FlowStepperProps) {
                   className={cn(
                     "hidden text-sm sm:inline",
                     isActive
-                      ? "font-medium text-brand-offwhite"
-                      : "text-brand-placeholder",
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground",
                   )}
                 >
                   {step.label}
@@ -50,7 +50,7 @@ export function FlowStepper({ steps, current }: FlowStepperProps) {
               </div>
               {index < steps.length - 1 && (
                 <span
-                  className="mx-3 h-px w-6 bg-white/15 sm:w-10"
+                  className="mx-3 h-px w-6 bg-foreground/15 sm:w-10"
                   aria-hidden="true"
                 />
               )}
@@ -58,7 +58,7 @@ export function FlowStepper({ steps, current }: FlowStepperProps) {
           )
         })}
       </ol>
-      <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-brand-placeholder">
+      <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
         Paso {current + 1} de {steps.length}
       </p>
     </nav>

@@ -189,12 +189,12 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
               La corrida terminó con fallo — se muestran las secciones disponibles
             </p>
           ) : (
-            <p className="text-sm font-medium text-brand-cyan">
+            <p className="text-sm font-medium text-eyebrow">
               Artefactos de la corrida
             </p>
           )}
 
-          <dl className="grid gap-1.5 font-mono text-xs text-brand-placeholder">
+          <dl className="grid gap-1.5 font-mono text-xs text-muted-foreground">
             <LineageRow label="run_id" value={runId} />
             <LineageRow label="config_hash" value={configHash} />
           </dl>
@@ -215,8 +215,8 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
         >
           <DiscriminationChart rows={rows} />
           <details className="group mt-2">
-            <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-brand-placeholder transition-colors hover:text-brand-cyan">
-              <span className="text-brand-gray transition-transform group-open:rotate-90">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-eyebrow">
+              <span className="text-muted-foreground transition-transform group-open:rotate-90">
                 ›
               </span>
               Ver valores exactos
@@ -224,7 +224,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+                  <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
                     <th className="py-2 pr-3 font-medium">Partición</th>
                     <NumHead>AUC</NumHead>
                     <NumHead>Gini</NumHead>
@@ -233,8 +233,8 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
                 </thead>
                 <tbody>
                   {rows.map((r) => (
-                    <tr key={r.partition} className="border-b border-white/5">
-                      <td className="py-2 pr-3 text-brand-offwhite">
+                    <tr key={r.partition} className="border-b border-border">
+                      <td className="py-2 pr-3 text-foreground">
                         {r.partition}
                       </td>
                       <NumCell>{formatMetric(r.auc)}</NumCell>
@@ -318,11 +318,11 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
 
           {/* 4. (Opcional) escalar de estabilidad temporal del score. */}
           {temporal ? (
-            <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-3 text-xs">
-              <span className="text-brand-placeholder">
+            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 text-xs">
+              <span className="text-muted-foreground">
                 PSI temporal del score
               </span>
-              <span className="font-mono tabular-nums text-brand-offwhite">
+              <span className="font-mono tabular-nums text-foreground">
                 {formatMetric(temporal.value)}
               </span>
               <span
@@ -373,7 +373,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
 
           {finalFeatures.length > 0 ? (
             <div className="mt-4 space-y-1.5">
-              <p className="text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+              <p className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
                 Variables finales ({finalFeatures.length})
               </p>
               <ul className="flex flex-wrap gap-1.5">
@@ -401,7 +401,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+                <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">Variable</th>
                   <NumHead>β</NumHead>
                   <NumHead>Std. error</NumHead>
@@ -555,12 +555,12 @@ function ResultsSection({
         <div className="space-y-1">
           <h2
             id={headingId}
-            className="font-heading text-base font-medium text-brand-offwhite"
+            className="font-heading text-base font-medium text-foreground"
           >
             {title}
           </h2>
           {description ? (
-            <p className="text-xs text-brand-placeholder">{description}</p>
+            <p className="text-xs text-muted-foreground">{description}</p>
           ) : null}
         </div>
         {children}
@@ -579,7 +579,7 @@ function Subchart({
 }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+      <p className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
         {title}
       </p>
       {children}
@@ -591,7 +591,7 @@ function Subchart({
 function LineageRow({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="shrink-0 text-brand-gray">{label}</dt>
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
       <dd className="min-w-0 truncate text-right" title={value ?? undefined}>
         {value ?? EMPTY}
       </dd>
@@ -611,14 +611,14 @@ function DefItem({
 }) {
   return (
     <div className="space-y-0.5">
-      <dt className="text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+      <dt className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
         {label}
       </dt>
       <dd
         className={
           mono
-            ? "font-mono tabular-nums text-brand-offwhite"
-            : "text-brand-offwhite"
+            ? "font-mono tabular-nums text-foreground"
+            : "text-foreground"
         }
       >
         {value}
@@ -635,7 +635,7 @@ function NumHead({ children }: { children: ReactNode }) {
 /** Celda numérica de tabla (mono, tabular, alineada a la derecha). */
 function NumCell({ children }: { children: ReactNode }) {
   return (
-    <td className="py-2 pl-3 text-right font-mono tabular-nums text-brand-gray">
+    <td className="py-2 pl-3 text-right font-mono tabular-nums text-muted-foreground">
       {children}
     </td>
   )
@@ -646,15 +646,15 @@ function WoeHeaderChips({ detail }: { detail: VariableBinning }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-accent-dark/30 bg-brand-accent/10 px-2.5 py-0.5">
-        <span className="text-brand-placeholder">IV</span>
+        <span className="text-muted-foreground">IV</span>
         <span className="font-mono tabular-nums text-brand-accent-dark">
           {formatMetric(detail.ivTotal)}
         </span>
       </span>
-      <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-brand-placeholder">
+      <span className="rounded-full border border-border bg-foreground/[0.03] px-2.5 py-0.5 text-muted-foreground">
         {monotonicityLabel(detail.monotonicity)}
       </span>
-      <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-brand-placeholder">
+      <span className="rounded-full border border-border bg-foreground/[0.03] px-2.5 py-0.5 text-muted-foreground">
         {detail.rows.length} {detail.rows.length === 1 ? "bin" : "bins"}
       </span>
     </div>
@@ -672,7 +672,7 @@ function WoeDetailTable({ detail }: { detail: VariableBinning }) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+          <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
             <th className="py-2 pr-3 font-medium">Bin</th>
             <NumHead>Count</NumHead>
             <NumHead>Count (%)</NumHead>
@@ -684,8 +684,8 @@ function WoeDetailTable({ detail }: { detail: VariableBinning }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.binLabel} className="border-b border-white/5">
-              <td className="py-2 pr-3 font-mono text-brand-offwhite">
+            <tr key={r.binLabel} className="border-b border-border">
+              <td className="py-2 pr-3 font-mono text-foreground">
                 {r.binLabel}
               </td>
               <NumCell>{formatCount(r.count)}</NumCell>
@@ -699,7 +699,7 @@ function WoeDetailTable({ detail }: { detail: VariableBinning }) {
         </tbody>
         {total ? (
           <tfoot>
-            <tr className="border-t border-white/15 text-brand-offwhite">
+            <tr className="border-t border-border text-foreground">
               <td className="py-2 pr-3 font-medium">Total</td>
               <NumCell>{formatCount(total.totalCount)}</NumCell>
               <NumCell>{formatPercent(total.countPct)}</NumCell>
@@ -730,22 +730,22 @@ function ReliabilityChips({
       {partitions.map((p) => (
         <span
           key={p.partition}
-          className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-foreground/[0.03] px-2.5 py-0.5"
         >
           <span
             className="size-2 shrink-0 rounded-full"
             style={{ backgroundColor: partitionColor(p.partition) }}
             aria-hidden="true"
           />
-          <span className="text-brand-offwhite">{partitionLabel(p.partition)}</span>
-          <span className="text-brand-gray">·</span>
-          <span className="text-brand-placeholder">Brier</span>
-          <span className="font-mono tabular-nums text-brand-offwhite">
+          <span className="text-foreground">{partitionLabel(p.partition)}</span>
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">Brier</span>
+          <span className="font-mono tabular-nums text-foreground">
             {formatMetric(p.brier, 4)}
           </span>
-          <span className="text-brand-gray">·</span>
-          <span className="text-brand-placeholder">ECE</span>
-          <span className="font-mono tabular-nums text-brand-offwhite">
+          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground">ECE</span>
+          <span className="font-mono tabular-nums text-foreground">
             {formatPercent(p.ece, 2)}
           </span>
         </span>
@@ -798,7 +798,7 @@ function ReliabilityDetail({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+            <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
               <th className="py-2 pr-3 font-medium">Bin</th>
               <NumHead>n</NumHead>
               <NumHead>PD predicha</NumHead>
@@ -808,8 +808,8 @@ function ReliabilityDetail({
           </thead>
           <tbody>
             {detail.points.map((pt) => (
-              <tr key={pt.bin} className="border-b border-white/5">
-                <td className="py-2 pr-3 font-mono text-brand-offwhite">
+              <tr key={pt.bin} className="border-b border-border">
+                <td className="py-2 pr-3 font-mono text-foreground">
                   {pt.bin}
                 </td>
                 <NumCell>{formatCount(pt.n)}</NumCell>
@@ -830,8 +830,8 @@ function ReliabilityDetail({
 /** Fila de coeficiente: el signo esperado se marca solo si el backend lo evaluó (sign_ok). */
 function CoefRow({ coef }: { coef: Coefficient }) {
   return (
-    <tr className="border-b border-white/5">
-      <td className="py-2 pr-3 font-mono text-brand-offwhite">
+    <tr className="border-b border-border">
+      <td className="py-2 pr-3 font-mono text-foreground">
         {coef.feature}
       </td>
       <NumCell>{formatMetric(coef.beta)}</NumCell>
@@ -840,9 +840,9 @@ function CoefRow({ coef }: { coef: Coefficient }) {
       <NumCell>{formatPValue(coef.p_value)}</NumCell>
       <td className="py-2 pl-3 text-right">
         {coef.sign_ok === null ? (
-          <span className="text-brand-placeholder">{EMPTY}</span>
+          <span className="text-muted-foreground">{EMPTY}</span>
         ) : coef.sign_ok ? (
-          <span className="text-brand-cyan">OK</span>
+          <span className="text-eyebrow">OK</span>
         ) : (
           <span className="text-amber-200/90">≠</span>
         )}

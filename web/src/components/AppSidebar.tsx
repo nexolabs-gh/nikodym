@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 
 import { AppHeader } from "@/components/AppHeader"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { cn } from "@/lib/utils"
 import { useAppState } from "@/state/appStore"
 
@@ -49,8 +50,8 @@ function NavButton({
         "justify-center lg:justify-start",
         indent && "lg:pl-6",
         isActive
-          ? "bg-primary text-white"
-          : "text-brand-placeholder hover:bg-white/5 hover:text-brand-offwhite",
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground",
       )}
     >
       {/* Indicador de sección activa: barra cyan al borde izquierdo */}
@@ -85,7 +86,7 @@ export function AppSidebar({ items, active, onSelect, onHome }: AppSidebarProps)
   const configHash = validation.kind === "valid" ? validation.hash : null
 
   return (
-    <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col border-r border-white/10 bg-sidebar lg:w-60">
+    <aside className="sticky top-0 flex h-screen w-16 shrink-0 flex-col border-r border-sidebar-border bg-sidebar lg:w-60">
       <AppHeader onHome={onHome} />
 
       <nav
@@ -95,7 +96,7 @@ export function AppSidebar({ items, active, onSelect, onHome }: AppSidebarProps)
         {items.map((item) =>
           item.children && item.children.length > 0 ? (
             <div key={item.value} className="flex flex-col gap-1">
-              <p className="hidden px-3 pt-1 pb-0.5 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-brand-gray lg:block">
+              <p className="hidden px-3 pt-1 pb-0.5 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground lg:block">
                 {item.label}
               </p>
               {item.children.map((child) => (
@@ -108,7 +109,7 @@ export function AppSidebar({ items, active, onSelect, onHome }: AppSidebarProps)
                 />
               ))}
               <div
-                className="mx-3 my-1 border-b border-white/5"
+                className="mx-3 my-1 border-b border-border"
                 aria-hidden="true"
               />
             </div>
@@ -123,19 +124,27 @@ export function AppSidebar({ items, active, onSelect, onHome }: AppSidebarProps)
         )}
       </nav>
 
+      {/* Toggle de tema: visible tanto en el rail (icono) como expandido */}
+      <div className="flex items-center justify-center gap-2 border-t border-sidebar-border px-2 py-3 lg:justify-between lg:px-4">
+        <span className="hidden font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground lg:inline">
+          Tema
+        </span>
+        <ThemeToggle />
+      </div>
+
       {/* Slot de meta-info de corrida, cableado al store. Sin corrida: guiones. Oculto en rail. */}
-      <div className="hidden border-t border-white/10 px-4 py-4 lg:block">
-        <p className="mb-2 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-brand-gray">
+      <div className="hidden border-t border-sidebar-border px-4 py-4 lg:block">
+        <p className="mb-2 font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground">
           Estado de corrida
         </p>
-        <dl className="space-y-1 font-mono text-xs text-brand-placeholder">
+        <dl className="space-y-1 font-mono text-xs text-muted-foreground">
           <div className="flex justify-between gap-2">
-            <dt className="shrink-0 text-brand-gray">Corrida</dt>
+            <dt className="shrink-0 text-muted-foreground">Corrida</dt>
             <dd
               className={cn(
                 "min-w-0 truncate text-right",
-                lastRun?.status === "failed" && "text-amber-200/80",
-                lastRun?.status === "done" && "text-brand-cyan",
+                lastRun?.status === "failed" && "text-amber-600 dark:text-amber-200/80",
+                lastRun?.status === "done" && "text-eyebrow",
               )}
               title={lastRun?.runId}
             >
@@ -143,7 +152,7 @@ export function AppSidebar({ items, active, onSelect, onHome }: AppSidebarProps)
             </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="shrink-0 text-brand-gray">config_hash</dt>
+            <dt className="shrink-0 text-muted-foreground">config_hash</dt>
             <dd
               className="min-w-0 truncate text-right"
               title={configHash ?? undefined}
@@ -152,7 +161,7 @@ export function AppSidebar({ items, active, onSelect, onHome }: AppSidebarProps)
             </dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="shrink-0 text-brand-gray">Dataset</dt>
+            <dt className="shrink-0 text-muted-foreground">Dataset</dt>
             <dd
               className="min-w-0 truncate text-right"
               title={datasetId ?? undefined}

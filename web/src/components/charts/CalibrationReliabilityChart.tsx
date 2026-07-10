@@ -40,32 +40,32 @@ function ReliabilityTooltip({ active, payload }: ReliabilityTooltipProps) {
   const d = active && payload && payload.length > 0 ? payload[0]?.payload : null
   if (!d) return null
   return (
-    <div className="rounded-lg bg-brand-panel-raised px-3 py-2 text-xs shadow-card ring-1 ring-white/10">
-      <p className="mb-1 font-medium text-brand-offwhite">
+    <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
+      <p className="mb-1 font-medium text-foreground">
         {d.partition} · bin {d.bin}
       </p>
       <ul className="space-y-0.5">
-        <li className="flex items-center gap-3 text-brand-placeholder">
+        <li className="flex items-center gap-3 text-muted-foreground">
           <span>PD predicha</span>
-          <span className="ml-auto font-mono tabular-nums text-brand-offwhite">
+          <span className="ml-auto font-mono tabular-nums text-foreground">
             {formatPercent(d.pred, 2)}
           </span>
         </li>
-        <li className="flex items-center gap-3 text-brand-placeholder">
+        <li className="flex items-center gap-3 text-muted-foreground">
           <span>Default observado</span>
-          <span className="ml-auto font-mono tabular-nums text-brand-offwhite">
+          <span className="ml-auto font-mono tabular-nums text-foreground">
             {formatPercent(d.obs, 2)}
           </span>
         </li>
-        <li className="flex items-center gap-3 text-brand-placeholder">
+        <li className="flex items-center gap-3 text-muted-foreground">
           <span>IC Wilson 95%</span>
-          <span className="ml-auto font-mono tabular-nums text-brand-offwhite">
+          <span className="ml-auto font-mono tabular-nums text-foreground">
             [{formatPercent(d.ciLow, 2)}, {formatPercent(d.ciHigh, 2)}]
           </span>
         </li>
-        <li className="flex items-center gap-3 text-brand-placeholder">
+        <li className="flex items-center gap-3 text-muted-foreground">
           <span>n</span>
-          <span className="ml-auto font-mono tabular-nums text-brand-offwhite">
+          <span className="ml-auto font-mono tabular-nums text-foreground">
             {formatCount(d.n)}
           </span>
         </li>
@@ -165,7 +165,7 @@ export function CalibrationReliabilityChart({
               }}
             />
             <Tooltip
-              cursor={{ strokeDasharray: "3 3", stroke: "rgba(255,255,255,0.12)" }}
+              cursor={{ strokeDasharray: "3 3", stroke: "var(--border)" }}
               content={<ReliabilityTooltip />}
             />
             <Legend
@@ -200,7 +200,7 @@ export function CalibrationReliabilityChart({
       </div>
 
       {/* Notas de lectura (accesibilidad: el significado no queda solo en el color). */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-brand-placeholder">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span
             className="h-0 w-4 border-t border-dashed"
@@ -209,7 +209,7 @@ export function CalibrationReliabilityChart({
           />
           diagonal = calibración perfecta
         </span>
-        <span className="text-brand-gray">
+        <span className="text-muted-foreground">
           barra vertical = intervalo de Wilson 95%
         </span>
       </div>

@@ -1,8 +1,20 @@
 <!doctype html>
-<html lang="es" class="dark">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Aplica el tema ANTES del paint (evita flash): elección guardada o, si no hay,
+         el default de la casa = oscuro navy. El toggle persiste en localStorage. -->
+    <script>
+      ;(function () {
+        try {
+          var t = localStorage.getItem("nikodym-theme")
+          if (t !== "light") document.documentElement.classList.add("dark")
+        } catch (e) {
+          document.documentElement.classList.add("dark")
+        }
+      })()
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"

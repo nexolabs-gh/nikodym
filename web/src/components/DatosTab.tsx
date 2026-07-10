@@ -128,10 +128,10 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
       <Card className="shadow-card">
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand-cyan">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
               Datasets de ejemplo
             </p>
-            <p className="text-sm text-brand-placeholder">
+            <p className="text-sm text-muted-foreground">
               Elige uno de los datasets sintéticos deterministas para correr el
               pipeline sin traer datos propios.
             </p>
@@ -175,10 +175,10 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
       <Card className="shadow-card">
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand-cyan">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
               Tu dataset
             </p>
-            <p className="text-sm text-brand-placeholder">
+            <p className="text-sm text-muted-foreground">
               Sube tu propio panel en CSV, Excel (.xlsx) o Parquet. El backend lo
               lee y expone sus columnas; el front no calcula dominio.
             </p>
@@ -198,7 +198,7 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
               Subir archivo (CSV, Excel, Parquet)
             </Button>
             {uploading ? (
-              <span className="text-xs text-brand-placeholder">Subiendo…</span>
+              <span className="text-xs text-muted-foreground">Subiendo…</span>
             ) : null}
             <input
               ref={fileInputRef}
@@ -250,14 +250,14 @@ function DatasetPreview({ dataset, onContinue }: DatasetPreviewProps) {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand-cyan">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
               Dataset activo
             </p>
-            <p className="mt-1 text-sm font-medium text-brand-offwhite">
+            <p className="mt-1 text-sm font-medium text-foreground">
               {dataset.name}
             </p>
           </div>
-          <p className="font-mono text-xs text-brand-placeholder">
+          <p className="font-mono text-xs text-muted-foreground">
             {dataset.nRows.toLocaleString("es-CL")} filas ·{" "}
             {dataset.columns.length} columnas
           </p>
@@ -266,7 +266,7 @@ function DatasetPreview({ dataset, onContinue }: DatasetPreviewProps) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/10 text-left text-[0.68rem] uppercase tracking-wide text-brand-placeholder">
+              <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
                 <th className="py-2 pr-3 font-medium">Columna</th>
                 <th className="py-2 pr-3 font-medium">Tipo</th>
                 {hasRole ? (
@@ -276,13 +276,13 @@ function DatasetPreview({ dataset, onContinue }: DatasetPreviewProps) {
             </thead>
             <tbody>
               {dataset.columns.map((c) => (
-                <tr key={c.name} className="border-b border-white/5">
-                  <td className="py-2 pr-3 text-brand-offwhite">{c.name}</td>
-                  <td className="py-2 pr-3 font-mono text-brand-placeholder">
+                <tr key={c.name} className="border-b border-border">
+                  <td className="py-2 pr-3 text-foreground">{c.name}</td>
+                  <td className="py-2 pr-3 font-mono text-muted-foreground">
                     {c.dtype}
                   </td>
                   {hasRole ? (
-                    <td className="py-2 pr-3 text-brand-placeholder">
+                    <td className="py-2 pr-3 text-muted-foreground">
                       {c.role ?? "—"}
                     </td>
                   ) : null}

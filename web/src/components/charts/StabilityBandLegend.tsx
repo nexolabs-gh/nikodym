@@ -11,7 +11,7 @@ import { bandColor, bandLabel } from "./chart-theme"
 export function StabilityBandLegend({ bands }: { bands: StabilityBand[] }) {
   if (bands.length === 0) return null
   return (
-    <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[0.7rem] text-brand-placeholder">
+    <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[0.7rem] text-muted-foreground">
       {bands.map((band) => (
         <li key={band} className="flex items-center gap-1.5">
           <span

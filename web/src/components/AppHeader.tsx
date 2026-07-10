@@ -8,10 +8,10 @@ export function AppHeader({ onHome }: { onHome?: () => void }) {
     <>
       <NikodymMark className="size-7 shrink-0" />
       <div className="hidden items-baseline gap-2 lg:flex">
-        <span className="font-display text-lg font-bold tracking-tight text-brand-offwhite">
+        <span className="font-display text-lg font-bold tracking-tight text-foreground">
           Nikodym
         </span>
-        <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brand-placeholder">
+        <span className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
           RiskLib
         </span>
       </div>
@@ -25,7 +25,7 @@ export function AppHeader({ onHome }: { onHome?: () => void }) {
         onClick={onHome}
         title="Volver a los modelos"
         aria-label="Volver a los modelos"
-        className="flex items-center gap-3 rounded-lg px-3 py-5 text-left transition-colors hover:bg-white/5 lg:px-4"
+        className="flex items-center gap-3 rounded-lg px-3 py-5 text-left transition-colors hover:bg-foreground/5 lg:px-4"
       >
         {content}
       </button>

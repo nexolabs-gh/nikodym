@@ -114,7 +114,7 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
         <CardContent
           role="status"
           aria-live="polite"
-          className="flex items-center gap-2 py-6 text-sm text-brand-placeholder"
+          className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
         >
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           Cargando reporte…
@@ -151,10 +151,10 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-brand-cyan">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
               Reporte del modelo
             </p>
-            <p className="text-sm text-brand-placeholder">
+            <p className="text-sm text-muted-foreground">
               Informe HTML de tu última corrida, aislado en su propio marco.
             </p>
           </div>
@@ -170,7 +170,7 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
         <iframe
           srcDoc={state.html}
           title="Reporte del modelo"
-          className="h-[75vh] w-full rounded-lg border border-white/10 bg-white"
+          className="h-[75vh] w-full rounded-lg border border-border bg-white"
         />
       </CardContent>
     </Card>

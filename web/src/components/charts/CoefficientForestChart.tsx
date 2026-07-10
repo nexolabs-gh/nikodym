@@ -74,19 +74,19 @@ function ForestTooltip({ active, payload }: ForestTooltipProps) {
   const low = d.beta - d.ciError[0]
   const high = d.beta + d.ciError[1]
   return (
-    <div className="rounded-lg bg-brand-panel-raised px-3 py-2 text-xs shadow-card ring-1 ring-white/10">
-      <p className="mb-1 font-mono font-medium text-brand-offwhite">
+    <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
+      <p className="mb-1 font-mono font-medium text-foreground">
         {d.feature}
       </p>
-      <p className="text-brand-placeholder">
+      <p className="text-muted-foreground">
         β{" "}
-        <span className="ml-1 font-mono tabular-nums text-brand-offwhite">
+        <span className="ml-1 font-mono tabular-nums text-foreground">
           {d.beta.toFixed(4)}
         </span>
       </p>
-      <p className="text-brand-placeholder">
+      <p className="text-muted-foreground">
         IC{" "}
-        <span className="ml-1 font-mono tabular-nums text-brand-offwhite">
+        <span className="ml-1 font-mono tabular-nums text-foreground">
           [{low.toFixed(4)}, {high.toFixed(4)}]
         </span>
       </p>
@@ -94,7 +94,7 @@ function ForestTooltip({ active, payload }: ForestTooltipProps) {
         {d.signOk === false ? (
           <span className="text-amber-200/90">signo inesperado</span>
         ) : (
-          <span className="text-brand-cyan">signo esperado</span>
+          <span className="text-eyebrow">signo esperado</span>
         )}
       </p>
     </div>
@@ -150,11 +150,11 @@ export function CoefficientForestChart({
             />
             <ReferenceLine
               x={0}
-              stroke="rgba(255,255,255,0.28)"
+              stroke="var(--border)"
               strokeWidth={1}
             />
             <Tooltip
-              cursor={{ strokeDasharray: "3 3", stroke: "rgba(255,255,255,0.12)" }}
+              cursor={{ strokeDasharray: "3 3", stroke: "var(--border)" }}
               content={<ForestTooltip />}
             />
             <Scatter
@@ -175,7 +175,7 @@ export function CoefficientForestChart({
       </div>
 
       {/* Leyenda del color (accesibilidad: el significado no queda solo en el color). */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-brand-placeholder">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span
             className="size-2 rounded-full"
@@ -192,7 +192,7 @@ export function CoefficientForestChart({
           />
           signo inesperado
         </span>
-        <span className="text-brand-gray">— barra de error = intervalo de confianza</span>
+        <span className="text-muted-foreground">— barra de error = intervalo de confianza</span>
       </div>
     </div>
   )

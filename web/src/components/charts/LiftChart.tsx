@@ -32,21 +32,21 @@ function LiftTooltip({ active, payload }: LiftTooltipProps) {
   const d = active && payload && payload.length > 0 ? payload[0]?.payload : null
   if (!d) return null
   return (
-    <div className="rounded-lg bg-brand-panel-raised px-3 py-2 text-xs shadow-card ring-1 ring-white/10">
-      <p className="mb-1 font-medium text-brand-offwhite">Decil {d.decile}</p>
-      <p className="text-brand-placeholder">
+    <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
+      <p className="mb-1 font-medium text-foreground">Decil {d.decile}</p>
+      <p className="text-muted-foreground">
         Lift{" "}
-        <span className="ml-1 font-mono tabular-nums text-brand-offwhite">
+        <span className="ml-1 font-mono tabular-nums text-foreground">
           {d.lift.toFixed(2)}×
         </span>
       </p>
-      <p className="mt-0.5 text-brand-placeholder">
+      <p className="mt-0.5 text-muted-foreground">
         Tasa de malos{" "}
-        <span className="ml-1 font-mono tabular-nums text-brand-offwhite">
+        <span className="ml-1 font-mono tabular-nums text-foreground">
           {(d.bad_rate * 100).toFixed(1)}%
         </span>
       </p>
-      <p className="mt-0.5 text-[0.7rem] text-brand-gray">
+      <p className="mt-0.5 text-[0.7rem] text-muted-foreground">
         n = {d.n_total.toLocaleString("en-US")}
       </p>
     </div>
@@ -99,7 +99,7 @@ export function LiftChart({
           />
           <ReferenceLine
             y={1}
-            stroke="rgba(255,255,255,0.35)"
+            stroke="var(--border)"
             strokeDasharray="5 4"
             label={{
               value: "azar (1.0×)",

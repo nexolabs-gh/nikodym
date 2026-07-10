@@ -66,26 +66,26 @@ function WoeTooltip({ active, payload }: WoeTooltipProps) {
   const d = active && payload && payload.length > 0 ? payload[0]?.payload : null
   if (!d) return null
   return (
-    <div className="rounded-lg bg-brand-panel-raised px-3 py-2 text-xs shadow-card ring-1 ring-white/10">
-      <p className="mb-1 font-mono font-medium text-brand-offwhite">
+    <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
+      <p className="mb-1 font-mono font-medium text-foreground">
         {d.binLabel}
       </p>
       <ul className="space-y-0.5">
-        <li className="flex items-center gap-3 text-brand-placeholder">
+        <li className="flex items-center gap-3 text-muted-foreground">
           <span>WoE</span>
-          <span className="ml-auto font-mono tabular-nums text-brand-offwhite">
+          <span className="ml-auto font-mono tabular-nums text-foreground">
             {formatMetric(d.woe)}
           </span>
         </li>
-        <li className="flex items-center gap-3 text-brand-placeholder">
+        <li className="flex items-center gap-3 text-muted-foreground">
           <span>Tasa de default</span>
-          <span className="ml-auto font-mono tabular-nums text-brand-offwhite">
+          <span className="ml-auto font-mono tabular-nums text-foreground">
             {formatPercent(d.eventRate)}
           </span>
         </li>
-        <li className="flex items-center gap-3 text-brand-placeholder">
+        <li className="flex items-center gap-3 text-muted-foreground">
           <span>Conteo</span>
-          <span className="ml-auto font-mono tabular-nums text-brand-offwhite">
+          <span className="ml-auto font-mono tabular-nums text-foreground">
             {formatCount(d.count)}
           </span>
         </li>
@@ -152,7 +152,7 @@ export function WoeByBinChart({ rows }: { rows: BinDetailRow[] }) {
             <ReferenceLine
               yAxisId="woe"
               y={0}
-              stroke="rgba(255,255,255,0.28)"
+              stroke="var(--border)"
               strokeWidth={1}
             />
             <Tooltip cursor={CURSOR_FILL} content={<WoeTooltip />} />
@@ -183,7 +183,7 @@ export function WoeByBinChart({ rows }: { rows: BinDetailRow[] }) {
       </div>
 
       {/* Leyenda (accesibilidad: el significado no queda solo en el color). */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-brand-placeholder">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.7rem] text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span
             className="size-2 rounded-[2px]"

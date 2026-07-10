@@ -34,11 +34,11 @@ function PsiTooltip({ active, payload }: PsiTooltipProps) {
   const d = active && payload && payload.length > 0 ? payload[0]?.payload : null
   if (!d) return null
   return (
-    <div className="rounded-lg bg-brand-panel-raised px-3 py-2 text-xs shadow-card ring-1 ring-white/10">
-      <p className="mb-1 font-medium text-brand-offwhite">{d.label}</p>
-      <p className="text-brand-placeholder">
+    <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
+      <p className="mb-1 font-medium text-foreground">{d.label}</p>
+      <p className="text-muted-foreground">
         PSI{" "}
-        <span className="ml-1 font-mono tabular-nums text-brand-offwhite">
+        <span className="ml-1 font-mono tabular-nums text-foreground">
           {d.value === null ? "—" : d.value.toFixed(4)}
         </span>
       </p>
@@ -48,7 +48,7 @@ function PsiTooltip({ active, payload }: PsiTooltipProps) {
           style={{ backgroundColor: bandColor(d.band) }}
           aria-hidden="true"
         />
-        <span className="text-brand-placeholder">{bandLabel(d.band)}</span>
+        <span className="text-muted-foreground">{bandLabel(d.band)}</span>
       </p>
     </div>
   )

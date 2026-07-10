@@ -116,11 +116,11 @@ function HashStatus({ state }: { state: ValidationState }) {
     case "valid":
       return (
         <span
-          className="inline-flex items-center gap-1.5 font-mono text-xs text-brand-cyan"
+          className="inline-flex items-center gap-1.5 font-mono text-xs text-eyebrow"
           title={`config_hash: ${state.hash}`}
         >
           <CircleCheck className="size-3.5" aria-hidden="true" />
-          <span className="text-brand-gray">config_hash</span>
+          <span className="text-muted-foreground">config_hash</span>
           {state.hash.slice(0, 12)}…
         </span>
       )
@@ -134,7 +134,7 @@ function HashStatus({ state }: { state: ValidationState }) {
       )
     case "checking":
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-brand-placeholder">
+        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
           <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
           Validando…
         </span>
@@ -187,9 +187,9 @@ function ConfigSectionForm(props: {
   if (groups.length <= 1) {
     const fields = groups[0]?.fields ?? []
     return (
-      <div className="space-y-5 rounded-xl border border-white/10 bg-card p-5 shadow-card">
+      <div className="space-y-5 rounded-xl border border-border bg-card p-5 shadow-card">
         {fields.length === 0 ? (
-          <p className="text-sm text-brand-placeholder">
+          <p className="text-sm text-muted-foreground">
             Esta sección no tiene campos configurables.
           </p>
         ) : (
@@ -204,7 +204,7 @@ function ConfigSectionForm(props: {
   return (
     <Accordion
       defaultValue={groups.map((_, index) => String(index))}
-      className="rounded-xl border border-white/10 bg-card px-4 shadow-card"
+      className="rounded-xl border border-border bg-card px-4 shadow-card"
     >
       {groups.map((grp, index) => (
         <AccordionItem key={index} value={String(index)}>
@@ -365,7 +365,7 @@ export function ConfigTab({ section }: { section: string }) {
 
   if (!loaded) {
     return (
-      <div className="flex items-center gap-2 py-16 text-sm text-brand-placeholder">
+      <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" aria-hidden="true" />
         Cargando schema…
       </div>
@@ -395,7 +395,7 @@ export function ConfigTab({ section }: { section: string }) {
         <div
           className={
             banner.tone === "ok"
-              ? "rounded-lg border border-brand-cyan/25 bg-brand-cyan/5 px-3 py-2 text-xs text-brand-placeholder"
+              ? "rounded-lg border border-brand-cyan/25 bg-brand-cyan/5 px-3 py-2 text-xs text-muted-foreground"
               : "rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/80"
           }
         >
@@ -408,8 +408,8 @@ export function ConfigTab({ section }: { section: string }) {
           <p
             className={
               seed?.kind === "preset"
-                ? "flex items-center gap-1.5 text-xs text-brand-cyan/90"
-                : "text-xs text-brand-placeholder"
+                ? "flex items-center gap-1.5 text-xs text-eyebrow/90"
+                : "text-xs text-muted-foreground"
             }
           >
             {seed?.kind === "preset" ? (
@@ -420,7 +420,7 @@ export function ConfigTab({ section }: { section: string }) {
         ) : null}
 
         {/* Barra de estado + acciones (SDD §3.2 preset · §3.3 hash en vivo · §3.4 round-trip YAML). */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-foreground/[0.02] px-3 py-2">
           <div role="status" aria-live="polite" className="min-h-5">
             <HashStatus state={validation} />
           </div>
@@ -488,7 +488,7 @@ export function ConfigTab({ section }: { section: string }) {
         {yamlError ? (
           <p className="text-xs text-destructive">{yamlError}</p>
         ) : backendDown ? (
-          <p className="text-xs text-brand-placeholder">
+          <p className="text-xs text-muted-foreground">
             Round-trip YAML deshabilitado sin backend.
           </p>
         ) : null}
@@ -503,16 +503,16 @@ export function ConfigTab({ section }: { section: string }) {
             errors={errorLookup}
           />
         ) : (
-          <p className="text-sm text-brand-placeholder">
+          <p className="text-sm text-muted-foreground">
             La sección «{section}» no está disponible en el schema cargado.
           </p>
         )}
 
-        <details className="text-xs text-brand-placeholder">
-          <summary className="cursor-pointer text-brand-gray">
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer text-muted-foreground">
             Ver config en construcción (JSON)
           </summary>
-          <pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-white/10 bg-white/[0.02] p-3 font-mono">
+          <pre className="mt-2 max-h-64 overflow-auto rounded-lg border border-border bg-foreground/[0.02] p-3 font-mono">
             {JSON.stringify(config, null, 2)}
           </pre>
         </details>

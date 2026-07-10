@@ -102,14 +102,14 @@ function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
-        <Label htmlFor={id} className="text-brand-offwhite/90">
+        <Label htmlFor={id} className="text-foreground/90">
           {label}
-          {required ? <span className="text-brand-cyan"> *</span> : null}
+          {required ? <span className="text-eyebrow"> *</span> : null}
         </Label>
         {help ? (
           <Tooltip>
             <TooltipTrigger
-              className="text-brand-placeholder transition-colors hover:text-brand-cyan"
+              className="text-muted-foreground transition-colors hover:text-eyebrow"
               aria-label={`Ayuda: ${label}`}
             >
               <Info className="size-3.5" />
@@ -195,7 +195,7 @@ function SwitchField(props: FieldRendererProps) {
         checked={checked}
         onCheckedChange={(next) => onChange(path, next)}
       />
-      <span className="text-xs text-brand-placeholder">
+      <span className="text-xs text-muted-foreground">
         {checked ? "Activado" : "Desactivado"}
       </span>
     </div>
@@ -214,9 +214,9 @@ function SliderField(props: FieldRendererProps) {
   const num = typeof raw === "number" ? raw : min
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-xs text-brand-placeholder">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>{min}</span>
-        <span className="font-mono text-brand-cyan">{num}</span>
+        <span className="font-mono text-eyebrow">{num}</span>
         <span>{max}</span>
       </div>
       <Slider
@@ -302,12 +302,12 @@ function GroupField(props: FieldRendererProps) {
   return (
     <fieldset
       className={cn(
-        "space-y-4 rounded-lg border border-white/10 bg-white/[0.02] p-4",
+        "space-y-4 rounded-lg border border-border bg-foreground/[0.02] p-4",
         depth > 0 && "border-l-2 border-l-brand-accent/40",
       )}
     >
       {hideLabel ? null : (
-        <legend className="px-1 font-display text-sm font-medium text-brand-offwhite">
+        <legend className="px-1 font-display text-sm font-medium text-foreground">
           {label}
         </legend>
       )}
@@ -351,7 +351,7 @@ function GroupFieldList(props: {
   const { fields, path, groupValue, defs, onChange, required, depth, errors } =
     props
   if (fields.length === 0) {
-    return <p className="text-xs text-brand-placeholder">Sin campos.</p>
+    return <p className="text-xs text-muted-foreground">Sin campos.</p>
   }
   return (
     <>
@@ -420,7 +420,7 @@ function DiscriminatedField(props: FieldRendererProps) {
       {active && subFields.length > 0 ? (
         <fieldset
           className={cn(
-            "space-y-4 rounded-lg border border-white/10 bg-white/[0.02] p-4",
+            "space-y-4 rounded-lg border border-border bg-foreground/[0.02] p-4",
             depth > 0 && "border-l-2 border-l-brand-accent/40",
           )}
         >
@@ -472,14 +472,14 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
           onCheckedChange={handleToggle}
           aria-label={`Activar ${label}`}
         />
-        <Label htmlFor={id} className="text-brand-offwhite/90">
+        <Label htmlFor={id} className="text-foreground/90">
           {label}
-          {required ? <span className="text-brand-cyan"> *</span> : null}
+          {required ? <span className="text-eyebrow"> *</span> : null}
         </Label>
         {help ? (
           <Tooltip>
             <TooltipTrigger
-              className="text-brand-placeholder transition-colors hover:text-brand-cyan"
+              className="text-muted-foreground transition-colors hover:text-eyebrow"
               aria-label={`Ayuda: ${label}`}
             >
               <Info className="size-3.5" />
@@ -488,7 +488,7 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
           </Tooltip>
         ) : null}
         {active ? null : (
-          <span className="text-xs text-brand-placeholder">(desactivado · None)</span>
+          <span className="text-xs text-muted-foreground">(desactivado · None)</span>
         )}
       </div>
       {/* El toggle es dueño del `path`: pinta aquí su error (el hijo va con hideLabel). */}
@@ -529,9 +529,9 @@ function MultiselectField(props: FieldRendererProps) {
   const base = path.join(".")
 
   return (
-    <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+    <div className="space-y-2 rounded-lg border border-border bg-foreground/[0.02] p-3">
       {options.length === 0 ? (
-        <p className="text-xs text-brand-placeholder">Sin opciones.</p>
+        <p className="text-xs text-muted-foreground">Sin opciones.</p>
       ) : (
         options.map((option) => {
           const key = String(option)
@@ -540,7 +540,7 @@ function MultiselectField(props: FieldRendererProps) {
             <label
               key={key}
               htmlFor={optionId}
-              className="flex items-center gap-2 text-sm text-brand-offwhite/90"
+              className="flex items-center gap-2 text-sm text-foreground/90"
             >
               <input
                 id={optionId}
@@ -610,7 +610,7 @@ function JsonField(props: FieldRendererProps) {
       {error ? (
         <p className="text-xs text-destructive">JSON inválido: {error}</p>
       ) : (
-        <p className="text-xs text-brand-placeholder">
+        <p className="text-xs text-muted-foreground">
           Editor JSON (tipo no mapeado). Se valida en el backend al ejecutar.
         </p>
       )}

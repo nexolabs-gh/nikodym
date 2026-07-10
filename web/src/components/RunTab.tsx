@@ -97,18 +97,18 @@ export function RunTab({ onNavigate }: RunTabProps) {
               Ejecutar corrida
             </Button>
             {gate.ok ? (
-              <p className="text-xs text-brand-placeholder">
+              <p className="text-xs text-muted-foreground">
                 Config válido · dataset{" "}
-                <span className="font-mono text-brand-gray">{datasetId}</span>
+                <span className="font-mono text-muted-foreground">{datasetId}</span>
               </p>
             ) : (
-              <p className="inline-flex items-center gap-1.5 text-xs text-brand-placeholder">
+              <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CircleAlert className="size-3.5" aria-hidden="true" />
                 {gate.reason}
               </p>
             )}
           </div>
-          <p className="text-xs leading-relaxed text-brand-placeholder">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             La corrida es síncrona (
             <span className="font-mono">nikodym.run</span>): dispara el pipeline
             y devuelve su estado. Los artefactos se ven en Resultados.
@@ -129,7 +129,7 @@ export function RunTab({ onNavigate }: RunTabProps) {
           </Card>
         ) : outcome.kind === "running" ? (
           <Card className="shadow-card">
-            <CardContent className="flex items-center gap-2 py-6 text-sm text-brand-placeholder">
+            <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               Ejecutando la corrida…
             </CardContent>
@@ -141,7 +141,7 @@ export function RunTab({ onNavigate }: RunTabProps) {
               No se pudo ejecutar la corrida
             </p>
             <p className="mt-1 text-destructive/90">{outcome.message}</p>
-            <p className="mt-1 text-brand-placeholder">
+            <p className="mt-1 text-muted-foreground">
               Ajusta el config o el dataset y reintenta.
             </p>
           </div>
@@ -184,7 +184,7 @@ function RunResult({
       <CardContent className="space-y-4">
         <div className="text-sm font-medium">
           {done ? (
-            <span className="inline-flex items-center gap-1.5 text-brand-cyan">
+            <span className="inline-flex items-center gap-1.5 text-eyebrow">
               <CircleCheck className="size-4" aria-hidden="true" />
               Corrida completada
             </span>
@@ -197,15 +197,15 @@ function RunResult({
         </div>
 
         {/* Lineage de la corrida (identidad reproducible; sin cálculo propio). */}
-        <dl className="grid gap-1.5 font-mono text-xs text-brand-placeholder">
+        <dl className="grid gap-1.5 font-mono text-xs text-muted-foreground">
           <div className="flex justify-between gap-3">
-            <dt className="shrink-0 text-brand-gray">run_id</dt>
+            <dt className="shrink-0 text-muted-foreground">run_id</dt>
             <dd className="min-w-0 truncate text-right" title={runId}>
               {runId}
             </dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="shrink-0 text-brand-gray">config_hash</dt>
+            <dt className="shrink-0 text-muted-foreground">config_hash</dt>
             <dd
               className="min-w-0 truncate text-right"
               title={configHash ?? undefined}
@@ -214,7 +214,7 @@ function RunResult({
             </dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="shrink-0 text-brand-gray">dataset</dt>
+            <dt className="shrink-0 text-muted-foreground">dataset</dt>
             <dd
               className="min-w-0 truncate text-right"
               title={datasetId ?? undefined}

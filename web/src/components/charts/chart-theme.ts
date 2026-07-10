@@ -111,15 +111,20 @@ export function woeColor(woe: number | null | undefined): string {
   return woe > 0 ? BAND_COLORS.stable : BAND_COLORS.redevelop
 }
 
+/* Chrome de los charts (ejes, grid, cursor): tokens SEMÁNTICOS via `var()` para que
+   viajen con el tema claro/oscuro. Recharts los pinta como atributos SVG stroke/fill,
+   que resuelven `var(--...)` en navegadores modernos. Los colores de SERIE de datos
+   (arriba) siguen en HEX de marca a propósito: son identidad, no chrome. */
+
 /** Props comunes de ejes: tenues, tipografía chica, sin líneas pesadas. */
-export const AXIS_TICK = { fill: BRAND.placeholder, fontSize: 11 }
-export const AXIS_LINE = { stroke: "rgba(255,255,255,0.14)" }
+export const AXIS_TICK = { fill: "var(--muted-foreground)", fontSize: 11 }
+export const AXIS_LINE = { stroke: "var(--border)" }
 
 /** Grid muy tenue (solo el eje que aporta, nunca una retícula pesada). */
-export const GRID_STROKE = "rgba(255,255,255,0.06)"
+export const GRID_STROKE = "var(--border)"
 
 /** Resalte del cursor del tooltip (velo mínimo, no el bloque gris default). */
-export const CURSOR_FILL = { fill: "rgba(255,255,255,0.04)" }
+export const CURSOR_FILL = { fill: "var(--muted)" }
 
 /** Redondea una cota a un valor "bonito" para dominios simétricos del forest plot. */
 export function niceBound(maxAbs: number): number {

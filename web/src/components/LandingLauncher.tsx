@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 
 import { NikodymMark } from "@/components/NikodymMark"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { cn } from "@/lib/utils"
 
 /**
@@ -84,24 +85,22 @@ function ActiveCard({ domain, onEnter }: { domain: DomainDef; onEnter: () => voi
       onClick={onEnter}
       aria-label={`Construir un ${domain.label}`}
       className={cn(
-        "group relative flex flex-col gap-4 rounded-xl border border-white/10 bg-card p-6 text-left shadow-card transition-all",
-        "hover:-translate-y-0.5 hover:border-brand-accent-dark/60 hover:bg-[color-mix(in_oklch,var(--card),var(--brand-accent)_8%)]",
+        "group relative flex flex-col gap-4 rounded-xl border border-border bg-card p-6 text-left shadow-card transition-all",
+        "hover:-translate-y-0.5 hover:border-brand-accent-dark/60 hover:bg-[color-mix(in_oklch,var(--card),var(--primary)_8%)]",
       )}
     >
       <div className="flex items-start justify-between">
-        <span className="flex size-11 items-center justify-center rounded-lg bg-brand-accent/15 text-brand-accent-dark ring-1 ring-brand-accent-dark/25">
+        <span className="flex size-11 items-center justify-center rounded-lg bg-primary/12 text-primary ring-1 ring-primary/25">
           <Icon className="size-5" aria-hidden="true" />
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-cyan/10 px-2.5 py-1 font-mono text-[0.62rem] font-medium uppercase tracking-[0.14em] text-brand-cyan ring-1 ring-brand-cyan/25">
-          <span className="size-1.5 rounded-full bg-brand-cyan" aria-hidden="true" />
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-eyebrow/10 px-2.5 py-1 font-mono text-[0.62rem] font-medium uppercase tracking-[0.14em] text-eyebrow ring-1 ring-eyebrow/25">
+          <span className="size-1.5 rounded-full bg-eyebrow" aria-hidden="true" />
           Disponible
         </span>
       </div>
 
       <div className="flex-1">
-        <h2 className="font-display text-xl font-bold text-brand-offwhite">
-          {domain.label}
-        </h2>
+        <h2 className="font-display text-xl font-bold text-foreground">{domain.label}</h2>
         <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
           {domain.tagline}
         </p>
@@ -121,27 +120,27 @@ function CodeCard({ domain }: { domain: DomainDef }) {
   return (
     <div
       aria-disabled="true"
-      className="relative flex flex-col gap-4 rounded-xl border border-white/[0.06] bg-card/40 p-6"
+      className="relative flex flex-col gap-4 rounded-xl border border-border bg-muted/40 p-6"
     >
       <div className="flex items-start justify-between">
-        <span className="flex size-11 items-center justify-center rounded-lg bg-white/[0.04] text-brand-gray">
+        <span className="flex size-11 items-center justify-center rounded-lg bg-foreground/[0.05] text-muted-foreground">
           <Icon className="size-5" aria-hidden="true" />
         </span>
-        <span className="rounded-full bg-white/[0.04] px-2.5 py-1 font-mono text-[0.62rem] font-medium uppercase tracking-[0.14em] text-brand-gray">
+        <span className="rounded-full bg-foreground/[0.05] px-2.5 py-1 font-mono text-[0.62rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">
           En código
         </span>
       </div>
 
       <div className="flex-1">
-        <h2 className="font-display text-xl font-bold text-brand-placeholder">
+        <h2 className="font-display text-xl font-bold text-muted-foreground">
           {domain.label}
         </h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-brand-gray">
+        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
           {domain.tagline}
         </p>
       </div>
 
-      <span className="font-mono text-[0.7rem] uppercase tracking-[0.12em] text-brand-gray/70">
+      <span className="font-mono text-[0.7rem] uppercase tracking-[0.12em] text-muted-foreground/70">
         Visor en camino
       </span>
     </div>
@@ -163,24 +162,27 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <NikodymMark className="size-8" />
-            <span className="font-display text-xl font-bold tracking-tight text-brand-offwhite">
+            <span className="font-display text-xl font-bold tracking-tight text-foreground">
               Nikodym
             </span>
-            <span className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-brand-placeholder">
+            <span className="mt-1 font-mono text-[0.7rem] uppercase tracking-[0.18em] text-muted-foreground">
               RiskLib
             </span>
           </div>
-          <span className="hidden font-mono text-xs text-brand-placeholder sm:inline">
-            pip install nikodym
-          </span>
+          <div className="flex items-center gap-4">
+            <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
+              pip install nikodym
+            </span>
+            <ThemeToggle />
+          </div>
         </header>
 
         {/* Hero + galería */}
         <main className="flex flex-1 flex-col justify-center py-14">
-          <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-brand-cyan">
+          <p className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-eyebrow">
             Motor de riesgo de crédito · V1
           </p>
-          <h1 className="max-w-3xl font-display text-4xl font-bold tracking-tight text-brand-offwhite sm:text-5xl">
+          <h1 className="max-w-3xl font-display text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
             ¿Qué modelo vas a construir?
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
@@ -201,11 +203,11 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
         </main>
 
         {/* Footer sutil */}
-        <footer className="flex items-center justify-between border-t border-white/[0.06] pt-6">
-          <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-brand-gray">
+        <footer className="flex items-center justify-between border-t border-border pt-6">
+          <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
             Nikodym RiskLib · Apache-2.0
           </span>
-          <span className="font-mono text-[0.7rem] text-brand-gray">
+          <span className="font-mono text-[0.7rem] text-muted-foreground">
             El motor ya calcula los 6 dominios · la UI llega por release
           </span>
         </footer>

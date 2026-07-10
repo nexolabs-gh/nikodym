@@ -39,6 +39,9 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  /* Acento "de detalle" theme-aware: cyan sobre navy (oscuro), azul acento sobre
+     blanco (claro) — para eyebrows/labels que deben contrastar en ambos temas. */
+  --color-eyebrow: var(--eyebrow);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -48,43 +51,46 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ===== Tema Nikodym: chrome navy oscuro por defecto =====
-   Los tokens semánticos de shadcn se re-anclan a la paleta de marca (navy/acento),
-   no al gris neutro por defecto. La app es de tema oscuro navy; `:root` y `.dark`
-   comparten valores para que las variantes `dark:` de los componentes calcen. */
+/* ===== Tema Nikodym: DOS modos on-brand =====
+   `:root` = tema CLARO (papel blanco, texto navy); `.dark` = tema OSCURO navy (la
+   identidad, default de la app vía la clase `.dark` en <html>). Los componentes deben
+   usar tokens SEMÁNTICOS (foreground, card, border, muted-foreground, eyebrow…) para
+   que el tema viaje solo; los `brand-*` fijos son solo para lo que no cambia (cyan de
+   los nodos, etc.). Rebrand/ajuste de tema = tocar solo estos dos bloques. */
 :root {
-  --background: var(--brand-dark); /* #051528 canvas navy profundo */
-  --foreground: var(--brand-offwhite); /* #f4f7fc texto claro */
-  --card: var(--brand-panel); /* #081d36 panel elevado */
-  --card-foreground: var(--brand-offwhite);
-  --popover: var(--brand-panel-raised); /* #0d2547 */
-  --popover-foreground: var(--brand-offwhite);
+  --background: var(--brand-offwhite); /* #f4f7fc papel claro */
+  --foreground: var(--brand-dark); /* #051528 texto navy */
+  --card: var(--brand-paper); /* #ffffff panel elevado */
+  --card-foreground: var(--brand-dark);
+  --popover: var(--brand-paper);
+  --popover-foreground: var(--brand-dark);
   --primary: var(--brand-accent); /* #1a46b0 acento de la casa */
   --primary-foreground: #ffffff;
-  --secondary: var(--brand-panel-raised); /* #0d2547 */
-  --secondary-foreground: var(--brand-offwhite);
-  --muted: var(--brand-mid-green); /* #0a2240 */
-  --muted-foreground: var(--brand-placeholder); /* #9fb0c6 */
-  --accent: var(--brand-panel-raised); /* subtle bg (NO es el acento de marca) */
-  --accent-foreground: var(--brand-offwhite);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.14);
-  --ring: var(--brand-accent-dark); /* #2e6ff2 foco de teclado de la casa */
-  --chart-1: var(--brand-accent-dark);
-  --chart-2: var(--brand-cyan);
-  --chart-3: var(--brand-accent);
-  --chart-4: var(--brand-placeholder);
-  --chart-5: var(--brand-gray);
+  --secondary: var(--brand-paper); /* #ffffff */
+  --secondary-foreground: var(--brand-ink); /* #122035 */
+  --muted: #eef2f8; /* superficie tenue */
+  --muted-foreground: var(--brand-gray); /* #5e708a texto secundario */
+  --accent: #eef2f8; /* subtle bg (NO es el acento de marca) */
+  --accent-foreground: var(--brand-ink);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: var(--brand-line); /* #dbe3ee */
+  --input: var(--brand-line);
+  --ring: var(--brand-accent); /* #1a46b0 foco de teclado sobre claro */
+  --eyebrow: var(--brand-accent); /* eyebrow azul acento sobre blanco */
+  --chart-1: var(--brand-accent);
+  --chart-2: var(--brand-accent-dark);
+  --chart-3: var(--brand-cyan);
+  --chart-4: var(--brand-gray);
+  --chart-5: var(--brand-placeholder);
   --radius: 0.625rem;
-  --sidebar: var(--brand-panel);
-  --sidebar-foreground: var(--brand-offwhite);
+  --sidebar: var(--brand-paper); /* #ffffff sidebar claro */
+  --sidebar-foreground: var(--brand-dark);
   --sidebar-primary: var(--brand-accent);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: var(--brand-panel-raised);
-  --sidebar-accent-foreground: var(--brand-offwhite);
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: var(--brand-accent-dark);
+  --sidebar-accent: #eef2f8;
+  --sidebar-accent-foreground: var(--brand-ink);
+  --sidebar-border: var(--brand-line);
+  --sidebar-ring: var(--brand-accent);
 }
 
 .dark {
@@ -106,6 +112,7 @@
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.14);
   --ring: var(--brand-accent-dark);
+  --eyebrow: var(--brand-cyan); /* eyebrow cyan sobre navy */
   --chart-1: var(--brand-accent-dark);
   --chart-2: var(--brand-cyan);
   --chart-3: var(--brand-accent);
