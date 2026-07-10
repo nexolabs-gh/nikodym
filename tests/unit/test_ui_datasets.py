@@ -23,7 +23,11 @@ def test_list_datasets_estable_y_con_roles_f1() -> None:
     primero = list_datasets()
     segundo = list_datasets()
     assert primero == segundo  # estable entre llamadas
-    assert [d["id"] for d in primero] == ["consumo_comportamiento", "hipotecario_comportamiento"]
+    assert [d["id"] for d in primero] == [
+        "consumo_comportamiento",
+        "hipotecario_comportamiento",
+        "consumo_drift",
+    ]
 
     for descriptor in primero:
         assert set(descriptor) == {"id", "name", "description", "columns", "n_rows"}
@@ -89,3 +93,100 @@ def test_materialize_ruta_dentro_del_workdir(tmp_path: Path) -> None:
     ruta = materialize("consumo_comportamiento", workdir=tmp_path)
     datasets_dir = (tmp_path / "datasets").resolve()
     assert datasets_dir in ruta.parents
+
+
+# ─────────────────────────── consumo_drift (deterioro temporal, B37) ───────────────────────────
+
+
+def test_consumo_drift_en_catalogo() -> None:
+    """``consumo_drift`` aparece en el catálogo con id/name/columns/n_rows correctos."""
+    descriptor = next(d for d in list_datasets() if d["id"] == "consumo_drift")
+    assert descriptor["name"] == "Consumo — con drift (deterioro)"
+    assert descriptor["n_rows"] == 6000
+    assert len(descriptor["columns"]) == 9  # mismas 9 columnas del esquema común
+    roles = {col["role"] for col in descriptor["columns"]}
+    assert roles >= _ROLES_ESPERADOS
+    # mismo esquema (nombres/orden) que los datasets estables — el config F1 corre sin editar.
+    otro = next(d for d in list_datasets() if d["id"] == "consumo_comportamiento")
+    assert descriptor["columns"] == otro["columns"]
+
+
+def test_consumo_drift_materializa_columnas_y_dtypes(tmp_path: Path) -> None:
+    """``materialize('consumo_drift')`` produce un parquet con las 9 columnas y dtypes esperados."""
+    frame = pd.read_parquet(materialize("consumo_drift", workdir=tmp_path))
+    assert frame.index.name == "loan_id"
+    assert len(frame) == 6000
+    assert list(frame.columns) == [
+        "ingreso_mensual",
+        "deuda_ingreso",
+        "utilizacion_linea",
+        "mora_max_12m",
+        "antiguedad_meses",
+        "segmento",
+        "cohorte",
+        "bad_flag",
+    ]
+    assert frame["ingreso_mensual"].dtype == "float64"
+    assert frame["deuda_ingreso"].dtype == "float64"
+    assert frame["utilizacion_linea"].dtype == "float64"
+    assert frame["mora_max_12m"].dtype == "int64"
+    assert frame["antiguedad_meses"].dtype == "int64"
+    assert frame["bad_flag"].dtype == "int64"
+    assert frame["segmento"].dtype == object
+    assert frame["cohorte"].dtype == object
+    assert set(frame["bad_flag"].unique()) == {0, 1}
+
+
+def test_consumo_drift_deterioro_temporal(tmp_path: Path) -> None:
+    """El drift es medible sin dominio: la cohorte 2024Q2 está claramente peor que 2023Q1.
+
+    Umbrales holgados pero significativos (no floats frágiles): la media de ``mora_max_12m`` sube al
+    menos +3, la de ``utilizacion_linea`` al menos +0.15 y la tasa de ``bad_flag`` al menos +0.10.
+    """
+    frame = pd.read_parquet(materialize("consumo_drift", workdir=tmp_path))
+    q1 = frame[frame["cohorte"] == "2023Q1"]
+    q2 = frame[frame["cohorte"] == "2024Q2"]
+    assert q2["mora_max_12m"].mean() > q1["mora_max_12m"].mean() + 3.0
+    assert q2["utilizacion_linea"].mean() > q1["utilizacion_linea"].mean() + 0.15
+    assert q2["bad_flag"].mean() > q1["bad_flag"].mean() + 0.10
+
+
+# Golden byte-lógico de los datasets ESTABLES: si una sola llamada al rng de ``_generate`` cambiara
+# (p.ej. por tocar su ruta al agregar el drift), estas medias/sumas exactas se romperían. Blinda la
+# byte-identidad exigida por B37 sin depender de bytes de parquet (no canónicos cross-versión).
+_GOLDEN_ESTABLES: dict[str, dict[str, float]] = {
+    "consumo_comportamiento": {
+        "n_rows": 6000,
+        "mora_mean": 6.026333,
+        "deuda_mean": 0.364034,
+        "util_mean": 0.399101,
+        "antiguedad_mean": 61.246833,
+        "ingreso_mean": 605495.1396,
+        "bad_sum": 1407,
+    },
+    "hipotecario_comportamiento": {
+        "n_rows": 4000,
+        "mora_mean": 6.023750,
+        "deuda_mean": 0.363534,
+        "util_mean": 0.402251,
+        "antiguedad_mean": 124.201750,
+        "ingreso_mean": 616444.1323,
+        "bad_sum": 253,
+    },
+}
+
+
+@pytest.mark.parametrize("dataset_id", sorted(_GOLDEN_ESTABLES))
+def test_byte_identidad_datasets_existentes(dataset_id: str, tmp_path: Path) -> None:
+    """Los datasets estables NO cambiaron al introducir ``consumo_drift`` (golden byte-lógico)."""
+    frame = pd.read_parquet(materialize(dataset_id, workdir=tmp_path))
+    golden = _GOLDEN_ESTABLES[dataset_id]
+    assert len(frame) == golden["n_rows"]
+    assert frame.index[0] == "op-000000"
+    assert frame.index[-1] == f"op-{golden['n_rows'] - 1:06d}"
+    assert frame["mora_max_12m"].mean() == pytest.approx(golden["mora_mean"], abs=1e-6)
+    assert frame["deuda_ingreso"].mean() == pytest.approx(golden["deuda_mean"], abs=1e-6)
+    assert frame["utilizacion_linea"].mean() == pytest.approx(golden["util_mean"], abs=1e-6)
+    assert frame["antiguedad_meses"].mean() == pytest.approx(golden["antiguedad_mean"], abs=1e-6)
+    assert frame["ingreso_mensual"].mean() == pytest.approx(golden["ingreso_mean"], abs=1e-4)
+    assert int(frame["bad_flag"].sum()) == golden["bad_sum"]

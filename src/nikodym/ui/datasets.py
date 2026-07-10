@@ -81,6 +81,24 @@ _DATASETS: dict[str, dict[str, Any]] = {
         "antiguedad_low": 12,
         "antiguedad_high": 241,
     },
+    "consumo_drift": {
+        "name": "Consumo — con drift (deterioro)",
+        "description": (
+            "Cartera de consumo con MISMAS features y cohortes que 'consumo_comportamiento' pero "
+            "con DRIFT TEMPORAL: la cartera se DETERIORA en cohortes recientes (más mora, más "
+            "utilización, más DTI, menos ingreso y antigüedad), así la tasa de default sube y un "
+            "modelo entrenado en cohortes viejas se degrada en OOT. Útil para demostrar PSI/CSI y "
+            "estabilidad (drift claro entre Dev y OOT=2024Q2)."
+        ),
+        "n_rows": 6000,
+        "seed": 20_240_710,
+        "segments": ("asalariado", "independiente", "pensionado"),
+        "cohorts": ("2023Q1", "2023Q2", "2023Q3", "2023Q4", "2024Q1", "2024Q2"),
+        "intercept": -2.2,
+        "antiguedad_low": 1,
+        "antiguedad_high": 121,
+        "drift": True,
+    },
 }
 
 
@@ -265,6 +283,8 @@ def _generate(dataset_id: str) -> pd.DataFrame:
     de ejemplo: la UI no calcula riesgo (SDD-23 §1), solo materializa datos para el motor.
     """
     spec = _DATASETS[dataset_id]
+    if spec.get("drift"):  # rama separada: los datasets sin drift no tocan una sola llamada al rng
+        return _generate_drift(dataset_id)
     rng = np.random.default_rng(spec["seed"])
     n_rows: int = spec["n_rows"]
 
@@ -296,6 +316,66 @@ def _generate(dataset_id: str) -> pd.DataFrame:
             "utilizacion_linea": np.round(utilizacion, 4),
             "mora_max_12m": mora.astype("int64"),
             "antiguedad_meses": antiguedad.astype("int64"),
+            "segmento": segmento.astype(object),
+            "cohorte": cohorte.astype(object),
+            "bad_flag": bad_flag,
+        },
+        index=loan_id,
+    )
+
+
+def _generate_drift(dataset_id: str) -> pd.DataFrame:
+    """Genera un dataset con DRIFT temporal: la cartera se deteriora en cohortes recientes.
+
+    A diferencia de :func:`_generate` (features de distribución **fija**), aquí los parámetros de
+    cada feature corren monótonamente con la posición temporal de la cohorte ``t∈[0,1]`` (``0`` =
+    cohorte más antigua, ``1`` = más reciente): en cohortes recientes sube la mora (``lam`` del
+    Poisson), la utilización (``beta`` hacia 1), el DTI (``scale`` del gamma), y bajan el ingreso
+    (media log) y la antigüedad. El ``bad_flag`` sale de la **MISMA** logística sobre las
+    features **ya driftadas**, de modo que la tasa de default también sube en cohortes recientes
+    (deterioro coherente). Mismas 9 columnas/dtypes/rangos (clip) que :func:`_generate`; sirve para
+    demostrar PSI/CSI y la degradación del modelo entre Dev (cohortes viejas) y OOT (2024Q2).
+    """
+    spec = _DATASETS[dataset_id]
+    rng = np.random.default_rng(spec["seed"])
+    n_rows: int = spec["n_rows"]
+    cohorts = np.asarray(spec["cohorts"])
+
+    # Cohorte de cada fila (uniforme) y su posición temporal normalizada t∈[0,1] sobre las cohortes
+    # ordenadas: t escala la magnitud del deterioro fila a fila.
+    cohorte_idx = rng.integers(0, len(cohorts), size=n_rows)
+    cohorte = cohorts[cohorte_idx]
+    t = cohorte_idx / (len(cohorts) - 1)
+
+    # Parámetros corridos por t (recientes = peor riesgo); rangos plausibles con el mismo clip base.
+    ingreso = rng.lognormal(mean=13.2 - 0.25 * t, sigma=0.5, size=n_rows)
+    deuda_ingreso = np.clip(rng.gamma(shape=2.0, scale=0.18 + 0.14 * t, size=n_rows), 0.0, 2.5)
+    utilizacion = np.clip(rng.beta(2.0 + 2.6 * t, 3.0 - 1.3 * t, size=n_rows), 0.0, 1.0)
+    mora = np.clip(rng.poisson(lam=4.5 + 9.0 * t, size=n_rows), 0, 180)
+    antiguedad_base = rng.integers(spec["antiguedad_low"], spec["antiguedad_high"], size=n_rows)
+    antiguedad = np.clip(np.round(antiguedad_base * (1.0 - 0.25 * t)), 1, 120).astype("int64")
+    segmento = rng.choice(np.asarray(spec["segments"]), size=n_rows)
+
+    ingreso_z = (np.log(ingreso) - 13.2) / 0.5
+    logit = (
+        spec["intercept"]
+        + 1.6 * deuda_ingreso
+        + 1.2 * utilizacion
+        + 0.9 * (mora / 30.0)
+        - 0.5 * ingreso_z
+        - 0.4 * (antiguedad / 60.0)
+    )
+    prob_bad = 1.0 / (1.0 + np.exp(-logit))
+    bad_flag = (rng.random(size=n_rows) < prob_bad).astype("int64")
+
+    loan_id = pd.Index([f"op-{position:06d}" for position in range(n_rows)], name="loan_id")
+    return pd.DataFrame(
+        {
+            "ingreso_mensual": np.round(ingreso, 2),
+            "deuda_ingreso": np.round(deuda_ingreso, 4),
+            "utilizacion_linea": np.round(utilizacion, 4),
+            "mora_max_12m": mora.astype("int64"),
+            "antiguedad_meses": antiguedad,
             "segmento": segmento.astype(object),
             "cohorte": cohorte.astype(object),
             "bad_flag": bad_flag,

@@ -153,7 +153,7 @@ def test_endpoint_datasets(client: TestClient) -> None:
     respuesta = client.get("/api/datasets")
     assert respuesta.status_code == 200
     ids = [descriptor["id"] for descriptor in respuesta.json()]
-    assert ids == ["consumo_comportamiento", "hipotecario_comportamiento"]
+    assert ids == ["consumo_comportamiento", "hipotecario_comportamiento", "consumo_drift"]
 
 
 def test_endpoint_upload_csv_200(client_tmp: TestClient) -> None:
