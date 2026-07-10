@@ -113,7 +113,9 @@ lint = [
   "pandas-stubs>=2.0",
 ]
 docs = [
-  "mkdocs-material>=9.5",  # docs del repo; Quarto (binario externo) NO es dep pip
+  "mkdocs-material>=9.5",     # sitio de documentación de la librería (theme material)
+  "mkdocstrings[python]>=0.24",  # referencia de la API pública desde docstrings (handler python/griffe)
+  # Quarto (binario externo del reporte de modelos) NO es dep pip.
 ]
 dev = [
   { include-group = "test" },

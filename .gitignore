@@ -53,6 +53,9 @@ mlartifacts/
 *_files/
 _site/
 
+# === mkdocs (sitio de documentación generado; NO se versiona, el deploy lo decide Cami) ===
+/site/
+
 # === Jupyter ===
 .ipynb_checkpoints/
 
