@@ -10,6 +10,7 @@
  */
 
 import { API_BASE } from "@/lib/api"
+import { DEMO_MODE } from "@/lib/demo"
 import type { JsonSchema } from "@/lib/form-engine"
 import fixtureSchema from "@/fixtures/schema.json"
 
@@ -76,6 +77,9 @@ export async function fetchSchema(): Promise<SchemaPayload> {
  * Siempre devuelve un payload usable + la fuente.
  */
 export async function loadSchema(): Promise<LoadedSchema> {
+  // Modo demo: el snapshot bundleado ya trae las secciones F1 expandidas; se sirve como
+  // fuente "backend" para que la UI se vea en vivo (no como el estado degradado offline).
+  if (DEMO_MODE) return { payload: FIXTURE_SCHEMA, source: "backend" }
   try {
     const live = await fetchSchema()
     if (f1SectionsRenderable(live)) return { payload: live, source: "backend" }

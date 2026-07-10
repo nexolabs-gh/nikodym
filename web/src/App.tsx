@@ -25,6 +25,7 @@ import { ResultsTab } from "@/components/ResultsTab"
 import { RunTab } from "@/components/RunTab"
 import { Card } from "@/components/ui/card"
 import { API_BASE } from "@/lib/api"
+import { DEMO_MODE } from "@/lib/demo"
 
 interface SectionDef {
   value: string
@@ -237,7 +238,9 @@ function App() {
           ) : null}
 
           <p className="mt-8 font-mono text-xs text-muted-foreground">
-            Backend: {API_BASE}
+            {DEMO_MODE
+              ? "Modo demo · resultados de una corrida real de Nikodym"
+              : `Backend: ${API_BASE}`}
           </p>
         </div>
       </main>

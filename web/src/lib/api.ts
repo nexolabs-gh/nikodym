@@ -8,6 +8,17 @@
  */
 
 import type { ResultsResponse } from "@/lib/results-types"
+import {
+  DEMO_MODE,
+  demoConfigFromYaml,
+  demoConfigToYaml,
+  demoGetPreset,
+  demoGetReport,
+  demoGetResults,
+  demoListDatasets,
+  demoRunPipeline,
+  demoValidateConfig,
+} from "@/lib/demo"
 
 // Los DTOs de resultados (B27) viven en `results-types.ts`; se re-exportan aquí para
 // que store y consumidores los tomen de la misma superficie que el resto de la API.
@@ -153,6 +164,7 @@ export function getSchema(): Promise<SchemaResponse> {
 
 /** POST /api/validate — valida por reconstrucción en el backend (siempre 200). */
 export function validateConfig(config: ConfigDict): Promise<ValidateResponse> {
+  if (DEMO_MODE) return demoValidateConfig()
   return request<ValidateResponse>("/api/validate", {
     method: "POST",
     body: JSON.stringify({ config }),
@@ -165,6 +177,7 @@ export function validateConfig(config: ConfigDict): Promise<ValidateResponse> {
  * (422 con `{detail:[{loc,msg,type}]}`) si el config no reconstruye un modelo válido.
  */
 export function configToYaml(config: ConfigDict): Promise<ConfigToYamlResponse> {
+  if (DEMO_MODE) return demoConfigToYaml()
   return request<ConfigToYamlResponse>("/api/config/to-yaml", {
     method: "POST",
     body: JSON.stringify({ config }),
@@ -179,6 +192,7 @@ export function configToYaml(config: ConfigDict): Promise<ConfigToYamlResponse> 
 export function configFromYaml(
   yamlText: string,
 ): Promise<ConfigFromYamlResponse> {
+  if (DEMO_MODE) return demoConfigFromYaml()
   return request<ConfigFromYamlResponse>("/api/config/from-yaml", {
     method: "POST",
     body: JSON.stringify({ yaml: yamlText }),
@@ -190,11 +204,13 @@ export function configFromYaml(
  * que la UI siembra por defecto. El front no reimplementa su lógica: el backend lo compone y valida.
  */
 export function getPreset(): Promise<PresetResponse> {
+  if (DEMO_MODE) return demoGetPreset()
   return request<PresetResponse>("/api/config/preset")
 }
 
 /** GET /api/datasets — datasets sintéticos deterministas disponibles. */
 export function listDatasets(): Promise<DatasetInfo[]> {
+  if (DEMO_MODE) return demoListDatasets()
   return request<DatasetInfo[]>("/api/datasets")
 }
 
@@ -206,6 +222,12 @@ export function listDatasets(): Promise<DatasetInfo[]> {
  * (json → text) y lanza `ApiError` con el status y el cuerpo. El front solo transporta.
  */
 export async function uploadDataset(file: File): Promise<UploadedDataset> {
+  if (DEMO_MODE) {
+    throw new ApiError(
+      "La subida de datasets no está disponible en la demo. Usa el dataset de ejemplo ya cargado.",
+      0,
+    )
+  }
   const form = new FormData()
   form.append("file", file)
   const res = await fetch(`${API_BASE}/api/upload`, {
@@ -229,6 +251,7 @@ export function runPipeline(
   config: ConfigDict,
   datasetId: string,
 ): Promise<RunResponse> {
+  if (DEMO_MODE) return demoRunPipeline()
   return request<RunResponse>("/api/run", {
     method: "POST",
     body: JSON.stringify({ config, dataset_id: datasetId }),
@@ -237,11 +260,13 @@ export function runPipeline(
 
 /** GET /api/results/{run_id} — artefactos serializados de una corrida. */
 export function getResults(runId: string): Promise<ResultsResponse> {
+  if (DEMO_MODE) return demoGetResults()
   return request<ResultsResponse>(`/api/results/${encodeURIComponent(runId)}`)
 }
 
 /** GET /api/report/{run_id} — HTML determinístico del reporte (texto crudo). */
 export async function getReport(runId: string): Promise<string> {
+  if (DEMO_MODE) return demoGetReport()
   const res = await fetch(
     `${API_BASE}/api/report/${encodeURIComponent(runId)}`,
   )
