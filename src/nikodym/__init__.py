@@ -9,7 +9,7 @@ pública de alto nivel (`run`, `assemble_run`) se re-exporta de forma **perezosa
 
 from typing import TYPE_CHECKING, Any
 
-__version__ = "0.1.0"
+__version__ = "0.9.0"
 
 __all__ = ["__version__", "assemble_run", "run"]
 

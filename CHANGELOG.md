@@ -4,9 +4,25 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/);
 el proyecto sigue [SemVer](https://semver.org/lang/es/) (0.x honesto: APIs que crecerán
 marcadas como experimentales hasta la 1.0).
 
-## [No publicado]
+## [0.9.0] — 2026-07-10
 
-### Añadido (F0 — Fundación, en curso)
+Primer release público en PyPI. Motor V1 completo (F0–F7) y verde en CI; API pública
+versionada como 0.x honesto (puede cambiar hasta la 1.0).
+
+### Incluye
+- **Núcleo reproducible** (F0): config declarativo Pydantic v2, `Study`/lineage, audit-trail,
+  artifacts *namespaced*, gobernanza SR 11-7.
+- **Scorecard (F1)**: binning/WoE monotónico (optbinning), selección, regresión logística,
+  scorecard escalado, calibración, desempeño (AUC/KS/Gini) y estabilidad (PSI/CSI).
+- **Backends ML (F2)**: XGBoost, LightGBM, CatBoost, tuning (Optuna) y explicabilidad (SHAP)
+  como *extras* selectivos.
+- **Provisiones**: motores **CMF (Chile)** e **IFRS 9/ECL** separados (provisión = máximo).
+- **Forward-looking y stress testing**.
+- **UI (F7)**: flujo Scorecard F1 (Datos · Ejecutar · Resultados · Reporte) — React + backend
+  FastAPI, con modo claro/oscuro y reporte HTML del modelo.
+- **Empaquetado**: publicación en PyPI vía Trusted Publishing (OIDC, sin tokens).
+
+### Detalle de la Fundación (F0)
 - Esqueleto del paquete: `pyproject.toml` (uv + hatchling, layout `src/`, 7 deps base,
   extras de usuario y grupos de desarrollo PEP 735), `LICENSE` Apache-2.0, `README`, `CHANGELOG`.
 - `nikodym.core.exceptions`: jerarquía de excepciones con raíz `NikodymError` (código
