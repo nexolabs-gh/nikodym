@@ -1,0 +1,38 @@
+/* Paleta de marca Nikodym (kit N-red).
+ * Navy #0A2240 · Navy profundo #051528 · Acento #1859E0 · Acento claro #2E6FF2 · Cyan #4FC3E8
+ * Se aplica vía `primary: custom` / `accent: custom` en mkdocs.yml. */
+
+[data-md-color-primary="custom"] {
+  --md-primary-fg-color: #0a2240;
+  --md-primary-fg-color--light: #234a7d;
+  --md-primary-fg-color--dark: #051528;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #ffffffb3;
+}
+
+[data-md-color-accent="custom"] {
+  --md-accent-fg-color: #1859e0;
+  --md-accent-fg-color--transparent: #1859e01a;
+}
+
+/* Enlaces del contenido: azul de marca en claro, cyan en oscuro (mejor contraste). */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #1859e0;
+}
+[data-md-color-scheme="slate"] {
+  --md-typeset-a-color: #4fc3e8;
+  --md-primary-fg-color: #0a2240;
+}
+
+/* El logo de la barra respira un poco más. */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.5rem;
+  width: auto;
+}
+
+/* Acento sutil en el título del sitio (wordmark). */
+.md-header__title {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}

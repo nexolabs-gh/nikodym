@@ -15,26 +15,33 @@ site_dir: site
 theme:
   name: material
   language: es
+  custom_dir: docs_site/overrides
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
   features:
     - navigation.instant
     - navigation.top
+    - navigation.footer
     - content.code.copy
     - toc.follow
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Cambiar a modo oscuro
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Cambiar a modo claro
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - Inicio: index.md

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{#
+  Marca Nikodym: metatags Open Graph / Twitter para que al compartir docs.nikodym.cl
+  se vea la tarjeta con el avatar navy, y color de tema navy en el navegador.
+#}
+{% block extrahead %}
+  {{ super() }}
+  {% set og_image = "https://docs.nikodym.cl/assets/og-card.png" %}
+  <meta name="theme-color" content="#0a2240">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:title" content="{% if page and page.title %}{{ page.title }} · {{ config.site_name }}{% else %}{{ config.site_name }}{% endif %}">
+  <meta property="og:description" content="{{ config.site_description }}">
+  <meta property="og:image" content="{{ og_image }}">
+  <meta property="og:url" content="{{ page.canonical_url if page else config.site_url }}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ config.site_name }}">
+  <meta name="twitter:description" content="{{ config.site_description }}">
+  <meta name="twitter:image" content="{{ og_image }}">
+{% endblock %}
