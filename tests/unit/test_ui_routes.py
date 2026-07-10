@@ -9,6 +9,7 @@ no reimplementa fórmulas de riesgo.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import io
 import re
 from collections.abc import Iterator
@@ -311,6 +312,9 @@ def test_run_pipeline_corrida_fallida_status_failed(
 # ─────────────── upload de datasets propios (ingest_upload / upload_dataset) ───────────────
 
 _CSV_UPLOAD = b"col_a,col_b\n1,x\n2,y\n3,z\n"  # 3 filas, 2 columnas
+# El test de upload .xlsx necesita openpyxl para SERIALIZAR el archivo de prueba; el job all-extras
+# lo trae y ahí corre, los mínimos lo saltan (patrón de _HAS_OPENPYXL en test_data_loading).
+_HAS_OPENPYXL = importlib.util.find_spec("openpyxl") is not None
 
 
 def _xlsx_bytes(frame: pd.DataFrame) -> bytes:
@@ -339,6 +343,7 @@ def test_ingest_upload_csv_materializa_y_preview(tmp_path: Path) -> None:
     assert parquet.is_file()
 
 
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="extra [excel] no instalado")
 def test_ingest_upload_xlsx(tmp_path: Path) -> None:
     """Un ``.xlsx`` subido se lee con openpyxl y se materializa igual que un CSV."""
     frame = pd.DataFrame({"ingreso": [1000.0, 2000.0], "flag": [0, 1]})
