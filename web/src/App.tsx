@@ -19,6 +19,7 @@ import { AppSidebar, type NavItem } from "@/components/AppSidebar"
 import { ConfigTab } from "@/components/ConfigTab"
 import { DatosTab } from "@/components/DatosTab"
 import { EmptyState } from "@/components/EmptyState"
+import { ReporteTab } from "@/components/ReporteTab"
 import { ResultsTab } from "@/components/ResultsTab"
 import { RunTab } from "@/components/RunTab"
 import { Card } from "@/components/ui/card"
@@ -138,7 +139,7 @@ const SECTIONS: SectionDef[] = [
     label: "Reporte",
     icon: FileText,
     title: "Reporte",
-    cardDescription: "HTML determinístico del reporte, descargable.",
+    cardDescription: "El informe HTML del modelo de tu última corrida.",
     empty:
       "El reporte HTML determinístico (SDD-26) se servirá tal cual, junto al YAML canónico que reproduce la corrida por código.",
     tag: "B23.5",
@@ -210,6 +211,8 @@ function App() {
             <ResultsTab onNavigate={navigate} />
           ) : active === "datos" ? (
             <DatosTab onNavigate={navigate} />
+          ) : active === "reporte" ? (
+            <ReporteTab onNavigate={navigate} />
           ) : section ? (
             <Card className="shadow-card">
               <EmptyState
