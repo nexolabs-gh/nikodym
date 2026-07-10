@@ -9,6 +9,7 @@ import {
 } from "react"
 
 import type { ResultsResponse, RunStatus } from "@/lib/api"
+import type { SelectedDataset } from "@/lib/datasets"
 import type { ValidationState } from "@/lib/validation"
 
 /** Identidad de la última corrida disparada (SDD-23 §7.4): id + estado terminal. */
@@ -29,6 +30,9 @@ export interface AppState {
   setConfig: Dispatch<SetStateAction<Record<string, unknown>>>
   datasetId: string | null
   setDatasetId: Dispatch<SetStateAction<string | null>>
+  /** Dataset elegido, normalizado para el preview (catálogo o subida); persiste entre pestañas. */
+  selectedDataset: SelectedDataset | null
+  setSelectedDataset: Dispatch<SetStateAction<SelectedDataset | null>>
   validation: ValidationState
   setValidation: Dispatch<SetStateAction<ValidationState>>
   lastRun: LastRun | null
@@ -43,6 +47,8 @@ const AppStateContext = createContext<AppState | null>(null)
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<Record<string, unknown>>({})
   const [datasetId, setDatasetId] = useState<string | null>(null)
+  const [selectedDataset, setSelectedDataset] =
+    useState<SelectedDataset | null>(null)
   const [validation, setValidation] = useState<ValidationState>({ kind: "idle" })
   const [lastRun, setLastRun] = useState<LastRun | null>(null)
   const [results, setResults] = useState<ResultsResponse | null>(null)
@@ -54,6 +60,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setConfig,
       datasetId,
       setDatasetId,
+      selectedDataset,
+      setSelectedDataset,
       validation,
       setValidation,
       lastRun,
@@ -61,7 +69,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       results,
       setResults,
     }),
-    [config, datasetId, validation, lastRun, results],
+    [config, datasetId, selectedDataset, validation, lastRun, results],
   )
 
   return <AppStateContext value={value}>{children}</AppStateContext>

@@ -86,6 +86,17 @@ export interface DatasetInfo {
   n_rows: number
 }
 
+/**
+ * POST /api/upload (un item) — dataset propio subido por el usuario (B36b). Su forma difiere
+ * del catálogo: la clave es `dataset_id` (no `id`) y las columnas NO traen `role`.
+ */
+export interface UploadedDataset {
+  dataset_id: string
+  name: string
+  n_rows: number
+  columns: { name: string; dtype: string }[]
+}
+
 /** Estado de una corrida. */
 export type RunStatus = "done" | "failed"
 
@@ -185,6 +196,32 @@ export function getPreset(): Promise<PresetResponse> {
 /** GET /api/datasets — datasets sintéticos deterministas disponibles. */
 export function listDatasets(): Promise<DatasetInfo[]> {
   return request<DatasetInfo[]>("/api/datasets")
+}
+
+/**
+ * POST /api/upload — sube un dataset propio (.csv/.xlsx/.parquet) como `multipart/form-data`.
+ * fetch CRUDO (molde de `getReport`): NO usa `request()`, porque ese helper fuerza
+ * `Content-Type: application/json`, lo que rompería el multipart (el browser debe poner el
+ * `boundary` por sí mismo). Reproduce el manejo de error de `request()`: lee el body
+ * (json → text) y lanza `ApiError` con el status y el cuerpo. El front solo transporta.
+ */
+export async function uploadDataset(file: File): Promise<UploadedDataset> {
+  const form = new FormData()
+  form.append("file", file)
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: "POST",
+    body: form,
+  })
+  if (!res.ok) {
+    let body: unknown
+    try {
+      body = await res.json()
+    } catch {
+      body = await res.text().catch(() => undefined)
+    }
+    throw new ApiError(`HTTP ${res.status} en /api/upload`, res.status, body)
+  }
+  return (await res.json()) as UploadedDataset
 }
 
 /** POST /api/run — ejecuta la corrida (síncrona) vía nikodym.run. */

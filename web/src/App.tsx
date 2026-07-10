@@ -17,6 +17,7 @@ import {
 
 import { AppSidebar, type NavItem } from "@/components/AppSidebar"
 import { ConfigTab } from "@/components/ConfigTab"
+import { DatosTab } from "@/components/DatosTab"
 import { EmptyState } from "@/components/EmptyState"
 import { ResultsTab } from "@/components/ResultsTab"
 import { RunTab } from "@/components/RunTab"
@@ -106,7 +107,8 @@ const SECTIONS: SectionDef[] = [
     label: "Datos",
     icon: Database,
     title: "Datos",
-    cardDescription: "Elige un dataset sintético determinista para la corrida.",
+    cardDescription:
+      "Elige un dataset de ejemplo o sube el tuyo (CSV, Excel o Parquet).",
     empty:
       "El selector de datasets sintéticos (id, columnas, roles) se cableará a data.load.source, sin duplicar lógica de dominio.",
     tag: "B23.5",
@@ -206,6 +208,8 @@ function App() {
             <RunTab onNavigate={navigate} />
           ) : active === "resultados" ? (
             <ResultsTab onNavigate={navigate} />
+          ) : active === "datos" ? (
+            <DatosTab onNavigate={navigate} />
           ) : section ? (
             <Card className="shadow-card">
               <EmptyState
