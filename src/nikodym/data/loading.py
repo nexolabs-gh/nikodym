@@ -1,8 +1,9 @@
 """Carga de datasets crudos para la capa ``data`` (SDD-02 §4/§7).
 
-``DataLoader`` normaliza las fuentes admitidas (CSV, Parquet o ``DataFrame`` en memoria) a un
-``pandas.DataFrame``. La interfaz pública siempre devuelve pandas; ``polars`` es solo un backend
-interno opcional con import perezoso y colapso explícito a pandas en la frontera.
+``DataLoader`` normaliza las fuentes admitidas (CSV, Parquet, Excel ``.xlsx`` o ``DataFrame`` en
+memoria) a un ``pandas.DataFrame``. La interfaz pública siempre devuelve pandas; ``polars`` es solo
+un backend interno opcional con import perezoso y colapso explícito a pandas en la frontera. Excel
+requiere el extra ``[excel]`` (``openpyxl``, import perezoso) y solo admite ``backend='pandas'``.
 
 **Experimental (SemVer 0.x).**
 """
@@ -23,7 +24,7 @@ from nikodym.data.config import LoadingConfig
 
 __all__ = ["DataLoader"]
 
-FileFormat = Literal["csv", "parquet"]
+FileFormat = Literal["csv", "parquet", "excel"]
 DataSource = str | Path | pd.DataFrame
 
 
@@ -47,8 +48,9 @@ class DataLoader:
         Parameters
         ----------
         source : str, pathlib.Path, pandas.DataFrame or None
-            Ruta CSV/Parquet o ``DataFrame`` en memoria. Si es ``None``, usa
-            ``self.config.source``; si ambos faltan, levanta ``DataValidationError``.
+            Ruta CSV/Parquet/Excel (``.xlsx``) o ``DataFrame`` en memoria. Si es ``None``, usa
+            ``self.config.source``; si ambos faltan, levanta ``DataValidationError``. Excel solo se
+            admite con ``backend='pandas'``.
         audit : AuditSink or None
             Reservado para la orquestación de ``DataStep``; la carga no emite decisiones todavía.
 
@@ -97,9 +99,11 @@ class DataLoader:
             return "csv"
         if suffix == ".parquet":
             return "parquet"
+        if suffix == ".xlsx":
+            return "excel"
         raise DataValidationError(
             "No se pudo inferir el formato de datos desde la extensión "
-            f"'{path.suffix or '<sin extensión>'}'. Declare file_format='csv' o 'parquet'."
+            f"'{path.suffix or '<sin extensión>'}'. Declare file_format='csv', 'parquet' o 'excel'."
         )
 
     def _load_with_pandas(self, path: Path, file_format: FileFormat) -> pd.DataFrame:
@@ -113,8 +117,14 @@ class DataLoader:
                     encoding=self.config.csv_options.encoding,
                     engine="pyarrow",
                 )
+            if file_format == "excel":
+                _import_openpyxl()
+                read_excel = cast(Callable[..., pd.DataFrame], pd.read_excel)
+                return read_excel(path, engine="openpyxl")
             read_parquet = cast(Callable[..., pd.DataFrame], pd.read_parquet)
             return read_parquet(path, engine="pyarrow")
+        except MissingDependencyError:
+            raise
         except Exception as exc:
             raise DataValidationError(
                 f"No se pudo cargar '{path}' como {file_format} con backend='pandas': {exc}"
@@ -122,6 +132,10 @@ class DataLoader:
 
     def _load_with_polars(self, path: Path, file_format: FileFormat) -> pd.DataFrame:
         """Carga ``path`` con polars lazy y colapsa a pandas en la frontera pública."""
+        if file_format == "excel":
+            raise DataValidationError(
+                "backend='polars' no admite Excel; use backend='pandas' para .xlsx."
+            )
         polars = _import_polars()
         try:
             if file_format == "csv":
@@ -166,4 +180,15 @@ def _import_polars() -> ModuleType:
         raise MissingDependencyError(
             "backend='polars' requiere el extra [polars]: pip install 'nikodym[polars]' "
             "(o uv add 'nikodym[polars]')."
+        ) from exc
+
+
+def _import_openpyxl() -> ModuleType:
+    """Importa ``openpyxl`` de forma perezosa y emite un mensaje accionable si falta."""
+    try:
+        return importlib.import_module("openpyxl")
+    except ImportError as exc:
+        raise MissingDependencyError(
+            "La carga de Excel (.xlsx) requiere el extra [excel]: pip install 'nikodym[excel]' "
+            "(o uv add 'nikodym[excel]')."
         ) from exc

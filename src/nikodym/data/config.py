@@ -89,19 +89,21 @@ class LoadingConfig(NikodymBaseConfig):
     source: str | None = Field(
         default=None,
         title="Ruta del dataset",
-        description="Ruta a CSV/Parquet; None si se inyecta un DataFrame en memoria por API.",
+        description="Ruta a CSV/Parquet/Excel; None si se inyecta un DataFrame en memoria por API.",
         json_schema_extra={
-            "ui_help": "Ruta al archivo CSV o Parquet que se va a cargar. Déjala vacía si el "
-            "dataset se entrega directamente por código/API en vez de apuntar a un archivo.",
+            "ui_help": "Ruta al archivo CSV, Parquet o Excel (.xlsx) que se va a cargar. Déjala "
+            "vacía si el dataset se entrega directamente por código/API en vez de apuntar a un "
+            "archivo.",
         },
     )
-    file_format: Literal["auto", "csv", "parquet"] = Field(
+    file_format: Literal["auto", "csv", "parquet", "excel"] = Field(
         default="auto",
         title="Formato",
         description="'auto' infiere el formato por la extensión.",
         json_schema_extra={
             "ui_help": "Formato del archivo de origen. 'auto' lo infiere por la extensión "
-            "(.csv/.parquet); fíjalo explícito si el archivo no trae una extensión estándar.",
+            "(.csv/.parquet/.xlsx); fíjalo explícito si el archivo no trae una extensión estándar. "
+            "Excel solo se admite con backend 'pandas'.",
         },
     )
     backend: Literal["pandas", "polars"] = Field(

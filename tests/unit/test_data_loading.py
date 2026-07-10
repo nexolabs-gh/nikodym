@@ -1,4 +1,4 @@
-"""Tests de ``DataLoader`` (SDD-02 §4/§7): carga CSV/Parquet y copias defensivas."""
+"""Tests de ``DataLoader`` (SDD-02 §4/§7): carga CSV/Parquet/Excel y copias defensivas."""
 
 from __future__ import annotations
 
@@ -290,3 +290,73 @@ def test_error_de_polars_se_envuelve_en_datavalidationerror(
 
     with pytest.raises(DataValidationError, match="falló scan_csv"):
         DataLoader(LoadingConfig(backend="polars")).load("cartera.csv")
+
+
+def test_load_excel_backend_pandas_round_trip_con_golden_values(tmp_path: Path) -> None:
+    """Lee un ``.xlsx`` real con backend='pandas' y recupera el ``DataFrame`` por round-trip."""
+    fuente = pd.DataFrame(
+        {
+            "loan_id": ["A", "B", "C"],
+            "saldo": [100.5, 250.0, 90.0],
+            "max_dpd_12m": [0, 90, 30],
+        }
+    )
+    path = tmp_path / "cartera.xlsx"
+    fuente.to_excel(path, index=False, engine="openpyxl")
+
+    cargado = DataLoader().load(path)
+
+    assert_frame_equal(cargado, fuente)
+    assert cargado is not fuente
+    assert float(cargado["saldo"].sum()) == 440.5
+
+
+def test_load_excel_auto_infiere_por_extension_xlsx(tmp_path: Path) -> None:
+    """``file_format='auto'`` infiere 'excel' por la extensión ``.xlsx`` y carga."""
+    fuente = pd.DataFrame({"saldo": [1.0, 2.0], "malo": [0, 1]})
+    path = tmp_path / "cartera.xlsx"
+    fuente.to_excel(path, index=False, engine="openpyxl")
+    loader = DataLoader.from_config(LoadingConfig(source=str(path)))  # 'auto' por defecto
+
+    assert loader._resolve_format(path) == "excel"
+    cargado = loader.load()
+    assert cargado.to_dict(orient="list") == {"saldo": [1.0, 2.0], "malo": [0, 1]}
+
+
+def test_load_excel_explicito_lee_aunque_la_extension_sea_distinta(tmp_path: Path) -> None:
+    """``file_format='excel'`` explícito lee un ``.xlsx`` aunque la extensión sea otra."""
+    fuente = pd.DataFrame({"saldo": [5.0], "malo": [1]})
+    path = tmp_path / "cartera.datos"  # extensión no estándar; openpyxl fija el formato .xlsx
+    fuente.to_excel(path, index=False, engine="openpyxl")
+
+    cargado = DataLoader(LoadingConfig(file_format="excel")).load(path)
+
+    assert cargado.to_dict(orient="list") == {"saldo": [5.0], "malo": [1]}
+
+
+def test_backend_polars_excel_levanta_datavalidationerror() -> None:
+    """``backend='polars'`` + Excel falla explícito antes de tocar polars.
+
+    No degrada al silencio ni instala calamine: Excel exige backend pandas.
+    """
+    loader = DataLoader(LoadingConfig(backend="polars", file_format="excel"))
+
+    with pytest.raises(DataValidationError, match="no admite Excel"):
+        loader.load("cartera.xlsx")
+
+
+def test_backend_pandas_excel_sin_extra_levanta_missingdependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La carga de Excel falla con mensaje accionable si el extra ``[excel]`` no está instalado."""
+
+    def missing_openpyxl(name: str) -> Any:
+        if name == "openpyxl":
+            raise ImportError("no hay openpyxl")
+        return importlib.import_module(name)
+
+    monkeypatch.setattr("nikodym.data.loading.importlib.import_module", missing_openpyxl)
+    loader = DataLoader(LoadingConfig(file_format="excel"))
+
+    with pytest.raises(MissingDependencyError, match=r"\[excel\].*nikodym\[excel\]"):
+        loader.load("cartera.xlsx")

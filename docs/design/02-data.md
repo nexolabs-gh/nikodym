@@ -18,7 +18,7 @@
 **Qué resuelve (una frase).** `data` es la **puerta de entrada de datos** de la librería: carga el dataset crudo, **valida su esquema** (columnas, tipos, rangos, supuestos) de forma trazable, **define el target** (bueno/malo/indeterminado con su ventana de desempeño y exclusiones), **particiona** en Desarrollo / Holdout / Out-of-Time / Through-the-Door sin fuga de información, fija la **política de missing y special values** y produce el **`data_hash`** que ancla la reproducibilidad del experimento en el `LineageBundle` de `core`.
 
 **Responsabilidad única (qué SÍ hace).**
-- Define **`DataLoader`** (carga de CSV/Parquet/DataFrame en memoria, tras una interfaz que permite un backend polars interno opcional — D-DATA).
+- Define **`DataLoader`** (carga de CSV/Parquet/Excel `.xlsx`/DataFrame en memoria, tras una interfaz que permite un backend polars interno opcional — D-DATA). Excel exige el extra `[excel]` (openpyxl, import perezoso) y solo backend `pandas` (primera hoja).
 - Define **`SchemaValidator`** (validación declarativa de esquema con **pandera**: columnas, dtypes, nulabilidad, rangos, unicidad, checks de dominio).
 - Define **`TargetDefinition`** (deriva la etiqueta binaria `target` y la marca de `indeterminado`/`excluido` desde reglas declarativas: definición de "malo", ventana de desempeño, exclusiones).
 - Define **`Partitioner`** (asigna cada observación a Desarrollo/Holdout/OOT/TTD según una **estrategia discriminada** — temporal | aleatoria | por-cohorte —; sugerencia automática **editable**).
@@ -91,7 +91,9 @@ class DataLoader:
     @classmethod
     def from_config(cls, cfg: "LoadingConfig") -> "DataLoader": ...
     def load(self, source: "str | Path | pandas.DataFrame", *, audit: "AuditSink | None" = None) -> "pandas.DataFrame":
-        ...  # fuente=DataFrame -> passthrough (copia defensiva); ruta -> lee por extensión (csv/parquet)
+        ...  # fuente=DataFrame -> passthrough (copia defensiva); ruta -> lee por extensión (csv/parquet/xlsx)
+        # Excel (.xlsx) requiere el extra [excel] (openpyxl, import perezoso) y SOLO backend='pandas'
+        # (primera hoja, engine="openpyxl"); backend='polars' + Excel -> DataValidationError explícito.
 
 # nikodym/data/schema.py
 class SchemaValidator:
@@ -252,9 +254,9 @@ class CsvOptions(NikodymBaseConfig):
 
 class LoadingConfig(NikodymBaseConfig):
     source: str | None = Field(None, title="Ruta del dataset",
-        description="CSV/Parquet. None si se inyecta un DataFrame en memoria por API.")
-    file_format: Literal["auto", "csv", "parquet"] = Field("auto", title="Formato",
-        description="'auto' infiere por extensión.")
+        description="CSV/Parquet/Excel. None si se inyecta un DataFrame en memoria por API.")
+    file_format: Literal["auto", "csv", "parquet", "excel"] = Field("auto", title="Formato",
+        description="'auto' infiere por extensión (.csv/.parquet/.xlsx). Excel solo con backend pandas.")
     backend: Literal["pandas", "polars"] = Field("pandas", title="Backend de carga",
         description="polars interno opcional si el volumen lo exige (D-DATA-1); la API expone pandas.")
     csv_options: CsvOptions = Field(default_factory=CsvOptions, title="Opciones CSV")
@@ -402,7 +404,7 @@ class DataConfig(NikodymBaseConfig):
 ## 6. Contratos de datos (I/O)
 
 **Input.**
-- `DataLoader.load`: ruta a CSV/Parquet, o un `pandas.DataFrame` en memoria (passthrough con copia defensiva). Índice = identificador de observación (SDD-05 §6: "índice = identificador de observación").
+- `DataLoader.load`: ruta a CSV/Parquet/Excel (`.xlsx`, extra `[excel]`, solo backend `pandas`, primera hoja), o un `pandas.DataFrame` en memoria (passthrough con copia defensiva). Índice = identificador de observación (SDD-05 §6: "índice = identificador de observación").
 - Cada etapa siguiente recibe el `DataFrame`/contenedor de la anterior. **Pre-condición global:** el dataset tiene las columnas declaradas en `SchemaConfig.columns` y la(s) usadas por `TargetConfig`/`PartitionConfig` (validado por `SchemaValidator`; ausencia → `DataValidationError`, no `KeyError` críptico).
 
 **Output.** El `PartitionResult` (artefacto `"splits"`) + el `frame` final + `data_hash`. Estructura del `frame` final (columnas añadidas por `data`, todas con prefijo neutro para no colisionar con columnas del cliente):
@@ -515,6 +517,7 @@ Toda excepción de `data` desciende de `NikodymError` (`DataValidationError`/`Co
 | pyarrow | ≥ 12 | Apache-2.0 ✅ | lectura/escritura Parquet (DataLoader). **NO** interviene en `data_hash` (que hashea contenido lógico vía `hash_pandas_object`, D-DATA-2 revisado). | siempre (data) |
 | (stdlib) | — | PSF | `hashlib` (blake2b/sha256), `pathlib`, `datetime` | — |
 | polars | ≥ 0.20 | **MIT** ✅ | backend de carga opcional (D-DATA-1), lazy para volúmenes grandes | **`[polars]`** opcional, import perezoso |
+| openpyxl | ≥ 3.1 | **MIT** ✅ | lectura Excel `.xlsx` (`DataLoader`, `pd.read_excel(engine="openpyxl")`, primera hoja); solo backend `pandas` | **`[excel]`** opcional, import perezoso |
 
 **Licencias — sin copyleft (D-LIC).** pandera MIT, polars MIT, pyarrow/pandas/numpy permisivas. Ninguna GPL. `polars` es **extra opcional** con import perezoso (mensaje accionable si falta, §8). `pandera` es dependencia base de `data` (no de `core`: `core` no la conoce — coherente con núcleo liviano de SDD-01 §10; `data` es un dominio y puede traer deps propias).
 
