@@ -59,9 +59,10 @@ interface ConfigSectionDef {
 const CONFIG_SECTIONS: ConfigSectionDef[] = [
   {
     key: "data",
-    label: "Datos",
+    label: "Esquema y target",
     icon: Table2,
-    description: "Fuente, esquema, missing, target y partición del panel de datos.",
+    description:
+      "Cómo se interpreta el dataset cargado: esquema, tipos, target, missing y partición.",
   },
   {
     key: "binning",
@@ -107,9 +108,9 @@ const CONFIG_SECTIONS: ConfigSectionDef[] = [
 const SECTIONS: SectionDef[] = [
   {
     value: "datos",
-    label: "Datos",
+    label: "Cargar datos",
     icon: Database,
-    title: "Datos",
+    title: "Cargar datos",
     cardDescription:
       "Elige un dataset de ejemplo o sube el tuyo (CSV, Excel o Parquet).",
     empty:
@@ -148,8 +149,15 @@ const SECTIONS: SectionDef[] = [
   },
 ]
 
-/** Árbol de navegación del sidebar: "Configuración" (con sus 7 sub-secciones) + el flujo. */
+/**
+ * Árbol de navegación del sidebar, en el orden del flujo real:
+ * 1) Cargar datos (upload) → 2) Configuración (7 sub-secciones; la 1ª es la lectura/esquema)
+ * → 3) Ejecutar → 4) Resultados → 5) Reporte. Cargar-datos va ARRIBA de la config porque
+ * primero se trae el dataset y luego se configura cómo leerlo.
+ */
+const [DATA_SECTION, ...FLOW_SECTIONS] = SECTIONS
 const NAV: NavItem[] = [
+  { value: DATA_SECTION.value, label: DATA_SECTION.label, icon: DATA_SECTION.icon },
   {
     value: "config",
     label: "Configuración",
@@ -160,7 +168,7 @@ const NAV: NavItem[] = [
       icon: s.icon,
     })),
   },
-  ...SECTIONS.map((s) => ({ value: s.value, label: s.label, icon: s.icon })),
+  ...FLOW_SECTIONS.map((s) => ({ value: s.value, label: s.label, icon: s.icon })),
 ]
 
 /** Sección de config activa (clave de schema) a partir del valor del sidebar, o `null`. */
@@ -173,7 +181,8 @@ function configKeyOf(active: string): string | null {
 function App() {
   // Nivel-0: la landing/launcher se ve ANTES del workspace; entrar la deja atrás.
   const [view, setView] = useState<"landing" | "workspace">("landing")
-  const [active, setActive] = useState<string>(configValue(CONFIG_SECTIONS[0].key))
+  // Entra por "Cargar datos": el flujo mental es traer el dataset antes de configurar cómo leerlo.
+  const [active, setActive] = useState<string>(DATA_SECTION.value)
 
   // "config" a secas (p.ej. una navegación programática) cae en la primera sub-sección.
   const navigate = (value: string) =>
