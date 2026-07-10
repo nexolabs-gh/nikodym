@@ -5,6 +5,7 @@ site_description: >-
 site_author: Nikodym
 repo_url: https://github.com/nexolabs-gh/nikodym
 repo_name: nexolabs-gh/nikodym
+site_url: https://docs.nikodym.cl/
 
 # El sitio de documentación vive en `docs_site/` para NO colisionar con `docs/`, que aloja el
 # diseño interno (SDDs en `docs/design/`, especificaciones, roadmap) y no es parte del sitio público.
