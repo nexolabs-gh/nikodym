@@ -9,11 +9,13 @@ no reimplementa fórmulas de riesgo.
 from __future__ import annotations
 
 import ast
+import io
 import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pytest
 from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 
@@ -304,6 +306,112 @@ def test_run_pipeline_corrida_fallida_status_failed(
     result = routes.run_pipeline(config, "consumo_comportamiento", workdir=tmp_path)
 
     assert result["status"] == "failed"
+
+
+# ─────────────── upload de datasets propios (ingest_upload / upload_dataset) ───────────────
+
+_CSV_UPLOAD = b"col_a,col_b\n1,x\n2,y\n3,z\n"  # 3 filas, 2 columnas
+
+
+def _xlsx_bytes(frame: pd.DataFrame) -> bytes:
+    """Serializa un DataFrame a bytes ``.xlsx`` (openpyxl) en memoria."""
+    buffer = io.BytesIO()
+    frame.to_excel(buffer, index=False, engine="openpyxl")
+    return buffer.getvalue()
+
+
+def _parquet_bytes(frame: pd.DataFrame) -> bytes:
+    """Serializa un DataFrame a bytes ``.parquet`` en memoria."""
+    buffer = io.BytesIO()
+    frame.to_parquet(buffer)
+    return buffer.getvalue()
+
+
+def test_ingest_upload_csv_materializa_y_preview(tmp_path: Path) -> None:
+    """Un CSV subido se lee, se materializa a ``uploaded_<hex>`` y da el preview de columnas."""
+    result = datasets_module.ingest_upload(_CSV_UPLOAD, "cartera.csv", workdir=tmp_path)
+    assert result["dataset_id"].startswith("uploaded_")
+    assert len(result["dataset_id"]) == len("uploaded_") + 32
+    assert result["name"] == "cartera.csv"
+    assert result["n_rows"] == 3
+    assert [col["name"] for col in result["columns"]] == ["col_a", "col_b"]
+    parquet = tmp_path / "datasets" / f"{result['dataset_id']}.parquet"
+    assert parquet.is_file()
+
+
+def test_ingest_upload_xlsx(tmp_path: Path) -> None:
+    """Un ``.xlsx`` subido se lee con openpyxl y se materializa igual que un CSV."""
+    frame = pd.DataFrame({"ingreso": [1000.0, 2000.0], "flag": [0, 1]})
+    result = datasets_module.ingest_upload(_xlsx_bytes(frame), "cartera.xlsx", workdir=tmp_path)
+    assert result["n_rows"] == 2
+    assert [col["name"] for col in result["columns"]] == ["ingreso", "flag"]
+    parquet = datasets_module.materialize(result["dataset_id"], workdir=tmp_path)
+    assert pd.read_parquet(parquet)["flag"].tolist() == [0, 1]
+
+
+def test_ingest_upload_parquet_round_trip(tmp_path: Path) -> None:
+    """Un ``.parquet`` subido se materializa y ``materialize`` lo devuelve idéntico (round-trip)."""
+    frame = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+    result = datasets_module.ingest_upload(_parquet_bytes(frame), "d.parquet", workdir=tmp_path)
+    parquet = datasets_module.materialize(result["dataset_id"], workdir=tmp_path)
+    pd.testing.assert_frame_equal(pd.read_parquet(parquet), frame)
+
+
+def test_ingest_upload_determinista_y_cachea(tmp_path: Path) -> None:
+    """El mismo contenido da el MISMO ``dataset_id`` (sha256) y reusa su parquet cacheado."""
+    primero = datasets_module.ingest_upload(_CSV_UPLOAD, "a.csv", workdir=tmp_path)
+    segundo = datasets_module.ingest_upload(_CSV_UPLOAD, "b.csv", workdir=tmp_path)  # cache hit
+    assert primero["dataset_id"] == segundo["dataset_id"]  # id por contenido, no por filename
+
+
+def test_ingest_upload_vacio(tmp_path: Path) -> None:
+    """Un archivo sin bytes levanta ``UiDatasetError`` (no se materializa)."""
+    with pytest.raises(UiDatasetError, match="vacío"):
+        datasets_module.ingest_upload(b"", "x.csv", workdir=tmp_path)
+
+
+def test_ingest_upload_excede_limite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Un archivo por encima de ``_MAX_UPLOAD_BYTES`` levanta ``UiDatasetError`` con el tamaño."""
+    monkeypatch.setattr(datasets_module, "_MAX_UPLOAD_BYTES", 4)
+    with pytest.raises(UiDatasetError, match="límite"):
+        datasets_module.ingest_upload(b"12345", "x.csv", workdir=tmp_path)
+
+
+def test_ingest_upload_formato_no_admitido(tmp_path: Path) -> None:
+    """Una extensión fuera de la allowlist (``.txt``) levanta ``UiDatasetError``."""
+    with pytest.raises(UiDatasetError, match="no admitido"):
+        datasets_module.ingest_upload(b"hola mundo", "notas.txt", workdir=tmp_path)
+
+
+def test_ingest_upload_archivo_corrupto(tmp_path: Path) -> None:
+    """Bytes basura con sufijo ``.parquet`` que no parsean se envuelven en ``UiDatasetError``."""
+    with pytest.raises(UiDatasetError, match="no se pudo leer"):
+        datasets_module.ingest_upload(b"esto no es un parquet", "roto.parquet", workdir=tmp_path)
+
+
+def test_ingest_upload_sin_filas(tmp_path: Path) -> None:
+    """Un CSV con solo cabecera (0 filas) levanta ``UiDatasetError`` (no hay datos)."""
+    with pytest.raises(UiDatasetError, match="no contiene filas"):
+        datasets_module.ingest_upload(b"col_a,col_b\n", "solo_header.csv", workdir=tmp_path)
+
+
+def test_materialize_upload_no_encontrado(tmp_path: Path) -> None:
+    """``materialize`` de un ``uploaded_<id>`` sin parquet materializado da ``UiDatasetError``."""
+    with pytest.raises(UiDatasetError, match="no encontrado"):
+        datasets_module.materialize("uploaded_" + "0" * 32, workdir=tmp_path)
+
+
+def test_upload_dataset_delega_en_ingest(tmp_path: Path) -> None:
+    """``upload_dataset`` (pura) delega en ``ingest_upload`` con un ``filename`` válido."""
+    result = routes.upload_dataset(b"a,b\n1,2\n", "x.csv", workdir=tmp_path)
+    assert result["dataset_id"].startswith("uploaded_")
+    assert result["n_rows"] == 1
+
+
+def test_upload_dataset_filename_no_str(tmp_path: Path) -> None:
+    """``upload_dataset`` con un ``filename`` no-``str`` levanta ``UiDatasetError`` (→ 422)."""
+    with pytest.raises(UiDatasetError, match="string"):
+        routes.upload_dataset(b"a,b\n1,2\n", None, workdir=tmp_path)
 
 
 def test_run_endpoint_dependencia_faltante_422(

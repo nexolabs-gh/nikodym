@@ -156,6 +156,27 @@ def test_endpoint_datasets(client: TestClient) -> None:
     assert ids == ["consumo_comportamiento", "hipotecario_comportamiento"]
 
 
+def test_endpoint_upload_csv_200(client_tmp: TestClient) -> None:
+    """``POST /api/upload`` con un CSV → 200 ``{dataset_id, name, n_rows, columns}``."""
+    contenido = b"col_a,col_b\n1,x\n2,y\n"
+    respuesta = client_tmp.post(
+        "/api/upload", files={"file": ("cartera.csv", contenido, "text/csv")}
+    )
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["dataset_id"].startswith("uploaded_")
+    assert cuerpo["name"] == "cartera.csv"
+    assert cuerpo["n_rows"] == 2
+    assert [col["name"] for col in cuerpo["columns"]] == ["col_a", "col_b"]
+
+
+def test_endpoint_upload_formato_invalido_422(client_tmp: TestClient) -> None:
+    """``POST /api/upload`` con una extensión no admitida (``.txt``) → 422 (mensaje string)."""
+    respuesta = client_tmp.post("/api/upload", files={"file": ("notas.txt", b"hola", "text/plain")})
+    assert respuesta.status_code == 422
+    assert isinstance(respuesta.json()["detail"], str)
+
+
 # ─────────────────────────── round-trip YAML (/config/to-yaml, /config/from-yaml) ───────────
 
 

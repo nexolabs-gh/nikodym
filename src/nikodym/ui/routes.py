@@ -2,11 +2,13 @@
 
 Expone los endpoints del contrato: ``GET /api/schema`` (schema del config + defaults + orden
 de secciones), ``POST /api/validate`` (validación **por reconstrucción**, siempre 200),
-``GET /api/datasets`` (catálogo sintético), ``GET /api/config/preset`` (preset estándar F1 listo
-para correr, SDD-23 §3.2/§5), ``POST /api/run`` (ejecución síncrona),
-``GET /api/results/{run_id}`` / ``GET /api/report/{run_id}`` (lectura de una corrida persistida) y
-el round-trip YAML ``POST /api/config/to-yaml`` / ``POST /api/config/from-yaml`` (reúso de SDD-05,
-§3.4). La lógica de cada endpoint vive en funciones **puras** (sin FastAPI), testeables sin
+``GET /api/datasets`` (catálogo sintético), ``POST /api/upload`` (subir un dataset propio
+``.csv``/``.xlsx``/``.parquet``, materializado a parquet como ``uploaded_<hash>``),
+``GET /api/config/preset`` (preset estándar F1 listo para correr, SDD-23 §3.2/§5),
+``POST /api/run`` (ejecución síncrona), ``GET /api/results/{run_id}`` / ``GET /api/report/{run_id}``
+(lectura de una corrida persistida) y el round-trip YAML ``POST /api/config/to-yaml`` /
+``POST /api/config/from-yaml`` (reúso de SDD-05, §3.4). La lógica de cada endpoint vive en funciones
+**puras** (sin FastAPI), testeables sin
 servidor; :func:`build_router` solo las cablea a un ``APIRouter`` con import **perezoso** de
 FastAPI. El backend es *domain-agnostic*: no importa módulos de dominio ni reimplementa
 rangos/enums/finitud ni fórmulas de riesgo — la verdad de validación es Pydantic y todo cómputo
@@ -40,6 +42,7 @@ __all__ = [
     "preset_payload",
     "run_pipeline",
     "schema_payload",
+    "upload_dataset",
     "validate_config",
 ]
 
@@ -154,6 +157,40 @@ def datasets_payload() -> list[dict[str, Any]]:
     return datasets.list_datasets()
 
 
+def upload_dataset(content: bytes, filename: Any, *, workdir: Path) -> dict[str, Any]:
+    """Ingesta un dataset propio subido y devuelve ``{dataset_id, name, n_rows, columns}``.
+
+    Valida que ``filename`` sea un ``str`` (precondición del lector por sufijo) y delega la ingesta
+    en :func:`nikodym.ui.datasets.ingest_upload`, que valida tamaño/formato, lee con pandas y
+    materializa a parquet ``uploaded_<hash>`` (identidad determinista por contenido). No importa
+    ``nikodym.data``: la lectura es pandas directo (SDD-23 §11).
+
+    Parameters
+    ----------
+    content : bytes
+        Bytes crudos del archivo subido.
+    filename : Any
+        Nombre original del archivo; debe ser un ``str`` (si no, ``UiDatasetError`` → 422).
+    workdir : Path
+        Directorio de trabajo local donde se materializa el parquet del upload.
+
+    Returns
+    -------
+    dict
+        ``{dataset_id, name, n_rows, columns}`` (ver :func:`~nikodym.ui.datasets.ingest_upload`).
+
+    Raises
+    ------
+    UiDatasetError
+        Si ``filename`` no es un ``str`` o si la ingesta falla (vacío, formato/tamaño, ilegible).
+    """
+    if not isinstance(filename, str):
+        raise UiDatasetError(
+            f"el nombre del archivo subido debe ser un string, no {type(filename).__name__}."
+        )
+    return datasets.ingest_upload(content, filename, workdir=workdir)
+
+
 def preset_payload() -> dict[str, Any]:
     """Compone la respuesta de ``GET /api/config/preset`` (preset estándar F1, SDD-23 §3.2/§5).
 
@@ -223,14 +260,14 @@ def _format_errors(exc: ValidationError) -> list[dict[str, Any]]:
 
 def build_router() -> APIRouter:
     """Construye el ``APIRouter`` con los endpoints del contrato (import perezoso de FastAPI)."""
-    from fastapi import APIRouter, HTTPException, Request
+    from fastapi import APIRouter, HTTPException, Request, UploadFile
     from fastapi.responses import HTMLResponse
 
     # Las anotaciones de los handlers son *strings* (``from __future__ import annotations``) y
     # FastAPI las resuelve con los globals del módulo; se exponen aquí los tipos de FastAPI recién
-    # importados (perezosos) para que ``Request``/``HTMLResponse`` resuelvan en la introspección de
-    # firmas sin importar FastAPI en el top-level (núcleo liviano, SDD-23 §10).
-    globals().update(Request=Request, HTMLResponse=HTMLResponse)
+    # importados (perezosos) para que ``Request``/``HTMLResponse``/``UploadFile`` resuelvan en la
+    # introspección de firmas sin importar FastAPI en el top-level (núcleo liviano, SDD-23 §10).
+    globals().update(Request=Request, HTMLResponse=HTMLResponse, UploadFile=UploadFile)
 
     router = APIRouter(prefix="/api")
 
@@ -248,6 +285,21 @@ def build_router() -> APIRouter:
     async def datasets_endpoint() -> list[dict[str, Any]]:
         """Lista los datasets sintéticos disponibles."""
         return datasets_payload()
+
+    @router.post("/upload")
+    async def upload_endpoint(file: UploadFile, request: Request) -> dict[str, Any]:
+        """Sube un dataset propio (``.csv``/``.xlsx``/``.parquet``) → ``{dataset_id, ...}``.
+
+        Materializa el archivo a parquet ``uploaded_<hash>`` bajo el ``workdir`` y devuelve su
+        ``dataset_id`` + preview de columnas. Un archivo inválido/ilegible/muy grande → 422 (es
+        entrada del usuario, nunca un 500 opaco).
+        """
+        workdir = Path(request.app.state.settings.workdir)
+        content = await file.read()
+        try:
+            return upload_dataset(content, file.filename, workdir=workdir)
+        except UiDatasetError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @router.get("/config/preset")
     async def config_preset_endpoint() -> dict[str, Any]:
