@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import importlib
+import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -15,6 +15,12 @@ from nikodym.core.exceptions import DataValidationError, MissingDependencyError
 from nikodym.data import DataLoader as ExportedDataLoader
 from nikodym.data.config import CsvOptions, LoadingConfig
 from nikodym.data.loading import DataLoader
+
+# Los tests que ESCRIBEN un ``.xlsx`` (``df.to_excel``) requieren openpyxl (extra [excel]). El job
+# all-extras del CI lo instala y ahí ejercitan Excel de verdad; los jobs mínimos lo saltan (mismo
+# patrón que ``_HAS_XGBOOST``/… en test_ml_backends.py). El motor solo lee Excel; escribirlo en el
+# test es andamiaje, así que el guard cubre la escritura sin perder cobertura donde el extra existe.
+_HAS_OPENPYXL = importlib.util.find_spec("openpyxl") is not None
 
 
 def test_dataloader_exportado_desde_paquete_data() -> None:
@@ -292,6 +298,7 @@ def test_error_de_polars_se_envuelve_en_datavalidationerror(
         DataLoader(LoadingConfig(backend="polars")).load("cartera.csv")
 
 
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="extra [excel] no instalado")
 def test_load_excel_backend_pandas_round_trip_con_golden_values(tmp_path: Path) -> None:
     """Lee un ``.xlsx`` real con backend='pandas' y recupera el ``DataFrame`` por round-trip."""
     fuente = pd.DataFrame(
@@ -311,6 +318,7 @@ def test_load_excel_backend_pandas_round_trip_con_golden_values(tmp_path: Path) 
     assert float(cargado["saldo"].sum()) == 440.5
 
 
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="extra [excel] no instalado")
 def test_load_excel_auto_infiere_por_extension_xlsx(tmp_path: Path) -> None:
     """``file_format='auto'`` infiere 'excel' por la extensión ``.xlsx`` y carga."""
     fuente = pd.DataFrame({"saldo": [1.0, 2.0], "malo": [0, 1]})
@@ -323,6 +331,7 @@ def test_load_excel_auto_infiere_por_extension_xlsx(tmp_path: Path) -> None:
     assert cargado.to_dict(orient="list") == {"saldo": [1.0, 2.0], "malo": [0, 1]}
 
 
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="extra [excel] no instalado")
 def test_load_excel_explicito_lee_aunque_la_extension_sea_distinta(tmp_path: Path) -> None:
     """``file_format='excel'`` explícito lee un ``.xlsx`` aunque la extensión sea otra."""
     fuente = pd.DataFrame({"saldo": [5.0], "malo": [1]})
