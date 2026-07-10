@@ -223,13 +223,15 @@ def run_pipeline(config: Any, dataset_id: Any, *, workdir: Path) -> dict[str, An
     Flujo: (a) valida ``config`` por reconstrucción —un ``ValidationError`` se propaga para que el
     endpoint responda **422**—; (b) resuelve ``dataset_id`` materializando su parquet determinista
     —un ``UiDatasetError`` se propaga para un **404**— y cablea su ruta a ``data.load.source``
-    (edición de config declarativo, no lógica de dominio); (c) corre ``nikodym.run`` **síncrono**
+    (más ``report.output_dir`` a un dir bajo el ``workdir``; edición de config declarativo, no
+    lógica de dominio); (c) corre ``nikodym.run`` **síncrono**
     (que NO relanza en fallo, D-UI-2); (d) persiste la corrida por ``run_id``. Una corrida fallida
     devuelve ``status="failed"`` (nunca un 500 opaco).
     """
     NikodymConfig.model_validate(config)  # (a) precondición: config válido (ValidationError → 422)
     source = datasets.materialize(dataset_id, workdir=workdir)  # (b) UiDatasetError → 404
-    resolved = NikodymConfig.model_validate(_wire_dataset_source(config, source))
+    wired = _wire_report_output_dir(_wire_dataset_source(config, source), workdir=workdir)
+    resolved = NikodymConfig.model_validate(wired)
     study = nikodym.run(resolved)  # (c) síncrono; el fallo vive en run_context.status (D-UI-2)
     run_id = runs.save(study, workdir=workdir, governance=resolved.governance)  # (d)
     return {"run_id": run_id, "status": study.run_context.status}
@@ -243,6 +245,22 @@ def _wire_dataset_source(config: dict[str, Any], source: Path) -> dict[str, Any]
         load = data.setdefault("load", {})
         if isinstance(load, dict):
             load["source"] = str(source)
+    return edited
+
+
+def _wire_report_output_dir(config: dict[str, Any], *, workdir: Path) -> dict[str, Any]:
+    """Cablea ``report.output_dir`` a un dir absoluto bajo ``workdir`` sobre una copia (no muta).
+
+    Análogo a :func:`_wire_dataset_source`: fija la salida del HTML a ``workdir/reports`` para que
+    el reporte NO se escriba relativo al CWD del server (evita basura en el CWD y colisiones entre
+    corridas). ``report`` es infraestructura (:data:`~nikodym.core.config.hashing.INFRA_SECTIONS`)
+    → no altera el ``config_hash``. Guarda idempotente: si el config no trae ``report`` o no es un
+    dict (preset sin reporte o ``report=None``), no hace nada.
+    """
+    edited = copy.deepcopy(config)
+    report = edited.get("report")
+    if isinstance(report, dict):
+        report["output_dir"] = str(workdir / "reports")
     return edited
 
 

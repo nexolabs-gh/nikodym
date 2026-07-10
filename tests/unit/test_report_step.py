@@ -94,6 +94,38 @@ def test_from_config_registro_reexport_y_contrato_step_exacto() -> None:
     assert sink.events[-1].payload == {"regla": "x"}
 
 
+def test_requires_se_deriva_de_required_sections() -> None:
+    """``requires`` filtra ``REPORT_REQUIRED_CARDS`` por ``sections.required_sections`` (CT-1).
+
+    Con el default de ocho secciones el contrato no cambia; un pipeline que no corre ``eda`` (p.
+    ej. el preset F1) declara ``required_sections`` sin ``eda`` y el step deja de exigir su card, de
+    modo que ``_validate_pipeline`` no rechaza el config por un prerequisito inalcanzable.
+    """
+    assert ReportStep.from_config(ReportConfig()).requires == REPORT_REQUIRED_CARDS
+
+    sin_eda = (
+        "binning",
+        "selection",
+        "model",
+        "scorecard",
+        "calibration",
+        "performance",
+        "stability",
+    )
+    step = ReportStep.from_config(
+        ReportConfig(sections=SectionPolicyConfig(required_sections=sin_eda))
+    )
+    assert ("eda", "eda_card") not in step.requires
+    assert step.requires == tuple(
+        (domain, key) for domain, key in REPORT_REQUIRED_CARDS if domain != "eda"
+    )
+
+    solo_modelo = ReportStep.from_config(
+        ReportConfig(sections=SectionPolicyConfig(required_sections=("model",)))
+    )
+    assert solo_modelo.requires == (("model", "model_card"),)
+
+
 def test_core_study_cablea_report_en_orden_por_defecto(tmp_path: Path) -> None:
     """``Study`` resuelve ``report`` como dominio perezoso después de ``stability``."""
     order = study_module._DEFAULT_DOMAIN_ORDER

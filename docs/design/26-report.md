@@ -224,6 +224,8 @@ class ReportStep(AuditableMixin):
 
 **Nota sobre secciones ausentes y CT-1.** El `ReportStep` canónico de F1 exige las cards de scorecard completas. Para uso exploratorio/standalone, `ReportBuilder.collect(..., missing_policy="warn"|"skip")` puede construir un reporte parcial sin registrarse como `Step` F1 completo. Así la corrida de release falla ruidosamente si falta una pieza obligatoria, pero la API de reporte puede degradar cuando el usuario pide un documento parcial.
 
+> **Implementación (B38a): `requires` se deriva de `sections.required_sections`.** El literal de arriba es el default (ocho secciones canónicas). En `ReportStep.__init__`, `self.requires` **filtra** `REPORT_REQUIRED_CARDS` a las cards cuyo dominio esté en `config.sections.required_sections`. Con el default el contrato no cambia; pero un pipeline F1 que no corre una sección canónica (p. ej. el **preset F1**, que tiene `eda=None` y por eso declara `required_sections` sin `eda`) deja de exigir esa card, de modo que el motor (`Study._validate_pipeline`, CT-1) no rechaza el config por un prerequisito inalcanzable. `REPORT_REQUIRED_CARDS` sigue siendo el mapeo canónico dominio→card (no se altera; sólo se filtra). Además `ReportResult.html_path` se fija a la ruta **absoluta** real (`output_dir/basename`), no al basename del `manifest.path`, para que consumidores como `nikodym.ui.runs` puedan abrir y persistir el HTML escrito.
+
 **Artefactos que `ReportStep.execute` escribe en `study.artifacts`.**
 
 | clave | tipo | contenido |

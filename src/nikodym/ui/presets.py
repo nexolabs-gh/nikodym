@@ -354,7 +354,58 @@ _STANDARD_CONFIG: dict[str, Any] = {
         "csi_source": "score_points",
     },
     "validation": None,
-    "report": None,
+    # Report HTML determinístico activado. Derivado con ``ReportConfig(sections=SectionPolicyConfig(
+    # required_sections=(...)))`` + ``model_dump(mode="json", by_alias=True)`` (NO editar a mano).
+    # Las ``required_sections`` son EXACTAMENTE las cards que el preset produce (sin ``eda`` ni
+    # ``data``: el pipeline no corre EDA), para que ``ReportStep.requires`` no exija una card
+    # inalcanzable y el motor (CT-1) no rechace el config. ``report`` es INFRA (``INFRA_SECTIONS``)
+    # → NO entra al ``config_hash``. Defaults seguros: solo HTML, sin Quarto/IA/gráficos
+    # interactivos → no requiere extras. ``output_dir`` se cablea a un dir absoluto bajo el workdir
+    # en ejecución (``routes._wire_report_output_dir``); aquí queda el default relativo.
+    "report": {
+        "schema_version": "1.0.0",
+        "type": "standard",
+        "output_dir": "reports",
+        "basename": "scorecard_report",
+        "language": "es",
+        "formats": ["html"],
+        "html": {
+            "template_id": "scorecard_basic_v1",
+            "theme": "nikodym",
+            "embed_assets": True,
+            "include_interactive_charts": False,
+            "deterministic_ids": True,
+        },
+        "quarto": {
+            "enabled": False,
+            "formats": [],
+            "fail_if_unavailable": False,
+        },
+        "ai": {
+            "enabled": False,
+            "provider": "none",
+            "model": None,
+            "api_key_env": "ANTHROPIC_API_KEY",
+            "timeout_seconds": 20.0,
+            "max_input_tokens": 12000,
+            "send_raw_data": False,
+            "label_ai_text": True,
+        },
+        "sections": {
+            "required_sections": [
+                "binning",
+                "selection",
+                "model",
+                "scorecard",
+                "calibration",
+                "performance",
+                "stability",
+            ],
+            "missing_policy": "error",
+            "include_raw_tables": False,
+            "max_table_rows": 200,
+        },
+    },
     "audit": None,
     "governance": None,
     "tracking": None,

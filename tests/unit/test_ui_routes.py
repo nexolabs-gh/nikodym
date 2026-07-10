@@ -251,6 +251,25 @@ def test_wire_dataset_source_load_no_dict_se_ignora() -> None:
     assert wired == {"data": {"load": "opaco"}}
 
 
+# ─────────────────────────── cableado de report (_wire_report_output_dir) ──────────────────────
+
+
+def test_wire_report_output_dir_cablea_absoluto_bajo_workdir(tmp_path: Path) -> None:
+    """Cablea ``report.output_dir`` a ``workdir/reports`` sin mutar el dict original (copia)."""
+    config = {"report": {"output_dir": "reports"}}
+    wired = routes._wire_report_output_dir(config, workdir=tmp_path)
+    assert wired["report"]["output_dir"] == str(tmp_path / "reports")
+    assert config["report"]["output_dir"] == "reports"  # el original no se mutó
+
+
+def test_wire_report_output_dir_sin_report_es_idempotente(tmp_path: Path) -> None:
+    """Un config sin ``report`` (o con ``report=None``) se devuelve intacto (guarda idempotente)."""
+    assert routes._wire_report_output_dir({"repro": {"seed": 7}}, workdir=tmp_path) == {
+        "repro": {"seed": 7}
+    }
+    assert routes._wire_report_output_dir({"report": None}, workdir=tmp_path) == {"report": None}
+
+
 # ─────────────────────────── run_pipeline (lógica pura, sin FastAPI) ───────────────────────────
 
 
@@ -279,6 +298,37 @@ def test_run_pipeline_ok_persiste_y_devuelve_done(
 
     assert result["status"] == "done"
     assert (tmp_path / "runs" / result["run_id"] / "results.json").is_file()
+
+
+def test_run_pipeline_preset_genera_reporte_html_determinista(tmp_path: Path) -> None:
+    """La corrida del **preset F1** termina ``done`` y ``load_report`` devuelve el HTML del reporte.
+
+    Ejercita el escaparate completo: ``run_pipeline`` corre el preset real (binning MIP, modelo,
+    scorecard, calibración, performance, stability, report), persiste la corrida y sirve el HTML.
+    Determinismo robusto: dos corridas (mismo ``workdir`` → mismo ``config_hash``) dan un HTML
+    byte-idéntico salvo el ÚNICO campo wall-clock del lineage (``created_at``, el sello de la
+    corrida); con ``ai.enabled=False`` el cuerpo del reporte no tiene otra fuente de azar. Requiere
+    el extra ``scoring`` (binning MIP real): el job de dependencias mínimas lo salta.
+    """
+    pytest.importorskip("optbinning")
+    from nikodym.ui import runs
+    from nikodym.ui.presets import STANDARD_DATASET_ID, standard_preset
+
+    def _run_and_load() -> tuple[str, str | None]:
+        result = routes.run_pipeline(
+            standard_preset()["config"], STANDARD_DATASET_ID, workdir=tmp_path
+        )
+        return result["status"], runs.load_report(result["run_id"], workdir=tmp_path)
+
+    status_1, html_1 = _run_and_load()
+    status_2, html_2 = _run_and_load()
+
+    assert status_1 == status_2 == "done"
+    for html in (html_1, html_2):
+        assert html is not None and html.strip(), "load_report debe devolver HTML no vacío"
+        assert "<html" in html.lower()
+    run_stamp = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\+00:00|Z)")
+    assert run_stamp.sub("TS", html_1) == run_stamp.sub("TS", html_2)
 
 
 def test_run_pipeline_config_invalido_propaga_validation_error(tmp_path: Path) -> None:

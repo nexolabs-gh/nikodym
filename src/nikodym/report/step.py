@@ -64,8 +64,21 @@ class ReportStep(AuditableMixin):
     provides: tuple[ArtifactKey, ...] = tuple(("report", key) for key in REPORT_ARTIFACTS)
 
     def __init__(self, config: ReportConfig) -> None:
-        """Construye el paso desde la sección ``ReportConfig`` ya validada."""
+        """Construye el paso desde la sección ``ReportConfig`` ya validada.
+
+        ``requires`` se **deriva** del config: se filtra :data:`REPORT_REQUIRED_CARDS` a las cards
+        cuyo dominio esté en ``config.sections.required_sections``. Así un pipeline que no corre
+        todas las secciones canónicas F1 (p. ej. el preset sin ``eda``) declara sólo las cards que
+        realmente exige, y el motor (``_validate_pipeline``/``_check_prerequisites``, CT-1) no
+        rechaza el config por un prerequisito inalcanzable. Con el default de ocho secciones el
+        comportamiento no cambia: se siguen requiriendo las ocho cards. ``REPORT_REQUIRED_CARDS`` es
+        el mapeo canónico dominio→card y no se altera; sólo se filtra.
+        """
         self.config = config
+        required_domains = set(config.sections.required_sections)
+        self.requires = tuple(
+            (domain, key) for domain, key in REPORT_REQUIRED_CARDS if domain in required_domains
+        )
 
     @classmethod
     def from_config(cls, cfg: ReportConfig) -> ReportStep:
@@ -95,7 +108,7 @@ class ReportStep(AuditableMixin):
         result = ReportResult(
             manifest=manifest,
             input_bundle=bundle,
-            html_path=manifest.path if manifest.path else None,
+            html_path=_resolve_html_path(cfg, manifest),
             ai_blocks=ai_blocks,
         )
         self._log_report_decisions(bundle=bundle, manifest=manifest, result=result, config=cfg)
@@ -166,6 +179,20 @@ def _validate_required_cards(
                 f"El paso '{step_name}' requiere el artefacto ('{domain}', '{key}'), "
                 "ausente del ArtifactStore."
             )
+
+
+def _resolve_html_path(config: ReportConfig, manifest: ReportManifest) -> str | None:
+    """Ruta ABSOLUTA/real del HTML escrito, para que consumidores puedan abrirlo (SDD-23 §4.3).
+
+    ``manifest.path`` es el basename determinístico (portable, entra al golden del manifiesto);
+    ``ReportResult.html_path`` es la ruta real en disco = ``output_dir/basename``, lo que un
+    consumidor como :func:`nikodym.ui.runs._report_html` necesita para leer y persistir el reporte.
+    Sin ``output_dir`` no se escribe archivo → ``None`` (reporte sólo-en-memoria).
+    """
+    output_dir = config.output_dir.strip()
+    if not output_dir or not manifest.path:
+        return None
+    return str(Path(output_dir) / manifest.path)
 
 
 def _preflight_output_dir(config: ReportConfig) -> None:
