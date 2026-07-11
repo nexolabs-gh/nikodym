@@ -69,6 +69,12 @@ class HtmlRenderConfig(NikodymBaseConfig):
         description="True deriva IDs de secciones y figuras sin azar ni timestamps de pared.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "HTML", "ui_order": 5},
     )
+    render_charts: bool = Field(
+        default=True,
+        title="Renderizar gráficos",
+        description="True embebe los gráficos SVG deterministas del reporte en cada sección.",
+        json_schema_extra={"ui_widget": "checkbox", "ui_group": "HTML", "ui_order": 6},
+    )
 
 
 class QuartoRenderConfig(NikodymBaseConfig):

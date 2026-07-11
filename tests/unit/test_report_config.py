@@ -61,6 +61,7 @@ def _report_defaults() -> dict[str, Any]:
             "embed_assets": True,
             "include_interactive_charts": False,
             "deterministic_ids": True,
+            "render_charts": True,
         },
         "quarto": {
             "enabled": False,

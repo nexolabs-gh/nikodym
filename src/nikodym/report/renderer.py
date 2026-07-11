@@ -15,13 +15,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import re
 import shutil
 import subprocess
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from importlib import resources
 from pathlib import Path
 from typing import Any, Final, Literal, TypeAlias, cast
@@ -51,8 +52,17 @@ from nikodym.report.results import (
 
 __all__ = ["HtmlReportRenderer", "QuartoReportRenderer"]
 
+_LOGGER: Final = logging.getLogger(__name__)
+
 JSONValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | None
 TableCell: TypeAlias = str
+
+# Los bytes internos de un ``<svg>`` de matplotlib dependen de freetype y no son idénticos entre
+# sistemas operativos; el digest del manifest/golden los reemplaza por un placeholder para ser
+# reproducible cross-OS (el HTML en disco conserva los SVG). Non-greedy + DOTALL: cada gráfico se
+# recorta por separado (matplotlib no anida ``<svg>``).
+_SVG_STRIP_PATTERN: Final = re.compile(r"<svg\b[^>]*>.*?</svg>", re.DOTALL)
+_STRIPPED_SVG: Final = '<svg data-chart="stripped"></svg>'
 
 _HTML_TEMPLATE_ID: Final = "scorecard_basic_v1"
 _QUARTO_SOURCE_NAME: Final = "scorecard_report.qmd"
@@ -143,8 +153,7 @@ class HtmlReportRenderer:
                 "renderizado; acción='llame HtmlReportRenderer.render antes de build_manifest'."
             )
 
-        normalized_html = _normalize_newlines(html)
-        digest = hashlib.sha256(normalized_html.encode("utf-8")).hexdigest()
+        digest = _digest_html(html)
         ai_used = any(block.generated for block in self._last_ai_blocks)
         return ReportManifest(
             report_id=html_report_id(bundle, self.config),
@@ -327,6 +336,7 @@ def _section_views(
                 "payload_items": _mapping_items(section.payload),
                 "metric_items": _mapping_items(section.metric_sections),
                 "tables": _tables_for_section(bundle, section.id, config.sections.max_table_rows),
+                "charts": _charts_for_section(bundle, section.id, config),
                 "figures": _figures_for_section(bundle, section.id),
                 "narration": _narration_view(narratives.get(section.id), config.ai.label_ai_text),
             }
@@ -423,6 +433,118 @@ def _figures_for_section(bundle: ReportInputBundle, section_id: str) -> list[dic
                 }
             )
     return figures
+
+
+_CHART_TITLES: Final[dict[str, str]] = {
+    "gains": "Curva de ganancia acumulada por partición",
+    "discrimination": "Discriminación (AUC/Gini/KS) por partición",
+    "coefficients": "Coeficientes del modelo (β, IC 95 %)",
+    "stability": "Estabilidad PSI/CSI por comparación",
+    "reliability": "Curva de calibración (confiabilidad) por partición",
+}
+
+
+def _chart_gains(charts: Any, bundle: ReportInputBundle) -> str:
+    """Curva de ganancia desde ``performance.performance_table``."""
+    return cast(
+        str,
+        charts.render_gains_chart(
+            bundle.tables["performance.performance_table"], title=_CHART_TITLES["gains"]
+        ),
+    )
+
+
+def _chart_discrimination(charts: Any, bundle: ReportInputBundle) -> str:
+    """Barras de discriminación desde ``performance.discriminant_metrics``."""
+    return cast(
+        str,
+        charts.render_discrimination_bars(
+            bundle.tables["performance.discriminant_metrics"],
+            title=_CHART_TITLES["discrimination"],
+        ),
+    )
+
+
+def _chart_coefficients(charts: Any, bundle: ReportInputBundle) -> str:
+    """Forest de coeficientes desde ``model.coefficients``."""
+    return cast(
+        str,
+        charts.render_coefficients_forest(
+            bundle.tables["model.coefficients"], title=_CHART_TITLES["coefficients"]
+        ),
+    )
+
+
+def _chart_stability(charts: Any, bundle: ReportInputBundle) -> str:
+    """Barras horizontales PSI/CSI desde ``stability.stability_metrics``."""
+    return cast(
+        str,
+        charts.render_stability_chart(
+            bundle.tables["stability.stability_metrics"], title=_CHART_TITLES["stability"]
+        ),
+    )
+
+
+def _chart_reliability(charts: Any, bundle: ReportInputBundle) -> str:
+    """Curva de confiabilidad derivada en render-time desde ``calibration.calibrated_pd_frame``.
+
+    ``reliability_curve`` (capa ``ui``) proyecta el frame calibrado a la lista ``by_partition`` que
+    consume ``render_reliability_chart``; el import es perezoso para no arrastrar la capa ``ui`` al
+    import del paquete ``report``.
+    """
+    from nikodym.ui.reliability import reliability_curve
+
+    curve = reliability_curve(bundle.tables["calibration.calibrated_pd_frame"])
+    return cast(
+        str,
+        charts.render_reliability_chart(curve["by_partition"], title=_CHART_TITLES["reliability"]),
+    )
+
+
+# Mapeo sección → gráficos (nombre estable + builder). El nombre alimenta el ``id`` HTML del slot.
+_CHART_BUILDERS: Final[
+    dict[str, tuple[tuple[str, Callable[[Any, ReportInputBundle], str]], ...]]
+] = {
+    "performance": (("gains", _chart_gains), ("discrimination", _chart_discrimination)),
+    "model": (("coefficients", _chart_coefficients),),
+    "stability": (("stability", _chart_stability),),
+    "calibration": (("reliability", _chart_reliability),),
+}
+
+
+def _charts_for_section(
+    bundle: ReportInputBundle,
+    section_id: str,
+    config: ReportConfig,
+) -> list[dict[str, str]]:
+    """Genera los SVG deterministas de la sección desde ``bundle.tables`` (import perezoso).
+
+    Cada gráfico se produce aislado y con degradación con gracia: si falta ``matplotlib``, faltan
+    columnas o la tabla no está publicada, se omite ese gráfico (el slot editorial queda vacío) y el
+    reporte se renderiza igual. El import de :mod:`nikodym.report.charts` es perezoso para preservar
+    el import liviano del paquete ``report`` (nunca top-level).
+    """
+    if not config.html.render_charts:
+        return []
+    builders = _CHART_BUILDERS.get(section_id)
+    if builders is None:
+        return []
+    from nikodym.report import charts  # perezoso: matplotlib no entra al import del paquete.
+
+    results: list[dict[str, str]] = []
+    for name, build in builders:
+        try:
+            svg = build(charts, bundle)
+        except Exception as exc:  # degradación con gracia: un gráfico nunca tumba el reporte.
+            _LOGGER.warning(
+                "report: gráfico '%s.%s' omitido por degradación con gracia: %s",
+                section_id,
+                name,
+                exc,
+            )
+            continue
+        results.append({"html_id": _element_id("chart", f"{section_id}-{name}"), "svg": svg})
+    return results
 
 
 def _display_value(value: Any, *, key_path: tuple[str, ...]) -> str:
@@ -573,6 +695,19 @@ def _normalize_newlines(text: str) -> str:
     if not normalized.endswith("\n"):
         return f"{normalized}\n"
     return normalized
+
+
+def _digest_html(html: str) -> str:
+    """SHA-256 del HTML con cada ``<svg>…</svg>`` reemplazado por un placeholder estable.
+
+    El manifest y los goldens usan este digest en vez del ``sha256`` de los bytes crudos: los SVG de
+    los gráficos dependen de freetype y no son byte-idénticos entre sistemas operativos, así que se
+    excluyen para que el digest sea reproducible cross-OS. Cubre datos y estructura del reporte; el
+    determinismo byte a byte de cada SVG se verifica aparte en ``test_report_charts``. El HTML en
+    disco conserva los SVG intactos.
+    """
+    stripped = _SVG_STRIP_PATTERN.sub(_STRIPPED_SVG, _normalize_newlines(html))
+    return hashlib.sha256(stripped.encode("utf-8")).hexdigest()
 
 
 def _prepare_output_dir(output_dir: str) -> Path:

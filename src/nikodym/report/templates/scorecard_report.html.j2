@@ -108,6 +108,10 @@
     {% if table.truncated %}<p class="truncated">… (mostrando {{ table.shown_rows }} de {{ table.total_rows }} filas)</p>{% endif %}
     {% endfor %}
 
+    {% for chart in section.charts %}
+    <figure class="chart-slot" id="{{ chart.html_id }}">{{ chart.svg|safe }}</figure>
+    {% endfor %}
+
     {% for figure in section.figures %}
     <figure class="chart-slot" id="{{ figure.html_id }}" data-figure="{{ figure.key }}">
       <figcaption>{{ figure.key }}</figcaption>

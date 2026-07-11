@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import builtins
 import hashlib
+import importlib.util
+import json
 import re
 import subprocess
 import sys
@@ -33,7 +35,11 @@ from nikodym.report.exceptions import (
 from nikodym.report.renderer import HtmlReportRenderer, QuartoReportRenderer
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportSection
 
-GOLDEN_HTML_SHA256 = "f93a87ebe9bb2852eac14e9cf5d125621b64620ba6289257e563a0830e67295e"
+# Golden del ``_digest_html`` (excluye los bytes ``<svg>``, ver renderer): con el extra ``report``
+# el bundle golden embebe un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
+GOLDEN_HTML_SHA256 = "1c8cbdb63f127052287cb92deb29d60ba1de45e596ebcdbb0443a7dc59c80442"
+
+_HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
 
 class MiniFigure(BaseModel):
@@ -70,10 +76,13 @@ def test_html_golden_deterministico_y_orden_canonico() -> None:
 
     first = renderer.render(bundle)
     second = renderer.render(bundle)
-    digest = hashlib.sha256(first.encode("utf-8")).hexdigest()
+    digest = renderer_module._digest_html(first)
 
     assert first == second
-    assert digest == GOLDEN_HTML_SHA256
+    # El golden vale sólo con matplotlib (extra ``report``) instalado y el gráfico embebido; en los
+    # jobs mínimos el gráfico degrada con gracia y el digest no lleva el slot.
+    if _HAS_MATPLOTLIB:
+        assert digest == GOLDEN_HTML_SHA256
     assert "2026-06-29" not in first
     assert "datetime.now" not in first
     assert not re.search(
@@ -134,7 +143,7 @@ def test_truncado_bloques_ia_y_write_manifest(tmp_path: Path) -> None:
     assert "Narrativa generada por IA" in html
     assert ai_block.text in html
     assert output.read_bytes() == html.encode("utf-8")
-    assert manifest.sha256 == hashlib.sha256(output.read_bytes()).hexdigest()
+    assert manifest.sha256 == renderer_module._digest_html(output.read_text(encoding="utf-8"))
     assert manifest.created_from_lineage_at == _lineage().created_at.isoformat()
     assert manifest.path == "scorecard_report.html"
     assert manifest.output_format == "html"
@@ -389,6 +398,125 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
         "assert not blocked, blocked"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+def test_digest_html_excluye_los_bytes_svg() -> None:
+    """``_digest_html`` iguala HTML que sólo difieren dentro de ``<svg>`` (cross-OS)."""
+    base = (
+        "<html><body>"
+        '<figure><svg width="1" xmlns="x"><title>A</title><path d="M0 0"/></svg></figure>'
+        '<figure><svg viewBox="0 0 2 2"><rect/></svg></figure>'
+        "</body></html>"
+    )
+    other = (
+        "<html><body>"
+        '<figure><svg width="999" data-z="q"><title>B</title><rect x="7"/></svg></figure>'
+        '<figure><svg viewBox="0 0 9 9"><circle/></svg></figure>'
+        "</body></html>"
+    )
+    assert renderer_module._digest_html(base) == renderer_module._digest_html(other)
+
+    # Sin SVG, el digest es el sha256 del HTML normalizado (con salto final garantizado).
+    no_svg = "<html><body><p>hola</p></body></html>"
+    assert (
+        renderer_module._digest_html(no_svg)
+        == hashlib.sha256((no_svg + "\n").encode("utf-8")).hexdigest()
+    )
+    # Cambiar contenido FUERA del SVG sí mueve el digest.
+    assert renderer_module._digest_html(base) != renderer_module._digest_html(
+        base.replace("<body>", "<body><p>fuera</p>")
+    )
+
+
+@pytest.mark.skipif(not _HAS_MATPLOTLIB, reason="requiere el extra report (matplotlib)")
+def test_charts_embebidos_con_bundle_rico_del_fixture() -> None:
+    """Bundle rico (datos del fixture real) embebe los 5 gráficos con digest estable."""
+    bundle = _bundle(tables=_rich_tables_desde_fixture())
+    renderer = _renderer()
+
+    first = renderer.render(bundle)
+    second = renderer.render(bundle)
+
+    assert first.count("<svg") >= 5
+    for chart_id in (
+        "chart-performance-gains",
+        "chart-performance-discrimination",
+        "chart-model-coefficients",
+        "chart-stability-stability",
+        "chart-calibration-reliability",
+    ):
+        assert f'id="{chart_id}"' in first
+    # Los gráficos viven dentro de la sección esperada, no en otra.
+    performance_section = _section_fragment(first, "performance")
+    assert 'id="chart-performance-gains"' in performance_section
+    assert 'id="chart-performance-discrimination"' in performance_section
+    assert renderer_module._digest_html(first) == renderer_module._digest_html(second)
+
+
+def test_charts_degradan_con_gracia_sin_crashear() -> None:
+    """``render_charts=False`` y tablas incompletas producen 0 gráficos sin romper el render."""
+    disabled = HtmlReportRenderer.from_config(
+        ReportConfig(
+            html=HtmlRenderConfig(render_charts=False),
+            sections=SectionPolicyConfig(max_table_rows=10),
+        )
+    )
+    html_off = disabled.render(_bundle())
+    assert 'id="chart-' not in html_off
+
+    renderer = _renderer()
+    incompleto = renderer.render(
+        _bundle(tables={"performance.performance_table": pd.DataFrame({"decile": [1, 2]})})
+    )
+    assert 'id="chart-' not in incompleto
+    assert "report-section" in incompleto
+
+
+def _section_fragment(html: str, section_id: str) -> str:
+    """Extrae el ``<section>`` de una sección concreta para asserts de pertenencia."""
+    start = html.index(f'data-section-id="{section_id}"')
+    end = html.index("</section>", start) + len("</section>")
+    return html[start:end]
+
+
+def _fixture_results() -> dict[str, Any]:
+    """Carga el fixture de una corrida REAL usado por el preview/demo del front."""
+    path = (
+        Path(__file__).resolve().parents[2] / "web" / "src" / "fixtures" / "demo" / "results.json"
+    )
+    loaded: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    return loaded
+
+
+def _rich_tables_desde_fixture() -> dict[str, pd.DataFrame]:
+    """Tablas de gráficos con columnas y valores del fixture real (SDD-26 B3).
+
+    El fixture UI expone la reliability ya DERIVADA pero no el ``calibrated_pd_frame`` crudo que el
+    renderer consume; para el slot de confiabilidad se sintetiza un frame determinista mínimo.
+    """
+    data = _fixture_results()
+    return {
+        "performance.performance_table": pd.DataFrame(data["performance"]["deciles"]),
+        "performance.discriminant_metrics": pd.DataFrame(data["performance"]["discriminant"]),
+        "model.coefficients": pd.DataFrame(data["model"]["coefficients"]),
+        "stability.stability_metrics": pd.DataFrame(data["stability"]["stability_metrics"]),
+        "calibration.calibrated_pd_frame": _calibrated_pd_frame_sintetico(),
+    }
+
+
+def _calibrated_pd_frame_sintetico() -> pd.DataFrame:
+    """Frame calibrado determinista (partition/target/pd_calibrated) para el slot de reliability."""
+    rows: list[dict[str, Any]] = []
+    for partition in ("desarrollo", "holdout", "oot"):
+        for index in range(40):
+            rows.append(
+                {
+                    "partition": partition,
+                    "pd_calibrated": (index + 1) / 50.0,
+                    "target": 1 if index % 3 == 0 else 0,
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 def _renderer(config: ReportConfig | None = None) -> HtmlReportRenderer:

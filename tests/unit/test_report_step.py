@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import hashlib
+import importlib.util
 import subprocess
 import sys
 import textwrap
@@ -18,6 +18,7 @@ from pandas.testing import assert_frame_equal
 
 import nikodym.core.study as study_module
 import nikodym.report as report_pkg
+import nikodym.report.renderer as renderer_module
 import nikodym.report.step as step_module
 from nikodym.binning.config import BinningConfig
 from nikodym.calibration.config import CalibrationConfig
@@ -61,7 +62,11 @@ from nikodym.selection.config import (
 from nikodym.stability.config import StabilityConfig
 
 ROOT_SEED = 20_240_629
-GOLDEN_STEP_HTML_SHA256 = "2f2d19dc29796e3ac21f4b8056fc121e5f05e882bcee124f1e21b7a0e6c585d9"
+# Golden del ``_digest_html`` (excluye ``<svg>``): con el extra ``report`` el bundle golden embebe
+# un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
+GOLDEN_STEP_HTML_SHA256 = "53c77c7b60b0428f2fe74e60acbce7187ed555c7e2a3daea5949df2e54fe26e2"
+
+_HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
 
 @pytest.fixture(autouse=True)
@@ -160,8 +165,11 @@ def test_execute_publica_result_manifest_goldens_audit_y_no_consume_rng(tmp_path
     assert isinstance(result, ReportResult)
     assert output.exists()
     assert output.read_bytes() == output.read_text(encoding="utf-8").encode("utf-8")
-    assert result.manifest.sha256 == hashlib.sha256(output.read_bytes()).hexdigest()
-    assert result.manifest.sha256 == GOLDEN_STEP_HTML_SHA256
+    assert result.manifest.sha256 == renderer_module._digest_html(
+        output.read_text(encoding="utf-8")
+    )
+    if _HAS_MATPLOTLIB:
+        assert result.manifest.sha256 == GOLDEN_STEP_HTML_SHA256
     assert result.manifest.report_id == "45760c500091db31"
     assert result.manifest.path == "scorecard_report.html"
     assert result.manifest.ai_enabled is True
@@ -294,7 +302,9 @@ def test_manifest_en_memoria_y_exportado_tienen_identidad_canonica(tmp_path: Pat
     assert memory_manifest.model_copy(update={"path": written_manifest.path}) == written_manifest
     assert memory_manifest.report_id == written_manifest.report_id == "45760c500091db31"
     assert memory_manifest.template_version == written_manifest.template_version == "1.0.0"
-    assert memory_manifest.sha256 == written_manifest.sha256 == GOLDEN_STEP_HTML_SHA256
+    assert memory_manifest.sha256 == written_manifest.sha256
+    if _HAS_MATPLOTLIB:
+        assert memory_manifest.sha256 == GOLDEN_STEP_HTML_SHA256
     assert tuple(section.id for section in memory_manifest.sections) == (
         "lineage",
         "eda",
@@ -494,9 +504,8 @@ def test_study_run_pipeline_scorecard_report_end_to_end(tmp_path: Path) -> None:
     result = study.artifacts.get("report", "result")
     assert isinstance(result, ReportResult)
     assert result.input_bundle.missing_sections == ()
-    assert (
-        result.manifest.sha256
-        == hashlib.sha256((tmp_path / "scorecard_report.html").read_bytes()).hexdigest()
+    assert result.manifest.sha256 == renderer_module._digest_html(
+        (tmp_path / "scorecard_report.html").read_text(encoding="utf-8")
     )
     assert study.run_context.lineage is not None
     assert result.input_bundle.lineage.config_hash == config_hash(study.config)
