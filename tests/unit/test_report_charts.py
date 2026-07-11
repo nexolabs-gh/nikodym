@@ -385,6 +385,24 @@ def test_stability_not_evaluable_se_omite() -> None:
     )
 
 
+def test_coefficients_beta_no_finito_se_descarta_deterministico() -> None:
+    # beta es float requerido finito en el contrato (nunca NaN en datos válidos); esto es
+    # defense-in-depth: un beta no-finito no debe volver el orden dependiente de la permutación.
+    con_nan = [
+        {"feature": "ingresos", "beta": -0.8, "conf_low": -1.0, "conf_high": -0.6},
+        {"feature": "roto", "beta": float("nan"), "conf_low": None, "conf_high": None},
+        {"feature": "edad", "beta": -0.15, "conf_low": -0.25, "conf_high": -0.05},
+    ]
+    sin_fila = [row for row in con_nan if row["feature"] != "roto"]
+    svg_con = charts.render_coefficients_forest(con_nan, title="Coeficientes")
+    svg_sin = charts.render_coefficients_forest(sin_fila, title="Coeficientes")
+    assert svg_con == svg_sin, (
+        "un beta no-finito (fuera de contrato) se descarta sin romper el orden"
+    )
+    barajado = [con_nan[1], con_nan[2], con_nan[0]]
+    assert charts.render_coefficients_forest(barajado, title="Coeficientes") == svg_con
+
+
 # ─────────────────────────── import liviano ───────────────────────────
 
 

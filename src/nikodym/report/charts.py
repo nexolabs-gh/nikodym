@@ -356,10 +356,12 @@ def render_coefficients_forest(
 ) -> str:
     """Forest plot de coeficientes: ``beta`` como punto y barra de error ``[conf_low, conf_high]``.
 
-    ``coefficients`` es un DataFrame o lista de dicts de ``CoefficientRecord``. La fila
-    ``feature == "intercept"`` se excluye. El orden es por ``|beta|`` descendente (desempate por
-    nombre de ``feature`` ascendente) → el coeficiente más influyente queda arriba. Se dibuja una
-    línea vertical en 0; los intervalos ausentes (``conf_low``/``conf_high`` nulos) omiten la barra.
+    ``coefficients`` es un DataFrame o lista de dicts de ``CoefficientRecord``. Se excluyen la fila
+    ``feature == "intercept"`` y cualquier fila con ``beta`` ausente/no-finito (defense-in-depth: el
+    contrato garantiza ``beta`` finito, pero un ``NaN`` volvería el orden dependiente de la
+    permutación de entrada). El orden es por ``|beta|`` descendente (desempate por nombre de
+    ``feature`` ascendente) → el coeficiente más influyente queda arriba. Se dibuja una línea
+    vertical en 0; los intervalos ausentes (``conf_low``/``conf_high`` nulos) omiten la barra.
     """
     used_columns = ("feature", "beta", "conf_low", "conf_high")
     if hasattr(coefficients, "columns"):
@@ -383,7 +385,11 @@ def render_coefficients_forest(
                 )
             records.append(row)
 
-    plotted = [record for record in records if str(record["feature"]) != "intercept"]
+    plotted = [
+        record
+        for record in records
+        if str(record["feature"]) != "intercept" and not _is_missing(record["beta"])
+    ]
     if not plotted:
         raise ReportInputError(
             "render_coefficients_forest: no hay coeficientes (fuera del intercepto)."
