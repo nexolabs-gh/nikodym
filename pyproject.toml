@@ -78,7 +78,10 @@ ui       = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "nikod
 sweep    = ["hydra-core>=1.3", "omegaconf>=2.3"]   # MIT / BSD-3 (barridos CLI)
 polars   = ["polars>=0.20"]                # MIT — backend de carga opcional de data
 excel    = ["openpyxl>=3.1"]               # MIT — lectura .xlsx (DataLoader), import perezoso
-report   = ["matplotlib>=3.7", "plotly>=5.0"]       # PSF/BSD-compat / MIT — figuras opcionales, imports perezosos
+report   = ["matplotlib>=3.7"]       # PSF/BSD-compat — figuras opcionales, imports perezosos
+# PDF — extra SEPARADO, NO entra al meta-extra `all`: WeasyPrint arrastra Pyphen (tri-licencia con GPL)
+# y el gate "Verify runtime licenses" del CI rechaza cualquier GPL/LGPL/AGPL en el cierre redistribuible.
+pdf      = ["weasyprint>=63"]              # BSD-3 — render HTML→PDF opcional (deps nativas Pango/HarfBuzz)
 ai       = ["anthropic>=0.40"]             # MIT — narrativa IA opcional, import perezoso
 # SVM/RF nativos de sklearn (SDD-12): solo requieren scikit-learn>=1.6.
 ml       = ["scikit-learn>=1.6"]           # BSD — modelos sklearn-native (SVM/RandomForest)

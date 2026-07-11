@@ -91,10 +91,37 @@ jobs:
         run: uv python install 3.12
 
       - name: Install all extras
-        run: uv sync --locked --python 3.12 --all-extras --group test
+        run: uv sync --locked --python 3.12 --extra all --group test
 
       - name: Pytest
         run: uv run --no-sync pytest -q --cov=nikodym --cov-report=term-missing
+
+  test-pdf:
+    name: PDF extra (WeasyPrint smoke)
+    # Extra `pdf` fuera del cierre redistribuible (WeasyPrint→Pyphen roza GPL); solo Linux en B4.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Install WeasyPrint native deps
+        run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libharfbuzz-subset0 libffi-dev
+
+      - name: Install pdf extra
+        run: uv sync --locked --python 3.12 --extra pdf --group test
+
+      - name: Smoke WeasyPrint (real PDF)
+        run: |
+          uv run --no-sync python -c "import weasyprint; pdf = weasyprint.HTML(string='<h1>Nikodym</h1><p>smoke</p>').write_pdf(); assert pdf[:4] == b'%PDF' and len(pdf) > 0; print('PDF OK', len(pdf), 'bytes')"
 
   coverage-regulatory:
     name: Regulatory coverage
@@ -179,10 +206,10 @@ jobs:
           PY
 
       - name: Export runtime dependency closure
-        run: uv export --format requirements-txt --all-extras --no-dev > dist/runtime-requirements.txt
+        run: uv export --format requirements-txt --extra all --no-dev > dist/runtime-requirements.txt
 
       - name: Install runtime dependency closure
-        run: uv sync --locked --python 3.12 --all-extras --no-dev
+        run: uv sync --locked --python 3.12 --extra all --no-dev
 
       - name: Verify runtime licenses
         shell: bash
