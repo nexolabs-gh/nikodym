@@ -1,0 +1,462 @@
+/* Tema "nikodym": informe de validación de scorecard con estética institucional.
+   Determinista: sólo fuentes del sistema, sin @import ni activos remotos. La marca usa el
+   navy #1f4e79 (alineado con charts.py y docs.nikodym.cl). El MISMO markup sirve pantalla y
+   print; las reglas de paginación viven en @media print + @page. */
+
+:root {
+  color-scheme: light;
+  --ink: #17202a;
+  --muted: #5f6b7a;
+  --line: #d8dee6;
+  --soft: #f5f7fa;
+  --brand: #1f4e79;
+  --brand-soft: #eaf0f7;
+  --brand-ink: #14314c;
+  --warn: #8a5a00;
+  --warn-soft: #fff8e8;
+  --ai-ink: #7b2f00;
+  --ai-soft: #fff1dd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  background: #eef1f5;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 0 56px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(23, 32, 42, 0.12);
+}
+
+/* ─────────────────────────── portada ─────────────────────────── */
+
+.cover {
+  padding: 56px 56px 40px;
+  border-top: 10px solid var(--brand);
+  border-bottom: 1px solid var(--line);
+}
+
+.cover-brand {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin-bottom: 28px;
+}
+
+.cover-kicker {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.cover-title {
+  font-size: 34px;
+  line-height: 1.16;
+  margin: 0 0 12px;
+  color: var(--brand-ink);
+  font-weight: 700;
+}
+
+.cover-subtitle {
+  font-size: 15px;
+  color: var(--muted);
+  margin: 0 0 28px;
+}
+
+.confidential {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #8a1f1f;
+  background: #fbeaea;
+  border: 1px solid #e6c3c3;
+  padding: 5px 12px;
+  margin: 0 0 28px;
+}
+
+.lineage-box {
+  border: 1px solid var(--line);
+  background: var(--soft);
+  border-radius: 3px;
+  padding: 16px 18px;
+  margin: 0 0 28px;
+}
+
+.lineage-box .lineage-caption {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+.lineage-line {
+  margin: 3px 0;
+}
+
+.lineage-line code {
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12.5px;
+  color: var(--brand-ink);
+  word-break: break-all;
+}
+
+.emitted {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 28px;
+}
+
+.emitted strong {
+  color: var(--ink);
+}
+
+.roles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 0;
+}
+
+.roles .role {
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--brand);
+  padding: 12px 14px 18px;
+}
+
+.roles .role-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+.roles .role-field {
+  border-bottom: 1px solid var(--line);
+  height: 26px;
+}
+
+.roles .role-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+
+/* ─────────────────────────── resumen ejecutivo ─────────────────────────── */
+
+.exec-summary {
+  padding: 36px 56px 8px;
+}
+
+.exec-summary > h2 {
+  font-size: 21px;
+  color: var(--brand-ink);
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--brand);
+}
+
+.verdict {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  background: var(--brand-soft);
+  padding: 16px 18px;
+  margin: 0 0 18px;
+}
+
+.verdict-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-ink);
+  margin: 0 0 10px;
+}
+
+.verdict-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.verdict-options li {
+  position: relative;
+  padding-left: 24px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.verdict-options li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--brand);
+  background: #fff;
+  border-radius: 2px;
+}
+
+.verdict-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.exec-metrics-slot {
+  min-height: 44px;
+  border: 1px dashed var(--line);
+  border-radius: 3px;
+  margin: 0 0 18px;
+}
+
+.scope-note {
+  font-size: 13px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  margin: 0;
+}
+
+/* ─────────────────────────── cuerpo por secciones ─────────────────────────── */
+
+.report-section {
+  padding: 28px 56px 4px;
+  border-top: 1px solid var(--line);
+}
+
+.report-section:first-of-type {
+  border-top: none;
+}
+
+.report-section > h2 {
+  font-size: 19px;
+  color: var(--brand-ink);
+  margin: 0 0 4px;
+  font-weight: 700;
+}
+
+.section-number {
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+  margin-right: 8px;
+}
+
+.status {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 12px;
+}
+
+h3 {
+  font-size: 14px;
+  color: var(--brand-ink);
+  margin: 20px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+p {
+  margin: 8px 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.missing {
+  border-left: 4px solid var(--warn);
+  background: var(--warn-soft);
+  padding: 10px 14px;
+  margin: 12px 0;
+}
+
+.narration {
+  margin: 12px 0;
+}
+
+.ai-label {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ai-ink);
+  background: var(--ai-soft);
+  padding: 2px 8px;
+  margin-bottom: 6px;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: minmax(150px, 260px) 1fr;
+  gap: 8px 16px;
+  margin: 10px 0;
+}
+
+dt {
+  font-weight: 700;
+  color: var(--brand-ink);
+}
+
+dd {
+  margin: 0;
+  min-width: 0;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  margin: 0;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 12.5px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+
+th,
+td {
+  border: 1px solid var(--line);
+  padding: 6px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-weight: 700;
+}
+
+tbody tr:nth-child(even) td {
+  background: #fafbfc;
+}
+
+.truncated {
+  font-size: 12px;
+  color: var(--warn);
+  font-weight: 700;
+}
+
+/* Slot de gráfico: hueco preparado para el SVG determinista (se cablea en B3). */
+.chart-slot {
+  border: 1px dashed var(--brand);
+  border-radius: 3px;
+  background: var(--soft);
+  min-height: 180px;
+  margin: 14px 0;
+  padding: 12px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.chart-slot figcaption {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* ─────────────────────────── paginación (PDF / print) ─────────────────────────── */
+
+@page {
+  size: A4;
+  margin: 20mm 18mm;
+  @top-right {
+    content: "Informe de Validación de Scorecard — CONFIDENCIAL";
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    color: #5f6b7a;
+  }
+  @bottom-center {
+    content: "Página " counter(page) " de " counter(pages);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8pt;
+    color: #5f6b7a;
+  }
+}
+
+@page :first {
+  @top-right {
+    content: "";
+  }
+  @bottom-center {
+    content: "";
+  }
+}
+
+@media print {
+  body {
+    background: #fff;
+    font-size: 10.5pt;
+  }
+
+  main {
+    max-width: none;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .cover {
+    padding: 0 0 24pt;
+    break-after: page;
+  }
+
+  .exec-summary,
+  .report-section {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .report-section {
+    break-before: page;
+    border-top: none;
+  }
+
+  table,
+  .chart-slot,
+  .verdict,
+  .lineage-box,
+  .roles .role {
+    break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+}

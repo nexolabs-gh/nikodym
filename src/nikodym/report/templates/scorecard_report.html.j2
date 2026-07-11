@@ -1,0 +1,120 @@
+{# Informe de Validación de Scorecard — plantilla editorial determinista (SDD-26, bloque B2).
+   El CSS se inyecta como |safe (contenido controlado: selectores `>` y @page romperían autoescape).
+   Invariantes que verifica el golden: literales config_hash=/data_hash=/git_sha=/root_seed=,
+   data-section-id en orden canónico, tablas con id/thead/tbody, 0.743210 presente, sin -0.0. #}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <style>{{ css|safe }}</style>
+</head>
+<body>
+<main>
+  <section class="cover">
+    <div class="cover-brand">Nikodym</div>
+    <p class="cover-kicker">Informe de validación de modelos</p>
+    <h1 class="cover-title">Informe de Validación de Scorecard</h1>
+    <p class="cover-subtitle">Plantilla {{ template_id }} · versión {{ template_version }}</p>
+    <p class="confidential">USO INTERNO — CONFIDENCIAL</p>
+    <p class="emitted">Fecha de emisión: <strong>{{ created_from_lineage_at }}</strong></p>
+    <div class="lineage-box">
+      <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
+      <div class="lineage-line"><code>config_hash={{ lineage.config_hash }}</code></div>
+      <div class="lineage-line"><code>data_hash={{ lineage.data_hash }}</code></div>
+      <div class="lineage-line"><code>git_sha={{ lineage.git_sha }}</code></div>
+      <div class="lineage-line"><code>root_seed={{ lineage.root_seed }}</code></div>
+    </div>
+    <div class="roles">
+      <div class="role">
+        <p class="role-title">Desarrollo</p>
+        <div class="role-field"></div>
+        <p class="role-hint">Nombre y fecha</p>
+      </div>
+      <div class="role">
+        <p class="role-title">Validación independiente</p>
+        <div class="role-field"></div>
+        <p class="role-hint">Nombre y fecha</p>
+      </div>
+      <div class="role">
+        <p class="role-title">Aprobación</p>
+        <div class="role-field"></div>
+        <p class="role-hint">Nombre y fecha</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="exec-summary">
+    <h2>Resumen ejecutivo</h2>
+    <div class="verdict">
+      <span class="verdict-label">Veredicto de validación</span>
+      <ul class="verdict-options">
+        <li>Aprobado</li>
+        <li>Aprobado con observaciones</li>
+        <li>Rechazado</li>
+      </ul>
+      <p class="verdict-note">Campo estructural: lo marca y firma el validador independiente; no es un resultado calculado por el motor.</p>
+    </div>
+    {# La tabla-semáforo de métricas se completa en B3; aquí queda el slot preparado. #}
+    <div class="exec-metrics-slot"></div>
+    <p class="scope-note">Alcance: validación de scorecard en fase F1 (discriminación, estabilidad y calibración). El backtesting, la integración con IFRS 9 y el cálculo de provisiones corresponden a fases posteriores; este informe no los cubre ni infiere sus resultados. Todos los valores provienen de la corrida trazada arriba: no se completan con supuestos.</p>
+  </section>
+
+  {% for section in sections %}
+  <section id="{{ section.html_id }}" data-section-id="{{ section.id }}" class="report-section">
+    <h2><span class="section-number">§{{ loop.index }}</span>{{ section.title }}</h2>
+    <p class="status">Estado: {{ section.status }} · Fuente: {{ section.source }}</p>
+    {% if section.status == "missing" %}
+    <div class="missing">Sección requerida ausente; el reporte parcial no inventa números ni oculta la ausencia.</div>
+    {% endif %}
+
+    {% if section.narration %}
+    <div class="narration">
+      {% if section.narration.label %}<span class="ai-label">{{ section.narration.label }}</span>{% endif %}
+      <p>{{ section.narration.text }}</p>
+      {% if section.narration.warning %}<p class="muted">{{ section.narration.warning }}</p>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if section.payload_items %}
+    <h3>Detalle</h3>
+    <dl>
+      {% for item in section.payload_items %}
+      <dt>{{ item.key }}</dt><dd>{% if item.multiline %}<pre>{{ item.value }}</pre>{% else %}{{ item.value }}{% endif %}</dd>
+      {% endfor %}
+    </dl>
+    {% endif %}
+
+    {% if section.metric_items %}
+    <h3>Métricas estructuradas</h3>
+    <dl>
+      {% for item in section.metric_items %}
+      <dt>{{ item.key }}</dt><dd>{% if item.multiline %}<pre>{{ item.value }}</pre>{% else %}{{ item.value }}{% endif %}</dd>
+      {% endfor %}
+    </dl>
+    {% endif %}
+
+    {% for table in section.tables %}
+    <h3>Tabla {{ table.key }}</h3>
+    <table id="{{ table.html_id }}">
+      <thead><tr>{% for column in table.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in table.rows %}
+        <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if table.truncated %}<p class="truncated">… (mostrando {{ table.shown_rows }} de {{ table.total_rows }} filas)</p>{% endif %}
+    {% endfor %}
+
+    {% for figure in section.figures %}
+    <figure class="chart-slot" id="{{ figure.html_id }}" data-figure="{{ figure.key }}">
+      <figcaption>{{ figure.key }}</figcaption>
+    </figure>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</main>
+</body>
+</html>

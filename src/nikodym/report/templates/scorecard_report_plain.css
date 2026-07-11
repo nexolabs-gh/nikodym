@@ -1,0 +1,45 @@
+/* Tema "plain": versión mínima equivalente, sin adornos, con la misma paginación básica.
+   Declaraciones compactas para conservar `font-family:Arial` como subcadena estable. */
+
+*{box-sizing:border-box}
+body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;line-height:1.45;margin:0}
+main{max-width:880px;margin:0 auto;padding:24px}
+.cover{padding-bottom:20px;border-bottom:2px solid #111;margin-bottom:8px}
+.cover-brand{font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#1f4e79}
+.cover-title{font-size:26px;margin:8px 0}
+.cover-subtitle,.emitted,.cover-kicker{color:#444}
+.confidential{display:inline-block;font-weight:700;border:1px solid #999;padding:3px 8px}
+.lineage-box{border:1px solid #ccc;padding:10px;margin:12px 0}
+.lineage-line code{font-family:"Courier New",monospace;font-size:12px}
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.roles .role{border:1px solid #ccc;padding:8px}
+.roles .role-field{border-bottom:1px solid #999;height:24px}
+.exec-summary>h2,.report-section>h2{border-bottom:1px solid #111;padding-bottom:4px}
+.verdict{border:1px solid #999;padding:10px;margin:10px 0}
+.verdict-options{list-style:none;padding:0;display:flex;gap:16px}
+.exec-metrics-slot{min-height:40px;border:1px dashed #999;margin:10px 0}
+.scope-note{color:#444;border-top:1px solid #ccc;padding-top:10px}
+.section-number{font-weight:700}
+.status{font-size:12px;color:#555}
+.missing{border-left:4px solid #8a5a00;background:#fff8e8;padding:8px 10px}
+.ai-label{display:inline-block;font-weight:700;background:#fff1dd;padding:2px 6px}
+dl{display:grid;grid-template-columns:minmax(140px,240px) 1fr;gap:6px 12px}
+dt{font-weight:700}
+dd{margin:0}
+pre{white-space:pre-wrap;word-break:break-word;background:#f4f4f4;border:1px solid #ccc;padding:6px}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13px}
+th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;vertical-align:top}
+th{background:#eee;font-weight:700}
+.truncated{font-size:12px;color:#8a5a00;font-weight:700}
+.chart-slot{border:1px dashed #1f4e79;background:#f4f4f4;min-height:160px;margin:12px 0;padding:10px;display:flex;align-items:flex-end}
+.chart-slot figcaption{font-size:12px;color:#555;font-family:"Courier New",monospace}
+@page{size:A4;margin:20mm 18mm;@bottom-center{content:"Página " counter(page) " de " counter(pages);font-size:8pt;color:#555}}
+@page :first{@bottom-center{content:""}}
+@media print{
+  main{max-width:none;margin:0}
+  .cover{break-after:page}
+  .report-section{break-before:page}
+  table,.chart-slot,.verdict,.lineage-box{break-inside:avoid}
+  thead{display:table-header-group}
+  tr{break-inside:avoid}
+}

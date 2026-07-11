@@ -33,7 +33,7 @@ from nikodym.report.exceptions import (
 from nikodym.report.renderer import HtmlReportRenderer, QuartoReportRenderer
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportSection
 
-GOLDEN_HTML_SHA256 = "38605886e0e79479d63df0a35cdd816fefb43e11805f9bca6bd2fc4a3e2d5276"
+GOLDEN_HTML_SHA256 = "f93a87ebe9bb2852eac14e9cf5d125621b64620ba6289257e563a0830e67295e"
 
 
 class MiniFigure(BaseModel):
@@ -104,6 +104,16 @@ def test_html_golden_deterministico_y_orden_canonico() -> None:
         coefficients_table.index(f"<th>{column}</th>") for column in ("feature", "beta", "p_value")
     ]
     assert column_positions == sorted(column_positions)
+
+
+def test_plantilla_y_css_empaquetados_en_el_paquete() -> None:
+    """La plantilla editorial y ambos CSS viven en el paquete (blindaje del wheel)."""
+    from importlib import resources
+
+    root = resources.files("nikodym.report.templates")
+    assert root.joinpath("scorecard_report.html.j2").is_file()
+    assert root.joinpath("scorecard_report.css").is_file()
+    assert root.joinpath("scorecard_report_plain.css").is_file()
 
 
 def test_truncado_bloques_ia_y_write_manifest(tmp_path: Path) -> None:
@@ -270,11 +280,17 @@ def test_render_errores_dependencia_jinja_template_y_tabla(
         renderer.render(_bundle())
     monkeypatch.setattr(builtins, "__import__", real_import)
 
-    original_template = renderer_module._HTML_TEMPLATE
-    monkeypatch.setattr(renderer_module, "_HTML_TEMPLATE", "{% if")
+    original_loader = renderer_module._load_template
+
+    def broken_template(environment: Any) -> Any:
+        # Simula una plantilla rota: `from_string` compila y lanza TemplateSyntaxError, que el
+        # renderer debe traducir a ReportRenderError con mensaje claro sobre la plantilla.
+        return environment.from_string("{% if")
+
+    monkeypatch.setattr(renderer_module, "_load_template", broken_template)
     with pytest.raises(ReportRenderError, match="plantilla"):
         renderer.render(_bundle())
-    monkeypatch.setattr(renderer_module, "_HTML_TEMPLATE", original_template)
+    monkeypatch.setattr(renderer_module, "_load_template", original_loader)
 
     with pytest.raises(ReportRenderError, match="Tabla no renderizable"):
         renderer.render(_bundle(tables={"model.bad": object()}))

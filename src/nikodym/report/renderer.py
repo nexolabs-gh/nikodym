@@ -1,4 +1,3 @@
-# ruff: noqa: E501
 """Renderizadores determinísticos de reportes HTML y Quarto opcional (SDD-26 §4/§7).
 
 ``HtmlReportRenderer`` transforma un :class:`~nikodym.report.results.ReportInputBundle` en HTML
@@ -23,6 +22,7 @@ import shutil
 import subprocess
 import warnings
 from collections.abc import Mapping, Sequence
+from importlib import resources
 from pathlib import Path
 from typing import Any, Final, Literal, TypeAlias, cast
 
@@ -56,111 +56,12 @@ TableCell: TypeAlias = str
 
 _HTML_TEMPLATE_ID: Final = "scorecard_basic_v1"
 _QUARTO_SOURCE_NAME: Final = "scorecard_report.qmd"
-_CSS_NIKODYM: Final = """
-:root{color-scheme:light;--ink:#17202a;--muted:#5f6b7a;--line:#d8dee6;--soft:#f6f8fb;--accent:#0b6bcb;--warn:#8a5a00}
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#fff;line-height:1.45}
-main{max-width:1120px;margin:0 auto;padding:32px 28px 48px}
-header{border-bottom:2px solid var(--ink);padding-bottom:18px;margin-bottom:26px}
-h1{font-size:30px;margin:0 0 8px}
-h2{font-size:22px;margin:30px 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
-h3{font-size:16px;margin:18px 0 8px}
-p{margin:8px 0}
-.muted{color:var(--muted)}
-.status{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-.missing{border-left:4px solid var(--warn);background:#fff8e8;padding:10px 12px;margin:10px 0}
-.ai-label{display:inline-block;font-size:12px;font-weight:700;color:#7b2f00;background:#fff1dd;padding:2px 6px;margin-bottom:4px}
-dl{display:grid;grid-template-columns:minmax(140px,240px) 1fr;gap:8px 14px;margin:10px 0}
-dt{font-weight:700;color:#2f3a45}
-dd{margin:0;min-width:0}
-pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px solid var(--line);padding:8px;margin:0}
-table{width:100%;border-collapse:collapse;margin:10px 0 4px;font-size:13px}
-th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
-th{background:var(--soft);font-weight:700}
-.truncated{font-size:12px;color:var(--warn);font-weight:700}
-.figure{border:1px solid var(--line);padding:8px;margin:8px 0;background:#fff}
-""".strip()
-_CSS_PLAIN: Final = """
-body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;line-height:1.45}
-main{max-width:1080px;margin:0 auto;padding:24px}
-table{width:100%;border-collapse:collapse}
-th,td{border:1px solid #ccc;padding:5px;text-align:left}
-pre{white-space:pre-wrap}
-""".strip()
-_HTML_TEMPLATE: Final = """<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <title>{{ title }}</title>
-  <style>{{ css }}</style>
-</head>
-<body>
-<main>
-  <header id="report-header">
-    <h1>{{ title }}</h1>
-    <p class="muted">Plantilla {{ template_id }} v{{ template_version }} · creado desde lineage {{ created_from_lineage_at }}</p>
-    <p class="muted">config_hash={{ lineage.config_hash }} · data_hash={{ lineage.data_hash }} · git_sha={{ lineage.git_sha }} · root_seed={{ lineage.root_seed }}</p>
-  </header>
-
-  {% for section in sections %}
-  <section id="{{ section.html_id }}" data-section-id="{{ section.id }}">
-    <h2>{{ section.title }}</h2>
-    <p class="status">estado={{ section.status }} · fuente={{ section.source }}</p>
-    {% if section.status == "missing" %}
-    <div class="missing">Sección requerida ausente; el reporte parcial no inventa números ni oculta la ausencia.</div>
-    {% endif %}
-
-    {% if section.narration %}
-    <div class="narration">
-      {% if section.narration.label %}<span class="ai-label">{{ section.narration.label }}</span>{% endif %}
-      <p>{{ section.narration.text }}</p>
-      {% if section.narration.warning %}<p class="muted">{{ section.narration.warning }}</p>{% endif %}
-    </div>
-    {% endif %}
-
-    {% if section.payload_items %}
-    <h3>Payload</h3>
-    <dl>
-      {% for item in section.payload_items %}
-      <dt>{{ item.key }}</dt><dd>{% if item.multiline %}<pre>{{ item.value }}</pre>{% else %}{{ item.value }}{% endif %}</dd>
-      {% endfor %}
-    </dl>
-    {% endif %}
-
-    {% if section.metric_items %}
-    <h3>Métricas estructuradas</h3>
-    <dl>
-      {% for item in section.metric_items %}
-      <dt>{{ item.key }}</dt><dd>{% if item.multiline %}<pre>{{ item.value }}</pre>{% else %}{{ item.value }}{% endif %}</dd>
-      {% endfor %}
-    </dl>
-    {% endif %}
-
-    {% for table in section.tables %}
-    <h3>Tabla {{ table.key }}</h3>
-    <table id="{{ table.html_id }}">
-      <thead><tr>{% for column in table.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
-      <tbody>
-        {% for row in table.rows %}
-        <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% if table.truncated %}<p class="truncated">… (mostrando {{ table.shown_rows }} de {{ table.total_rows }} filas)</p>{% endif %}
-    {% endfor %}
-
-    {% for figure in section.figures %}
-    <div class="figure" id="{{ figure.html_id }}">
-      <strong>{{ figure.key }}</strong>
-      <pre>{{ figure.payload }}</pre>
-    </div>
-    {% endfor %}
-  </section>
-  {% endfor %}
-</main>
-</body>
-</html>
-"""
+_TEMPLATE_PACKAGE: Final = "nikodym.report.templates"
+_TEMPLATE_NAME: Final = "scorecard_report.html.j2"
+_CSS_FILES: Final[dict[str, str]] = {
+    "nikodym": "scorecard_report.css",
+    "plain": "scorecard_report_plain.css",
+}
 
 
 class HtmlReportRenderer:
@@ -197,7 +98,7 @@ class HtmlReportRenderer:
     ) -> str:
         """Renderiza HTML standalone byte-determinístico desde el bundle lógico."""
         try:
-            from jinja2 import Environment, StrictUndefined
+            from jinja2 import Environment, PackageLoader, StrictUndefined
         except ModuleNotFoundError as exc:
             raise ReportDependencyError(
                 "No se pudo renderizar report.html: falta Jinja2. "
@@ -207,6 +108,7 @@ class HtmlReportRenderer:
         self._last_bundle = bundle
         self._last_ai_blocks = ai_blocks
         environment = Environment(
+            loader=PackageLoader("nikodym.report", "templates"),
             autoescape=True,
             undefined=StrictUndefined,
             trim_blocks=True,
@@ -214,7 +116,7 @@ class HtmlReportRenderer:
             keep_trailing_newline=True,
         )
         try:
-            rendered = environment.from_string(_HTML_TEMPLATE).render(
+            rendered = _load_template(environment).render(
                 title=REPORT_TITLE,
                 template_id=self.config.html.template_id,
                 template_version=REPORT_TEMPLATE_VERSION,
@@ -655,8 +557,15 @@ def _element_id(kind: str, raw_id: str) -> str:
     return f"{kind}-{slug or 'sin-id'}"
 
 
+def _load_template(environment: Any) -> Any:
+    """Carga la plantilla editorial del paquete; aislada para poder simular fallos en tests."""
+    return environment.get_template(_TEMPLATE_NAME)
+
+
 def _css_for_theme(theme: Literal["nikodym", "plain"]) -> str:
-    return _CSS_NIKODYM if theme == "nikodym" else _CSS_PLAIN
+    """Lee el CSS del tema desde los archivos empaquetados bajo ``report/templates``."""
+    filename = _CSS_FILES.get(theme, _CSS_FILES["nikodym"])
+    return resources.files(_TEMPLATE_PACKAGE).joinpath(filename).read_text("utf-8").strip()
 
 
 def _normalize_newlines(text: str) -> str:

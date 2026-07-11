@@ -61,7 +61,7 @@ from nikodym.selection.config import (
 from nikodym.stability.config import StabilityConfig
 
 ROOT_SEED = 20_240_629
-GOLDEN_STEP_HTML_SHA256 = "f9808cf6c0f788428be86348932f51b82ba461f4d2ed1b85d2a1350c506e4f40"
+GOLDEN_STEP_HTML_SHA256 = "2f2d19dc29796e3ac21f4b8056fc121e5f05e882bcee124f1e21b7a0e6c585d9"
 
 
 @pytest.fixture(autouse=True)
