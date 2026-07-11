@@ -48,7 +48,7 @@ def test_standard_preset_config_valida_y_hash_estable() -> None:
 def test_preset_activa_report_html_sin_alterar_hash() -> None:
     """El preset activa ``report`` (HTML determinístico) con ``required_sections`` = las cards que
     el preset REALMENTE produce (sin ``eda``, que el pipeline no corre) y defaults seguros (sólo
-    HTML, sin Quarto/IA/gráficos interactivos → no requiere extras). ``report`` es INFRA
+    HTML, sin PDF/IA/gráficos interactivos → no requiere extras). ``report`` es INFRA
     (``INFRA_SECTIONS``) → activarlo NO cambia el ``config_hash`` del preset.
     """
     config = standard_preset()["config"]
@@ -56,7 +56,7 @@ def test_preset_activa_report_html_sin_alterar_hash() -> None:
     assert isinstance(report, dict)
     assert report["formats"] == ["html"]
     assert report["ai"]["enabled"] is False
-    assert report["quarto"]["enabled"] is False
+    assert report["pdf"]["enabled"] is False
     assert report["html"]["include_interactive_charts"] is False
     assert report["sections"]["required_sections"] == [
         "binning",

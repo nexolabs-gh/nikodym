@@ -97,7 +97,7 @@ jobs:
         run: uv run --no-sync pytest -q --cov=nikodym --cov-report=term-missing
 
   test-pdf:
-    name: PDF extra (WeasyPrint smoke)
+    name: PDF extra (WeasyPrint tests reales)
     # Extra `pdf` fuera del cierre redistribuible (WeasyPrint→Pyphen roza GPL); solo Linux en B4.
     runs-on: ubuntu-latest
     steps:
@@ -119,9 +119,8 @@ jobs:
       - name: Install pdf extra
         run: uv sync --locked --python 3.12 --extra pdf --group test
 
-      - name: Smoke WeasyPrint (real PDF)
-        run: |
-          uv run --no-sync python -c "import weasyprint; pdf = weasyprint.HTML(string='<h1>Nikodym</h1><p>smoke</p>').write_pdf(); assert pdf[:4] == b'%PDF' and len(pdf) > 0; print('PDF OK', len(pdf), 'bytes')"
+      - name: PDF tests reales (WeasyPrint)
+        run: uv run --no-sync python -m pytest tests/unit/test_report_pdf.py -q
 
   coverage-regulatory:
     name: Regulatory coverage

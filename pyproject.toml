@@ -108,6 +108,7 @@ test = [
   "httpx2>=2.5",           # DEV-ONLY: cliente HTTP de starlette.testclient (TestClient) para los
                            # tests de endpoints FastAPI de la UI; NO va al wheel. Starlette deprecó
                            # httpx en favor de httpx2; sin él, filterwarnings=error tumba la colección.
+  "pypdf>=5",              # DEV-ONLY: extracción de texto del PDF en tests (extra pdf); NO va al wheel
 ]
 lint = [
   "ruff>=0.5",
@@ -179,7 +180,7 @@ module = [
   "optbinning.*", "lifelines.*", "pmdarima.*", "shap.*", "catboost.*",
   "xgboost.*", "lightgbm.*", "statsmodels.*", "scipy.*",
   "mlflow.*", "hydra.*", "omegaconf.*", "pandera.*",
-  "pyarrow.*", "polars.*", "joblib.*",
+  "pyarrow.*", "polars.*", "joblib.*", "weasyprint.*",
 ]
 ignore_missing_imports = true               # libs sin stubs; relajar SOLO el import, no el strict del código propio
 

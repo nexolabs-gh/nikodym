@@ -1,12 +1,13 @@
-"""Renderizadores determinísticos de reportes HTML y Quarto opcional (SDD-26 §4/§7).
+"""Renderizadores determinísticos de reportes HTML y PDF opcional (SDD-26 §4/§7).
 
 ``HtmlReportRenderer`` transforma un :class:`~nikodym.report.results.ReportInputBundle` en HTML
 standalone usando Jinja2 con import perezoso. La salida básica es reproducible byte a byte:
 no usa reloj, UUIDs, rutas locales absolutas ni orden dependiente de ``hash()``.
 
-``QuartoReportRenderer`` mantiene Quarto como ruta derivada y no crítica: detecta el binario solo
-cuando está habilitado, invoca el comando de forma mockeable y conserva el HTML básico como
-artefacto primario.
+``PdfReportRenderer`` mantiene el PDF como ruta derivada y no crítica: renderiza y escribe el HTML
+básico como artefacto primario y, si está habilitado, genera un PDF con WeasyPrint (import perezoso)
+que escribe como efecto secundario en disco. Degrada con gracia a HTML si WeasyPrint no está
+disponible; el manifest devuelto describe siempre el artefacto HTML determinístico.
 
 **Experimental (SemVer 0.x).**
 """
@@ -19,8 +20,6 @@ import logging
 import math
 import os
 import re
-import shutil
-import subprocess
 import warnings
 from collections.abc import Callable, Mapping, Sequence
 from importlib import resources
@@ -34,7 +33,7 @@ from nikodym.report.builder import CANONICAL_SECTION_ORDER
 from nikodym.report.config import (
     AiNarrationConfig,
     HtmlRenderConfig,
-    QuartoRenderConfig,
+    PdfRenderConfig,
     ReportConfig,
     SectionPolicyConfig,
 )
@@ -50,7 +49,7 @@ from nikodym.report.results import (
     ReportSection,
 )
 
-__all__ = ["HtmlReportRenderer", "QuartoReportRenderer"]
+__all__ = ["HtmlReportRenderer", "PdfReportRenderer"]
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -65,7 +64,6 @@ _SVG_STRIP_PATTERN: Final = re.compile(r"<svg\b[^>]*>.*?</svg>", re.DOTALL)
 _STRIPPED_SVG: Final = '<svg data-chart="stripped"></svg>'
 
 _HTML_TEMPLATE_ID: Final = "scorecard_basic_v1"
-_QUARTO_SOURCE_NAME: Final = "scorecard_report.qmd"
 _TEMPLATE_PACKAGE: Final = "nikodym.report.templates"
 _TEMPLATE_NAME: Final = "scorecard_report.html.j2"
 _CSS_FILES: Final[dict[str, str]] = {
@@ -201,92 +199,73 @@ class HtmlReportRenderer:
         return manifest.model_copy(update={"path": _manifest_path(directory, filename)})
 
 
-class QuartoReportRenderer:
-    """Render opcional vía binario externo ``quarto`` para artefactos derivados."""
+class PdfReportRenderer:
+    """Render opcional a PDF vía WeasyPrint sobre el HTML básico primario."""
 
-    def __init__(self, config: ReportConfig | QuartoRenderConfig | None = None) -> None:
-        """Construye el renderer Quarto desde ``ReportConfig`` o ``QuartoRenderConfig``."""
-        if isinstance(config, QuartoRenderConfig):
-            self.config = ReportConfig(quarto=config)
+    def __init__(self, config: ReportConfig | PdfRenderConfig | None = None) -> None:
+        """Construye el renderer PDF desde ``ReportConfig`` o ``PdfRenderConfig``."""
+        if isinstance(config, PdfRenderConfig):
+            self.config = ReportConfig(pdf=config)
         elif config is None:
             self.config = ReportConfig()
         else:
             self.config = config
 
     @classmethod
-    def from_config(cls, cfg: ReportConfig) -> QuartoReportRenderer:
-        """Construye ``QuartoReportRenderer`` desde ``NikodymConfig.report``."""
+    def from_config(cls, cfg: ReportConfig) -> PdfReportRenderer:
+        """Construye ``PdfReportRenderer`` desde ``NikodymConfig.report``."""
         return cls(cfg)
 
     def render(self, bundle: ReportInputBundle, *, output_dir: str) -> ReportManifest:
-        """Renderiza HTML básico y, si procede, invoca Quarto de forma opcional."""
+        """Renderiza y escribe el HTML básico y, si procede, un PDF opcional en disco.
+
+        El HTML determinístico es el artefacto primario: se escribe siempre y su manifest es el
+        valor de retorno (igual que hoy con la ruta HTML). Con ``pdf.enabled`` se genera además un
+        PDF con WeasyPrint (import perezoso) que se escribe como efecto secundario en
+        ``{basename}.pdf`` y NO se refleja en el manifest. Si WeasyPrint no está disponible degrada
+        a HTML (``fail_if_unavailable=False``) o re-lanza la dependencia ausente (``True``).
+        """
         html_renderer = HtmlReportRenderer.from_config(self.config)
         html = html_renderer.render(bundle)
+        manifest = html_renderer.write(html, output_dir=output_dir)
 
-        if not self.config.quarto.enabled:
-            return html_renderer.write(html, output_dir=output_dir)
+        if not self.config.pdf.enabled:
+            return manifest
 
-        quarto_path = shutil.which("quarto")
-        if quarto_path is None:
-            if self.config.quarto.fail_if_unavailable:
-                raise ReportDependencyError(
-                    "Quarto no está disponible para report: instale Quarto desde "
-                    "https://quarto.org y asegure que el binario 'quarto' esté en PATH."
-                )
+        # Import perezoso: WeasyPrint (y sus nativas) nunca entra al import del paquete.
+        from nikodym.report.pdf import render_pdf
+
+        try:
+            pdf_bytes = render_pdf(html)
+        except ReportDependencyError:
+            if self.config.pdf.fail_if_unavailable:
+                raise
             warnings.warn(
-                "Quarto no está disponible; se usó HTML básico determinístico.",
+                "WeasyPrint no está disponible; se usó HTML básico determinístico sin PDF.",
                 RuntimeWarning,
                 stacklevel=2,
             )
-            return html_renderer.write(html, output_dir=output_dir)
+            return manifest
 
-        manifest = html_renderer.write(html, output_dir=output_dir)
-        self._invoke_quarto(quarto_path, output_dir=output_dir, html_path=manifest.path)
+        self._write_pdf(pdf_bytes, output_dir=output_dir)
         return manifest
 
-    def _invoke_quarto(self, quarto_path: str, *, output_dir: str, html_path: str) -> None:
-        """Invoca Quarto sobre una fuente mínima derivada del HTML primario."""
+    def _write_pdf(self, pdf_bytes: bytes, *, output_dir: str) -> None:
+        """Escribe el PDF con escritura atómica (tmp + ``replace``), idéntico al HTML."""
         directory = _prepare_output_dir(output_dir)
-        source = directory / _QUARTO_SOURCE_NAME
-        source.write_text(
-            "\n".join(
-                (
-                    "---",
-                    "title: Reporte scorecard",
-                    "format: html",
-                    "---",
-                    "",
-                    f"Reporte HTML primario: {html_path}",
-                    "",
-                )
-            ),
-            encoding="utf-8",
-            newline="\n",
-        )
-        formats = self.config.quarto.formats or ("pdf",)
-        for output_format in formats:
-            command = [
-                quarto_path,
-                "render",
-                source.name,
-                "--to",
-                output_format,
-                "--output",
-                f"{self.config.basename}.{output_format}",
-            ]
-            try:
-                subprocess.run(
-                    command,
-                    cwd=directory,
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-            except subprocess.CalledProcessError as exc:
-                raise ReportRenderError(
-                    "Quarto falló al renderizar report: dominio='report', "
-                    f"formato='{output_format}', acción='revise la instalación de Quarto'."
-                ) from exc
+        filename = f"{self.config.basename}.pdf"
+        output_path = directory / filename
+        temp_path = directory / f".{filename}.tmp"
+        try:
+            temp_path.write_bytes(pdf_bytes)
+            temp_path.replace(output_path)
+        except OSError as exc:
+            temp_path.unlink(missing_ok=True)
+            raise ReportExportError(
+                "No se pudo escribir el reporte PDF: dominio='report', formato='pdf', "
+                f"clave='{filename}', output_dir='{output_dir}', "
+                "acción='verifique permisos y espacio disponible'."
+            ) from exc
 
 
 def _coerce_report_config(

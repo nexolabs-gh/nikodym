@@ -1,4 +1,4 @@
-"""Tests de ``report.renderer``: HTML determinístico, export y Quarto opcional."""
+"""Tests de ``report.renderer``: HTML determinístico, export y PDF opcional."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from nikodym.core.lineage import LineageBundle
 from nikodym.report.config import (
     AiNarrationConfig,
     HtmlRenderConfig,
-    QuartoRenderConfig,
+    PdfRenderConfig,
     ReportConfig,
     SectionPolicyConfig,
 )
@@ -32,7 +32,7 @@ from nikodym.report.exceptions import (
     ReportExportError,
     ReportRenderError,
 )
-from nikodym.report.renderer import HtmlReportRenderer, QuartoReportRenderer
+from nikodym.report.renderer import HtmlReportRenderer, PdfReportRenderer
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportSection
 
 # Golden del ``_digest_html`` (excluye los bytes ``<svg>``, ver renderer): con el extra ``report``
@@ -195,75 +195,62 @@ def test_write_relativo_y_errores_de_export(
         renderer.write(html, output_dir=str(tmp_path))
 
 
-def test_quarto_tres_modos_y_error_de_subproceso(
+def test_pdf_render_deshabilitado_y_degradacion(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """Quarto deshabilitado no detecta; ausente degrada o falla; detectado se invoca."""
+    """PDF deshabilitado escribe solo HTML; habilitado sin WeasyPrint degrada o falla.
+
+    Los modos que exigen WeasyPrint real (PDF válido en disco) viven en ``test_report_pdf.py`` con
+    ``skipif``; aquí se cubre la ausencia de la dependencia bloqueando su import.
+    """
     bundle = _bundle()
-    default_quarto = QuartoReportRenderer()
-    from_config_quarto = QuartoReportRenderer.from_config(ReportConfig())
+    default_pdf = PdfReportRenderer()
+    from_config_pdf = PdfReportRenderer.from_config(ReportConfig())
 
-    assert default_quarto.config == ReportConfig()
-    assert from_config_quarto.config == ReportConfig()
+    assert default_pdf.config == ReportConfig()
+    assert from_config_pdf.config == ReportConfig()
 
-    def forbidden_which(name: str) -> str | None:
-        raise AssertionError(f"No se debía detectar {name}")
+    # (i) Deshabilitado: escribe HTML y devuelve su manifest, sin tocar el PDF.
+    disabled = PdfReportRenderer(ReportConfig(pdf=PdfRenderConfig(enabled=False)))
+    disabled_manifest = disabled.render(bundle, output_dir=str(tmp_path / "disabled"))
+    assert disabled_manifest.output_format == "html"
+    assert (tmp_path / "disabled" / "scorecard_report.html").is_file()
+    assert not (tmp_path / "disabled" / "scorecard_report.pdf").exists()
 
-    monkeypatch.setattr(renderer_module.shutil, "which", forbidden_which)
-    disabled = QuartoReportRenderer(ReportConfig(quarto=QuartoRenderConfig(enabled=False)))
-    assert disabled.render(bundle, output_dir=str(tmp_path / "disabled")).output_format == "html"
+    # Bloquea el import de weasyprint para forzar la ausencia de la dependencia opcional.
+    real_import = builtins.__import__
 
-    monkeypatch.setattr(renderer_module.shutil, "which", lambda name: None)
-    fallback = QuartoReportRenderer(
-        ReportConfig(quarto=QuartoRenderConfig(enabled=True, fail_if_unavailable=False))
+    def fake_import(
+        name: str,
+        globals_: dict[str, Any] | None = None,
+        locals_: dict[str, Any] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> Any:
+        if name == "weasyprint":
+            raise ModuleNotFoundError("weasyprint")
+        return real_import(name, globals_, locals_, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    # (ii) Habilitado sin WeasyPrint + fail_if_unavailable=False → RuntimeWarning + HTML intacto.
+    fallback = PdfReportRenderer(
+        ReportConfig(pdf=PdfRenderConfig(enabled=True, fail_if_unavailable=False))
     )
-    with pytest.warns(RuntimeWarning, match="Quarto no está disponible"):
+    with pytest.warns(RuntimeWarning, match="WeasyPrint no está disponible"):
         fallback_manifest = fallback.render(bundle, output_dir=str(tmp_path / "fallback"))
     assert fallback_manifest.output_format == "html"
+    assert (tmp_path / "fallback" / "scorecard_report.html").is_file()
+    assert not (tmp_path / "fallback" / "scorecard_report.pdf").exists()
 
-    strict = QuartoReportRenderer(
-        ReportConfig(quarto=QuartoRenderConfig(enabled=True, fail_if_unavailable=True))
-    )
-    with pytest.raises(ReportDependencyError, match=re.escape("https://quarto.org")):
+    # (iii) Habilitado sin WeasyPrint + fail_if_unavailable=True → re-lanza la dependencia ausente.
+    # Construido desde ``PdfRenderConfig`` directo (constructor alternativo).
+    strict_pdf = PdfRenderConfig(enabled=True, fail_if_unavailable=True)
+    strict = PdfReportRenderer(strict_pdf)
+    assert strict.config == ReportConfig(pdf=strict_pdf)
+    with pytest.raises(ReportDependencyError, match="WeasyPrint"):
         strict.render(bundle, output_dir=str(tmp_path / "strict"))
-
-    calls: list[dict[str, Any]] = []
-
-    def fake_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        calls.append({"command": command, "kwargs": kwargs})
-        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
-
-    monkeypatch.setattr(renderer_module.shutil, "which", lambda name: "/fake/quarto")
-    monkeypatch.setattr(renderer_module.subprocess, "run", fake_run)
-    detected = QuartoReportRenderer(
-        ReportConfig(
-            quarto=QuartoRenderConfig(enabled=True, formats=("docx",)),
-            basename="informe",
-        )
-    )
-    detected_manifest = detected.render(bundle, output_dir=str(tmp_path / "detected"))
-    assert detected_manifest.path == "informe.html"
-    assert calls[0]["command"] == [
-        "/fake/quarto",
-        "render",
-        "scorecard_report.qmd",
-        "--to",
-        "docx",
-        "--output",
-        "informe.docx",
-    ]
-    assert calls[0]["kwargs"]["cwd"] == tmp_path / "detected"
-    assert calls[0]["kwargs"]["check"] is True
-
-    def fail_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-        del kwargs
-        raise subprocess.CalledProcessError(1, command, output="", stderr="fallo")
-
-    monkeypatch.setattr(renderer_module.subprocess, "run", fail_run)
-    failing = QuartoReportRenderer(QuartoRenderConfig(enabled=True))
-    with pytest.raises(ReportRenderError, match="Quarto falló"):
-        failing.render(bundle, output_dir=str(tmp_path / "failing"))
 
 
 def test_render_errores_dependencia_jinja_template_y_tabla(
@@ -324,7 +311,7 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
     assert "figure-eda-figures" in html
     assert "MiniFigure" not in html
     assert report_pkg.HtmlReportRenderer is HtmlReportRenderer
-    assert report_pkg.QuartoReportRenderer is QuartoReportRenderer
+    assert report_pkg.PdfReportRenderer is PdfReportRenderer
 
     assert renderer_module._display_scalar(None, key_path=("x",)) == "No disponible"
     assert renderer_module._display_scalar(True, key_path=("x",)) == "true"

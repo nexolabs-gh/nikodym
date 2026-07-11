@@ -4,7 +4,8 @@ Al importarse, registra :class:`ReportConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.report`` se valida como sub-config real sin
 que ``import nikodym.core`` arrastre ``nikodym.report`` ni dependencias de render/IA. El paquete
 importa ``report.step`` al final para ejecutar ``@register("standard", domain="report")`` sin
-cargar Jinja2, Quarto ni SDKs IA; los DTOs y componentes pesados se reexportan de forma perezosa.
+cargar Jinja2, WeasyPrint ni SDKs IA; los DTOs y componentes pesados se reexportan de forma
+perezosa.
 
 **Experimental (SemVer 0.x).**
 """
@@ -18,7 +19,7 @@ from nikodym.core.config import schema as _schema
 from nikodym.report.config import (
     AiNarrationConfig,
     HtmlRenderConfig,
-    QuartoRenderConfig,
+    PdfRenderConfig,
     ReportConfig,
     SectionPolicyConfig,
 )
@@ -42,13 +43,14 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "AiNarrationBlock": ("nikodym.report.results", "AiNarrationBlock"),
     "ReportBuilder": ("nikodym.report.builder", "ReportBuilder"),
     "HtmlReportRenderer": ("nikodym.report.renderer", "HtmlReportRenderer"),
-    "QuartoReportRenderer": ("nikodym.report.renderer", "QuartoReportRenderer"),
+    "PdfReportRenderer": ("nikodym.report.renderer", "PdfReportRenderer"),
     "ReportInputBundle": ("nikodym.report.results", "ReportInputBundle"),
     "ReportManifest": ("nikodym.report.results", "ReportManifest"),
     "ReportResult": ("nikodym.report.results", "ReportResult"),
     "ReportSection": ("nikodym.report.results", "ReportSection"),
     "ReportStep": ("nikodym.report.step", "ReportStep"),
     "RuleBasedNarrator": ("nikodym.report.ai", "RuleBasedNarrator"),
+    "render_pdf": ("nikodym.report.pdf", "render_pdf"),
 }
 
 __all__ = [
@@ -60,8 +62,8 @@ __all__ = [
     "AiNarrationConfig",
     "HtmlRenderConfig",
     "HtmlReportRenderer",
-    "QuartoRenderConfig",
-    "QuartoReportRenderer",
+    "PdfRenderConfig",
+    "PdfReportRenderer",
     "ReportAIError",
     "ReportBuilder",
     "ReportConfig",
@@ -77,10 +79,11 @@ __all__ = [
     "ReportStep",
     "RuleBasedNarrator",
     "SectionPolicyConfig",
+    "render_pdf",
 ]
 
 # Import perezoso a nivel paquete para ejecutar @register("standard", domain="report") al importar
-# `nikodym.report`, sin contaminar `import nikodym.core` ni cargar Jinja2/Quarto/SDKs IA.
+# `nikodym.report`, sin contaminar `import nikodym.core` ni cargar Jinja2/WeasyPrint/SDKs IA.
 importlib.import_module("nikodym.report.step")
 
 

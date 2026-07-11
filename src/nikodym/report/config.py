@@ -2,8 +2,8 @@
 
 :class:`ReportConfig` es la sección ``report`` de
 :class:`~nikodym.core.config.NikodymConfig`: generación de reportes auditables de scorecard con
-HTML básico determinístico por defecto, export tabular opcional, Quarto opcional y narrativa IA
-opt-in. Toda clase hereda de :class:`~nikodym.core.config.NikodymBaseConfig`
+HTML básico determinístico por defecto, export tabular opcional, PDF opcional (WeasyPrint) y
+narrativa IA opt-in. Toda clase hereda de :class:`~nikodym.core.config.NikodymBaseConfig`
 (``extra='forbid'`` y ``frozen=True``); cada campo declara ``title``/``description`` y metadatos
 ``ui_*`` para que la UI (SDD-23) sea un editor del mismo config. La sección es infraestructura,
 por lo que no entra al ``config_hash`` global.
@@ -22,7 +22,6 @@ from nikodym.core.config import NikodymBaseConfig
 AiProvider = Literal["anthropic", "none"]
 BasicReportFormat = Literal["html", "json", "csv", "xlsx"]
 MissingPolicy = Literal["error", "warn", "skip"]
-QuartoFormat = Literal["pdf", "docx"]
 ReportLanguage = Literal["es"]
 ReportTheme = Literal["nikodym", "plain"]
 ReportType = Literal["standard"]
@@ -30,7 +29,7 @@ ReportType = Literal["standard"]
 __all__ = [
     "AiNarrationConfig",
     "HtmlRenderConfig",
-    "QuartoRenderConfig",
+    "PdfRenderConfig",
     "ReportConfig",
     "SectionPolicyConfig",
 ]
@@ -77,26 +76,20 @@ class HtmlRenderConfig(NikodymBaseConfig):
     )
 
 
-class QuartoRenderConfig(NikodymBaseConfig):
-    """Config del render opcional vía Quarto."""
+class PdfRenderConfig(NikodymBaseConfig):
+    """Config del render PDF opcional vía WeasyPrint."""
 
     enabled: bool = Field(
         default=False,
-        title="Activar Quarto",
-        description="Activa la generación opcional de formatos derivados mediante Quarto.",
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Quarto", "ui_order": 1},
-    )
-    formats: tuple[QuartoFormat, ...] = Field(
-        default=(),
-        title="Formatos Quarto",
-        description="Formatos opcionales producidos por Quarto cuando está habilitado.",
-        json_schema_extra={"ui_widget": "multiselect", "ui_group": "Quarto", "ui_order": 2},
+        title="Activar PDF",
+        description="Activa la generación opcional de un PDF del reporte mediante WeasyPrint.",
+        json_schema_extra={"ui_widget": "checkbox", "ui_group": "PDF", "ui_order": 1},
     )
     fail_if_unavailable: bool = Field(
         default=False,
-        title="Fallar si Quarto no está disponible",
-        description="True convierte la ausencia del binario Quarto en error en vez de fallback.",
-        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Quarto", "ui_order": 3},
+        title="Fallar si WeasyPrint no está disponible",
+        description="True convierte la ausencia de WeasyPrint en error en vez de fallback a HTML.",
+        json_schema_extra={"ui_widget": "checkbox", "ui_group": "PDF", "ui_order": 2},
     )
 
 
@@ -231,7 +224,7 @@ class ReportConfig(NikodymBaseConfig):
     formats: tuple[BasicReportFormat, ...] = Field(
         default=("html",),
         title="Formatos básicos",
-        description="Formatos básicos generados sin depender de Quarto.",
+        description="Formatos básicos generados sin depender de WeasyPrint.",
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 5},
     )
     html: HtmlRenderConfig = Field(
@@ -240,11 +233,11 @@ class ReportConfig(NikodymBaseConfig):
         description="Config del render HTML básico standalone.",
         json_schema_extra={"ui_widget": "section", "ui_group": "HTML", "ui_order": 1},
     )
-    quarto: QuartoRenderConfig = Field(
-        default_factory=QuartoRenderConfig,
-        title="Quarto",
-        description="Config de formatos derivados mediante Quarto.",
-        json_schema_extra={"ui_widget": "section", "ui_group": "Quarto", "ui_order": 1},
+    pdf: PdfRenderConfig = Field(
+        default_factory=PdfRenderConfig,
+        title="PDF",
+        description="Config del PDF opcional del reporte mediante WeasyPrint.",
+        json_schema_extra={"ui_widget": "section", "ui_group": "PDF", "ui_order": 1},
     )
     ai: AiNarrationConfig = Field(
         default_factory=AiNarrationConfig,

@@ -359,7 +359,7 @@ _STANDARD_CONFIG: dict[str, Any] = {
     # Las ``required_sections`` son EXACTAMENTE las cards que el preset produce (sin ``eda`` ni
     # ``data``: el pipeline no corre EDA), para que ``ReportStep.requires`` no exija una card
     # inalcanzable y el motor (CT-1) no rechace el config. ``report`` es INFRA (``INFRA_SECTIONS``)
-    # → NO entra al ``config_hash``. Defaults seguros: solo HTML, sin Quarto/IA/gráficos
+    # → NO entra al ``config_hash``. Defaults seguros: solo HTML, sin PDF/IA/gráficos
     # interactivos → no requiere extras. ``output_dir`` se cablea a un dir absoluto bajo el workdir
     # en ejecución (``routes._wire_report_output_dir``); aquí queda el default relativo.
     "report": {
@@ -376,9 +376,8 @@ _STANDARD_CONFIG: dict[str, Any] = {
             "include_interactive_charts": False,
             "deterministic_ids": True,
         },
-        "quarto": {
+        "pdf": {
             "enabled": False,
-            "formats": [],
             "fail_if_unavailable": False,
         },
         "ai": {

@@ -24,7 +24,7 @@ from nikodym.core.exceptions import NikodymError
 from nikodym.report.config import (
     AiNarrationConfig,
     HtmlRenderConfig,
-    QuartoRenderConfig,
+    PdfRenderConfig,
     ReportConfig,
     SectionPolicyConfig,
 )
@@ -63,9 +63,8 @@ def _report_defaults() -> dict[str, Any]:
             "deterministic_ids": True,
             "render_charts": True,
         },
-        "quarto": {
+        "pdf": {
             "enabled": False,
-            "formats": [],
             "fail_if_unavailable": False,
         },
         "ai": {
@@ -114,9 +113,8 @@ def test_round_trip_yaml_reportconfig() -> None:
             include_interactive_charts=True,
             deterministic_ids=False,
         ),
-        quarto=QuartoRenderConfig(
+        pdf=PdfRenderConfig(
             enabled=True,
-            formats=("pdf", "docx"),
             fail_if_unavailable=True,
         ),
         ai=AiNarrationConfig(
@@ -186,14 +184,14 @@ def test_nikodymconfig_report_core_only_rechaza_json_no_canonico(
         ReportConfig(formats=("html", "json", "csv", "xlsx")),
         ReportConfig(html=HtmlRenderConfig(template_id="scorecard_detallado_v1")),
         ReportConfig(html=HtmlRenderConfig(theme="plain")),
-        ReportConfig(quarto=QuartoRenderConfig(enabled=True)),
+        ReportConfig(pdf=PdfRenderConfig(enabled=True)),
         ReportConfig(ai=AiNarrationConfig(enabled=True, provider="anthropic")),
         ReportConfig(sections=SectionPolicyConfig(missing_policy="warn")),
         ReportConfig(sections=SectionPolicyConfig(max_table_rows=1_000)),
     ],
 )
 def test_config_hash_no_cambia_al_variar_report(report: ReportConfig) -> None:
-    """``report`` es INFRA: plantilla, output, formatos, Quarto e IA no cambian identidad."""
+    """``report`` es INFRA: plantilla, output, formatos, PDF e IA no cambian identidad."""
     base = config_hash(NikodymConfig(report=ReportConfig()))
     variado = config_hash(NikodymConfig(report=report))
     assert "report" in INFRA_SECTIONS
@@ -250,7 +248,6 @@ def test_rangos_invalidos_rechazados_por_pydantic(
     ("config_cls", "kwargs"),
     [
         (ReportConfig, {"formats": ("pdf",)}),
-        (QuartoRenderConfig, {"formats": ("html",)}),
         (AiNarrationConfig, {"provider": "openai"}),
         (SectionPolicyConfig, {"missing_policy": "ignore"}),
         (HtmlRenderConfig, {"theme": "dark"}),
@@ -269,7 +266,7 @@ def test_campos_report_tienen_metadatos_ui() -> None:
     """Todos los campos de config report declaran metadata de UI para SDD-23."""
     for config_cls in (
         HtmlRenderConfig,
-        QuartoRenderConfig,
+        PdfRenderConfig,
         AiNarrationConfig,
         SectionPolicyConfig,
         ReportConfig,
