@@ -8,6 +8,7 @@ import sys
 import textwrap
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
@@ -368,6 +369,40 @@ def test_platt_scaling_slope_no_positivo_falla_por_inversion_de_ranking() -> Non
             min_fit_rows=1,
             max_iter=500,
         ).fit(frame)
+
+
+def test_ranking_preserved_ignora_el_empate_por_precision_de_coma_flotante() -> None:
+    """Un colapso de ~1e-17 al calibrar NO es un ranking roto (era el rojo de windows-3.11).
+
+    Dos PD crudas separadas por menos que la resolución del ``float64`` pueden caer al mismo valor
+    calibrado. No hubo inversión ni pérdida de información real: el modelo nunca distinguió de
+    verdad a esos dos deudores. Antes esto daba ``ranking_preserved=False``, un falso positivo que
+    dependía de la aritmética de la plataforma.
+    """
+    raw = pd.Series([0.10, 0.20, 0.30 + 1e-17, 0.30, 0.40])
+    calibrated = pd.Series([0.11, 0.21, 0.31, 0.31, 0.41])  # los dos del medio colapsaron
+
+    assert calibrator_module._ranking_preserved(raw, calibrated, pd=pd, np=np) is True
+
+
+def test_ranking_preserved_detecta_el_colapso_de_deudores_distinguibles() -> None:
+    """Aplanar a dos deudores que el modelo SÍ separaba sigue siendo un ranking degradado.
+
+    Es lo que hace la isotónica: destruye discriminación. La tolerancia de precisión no puede
+    servir de excusa para dejar pasar esto.
+    """
+    raw = pd.Series([0.10, 0.20, 0.50, 0.90])
+    calibrated = pd.Series([0.11, 0.21, 0.55, 0.55])  # 0.50 y 0.90 aplanados al mismo valor
+
+    assert calibrator_module._ranking_preserved(raw, calibrated, pd=pd, np=np) is False
+
+
+def test_ranking_preserved_detecta_la_inversion_de_orden() -> None:
+    """Dar vuelta a dos deudores es siempre una violación del ranking."""
+    raw = pd.Series([0.10, 0.20, 0.30, 0.40])
+    calibrated = pd.Series([0.11, 0.21, 0.45, 0.31])  # el 3.º y el 4.º se invirtieron
+
+    assert calibrator_module._ranking_preserved(raw, calibrated, pd=pd, np=np) is False
 
 
 def test_isotonic_crea_empates_y_registra_knots() -> None:

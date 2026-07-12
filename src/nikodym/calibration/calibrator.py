@@ -1039,18 +1039,51 @@ def _state_from_estimator(estimator: PDCalibrator) -> FitState:
     )
 
 
+#: Dos PD que difieren menos que esto son indistinguibles en la práctica: la diferencia es ruido de
+#: coma flotante, no señal de riesgo. Ninguna cartera real distingue deudores a 1e-12 de PD.
+_PD_RESOLUTION = 1e-12
+
+
 def _ranking_preserved(raw: Series, calibrated: Series, *, pd: Any, np: Any) -> bool:
-    """Compara rankings promedio de PD cruda y calibrada."""
-    raw_rank = (
-        pd.Series(raw, index=calibrated.index)
-        .rank(method="average")
-        .to_numpy(
-            dtype="float64",
-            copy=True,
-        )
-    )
-    calibrated_rank = calibrated.rank(method="average").to_numpy(dtype="float64", copy=True)
-    return bool(np.array_equal(raw_rank, calibrated_rank))
+    """Indica si la calibración conservó el ordenamiento por riesgo del modelo.
+
+    Es ``False`` cuando la calibración invierte el orden de dos deudores, o cuando colapsa al mismo
+    valor a dos deudores que el modelo crudo SÍ distinguía (lo que hace la isotónica al aplanar
+    tramos: destruye poder de discriminación y baja el AUC). Ambas cosas le importan a un validador.
+
+    NO es ``False``, en cambio, cuando el empate lo crea la aritmética: una calibración monótona
+    (``intercept_offset`` es un desplazamiento en el logit) no puede invertir el orden, pero sí
+    puede mandar dos PD crudas separadas por ~1e-17 al mismo ``float64``. El check anterior
+    comparaba los rangos con igualdad exacta, así que ese colapso de precisión lo reportaba como
+    ranking roto: un falso positivo que alarma sin motivo y que, al depender de la aritmética de
+    la plataforma, enrojecía solo en windows-3.11.
+
+    El colapso de precisión no se silencia: sigue contándose en ``ties_created``.
+    """
+    raw_values = _as_float_array(pd.Series(raw, index=calibrated.index), np=np)
+    calibrated_values = _as_float_array(calibrated, np=np)
+    if raw_values.size != calibrated_values.size or raw_values.size < 2:
+        return True
+
+    # Orden estable por PD cruda: entre empates preexistentes se conserva el orden original, así que
+    # un empate que YA venía del modelo nunca se cuenta en contra de la calibración.
+    order = np.argsort(raw_values, kind="stable")
+    raw_sorted = raw_values[order]
+    calibrated_sorted = calibrated_values[order]
+
+    raw_gaps = np.diff(raw_sorted)
+    calibrated_gaps = np.diff(calibrated_sorted)
+    scale = max(1.0, float(np.max(np.abs(calibrated_values))))
+    tolerance = _PD_RESOLUTION * scale
+
+    # Inversión: dos deudores dados vuelta. Siempre es una violación.
+    if bool(np.any(calibrated_gaps < -tolerance)):
+        return False
+
+    # Colapso material: el modelo crudo los distinguía y la calibración los dejó iguales.
+    collapsed = np.abs(calibrated_gaps) <= tolerance
+    distinguishable = raw_gaps > _PD_RESOLUTION
+    return not bool(np.any(collapsed & distinguishable))
 
 
 def _ties_created(raw: Any, calibrated: Any, *, np: Any) -> int:
