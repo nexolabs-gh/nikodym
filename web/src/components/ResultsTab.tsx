@@ -1,5 +1,5 @@
 import { type ReactNode, useId, useState } from "react"
-import { ArrowRight, ChartColumn, CircleAlert, Play } from "lucide-react"
+import { ChartColumn, CircleAlert, Play } from "lucide-react"
 
 import { CalibrationReliabilityChart } from "@/components/charts/CalibrationReliabilityChart"
 import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
@@ -18,7 +18,6 @@ import {
   partitionColor,
 } from "@/components/charts/chart-theme"
 import { EmptyState } from "@/components/EmptyState"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
@@ -87,7 +86,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
     null,
   )
 
-  // Sin resultados: estado vacío sobrio con CTA a Ejecutar (como RunTab navega a "resultados").
+  // Sin resultados: estado vacío sobrio con CTA que NAVEGA a Ejecutar (como RunTab a "resultados").
   if (results === null) {
     return (
       <Card className="shadow-card">
@@ -96,18 +95,12 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           title="Sin resultados todavía"
           description="Los artefactos de una corrida (discriminación, ajuste, coeficientes, IV y calibración) se muestran aquí en cuanto ejecutes el pipeline."
           tag="Resultados"
+          action={{
+            label: "Ejecutar el preset",
+            onClick: () => onNavigate("ejecutar"),
+            icon: Play,
+          }}
         />
-        <CardContent className="-mt-6 flex justify-center pb-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate("ejecutar")}
-          >
-            <Play aria-hidden="true" />
-            Ve a Ejecutar y corre el preset
-            <ArrowRight aria-hidden="true" />
-          </Button>
-        </CardContent>
       </Card>
     )
   }

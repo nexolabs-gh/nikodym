@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
-import { ArrowRight, CircleAlert, Loader2, Upload } from "lucide-react"
+import { ArrowRight, CircleAlert, Loader2, Play, Upload, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -49,8 +49,14 @@ function uploadErrorMessage(err: unknown): string {
  * el backend lee el archivo y expone columnas. Si el backend está caído, degrada suave.
  */
 export function DatosTab({ onNavigate }: DatosTabProps) {
-  const { datasetId, setDatasetId, selectedDataset, setSelectedDataset } =
-    useAppState()
+  const {
+    datasetId,
+    setDatasetId,
+    selectedDataset,
+    setSelectedDataset,
+    welcomeDismissed,
+    setWelcomeDismissed,
+  } = useAppState()
 
   const [datasets, setDatasets] = useState<DatasetInfo[]>([])
   const [catalogError, setCatalogError] = useState<string | null>(null)
@@ -79,6 +85,15 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
       alive = false
     }
   }, [])
+
+  // El arranque siembra el `datasetId` recomendado por el preset, pero no su ficha (el catálogo
+  // se pide aquí). En cuanto llega, se completa el preview de ese dataset. SOLO rellena el hueco
+  // (`selectedDataset === null`): nunca pisa una elección ni una subida del usuario.
+  useEffect(() => {
+    if (selectedDataset !== null || datasetId === null) return
+    const info = datasets.find((d) => d.id === datasetId)
+    if (info) setSelectedDataset(fromCatalog(info))
+  }, [datasets, datasetId, selectedDataset, setSelectedDataset])
 
   // El <Select> refleja el datasetId SOLO si es una opción del catálogo; un id subido (fuera
   // del catálogo) deja el selector en su placeholder, sin mostrar un id ajeno a la lista.
@@ -124,6 +139,14 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Get-started del primer paso: qué es el flujo y que se puede correr sin configurar nada. */}
+      {welcomeDismissed ? null : (
+        <WelcomeCard
+          onRun={() => onNavigate("ejecutar")}
+          onDismiss={() => setWelcomeDismissed(true)}
+        />
+      )}
+
       {/* Sección A — Datasets de ejemplo (catálogo sintético). */}
       <Card className="shadow-card">
         <CardContent className="space-y-4">
@@ -230,6 +253,54 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
         />
       ) : null}
     </div>
+  )
+}
+
+interface WelcomeCardProps {
+  onRun: () => void
+  onDismiss: () => void
+}
+
+/**
+ * Tarjeta de bienvenida del primer paso (get-started, UX1): explica el scoring de punta a punta
+ * en cuatro líneas y deja explícito que el preset ya viene cargado y validado, así que se puede
+ * ejecutar sin configurar nada. Descartable (se cierra por sesión, vía el store). Tono de marca:
+ * sobrio, sin marketing. No calcula ni decide nada: es texto + dos CTA.
+ */
+function WelcomeCard({ onRun, onDismiss }: WelcomeCardProps) {
+  return (
+    <Card className="shadow-card">
+      <CardContent className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1.5">
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
+              Cómo funciona
+            </p>
+            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              El pipeline va del dataset al scorecard en un paso: binning, selección de
+              variables, modelo, escalado a puntaje y calibración de PD. Eliges un dataset,
+              ejecutas la corrida y revisas los resultados y el reporte. La configuración
+              estándar ya viene cargada y validada, así que puedes ejecutar el preset tal cual,
+              sin configurar nada. Ajustar la configuración es opcional.
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onDismiss}
+            aria-label="Cerrar la introducción"
+            title="Cerrar"
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+        <Button onClick={onRun}>
+          <Play aria-hidden="true" />
+          Ejecutar el preset
+          <ArrowRight aria-hidden="true" />
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import {
   CircleAlert,
   CircleCheck,
@@ -19,13 +19,8 @@ import {
 } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import {
-  ApiError,
-  configFromYaml,
-  configToYaml,
-  getPreset,
-  validateConfig,
-} from "@/lib/api"
+import { ApiError, configFromYaml, configToYaml, getPreset } from "@/lib/api"
+import type { SeedState } from "@/lib/bootstrap"
 import { type Path, getAtPath, setAtPath } from "@/lib/config-store"
 import {
   type Defs,
@@ -35,16 +30,10 @@ import {
 } from "@/lib/form-engine"
 import {
   F1_SECTIONS,
-  type LoadedSchema,
   type SchemaSource,
   isRenderableSection,
-  loadSchema,
 } from "@/lib/schema"
-import {
-  type ValidationState,
-  buildErrorLookup,
-  describeApiError,
-} from "@/lib/validation"
+import { type ValidationState, describeApiError } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 
 const SOURCE_BANNER: Record<
@@ -64,16 +53,6 @@ const SOURCE_BANNER: Record<
     text: "Backend no disponible; usando el snapshot local del schema (fixtures/schema.json).",
   },
 }
-
-/**
- * Qué se sembró en el form (SDD-23 §3.2). `preset` = configuración estándar del backend (default);
- * `defaults` = "empezar de cero" con los defaults vacíos del schema (elección explícita);
- * `fallback` = defaults porque el preset no estaba disponible al montar (backend caído).
- */
-type SeedState =
-  | { kind: "preset"; name: string; datasetId: string }
-  | { kind: "defaults" }
-  | { kind: "fallback" }
 
 /** Aviso sobrio de qué config se cargó (o `null` mientras aún no se resuelve la siembra). */
 function seedNotice(seed: SeedState | null): string | null {
@@ -221,55 +200,33 @@ function ConfigSectionForm(props: {
 }
 
 /**
- * Pestaña Config: auto-genera el formulario desde `/api/schema` (SDD-23 §3.2). Desde B30 muestra
- * SOLO la sección F1 elegida en el sidebar (`section`) — no las 7 apiladas — con sus campos
- * agrupados por `ui_group` (ver `ConfigSectionForm`). La barra superior (siembra del preset,
- * `config_hash` en vivo y round-trip YAML) es global al config y persiste al navegar entre
- * secciones; el estado del config vive en el store compartido, así que los valores editados
- * en una sección se conservan al cambiar a otra. Valida EN VIVO por reconstrucción en el backend
- * (SDD-23 §3.3/§7, B23.5b): en cada edición hace `POST /api/validate` (debounced) y pinta el
- * `config_hash` o los errores inline por campo. El round-trip YAML (§3.4) va **vía el backend**.
+ * Pestaña Config: auto-genera el formulario desde el schema que cargó el ARRANQUE de la sesión
+ * (`lib/bootstrap.ts` → provider). Desde B30 muestra SOLO la sección F1 elegida en el sidebar
+ * (`section`) — no las 7 apiladas — con sus campos agrupados por `ui_group` (ver
+ * `ConfigSectionForm`).
+ *
+ * Es un EDITOR PURO (UX1): renderiza y edita, pero NO siembra el config ni arranca su vida. La
+ * siembra del preset y la validación en vivo (debounce → `POST /api/validate`) viven en el
+ * provider (`state/appStore.tsx`), por dos razones: (1) sin abrir esta pestaña el config también
+ * está sembrado y validado, así que Ejecutar no depende de pasar por aquí; (2) esta pestaña se
+ * DESMONTA al navegar a Datos/Ejecutar, y un efecto de montaje volvía a sembrar el preset,
+ * pisando las ediciones del usuario y el dataset que hubiera elegido.
+ *
+ * La barra superior (recargar el preset, `config_hash` en vivo, round-trip YAML) es global al
+ * config y persiste al navegar entre secciones. Recargar el preset o "empezar de cero" siguen
+ * aquí: son acciones EXPLÍCITAS del usuario, no siembra automática. El round-trip YAML (§3.4)
+ * va **vía el backend** (no se parsea YAML en el front).
  */
 export function ConfigTab({ section }: { section: string }) {
-  // El config, su validación y el dataset elegido viven en el store compartido
-  // (useAppState) para que Ejecutar/Resultados/sidebar los lean; el resto del estado
-  // (schema cargado, narración de siembra, acciones YAML) es local a esta pestaña.
-  const { config, setConfig, setDatasetId, validation, setValidation } =
+  // El schema, el config, su validación, la siembra y el dataset elegido viven en el store
+  // compartido (useAppState); solo las acciones YAML y sus estados son locales a esta pestaña.
+  const { schema, config, setConfig, seed, setSeed, setDatasetId, validation } =
     useAppState()
-  const [loaded, setLoaded] = useState<LoadedSchema | null>(null)
-  const [seed, setSeed] = useState<SeedState | null>(null)
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
   const [presetBusy, setPresetBusy] = useState(false)
   const [presetError, setPresetError] = useState<string | null>(null)
-  const requestSeq = useRef(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  // Al montar: carga el schema y siembra el PRESET ESTÁNDAR por defecto (SDD §3.2) → "sin tocar
-  // nada" = un config F1 completo y válido. Muestra primero los defaults del schema (form al toque)
-  // y sustituye por el preset cuando llega; si el backend está caído, se queda en los defaults sin
-  // crashear (fallback), y la validación en vivo ya existente correrá sobre lo que quede sembrado.
-  useEffect(() => {
-    let alive = true
-    void loadSchema().then(async (result) => {
-      if (!alive) return
-      setLoaded(result)
-      setConfig(structuredClone(result.payload.defaults))
-      try {
-        const preset = await getPreset()
-        if (!alive) return
-        setConfig(preset.config)
-        setDatasetId(preset.dataset_id) // el preset trae el dataset recomendado (habilita Ejecutar)
-        setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
-      } catch {
-        if (!alive) return
-        setSeed({ kind: "fallback" }) // ya está en defaults; solo se narra el fallback
-      }
-    })
-    return () => {
-      alive = false
-    }
-  }, [setConfig, setDatasetId])
 
   // "Configuración estándar": recarga el preset del backend y lo siembra (getPreset → setConfig).
   const handleLoadPreset = useCallback(async () => {
@@ -277,7 +234,7 @@ export function ConfigTab({ section }: { section: string }) {
     setPresetBusy(true)
     try {
       const preset = await getPreset()
-      setConfig(preset.config)
+      setConfig(structuredClone(preset.config))
       setDatasetId(preset.dataset_id) // el preset trae el dataset recomendado (habilita Ejecutar)
       setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
     } catch (err) {
@@ -285,44 +242,15 @@ export function ConfigTab({ section }: { section: string }) {
     } finally {
       setPresetBusy(false)
     }
-  }, [setConfig, setDatasetId])
+  }, [setConfig, setDatasetId, setSeed])
 
   // "Empezar de cero": siembra el config mínimo del schema (defaults vacíos) — sin backend.
   const handleStartBlank = useCallback(() => {
     setPresetError(null)
-    setConfig(structuredClone(loaded?.payload.defaults ?? {}))
+    setConfig(structuredClone(schema?.payload.defaults ?? {}))
     setDatasetId(null) // "de cero" no trae dataset → Ejecutar queda bloqueado hasta elegir uno
     setSeed({ kind: "defaults" })
-  }, [loaded, setConfig, setDatasetId])
-
-  // Validación en vivo: en cada cambio del config re-valida en el backend con debounce
-  // (~350ms). El timer previo se cancela en el cleanup; el contador `requestSeq` descarta
-  // respuestas obsoletas (última petición gana). No congela la edición (SDD §3.3, restricción).
-  useEffect(() => {
-    if (!loaded) return
-    const seq = ++requestSeq.current
-    setValidation({ kind: "checking" })
-    const timer = setTimeout(() => {
-      void validateConfig(config)
-        .then((res) => {
-          if (seq !== requestSeq.current) return // respuesta obsoleta
-          if (res.valid && res.config_hash) {
-            setValidation({ kind: "valid", hash: res.config_hash })
-          } else {
-            setValidation({
-              kind: "invalid",
-              count: res.errors.length,
-              lookup: buildErrorLookup(res.errors),
-            })
-          }
-        })
-        .catch(() => {
-          if (seq !== requestSeq.current) return
-          setValidation({ kind: "unreachable" }) // degrada suave; NO inventa hash
-        })
-    }, 350)
-    return () => clearTimeout(timer)
-  }, [config, loaded, setValidation])
+  }, [schema, setConfig, setDatasetId, setSeed])
 
   const setField = useCallback(
     (path: Path, value: unknown) => {
@@ -363,16 +291,18 @@ export function ConfigTab({ section }: { section: string }) {
     }
   }
 
-  if (!loaded) {
+  // El schema lo carga el arranque de la sesión (provider), no esta pestaña: mientras no llega,
+  // se espera. En cuanto está, el config YA viene sembrado y validado desde el store.
+  if (schema === null) {
     return (
       <div className="flex items-center gap-2 py-16 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-        Cargando schema…
+        Cargando configuración…
       </div>
     )
   }
 
-  const { payload, source, error } = loaded
+  const { payload, source, error } = schema
   const properties = payload.json_schema.properties ?? {}
   const defs = payload.json_schema.$defs ?? {}
   // Solo la sección activa (elegida en el sidebar); si el schema no la trae renderable, se avisa.

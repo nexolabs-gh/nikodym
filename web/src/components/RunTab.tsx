@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CircleAlert,
   CircleCheck,
+  Database,
   Loader2,
   Play,
 } from "lucide-react"
@@ -46,13 +47,16 @@ function runErrorMessage(err: unknown): string {
  * el JSON en el store. `status:"failed"` NO es error HTTP: llega 200 con results parcial + `error`.
  */
 export function RunTab({ onNavigate }: RunTabProps) {
-  const { config, datasetId, validation, setLastRun, setResults } =
+  const { config, datasetId, validation, seed, setLastRun, setResults } =
     useAppState()
   const [outcome, setOutcome] = useState<RunOutcome>({ kind: "idle" })
 
   const gate = canRun(validation, datasetId)
   const running = outcome.kind === "running"
   const configHash = validation.kind === "valid" ? validation.hash : null
+  // El arranque de la sesión (provider) siembra y valida el preset solo: mientras no termina
+  // (`seed === null`) el botón espera, y se habilita sin que el usuario configure nada (UX1).
+  const preparing = seed === null
 
   async function handleRun() {
     if (!gate.ok || datasetId === null) return // guard (el botón ya está deshabilitado)
@@ -89,19 +93,19 @@ export function RunTab({ onNavigate }: RunTabProps) {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={handleRun} disabled={!gate.ok || running}>
-              {running ? (
+              {running || preparing ? (
                 <Loader2 className="animate-spin" aria-hidden="true" />
               ) : (
                 <Play aria-hidden="true" />
               )}
-              Ejecutar corrida
+              {preparing ? "Cargando configuración…" : "Ejecutar corrida"}
             </Button>
             {gate.ok ? (
               <p className="text-xs text-muted-foreground">
                 Config válido · dataset{" "}
                 <span className="font-mono text-muted-foreground">{datasetId}</span>
               </p>
-            ) : (
+            ) : preparing ? null : (
               <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CircleAlert className="size-3.5" aria-hidden="true" />
                 {gate.reason}
@@ -123,8 +127,22 @@ export function RunTab({ onNavigate }: RunTabProps) {
             <EmptyState
               icon={Play}
               title="Sin corridas todavía"
-              description="Con un config válido y un dataset elegido, dispara la corrida para ver aquí su estado y su lineage."
+              description={
+                datasetId === null
+                  ? "El config estándar ya está cargado y validado. Solo falta elegir el dataset con el que quieres correr el pipeline."
+                  : "La configuración estándar ya está lista: dispara la corrida para ver aquí su estado y su lineage."
+              }
               tag="Ejecutar"
+              // Sin dataset el botón de arriba no abre: el CTA lleva al paso que falta.
+              action={
+                datasetId === null
+                  ? {
+                      label: "Elegir dataset",
+                      onClick: () => onNavigate("datos"),
+                      icon: Database,
+                    }
+                  : undefined
+              }
             />
           </Card>
         ) : outcome.kind === "running" ? (

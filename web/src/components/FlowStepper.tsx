@@ -1,18 +1,25 @@
 import { cn } from "@/lib/utils"
 
+/** Un paso del flujo; `optional` marca los que NO son un peaje (hoy: Configuración). */
+export interface FlowStep {
+  label: string
+  optional?: boolean
+}
+
 interface FlowStepperProps {
-  steps: { label: string }[]
+  steps: FlowStep[]
   /** Índice (0-based) del paso actual. */
   current: number
 }
 
 /**
- * Stepper horizontal PRESENTACIONAL para el modo demo (B23.6). Sin lógica de
- * negocio: solo pinta ①─②─③ con el paso actual resaltado en acento de marca.
+ * Stepper horizontal PRESENTACIONAL del workspace: pinta ①─②─③ con el paso actual resaltado en
+ * acento de marca, para que se vea dónde se está y cuánto falta. Sin lógica de negocio ni estado
+ * propio: el paso activo lo deriva `App` de la sección abierta en el sidebar (que sigue siendo el
+ * navegador real; el stepper no navega).
  *
- * NO se monta por default (D-UI-B234a-rev-3): el modo local del analista navega
- * libre por el sidebar. B23.6 lo renderizará sobre el área de contenido cuando
- * `mode === "demo"`. Sin test unit: aún no hay runner (vitest) — pendiente B23.5.
+ * Los pasos `optional` se rotulan como tales: desde UX1 el config estándar se siembra y valida
+ * solo al entrar, así que Configuración es un ajuste opcional, no un requisito para ejecutar.
  */
 export function FlowStepper({ steps, current }: FlowStepperProps) {
   return (
@@ -47,6 +54,11 @@ export function FlowStepper({ steps, current }: FlowStepperProps) {
                 >
                   {step.label}
                 </span>
+                {step.optional ? (
+                  <span className="hidden font-mono text-[0.6rem] uppercase tracking-[0.14em] text-muted-foreground sm:inline">
+                    opcional
+                  </span>
+                ) : null}
               </div>
               {index < steps.length - 1 && (
                 <span

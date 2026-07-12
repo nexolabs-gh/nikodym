@@ -19,6 +19,7 @@ import { AppSidebar, type NavItem } from "@/components/AppSidebar"
 import { ConfigTab } from "@/components/ConfigTab"
 import { DatosTab } from "@/components/DatosTab"
 import { EmptyState } from "@/components/EmptyState"
+import { FlowStepper, type FlowStep } from "@/components/FlowStepper"
 import { LandingLauncher } from "@/components/LandingLauncher"
 import { ReporteTab } from "@/components/ReporteTab"
 import { ResultsTab } from "@/components/ResultsTab"
@@ -178,6 +179,26 @@ function configKeyOf(active: string): string | null {
     : null
 }
 
+/**
+ * Los 5 pasos del flujo, tal como los ve el usuario (el sidebar los desglosa; el stepper los
+ * resume). Configuración es OPCIONAL: el config estándar se siembra y valida solo al entrar
+ * (`lib/bootstrap.ts`), así que se puede ir de Datos a Ejecutar sin pasar por ahí.
+ */
+const FLOW_STEPS: (FlowStep & { value: string })[] = [
+  { value: DATA_SECTION.value, label: "Datos" },
+  { value: "config", label: "Configuración", optional: true },
+  { value: "ejecutar", label: "Ejecutar" },
+  { value: "resultados", label: "Resultados" },
+  { value: "reporte", label: "Reporte" },
+]
+
+/** Paso del stepper que corresponde a la sección abierta (cualquier `config:*` es el paso 2). */
+function stepIndexOf(active: string): number {
+  const value = configKeyOf(active) === null ? active : "config"
+  const index = FLOW_STEPS.findIndex((step) => step.value === value)
+  return index === -1 ? 0 : index
+}
+
 function App() {
   // Nivel-0: la landing/launcher se ve ANTES del workspace; entrar la deja atrás.
   const [view, setView] = useState<"landing" | "workspace">("landing")
@@ -213,6 +234,8 @@ function App() {
 
       <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-4xl px-6 py-10 lg:px-10">
+          <FlowStepper steps={FLOW_STEPS} current={stepIndexOf(active)} />
+
           <header className="mb-8">
             <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
               {eyebrow}

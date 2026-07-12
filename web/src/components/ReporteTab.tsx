@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import {
-  ArrowRight,
   CircleAlert,
   Download,
   FileDown,
@@ -132,27 +131,21 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
     }
   }, [runId, reloadKey])
 
-  // Sin corrida: estado vacío sobrio con CTA a Ejecutar (mismo patrón que ResultsTab).
+  // Sin corrida: estado vacío sobrio con CTA que NAVEGA a Ejecutar (mismo patrón que ResultsTab).
   if (runId === null) {
     return (
       <Card className="shadow-card">
         <EmptyState
           icon={FileText}
           title="Aún no ejecutaste un modelo"
-          description="El informe HTML del modelo aparece aquí en cuanto ejecutes una corrida. Ve a Ejecutar y corre el preset para generarlo."
+          description="El informe HTML del modelo aparece aquí en cuanto ejecutes una corrida con la configuración estándar."
           tag="Reporte"
+          action={{
+            label: "Ejecutar el preset",
+            onClick: () => onNavigate("ejecutar"),
+            icon: Play,
+          }}
         />
-        <CardContent className="-mt-6 flex justify-center pb-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate("ejecutar")}
-          >
-            <Play aria-hidden="true" />
-            Ir a Ejecutar
-            <ArrowRight aria-hidden="true" />
-          </Button>
-        </CardContent>
       </Card>
     )
   }

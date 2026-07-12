@@ -90,13 +90,24 @@ export type ValidationState =
  * (hay `config_hash`) y un `datasetId` elegido. Devuelve el motivo del bloqueo para
  * pintarlo en texto sobrio. NO valida dominio: la validez ya la produjo el backend en
  * `validation`; aquí solo se combinan los dos prerequisitos. Testeable sin React ni DOM.
+ *
+ * El motivo distingue el bloqueo TRANSITORIO (el arranque de la sesión aún siembra y valida el
+ * preset: `idle`/`checking`) del bloqueo REAL (config inválido / sin backend): desde UX1 el
+ * config se siembra solo, así que `idle` ya no es "no configuraste", es "todavía no termina".
  */
 export function canRun(
   validation: ValidationState,
   datasetId: string | null,
 ): { ok: boolean; reason?: string } {
-  if (validation.kind !== "valid") {
-    return { ok: false, reason: "Necesitas un config válido" }
+  switch (validation.kind) {
+    case "idle":
+      return { ok: false, reason: "Preparando la configuración…" }
+    case "checking":
+      return { ok: false, reason: "Validando la configuración…" }
+    case "invalid":
+      return { ok: false, reason: "El config tiene errores: revísalo en Configuración" }
+    case "unreachable":
+      return { ok: false, reason: "Sin backend: no se pudo validar el config" }
   }
   if (datasetId === null || datasetId === "") {
     return { ok: false, reason: "Falta elegir dataset" }

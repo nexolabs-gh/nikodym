@@ -100,21 +100,29 @@ describe("canRun (gate de la corrida, SDD §8)", () => {
     })
   })
 
-  it("config no válido ⇒ bloquea con motivo de config, aunque haya dataset", () => {
+  it("arranque en curso (idle/checking) ⇒ bloquea con un motivo TRANSITORIO", () => {
+    // Desde UX1 el config se siembra y valida solo al entrar: `idle` ya no significa "no
+    // configuraste" (eso sería un peaje inexistente), sino "el arranque todavía no termina".
     expect(canRun({ kind: "idle" }, "consumo")).toEqual({
       ok: false,
-      reason: "Necesitas un config válido",
+      reason: "Preparando la configuración…",
     })
     expect(canRun({ kind: "checking" }, "consumo")).toEqual({
       ok: false,
-      reason: "Necesitas un config válido",
+      reason: "Validando la configuración…",
     })
+  })
+
+  it("config inválido o backend caído ⇒ bloquea con el motivo REAL, aunque haya dataset", () => {
     expect(
       canRun({ kind: "invalid", count: 2, lookup: new Map() }, "consumo"),
-    ).toEqual({ ok: false, reason: "Necesitas un config válido" })
+    ).toEqual({
+      ok: false,
+      reason: "El config tiene errores: revísalo en Configuración",
+    })
     expect(canRun({ kind: "unreachable" }, "consumo")).toEqual({
       ok: false,
-      reason: "Necesitas un config válido",
+      reason: "Sin backend: no se pudo validar el config",
     })
   })
 
@@ -132,7 +140,7 @@ describe("canRun (gate de la corrida, SDD §8)", () => {
   it("prioriza el motivo del config sobre el del dataset", () => {
     expect(canRun({ kind: "idle" }, null)).toEqual({
       ok: false,
-      reason: "Necesitas un config válido",
+      reason: "Preparando la configuración…",
     })
   })
 })
