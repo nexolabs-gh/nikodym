@@ -1,0 +1,8 @@
+{# Bloque POR COMPLETAR: caja marcada, con guía concreta de qué escribir. No es un lorem ipsum
+   mudo, y con `report.document.placeholders='hide'` no llega hasta aquí. #}
+<div class="placeholder">
+  <p class="placeholder-title">POR COMPLETAR — {{ section.placeholder.title }}</p>
+  {% for line in section.placeholder.guidance %}
+  <p class="placeholder-guidance">{{ line }}</p>
+  {% endfor %}
+</div>

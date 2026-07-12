@@ -29,13 +29,18 @@ from typing import Any, Final, Literal, TypeAlias, cast
 from pydantic import BaseModel
 
 from nikodym.report._manifest import REPORT_TEMPLATE_VERSION, REPORT_TITLE, html_report_id
-from nikodym.report.builder import CANONICAL_SECTION_ORDER
 from nikodym.report.config import (
     AiNarrationConfig,
     HtmlRenderConfig,
     PdfRenderConfig,
     ReportConfig,
     SectionPolicyConfig,
+)
+from nikodym.report.document import (
+    APPENDIX_TABLES_ID,
+    KEY_TABLES,
+    section_sort_key,
+    table_title,
 )
 from nikodym.report.exceptions import (
     ReportDependencyError,
@@ -124,14 +129,19 @@ class HtmlReportRenderer:
             keep_trailing_newline=True,
         )
         try:
+            section_views = _section_views(bundle, ai_blocks, self.config)
             rendered = _load_template(environment).render(
                 title=REPORT_TITLE,
                 template_id=self.config.html.template_id,
                 template_version=REPORT_TEMPLATE_VERSION,
                 created_from_lineage_at=bundle.lineage.created_at.isoformat(),
+                emitted_date=_emitted_date(bundle),
                 lineage=_lineage_view(bundle),
                 css=_css_for_theme(self.config.html.theme),
-                sections=_section_views(bundle, ai_blocks, self.config),
+                cover=_cover_view(bundle, self.config),
+                executive=_executive_view(bundle),
+                toc=_toc_entries(section_views),
+                sections=section_views,
             )
         except ReportRenderError:
             raise
@@ -309,25 +319,32 @@ def _section_views(
     ai_blocks: tuple[AiNarrationBlock, ...],
     config: ReportConfig,
 ) -> list[dict[str, Any]]:
-    sections_by_id = {section.id: section for section in bundle.sections}
+    """Proyecta cada sección a la vista que consume su parcial, según su ``kind``.
+
+    El dump (payload crudo y tablas completas) sólo se emite donde corresponde —los anexos—; el
+    cuerpo lleva prosa, las tablas que importan y sus gráficos.
+    """
     narratives = {block.section_id: block for block in ai_blocks}
     views: list[dict[str, Any]] = []
-    for section_id in CANONICAL_SECTION_ORDER:
-        section = sections_by_id.get(section_id)
-        if section is None:
-            continue
+    for section in _ordered_sections(bundle.sections):
+        is_appendix = section.kind == "appendix"
         views.append(
             {
                 "id": section.id,
                 "html_id": _element_id("section", section.id),
+                "kind": section.kind,
+                "level": section.level,
+                "number": section.number,
                 "title": section.title,
                 "status": section.status,
                 "source": _section_source(section),
-                "payload_items": _mapping_items(section.payload),
-                "metric_items": _mapping_items(section.metric_sections),
-                "tables": _tables_for_section(bundle, section.id, config.sections.max_table_rows),
-                "charts": _charts_for_section(bundle, section.id, config),
-                "figures": _figures_for_section(bundle, section.id),
+                "body": list(section.body),
+                "placeholder": _placeholder_view(section),
+                "payload_items": _mapping_items(section.payload) if is_appendix else [],
+                "metric_items": _mapping_items(section.metric_sections) if is_appendix else [],
+                "tables": _tables_for_section(bundle, section, config.sections.max_table_rows),
+                "charts": _charts_for_section(bundle, section, config),
+                "figures": _figures_for_section(bundle, section),
                 "narration": _narration_view(narratives.get(section.id), config.ai.label_ai_text),
             }
         )
@@ -335,8 +352,104 @@ def _section_views(
 
 
 def _ordered_sections(sections: tuple[ReportSection, ...]) -> tuple[ReportSection, ...]:
-    order = {section_id: index for index, section_id in enumerate(CANONICAL_SECTION_ORDER)}
-    return tuple(sorted(sections, key=lambda section: (order.get(section.id, 999), section.id)))
+    """Ordena por la clave canónica del documento (fuente única: ``report.document``)."""
+    return tuple(sorted(sections, key=lambda section: (*section_sort_key(section.id), section.id)))
+
+
+def _placeholder_view(section: ReportSection) -> dict[str, Any] | None:
+    """Proyecta el bloque POR COMPLETAR; ``None`` cuando el config pide ocultarlo."""
+    if section.placeholder is None:
+        return None
+    return {
+        "title": section.placeholder.title,
+        "guidance": list(section.placeholder.guidance),
+    }
+
+
+def _toc_entries(views: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Genera el índice desde las secciones ya proyectadas: el documento se indexa a sí mismo."""
+    entries: list[dict[str, Any]] = [
+        {"href": "#exec-summary", "number": "", "title": "Resumen ejecutivo", "level": 1}
+    ]
+    for view in views:
+        if view["kind"] == "toc":
+            continue
+        entries.append(
+            {
+                "href": f"#{view['html_id']}",
+                "number": _display_number(view),
+                "title": str(view["title"]),
+                "level": int(view["level"]),
+            }
+        )
+    return entries
+
+
+def _display_number(view: Mapping[str, Any]) -> str:
+    """Numeración visible: '4.3' en los capítulos, 'Anexo B' en los anexos de primer nivel."""
+    number = str(view["number"])
+    if not number:
+        return ""
+    if view["kind"] == "appendix" and int(view["level"]) == 1:
+        return f"Anexo {number}"
+    return number
+
+
+def _cover_view(bundle: ReportInputBundle, config: ReportConfig) -> list[dict[str, Any]]:
+    """Campos de portada: lo declarado se imprime; lo no declarado queda en blanco, no inventado."""
+    document = config.document
+    campos = (
+        ("Modelo", document.model_name),
+        ("Entidad", document.entity),
+        ("Cartera", document.portfolio),
+        ("Responsable del desarrollo", document.author),
+        ("Versión del informe", document.version),
+    )
+    del bundle
+    return [
+        {"label": label, "value": value.strip(), "filled": bool(value.strip())}
+        for label, value in campos
+    ]
+
+
+def _emitted_date(bundle: ReportInputBundle) -> str:
+    """Fecha de emisión legible (``YYYY-MM-DD``) derivada del lineage, no del reloj de pared.
+
+    El timestamp completo con microsegundos sigue íntegro en el manifest y en el Anexo A; en la
+    portada de un informe firmable lo que corresponde es una fecha.
+    """
+    return bundle.lineage.created_at.date().isoformat()
+
+
+def _executive_view(bundle: ReportInputBundle) -> dict[str, Any]:
+    """Métricas clave del resumen ejecutivo (AUC/Gini/KS y PSI) con la banda del motor."""
+    from nikodym.report.prose import executive_view
+
+    view = executive_view(bundle)
+    return {
+        "metrics": [
+            {
+                "label": metric.label,
+                "scope": metric.scope,
+                "value": metric.value,
+                "band": metric.band,
+                "band_class": _band_class(metric.band),
+            }
+            for metric in view.metrics
+        ],
+        "notes": list(view.notes),
+    }
+
+
+def _band_class(band: str) -> str:
+    """Clase CSS del semáforo: sólo se colorea lo que el motor sí evaluó."""
+    if band in {"Bajo el umbral configurado", "Requiere redesarrollo"}:
+        return "band-alert"
+    if band == "Requiere revisión":
+        return "band-warn"
+    if band in {"Sin alertas", "Estable"}:
+        return "band-ok"
+    return "band-none"
 
 
 def _lineage_view(bundle: ReportInputBundle) -> dict[str, str]:
@@ -365,7 +478,13 @@ def _mapping_items(value: Mapping[str, Any]) -> list[dict[str, str | bool]]:
 
 
 def _narration_view(block: AiNarrationBlock | None, label_ai_text: bool) -> dict[str, str] | None:
-    if block is None:
+    """Muestra el bloque narrativo sólo si aporta algo que la prosa del cuerpo no dice ya.
+
+    La narrativa determinista **es** el cuerpo de la sección (``body``): repetirla como bloque
+    aparte duplicaría el texto. Se emite, entonces, sólo cuando la escribió la IA (opt-in) o cuando
+    hay que declarar que la IA degradó a la ruta básica.
+    """
+    if block is None or (not block.generated and not block.warning):
         return None
     label = "Narrativa generada por IA" if label_ai_text and block.generated else ""
     warning = block.warning or ""
@@ -374,15 +493,24 @@ def _narration_view(block: AiNarrationBlock | None, label_ai_text: bool) -> dict
 
 def _tables_for_section(
     bundle: ReportInputBundle,
-    section_id: str,
+    section: ReportSection,
     max_rows: int,
 ) -> list[dict[str, Any]]:
-    tables: list[dict[str, Any]] = []
-    prefix = f"{section_id}."
-    for key in sorted(bundle.tables, key=str):
-        if key == section_id or key.startswith(prefix):
-            tables.append(_table_view(key, bundle.tables[key], max_rows=max_rows))
-    return tables
+    """Resuelve qué tablas muestra una sección.
+
+    El Anexo B publica **todas** las tablas de la corrida (la trazabilidad no se pierde: se
+    concentra). El cuerpo muestra sólo las de :data:`~nikodym.report.document.KEY_TABLES` del
+    dominio, que son las que sostienen el juicio de validación.
+    """
+    if section.id == APPENDIX_TABLES_ID:
+        keys: tuple[str, ...] = tuple(sorted(bundle.tables, key=str))
+    elif section.kind == "data" and section.source_domain and section.status == "included":
+        keys = tuple(
+            key for key in KEY_TABLES.get(section.source_domain, ()) if key in bundle.tables
+        )
+    else:
+        keys = ()
+    return [_table_view(key, bundle.tables[key], max_rows=max_rows) for key in keys]
 
 
 def _table_view(key: str, table: Any, *, max_rows: int) -> dict[str, Any]:
@@ -401,6 +529,7 @@ def _table_view(key: str, table: Any, *, max_rows: int) -> dict[str, Any]:
     visible_rows = rows[:max_rows]
     return {
         "key": key,
+        "title": table_title(key),
         "html_id": _element_id("table", key),
         "columns": [str(column) for column in columns],
         "rows": visible_rows,
@@ -410,19 +539,18 @@ def _table_view(key: str, table: Any, *, max_rows: int) -> dict[str, Any]:
     }
 
 
-def _figures_for_section(bundle: ReportInputBundle, section_id: str) -> list[dict[str, str]]:
-    figures: list[dict[str, str]] = []
-    prefix = f"{section_id}."
-    for key in sorted(bundle.figures, key=str):
-        if key == section_id or key.startswith(prefix):
-            figures.append(
-                {
-                    "key": key,
-                    "html_id": _element_id("figure", key),
-                    "payload": _display_value(bundle.figures[key], key_path=(key,)),
-                }
-            )
-    return figures
+def _figures_for_section(bundle: ReportInputBundle, section: ReportSection) -> list[dict[str, str]]:
+    """Las figuras declarativas acompañan al detalle: viven en el Anexo B."""
+    if section.id != APPENDIX_TABLES_ID:
+        return []
+    return [
+        {
+            "key": key,
+            "html_id": _element_id("figure", key),
+            "payload": _display_value(bundle.figures[key], key_path=(key,)),
+        }
+        for key in sorted(bundle.figures, key=str)
+    ]
 
 
 _CHART_TITLES: Final[dict[str, str]] = {
@@ -504,19 +632,21 @@ _CHART_BUILDERS: Final[
 
 def _charts_for_section(
     bundle: ReportInputBundle,
-    section_id: str,
+    section: ReportSection,
     config: ReportConfig,
 ) -> list[dict[str, str]]:
     """Genera los SVG deterministas de la sección desde ``bundle.tables`` (import perezoso).
 
-    Cada gráfico se produce aislado y con degradación con gracia: si falta ``matplotlib``, faltan
-    columnas o la tabla no está publicada, se omite ese gráfico (el slot editorial queda vacío) y el
-    reporte se renderiza igual. El import de :mod:`nikodym.report.charts` es perezoso para preservar
-    el import liviano del paquete ``report`` (nunca top-level).
+    Los gráficos acompañan al **cuerpo** (las subsecciones de datos de Resultados y Contexto),
+    donde sostienen la lectura; no se repiten en los anexos. Cada gráfico se produce aislado y con
+    degradación con gracia: si falta ``matplotlib``, faltan columnas o la tabla no está publicada,
+    se omite ese gráfico y el reporte se renderiza igual. El import de
+    :mod:`nikodym.report.charts` es perezoso para preservar el import liviano del paquete.
     """
-    if not config.html.render_charts:
+    if not config.html.render_charts or section.kind != "data" or section.status != "included":
         return []
-    builders = _CHART_BUILDERS.get(section_id)
+    domain = section.source_domain
+    builders = _CHART_BUILDERS.get(domain) if domain is not None else None
     if builders is None:
         return []
     from nikodym.report import charts  # perezoso: matplotlib no entra al import del paquete.
@@ -528,12 +658,12 @@ def _charts_for_section(
         except Exception as exc:  # degradación con gracia: un gráfico nunca tumba el reporte.
             _LOGGER.warning(
                 "report: gráfico '%s.%s' omitido por degradación con gracia: %s",
-                section_id,
+                domain,
                 name,
                 exc,
             )
             continue
-        results.append({"html_id": _element_id("chart", f"{section_id}-{name}"), "svg": svg})
+        results.append({"html_id": _element_id("chart", f"{domain}-{name}"), "svg": svg})
     return results
 
 

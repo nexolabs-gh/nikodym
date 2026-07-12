@@ -48,6 +48,7 @@ from nikodym.eda.config import (
 )
 from nikodym.model.config import IvContributionConfig, ModelConfig, SignPolicyConfig, StepwiseConfig
 from nikodym.performance.config import PerformanceConfig
+from nikodym.report.builder import CANONICAL_SECTION_ORDER
 from nikodym.report.config import (
     AiNarrationConfig,
     PdfRenderConfig,
@@ -70,7 +71,7 @@ from nikodym.stability.config import StabilityConfig
 ROOT_SEED = 20_240_629
 # Golden del ``_digest_html`` (excluye ``<svg>``): con el extra ``report`` el bundle golden embebe
 # un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
-GOLDEN_STEP_HTML_SHA256 = "53c77c7b60b0428f2fe74e60acbce7187ed555c7e2a3daea5949df2e54fe26e2"
+GOLDEN_STEP_HTML_SHA256 = "08c2f11333b357b700e9071aa0ee0d3d03fd1bb8a83143e45988f3344e44525d"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -180,19 +181,16 @@ def test_execute_publica_result_manifest_goldens_audit_y_no_consume_rng(tmp_path
     assert result.manifest.path == "scorecard_report.html"
     assert result.manifest.ai_enabled is True
     assert result.manifest.ai_used is False
-    assert tuple(section.id for section in result.input_bundle.sections) == (
-        "lineage",
-        "eda",
-        "binning",
-        "selection",
-        "model",
-        "scorecard",
-        "calibration",
-        "performance",
-        "stability",
-        "limitations",
-        "appendix",
+    # El documento: capítulos de primer nivel en el orden canónico único (report.document).
+    assert (
+        tuple(section.id for section in result.input_bundle.sections if section.level == 1)
+        == CANONICAL_SECTION_ORDER
     )
+    # Los ocho dominios del pipeline son ahora subsecciones, no secciones de primer nivel.
+    ids = {section.id for section in result.input_bundle.sections}
+    assert "results.performance" in ids
+    assert "appendix_parameters.model" in ids
+    assert "performance" not in ids
     assert result.input_bundle.missing_sections == ()
     assert tuple(block.section_id for block in result.ai_blocks) == tuple(
         section.id for section in result.input_bundle.sections
@@ -311,18 +309,10 @@ def test_manifest_en_memoria_y_exportado_tienen_identidad_canonica(tmp_path: Pat
     assert memory_manifest.sha256 == written_manifest.sha256
     if _HAS_MATPLOTLIB:
         assert memory_manifest.sha256 == GOLDEN_STEP_HTML_SHA256
-    assert tuple(section.id for section in memory_manifest.sections) == (
-        "lineage",
-        "eda",
-        "binning",
-        "selection",
-        "model",
-        "scorecard",
-        "calibration",
-        "performance",
-        "stability",
-        "limitations",
-        "appendix",
+    # El manifest reordena al orden canónico del documento aunque el bundle llegue invertido.
+    assert (
+        tuple(section.id for section in memory_manifest.sections if section.level == 1)
+        == CANONICAL_SECTION_ORDER
     )
     assert tuple(section.id for section in written_manifest.sections) == tuple(
         section.id for section in memory_manifest.sections

@@ -1,0 +1,43 @@
+{# Portada: metadatos de proyecto declarados en el config. Lo que no se declara NO se inventa: se
+   emite como campo en blanco para completar a mano. El lineage identifica la corrida. #}
+<section class="cover">
+  <div class="cover-brand">Nikodym</div>
+  <p class="cover-kicker">Informe de validación de modelos</p>
+  <h1 class="cover-title">Informe de Validación de Scorecard</h1>
+  <p class="confidential">USO INTERNO — CONFIDENCIAL</p>
+
+  <dl class="cover-fields">
+    {% for field in cover %}
+    <dt>{{ field.label }}</dt>
+    <dd>{% if field.filled %}{{ field.value }}{% else %}<span class="to-fill" aria-label="Campo por completar"></span>{% endif %}</dd>
+    {% endfor %}
+    <dt>Fecha de emisión</dt>
+    <dd>{{ emitted_date }}</dd>
+  </dl>
+
+  <div class="lineage-box">
+    <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
+    <div class="lineage-line"><code>config_hash={{ lineage.config_hash }}</code></div>
+    <div class="lineage-line"><code>data_hash={{ lineage.data_hash }}</code></div>
+    <div class="lineage-line"><code>git_sha={{ lineage.git_sha }}</code></div>
+    <div class="lineage-line"><code>root_seed={{ lineage.root_seed }}</code></div>
+  </div>
+
+  <div class="roles">
+    <div class="role">
+      <p class="role-title">Desarrollo</p>
+      <div class="role-field"></div>
+      <p class="role-hint">Nombre y fecha</p>
+    </div>
+    <div class="role">
+      <p class="role-title">Validación independiente</p>
+      <div class="role-field"></div>
+      <p class="role-hint">Nombre y fecha</p>
+    </div>
+    <div class="role">
+      <p class="role-title">Aprobación</p>
+      <div class="role-field"></div>
+      <p class="role-hint">Nombre y fecha</p>
+    </div>
+  </div>
+</section>

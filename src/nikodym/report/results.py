@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from nikodym.report.document import SectionKind
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -36,12 +38,14 @@ ReportOutputFormat: TypeAlias = Literal["html", "pdf", "docx", "json", "csv", "x
 
 __all__ = [
     "AiNarrationBlock",
+    "PlaceholderBlock",
     "ReportInputBundle",
     "ReportManifest",
     "ReportOutputFormat",
     "ReportResult",
     "ReportSection",
     "ReportSectionStatus",
+    "SectionKind",
 ]
 
 
@@ -60,8 +64,25 @@ class _ReportBaseModel(BaseModel):
         return value
 
 
+class PlaceholderBlock(_ReportBaseModel):
+    """Bloque **POR COMPLETAR** que un humano debe redactar, con guía de qué escribir.
+
+    No es un lorem ipsum mudo: ``guidance`` dice explícitamente qué se espera en ese hueco. Con
+    ``report.document.placeholders='hide'`` el render lo omite y el mismo motor sirve para el
+    borrador y para el entregable final.
+    """
+
+    title: str
+    guidance: tuple[str, ...] = Field(default=())
+
+
 class ReportSection(_ReportBaseModel):
-    """Sección lógica del reporte ensamblada desde un dominio aguas arriba."""
+    """Sección del documento: capítulo de prosa, bloque de datos, índice o anexo.
+
+    Los campos de estructura (``kind``, ``level``, ``number``, ``body``, ``placeholder``) son
+    aditivos y traen default, de modo que un ``ReportSection`` construido con el contrato previo
+    —una card del pipeline— sigue validando sin cambios.
+    """
 
     _COPY_ON_ACCESS_FIELDS: ClassVar[frozenset[str]] = frozenset({"payload", "metric_sections"})
 
@@ -72,6 +93,11 @@ class ReportSection(_ReportBaseModel):
     source_key: str | None
     payload: dict[str, Any] = Field(default_factory=dict)
     metric_sections: dict[str, Any] = Field(default_factory=dict)
+    kind: SectionKind = "data"
+    level: int = Field(default=1, ge=1, le=2)
+    number: str = ""
+    body: tuple[str, ...] = Field(default=())
+    placeholder: PlaceholderBlock | None = None
 
     @field_validator("payload", "metric_sections", mode="before")
     @classmethod
@@ -85,7 +111,9 @@ class ReportInputBundle(_ReportBaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
-    _COPY_ON_ACCESS_FIELDS: ClassVar[frozenset[str]] = frozenset({"cards", "tables", "figures"})
+    _COPY_ON_ACCESS_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"cards", "tables", "figures", "pipeline_params"}
+    )
 
     lineage: LineageBundleLike
     cards: dict[str, Any]
@@ -93,8 +121,15 @@ class ReportInputBundle(_ReportBaseModel):
     figures: dict[str, Any]
     sections: tuple[ReportSection, ...]
     missing_sections: tuple[str, ...] = Field(default=())
+    pipeline_params: dict[str, Any] = Field(default_factory=dict)
+    """Snapshot JSON de las secciones de config de cada dominio del pipeline.
 
-    @field_validator("cards", "tables", "figures", mode="before")
+    Es lo que permite que la Metodología describa **lo que realmente se ejecutó** (solver del
+    binning, umbrales de selección, escala del scorecard) en vez de frases fijas. Un dominio
+    ausente simplemente no aparece: la prosa omite lo que no puede afirmar.
+    """
+
+    @field_validator("cards", "tables", "figures", "pipeline_params", mode="before")
     @classmethod
     def _copia_contenedores_mutables(cls, value: Any) -> Any:
         """Copia cards, tablas y figuras para aislar el bundle de mutaciones externas."""

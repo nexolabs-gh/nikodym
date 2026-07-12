@@ -1,0 +1,1369 @@
+"""Prosa determinista del informe: Metodología, Resultados y hallazgos (SDD-26; mejora 1.1).
+
+El motor sabe exactamente qué hizo y con qué parámetros, así que puede **redactarlo**: qué solver
+resolvió el binning, con cuántos bins y qué monotonía; qué umbrales de IV/VIF/estabilidad filtraron
+las variables; cómo se escaló el scorecard (PDO/offset); qué método calibró la PD. Nada de esto es
+una frase fija: sale del config real de la corrida (``bundle.pipeline_params``) y de las cards
+(``bundle.cards``).
+
+Tres reglas, no negociables porque esto va a un regulador:
+
+1. **Determinista y sin red.** Dos corridas del mismo modelo producen el mismo texto, byte a byte.
+   Este módulo no llama al ``AINarrator`` ni a ningún proveedor: la IA sigue siendo opt-in y
+   decorativa.
+2. **Cero números inventados.** Cada cifra sale de un payload o artefacto real. Si un dato no está,
+   la frase se omite o declara la ausencia; jamás se rellena con un supuesto.
+3. **No recalcula.** ``report`` es pass-through: la prosa enuncia e interpreta usando las métricas
+   y **bandas** que los dominios ya publicaron (``bands_by_partition``, ``bands_by_comparison``,
+   ``threshold_flags_by_partition``), nunca derivando métricas nuevas.
+
+**Experimental (fuera de la garantía SemVer 1.x).**
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Final
+
+from nikodym.report.document import DOMAIN_TITLES
+
+if TYPE_CHECKING:
+    from nikodym.report.results import ReportInputBundle
+
+__all__ = [
+    "ExecutiveMetric",
+    "ExecutiveView",
+    "conclusions_body",
+    "context_body",
+    "executive_view",
+    "limitations_body",
+    "methodology_body",
+    "methodology_intro",
+    "results_body",
+    "results_intro",
+]
+
+_PARTITION_LABELS: Final[dict[str, str]] = {
+    "desarrollo": "Desarrollo",
+    "holdout": "Holdout",
+    "oot": "Fuera de tiempo (OOT)",
+}
+_COMPARISON_LABELS: Final[dict[str, str]] = {
+    "dev_vs_holdout": "Desarrollo vs. Holdout",
+    "dev_vs_oot": "Desarrollo vs. OOT",
+}
+_DISCRIMINANT_BANDS: Final[dict[str, str]] = {
+    "ok": "Sin alertas",
+    "threshold_flag": "Bajo el umbral configurado",
+    "not_evaluable": "No evaluable",
+}
+_STABILITY_BANDS: Final[dict[str, str]] = {
+    "stable": "Estable",
+    "review": "Requiere revisión",
+    "redevelop": "Requiere redesarrollo",
+    "not_evaluable": "No evaluable",
+}
+_SOLVER_LABELS: Final[dict[str, str]] = {
+    "cp": "programación con restricciones (CP)",
+    "mip": "programación entera mixta (MIP)",
+}
+_MONOTONIC_LABELS: Final[dict[str, str]] = {
+    "auto": "automática",
+    "auto_heuristic": "automática (heurística)",
+    "auto_asc_desc": "automática (ascendente o descendente)",
+    "ascending": "ascendente",
+    "descending": "descendente",
+    "concave": "cóncava",
+    "convex": "convexa",
+    "peak": "con máximo interior",
+    "peak_heuristic": "con máximo interior (heurística)",
+    "valley": "con mínimo interior",
+    "valley_heuristic": "con mínimo interior (heurística)",
+}
+_CALIBRATION_METHODS: Final[dict[str, str]] = {
+    "intercept_offset": "desplazamiento del intercepto (intercept offset)",
+    "platt_scaling": "escalamiento de Platt",
+    "isotonic": "regresión isotónica",
+}
+_ANCHOR_SOURCES: Final[dict[str, str]] = {
+    "business_input": "un ancla de negocio declarada explícitamente",
+    "historical_default_rate": "la tasa de incumplimiento histórica",
+    "development_observed": "la tasa de incumplimiento observada en Desarrollo",
+    "external_regulatory": "un ancla regulatoria externa",
+}
+_ANCHOR_KINDS: Final[dict[str, str]] = {
+    "through_the_cycle": "a través del ciclo (TTC)",
+    "point_in_time": "puntual en el tiempo (PIT)",
+}
+_ENGINE_LABELS: Final[dict[str, str]] = {
+    "logit": "regresión logística (logit)",
+    "glm_binomial": "modelo lineal generalizado binomial",
+}
+_STEPWISE_DIRECTIONS: Final[dict[str, str]] = {
+    "none": "sin stepwise: se ajustó con todas las variables seleccionadas",
+    "forward": "stepwise hacia adelante",
+    "backward": "stepwise hacia atrás",
+    "bidirectional": "stepwise bidireccional",
+}
+_SCORE_DIRECTIONS: Final[dict[str, str]] = {
+    "higher_is_lower_risk": "un puntaje más alto indica menor riesgo",
+    "higher_is_higher_risk": "un puntaje más alto indica mayor riesgo",
+}
+_ROUNDING_METHODS: Final[dict[str, str]] = {
+    "none": "sin redondeo",
+    "nearest_integer": "redondeo al entero más cercano",
+    "floor_integer": "redondeo hacia abajo",
+    "ceil_integer": "redondeo hacia arriba",
+}
+_SPECIAL_HANDLING: Final[dict[str, str]] = {
+    "separate": "en un bin propio",
+    "as_missing": "junto con los faltantes",
+}
+_DISCRIMINANT_METRIC_LABELS: Final[tuple[tuple[str, str], ...]] = (
+    ("auc", "AUC"),
+    ("gini", "Gini"),
+    ("ks", "KS"),
+)
+_NOT_AVAILABLE: Final = "No disponible"
+
+
+class ExecutiveMetric:
+    """Fila del semáforo del resumen ejecutivo: una métrica, su alcance y su banda."""
+
+    __slots__ = ("band", "label", "scope", "value")
+
+    def __init__(self, *, label: str, scope: str, value: str, band: str) -> None:
+        self.label = label
+        self.scope = scope
+        self.value = value
+        self.band = band
+
+
+class ExecutiveView:
+    """Vista del resumen ejecutivo: métricas clave y las notas que evitan leerlas de más."""
+
+    __slots__ = ("metrics", "notes")
+
+    def __init__(self, *, metrics: tuple[ExecutiveMetric, ...], notes: tuple[str, ...]) -> None:
+        self.metrics = metrics
+        self.notes = notes
+
+
+# ────────────────────────────── resumen ejecutivo ──────────────────────────────
+
+
+def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
+    """Arma el semáforo de métricas clave (AUC/KS/Gini y PSI) con la banda que publicó el motor.
+
+    Nunca emite un veredicto: el veredicto lo firma el validador. Y si ``performance`` corrió sin
+    umbrales configurados, lo dice: sin umbral no hay alerta posible, y una banda "sin alertas"
+    leída como "cumple" sería engañosa.
+    """
+    metrics: list[ExecutiveMetric] = []
+    notes: list[str] = []
+
+    performance = _card(bundle, "performance")
+    if performance is not None:
+        max_metrics = _mapping(performance.get("max_metrics_by_partition"))
+        bands = _mapping(performance.get("bands_by_partition"))
+        for partition in _sequence(performance.get("partitions")):
+            partition_id = str(partition)
+            values = _mapping(max_metrics.get(partition_id))
+            band = _DISCRIMINANT_BANDS.get(str(bands.get(partition_id, "")), _NOT_AVAILABLE)
+            for key, label in _DISCRIMINANT_METRIC_LABELS:
+                metrics.append(
+                    ExecutiveMetric(
+                        label=label,
+                        scope=_partition_label(partition_id),
+                        value=_num(values.get(key), decimals=4),
+                        band=band,
+                    )
+                )
+        if not _mapping(performance.get("thresholds")):
+            notes.append(
+                "No se configuraron umbrales de discriminación, de modo que el motor no puede "
+                "levantar alertas sobre AUC, Gini ni KS: «sin alertas» significa que no había "
+                "umbral contra el cual comparar, no que la métrica sea satisfactoria."
+            )
+
+    stability = _card(bundle, "stability")
+    if stability is not None:
+        max_psi = _mapping(stability.get("max_psi_by_comparison"))
+        bands = _mapping(stability.get("bands_by_comparison"))
+        for comparison in _sequence(stability.get("comparisons")):
+            comparison_id = str(comparison)
+            metrics.append(
+                ExecutiveMetric(
+                    label="PSI del score",
+                    scope=_comparison_label(comparison_id),
+                    value=_num(max_psi.get(comparison_id), decimals=4),
+                    band=_STABILITY_BANDS.get(str(bands.get(comparison_id, "")), _NOT_AVAILABLE),
+                )
+            )
+        stable = _float(stability.get("stable_threshold"))
+        review = _float(stability.get("review_threshold"))
+        if stable is not None and review is not None:
+            notes.append(
+                f"Las bandas de PSI usan los umbrales configurados: estable por debajo de "
+                f"{_num(stable, decimals=2)} y redesarrollo por sobre {_num(review, decimals=2)}."
+            )
+
+    if not metrics:
+        notes.append(
+            "Las métricas clave no están disponibles: la corrida no publicó las cards de "
+            "desempeño ni de estabilidad. El informe no las sustituye por supuestos."
+        )
+    return ExecutiveView(metrics=tuple(metrics), notes=tuple(notes))
+
+
+# ────────────────────────────── contexto ──────────────────────────────
+
+
+def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Redacta lo que el motor sí sabe de la población: volumen, incumplimiento y particiones."""
+    paragraphs: list[str] = []
+    eda = _card(bundle, "eda")
+    data_params = _params(bundle, "data")
+
+    if eda is not None:
+        rate = _float(eda.get("overall_default_rate"))
+        periods = _int(eda.get("n_periods"))
+        columns = _int(eda.get("n_columns_profiled"))
+        frases: list[str] = []
+        if rate is not None:
+            frases.append(
+                f"La tasa de incumplimiento observada en la población analizada es de {_pct(rate)}"
+            )
+        if periods is not None:
+            frases.append(
+                f"la ventana de análisis abarca {periods} {_plural(periods, 'período', 'períodos')}"
+            )
+        if columns is not None:
+            frases.append(
+                f"se perfilaron {columns} {_plural(columns, 'variable', 'variables')} candidatas"
+            )
+        if frases:
+            paragraphs.append(f"{_enumerar(frases)}.")
+
+        flags = _mapping(eda.get("quality_flag_counts"))
+        alertas = tuple(
+            f"{_int(count)} {_quality_label(str(flag))}"
+            for flag, count in sorted(flags.items(), key=lambda item: str(item[0]))
+            if _int(count)
+        )
+        if alertas:
+            paragraphs.append(
+                f"El perfilado de calidad de datos levantó alertas sobre {_enumerar(alertas)}. "
+                "El detalle por variable está en el Anexo B."
+            )
+        else:
+            paragraphs.append(
+                "El perfilado de calidad de datos no levantó alertas de variables casi "
+                "constantes, casi únicas ni de cardinalidad excesiva."
+            )
+
+        if _bool(eda.get("stability_flagged")):
+            metric = _text(eda.get("stability_metric_used"))
+            value = _float(eda.get("stability_value"))
+            threshold = _float(eda.get("stability_threshold"))
+            if metric is not None and value is not None and threshold is not None:
+                paragraphs.append(
+                    f"La estabilidad temporal de la tasa de incumplimiento quedó marcada: el "
+                    f"indicador «{metric}» alcanza {_num(value)} frente al umbral configurado de "
+                    f"{_num(threshold)}. Este punto debe explicarse en el bloque de contexto."
+                )
+
+    target = _mapping(data_params.get("target"))
+    target_col = _text(target.get("target_col"))
+    if target_col is not None:
+        paragraphs.append(
+            f"La variable objetivo del ejercicio es «{target_col}», construida por las reglas de "
+            "incumplimiento declaradas en el config (Anexo C). La definición de negocio que "
+            "justifica esas reglas —p. ej. 90+ días de mora— debe explicitarla el analista: el "
+            "motor aplica la regla, no la fundamenta."
+        )
+
+    partition = _mapping(data_params.get("partition"))
+    strategy = _mapping(partition.get("strategy"))
+    strategy_type = _text(strategy.get("type"))
+    if strategy_type is not None:
+        paragraphs.append(_partition_sentence(strategy_type, strategy))
+
+    if not paragraphs:
+        paragraphs.append(
+            "La corrida no publicó datos de población (card de EDA ni config de datos); este "
+            "capítulo debe completarse íntegramente a mano."
+        )
+    return tuple(paragraphs)
+
+
+def _partition_sentence(strategy_type: str, strategy: Mapping[str, Any]) -> str:
+    """Describe la partición realmente usada, con sus parámetros."""
+    if strategy_type == "temporal":
+        date_col = _text(strategy.get("date_col"))
+        oot_from = _text(strategy.get("oot_from"))
+        fraction = _float(strategy.get("holdout_fraction"))
+        detalle = f"por corte temporal sobre «{date_col}»" if date_col else "por corte temporal"
+        if oot_from:
+            detalle += f", con la ventana fuera de tiempo (OOT) desde {oot_from}"
+        if fraction is not None:
+            detalle += f", y un Holdout de {_pct(fraction)} del resto"
+        return f"La población se particionó {detalle}."
+    if strategy_type == "cohort":
+        cohort_col = _text(strategy.get("cohort_col"))
+        cohorts = _sequence(strategy.get("oot_cohorts"))
+        fraction = _float(strategy.get("holdout_fraction"))
+        detalle = f"por cohorte sobre «{cohort_col}»" if cohort_col else "por cohorte"
+        if cohorts:
+            detalle += (
+                f", reservando como OOT {_plural(len(cohorts), 'la cohorte', 'las cohortes')} "
+                f"{_enumerar(tuple(f'«{cohort}»' for cohort in cohorts))}"
+            )
+        if fraction is not None:
+            detalle += f", y un Holdout de {_pct(fraction)} del resto"
+        return f"La población se particionó {detalle}."
+    if strategy_type == "random":
+        dev = _float(strategy.get("dev_fraction"))
+        holdout = _float(strategy.get("holdout_fraction"))
+        oot = _float(strategy.get("oot_fraction"))
+        partes = tuple(
+            f"{label} {_pct(value)}"
+            for label, value in (("Desarrollo", dev), ("Holdout", holdout), ("OOT", oot))
+            if value is not None
+        )
+        if partes:
+            return f"La población se particionó de forma aleatoria: {_enumerar(partes)}."
+        return "La población se particionó de forma aleatoria."
+    return f"La población se particionó con la estrategia «{strategy_type}»."
+
+
+# ────────────────────────────── metodología ──────────────────────────────
+
+
+def methodology_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Encuadra la metodología: qué etapas se ejecutaron realmente y bajo qué trazabilidad."""
+    etapas = tuple(
+        DOMAIN_TITLES[domain]
+        for domain in ("binning", "selection", "model", "scorecard", "calibration")
+        if domain in bundle.cards
+    )
+    if not etapas:
+        return (
+            "La corrida no publicó las cards de las etapas de construcción, de modo que este "
+            "capítulo no puede describir la metodología ejecutada.",
+        )
+    return (
+        "Este capítulo describe el procedimiento realmente ejecutado por el motor en esta "
+        "corrida, con los parámetros efectivos que constan en el config trazado en el Anexo A. "
+        "No es una descripción genérica de la técnica: cada cifra citada aquí es la que produjo "
+        "este modelo.",
+    )
+
+
+def methodology_body(bundle: ReportInputBundle, domain: str) -> tuple[str, ...]:
+    """Despacha la prosa metodológica de la etapa pedida."""
+    if domain == "data":
+        return _methodology_data(bundle)
+    if domain == "binning":
+        return _methodology_binning(bundle)
+    if domain == "selection":
+        return _methodology_selection(bundle)
+    if domain == "model":
+        return _methodology_model(bundle)
+    if domain == "scorecard":
+        return _methodology_scorecard(bundle)
+    if domain == "calibration":
+        return _methodology_calibration(bundle)
+    return ()
+
+
+def _methodology_data(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Tratamiento de datos: esquema, faltantes, especiales y ventana de desempeño."""
+    params = _params(bundle, "data")
+    if not params:
+        return ()
+    paragraphs: list[str] = []
+
+    schema = _mapping(params.get("schema_")) or _mapping(params.get("schema"))
+    columns = _sequence(schema.get("columns"))
+    if columns:
+        paragraphs.append(
+            f"El dataset se validó contra un esquema declarado de {len(columns)} "
+            f"{_plural(len(columns), 'columna', 'columnas')}, con tipos y nulabilidad "
+            "explícitos; una desviación del esquema detiene la corrida en vez de propagarse."
+        )
+
+    missing = _mapping(params.get("missing"))
+    max_missing = _float(missing.get("max_missing_rate"))
+    specials = _sequence(missing.get("special_values"))
+    frases: list[str] = []
+    if max_missing is not None:
+        frases.append(
+            f"se rechaza toda variable con más de {_pct(max_missing)} de valores faltantes"
+        )
+    if specials:
+        frases.append(
+            f"se declararon {len(specials)} {_plural(len(specials), 'grupo', 'grupos')} de "
+            "valores especiales (centinelas), que no se confunden con faltantes"
+        )
+    if frases:
+        paragraphs.append(f"En el tratamiento de faltantes {_enumerar(frases)}.")
+
+    target = _mapping(params.get("target"))
+    window = _mapping(target.get("window"))
+    months = _int(window.get("months"))
+    if months is not None:
+        paragraphs.append(
+            f"El incumplimiento se observa en una ventana de desempeño de {months} "
+            f"{_plural(months, 'mes', 'meses')} desde la fecha de observación."
+        )
+    exclusions = _sequence(target.get("exclusion_rules"))
+    if exclusions:
+        paragraphs.append(
+            f"Se aplicaron {len(exclusions)} {_plural(len(exclusions), 'regla', 'reglas')} de "
+            "exclusión sobre la población; su detalle literal consta en el Anexo C."
+        )
+    return tuple(paragraphs)
+
+
+def _methodology_binning(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Binning WoE: solver, número de bins, tamaño mínimo, monotonía y especiales."""
+    card = _card(bundle, "binning")
+    params = _params(bundle, "binning")
+    if card is None and not params:
+        return ()
+    paragraphs: list[str] = []
+
+    solver = _text(params.get("solver"))
+    max_bins = _int(params.get("max_n_bins"))
+    min_bins = _int(params.get("min_n_bins"))
+    min_size = _float(params.get("min_bin_size"))
+    prebins = _int(params.get("max_n_prebins"))
+    frases: list[str] = []
+    if solver is not None:
+        frases.append(
+            f"se discretizó cada variable con OptBinning, resolviendo el problema óptimo por "
+            f"{_SOLVER_LABELS.get(solver, solver)}"
+        )
+    if prebins is not None:
+        frases.append(f"partiendo de un máximo de {prebins} pre-bins")
+    if max_bins is not None:
+        limite = f"un máximo de {max_bins} bins por variable"
+        if min_bins is not None:
+            limite = f"entre {min_bins} y {max_bins} bins por variable"
+        frases.append(f"con {limite}")
+    if min_size is not None:
+        frases.append(f"un tamaño mínimo de bin de {_pct(min_size)} de la población")
+    if frases:
+        paragraphs.append(f"{_capitalizar(_enumerar(frases))}.")
+
+    trend = _text(params.get("monotonic_trend"))
+    if trend is not None:
+        paragraphs.append(
+            f"La tendencia monótona exigida al WoE es {_MONOTONIC_LABELS.get(trend, trend)}: el "
+            "riesgo debe comportarse de forma coherente entre tramos contiguos, sin quiebres "
+            "que un analista no pueda defender."
+        )
+    elif params:
+        paragraphs.append(
+            "No se exigió tendencia monótona al WoE: los bins pueden no ordenar el riesgo de "
+            "forma monótona y esa decisión debe justificarse."
+        )
+
+    if card is not None:
+        requested = _int(card.get("n_variables_requested"))
+        binned = _int(card.get("n_variables_binned"))
+        skipped = _int(card.get("n_variables_skipped"))
+        if requested is not None and binned is not None:
+            frase = (
+                f"De {requested} {_plural(requested, 'variable candidata', 'variables candidatas')}"
+                f", {binned} {_plural(binned, 'quedó binificada', 'quedaron binificadas')}"
+            )
+            if skipped:
+                frase += f" y {skipped} se {_plural(skipped, 'descartó', 'descartaron')}"
+            paragraphs.append(f"{frase}.")
+
+        special = _text(card.get("special_handling"))
+        missing = _text(card.get("missing_handling"))
+        version = _text(card.get("optbinning_version"))
+        frases = []
+        if special is not None:
+            tratamiento = _SPECIAL_HANDLING.get(special, special)
+            frases.append(f"los valores especiales se agrupan {tratamiento}")
+        if missing is not None:
+            frases.append(f"los faltantes reciben el tratamiento «{missing}»")
+        if frases:
+            cierre = f" (OptBinning {version})" if version and version != "no_instalado" else ""
+            paragraphs.append(f"{_capitalizar(_enumerar(frases))}{cierre}.")
+    return tuple(paragraphs)
+
+
+def _methodology_selection(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Selección: umbrales de IV, correlación, VIF y estabilidad realmente aplicados."""
+    card = _card(bundle, "selection")
+    params = _params(bundle, "selection")
+    if card is None and not params:
+        return ()
+    paragraphs: list[str] = []
+
+    thresholds = _mapping(card.get("thresholds")) if card is not None else {}
+    min_iv = _float(thresholds.get("min_iv")) if thresholds else _float(params.get("min_iv"))
+    max_iv = _float(thresholds.get("max_iv")) if thresholds else _float(params.get("max_iv"))
+    if min_iv is not None:
+        frase = f"Se descartaron las variables con IV inferior a {_num(min_iv, decimals=2)}"
+        if max_iv is not None:
+            accion = _text(thresholds.get("max_iv_action")) or _text(params.get("max_iv_action"))
+            verbo = "se excluyeron" if accion == "exclude" else "se marcaron para revisión"
+            frase += (
+                f"; las de IV superior a {_num(max_iv, decimals=2)} {verbo}, porque un poder "
+                "predictivo tan alto suele indicar fuga de información más que señal legítima"
+            )
+        paragraphs.append(f"{frase}.")
+
+    correlation = _mapping(params.get("correlation"))
+    vif = _mapping(params.get("vif"))
+    frases: list[str] = []
+    if _bool(correlation.get("enabled")):
+        method = _text(correlation.get("method"))
+        threshold = _float(correlation.get("threshold"))
+        if threshold is not None:
+            metodo = f" ({method})" if method else ""
+            frases.append(
+                f"se eliminó la redundancia entre pares de variables con correlación"
+                f"{metodo} sobre {_num(threshold, decimals=2)}"
+            )
+    if _bool(vif.get("enabled")):
+        threshold = _float(vif.get("threshold"))
+        if threshold is not None:
+            frases.append(
+                f"se acotó la multicolinealidad exigiendo un VIF bajo {_num(threshold, decimals=1)}"
+            )
+    if frases:
+        paragraphs.append(f"{_capitalizar(_enumerar(frases))}.")
+
+    stability = _mapping(params.get("stability"))
+    if _bool(stability.get("enabled")):
+        stable = _float(stability.get("stable_threshold"))
+        review = _float(stability.get("review_threshold"))
+        action = _text(stability.get("action"))
+        if stable is not None and review is not None:
+            consecuencia = (
+                "y las inestables se excluyeron"
+                if action == "exclude"
+                else "y las inestables se reportaron sin excluirse"
+            )
+            paragraphs.append(
+                f"La estabilidad temporal de cada variable candidata se evaluó con umbrales de "
+                f"{_num(stable, decimals=2)} (estable) y {_num(review, decimals=2)} (revisión), "
+                f"{consecuencia}."
+            )
+
+    if card is not None:
+        candidates = _int(card.get("n_candidates"))
+        selected = _int(card.get("n_selected"))
+        if candidates is not None and selected is not None:
+            paragraphs.append(
+                f"El filtro dejó {selected} de {candidates} "
+                f"{_plural(candidates, 'variable candidata', 'variables candidatas')}; el motivo "
+                "de exclusión de cada variable descartada consta en la tabla de selección."
+            )
+    return tuple(paragraphs)
+
+
+def _methodology_model(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Modelo PD: motor, stepwise, significancia y políticas de signo/contribución."""
+    card = _card(bundle, "model")
+    params = _params(bundle, "model")
+    if card is None and not params:
+        return ()
+    paragraphs: list[str] = []
+
+    engine = _text(card.get("engine")) if card is not None else _text(params.get("engine"))
+    alpha = _float(params.get("alpha"))
+    if engine is not None:
+        frase = (
+            f"La probabilidad de incumplimiento se modeló mediante "
+            f"{_ENGINE_LABELS.get(engine, engine)} sobre las variables transformadas a WoE"
+        )
+        if alpha is not None:
+            frase += f", con un nivel de significancia de {_num(alpha, decimals=2)}"
+        paragraphs.append(f"{frase}.")
+
+    stepwise = _mapping(params.get("stepwise"))
+    direction = _text(stepwise.get("direction"))
+    if not _bool(stepwise.get("enabled")):
+        direction = "none"
+    if direction is not None:
+        frase = _STEPWISE_DIRECTIONS.get(direction, f"stepwise «{direction}»")
+        if direction != "none":
+            criterion = _text(stepwise.get("criterion"))
+            entry = _float(stepwise.get("entry_p_value"))
+            exit_value = _float(stepwise.get("exit_p_value"))
+            detalle: list[str] = []
+            if criterion is not None:
+                detalle.append(f"criterio «{criterion}»")
+            if entry is not None and exit_value is not None:
+                detalle.append(
+                    f"p-valor de entrada {_num(entry, decimals=2)} y de salida "
+                    f"{_num(exit_value, decimals=2)}"
+                )
+            if detalle:
+                frase += f" ({_enumerar(tuple(detalle))})"
+        paragraphs.append(f"La construcción del modelo usó {frase}.")
+
+    sign_policy = _mapping(params.get("sign_policy"))
+    action = _text(sign_policy.get("action"))
+    if action is not None:
+        consecuencia = {
+            "exclude": "se excluye la variable",
+            "flag": "se marca la variable sin excluirla",
+            "fail": "la corrida falla",
+        }.get(action, f"se aplica la acción «{action}»")
+        paragraphs.append(
+            "Se exige que el coeficiente de cada variable en WoE tenga el signo esperado "
+            f"(negativo): cuando se invierte, {consecuencia}. Un signo invertido significa que "
+            "la variable contradice la relación de riesgo que su binning declara."
+        )
+
+    if card is not None:
+        candidates = _int(card.get("n_candidates"))
+        final = _int(card.get("n_final_features"))
+        if candidates is not None and final is not None:
+            paragraphs.append(
+                f"El modelo final retiene {final} de {candidates} "
+                f"{_plural(candidates, 'variable', 'variables')} de entrada."
+            )
+    return tuple(paragraphs)
+
+
+def _methodology_scorecard(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Escalado del scorecard: PDO, odds/score objetivo, factor y offset derivados."""
+    card = _card(bundle, "scorecard")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    pdo = _float(card.get("pdo"))
+    target_score = _float(card.get("target_score"))
+    target_odds = _float(card.get("target_odds"))
+    if pdo is not None and target_score is not None and target_odds is not None:
+        paragraphs.append(
+            f"El modelo se escaló a puntaje con la convención PDO: un puntaje de "
+            f"{_num(target_score, decimals=0)} corresponde a odds de "
+            f"{_num(target_odds, decimals=0)}:1, y cada {_num(pdo, decimals=0)} puntos "
+            "adicionales duplican esas odds."
+        )
+
+    factor = _float(card.get("factor"))
+    offset = _float(card.get("offset"))
+    if factor is not None and offset is not None:
+        paragraphs.append(
+            f"De esa convención se derivan los parámetros efectivos de la escala: factor "
+            f"{_num(factor)} y offset {_num(offset)}."
+        )
+
+    direction = _text(card.get("score_direction"))
+    rounding = _text(card.get("rounding_method"))
+    frases: list[str] = []
+    if direction is not None:
+        frases.append(_SCORE_DIRECTIONS.get(direction, direction))
+    if rounding is not None:
+        frases.append(f"los puntajes se emiten con {_ROUNDING_METHODS.get(rounding, rounding)}")
+    if frases:
+        paragraphs.append(f"{_capitalizar(_enumerar(frases))}.")
+
+    overrides = _int(card.get("overrides_count"))
+    if overrides:
+        paragraphs.append(
+            f"Se aplicaron {overrides} {_plural(overrides, 'override', 'overrides')} manuales de "
+            "puntaje; cada uno lleva su justificación declarada en el config (Anexo C)."
+        )
+    return tuple(paragraphs)
+
+
+def _methodology_calibration(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Calibración: método, ancla, partición de ajuste y parámetros resultantes."""
+    card = _card(bundle, "calibration")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    method = _text(card.get("method"))
+    anchor_source = _text(card.get("anchor_source"))
+    anchor_kind = _text(card.get("anchor_kind"))
+    target_pd = _float(card.get("target_pd"))
+    if method is not None:
+        frase = (
+            f"La PD se calibró por {_CALIBRATION_METHODS.get(method, method)}, ajustando sobre la "
+            "partición de Desarrollo"
+        )
+        if anchor_source is not None:
+            frase += f" contra {_ANCHOR_SOURCES.get(anchor_source, anchor_source)}"
+        if target_pd is not None:
+            frase += f", con una PD objetivo de {_pct(target_pd)}"
+        if anchor_kind is not None:
+            frase += f". El ancla es {_ANCHOR_KINDS.get(anchor_kind, anchor_kind)}"
+        paragraphs.append(f"{frase}.")
+
+    offset = _float(card.get("offset"))
+    slope = _float(card.get("slope"))
+    intercept = _float(card.get("intercept"))
+    if offset is not None:
+        paragraphs.append(
+            f"El desplazamiento aplicado al intercepto es {_num(offset)}, lo que preserva el "
+            "ordenamiento del score: la calibración corrige el nivel de la PD, no su ranking."
+        )
+    elif slope is not None and intercept is not None:
+        paragraphs.append(
+            f"Los parámetros ajustados son pendiente {_num(slope)} e intercepto {_num(intercept)}."
+        )
+
+    n_fit = _int(card.get("n_fit"))
+    if n_fit is not None:
+        paragraphs.append(
+            f"El ajuste se realizó sobre {n_fit} "
+            f"{_plural(n_fit, 'observación', 'observaciones')} de Desarrollo."
+        )
+    return tuple(paragraphs)
+
+
+# ────────────────────────────── resultados ──────────────────────────────
+
+
+def results_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Encuadra los resultados y remite el detalle completo a los anexos."""
+    del bundle
+    return (
+        "Los resultados se presentan por etapa, con las tablas que sostienen el juicio de "
+        "validación. El detalle exhaustivo —todas las tablas y todos los parámetros de cada "
+        "paso— no se pierde: vive en los Anexos B y C, que son parte de este mismo informe.",
+    )
+
+
+def results_body(bundle: ReportInputBundle, domain: str) -> tuple[str, ...]:
+    """Despacha la prosa de resultados de la etapa pedida."""
+    if domain == "binning":
+        return _results_binning(bundle)
+    if domain == "selection":
+        return _results_selection(bundle)
+    if domain == "model":
+        return _results_model(bundle)
+    if domain == "scorecard":
+        return _results_scorecard(bundle)
+    if domain == "calibration":
+        return _results_calibration(bundle)
+    if domain == "performance":
+        return _results_performance(bundle)
+    if domain == "stability":
+        return _results_stability(bundle)
+    if domain == "eda":
+        return _results_eda(bundle)
+    return ()
+
+
+def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Población: qué muestran las tablas de tasa de incumplimiento y calidad."""
+    card = _card(bundle, "eda")
+    if card is None:
+        return ()
+    figures = _int(card.get("n_figures"))
+    if figures:
+        return (
+            f"El EDA publicó {figures} {_plural(figures, 'figura', 'figuras')} y las tablas de "
+            "tasa de incumplimiento y calidad que se reproducen a continuación.",
+        )
+    return ()
+
+
+def _results_binning(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Poder predictivo: IV por variable y monotonía efectiva del WoE."""
+    card = _card(bundle, "binning")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    iv_by_variable = _mapping(card.get("iv_by_variable"))
+    medidos = tuple(
+        (str(name), iv)
+        for name, value in iv_by_variable.items()
+        if (iv := _float(value)) is not None
+    )
+    disponibles = tuple(sorted(medidos, key=lambda item: (-item[1], item[0])))
+    if disponibles:
+        mejores = tuple(f"«{name}» ({_num(value, decimals=3)})" for name, value in disponibles[:3])
+        paragraphs.append(
+            f"El poder predictivo univariado (IV) de las {len(disponibles)} variables binificadas "
+            f"lo encabezan {_enumerar(mejores)}. El IV de cada variable consta en la tabla "
+            "siguiente y su binning completo, bin a bin, en el Anexo B."
+        )
+
+    monotonicity = _mapping(card.get("monotonicity_by_variable"))
+    tendencias: dict[str, int] = {}
+    sin_tendencia = 0
+    for value in monotonicity.values():
+        trend = _text(value)
+        if trend is None:
+            sin_tendencia += 1
+            continue
+        tendencias[trend] = tendencias.get(trend, 0) + 1
+    if tendencias:
+        detalle = tuple(
+            f"{count} {_plural(count, 'variable', 'variables')} con tendencia "
+            f"{_MONOTONIC_LABELS.get(trend, trend)}"
+            for trend, count in sorted(tendencias.items())
+        )
+        frase = f"La monotonía efectiva del WoE resultó en {_enumerar(detalle)}"
+        if sin_tendencia:
+            frase += f", y {sin_tendencia} sin tendencia monótona resuelta, lo que debe revisarse"
+        paragraphs.append(f"{frase}.")
+    return tuple(paragraphs)
+
+
+def _results_selection(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Selección: qué entró, qué quedó fuera y por qué; colinealidad residual."""
+    card = _card(bundle, "selection")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    selected = _sequence(card.get("selected_features"))
+    if selected:
+        nombres = _enumerar(tuple(f"«{feature}»" for feature in selected))
+        paragraphs.append(
+            f"Las {len(selected)} {_plural(len(selected), 'variable', 'variables')} que pasaron "
+            f"el filtro son {nombres}."
+        )
+
+    reasons = _mapping(card.get("excluded_by_reason"))
+    descartes = tuple(
+        f"{count} por {_reason_label(str(reason))}"
+        for reason, count in sorted(reasons.items(), key=lambda item: str(item[0]))
+        if str(reason) != "included" and _int(count)
+    )
+    if descartes:
+        paragraphs.append(f"Las exclusiones se reparten en {_enumerar(descartes)}.")
+
+    max_corr = _float(card.get("max_abs_correlation_after_selection"))
+    max_vif = _float(card.get("max_vif_after_selection"))
+    frases: list[str] = []
+    if max_corr is not None:
+        frases.append(
+            f"la correlación absoluta máxima entre las variables finales es {_num(max_corr)}"
+        )
+    if max_vif is not None:
+        frases.append(f"el VIF máximo es {_num(max_vif, decimals=2)}")
+    if frases:
+        paragraphs.append(f"Tras la selección, {_enumerar(frases)}.")
+
+    high_iv = _sequence(card.get("high_iv_flags"))
+    stability_flags = _sequence(card.get("stability_flags"))
+    if high_iv:
+        nombres = _enumerar(tuple(f"«{feature}»" for feature in high_iv))
+        paragraphs.append(
+            f"Quedaron marcadas por IV excesivo (posible fuga de información): {nombres}. "
+            "Requieren una explicación de negocio antes de aprobar el modelo."
+        )
+    if stability_flags:
+        nombres = _enumerar(tuple(f"«{feature}»" for feature in stability_flags))
+        paragraphs.append(f"Quedaron marcadas por inestabilidad temporal: {nombres}.")
+    return tuple(paragraphs)
+
+
+def _results_model(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Ajuste: variables finales, convergencia, pseudo-R² y alertas de signo."""
+    card = _card(bundle, "model")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    final_features = _sequence(card.get("final_features"))
+    if final_features:
+        nombres = _enumerar(tuple(f"«{feature}»" for feature in final_features))
+        paragraphs.append(
+            f"El modelo final incluye {len(final_features)} "
+            f"{_plural(len(final_features), 'variable', 'variables')}: {nombres}."
+        )
+
+    fit = _mapping(card.get("fit_statistics"))
+    if fit:
+        converged = _bool(fit.get("converged"))
+        pseudo_r2 = _float(fit.get("pseudo_r2_mcfadden"))
+        n_obs = _int(fit.get("n_obs_dev"))
+        n_events = _int(fit.get("n_events_dev"))
+        frases: list[str] = []
+        if converged is not None:
+            frases.append(
+                "el optimizador convergió" if converged else "el optimizador NO convergió"
+            )
+        if n_obs is not None and n_events is not None:
+            frases.append(
+                f"el ajuste usó {n_obs} observaciones de Desarrollo, de las cuales {n_events} "
+                f"{_plural(n_events, 'es un incumplimiento', 'son incumplimientos')}"
+            )
+        if pseudo_r2 is not None:
+            frases.append(f"el pseudo-R² de McFadden es {_num(pseudo_r2)}")
+        if frases:
+            paragraphs.append(f"En el ajuste in-sample, {_enumerar(frases)}.")
+        if converged is False:
+            paragraphs.append(
+                "La no convergencia invalida la inferencia sobre los coeficientes: el modelo no "
+                "puede aprobarse en este estado."
+            )
+
+    sign_flags = _sequence(card.get("sign_flags"))
+    iv_flags = _sequence(card.get("iv_contribution_flags"))
+    if sign_flags:
+        nombres = _enumerar(tuple(f"«{feature}»" for feature in sign_flags))
+        paragraphs.append(
+            f"Con el signo del coeficiente invertido respecto de lo esperado: {nombres}. Cada "
+            "caso contradice la relación de riesgo declarada por su binning y debe justificarse."
+        )
+    if iv_flags:
+        nombres = _enumerar(tuple(f"«{feature}»" for feature in iv_flags))
+        paragraphs.append(
+            f"Marcadas por concentrar una contribución excesiva al IV del modelo: {nombres}."
+        )
+    return tuple(paragraphs)
+
+
+def _results_scorecard(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Scorecard: rango de puntajes y número de atributos."""
+    card = _card(bundle, "scorecard")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    n_variables = _int(card.get("n_variables"))
+    min_score = _float(card.get("min_score"))
+    max_score = _float(card.get("max_score"))
+    if n_variables is not None:
+        frase = (
+            f"El scorecard asigna puntajes a los tramos de {n_variables} "
+            f"{_plural(n_variables, 'variable', 'variables')}"
+        )
+        if min_score is not None and max_score is not None:
+            frase += (
+                f", con un rango teórico de puntaje entre {_num(min_score, decimals=0)} y "
+                f"{_num(max_score, decimals=0)} puntos"
+            )
+        paragraphs.append(f"{frase}.")
+    return tuple(paragraphs)
+
+
+def _results_calibration(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Calibración: nivel de PD alcanzado vs. observado y preservación del ranking."""
+    card = _card(bundle, "calibration")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    raw_mean = _float(card.get("raw_mean_pd_dev"))
+    calibrated_mean = _float(card.get("calibrated_mean_pd_dev"))
+    observed = _float(card.get("observed_default_rate_dev"))
+    if calibrated_mean is not None:
+        frase = f"En Desarrollo, la PD media calibrada es {_pct(calibrated_mean)}"
+        if raw_mean is not None:
+            frase += f", frente a {_pct(raw_mean)} antes de calibrar"
+        if observed is not None:
+            frase += f", contra una tasa de incumplimiento observada de {_pct(observed)}"
+        paragraphs.append(f"{frase}.")
+    elif observed is not None:
+        paragraphs.append(f"La tasa de incumplimiento observada en Desarrollo es {_pct(observed)}.")
+
+    ranking = _bool(card.get("ranking_preserved"))
+    ties = _int(card.get("ties_created"))
+    if ranking is True:
+        frase = (
+            "La calibración preservó el ordenamiento de las observaciones: la capacidad "
+            "discriminante del modelo no se altera"
+        )
+        if ties:
+            frase += f", aunque introdujo {ties} {_plural(ties, 'empate', 'empates')}"
+        paragraphs.append(f"{frase}.")
+    elif ranking is False:
+        paragraphs.append(
+            "La calibración NO preservó el ordenamiento de las observaciones: las métricas de "
+            "discriminación calculadas sobre la PD calibrada pueden diferir de las del score."
+        )
+    return tuple(paragraphs)
+
+
+def _results_performance(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Discriminación: AUC/Gini/KS por partición, con las bandas y flags publicados."""
+    card = _card(bundle, "performance")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    source = _text(card.get("evaluation_source"))
+    if source is not None:
+        base = "la PD calibrada" if source == "pd_calibrated" else "el puntaje del scorecard"
+        paragraphs.append(f"Las métricas de discriminación se calcularon sobre {base}.")
+
+    max_metrics = _mapping(card.get("max_metrics_by_partition"))
+    bands = _mapping(card.get("bands_by_partition"))
+    for partition in _sequence(card.get("partitions")):
+        partition_id = str(partition)
+        values = _mapping(max_metrics.get(partition_id))
+        band = str(bands.get(partition_id, ""))
+        if band == "not_evaluable":
+            reason = _not_evaluable_reason(card, partition_id)
+            detalle = f" ({reason})" if reason else ""
+            paragraphs.append(
+                f"En {_partition_label(partition_id)} la discriminación no es evaluable"
+                f"{detalle}: el informe no la sustituye por una estimación."
+            )
+            continue
+        cifras = tuple(
+            f"{label} {_num(values.get(key), decimals=4)}"
+            for key, label in _DISCRIMINANT_METRIC_LABELS
+            if _float(values.get(key)) is not None
+        )
+        if not cifras:
+            continue
+        frase = f"En {_partition_label(partition_id)} el modelo alcanza {_enumerar(cifras)}"
+        flags = _threshold_flags(card, partition_id)
+        if flags:
+            metricas = _enumerar(tuple(flag.upper() for flag in flags))
+            frase += (
+                f". {metricas} {_plural(len(flags), 'queda', 'quedan')} bajo el umbral "
+                "configurado, lo que constituye una alerta explícita de validación"
+            )
+        paragraphs.append(f"{frase}.")
+
+    deciles = _int(card.get("n_deciles"))
+    if deciles is not None:
+        paragraphs.append(
+            f"La tabla de desempeño reparte la población en {deciles} tramos de riesgo "
+            "ordenados por score, y permite verificar que la tasa de incumplimiento observada "
+            "sea monótona entre tramos."
+        )
+    return tuple(paragraphs)
+
+
+def _results_stability(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Estabilidad: PSI por comparación con su banda, y peor variable por CSI."""
+    card = _card(bundle, "stability")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    max_psi = _mapping(card.get("max_psi_by_comparison"))
+    bands = _mapping(card.get("bands_by_comparison"))
+    psi_bins = _int(card.get("psi_bins"))
+    for comparison in _sequence(card.get("comparisons")):
+        comparison_id = str(comparison)
+        value = _float(max_psi.get(comparison_id))
+        band = str(bands.get(comparison_id, ""))
+        if band == "not_evaluable" or value is None:
+            paragraphs.append(
+                f"El PSI de {_comparison_label(comparison_id)} no es evaluable con los datos "
+                "disponibles."
+            )
+            continue
+        lectura = {
+            "stable": (
+                "La distribución del score se mantiene, de modo que no hay evidencia de "
+                "desplazamiento poblacional."
+            ),
+            "review": (
+                "La distribución del score se desplazó lo suficiente para exigir una revisión "
+                "antes de seguir usando el modelo."
+            ),
+            "redevelop": (
+                "El desplazamiento de la distribución es severo: el motor lo clasifica en banda "
+                "de redesarrollo."
+            ),
+        }.get(band, "La banda resultante no tiene una lectura definida.")
+        paragraphs.append(
+            f"El PSI del score en {_comparison_label(comparison_id)} es {_num(value)} "
+            f"(banda «{_STABILITY_BANDS.get(band, band)}»). {lectura}"
+        )
+
+    worst_feature = _text(card.get("worst_csi_feature"))
+    worst_value = _float(card.get("worst_csi_value"))
+    if worst_feature is not None and worst_value is not None:
+        paragraphs.append(
+            f"A nivel de variable, el mayor CSI corresponde a «{worst_feature}» con "
+            f"{_num(worst_value)}."
+        )
+    if psi_bins is not None:
+        paragraphs.append(
+            f"El PSI se calculó sobre {psi_bins} tramos del score, definidos en Desarrollo."
+        )
+    return tuple(paragraphs)
+
+
+# ────────────────────────────── conclusiones y limitaciones ──────────────────────────────
+
+
+def conclusions_body(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Resume los hallazgos que el motor sí puede afirmar; el juicio lo firma un humano."""
+    hallazgos: list[str] = []
+
+    performance = _card(bundle, "performance")
+    if performance is not None:
+        bands = _mapping(performance.get("bands_by_partition"))
+        max_metrics = _mapping(performance.get("max_metrics_by_partition"))
+        flagged = tuple(
+            _partition_label(str(partition))
+            for partition, band in sorted(bands.items(), key=lambda item: str(item[0]))
+            if str(band) == "threshold_flag"
+        )
+        auc_por_particion = tuple(
+            f"{_partition_label(str(partition))} {_num(_mapping(values).get('auc'), decimals=4)}"
+            for partition, values in sorted(max_metrics.items(), key=lambda item: str(item[0]))
+            if _float(_mapping(values).get("auc")) is not None
+        )
+        if auc_por_particion:
+            hallazgos.append(f"Discriminación (AUC): {_enumerar(auc_por_particion)}.")
+        if flagged:
+            hallazgos.append(f"Hay alertas de discriminación bajo umbral en {_enumerar(flagged)}.")
+
+    stability = _card(bundle, "stability")
+    if stability is not None:
+        bands = _mapping(stability.get("bands_by_comparison"))
+        max_psi = _mapping(stability.get("max_psi_by_comparison"))
+        detalles = tuple(
+            f"{_comparison_label(str(comparison))} {_num(max_psi.get(comparison))} "
+            f"(«{_STABILITY_BANDS.get(str(band), str(band))}»)"
+            for comparison, band in sorted(bands.items(), key=lambda item: str(item[0]))
+            if _float(max_psi.get(comparison)) is not None
+        )
+        if detalles:
+            hallazgos.append(f"Estabilidad (PSI del score): {_enumerar(detalles)}.")
+        criticas = tuple(
+            _comparison_label(str(comparison))
+            for comparison, band in sorted(bands.items(), key=lambda item: str(item[0]))
+            if str(band) in {"review", "redevelop"}
+        )
+        if criticas:
+            hallazgos.append(
+                f"La estabilidad exige atención en {_enumerar(criticas)} antes de aprobar el uso "
+                "continuado del modelo."
+            )
+
+    calibration = _card(bundle, "calibration")
+    if calibration is not None:
+        calibrated = _float(calibration.get("calibrated_mean_pd_dev"))
+        observed = _float(calibration.get("observed_default_rate_dev"))
+        if calibrated is not None and observed is not None:
+            hallazgos.append(
+                f"Calibración: la PD media calibrada en Desarrollo ({_pct(calibrated)}) se "
+                f"contrasta con la tasa observada ({_pct(observed)})."
+            )
+
+    model = _card(bundle, "model")
+    if model is not None:
+        sign_flags = _sequence(model.get("sign_flags"))
+        converged = _bool(_mapping(model.get("fit_statistics")).get("converged"))
+        if converged is False:
+            hallazgos.append("El ajuste del modelo no convergió: hallazgo bloqueante.")
+        if sign_flags:
+            hallazgos.append(
+                f"Hay {len(sign_flags)} {_plural(len(sign_flags), 'variable', 'variables')} con "
+                "el signo del coeficiente invertido."
+            )
+
+    if bundle.missing_sections:
+        hallazgos.append(
+            "El informe es parcial: faltan las secciones "
+            f"{_enumerar(tuple(str(item) for item in bundle.missing_sections))}."
+        )
+
+    if not hallazgos:
+        return (
+            "El motor no dispone de hallazgos automáticos que resumir: la corrida no publicó las "
+            "cards de desempeño, estabilidad ni calibración.",
+        )
+    hallazgos.append(
+        "Estos hallazgos son los que el motor puede sostener con los números de la corrida. La "
+        "recomendación —aprobar, aprobar con observaciones o rechazar— es un juicio humano y no "
+        "se deriva automáticamente de ellos."
+    )
+    return tuple(hallazgos)
+
+
+def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Limitaciones: alcance de la fase, caveats de determinismo y secciones ausentes."""
+    paragraphs: list[str] = [
+        "El alcance de este informe es la validación del scorecard: discriminación, calibración "
+        "y estabilidad. El backtesting, la integración con IFRS 9 y el cálculo de provisiones "
+        "corresponden a fases posteriores y no se cubren ni se infieren aquí.",
+        "Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no "
+        "completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como "
+        "no disponible.",
+    ]
+
+    caveats = tuple(str(item) for item in _sequence(bundle.lineage.determinism_caveats))
+    if caveats:
+        paragraphs.append(
+            f"Caveats de reproducibilidad declarados por la corrida: {_enumerar(caveats)}."
+        )
+
+    if bundle.missing_sections:
+        paragraphs.append(
+            "Secciones obligatorias ausentes en esta corrida: "
+            f"{_enumerar(tuple(str(item) for item in bundle.missing_sections))}. El reporte "
+            "declara la ausencia en vez de rellenarla."
+        )
+    else:
+        paragraphs.append("No hay secciones obligatorias ausentes en esta corrida.")
+
+    stability = _card(bundle, "stability")
+    if stability is not None:
+        metric_sections = _mapping(_mapping(stability.get("metric_sections")).get("stability"))
+        if _bool(metric_sections.get("include_pd_stability")) is False:
+            paragraphs.append(
+                "La estabilidad de la PD calibrada no se evaluó en esta corrida (queda fuera del "
+                "config): sólo se midió la del score."
+            )
+    return tuple(paragraphs)
+
+
+# ────────────────────────────── acceso seguro y formato ──────────────────────────────
+
+
+def _card(bundle: ReportInputBundle, domain: str) -> Mapping[str, Any] | None:
+    """Devuelve la card cruda de un dominio, o ``None`` si la corrida no la publicó."""
+    card = bundle.cards.get(domain)
+    if isinstance(card, Mapping):
+        return card
+    return None
+
+
+def _params(bundle: ReportInputBundle, domain: str) -> Mapping[str, Any]:
+    """Devuelve la sección de config de un dominio; ``{}`` si no se ejecutó."""
+    return _mapping(bundle.pipeline_params.get(domain))
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    if isinstance(value, Mapping):
+        return {str(key): item for key, item in value.items()}
+    return {}
+
+
+def _sequence(value: Any) -> tuple[Any, ...]:
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes):
+        return tuple(value)
+    return ()
+
+
+def _float(value: Any) -> float | None:
+    """Coacciona a float sólo lo que ya ES un número finito; nunca parsea ni asume."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int | float):
+        numeric = float(value)
+        if numeric != numeric or numeric in (float("inf"), float("-inf")):
+            return None
+        return numeric
+    return None
+
+
+def _int(value: Any) -> int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    return None
+
+
+def _bool(value: Any, default: bool | None = None) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    return default
+
+
+def _text(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value
+    return None
+
+
+def _num(value: Any, *, decimals: int = 4) -> str:
+    """Formatea un número real; un dato ausente se declara, no se inventa."""
+    numeric = _float(value)
+    if numeric is None:
+        return _NOT_AVAILABLE
+    if numeric == 0.0:
+        numeric = 0.0
+    return f"{numeric:.{decimals}f}"
+
+
+def _pct(value: Any, *, decimals: int = 2) -> str:
+    numeric = _float(value)
+    if numeric is None:
+        return _NOT_AVAILABLE
+    return f"{numeric * 100:.{decimals}f} %"
+
+
+def _plural(count: int, singular: str, plural: str) -> str:
+    return singular if count == 1 else plural
+
+
+def _enumerar(items: Sequence[str]) -> str:
+    """Une frases con comas y una «y» final, como escribiría un humano."""
+    values = tuple(item for item in items if item)
+    if not values:
+        return ""
+    if len(values) == 1:
+        return values[0]
+    return f"{', '.join(values[:-1])} y {values[-1]}"
+
+
+def _capitalizar(text: str) -> str:
+    if not text:
+        return text
+    return text[0].upper() + text[1:]
+
+
+def _partition_label(partition: str) -> str:
+    return _PARTITION_LABELS.get(partition, partition)
+
+
+def _comparison_label(comparison: str) -> str:
+    return _COMPARISON_LABELS.get(comparison, comparison)
+
+
+def _quality_label(flag: str) -> str:
+    return {
+        "near_constant": "variables casi constantes",
+        "near_unique": "variables casi únicas",
+        "high_cardinality": "variables de cardinalidad excesiva",
+    }.get(flag, f"variables con la marca «{flag}»")
+
+
+def _reason_label(reason: str) -> str:
+    return {
+        "business_exclude": "exclusión de negocio",
+        "business_include": "inclusión forzada de negocio",
+        "low_iv": "IV insuficiente",
+        "high_iv": "IV excesivo (posible fuga)",
+        "low_auc": "AUC insuficiente",
+        "low_ks": "KS insuficiente",
+        "low_gini": "Gini insuficiente",
+        "high_correlation": "correlación excesiva",
+        "high_vif": "VIF excesivo",
+        "cluster_representative_lost": "no ser representante de su clúster",
+        "constant_or_nonfinite": "ser constante o no finita",
+        "missing_binning_artifact": "faltar su artefacto de binning",
+        "forced_conflict": "conflicto entre reglas forzadas",
+        "high_stability": "inestabilidad temporal",
+    }.get(reason, f"la razón «{reason}»")
+
+
+def _threshold_flags(card: Mapping[str, Any], partition: str) -> tuple[str, ...]:
+    """Lee las métricas bajo umbral que ``performance`` publicó para una partición."""
+    metric_sections = _mapping(card.get("metric_sections"))
+    discrimination = _mapping(metric_sections.get("discrimination"))
+    flags = _mapping(discrimination.get("threshold_flags_by_partition"))
+    return tuple(str(item) for item in _sequence(flags.get(partition)))
+
+
+def _not_evaluable_reason(card: Mapping[str, Any], partition: str) -> str | None:
+    """Lee el motivo por el que una partición quedó no evaluable, si el motor lo declaró."""
+    metric_sections = _mapping(card.get("metric_sections"))
+    discrimination = _mapping(metric_sections.get("discrimination"))
+    reasons = _mapping(discrimination.get("not_evaluable_reasons_by_partition"))
+    return _text(reasons.get(partition))

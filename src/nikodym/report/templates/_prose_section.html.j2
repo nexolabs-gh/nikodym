@@ -1,0 +1,26 @@
+{# Capítulo de prosa: lo que un humano lee. La prosa es determinista y sale de los parámetros y
+   métricas reales de la corrida (nikodym.report.prose); el bloque POR COMPLETAR marca lo que sólo
+   un humano puede escribir. #}
+<section id="{{ section.html_id }}" data-section-id="{{ section.id }}" data-kind="prose" data-level="{{ section.level }}" class="report-section {% if section.level == 1 %}chapter{% else %}subsection{% endif %}">
+  {% if section.level == 1 %}
+  <h2>{% if section.number %}<span class="section-number">{{ section.number }}</span>{% endif %}{{ section.title }}</h2>
+  {% else %}
+  <h3 class="subsection-title">{% if section.number %}<span class="section-number">{{ section.number }}</span>{% endif %}{{ section.title }}</h3>
+  {% endif %}
+
+  {% if section.status == "missing" %}
+  <div class="missing">Sección requerida ausente; el reporte parcial no inventa números ni oculta la ausencia.</div>
+  {% endif %}
+
+  {% for paragraph in section.body %}
+  <p>{{ paragraph }}</p>
+  {% endfor %}
+
+  {% if section.placeholder %}
+  {% include "_placeholder.html.j2" %}
+  {% endif %}
+
+  {% if section.narration %}
+  {% include "_narration.html.j2" %}
+  {% endif %}
+</section>

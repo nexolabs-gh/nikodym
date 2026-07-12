@@ -18,6 +18,7 @@ from typing import Any, Final
 from nikodym.core.config import schema as _schema
 from nikodym.report.config import (
     AiNarrationConfig,
+    DocumentStructureConfig,
     HtmlRenderConfig,
     PdfRenderConfig,
     ReportConfig,
@@ -44,6 +45,7 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
     "ReportBuilder": ("nikodym.report.builder", "ReportBuilder"),
     "HtmlReportRenderer": ("nikodym.report.renderer", "HtmlReportRenderer"),
     "PdfReportRenderer": ("nikodym.report.renderer", "PdfReportRenderer"),
+    "PlaceholderBlock": ("nikodym.report.results", "PlaceholderBlock"),
     "ReportInputBundle": ("nikodym.report.results", "ReportInputBundle"),
     "ReportManifest": ("nikodym.report.results", "ReportManifest"),
     "ReportResult": ("nikodym.report.results", "ReportResult"),
@@ -60,10 +62,12 @@ __all__ = [
     "AIResponse",
     "AiNarrationBlock",
     "AiNarrationConfig",
+    "DocumentStructureConfig",
     "HtmlRenderConfig",
     "HtmlReportRenderer",
     "PdfRenderConfig",
     "PdfReportRenderer",
+    "PlaceholderBlock",
     "ReportAIError",
     "ReportBuilder",
     "ReportConfig",

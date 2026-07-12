@@ -22,7 +22,9 @@ from nikodym.core.config import (
 from nikodym.core.config import schema as _schema_mod
 from nikodym.core.exceptions import NikodymError
 from nikodym.report.config import (
+    IMPLEMENTED_FORMATS,
     AiNarrationConfig,
+    DocumentStructureConfig,
     HtmlRenderConfig,
     PdfRenderConfig,
     ReportConfig,
@@ -55,6 +57,14 @@ def _report_defaults() -> dict[str, Any]:
         "basename": "scorecard_report",
         "language": "es",
         "formats": ["html"],
+        "document": {
+            "model_name": "",
+            "entity": "",
+            "portfolio": "",
+            "author": "",
+            "version": "",
+            "placeholders": "show",
+        },
         "html": {
             "template_id": "scorecard_basic_v1",
             "theme": "nikodym",
@@ -105,7 +115,15 @@ def test_round_trip_yaml_reportconfig() -> None:
     cfg = ReportConfig(
         output_dir="docs/reportes",
         basename="informe_scorecard",
-        formats=("html", "json", "csv", "xlsx"),
+        formats=("html", "pdf"),
+        document=DocumentStructureConfig(
+            model_name="Scorecard consumo",
+            entity="Banco Ejemplo",
+            portfolio="Consumo",
+            author="Riesgo de Crédito",
+            version="1.0",
+            placeholders="hide",
+        ),
         html=HtmlRenderConfig(
             template_id="scorecard_detallado_v1",
             theme="plain",
@@ -181,7 +199,8 @@ def test_nikodymconfig_report_core_only_rechaza_json_no_canonico(
     [
         ReportConfig(output_dir="reportes_cliente"),
         ReportConfig(basename="scorecard_validacion"),
-        ReportConfig(formats=("html", "json", "csv", "xlsx")),
+        ReportConfig(formats=("html", "pdf")),
+        ReportConfig(document=DocumentStructureConfig(entity="Banco Ejemplo")),
         ReportConfig(html=HtmlRenderConfig(template_id="scorecard_detallado_v1")),
         ReportConfig(html=HtmlRenderConfig(theme="plain")),
         ReportConfig(pdf=PdfRenderConfig(enabled=True)),
@@ -213,7 +232,8 @@ def test_dump_load_nikodymconfig_con_report_idempotente() -> None:
     cfg = NikodymConfig(
         report=ReportConfig(
             output_dir="docs/reportes",
-            formats=("html", "xlsx"),
+            formats=("html", "pdf"),
+            document=DocumentStructureConfig(model_name="Scorecard consumo"),
             sections=SectionPolicyConfig(missing_policy="skip"),
         )
     )
@@ -267,12 +287,34 @@ def test_formats_acepta_pdf() -> None:
     assert ReportConfig(formats=("html", "pdf")).formats == ("html", "pdf")
 
 
+@pytest.mark.parametrize("formato", ["json", "csv", "xlsx"])
+def test_formato_no_implementado_falla_en_vez_de_degradar_en_silencio(formato: str) -> None:
+    """Pedir un formato sin motor detrás es un error explícito, no un reporte vacío.
+
+    El bug: ``formats`` aceptaba ``json``/``csv``/``xlsx``, la corrida terminaba "bien" y no se
+    escribía archivo alguno. Un enum declarado sin ruta real degrada en silencio; ahora el config
+    lo rechaza y el step no puede ser más permisivo que el motor.
+    """
+    with pytest.raises(ValidationError, match="no implementado"):
+        ReportConfig(formats=("html", formato))  # type: ignore[arg-type]
+
+    with pytest.raises(ValidationError, match="no implementado"):
+        NikodymConfig(report={"formats": ["html", formato]})
+
+
+def test_formatos_implementados_declarados_explicitamente() -> None:
+    """La lista de formatos con motor real es la que el validador usa como fuente de verdad."""
+    assert frozenset({"html", "pdf"}) == IMPLEMENTED_FORMATS
+    assert ReportConfig(formats=()).formats == ()
+
+
 def test_campos_report_tienen_metadatos_ui() -> None:
     """Todos los campos de config report declaran metadata de UI para SDD-23."""
     for config_cls in (
         HtmlRenderConfig,
         PdfRenderConfig,
         AiNarrationConfig,
+        DocumentStructureConfig,
         SectionPolicyConfig,
         ReportConfig,
     ):

@@ -17,7 +17,12 @@ from nikodym.core.config import NikodymConfig
 from nikodym.core.lineage import LineageBundle
 from nikodym.core.study import Study
 from nikodym.report.builder import CANONICAL_SECTION_ORDER, ReportBuilder
-from nikodym.report.config import AiNarrationConfig, ReportConfig, SectionPolicyConfig
+from nikodym.report.config import (
+    AiNarrationConfig,
+    DocumentStructureConfig,
+    ReportConfig,
+    SectionPolicyConfig,
+)
 from nikodym.report.exceptions import ReportInputError
 
 _CARD_ARTIFACTS: tuple[tuple[str, str], ...] = (
@@ -66,25 +71,53 @@ class _PydanticCard(BaseModel):
     metric_sections: dict[str, Any]
 
 
-def test_collect_orden_canonico_y_manifest_pre_render_golden() -> None:
-    """``collect`` ordena secciones y ``build_manifest`` no inventa hash HTML."""
+def test_collect_arma_el_documento_y_manifest_pre_render_golden() -> None:
+    """``collect`` arma el DOCUMENTO (capítulos + anexos), no una sección por card.
+
+    Los ocho dominios del pipeline dejan de ser secciones de primer nivel: aparecen como
+    subsecciones de Resultados y de los anexos. El dump crudo (payload y ``metric_sections``) vive
+    sólo en el Anexo C; el cuerpo lleva prosa y las tablas que importan.
+    """
     study = _study_completo()
     builder = ReportBuilder.from_config(ReportConfig())
 
     bundle = builder.collect(study)
     manifest = builder.build_manifest(bundle, path="reports/scorecard_report.html")
+    by_id = {section.id: section for section in bundle.sections}
 
-    assert tuple(section.id for section in bundle.sections) == CANONICAL_SECTION_ORDER
+    # Los capítulos de primer nivel son el documento, en el orden canónico único.
+    assert (
+        tuple(section.id for section in bundle.sections if section.level == 1)
+        == CANONICAL_SECTION_ORDER
+    )
     assert bundle.missing_sections == ()
     assert bundle.cards["performance"] == {
         "summary": "performance-card",
         "metric_sections": {"performance": {"auc": 0.74321}},
     }
-    assert bundle.sections[0].payload["config_hash"] == "cfg123456789abcdef"
-    assert bundle.sections[4].payload["embedded_table"] == {
-        "table_ref": "model.model_card.embedded_table"
-    }
-    assert bundle.sections[4].metric_sections == {"model": {"p_value_max": 0.041}}
+
+    # Numeración: 1-6 para capítulos, A/B/C para anexos, N.M para subsecciones.
+    assert by_id["introduction"].number == "1"
+    assert by_id["limitations"].number == "6"
+    assert by_id["appendix_lineage"].number == "A"
+    assert by_id["appendix_tables"].number == "B"
+    assert by_id["appendix_parameters"].number == "C"
+    assert by_id["results.model"].number.startswith("4.")
+    assert by_id["results.model"].level == 2
+    assert by_id["results.model"].kind == "data"
+    assert by_id["results.model"].source_domain == "model"
+
+    # El dump completo NO se pierde: se degrada al Anexo C.
+    anexo_model = by_id["appendix_parameters.model"]
+    assert anexo_model.kind == "appendix"
+    assert anexo_model.payload["embedded_table"] == {"table_ref": "model.model_card.embedded_table"}
+    assert anexo_model.metric_sections == {"model": {"p_value_max": 0.041}}
+    # ...y el cuerpo no lo repite.
+    assert by_id["results.model"].payload == {}
+
+    # El lineage completo queda en el Anexo A.
+    assert by_id["appendix_lineage"].payload["config_hash"] == "cfg123456789abcdef"
+
     assert tuple(bundle.tables) == (
         "eda.default_rate.by_period",
         "binning.tables.saldo",
@@ -110,23 +143,52 @@ def test_collect_orden_canonico_y_manifest_pre_render_golden() -> None:
     }
 
 
+def test_metodologia_redacta_los_parametros_reales_del_config() -> None:
+    """La Metodología describe lo que se ejecutó, con los parámetros REALES del config.
+
+    Es el corazón de la mejora: antes estas secciones emitían "La sección X está disponible con
+    estado included". Ahora el motor redacta el binning, la selección, el escalado y la calibración
+    leyendo el config de la corrida, sin inventar un solo número.
+    """
+    bundle = ReportBuilder.from_config(ReportConfig()).collect(_study_completo())
+    by_id = {section.id: section for section in bundle.sections}
+
+    binning = " ".join(by_id["methodology.binning"].body)
+    seleccion = " ".join(by_id["methodology.selection"].body)
+
+    # Parámetros reales del BinningConfig del Study (solver mip, 4 bins, min_bin_size 0.10).
+    assert "programación entera mixta (MIP)" in binning
+    assert "máximo de 4 bins por variable" in binning
+    assert "10.00 % de la población" in binning
+    assert "ascendente o descendente" in binning  # monotonic_trend="auto_asc_desc"
+
+    # Umbrales reales del SelectionConfig (min_iv=0.03, VIF 4.5, correlación spearman 0.80).
+    assert "IV inferior a 0.03" in seleccion
+    assert "VIF bajo 4.5" in seleccion
+    assert "(spearman) sobre 0.80" in seleccion
+
+    # Cero alucinación: sin card de scorecard/calibration en el fixture, no hay prosa inventada.
+    assert "methodology.scorecard" not in by_id
+    assert "methodology.calibration" not in by_id
+
+
 def test_build_manifest_resuelve_formato_por_suffix_config_y_default() -> None:
     """El formato sale del path si es conocido; si no, cae al config o a HTML."""
     bundle = ReportBuilder.from_config(ReportConfig()).collect(_study_completo())
     ai_builder = ReportBuilder.from_config(
         ReportConfig(ai=AiNarrationConfig(enabled=True, provider="anthropic"))
     )
-    json_builder = ReportBuilder.from_config(ReportConfig(formats=("json",)))
+    pdf_builder = ReportBuilder.from_config(ReportConfig(formats=("pdf",)))
     empty_builder = ReportBuilder.from_config(ReportConfig(formats=()))
 
     ai_manifest = ai_builder.build_manifest(bundle, path="reports/informe.pdf")
-    json_manifest = json_builder.build_manifest(bundle, path="reports/informe")
+    pdf_manifest = pdf_builder.build_manifest(bundle, path="reports/informe")
     default_manifest = empty_builder.build_manifest(bundle, path="reports/informe")
 
     assert ai_manifest.output_format == "pdf"
     assert ai_manifest.deterministic is False
     assert ai_manifest.ai_enabled is True
-    assert json_manifest.output_format == "json"
+    assert pdf_manifest.output_format == "pdf"
     assert default_manifest.output_format == "html"
 
 
@@ -161,10 +223,11 @@ def test_collect_no_muta_dataframes_upstream_y_expone_copias_defensivas() -> Non
 
 
 def test_missing_policy_warn_publica_seccion_missing_sin_numeros() -> None:
-    """Una card requerida ausente queda explícita y sin métricas inventadas."""
+    """Una card requerida ausente queda explícita en Resultados y sin métricas inventadas."""
     cfg = ReportConfig(sections=SectionPolicyConfig(missing_policy="warn"))
     bundle = ReportBuilder.from_config(cfg).collect(_study_completo(omit=("model",)))
-    model_section = next(section for section in bundle.sections if section.id == "model")
+    ids = tuple(section.id for section in bundle.sections)
+    model_section = next(section for section in bundle.sections if section.id == "results.model")
 
     assert bundle.missing_sections == ("model",)
     assert model_section.status == "missing"
@@ -174,6 +237,10 @@ def test_missing_policy_warn_publica_seccion_missing_sin_numeros() -> None:
         )
     }
     assert model_section.metric_sections == {}
+    assert model_section.body == ()
+    # Un dominio ausente no tiene parámetros que anexar ni metodología que describir.
+    assert "appendix_parameters.model" not in ids
+    assert "methodology.model" not in ids
 
 
 def test_missing_policy_error_lanza_report_input_error() -> None:
@@ -182,16 +249,17 @@ def test_missing_policy_error_lanza_report_input_error() -> None:
         ReportBuilder.from_config(ReportConfig()).collect(_study_completo(omit=("model",)))
 
 
-def test_missing_policy_skip_omite_seccion_y_la_lista_en_apendice() -> None:
+def test_missing_policy_skip_omite_seccion_y_la_declara_en_limitaciones() -> None:
     """``skip`` no renderiza la sección ausente, pero conserva trazabilidad."""
     cfg = ReportConfig(sections=SectionPolicyConfig(missing_policy="skip"))
     bundle = ReportBuilder.from_config(cfg).collect(_study_completo(omit=("model",)))
     ids = tuple(section.id for section in bundle.sections)
-    appendix = next(section for section in bundle.sections if section.id == "appendix")
+    limitations = next(section for section in bundle.sections if section.id == "limitations")
 
-    assert "model" not in ids
+    assert "results.model" not in ids
     assert bundle.missing_sections == ("model",)
-    assert appendix.payload["missing_sections"] == ("model",)
+    assert limitations.payload["missing_sections"] == ("model",)
+    assert any("model" in paragraph for paragraph in limitations.body)
 
 
 def test_seccion_no_requerida_ausente_se_omite_sin_missing() -> None:
@@ -199,19 +267,41 @@ def test_seccion_no_requerida_ausente_se_omite_sin_missing() -> None:
     cfg = ReportConfig(sections=SectionPolicyConfig(required_sections=_REQUIRED_WITHOUT_MODEL))
     bundle = ReportBuilder.from_config(cfg).collect(_study_completo(omit=("model",)))
 
-    assert "model" not in tuple(section.id for section in bundle.sections)
+    assert "results.model" not in tuple(section.id for section in bundle.sections)
     assert bundle.missing_sections == ()
 
 
-def test_collect_sin_figures_deja_apendice_sin_figure_keys() -> None:
+def test_collect_sin_figures_deja_el_anexo_sin_figure_keys() -> None:
     """Las figuras son opcionales en el builder parcial."""
     bundle = ReportBuilder.from_config(ReportConfig()).collect(
         _study_completo(include_figures=False)
     )
-    appendix = next(section for section in bundle.sections if section.id == "appendix")
+    anexo = next(section for section in bundle.sections if section.id == "appendix_tables")
 
     assert bundle.figures == {}
-    assert appendix.payload["figure_keys"] == ()
+    assert anexo.payload["figure_keys"] == ()
+
+
+def test_placeholders_hide_retira_los_bloques_por_completar() -> None:
+    """``placeholders='hide'`` produce el entregable final: sin bloques POR COMPLETAR.
+
+    Los capítulos siguen ahí (y su prosa determinista también): lo que desaparece es la caja de
+    guía que sólo sirve mientras el informe es un borrador.
+    """
+    show = ReportBuilder.from_config(ReportConfig()).collect(_study_completo())
+    hide = ReportBuilder.from_config(
+        ReportConfig(document=DocumentStructureConfig(placeholders="hide"))
+    ).collect(_study_completo())
+
+    con_guia = {section.id for section in show.sections if section.placeholder is not None}
+    assert con_guia == {"introduction", "context", "conclusions"}
+    assert all(section.placeholder is None for section in hide.sections)
+    assert tuple(s.id for s in show.sections) == tuple(s.id for s in hide.sections)
+
+    introduccion = next(s for s in show.sections if s.id == "introduction")
+    assert introduccion.placeholder is not None
+    assert introduccion.placeholder.title == "Introducción"
+    assert introduccion.placeholder.guidance  # guía real, no lorem ipsum mudo
 
 
 @pytest.mark.parametrize(
@@ -365,5 +455,25 @@ def _binning_table() -> pd.DataFrame:
 
 
 def _nikodym_config() -> NikodymConfig:
-    """Construye el config raíz vía validación Pydantic para mypy estricto."""
-    return NikodymConfig.model_validate({})
+    """Config raíz con parámetros REALES de binning y selección.
+
+    La prosa de Metodología los lee del config de la corrida (``bundle.pipeline_params``), así que
+    el fixture debe traerlos: son justamente lo que el informe tiene que saber redactar.
+    """
+    return NikodymConfig.model_validate(
+        {
+            "binning": {
+                "feature_columns": ("saldo",),
+                "solver": "mip",
+                "max_n_bins": 4,
+                "min_bin_size": 0.10,
+                "monotonic_trend": "auto_asc_desc",
+            },
+            "selection": {
+                "min_iv": 0.03,
+                "correlation": {"enabled": True, "method": "spearman", "threshold": 0.80},
+                "vif": {"enabled": True, "threshold": 4.5},
+                "stability": {"enabled": False},
+            },
+        }
+    )

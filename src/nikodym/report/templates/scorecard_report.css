@@ -72,10 +72,36 @@ main {
   font-weight: 700;
 }
 
-.cover-subtitle {
-  font-size: 15px;
-  color: var(--muted);
+.cover-fields {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: 8px 18px;
   margin: 0 0 28px;
+  font-size: 14px;
+}
+
+.cover-fields dt {
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  align-self: center;
+}
+
+.cover-fields dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Campo declarado en el config pero vacío: se imprime la línea para llenarla a mano. Nunca se
+   inventa un valor. */
+.to-fill {
+  display: block;
+  border-bottom: 1px solid var(--line);
+  height: 18px;
+  max-width: 320px;
 }
 
 .confidential {
@@ -227,11 +253,47 @@ main {
   margin: 0;
 }
 
+/* El slot dejó de ser un hueco: aquí van las métricas clave con su banda. */
 .exec-metrics-slot {
-  min-height: 44px;
-  border: 1px dashed var(--line);
-  border-radius: 3px;
-  margin: 0 0 18px;
+  margin: 0 0 14px;
+}
+
+.exec-metrics {
+  margin: 0;
+}
+
+.exec-metrics td.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.band {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  color: var(--muted);
+}
+
+.band-ok {
+  background: #eaf4ec;
+  border-color: #bcd9c4;
+  color: #1f5c34;
+}
+
+.band-warn {
+  background: var(--warn-soft);
+  border-color: #e6d3a3;
+  color: var(--warn);
+}
+
+.band-alert {
+  background: #fbeaea;
+  border-color: #e6c3c3;
+  color: #8a1f1f;
 }
 
 .scope-note {
@@ -239,25 +301,103 @@ main {
   color: var(--muted);
   border-top: 1px solid var(--line);
   padding-top: 14px;
+  margin: 14px 0 0;
+}
+
+/* ─────────────────────────── índice ─────────────────────────── */
+
+.toc-list {
+  list-style: none;
   margin: 0;
+  padding: 0;
+}
+
+.toc-list li {
+  border-bottom: 1px dotted var(--line);
+  padding: 5px 0;
+}
+
+.toc-list a {
+  display: flex;
+  gap: 10px;
+  color: var(--brand-ink);
+  text-decoration: none;
+}
+
+.toc-list .toc-number {
+  min-width: 46px;
+  color: var(--brand);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.toc-list .toc-level-2 a {
+  padding-left: 28px;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.toc-list li.toc-level-2 {
+  border-bottom: none;
+  padding: 3px 0;
+}
+
+/* ─────────────────────────── bloque POR COMPLETAR ─────────────────────────── */
+
+.placeholder {
+  border: 1px dashed var(--warn);
+  border-left: 4px solid var(--warn);
+  background: var(--warn-soft);
+  padding: 12px 16px;
+  margin: 14px 0;
+}
+
+.placeholder-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--warn);
+  margin: 0 0 6px;
+}
+
+.placeholder-guidance {
+  margin: 4px 0;
+  color: var(--ink);
+  font-size: 13px;
 }
 
 /* ─────────────────────────── cuerpo por secciones ─────────────────────────── */
 
 .report-section {
-  padding: 28px 56px 4px;
+  padding: 4px 56px;
+}
+
+.report-section.chapter {
+  padding-top: 28px;
   border-top: 1px solid var(--line);
 }
 
-.report-section:first-of-type {
-  border-top: none;
+.report-section.subsection {
+  padding-bottom: 8px;
 }
 
 .report-section > h2 {
   font-size: 19px;
   color: var(--brand-ink);
-  margin: 0 0 4px;
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--brand-soft);
   font-weight: 700;
+}
+
+.subsection-title {
+  font-size: 15px;
+  color: var(--brand-ink);
+  margin: 18px 0 6px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .section-number {
@@ -266,20 +406,40 @@ main {
   margin-right: 8px;
 }
 
-.status {
+.source {
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--muted);
-  margin: 0 0 12px;
+  margin: 0 0 8px;
 }
 
-h3 {
-  font-size: 14px;
+.source code {
+  font-family: "Courier New", Courier, monospace;
+}
+
+h3,
+h4 {
+  font-size: 13px;
   color: var(--brand-ink);
-  margin: 20px 0 8px;
+  margin: 16px 0 6px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+/* Título legible de cada tabla: el informe habla de "Coeficientes del modelo PD", no de
+   `model.coefficients` (la clave interna queda como data-attribute, para trazar). */
+.table-block {
+  margin: 14px 0;
+  /* Pantalla: una tabla ancha hace scroll dentro de su bloque; nunca desborda el documento. */
+  overflow-x: auto;
+}
+
+.table-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-ink);
+  margin: 0 0 4px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 p {
@@ -352,6 +512,9 @@ td {
   padding: 6px 9px;
   text-align: left;
   vertical-align: top;
+  /* Una celda larga se parte en vez de empujar la tabla fuera de la caja: en el PDF no hay scroll,
+     y una columna que se sale del papel es información PERDIDA. */
+  overflow-wrap: anywhere;
 }
 
 th {
@@ -439,17 +602,46 @@ tbody tr:nth-child(even) td {
     padding-right: 0;
   }
 
-  .report-section {
+  /* El salto de página lo manda el CAPÍTULO. Las subsecciones fluyen dentro de él: forzar un salto
+     por sección (como hacía la versión de log, donde cada card era una sección) produciría un PDF
+     de una página por dominio, con páginas casi vacías. */
+  .report-section.chapter {
     break-before: page;
     border-top: none;
   }
 
-  table,
+  .report-section.subsection {
+    break-before: auto;
+  }
+
+  .subsection-title,
+  .report-section > h2 {
+    break-after: avoid;
+  }
+
+  /* En papel no hay scroll: la tabla se comprime (columnas de ancho fijo + tipografía menor) para
+     que TODAS entren en la página. Perder una columna en el PDF sería perder trazabilidad, que es
+     justamente lo que hace auditable a este informe. */
+  table {
+    table-layout: fixed;
+    font-size: 7.5pt;
+  }
+
+  th,
+  td {
+    padding: 3px 4px;
+  }
+
   .chart-slot,
   .verdict,
   .lineage-box,
+  .placeholder,
   .roles .role {
     break-inside: avoid;
+  }
+
+  .table-block {
+    overflow-x: visible;
   }
 
   thead {

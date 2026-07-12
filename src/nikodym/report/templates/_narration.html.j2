@@ -1,0 +1,7 @@
+{# Narrativa IA opcional (opt-in) o aviso de que degradó a la ruta determinista. La prosa del cuerpo
+   NO pasa por aquí: es determinista y se emite como body de la sección. #}
+<div class="narration">
+  {% if section.narration.label %}<span class="ai-label">{{ section.narration.label }}</span>{% endif %}
+  {% if section.narration.text %}<p>{{ section.narration.text }}</p>{% endif %}
+  {% if section.narration.warning %}<p class="muted">{{ section.narration.warning }}</p>{% endif %}
+</div>

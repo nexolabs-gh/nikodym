@@ -1,0 +1,16 @@
+{# Tablas con TÍTULO LEGIBLE ("Coeficientes del modelo PD"), no la clave interna del artefacto. La
+   clave se conserva como dato de trazabilidad, pero deja de ser el encabezado. #}
+{% for table in section.tables %}
+<figure class="table-block">
+  <figcaption class="table-title">{{ table.title }}</figcaption>
+  <table id="{{ table.html_id }}" data-table-key="{{ table.key }}">
+    <thead><tr>{% for column in table.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+    <tbody>
+      {% for row in table.rows %}
+      <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if table.truncated %}<p class="truncated">… (mostrando {{ table.shown_rows }} de {{ table.total_rows }} filas)</p>{% endif %}
+</figure>
+{% endfor %}

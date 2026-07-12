@@ -13,21 +13,29 @@ por lo que no entra al ``config_hash`` global.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Final, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from nikodym.core.config import NikodymBaseConfig
 
 AiProvider = Literal["anthropic", "none"]
 BasicReportFormat = Literal["html", "json", "csv", "xlsx", "pdf"]
 MissingPolicy = Literal["error", "warn", "skip"]
+PlaceholderPolicy = Literal["show", "hide"]
 ReportLanguage = Literal["es"]
 ReportTheme = Literal["nikodym", "plain"]
 ReportType = Literal["standard"]
 
+# Formatos con una ruta de generación REAL en el motor. El resto del ``Literal`` documenta el
+# roadmap declarado (exports tabulares y editables), pero pedirlos hoy no produciría archivo: el
+# config los rechaza en vez de degradar en silencio.
+IMPLEMENTED_FORMATS: Final[frozenset[str]] = frozenset({"html", "pdf"})
+
 __all__ = [
+    "IMPLEMENTED_FORMATS",
     "AiNarrationConfig",
+    "DocumentStructureConfig",
     "HtmlRenderConfig",
     "PdfRenderConfig",
     "ReportConfig",
@@ -149,6 +157,55 @@ class AiNarrationConfig(NikodymBaseConfig):
     )
 
 
+class DocumentStructureConfig(NikodymBaseConfig):
+    """Metadatos editables de la portada y política de bloques por completar.
+
+    El motor no infiere de qué entidad ni de qué cartera es el modelo: son datos del negocio. Se
+    declaran aquí y la portada los imprime; lo que no se declare queda como campo en blanco para
+    llenar a mano, nunca como un valor inventado.
+    """
+
+    model_name: str = Field(
+        default="",
+        title="Nombre del modelo",
+        description="Nombre del modelo tal como se identifica en el inventario de la entidad.",
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 1},
+    )
+    entity: str = Field(
+        default="",
+        title="Entidad",
+        description="Entidad o institución financiera propietaria del modelo.",
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 2},
+    )
+    portfolio: str = Field(
+        default="",
+        title="Cartera",
+        description="Cartera o producto sobre el que aplica el modelo (p. ej. consumo).",
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 3},
+    )
+    author: str = Field(
+        default="",
+        title="Autor",
+        description="Área o persona responsable del desarrollo del modelo.",
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 4},
+    )
+    version: str = Field(
+        default="",
+        title="Versión del informe",
+        description="Versión del documento (p. ej. 1.0, borrador para Validación).",
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Documento", "ui_order": 5},
+    )
+    placeholders: PlaceholderPolicy = Field(
+        default="show",
+        title="Bloques por completar",
+        description=(
+            "'show' publica los bloques POR COMPLETAR con su guía de redacción; 'hide' los "
+            "oculta para la versión final del entregable."
+        ),
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Documento", "ui_order": 6},
+    )
+
+
 class SectionPolicyConfig(NikodymBaseConfig):
     """Config de secciones obligatorias, faltantes y tablas renderizadas."""
 
@@ -225,11 +282,18 @@ class ReportConfig(NikodymBaseConfig):
         default=("html",),
         title="Formatos del reporte",
         description=(
-            "Formatos generados por el reporte. 'html'/'json'/'csv'/'xlsx' no dependen de "
-            "WeasyPrint; 'pdf' es opt-in y requiere el extra `pdf` (WeasyPrint + nativas). "
-            "Default: solo 'html'."
+            "Formatos generados por el reporte. Sólo 'html' y 'pdf' están implementados; 'pdf' "
+            "es opt-in y requiere el extra `pdf` (WeasyPrint + nativas). Pedir un formato no "
+            "implementado ('json'/'csv'/'xlsx') es un error explícito, no una degradación "
+            "silenciosa. Default: solo 'html'."
         ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 5},
+    )
+    document: DocumentStructureConfig = Field(
+        default_factory=DocumentStructureConfig,
+        title="Documento",
+        description="Metadatos de portada y política de bloques por completar del informe.",
+        json_schema_extra={"ui_widget": "section", "ui_group": "Documento", "ui_order": 1},
     )
     html: HtmlRenderConfig = Field(
         default_factory=HtmlRenderConfig,
@@ -255,3 +319,26 @@ class ReportConfig(NikodymBaseConfig):
         description="Config de secciones obligatorias, faltantes y límites de tablas.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Secciones", "ui_order": 1},
     )
+
+    @field_validator("formats")
+    @classmethod
+    def _rechaza_formatos_no_implementados(
+        cls,
+        value: tuple[BasicReportFormat, ...],
+    ) -> tuple[BasicReportFormat, ...]:
+        """Falla ruidosamente ante un formato declarado pero sin ruta de generación real.
+
+        Un formato aceptado por el schema y sin motor detrás produce un reporte silenciosamente
+        incompleto: se pide ``xlsx``, la corrida termina "bien" y no hay archivo. El step no puede
+        ser más permisivo que el motor, así que el config lo rechaza aquí.
+        """
+        pendientes = tuple(dict.fromkeys(item for item in value if item not in IMPLEMENTED_FORMATS))
+        if pendientes:
+            implementados = ", ".join(sorted(IMPLEMENTED_FORMATS))
+            raise ValueError(
+                f"Formato de reporte no implementado: {', '.join(pendientes)}. La capa report "
+                f"sólo genera: {implementados} ('pdf' requiere el extra `pdf`). Los exports "
+                "tabulares (json/csv/xlsx) y editables (docx/qmd) están en el roadmap; "
+                "declararlos hoy no produciría archivo alguno."
+            )
+        return value

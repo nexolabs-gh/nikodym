@@ -22,6 +22,7 @@ import nikodym.report.renderer as renderer_module
 from nikodym.core.lineage import LineageBundle
 from nikodym.report.config import (
     AiNarrationConfig,
+    DocumentStructureConfig,
     HtmlRenderConfig,
     PdfRenderConfig,
     ReportConfig,
@@ -33,11 +34,18 @@ from nikodym.report.exceptions import (
     ReportRenderError,
 )
 from nikodym.report.renderer import HtmlReportRenderer, PdfReportRenderer
-from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportSection
+from nikodym.report.results import (
+    AiNarrationBlock,
+    PlaceholderBlock,
+    ReportInputBundle,
+    ReportSection,
+)
 
 # Golden del ``_digest_html`` (excluye los bytes ``<svg>``, ver renderer): con el extra ``report``
 # el bundle golden embebe un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
-GOLDEN_HTML_SHA256 = "1c8cbdb63f127052287cb92deb29d60ba1de45e596ebcdbb0443a7dc59c80442"
+# Recalculado al pasar el reporte de log a documento: el HTML cambió a propósito (portada con
+# metadatos, índice, resumen ejecutivo con métricas, capítulos de prosa y dump degradado a anexos).
+GOLDEN_HTML_SHA256 = "3e3569914f6b710900ecfc4e8517b5138ff8ba5fbe7a7e314e9b4f9675ed06dc"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -70,7 +78,7 @@ class FrameLike:
 
 
 def test_html_golden_deterministico_y_orden_canonico() -> None:
-    """El HTML básico queda byte-idéntico y sigue el orden canónico."""
+    """El HTML queda byte-idéntico y respeta el orden canónico del documento."""
     renderer = _renderer()
     bundle = _bundle()
 
@@ -97,6 +105,7 @@ def test_html_golden_deterministico_y_orden_canonico() -> None:
     assert "0.743210" in first
     assert "-0.0" not in first
 
+    # Las secciones del documento salen en el orden canónico aunque el bundle llegue desordenado.
     positions = [first.index(f'data-section-id="{section_id}"') for section_id in _CANONICAL_IDS]
     assert positions == sorted(positions)
 
@@ -115,14 +124,111 @@ def test_html_golden_deterministico_y_orden_canonico() -> None:
     assert column_positions == sorted(column_positions)
 
 
+def test_documento_tiene_indice_metricas_ejecutivas_y_titulos_legibles() -> None:
+    """El HTML es un documento: índice, métricas clave y tablas con nombre humano.
+
+    Los tres agujeros del reporte-log: no había índice, el ``exec-metrics-slot`` estaba vacío
+    ("se completa en B3", nunca se completó) y las tablas se titulaban con el nombre de la variable
+    interna (``Tabla binning.tables.antiguedad_meses``).
+    """
+    html = _renderer(
+        ReportConfig(
+            document=DocumentStructureConfig(entity="Banco Ejemplo S.A."),
+            sections=SectionPolicyConfig(max_table_rows=10),
+        )
+    ).render(_bundle_con_cards())
+
+    # Índice generado, con anclas reales a las secciones.
+    assert '<section id="section-toc"' in html
+    assert '<a href="#section-results-model">' in html
+    assert '<a href="#exec-summary">' in html
+
+    # El slot ejecutivo ya no está vacío: trae las métricas clave y su banda.
+    assert '<div class="exec-metrics-slot"></div>' not in html
+    assert '<table class="exec-metrics">' in html
+    assert "0.7432" in html  # AUC de la card de performance
+    assert "Sin alertas" in html
+    assert "No se configuraron umbrales de discriminación" in html
+
+    # Títulos de tabla legibles, con la clave interna degradada a atributo de trazabilidad.
+    assert '<figcaption class="table-title">Coeficientes del modelo PD</figcaption>' in html
+    assert "Tabla model.coefficients" not in html
+    assert 'data-table-key="model.coefficients"' in html
+
+    # La portada imprime los metadatos declarados y deja en blanco lo no declarado.
+    assert "Banco Ejemplo S.A." in html
+    assert '<span class="to-fill"' in html
+
+
+def test_placeholders_show_y_hide() -> None:
+    """El bloque POR COMPLETAR trae guía de redacción y desaparece en el entregable final."""
+    con_bloque = _renderer().render(_bundle())
+    sin_bloque = _renderer().render(
+        _bundle(
+            sections_override=tuple(
+                section.model_copy(update={"placeholder": None}) for section in _bundle().sections
+            )
+        )
+    )
+
+    assert "POR COMPLETAR — Contexto del modelo" in con_bloque
+    assert "Describe la cartera: producto, segmento, volumen y período." in con_bloque
+    assert '<div class="placeholder">' in con_bloque
+    assert '<div class="placeholder">' not in sin_bloque
+    assert "POR COMPLETAR — Contexto del modelo" not in sin_bloque
+    # El capítulo y su prosa determinista siguen ahí: sólo desaparece la caja de guía.
+    assert "La tasa de incumplimiento observada es de 12.35 %." in sin_bloque
+
+
+def test_el_dump_no_se_borra_se_degrada_a_anexo() -> None:
+    """Principio rector: el payload crudo y TODAS las tablas siguen en el informe, en los anexos."""
+    html = _renderer().render(_bundle())
+
+    anexo_b = _section_fragment(html, "appendix_tables")
+    anexo_c_eda = _section_fragment(html, "appendix_parameters.eda")
+    resultados_modelo = _section_fragment(html, "results.model")
+
+    # Anexo B: TODAS las tablas del bundle, incluidas las que el cuerpo ya mostró.
+    for key in ("performance.performance_table", "model.coefficients"):
+        assert f'data-table-key="{key}"' in anexo_b
+    # Anexo B también recoge las figuras declarativas.
+    assert 'data-figure="eda.figures"' in anexo_b
+
+    # Anexo C: el payload crudo, con su artefacto de origen.
+    assert "minus_zero" in anexo_c_eda
+    assert "default_rate" in anexo_c_eda
+
+    # El cuerpo NO repite el dump: lleva prosa y las tablas que importan.
+    assert "El modelo final incluye 2 variables." in resultados_modelo
+    assert "<h4>Parámetros y payload</h4>" not in resultados_modelo
+
+
 def test_plantilla_y_css_empaquetados_en_el_paquete() -> None:
-    """La plantilla editorial y ambos CSS viven en el paquete (blindaje del wheel)."""
+    """Plantilla, parciales y ambos CSS viven en el paquete (blindaje del wheel).
+
+    La plantilla dejó de ser un monolito: si un parcial no se empaqueta, el render revienta en
+    producción con un ``TemplateNotFound`` que los tests locales (que leen del árbol de fuentes) no
+    verían. De ahí que la lista sea explícita.
+    """
     from importlib import resources
 
     root = resources.files("nikodym.report.templates")
-    assert root.joinpath("scorecard_report.html.j2").is_file()
-    assert root.joinpath("scorecard_report.css").is_file()
-    assert root.joinpath("scorecard_report_plain.css").is_file()
+    for nombre in (
+        "scorecard_report.html.j2",
+        "_base.html.j2",
+        "_cover.html.j2",
+        "_exec_summary.html.j2",
+        "_toc.html.j2",
+        "_prose_section.html.j2",
+        "_data_section.html.j2",
+        "_appendix.html.j2",
+        "_placeholder.html.j2",
+        "_narration.html.j2",
+        "_tables.html.j2",
+        "scorecard_report.css",
+        "scorecard_report_plain.css",
+    ):
+        assert root.joinpath(nombre).is_file(), nombre
 
 
 def test_truncado_bloques_ia_y_write_manifest(tmp_path: Path) -> None:
@@ -433,8 +539,8 @@ def test_charts_embebidos_con_bundle_rico_del_fixture() -> None:
         "chart-calibration-reliability",
     ):
         assert f'id="{chart_id}"' in first
-    # Los gráficos viven dentro de la sección esperada, no en otra.
-    performance_section = _section_fragment(first, "performance")
+    # Los gráficos viven dentro de la subsección de Resultados de su dominio, no en otra.
+    performance_section = _section_fragment(first, "results.performance")
     assert 'id="chart-performance-gains"' in performance_section
     assert 'id="chart-performance-discrimination"' in performance_section
     assert renderer_module._digest_html(first) == renderer_module._digest_html(second)
@@ -513,9 +619,28 @@ def _renderer(config: ReportConfig | None = None) -> HtmlReportRenderer:
     )
 
 
+def _bundle_con_cards() -> ReportInputBundle:
+    """Bundle con las cards reales que alimentan el semáforo del resumen ejecutivo."""
+    bundle = _bundle()
+    return bundle.model_copy(
+        update={
+            "cards": {
+                "performance": {
+                    "partitions": ("desarrollo",),
+                    "max_metrics_by_partition": {
+                        "desarrollo": {"auc": 0.74321, "gini": 0.48642, "ks": 0.31234}
+                    },
+                    "bands_by_partition": {"desarrollo": "ok"},
+                    "thresholds": {},
+                },
+            }
+        }
+    )
+
+
 def _table_fragment(html: str, table_id: str) -> str:
     """Extrae una tabla concreta para asserts de orden semántico."""
-    start = html.index(f'<table id="{table_id}">')
+    start = html.index(f'<table id="{table_id}"')
     end = html.index("</table>", start) + len("</table>")
     return html[start:end]
 
@@ -542,23 +667,90 @@ def _bundle(
     figures: dict[str, Any] | None = None,
     sections_override: tuple[ReportSection, ...] | None = None,
 ) -> ReportInputBundle:
-    """Bundle completo con secciones en orden intencionalmente desordenado."""
+    """Documento sintético completo, con las secciones en orden intencionalmente desordenado."""
     lineage = _lineage()
     sections = (
-        _section("performance", "Desempeño", metric_sections={"auc": 0.74321, "ks": 0.31234}),
-        _section("lineage", "Lineage", payload=lineage.model_dump(mode="json")),
-        _section("eda", "EDA", payload={"default_rate": 0.123456, "minus_zero": -0.0}),
-        _section("binning", "Binning WoE", metric_sections={"iv": {"saldo": 0.204567}}),
-        _section("selection", "Selección", status="missing"),
-        _section("model", "Modelo PD", payload={"selected_features": ("saldo", "mora")}),
-        _section("scorecard", "Scorecard", payload={"pdo": 20, "offset": 600}),
-        _section("calibration", "Calibración", metric_sections={"pd_anchor": 0.0444444}),
-        _section("stability", "Estabilidad", metric_sections={"score_psi": 0.271}),
-        _section("limitations", "Limitaciones", payload={"missing_sections": ("selection",)}),
+        _section("results.performance", "Desempeño y discriminación", level=2, number="4.6"),
+        _section("toc", "Índice", kind="toc", domain="report"),
         _section(
-            "appendix",
-            "Apéndice",
+            "appendix_parameters.performance",
+            "Desempeño y discriminación",
+            kind="appendix",
+            level=2,
+            number="C.6",
+            metric_sections={"auc": 0.74321, "ks": 0.31234},
+        ),
+        _section(
+            "context",
+            "Contexto del modelo y de la cartera",
+            kind="prose",
+            number="2",
+            domain="report",
+            body=("La tasa de incumplimiento observada es de 12.35 %.",),
+            placeholder=PlaceholderBlock(
+                title="Contexto del modelo",
+                guidance=("Describe la cartera: producto, segmento, volumen y período.",),
+            ),
+        ),
+        _section("methodology", "Metodología", kind="prose", number="3", domain="report"),
+        _section(
+            "methodology.binning",
+            "Binning WoE",
+            kind="prose",
+            level=2,
+            number="3.2",
+            body=("Se discretizó cada variable con OptBinning.",),
+        ),
+        _section("results", "Resultados", kind="prose", number="4", domain="report"),
+        _section("results.selection", "Selección de variables", level=2, status="missing"),
+        _section(
+            "results.model",
+            "Modelo PD",
+            level=2,
+            number="4.3",
+            body=("El modelo final incluye 2 variables.",),
+        ),
+        _section("results.stability", "Estabilidad", level=2, number="4.7"),
+        _section("results.calibration", "Calibración", level=2, number="4.5"),
+        _section(
+            "appendix_parameters.eda",
+            "Población y calidad de datos",
+            kind="appendix",
+            level=2,
+            number="C.1",
+            payload={"default_rate": 0.123456, "minus_zero": -0.0},
+        ),
+        _section(
+            "limitations",
+            "Limitaciones y supuestos",
+            kind="prose",
+            number="6",
+            domain="report",
+            payload={"missing_sections": ("selection",)},
+            body=("Secciones obligatorias ausentes en esta corrida: selection.",),
+        ),
+        _section(
+            "appendix_lineage",
+            "Lineage y reproducibilidad",
+            kind="appendix",
+            number="A",
+            domain="report",
+            payload=lineage.model_dump(mode="json"),
+        ),
+        _section(
+            "appendix_tables",
+            "Tablas detalladas",
+            kind="appendix",
+            number="B",
+            domain="report",
             payload={"table_keys": ("performance.performance_table", "model.coefficients")},
+        ),
+        _section(
+            "appendix_parameters",
+            "Parámetros completos",
+            kind="appendix",
+            number="C",
+            domain="report",
         ),
     )
     return ReportInputBundle(
@@ -578,20 +770,30 @@ def _section(
     title: str,
     *,
     status: str = "included",
+    kind: str = "data",
+    level: int = 1,
+    number: str = "",
+    domain: str | None = None,
     payload: dict[str, Any] | None = None,
     metric_sections: dict[str, Any] | None = None,
+    body: tuple[str, ...] = (),
+    placeholder: PlaceholderBlock | None = None,
 ) -> ReportSection:
-    """Sección sintética con fuente canónica."""
+    """Sección sintética del documento; el dominio se deriva del id salvo que se fije."""
+    source_domain = domain if domain is not None else (section_id.partition(".")[2] or "report")
     return ReportSection(
         id=section_id,
         title=title,
-        status=status,
-        source_domain=(
-            section_id if section_id not in {"lineage", "appendix", "limitations"} else "report"
-        ),
+        status=status,  # type: ignore[arg-type]
+        source_domain=source_domain,
         source_key="card",
         payload={} if payload is None else payload,
         metric_sections={} if metric_sections is None else metric_sections,
+        kind=kind,  # type: ignore[arg-type]
+        level=level,
+        number=number,
+        body=body,
+        placeholder=placeholder,
     )
 
 
@@ -618,7 +820,7 @@ def _tables() -> dict[str, pd.DataFrame]:
 def _ai_block() -> AiNarrationBlock:
     """Bloque IA generado para verificar etiqueta visible y manifest."""
     return AiNarrationBlock(
-        section_id="performance",
+        section_id="results.performance",
         text="Narrativa controlada para desempeño.",
         provider="anthropic",
         model="modelo-test",
@@ -629,16 +831,22 @@ def _ai_block() -> AiNarrationBlock:
     )
 
 
+# Orden canónico del DOCUMENTO (fuente única: nikodym.report.document), no del pipeline.
 _CANONICAL_IDS = (
-    "lineage",
-    "eda",
-    "binning",
-    "selection",
-    "model",
-    "scorecard",
-    "calibration",
-    "performance",
-    "stability",
+    "toc",
+    "context",
+    "methodology",
+    "methodology.binning",
+    "results",
+    "results.selection",
+    "results.model",
+    "results.calibration",
+    "results.performance",
+    "results.stability",
     "limitations",
-    "appendix",
+    "appendix_lineage",
+    "appendix_tables",
+    "appendix_parameters",
+    "appendix_parameters.eda",
+    "appendix_parameters.performance",
 )

@@ -1,0 +1,43 @@
+{# Resumen ejecutivo. El `exec-metrics-slot` que quedó vacío en B3 aquí SÍ se llena: métricas clave
+   (AUC/Gini/KS y PSI) con la banda que publicó el motor. El veredicto sigue siendo del validador:
+   el motor reporta bandas contra los umbrales configurados, no aprueba modelos. #}
+<section class="exec-summary" id="exec-summary">
+  <h2>Resumen ejecutivo</h2>
+  <div class="verdict">
+    <span class="verdict-label">Veredicto de validación</span>
+    <ul class="verdict-options">
+      <li>Aprobado</li>
+      <li>Aprobado con observaciones</li>
+      <li>Rechazado</li>
+    </ul>
+    <p class="verdict-note">Campo estructural: lo marca y firma el validador independiente; no es un resultado calculado por el motor.</p>
+  </div>
+
+  <div class="exec-metrics-slot">
+    {% if executive.metrics %}
+    <table class="exec-metrics">
+      <thead>
+        <tr><th>Métrica</th><th>Alcance</th><th>Valor</th><th>Estado</th></tr>
+      </thead>
+      <tbody>
+        {% for metric in executive.metrics %}
+        <tr>
+          <td>{{ metric.label }}</td>
+          <td>{{ metric.scope }}</td>
+          <td class="num">{{ metric.value }}</td>
+          <td><span class="band {{ metric.band_class }}">{{ metric.band }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="missing">Las métricas clave no están disponibles en esta corrida.</p>
+    {% endif %}
+  </div>
+
+  {% for note in executive.notes %}
+  <p class="muted">{{ note }}</p>
+  {% endfor %}
+
+  <p class="scope-note">Alcance: validación de scorecard en fase F1 (discriminación, estabilidad y calibración). El backtesting, la integración con IFRS 9 y el cálculo de provisiones corresponden a fases posteriores; este informe no los cubre ni infiere sus resultados. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
+</section>

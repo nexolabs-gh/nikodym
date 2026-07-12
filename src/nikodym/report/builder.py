@@ -1,12 +1,17 @@
-"""Constructor lógico de reportes auditables (SDD-26 §4/§6/§7).
+"""Constructor lógico del **documento** del informe (SDD-26 §4/§6/§7; mejora 1.1).
 
-``ReportBuilder`` recolecta las cards y artefactos tabulares ya publicados por un ``Study``,
-normaliza los nombres heterogéneos al contrato canónico de ``report`` y arma un
-:class:`~nikodym.report.results.ReportInputBundle`. No renderiza HTML, no escribe archivos, no
-calcula hashes de artefactos y no importa motores gráficos ni SDKs de IA.
+``ReportBuilder`` recolecta las cards y artefactos tabulares ya publicados por un ``Study`` y arma
+un :class:`~nikodym.report.results.ReportInputBundle`. Lo que ensambla no es un volcado del
+pipeline: es un documento —portada, índice, resumen ejecutivo, capítulos y anexos— cuya estructura
+declara :mod:`nikodym.report.document`, la **única** fuente de orden y títulos.
 
-El módulo es *pass-through*: no recalcula ni normaliza números de dominios aguas arriba. Sólo toma
-snapshots defensivos de estructuras mutables, especialmente ``DataFrame``.
+Los ocho dominios del pipeline dejan de ser secciones de primer nivel y pasan a ser subsecciones:
+las que sostienen el juicio de validación, en *Resultados*; el detalle completo (todas las tablas y
+todos los payloads), en los *Anexos B y C*. **Nada de lo que antes se reportaba desaparece**: el
+dump se degrada a anexo, que es lo que hace auditable al informe.
+
+El módulo sigue siendo *pass-through*: no recalcula ni normaliza números de dominios aguas arriba.
+Sólo toma snapshots defensivos de estructuras mutables, especialmente ``DataFrame``.
 
 **Estable (SemVer 1.x).**
 """
@@ -21,14 +26,31 @@ from typing import TYPE_CHECKING, Any, Final, NoReturn, TypeAlias, cast
 
 from pydantic import BaseModel
 
+from nikodym.report import prose
 from nikodym.report._manifest import REPORT_TEMPLATE_VERSION, REPORT_TITLE, html_report_id
 from nikodym.report.config import ReportConfig
+from nikodym.report.document import (
+    APPENDIX_LINEAGE_ID,
+    APPENDIX_PARAMETERS_ID,
+    APPENDIX_TABLES_ID,
+    CANONICAL_SECTION_ORDER,
+    CHAPTER_SPECS,
+    CONTEXT_DOMAINS,
+    DOMAIN_TITLES,
+    METHODOLOGY_STEPS,
+    PIPELINE_DOMAINS,
+    RESULT_DOMAINS,
+    ChapterSpec,
+    domain_section_id,
+)
 from nikodym.report.exceptions import ReportInputError
 from nikodym.report.results import (
+    PlaceholderBlock,
     ReportInputBundle,
     ReportManifest,
     ReportOutputFormat,
     ReportSection,
+    ReportSectionStatus,
 )
 
 if TYPE_CHECKING:
@@ -45,19 +67,6 @@ else:
 
 __all__ = ["CANONICAL_SECTION_ORDER", "ReportBuilder"]
 
-CANONICAL_SECTION_ORDER: Final[tuple[str, ...]] = (
-    "lineage",
-    "eda",
-    "binning",
-    "selection",
-    "model",
-    "scorecard",
-    "calibration",
-    "performance",
-    "stability",
-    "limitations",
-    "appendix",
-)
 _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("eda", "eda_card"),
     ("binning", "binning_card"),
@@ -96,22 +105,11 @@ _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("stability", "stability_metrics"),
 )
 _FIGURE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (("eda", "figures"),)
-_SECTION_TITLES: Final[dict[str, str]] = {
-    "lineage": "Lineage",
-    "eda": "EDA",
-    "binning": "Binning WoE",
-    "selection": "Selección",
-    "model": "Modelo PD",
-    "scorecard": "Scorecard",
-    "calibration": "Calibración",
-    "performance": "Desempeño",
-    "stability": "Estabilidad",
-    "limitations": "Limitaciones",
-    "appendix": "Apéndice",
-}
 _VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
     {"html", "pdf", "docx", "json", "csv", "xlsx"}
 )
+# Secciones de config que la Metodología necesita para describir lo que realmente se ejecutó.
+_PARAM_DOMAINS: Final[tuple[str, ...]] = ("data", *PIPELINE_DOMAINS)
 
 
 class ReportBuilder:
@@ -127,12 +125,13 @@ class ReportBuilder:
         return cls(cfg)
 
     def collect(self, study: Study) -> ReportInputBundle:
-        """Recolecta cards, tablas, figuras y lineage en un snapshot defensivo."""
+        """Recolecta cards, tablas, figuras, parámetros y lineage en un snapshot defensivo."""
         lineage = _lineage_from_study(study)
         cards = self._collect_cards(study)
         tables = self._collect_tables(study)
         tables.update(_extract_card_dataframes(cards))
         figures = self._collect_figures(study)
+        pipeline_params = _collect_pipeline_params(study)
         missing_sections = self._missing_required_sections(cards)
         bundle = ReportInputBundle(
             lineage=lineage,
@@ -141,33 +140,211 @@ class ReportBuilder:
             figures=figures,
             sections=(),
             missing_sections=missing_sections,
+            pipeline_params=pipeline_params,
         )
-        sections = self.build_sections(bundle)
-        return ReportInputBundle(
-            lineage=lineage,
-            cards=cards,
-            tables=tables,
-            figures=figures,
-            sections=sections,
-            missing_sections=missing_sections,
-        )
+        return bundle.model_copy(update={"sections": self.build_sections(bundle)})
 
     def build_sections(self, bundle: ReportInputBundle) -> tuple[ReportSection, ...]:
-        """Construye secciones en el orden canónico y aplica ``missing_policy``."""
-        cards = bundle.cards
+        """Construye el documento: capítulos, subsecciones de dominio y anexos.
+
+        El orden y los títulos salen de :data:`~nikodym.report.document.CHAPTER_SPECS`; la
+        numeración (1-6 para capítulos, A/B/C para anexos) se deriva aquí, de modo que omitir un
+        dominio no deja huecos en el índice.
+        """
         sections: list[ReportSection] = []
-        for section_id in CANONICAL_SECTION_ORDER:
-            if section_id == "lineage":
-                sections.append(_lineage_section(bundle.lineage))
-            elif section_id in _CARD_KEY_BY_DOMAIN:
-                section = self._domain_section(section_id, cards)
-                if section is not None:
-                    sections.append(section)
-            elif section_id == "limitations":
-                sections.append(_limitations_section(bundle))
+        chapter_number = 0
+        appendix_index = 0
+        for spec in CHAPTER_SPECS:
+            if spec.numbered:
+                chapter_number += 1
+                number = str(chapter_number)
+            elif spec.kind == "appendix":
+                number = chr(ord("A") + appendix_index)
+                appendix_index += 1
             else:
-                sections.append(_appendix_section(bundle))
+                number = ""
+            sections.append(self._chapter_section(spec, bundle, number))
+            sections.extend(self._subsections(spec, bundle, number))
         return tuple(sections)
+
+    def _chapter_section(
+        self,
+        spec: ChapterSpec,
+        bundle: ReportInputBundle,
+        number: str,
+    ) -> ReportSection:
+        """Construye el capítulo de primer nivel con su prosa y su bloque por completar."""
+        payload: dict[str, Any] = {}
+        if spec.id == APPENDIX_LINEAGE_ID:
+            payload = _copy_mapping(cast(Mapping[Any, Any], bundle.lineage.model_dump(mode="json")))
+        elif spec.id == "limitations":
+            payload = {
+                "determinism_caveats": tuple(bundle.lineage.determinism_caveats),
+                "missing_sections": bundle.missing_sections,
+            }
+        elif spec.id == APPENDIX_TABLES_ID:
+            payload = {
+                "table_keys": tuple(bundle.tables),
+                "figure_keys": tuple(bundle.figures),
+            }
+        return ReportSection(
+            id=spec.id,
+            title=spec.title,
+            status="included",
+            source_domain="report",
+            source_key=spec.id,
+            payload=payload,
+            metric_sections={},
+            kind=spec.kind,
+            level=1,
+            number=number,
+            body=_chapter_body(spec.id, bundle),
+            placeholder=_placeholder(spec, self.config),
+        )
+
+    def _subsections(
+        self,
+        spec: ChapterSpec,
+        bundle: ReportInputBundle,
+        number: str,
+    ) -> tuple[ReportSection, ...]:
+        """Construye las subsecciones de dominio que cuelgan de un capítulo."""
+        if spec.id == "context":
+            return self._domain_subsections(spec.id, CONTEXT_DOMAINS, bundle, number, kind="data")
+        if spec.id == "methodology":
+            return self._methodology_subsections(bundle, number)
+        if spec.id == "results":
+            return self._domain_subsections(spec.id, RESULT_DOMAINS, bundle, number, kind="data")
+        if spec.id == APPENDIX_PARAMETERS_ID:
+            return self._domain_subsections(
+                spec.id,
+                PIPELINE_DOMAINS,
+                bundle,
+                number,
+                kind="appendix",
+            )
+        return ()
+
+    def _methodology_subsections(
+        self,
+        bundle: ReportInputBundle,
+        number: str,
+    ) -> tuple[ReportSection, ...]:
+        """Una subsección por etapa realmente ejecutada, con su prosa de parámetros reales."""
+        sections: list[ReportSection] = []
+        for step, title in METHODOLOGY_STEPS:
+            body = prose.methodology_body(bundle, step)
+            if not body:
+                continue
+            sections.append(
+                ReportSection(
+                    id=domain_section_id("methodology", step),
+                    title=title,
+                    status="included",
+                    source_domain=step,
+                    source_key=_CARD_KEY_BY_DOMAIN.get(step),
+                    payload={},
+                    metric_sections={},
+                    kind="prose",
+                    level=2,
+                    number=f"{number}.{len(sections) + 1}",
+                    body=body,
+                )
+            )
+        return tuple(sections)
+
+    def _domain_subsections(
+        self,
+        parent_id: str,
+        domains: tuple[str, ...],
+        bundle: ReportInputBundle,
+        number: str,
+        *,
+        kind: str,
+    ) -> tuple[ReportSection, ...]:
+        """Construye las subsecciones de dominio de un capítulo aplicando ``missing_policy``."""
+        sections: list[ReportSection] = []
+        for domain in domains:
+            status = self._domain_status(domain, bundle.cards)
+            if status is None:
+                continue
+            # El Anexo C anexa los parámetros de lo que sí corrió; un dominio ausente no tiene
+            # parámetros que anexar y ya queda declarado en Limitaciones.
+            if status == "missing" and kind == "appendix":
+                continue
+            sections.append(
+                self._domain_section(
+                    parent_id=parent_id,
+                    domain=domain,
+                    status=status,
+                    bundle=bundle,
+                    number=f"{number}.{len(sections) + 1}",
+                    kind=kind,
+                )
+            )
+        return tuple(sections)
+
+    def _domain_status(
+        self,
+        domain: str,
+        cards: Mapping[str, Any],
+    ) -> ReportSectionStatus | None:
+        """Resuelve si un dominio se publica, se omite o falla, según ``missing_policy``."""
+        if domain in cards:
+            return "included"
+        if domain not in set(self.config.sections.required_sections):
+            return None
+        if self.config.sections.missing_policy == "error":
+            raise ReportInputError(
+                "Falta una card requerida para construir el reporte: "
+                f"dominio='{domain}', clave='{_CARD_KEY_BY_DOMAIN[domain]}'. "
+                "Ejecute el step aguas arriba o use missing_policy='warn'/'skip' para un "
+                "reporte parcial explícito."
+            )
+        if self.config.sections.missing_policy == "skip":
+            return None
+        return "missing"
+
+    def _domain_section(
+        self,
+        *,
+        parent_id: str,
+        domain: str,
+        status: ReportSectionStatus,
+        bundle: ReportInputBundle,
+        number: str,
+        kind: str,
+    ) -> ReportSection:
+        """Construye una subsección de dominio: datos en el cuerpo, dump completo en el anexo."""
+        artifact_name = f"{domain}.{_CARD_KEY_BY_DOMAIN[domain]}"
+        payload: dict[str, Any] = {}
+        metric_sections: dict[str, Any] = {}
+        if status == "missing":
+            payload = {
+                "warning": (
+                    "Sección requerida ausente; el reporte parcial no inventa números ni "
+                    "rellena métricas."
+                )
+            }
+        elif kind == "appendix":
+            # Sólo el Anexo C reproduce el payload crudo: el cuerpo lo referencia, no lo repite.
+            payload, metric_sections = _payload_and_metric_sections(
+                _card_to_mapping(bundle.cards[domain], artifact_name),
+                artifact=artifact_name,
+            )
+        return ReportSection(
+            id=domain_section_id(parent_id, domain),
+            title=DOMAIN_TITLES[domain],
+            status=status,
+            source_domain=domain,
+            source_key=_CARD_KEY_BY_DOMAIN[domain],
+            payload=payload,
+            metric_sections=metric_sections,
+            kind=cast(Any, kind),
+            level=2,
+            number=number,
+            body=prose.results_body(bundle, domain) if kind == "data" else (),
+        )
 
     def build_manifest(self, bundle: ReportInputBundle, *, path: str) -> ReportManifest:
         """Ensambla metadatos pre-render; el renderer completa el ``sha256`` real."""
@@ -218,61 +395,73 @@ class ReportBuilder:
         return figures
 
     def _missing_required_sections(self, cards: Mapping[str, Any]) -> tuple[str, ...]:
-        """Lista secciones obligatorias ausentes en el orden canónico de reporte."""
+        """Lista los dominios obligatorios ausentes, en el orden del pipeline."""
         required = set(self.config.sections.required_sections)
         return tuple(
-            section_id
-            for section_id in CANONICAL_SECTION_ORDER
-            if section_id in required and section_id not in cards
+            domain for domain in PIPELINE_DOMAINS if domain in required and domain not in cards
         )
 
-    def _domain_section(
-        self,
-        section_id: str,
-        cards: Mapping[str, Any],
-    ) -> ReportSection | None:
-        """Construye una sección de dominio o aplica la política de faltantes."""
-        if section_id in cards:
-            artifact_name = f"{section_id}.{_CARD_KEY_BY_DOMAIN[section_id]}"
-            payload, metric_sections = _payload_and_metric_sections(
-                _card_to_mapping(cards[section_id], artifact_name),
-                artifact=artifact_name,
-            )
-            return ReportSection(
-                id=section_id,
-                title=_SECTION_TITLES[section_id],
-                status="included",
-                source_domain=section_id,
-                source_key=_CARD_KEY_BY_DOMAIN[section_id],
-                payload=payload,
-                metric_sections=metric_sections,
-            )
 
-        if section_id not in set(self.config.sections.required_sections):
-            return None
-        if self.config.sections.missing_policy == "error":
-            raise ReportInputError(
-                "Falta una card requerida para construir el reporte: "
-                f"dominio='{section_id}', clave='{_CARD_KEY_BY_DOMAIN[section_id]}'. "
-                "Ejecute el step aguas arriba o use missing_policy='warn'/'skip' para un "
-                "reporte parcial explícito."
-            )
-        if self.config.sections.missing_policy == "skip":
-            return None
-        return ReportSection(
-            id=section_id,
-            title=_SECTION_TITLES[section_id],
-            status="missing",
-            source_domain=section_id,
-            source_key=_CARD_KEY_BY_DOMAIN[section_id],
-            payload={
-                "warning": (
-                    "Sección requerida ausente; el reporte parcial no inventa números ni "
-                    "rellena métricas."
-                )
-            },
-            metric_sections={},
+def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Prosa determinista del capítulo; los capítulos sin prosa propia devuelven vacío."""
+    if chapter_id == "context":
+        return prose.context_body(bundle)
+    if chapter_id == "methodology":
+        return prose.methodology_intro(bundle)
+    if chapter_id == "results":
+        return prose.results_intro(bundle)
+    if chapter_id == "conclusions":
+        return prose.conclusions_body(bundle)
+    if chapter_id == "limitations":
+        return prose.limitations_body(bundle)
+    if chapter_id == APPENDIX_TABLES_ID:
+        return (
+            "Este anexo reproduce íntegras todas las tablas que produjo la corrida, incluidas "
+            "las que el cuerpo del informe ya mostró. Es la trazabilidad completa: nada de lo "
+            "que el motor calculó queda fuera del documento.",
         )
+    if chapter_id == APPENDIX_PARAMETERS_ID:
+        return (
+            "Este anexo reproduce el payload completo de cada etapa: los parámetros efectivos y "
+            "las métricas estructuradas tal como las publicó cada step, sin resumir.",
+        )
+    if chapter_id == APPENDIX_LINEAGE_ID:
+        return (
+            "La corrida queda identificada por los hashes de configuración y de datos, el commit "
+            "del código y la semilla raíz. Con estos cuatro valores el resultado es reproducible.",
+        )
+    return ()
+
+
+def _placeholder(spec: ChapterSpec, config: ReportConfig) -> PlaceholderBlock | None:
+    """Adjunta el bloque POR COMPLETAR salvo que el config pida el entregable final."""
+    if not spec.placeholder_title or config.document.placeholders == "hide":
+        return None
+    return PlaceholderBlock(
+        title=spec.placeholder_title,
+        guidance=spec.placeholder_guidance,
+    )
+
+
+def _collect_pipeline_params(study: Study) -> dict[str, Any]:
+    """Snapshot JSON de las secciones de config de cada dominio realmente configurado.
+
+    Es lo que permite a la Metodología describir el binning, la selección o la calibración con sus
+    parámetros reales. Un dominio sin config no aparece: la prosa omite lo que no puede afirmar.
+    """
+    config = getattr(study, "config", None)
+    if config is None:
+        return {}
+    params: dict[str, Any] = {}
+    for domain in _PARAM_DOMAINS:
+        section = getattr(config, domain, None)
+        if section is None:
+            continue
+        if isinstance(section, BaseModel):
+            params[domain] = _copy_mapping(cast(Mapping[Any, Any], section.model_dump(mode="json")))
+        elif isinstance(section, Mapping):
+            params[domain] = _copy_mapping(section)
+    return params
 
 
 def _lineage_from_study(study: Study) -> LineageBundle:
@@ -286,51 +475,6 @@ def _lineage_from_study(study: Study) -> LineageBundle:
                 "o inyecte run_context.lineage antes de construir el bundle."
             ) from exc
     return cast(LineageBundle, _copy_value(lineage))
-
-
-def _lineage_section(lineage: LineageBundle) -> ReportSection:
-    return ReportSection(
-        id="lineage",
-        title=_SECTION_TITLES["lineage"],
-        status="included",
-        source_domain="core",
-        source_key="lineage",
-        payload=_copy_mapping(cast(Mapping[Any, Any], lineage.model_dump(mode="json"))),
-        metric_sections={},
-    )
-
-
-def _limitations_section(bundle: ReportInputBundle) -> ReportSection:
-    payload: dict[str, Any] = {
-        "determinism_caveats": tuple(bundle.lineage.determinism_caveats),
-        "missing_sections": bundle.missing_sections,
-    }
-    return ReportSection(
-        id="limitations",
-        title=_SECTION_TITLES["limitations"],
-        status="included",
-        source_domain="report",
-        source_key="limitations",
-        payload=payload,
-        metric_sections={},
-    )
-
-
-def _appendix_section(bundle: ReportInputBundle) -> ReportSection:
-    payload: dict[str, Any] = {
-        "missing_sections": bundle.missing_sections,
-        "table_keys": tuple(bundle.tables),
-        "figure_keys": tuple(bundle.figures),
-    }
-    return ReportSection(
-        id="appendix",
-        title=_SECTION_TITLES["appendix"],
-        status="included",
-        source_domain="report",
-        source_key="appendix",
-        payload=payload,
-        metric_sections={},
-    )
 
 
 def _card_to_mapping(value: Any, artifact: str) -> dict[str, Any]:

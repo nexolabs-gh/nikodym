@@ -22,29 +22,23 @@ from nikodym.report.ai import AIClient, AINarrator, AIRequest, AIResponse, RuleB
 from nikodym.report.config import AiNarrationConfig
 from nikodym.report.results import ReportInputBundle, ReportSection
 
+_EXPECTED_SECTION_IDS: tuple[str, ...] = (
+    "context",
+    "methodology.binning",
+    "results.model",
+    "results.performance",
+    "limitations",
+    "appendix_lineage",
+)
+# La narrativa determinista ES la prosa del documento (``ReportSection.body``): el narrador la
+# transporta en vez de emitir el genérico "La sección X está disponible con estado included".
 _EXPECTED_BASIC_TEXTS: tuple[str, ...] = (
-    "El lineage fija config_hash=cfg123 y data_hash=data123.",
-    "El modelo usa 2 variables finales. La partición OOT no está disponible.",
-    "El desempeño reporta AUC=0.743210.",
-    "El PSI máximo del score cae en banda review.",
-    "El reporte declara secciones ausentes: scorecard.",
-    "El apéndice referencia 2 tablas y 1 figura.",
-)
-_EXPECTED_INPUT_HASHES: tuple[str, ...] = (
-    "c7fdc7e39a561354e8538464a5231e91e0ea2b0ca2262ddaff648496ee9cac93",
-    "c1125c7ea2ec0db9aede310daa6b0b62182eb4dda2b1dba6c1c43180c136d6f4",
-    "5ec4b83843e83e8a4018ab82df7728ac4703ac11edf77bd3f1ddf47f69709244",
-    "bec436ebc5762b3e88eb8deb898e8cd5ab3933e5dd609ae9459640313e72de14",
-    "59c393d42bace7eefbbf7c4270871e84b1f2369ebfadfb8623758b328a3a6ae3",
-    "219d4924b8c88db7731f73e716cb5c4f5edfb401a9ea9dd25e6e541afa4728b7",
-)
-_EXPECTED_PROMPT_HASHES: tuple[str, ...] = (
-    "03cbb46278598b38fb0a1a760ca06a1fc8d1f1bf1c8e2ef717b1771f5531271b",
-    "97f744ad0917fa9b5e6ee6dbcd13715eebc6a59cd1483568d42849da9121a63c",
-    "b0c7df386983061e71f8e5d18c83a175aa6ed9595f2969ff36dc47b57893cbf0",
-    "7c259db052791c436c6a970e4b0a67ba446f79fbe2b0e03e0808376941a3dad9",
-    "4d0dcc6597ef98db68d3ceac0751180a6c0b3a740e7ab58cbd099bcab616e8fc",
-    "7e31a4df1fd9bb1a9c2d8f52113774b229fb3b4a776d33e9b4822220cbf5f1b0",
+    "La cartera es de consumo.",
+    "El binning se resolvió por MIP con 8 bins.",
+    "El modelo retiene 2 variables.",
+    "En Desarrollo el modelo alcanza AUC 0.7432.",
+    "No hay secciones obligatorias ausentes.",
+    "Anexo A — Lineage y reproducibilidad: detalle íntegro de la corrida, sin resumir.",
 )
 
 
@@ -99,27 +93,35 @@ class ExplosiveEnv(dict[str, str]):
 
 
 def test_rule_based_narrator_golden_deterministico_sin_red() -> None:
-    """La ruta básica es byte-determinística y no depende de entorno ni red."""
+    """La ruta básica es byte-determinística, sigue el orden del documento y no toca la red."""
     bundle = _bundle()
     first = RuleBasedNarrator().narrate(bundle)
     second = RuleBasedNarrator().narrate(bundle)
 
     assert first == second
-    assert tuple(block.section_id for block in first) == (
-        "lineage",
-        "model",
-        "performance",
-        "stability",
-        "limitations",
-        "appendix",
-    )
+    # Orden canónico del documento, aunque el bundle llegue desordenado (fuente única: document).
+    assert tuple(block.section_id for block in first) == _EXPECTED_SECTION_IDS
     assert tuple(block.text for block in first) == _EXPECTED_BASIC_TEXTS
-    assert tuple(block.input_payload_hash for block in first) == _EXPECTED_INPUT_HASHES
-    assert tuple(block.prompt_hash for block in first) == _EXPECTED_PROMPT_HASHES
     assert all(block.provider == "none" for block in first)
     assert all(block.model == "rule_based_v1" for block in first)
     assert all(not block.generated for block in first)
     assert all(block.warning is None for block in first)
+    # Los hashes de auditoría son estables entre corridas y distintos entre secciones.
+    assert len({block.input_payload_hash for block in first}) == len(first)
+    assert all(len(block.input_payload_hash) == 64 for block in first)
+    assert all(len(block.prompt_hash) == 64 for block in first)
+
+
+def test_ningun_bloque_cae_en_el_generico_degenerado() -> None:
+    """Ninguna sección con prosa emite ya "está disponible con estado included".
+
+    Ese texto ocupaba cinco de las once secciones del reporte viejo (eda, binning, selection,
+    scorecard, calibration) y es exactamente lo que esta mejora elimina.
+    """
+    textos = tuple(block.text for block in RuleBasedNarrator().narrate(_bundle()))
+
+    assert all("está disponible con estado" not in texto for texto in textos)
+    assert all(texto.strip() for texto in textos)
 
 
 def test_ai_narrator_disabled_o_provider_none_usa_ruta_basica() -> None:
@@ -224,7 +226,7 @@ def test_ai_payload_sanitiza_pii_antes_de_enviar_al_cliente() -> None:
     ).enrich(_bundle(pii=True))
 
     model_request = next(
-        request for request in fake.requests if request.payload["section"]["id"] == "model"
+        request for request in fake.requests if request.payload["section"]["id"] == "results.model"
     )
     serialized = json.dumps(model_request.payload, sort_keys=True, ensure_ascii=False).lower()
 
@@ -237,51 +239,35 @@ def test_ai_payload_sanitiza_pii_antes_de_enviar_al_cliente() -> None:
     assert "saldo" in serialized
 
 
-def test_rule_based_casos_borde_de_plantillas() -> None:
-    """Las plantillas cubren secciones missing, genéricas y métricas alternativas."""
+def test_rule_based_casos_borde_de_secciones_sin_prosa() -> None:
+    """Secciones ausentes, índice, anexos y datos sin prosa tienen texto propio, no genérico."""
     sections = (
-        _section(id="binning", title="Binning WoE", status="missing"),
-        _section(id="eda", title="EDA", payload={"resumen": "ok"}),
-        _section(id="model", title="Modelo sin variables", payload={}),
+        _section(id="results.binning", title="Binning WoE", status="missing", kind="data"),
         _section(
-            id="model", title="Modelo sin partición", payload={"selected_features": ("saldo",)}
+            id="results.model",
+            title="Modelo PD",
+            kind="data",
+            body=("Párrafo uno.", "Párrafo dos."),
         ),
-        _section(
-            id="model",
-            title="Modelo con OOT",
-            payload={"n_variables": 3, "partition_sizes": {"oot": 7}},
-        ),
-        _section(id="performance", title="KS", metric_sections={"items": [{"ks": 0.25}]}),
-        _section(
-            id="performance",
-            title="AUC no finito",
-            metric_sections={"auc": math.nan, "ks": 0.15},
-        ),
-        _section(id="performance", title="Performance vacía"),
-        _section(id="stability", title="PSI", metric_sections={"score": {"psi": 0.2}}),
-        _section(id="stability", title="Band", metric_sections={"items": [{"band": "stable"}]}),
-        _section(id="stability", title="Band vacía", metric_sections={"items": [{"otro": "sin"}]}),
-        _section(id="stability", title="Stability vacía"),
-        _section(id="limitations", title="Limitaciones", payload={"missing_sections": ()}),
-        _section(id="appendix", title="Apéndice", payload={}),
+        _section(id="results.scorecard", title="Scorecard", kind="data"),
+        _section(id="toc", title="Índice", kind="toc"),
+        _section(id="appendix_tables", title="Anexo B — Tablas detalladas", kind="appendix"),
+        _section(id="conclusions", title="Conclusiones", kind="prose", source_domain=None),
     )
 
     texts = tuple(block.text for block in RuleBasedNarrator().narrate(_bundle_with(sections)))
 
     assert any("La sección Binning WoE no está disponible" in text for text in texts)
-    assert "La sección EDA está disponible con estado included." in texts
-    assert "La sección Modelo sin variables está disponible con estado included." in texts
-    assert "El modelo usa 1 variable final." in texts
-    assert "El modelo usa 3 variables finales." in texts
-    assert "El desempeño reporta KS=0.250000." in texts
-    assert "El desempeño reporta KS=0.150000." in texts
-    assert "La sección Performance vacía está disponible con estado included." in texts
-    assert "El PSI máximo del score es 0.200000." in texts
-    assert "El PSI máximo del score cae en banda stable." in texts
-    assert "La sección Band vacía está disponible con estado included." in texts
-    assert "La sección Stability vacía está disponible con estado included." in texts
-    assert "El reporte no declara secciones obligatorias ausentes." in texts
-    assert "El apéndice referencia 0 tablas y 0 figuras." in texts
+    # Un body multipárrafo viaja íntegro en el bloque narrativo.
+    assert "Párrafo uno.\n\nPárrafo dos." in texts
+    # Una subsección de datos sin prosa remite a sus tablas, no dice "estado included".
+    assert (
+        "La sección Scorecard reproduce las tablas y gráficos publicados por el dominio "
+        "'scorecard'." in texts
+    )
+    assert "El índice enumera los capítulos y anexos que componen el informe." in texts
+    assert "Anexo B — Tablas detalladas: detalle íntegro de la corrida, sin resumir." in texts
+    assert "La sección Conclusiones forma parte del documento." in texts
 
 
 def test_sanitizacion_y_canonico_cubren_tipos_defensivos() -> None:
@@ -308,9 +294,10 @@ def test_sanitizacion_y_canonico_cubren_tipos_defensivos() -> None:
     assert ai_module._stable_json({"opaque": object()}) == (
         '{"opaque":{"unsupported_type":"object"}}'
     )
-    assert ai_module._format_float(math.nan) == "nan"
-    assert ai_module._format_float(math.inf) == "inf"
-    assert ai_module._format_float(-math.inf) == "-inf"
+    assert ai_module._canonical_float(math.nan) == {"non_finite_float": "nan"}
+    assert ai_module._canonical_float(math.inf) == {"non_finite_float": "inf"}
+    assert ai_module._canonical_float(-math.inf) == {"non_finite_float": "-inf"}
+    assert ai_module._canonical_float(-0.0) == 0.0
     with pytest.raises(ValueError, match="no contiene texto"):
         ai_module._extract_anthropic_text(SimpleNamespace(content=[]))
 
@@ -454,15 +441,21 @@ def _section(
     status: str = "included",
     payload: dict[str, Any] | None = None,
     metric_sections: Any | None = None,
+    kind: str = "data",
+    body: tuple[str, ...] = (),
+    source_domain: str | None = "",
 ) -> ReportSection:
+    domain = id.partition(".")[2] or id if source_domain == "" else source_domain
     return ReportSection(
         id=id,
         title=title,
         status=status,
-        source_domain=id,
+        source_domain=domain,
         source_key="card",
         payload={} if payload is None else payload,
         metric_sections={} if metric_sections is None else metric_sections,
+        kind=kind,  # type: ignore[arg-type]
+        body=body,
     )
 
 
@@ -479,64 +472,85 @@ def _bundle_with(sections: tuple[ReportSection, ...]) -> ReportInputBundle:
 
 
 def _bundle(*, pii: bool = False) -> ReportInputBundle:
+    """Bundle del documento nuevo, con las secciones intencionalmente desordenadas."""
     lineage = _lineage()
     sections = (
         ReportSection(
-            id="lineage",
-            title="Lineage",
+            id="results.performance",
+            title="Desempeño y discriminación",
             status="included",
-            source_domain="core",
-            source_key="lineage",
-            payload=lineage.model_dump(mode="json"),
-            metric_sections={},
+            source_domain="performance",
+            source_key="card",
+            payload={},
+            metric_sections={"performance": {"auc": 0.74321, "ks": 0.31234}},
+            kind="data",
+            level=2,
+            number="4.6",
+            body=("En Desarrollo el modelo alcanza AUC 0.7432.",),
         ),
         ReportSection(
-            id="model",
+            id="appendix_lineage",
+            title="Anexo A — Lineage y reproducibilidad",
+            status="included",
+            source_domain="report",
+            source_key="appendix_lineage",
+            payload=lineage.model_dump(mode="json"),
+            metric_sections={},
+            kind="appendix",
+            level=1,
+            number="A",
+        ),
+        ReportSection(
+            id="context",
+            title="Contexto del modelo y de la cartera",
+            status="included",
+            source_domain="report",
+            source_key="context",
+            payload={},
+            metric_sections={},
+            kind="prose",
+            level=1,
+            number="2",
+            body=("La cartera es de consumo.",),
+        ),
+        ReportSection(
+            id="results.model",
             title="Modelo PD",
             status="included",
             source_domain="model",
             source_key="model_card",
             payload=_model_payload(pii=pii),
             metric_sections={"model": {"p_value_max": 0.041}},
+            kind="data",
+            level=2,
+            number="4.3",
+            body=("El modelo retiene 2 variables.",),
         ),
         ReportSection(
-            id="performance",
-            title="Desempeño",
+            id="methodology.binning",
+            title="Binning WoE",
             status="included",
-            source_domain="performance",
-            source_key="card",
+            source_domain="binning",
+            source_key="binning_card",
             payload={},
-            metric_sections={"performance": {"auc": 0.74321, "ks": 0.31234}},
-        ),
-        ReportSection(
-            id="stability",
-            title="Estabilidad",
-            status="included",
-            source_domain="stability",
-            source_key="card",
-            payload={},
-            metric_sections={"stability": {"score_psi": {"max_psi": 0.271, "band": "review"}}},
+            metric_sections={},
+            kind="prose",
+            level=2,
+            number="3.2",
+            body=("El binning se resolvió por MIP con 8 bins.",),
         ),
         ReportSection(
             id="limitations",
-            title="Limitaciones",
+            title="Limitaciones y supuestos",
             status="included",
             source_domain="report",
             source_key="limitations",
-            payload={"missing_sections": ("scorecard",)},
+            payload={"missing_sections": ()},
             metric_sections={},
-        ),
-        ReportSection(
-            id="appendix",
-            title="Apéndice",
-            status="included",
-            source_domain="report",
-            source_key="appendix",
-            payload={
-                "table_keys": ("model.coefficients", "performance.metrics"),
-                "figure_keys": ("eda.figures",),
-            },
-            metric_sections={},
+            kind="prose",
+            level=1,
+            number="6",
+            body=("No hay secciones obligatorias ausentes.",),
         ),
     )
     return ReportInputBundle(
@@ -545,7 +559,7 @@ def _bundle(*, pii: bool = False) -> ReportInputBundle:
         tables={},
         figures={},
         sections=sections,
-        missing_sections=("scorecard",),
+        missing_sections=(),
     )
 
 

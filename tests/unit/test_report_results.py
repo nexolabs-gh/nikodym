@@ -37,6 +37,8 @@ def test_report_section_golden_ct2_copias_frozen_y_extra() -> None:
     }
     section = _section(payload=payload, metric_sections=metric_sections)
 
+    # Los campos de estructura del documento son ADITIVOS y con default: una sección construida con
+    # el contrato previo (una card del pipeline) sigue validando sin tocarla.
     assert tuple(ReportSection.model_fields) == (
         "id",
         "title",
@@ -45,13 +47,28 @@ def test_report_section_golden_ct2_copias_frozen_y_extra() -> None:
         "source_key",
         "payload",
         "metric_sections",
+        "kind",
+        "level",
+        "number",
+        "body",
+        "placeholder",
     )
+    assert section.kind == "data"
+    assert section.level == 1
+    assert section.number == ""
+    assert section.body == ()
+    assert section.placeholder is None
     assert section.model_dump(mode="json") == {
         "id": "performance",
         "title": "Desempeño",
         "status": "included",
         "source_domain": "performance",
         "source_key": "card",
+        "kind": "data",
+        "level": 1,
+        "number": "",
+        "body": [],
+        "placeholder": None,
         "payload": {
             "summary": {"n_total": 1_000},
             "items": ["score", {"points": [10, 20]}],
@@ -96,7 +113,9 @@ def test_report_input_bundle_golden_copias_frozen_y_extra() -> None:
         "figures",
         "sections",
         "missing_sections",
+        "pipeline_params",
     )
+    assert bundle.pipeline_params == {}
     assert bundle.lineage == _lineage()
     assert bundle.cards == {"performance": {"auc": 0.74321}}
     assert_frame_equal(bundle.tables["performance_table"], _table())

@@ -23,25 +23,13 @@ from typing import Any, Final, Protocol, TypeAlias, cast, runtime_checkable
 from pydantic import BaseModel, ConfigDict, Field
 
 from nikodym.report.config import AiNarrationConfig
+from nikodym.report.document import section_sort_key
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportSection
 
 __all__ = ["AIClient", "AINarrator", "AIRequest", "AIResponse", "RuleBasedNarrator"]
 
 JSONValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | None
 
-_CANONICAL_SECTION_ORDER: Final[tuple[str, ...]] = (
-    "lineage",
-    "eda",
-    "binning",
-    "selection",
-    "model",
-    "scorecard",
-    "calibration",
-    "performance",
-    "stability",
-    "limitations",
-    "appendix",
-)
 _RULE_BASED_MODEL: Final = "rule_based_v1"
 _DEFAULT_ANTHROPIC_MODEL: Final = "claude-3-5-sonnet-latest"
 _DEFAULT_AI_MAX_TOKENS: Final = 900
@@ -259,8 +247,8 @@ def _validate_response(response: Any) -> AIResponse:
 
 
 def _ordered_sections(sections: tuple[ReportSection, ...]) -> tuple[ReportSection, ...]:
-    order = {section_id: index for index, section_id in enumerate(_CANONICAL_SECTION_ORDER)}
-    return tuple(sorted(sections, key=lambda section: (order.get(section.id, 999), section.id)))
+    """Ordena por la clave canónica del documento (fuente única: ``report.document``)."""
+    return tuple(sorted(sections, key=lambda section: (*section_sort_key(section.id), section.id)))
 
 
 def _section_payload(bundle: ReportInputBundle, section: ReportSection) -> dict[str, Any]:
@@ -332,144 +320,29 @@ def _is_sensitive_string(value: str) -> bool:
 
 
 def _rule_based_text(section: ReportSection) -> str:
+    """Texto determinista de una sección: **la prosa real del documento**, no un genérico.
+
+    La prosa la redacta :mod:`nikodym.report.prose` en el builder, con los parámetros y métricas
+    reales de la corrida, y viaja en ``ReportSection.body``. Aquí sólo se transporta: así el bloque
+    narrativo dejó de emitir el degenerado *"La sección X está disponible con estado included"* que
+    ocupaba cinco de las once secciones del reporte viejo.
+    """
     if section.status != "included":
         return (
             f"La sección {section.title} no está disponible; el reporte parcial no inventa números."
         )
-    if section.id == "lineage":
-        return _lineage_text(section)
-    if section.id == "model":
-        return _model_text(section)
-    if section.id == "performance":
-        return _performance_text(section)
-    if section.id == "stability":
-        return _stability_text(section)
-    if section.id == "limitations":
-        return _limitations_text(section)
-    if section.id == "appendix":
-        return _appendix_text(section)
-    return f"La sección {section.title} está disponible con estado {section.status}."
-
-
-def _lineage_text(section: ReportSection) -> str:
-    config_hash = section.payload.get("config_hash", "no disponible")
-    data_hash = section.payload.get("data_hash", "no disponible")
-    return f"El lineage fija config_hash={config_hash} y data_hash={data_hash}."
-
-
-def _model_text(section: ReportSection) -> str:
-    feature_count = _feature_count(section.payload)
-    if feature_count is None:
-        return f"La sección {section.title} está disponible con estado {section.status}."
-    suffix = _oot_suffix(section.payload)
-    variable_label = _plural(feature_count, "variable final", "variables finales")
-    return f"El modelo usa {feature_count} {variable_label}.{suffix}"
-
-
-def _performance_text(section: ReportSection) -> str:
-    auc = _find_numeric_by_key(section.metric_sections, "auc")
-    if auc is not None:
-        return f"El desempeño reporta AUC={_format_float(auc)}."
-    ks = _find_numeric_by_key(section.metric_sections, "ks")
-    if ks is not None:
-        return f"El desempeño reporta KS={_format_float(ks)}."
-    return f"La sección {section.title} está disponible con estado {section.status}."
-
-
-def _stability_text(section: ReportSection) -> str:
-    band = _find_text_by_key(section.metric_sections, "band")
-    if band is not None:
-        return f"El PSI máximo del score cae en banda {band}."
-    psi = _find_numeric_by_key(section.metric_sections, "psi")
-    if psi is not None:
-        return f"El PSI máximo del score es {_format_float(psi)}."
-    return f"La sección {section.title} está disponible con estado {section.status}."
-
-
-def _limitations_text(section: ReportSection) -> str:
-    missing = section.payload.get("missing_sections", ())
-    if isinstance(missing, Sequence) and not isinstance(missing, str) and missing:
-        joined = ", ".join(str(item) for item in missing)
-        return f"El reporte declara secciones ausentes: {joined}."
-    return "El reporte no declara secciones obligatorias ausentes."
-
-
-def _appendix_text(section: ReportSection) -> str:
-    table_count = _sequence_count(section.payload.get("table_keys"))
-    figure_count = _sequence_count(section.payload.get("figure_keys"))
-    return (
-        f"El apéndice referencia {table_count} {_plural(table_count, 'tabla', 'tablas')} "
-        f"y {figure_count} {_plural(figure_count, 'figura', 'figuras')}."
-    )
-
-
-def _feature_count(payload: Mapping[str, Any]) -> int | None:
-    for key in ("n_final_features", "n_variables", "n_features"):
-        value = payload.get(key)
-        if isinstance(value, int) and not isinstance(value, bool):
-            return value
-    selected = payload.get("selected_features")
-    if isinstance(selected, Sequence) and not isinstance(selected, str):
-        return len(selected)
-    return None
-
-
-def _oot_suffix(payload: Mapping[str, Any]) -> str:
-    partitions = payload.get("partition_sizes")
-    if not isinstance(partitions, Mapping):
-        return ""
-    oot_size = partitions.get("oot")
-    if oot_size is None or oot_size == 0:
-        return " La partición OOT no está disponible."
-    return ""
-
-
-def _find_numeric_by_key(value: Any, wanted_key: str) -> float | None:
-    if isinstance(value, Mapping):
-        for raw_key in sorted(value, key=str):
-            key = str(raw_key).lower()
-            item = value[raw_key]
-            if wanted_key in key and isinstance(item, int | float) and not isinstance(item, bool):
-                numeric = _canonical_float(float(item))
-                if not isinstance(numeric, dict):
-                    return numeric
-            nested = _find_numeric_by_key(item, wanted_key)
-            if nested is not None:
-                return nested
-    if isinstance(value, Sequence) and not isinstance(value, str):
-        for item in value:
-            nested = _find_numeric_by_key(item, wanted_key)
-            if nested is not None:
-                return nested
-    return None
-
-
-def _find_text_by_key(value: Any, wanted_key: str) -> str | None:
-    if isinstance(value, Mapping):
-        for raw_key in sorted(value, key=str):
-            key = str(raw_key).lower()
-            item = value[raw_key]
-            if wanted_key in key and isinstance(item, str):
-                return item
-            nested = _find_text_by_key(item, wanted_key)
-            if nested is not None:
-                return nested
-    if isinstance(value, Sequence) and not isinstance(value, str):
-        for item in value:
-            nested = _find_text_by_key(item, wanted_key)
-            if nested is not None:
-                return nested
-    return None
-
-
-def _sequence_count(value: Any) -> int:
-    if isinstance(value, Sequence) and not isinstance(value, str):
-        return len(value)
-    return 0
-
-
-def _plural(count: int, singular: str, plural: str) -> str:
-    return singular if count == 1 else plural
+    if section.body:
+        return "\n\n".join(section.body)
+    if section.kind == "toc":
+        return "El índice enumera los capítulos y anexos que componen el informe."
+    if section.kind == "appendix":
+        return f"{section.title}: detalle íntegro de la corrida, sin resumir."
+    if section.source_domain:
+        return (
+            f"La sección {section.title} reproduce las tablas y gráficos publicados por el "
+            f"dominio '{section.source_domain}'."
+        )
+    return f"La sección {section.title} forma parte del documento."
 
 
 def _prompt_for_payload(payload: Mapping[str, Any]) -> str:
@@ -525,13 +398,6 @@ def _canonical_float(value: float) -> float | dict[str, str]:
     if value > 0:
         return {"non_finite_float": "inf"}
     return {"non_finite_float": "-inf"}
-
-
-def _format_float(value: float) -> str:
-    normalized = _canonical_float(value)
-    if isinstance(normalized, dict):
-        return normalized["non_finite_float"]
-    return f"{normalized:.6f}"
 
 
 def _is_dataframe_like(value: object) -> bool:

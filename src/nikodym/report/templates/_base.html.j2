@@ -1,0 +1,16 @@
+{# Esqueleto del informe. El CSS se inyecta como |safe (contenido controlado: los selectores `>` y
+   las reglas @page romperían el autoescape). Todo lo demás va escapado. #}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <style>{{ css|safe }}</style>
+</head>
+<body>
+<main>
+{% block document %}{% endblock %}
+</main>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{# Índice generado desde las propias secciones del documento: no hay una segunda lista que mantener
+   sincronizada a mano. #}
+<section id="{{ section.html_id }}" data-section-id="{{ section.id }}" data-kind="toc" class="report-section chapter toc">
+  <h2>{{ section.title }}</h2>
+  <ul class="toc-list">
+    {% for entry in toc %}
+    <li class="toc-level-{{ entry.level }}">
+      <a href="{{ entry.href }}">
+        {% if entry.number %}<span class="toc-number">{{ entry.number }}</span>{% endif %}
+        <span class="toc-title">{{ entry.title }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>

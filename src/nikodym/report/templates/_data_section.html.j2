@@ -1,0 +1,23 @@
+{# Subsección de resultados: prosa interpretada + los gráficos y las tablas que sostienen el juicio.
+   El payload crudo NO se repite aquí: vive íntegro en el Anexo C. #}
+<section id="{{ section.html_id }}" data-section-id="{{ section.id }}" data-kind="data" data-level="{{ section.level }}" class="report-section subsection">
+  <h3 class="subsection-title">{% if section.number %}<span class="section-number">{{ section.number }}</span>{% endif %}{{ section.title }}</h3>
+
+  {% if section.status == "missing" %}
+  <div class="missing">Sección requerida ausente; el reporte parcial no inventa números ni oculta la ausencia.</div>
+  {% endif %}
+
+  {% for paragraph in section.body %}
+  <p>{{ paragraph }}</p>
+  {% endfor %}
+
+  {% for chart in section.charts %}
+  <figure class="chart-slot" id="{{ chart.html_id }}">{{ chart.svg|safe }}</figure>
+  {% endfor %}
+
+  {% include "_tables.html.j2" %}
+
+  {% if section.narration %}
+  {% include "_narration.html.j2" %}
+  {% endif %}
+</section>
