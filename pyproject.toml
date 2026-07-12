@@ -82,6 +82,10 @@ report   = ["matplotlib>=3.7"]       # PSF/BSD-compat — figuras opcionales, im
 # PDF — extra SEPARADO, NO entra al meta-extra `all`: WeasyPrint arrastra Pyphen (tri-licencia con GPL)
 # y el gate "Verify runtime licenses" del CI rechaza cualquier GPL/LGPL/AGPL en el cierre redistribuible.
 pdf      = ["weasyprint>=63"]              # BSD-3 — render HTML→PDF opcional (deps nativas Pango/HarfBuzz)
+# Word — export .docx del informe (la base editable que Validación realmente edita). A DIFERENCIA de
+# `pdf`, este SÍ entra en `all`: python-docx es MIT puro (y su única transitiva, lxml, es BSD-3), así
+# que no contamina el cierre redistribuible ni activa el gate anti-copyleft.
+docx     = ["python-docx>=1.1"]            # MIT — export Word opcional, import perezoso
 ai       = ["anthropic>=0.40"]             # MIT — narrativa IA opcional, import perezoso
 # SVM/RF nativos de sklearn (SDD-12): solo requieren scikit-learn>=1.6.
 ml       = ["scikit-learn>=1.6"]           # BSD — modelos sklearn-native (SVM/RandomForest)
@@ -90,7 +94,7 @@ all = [
   "nikodym[scoring]", "nikodym[ml]", "nikodym[xgboost]", "nikodym[lightgbm]", "nikodym[catboost]",
   "nikodym[tuning]", "nikodym[explain]", "nikodym[forecasting]", "nikodym[survival]",
   "nikodym[tracking]", "nikodym[ui]", "nikodym[sweep]", "nikodym[polars]",
-  "nikodym[excel]", "nikodym[report]", "nikodym[ai]",
+  "nikodym[excel]", "nikodym[report]", "nikodym[docx]", "nikodym[ai]",
 ]
 
 # ───────────── GRUPOS de DESARROLLO (PEP 735 — NO se redistribuyen) ─────────────
@@ -181,6 +185,10 @@ module = [
   "xgboost.*", "lightgbm.*", "statsmodels.*", "scipy.*",
   "mlflow.*", "hydra.*", "omegaconf.*", "pandera.*",
   "pyarrow.*", "polars.*", "joblib.*", "weasyprint.*",
+  # python-docx SÍ trae `py.typed`: cuando el extra `docx` está instalado, mypy usa sus tipos reales.
+  # Está aquí sólo para que el job Quality del CI (que instala `--group lint --extra ui`, sin `docx`)
+  # no falle por el import perezoso de `nikodym.report.docx`. Mismo caso que `weasyprint`.
+  "docx.*",
 ]
 ignore_missing_imports = true               # libs sin stubs; relajar SOLO el import, no el strict del código propio
 

@@ -10,6 +10,10 @@ from nikodym.report.results import ReportInputBundle
 
 REPORT_TEMPLATE_VERSION: Final = "1.0.0"
 REPORT_TITLE: Final = "Reporte scorecard"
+DOCUMENT_TITLE: Final = "Informe de Validación de Scorecard"
+"""Título del **documento** (la portada y el H1), distinto de ``REPORT_TITLE`` (el del artefacto,
+que viaja en el manifest). Vive aquí, y no en la plantilla HTML, porque los tres formatos —HTML,
+``.qmd`` y ``.docx``— tienen que titular el informe igual."""
 
 
 def html_report_id(bundle: ReportInputBundle, config: ReportConfig) -> str:

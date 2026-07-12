@@ -83,6 +83,56 @@ def test_save_con_pdf_persiste_pdf(f1_study: Study, tmp_path: Path) -> None:
     assert runs.load_report_pdf(run_id, workdir=workdir) == b"%PDF-1.7 nikodym"
 
 
+def test_save_sin_base_editable_no_escribe_qmd_ni_docx(f1_study: Study, tmp_path: Path) -> None:
+    """Una corrida sin fuentes editables no persiste ``report.qmd`` ni ``report.docx`` (→ None)."""
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+
+    assert not (workdir / "runs" / run_id / "report.qmd").exists()
+    assert not (workdir / "runs" / run_id / "report.docx").exists()
+    assert runs.load_report_md(run_id, workdir=workdir) is None
+    assert runs.load_report_docx(run_id, workdir=workdir) is None
+
+
+def test_save_persiste_el_qmd_con_su_carpeta_de_figuras(f1_study: Study, tmp_path: Path) -> None:
+    """El ``.qmd`` se guarda **con sus figuras**: copiar sólo el texto entregaría una fuente rota.
+
+    El ``.qmd`` referencia sus SVG con ruta relativa; sin la carpeta hermana, ``quarto render``
+    fallaría y la "base editable" no sería editable de verdad.
+    """
+    reports = tmp_path / "reports"
+    (reports / "scorecard_report_figuras").mkdir(parents=True)
+    qmd = reports / "scorecard_report.qmd"
+    qmd.write_text("![Coef](scorecard_report_figuras/chart-model.svg)\n", encoding="utf-8")
+    (reports / "scorecard_report_figuras" / "chart-model.svg").write_text("<svg/>", "utf-8")
+    f1_study.artifacts.set(
+        "report", "result", types.SimpleNamespace(html_path=None, md_path=str(qmd))
+    )
+
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+    run_dir = workdir / "runs" / run_id
+
+    assert runs.load_report_md(run_id, workdir=workdir) is not None
+    assert (run_dir / "report.qmd").is_file()
+    # La carpeta conserva su nombre: es el que el .qmd referencia.
+    assert (run_dir / "scorecard_report_figuras" / "chart-model.svg").is_file()
+
+
+def test_save_persiste_el_docx(f1_study: Study, tmp_path: Path) -> None:
+    """Con un artefacto de reporte con ``docx_path`` existente, ``save`` escribe ``report.docx``."""
+    docx_file = tmp_path / "reporte.docx"
+    docx_file.write_bytes(b"PK\x03\x04 nikodym")
+    f1_study.artifacts.set(
+        "report", "result", types.SimpleNamespace(html_path=None, docx_path=str(docx_file))
+    )
+
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+
+    assert runs.load_report_docx(run_id, workdir=workdir) == b"PK\x03\x04 nikodym"
+
+
 def test_save_study_sin_run_id_falla(tmp_path: Path) -> None:
     """Persistir un Study no ejecutado (sin run_id) es un error de uso."""
     study = Study(full_f1_config("cartera.parquet"))  # no ejecutado → run_id None

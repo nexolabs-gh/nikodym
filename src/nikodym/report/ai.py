@@ -23,7 +23,7 @@ from typing import Any, Final, Protocol, TypeAlias, cast, runtime_checkable
 from pydantic import BaseModel, ConfigDict, Field
 
 from nikodym.report.config import AiNarrationConfig
-from nikodym.report.document import section_sort_key
+from nikodym.report.document import ordered_sections
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportSection
 
 __all__ = ["AIClient", "AINarrator", "AIRequest", "AIResponse", "RuleBasedNarrator"]
@@ -79,7 +79,7 @@ class RuleBasedNarrator:
     def narrate(self, bundle: ReportInputBundle) -> tuple[AiNarrationBlock, ...]:
         """Genera un bloque básico por sección presente en orden canónico."""
         blocks: list[AiNarrationBlock] = []
-        for section in _ordered_sections(bundle.sections):
+        for section in ordered_sections(bundle.sections):
             payload = _section_payload(bundle, section)
             input_hash = _hash_payload(payload)
             prompt = _prompt_for_payload(payload)
@@ -150,7 +150,7 @@ class AINarrator:
         """Llama al cliente IA con un request independiente por sección."""
         blocks: list[AiNarrationBlock] = []
         model = self.config.model or _DEFAULT_ANTHROPIC_MODEL
-        for section in _ordered_sections(bundle.sections):
+        for section in ordered_sections(bundle.sections):
             payload = _section_payload(bundle, section)
             request = AIRequest(
                 payload=payload,
@@ -244,11 +244,6 @@ def _validate_response(response: Any) -> AIResponse:
     if isinstance(response, AIResponse):
         return response
     return AIResponse.model_validate(response)
-
-
-def _ordered_sections(sections: tuple[ReportSection, ...]) -> tuple[ReportSection, ...]:
-    """Ordena por la clave canónica del documento (fuente única: ``report.document``)."""
-    return tuple(sorted(sections, key=lambda section: (*section_sort_key(section.id), section.id)))
 
 
 def _section_payload(bundle: ReportInputBundle, section: ReportSection) -> dict[str, Any]:

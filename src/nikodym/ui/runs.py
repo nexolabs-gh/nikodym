@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -27,21 +28,35 @@ if TYPE_CHECKING:
     from nikodym.core.study import Study
     from nikodym.governance import GovernanceConfig
 
-__all__ = ["load_report", "load_report_pdf", "load_results", "save"]
+__all__ = [
+    "load_report",
+    "load_report_docx",
+    "load_report_md",
+    "load_report_pdf",
+    "load_results",
+    "save",
+]
 
 _RUN_ID_RE = re.compile(r"\A[0-9a-f]{32}\Z")  # forma canónica de ``uuid4().hex``
 _RESULTS_FILENAME = "results.json"
 _REPORT_FILENAME = "report.html"
 _REPORT_PDF_FILENAME = "report.pdf"
+_REPORT_MD_FILENAME = "report.qmd"
+_REPORT_DOCX_FILENAME = "report.docx"
 _REPORT_ARTIFACTS = (("report", "result"), ("report", "manifest"))
+# Sufijo del directorio hermano de figuras del ``.qmd`` (lo fija ``nikodym.report.markdown``). Se
+# replica aquí como convención de nombres —no como import— para no acoplar el backend al dominio.
+_FIGURES_SUFFIX = "_figuras"
 
 
 def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) -> str:
     """Guarda una corrida bajo ``workdir/runs/<run_id>/`` y devuelve el ``run_id`` (SDD-23 §7).
 
     Escribe ``results.json`` (payload de :func:`serialize_study`) y, si la corrida los produjo, el
-    reporte HTML (``report.html``) y su PDF (``report.pdf``). Un ``Study`` sin ``run_id`` (no
-    ejecutado) es un error de uso.
+    reporte HTML (``report.html``), su PDF (``report.pdf``) y las **fuentes editables**: el ``.qmd``
+    de Quarto (``report.qmd``, con su directorio de figuras al lado, para que compile tal cual) y el
+    ``.docx`` de Word (``report.docx``). Un ``Study`` sin ``run_id`` (no ejecutado) es un error de
+    uso.
     """
     run_id = study.run_context.run_id
     if run_id is None:
@@ -60,6 +75,10 @@ def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) ->
     pdf = _report_pdf(study)
     if pdf is not None:
         (run_dir / _REPORT_PDF_FILENAME).write_bytes(pdf)
+    _save_markdown(study, run_dir)
+    docx = _report_artifact_bytes(study, "docx_path")
+    if docx is not None:
+        (run_dir / _REPORT_DOCX_FILENAME).write_bytes(docx)
     return run_id
 
 
@@ -86,6 +105,22 @@ def load_report_pdf(run_id: str, *, workdir: Path) -> bytes | None:
     if not pdf_path.is_file():
         return None
     return pdf_path.read_bytes()
+
+
+def load_report_md(run_id: str, *, workdir: Path) -> str | None:
+    """Devuelve el ``.qmd`` (fuente editable) del reporte de una corrida, o ``None`` (→ 404)."""
+    md_path = _run_dir(workdir, run_id) / _REPORT_MD_FILENAME
+    if not md_path.is_file():
+        return None
+    return md_path.read_text(encoding="utf-8")
+
+
+def load_report_docx(run_id: str, *, workdir: Path) -> bytes | None:
+    """Devuelve los bytes del ``.docx`` (Word) del reporte de una corrida, o ``None`` (→ 404)."""
+    docx_path = _run_dir(workdir, run_id) / _REPORT_DOCX_FILENAME
+    if not docx_path.is_file():
+        return None
+    return docx_path.read_bytes()
 
 
 def _run_dir(workdir: Path, run_id: str) -> Path:
@@ -128,12 +163,44 @@ def _report_pdf(study: Study) -> bytes | None:
     ``("report","result")`` o ``("report","manifest")``; si apunta a un archivo existente devuelve
     sus bytes, si no ``None``. El backend sigue *domain-agnostic*: no importa ``nikodym.report``.
     """
+    return _report_artifact_bytes(study, "pdf_path")
+
+
+def _save_markdown(study: Study, run_dir: Path) -> None:
+    """Guarda el ``.qmd`` **con su directorio de figuras**: sin las figuras no compila.
+
+    El ``.qmd`` referencia sus SVG con ruta relativa (``<basename>_figuras/…``), así que copiar sólo
+    el texto entregaría una fuente rota. Se copia el directorio hermano completo, conservando su
+    nombre —que es el que el archivo referencia—, y la corrida persistida queda autocontenida.
+    """
+    source = _report_artifact_path(study, "md_path")
+    if source is None:
+        return
+    shutil.copyfile(source, run_dir / _REPORT_MD_FILENAME)
+    figures = source.with_name(f"{source.stem}{_FIGURES_SUFFIX}")
+    if figures.is_dir():
+        shutil.copytree(figures, run_dir / figures.name, dirs_exist_ok=True)
+
+
+def _report_artifact_path(study: Study, attribute: str) -> Path | None:
+    """Resuelve una ruta publicada por el reporte (``pdf_path``/``md_path``/``docx_path``).
+
+    Duck-typing puro: lee el atributo del artefacto ``("report","result")`` o
+    ``("report","manifest")`` y devuelve el ``Path`` si existe en disco. El backend permanece
+    *domain-agnostic*: no importa ``nikodym.report`` ni conoce sus DTOs.
+    """
     for domain, key in _REPORT_ARTIFACTS:
         if not study.artifacts.has(domain, key):
             continue
-        pdf_path = getattr(study.artifacts.get(domain, key), "pdf_path", None)
-        if isinstance(pdf_path, str):
-            path = Path(pdf_path)
+        raw_path = getattr(study.artifacts.get(domain, key), attribute, None)
+        if isinstance(raw_path, str):
+            path = Path(raw_path)
             if path.is_file():
-                return path.read_bytes()
+                return path
     return None
+
+
+def _report_artifact_bytes(study: Study, attribute: str) -> bytes | None:
+    """Lee los bytes del artefacto de reporte apuntado por ``attribute``, o ``None``."""
+    path = _report_artifact_path(study, attribute)
+    return path.read_bytes() if path is not None else None

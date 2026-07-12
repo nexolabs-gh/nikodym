@@ -32,6 +32,10 @@
 
   {% include "_tables.html.j2" %}
 
+  {% if section.data_exports %}
+  {% include "_data_exports.html.j2" %}
+  {% endif %}
+
   {% for figure in section.figures %}
   <figure class="chart-slot" id="{{ figure.html_id }}" data-figure="{{ figure.key }}">
     <figcaption>{{ figure.key }}</figcaption>

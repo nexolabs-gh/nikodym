@@ -224,6 +224,7 @@ def test_report_result_golden_copias_frozen_y_extra() -> None:
         "input_bundle",
         "html_path",
         "pdf_path",
+        "md_path",  # la fuente editable (.qmd), junto al resto de rutas publicadas
         "docx_path",
         "data_exports",
         "ai_blocks",

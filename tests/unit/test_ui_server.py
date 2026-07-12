@@ -403,3 +403,47 @@ def test_report_pdf_sin_reporte_404(client_tmp: TestClient) -> None:
 def test_report_pdf_run_id_invalido_404(client_tmp: TestClient) -> None:
     """``GET /api/report/{run_id}/pdf`` con un id no-uuid → 404 (path traversal bloqueado)."""
     assert client_tmp.get("/api/report/no-uuid/pdf").status_code == 404
+
+
+def test_report_md_presente_200_text_markdown(client_tmp: TestClient, tmp_path: Path) -> None:
+    """``GET /api/report/{run_id}/md`` sirve la **base editable** como descarga → 200 markdown."""
+    run_id = "c" * 32
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "report.qmd").write_text("---\ntitle: Informe\n---\n\n# Hola\n", encoding="utf-8")
+
+    respuesta = client_tmp.get(f"/api/report/{run_id}/md")
+
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"].startswith("text/markdown")
+    assert respuesta.headers["content-disposition"] == 'attachment; filename="reporte-modelo.qmd"'
+    assert "title: Informe" in respuesta.text
+
+
+def test_report_docx_presente_200_ooxml(client_tmp: TestClient, tmp_path: Path) -> None:
+    """``GET /api/report/{run_id}/docx`` sirve el Word con su media type OOXML → 200."""
+    run_id = "d" * 32
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "report.docx").write_bytes(b"PK\x03\x04 nikodym")
+
+    respuesta = client_tmp.get(f"/api/report/{run_id}/docx")
+
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert respuesta.headers["content-disposition"] == 'attachment; filename="reporte-modelo.docx"'
+    assert respuesta.content == b"PK\x03\x04 nikodym"
+
+
+@pytest.mark.parametrize("formato", ["md", "docx"])
+def test_report_base_editable_sin_archivo_404(client_tmp: TestClient, formato: str) -> None:
+    """Sin la fuente editable → 404 explícito, nunca un 200 con cuerpo vacío."""
+    assert client_tmp.get(f"/api/report/{'0' * 32}/{formato}").status_code == 404
+
+
+@pytest.mark.parametrize("formato", ["md", "docx"])
+def test_report_base_editable_run_id_invalido_404(client_tmp: TestClient, formato: str) -> None:
+    """Un ``run_id`` no-uuid → 404 (mismo blindaje de path traversal que el resto)."""
+    assert client_tmp.get(f"/api/report/no-uuid/{formato}").status_code == 404

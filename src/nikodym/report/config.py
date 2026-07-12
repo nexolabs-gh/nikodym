@@ -20,22 +20,25 @@ from pydantic import Field, field_validator
 from nikodym.core.config import NikodymBaseConfig
 
 AiProvider = Literal["anthropic", "none"]
-BasicReportFormat = Literal["html", "json", "csv", "xlsx", "pdf"]
+BasicReportFormat = Literal["html", "json", "csv", "xlsx", "pdf", "md", "docx"]
 MissingPolicy = Literal["error", "warn", "skip"]
 PlaceholderPolicy = Literal["show", "hide"]
 ReportLanguage = Literal["es"]
 ReportTheme = Literal["nikodym", "plain"]
 ReportType = Literal["standard"]
 
-# Formatos con una ruta de generación REAL en el motor. El resto del ``Literal`` documenta el
-# roadmap declarado (exports tabulares y editables), pero pedirlos hoy no produciría archivo: el
-# config los rechaza en vez de degradar en silencio.
-IMPLEMENTED_FORMATS: Final[frozenset[str]] = frozenset({"html", "pdf"})
+# Formatos con una ruta de generación REAL en el motor: los documentos (``html``, ``pdf``, y las
+# fuentes editables ``md``/``docx``) y los exports de datos (``csv``/``xlsx``, que entregan las
+# tablas por observación completas). ``json`` sigue en el roadmap sin motor detrás, y pedirlo es un
+# error explícito: un formato aceptado por el schema y sin ruta real produce un reporte
+# silenciosamente incompleto.
+IMPLEMENTED_FORMATS: Final[frozenset[str]] = frozenset({"html", "pdf", "md", "docx", "csv", "xlsx"})
 
 __all__ = [
     "IMPLEMENTED_FORMATS",
     "AiNarrationConfig",
     "DocumentStructureConfig",
+    "DocxRenderConfig",
     "HtmlRenderConfig",
     "PdfRenderConfig",
     "ReportConfig",
@@ -98,6 +101,24 @@ class PdfRenderConfig(NikodymBaseConfig):
         title="Fallar si WeasyPrint no está disponible",
         description="True convierte la ausencia de WeasyPrint en error en vez de fallback a HTML.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "PDF", "ui_order": 2},
+    )
+
+
+class DocxRenderConfig(NikodymBaseConfig):
+    """Config del export ``.docx`` opcional (Word) vía ``python-docx``.
+
+    Espejo de :class:`PdfRenderConfig`: el step decide por ``formats``, y esta sección sólo gobierna
+    qué hacer cuando la dependencia opcional no está instalada.
+    """
+
+    fail_if_unavailable: bool = Field(
+        default=False,
+        title="Fallar si python-docx no está disponible",
+        description=(
+            "True convierte la ausencia de python-docx en error; False emite un aviso y omite el "
+            ".docx sin tumbar la corrida."
+        ),
+        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Word", "ui_order": 1},
     )
 
 
@@ -282,9 +303,11 @@ class ReportConfig(NikodymBaseConfig):
         default=("html",),
         title="Formatos del reporte",
         description=(
-            "Formatos generados por el reporte. Sólo 'html' y 'pdf' están implementados; 'pdf' "
-            "es opt-in y requiere el extra `pdf` (WeasyPrint + nativas). Pedir un formato no "
-            "implementado ('json'/'csv'/'xlsx') es un error explícito, no una degradación "
+            "Formatos generados por el reporte. Documentos: 'html' (siempre), 'pdf' (extra `pdf`, "
+            "WeasyPrint + nativas) y las fuentes editables 'md' (Quarto/Markdown, sin extras) y "
+            "'docx' (Word, extra `docx`). Exports de datos: 'csv' y 'xlsx' (extra `excel`) "
+            "entregan COMPLETAS las tablas por observación, que no viven en el documento. Pedir "
+            "un formato sin motor detrás ('json') es un error explícito, no una degradación "
             "silenciosa. Default: solo 'html'."
         ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 5},
@@ -306,6 +329,12 @@ class ReportConfig(NikodymBaseConfig):
         title="PDF",
         description="Config del PDF opcional del reporte mediante WeasyPrint.",
         json_schema_extra={"ui_widget": "section", "ui_group": "PDF", "ui_order": 1},
+    )
+    docx: DocxRenderConfig = Field(
+        default_factory=DocxRenderConfig,
+        title="Word",
+        description="Config del export .docx opcional del reporte mediante python-docx.",
+        json_schema_extra={"ui_widget": "section", "ui_group": "Word", "ui_order": 1},
     )
     ai: AiNarrationConfig = Field(
         default_factory=AiNarrationConfig,
@@ -337,8 +366,8 @@ class ReportConfig(NikodymBaseConfig):
             implementados = ", ".join(sorted(IMPLEMENTED_FORMATS))
             raise ValueError(
                 f"Formato de reporte no implementado: {', '.join(pendientes)}. La capa report "
-                f"sólo genera: {implementados} ('pdf' requiere el extra `pdf`). Los exports "
-                "tabulares (json/csv/xlsx) y editables (docx/qmd) están en el roadmap; "
-                "declararlos hoy no produciría archivo alguno."
+                f"genera: {implementados} ('pdf' requiere el extra `pdf`, 'docx' el extra `docx` y "
+                "'xlsx' el extra `excel`). El export 'json' sigue en el roadmap; declararlo hoy no "
+                "produciría archivo alguno."
             )
         return value

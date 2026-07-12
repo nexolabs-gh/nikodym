@@ -34,6 +34,9 @@ if TYPE_CHECKING:
     from fastapi import APIRouter, Request, Response
     from fastapi.responses import HTMLResponse
 
+# Media type OOXML de Word: sin él, el navegador baja el .docx como binario opaco y Word protesta.
+_DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
 __all__ = [
     "build_router",
     "config_from_yaml",
@@ -400,6 +403,46 @@ def build_router() -> APIRouter:
             content=pdf,
             media_type="application/pdf",
             headers={"Content-Disposition": 'attachment; filename="reporte-modelo.pdf"'},
+        )
+
+    @router.get("/report/{run_id}/md")
+    async def report_md_endpoint(run_id: str, request: Request) -> Response:
+        """Sirve el ``.qmd`` (Quarto/Markdown) del reporte como descarga; sin ``.qmd`` → 404.
+
+        Es la **base editable**: el analista la baja, escribe su contexto y sus conclusiones encima
+        y compila su propio documento.
+        """
+        workdir = Path(request.app.state.settings.workdir)
+        try:
+            markdown = runs.load_report_md(run_id, workdir=workdir)
+        except UiRunNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if markdown is None:
+            raise HTTPException(
+                status_code=404, detail=f"la corrida '{run_id}' no tiene reporte .qmd."
+            )
+        return Response(
+            content=markdown,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="reporte-modelo.qmd"'},
+        )
+
+    @router.get("/report/{run_id}/docx")
+    async def report_docx_endpoint(run_id: str, request: Request) -> Response:
+        """Sirve el ``.docx`` (Word) del reporte como descarga; sin ``.docx`` → 404."""
+        workdir = Path(request.app.state.settings.workdir)
+        try:
+            document = runs.load_report_docx(run_id, workdir=workdir)
+        except UiRunNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if document is None:
+            raise HTTPException(
+                status_code=404, detail=f"la corrida '{run_id}' no tiene reporte .docx."
+            )
+        return Response(
+            content=document,
+            media_type=_DOCX_MEDIA_TYPE,
+            headers={"Content-Disposition": 'attachment; filename="reporte-modelo.docx"'},
         )
 
     return router

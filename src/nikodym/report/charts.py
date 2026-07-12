@@ -1,7 +1,9 @@
-"""Gráficos SVG deterministas para el reporte auditable (net-new, bloque B1).
+"""Gráficos deterministas para el reporte auditable (net-new, bloque B1).
 
-Funciones puras ``estructura → str SVG`` con ``matplotlib`` **perezoso** (API OO, sin ``pyplot`` ni
-estado global). El SVG resultante es byte-idéntico entre corridas y entre valores de
+Funciones puras ``estructura → gráfico`` con ``matplotlib`` **perezoso** (API OO, sin ``pyplot`` ni
+estado global). Cada función emite **SVG** (default, para el HTML y el ``.qmd``) o **PNG** (``fmt``,
+para el ``.docx``: Word no admite figuras SVG). El SVG resultante es byte-idéntico entre corridas y
+entre valores de
 ``PYTHONHASHSEED`` gracias a: ``rcParams`` fijos (hashsalt/fonttype/font.family), ``metadata`` sin
 fecha ni *creator*, orden canónico de particiones y un sanitizado explícito del markup. El módulo
 **no** se importa desde :mod:`nikodym.report` (preserva el import liviano del paquete) y **no** trae
@@ -9,13 +11,14 @@ fecha ni *creator*, orden canónico de particiones y un sanitizado explícito de
 se usa para *type hints* (``TYPE_CHECKING``): las columnas se acceden por el API del ``DataFrame``
 sin importar ``pandas`` en runtime.
 
-El cableado al *renderer*/plantilla/secciones es alcance de otro bloque; aquí sólo se producen SVG.
+El cableado al *renderer*/plantilla/secciones vive en :mod:`nikodym.report.renderer`; aquí sólo se
+producen gráficos.
 """
 
 from __future__ import annotations
 
 import html
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 
 from nikodym.report.exceptions import (
     ReportDependencyError,
@@ -26,7 +29,10 @@ from nikodym.report.exceptions import (
 if TYPE_CHECKING:  # pragma: no cover - sólo para type-checkers, nunca en runtime.
     import pandas as pd
 
+ChartFormat: TypeAlias = Literal["svg", "png"]
+
 __all__ = [
+    "ChartFormat",
     "render_coefficients_forest",
     "render_discrimination_bars",
     "render_gains_chart",
@@ -96,6 +102,18 @@ def _numeric_formatter(decimals: int) -> Any:
     return FuncFormatter(_format)
 
 
+def _render(figure: Any, title: str, fmt: ChartFormat) -> str | bytes:
+    """Serializa ``figure`` al formato pedido: SVG (texto) o PNG (bytes), ambos deterministas.
+
+    El SVG es la ruta primaria (HTML y ``.qmd``). El PNG existe porque **Word no admite SVG**: un
+    ``.docx`` con figuras vectoriales no abre, así que el export a Word pide el mismo gráfico
+    rasterizado. Es el mismo ``Figure`` y los mismos datos; sólo cambia el serializador.
+    """
+    if fmt == "png":
+        return _deterministic_png(figure)
+    return _deterministic_svg(figure, title)
+
+
 def _deterministic_svg(figure: Any, title: str) -> str:
     """Serializa ``figure`` a un SVG string determinista y sanitizado.
 
@@ -117,6 +135,25 @@ def _deterministic_svg(figure: Any, title: str) -> str:
     with matplotlib.rc_context(cast("Any", rc_params)):
         figure.savefig(buffer, format="svg", metadata={"Date": None, "Creator": None})
     return _sanitize_svg(buffer.getvalue().decode("utf-8"), title)
+
+
+def _deterministic_png(figure: Any) -> bytes:
+    """Serializa ``figure`` a bytes PNG deterministas (para el ``.docx``, que no admite SVG).
+
+    ``metadata={"Software": None}`` borra el único campo variable que matplotlib escribe en el
+    chunk ``tEXt`` del PNG (su propia versión); sin él, dos corridas con matplotlib distinto
+    producirían bytes distintos con los mismos datos. El rasterizado sí depende de freetype, así
+    que el PNG es determinista *en una máquina*, no byte-idéntico cross-OS —igual que el SVG, cuyo
+    digest se excluye del golden del manifest por la misma razón—.
+    """
+    import io
+
+    import matplotlib
+
+    buffer = io.BytesIO()
+    with matplotlib.rc_context(cast("Any", {"font.family": "DejaVu Sans"})):
+        figure.savefig(buffer, format="png", metadata={"Software": None})
+    return buffer.getvalue()
 
 
 def _sanitize_svg(raw: str, title: str) -> str:
@@ -224,7 +261,9 @@ def _optional_float(value: Any) -> float | None:
 # ─────────────────────────── gráficos ───────────────────────────
 
 
-def render_gains_chart(deciles: pd.DataFrame, *, title: str) -> str:
+def render_gains_chart(
+    deciles: pd.DataFrame, *, title: str, fmt: ChartFormat = "svg"
+) -> str | bytes:
     """Curva de ganancia acumulada (fracción de población vs. malos capturados) por partición.
 
     ``deciles`` es ``performance_table``: se usan ``partition``, ``decile``, ``cum_total`` y
@@ -269,10 +308,12 @@ def render_gains_chart(deciles: pd.DataFrame, *, title: str) -> str:
     axes.legend(loc="lower right", frameon=False)
     axes.set_title(title)
     figure.tight_layout()
-    return _deterministic_svg(figure, title)
+    return _render(figure, title, fmt)
 
 
-def render_reliability_chart(by_partition: list[dict[str, Any]], *, title: str) -> str:
+def render_reliability_chart(
+    by_partition: list[dict[str, Any]], *, title: str, fmt: ChartFormat = "svg"
+) -> str | bytes:
     """Curva de calibración (PD predicha vs. tasa observada) con banda de confianza por partición.
 
     ``by_partition`` es la salida de :func:`nikodym.ui.reliability.reliability_curve`: una lista de
@@ -334,7 +375,7 @@ def render_reliability_chart(by_partition: list[dict[str, Any]], *, title: str) 
     axes.legend(loc="upper left", frameon=False, fontsize=8.0)
     axes.set_title(title)
     figure.tight_layout()
-    return _deterministic_svg(figure, title)
+    return _render(figure, title, fmt)
 
 
 def _reliability_label(name: str, item: dict[str, Any]) -> str:
@@ -352,8 +393,11 @@ def _reliability_label(name: str, item: dict[str, Any]) -> str:
 
 
 def render_coefficients_forest(
-    coefficients: pd.DataFrame | list[dict[str, Any]], *, title: str
-) -> str:
+    coefficients: pd.DataFrame | list[dict[str, Any]],
+    *,
+    title: str,
+    fmt: ChartFormat = "svg",
+) -> str | bytes:
     """Forest plot de coeficientes: ``beta`` como punto y barra de error ``[conf_low, conf_high]``.
 
     ``coefficients`` es un DataFrame o lista de dicts de ``CoefficientRecord``. Se excluyen la fila
@@ -422,10 +466,12 @@ def render_coefficients_forest(
     axes.grid(True, axis="x", linewidth=0.4, alpha=0.4)
     axes.set_title(title)
     figure.tight_layout()
-    return _deterministic_svg(figure, title)
+    return _render(figure, title, fmt)
 
 
-def render_discrimination_bars(discriminant: pd.DataFrame, *, title: str) -> str:
+def render_discrimination_bars(
+    discriminant: pd.DataFrame, *, title: str, fmt: ChartFormat = "svg"
+) -> str | bytes:
     """Barras agrupadas de AUC/Gini/KS por partición (orden canónico) para ver la degradación.
 
     ``discriminant`` es ``discriminant_metrics``: se usan ``partition``, ``auc``, ``gini`` y ``ks``.
@@ -465,10 +511,12 @@ def render_discrimination_bars(discriminant: pd.DataFrame, *, title: str) -> str
     axes.legend(loc="upper right", frameon=False)
     axes.set_title(title)
     figure.tight_layout()
-    return _deterministic_svg(figure, title)
+    return _render(figure, title, fmt)
 
 
-def render_stability_chart(stability_metrics: pd.DataFrame, *, title: str) -> str:
+def render_stability_chart(
+    stability_metrics: pd.DataFrame, *, title: str, fmt: ChartFormat = "svg"
+) -> str | bytes:
     """Barras horizontales de PSI/CSI por (métrica·comparación·feature) con umbrales de banda.
 
     ``stability_metrics``: se usan ``metric``, ``comparison``, ``feature`` y ``value``; si están,
@@ -542,4 +590,4 @@ def render_stability_chart(stability_metrics: pd.DataFrame, *, title: str) -> st
     axes.legend(loc="lower right", frameon=False, fontsize=8.0)
     axes.set_title(title)
     figure.tight_layout()
-    return _deterministic_svg(figure, title)
+    return _render(figure, title, fmt)

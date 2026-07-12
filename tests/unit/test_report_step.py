@@ -71,7 +71,7 @@ from nikodym.stability.config import StabilityConfig
 ROOT_SEED = 20_240_629
 # Golden del ``_digest_html`` (excluye ``<svg>``): con el extra ``report`` el bundle golden embebe
 # un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
-GOLDEN_STEP_HTML_SHA256 = "08c2f11333b357b700e9071aa0ee0d3d03fd1bb8a83143e45988f3344e44525d"
+GOLDEN_STEP_HTML_SHA256 = "4e733e1a33aca0b11e5ec0c9b1f426c48c70b691078b7a950781529e6fc61c7b"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -537,6 +537,94 @@ def test_execute_refleja_pdf_path_y_audita_export(
     assert result.pdf_path == fake_pdf
     rules = [event.payload["regla"] for event in sink.events if event.kind == "decision"]
     assert "report_export_pdf" in rules
+
+
+def test_execute_md_en_formats_escribe_la_base_editable_y_la_audita(tmp_path: Path) -> None:
+    """``"md"`` en ``formats`` escribe el ``.qmd`` (y sus figuras), lo refleja y lo audita.
+
+    El ``.qmd`` no requiere extras —es texto—, así que no hay degradación posible: si se pide, sale.
+    """
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html", "md"),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+    sink = InMemoryAuditSink()
+    step = ReportStep.from_config(cfg)
+    step._audit = sink
+
+    result = step.execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert result.md_path == str(tmp_path / "scorecard_report.qmd")
+    qmd = tmp_path / "scorecard_report.qmd"
+    assert qmd.is_file()
+    assert qmd.read_text(encoding="utf-8").startswith("---\n")  # front-matter YAML
+    assert "## 1 Introducción" in qmd.read_text(encoding="utf-8")
+
+    rules = [event.payload["regla"] for event in sink.events if event.kind == "decision"]
+    assert "report_export_md" in rules
+
+
+def test_execute_csv_en_formats_puebla_data_exports_con_las_tablas_completas(
+    tmp_path: Path,
+) -> None:
+    """``data_exports`` deja de estar muerto: se puebla con los adjuntos por observación.
+
+    El campo ya existía en ``ReportResult`` y nadie lo escribía. Aquí se cierra el círculo: las
+    tablas por observación salen del documento y entran, completas, como archivos.
+    """
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html", "csv"),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+    study.artifacts.set("scorecard", "score", _score_frame())
+    sink = InMemoryAuditSink()
+    step = ReportStep.from_config(cfg)
+    step._audit = sink
+
+    result = step.execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert set(result.data_exports) == {"scorecard_report__scorecard_score.csv"}
+    export = Path(result.data_exports["scorecard_report__scorecard_score.csv"])
+    assert export.is_file()
+    assert len(export.read_text(encoding="utf-8-sig").strip().splitlines()) == 26  # 25 filas + head
+
+    # La tabla NO se renderiza en el documento, pero el documento dice dónde está.
+    html = (tmp_path / "scorecard_report.html").read_text(encoding="utf-8")
+    assert 'data-table-key="scorecard.score"' not in html
+    assert "scorecard_report__scorecard_score.csv" in html
+
+    rules = [event.payload["regla"] for event in sink.events if event.kind == "decision"]
+    assert "report_export_datos" in rules
+
+
+def test_sin_formato_de_datos_no_hay_exports(tmp_path: Path) -> None:
+    """Sin ``csv``/``xlsx`` no se escribe ningún adjunto: ``data_exports`` queda vacío."""
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html",),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+    study.artifacts.set("scorecard", "score", _score_frame())
+
+    result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert result.data_exports == {}
+    assert not list(tmp_path.glob("*.csv"))
+    # El documento declara la ausencia en vez de callarla.
+    assert "no se exportaron" in (tmp_path / "scorecard_report.html").read_text(encoding="utf-8")
+
+
+def _score_frame() -> pd.DataFrame:
+    """Frame por observación (25 filas) con el identificador de la operación como índice."""
+    return pd.DataFrame(
+        {"score": [600 + index for index in range(25)]},
+        index=pd.Index([f"op-{index:03d}" for index in range(25)], name="loan_id"),
+    )
 
 
 def test_import_report_step_y_core_livianos_por_subprocess() -> None:

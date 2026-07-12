@@ -34,7 +34,7 @@ else:
     LineageBundleLike: TypeAlias = Any
 
 ReportSectionStatus: TypeAlias = Literal["included", "missing", "skipped", "failed"]
-ReportOutputFormat: TypeAlias = Literal["html", "pdf", "docx", "json", "csv", "xlsx"]
+ReportOutputFormat: TypeAlias = Literal["html", "pdf", "md", "docx", "json", "csv", "xlsx"]
 
 __all__ = [
     "AiNarrationBlock",
@@ -177,8 +177,13 @@ class ReportResult(_ReportBaseModel):
     input_bundle: ReportInputBundle
     html_path: str | None = None
     pdf_path: str | None = None
+    md_path: str | None = None
+    """Ruta del ``.qmd`` (Quarto/Markdown): la **fuente editable** del informe, no un artefacto
+    terminal. El analista escribe su contexto y sus conclusiones encima y compila su documento."""
     docx_path: str | None = None
     data_exports: dict[str, str] = Field(default_factory=dict)
+    """``{nombre de archivo: ruta real}`` de los adjuntos de datos (tablas por observación
+    completas, ver :mod:`nikodym.report.exports`). Vacío si no se pidió ``csv`` ni ``xlsx``."""
     ai_blocks: tuple[AiNarrationBlock, ...] = Field(default=())
 
     @field_validator("data_exports", mode="before")

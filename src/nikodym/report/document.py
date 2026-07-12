@@ -5,21 +5,39 @@ Antes de este módulo, el orden canónico de secciones vivía duplicado en tres 
 nivel: el reporte era un volcado del pipeline, no un informe. Aquí se declara el **documento**
 —portada, índice, resumen ejecutivo, capítulos 1-6 y anexos A/B/C— y los ocho dominios del
 pipeline pasan a ser **subsecciones**: los resultados que un validador lee en el cuerpo, y el
-detalle completo (tablas crudas y payloads) en los anexos.
+detalle completo (tablas agregadas y payloads) en los anexos.
 
-El principio es que el dump **no se pierde**: se degrada a anexo. Nada de lo que hoy se reporta
-desaparece; cambia de lugar.
+El principio es que la evidencia **no se pierde**: se ordena. El payload crudo y las tablas
+agregadas que el cuerpo no muestra se degradan a anexo. Lo único que sale del documento son las
+tablas **por observación** (:data:`PER_OBSERVATION_TABLES`), que no son evidencia sino dataset: se
+entregan completas como archivos adjuntos y el anexo dice dónde están.
 
 **Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations
 
-from typing import Final, Literal, TypeAlias
+from collections.abc import Iterable
+from typing import Final, Literal, Protocol, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
 SectionKind: TypeAlias = Literal["prose", "data", "toc", "appendix"]
+
+
+class _Identified(Protocol):
+    """Sección identificable por ``id``.
+
+    Se tipa por protocolo, y no con ``ReportSection``, porque los DTOs importan **de** este módulo:
+    depender de ellos crearía un ciclo. El orden lo define el ``id``, nada más.
+    """
+
+    @property
+    def id(self) -> str:
+        """Identificador lógico de la sección (``results.model``, ``appendix_tables``…)."""
+
+
+_SectionT = TypeVar("_SectionT", bound=_Identified)
 
 __all__ = [
     "APPENDIX_LINEAGE_ID",
@@ -31,10 +49,12 @@ __all__ = [
     "DOMAIN_TITLES",
     "KEY_TABLES",
     "METHODOLOGY_STEPS",
+    "PER_OBSERVATION_TABLES",
     "PIPELINE_DOMAINS",
     "RESULT_DOMAINS",
     "ChapterSpec",
     "domain_section_id",
+    "ordered_sections",
     "section_sort_key",
     "table_title",
 ]
@@ -90,8 +110,9 @@ METHODOLOGY_STEPS: Final[tuple[tuple[str, str], ...]] = (
 )
 
 # Tablas que el CUERPO del informe muestra por dominio: las que un validador necesita leer para
-# formarse un juicio. El resto (y también estas) siguen íntegras en el Anexo B, que publica TODAS
-# las tablas del bundle: el cuerpo cura, el anexo no pierde nada.
+# formarse un juicio. El Anexo de tablas publica el RESTO de las tablas agregadas de la corrida —lo
+# que el cuerpo no mostró, no lo que ya mostró—: el cuerpo cura, el anexo completa. Repetir una
+# tabla íntegra en dos sitios no añade trazabilidad, añade páginas.
 KEY_TABLES: Final[dict[str, tuple[str, ...]]] = {
     "eda": ("eda.default_rate", "eda.quality"),
     "binning": ("binning.summary",),
@@ -102,6 +123,25 @@ KEY_TABLES: Final[dict[str, tuple[str, ...]]] = {
     "performance": ("performance.discriminant_metrics", "performance.performance_table"),
     "stability": ("stability.stability_metrics", "stability.psi_table"),
 }
+
+# Tablas **por observación**: una fila por crédito/cliente. Son frames del dataset, no resúmenes, y
+# NO pertenecen al documento: truncadas no sirven como dato (están incompletas) ni como informe
+# (nadie lee 200 filas de puntajes). Salen del cuerpo y de los anexos, y se emiten completas como
+# exports de datos (:mod:`nikodym.report.exports`), referenciadas desde el Anexo de tablas.
+#
+# El criterio es la **naturaleza** de la tabla, no su tamaño: una tabla agregada con muchas filas
+# (p. ej. el PSI por tramo de score, o el binning de una variable con muchos bins) se queda en el
+# documento porque es lo que un validador revisa. Por eso la lista es explícita y no un umbral de
+# filas: un umbral expulsaría del informe justo la evidencia que lo sostiene.
+PER_OBSERVATION_TABLES: Final[frozenset[str]] = frozenset(
+    {
+        "binning.woe_frame",
+        "calibration.calibrated_pd_frame",
+        "model.raw_pd_frame",
+        "scorecard.score",
+        "selection.selected_woe_frame",
+    }
+)
 
 # Títulos legibles por artefacto tabular: el informe habla de "Coeficientes del modelo PD", no de
 # `model.coefficients`. Las claves dinámicas (una tabla por variable) se resuelven en `table_title`.
@@ -243,6 +283,16 @@ def section_sort_key(section_id: str) -> tuple[int, int]:
     if child in children:
         return (parent_index, children.index(child) + 1)
     return (parent_index, len(children) + 1)
+
+
+def ordered_sections(sections: Iterable[_SectionT]) -> tuple[_SectionT, ...]:
+    """Ordena secciones por la clave canónica del documento.
+
+    Vive aquí —y no en cada renderer— porque el orden del documento es **uno**: el HTML, el
+    ``.qmd``, el ``.docx`` y la narrativa IA recorren los capítulos en la misma secuencia. Antes
+    había una copia de esta función por consumidor, que es exactamente como se desincronizan.
+    """
+    return tuple(sorted(sections, key=lambda section: (*section_sort_key(section.id), section.id)))
 
 
 def table_title(key: str) -> str:

@@ -256,6 +256,24 @@ def test_svg_estructura_y_accesibilidad(name: str) -> None:
     assert svg.endswith("</svg>\n")
 
 
+def test_png_para_word_es_determinista_y_valido() -> None:
+    """Cada gráfico también sale en PNG: **Word no admite SVG** y el ``.docx`` lleva figuras.
+
+    Se exige lo mismo que al SVG: mismos datos → mismos bytes. ``metadata={"Software": None}`` borra
+    la versión de matplotlib del chunk ``tEXt``, que era la única fuente de variación.
+    """
+    png = charts.render_gains_chart(_deciles_frame(), title="Ganancia", fmt="png")
+    repetido = charts.render_gains_chart(_deciles_frame(), title="Ganancia", fmt="png")
+
+    assert isinstance(png, bytes)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"  # firma PNG: el archivo es realmente una imagen
+    assert png == repetido  # determinista
+    assert b"matplotlib" not in png  # sin la firma de la librería (metadata Software=None)
+
+    # El default sigue siendo SVG: el HTML y el .qmd no cambian de formato por esto.
+    assert isinstance(charts.render_gains_chart(_deciles_frame(), title="Ganancia"), str)
+
+
 @pytest.mark.parametrize(
     "name", ["gains", "reliability", "coefficients", "discrimination", "stability"]
 )

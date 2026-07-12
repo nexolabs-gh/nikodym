@@ -45,7 +45,7 @@ from nikodym.report.results import (
 # el bundle golden embebe un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
 # Recalculado al pasar el reporte de log a documento: el HTML cambió a propósito (portada con
 # metadatos, índice, resumen ejecutivo con métricas, capítulos de prosa y dump degradado a anexos).
-GOLDEN_HTML_SHA256 = "3e3569914f6b710900ecfc4e8517b5138ff8ba5fbe7a7e314e9b4f9675ed06dc"
+GOLDEN_HTML_SHA256 = "6537fe1149b6f4fd9beb4bcf0fa6f5638fa7bc53b32c93d1d4a16f1968054173"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -180,18 +180,31 @@ def test_placeholders_show_y_hide() -> None:
     assert "La tasa de incumplimiento observada es de 12.35 %." in sin_bloque
 
 
-def test_el_dump_no_se_borra_se_degrada_a_anexo() -> None:
-    """Principio rector: el payload crudo y TODAS las tablas siguen en el informe, en los anexos."""
-    html = _renderer().render(_bundle())
+def test_el_dump_se_degrada_a_anexo_pero_no_se_duplica() -> None:
+    """El anexo COMPLETA al cuerpo; no lo repite. La evidencia no se pierde, deja de duplicarse.
+
+    La tanda 1 dejó el Anexo B publicando **todas** las tablas, incluidas las que el cuerpo ya
+    mostraba: cada tabla clave salía dos veces en el mismo documento (9 tablas duplicadas en una
+    corrida real). Repetir una tabla íntegra no añade trazabilidad, añade páginas. Ahora el cuerpo
+    muestra las tablas que sostienen el juicio y el anexo publica **el resto**.
+    """
+    correlacion = pd.DataFrame({"variable": ["mora"], "saldo": [0.31]})
+    html = _renderer().render(
+        _bundle(tables={**_tables(), "selection.correlation_matrix": correlacion})
+    )
 
     anexo_b = _section_fragment(html, "appendix_tables")
     anexo_c_eda = _section_fragment(html, "appendix_parameters.eda")
     resultados_modelo = _section_fragment(html, "results.model")
 
-    # Anexo B: TODAS las tablas del bundle, incluidas las que el cuerpo ya mostró.
+    # Las tablas clave viven en el CUERPO y no se repiten en el anexo.
     for key in ("performance.performance_table", "model.coefficients"):
-        assert f'data-table-key="{key}"' in anexo_b
-    # Anexo B también recoge las figuras declarativas.
+        assert html.count(f'data-table-key="{key}"') == 1
+        assert f'data-table-key="{key}"' not in anexo_b
+    assert 'data-table-key="model.coefficients"' in resultados_modelo
+
+    # Lo que el cuerpo NO muestra sigue íntegro en el anexo: la trazabilidad no se pierde.
+    assert 'data-table-key="selection.correlation_matrix"' in anexo_b
     assert 'data-figure="eda.figures"' in anexo_b
 
     # Anexo C: el payload crudo, con su artefacto de origen.
@@ -201,6 +214,35 @@ def test_el_dump_no_se_borra_se_degrada_a_anexo() -> None:
     # El cuerpo NO repite el dump: lleva prosa y las tablas que importan.
     assert "El modelo final incluye 2 variables." in resultados_modelo
     assert "<h4>Parámetros y payload</h4>" not in resultados_modelo
+
+
+def test_las_tablas_por_observacion_salen_del_documento_y_se_referencian() -> None:
+    """El dataset no es el informe: las tablas por observación salen y el anexo dice dónde están.
+
+    Cinco tablas por observación (puntaje, PD cruda, PD calibrada y los dos frames WoE) ocupaban
+    **1.005 de las 1.510 filas** del informe, truncadas a 200: no servían ni como dato (incompletas)
+    ni como informe (ruido). Salen del documento y se entregan completas como adjuntos.
+    """
+    score = pd.DataFrame(
+        {"score": [640, 712], "pd_calibrated": [0.08, 0.03]},
+        index=pd.Index(["op-000", "op-001"], name="loan_id"),
+    )
+    bundle = _bundle(tables={**_tables(), "scorecard.score": score})
+
+    sin_export = _renderer(ReportConfig(formats=("html",))).render(bundle)
+    con_export = _renderer(ReportConfig(formats=("html", "csv"))).render(bundle)
+
+    # La tabla por observación no se renderiza en ninguna sección, ni en el anexo.
+    assert 'data-table-key="scorecard.score"' not in sin_export
+    assert 'data-table-key="scorecard.score"' not in con_export
+
+    # Pedida como export: el documento la nombra y dice en qué archivo va, con su tamaño REAL.
+    assert "scorecard_report__scorecard_score.csv" in con_export
+    assert "Puntaje por observación" in con_export
+
+    # Sin export: el documento declara que existe y que NO se emitió; no la calla ni la inventa.
+    assert "no se exportaron" in sin_export
+    assert "scorecard_report__scorecard_score.csv" not in sin_export
 
 
 def test_plantilla_y_css_empaquetados_en_el_paquete() -> None:

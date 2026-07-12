@@ -106,8 +106,10 @@ _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
 )
 _FIGURE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (("eda", "figures"),)
 _VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
-    {"html", "pdf", "docx", "json", "csv", "xlsx"}
+    {"html", "pdf", "md", "docx", "json", "csv", "xlsx"}
 )
+# La fuente editable se escribe como ``.qmd`` (Quarto), pero su formato lógico es ``md``.
+_SUFFIX_ALIASES: Final[dict[str, str]] = {"qmd": "md"}
 # Secciones de config que la Metodología necesita para describir lo que realmente se ejecutó.
 _PARAM_DOMAINS: Final[tuple[str, ...]] = ("data", *PIPELINE_DOMAINS)
 
@@ -594,8 +596,14 @@ def _is_dataframe_like(value: object) -> bool:
 
 
 def _output_format_from_path(path: str, config: ReportConfig) -> ReportOutputFormat:
-    suffix = Path(path).suffix.lower().lstrip(".")
+    """Deriva el formato del manifest desde la extensión del archivo, con respaldo en el config.
+
+    ``.qmd`` es la extensión de Quarto, pero el formato lógico del manifiesto es ``md``: el archivo
+    es Markdown, la extensión sólo dice qué herramienta lo compila.
+    """
+    suffix = _SUFFIX_ALIASES.get(
+        Path(path).suffix.lower().lstrip("."), Path(path).suffix.lower().lstrip(".")
+    )
     if suffix in _VALID_OUTPUT_FORMATS:
         return cast(ReportOutputFormat, suffix)
-    fallback = config.formats[0] if config.formats else "html"
-    return cast(ReportOutputFormat, fallback)
+    return config.formats[0] if config.formats else "html"

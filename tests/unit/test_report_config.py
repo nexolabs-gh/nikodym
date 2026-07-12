@@ -77,6 +77,9 @@ def _report_defaults() -> dict[str, Any]:
             "enabled": False,
             "fail_if_unavailable": False,
         },
+        "docx": {
+            "fail_if_unavailable": False,
+        },
         "ai": {
             "enabled": False,
             "provider": "none",
@@ -267,7 +270,7 @@ def test_rangos_invalidos_rechazados_por_pydantic(
 @pytest.mark.parametrize(
     ("config_cls", "kwargs"),
     [
-        (ReportConfig, {"formats": ("docx",)}),
+        (ReportConfig, {"formats": ("odt",)}),
         (AiNarrationConfig, {"provider": "openai"}),
         (SectionPolicyConfig, {"missing_policy": "ignore"}),
         (HtmlRenderConfig, {"theme": "dark"}),
@@ -287,13 +290,14 @@ def test_formats_acepta_pdf() -> None:
     assert ReportConfig(formats=("html", "pdf")).formats == ("html", "pdf")
 
 
-@pytest.mark.parametrize("formato", ["json", "csv", "xlsx"])
+@pytest.mark.parametrize("formato", ["json"])
 def test_formato_no_implementado_falla_en_vez_de_degradar_en_silencio(formato: str) -> None:
     """Pedir un formato sin motor detrás es un error explícito, no un reporte vacío.
 
-    El bug: ``formats`` aceptaba ``json``/``csv``/``xlsx``, la corrida terminaba "bien" y no se
-    escribía archivo alguno. Un enum declarado sin ruta real degrada en silencio; ahora el config
-    lo rechaza y el step no puede ser más permisivo que el motor.
+    El bug: ``formats`` aceptaba formatos que nadie generaba, la corrida terminaba "bien" y no se
+    escribía archivo alguno. Un enum declarado sin ruta real degrada en silencio; el config lo
+    rechaza y el step no puede ser más permisivo que el motor. ``json`` es el único que sigue en
+    el roadmap: ``csv``/``xlsx`` (datos) y ``md``/``docx`` (fuentes editables) ya se generan.
     """
     with pytest.raises(ValidationError, match="no implementado"):
         ReportConfig(formats=("html", formato))  # type: ignore[arg-type]
@@ -302,9 +306,15 @@ def test_formato_no_implementado_falla_en_vez_de_degradar_en_silencio(formato: s
         NikodymConfig(report={"formats": ["html", formato]})
 
 
+@pytest.mark.parametrize("formato", ["md", "docx", "csv", "xlsx"])
+def test_formatos_de_la_base_editable_y_de_datos_son_validos(formato: str) -> None:
+    """``md``/``docx`` (fuente editable) y ``csv``/``xlsx`` (datos) ya tienen motor: se aceptan."""
+    assert ReportConfig(formats=("html", formato)).formats == ("html", formato)  # type: ignore[arg-type]
+
+
 def test_formatos_implementados_declarados_explicitamente() -> None:
     """La lista de formatos con motor real es la que el validador usa como fuente de verdad."""
-    assert frozenset({"html", "pdf"}) == IMPLEMENTED_FORMATS
+    assert frozenset({"html", "pdf", "md", "docx", "csv", "xlsx"}) == IMPLEMENTED_FORMATS
     assert ReportConfig(formats=()).formats == ()
 
 

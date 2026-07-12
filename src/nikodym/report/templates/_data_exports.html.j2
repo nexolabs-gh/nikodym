@@ -1,0 +1,28 @@
+{# Detalle por observación: NO va en el documento (es el dataset, no el informe), pero el documento
+   dice dónde está. Truncado a 200 filas no servía ni como dato ni como informe; completo y adjunto,
+   sirve como dato. Si no se pidió csv/xlsx, se declara que no se emitió, no se calla. #}
+<div class="data-exports">
+  <h4>Detalle por observación</h4>
+  {% if section.data_exports.requested %}
+  <p>Las tablas con una fila por operación no se reproducen en el informe: se entregan <strong>completas</strong> como archivos adjuntos a este documento.</p>
+  <table class="exports">
+    <thead><tr><th>Tabla</th><th>Filas</th><th>Archivo adjunto</th></tr></thead>
+    <tbody>
+      {% for item in section.data_exports.attachments %}
+      <tr>
+        <td>{{ item.title }}</td>
+        <td class="num">{{ item.rows }}</td>
+        <td><code>{{ item.filename }}</code>{% if item.sheet %} — hoja <code>{{ item.sheet }}</code>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Esta corrida produjo tablas con una fila por operación que no se reproducen en el informe (son datos, no evidencia de validación) y que <strong>no se exportaron</strong>: añada <code>csv</code> o <code>xlsx</code> a <code>report.formats</code> para obtenerlas completas.</p>
+  <ul class="exports-pending">
+    {% for item in section.data_exports.pending %}
+    <li>{{ item.title }} — {{ item.rows }} filas</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>

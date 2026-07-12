@@ -9,6 +9,12 @@ básico como artefacto primario y, si está habilitado, genera un PDF con WeasyP
 que escribe como efecto secundario en disco. Degrada con gracia a HTML si WeasyPrint no está
 disponible; el manifest devuelto describe siempre el artefacto HTML determinístico.
 
+:func:`build_document_view` es la **proyección canónica del documento** (portada, resumen, índice y
+secciones ya resueltas) y la fuente única que consumen los tres renderers: el HTML de aquí, el
+``.qmd`` de :mod:`nikodym.report.markdown` y el ``.docx`` de :mod:`nikodym.report.docx`. Un capítulo
+nuevo, un título distinto o una tabla que cambia de sitio se escriben **una vez**; los tres formatos
+lo heredan. Sin eso, tres renderers son tres documentos que divergen en la primera modificación.
+
 **Estable (SemVer 1.x).**
 """
 
@@ -24,11 +30,16 @@ import warnings
 from collections.abc import Callable, Mapping, Sequence
 from importlib import resources
 from pathlib import Path
-from typing import Any, Final, Literal, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
 from pydantic import BaseModel
 
-from nikodym.report._manifest import REPORT_TEMPLATE_VERSION, REPORT_TITLE, html_report_id
+from nikodym.report._manifest import (
+    DOCUMENT_TITLE,
+    REPORT_TEMPLATE_VERSION,
+    REPORT_TITLE,
+    html_report_id,
+)
 from nikodym.report.config import (
     AiNarrationConfig,
     HtmlRenderConfig,
@@ -39,7 +50,8 @@ from nikodym.report.config import (
 from nikodym.report.document import (
     APPENDIX_TABLES_ID,
     KEY_TABLES,
-    section_sort_key,
+    PER_OBSERVATION_TABLES,
+    ordered_sections,
     table_title,
 )
 from nikodym.report.exceptions import (
@@ -47,6 +59,7 @@ from nikodym.report.exceptions import (
     ReportExportError,
     ReportRenderError,
 )
+from nikodym.report.exports import data_export_refs
 from nikodym.report.results import (
     AiNarrationBlock,
     ReportInputBundle,
@@ -54,7 +67,12 @@ from nikodym.report.results import (
     ReportSection,
 )
 
-__all__ = ["HtmlReportRenderer", "PdfReportRenderer"]
+if TYPE_CHECKING:
+    # Sólo el alias de tipo: importar ``charts`` en runtime crearía un borde de import hacia el
+    # módulo de matplotlib y rompería el import liviano del paquete que este renderer preserva.
+    from nikodym.report.charts import ChartFormat
+
+__all__ = ["HtmlReportRenderer", "PdfReportRenderer", "build_document_view"]
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -129,19 +147,10 @@ class HtmlReportRenderer:
             keep_trailing_newline=True,
         )
         try:
-            section_views = _section_views(bundle, ai_blocks, self.config)
+            document = build_document_view(bundle, config=self.config, ai_blocks=ai_blocks)
             rendered = _load_template(environment).render(
-                title=REPORT_TITLE,
-                template_id=self.config.html.template_id,
-                template_version=REPORT_TEMPLATE_VERSION,
-                created_from_lineage_at=bundle.lineage.created_at.isoformat(),
-                emitted_date=_emitted_date(bundle),
-                lineage=_lineage_view(bundle),
                 css=_css_for_theme(self.config.html.theme),
-                cover=_cover_view(bundle, self.config),
-                executive=_executive_view(bundle),
-                toc=_toc_entries(section_views),
-                sections=section_views,
+                **document,
             )
         except ReportRenderError:
             raise
@@ -175,7 +184,7 @@ class HtmlReportRenderer:
             deterministic=self.config.html.deterministic_ids and not ai_used,
             ai_enabled=self.config.ai.enabled or bool(self._last_ai_blocks),
             ai_used=ai_used,
-            sections=_ordered_sections(bundle.sections),
+            sections=ordered_sections(bundle.sections),
         )
 
     def write(self, html: str, *, output_dir: str) -> ReportManifest:
@@ -314,20 +323,56 @@ def _coerce_report_config(
     return config
 
 
+def build_document_view(
+    bundle: ReportInputBundle,
+    *,
+    config: ReportConfig,
+    ai_blocks: tuple[AiNarrationBlock, ...] = (),
+    chart_format: ChartFormat = "svg",
+) -> dict[str, Any]:
+    """Proyecta el documento completo a datos planos, sin decidir nada del formato de salida.
+
+    Es el contrato que comparten HTML, Markdown y Word: mismos capítulos, mismo índice, mismas
+    tablas y los mismos bloques POR COMPLETAR. Cada renderer sólo decide **cómo se ve** cada bloque,
+    nunca **qué bloques hay** ni en qué orden. ``chart_format`` es lo único que varía por destino:
+    el HTML y el ``.qmd`` embeben SVG; Word no los admite y pide PNG.
+    """
+    section_views = _section_views(bundle, ai_blocks, config, chart_format)
+    return {
+        "title": REPORT_TITLE,
+        "document_title": DOCUMENT_TITLE,
+        "template_id": config.html.template_id,
+        "template_version": REPORT_TEMPLATE_VERSION,
+        "created_from_lineage_at": bundle.lineage.created_at.isoformat(),
+        "emitted_date": _emitted_date(bundle),
+        "lineage": _lineage_view(bundle),
+        "cover": _cover_view(bundle, config),
+        "executive": _executive_view(bundle),
+        "toc": _toc_entries(section_views),
+        "sections": section_views,
+    }
+
+
 def _section_views(
     bundle: ReportInputBundle,
     ai_blocks: tuple[AiNarrationBlock, ...],
     config: ReportConfig,
+    chart_format: ChartFormat = "svg",
 ) -> list[dict[str, Any]]:
     """Proyecta cada sección a la vista que consume su parcial, según su ``kind``.
 
     El dump (payload crudo y tablas completas) sólo se emite donde corresponde —los anexos—; el
-    cuerpo lleva prosa, las tablas que importan y sus gráficos.
+    cuerpo lleva prosa, las tablas que importan y sus gráficos. Las tablas que el cuerpo ya mostró
+    **no se repiten** en el anexo: se acumulan en ``shown`` a medida que se proyectan las secciones
+    (que llegan en orden canónico, con los anexos al final) y el anexo publica el complemento.
     """
     narratives = {block.section_id: block for block in ai_blocks}
     views: list[dict[str, Any]] = []
-    for section in _ordered_sections(bundle.sections):
+    shown: set[str] = set()
+    for section in ordered_sections(bundle.sections):
         is_appendix = section.kind == "appendix"
+        tables = _tables_for_section(bundle, section, config, shown=shown)
+        shown.update(table["key"] for table in tables)
         views.append(
             {
                 "id": section.id,
@@ -342,18 +387,14 @@ def _section_views(
                 "placeholder": _placeholder_view(section),
                 "payload_items": _mapping_items(section.payload) if is_appendix else [],
                 "metric_items": _mapping_items(section.metric_sections) if is_appendix else [],
-                "tables": _tables_for_section(bundle, section, config.sections.max_table_rows),
-                "charts": _charts_for_section(bundle, section, config),
+                "tables": tables,
+                "charts": _charts_for_section(bundle, section, config, chart_format),
                 "figures": _figures_for_section(bundle, section),
+                "data_exports": _data_exports_view(bundle, section, config),
                 "narration": _narration_view(narratives.get(section.id), config.ai.label_ai_text),
             }
         )
     return views
-
-
-def _ordered_sections(sections: tuple[ReportSection, ...]) -> tuple[ReportSection, ...]:
-    """Ordena por la clave canónica del documento (fuente única: ``report.document``)."""
-    return tuple(sorted(sections, key=lambda section: (*section_sort_key(section.id), section.id)))
 
 
 def _placeholder_view(section: ReportSection) -> dict[str, Any] | None:
@@ -494,23 +535,84 @@ def _narration_view(block: AiNarrationBlock | None, label_ai_text: bool) -> dict
 def _tables_for_section(
     bundle: ReportInputBundle,
     section: ReportSection,
-    max_rows: int,
+    config: ReportConfig,
+    *,
+    shown: set[str],
 ) -> list[dict[str, Any]]:
     """Resuelve qué tablas muestra una sección.
 
-    El Anexo B publica **todas** las tablas de la corrida (la trazabilidad no se pierde: se
-    concentra). El cuerpo muestra sólo las de :data:`~nikodym.report.document.KEY_TABLES` del
-    dominio, que son las que sostienen el juicio de validación.
+    El cuerpo muestra las de :data:`~nikodym.report.document.KEY_TABLES` del dominio, que son las
+    que sostienen el juicio de validación. El anexo de tablas publica **el resto** de las tablas
+    agregadas —binning por variable, correlación, estabilidad—: lo que el cuerpo no mostró, no lo
+    que ya mostró. Repetir una tabla íntegra en dos sitios no añade trazabilidad, añade páginas.
+
+    Las tablas **por observación** no salen en ninguna de las dos: son el dataset, no el informe, y
+    se entregan completas como adjuntos (:func:`_data_exports_view`).
     """
     if section.id == APPENDIX_TABLES_ID:
-        keys: tuple[str, ...] = tuple(sorted(bundle.tables, key=str))
+        keys: tuple[str, ...] = tuple(
+            key
+            for key in sorted(bundle.tables, key=str)
+            if key not in shown and key not in PER_OBSERVATION_TABLES
+        )
     elif section.kind == "data" and section.source_domain and section.status == "included":
         keys = tuple(
-            key for key in KEY_TABLES.get(section.source_domain, ()) if key in bundle.tables
+            key
+            for key in KEY_TABLES.get(section.source_domain, ())
+            if key in bundle.tables and key not in PER_OBSERVATION_TABLES
         )
     else:
         keys = ()
+    max_rows = config.sections.max_table_rows
     return [_table_view(key, bundle.tables[key], max_rows=max_rows) for key in keys]
+
+
+def _data_exports_view(
+    bundle: ReportInputBundle,
+    section: ReportSection,
+    config: ReportConfig,
+) -> dict[str, Any]:
+    """Declara, en el anexo de tablas, dónde quedó el detalle por observación.
+
+    El documento no calla lo que sacó: nombra cada tabla por observación, su tamaño real (completo,
+    no el truncado que antes se mostraba) y el archivo adjunto que la entrega. Si no se pidió
+    ``csv`` ni ``xlsx``, dice exactamente eso —que el detalle no se emitió y cómo pedirlo— en vez de
+    referenciar un archivo que no existe.
+    """
+    if section.id != APPENDIX_TABLES_ID:
+        return {}
+    keys = tuple(key for key in sorted(bundle.tables, key=str) if key in PER_OBSERVATION_TABLES)
+    if not keys:
+        return {}
+    refs = data_export_refs(bundle.tables, config=config)
+    return {
+        "requested": bool(refs),
+        "attachments": [
+            {
+                "title": ref.title,
+                "key": ref.table_key,
+                "rows": _thousands(ref.rows),
+                "filename": ref.filename,
+                "sheet": ref.sheet,
+            }
+            for ref in refs
+        ],
+        "pending": [
+            {
+                "title": table_title(key),
+                "key": key,
+                "rows": _thousands(len(bundle.tables[key].index)),
+            }
+            for key in keys
+        ]
+        if not refs
+        else [],
+    }
+
+
+def _thousands(value: int) -> str:
+    """Formatea un conteo con el separador de miles del informe (español: ``1.234``)."""
+    return f"{value:,}".replace(",", ".")
 
 
 def _table_view(key: str, table: Any, *, max_rows: int) -> dict[str, Any]:
@@ -562,48 +664,55 @@ _CHART_TITLES: Final[dict[str, str]] = {
 }
 
 
-def _chart_gains(charts: Any, bundle: ReportInputBundle) -> str:
+def _chart_gains(charts: Any, bundle: ReportInputBundle, fmt: ChartFormat) -> str | bytes:
     """Curva de ganancia desde ``performance.performance_table``."""
     return cast(
-        str,
+        "str | bytes",
         charts.render_gains_chart(
-            bundle.tables["performance.performance_table"], title=_CHART_TITLES["gains"]
+            bundle.tables["performance.performance_table"],
+            title=_CHART_TITLES["gains"],
+            fmt=fmt,
         ),
     )
 
 
-def _chart_discrimination(charts: Any, bundle: ReportInputBundle) -> str:
+def _chart_discrimination(charts: Any, bundle: ReportInputBundle, fmt: ChartFormat) -> str | bytes:
     """Barras de discriminación desde ``performance.discriminant_metrics``."""
     return cast(
-        str,
+        "str | bytes",
         charts.render_discrimination_bars(
             bundle.tables["performance.discriminant_metrics"],
             title=_CHART_TITLES["discrimination"],
+            fmt=fmt,
         ),
     )
 
 
-def _chart_coefficients(charts: Any, bundle: ReportInputBundle) -> str:
+def _chart_coefficients(charts: Any, bundle: ReportInputBundle, fmt: ChartFormat) -> str | bytes:
     """Forest de coeficientes desde ``model.coefficients``."""
     return cast(
-        str,
+        "str | bytes",
         charts.render_coefficients_forest(
-            bundle.tables["model.coefficients"], title=_CHART_TITLES["coefficients"]
+            bundle.tables["model.coefficients"],
+            title=_CHART_TITLES["coefficients"],
+            fmt=fmt,
         ),
     )
 
 
-def _chart_stability(charts: Any, bundle: ReportInputBundle) -> str:
+def _chart_stability(charts: Any, bundle: ReportInputBundle, fmt: ChartFormat) -> str | bytes:
     """Barras horizontales PSI/CSI desde ``stability.stability_metrics``."""
     return cast(
-        str,
+        "str | bytes",
         charts.render_stability_chart(
-            bundle.tables["stability.stability_metrics"], title=_CHART_TITLES["stability"]
+            bundle.tables["stability.stability_metrics"],
+            title=_CHART_TITLES["stability"],
+            fmt=fmt,
         ),
     )
 
 
-def _chart_reliability(charts: Any, bundle: ReportInputBundle) -> str:
+def _chart_reliability(charts: Any, bundle: ReportInputBundle, fmt: ChartFormat) -> str | bytes:
     """Curva de confiabilidad derivada en render-time desde ``calibration.calibrated_pd_frame``.
 
     ``reliability_curve`` (capa ``ui``) proyecta el frame calibrado a la lista ``by_partition`` que
@@ -614,14 +723,16 @@ def _chart_reliability(charts: Any, bundle: ReportInputBundle) -> str:
 
     curve = reliability_curve(bundle.tables["calibration.calibrated_pd_frame"])
     return cast(
-        str,
-        charts.render_reliability_chart(curve["by_partition"], title=_CHART_TITLES["reliability"]),
+        "str | bytes",
+        charts.render_reliability_chart(
+            curve["by_partition"], title=_CHART_TITLES["reliability"], fmt=fmt
+        ),
     )
 
 
 # Mapeo sección → gráficos (nombre estable + builder). El nombre alimenta el ``id`` HTML del slot.
 _CHART_BUILDERS: Final[
-    dict[str, tuple[tuple[str, Callable[[Any, ReportInputBundle], str]], ...]]
+    dict[str, tuple[tuple[str, Callable[[Any, ReportInputBundle, ChartFormat], str | bytes]], ...]]
 ] = {
     "performance": (("gains", _chart_gains), ("discrimination", _chart_discrimination)),
     "model": (("coefficients", _chart_coefficients),),
@@ -634,14 +745,18 @@ def _charts_for_section(
     bundle: ReportInputBundle,
     section: ReportSection,
     config: ReportConfig,
-) -> list[dict[str, str]]:
-    """Genera los SVG deterministas de la sección desde ``bundle.tables`` (import perezoso).
+    chart_format: ChartFormat = "svg",
+) -> list[dict[str, Any]]:
+    """Genera los gráficos deterministas de la sección desde ``bundle.tables`` (import perezoso).
 
     Los gráficos acompañan al **cuerpo** (las subsecciones de datos de Resultados y Contexto),
     donde sostienen la lectura; no se repiten en los anexos. Cada gráfico se produce aislado y con
     degradación con gracia: si falta ``matplotlib``, faltan columnas o la tabla no está publicada,
     se omite ese gráfico y el reporte se renderiza igual. El import de
     :mod:`nikodym.report.charts` es perezoso para preservar el import liviano del paquete.
+
+    La vista trae el gráfico bajo la clave de su formato (``svg`` texto o ``png`` bytes), de modo
+    que cada renderer consuma el suyo sin reconvertir nada.
     """
     if not config.html.render_charts or section.kind != "data" or section.status != "included":
         return []
@@ -651,10 +766,10 @@ def _charts_for_section(
         return []
     from nikodym.report import charts  # perezoso: matplotlib no entra al import del paquete.
 
-    results: list[dict[str, str]] = []
+    results: list[dict[str, Any]] = []
     for name, build in builders:
         try:
-            svg = build(charts, bundle)
+            image = build(charts, bundle, chart_format)
         except Exception as exc:  # degradación con gracia: un gráfico nunca tumba el reporte.
             _LOGGER.warning(
                 "report: gráfico '%s.%s' omitido por degradación con gracia: %s",
@@ -663,7 +778,13 @@ def _charts_for_section(
                 exc,
             )
             continue
-        results.append({"html_id": _element_id("chart", f"{domain}-{name}"), "svg": svg})
+        results.append(
+            {
+                "html_id": _element_id("chart", f"{domain}-{name}"),
+                "title": _CHART_TITLES[name],
+                chart_format: image,
+            }
+        )
     return results
 
 

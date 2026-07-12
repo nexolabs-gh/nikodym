@@ -26,7 +26,9 @@ from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
 from nikodym.report.builder import ReportBuilder
 from nikodym.report.config import ReportConfig
+from nikodym.report.document import PER_OBSERVATION_TABLES
 from nikodym.report.exceptions import ReportExportError
+from nikodym.report.exports import DATA_EXPORT_FORMATS, write_data_exports
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportManifest, ReportResult
 
 if TYPE_CHECKING:
@@ -105,12 +107,14 @@ class ReportStep(AuditableMixin):
         renderer = _html_renderer(cfg)
         html = renderer.render(bundle, ai_blocks=ai_blocks)
         manifest = _manifest_for_html(renderer, html, config=cfg)
-        pdf_path = _maybe_write_pdf(cfg, html, manifest=manifest)
         result = ReportResult(
             manifest=manifest,
             input_bundle=bundle,
             html_path=_resolve_html_path(cfg, manifest),
-            pdf_path=pdf_path,
+            pdf_path=_maybe_write_pdf(cfg, html, manifest=manifest),
+            md_path=_maybe_write_markdown(cfg, bundle, ai_blocks=ai_blocks, manifest=manifest),
+            docx_path=_maybe_write_docx(cfg, bundle, ai_blocks=ai_blocks, manifest=manifest),
+            data_exports=_maybe_write_data_exports(cfg, bundle, manifest=manifest),
             ai_blocks=ai_blocks,
         )
         self._log_report_decisions(bundle=bundle, manifest=manifest, result=result, config=cfg)
@@ -156,12 +160,24 @@ class ReportStep(AuditableMixin):
                 valor={"path": manifest.path, "sha256": manifest.sha256},
                 accion="publicar_html_local",
             )
-        if result.pdf_path:
+        for regla, path, accion in (
+            ("report_export_pdf", result.pdf_path, "publicar_pdf_local"),
+            ("report_export_md", result.md_path, "publicar_qmd_local"),
+            ("report_export_docx", result.docx_path, "publicar_docx_local"),
+        ):
+            if path:
+                self.log_decision(
+                    regla=regla,
+                    umbral=config.output_dir,
+                    valor={"path": path},
+                    accion=accion,
+                )
+        if result.data_exports:
             self.log_decision(
-                regla="report_export_pdf",
+                regla="report_export_datos",
                 umbral=config.output_dir,
-                valor={"path": result.pdf_path},
-                accion="publicar_pdf_local",
+                valor={"files": tuple(sorted(result.data_exports))},
+                accion="publicar_tablas_por_observacion",
             )
 
 
@@ -230,6 +246,84 @@ def _maybe_write_pdf(
     return str(path) if path is not None else None
 
 
+def _maybe_write_markdown(
+    config: ReportConfig,
+    bundle: ReportInputBundle,
+    *,
+    ai_blocks: tuple[AiNarrationBlock, ...],
+    manifest: ReportManifest,
+) -> str | None:
+    """Escribe el ``.qmd`` (fuente editable) si ``"md"`` está en ``formats``; si no, ``None``.
+
+    Clon de :func:`_maybe_write_pdf`: ``formats`` es la fuente de verdad del step. No requiere
+    extras —el ``.qmd`` es texto—, así que no hay degradación posible: si se pide, se emite. Las
+    figuras se materializan junto al archivo (ver :meth:`MarkdownReportRenderer.write`).
+    """
+    output_dir = _export_dir(config, manifest)
+    if "md" not in config.formats or output_dir is None:
+        return None
+    from nikodym.report.markdown import MarkdownReportRenderer
+
+    renderer = MarkdownReportRenderer.from_config(config)
+    markdown = renderer.render(bundle, ai_blocks=ai_blocks)
+    md_manifest = renderer.write(markdown, output_dir=output_dir)
+    return str(Path(output_dir) / Path(md_manifest.path).name)
+
+
+def _maybe_write_docx(
+    config: ReportConfig,
+    bundle: ReportInputBundle,
+    *,
+    ai_blocks: tuple[AiNarrationBlock, ...],
+    manifest: ReportManifest,
+) -> str | None:
+    """Escribe el ``.docx`` (Word) si ``"docx"`` está en ``formats``; si no, ``None``.
+
+    Clon de :func:`_maybe_write_pdf`, incluida la degradación con gracia: sin el extra ``docx``
+    emite un warning y devuelve ``None`` (o falla, con ``docx.fail_if_unavailable=True``). El
+    ``.docx`` NO entra al manifest: se refleja como ``ReportResult.docx_path``.
+    """
+    output_dir = _export_dir(config, manifest)
+    if "docx" not in config.formats or output_dir is None:
+        return None
+    from nikodym.report.docx import DocxReportRenderer
+
+    path = DocxReportRenderer.from_config(config).write_docx_from_bundle(
+        bundle, output_dir=output_dir, ai_blocks=ai_blocks
+    )
+    return str(path) if path is not None else None
+
+
+def _maybe_write_data_exports(
+    config: ReportConfig,
+    bundle: ReportInputBundle,
+    *,
+    manifest: ReportManifest,
+) -> dict[str, str]:
+    """Escribe los adjuntos de datos (``csv``/``xlsx``) y devuelve ``{archivo: ruta}``.
+
+    Es lo que puebla ``ReportResult.data_exports``. Las tablas por observación salieron del
+    documento (:data:`~nikodym.report.document.PER_OBSERVATION_TABLES`); aquí se entregan
+    **completas**, que es la única forma en que sirven para algo.
+    """
+    output_dir = _export_dir(config, manifest)
+    if output_dir is None or not (set(config.formats) & DATA_EXPORT_FORMATS):
+        return {}
+    return write_data_exports(bundle.tables, config=config, output_dir=output_dir)
+
+
+def _export_dir(config: ReportConfig, manifest: ReportManifest) -> str | None:
+    """Directorio de escritura de los formatos derivados, o ``None`` (reporte sólo-en-memoria).
+
+    Mismo criterio que :func:`_resolve_html_path`: sin ``output_dir`` escribible (``manifest.path``
+    vacío) no se escribe ningún archivo, y los formatos derivados no inventan una ruta propia.
+    """
+    output_dir = config.output_dir.strip()
+    if not output_dir or not manifest.path:
+        return None
+    return output_dir
+
+
 def _preflight_output_dir(config: ReportConfig) -> None:
     """Falla temprano si el export local configurado no es escribible."""
     output_dir = config.output_dir.strip()
@@ -290,10 +384,16 @@ def _truncated_tables(
     bundle: ReportInputBundle,
     config: ReportConfig,
 ) -> tuple[tuple[str, int], ...]:
-    """Detecta tablas cuyo render HTML aplica truncamiento visual explícito."""
+    """Detecta tablas cuyo render aplica truncamiento visual explícito.
+
+    Las tablas por observación quedan fuera: ya no se renderizan (salen como adjunto completo), así
+    que auditarlas como "truncadas" sería registrar una decisión que el motor no toma.
+    """
     truncated: list[tuple[str, int]] = []
     max_rows = config.sections.max_table_rows
     for key, table in bundle.tables.items():
+        if key in PER_OBSERVATION_TABLES:
+            continue
         row_count = len(getattr(table, "index", ()))
         if row_count > max_rows:
             truncated.append((key, row_count))
