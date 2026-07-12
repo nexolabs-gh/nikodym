@@ -569,7 +569,7 @@ correspondiente.
 
 ## Reportería
 
-Reporte auditable del scorecard: ensamblado del bundle, render HTML/Quarto y narración opcional
+Reporte auditable del scorecard: ensamblado del bundle, render HTML/PDF y narración opcional
 (regla o IA).
 
 ::: nikodym.report.config.ReportConfig
@@ -584,7 +584,7 @@ Reporte auditable del scorecard: ensamblado del bundle, render HTML/Quarto y nar
     options:
       heading_level: 3
 
-::: nikodym.report.renderer.QuartoReportRenderer
+::: nikodym.report.renderer.PdfReportRenderer
     options:
       heading_level: 3
 

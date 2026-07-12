@@ -6,9 +6,9 @@ exige las ocho cards canónicas de F1, toma un snapshot defensivo del ``Study`` 
 HTML determinístico y publica el bundle, el manifiesto y el resultado agregado bajo
 ``domain='report'``.
 
-El módulo evita importar Jinja2, Quarto, SDKs IA o librerías gráficas en import time. El renderer y
-los narradores se cargan dentro de ``execute`` para que ``import nikodym.core`` siga liviano y para
-que ``nikodym.report`` pueda registrar el step sin activar dependencias opcionales.
+El módulo evita importar Jinja2, WeasyPrint, SDKs IA o librerías gráficas en import time. El
+renderer y los narradores se cargan dentro de ``execute`` para que ``import nikodym.core`` siga
+liviano y para que ``nikodym.report`` pueda registrar el step sin activar dependencias opcionales.
 
 **Estable (SemVer 1.x).**
 """
