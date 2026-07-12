@@ -8,7 +8,7 @@ fila de predicción conserva su índice como ``row_id`` y publica hazards, super
 El módulo preserva el import liviano de ``nikodym.survival``: ``pandas``, ``numpy`` y
 ``statsmodels`` se importan sólo dentro de métodos/helpers de ejecución.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

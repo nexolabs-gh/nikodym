@@ -6,7 +6,7 @@ carga sólo bajo demanda desde ``nikodym.model.__getattr__``; ``statsmodels``, `
 ``pandas`` y ``numpy`` se importan dentro de métodos/helpers para preservar el import liviano del
 paquete.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

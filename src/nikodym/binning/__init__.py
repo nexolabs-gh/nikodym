@@ -6,7 +6,7 @@ sin que ``import nikodym.core`` arrastre ``nikodym.binning`` ni dependencias de 
 El paquete importa ``binning.step`` al final para ejecutar ``@register("standard",
 domain="binning")``; ese módulo mantiene imports pesados dentro de ``execute``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

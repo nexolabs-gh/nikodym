@@ -9,7 +9,7 @@ El contrato canónico de ``performance_table`` y ``discriminant_metrics`` es el 
 columnas exactas y orden estable. Los floats publicados normalizan ``-0.0`` como ``0.0`` y los
 valores no finitos de métricas opcionales se degradan a ``None`` antes de cualquier comparación.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

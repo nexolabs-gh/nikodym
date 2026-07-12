@@ -10,9 +10,10 @@ scoring/scorecards, backends ML, provisiones **CMF (Chile)** e **IFRS 9/ECL**, f
 y stress testing. Todo en un motor **reproducible por construcción** y con gobernanza
 (model card + audit-trail) automática. Paquete: `nikodym`.
 
-> **Estado: pre-1.0 (0.9.x).** El motor V1 está completo y verde; la API pública sigue
-> versionada como **0.x honesto** (SemVer): puede cambiar hasta la 1.0. Las superficies que aún
-> crecen (resultados/overlay/métricas/orquestación) están marcadas como experimentales.
+> **Estado: 1.0 (estable).** El pipeline de validación de scorecard (F1) es **API estable
+> (SemVer 1.x)**: no rompe hasta un 2.0. Las superficies que aún crecen —modelado ML, provisiones
+> CMF/IFRS 9, forward-looking, y los contratos transversales de resultados/métricas/orquestación—
+> siguen marcadas como **experimentales** (fuera de la garantía SemVer 1.x).
 
 ## Qué hace
 

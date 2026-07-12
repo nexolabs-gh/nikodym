@@ -9,7 +9,7 @@ tabulares/estadísticas (pandas/pandera/scipy/sklearn): el step importa el evalu
 forma **perezosa** dentro de ``execute``. Los DTOs, el evaluador y el step se reexportan perezosos.
 Nomenclatura en inglés técnico para APIs; docstrings y errores en español.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

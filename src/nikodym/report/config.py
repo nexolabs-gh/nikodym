@@ -8,7 +8,7 @@ narrativa IA opt-in. Toda clase hereda de :class:`~nikodym.core.config.NikodymBa
 ``ui_*`` para que la UI (SDD-23) sea un editor del mismo config. La sección es infraestructura,
 por lo que no entra al ``config_hash`` global.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

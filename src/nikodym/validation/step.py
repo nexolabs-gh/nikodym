@@ -23,7 +23,7 @@ dentro de ``execute``. El motor v1 es determinista: ``execute`` descarta el ``rn
 ``DataFrame``: se extrae ``.frame``/``.target_col`` correctamente. El ``detail`` de
 ``provisioning_ifrs9`` puede traer celdas ``Decimal``/``float``: el evaluador las convierte a float.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

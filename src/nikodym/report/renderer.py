@@ -9,7 +9,7 @@ básico como artefacto primario y, si está habilitado, genera un PDF con WeasyP
 que escribe como efecto secundario en disco. Degrada con gracia a HTML si WeasyPrint no está
 disponible; el manifest devuelto describe siempre el artefacto HTML determinístico.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

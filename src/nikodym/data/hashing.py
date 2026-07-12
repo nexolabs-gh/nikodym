@@ -10,7 +10,7 @@ porque el índice es el identificador regulatorio de observación y la invarianc
 de filas importa más que evitar ese ordenamiento. Esa invariancia aplica solo con índice único; un
 índice duplicado se rechaza fail-fast con ``DataValidationError``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

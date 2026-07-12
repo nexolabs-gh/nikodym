@@ -6,7 +6,7 @@ que ``import nikodym.core`` arrastre ``nikodym.forward`` ni dependencias estadí
 Este paquete no importa statsmodels, pmdarima, pandas ni scipy en top-level; los motores concretos
 llegarán en B20.3-B20.6 y cargarán sus dependencias dentro de ``fit``/``execute``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

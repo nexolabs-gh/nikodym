@@ -9,7 +9,7 @@ se necesita cuando ``analysis_partition != "todas"``; el paso lo lee condicional
 la columna de partición expuesta por SDD-02. Si SDD-02 añade accessors de partición en T2, este
 punto puede reemplazarse de forma aditiva.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

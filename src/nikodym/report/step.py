@@ -10,7 +10,7 @@ El módulo evita importar Jinja2, Quarto, SDKs IA o librerías gráficas en impo
 los narradores se cargan dentro de ``execute`` para que ``import nikodym.core`` siga liviano y para
 que ``nikodym.report`` pueda registrar el step sin activar dependencias opcionales.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

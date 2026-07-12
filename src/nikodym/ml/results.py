@@ -26,7 +26,7 @@ desempate lexicográfico por nombre; ``monotone_constraints`` preservan el orden
 de config de particiones y métricas). Los floats normalizan ``-0.0`` como ``0.0`` y **jamás**
 publican ``NaN``/``inf`` (fallan explícito o, en ``metric_sections``, degradan a ``None``).
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

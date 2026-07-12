@@ -16,7 +16,7 @@ El módulo evita importar ``pandas``, ``numpy``, ``pandera`` y ``sklearn`` en im
 contaminar el núcleo liviano; las dependencias tabulares se cargan dentro de ``execute`` y del
 evaluador.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -5,7 +5,7 @@
 los reemplaza por ``NaN`` en una copia defensiva y conserva una máscara/catálogo para que
 ``binning`` pueda asignarles un bin propio.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

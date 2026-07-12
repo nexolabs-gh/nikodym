@@ -12,9 +12,9 @@ predictores estables e interpretables y descartan lo que no aporta o rompe la re
     subconjunto que entra a la regresión logística. Ambas etapas son secciones declarativas del
     mismo `NikodymConfig`: `config.binning` y `config.selection`.
 
-!!! warning "Superficie experimental (SemVer 0.x)"
-    Las secciones `binning` y `selection` del config y las claves de artefactos son experimentales
-    y pueden cambiar antes de la 1.0.
+!!! note "Superficie estable (SemVer 1.x)"
+    Las secciones `binning` y `selection` del config son parte del pipeline de scorecard F1 y desde
+    la 1.0 son **API estable** (no rompen hasta un 2.0).
 
 ## Weight of Evidence (WoE)
 

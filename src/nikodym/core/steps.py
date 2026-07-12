@@ -11,8 +11,9 @@ Los estimadores de dominio (``fit``/``transform``/``predict``/``compute``) no im
 ``execute``/``name``: el orquestador los envuelve en un :class:`StepAdapter`, de modo que ``core``
 no conoce la API de cada dominio (D-CORE-1).
 
-**Experimental (SemVer 0.x):** la firma ``Step.requires``/``provides``/``ArtifactKey`` es estable,
-pero el motor de orquestación crece (scheduler topológico diferido) hasta 1.0.
+**Experimental (fuera de la garantía SemVer 1.x):** la firma
+``Step.requires``/``provides``/``ArtifactKey`` es estable, pero el motor de orquestación
+(scheduler topológico diferido) crece en las versiones 1.x.
 """
 
 from __future__ import annotations

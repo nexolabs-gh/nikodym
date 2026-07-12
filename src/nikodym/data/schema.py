@@ -4,7 +4,7 @@
 valida ``pandas.DataFrame`` con ``lazy=True`` para acumular todos los incumplimientos en un único
 ``DataValidationError`` de Nikodym.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

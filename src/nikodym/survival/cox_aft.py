@@ -9,7 +9,7 @@ El módulo preserva el import liviano de ``nikodym.survival``: ``pandas``, ``num
 ``lifelines`` se cargan sólo dentro de ``fit``/predicción y helpers de ejecución. Se evita
 deliberadamente ``scikit-survival`` por licencia GPL-3.0.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -24,7 +24,7 @@ Decisiones autónomas para revisión de Cami:
   ``exclude_columns``. La resolución completa de fechas/cohortes/poblaciones la hará
   ``BinningStep``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

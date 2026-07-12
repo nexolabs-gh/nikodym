@@ -5,7 +5,7 @@ calculadas por la futura capa ``scorecard``. No escala, no transforma y no impor
 ``statsmodels``, ``sklearn`` ni ``scipy``; el paquete ``nikodym.scorecard`` reexporta estos
 símbolos de forma perezosa para preservar el import liviano.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

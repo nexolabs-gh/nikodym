@@ -5,7 +5,7 @@ target, particiones, exclusiones y ``data_hash``. La construcción vive en ``Dat
 coexisten ``TargetSummary``, ``PartitionResult`` y ``DataConfig``; gobernanza solo lee el artefacto
 ``("data", "data_card")``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

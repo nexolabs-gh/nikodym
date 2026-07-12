@@ -6,7 +6,7 @@ encadenables → migra; menor sin migrador o mayor (config "del futuro") → fal
 **Nunca migra en silencio.** En la versión ``1.0.0`` el registro está **vacío** a propósito: es
 el punto de extensión para futuros cambios de schema, con el mecanismo ya implementado completo.
 La cadena es **lineal** por SemVer: cada migrador avanza estrictamente la versión y hay a lo sumo
-uno por versión de origen (se valida al registrar, en *import time*). **Experimental (SemVer 0.x).**
+uno por versión de origen (se valida al registrar, en *import time*). **Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

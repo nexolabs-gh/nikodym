@@ -343,8 +343,9 @@ audit-trail (`report_export_html`), de modo que el reporte es trazable a la corr
 
 !!! note "Ajustar el reporte"
     La sección `report` del config controla `output_dir`, `basename`, `language` (`es`) y `formats`.
-    El preset emite HTML con los *assets* embebidos (un único archivo autocontenido). El export a Quarto
-    (PDF/DOCX) y la narrativa por IA existen como opciones del mismo config, marcadas experimentales.
+    El preset emite HTML con los *assets* embebidos (un único archivo autocontenido). El export a **PDF**
+    (WeasyPrint) y la narrativa por IA existen como opciones del mismo config, marcadas experimentales
+    (fuera de la garantía SemVer 1.x).
 
 !!! info "Gobernanza"
     Cada paso publica además su *card* (`study.artifacts.get("model", "model_card")`,

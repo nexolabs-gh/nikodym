@@ -9,7 +9,8 @@ recarga tiene una puerta de confianza ``trust`` (vector *pickle*) y verifica el 
 (reproducibilidad). ``core`` recibe el ``AuditSink`` **ya compuesto** vía ``set_audit_sink``
 (CT-4): no ensambla ``FanOutSink`` ni resuelve inventario (eso vive en api/runner, no en ``core``).
 
-**Experimental (SemVer 0.x):** el motor de orquestación crece (DAG diferido) hasta 1.0. En F0
+**Experimental (fuera de la garantía SemVer 1.x):** el motor de orquestación crece (DAG
+diferido) en las versiones 1.x. En F0
 ``NikodymConfig`` no expone secciones de dominio orquestables: el pipeline por defecto
 (``steps=None``) es trivial y la resolución config → pasos se materializa en T2 con los dominios.
 """

@@ -8,7 +8,7 @@ DataFrames son solo contrato de I/O validado por estructura para preservar el im
 ``metric_sections`` conserva la puerta CT-2 como payload aditivo para gobierno y reportes. Las
 colecciones mutables y DataFrames se copian defensivamente al validar y al acceder desde los DTOs.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 import copy

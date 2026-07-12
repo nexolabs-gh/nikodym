@@ -14,7 +14,7 @@ DECISIÓN B10.4: ``PDCalibrator`` de B10.3 calcula ``post_offset`` en ``platt_sc
 El step deja explícita esa política en el evento ``calibration_platt``; cortar el caso "sólo si el
 target externo difiere" requiere cambiar el motor puro y queda trazado, no silencioso.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

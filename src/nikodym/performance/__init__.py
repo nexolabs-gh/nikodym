@@ -7,7 +7,7 @@ El paquete importa ``performance.step`` al final para ejecutar ``@register("stan
 domain="performance")`` sin arrastrar pandas/pandera/sklearn; los DTOs tabulares se reexportan de
 forma perezosa.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

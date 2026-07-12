@@ -7,7 +7,7 @@ importa ``report.step`` al final para ejecutar ``@register("standard", domain="r
 cargar Jinja2, WeasyPrint ni SDKs IA; los DTOs y componentes pesados se reexportan de forma
 perezosa.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

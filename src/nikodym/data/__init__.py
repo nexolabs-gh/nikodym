@@ -10,7 +10,7 @@ inversión de la dependencia vive en este lado (``data`` conoce a ``core``, no a
    porque Pydantic v2 **no re-narra** un campo ya resuelto (verificado, B2a). El *hook* + validador
    es el reemplazo: valida en construcción y mantiene el núcleo liviano.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from nikodym.core.config import schema as _schema

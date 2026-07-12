@@ -6,7 +6,7 @@
 ``blake2b`` estable, nunca del orden posicional del ``DataFrame`` ni del estado del
 ``Generator``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

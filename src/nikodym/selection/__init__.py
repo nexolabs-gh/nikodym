@@ -7,7 +7,7 @@ lógica pesada de selección (``selector.py``) se carga bajo demanda; el paquete
 ``selection.step`` al final para ejecutar ``@register("standard", domain="selection")`` sin
 arrastrar dependencias de scoring.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

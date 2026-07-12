@@ -28,7 +28,7 @@ ejecutar ``@register('standard', domain='tuning')``. Todo lo pesado se carga **p
 dentro de ``execute``. El motor v1 es determinista y ``tuning`` **descarta** el ``rng`` por-paso
 (``del rng``): su azar sale de ``SeedManager.int_seed_for('tuning')`` (Optuna exige un ``int``).
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

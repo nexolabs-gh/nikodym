@@ -11,7 +11,7 @@ El módulo no importa ``pandas``, ``numpy``, ``scipy`` ni ``sklearn`` al cargars
 científicas se resuelven dentro de ``fit``/``transform`` para mantener liviano
 ``import nikodym.calibration``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

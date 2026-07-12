@@ -17,7 +17,7 @@ de columnas de datos (p. ej. que exista una fuente CCF cuando ``ead.method='ccf'
 de runtime que valida el motor en bloques posteriores (§6/§8), de modo que el config por defecto
 ``IfrsProvisioningConfig()`` siga construyendo sin argumentos.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

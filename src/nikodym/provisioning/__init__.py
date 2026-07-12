@@ -13,7 +13,7 @@ tabulares pesadas. Ni los DTOs, ni el orchestrator, ni el step importan ``pandas
 módulo (``pandas`` se usa perezosamente dentro de ``compare``), de modo que
 ``import nikodym.provisioning`` sigue siendo liviano.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

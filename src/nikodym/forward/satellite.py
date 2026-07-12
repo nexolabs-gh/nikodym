@@ -5,7 +5,7 @@ term-structure base de ``survival`` o ``markov``. El módulo mantiene liviano ``
 nikodym.forward``: ``pandas``, ``numpy`` y ``statsmodels`` se importan sólo dentro de ``fit``,
 ``predict`` y helpers de ejecución.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 # ruff: noqa: UP037

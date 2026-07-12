@@ -8,7 +8,7 @@ hasta B21.5.
 No importa ``pandas``, ``numpy`` ni motores de provisión al cargar el módulo. Esas dependencias se
 cargan perezosamente dentro de los métodos de ejecución.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 # ruff: noqa: UP037

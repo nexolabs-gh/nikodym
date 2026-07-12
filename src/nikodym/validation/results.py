@@ -28,7 +28,7 @@ Los floats publicados normalizan ``-0.0`` como ``0.0`` (escalares y columnas ``f
 /``float32``, preservando ``NaN``/``NA``); las métricas jamás publican ``NaN``/``inf`` (se usa
 ``None`` o el estado ``not_evaluable``). Finitud antes de comparar.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

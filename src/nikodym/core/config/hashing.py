@@ -6,7 +6,7 @@ cambiar el nombre del estudio, el destino de tracking o el reporte **no** altera
 la corrida, lo que mantiene idempotente el inventario de modelos. El hash es canónico y estable
 entre versiones de Pydantic/Python y entre máquinas: el orden de claves lo fija
 ``json.dumps(sort_keys=True)``, no el orden de declaración de los campos.
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -28,7 +28,7 @@ single-thread deterministas: XGBoost ``n_jobs``/``verbosity=0``; LightGBM
 sklearn ``n_jobs``.
 Las importancias publicadas son **nativas** (gain/split del backend), nunca SHAP (eso es SDD-14).
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -24,7 +24,7 @@ instalados. La *presencia* de la fuente de features en el DAG (``selection`` agu
 ``feature_source='selection_woe'``) es un contrato de runtime que valida CT-1 antes de ejecutar
 (§6/§8), de modo que ``MLConfig()`` siga construyendo sin argumentos.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -8,7 +8,7 @@ produce predicción individual en este bloque.
 El módulo mantiene liviano ``import nikodym.survival``: pandas y numpy se importan solo dentro de
 ``fit``/``predict_*``/``term_structure`` y sus helpers.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

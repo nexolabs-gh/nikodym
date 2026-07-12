@@ -10,7 +10,7 @@ import time. ``nikodym.scorecard`` lo importa para ejecutar
 ``@register("standard", domain="scorecard")`` sin contaminar el núcleo liviano; las dependencias
 tabulares se cargan dentro de ``execute``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

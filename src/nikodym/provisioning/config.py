@@ -18,7 +18,7 @@ de columnas/claves en los detalles de cada motor es un contrato de runtime que v
 orchestrator en bloques posteriores (§6/§8), de modo que ``ProvisioningConfig()`` siga construyendo
 sin argumentos.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

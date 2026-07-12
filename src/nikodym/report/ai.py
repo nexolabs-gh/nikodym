@@ -6,7 +6,7 @@ acepta un cliente inyectable para pruebas o integraciones privadas, y solo enví
 y sanitizados. Si falta la API key o el cliente falla, se degrada a la narrativa básica con un
 ``warning`` explícito.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

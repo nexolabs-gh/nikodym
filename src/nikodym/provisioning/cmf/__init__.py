@@ -10,7 +10,7 @@ El paquete importa ``provisioning.cmf.step`` al final para ejecutar ``@register(
 domain="provisioning_cmf")`` sin cargar pandas, matrices ni el motor; los resultados y componentes
 con dependencias de cálculo se reexportan de forma perezosa.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@
 artefacto. El paso ensambla el flujo macro → satellite → reversión TTC → contrato ECL sin importar
 ``pandas``, ``statsmodels``, ``pmdarima`` ni ``scipy`` en import time.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

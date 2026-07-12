@@ -36,7 +36,7 @@ El estimador, los evaluadores, el calibrador y ``pandas``/``numpy`` se cargan **
 dentro de ``execute``. El motor v1 es determinista pero ``ml`` **sí** consume el ``rng`` (el
 estimador lo usa para el recorte de early stopping y la semilla del backend).
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

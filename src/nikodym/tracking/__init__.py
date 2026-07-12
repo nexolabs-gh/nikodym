@@ -5,7 +5,7 @@ Al importarse, registra :class:`TrackingConfig` en el hook diferido de
 sin que ``import nikodym.core`` arrastre ``nikodym.tracking`` ni ``mlflow``. MLflow se importa
 siempre de forma perezosa dentro de los métodos que lo necesitan.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from nikodym.core.config import schema as _schema

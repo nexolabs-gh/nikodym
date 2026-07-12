@@ -27,7 +27,7 @@ Las validaciones que necesitan ``ml.backend`` (``tree``/``linear`` incompatibles
 runtime. Núcleo liviano (principio 9): ``import nikodym.explain.config`` **no** arrastra
 ``shap``/``matplotlib``/``numba``/``sklearn``/``pandas``/``numpy``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ seleccionadas. Toda clase hereda de :class:`~nikodym.core.config.NikodymBaseConf
 ``ui_*`` para que la UI (SDD-23) sea un editor del mismo config. La sección es computacional, por
 lo que entra al ``config_hash`` global cuando está activa.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

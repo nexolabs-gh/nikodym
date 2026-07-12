@@ -5,7 +5,7 @@ memoria) a un ``pandas.DataFrame``. La interfaz pública siempre devuelve pandas
 un backend interno opcional con import perezoso y colapso explícito a pandas en la frontera. Excel
 requiere el extra ``[excel]`` (``openpyxl``, import perezoso) y solo admite ``backend='pandas'``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

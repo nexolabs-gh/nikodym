@@ -4,7 +4,7 @@ Al importarse, registra :class:`AuditConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.audit`` se valida como sub-config real sin
 que ``import nikodym.core`` arrastre ``nikodym.audit`` ni sus dependencias perezosas.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from nikodym.audit.config import AuditConfig

@@ -5,7 +5,7 @@
 Desarrollo; Holdout/OOT alimentan únicamente diagnósticos PSI/CSI. La auditoría persistente y el
 ensamblado con ``Study`` quedan para ``SelectionStep`` (B7.4).
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -5,7 +5,7 @@ Al importarse, registra :class:`StressConfig` en el hook diferido de
 que ``import nikodym.core`` importe ``nikodym.stress`` ni motores económicos futuros. En B21.2 los
 DTOs de resultados se exportan bajo demanda para no arrastrar ``pandas`` ni engines.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -12,7 +12,7 @@ global de ``core``: D-CONV-2 (``type`` == key del Registry) aplica solo a unione
 sección**, no a las anidadas (SDD-05 §3). El mini-DSL (:class:`Predicate`/:class:`Rule`) compone
 máscaras booleanas vectorizadas con una *allowlist* cerrada de operadores; **nunca** evalúa código
 (``DataFrame.eval``/``eval``), lo que elimina por construcción el vector de inyección (D-DATA-6).
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

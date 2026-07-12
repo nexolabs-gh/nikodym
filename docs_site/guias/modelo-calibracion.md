@@ -7,10 +7,11 @@ consecutivos del pipeline (`… → selección → **modelo → scorecard → ca
 estabilidad`), cada uno gobernado por su sección del `NikodymConfig`. Ver
 [Conceptos](../concepts.md) para el modelo mental del pipeline completo.
 
-!!! note "Estado pre-1.0 (experimental)"
-    Las secciones `model`, `scorecard` y `calibration` son computacionales y entran al
-    `config_hash` de la corrida. Su API está versionada como **0.x honesto** (SemVer): los
-    nombres de campos son estables dentro de la 0.9.x pero pueden ajustarse hasta la 1.0.
+!!! note "Estabilidad (SemVer 1.x)"
+    Las secciones `scorecard` y `calibration` son parte del pipeline de scorecard F1 y desde la 1.0
+    son **API estable** (no rompen hasta un 2.0). La sección `model` (estimador PD) sigue
+    **experimental** —las familias de estimador crecen aditivamente—, fuera de la garantía SemVer
+    1.x. Las tres son computacionales y entran al `config_hash` de la corrida.
 
 Los valores concretos de esta guía provienen de una **corrida de ejemplo**: el preset estándar
 F1 sobre el dataset sintético de consumo de comportamiento (`fixtures/demo`). No son cifras

@@ -9,7 +9,7 @@ DECISIÓN AUTÓNOMA (frontera, revisión de Cami): el SDD fija que ``near_unique
 el umbral existente ``near_constant_threshold`` sobre los valores no nulos:
 ``cardinality / n_no_nulos >= near_constant_threshold``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ paquete importa ``scorecard.step`` al final para ejecutar ``@register("standard"
 domain="scorecard")`` sin arrastrar pandas/sklearn; los transformadores y DTOs tabulares se
 reexportan de forma perezosa.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -8,7 +8,7 @@ campo declara ``title``/``description`` y metadatos ``ui_*`` para que la UI (SDD
 editor del mismo config. La sección es computacional, por lo que entra al ``config_hash`` global
 cuando está activa.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

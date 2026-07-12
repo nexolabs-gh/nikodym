@@ -1,8 +1,31 @@
 # Changelog
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/);
-el proyecto sigue [SemVer](https://semver.org/lang/es/) (0.x honesto: APIs que crecerán
-marcadas como experimentales hasta la 1.0).
+el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline de scorecard (F1)
+es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
+contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
+
+## [1.0.0] — 2026-07-12
+
+Primer release estable. Congela la superficie pública del **pipeline de validación de scorecard
+(F1)** bajo garantía SemVer 1.x (no rompe hasta un 2.0): `nikodym.run`, el config raíz
+(`run` → `Study` → `NikodymConfig`) y los dominios `data`, `eda`, `binning`, `selection`,
+`scorecard`, `calibration`, `performance` (AUC/KS/Gini), `stability` (PSI/CSI) y el reporte HTML.
+
+### Estable (SemVer 1.x)
+- Pipeline scorecard F1 de punta a punta y su config declarativo; audit-trail y reproducibilidad
+  (`config_hash`).
+
+### Sigue experimental (fuera de la garantía SemVer 1.x)
+- Modelado ML/tuning/explicabilidad, forward-looking, Markov, survival y stress testing.
+- Provisiones **CMF** e **IFRS 9/ECL** (motores implementados y deterministas, pero su superficie
+  regulatoria aún crece y no está *battle-tested* en producción).
+- Validación avanzada (backtesting/discriminación), gobernanza/tracking, formatos de reporte
+  PDF/DOCX y narrativa por IA, y los contratos transversales de resultados/métricas/orquestación.
+
+### Changed
+- Marcadores de estabilidad por módulo: `Experimental (SemVer 0.x)` → `Estable (SemVer 1.x)` en el
+  core F1, y → `Experimental (fuera de la garantía SemVer 1.x)` en la superficie que crece.
 
 ## [0.9.0] — 2026-07-10
 

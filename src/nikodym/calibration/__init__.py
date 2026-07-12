@@ -7,7 +7,7 @@ paquete importa ``calibration.step`` al final para ejecutar ``@register("standar
 domain="calibration")`` sin arrastrar pandas/scipy/sklearn; el motor y DTOs se reexportan de forma
 perezosa.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -9,7 +9,7 @@ son solo tipos bajo ``TYPE_CHECKING`` para preservar el import liviano.
 mutables y DataFrames se copian defensivamente al validar y al acceder desde los DTOs para cumplir
 la invariante de no mutación de SDD-26 §9.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

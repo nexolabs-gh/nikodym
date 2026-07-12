@@ -11,7 +11,7 @@ El módulo evita importar ``pandas``, matrices y el motor en import time.
 domain="provisioning_cmf")`` sin contaminar el núcleo liviano; las dependencias tabulares y
 normativas se cargan dentro de ``execute``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

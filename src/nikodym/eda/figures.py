@@ -7,7 +7,7 @@ DECISIÓN AUTÓNOMA (frontera, revisión de Cami): el contrato se fija con los c
 §4/§6. El extra y motor de gráficos quedan diferidos a SDD-25/26; este módulo no importa
 matplotlib ni plotly.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

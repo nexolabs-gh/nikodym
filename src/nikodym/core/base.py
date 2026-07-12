@@ -13,7 +13,8 @@ contrato; los métodos ``fit``/``transform``/``predict``/``compute`` los impleme
 (T2+), no ``core``. La herencia ``BaseECLModel`` ← ``BaseProvisionModel`` es reutilización del
 contrato ``compute()``, **no** parentesco de dominio: CMF e IFRS 9 son dos motores separados (§5.4).
 
-**Experimental (SemVer 0.x):** las familias de estimador crecen aditivamente hasta 1.0.
+**Experimental (fuera de la garantía SemVer 1.x):** las familias de estimador crecen
+aditivamente en las versiones 1.x.
 """
 
 from __future__ import annotations

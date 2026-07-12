@@ -7,7 +7,7 @@ las matrices versionadas de ``provisioning.cmf``.
 El módulo mantiene import liviano: ``pandas`` y ``Decimal`` se resuelven bajo demanda dentro de
 ``calculate``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

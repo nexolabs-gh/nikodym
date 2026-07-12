@@ -21,7 +21,7 @@ estable (§6/§9): ``param_importances`` desc por valor con desempate lexicográ
 orden de ejecución (número ascendente). Los floats normalizan ``-0.0`` como ``0.0`` y **jamás**
 publican ``NaN``/``inf`` (fallan explícito o, en ``metric_sections``, degradan a ``None``).
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

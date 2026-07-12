@@ -7,7 +7,7 @@ numéricas pesadas (scipy/statsmodels/pandas). El motor, los resultados y el ste
 bloques siguientes de SDD-16 (B16.2+); **B16.1 aporta solo config y excepciones**. Nomenclatura
 IFRS 9 (regla dura D-CONV-1): ``pd``/``lgd``/``ead``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

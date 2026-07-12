@@ -5,7 +5,7 @@
 ``label_status`` (``bueno``/``malo``/``indeterminado``/``excluido``). Las reglas se evalúan con el
 mini-DSL estructurado de ``data.config`` y una allowlist cerrada de operadores, sin ``eval``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

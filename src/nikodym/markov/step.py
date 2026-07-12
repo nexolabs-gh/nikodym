@@ -10,7 +10,7 @@ El módulo evita importar ``pandas``, ``numpy``, ``scipy`` y el motor de transic
 contaminar el núcleo liviano; las dependencias tabulares/numéricas se cargan dentro de
 ``execute``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

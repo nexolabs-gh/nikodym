@@ -27,7 +27,7 @@ la dirección de forma **estable y reproducible** (desempate lexicográfico por 
 se importa de forma **perezosa** dentro de :func:`build_reason_codes`. Nomenclatura en inglés
 técnico para APIs; docstrings y errores en español.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

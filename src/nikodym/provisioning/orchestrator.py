@@ -17,7 +17,7 @@ El módulo **no importa** los paquetes ``cmf``/``ifrs9`` como código (solo refe
 ``compare`` para preservar el núcleo liviano. El motor es **determinista** (sin RNG); normaliza
 ``-0.0 → 0.0`` y jamás publica ``NaN``/``inf``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

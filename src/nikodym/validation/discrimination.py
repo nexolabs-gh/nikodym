@@ -21,7 +21,7 @@ Una partición con una sola clase en el target (o bajo el mínimo técnico) qued
 ``PerformanceEvaluator``. Los floats los normaliza (``-0.0`` -> ``0.0``) el propio
 ``DiscriminationRecord``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

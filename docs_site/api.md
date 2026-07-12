@@ -2,12 +2,14 @@
 
 Superficie pública de Nikodym RiskLib, organizada por dominio. Cada símbolo se genera
 automáticamente desde sus *docstrings* con [mkdocstrings]; las firmas y campos son los del código
-publicado (`0.9.0`).
+publicado (`1.0.0`).
 
-!!! warning "Estabilidad (SemVer 0.x)"
-    La API está versionada como **0.x honesto**: puede cambiar antes de la 1.0. Las superficies que
-    aún crecen (resultados/overlay/métricas/orquestación) están marcadas como **experimentales** en
-    su *docstring*. El núcleo estable es el trío `run` → `Study` → `NikodymConfig`.
+!!! note "Estabilidad (SemVer 1.x)"
+    El pipeline de validación de scorecard (F1) —el trío `run` → `Study` → `NikodymConfig` y los
+    dominios `data`, `eda`, `binning`, `selection`, `scorecard`, `calibration`, `performance`,
+    `stability` y el reporte HTML— es **API estable**: no rompe hasta un 2.0. Las superficies que
+    aún crecen (modelado ML, provisiones, forward-looking, resultados/métricas/orquestación) están
+    marcadas como **experimentales** en su *docstring*, fuera de la garantía SemVer 1.x.
 
 !!! note "Núcleo liviano e import perezoso"
     `import nikodym` no arrastra el stack ML. `nikodym.run` se re-exporta de forma perezosa (PEP

@@ -10,7 +10,7 @@ importan dentro de ``evaluate`` o helpers locales. Los resultados finales se mat
 DTOs de ``performance.results``, que vuelven a validar columnas canónicas, invariantes y copias
 defensivas.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

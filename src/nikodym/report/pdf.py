@@ -7,7 +7,7 @@ arrastrar WeasyPrint ni sus librerías nativas (Pango/HarfBuzz/libffi). El PDF N
 byte-determinista —WeasyPrint embebe metadatos de creación en el binario— por lo que su verificación
 es estructural (empieza con ``%PDF``, ≥1 página, texto extraíble), no por digest cross-OS.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

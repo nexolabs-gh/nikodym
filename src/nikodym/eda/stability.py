@@ -5,7 +5,7 @@
 excluyendo los períodos marcados como ``low_confidence``. No ajusta parámetros, no predice y no
 calcula métricas propias de validación de score como PSI, KS, AUC o Gini.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -25,7 +25,7 @@ scorecard (ya en :mod:`nikodym.explain.explainers`); el ML solo llama a ``shap.*
 :func:`~nikodym.explain.explainers.resolve_explainer`. ``shap``/``pandas``/``numpy`` se importan de
 forma **perezosa** dentro de los métodos (núcleo liviano, SDD-14 §9).
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

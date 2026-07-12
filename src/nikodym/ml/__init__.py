@@ -10,7 +10,7 @@ excepciones se reexportan perezosas. Al final se importa ``ml.step`` para ejecut
 step los carga perezosamente dentro de ``execute``). Nomenclatura en inglés técnico para APIs;
 docstrings y errores en español.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

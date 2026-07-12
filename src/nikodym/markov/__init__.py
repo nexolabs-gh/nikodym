@@ -6,7 +6,7 @@ que ``import nikodym.core`` arrastre ``nikodym.markov`` ni dependencias numéric
 paquete registra su step público sin importar scipy, pandas ni numpy en top-level; los motores
 concretos cargan sus dependencias dentro de ``fit``/``execute``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

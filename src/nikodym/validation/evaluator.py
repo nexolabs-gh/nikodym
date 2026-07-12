@@ -31,7 +31,7 @@ cargan de forma perezosa **dentro** de los kernels/evaluadores reúsados, de mod
 módulo no arrastra el stack estadístico. El módulo se importa perezosamente desde el step para
 preservar el import liviano de ``nikodym.validation``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

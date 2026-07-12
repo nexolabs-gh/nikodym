@@ -19,7 +19,7 @@ retorna ``None`` cuando solo hay CMF (que no publica term-structure, D-CORE-7). 
 una term-structure del máximo (que es escalar por celda). Las colecciones mutables y DataFrames se
 copian defensivamente al validar y al acceder desde los DTOs.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

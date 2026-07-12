@@ -5,7 +5,7 @@ continuos por duration. La salida es determinista, usa copias defensivas del pan
 mantiene liviano ``import nikodym.markov``: ``pandas``, ``numpy`` y ``scipy`` se importan solo en
 ``fit``/``predict_transition``/``term_structure`` y sus helpers de ejecución.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

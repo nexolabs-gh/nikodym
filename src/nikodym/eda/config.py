@@ -7,7 +7,7 @@ Toda clase hereda de :class:`~nikodym.core.config.NikodymBaseConfig` (``extra='f
 (SDD-23) sea un editor del mismo config. La sección es computacional, por lo que entra al
 ``config_hash`` global cuando está activa.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

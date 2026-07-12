@@ -4,7 +4,7 @@
 carga/valida el dataset, normaliza special values, deriva el target, particiona, calcula
 ``data_hash`` y publica los artefactos namespaced que consumen las capas posteriores.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

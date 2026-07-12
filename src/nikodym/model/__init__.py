@@ -6,7 +6,7 @@ que ``import nikodym.core`` arrastre ``nikodym.model`` ni dependencias de scorin
 de estimación (``estimator.py``) se carga bajo demanda; el paquete importa ``model.step`` al final
 para ejecutar ``@register("standard", domain="model")`` sin arrastrar dependencias de scoring.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

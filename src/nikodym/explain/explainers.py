@@ -24,7 +24,7 @@ margen log-odds aditivo exacto: para ellos el explainer degrada ``contribution_s
 ``shap``/``matplotlib``/``sklearn``/``pandas``/``numpy``: todo lo pesado se importa perezosamente
 dentro de los métodos. Nomenclatura en inglés técnico para APIs; docstrings y errores en español.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

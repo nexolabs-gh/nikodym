@@ -28,7 +28,7 @@ preserva el orden del scope. Los floats normalizan ``-0.0`` como ``0.0`` y **jam
 ``NaN``/``inf`` (fallan explícito). Los DataFrames y estructuras mutables se copian defensivamente
 al leerlos aunque el DTO sea *frozen*.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

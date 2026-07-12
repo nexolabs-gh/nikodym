@@ -25,7 +25,7 @@ de ``desarrollo`` (o un holdout interno) y **reúsa**
 ``[tuning]`` se levanta :class:`~nikodym.core.exceptions.MissingDependencyError`
 (``instale nikodym[tuning]``), no una excepción propia.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

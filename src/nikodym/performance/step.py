@@ -11,7 +11,7 @@ El módulo evita importar ``pandas``, ``numpy``, ``pandera`` y ``sklearn`` en im
 sin contaminar el núcleo liviano; las dependencias científicas se cargan dentro de ``execute`` y
 del evaluador.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

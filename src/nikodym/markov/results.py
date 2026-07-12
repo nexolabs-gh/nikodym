@@ -14,7 +14,7 @@ defensivamente; los floats publicados normalizan ``-0.0`` como ``0.0``.
 EmbeddingDiagnostics`` pero no define el DTO. Sus campos mínimos salen de §3/§7: estado, flags,
 distancia Frobenius, candidato de generador real, norma imaginaria y marca de ajuste.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

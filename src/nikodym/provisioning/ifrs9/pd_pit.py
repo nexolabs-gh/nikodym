@@ -18,7 +18,7 @@ mensaje en español; la salida nunca se clipa en silencio y ``-0.0`` se normaliz
 
 Nomenclatura IFRS 9 (regla dura D-CONV-1): ``pd``/``lgd``/``ead``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

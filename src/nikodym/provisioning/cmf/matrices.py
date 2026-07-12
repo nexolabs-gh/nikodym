@@ -4,7 +4,7 @@ El módulo mantiene los parámetros normativos de B-1/B-3 fuera del motor de cá
 bundle activo desde datos empaquetados, verifica su hash y construye DTOs Pydantic congelados.
 No importa ``pandas`` ni ejecuta cálculos de provisión; esa responsabilidad queda para B15.4.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

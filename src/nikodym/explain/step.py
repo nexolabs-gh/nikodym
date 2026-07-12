@@ -28,7 +28,7 @@ importa el motor sólo si hay mitad ML. El motor v1 es determinista y ``explain`
 ``SeedManager.int_seed_for('explain')`` (entropía compuesta ``[root_seed, sha256('explain')]``,
 nunca ``hash()`` builtin).
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

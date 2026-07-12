@@ -11,7 +11,7 @@ finitos de métricas opcionales se degradan a ``None`` antes de cualquier compar
 (``stable``/``review``/``redevelop``/``not_evaluable``) determina de forma única la acción
 auditada (``none``/``vigilar``/``redesarrollar``).
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

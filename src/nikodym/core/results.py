@@ -9,9 +9,10 @@ reabriría la circularidad que el Protocol resuelve (D-CORE-6). ``CMF`` e ``IFRS
 del contrato de lectura, no parentesco de dominio. ``core`` no importa pandas en *runtime*
 (D-CORE-1): las anotaciones de ``pandas.DataFrame`` viven bajo ``TYPE_CHECKING``.
 
-**Experimental (SemVer 0.x):** estos contratos crecen por extensión aditiva (CT-2), nunca por
-ruptura, hasta 1.0. ``@runtime_checkable`` solo verifica la *presencia* de los nombres (no tipos
-ni firmas), pensado para *asserts* defensivos; la verificación estructural real es estática (mypy).
+**Experimental (fuera de la garantía SemVer 1.x):** estos contratos crecen por extensión
+aditiva (CT-2), nunca por ruptura, en las versiones 1.x. ``@runtime_checkable`` solo verifica
+la *presencia* de los nombres (no tipos ni firmas), pensado para *asserts* defensivos; la
+verificación estructural real es estática (mypy).
 """
 
 from __future__ import annotations

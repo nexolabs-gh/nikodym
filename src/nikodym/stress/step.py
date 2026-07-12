@@ -15,7 +15,7 @@ La validación avanzada y el backtesting (discriminación, calibración y estabi
 SDD-22/F6 y no se implementan aquí; ``stress`` sólo mide sensibilidad de una cadena forward ya
 aprobada.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

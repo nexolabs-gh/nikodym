@@ -25,7 +25,7 @@ liviano (SDD-22 §10). ``pandas`` es dependencia base y se importa al tope. Las 
 forma defensiva (``copy(deep=True)``): nunca se mutan los artefactos/frames aguas arriba. Los floats
 publicados normalizan ``-0.0`` a ``0.0``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

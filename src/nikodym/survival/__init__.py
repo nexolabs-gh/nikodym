@@ -6,7 +6,7 @@ sin que ``import nikodym.core`` arrastre ``nikodym.survival`` ni dependencias es
 opcionales. Este paquete no importa lifelines, statsmodels ni pandas en top-level; los motores
 concretos llegarán en B18.3-B18.5 y cargarán sus dependencias dentro de ``fit``/``execute``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

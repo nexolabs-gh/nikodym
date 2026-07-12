@@ -13,7 +13,7 @@ sklearn, pandas, numpy ni los backends ML; solo depende del config base
 SDD-12 §5) es un ``TYPE_CHECKING`` puro; el cross-check de que cada clave del espacio sea un campo
 válido del params-model del backend lo hace el config (B13.4), no este módulo.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

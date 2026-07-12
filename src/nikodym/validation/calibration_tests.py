@@ -21,7 +21,7 @@ FALTA-DATO-VAL-2 (cortes del semáforo) y FALTA-DATO-VAL-3 (orientación exacta 
 se documentan en las funciones respectivas: son defaults institucionales defendibles, no normas
 regulatorias fijas.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

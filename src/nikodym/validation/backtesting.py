@@ -32,7 +32,7 @@ valor crítico según la versión vigente del PDF) queda por verificar; el defau
 simple unilateral (``e_i = realizado - estimado``), configurable vía ``one_sided`` -- no bloquea ni
 escala. FALTA-DATO-VAL-3: la orientación del p-valor Jeffreys se hereda de ``calibration_tests``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

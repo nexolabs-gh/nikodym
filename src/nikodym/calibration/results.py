@@ -12,7 +12,7 @@ El contrato canónico de ``calibrated_pd_frame`` es el de SDD-10 §6: ocho colum
 incompleta; B10.3/B10.4 deberán emitir estas ocho columnas, con ``calibration_method`` y
 ``anchor_kind`` constantes por corrida.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

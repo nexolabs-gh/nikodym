@@ -15,7 +15,7 @@ cuando existe y ``None`` solo para modos diagnósticos sin salida publicable. La
 mutables y DataFrames se copian defensivamente al validar y al acceder; los floats publicados
 normalizan ``-0.0`` como ``0.0``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

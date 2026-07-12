@@ -6,7 +6,7 @@ Al importarse, registra :class:`EdaConfig` en el hook diferido de
 ``eda.step`` al final para ejecutar ``@register("standard", domain="eda")``; el resto de la
 superficie pública se mantiene en el mapa de reexportación perezosa.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

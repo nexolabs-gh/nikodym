@@ -10,7 +10,7 @@ El módulo evita importar ``pandas``, ``sklearn`` y ``optbinning`` en import tim
 contaminar el núcleo liviano; las dependencias tabulares y de scoring se cargan dentro de
 ``execute``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

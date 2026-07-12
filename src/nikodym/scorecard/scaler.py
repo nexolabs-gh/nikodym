@@ -7,7 +7,7 @@ por ``scorecard_`` define el punto usado en ``transform``. Sin overrides, esos p
 por fórmula; con overrides, esta regla evita ambigüedad silenciosa y queda trazada por orden
 estable de feature/bin.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

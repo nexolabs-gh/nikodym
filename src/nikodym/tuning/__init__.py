@@ -11,7 +11,7 @@ para ejecutar ``@register('standard', domain='tuning')`` **sin** arrastrar optun
 los backends ML (el step los carga perezosamente dentro de ``execute``; patrón idéntico a
 ``ml.__init__``). Nomenclatura en inglés técnico para APIs; docstrings y errores en español.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

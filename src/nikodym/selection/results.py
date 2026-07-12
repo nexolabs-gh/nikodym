@@ -13,7 +13,7 @@ Decisiones para revisión de Cami:
 - ``dependency_versions`` entra como parámetro explícito; aquí no se importan dependencias de
   scoring para resolver versiones.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

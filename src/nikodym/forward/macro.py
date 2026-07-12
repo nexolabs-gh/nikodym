@@ -6,7 +6,7 @@ configuración explícita. El módulo preserva el import liviano de ``nikodym.fo
 ``numpy``, ``scipy``, ``statsmodels`` y ``pmdarima`` se cargan solo en ``fit``/``predict`` o en
 helpers invocados por esos métodos.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

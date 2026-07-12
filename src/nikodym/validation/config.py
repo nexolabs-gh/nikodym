@@ -18,7 +18,7 @@ Frontera B22.1: aquí solo viven el schema y sus validaciones determinables sin 
 de artefactos/columnas aguas arriba es un contrato de runtime que valida el evaluador/step en
 bloques posteriores (§6/§8), de modo que ``ValidationConfig()`` siga construyendo sin argumentos.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

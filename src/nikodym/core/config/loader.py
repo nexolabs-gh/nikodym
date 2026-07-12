@@ -5,7 +5,7 @@
 :class:`ConfigError` con mensaje en español. :func:`dump_config` produce el YAML inverso en orden
 de declaración (legible para revisores). El round-trip es invariante:
 ``load_config(dump_config(c)) == c``. Se usa **exclusivamente** ``yaml.safe_load``/``safe_dump``
-(nunca ``yaml.load``: vector de ejecución arbitraria). **Experimental (SemVer 0.x).**
+(nunca ``yaml.load``: vector de ejecución arbitraria). **Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

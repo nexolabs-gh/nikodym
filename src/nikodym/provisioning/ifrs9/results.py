@@ -16,7 +16,7 @@ validar y al acceder desde los DTOs; los floats publicados normalizan ``-0.0`` c
 
 Nomenclatura IFRS 9 (regla dura D-CONV-1): ``pd``/``lgd``/``ead``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -14,7 +14,7 @@ que consumen IFRS 9, forward-looking y reportes.
 Las colecciones mutables y DataFrames se copian defensivamente al validar y al acceder desde los
 DTOs; los floats publicados normalizan ``-0.0`` como ``0.0``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

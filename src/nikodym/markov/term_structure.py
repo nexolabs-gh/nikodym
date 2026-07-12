@@ -5,7 +5,7 @@ proyección Chapman-Kolmogorov, el estimador Aalen-Johansen básico, el diagnós
 la construcción tidy de PD lifetime. Mantiene liviano ``import nikodym.markov``: ``numpy``,
 ``pandas`` y ``scipy`` se importan solo dentro de funciones.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -10,7 +10,7 @@ El módulo evita importar ``pandas``, ``sklearn``, ``statsmodels``, ``scipy`` y
 ``@register("standard", domain="model")`` sin contaminar el núcleo liviano; las dependencias
 tabulares y de scoring se cargan dentro de ``execute``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

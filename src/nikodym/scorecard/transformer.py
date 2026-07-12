@@ -5,7 +5,7 @@ módulo se carga bajo demanda desde ``nikodym.scorecard.__getattr__``; por eso l
 scikit-learn se traduce aquí a ``MissingDependencyError`` sin contaminar
 ``import nikodym.scorecard``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

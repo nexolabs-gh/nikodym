@@ -10,7 +10,7 @@ Decisiones para revisión de Cami:
 - ``BinningCardSection.from_result`` deriva solo agregados deterministas del resultado recibido.
 - ``optbinning_version`` entra como parámetro explícito; aquí no se importa ``optbinning``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

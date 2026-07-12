@@ -19,7 +19,7 @@ ni los backends ML. El cross-check del espacio de búsqueda contra el params-mod
 **perezosa** dentro de :meth:`resolve_search_space` (en runtime, cuando ya hay challenger que
 tunear), no en import time.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -5,7 +5,7 @@
 ``{0, 1}``; los ``<NA>`` y cualquier valor fuera de contrato quedan fuera del denominador, pero
 siguen contando en ``n_total``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ transforman el dato para el modelo.
 
 El IV opcional es **pre-binning, NO es el IV final de SDD-06** (D-EDA-3).
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

@@ -11,7 +11,7 @@ Decisiones para revisión de Cami:
   sobre los tres flags booleanos ``near_constant``, ``near_unique`` y ``high_cardinality``.
   ``missing_rate`` queda excluido porque es una variable continua, no un flag.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

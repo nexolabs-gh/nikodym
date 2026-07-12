@@ -10,7 +10,7 @@ El módulo conserva el import liviano de ``nikodym.stability``: pandas, numpy y 
 dentro de ``evaluate`` o helpers locales. Los resultados finales se materializan en los DTOs de
 ``stability.results``, que vuelven a validar columnas canónicas, invariantes y copias defensivas.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

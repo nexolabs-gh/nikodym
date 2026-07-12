@@ -8,7 +8,7 @@ calcula hashes de artefactos y no importa motores gráficos ni SDKs de IA.
 El módulo es *pass-through*: no recalcula ni normaliza números de dominios aguas arriba. Sólo toma
 snapshots defensivos de estructuras mutables, especialmente ``DataFrame``.
 
-**Experimental (SemVer 0.x).**
+**Estable (SemVer 1.x).**
 """
 
 from __future__ import annotations

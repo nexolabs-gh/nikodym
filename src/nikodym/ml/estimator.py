@@ -27,7 +27,7 @@ auditoría (``on_unsupported='warn'``) o fallan (``'error'`` ⇒ :class:`MLMonot
 ``0.0``; si el backend produce algo fuera de rango o no finito se levanta :class:`MLPredictError`
 (prohibido el clipeo silencioso).
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

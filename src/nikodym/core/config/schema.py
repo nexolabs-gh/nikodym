@@ -16,9 +16,10 @@ config es
 ``config_hash`` (ver
 :mod:`nikodym.core.config.hashing`), no por mutación.
 ``NikodymConfig()`` debe construir sin argumentos —todas las secciones tienen valor por defecto—
-de modo que la UI sea un editor del mismo objeto. **Experimental (SemVer 0.x):** las secciones de
-dominio se añaden de forma aditiva por capa; el orden de declaración define el pipeline por
-defecto y el orden del YAML legible.
+de modo que la UI sea un editor del mismo objeto. **Estable (SemVer 1.x):** el trío ``run`` →
+``Study`` → ``NikodymConfig`` es estable; las secciones de dominio se añaden de forma aditiva por
+capa (extensión, nunca ruptura), y el orden de declaración define el pipeline por defecto y el
+orden del YAML legible.
 """
 
 from __future__ import annotations

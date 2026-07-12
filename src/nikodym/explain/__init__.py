@@ -11,7 +11,7 @@ Este ``__init__`` es **liviano**: reexporta la jerarquía de excepciones y el co
 sus métodos, y los DTOs/resultados se reexportan perezosos (molde idéntico a ``ml.__init__``).
 Nomenclatura en inglés técnico para APIs; docstrings y errores en español.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations

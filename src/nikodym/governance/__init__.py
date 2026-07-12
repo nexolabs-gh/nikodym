@@ -4,7 +4,7 @@ Al importarse, registra :class:`GovernanceConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.governance`` se valida como sub-config real
 sin que ``import nikodym.core`` arrastre ``nikodym.governance``.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from nikodym.core.config import schema as _schema

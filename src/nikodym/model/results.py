@@ -5,7 +5,7 @@ calculadas por el futuro ``LogisticPDModel``/``ModelStep``. No entrena modelos n
 ``statsmodels``, ``sklearn`` ni ``scipy``; el paquete ``nikodym.model`` reexporta estos símbolos de
 forma perezosa para preservar el import liviano.
 
-**Experimental (SemVer 0.x).**
+**Experimental (fuera de la garantía SemVer 1.x).**
 """
 
 from __future__ import annotations
