@@ -19,14 +19,19 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+import pandas as pd
 import pytest
 
+from nikodym.core.config import NikodymConfig
 from nikodym.core.lineage import LineageBundle
-from nikodym.report.config import PdfRenderConfig, ReportConfig
+from nikodym.core.study import Study
+from nikodym.report.config import PdfRenderConfig, ReportConfig, SectionPolicyConfig
 from nikodym.report.exceptions import ReportDependencyError
 from nikodym.report.pdf import render_pdf
-from nikodym.report.renderer import PdfReportRenderer
-from nikodym.report.results import ReportInputBundle, ReportSection
+from nikodym.report.renderer import HtmlReportRenderer, PdfReportRenderer
+from nikodym.report.results import ReportInputBundle, ReportResult, ReportSection
+from nikodym.report.step import REPORT_REQUIRED_CARDS, ReportStep
 
 _HAS_WEASYPRINT = importlib.util.find_spec("weasyprint") is not None
 _MARCA = "marcaunicaxyznikodym"
@@ -71,6 +76,51 @@ def _bundle() -> ReportInputBundle:
     )
 
 
+def _coefficients_table() -> pd.DataFrame:
+    """Tabla de coeficientes sintética (artefacto y card embebida) para el step end-to-end."""
+    return pd.DataFrame(
+        {"feature": ["mora", "saldo"], "beta": [-0.0, 1.25], "p_value": [0.04, 0.03]}
+    )
+
+
+def _performance_table() -> pd.DataFrame:
+    """Tabla de performance mínima para el step end-to-end."""
+    return pd.DataFrame({"decile": [2, 1], "pd": [0.1, 0.2], "default_rate": [0.05, 0.15]})
+
+
+def _card(domain: str) -> dict[str, Any]:
+    """Card sintética con ``metric_sections`` serializable y una tabla embebida en model."""
+    if domain == "model":
+        return {
+            "summary": "model-card",
+            "selected_features": ("saldo", "mora"),
+            "embedded_table": _coefficients_table(),
+            "metric_sections": {"model": {"p_value_max": 0.041}},
+        }
+    if domain == "performance":
+        return {
+            "summary": "performance-card",
+            "metric_sections": {"performance": {"auc": 0.74321, "ks": 0.31234}},
+        }
+    if domain == "stability":
+        return {
+            "summary": "stability-card",
+            "metric_sections": {"stability": {"score_psi": {"max_psi": 0.271, "band": "review"}}},
+        }
+    return {"summary": f"{domain}-card", "metric_sections": {domain: {"ok": 1}}}
+
+
+def _study_with_report_artifacts(*, config: ReportConfig) -> Study:
+    """``Study`` con las ocho cards requeridas y tablas de reporte, listo para ``ReportStep``."""
+    study = Study(NikodymConfig(report=config))
+    study.run_context.lineage = _lineage()
+    for domain, key in REPORT_REQUIRED_CARDS:
+        study.artifacts.set(domain, key, _card(domain))
+    study.artifacts.set("performance", "performance_table", _performance_table())
+    study.artifacts.set("model", "coefficients", _coefficients_table())
+    return study
+
+
 # ─────────────────────────── (a) render_pdf real (skipif weasyprint) ───────────────────────────
 
 
@@ -112,6 +162,50 @@ def test_pdf_renderer_escribe_pdf_valido_y_devuelve_manifest_html(tmp_path: Path
     pdf_bytes = pdf_path.read_bytes()
     assert pdf_bytes[:4] == b"%PDF"
     assert len(pdf_bytes) > 0
+
+
+@pytest.mark.skipif(
+    not _HAS_WEASYPRINT,
+    reason="requiere el extra pdf (WeasyPrint + nativas Pango/HarfBuzz/libffi)",
+)
+def test_write_pdf_from_html_escribe_pdf_valido_y_devuelve_path(tmp_path: Path) -> None:
+    """``write_pdf_from_html`` escribe ``{basename}.pdf`` válido y devuelve su ``Path`` real."""
+    renderer = PdfReportRenderer(ReportConfig())
+    html = HtmlReportRenderer.from_config(renderer.config).render(_bundle())
+
+    path = renderer.write_pdf_from_html(html, output_dir=str(tmp_path))
+
+    assert path == tmp_path / "scorecard_report.pdf"
+    assert path.is_file()
+    assert path.read_bytes()[:4] == b"%PDF"
+
+
+@pytest.mark.skipif(
+    not _HAS_WEASYPRINT,
+    reason="requiere el extra pdf (WeasyPrint + nativas Pango/HarfBuzz/libffi)",
+)
+def test_report_step_formats_pdf_escribe_pdf_real(tmp_path: Path) -> None:
+    """``ReportStep`` con ``"pdf"`` en ``formats`` escribe un PDF real y lo refleja en ``pdf_path``.
+
+    Cablea el objetivo de B6 de punta a punta: ``formats`` pide el PDF, el step lo genera del MISMO
+    HTML renderizado y ``ReportResult.pdf_path`` apunta al archivo en disco. El PDF NO entra al
+    manifest (sigue siendo el del HTML determinístico).
+    """
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html", "pdf"),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+
+    result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(20_240_629))
+
+    assert isinstance(result, ReportResult)
+    assert result.pdf_path == str(tmp_path / "scorecard_report.pdf")
+    pdf_file = tmp_path / "scorecard_report.pdf"
+    assert pdf_file.is_file()
+    assert pdf_file.read_bytes()[:4] == b"%PDF"
+    assert result.manifest.output_format == "html"
 
 
 # ─────────────────────── (c) fallback SIN weasyprint (corre SIEMPRE) ───────────────────────
@@ -166,6 +260,25 @@ def test_pdf_renderer_degrada_o_falla_sin_weasyprint(
     )
     with pytest.raises(ReportDependencyError, match="WeasyPrint"):
         strict.render(bundle, output_dir=str(tmp_path / "strict"))
+
+
+def test_write_pdf_from_html_degrada_o_falla_sin_weasyprint(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """``write_pdf_from_html`` sin WeasyPrint: degrada a ``None`` (False) o re-lanza (True)."""
+    _bloquear_weasyprint(monkeypatch)
+    html = "<h1>Nikodym</h1>"
+
+    lenient = PdfReportRenderer(ReportConfig(pdf=PdfRenderConfig(fail_if_unavailable=False)))
+    with pytest.warns(RuntimeWarning, match="WeasyPrint no está disponible"):
+        path = lenient.write_pdf_from_html(html, output_dir=str(tmp_path / "lenient"))
+    assert path is None
+    assert not (tmp_path / "lenient" / "scorecard_report.pdf").exists()
+
+    strict = PdfReportRenderer(ReportConfig(pdf=PdfRenderConfig(fail_if_unavailable=True)))
+    with pytest.raises(ReportDependencyError, match="WeasyPrint"):
+        strict.write_pdf_from_html(html, output_dir=str(tmp_path / "strict"))
 
 
 # ─────────────────────── (d) import liviano (corre SIEMPRE) ───────────────────────

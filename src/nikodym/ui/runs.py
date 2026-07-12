@@ -27,19 +27,21 @@ if TYPE_CHECKING:
     from nikodym.core.study import Study
     from nikodym.governance import GovernanceConfig
 
-__all__ = ["load_report", "load_results", "save"]
+__all__ = ["load_report", "load_report_pdf", "load_results", "save"]
 
 _RUN_ID_RE = re.compile(r"\A[0-9a-f]{32}\Z")  # forma canónica de ``uuid4().hex``
 _RESULTS_FILENAME = "results.json"
 _REPORT_FILENAME = "report.html"
+_REPORT_PDF_FILENAME = "report.pdf"
 _REPORT_ARTIFACTS = (("report", "result"), ("report", "manifest"))
 
 
 def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) -> str:
     """Guarda una corrida bajo ``workdir/runs/<run_id>/`` y devuelve el ``run_id`` (SDD-23 §7).
 
-    Escribe ``results.json`` (payload de :func:`serialize_study`) y, si la corrida produjo un
-    reporte HTML, ``report.html``. Un ``Study`` sin ``run_id`` (no ejecutado) es un error de uso.
+    Escribe ``results.json`` (payload de :func:`serialize_study`) y, si la corrida los produjo, el
+    reporte HTML (``report.html``) y su PDF (``report.pdf``). Un ``Study`` sin ``run_id`` (no
+    ejecutado) es un error de uso.
     """
     run_id = study.run_context.run_id
     if run_id is None:
@@ -55,6 +57,9 @@ def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) ->
     html = _report_html(study)
     if html is not None:
         (run_dir / _REPORT_FILENAME).write_text(html, encoding="utf-8")
+    pdf = _report_pdf(study)
+    if pdf is not None:
+        (run_dir / _REPORT_PDF_FILENAME).write_bytes(pdf)
     return run_id
 
 
@@ -73,6 +78,14 @@ def load_report(run_id: str, *, workdir: Path) -> str | None:
     if not report_path.is_file():
         return None
     return report_path.read_text(encoding="utf-8")
+
+
+def load_report_pdf(run_id: str, *, workdir: Path) -> bytes | None:
+    """Devuelve los bytes del PDF del reporte de una corrida, o ``None`` si no existe (→ 404)."""
+    pdf_path = _run_dir(workdir, run_id) / _REPORT_PDF_FILENAME
+    if not pdf_path.is_file():
+        return None
+    return pdf_path.read_bytes()
 
 
 def _run_dir(workdir: Path, run_id: str) -> Path:
@@ -105,4 +118,22 @@ def _report_html(study: Study) -> str | None:
             path = Path(html_path)
             if path.is_file():
                 return path.read_text(encoding="utf-8")
+    return None
+
+
+def _report_pdf(study: Study) -> bytes | None:
+    """Extrae los bytes del PDF del reporte desde los artefactos ``report`` (duck-typed).
+
+    Espejo de :func:`_report_html`: lee ``pdf_path`` (ruta al PDF en disco) del artefacto
+    ``("report","result")`` o ``("report","manifest")``; si apunta a un archivo existente devuelve
+    sus bytes, si no ``None``. El backend sigue *domain-agnostic*: no importa ``nikodym.report``.
+    """
+    for domain, key in _REPORT_ARTIFACTS:
+        if not study.artifacts.has(domain, key):
+            continue
+        pdf_path = getattr(study.artifacts.get(domain, key), "pdf_path", None)
+        if isinstance(pdf_path, str):
+            path = Path(pdf_path)
+            if path.is_file():
+                return path.read_bytes()
     return None

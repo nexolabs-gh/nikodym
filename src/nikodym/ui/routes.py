@@ -31,7 +31,7 @@ from nikodym.ui import datasets, presets, runs
 from nikodym.ui.exceptions import UiDatasetError, UiRunNotFoundError
 
 if TYPE_CHECKING:
-    from fastapi import APIRouter, Request
+    from fastapi import APIRouter, Request, Response
     from fastapi.responses import HTMLResponse
 
 __all__ = [
@@ -278,14 +278,16 @@ def _format_errors(exc: ValidationError) -> list[dict[str, Any]]:
 
 def build_router() -> APIRouter:
     """Construye el ``APIRouter`` con los endpoints del contrato (import perezoso de FastAPI)."""
-    from fastapi import APIRouter, HTTPException, Request, UploadFile
+    from fastapi import APIRouter, HTTPException, Request, Response, UploadFile
     from fastapi.responses import HTMLResponse
 
     # Las anotaciones de los handlers son *strings* (``from __future__ import annotations``) y
     # FastAPI las resuelve con los globals del módulo; se exponen aquí los tipos de FastAPI recién
-    # importados (perezosos) para que ``Request``/``HTMLResponse``/``UploadFile`` resuelvan en la
-    # introspección de firmas sin importar FastAPI en el top-level (núcleo liviano, SDD-23 §10).
-    globals().update(Request=Request, HTMLResponse=HTMLResponse, UploadFile=UploadFile)
+    # importados (perezosos) para que ``Request``/``HTMLResponse``/``Response``/``UploadFile``
+    # resuelvan en la introspección de firmas sin importar FastAPI en el top-level (SDD-23 §10).
+    globals().update(
+        Request=Request, Response=Response, HTMLResponse=HTMLResponse, UploadFile=UploadFile
+    )
 
     router = APIRouter(prefix="/api")
 
@@ -381,5 +383,23 @@ def build_router() -> APIRouter:
                 status_code=404, detail=f"la corrida '{run_id}' no tiene reporte HTML."
             )
         return HTMLResponse(content=html)
+
+    @router.get("/report/{run_id}/pdf")
+    async def report_pdf_endpoint(run_id: str, request: Request) -> Response:
+        """Sirve el PDF del reporte de una corrida como descarga; sin PDF → 404."""
+        workdir = Path(request.app.state.settings.workdir)
+        try:
+            pdf = runs.load_report_pdf(run_id, workdir=workdir)
+        except UiRunNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if pdf is None:
+            raise HTTPException(
+                status_code=404, detail=f"la corrida '{run_id}' no tiene reporte PDF."
+            )
+        return Response(
+            content=pdf,
+            media_type="application/pdf",
+            headers={"Content-Disposition": 'attachment; filename="reporte-modelo.pdf"'},
+        )
 
     return router

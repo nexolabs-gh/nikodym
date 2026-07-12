@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 import importlib.util
 import subprocess
 import sys
@@ -47,8 +48,13 @@ from nikodym.eda.config import (
 )
 from nikodym.model.config import IvContributionConfig, ModelConfig, SignPolicyConfig, StepwiseConfig
 from nikodym.performance.config import PerformanceConfig
-from nikodym.report.config import AiNarrationConfig, ReportConfig, SectionPolicyConfig
-from nikodym.report.exceptions import ReportExportError
+from nikodym.report.config import (
+    AiNarrationConfig,
+    PdfRenderConfig,
+    ReportConfig,
+    SectionPolicyConfig,
+)
+from nikodym.report.exceptions import ReportDependencyError, ReportExportError
 from nikodym.report.renderer import HtmlReportRenderer
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportResult
 from nikodym.report.step import REPORT_ARTIFACTS, REPORT_REQUIRED_CARDS, ReportStep
@@ -436,6 +442,111 @@ def test_ai_enabled_degrada_y_ai_generada_queda_auditada(
     assert generated_result.manifest.ai_used is True
     rules = [event.payload["regla"] for event in generated_sink.events if event.kind == "decision"]
     assert "report_ai_usage" in rules
+
+
+# ─────────────────────── cableado del PDF opt-in (formats + degradación) ───────────────────────
+
+
+def _block_weasyprint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fuerza ``ModuleNotFoundError`` al importar ``weasyprint`` (ausencia determinista).
+
+    WeasyPrint no está en el entorno de estos jobs (extra ``pdf`` fuera de ``all``); bloquear su
+    import hace la degradación determinista con independencia del entorno.
+    """
+    real_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals_: dict[str, Any] | None = None,
+        locals_: dict[str, Any] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> Any:
+        if name == "weasyprint":
+            raise ModuleNotFoundError("weasyprint")
+        return real_import(name, globals_, locals_, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+
+def test_execute_sin_pdf_en_formats_no_escribe_pdf(tmp_path: Path) -> None:
+    """Sin ``"pdf"`` en ``formats`` el step no escribe PDF ni refleja ``pdf_path``."""
+    cfg = ReportConfig(output_dir=str(tmp_path), sections=SectionPolicyConfig(max_table_rows=10))
+    study = _study_with_report_artifacts(config=cfg)
+
+    result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert result.pdf_path is None
+    assert not (tmp_path / "scorecard_report.pdf").exists()
+
+
+def test_execute_pdf_en_formats_degrada_sin_weasyprint(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Con ``"pdf"`` en ``formats`` y WeasyPrint ausente (``fail_if_unavailable=False``) degrada.
+
+    ``formats`` es la fuente de verdad del step: con ``pdf.enabled=False`` el PDF se intenta igual
+    porque ``"pdf"`` está en ``formats``. Sin WeasyPrint degrada con gracia: ``pdf_path=None``,
+    ``RuntimeWarning`` y sólo se escribe el HTML determinístico.
+    """
+    _block_weasyprint(monkeypatch)
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html", "pdf"),
+        pdf=PdfRenderConfig(enabled=False, fail_if_unavailable=False),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+
+    with pytest.warns(RuntimeWarning, match="WeasyPrint no está disponible"):
+        result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert result.pdf_path is None
+    assert (tmp_path / "scorecard_report.html").is_file()
+    assert not (tmp_path / "scorecard_report.pdf").exists()
+
+
+def test_execute_pdf_en_formats_fail_if_unavailable_relanza(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Con ``"pdf"`` en ``formats``, WeasyPrint ausente y ``fail_if_unavailable=True`` re-lanza."""
+    _block_weasyprint(monkeypatch)
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html", "pdf"),
+        pdf=PdfRenderConfig(fail_if_unavailable=True),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+
+    with pytest.raises(ReportDependencyError, match="WeasyPrint"):
+        ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
+
+
+def test_execute_refleja_pdf_path_y_audita_export(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Cuando ``_maybe_write_pdf`` devuelve una ruta, el step la refleja y audita el export PDF."""
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html", "pdf"),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+    sink = InMemoryAuditSink()
+    step = ReportStep.from_config(cfg)
+    step._audit = sink
+    fake_pdf = str(tmp_path / "scorecard_report.pdf")
+    monkeypatch.setattr(step_module, "_maybe_write_pdf", lambda *args, **kwargs: fake_pdf)
+
+    result = step.execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert result.pdf_path == fake_pdf
+    rules = [event.payload["regla"] for event in sink.events if event.kind == "decision"]
+    assert "report_export_pdf" in rules
 
 
 def test_import_report_step_y_core_livianos_por_subprocess() -> None:

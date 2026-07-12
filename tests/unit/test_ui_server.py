@@ -379,3 +379,27 @@ def test_report_sin_reporte_404(client_tmp: TestClient) -> None:
 def test_report_run_id_invalido_404(client_tmp: TestClient) -> None:
     """``GET /api/report/{run_id}`` con un id no-uuid → 404 (path traversal bloqueado)."""
     assert client_tmp.get("/api/report/no-uuid").status_code == 404
+
+
+def test_report_pdf_presente_200_application_pdf(client_tmp: TestClient, tmp_path: Path) -> None:
+    """``GET /api/report/{run_id}/pdf`` con un ``report.pdf`` presente → 200 ``application/pdf``."""
+    run_id = "b" * 32
+    run_dir = tmp_path / "runs" / run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "report.pdf").write_bytes(b"%PDF-1.7 nikodym")
+
+    respuesta = client_tmp.get(f"/api/report/{run_id}/pdf")
+    assert respuesta.status_code == 200
+    assert respuesta.headers["content-type"].startswith("application/pdf")
+    assert respuesta.headers["content-disposition"] == 'attachment; filename="reporte-modelo.pdf"'
+    assert respuesta.content == b"%PDF-1.7 nikodym"
+
+
+def test_report_pdf_sin_reporte_404(client_tmp: TestClient) -> None:
+    """``GET /api/report/{run_id}/pdf`` sin PDF → 404."""
+    assert client_tmp.get("/api/report/" + "0" * 32 + "/pdf").status_code == 404
+
+
+def test_report_pdf_run_id_invalido_404(client_tmp: TestClient) -> None:
+    """``GET /api/report/{run_id}/pdf`` con un id no-uuid → 404 (path traversal bloqueado)."""
+    assert client_tmp.get("/api/report/no-uuid/pdf").status_code == 404

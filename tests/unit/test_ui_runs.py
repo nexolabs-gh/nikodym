@@ -61,6 +61,28 @@ def test_save_con_reporte_persiste_html(f1_study: Study, tmp_path: Path) -> None
     assert runs.load_report(run_id, workdir=workdir) == "<h1>Reporte Nikodym</h1>"
 
 
+def test_save_sin_pdf_no_escribe_pdf(f1_study: Study, tmp_path: Path) -> None:
+    """Una corrida sin PDF de reporte no persiste ``report.pdf`` (load_report_pdf → None)."""
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+    assert not (workdir / "runs" / run_id / "report.pdf").exists()
+    assert runs.load_report_pdf(run_id, workdir=workdir) is None
+
+
+def test_save_con_pdf_persiste_pdf(f1_study: Study, tmp_path: Path) -> None:
+    """Con un artefacto de reporte con ``pdf_path`` existente, ``save`` escribe ``report.pdf``."""
+    pdf_file = tmp_path / "reporte.pdf"
+    pdf_file.write_bytes(b"%PDF-1.7 nikodym")
+    f1_study.artifacts.set(
+        "report", "result", types.SimpleNamespace(html_path=None, pdf_path=str(pdf_file))
+    )
+
+    workdir = tmp_path / "wd"
+    run_id = runs.save(f1_study, workdir=workdir, governance=None)
+
+    assert runs.load_report_pdf(run_id, workdir=workdir) == b"%PDF-1.7 nikodym"
+
+
 def test_save_study_sin_run_id_falla(tmp_path: Path) -> None:
     """Persistir un Study no ejecutado (sin run_id) es un error de uso."""
     study = Study(full_f1_config("cartera.parquet"))  # no ejecutado → run_id None
@@ -124,3 +146,31 @@ def test_report_html_lee_archivo_existente(tmp_path: Path) -> None:
     html_file.write_text("<p>ok</p>", encoding="utf-8")
     store = {("report", "result"): types.SimpleNamespace(html_path=str(html_file))}
     assert runs._report_html(_fake_study(store)) == "<p>ok</p>"  # type: ignore[arg-type]
+
+
+# ─────────────────────────────── _report_pdf (duck-typed) ───────────────────────────────
+
+
+def test_report_pdf_sin_artefactos_es_none() -> None:
+    """Sin artefactos de reporte, ``_report_pdf`` devuelve ``None``."""
+    assert runs._report_pdf(_fake_study({})) is None  # type: ignore[arg-type]
+
+
+def test_report_pdf_ignora_pdf_path_no_str() -> None:
+    """Un artefacto sin ``pdf_path`` (None) no produce PDF."""
+    store = {("report", "result"): types.SimpleNamespace(pdf_path=None)}
+    assert runs._report_pdf(_fake_study(store)) is None  # type: ignore[arg-type]
+
+
+def test_report_pdf_ignora_archivo_inexistente(tmp_path: Path) -> None:
+    """Un ``pdf_path`` que no apunta a un archivo existente no produce PDF."""
+    store = {("report", "manifest"): types.SimpleNamespace(pdf_path=str(tmp_path / "no.pdf"))}
+    assert runs._report_pdf(_fake_study(store)) is None  # type: ignore[arg-type]
+
+
+def test_report_pdf_lee_archivo_existente(tmp_path: Path) -> None:
+    """Un ``pdf_path`` a un archivo existente devuelve sus bytes."""
+    pdf_file = tmp_path / "r.pdf"
+    pdf_file.write_bytes(b"%PDF ok")
+    store = {("report", "result"): types.SimpleNamespace(pdf_path=str(pdf_file))}
+    assert runs._report_pdf(_fake_study(store)) == b"%PDF ok"  # type: ignore[arg-type]

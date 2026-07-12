@@ -105,10 +105,12 @@ class ReportStep(AuditableMixin):
         renderer = _html_renderer(cfg)
         html = renderer.render(bundle, ai_blocks=ai_blocks)
         manifest = _manifest_for_html(renderer, html, config=cfg)
+        pdf_path = _maybe_write_pdf(cfg, html, manifest=manifest)
         result = ReportResult(
             manifest=manifest,
             input_bundle=bundle,
             html_path=_resolve_html_path(cfg, manifest),
+            pdf_path=pdf_path,
             ai_blocks=ai_blocks,
         )
         self._log_report_decisions(bundle=bundle, manifest=manifest, result=result, config=cfg)
@@ -154,6 +156,13 @@ class ReportStep(AuditableMixin):
                 valor={"path": manifest.path, "sha256": manifest.sha256},
                 accion="publicar_html_local",
             )
+        if result.pdf_path:
+            self.log_decision(
+                regla="report_export_pdf",
+                umbral=config.output_dir,
+                valor={"path": result.pdf_path},
+                accion="publicar_pdf_local",
+            )
 
 
 def _report_config_from_study(study: Study, *, fallback: ReportConfig) -> ReportConfig:
@@ -193,6 +202,32 @@ def _resolve_html_path(config: ReportConfig, manifest: ReportManifest) -> str | 
     if not output_dir or not manifest.path:
         return None
     return str(Path(output_dir) / manifest.path)
+
+
+def _maybe_write_pdf(
+    config: ReportConfig,
+    html: str,
+    *,
+    manifest: ReportManifest,
+) -> str | None:
+    """Escribe el PDF opt-in del reporte y devuelve su ruta real, o ``None`` (SDD-26 §7).
+
+    ``formats`` es la fuente de verdad del step: el PDF se genera **si y sólo si** ``"pdf"`` está en
+    ``config.formats`` (``config.pdf.enabled`` sólo guía el uso directo de ``PdfReportRenderer``, no
+    el step). Sale del MISMO ``html`` ya renderizado —que incluye la narrativa IA vía ``ai_blocks``—
+    sin re-renderizar. Requiere un ``output_dir`` escribible (``manifest.path`` no vacío, igual que
+    :func:`_resolve_html_path`); si WeasyPrint degrada con gracia devuelve ``None``. El PDF NO entra
+    al manifest: sólo se refleja como ``ReportResult.pdf_path``.
+    """
+    if "pdf" not in config.formats:
+        return None
+    output_dir = config.output_dir.strip()
+    if not output_dir or not manifest.path:
+        return None
+    from nikodym.report.renderer import PdfReportRenderer
+
+    path = PdfReportRenderer.from_config(config).write_pdf_from_html(html, output_dir=output_dir)
+    return str(path) if path is not None else None
 
 
 def _preflight_output_dir(config: ReportConfig) -> None:

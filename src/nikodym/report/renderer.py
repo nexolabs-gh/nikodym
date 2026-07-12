@@ -229,9 +229,21 @@ class PdfReportRenderer:
         html = html_renderer.render(bundle)
         manifest = html_renderer.write(html, output_dir=output_dir)
 
-        if not self.config.pdf.enabled:
-            return manifest
+        # El uso directo del renderer sigue guiado por ``pdf.enabled``; el step, en cambio, decide
+        # por ``formats`` y llama a ``write_pdf_from_html`` sin pasar por ``render`` (SDD-26 §7).
+        if self.config.pdf.enabled:
+            self.write_pdf_from_html(html, output_dir=output_dir)
+        return manifest
 
+    def write_pdf_from_html(self, html: str, *, output_dir: str) -> Path | None:
+        """Escribe el PDF desde un HTML ya renderizado; devuelve su ``Path`` o ``None`` al degradar.
+
+        Recibe el HTML primario (que puede incluir la narrativa IA) y produce el PDF con WeasyPrint
+        (import perezoso), sin re-renderizar el HTML. Degrada con gracia según
+        ``pdf.fail_if_unavailable``: en ausencia de WeasyPrint re-lanza la dependencia (``True``) o
+        emite ``RuntimeWarning`` y devuelve ``None`` (``False``). En éxito escribe
+        ``{basename}.pdf`` y devuelve el ``Path`` real en disco.
+        """
         # Import perezoso: WeasyPrint (y sus nativas) nunca entra al import del paquete.
         from nikodym.report.pdf import render_pdf
 
@@ -245,12 +257,10 @@ class PdfReportRenderer:
                 RuntimeWarning,
                 stacklevel=2,
             )
-            return manifest
+            return None
+        return self._write_pdf(pdf_bytes, output_dir=output_dir)
 
-        self._write_pdf(pdf_bytes, output_dir=output_dir)
-        return manifest
-
-    def _write_pdf(self, pdf_bytes: bytes, *, output_dir: str) -> None:
+    def _write_pdf(self, pdf_bytes: bytes, *, output_dir: str) -> Path:
         """Escribe el PDF con escritura atómica (tmp + ``replace``), idéntico al HTML."""
         directory = _prepare_output_dir(output_dir)
         filename = f"{self.config.basename}.pdf"
@@ -266,6 +276,7 @@ class PdfReportRenderer:
                 f"clave='{filename}', output_dir='{output_dir}', "
                 "acción='verifique permisos y espacio disponible'."
             ) from exc
+        return output_path
 
 
 def _coerce_report_config(

@@ -20,7 +20,7 @@ from pydantic import Field
 from nikodym.core.config import NikodymBaseConfig
 
 AiProvider = Literal["anthropic", "none"]
-BasicReportFormat = Literal["html", "json", "csv", "xlsx"]
+BasicReportFormat = Literal["html", "json", "csv", "xlsx", "pdf"]
 MissingPolicy = Literal["error", "warn", "skip"]
 ReportLanguage = Literal["es"]
 ReportTheme = Literal["nikodym", "plain"]
@@ -223,8 +223,12 @@ class ReportConfig(NikodymBaseConfig):
     )
     formats: tuple[BasicReportFormat, ...] = Field(
         default=("html",),
-        title="Formatos básicos",
-        description="Formatos básicos generados sin depender de WeasyPrint.",
+        title="Formatos del reporte",
+        description=(
+            "Formatos generados por el reporte. 'html'/'json'/'csv'/'xlsx' no dependen de "
+            "WeasyPrint; 'pdf' es opt-in y requiere el extra `pdf` (WeasyPrint + nativas). "
+            "Default: solo 'html'."
+        ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 5},
     )
     html: HtmlRenderConfig = Field(

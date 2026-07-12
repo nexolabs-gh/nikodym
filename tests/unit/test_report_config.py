@@ -247,7 +247,7 @@ def test_rangos_invalidos_rechazados_por_pydantic(
 @pytest.mark.parametrize(
     ("config_cls", "kwargs"),
     [
-        (ReportConfig, {"formats": ("pdf",)}),
+        (ReportConfig, {"formats": ("docx",)}),
         (AiNarrationConfig, {"provider": "openai"}),
         (SectionPolicyConfig, {"missing_policy": "ignore"}),
         (HtmlRenderConfig, {"theme": "dark"}),
@@ -260,6 +260,11 @@ def test_literales_invalidos_rechazados_por_pydantic(
     """Valores fuera de los ``Literal`` documentados son inválidos."""
     with pytest.raises(ValidationError):
         config_cls(**kwargs)
+
+
+def test_formats_acepta_pdf() -> None:
+    """``"pdf"`` es un formato válido opt-in en ``formats`` (extra pdf/WeasyPrint en runtime)."""
+    assert ReportConfig(formats=("html", "pdf")).formats == ("html", "pdf")
 
 
 def test_campos_report_tienen_metadatos_ui() -> None:
