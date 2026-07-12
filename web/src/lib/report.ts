@@ -13,6 +13,9 @@ import { describeApiError } from "./validation"
 /** Nombre fijo del archivo al descargar el reporte (independiente del `run_id`). */
 export const REPORT_FILENAME = "reporte-modelo.html"
 
+/** Nombre fijo del archivo al descargar el PDF del reporte (independiente del `run_id`). */
+export const REPORT_PDF_FILENAME = "reporte-modelo.pdf"
+
 /**
  * Mensaje legible de un fallo al pedir el reporte. Un `ApiError` 404 significa que la corrida
  * existe pero no generó reporte → mensaje claro y accionable, no el status HTTP crudo. Otro
@@ -23,6 +26,21 @@ export function reportErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 404) {
       return "Esta corrida no generó un reporte."
+    }
+    return describeApiError(err.body, err.message)
+  }
+  return err instanceof Error ? err.message : String(err)
+}
+
+/**
+ * Igual que `reportErrorMessage`, pero para la descarga del PDF. El PDF es opt-in (se pide vía
+ * `formats`), así que un `ApiError` 404 significa que la corrida existe pero NO generó PDF →
+ * mensaje claro y específico. El resto del mapeo es idéntico. PURO: no toca red ni DOM.
+ */
+export function reportPdfErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 404) {
+      return "Esta corrida no generó un PDF."
     }
     return describeApiError(err.body, err.message)
   }

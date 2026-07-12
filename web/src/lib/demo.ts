@@ -27,6 +27,11 @@ import presetFixture from "@/fixtures/demo/preset.json"
 import resultsFixture from "@/fixtures/demo/results.json"
 import toYamlFixture from "@/fixtures/demo/toyaml.json"
 import reportHtml from "@/fixtures/demo/report.html?raw"
+// A diferencia de los JSON/HTML (embebidos como valores JS, que el DCE saca del build normal), el
+// PDF es binario: `?url` de Vite lo emite como asset estático y devuelve su URL servida. NOTA: el
+// asset se emite en AMBOS builds (Vite lo emite al resolver `?url`, no depende del tree-shaking),
+// así que el build normal arrastra un PDF huérfano ~363 kB que ningún JS referencia (ver reporte).
+import reportPdfUrl from "@/fixtures/demo/report.pdf?url"
 
 /** Activo solo en el build de la demo estática (`VITE_DEMO_MODE=true`). */
 export const DEMO_MODE: boolean = import.meta.env.VITE_DEMO_MODE === "true"
@@ -77,4 +82,9 @@ export function demoGetResults(): Promise<ResultsResponse> {
 
 export function demoGetReport(): Promise<string> {
   return Promise.resolve(reportHtml)
+}
+
+/** El PDF de la demo se sirve como asset estático (ver `reportPdfUrl`): se baja como Blob. */
+export function demoGetReportPdf(): Promise<Blob> {
+  return fetch(reportPdfUrl).then((r) => r.blob())
 }

@@ -14,6 +14,7 @@ import {
   demoConfigToYaml,
   demoGetPreset,
   demoGetReport,
+  demoGetReportPdf,
   demoGetResults,
   demoListDatasets,
   demoRunPipeline,
@@ -274,4 +275,20 @@ export async function getReport(runId: string): Promise<string> {
     throw new ApiError(`HTTP ${res.status} en /api/report`, res.status)
   }
   return res.text()
+}
+
+/**
+ * GET /api/report/{run_id}/pdf — PDF del reporte (binario). Espejo de `getReport` pero devuelve
+ * el `Blob` en vez de texto. El PDF es opt-in (se pide vía `formats`): un 404 significa que esa
+ * corrida no lo generó (lo mapea `reportPdfErrorMessage`). El front solo transporta y descarga.
+ */
+export async function getReportPdf(runId: string): Promise<Blob> {
+  if (DEMO_MODE) return demoGetReportPdf()
+  const res = await fetch(
+    `${API_BASE}/api/report/${encodeURIComponent(runId)}/pdf`,
+  )
+  if (!res.ok) {
+    throw new ApiError(`HTTP ${res.status} en /api/report/pdf`, res.status)
+  }
+  return res.blob()
 }
