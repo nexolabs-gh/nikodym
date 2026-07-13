@@ -727,7 +727,25 @@ def test_study_run_data_binning_selection_model_scorecard_calibration_end_to_end
     dev_mean = calibrated.loc[calibrated["partition"].eq("desarrollo"), "pd_calibrated"].mean()
     assert dev_mean == pytest.approx(0.31, abs=1e-12)
     assert card.ranking_preserved is True
-    assert card.ties_created == 0
+
+    # `ties_created` cuenta los deudores que la calibración fundió en la misma PD. Exigir 0 aquí era
+    # exigirle al test una propiedad de la libm de la plataforma, no del motor: en windows-3.11 el
+    # ajuste logístico separa por ~1 ulp a dos deudores que en linux salen idénticos, y la
+    # transformación monótona vuelve a fundirlos → `ties_created == 1`, con el CI rojo de forma
+    # intermitente (el mismo commit, verde en una corrida y rojo en la siguiente). El motor lo
+    # declara así a propósito —ver `_ranking_preserved`: *"el colapso de precisión no se silencia:
+    # sigue contándose en ties_created"*—, de modo que este assert contradecía al código que decía
+    # verificar. Es el mismo falso positivo que ya se corrigió en `ranking_preserved` (85dc596), un
+    # assert más abajo.
+    #
+    # Lo que sí se exige, y es lo que el motor promete: la calibración no funde a dos deudores que
+    # el modelo crudo distinguía DE VERDAD. Se cuentan los PD crudos distintos con la misma
+    # resolución que usa el motor (1e-12), y se exige que sobrevivan todos: un colapso material
+    # —dos deudores separados por 3,7e-4, como los de este dataset— rompería la igualdad y el test.
+    raw_ordenado = np.sort(raw_pd_frame["pd_raw"].to_numpy(dtype="float64"))
+    distinguibles = 1 + int(np.sum(np.diff(raw_ordenado) > 1e-12))
+    calibrados_unicos = int(np.unique(calibrated["pd_calibrated"].to_numpy(dtype="float64")).size)
+    assert calibrados_unicos == distinguibles
 
 
 def test_import_calibration_step_liviano_no_carga_tabulares_ni_scoring() -> None:
