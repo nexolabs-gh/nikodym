@@ -76,6 +76,12 @@ _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("calibration", "card"),
     ("performance", "card"),
     ("stability", "card"),
+    # Provisiones. Se RECOLECTAN si el dominio corrió, pero NO se exigen: no están en el default
+    # de `SectionPolicyConfig.required_sections`, así que una corrida de scorecard no las echa en
+    # falta. Su presencia activa el capítulo condicional (`ChapterSpec.requires_domain`).
+    ("provisioning_cmf", "card"),
+    ("provisioning_internal", "card"),
+    ("provisioning", "card"),
 )
 _CARD_KEY_BY_DOMAIN: Final[dict[str, str]] = dict(_CARD_ARTIFACTS)
 _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
@@ -152,11 +158,17 @@ class ReportBuilder:
         El orden y los títulos salen de :data:`~nikodym.report.document.CHAPTER_SPECS`; la
         numeración (1-6 para capítulos, A/B/C para anexos) se deriva aquí, de modo que omitir un
         dominio no deja huecos en el índice.
+
+        Un capítulo con ``requires_domain`` informado es **condicional**: se omite entero si ese
+        dominio no publicó card. La numeración se reajusta sola, porque se deriva de los capítulos
+        efectivamente emitidos y no de la posición en ``CHAPTER_SPECS``.
         """
         sections: list[ReportSection] = []
         chapter_number = 0
         appendix_index = 0
         for spec in CHAPTER_SPECS:
+            if spec.requires_domain and spec.requires_domain not in bundle.cards:
+                continue  # capítulo condicional: el dominio no corrió ⇒ no existe el capítulo
             if spec.numbered:
                 chapter_number += 1
                 number = str(chapter_number)

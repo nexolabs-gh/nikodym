@@ -184,6 +184,14 @@ class ChapterSpec(BaseModel):
     numbered: bool = True
     placeholder_title: str = ""
     placeholder_guidance: tuple[str, ...] = ()
+    requires_domain: str = ""
+    """Dominio del que depende el capítulo. Si está informado y ese dominio **no corrió**, el
+    capítulo **no se emite** (y la numeración de los siguientes se reajusta sola).
+
+    Es el mecanismo de los capítulos **condicionales**: un informe de scorecard no debe traer un
+    capítulo de provisiones vacío, y un informe con provisiones no debe declarar que no las cubre.
+    Vacío (el default) = capítulo incondicional, se emite siempre.
+    """
 
 
 # El documento. Portada y resumen ejecutivo los emite la plantilla (no son secciones lógicas: la
@@ -253,6 +261,13 @@ CHAPTER_SPECS: Final[tuple[ChapterSpec, ...]] = (
 )
 
 CANONICAL_SECTION_ORDER: Final[tuple[str, ...]] = tuple(spec.id for spec in CHAPTER_SPECS)
+"""Orden canónico de los capítulos **posibles** del documento.
+
+⚠️ **No es la lista de los capítulos emitidos.** Desde que existen capítulos condicionales
+(``ChapterSpec.requires_domain``), un informe concreto emite un **subconjunto** de esta tupla,
+preservando el orden relativo. Quien compare contra esta constante debe verificar *subsecuencia*,
+no igualdad — un informe de scorecard no trae el capítulo de provisiones, y eso es lo correcto.
+"""
 
 _CHAPTER_INDEX: Final[dict[str, int]] = {spec.id: index for index, spec in enumerate(CHAPTER_SPECS)}
 # Orden de las subsecciones dentro de cada capítulo que las admite.

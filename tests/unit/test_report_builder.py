@@ -16,6 +16,7 @@ import nikodym.report as report_pkg
 from nikodym.core.config import NikodymConfig
 from nikodym.core.lineage import LineageBundle
 from nikodym.core.study import Study
+from nikodym.report import document
 from nikodym.report.builder import CANONICAL_SECTION_ORDER, ReportBuilder
 from nikodym.report.config import (
     AiNarrationConfig,
@@ -85,11 +86,15 @@ def test_collect_arma_el_documento_y_manifest_pre_render_golden() -> None:
     manifest = builder.build_manifest(bundle, path="reports/scorecard_report.html")
     by_id = {section.id: section for section in bundle.sections}
 
-    # Los capítulos de primer nivel son el documento, en el orden canónico único.
-    assert (
-        tuple(section.id for section in bundle.sections if section.level == 1)
-        == CANONICAL_SECTION_ORDER
-    )
+    # Los capítulos de primer nivel son el documento, en el orden canónico. Se verifica
+    # SUBSECUENCIA, no igualdad: los capítulos condicionales (`ChapterSpec.requires_domain`) solo
+    # se emiten si su dominio corrió, así que un informe concreto emite un subconjunto ordenado.
+    emitidos = tuple(section.id for section in bundle.sections if section.level == 1)
+    assert set(emitidos) <= set(CANONICAL_SECTION_ORDER)
+    posiciones = [CANONICAL_SECTION_ORDER.index(seccion) for seccion in emitidos]
+    assert posiciones == sorted(posiciones), "los capítulos no respetan el orden canónico"
+    # Este bundle no activa ningún capítulo condicional ⇒ están todos los incondicionales.
+    assert emitidos == tuple(spec.id for spec in document.CHAPTER_SPECS if not spec.requires_domain)
     assert bundle.missing_sections == ()
     assert bundle.cards["performance"] == {
         "summary": "performance-card",
@@ -477,3 +482,48 @@ def _nikodym_config() -> NikodymConfig:
             },
         }
     )
+
+
+def test_capitulo_condicional_se_omite_si_su_dominio_no_corrio(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Un capítulo con ``requires_domain`` solo existe si ese dominio publicó card.
+
+    Es el mecanismo que permite que el informe de un scorecard **no** traiga un capítulo de
+    provisiones vacío, y que el de una corrida con provisiones **sí** lo traiga — sin que el
+    documento tenga que declarar por escrito que "las provisiones corresponden a fases posteriores".
+
+    Se verifica en las dos direcciones: sin la card, el capítulo desaparece **y la numeración de los
+    siguientes no deja huecos**; con la card, aparece en su posición canónica.
+    """
+    condicional = document.ChapterSpec(
+        id="provisions",
+        title="Provisiones",
+        kind="prose",
+        requires_domain="provisioning",
+    )
+    # Se inserta antes de 'limitations' para comprobar que la renumeración es real.
+    specs = list(document.CHAPTER_SPECS)
+    corte = next(i for i, spec in enumerate(specs) if spec.id == "limitations")
+    specs.insert(corte, condicional)
+    monkeypatch.setattr(document, "CHAPTER_SPECS", tuple(specs))
+    monkeypatch.setattr("nikodym.report.builder.CHAPTER_SPECS", tuple(specs))
+
+    builder = ReportBuilder.from_config(ReportConfig())
+
+    # --- Sin la card del dominio: el capítulo NO existe ---
+    sin_provisiones = builder.collect(_study_completo())
+    ids_sin = [s.id for s in sin_provisiones.sections if s.level == 1]
+    assert "provisions" not in ids_sin
+    numeros_sin = {s.id: s.number for s in sin_provisiones.sections if s.level == 1}
+    assert numeros_sin["limitations"] == "6", "la numeración dejó un hueco al omitir el capítulo"
+
+    # --- Con la card: el capítulo aparece, y desplaza la numeración siguiente ---
+    study = _study_completo()
+    study.artifacts.set("provisioning", "card", {"summary": "provisioning-card"})
+    con_provisiones = builder.collect(study)
+    ids_con = [s.id for s in con_provisiones.sections if s.level == 1]
+    assert "provisions" in ids_con
+    numeros_con = {s.id: s.number for s in con_provisiones.sections if s.level == 1}
+    assert numeros_con["provisions"] == "6"
+    assert numeros_con["limitations"] == "7", "el capítulo nuevo no desplazó la numeración"
