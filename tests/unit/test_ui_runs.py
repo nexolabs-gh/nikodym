@@ -6,7 +6,9 @@ Cubre el round-trip ``save``→``load_results``, la presencia/ausencia del repor
 
 from __future__ import annotations
 
+import io
 import types
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -117,6 +119,17 @@ def test_save_persiste_el_qmd_con_su_carpeta_de_figuras(f1_study: Study, tmp_pat
     assert (run_dir / "report.qmd").is_file()
     # La carpeta conserva su nombre: es el que el .qmd referencia.
     assert (run_dir / "scorecard_report_figuras" / "chart-model.svg").is_file()
+
+    # …y el ZIP que se descarga lleva ESA figura, con la ruta que el documento cita. El bug vivía
+    # justo en esta costura: `save` persiste el documento como `report.qmd` y el empaquetador
+    # derivaba la carpeta de su stem (`report_figuras`), que save nunca escribe. Cada test miraba su
+    # mitad, las dos pasaban, y el ZIP real salía sin una sola figura.
+    bundle = runs.load_report_md_bundle(run_id, workdir=workdir)
+    assert bundle is not None
+    with zipfile.ZipFile(io.BytesIO(bundle)) as paquete:
+        nombres = set(paquete.namelist())
+    assert "report.qmd" in nombres
+    assert "scorecard_report_figuras/chart-model.svg" in nombres
 
 
 def test_save_persiste_el_docx(f1_study: Study, tmp_path: Path) -> None:

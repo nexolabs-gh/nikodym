@@ -121,21 +121,29 @@ def load_report_md(run_id: str, *, workdir: Path) -> str | None:
 def load_report_md_bundle(run_id: str, *, workdir: Path) -> bytes | None:
     """Empaqueta el ``.qmd`` con su directorio de figuras en un ZIP, o ``None`` (→ 404).
 
-    El ``.qmd`` referencia las figuras por ruta relativa (``<nombre>_figuras/*.svg``), así que
+    El ``.qmd`` referencia las figuras por ruta relativa (``<basename>_figuras/*.svg``), así que
     descargarlo suelto entrega un documento con las imágenes rotas: la "base editable" solo sirve
     si viaja completa. El ZIP se arma en memoria y conserva la ruta relativa, de modo que al
     descomprimirlo ``quarto render`` compile tal cual, sin tocar nada.
+
+    El directorio de figuras se busca **por lo que hay en disco**, no derivándolo del nombre del
+    ``.qmd`` persistido: ``save`` normaliza el documento a ``report.qmd`` pero copia las figuras con
+    el nombre que el propio documento cita (``<basename>_figuras``, y ``basename`` es configurable).
+    Derivarlo del stem daba ``report_figuras``, que no existe: el ZIP salía sin una sola figura y el
+    analista se bajaba el informe con las cinco imágenes rotas.
     """
     run_dir = _run_dir(workdir, run_id)
     md_path = run_dir / _REPORT_MD_FILENAME
     if not md_path.is_file():
         return None
 
-    figures_dir = run_dir / f"{md_path.stem}{_FIGURES_SUFFIX}"
+    figure_dirs = sorted(
+        path for path in run_dir.iterdir() if path.is_dir() and path.name.endswith(_FIGURES_SUFFIX)
+    )
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         bundle.writestr(md_path.name, md_path.read_text(encoding="utf-8"))
-        if figures_dir.is_dir():
+        for figures_dir in figure_dirs:
             for figure in sorted(figures_dir.iterdir()):
                 if figure.is_file():
                     bundle.writestr(f"{figures_dir.name}/{figure.name}", figure.read_bytes())

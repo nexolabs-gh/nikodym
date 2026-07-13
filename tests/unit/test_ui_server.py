@@ -8,6 +8,7 @@ saltan (no rompen la suite base). El bootstrap ``create_app`` se cubre por *smok
 from __future__ import annotations
 
 import io
+import re
 import subprocess
 import sys
 import textwrap
@@ -410,19 +411,28 @@ def test_report_pdf_run_id_invalido_404(client_tmp: TestClient) -> None:
 def test_report_md_presente_200_zip_con_figuras(client_tmp: TestClient, tmp_path: Path) -> None:
     """``GET /api/report/{run_id}/md`` sirve la **base editable** como ZIP autocontenido → 200.
 
-    El ``.qmd`` referencia sus figuras por ruta relativa: si el ZIP no las llevara, el analista se
-    bajaría un informe con las imágenes rotas. Se exige que la figura viaje EN el paquete, con la
-    misma ruta relativa que cita el documento, para que ``quarto render`` compile sin tocar nada.
+    El estado del ``run_dir`` que monta este test es el que produce ``runs.save``, no uno cómodo:
+    el documento se persiste normalizado a ``report.qmd``, pero su carpeta de figuras conserva el
+    ``basename`` del motor (``scorecard_report_figuras``), que es el nombre que el propio ``.qmd``
+    cita. Un test que fabricaba ``report_figuras/`` —carpeta que ``save`` nunca escribe— pasaba en
+    verde mientras el ZIP real salía sin una sola figura.
+
+    La invariante que se exige aquí no depende de esos nombres: **toda figura que el documento
+    referencia viaja en el paquete, con la misma ruta relativa**. Es la única condición bajo la cual
+    ``quarto render`` compila sin tocar nada.
     """
     run_id = "c" * 32
     run_dir = tmp_path / "runs" / run_id
-    run_dir.mkdir(parents=True)
+    figuras = run_dir / "scorecard_report_figuras"
+    figuras.mkdir(parents=True)
     (run_dir / "report.qmd").write_text(
-        "---\ntitle: Informe\n---\n\n![Gains](report_figuras/chart-gains.svg)\n", encoding="utf-8"
+        "---\ntitle: Informe\n---\n\n"
+        "![Gains](scorecard_report_figuras/chart-gains.svg)\n"
+        "![Coef](scorecard_report_figuras/chart-coef.svg)\n",
+        encoding="utf-8",
     )
-    figuras = run_dir / "report_figuras"
-    figuras.mkdir()
     (figuras / "chart-gains.svg").write_text("<svg/>", encoding="utf-8")
+    (figuras / "chart-coef.svg").write_text("<svg/>", encoding="utf-8")
 
     respuesta = client_tmp.get(f"/api/report/{run_id}/md")
 
@@ -433,10 +443,16 @@ def test_report_md_presente_200_zip_con_figuras(client_tmp: TestClient, tmp_path
         == 'attachment; filename="reporte-modelo-quarto.zip"'
     )
     with zipfile.ZipFile(io.BytesIO(respuesta.content)) as bundle:
-        nombres = bundle.namelist()
+        nombres = set(bundle.namelist())
         assert "report.qmd" in nombres
-        assert "report_figuras/chart-gains.svg" in nombres
-        assert "title: Informe" in bundle.read("report.qmd").decode("utf-8")
+        documento = bundle.read("report.qmd").decode("utf-8")
+        assert "title: Informe" in documento
+
+        referenciadas = set(re.findall(r"\]\(([^)]+_figuras/[^)]+)\)", documento))
+        assert referenciadas, "el documento debe referenciar sus figuras por ruta relativa"
+        assert referenciadas <= nombres, (
+            f"el ZIP no lleva las figuras que el documento cita: {sorted(referenciadas - nombres)}"
+        )
 
 
 def test_report_docx_presente_200_ooxml(client_tmp: TestClient, tmp_path: Path) -> None:

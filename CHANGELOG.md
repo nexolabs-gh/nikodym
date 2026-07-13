@@ -5,6 +5,22 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [Sin publicar]
+
+### Corregido
+
+- **La base editable se descargaba con todas las imágenes rotas.** `GET /api/report/{run_id}/md`
+  entregaba un ZIP con el `.qmd` y **ninguna** figura: el documento citaba sus cinco SVG por ruta
+  relativa (`scorecard_report_figuras/…`) y ninguna viajaba en el paquete, así que `quarto render`
+  no compilaba y el informe se abría sin gráficos. La causa está en la costura entre dos funciones
+  que por separado eran correctas: `runs.save` normaliza el documento a `report.qmd` pero copia la
+  carpeta de figuras con el `basename` que el propio `.qmd` referencia, mientras que el empaquetador
+  derivaba el nombre de esa carpeta del *stem* del archivo persistido (`report_figuras`), que nunca
+  existe. Ahora el ZIP empaqueta las carpetas `*_figuras` que realmente están en la corrida. El test
+  del endpoint fabricaba a mano un estado que `save` nunca produce, y por eso pasaba en verde: ahora
+  monta el estado real y exige la invariante que importa —toda figura citada por el documento viaja
+  en el paquete, con la misma ruta relativa—.
+
 ## [1.1.0] — 2026-07-13
 
 ### Añadido
