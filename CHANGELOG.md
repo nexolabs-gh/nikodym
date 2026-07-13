@@ -5,6 +5,24 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [1.1.3] — 2026-07-13
+
+Release de documentación y metadata. **Sin cambios de código**: el motor es idéntico al 1.1.2.
+
+### Añadido
+
+- Sección **"Quién lo construye"** en el README y en la home de la documentación: el motor lo
+  construye Nexo Labs, y hasta ahora ninguna superficie decía cómo llegar a quien lo mantiene.
+- `[project.urls]`: `Demo` (demo.nikodym.cl) y el enlace a la consultora en la barra lateral de
+  PyPI.
+
+### Corregido
+
+- **`Documentation` apuntaba al propio README** (`#readme`), no a docs.nikodym.cl. Lo mismo en la
+  sección "Documentación" del README, que enlazaba a sí misma.
+- El enlace a la licencia era **relativo**, y los enlaces relativos se rompen en la página de PyPI
+  (el README es la `long_description`).
+
 ## [1.1.2] — 2026-07-13
 
 ### Corregido
