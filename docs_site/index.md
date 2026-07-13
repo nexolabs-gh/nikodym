@@ -86,6 +86,18 @@ binning, modelo, scorecard, calibración) y se apunta `data.load.source` al data
 [Conceptos](concepts.md) para el modelo mental y [Referencia de la API](api.md) para el detalle de
 `run`, `Study` y `NikodymConfig`.
 
+## Quién lo construye
+
+Nikodym RiskLib lo construye **Nexo Labs**, una consultora chilena de riesgo y analítica de datos.
+El motor es Apache-2.0 y no tiene edición comercial ni funciones reservadas: está publicado para
+que puedas leer el código antes de hablar con nosotros.
+
+Una librería calcula; no decide. El binning, la calibración y las métricas los corre el motor —pero
+a qué tasa central anclas (TTC o PIT), dónde pones el corte y qué supuestos sostienes ante
+Validación o ante la CMF sigue siendo juicio de modelo. Si ese es el problema, puedes
+[proponer un caso](https://www.nikodym.cl/?ref=docs-home#contact). Cada caso se evalúa antes de
+aceptarse; si no hay caso, también te lo decimos, en menos de 48 horas hábiles.
+
 ## Licencia
 
 [Apache-2.0](https://github.com/nexolabs-gh/nikodym/blob/main/LICENSE). Sin dependencias copyleft

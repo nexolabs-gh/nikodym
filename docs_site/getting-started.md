@@ -149,3 +149,6 @@ cohortada por trimestre para partición Dev/Held-out/OOT — determinista, sin d
 - **[Conceptos](concepts.md)** — el modelo mental (`config` declarativo, `run` → `Study`,
   reproducibilidad y gobernanza).
 - **[Referencia de la API](api.md)** — detalle de `run`, `Study` y `NikodymConfig`.
+- **[Proponer un caso](https://www.nikodym.cl/?ref=docs-getting-started#contact)** — Nexo Labs, la
+  consultora que construye el motor. Si el problema no es correr el pipeline sino defender el
+  modelo ante Validación, ahí se evalúa.

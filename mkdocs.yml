@@ -43,6 +43,14 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+# Footer del tema (una línea, en todas las páginas). Es el único lugar donde el enlace a la
+# consultora no compite con la documentación: `api.md` es referencia generada y `changelog.md` un
+# snippet incluido — prosa nuestra ahí sería intrusiva o se pisaría en el próximo build.
+copyright: >-
+  Nikodym RiskLib · Apache-2.0 · lo construye
+  <a href="https://www.nikodym.cl/?ref=docs">Nexo Labs</a> —
+  <a href="https://www.nikodym.cl/?ref=docs#contact">Proponer un caso</a>
+
 nav:
   - Inicio: index.md
   - Empezar: getting-started.md
