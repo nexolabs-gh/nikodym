@@ -309,8 +309,11 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
         <main>
           <div className="grid grid-cols-1 items-center gap-10 py-16 lg:grid-cols-12 lg:gap-14 lg:py-24">
             <div className="lg:col-span-7">
+              {/* Sin número de versión: un literal aquí se pudre en el siguiente release y la
+                  landing termina anunciando una versión que ya no es la de PyPI. La versión viva
+                  la dice el lineage del informe, que sale de la corrida. */}
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-eyebrow">
-                Motor de riesgo de crédito · Python · Apache-2.0 · v1.1.0
+                Motor de riesgo de crédito · Python · Apache-2.0
               </p>
               {/* Las dos líneas del H1 son inseparables: la primera promete, la segunda confiesa. */}
               <h1 className="mt-5 font-display text-[clamp(2.05rem,4.6vw,3.5rem)] font-bold leading-[1.05] tracking-tight text-foreground">
