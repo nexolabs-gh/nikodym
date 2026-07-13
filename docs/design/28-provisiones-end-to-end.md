@@ -224,8 +224,26 @@ Se añaden dos campos, con defaults que **preservan el comportamiento actual** (
 
 Preset **nuevo e independiente** (no ampliar el F1: sus secciones son computacionales y moverían el `config_hash` de todas las corridas existentes; verificado en `core/config/hashing.py:24`).
 
+> ### 🔴 La calibración NO se hereda tal cual — invierte el resultado del producto
+>
+> El preset F1 calibra con `anchor_source: business_input` y **`target_pd: 0.20`**, coherente con su dataset (23 % de default). Sobre la cartera de provisiones (6,9 %), esa ancla **infla la PD casi 3×** y con ella la provisión interna. Medido, corriendo la cadena real:
+>
+> | Ancla | Provisión interna | Provisión estándar CMF | Regla del máximo |
+> |---|---|---|---|
+> | `target_pd: 0.20` (heredada de F1) | **878 M** (10,87 %) | 697 M (8,63 %) | manda el **interno** → *el estándar no muerde* |
+> | `development_observed` (**correcta**) | **309 M** (3,82 %) | 697 M (8,63 %) | manda el **ESTÁNDAR** → sobrecosto **+389 M (+126 %)** |
+>
+> Con el ancla heredada la demo cuenta la historia **equivocada** (el modelo interno pide más que la norma, el piso no muerde y el producto no tiene titular). Con el ancla correcta cuenta la real: **el estándar de la CMF le cuesta al banco 389 millones por encima de lo que su propio modelo pediría.**
+>
+> El preset **debe** fijar `calibration.anchor_source: development_observed` (que además es el default que el SDD-10 resolvió como correcto, D-CAL-2). *Esto no se ve leyendo el código: solo se ve corriendo la cadena entera. Es la razón de ser del gate G2.*
+
 ```yaml
-# hereda de f1-estandar-consumo: data (dataset nuevo), binning, selection, model, scorecard, calibration
+# hereda de f1-estandar-consumo: data (dataset nuevo), binning, selection, model, scorecard
+calibration:
+  # NO heredar el `target_pd: 0.20` del F1 (ver el recuadro de arriba): ancla la PD al 20 % cuando
+  # la cartera tiene 6,9 % de default, infla la provisión interna 3x e invierte la regla del máximo.
+  anchor_source: development_observed
+
 provisioning_internal:
   as_of_date_col: as_of_date
   portfolio_col: cmf_portfolio
@@ -336,7 +354,15 @@ Fundamento en §3. Es la única versión citable, y la única en la que **el sco
 
 ### D2 — Dataset nuevo, no ampliar los existentes. *(Sin cambios respecto de v1: el argumento del `data_hash` se sostiene.)*
 
-### D3 — Preset nuevo e independiente. *(Sin cambios: ampliar F1 movería el `config_hash` de todas las corridas.)*
+### D3 — Preset nuevo e independiente.
+> ⚠️ **El argumento original era falso y hay que decirlo.** Este SDD justificaba el preset nuevo con *"ampliar el F1 movería el `config_hash` de todas las corridas"*. **No se sostiene:** el `config_hash` se mueve igual **por el mero hecho de declarar la sección** en `NikodymConfig`, aunque su default sea `None` — el dump canónico incluye `"provisioning_internal": null`. Verificado al construir el motor: movió 21 goldens de hash en módulos que nada tienen que ver con provisiones.
+
+La decisión **sigue en pie**, por los motivos que sí valen:
+- El preset de provisiones necesita **otro dataset** (`provisiones_consumo`), y el estándar F1 debe seguir corriendo sobre el suyo.
+- Son **dos casos de uso distintos**: el usuario no piensa "compongo dominios", piensa "quiero mi scorecard" o "quiero mis provisiones".
+- Ampliar el F1 obligaría a que el dataset estándar tuviera columnas económico-regulatorias que no le corresponden, y rompería el ejemplo canónico del README.
+
+> **Nota de arquitectura para Cami (no la decido yo):** que añadir un dominio mueva el `config_hash` de **todas** las corridas históricas es un comportamiento **conocido y aceptado** por el proyecto (hay un `GOLDEN_PREVIO_SIN_X` por cada dominio y un test que lo declara "no regresión"). Pero el docstring de `hashing.py` promete un hash *"estable entre versiones"*, y ante la **extensión de la librería** no lo es: cada release con un dominio nuevo invalida la identidad de las corridas anteriores y rompe la idempotencia del inventario (SR 11-7). Excluir del hash las secciones en `None` lo arreglaría de raíz. **Es un cambio de contrato SemVer: decisión de producto, no técnica.**
 
 ### D4 — El wizard no se generaliza; se amplía la lista blanca.
 `F1_SECTIONS` (`web/src/lib/schema.ts:38`) → `CONFIG_SECTIONS_ALLOWED`, más su entrada en `CONFIG_SECTIONS` (`App.tsx:60`). El tramo schema-driven (**los campos dentro de una sección**) sale gratis. Los **resultados** no tienen forma genérica honesta: un gráfico de la regla del máximo no se deriva de un JSON Schema.
