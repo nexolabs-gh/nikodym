@@ -20,6 +20,14 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   del endpoint fabricaba a mano un estado que `save` nunca produce, y por eso pasaba en verde: ahora
   monta el estado real y exige la invariante que importa —toda figura citada por el documento viaja
   en el paquete, con la misma ruta relativa—.
+- **La UI ofrecía marcar `json` en los formatos del informe, y marcarlo garantizaba un error.** El
+  `Literal` de `BasicReportFormat` seguía declarando `json` pese a que ningún motor lo genera, así
+  que `GET /api/schema` lo publicaba en el enum, el multiselect pintaba su checkbox y quien lo
+  marcaba se llevaba un `ValidationError` que no tenía forma de prever desde la interfaz. El formato
+  sale del enum: lo que la UI ofrece es ahora exactamente lo que la corrida puede cumplir. El
+  validador que ya rechazaba los formatos sin motor se conserva como red de seguridad para quien
+  amplíe el enum sin cablear la generación. Por coherencia, `json` también sale de
+  `ReportOutputFormat`: un formato que no se puede pedir tampoco se puede producir.
 
 ## [1.1.0] — 2026-07-13
 

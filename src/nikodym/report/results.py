@@ -34,7 +34,7 @@ else:
     LineageBundleLike: TypeAlias = Any
 
 ReportSectionStatus: TypeAlias = Literal["included", "missing", "skipped", "failed"]
-ReportOutputFormat: TypeAlias = Literal["html", "pdf", "md", "docx", "json", "csv", "xlsx"]
+ReportOutputFormat: TypeAlias = Literal["html", "pdf", "md", "docx", "csv", "xlsx"]
 
 __all__ = [
     "AiNarrationBlock",

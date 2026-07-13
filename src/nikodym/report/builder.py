@@ -106,7 +106,7 @@ _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
 )
 _FIGURE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (("eda", "figures"),)
 _VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
-    {"html", "pdf", "md", "docx", "json", "csv", "xlsx"}
+    {"html", "pdf", "md", "docx", "csv", "xlsx"}
 )
 # La fuente editable se escribe como ``.qmd`` (Quarto), pero su formato lógico es ``md``.
 _SUFFIX_ALIASES: Final[dict[str, str]] = {"qmd": "md"}

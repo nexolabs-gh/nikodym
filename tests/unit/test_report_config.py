@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import subprocess
 import sys
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 import yaml
@@ -24,6 +24,7 @@ from nikodym.core.exceptions import NikodymError
 from nikodym.report.config import (
     IMPLEMENTED_FORMATS,
     AiNarrationConfig,
+    BasicReportFormat,
     DocumentStructureConfig,
     HtmlRenderConfig,
     PdfRenderConfig,
@@ -290,20 +291,37 @@ def test_formats_acepta_pdf() -> None:
     assert ReportConfig(formats=("html", "pdf")).formats == ("html", "pdf")
 
 
-@pytest.mark.parametrize("formato", ["json"])
-def test_formato_no_implementado_falla_en_vez_de_degradar_en_silencio(formato: str) -> None:
-    """Pedir un formato sin motor detrás es un error explícito, no un reporte vacío.
+def test_el_enum_no_ofrece_formatos_sin_motor() -> None:
+    """El ``Literal`` no declara ningún formato que la corrida no pueda cumplir.
 
-    El bug: ``formats`` aceptaba formatos que nadie generaba, la corrida terminaba "bien" y no se
-    escribía archivo alguno. Un enum declarado sin ruta real degrada en silencio; el config lo
-    rechaza y el step no puede ser más permisivo que el motor. ``json`` es el único que sigue en
-    el roadmap: ``csv``/``xlsx`` (datos) y ``md``/``docx`` (fuentes editables) ya se generan.
+    ``BasicReportFormat`` no es documentación interna: es lo que ``GET /api/schema`` publica como
+    enum y lo que la UI pinta como checkbox del multiselect. Declarar ahí un formato sin motor no
+    era un descuido teórico: el usuario marcaba ``json``, la corrida moría con un
+    ``ValidationError`` y no tenía forma de preverlo desde la interfaz. Esta invariante es la que
+    impide reintroducirlo.
     """
-    with pytest.raises(ValidationError, match="no implementado"):
+    assert set(get_args(BasicReportFormat)) <= IMPLEMENTED_FORMATS
+
+
+@pytest.mark.parametrize("formato", ["json"])
+def test_formato_sin_motor_es_rechazado(formato: str) -> None:
+    """``json`` sigue sin motor detrás, y ahora se rechaza ya en el enum (no llega al validador)."""
+    with pytest.raises(ValidationError):
         ReportConfig(formats=("html", formato))  # type: ignore[arg-type]
 
-    with pytest.raises(ValidationError, match="no implementado"):
+    with pytest.raises(ValidationError):
         NikodymConfig(report={"formats": ["html", formato]})
+
+
+def test_validador_es_la_red_si_alguien_amplia_el_literal_sin_cablear_el_motor() -> None:
+    """Segunda línea de defensa: el validador sigue vivo aunque el enum ya filtre.
+
+    Con el ``Literal`` saneado, este validador no se dispara desde un config válido. Se conserva —y
+    se ejercita aquí a mano— porque el fallo que previene es el de quien mañana agregue un formato
+    al enum sin cablear la generación: el step no puede ser más permisivo que el motor.
+    """
+    with pytest.raises(ValueError, match="no implementado"):
+        ReportConfig._rechaza_formatos_no_implementados(("html", "json"))  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("formato", ["md", "docx", "csv", "xlsx"])

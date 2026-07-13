@@ -20,7 +20,7 @@ from pydantic import Field, field_validator
 from nikodym.core.config import NikodymBaseConfig
 
 AiProvider = Literal["anthropic", "none"]
-BasicReportFormat = Literal["html", "json", "csv", "xlsx", "pdf", "md", "docx"]
+BasicReportFormat = Literal["html", "csv", "xlsx", "pdf", "md", "docx"]
 MissingPolicy = Literal["error", "warn", "skip"]
 PlaceholderPolicy = Literal["show", "hide"]
 ReportLanguage = Literal["es"]
@@ -29,9 +29,13 @@ ReportType = Literal["standard"]
 
 # Formatos con una ruta de generación REAL en el motor: los documentos (``html``, ``pdf``, y las
 # fuentes editables ``md``/``docx``) y los exports de datos (``csv``/``xlsx``, que entregan las
-# tablas por observación completas). ``json`` sigue en el roadmap sin motor detrás, y pedirlo es un
-# error explícito: un formato aceptado por el schema y sin ruta real produce un reporte
-# silenciosamente incompleto.
+# tablas por observación completas).
+#
+# INVARIANTE (test en ``test_report_config.py``): ``BasicReportFormat`` no declara ningún formato
+# fuera de este conjunto. El ``Literal`` es lo que ``GET /api/schema`` publica como enum y lo que la
+# UI pinta como checkbox, así que un formato declarado y sin motor no es teórico: el usuario lo
+# marca y se lleva un ``ValidationError``. El validador de abajo queda como red de seguridad para
+# quien amplíe el ``Literal`` sin cablear el motor.
 IMPLEMENTED_FORMATS: Final[frozenset[str]] = frozenset({"html", "pdf", "md", "docx", "csv", "xlsx"})
 
 __all__ = [
@@ -306,9 +310,9 @@ class ReportConfig(NikodymBaseConfig):
             "Formatos generados por el reporte. Documentos: 'html' (siempre), 'pdf' (extra `pdf`, "
             "WeasyPrint + nativas) y las fuentes editables 'md' (Quarto/Markdown, sin extras) y "
             "'docx' (Word, extra `docx`). Exports de datos: 'csv' y 'xlsx' (extra `excel`) "
-            "entregan COMPLETAS las tablas por observación, que no viven en el documento. Pedir "
-            "un formato sin motor detrás ('json') es un error explícito, no una degradación "
-            "silenciosa. Default: solo 'html'."
+            "entregan COMPLETAS las tablas por observación, que no viven en el documento. Todo "
+            "formato ofrecido aquí tiene motor detrás: el enum no publica opciones que la corrida "
+            "no pueda cumplir. Default: solo 'html'."
         ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 5},
     )
@@ -360,6 +364,11 @@ class ReportConfig(NikodymBaseConfig):
         Un formato aceptado por el schema y sin motor detrás produce un reporte silenciosamente
         incompleto: se pide ``xlsx``, la corrida termina "bien" y no hay archivo. El step no puede
         ser más permisivo que el motor, así que el config lo rechaza aquí.
+
+        Hoy ``BasicReportFormat`` ya no declara ningún formato sin motor, así que este validador no
+        se dispara con un config válido: es la red de seguridad para quien amplíe el ``Literal``
+        sin cablear la generación. La primera línea de defensa es el propio ``Literal``, porque es
+        él —no este validador— quien decide qué opciones ve el usuario en la UI.
         """
         pendientes = tuple(dict.fromkeys(item for item in value if item not in IMPLEMENTED_FORMATS))
         if pendientes:
