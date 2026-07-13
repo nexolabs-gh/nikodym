@@ -45,18 +45,27 @@ def test_standard_preset_config_valida_y_hash_estable() -> None:
     )
 
 
-def test_preset_activa_report_html_sin_alterar_hash() -> None:
-    """El preset activa ``report`` (HTML determinístico) con ``required_sections`` = las cards que
-    el preset REALMENTE produce (sin ``eda``, que el pipeline no corre) y defaults seguros (sólo
-    HTML, sin PDF/IA/gráficos interactivos → no requiere extras). ``report`` es INFRA
-    (``INFRA_SECTIONS``) → activarlo NO cambia el ``config_hash`` del preset.
+def test_preset_pide_los_cuatro_entregables_sin_alterar_hash() -> None:
+    """El preset pide los CUATRO entregables, y ``report`` sigue siendo INFRA (no toca el hash).
+
+    Antes pedía sólo HTML "por seguridad" (no requerir extras). El efecto real era el contrario: la
+    UI no expone una sección "Reporte" donde activar los demás formatos, así que los botones de
+    descarga de PDF, Word y base editable respondían 404 SIEMPRE en uso real. La función existía y
+    era inalcanzable. El preset existe justamente para que todo salga sin tocar nada.
+
+    PDF y DOCX van tras extras opcionales con ``fail_if_unavailable=False``: en una instalación
+    mínima no se emiten (y la descarga da un 404 con mensaje claro) en vez de tumbar la corrida.
     """
     config = standard_preset()["config"]
     report = config["report"]
     assert isinstance(report, dict)
-    assert report["formats"] == ["html"]
+    assert report["formats"] == ["html", "pdf", "md", "docx"]
+    assert report["pdf"]["enabled"] is True
+    # Sin extra instalado NO se aborta la corrida: el HTML, que es el entregable base, sale igual.
+    assert report["pdf"]["fail_if_unavailable"] is False
+    assert report["docx"]["fail_if_unavailable"] is False
+    # La narración por IA sigue apagada: la prosa del informe es determinista (no usa la red).
     assert report["ai"]["enabled"] is False
-    assert report["pdf"]["enabled"] is False
     assert report["html"]["include_interactive_charts"] is False
     assert report["sections"]["required_sections"] == [
         "binning",

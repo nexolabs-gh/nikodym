@@ -359,16 +359,25 @@ _STANDARD_CONFIG: dict[str, Any] = {
     # Las ``required_sections`` son EXACTAMENTE las cards que el preset produce (sin ``eda`` ni
     # ``data``: el pipeline no corre EDA), para que ``ReportStep.requires`` no exija una card
     # inalcanzable y el motor (CT-1) no rechace el config. ``report`` es INFRA (``INFRA_SECTIONS``)
-    # → NO entra al ``config_hash``. Defaults seguros: solo HTML, sin PDF/IA/gráficos
-    # interactivos → no requiere extras. ``output_dir`` se cablea a un dir absoluto bajo el workdir
-    # en ejecución (``routes._wire_report_output_dir``); aquí queda el default relativo.
+    # → NO entra al ``config_hash``. ``output_dir`` se cablea a un dir absoluto bajo el workdir en
+    # ejecución (``routes._wire_report_output_dir``); aquí queda el default relativo.
+    #
+    # Se piden los CUATRO entregables (HTML + PDF + base editable .qmd + Word), no solo HTML: la UI
+    # no expone una sección "Reporte" donde activarlos, así que con ``formats=["html"]`` los botones
+    # de descarga del front respondían 404 SIEMPRE en uso real, y el reporte editable era una
+    # función inalcanzable. El preset existe para que todo funcione sin tocar nada.
+    #
+    # PDF y DOCX viven tras extras opcionales (``weasyprint`` / ``python-docx``). Con
+    # ``fail_if_unavailable=False`` una instalación mínima simplemente no los emite (aviso + 404 con
+    # mensaje claro al descargar) en vez de tumbar la corrida entera: el HTML, que es el entregable
+    # base, sale igual.
     "report": {
         "schema_version": "1.0.0",
         "type": "standard",
         "output_dir": "reports",
         "basename": "scorecard_report",
         "language": "es",
-        "formats": ["html"],
+        "formats": ["html", "pdf", "md", "docx"],
         "html": {
             "template_id": "scorecard_basic_v1",
             "theme": "nikodym",
@@ -377,7 +386,10 @@ _STANDARD_CONFIG: dict[str, Any] = {
             "deterministic_ids": True,
         },
         "pdf": {
-            "enabled": False,
+            "enabled": True,
+            "fail_if_unavailable": False,
+        },
+        "docx": {
             "fail_if_unavailable": False,
         },
         "ai": {

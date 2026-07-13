@@ -32,6 +32,10 @@ import reportHtml from "@/fixtures/demo/report.html?raw"
 // asset se emite en AMBOS builds (Vite lo emite al resolver `?url`, no depende del tree-shaking),
 // así que el build normal arrastra un PDF huérfano ~363 kB que ningún JS referencia (ver reporte).
 import reportPdfUrl from "@/fixtures/demo/report.pdf?url"
+// Mismo trato que el PDF (binarios servidos como asset estático): el Word y el ZIP de la base
+// editable (`.qmd` + sus figuras, tal como lo arma el endpoint `/md` del backend real).
+import reportDocxUrl from "@/fixtures/demo/report.docx?url"
+import reportQuartoZipUrl from "@/fixtures/demo/report-quarto.zip?url"
 
 /** Activo solo en el build de la demo estática (`VITE_DEMO_MODE=true`). */
 export const DEMO_MODE: boolean = import.meta.env.VITE_DEMO_MODE === "true"
@@ -87,4 +91,14 @@ export function demoGetReport(): Promise<string> {
 /** El PDF de la demo se sirve como asset estático (ver `reportPdfUrl`): se baja como Blob. */
 export function demoGetReportPdf(): Promise<Blob> {
   return fetch(reportPdfUrl).then((r) => r.blob())
+}
+
+/** La base editable de la demo: el ZIP con el `.qmd` y sus figuras, igual que el backend real. */
+export function demoGetReportEditable(): Promise<Blob> {
+  return fetch(reportQuartoZipUrl).then((r) => r.blob())
+}
+
+/** El Word de la demo, servido como asset estático. */
+export function demoGetReportDocx(): Promise<Blob> {
+  return fetch(reportDocxUrl).then((r) => r.blob())
 }

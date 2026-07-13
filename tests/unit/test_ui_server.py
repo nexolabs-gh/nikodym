@@ -7,9 +7,11 @@ saltan (no rompen la suite base). El bootstrap ``create_app`` se cubre por *smok
 
 from __future__ import annotations
 
+import io
 import subprocess
 import sys
 import textwrap
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -405,19 +407,36 @@ def test_report_pdf_run_id_invalido_404(client_tmp: TestClient) -> None:
     assert client_tmp.get("/api/report/no-uuid/pdf").status_code == 404
 
 
-def test_report_md_presente_200_text_markdown(client_tmp: TestClient, tmp_path: Path) -> None:
-    """``GET /api/report/{run_id}/md`` sirve la **base editable** como descarga → 200 markdown."""
+def test_report_md_presente_200_zip_con_figuras(client_tmp: TestClient, tmp_path: Path) -> None:
+    """``GET /api/report/{run_id}/md`` sirve la **base editable** como ZIP autocontenido → 200.
+
+    El ``.qmd`` referencia sus figuras por ruta relativa: si el ZIP no las llevara, el analista se
+    bajaría un informe con las imágenes rotas. Se exige que la figura viaje EN el paquete, con la
+    misma ruta relativa que cita el documento, para que ``quarto render`` compile sin tocar nada.
+    """
     run_id = "c" * 32
     run_dir = tmp_path / "runs" / run_id
     run_dir.mkdir(parents=True)
-    (run_dir / "report.qmd").write_text("---\ntitle: Informe\n---\n\n# Hola\n", encoding="utf-8")
+    (run_dir / "report.qmd").write_text(
+        "---\ntitle: Informe\n---\n\n![Gains](report_figuras/chart-gains.svg)\n", encoding="utf-8"
+    )
+    figuras = run_dir / "report_figuras"
+    figuras.mkdir()
+    (figuras / "chart-gains.svg").write_text("<svg/>", encoding="utf-8")
 
     respuesta = client_tmp.get(f"/api/report/{run_id}/md")
 
     assert respuesta.status_code == 200
-    assert respuesta.headers["content-type"].startswith("text/markdown")
-    assert respuesta.headers["content-disposition"] == 'attachment; filename="reporte-modelo.qmd"'
-    assert "title: Informe" in respuesta.text
+    assert respuesta.headers["content-type"].startswith("application/zip")
+    assert (
+        respuesta.headers["content-disposition"]
+        == 'attachment; filename="reporte-modelo-quarto.zip"'
+    )
+    with zipfile.ZipFile(io.BytesIO(respuesta.content)) as bundle:
+        nombres = bundle.namelist()
+        assert "report.qmd" in nombres
+        assert "report_figuras/chart-gains.svg" in nombres
+        assert "title: Informe" in bundle.read("report.qmd").decode("utf-8")
 
 
 def test_report_docx_presente_200_ooxml(client_tmp: TestClient, tmp_path: Path) -> None:

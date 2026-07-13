@@ -143,7 +143,8 @@ const SECTIONS: SectionDef[] = [
     label: "Reporte",
     icon: FileText,
     title: "Reporte",
-    cardDescription: "El informe HTML del modelo de tu última corrida.",
+    cardDescription:
+      "El informe de validación de tu última corrida: HTML, PDF, Word o base editable.",
     empty:
       "El reporte HTML determinístico (SDD-26) se servirá tal cual, junto al YAML canónico que reproduce la corrida por código.",
     tag: "B23.5",

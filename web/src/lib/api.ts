@@ -14,6 +14,8 @@ import {
   demoConfigToYaml,
   demoGetPreset,
   demoGetReport,
+  demoGetReportDocx,
+  demoGetReportEditable,
   demoGetReportPdf,
   demoGetResults,
   demoListDatasets,
@@ -289,6 +291,32 @@ export async function getReportPdf(runId: string): Promise<Blob> {
   )
   if (!res.ok) {
     throw new ApiError(`HTTP ${res.status} en /api/report/pdf`, res.status)
+  }
+  return res.blob()
+}
+
+/**
+ * GET /api/report/{run_id}/md — la BASE EDITABLE, como ZIP (`.qmd` de Quarto + sus figuras).
+ *
+ * Va empaquetada porque el `.qmd` referencia las figuras por ruta relativa: bajar el texto solo
+ * daría un informe con las imágenes rotas. Opt-in vía `formats`, igual que el PDF: un 404 quiere
+ * decir que la corrida no la generó.
+ */
+export async function getReportEditable(runId: string): Promise<Blob> {
+  if (DEMO_MODE) return demoGetReportEditable()
+  const res = await fetch(`${API_BASE}/api/report/${encodeURIComponent(runId)}/md`)
+  if (!res.ok) {
+    throw new ApiError(`HTTP ${res.status} en /api/report/md`, res.status)
+  }
+  return res.blob()
+}
+
+/** GET /api/report/{run_id}/docx — el informe en Word. Opt-in vía `formats` (404 si no se generó). */
+export async function getReportDocx(runId: string): Promise<Blob> {
+  if (DEMO_MODE) return demoGetReportDocx()
+  const res = await fetch(`${API_BASE}/api/report/${encodeURIComponent(runId)}/docx`)
+  if (!res.ok) {
+    throw new ApiError(`HTTP ${res.status} en /api/report/docx`, res.status)
   }
   return res.blob()
 }

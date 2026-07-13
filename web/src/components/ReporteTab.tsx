@@ -12,8 +12,15 @@ import {
 import { EmptyState } from "@/components/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { getReport, getReportPdf } from "@/lib/api"
 import {
+  getReport,
+  getReportDocx,
+  getReportEditable,
+  getReportPdf,
+} from "@/lib/api"
+import {
+  REPORT_DOCX_FILENAME,
+  REPORT_EDITABLE_FILENAME,
   REPORT_FILENAME,
   REPORT_PDF_FILENAME,
   reportErrorMessage,
@@ -37,14 +44,36 @@ type ReportState =
   | { kind: "error"; message: string }
 
 /**
- * Estado de la descarga del PDF (NO es dominio): `idle` en reposo, `downloading` mientras se baja
- * el binario (deshabilita el botón + spinner) y `error` con un mensaje inline al fallar. Es
- * independiente de `ReportState` porque la descarga del PDF no afecta al HTML ya embebido.
+ * Los entregables descargables además del HTML embebido. Cada uno es opt-in vía `report.formats`:
+ * el preset estándar pide los cuatro, pero una corrida configurada a mano puede no traerlos (→ 404,
+ * que se mapea a un mensaje inline, no a un error de la vista).
  */
-type PdfDownloadState =
+type Entregable = "pdf" | "editable" | "docx"
+
+/**
+ * Estado de una descarga binaria (NO es dominio): `idle` en reposo, `downloading` mientras se baja
+ * (deshabilita el botón + spinner) y `error` con un mensaje inline al fallar. `which` recuerda QUÉ
+ * entregable está en curso para no bloquear los tres botones a la vez. Es independiente de
+ * `ReportState` porque estas descargas no afectan al HTML ya embebido.
+ */
+type DownloadState =
   | { kind: "idle" }
-  | { kind: "downloading" }
+  | { kind: "downloading"; which: Entregable }
   | { kind: "error"; message: string }
+
+/** Qué pedir, cómo llamar al archivo y qué botón mostrar, por entregable. */
+const ENTREGABLES: Record<
+  Entregable,
+  { fetch: (runId: string) => Promise<Blob>; filename: string; label: string }
+> = {
+  pdf: { fetch: getReportPdf, filename: REPORT_PDF_FILENAME, label: "Descargar PDF" },
+  editable: {
+    fetch: getReportEditable,
+    filename: REPORT_EDITABLE_FILENAME,
+    label: "Base editable (Quarto)",
+  },
+  docx: { fetch: getReportDocx, filename: REPORT_DOCX_FILENAME, label: "Word (.docx)" },
+}
 
 /**
  * Dispara la descarga del HTML como archivo con nombre fijo: crea un Blob, un object URL y un
@@ -64,14 +93,14 @@ function downloadReport(html: string) {
 }
 
 /**
- * Igual que `downloadReport` pero para el PDF: recibe el `Blob` ya resuelto (el binario lo trae
- * `getReportPdf`), abre un object URL y dispara el `<a download>` efímero. Aísla el efecto DOM.
+ * Igual que `downloadReport` pero para los binarios (PDF, Word, ZIP de la base editable): recibe el
+ * `Blob` ya resuelto, abre un object URL y dispara el `<a download>` efímero. Aísla el efecto DOM.
  */
-function downloadPdf(blob: Blob) {
+function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement("a")
   anchor.href = url
-  anchor.download = REPORT_PDF_FILENAME
+  anchor.download = filename
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
@@ -79,7 +108,7 @@ function downloadPdf(blob: Blob) {
 }
 
 /**
- * Pestaña Reporte (B38b): muestra el informe HTML del modelo de la ÚLTIMA corrida
+ * Pestaña Reporte: muestra el informe de validación de la ÚLTIMA corrida
  * (`GET /api/report/{run_id}`) embebido en un `<iframe srcDoc>` —que lo AÍSLA de los estilos
  * de la app (el reporte trae los suyos), a diferencia de `dangerouslySetInnerHTML`— más un
  * botón para descargarlo. CERO lógica de dominio (SDD-23 §1): el HTML lo produce el motor
@@ -91,22 +120,24 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
   const [state, setState] = useState<ReportState>({ kind: "loading" })
   // Se incrementa para reintentar tras un error: re-dispara el efecto sin cambiar el run_id.
   const [reloadKey, setReloadKey] = useState(0)
-  // Descarga del PDF (independiente del HTML embebido): `idle` en reposo, `downloading` mientras
-  // se baja el binario, `error` con un mensaje inline si falla (p.ej. 404 = la corrida no pidió PDF).
-  const [pdfState, setPdfState] = useState<PdfDownloadState>({ kind: "idle" })
+  // Descarga de los entregables binarios (independiente del HTML embebido): `idle` en reposo,
+  // `downloading` mientras se baja, `error` con un mensaje inline si falla (p.ej. 404 = la corrida
+  // no pidió ese formato, o el servidor no tiene el extra instalado).
+  const [download, setDownload] = useState<DownloadState>({ kind: "idle" })
 
-  // Baja el PDF de la corrida actual: pide el Blob y dispara la descarga; mapea el fallo a un
+  // Baja un entregable de la corrida actual: pide el Blob y dispara la descarga; mapea el fallo a un
   // mensaje inline discreto sin romper la vista del HTML. No hay guarda de desmontaje: el efecto
   // es acotado (un click) y el `<a download>` no depende del ciclo de vida del componente.
-  async function handleDownloadPdf() {
+  async function handleDownload(which: Entregable) {
     if (runId === null) return
-    setPdfState({ kind: "downloading" })
+    const entregable = ENTREGABLES[which]
+    setDownload({ kind: "downloading", which })
     try {
-      const blob = await getReportPdf(runId)
-      downloadPdf(blob)
-      setPdfState({ kind: "idle" })
+      const blob = await entregable.fetch(runId)
+      downloadBlob(blob, entregable.filename)
+      setDownload({ kind: "idle" })
     } catch (err) {
-      setPdfState({ kind: "error", message: reportPdfErrorMessage(err) })
+      setDownload({ kind: "error", message: reportPdfErrorMessage(err) })
     }
   }
 
@@ -138,7 +169,7 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
         <EmptyState
           icon={FileText}
           title="Aún no ejecutaste un modelo"
-          description="El informe HTML del modelo aparece aquí en cuanto ejecutes una corrida con la configuración estándar."
+          description="El informe de validación del modelo aparece aquí en cuanto ejecutes una corrida con la configuración estándar."
           tag="Reporte"
           action={{
             label: "Ejecutar el preset",
@@ -197,10 +228,11 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
               Reporte del modelo
             </p>
             <p className="text-sm text-muted-foreground">
-              Informe HTML de tu última corrida, aislado en su propio marco.
+              Informe de tu última corrida. Descárgalo cerrado (HTML o PDF), o llévate la base
+              editable y escribe tu documentación encima.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -209,28 +241,31 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
               <Download aria-hidden="true" />
               Descargar HTML
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadPdf}
-              disabled={pdfState.kind === "downloading"}
-            >
-              {pdfState.kind === "downloading" ? (
-                <Loader2 className="animate-spin" aria-hidden="true" />
-              ) : (
-                <FileDown aria-hidden="true" />
-              )}
-              Descargar PDF
-            </Button>
+            {(["pdf", "docx", "editable"] as const).map((which) => (
+              <Button
+                key={which}
+                variant="outline"
+                size="sm"
+                onClick={() => void handleDownload(which)}
+                disabled={download.kind === "downloading"}
+              >
+                {download.kind === "downloading" && download.which === which ? (
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileDown aria-hidden="true" />
+                )}
+                {ENTREGABLES[which].label}
+              </Button>
+            ))}
           </div>
         </div>
-        {pdfState.kind === "error" && (
+        {download.kind === "error" && (
           <p
             role="status"
             className="flex items-center gap-1.5 text-xs text-destructive"
           >
             <CircleAlert className="size-3.5" aria-hidden="true" />
-            {pdfState.message}
+            {download.message}
           </p>
         )}
         <iframe

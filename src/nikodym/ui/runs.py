@@ -15,9 +15,11 @@ diseño (§9).
 
 from __future__ import annotations
 
+import io
 import json
 import re
 import shutil
+import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -32,6 +34,7 @@ __all__ = [
     "load_report",
     "load_report_docx",
     "load_report_md",
+    "load_report_md_bundle",
     "load_report_pdf",
     "load_results",
     "save",
@@ -113,6 +116,30 @@ def load_report_md(run_id: str, *, workdir: Path) -> str | None:
     if not md_path.is_file():
         return None
     return md_path.read_text(encoding="utf-8")
+
+
+def load_report_md_bundle(run_id: str, *, workdir: Path) -> bytes | None:
+    """Empaqueta el ``.qmd`` con su directorio de figuras en un ZIP, o ``None`` (→ 404).
+
+    El ``.qmd`` referencia las figuras por ruta relativa (``<nombre>_figuras/*.svg``), así que
+    descargarlo suelto entrega un documento con las imágenes rotas: la "base editable" solo sirve
+    si viaja completa. El ZIP se arma en memoria y conserva la ruta relativa, de modo que al
+    descomprimirlo ``quarto render`` compile tal cual, sin tocar nada.
+    """
+    run_dir = _run_dir(workdir, run_id)
+    md_path = run_dir / _REPORT_MD_FILENAME
+    if not md_path.is_file():
+        return None
+
+    figures_dir = run_dir / f"{md_path.stem}{_FIGURES_SUFFIX}"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr(md_path.name, md_path.read_text(encoding="utf-8"))
+        if figures_dir.is_dir():
+            for figure in sorted(figures_dir.iterdir()):
+                if figure.is_file():
+                    bundle.writestr(f"{figures_dir.name}/{figure.name}", figure.read_bytes())
+    return buffer.getvalue()
 
 
 def load_report_docx(run_id: str, *, workdir: Path) -> bytes | None:

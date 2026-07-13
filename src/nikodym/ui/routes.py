@@ -407,24 +407,28 @@ def build_router() -> APIRouter:
 
     @router.get("/report/{run_id}/md")
     async def report_md_endpoint(run_id: str, request: Request) -> Response:
-        """Sirve el ``.qmd`` (Quarto/Markdown) del reporte como descarga; sin ``.qmd`` → 404.
+        """Sirve la base editable como ZIP (``.qmd`` + figuras); sin ``.qmd`` → 404.
 
         Es la **base editable**: el analista la baja, escribe su contexto y sus conclusiones encima
         y compila su propio documento.
+
+        Va como ZIP y no como ``.qmd`` suelto a propósito: el documento referencia sus figuras por
+        ruta relativa, así que entregar solo el texto daría un informe con las imágenes rotas. El
+        ZIP se descomprime y ``quarto render`` compila tal cual.
         """
         workdir = Path(request.app.state.settings.workdir)
         try:
-            markdown = runs.load_report_md(run_id, workdir=workdir)
+            bundle = runs.load_report_md_bundle(run_id, workdir=workdir)
         except UiRunNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if markdown is None:
+        if bundle is None:
             raise HTTPException(
                 status_code=404, detail=f"la corrida '{run_id}' no tiene reporte .qmd."
             )
         return Response(
-            content=markdown,
-            media_type="text/markdown; charset=utf-8",
-            headers={"Content-Disposition": 'attachment; filename="reporte-modelo.qmd"'},
+            content=bundle,
+            media_type="application/zip",
+            headers={"Content-Disposition": 'attachment; filename="reporte-modelo-quarto.zip"'},
         )
 
     @router.get("/report/{run_id}/docx")

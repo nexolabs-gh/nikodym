@@ -17,6 +17,15 @@ export const REPORT_FILENAME = "reporte-modelo.html"
 export const REPORT_PDF_FILENAME = "reporte-modelo.pdf"
 
 /**
+ * Nombre del ZIP de la base editable: trae el `.qmd` de Quarto y sus figuras. Va empaquetado
+ * porque el documento referencia las imágenes por ruta relativa; suelto llegaría roto.
+ */
+export const REPORT_EDITABLE_FILENAME = "reporte-modelo-quarto.zip"
+
+/** Nombre del informe en Word, el formato que un área de validación realmente edita. */
+export const REPORT_DOCX_FILENAME = "reporte-modelo.docx"
+
+/**
  * Mensaje legible de un fallo al pedir el reporte. Un `ApiError` 404 significa que la corrida
  * existe pero no generó reporte → mensaje claro y accionable, no el status HTTP crudo. Otro
  * `ApiError` delega en `describeApiError` (detalle del backend o su mensaje). Cualquier otro
