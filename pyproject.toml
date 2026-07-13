@@ -214,6 +214,15 @@ filterwarnings = [
   # no aparece; en el job all-extras (Linux) sí. Acotada por mensaje+categoría para no enmascarar
   # otros warnings.
   "ignore:The set_(bad|over|under) function will be deprecated:PendingDeprecationWarning",
+  # Degradación CON GRACIA del reporte, que es comportamiento esperado y no un defecto: el preset
+  # estándar pide los cuatro entregables (HTML/PDF/.qmd/.docx), y los jobs que instalan sin los
+  # extras `pdf`/`docx` emiten estos avisos al no poder producirlos. Con `filterwarnings=error` un
+  # aviso esperado tumbaría cualquier test que corra el preset, aunque no vaya del PDF.
+  # Acotados por mensaje+categoría para no enmascarar otros RuntimeWarning. La degradación sigue
+  # verificada explícitamente en tests/unit/test_report_pdf.py (con `pytest.warns`, que atrapa el
+  # aviso pese a este filtro) y su ausencia sería un fallo real allí.
+  "ignore:WeasyPrint no está disponible:RuntimeWarning",
+  "ignore:python-docx no está disponible:RuntimeWarning",
 ]
 
 [tool.coverage.run]

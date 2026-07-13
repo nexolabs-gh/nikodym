@@ -33,7 +33,30 @@ from nikodym.report.renderer import HtmlReportRenderer, PdfReportRenderer
 from nikodym.report.results import ReportInputBundle, ReportResult, ReportSection
 from nikodym.report.step import REPORT_REQUIRED_CARDS, ReportStep
 
-_HAS_WEASYPRINT = importlib.util.find_spec("weasyprint") is not None
+
+def _weasyprint_utilizable() -> bool:
+    """¿Se puede RENDERIZAR un PDF aquí? No basta con que el paquete esté instalado.
+
+    ``find_spec("weasyprint")`` sólo dice que existe el paquete de Python. WeasyPrint además carga
+    librerías NATIVAS (Pango/HarfBuzz/libffi) por cffi al importarse, y ``pip install nikodym[pdf]``
+    no las trae: en un macOS o un Windows sin Pango el import revienta con ``OSError``. Gatear sólo
+    por ``find_spec`` hacía que estos tests, en vez de saltarse, FALLARAN en cualquier máquina de
+    desarrollo con los extras instalados y sin las nativas del sistema.
+
+    En el CI el job de PDF instala las nativas explícitamente, así que allí esto sigue siendo
+    ``True`` y los tests corren de verdad (si las nativas faltaran, ese job falla en su propio paso
+    de instalación, no aquí en silencio).
+    """
+    if importlib.util.find_spec("weasyprint") is None:
+        return False
+    try:
+        import weasyprint  # noqa: F401
+    except (ImportError, OSError):
+        return False
+    return True
+
+
+_HAS_WEASYPRINT = _weasyprint_utilizable()
 _MARCA = "marcaunicaxyznikodym"
 
 
@@ -236,6 +259,59 @@ def test_render_pdf_sin_weasyprint_lanza_dependency_error(
     _bloquear_weasyprint(monkeypatch)
     with pytest.raises(ReportDependencyError, match="WeasyPrint"):
         render_pdf("<h1>Nikodym</h1>")
+
+
+def _romper_nativas_de_weasyprint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """WeasyPrint instalado pero SIN sus librerías nativas: el import levanta ``OSError``.
+
+    Es el escenario real de ``pip install nikodym[pdf]`` en un macOS o un Windows sin Pango: el
+    paquete de Python está, las librerías del sistema no.
+    """
+    real_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals_: Any = None,
+        locals_: Any = None,
+        fromlist: Any = (),
+        level: int = 0,
+    ) -> Any:
+        if name == "weasyprint":
+            raise OSError("cannot load library 'libgobject-2.0-0'")
+        return real_import(name, globals_, locals_, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+
+def test_render_pdf_sin_librerias_nativas_lanza_dependency_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Las nativas ausentes se traducen a ``ReportDependencyError``, no escapan como ``OSError``.
+
+    Si el ``OSError`` escapa crudo, ``fail_if_unavailable=False`` no lo atrapa y la corrida entera
+    muere: el usuario pierde hasta el HTML, que sí se podía generar.
+    """
+    _romper_nativas_de_weasyprint(monkeypatch)
+    with pytest.raises(ReportDependencyError, match="nativas"):
+        render_pdf("<h1>Nikodym</h1>")
+
+
+def test_pdf_renderer_degrada_sin_librerias_nativas(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Con las nativas rotas y ``fail_if_unavailable=False``, la corrida SIGUE y entrega el HTML."""
+    _romper_nativas_de_weasyprint(monkeypatch)
+
+    renderer = PdfReportRenderer(
+        ReportConfig(pdf=PdfRenderConfig(enabled=True, fail_if_unavailable=False))
+    )
+    with pytest.warns(RuntimeWarning):
+        manifest = renderer.render(_bundle(), output_dir=str(tmp_path / "degradado"))
+
+    assert manifest.output_format == "html"
+    assert (tmp_path / "degradado" / "scorecard_report.html").is_file()
+    assert not (tmp_path / "degradado" / "scorecard_report.pdf").exists()
 
 
 def test_pdf_renderer_degrada_o_falla_sin_weasyprint(

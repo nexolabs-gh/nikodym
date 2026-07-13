@@ -38,8 +38,16 @@ def render_pdf(html: str, *, base_url: str | None = None) -> bytes:
     Raises
     ------
     ReportDependencyError
-        Si WeasyPrint no está instalado. El import se hace dentro de la función para no romper el
-        import liviano del paquete ``report``.
+        Si WeasyPrint no está instalado, o si lo está pero sus librerías NATIVAS
+        (Pango/HarfBuzz/libffi) no se pueden cargar. Ambos son el mismo hecho para el llamador
+        ("no hay PDF disponible aquí") y por eso comparten excepción: así
+        ``PdfReportRenderer.write_pdf`` puede degradar con ``pdf.fail_if_unavailable=False`` en vez
+        de tumbar la corrida entera.
+
+        El caso de las nativas NO es exótico: ``pip install nikodym[pdf]`` trae el paquete de Python
+        pero no las librerías del sistema, así que en un macOS o un Windows sin Pango el import
+        levanta ``OSError``. Cuando eso escapaba crudo, una corrida que pedía PDF moría entera y el
+        usuario perdía también el HTML, que sí se podía generar.
     """
     try:
         from weasyprint import HTML
@@ -48,4 +56,17 @@ def render_pdf(html: str, *, base_url: str | None = None) -> bytes:
             "No se pudo generar el PDF: falta WeasyPrint. Instale `nikodym[pdf]` y las librerías "
             "nativas Pango/HarfBuzz/libffi (ver docs) y reintente."
         ) from exc
-    return cast(bytes, HTML(string=html, base_url=base_url).write_pdf())
+    except OSError as exc:  # cffi/ctypes al cargar Pango, HarfBuzz o libffi
+        raise ReportDependencyError(
+            "No se pudo generar el PDF: WeasyPrint está instalado pero no encuentra sus librerías "
+            "nativas (Pango/HarfBuzz/libffi). Instálelas en el sistema (ver docs) y reintente; el "
+            f"resto del reporte no se ve afectado. Detalle: {exc}"
+        ) from exc
+
+    try:
+        return cast(bytes, HTML(string=html, base_url=base_url).write_pdf())
+    except OSError as exc:  # las nativas también pueden fallar al renderizar, no solo al importar
+        raise ReportDependencyError(
+            "No se pudo generar el PDF: WeasyPrint falló al usar sus librerías nativas "
+            f"(Pango/HarfBuzz/libffi). Detalle: {exc}"
+        ) from exc
