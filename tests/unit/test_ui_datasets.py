@@ -27,6 +27,7 @@ def test_list_datasets_estable_y_con_roles_f1() -> None:
         "consumo_comportamiento",
         "hipotecario_comportamiento",
         "consumo_drift",
+        "provisiones_consumo",
     ]
 
     for descriptor in primero:
@@ -37,6 +38,87 @@ def test_list_datasets_estable_y_con_roles_f1() -> None:
         assert sum(col["role"] == "target" for col in descriptor["columns"]) == 1
         assert sum(col["role"] == "segment" for col in descriptor["columns"]) == 1
         assert sum(col["role"] == "cohort" for col in descriptor["columns"]) == 1
+
+
+def test_provisiones_consumo_es_una_cartera_creible() -> None:
+    """El dataset de provisiones cumple los invariantes que lo hacen creíble (SDD-28 §6.3).
+
+    No es un test de "el motor no explota": es un test de **verosimilitud**. Un gerente de riesgo
+    detecta un dato imposible en segundos, y a partir de ahí no vuelve a creer ninguna cifra de la
+    pantalla. Cada aserción de aquí corresponde a algo que un experto miraría.
+    """
+    frame = datasets._generate("provisiones_consumo")
+
+    # --- Magnitudes: la cartera se parece a una cartera de consumo chilena ---
+    tasa_default = frame["bad_flag"].mean()
+    assert 0.04 <= tasa_default <= 0.10, (
+        f"tasa de default {tasa_default:.1%}: fuera del rango de una cartera de consumo real "
+        "(la cartera F1 tiene un 23 %, que es inverosímil)"
+    )
+    al_dia = (frame["days_past_due"] == 0).mean()
+    assert 0.70 <= al_dia <= 0.90, f"{al_dia:.0%} al día: una cartera viva no se ve así"
+    incumplidas = (frame["days_past_due"] >= 90).mean()
+    assert 0.01 <= incumplidas <= 0.05, (
+        f"{incumplidas:.1%} en incumplimiento: ahí está la plata (PI del 100 %), tiene que existir"
+    )
+
+    # --- Cap. B-2: la mora se castiga; una cartera viva no arrastra 500 días de mora ---
+    assert frame["days_past_due"].max() <= 180
+
+    # --- Coherencia interna: lo que un revisor cruza ---
+    assert (frame["mora_max_12m"] >= frame["days_past_due"]).all(), (
+        "la mora máxima de 12 meses no puede ser menor que la mora de hoy"
+    )
+
+    # --- SIN FUGA: `bad_flag` mira al futuro; `days_past_due` es el estado de hoy. Si fueran
+    # deterministas el uno del otro, el scorecard predeciría el presente (KS absurdo = fraude). ---
+    malos_al_dia = frame.loc[frame["bad_flag"] == 1, "days_past_due"].eq(0).mean()
+    assert 0.15 <= malos_al_dia <= 0.85, (
+        f"solo el {malos_al_dia:.0%} de los futuros malos está hoy al día: hay fuga de información"
+    )
+
+    # --- Los flags de sistema son POR DEUDOR (el motor CMF hace any() sobre el deudor) ---
+    por_deudor = frame.groupby("debtor_id")
+    assert por_deudor["has_housing_loan_system"].nunique().eq(1).all()
+    assert por_deudor["system_dpd30_last_3m"].nunique().eq(1).all()
+
+    # --- La consolidación por deudor del B-1 tiene que poder ejercitarse ---
+    con_varias = (por_deudor.size() > 1).mean()
+    assert 0.20 <= con_varias <= 0.45, (
+        f"{con_varias:.0%} de deudores con >1 operación: sin esto la consolidación del B-1 "
+        "—la regla central de la norma en consumo— nunca se ejercita"
+    )
+
+    # --- LGD: distribuida, nunca constante (una LGD plana delata al dato sintético) ---
+    assert frame["lgd"].between(0.0, 1.0).all()
+    assert frame["lgd"].std() > 0.05
+    # y por debajo de la PDI normativa del producto (la PDI regulatoria es más conservadora)
+    lgd_media = frame.groupby("cmf_product_type")["lgd"].mean()
+    assert lgd_media["leasing_auto"] < 0.332
+    assert lgd_media["creditos_en_cuotas"] < 0.566
+    assert lgd_media["tarjetas_lineas_otros"] < 0.603
+
+    # --- Los buckets de la matriz de PI tienen masa (si no, la matriz no se ejercita) ---
+    bordes = [(0, 1), (1, 8), (8, 31), (31, 61), (61, 90), (90, 181)]
+    for bajo, alto in bordes:
+        masa = ((frame["days_past_due"] >= bajo) & (frame["days_past_due"] < alto)).mean()
+        assert masa > 0.005, f"bucket de mora [{bajo},{alto}) casi vacío: la matriz no se ejercita"
+
+    # --- El motor CMF exige UNA sola fecha de cálculo ---
+    assert frame["as_of_date"].nunique() == 1
+
+    # --- Columnas-mina: el motor CMF las olfatea por nombre y abortaría la corrida ---
+    prohibidas = {"guarantee_type", "financial_guarantee_amount", "aval_coverage_pct"}
+    assert not (prohibidas & set(frame.columns))
+    # y `cmf_category` NO va: en consumo el motor la deriva, no la lee (SDD-28 §6.2)
+    assert "cmf_category" not in frame.columns
+
+
+def test_provisiones_consumo_determinista() -> None:
+    """Dos generaciones producen exactamente la misma cartera (seed constante)."""
+    assert datasets._generate("provisiones_consumo").equals(
+        datasets._generate("provisiones_consumo")
+    )
 
 
 def test_materialize_determinista_byte_logico(tmp_path: Path) -> None:

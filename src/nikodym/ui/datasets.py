@@ -48,6 +48,32 @@ _COLUMNS: tuple[dict[str, str], ...] = (
     {"name": "bad_flag", "dtype": "int", "role": "target"},
 )
 
+# Esquema del dataset de PROVISIONES: superconjunto del de F1. Las columnas nuevas llevan
+# ``role="economic"`` — no son features del scorecard (no entran al binning), sino los inputs
+# económico-regulatorios que consumen el motor estándar CMF (Cap. B-1 §3.1.3) y el método interno
+# (Cap. B-1 §3). Ver ``_generate_provisiones`` para los invariantes de coherencia.
+#
+# Deliberadamente AUSENTES (SDD-28 §6.2), no por olvido:
+#   * ``cmf_category``  — en cartera `consumer` el motor NUNCA la lee: deriva la categoría de
+#     (bucket de mora, hipotecario en el sistema, mora en el sistema). Las categorías A1-C6 son de
+#     cartera COMERCIAL individual. Incluirla haría creer que en consumo la categoría es un input.
+#   * ``is_default``    — CMF deriva el incumplimiento de max(dpd) >= 90 por deudor; una columna
+#     paralela crearía dos verdades que pueden discrepar en silencio.
+#   * ``guarantee_*`` / ``financial_guarantee_*`` / ``aval_*`` / ``contingent_*`` — el motor CMF
+#     OLFATEA estos nombres y con la política por defecto (`fail`) ABORTA la corrida.
+_PROVISIONING_COLUMNS: tuple[dict[str, str], ...] = (
+    *_COLUMNS,
+    {"name": "as_of_date", "dtype": "str", "role": "economic"},
+    {"name": "debtor_id", "dtype": "str", "role": "economic"},
+    {"name": "cmf_portfolio", "dtype": "str", "role": "economic"},
+    {"name": "cmf_product_type", "dtype": "str", "role": "economic"},
+    {"name": "days_past_due", "dtype": "int", "role": "economic"},
+    {"name": "has_housing_loan_system", "dtype": "bool", "role": "economic"},
+    {"name": "system_dpd30_last_3m", "dtype": "bool", "role": "economic"},
+    {"name": "exposure_amount", "dtype": "float", "role": "economic"},
+    {"name": "lgd", "dtype": "float", "role": "economic"},
+)
+
 # Registro determinista: id -> parámetros de generación. ``seed`` es CONSTANTE por dataset (jamás
 # derivado de hash()/reloj) para garantizar reproducibilidad byte-lógica entre corridas.
 _DATASETS: dict[str, dict[str, Any]] = {
@@ -99,6 +125,34 @@ _DATASETS: dict[str, dict[str, Any]] = {
         "antiguedad_high": 121,
         "drift": True,
     },
+    "provisiones_consumo": {
+        "name": "Consumo — provisiones (CMF + método interno)",
+        "description": (
+            "Cartera de consumo con las columnas económico-regulatorias que exigen los motores de "
+            "provisiones: exposición, mora en días, deudor (varias operaciones por RUT, para que "
+            "la consolidación del Cap. B-1 se ejercite), tipo de producto, los dos flags de "
+            "sistema (hipotecario vigente y mora de 30d o más en los últimos 3 meses) y la LGD "
+            "interna. Superconjunto del dataset de scorecard: el pipeline F1 corre igual, y "
+            "encima se calculan el método estándar de la CMF y el método interno "
+            "(PD·LGD·Exposición por grupo homogéneo). Tasa de default de un dígito y mora "
+            "truncada a 180 días (Cap. B-2: más allá se castiga)."
+        ),
+        "n_rows": 6000,
+        # Con 5.200 deudores para 6.000 operaciones, ~30 % tiene >=2 productos: suficiente para que
+        # la consolidación por deudor del B-1 se ejercite, sin inventar una cartera irreal donde
+        # casi todos tienen varios créditos.
+        "n_debtors": 4444,
+        "seed": 20_240_713,
+        "as_of_date": "2024-06-30",
+        "segments": ("asalariado", "independiente", "pensionado"),
+        "cohorts": ("2023Q1", "2023Q2", "2023Q3", "2023Q4", "2024Q1", "2024Q2"),
+        # Recalibrado: el intercepto de F1 (-2,2) produce un 23 % de default, inverosímil para una
+        # cartera de consumo chilena. Con -3,70 la tasa queda en un dígito (~6,7 %).
+        "intercept": -4.15,
+        "antiguedad_low": 1,
+        "antiguedad_high": 121,
+        "provisioning": True,
+    },
 }
 
 
@@ -117,11 +171,18 @@ def list_datasets() -> list[dict[str, Any]]:
             "id": dataset_id,
             "name": spec["name"],
             "description": spec["description"],
-            "columns": [dict(column) for column in _COLUMNS],
+            "columns": [dict(column) for column in _columns_for(dataset_id)],
             "n_rows": spec["n_rows"],
         }
         for dataset_id, spec in _DATASETS.items()
     ]
+
+
+def _columns_for(dataset_id: str) -> tuple[dict[str, str], ...]:
+    """Devuelve el esquema de columnas del dataset (los de provisiones traen un superconjunto)."""
+    if _DATASETS[dataset_id].get("provisioning"):
+        return _PROVISIONING_COLUMNS
+    return _COLUMNS
 
 
 def ingest_upload(content: bytes, filename: str, *, workdir: Path) -> dict[str, Any]:
@@ -285,6 +346,8 @@ def _generate(dataset_id: str) -> pd.DataFrame:
     spec = _DATASETS[dataset_id]
     if spec.get("drift"):  # rama separada: los datasets sin drift no tocan una sola llamada al rng
         return _generate_drift(dataset_id)
+    if spec.get("provisioning"):  # superconjunto de columnas: motor CMF + método interno
+        return _generate_provisiones(dataset_id)
     rng = np.random.default_rng(spec["seed"])
     n_rows: int = spec["n_rows"]
 
@@ -319,6 +382,186 @@ def _generate(dataset_id: str) -> pd.DataFrame:
             "segmento": segmento.astype(object),
             "cohorte": cohorte.astype(object),
             "bad_flag": bad_flag,
+        },
+        index=loan_id,
+    )
+
+
+def _generate_provisiones(dataset_id: str) -> pd.DataFrame:
+    """Genera la cartera de consumo con las columnas que exigen los motores de provisiones.
+
+    Es un **superconjunto** de las 9 columnas de F1 (para que el pipeline de scorecard corra sin
+    cambios) más las que piden el motor estándar CMF (Cap. B-1 §3.1.3) y el método interno
+    (Cap. B-1 §3). Todo sale de **un solo proceso latente**: un dato coherente es el requisito de
+    credibilidad de la demo, y una cartera con seis muestreos independientes se le nota a un
+    gerente de riesgo en segundos (SDD-28 §6.3 y R1).
+
+    Invariantes que el generador garantiza **por construcción** (los verifica el gate G1):
+
+    1. **Deudores con varias operaciones** (~30 % con >=2). Sin esto, la consolidación por deudor
+       del B-1 —la regla central de la norma en consumo— nunca se ejercita.
+    2. **``days_past_due`` correlaciona con el riesgo latente, pero NO es determinista de
+       ``bad_flag``.** ``bad_flag`` mira hacia adelante (ventana de desempeño) y ``days_past_due``
+       es el estado de hoy: volverlos idénticos metería *target leakage*, el scorecard predeciría
+       el presente, el KS saldría absurdo y el gerente dejaría de creer toda la pantalla.
+    3. ``mora_max_12m >= days_past_due``: la mora máxima de 12 meses no puede ser menor que la
+       mora actual (un revisor cruza esas dos columnas).
+    4. **Los flags de sistema son POR DEUDOR**, no por operación (el motor CMF hace ``any()`` sobre
+       el deudor). ``has_housing_loan_system`` correlaciona **negativamente** con el riesgo y
+       ``system_dpd30_last_3m`` está casi implicado por la mora propia: quien está en mora contigo,
+       lo está en el sistema. Estos dos booleanos **son** la provisión CMF: la PI va de 3,3 % a
+       19,8 % con la misma mora en el banco (factor 6x).
+    5. **``cmf_product_type`` correlaciona con ``utilizacion_linea``**: la utilización alta vive en
+       tarjetas/líneas; un crédito en cuotas no tiene línea que utilizar.
+    6. **``exposure_amount`` lo explican las features**: ``≈ ingreso · deuda_ingreso · κ``, en CLP
+       plausible y con cola derecha (lognormal), no uniforme.
+    7. **``lgd`` distribuida (Beta), nunca constante**, y anclada por **debajo** de la PDI
+       normativa del producto — la PDI regulatoria es más conservadora que la LGD interna. Es lo
+       que hace que el estándar muerda de forma **explicable** y no arbitraria.
+    8. **Mora truncada a 180 días**: más allá, el Cap. B-2 obliga a castigar; una cartera viva con
+       500 días de mora no existe.
+    9. **Tasa de default de un dígito** (``intercept`` recalibrado): la cartera F1 tiene un 23 % de
+       default, inverosímil para consumo chileno.
+    """
+    spec = _DATASETS[dataset_id]
+    rng = np.random.default_rng(spec["seed"])
+    n_rows: int = spec["n_rows"]
+
+    # --- Deudores: varias operaciones por deudor, para que la consolidación del B-1 exista ---
+    # La mezcla se construye EXPLÍCITAMENTE (70 % de los deudores con un producto, 25 % con dos,
+    # 5 % con tres) en vez de muestrear índices al azar: el muestreo con reemplazo colisiona y deja
+    # el reparto —que es justo lo que queremos controlar— en manos del azar.
+    n_debtors: int = spec["n_debtors"]
+    tamanos = np.concatenate(
+        [
+            np.ones(round(n_debtors * 0.70), dtype="int64"),
+            np.full(round(n_debtors * 0.25), 2, dtype="int64"),
+            np.full(
+                n_debtors - round(n_debtors * 0.70) - round(n_debtors * 0.25), 3, dtype="int64"
+            ),
+        ]
+    )
+    debtor_idx = np.repeat(np.arange(len(tamanos)), tamanos)
+    if debtor_idx.size < n_rows:  # completa con deudores de una sola operación
+        extra = np.arange(len(tamanos), len(tamanos) + (n_rows - debtor_idx.size))
+        debtor_idx = np.concatenate([debtor_idx, extra])
+    debtor_idx = debtor_idx[:n_rows]
+    debtor_id = np.array([f"rut-{position:06d}" for position in debtor_idx], dtype=object)
+    n_debtors = int(debtor_idx.max()) + 1
+
+    # --- Features F1 (mismas distribuciones que `consumo_comportamiento`) ---
+    ingreso = rng.lognormal(mean=13.2, sigma=0.5, size=n_rows)
+    deuda_ingreso = np.clip(rng.gamma(shape=2.0, scale=0.18, size=n_rows), 0.0, 2.5)
+    utilizacion = np.clip(rng.beta(2.0, 3.0, size=n_rows), 0.0, 1.0)
+    antiguedad = rng.integers(spec["antiguedad_low"], spec["antiguedad_high"], size=n_rows)
+    segmento = rng.choice(np.asarray(spec["segments"]), size=n_rows)
+    cohorte = rng.choice(np.asarray(spec["cohorts"]), size=n_rows)
+
+    # Riesgo latente (sin la mora todavía: la mora es CONSECUENCIA del riesgo, no una feature
+    # exógena que lo cause; construirla al revés es lo que produce la fuga de información).
+    ingreso_z = (np.log(ingreso) - 13.2) / 0.5
+    riesgo = (
+        spec["intercept"]
+        + 1.6 * deuda_ingreso
+        + 1.2 * utilizacion
+        - 0.5 * ingreso_z
+        - 0.4 * (antiguedad / 60.0)
+    )
+
+    # --- Estado de mora HOY: ordenado por el riesgo latente, pero estocástico (no determinista) ---
+    # El score de mora mezcla riesgo y azar; los cortes son CUANTILES suyos, no umbrales absolutos:
+    # la suma de dos uniformes NO es uniforme, y con umbrales fijos la cola de incumplimiento sale
+    # ~10x mas delgada de lo pedido (medido: 0,28 % en vez de 2,5 %).
+    orden = np.argsort(np.argsort(riesgo))
+    pct_riesgo = orden / max(n_rows - 1, 1)
+    ruido = rng.random(size=n_rows)
+    score_mora = 0.75 * pct_riesgo + 0.25 * ruido
+    # Masas objetivo de una cartera de consumo chilena viva: ~80 % al día y ~2,5 % en incumplimiento
+    # (la cartera deteriorada es donde está la plata: la PI del bucket ≥90d es 100 %).
+    cortes = np.quantile(score_mora, [0.800, 0.870, 0.920, 0.950, 0.975])
+    bucket = np.searchsorted(cortes, score_mora, side="right")
+    days_past_due = np.zeros(n_rows, dtype="int64")
+    for indice, (bajo, alto) in enumerate(
+        ((1, 8), (8, 31), (31, 61), (61, 90), (90, 181)), start=1
+    ):
+        marca = bucket == indice
+        # Cap. B-2: la mora se castiga; una cartera viva no tiene 500 días de mora ⇒ tope en 180.
+        days_past_due[marca] = rng.integers(bajo, alto, size=int(marca.sum()))
+
+    # `mora_max_12m` (feature F1) = peor mora de los últimos 12m ⇒ nunca menor que la mora de hoy.
+    mora_max_12m = np.maximum(
+        np.clip(rng.poisson(lam=6.0, size=n_rows), 0, 180), days_past_due
+    ).astype("int64")
+
+    # --- Target: la logística F1, ya con la mora observada. Estocástico ⇒ sin fuga. ---
+    logit = riesgo + 0.9 * (mora_max_12m / 30.0)
+    prob_bad = 1.0 / (1.0 + np.exp(-logit))
+    bad_flag = (rng.random(size=n_rows) < prob_bad).astype("int64")
+
+    # --- Flags de sistema: POR DEUDOR (el motor CMF hace any() sobre el deudor) ---
+    riesgo_deudor = np.zeros(n_debtors)
+    np.maximum.at(riesgo_deudor, debtor_idx, pct_riesgo)
+    dpd_deudor = np.zeros(n_debtors, dtype="int64")
+    np.maximum.at(dpd_deudor, debtor_idx, days_past_due)
+
+    # Tener hipotecario en el sistema es señal de MEJOR pagador (la propia matriz de la CMF lo
+    # refleja: PI 3,3 % con hipotecario vs 6,6 % sin él, a igual mora).
+    p_housing = np.clip(0.55 - 0.40 * riesgo_deudor, 0.05, 0.95)
+    housing_deudor = rng.random(size=n_debtors) < p_housing
+    # Mora en el sistema: casi implicada por la mora propia. Un deudor con 60 días de mora contigo
+    # y "sin mora en el sistema" es inverosímil.
+    p_system = np.where(dpd_deudor >= 30, 0.90, np.where(dpd_deudor > 0, 0.45, 0.05))
+    system_deudor = rng.random(size=n_debtors) < p_system
+
+    has_housing_loan_system = housing_deudor[debtor_idx]
+    system_dpd30_last_3m = system_deudor[debtor_idx]
+
+    # --- Producto: correlacionado con la utilización de línea ---
+    producto = np.where(
+        utilizacion > 0.55,
+        "tarjetas_lineas_otros",
+        np.where(rng.random(size=n_rows) < 0.075, "leasing_auto", "creditos_en_cuotas"),
+    ).astype(object)
+
+    # --- Exposición: explicada por ingreso y DTI, en CLP, con cola derecha ---
+    exposure_bruta = ingreso * deuda_ingreso * 6.0 * np.exp(rng.normal(0.0, 0.25, size=n_rows))
+    exposure = np.round(np.clip(exposure_bruta, 50_000.0, None), 2)
+
+    # --- LGD interna: Beta por producto, SIEMPRE por debajo de la PDI normativa del producto ---
+    # PDI CMF (sin hipotecario): leasing 33,2 % · cuotas 56,6 % · tarjetas 60,3 %.
+    lgd_centro: np.ndarray[Any, np.dtype[np.float64]] = np.select(
+        [producto == "leasing_auto", producto == "tarjetas_lineas_otros"],
+        [0.28, 0.52],
+        default=0.46,
+    ).astype("float64")
+    # Sin hipotecario ⇒ menor garantía implícita ⇒ LGD algo mayor (coherente con la matriz).
+    lgd_centro = lgd_centro + np.where(has_housing_loan_system, -0.03, 0.03).astype("float64")
+    concentracion = 25.0
+    lgd_muestra = rng.beta(
+        lgd_centro * concentracion, (1.0 - lgd_centro) * concentracion, size=n_rows
+    )
+    lgd = np.round(np.clip(lgd_muestra, 0.01, 0.99), 4)
+
+    loan_id = pd.Index([f"op-{position:06d}" for position in range(n_rows)], name="loan_id")
+    return pd.DataFrame(
+        {
+            "ingreso_mensual": np.round(ingreso, 2),
+            "deuda_ingreso": np.round(deuda_ingreso, 4),
+            "utilizacion_linea": np.round(utilizacion, 4),
+            "mora_max_12m": mora_max_12m,
+            "antiguedad_meses": antiguedad.astype("int64"),
+            "segmento": segmento.astype(object),
+            "cohorte": cohorte.astype(object),
+            "bad_flag": bad_flag,
+            "as_of_date": np.full(n_rows, spec["as_of_date"], dtype=object),
+            "debtor_id": debtor_id,
+            "cmf_portfolio": np.full(n_rows, "consumer", dtype=object),
+            "cmf_product_type": producto,
+            "days_past_due": days_past_due,
+            "has_housing_loan_system": has_housing_loan_system,
+            "system_dpd30_last_3m": system_dpd30_last_3m,
+            "exposure_amount": exposure,
+            "lgd": lgd,
         },
         index=loan_id,
     )
