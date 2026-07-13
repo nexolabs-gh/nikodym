@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import warnings
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -168,7 +169,16 @@ def _to_json_native(value: Any) -> Any:
     escalar (``np.integer``/``np.floating``/``np.bool_``/``np.str_``) → su ``.item()``. Preserva la
     semántica de ausencia: ``float('nan')`` (incl. ``np.float64('nan')``, subclase de ``float``) →
     ``None``; ``Inf`` se mantiene finito-inválido para que el guard lo rechace, no lo enmascara.
+
+    **``Decimal`` → ``float``.** Los motores de provisiones trabajan en ``Decimal`` (es una cifra
+    contable), y ``json.dumps`` no lo serializa: sin esta rama, ``_ensure_json_safe`` levanta y se
+    cae **todo** el payload de ``/api/results``, no solo la sección de provisiones. Se coacciona
+    aquí, en la frontera, una sola vez: JSON no tiene decimales, y el número ya viene cuantizado por
+    la política ``rounding`` del motor. La alternativa —emitirlo como *string*— filtraría la
+    semántica de ``Decimal`` a TypeScript, que tampoco puede representarla.
     """
+    if isinstance(value, Decimal):  # cifra contable de provisiones (CMF / método interno)
+        return None if value.is_nan() else float(value)
     if isinstance(value, float):  # incl. np.float64 (subclase): NaN→None, resto→float nativo
         return None if value != value else float(value)
     if isinstance(value, np.ndarray):
@@ -263,10 +273,39 @@ def to_records(frame: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def dump_dto(dto: BaseModel) -> dict[str, Any]:
-    """Serializa un DTO Pydantic a JSON (``model_dump(mode="json")``) con guard de finitud."""
-    dumped = dto.model_dump(mode="json")
+    """Serializa un DTO Pydantic a JSON con guard de finitud, coaccionando ``Decimal`` a número.
+
+    Se dumpea en ``mode="json"`` —que es quien resuelve ``datetime``, enums y demás— y **solo** se
+    sustituyen los ``Decimal``, localizándolos con un segundo dump en ``mode="python"`` que conserva
+    los tipos. Las cards de provisiones llevan sus totales en ``Decimal`` (es una cifra contable) y
+    Pydantic los emitiría como ``"851018945.42"``: el front hace aritmética con ellos y TypeScript
+    no tiene decimal, así que devolver un *string* solo trasladaría el problema una capa más allá.
+    """
+    dumped = _sustituye_decimales(dto.model_dump(mode="json"), dto.model_dump(mode="python"))
     _ensure_json_safe(dumped, context=type(dto).__name__)
-    return dumped
+    return dumped  # type: ignore[no-any-return]
+
+
+def _sustituye_decimales(serializado: Any, tipado: Any) -> Any:
+    """Devuelve ``serializado`` con los ``Decimal`` de ``tipado`` convertidos a ``float``.
+
+    Ambos árboles vienen del **mismo** DTO (uno en ``mode="json"``, otro en ``mode="python"``), así
+    que tienen forma idéntica: se recorren en paralelo y solo se toca la hoja donde el árbol tipado
+    dice ``Decimal``. Todo lo demás conserva la serialización de Pydantic.
+    """
+    if isinstance(tipado, Decimal):
+        return None if tipado.is_nan() else float(tipado)
+    if isinstance(tipado, dict) and isinstance(serializado, dict):
+        return {
+            clave: _sustituye_decimales(serializado.get(clave), valor)
+            for clave, valor in tipado.items()
+        }
+    if isinstance(tipado, (list, tuple)) and isinstance(serializado, (list, tuple)):
+        return [
+            _sustituye_decimales(hijo_json, hijo_py)
+            for hijo_json, hijo_py in zip(serializado, tipado, strict=False)
+        ]
+    return serializado
 
 
 def _serialize_model_card(study: Study, governance: object) -> dict[str, Any] | None:

@@ -28,6 +28,7 @@ import os
 import re
 import warnings
 from collections.abc import Callable, Mapping, Sequence
+from decimal import Decimal
 from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
@@ -834,6 +835,10 @@ def _display_json_value(value: Any, *, key_path: tuple[str, ...]) -> JSONValue:
         return value
     if isinstance(value, int) and not isinstance(value, bool):
         return value
+    if isinstance(value, Decimal):
+        # Los motores de provisiones publican sus cifras contables en Decimal. Sin esta rama, el
+        # Anexo de parámetros imprimiría {"unsupported_type": "Decimal"} donde va la provisión.
+        return _format_float(float(value), key_path=key_path)
     if isinstance(value, float):
         return _format_float(value, key_path=key_path)
     if isinstance(value, str):
@@ -891,6 +896,8 @@ def _canonical_value(value: Any) -> JSONValue:
         return value
     if isinstance(value, int) and not isinstance(value, bool):
         return value
+    if isinstance(value, Decimal):  # cifras contables de provisiones: al hash van como float
+        return _canonical_value(float(value))
     if isinstance(value, float):
         if value == 0.0:
             return 0.0

@@ -511,3 +511,37 @@ def test_mapa_de_cards_coincide_con_report_builder() -> None:
     canonico = dict(_CARD_ARTIFACTS)
     for domain, key in serializers._CARD_KEY_BY_DOMAIN.items():
         assert canonico[domain] == key, domain
+
+
+def test_decimal_de_provisiones_se_serializa_como_numero() -> None:
+    """Los ``Decimal`` de las cards de provisiones salen como NÚMERO, no como string ni excepción.
+
+    Sin la coacción, ``_ensure_json_safe`` levanta ``UiSerializationError`` y se cae **todo** el
+    payload de ``/api/results`` —no solo la sección de provisiones—, porque el guard es global.
+    Y si se dejaran como *string* (que es lo que Pydantic hace por defecto con ``Decimal``), el
+    front recibiría ``"123.45"`` donde ``results-format`` espera un número.
+    """
+    from decimal import Decimal
+
+    from pydantic import BaseModel
+
+    from nikodym.ui.serializers import _to_json_native, dump_dto
+
+    class _CardConDecimal(BaseModel):
+        total_reported_provision: Decimal
+        detalle: dict[str, Decimal]
+        etiqueta: str
+
+    card = _CardConDecimal(
+        total_reported_provision=Decimal("851018945.42"),
+        detalle={"cmf": Decimal("697000000.00")},
+        etiqueta="consumer",
+    )
+    volcado = dump_dto(card)
+
+    assert volcado["total_reported_provision"] == pytest.approx(851018945.42)
+    assert isinstance(volcado["total_reported_provision"], float)
+    assert isinstance(volcado["detalle"]["cmf"], float)
+    assert volcado["etiqueta"] == "consumer"
+    # y la celda suelta de un DataFrame (el camino de `_frame_records`) también:
+    assert _to_json_native(Decimal("12.34")) == pytest.approx(12.34)
