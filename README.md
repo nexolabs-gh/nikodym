@@ -124,9 +124,9 @@ dicen igual de claro:
 
 ## Documentación
 
-Guía completa (conceptos, referencia de `run`/`Study`/`NikodymConfig`) en el
-[sitio de documentación](https://github.com/nexolabs-gh/nikodym#readme). El `CHANGELOG.md`
-registra los cambios por versión.
+Guía completa (conceptos, referencia de `run`/`Study`/`NikodymConfig`) en
+[docs.nikodym.cl](https://docs.nikodym.cl). La demo del scorecard —una corrida real, paso a paso—
+en [demo.nikodym.cl](https://demo.nikodym.cl). El `CHANGELOG.md` registra los cambios por versión.
 
 ## Desarrollo
 
@@ -139,6 +139,21 @@ uv run mypy                          # type-check estricto de todo el paquete
 uv run pytest                        # suite de tests
 ```
 
+## Quién lo construye
+
+Nikodym RiskLib lo construye **Nexo Labs**, una consultora chilena de riesgo y analítica de datos.
+El motor es Apache-2.0 y no tiene edición comercial, *tier* de pago ni funciones reservadas: lo que
+hay en `src/` es todo lo que hay. Está publicado para que puedas leer el código antes de hablar con
+nosotros.
+
+Una librería calcula; no decide. El binning, la calibración y las métricas los corre el motor —pero
+a qué tasa central anclas (TTC o PIT), dónde pones el corte y qué supuestos sostienes ante
+Validación o ante la CMF sigue siendo juicio de modelo, y eso no lo entrega ningún paquete de pip.
+Si ese es el problema, puedes [proponer un caso](https://www.nikodym.cl/?ref=readme#contact). Cada
+caso se evalúa antes de aceptarse; si no hay caso, también te lo decimos, en menos de 48 horas
+hábiles.
+
 ## Licencia
 
-[Apache-2.0](LICENSE). Sin dependencias copyleft (GPL/LGPL/AGPL) en el wheel.
+[Apache-2.0](https://github.com/nexolabs-gh/nikodym/blob/main/LICENSE). Sin dependencias copyleft
+(GPL/LGPL/AGPL) en el wheel.

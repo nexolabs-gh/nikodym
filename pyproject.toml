@@ -51,8 +51,11 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/nexolabs-gh/nikodym"
 Source = "https://github.com/nexolabs-gh/nikodym"
-Documentation = "https://github.com/nexolabs-gh/nikodym#readme"
+Documentation = "https://docs.nikodym.cl"
+Demo = "https://demo.nikodym.cl"
 Changelog = "https://github.com/nexolabs-gh/nikodym/blob/main/CHANGELOG.md"
+# PyPI usa la clave literal como texto del enlace en su barra lateral.
+"Consultoría (Nexo Labs)" = "https://www.nikodym.cl/?ref=pypi#contact"
 
 # ───────────────── EXTRAS de USUARIO (se redistribuyen en el wheel) ───────────────
 [project.optional-dependencies]
