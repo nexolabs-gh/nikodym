@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/nikodym.svg)](https://pypi.org/project/nikodym/)
 [![Python](https://img.shields.io/pypi/pyversions/nikodym.svg)](https://pypi.org/project/nikodym/)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/nexolabs-gh/nikodym/blob/main/LICENSE)
 [![CI](https://github.com/nexolabs-gh/nikodym/actions/workflows/ci.yml/badge.svg)](https://github.com/nexolabs-gh/nikodym/actions/workflows/ci.yml)
 
 Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**:
@@ -10,7 +10,7 @@ scoring/scorecards, backends ML, provisiones **CMF (Chile)** e **IFRS 9/ECL**, f
 y stress testing. Todo en un motor **reproducible por construcción** y con gobernanza
 (model card + audit-trail) automática. Paquete: `nikodym`.
 
-> **Estado: 1.0 (estable).** El pipeline de validación de scorecard (F1) es **API estable
+> **Estado: 1.x (estable).** El pipeline de validación de scorecard (F1) es **API estable
 > (SemVer 1.x)**: no rompe hasta un 2.0. Las superficies que aún crecen —modelado ML, provisiones
 > CMF/IFRS 9, forward-looking, y los contratos transversales de resultados/métricas/orquestación—
 > siguen marcadas como **experimentales** (fuera de la garantía SemVer 1.x).

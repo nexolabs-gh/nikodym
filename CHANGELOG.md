@@ -5,15 +5,10 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
-## [Sin publicar]
+## [1.1.0] — 2026-07-13
 
 ### Añadido
 
-- **El reporte pasa de ser un volcado a ser un documento.** Antes emitía una sección por paso del
-  pipeline, cada una con su `Payload` y tablas tituladas con el nombre de la variable interna. Ahora
-  es un informe de validación: portada con campos de proyecto, resumen ejecutivo (veredicto y
-  métricas clave), índice, Introducción, Contexto, Metodología, Resultados, Conclusiones,
-  Limitaciones y anexos técnicos. Todo el detalle de antes se conserva: baja a los anexos.
 - **Metodología y Resultados llevan prosa generada y determinista**, redactada con los parámetros
   efectivos de la corrida (método de binning y sus umbrales, criterios de selección, estimación,
   escalado, calibración). Sin red y sin IA: un informe regulatorio no puede variar entre dos
@@ -21,20 +16,35 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 - **Base editable descargable**: el informe se exporta como `.qmd` (Quarto/Markdown, con front-matter
   y el lineage, para editarlo y compilarlo) y como `.docx` (Word, con estilos de encabezado reales,
   tablas nativas y figuras embebidas). Introducción, Contexto y Conclusiones vienen como
-  *placeholders* con guía de qué escribir, ocultables con `report.placeholders="hide"`.
+  *placeholders* con guía de qué escribir, ocultables con `report.document.placeholders="hide"`.
 - Los formatos `csv` y `xlsx` ahora existen de verdad: exportan las tablas por observación
   (puntaje, PD, datasets WoE) **completas**, y se publican en `ReportResult.data_exports`.
+- Extra nuevo `nikodym[docx]` (python-docx, MIT) para el export Word. Entra en el meta-extra `all` y
+  en `ui`, así que quien instala `nikodym[all]` o `nikodym[ui]` ya lo tiene. El extra `pdf` sigue
+  aparte a propósito: WeasyPrint arrastra Pyphen (tri-licencia con GPL) y el gate de licencias del CI
+  lo mantiene fuera del cierre redistribuible.
 
 ### Cambiado
 
+- **El reporte pasa de ser un volcado a ser un documento.** Antes emitía una sección por paso del
+  pipeline, cada una con su `Payload` y tablas tituladas con el nombre de la variable interna. Ahora
+  es un informe de validación: portada con campos de proyecto, resumen ejecutivo (veredicto y
+  métricas clave), índice, Introducción, Contexto, Metodología, Resultados, Conclusiones,
+  Limitaciones y anexos técnicos. Todo el detalle de antes se conserva: baja a los anexos. Quien
+  parsee el HTML o los `section.id` del `ReportManifest` verá otra estructura (el esquema de
+  `ReportManifest` no cambió: los campos nuevos de `ReportSection` son aditivos y traen default).
 - `report.formats` ya no acepta en silencio lo que no implementa: pedir un formato sin ruta real
-  falla con un error explícito en vez de validar y no producir nada.
+  falla con un error explícito en vez de validar y no producir nada. **Cambio incompatible acotado**:
+  un config con `json` en `report.formats` —que en 1.0.0 validaba pero no producía archivo alguno—
+  ahora falla al cargar.
 - Las tablas por observación salen del cuerpo del documento (iban truncadas a 200 filas, sin servir
-  ni como dato ni como informe) y pasan a los exports de datos. El informe de referencia baja de 79 a
-  40 páginas.
+  ni como dato ni como informe) y pasan a los exports de datos. El informe de referencia de la demo
+  baja de 58 a 39 páginas.
 - El preset estándar pide los cuatro entregables (HTML, PDF, `.qmd`, `.docx`). Antes pedía solo HTML
   y, como la interfaz no expone dónde cambiarlo, las descargas de PDF y base editable respondían 404
   siempre. `report` es infraestructura, así que el `config_hash` del preset no cambia.
+- Las funciones de `nikodym.report.charts` aceptan `fmt="svg" | "png"` y su retorno pasa de `str` a
+  `str | bytes`. El default no cambia (`svg`), así que el comportamiento en runtime es el mismo.
 
 ### Corregido
 
