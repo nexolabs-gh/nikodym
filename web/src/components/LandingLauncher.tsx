@@ -10,19 +10,37 @@ import {
   GAINS_HOLDOUT,
   METRICAS,
   PIPELINE,
+  SALVEDADES,
+  TESTS_DOMINIOS,
+  TESTS_SUITE,
 } from "@/components/landing-evidence"
+import { DEMO_MODE } from "@/lib/demo"
 import { cn } from "@/lib/utils"
 
 /**
- * Landing / launcher de nivel-0. Rediseño 2026-07-12.
+ * Landing / launcher de nivel-0. Rediseño 2026-07-13: el motor completo, no solo el scorecard.
  *
  * Voz: el documento técnico que el propio motor produce (secciones §, grid estricto, cifras en
  * mono, reglas finas). NO es una landing SaaS: quien llega es un analista de riesgo evaluando si
  * esto le sirve para un entregable que va a Validación, y a ese público lo convence la evidencia,
  * no el marketing.
  *
- * Regla dura: cada cifra de esta pantalla sale de una corrida REAL (ver `landing-evidence.ts`).
- * Cero lógica de dominio: solo navegación.
+ * El mensaje que la página sostiene: **los seis dominios ya calculan; lo que falta es la
+ * interfaz**. Es más fuerte que "próximamente" y, a diferencia de un roadmap, es verificable —por
+ * eso §1 (el motor) va antes que el pipeline del scorecard: si el titular promete seis dominios y
+ * el pago está seis pantallas abajo, la página incumple su propio titular.
+ *
+ * Dos reglas duras, ambas aprendidas de un verificador que intentó refutar este copy:
+ *
+ * 1. **El H1 no se recorta jamás a una línea** (ni en OG-image, ni en meta description, ni en
+ *    mobile). "IFRS 9, CMF y stress ya los calcula el motor" sin su segunda línea deja de ser
+ *    honesto: la confesión y la promesa viajan juntas o no viajan.
+ * 2. **El CTA depende de DEMO_MODE.** En `demo.nikodym.cl` la app NO calcula: sirve los fixtures
+ *    verbatim de una corrida real (ver `lib/demo.ts`). Ofrecer ahí "Construir un scorecard" sería
+ *    prometer lo que esa pantalla no puede entregar.
+ *
+ * Regla de siempre: cada cifra de esta pantalla sale de una corrida REAL o de un conteo medido
+ * (ver `landing-evidence.ts`). Cero lógica de dominio: solo navegación.
  */
 
 const DOCS_URL = "https://docs.nikodym.cl"
@@ -292,17 +310,26 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
           <div className="grid grid-cols-1 items-center gap-10 py-16 lg:grid-cols-12 lg:gap-14 lg:py-24">
             <div className="lg:col-span-7">
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-eyebrow">
-                Motor de riesgo de crédito · Python · Apache-2.0
+                Motor de riesgo de crédito · Python · Apache-2.0 · v1.1.0
               </p>
-              <h1 className="mt-5 font-display text-[clamp(2.25rem,5vw,3.75rem)] font-bold leading-[1.05] tracking-tight text-foreground">
-                Del dato crudo al scorecard
+              {/* Las dos líneas del H1 son inseparables: la primera promete, la segunda confiesa. */}
+              <h1 className="mt-5 font-display text-[clamp(2.05rem,4.6vw,3.5rem)] font-bold leading-[1.05] tracking-tight text-foreground">
+                IFRS 9, CMF y stress
                 <br />
-                que Validación aprueba.
+                ya los calcula el motor.
+                <br />
+                <span className="text-muted-foreground">
+                  La interfaz llegó hasta el scorecard.
+                </span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground">
-                Binning WoE, selección, modelo PD, calibración y provisiones. Con el informe
-                que lo defiende: mismo <span className="font-mono text-foreground">config_hash</span>,
-                mismo resultado, siempre.
+                El scorecard es el único dominio con preset, pantalla e informe, y la única
+                superficie bajo garantía SemVer 1.x. Los otros cinco ya están implementados y
+                testeados —más de {TESTS_DOMINIOS} tests pasan sobre ellos—, pero hoy se usan
+                escribiendo el config en Python a mano, y siguen marcados como experimentales.{" "}
+                <span className="text-foreground">
+                  No es un roadmap: es el código que ya viene en el paquete.
+                </span>
               </p>
 
               <div className="mt-9 flex flex-wrap items-center gap-3">
@@ -315,7 +342,7 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
                     "hover:-translate-y-0.5 hover:bg-brand-accent-dark",
                   )}
                 >
-                  Construir un scorecard
+                  {DEMO_MODE ? "Abrir la corrida de demostración" : "Construir un scorecard"}
                   <ArrowRight
                     className="size-4 transition-transform group-hover:translate-x-0.5"
                     aria-hidden="true"
@@ -323,6 +350,15 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
                 </button>
                 <ComandoCopiable />
               </div>
+
+              {/* En la demo estática la app NO recalcula: reproduce fixtures. Decirlo, no insinuarlo. */}
+              {DEMO_MODE ? (
+                <p className="mt-4 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                  Esta demo reproduce, paso a paso, la salida verbatim de una corrida real del
+                  motor. No recalcula en el navegador ni acepta datasets propios: para eso,{" "}
+                  <span className="font-mono text-foreground">pip install nikodym</span>.
+                </p>
+              ) : null}
             </div>
 
             <div className="lg:col-span-5">
@@ -330,8 +366,97 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
             </div>
           </div>
 
-          {/* §1 — Cómo funciona. El get-started: el pipeline completo en una tabla legible. */}
-          <Seccion id="§1" titulo="Cómo funciona">
+          {/* §1 — El motor. Va PRIMERO: es lo que el H1 promete, y el H1 hay que pagarlo aquí. */}
+          <Seccion id="§1" titulo="Ya está construido. Lo que falta es la interfaz.">
+            <div className="max-w-3xl space-y-4 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                El estado de cada dominio se lee en dos ejes, y ninguno de los dos es «hecho / no
+                hecho».{" "}
+                <span className="font-mono text-xs uppercase tracking-[0.1em] text-foreground">
+                  Superficie
+                </span>
+                : tiene <span className="text-foreground">UI</span> (preset, pantalla y capítulo en
+                el informe) o se usa desde <span className="text-foreground">Python</span> (hay que
+                escribir el config a mano; no hay preset, ni pantalla, ni capítulo en el informe, y
+                no existe CLI).{" "}
+                <span className="font-mono text-xs uppercase tracking-[0.1em] text-foreground">
+                  Garantía
+                </span>
+                : <span className="text-foreground">estable</span> (contrato congelado bajo SemVer
+                1.x) o <span className="text-foreground">experimental</span> (el motor calcula y
+                está cubierto por tests, pero la firma puede cambiar dentro de la 1.x; no está
+                certificado ni es apto para producción por el solo hecho de existir).
+              </p>
+              <p>
+                Los cinco dominios sin interfaz son motores deterministas, sin stubs: más de{" "}
+                <span className="font-mono text-foreground">{TESTS_DOMINIOS}</span> tests pasan
+                sobre ellos, y más de{" "}
+                <span className="font-mono text-foreground">{TESTS_SUITE}</span> en la suite
+                completa. Corren como pasos del mismo{" "}
+                <span className="font-mono text-foreground">Study</span>, con el mismo{" "}
+                <span className="font-mono text-foreground">NikodymConfig</span> y el mismo{" "}
+                <span className="font-mono text-foreground">config_hash</span> que el scorecard.{" "}
+                <span className="text-foreground">
+                  Lo que les falta es superficie, no aritmética.
+                </span>
+              </p>
+            </div>
+
+            <ul className="mt-9 divide-y divide-border border-y border-border">
+              {DOMINIOS.map((d) => (
+                <li key={d.key} className="grid grid-cols-1 gap-3 py-6 sm:grid-cols-12 sm:gap-6">
+                  <div className="sm:col-span-4">
+                    <p className="font-display font-bold text-foreground">{d.label}</p>
+                    <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[0.62rem] uppercase tracking-[0.12em]">
+                      <span
+                        className={cn(
+                          "rounded px-1.5 py-0.5",
+                          d.superficie === "UI"
+                            ? "bg-brand-accent-dark/12 text-brand-accent-dark"
+                            : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {d.superficie}
+                      </span>
+                      <span
+                        className={cn(
+                          d.garantia === "estable" ? "text-eyebrow" : "text-muted-foreground",
+                        )}
+                      >
+                        {d.garantia}
+                      </span>
+                    </p>
+                    <code className="mt-2 block font-mono text-xs text-muted-foreground">
+                      import {d.modulo}
+                    </code>
+                  </div>
+                  <p className="text-sm leading-relaxed text-muted-foreground sm:col-span-8">
+                    {d.tagline}
+                  </p>
+                </li>
+              ))}
+            </ul>
+
+            {/* Las salvedades no van en letra chica: el motor las publica en cada fila que emite. */}
+            <div className="mt-8 rounded-xl border border-border bg-card p-5">
+              <p className="font-mono text-[0.62rem] uppercase tracking-[0.14em] text-muted-foreground">
+                Lo que el motor declara de sí mismo
+              </p>
+              <dl className="mt-4 space-y-3">
+                {SALVEDADES.map((s) => (
+                  <div key={s.clave} className="grid grid-cols-1 gap-1 sm:grid-cols-12 sm:gap-4">
+                    <dt className="font-mono text-xs text-foreground sm:col-span-3">{s.clave}</dt>
+                    <dd className="text-sm leading-relaxed text-muted-foreground sm:col-span-9">
+                      {s.texto}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </Seccion>
+
+          {/* §2 — Cómo funciona. El get-started: el pipeline completo en una tabla legible. */}
+          <Seccion id="§2" titulo="Cómo funciona el scorecard, paso a paso">
             <ol>
               {PIPELINE.map((p) => (
                 <li
@@ -362,8 +487,8 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
             </p>
           </Seccion>
 
-          {/* §2 — La evidencia. Producto real: la curva y las métricas de una corrida de verdad. */}
-          <Seccion id="§2" titulo="La evidencia">
+          {/* §3 — La evidencia. Producto real: la curva y las métricas de una corrida de verdad. */}
+          <Seccion id="§3" titulo="La evidencia">
             <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
               <div className="lg:col-span-6">
                 <CurvaGains />
@@ -400,8 +525,8 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
             </div>
           </Seccion>
 
-          {/* §3 — El entregable. El diferenciador: no entregas un log, entregas un informe. */}
-          <Seccion id="§3" titulo="El entregable">
+          {/* §4 — El entregable. El diferenciador: no entregas un log, entregas un informe. */}
+          <Seccion id="§4" titulo="El entregable">
             <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
               <div className="lg:col-span-5">
                 <p className="font-display text-2xl font-bold leading-snug text-foreground">
@@ -452,33 +577,6 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
             </div>
           </Seccion>
 
-          {/* §4 — Los dominios. Honestidad: el motor los calcula HOY, desde Python. */}
-          <Seccion id="§4" titulo="Los otros cinco dominios">
-            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              El scorecard es el único con interfaz gráfica. Los demás ya están calculados por el
-              motor y se usan hoy desde Python: son módulos reales, no promesas. Siguen marcados
-              como experimentales, así que su API puede cambiar dentro de la 1.x.
-            </p>
-
-            <ul className="mt-8 divide-y divide-border border-y border-border">
-              {DOMINIOS.map((d) => (
-                <li
-                  key={d.key}
-                  className="grid grid-cols-1 gap-2 py-5 sm:grid-cols-12 sm:items-baseline sm:gap-4"
-                >
-                  <span className="font-display font-bold text-foreground sm:col-span-3">
-                    {d.label}
-                  </span>
-                  <span className="text-sm leading-relaxed text-muted-foreground sm:col-span-5">
-                    {d.tagline}
-                  </span>
-                  <code className="font-mono text-xs text-muted-foreground sm:col-span-4 sm:text-right">
-                    import {d.modulo}
-                  </code>
-                </li>
-              ))}
-            </ul>
-          </Seccion>
         </main>
 
         <footer className="flex flex-col gap-4 border-t border-border py-8 sm:flex-row sm:items-center sm:justify-between">

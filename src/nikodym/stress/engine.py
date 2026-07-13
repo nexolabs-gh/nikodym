@@ -1,9 +1,11 @@
-"""Motor determinista de stress testing severo (SDD-21 B21.3/B21.4).
+"""Motor determinista de stress testing severo (SDD-21 B21.3/B21.4/B21.5).
 
 El módulo implementa los contratos ejecutables de ``stress``: escenarios severos, shocks macro,
-propagación satellite en escala logit, métricas forward/ECL/provisión básicas (B21.3) y barridos
-deterministas de sensibilidad por factor (B21.4). El reverse stress queda como error explícito
-hasta B21.5.
+propagación satellite en escala logit, métricas forward/ECL/provisión básicas (B21.3), barridos
+deterministas de sensibilidad por factor (B21.4) y **reverse stress** (B21.5):
+:meth:`StressEngine.run_reverse_stress` resuelve por bisección la severidad mínima que cruza el
+umbral, y falla explícito si la métrica no es monótona o si no converge, en vez de devolver un
+número cómodo.
 
 No importa ``pandas``, ``numpy`` ni motores de provisión al cargar el módulo. Esas dependencias se
 cargan perezosamente dentro de los métodos de ejecución.

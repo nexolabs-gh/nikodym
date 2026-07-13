@@ -180,36 +180,130 @@ export const CODIGO: readonly (readonly { t: string; c: string }[])[] = [
   [{ t: "# 'done'  ·  reproducible por config_hash", c: "cm" }],
 ]
 
-/** Dominios del motor. `scorecard` tiene UI; el resto se usa hoy desde Python. */
+/**
+ * Conteos de tests de la 1.1.0, medidos con `uv run pytest --collect-only -q`:
+ *   - suite completa .................. 3.755 (3.749 pasan · 6 skips = extra `pdf`/WeasyPrint)
+ *   - los cinco dominios sin interfaz .. 1.203 (test_{ifrs9,cmf,provisioning,markov,stress,
+ *                                              forward,survival}_*.py)
+ * Se publican DEBAJO de lo medido ("más de"): un número exacto se pudre con cada commit, y la
+ * página entera se sostiene sobre que sus cifras cuadren cuando alguien las corre.
+ */
+export const TESTS_DOMINIOS = "1.200"
+export const TESTS_SUITE = "3.700"
+
+/**
+ * Los seis dominios del motor, con su estado real en DOS ejes —y ninguno es "hecho / no hecho":
+ *
+ *   superficie: "UI"     → tiene preset, pantalla y capítulo en el informe.
+ *               "Python" → hay que escribir el config a mano. Sin preset, sin pantalla, sin
+ *                          capítulo en el informe, y NO existe CLI (`pyproject.toml` no declara
+ *                          `[project.scripts]`).
+ *   garantia:   "estable"      → contrato congelado bajo SemVer 1.x.
+ *               "experimental" → el motor calcula y está cubierto por tests, pero la firma puede
+ *                                cambiar dentro de la 1.x. No está certificado ni es apto para
+ *                                producción por el solo hecho de existir.
+ *
+ * Cada tagline se verificó contra el código antes de publicarse. Lo que el motor NO hace se dice
+ * en voz alta (roll rates, curvas de cosecha): esta página se lee entera o no sirve de nada.
+ */
 export const DOMINIOS = [
   {
-    key: "forward",
-    label: "Forward-looking",
-    tagline: "Proyección PD/LGD multi-escenario y ECL bajo IFRS 9.",
-    modulo: "nikodym.forward",
+    key: "scorecard",
+    label: "Scorecard",
+    superficie: "UI",
+    garantia: "estable",
+    tagline:
+      "Binning WoE monotónico (OptBinning), selección por IV y VIF, logística sobre WoE, escalado " +
+      "PDO/offset y calibración a la tasa objetivo, con AUC/KS/Gini y PSI/CSI. Es el único dominio " +
+      "con preset, pantalla e informe, y la única superficie bajo garantía SemVer 1.x.",
+    modulo: "nikodym.scorecard",
   },
   {
-    key: "markov",
-    label: "Matrices de transición",
-    tagline: "Cadenas de Markov, matrices CMF y term-structures de migración.",
-    modulo: "nikodym.markov",
+    key: "provisioning",
+    label: "Provisiones · CMF + IFRS 9",
+    superficie: "Python",
+    garantia: "experimental",
+    tagline:
+      "Un cálculo, dos normas. CMF: 10 matrices normativas B-1/B-3 en aritmética Decimal (entre " +
+      "ellas comercial, leasing, estudiantil, factoring, consumo v2025, vivienda PVG, avales y " +
+      "contingentes con CCF), con el archivo de parámetros sellado por SHA-256. IFRS 9: " +
+      "ECL = PD marginal × LGD × EAD descontada a la EIR, staging SICR con gatillos blandos, " +
+      "backstops duros de mora y exención de bajo riesgo, y PD point-in-time por Vasicek. El " +
+      "orquestador aplica el piso prudencial: el máximo entre ambas.",
+    modulo: "nikodym.provisioning",
   },
   {
     key: "stress",
     label: "Stress testing",
-    tagline: "Escenarios adversos, reverse-stress y sensibilidad del portafolio.",
+    superficie: "Python",
+    garantia: "experimental",
+    tagline:
+      "Escenarios adversos y shocks macro propagados en escala logit, barridos deterministas de " +
+      "sensibilidad y chequeo de dominancia entre escenarios. Incluye reverse stress: resuelve por " +
+      "bisección la severidad mínima que cruza el umbral, y falla explícito si la métrica no es " +
+      "monótona o si no converge, en vez de devolver un número cómodo.",
     modulo: "nikodym.stress",
+  },
+  {
+    key: "markov",
+    label: "Matrices de transición",
+    superficie: "Python",
+    garantia: "experimental",
+    tagline:
+      "Estimadores de cohorte y de duración, Chapman-Kolmogorov, Aalen-Johansen y term-structure " +
+      "de PD. El problema de embedding no se esconde: es una política declarada en el config " +
+      "(diagnose / regularize / forbid) y una matriz sin generador válido levanta error en vez de " +
+      "degradar en silencio. No hace roll rates ni curvas de cosecha: eso todavía no existe.",
+    modulo: "nikodym.markov",
+  },
+  {
+    key: "forward",
+    label: "Forward-looking",
+    superficie: "Python",
+    garantia: "experimental",
+    tagline:
+      "ARIMA y auto-ARIMA, VAR y VECM sobre series macro, con Ljung-Box sobre los residuos como " +
+      "diagnóstico, y modelos satélite que traducen el escenario macroeconómico a PD y LGD, " +
+      "escenario por escenario.",
+    modulo: "nikodym.forward",
   },
   {
     key: "survival",
     label: "Survival",
-    tagline: "Tiempo-a-evento y curvas de hazard por cohorte.",
+    superficie: "Python",
+    garantia: "experimental",
+    tagline:
+      "Kaplan-Meier, modelos de Cox y AFT, y hazard en tiempo discreto sobre datos censurados: " +
+      "cuándo ocurre el incumplimiento, no solo con qué probabilidad.",
     modulo: "nikodym.survival",
   },
+] as const
+
+/**
+ * Las salvedades que el motor declara solo, y que por eso mismo la página no puede callar: si el
+ * código las publica en cada fila de resultados, esconderlas aquí sería mentir por omisión sobre
+ * un producto regulatorio. Se muestran al pie de la sección del motor, no en letra chica.
+ */
+export const SALVEDADES = [
   {
-    key: "challenger",
-    label: "Challenger ML",
-    tagline: "Modelos challenger (XGBoost), tuning y explicabilidad SHAP.",
-    modulo: "nikodym.ml",
+    clave: "EAD constante",
+    texto:
+      "La EAD de IFRS 9 se despliega constante en el tiempo: el panel longitudinal está diferido, " +
+      "y cada fila lo publica con el código FALTA-DATO-IFRS-4.",
+  },
+  {
+    clave: "Parámetros CMF",
+    texto:
+      "Los parámetros normativos se transcribieron del compendio con asistencia de IA y " +
+      "verificación visual. No son parámetros oficiales de la CMF ni están validados por ella: " +
+      "requieren validación humana contra la norma vigente antes de cualquier uso productivo, y " +
+      "quedan dos brechas FALTA-DATO abiertas (aforos y haircuts de garantías financieras; tablas " +
+      "RAN 21-10).",
+  },
+  {
+    clave: "Extras",
+    texto:
+      "Auto-ARIMA y los modelos de sobrevivencia viven tras extras opcionales del paquete " +
+      "(pmdarima, lifelines).",
   },
 ] as const
