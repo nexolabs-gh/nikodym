@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ArrowRight, Check, Copy } from "lucide-react"
+import { ArrowRight, ArrowUpRight, Check, Copy } from "lucide-react"
 
 import { NikodymMark } from "@/components/NikodymMark"
 import { ThemeToggle } from "@/components/ThemeToggle"
@@ -45,6 +45,14 @@ import { cn } from "@/lib/utils"
 
 const DOCS_URL = "https://docs.nikodym.cl"
 const PYPI_CMD = "pip install nikodym"
+
+/**
+ * Consultora que construye el motor. La ancla es `#contact` (en inglés): con `#contacto` la página
+ * carga igual pero no scrollea, y el visitante aterriza en el hero sin enterarse. El `?ref` va
+ * ANTES del `#`, o queda dentro del fragmento y no llega al servidor.
+ */
+const CASO_URL = "https://www.nikodym.cl/?ref=demo#contact"
+const CASO_URL_FOOTER = "https://www.nikodym.cl/?ref=demo-footer#contact"
 
 /** Numeración de sección: la voz del documento. */
 function Seccion({
@@ -580,12 +588,74 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
             </div>
           </Seccion>
 
+          {/* §5 — Quién lo construye. Va al FINAL, nunca en la barra de marca: la tesis de esta
+              página es evidencia primero, y un enlace de venta antes de §3 convertiría una landing
+              de producto en una de agencia. Aquí el visitante ya vio la evidencia y el entregable. */}
+          <Seccion id="§5" titulo="Quién lo construye">
+            <div className="lg:max-w-2xl">
+              <p className="text-base leading-relaxed text-muted-foreground">
+                Nikodym RiskLib lo construye{" "}
+                <span className="text-foreground">Nexo Labs</span>, una consultora chilena de riesgo
+                y analítica de datos. El motor es Apache-2.0 y no tiene edición comercial ni
+                funciones reservadas: está publicado para que puedas leer el código antes de hablar
+                con nosotros.
+              </p>
+              {/* OJO: no decir que la librería "no calibra" — sí calibra, y §2 presume de ello.
+                  Lo que el motor NO hace es ELEGIR el ancla (TTC vs PIT) ni de dónde sale la tasa
+                  central: eso es `AnchorKind`/`AnchorSource` en calibration/config.py, y lo decide
+                  el modelador. Fabricar un hueco que el motor sí cubre sería la mentira exacta que
+                  el README promete no decir. */}
+              <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                Una librería calcula; no decide. El binning, la calibración y las métricas los corre
+                el motor —pero a qué tasa central anclas (TTC o PIT), dónde pones el corte y qué
+                supuestos sostienes ante Validación o ante la CMF sigue siendo juicio de modelo.{" "}
+                <span className="text-foreground">Si ese es el problema, hay un caso que proponer.</span>
+              </p>
+
+              <div className="mt-9">
+                <a
+                  href={CASO_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={cn(
+                    "group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3",
+                    "font-medium text-primary-foreground shadow-card transition-all",
+                    "hover:-translate-y-0.5 hover:bg-brand-accent-dark",
+                  )}
+                >
+                  Proponer un caso
+                  <ArrowUpRight
+                    className="size-4 transition-transform group-hover:translate-x-0.5"
+                    aria-hidden="true"
+                  />
+                </a>
+              </div>
+
+              {/* Copy ya publicado por la consultora (no es una promesa nueva de esta página). */}
+              <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+                Cada caso se evalúa antes de aceptarse. Si no hay caso, también te lo decimos, en
+                menos de 48 horas hábiles. Cero datos sensibles para partir.
+              </p>
+            </div>
+          </Seccion>
         </main>
 
         <footer className="flex flex-col gap-4 border-t border-border py-8 sm:flex-row sm:items-center sm:justify-between">
-          <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
-            Nikodym RiskLib · Apache-2.0
-          </span>
+          {/* `flex-wrap`: a 390px los dos hijos exceden la fila por ~5px y, sin envolver, cada uno
+              se parte por dentro ("APACHE-" / "2.0"). Que baje el enlace entero, no las palabras. */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <span className="font-mono text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">
+              Nikodym RiskLib · Apache-2.0
+            </span>
+            <a
+              href={CASO_URL_FOOTER}
+              target="_blank"
+              rel="noreferrer"
+              className="whitespace-nowrap font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Nexo Labs ↗
+            </a>
+          </div>
           <ComandoCopiable className="sm:py-2" />
         </footer>
       </div>

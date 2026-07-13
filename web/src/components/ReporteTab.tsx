@@ -273,6 +273,24 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
           title="Reporte del modelo"
           className="h-[75vh] w-full rounded-lg border border-border bg-white"
         />
+        {/* Bajo el iframe, no en la fila de descargas: un botón "Proponer un caso" junto a
+            "Descargar PDF" convertiría el entregable en un embudo. Sin gate DEMO_MODE — en local
+            el lector acaba de generar su informe y la frase sigue siendo cierta.
+            `text-eyebrow` (no `text-brand-accent-dark`): este último es un token FIJO y falla AA
+            en ambos temas; eyebrow es theme-aware (8.2:1 en claro y oscuro). Subrayado en reposo:
+            sin él, el único enlace de conversión de la pestaña queda menos visible que el gris. */}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Este informe lo escribe el motor. Defenderlo ante Validación —el corte que elegiste, el
+          ancla de calibración, los supuestos— no.{" "}
+          <a
+            href="https://www.nikodym.cl/?ref=demo-reporte#contact"
+            target="_blank"
+            rel="noreferrer"
+            className="text-eyebrow underline underline-offset-4 hover:no-underline"
+          >
+            Proponer un caso ↗
+          </a>
+        </p>
       </CardContent>
     </Card>
   )
