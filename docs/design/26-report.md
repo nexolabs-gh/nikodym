@@ -1,5 +1,19 @@
 # SDD-26 — `report` (reporte y documentación automática)
 
+> ⚠️ **PARCIALMENTE DESACTUALIZADO (2026-07-13). El código manda, no este documento.**
+>
+> Este SDD todavía describe `QuartoRenderConfig` / `QuartoReportRenderer` y la detección del binario
+> `quarto`. **Nada de eso existe:** Quarto se retiró y el PDF lo produce **WeasyPrint**
+> (`report/pdf.py`). No lo reintroduzcas siguiendo este texto.
+>
+> Además, el documento ya no es "una sección por paso del pipeline": su estructura de capítulos vive
+> en `report/document.py` (fuente única), la prosa determinista en `report/prose.py`, y hay exports
+> editables `.qmd` y `.docx` (`report/markdown.py`, `report/docx.py`). Quarto vuelve a aparecer, pero
+> **solo como formato de salida editable** que el usuario puede compilar por su cuenta, nunca como
+> dependencia ni como renderer invocado por el motor.
+>
+> Reescribir este SDD contra el código es deuda pendiente.
+
 | Campo | Valor |
 |---|---|
 | **SDD** | 26 |

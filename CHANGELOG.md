@@ -5,6 +5,50 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [Sin publicar]
+
+### Añadido
+
+- **El reporte pasa de ser un volcado a ser un documento.** Antes emitía una sección por paso del
+  pipeline, cada una con su `Payload` y tablas tituladas con el nombre de la variable interna. Ahora
+  es un informe de validación: portada con campos de proyecto, resumen ejecutivo (veredicto y
+  métricas clave), índice, Introducción, Contexto, Metodología, Resultados, Conclusiones,
+  Limitaciones y anexos técnicos. Todo el detalle de antes se conserva: baja a los anexos.
+- **Metodología y Resultados llevan prosa generada y determinista**, redactada con los parámetros
+  efectivos de la corrida (método de binning y sus umbrales, criterios de selección, estimación,
+  escalado, calibración). Sin red y sin IA: un informe regulatorio no puede variar entre dos
+  corridas del mismo modelo.
+- **Base editable descargable**: el informe se exporta como `.qmd` (Quarto/Markdown, con front-matter
+  y el lineage, para editarlo y compilarlo) y como `.docx` (Word, con estilos de encabezado reales,
+  tablas nativas y figuras embebidas). Introducción, Contexto y Conclusiones vienen como
+  *placeholders* con guía de qué escribir, ocultables con `report.placeholders="hide"`.
+- Los formatos `csv` y `xlsx` ahora existen de verdad: exportan las tablas por observación
+  (puntaje, PD, datasets WoE) **completas**, y se publican en `ReportResult.data_exports`.
+
+### Cambiado
+
+- `report.formats` ya no acepta en silencio lo que no implementa: pedir un formato sin ruta real
+  falla con un error explícito en vez de validar y no producir nada.
+- Las tablas por observación salen del cuerpo del documento (iban truncadas a 200 filas, sin servir
+  ni como dato ni como informe) y pasan a los exports de datos. El informe de referencia baja de 79 a
+  40 páginas.
+- El preset estándar pide los cuatro entregables (HTML, PDF, `.qmd`, `.docx`). Antes pedía solo HTML
+  y, como la interfaz no expone dónde cambiarlo, las descargas de PDF y base editable respondían 404
+  siempre. `report` es infraestructura, así que el `config_hash` del preset no cambia.
+
+### Corregido
+
+- **`ranking_preserved` reportaba rankings rotos que no lo estaban.** Comparaba los rangos con
+  igualdad exacta, así que una calibración monótona (`intercept_offset`) que colapsara dos PD
+  separadas por ~1e-17 al mismo `float64` se reportaba como ranking degradado, sin que ningún par se
+  hubiera invertido. Ahora distingue la inversión de orden y el colapso de deudores que el modelo sí
+  distinguía (ambos, `False`) del empate por precisión de coma flotante (`True`). El colapso se sigue
+  contando en `ties_created`.
+- **Sin las librerías nativas de WeasyPrint, la corrida entera moría.** `pdf.fail_if_unavailable=False`
+  promete degradar y entregar el HTML igual, pero solo cubría "WeasyPrint no instalado": las nativas
+  ausentes (Pango/HarfBuzz/libffi) escapaban como `OSError` crudo. Es el caso normal de
+  `pip install nikodym[pdf]` en macOS o Windows sin Pango.
+
 ## [1.0.0] — 2026-07-12
 
 Primer release estable. Congela la superficie pública del **pipeline de validación de scorecard

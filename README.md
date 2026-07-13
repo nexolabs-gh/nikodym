@@ -24,6 +24,12 @@ y stress testing. Todo en un motor **reproducible por construcción** y con gobe
 - **Provisiones**: motores **CMF (Chile)** e **IFRS 9/ECL** separados; la provisión es el
   **máximo** de ambos (piso prudencial).
 - **Forward-looking & stress testing**: proyección macroeconómica y escenarios.
+- **Informe de validación, no un log**: cada corrida produce un documento con portada, resumen
+  ejecutivo, metodología (redactada con los parámetros que realmente se usaron), resultados,
+  conclusiones y anexos técnicos. Sale en HTML y PDF, y también como **base editable** (`.qmd` de
+  Quarto o `.docx` de Word) para que escribas tu documentación encima: los capítulos que solo puede
+  escribir un humano (contexto de la cartera, conclusión que se firma) vienen como *placeholders*
+  con guía, nunca inventados.
 - **Reproducibilidad total**: `(datos + config + semilla) → resultado idéntico`, con *lineage
   bundle* (git SHA + hash de datos + config + semilla + `uv.lock`) en cada corrida.
 
