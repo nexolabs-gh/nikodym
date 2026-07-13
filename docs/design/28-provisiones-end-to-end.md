@@ -1,116 +1,165 @@
-# SDD-28 — Provisiones alcanzables (dataset → preset → UI → informe)
+# SDD-28 — Método interno y la regla del máximo (dataset → preset → UI → informe)
 
 | Campo | Valor |
 |---|---|
 | **SDD** | 28 |
-| **Módulo** | Transversal: `nikodym.ui` (datasets, presets, serializers) + `nikodym.report` + `web/` |
-| **Fase** | F8 (post-1.0, mejora continua) |
+| **Módulo** | `nikodym.provisioning.internal` (**nuevo**) + transversal: `ui` (datasets, presets, serializers, routes) · `report` · `core.study` · `web/` |
+| **Fase** | F8 (post-1.0) |
 | **Tanda de producción** | T7 |
 | **Estado** | Borrador |
-| **Depende de** | SDD-15 (`provisioning/cmf`), SDD-16 (`provisioning/ifrs9`), SDD-17 (orquestación), SDD-18 (`survival`), SDD-23 (`ui`), SDD-26 (`report`) |
-| **Lo consumen** | — (es la capa de producto; no lo consume ningún módulo) |
-| **Autor / Fecha** | DanIA · 2026-07-13 |
+| **Depende de** | SDD-08 (`model`), SDD-10 (`calibration`), SDD-15 (`provisioning/cmf`), SDD-17 (orquestación), SDD-23 (`ui`), SDD-26 (`report`) |
+| **Lo consumen** | — (capa de producto) |
+| **Autor / Fecha** | DanIA · 2026-07-13 (v2 — v1 descartada, ver §0) |
 
 ---
 
-> **Este SDD no diseña un motor: los tres motores ya existen y funcionan.** Diseña la **ruta que va desde un dato hasta el gerente de riesgo**, que hoy no existe. Es el SDD que la propia historia del proyecto exige: una feature sin dataset, sin preset, sin pantalla y sin capítulo **no existe para el usuario**, por mucho motor que tenga detrás (nos pasó con el export editable, con EDA y con el `?ref`).
+## 0. Por qué existe la v2 de este SDD
+
+La **v1 de este documento estaba equivocada en su premisa central** y no se salva parcheándola. Se conserva la historia porque el error es instructivo:
+
+1. **La v1 daba por buena una regla normativa que no existe.** Diseñaba una demo alrededor de `max(CMF, ECL IFRS 9)` presentado como "el piso prudencial de la CMF". Al verificarlo contra el Compendio (ver §3) resultó **falso**: la regla del máximo del B-1 es entre **método estándar y método interno del banco**, y el Cap. A-2 **excluye** el ECL de NIIF 9 sobre las colocaciones. La "fuente" era un markdown interno que no citaba nada — una cita circular que este proyecto arrastraba desde el SDD-17.
+2. **Cinco revisiones adversariales independientes** (normativa, refutación factual, implementabilidad, dataset, producto) coincidieron en que el preset de la v1 producía *"un IFRS 9 que un validador rechazaría y un piso que no puede morder de forma informativa"*.
+3. La v1 contenía además **errores factuales propios**: un preset que no validaba (`survival.horizon_periods` no existe), un ejemplo que lanzaba `KeyError`, una lista de goldens mayormente equivocada, y —con ironía— **un gate anti-mentira que buscaba un literal en singular cuando el código lo escribe en plural**, y por tanto habría pasado en verde para siempre.
+
+**La lección, que este SDD adopta como regla de trabajo:** *una afirmación normativa sin capítulo, numeral y circular es una hipótesis, no un requisito.* Igual que una columna verificada por lectura y no por ejecución.
+
+---
 
 ## 1. Propósito y responsabilidad
 
-**Qué resuelve en una frase:** que un gerente de riesgo pueda ver, en la demo y en el informe, la provisión de su cartera bajo **CMF B-1**, bajo **IFRS 9 (ECL)** y bajo el **piso prudencial `max(CMF, IFRS9)`** — sin escribir una línea de Python.
+**Qué resuelve en una frase:** que un gerente de riesgo chileno vea, en la demo y en el informe, **la provisión que la norma le obliga a constituir** — el mayor valor entre el **método estándar de la CMF** y **su propio método interno**, alimentado por el scorecard que Nikodym ya construye.
 
-**Situación de partida (verificada en el código, no supuesta):**
+**Por qué esto y no otra cosa.** Es la única versión del producto que a la vez: (a) se apoya en **norma citable** (Circular N° 2.346, Cap. B-1, hoja 10-11); (b) **usa el scorecard** — respondiendo la pregunta que hundía a la v1: *"¿dónde entra mi modelo en el número que reportas?"*; y (c) no exige construir `forward` para ser defendible.
 
-| Capa | Estado hoy | Evidencia |
-|---|---|---|
-| Motor CMF | ✅ Completo (2.025 LOC, matrices normativas versionadas con SHA-256) | `provisioning/cmf/engine.py` |
-| Motor IFRS 9 | ✅ Completo (PD PIT, LGD, EAD, staging, ECL) | `provisioning/ifrs9/engine.py` |
-| Orquestador / piso | ✅ Completo, con tests end-to-end de los 3 motores | `provisioning/orchestrator.py`, `tests/unit/test_provisioning_step.py:252` |
-| **Dataset** | ❌ **Ninguno de los 3 datasets sintéticos tiene una sola columna de provisiones** | `ui/datasets.py:39-49` |
-| **Preset** | ❌ Los 3 dominios en `None` | `ui/presets.py:319-321` |
-| **Serializer** | ❌ No están en el mapa | `ui/serializers.py:42-50` |
-| **Pantalla (config)** | ❌ No están en la lista blanca del front | `web/src/lib/schema.ts:38`, `web/src/App.tsx:60` |
-| **Pantalla (resultados)** | ❌ Sin DTO, sin helpers, sin sección | `web/src/components/ResultsTab.tsx` |
-| **Capítulo del informe** | ❌ Y además el informe **declara por escrito que provisiones "corresponde a fases posteriores"** | `report/prose.py:1189-1192`, `templates/_exec_summary.html.j2:42` |
+**Situación de partida (verificada en código, no supuesta):**
 
-**Responsabilidad única:** cerrar los seis ❌ de arriba, en ese orden (es una cadena: sin dataset no hay corrida, sin corrida no hay resultado, sin resultado no hay capítulo).
+| Pieza | Estado |
+|---|---|
+| Motor CMF B-1/B-3 (método **estándar**) | ✅ Completo (`provisioning/cmf/engine.py`, 2.025 LOC, matrices selladas con SHA-256) |
+| Capa de orquestación + regla del máximo | ✅ Completa (`provisioning/orchestrator.py`) — pero hoy compara los operandos equivocados |
+| **Motor del método INTERNO** | ❌ **NO EXISTE.** Es la pieza nueva de este SDD |
+| Dataset con columnas de provisiones | ❌ Los 3 datasets tienen 9 columnas de puro scorecard (`ui/datasets.py:39-49`) |
+| Preset / serializer / pantalla / capítulo | ❌ Ninguno |
 
-**Límites explícitos — qué NO hace este SDD:**
-- **No toca los motores.** Excepción única y deliberada: el validador que bloquea `markov` como fuente de term-structure (§8, D7) y el test que lo enmascara.
-- **No diseña la CLI.** Va a un SDD-29 propio (§12, D6).
-- **No incorpora `stress`, `markov` ni `validation` a la UI.** El mandato es multi-dominio, pero se ejecuta **de a un dominio por vez** y provisiones es el primero (es el dolor regulatorio del gerente chileno).
-- **No generaliza el wizard a N dominios.** Ver §7, D4: el tramo schema-driven ya resuelve los formularios; generalizar la lista blanca es un cambio de dos líneas. Lo caro está en Resultados, y ahí no hay atajo genérico honesto.
+**Límites explícitos:**
+- **No toca los motores CMF ni IFRS 9.** Salvo dos correcciones de bug (§8: D7 markov, y el mensaje del extra inexistente).
+- **IFRS 9 sale del camino crítico.** No se borra: cambia de destinatario (§3.4).
+- **No diseña la CLI** → SDD-29.
+- **No generaliza el wizard a N dominios.**
+
+---
 
 ## 2. Contexto y ubicación en la arquitectura
 
-La cadena completa que este SDD debe dejar corriendo, de punta a punta:
+```
+dataset (nuevo)
+  └─► data ─► binning ─► selection ─► model ─► scorecard ─► calibration
+                                          │
+                     ┌────────────────────┴─────────────────────┐
+                     ▼                                          ▼
+         provisioning_internal  (NUEVO)              provisioning_cmf
+         PD(calibrada) × LGD × EAD                   PE = PI · PDI · Exposición
+         por grupo homogéneo  [B-1 §3]               matrices normativas  [B-1 §3.1.3]
+                     └────────────────────┬─────────────────────┘
+                                          ▼
+                                   provisioning
+                        reported = max(estándar, interno)   [B-1, hoja 10-11]
+                                          │
+                          serializers ────┴──── report (capítulo condicional)
+                                │                    │
+                           ResultsTab            ReporteTab
+```
+
+**El orden de dominios hay que tocarlo** (la v1 afirmaba lo contrario y era falso): `_DEFAULT_DOMAIN_ORDER` (`core/study.py:104-126`) sitúa **`report` en la posición 121, ANTES** de las provisiones (122-124). Con ese orden, `ReportBuilder._collect_cards` **nunca vería** una card de provisiones y el capítulo sería inalcanzable. → **D8**.
+
+---
+
+## 3. Conceptos y fundamentos — la norma, citada
+
+> **Todo lo de esta sección está verificado contra el texto oficial del Compendio de Normas Contables para Bancos (CMF), descargado de `cmfchile.cl`. Ninguna afirmación normativa de este SDD carece de cita.**
+
+### 3.1 La regla del máximo (Cap. B-1, hoja 10-11 — Circular N° 2.346 / 06.03.2024)
+
+> *"La constitución de provisiones se efectuará considerando **el mayor valor obtenido entre el respectivo método estándar y el método interno**. En el caso de uso de los métodos internos evaluados y no objetados, según lo dispuesto en el Anexo N° 1 de este Capítulo, la constitución de provisiones se efectuará de acuerdo con los resultados de su aplicación. **Esta regla se deberá aplicar para cada institución en Chile que consolida con el banco**, separando así la matriz de sus filiales."*
+
+Tres consecuencias duras:
+1. El máximo es **estándar vs. interno**. No contra IFRS 9.
+2. El nivel es **la entidad** (cada institución en Chile que consolida). **No** por operación, **no** por celda de cartera. La v1 discutía si `portfolio` u `operation`: la norma ya lo resolvió, y ninguna de las dos era la respuesta.
+3. Si el método interno está **evaluado y no objetado** por la Comisión, se usa **el interno directamente** (no el máximo). Es un **modo de operación distinto** que el config debe representar (§5).
+
+### 3.2 Ambos métodos son obligatorios (mismo capítulo, párrafo anterior)
+
+> *"en la medida en que esta Comisión disponga de metodologías estándar, los bancos deberán reconocer **provisiones mínimas** de acuerdo con ellas. El uso de esta **base mínima prudencial** para las provisiones, en ningún caso exime a las instituciones financieras de su responsabilidad de contar con **metodologías propias** para determinar provisiones que sean suficientes para resguardar el riesgo crediticio de cada una de sus carteras, **debiendo por tanto disponer de ambos métodos**."*
+
+**Este párrafo es el pitch comercial entero, escrito por el regulador:** el banco *está obligado* a tener un método interno. Nikodym lo construye.
+
+### 3.3 Qué es, textualmente, el método interno (Cap. B-1, §3, "modelos basados en análisis grupal")
+
+> *"los bancos segmentarán a los deudores en **grupos homogéneos** (…) asociando a cada grupo una determinada **probabilidad de incumplimiento** y un **porcentaje de recuperación** basado en un análisis histórico fundamentado. El monto de provisiones a constituir se obtendrá **multiplicando el monto total de colocaciones del grupo respectivo por los porcentajes de incumplimiento estimado y de pérdida dado el incumplimiento**."*
+
+O sea, literalmente:
 
 ```
-dataset sintético (nuevo)
-  └─► data ──► binning ──► selection ──► model ──► scorecard ──► calibration
-                                           │
-                                           ├─► survival ──────► term_structure
-                                           │                        │
-                                           ├─► provisioning_ifrs9 ◄─┘   (ECL)
-                                           └─► provisioning_cmf         (PE = PI·PDI·Exp)
-                                                        │
-                                                        └─► provisioning  ──► max(CMF, IFRS9)
-                                                                  │
-                                                     serializers ─┴─ report (capítulo condicional)
-                                                          │             │
-                                                       ResultsTab    ReporteTab
+provisión_interna(g) = Exposición(g) · PD(g) · LGD(g)      para cada grupo homogéneo g
 ```
 
-El orden lo garantiza `_DEFAULT_DOMAIN_ORDER` (`core/study.py:104-126`), que ya sitúa `provisioning_ifrs9 → provisioning_cmf → provisioning` al final. **No hay que tocar la orquestación**: el pipeline se deriva de las secciones no-`None` del config, así que basta con que el preset las declare.
+La norma también admite un **primer método** (estimar directamente el porcentaje de pérdida esperada por grupo, sin descomponer en PD y LGD). Y añade: *"En ambos métodos, las pérdidas estimadas deben guardar relación con **el tipo de cartera y el plazo** de las operaciones."*
 
-**Por qué `survival` y no `markov` ni `forward`** (decisión D1, ver §7):
-- `survival` exige **2 columnas nuevas** (`duration`, `event`) sobre un cross-section que ya existe, y sus `row_id` **son los de la cartera** (`survival/discrete_hazard.py:497`), que es justo lo que exige el gate `_check_row_coverage` de IFRS 9 (`ifrs9/engine.py:840-846`).
-- `markov` exige reestructurar el dato a **panel** (≥2 filas por operación, `id`+`time`+`state`) y —crítico— emite `row_id = "state:A"`, **una curva por estado, no por operación**. No encaja con IFRS 9 (§8, D7).
-- `forward` es estrictamente el más caro: exige que survival o markov **ya hayan corrido**, más un histórico macro de ≥12 períodos, más 3 escenarios con shocks o paths.
+**Esto es exactamente lo que el pipeline F1 produce.** La PD sale del scorecard calibrado (`calibration.calibrated_pd_frame`); la agrupación homogénea, del propio scorecard (bandas de score) o de un segmento declarado.
 
-## 3. Conceptos y fundamentos
+### 3.4 Dónde queda IFRS 9 (Cap. A-2, num. 5)
 
-Los tres números que el informe tiene que poner delante del gerente:
+> *"Lo establecido en el **Capítulo 5.5 (deterioro de valor) de la NIIF9** (…) **no será aplicado respecto de las colocaciones** ("Adeudado por bancos" y "Créditos y cuentas por cobrar a clientes"), en la categoría "Activos financieros a costo amortizado", **ni sobre los "Créditos contingentes"**, ya que los criterios para estos temas **se definen en los Capítulos B-1 a B-3** de este Compendio."*
 
-1. **Provisión CMF (B-1)** — `PE = PI · PDI · Exposición`. Modelo estándar, matrices normativas de la CMF. Es lo que el banco **reporta al regulador**.
-2. **ECL IFRS 9** — pérdida esperada descontada a EIR, 12 meses (Stage 1) o lifetime (Stage 2/3), ponderada por escenarios. Es lo que el banco **contabiliza**.
-3. **Piso prudencial** — `provisión_reportada = max(CMF, ECL)` por celda de comparación. Es la regla que el banco **debe cumplir** (`ESPECIFICACIONES.md §5.4`) y es el diferencial de Nikodym: nadie empaqueta los dos motores y su reconciliación.
+El ECL de NIIF 9 **no aplica a la cartera de colocaciones de un banco chileno**. El motor `provisioning_ifrs9` **no se tira**: su destinatario son entidades que sí aplican NIIF 9 completa (filiales que reportan ECL a una matriz extranjera; entidades no bancarias; instrumentos distintos de colocaciones). **Fuera del camino crítico de este SDD.**
 
-**El indicador que vende el producto** ya lo calcula el orquestador y hoy nadie lo ve: `floor_bite_ratio` (`orchestrator.py:525-552`) = fracción de celdas donde **el piso CMF muerde** (es decir, dónde la norma obliga a provisionar más de lo que la contabilidad IFRS 9 pediría). Esa cifra es la respuesta a la pregunta que un gerente hace en los primeros dos minutos. **Debe ser el titular del capítulo del informe y de la sección de la UI** (§6, §7).
+### 3.5 El número que vende el producto
 
-Reconciliación numérica: CMF trabaja en `Decimal` y IFRS 9 en `float`; el orquestador reconcilia con `numeric_reconciliation="decimal_quantize"` y `tie_tolerance=1e-9`. Ese detalle no se expone al usuario, pero **sí** se declara en el capítulo de metodología (es exactamente el tipo de rigor que un validador de modelos busca).
+No es un ratio de conteo. Es **plata**:
+
+```
+sobrecosto_del_estándar = Σ provisión_reportada − Σ provisión_interna     [en CLP]
+```
+
+*"Tu modelo interno pide X. El estándar de la CMF pide Y. La norma te obliga a constituir el mayor: Z. Ese delta — en pesos, y como % de tus colocaciones — es lo que el modelo estándar te cuesta."*
+
+Esa frase abre presupuesto. El `floor_bite_ratio` (fracción de celdas donde muerde el estándar) queda como **diagnóstico secundario**, nunca como titular: con la regla aplicada a nivel de entidad hay **una sola celda**, y un ratio sobre una celda solo puede valer 0 o 1.
+
+---
 
 ## 4. API pública (contrato)
 
-### 4.1 Presets — de uno a varios (compatible hacia atrás)
+### 4.1 El motor nuevo — `nikodym.provisioning.internal`
 
-`ui/presets.py` hoy expone **una** función y **un** preset. Se amplía sin romper la firma existente:
+Sigue la forma de `cmf` e `ifrs9` (registro por `@register`, config Pydantic, engine puro, step que publica artefactos).
 
 ```python
-__all__ = ["standard_preset", "provisioning_preset", "list_presets", "get_preset"]
+class InternalProvisioningEngine:
+    config_cls: ClassVar[type[InternalProvisioningConfig]] = InternalProvisioningConfig
 
-STANDARD_PRESET_ID    = "f1-estandar-consumo"       # existente, INTACTO
-PROVISIONING_PRESET_ID = "f3-provisiones-consumo"   # nuevo
+    @classmethod
+    def from_config(cls, cfg: InternalProvisioningConfig) -> InternalProvisioningEngine: ...
 
-def standard_preset() -> dict[str, Any]: ...        # existente, INTACTO (compat: README, docs, tests)
-def provisioning_preset() -> dict[str, Any]: ...    # nuevo, misma forma: {id, name, description, config, dataset_id}
-def list_presets() -> list[dict[str, Any]]: ...     # descriptores SIN el config (para el selector de la UI)
-def get_preset(preset_id: str) -> dict[str, Any]: ...  # levanta UiPresetError si no existe
+    def calculate(
+        self,
+        frame: DataFrame,
+        *,
+        pd_frame: DataFrame,          # de `calibration` (o `model`), PD por operación
+        as_of_date: str,
+        audit: AuditSink | None = None,
+    ) -> InternalProvisionResult: ...
 ```
 
-**Contrato del descriptor** (idéntico al actual, para que el front no cambie de forma): `{id, name, description, config, dataset_id}`.
+**Artefactos** (`domain="provisioning_internal"`): `detail`, `groups`, `summary`, `result`, `card`.
 
-### 4.2 REST — un endpoint nuevo, uno generalizado
+- `groups` es el frame **por grupo homogéneo** — es el objeto que la norma describe y el que un validador va a pedir: `group_id, n_operaciones, exposicion_total, pd_grupo, lgd_grupo, tasa_perdida_esperada, provision`.
+- `card.total_internal_provision: Decimal`.
 
-| Método | Ruta | Estado | Contrato |
-|---|---|---|---|
-| GET | `/api/config/presets` | **nuevo** | `[{id, name, description, dataset_id}]` — sin el config (barato) |
-| GET | `/api/config/preset` | **se mantiene** | Devuelve el estándar. **No se rompe**: es la ruta que usa el bootstrap del front y el README. |
-| GET | `/api/config/preset/{preset_id}` | **nuevo** | `{config, config_hash, dataset_id, name, description}` — 404 si no existe |
+### 4.2 Qué compara el orquestador
 
-**No se toca `POST /api/run`.** El preset de provisiones se ejecuta por la misma ruta síncrona. (Ver §12, R2: el riesgo de tiempo de corrida.)
+`ProvisioningConfig` gana el par de fuentes, en vez de asumir CMF/IFRS 9 (§5.2). La regla del máximo, la reconciliación `Decimal`↔`float` y las políticas de cobertura **ya están implementadas y no se tocan**: el orquestador es agnóstico de qué compara.
 
-### 4.3 Ejemplo de uso end-to-end (pseudocódigo)
+### 4.3 Ejemplo end-to-end (corre; el de la v1 no)
 
 ```python
 from nikodym.ui.presets import provisioning_preset
@@ -119,241 +168,282 @@ from nikodym.core.config import NikodymConfig
 import nikodym
 
 preset = provisioning_preset()
-data_path = materialize(preset["dataset_id"], workdir=workdir)   # -> provisiones_consumo.parquet
 cfg = preset["config"]
-cfg["data"]["load"]["source"] = str(data_path)
+cfg["data"]["load"]["source"] = str(materialize(preset["dataset_id"], workdir=workdir))
 
 study = nikodym.run(NikodymConfig.model_validate(cfg))
 assert study.run_context.status == "done"
 
 card = study.artifacts.get("provisioning", "card")
-card.total_reported_provision      # el número que el gerente reporta
-card.metric_sections["floor_bite_ratio"]   # dónde muerde el piso CMF
+card.total_reported_provision            # lo que la norma obliga a constituir
+card.metric_sections["provisioning_orchestration"]["floor_bite_ratio"]   # ← ruta REAL (la v1 la citaba mal)
 ```
 
-## 5. Configuración (schema Pydantic)
+---
 
-**No se crean configs nuevas.** Los tres dominios ya tienen su schema Pydantic completo (`CmfProvisioningConfig`, `IfrsProvisioningConfig`, `ProvisioningConfig`) y `build_full_json_schema()` (`core/config/schema.py:1124`) **ya los expone en `/api/schema`** — el front simplemente no los mira.
+## 5. Configuración
 
-Un solo cambio de schema, en `IfrsPdConfig` (§8, D7): el validador debe **rechazar** `term_structure_source="markov"` mientras el `row_id` de Markov sea por estado.
+### 5.1 `InternalProvisioningConfig` (nueva)
 
-### 5.1 El preset de provisiones (valores defendibles)
+| Campo | Tipo | Default | Nota |
+|---|---|---|---|
+| `type` | `Literal["standard"]` | `"standard"` | |
+| `as_of_date_col` | `str` | `"as_of_date"` | fecha única, como CMF |
+| `portfolio_col` | `str` | `"cmf_portfolio"` | **una sola columna de cartera** en todo el sistema (la v1 duplicaba `portfolio` y `cmf_portfolio`) |
+| `exposure_col` | `str` | `"exposure_amount"` | la misma que CMF: **es la misma exposición vista por dos métodos** |
+| `pd_source` | `Literal["calibration","model"]` | `"calibration"` | la PD **calibrada**, no la cruda: el B-1 pide PD "basada en análisis histórico fundamentado" |
+| `pd_column` | `str` | `"pd_calibrated"` | |
+| `grouping` | `Literal["score_band","segment","provided"]` | `"score_band"` | cómo se forman los **grupos homogéneos** |
+| `group_col` | `str \| None` | `None` | obligatorio si `grouping="provided"` o `"segment"` |
+| `n_score_bands` | `int` | `10` | `ge=2`; solo con `grouping="score_band"` |
+| `lgd` | `InternalLgdConfig` | factory | |
+| `method` | `Literal["pd_lgd","direct_loss_rate"]` | `"pd_lgd"` | los **dos** métodos que el B-1 admite (§3.3) |
+| `rounding` | `Literal["none","currency_2dp","integer_currency"]` | `"currency_2dp"` | |
+| `fail_on_falta_dato` | `bool` | `True` | |
 
-Config del preset nuevo, sobre el dataset nuevo. Los valores no son arbitrarios: son los que hacen que la corrida sea **explicable** ante un gerente.
+`InternalLgdConfig`: `method: Literal["provided","group_historical"] = "provided"`, `lgd_col: str = "lgd"`, `lgd_floor: float = 0.0`, `lgd_cap: float = 1.0`.
+
+**Aritmética en `Decimal`**, como CMF — es una cifra contable que se compara con otra cifra contable.
+
+### 5.2 `ProvisioningConfig` — qué compara (cambio acotado)
+
+Se añaden dos campos, con defaults que **preservan el comportamiento actual** (retrocompatible):
+
+| Campo | Tipo | Default | Nota |
+|---|---|---|---|
+| `source_a` | `Literal["provisioning_cmf","provisioning_internal","provisioning_ifrs9"]` | `"provisioning_cmf"` | |
+| `source_b` | `Literal[…same…]` | `"provisioning_ifrs9"` | el preset nuevo lo pone en `provisioning_internal` |
+| `rule` | `Literal["max","use_internal"]` | `"max"` | `use_internal` = método interno **evaluado y no objetado** por la CMF (§3.1) |
+| `comparison_level` | *(existente)* | **`"total"`** en el preset | la norma manda a nivel de **entidad** (§3.1) |
+
+`consume_cmf`/`consume_ifrs9` quedan **deprecados** en favor de `source_a`/`source_b` (se mantienen un ciclo con aviso).
+
+> **`rule="use_internal"` no es una comodidad: es la norma.** Un enum sin ruta real degrada en silencio — si se declara, se implementa.
+
+### 5.3 El preset — `f3-provisiones-consumo`
+
+Preset **nuevo e independiente** (no ampliar el F1: sus secciones son computacionales y moverían el `config_hash` de todas las corridas existentes; verificado en `core/config/hashing.py:24`).
 
 ```yaml
 # hereda de f1-estandar-consumo: data (dataset nuevo), binning, selection, model, scorecard, calibration
-survival:
-  method: discrete_hazard        # statsmodels (extra `scoring`, ya instalado); NO lifelines
-  input:
-    duration_col: duration
-    event_col: event
-  horizon_periods: 36            # 3 años: cubre el lifetime de una cartera de consumo
+provisioning_internal:
+  as_of_date_col: as_of_date
+  portfolio_col: cmf_portfolio
+  exposure_col: exposure_amount
+  pd_source: calibration
+  grouping: score_band
+  n_score_bands: 10
+  method: pd_lgd
+  lgd: { method: provided, lgd_col: lgd }
+  rounding: currency_2dp
 
 provisioning_cmf:
   as_of_date_col: as_of_date
   portfolio_col: cmf_portfolio
-  pd_mapping:
-    method: provided_cmf_category   # el dataset trae la categoría; NO derivamos PD→categoría en la demo
-  exposure:
-    rounding: currency_2dp
-
-provisioning_ifrs9:
-  pd:
-    term_structure_source: survival
-    pit_mode: ttc_only            # sin `forward`, no hay factor sistémico ni escenarios: NO fingimos PIT
-    horizon_12m_periods: 12
-  lgd:  { method: provided }      # LGD viene en el dataset; estimarla exigiría datos de recupero
-  ead:  { method: provided }
-  staging:
-    dpd_sicr_backstop: 30
-    dpd_default_backstop: 90
-  scenarios:
-    source: single                # coherente con ttc_only
-  ecl:
-    rounding: currency_2dp
+  # pd_mapping se deja en su default: en cartera `consumer` NO se usa (la categoría la deriva
+  # el motor de dpd+producto+flags). Ver §6.2 — `cmf_category` NO va en el dataset.
+  exposure: { rounding: currency_2dp }
 
 provisioning:
-  comparison_level: portfolio     # el gerente compara por cartera, no por operación
+  source_a: provisioning_cmf
+  source_b: provisioning_internal
+  rule: max
+  comparison_level: total          # la norma: "para cada institución en Chile que consolida"
   require_both: true
-  coverage_policy: fail           # si un motor no corrió, NO inventamos un piso a medias
+  coverage_policy: fail            # un máximo con un solo operando no es un máximo
+
+report:
+  sections:
+    # NO añadir "provisioning" a required_sections: haría que TODA corrida F1 exija su card.
+    # El capítulo es CONDICIONAL (D5).
 ```
 
-**Dos decisiones honestas que hay que defender ante el revisor:**
-- **`pit_mode: ttc_only`.** Sin el dominio `forward` no hay escenarios macro ni factor sistémico. Declarar `consume_pit` o `apply_vasicek` sin esos datos sería **fingir un PIT que no existe** — la clase exacta de mentira que este proyecto se prohíbe. El informe debe **decirlo**: "la PD es TTC; el ajuste PIT/forward-looking requiere el módulo `forward`, fuera del alcance de esta corrida".
-- **`coverage_policy: fail`.** Un piso calculado con un solo motor no es un piso. Preferimos que la corrida se caiga a que emita un número que parece un piso y no lo es.
+**Ni `survival`, ni `forward`, ni `provisioning_ifrs9` en este preset.** La cadena es F1 → interno + CMF → máximo. Es más corta, más rápida y es la que la norma describe.
 
-## 6. Contratos de datos (I/O)
+---
 
-### 6.1 El dataset nuevo — `provisiones_consumo`
+## 6. Contratos de datos
 
-**Decisión D2: se crea un dataset NUEVO; no se amplían los tres existentes.** Ampliar `consumo_comportamiento` cambiaría su contenido y con él el `data_hash` → arrastraría goldens y fixtures de toda la suite. **Ya se intentó exactamente eso con EDA y hubo que revertirlo** (ver `HANDOFF.md`, "callejones sin salida"). No se repite el error.
+### 6.1 Regla de oro
 
-Esquema (superset del de F1; las 9 primeras columnas son idénticas para que el pipeline de scorecard corra sin cambios):
+> **La lista de columnas de este SDD es una HIPÓTESIS hasta que el gate G1 la ejecute contra los motores reales.** No se escribe una línea del preset ni del front antes de que G1 congele el contrato. (La v1 dio la lista por buena leyendo el código y se equivocó en al menos tres columnas.)
 
-| Columna | Tipo | Rol | Consumidor |
-|---|---|---|---|
-| `loan_id` | str (índice) | id | todos — **es el `row_id` que cruza survival ↔ IFRS 9** |
-| `ingreso_mensual`, `deuda_ingreso`, `utilizacion_linea`, `mora_max_12m`, `antiguedad_meses` | float/int | feature | binning, model |
-| `segmento` | str | segment | data |
-| `cohorte` | str | cohort | partición Dev/HO/OOT |
-| `bad_flag` | int | target | model |
-| `duration` | int | — | **survival** (períodos hasta evento o censura) |
-| `event` | int (0/1) | — | **survival** (1 = default, 0 = censurado) |
-| `as_of_date` | str `YYYY-MM-DD` | — | CMF, IFRS 9, orquestador (**una sola fecha en todo el frame**) |
-| `debtor_id` | str | — | CMF (consolida consumo a nivel deudor) |
-| `cmf_portfolio` | str | — | CMF (`consumer`) |
-| `cmf_category` | str | — | CMF |
-| `cmf_product_type` | str | — | CMF |
-| `days_past_due` | int | — | CMF **e** IFRS 9 (staging: backstops 30/90) |
-| `exposure_amount` | float | — | CMF |
-| `has_housing_loan_system` | bool | — | CMF (cartera consumo) |
-| `system_dpd30_last_3m` | bool | — | CMF (cartera consumo) |
-| `is_default` | int (0/1) | — | CMF **e** IFRS 9 (Stage 3) |
-| `portfolio` | str | — | IFRS 9 (+ crosswalk con `cmf_portfolio` en el orquestador) |
-| `ead` | float | — | IFRS 9 (`method: provided`) |
-| `lgd` | float ∈ [0,1] | — | IFRS 9 (`method: provided`) |
-| `eir` | float | — | IFRS 9 (descuento del ECL) |
+### 6.2 El dataset nuevo — `provisiones_consumo`
 
-> ⚠️ **Esta lista se derivó leyendo `cmf/engine.py` e `ifrs9/engine.py`, no corriéndolos.** La implementación **no puede darla por buena**: el gate **G1** (§11) es un smoke que corre los motores reales contra el dataset y ajusta la lista con lo que el motor pida de verdad. *Una lista de columnas verificada por lectura es una hipótesis, no un contrato.*
+Dataset **nuevo**; no se amplían los tres existentes (cambiaría su `data_hash` y arrastraría goldens y fixtures — ya se intentó con EDA y hubo que revertirlo).
 
-**Coherencia interna obligatoria** (si no, el dataset es una mentira estadística y el gerente lo va a notar):
-- `days_past_due` debe ser **coherente con `bad_flag`/`is_default`**: un `is_default=1` con `days_past_due=0` es un absurdo que el propio motor puede aceptar y un validador humano no.
-- `duration`/`event` deben **derivarse del mismo proceso** que genera `bad_flag`, no muestrearse aparte: si un caso tiene `event=1`, su `bad_flag` debe ser 1.
-- `cmf_category` debe correlacionar con `days_past_due` (la norma la define, en buena parte, por mora).
-- `exposure_amount` y `ead` deben ser del mismo orden (son la misma exposición vista por dos normas); no idénticas necesariamente, pero **no puede haber un factor 10 entre ellas**.
-- La cartera debe tener **casos en los tres stages** de IFRS 9 y celdas donde el piso CMF **muerda y donde no** — si no, el `floor_bite_ratio` sale 0 o 1 y la demo no demuestra nada.
+**Columnas** (las 9 primeras, idénticas a F1, para que el pipeline de scorecard corra sin cambios):
 
-Determinismo: `seed` constante (como los otros tres, `ui/datasets.py:53`), jamás derivada de reloj o `hash()`.
+| Columna | Tipo | Consumidor |
+|---|---|---|
+| `loan_id` (índice) | str | todos |
+| `ingreso_mensual`, `deuda_ingreso`, `utilizacion_linea`, `mora_max_12m`, `antiguedad_meses` | float/int | binning, model |
+| `segmento` | str | data |
+| `cohorte` | str | partición Dev/HO/OOT |
+| `bad_flag` | int | model (target) |
+| `as_of_date` | str | CMF, interno, orquestador (**valor único en todo el frame**) |
+| `debtor_id` | str | CMF (**consolida consumo a nivel deudor**) |
+| `cmf_portfolio` | str | CMF **e** interno — literal `"consumer"` |
+| `cmf_product_type` | str | CMF — `creditos_en_cuotas` \| `tarjetas_lineas_otros` \| `leasing_auto` |
+| `days_past_due` | int | CMF (bucket de PI) |
+| `has_housing_loan_system` | bool | CMF — **nombre hardcodeado** en `cmf/engine.py:504` |
+| `system_dpd30_last_3m` | bool | CMF — **nombre hardcodeado** en `cmf/engine.py:505` |
+| `exposure_amount` | float (CLP) | CMF **e** interno |
+| `lgd` | float ∈ [0,1] | interno |
 
-### 6.2 Serializer
+**Columnas que NO van** (y por qué — cada una es un error de la v1):
+- ❌ **`cmf_category`** — en cartera `consumer` el motor **nunca la lee**: deriva la categoría de `(bucket_dpd, hipotecario_sistema, mora_sistema)` (`cmf/engine.py:1023-1071`). Las categorías A1–C6 son de **cartera comercial individual**. Ponerla induce a creer que la categoría de consumo es un input.
+- ❌ **`is_default`** — CMF **no la lee** en esta ruta (deriva el incumplimiento de `max(dpd) ≥ 90` por deudor, `engine.py:524`). Sin IFRS 9 en el preset, nadie la consume. Incluirla crea **dos verdades** que pueden discrepar.
+- ❌ `portfolio`, `ead`, `eir` — eran para IFRS 9. Fuera del camino crítico.
+- ❌ `duration`, `event` — eran para `survival`. Fuera.
+- ☠️ **`guarantee_type`, `financial_guarantee_*`, `aval_*`, `contingent_*`** — el motor CMF **olfatea estos nombres** y con la política por defecto (`fail`) **aborta la corrida** (`engine.py:118-135`, `:1320-1344`). **Bautizar mal una columna mata la corrida.**
 
-Añadir al mapa `_CARD_KEY_BY_DOMAIN` (`ui/serializers.py:42`):
-```python
-"provisioning_cmf": "card", "provisioning_ifrs9": "card", "provisioning": "card",
-```
-Y en `_augment_with_rich_artifacts` (`serializers.py:96`), los frames que la UI necesita graficar:
-- `provisioning.comparison` → tabla del piso por celda (CMF vs ECL vs reportado, con `binding`)
-- `provisioning_ifrs9.staging` → distribución por stage (agregada, **no** por operación)
-- `provisioning_cmf.summary` → provisión por cartera/categoría
+### 6.3 El proceso generador — coherencia, no seis muestreos independientes
 
-**Regla dura:** los frames **por observación** (el `detail` de CMF y el `ecl_term_structure` de IFRS 9) **NO** van al `results.json`. Con 6.000 operaciones × N períodos, el payload explota y el front se cae. Van al informe como adjunto, vía `PER_OBSERVATION_TABLES` (`report/document.py:136`).
+Un solo proceso latente. Las reglas (todas verificables en G1):
 
-## 7. Algoritmos y flujo — las cinco decisiones de diseño
+1. **Deudores, no operaciones sueltas.** ~4.200 deudores para 6.000 operaciones (≈30 % con ≥2). **Sin esto, la consolidación por deudor del B-1 —la regla central de la norma en consumo— nunca se ejercita.**
+2. **`days_past_due` deriva del riesgo latente**, no se muestrea aparte: `P(dpd=0)` decreciente en `prob_bad`; y **nunca `bad_flag=1` con `dpd=0`**.
+3. **Coherencia con las features**: `mora_max_12m ≥ days_past_due` (la mora máxima de 12 meses no puede ser menor que la actual). Un revisor cruza esas dos columnas.
+4. **Los flags son POR DEUDOR** (CMF hace `any()` sobre el deudor, `engine.py:516-523`), no por operación. `has_housing_loan_system` ≈ 35 % de deudores, **correlacionado negativamente** con el riesgo. `system_dpd30_last_3m` **casi implicado** por la mora propia: quien tiene 60 días de mora contigo, los tiene en el sistema.
+   > **Estos dos booleanos SON la provisión CMF de la demo**: la PI va de **3,3 %** (con hipotecario, sin mora sistema) a **19,8 %** (sin hipotecario, con mora sistema) *con la misma mora en el banco*. Un factor **6×**. Si el generador los saca Bernoulli(0.5) independientes, el número final es ruido — y un gerente conoce de memoria qué fracción de su cartera tiene hipotecario en el sistema.
+5. **`cmf_product_type` correlacionado con `utilizacion_linea`**: la utilización alta vive en `tarjetas_lineas_otros`. Una utilización de línea del 85 % en un crédito en cuotas no existe. Mix realista (cuotas ≫ tarjetas ≫ leasing), no 33/33/33.
+6. **`exposure_amount` explicado por las features**: `≈ ingreso_mensual · deuda_ingreso · κ`, lognormal con cola pesada, en **CLP plausible**. Un revisor cruza saldo contra DTI.
+7. **`lgd` distribuida (Beta), nunca constante**, y anclada **por debajo** de la PDI normativa del producto (PDI: 33,2 % leasing / 47,7–56,6 % cuotas / 49,5–60,3 % tarjetas). Racional defendible: *la PDI regulatoria es más conservadora que la LGD interna*. **Y es el mecanismo que hace morder el estándar de forma creíble en vez de arbitraria.**
+8. **Tasa de default plausible.** El intercepto de F1 (`-2,2`) hay que **medirlo y recalibrarlo**: un *bad rate* de consumo chileno vive en un dígito, no en un 20 %.
+9. **Sin fuga de información.** `bad_flag` es **forward-looking** (ventana de desempeño); `days_past_due` es el **estado en T**. Hacerlos "coherentes" hasta la identidad mete leakage: el scorecard predeciría el presente y saldría con un KS de 65, que **no existe en consumo** y que un gerente lee como fraude. Regla: correlacionados por el riesgo latente, **nunca deterministas** el uno del otro.
+10. **Moneda y unidades explícitas** en el informe y la UI: **CLP**, con separador de miles. Una cifra sin unidad es ilegible para quien lee provisiones en millones.
 
-### D1 — Los tres motores, no uno. Term-structure vía `survival`.
-**Decidido:** el preset corre CMF **e** IFRS 9 **y** el piso.
-**Alternativa descartada — CMF solo:** es más barato (CMF corre standalone, sin survival) pero deja fuera el ECL y, sobre todo, **el piso prudencial, que es el único diferencial real**. CMF a secas es una calculadora de matrices que un banco resuelve en Excel; no justifica una reunión. Si el MVP no muestra el `max()`, no muestra Nikodym.
+**Determinismo:** `seed` constante por dataset, jamás derivada de reloj o `hash()`.
 
-### D2 — Dataset nuevo, no ampliar los existentes.
-Ya justificado en §6.1 (el `data_hash` y el precedente de EDA).
+### 6.4 Serializer
 
-### D3 — Preset nuevo e independiente, no un preset que compone dominios.
-**Decidido:** `f3-provisiones-consumo` es un preset completo y separado.
-**Alternativa descartada — ampliar `f1-estandar-consumo` con las secciones de provisiones:** cambiaría el `config_hash` de **todas** las corridas F1 existentes, obligaría a que el dataset estándar tuviera columnas de provisiones (volviendo a D2) y rompería el ejemplo canónico del README y de `getting-started.md`.
-**Alternativa descartada — un preset "componible" con flags:** es la abstracción prematura clásica. Con **dos** presets no hay evidencia de cuál es el eje de composición correcto. Se decide cuando haya un tercero (stress) y se vea el patrón real.
-El usuario no piensa en "dominios que compone": piensa en **"quiero calcular mis provisiones"**. Un preset = un caso de uso.
+Añadir al mapa `_CARD_KEY_BY_DOMAIN` (`ui/serializers.py:42`): `provisioning_cmf`, `provisioning_internal`, `provisioning` → `"card"`.
 
-### D4 — El wizard NO se generaliza; se amplía la lista blanca.
-**Decidido:** renombrar `F1_SECTIONS` → `CONFIG_SECTIONS_ALLOWED` (`web/src/lib/schema.ts:38`) y añadir las tres secciones nuevas, más su entrada en `CONFIG_SECTIONS` de `App.tsx:60` (label, icono, descripción).
-**Por qué no generalizar:** el tramo genuinamente schema-driven —**los campos dentro de una sección**— ya funciona y saldrá gratis (`form-engine.ts` resuelve widgets desde el JSON Schema). Lo que está hardcodeado es (a) la lista blanca de secciones, que es **una línea**, y (b) los **resultados**, que no tienen forma genérica honesta: un gráfico de piso prudencial no se deriva de un schema. Generalizar (b) sería inventar un motor de visualización genérico para renderizar exactamente una pantalla. **No se hace.**
+Frames a exponer: `provisioning.comparison` (con `comparison_level: total` son **1-2 filas**, trivial), `provisioning_internal.groups` (10 bandas — **es la tabla que un validador pide**) y `provisioning_cmf.summary` (agregado por cartera/categoría).
 
-**Deuda que este SDD SÍ paga** (porque ya nos mordió): el fixture `web/src/fixtures/schema.json` es un snapshot **manual** de `/api/schema` que ya se desincronizó en silencio durante decenas de commits (64 kB contra 259 kB reales). Con un dominio más, el riesgo se dobla. → **Se versiona `scripts/gen_schema_fixture.py`** y se añade un test que falla si el fixture está stale. Sin eso, el modo demo mostrará un schema viejo y nadie se enterará.
+**NUNCA** los frames por observación (`cmf.detail`, `internal.detail`): 6.000 filas revientan el payload. Van al informe como adjunto.
 
-### D5 — Capítulo condicional en el informe (el único punto de extensión nuevo).
-La estructura de capítulos es declarativa (`CHAPTER_SPECS`, `report/document.py:191`) pero **`build_sections` los emite todos, siempre** (`builder.py:159-168`): no existe el concepto de capítulo condicional. Se añade:
+> **D9 — `Decimal` → JSON.** *Verificado ejecutando:* `ui/serializers._to_json_native` **no conoce `Decimal`** y `_ensure_json_safe` **levanta**, tumbando **todo el payload de `/api/results`**, no solo provisiones. Y `report/renderer` emite `{"unsupported_type": "Decimal"}`.
+> **Decisión: coaccionar en la frontera, una sola vez.** `Decimal → float` en `serializers._to_json_native` y en `renderer._display_json_value`/`_canonical_value`. JSON no tiene decimales y la cifra ya viene cuantizada por `rounding: currency_2dp`. **No** se filtra `Decimal` como string al front: TypeScript tampoco puede representarlo y `results-format.ts` (780 LOC) asume `number`.
 
-```python
-class ChapterSpec(BaseModel):
-    ...
-    requires_domain: str = ""     # nuevo: si está, el capítulo solo se emite si el dominio corrió
-```
-```python
-# builder.build_sections
-if spec.requires_domain and spec.requires_domain not in bundle.cards:
-    continue                       # la numeración ya se reflowa sola (builder.py:160-166)
-```
+---
 
-Capítulo nuevo: `ChapterSpec(id="provisions", title="Provisiones", kind="prose", requires_domain="provisioning")`, con subsecciones para CMF, IFRS 9 y el piso. **Titular del capítulo: el `floor_bite_ratio`** (§3), no una tabla.
+## 7. Decisiones de diseño
 
-**Y hay que borrar dos afirmaciones que hoy son falsas** en cuanto este SDD se implemente:
-- `report/prose.py:1189-1192` — el párrafo de Limitaciones que dice que el cálculo de provisiones "corresponde a fases posteriores".
-- `report/templates/_exec_summary.html.j2:42` — lo mismo, en el resumen ejecutivo.
+### D1 — El producto es `max(estándar, interno)`. IFRS 9 sale del camino crítico.
+Fundamento en §3. Es la única versión citable, y la única en la que **el scorecard entra en el número final**.
 
-Que el informe del producto declare que las provisiones no están, mientras la landing las promete, es la misma clase de contradicción que ya nos costó dos correcciones públicas. **No se puede lanzar el capítulo sin borrar esas dos frases.**
+### D2 — Dataset nuevo, no ampliar los existentes. *(Sin cambios respecto de v1: el argumento del `data_hash` se sostiene.)*
 
-## 8. Casos borde y manejo de errores
+### D3 — Preset nuevo e independiente. *(Sin cambios: ampliar F1 movería el `config_hash` de todas las corridas.)*
 
-### D7 — `markov` como fuente de term-structure: BLOQUEAR (bug real, no hipótesis)
+### D4 — El wizard no se generaliza; se amplía la lista blanca.
+`F1_SECTIONS` (`web/src/lib/schema.ts:38`) → `CONFIG_SECTIONS_ALLOWED`, más su entrada en `CONFIG_SECTIONS` (`App.tsx:60`). El tramo schema-driven (**los campos dentro de una sección**) sale gratis. Los **resultados** no tienen forma genérica honesta: un gráfico de la regla del máximo no se deriva de un JSON Schema.
+> ⚠️ **Corrección a la v1:** el fixture `web/src/fixtures/schema.json` **NO está stale** — se regeneró hoy (~303 KB) y ya trae las tres secciones de provisiones. El "64 kB contra 259 kB" describía un estado pasado. El test de staleness (G7) **nace en verde** y es una guardia de regresión, no una deuda. Y **debe tolerar** que un extra ausente deje una sección opaca (`schema.py:1132`), o enrojecerá en los jobs mínimos del CI.
 
-`IfrsPdConfig.term_structure_source` acepta `Literal["survival", "markov", "forward"]`. **La rama `markov` no funciona con la salida real de Markov:**
-- Markov emite `row_id = f"state:{state}"` — una curva **por estado** (`markov/term_structure.py:497`).
-- IFRS 9 exige **igualdad exacta de conjuntos** entre los `row_id` de la term-structure y los de la cartera (`ifrs9/engine.py:840-846`).
-- Con una cartera real, esa combinación **levanta un error de cobertura**. Nunca produce un ECL.
+### D5 — Capítulo condicional en el informe.
+`ChapterSpec` (`report/document.py:176`) gana `requires_domain: str = ""`; `build_sections` (`builder.py:159-168`) hace `continue` si el dominio no tiene card. La numeración ya se reflowa sola.
+> ⚠️ **El agujero que la v1 no vio:** `CANONICAL_SECTION_ORDER` (`document.py:255`) se **deriva** de `CHAPTER_SPECS` y está en `__all__` — es **API pública**. Con un capítulo condicional, la constante promete una sección que no siempre se emite, y `test_report_builder.py:89-92` (que compara las secciones emitidas contra ella) **falla**. → `CANONICAL_SECTION_ORDER` debe pasar a ser **el orden de los capítulos posibles**, y el test comparar contra **el subconjunto emitido**.
 
-**Y el test que la "cubre" la enmascara:** `tests/unit/test_ifrs9_step.py:222` (`test_survival_y_markov_mismo_ecl`) inyecta a mano una term-structure con `row_id="op1"` en el dominio `"markov"` — **nunca ejecuta `MarkovStep`**. Es exactamente el patrón que ya nos costó caro: *un test que fabrica un estado que el código real nunca produce no caza nada*.
+**Subsecciones `kind="data"`, no un capítulo `kind="prose"` a secas** — `renderer` solo emite tablas y gráficos si `kind == "data"` (`:558`, `:761`). Un capítulo de pura prosa saldría sin la tabla del máximo y sin el gráfico.
 
-**Decisión:** hasta que se resuelva el mapeo estado→operación (SDD futuro), el validador de `IfrsPdConfig` **rechaza `term_structure_source="markov"`** con un mensaje explícito. Un enum declarado sin ruta real degrada en silencio, y el step no debe ser más permisivo que el motor.
-**Y el test se corrige**: o corre `MarkovStep` de verdad (y entonces documenta el fallo), o se borra la parte que miente.
+**Titular del capítulo: el sobrecosto en CLP** (§3.5), no un ratio.
 
-### Otros bordes
-- **`as_of_date` múltiple**: CMF exige una única fecha en el frame (`cmf/step.py:247-272`). El generador del dataset debe garantizarlo; el validador de `data` no lo cubre.
-- **Perímetros desalineados**: con `comparison_level: portfolio`, CMF agrupa por `cmf_portfolio` e IFRS 9 por `portfolio`. Si las taxonomías difieren, el orquestador exige `portfolio_crosswalk`. En el dataset sintético **se usa la misma taxonomía** para no necesitarlo (pero el SDD lo declara para el caso de datos reales).
-- **Corrida parcial**: si `provisioning_cmf` corre y `provisioning_ifrs9` falla, con `coverage_policy: fail` la corrida termina en `failed`. El front hoy muestra un mensaje **genérico** (`serializers.py:56-59`, `_FAILURE_MESSAGE`): el usuario no sabrá **por qué**. Eso es aceptable en F1 (scorecard) y **no lo es en provisiones**, donde el fallo típico será "te falta la columna `eir`". → **El SDD exige propagar el motivo del `NikodymError` de validación de entrada** al payload (solo los errores de contrato de datos, no las trazas internas).
-- **`nikodym[markov]` no existe**: `markov/step.py:626-633` sugiere instalar un extra que **no está en el `pyproject.toml`**. Corregir el mensaje (Markov solo necesita deps base).
+### D6 — CLI fuera del alcance → SDD-29. *(Sin cambios.)*
+
+### D7 — `markov` como fuente de term-structure de IFRS 9: **BLOQUEAR** (bug real).
+Markov emite `row_id = "state:A"` (una curva **por estado**, `markov/term_structure.py:497`); IFRS 9 exige **igualdad exacta de conjuntos** de `row_id` contra la cartera (`ifrs9/engine.py:840-846`). Con datos reales, revienta. El test que lo "cubre" (`test_ifrs9_step.py:222`) **inyecta a mano** una term-structure con `row_id="op1"` en el dominio `"markov"` y **nunca ejecuta `MarkovStep`**.
+→ El validador de `IfrsPdConfig` **rechaza** `term_structure_source="markov"`. **Y el test se corrige**: o corre `MarkovStep` de verdad, o se borra la parte que miente.
+*(Confirmado de forma independiente por dos revisiones. Sigue vigente aunque IFRS 9 salga del camino crítico: es un bug live en el paquete publicado.)*
+
+### D8 — `report` corre al final del pipeline. **(NUEVO — bloqueador que la v1 negó.)**
+Mover `"report"` al final de `_DEFAULT_DOMAIN_ORDER` (`core/study.py:104-126`), después de `validation`. Es lo que el informe **es** semánticamente: una foto de todo lo que corrió. `report` es INFRA (**no** entra al `config_hash`, `hashing.py:24`), así que es un cambio barato.
+**Verificar** que el SHA del HTML del preset F1 **no se mueva** (las cards emitidas son las mismas). Si se mueve, regenerar los dos goldens a conciencia.
+
+### D9 — `Decimal` se coacciona en la frontera. *(Ver §6.4.)*
+
+---
+
+## 8. Casos borde y errores
+
+- **`as_of_date` única**: CMF lo exige (`cmf/step.py:247-272`). El generador lo garantiza; el validador de `data` **no** lo cubre.
+- **Perímetros**: interno y CMF corren sobre **la misma exposición y la misma columna de cartera** → sin crosswalk. (La v1 duplicaba columnas sin motivo.)
+- **Consolidación por deudor**: CMF sube a incumplimiento **todas** las operaciones de un deudor si **alguna** supera 90 dpd; el método interno agrupa **por banda de score**. Esa asimetría es **real y normativa**, y **el informe debe declararla** — si no, parece un bug.
+- **Corrida parcial**: con `coverage_policy: fail`, si un motor no corre la corrida termina en `failed` — y el front muestra un mensaje **genérico** (`serializers.py:56-59`). Aceptable en F1; **no** en provisiones, donde el fallo típico será "te falta la columna `lgd`".
+  > ⚠️ La v1 exigía "propagar el motivo del `NikodymError`" **sin ver que `run_context` no persiste el mensaje** (`serializers.py:52-59` lo documenta): solo va al audit-trail. Cumplirlo exige tocar `core` (publicar un artefacto `run_error` o persistir el mensaje). **Es un cambio de motor: entra al alcance explícitamente, o se cae del SDD.** No puede quedar como una frase.
+- **Mensaje del extra inexistente**: `markov/step.py:626-633` sugiere `nikodym[markov]`, **que no existe**. El extra correcto es **`scoring`** (Markov necesita `scipy.linalg.expm`, y `scipy` vive ahí). *(La v1 iba a "corregirlo" diciendo que Markov corre con deps base: también falso.)*
+
+---
 
 ## 9. Reproducibilidad y auditoría
 
-- Dataset: `seed` constante por dataset; el parquet se cachea y `materialize()` es idempotente.
-- Los tres motores son **deterministas** (CMF en `Decimal`, sin RNG; el orquestador tampoco tiene RNG). `survival/discrete_hazard` usa statsmodels con semilla del `Study`.
-- Test de determinismo obligatorio: dos corridas del preset → **mismo `total_reported_provision`, byte a byte** (ya existe el patrón en `test_provisioning_step.py:273`).
-- Audit-trail: el orquestador ya emite las notas `FALTA-DATO-PROV-*` y los warnings por celda (`piso_incompleto`, `cobertura_imputada_cero`, `ifrs9_ausente`, `cmf_ausente`). **El capítulo del informe debe imprimirlos**, no tragárselos: si el piso está incompleto en alguna celda, el gerente tiene que leerlo.
+- Motores deterministas (CMF y el interno en `Decimal`, sin RNG). Dataset con `seed` fija.
+- Test de determinismo: dos corridas → **mismo `total_reported_provision`**, byte a byte.
+- **El audit-trail debe registrar la regla aplicada**: qué método ganó, en qué entidad, y con qué `rule` (`max` vs `use_internal`). Es la traza que un validador de modelos pide primero.
+- El capítulo del informe **imprime los warnings** del orquestador (`piso_incompleto`, `cobertura_imputada_cero`…), no se los traga.
+
+---
 
 ## 10. Dependencias
 
-**Ninguna dependencia nueva.** Los tres motores corren con deps **base** (pandas/numpy); `survival` con `discrete_hazard` usa **statsmodels**, que ya viene en el extra `scoring` (el mismo que la demo ya exige). El extra `ui` ya arrastra `excel` y `docx`.
+**Ninguna nueva.** El motor interno es `PD × LGD × EAD` en `Decimal`: pandas y la stdlib. CMF, igual. **Calcular las provisiones que la CMF exige no añade una sola dependencia sobre lo que ya se instala para un scorecard** — y eso merece decirse en la doc pública.
 
-Esto es un punto fuerte del diseño y hay que decirlo en la doc pública: **calcular provisiones CMF + IFRS 9 no añade una sola dependencia** sobre lo que ya se instala para un scorecard.
+---
 
-## 11. Estrategia de tests — los gates que recorren la ruta HASTA EL GERENTE
+## 11. Gates — la ruta HASTA EL GERENTE
 
-La regla del proyecto: *una feature sin preset, sin pantalla y sin capítulo no existe*. Estos gates existen para que "listo" signifique **listo para el usuario**, no "el `run()` no tiró excepción". **Ninguno es opcional.**
+*Una feature sin dataset, sin preset, sin pantalla y sin capítulo no existe.* Ninguno es opcional.
 
-| Gate | Qué verifica | Cómo |
-|---|---|---|
-| **G1** | El dataset alimenta los motores **reales** | Smoke en Python: `materialize()` → `CmfProvisioningEngine.calculate()` e `IfrsProvisioningEngine.calculate()`. **Este gate corrige la lista de columnas de §6.1**, que hoy es una hipótesis. |
-| **G2** | La cadena completa corre | `nikodym.run(provisioning_preset())` → `status == "done"` **y** `provisioning.card.total_reported_provision > 0`. **Es el primer test del repo que ejecuta `SurvivalStep` antes de IFRS 9** (hoy ese puente no está ejercitado en ningún lado). |
-| **G3** | La UI puede lanzarla | `POST /api/run` con el preset nuevo → 200, `done`, y `GET /api/results/{id}` trae las tres secciones de provisiones no-nulas. |
-| **G4** | El gerente lo VE | La demo (`web/`) renderiza la sección de provisiones con el piso y el `floor_bite_ratio`. Verificación **en el navegador**, no por typecheck. |
-| **G5** | El informe lo DICE | El HTML/PDF trae el capítulo "Provisiones" con la cifra, **y ya no contiene la frase "corresponde a fases posteriores"** (test que busca ese literal y falla si aparece). |
-| **G6** | La demo estática funciona sin backend | Fixtures regenerados desde una **corrida real** (nunca inventados) + `VITE_DEMO_MODE=true npm run build`. |
-| **G7** | El fixture del schema no está stale | Test que compara `web/src/fixtures/schema.json` contra `build_full_json_schema()` y falla si difieren. |
+| Gate | Qué verifica |
+|---|---|
+| **G0 — Replicación a mano** | **~10 operaciones calculadas en planilla por una persona con criterio de riesgo**, cubriendo las 4 filas del bucket de mora × las 3 PDI de producto × los 2 flags de sistema × un caso en incumplimiento. El test compara **al centavo** contra el motor. *Es lo primero que un validador de modelos pide, y es el único test que acepta como evidencia.* **Sin G0, nada sale a un cliente.** |
+| **G1 — El dataset alimenta los motores REALES** | `materialize()` → `CmfProvisioningEngine.calculate()` e `InternalProvisioningEngine.calculate()`. **Congela la lista de columnas de §6.2**, que hoy es hipótesis. Asserta además: mix de producto realista, los 5 buckets de mora poblados, y **`0 < floor_bite < 1`** (que el estándar muerda **y** no muerda). Si falla, **se ajusta el generador, no el preset**. |
+| **G2 — La cadena corre** | `nikodym.run(provisioning_preset())` → `status == "done"` **y** `total_reported_provision > 0` **y** `total_internal_provision > 0`. Con **presupuesto de tiempo medido** (ver R2). |
+| **G3 — La UI puede lanzarla** | `POST /api/run` → 200 + las tres secciones no nulas en `/api/results`. |
+| **G4 — El gerente lo VE** | La demo renderiza la sección con **el sobrecosto en CLP**. Verificación **en el navegador**. ⚠️ No hay Playwright en el repo: o se añade un harness, o G4 es checklist manual **declarado como tal** (no un gate que finge serlo). |
+| **G5 — El informe lo DICE** | El capítulo existe con la cifra, **y** el informe ya no dice que las provisiones "corresponden a fases posteriores". ⚠️ El literal real es **"corresponden"** (plural), en **tres** sitios: `prose.py:1192`, `_exec_summary.html.j2:42` **y el fixture `web/src/fixtures/demo/report.html`**. *(El gate de la v1 buscaba el singular: habría pasado en verde para siempre.)* **Esas frases son VERDADERAS hoy y solo pueden borrarse cuando el capítulo exista** — borrarlas antes las volvería falsas. |
+| **G6 — Demo estática** | Fixtures de una **corrida real**, nunca inventados. **D10:** un **único** fixture set, el de provisiones (que es superset de F1) — no dos (ahorra ~1,1 MB y el selector de presets). |
+| **G7 — Fixture del schema no stale** | Guardia de regresión (nace en verde, ver D4). Debe tolerar secciones opacas por extras ausentes. |
+| **G8 — Coherencia del material público** | **NUEVO.** Ninguna superficie (README, docs, landing, glosario) puede afirmar algo que el producto no haga, **ni al revés**. Cuando la UI muestre provisiones, seis superficies que hoy dicen "solo el scorecard tiene UI" pasarán a ser falsas. *En un proyecto cuya historia son tres correcciones públicas, esto es bloqueante.* |
 
-**Goldens que se romperán y hay que regenerar a conciencia** (no a ciegas): 2 SHA-256 del HTML del informe (`test_report_renderer.py:48`, `test_report_step.py:74`), la tupla `_CANONICAL_IDS` de 16 ids (`test_report_renderer.py:877`), la numeración de capítulos (`test_report_builder.py:100-104` — `limitations == "6"` se moverá) y el dict del manifest (`test_report_builder.py:130`).
+**Regla:** cada test nuevo **debe fallar con el código viejo**. Uno que pasa antes y después no prueba nada.
 
-**Regla:** cada test nuevo debe **fallar con el código viejo**. Un test que pasa antes y después no está probando lo que crees.
+**Goldens** *(la lista de la v1 estaba mayormente equivocada; esta está verificada)*: se rompen los **dos SHA-256 del HTML** (`test_report_renderer.py:48`, `test_report_step.py:74`) — por borrar el literal de `_exec_summary`, no por el capítulo — y **`test_report_builder.py:89-92`** (`CANONICAL_SECTION_ORDER`, ver D5). **No** se rompen: el dict del manifest (es autorreferencial) ni `_CANONICAL_IDS` (ese bundle se construye a mano).
 
-## 12. Decisiones abiertas y riesgos
+---
 
-### D6 — La CLI: FUERA de este SDD (decidido, no abierto)
-Hoy **no existe CLI** (`pyproject.toml` sin `[project.scripts]`; cero `argparse`/`typer`/`click`) y la doc pública lo confiesa (`docs_site/index.md:14`). El HANDOFF preguntaba si nace aquí. **No.**
-- **El gerente no usa una terminal.** La superficie que Eduardo muestra es la demo web. Una CLI no mueve una sola reunión.
-- Es un track **independiente**: toca packaging y crea un **entry-point público** (superficie de compatibilidad que luego no se puede quitar).
-- El terreno ya está preparado: existe `load_config`/`dump_config` con round-trip y migración (`core/config/loader.py`), y SDD-23 ya reserva `nikodym-ui` como primer script (B23.6). La CLI es barata **cuando toque**.
-→ **SDD-29 `cli`**, después de este. El extra `sweep` (hydra/omegaconf) está declarado en el `pyproject` **sin una sola línea de código que lo importe**: o se implementa en el SDD-29, o se borra del `pyproject` (hoy es una promesa incumplida en un archivo público).
+## 12. Plan de trabajo y riesgos
+
+### Orden (T0 bloquea todo; T7-T9 van en paralelo desde el día 1)
+
+| # | Tarea | Bloquea | Bloqueada por |
+|---|---|---|---|
+| **T0** | Decisiones cerradas en este SDD (D8 orden de `report`, D9 `Decimal`, nivel = entidad, roles de columnas) | todo | — |
+| **T1** | Dataset: `_COLUMNS` per-dataset + generador con los invariantes de §6.3 | T2 | T0 |
+| **T1b** | *(paralelo)* `Decimal` → JSON en serializer y renderer | T3, T4 | T0 |
+| **T2** | **Motor `provisioning.internal`** + **G0** + **G1**. **Congela el contrato de columnas.** | T3 | T1 |
+| **T3** | `ProvisioningConfig.source_a/source_b/rule` + preset + rutas REST + **G2/G3** | T5 | T2 |
+| **T4** | *(paralelo desde T2)* Informe: capítulo condicional, `document.py`/`builder.py`/`prose.py`, D8, goldens. **G5** | — | T2, T1b |
+| **T5** | Front: DTOs (**derivados de un payload real, nunca inventados**), `ResultsTab`, charts, selector de preset | T6 | T3 |
+| **T6** | Fixtures + `scripts/gen_schema_fixture.py` + script de captura. **G6/G7** | — | T5, T4 |
+| **T7-T9** | *(paralelo, día 1)* D7 (bloquear markov + arreglar el test que miente) · mensaje `nikodym[markov]` → `scoring` · **G8** | — | — |
+
+**Cuello de botella real: T2.** Hasta que el dataset alimente los motores de verdad, nada aguas abajo significa nada.
 
 ### Riesgos
 
-**R1 — El dataset sintético es la pieza que puede hundir la credibilidad.** Un dataset donde el piso CMF nunca muerde, o donde todos caen en Stage 1, o donde `is_default=1` convive con `days_past_due=0`, es peor que no tener demo: un gerente de riesgo detecta un dato inverosímil **en segundos**, y ahí se acabó la reunión. **Mitigación:** los invariantes de coherencia de §6.1 son parte del gate G1, y el dataset debe revisarlo alguien con criterio de riesgo (Cami/Eduardo) antes de publicarlo. *Es el mayor riesgo de este SDD y no es técnico.*
+**R1 — La credibilidad del dataset (el mayor, y no es técnico).** Un dato inverosímil —un default con cero días de mora, una LGD constante, un KS de 65, un mix de producto 33/33/33— lo detecta un gerente **en segundos**, y a partir de ahí no vuelve a creer ninguna cifra de la pantalla. **Mitigación:** los invariantes de §6.3 son parte de G1, y **el dataset lo revisa una persona con criterio de riesgo (Cami/Eduardo) antes de publicarlo.**
+> ⚠️ Y un riesgo que la v1 se **auto-infligió**: escribió *"la cartera debe tener celdas donde el piso muerda y donde no, si no la demo no demuestra nada"*. Eso, leído por un due diligence, es **la instrucción escrita de calibrar los datos para que el resultado salga bonito**. La formulación correcta —y la que este SDD adopta— es: **el dataset se calibra contra los agregados públicos que la CMF publica** (índice de riesgo y morosidad del sistema), y **el informe declara que es sintético y muestra esa comparación**. Un sintético que cae dentro del rango del sistema es defendible. Uno tuneado para el titular, no.
 
-**R2 — Tiempo de corrida.** `POST /api/run` es **síncrono y sin reporte de progreso** (no hay websocket ni polling: el `status` llega una sola vez, al cerrar el request). La cadena F1 + survival + 3 motores de provisiones sobre 6.000 filas será **notablemente más lenta** que el scorecard solo. Si supera el timeout del navegador o del proxy de Vercel, la demo muere en vivo. **Mitigación:** medir en G2; si pasa de ~30 s, reducir el `n_rows` del dataset **antes** que rediseñar el backend a asíncrono (eso es otro SDD).
+**R2 — Tiempo de corrida (medido, no estimado).** El preset F1 tarda **5,8 s**. Sin `survival` (que costaba 6,5 s y 126.000 filas person-period), la cadena de este SDD es **notablemente más barata que la de la v1**. Aun así, `POST /api/run` es **síncrono y bloquea el event loop** de FastAPI: dos usuarios concurrentes cuelgan el servidor. **Medir en G2 y fijar presupuesto.** *(Nota: la demo pública es estática — `demoRunPipeline()` devuelve un resultado enlatado —, así que este riesgo no afecta a la reunión de Eduardo, solo a un despliegue con backend.)*
 
-**R3 — El bundle de la demo.** Ya pesa ~1,5 MB con el `schema.json` de 259 KB en la primera pantalla. Este SDD **añade** secciones al schema y componentes de resultados. **Mitigación:** el `import()` dinámico del schema (deuda ya identificada en el HANDOFF) deja de ser opcional y entra en el alcance.
+**R3 — Procedencia de las matrices CMF.** Están **transcritas del compendio con asistencia de IA y verificación visual, sin validar por la CMF** — y así está confesado en el README y la landing. Un gerente pregunta *"¿de dónde salen estos parámetros?"* en los primeros cinco minutos. **Para una cartera de consumo se usa UNA sola matriz** (`consumer_standard_v2025`). **Validarla a mano contra el compendio, celda por celda, es el trabajo de mayor retorno de todo el track** — y G0 lo materializa.
 
-**R4 — Alcance del front.** Los pasos 1-3 del checklist (backend) son mecánicos; los pasos 4-6 (componentes de resultados, charts, fixtures) son **trabajo manual real**. Es la mitad del esfuerzo de este SDD y la más fácil de subestimar.
+**R4 — El front es la mitad del esfuerzo** y la más fácil de subestimar: DTOs, formateadores, sección, charts, fixtures. Nada de eso se deriva del schema.
 
-### Lo que este SDD deja explícitamente para después
+### Lo que este SDD deja fuera, explícitamente
+- IFRS 9 + `forward` (PIT real y escenarios ponderados) → **fase 2**, con destinatario distinto (§3.4). El mapa técnico ya está hecho: la cadena `survival → forward → ifrs9` **cierra a nivel de contratos**, no tiene dependencias nuevas, y le falta un único test de integración que nunca existió.
 - Markov como fuente de term-structure (exige resolver estado→operación).
-- `forward` (escenarios macro) y con él el PIT real y el `stress`.
-- Provisiones por **operación** en la UI (hoy solo agregados; el detalle va al informe).
-- CLI (SDD-29).
+- Provisiones por operación en la UI (el detalle va al informe).
+- CLI → SDD-29.

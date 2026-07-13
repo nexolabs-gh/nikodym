@@ -53,11 +53,13 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **23** | `ui` (React/Vite + FastAPI, editor de config) | Producto | F7 | T6 | 05, 01, 03, 26, todos | 🟡 Borrador |
 | **26** | `report` (Quarto HTML+PDF, capa IA, export) | Reporte | F1 | T2 | 01 | 🟡 Borrador |
 | **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Aprobado |
-| **28** | Provisiones alcanzables (dataset → preset → UI → informe) | Producto | F8 | T7 | 15, 16, 17, 18, 23, 26 | 🟡 Borrador |
+| **28** | `provisioning/internal` + regla del máximo (dataset → preset → UI → informe) | Producto | F8 | T7 | 08, 10, 15, 17, 23, 26 | 🟡 Borrador (v2) |
 
 **28 SDD · 8 tandas (T0–T7; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
 
-> **SDD-28** (post-1.0) no diseña un motor: los tres motores de provisiones (15, 16, 17) están completos y con tests reales. Diseña la **ruta hasta el usuario**, que no existe: los tres dominios no tienen dataset, ni preset, ni pantalla, ni capítulo de informe — y el informe incluso declara por escrito que las provisiones "corresponden a fases posteriores". Es la aplicación directa de la regla que este proyecto ya pagó dos veces: **una feature sin preset, sin pantalla y sin capítulo no existe para el usuario.**
+> **SDD-28** (post-1.0) hace dos cosas. **(1)** Construye el motor que faltaba: el **método interno** (`PD × LGD × EAD` por grupo homogéneo), que es el que el Capítulo B-1 §3 describe textualmente y que el pipeline de scorecard ya alimenta. **(2)** Le abre la ruta hasta el usuario —dataset, preset, pantalla, capítulo— porque *una feature sin preset, sin pantalla y sin capítulo no existe*, y este proyecto ya lo pagó dos veces.
+>
+> Su **v1 fue descartada**: diseñaba la demo alrededor de `max(CMF, IFRS 9)` presentado como "el piso prudencial de la CMF", una regla que **no existe** (ver la corrección en SDD-17 §3 y ESPEC §5.4). La regla real del B-1 es `max(estándar, interno)`, a nivel de entidad — y es mejor noticia, porque es citable **y** porque hace que el scorecard entre en el número final.
 
 > **SDD-27 `eda`** se creó en **Tanda 1 Rev** (decisión D1): el paquete `eda/` figuraba en el árbol de paquetes (ESPEC §6.3) y en el config (SDD-05 §5.1) pero ningún SDD lo cubría — quedaba huérfano. Es el **paso 1 del pipeline de scorecard** (pre-binning, F1/T2), depende de 02 (`data`). **Aguas abajo** 06 (binning), 11 (performance+stability, deslindado) y 26 (report) **consumen sus diagnósticos** (tasa de default por período, figuras), pero NO es una dependencia dura de build de esos SDD — por eso no aparece en su columna "Depende de" (corren sobre el frame de `data`); el orden T2 garantiza que `eda` se diseñe primero.
 >
