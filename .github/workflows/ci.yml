@@ -175,6 +175,24 @@ jobs:
       - name: Smoke test wheel
         run: uv run --isolated --no-project --with dist/*.whl python -c "import nikodym; print(nikodym.__version__)"
 
+      # El gate que faltaba. El resto del CI corre con `uv sync --locked`: prueba el uv.lock, no lo
+      # que recibe el usuario. Aquí se instala el wheel con **pip resolviendo libre**, igual que un
+      # `pip install nikodym[...]` desde PyPI, y se corre el preset estándar de punta a punta.
+      #
+      # No es teórico: hasta la 1.1.1, pip traía scikit-learn 1.9 (que eliminó el `force_all_finite`
+      # que optbinning invoca) y pandas 3.0 (que rompe la serialización), y la primera corrida de
+      # cualquier usuario nuevo moría — con el CI entero en verde. `import nikodym` seguía
+      # funcionando, que es justo lo que el smoke anterior verificaba.
+      - name: Smoke de instalación real (pip, resolución libre)
+        shell: bash
+        run: |
+          python -m venv .venv-pip
+          ./.venv-pip/bin/pip install --quiet --upgrade pip
+          wheel="$(ls dist/*.whl | head -n 1)"
+          ./.venv-pip/bin/pip install --quiet "${wheel}[scoring,ui,docx]" httpx2
+          ./.venv-pip/bin/pip list | grep -Ei "^(nikodym|pandas|scikit-learn|numpy|optbinning) "
+          ./.venv-pip/bin/python scripts/smoke_instalacion_pip.py
+
       - name: Verify wheel license metadata
         shell: bash
         run: |

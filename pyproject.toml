@@ -30,7 +30,12 @@ dynamic = ["version"]                       # ver [tool.hatch.version]
 dependencies = [
   "pydantic>=2.5",        # config, LineageBundle, AuditEvent (MIT)
   "numpy>=1.22",          # SeedSequence/Generator (BSD)
-  "pandas>=2.0",          # DataFrame, contrato de I/O universal (BSD) — SDD-05 §6
+  # TECHO <3 (regla dura): pandas 3.0 rompe el motor en producción. La resolución de pip para un
+  # `pip install nikodym` limpio trae hoy pandas 3.0.x, y la serialización de resultados muere con
+  # un 500 (`json.dumps(allow_nan=False)` sobre valores que 3.0 emite como NaN). El CI no lo veía:
+  # corre con `uv sync --locked`, y el lock fija 2.3.3. El techo se levanta cuando el motor se
+  # pruebe contra pandas 3, no antes.
+  "pandas>=2.0,<3",       # DataFrame, contrato de I/O universal (BSD) — SDD-05 §6
   "pandera>=0.24",        # validación de esquema tabular (MIT) — dep base de data (SDD-02 §10).
                           # PISO 0.24: desde v0.24 hay que `import pandera.pandas` (el top-level emite
                           # FutureWarning → con filterwarnings=error rompería tests). Desviación de SDD-02
@@ -55,7 +60,13 @@ Changelog = "https://github.com/nexolabs-gh/nikodym/blob/main/CHANGELOG.md"
 scoring = [
   "optbinning>=0.19",     # Apache-2.0 — binning/WoE/monotonía
   "statsmodels>=0.14",    # BSD — inferencia/stepwise/p-values
-  "scikit-learn>=1.6",    # BSD — pipeline/check_estimator; PISO 1.6 (regla dura)
+  # TECHO <1.8 (regla dura): `optbinning` llama `check_array(force_all_finite=…)`, argumento que
+  # sklearn 1.8 ELIMINÓ. Con sklearn≥1.8 el binning muere con un TypeError y la corrida entera se
+  # cae, así que el techo que ya existía en `[tool.uv] constraint-dependencies` —donde solo protege
+  # al CI y al desarrollador— tiene que viajar TAMBIÉN en el wheel: es el usuario de `pip install`
+  # quien resuelve libre y se lleva la versión rota. Reversible cuando OptBinning migre a
+  # `ensure_all_finite`.
+  "scikit-learn>=1.6,<1.8",  # BSD — pipeline/check_estimator; PISO 1.6 (regla dura)
   "scipy>=1.10",          # BSD — arrastrado por statsmodels/sklearn, explícito
 ]
 # Backends ML (F2). Cada GBDT es un extra independiente (instalación selectiva).

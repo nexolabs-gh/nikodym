@@ -5,6 +5,26 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [1.1.2] — 2026-07-13
+
+### Corregido
+
+- **`pip install nikodym` no corría: la primera corrida de todo usuario nuevo moría.** Las
+  dependencias publicadas declaraban rangos abiertos (`pandas>=2.0`, `scikit-learn>=1.6`), y la
+  resolución libre de pip —la que hace cualquiera que instale desde PyPI— traía hoy `scikit-learn`
+  1.9, que **eliminó** el `force_all_finite` que `optbinning` invoca (el binning muere con un
+  `TypeError`), y `pandas` 3.0, que rompe la serialización de resultados con un 500. El motor no
+  arrancaba en 1.0.0, 1.1.0 ni 1.1.1.
+
+  El CI no podía verlo: corre con `uv sync --locked`, que fija `pandas` 2.3.3 y `scikit-learn`
+  1.7.2. El techo `scikit-learn<1.8` incluso **ya existía**, pero en `[tool.uv]
+  constraint-dependencies` —donde protege al desarrollador y al CI, y no viaja en el wheel—. Ahora
+  los techos (`pandas<3`, `scikit-learn<1.8`) están donde el usuario los recibe.
+
+  Se añade el gate que faltaba: el CI instala el wheel **con pip resolviendo libre** y corre el
+  preset estándar de punta a punta (`scripts/smoke_instalacion_pip.py`). El smoke anterior solo
+  hacía `import nikodym`, y importar siempre funcionaba.
+
 ## [1.1.1] — 2026-07-13
 
 ### Corregido
