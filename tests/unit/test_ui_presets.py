@@ -20,7 +20,12 @@ from nikodym.ui.presets import STANDARD_DATASET_ID, standard_preset
 # sección de dominio del preset, regenerar el literal y actualizar este valor conscientemente.
 # Actualizado en B32a al ACTIVAR la sección ``stability`` (antes ``None``): el preset cambió de
 # verdad (estabilidad post-modelo entra al ``config_hash`` global) → hash legítimamente nuevo.
-_EXPECTED_CONFIG_HASH = "f53ffc9f11eaac299a42c857fd7704401361603d91fba584ce439382bb1f59a9"
+# Actualizado en SDD-28 al DECLARAR la sección computacional ``provisioning_internal`` en el schema.
+# El preset F1 NO la activa (queda en ``None``), pero `model_dump` emite igual la clave, así que el
+# JSON canónico gana `"provisioning_internal":null` y el hash se mueve. VERIFICADO que ese es el
+# único motivo: el mismo payload sin esa clave reproduce, byte a byte, el golden anterior
+# (f53ffc9f11eaac299a42c857fd7704401361603d91fba584ce439382bb1f59a9).
+_EXPECTED_CONFIG_HASH = "decdb9017f555bd664469750a9f5f15f5440f08268f5af23eabcb3f5817d113b"
 
 
 # ─────────────────────────────── validez y hash estable ───────────────────────────────

@@ -72,6 +72,7 @@ _DOMAIN_MODULES: Final[dict[str, str]] = {
     "survival": "nikodym.survival",
     "provisioning_ifrs9": "nikodym.provisioning.ifrs9",
     "provisioning_cmf": "nikodym.provisioning.cmf",
+    "provisioning_internal": "nikodym.provisioning.internal",
     "provisioning": "nikodym.provisioning",
     "validation": "nikodym.validation",
 }
@@ -98,6 +99,10 @@ _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
         "IfrsProvisioningConfig",
     ),
     "provisioning_cmf": ("nikodym.provisioning.cmf.config", "CmfProvisioningConfig"),
+    "provisioning_internal": (
+        "nikodym.provisioning.internal.config",
+        "InternalProvisioningConfig",
+    ),
     "provisioning": ("nikodym.provisioning.config", "ProvisioningConfig"),
     "validation": ("nikodym.validation.config", "ValidationConfig"),
 }
@@ -121,6 +126,7 @@ _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
     "report",
     "provisioning_ifrs9",
     "provisioning_cmf",
+    "provisioning_internal",
     "provisioning",
     "validation",
 )

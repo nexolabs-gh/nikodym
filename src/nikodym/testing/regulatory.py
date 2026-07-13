@@ -23,6 +23,15 @@ REGULATORY_COVERAGE_PATHS: Final[tuple[str, ...]] = (
     "src/nikodym/core/seeding.py",
     "src/nikodym/provisioning/cmf/__init__.py",
     "src/nikodym/provisioning/ifrs9/__init__.py",
+    # SDD-28: el método interno del B-1 entra COMPLETO al gate (no sólo su `__init__`). Es la cifra
+    # contable que se compara con la del método estándar: una rama sin cubrir es una provisión sin
+    # verificar.
+    "src/nikodym/provisioning/internal/__init__.py",
+    "src/nikodym/provisioning/internal/config.py",
+    "src/nikodym/provisioning/internal/engine.py",
+    "src/nikodym/provisioning/internal/exceptions.py",
+    "src/nikodym/provisioning/internal/results.py",
+    "src/nikodym/provisioning/internal/step.py",
 )
 """Rutas fuente que deben existir y quedar al 100 % de cobertura."""
 

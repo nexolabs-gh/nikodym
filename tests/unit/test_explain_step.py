@@ -38,7 +38,7 @@ from nikodym.explain.exceptions import ExplainConfigError, ExplainDataError
 from nikodym.explain.step import EXPLAIN_ARTIFACTS, ExplainStep
 from nikodym.ml.config import MLConfig
 
-GOLDEN_DEFAULT_CONFIG_HASH = "2dc342f1fd7be6d5ec32bca5a4c3cc4badf1da11f6876b280f7ca9662f857f3e"
+GOLDEN_DEFAULT_CONFIG_HASH = "cbc42cfc02993f6646a744d66d2e0e348285e07761f59f434469afe2e8801610"
 _FEATURES = ("f0__woe", "f1__woe")
 _INTERCEPT = 0.1
 _COEF = (0.8, -0.5)

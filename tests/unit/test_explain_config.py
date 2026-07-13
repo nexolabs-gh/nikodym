@@ -40,7 +40,7 @@ from nikodym.explain.exceptions import (
 )
 
 # Golden del config_hash por defecto tras añadir la sección computacional `explain` (B14.1).
-GOLDEN_DEFAULT_CONFIG_HASH = "2dc342f1fd7be6d5ec32bca5a4c3cc4badf1da11f6876b280f7ca9662f857f3e"
+GOLDEN_DEFAULT_CONFIG_HASH = "cbc42cfc02993f6646a744d66d2e0e348285e07761f59f434469afe2e8801610"
 # Golden anterior (antes de B14.1, con ml/tuning ya presentes); el hash DEBE moverse.
 GOLDEN_PREVIO_SIN_EXPLAIN = "0be3798f51c14940597f44e8fb8ac19ec23c88f9c2ab29d94fecd800e093902e"
 
@@ -261,7 +261,9 @@ def test_config_hash_es_puramente_aditivo_sobre_explain() -> None:
     """Quitar ``explain:null`` del payload default reproduce el hash previo (aditivo)."""
     payload = NikodymConfig().model_dump(mode="json", by_alias=True, exclude=set(INFRA_SECTIONS))
     assert payload["explain"] is None
+    assert payload["provisioning_internal"] is None
     del payload["explain"]
+    del payload["provisioning_internal"]
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     previo = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     assert previo == GOLDEN_PREVIO_SIN_EXPLAIN

@@ -49,12 +49,25 @@ _EXPECTED_REGULATORY_PATHS = (
     "src/nikodym/core/seeding.py",
     "src/nikodym/provisioning/cmf/__init__.py",
     "src/nikodym/provisioning/ifrs9/__init__.py",
+    # SDD-28: el método interno del B-1 entra COMPLETO al gate (no sólo su `__init__`).
+    "src/nikodym/provisioning/internal/__init__.py",
+    "src/nikodym/provisioning/internal/config.py",
+    "src/nikodym/provisioning/internal/engine.py",
+    "src/nikodym/provisioning/internal/exceptions.py",
+    "src/nikodym/provisioning/internal/results.py",
+    "src/nikodym/provisioning/internal/step.py",
 )
 _EXPECTED_REGULATORY_INCLUDE_ARG = (
     "*/nikodym/core/exceptions.py,"
     "*/nikodym/core/seeding.py,"
     "*/nikodym/provisioning/cmf/__init__.py,"
-    "*/nikodym/provisioning/ifrs9/__init__.py"
+    "*/nikodym/provisioning/ifrs9/__init__.py,"
+    "*/nikodym/provisioning/internal/__init__.py,"
+    "*/nikodym/provisioning/internal/config.py,"
+    "*/nikodym/provisioning/internal/engine.py,"
+    "*/nikodym/provisioning/internal/exceptions.py,"
+    "*/nikodym/provisioning/internal/results.py,"
+    "*/nikodym/provisioning/internal/step.py"
 )
 
 

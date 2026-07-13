@@ -9,7 +9,8 @@ calibración de PD (``calibration``), challenger de machine learning (``ml``), e
 unificada (``explain``), survival/lifetime PD
 (``survival``), matrices Markov de
 migración (``markov``), forward-looking (``forward``), stress testing (``stress``), provisiones CMF
-(``provisioning_cmf``), provisiones IFRS 9/ECL (``provisioning_ifrs9``), desempeño post-modelo
+método estándar (``provisioning_cmf``) y método interno (``provisioning_internal``), provisiones
+IFRS 9/ECL (``provisioning_ifrs9``), desempeño post-modelo
 (``performance``), estabilidad post-modelo (``stability``) y reporte auditable (``report``). El
 config es
 *frozen*: su identidad se fija por
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
     from nikodym.provisioning.cmf.config import CmfProvisioningConfig
     from nikodym.provisioning.config import ProvisioningConfig
     from nikodym.provisioning.ifrs9.config import IfrsProvisioningConfig
+    from nikodym.provisioning.internal.config import InternalProvisioningConfig
     from nikodym.report.config import ReportConfig
     from nikodym.scorecard.config import ScorecardConfig
     from nikodym.selection.config import SelectionConfig
@@ -85,6 +87,7 @@ _MARKOV_CONFIG_CLS: type[BaseModel] | None = None
 _FORWARD_CONFIG_CLS: type[BaseModel] | None = None
 _STRESS_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_CMF_CONFIG_CLS: type[BaseModel] | None = None
+_PROVISIONING_INTERNAL_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_IFRS9_CONFIG_CLS: type[BaseModel] | None = None
 _PROVISIONING_CONFIG_CLS: type[BaseModel] | None = None
 _PERFORMANCE_CONFIG_CLS: type[BaseModel] | None = None
@@ -332,6 +335,20 @@ class NikodymConfig(NikodymBaseConfig):
             title="Provisiones CMF",
             description=(
                 "Sección de provisiones regulatorias CMF B-1/B-3 (capa `provisioning_cmf`)."
+            ),
+        )
+    if TYPE_CHECKING:
+        # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
+        # validación/coerción a `InternalProvisioningConfig` la hace `_valida_provisioning_internal`
+        # vía hook diferido.
+        provisioning_internal: InternalProvisioningConfig | None = None
+    else:
+        provisioning_internal: Any = Field(
+            default=None,
+            title="Provisiones método interno",
+            description=(
+                "Sección del método interno de provisiones CMF B-1 §3: grupos homogéneos con "
+                "Exposición · PD · LGD (capa `provisioning_internal`, SDD-28)."
             ),
         )
     if TYPE_CHECKING:
@@ -832,6 +849,34 @@ class NikodymConfig(NikodymBaseConfig):
                 "provisioning_cmf debe ser JSON-canónico y determinista (sin sets, objetos no "
                 "serializables ni floats no finitos), o importa `nikodym.provisioning.cmf` para "
                 "validarlo como CmfProvisioningConfig."
+            ) from exc
+        return valor
+
+    @field_validator("provisioning_internal", mode="before")
+    @classmethod
+    def _valida_provisioning_internal(cls, valor: Any) -> Any:
+        """Valida/coacciona la sección ``provisioning_internal`` según haya o no capa cargada.
+
+        Con ``nikodym.provisioning.internal`` importado (``_PROVISIONING_INTERNAL_CONFIG_CLS``
+        poblado), un ``dict`` se valida y coacciona a :class:`InternalProvisioningConfig`
+        (``extra='forbid'`` y rangos); una instancia ya validada pasa tal cual. Sin la capa cargada,
+        ``provisioning_internal`` es un *blob* opaco: se exige JSON-canónico y determinista (sin
+        sets, objetos no serializables ni floats no finitos) para no corromper el ``config_hash``
+        entre procesos.
+        """
+        if valor is None:
+            return valor
+        if _PROVISIONING_INTERNAL_CONFIG_CLS is not None:
+            if isinstance(valor, _PROVISIONING_INTERNAL_CONFIG_CLS):
+                return valor
+            return _PROVISIONING_INTERNAL_CONFIG_CLS.model_validate(valor)
+        try:
+            json.dumps(valor, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "provisioning_internal debe ser JSON-canónico y determinista (sin sets, objetos no "
+                "serializables ni floats no finitos), o importa `nikodym.provisioning.internal` "
+                "para validarlo como InternalProvisioningConfig."
             ) from exc
         return valor
 

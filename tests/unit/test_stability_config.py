@@ -25,7 +25,7 @@ from nikodym.core.exceptions import ConfigError, NikodymError
 from nikodym.stability.config import StabilityConfig
 from nikodym.testing.strategies import _config_cls_for_domain, nikodym_config_strategy
 
-GOLDEN_DEFAULT_CONFIG_HASH = "2dc342f1fd7be6d5ec32bca5a4c3cc4badf1da11f6876b280f7ca9662f857f3e"
+GOLDEN_DEFAULT_CONFIG_HASH = "cbc42cfc02993f6646a744d66d2e0e348285e07761f59f434469afe2e8801610"
 
 
 @pytest.fixture(autouse=True)

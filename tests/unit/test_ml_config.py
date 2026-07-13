@@ -46,7 +46,7 @@ from nikodym.ml.exceptions import (
 )
 
 # Golden del config_hash por defecto tras añadir la sección computacional `ml`.
-GOLDEN_DEFAULT_CONFIG_HASH = "2dc342f1fd7be6d5ec32bca5a4c3cc4badf1da11f6876b280f7ca9662f857f3e"
+GOLDEN_DEFAULT_CONFIG_HASH = "cbc42cfc02993f6646a744d66d2e0e348285e07761f59f434469afe2e8801610"
 # Golden anterior (antes de B12.1, con validation ya presente); el hash DEBE moverse.
 GOLDEN_PREVIO_SIN_ML = "70dbc51fb6c230afac21fb20fa1d28e6e766d09759d5d765d82ab5cd5aacc1a8"
 
@@ -447,6 +447,7 @@ def test_config_hash_es_puramente_aditivo_sobre_ml() -> None:
     del payload["ml"]
     del payload["tuning"]
     del payload["explain"]
+    del payload["provisioning_internal"]
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     previo = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     assert previo == GOLDEN_PREVIO_SIN_ML
