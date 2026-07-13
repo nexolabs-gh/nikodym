@@ -679,14 +679,14 @@ tbody tr:nth-child(even) td {
     <dt>Versión del informe</dt>
     <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
     <dt>Fecha de emisión</dt>
-    <dd>2026-07-12</dd>
+    <dd>2026-07-13</dd>
   </dl>
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=da832b627733b479e879105e2739e4ca5f0c75b007a7dc11dce8c11e1f46d24e</code></div>
+    <div class="lineage-line"><code>config_hash=07b692a99af37fd47c9d0e5fd8e8dd5a407be89903b01be3337ae38fa4c3cea8</code></div>
     <div class="lineage-line"><code>data_hash=74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</code></div>
-    <div class="lineage-line"><code>git_sha=No disponible</code></div>
+    <div class="lineage-line"><code>git_sha=1be62ea245ca7237fe31a988a1cf54e71bbac020</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -3493,7 +3493,7 @@ L 420.51375 486.278125
 
   <p>El alcance de este informe es la validación del scorecard: discriminación, calibración y estabilidad. El backtesting, la integración con IFRS 9 y el cálculo de provisiones corresponden a fases posteriores y no se cubren ni se infieren aquí.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
-  <p>Caveats de reproducibilidad declarados por la corrida: git no disponible: la corrida no tiene SHA de origen.</p>
+  <p>Caveats de reproducibilidad declarados por la corrida: working tree git sucio: cambios sin commitear no reconstruibles.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
 
 
@@ -3505,17 +3505,17 @@ L 420.51375 486.278125
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>da832b627733b479e879105e2739e4ca5f0c75b007a7dc11dce8c11e1f46d24e</dd>
-    <dt>created_at</dt><dd>2026-07-12T23:12:33.519039Z</dd>
+    <dt>config_hash</dt><dd>07b692a99af37fd47c9d0e5fd8e8dd5a407be89903b01be3337ae38fa4c3cea8</dd>
+    <dt>created_at</dt><dd>2026-07-13T15:25:20.749836Z</dd>
     <dt>data_hash</dt><dd>74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</dd>
     <dt>determinism_caveats</dt><dd><pre>[
-  &#34;git no disponible: la corrida no tiene SHA de origen&#34;
+  &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
 ]</pre></dd>
-    <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>No disponible</dd>
+    <dt>git_dirty</dt><dd>true</dd>
+    <dt>git_sha</dt><dd>1be62ea245ca7237fe31a988a1cf54e71bbac020</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.0.0&#34;,
+  &#34;nikodym&#34;: &#34;1.1.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
