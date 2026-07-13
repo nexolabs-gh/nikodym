@@ -155,8 +155,20 @@ def test_endpoint_datasets(client: TestClient) -> None:
     """``GET /api/datasets`` lista el catálogo sintético estable."""
     respuesta = client.get("/api/datasets")
     assert respuesta.status_code == 200
-    ids = [descriptor["id"] for descriptor in respuesta.json()]
-    assert ids == ["consumo_comportamiento", "hipotecario_comportamiento", "consumo_drift"]
+    catalogo = respuesta.json()
+    ids = [descriptor["id"] for descriptor in catalogo]
+    assert ids == [
+        "consumo_comportamiento",
+        "hipotecario_comportamiento",
+        "consumo_drift",
+        "provisiones_consumo",
+    ]
+    # El de provisiones expone un superconjunto de columnas (las económico-regulatorias que
+    # consumen el motor estándar CMF y el método interno); los de F1 solo las 9 del scorecard.
+    columnas = {d["id"]: [c["name"] for c in d["columns"]] for d in catalogo}
+    assert set(columnas["consumo_comportamiento"]) < set(columnas["provisiones_consumo"])
+    assert "exposure_amount" in columnas["provisiones_consumo"]
+    assert "exposure_amount" not in columnas["consumo_comportamiento"]
 
 
 def test_endpoint_upload_csv_200(client_tmp: TestClient) -> None:
