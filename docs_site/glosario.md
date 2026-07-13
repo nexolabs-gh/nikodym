@@ -7,8 +7,8 @@ gobernanza**. Dentro de cada grupo el orden es alfabético.
 
 !!! note "Convención de nombres CMF ↔ internacional"
     La CMF (ex SBIF) nombra los parámetros en español; la literatura y la API usan las siglas
-    inglesas. Nikodym trata **CMF regulatorio** e **IFRS 9 / ECL** como dos motores separados
-    (la provisión contable es el máximo entre ambos, piso prudencial). Equivalencias:
+    inglesas. Nikodym trata **CMF regulatorio** e **IFRS 9 / ECL** como dos motores separados.
+    Equivalencias:
 
     | Internacional | CMF (Capítulo B-1 del CNC) | Rol |
     |---|---|---|
@@ -199,13 +199,19 @@ deudor/operación: `Provisión = Exposición × (PI/100) × (PDI/100)` (con `PI`
 resto del glosario; equivale a `Exposición × PE / 100`), con `PI`/`PDI` tomados de tablas por cartera
 (comercial individual/grupal, hipotecaria vivienda, consumo) y por mora/colateral. La exposición de
 un contingente se obtiene con el **CCF** del B-3 (p. ej. avales **100 %**, boletas de garantía
-**50 %**, líneas de libre disposición **35 %**). No confundir con IFRS 9: son motores separados y la
-provisión contable es el **máximo** de ambos.
+**50 %**, líneas de libre disposición **35 %**). No confundir con IFRS 9: son motores separados.
 
-!!! warning "CMF ≠ IFRS 9"
-    El modelo estándar CMF es un **piso prudencial** con PD/LGD tabuladas por la norma; IFRS 9/ECL
-    es prospectivo y con metodología interna del banco. Nikodym los mantiene como dos motores
-    distintos y **no** los mezcla.
+!!! warning "CMF ≠ IFRS 9 — y la regla del máximo no es entre ellos"
+    El modelo estándar CMF es la **base mínima prudencial**, con PI/PDI tabuladas por la norma;
+    IFRS 9 / ECL es prospectivo. Nikodym los mantiene como motores distintos y **no** los mezcla.
+
+    La **regla del máximo** del Capítulo B-1 (Circular N° 2.346 / 06.03.2024) es entre el **método
+    estándar y el método interno** del banco: *"La constitución de provisiones se efectuará
+    considerando el mayor valor obtenido entre el respectivo método estándar y el método interno"*,
+    aplicada *"para cada institución en Chile que consolida con el banco"*. **No** es un máximo
+    contra el ECL de IFRS 9 — el Compendio (Cap. A-2, num. 5) **excluye** el modelo de deterioro de
+    NIIF 9 sobre colocaciones y créditos contingentes, porque esos criterios los fija la CMF en
+    B-1 a B-3.
 
 ### SR 11-7 — *Supervisory Guidance on Model Risk Management*
 

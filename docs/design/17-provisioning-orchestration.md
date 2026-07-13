@@ -1,4 +1,6 @@
-# SDD-17 — `provisioning` (orquestación CMF↔IFRS 9 / piso prudencial · máximo regulatorio)
+# SDD-17 — `provisioning` (orquestación y regla del máximo)
+
+> ⚠️ **Título anterior:** "piso prudencial · máximo regulatorio". Cambiado el 2026-07-13: ese encuadre era normativamente falso. Ver el recuadro de corrección en §3.
 
 | Campo | Valor |
 |---|---|
@@ -82,11 +84,31 @@ Cada bloque cierra con ruff (regla `D` docstrings en español), mypy `--strict`,
 
 ## 3. Conceptos y fundamentos
 
-**Fuente normativa (regla del máximo — decidida, no abierta).** ESPECIFICACIONES §5.4 (línea 131) fija la **decisión de diseño dura**:
+> ## 🔴 CORRECCIÓN NORMATIVA (2026-07-13) — leer antes que nada
+>
+> **Este SDD afirmaba que la regla del máximo CMF↔IFRS 9 era "norma citada". Era FALSO.** La "fuente" era ESPECIFICACIONES §5.4, un documento interno de este proyecto que no citaba ninguna norma: una **cita circular**. Se verificó contra el texto oficial del Compendio de Normas Contables para Bancos (CMF) y el resultado es:
+>
+> **1. El ECL de NIIF 9 NO se aplica a las colocaciones en Chile.** Cap. A-2, num. 5:
+> > *"Lo establecido en el Capítulo 5.5 (deterioro de valor) de la NIIF9 (…) **no será aplicado respecto de las colocaciones** ("Adeudado por bancos" y "Créditos y cuentas por cobrar a clientes") (…) **ni sobre los "Créditos contingentes"**, ya que los criterios para estos temas se definen en los Capítulos B-1 a B-3 de este Compendio."*
+>
+> No hay, en los EEFF locales de un banco chileno, un ECL NIIF 9 de colocaciones que comparar contra el B-1. **El B-1 sustituye al ECL; no compite con él.**
+>
+> **2. La regla del máximo que SÍ existe es otra.** Cap. B-1, hoja 10-11 (Circular N° 2.346 / 06.03.2024):
+> > *"La constitución de provisiones se efectuará considerando **el mayor valor obtenido entre el respectivo método estándar y el método interno**. (…) Esta regla se deberá aplicar **para cada institución en Chile que consolida con el banco**, separando así la matriz de sus filiales."*
+>
+> ⇒ **`max(método estándar CMF, método interno del banco)`, a nivel de ENTIDAD** — no por operación, no por celda de cartera. El nivel de agregación **ya no es una decisión abierta** (D-PROV-2 queda resuelta por la norma): la propia norma lo fija.
+>
+> **3. El estándar es la base mínima, y ambos métodos son obligatorios:**
+> > *"los bancos deberán reconocer provisiones mínimas de acuerdo con ellas. El uso de esta base mínima prudencial (…) en ningún caso exime a las instituciones financieras de su responsabilidad de contar con metodologías propias (…) **debiendo por tanto disponer de ambos métodos**."*
+>
+> **Qué significa para este módulo.** El orquestador —comparar dos fuentes y tomar el máximo por celda— es **código correcto aplicado a los operandos equivocados**. Lo que cambia es **qué se compara** y **cómo se etiqueta**:
+> - El **método interno** es `PD × LGD × EAD` por grupo homogéneo, tal como el propio B-1 lo describe. **Es lo que produce el pipeline de scorecard de F1** y hoy no existe como motor. Lo diseña **SDD-28**.
+> - El comparativo **CMF ↔ IFRS 9** se mantiene, pero **deja de presentarse como exigencia de la CMF**: es un comparativo entre marcos contables, útil para entidades que sí aplican NIIF 9 completa (reporting a matriz extranjera, entidades no bancarias, instrumentos distintos de colocaciones).
+> - **Prohibido** volver a llamar "piso prudencial CMF" al `max(CMF, IFRS 9)` en cualquier superficie pública.
+>
+> El resto de este SDD (contratos, DTOs, reconciliación `Decimal`↔`float`, políticas de cobertura) **sigue siendo válido**: es agnóstico de qué dos fuentes se comparan.
 
-> «🔴 **CMF ≠ IFRS 9.** Son **dos motores separados**. La provisión final aplica el **máximo** entre el ECL contable (IFRS 9) y el **piso prudencial CMF**. El módulo `provisioning/` orquesta ambos y expone el comparativo.»
-
-ESPEC §6.3 (árbol, línea ~195) lo confirma: `provisioning/ # orquesta CMF vs IFRS 9 → máximo (piso regulatorio)`. `ROADMAP.md` F4 fija el DoD «ECL + piso CMF» y la tarea explícita «Orquestación: `provisioning` compara CMF vs IFRS 9 y aplica el máximo». La regla del máximo es **norma citada**, no una decisión de producto de este SDD; lo que SÍ queda abierto es el **nivel de agregación** al que se aplica (§12, D-PROV-2).
+**Fuente normativa (regla del máximo).** Ver el recuadro de arriba: la regla citable es el Cap. B-1, hoja 10-11 (Circular N° 2.346 / 06.03.2024), `max(estándar, interno)` por institución. `ROADMAP.md` F4 fijaba el DoD «ECL + piso CMF» y la tarea «Orquestación: `provisioning` compara CMF vs IFRS 9 y aplica el máximo»: ese encuadre **queda corregido** por la verificación normativa.
 
 **Definición del piso prudencial.** Para cada celda de comparación `c` (definida por el nivel de agregación):
 

@@ -229,7 +229,10 @@ export const DOMINIOS = [
       "contingentes con CCF), con el archivo de parámetros sellado por SHA-256. IFRS 9: " +
       "ECL = PD marginal × LGD × EAD descontada a la EIR, staging SICR con gatillos blandos, " +
       "backstops duros de mora y exención de bajo riesgo, y PD point-in-time por Vasicek. El " +
-      "orquestador aplica el piso prudencial: el máximo entre ambas.",
+      "orquestador compara ambos marcos y reporta el máximo. Con una precisión que casi nadie " +
+      "hace: la regla del máximo del Capítulo B-1 (Circular 2.346) es entre el método estándar " +
+      "y el método interno del banco — no entre CMF e IFRS 9. El Compendio (A-2, num. 5) excluye " +
+      "el deterioro de NIIF 9 sobre las colocaciones.",
     modulo: "nikodym.provisioning",
   },
   {

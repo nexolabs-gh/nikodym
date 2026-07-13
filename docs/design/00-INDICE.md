@@ -44,7 +44,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **14** | `explain` (SHAP + reason codes) | ML | F2 | T3 | 12 | 🟡 Borrador |
 | **15** | `provisioning/cmf` (B-1, matrices, B-3, garantías) | Provisiones | F3 | T4 | 08, 02 | 🟡 Borrador |
 | **16** | `provisioning/ifrs9` (PD/LGD/EAD, staging, ECL) | Provisiones | F4 | T4 | 10, 18 | 🟡 Borrador |
-| **17** | `provisioning` (orquestación / piso regulatorio) | Provisiones | F4 | T4 | 15, 16 | 🟡 Borrador |
+| **17** | `provisioning` (orquestación / regla del máximo) | Provisiones | F4 | T4 | 15, 16 | 🟡 Borrador ⚠️ corregido 2026-07-13 |
 | **18** | `survival` (KM/Cox/AFT/discrete-time) | Forward | F5 | T5 | 08 | 🟡 Borrador |
 | **19** | `markov` (transición, term structure) | Forward | F5 | T5 | 02 | 🟡 Borrador |
 | **20** | `forward` (macro ARIMA/VAR, satellite, escenarios) | Forward | F5 | T5 | 18, 19 | 🟡 Borrador |
@@ -53,8 +53,11 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 | **23** | `ui` (React/Vite + FastAPI, editor de config) | Producto | F7 | T6 | 05, 01, 03, 26, todos | 🟡 Borrador |
 | **26** | `report` (Quarto HTML+PDF, capa IA, export) | Reporte | F1 | T2 | 01 | 🟡 Borrador |
 | **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Aprobado |
+| **28** | Provisiones alcanzables (dataset → preset → UI → informe) | Producto | F8 | T7 | 15, 16, 17, 18, 23, 26 | 🟡 Borrador |
 
-**27 SDD · 7 tandas (T0–T6; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
+**28 SDD · 8 tandas (T0–T7; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
+
+> **SDD-28** (post-1.0) no diseña un motor: los tres motores de provisiones (15, 16, 17) están completos y con tests reales. Diseña la **ruta hasta el usuario**, que no existe: los tres dominios no tienen dataset, ni preset, ni pantalla, ni capítulo de informe — y el informe incluso declara por escrito que las provisiones "corresponden a fases posteriores". Es la aplicación directa de la regla que este proyecto ya pagó dos veces: **una feature sin preset, sin pantalla y sin capítulo no existe para el usuario.**
 
 > **SDD-27 `eda`** se creó en **Tanda 1 Rev** (decisión D1): el paquete `eda/` figuraba en el árbol de paquetes (ESPEC §6.3) y en el config (SDD-05 §5.1) pero ningún SDD lo cubría — quedaba huérfano. Es el **paso 1 del pipeline de scorecard** (pre-binning, F1/T2), depende de 02 (`data`). **Aguas abajo** 06 (binning), 11 (performance+stability, deslindado) y 26 (report) **consumen sus diagnósticos** (tasa de default por período, figuras), pero NO es una dependencia dura de build de esos SDD — por eso no aparece en su columna "Depende de" (corren sobre el frame de `data`); el orden T2 garantiza que `eda` se diseñe primero.
 >

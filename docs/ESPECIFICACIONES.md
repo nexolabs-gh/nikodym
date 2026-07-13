@@ -128,7 +128,23 @@ Pipeline:
 - **Provisiones adicionales** por riesgos no capturados.
 - **Parámetros numéricos**: extraídos y verificados contra texto oficial CMF/SBIF en [`docs/normativa_cmf_parametros.md`](normativa_cmf_parametros.md) (comercial individual A1–C6, grupal, consumo 2025, vivienda PVG, contingentes B-3, garantías). **Requieren validación humana contra el CNC v2022 vigente antes de uso productivo**; 1 pendiente menor documentado (haircuts/factores de descuento de garantías financieras del B-1 letra c, que la norma remite a circular específica de la CMF; el mapeo BBB-/Baa3 quedó resuelto por verificación visual 2026-06-23). Las matrices se tratan como **datos versionados**, no constantes hardcodeadas.
 
-> **🔴 Decisión de diseño dura: CMF ≠ IFRS 9.** Son **dos motores separados**. La provisión final aplica el **máximo** entre el ECL contable (IFRS 9) y el **piso prudencial CMF**. El módulo `provisioning/` orquesta ambos y expone el comparativo. Montarlo como un solo "motor ECL" **incumple CMF**.
+> **🔴 Decisión de diseño dura: CMF ≠ IFRS 9.** Son **dos motores separados**; montarlos como un solo "motor ECL" **incumple CMF**. El módulo `provisioning/` orquesta y expone el comparativo.
+>
+> **⚠️ CORRECCIÓN (2026-07-13) — la regla del máximo NO es entre CMF e IFRS 9.** Hasta hoy este documento afirmaba que «la provisión final aplica el máximo entre el ECL contable (IFRS 9) y el piso prudencial CMF», sin citar norma. Se verificó contra el texto oficial del Compendio de Normas Contables para Bancos y **era incorrecto**. Lo que la norma dice:
+>
+> - **Cap. A-2, numeral 5** — *"Lo establecido en el Capítulo 5.5 (deterioro de valor) de la NIIF9 (…) **no será aplicado respecto de las colocaciones** ("Adeudado por bancos" y "Créditos y cuentas por cobrar a clientes") (…) **ni sobre los "Créditos contingentes"**, ya que los criterios para estos temas se definen en los Capítulos B-1 a B-3 de este Compendio."*
+>   → En los EEFF locales de un banco chileno **no existe un ECL NIIF 9 de colocaciones** que pueda compararse con la provisión B-1. El B-1 **sustituye** al ECL; no compite con él.
+>
+> - **Cap. B-1, hoja 10-11 (Circular N° 2.346 / 06.03.2024)** — *"La constitución de provisiones se efectuará considerando **el mayor valor obtenido entre el respectivo método estándar y el método interno**. (…) Esta regla se deberá aplicar **para cada institución en Chile que consolida con el banco**, separando así la matriz de sus filiales."*
+>   → **La regla del máximo es `max(método estándar CMF, método interno del banco)`**, y se aplica **a nivel de entidad**, no por operación ni por celda de cartera.
+>
+> - El modelo estándar es la **base mínima prudencial**, y la norma **obliga a disponer de ambos métodos**: *"en ningún caso exime a las instituciones financieras de su responsabilidad de contar con metodologías propias (…) debiendo por tanto disponer de ambos métodos."*
+>
+> **Consecuencias de diseño:**
+> - `provisioning/cmf` = el **método estándar**. Correcto tal cual.
+> - El **método interno** es `PD × LGD × EAD` por grupo homogéneo — el propio B-1 lo describe así (*"asociando a cada grupo una determinada probabilidad de incumplimiento y un porcentaje de recuperación (…) multiplicando el monto total de colocaciones del grupo respectivo por los porcentajes de incumplimiento estimado y de pérdida dado el incumplimiento"*). **Es exactamente lo que produce el pipeline de scorecard de F1.** Falta implementarlo como motor (ver SDD-28).
+> - `provisioning/ifrs9` (ECL) **sigue siendo válido**, pero cambia de destinatario: entidades que sí aplican NIIF 9 completa (reporting a una matriz extranjera, entidades no bancarias, instrumentos distintos de colocaciones). **No es el piso prudencial chileno.**
+> - `provisioning` (orquestación) aplica una regla del máximo entre dos fuentes. **El encuadre normativo citable es estándar-vs-interno**; el comparativo CMF-vs-IFRS 9 se mantiene como comparativo entre marcos, **sin presentarlo como exigencia de la CMF**.
 
 ### 5.5 IFRS 9 / ECL (Fase 4)
 - **PD**: 12m y **lifetime**, **term structure**, **PIT vs TTC**. Transformación PIT con **Vasicek monofactorial**: `PD_PIT(Z)=Φ[(Φ⁻¹(PD_TTC)−√ρ·Z)/√(1−ρ)]` (convención: Z ~ N(0,1), índice de ciclo con **Z>0 = expansión → menor PD** y **Z<0 = recesión → mayor PD**; el signo −√ρ·Z implementa esa orientación. Al portar fórmulas ASRF/Basilea —factor sistémico con signo + y peor caso evaluado en el cuantil superior— invertir el signo).
@@ -192,7 +208,8 @@ src/nikodym/
 ├── explain/      # scorecard (WoE+β) y SHAP + reason codes
 ├── scorecard/    # escalado, offset/PDO, puntos por atributo
 ├── calibration/  # anclaje PD, PIT/TTC (Vasicek)
-├── provisioning/ # orquesta CMF vs IFRS 9 → máximo (piso regulatorio)
+├── provisioning/ # orquesta y aplica la regla del máximo (ver §5.4: la regla del B-1 es
+│              # max(estándar, interno), NO max(CMF, IFRS 9))
 │   ├── cmf/      # motor estándar B-1 (PE=PI·PDI·Exposición, matrices, B-3, garantías)
 │   └── ifrs9/    # PD/LGD/EAD, staging (SICR), motor ECL (12m/lifetime)
 ├── forward/      # macro ARIMA/VAR, escenarios, satellite models (Wilson logit)

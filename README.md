@@ -26,7 +26,7 @@ No existe CLI.
 | Dominio | Superficie | Garantía |
 |---|---|---|
 | **Scorecard (F1)** — binning/WoE monotónico (optbinning), selección (IV/VIF), regresión logística, scorecard escalado (PDO/offset), calibración, desempeño (AUC/KS/Gini) y estabilidad (PSI/CSI) | UI, preset e informe | **estable** (SemVer 1.x) |
-| **Provisiones** — motores **CMF (Chile)** e **IFRS 9/ECL** separados; la provisión es el **máximo** de ambos (piso prudencial) | Python | experimental |
+| **Provisiones** — motores **CMF (Chile)** e **IFRS 9/ECL** separados, más una capa que compara dos metodologías y aplica el **máximo** | Python | experimental |
 | **Stress testing** — escenarios adversos, shocks macro en escala logit, sensibilidad y *reverse stress* por bisección | Python | experimental |
 | **Markov** — matrices de transición (cohorte/duración), Chapman-Kolmogorov, Aalen-Johansen, *term-structure* de PD | Python | experimental |
 | **Forward-looking** — ARIMA/auto-ARIMA, VAR/VECM, Ljung-Box y modelos satélite macro → PD/LGD | Python | experimental |
@@ -118,7 +118,9 @@ dicen igual de claro:
 - **Gobernanza por construcción** (SR 11-7): *model card* y *audit-trail* automáticos.
 - **Config declarativo** (Pydantic v2): *el config ES el experimento*.
 - **Núcleo liviano**: los backends pesados van tras *extras* con import perezoso.
-- **CMF ≠ IFRS 9**: dos motores separados; la provisión es el máximo (piso prudencial).
+- **CMF ≠ IFRS 9**: dos motores separados, nunca uno solo. La **regla del máximo** del Capítulo B-1
+  (Circular N° 2.346) es entre el **método estándar y el método interno** del banco — *no* entre CMF
+  e IFRS 9: el Compendio (Cap. A-2, num. 5) **excluye** el deterioro de NIIF 9 sobre colocaciones.
 - **Lo que falta se declara, no se disimula**: un dato ausente sale como `FALTA-DATO` en el
   resultado; una opción sin motor detrás se rechaza al validar el config, no al final de la corrida.
 

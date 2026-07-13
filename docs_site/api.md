@@ -425,8 +425,17 @@ Escenarios de *shock*, barridos de sensibilidad y *reverse stress* sobre las mé
 
 ## Provisiones
 
-Dos motores separados —**CMF (Chile)** e **IFRS 9/ECL**— orquestados por una capa fina que reporta
-el **máximo** de ambos (piso prudencial).
+Dos motores separados —**CMF (Chile)** e **IFRS 9/ECL**— más una capa fina de orquestación que
+compara dos metodologías y reporta el **máximo**.
+
+!!! warning "Sobre la regla del máximo"
+    La regla del máximo del **Capítulo B-1** (Circular N° 2.346 / 06.03.2024) es entre el **método
+    estándar de la CMF y el método interno del banco**, y se aplica *"para cada institución en Chile
+    que consolida con el banco"*. **No** es un máximo entre la provisión CMF y el ECL de IFRS 9: el
+    Compendio (Cap. A-2, num. 5) **excluye** el modelo de deterioro de NIIF 9 sobre las colocaciones
+    y los créditos contingentes, porque esos criterios los define la propia CMF en B-1 a B-3.
+    El comparativo CMF↔IFRS 9 que expone esta capa es un **comparativo entre marcos contables**
+    (útil, por ejemplo, para reportar a una matriz extranjera), no una exigencia de la CMF.
 
 ::: nikodym.provisioning.config.ProvisioningConfig
     options:

@@ -1,17 +1,34 @@
 """Config declarativo de la capa de orquestación ``provisioning`` (SDD-17 §5).
 
 :class:`ProvisioningConfig` es la sección ``provisioning`` de
-:class:`~nikodym.core.config.NikodymConfig`: la **capa fina** que orquesta el motor regulatorio CMF
-(SDD-15) y el motor contable IFRS 9/ECL (SDD-16), aplica la **provisión reportada = máximo(ECL,
-piso prudencial CMF)** al nivel de agregación configurado y publica el comparativo auditable. Hereda
-de :class:`~nikodym.core.config.NikodymBaseConfig` (``extra='forbid'`` y ``frozen=True``); cada
-campo declara ``title``/``description`` y metadatos ``ui_*`` para que la UI (SDD-23) sea un editor
-del mismo config.
+:class:`~nikodym.core.config.NikodymConfig`: la **capa fina** que compara dos fuentes de provisión,
+aplica la **regla del máximo** al nivel de agregación configurado y publica el comparativo
+auditable. Hereda de :class:`~nikodym.core.config.NikodymBaseConfig` (``extra='forbid'`` y
+``frozen=True``); cada campo declara ``title``/``description`` y metadatos ``ui_*`` para que la UI
+(SDD-23) sea un editor del mismo config.
+
+.. warning::
+
+   **Corrección normativa (2026-07-13).** Este módulo afirmaba que "la regla del máximo es norma
+   citada (ESPEC §5.4)". Era **falso**: ESPEC §5.4 es un documento interno de este proyecto que no
+   citaba norma alguna. Verificado contra el Compendio de Normas Contables para Bancos (CMF):
+
+   - **Cap. B-1, hoja 10-11 (Circular N° 2.346 / 06.03.2024)**: *"La constitución de provisiones
+     se efectuará considerando el mayor valor obtenido entre el respectivo método estándar y el
+     método interno. (…) Esta regla se deberá aplicar para cada institución en Chile que consolida
+     con el banco"*. La regla del máximo es **estándar vs. interno, a nivel de entidad**.
+   - **Cap. A-2, num. 5**: el Capítulo 5.5 (deterioro) de NIIF 9 **no se aplica** a las colocaciones
+     ni a los créditos contingentes; sus criterios los define la CMF en B-1 a B-3.
+
+   Por tanto ``max(CMF, IFRS 9)`` **no es "el piso prudencial de la CMF"** y no debe presentarse
+   como tal. Comparar ambos marcos sigue siendo útil (p. ej. una filial que reporta ECL a su matriz
+   extranjera), pero es un comparativo **entre marcos contables**, no una exigencia local. El motor
+   del **método interno** (``PD x LGD x EAD`` por grupo homogéneo, como el B-1 lo describe) lo
+   diseña **SDD-28**. Ver ``docs/ESPECIFICACIONES.md`` §5.4 y ``docs/design/17-*.md`` §3.
 
 La sección es **computacional, no infraestructura** (``provisioning`` ∉ ``INFRA_SECTIONS``): cambiar
 el nivel de comparación, la clave/crosswalk de cartera, la política de cobertura o la reconciliación
-numérica **cambia el ``config_hash`` global**. La regla del máximo es norma citada (ESPEC §5.4), no
-una decisión de este config; lo parametrizable es el **grano** al que muerde el piso (D-PROV-2).
+numérica **cambia el ``config_hash`` global**.
 
 Frontera B17.1: aquí solo viven el schema y sus validaciones determinables sin datos. La *presencia*
 de columnas/claves en los detalles de cada motor es un contrato de runtime que valida el

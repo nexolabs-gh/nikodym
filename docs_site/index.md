@@ -30,7 +30,10 @@ stress testing. Paquete: `nikodym`.
 - **Config declarativo** (Pydantic v2): *el config ES el experimento*.
 - **Núcleo liviano**: `import nikodym` no arrastra el stack ML; los backends pesados van tras
   *extras* opcionales con import perezoso.
-- **CMF ≠ IFRS 9**: dos motores separados; la provisión es el **máximo** (piso prudencial).
+- **CMF ≠ IFRS 9**: dos motores separados, nunca uno solo. La **regla del máximo** del Capítulo B-1
+  (Circular N° 2.346) se aplica entre el **método estándar y el método interno** del banco — *no*
+  entre CMF e IFRS 9: el Compendio (Cap. A-2, num. 5) **excluye** el modelo de deterioro de NIIF 9
+  sobre las colocaciones y los créditos contingentes.
 
 ## Instalación
 
