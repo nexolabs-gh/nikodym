@@ -9,6 +9,19 @@ stress testing. Paquete: `nikodym`.
     (SemVer 1.x)**; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
     resultados/métricas/orquestación) siguen experimentales, fuera de la garantía SemVer 1.x.
 
+    **Los seis dominios calculan hoy** —son motores deterministas, con más de 1.200 tests sobre los
+    cinco que no tienen interfaz—, pero **solo el scorecard tiene UI, preset y capítulo en el
+    informe**. Provisiones, stress, Markov, forward-looking y survival se usan escribiendo el config
+    en Python: no hay CLI. Lo que les falta es superficie, no aritmética.
+
+!!! warning "Antes de usarlo en producción"
+    **Los parámetros normativos CMF no son oficiales**: se transcribieron del compendio con
+    asistencia de IA y verificación visual, no provienen de la CMF ni están validados por ella, y
+    **requieren validación humana contra la norma vigente antes de cualquier uso productivo** (quedan
+    dos brechas `FALTA-DATO` declaradas: aforos/*haircuts* de garantías financieras y las tablas del
+    RAN 21-10). Además, **la EAD de IFRS 9 se despliega constante en el tiempo** —el panel
+    longitudinal está diferido— y el motor lo publica en cada fila con el código `FALTA-DATO-IFRS-4`.
+
 ## Principios
 
 - **Reproducibilidad total**: `(datos + config + semilla) → resultado idéntico`. Cada corrida

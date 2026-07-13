@@ -17,13 +17,24 @@ y stress testing. Todo en un motor **reproducible por construcción** y con gobe
 
 ## Qué hace
 
-- **Scorecard (F1)**: binning/WoE con monotonía (optbinning), selección, regresión logística,
-  scorecard escalado, calibración y métricas de desempeño (AUC/KS/Gini) y estabilidad (PSI/CSI).
+Los seis dominios **calculan** hoy: son motores deterministas, sin *stubs*, con más de 1.200 tests
+sobre los cinco que no tienen interfaz (más de 3.700 en la suite completa). Lo que los separa no es
+"hecho / no hecho", sino **superficie** (¿tiene UI, preset y capítulo en el informe, o hay que
+escribir el config en Python?) y **garantía de API** (¿congelada bajo SemVer 1.x, o experimental?).
+No existe CLI.
+
+| Dominio | Superficie | Garantía |
+|---|---|---|
+| **Scorecard (F1)** — binning/WoE monotónico (optbinning), selección (IV/VIF), regresión logística, scorecard escalado (PDO/offset), calibración, desempeño (AUC/KS/Gini) y estabilidad (PSI/CSI) | UI, preset e informe | **estable** (SemVer 1.x) |
+| **Provisiones** — motores **CMF (Chile)** e **IFRS 9/ECL** separados; la provisión es el **máximo** de ambos (piso prudencial) | Python | experimental |
+| **Stress testing** — escenarios adversos, shocks macro en escala logit, sensibilidad y *reverse stress* por bisección | Python | experimental |
+| **Markov** — matrices de transición (cohorte/duración), Chapman-Kolmogorov, Aalen-Johansen, *term-structure* de PD | Python | experimental |
+| **Forward-looking** — ARIMA/auto-ARIMA, VAR/VECM, Ljung-Box y modelos satélite macro → PD/LGD | Python | experimental |
+| **Survival** — Kaplan-Meier, Cox/AFT y *hazard* discreto sobre datos censurados | Python | experimental |
+
 - **Backends ML (F2)**: XGBoost, LightGBM, CatBoost y tuning (Optuna) como *extras* selectivos,
   con explicabilidad (SHAP) opcional.
-- **Provisiones**: motores **CMF (Chile)** e **IFRS 9/ECL** separados; la provisión es el
-  **máximo** de ambos (piso prudencial).
-- **Forward-looking & stress testing**: proyección macroeconómica y escenarios.
+- **No hace** (por si lo estás buscando): *roll rates*, curvas de cosecha/*vintage*, ni CLI.
 - **Informe de validación, no un log**: cada corrida produce un documento con portada, resumen
   ejecutivo, metodología (redactada con los parámetros que realmente se usaron), resultados,
   conclusiones y anexos técnicos. Sale en HTML y PDF, y también como **base editable** (`.qmd` de
@@ -85,6 +96,22 @@ print(metrics)
 silencia). El consumidor por código **debe** chequear `study.run_context.status` antes de usar los
 resultados.
 
+## Limitaciones que debes conocer antes de usarlo en serio
+
+El motor las publica de sí mismo —cada fila afectada emite su código `FALTA-DATO`—, así que aquí se
+dicen igual de claro:
+
+- **Los parámetros normativos CMF no son oficiales.** Se transcribieron del compendio **con
+  asistencia de IA y verificación visual**: no provienen de la CMF ni están validados por ella.
+  **Requieren validación humana contra la norma vigente antes de cualquier uso productivo.** Quedan
+  dos brechas abiertas y declaradas (`FALTA-DATO`): aforos y *haircuts* de garantías financieras, y
+  las tablas del RAN 21-10.
+- **La EAD de IFRS 9 se despliega constante en el tiempo.** El panel longitudinal está diferido; el
+  motor no lo aplana en silencio: cada fila lo declara con el código `FALTA-DATO-IFRS-4`, y el
+  config **rechaza** `exposure_profile_col` en vez de fingir que lo usa.
+- **Experimental no es "beta marketinera"**: todo lo que no sea el pipeline de scorecard puede
+  cambiar de firma dentro de la 1.x, y no está *battle-tested* en producción.
+
 ## Principios de diseño
 
 - **Reproducibilidad total**: misma entrada → resultado byte-idéntico, con lineage completo.
@@ -92,6 +119,8 @@ resultados.
 - **Config declarativo** (Pydantic v2): *el config ES el experimento*.
 - **Núcleo liviano**: los backends pesados van tras *extras* con import perezoso.
 - **CMF ≠ IFRS 9**: dos motores separados; la provisión es el máximo (piso prudencial).
+- **Lo que falta se declara, no se disimula**: un dato ausente sale como `FALTA-DATO` en el
+  resultado; una opción sin motor detrás se rechaza al validar el config, no al final de la corrida.
 
 ## Documentación
 
