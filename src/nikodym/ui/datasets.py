@@ -422,6 +422,21 @@ def _generate_provisiones(dataset_id: str) -> pd.DataFrame:
        500 días de mora no existe.
     9. **Tasa de default de un dígito** (``intercept`` recalibrado): la cartera F1 tiene un 23 % de
        default, inverosímil para consumo chileno.
+
+    .. warning::
+
+       **Benchmark PENDIENTE (no inventar).** Con estos parámetros el motor estándar CMF produce un
+       **índice de riesgo (provisión / colocaciones) del orden del 8-9 %**. El único dato que se
+       pudo verificar en fuente oficial es el **índice de provisiones del sistema bancario
+       completo: 2,59 %** (CMF, Informe de Desempeño de noviembre de 2025) — que es el **agregado
+       de todas las carteras**, no el de consumo, y por tanto **no es comparable**: consumo es
+       estructuralmente la cartera más provisionada y vivienda la que menos.
+
+       El índice **desagregado de consumo** vive en el PDF del Informe de Desempeño y **no está
+       verificado**. Hasta que lo esté, este dataset es una cartera sintética *plausible*, no una
+       calibrada contra el sistema. **Antes de enseñárselo a un cliente hay que bajar ese dato y
+       ajustar las masas de mora** (que son las que gobiernan el índice), o declarar en el informe
+       que la cartera es sintética y no un benchmark de mercado. Ver SDD-28 §R1.
     """
     spec = _DATASETS[dataset_id]
     rng = np.random.default_rng(spec["seed"])
@@ -476,9 +491,13 @@ def _generate_provisiones(dataset_id: str) -> pd.DataFrame:
     pct_riesgo = orden / max(n_rows - 1, 1)
     ruido = rng.random(size=n_rows)
     score_mora = 0.75 * pct_riesgo + 0.25 * ruido
-    # Masas objetivo de una cartera de consumo chilena viva: ~80 % al día y ~2,5 % en incumplimiento
-    # (la cartera deteriorada es donde está la plata: la PI del bucket ≥90d es 100 %).
-    cortes = np.quantile(score_mora, [0.800, 0.870, 0.920, 0.950, 0.975])
+    # Masas objetivo de una cartera de consumo chilena viva: ~85 % al día y ~2 % en incumplimiento
+    # (la cartera deteriorada es donde está la plata: la PI del bucket >=90d es 100 %).
+    #
+    # Estas masas gobiernan el ÍNDICE DE RIESGO (provisión / colocaciones) resultante, que es el
+    # primer número que un gerente compara contra su propia cartera. Ver la nota del docstring sobre
+    # el benchmark contra los agregados de la CMF, que queda PENDIENTE de verificar.
+    cortes = np.quantile(score_mora, [0.850, 0.905, 0.940, 0.965, 0.982])
     bucket = np.searchsorted(cortes, score_mora, side="right")
     days_past_due = np.zeros(n_rows, dtype="int64")
     for indice, (bajo, alto) in enumerate(
@@ -508,9 +527,13 @@ def _generate_provisiones(dataset_id: str) -> pd.DataFrame:
     # refleja: PI 3,3 % con hipotecario vs 6,6 % sin él, a igual mora).
     p_housing = np.clip(0.55 - 0.40 * riesgo_deudor, 0.05, 0.95)
     housing_deudor = rng.random(size=n_debtors) < p_housing
-    # Mora en el sistema: casi implicada por la mora propia. Un deudor con 60 días de mora contigo
-    # y "sin mora en el sistema" es inverosímil.
-    p_system = np.where(dpd_deudor >= 30, 0.90, np.where(dpd_deudor > 0, 0.45, 0.05))
+    # Mora en el sistema: casi implicada por la mora propia (un deudor con 60 días de mora contigo
+    # y "sin mora en el sistema" es inverosímil), pero POCO frecuente entre los que están al día.
+    #
+    # Este flag es el parámetro más sensible de toda la cartera: dispara la PI de 6,6 % a 19,8 %
+    # para un deudor al día (factor 3x), así que su frecuencia marginal MANDA sobre la provisión
+    # total. Calibrado a la baja para que el índice de riesgo resultante sea defendible.
+    p_system = np.where(dpd_deudor >= 30, 0.85, np.where(dpd_deudor > 0, 0.22, 0.025))
     system_deudor = rng.random(size=n_debtors) < p_system
 
     has_housing_loan_system = housing_deudor[debtor_idx]

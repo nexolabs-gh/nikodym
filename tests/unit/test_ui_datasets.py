@@ -121,6 +121,46 @@ def test_provisiones_consumo_determinista() -> None:
     )
 
 
+def test_provisiones_consumo_alimenta_el_motor_cmf_real() -> None:
+    """GATE G1: el dataset alimenta el motor estándar CMF **real**, sin adaptadores.
+
+    Una lista de columnas verificada leyendo el código es una **hipótesis**; solo la ejecución la
+    convierte en contrato. Este test es el que congela el esquema del dataset: si el motor pide una
+    columna que no está —o rechaza una que sobra— falla aquí, no en la demo delante de un gerente.
+
+    Verifica además que la cartera **ejercita la norma**: que la matriz de PI de consumo se aplique
+    de verdad (la PE de un deudor al día sin hipotecario debe ser PI 6,6 % x PDI 56,6 % = 3,74 %) y
+    que exista cartera en incumplimiento, que es donde la PI es del 100 % y donde está la plata.
+    """
+    from nikodym.provisioning.cmf import CmfProvisioningConfig
+    from nikodym.provisioning.cmf.engine import CmfProvisioningEngine
+
+    frame = datasets._generate("provisiones_consumo")
+    resultado = CmfProvisioningEngine.from_config(CmfProvisioningConfig()).calculate(
+        frame, as_of_date="2024-06-30"
+    )
+
+    tarjeta = resultado.card
+    assert tarjeta.n_rows == len(frame)
+    assert tarjeta.total_provision_amount > 0
+    assert tarjeta.matrix_version == "cmf_b1_b3_2025_01"
+
+    # La categoría de consumo la DERIVA el motor (bucket de mora | hipotecario | mora sistema):
+    # no es un input. Si alguien mete `cmf_category` al dataset, este assert lo delata.
+    categorias = set(resultado.summary["cmf_category"])
+    assert any(c.startswith("incumplimiento") for c in categorias), (
+        "sin cartera en incumplimiento, la PI del 100 % nunca se ejercita"
+    )
+    assert any(c.startswith("0_7") for c in categorias)
+
+    # El índice de riesgo resultante. Rango AMPLIO y deliberado: el benchmark desagregado de consumo
+    # de la CMF no está verificado (ver el aviso en `_generate_provisiones`). Este test protege
+    # contra una regresión gruesa (un dataset que provisione 0,1 % o 40 %), NO certifica que la
+    # cartera esté calibrada contra el sistema chileno.
+    indice_riesgo = float(tarjeta.total_provision_amount) / float(tarjeta.total_exposure_amount)
+    assert 0.04 <= indice_riesgo <= 0.14, f"índice de riesgo {indice_riesgo:.2%} fuera de rango"
+
+
 def test_materialize_determinista_byte_logico(tmp_path: Path) -> None:
     """Dos materializaciones independientes producen el mismo contenido lógico (seeded)."""
     ruta_a = materialize("consumo_comportamiento", workdir=tmp_path / "a")
