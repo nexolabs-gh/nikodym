@@ -78,6 +78,11 @@ sobre ese agregado).
 - **Dataset sintético `provisiones_consumo`** — cartera de consumo con las columnas
   económico-regulatorias que exigen los motores (exposición, mora, deudor con varias operaciones,
   producto, flags de sistema, LGD), coherente por construcción y con tasa de default de un dígito.
+- **Las cards de provisiones en `results.json`** — el serializer de la UI expone las tres cards
+  (estándar CMF, método interno, orquestador con la regla del máximo) y sus frames **agregados**
+  graficables: el desglose del estándar por categoría, el del interno por grupo homogéneo y la
+  comparación estándar-vs-interno. Los frames `detail` **por operación** (6.000 filas) jamás entran
+  al payload — reventarían `/api/results`. Los `Decimal` contables salen como número, no string.
 - **Preset `f3-provisiones-consumo`** + rutas REST — un config listo para correr sin tocar nada que,
   encima del scorecard F1, calcula el método estándar de la CMF, el método interno y la regla del
   máximo estándar-vs-interno a nivel de entidad. El selector del front lo descubre por

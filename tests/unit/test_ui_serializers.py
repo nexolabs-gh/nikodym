@@ -22,6 +22,7 @@ from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 from pydantic import BaseModel, ConfigDict
 
 import nikodym
+from nikodym.core.config import NikodymConfig
 from nikodym.core.study import Study
 from nikodym.governance import GovernanceConfig
 from nikodym.ui import serializers
@@ -499,6 +500,58 @@ def test_preset_estandar_serializa_con_binning_categorico(tmp_path: Path) -> Non
     listas = [fila["Bin"] for fila in tables["segmento"] if isinstance(fila["Bin"], list)]
     assert listas, tables["segmento"]  # ≥1 bin categórico quedó como lista de categorías
     assert all(isinstance(cat, str) for lista in listas for cat in lista)
+
+
+# ─────────────────────────── provisiones (preset F3 real) ───────────────────────────
+
+
+def test_serializa_las_cards_de_provisiones_del_preset_f3(tmp_path: Path) -> None:
+    """El preset F3 real serializa las 3 cards de provisiones + frames AGREGADOS, sin ``detail``.
+
+    Corre la cadena entera (no fabrica el estado: las cards las produce el motor) y verifica que
+    ``serialize_study`` expone las tres cards con sus montos como NÚMERO, los frames agregados
+    graficables (summary por categoría, groups por banda, comparison), y que **ningún** frame por
+    operación (``detail``, 6.000 filas) entra al payload. Requiere el extra ``scoring``
+    (OptBinning); el job mínimo lo salta.
+    """
+    pytest.importorskip("optbinning")
+    from nikodym.ui import datasets
+    from nikodym.ui.presets import PROVISIONES_DATASET_ID, provisiones_preset
+
+    source = datasets.materialize(PROVISIONES_DATASET_ID, workdir=tmp_path)
+    config = provisiones_preset()["config"]
+    config["data"]["load"]["source"] = str(source)
+    config["report"]["output_dir"] = str(tmp_path / "reports")
+    study = nikodym.run(NikodymConfig.model_validate(config))
+    assert study.run_context.status == "done"
+
+    payload = serialize_study(study, governance=None)
+    # El payload entero es JSON estricto (el guard es global: un Decimal colado tumbaría todo).
+    json.dumps(payload, allow_nan=False)
+
+    cmf, interno, orq = (
+        payload["provisioning_cmf"],
+        payload["provisioning_internal"],
+        payload["provisioning"],
+    )
+    # (a) Las tres cards presentes con sus totales como número (float/int), no string ni Decimal.
+    for total in (
+        cmf["total_provision_amount"],
+        interno["total_internal_provision"],
+        orq["total_reported_provision"],
+    ):
+        assert isinstance(total, (int, float))
+    # (b) La regla del máximo, visible en el payload: el estándar manda sobre el interno.
+    assert cmf["total_provision_amount"] > interno["total_internal_provision"]
+    assert orq["binding"] == "cmf"
+    assert orq["total_reported_provision"] == cmf["total_provision_amount"]
+    # (c) Frames agregados graficables, no vacíos.
+    assert len(cmf["summary"]) >= 1
+    assert len(interno["groups"]) >= 1
+    assert len(orq["comparison"]) >= 1
+    # (d) Ningún frame por operación: ``detail`` (6.000 filas) jamás entra al payload.
+    assert "detail" not in cmf
+    assert "detail" not in interno
 
 
 # ─────────────────────────────── mapa canónico ───────────────────────────────

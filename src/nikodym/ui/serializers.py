@@ -48,6 +48,12 @@ _CARD_KEY_BY_DOMAIN: dict[str, str] = {
     "calibration": "card",
     "performance": "card",
     "stability": "card",
+    # Provisiones (SDD-28): las tres cards usan la clave ``"card"``. Solo se serializan las cards y
+    # sus frames AGREGADOS (ver ``_augment``); los frames ``detail`` por operación (6.000 filas)
+    # jamás entran al payload — reventarían ``/api/results``.
+    "provisioning_cmf": "card",
+    "provisioning_internal": "card",
+    "provisioning": "card",
 }
 
 # Mensaje estable de fallo. ``run_context`` NO persiste el mensaje del ``NikodymError`` de dominio
@@ -74,9 +80,10 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
     -------
     dict
         ``{status, run_id, error, model_card, <dominio>...}``. ``error`` es ``None`` salvo en fallo;
-        ``model_card`` es ``None`` si no hay gobernanza o la corrida no produjo card; cada
-        clave de dominio (binning/selection/model/scorecard/calibration/performance/stability) trae
-        su *card* serializada, **fusionada** con los frames ricos graficables de ese dominio (§6), o
+        ``model_card`` es ``None`` si no hay gobernanza o la corrida no produjo card; cada clave de
+        dominio (binning/selection/model/scorecard/calibration/performance/stability y, cuando la
+        corrida las produce, provisioning_cmf/provisioning_internal/provisioning) trae su *card*
+        serializada, **fusionada** con los frames ricos graficables agregados de ese dominio (§6), o
         ``None`` si el dominio no corrió (nunca se fabrica).
     """
     status = study.run_context.status
@@ -132,6 +139,20 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
         payload["stability"]["stability_metrics"] = _domain_records(
             study, "stability", "stability_metrics"
         )
+    # Provisiones (SDD-28): solo frames AGREGADOS (graficables), nunca los ``detail`` por operación.
+    if isinstance(payload["provisioning_cmf"], dict):
+        # Desglose del método estándar por categoría CMF (~20 filas): dónde vive la provisión.
+        payload["provisioning_cmf"]["summary"] = _domain_records(
+            study, "provisioning_cmf", "summary"
+        )
+    if isinstance(payload["provisioning_internal"], dict):
+        # Desglose del método interno por grupo homogéneo (10 bandas de score): PD·LGD·Exposición.
+        payload["provisioning_internal"]["groups"] = _domain_records(
+            study, "provisioning_internal", "groups"
+        )
+    if isinstance(payload["provisioning"], dict):
+        # La comparación estándar-vs-interno con la fuente que muerde (``binding``): el titular.
+        payload["provisioning"]["comparison"] = _domain_records(study, "provisioning", "comparison")
 
 
 def _domain_records(study: Study, domain: str, key: str) -> list[dict[str, Any]] | None:
