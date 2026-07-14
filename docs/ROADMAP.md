@@ -80,16 +80,32 @@ Esfuerzo relativo: S < M < L < XL.
 **DoD.** Cálculo de provisión por cartera reproducible contra casos de ejemplo; **validación humana de las matrices** registrada en governance; tests por cada matriz.
 **Dependencias.** F1 (segmentación/PD de entrada). **Riesgo:** los parámetros cambian con la norma → versionar.
 
+> 🔴 **DoD INCUMPLIDO: la validación humana de las matrices SIGUE PENDIENTE.** Los parámetros se transcribieron del compendio **con asistencia de IA y verificación visual**; no son oficiales de la CMF ni están validados por ella (así está confesado en el README y en la landing). **Un gerente de riesgo pregunta por su procedencia en los primeros cinco minutos.** Para cartera de consumo se usa **una sola** matriz (`consumer_standard_v2025`): validarla a mano, celda por celda, es el trabajo de mayor retorno del track — y **no lo puede hacer un agente**.
+
 ## F4 — IFRS 9 / ECL
-**Objetivo.** ECL de 3 etapas + capa que toma el **máximo** vs piso CMF.
+**Objetivo.** ECL de 3 etapas + la capa de orquestación que aplica la regla del máximo.
 **SDDs.** 16 provisioning-ifrs9 · 17 provisioning-orchestration.
 **Entregables.**
 - PD (12m/lifetime, PIT/TTC Vasicek), LGD (beta/fractional/workout), EAD/CCF.
 - Staging (SICR, Stage 1/2/3, backstops 30/90 dpd, umbrales parametrizables).
 - Motor ECL con descuento a EIR, multi-escenario ponderado.
-- Orquestación: `provisioning` compara CMF vs IFRS 9 y aplica el máximo.
+- Orquestación: `provisioning` compara **dos fuentes configurables** y aplica la regla declarada.
 **DoD.** ECL reproducible sobre dataset de ejemplo; term-structure conectada (interfaz a F5); tests de fórmula (Vasicek, ECL marginal) contra valores canónicos.
 **Dependencias.** F4↔F5 (lifetime usa survival/markov; se especifica con interfaz abstracta y se conecta al cerrar F5).
+
+> ⚠️ **CORRECCIÓN NORMATIVA (2026-07-14).** Este roadmap decía *"capa que toma el máximo vs piso CMF"* y *"`provisioning` compara CMF vs IFRS 9 y aplica el máximo"*. **Ese encuadre era falso.** El Cap. A-2 del Compendio **excluye** el deterioro de NIIF 9 sobre las colocaciones, y la regla del máximo del Cap. B-1 (Circular N° 2.346) es entre el **método estándar y el método interno del banco**, por institución. Ver `ESPECIFICACIONES.md` §5.4 y el SDD-17 §3.
+>
+> **Para el mercado chileno, el ECL de IFRS 9 no es el operando del máximo.** F4 sigue siendo válido para quien sí aplica NIIF 9 completa (filiales que reportan a matriz extranjera, entidades no bancarias, instrumentos distintos de colocaciones).
+
+## F8 — El método interno y la ruta hasta el usuario (post-1.0)
+**Objetivo.** Que un gerente de riesgo pueda **ver** la provisión que la norma le obliga a constituir.
+**SDD.** 28 provisiones-end-to-end.
+**Entregables.**
+- ✅ `provisioning/internal`: el **método interno** del B-1 (`Exposición · PD · LGD` por grupo homogéneo). La PD sale del scorecard → **el modelo del banco entra en la provisión reportada**.
+- ✅ Orquestador con fuentes configurables + `rule="use_internal"`.
+- ✅ Dataset `provisiones_consumo` y capítulos condicionales del informe.
+- ⬜ **La ruta hasta el usuario**: preset, serializer, pantalla y capítulo del informe. *Una feature sin preset, sin pantalla y sin capítulo no existe para el usuario* — y este proyecto ya lo pagó dos veces.
+**DoD.** La cadena corre de punta a punta desde la UI y el informe trae la cifra; validación **humana** de la matriz de consumo contra el compendio (gate G0).
 
 ## F5 — Forward-looking & dinámica
 **Objetivo.** Lifetime PD, proyección macro y escenarios.

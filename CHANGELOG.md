@@ -5,6 +5,65 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [Unreleased]
+
+### 🔴 Corregido — una regla normativa que afirmábamos y que NO EXISTE
+
+Nikodym declaraba, en el código y en toda su documentación, que la provisión reportada es el
+**máximo entre el ECL de IFRS 9 y un "piso prudencial CMF"**, y lo presentaba como **norma citada**.
+La fuente era un documento interno de este proyecto que **no citaba ninguna circular**.
+
+Verificado contra el texto oficial del **Compendio de Normas Contables para Bancos** (CMF):
+
+- **Cap. A-2, num. 5** — *"Lo establecido en el Capítulo 5.5 (deterioro de valor) de la NIIF9 (…)
+  **no será aplicado respecto de las colocaciones** (…) ni sobre los "Créditos contingentes", ya que
+  los criterios para estos temas se definen en los Capítulos B-1 a B-3 de este Compendio."*
+  → En Chile, un banco **no calcula ECL de NIIF 9 sobre su cartera de colocaciones**: el B-1 lo
+  **sustituye**. No hay nada contra lo que comparar.
+- **Cap. B-1, hoja 10-11 (Circular N° 2.346 / 06.03.2024)** — *"La constitución de provisiones se
+  efectuará considerando **el mayor valor obtenido entre el respectivo método estándar y el método
+  interno**. (…) Esta regla se deberá aplicar **para cada institución en Chile que consolida con el
+  banco**."*
+  → La regla del máximo es **estándar vs. interno**, a nivel de **entidad**.
+
+**`max(CMF, IFRS 9)` no es "el piso prudencial de la CMF"** y deja de presentarse como tal en todas
+las superficies. El comparativo entre ambos marcos **se mantiene** —es útil, por ejemplo, para una
+filial que reporta ECL a su matriz extranjera— pero declarado como lo que es: un comparativo entre
+marcos contables, **sin norma chilena que lo exija**.
+
+### Añadido
+
+- **`nikodym.provisioning.internal`** — el motor del **método interno** del Cap. B-1, que faltaba:
+  `provisión(g) = Exposición(g) · PD(g) · LGD(g)` por **grupo homogéneo**, tal como la norma lo
+  describe textualmente. La PD sale del scorecard calibrado, de modo que **el modelo del banco entra
+  por fin en la provisión reportada**. Métodos `pd_lgd` y `direct_loss_rate` (los dos que el B-1
+  admite), agrupación por banda de score / segmento / provista, aritmética en `Decimal`, y golden
+  verificado a mano al centavo.
+- **`provisioning.source_a` / `source_b` / `rule`** — el orquestador compara **fuentes
+  configurables** en vez de estar cableado a CMF↔IFRS 9. `rule="use_internal"` implementa la otra
+  mitad de la norma: con método interno **evaluado y no objetado** por la Comisión, la provisión se
+  constituye según el interno **aunque el estándar sea mayor**.
+- **Dataset sintético `provisiones_consumo`** — cartera de consumo con las columnas
+  económico-regulatorias que exigen los motores (exposición, mora, deudor con varias operaciones,
+  producto, flags de sistema, LGD), coherente por construcción y con tasa de default de un dígito.
+- **Capítulos condicionales del informe** (`ChapterSpec.requires_domain`): un informe de scorecard ya
+  no puede traer un capítulo de provisiones vacío, ni uno con provisiones declarar que no las cubre.
+- **`scripts/gen_schema_fixture.py`** — regenera el fixture del schema de la demo, que hasta ahora se
+  actualizaba a mano y se desincronizaba en silencio.
+
+### Corregido
+
+- **Los `Decimal` de provisiones tumbaban `/api/results` entero.** El serializador de la UI no
+  conocía `Decimal` (los motores de provisiones trabajan en `Decimal` porque es una cifra contable) y
+  su guard de serialización es global: no fallaba la sección de provisiones, fallaba **todo el
+  payload**. Igual en el informe, que imprimía `{"unsupported_type": "Decimal"}` donde va la cifra.
+
+### Nota para quien audite
+
+Los parámetros normativos de las matrices CMF **siguen siendo una transcripción del compendio
+asistida por IA, con verificación visual**: no son parámetros oficiales de la CMF ni están validados
+por ella, y **requieren validación humana contra la norma vigente antes de cualquier uso productivo**.
+
 ## [1.1.3] — 2026-07-13
 
 Release de documentación y metadata. **Sin cambios de código**: el motor es idéntico al 1.1.2.
