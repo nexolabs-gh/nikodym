@@ -24,7 +24,7 @@
 - Lee los artefactos `("provisioning_cmf", "result")` y `("provisioning_ifrs9", "result")` por el contrato CT-1 (sus `provides` estables), nunca recalcula PI/PDI/PE, ECL, staging ni term-structure.
 - Alinea ambos resultados al **nivel de comparación** declarado (`total` / `portfolio` / `segment` / `operation`, D-PROV-2 R0), reconciliando la taxonomía de cartera CMF (`cmf_portfolio`) con la de IFRS 9 (`portfolio`) por la clave o crosswalk configurado.
 - Reconcilia la representación numérica **`Decimal` (CMF)** con **`float` (IFRS 9)** en un dominio común y con tolerancia documentada, preservando el monto original de cada motor en el detalle auditado (nunca pierde precisión regulatoria silenciosamente).
-- Computa por cada celda de comparación `provision_reported = max(cmf_provision, ifrs9_ecl_reported)` (regla dura ESPEC §5.4; **no** es decisión abierta), e identifica el **motor vinculante** (`binding = "cmf" | "ifrs9" | "tie"`).
+- Computa por cada celda de comparación `provision_reported = max(provision_a, provision_b)` según la `rule` declarada, e identifica la **fuente vinculante** (`binding` = el nombre real de la fuente: `"cmf" | "internal" | "ifrs9" | "tie"`). ⚠️ Las fuentes son **configurables** (`source_a`/`source_b`) y la regla citable es el **Cap. B-1 hoja 10-11** — *no* ESPEC §5.4, que no citaba norma alguna (ver §3).
 - Publica artefactos namespaced bajo `"provisioning"`: comparativo por celda, resumen agregado, resultado contenedor y card de gobierno; expone `term_structure()` (CT-2) delegando en la curva ECL de IFRS 9 cuando existe.
 - Aporta el sub-config **`ProvisioningConfig`** (sección `provisioning` de `NikodymConfig`), computacional y por tanto incluido en el `config_hash`.
 - Maneja la **cobertura parcial** (una cartera/operación presente en un motor y no en el otro, o solo un motor configurado en la corrida) según la política declarada, con trazabilidad de cada brecha.
@@ -110,16 +110,22 @@ Cada bloque cierra con ruff (regla `D` docstrings en español), mypy `--strict`,
 
 **Fuente normativa (regla del máximo).** Ver el recuadro de arriba: la regla citable es el Cap. B-1, hoja 10-11 (Circular N° 2.346 / 06.03.2024), `max(estándar, interno)` por institución. `ROADMAP.md` F4 fijaba el DoD «ECL + piso CMF» y la tarea «Orquestación: `provisioning` compara CMF vs IFRS 9 y aplica el máximo»: ese encuadre **queda corregido** por la verificación normativa.
 
-**Definición del piso prudencial.** Para cada celda de comparación `c` (definida por el nivel de agregación):
+**Definición de la regla.** Las fuentes son **configurables** (`source_a` / `source_b`) desde 2026-07-14: el módulo dejó de estar cableado a CMF↔IFRS 9. Para cada celda de comparación `c`:
 
 ```text
-cmf_provision(c)     = provisión regulatoria CMF B-1/B-3 agregada a la celda c   (SDD-15)
-ifrs9_ecl(c)         = ECL contable reportado agregado a la celda c              (SDD-16, ya Σ_k w_k)
-provision_reported(c) = max( cmf_provision(c), ifrs9_ecl(c) )
-binding(c)           = "cmf"  si cmf_provision(c) > ifrs9_ecl(c)
-                       "ifrs9" si ifrs9_ecl(c) > cmf_provision(c)
-                       "tie"   si |cmf_provision(c) − ifrs9_ecl(c)| ≤ tol
+provision_a(c)       = provisión de la fuente A agregada a la celda c
+provision_b(c)       = provisión de la fuente B agregada a la celda c
+provision_reported(c) = max( provision_a(c), provision_b(c) )        [rule="max"]
+                      = provisión del método interno                 [rule="use_internal"]
+binding(c)           = el NOMBRE de la fuente vinculante ("cmf" | "internal" | "ifrs9")
+                       o "tie" si |provision_a(c) − provision_b(c)| ≤ tol
 ```
+
+**La comparación que exige la norma chilena** (Cap. B-1, hoja 10-11): `source_a="provisioning_cmf"` (método estándar), `source_b="provisioning_internal"` (método interno del banco), `rule="max"`, `comparison_level="total"` (la norma la aplica **por institución**).
+
+**`rule="use_internal"`** es también norma, no comodidad: *"En el caso de uso de los métodos internos **evaluados y no objetados** (…) la constitución de provisiones se efectuará de acuerdo con los resultados de su aplicación"* — el interno manda **aunque el estándar sea mayor**.
+
+**Los defaults siguen siendo `cmf` / `ifrs9`** por retrocompatibilidad, pero esa comparación es un **comparativo entre marcos contables**, útil para quien lleva ambos (p. ej. una filial que reporta ECL a su matriz extranjera), y **no una exigencia de la CMF** (ver el recuadro de corrección arriba). El propio `regulatory_sources` de la card lo declara así.
 
 El CMF actúa como **piso** (floor): cuando el ECL contable cae por debajo de la provisión regulatoria, se reporta la provisión CMF. Ambos insumos son no negativos (garantizado por los DTOs de SDD-15/16), luego `provision_reported ≥ 0` y `provision_reported ≥ max(0, ·)` trivialmente.
 
