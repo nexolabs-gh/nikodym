@@ -1,23 +1,31 @@
 """DTOs puros de resultados de la orquestación de provisiones (SDD-17 §4/§6).
 
 Este módulo fija los contenedores Pydantic publicados por :mod:`nikodym.provisioning` (la capa fina
-de orquestación, piso prudencial CMF vs IFRS 9): registro de comparación por celda, resumen por
-nivel, tarjeta CT-2 de gobierno y resultado agregado con ``comparison``/``summary``. **No** calcula
-el máximo (eso es del ``ProvisioningOrchestrator``, B17.3), no recalcula PI/PDI/PE ni ECL y no
-importa ``pandas`` en runtime al cargar el módulo; los DataFrames son solo contrato de I/O validado
-por estructura para preservar el import liviano del núcleo.
+que compara **dos fuentes configurables** de provisión): registro de comparación por celda, resumen
+por nivel, tarjeta CT-2 de gobierno y resultado agregado con ``comparison``/``summary``. **No**
+aplica la regla (eso es del ``ProvisioningOrchestrator``), no recalcula PI/PDI/PE, ECL ni el método
+interno, y no importa ``pandas`` en runtime al cargar el módulo; los DataFrames son solo contrato de
+I/O validado por estructura para preservar el import liviano del núcleo.
 
-Reconciliación de dominios (SDD-17 §3/§6, D-PROV-4): cada registro **preserva** el monto CMF en
-``Decimal`` y el ECL IFRS 9 en ``float`` sin forzarlos a un tipo común que destruya el original; la
-provisión reportada vive en ``Decimal`` (dominio regulatorio de reporte). Toda salida numérica
-normaliza ``-0.0`` como ``0.0`` y **jamás** publica ``NaN`` ni ``inf`` (falla explícito).
+**Las fuentes son datos, no nombres cableados.** Cada registro declara ``source_a``/``source_b`` (el
+nombre legible de la fuente: ``cmf``, ``internal``, ``ifrs9``) y guarda sus montos en
+``provision_a``/``provision_b``. ``binding`` y ``coverage`` usan **el nombre real de la fuente**
+(``'cmf'``, ``'internal'``, ``'ifrs9'``, ``'tie'``, ``'<fuente>_only'``), de modo que la card diga
+QUÉ fuente ganó sin que el lector tenga que traducir un rol.
+
+Reconciliación de dominios (SDD-17 §3/§6, D-PROV-4): cada registro **preserva** el dominio numérico
+original de su fuente —CMF y el método interno publican ``Decimal``; IFRS 9 publica ``float``— sin
+forzarlos a un tipo común que destruya el original; la provisión reportada vive en ``Decimal``
+(dominio regulatorio de reporte). Toda salida numérica normaliza ``-0.0`` como ``0.0`` y **jamás**
+publica ``NaN`` ni ``inf`` (falla explícito).
 
 :meth:`ProvisionOrchestrationResult.term_structure` cumple CT-2 delegando en la curva ECL de IFRS 9
 (``IfrsProvisionResult.term_structure()``): el orchestrator la precomputa y la guarda en
-``ifrs9_term_structure``; este resultado la expone (copia defensiva) cuando IFRS 9 está presente y
-retorna ``None`` cuando solo hay CMF (que no publica term-structure, D-CORE-7). **Nunca** fabrica
-una term-structure del máximo (que es escalar por celda). Las colecciones mutables y DataFrames se
-copian defensivamente al validar y al acceder desde los DTOs.
+``ifrs9_term_structure``; este resultado la expone (copia defensiva) cuando IFRS 9 es una de las
+fuentes y retorna ``None`` en otro caso (ni el CMF ni el método interno publican term-structure:
+son puntuales, D-CORE-7). **Nunca** fabrica una term-structure de la provisión reportada (que es
+escalar por celda). Las colecciones mutables y DataFrames se copian defensivamente al validar y al
+acceder desde los DTOs.
 
 **Experimental (fuera de la garantía SemVer 1.x).**
 """
@@ -33,7 +41,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from nikodym.provisioning.config import ProvisioningComparisonLevel
+from nikodym.provisioning.config import SOURCE_NAMES, ProvisioningComparisonLevel
 
 if TYPE_CHECKING:
     import pandas
@@ -42,15 +50,22 @@ if TYPE_CHECKING:
 else:
     DataFrameLike: TypeAlias = Any
 
-# El motor vinculante y la cobertura de cada celda de comparación (SDD-17 §4).
-ProvisionBinding: TypeAlias = Literal["cmf", "ifrs9", "tie", "cmf_only", "ifrs9_only"]
-ProvisionCoverage: TypeAlias = Literal["both", "cmf_only", "ifrs9_only"]
+# La fuente vinculante y la cobertura de cada celda, por NOMBRE REAL de fuente (SDD-17 §4).
+ProvisionBinding: TypeAlias = Literal[
+    "cmf", "internal", "ifrs9", "tie", "cmf_only", "internal_only", "ifrs9_only"
+]
+ProvisionCoverage: TypeAlias = Literal["both", "cmf_only", "internal_only", "ifrs9_only"]
+# Monto de una fuente: ``Decimal`` (CMF, método interno) o ``float`` (IFRS 9). Se preserva el
+# dominio de origen; la unión NO coacciona (Pydantic resuelve por tipo exacto).
+ProvisionAmount: TypeAlias = Decimal | float
 
 _COMPARISON_COLUMNS: tuple[str, ...] = (
     "cell_id",
     "level",
-    "cmf_provision",
-    "ifrs9_ecl",
+    "source_a",
+    "source_b",
+    "provision_a",
+    "provision_b",
     "reported_provision",
     "binding",
     "coverage",
@@ -58,17 +73,19 @@ _COMPARISON_COLUMNS: tuple[str, ...] = (
 )
 _SUMMARY_COLUMNS: tuple[str, ...] = (
     "level",
+    "source_a",
+    "source_b",
     "n_cells",
-    "n_binding_cmf",
-    "n_binding_ifrs9",
+    "n_binding_a",
+    "n_binding_b",
     "n_binding_tie",
-    "total_cmf_provision",
-    "total_ifrs9_ecl",
+    "total_provision_a",
+    "total_provision_b",
     "total_reported_provision",
     "warning_codes",
 )
-# Motores admitidos en ``engines_present`` (SDD-17 §4): el par CMF / IFRS 9.
-_VALID_ENGINES: frozenset[str] = frozenset({"cmf", "ifrs9"})
+# Fuentes admitidas en ``engines_present``/``source_a``/``source_b`` (SDD-17 §4, SDD-28).
+_VALID_SOURCES: frozenset[str] = frozenset(SOURCE_NAMES.values())
 
 __all__ = [
     "ProvisionComparisonRecord",
@@ -79,14 +96,16 @@ __all__ = [
 
 
 class ProvisionComparisonRecord(BaseModel):
-    """Registro de comparación CMF vs IFRS 9 por celda del máximo (SDD-17 §4/§6)."""
+    """Registro de comparación de dos fuentes de provisión en una celda (SDD-17 §4/§6)."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     cell_id: str
     level: ProvisioningComparisonLevel
-    cmf_provision: Decimal | None
-    ifrs9_ecl: float | None
+    source_a: str
+    source_b: str
+    provision_a: ProvisionAmount | None
+    provision_b: ProvisionAmount | None
     reported_provision: Decimal
     binding: ProvisionBinding
     coverage: ProvisionCoverage
@@ -100,17 +119,19 @@ class ProvisionComparisonRecord(BaseModel):
             raise ValueError("cell_id no puede estar vacío.")
         return value
 
-    @field_validator("ifrs9_ecl", mode="before")
+    @field_validator("source_a", "source_b")
     @classmethod
-    def _normaliza_ifrs9_ecl(cls, value: Any) -> float | None:
-        """Exige ECL IFRS 9 finito no negativo y normaliza ``-0.0`` (float original preservado)."""
-        return _normalize_optional_non_negative_float(value)
+    def _valida_source(cls, value: str) -> str:
+        """Valida que la fuente sea uno de los nombres canónicos (cmf/internal/ifrs9)."""
+        if value not in _VALID_SOURCES:
+            raise ValueError(f"source solo admite {sorted(_VALID_SOURCES)}: {value!r}.")
+        return value
 
-    @field_validator("cmf_provision")
+    @field_validator("provision_a", "provision_b", mode="before")
     @classmethod
-    def _normaliza_cmf_provision(cls, value: Decimal | None) -> Decimal | None:
-        """Exige provisión CMF Decimal no negativa y normaliza el cero (Decimal original)."""
-        return None if value is None else _normalize_non_negative_decimal(value)
+    def _normaliza_monto(cls, value: Any) -> Any:
+        """Exige montos finitos no negativos y normaliza el cero, sin cambiar de dominio."""
+        return _normalize_optional_amount(value)
 
     @field_validator("reported_provision")
     @classmethod
@@ -120,41 +141,63 @@ class ProvisionComparisonRecord(BaseModel):
 
     @model_validator(mode="after")
     def _check_cobertura(self) -> Self:
-        """Valida la coherencia entre ``coverage``, ``binding`` y los montos presentes (§6)."""
+        """Valida la coherencia entre fuentes, ``coverage``, ``binding`` y los montos (§6)."""
+        if self.source_a == self.source_b:
+            raise ValueError("source_a y source_b deben ser fuentes distintas.")
         if self.coverage == "both":
-            if self.cmf_provision is None or self.ifrs9_ecl is None:
-                raise ValueError("coverage='both' exige cmf_provision e ifrs9_ecl no nulos.")
-            if self.binding not in ("cmf", "ifrs9", "tie"):
-                raise ValueError("coverage='both' exige binding en {cmf, ifrs9, tie}.")
-        elif self.coverage == "cmf_only":
-            if self.cmf_provision is None or self.ifrs9_ecl is not None:
-                raise ValueError("coverage='cmf_only' exige solo cmf_provision presente.")
-            if self.binding != "cmf_only":
-                raise ValueError("coverage='cmf_only' exige binding='cmf_only'.")
-        else:
-            if self.ifrs9_ecl is None or self.cmf_provision is not None:
-                raise ValueError("coverage='ifrs9_only' exige solo ifrs9_ecl presente.")
-            if self.binding != "ifrs9_only":
-                raise ValueError("coverage='ifrs9_only' exige binding='ifrs9_only'.")
+            if self.provision_a is None or self.provision_b is None:
+                raise ValueError("coverage='both' exige provision_a y provision_b no nulos.")
+            if self.binding not in (self.source_a, self.source_b, "tie"):
+                raise ValueError(
+                    f"coverage='both' exige binding en {{{self.source_a}, {self.source_b}, tie}}."
+                )
+            return self
+        if self.coverage not in (f"{self.source_a}_only", f"{self.source_b}_only"):
+            raise ValueError(
+                f"coverage={self.coverage!r} no corresponde a las fuentes declaradas "
+                f"({self.source_a}, {self.source_b})."
+            )
+        presente, ausente, monto_presente, monto_ausente = (
+            (self.source_a, self.source_b, self.provision_a, self.provision_b)
+            if self.coverage == f"{self.source_a}_only"
+            else (self.source_b, self.source_a, self.provision_b, self.provision_a)
+        )
+        if monto_presente is None or monto_ausente is not None:
+            raise ValueError(
+                f"coverage='{presente}_only' exige solo el monto de {presente} presente "
+                f"(el de {ausente} debe ser nulo)."
+            )
+        if self.binding != f"{presente}_only":
+            raise ValueError(f"coverage='{presente}_only' exige binding='{presente}_only'.")
         return self
 
 
 class ProvisionComparisonSummary(BaseModel):
-    """Resumen agregado de la comparación CMF vs IFRS 9 por nivel (SDD-17 §4/§6)."""
+    """Resumen agregado de la comparación de dos fuentes por nivel (SDD-17 §4/§6)."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     level: ProvisioningComparisonLevel
+    source_a: str
+    source_b: str
     n_cells: int = Field(ge=0)
-    n_binding_cmf: int = Field(ge=0)
-    n_binding_ifrs9: int = Field(ge=0)
+    n_binding_a: int = Field(ge=0)
+    n_binding_b: int = Field(ge=0)
     n_binding_tie: int = Field(ge=0)
-    total_cmf_provision: Decimal
-    total_ifrs9_ecl: Decimal
+    total_provision_a: Decimal
+    total_provision_b: Decimal
     total_reported_provision: Decimal
     warnings: tuple[str, ...] = ()
 
-    @field_validator("total_cmf_provision", "total_ifrs9_ecl", "total_reported_provision")
+    @field_validator("source_a", "source_b")
+    @classmethod
+    def _valida_source(cls, value: str) -> str:
+        """Valida que la fuente sea uno de los nombres canónicos (cmf/internal/ifrs9)."""
+        if value not in _VALID_SOURCES:
+            raise ValueError(f"source solo admite {sorted(_VALID_SOURCES)}: {value!r}.")
+        return value
+
+    @field_validator("total_provision_a", "total_provision_b", "total_reported_provision")
     @classmethod
     def _normaliza_totales(cls, value: Decimal) -> Decimal:
         """Exige totales Decimal no negativos y normaliza el cero."""
@@ -163,15 +206,13 @@ class ProvisionComparisonSummary(BaseModel):
     @model_validator(mode="after")
     def _check_conteos(self) -> Self:
         """Valida que las celdas vinculantes no excedan el total de celdas (§6)."""
-        if self.n_binding_cmf + self.n_binding_ifrs9 + self.n_binding_tie > self.n_cells:
-            raise ValueError(
-                "n_binding_cmf + n_binding_ifrs9 + n_binding_tie no puede exceder n_cells."
-            )
+        if self.n_binding_a + self.n_binding_b + self.n_binding_tie > self.n_cells:
+            raise ValueError("n_binding_a + n_binding_b + n_binding_tie no puede exceder n_cells.")
         return self
 
 
 class ProvisionOrchestrationCard(BaseModel):
-    """Tarjeta CT-2 de gobierno del piso prudencial CMF vs IFRS 9 (SDD-17 §4/§9)."""
+    """Tarjeta CT-2 de gobierno de la comparación de dos fuentes (SDD-17 §4/§9)."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -179,40 +220,53 @@ class ProvisionOrchestrationCard(BaseModel):
 
     as_of_date: str
     comparison_level: str
+    rule: str
+    source_a: str
+    source_b: str
     engines_present: tuple[str, ...]
+    binding: str | None = None
     n_cells: int = Field(ge=0)
-    n_binding_cmf: int = Field(ge=0)
-    n_binding_ifrs9: int = Field(ge=0)
+    n_binding_a: int = Field(ge=0)
+    n_binding_b: int = Field(ge=0)
     n_binding_tie: int = Field(ge=0)
-    total_cmf_provision: Decimal
-    total_ifrs9_ecl: Decimal
+    total_provision_a: Decimal
+    total_provision_b: Decimal
     total_reported_provision: Decimal
     cmf_matrix_version: str | None = None
     ifrs9_term_structure_source: str | None = None
+    internal_method: str | None = None
     regulatory_sources: tuple[str, ...] = ()
     falta_dato: tuple[str, ...] = ()
     metric_sections: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("as_of_date", "comparison_level")
+    @field_validator("as_of_date", "comparison_level", "rule")
     @classmethod
     def _valida_texto_no_vacio(cls, value: str) -> str:
-        """Valida que ``as_of_date`` y ``comparison_level`` no estén vacíos."""
+        """Valida que ``as_of_date``, ``comparison_level`` y ``rule`` no estén vacíos."""
         if not value.strip():
-            raise ValueError("as_of_date y comparison_level no pueden estar vacíos.")
+            raise ValueError("as_of_date, comparison_level y rule no pueden estar vacíos.")
+        return value
+
+    @field_validator("source_a", "source_b")
+    @classmethod
+    def _valida_source(cls, value: str) -> str:
+        """Valida que la fuente sea uno de los nombres canónicos (cmf/internal/ifrs9)."""
+        if value not in _VALID_SOURCES:
+            raise ValueError(f"source solo admite {sorted(_VALID_SOURCES)}: {value!r}.")
         return value
 
     @field_validator("engines_present")
     @classmethod
     def _valida_engines(cls, value: tuple[str, ...]) -> tuple[str, ...]:
-        """Valida que haya al menos un motor y que sean 'cmf'/'ifrs9' (SDD-17 §4)."""
+        """Valida que haya al menos una fuente y que sean 'cmf'/'internal'/'ifrs9' (SDD-17 §4)."""
         if not value:
             raise ValueError("engines_present no puede estar vacío.")
-        invalidos = [engine for engine in value if engine not in _VALID_ENGINES]
+        invalidos = [engine for engine in value if engine not in _VALID_SOURCES]
         if invalidos:
-            raise ValueError(f"engines_present solo admite 'cmf'/'ifrs9': {invalidos}.")
+            raise ValueError(f"engines_present solo admite {sorted(_VALID_SOURCES)}: {invalidos}.")
         return value
 
-    @field_validator("total_cmf_provision", "total_ifrs9_ecl", "total_reported_provision")
+    @field_validator("total_provision_a", "total_provision_b", "total_reported_provision")
     @classmethod
     def _normaliza_totales(cls, value: Decimal) -> Decimal:
         """Exige totales Decimal no negativos y normaliza el cero."""
@@ -231,10 +285,8 @@ class ProvisionOrchestrationCard(BaseModel):
     @model_validator(mode="after")
     def _check_conteos(self) -> Self:
         """Valida que las celdas vinculantes no excedan el total de celdas (§6)."""
-        if self.n_binding_cmf + self.n_binding_ifrs9 + self.n_binding_tie > self.n_cells:
-            raise ValueError(
-                "n_binding_cmf + n_binding_ifrs9 + n_binding_tie no puede exceder n_cells."
-            )
+        if self.n_binding_a + self.n_binding_b + self.n_binding_tie > self.n_cells:
+            raise ValueError("n_binding_a + n_binding_b + n_binding_tie no puede exceder n_cells.")
         return self
 
     def __getattribute__(self, name: str) -> Any:
@@ -246,7 +298,7 @@ class ProvisionOrchestrationCard(BaseModel):
 
 
 class ProvisionOrchestrationResult(BaseModel):
-    """Contenedor agregado del comparativo y piso prudencial CMF vs IFRS 9 (SDD-17 §4/§6)."""
+    """Contenedor agregado del comparativo de dos fuentes de provisión (SDD-17 §4/§6)."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
@@ -283,7 +335,7 @@ class ProvisionOrchestrationResult(BaseModel):
     @field_validator("ifrs9_term_structure", mode="before")
     @classmethod
     def _copia_term_structure(cls, value: Any) -> Any:
-        """Copia la curva ECL IFRS 9 delegada (o ``None`` si solo CMF); no valida sus columnas."""
+        """Copia la curva ECL IFRS 9 delegada (o ``None``); no valida sus columnas."""
         if value is None:
             return None
         if not _is_dataframe_like(value):
@@ -305,12 +357,12 @@ class ProvisionOrchestrationResult(BaseModel):
         return value
 
     def term_structure(self) -> pandas.DataFrame | None:
-        """Retorna la curva ECL de IFRS 9 (CT-2) o ``None`` si solo hay CMF (SDD-17 §4).
+        """Retorna la curva ECL de IFRS 9 (CT-2) o ``None`` si IFRS 9 no es fuente (SDD-17 §4).
 
         Delega en la curva larga que ``IfrsProvisionResult.term_structure()`` publicó y que el
         orchestrator guardó en ``ifrs9_term_structure``; la expone como copia defensiva. **No**
-        fabrica una term-structure del máximo (que es escalar por celda): si IFRS 9 no está
-        presente retorna ``None`` (D-CORE-7).
+        fabrica una term-structure de la provisión reportada (que es escalar por celda): si IFRS 9
+        no participa retorna ``None`` — ni el CMF ni el método interno publican curva (D-CORE-7).
         """
         curve = self.ifrs9_term_structure
         if curve is None:
@@ -371,9 +423,12 @@ def _normalize_non_negative_float(value: Any) -> float:
     return abs(candidate) or 0.0
 
 
-def _normalize_optional_non_negative_float(value: Any) -> float | None:
+def _normalize_optional_amount(value: Any) -> Any:
+    """Normaliza el monto de una fuente **preservando su dominio** (Decimal o float)."""
     if value is None:
         return None
+    if isinstance(value, Decimal):
+        return _normalize_non_negative_decimal(value)
     return _normalize_non_negative_float(value)
 
 

@@ -60,10 +60,35 @@ from nikodym.provisioning.ifrs9.results import (
     IfrsProvisionResult,
     IfrsStageRecord,
 )
+from nikodym.provisioning.internal.config import InternalProvisioningConfig
 
 ROOT_SEED = 20_260_703
 # Golden CMF: exposición 1.000.000, categoría A1 -> provisión 360.00000 (SDD-15 §11).
 EXPECTED_A1_PROVISION = Decimal("360.00000")
+
+# ── Goldens del end-to-end estándar vs. interno (aritmética a mano, SDD-28) ──────────────────
+# Dos operaciones A1 (commercial_individual), mismo grupo homogéneo "banda_alta":
+#   op1: exposición 1.000.000, LGD 0,50   |   op2: exposición 3.000.000, LGD 0,60
+#
+# MÉTODO ESTÁNDAR (CMF B-1, matriz A1 = 0,036 %):
+#   1.000.000 · 0,00036 =   360,00000
+#   3.000.000 · 0,00036 = 1.080,00000
+#   total estándar      = 1.440,00000
+EXPECTED_STANDARD_TOTAL = Decimal("1440.00000")
+#
+# MÉTODO INTERNO (B-1 §3: Exposición · PD · LGD por grupo homogéneo), PD alta (0,02 / 0,10):
+#   E   = 1.000.000 + 3.000.000 = 4.000.000
+#   PD  = (1M·0,02 + 3M·0,10)/4M = (20.000 + 300.000)/4.000.000 = 0,08
+#   LGD = (1M·0,50 + 3M·0,60)/4M = (500.000 + 1.800.000)/4.000.000 = 0,575
+#   provisión = 4.000.000 · 0,08 · 0,575 = 4.000.000 · 0,046 = 184.000,00
+EXPECTED_INTERNAL_HIGH = Decimal("184000.00")
+#   -> max(1.440,00000 ; 184.000,00) = 184.000,00  => muerde el INTERNO
+#
+# Mismo grupo con PD baja (0,0001 en ambas operaciones):
+#   PD = 0,0001 ; LGD = 0,575 ; provisión = 4.000.000 · 0,0001 · 0,575 = 230,00
+EXPECTED_INTERNAL_LOW = Decimal("230.00")
+#   -> max(1.440,00000 ; 230,00) = 1.440,00000     => muerde el ESTÁNDAR
+#   -> rule='use_internal'                          => se reporta 230,00 (el interno)
 
 
 # ─────────────────────────── contrato del step y registro ───────────────────────────
@@ -104,16 +129,41 @@ def test_requires_passthrough_ambos_motores_sin_dura() -> None:
     assert step.requires == ()
 
 
-def test_requires_solo_cmf_cuando_ifrs9_desactivado() -> None:
-    """``require_both=False`` con ``consume_ifrs9=False`` exige solo el ``result`` CMF."""
-    step = ProvisioningStep.from_config(ProvisioningConfig(require_both=False, consume_ifrs9=False))
+def test_requires_solo_fuente_a_cuando_b_desactivada() -> None:
+    """``require_both=False`` con ``consume_b=False`` exige solo el ``result`` de la fuente A."""
+    step = ProvisioningStep.from_config(ProvisioningConfig(require_both=False, consume_b=False))
     assert step.requires == (("provisioning_cmf", "result"),)
 
 
-def test_requires_solo_ifrs9_cuando_cmf_desactivado() -> None:
-    """``require_both=False`` con ``consume_cmf=False`` exige solo el ``result`` IFRS 9."""
-    step = ProvisioningStep.from_config(ProvisioningConfig(require_both=False, consume_cmf=False))
+def test_requires_solo_fuente_b_cuando_a_desactivada() -> None:
+    """``require_both=False`` con ``consume_a=False`` exige solo el ``result`` de la fuente B."""
+    step = ProvisioningStep.from_config(ProvisioningConfig(require_both=False, consume_a=False))
     assert step.requires == (("provisioning_ifrs9", "result"),)
+
+
+def test_requires_derivan_de_las_fuentes_declaradas() -> None:
+    """Los ``requires`` salen de ``source_a``/``source_b``, no de constantes cableadas (SDD-28)."""
+    step = ProvisioningStep.from_config(
+        ProvisioningConfig(source_a="provisioning_cmf", source_b="provisioning_internal")
+    )
+    assert step.requires == (
+        ("provisioning_cmf", "result"),
+        ("provisioning_internal", "result"),
+    )
+    invertido = ProvisioningStep.from_config(
+        ProvisioningConfig(source_a="provisioning_internal", source_b="provisioning_ifrs9")
+    )
+    assert invertido.requires == (
+        ("provisioning_internal", "result"),
+        ("provisioning_ifrs9", "result"),
+    )
+
+
+def test_requires_legacy_consume_ifrs9_sigue_funcionando() -> None:
+    """El flag deprecado ``consume_ifrs9`` sigue recortando los ``requires`` (retrocompatible)."""
+    with pytest.warns(DeprecationWarning):
+        cfg = ProvisioningConfig(require_both=False, consume_ifrs9=False)
+    assert ProvisioningStep.from_config(cfg).requires == (("provisioning_cmf", "result"),)
 
 
 # ─────────────────────────── cableado de core.study ───────────────────────────
@@ -165,8 +215,10 @@ def test_execute_publica_cuatro_artefactos_y_audita() -> None:
     assert tuple(study.artifacts.get("provisioning", "comparison").columns) == (
         "cell_id",
         "level",
-        "cmf_provision",
-        "ifrs9_ecl",
+        "source_a",
+        "source_b",
+        "provision_a",
+        "provision_b",
         "reported_provision",
         "binding",
         "coverage",
@@ -259,14 +311,14 @@ def test_end_to_end_tres_motores_study_run() -> None:
     assert card.engines_present == ("cmf", "ifrs9")
     assert card.comparison_level == "total"
     assert card.total_reported_provision == EXPECTED_A1_PROVISION
-    assert card.total_cmf_provision == EXPECTED_A1_PROVISION
-    assert card.n_binding_cmf == 1
+    assert card.total_provision_a == EXPECTED_A1_PROVISION
+    assert card.n_binding_a == 1
     comparison = study.artifacts.get("provisioning", "comparison")
     assert comparison.loc[0, "cell_id"] == "TOTAL"
     assert comparison.loc[0, "reported_provision"] == EXPECTED_A1_PROVISION
     assert comparison.loc[0, "binding"] == "cmf"
-    # El ECL IFRS 9 (< piso CMF) queda registrado en el comparativo y es finito.
-    assert 0.0 < float(comparison.loc[0, "ifrs9_ecl"]) < float(EXPECTED_A1_PROVISION)
+    # El ECL IFRS 9 (< estándar CMF) queda registrado en el comparativo y es finito.
+    assert 0.0 < float(comparison.loc[0, "provision_b"]) < float(EXPECTED_A1_PROVISION)
     assert study.artifacts.get("provisioning", "result").term_structure() is not None
 
 
@@ -299,6 +351,76 @@ def test_determinismo_dos_ejecuciones() -> None:
     assert_frame_equal(primera.summary, segunda.summary)
     assert primera.records == segunda.records
     assert primera.card == segunda.card
+
+
+# ─────────── end-to-end REAL: estándar vs. interno, la regla del B-1 (SDD-28) ───────────
+
+
+def test_end_to_end_estandar_vs_interno_study_run_gana_el_interno() -> None:
+    """``Study.run()`` real: cmf + internal alimentan provisioning con la regla del máximo.
+
+    Golden a mano: estándar = 1.440,00000 (dos A1) ; interno = 184.000,00 (4M · 0,08 · 0,575).
+    El máximo es el interno -> la provisión a constituir es la del modelo del banco.
+    """
+    study = _study_estandar_e_interno()
+
+    study.run()
+
+    assert study.run_context.status == "done"
+    estandar = study.artifacts.get("provisioning_cmf", "card").total_provision_amount
+    interno = study.artifacts.get("provisioning_internal", "card").total_internal_provision
+    assert estandar == EXPECTED_STANDARD_TOTAL
+    assert interno == EXPECTED_INTERNAL_HIGH
+
+    card = study.artifacts.get("provisioning", "card")
+    assert card.engines_present == ("cmf", "internal")
+    assert card.rule == "max"
+    assert card.comparison_level == "total"  # el nivel que fija la norma (entidad)
+    assert card.total_provision_a == EXPECTED_STANDARD_TOTAL
+    assert card.total_provision_b == EXPECTED_INTERNAL_HIGH
+    assert card.total_reported_provision == max(EXPECTED_STANDARD_TOTAL, EXPECTED_INTERNAL_HIGH)
+    assert card.total_reported_provision == EXPECTED_INTERNAL_HIGH
+    assert card.binding == "internal"
+    assert card.internal_method == "pd_lgd"
+
+    comparison = study.artifacts.get("provisioning", "comparison")
+    assert comparison.loc[0, "cell_id"] == "TOTAL"
+    assert comparison.loc[0, "source_a"] == "cmf"
+    assert comparison.loc[0, "source_b"] == "internal"
+    assert comparison.loc[0, "provision_a"] == EXPECTED_STANDARD_TOTAL
+    assert comparison.loc[0, "provision_b"] == EXPECTED_INTERNAL_HIGH
+    assert comparison.loc[0, "reported_provision"] == EXPECTED_INTERNAL_HIGH
+    assert comparison.loc[0, "binding"] == "internal"
+
+
+def test_end_to_end_rule_use_internal_reporta_el_interno_menor() -> None:
+    """Con el estándar MAYOR que el interno, ``max`` reporta 1.440,00000 y ``use_internal`` 230,00.
+
+    Mismos insumos, dos reglas: es la prueba de que ``rule`` no es un enum decorativo. La norma
+    (B-1, hoja 10-11) permite constituir según el método interno cuando está evaluado y no objetado.
+    """
+    pd_baja = pd.DataFrame(
+        {"pd_calibrated": [0.0001, 0.0001]}, index=pd.Index(["op1", "op2"], name="loan_id")
+    )
+
+    por_maximo = _study_estandar_e_interno(pd_frame=pd_baja)
+    por_maximo.run()
+    card_max = por_maximo.artifacts.get("provisioning", "card")
+    assert card_max.total_provision_a == EXPECTED_STANDARD_TOTAL
+    assert card_max.total_provision_b == EXPECTED_INTERNAL_LOW
+    assert card_max.total_reported_provision == EXPECTED_STANDARD_TOTAL  # muerde el estándar
+    assert card_max.binding == "cmf"
+
+    por_interno = _study_estandar_e_interno(pd_frame=pd_baja, rule="use_internal")
+    por_interno.run()
+    card_interno = por_interno.artifacts.get("provisioning", "card")
+    assert card_interno.rule == "use_internal"
+    # El estándar es MAYOR y aun así se reporta el interno: la regla manda sobre el máximo.
+    assert card_interno.total_provision_a == EXPECTED_STANDARD_TOTAL
+    assert card_interno.total_reported_provision == EXPECTED_INTERNAL_LOW
+    assert card_interno.total_reported_provision < card_max.total_reported_provision
+    assert card_interno.binding == "internal"
+    assert "no objetados" in card_interno.regulatory_sources[0]
 
 
 # ─────────────────────────── helpers internos ───────────────────────────
@@ -454,6 +576,51 @@ def _study_tres_motores() -> Study:
     study = Study(config)
     study.artifacts.set("data", "frame", frame)
     study.artifacts.set("survival", "term_structure", term_structure)
+    return study
+
+
+def _study_estandar_e_interno(*, pd_frame: pd.DataFrame | None = None, rule: str = "max") -> Study:
+    """``Study`` con ``data.frame`` + PD calibrada para correr cmf + internal + provisioning."""
+    frame = pd.DataFrame(
+        [
+            {
+                "as_of_date": "2026-01-31",
+                "cmf_portfolio": "commercial_individual",
+                "cmf_category": "A1",
+                "exposure_amount": 1_000_000,
+                "grupo": "banda_alta",
+                "lgd": 0.50,
+            },
+            {
+                "as_of_date": "2026-01-31",
+                "cmf_portfolio": "commercial_individual",
+                "cmf_category": "A1",
+                "exposure_amount": 3_000_000,
+                "grupo": "banda_alta",
+                "lgd": 0.60,
+            },
+        ],
+        index=pd.Index(["op1", "op2"], name="loan_id"),
+    )
+    calibrada = (
+        pd_frame
+        if pd_frame is not None
+        else pd.DataFrame(
+            {"pd_calibrated": [0.02, 0.10]}, index=pd.Index(["op1", "op2"], name="loan_id")
+        )
+    )
+    config = NikodymConfig(
+        provisioning_cmf=CmfProvisioningConfig(),
+        provisioning_internal=InternalProvisioningConfig(grouping="provided", group_col="grupo"),
+        provisioning=ProvisioningConfig(
+            source_a="provisioning_cmf",
+            source_b="provisioning_internal",
+            rule=rule,  # type: ignore[arg-type]
+        ),
+    )
+    study = Study(config)
+    study.artifacts.set("data", "frame", frame)
+    study.artifacts.set("calibration", "calibrated_pd_frame", calibrada)
     return study
 
 

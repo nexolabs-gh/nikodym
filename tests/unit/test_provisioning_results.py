@@ -34,8 +34,10 @@ def test_comparison_record_golden_frozen_extra_y_reconciliacion() -> None:
     assert tuple(ProvisionComparisonRecord.model_fields) == (
         "cell_id",
         "level",
-        "cmf_provision",
-        "ifrs9_ecl",
+        "source_a",
+        "source_b",
+        "provision_a",
+        "provision_b",
         "reported_provision",
         "binding",
         "coverage",
@@ -45,16 +47,18 @@ def test_comparison_record_golden_frozen_extra_y_reconciliacion() -> None:
     assert record.model_dump(mode="json") == {
         "cell_id": "commercial",
         "level": "portfolio",
-        "cmf_provision": "100.00",
-        "ifrs9_ecl": 60.165289,
+        "source_a": "cmf",
+        "source_b": "ifrs9",
+        "provision_a": "100.00",
+        "provision_b": 60.165289,
         "reported_provision": "100.00",
         "binding": "cmf",
         "coverage": "both",
         "warnings": ["floor_bites"],
     }
-    # Reconciliación D-PROV-4: el original CMF sigue en Decimal y el ECL IFRS 9 en float.
-    assert isinstance(record.cmf_provision, Decimal)
-    assert isinstance(record.ifrs9_ecl, float)
+    # Reconciliación D-PROV-4: el dominio de cada fuente se preserva (CMF Decimal, IFRS 9 float).
+    assert isinstance(record.provision_a, Decimal)
+    assert isinstance(record.provision_b, float)
     assert isinstance(record.reported_provision, Decimal)
     assert record.warnings == ("floor_bites",)
 
@@ -67,11 +71,33 @@ def test_comparison_record_golden_frozen_extra_y_reconciliacion() -> None:
         _record(extra="no permitido")
 
 
+def test_comparison_record_fuentes_configurables_estandar_vs_interno() -> None:
+    """El registro nombra las fuentes reales: estándar vs. interno, con binding legible (SDD-28)."""
+    interno_gana = _record(
+        source_b="internal",
+        provision_a=Decimal("1440.00000"),
+        provision_b=Decimal("184000.00"),
+        reported_provision=Decimal("184000.00"),
+        binding="internal",
+    )
+    assert interno_gana.source_a == "cmf"
+    assert interno_gana.source_b == "internal"
+    assert interno_gana.binding == "internal"
+    # Ambas fuentes son Decimal: ninguna se degrada a float al compararlas.
+    assert isinstance(interno_gana.provision_a, Decimal)
+    assert isinstance(interno_gana.provision_b, Decimal)
+
+    with pytest.raises(ValidationError, match="fuentes distintas"):
+        _record(source_a="cmf", source_b="cmf")
+    with pytest.raises(ValidationError, match=r"source solo admite"):
+        _record(source_b="basilea")
+
+
 def test_comparison_record_golden_gana_ifrs9_y_empate() -> None:
-    # Golden "gana IFRS 9" (SDD-17 §11): ifrs9_ecl=73.0 > cmf=50.0 => reported=73.0, binding=ifrs9.
+    # Golden "gana IFRS 9" (SDD-17 §11): provision_b=73.0 > cmf=50.0 => reported=73.0.
     gana_ifrs9 = _record(
-        cmf_provision=Decimal("50.0"),
-        ifrs9_ecl=73.0,
+        provision_a=Decimal("50.0"),
+        provision_b=73.0,
         reported_provision=Decimal("73.0"),
         binding="ifrs9",
     )
@@ -80,8 +106,8 @@ def test_comparison_record_golden_gana_ifrs9_y_empate() -> None:
 
     # Golden "empate" (SDD-17 §11): cmf == ifrs9 == 73.0 => reported=73.0, binding=tie.
     empate = _record(
-        cmf_provision=Decimal("73.0"),
-        ifrs9_ecl=73.0,
+        provision_a=Decimal("73.0"),
+        provision_b=73.0,
         reported_provision=Decimal("73.0"),
         binding="tie",
     )
@@ -89,10 +115,10 @@ def test_comparison_record_golden_gana_ifrs9_y_empate() -> None:
 
 
 def test_comparison_record_normaliza_negativos_cero() -> None:
-    record = _record(ifrs9_ecl=-0.0, cmf_provision=Decimal("-0"), reported_provision=Decimal("-0"))
-    assert record.ifrs9_ecl == 0.0
-    assert math.copysign(1.0, record.ifrs9_ecl) == 1.0
-    assert record.cmf_provision == Decimal("0")
+    record = _record(provision_b=-0.0, provision_a=Decimal("-0"), reported_provision=Decimal("-0"))
+    assert record.provision_b == 0.0
+    assert math.copysign(1.0, record.provision_b) == 1.0
+    assert record.provision_a == Decimal("0")
     assert record.reported_provision == Decimal("0")
 
 
@@ -100,15 +126,15 @@ def test_comparison_record_valida_montos_y_cell_id() -> None:
     with pytest.raises(ValidationError, match="cell_id no puede estar vacío"):
         _record(cell_id="  ")
     with pytest.raises(ValidationError, match="no pueden ser negativos"):
-        _record(cmf_provision=Decimal("-0.01"))
+        _record(provision_a=Decimal("-0.01"))
     with pytest.raises(ValidationError, match="no pueden ser negativos"):
         _record(reported_provision=Decimal("-0.01"))
     with pytest.raises(ValidationError, match="no pueden ser negativos"):
-        _record(ifrs9_ecl=-1.0)
+        _record(provision_b=-1.0)
     with pytest.raises(ValidationError, match="no pueden ser NaN ni inf"):
-        _record(ifrs9_ecl=float("inf"))
+        _record(provision_b=float("inf"))
     with pytest.raises(ValidationError, match="números reales finitos"):
-        _record(ifrs9_ecl=True)
+        _record(provision_b=True)
     with pytest.raises(ValueError, match="deben ser finitos"):
         prov_results._normalize_non_negative_decimal(Decimal("NaN"))
 
@@ -116,34 +142,42 @@ def test_comparison_record_valida_montos_y_cell_id() -> None:
 def test_comparison_record_cobertura_parcial_y_coherencia() -> None:
     # Cobertura parcial (SDD-17 §8): celda solo-CMF => reported=cmf, binding=cmf_only.
     solo_cmf = _record(
-        cmf_provision=Decimal("438750"),
-        ifrs9_ecl=None,
+        provision_a=Decimal("438750"),
+        provision_b=None,
         reported_provision=Decimal("438750"),
         binding="cmf_only",
         coverage="cmf_only",
     )
     assert solo_cmf.reported_provision == Decimal("438750")
     solo_ifrs9 = _record(
-        cmf_provision=None,
-        ifrs9_ecl=42.0,
+        provision_a=None,
+        provision_b=42.0,
         reported_provision=Decimal("42.0"),
         binding="ifrs9_only",
         coverage="ifrs9_only",
     )
-    assert solo_ifrs9.ifrs9_ecl == 42.0
+    assert solo_ifrs9.provision_b == 42.0
 
-    with pytest.raises(ValidationError, match="coverage='both' exige cmf_provision e ifrs9_ecl"):
-        _record(cmf_provision=None)
+    with pytest.raises(ValidationError, match="coverage='both' exige provision_a y provision_b"):
+        _record(provision_a=None)
     with pytest.raises(ValidationError, match=r"coverage='both' exige binding en \{cmf"):
         _record(binding="cmf_only")
-    with pytest.raises(ValidationError, match="coverage='cmf_only' exige solo cmf_provision"):
+    with pytest.raises(ValidationError, match="coverage='cmf_only' exige solo el monto de cmf"):
         _record(coverage="cmf_only", binding="cmf_only")
     with pytest.raises(ValidationError, match="coverage='cmf_only' exige binding='cmf_only'"):
-        _record(cmf_provision=Decimal("10"), ifrs9_ecl=None, coverage="cmf_only", binding="cmf")
-    with pytest.raises(ValidationError, match="coverage='ifrs9_only' exige solo ifrs9_ecl"):
+        _record(provision_a=Decimal("10"), provision_b=None, coverage="cmf_only", binding="cmf")
+    with pytest.raises(ValidationError, match="coverage='ifrs9_only' exige solo el monto de ifrs9"):
         _record(coverage="ifrs9_only", binding="ifrs9_only")
     with pytest.raises(ValidationError, match="coverage='ifrs9_only' exige binding='ifrs9_only'"):
-        _record(cmf_provision=None, ifrs9_ecl=42.0, coverage="ifrs9_only", binding="ifrs9")
+        _record(provision_a=None, provision_b=42.0, coverage="ifrs9_only", binding="ifrs9")
+    # La cobertura de una fuente que no participa en la comparación es incoherente.
+    with pytest.raises(ValidationError, match="no corresponde a las fuentes declaradas"):
+        _record(
+            provision_a=Decimal("10"),
+            provision_b=None,
+            coverage="internal_only",
+            binding="internal_only",
+        )
 
 
 # ─────────────────────────── ProvisionComparisonSummary ───────────────────────────
@@ -154,23 +188,27 @@ def test_comparison_summary_golden_frozen_y_conteos() -> None:
 
     assert tuple(ProvisionComparisonSummary.model_fields) == (
         "level",
+        "source_a",
+        "source_b",
         "n_cells",
-        "n_binding_cmf",
-        "n_binding_ifrs9",
+        "n_binding_a",
+        "n_binding_b",
         "n_binding_tie",
-        "total_cmf_provision",
-        "total_ifrs9_ecl",
+        "total_provision_a",
+        "total_provision_b",
         "total_reported_provision",
         "warnings",
     )
     assert summary.model_dump(mode="json") == {
         "level": "portfolio",
+        "source_a": "cmf",
+        "source_b": "ifrs9",
         "n_cells": 2,
-        "n_binding_cmf": 2,
-        "n_binding_ifrs9": 0,
+        "n_binding_a": 2,
+        "n_binding_b": 0,
         "n_binding_tie": 0,
-        "total_cmf_provision": "150.00",
-        "total_ifrs9_ecl": "60.165289",
+        "total_provision_a": "150.00",
+        "total_provision_b": "60.165289",
         "total_reported_provision": "150.00",
         "warnings": [],
     }
@@ -184,7 +222,9 @@ def test_comparison_summary_golden_frozen_y_conteos() -> None:
     with pytest.raises(ValidationError, match="no pueden ser negativos"):
         _summary(total_reported_provision=Decimal("-0.01"))
     with pytest.raises(ValidationError, match="no puede exceder n_cells"):
-        _summary(n_cells=1, n_binding_cmf=2)
+        _summary(n_cells=1, n_binding_a=2)
+    with pytest.raises(ValidationError, match="source solo admite"):
+        _summary(source_a="basilea")
 
 
 # ─────────────────────────── ProvisionOrchestrationCard ───────────────────────────
@@ -200,16 +240,21 @@ def test_orchestration_card_golden_metric_sections_y_copias() -> None:
     assert tuple(ProvisionOrchestrationCard.model_fields) == (
         "as_of_date",
         "comparison_level",
+        "rule",
+        "source_a",
+        "source_b",
         "engines_present",
+        "binding",
         "n_cells",
-        "n_binding_cmf",
-        "n_binding_ifrs9",
+        "n_binding_a",
+        "n_binding_b",
         "n_binding_tie",
-        "total_cmf_provision",
-        "total_ifrs9_ecl",
+        "total_provision_a",
+        "total_provision_b",
         "total_reported_provision",
         "cmf_matrix_version",
         "ifrs9_term_structure_source",
+        "internal_method",
         "regulatory_sources",
         "falta_dato",
         "metric_sections",
@@ -237,20 +282,49 @@ def test_orchestration_card_golden_metric_sections_y_copias() -> None:
         _card(metric_sections=["no permitido"])
 
 
+def test_orchestration_card_dice_que_fuente_gano() -> None:
+    """La card es legible: nombra la regla, las fuentes y la que resultó vinculante (SDD-28)."""
+    card = _card(
+        comparison_level="total",
+        rule="use_internal",
+        source_b="internal",
+        engines_present=("cmf", "internal"),
+        binding="internal",
+        n_cells=1,
+        n_binding_a=0,
+        n_binding_b=1,
+        total_provision_a=Decimal("1440.00000"),
+        total_provision_b=Decimal("184000.00"),
+        total_reported_provision=Decimal("184000.00"),
+        ifrs9_term_structure_source=None,
+        internal_method="pd_lgd",
+    )
+    assert card.rule == "use_internal"
+    assert card.binding == "internal"
+    assert card.internal_method == "pd_lgd"
+    assert card.engines_present == ("cmf", "internal")
+
+
 def test_orchestration_card_valida_texto_engines_y_conteos() -> None:
     sin_fuentes = _card(cmf_matrix_version=None, ifrs9_term_structure_source=None)
     assert sin_fuentes.cmf_matrix_version is None
     assert sin_fuentes.ifrs9_term_structure_source is None
     with pytest.raises(ValidationError, match="no pueden estar vacíos"):
         _card(comparison_level="   ")
+    with pytest.raises(ValidationError, match="no pueden estar vacíos"):
+        _card(rule="   ")
     with pytest.raises(ValidationError, match="engines_present no puede estar vacío"):
         _card(engines_present=())
-    with pytest.raises(ValidationError, match="solo admite 'cmf'/'ifrs9'"):
+    with pytest.raises(ValidationError, match="engines_present solo admite"):
         _card(engines_present=("cmf", "otro"))
     with pytest.raises(ValidationError, match="no pueden ser negativos"):
-        _card(total_cmf_provision=Decimal("-0.01"))
+        _card(total_provision_a=Decimal("-0.01"))
     with pytest.raises(ValidationError, match="no puede exceder n_cells"):
-        _card(n_cells=1, n_binding_ifrs9=2)
+        _card(n_cells=1, n_binding_b=2)
+    with pytest.raises(ValidationError, match="source solo admite"):
+        _card(source_a="basilea")
+    # El método interno SÍ es una fuente válida (antes solo se admitían cmf/ifrs9).
+    assert _card(source_b="internal", engines_present=("cmf", "internal")).source_b == "internal"
 
 
 # ─────────────────────────── ProvisionOrchestrationResult ───────────────────────────
@@ -276,7 +350,7 @@ def test_orchestration_result_envuelve_dataframes_y_copias() -> None:
     assert_frame_equal(result.summary, _summary_frame())
     assert tuple(result.comparison.columns) == prov_results._COMPARISON_COLUMNS
     assert tuple(result.summary.columns) == prov_results._SUMMARY_COLUMNS
-    assert result.records == (_record(), _record(cell_id="consumer", ifrs9_ecl=0.0))
+    assert result.records == (_record(), _record(cell_id="consumer", provision_b=0.0))
     assert result.card == _card()
 
     observed = result.comparison
@@ -364,8 +438,10 @@ def _record(**updates: Any) -> ProvisionComparisonRecord:
     payload: dict[str, Any] = {
         "cell_id": "commercial",
         "level": "portfolio",
-        "cmf_provision": Decimal("100.00"),
-        "ifrs9_ecl": 60.165289,
+        "source_a": "cmf",
+        "source_b": "ifrs9",
+        "provision_a": Decimal("100.00"),
+        "provision_b": 60.165289,
         "reported_provision": Decimal("100.00"),
         "binding": "cmf",
         "coverage": "both",
@@ -380,12 +456,14 @@ def _record(**updates: Any) -> ProvisionComparisonRecord:
 def _summary(**updates: Any) -> ProvisionComparisonSummary:
     payload: dict[str, Any] = {
         "level": "portfolio",
+        "source_a": "cmf",
+        "source_b": "ifrs9",
         "n_cells": 2,
-        "n_binding_cmf": 2,
-        "n_binding_ifrs9": 0,
+        "n_binding_a": 2,
+        "n_binding_b": 0,
         "n_binding_tie": 0,
-        "total_cmf_provision": Decimal("150.00"),
-        "total_ifrs9_ecl": Decimal("60.165289"),
+        "total_provision_a": Decimal("150.00"),
+        "total_provision_b": Decimal("60.165289"),
         "total_reported_provision": Decimal("150.00"),
         "warnings": (),
     }
@@ -399,17 +477,22 @@ def _card(**updates: Any) -> ProvisionOrchestrationCard:
     payload: dict[str, Any] = {
         "as_of_date": "2026-01-31",
         "comparison_level": "portfolio",
+        "rule": "max",
+        "source_a": "cmf",
+        "source_b": "ifrs9",
         "engines_present": ("cmf", "ifrs9"),
+        "binding": None,
         "n_cells": 2,
-        "n_binding_cmf": 2,
-        "n_binding_ifrs9": 0,
+        "n_binding_a": 2,
+        "n_binding_b": 0,
         "n_binding_tie": 0,
-        "total_cmf_provision": Decimal("150.00"),
-        "total_ifrs9_ecl": Decimal("60.165289"),
+        "total_provision_a": Decimal("150.00"),
+        "total_provision_b": Decimal("60.165289"),
         "total_reported_provision": Decimal("150.00"),
         "cmf_matrix_version": "cmf_b1_b3_2025_01",
         "ifrs9_term_structure_source": "survival",
-        "regulatory_sources": ("ESPEC §5.4", "CNC B-1 §2.1"),
+        "internal_method": None,
+        "regulatory_sources": ("CNC B-1 hoja 10-11", "CNC B-1 §2.1"),
         "falta_dato": (),
     }
     if "extra" in updates:
@@ -423,8 +506,10 @@ def _comparison_frame() -> pd.DataFrame:
         {
             "cell_id": ["commercial", "consumer"],
             "level": ["portfolio", "portfolio"],
-            "cmf_provision": [Decimal("100.00"), Decimal("50.00")],
-            "ifrs9_ecl": [60.165289, 0.0],
+            "source_a": ["cmf", "cmf"],
+            "source_b": ["ifrs9", "ifrs9"],
+            "provision_a": [Decimal("100.00"), Decimal("50.00")],
+            "provision_b": [60.165289, 0.0],
             "reported_provision": [Decimal("100.00"), Decimal("50.00")],
             "binding": ["cmf", "cmf"],
             "coverage": ["both", "both"],
@@ -437,12 +522,14 @@ def _summary_frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "level": ["portfolio"],
+            "source_a": ["cmf"],
+            "source_b": ["ifrs9"],
             "n_cells": [2],
-            "n_binding_cmf": [2],
-            "n_binding_ifrs9": [0],
+            "n_binding_a": [2],
+            "n_binding_b": [0],
             "n_binding_tie": [0],
-            "total_cmf_provision": [Decimal("150.00")],
-            "total_ifrs9_ecl": [Decimal("60.165289")],
+            "total_provision_a": [Decimal("150.00")],
+            "total_provision_b": [Decimal("60.165289")],
             "total_reported_provision": [Decimal("150.00")],
             "warning_codes": [()],
         }
@@ -475,7 +562,9 @@ def _result(
         "comparison": _comparison_frame() if comparison is None else comparison,
         "summary": _summary_frame() if summary is None else summary,
         "records": (
-            (_record(), _record(cell_id="consumer", ifrs9_ecl=0.0)) if records is None else records
+            (_record(), _record(cell_id="consumer", provision_b=0.0))
+            if records is None
+            else records
         ),
         "card": _card() if card is None else card,
         "ifrs9_term_structure": (

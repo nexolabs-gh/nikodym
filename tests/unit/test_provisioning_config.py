@@ -41,19 +41,30 @@ def _capa_provisioning_cargada(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _provisioning_defaults() -> dict[str, Any]:
-    """Snapshot de defaults defendibles de SDD-17 §5."""
+    """Snapshot de defaults defendibles de SDD-17 §5.
+
+    Los defaults de fuentes/regla son **retrocompatibles**: ``source_a='provisioning_cmf'`` y
+    ``source_b='provisioning_ifrs9'`` reproducen el comportamiento histórico. Los ``consume_*`` de
+    motor quedan DEPRECADOS y su default es ``None`` ("no informado"), no ``True``.
+    """
     return {
         "schema_version": "1.0.0",
         "type": "standard",
+        "source_a": "provisioning_cmf",
+        "source_b": "provisioning_ifrs9",
+        "rule": "max",
         "as_of_date_col": "as_of_date",
         "comparison_level": "total",
         "cmf_portfolio_col": "portfolio",
         "ifrs9_portfolio_col": "portfolio",
+        "internal_portfolio_col": "portfolio",
         "portfolio_crosswalk": {},
         "segment_col": None,
         "row_id_col": "row_id",
-        "consume_cmf": True,
-        "consume_ifrs9": True,
+        "consume_a": True,
+        "consume_b": True,
+        "consume_cmf": None,
+        "consume_ifrs9": None,
         "require_both": True,
         "coverage_policy": "use_available",
         "numeric_reconciliation": "decimal_quantize",
@@ -66,15 +77,19 @@ def _provisioning_defaults() -> dict[str, Any]:
 def _config_no_trivial() -> ProvisioningConfig:
     """Config de orquestación no trivial que ejercita ramas válidas del schema."""
     return ProvisioningConfig(
+        source_a="provisioning_cmf",
+        source_b="provisioning_internal",
+        rule="use_internal",
         as_of_date_col="fecha_cierre",
         comparison_level="portfolio",
         cmf_portfolio_col="cartera_cmf",
         ifrs9_portfolio_col="cartera_ifrs9",
+        internal_portfolio_col="cartera_interna",
         portfolio_crosswalk={"comercial": "wholesale", "consumo": "retail"},
         segment_col="segmento",
         row_id_col="operacion_id",
-        consume_cmf=True,
-        consume_ifrs9=True,
+        consume_a=True,
+        consume_b=True,
         require_both=True,
         coverage_policy="fail",
         numeric_reconciliation="float_isclose",
@@ -146,7 +161,14 @@ def test_nikodymconfig_provisioning_core_only_rechaza_json_no_canonico(
 
 
 @pytest.mark.parametrize(
-    "field", ["as_of_date_col", "cmf_portfolio_col", "ifrs9_portfolio_col", "row_id_col"]
+    "field",
+    [
+        "as_of_date_col",
+        "cmf_portfolio_col",
+        "ifrs9_portfolio_col",
+        "internal_portfolio_col",
+        "row_id_col",
+    ],
 )
 def test_columnas_raiz_vacias_levantan(field: str) -> None:
     """Las columnas raíz no pueden quedar vacías."""
@@ -237,37 +259,126 @@ def test_portfolio_con_columnas_homonimas_construye() -> None:
     assert cfg.comparison_level == "portfolio"
 
 
-# ─────────────────────────── motores consumidos ───────────────────────────
+# ─────────────────────────── fuentes configurables y regla (SDD-28) ───────────────────────────
 
 
-def test_ambos_motores_desactivados_levanta() -> None:
-    """``consume_cmf=False`` y ``consume_ifrs9=False`` no dejan nada que orquestar."""
+def test_source_a_igual_a_source_b_levanta() -> None:
+    """Comparar una fuente consigo misma no es una comparación."""
+    with pytest.raises(ProvisioningConfigError, match="no pueden ser la misma fuente"):
+        ProvisioningConfig(source_a="provisioning_cmf", source_b="provisioning_cmf")
+
+
+def test_fuentes_estandar_vs_interno_construyen() -> None:
+    """La comparación que exige la norma chilena (estándar vs. interno) es declarable."""
+    cfg = ProvisioningConfig(source_a="provisioning_cmf", source_b="provisioning_internal")
+    assert cfg.sources == ("provisioning_cmf", "provisioning_internal")
+    assert cfg.rule == "max"
+    assert cfg.consume_source_a is True
+    assert cfg.consume_source_b is True
+
+
+def test_rule_use_internal_sin_metodo_interno_levanta() -> None:
+    """``rule='use_internal'`` sin ``provisioning_internal`` entre las fuentes es incoherente."""
+    with pytest.raises(ProvisioningConfigError, match="rule='use_internal' exige"):
+        ProvisioningConfig(
+            source_a="provisioning_cmf", source_b="provisioning_ifrs9", rule="use_internal"
+        )
+
+
+def test_rule_use_internal_con_metodo_interno_construye() -> None:
+    """``rule='use_internal'`` con el método interno entre las fuentes construye."""
+    cfg = ProvisioningConfig(source_b="provisioning_internal", rule="use_internal")
+    assert cfg.rule == "use_internal"
+
+
+def test_portfolio_col_for_resuelve_por_fuente() -> None:
+    """Cada fuente declara la columna de cartera de su propio ``detail``."""
+    cfg = ProvisioningConfig(
+        cmf_portfolio_col="cartera_cmf",
+        ifrs9_portfolio_col="cartera_ifrs9",
+        internal_portfolio_col="cartera_interna",
+        portfolio_crosswalk={"comercial": "wholesale"},
+    )
+    assert cfg.portfolio_col_for("provisioning_cmf") == "cartera_cmf"
+    assert cfg.portfolio_col_for("provisioning_ifrs9") == "cartera_ifrs9"
+    assert cfg.portfolio_col_for("provisioning_internal") == "cartera_interna"
+
+
+# ─────────────────────────── fuentes consumidas ───────────────────────────
+
+
+def test_ambas_fuentes_desactivadas_levanta() -> None:
+    """``consume_a=False`` y ``consume_b=False`` no dejan nada que orquestar."""
     with pytest.raises(ProvisioningConfigError, match="nada que orquestar"):
+        ProvisioningConfig(consume_a=False, consume_b=False, require_both=False)
+
+
+@pytest.mark.parametrize(("consume_a", "consume_b"), [(True, False), (False, True)])
+def test_require_both_con_una_sola_fuente_levanta(consume_a: bool, consume_b: bool) -> None:
+    """``require_both=True`` con una sola fuente configurada es una contradicción declarativa."""
+    with pytest.raises(ProvisioningConfigError, match="require_both"):
+        ProvisioningConfig(consume_a=consume_a, consume_b=consume_b)
+
+
+@pytest.mark.parametrize(("consume_a", "consume_b"), [(True, False), (False, True)])
+def test_require_both_false_con_una_sola_fuente_construye(consume_a: bool, consume_b: bool) -> None:
+    """``require_both=False`` con una sola fuente degrada a passthrough sin error."""
+    cfg = ProvisioningConfig(consume_a=consume_a, consume_b=consume_b, require_both=False)
+    assert cfg.require_both is False
+
+
+# ─────────────────────── retrocompatibilidad: consume_* deprecados ───────────────────────
+
+
+@pytest.mark.parametrize(
+    ("legacy", "esperado_a", "esperado_b"),
+    [
+        ({"consume_cmf": False}, False, True),
+        ({"consume_ifrs9": False}, True, False),
+    ],
+)
+def test_consume_legacy_se_respeta_y_avisa(
+    legacy: dict[str, bool], esperado_a: bool, esperado_b: bool
+) -> None:
+    """``consume_cmf``/``consume_ifrs9`` siguen funcionando, pero emiten ``DeprecationWarning``."""
+    with pytest.warns(DeprecationWarning, match="DEPRECADO"):
+        cfg = ProvisioningConfig(require_both=False, **legacy)
+    assert cfg.consume_source_a is esperado_a
+    assert cfg.consume_source_b is esperado_b
+
+
+def test_consume_legacy_manda_sobre_el_generico() -> None:
+    """Informado el flag deprecado de un dominio, manda sobre el ``consume_*`` de su ranura."""
+    with pytest.warns(DeprecationWarning):
+        cfg = ProvisioningConfig(consume_a=False, consume_cmf=True)
+    assert cfg.consume_source_a is True  # consume_cmf (deprecado) gana sobre consume_a
+
+
+def test_consume_legacy_ambos_false_levanta() -> None:
+    """Los deprecados también validan el "nada que orquestar" (retrocompatibilidad exacta)."""
+    with (
+        pytest.warns(DeprecationWarning),
+        pytest.raises(ProvisioningConfigError, match="nada que orquestar"),
+    ):
         ProvisioningConfig(consume_cmf=False, consume_ifrs9=False, require_both=False)
 
 
-@pytest.mark.parametrize(
-    ("consume_cmf", "consume_ifrs9"),
-    [(True, False), (False, True)],
-)
-def test_require_both_con_un_solo_motor_levanta(consume_cmf: bool, consume_ifrs9: bool) -> None:
-    """``require_both=True`` con un solo motor configurado es una contradicción declarativa."""
-    with pytest.raises(ProvisioningConfigError, match="require_both"):
-        ProvisioningConfig(consume_cmf=consume_cmf, consume_ifrs9=consume_ifrs9)
+def test_consume_legacy_de_dominio_que_no_es_fuente_levanta() -> None:
+    """``consume_ifrs9`` con IFRS 9 fuera de las fuentes es un error de config, no un no-op."""
+    with pytest.raises(ProvisioningConfigError, match="consume_ifrs9 solo aplica"):
+        ProvisioningConfig(source_b="provisioning_internal", consume_ifrs9=False)
 
 
-@pytest.mark.parametrize(
-    ("consume_cmf", "consume_ifrs9"),
-    [(True, False), (False, True)],
-)
-def test_require_both_false_con_un_solo_motor_construye(
-    consume_cmf: bool, consume_ifrs9: bool
-) -> None:
-    """``require_both=False`` con un solo motor degrada a passthrough sin error."""
-    cfg = ProvisioningConfig(
-        consume_cmf=consume_cmf, consume_ifrs9=consume_ifrs9, require_both=False
-    )
-    assert cfg.require_both is False
+def test_consume_legacy_sobrevive_al_round_trip() -> None:
+    """El deprecado ``None`` (no informado) no se confunde con ``True`` al re-validar (round-trip).
+
+    Es el bug que un default ``bool=True`` habría introducido: tras ``model_dump`` el flag deprecado
+    parecería "informado" y pisaría el ``consume_*`` genérico del usuario.
+    """
+    cfg = ProvisioningConfig(consume_a=False, require_both=False)
+    recargado = ProvisioningConfig.model_validate(cfg.model_dump(mode="json"))
+    assert recargado == cfg
+    assert recargado.consume_source_a is False
 
 
 # ─────────────────────────── restricciones Pydantic ───────────────────────────
@@ -318,10 +429,12 @@ def test_config_hash_se_movio_por_seccion_provisioning() -> None:
         ProvisioningConfig(rounding="currency_2dp"),
         ProvisioningConfig(tie_tolerance=1e-6),
         ProvisioningConfig(portfolio_crosswalk={"comercial": "wholesale"}),
+        ProvisioningConfig(source_b="provisioning_internal"),
+        ProvisioningConfig(source_b="provisioning_internal", rule="use_internal"),
     ],
 )
 def test_config_hash_cambia_al_variar_provisioning(provisioning: ProvisioningConfig) -> None:
-    """``provisioning`` no es INFRA: nivel/cobertura/reconciliación/redondeo cambian el hash."""
+    """``provisioning`` no es INFRA: fuentes/regla/nivel/cobertura/reconciliación mueven el hash."""
     base = config_hash(NikodymConfig(provisioning=ProvisioningConfig()))
     variado = config_hash(NikodymConfig(provisioning=provisioning))
     assert "provisioning" not in INFRA_SECTIONS
