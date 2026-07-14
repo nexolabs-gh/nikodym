@@ -14,7 +14,16 @@ from typing import Any
 from nikodym.core.config import NikodymConfig, config_hash
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui import routes
-from nikodym.ui.presets import STANDARD_DATASET_ID, standard_preset
+from nikodym.ui.presets import (
+    PROVISIONES_DATASET_ID,
+    PROVISIONES_PRESET_ID,
+    STANDARD_DATASET_ID,
+    STANDARD_PRESET_ID,
+    get_preset,
+    list_presets,
+    provisiones_preset,
+    standard_preset,
+)
 
 # ``config_hash`` del preset estándar F1: identidad estable del literal (SDD-05 §5.5). Si cambia una
 # sección de dominio del preset, regenerar el literal y actualizar este valor conscientemente.
@@ -148,9 +157,10 @@ def test_preset_oot_cohorts_existen_en_el_dataset() -> None:
 
 
 def test_preset_payload_shape_y_hash() -> None:
-    """``preset_payload`` entrega las 5 claves del contrato con el hash del config servido."""
+    """``preset_payload`` entrega las claves del contrato (incl. ``id``) con el hash del config."""
     payload = routes.preset_payload()
-    assert set(payload) == {"config", "config_hash", "dataset_id", "name", "description"}
+    assert set(payload) == {"id", "config", "config_hash", "dataset_id", "name", "description"}
+    assert payload["id"] == STANDARD_PRESET_ID
     assert payload["dataset_id"] == STANDARD_DATASET_ID
     model = NikodymConfig.model_validate(payload["config"])
     assert payload["config_hash"] == config_hash(model) == _EXPECTED_CONFIG_HASH
@@ -176,3 +186,151 @@ def test_endpoint_config_preset() -> None:
     cuerpo: dict[str, Any] = respuesta.json()
     assert cuerpo["config_hash"] == _EXPECTED_CONFIG_HASH
     assert config_hash(NikodymConfig.model_validate(cuerpo["config"])) == _EXPECTED_CONFIG_HASH
+
+
+# ═══════════════════════════════ Preset F3 — provisiones ═══════════════════════════════
+
+# ``config_hash`` del preset F3 (SDD-28). Distinto del F1 porque activa las tres secciones de
+# provisiones (computacionales, entran al hash) y cambia la calibración a ``development_observed``.
+# Si cambia un default de dominio, regenerar con ``scripts/derive_provisiones_preset``
+# y actualizar este valor conscientemente. Estable con/sin la capa de dominio importada (el config
+# deja ``target_pd: None`` explícito = su forma canónica; ver la nota en ``ui/presets.py``).
+_EXPECTED_F3_CONFIG_HASH = "21bf265d8e08e8ec8e76781f32a7652fa8ff17c807f000810af73546b916e5f3"
+
+
+def test_provisiones_preset_shape() -> None:
+    """``provisiones_preset`` entrega ``{id, name, description, config, dataset_id}``."""
+    preset = provisiones_preset()
+    assert set(preset) == {"id", "name", "description", "config", "dataset_id"}
+    assert preset["id"] == PROVISIONES_PRESET_ID
+    assert preset["dataset_id"] == PROVISIONES_DATASET_ID
+    assert isinstance(preset["config"], dict)
+
+
+def test_provisiones_preset_config_valida_y_hash_estable() -> None:
+    """El config del F3 reconstruye ``NikodymConfig`` y su ``config_hash`` es determinista."""
+    config = provisiones_preset()["config"]
+    model = NikodymConfig.model_validate(config)  # no debe levantar
+    assert config_hash(model) == _EXPECTED_F3_CONFIG_HASH
+    assert config_hash(NikodymConfig.model_validate(provisiones_preset()["config"])) == config_hash(
+        model
+    )
+
+
+def test_provisiones_preset_no_hereda_la_calibracion_del_f1() -> None:
+    """🔴 La trampa del track: si el F3 hereda ``target_pd=0.20`` del F1, el resultado se invierte.
+
+    Sobre esta cartera (default ~7 %) anclar la PD a 0,20 la infla 3x, el método interno supera al
+    estándar y la regla del máximo deja de morder: el producto se queda sin titular. El preset debe
+    usar ``development_observed`` (que estima la PD como el promedio observado en Desarrollo) y NO
+    debe traer ``target_pd``. Este test es la guardia estática; el test end-to-end en
+    ``test_ui_routes`` confirma corriendo que el estándar es el que muerde.
+    """
+    calibration = provisiones_preset()["config"]["calibration"]
+    assert calibration["anchor_source"] == "development_observed"
+    # target_pd NULO: development_observed estima la PD. Un valor (0.20 del F1) sería la trampa.
+    assert calibration["target_pd"] is None
+
+
+def test_provisiones_preset_activa_las_tres_secciones_y_la_regla_real() -> None:
+    """El F3 activa CMF + interno + orquestador con la regla estándar-vs-interno (no ifrs9)."""
+    config = provisiones_preset()["config"]
+    assert config["provisioning_cmf"] is not None
+    assert config["provisioning_internal"] is not None
+    # La comparación que exige la norma chilena es estándar (CMF) vs interno, a nivel de entidad.
+    orquestador = config["provisioning"]
+    assert orquestador["source_a"] == "provisioning_cmf"
+    assert orquestador["source_b"] == "provisioning_internal"
+    assert orquestador["rule"] == "max"
+    assert orquestador["comparison_level"] == "total"
+    # IFRS 9 queda fuera del camino crítico chileno (cambia de destinatario, no se compara aquí).
+    assert config["provisioning_ifrs9"] is None
+
+
+def test_provisiones_preset_devuelve_copia_defensiva() -> None:
+    """Mutar el config devuelto no contamina los literales compartidos del módulo."""
+    primero = provisiones_preset()["config"]
+    primero["provisioning"]["rule"] = "use_internal"
+    primero["calibration"]["anchor_source"] = "business_input"
+    segundo = provisiones_preset()["config"]
+    assert segundo["provisioning"]["rule"] == "max"
+    assert segundo["calibration"]["anchor_source"] == "development_observed"
+
+
+def test_provisiones_preset_columnas_regulatorias_existen_en_el_dataset() -> None:
+    """Toda columna regulatoria que referencian las secciones existe en el dataset de provisiones.
+
+    Garantía barata (sin correr el motor) de que la corrida real tendrá las columnas: exposición,
+    mora, deudor, producto y LGD que piden las secciones CMF/interno viven en el catálogo del
+    dataset ``provisiones_consumo`` (superconjunto de las columnas F1).
+    """
+    config = provisiones_preset()["config"]
+    columnas = {col["name"] for col in datasets_module._columns_for(PROVISIONES_DATASET_ID)}
+    cmf = config["provisioning_cmf"]
+    for col in (
+        cmf["as_of_date_col"],
+        cmf["portfolio_col"],
+        cmf["debtor_id_col"],
+        cmf["days_past_due_col"],
+        cmf["product_type_col"],
+        cmf["exposure"]["direct_exposure_col"],
+    ):
+        assert col in columnas, col
+    interno = config["provisioning_internal"]
+    for col in (interno["portfolio_col"], interno["exposure_col"], interno["lgd"]["lgd_col"]):
+        assert col in columnas, col
+
+
+# ─────────────────────────── registro de presets (list / get) ───────────────────────────
+
+
+def test_list_presets_cataloga_ambos_sin_config() -> None:
+    """``list_presets`` devuelve los descriptores (sin ``config``) de F1 y F3, en orden."""
+    catalogo = list_presets()
+    assert [p["id"] for p in catalogo] == [STANDARD_PRESET_ID, PROVISIONES_PRESET_ID]
+    for descriptor in catalogo:
+        assert set(descriptor) == {"id", "name", "description", "dataset_id"}
+        assert "config" not in descriptor
+
+
+def test_get_preset_por_id_y_desconocido() -> None:
+    """``get_preset`` resuelve por id y levanta ``KeyError`` para un id no registrado."""
+    assert get_preset(PROVISIONES_PRESET_ID)["id"] == PROVISIONES_PRESET_ID
+    assert get_preset(STANDARD_PRESET_ID)["id"] == STANDARD_PRESET_ID
+    import pytest
+
+    with pytest.raises(KeyError):
+        get_preset("preset-inexistente")
+
+
+# ─────────────────────────── endpoints del F3 (TestClient) ───────────────────────────
+
+
+def test_endpoint_presets_index_y_preset_por_id() -> None:
+    """``/config/presets`` cataloga; ``/config/preset/{id}`` sirve el F3; id desconocido → 404."""
+    import pytest
+
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx2")
+    from fastapi.testclient import TestClient
+
+    from nikodym.ui.server import create_app
+    from nikodym.ui.settings import UiConfig
+
+    client = TestClient(create_app(UiConfig()))
+
+    indice = client.get("/api/config/presets")
+    assert indice.status_code == 200
+    assert [p["id"] for p in indice.json()["presets"]] == [
+        STANDARD_PRESET_ID,
+        PROVISIONES_PRESET_ID,
+    ]
+
+    detalle = client.get(f"/api/config/preset/{PROVISIONES_PRESET_ID}")
+    assert detalle.status_code == 200
+    cuerpo: dict[str, Any] = detalle.json()
+    assert cuerpo["id"] == PROVISIONES_PRESET_ID
+    assert cuerpo["config_hash"] == _EXPECTED_F3_CONFIG_HASH
+    assert config_hash(NikodymConfig.model_validate(cuerpo["config"])) == _EXPECTED_F3_CONFIG_HASH
+
+    assert client.get("/api/config/preset/preset-inexistente").status_code == 404

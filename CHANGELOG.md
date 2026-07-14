@@ -78,6 +78,14 @@ sobre ese agregado).
 - **Dataset sintético `provisiones_consumo`** — cartera de consumo con las columnas
   económico-regulatorias que exigen los motores (exposición, mora, deudor con varias operaciones,
   producto, flags de sistema, LGD), coherente por construcción y con tasa de default de un dígito.
+- **Preset `f3-provisiones-consumo`** + rutas REST — un config listo para correr sin tocar nada que,
+  encima del scorecard F1, calcula el método estándar de la CMF, el método interno y la regla del
+  máximo estándar-vs-interno a nivel de entidad. El selector del front lo descubre por
+  `GET /api/config/presets`; el detalle se pide por `GET /api/config/preset/{id}`. **La calibración
+  usa `development_observed`, NO se hereda del F1**: con el `target_pd=0.20` del F1 la PD se inflaría
+  3x, el método interno superaría al estándar y la regla del máximo no mordería — un test end-to-end
+  corre la cadena entera y falla si el estándar deja de ser el que manda. El delta de provisiones se
+  deriva —y se verifica corriendo— con `scripts/derive_provisiones_preset.py`.
 - **Capítulos condicionales del informe** (`ChapterSpec.requires_domain`): un informe de scorecard ya
   no puede traer un capítulo de provisiones vacío, ni uno con provisiones declarar que no las cubre.
 - **`scripts/gen_schema_fixture.py`** — regenera el fixture del schema de la demo, que hasta ahora se

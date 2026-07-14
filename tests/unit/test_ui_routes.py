@@ -331,6 +331,40 @@ def test_run_pipeline_preset_genera_reporte_html_determinista(tmp_path: Path) ->
     assert run_stamp.sub("TS", html_1) == run_stamp.sub("TS", html_2)
 
 
+def test_run_pipeline_preset_provisiones_estandar_muerde(tmp_path: Path) -> None:
+    """El preset F3 corre la cadena entera y el método ESTÁNDAR es el que muerde (binding=cmf).
+
+    Esta es la verificación que ningún test de ``status == done`` da: corre data→…→calibración→
+    provisiones sobre la cartera real y comprueba el número de NEGOCIO. Si el preset heredara la
+    calibración del F1 (``target_pd=0.20``), la PD se inflaría 3x, el método interno superaría al
+    estándar y ``binding`` dejaría de ser ``cmf`` — el producto sin titular. Con
+    ``development_observed`` el estándar (~697 M) supera al interno (~309 M) y la regla del máximo
+    reporta el estándar. Requiere el extra ``scoring`` (binning MIP real); el job mínimo lo salta.
+    """
+    pytest.importorskip("optbinning")
+    import nikodym
+    from nikodym.core.config import NikodymConfig
+    from nikodym.ui.presets import PROVISIONES_DATASET_ID, provisiones_preset
+
+    # Se lee la card del ``Study`` (no ``results.json``): el serializer de las cards de provisiones
+    # es el paso siguiente del track; aquí se verifica el motor, no su serialización.
+    source = datasets_module.materialize(PROVISIONES_DATASET_ID, workdir=tmp_path)
+    config = provisiones_preset()["config"]
+    config["data"]["load"]["source"] = str(source)
+    study = nikodym.run(NikodymConfig.model_validate(config))
+
+    assert study.run_context.status == "done"
+    orquestador = study.artifacts.get("provisioning", "card")
+    estandar = float(orquestador.total_provision_a)
+    interno = float(orquestador.total_provision_b)
+    # El estándar debe morder: es la regresión que solo se ve corriendo (la trampa de calibración).
+    assert estandar > interno, (
+        f"el interno ({interno:.0f}) supera al estándar ({estandar:.0f}): calibración heredada mal"
+    )
+    assert orquestador.binding == "cmf"
+    assert float(orquestador.total_reported_provision) == estandar
+
+
 def test_run_pipeline_config_invalido_propaga_validation_error(tmp_path: Path) -> None:
     """Un config inválido propaga ``ValidationError`` (el endpoint lo traduce a 422)."""
     from pydantic import ValidationError

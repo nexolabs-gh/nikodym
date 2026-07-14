@@ -57,8 +57,12 @@ _COLUMNS: tuple[dict[str, str], ...] = (
 #   * ``cmf_category``  — en cartera `consumer` el motor NUNCA la lee: deriva la categoría de
 #     (bucket de mora, hipotecario en el sistema, mora en el sistema). Las categorías A1-C6 son de
 #     cartera COMERCIAL individual. Incluirla haría creer que en consumo la categoría es un input.
-#   * ``is_default``    — CMF deriva el incumplimiento de max(dpd) >= 90 por deudor; una columna
-#     paralela crearía dos verdades que pueden discrepar en silencio.
+#   * ``is_default``    — el Cap. B-1 num. 3.2 tiene tres causales de incumplimiento; solo la mora
+#     >= 90 días se deriva de los datos. Las otras dos (refinanciar para dejar vigente una
+#     operación morosa, reestructuración forzosa/condonación) las declara el banco por esta
+#     columna, que el motor lee como opcional. Se omite aquí porque esta cartera SINTÉTICA no
+#     tiene deudores refinanciados: incluirla vacía no aportaría nada y añadir refinanciados
+#     movería el índice de riesgo que quedó calibrado contra el sistema (8,63 % vs 8,30 % real).
 #   * ``guarantee_*`` / ``financial_guarantee_*`` / ``aval_*`` / ``contingent_*`` — el motor CMF
 #     OLFATEA estos nombres y con la política por defecto (`fail`) ABORTA la corrida.
 _PROVISIONING_COLUMNS: tuple[dict[str, str], ...] = (
@@ -505,8 +509,8 @@ def _generate_provisiones(dataset_id: str) -> pd.DataFrame:
     # (la cartera deteriorada es donde está la plata: la PI del bucket >=90d es 100 %).
     #
     # Estas masas gobiernan el ÍNDICE DE RIESGO (provisión / colocaciones) resultante, que es el
-    # primer número que un gerente compara contra su propia cartera. Ver la nota del docstring sobre
-    # el benchmark contra los agregados de la CMF, que queda PENDIENTE de verificar.
+    # primer número que un gerente compara contra su propia cartera. Ver la nota del docstring: el
+    # índice resultante (8,63 %) quedó verificado contra el agregado de consumo del sistema (8,30%).
     cortes = np.quantile(score_mora, [0.850, 0.905, 0.940, 0.965, 0.982])
     bucket = np.searchsorted(cortes, score_mora, side="right")
     days_past_due = np.zeros(n_rows, dtype="int64")

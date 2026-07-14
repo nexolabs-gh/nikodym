@@ -67,6 +67,9 @@ Thumbs.db
 *.swp
 *~
 
+# Artefactos de corridas locales del pipeline (output_dir relativo por defecto = "reports")
+/reports/
+
 # Proceso interno de auto-desarrollo (vive en el repo privado nexolabs-gh/autodesarrollo)
 HANDOFF.md
 AUTONOMY-LOG.md

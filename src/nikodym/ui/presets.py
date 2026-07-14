@@ -29,13 +29,17 @@ cae por ``min_iv``. La partición reserva la cohorte ``2024Q2`` como OOT (propia
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 
-__all__ = ["standard_preset"]
+__all__ = ["get_preset", "list_presets", "provisiones_preset", "standard_preset"]
 
 STANDARD_PRESET_ID = "f1-estandar-consumo"
 STANDARD_DATASET_ID = "consumo_comportamiento"
+
+PROVISIONES_PRESET_ID = "f3-provisiones-consumo"
+PROVISIONES_DATASET_ID = "provisiones_consumo"
 
 # Config F1 COMPLETO derivado de los objetos Pydantic de dominio (``model_dump(mode="json",
 # by_alias=True)``) y pegado como literal para preservar la frontera domain-agnostic (SDD-23 §3.3).
@@ -446,3 +450,185 @@ def standard_preset() -> dict[str, Any]:
         "config": deepcopy(_STANDARD_CONFIG),
         "dataset_id": STANDARD_DATASET_ID,
     }
+
+
+# ---------------------------------------------------------------------------------------------
+# Preset F3 — provisiones (CMF estándar + método interno + regla del máximo)
+# ---------------------------------------------------------------------------------------------
+# El preset F3 es el MISMO scorecard base del F1 (data→binning→…→calibration→performance→stability)
+# con dos añadidos: una calibración distinta y las tres secciones de provisiones. Se compone del F1
+# por ``deepcopy`` + delta (``provisiones_preset``) en vez de duplicar ~380 líneas idénticas: es el
+# mismo pipeline de scorecard, y debe seguir al F1 si éste cambia. La composición es pura
+# manipulación de dicts JSON-able —NO importa ``nikodym.provisioning``—, así que respeta la frontera
+# domain-agnostic (SDD-23 §3.3) que veta importar dominio desde ``ui/``.
+#
+# El delta de provisiones se DERIVA de los objetos Pydantic de dominio con
+# ``scripts/derive_provisiones_preset.py`` (``model_dump(mode="json", by_alias=True)``), que además
+# CORRE la cadena entera y comprueba que el número tiene sentido de negocio. NO editar a mano:
+# regenerar con ese script si cambia un default de dominio.
+
+# 🔴 La calibración NO se hereda del F1. El F1 ancla la PD a ``target_pd=0.20`` (business_input).
+# Sobre esta cartera (default ~7 %) eso infla la PD 3x, el método interno supera al estándar, la
+# regla del máximo deja de morder y el producto se queda sin titular. ``development_observed``
+# estima la PD ancla como el promedio observado en Desarrollo y exige ``target_pd`` NULO (un valor
+# sería la trampa). No se ve con un test de ``status == done``: solo corriendo y viendo el número.
+#
+# ``target_pd`` se deja explícito en ``None``, NO se elimina: la forma canónica del config es la
+# que produce ``CalibrationConfig.model_dump`` (emite ``target_pd: None``). Omitir la clave haría
+# que el ``config_hash`` dependiera de si la capa de dominio está importada (con coacción reaparece;
+# sin ella, no) — un hash inestable entre entornos. Regla para todo preset: los campos con default
+# en ``None`` van explícitos, no omitidos.
+_PROVISIONES_CALIBRATION_OVERRIDE: dict[str, Any] = {
+    "anchor_source": "development_observed",
+    "target_pd": None,
+}
+
+_PROVISIONES_SECTIONS: dict[str, Any] = {
+    "provisioning_cmf": {
+        "schema_version": "1.0.0",
+        "type": "standard",
+        "as_of_date_col": "as_of_date",
+        "portfolio_col": "cmf_portfolio",
+        "debtor_id_col": "debtor_id",
+        "category_col": "cmf_category",
+        "days_past_due_col": "days_past_due",
+        "product_type_col": "cmf_product_type",
+        "matrices": {
+            "active_version": "cmf_b1_b3_2025_01",
+            "require_verified_rows": True,
+            "fail_on_unmapped_contingent_type": True,
+            "fail_on_source_mismatch": True,
+        },
+        "pd_mapping": {
+            "pd_source_domain": "model",
+            "pd_source_key": "raw_pd_frame",
+            "pd_column": "pd_raw",
+            "method": "provided_cmf_category",
+            "pd_breaks": [],
+            "categories": [],
+        },
+        "exposure": {
+            "direct_exposure_col": "exposure_amount",
+            "contingent_amount_col": "contingent_amount",
+            "contingent_type_col": "contingent_type",
+            "is_default_col": "is_default",
+            "allow_negative_exposure": False,
+            "rounding": "none",
+        },
+        "guarantees": {
+            "enable_aval_substitution": True,
+            "financial_guarantee_policy": "fail",
+            "recoverable_amount_col": None,
+            "require_recoverable_for_default": True,
+        },
+    },
+    "provisioning_internal": {
+        "schema_version": "1.0.0",
+        "type": "standard",
+        "as_of_date_col": "as_of_date",
+        "portfolio_col": "cmf_portfolio",
+        "exposure_col": "exposure_amount",
+        "pd_source": "calibration",
+        "pd_column": "pd_calibrated",
+        "grouping": "score_band",
+        "group_col": None,
+        "n_score_bands": 10,
+        "lgd": {"method": "provided", "lgd_col": "lgd", "lgd_floor": 0.0, "lgd_cap": 1.0},
+        "method": "pd_lgd",
+        "loss_rate_col": None,
+        "rounding": "currency_2dp",
+        "fail_on_falta_dato": True,
+    },
+    "provisioning": {
+        "schema_version": "1.0.0",
+        "type": "standard",
+        "source_a": "provisioning_cmf",
+        "source_b": "provisioning_internal",
+        "rule": "max",
+        "as_of_date_col": "as_of_date",
+        "comparison_level": "total",
+        "cmf_portfolio_col": "portfolio",
+        "ifrs9_portfolio_col": "portfolio",
+        "internal_portfolio_col": "portfolio",
+        "portfolio_crosswalk": {},
+        "segment_col": None,
+        "row_id_col": "row_id",
+        "consume_a": True,
+        "consume_b": True,
+        "consume_cmf": None,
+        "consume_ifrs9": None,
+        "require_both": True,
+        "coverage_policy": "use_available",
+        "numeric_reconciliation": "decimal_quantize",
+        "tie_tolerance": 1e-09,
+        "rounding": "none",
+        "fail_on_falta_dato": True,
+    },
+}
+
+
+def _provisiones_config() -> dict[str, Any]:
+    """Compone el config F3 = F1 base + override de calibración + las tres secciones de provisiones.
+
+    Copia defensiva: nunca muta ``_STANDARD_CONFIG`` ni los literales de delta.
+    """
+    cfg = deepcopy(_STANDARD_CONFIG)
+    cfg["name"] = "preset-provisiones-consumo"
+    cfg["calibration"] = {**cfg["calibration"], **_PROVISIONES_CALIBRATION_OVERRIDE}
+    cfg["provisioning_cmf"] = deepcopy(_PROVISIONES_SECTIONS["provisioning_cmf"])
+    cfg["provisioning_internal"] = deepcopy(_PROVISIONES_SECTIONS["provisioning_internal"])
+    cfg["provisioning"] = deepcopy(_PROVISIONES_SECTIONS["provisioning"])
+    cfg["provisioning_ifrs9"] = None
+    return cfg
+
+
+def provisiones_preset() -> dict[str, Any]:
+    """Devuelve el descriptor del preset F3 (scorecard F1 + provisiones CMF/interno).
+
+    Returns
+    -------
+    dict
+        ``{id, name, description, config, dataset_id}``: el config F1 completo más las tres
+        secciones de provisiones, JSON-able y copia defensiva. Corre end-to-end sobre
+        ``provisiones_consumo`` produciendo scorecard + método estándar CMF (Cap. B-1) + método
+        interno (PD·LGD·Exposición) + la regla del máximo estándar-vs-interno a nivel de entidad.
+    """
+    return {
+        "id": PROVISIONES_PRESET_ID,
+        "name": "Preset F3 — provisiones consumo (CMF + método interno)",
+        "description": (
+            "Config completo listo para correr sin tocar nada: el scorecard F1 y, encima, las "
+            "provisiones que la norma chilena exige — método estándar de la CMF (Cap. B-1) y "
+            "método interno (PD·LGD·Exposición), con la provisión reportada = el mayor de los dos "
+            "a nivel de entidad — sobre el dataset sintético de consumo con columnas regulatorias."
+        ),
+        "config": _provisiones_config(),
+        "dataset_id": PROVISIONES_DATASET_ID,
+    }
+
+
+# Registro de presets id -> constructor de descriptor. El orden fija el del listado del front.
+_PRESETS: dict[str, Callable[[], dict[str, Any]]] = {
+    STANDARD_PRESET_ID: standard_preset,
+    PROVISIONES_PRESET_ID: provisiones_preset,
+}
+
+
+def list_presets() -> list[dict[str, Any]]:
+    """Descriptores SIN ``config`` de todos los presets, para el selector del front (SDD-28)."""
+    return [
+        {
+            "id": p["id"],
+            "name": p["name"],
+            "description": p["description"],
+            "dataset_id": p["dataset_id"],
+        }
+        for p in (build() for build in _PRESETS.values())
+    ]
+
+
+def get_preset(preset_id: str) -> dict[str, Any]:
+    """Descriptor completo (con ``config``) de un preset por id; ``KeyError`` si no existe."""
+    if preset_id not in _PRESETS:
+        raise KeyError(preset_id)
+    return _PRESETS[preset_id]()

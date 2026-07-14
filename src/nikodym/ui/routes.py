@@ -43,6 +43,7 @@ __all__ = [
     "config_to_yaml",
     "datasets_payload",
     "preset_payload",
+    "presets_index_payload",
     "run_pipeline",
     "schema_payload",
     "upload_dataset",
@@ -194,30 +195,47 @@ def upload_dataset(content: bytes, filename: Any, *, workdir: Path) -> dict[str,
     return datasets.ingest_upload(content, filename, workdir=workdir)
 
 
-def preset_payload() -> dict[str, Any]:
-    """Compone la respuesta de ``GET /api/config/preset`` (preset estándar F1, SDD-23 §3.2/§5).
+def preset_payload(preset_id: str | None = None) -> dict[str, Any]:
+    """Compone la respuesta de un preset (config completo + ``config_hash`` + dataset, SDD-23/28).
 
-    Sirve el preset estándar —un config F1 completo, curado y *domain-agnostic* (ver
+    Sirve un preset —un config completo, curado y *domain-agnostic* (ver
     :mod:`nikodym.ui.presets`), alineado a un dataset sintético— más su ``config_hash`` de
-    identidad y el ``dataset_id`` recomendado para correrlo. El ``config`` se entrega tal cual y su
-    validez la establece ``NikodymConfig.model_validate`` (la verdad de validación es Pydantic; no
-    se reimplementa el schema, §3.3); el ``config_hash`` ancla la identidad de la corrida
-    (SDD-05 §5.5).
+    identidad y el ``dataset_id`` recomendado para correrlo. Con ``preset_id=None`` devuelve el
+    estándar F1 (retrocompatibilidad de ``GET /api/config/preset``). El ``config`` se entrega tal
+    cual y su validez la establece ``NikodymConfig.model_validate`` (la verdad de validación es
+    Pydantic; no se reimplementa el schema, §3.3); el ``config_hash`` ancla la identidad de la
+    corrida (SDD-05 §5.5).
+
+    Raises
+    ------
+    KeyError
+        Si ``preset_id`` no corresponde a ningún preset registrado.
 
     Returns
     -------
     dict
-        ``{config, config_hash, dataset_id, name, description}``.
+        ``{id, config, config_hash, dataset_id, name, description}``.
     """
-    preset = presets.standard_preset()
+    preset = presets.standard_preset() if preset_id is None else presets.get_preset(preset_id)
     model = NikodymConfig.model_validate(preset["config"])
     return {
+        "id": preset["id"],
         "config": preset["config"],
         "config_hash": config_hash(model),
         "dataset_id": preset["dataset_id"],
         "name": preset["name"],
         "description": preset["description"],
     }
+
+
+def presets_index_payload() -> dict[str, Any]:
+    """Compone la respuesta de ``GET /api/config/presets``: catálogo de presets SIN ``config``.
+
+    El front lo usa para poblar el selector de presets; cada entrada trae lo justo para listar
+    (``id``, ``name``, ``description``, ``dataset_id``) y el detalle se pide luego por
+    ``GET /api/config/preset/{id}``.
+    """
+    return {"presets": presets.list_presets()}
 
 
 def run_pipeline(config: Any, dataset_id: Any, *, workdir: Path) -> dict[str, Any]:
@@ -324,10 +342,25 @@ def build_router() -> APIRouter:
         except UiDatasetError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    @router.get("/config/presets")
+    async def config_presets_index_endpoint() -> dict[str, Any]:
+        """Cataloga los presets disponibles (sin ``config``) para el selector del front."""
+        return presets_index_payload()
+
     @router.get("/config/preset")
     async def config_preset_endpoint() -> dict[str, Any]:
         """Sirve el preset estándar F1: un config completo listo para correr sin editar nada."""
         return preset_payload()
+
+    @router.get("/config/preset/{preset_id}")
+    async def config_preset_by_id_endpoint(preset_id: str) -> dict[str, Any]:
+        """Sirve un preset por id; ``preset_id`` desconocido → 404 (no un 500 opaco)."""
+        try:
+            return preset_payload(preset_id)
+        except KeyError as exc:
+            raise HTTPException(
+                status_code=404, detail=f"preset desconocido: {preset_id!r}"
+            ) from exc
 
     @router.post("/run")
     async def run_endpoint(payload: dict[str, Any], request: Request) -> dict[str, Any]:
