@@ -101,11 +101,20 @@ resultados.
 El motor las publica de sí mismo —cada fila afectada emite su código `FALTA-DATO`—, así que aquí se
 dicen igual de claro:
 
-- **Los parámetros normativos CMF no son oficiales.** Se transcribieron del compendio **con
-  asistencia de IA y verificación visual**: no provienen de la CMF ni están validados por ella.
-  **Requieren validación humana contra la norma vigente antes de cualquier uso productivo.** Quedan
-  dos brechas abiertas y declaradas (`FALTA-DATO`): aforos y *haircuts* de garantías financieras, y
-  las tablas del RAN 21-10.
+- **Los parámetros normativos CMF no son oficiales.** Se transcribieron del compendio y **no
+  provienen de la CMF ni están validados por ella** —la Comisión no certifica implementaciones de
+  terceros—, así que **requieren validación humana contra la norma vigente antes de cualquier uso
+  productivo**. Lo que sí está hecho: la **matriz de consumo** (numeral B-1 3.1.3, Circular
+  2.346/2024) se **cotejó celda por celda contra el texto del compendio** —sus 16 valores de PI,
+  sus 6 de PDI y el PI de incumplimiento coinciden exactamente— y el cotejo queda registrado en
+  [`docs/normativa_cmf_parametros.md`](docs/normativa_cmf_parametros.md) §3. Quedan dos brechas
+  abiertas y declaradas (`FALTA-DATO`): aforos y *haircuts* de garantías financieras, y las tablas
+  del RAN 21-10.
+- **Las causales de incumplimiento que el motor no puede inferir, las declara el banco.** De las
+  tres del numeral B-1 3.2, solo la mora ≥ 90 días sale de los datos; el refinanciamiento para
+  dejar vigente una operación morosa y la reestructuración forzosa hay que **entregarlas en la
+  columna `is_default`**. Sin ella, un deudor reestructurado y al día se provisiona al 6,6 % en vez
+  del 100 % que exige la norma.
 - **La EAD de IFRS 9 se despliega constante en el tiempo.** El panel longitudinal está diferido; el
   motor no lo aplana en silencio: cada fila lo declara con el código `FALTA-DATO-IFRS-4`, y el
   config **rechaza** `exposure_profile_col` en vez de fingir que lo usa.

@@ -110,6 +110,80 @@ def test_engine_agrega_consumo_por_deudor() -> None:
     assert result.records[1].provision_amount == _expected(50_000, "66.3", "56.6")
 
 
+def test_engine_consumo_aplica_incumplimiento_declarado_sin_mora() -> None:
+    """B-1 num. 3.2: el deudor refinanciado o reestructurado va a PI 100 % aunque esté al día.
+
+    Las causales ii) y iii) no se derivan de la mora, las declara el banco. Sin leer el flag,
+    este deudor caería en el tramo 0-7 (PI 6,6 %) y quedaría subprovisionado 15 veces.
+    """
+    frame = pd.DataFrame(
+        [
+            _consumer_row(
+                debtor_id="rut-refinanciado",
+                days_past_due=0,
+                system_dpd30_last_3m=False,
+                exposure_amount=100_000,
+                is_default=True,
+            ),
+        ],
+        index=["op1"],
+    )
+
+    result = _engine().calculate(frame, as_of_date="2026-01-31")
+
+    assert result.records[0].pi_percent == Decimal("100")
+    assert result.records[0].provision_amount == _expected(100_000, "100", "56.6")
+    # La traza de auditoría debe mostrar el incumplimiento, no el tramo de mora del deudor.
+    assert result.records[0].cmf_category == "incumplimiento|no|no"
+
+
+def test_engine_consumo_arrastra_incumplimiento_declarado_a_todo_el_deudor() -> None:
+    """El num. 3.2 lleva TODOS los créditos del deudor a incumplimiento, no solo el marcado."""
+    frame = pd.DataFrame(
+        [
+            _consumer_row(
+                debtor_id="rut-1",
+                days_past_due=0,
+                system_dpd30_last_3m=False,
+                exposure_amount=100_000,
+                is_default=False,
+            ),
+            _consumer_row(
+                debtor_id="rut-1",
+                days_past_due=0,
+                system_dpd30_last_3m=False,
+                exposure_amount=50_000,
+                is_default=True,
+            ),
+        ],
+        index=["op1", "op2"],
+    )
+
+    result = _engine().calculate(frame, as_of_date="2026-01-31")
+
+    assert [record.pi_percent for record in result.records] == [Decimal("100"), Decimal("100")]
+
+
+def test_engine_consumo_sin_flag_declarado_mantiene_la_pi_de_la_matriz() -> None:
+    """Retrocompatible: sin columna ``is_default`` la PI sigue saliendo del tramo de mora."""
+    frame = pd.DataFrame(
+        [
+            _consumer_row(
+                debtor_id="rut-al-dia",
+                days_past_due=0,
+                system_dpd30_last_3m=False,
+                exposure_amount=100_000,
+            ),
+        ],
+        index=["op1"],
+    )
+
+    result = _engine().calculate(frame, as_of_date="2026-01-31")
+
+    assert result.records[0].pi_percent == Decimal("6.6")
+    assert result.records[0].cmf_category == "0_7|no|no"
+
+
 def test_engine_mapea_pd_breaks_sin_requerir_categoria_en_frame() -> None:
     """``pd_breaks`` asigna categoría CMF desde ``pd_frame`` alineado por índice."""
     cfg = CmfProvisioningConfig(
@@ -1110,8 +1184,9 @@ def _consumer_row(
     days_past_due: int,
     system_dpd30_last_3m: bool,
     exposure_amount: int,
+    is_default: bool | None = None,
 ) -> dict[str, object]:
-    return {
+    row: dict[str, object] = {
         "cmf_portfolio": "consumer",
         "debtor_id": debtor_id,
         "days_past_due": days_past_due,
@@ -1120,6 +1195,9 @@ def _consumer_row(
         "cmf_product_type": "creditos_en_cuotas",
         "exposure_amount": exposure_amount,
     }
+    if is_default is not None:
+        row["is_default"] = is_default
+    return row
 
 
 def _contingent_row(

@@ -423,20 +423,30 @@ def _generate_provisiones(dataset_id: str) -> pd.DataFrame:
     9. **Tasa de default de un dígito** (``intercept`` recalibrado): la cartera F1 tiene un 23 % de
        default, inverosímil para consumo chileno.
 
-    .. warning::
+    .. note::
 
-       **Benchmark PENDIENTE (no inventar).** Con estos parámetros el motor estándar CMF produce un
-       **índice de riesgo (provisión / colocaciones) del orden del 8-9 %**. El único dato que se
-       pudo verificar en fuente oficial es el **índice de provisiones del sistema bancario
-       completo: 2,59 %** (CMF, Informe de Desempeño de noviembre de 2025) — que es el **agregado
-       de todas las carteras**, no el de consumo, y por tanto **no es comparable**: consumo es
-       estructuralmente la cartera más provisionada y vivienda la que menos.
+       **Benchmark VERIFICADO en fuente oficial (2026-07-14).** El índice de riesgo (provisión /
+       colocaciones) de la **cartera de consumo del sistema bancario chileno es 8,30 %**
+       (noviembre 2025). Con estos parámetros el motor estándar CMF produce **8,63 %** sobre esta
+       cartera: **33 pb sobre el sistema**, dentro de la banda en que consumo se ha movido
+       (8,1-8,3 % entre septiembre 2025 y mayo 2026). La cartera sintética provisiona como el
+       sistema real.
 
-       El índice **desagregado de consumo** vive en el PDF del Informe de Desempeño y **no está
-       verificado**. Hasta que lo esté, este dataset es una cartera sintética *plausible*, no una
-       calibrada contra el sistema. **Antes de enseñárselo a un cliente hay que bajar ese dato y
-       ajustar las masas de mora** (que son las que gobiernan el índice), o declarar en el informe
-       que la cartera es sintética y no un benchmark de mercado. Ver SDD-28 §R1.
+       **Fuente:** CMF, *Informe del Desempeño del Sistema Bancario y Cooperativas — Noviembre
+       2025*, sección 2.2 (Riesgo de crédito), pág. 5:
+       *"en consumo el indicador de provisiones se expandió desde un 8,24 % hasta 8,30 %"*.
+       ``https://www.cmfchile.cl/portal/estadisticas/626/articles-102371_recurso_1.pdf``
+
+       Desagregación del mismo informe y mismo perímetro (Sistema Bancario, colocaciones a costo
+       amortizado): comercial 2,63 % · **consumo 8,30 %** · vivienda 0,65 % · **total 2,59 %**.
+       El 2,59 % que se citaba antes es el **agregado de todas las carteras** y **no es
+       comparable** con una cartera de consumo: consumo va 3,2 veces sobre el agregado.
+
+       **Al citarlo, no mezclar perímetros:** el Cuadro N°2 de esos informes reporta 2,61 %, que
+       es el consolidado *Sistema Bancario + Cooperativas*, un perímetro distinto.
+
+       El informe declara igualmente que la cartera es **sintética**: que caiga en el rango del
+       sistema la hace defendible, no la convierte en un benchmark de mercado. Ver SDD-28 §R1.
     """
     spec = _DATASETS[dataset_id]
     rng = np.random.default_rng(spec["seed"])

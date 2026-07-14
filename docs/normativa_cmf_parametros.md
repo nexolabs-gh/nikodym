@@ -174,7 +174,8 @@ Factores: (1) nivel de mora máximo de consumo en el banco al cierre del mes; (2
 | 61 a 89 | 62,6 % | 81,7 % | 72,3 % | 86,9 % |
 
 > Si el deudor está **en incumplimiento** (numeral 3.2), **PI = 100 %**.
-> **Estado: VERIFICADO.** **Fuente:** Circular N° **2.346 / 06.03.2024**, numeral 3.1.3 del Capítulo B-1. PDF oficial: `https://www.cmfchile.cl/normativa/cir_2346_2024.pdf`.
+> **Estado: ✅ VERIFICADO CONTRA EL COMPENDIO CONSOLIDADO — 2026-07-14.** Las **16 celdas de PI, las 6 de PDI (§3.2) y el PI = 100 % de incumplimiento** se contrastaron una a una contra el texto oficial y **coinciden exactamente**. **Fuente:** *Compendio de Normas Contables para Bancos*, Capítulo B-1, numeral **3.1.3**, **hojas 16-18** (pie de página: *"Circular N° 2.346 / 06.03.2024 por Resolución N°2306"*), extraído con `pdftotext -layout` desde el PDF consolidado del portal CMF: `https://www.cmfchile.cl/portal/normativa/624/articles-29177_doc_pdf.pdf`.
+> _Sigue sin ser una validación **de** la CMF —la Comisión no certifica implementaciones de terceros—, pero ya no es una transcripción sin contrastar: es un cotejo literal contra el texto vigente._
 
 ### 3.2 Matriz de PDI (%) — por tenencia hipotecaria y tipo de producto
 
@@ -189,6 +190,24 @@ Factores: (1) nivel de mora máximo de consumo en el banco al cierre del mes; (2
 > - **Créditos en cuotas:** ítem 14800 01 00 (consumo en cuotas) otorgados con pagaré (monto, plazo, tasa, n° de cuotas), libre disposición, que no caigan en la categoría anterior.
 > - **Tarjetas/líneas y otros:** todo lo clasificado en 14800 00 00 (consumo) que no pertenezca a las dos definiciones anteriores.
 > **Cambio clave 2024:** se eliminó la regla previa "para créditos de consumo no se considerarán las garantías"; ahora la tenencia de hipotecario sí modula la PDI.
+
+### 3.3 Cartera en incumplimiento — las tres causales (numeral 3.2)
+
+El incumplimiento del Capítulo B-1 **no se deriva solo de la mora**. Son tres causales, y basta una:
+
+| # | Causal | ¿Derivable de los datos de mora? |
+|---|---|---|
+| i | Atraso **≥ 90 días** en intereses o capital de algún crédito | **Sí** — el motor la deriva del máximo de mora del deudor |
+| ii | Se le otorga un crédito **para dejar vigente** una operación con **> 60 días** de atraso | **No** — la declara el banco |
+| iii | **Reestructuración forzosa** o **condonación parcial** de una deuda | **No** — la declara el banco |
+
+Las causales **ii** y **iii** son independientes de la mora vigente: un deudor refinanciado o reestructurado puede estar **al día** y aun así la norma le exige **PI = 100 %**. El motor las recoge por la columna **`exposure.is_default_col`** (`is_default` por defecto), **opcional**; sus nulos se leen como "no marcado", de modo que el flag solo puede **sumar** incumplimiento, nunca quitar el que impone la mora.
+
+El incumplimiento se consolida **a nivel deudor**: la norma manda que *"todos los créditos del deudor deberán mantenerse en la Cartera en Incumplimiento"*, así que una sola operación marcada arrastra **todas** las del deudor.
+
+> ⚠️ **Sin esa columna, la cartera queda subprovisionada.** Un deudor reestructurado y al día cae en el tramo 0-7 (PI **6,6 %**) cuando la norma exige **100 %**: un factor **15×** de sub-provisión, y en la dirección que un regulador no perdona. El motor **no puede inferir** las causales ii y iii — si el banco no las declara, no existen para el cálculo.
+>
+> **Fuente:** CNC, Capítulo B-1, numeral **3.2**, hoja 18 (Circular N° 2.346 / 06.03.2024).
 
 ---
 

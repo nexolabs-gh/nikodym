@@ -494,7 +494,15 @@ def _consumer_states(
     pd: Any,
     decimal: DecimalRuntime,
 ) -> dict[object, ConsumerState]:
-    """Consolida días de mora y flags de consumo a nivel deudor."""
+    """Consolida días de mora y flags de consumo a nivel deudor.
+
+    El incumplimiento del numeral 3.2 del Capítulo B-1 tiene tres causales: mora igual o
+    superior a 90 días, refinanciamiento para dejar vigente una operación con más de 60
+    días de atraso, y reestructuración forzosa o condonación parcial. Solo la primera es
+    derivable de la mora; las otras dos las declara el banco en
+    ``exposure.is_default_col``. La columna es opcional y sus nulos se leen como "no
+    marcado": el flag solo puede sumar incumplimiento, nunca quitar el que impone la mora.
+    """
     consumer = frame.loc[frame[cfg.portfolio_col].eq("consumer")].copy(deep=True)
     if len(consumer.index) == 0:
         return {}
@@ -506,6 +514,9 @@ def _consumer_states(
     )
     for row_id, _row in consumer.iterrows():
         _require_columns(consumer, required, portfolio="consumer", row_id=row_id)
+
+    default_col = cfg.exposure.is_default_col
+    declares_default = default_col in consumer.columns
 
     states: dict[object, ConsumerState] = {}
     for _debtor_id, debtor_frame in consumer.groupby(cfg.debtor_id_col, sort=False, dropna=False):
@@ -521,16 +532,24 @@ def _consumer_states(
             _bool_dimension(value, column="system_dpd30_last_3m", row_id=idx)
             for idx, value in debtor_frame["system_dpd30_last_3m"].items()
         )
-        is_default = max_dpd >= 90
+        declared_default = declares_default and any(
+            _bool_dimension(value, column=default_col, row_id=idx)
+            for idx, value in debtor_frame[default_col].items()
+            if not _is_missing(value, pd)
+        )
+        is_default = max_dpd >= 90 or declared_default
         state = ConsumerState(
-            days_past_due_bucket=_consumer_dpd_bucket(max_dpd),
+            # El deudor declarado en incumplimiento con mora baja debe trazarse como tal:
+            # si la categoría reportara su tramo de mora, la auditoría no vería el PI de 100 %.
+            days_past_due_bucket=(
+                "incumplimiento" if is_default else _consumer_dpd_bucket(max_dpd)
+            ),
             has_housing_loan="yes" if has_housing else "no",
             system_dpd30="yes" if system_dpd30 else "no",
             is_default=is_default,
         )
         for row_id in debtor_frame.index:
             states[row_id] = state
-    del pd
     return states
 
 

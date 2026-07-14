@@ -31,6 +31,38 @@ las superficies. El comparativo entre ambos marcos **se mantiene** —es útil, 
 filial que reporta ECL a su matriz extranjera— pero declarado como lo que es: un comparativo entre
 marcos contables, **sin norma chilena que lo exija**.
 
+### 🔴 Corregido — el motor subprovisionaba al deudor refinanciado
+
+El incumplimiento del **Cap. B-1 numeral 3.2** tiene **tres** causales: mora ≥ 90 días, un crédito
+otorgado **para dejar vigente** una operación con más de 60 días de atraso, y **reestructuración
+forzosa o condonación** parcial. El motor de consumo derivaba **solo la primera**, de la mora.
+
+Consecuencia: un deudor reestructurado o refinanciado **al día** recibía la PI de su tramo de mora
+(**6,6 %**) en vez del **100 %** que la norma exige. Sub-provisión de **15×**, y en la dirección que
+un regulador no perdona. La columna `is_default` existía en la config y el motor **ya la leía para
+los contingentes B-3**, pero en consumo **nunca la consultaba**.
+
+Ahora el motor la lee también en consumo: la columna es **opcional** (sin ella, el comportamiento no
+cambia) y sus **nulos se leen como "no marcado"**, de modo que el flag solo puede **sumar**
+incumplimiento, nunca quitar el que impone la mora. El incumplimiento se consolida **a nivel
+deudor** —la norma arrastra *todos* los créditos del deudor— y la traza de auditoría reporta la
+categoría `incumplimiento`, no el tramo de mora, para que el PI de 100 % sea visible.
+
+### Verificado — la matriz de consumo, contra el compendio oficial
+
+Las **23 celdas** de `consumer_standard_v2025` (16 de PI, 6 de PDI y el PI = 100 % de
+incumplimiento) se **cotejaron una a una** contra el texto del *Compendio de Normas Contables*,
+Cap. B-1 numeral **3.1.3**, hojas 16-18 (Circular N° 2.346 / 06.03.2024). **Coinciden exactamente.**
+Sigue **sin ser una validación *de* la CMF** —la Comisión no certifica implementaciones de
+terceros—, pero deja de ser una transcripción sin contrastar.
+
+También queda **anclado el benchmark** del dataset `provisiones_consumo`: el índice de riesgo de la
+**cartera de consumo del sistema bancario es 8,30 %** (CMF, *Informe del Desempeño del Sistema
+Bancario y Cooperativas*, noviembre 2025, sección 2.2). La cartera sintética produce **8,63 %** —
+33 pb sobre el sistema. Antes se comparaba contra el **2,59 %** del sistema **completo**, que es el
+agregado de todas las carteras y **no es comparable** con una cartera de consumo (consumo va 3,2×
+sobre ese agregado).
+
 ### Añadido
 
 - **`nikodym.provisioning.internal`** — el motor del **método interno** del Cap. B-1, que faltaba:
