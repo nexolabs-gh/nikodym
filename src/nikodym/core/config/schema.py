@@ -374,8 +374,10 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Provisiones (orquestación)",
             description=(
-                "Sección de orquestación CMF vs IFRS 9 y piso prudencial máximo(ECL, CMF) "
-                "(capa `provisioning`, SDD-17)."
+                "Compara dos fuentes de provisión (source_a / source_b) y aplica la regla del "
+                "máximo. La regla del Cap. B-1 (Circular N° 2.346) es entre el método estándar de "
+                "la CMF y el método interno del banco, por institución (capa `provisioning`, "
+                "SDD-17)."
             ),
         )
     if TYPE_CHECKING:
