@@ -1,15 +1,17 @@
 /**
  * Modo demo (showcase estático) — SDD-23 / lanzamiento F7.
  *
- * Sirve los fixtures de UNA corrida F1 real (capturados contra el backend FastAPI) para que la
- * app funcione end-to-end SIN backend, en el deploy estático de `demo.nikodym.cl`.
+ * Sirve los fixtures de UNA corrida F3 real —el preset `f3-provisiones-consumo`, capturado contra
+ * el backend FastAPI (ver `scripts/capture_demo_fixtures.py`)— para que la app funcione end-to-end
+ * SIN backend, en el deploy estático de `demo.nikodym.cl`.
  *
  * Se activa SOLO en el build con `VITE_DEMO_MODE=true` (ver `web/.env.demo`). En el build normal
  * la constante es `false` (literal resuelta en build) → el bundler hace *dead-code elimination* de
  * cada rama `if (DEMO_MODE)` de `api.ts`/`schema.ts` y este módulo queda inerte.
  *
  * Regla del SDD respetada: la UI NO reimplementa lógica de dominio. Estos fixtures NO se calculan
- * en el front; son la salida verbatim del motor (`nikodym.run`) sobre el preset estándar F1.
+ * en el front; son la salida verbatim del motor (`nikodym.run`) sobre el preset F3 de provisiones
+ * (`f3-provisiones-consumo`): scorecard + método estándar CMF + método interno + la regla del máximo.
  */
 
 import type {
@@ -31,7 +33,7 @@ import reportHtml from "@/fixtures/demo/report.html?raw"
 // A diferencia de los JSON/HTML (embebidos como valores JS, que el DCE saca del build normal), el
 // PDF es binario: `?url` de Vite lo emite como asset estático y devuelve su URL servida. NOTA: el
 // asset se emite en AMBOS builds (Vite lo emite al resolver `?url`, no depende del tree-shaking),
-// así que el build normal arrastra un PDF huérfano ~363 kB que ningún JS referencia (ver reporte).
+// así que el build normal arrastra un PDF huérfano ~478 kB que ningún JS referencia (ver reporte).
 import reportPdfUrl from "@/fixtures/demo/report.pdf?url"
 // Mismo trato que el PDF (binarios servidos como asset estático): el Word y el ZIP de la base
 // editable (`.qmd` + sus figuras, tal como lo arma el endpoint `/md` del backend real).

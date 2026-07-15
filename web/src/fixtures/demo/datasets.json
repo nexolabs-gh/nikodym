@@ -157,5 +157,103 @@
    }
   ],
   "n_rows": 6000
+ },
+ {
+  "id": "provisiones_consumo",
+  "name": "Consumo — provisiones (CMF + método interno)",
+  "description": "Cartera de consumo con las columnas económico-regulatorias que exigen los motores de provisiones: exposición, mora en días, deudor (varias operaciones por RUT, para que la consolidación del Cap. B-1 se ejercite), tipo de producto, los dos flags de sistema (hipotecario vigente y mora de 30d o más en los últimos 3 meses) y la LGD interna. Superconjunto del dataset de scorecard: el pipeline F1 corre igual, y encima se calculan el método estándar de la CMF y el método interno (PD·LGD·Exposición por grupo homogéneo). Tasa de default de un dígito y mora truncada a 180 días (Cap. B-2: más allá se castiga).",
+  "columns": [
+   {
+    "name": "loan_id",
+    "dtype": "str",
+    "role": "id"
+   },
+   {
+    "name": "ingreso_mensual",
+    "dtype": "float",
+    "role": "feature"
+   },
+   {
+    "name": "deuda_ingreso",
+    "dtype": "float",
+    "role": "feature"
+   },
+   {
+    "name": "utilizacion_linea",
+    "dtype": "float",
+    "role": "feature"
+   },
+   {
+    "name": "mora_max_12m",
+    "dtype": "int",
+    "role": "feature"
+   },
+   {
+    "name": "antiguedad_meses",
+    "dtype": "int",
+    "role": "feature"
+   },
+   {
+    "name": "segmento",
+    "dtype": "str",
+    "role": "segment"
+   },
+   {
+    "name": "cohorte",
+    "dtype": "str",
+    "role": "cohort"
+   },
+   {
+    "name": "bad_flag",
+    "dtype": "int",
+    "role": "target"
+   },
+   {
+    "name": "as_of_date",
+    "dtype": "str",
+    "role": "economic"
+   },
+   {
+    "name": "debtor_id",
+    "dtype": "str",
+    "role": "economic"
+   },
+   {
+    "name": "cmf_portfolio",
+    "dtype": "str",
+    "role": "economic"
+   },
+   {
+    "name": "cmf_product_type",
+    "dtype": "str",
+    "role": "economic"
+   },
+   {
+    "name": "days_past_due",
+    "dtype": "int",
+    "role": "economic"
+   },
+   {
+    "name": "has_housing_loan_system",
+    "dtype": "bool",
+    "role": "economic"
+   },
+   {
+    "name": "system_dpd30_last_3m",
+    "dtype": "bool",
+    "role": "economic"
+   },
+   {
+    "name": "exposure_amount",
+    "dtype": "float",
+    "role": "economic"
+   },
+   {
+    "name": "lgd",
+    "dtype": "float",
+    "role": "economic"
+   }
+  ],
+  "n_rows": 6000
  }
 ]
