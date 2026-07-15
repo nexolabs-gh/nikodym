@@ -1138,7 +1138,7 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
 
     paragraphs: list[str] = [
         "El Compendio de Normas Contables para Bancos (Cap. B-1, hoja 10-11, Circular N° 2.346) "
-        "obliga a constituir provisiones por el **mayor valor** entre el método estándar de la CMF "
+        "obliga a constituir provisiones por el mayor valor entre el método estándar de la CMF "
         "y el método interno del banco, y a disponer de ambos métodos. Este capítulo aplica esa "
         "regla sobre la cartera y reporta la provisión resultante."
     ]
@@ -1384,10 +1384,25 @@ def conclusions_body(bundle: ReportInputBundle) -> tuple[str, ...]:
 
 def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Limitaciones: alcance de la fase, caveats de determinismo y secciones ausentes."""
+    if _card(bundle, "provisioning") is not None:
+        # Con provisiones en la corrida el informe deja de ser "solo validación de scorecard":
+        # se declara el capítulo regulatorio (experimental) para no subdeclarar lo que el informe
+        # sí contiene (G8, SDD-28 §11). El resto de la salvedad —IFRS 9/backtesting— se mantiene.
+        alcance = (
+            "El alcance de la validación de este informe es el scorecard: discriminación, "
+            "calibración y estabilidad. El informe reporta además el cálculo regulatorio de "
+            "provisiones (capítulo «Provisiones regulatorias»), una función experimental fuera "
+            "de la garantía SemVer 1.x. El backtesting y la integración con IFRS 9 corresponden "
+            "a fases posteriores y no se cubren ni se infieren aquí."
+        )
+    else:
+        alcance = (
+            "El alcance de este informe es la validación del scorecard: discriminación, "
+            "calibración y estabilidad. El backtesting y la integración con IFRS 9 "
+            "corresponden a fases posteriores y no se cubren ni se infieren aquí."
+        )
     paragraphs: list[str] = [
-        "El alcance de este informe es la validación del scorecard: discriminación, calibración "
-        "y estabilidad. El backtesting y la integración con IFRS 9 corresponden a fases "
-        "posteriores y no se cubren ni se infieren aquí.",
+        alcance,
         "Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no "
         "completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como "
         "no disponible.",

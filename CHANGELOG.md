@@ -5,7 +5,7 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
-## [Unreleased]
+## [1.2.0] — 2026-07-15
 
 ### 🔴 Corregido — una regla normativa que afirmábamos y que NO EXISTE
 
@@ -111,6 +111,14 @@ sobre ese agregado).
   conocía `Decimal` (los motores de provisiones trabajan en `Decimal` porque es una cifra contable) y
   su guard de serialización es global: no fallaba la sección de provisiones, fallaba **todo el
   payload**. Igual en el informe, que imprimía `{"unsupported_type": "Decimal"}` donde va la cifra.
+- **Coherencia del material público (auditoría adversarial pre-1.2.0).** El informe insignia
+  renderizaba el markdown `**mayor valor**` como asteriscos crudos (la prosa va autoescapada), y su
+  frase de alcance seguía declarando "solo validación de scorecard" pese a incluir el capítulo de
+  provisiones — ahora la salvedad reconoce el capítulo regulatorio (experimental, fuera de SemVer
+  1.x). En la landing, el dominio de provisiones se rotulaba "CMF + IFRS 9" con superficie UI cuando
+  la pantalla compara **CMF vs. método interno** (IFRS 9 corre en el motor, no en la UI). Y el pie de
+  la demo declara ahora que la corrida real usa un **dataset sintético de ejemplo**, no la cartera de
+  un banco.
 
 ### Nota para quien audite
 

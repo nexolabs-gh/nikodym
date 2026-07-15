@@ -220,7 +220,7 @@ export const DOMINIOS = [
   },
   {
     key: "provisioning",
-    label: "Provisiones · CMF + IFRS 9",
+    label: "Provisiones · CMF vs. método interno",
     superficie: "UI",
     garantia: "experimental",
     tagline:
