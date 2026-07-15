@@ -183,12 +183,12 @@ export const CODIGO: readonly (readonly { t: string; c: string }[])[] = [
 /**
  * Conteos de tests de la 1.1.0, medidos con `uv run pytest --collect-only -q`:
  *   - suite completa .................. 3.755 (3.749 pasan · 6 skips = extra `pdf`/WeasyPrint)
- *   - los cinco dominios sin interfaz .. 1.203 (test_{ifrs9,cmf,provisioning,markov,stress,
- *                                              forward,survival}_*.py)
+ *   - los cuatro dominios sin interfaz . 649 (test_{markov,stress,forward,survival}_*.py; remedido
+ *                                             al mover provisiones a UI en el track SDD-28)
  * Se publican DEBAJO de lo medido ("más de"): un número exacto se pudre con cada commit, y la
  * página entera se sostiene sobre que sus cifras cuadren cuando alguien las corre.
  */
-export const TESTS_DOMINIOS = "1.200"
+export const TESTS_DOMINIOS = "600"
 export const TESTS_SUITE = "3.700"
 
 /**
@@ -214,14 +214,14 @@ export const DOMINIOS = [
     garantia: "estable",
     tagline:
       "Binning WoE monotónico (OptBinning), selección por IV y VIF, logística sobre WoE, escalado " +
-      "PDO/offset y calibración a la tasa objetivo, con AUC/KS/Gini y PSI/CSI. Es el único dominio " +
-      "con preset, pantalla e informe, y la única superficie bajo garantía SemVer 1.x.",
+      "PDO/offset y calibración a la tasa objetivo, con AUC/KS/Gini y PSI/CSI. Es la superficie más " +
+      "madura del paquete: la única bajo garantía SemVer 1.x.",
     modulo: "nikodym.scorecard",
   },
   {
     key: "provisioning",
     label: "Provisiones · CMF + IFRS 9",
-    superficie: "Python",
+    superficie: "UI",
     garantia: "experimental",
     tagline:
       "Un cálculo, dos normas. CMF: 10 matrices normativas B-1/B-3 en aritmética Decimal (entre " +

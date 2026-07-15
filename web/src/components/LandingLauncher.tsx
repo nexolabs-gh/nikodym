@@ -330,14 +330,15 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
                 ya los calcula el motor.
                 <br />
                 <span className="text-muted-foreground">
-                  La interfaz llegó hasta el scorecard.
+                  La interfaz ya llega al scorecard y a las provisiones.
                 </span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground">
-                El scorecard es el único dominio con preset, pantalla e informe, y la única
-                superficie bajo garantía SemVer 1.x. Los otros cinco ya están implementados y
-                testeados —más de {TESTS_DOMINIOS} tests pasan sobre ellos—, pero hoy se usan
-                escribiendo el config en Python a mano, y siguen marcados como experimentales.{" "}
+                El scorecard y las provisiones tienen preset, pantalla e informe; el scorecard es
+                además la única superficie bajo garantía SemVer 1.x (las provisiones, la más nueva,
+                siguen experimentales). Los otros cuatro ya están implementados y testeados —más de{" "}
+                {TESTS_DOMINIOS} tests pasan sobre ellos—, pero hoy se usan escribiendo el config en
+                Python a mano, y siguen marcados como experimentales.{" "}
                 <span className="text-foreground">
                   No es un roadmap: es el código que ya viene en el paquete.
                 </span>
@@ -399,7 +400,7 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
                 certificado ni es apto para producción por el solo hecho de existir).
               </p>
               <p>
-                Los cinco dominios sin interfaz son motores deterministas, sin stubs: más de{" "}
+                Los cuatro dominios sin interfaz son motores deterministas, sin stubs: más de{" "}
                 <span className="font-mono text-foreground">{TESTS_DOMINIOS}</span> tests pasan
                 sobre ellos, y más de{" "}
                 <span className="font-mono text-foreground">{TESTS_SUITE}</span> en la suite

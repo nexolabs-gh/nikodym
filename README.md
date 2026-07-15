@@ -17,8 +17,8 @@ y stress testing. Todo en un motor **reproducible por construcción** y con gobe
 
 ## Qué hace
 
-Los seis dominios **calculan** hoy: son motores deterministas, sin *stubs*, con más de 1.200 tests
-sobre los cinco que no tienen interfaz (más de 3.700 en la suite completa). Lo que los separa no es
+Los seis dominios **calculan** hoy: son motores deterministas, sin *stubs*, con más de 600 tests
+sobre los cuatro que no tienen interfaz (más de 3.700 en la suite completa). Lo que los separa no es
 "hecho / no hecho", sino **superficie** (¿tiene UI, preset y capítulo en el informe, o hay que
 escribir el config en Python?) y **garantía de API** (¿congelada bajo SemVer 1.x, o experimental?).
 No existe CLI.
@@ -26,7 +26,7 @@ No existe CLI.
 | Dominio | Superficie | Garantía |
 |---|---|---|
 | **Scorecard (F1)** — binning/WoE monotónico (optbinning), selección (IV/VIF), regresión logística, scorecard escalado (PDO/offset), calibración, desempeño (AUC/KS/Gini) y estabilidad (PSI/CSI) | UI, preset e informe | **estable** (SemVer 1.x) |
-| **Provisiones** — motores **CMF (Chile)** e **IFRS 9/ECL** separados, más una capa que compara dos metodologías y aplica el **máximo** | Python | experimental |
+| **Provisiones** — motores **CMF (Chile)** e **IFRS 9/ECL** separados, más una capa que compara dos metodologías y aplica el **máximo** | UI, preset e informe | experimental |
 | **Stress testing** — escenarios adversos, shocks macro en escala logit, sensibilidad y *reverse stress* por bisección | Python | experimental |
 | **Markov** — matrices de transición (cohorte/duración), Chapman-Kolmogorov, Aalen-Johansen, *term-structure* de PD | Python | experimental |
 | **Forward-looking** — ARIMA/auto-ARIMA, VAR/VECM, Ljung-Box y modelos satélite macro → PD/LGD | Python | experimental |

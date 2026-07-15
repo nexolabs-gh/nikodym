@@ -9,9 +9,10 @@ stress testing. Paquete: `nikodym`.
     (SemVer 1.x)**; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
     resultados/métricas/orquestación) siguen experimentales, fuera de la garantía SemVer 1.x.
 
-    **Los seis dominios calculan hoy** —son motores deterministas, con más de 1.200 tests sobre los
-    cinco que no tienen interfaz—, pero **solo el scorecard tiene UI, preset y capítulo en el
-    informe**. Provisiones, stress, Markov, forward-looking y survival se usan escribiendo el config
+    **Los seis dominios calculan hoy** —son motores deterministas, con más de 600 tests sobre los
+    cuatro que no tienen interfaz—, pero **solo el scorecard y las provisiones tienen UI, preset y
+    capítulo en el informe** (el scorecard bajo garantía SemVer 1.x; las provisiones, la más nueva,
+    aún experimentales). Stress, Markov, forward-looking y survival se usan escribiendo el config
     en Python: no hay CLI. Lo que les falta es superficie, no aritmética.
 
 !!! warning "Antes de usarlo en producción"
