@@ -4,24 +4,34 @@ import {
   EMPTY,
   bandsPresent,
   binnedVariables,
+  cmfCategoryBars,
+  cmfCategoryLabel,
   comparisonLabel,
   csiBars,
   csiComparisonLabel,
   discriminantRows,
   featureDisplayLabel,
   formatBool,
+  formatClp,
+  formatClpCompact,
   formatCount,
   formatMetric,
   formatPValue,
   formatPercent,
+  formatPercentValue,
   gainsSeries,
+  internalGroupBars,
   liftByDecile,
   monotonicityLabel,
   normalizeBinLabel,
   partitionLabel,
   primaryPartition,
+  provisioningComparisonBars,
+  provisioningHeadline,
+  provisioningSourceLabel,
   psiBars,
   reliabilityCurve,
+  scoreBandLabel,
   scoreHistogram,
   sortByIv,
   temporalScore,
@@ -30,7 +40,10 @@ import {
 import type {
   BinningResult,
   CalibrationResult,
+  CmfProvisioningResult,
   DecileRow,
+  InternalProvisioningResult,
+  ProvisioningResult,
   ResultsResponse,
   StabilityMetricRow,
 } from "./results-types"
@@ -1304,5 +1317,348 @@ describe("reliabilityCurve", () => {
         reliability: { strategy: "quantile", n_bins: 10, by_partition: [] },
       }),
     ).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Provisiones (SDD-28) — fixtures con VALORES REALES del preset F3
+// `f3-provisiones-consumo` (recorte de un payload generado corriendo la cadena
+// entera y serializado por `ui/serializers.serialize_study`). Que compilen como los
+// DTOs YA verifica el contrato; sobre ellos se ejercitan los formateadores y las
+// derivaciones que consume la pestaña Resultados. El titular de referencia es el
+// sobrecosto: 697.376.973,92 − 308.644.057,91 = 388.732.916,01 CLP.
+// ---------------------------------------------------------------------------
+
+const provisioningSample: ProvisioningResult = {
+  as_of_date: "2024-06-30",
+  comparison_level: "total",
+  rule: "max",
+  source_a: "cmf",
+  source_b: "internal",
+  engines_present: ["cmf", "internal"],
+  binding: "cmf",
+  n_cells: 1,
+  n_binding_a: 1,
+  n_binding_b: 0,
+  n_binding_tie: 0,
+  total_provision_a: 697376973.9229127,
+  total_provision_b: 308644057.91,
+  total_reported_provision: 697376973.9229127,
+  cmf_matrix_version: "cmf_b1_b3_2025_01",
+  ifrs9_term_structure_source: null,
+  internal_method: "pd_lgd",
+  regulatory_sources: [
+    "CNC (CMF) Cap. B-1, hoja 10-11 (Circular N° 2.346)",
+    "docs/normativa_cmf_parametros.md §3",
+  ],
+  falta_dato: [],
+  comparison: [
+    {
+      cell_id: "TOTAL",
+      level: "total",
+      source_a: "cmf",
+      source_b: "internal",
+      provision_a: 697376973.9229127,
+      provision_b: 308644057.91,
+      reported_provision: 697376973.9229127,
+      binding: "cmf",
+      coverage: "both",
+      warning_codes: [],
+    },
+  ],
+}
+
+const cmfSample: CmfProvisioningResult = {
+  matrix_version: "cmf_b1_b3_2025_01",
+  as_of_date: "2024-06-30",
+  n_rows: 6000,
+  total_exposure_amount: 8079005433.76,
+  total_provision_amount: 697376973.9229127,
+  portfolios: [
+    {
+      portfolio: "consumer",
+      n_rows: 6000,
+      total_exposure_amount: 8079005433.76,
+      total_provision_amount: 697376973.9229127,
+      weighted_pe_percent: 8.631965650236614,
+      warnings: [],
+    },
+  ],
+  regulatory_sources: ["docs/normativa_cmf_parametros.md §3"],
+  // Deliberadamente DESORDENADO por provisión, para ejercitar el sort de `cmfCategoryBars`.
+  summary: [
+    {
+      portfolio: "consumer",
+      method: "standard_b1",
+      cmf_category: "0_7|no|yes",
+      n_rows: 160,
+      total_exposure_amount: 205078177.9,
+      total_provision_amount: 22952502.93369726,
+      weighted_pe_percent: 11.192074734001848,
+      matrix_version: "cmf_b1_b3_2025_01",
+      warning_codes: [],
+    },
+    {
+      portfolio: "consumer",
+      method: "standard_b1",
+      cmf_category: "0_7|no|no",
+      n_rows: 3302,
+      total_exposure_amount: 4338485154.07,
+      total_provision_amount: 160408349.38848257,
+      weighted_pe_percent: 3.697335445253305,
+      matrix_version: "cmf_b1_b3_2025_01",
+      warning_codes: [],
+    },
+    {
+      portfolio: "consumer",
+      method: "standard_b1",
+      cmf_category: "incumplimiento|yes|yes",
+      n_rows: 22,
+      total_exposure_amount: 37460457.85,
+      total_provision_amount: 17666426.14679,
+      weighted_pe_percent: 47.16019814154514,
+      matrix_version: "cmf_b1_b3_2025_01",
+      warning_codes: [],
+    },
+  ],
+}
+
+const internalSample: InternalProvisioningResult = {
+  as_of_date: "2024-06-30",
+  method: "pd_lgd",
+  grouping: "score_band",
+  pd_source: "calibration",
+  n_groups: 10,
+  n_rows: 6000,
+  total_exposure: 8079005433.76,
+  total_internal_provision: 308644057.91,
+  falta_dato: [],
+  groups: [
+    {
+      group_id: "banda_01",
+      portfolio: "consumer",
+      n_operations: 605,
+      total_exposure: 925418827.5,
+      pd_group: 0.005229006159768768,
+      lgd_group: 0.4528972012939849,
+      expected_loss_rate: 0.002368202255308283,
+      provision_amount: 2191578.95,
+      warning_codes: [],
+    },
+    {
+      group_id: "banda_02",
+      portfolio: "consumer",
+      n_operations: 596,
+      total_exposure: 740016129.76,
+      pd_group: 0.010722703629068327,
+      lgd_group: 0.4632003508928205,
+      expected_loss_rate: 0.0049667600835041695,
+      provision_amount: 3675482.57,
+      warning_codes: [],
+    },
+    {
+      group_id: "banda_10",
+      portfolio: "consumer",
+      n_operations: 600,
+      total_exposure: 1037545481.31,
+      pd_group: 0.3688551633807931,
+      lgd_group: 0.49331411996254615,
+      expected_loss_rate: 0.1819614603168371,
+      provision_amount: 188793290.92,
+      warning_codes: [],
+    },
+  ],
+}
+
+// Compila como `ResultsResponse`: verifica en tiempo de tipos que las tres claves de
+// provisiones encajan en el payload top-level (el serializer las emite juntas).
+const provisioningResults: ResultsResponse = {
+  status: "done",
+  run_id: "046cea75011443209cb4dc8686c36d8d",
+  error: null,
+  model_card: null,
+  provisioning: provisioningSample,
+  provisioning_cmf: cmfSample,
+  provisioning_internal: internalSample,
+}
+
+describe("formatClp", () => {
+  it("formatea CLP con separador de miles '.' y sin decimales", () => {
+    expect(formatClp(388732916.0129127)).toBe("$388.732.916")
+    expect(formatClp(697376973.9229127)).toBe("$697.376.974") // .92 redondea al peso
+    expect(formatClp(1000)).toBe("$1.000")
+    expect(formatClp(0)).toBe("$0")
+  })
+
+  it("respeta el signo de un monto negativo", () => {
+    expect(formatClp(-388732916)).toBe("-$388.732.916")
+  })
+
+  it("ausente/no finito → EMPTY", () => {
+    expect(formatClp(null)).toBe(EMPTY)
+    expect(formatClp(undefined)).toBe(EMPTY)
+    expect(formatClp(Number.NaN)).toBe(EMPTY)
+    expect(formatClp(Number.POSITIVE_INFINITY)).toBe(EMPTY)
+  })
+})
+
+describe("formatClpCompact", () => {
+  it("formatea CLP compacto en millones con separador de miles", () => {
+    expect(formatClpCompact(697376973.92)).toBe("$697 M")
+    expect(formatClpCompact(8079005433.76)).toBe("$8.079 M")
+    expect(formatClpCompact(2191578.95)).toBe("$2 M")
+    expect(formatClpCompact(388732916.01)).toBe("$389 M")
+  })
+
+  it("ausente/no finito → EMPTY", () => {
+    expect(formatClpCompact(null)).toBe(EMPTY)
+    expect(formatClpCompact(Number.NaN)).toBe(EMPTY)
+  })
+})
+
+describe("formatPercentValue", () => {
+  it("formatea un valor que YA es porcentaje sin reescalar", () => {
+    expect(formatPercentValue(8.631965650236614)).toBe("8.63%")
+    expect(formatPercentValue(47.16019814154514, 1)).toBe("47.2%")
+    expect(formatPercentValue(3.697335445253305, 0)).toBe("4%")
+  })
+
+  it("ausente/no finito → EMPTY", () => {
+    expect(formatPercentValue(null)).toBe(EMPTY)
+    expect(formatPercentValue(Number.NaN)).toBe(EMPTY)
+  })
+})
+
+describe("provisioningSourceLabel", () => {
+  it("etiqueta las fuentes conocidas y cae al slug para las nuevas", () => {
+    expect(provisioningSourceLabel("cmf")).toBe("Estándar (CMF)")
+    expect(provisioningSourceLabel("internal")).toBe("Interno")
+    expect(provisioningSourceLabel("ifrs9")).toBe("IFRS 9 (ECL)")
+    expect(provisioningSourceLabel("desconocida")).toBe("desconocida")
+  })
+})
+
+describe("scoreBandLabel", () => {
+  it("humaniza la banda de score y cae al id crudo si no calza", () => {
+    expect(scoreBandLabel("banda_01")).toBe("Banda 1")
+    expect(scoreBandLabel("banda_10")).toBe("Banda 10")
+    expect(scoreBandLabel("otro")).toBe("otro")
+  })
+})
+
+describe("cmfCategoryLabel", () => {
+  it("decodea el código (bucket|hipotecario|mora) a una etiqueta legible", () => {
+    expect(cmfCategoryLabel("0_7|no|no")).toBe("0–7 d · Hip No · MoraS No")
+    expect(cmfCategoryLabel("0_7|no|yes")).toBe("0–7 d · Hip No · MoraS Sí")
+    expect(cmfCategoryLabel("incumplimiento|yes|yes")).toBe(
+      "Incumpl. · Hip Sí · MoraS Sí",
+    )
+  })
+
+  it("cae al código crudo si no tiene tres partes", () => {
+    expect(cmfCategoryLabel("raro")).toBe("raro")
+    expect(cmfCategoryLabel("a|b")).toBe("a|b")
+  })
+})
+
+describe("provisioningHeadline", () => {
+  it("resume la regla del máximo: el sobrecosto = reportada − interna (CLP)", () => {
+    const h = provisioningHeadline(provisioningResults.provisioning)
+    expect(h).not.toBeNull()
+    expect(h?.reported).toBe(697376973.9229127)
+    expect(h?.standard).toBe(697376973.9229127)
+    expect(h?.internal).toBe(308644057.91)
+    expect(h?.overcost).toBeCloseTo(388732916.0129127, 4)
+    expect(h?.overcostVsInternal).toBeCloseTo(1.2595, 3)
+    expect(h?.binding).toBe("cmf")
+    expect(h?.sourceA).toBe("cmf")
+    expect(h?.sourceB).toBe("internal")
+    // El titular formateado que ve el gerente.
+    expect(formatClp(h?.overcost)).toBe("$388.732.916")
+  })
+
+  it("null cuando la card falta o un total no es finito (guard por presencia)", () => {
+    expect(provisioningHeadline(null)).toBeNull()
+    expect(provisioningHeadline(undefined)).toBeNull()
+    expect(
+      provisioningHeadline({
+        ...provisioningSample,
+        total_reported_provision: Number.NaN,
+      }),
+    ).toBeNull()
+  })
+})
+
+describe("provisioningComparisonBars", () => {
+  it("emite estándar/interno/reportado y marca cuál manda", () => {
+    const bars = provisioningComparisonBars(provisioningResults.provisioning)
+    expect(bars.map((b) => b.key)).toEqual(["standard", "internal", "reported"])
+    expect(bars[0]).toMatchObject({
+      label: "Estándar (CMF)",
+      value: 697376973.9229127,
+      binding: true, // binding === source_a
+    })
+    expect(bars[1]).toMatchObject({
+      label: "Interno",
+      value: 308644057.91,
+      binding: false,
+    })
+    expect(bars[2]).toMatchObject({
+      label: "Reportado (norma)",
+      value: 697376973.9229127,
+      binding: true,
+    })
+  })
+
+  it("[] cuando la card falta", () => {
+    expect(provisioningComparisonBars(null)).toEqual([])
+    expect(provisioningComparisonBars(undefined)).toEqual([])
+  })
+})
+
+describe("internalGroupBars", () => {
+  it("proyecta los grupos preservando el orden del motor (banda_01 → banda_10)", () => {
+    const bars = internalGroupBars(provisioningResults.provisioning_internal)
+    expect(bars).toHaveLength(3)
+    expect(bars.map((b) => b.label)).toEqual(["Banda 1", "Banda 2", "Banda 10"])
+    expect(bars[0]).toMatchObject({
+      group: "banda_01",
+      provision: 2191578.95,
+      pd: 0.005229006159768768,
+      lgd: 0.4528972012939849,
+      exposure: 925418827.5,
+      n: 605,
+    })
+    expect(bars[2]?.provision).toBe(188793290.92)
+  })
+
+  it("[] cuando falta la card o el frame de grupos", () => {
+    expect(internalGroupBars(null)).toEqual([])
+    expect(
+      internalGroupBars({ ...internalSample, groups: undefined }),
+    ).toEqual([])
+  })
+})
+
+describe("cmfCategoryBars", () => {
+  it("ordena las categorías por provisión DESC y decodea la etiqueta", () => {
+    const bars = cmfCategoryBars(provisioningResults.provisioning_cmf)
+    expect(bars.map((b) => b.category)).toEqual([
+      "0_7|no|no", // 160 M
+      "0_7|no|yes", // 23 M
+      "incumplimiento|yes|yes", // 18 M
+    ])
+    expect(bars[0]).toMatchObject({
+      label: "0–7 d · Hip No · MoraS No",
+      provision: 160408349.38848257,
+      exposure: 4338485154.07,
+      weightedPe: 3.697335445253305,
+      n: 3302,
+    })
+  })
+
+  it("[] cuando falta la card o el frame de resumen", () => {
+    expect(cmfCategoryBars(null)).toEqual([])
+    expect(cmfCategoryBars({ ...cmfSample, summary: undefined })).toEqual([])
   })
 })

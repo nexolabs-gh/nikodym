@@ -2,11 +2,14 @@ import { type ReactNode, useId, useState } from "react"
 import { ChartColumn, CircleAlert, Play } from "lucide-react"
 
 import { CalibrationReliabilityChart } from "@/components/charts/CalibrationReliabilityChart"
+import { CmfCategoryChart } from "@/components/charts/CmfCategoryChart"
 import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
 import { DiscriminationChart } from "@/components/charts/DiscriminationChart"
 import { GainsChart } from "@/components/charts/GainsChart"
+import { InternalGroupsChart } from "@/components/charts/InternalGroupsChart"
 import { IvChart } from "@/components/charts/IvChart"
 import { LiftChart } from "@/components/charts/LiftChart"
+import { ProvisioningComparisonChart } from "@/components/charts/ProvisioningComparisonChart"
 import { PsiByComparisonChart } from "@/components/charts/PsiByComparisonChart"
 import { ScoreHistogramChart } from "@/components/charts/ScoreHistogramChart"
 import { StabilityBandLegend } from "@/components/charts/StabilityBandLegend"
@@ -30,19 +33,25 @@ import {
   EMPTY,
   bandsPresent,
   binnedVariables,
+  cmfCategoryBars,
   csiBars,
   csiComparisonLabel,
   discriminantRows,
   formatBool,
+  formatClp,
   formatCount,
   formatMetric,
   formatPValue,
   formatPercent,
   gainsSeries,
+  internalGroupBars,
   liftByDecile,
   monotonicityLabel,
   partitionLabel,
   primaryPartition,
+  provisioningComparisonBars,
+  provisioningHeadline,
+  provisioningSourceLabel,
   psiBars,
   reliabilityCurve,
   scoreHistogram,
@@ -51,6 +60,8 @@ import {
   variableBinning,
 } from "@/lib/results-format"
 import type {
+  InternalGroupBar,
+  ProvisioningHeadline,
   ReliabilityPartitionView,
   ReliabilityView,
   VariableBinning,
@@ -168,6 +179,20 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
       csi.length > 0 ||
       temporal !== null)
 
+  // Provisiones (SDD-28): las tres cards del preset F3. `null` en una corrida F1 (guard por
+  // presencia → el bloque entero no se renderiza). El TITULAR es el sobrecosto en CLP
+  // (reportada − interna), NO un ratio (§3.5). `exposure` (colocaciones) es común a ambos
+  // motores; se toma de la card CMF y cae a la interna.
+  const prov = results.provisioning ?? null
+  const cmf = results.provisioning_cmf ?? null
+  const internal = results.provisioning_internal ?? null
+  const headline = provisioningHeadline(prov)
+  const comparisonBars = provisioningComparisonBars(prov)
+  const groupBars = internalGroupBars(internal)
+  const categoryBars = cmfCategoryBars(cmf)
+  const provExposure =
+    cmf?.total_exposure_amount ?? internal?.total_exposure ?? null
+
   return (
     <div className="space-y-6">
       {/* Lineage + estado de la corrida (identidad reproducible; sin cálculo propio). */}
@@ -199,6 +224,50 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           ) : null}
         </CardContent>
       </Card>
+
+      {/* PROVISIONES (SDD-28): solo con el preset F3 (guard por presencia). Va PRIMERO porque es
+          el producto — el titular es el sobrecosto en CLP, no un ratio (§3.5). */}
+      {headline ? (
+        <>
+          <ProvisioningHeadlineCard
+            headline={headline}
+            exposure={provExposure}
+          />
+
+          {/* La regla del máximo en tres barras + los totales exactos. */}
+          <ResultsSection
+            title="Provisiones — la regla del máximo (CMF Cap. B-1)"
+            description="La norma chilena obliga a constituir el MAYOR entre el método estándar de la CMF y el método interno del banco, a nivel de entidad (Circular N° 2.346). Montos en pesos (CLP)."
+          >
+            <ProvisioningComparisonChart bars={comparisonBars} />
+            <ProvisioningTotalsTable headline={headline} rule={prov?.rule} />
+          </ResultsSection>
+
+          {/* Método interno: PD·LGD·Exposición por grupo homogéneo (10 bandas de score). */}
+          {groupBars.length > 0 ? (
+            <ResultsSection
+              title="Método interno por grupo homogéneo"
+              description="Provisión interna = Exposición · PD · LGD por grupo homogéneo (B-1 §3). La PD calibrada del scorecard forma las 10 bandas de score, de menor a mayor riesgo. La provisión se concentra donde la PD es alta."
+            >
+              <InternalGroupsChart rows={groupBars} />
+              <InternalGroupsDetail
+                rows={groupBars}
+                totalInternal={internal?.total_internal_provision ?? null}
+              />
+            </ResultsSection>
+          ) : null}
+
+          {/* Método estándar CMF: desglose por categoría del Cap. B-1. */}
+          {categoryBars.length > 0 ? (
+            <ResultsSection
+              title="Método estándar CMF por categoría"
+              description="Provisión estándar por categoría del Cap. B-1, ordenada de mayor a menor. La categoría se deriva de (días de mora · crédito hipotecario en el sistema · mora en el sistema)."
+            >
+              <CmfCategoryChart rows={categoryBars} />
+            </ResultsSection>
+          ) : null}
+        </>
+      ) : null}
 
       {/* a. Discriminación: chart de barras AUC/Gini/KS por partición; valores exactos en detalle. */}
       {rows.length > 0 ? (
@@ -817,6 +886,206 @@ function ReliabilityDetail({
         </table>
       </div>
     </div>
+  )
+}
+
+/**
+ * Titular de provisiones (SDD-28 §3.5): el SOBRECOSTO en CLP como número grande. Con el estándar
+ * mandando (el caso normativo del preset F3) el sobrecosto es ≥ 0 y se lee como "lo que el
+ * estándar cuesta de más"; si el interno superara al estándar, el relato se invierte con honestidad.
+ * Solo presenta el `provisioningHeadline` ya derivado; el único cálculo (la resta) vive en el helper.
+ */
+function ProvisioningHeadlineCard({
+  headline,
+  exposure,
+}: {
+  headline: ProvisioningHeadline
+  exposure: number | null
+}) {
+  const { overcost, reported, standard, internal, binding } = headline
+  // El BINDING REAL decide el relato, NO `overcost >= 0` (que es tautológico: reported =
+  // max(estándar, interno) ≥ interno, así que el sobrecosto siempre sale ≥ 0). Cuando manda el
+  // interno —escenario real de la calibración F3—, la brecha a mostrar es interno − estándar
+  // (el overcost ahí vale 0), para que el relato se invierta de verdad y no se autocontradiga.
+  const standardBinds = binding === headline.sourceA
+  const gap = standardBinds ? overcost : internal - standard
+  const gapBase = standardBinds ? internal : standard
+  const gapRatio = gapBase > 0 ? gap / gapBase : null
+  const gapBaseLabel = standardBinds ? "el interno" : "el estándar"
+  const indice = exposure && exposure > 0 ? reported / exposure : null
+  return (
+    <Card className="shadow-card">
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <p className="text-sm font-medium text-eyebrow">
+            {standardBinds
+              ? "Sobrecosto del método estándar (CMF Cap. B-1)"
+              : "El método interno supera al estándar"}
+          </p>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p className="font-heading text-3xl font-semibold tabular-nums text-foreground">
+              {formatClp(gap)}
+            </p>
+            {gapRatio !== null ? (
+              <span className="rounded-full border border-brand-accent-dark/30 bg-brand-accent/10 px-2.5 py-0.5 font-mono text-xs tabular-nums text-brand-accent-dark">
+                +{formatPercent(gapRatio, 0)} sobre {gapBaseLabel}
+              </span>
+            ) : null}
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {standardBinds
+              ? "Lo que el método estándar de la CMF obliga a constituir por encima de lo que el modelo interno del banco pediría. La norma manda el mayor de los dos."
+              : "El modelo interno del banco pide más provisión que el método estándar; con la regla del máximo, manda el interno."}
+          </p>
+        </div>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-4 sm:grid-cols-3">
+          <DefItem label="Reportada (norma)" value={formatClp(reported)} />
+          <DefItem
+            label={provisioningSourceLabel(headline.sourceA)}
+            value={formatClp(standard)}
+          />
+          <DefItem
+            label={provisioningSourceLabel(headline.sourceB)}
+            value={formatClp(internal)}
+          />
+          {indice !== null ? (
+            <DefItem
+              label="Índice de riesgo reportado"
+              value={formatPercent(indice)}
+            />
+          ) : null}
+          <DefItem
+            label="Método que manda"
+            value={provisioningSourceLabel(binding)}
+            mono={false}
+          />
+        </dl>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Totales exactos de la regla del máximo (estándar/interno + reportada), con el binding marcado. */
+function ProvisioningTotalsTable({
+  headline,
+  rule,
+}: {
+  headline: ProvisioningHeadline
+  rule: string | undefined
+}) {
+  const rows = [
+    {
+      label: provisioningSourceLabel(headline.sourceA),
+      value: headline.standard,
+      binds: headline.binding === headline.sourceA,
+    },
+    {
+      label: provisioningSourceLabel(headline.sourceB),
+      value: headline.internal,
+      binds: headline.binding === headline.sourceB,
+    },
+  ]
+  return (
+    <div className="space-y-2">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+              <th className="py-2 pr-3 font-medium">Método</th>
+              <NumHead>Provisión (CLP)</NumHead>
+              <th className="py-2 pl-3 text-right font-medium">¿Manda?</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.label} className="border-b border-border">
+                <td className="py-2 pr-3 text-foreground">{r.label}</td>
+                <NumCell>{formatClp(r.value)}</NumCell>
+                <td className="py-2 pl-3 text-right">
+                  {r.binds ? (
+                    <span className="text-eyebrow">Sí</span>
+                  ) : (
+                    <span className="text-muted-foreground">{EMPTY}</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-border text-foreground">
+              <td className="py-2 pr-3 font-medium">Reportada (norma)</td>
+              <NumCell>{formatClp(headline.reported)}</NumCell>
+              <td className="py-2 pl-3 text-right text-muted-foreground">
+                = mayor
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p className="text-[0.7rem] text-muted-foreground">
+        Regla aplicada:{" "}
+        <span className="font-mono">{rule ?? "max"}</span> · comparación a nivel
+        de entidad.
+      </p>
+    </div>
+  )
+}
+
+/** Detalle numérico del método interno por grupo (colapsable), con el total interno al pie. */
+function InternalGroupsDetail({
+  rows,
+  totalInternal,
+}: {
+  rows: InternalGroupBar[]
+  totalInternal: number | null
+}) {
+  return (
+    <details className="group mt-2">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-eyebrow">
+        <span className="text-muted-foreground transition-transform group-open:rotate-90">
+          ›
+        </span>
+        Ver valores exactos por grupo
+      </summary>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+              <th className="py-2 pr-3 font-medium">Grupo</th>
+              <NumHead>Operaciones</NumHead>
+              <NumHead>Exposición (CLP)</NumHead>
+              <NumHead>PD</NumHead>
+              <NumHead>LGD</NumHead>
+              <NumHead>Provisión (CLP)</NumHead>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.group} className="border-b border-border">
+                <td className="py-2 pr-3 text-foreground">{r.label}</td>
+                <NumCell>{formatCount(r.n)}</NumCell>
+                <NumCell>{formatClp(r.exposure)}</NumCell>
+                <NumCell>{formatPercent(r.pd, 2)}</NumCell>
+                <NumCell>{formatPercent(r.lgd, 1)}</NumCell>
+                <NumCell>{formatClp(r.provision)}</NumCell>
+              </tr>
+            ))}
+          </tbody>
+          {totalInternal !== null ? (
+            <tfoot>
+              <tr className="border-t border-border text-foreground">
+                <td className="py-2 pr-3 font-medium">Total interno</td>
+                <NumCell>{EMPTY}</NumCell>
+                <NumCell>{EMPTY}</NumCell>
+                <NumCell>{EMPTY}</NumCell>
+                <NumCell>{EMPTY}</NumCell>
+                <NumCell>{formatClp(totalInternal)}</NumCell>
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+      </div>
+    </details>
   )
 }
 

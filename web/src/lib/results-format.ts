@@ -9,8 +9,11 @@ import type {
   BinningResult,
   BinRow,
   CalibrationResult,
+  CmfProvisioningResult,
   DecileRow,
+  InternalProvisioningResult,
   PerformanceResult,
+  ProvisioningResult,
   StabilityBand,
   StabilityMetricRow,
 } from "@/lib/results-types"
@@ -70,6 +73,52 @@ export function formatBool(x: boolean | null | undefined): string {
   if (x === true) return "Sí"
   if (x === false) return "No"
   return EMPTY
+}
+
+/**
+ * Formatea un número que YA es un porcentaje (0–100, p. ej. `weighted_pe_percent` que el motor
+ * CMF emite en puntos porcentuales) como `"8.63%"`. A diferencia de `formatPercent` (que espera
+ * una PROPORCIÓN [0,1] y multiplica por 100), aquí NO se reescala: presentación pura. Ausente/no
+ * finito → `EMPTY`.
+ */
+export function formatPercentValue(
+  x: number | null | undefined,
+  digits = 2,
+): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
+  return `${x.toFixed(digits)}%`
+}
+
+/**
+ * Formatea un monto en pesos chilenos con separador de miles "." (convención CL: punto = miles),
+ * SIN decimales — `$388.732.916`. Redondea a peso entero: en cifras de cientos de millones los
+ * centavos son ruido, y el monto ya viene cuantizado por la política `rounding` del motor. No
+ * depende de `toLocaleString`/ICU (determinista, igual espíritu que `formatCount`). Ausente/no
+ * finito → `EMPTY`.
+ */
+export function formatClp(x: number | null | undefined): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
+  const rounded = Math.round(x)
+  const sign = rounded < 0 ? "-" : ""
+  const digits = Math.abs(rounded)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+  return `${sign}$${digits}`
+}
+
+/**
+ * Formatea un monto CLP COMPACTO en millones para labels/ejes de charts — `$697 M`, `$8.079 M`.
+ * Redondea a millón entero (con separador de miles "."), que es suficiente para un label de barra;
+ * la cifra exacta va en el tooltip vía `formatClp`. Ausente/no finito → `EMPTY`.
+ */
+export function formatClpCompact(x: number | null | undefined): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
+  const millions = Math.round(x / 1e6)
+  const sign = millions < 0 ? "-" : ""
+  const digits = Math.abs(millions)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+  return `${sign}$${digits} M`
 }
 
 /** Fila de métricas de discriminación normalizada para la tabla (una por partición). */
@@ -777,4 +826,212 @@ export function reliabilityCurve(
     .sort((a, b) => partitionRank(a.partition) - partitionRank(b.partition))
 
   return { strategy: reliability.strategy, nBins: reliability.n_bins, partitions }
+}
+
+// --- provisiones (SDD-28): la regla del máximo, en CLP ----------------------
+//
+// Presentación pura sobre las cards de provisiones ya calculadas por los motores. La única
+// aritmética es la RESTA `reportada − interna` (el sobrecosto, SDD-28 §3.5) y ratios de
+// presentación (% sobre colocaciones / sobre el interno): misma naturaleza que los offsets del
+// IC en `reliabilityCurve` ("solo lee/reordena y resta"), NO cálculo de riesgo. Ningún monto se
+// produce aquí: todos vienen del artefacto.
+
+/**
+ * Etiqueta legible de una fuente de provisión (`source_a`/`source_b`/`binding`). Fallback: el
+ * propio slug (no oculta un valor nuevo). Presentación pura.
+ */
+export function provisioningSourceLabel(source: string): string {
+  switch (source) {
+    case "cmf":
+      return "Estándar (CMF)"
+    case "internal":
+      return "Interno"
+    case "ifrs9":
+      return "IFRS 9 (ECL)"
+    default:
+      return source
+  }
+}
+
+/** Etiqueta humana de una banda de score del método interno (`banda_01` → `Banda 1`). */
+export function scoreBandLabel(groupId: string): string {
+  const m = /^banda_0*(\d+)$/.exec(groupId)
+  return m ? `Banda ${m[1]}` : groupId
+}
+
+/**
+ * Etiqueta humana de una categoría CMF. El motor emite el código
+ * `(bucket_dpd|hipotecario_sistema|mora_sistema)`, p. ej. `"0_7|no|no"` (SDD-28 §6.2); se decodea
+ * a `"0–7 d · Hip No · MoraS No"`. Fallback al código crudo si no calza el patrón de 3 partes (no
+ * inventa una estructura). Presentación pura.
+ */
+export function cmfCategoryLabel(category: string): string {
+  const parts = category.split("|")
+  if (parts.length !== 3) return category
+  const [bucket, hip, mora] = parts
+  const bucketLabel =
+    bucket === "incumplimiento" ? "Incumpl." : `${bucket.replace(/_/g, "–")} d`
+  const yesNo = (v: string) => (v === "yes" || v === "sí" || v === "si" ? "Sí" : "No")
+  return `${bucketLabel} · Hip ${yesNo(hip)} · MoraS ${yesNo(mora)}`
+}
+
+/**
+ * El TITULAR del producto (SDD-28 §3.5): la regla del máximo resumida en plata. `reported` es la
+ * provisión que la norma obliga a constituir = mayor(estándar, interno); `overcost` = reported −
+ * internal (el sobrecosto que el estándar impone sobre el modelo interno del banco, en CLP);
+ * `overcostVsInternal` lo expresa como fracción del interno (para el "+126 %"). `binding` dice qué
+ * método mandó. Devuelve `null` si la card falta o algún total no es finito (guard por presencia).
+ */
+export interface ProvisioningHeadline {
+  /** Provisión reportada = mayor(estándar, interno), en CLP. */
+  reported: number
+  /** Método estándar CMF (source_a), en CLP. */
+  standard: number
+  /** Método interno PD·LGD·EAD (source_b), en CLP. */
+  internal: number
+  /** Sobrecosto = reported − internal (CLP; ≥ 0 cuando el estándar manda). */
+  overcost: number
+  /** Sobrecosto como fracción del método interno; `null` si el interno es ≤ 0. */
+  overcostVsInternal: number | null
+  /** Método que mandó a nivel de entidad (`"cmf"`/`"internal"`/…). */
+  binding: string
+  /** Fuentes comparadas (para etiquetar los operandos). */
+  sourceA: string
+  sourceB: string
+}
+
+export function provisioningHeadline(
+  prov: ProvisioningResult | null | undefined,
+): ProvisioningHeadline | null {
+  if (!prov) return null
+  const reported = prov.total_reported_provision
+  const standard = prov.total_provision_a
+  const internal = prov.total_provision_b
+  if (
+    ![reported, standard, internal].every(
+      (v) => typeof v === "number" && Number.isFinite(v),
+    )
+  ) {
+    return null
+  }
+  const overcost = reported - internal
+  return {
+    reported,
+    standard,
+    internal,
+    overcost,
+    overcostVsInternal: internal > 0 ? overcost / internal : null,
+    binding: prov.binding,
+    sourceA: prov.source_a,
+    sourceB: prov.source_b,
+  }
+}
+
+/** Barra de la comparación estándar-vs-interno-vs-reportado (chart del titular). */
+export interface ProvisioningBar {
+  key: "standard" | "internal" | "reported"
+  label: string
+  value: number
+  /** ¿Es el método que la norma obliga a constituir (el que manda / el reportado)? */
+  binding: boolean
+}
+
+/**
+ * Tres barras para el chart de la regla del máximo: estándar (source_a), interno (source_b) y
+ * reportado (el mayor). Marca cuál manda (`binding`). Devuelve `[]` si la card falta. Solo
+ * selecciona/etiqueta totales ya calculados; la única operación es la comparación de igualdad
+ * `binding === source` para el resalte.
+ */
+export function provisioningComparisonBars(
+  prov: ProvisioningResult | null | undefined,
+): ProvisioningBar[] {
+  const h = provisioningHeadline(prov)
+  if (!h) return []
+  return [
+    {
+      key: "standard",
+      label: provisioningSourceLabel(h.sourceA),
+      value: h.standard,
+      binding: h.binding === h.sourceA,
+    },
+    {
+      key: "internal",
+      label: provisioningSourceLabel(h.sourceB),
+      value: h.internal,
+      binding: h.binding === h.sourceB,
+    },
+    { key: "reported", label: "Reportado (norma)", value: h.reported, binding: true },
+  ]
+}
+
+/** Barra por grupo homogéneo del método interno (provisión + PD/LGD/exposición del grupo). */
+export interface InternalGroupBar {
+  group: string
+  label: string
+  /** Provisión del grupo, en CLP. */
+  provision: number
+  /** PD del grupo (proporción [0,1]). */
+  pd: number
+  /** LGD del grupo (proporción [0,1]). */
+  lgd: number
+  /** Exposición del grupo, en CLP. */
+  exposure: number
+  /** Nº de operaciones del grupo. */
+  n: number
+}
+
+/**
+ * Filas por grupo homogéneo del método interno, en el orden en que las emite el motor (banda_01
+ * → banda_10). NO recalcula: `provision`/`pd`/`lgd` vienen del artefacto. `[]` si falta el frame.
+ */
+export function internalGroupBars(
+  internal: InternalProvisioningResult | null | undefined,
+): InternalGroupBar[] {
+  const groups = internal?.groups
+  if (!groups) return []
+  return groups.map((g) => ({
+    group: g.group_id,
+    label: scoreBandLabel(g.group_id),
+    provision: g.provision_amount,
+    pd: g.pd_group,
+    lgd: g.lgd_group,
+    exposure: g.total_exposure,
+    n: g.n_operations,
+  }))
+}
+
+/** Barra por categoría CMF del método estándar (provisión + exposición + PE ponderada). */
+export interface CmfCategoryBar {
+  category: string
+  label: string
+  /** Provisión estándar de la categoría, en CLP. */
+  provision: number
+  /** Exposición de la categoría, en CLP. */
+  exposure: number
+  /** Pérdida esperada ponderada, en % (0–100). */
+  weightedPe: number
+  /** Nº de operaciones de la categoría. */
+  n: number
+}
+
+/**
+ * Filas por categoría CMF del desglose estándar (`provisioning_cmf.summary`), ordenadas por
+ * provisión DESC (dónde vive la provisión estándar). NO recalcula ni umbraliza: solo selecciona/
+ * reordena/etiqueta lo que el motor ya materializó. `[]` si falta el frame.
+ */
+export function cmfCategoryBars(
+  cmf: CmfProvisioningResult | null | undefined,
+): CmfCategoryBar[] {
+  const summary = cmf?.summary
+  if (!summary) return []
+  return summary
+    .map((r) => ({
+      category: r.cmf_category,
+      label: cmfCategoryLabel(r.cmf_category),
+      provision: r.total_provision_amount,
+      exposure: r.total_exposure_amount,
+      weightedPe: r.weighted_pe_percent,
+      n: r.n_rows,
+    }))
+    .sort((a, b) => b.provision - a.provision)
 }

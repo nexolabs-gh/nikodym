@@ -13,12 +13,14 @@ import {
   demoConfigFromYaml,
   demoConfigToYaml,
   demoGetPreset,
+  demoGetPresetById,
   demoGetReport,
   demoGetReportDocx,
   demoGetReportEditable,
   demoGetReportPdf,
   demoGetResults,
   demoListDatasets,
+  demoListPresets,
   demoRunPipeline,
   demoValidateConfig,
 } from "@/lib/demo"
@@ -77,11 +79,31 @@ export interface ConfigFromYamlResponse {
  * recomendado. La validez la produce el backend (Pydantic); el front solo lo transporta (§3.3).
  */
 export interface PresetResponse {
+  /** Id del preset. El endpoint por id (`/api/config/preset/{id}`) lo incluye; el estándar
+   *  (`/api/config/preset`) también. Opcional por retrocompat de fixtures viejos sin `id`. */
+  id?: string
   config: ConfigDict
   config_hash: string
   dataset_id: string
   name: string
   description: string
+}
+
+/**
+ * Un item del catálogo de presets (`GET /api/config/presets`), SIN `config`: lo justo para poblar
+ * el selector del front (SDD-28). El detalle completo (con `config`) se pide por
+ * `GET /api/config/preset/{id}`.
+ */
+export interface PresetSummary {
+  id: string
+  name: string
+  description: string
+  dataset_id: string
+}
+
+/** GET /api/config/presets — catálogo de presets disponibles para el selector. */
+export interface PresetsIndexResponse {
+  presets: PresetSummary[]
 }
 
 /** Columna de un dataset sintético. */
@@ -209,6 +231,27 @@ export function configFromYaml(
 export function getPreset(): Promise<PresetResponse> {
   if (DEMO_MODE) return demoGetPreset()
   return request<PresetResponse>("/api/config/preset")
+}
+
+/**
+ * GET /api/config/presets — catálogo de presets (SIN `config`) para el selector del front (SDD-28).
+ * El front solo transporta: la lista y el detalle los compone y valida el backend.
+ */
+export function listPresets(): Promise<PresetsIndexResponse> {
+  if (DEMO_MODE) return demoListPresets()
+  return request<PresetsIndexResponse>("/api/config/presets")
+}
+
+/**
+ * GET /api/config/preset/{id} — un preset por id, con su `config` completo listo para correr. Un
+ * `id` desconocido devuelve 404 (`ApiError`). El front no reimplementa su lógica: el backend lo
+ * compone y valida.
+ */
+export function getPresetById(presetId: string): Promise<PresetResponse> {
+  if (DEMO_MODE) return demoGetPresetById(presetId)
+  return request<PresetResponse>(
+    `/api/config/preset/${encodeURIComponent(presetId)}`,
+  )
 }
 
 /** GET /api/datasets — datasets sintéticos deterministas disponibles. */

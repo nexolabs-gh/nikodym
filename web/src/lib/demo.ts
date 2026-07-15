@@ -17,6 +17,7 @@ import type {
   ConfigToYamlResponse,
   DatasetInfo,
   PresetResponse,
+  PresetsIndexResponse,
   ResultsResponse,
   RunResponse,
   ValidateResponse,
@@ -49,6 +50,32 @@ const toYaml = toYamlFixture as unknown as ConfigToYamlResponse
 const DEMO_RUN_ID: string = results.run_id ?? "demo-run"
 
 export function demoGetPreset(): Promise<PresetResponse> {
+  return Promise.resolve(preset)
+}
+
+/** Id estable del preset empaquetado en la demo (el fixture no siempre trae `id`). */
+const DEMO_PRESET_ID: string = preset.id ?? preset.dataset_id
+
+/**
+ * Catálogo de presets en la demo estática: expone SOLO el preset que la demo empaqueta (su
+ * fixture), catalogado desde él. El backend real sirve todos los presets registrados; la demo,
+ * al ser un showcase enlatado, solo puede correr el que tiene capturado.
+ */
+export function demoListPresets(): Promise<PresetsIndexResponse> {
+  return Promise.resolve({
+    presets: [
+      {
+        id: DEMO_PRESET_ID,
+        name: preset.name,
+        description: preset.description,
+        dataset_id: preset.dataset_id,
+      },
+    ],
+  })
+}
+
+/** Detalle de un preset en la demo: siempre el fixture empaquetado (id ignorado, hay uno solo). */
+export function demoGetPresetById(_presetId: string): Promise<PresetResponse> {
   return Promise.resolve(preset)
 }
 

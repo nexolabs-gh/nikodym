@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ArrowRight,
   CircleAlert,
@@ -11,7 +11,22 @@ import {
 import { EmptyState } from "@/components/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ApiError, getResults, runPipeline, type RunStatus } from "@/lib/api"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  ApiError,
+  getPresetById,
+  getResults,
+  listPresets,
+  runPipeline,
+  type PresetSummary,
+  type RunStatus,
+} from "@/lib/api"
 import { canRun, describeApiError } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 
@@ -47,9 +62,23 @@ function runErrorMessage(err: unknown): string {
  * el JSON en el store. `status:"failed"` NO es error HTTP: llega 200 con results parcial + `error`.
  */
 export function RunTab({ onNavigate }: RunTabProps) {
-  const { config, datasetId, validation, seed, setLastRun, setResults } =
-    useAppState()
+  const {
+    config,
+    datasetId,
+    validation,
+    seed,
+    setConfig,
+    setDatasetId,
+    setSelectedDataset,
+    setSeed,
+    setLastRun,
+    setResults,
+  } = useAppState()
   const [outcome, setOutcome] = useState<RunOutcome>({ kind: "idle" })
+  // Catálogo de presets (SDD-28): se puebla desde `GET /api/config/presets`. `switching` bloquea
+  // el selector mientras se resiembra el config/dataset del preset elegido.
+  const [presets, setPresets] = useState<PresetSummary[]>([])
+  const [switching, setSwitching] = useState(false)
 
   const gate = canRun(validation, datasetId)
   const running = outcome.kind === "running"
@@ -57,6 +86,47 @@ export function RunTab({ onNavigate }: RunTabProps) {
   // El arranque de la sesión (provider) siembra y valida el preset solo: mientras no termina
   // (`seed === null`) el botón espera, y se habilita sin que el usuario configure nada (UX1).
   const preparing = seed === null
+
+  // Carga del catálogo de presets al montar (una vez). Falla en silencio: sin catálogo el
+  // selector no se muestra y el flujo estándar (preset ya sembrado por el provider) sigue igual.
+  useEffect(() => {
+    let alive = true
+    void listPresets()
+      .then((res) => {
+        if (alive) setPresets(res.presets)
+      })
+      .catch(() => {
+        /* backend caído: sin selector, el preset sembrado al arranque basta. */
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  // Preset activo: se casa el `seed` (que guarda el NOMBRE del preset sembrado) contra el catálogo.
+  const activePreset =
+    seed?.kind === "preset"
+      ? (presets.find((p) => p.name === seed.name) ?? null)
+      : null
+
+  // Cambia de preset: pide su detalle (`GET /api/config/preset/{id}`) y RESIEMBRA el config y su
+  // dataset recomendado (el provider revalida solo al cambiar el config). Reinicia el preview del
+  // dataset para que Datos lo re-derive. Falla en silencio: el selector nunca rompe la app.
+  async function handlePreset(presetId: string) {
+    if (switching || running) return
+    setSwitching(true)
+    try {
+      const preset = await getPresetById(presetId)
+      setConfig(structuredClone(preset.config))
+      setDatasetId(preset.dataset_id)
+      setSelectedDataset(null)
+      setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
+    } catch {
+      /* no se pudo cambiar de preset: el actual sigue vigente; el usuario puede reintentar. */
+    } finally {
+      setSwitching(false)
+    }
+  }
 
   async function handleRun() {
     if (!gate.ok || datasetId === null) return // guard (el botón ya está deshabilitado)
@@ -88,6 +158,55 @@ export function RunTab({ onNavigate }: RunTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Selector de preset (SDD-28): elige QUÉ pipeline correr. Al cambiarlo se resiembra el
+          config y su dataset. Se muestra solo si el catálogo cargó (backend disponible). */}
+      {presets.length > 0 ? (
+        <Card className="shadow-card">
+          <CardContent className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-eyebrow">Preset</p>
+              <p className="text-xs text-muted-foreground">
+                Elige el pipeline a correr. Al cambiarlo se resiembra el config
+                y su dataset recomendado.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-64">
+                <Select
+                  value={activePreset?.id ?? undefined}
+                  onValueChange={(v) => {
+                    if (v) void handlePreset(v)
+                  }}
+                  disabled={switching || running}
+                >
+                  <SelectTrigger className="w-full" aria-label="Preset a correr">
+                    <SelectValue placeholder="Elige un preset…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {presets.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {switching ? (
+                <Loader2
+                  className="size-4 animate-spin text-muted-foreground"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </div>
+            {activePreset?.description ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {activePreset.description}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* Controles: botón primario + gate (SDD §8). */}
       <Card className="shadow-card">
         <CardContent className="space-y-4">

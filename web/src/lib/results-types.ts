@@ -369,6 +369,161 @@ export interface StabilityResponse {
   psi_table?: PsiTableRow[] | null
 }
 
+// --- provisiones (SDD-28) ---------------------------------------------------
+//
+// Las tres cards de provisiones (`provisioning`, `provisioning_cmf`,
+// `provisioning_internal`) más sus frames AGREGADOS graficables. Reflejan el SHAPE REAL
+// del preset F3 `f3-provisiones-consumo` (verificado contra un payload real generado
+// corriendo la cadena entera y serializado por `ui/serializers.serialize_study` — el mismo
+// que sirve `GET /api/results`). Los MONTOS vienen como `number` (CLP): el motor trabaja en
+// `Decimal` y el serializer lo coacciona a float en la frontera (D9). El serializer emite
+// estas tres claves SIEMPRE: `null` cuando el dominio no corrió (p. ej. una corrida F1 sin
+// provisiones), la card + sus frames cuando sí. La UI usa guard-por-presencia (CERO cálculo).
+
+/**
+ * Fila de la comparación estándar-vs-interno por celda (`provisioning.comparison`). Con
+ * `comparison_level:"total"` (el preset F3) hay UNA fila (`cell_id:"TOTAL"`, `level:"total"`).
+ * `provision_a`/`provision_b` son los operandos comparados (source_a/source_b);
+ * `reported_provision` es el mayor (lo que la norma obliga a constituir); `binding` dice cuál
+ * mandó. Montos en CLP. Todos los floats vienen del artefacto; la UI solo los grafica.
+ */
+export interface ProvisioningComparisonRow {
+  cell_id: string
+  level: string
+  source_a: string
+  source_b: string
+  provision_a: number
+  provision_b: number
+  reported_provision: number
+  binding: string
+  coverage: string
+  warning_codes: string[]
+}
+
+/**
+ * Card de orquestación — la regla del máximo del B-1 (`provisioning`). `total_provision_a` es
+ * el método estándar (source_a, normalmente `"cmf"`), `total_provision_b` el método interno
+ * (source_b, `"internal"`), y `total_reported_provision` el MAYOR de los dos: la provisión que
+ * la norma chilena obliga a constituir (Cap. B-1, hoja 10-11). El titular del producto es el
+ * SOBRECOSTO = reportada − interna (SDD-28 §3.5), en CLP. `binding` dice qué método mandó.
+ * `falta_dato`/`metric_sections` se tipan laxos (no explotados en detalle por la UI).
+ */
+export interface ProvisioningResult {
+  as_of_date: string
+  comparison_level: string
+  rule: string
+  source_a: string
+  source_b: string
+  /** Motores presentes en la comparación (p. ej. `["cmf","internal"]`). */
+  engines_present: string[]
+  /** Qué método mandó a nivel de entidad (`"cmf"`/`"internal"`/…). */
+  binding: string
+  n_cells: number
+  n_binding_a: number
+  n_binding_b: number
+  n_binding_tie: number
+  /** Provisión del método estándar (source_a), en CLP. */
+  total_provision_a: number
+  /** Provisión del método interno (source_b), en CLP. */
+  total_provision_b: number
+  /** Provisión reportada = mayor(estándar, interno), en CLP. */
+  total_reported_provision: number
+  cmf_matrix_version: string
+  ifrs9_term_structure_source: string | null
+  internal_method: string
+  /** Citas normativas de la regla aplicada (para el pie/auditoría). */
+  regulatory_sources: string[]
+  /** Operaciones con dato faltante (vacío en la corrida de referencia; laxo). */
+  falta_dato?: unknown[]
+  metric_sections?: Record<string, unknown>
+  /** Comparación por celda (1 fila con `comparison_level:"total"`). */
+  comparison?: ProvisioningComparisonRow[]
+}
+
+/** Agregado por cartera del método estándar CMF (`provisioning_cmf.portfolios`). */
+export interface CmfPortfolioRow {
+  portfolio: string
+  n_rows: number
+  total_exposure_amount: number
+  total_provision_amount: number
+  /** Pérdida esperada ponderada, en PORCENTAJE (0–100, NO proporción). */
+  weighted_pe_percent: number
+  warnings: string[]
+}
+
+/**
+ * Fila del desglose del método estándar por categoría CMF (`provisioning_cmf.summary`, ~20
+ * filas). `cmf_category` es el código derivado por el motor `(bucket_dpd|hipotecario_sistema|
+ * mora_sistema)`, p. ej. `"0_7|no|no"`. Montos en CLP; `weighted_pe_percent` en % (0–100).
+ */
+export interface CmfSummaryRow {
+  portfolio: string
+  method: string
+  cmf_category: string
+  n_rows: number
+  total_exposure_amount: number
+  total_provision_amount: number
+  weighted_pe_percent: number
+  matrix_version: string
+  warning_codes: string[]
+}
+
+/**
+ * Card del método estándar CMF (Cap. B-1/B-3), `provisioning_cmf`. `total_provision_amount` es
+ * la provisión estándar total (CLP); `total_exposure_amount` las colocaciones (CLP). El
+ * desglose por categoría vive en `summary`.
+ */
+export interface CmfProvisioningResult {
+  matrix_version: string
+  as_of_date: string
+  n_rows: number
+  total_exposure_amount: number
+  total_provision_amount: number
+  portfolios: CmfPortfolioRow[]
+  regulatory_sources: string[]
+  metric_sections?: Record<string, unknown>
+  /** Desglose por categoría CMF (~20 filas); ausente/`null` si el frame no se emitió. */
+  summary?: CmfSummaryRow[]
+}
+
+/**
+ * Fila por grupo homogéneo del método interno (`provisioning_internal.groups`, 10 bandas de
+ * score con `grouping:"score_band"`). Es la tabla que un validador pide: PD·LGD·Exposición por
+ * grupo. `pd_group`/`lgd_group`/`expected_loss_rate` son PROPORCIONES [0,1]; `provision_amount`
+ * y `total_exposure` en CLP.
+ */
+export interface InternalGroupRow {
+  group_id: string
+  portfolio: string
+  n_operations: number
+  total_exposure: number
+  pd_group: number
+  lgd_group: number
+  expected_loss_rate: number
+  provision_amount: number
+  warning_codes: string[]
+}
+
+/**
+ * Card del método interno (`provisioning_internal`): provisión = Exposición · PD · LGD por grupo
+ * homogéneo (B-1 §3). `total_internal_provision` es la provisión interna total (CLP);
+ * `total_exposure` las colocaciones (CLP). El desglose por grupo vive en `groups`.
+ */
+export interface InternalProvisioningResult {
+  as_of_date: string
+  method: string
+  grouping: string
+  pd_source: string
+  n_groups: number
+  n_rows: number
+  total_exposure: number
+  total_internal_provision: number
+  falta_dato?: unknown[]
+  metric_sections?: Record<string, unknown>
+  /** Desglose por grupo homogéneo (10 bandas); ausente/`null` si el frame no se emitió. */
+  groups?: InternalGroupRow[]
+}
+
 // --- top-level --------------------------------------------------------------
 
 /**
@@ -390,4 +545,11 @@ export interface ResultsResponse {
   performance?: PerformanceResult
   /** Estabilidad post-modelo (PSI/CSI). `null` si no corrió; ausente en payloads viejos. */
   stability?: StabilityResponse | null
+  /**
+   * Provisiones (SDD-28). Las tres cards salen `null` en una corrida F1 (sin provisiones) y
+   * pobladas en el preset F3. Ausentes en payloads viejos anteriores al serializer de B23.5.
+   */
+  provisioning?: ProvisioningResult | null
+  provisioning_cmf?: CmfProvisioningResult | null
+  provisioning_internal?: InternalProvisioningResult | null
 }

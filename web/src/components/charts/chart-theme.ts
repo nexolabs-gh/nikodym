@@ -56,6 +56,26 @@ export function isPrimaryPartition(partition: string): boolean {
 }
 
 /**
+ * Paleta de provisiones (SDD-28): la regla del máximo estándar-vs-interno-vs-reportado. MISMO
+ * color = MISMO método en todos los charts. Estándar (CMF) en azul de marca, interno en cyan,
+ * reportado (lo que la norma obliga a constituir) en el azul acento profundo para que lea como
+ * "el número final". Accesibilidad: el color nunca es el único distintivo (labels + leyenda +
+ * tabla acompañan siempre).
+ */
+export const PROVISIONING_COLORS = {
+  standard: BRAND.accentDark, // método estándar CMF (source_a)
+  internal: BRAND.cyan, // método interno PD·LGD·EAD (source_b)
+  reported: BRAND.accent, // provisión reportada = mayor(estándar, interno)
+} as const
+
+/** Color de una barra de la comparación de provisiones; fallback neutro (robustez). */
+export function provisioningBarColor(
+  key: "standard" | "internal" | "reported",
+): string {
+  return PROVISIONING_COLORS[key] ?? BRAND.placeholder
+}
+
+/**
  * Paleta SEMÁNTICA de bandas de estabilidad (PSI/CSI), tipo semáforo sobre navy:
  * estable=verde (ok), revisar=ámbar (vigilar), redesarrollar=rojo (alerta), no
  * evaluable=gris neutro. Los verdes/rojos usan las variantes -400 de Tailwind, que
