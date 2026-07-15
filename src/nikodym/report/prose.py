@@ -23,6 +23,7 @@ Tres reglas, no negociables porque esto va a un regulador:
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
 
 from nikodym.report.document import DOMAIN_TITLES
@@ -39,6 +40,7 @@ __all__ = [
     "limitations_body",
     "methodology_body",
     "methodology_intro",
+    "provisions_intro",
     "results_body",
     "results_intro",
 ]
@@ -758,6 +760,12 @@ def results_body(bundle: ReportInputBundle, domain: str) -> tuple[str, ...]:
         return _results_stability(bundle)
     if domain == "eda":
         return _results_eda(bundle)
+    if domain == "provisioning":
+        return _results_provisioning(bundle)
+    if domain == "provisioning_cmf":
+        return _results_provisioning_cmf(bundle)
+    if domain == "provisioning_internal":
+        return _results_provisioning_internal(bundle)
     return ()
 
 
@@ -1094,6 +1102,196 @@ def _results_stability(bundle: ReportInputBundle) -> tuple[str, ...]:
     return tuple(paragraphs)
 
 
+# ────────────────────────────── provisiones (capítulo condicional) ──────────────────────────────
+
+
+_PROVISION_WARNINGS: Final[dict[str, str]] = {
+    "piso_incompleto": (
+        "una de las dos fuentes no cubrió todas las exposiciones, así que el máximo se calculó "
+        "sobre cobertura parcial"
+    ),
+    "cobertura_imputada_cero": (
+        "a las exposiciones sin dato de una fuente se les imputó provisión cero, lo que puede "
+        "subestimar el máximo"
+    ),
+}
+
+
+def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Titular del capítulo: la provisión a constituir y el sobrecosto del estándar, en CLP.
+
+    Es el número que vende el producto (SDD-28 §3.5): no un ratio de conteo, sino plata. La norma
+    obliga a constituir el mayor entre el método estándar de la CMF y el método interno del banco;
+    el delta entre ese máximo y el interno es lo que el estándar le cuesta al banco.
+    """
+    orq = _card(bundle, "provisioning")
+    if orq is None:
+        return ()
+    cmf = _card(bundle, "provisioning_cmf")
+    interno = _card(bundle, "provisioning_internal")
+
+    reportado = _float(orq.get("total_reported_provision"))
+    estandar = _float(cmf.get("total_provision_amount")) if cmf is not None else None
+    interno_total = _float(interno.get("total_internal_provision")) if interno is not None else None
+    exposicion = _float(cmf.get("total_exposure_amount")) if cmf is not None else None
+    binding = str(orq.get("binding") or "")
+
+    paragraphs: list[str] = [
+        "El Compendio de Normas Contables para Bancos (Cap. B-1, hoja 10-11, Circular N° 2.346) "
+        "obliga a constituir provisiones por el **mayor valor** entre el método estándar de la CMF "
+        "y el método interno del banco, y a disponer de ambos métodos. Este capítulo aplica esa "
+        "regla sobre la cartera y reporta la provisión resultante."
+    ]
+
+    if estandar is not None and interno_total is not None and reportado is not None:
+        base = (
+            f"Sobre colocaciones por {_clp(exposicion)}, el método estándar de la CMF exige "
+            f"{_clp(estandar)} y el método interno {_clp(interno_total)}. La provisión a "
+            f"constituir es {_clp(reportado)}."
+        )
+        if binding == "cmf":
+            sobrecosto = reportado - interno_total
+            extra_pct = (sobrecosto / interno_total * 100.0) if interno_total else None
+            titular = (
+                f" Manda el estándar: cuesta {_clp(sobrecosto)} por encima de lo que el propio "
+                "modelo interno del banco pediría"
+            )
+            titular += f" (un {extra_pct:.0f} % más)." if extra_pct is not None else "."
+            paragraphs.append(base + titular)
+        elif binding == "internal":
+            paragraphs.append(
+                base + " Manda el método interno: el modelo del banco ya provisiona por encima "
+                "del estándar de la CMF, de modo que el estándar no añade sobrecosto."
+            )
+        else:
+            paragraphs.append(base + " Ambos métodos arrojan la misma provisión.")
+
+    paragraphs.append(
+        "La regla se aplica a nivel de entidad —«para cada institución en Chile que consolida con "
+        "el banco», según la norma—, no operación por operación."
+    )
+    return tuple(paragraphs)
+
+
+def _results_provisioning(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Subsección del orquestador: la regla del máximo, la asimetría de consolidación y warnings."""
+    card = _card(bundle, "provisioning")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    rule = str(card.get("rule") or "")
+    binding = str(card.get("binding") or "")
+    level = str(card.get("comparison_level") or "")
+    if rule == "max":
+        binding_label = {
+            "cmf": "el método estándar de la CMF",
+            "internal": "el método interno",
+            "tie": "ambos métodos por igual (empate)",
+        }.get(binding, binding)
+        nivel_label = {
+            "total": "la entidad",
+            "portfolio": "cada cartera",
+            "segment": "cada segmento",
+        }
+        paragraphs.append(
+            f"La provisión reportada es el máximo entre las dos fuentes, evaluado a nivel de "
+            f"{nivel_label.get(level, level)}. En esta cartera manda {binding_label}."
+        )
+
+    # La asimetría de consolidación es real y normativa: sin declararla, parece un bug (SDD-28 §8).
+    paragraphs.append(
+        "Los dos métodos agrupan la cartera de forma distinta, y es deliberado: el método estándar "
+        "consolida a nivel de deudor —sube a incumplimiento todas las operaciones de un deudor si "
+        "alguna supera 90 días de mora—, mientras que el método interno agrupa por banda de score. "
+        "La asimetría la impone la norma, no es un error de cálculo."
+    )
+
+    floor_bite = _float(
+        _mapping(_mapping(card.get("metric_sections")).get("provisioning_orchestration")).get(
+            "floor_bite_ratio"
+        )
+    )
+    if floor_bite is not None and level != "total":
+        paragraphs.append(
+            f"El estándar muerde en el {_pct(floor_bite)} de las celdas comparadas (diagnóstico "
+            "secundario; el titular es el sobrecosto en pesos, no esta fracción)."
+        )
+
+    warnings = tuple(str(code) for code in _sequence(card.get("falta_dato")))
+    descritos = tuple(_PROVISION_WARNINGS[code] for code in warnings if code in _PROVISION_WARNINGS)
+    if descritos:
+        paragraphs.append(
+            "El orquestador reportó advertencias que el lector debe conocer: "
+            + _enumerar(descritos)
+            + "."
+        )
+    return tuple(paragraphs)
+
+
+def _results_provisioning_cmf(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Subsección del método estándar: exposición, provisión, índice de riesgo y matriz."""
+    card = _card(bundle, "provisioning_cmf")
+    if card is None:
+        return ()
+    exposicion = _float(card.get("total_exposure_amount"))
+    provision = _float(card.get("total_provision_amount"))
+    matrix = _text(card.get("matrix_version"))
+    paragraphs: list[str] = []
+    if exposicion is not None and provision is not None:
+        indice = provision / exposicion if exposicion else None
+        detalle = (
+            f"El método estándar de la CMF provisiona {_clp(provision)} sobre {_clp(exposicion)} "
+            "de colocaciones"
+        )
+        detalle += f", un índice de riesgo del {_pct(indice)}." if indice is not None else "."
+        paragraphs.append(detalle)
+    paragraphs.append(
+        "En cartera de consumo el factor de provisión es PI por PDI; la categoría no es un input: "
+        "la deriva el motor del tramo de mora, la tenencia de hipotecario y la mora en el sistema "
+        "financiero, según la matriz del Cap. B-1."
+        + (f" Matriz aplicada: {matrix}." if matrix is not None else "")
+    )
+    return tuple(paragraphs)
+
+
+def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Subsección del método interno: PD por LGD por exposición, por grupo homogéneo."""
+    card = _card(bundle, "provisioning_internal")
+    if card is None:
+        return ()
+    provision = _float(card.get("total_internal_provision"))
+    n_groups = _int(card.get("n_groups"))
+    pd_source = str(card.get("pd_source") or "")
+    grouping = str(card.get("grouping") or "")
+    paragraphs: list[str] = []
+    detalle = "El método interno es el que la norma también exige: pérdida esperada por grupo "
+    detalle += "homogéneo, como probabilidad de incumplimiento por pérdida dado el incumplimiento "
+    detalle += "por exposición del grupo."
+    if provision is not None:
+        detalle += f" Sobre esta cartera suma {_clp(provision)}."
+    paragraphs.append(detalle)
+    fuente_pd = {
+        "calibration": "la PD calibrada del scorecard —el modelo del banco entra por aquí en el "
+        "número reportado—",
+        "model": "la PD del modelo",
+    }.get(pd_source, "la PD configurada")
+    agrupacion = {
+        "score_band": "banda de score",
+        "segment": "segmento",
+        "provided": "grupo provisto",
+    }
+    detalle_pd = f"La PD proviene de {fuente_pd}"
+    if n_groups is not None:
+        detalle_pd += (
+            f", agrupada en {n_groups} grupos por {agrupacion.get(grouping, grouping)}"
+            if grouping
+            else f", en {n_groups} grupos"
+        )
+    paragraphs.append(detalle_pd + ".")
+    return tuple(paragraphs)
+
+
 # ────────────────────────────── conclusiones y limitaciones ──────────────────────────────
 
 
@@ -1188,8 +1386,8 @@ def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Limitaciones: alcance de la fase, caveats de determinismo y secciones ausentes."""
     paragraphs: list[str] = [
         "El alcance de este informe es la validación del scorecard: discriminación, calibración "
-        "y estabilidad. El backtesting, la integración con IFRS 9 y el cálculo de provisiones "
-        "corresponden a fases posteriores y no se cubren ni se infieren aquí.",
+        "y estabilidad. El backtesting y la integración con IFRS 9 corresponden a fases "
+        "posteriores y no se cubren ni se infieren aquí.",
         "Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no "
         "completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como "
         "no disponible.",
@@ -1250,10 +1448,14 @@ def _sequence(value: Any) -> tuple[Any, ...]:
 
 
 def _float(value: Any) -> float | None:
-    """Coacciona a float sólo lo que ya ES un número finito; nunca parsea ni asume."""
+    """Coacciona a float sólo lo que ya ES un número finito; nunca parsea ni asume.
+
+    Acepta ``Decimal`` además de ``int``/``float``: las cards de provisiones publican sus cifras
+    contables en ``Decimal`` y ``model_dump(mode="python")`` las conserva como tal.
+    """
     if isinstance(value, bool) or value is None:
         return None
-    if isinstance(value, int | float):
+    if isinstance(value, int | float | Decimal):
         numeric = float(value)
         if numeric != numeric or numeric in (float("inf"), float("-inf")):
             return None
@@ -1296,6 +1498,19 @@ def _pct(value: Any, *, decimals: int = 2) -> str:
     if numeric is None:
         return _NOT_AVAILABLE
     return f"{numeric * 100:.{decimals}f} %"
+
+
+def _clp(value: Any) -> str:
+    """Formatea una cifra en pesos chilenos con separador de miles (``$697.376.974``).
+
+    Una provisión sin unidad es ilegible para quien la lee en millones (SDD-28 §6.3.10). Se redondea
+    al peso —la política ``rounding`` del motor ya cuantizó la cifra— y se usa el punto como
+    separador de miles, convención chilena.
+    """
+    numeric = _float(value)
+    if numeric is None:
+        return _NOT_AVAILABLE
+    return "$" + f"{round(numeric):,}".replace(",", ".")
 
 
 def _plural(count: int, singular: str, plural: str) -> str:

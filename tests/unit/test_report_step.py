@@ -48,13 +48,13 @@ from nikodym.eda.config import (
 )
 from nikodym.model.config import IvContributionConfig, ModelConfig, SignPolicyConfig, StepwiseConfig
 from nikodym.performance.config import PerformanceConfig
-from nikodym.report.builder import CANONICAL_SECTION_ORDER
 from nikodym.report.config import (
     AiNarrationConfig,
     PdfRenderConfig,
     ReportConfig,
     SectionPolicyConfig,
 )
+from nikodym.report.document import CHAPTER_SPECS
 from nikodym.report.exceptions import ReportDependencyError, ReportExportError
 from nikodym.report.renderer import HtmlReportRenderer
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportResult
@@ -71,7 +71,7 @@ from nikodym.stability.config import StabilityConfig
 ROOT_SEED = 20_240_629
 # Golden del ``_digest_html`` (excluye ``<svg>``): con el extra ``report`` el bundle golden embebe
 # un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
-GOLDEN_STEP_HTML_SHA256 = "4e733e1a33aca0b11e5ec0c9b1f426c48c70b691078b7a950781529e6fc61c7b"
+GOLDEN_STEP_HTML_SHA256 = "8eac876bbb2c39b3ea1bcffe3ce74692acac949626b1534ac8b8890236626b90"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -139,9 +139,15 @@ def test_requires_se_deriva_de_required_sections() -> None:
 
 
 def test_core_study_cablea_report_en_orden_por_defecto(tmp_path: Path) -> None:
-    """``Study`` resuelve ``report`` como dominio perezoso después de ``stability``."""
+    """``Study`` resuelve ``report`` como dominio perezoso, corriendo AL FINAL del pipeline.
+
+    ``report`` es la foto de todo lo que corrió: va después de las provisiones y de ``validation``
+    (SDD-28 D8). Antes iba tras ``stability`` y su builder no veía las cards de provisiones.
+    """
     order = study_module._DEFAULT_DOMAIN_ORDER
-    assert order[order.index("stability") + 1] == "report"
+    assert order[-1] == "report"
+    assert order.index("report") > order.index("provisioning")
+    assert order.index("report") > order.index("validation")
     assert study_module._DOMAIN_MODULES["report"] == "nikodym.report"
     assert study_module._DOMAIN_CONFIG_CLASSES["report"] == (
         "nikodym.report.config",
@@ -181,11 +187,12 @@ def test_execute_publica_result_manifest_goldens_audit_y_no_consume_rng(tmp_path
     assert result.manifest.path == "scorecard_report.html"
     assert result.manifest.ai_enabled is True
     assert result.manifest.ai_used is False
-    # El documento: capítulos de primer nivel en el orden canónico único (report.document).
-    assert (
-        tuple(section.id for section in result.input_bundle.sections if section.level == 1)
-        == CANONICAL_SECTION_ORDER
-    )
+    # El documento: capítulos de primer nivel en el orden canónico único (report.document). Esta
+    # corrida no calcula provisiones, así que emite exactamente los capítulos INCONDICIONALES; el
+    # condicional (`provisions`) está en CANONICAL_SECTION_ORDER pero no se emite (SDD-28 D5).
+    assert tuple(
+        section.id for section in result.input_bundle.sections if section.level == 1
+    ) == tuple(spec.id for spec in CHAPTER_SPECS if not spec.requires_domain)
     # Los ocho dominios del pipeline son ahora subsecciones, no secciones de primer nivel.
     ids = {section.id for section in result.input_bundle.sections}
     assert "results.performance" in ids
@@ -309,10 +316,10 @@ def test_manifest_en_memoria_y_exportado_tienen_identidad_canonica(tmp_path: Pat
     assert memory_manifest.sha256 == written_manifest.sha256
     if _HAS_MATPLOTLIB:
         assert memory_manifest.sha256 == GOLDEN_STEP_HTML_SHA256
-    # El manifest reordena al orden canónico del documento aunque el bundle llegue invertido.
-    assert (
-        tuple(section.id for section in memory_manifest.sections if section.level == 1)
-        == CANONICAL_SECTION_ORDER
+    # El manifest reordena al orden canónico del documento aunque el bundle llegue invertido. Sin
+    # provisiones, se emiten los capítulos incondicionales (el condicional no aparece; SDD-28 D5).
+    assert tuple(section.id for section in memory_manifest.sections if section.level == 1) == tuple(
+        spec.id for spec in CHAPTER_SPECS if not spec.requires_domain
     )
     assert tuple(section.id for section in written_manifest.sections) == tuple(
         section.id for section in memory_manifest.sections

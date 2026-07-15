@@ -78,6 +78,15 @@ sobre ese agregado).
 - **Dataset sintético `provisiones_consumo`** — cartera de consumo con las columnas
   económico-regulatorias que exigen los motores (exposición, mora, deudor con varias operaciones,
   producto, flags de sistema, LGD), coherente por construcción y con tasa de default de un dígito.
+- **Capítulo de provisiones en el informe** — un capítulo condicional (`ChapterSpec.requires_domain`)
+  que solo aparece cuando la corrida calculó provisiones. Su titular es el número que vende: la
+  provisión a constituir y el **sobrecosto del método estándar en CLP** (para la cartera de la demo,
+  $388.732.916 por encima de lo que el método interno pediría). Trae las tres tablas agregadas
+  (comparación estándar-vs-interno, provisión estándar por categoría, provisión interna por grupo),
+  declara la asimetría de consolidación que la norma impone (estándar por deudor, interno por banda
+  de score) e imprime los warnings del orquestador. Con el capítulo ya presente, el informe **deja
+  de decir** que las provisiones "corresponden a fases posteriores". Como consecuencia, `report`
+  ahora corre al final del pipeline (antes su builder nunca veía las cards de provisiones).
 - **Las cards de provisiones en `results.json`** — el serializer de la UI expone las tres cards
   (estándar CMF, método interno, orquestador con la regla del máximo) y sus frames **agregados**
   graficables: el desglose del estándar por categoría, el del interno por grupo homogéneo y la

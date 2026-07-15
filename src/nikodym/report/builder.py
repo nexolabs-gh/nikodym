@@ -39,6 +39,7 @@ from nikodym.report.document import (
     DOMAIN_TITLES,
     METHODOLOGY_STEPS,
     PIPELINE_DOMAINS,
+    PROVISION_DOMAINS,
     RESULT_DOMAINS,
     ChapterSpec,
     domain_section_id,
@@ -109,6 +110,11 @@ _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("performance", "discriminant_metrics"),
     ("stability", "psi_table"),
     ("stability", "stability_metrics"),
+    # Provisiones: solo los frames AGREGADOS (SDD-28 §6.4). NUNCA ``detail`` (6.000 filas por
+    # operación): no cabe en el cuerpo de un informe ni en el anexo.
+    ("provisioning", "comparison"),
+    ("provisioning_cmf", "summary"),
+    ("provisioning_internal", "groups"),
 )
 _FIGURE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (("eda", "figures"),)
 _VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
@@ -229,6 +235,8 @@ class ReportBuilder:
             return self._methodology_subsections(bundle, number)
         if spec.id == "results":
             return self._domain_subsections(spec.id, RESULT_DOMAINS, bundle, number, kind="data")
+        if spec.id == "provisions":
+            return self._domain_subsections(spec.id, PROVISION_DOMAINS, bundle, number, kind="data")
         if spec.id == APPENDIX_PARAMETERS_ID:
             return self._domain_subsections(
                 spec.id,
@@ -424,6 +432,8 @@ def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]
         return prose.methodology_intro(bundle)
     if chapter_id == "results":
         return prose.results_intro(bundle)
+    if chapter_id == "provisions":
+        return prose.provisions_intro(bundle)
     if chapter_id == "conclusions":
         return prose.conclusions_body(bundle)
     if chapter_id == "limitations":

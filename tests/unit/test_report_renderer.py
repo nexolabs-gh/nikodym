@@ -45,7 +45,10 @@ from nikodym.report.results import (
 # el bundle golden embebe un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
 # Recalculado al pasar el reporte de log a documento: el HTML cambió a propósito (portada con
 # metadatos, índice, resumen ejecutivo con métricas, capítulos de prosa y dump degradado a anexos).
-GOLDEN_HTML_SHA256 = "6537fe1149b6f4fd9beb4bcf0fa6f5638fa7bc53b32c93d1d4a16f1968054173"
+# Recalculado (SDD-28 G5) al retirar del resumen ejecutivo y de Limitaciones la frase que declaraba
+# las provisiones "fase posterior": el capítulo de provisiones ya existe (condicional, no en este
+# bundle F1). Verificado que el HTML cambió SOLO en esas dos frases (el orden canónico intacto).
+GOLDEN_HTML_SHA256 = "7576fce0db92c728a3cd30665f8bc8b39f6b1a406a8993066b65d11036ed7ed6"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 

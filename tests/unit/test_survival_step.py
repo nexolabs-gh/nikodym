@@ -66,12 +66,14 @@ def test_from_config_registro_reexport_contrato_orden_e_import_liviano() -> None
         "stress",
         "performance",
         "stability",
-        "report",
         "provisioning_ifrs9",
         "provisioning_cmf",
         "provisioning_internal",
         "provisioning",
         "validation",
+        # ``report`` corre AL FINAL: es la foto de todo lo que corrió, incluidas las provisiones
+        # (SDD-28 D8). Antes vivía tras ``stability`` y su builder no veía sus cards.
+        "report",
     )
 
     step.emit(

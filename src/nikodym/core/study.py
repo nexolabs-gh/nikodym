@@ -123,12 +123,16 @@ _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
     "stress",
     "performance",
     "stability",
-    "report",
     "provisioning_ifrs9",
     "provisioning_cmf",
     "provisioning_internal",
     "provisioning",
     "validation",
+    # ``report`` corre AL FINAL: es la foto de todo lo que corrió. Antes vivía tras ``stability``,
+    # de modo que ``ReportBuilder`` nunca veía las cards de provisiones y su capítulo condicional
+    # era inalcanzable (SDD-28 D8). ``report`` es INFRA (no entra al ``config_hash``), así que
+    # reordenar es barato y no mueve la identidad de ninguna corrida.
+    "report",
 )
 _REPLACE_RETRY_ATTEMPTS: Final = 3
 _REPLACE_RETRY_BACKOFF_SECONDS: Final = 0.05

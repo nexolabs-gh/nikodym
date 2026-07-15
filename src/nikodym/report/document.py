@@ -80,6 +80,9 @@ DOMAIN_TITLES: Final[dict[str, str]] = {
     "calibration": "Calibración",
     "performance": "Desempeño y discriminación",
     "stability": "Estabilidad",
+    "provisioning": "La provisión a constituir — la regla del máximo",
+    "provisioning_cmf": "Método estándar de la CMF (Cap. B-1)",
+    "provisioning_internal": "Método interno del banco",
 }
 
 # Dominios que alimentan el capítulo de Contexto (población) y los de Resultados (el cuerpo).
@@ -92,6 +95,14 @@ RESULT_DOMAINS: Final[tuple[str, ...]] = (
     "calibration",
     "performance",
     "stability",
+)
+# Subsecciones del capítulo CONDICIONAL de provisiones (SDD-28 D5). El orquestador primero (es el
+# titular: la provisión a constituir y el sobrecosto del estándar en CLP), luego el desglose de cada
+# método. Solo se emite el capítulo si ``provisioning`` corrió (``ChapterSpec.requires_domain``).
+PROVISION_DOMAINS: Final[tuple[str, ...]] = (
+    "provisioning",
+    "provisioning_cmf",
+    "provisioning_internal",
 )
 
 APPENDIX_LINEAGE_ID: Final = "appendix_lineage"
@@ -122,6 +133,9 @@ KEY_TABLES: Final[dict[str, tuple[str, ...]]] = {
     "calibration": ("calibration.parameters",),
     "performance": ("performance.discriminant_metrics", "performance.performance_table"),
     "stability": ("stability.stability_metrics", "stability.psi_table"),
+    "provisioning": ("provisioning.comparison",),
+    "provisioning_cmf": ("provisioning_cmf.summary",),
+    "provisioning_internal": ("provisioning_internal.groups",),
 }
 
 # Tablas **por observación**: una fila por crédito/cliente. Son frames del dataset, no resúmenes, y
@@ -169,6 +183,9 @@ _TABLE_TITLES: Final[dict[str, str]] = {
     "performance.discriminant_metrics": "Métricas de discriminación por partición",
     "stability.psi_table": "PSI por tramo de score",
     "stability.stability_metrics": "Métricas de estabilidad (PSI/CSI)",
+    "provisioning.comparison": "Comparación estándar vs. interno y regla del máximo",
+    "provisioning_cmf.summary": "Provisión estándar por categoría CMF",
+    "provisioning_internal.groups": "Provisión interna por grupo homogéneo (banda de score)",
 }
 _BINNING_TABLE_PREFIX: Final = "binning.tables."
 
@@ -225,6 +242,16 @@ CHAPTER_SPECS: Final[tuple[ChapterSpec, ...]] = (
     ),
     ChapterSpec(id="methodology", title="Metodología", kind="prose"),
     ChapterSpec(id="results", title="Resultados", kind="prose"),
+    # Capítulo CONDICIONAL (SDD-28 D5): solo se emite si la corrida calculó provisiones. Va tras
+    # Resultados —es un resultado de negocio, no una validación del scorecard— y antes de
+    # Conclusiones, que pueden referirlo. En una corrida de scorecard no aparece y la numeración se
+    # reajusta sola (``build_sections`` deriva los números de los capítulos emitidos).
+    ChapterSpec(
+        id="provisions",
+        title="Provisiones regulatorias",
+        kind="prose",
+        requires_domain="provisioning",
+    ),
     ChapterSpec(
         id="conclusions",
         title="Conclusiones y recomendación",
@@ -275,6 +302,7 @@ _CHILD_ORDER: Final[dict[str, tuple[str, ...]]] = {
     "context": CONTEXT_DOMAINS,
     "methodology": tuple(step for step, _ in METHODOLOGY_STEPS),
     "results": RESULT_DOMAINS,
+    "provisions": PROVISION_DOMAINS,
     APPENDIX_PARAMETERS_ID: PIPELINE_DOMAINS,
 }
 

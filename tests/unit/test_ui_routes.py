@@ -365,6 +365,35 @@ def test_run_pipeline_preset_provisiones_estandar_muerde(tmp_path: Path) -> None
     assert float(orquestador.total_reported_provision) == estandar
 
 
+def test_run_pipeline_preset_provisiones_informe_trae_el_capitulo(tmp_path: Path) -> None:
+    """G5: el informe del F3 trae el capítulo de provisiones con el sobrecosto, y ya no lo niega.
+
+    Verifica el ARTEFACTO final (el HTML persistido), no el código: el capítulo condicional aparece
+    con la provisión a constituir y el sobrecosto del estándar en CLP, y el informe **ya no dice**
+    que las provisiones "corresponden a fases posteriores" (esa frase era verdadera hasta que el
+    capítulo existió). Requiere el extra ``scoring`` (binning MIP real); el job mínimo lo salta.
+    """
+    pytest.importorskip("optbinning")
+    from nikodym.ui import runs
+    from nikodym.ui.presets import PROVISIONES_DATASET_ID, provisiones_preset
+
+    result = routes.run_pipeline(
+        provisiones_preset()["config"], PROVISIONES_DATASET_ID, workdir=tmp_path
+    )
+    assert result["status"] == "done"
+    html = runs.load_report(result["run_id"], workdir=tmp_path)
+    assert html is not None
+
+    # (a) El capítulo existe con su titular en pesos: la provisión a constituir y el sobrecosto.
+    assert "Provisiones regulatorias" in html
+    assert "regla del máximo" in html.lower() or "mayor valor" in html.lower()
+    assert "$697.376.974" in html  # provisión a constituir (estándar, que muerde)
+    assert "$388.732.916" in html  # sobrecosto del estándar sobre el método interno
+    # (b) El informe ya NO declara las provisiones como fase posterior (SDD-28 G5).
+    assert "provisiones corresponden a fases posteriores" not in html.lower()
+    assert "cálculo de provisiones" not in html.lower()
+
+
 def test_run_pipeline_config_invalido_propaga_validation_error(tmp_path: Path) -> None:
     """Un config inválido propaga ``ValidationError`` (el endpoint lo traduce a 422)."""
     from pydantic import ValidationError

@@ -484,31 +484,17 @@ def _nikodym_config() -> NikodymConfig:
     )
 
 
-def test_capitulo_condicional_se_omite_si_su_dominio_no_corrio(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Un capítulo con ``requires_domain`` solo existe si ese dominio publicó card.
+def test_capitulo_de_provisiones_es_condicional_a_su_card() -> None:
+    """El capítulo REAL de provisiones (``requires_domain="provisioning"``) solo existe con su card.
 
     Es el mecanismo que permite que el informe de un scorecard **no** traiga un capítulo de
     provisiones vacío, y que el de una corrida con provisiones **sí** lo traiga — sin que el
     documento tenga que declarar por escrito que "las provisiones corresponden a fases posteriores".
 
-    Se verifica en las dos direcciones: sin la card, el capítulo desaparece **y la numeración de los
-    siguientes no deja huecos**; con la card, aparece en su posición canónica.
+    Se verifica sobre el ``CHAPTER_SPECS`` real (sin monkeypatch), en las dos direcciones: sin la
+    card, el capítulo desaparece **y la numeración de los siguientes no deja huecos**; con la card,
+    aparece en su posición canónica (tras Resultados, antes de Conclusiones) y desplaza el resto.
     """
-    condicional = document.ChapterSpec(
-        id="provisions",
-        title="Provisiones",
-        kind="prose",
-        requires_domain="provisioning",
-    )
-    # Se inserta antes de 'limitations' para comprobar que la renumeración es real.
-    specs = list(document.CHAPTER_SPECS)
-    corte = next(i for i, spec in enumerate(specs) if spec.id == "limitations")
-    specs.insert(corte, condicional)
-    monkeypatch.setattr(document, "CHAPTER_SPECS", tuple(specs))
-    monkeypatch.setattr("nikodym.report.builder.CHAPTER_SPECS", tuple(specs))
-
     builder = ReportBuilder.from_config(ReportConfig())
 
     # --- Sin la card del dominio: el capítulo NO existe ---
@@ -516,6 +502,7 @@ def test_capitulo_condicional_se_omite_si_su_dominio_no_corrio(
     ids_sin = [s.id for s in sin_provisiones.sections if s.level == 1]
     assert "provisions" not in ids_sin
     numeros_sin = {s.id: s.number for s in sin_provisiones.sections if s.level == 1}
+    assert numeros_sin["conclusions"] == "5"
     assert numeros_sin["limitations"] == "6", "la numeración dejó un hueco al omitir el capítulo"
 
     # --- Con la card: el capítulo aparece, y desplaza la numeración siguiente ---
@@ -525,5 +512,6 @@ def test_capitulo_condicional_se_omite_si_su_dominio_no_corrio(
     ids_con = [s.id for s in con_provisiones.sections if s.level == 1]
     assert "provisions" in ids_con
     numeros_con = {s.id: s.number for s in con_provisiones.sections if s.level == 1}
-    assert numeros_con["provisions"] == "6"
-    assert numeros_con["limitations"] == "7", "el capítulo nuevo no desplazó la numeración"
+    assert numeros_con["provisions"] == "5"
+    assert numeros_con["conclusions"] == "6", "el capítulo nuevo no desplazó la numeración"
+    assert numeros_con["limitations"] == "7"

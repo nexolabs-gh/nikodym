@@ -289,13 +289,14 @@ def test_execute_directo_revalida_requires_antes_de_correr() -> None:
         step.execute(study, np.random.default_rng(0))
 
 
-def test_core_study_cablea_validation_al_final() -> None:
-    """``Study`` resuelve ``validation`` como dominio perezoso al final del orden por defecto."""
+def test_core_study_cablea_validation_al_cierre_del_computo() -> None:
+    """``validation`` cierra el pipeline de cómputo; solo ``report`` (infra) corre después (D8)."""
     order = study_module._DEFAULT_DOMAIN_ORDER
-    assert order[-1] == "validation"
+    assert order[-1] == "report"  # la foto final del informe (SDD-28 D8)
+    assert order[-2] == "validation"  # validation es el último dominio de cómputo
     assert order.index("validation") > order.index("performance")
     assert order.index("validation") > order.index("stability")
-    assert order.index("validation") > order.index("provisioning_ifrs9")
+    assert order.index("validation") > order.index("provisioning")
     assert study_module._DOMAIN_MODULES["validation"] == "nikodym.validation"
     assert study_module._DOMAIN_CONFIG_CLASSES["validation"] == (
         "nikodym.validation.config",
