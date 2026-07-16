@@ -616,20 +616,21 @@ def provisiones_preset() -> dict[str, Any]:
 # ---------------------------------------------------------------------------------------------
 # Preset F4 — provisiones IFRS 9 / ECL (staging de tres etapas + pérdida esperada)
 # ---------------------------------------------------------------------------------------------
-# El preset F4 es la cadena MÍNIMA que produce la ECL IFRS 9: el scorecard base
-# (data→binning→selection→model, para el ``model.raw_pd_frame`` que ``survival`` consume como
-# covariable) + ``survival`` (term-structure lifetime PD por discrete-time hazard) +
-# ``provisioning_ifrs9`` (staging Stage 1/2/3 + ECL descontada). Apaga scorecard/calibración/
-# performance/stability (la ECL no los necesita): es un escaparate ENFOCADO en IFRS 9. El
-# ``report`` queda ENCENDIDO con secciones requeridas reducidas: el informe con el capítulo
-# «Provisiones IFRS 9 / ECL» es un entregable central.
+# El preset F4 es la cadena MÍNIMA que produce la ECL IFRS 9, **standalone de verdad** (sin
+# scorecard): ``data → survival → provisioning_ifrs9``. El survival ajusta el discrete-time hazard
+# con ``pd_source='none'`` sobre covariables PROPIAS del dataset (mora actual, utilización de
+# línea, DTI, antigüedad): el área IFRS 9 de un banco no depende del modelo de originación, y la
+# demo cuenta esa historia — modelos propios, datos propios. ``provisioning_ifrs9`` hace el
+# staging Stage 1/2/3 + ECL descontada. El ``report`` queda ENCENDIDO: el informe con el capítulo
+# «Provisiones IFRS 9 / ECL» es un entregable central (sin capítulo «Resultados»: es condicional
+# any-of a los dominios scorecard y esta cadena no corre ninguno).
 #
-# Es un preset **standalone**: ``base_pd_source='term_structure'`` deriva la PD de la propia curva
-# lifetime (no del scorecard calibrado), ``pit_mode='ttc_only'`` evita pedir ``rho``/``Z`` y
-# ``scenarios='single'`` evita pesos macro. El staging usa los backstops duros de mora 30/90 días
-# (presunciones rebatibles IFRS 9 5.5.11 / B5.5.37). El descuento es ``annual_eir_year_fraction``
-# con periodos ANUALES (``time_value`` = año), así que la EIR del dataset es anual y el descuento es
-# correcto. IFRS 9 es EXPERIMENTAL (SDD-16 en Borrador, fuera de la garantía SemVer 1.x).
+# ``base_pd_source='term_structure'`` deriva la PD de la propia curva lifetime,
+# ``pit_mode='ttc_only'`` evita pedir ``rho``/``Z`` y ``scenarios='single'`` evita pesos macro. El
+# staging usa los backstops duros de mora 30/90 días (presunciones rebatibles IFRS 9 5.5.11 /
+# B5.5.37). El descuento es ``annual_eir_year_fraction`` con periodos ANUALES (``time_value`` =
+# año), así que la EIR del dataset es anual y el descuento es correcto. IFRS 9 es EXPERIMENTAL
+# (SDD-16 en Borrador, fuera de la garantía SemVer 1.x).
 #
 # Las secciones ``survival`` y ``provisioning_ifrs9`` se DERIVAN de los objetos Pydantic de dominio
 # con ``scripts/derive_ifrs9_preset.py`` (``model_dump(mode="json", by_alias=True)``), que además
@@ -639,11 +640,16 @@ def provisiones_preset() -> dict[str, Any]:
 F4_IFRS9_PRESET_ID = "f4-ifrs9-retail"
 IFRS9_DATASET_ID = "ifrs9_retail_latam"
 
-# Secciones del F1 que la cadena mínima IFRS 9 apaga (no alimentan survival ni la ECL).
-# ``report`` NO se apaga: el informe trae el capítulo condicional «Provisiones IFRS 9 / ECL»
+# Secciones del F1 que la cadena standalone IFRS 9 apaga: TODO el pipeline scorecard
+# (``binning``/``selection``/``model`` incluidos — con ``pd_source='none'`` survival ya no consume
+# ``model.raw_pd_frame``) más calibración/performance/estabilidad. ``report`` NO se apaga: el
+# informe trae el capítulo condicional «Provisiones IFRS 9 / ECL»
 # (requires_domain='provisioning_ifrs9') y es un entregable central de la demo. Sus
-# ``required_sections`` se reducen abajo a lo que esta cadena sí corre.
+# ``required_sections`` quedan vacías abajo: esta cadena no corre ningún dominio scorecard.
 _IFRS9_DROP_SECTIONS: tuple[str, ...] = (
+    "binning",
+    "selection",
+    "model",
     "scorecard",
     "calibration",
     "performance",
@@ -659,17 +665,22 @@ _IFRS9_SURVIVAL_SECTION: dict[str, Any] = {
         "event_col": "event",
         "id_col": None,
         "segment_col": None,
-        "pd_source": "model_raw",
+        "pd_source": "none",
         "pd_column": "pd_raw",
         "linear_predictor_column": "linear_predictor",
-        "covariate_cols": [],
+        "covariate_cols": [
+            "days_past_due",
+            "utilizacion_linea",
+            "deuda_ingreso",
+            "antiguedad_meses",
+        ],
     },
     "time_grid": {"time_unit": "year", "horizon_periods": 5, "evaluation_times": []},
     "kaplan_meier": {"confidence_level": None, "confidence_transform": None},
     "discrete_hazard": {
         "link": "logit",
         "include_period_dummies": True,
-        "pd_role": "covariate",
+        "pd_role": "none",
         "min_events_per_period": None,
     },
     "cox_aft": {"ph_test_enabled": True, "ph_p_value_threshold": None, "aft_family": None},
@@ -747,12 +758,12 @@ def _ifrs9_config() -> dict[str, Any]:
         cfg[section] = None
     cfg["survival"] = deepcopy(_IFRS9_SURVIVAL_SECTION)
     cfg["provisioning_ifrs9"] = deepcopy(_IFRS9_PROVISIONING_SECTION)
-    # El informe hereda del F1 los cuatro entregables, pero esta cadena no corre scorecard/
-    # calibración/performance/estabilidad: exigirlas tumbaría el report (missing_policy='error').
-    # Se exige solo lo que la cadena ECL sí produce; el capítulo IFRS 9 se activa solo por la
-    # presencia de la card (``requires_domain``), no por esta lista.
+    # El informe hereda del F1 los cuatro entregables, pero esta cadena standalone no corre ningún
+    # dominio scorecard: exigir cualquiera tumbaría el report (missing_policy='error'). La lista
+    # queda VACÍA; el capítulo IFRS 9 se activa solo por la presencia de la card
+    # (``requires_domain``) y «Resultados» se omite solo (condicional any-of sin dominios).
     cfg["report"]["basename"] = "ifrs9_ecl_report"
-    cfg["report"]["sections"]["required_sections"] = ["binning", "selection", "model"]
+    cfg["report"]["sections"]["required_sections"] = []
     return cfg
 
 
@@ -762,22 +773,24 @@ def ifrs9_preset() -> dict[str, Any]:
     Returns
     -------
     dict
-        ``{id, name, description, config, dataset_id}``: el scorecard base más las secciones
-        ``survival`` (term-structure lifetime PD) y ``provisioning_ifrs9`` (staging + ECL),
-        JSON-able y copia defensiva. Corre end-to-end sobre ``ifrs9_retail_latam`` produciendo la
-        pérdida esperada IFRS 9 de tres etapas (Stage 1/2/3) con staging por los backstops de mora
-        30/90 días. **Experimental** (SDD-16, fuera de la garantía SemVer 1.x).
+        ``{id, name, description, config, dataset_id}``: la cadena standalone ``data → survival``
+        (term-structure lifetime PD sobre covariables propias de la cartera) ``→
+        provisioning_ifrs9`` (staging + ECL), JSON-able y copia defensiva. Corre end-to-end sobre
+        ``ifrs9_retail_latam`` produciendo la pérdida esperada IFRS 9 de tres etapas (Stage 1/2/3)
+        con staging por los backstops de mora 30/90 días, sin scorecard de por medio.
+        **Experimental** (SDD-16, fuera de la garantía SemVer 1.x).
     """
     return {
         "id": F4_IFRS9_PRESET_ID,
         "name": "Preset F4 — provisiones IFRS 9 / ECL (retail multi-cartera)",
         "description": (
-            "Config listo para correr sin tocar nada: sobre una cartera retail LatAm "
-            "multi-producto (Consumo, Tarjetas, Comercial, Hipotecario) ajusta la curva lifetime "
-            "PD (survival) y "
-            "calcula la pérdida esperada IFRS 9 de tres etapas — staging Stage 1/2/3 por los "
-            "backstops de mora 30/90 días y ECL 12 meses / lifetime descontada a la tasa efectiva. "
-            "IFRS 9 es experimental (SDD-16, fuera de la garantía SemVer 1.x)."
+            "Config listo para correr sin tocar nada, y sin scorecard de por medio: sobre una "
+            "cartera retail LatAm multi-producto (Consumo, Tarjetas, Comercial, Hipotecario) "
+            "ajusta la curva lifetime PD con un modelo de supervivencia sobre covariables propias "
+            "de la cartera (mora, utilización, carga financiera, antigüedad) y calcula la pérdida "
+            "esperada IFRS 9 de tres etapas — staging Stage 1/2/3 por los backstops de mora 30/90 "
+            "días y ECL 12 meses / lifetime descontada a la tasa efectiva. IFRS 9 es experimental "
+            "(SDD-16, fuera de la garantía SemVer 1.x)."
         ),
         "config": _ifrs9_config(),
         "dataset_id": IFRS9_DATASET_ID,

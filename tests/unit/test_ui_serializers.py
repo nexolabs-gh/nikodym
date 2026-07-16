@@ -564,10 +564,10 @@ def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
     verifica que ``serialize_study`` expone la card CT-2 más los frames agregados graficables
     —distribución de staging por Stage 1/2/3, resumen por cartera·stage, curva de ECL por período y
     conteo de gatillos SICR— con un staging repartido REAL (Stage 2 y 3 no vacíos) y sin el
-    ``detail`` por operación (6.000 filas). Requiere el extra ``scoring`` (OptBinning); el mínimo
-    lo salta.
+    ``detail`` por operación (6.000 filas). La cadena F4 es standalone (sin binning/OptBinning):
+    requiere el extra ``scoring`` por statsmodels (discrete-time hazard); el mínimo lo salta.
     """
-    pytest.importorskip("optbinning")
+    pytest.importorskip("statsmodels")
     from nikodym.ui import datasets
     from nikodym.ui.presets import IFRS9_DATASET_ID, ifrs9_preset
 

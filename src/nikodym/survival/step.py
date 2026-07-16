@@ -1,11 +1,14 @@
 """Paso orquestable de la capa ``survival`` (SDD-18 §4/§7/§9; CT-1).
 
 ``SurvivalStep`` implementa el :class:`~nikodym.core.steps.Step` nativo del dominio
-``survival``. Su dependencia dura real es ``data.frame`` + ``model.raw_pd_frame`` (SDD-02 +
-SDD-08): SDD-01/SDD-05 son base implícita de orquestación/config y no aparecen como artefactos
-``requires``. El paso valida prerequisitos condicionales, delega el ajuste a los modelos ya
-implementados y publica estimador, term-structure, curvas, hazards, diagnósticos, resultado y card
-bajo ``domain='survival'``.
+``survival``. Sus ``requires`` son **dinámicos** (CT-1, patrón SDD-20 §81): la dependencia base es
+``data.frame`` (SDD-02) y ``model.raw_pd_frame`` (SDD-08) sólo se exige cuando la config declara
+una fuente PD de F1 (``pd_source != 'none'``). Con ``pd_source='none'`` el ajuste es **standalone**:
+covariables propias del dataset, sin insumo del scorecard, y la cadena mínima queda en
+``data → survival``. SDD-01/SDD-05 son base implícita de orquestación/config y no aparecen como
+artefactos ``requires``. El paso valida prerequisitos condicionales, delega el ajuste a los modelos
+ya implementados y publica estimador, term-structure, curvas, hazards, diagnósticos, resultado y
+card bajo ``domain='survival'``.
 
 El módulo evita importar ``pandas``, ``lifelines``, ``statsmodels`` y motores de survival en import
 time. ``nikodym.survival`` lo importa para ejecutar ``@register("standard", domain="survival")``
@@ -99,8 +102,9 @@ class SurvivalStep(AuditableMixin):
     provides: tuple[ArtifactKey, ...] = tuple(("survival", key) for key in SURVIVAL_ARTIFACTS)
 
     def __init__(self, config: SurvivalConfig) -> None:
-        """Construye el paso desde la sección ``SurvivalConfig`` ya validada."""
+        """Construye el paso desde la sección ``SurvivalConfig`` ya validada y arma ``requires``."""
         self.config = config
+        self.requires = _requires_for(config)
 
     @classmethod
     def from_config(cls, cfg: SurvivalConfig) -> SurvivalStep:
@@ -120,20 +124,27 @@ class SurvivalStep(AuditableMixin):
         data_frame = _as_dataframe(study.artifacts.get("data", "frame"), pd, "data.frame").copy(
             deep=True
         )
-        model_raw_frame = _as_dataframe(
-            study.artifacts.get("model", "raw_pd_frame"),
-            pd,
-            "model.raw_pd_frame",
-        ).copy(deep=True)
         _require_method_dependency(cfg.method)
-        pd_frame, pd_context = _pd_frame_for_config(
-            study,
-            cfg=cfg,
-            model_raw_frame=model_raw_frame,
-            pd=pd,
-        )
+        if cfg.input.pd_source == _NO_PD_SOURCE:
+            # Standalone (CT-1): sin fuente PD de F1 no se lee ``model.raw_pd_frame`` —el motor
+            # ignora ``pd_frame`` y ajusta sobre covariables propias del dataset—.
+            pd_frame: DataFrame | None = None
+            pd_context = _standalone_pd_context(cfg)
+        else:
+            model_raw_frame = _as_dataframe(
+                study.artifacts.get("model", "raw_pd_frame"),
+                pd,
+                "model.raw_pd_frame",
+            ).copy(deep=True)
+            pd_frame, pd_context = _pd_frame_for_config(
+                study,
+                cfg=cfg,
+                model_raw_frame=model_raw_frame,
+                pd=pd,
+            )
         _validate_frame_contracts(data_frame, pd_frame, cfg=cfg)
-        pd_context.update(_pd_match_context(data_frame, pd_frame, cfg=cfg))
+        if pd_frame is not None:
+            pd_context.update(_pd_match_context(data_frame, pd_frame, cfg=cfg))
 
         times, time_context = _time_grid_from_config_or_data(data_frame, cfg=cfg)
         model = _new_model(cfg)
@@ -142,7 +153,7 @@ class SurvivalStep(AuditableMixin):
             duration_col=cfg.input.duration_col,
             event_col=cfg.input.event_col,
             covariate_cols=cfg.input.covariate_cols,
-            pd_frame=pd_frame.copy(deep=True),
+            pd_frame=None if pd_frame is None else pd_frame.copy(deep=True),
             audit=self,
         )
         term_structure = fitted.term_structure(data_frame.copy(deep=True), times=times)
@@ -293,6 +304,34 @@ class SurvivalStep(AuditableMixin):
         )
 
 
+def _requires_for(config: SurvivalConfig) -> tuple[ArtifactKey, ...]:
+    """Construye las claves ``requires`` dinámicas del step según la config (CT-1, SDD-20 §81).
+
+    Con ``pd_source='none'`` el ajuste es standalone: no consume PD de F1 ni arrastra
+    ``partition`` desde ``model.raw_pd_frame``, así que ese artefacto deja de ser prerequisito y
+    la cadena mínima queda en ``data → survival``. ``pd_source='calibration'`` mantiene el
+    prerequisito de ``model.raw_pd_frame`` (de ahí se arrastra ``partition``); el artefacto de
+    calibración se exige en ``execute`` como hoy.
+    """
+    if config.input.pd_source == _NO_PD_SOURCE:
+        return (("data", "frame"),)
+    return (("data", "frame"), ("model", "raw_pd_frame"))
+
+
+def _standalone_pd_context(cfg: SurvivalConfig) -> dict[str, Any]:
+    """Contexto PD auditable del modo standalone: sin artefacto fuente ni columna PD de F1."""
+    return {
+        "pd_source": cfg.input.pd_source,
+        "source_artifact": None,
+        "pd_column": None,
+        "linear_predictor_column": None,
+        "pd_rows": None,
+        "pd_coverage": None,
+        "rows_without_match": (),
+        "coverage_column": None,
+    }
+
+
 def _survival_config_from_study(study: Study, *, fallback: SurvivalConfig) -> SurvivalConfig:
     """Lee ``NikodymConfig.survival`` y usa el config del paso como respaldo."""
     raw_config = getattr(study.config, "survival", None)
@@ -388,11 +427,14 @@ def _pd_frame_for_config(
 
 
 def _validate_frame_contracts(
-    data_frame: DataFrame, pd_frame: DataFrame, *, cfg: SurvivalConfig
+    data_frame: DataFrame, pd_frame: DataFrame | None, *, cfg: SurvivalConfig
 ) -> None:
-    """Valida índice único, columnas mínimas y cobertura PD antes de delegar al motor."""
+    """Valida índice único, columnas mínimas y cobertura PD antes de delegar al motor.
+
+    En modo standalone (``pd_source='none'``) no hay ``pd_frame``: sólo se validan el índice y
+    las columnas del ``data.frame``.
+    """
     _validate_unique_index(data_frame, artifact="data.frame")
-    _validate_unique_index(pd_frame, artifact="pd_frame")
     missing_columns = [
         column
         for column in (cfg.input.duration_col, cfg.input.event_col, *cfg.input.covariate_cols)
@@ -405,6 +447,9 @@ def _validate_frame_contracts(
     if missing_columns:
         raise SurvivalInputError(f"Faltan columnas requeridas para survival: {missing_columns}.")
 
+    if pd_frame is None:
+        return
+    _validate_unique_index(pd_frame, artifact="pd_frame")
     missing_index = [str(index) for index in data_frame.index if index not in pd_frame.index]
     if missing_index:
         raise SurvivalInputError(

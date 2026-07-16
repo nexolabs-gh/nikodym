@@ -48,6 +48,15 @@ def test_from_config_registro_reexport_contrato_orden_e_import_liviano() -> None
     assert step.config is cfg
     assert step.name == "survival"
     assert step.requires == (("data", "frame"), ("model", "raw_pd_frame"))
+    # ``requires`` es dinámico (CT-1): standalone (``pd_source='none'``) suelta el prerequisito
+    # de F1; ``calibration`` lo conserva (de ``model.raw_pd_frame`` se arrastra ``partition``).
+    assert SurvivalStep.from_config(_cfg(pd_source="none", pd_role="none")).requires == (
+        ("data", "frame"),
+    )
+    assert SurvivalStep.from_config(_cfg(pd_source="calibration")).requires == (
+        ("data", "frame"),
+        ("model", "raw_pd_frame"),
+    )
     assert step.provides == tuple(("survival", key) for key in SURVIVAL_ARTIFACTS)
     assert study_module._DEFAULT_DOMAIN_ORDER == (
         "data",
@@ -134,6 +143,36 @@ def test_run_default_discrete_publica_artifacts_invariantes_y_auditoria() -> Non
         "survival_schoenfeld",
         "survival_aft",
     }.issubset({event.payload["regla"] for event in sink.events if event.kind == "decision"})
+
+
+def test_standalone_pd_source_none_corre_sin_model_y_publica_artifacts() -> None:
+    """Con ``pd_source='none'`` la cadena mínima es ``data → survival``: sin F1 de por medio.
+
+    El study NO tiene ``model.raw_pd_frame``: el step no debe leerlo (no hay PD de F1 ni
+    ``partition`` que arrastrar) y el hazard se ajusta sobre la covariable propia del dataset.
+    """
+    cfg = _cfg(pd_source="none", pd_role="none", covariate_cols=("mora_actual",))
+    frame = _hazard_frame()
+    frame["mora_actual"] = [float(position % 4) for position in range(len(frame.index))]
+    study = Study(NikodymConfig(survival=cfg))
+    study.artifacts.set("data", "frame", frame)
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+
+    study.run(steps=["survival"])
+
+    result = study.artifacts.get("survival", "result")
+    term = study.artifacts.get("survival", "term_structure")
+    assert isinstance(result, SurvivalResult)
+    assert isinstance(term, pd.DataFrame)
+    assert study.artifacts.keys()[-7:] == [("survival", key) for key in SURVIVAL_ARTIFACTS]
+    assert result.card.pd_source == "none"
+    pd_context = result.card.metric_sections["pd_source"]
+    assert pd_context["source_artifact"] is None
+    assert pd_context["pd_column"] is None
+    assert pd_context["coverage_column"] is None
+    assert term["partition"].isna().all()  # sin F1 no hay partición que arrastrar
+    _assert_term_invariants(term)
 
 
 def test_determinismo_no_leakage_y_no_mutacion_en_particiones_no_desarrollo() -> None:

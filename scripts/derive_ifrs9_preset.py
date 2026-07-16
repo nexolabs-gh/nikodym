@@ -8,12 +8,13 @@ dominio, las vuelca con ``model_dump(mode="json", by_alias=True)`` y las imprime
 en ``ui/presets.py``.
 
 Y hace lo que ningún test de ``status == done`` hace: **corre la cadena entera y comprueba que el
-número tiene sentido de NEGOCIO**. La cadena es la mínima que produce la ECL:
-``data → binning → selection → model`` (para el ``model.raw_pd_frame`` que consume ``survival``) →
-``survival`` (term-structure lifetime PD) → ``provisioning_ifrs9`` (staging + ECL). Es un preset
-**standalone**: ``base_pd_source='term_structure'`` deriva la PD de la propia curva lifetime (no del
-scorecard calibrado), ``pit_mode='ttc_only'`` evita pedir ``rho``/``Z`` y ``scenarios='single'``
-evita pesos macro. El staging usa los backstops duros de mora 30/90 días (presunciones IFRS 9).
+número tiene sentido de NEGOCIO**. La cadena es la mínima que produce la ECL, y es **standalone
+de verdad** (sin scorecard): ``data → survival → provisioning_ifrs9``. El survival ajusta con
+``pd_source='none'`` sobre covariables PROPIAS del dataset (mora actual, utilización, DTI,
+antigüedad) —el área IFRS 9 no depende del modelo de originación—; ``base_pd_source=
+'term_structure'`` deriva la PD de la propia curva lifetime, ``pit_mode='ttc_only'`` evita pedir
+``rho``/``Z`` y ``scenarios='single'`` evita pesos macro. El staging usa los backstops duros de
+mora 30/90 días (presunciones IFRS 9).
 
 **⚑ Checkpoint del número.** El ``assert`` de abajo es la guardia ejecutable: si la ECL/staging es
 absurda (coverage ratio fuera de ~1-15 % de retail, todo en un solo stage, o la curva sin sentido),
@@ -54,26 +55,42 @@ from nikodym.ui.presets import _STANDARD_CONFIG
 DATASET_ID = "ifrs9_retail_latam"
 HORIZON_YEARS = 5  # periodos ANUALES (== registro del dataset); grilla lifetime = 1..T años
 
-# Secciones que la cadena mínima IFRS 9 NO necesita (el scorecard/calibración/report no alimentan
-# ni el ``model.raw_pd_frame`` de survival ni la term-structure): se apagan para una corrida
-# enfocada y robusta. ``model`` sí queda: survival consume su ``raw_pd_frame`` (PD F1 covariable).
-_DROP_SECTIONS = ("scorecard", "calibration", "performance", "stability", "report")
+# Secciones que la cadena standalone IFRS 9 NO necesita: TODO el pipeline scorecard
+# (``binning``/``selection``/``model`` incluidos: con ``pd_source='none'`` survival ya no consume
+# ``model.raw_pd_frame``) más calibración/performance/estabilidad/report. Se apagan para una
+# corrida enfocada y robusta.
+_DROP_SECTIONS = (
+    "binning",
+    "selection",
+    "model",
+    "scorecard",
+    "calibration",
+    "performance",
+    "stability",
+    "report",
+)
 
 # --- Sección survival (SDD-18): term-structure lifetime PD por discrete-time hazard. ---
-# ``duration``/``event`` en años; ``pd_source='model_raw'`` usa la PD cruda de F1 como covariable;
-# horizonte fijo a T años (el dataset censura al horizonte ⇒ la grilla llega a T sin extrapolar).
+# ``duration``/``event`` en años; ``pd_source='none'`` = standalone: el hazard se ajusta sobre
+# covariables PROPIAS del dataset (mora actual, utilización de línea, DTI y antigüedad — numéricas
+# y sin missing: supervivencia no imputa ni codifica categóricas), sin PD del scorecard.
+# Horizonte fijo a T años (el dataset censura al horizonte ⇒ la grilla llega a T sin extrapolar).
+_SURVIVAL_COVARIATES = (
+    "days_past_due",
+    "utilizacion_linea",
+    "deuda_ingreso",
+    "antiguedad_meses",
+)
 _SURVIVAL_SECTION = SurvivalConfig(
     method="discrete_hazard",
     input=SurvivalInputConfig(
         duration_col="duration",
         event_col="event",
-        pd_source="model_raw",
-        pd_column="pd_raw",
+        pd_source="none",
+        covariate_cols=_SURVIVAL_COVARIATES,
     ),
     time_grid=SurvivalTimeGridConfig(time_unit="year", horizon_periods=HORIZON_YEARS),
-    discrete_hazard=DiscreteHazardConfig(
-        link="logit", pd_role="covariate", include_period_dummies=True
-    ),
+    discrete_hazard=DiscreteHazardConfig(link="logit", pd_role="none", include_period_dummies=True),
     fail_on_falta_dato=True,
 ).model_dump(mode="json", by_alias=True)
 

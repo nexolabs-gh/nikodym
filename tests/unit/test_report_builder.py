@@ -542,3 +542,45 @@ def test_capitulo_ifrs9_es_condicional_a_su_card() -> None:
     assert numeros_con["conclusions"] == "6", "el capítulo nuevo no desplazó la numeración"
     subsecciones = [s.id for s in con_ifrs9.sections if s.id.startswith("ifrs9.")]
     assert subsecciones == ["ifrs9.provisioning_ifrs9"]
+
+
+def test_capitulo_resultados_es_condicional_any_of_a_los_dominios_scorecard() -> None:
+    """«Resultados» (``requires_any_domain=RESULT_DOMAINS``) se omite si ningún dominio corrió.
+
+    Es la cadena standalone IFRS 9 (``data → survival → provisioning_ifrs9``): sin etapas de
+    scorecard el informe no debe traer un capítulo «Resultados» vacío — su resultado de negocio
+    vive en el capítulo condicional IFRS 9 — y la numeración no deja huecos. Con al menos un
+    dominio scorecard presente, la condición any-of lo mantiene (guardia del informe F1).
+    """
+    builder = ReportBuilder.from_config(
+        ReportConfig(sections=SectionPolicyConfig(required_sections=()))
+    )
+    sin_scorecard = _study_completo(
+        omit=(
+            "binning",
+            "selection",
+            "model",
+            "scorecard",
+            "calibration",
+            "performance",
+            "stability",
+        )
+    )
+    sin_scorecard.artifacts.set("survival", "card", {"summary": "survival-card"})
+    sin_scorecard.artifacts.set("provisioning_ifrs9", "card", {"summary": "ifrs9-card"})
+    bundle = builder.collect(sin_scorecard)
+    ids = [s.id for s in bundle.sections if s.level == 1]
+    assert "results" not in ids
+    assert "ifrs9" in ids
+    numeros = {s.id: s.number for s in bundle.sections if s.level == 1}
+    assert numeros["methodology"] == "3"
+    assert numeros["ifrs9"] == "4", "la numeración dejó un hueco al omitir «Resultados»"
+    assert numeros["conclusions"] == "5"
+
+    # Con un solo dominio scorecard (``model``) la condición any-of mantiene el capítulo.
+    con_model = builder.collect(
+        _study_completo(
+            omit=("binning", "selection", "scorecard", "calibration", "performance", "stability")
+        )
+    )
+    assert "results" in [s.id for s in con_model.sections if s.level == 1]

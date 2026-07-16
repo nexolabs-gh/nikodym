@@ -187,6 +187,10 @@ class ReportBuilder:
         for spec in CHAPTER_SPECS:
             if spec.requires_domain and spec.requires_domain not in bundle.cards:
                 continue  # capítulo condicional: el dominio no corrió ⇒ no existe el capítulo
+            if spec.requires_any_domain and not any(
+                domain in bundle.cards for domain in spec.requires_any_domain
+            ):
+                continue  # condicional any-of: ninguno de sus dominios corrió ⇒ sin capítulo
             if spec.numbered:
                 chapter_number += 1
                 number = str(chapter_number)

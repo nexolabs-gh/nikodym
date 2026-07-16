@@ -385,6 +385,10 @@ study.run(steps=["data", "binning", "selection", "model", "calibration",
 ecl = study.artifacts.get("provisioning_ifrs9", "result")
 staging = study.artifacts.get("provisioning_ifrs9", "staging")
 ecl_curve = ecl.term_structure()
+
+# Cadena standalone (SDD-18, survival con pd_source="none" y covariables propias):
+# el área IFRS 9 no depende del scorecard de originación.
+study.run(steps=["data", "survival", "provisioning_ifrs9"])
 ```
 
 ## 5. Configuración (schema Pydantic)

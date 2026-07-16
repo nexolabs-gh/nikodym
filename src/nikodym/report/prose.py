@@ -1354,9 +1354,12 @@ _IFRS9_PIT_MODE_LABELS: Final[dict[str, str]] = {
     "apply_vasicek": "point-in-time por ajuste de Vasicek",
     "consume_pit": "point-in-time provista en los datos",
 }
+# Las claves espejan el enum ``IfrsPdConfig.term_structure_source`` ({survival, markov, forward});
+# un valor fuera del dict cae al fallback genérico "la fuente '<slug>'" en quien lo consume.
 _IFRS9_TERM_SOURCE_LABELS: Final[dict[str, str]] = {
     "survival": "la curva lifetime PD del modelo de supervivencia (discrete-time hazard)",
-    "provided": "la term-structure de PD provista en los datos",
+    "markov": "la curva lifetime PD derivada de las matrices de transición de la capa markov",
+    "forward": "la term-structure condicionada a escenarios macro de la capa forward-looking",
 }
 _IFRS9_WARNING_LABELS: Final[dict[str, str]] = {
     # SDD-16 §6: el panel EAD(t) por período está diferido a CT-3; la EAD se despliega constante.
@@ -1461,11 +1464,19 @@ def _results_provisioning_ifrs9(bundle: ReportInputBundle) -> tuple[str, ...]:
             "temporal la aportan los datos de duración, no un supuesto de hazard constante."
         )
         paragraphs.append(detalle)
-        if str(survival.get("pd_source") or "") == "model_raw":
+        pd_source_surv = str(survival.get("pd_source") or "")
+        if pd_source_surv == "model_raw":
             paragraphs.append(
                 "El modelo PD estimado en esta misma corrida participa del ajuste como insumo: "
                 "su rol es ordenar el riesgo entre operaciones; el nivel y la forma temporal de "
                 "la curva los fija la historia observada."
+            )
+        elif pd_source_surv == "none":
+            paragraphs.append(
+                "El ajuste no toma insumos de un scorecard de originación: el orden de riesgo "
+                "entre operaciones lo aportan covariables propias de la cartera, y el nivel y la "
+                "forma temporal de la curva los fija la historia de duración observada. La "
+                "pérdida esperada queda así autocontenida en el área IFRS 9."
             )
 
     scenarios = tuple(str(s) for s in _sequence(card.get("scenarios")))

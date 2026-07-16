@@ -215,6 +215,13 @@ class ChapterSpec(BaseModel):
     capítulo de provisiones vacío, y un informe con provisiones no debe declarar que no las cubre.
     Vacío (el default) = capítulo incondicional, se emite siempre.
     """
+    requires_any_domain: tuple[str, ...] = ()
+    """Variante *any-of* de ``requires_domain``: el capítulo se emite si **al menos uno** de estos
+    dominios publicó card. Es el mecanismo de los capítulos cuyo cuerpo son subsecciones de
+    dominio: un informe que no corrió ninguna etapa de scorecard (p. ej. la cadena standalone
+    ``data → survival → provisioning_ifrs9``) no debe traer un capítulo «Resultados» vacío.
+    Vacía (el default) = sin condición any-of.
+    """
 
 
 # El documento. Portada y resumen ejecutivo los emite la plantilla (no son secciones lógicas: la
@@ -247,7 +254,11 @@ CHAPTER_SPECS: Final[tuple[ChapterSpec, ...]] = (
         ),
     ),
     ChapterSpec(id="methodology", title="Metodología", kind="prose"),
-    ChapterSpec(id="results", title="Resultados", kind="prose"),
+    # Capítulo CONDICIONAL any-of: sus subsecciones son los dominios del pipeline scorecard
+    # (``RESULT_DOMAINS``). Una corrida que no ejecutó ninguno (p. ej. IFRS 9 standalone) no
+    # emite un «Resultados» vacío: su resultado de negocio vive en el capítulo condicional
+    # correspondiente (``provisions``/``ifrs9``) y la numeración se reajusta sola.
+    ChapterSpec(id="results", title="Resultados", kind="prose", requires_any_domain=RESULT_DOMAINS),
     # Capítulo CONDICIONAL (SDD-28 D5): solo se emite si la corrida calculó provisiones. Va tras
     # Resultados —es un resultado de negocio, no una validación del scorecard— y antes de
     # Conclusiones, que pueden referirlo. En una corrida de scorecard no aparece y la numeración se

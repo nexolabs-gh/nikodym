@@ -40,15 +40,18 @@
 
 - **Capa:** Forward-looking / dinámica (F5/T5). Corre después de F1 (`model`) y antes de IFRS 9/forward/stress cuando esos módulos pidan lifetime PD.
 - **Quién lo invoca:** `Study.run()` como sección `survival` de `NikodymConfig`, o API programática para ajustar un survival model sobre un frame con duración/evento.
-- **A quién invoca:** `core` (`Step`, `ArtifactKey`, `ArtifactStore`, `AuditableMixin`, excepciones, lineage), `data.frame` de SDD-02, `model.raw_pd_frame` de SDD-08 y, condicionalmente, `calibration.calibrated_pd_frame` de SDD-10.
+- **A quién invoca:** `core` (`Step`, `ArtifactKey`, `ArtifactStore`, `AuditableMixin`, excepciones, lineage), `data.frame` de SDD-02 y, condicionalmente según `pd_source`, `model.raw_pd_frame` de SDD-08 (`model_raw`/`calibration`) y `calibration.calibrated_pd_frame` de SDD-10 (`calibration`). Con `pd_source="none"` el ajuste es **standalone**: solo consume `data.frame` y la cadena mínima queda en `data → survival`.
 
 ```text
-data ─► binning ─► selection ─► model ──┐
+data ─► binning ─► selection ─► model ──┐            (pd_source = model_raw | calibration)
                                         ├──► survival ─► ifrs9/forward/stress/report
 calibration (opcional, si existe) ──────┘       term_structure lifetime PD
+
+data ─► survival ─► ifrs9/…                          (pd_source = none: standalone,
+        covariables propias del dataset               sin scorecard de por medio)
 ```
 
-**Interacción con `Study` y config declarativo.** `SurvivalStep` es un `Step` nativo registrado con `@register("standard", domain="survival")`. Declara `requires`/`provides` (CT-1) y `execute(study, rng)`: lee `data.frame`, `model.raw_pd_frame`, resuelve la configuración, ajusta el método seleccionado, predice curvas en el horizonte configurado y escribe sus artefactos bajo `"survival"`. El `rng` se recibe por contrato homogéneo de `Step`; los métodos v1 son deterministas y deben hacer `del rng`.
+**Interacción con `Study` y config declarativo.** `SurvivalStep` es un `Step` nativo registrado con `@register("standard", domain="survival")`. Declara `requires`/`provides` (CT-1, `requires` **dinámico** según `pd_source` — patrón SDD-20 §81) y `execute(study, rng)`: lee `data.frame` (y `model.raw_pd_frame` solo si la config declara una fuente PD de F1), resuelve la configuración, ajusta el método seleccionado, predice curvas en el horizonte configurado y escribe sus artefactos bajo `"survival"`. El `rng` se recibe por contrato homogéneo de `Step`; los métodos v1 son deterministas y deben hacer `del rng`.
 
 **Cableado futuro en `core.study`.** Al implementar SDD-18:
 - `_DOMAIN_MODULES["survival"] = "nikodym.survival"`;
@@ -332,6 +335,8 @@ class AFTSurvivalModel:
 @register("standard", domain="survival")
 class SurvivalStep(AuditableMixin):
     name: str = "survival"
+    # ``requires`` es DINÁMICO (CT-1, patrón SDD-20 §81): ``__init__`` lo deriva de la config.
+    # Default (pd_source = model_raw | calibration); con pd_source="none" queda (("data","frame"),).
     requires: tuple[ArtifactKey, ...] = (
         ("data", "frame"),
         ("model", "raw_pd_frame"),
@@ -351,7 +356,7 @@ class SurvivalStep(AuditableMixin):
 ```
 
 **Dependencias condicionales.**
-- `("model", "raw_pd_frame")` es prerequisito duro del `SurvivalStep` porque SDD-18 depende de SDD-08 y la ruta estándar lifetime reusa scoring.
+- `("model", "raw_pd_frame")` es prerequisito solo cuando la config declara una fuente PD de F1 (`pd_source ∈ {model_raw, calibration}`): la ruta estándar lifetime reusa scoring y de ahí también se arrastra `partition`. Con `pd_source="none"` el prerequisito desaparece (`requires` dinámico): el hazard se ajusta standalone sobre `covariate_cols` propias del dataset, sin `partition` que arrastrar (el ajuste usa todas las filas).
 - `("calibration", "calibrated_pd_frame")` no es prerequisito duro del Step: se exige dentro de `execute` solo si `cfg.input.pd_source == "calibration"`.
 - Cox/AFT/KM requieren lifelines; discrete hazard requiere statsmodels. Si falta el extra correspondiente, se levanta `MissingDependencyError` con mensaje en español.
 
