@@ -88,6 +88,10 @@ _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     # ``required_sections`` por defecto). Su presencia activa el capítulo condicional ``ifrs9``
     # (``ChapterSpec.requires_domain='provisioning_ifrs9'``), igual que provisiones.
     ("provisioning_ifrs9", "card"),
+    # Survival (SDD-18): no genera capítulo propio; su card alimenta la prosa del capítulo IFRS 9
+    # (el mecanismo PD→lifetime se describe desde lo que la corrida realmente ajustó, no desde
+    # supuestos del preset). Opcional como las demás cards de negocio.
+    ("survival", "card"),
 )
 _CARD_KEY_BY_DOMAIN: Final[dict[str, str]] = dict(_CARD_ARTIFACTS)
 _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (

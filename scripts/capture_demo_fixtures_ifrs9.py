@@ -234,6 +234,9 @@ def verify_artifacts() -> None:
     assert html.count("Provisiones IFRS 9 / ECL") > 1, (
         "report-ifrs9.html no trae el capítulo de ECL"
     )
+    assert "no extrapola la PD de horizonte fijo" in html, (
+        "report-ifrs9.html no explica el mecanismo PD→lifetime (prosa survival ausente)"
+    )
     ecl_esperada = "$" + f"{round(float(block['total_ecl_reported'])):,}".replace(",", ".")
     assert ecl_esperada in html, (
         f"report-ifrs9.html no muestra la ECL reportada {ecl_esperada} (¿prosa desalineada?)"

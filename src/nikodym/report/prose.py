@@ -1436,6 +1436,38 @@ def _results_provisioning_ifrs9(bundle: ReportInputBundle) -> tuple[str, ...]:
         "a la vida remanente."
     )
 
+    # Mecanismo PD→lifetime (la pregunta que un validador hace primero): se describe desde la
+    # card del survival —lo que la corrida ajustó de verdad—, no desde el preset. Solo aplica si
+    # la curva la produjo survival y su card viaja en el bundle.
+    survival = _card(bundle, "survival")
+    if term_source == "survival" and survival is not None:
+        n_rows_surv = _int(survival.get("n_rows"))
+        n_events = _int(survival.get("n_events"))
+        n_censored = _int(_mapping(survival.get("diagnostics")).get("n_censored"))
+        detalle = (
+            "La curva lifetime no extrapola la PD de horizonte fijo del modelo: se estima un "
+            "modelo de riesgo en tiempo discreto (discrete-time hazard) sobre la historia de "
+            "duración censurada de la propia cartera"
+        )
+        if n_rows_surv is not None and n_events is not None:
+            detalle += (
+                f" ({_miles(n_rows_surv)} operaciones, {_miles(n_events)} eventos de "
+                "incumplimiento observados"
+            )
+            detalle += f" y {_miles(n_censored)} censuradas)" if n_censored is not None else ")"
+        detalle += (
+            ". La probabilidad condicional de incumplimiento se estima período a período, y de "
+            "ella se derivan la supervivencia y la PD marginal de cada período: la dimensión "
+            "temporal la aportan los datos de duración, no un supuesto de hazard constante."
+        )
+        paragraphs.append(detalle)
+        if str(survival.get("pd_source") or "") == "model_raw":
+            paragraphs.append(
+                "El modelo PD estimado en esta misma corrida participa del ajuste como insumo: "
+                "su rol es ordenar el riesgo entre operaciones; el nivel y la forma temporal de "
+                "la curva los fija la historia observada."
+            )
+
     scenarios = tuple(str(s) for s in _sequence(card.get("scenarios")))
     weights = _mapping(card.get("scenario_weights"))
     if len(scenarios) > 1:

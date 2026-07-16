@@ -685,9 +685,9 @@ tbody tr:nth-child(even) td {
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=47a6bc3508687ea8a716210d38e9ec6e87c829480f04e001f9035698a1d57cf0</code></div>
+    <div class="lineage-line"><code>config_hash=831c5e5be4fc5aade441f1f2ab000731d4eccf8c277ce577fd1e097477c60025</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=8961f6589679024207ec180c7f3547859bd9013b</code></div>
+    <div class="lineage-line"><code>git_sha=0f45dd06e05a7e38ad113f297e327cd6ee319390</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1359,6 +1359,8 @@ L 457.2 26.16
 
 
   <p>La probabilidad de incumplimiento por periodo proviene de la curva lifetime PD del modelo de supervivencia (discrete-time hazard), en modalidad through-the-cycle (TTC). La ECL de cada operación multiplica PD marginal, LGD y EAD periodo a periodo y descuenta cada pérdida al presente; Stage 1 corta el horizonte a 12 meses y Stage 2/3 lo extienden a la vida remanente.</p>
+  <p>La curva lifetime no extrapola la PD de horizonte fijo del modelo: se estima un modelo de riesgo en tiempo discreto (discrete-time hazard) sobre la historia de duración censurada de la propia cartera (6.000 operaciones, 1.502 eventos de incumplimiento observados y 4.498 censuradas). La probabilidad condicional de incumplimiento se estima período a período, y de ella se derivan la supervivencia y la PD marginal de cada período: la dimensión temporal la aportan los datos de duración, no un supuesto de hazard constante.</p>
+  <p>El modelo PD estimado en esta misma corrida participa del ajuste como insumo: su rol es ordenar el riesgo entre operaciones; el nivel y la forma temporal de la curva los fija la historia observada.</p>
   <p>La corrida usa un escenario único (sin ponderación macroeconómica múltiple); la norma admite incorporar escenarios adicionales cuando la entidad disponga de ellos.</p>
   <p>La tabla resume la cartera por etapa: número de operaciones, EAD, ECL reportada y cobertura. La distribución por etapas reconcilia exactamente con el total del capítulo.</p>
   <p>El step reportó advertencias de datos que el lector debe conocer: la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, porque el dataset no trae un perfil de exposición por período (código FALTA-DATO-IFRS-4).</p>
@@ -1441,14 +1443,14 @@ L 457.2 26.16
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>47a6bc3508687ea8a716210d38e9ec6e87c829480f04e001f9035698a1d57cf0</dd>
-    <dt>created_at</dt><dd>2026-07-16T13:26:03.591245Z</dd>
+    <dt>config_hash</dt><dd>831c5e5be4fc5aade441f1f2ab000731d4eccf8c277ce577fd1e097477c60025</dd>
+    <dt>created_at</dt><dd>2026-07-16T13:55:53.839914Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd><pre>[
   &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
 ]</pre></dd>
     <dt>git_dirty</dt><dd>true</dd>
-    <dt>git_sha</dt><dd>8961f6589679024207ec180c7f3547859bd9013b</dd>
+    <dt>git_sha</dt><dd>0f45dd06e05a7e38ad113f297e327cd6ee319390</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.2.0&#34;,
