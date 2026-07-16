@@ -1,905 +1,11 @@
 {
  "status": "done",
- "run_id": "72db1c8fdeec4fec995fb5ed7f26b803",
+ "run_id": "aa50ba29b75e43cd91103581d4616f08",
  "error": null,
  "model_card": null,
- "binning": {
-  "n_variables_requested": 6,
-  "n_variables_binned": 6,
-  "n_variables_skipped": 0,
-  "iv_by_variable": {
-   "ingreso_mensual": 0.7231114960214592,
-   "deuda_ingreso": 0.675475612104083,
-   "utilizacion_linea": 0.21675327677981068,
-   "mora_max_12m": 2.2694349407789236,
-   "antiguedad_meses": 0.20530355155965757,
-   "segmento": 0.0020285063171827187
-  },
-  "monotonicity_by_variable": {
-   "ingreso_mensual": "descending",
-   "deuda_ingreso": "ascending",
-   "utilizacion_linea": "ascending",
-   "mora_max_12m": "ascending",
-   "antiguedad_meses": "descending",
-   "segmento": null
-  },
-  "special_handling": "separate",
-  "missing_handling": "empirical",
-  "optbinning_version": "0.20.0",
-  "tables_by_variable": {
-   "ingreso_mensual": [
-    {
-     "Bin": "(-inf, 267964.17)",
-     "Count": 334,
-     "Count (%)": 0.08300198807157058,
-     "Non-event": 235,
-     "Event": 99,
-     "Event rate": 0.2964071856287425,
-     "WoE": -1.3731684516645268,
-     "IV": 0.26162041463387187,
-     "JS": 0.030353413287436168
-    },
-    {
-     "Bin": "[267964.17, 313780.38)",
-     "Count": 230,
-     "Count (%)": 0.05715705765407555,
-     "Non-event": 188,
-     "Event": 42,
-     "Event rate": 0.1826086956521739,
-     "WoE": -0.7388617711275152,
-     "IV": 0.04177690857695925,
-     "JS": 0.0051064790536857075
-    },
-    {
-     "Bin": "[313780.38, 476106.06)",
-     "Count": 973,
-     "Count (%)": 0.24179920477137176,
-     "Non-event": 845,
-     "Event": 128,
-     "Event rate": 0.131551901336074,
-     "WoE": -0.35032775223653934,
-     "IV": 0.03415648899367686,
-     "JS": 0.004247860844372332
-    },
-    {
-     "Bin": "[476106.06, 550498.00)",
-     "Count": 460,
-     "Count (%)": 0.1143141153081511,
-     "Non-event": 425,
-     "Event": 35,
-     "Event rate": 0.07608695652173914,
-     "WoE": 0.25910699176090723,
-     "IV": 0.006913104897389607,
-     "JS": 0.0008617288995991139
-    },
-    {
-     "Bin": "[550498.00, 1099096.31)",
-     "Count": 1699,
-     "Count (%)": 0.42221669980119286,
-     "Non-event": 1618,
-     "Event": 81,
-     "Event rate": 0.047675103001765744,
-     "WoE": 0.7568628272719025,
-     "IV": 0.17879492639417136,
-     "JS": 0.0218307476737973
-    },
-    {
-     "Bin": "[1099096.31, inf)",
-     "Count": 328,
-     "Count (%)": 0.08151093439363817,
-     "Non-event": 325,
-     "Event": 3,
-     "Event rate": 0.009146341463414634,
-     "WoE": 2.447578777987532,
-     "IV": 0.19984965252539028,
-     "JS": 0.020166950757810866
-    },
-    {
-     "Bin": "Special",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "Missing",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "",
-     "Count": 4024,
-     "Count (%)": 1.0,
-     "Non-event": 3636,
-     "Event": 388,
-     "Event rate": 0.09642147117296222,
-     "WoE": "",
-     "IV": 0.7231114960214592,
-     "JS": 0.08256718051670148
-    }
-   ],
-   "deuda_ingreso": [
-    {
-     "Bin": "(-inf, 0.30)",
-     "Count": 2043,
-     "Count (%)": 0.507703777335984,
-     "Non-event": 1956,
-     "Event": 87,
-     "Event rate": 0.042584434654919234,
-     "WoE": 0.875114616266083,
-     "IV": 0.27454707556515545,
-     "JS": 0.03326359070518671
-    },
-    {
-     "Bin": "[0.30, 0.35)",
-     "Count": 270,
-     "Count (%)": 0.06709741550695825,
-     "Non-event": 251,
-     "Event": 19,
-     "Event rate": 0.07037037037037037,
-     "WoE": 0.34337984429124724,
-     "IV": 0.006889171793533355,
-     "JS": 0.0008569405292084475
-    },
-    {
-     "Bin": "[0.35, 0.46)",
-     "Count": 593,
-     "Count (%)": 0.1473658051689861,
-     "Non-event": 535,
-     "Event": 58,
-     "Event rate": 0.09780775716694773,
-     "WoE": -0.015810379324508794,
-     "IV": 3.707252702462444e-05,
-     "JS": 4.6340176132974274e-06
-    },
-    {
-     "Bin": "[0.46, 0.56)",
-     "Count": 385,
-     "Count (%)": 0.09567594433399602,
-     "Non-event": 335,
-     "Event": 50,
-     "Event rate": 0.12987012987012986,
-     "WoE": -0.3355265892771755,
-     "IV": 0.012324484150720199,
-     "JS": 0.0015333745616227037
-    },
-    {
-     "Bin": "[0.56, 0.83)",
-     "Count": 529,
-     "Count (%)": 0.13146123260437376,
-     "Non-event": 432,
-     "Event": 97,
-     "Event rate": 0.1833648393194707,
-     "WoE": -0.7439195059333685,
-     "IV": 0.09759340053086273,
-     "JS": 0.011925434458050013
-    },
-    {
-     "Bin": "[0.83, inf)",
-     "Count": 204,
-     "Count (%)": 0.05069582504970179,
-     "Non-event": 127,
-     "Event": 77,
-     "Event rate": 0.37745098039215685,
-     "WoE": -1.7372524510691885,
-     "IV": 0.2840844075367867,
-     "JS": 0.03162612001845463
-    },
-    {
-     "Bin": "Special",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "Missing",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "",
-     "Count": 4024,
-     "Count (%)": 1.0,
-     "Non-event": 3636,
-     "Event": 388,
-     "Event rate": 0.09642147117296222,
-     "WoE": "",
-     "IV": 0.675475612104083,
-     "JS": 0.0792100942901358
-    }
-   ],
-   "utilizacion_linea": [
-    {
-     "Bin": "(-inf, 0.19)",
-     "Count": 657,
-     "Count (%)": 0.1632703777335984,
-     "Non-event": 626,
-     "Event": 31,
-     "Event rate": 0.0471841704718417,
-     "WoE": 0.7677290509408565,
-     "IV": 0.07083859714642889,
-     "JS": 0.008643575086794128
-    },
-    {
-     "Bin": "[0.19, 0.30)",
-     "Count": 743,
-     "Count (%)": 0.18464214711729623,
-     "Non-event": 689,
-     "Event": 54,
-     "Event rate": 0.07267833109017496,
-     "WoE": 0.3086231087752882,
-     "IV": 0.015529511050534284,
-     "JS": 0.001933521434855659
-    },
-    {
-     "Bin": "[0.30, 0.42)",
-     "Count": 864,
-     "Count (%)": 0.2147117296222664,
-     "Non-event": 793,
-     "Event": 71,
-     "Event rate": 0.08217592592592593,
-     "WoE": 0.17550922891943666,
-     "IV": 0.006161623378132941,
-     "JS": 0.0007692159032155216
-    },
-    {
-     "Bin": "[0.42, 0.49)",
-     "Count": 419,
-     "Count (%)": 0.10412524850894632,
-     "Non-event": 378,
-     "Event": 41,
-     "Event rate": 0.09785202863961814,
-     "WoE": -0.016311986758815955,
-     "IV": 2.7888718812919243e-05,
-     "JS": 3.48605120287465e-06
-    },
-    {
-     "Bin": "[0.49, 0.68)",
-     "Count": 993,
-     "Count (%)": 0.24676938369781312,
-     "Non-event": 877,
-     "Event": 116,
-     "Event rate": 0.11681772406847936,
-     "WoE": -0.21471731440827746,
-     "IV": 0.012404209001249406,
-     "JS": 0.0015475544442747572
-    },
-    {
-     "Bin": "[0.68, inf)",
-     "Count": 348,
-     "Count (%)": 0.08648111332007952,
-     "Non-event": 273,
-     "Event": 75,
-     "Event rate": 0.21551724137931033,
-     "WoE": -0.9456504340254466,
-     "IV": 0.11179144748465225,
-     "JS": 0.013475474601301125
-    },
-    {
-     "Bin": "Special",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "Missing",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "",
-     "Count": 4024,
-     "Count (%)": 1.0,
-     "Non-event": 3636,
-     "Event": 388,
-     "Event rate": 0.09642147117296222,
-     "WoE": "",
-     "IV": 0.21675327677981068,
-     "JS": 0.026372827521644063
-    }
-   ],
-   "mora_max_12m": [
-    {
-     "Bin": "(-inf, 5.50)",
-     "Count": 1478,
-     "Count (%)": 0.3672962226640159,
-     "Non-event": 1443,
-     "Event": 35,
-     "Event rate": 0.02368064952638701,
-     "WoE": 1.4814973816103612,
-     "IV": 0.4543137661343331,
-     "JS": 0.052106257397662656
-    },
-    {
-     "Bin": "[5.50, 8.50)",
-     "Count": 1329,
-     "Count (%)": 0.3302683896620278,
-     "Non-event": 1281,
-     "Event": 48,
-     "Event rate": 0.03611738148984198,
-     "WoE": 1.0465611753147477,
-     "IV": 0.23924272384899997,
-     "JS": 0.028611167457730173
-    },
-    {
-     "Bin": "[8.50, 16.50)",
-     "Count": 580,
-     "Count (%)": 0.1441351888667992,
-     "Non-event": 542,
-     "Event": 38,
-     "Event rate": 0.06551724137931035,
-     "WoE": 0.42004572603916435,
-     "IV": 0.02147557793184483,
-     "JS": 0.002664884729489017
-    },
-    {
-     "Bin": "[16.50, 39.50)",
-     "Count": 213,
-     "Count (%)": 0.0529324055666004,
-     "Non-event": 170,
-     "Event": 43,
-     "Event rate": 0.20187793427230047,
-     "WoE": -0.8630357943173967,
-     "IV": 0.05529476099313342,
-     "JS": 0.0067050217478904495
-    },
-    {
-     "Bin": "[39.50, 79.50)",
-     "Count": 219,
-     "Count (%)": 0.054423459244532804,
-     "Non-event": 150,
-     "Event": 69,
-     "Event rate": 0.3150684931506849,
-     "WoE": -1.4611053261750995,
-     "IV": 0.19955911862809683,
-     "JS": 0.022938756105487193
-    },
-    {
-     "Bin": "[79.50, inf)",
-     "Count": 205,
-     "Count (%)": 0.050944333996023855,
-     "Non-event": 50,
-     "Event": 155,
-     "Event rate": 0.7560975609756098,
-     "WoE": -3.369036227165197,
-     "IV": 1.2995489932425155,
-     "JS": 0.11305952007842592
-    },
-    {
-     "Bin": "Special",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "Missing",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "",
-     "Count": 4024,
-     "Count (%)": 1.0,
-     "Non-event": 3636,
-     "Event": 388,
-     "Event rate": 0.09642147117296222,
-     "WoE": "",
-     "IV": 2.2694349407789236,
-     "JS": 0.22608560751668538
-    }
-   ],
-   "antiguedad_meses": [
-    {
-     "Bin": "(-inf, 14.50)",
-     "Count": 473,
-     "Count (%)": 0.11754473161033797,
-     "Non-event": 394,
-     "Event": 79,
-     "Event rate": 0.16701902748414377,
-     "WoE": -0.6307310588431836,
-     "IV": 0.06007550060596518,
-     "JS": 0.007387386257724095
-    },
-    {
-     "Bin": "[14.50, 26.50)",
-     "Count": 412,
-     "Count (%)": 0.10238568588469185,
-     "Non-event": 355,
-     "Event": 57,
-     "Event rate": 0.1383495145631068,
-     "WoE": -0.4085675940332303,
-     "IV": 0.020131127581882995,
-     "JS": 0.0024990334514548435
-    },
-    {
-     "Bin": "[26.50, 59.50)",
-     "Count": 1083,
-     "Count (%)": 0.2691351888667992,
-     "Non-event": 958,
-     "Event": 125,
-     "Event rate": 0.11542012927054478,
-     "WoE": -0.20110007500553673,
-     "IV": 0.011802282026639693,
-     "JS": 0.001472804337288608
-    },
-    {
-     "Bin": "[59.50, 76.50)",
-     "Count": 550,
-     "Count (%)": 0.13667992047713717,
-     "Non-event": 509,
-     "Event": 41,
-     "Event rate": 0.07454545454545454,
-     "WoE": 0.281241834172119,
-     "IV": 0.009651909203552475,
-     "JS": 0.0012025280763618747
-    },
-    {
-     "Bin": "[76.50, 113.50)",
-     "Count": 1272,
-     "Count (%)": 0.31610337972166996,
-     "Non-event": 1195,
-     "Event": 77,
-     "Event rate": 0.060534591194968554,
-     "WoE": 0.5044619268378314,
-     "IV": 0.06568309064069187,
-     "JS": 0.008124421094242988
-    },
-    {
-     "Bin": "[113.50, inf)",
-     "Count": 234,
-     "Count (%)": 0.05815109343936382,
-     "Non-event": 225,
-     "Event": 9,
-     "Event rate": 0.038461538461538464,
-     "WoE": 0.9812417091941046,
-     "IV": 0.03795964150092535,
-     "JS": 0.004563313076608546
-    },
-    {
-     "Bin": "Special",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "Missing",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "",
-     "Count": 4024,
-     "Count (%)": 1.0,
-     "Non-event": 3636,
-     "Event": 388,
-     "Event rate": 0.09642147117296222,
-     "WoE": "",
-     "IV": 0.20530355155965757,
-     "JS": 0.025249486293680956
-    }
-   ],
-   "segmento": [
-    {
-     "Bin": [
-      "independiente"
-     ],
-     "Count": 1370,
-     "Count (%)": 0.3404572564612326,
-     "Non-event": 1242,
-     "Event": 128,
-     "Event rate": 0.09343065693430656,
-     "WoE": 0.03481388289971088,
-     "IV": 0.000406878594673566,
-     "JS": 5.0857256055033585e-05
-    },
-    {
-     "Bin": [
-      "pensionado"
-     ],
-     "Count": 1321,
-     "Count (%)": 0.3282803180914513,
-     "Non-event": 1197,
-     "Event": 124,
-     "Event rate": 0.09386828160484481,
-     "WoE": 0.029658024278840234,
-     "IV": 0.00028531885151380197,
-     "JS": 3.5663549382056355e-05
-    },
-    {
-     "Bin": [
-      "asalariado"
-     ],
-     "Count": 1333,
-     "Count (%)": 0.3312624254473161,
-     "Non-event": 1197,
-     "Event": 136,
-     "Event rate": 0.10202550637659415,
-     "WoE": -0.06271529585217506,
-     "IV": 0.0013363088709953505,
-     "JS": 0.00016701123935484227
-    },
-    {
-     "Bin": "Special",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "Missing",
-     "Count": 0,
-     "Count (%)": 0.0,
-     "Non-event": 0,
-     "Event": 0,
-     "Event rate": 0.0,
-     "WoE": 0.0,
-     "IV": 0.0,
-     "JS": 0.0
-    },
-    {
-     "Bin": "",
-     "Count": 4024,
-     "Count (%)": 1.0,
-     "Non-event": 3636,
-     "Event": 388,
-     "Event rate": 0.09642147117296222,
-     "WoE": "",
-     "IV": 0.0020285063171827187,
-     "JS": 0.0002535320447919322
-    }
-   ]
-  }
- },
- "selection": {
-  "n_candidates": 6,
-  "n_selected": 5,
-  "n_excluded": 1,
-  "thresholds": {
-   "correlation.clustering_method": "none",
-   "correlation.method": "pearson",
-   "correlation.threshold": 0.75,
-   "max_iv": 0.5,
-   "max_iv_action": "flag",
-   "min_auc": null,
-   "min_gini": null,
-   "min_iv": 0.02,
-   "min_ks": null,
-   "stability.action": "report_only",
-   "stability.review_threshold": null,
-   "stability.stable_threshold": null,
-   "vif.threshold": 5.0
-  },
-  "excluded_by_reason": {
-   "low_iv": 1
-  },
-  "selected_features": [
-   "antiguedad_meses",
-   "deuda_ingreso",
-   "ingreso_mensual",
-   "mora_max_12m",
-   "utilizacion_linea"
-  ],
-  "high_iv_flags": [
-   "deuda_ingreso",
-   "ingreso_mensual",
-   "mora_max_12m"
-  ],
-  "stability_flags": [],
-  "max_abs_correlation_after_selection": 0.3816882277968939,
-  "max_vif_after_selection": 1.4649444278679047,
-  "dependency_versions": {
-   "numpy": "2.4.6",
-   "pandas": "2.3.3",
-   "scikit-learn": "1.7.2",
-   "scipy": "1.18.0",
-   "statsmodels": "0.14.6"
-  },
-  "decisions": [
-   {
-    "feature": "antiguedad_meses",
-    "woe_column": "antiguedad_meses__woe",
-    "included": true,
-    "reason": "included",
-    "iv": 0.20530355155965757,
-    "iv_band": "medium",
-    "auc": 0.6240267712338243,
-    "gini": 0.24805354246764866,
-    "ks": 0.2032084651764146,
-    "max_abs_corr": null,
-    "max_corr_with": null,
-    "vif": 1.040433874796388,
-    "max_csi": null,
-    "forced": null,
-    "detail": null
-   },
-   {
-    "feature": "deuda_ingreso",
-    "woe_column": "deuda_ingreso__woe",
-    "included": true,
-    "reason": "high_iv",
-    "iv": 0.675475612104083,
-    "iv_band": "suspicious",
-    "auc": 0.7145994238599116,
-    "gini": 0.4291988477198232,
-    "ks": 0.3337898222811972,
-    "max_abs_corr": null,
-    "max_corr_with": null,
-    "vif": 1.2079121644570086,
-    "max_csi": null,
-    "forced": null,
-    "detail": "iv=0.675475612104 >= max_iv=0.5"
-   },
-   {
-    "feature": "ingreso_mensual",
-    "woe_column": "ingreso_mensual__woe",
-    "included": true,
-    "reason": "high_iv",
-    "iv": 0.7231114960214592,
-    "iv_band": "suspicious",
-    "auc": 0.717476934549125,
-    "gini": 0.43495386909824996,
-    "ks": 0.3445640955848162,
-    "max_abs_corr": null,
-    "max_corr_with": null,
-    "vif": 1.162622800617158,
-    "max_csi": null,
-    "forced": null,
-    "detail": "iv=0.723111496021 >= max_iv=0.5"
-   },
-   {
-    "feature": "mora_max_12m",
-    "woe_column": "mora_max_12m__woe",
-    "included": true,
-    "reason": "high_iv",
-    "iv": 2.2694349407789236,
-    "iv_band": "suspicious",
-    "auc": 0.8400583937259705,
-    "gini": 0.6801167874519409,
-    "ks": 0.5863841538793054,
-    "max_abs_corr": null,
-    "max_corr_with": null,
-    "vif": 1.4649444278679047,
-    "max_csi": null,
-    "forced": null,
-    "detail": "iv=2.26943494078 >= max_iv=0.5"
-   },
-   {
-    "feature": "segmento",
-    "woe_column": "segmento__woe",
-    "included": false,
-    "reason": "low_iv",
-    "iv": 0.0020285063171827187,
-    "iv_band": "none",
-    "auc": 0.5109344697356333,
-    "gini": 0.021868939471266557,
-    "ks": 0.021307543125446526,
-    "max_abs_corr": null,
-    "max_corr_with": null,
-    "vif": null,
-    "max_csi": null,
-    "forced": null,
-    "detail": "iv=0.00202850631718 < min_iv=0.02"
-   },
-   {
-    "feature": "utilizacion_linea",
-    "woe_column": "utilizacion_linea__woe",
-    "included": true,
-    "reason": "included",
-    "iv": 0.21675327677981068,
-    "iv_band": "medium",
-    "auc": 0.6234249713631157,
-    "gini": 0.2468499427262314,
-    "ks": 0.17769612012747665,
-    "max_abs_corr": null,
-    "max_corr_with": null,
-    "vif": 1.0501545114499227,
-    "max_csi": null,
-    "forced": null,
-    "detail": null
-   }
-  ]
- },
- "model": {
-  "engine": "logit",
-  "n_candidates": 5,
-  "n_final_features": 5,
-  "final_features": [
-   "antiguedad_meses",
-   "deuda_ingreso",
-   "ingreso_mensual",
-   "mora_max_12m",
-   "utilizacion_linea"
-  ],
-  "thresholds": {
-   "alpha": 0.05,
-   "engine": "logit",
-   "entry_p_value": 0.05,
-   "exit_p_value": 0.05,
-   "fail_if_no_features": "true",
-   "fit_intercept": "true",
-   "fit_maxiter": 100.0,
-   "iv_contribution.action": "flag",
-   "iv_contribution.threshold": 0.9,
-   "optimizer": "newton",
-   "sign_policy.action": "flag",
-   "sign_policy.expected_beta_sign": "negative",
-   "stepwise.criterion": "wald_pvalue",
-   "stepwise.direction": "bidirectional",
-   "stepwise.max_iter": 100.0,
-   "stepwise.min_features": 1.0
-  },
-  "sign_flags": [],
-  "iv_contribution_flags": [
-   "mora_max_12m"
-  ],
-  "fit_statistics": {
-   "n_obs_dev": 4024,
-   "n_events_dev": 388,
-   "n_nonevents_dev": 3636,
-   "log_likelihood": -824.7074765316985,
-   "null_log_likelihood": -1276.2044769805111,
-   "pseudo_r2_mcfadden": 0.35378108178796763,
-   "aic": 1661.414953063397,
-   "bic": 1699.2151433340744,
-   "llr": 902.9940008976253,
-   "llr_p_value": 5.985938647840155e-193,
-   "converged": true,
-   "optimizer": "newton",
-   "n_iterations": 8
-  },
-  "dependency_versions": {
-   "numpy": "2.4.6",
-   "pandas": "2.3.3",
-   "scikit-learn": "1.7.2",
-   "scipy": "1.18.0",
-   "statsmodels": "0.14.6"
-  },
-  "metric_sections": {},
-  "coefficients": [
-   {
-    "feature": "intercept",
-    "woe_column": "const",
-    "beta": -2.240419673458903,
-    "standard_error": 0.07153511921629406,
-    "wald_z": -31.31915761102956,
-    "p_value": 2.559827918660651e-215,
-    "conf_low": -2.3806259307526183,
-    "conf_high": -2.1002134161651878,
-    "expected_sign": "none",
-    "sign_ok": null,
-    "iv": null,
-    "iv_contribution": null
-   },
-   {
-    "feature": "antiguedad_meses",
-    "woe_column": "antiguedad_meses__woe",
-    "beta": -0.7513437283671652,
-    "standard_error": 0.15375199920494861,
-    "wald_z": -4.886724935300761,
-    "p_value": 1.0252717737668544e-06,
-    "conf_low": -1.0526921093598955,
-    "conf_high": -0.4499953473744349,
-    "expected_sign": "negative",
-    "sign_ok": true,
-    "iv": 0.20530355155965757,
-    "iv_contribution": 0.050195499334232806
-   },
-   {
-    "feature": "deuda_ingreso",
-    "woe_column": "deuda_ingreso__woe",
-    "beta": -0.5816297635990745,
-    "standard_error": 0.08710805399187935,
-    "wald_z": -6.677106615804974,
-    "p_value": 2.4370566296503462e-11,
-    "conf_low": -0.7523584121865285,
-    "conf_high": -0.41090111501162047,
-    "expected_sign": "negative",
-    "sign_ok": true,
-    "iv": 0.675475612104083,
-    "iv_contribution": 0.16514977641684178
-   },
-   {
-    "feature": "ingreso_mensual",
-    "woe_column": "ingreso_mensual__woe",
-    "beta": -0.528097312758865,
-    "standard_error": 0.08754743396005389,
-    "wald_z": -6.032127829124324,
-    "p_value": 1.6181469454932434e-09,
-    "conf_low": -0.6996871302594694,
-    "conf_high": -0.3565074952582605,
-    "expected_sign": "negative",
-    "sign_ok": true,
-    "iv": 0.7231114960214592,
-    "iv_contribution": 0.1767964671890929
-   },
-   {
-    "feature": "mora_max_12m",
-    "woe_column": "mora_max_12m__woe",
-    "beta": -0.6957692471280983,
-    "standard_error": 0.04841365275823708,
-    "wald_z": -14.371343773677982,
-    "p_value": 7.829716878937868e-47,
-    "conf_low": -0.7906582628942712,
-    "conf_high": -0.6008802313619254,
-    "expected_sign": "negative",
-    "sign_ok": true,
-    "iv": 2.2694349407789236,
-    "iv_contribution": 0.5548633678938152
-   },
-   {
-    "feature": "utilizacion_linea",
-    "woe_column": "utilizacion_linea__woe",
-    "beta": -0.7310434767795967,
-    "standard_error": 0.1465116438403367,
-    "wald_z": -4.989661283005345,
-    "p_value": 6.048525595655308e-07,
-    "conf_low": -1.0182010220224162,
-    "conf_high": -0.4438859315367771,
-    "expected_sign": "negative",
-    "sign_ok": true,
-    "iv": 0.21675327677981068,
-    "iv_contribution": 0.05299488916601727
-   }
-  ]
- },
+ "binning": null,
+ "selection": null,
+ "model": null,
  "scorecard": null,
  "calibration": null,
  "performance": null,
@@ -916,7 +22,7 @@
   "n_stage2": 477,
   "n_stage3": 288,
   "total_ead": 114325314.7,
-  "total_ecl_reported": 3514282.439625158,
+  "total_ecl_reported": 3423116.1185982637,
   "scenarios": [
    "base"
   ],
@@ -937,7 +43,7 @@
     "stage_3": 288
    },
    "ecl_by_scenario": {
-    "base": 7036174.023234581
+    "base": 6911516.428053379
    },
    "term_structure_summary": {
     "n_rows": 30000,
@@ -949,22 +55,22 @@
     "stage": 1,
     "n_rows": 5235,
     "total_ead": 99504214.92,
-    "total_ecl_reported": 1546618.540134473,
-    "coverage_ratio": 0.015543246498431576
+    "total_ecl_reported": 1571504.0592189834,
+    "coverage_ratio": 0.015793341623593037
    },
    {
     "stage": 2,
     "n_rows": 477,
     "total_ead": 9064928.97,
-    "total_ecl_reported": 1000397.4814278294,
-    "coverage_ratio": 0.11035910868563918
+    "total_ecl_reported": 980622.6379084955,
+    "coverage_ratio": 0.10817764167307044
    },
    {
     "stage": 3,
     "n_rows": 288,
     "total_ead": 5756170.8100000005,
-    "total_ecl_reported": 967266.4180628557,
-    "coverage_ratio": 0.16803990881967168
+    "total_ecl_reported": 870989.4214707847,
+    "coverage_ratio": 0.15131403327323859
    }
   ],
   "summary": [
@@ -974,8 +80,8 @@
     "scenario": "all",
     "n_rows": 775,
     "total_ead": 31178795.530000027,
-    "total_ecl_reported": 570712.5919408533,
-    "coverage_ratio": 0.018304510557238092,
+    "total_ecl_reported": 581332.2435802374,
+    "coverage_ratio": 0.018645115492703476,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -986,8 +92,8 @@
     "scenario": "all",
     "n_rows": 75,
     "total_ead": 3137275.520000001,
-    "total_ecl_reported": 404839.48446013575,
-    "coverage_ratio": 0.12904173760936866,
+    "total_ecl_reported": 390914.01004194905,
+    "coverage_ratio": 0.12460302180981189,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -998,8 +104,8 @@
     "scenario": "all",
     "n_rows": 51,
     "total_ead": 2145243.75,
-    "total_ecl_reported": 429720.8267513358,
-    "coverage_ratio": 0.20031328689401184,
+    "total_ecl_reported": 375806.68263547187,
+    "coverage_ratio": 0.17518134367503546,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1010,8 +116,8 @@
     "scenario": "all",
     "n_rows": 2125,
     "total_ead": 18099269.130000006,
-    "total_ecl_reported": 386109.36642907845,
-    "coverage_ratio": 0.021332870606862914,
+    "total_ecl_reported": 393131.23119523097,
+    "coverage_ratio": 0.02172083460229926,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1022,8 +128,8 @@
     "scenario": "all",
     "n_rows": 177,
     "total_ead": 1561397.65,
-    "total_ecl_reported": 208024.98930434903,
-    "coverage_ratio": 0.13322998744384498,
+    "total_ecl_reported": 201559.52827267416,
+    "coverage_ratio": 0.1290891710210235,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1034,8 +140,8 @@
     "scenario": "all",
     "n_rows": 114,
     "total_ead": 990794.9300000002,
-    "total_ecl_reported": 197429.81386711792,
-    "coverage_ratio": 0.19926405342740086,
+    "total_ecl_reported": 178471.85443668967,
+    "coverage_ratio": 0.1801299633585021,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1046,8 +152,8 @@
     "scenario": "all",
     "n_rows": 809,
     "total_ead": 43611647.089999974,
-    "total_ecl_reported": 434644.73203193414,
-    "coverage_ratio": 0.009966253536239335,
+    "total_ecl_reported": 437771.2376343661,
+    "coverage_ratio": 0.010037943229499025,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1058,8 +164,8 @@
     "scenario": "all",
     "n_rows": 69,
     "total_ead": 3693801.389999999,
-    "total_ecl_reported": 299083.6155839157,
-    "coverage_ratio": 0.08096905707859832,
+    "total_ecl_reported": 303704.2262189629,
+    "coverage_ratio": 0.0822199664121527,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1070,8 +176,8 @@
     "scenario": "all",
     "n_rows": 38,
     "total_ead": 2244951.1,
-    "total_ecl_reported": 263646.3388365058,
-    "coverage_ratio": 0.11743968001641807,
+    "total_ecl_reported": 251942.92780430007,
+    "coverage_ratio": 0.11222646578105869,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1082,8 +188,8 @@
     "scenario": "all",
     "n_rows": 1526,
     "total_ead": 6614503.169999996,
-    "total_ecl_reported": 155151.8497326072,
-    "coverage_ratio": 0.02345631194740319,
+    "total_ecl_reported": 159269.3468091489,
+    "coverage_ratio": 0.02407880723854109,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1094,8 +200,8 @@
     "scenario": "all",
     "n_rows": 156,
     "total_ead": 672454.4100000001,
-    "total_ecl_reported": 88449.39207942887,
-    "coverage_ratio": 0.13153217640349604,
+    "total_ecl_reported": 84444.87337490938,
+    "coverage_ratio": 0.12557709804432596,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1106,8 +212,8 @@
     "scenario": "all",
     "n_rows": 85,
     "total_ead": 375181.03,
-    "total_ecl_reported": 76469.43860789618,
-    "coverage_ratio": 0.20382010947594068,
+    "total_ecl_reported": 64767.95659432306,
+    "coverage_ratio": 0.17263121377518223,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -1117,45 +223,45 @@
    {
     "period": 1,
     "time_value": 1.0,
-    "ecl_marginal": 2288836.7714327024,
-    "ecl_cumulative": 2288836.7714327024,
-    "pd_marginal_weighted": 0.06362083405581243,
+    "ecl_marginal": 2262676.42478337,
+    "ecl_cumulative": 2262676.42478337,
+    "pd_marginal_weighted": 0.06311502122800476,
     "discount_factor_mean": 0.7915717345168929,
     "n_rows": 6000
    },
    {
     "period": 2,
     "time_value": 2.0,
-    "ecl_marginal": 1748252.9443085394,
-    "ecl_cumulative": 4037089.715741242,
-    "pd_marginal_weighted": 0.057743462990352684,
+    "ecl_marginal": 1720279.9087077375,
+    "ecl_cumulative": 3982956.3334911074,
+    "pd_marginal_weighted": 0.05689603697309872,
     "discount_factor_mean": 0.6321483890288415,
     "n_rows": 6000
    },
    {
     "period": 3,
     "time_value": 3.0,
-    "ecl_marginal": 1265375.0701715136,
-    "ecl_cumulative": 5302464.785912756,
-    "pd_marginal_weighted": 0.04934087231295952,
+    "ecl_marginal": 1219354.8518568694,
+    "ecl_cumulative": 5202311.185347977,
+    "pd_marginal_weighted": 0.0475663504464256,
     "discount_factor_mean": 0.5093655940949352,
     "n_rows": 6000
    },
    {
     "period": 4,
     "time_value": 4.0,
-    "ecl_marginal": 995367.442732863,
-    "ecl_cumulative": 6297832.228645619,
-    "pd_marginal_weighted": 0.04554113077966217,
+    "ecl_marginal": 982123.23926424,
+    "ecl_cumulative": 6184434.424612217,
+    "pd_marginal_weighted": 0.04493447005671387,
     "discount_factor_mean": 0.4141187505217717,
     "n_rows": 6000
    },
    {
     "period": 5,
     "time_value": 5.0,
-    "ecl_marginal": 738341.7945889622,
-    "ecl_cumulative": 7036174.023234582,
-    "pd_marginal_weighted": 0.039408945835906685,
+    "ecl_marginal": 727082.0034411624,
+    "ecl_cumulative": 6911516.428053379,
+    "pd_marginal_weighted": 0.03880127638933928,
     "discount_factor_mean": 0.3396774934551281,
     "n_rows": 6000
    }
@@ -1167,35 +273,17 @@
   },
   "detail_sample": [
    {
-    "loan_id": "op-004699",
-    "portfolio": "Hipotecario",
-    "stage": 3,
-    "ead": 80000.0,
-    "lgd": 0.4319,
-    "eir": 0.0774,
-    "pd_12m": 0.31431992649579005,
-    "pd_life": 0.8367642485057118,
-    "ecl_12m": 10080.176443551642,
-    "ecl_lifetime": 24528.80904911045,
-    "ecl_reported": 24528.80904911045,
-    "sicr_triggers": [
-     "dpd_sicr_backstop",
-     "dpd_default_backstop",
-     "is_default"
-    ]
-   },
-   {
     "loan_id": "op-000305",
     "portfolio": "Comercial",
     "stage": 3,
     "ead": 66822.35,
     "lgd": 0.4969,
     "eir": 0.161,
-    "pd_12m": 0.28998413108861354,
-    "pd_life": 0.8067944213716945,
-    "ecl_12m": 8293.402709395568,
-    "ecl_lifetime": 19288.062820879342,
-    "ecl_reported": 19288.062820879342,
+    "pd_12m": 0.2789688754802042,
+    "pd_life": 0.7903789553746035,
+    "ecl_12m": 7978.371847656618,
+    "ecl_lifetime": 18826.69723987618,
+    "ecl_reported": 18826.69723987618,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -1203,33 +291,17 @@
     ]
    },
    {
-    "loan_id": "op-001519",
-    "portfolio": "Comercial",
-    "stage": 2,
-    "ead": 63667.51,
-    "lgd": 0.5294,
-    "eir": 0.1878,
-    "pd_12m": 0.24838502378977775,
-    "pd_life": 0.7456987739625851,
-    "ecl_12m": 7048.292001162606,
-    "ecl_lifetime": 17001.452195005986,
-    "ecl_reported": 17001.452195005986,
-    "sicr_triggers": [
-     "dpd_sicr_backstop"
-    ]
-   },
-   {
-    "loan_id": "op-004190",
-    "portfolio": "Comercial",
+    "loan_id": "op-004699",
+    "portfolio": "Hipotecario",
     "stage": 3,
-    "ead": 68831.26,
-    "lgd": 0.4583,
-    "eir": 0.1403,
-    "pd_12m": 0.23042087085199076,
-    "pd_life": 0.7150408192158608,
-    "ecl_12m": 6374.384644915845,
-    "ecl_lifetime": 16582.405127016336,
-    "ecl_reported": 16582.405127016336,
+    "ead": 80000.0,
+    "lgd": 0.4319,
+    "eir": 0.0774,
+    "pd_12m": 0.19628748185388473,
+    "pd_life": 0.6470667423135433,
+    "ecl_12m": 6294.899826448325,
+    "ecl_lifetime": 18601.63404100001,
+    "ecl_reported": 18601.63404100001,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -1243,65 +315,11 @@
     "ead": 46887.08,
     "lgd": 0.6025,
     "eir": 0.1742,
-    "pd_12m": 0.26663480939728573,
-    "pd_life": 0.7741289132991025,
-    "ecl_12m": 6414.827884938393,
-    "ecl_lifetime": 15257.091055754614,
-    "ecl_reported": 15257.091055754614,
-    "sicr_triggers": [
-     "dpd_sicr_backstop",
-     "dpd_default_backstop",
-     "is_default"
-    ]
-   },
-   {
-    "loan_id": "op-004632",
-    "portfolio": "Comercial",
-    "stage": 3,
-    "ead": 69853.77,
-    "lgd": 0.4139,
-    "eir": 0.1831,
-    "pd_12m": 0.25723840346463245,
-    "pd_life": 0.7598215928040133,
-    "ecl_12m": 6286.365491402396,
-    "ecl_lifetime": 15033.79695241477,
-    "ecl_reported": 15033.79695241477,
-    "sicr_triggers": [
-     "dpd_sicr_backstop",
-     "dpd_default_backstop",
-     "is_default"
-    ]
-   },
-   {
-    "loan_id": "op-002969",
-    "portfolio": "Comercial",
-    "stage": 3,
-    "ead": 51457.5,
-    "lgd": 0.5647,
-    "eir": 0.1539,
-    "pd_12m": 0.22963460538914188,
-    "pd_life": 0.7136356474638075,
-    "ecl_12m": 5782.766186443025,
-    "ecl_lifetime": 14844.732586160619,
-    "ecl_reported": 14844.732586160619,
-    "sicr_triggers": [
-     "dpd_sicr_backstop",
-     "dpd_default_backstop",
-     "is_default"
-    ]
-   },
-   {
-    "loan_id": "op-000797",
-    "portfolio": "Hipotecario",
-    "stage": 3,
-    "ead": 80000.0,
-    "lgd": 0.2759,
-    "eir": 0.0944,
-    "pd_12m": 0.29976600052572,
-    "pd_life": 0.8193196665202306,
-    "ecl_12m": 6045.719264988753,
-    "ecl_lifetime": 14794.852794243134,
-    "ecl_reported": 14794.852794243134,
+    "pd_12m": 0.31807600495071475,
+    "pd_life": 0.8397293644134532,
+    "ecl_12m": 7652.424792921349,
+    "ecl_lifetime": 16844.152473480368,
+    "ecl_reported": 16844.152473480368,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -1315,11 +333,11 @@
     "ead": 39790.33,
     "lgd": 0.6099,
     "eir": 0.1291,
-    "pd_12m": 0.26663480939728573,
-    "pd_life": 0.7741289132991025,
-    "ecl_12m": 5730.870742265141,
-    "ecl_lifetime": 14255.164022723893,
-    "ecl_reported": 14255.164022723893,
+    "pd_12m": 0.31641381249993294,
+    "pd_life": 0.8378382318220297,
+    "ecl_12m": 6800.787431331137,
+    "ecl_lifetime": 15632.13398150056,
+    "ecl_reported": 15632.13398150056,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -1327,17 +345,89 @@
     ]
    },
    {
-    "loan_id": "op-002434",
+    "loan_id": "op-001310",
+    "portfolio": "Comercial",
+    "stage": 3,
+    "ead": 76930.79,
+    "lgd": 0.3241,
+    "eir": 0.1511,
+    "pd_12m": 0.3145577292170069,
+    "pd_life": 0.8357058447080802,
+    "ecl_12m": 6813.441482811697,
+    "ecl_lifetime": 15387.10781966854,
+    "ecl_reported": 15387.10781966854,
+    "sicr_triggers": [
+     "dpd_sicr_backstop",
+     "dpd_default_backstop",
+     "is_default"
+    ]
+   },
+   {
+    "loan_id": "op-004667",
     "portfolio": "Hipotecario",
     "stage": 3,
     "ead": 80000.0,
-    "lgd": 0.2599,
-    "eir": 0.0947,
-    "pd_12m": 0.30481899807153284,
-    "pd_life": 0.8255345824591889,
-    "ecl_12m": 5789.528279805711,
-    "ecl_lifetime": 14048.603946492849,
-    "ecl_reported": 14048.603946492849,
+    "lgd": 0.2446,
+    "eir": 0.0949,
+    "pd_12m": 0.3866774258672863,
+    "pd_life": 0.9039335076223088,
+    "ecl_12m": 6910.680308129564,
+    "ecl_lifetime": 14712.156451985766,
+    "ecl_reported": 14712.156451985766,
+    "sicr_triggers": [
+     "dpd_sicr_backstop",
+     "dpd_default_backstop",
+     "is_default"
+    ]
+   },
+   {
+    "loan_id": "op-004632",
+    "portfolio": "Comercial",
+    "stage": 3,
+    "ead": 69853.77,
+    "lgd": 0.4139,
+    "eir": 0.1831,
+    "pd_12m": 0.24048083390509914,
+    "pd_life": 0.7308850690880384,
+    "ecl_12m": 5876.845740152233,
+    "ecl_lifetime": 14373.890468027586,
+    "ecl_reported": 14373.890468027586,
+    "sicr_triggers": [
+     "dpd_sicr_backstop",
+     "dpd_default_backstop",
+     "is_default"
+    ]
+   },
+   {
+    "loan_id": "op-000999",
+    "portfolio": "Hipotecario",
+    "stage": 3,
+    "ead": 78198.35,
+    "lgd": 0.2351,
+    "eir": 0.08,
+    "pd_12m": 0.38023768649145756,
+    "pd_life": 0.8989574980601094,
+    "ecl_12m": 6472.642521721966,
+    "ecl_lifetime": 14108.121778251234,
+    "ecl_reported": 14108.121778251234,
+    "sicr_triggers": [
+     "dpd_sicr_backstop",
+     "dpd_default_backstop",
+     "is_default"
+    ]
+   },
+   {
+    "loan_id": "op-002017",
+    "portfolio": "Hipotecario",
+    "stage": 3,
+    "ead": 80000.0,
+    "lgd": 0.1919,
+    "eir": 0.0614,
+    "pd_12m": 0.6659526511768155,
+    "pd_life": 0.9950326472427845,
+    "ecl_12m": 9632.282929024374,
+    "ecl_lifetime": 14001.2697160767,
+    "ecl_reported": 14001.2697160767,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -1351,27 +441,27 @@
     "ead": 70517.16,
     "lgd": 0.4034,
     "eir": 0.1271,
-    "pd_12m": 0.1986611222294016,
-    "pd_life": 0.6538013204478212,
-    "ecl_12m": 5013.963196251451,
-    "ecl_lifetime": 13920.815155943299,
-    "ecl_reported": 13920.815155943299,
+    "pd_12m": 0.18944710972878143,
+    "pd_life": 0.6324510067681787,
+    "ecl_12m": 4781.412815736824,
+    "ecl_lifetime": 13434.063089444517,
+    "ecl_reported": 13434.063089444517,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
    },
    {
-    "loan_id": "op-000155",
-    "portfolio": "Comercial",
+    "loan_id": "op-003536",
+    "portfolio": "Hipotecario",
     "stage": 3,
-    "ead": 62303.83,
-    "lgd": 0.377,
-    "eir": 0.1504,
-    "pd_12m": 0.28399426360507485,
-    "pd_life": 0.798794191706994,
-    "ecl_12m": 5798.515065086853,
-    "ecl_lifetime": 13745.714669077875,
-    "ecl_reported": 13745.714669077875,
+    "ead": 80000.0,
+    "lgd": 0.2936,
+    "eir": 0.0939,
+    "pd_12m": 0.21509395515271354,
+    "pd_life": 0.6849163900284192,
+    "ecl_12m": 4618.453989054699,
+    "ecl_lifetime": 12955.008218964846,
+    "ecl_reported": 12955.008218964846,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -1379,17 +469,17 @@
     ]
    },
    {
-    "loan_id": "op-000784",
-    "portfolio": "Comercial",
+    "loan_id": "op-000289",
+    "portfolio": "Hipotecario",
     "stage": 2,
-    "ead": 69660.78,
-    "lgd": 0.4791,
-    "eir": 0.1369,
-    "pd_12m": 0.12322152586763459,
-    "pd_life": 0.46671247075978356,
-    "ecl_12m": 3617.2524526571838,
-    "ecl_lifetime": 11200.608658282295,
-    "ecl_reported": 11200.608658282295,
+    "ead": 80000.0,
+    "lgd": 0.2617,
+    "eir": 0.0899,
+    "pd_12m": 0.24681116075902618,
+    "pd_life": 0.741482814735056,
+    "ecl_12m": 4741.020700661502,
+    "ecl_lifetime": 12683.85066517814,
+    "ecl_reported": 12683.85066517814,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -1401,151 +491,139 @@
     "ead": 70550.54,
     "lgd": 0.3166,
     "eir": 0.0701,
-    "pd_12m": 0.1651454409112814,
-    "pd_life": 0.5784429332952928,
-    "ecl_12m": 3447.096786306756,
-    "ecl_lifetime": 10878.307845384756,
-    "ecl_reported": 10878.307845384756,
+    "pd_12m": 0.18857875633963564,
+    "pd_life": 0.6305622486933723,
+    "ecl_12m": 3936.2226493027974,
+    "ecl_lifetime": 11898.251089733869,
+    "ecl_reported": 11898.251089733869,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
    },
    {
-    "loan_id": "op-004706",
+    "loan_id": "op-002279",
     "portfolio": "Hipotecario",
     "stage": 2,
-    "ead": 74277.07,
-    "lgd": 0.2735,
-    "eir": 0.0914,
-    "pd_12m": 0.19075730173922598,
-    "pd_life": 0.6370677424210854,
-    "ecl_12m": 3550.6618652646603,
-    "ecl_lifetime": 10430.572421007697,
-    "ecl_reported": 10430.572421007697,
+    "ead": 80000.0,
+    "lgd": 0.2574,
+    "eir": 0.0589,
+    "pd_12m": 0.20211240130130845,
+    "pd_life": 0.6591506036678652,
+    "ecl_12m": 3930.398118421516,
+    "ecl_lifetime": 11783.99590887882,
+    "ecl_reported": 11783.99590887882,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
    },
    {
-    "loan_id": "op-003743",
+    "loan_id": "op-005472",
     "portfolio": "Comercial",
     "stage": 2,
-    "ead": 45707.69,
-    "lgd": 0.4231,
-    "eir": 0.1706,
-    "pd_12m": 0.23985530950718317,
-    "pd_life": 0.7314832167986673,
-    "ecl_12m": 3962.535037560333,
-    "ecl_lifetime": 9844.592111919315,
-    "ecl_reported": 9844.592111919315,
+    "ead": 36928.4,
+    "lgd": 0.4858,
+    "eir": 0.1463,
+    "pd_12m": 0.33860020125183854,
+    "pd_life": 0.8616853961843178,
+    "ecl_12m": 5299.158642426151,
+    "ecl_lifetime": 11596.366751221016,
+    "ecl_reported": 11596.366751221016,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
    },
    {
-    "loan_id": "op-001787",
+    "loan_id": "op-000784",
     "portfolio": "Comercial",
     "stage": 2,
-    "ead": 42815.7,
-    "lgd": 0.4167,
-    "eir": 0.1553,
-    "pd_12m": 0.24946953376095987,
-    "pd_life": 0.7474629778404085,
-    "ecl_12m": 3852.5589362310157,
-    "ecl_lifetime": 9579.406809386483,
-    "ecl_reported": 9579.406809386483,
+    "ead": 69660.78,
+    "lgd": 0.4791,
+    "eir": 0.1369,
+    "pd_12m": 0.11460759034084944,
+    "pd_life": 0.4394909081670432,
+    "ecl_12m": 3364.3844639523095,
+    "ecl_lifetime": 10523.711065075528,
+    "ecl_reported": 10523.711065075528,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
    },
    {
-    "loan_id": "op-001069",
+    "loan_id": "op-001519",
     "portfolio": "Comercial",
     "stage": 2,
-    "ead": 39215.27,
-    "lgd": 0.4689,
-    "eir": 0.1541,
-    "pd_12m": 0.21531729341765382,
-    "pd_life": 0.6870827983262807,
-    "ecl_12m": 3430.606555959827,
-    "ecl_lifetime": 9001.443691861037,
-    "ecl_reported": 9001.443691861037,
+    "ead": 63667.51,
+    "lgd": 0.5294,
+    "eir": 0.1878,
+    "pd_12m": 0.12609752181680056,
+    "pd_life": 0.4733523028430031,
+    "ecl_12m": 3578.2034714782185,
+    "ecl_lifetime": 10332.495566214951,
+    "ecl_reported": 10332.495566214951,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
    },
    {
-    "loan_id": "op-003594",
+    "loan_id": "op-001148",
     "portfolio": "Comercial",
     "stage": 2,
-    "ead": 51995.99,
-    "lgd": 0.3974,
-    "eir": 0.1389,
-    "pd_12m": 0.17356625053492164,
-    "pd_life": 0.5984808432242581,
-    "ecl_12m": 3149.034387031274,
-    "ecl_lifetime": 8974.617226290484,
-    "ecl_reported": 8974.617226290484,
+    "ead": 79273.51,
+    "lgd": 0.409,
+    "eir": 0.1264,
+    "pd_12m": 0.11180003435786198,
+    "pd_life": 0.43096416608688515,
+    "ecl_12m": 3218.108564401936,
+    "ecl_lifetime": 10251.425652122403,
+    "ecl_reported": 10251.425652122403,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
    },
    {
-    "loan_id": "op-002081",
+    "loan_id": "op-005830",
     "portfolio": "Hipotecario",
     "stage": 2,
-    "ead": 54042.14,
-    "lgd": 0.251,
-    "eir": 0.0843,
-    "pd_12m": 0.27612826630072335,
-    "pd_life": 0.7878951337604168,
-    "ecl_12m": 3454.360572508184,
-    "ecl_lifetime": 8882.55112733752,
-    "ecl_reported": 8882.55112733752,
+    "ead": 66107.38,
+    "lgd": 0.2675,
+    "eir": 0.0931,
+    "pd_12m": 0.21686311642913855,
+    "pd_life": 0.6883062038045301,
+    "ecl_12m": 3508.3226870754916,
+    "ecl_lifetime": 9821.982128677766,
+    "ecl_reported": 9821.982128677766,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
    },
    {
-    "loan_id": "op-004152",
+    "loan_id": "op-000627",
+    "portfolio": "Hipotecario",
+    "stage": 2,
+    "ead": 54555.98,
+    "lgd": 0.3587,
+    "eir": 0.0939,
+    "pd_12m": 0.1721380235859425,
+    "pd_life": 0.5933455426668665,
+    "ecl_12m": 3079.448377159084,
+    "ecl_lifetime": 9273.786037366895,
+    "ecl_reported": 9273.786037366895,
+    "sicr_triggers": [
+     "dpd_sicr_backstop"
+    ]
+   },
+   {
+    "loan_id": "op-005896",
     "portfolio": "Comercial",
     "stage": 1,
     "ead": 80000.0,
-    "lgd": 0.3845,
-    "eir": 0.1438,
-    "pd_12m": 0.1154380839701138,
-    "pd_life": 0.443636559328614,
-    "ecl_12m": 3104.4548548004027,
-    "ecl_lifetime": 9648.152220995287,
-    "ecl_reported": 3104.4548548004027,
-    "sicr_triggers": []
-   },
-   {
-    "loan_id": "op-005783",
-    "portfolio": "Comercial",
-    "stage": 1,
-    "ead": 59297.72,
-    "lgd": 0.4865,
-    "eir": 0.1863,
-    "pd_12m": 0.11354718422148438,
-    "pd_life": 0.4379142730364039,
-    "ecl_12m": 2761.2306035832594,
-    "ecl_lifetime": 8170.698905253776,
-    "ecl_reported": 2761.2306035832594,
-    "sicr_triggers": []
-   },
-   {
-    "loan_id": "op-004363",
-    "portfolio": "Comercial",
-    "stage": 1,
-    "ead": 80000.0,
-    "lgd": 0.4786,
-    "eir": 0.1592,
-    "pd_12m": 0.0730151835849424,
-    "pd_life": 0.30375890594219834,
-    "ecl_12m": 2411.6678304867796,
-    "ecl_lifetime": 7860.203545798401,
-    "ecl_reported": 2411.6678304867796,
+    "lgd": 0.4588,
+    "eir": 0.1683,
+    "pd_12m": 0.130057126507007,
+    "pd_life": 0.48464331224366736,
+    "ecl_12m": 4085.9511866071944,
+    "ecl_lifetime": 11998.376529024525,
+    "ecl_reported": 4085.9511866071944,
     "sicr_triggers": []
    },
    {
@@ -1555,39 +633,39 @@
     "ead": 80000.0,
     "lgd": 0.5174,
     "eir": 0.1535,
-    "pd_12m": 0.06577846856729723,
-    "pd_life": 0.277379030119775,
-    "ecl_12m": 2360.3835031968506,
-    "ecl_lifetime": 7840.557660402147,
-    "ecl_reported": 2360.3835031968506,
+    "pd_12m": 0.09165794131983894,
+    "pd_life": 0.36677897583833335,
+    "ecl_12m": 3289.038150941286,
+    "ecl_lifetime": 10443.292108079404,
+    "ecl_reported": 3289.038150941286,
     "sicr_triggers": []
    },
    {
-    "loan_id": "op-004812",
+    "loan_id": "op-005783",
     "portfolio": "Comercial",
     "stage": 1,
-    "ead": 27556.6,
-    "lgd": 0.633,
-    "eir": 0.159,
-    "pd_12m": 0.14722119186383725,
-    "pd_life": 0.5331816522820039,
-    "ecl_12m": 2215.726927340471,
-    "ecl_lifetime": 6427.671989939621,
-    "ecl_reported": 2215.726927340471,
+    "ead": 59297.72,
+    "lgd": 0.4865,
+    "eir": 0.1863,
+    "pd_12m": 0.13475014874783672,
+    "pd_life": 0.49777978262542555,
+    "ecl_12m": 3276.842460788405,
+    "ecl_lifetime": 9355.48436660458,
+    "ecl_reported": 3276.842460788405,
     "sicr_triggers": []
    },
    {
-    "loan_id": "op-004349",
-    "portfolio": "Hipotecario",
+    "loan_id": "op-001298",
+    "portfolio": "Comercial",
     "stage": 1,
-    "ead": 49579.17,
-    "lgd": 0.2776,
-    "eir": 0.0887,
-    "pd_12m": 0.1747904895462427,
-    "pd_life": 0.6013306857401826,
-    "ecl_12m": 2209.6744273147406,
-    "ecl_lifetime": 6690.47395776804,
-    "ecl_reported": 2209.6744273147406,
+    "ead": 47131.29,
+    "lgd": 0.4619,
+    "eir": 0.1714,
+    "pd_12m": 0.14624890733975812,
+    "pd_life": 0.5288620189711816,
+    "ecl_12m": 2717.9702533786312,
+    "ecl_lifetime": 7756.969526584913,
+    "ecl_reported": 2717.9702533786312,
     "sicr_triggers": []
    },
    {
@@ -1597,53 +675,81 @@
     "ead": 80000.0,
     "lgd": 0.48,
     "eir": 0.1541,
-    "pd_12m": 0.06381781473282945,
-    "pd_life": 0.2700990695136477,
-    "ecl_12m": 2123.389728568279,
-    "ecl_lifetime": 7069.711154342229,
-    "ecl_reported": 2123.389728568279,
+    "pd_12m": 0.08024312846741381,
+    "pd_life": 0.32797623669969533,
+    "ecl_12m": 2669.9039365294957,
+    "ecl_lifetime": 8624.458694446823,
+    "ecl_reported": 2669.9039365294957,
     "sicr_triggers": []
    },
    {
-    "loan_id": "op-005896",
+    "loan_id": "op-005802",
+    "portfolio": "Hipotecario",
+    "stage": 1,
+    "ead": 78922.67,
+    "lgd": 0.1711,
+    "eir": 0.0926,
+    "pd_12m": 0.20623620181243163,
+    "pd_life": 0.6675078160102395,
+    "ecl_12m": 2548.915771074296,
+    "ecl_lifetime": 7266.631220441213,
+    "ecl_reported": 2548.915771074296,
+    "sicr_triggers": []
+   },
+   {
+    "loan_id": "op-004363",
     "portfolio": "Comercial",
     "stage": 1,
     "ead": 80000.0,
-    "lgd": 0.4588,
-    "eir": 0.1683,
-    "pd_12m": 0.06568438168335669,
-    "pd_life": 0.2770309855987694,
-    "ecl_12m": 2063.5791708516,
-    "ecl_lifetime": 6723.752624342463,
-    "ecl_reported": 2063.5791708516,
+    "lgd": 0.4786,
+    "eir": 0.1592,
+    "pd_12m": 0.0730739239974318,
+    "pd_life": 0.30267341331375924,
+    "ecl_12m": 2413.608007258169,
+    "ecl_lifetime": 7832.593939092291,
+    "ecl_reported": 2413.608007258169,
     "sicr_triggers": []
    },
    {
-    "loan_id": "op-000558",
+    "loan_id": "op-004152",
     "portfolio": "Comercial",
     "stage": 1,
-    "ead": 73172.7,
-    "lgd": 0.6108,
-    "eir": 0.1332,
-    "pd_12m": 0.05011165583437343,
-    "pd_life": 0.21759118683748357,
-    "ecl_12m": 1976.4248067763237,
-    "ecl_lifetime": 6922.710567084203,
-    "ecl_reported": 1976.4248067763237,
+    "ead": 80000.0,
+    "lgd": 0.3845,
+    "eir": 0.1438,
+    "pd_12m": 0.08937630430481826,
+    "pd_life": 0.3591664791328955,
+    "ecl_12m": 2403.580276635959,
+    "ecl_lifetime": 7756.768890347914,
+    "ecl_reported": 2403.580276635959,
     "sicr_triggers": []
    },
    {
-    "loan_id": "op-004184",
+    "loan_id": "op-005101",
+    "portfolio": "Hipotecario",
+    "stage": 1,
+    "ead": 80000.0,
+    "lgd": 0.3599,
+    "eir": 0.0836,
+    "pd_12m": 0.08980509127999917,
+    "pd_life": 0.3606025142274398,
+    "ecl_12m": 2386.1832670115696,
+    "ecl_lifetime": 8370.407509461711,
+    "ecl_reported": 2386.1832670115696,
+    "sicr_triggers": []
+   },
+   {
+    "loan_id": "op-000983",
     "portfolio": "Comercial",
     "stage": 1,
-    "ead": 77325.18,
-    "lgd": 0.6054,
-    "eir": 0.1381,
-    "pd_12m": 0.046282856710626964,
-    "pd_life": 0.20240834650242448,
-    "ecl_12m": 1903.7200763191329,
-    "ecl_lifetime": 6663.519289614958,
-    "ecl_reported": 1903.7200763191329,
+    "ead": 62062.85,
+    "lgd": 0.4084,
+    "eir": 0.1257,
+    "pd_12m": 0.1038934389299072,
+    "pd_life": 0.40640595514947264,
+    "ecl_12m": 2339.2837514553084,
+    "ecl_lifetime": 7554.830018718656,
+    "ecl_reported": 2339.2837514553084,
     "sicr_triggers": []
    }
   ]
