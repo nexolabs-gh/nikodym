@@ -74,3 +74,6 @@ Thumbs.db
 HANDOFF.md
 AUTONOMY-LOG.md
 docs/AUTONOMY.md
+
+# Local private workspace (nested git repo, never tracked here)
+/privado/
