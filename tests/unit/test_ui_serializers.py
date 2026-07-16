@@ -554,6 +554,124 @@ def test_serializa_las_cards_de_provisiones_del_preset_f3(tmp_path: Path) -> Non
     assert "detail" not in interno
 
 
+# ─────────────────────────────── IFRS 9 / ECL (preset F4 real) ───────────────────────────────
+
+
+def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
+    """El preset F4 serializa el bloque provisioning_ifrs9: card + frames AGREGADOS, sin ``detail``.
+
+    Corre la cadena entera (no fabrica el estado: el staging y la ECL los produce el motor IFRS 9) y
+    verifica que ``serialize_study`` expone la card CT-2 más los frames agregados graficables
+    —distribución de staging por Stage 1/2/3, resumen por cartera·stage, curva de ECL por período y
+    conteo de gatillos SICR— con un staging repartido REAL (Stage 2 y 3 no vacíos) y sin el
+    ``detail`` por operación (6.000 filas). Requiere el extra ``scoring`` (OptBinning); el mínimo
+    lo salta.
+    """
+    pytest.importorskip("optbinning")
+    from nikodym.ui import datasets
+    from nikodym.ui.presets import IFRS9_DATASET_ID, ifrs9_preset
+
+    source = datasets.materialize(IFRS9_DATASET_ID, workdir=tmp_path)
+    config = ifrs9_preset()["config"]
+    config["data"]["load"]["source"] = str(source)
+    study = nikodym.run(NikodymConfig.model_validate(config))
+    assert study.run_context.status == "done"
+
+    payload = serialize_study(study, governance=None)
+    # El payload entero es JSON estricto (el guard es global).
+    json.dumps(payload, allow_nan=False)
+
+    block = payload["provisioning_ifrs9"]
+    assert isinstance(block, dict)
+
+    # (a) Card CT-2: los conteos por stage cuadran y hay ECL/EAD positivos con cobertura creíble.
+    n_rows = block["n_rows"]
+    assert block["n_stage1"] + block["n_stage2"] + block["n_stage3"] == n_rows
+    assert block["n_stage2"] > 0 and block["n_stage3"] > 0  # staging repartido real
+    assert block["n_stage1"] > block["n_stage2"] > block["n_stage3"]  # patrón realista
+    assert isinstance(block["total_ead"], (int, float)) and block["total_ead"] > 0
+    assert isinstance(block["total_ecl_reported"], (int, float)) and block["total_ecl_reported"] > 0
+    coverage = block["total_ecl_reported"] / block["total_ead"]
+    assert 0.01 <= coverage <= 0.15  # rango creíble de retail (el ⚑ checkpoint del número)
+
+    # (b) Distribución de staging por Stage 1/2/3: 3 filas que RECONCILIAN con la card.
+    dist = block["staging_distribution"]
+    assert [row["stage"] for row in dist] == [1, 2, 3]
+    assert sum(row["n_rows"] for row in dist) == n_rows
+    assert sum(row["total_ecl_reported"] for row in dist) == pytest.approx(
+        block["total_ecl_reported"], rel=1e-9
+    )
+    coverages = [row["coverage_ratio"] for row in dist]
+    assert coverages[0] < coverages[1] < coverages[2]  # cobertura crece con la severidad del stage
+
+    # (c) Resumen por cartera·stage (agregado del motor), no vacío, con las columnas canónicas.
+    summary = block["summary"]
+    assert len(summary) >= 1
+    assert {
+        "portfolio",
+        "stage",
+        "n_rows",
+        "total_ead",
+        "total_ecl_reported",
+        "coverage_ratio",
+    } <= set(summary[0])
+
+    # (d) Curva de ECL por período: acumulada no decreciente y factor de descuento en (0, 1].
+    curve = block["ecl_term_structure"]
+    assert len(curve) >= 1
+    assert {
+        "period",
+        "time_value",
+        "ecl_marginal",
+        "ecl_cumulative",
+        "pd_marginal_weighted",
+        "discount_factor_mean",
+    } <= set(curve[0])
+    cumulative = [row["ecl_cumulative"] for row in curve]
+    assert cumulative == sorted(cumulative)  # acumulada monótona no decreciente
+    for row in curve:
+        assert 0.0 < row["discount_factor_mean"] <= 1.0
+        assert 0.0 <= row["pd_marginal_weighted"] <= 1.0
+
+    # (e) Gatillos SICR: los backstops duros de mora disparan; conteos enteros positivos.
+    triggers = block["sicr_triggers"]
+    assert isinstance(triggers, dict) and triggers
+    assert "dpd_default_backstop" in triggers  # 90+ días de mora → Stage 3
+    assert all(isinstance(value, int) and value > 0 for value in triggers.values())
+
+    # (f) Muestra por operación (top-N por ECL) con las tres etapas y sus campos por fila.
+    detail_sample = block["detail_sample"]
+    assert {row["stage"] for row in detail_sample} == {1, 2, 3}  # no solo Stage 3
+    assert {
+        "loan_id",
+        "portfolio",
+        "stage",
+        "ead",
+        "lgd",
+        "eir",
+        "pd_12m",
+        "pd_life",
+        "ecl_12m",
+        "ecl_lifetime",
+        "ecl_reported",
+        "sicr_triggers",
+    } <= set(detail_sample[0])
+    # Ordenada por ``ecl_reported`` descendente; los gatillos SICR son una lista por operación.
+    ecls = [row["ecl_reported"] for row in detail_sample]
+    assert ecls == sorted(ecls, reverse=True)
+    assert all(isinstance(row["sicr_triggers"], list) for row in detail_sample)
+    # Coherencia stage↔gatillos: Stage 1 sin gatillos; Stage 3 con default (dpd 90 o is_default).
+    for row in detail_sample:
+        if row["stage"] == 1:
+            assert row["sicr_triggers"] == []
+        if row["stage"] == 3:
+            assert {"dpd_default_backstop", "is_default"} & set(row["sicr_triggers"])
+
+    # (g) El ``detail`` COMPLETO por operación (6.000 filas) nunca entra al payload.
+    assert "detail" not in block
+    assert "staging" not in block
+
+
 # ─────────────────────────────── mapa canónico ───────────────────────────────
 
 

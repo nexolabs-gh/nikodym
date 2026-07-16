@@ -76,6 +76,33 @@ export function provisioningBarColor(
 }
 
 /**
+ * Paleta del dominio IFRS 9 / ECL (SDD-16). `ead` (exposición) en el azul de marca, `ecl`
+ * (provisión) en cyan, `coverage` (la línea de cobertura) en ámbar de alerta —mismo rol que la
+ * línea de PD del método interno—. Las etapas usan un degradé de riesgo creciente (Stage 1 tenue →
+ * Stage 3 alerta) que reutiliza la paleta semáforo, para leer "el riesgo se concentra en Stage 3".
+ * MISMO color = MISMO concepto en todos los charts IFRS 9. Accesibilidad: el color nunca es el único
+ * distintivo (labels + leyenda + tabla acompañan siempre).
+ */
+export const IFRS9_COLORS = {
+  ead: BRAND.accentDark, // exposición (EAD)
+  ecl: BRAND.cyan, // ECL reportada / marginal
+  eclCumulative: BRAND.accent, // ECL acumulada (el "número final" de la curva)
+  coverage: BRAND.amber, // línea de cobertura (ECL/EAD)
+} as const
+
+/** Color por etapa IFRS 9 (riesgo creciente Stage 1→3); fallback neutro para un stage no previsto. */
+export const IFRS9_STAGE_COLORS: Record<number, string> = {
+  1: BRAND.cyan, // al día → bajo riesgo
+  2: BRAND.amber, // SICR → vigilar
+  3: "#f87171", // deteriorado / default → alerta (red-400, como `redevelop`)
+} as const
+
+/** Color de un stage IFRS 9; fallback neutro para un valor no previsto (robustez). */
+export function ifrs9StageColor(stage: number): string {
+  return IFRS9_STAGE_COLORS[stage] ?? BRAND.placeholder
+}
+
+/**
  * Paleta SEMÁNTICA de bandas de estabilidad (PSI/CSI), tipo semáforo sobre navy:
  * estable=verde (ok), revisar=ámbar (vigilar), redesarrollar=rojo (alerta), no
  * evaluable=gris neutro. Los verdes/rojos usan las variantes -400 de Tailwind, que

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   EMPTY,
+  MONEY,
   bandsPresent,
   binnedVariables,
   cmfCategoryBars,
@@ -16,10 +17,19 @@ import {
   formatClpCompact,
   formatCount,
   formatMetric,
+  formatMoney,
+  formatMoneyCompact,
   formatPValue,
   formatPercent,
   formatPercentValue,
   gainsSeries,
+  ifrs9DetailRows,
+  ifrs9Headline,
+  ifrs9SicrTriggers,
+  ifrs9StageLabel,
+  ifrs9StageRows,
+  ifrs9SummaryRows,
+  ifrs9TermStructure,
   internalGroupBars,
   liftByDecile,
   monotonicityLabel,
@@ -33,6 +43,7 @@ import {
   reliabilityCurve,
   scoreBandLabel,
   scoreHistogram,
+  sicrTriggerLabel,
   sortByIv,
   temporalScore,
   variableBinning,
@@ -42,6 +53,7 @@ import type {
   CalibrationResult,
   CmfProvisioningResult,
   DecileRow,
+  Ifrs9ProvisioningResult,
   InternalProvisioningResult,
   ProvisioningResult,
   ResultsResponse,
@@ -1660,5 +1672,368 @@ describe("cmfCategoryBars", () => {
   it("[] cuando falta la card o el frame de resumen", () => {
     expect(cmfCategoryBars(null)).toEqual([])
     expect(cmfCategoryBars({ ...cmfSample, summary: undefined })).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// provisiones IFRS 9 / ECL (SDD-16, experimental): dinero agnóstico + derivaciones
+// ---------------------------------------------------------------------------
+
+/**
+ * Fixture tipado con VALORES REALES del preset F4 `f4-ifrs9-retail` (recorte de una corrida real).
+ * Que compile como `Ifrs9ProvisioningResult` YA verifica el contrato. Deliberadamente DESORDENADO en
+ * `summary` (por cartera/stage) y `ecl_term_structure` (por período) para ejercitar los sorts.
+ */
+const ifrs9Sample: Ifrs9ProvisioningResult = {
+  as_of_date: "2025-06-30",
+  term_structure_source: "survival",
+  pit_mode: "ttc_only",
+  n_rows: 6000,
+  n_stage1: 5235,
+  n_stage2: 477,
+  n_stage3: 288,
+  total_ead: 114325314.7,
+  total_ecl_reported: 3514282.439625158,
+  scenarios: ["base"],
+  scenario_weights: { base: 1.0 },
+  dependency_versions: { pandas: "2.2.2", numpy: "2.0.0" },
+  falta_dato: ["FALTA-DATO-IFRS-4"],
+  metric_sections: {},
+  staging_distribution: [
+    {
+      stage: 1,
+      n_rows: 5235,
+      total_ead: 99504214.92,
+      total_ecl_reported: 1546618.540134473,
+      coverage_ratio: 0.015543246498431576,
+    },
+    {
+      stage: 2,
+      n_rows: 477,
+      total_ead: 9064928.97,
+      total_ecl_reported: 1000397.4814278294,
+      coverage_ratio: 0.11035910868563918,
+    },
+    {
+      stage: 3,
+      n_rows: 288,
+      total_ead: 5756170.81,
+      total_ecl_reported: 967266.4180628557,
+      coverage_ratio: 0.16803990881967168,
+    },
+  ],
+  // Desordenado (Comercial 3, Comercial 1, Hipotecario 2) → sort esperado: Comercial 1, Comercial 3, Hipotecario 2.
+  summary: [
+    {
+      portfolio: "Comercial",
+      stage: 3,
+      scenario: "all",
+      n_rows: 51,
+      total_ead: 2145243.75,
+      total_ecl_reported: 429720.8267513358,
+      coverage_ratio: 0.20031328689401184,
+      warning_codes: ["FALTA-DATO-IFRS-4"],
+    },
+    {
+      portfolio: "Comercial",
+      stage: 1,
+      scenario: "all",
+      n_rows: 775,
+      total_ead: 31178795.53,
+      total_ecl_reported: 570712.5919408533,
+      coverage_ratio: 0.018304510557238092,
+      warning_codes: ["FALTA-DATO-IFRS-4"],
+    },
+    {
+      portfolio: "Hipotecario",
+      stage: 2,
+      scenario: "all",
+      n_rows: 40,
+      total_ead: 1800000.0,
+      total_ecl_reported: 120000.0,
+      coverage_ratio: 0.06666666666666667,
+      warning_codes: [],
+    },
+  ],
+  // Desordenado por período (2, 1, 3) → sort esperado ascendente (1, 2, 3).
+  ecl_term_structure: [
+    {
+      period: 2,
+      time_value: 2.0,
+      ecl_marginal: 1748252.9443085394,
+      ecl_cumulative: 4037089.715741242,
+      pd_marginal_weighted: 0.057743462990352684,
+      discount_factor_mean: 0.6321483890288415,
+      n_rows: 6000,
+    },
+    {
+      period: 1,
+      time_value: 1.0,
+      ecl_marginal: 2288836.7714327024,
+      ecl_cumulative: 2288836.7714327024,
+      pd_marginal_weighted: 0.06362083405581243,
+      discount_factor_mean: 0.7915717345168929,
+      n_rows: 6000,
+    },
+    {
+      period: 3,
+      time_value: 3.0,
+      ecl_marginal: 1265375.0701715136,
+      ecl_cumulative: 5302464.785912756,
+      pd_marginal_weighted: 0.04934087231295952,
+      discount_factor_mean: 0.5093655940949352,
+      n_rows: 6000,
+    },
+  ],
+  sicr_triggers: {
+    dpd_default_backstop: 240,
+    dpd_sicr_backstop: 720,
+    is_default: 288,
+  },
+  detail_sample: [
+    {
+      loan_id: "op-004699",
+      portfolio: "Hipotecario",
+      stage: 3,
+      ead: 80000.0,
+      lgd: 0.4319,
+      eir: 0.0774,
+      pd_12m: 0.31431992649579005,
+      pd_life: 0.8367642485057118,
+      ecl_12m: 10080.176443551642,
+      ecl_lifetime: 24528.80904911045,
+      ecl_reported: 24528.80904911045,
+      sicr_triggers: ["dpd_sicr_backstop", "dpd_default_backstop", "is_default"],
+    },
+    {
+      loan_id: "op-001234",
+      portfolio: "Consumo",
+      stage: 1,
+      ead: 50000.0,
+      lgd: 0.62,
+      eir: 0.21,
+      pd_12m: 0.04,
+      pd_life: 0.11,
+      ecl_12m: 1240.0,
+      ecl_lifetime: 3410.0,
+      ecl_reported: 1240.0,
+      sicr_triggers: [],
+    },
+  ],
+}
+
+const ifrs9Results: ResultsResponse = {
+  status: "done",
+  run_id: "9fc2f1f2cf464978abeca25e44bf5c76",
+  error: null,
+  model_card: null,
+  provisioning_ifrs9: ifrs9Sample,
+}
+
+describe("MONEY (moneda agnóstica configurable)", () => {
+  it("por defecto es neutra: símbolo '$' y separador de miles anglo, NO casada a CLP", () => {
+    expect(MONEY.symbol).toBe("$")
+    expect(MONEY.thousands).toBe(",")
+  })
+})
+
+describe("formatMoney", () => {
+  it("formatea con símbolo agnóstico + separador de miles, sin decimales", () => {
+    expect(formatMoney(3514282.439625158)).toBe("$3,514,282")
+    expect(formatMoney(114325314.7)).toBe("$114,325,315") // redondea al entero
+    expect(formatMoney(24528.80904911045)).toBe("$24,529")
+    expect(formatMoney(0)).toBe("$0")
+  })
+
+  it("respeta el signo de un monto negativo", () => {
+    expect(formatMoney(-1500.4)).toBe("-$1,500")
+  })
+
+  it("ausente/no finito → EMPTY", () => {
+    expect(formatMoney(null)).toBe(EMPTY)
+    expect(formatMoney(undefined)).toBe(EMPTY)
+    expect(formatMoney(Number.NaN)).toBe(EMPTY)
+    expect(formatMoney(Number.POSITIVE_INFINITY)).toBe(EMPTY)
+  })
+})
+
+describe("formatMoneyCompact", () => {
+  it("adapta la unidad (M con 1 decimal <10M, k, o entero)", () => {
+    expect(formatMoneyCompact(114325314.7)).toBe("$114 M")
+    expect(formatMoneyCompact(3514282.44)).toBe("$3.5 M")
+    expect(formatMoneyCompact(2288836.77)).toBe("$2.3 M")
+    expect(formatMoneyCompact(80000)).toBe("$80 k")
+    expect(formatMoneyCompact(500)).toBe("$500")
+    expect(formatMoneyCompact(-2288836.77)).toBe("-$2.3 M")
+  })
+
+  it("agrupa miles en la parte de millones para cifras muy grandes", () => {
+    expect(formatMoneyCompact(1_234_000_000)).toBe("$1,234 M")
+  })
+
+  it("ausente/no finito → EMPTY", () => {
+    expect(formatMoneyCompact(null)).toBe(EMPTY)
+    expect(formatMoneyCompact(Number.NaN)).toBe(EMPTY)
+  })
+})
+
+describe("sicrTriggerLabel", () => {
+  it("etiqueta los gatillos conocidos y cae al slug para uno nuevo", () => {
+    expect(sicrTriggerLabel("dpd_sicr_backstop")).toBe("Backstop SICR (mora)")
+    expect(sicrTriggerLabel("dpd_default_backstop")).toBe("Backstop default (mora)")
+    expect(sicrTriggerLabel("is_default")).toBe("En default")
+    expect(sicrTriggerLabel("otro_gatillo")).toBe("otro_gatillo")
+  })
+})
+
+describe("ifrs9StageLabel", () => {
+  it("humaniza la etapa", () => {
+    expect(ifrs9StageLabel(1)).toBe("Stage 1")
+    expect(ifrs9StageLabel(3)).toBe("Stage 3")
+  })
+})
+
+describe("ifrs9Headline", () => {
+  it("resume la ECL reportada + cobertura global (ECL/EAD) y los conteos por etapa", () => {
+    const h = ifrs9Headline(ifrs9Results.provisioning_ifrs9)
+    expect(h).not.toBeNull()
+    expect(h?.reportedEcl).toBe(3514282.439625158)
+    expect(h?.totalEad).toBe(114325314.7)
+    expect(h?.coverage).toBeCloseTo(3514282.439625158 / 114325314.7, 10)
+    expect(h?.nRows).toBe(6000)
+    expect(h?.nStage1).toBe(5235)
+    expect(h?.nStage2).toBe(477)
+    expect(h?.nStage3).toBe(288)
+    expect(h?.termStructureSource).toBe("survival")
+    expect(h?.pitMode).toBe("ttc_only")
+    expect(h?.faltaDato).toEqual(["FALTA-DATO-IFRS-4"])
+    // El titular formateado que ve el banco (moneda agnóstica).
+    expect(formatMoney(h?.reportedEcl)).toBe("$3,514,282")
+  })
+
+  it("coverage null si la EAD es ≤ 0", () => {
+    const h = ifrs9Headline({ ...ifrs9Sample, total_ead: 0 })
+    expect(h?.coverage).toBeNull()
+  })
+
+  it("null cuando la card falta o un total no es finito (guard por presencia)", () => {
+    expect(ifrs9Headline(null)).toBeNull()
+    expect(ifrs9Headline(undefined)).toBeNull()
+    expect(
+      ifrs9Headline({ ...ifrs9Sample, total_ecl_reported: Number.NaN }),
+    ).toBeNull()
+  })
+})
+
+describe("ifrs9StageRows", () => {
+  it("proyecta Stage 1/2/3 ordenados por etapa (cards + chart)", () => {
+    const rows = ifrs9StageRows(ifrs9Results.provisioning_ifrs9)
+    expect(rows.map((r) => r.stage)).toEqual([1, 2, 3])
+    expect(rows.map((r) => r.label)).toEqual(["Stage 1", "Stage 2", "Stage 3"])
+    expect(rows[0]).toMatchObject({
+      n: 5235,
+      ead: 99504214.92,
+      ecl: 1546618.540134473,
+      coverage: 0.015543246498431576,
+    })
+    // RECONCILIA con el titular: la suma de EAD/ECL por stage = los totales de la card.
+    const eadSum = rows.reduce((s, r) => s + r.ead, 0)
+    const eclSum = rows.reduce((s, r) => s + r.ecl, 0)
+    expect(eadSum).toBeCloseTo(ifrs9Sample.total_ead, 2)
+    expect(eclSum).toBeCloseTo(ifrs9Sample.total_ecl_reported, 2)
+  })
+
+  it("[] cuando falta la card o el frame", () => {
+    expect(ifrs9StageRows(null)).toEqual([])
+  })
+})
+
+describe("ifrs9TermStructure", () => {
+  it("ordena la curva por período ascendente y proyecta marginal/acumulada", () => {
+    const pts = ifrs9TermStructure(ifrs9Results.provisioning_ifrs9)
+    expect(pts.map((p) => p.period)).toEqual([1, 2, 3])
+    expect(pts[0]).toMatchObject({
+      marginal: 2288836.7714327024,
+      cumulative: 2288836.7714327024,
+      pdWeighted: 0.06362083405581243,
+      discount: 0.7915717345168929,
+    })
+    // Honestidad: la acumulada del último período NO iguala la ECL reportada (trunca por stage).
+    const last = pts[pts.length - 1]
+    expect(last?.cumulative).not.toBeCloseTo(ifrs9Sample.total_ecl_reported, 0)
+  })
+
+  it("[] cuando falta la card o el frame", () => {
+    expect(ifrs9TermStructure(null)).toEqual([])
+  })
+})
+
+describe("ifrs9SummaryRows", () => {
+  it("ordena por cartera y luego etapa (agrupa cada cartera con sus stages)", () => {
+    const rows = ifrs9SummaryRows(ifrs9Results.provisioning_ifrs9)
+    expect(rows.map((r) => `${r.portfolio}-${r.stage}`)).toEqual([
+      "Comercial-1",
+      "Comercial-3",
+      "Hipotecario-2",
+    ])
+    expect(rows[0]).toMatchObject({
+      portfolio: "Comercial",
+      stage: 1,
+      n: 775,
+      ead: 31178795.53,
+      ecl: 570712.5919408533,
+      coverage: 0.018304510557238092,
+    })
+  })
+
+  it("[] cuando falta la card o el frame", () => {
+    expect(ifrs9SummaryRows(null)).toEqual([])
+  })
+})
+
+describe("ifrs9DetailRows", () => {
+  it("preserva el orden del motor (ya priorizado top-30) y mapea los campos", () => {
+    const rows = ifrs9DetailRows(ifrs9Results.provisioning_ifrs9)
+    expect(rows).toHaveLength(2)
+    expect(rows.map((r) => r.loanId)).toEqual(["op-004699", "op-001234"])
+    expect(rows[0]).toMatchObject({
+      portfolio: "Hipotecario",
+      stage: 3,
+      ead: 80000.0,
+      lgd: 0.4319,
+      eir: 0.0774,
+      pd12m: 0.31431992649579005,
+      pdLife: 0.8367642485057118,
+      eclReported: 24528.80904911045,
+    })
+    expect(rows[0]?.sicrTriggers).toEqual([
+      "dpd_sicr_backstop",
+      "dpd_default_backstop",
+      "is_default",
+    ])
+    expect(rows[1]?.sicrTriggers).toEqual([])
+  })
+
+  it("[] cuando falta la card o el frame", () => {
+    expect(ifrs9DetailRows(null)).toEqual([])
+  })
+})
+
+describe("ifrs9SicrTriggers", () => {
+  it("proyecta gatillo→conteo ordenado por conteo desc", () => {
+    const triggers = ifrs9SicrTriggers(ifrs9Results.provisioning_ifrs9)
+    expect(triggers.map((t) => t.trigger)).toEqual([
+      "dpd_sicr_backstop", // 720
+      "is_default", // 288
+      "dpd_default_backstop", // 240
+    ])
+    expect(triggers[0]).toMatchObject({
+      label: "Backstop SICR (mora)",
+      count: 720,
+    })
+  })
+
+  it("[] cuando falta la card", () => {
+    expect(ifrs9SicrTriggers(null)).toEqual([])
   })
 })

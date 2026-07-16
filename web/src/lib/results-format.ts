@@ -11,6 +11,7 @@ import type {
   CalibrationResult,
   CmfProvisioningResult,
   DecileRow,
+  Ifrs9ProvisioningResult,
   InternalProvisioningResult,
   PerformanceResult,
   ProvisioningResult,
@@ -119,6 +120,65 @@ export function formatClpCompact(x: number | null | undefined): string {
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ".")
   return `${sign}$${digits} M`
+}
+
+// --- dinero AGNÓSTICO de moneda (dominio IFRS 9 / ECL, cartera genérica LatAm) --------------
+//
+// Los montos IFRS 9 vienen SIN moneda a propósito (no son CLP): la pantalla los formatea con un
+// símbolo PARAMETRIZABLE. `formatClp`/`formatClpCompact` (arriba) siguen siendo CLP-específicos
+// para el dominio CMF chileno; NO se reutilizan aquí para no casar IFRS 9 con pesos chilenos.
+
+/**
+ * ÚNICO punto de configuración de la moneda de los montos agnósticos (IFRS 9 / ECL). Para una
+ * entidad concreta, cambia SOLO `symbol` aquí (p. ej. `"CLP "`, `"S/ "`, `"US$ "`, `"$"`). El
+ * default es un símbolo genérico/neutro: NO está casado con ningún país (los fixtures traen los
+ * montos sin moneda). `thousands` es el separador de miles (convención anglo inequívoca, igual
+ * que `formatCount`, para no confundirlo con el `.` de decimales).
+ */
+export const MONEY = {
+  symbol: "$",
+  thousands: ",",
+} as const
+
+/** Inserta el separador de miles de `MONEY` en la parte entera de un número ya en string. */
+function groupThousands(intDigits: string): string {
+  return intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, MONEY.thousands)
+}
+
+/**
+ * Formatea un monto de moneda AGNÓSTICA (símbolo `MONEY.symbol`) con separador de miles y SIN
+ * decimales — `$3,514,282`. Redondea al entero (los montos ya vienen cuantizados por el motor;
+ * en cifras grandes los decimales son ruido). Determinista (no depende de `toLocaleString`/ICU),
+ * mismo espíritu que `formatClp` pero desacoplado de CLP. Ausente/no finito → `EMPTY`.
+ */
+export function formatMoney(x: number | null | undefined): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
+  const rounded = Math.round(x)
+  const sign = rounded < 0 ? "-" : ""
+  return `${sign}${MONEY.symbol}${groupThousands(Math.abs(rounded).toString())}`
+}
+
+/**
+ * Formatea un monto de moneda AGNÓSTICA COMPACTO para labels/ejes de charts, adaptando la unidad:
+ * millones (`$114 M`, `$2.3 M`) para |x| ≥ 1e6, miles (`$80 k`) para |x| ≥ 1e3, y el entero para
+ * el resto. Usa un decimal en millones bajo 10 M (para no aplastar curvas de ~1–7 M) y ninguno por
+ * encima. La cifra exacta va en el tooltip vía `formatMoney`. Ausente/no finito → `EMPTY`.
+ */
+export function formatMoneyCompact(x: number | null | undefined): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
+  const sign = x < 0 ? "-" : ""
+  const abs = Math.abs(x)
+  if (abs >= 1e6) {
+    const m = abs / 1e6
+    const digits = m < 10 ? 1 : 0
+    const [int, frac] = m.toFixed(digits).split(".")
+    const body = frac ? `${groupThousands(int)}.${frac}` : groupThousands(int)
+    return `${sign}${MONEY.symbol}${body} M`
+  }
+  if (abs >= 1e3) {
+    return `${sign}${MONEY.symbol}${groupThousands(Math.round(abs / 1e3).toString())} k`
+  }
+  return `${sign}${MONEY.symbol}${groupThousands(Math.round(abs).toString())}`
 }
 
 /** Fila de métricas de discriminación normalizada para la tabla (una por partición). */
@@ -1034,4 +1094,260 @@ export function cmfCategoryBars(
       n: r.n_rows,
     }))
     .sort((a, b) => b.provision - a.provision)
+}
+
+// --- provisiones IFRS 9 / ECL (SDD-16, experimental) ------------------------
+//
+// Presentación pura sobre la card `provisioning_ifrs9` ya calculada por el motor. La única
+// aritmética es el ratio de cobertura (ECL/EAD): misma naturaleza que los ratios de `provisioning-
+// Headline` ("solo lee/reordena y divide"), NO cálculo de riesgo. Ningún monto se produce aquí:
+// todos vienen del artefacto. Los montos son AGNÓSTICOS de moneda (ver `MONEY`/`formatMoney`).
+
+/**
+ * Etiqueta legible de un gatillo de SICR (`sicr_triggers`). Fallback: el propio slug (no oculta un
+ * gatillo nuevo). Descriptivo SIN fabricar umbrales de días concretos (el motor los fija en el
+ * config; el conteo por gatillo vive en `provisioning_ifrs9.sicr_triggers`). Presentación pura.
+ */
+export function sicrTriggerLabel(trigger: string): string {
+  switch (trigger) {
+    case "dpd_sicr_backstop":
+      return "Backstop SICR (mora)"
+    case "dpd_default_backstop":
+      return "Backstop default (mora)"
+    case "is_default":
+      return "En default"
+    default:
+      return trigger
+  }
+}
+
+/** Etiqueta humana de una etapa IFRS 9 (`1` → `"Stage 1"`). Presentación pura. */
+export function ifrs9StageLabel(stage: number): string {
+  return `Stage ${stage}`
+}
+
+/**
+ * TITULAR del dominio IFRS 9: la ECL reportada de la cartera (la provisión contable) y su cobertura
+ * global (ECL/EAD). `reportedEcl`/`totalEad` vienen del artefacto SIN moneda; `coverage` es el único
+ * cociente (proporción [0,1]; `null` si la EAD es ≤ 0). Los conteos por etapa reconcilian con
+ * `staging_distribution`. Devuelve `null` si la card falta o un total no es finito (guard por
+ * presencia) → el bloque IFRS 9 no se renderiza.
+ */
+export interface Ifrs9Headline {
+  /** ECL reportada total (provisión contable), sin moneda. */
+  reportedEcl: number
+  /** Exposición total (EAD) de la cartera, sin moneda. */
+  totalEad: number
+  /** Cobertura global = ECL / EAD (proporción [0,1]); `null` si la EAD es ≤ 0. */
+  coverage: number | null
+  nRows: number
+  nStage1: number
+  nStage2: number
+  nStage3: number
+  asOfDate: string
+  termStructureSource: string
+  pitMode: string
+  /** Códigos de dato faltante/supuesto declarados por el motor (p. ej. EAD constante). */
+  faltaDato: string[]
+}
+
+export function ifrs9Headline(
+  prov: Ifrs9ProvisioningResult | null | undefined,
+): Ifrs9Headline | null {
+  if (!prov) return null
+  const reportedEcl = prov.total_ecl_reported
+  const totalEad = prov.total_ead
+  if (
+    ![reportedEcl, totalEad].every(
+      (v) => typeof v === "number" && Number.isFinite(v),
+    )
+  ) {
+    return null
+  }
+  return {
+    reportedEcl,
+    totalEad,
+    coverage: totalEad > 0 ? reportedEcl / totalEad : null,
+    nRows: prov.n_rows,
+    nStage1: prov.n_stage1,
+    nStage2: prov.n_stage2,
+    nStage3: prov.n_stage3,
+    asOfDate: prov.as_of_date,
+    termStructureSource: prov.term_structure_source,
+    pitMode: prov.pit_mode,
+    faltaDato: prov.falta_dato ?? [],
+  }
+}
+
+/**
+ * Fila por etapa (Stage 1/2/3): alimenta a la vez las TRES cards de staging y el chart de
+ * distribución. `coverage` en proporción [0,1]. Ordenada por stage ascendente. `[]` si falta el
+ * frame. Solo lee/reordena lo que el motor materializó; CERO cálculo.
+ */
+export interface Ifrs9StageRow {
+  stage: number
+  label: string
+  n: number
+  /** Exposición (EAD) del stage, sin moneda. */
+  ead: number
+  /** ECL reportada del stage, sin moneda. */
+  ecl: number
+  /** Cobertura del stage = ECL / EAD (proporción [0,1]). */
+  coverage: number
+}
+
+export function ifrs9StageRows(
+  prov: Ifrs9ProvisioningResult | null | undefined,
+): Ifrs9StageRow[] {
+  const rows = prov?.staging_distribution
+  if (!rows) return []
+  return [...rows]
+    .sort((a, b) => a.stage - b.stage)
+    .map((r) => ({
+      stage: r.stage,
+      label: ifrs9StageLabel(r.stage),
+      n: r.n_rows,
+      ead: r.total_ead,
+      ecl: r.total_ecl_reported,
+      coverage: r.coverage_ratio,
+    }))
+}
+
+/**
+ * Punto de la curva de ECL LIFETIME (runoff de la cartera período a período). `marginal` es la ECL
+ * del período; `cumulative` la acumulada. Ordenada por período ascendente. `[]` si falta el frame.
+ * NO recalcula: todo viene del artefacto. IMPORTANTE (honestidad): esta curva NO es la ECL
+ * reportada — es la forma del riesgo en el tiempo (con EAD constante), distinta de la provisión
+ * contable que trunca por stage (ver la pantalla).
+ */
+export interface Ifrs9TermPoint {
+  period: number
+  timeValue: number
+  /** ECL marginal del período, sin moneda. */
+  marginal: number
+  /** ECL acumulada hasta el período, sin moneda. */
+  cumulative: number
+  /** PD marginal ponderada del período (proporción [0,1]). */
+  pdWeighted: number
+  /** Factor de descuento medio a la EIR (proporción [0,1]). */
+  discount: number
+  n: number
+}
+
+export function ifrs9TermStructure(
+  prov: Ifrs9ProvisioningResult | null | undefined,
+): Ifrs9TermPoint[] {
+  const rows = prov?.ecl_term_structure
+  if (!rows) return []
+  return [...rows]
+    .sort((a, b) => a.period - b.period)
+    .map((r) => ({
+      period: r.period,
+      timeValue: r.time_value,
+      marginal: r.ecl_marginal,
+      cumulative: r.ecl_cumulative,
+      pdWeighted: r.pd_marginal_weighted,
+      discount: r.discount_factor_mean,
+      n: r.n_rows,
+    }))
+}
+
+/**
+ * Fila del desglose por cartera×stage (`summary`, ~12 filas), ordenada por cartera y luego stage
+ * (agrupa cada cartera con sus tres etapas). `coverage` en proporción [0,1]. `[]` si falta el
+ * frame. Solo selecciona/reordena lo que el motor materializó; CERO cálculo.
+ */
+export interface Ifrs9SummaryRowView {
+  portfolio: string
+  stage: number
+  n: number
+  ead: number
+  ecl: number
+  coverage: number
+  warnings: string[]
+}
+
+export function ifrs9SummaryRows(
+  prov: Ifrs9ProvisioningResult | null | undefined,
+): Ifrs9SummaryRowView[] {
+  const rows = prov?.summary
+  if (!rows) return []
+  return [...rows]
+    .sort((a, b) =>
+      a.portfolio === b.portfolio
+        ? a.stage - b.stage
+        : a.portfolio.localeCompare(b.portfolio),
+    )
+    .map((r) => ({
+      portfolio: r.portfolio,
+      stage: r.stage,
+      n: r.n_rows,
+      ead: r.total_ead,
+      ecl: r.total_ecl_reported,
+      coverage: r.coverage_ratio,
+      warnings: r.warning_codes ?? [],
+    }))
+}
+
+/**
+ * Fila de la MUESTRA por operación (`detail_sample`, 30 filas = top-10 por ECL de cada stage),
+ * preservando el orden del motor (NO reordena: ya viene priorizada). `lgd`/`eir`/`pd_*` en
+ * proporción [0,1]; montos sin moneda. `[]` si falta el frame. CERO cálculo.
+ */
+export interface Ifrs9DetailRowView {
+  loanId: string
+  portfolio: string
+  stage: number
+  ead: number
+  lgd: number
+  eir: number
+  pd12m: number
+  pdLife: number
+  ecl12m: number
+  eclLifetime: number
+  eclReported: number
+  sicrTriggers: string[]
+}
+
+export function ifrs9DetailRows(
+  prov: Ifrs9ProvisioningResult | null | undefined,
+): Ifrs9DetailRowView[] {
+  const rows = prov?.detail_sample
+  if (!rows) return []
+  return rows.map((r) => ({
+    loanId: r.loan_id,
+    portfolio: r.portfolio,
+    stage: r.stage,
+    ead: r.ead,
+    lgd: r.lgd,
+    eir: r.eir,
+    pd12m: r.pd_12m,
+    pdLife: r.pd_life,
+    ecl12m: r.ecl_12m,
+    eclLifetime: r.ecl_lifetime,
+    eclReported: r.ecl_reported,
+    sicrTriggers: r.sicr_triggers ?? [],
+  }))
+}
+
+/** Gatillo de SICR + nº de operaciones que lo dispararon, ordenado por conteo desc (para chips). */
+export interface Ifrs9SicrTrigger {
+  trigger: string
+  label: string
+  count: number
+}
+
+export function ifrs9SicrTriggers(
+  prov: Ifrs9ProvisioningResult | null | undefined,
+): Ifrs9SicrTrigger[] {
+  const triggers = prov?.sicr_triggers
+  if (!triggers) return []
+  return Object.entries(triggers)
+    .filter(([, count]) => typeof count === "number" && Number.isFinite(count))
+    .map(([trigger, count]) => ({
+      trigger,
+      label: sicrTriggerLabel(trigger),
+      count,
+    }))
+    .sort((a, b) => b.count - a.count)
 }

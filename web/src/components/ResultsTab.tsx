@@ -6,6 +6,8 @@ import { CmfCategoryChart } from "@/components/charts/CmfCategoryChart"
 import { CoefficientForestChart } from "@/components/charts/CoefficientForestChart"
 import { DiscriminationChart } from "@/components/charts/DiscriminationChart"
 import { GainsChart } from "@/components/charts/GainsChart"
+import { Ifrs9StagingChart } from "@/components/charts/Ifrs9StagingChart"
+import { Ifrs9TermStructureChart } from "@/components/charts/Ifrs9TermStructureChart"
 import { InternalGroupsChart } from "@/components/charts/InternalGroupsChart"
 import { IvChart } from "@/components/charts/IvChart"
 import { LiftChart } from "@/components/charts/LiftChart"
@@ -18,6 +20,7 @@ import { WoeByBinChart } from "@/components/charts/WoeByBinChart"
 import {
   bandColor,
   bandLabel,
+  ifrs9StageColor,
   partitionColor,
 } from "@/components/charts/chart-theme"
 import { EmptyState } from "@/components/EmptyState"
@@ -41,9 +44,17 @@ import {
   formatClp,
   formatCount,
   formatMetric,
+  formatMoney,
   formatPValue,
   formatPercent,
   gainsSeries,
+  ifrs9DetailRows,
+  ifrs9Headline,
+  ifrs9SicrTriggers,
+  ifrs9StageLabel,
+  ifrs9StageRows,
+  ifrs9SummaryRows,
+  ifrs9TermStructure,
   internalGroupBars,
   liftByDecile,
   monotonicityLabel,
@@ -55,11 +66,16 @@ import {
   psiBars,
   reliabilityCurve,
   scoreHistogram,
+  sicrTriggerLabel,
   sortByIv,
   temporalScore,
   variableBinning,
 } from "@/lib/results-format"
 import type {
+  Ifrs9DetailRowView,
+  Ifrs9Headline,
+  Ifrs9StageRow,
+  Ifrs9SummaryRowView,
   InternalGroupBar,
   ProvisioningHeadline,
   ReliabilityPartitionView,
@@ -193,6 +209,17 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const provExposure =
     cmf?.total_exposure_amount ?? internal?.total_exposure ?? null
 
+  // Provisiones IFRS 9 / ECL (SDD-16, experimental): solo con el preset F4 (guard por presencia →
+  // el bloque entero no se renderiza en una corrida F1/F3). Todos los helpers son puros DTO→vista;
+  // los montos son AGNÓSTICOS de moneda (ver `formatMoney`/`MONEY`), la cartera es genérica LatAm.
+  const ifrs9 = results.provisioning_ifrs9 ?? null
+  const ifrs9Head = ifrs9Headline(ifrs9)
+  const ifrs9Stages = ifrs9StageRows(ifrs9)
+  const ifrs9Term = ifrs9TermStructure(ifrs9)
+  const ifrs9Summary = ifrs9SummaryRows(ifrs9)
+  const ifrs9Detail = ifrs9DetailRows(ifrs9)
+  const ifrs9Sicr = ifrs9SicrTriggers(ifrs9)
+
   return (
     <div className="space-y-6">
       {/* Lineage + estado de la corrida (identidad reproducible; sin cálculo propio). */}
@@ -264,6 +291,74 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
               description="Provisión estándar por categoría del Cap. B-1, ordenada de mayor a menor. La categoría se deriva de (días de mora · crédito hipotecario en el sistema · mora en el sistema)."
             >
               <CmfCategoryChart rows={categoryBars} />
+            </ResultsSection>
+          ) : null}
+        </>
+      ) : null}
+
+      {/* PROVISIONES IFRS 9 / ECL (SDD-16, experimental): solo con el preset F4 (guard por presencia).
+          Va cerca del inicio porque es el producto de este preset. Montos AGNÓSTICOS de moneda
+          (cartera genérica LatAm): la ECL reportada es la provisión contable; la curva lifetime es
+          otra cosa (runoff), y se rotula como tal para no engañar a un analista de banco. */}
+      {ifrs9Head ? (
+        <>
+          <Ifrs9HeadlineCard headline={ifrs9Head} stages={ifrs9Stages} />
+
+          {/* Distribución por etapa: EAD por Stage 1/2/3 + cobertura (línea). */}
+          {ifrs9Stages.length > 0 ? (
+            <ResultsSection
+              title="Distribución por etapa (staging IFRS 9)"
+              description="Cada operación cae en Stage 1 (al día), Stage 2 (aumento significativo del riesgo, SICR) o Stage 3 (deteriorada / en default), según los backstops de mora. Las barras son la exposición (EAD) por etapa; la línea es la cobertura (ECL/EAD), que crece hacia las etapas de mayor riesgo."
+            >
+              <Ifrs9StagingChart rows={ifrs9Stages} />
+            </ResultsSection>
+          ) : null}
+
+          {/* Curva ECL lifetime (runoff): honestidad — NO es la provisión reportada. */}
+          {ifrs9Term.length > 0 ? (
+            <ResultsSection
+              title="Curva de ECL lifetime — runoff de la cartera"
+              description="La forma del riesgo en el tiempo: la pérdida esperada (ECL) período a período (marginal) y su acumulada. Es distinta de la provisión contable reportada arriba."
+            >
+              <Ifrs9TermStructureChart points={ifrs9Term} />
+              <Ifrs9RunoffNote headline={ifrs9Head} />
+            </ResultsSection>
+          ) : null}
+
+          {/* Tabla por cartera × stage. */}
+          {ifrs9Summary.length > 0 ? (
+            <ResultsSection
+              title="ECL por cartera y etapa"
+              description="Desglose de la exposición y la ECL reportada por cartera y etapa IFRS 9, con su cobertura (ECL/EAD). Montos en la moneda de la entidad (los datos de ejemplo vienen sin moneda)."
+            >
+              <Ifrs9SummaryTable rows={ifrs9Summary} />
+            </ResultsSection>
+          ) : null}
+
+          {/* Muestra por operación (top-30 por ECL). */}
+          {ifrs9Detail.length > 0 ? (
+            <ResultsSection
+              title="Detalle por operación (muestra)"
+              description="Muestra de 30 operaciones — las 10 de mayor ECL de cada etapa —, no la cartera completa. Por operación: exposición, LGD, tasa efectiva (EIR), PD a 12 meses y lifetime, la ECL reportada y los gatillos de SICR que dispararon."
+            >
+              {ifrs9Sicr.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Gatillos de SICR</span>
+                  {ifrs9Sicr.map((t) => (
+                    <span
+                      key={t.trigger}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-foreground/[0.03] px-2.5 py-0.5"
+                    >
+                      <span className="text-foreground">{t.label}</span>
+                      <span className="text-muted-foreground">·</span>
+                      <span className="font-mono tabular-nums text-muted-foreground">
+                        {formatCount(t.count)} ops
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <Ifrs9DetailTable rows={ifrs9Detail} />
             </ResultsSection>
           ) : null}
         </>
@@ -1086,6 +1181,224 @@ function InternalGroupsDetail({
         </table>
       </div>
     </details>
+  )
+}
+
+/**
+ * Titular del dominio IFRS 9 (SDD-16): la ECL reportada (provisión contable) como número grande +
+ * cobertura global, badge EXPERIMENTAL sobrio, lineage del cálculo y las tres cards de staging.
+ * Montos AGNÓSTICOS de moneda (cartera genérica LatAm): la ECL reportada es el número contable; la
+ * curva lifetime de más abajo es OTRA cosa (runoff), y el copy lo deja explícito. Solo presenta el
+ * `ifrs9Headline`/`ifrs9StageRows` ya derivados; el único cálculo (cobertura) vive en el helper.
+ */
+function Ifrs9HeadlineCard({
+  headline,
+  stages,
+}: {
+  headline: Ifrs9Headline
+  stages: Ifrs9StageRow[]
+}) {
+  const {
+    reportedEcl,
+    totalEad,
+    coverage,
+    nRows,
+    asOfDate,
+    termStructureSource,
+    pitMode,
+  } = headline
+  return (
+    <Card className="shadow-card">
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-eyebrow">
+              Provisiones IFRS 9 — pérdida esperada (ECL)
+            </p>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/[0.06] px-2 py-0.5 text-[0.68rem] font-medium text-amber-200/90">
+              Experimental · fuera de garantía SemVer 1.x
+            </span>
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p className="font-heading text-3xl font-semibold tabular-nums text-foreground">
+              {formatMoney(reportedEcl)}
+            </p>
+            {coverage !== null ? (
+              <span className="rounded-full border border-brand-accent-dark/30 bg-brand-accent/10 px-2.5 py-0.5 font-mono text-xs tabular-nums text-brand-accent-dark">
+                cobertura {formatPercent(coverage, 2)} (ECL/EAD)
+              </span>
+            ) : null}
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Pérdida esperada crediticia (ECL) que IFRS 9 obliga a reconocer sobre la cartera: ECL a 12
+            meses en Stage 1 y ECL lifetime en Stage 2/3. Es la provisión contable reportada; la curva
+            lifetime de más abajo es la forma del riesgo en el tiempo (runoff), no este número.
+          </p>
+        </div>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-4 sm:grid-cols-3">
+          <DefItem label="Exposición total (EAD)" value={formatMoney(totalEad)} />
+          <DefItem label="Operaciones" value={formatCount(nRows)} />
+          <DefItem label="Fecha de corte" value={asOfDate} />
+          <DefItem label="Curva PD (fuente)" value={termStructureSource} />
+          <DefItem label="Modo PIT/TTC" value={pitMode} />
+        </dl>
+        {stages.length > 0 ? (
+          <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-3">
+            {stages.map((s) => (
+              <Ifrs9StageCard key={s.stage} stage={s} />
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Card de una etapa (Stage 1/2/3): n operaciones, EAD, ECL y cobertura, con el color de riesgo. */
+function Ifrs9StageCard({ stage }: { stage: Ifrs9StageRow }) {
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-foreground/[0.02] p-3">
+      <div className="flex items-center gap-2">
+        <span
+          className="size-2 rounded-full"
+          style={{ backgroundColor: ifrs9StageColor(stage.stage) }}
+          aria-hidden="true"
+        />
+        <p className="text-sm font-medium text-foreground">{stage.label}</p>
+        <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">
+          {formatCount(stage.n)} ops
+        </span>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+        <DefItem label="EAD" value={formatMoney(stage.ead)} />
+        <DefItem label="ECL" value={formatMoney(stage.ecl)} />
+        <div className="col-span-2">
+          <DefItem
+            label="Cobertura (ECL/EAD)"
+            value={formatPercent(stage.coverage, 2)}
+          />
+        </div>
+      </dl>
+    </div>
+  )
+}
+
+/**
+ * Nota de honestidad bajo la curva lifetime (público = un banco): deja EXPLÍCITO que el runoff NO
+ * es la ECL reportada (su acumulada no la iguala, porque la contable trunca por stage) y, si el
+ * motor lo declara (`FALTA-DATO-IFRS-4`), que la curva asume EAD constante por período — una
+ * simplificación conocida, no una amortización modelada. Sobria, sin letra chica ni alarmismo.
+ */
+function Ifrs9RunoffNote({ headline }: { headline: Ifrs9Headline }) {
+  const eadConstant = headline.faltaDato.includes("FALTA-DATO-IFRS-4")
+  return (
+    <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
+      Runoff <span className="font-medium text-foreground">lifetime</span> de la cartera: la ECL
+      acumulada del último período NO iguala la ECL reportada ({formatMoney(headline.reportedEcl)}),
+      que trunca por stage (12 meses en Stage 1).{" "}
+      {eadConstant
+        ? "La curva asume exposición (EAD) constante por período (FALTA-DATO-IFRS-4): una simplificación conocida, no una amortización modelada."
+        : null}
+    </p>
+  )
+}
+
+/** Tabla de ECL por cartera × etapa (`summary`): cartera, etapa, n, EAD, ECL y cobertura. */
+function Ifrs9SummaryTable({ rows }: { rows: Ifrs9SummaryRowView[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+            <th className="py-2 pr-3 font-medium">Cartera</th>
+            <th className="py-2 pr-3 font-medium">Etapa</th>
+            <NumHead>Operaciones</NumHead>
+            <NumHead>EAD</NumHead>
+            <NumHead>ECL</NumHead>
+            <NumHead>Cobertura</NumHead>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={`${r.portfolio}-${r.stage}`} className="border-b border-border">
+              <td className="py-2 pr-3 text-foreground">{r.portfolio}</td>
+              <td className="py-2 pr-3">
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: ifrs9StageColor(r.stage) }}
+                    aria-hidden="true"
+                  />
+                  {ifrs9StageLabel(r.stage)}
+                </span>
+              </td>
+              <NumCell>{formatCount(r.n)}</NumCell>
+              <NumCell>{formatMoney(r.ead)}</NumCell>
+              <NumCell>{formatMoney(r.ecl)}</NumCell>
+              <NumCell>{formatPercent(r.coverage, 2)}</NumCell>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/**
+ * Tabla de la MUESTRA por operación (`detail_sample`, 30 filas): id, cartera, etapa, EAD, LGD, EIR,
+ * PD 12m/lifetime, ECL reportada y los gatillos de SICR. Es una muestra top-30 por ECL (10 por
+ * stage), NO la cartera completa (lo dice el copy de la sección). Solo presenta valores ya
+ * normalizados por `ifrs9DetailRows`; CERO cálculo.
+ */
+function Ifrs9DetailTable({ rows }: { rows: Ifrs9DetailRowView[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+            <th className="py-2 pr-3 font-medium">Operación</th>
+            <th className="py-2 pr-3 font-medium">Cartera</th>
+            <th className="py-2 pr-3 font-medium">Etapa</th>
+            <NumHead>EAD</NumHead>
+            <NumHead>LGD</NumHead>
+            <NumHead>EIR</NumHead>
+            <NumHead>PD 12m</NumHead>
+            <NumHead>PD lifetime</NumHead>
+            <NumHead>ECL reportada</NumHead>
+            <th className="py-2 pl-3 text-right font-medium">Gatillos SICR</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.loanId} className="border-b border-border">
+              <td className="py-2 pr-3 font-mono text-foreground">{r.loanId}</td>
+              <td className="py-2 pr-3 text-muted-foreground">{r.portfolio}</td>
+              <td className="py-2 pr-3">
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                  <span
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: ifrs9StageColor(r.stage) }}
+                    aria-hidden="true"
+                  />
+                  {r.stage}
+                </span>
+              </td>
+              <NumCell>{formatMoney(r.ead)}</NumCell>
+              <NumCell>{formatPercent(r.lgd, 1)}</NumCell>
+              <NumCell>{formatPercent(r.eir, 1)}</NumCell>
+              <NumCell>{formatPercent(r.pd12m, 1)}</NumCell>
+              <NumCell>{formatPercent(r.pdLife, 1)}</NumCell>
+              <NumCell>{formatMoney(r.eclReported)}</NumCell>
+              <td className="py-2 pl-3 text-right text-[0.7rem] text-muted-foreground">
+                {r.sicrTriggers.length > 0
+                  ? r.sicrTriggers.map(sicrTriggerLabel).join(" · ")
+                  : EMPTY}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 

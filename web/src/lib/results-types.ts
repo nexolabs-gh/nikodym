@@ -524,6 +524,124 @@ export interface InternalProvisioningResult {
   groups?: InternalGroupRow[]
 }
 
+// --- provisiones IFRS 9 / ECL (SDD-16, experimental) ------------------------
+//
+// Dominio IFRS 9 / ECL de tres etapas (`provisioning_ifrs9`). Refleja el SHAPE REAL del preset
+// F4 `f4-ifrs9-retail` (verificado contra una corrida real serializada por `ui/serializers`).
+// Es EXPERIMENTAL (fuera de la garantía SemVer 1.x). Los MONTOS vienen SIN moneda a propósito
+// (cartera genérica LatAm): la UI los formatea con un símbolo de moneda parametrizable, NO CLP
+// (ver `MONEY`/`formatMoney` en `results-format`). El serializer emite la clave `null` cuando el
+// dominio no corrió (p. ej. la corrida F3 de CMF/interno). La UI usa guard-por-presencia (CERO
+// cálculo): un número en pantalla siempre viene del artefacto.
+
+/**
+ * Fila de la distribución por etapa (`provisioning_ifrs9.staging_distribution`, 3 filas: Stage
+ * 1/2/3). RECONCILIA con la card titular: suma de `total_ead`/`total_ecl_reported` = los totales.
+ * `coverage_ratio` = ECL/EAD del stage (proporción [0,1]). Montos sin moneda; la UI solo grafica.
+ */
+export interface Ifrs9StagingRow {
+  stage: number
+  n_rows: number
+  total_ead: number
+  total_ecl_reported: number
+  coverage_ratio: number
+}
+
+/**
+ * Fila del desglose por cartera×stage (`provisioning_ifrs9.summary`, ~12 filas = 4 carteras ×
+ * 3 stages). `scenario` es la agregación de escenarios (`"all"` en la corrida base). Montos sin
+ * moneda; `coverage_ratio` en proporción [0,1]. Todos los campos vienen del artefacto.
+ */
+export interface Ifrs9SummaryRow {
+  portfolio: string
+  stage: number
+  scenario: string
+  n_rows: number
+  total_ead: number
+  total_ecl_reported: number
+  coverage_ratio: number
+  warning_codes: string[]
+}
+
+/**
+ * Punto de la curva de ECL LIFETIME (`provisioning_ifrs9.ecl_term_structure`): el runoff de la
+ * pérdida esperada de la cartera período a período. `ecl_marginal` es la ECL del período;
+ * `ecl_cumulative` la acumulada hasta él. OJO (honestidad, ver la pantalla): el `ecl_cumulative`
+ * del último período NO iguala `total_ecl_reported` — esta curva es la forma del riesgo en el
+ * tiempo (asumiendo EAD constante, FALTA-DATO-IFRS-4), distinta de la provisión contable reportada
+ * que trunca por stage. `pd_marginal_weighted` es la PD marginal ponderada; `discount_factor_mean`
+ * el factor de descuento medio a la EIR. Todos los floats vienen del artefacto; la UI solo grafica.
+ */
+export interface Ifrs9TermStructureRow {
+  period: number
+  time_value: number
+  ecl_marginal: number
+  ecl_cumulative: number
+  pd_marginal_weighted: number
+  discount_factor_mean: number
+  n_rows: number
+}
+
+/**
+ * Fila de la MUESTRA por operación (`provisioning_ifrs9.detail_sample`, 30 filas = top-10 por ECL
+ * de cada stage; NO la cartera completa). `ead`/`ecl_*` sin moneda; `lgd`/`eir`/`pd_*` en
+ * proporción [0,1]. `sicr_triggers` son los gatillos de SICR que dispararon para esa operación.
+ */
+export interface Ifrs9DetailRow {
+  loan_id: string
+  portfolio: string
+  stage: number
+  ead: number
+  lgd: number
+  eir: number
+  pd_12m: number
+  pd_life: number
+  ecl_12m: number
+  ecl_lifetime: number
+  ecl_reported: number
+  sicr_triggers: string[]
+}
+
+/**
+ * Card del dominio IFRS 9 / ECL (`provisioning_ifrs9`, SDD-16). `total_ecl_reported` es la ECL
+ * reportada de la cartera (la provisión contable) y `total_ead` la exposición total, AMBOS SIN
+ * moneda (cartera genérica LatAm). Los conteos por etapa (`n_stage1/2/3`) reconcilian con
+ * `staging_distribution`. Los frames graficables viven en `staging_distribution`, `summary`,
+ * `ecl_term_structure` y `detail_sample`. `sicr_triggers` mapea gatillo→conteo de operaciones.
+ * `falta_dato` documenta los supuestos conocidos (p. ej. `FALTA-DATO-IFRS-4` = EAD constante por
+ * período). `scenarios`/`scenario_weights`/`dependency_versions`/`metric_sections` se tipan laxos
+ * (no explotados en detalle por la UI). EXPERIMENTAL: fuera de la garantía SemVer 1.x.
+ */
+export interface Ifrs9ProvisioningResult {
+  as_of_date: string
+  term_structure_source: string
+  pit_mode: string
+  n_rows: number
+  n_stage1: number
+  n_stage2: number
+  n_stage3: number
+  /** Exposición total (EAD) de la cartera, SIN moneda. */
+  total_ead: number
+  /** ECL reportada total (provisión contable), SIN moneda. */
+  total_ecl_reported: number
+  scenarios: string[]
+  scenario_weights: Record<string, number>
+  dependency_versions?: Record<string, unknown>
+  /** Códigos de dato faltante/supuesto (p. ej. `["FALTA-DATO-IFRS-4"]` = EAD constante). */
+  falta_dato: string[]
+  metric_sections?: Record<string, unknown>
+  /** Distribución por etapa (3 filas: Stage 1/2/3); reconcilia con los totales de la card. */
+  staging_distribution: Ifrs9StagingRow[]
+  /** Desglose por cartera×stage (~12 filas). */
+  summary: Ifrs9SummaryRow[]
+  /** Curva de ECL lifetime (runoff de la cartera período a período). */
+  ecl_term_structure: Ifrs9TermStructureRow[]
+  /** Gatillo de SICR → nº de operaciones que lo dispararon. */
+  sicr_triggers: Record<string, number>
+  /** Muestra por operación (top-30 por ECL, 10 por stage); NO la cartera completa. */
+  detail_sample: Ifrs9DetailRow[]
+}
+
 // --- top-level --------------------------------------------------------------
 
 /**
@@ -552,4 +670,9 @@ export interface ResultsResponse {
   provisioning?: ProvisioningResult | null
   provisioning_cmf?: CmfProvisioningResult | null
   provisioning_internal?: InternalProvisioningResult | null
+  /**
+   * Provisiones IFRS 9 / ECL (SDD-16, experimental). `null`/ausente salvo en el preset F4
+   * `f4-ifrs9-retail`; poblada cuando ese dominio corrió. Guard-por-presencia en la UI.
+   */
+  provisioning_ifrs9?: Ifrs9ProvisioningResult | null
 }

@@ -78,6 +78,27 @@ _PROVISIONING_COLUMNS: tuple[dict[str, str], ...] = (
     {"name": "lgd", "dtype": "float", "role": "economic"},
 )
 
+# Esquema del dataset IFRS 9 / ECL (SDD-16): superconjunto del de F1 con (a) las dos columnas que
+# exige la capa ``survival`` (SDD-18) para ajustar la term-structure lifetime PD —``duration``/
+# ``event`` (rol ``survival``)— y (b) las columnas económicas que consume el step
+# ``provisioning_ifrs9``: fecha de cálculo única, cartera/segmento, EAD, LGD, tasa efectiva (EIR),
+# mora en días y flag de default (rol ``economic``). Genérico LatAm y **agnóstico de moneda**: los
+# montos son de escala retail sin símbolo (la moneda se rotula en el front). Las carteras son
+# genéricas (Consumo/Tarjetas/Comercial/Hipotecario), sin país ni institución. Ver
+# ``_generate_ifrs9_retail`` para los invariantes de coherencia.
+_IFRS9_COLUMNS: tuple[dict[str, str], ...] = (
+    *_COLUMNS,
+    {"name": "duration", "dtype": "int", "role": "survival"},
+    {"name": "event", "dtype": "int", "role": "survival"},
+    {"name": "as_of_date", "dtype": "str", "role": "economic"},
+    {"name": "portfolio", "dtype": "str", "role": "economic"},
+    {"name": "ead", "dtype": "float", "role": "economic"},
+    {"name": "lgd", "dtype": "float", "role": "economic"},
+    {"name": "eir", "dtype": "float", "role": "economic"},
+    {"name": "days_past_due", "dtype": "int", "role": "economic"},
+    {"name": "is_default", "dtype": "bool", "role": "economic"},
+)
+
 # Registro determinista: id -> parámetros de generación. ``seed`` es CONSTANTE por dataset (jamás
 # derivado de hash()/reloj) para garantizar reproducibilidad byte-lógica entre corridas.
 _DATASETS: dict[str, dict[str, Any]] = {
@@ -157,6 +178,37 @@ _DATASETS: dict[str, dict[str, Any]] = {
         "antiguedad_high": 121,
         "provisioning": True,
     },
+    "ifrs9_retail_latam": {
+        "name": "Retail LatAm — IFRS 9 / ECL (multi-cartera)",
+        "description": (
+            "Cartera retail multi-producto (Consumo, Tarjetas, Comercial, Hipotecario) con las "
+            "columnas que exige la pérdida esperada IFRS 9 (ECL): historia de supervivencia "
+            "(duración/evento) para ajustar la curva lifetime PD, más EAD, LGD, tasa efectiva "
+            "(EIR), mora en días y flag de default. Superconjunto del dataset de scorecard: el "
+            "pipeline F1 corre igual y encima se calcula la ECL de tres etapas (Stage 1/2/3), con "
+            "staging por los backstops de mora 30/90 días (presunciones IFRS 9 5.5.11 / B5.5.37). "
+            "Montos de escala retail y AGNÓSTICOS de moneda (sin símbolo; la moneda se rotula en "
+            "la vista). Genérico LatAm, sin país ni institución. IFRS 9 es EXPERIMENTAL (SDD-16, "
+            "fuera de la garantía SemVer 1.x) y la EAD se despliega CONSTANTE por período "
+            "(limitación conocida FALTA-DATO-IFRS-4: sin perfil de amortización)."
+        ),
+        "n_rows": 6000,
+        "seed": 20_260_715,
+        "as_of_date": "2025-06-30",
+        "segments": ("asalariado", "independiente", "pensionado"),
+        "cohorts": ("2023Q1", "2023Q2", "2023Q3", "2023Q4", "2024Q1", "2024Q2"),
+        "intercept": -4.15,
+        "antiguedad_low": 1,
+        "antiguedad_high": 121,
+        # Horizonte lifetime en periodos ANUALES: el motor ECL descuenta con la convención
+        # ``annual_eir_year_fraction`` (DF = (1+EIR)^(-time_value)), asi que ``time_value`` debe
+        # estar en años. Con periodos anuales, ``time_value`` == periodo (1..T años), la EIR es
+        # anual y el descuento es correcto y honesto. Ver ``_generate_ifrs9_retail``.
+        "horizon_years": 5,
+        "portfolios": ("Consumo", "Tarjetas", "Comercial", "Hipotecario"),
+        "portfolio_weights": (0.40, 0.30, 0.15, 0.15),
+        "ifrs9": True,
+    },
 }
 
 
@@ -184,7 +236,10 @@ def list_datasets() -> list[dict[str, Any]]:
 
 def _columns_for(dataset_id: str) -> tuple[dict[str, str], ...]:
     """Devuelve el esquema de columnas del dataset (los de provisiones traen un superconjunto)."""
-    if _DATASETS[dataset_id].get("provisioning"):
+    spec = _DATASETS[dataset_id]
+    if spec.get("ifrs9"):
+        return _IFRS9_COLUMNS
+    if spec.get("provisioning"):
         return _PROVISIONING_COLUMNS
     return _COLUMNS
 
@@ -350,6 +405,8 @@ def _generate(dataset_id: str) -> pd.DataFrame:
     spec = _DATASETS[dataset_id]
     if spec.get("drift"):  # rama separada: los datasets sin drift no tocan una sola llamada al rng
         return _generate_drift(dataset_id)
+    if spec.get("ifrs9"):  # superconjunto: survival (duration/event) + economicas IFRS 9 / ECL
+        return _generate_ifrs9_retail(dataset_id)
     if spec.get("provisioning"):  # superconjunto de columnas: motor CMF + método interno
         return _generate_provisiones(dataset_id)
     rng = np.random.default_rng(spec["seed"])
@@ -599,6 +656,170 @@ def _generate_provisiones(dataset_id: str) -> pd.DataFrame:
             "system_dpd30_last_3m": system_dpd30_last_3m,
             "exposure_amount": exposure,
             "lgd": lgd,
+        },
+        index=loan_id,
+    )
+
+
+def _generate_ifrs9_retail(dataset_id: str) -> pd.DataFrame:
+    """Genera la cartera retail LatAm multi-producto para la ECL IFRS 9 (SDD-16).
+
+    Es un **superconjunto** de las 9 columnas de F1 (para que el scorecard corra sin cambios) más
+    (a) la historia de supervivencia que exige ``survival`` (SDD-18) —``duration``/``event``— para
+    ajustar la term-structure lifetime PD, y (b) las columnas económicas que consume el step
+    ``provisioning_ifrs9``: ``as_of_date`` (única por corrida), ``portfolio``, ``ead``, ``lgd``,
+    ``eir``, ``days_past_due`` y ``is_default``. Todo sale de **un solo proceso latente** (un riesgo
+    subyacente por operación), porque un dato coherente es el requisito de credibilidad de la demo.
+
+    Invariantes que el generador garantiza **por construcción**:
+
+    1. **Periodos ANUALES.** ``duration`` es el año (1..``horizon_years``) hasta el default o la
+       censura. El motor ECL descuenta con ``annual_eir_year_fraction`` (``DF=(1+EIR)^(-time)``
+       con ``time_value`` = periodo = año), así que la EIR es **anual** y el descuento es correcto.
+       Un horizonte fijo con muchas operaciones censuradas al último año fija
+       ``max_observed_period = horizon_years``: la grilla lifetime llega hasta el horizonte sin
+       extrapolar (el discrete-hazard no extrapola fuera del soporte observado).
+    2. **``days_past_due`` correlaciona con el riesgo latente pero NO es determinista del default
+       futuro** (``event``/``bad_flag`` miran hacia adelante; la mora es el estado de hoy).
+       Volverlos idénticos metería *target leakage* y el scorecard predeciría el presente.
+    3. **Staging visible S1/S2/S3.** La mora se reparte para que los backstops duros IFRS 9 muerdan:
+       ~80 % al día, ~8 % 1-29 d (Stage 1), ~8 % 30-89 d (**Stage 2**, presunción 5.5.11) y ~4 %
+       90+ d (**Stage 3**, presunción B5.5.37). ``is_default`` marca los 90+ d y una fracción
+       reestructurada con mora <90 d (un default cualitativo, no capturado por la mora). Resultado:
+       Stage 2 > Stage 3, el patrón realista (cartera al día >> en mora >> en default).
+    4. **EAD, LGD y EIR por cartera.** Retail (Consumo/Tarjetas) con EAD menor y EIR/LGD mayores;
+       Comercial/Hipotecario con EAD mayor y EIR/LGD menores (garantía). Montos de escala retail,
+       **sin moneda** (se rotula en el front). La ``lgd`` es Beta por cartera (nunca constante).
+    5. **La EAD se despliega CONSTANTE por período** en el motor (limitación conocida
+       FALTA-DATO-IFRS-4: sin perfil de amortización). El dataset entrega un solo nivel de EAD por
+       operación; no finge una curva de amortización.
+
+    No se inventan parámetros regulatorios: los umbrales de staging (30/90 d) son las presunciones
+    rebatibles de IFRS 9 y los defaults del motor; ``pit_mode='ttc_only'`` (sin ajuste PIT) y
+    ``scenarios='single'`` evitan pedir ``rho``/``Z`` o pesos macro que no tendríamos cómo defender.
+
+    IFRS 9 es EXPERIMENTAL (SDD-16 en Borrador, fuera de la garantía SemVer 1.x).
+    """
+    spec = _DATASETS[dataset_id]
+    rng = np.random.default_rng(spec["seed"])
+    n_rows: int = spec["n_rows"]
+    horizon: int = spec["horizon_years"]
+    portfolios = np.asarray(spec["portfolios"])
+    portfolio_weights = np.asarray(spec["portfolio_weights"], dtype="float64")
+
+    # --- Features F1 (mismas distribuciones que ``consumo_comportamiento``) ---
+    ingreso = rng.lognormal(mean=13.2, sigma=0.5, size=n_rows)
+    deuda_ingreso = np.clip(rng.gamma(shape=2.0, scale=0.18, size=n_rows), 0.0, 2.5)
+    utilizacion = np.clip(rng.beta(2.0, 3.0, size=n_rows), 0.0, 1.0)
+    antiguedad = rng.integers(spec["antiguedad_low"], spec["antiguedad_high"], size=n_rows)
+    segmento = rng.choice(np.asarray(spec["segments"]), size=n_rows)
+    cohorte = rng.choice(np.asarray(spec["cohorts"]), size=n_rows)
+
+    # Riesgo latente (sin la mora: la mora es CONSECUENCIA del riesgo, no una feature exógena).
+    ingreso_z = (np.log(ingreso) - 13.2) / 0.5
+    riesgo = (
+        spec["intercept"]
+        + 1.6 * deuda_ingreso
+        + 1.2 * utilizacion
+        - 0.5 * ingreso_z
+        - 0.4 * (antiguedad / 60.0)
+    )
+
+    # --- Mora HOY: ordenada por el riesgo latente pero estocástica (cuantiles de un score) ---
+    orden = np.argsort(np.argsort(riesgo))
+    pct_riesgo = orden / max(n_rows - 1, 1)
+    score_mora = 0.72 * pct_riesgo + 0.28 * rng.random(size=n_rows)
+    # Cortes: ~80 % al día, ~8 % 1-29 d, ~8 % 30-89 d (Stage 2), ~4 % 90+ d (Stage 3).
+    cortes = np.quantile(score_mora, [0.80, 0.88, 0.96])
+    bucket = np.searchsorted(cortes, score_mora, side="right")  # 0,1,2,3
+    days_past_due = np.zeros(n_rows, dtype="int64")
+    for indice, (bajo, alto) in enumerate(((1, 30), (30, 90), (90, 181)), start=1):
+        marca = bucket == indice
+        # Cap. B-2: la mora se castiga; una cartera viva no supera ~180 días de mora.
+        days_past_due[marca] = rng.integers(bajo, alto, size=int(marca.sum()))
+
+    # ``mora_max_12m`` (feature F1) = peor mora de 12m ⇒ nunca menor que la mora de hoy.
+    mora_max_12m = np.maximum(
+        np.clip(rng.poisson(lam=6.0, size=n_rows), 0, 180), days_past_due
+    ).astype("int64")
+
+    # --- Target F1: la logística, ya con la mora observada. Estocástico ⇒ sin fuga. ---
+    logit = riesgo + 0.9 * (mora_max_12m / 30.0)
+    prob_bad = 1.0 / (1.0 + np.exp(-logit))
+    bad_flag = (rng.random(size=n_rows) < prob_bad).astype("int64")
+
+    # --- Survival: año hasta default (hazard anual crece con el riesgo), censura al horizonte ---
+    risk_z = (riesgo - riesgo.mean()) / riesgo.std()
+    # Hazard anual ~ sigmoid(-3.0 + 0.85·z): PD anual base ~4,7 %; cumulativa a T años ~20-25 %.
+    hazard = 1.0 / (1.0 + np.exp(-(-3.0 + 0.85 * risk_z)))
+    duration = np.full(n_rows, horizon, dtype="int64")
+    event = np.zeros(n_rows, dtype="int64")
+    draws = rng.random(size=(n_rows, horizon))
+    for i in range(n_rows):
+        for t in range(horizon):
+            if draws[i, t] < hazard[i]:
+                duration[i] = t + 1
+                event[i] = 1
+                break
+
+    # --- Cartera (portfolio): mezcla retail-heavy ---
+    portfolio = rng.choice(portfolios, size=n_rows, p=portfolio_weights)
+    is_consumo = portfolio == "Consumo"
+    is_tarjetas = portfolio == "Tarjetas"
+    is_comercial = portfolio == "Comercial"
+
+    # --- EAD por cartera: retail menor, comercial/hipotecario mayor; escala retail sin moneda ---
+    ead_center = np.select(
+        [is_consumo, is_tarjetas, is_comercial], [8000.0, 4000.0, 38000.0], default=52000.0
+    )
+    ead = np.round(
+        np.clip(ead_center * np.exp(rng.normal(0.0, 0.35, size=n_rows)), 2000.0, 80000.0), 2
+    )
+
+    # --- LGD Beta por cartera (nunca constante); menor con garantía (hipotecario) ---
+    lgd_center: np.ndarray[Any, np.dtype[np.float64]] = np.select(
+        [is_consumo, is_tarjetas, is_comercial], [0.55, 0.68, 0.42], default=0.22
+    ).astype("float64")
+    concentracion = 30.0
+    lgd = np.round(
+        np.clip(
+            rng.beta(lgd_center * concentracion, (1.0 - lgd_center) * concentracion, size=n_rows),
+            0.03,
+            0.95,
+        ),
+        4,
+    )
+
+    # --- EIR anual efectiva por cartera (tasa de descuento de la ECL) ---
+    eir_center: np.ndarray[Any, np.dtype[np.float64]] = np.select(
+        [is_consumo, is_tarjetas, is_comercial], [0.28, 0.42, 0.16], default=0.09
+    ).astype("float64")
+    eir = np.round(np.clip(eir_center + rng.normal(0.0, 0.015, size=n_rows), 0.03, 0.60), 4)
+
+    # --- is_default: 90+ días de mora o una pequeña fracción reestructurada con mora <90 días ---
+    restructured = (days_past_due < 90) & (rng.random(size=n_rows) < 0.010)
+    is_default = (days_past_due >= 90) | restructured
+
+    loan_id = pd.Index([f"op-{position:06d}" for position in range(n_rows)], name="loan_id")
+    return pd.DataFrame(
+        {
+            "ingreso_mensual": np.round(ingreso, 2),
+            "deuda_ingreso": np.round(deuda_ingreso, 4),
+            "utilizacion_linea": np.round(utilizacion, 4),
+            "mora_max_12m": mora_max_12m,
+            "antiguedad_meses": antiguedad.astype("int64"),
+            "segmento": segmento.astype(object),
+            "cohorte": cohorte.astype(object),
+            "bad_flag": bad_flag,
+            "duration": duration,
+            "event": event,
+            "as_of_date": np.full(n_rows, spec["as_of_date"], dtype=object),
+            "portfolio": portfolio.astype(object),
+            "ead": ead,
+            "lgd": lgd,
+            "eir": eir,
+            "days_past_due": days_past_due,
+            "is_default": is_default,
         },
         index=loan_id,
     )

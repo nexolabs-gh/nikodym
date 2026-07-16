@@ -15,6 +15,7 @@ from nikodym.core.config import NikodymConfig, config_hash
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui import routes
 from nikodym.ui.presets import (
+    F4_IFRS9_PRESET_ID,
     PROVISIONES_DATASET_ID,
     PROVISIONES_PRESET_ID,
     STANDARD_DATASET_ID,
@@ -285,9 +286,13 @@ def test_provisiones_preset_columnas_regulatorias_existen_en_el_dataset() -> Non
 
 
 def test_list_presets_cataloga_ambos_sin_config() -> None:
-    """``list_presets`` devuelve los descriptores (sin ``config``) de F1 y F3, en orden."""
+    """``list_presets`` devuelve los descriptores (sin ``config``) de F1, F3 y F4, en orden."""
     catalogo = list_presets()
-    assert [p["id"] for p in catalogo] == [STANDARD_PRESET_ID, PROVISIONES_PRESET_ID]
+    assert [p["id"] for p in catalogo] == [
+        STANDARD_PRESET_ID,
+        PROVISIONES_PRESET_ID,
+        F4_IFRS9_PRESET_ID,
+    ]
     for descriptor in catalogo:
         assert set(descriptor) == {"id", "name", "description", "dataset_id"}
         assert "config" not in descriptor
@@ -324,6 +329,7 @@ def test_endpoint_presets_index_y_preset_por_id() -> None:
     assert [p["id"] for p in indice.json()["presets"]] == [
         STANDARD_PRESET_ID,
         PROVISIONES_PRESET_ID,
+        F4_IFRS9_PRESET_ID,
     ]
 
     detalle = client.get(f"/api/config/preset/{PROVISIONES_PRESET_ID}")

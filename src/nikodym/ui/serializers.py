@@ -54,6 +54,10 @@ _CARD_KEY_BY_DOMAIN: dict[str, str] = {
     "provisioning_cmf": "card",
     "provisioning_internal": "card",
     "provisioning": "card",
+    # IFRS 9 / ECL (SDD-16). Misma regla que las de arriba: se serializa la card y frames AGREGADOS
+    # (distribución de staging, curva ECL por período, resumen por carteraxstage, conteo de gatillos
+    # SICR); el ``detail`` por operación (6.000 filas) NO entra al payload por la misma razón.
+    "provisioning_ifrs9": "card",
 }
 
 # Mensaje estable de fallo. ``run_context`` NO persiste el mensaje del ``NikodymError`` de dominio
@@ -153,6 +157,21 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
     if isinstance(payload["provisioning"], dict):
         # La comparación estándar-vs-interno con la fuente que muerde (``binding``): el titular.
         payload["provisioning"]["comparison"] = _domain_records(study, "provisioning", "comparison")
+    # IFRS 9 / ECL (SDD-16): frames AGREGADOS graficables + una MUESTRA acotada por operación. El
+    # ``detail`` COMPLETO (6.000 filas) NUNCA entra al payload (reventaría ``/api/results``, misma
+    # regla que CMF/interno); el drill-down completo iría por un endpoint paginado dedicado.
+    if isinstance(payload["provisioning_ifrs9"], dict):
+        block = payload["provisioning_ifrs9"]
+        # Distribución de staging por Stage 1/2/3 (conteo + monto + cobertura): el gráfico central.
+        block["staging_distribution"] = _ifrs9_staging_distribution(study)
+        # Resumen por cartera x stage tal cual lo agrega el motor (EAD, ECL, coverage).
+        block["summary"] = _domain_records(study, "provisioning_ifrs9", "summary")
+        # Curva de ECL por período (año): marginal, acumulada, PD marginal y factor de descuento.
+        block["ecl_term_structure"] = _ifrs9_ecl_curve(study)
+        # Conteo de gatillos SICR disparados (qué llevó a cada operación a Stage 2/3).
+        block["sicr_triggers"] = _ifrs9_sicr_triggers(study)
+        # Muestra por operación (top-N por ECL, repartida por stage) para una tabla en la UI.
+        block["detail_sample"] = _ifrs9_detail_sample(study)
 
 
 def _domain_records(study: Study, domain: str, key: str) -> list[dict[str, Any]] | None:
@@ -277,6 +296,156 @@ def _reliability_curve(study: Study) -> dict[str, Any] | None:
     if not study.artifacts.has("calibration", "calibrated_pd_frame"):
         return None
     return reliability_curve(study.artifacts.get("calibration", "calibrated_pd_frame"))
+
+
+def _ifrs9_staging_distribution(study: Study) -> list[dict[str, Any]] | None:
+    """Distribución de staging IFRS 9 por Stage 1/2/3 (conteo y monto), derivada del ``summary``.
+
+    Agrega el ``summary`` por operación (cartera x stage) a nivel de stage y recompone la cobertura
+    ``ECL/EAD`` de cada stage. Es un artefacto rico DERIVADO (como la curva de fiabilidad): agrega
+    números que el motor ya materializó para graficar, sin recalcular riesgo. Bajo el guard de
+    finitud vía :func:`_frame_records`. ``None`` si el ``summary`` no está publicado.
+    """
+    if not study.artifacts.has("provisioning_ifrs9", "summary"):
+        return None
+    summary = study.artifacts.get("provisioning_ifrs9", "summary")
+    grouped = summary.groupby("stage", as_index=False).agg(
+        n_rows=("n_rows", "sum"),
+        total_ead=("total_ead", "sum"),
+        total_ecl_reported=("total_ecl_reported", "sum"),
+    )
+    ead = grouped["total_ead"].to_numpy(dtype="float64")
+    ecl = grouped["total_ecl_reported"].to_numpy(dtype="float64")
+    grouped["coverage_ratio"] = np.divide(ecl, ead, out=np.zeros_like(ead), where=ead > 0.0)
+    grouped = grouped.sort_values("stage").reset_index(drop=True)
+    return _frame_records(grouped)
+
+
+def _ifrs9_ecl_curve(study: Study) -> list[dict[str, Any]] | None:
+    """Curva de ECL IFRS 9 por período (año), agregada desde ``ecl_term_structure``.
+
+    Suma la ECL marginal por período y su acumulada, y publica la PD marginal ponderada por EAD y el
+    factor de descuento medio de cada período. Agrega la term-structure larga por operación (que NO
+    entra al payload por tamaño) a una curva de pocas filas. ``None`` si el artefacto falta.
+
+    **Semántica (importante para el front):** es el *runoff* de la ECL **LIFETIME de toda la
+    cartera** (cada operación medida en TODO el horizonte, la forma de la term-structure), NO el
+    desglose de la ECL reportada. Por eso ``ecl_cumulative`` del último período **no** coincide con
+    ``total_ecl_reported`` de la card (que trunca por stage: Stage 1 solo 12m). El desglose que SÍ
+    reconcilia con la card es ``staging_distribution`` (por Stage 1/2/3). Ambas vistas son estándar
+    en un tablero IFRS 9: rotúlalas distinto (curva lifetime vs. ECL reportada por stage).
+    """
+    if not study.artifacts.has("provisioning_ifrs9", "ecl_term_structure"):
+        return None
+    ts = study.artifacts.get("provisioning_ifrs9", "ecl_term_structure")
+    weighted_pd = ts["pd_marginal"].to_numpy(dtype="float64") * ts["ead"].to_numpy(dtype="float64")
+    grouped = (
+        ts.assign(_pd_ead=weighted_pd)
+        .groupby("period", as_index=False)
+        .agg(
+            time_value=("time_value", "first"),
+            ecl_marginal=("ecl_marginal", "sum"),
+            _pd_ead=("_pd_ead", "sum"),
+            _ead=("ead", "sum"),
+            discount_factor_mean=("discount_factor", "mean"),
+            n_rows=("row_id", "count"),
+        )
+        .sort_values("period")
+        .reset_index(drop=True)
+    )
+    ead = grouped["_ead"].to_numpy(dtype="float64")
+    pd_ead = grouped["_pd_ead"].to_numpy(dtype="float64")
+    grouped["pd_marginal_weighted"] = np.divide(
+        pd_ead, ead, out=np.zeros_like(ead), where=ead > 0.0
+    )
+    grouped["ecl_cumulative"] = grouped["ecl_marginal"].cumsum()
+    ordered = grouped[
+        [
+            "period",
+            "time_value",
+            "ecl_marginal",
+            "ecl_cumulative",
+            "pd_marginal_weighted",
+            "discount_factor_mean",
+            "n_rows",
+        ]
+    ]
+    return _frame_records(ordered)
+
+
+def _ifrs9_sicr_triggers(study: Study) -> dict[str, int] | None:
+    """Conteo de gatillos SICR disparados en el ``staging`` (qué llevó cada operación a Stage 2/3).
+
+    Recorre la columna ``sicr_triggers`` (tupla de códigos por operación) y cuenta cada código en
+    orden alfabético estable. ``None`` si el ``staging`` falta; ``{}`` si ninguna operación disparó
+    un gatillo (todo Stage 1).
+    """
+    if not study.artifacts.has("provisioning_ifrs9", "staging"):
+        return None
+    staging = study.artifacts.get("provisioning_ifrs9", "staging")
+    counts: dict[str, int] = {}
+    for codes in staging["sicr_triggers"].tolist():
+        for code in codes:
+            name = str(code)
+            counts[name] = counts.get(name, 0) + 1
+    result = dict(sorted(counts.items()))
+    _ensure_json_safe(result, context="provisioning_ifrs9.sicr_triggers")
+    return result
+
+
+# Operaciones por stage en la muestra ``detail_sample`` (top-10 por ECL de CADA Stage 1/2/3 → 30
+# filas): garantiza que las tres etapas estén representadas (no solo Stage 3, que domina la ECL).
+_IFRS9_DETAIL_SAMPLE_PER_STAGE: int = 10
+_IFRS9_DETAIL_SAMPLE_COLUMNS: tuple[str, ...] = (
+    "row_id",
+    "portfolio",
+    "stage",
+    "ead",
+    "lgd",
+    "eir",
+    "pd_12m",
+    "pd_life",
+    "ecl_12m",
+    "ecl_lifetime",
+    "ecl_reported",
+)
+
+
+def _ifrs9_detail_sample(study: Study) -> list[dict[str, Any]] | None:
+    """Muestra por operación: top-K por ``ecl_reported`` DENTRO de cada Stage 1/2/3 (no solo el 3).
+
+    Para una tabla "por operación" en la UI sin volcar las 6.000 filas del ``detail`` al payload
+    (SDD-28). Toma las ``_IFRS9_DETAIL_SAMPLE_PER_STAGE`` operaciones de mayor ``ecl_reported`` de
+    cada stage —así las tres etapas quedan representadas—, une los gatillos SICR por operación desde
+    el ``staging`` y ordena el resultado por ``ecl_reported`` descendente. Publica ``loan_id``
+    (== ``row_id``), ``portfolio``, ``stage``, ``ead``, ``lgd``, ``eir``, ``pd_12m``, ``pd_life``,
+    ``ecl_12m``, ``ecl_lifetime``, ``ecl_reported`` y ``sicr_triggers`` (lista, vacía en Stage 1).
+    ``None`` si el ``detail`` falta. Bajo el guard de finitud vía :func:`_frame_records`.
+    """
+    if not study.artifacts.has("provisioning_ifrs9", "detail"):
+        return None
+    detail = study.artifacts.get("provisioning_ifrs9", "detail")
+    sample = (
+        detail[list(_IFRS9_DETAIL_SAMPLE_COLUMNS)]
+        .sort_values("ecl_reported", ascending=False, kind="mergesort")
+        .groupby("stage", sort=False, dropna=False)
+        .head(_IFRS9_DETAIL_SAMPLE_PER_STAGE)
+        .sort_values("ecl_reported", ascending=False, kind="mergesort")
+        .reset_index(drop=True)
+    )
+    triggers_by_id: dict[str, tuple[str, ...]] = {}
+    if study.artifacts.has("provisioning_ifrs9", "staging"):
+        staging = study.artifacts.get("provisioning_ifrs9", "staging")
+        triggers_by_id = {
+            str(row_id): tuple(str(code) for code in codes)
+            for row_id, codes in zip(
+                staging["row_id"].tolist(), staging["sicr_triggers"].tolist(), strict=True
+            )
+        }
+    sample = sample.assign(
+        sicr_triggers=[triggers_by_id.get(str(row_id), ()) for row_id in sample["row_id"].tolist()]
+    ).rename(columns={"row_id": "loan_id"})
+    return _frame_records(sample)
 
 
 def to_records(frame: pd.DataFrame) -> list[dict[str, Any]]:

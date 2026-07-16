@@ -1,0 +1,389 @@
+{
+ "id": "f4-ifrs9-retail",
+ "config": {
+  "schema_version": "1.0.0",
+  "name": "preset-ifrs9-retail",
+  "repro": {
+   "seed": 20240706,
+   "strict_determinism": false
+  },
+  "run": {
+   "steps": null,
+   "fail_fast": true
+  },
+  "data": {
+   "type": "standard",
+   "load": {
+    "source": null,
+    "file_format": "auto",
+    "backend": "pandas",
+    "csv_options": {
+     "sep": ",",
+     "decimal": ".",
+     "encoding": "utf-8"
+    }
+   },
+   "schema": {
+    "columns": [
+     {
+      "name": "ingreso_mensual",
+      "dtype": "float",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "deuda_ingreso",
+      "dtype": "float",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "utilizacion_linea",
+      "dtype": "float",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "mora_max_12m",
+      "dtype": "int",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "antiguedad_meses",
+      "dtype": "int",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "segmento",
+      "dtype": "str",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "cohorte",
+      "dtype": "str",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "bad_flag",
+      "dtype": "int",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     }
+    ],
+    "strict": false,
+    "ordered": false,
+    "index_col": "loan_id",
+    "unique_keys": null
+   },
+   "missing": {
+    "special_values": [],
+    "max_missing_rate": 0.99
+   },
+   "target": {
+    "target_col": "target",
+    "bad_rule": {
+     "all_of": [
+      {
+       "col": "bad_flag",
+       "op": "==",
+       "value": 1
+      }
+     ],
+     "any_of": []
+    },
+    "good_rule": null,
+    "indeterminate_rule": null,
+    "exclusion_rules": [],
+    "window": null
+   },
+   "partition": {
+    "strategy": {
+     "type": "cohort",
+     "cohort_col": "cohorte",
+     "oot_cohorts": [
+      "2024Q2"
+     ],
+     "holdout_fraction": 0.2
+    },
+    "ttd_includes_excluded": true,
+    "min_bads_per_partition": 30
+   }
+  },
+  "markov": null,
+  "eda": null,
+  "binning": {
+   "type": "standard",
+   "feature_columns": [
+    "ingreso_mensual",
+    "deuda_ingreso",
+    "utilizacion_linea",
+    "mora_max_12m",
+    "antiguedad_meses",
+    "segmento"
+   ],
+   "exclude_columns": [],
+   "categorical_columns": [
+    "segmento"
+   ],
+   "variable_overrides": [],
+   "max_n_prebins": 20,
+   "min_prebin_size": 0.05,
+   "min_n_bins": null,
+   "max_n_bins": 6,
+   "min_bin_size": 0.05,
+   "min_bin_n_event": 1,
+   "min_bin_n_nonevent": 1,
+   "monotonic_trend": "auto_asc_desc",
+   "min_event_rate_diff": 0.0,
+   "max_pvalue": null,
+   "max_pvalue_policy": "consecutive",
+   "solver": "mip",
+   "mip_solver": "bop",
+   "time_limit": 10,
+   "require_optimal": true,
+   "n_jobs": null,
+   "special_handling": "separate",
+   "metric_special": "empirical",
+   "metric_missing": "empirical",
+   "cat_cutoff": 0.01,
+   "cat_unknown": null,
+   "split_digits": null,
+   "output_suffix": "__woe",
+   "keep_structural_columns": true,
+   "fail_on_non_binnable": false
+  },
+  "selection": {
+   "type": "standard",
+   "feature_columns": "*",
+   "exclude_columns": [],
+   "force_include": [],
+   "force_exclude": [],
+   "min_iv": 0.02,
+   "max_iv": 0.5,
+   "max_iv_action": "flag",
+   "compute_univariate_metrics": true,
+   "min_auc": null,
+   "min_ks": null,
+   "min_gini": null,
+   "priority_order": [
+    "iv",
+    "auc",
+    "ks",
+    "name"
+   ],
+   "correlation": {
+    "enabled": true,
+    "method": "pearson",
+    "threshold": 0.75,
+    "clustering_method": "none"
+   },
+   "vif": {
+    "enabled": true,
+    "threshold": 5.0,
+    "add_intercept": true,
+    "max_iterations": null
+   },
+   "stability": {
+    "enabled": false,
+    "action": "report_only",
+    "stable_threshold": 0.1,
+    "review_threshold": 0.25,
+    "smoothing": 1e-06
+   },
+   "keep_structural_columns": true,
+   "fail_if_no_features": true
+  },
+  "model": {
+   "type": "standard",
+   "engine": "logit",
+   "fit_intercept": true,
+   "optimizer": "newton",
+   "fit_maxiter": 100,
+   "tol": 1e-08,
+   "alpha": 0.05,
+   "stepwise": {
+    "enabled": true,
+    "direction": "bidirectional",
+    "criterion": "wald_pvalue",
+    "entry_p_value": 0.05,
+    "exit_p_value": 0.05,
+    "max_iter": 100,
+    "min_features": 1
+   },
+   "sign_policy": {
+    "expected_beta_sign": "negative",
+    "action": "flag",
+    "fail_on_forced_inverted": false
+   },
+   "iv_contribution": {
+    "threshold": 0.9,
+    "action": "flag"
+   },
+   "force_include": [],
+   "force_exclude": [],
+   "fail_if_no_features": true
+  },
+  "scorecard": null,
+  "calibration": null,
+  "tuning": null,
+  "ml": null,
+  "explain": null,
+  "survival": {
+   "schema_version": "1.0.0",
+   "type": "standard",
+   "method": "discrete_hazard",
+   "input": {
+    "duration_col": "duration",
+    "event_col": "event",
+    "id_col": null,
+    "segment_col": null,
+    "pd_source": "model_raw",
+    "pd_column": "pd_raw",
+    "linear_predictor_column": "linear_predictor",
+    "covariate_cols": []
+   },
+   "time_grid": {
+    "time_unit": "year",
+    "horizon_periods": 5,
+    "evaluation_times": []
+   },
+   "kaplan_meier": {
+    "confidence_level": null,
+    "confidence_transform": null
+   },
+   "discrete_hazard": {
+    "link": "logit",
+    "include_period_dummies": true,
+    "pd_role": "covariate",
+    "min_events_per_period": null
+   },
+   "cox_aft": {
+    "ph_test_enabled": true,
+    "ph_p_value_threshold": null,
+    "aft_family": null
+   },
+   "fail_on_falta_dato": true
+  },
+  "forward": null,
+  "stress": null,
+  "provisioning_cmf": null,
+  "provisioning_ifrs9": {
+   "schema_version": "1.0.0",
+   "type": "standard",
+   "as_of_date_col": "as_of_date",
+   "row_id_col": null,
+   "portfolio_col": "portfolio",
+   "pd": {
+    "term_structure_source": "survival",
+    "base_pd_source": "term_structure",
+    "pit_mode": "ttc_only",
+    "rho": null,
+    "rho_col": null,
+    "systemic_factor_col": null,
+    "horizon_12m_periods": 1,
+    "max_lifetime_periods": null
+   },
+   "lgd": {
+    "method": "provided",
+    "lgd_col": "lgd",
+    "recovery_col": null,
+    "lgd_floor": 0.0,
+    "lgd_cap": 1.0,
+    "covariate_cols": [],
+    "workout_discount": "eir"
+   },
+   "ead": {
+    "method": "provided",
+    "ead_col": "ead",
+    "drawn_col": "drawn",
+    "limit_col": "credit_limit",
+    "ccf_col": null,
+    "ccf_value": null,
+    "exposure_profile_col": null
+   },
+   "staging": {
+    "sicr_pd_ratio_threshold": 2.0,
+    "sicr_pd_pit_backstop_multiple": 3.0,
+    "dpd_sicr_backstop": 30,
+    "dpd_default_backstop": 90,
+    "days_past_due_col": "days_past_due",
+    "is_default_col": "is_default",
+    "origination_pd_life_col": null,
+    "rating_col": null,
+    "origination_rating_col": null,
+    "notch_downgrade_threshold": null,
+    "stage_override_col": null,
+    "low_credit_risk_exemption": false,
+    "low_credit_risk_col": null
+   },
+   "scenarios": {
+    "source": "single",
+    "weights": {},
+    "forbid_mean_scenario": true
+   },
+   "ecl": {
+    "eir_col": "eir",
+    "discount_convention": "annual_eir_year_fraction",
+    "stage3_direct": false,
+    "rounding": "none"
+   },
+   "fail_on_falta_dato": true
+  },
+  "provisioning": null,
+  "performance": null,
+  "stability": null,
+  "validation": null,
+  "report": null,
+  "audit": null,
+  "governance": null,
+  "tracking": null
+ },
+ "config_hash": "5f0b472ce6b3e10d1c808b93666bc0c5a99bb38c782ec00f3868cc55d7d633f4",
+ "dataset_id": "ifrs9_retail_latam",
+ "name": "Preset F4 — provisiones IFRS 9 / ECL (retail multi-cartera)",
+ "description": "Config listo para correr sin tocar nada: sobre una cartera retail LatAm multi-producto (Consumo, Tarjetas, Comercial, Hipotecario) ajusta la curva lifetime PD (survival) y calcula la pérdida esperada IFRS 9 de tres etapas — staging Stage 1/2/3 por los backstops de mora 30/90 días y ECL 12 meses / lifetime descontada a la tasa efectiva. IFRS 9 es experimental (SDD-16, fuera de la garantía SemVer 1.x)."
+}

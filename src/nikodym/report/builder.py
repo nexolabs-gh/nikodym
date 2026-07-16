@@ -83,6 +83,12 @@ _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("provisioning_cmf", "card"),
     ("provisioning_internal", "card"),
     ("provisioning", "card"),
+    # IFRS 9 / ECL (SDD-16). Se RECOLECTA si el dominio corrió; no se exige (no está en las
+    # ``required_sections`` por defecto). Hoy no hay ``ChapterSpec`` con
+    # ``requires_domain='provisioning_ifrs9'``, así que la card se recolecta pero no genera capítulo
+    # (inerte para el informe); su presencia aquí mantiene coherente el mapa canónico que consume la
+    # serialización de la UI (``ui/serializers.py:_CARD_KEY_BY_DOMAIN``).
+    ("provisioning_ifrs9", "card"),
 )
 _CARD_KEY_BY_DOMAIN: Final[dict[str, str]] = dict(_CARD_ARTIFACTS)
 _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (

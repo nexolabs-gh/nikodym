@@ -162,6 +162,7 @@ def test_endpoint_datasets(client: TestClient) -> None:
         "hipotecario_comportamiento",
         "consumo_drift",
         "provisiones_consumo",
+        "ifrs9_retail_latam",
     ]
     # El de provisiones expone un superconjunto de columnas (las económico-regulatorias que
     # consumen el motor estándar CMF y el método interno); los de F1 solo las 9 del scorecard.
@@ -169,6 +170,9 @@ def test_endpoint_datasets(client: TestClient) -> None:
     assert set(columnas["consumo_comportamiento"]) < set(columnas["provisiones_consumo"])
     assert "exposure_amount" in columnas["provisiones_consumo"]
     assert "exposure_amount" not in columnas["consumo_comportamiento"]
+    # El de IFRS 9 también es superconjunto de F1, con survival (duration/event) + económicas ECL.
+    assert set(columnas["consumo_comportamiento"]) < set(columnas["ifrs9_retail_latam"])
+    assert {"duration", "event", "ead", "eir", "is_default"} <= set(columnas["ifrs9_retail_latam"])
 
 
 def test_endpoint_upload_csv_200(client_tmp: TestClient) -> None:

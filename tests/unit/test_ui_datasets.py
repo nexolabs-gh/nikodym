@@ -28,6 +28,7 @@ def test_list_datasets_estable_y_con_roles_f1() -> None:
         "hipotecario_comportamiento",
         "consumo_drift",
         "provisiones_consumo",
+        "ifrs9_retail_latam",
     ]
 
     for descriptor in primero:
@@ -119,6 +120,70 @@ def test_provisiones_consumo_determinista() -> None:
     assert datasets._generate("provisiones_consumo").equals(
         datasets._generate("provisiones_consumo")
     )
+
+
+def test_ifrs9_retail_latam_es_creible() -> None:
+    """El dataset IFRS 9 cumple los invariantes que lo hacen creíble y usable por el motor (SDD-16).
+
+    Verifica la verosimilitud de los inputs económicos y de survival que un revisor cruzaría, y que
+    el staging por mora tendrá un split VISIBLE (30+ d y 90+ d con masa), sin país ni moneda.
+    """
+    frame = datasets._generate("ifrs9_retail_latam")
+
+    # --- Columnas: superconjunto de F1 + survival + económicas IFRS 9; sin nulos ---
+    esperadas = {
+        "duration",
+        "event",
+        "as_of_date",
+        "portfolio",
+        "ead",
+        "lgd",
+        "eir",
+        "days_past_due",
+        "is_default",
+    }
+    assert esperadas <= set(frame.columns)
+    assert not frame.isna().any().any()
+
+    # --- Una sola fecha de cálculo (el motor IFRS 9 lo exige) ---
+    assert frame["as_of_date"].nunique() == 1
+
+    # --- Carteras genéricas LatAm (sin país ni institución) ---
+    assert set(frame["portfolio"]) == {"Consumo", "Tarjetas", "Comercial", "Hipotecario"}
+
+    # --- Magnitudes económicas de escala retail (sin moneda), plausibles ---
+    assert frame["ead"].between(2000.0, 80000.0).all()
+    assert frame["lgd"].between(0.0, 1.0).all() and frame["lgd"].std() > 0.05
+    assert frame["eir"].between(0.03, 0.60).all()
+    # LGD/EIR menores con garantía (hipotecario) que en retail sin garantía (tarjetas).
+    lgd_media = frame.groupby("portfolio")["lgd"].mean()
+    assert lgd_media["Hipotecario"] < lgd_media["Tarjetas"]
+    eir_media = frame.groupby("portfolio")["eir"].mean()
+    assert eir_media["Hipotecario"] < eir_media["Tarjetas"]
+
+    # --- Mora: split de staging VISIBLE (algunos 30+ d → Stage 2, algunos 90+ d → Stage 3) ---
+    assert frame["days_past_due"].between(0, 180).all()
+    assert (frame["days_past_due"] == 0).mean() >= 0.70  # cartera mayormente al día
+    assert 0.03 <= (frame["days_past_due"] >= 30).mean() <= 0.25  # Stage 2+ con masa
+    assert 0.01 <= (frame["days_past_due"] >= 90).mean() <= 0.10  # Stage 3 con masa
+    assert (frame["mora_max_12m"] >= frame["days_past_due"]).all()  # coherencia con la feature F1
+
+    # --- is_default cubre los 90+ d, más una fracción reestructurada con mora <90 d ---
+    assert frame.loc[frame["days_past_due"] >= 90, "is_default"].all()
+    assert bool(frame.loc[frame["days_past_due"] < 90, "is_default"].any())
+
+    # --- Survival: duración en años ∈ [1, horizonte], evento binario, censura al horizonte ---
+    horizonte = datasets._DATASETS["ifrs9_retail_latam"]["horizon_years"]
+    assert frame["duration"].between(1, horizonte).all()
+    assert set(int(value) for value in frame["event"].unique()) <= {0, 1}
+    assert 0.05 <= frame["event"].mean() <= 0.45  # cumulativa de default plausible a T años
+    # quien no registra evento se observó el horizonte completo (censura a T).
+    assert (frame.loc[frame["event"] == 0, "duration"] == horizonte).all()
+
+
+def test_ifrs9_retail_latam_determinista() -> None:
+    """Dos generaciones producen exactamente la misma cartera (seed constante)."""
+    assert datasets._generate("ifrs9_retail_latam").equals(datasets._generate("ifrs9_retail_latam"))
 
 
 def test_provisiones_consumo_alimenta_el_motor_cmf_real() -> None:
