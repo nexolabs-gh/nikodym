@@ -584,3 +584,39 @@ def test_capitulo_resultados_es_condicional_any_of_a_los_dominios_scorecard() ->
         )
     )
     assert "results" in [s.id for s in con_model.sections if s.level == 1]
+
+
+def test_limitaciones_ifrs9_distingue_curva_standalone_de_scorecard() -> None:
+    """La salvedad de Limitaciones espeja cómo se ajustó la curva (SDD-16/SDD-18).
+
+    Standalone (``pd_source='none'``) la corrida no estima ningún modelo PD de scorecard:
+    afirmar que «se estimó en esta misma corrida» sería falso. Con fuente PD de F1 el texto
+    original se mantiene.
+    """
+    builder = ReportBuilder.from_config(
+        ReportConfig(sections=SectionPolicyConfig(required_sections=()))
+    )
+    omit = (
+        "binning",
+        "selection",
+        "model",
+        "scorecard",
+        "calibration",
+        "performance",
+        "stability",
+    )
+
+    standalone = _study_completo(omit=omit)
+    standalone.artifacts.set("survival", "card", {"pd_source": "none"})
+    standalone.artifacts.set("provisioning_ifrs9", "card", {"summary": "ifrs9-card"})
+    bundle = builder.collect(standalone)
+    body = next(s for s in bundle.sections if s.id == "limitations").body
+    assert any("autocontenida" in paragraph for paragraph in body)
+    assert not any("El modelo PD que alimenta la curva" in paragraph for paragraph in body)
+
+    con_scorecard = _study_completo(omit=omit)
+    con_scorecard.artifacts.set("survival", "card", {"pd_source": "model_raw"})
+    con_scorecard.artifacts.set("provisioning_ifrs9", "card", {"summary": "ifrs9-card"})
+    bundle = builder.collect(con_scorecard)
+    body = next(s for s in bundle.sections if s.id == "limitations").body
+    assert any("El modelo PD que alimenta la curva" in paragraph for paragraph in body)

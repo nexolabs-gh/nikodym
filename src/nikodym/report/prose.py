@@ -330,7 +330,14 @@ def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
 
     target = _mapping(data_params.get("target"))
     target_col = _text(target.get("target_col"))
-    if target_col is not None:
+    # El target es "la variable objetivo del ejercicio" solo si alguna etapa de construcción lo
+    # consume: en una cadena standalone (p. ej. IFRS 9) el data step lo construye igual, pero
+    # declararlo objetivo del ejercicio sería falso.
+    construccion = any(
+        domain in bundle.cards
+        for domain in ("binning", "selection", "model", "scorecard", "calibration")
+    )
+    if target_col is not None and construccion:
         paragraphs.append(
             f"La variable objetivo del ejercicio es «{target_col}», construida por las reglas de "
             "incumplimiento declaradas en el config (Anexo C). La definición de negocio que "
@@ -404,8 +411,11 @@ def methodology_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
     )
     if not etapas:
         return (
-            "La corrida no publicó las cards de las etapas de construcción, de modo que este "
-            "capítulo no puede describir la metodología ejecutada.",
+            "Esta corrida no ejecutó etapas de construcción de scorecard (segmentación, "
+            "selección, modelo, calibración): este capítulo describe únicamente las etapas que "
+            "sí corrieron, con los parámetros efectivos que constan en el config trazado en el "
+            "Anexo A. La metodología de los cálculos de dominio se describe en su capítulo "
+            "correspondiente.",
         )
     return (
         "Este capítulo describe el procedimiento realmente ejecutado por el motor en esta "
@@ -1609,13 +1619,28 @@ def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     if tiene_ifrs9 and not tiene_provisiones:
         # Corrida IFRS 9 (SDD-16): el capítulo de ECL ES el alcance. Decir aquí que "IFRS 9
         # corresponde a fases posteriores" sería falso; y la cadena mínima ECL no corre la
-        # validación completa del scorecard, así que tampoco se reclama (G8).
+        # validación completa del scorecard, así que tampoco se reclama (G8). La salvedad sobre
+        # la curva PD depende de cómo se ajustó: standalone (pd_source='none') no hay modelo de
+        # scorecard del que hablar.
+        survival = _card(bundle, "survival")
+        pd_source_surv = str(survival.get("pd_source") or "") if survival is not None else ""
+        if pd_source_surv == "none":
+            curva = (
+                "La curva PD lifetime se ajustó en esta misma corrida de forma autocontenida "
+                "sobre la historia de la propia cartera, sin insumos de un scorecard de "
+                "originación; su validación completa como modelo —discriminación, calibración "
+                "y estabilidad— no forma parte de esta corrida."
+            )
+        else:
+            curva = (
+                "El modelo PD que alimenta la curva se estimó en esta misma corrida, pero su "
+                "validación completa como scorecard —discriminación, calibración y estabilidad— "
+                "no forma parte de esta corrida."
+            )
         alcance = (
             "El alcance de este informe es el cálculo de la pérdida crediticia esperada IFRS 9 "
             "(capítulo «Provisiones IFRS 9 / ECL»), una función experimental (SDD-16 en "
-            "borrador) fuera de la garantía SemVer 1.x. El modelo PD que alimenta la curva se "
-            "estimó en esta misma corrida, pero su validación completa como scorecard "
-            "—discriminación, calibración y estabilidad— no forma parte de esta corrida. El "
+            f"borrador) fuera de la garantía SemVer 1.x. {curva} El "
             "backtesting de la ECL corresponde a fases posteriores y no se cubre ni se infiere "
             "aquí."
         )

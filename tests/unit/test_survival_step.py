@@ -148,12 +148,16 @@ def test_run_default_discrete_publica_artifacts_invariantes_y_auditoria() -> Non
 def test_standalone_pd_source_none_corre_sin_model_y_publica_artifacts() -> None:
     """Con ``pd_source='none'`` la cadena mínima es ``data → survival``: sin F1 de por medio.
 
-    El study NO tiene ``model.raw_pd_frame``: el step no debe leerlo (no hay PD de F1 ni
-    ``partition`` que arrastrar) y el hazard se ajusta sobre la covariable propia del dataset.
+    El study NO tiene ``model.raw_pd_frame``: el step no debe leerlo y el hazard se ajusta
+    sobre la covariable propia del dataset. El frame SÍ trae columna ``partition`` — es el
+    estado real que produce el ``DataStep`` del preset F4 (el particionador siempre corre):
+    en standalone el ajuste es de provisión sobre el libro COMPLETO (SDD-18), no un ejercicio
+    de validación, así que la partición NO recorta la muestra del fit.
     """
     cfg = _cfg(pd_source="none", pd_role="none", covariate_cols=("mora_actual",))
     frame = _hazard_frame()
     frame["mora_actual"] = [float(position % 4) for position in range(len(frame.index))]
+    frame["partition"] = ["desarrollo"] * 80 + ["holdout"] * 20 + ["oot"] * 20
     study = Study(NikodymConfig(survival=cfg))
     study.artifacts.set("data", "frame", frame)
     sink = InMemoryAuditSink()
@@ -171,7 +175,29 @@ def test_standalone_pd_source_none_corre_sin_model_y_publica_artifacts() -> None
     assert pd_context["source_artifact"] is None
     assert pd_context["pd_column"] is None
     assert pd_context["coverage_column"] is None
-    assert term["partition"].isna().all()  # sin F1 no hay partición que arrastrar
+    # El corazón del contrato standalone: el fit usa TODAS las filas, no solo Desarrollo.
+    assert result.estimator.n_fit_rows_ == len(frame.index)
+    assert result.estimator.n_fit_events_ == int(frame["event"].sum())
+    # La partición sigue viajando en las predicciones (term structure por fila).
+    assert set(term["partition"].dropna()) == {"desarrollo", "holdout", "oot"}
+    _assert_term_invariants(term)
+
+
+def test_standalone_sin_columna_partition_ajusta_sobre_todas_las_filas() -> None:
+    """Dataset externo sin ``partition`` (fuera del pipeline): mismo contrato, todas las filas."""
+    cfg = _cfg(pd_source="none", pd_role="none", covariate_cols=("mora_actual",))
+    frame = _hazard_frame()
+    frame["mora_actual"] = [float(position % 4) for position in range(len(frame.index))]
+    study = Study(NikodymConfig(survival=cfg))
+    study.artifacts.set("data", "frame", frame)
+
+    study.run(steps=["survival"])
+
+    result = study.artifacts.get("survival", "result")
+    term = study.artifacts.get("survival", "term_structure")
+    assert isinstance(result, SurvivalResult)
+    assert result.estimator.n_fit_rows_ == len(frame.index)
+    assert term["partition"].isna().all()  # sin partición no hay etiqueta que arrastrar
     _assert_term_invariants(term)
 
 

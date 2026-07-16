@@ -27,6 +27,7 @@ Uso::
 
 from __future__ import annotations
 
+import itertools
 import pprint
 import tempfile
 from copy import deepcopy
@@ -158,6 +159,23 @@ def verify(cfg: dict) -> None:
         f"coverage ratio {coverage:.2%} fuera del rango creíble (1-15%)"
     )
     assert total_ecl > 0.0, "la ECL reportada total debe ser positiva"
+
+    # ⚑ Gate del fit standalone (P0 auditoría 2026-07-16): el hazard se ajusta sobre el libro
+    # COMPLETO — la partición Dev/HO/OOT que el DataStep siempre produce no recorta la muestra
+    # del fit (SDD-18; el informe declara n_rows como muestra de estimación y debe ser verdad).
+    estimator = study.artifacts.get("survival", "estimator")
+    n_fit, n_total = int(estimator.n_fit_rows_), int(estimator.n_rows_)
+    assert n_fit == n_total, f"el fit del hazard usó {n_fit}/{n_total} filas (¿partición viva?)"
+
+    # ⚑ Cobertura monótona por cartera: dentro de cada portfolio, la cobertura crece
+    # estrictamente con el stage (S1 < S2 < S3 en las stages presentes) — la historia que el
+    # informe cuenta al banco debe cumplirse en CADA cartera, no solo en el agregado.
+    for portfolio, group in summary.groupby("portfolio"):
+        by_stage = {int(row["stage"]): float(row["coverage_ratio"]) for _, row in group.iterrows()}
+        coverages = [by_stage[stage] for stage in sorted(by_stage)]
+        assert all(a < b for a, b in itertools.pairwise(coverages)), (
+            f"cobertura no monótona en {portfolio}: {by_stage}"
+        )
 
     print(f"[verify] status=done · n_rows={card.n_rows}")
     print(f"[verify] n_stage1={n1} n_stage2={n2} n_stage3={n3}")

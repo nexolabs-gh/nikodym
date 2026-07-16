@@ -148,8 +148,15 @@ class SurvivalStep(AuditableMixin):
 
         times, time_context = _time_grid_from_config_or_data(data_frame, cfg=cfg)
         model = _new_model(cfg)
+        fit_frame = data_frame.copy(deep=True)
+        if cfg.input.pd_source == _NO_PD_SOURCE and _PARTITION_COL in fit_frame.columns:
+            # Standalone: el ajuste es de provisión sobre el libro COMPLETO (SDD-18), no un
+            # ejercicio de validación — la partición Dev/HO/OOT que el DataStep siempre produce
+            # no recorta la muestra del fit. Las predicciones y la term structure sí conservan
+            # la etiqueta por fila (van sobre ``data_frame`` intacto).
+            fit_frame = fit_frame.drop(columns=[_PARTITION_COL])
         fitted = model.fit(
-            data_frame.copy(deep=True),
+            fit_frame,
             duration_col=cfg.input.duration_col,
             event_col=cfg.input.event_col,
             covariate_cols=cfg.input.covariate_cols,

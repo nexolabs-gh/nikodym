@@ -248,6 +248,25 @@ def test_provisiones_preset_activa_las_tres_secciones_y_la_regla_real() -> None:
     assert config["provisioning_ifrs9"] is None
 
 
+# Golden del F4 (mismo contrato que F1/F3): si cambia un default de dominio survival/ifrs9,
+# regenerar con ``scripts/derive_ifrs9_preset.py`` y actualizar este valor conscientemente.
+# Las secciones salen de ``model_dump`` de los objetos Pydantic (todos los campos explícitos),
+# así que el hash es estable con/sin la capa de dominio importada (verificado en ambas
+# condiciones al pinnearlo). Protege la identidad del preset justo cuando los fixtures de
+# demo.nikodym.cl se recapturan contra él.
+_EXPECTED_F4_CONFIG_HASH = "8c94bd4d9a406669c7c3f611d939e09963fc26cdf151fe0723bd66c973e8e23f"
+
+
+def test_ifrs9_preset_config_valida_y_hash_estable() -> None:
+    """El config del F4 reconstruye ``NikodymConfig`` y su ``config_hash`` es determinista."""
+    config = get_preset(F4_IFRS9_PRESET_ID)["config"]
+    model = NikodymConfig.model_validate(config)  # no debe levantar
+    assert config_hash(model) == _EXPECTED_F4_CONFIG_HASH
+    assert config_hash(
+        NikodymConfig.model_validate(get_preset(F4_IFRS9_PRESET_ID)["config"])
+    ) == config_hash(model)
+
+
 def test_ifrs9_preset_activa_el_report_con_secciones_reducidas() -> None:
     """El F4 enciende el informe (capítulo «Provisiones IFRS 9 / ECL») sin exigir el scorecard.
 

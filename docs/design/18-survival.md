@@ -356,7 +356,7 @@ class SurvivalStep(AuditableMixin):
 ```
 
 **Dependencias condicionales.**
-- `("model", "raw_pd_frame")` es prerequisito solo cuando la config declara una fuente PD de F1 (`pd_source ∈ {model_raw, calibration}`): la ruta estándar lifetime reusa scoring y de ahí también se arrastra `partition`. Con `pd_source="none"` el prerequisito desaparece (`requires` dinámico): el hazard se ajusta standalone sobre `covariate_cols` propias del dataset, sin `partition` que arrastrar (el ajuste usa todas las filas).
+- `("model", "raw_pd_frame")` es prerequisito solo cuando la config declara una fuente PD de F1 (`pd_source ∈ {model_raw, calibration}`): la ruta estándar lifetime reusa scoring y de ahí también se arrastra `partition`. Con `pd_source="none"` el prerequisito desaparece (`requires` dinámico): el hazard se ajusta standalone sobre `covariate_cols` propias del dataset **sobre el libro COMPLETO** — el ajuste es de provisión, no un ejercicio de validación. Como el `DataStep` siempre particiona, el step excluye explícitamente la columna `partition` del frame de fit en modo standalone (si la columna llegara al motor, este recortaría el fit a Desarrollo); las predicciones y la term structure sí conservan la etiqueta por fila. Si alguien necesita un fit standalone solo-Desarrollo, eso es config nueva, no un default.
 - `("calibration", "calibrated_pd_frame")` no es prerequisito duro del Step: se exige dentro de `execute` solo si `cfg.input.pd_source == "calibration"`.
 - Cox/AFT/KM requieren lifelines; discrete hazard requiere statsmodels. Si falta el extra correspondiente, se levanta `MissingDependencyError` con mensaje en español.
 
