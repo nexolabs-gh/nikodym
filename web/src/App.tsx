@@ -25,8 +25,10 @@ import { ReporteTab } from "@/components/ReporteTab"
 import { ResultsTab } from "@/components/ResultsTab"
 import { RunTab } from "@/components/RunTab"
 import { Card } from "@/components/ui/card"
-import { API_BASE } from "@/lib/api"
+import { API_BASE, getPresetById } from "@/lib/api"
+import { bootstrapOnce } from "@/lib/bootstrap"
 import { DEMO_MODE } from "@/lib/demo"
+import { useAppState } from "@/state/appStore"
 
 interface SectionDef {
   value: string
@@ -205,13 +207,38 @@ function App() {
   const [view, setView] = useState<"landing" | "workspace">("landing")
   // Entra por "Cargar datos": el flujo mental es traer el dataset antes de configurar cómo leerlo.
   const [active, setActive] = useState<string>(DATA_SECTION.value)
+  const { setConfig, setDatasetId, setSelectedDataset, setSeed } = useAppState()
 
   // "config" a secas (p.ej. una navegación programática) cae en la primera sub-sección.
   const navigate = (value: string) =>
     setActive(value === "config" ? configValue(CONFIG_SECTIONS[0].key) : value)
 
+  // Entrada desde el landing. SIN preset (build normal / CTA genérico): flujo completo, arranca en
+  // Datos. CON preset (selector de demos de `demo.nikodym.cl`): resiembra ESE pipeline y entra
+  // directo a Ejecutar, ya cargado y listo para correr —así el dominio elegido (p. ej. IFRS 9) no
+  // queda enterrado tras el selector de Ejecutar—. `await bootstrapOnce()` garantiza que la siembra
+  // estándar del provider ya ocurrió, para que su resolución no pise la elección un instante después.
+  const enterDemo = async (presetId?: string) => {
+    if (presetId) {
+      await bootstrapOnce()
+      try {
+        const preset = await getPresetById(presetId)
+        setConfig(structuredClone(preset.config))
+        setDatasetId(preset.dataset_id)
+        setSelectedDataset(null)
+        setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
+      } catch {
+        /* no se pudo resembrar: sigue el preset estándar ya sembrado; la demo no rompe. */
+      }
+      setActive("ejecutar")
+    } else {
+      setActive(DATA_SECTION.value)
+    }
+    setView("workspace")
+  }
+
   if (view === "landing") {
-    return <LandingLauncher onEnter={() => setView("workspace")} />
+    return <LandingLauncher onEnter={enterDemo} />
   }
 
   const configKey = configKeyOf(active)

@@ -1127,6 +1127,41 @@ export function ifrs9StageLabel(stage: number): string {
 }
 
 /**
+ * Etiqueta legible de la fuente de la term-structure de PD (`pd.term_structure_source`, un
+ * `Literal["survival","markov","forward"]` del motor). Fallback: el propio slug (no oculta una
+ * fuente nueva). Presentación pura.
+ */
+export function ifrs9TermSourceLabel(source: string): string {
+  switch (source) {
+    case "survival":
+      return "Survival (curva lifetime)"
+    case "markov":
+      return "Matrices de transición"
+    case "forward":
+      return "Forward-looking"
+    default:
+      return source
+  }
+}
+
+/**
+ * Etiqueta legible del modo PIT/TTC de la PD (`pd.pit_mode`, un `Literal["consume_pit",
+ * "apply_vasicek","ttc_only"]` del motor). Fallback: el propio slug. Presentación pura.
+ */
+export function ifrs9PitModeLabel(mode: string): string {
+  switch (mode) {
+    case "consume_pit":
+      return "PIT (point-in-time)"
+    case "apply_vasicek":
+      return "PIT · Vasicek"
+    case "ttc_only":
+      return "TTC (through-the-cycle)"
+    default:
+      return mode
+  }
+}
+
+/**
  * TITULAR del dominio IFRS 9: la ECL reportada de la cartera (la provisión contable) y su cobertura
  * global (ECL/EAD). `reportedEcl`/`totalEad` vienen del artefacto SIN moneda; `coverage` es el único
  * cociente (proporción [0,1]; `null` si la EAD es ≤ 0). Los conteos por etapa reconcilian con

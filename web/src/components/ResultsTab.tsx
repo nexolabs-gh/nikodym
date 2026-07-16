@@ -50,10 +50,12 @@ import {
   gainsSeries,
   ifrs9DetailRows,
   ifrs9Headline,
+  ifrs9PitModeLabel,
   ifrs9SicrTriggers,
   ifrs9StageLabel,
   ifrs9StageRows,
   ifrs9SummaryRows,
+  ifrs9TermSourceLabel,
   ifrs9TermStructure,
   internalGroupBars,
   liftByDecile,
@@ -1239,8 +1241,8 @@ function Ifrs9HeadlineCard({
           <DefItem label="Exposición total (EAD)" value={formatMoney(totalEad)} />
           <DefItem label="Operaciones" value={formatCount(nRows)} />
           <DefItem label="Fecha de corte" value={asOfDate} />
-          <DefItem label="Curva PD (fuente)" value={termStructureSource} />
-          <DefItem label="Modo PIT/TTC" value={pitMode} />
+          <DefItem label="Curva PD (fuente)" value={ifrs9TermSourceLabel(termStructureSource)} />
+          <DefItem label="Modo PIT/TTC" value={ifrs9PitModeLabel(pitMode)} />
         </dl>
         {stages.length > 0 ? (
           <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-3">

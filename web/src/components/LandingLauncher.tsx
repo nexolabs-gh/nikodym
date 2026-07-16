@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ArrowRight, ArrowUpRight, Check, Copy } from "lucide-react"
 
+import { listPresets, type PresetSummary } from "@/lib/api"
 import { NikodymMark } from "@/components/NikodymMark"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import {
@@ -286,8 +287,98 @@ function CurvaGains() {
   )
 }
 
-/** Pantalla de nivel-0: `onEnter` entra al workspace (flujo F1 del scorecard). */
-export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
+/**
+ * Título limpio de una card de demo: quita el prefijo interno «Preset F3 — » del nombre del preset
+ * (jerga de repo) y capitaliza. Fallback seguro: si un preset no trae ese prefijo, deja su nombre.
+ */
+function demoTitle(name: string): string {
+  return name
+    .replace(/^Preset\s+F\d+\s*[—–-]\s*/i, "")
+    .replace(/^./, (c) => c.toUpperCase())
+}
+
+/**
+ * Selector de demos (SOLO en `demo.nikodym.cl`): una card por preset empaquetado (`listPresets()`),
+ * para ELEGIR qué dominio ver sin enterrarlo en el selector de Ejecutar. Al elegir uno, entra al
+ * workspace en Ejecutar con ese pipeline ya cargado. Data-driven: si mañana hay más presets en la
+ * demo, aparecen aquí solos. Falla en silencio (sin catálogo no se muestra; el hero conserva el
+ * comando `pip`). El badge «experimental» se deriva de la propia descripción del preset.
+ */
+function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
+  const [presets, setPresets] = useState<PresetSummary[]>([])
+
+  useEffect(() => {
+    let alive = true
+    void listPresets()
+      .then((res) => {
+        if (alive) setPresets(res.presets)
+      })
+      .catch(() => {
+        /* sin catálogo: no se muestra el selector; el resto del hero sigue igual. */
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  if (presets.length === 0) return null
+
+  return (
+    <div className="space-y-3">
+      <p className="font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
+        Elige una demo
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {presets.map((p) => {
+          const experimental = p.description.toLowerCase().includes("experimental")
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onPick(p.id)}
+              className={cn(
+                "group flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left",
+                "shadow-card transition-all hover:-translate-y-0.5 hover:border-brand-accent-dark/50",
+              )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-display font-bold leading-snug text-foreground">
+                  {demoTitle(p.name)}
+                </span>
+                {experimental ? (
+                  <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-400/[0.06] px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-amber-200/90">
+                    experimental
+                  </span>
+                ) : null}
+              </div>
+              <span className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+                {p.description}
+              </span>
+              <span className="mt-auto inline-flex items-center gap-1.5 pt-1 font-mono text-xs text-brand-accent-dark">
+                Ver esta demo
+                <ArrowRight
+                  className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Pantalla de nivel-0: `onEnter` entra al workspace. Sin argumento → flujo completo (arranca en
+ * Datos, build normal). Con `presetId` (selector de demos) → entra a Ejecutar con ese preset ya
+ * cargado.
+ */
+export function LandingLauncher({
+  onEnter,
+}: {
+  onEnter: (presetId?: string) => void
+}) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-6xl px-6 lg:px-10">
@@ -344,24 +435,31 @@ export function LandingLauncher({ onEnter }: { onEnter: () => void }) {
                 </span>
               </p>
 
-              <div className="mt-9 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={onEnter}
-                  className={cn(
-                    "group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3",
-                    "font-medium text-primary-foreground shadow-card transition-all",
-                    "hover:-translate-y-0.5 hover:bg-brand-accent-dark",
-                  )}
-                >
-                  {DEMO_MODE ? "Abrir la corrida de demostración" : "Construir un scorecard"}
-                  <ArrowRight
-                    className="size-4 transition-transform group-hover:translate-x-0.5"
-                    aria-hidden="true"
-                  />
-                </button>
-                <ComandoCopiable />
-              </div>
+              {DEMO_MODE ? (
+                <div className="mt-9 space-y-5">
+                  <DemoSelector onPick={onEnter} />
+                  <ComandoCopiable />
+                </div>
+              ) : (
+                <div className="mt-9 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onEnter()}
+                    className={cn(
+                      "group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3",
+                      "font-medium text-primary-foreground shadow-card transition-all",
+                      "hover:-translate-y-0.5 hover:bg-brand-accent-dark",
+                    )}
+                  >
+                    Construir un scorecard
+                    <ArrowRight
+                      className="size-4 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </button>
+                  <ComandoCopiable />
+                </div>
+              )}
 
               {/* En la demo estática la app NO recalcula: reproduce fixtures. Decirlo, no insinuarlo. */}
               {DEMO_MODE ? (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import {
+  ChartColumn,
   CircleAlert,
   Download,
   FileDown,
@@ -13,6 +14,7 @@ import { EmptyState } from "@/components/EmptyState"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
+  ApiError,
   getReport,
   getReportDocx,
   getReportEditable,
@@ -41,6 +43,9 @@ interface ReporteTabProps {
 type ReportState =
   | { kind: "loading" }
   | { kind: "ready"; html: string }
+  // El preset corrido no genera informe (404 del backend, p. ej. IFRS 9 / ECL): NO es un fallo
+  // de carga, es un estado esperado → estado vacío sobrio, no el card de error rojo.
+  | { kind: "no-report" }
   | { kind: "error"; message: string }
 
 /**
@@ -154,7 +159,13 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
         setState({ kind: "ready", html })
       } catch (err) {
         if (!alive) return
-        setState({ kind: "error", message: reportErrorMessage(err) })
+        // Un 404 significa que la corrida existe pero el preset no genera informe (p. ej. IFRS 9):
+        // estado esperado, no un fallo → estado vacío, no el card rojo.
+        if (err instanceof ApiError && err.status === 404) {
+          setState({ kind: "no-report" })
+        } else {
+          setState({ kind: "error", message: reportErrorMessage(err) })
+        }
       }
     })()
     return () => {
@@ -192,6 +203,26 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
           Cargando reporte…
         </CardContent>
+      </Card>
+    )
+  }
+
+  // El preset corrido no genera informe (p. ej. IFRS 9 / ECL): estado vacío sobrio que remite a
+  // Resultados, NO el card de error rojo (que leería como una falla en medio de una demo).
+  if (state.kind === "no-report") {
+    return (
+      <Card className="shadow-card">
+        <EmptyState
+          icon={FileText}
+          title="Este preset no genera un informe"
+          description="El informe de validación (HTML, PDF, Word y base editable) acompaña al preset del scorecard. Otros presets —como IFRS 9 / ECL— entregan todo su resultado en la pestaña Resultados y no producen un documento de validación."
+          tag="Reporte"
+          action={{
+            label: "Ver resultados",
+            onClick: () => onNavigate("resultados"),
+            icon: ChartColumn,
+          }}
+        />
       </Card>
     )
   }
