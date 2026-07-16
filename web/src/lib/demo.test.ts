@@ -1,14 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { ApiError } from "@/lib/api"
 import {
   demoConfigFromYaml,
   demoConfigToYaml,
   demoGetPreset,
   demoGetPresetById,
   demoGetReport,
-  demoGetReportDocx,
-  demoGetReportPdf,
   demoGetResults,
   demoListPresets,
   demoRunPipeline,
@@ -20,8 +17,8 @@ import {
  * Gate del modo demo MULTI-PRESET (SDD-28 / F7): la demo estática empaqueta DOS corridas reales
  * —`f3-provisiones-consumo` (default) y `f4-ifrs9-retail` (IFRS 9)— y rastrea el preset elegido para
  * que run/results/yaml/validate devuelvan el set correcto. Verifica que F3 sigue intacto (default),
- * que al elegir F4 todo el set cambia, y que el informe degrada limpio (404) para el preset sin
- * reporte. Todas las funciones demo son deterministas y no dependen de `DEMO_MODE` (solo `api.ts`
+ * que al elegir F4 todo el set cambia, y que AMBOS presets sirven su informe (el de F4 titulado
+ * como informe IFRS 9). Todas las funciones demo son deterministas y no dependen de `DEMO_MODE` (solo `api.ts`
  * ramifica por él), así que se ejercitan directamente en el entorno node de vitest.
  */
 
@@ -103,12 +100,13 @@ describe("elegir el preset IFRS 9 (F4) rastrea todo el set", () => {
     expect(fromYaml.config_hash).toBe(preset.config_hash)
   })
 
-  it("F4 NO genera informe → demoGetReport rechaza con ApiError 404 (degrada limpio)", async () => {
+  it("F4 SÍ genera informe: demoGetReport resuelve el HTML del informe IFRS 9", async () => {
     await demoGetPresetById(F4_ID)
-    await expect(demoGetReport()).rejects.toBeInstanceOf(ApiError)
-    await expect(demoGetReport()).rejects.toMatchObject({ status: 404 })
-    await expect(demoGetReportPdf()).rejects.toMatchObject({ status: 404 })
-    await expect(demoGetReportDocx()).rejects.toMatchObject({ status: 404 })
+    const html = await demoGetReport()
+    expect(html).toContain("<")
+    // Es el informe IFRS 9 (título dinámico del renderer), no el de validación de scorecard.
+    expect(html).toContain("Informe de Provisiones IFRS 9 / ECL")
+    expect(html).toContain("Provisiones IFRS 9 / ECL")
   })
 
   it("volver a F3 restaura la demo de provisiones", async () => {

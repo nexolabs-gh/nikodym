@@ -620,7 +620,9 @@ def provisiones_preset() -> dict[str, Any]:
 # (data→binning→selection→model, para el ``model.raw_pd_frame`` que ``survival`` consume como
 # covariable) + ``survival`` (term-structure lifetime PD por discrete-time hazard) +
 # ``provisioning_ifrs9`` (staging Stage 1/2/3 + ECL descontada). Apaga scorecard/calibración/
-# performance/stability/report (la ECL no los necesita): es un escaparate ENFOCADO en IFRS 9.
+# performance/stability (la ECL no los necesita): es un escaparate ENFOCADO en IFRS 9. El
+# ``report`` queda ENCENDIDO con secciones requeridas reducidas: el informe con el capítulo
+# «Provisiones IFRS 9 / ECL» es un entregable central.
 #
 # Es un preset **standalone**: ``base_pd_source='term_structure'`` deriva la PD de la propia curva
 # lifetime (no del scorecard calibrado), ``pit_mode='ttc_only'`` evita pedir ``rho``/``Z`` y
@@ -638,12 +640,14 @@ F4_IFRS9_PRESET_ID = "f4-ifrs9-retail"
 IFRS9_DATASET_ID = "ifrs9_retail_latam"
 
 # Secciones del F1 que la cadena mínima IFRS 9 apaga (no alimentan survival ni la ECL).
+# ``report`` NO se apaga: el informe trae el capítulo condicional «Provisiones IFRS 9 / ECL»
+# (requires_domain='provisioning_ifrs9') y es un entregable central de la demo. Sus
+# ``required_sections`` se reducen abajo a lo que esta cadena sí corre.
 _IFRS9_DROP_SECTIONS: tuple[str, ...] = (
     "scorecard",
     "calibration",
     "performance",
     "stability",
-    "report",
 )
 
 _IFRS9_SURVIVAL_SECTION: dict[str, Any] = {
@@ -743,6 +747,12 @@ def _ifrs9_config() -> dict[str, Any]:
         cfg[section] = None
     cfg["survival"] = deepcopy(_IFRS9_SURVIVAL_SECTION)
     cfg["provisioning_ifrs9"] = deepcopy(_IFRS9_PROVISIONING_SECTION)
+    # El informe hereda del F1 los cuatro entregables, pero esta cadena no corre scorecard/
+    # calibración/performance/estabilidad: exigirlas tumbaría el report (missing_policy='error').
+    # Se exige solo lo que la cadena ECL sí produce; el capítulo IFRS 9 se activa solo por la
+    # presencia de la card (``requires_domain``), no por esta lista.
+    cfg["report"]["basename"] = "ifrs9_ecl_report"
+    cfg["report"]["sections"]["required_sections"] = ["binning", "selection", "model"]
     return cfg
 
 

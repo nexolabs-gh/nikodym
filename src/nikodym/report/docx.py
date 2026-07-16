@@ -27,7 +27,6 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final
 
-from nikodym.report._manifest import DOCUMENT_TITLE
 from nikodym.report.config import ReportConfig
 from nikodym.report.exceptions import ReportDependencyError, ReportExportError
 from nikodym.report.renderer import build_document_view
@@ -81,7 +80,7 @@ def render_docx(document: Mapping[str, Any], *, config: ReportConfig) -> bytes:
     word = docx.Document()
     _set_core_properties(word, document, config)
 
-    word.add_heading(DOCUMENT_TITLE, level=0)
+    word.add_heading(str(document["document_title"]), level=0)
     _cover(word, document, config)
     _toc_field(word)
     _executive(word, document["executive"])
@@ -169,8 +168,9 @@ class DocxReportRenderer:
 def _set_core_properties(word: Any, document: Mapping[str, Any], config: ReportConfig) -> None:
     """Rellena las propiedades del archivo Word desde el config y el lineage, no desde el reloj."""
     properties = word.core_properties
-    properties.title = DOCUMENT_TITLE
-    properties.subject = config.document.model_name or DOCUMENT_TITLE
+    document_title = str(document["document_title"])
+    properties.title = document_title
+    properties.subject = config.document.model_name or document_title
     properties.author = config.document.author or "Nikodym"
     properties.category = config.document.portfolio
     properties.comments = (

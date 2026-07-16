@@ -37,6 +37,7 @@ __all__ = [
     "conclusions_body",
     "context_body",
     "executive_view",
+    "ifrs9_intro",
     "limitations_body",
     "methodology_body",
     "methodology_intro",
@@ -209,6 +210,58 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
                 f"Las bandas de PSI usan los umbrales configurados: estable por debajo de "
                 f"{_num(stable, decimals=2)} y redesarrollo por sobre {_num(review, decimals=2)}."
             )
+
+    # IFRS 9: cifras contables reportadas por el motor (SDD-16). No son bandas de validación
+    # —el semáforo no aplica—, pero SON las métricas clave de una corrida ECL: sin ellas el
+    # resumen ejecutivo de un informe IFRS 9 quedaría vacío.
+    ifrs9 = _card(bundle, "provisioning_ifrs9")
+    if ifrs9 is not None:
+        ecl = _float(ifrs9.get("total_ecl_reported"))
+        ead = _float(ifrs9.get("total_ead"))
+        if ecl is not None:
+            metrics.append(
+                ExecutiveMetric(
+                    label="ECL reportada (IFRS 9)",
+                    scope="Cartera total",
+                    value=_clp(ecl),
+                    band="Cifra contable",
+                )
+            )
+        if ead is not None:
+            metrics.append(
+                ExecutiveMetric(
+                    label="Exposición al incumplimiento (EAD)",
+                    scope="Cartera total",
+                    value=_clp(ead),
+                    band="Cifra contable",
+                )
+            )
+        if ecl is not None and ead:
+            metrics.append(
+                ExecutiveMetric(
+                    label="Cobertura ECL / EAD",
+                    scope="Cartera total",
+                    value=_pct(ecl / ead),
+                    band="Cifra contable",
+                )
+            )
+        n_s1 = _int(ifrs9.get("n_stage1"))
+        n_s2 = _int(ifrs9.get("n_stage2"))
+        n_s3 = _int(ifrs9.get("n_stage3"))
+        if n_s1 is not None and n_s2 is not None and n_s3 is not None:
+            metrics.append(
+                ExecutiveMetric(
+                    label="Staging (Stage 1 / 2 / 3)",
+                    scope="Operaciones",
+                    value=f"{_miles(n_s1)} / {_miles(n_s2)} / {_miles(n_s3)}",
+                    band="Cifra contable",
+                )
+            )
+        notes.append(
+            "Las cifras IFRS 9 son el cálculo contable que reportó el motor (función "
+            "experimental, SDD-16), no bandas de validación: la columna Estado no les aplica "
+            "semáforo."
+        )
 
     if not metrics:
         notes.append(
@@ -766,6 +819,8 @@ def results_body(bundle: ReportInputBundle, domain: str) -> tuple[str, ...]:
         return _results_provisioning_cmf(bundle)
     if domain == "provisioning_internal":
         return _results_provisioning_internal(bundle)
+    if domain == "provisioning_ifrs9":
+        return _results_provisioning_ifrs9(bundle)
     return ()
 
 
@@ -1292,6 +1347,128 @@ def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]
     return tuple(paragraphs)
 
 
+# ────────────────────────────── IFRS 9 / ECL (capítulo condicional) ──────────────────────────────
+
+_IFRS9_PIT_MODE_LABELS: Final[dict[str, str]] = {
+    "ttc_only": "through-the-cycle (TTC)",
+    "apply_vasicek": "point-in-time por ajuste de Vasicek",
+    "consume_pit": "point-in-time provista en los datos",
+}
+_IFRS9_TERM_SOURCE_LABELS: Final[dict[str, str]] = {
+    "survival": "la curva lifetime PD del modelo de supervivencia (discrete-time hazard)",
+    "provided": "la term-structure de PD provista en los datos",
+}
+_IFRS9_WARNING_LABELS: Final[dict[str, str]] = {
+    # SDD-16 §6: el panel EAD(t) por período está diferido a CT-3; la EAD se despliega constante.
+    "FALTA-DATO-IFRS-4": (
+        "la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, "
+        "porque el dataset no trae un perfil de exposición por período (código FALTA-DATO-IFRS-4)"
+    ),
+}
+
+
+def ifrs9_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Titular del capítulo: la ECL a constituir, su cobertura sobre la EAD y el staging.
+
+    Es el número contable de IFRS 9 (SDD-16): Stage 1 provisiona la pérdida esperada a 12 meses y
+    Stage 2/3 la pérdida esperada lifetime (IFRS 9 5.5.3/5.5.5). Solo afirma lo que la card trae.
+    """
+    card = _card(bundle, "provisioning_ifrs9")
+    if card is None:
+        return ()
+
+    ecl = _float(card.get("total_ecl_reported"))
+    ead = _float(card.get("total_ead"))
+    n_rows = _int(card.get("n_rows"))
+    n_s1 = _int(card.get("n_stage1"))
+    n_s2 = _int(card.get("n_stage2"))
+    n_s3 = _int(card.get("n_stage3"))
+    as_of = _text(card.get("as_of_date"))
+
+    paragraphs: list[str] = [
+        "IFRS 9 (NIIF 9) exige reconocer provisiones por pérdida crediticia esperada (ECL) según "
+        "el deterioro relativo de cada exposición: las operaciones sin aumento significativo del "
+        "riesgo (Stage 1) provisionan la pérdida esperada a 12 meses, y las que lo presentan o ya "
+        "están deterioradas (Stage 2 y 3) provisionan la pérdida esperada de por vida (IFRS 9 "
+        "5.5.3 y 5.5.5). Este capítulo reporta el cálculo sobre la cartera de la corrida."
+    ]
+
+    if ecl is not None and ead is not None:
+        titular = (
+            f"Sobre una exposición al incumplimiento (EAD) de {_clp(ead)}, la pérdida crediticia "
+            f"esperada a constituir es {_clp(ecl)}"
+        )
+        cobertura = (ecl / ead) if ead else None
+        titular += f", una cobertura del {_pct(cobertura)}." if cobertura is not None else "."
+        if as_of is not None:
+            titular += f" Fecha de corte: {as_of}."
+        paragraphs.append(titular)
+
+    if n_rows is not None and n_s1 is not None and n_s2 is not None and n_s3 is not None:
+        paragraphs.append(
+            f"De las {_miles(n_rows)} operaciones de la cartera, {_miles(n_s1)} clasifican en "
+            f"Stage 1, {_miles(n_s2)} en Stage 2 y {_miles(n_s3)} en Stage 3."
+        )
+
+    paragraphs.append(
+        "El cálculo IFRS 9 es una función experimental (SDD-16 en borrador, fuera de la garantía "
+        "SemVer 1.x): los números son trazables y deterministas, pero la superficie puede cambiar "
+        "entre versiones."
+    )
+    return tuple(paragraphs)
+
+
+def _results_provisioning_ifrs9(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Subsección de la ECL: de dónde sale la PD, los escenarios y qué muestra la tabla."""
+    card = _card(bundle, "provisioning_ifrs9")
+    if card is None:
+        return ()
+    paragraphs: list[str] = []
+
+    term_source = str(card.get("term_structure_source") or "")
+    pit_mode = str(card.get("pit_mode") or "")
+    fuente = _IFRS9_TERM_SOURCE_LABELS.get(term_source, f"la fuente '{term_source}'")
+    pit = _IFRS9_PIT_MODE_LABELS.get(pit_mode, pit_mode)
+    paragraphs.append(
+        f"La probabilidad de incumplimiento por periodo proviene de {fuente}, en modalidad {pit}. "
+        "La ECL de cada operación multiplica PD marginal, LGD y EAD periodo a periodo y descuenta "
+        "cada pérdida al presente; Stage 1 corta el horizonte a 12 meses y Stage 2/3 lo extienden "
+        "a la vida remanente."
+    )
+
+    scenarios = tuple(str(s) for s in _sequence(card.get("scenarios")))
+    weights = _mapping(card.get("scenario_weights"))
+    if len(scenarios) > 1:
+        detalle = ", ".join(
+            f"{name} ({_pct(weights.get(name))})" for name in scenarios if name in weights
+        )
+        paragraphs.append(
+            "La ECL reportada pondera escenarios macroeconómicos, como pide IFRS 9 5.5.17: "
+            + detalle
+            + "."
+        )
+    elif scenarios:
+        paragraphs.append(
+            "La corrida usa un escenario único (sin ponderación macroeconómica múltiple); la "
+            "norma admite incorporar escenarios adicionales cuando la entidad disponga de ellos."
+        )
+
+    paragraphs.append(
+        "La tabla resume la cartera por etapa: número de operaciones, EAD, ECL reportada y "
+        "cobertura. La distribución por etapas reconcilia exactamente con el total del capítulo."
+    )
+
+    warnings = tuple(str(code) for code in _sequence(card.get("falta_dato")))
+    if warnings:
+        descritos = tuple(_IFRS9_WARNING_LABELS.get(code, code) for code in warnings)
+        paragraphs.append(
+            "El step reportó advertencias de datos que el lector debe conocer: "
+            + _enumerar(descritos)
+            + "."
+        )
+    return tuple(paragraphs)
+
+
 # ────────────────────────────── conclusiones y limitaciones ──────────────────────────────
 
 
@@ -1384,17 +1561,42 @@ def conclusions_body(bundle: ReportInputBundle) -> tuple[str, ...]:
 
 def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Limitaciones: alcance de la fase, caveats de determinismo y secciones ausentes."""
-    if _card(bundle, "provisioning") is not None:
+    tiene_provisiones = _card(bundle, "provisioning") is not None
+    tiene_ifrs9 = _card(bundle, "provisioning_ifrs9") is not None
+    if tiene_ifrs9 and not tiene_provisiones:
+        # Corrida IFRS 9 (SDD-16): el capítulo de ECL ES el alcance. Decir aquí que "IFRS 9
+        # corresponde a fases posteriores" sería falso; y la cadena mínima ECL no corre la
+        # validación completa del scorecard, así que tampoco se reclama (G8).
+        alcance = (
+            "El alcance de este informe es el cálculo de la pérdida crediticia esperada IFRS 9 "
+            "(capítulo «Provisiones IFRS 9 / ECL»), una función experimental (SDD-16 en "
+            "borrador) fuera de la garantía SemVer 1.x. El modelo PD que alimenta la curva se "
+            "estimó en esta misma corrida, pero su validación completa como scorecard "
+            "—discriminación, calibración y estabilidad— no forma parte de esta corrida. El "
+            "backtesting de la ECL corresponde a fases posteriores y no se cubre ni se infiere "
+            "aquí."
+        )
+    elif tiene_provisiones:
         # Con provisiones en la corrida el informe deja de ser "solo validación de scorecard":
         # se declara el capítulo regulatorio (experimental) para no subdeclarar lo que el informe
-        # sí contiene (G8, SDD-28 §11). El resto de la salvedad —IFRS 9/backtesting— se mantiene.
+        # sí contiene (G8, SDD-28 §11). La salvedad de IFRS 9 solo aplica si NO corrió.
         alcance = (
             "El alcance de la validación de este informe es el scorecard: discriminación, "
             "calibración y estabilidad. El informe reporta además el cálculo regulatorio de "
             "provisiones (capítulo «Provisiones regulatorias»), una función experimental fuera "
-            "de la garantía SemVer 1.x. El backtesting y la integración con IFRS 9 corresponden "
-            "a fases posteriores y no se cubren ni se infieren aquí."
+            "de la garantía SemVer 1.x."
         )
+        if tiene_ifrs9:
+            alcance += (
+                " La corrida calculó también la pérdida esperada IFRS 9 (capítulo «Provisiones "
+                "IFRS 9 / ECL», igualmente experimental). El backtesting corresponde a fases "
+                "posteriores y no se cubre ni se infiere aquí."
+            )
+        else:
+            alcance += (
+                " El backtesting y la integración con IFRS 9 corresponden a fases posteriores "
+                "y no se cubren ni se infieren aquí."
+            )
     else:
         alcance = (
             "El alcance de este informe es la validación del scorecard: discriminación, "
@@ -1526,6 +1728,11 @@ def _clp(value: Any) -> str:
     if numeric is None:
         return _NOT_AVAILABLE
     return "$" + f"{round(numeric):,}".replace(",", ".")
+
+
+def _miles(value: int) -> str:
+    """Formatea un conteo con punto como separador de miles (``5.235``), convención es-CL."""
+    return f"{value:,}".replace(",", ".")
 
 
 def _plural(count: int, singular: str, plural: str) -> str:

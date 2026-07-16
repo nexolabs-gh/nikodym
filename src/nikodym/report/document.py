@@ -47,6 +47,7 @@ __all__ = [
     "CHAPTER_SPECS",
     "CONTEXT_DOMAINS",
     "DOMAIN_TITLES",
+    "IFRS9_DOMAINS",
     "KEY_TABLES",
     "METHODOLOGY_STEPS",
     "PER_OBSERVATION_TABLES",
@@ -83,6 +84,7 @@ DOMAIN_TITLES: Final[dict[str, str]] = {
     "provisioning": "La provisión a constituir — la regla del máximo",
     "provisioning_cmf": "Método estándar de la CMF (Cap. B-1)",
     "provisioning_internal": "Método interno del banco",
+    "provisioning_ifrs9": "Pérdida crediticia esperada (ECL) por etapas",
 }
 
 # Dominios que alimentan el capítulo de Contexto (población) y los de Resultados (el cuerpo).
@@ -104,6 +106,9 @@ PROVISION_DOMAINS: Final[tuple[str, ...]] = (
     "provisioning_cmf",
     "provisioning_internal",
 )
+# Subsección del capítulo CONDICIONAL de IFRS 9 (SDD-16). Un solo dominio: la card del step
+# ``provisioning_ifrs9`` trae staging, EAD y ECL reportada. Solo se emite si el dominio corrió.
+IFRS9_DOMAINS: Final[tuple[str, ...]] = ("provisioning_ifrs9",)
 
 APPENDIX_LINEAGE_ID: Final = "appendix_lineage"
 APPENDIX_TABLES_ID: Final = "appendix_tables"
@@ -136,6 +141,7 @@ KEY_TABLES: Final[dict[str, tuple[str, ...]]] = {
     "provisioning": ("provisioning.comparison",),
     "provisioning_cmf": ("provisioning_cmf.summary",),
     "provisioning_internal": ("provisioning_internal.groups",),
+    "provisioning_ifrs9": ("provisioning_ifrs9.summary",),
 }
 
 # Tablas **por observación**: una fila por crédito/cliente. Son frames del dataset, no resúmenes, y
@@ -252,6 +258,15 @@ CHAPTER_SPECS: Final[tuple[ChapterSpec, ...]] = (
         kind="prose",
         requires_domain="provisioning",
     ),
+    # Capítulo CONDICIONAL de IFRS 9 (SDD-16): solo se emite si la corrida calculó la pérdida
+    # crediticia esperada. Misma lógica que ``provisions``: es un resultado de negocio, va tras
+    # Resultados y la numeración se reajusta sola cuando no aparece.
+    ChapterSpec(
+        id="ifrs9",
+        title="Provisiones IFRS 9 / ECL",
+        kind="prose",
+        requires_domain="provisioning_ifrs9",
+    ),
     ChapterSpec(
         id="conclusions",
         title="Conclusiones y recomendación",
@@ -303,6 +318,7 @@ _CHILD_ORDER: Final[dict[str, tuple[str, ...]]] = {
     "methodology": tuple(step for step, _ in METHODOLOGY_STEPS),
     "results": RESULT_DOMAINS,
     "provisions": PROVISION_DOMAINS,
+    "ifrs9": IFRS9_DOMAINS,
     APPENDIX_PARAMETERS_ID: PIPELINE_DOMAINS,
 }
 

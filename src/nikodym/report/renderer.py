@@ -37,6 +37,7 @@ from pydantic import BaseModel
 
 from nikodym.report._manifest import (
     DOCUMENT_TITLE,
+    IFRS9_DOCUMENT_TITLE,
     REPORT_TEMPLATE_VERSION,
     REPORT_TITLE,
     html_report_id,
@@ -340,8 +341,14 @@ def build_document_view(
     """
     section_views = _section_views(bundle, ai_blocks, config, chart_format)
     return {
-        "title": REPORT_TITLE,
-        "document_title": DOCUMENT_TITLE,
+        "title": "Reporte IFRS 9 / ECL" if _is_ifrs9_run(bundle) else REPORT_TITLE,
+        "document_title": _document_title(bundle),
+        "cover_kicker": (
+            "Informe regulatorio — pérdida crediticia esperada"
+            if _is_ifrs9_run(bundle)
+            else "Informe de validación de modelos"
+        ),
+        "exec_scope_note": _exec_scope_note(bundle),
         "template_id": config.html.template_id,
         "template_version": REPORT_TEMPLATE_VERSION,
         "created_from_lineage_at": bundle.lineage.created_at.isoformat(),
@@ -461,6 +468,44 @@ def _emitted_date(bundle: ReportInputBundle) -> str:
     portada de un informe firmable lo que corresponde es una fecha.
     """
     return bundle.lineage.created_at.date().isoformat()
+
+
+def _is_ifrs9_run(bundle: ReportInputBundle) -> bool:
+    """Una corrida ECL «pura»: calculó IFRS 9 y no corrió el scorecard (SDD-16)."""
+    return "provisioning_ifrs9" in bundle.cards and "scorecard" not in bundle.cards
+
+
+def _document_title(bundle: ReportInputBundle) -> str:
+    """Titula el documento según lo que la corrida ES, compartido por HTML, ``.qmd`` y Word.
+
+    Una corrida IFRS 9 sin scorecard no es una validación de scorecard; titularla así en la
+    portada sería describir otro documento.
+    """
+    if _is_ifrs9_run(bundle):
+        return IFRS9_DOCUMENT_TITLE
+    return DOCUMENT_TITLE
+
+
+def _exec_scope_note(bundle: ReportInputBundle) -> str:
+    """Nota de alcance del resumen ejecutivo, coherente con lo que la corrida calculó.
+
+    El texto histórico decía «la integración con IFRS 9 corresponde a fases posteriores»: falso
+    —y en la primera página— cuando el capítulo central del informe ES la ECL IFRS 9.
+    """
+    if _is_ifrs9_run(bundle):
+        return (
+            "Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental, "
+            "SDD-16 en borrador). La validación completa del scorecard y el backtesting de la "
+            "ECL corresponden a fases posteriores; este informe no los cubre ni infiere sus "
+            "resultados. Todos los valores provienen de la corrida trazada en la portada: no se "
+            "completan con supuestos."
+        )
+    return (
+        "Alcance: validación de scorecard (discriminación, estabilidad y calibración). El "
+        "backtesting y la integración con IFRS 9 corresponden a fases posteriores; este informe "
+        "no los cubre ni infiere sus resultados. Todos los valores provienen de la corrida "
+        "trazada en la portada: no se completan con supuestos."
+    )
 
 
 def _executive_view(bundle: ReportInputBundle) -> dict[str, Any]:

@@ -248,6 +248,25 @@ def test_provisiones_preset_activa_las_tres_secciones_y_la_regla_real() -> None:
     assert config["provisioning_ifrs9"] is None
 
 
+def test_ifrs9_preset_activa_el_report_con_secciones_reducidas() -> None:
+    """El F4 enciende el informe (capítulo «Provisiones IFRS 9 / ECL») sin exigir el scorecard.
+
+    La cadena mínima ECL no corre scorecard/calibración/performance/estabilidad: si el report
+    las exigiera (default F1, ``missing_policy='error'``), la corrida entera se caería. El config
+    valida y las ``required_sections`` se reducen a lo que la cadena sí produce.
+    """
+    config = get_preset(F4_IFRS9_PRESET_ID)["config"]
+    report = config["report"]
+    assert isinstance(report, dict)
+    assert report["formats"] == ["html", "pdf", "md", "docx"]
+    assert report["basename"] == "ifrs9_ecl_report"
+    assert report["sections"]["required_sections"] == ["binning", "selection", "model"]
+    # Las secciones apagadas del F1 siguen apagadas: encender el report no las revive.
+    for seccion in ("scorecard", "calibration", "performance", "stability"):
+        assert config[seccion] is None
+    NikodymConfig.model_validate(config)
+
+
 def test_provisiones_preset_devuelve_copia_defensiva() -> None:
     """Mutar el config devuelto no contamina los literales compartidos del módulo."""
     primero = provisiones_preset()["config"]

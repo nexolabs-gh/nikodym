@@ -7,6 +7,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }}</title>
   <style>{{ css|safe }}</style>
+  {# El encabezado impreso (PDF) repite el título del documento; la hoja base lo trae hardcodeado
+     al de scorecard, así que se sobreescribe aquí con el título real de la corrida. #}
+  <style>@page { @top-right { content: "{{ document_title }} — CONFIDENCIAL"; } }</style>
 </head>
 <body>
 <main>

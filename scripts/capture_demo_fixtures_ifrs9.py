@@ -7,28 +7,36 @@ corriendo la cadena **de verdad** contra el backend, vía ``TestClient`` sobre
 
 **No sobrescribe el fixture F3** (``results.json``/``preset.json``/``toyaml.json`` de provisiones,
 LIVE): escribe archivos NUEVOS con sufijo ``-ifrs9`` para que el front arme una demo multi-preset.
-El preset F4 tiene el **report apagado**, así que este capture NO genera PDF/DOCX/HTML de informe
-(evita WeasyPrint/nativas): solo ``results``/``preset``/``toyaml``.
+El preset F4 tiene el **report ENCENDIDO** (capítulo «Provisiones IFRS 9 / ECL»), así que este
+capture también baja los cuatro entregables del informe, igual que el capture F3.
 
 **Regla de oro (R1 del SDD-28):** los fixtures salen de una corrida real, nunca inventados ni
 editados a mano. Si un número no sale, se arregla la corrida (o el dataset/preset), no el fixture.
 Por eso el script:
 
-1. Captura los 3 fixtures **en memoria** desde una única corrida F4 (mismo ``run_id``).
+1. Captura los 7 fixtures **en memoria** desde una única corrida F4 (mismo ``run_id``).
 2. **Verifica el número de negocio** IFRS 9 sobre el ``results`` capturado: coverage creíble
    (1-15 %), staging ``S1 > S2 > S3`` no vacío, y que ``staging_distribution`` RECONCILIE con la
    ``card`` (conteos y ECL reportada total).
-3. Solo si la verificación pasa, **escribe** los 3 archivos (atómico: o salen los 3, o ninguno).
-4. Re-verifica el **artefacto ya escrito**: ``provisioning_ifrs9`` NO es null, aparece >0 veces, y
-   trae ``detail_sample`` con las tres etapas — se verifica lo que la demo servirá, no el código.
+3. Solo si la verificación pasa, **escribe** los 7 archivos (atómico: o salen todos, o ninguno).
+4. Re-verifica el **artefacto ya escrito**: ``provisioning_ifrs9`` NO es null, aparece >0 veces,
+   trae ``detail_sample`` con las tres etapas, y el ``report-ifrs9.html`` se titula «Informe de
+   Provisiones IFRS 9 / ECL», trae el capítulo y la ECL reportada — se verifica lo que la demo
+   servirá, no el código que lo produjo.
 
     GET  /api/config/preset/f4-ifrs9-retail          -> preset-ifrs9.json
     POST /api/run (preset f4) -> run_id ; GET /api/results/{run_id} -> results-ifrs9.json
     POST /api/config/to-yaml (config del preset f4)  -> toyaml-ifrs9.json
+    GET  /api/report/{run_id}                        -> report-ifrs9.html
+    GET  /api/report/{run_id}/pdf                    -> report-ifrs9.pdf
+    GET  /api/report/{run_id}/docx                   -> report-ifrs9.docx
+    GET  /api/report/{run_id}/md                     -> report-quarto-ifrs9.zip
 
-Uso (requiere el extra ``ui`` para ``starlette.testclient`` y ``scoring`` para OptBinning)::
+Uso (requiere los extras instalados —``ui``, ``scoring``, ``report``— y las libs nativas de
+WeasyPrint; en macOS con Homebrew antepone ``DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib``)::
 
-    uv run --no-sync python scripts/capture_demo_fixtures_ifrs9.py
+    DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib PYTHONHASHSEED=0 \
+        uv run --no-sync python scripts/capture_demo_fixtures_ifrs9.py
 """
 
 from __future__ import annotations
@@ -66,10 +74,12 @@ def _post(client: TestClient, path: str, payload: dict[str, Any]) -> Any:
 
 
 def capture(client: TestClient) -> dict[str, Any]:
-    """Corre el preset F4 real y devuelve los 3 fixtures en memoria (nada se escribe aún).
+    """Corre el preset F4 real y devuelve los 7 fixtures en memoria (nada se escribe aún).
 
-    Encadena run -> run_id -> results para que los 3 fixtures vengan de la **misma** corrida.
-    Levanta si algún endpoint no responde 200 o si la corrida no termina en ``done``.
+    Encadena run -> run_id -> results/report para que TODOS los fixtures vengan de la **misma**
+    corrida. Levanta si algún endpoint no responde 200 o si la corrida no termina en ``done``:
+    el informe no es opcional en la demo, así que un PDF ausente (WeasyPrint sin libs nativas)
+    debe reventar aquí, no descubrirse con un 404 en vivo.
     """
     preset = _get(client, f"/api/config/preset/{PRESET_ID}").json()
     config = preset["config"]
@@ -84,12 +94,23 @@ def capture(client: TestClient) -> dict[str, Any]:
     results = _get(client, f"/api/results/{run_id}").json()
     toyaml = _post(client, "/api/config/to-yaml", {"config": config}).json()
 
+    report_html = _get(client, f"/api/report/{run_id}").text
+    report_pdf = _get(client, f"/api/report/{run_id}/pdf").content
+    report_docx = _get(client, f"/api/report/{run_id}/docx").content
+    report_quarto_zip = _get(client, f"/api/report/{run_id}/md").content
+
     return {
         "run_id": run_id,
         "json": {
             "preset-ifrs9.json": preset,
             "results-ifrs9.json": results,
             "toyaml-ifrs9.json": toyaml,
+        },
+        "text": {"report-ifrs9.html": report_html},
+        "binary": {
+            "report-ifrs9.pdf": report_pdf,
+            "report-ifrs9.docx": report_docx,
+            "report-quarto-ifrs9.zip": report_quarto_zip,
         },
     }
 
@@ -152,16 +173,24 @@ def verify_business(results: dict[str, Any]) -> dict[str, float]:
 
 
 def write_fixtures(captured: dict[str, Any]) -> list[tuple[str, int]]:
-    """Escribe los 3 fixtures a ``web/src/fixtures/demo/`` y devuelve ``[(nombre, tamaño), ...]``.
+    """Escribe los 7 fixtures a ``web/src/fixtures/demo/`` y devuelve ``[(nombre, tamaño), ...]``.
 
     Formato JSON idéntico al de los fixtures F3 (``indent=1``, ``ensure_ascii=False``, salto final)
-    para un diff limpio. NO toca ningún fixture existente: solo los tres archivos ``-ifrs9``.
+    para un diff limpio. NO toca ningún fixture existente: solo los archivos ``-ifrs9``.
     """
     _FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
     written: list[tuple[str, int]] = []
     for name, obj in captured["json"].items():
         path = _FIXTURES_DIR / name
         path.write_text(json.dumps(obj, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+        written.append((name, path.stat().st_size))
+    for name, text in captured["text"].items():
+        path = _FIXTURES_DIR / name
+        path.write_text(text, encoding="utf-8")
+        written.append((name, path.stat().st_size))
+    for name, blob in captured["binary"].items():
+        path = _FIXTURES_DIR / name
+        path.write_bytes(blob)
         written.append((name, path.stat().st_size))
     return written
 
@@ -172,6 +201,8 @@ def verify_artifacts() -> None:
     - ``results-ifrs9.json`` trae ``provisioning_ifrs9`` NO nulo y con las claves esperadas.
     - El literal ``provisioning_ifrs9`` aparece >0 veces (no se serializó a null en silencio).
     - ``detail_sample`` está y cubre las tres etapas.
+    - ``report-ifrs9.html`` se titula «Informe de Provisiones IFRS 9 / ECL» (el título viejo de
+      scorecard NO aparece como h1), trae el capítulo de ECL y los binarios no están vacíos.
     """
     raw = (_FIXTURES_DIR / "results-ifrs9.json").read_text(encoding="utf-8")
     assert raw.count("provisioning_ifrs9") > 0, "results-ifrs9.json no menciona provisioning_ifrs9"
@@ -193,9 +224,27 @@ def verify_artifacts() -> None:
         f"detail_sample del fixture no cubre las tres etapas: {sorted(stages)}"
     )
 
+    html = (_FIXTURES_DIR / "report-ifrs9.html").read_text(encoding="utf-8")
+    assert html.count("Informe de Provisiones IFRS 9 / ECL") > 0, (
+        "report-ifrs9.html no se titula como informe IFRS 9"
+    )
+    assert "<h1>Informe de Validación de Scorecard</h1>" not in html, (
+        "report-ifrs9.html conserva el h1 de scorecard: el título dinámico no aplicó"
+    )
+    assert html.count("Provisiones IFRS 9 / ECL") > 1, (
+        "report-ifrs9.html no trae el capítulo de ECL"
+    )
+    ecl_esperada = "$" + f"{round(float(block['total_ecl_reported'])):,}".replace(",", ".")
+    assert ecl_esperada in html, (
+        f"report-ifrs9.html no muestra la ECL reportada {ecl_esperada} (¿prosa desalineada?)"
+    )
+    for name in ("report-ifrs9.pdf", "report-ifrs9.docx", "report-quarto-ifrs9.zip"):
+        size = (_FIXTURES_DIR / name).stat().st_size
+        assert size > 1_000, f"{name} quedó sospechosamente chico ({size} bytes)"
+
 
 def main() -> None:
-    """Captura, verifica el número, escribe los 3 fixtures y re-verifica el artefacto escrito."""
+    """Captura, verifica el número, escribe los 7 fixtures y re-verifica el artefacto escrito."""
     with tempfile.TemporaryDirectory() as tmp:
         app = create_app(UiConfig(workdir=tmp))
         # Import perezoso: TestClient (starlette) vive en el extra [ui], como el resto del backend.

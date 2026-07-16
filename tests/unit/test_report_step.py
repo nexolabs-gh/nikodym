@@ -71,7 +71,7 @@ from nikodym.stability.config import StabilityConfig
 ROOT_SEED = 20_240_629
 # Golden del ``_digest_html`` (excluye ``<svg>``): con el extra ``report`` el bundle golden embebe
 # un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
-GOLDEN_STEP_HTML_SHA256 = "8eac876bbb2c39b3ea1bcffe3ce74692acac949626b1534ac8b8890236626b90"
+GOLDEN_STEP_HTML_SHA256 = "52268d6968ef32470c9eb9d99c6c72b47a59b37c8db1f9e64f37a37c10a65081"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 

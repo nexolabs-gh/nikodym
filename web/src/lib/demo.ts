@@ -9,9 +9,9 @@
  *
  * El preset ACTIVO se rastrea en un `activePresetId` de módulo: `demoGetPresetById` (que dispara el
  * selector de Ejecutar) lo mueve, y `demoGetResults`/`demoConfigToYaml`/`demoValidateConfig`/
- * `demoRunPipeline` devuelven el set del preset elegido. El preset F4 NO tiene informe → las
- * funciones de report degradan como el backend real (404), sin romper la UI. La demo de provisiones
- * (F3) queda idéntica: es el preset por defecto que siembra el arranque.
+ * `demoRunPipeline` devuelven el set del preset elegido. AMBOS presets traen informe (los cuatro
+ * entregables); un preset futuro sin informe degrada como el backend real (404), sin romper la UI.
+ * La demo de provisiones (F3) queda idéntica: es el preset por defecto que siembra el arranque.
  *
  * Se activa SOLO en el build con `VITE_DEMO_MODE=true` (ver `web/.env.demo`). En el build normal la
  * constante es `false` (literal resuelta en build) → el bundler hace *dead-code elimination* de cada
@@ -50,11 +50,16 @@ import reportPdfUrl from "@/fixtures/demo/report.pdf?url"
 // editable (`.qmd` + sus figuras, tal como lo arma el endpoint `/md` del backend real).
 import reportDocxUrl from "@/fixtures/demo/report.docx?url"
 import reportQuartoZipUrl from "@/fixtures/demo/report-quarto.zip?url"
+// Informe IFRS 9 (F4): mismos cuatro entregables, capturados por capture_demo_fixtures_ifrs9.py.
+import reportIfrs9Html from "@/fixtures/demo/report-ifrs9.html?raw"
+import reportIfrs9PdfUrl from "@/fixtures/demo/report-ifrs9.pdf?url"
+import reportIfrs9DocxUrl from "@/fixtures/demo/report-ifrs9.docx?url"
+import reportIfrs9QuartoZipUrl from "@/fixtures/demo/report-quarto-ifrs9.zip?url"
 
 /** Activo solo en el build de la demo estática (`VITE_DEMO_MODE=true`). */
 export const DEMO_MODE: boolean = import.meta.env.VITE_DEMO_MODE === "true"
 
-/** Los cuatro entregables de un informe, servidos como assets estáticos (solo el preset F3 lo tiene). */
+/** Los cuatro entregables de un informe, servidos como assets estáticos. */
 interface DemoReport {
   html: string
   pdfUrl: string
@@ -69,7 +74,7 @@ interface DemoBundle {
   toYaml: ConfigToYamlResponse
   /** run_id real de la corrida capturada: mantiene coherentes run → results. */
   runId: string
-  /** Entregables del informe, o `null` si el preset no genera reporte (p. ej. IFRS 9). */
+  /** Entregables del informe, o `null` si el preset no genera reporte. */
   report: DemoReport | null
 }
 
@@ -108,8 +113,12 @@ const BUNDLES: Record<string, DemoBundle> = {
     results: resultsF4,
     toYaml: toYamlF4,
     runId: resultsF4.run_id ?? "demo-run-f4",
-    // IFRS 9 no genera informe: las funciones de report degradan a 404 (como el backend real).
-    report: null,
+    report: {
+      html: reportIfrs9Html,
+      pdfUrl: reportIfrs9PdfUrl,
+      docxUrl: reportIfrs9DocxUrl,
+      editableZipUrl: reportIfrs9QuartoZipUrl,
+    },
   },
 }
 

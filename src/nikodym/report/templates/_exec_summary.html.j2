@@ -39,5 +39,8 @@
   <p class="muted">{{ note }}</p>
   {% endfor %}
 
-  <p class="scope-note">Alcance: validación de scorecard (discriminación, estabilidad y calibración). El backtesting y la integración con IFRS 9 corresponden a fases posteriores; este informe no los cubre ni infiere sus resultados. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
+  {# La nota de alcance la decide el renderer según lo que la corrida calculó (scorecard vs
+     IFRS 9): hardcodearla aquí afirmaba que "IFRS 9 corresponde a fases posteriores" incluso en
+     el informe cuyo capítulo central es la ECL. #}
+  <p class="scope-note">{{ exec_scope_note }}</p>
 </section>

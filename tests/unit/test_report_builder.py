@@ -515,3 +515,30 @@ def test_capitulo_de_provisiones_es_condicional_a_su_card() -> None:
     assert numeros_con["provisions"] == "5"
     assert numeros_con["conclusions"] == "6", "el capítulo nuevo no desplazó la numeración"
     assert numeros_con["limitations"] == "7"
+
+
+def test_capitulo_ifrs9_es_condicional_a_su_card() -> None:
+    """El capítulo IFRS 9 (``requires_domain="provisioning_ifrs9"``) solo existe con su card.
+
+    Mismo mecanismo que el capítulo de provisiones (SDD-28 D5), aplicado a la ECL (SDD-16): el
+    informe de un scorecard no trae un capítulo IFRS 9 vacío, y el de una corrida ECL sí lo trae,
+    en su posición canónica (tras el de provisiones si existiera, antes de Conclusiones).
+    """
+    builder = ReportBuilder.from_config(ReportConfig())
+
+    # --- Sin la card del dominio: el capítulo NO existe ---
+    sin_ifrs9 = builder.collect(_study_completo())
+    ids_sin = [s.id for s in sin_ifrs9.sections if s.level == 1]
+    assert "ifrs9" not in ids_sin
+
+    # --- Con la card: el capítulo aparece, con su subsección de dominio, y desplaza el resto ---
+    study = _study_completo()
+    study.artifacts.set("provisioning_ifrs9", "card", {"summary": "ifrs9-card"})
+    con_ifrs9 = builder.collect(study)
+    ids_con = [s.id for s in con_ifrs9.sections if s.level == 1]
+    assert "ifrs9" in ids_con
+    numeros_con = {s.id: s.number for s in con_ifrs9.sections if s.level == 1}
+    assert numeros_con["ifrs9"] == "5"
+    assert numeros_con["conclusions"] == "6", "el capítulo nuevo no desplazó la numeración"
+    subsecciones = [s.id for s in con_ifrs9.sections if s.id.startswith("ifrs9.")]
+    assert subsecciones == ["ifrs9.provisioning_ifrs9"]

@@ -48,7 +48,7 @@ from nikodym.report.results import (
 # Recalculado (SDD-28 G5) al retirar del resumen ejecutivo y de Limitaciones la frase que declaraba
 # las provisiones "fase posterior": el capítulo de provisiones ya existe (condicional, no en este
 # bundle F1). Verificado que el HTML cambió SOLO en esas dos frases (el orden canónico intacto).
-GOLDEN_HTML_SHA256 = "7576fce0db92c728a3cd30665f8bc8b39f6b1a406a8993066b65d11036ed7ed6"
+GOLDEN_HTML_SHA256 = "daf24d87eebe3f49460d7d96b647f52ded3bc6f7c0597f27c00c27a2ef0bc49f"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 

@@ -377,7 +377,53 @@
   "performance": null,
   "stability": null,
   "validation": null,
-  "report": null,
+  "report": {
+   "schema_version": "1.0.0",
+   "type": "standard",
+   "output_dir": "reports",
+   "basename": "ifrs9_ecl_report",
+   "language": "es",
+   "formats": [
+    "html",
+    "pdf",
+    "md",
+    "docx"
+   ],
+   "html": {
+    "template_id": "scorecard_basic_v1",
+    "theme": "nikodym",
+    "embed_assets": true,
+    "include_interactive_charts": false,
+    "deterministic_ids": true
+   },
+   "pdf": {
+    "enabled": true,
+    "fail_if_unavailable": false
+   },
+   "docx": {
+    "fail_if_unavailable": false
+   },
+   "ai": {
+    "enabled": false,
+    "provider": "none",
+    "model": null,
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "timeout_seconds": 20.0,
+    "max_input_tokens": 12000,
+    "send_raw_data": false,
+    "label_ai_text": true
+   },
+   "sections": {
+    "required_sections": [
+     "binning",
+     "selection",
+     "model"
+    ],
+    "missing_policy": "error",
+    "include_raw_tables": false,
+    "max_table_rows": 200
+   }
+  },
   "audit": null,
   "governance": null,
   "tracking": null

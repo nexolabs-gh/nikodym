@@ -37,6 +37,7 @@ from nikodym.report.document import (
     CHAPTER_SPECS,
     CONTEXT_DOMAINS,
     DOMAIN_TITLES,
+    IFRS9_DOMAINS,
     METHODOLOGY_STEPS,
     PIPELINE_DOMAINS,
     PROVISION_DOMAINS,
@@ -84,10 +85,8 @@ _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("provisioning_internal", "card"),
     ("provisioning", "card"),
     # IFRS 9 / ECL (SDD-16). Se RECOLECTA si el dominio corrió; no se exige (no está en las
-    # ``required_sections`` por defecto). Hoy no hay ``ChapterSpec`` con
-    # ``requires_domain='provisioning_ifrs9'``, así que la card se recolecta pero no genera capítulo
-    # (inerte para el informe); su presencia aquí mantiene coherente el mapa canónico que consume la
-    # serialización de la UI (``ui/serializers.py:_CARD_KEY_BY_DOMAIN``).
+    # ``required_sections`` por defecto). Su presencia activa el capítulo condicional ``ifrs9``
+    # (``ChapterSpec.requires_domain='provisioning_ifrs9'``), igual que provisiones.
     ("provisioning_ifrs9", "card"),
 )
 _CARD_KEY_BY_DOMAIN: Final[dict[str, str]] = dict(_CARD_ARTIFACTS)
@@ -121,6 +120,9 @@ _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("provisioning", "comparison"),
     ("provisioning_cmf", "summary"),
     ("provisioning_internal", "groups"),
+    # IFRS 9: solo el ``summary`` agregado por stage (3 filas). NUNCA ``detail``/``staging``
+    # (una fila por operación): mismo criterio que provisiones.
+    ("provisioning_ifrs9", "summary"),
 )
 _FIGURE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (("eda", "figures"),)
 _VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
@@ -243,6 +245,8 @@ class ReportBuilder:
             return self._domain_subsections(spec.id, RESULT_DOMAINS, bundle, number, kind="data")
         if spec.id == "provisions":
             return self._domain_subsections(spec.id, PROVISION_DOMAINS, bundle, number, kind="data")
+        if spec.id == "ifrs9":
+            return self._domain_subsections(spec.id, IFRS9_DOMAINS, bundle, number, kind="data")
         if spec.id == APPENDIX_PARAMETERS_ID:
             return self._domain_subsections(
                 spec.id,
@@ -440,6 +444,8 @@ def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]
         return prose.results_intro(bundle)
     if chapter_id == "provisions":
         return prose.provisions_intro(bundle)
+    if chapter_id == "ifrs9":
+        return prose.ifrs9_intro(bundle)
     if chapter_id == "conclusions":
         return prose.conclusions_body(bundle)
     if chapter_id == "limitations":
