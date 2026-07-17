@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "aa50ba29b75e43cd91103581d4616f08",
+ "run_id": "3609a786755348129eb75dfdec31a06a",
  "error": null,
  "model_card": null,
  "binning": null,
@@ -10,6 +10,102 @@
  "calibration": null,
  "performance": null,
  "stability": null,
+ "survival": {
+  "method": "discrete_hazard",
+  "pd_source": "none",
+  "duration_col": "duration",
+  "event_col": "event",
+  "time_unit": "year",
+  "n_rows": 6000,
+  "n_events": 1502,
+  "n_periods": 5,
+  "output_columns": [
+   "row_id",
+   "segment",
+   "partition",
+   "period",
+   "time_value",
+   "hazard",
+   "survival",
+   "pd_marginal",
+   "pd_cumulative",
+   "method",
+   "pd_source",
+   "scenario",
+   "warning_codes"
+  ],
+  "diagnostics": {
+   "method": "discrete_hazard",
+   "n_rows": 6000,
+   "n_events": 1502,
+   "n_censored": 4498,
+   "max_observed_time": 5.0,
+   "link": "logit",
+   "schoenfeld_test": null,
+   "aft_family": null,
+   "fit_statistics": {
+    "n_obs": 26645,
+    "df_model": 8,
+    "df_resid": 26636,
+    "llf": -5492.155174270126,
+    "aic": 11002.310348540252,
+    "deviance": 10984.31034854025,
+    "converged": "True",
+    "n_iterations": 6
+   },
+   "warnings": []
+  },
+  "dependency_versions": {
+   "pandas": "2.3.3",
+   "numpy": "2.4.6",
+   "statsmodels": "0.14.6"
+  },
+  "falta_dato": [],
+  "metric_sections": {
+   "term_structure_summary": {
+    "n_rows": 30000,
+    "n_periods": 5,
+    "max_pd_cumulative": 0.9950326472427845,
+    "min_survival": 0.004967352757215444
+   },
+   "schoenfeld": {},
+   "km_greenwood": {},
+   "person_period": {
+    "n_rows": 26645,
+    "events_by_period": {
+     "1": 374,
+     "2": 339,
+     "3": 286,
+     "4": 270,
+     "5": 233
+    }
+   },
+   "pd_source": {
+    "pd_source": "none",
+    "source_artifact": null,
+    "pd_column": null,
+    "linear_predictor_column": null,
+    "pd_rows": null,
+    "pd_coverage": null,
+    "rows_without_match": [],
+    "coverage_column": null
+   },
+   "time_grid": {
+    "source": "horizon_periods",
+    "time_unit": "year",
+    "horizon_periods": 5,
+    "evaluation_times": [],
+    "resolved_times": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "warnings": []
+   }
+  }
+ },
  "provisioning_cmf": null,
  "provisioning_internal": null,
  "provisioning": null,
@@ -752,6 +848,117 @@
     "ecl_reported": 2339.2837514553084,
     "sicr_triggers": []
    }
-  ]
+  ],
+  "methodology": {
+   "domain": "provisioning_ifrs9",
+   "active": [
+    {
+     "id": "lifetime_pd",
+     "status": "active",
+     "label": "Curva PD lifetime",
+     "value": "Discrete-time hazard",
+     "detail": "6.000 filas · 1.502 eventos · horizonte 5 años",
+     "sources": [
+      "config.survival",
+      "survival.card"
+     ]
+    },
+    {
+     "id": "pd_basis",
+     "status": "active",
+     "label": "Base de PD",
+     "value": "TTC (through-the-cycle)",
+     "detail": "La term-structure activa proviene de survival.",
+     "sources": [
+      "config.provisioning_ifrs9.pd",
+      "provisioning_ifrs9.card"
+     ]
+    },
+    {
+     "id": "loss_inputs",
+     "status": "active",
+     "label": "LGD y EAD",
+     "value": "LGD provided · EAD provided",
+     "detail": "La EAD se mantiene constante por período (FALTA-DATO-IFRS-4).",
+     "sources": [
+      "config.provisioning_ifrs9.lgd",
+      "config.provisioning_ifrs9.ead",
+      "provisioning_ifrs9.card"
+     ]
+    },
+    {
+     "id": "staging",
+     "status": "active",
+     "label": "Staging",
+     "value": "30/90 días + is_default",
+     "detail": "Stage 2 desde 30 días; Stage 3 desde 90 días o is_default.",
+     "sources": [
+      "config.provisioning_ifrs9.staging"
+     ]
+    },
+    {
+     "id": "scenario",
+     "status": "active",
+     "label": "Escenario de cálculo",
+     "value": "Base 100 %",
+     "detail": "Escenario único; no hay ponderación macroeconómica múltiple.",
+     "sources": [
+      "config.provisioning_ifrs9.scenarios",
+      "provisioning_ifrs9.card"
+     ]
+    },
+    {
+     "id": "discount",
+     "status": "active",
+     "label": "Descuento",
+     "value": "EIR anual",
+     "detail": "Descuento período a período con la columna eir.",
+     "sources": [
+      "config.provisioning_ifrs9.ecl"
+     ]
+    }
+   ],
+   "not_exercised": [
+    {
+     "id": "forward",
+     "status": "not_exercised",
+     "label": "Forward-looking",
+     "value": "Capacidad no ejercida",
+     "detail": "La sección forward está inactiva y no condiciona la PD de esta corrida.",
+     "sources": [
+      "config.forward",
+      "provisioning_ifrs9.card"
+     ]
+    },
+    {
+     "id": "macro_scenarios",
+     "status": "not_exercised",
+     "label": "Escenarios macroeconómicos múltiples",
+     "value": "Capacidad no ejercida",
+     "detail": "La corrida usa un único escenario base, sin ponderación macro múltiple.",
+     "sources": [
+      "config.provisioning_ifrs9.scenarios",
+      "provisioning_ifrs9.card"
+     ]
+    },
+    {
+     "id": "markov",
+     "status": "not_exercised",
+     "label": "Matrices de transición Markov",
+     "value": "Capacidad no ejercida",
+     "detail": "La term-structure activa proviene de survival, no de Markov.",
+     "sources": [
+      "config.markov",
+      "provisioning_ifrs9.card"
+     ]
+    }
+   ],
+   "source_refs": [
+    "config.survival",
+    "survival.card",
+    "config.provisioning_ifrs9",
+    "provisioning_ifrs9.card"
+   ]
+  }
  }
 }

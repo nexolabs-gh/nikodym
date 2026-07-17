@@ -24,6 +24,8 @@ import {
 
 const F3_ID = "f3-provisiones-consumo"
 const F4_ID = "f4-ifrs9-retail"
+const F4_CONFIG_HASH =
+  "8c94bd4d9a406669c7c3f611d939e09963fc26cdf151fe0723bd66c973e8e23f"
 
 beforeEach(() => {
   // Cada test arranca con el preset activo en su default (F3): el estado de módulo no se filtra.
@@ -74,11 +76,44 @@ describe("elegir el preset IFRS 9 (F4) rastrea todo el set", () => {
   it("demoGetPresetById(F4) mueve el activo → results son IFRS 9 (bloque provisioning_ifrs9)", async () => {
     const preset = await demoGetPresetById(F4_ID)
     expect(preset.id ?? preset.dataset_id).toBe(F4_ID)
+    expect(preset.config_hash).toBe(F4_CONFIG_HASH)
 
     const results = await demoGetResults()
     expect(results.provisioning_ifrs9).toBeDefined()
     expect(results.provisioning_ifrs9).not.toBeNull()
-    expect(results.provisioning_ifrs9?.total_ecl_reported).toBeGreaterThan(0)
+    const ifrs9 = results.provisioning_ifrs9
+    expect(ifrs9).not.toBeNull()
+    expect(Math.round(ifrs9?.total_ecl_reported ?? 0)).toBe(3_423_116)
+    expect(Math.round(ifrs9?.total_ead ?? 0)).toBe(114_325_315)
+    expect([ifrs9?.n_stage1, ifrs9?.n_stage2, ifrs9?.n_stage3]).toEqual([
+      5_235,
+      477,
+      288,
+    ])
+    expect((ifrs9?.total_ecl_reported ?? 0) / (ifrs9?.total_ead ?? 1)).toBeCloseTo(
+      0.029941891063941795,
+      12,
+    )
+    expect(results.survival?.n_rows).toBe(6_000)
+    expect(results.survival?.n_events).toBe(1_502)
+
+    const methodology = ifrs9?.methodology
+    expect(methodology).toBeDefined()
+    const active = Object.fromEntries(
+      (methodology?.active ?? []).map((fact) => [fact.id, fact]),
+    )
+    expect(active.lifetime_pd?.detail).toBe(
+      "6.000 filas · 1.502 eventos · horizonte 5 años",
+    )
+    expect(active.loss_inputs?.value).toBe("LGD provided · EAD provided")
+    expect(active.staging?.value).toBe("30/90 días + is_default")
+    expect(active.scenario?.value).toBe("Base 100 %")
+    expect(active.discount?.value).toBe("EIR anual")
+    expect(methodology?.not_exercised.map((fact) => fact.id)).toEqual([
+      "forward",
+      "macro_scenarios",
+      "markov",
+    ])
     // Al elegir IFRS 9, el bloque de provisiones CMF/interno F3 NO viaja.
     expect(results.provisioning ?? null).toBeNull()
   })
@@ -107,6 +142,12 @@ describe("elegir el preset IFRS 9 (F4) rastrea todo el set", () => {
     // Es el informe IFRS 9 (título dinámico del renderer), no el de validación de scorecard.
     expect(html).toContain("Informe de Provisiones IFRS 9 / ECL")
     expect(html).toContain("Provisiones IFRS 9 / ECL")
+    expect(html).toContain("Activo en esta corrida:")
+    expect(html).toContain("Capacidad no ejercida en esta corrida:")
+    expect(html).toContain('data-section-id="appendix_parameters.survival"')
+    expect(html).toContain(
+      'data-section-id="appendix_parameters.provisioning_ifrs9"',
+    )
   })
 
   it("volver a F3 restaura la demo de provisiones", async () => {

@@ -294,6 +294,7 @@ def test_ifrs9_preset_activa_el_report_con_secciones_reducidas() -> None:
         assert config[seccion] is None
     # El survival ajusta sin PD de F1, sobre covariables propias del dataset.
     survival = config["survival"]
+    assert survival["method"] == "discrete_hazard"
     assert survival["input"]["pd_source"] == "none"
     assert survival["discrete_hazard"]["pd_role"] == "none"
     assert survival["input"]["covariate_cols"] == [
@@ -302,6 +303,23 @@ def test_ifrs9_preset_activa_el_report_con_secciones_reducidas() -> None:
         "deuda_ingreso",
         "antiguedad_meses",
     ]
+    assert survival["time_grid"]["time_unit"] == "year"
+    assert survival["time_grid"]["horizon_periods"] == 5
+
+    ifrs9 = config["provisioning_ifrs9"]
+    assert ifrs9["pd"]["term_structure_source"] == "survival"
+    assert ifrs9["pd"]["pit_mode"] == "ttc_only"
+    assert ifrs9["lgd"]["method"] == "provided"
+    assert ifrs9["ead"]["method"] == "provided"
+    assert ifrs9["ead"]["exposure_profile_col"] is None
+    assert ifrs9["staging"]["dpd_sicr_backstop"] == 30
+    assert ifrs9["staging"]["dpd_default_backstop"] == 90
+    assert ifrs9["staging"]["is_default_col"] == "is_default"
+    assert ifrs9["scenarios"]["source"] == "single"
+    assert ifrs9["ecl"]["eir_col"] == "eir"
+    assert ifrs9["ecl"]["discount_convention"] == "annual_eir_year_fraction"
+    assert config["forward"] is None
+    assert config["markov"] is None
     NikodymConfig.model_validate(config)
 
 

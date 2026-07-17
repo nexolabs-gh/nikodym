@@ -31,6 +31,7 @@ from nikodym.report._manifest import REPORT_TEMPLATE_VERSION, REPORT_TITLE, html
 from nikodym.report.config import ReportConfig
 from nikodym.report.document import (
     APPENDIX_LINEAGE_ID,
+    APPENDIX_PARAMETER_DOMAINS,
     APPENDIX_PARAMETERS_ID,
     APPENDIX_TABLES_ID,
     CANONICAL_SECTION_ORDER,
@@ -135,7 +136,16 @@ _VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
 # La fuente editable se escribe como ``.qmd`` (Quarto), pero su formato lógico es ``md``.
 _SUFFIX_ALIASES: Final[dict[str, str]] = {"qmd": "md"}
 # Secciones de config que la Metodología necesita para describir lo que realmente se ejecutó.
-_PARAM_DOMAINS: Final[tuple[str, ...]] = ("data", *PIPELINE_DOMAINS)
+# F4 requiere los parámetros de survival/IFRS 9; no se agregan a ``PIPELINE_DOMAINS`` porque esa
+# constante conserva la semántica del pipeline scorecard F1.
+_PARAM_DOMAINS: Final[tuple[str, ...]] = (
+    "data",
+    *PIPELINE_DOMAINS,
+    "survival",
+    "markov",
+    "forward",
+    "provisioning_ifrs9",
+)
 
 
 class ReportBuilder:
@@ -258,7 +268,7 @@ class ReportBuilder:
         if spec.id == APPENDIX_PARAMETERS_ID:
             return self._domain_subsections(
                 spec.id,
-                PIPELINE_DOMAINS,
+                APPENDIX_PARAMETER_DOMAINS,
                 bundle,
                 number,
                 kind="appendix",
@@ -372,6 +382,12 @@ class ReportBuilder:
                 _card_to_mapping(bundle.cards[domain], artifact_name),
                 artifact=artifact_name,
             )
+            # En F4 la card prueba que el step corrió y el config aporta los parámetros efectivos
+            # (LGD/EAD, staging, horizonte y descuento). Ambos deben quedar auditables en Anexo C.
+            if domain in {"survival", "provisioning_ifrs9"}:
+                effective_config = bundle.pipeline_params.get(domain)
+                if isinstance(effective_config, Mapping):
+                    payload["effective_config"] = _copy_mapping(effective_config)
         return ReportSection(
             id=domain_section_id(parent_id, domain),
             title=DOMAIN_TITLES[domain],

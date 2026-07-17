@@ -680,14 +680,14 @@ tbody tr:nth-child(even) td {
     <dt>Versión del informe</dt>
     <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
     <dt>Fecha de emisión</dt>
-    <dd>2026-07-16</dd>
+    <dd>2026-07-17</dd>
   </dl>
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=35d372e660ce3f908b77b5d566a9b0ebf2ff8d7c6540e715662779b5bf631d7a</code></div>
+    <div class="lineage-line"><code>config_hash=b5d31ebc27c4a4522bc05944aa4f259e32f301de28331c0a36276d566a3168e7</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=f6eb9411cbea6ce3f4ada1f8892514918468e9bf</code></div>
+    <div class="lineage-line"><code>git_sha=0c8cffb69ba492f6440fb7fa31d13f34bbd15c1c</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -788,6 +788,11 @@ tbody tr:nth-child(even) td {
 <span class="toc-number">3.1</span>        <span class="toc-title">Tratamiento de datos y particiones</span>
       </a>
     </li>
+    <li class="toc-level-2">
+      <a href="#section-methodology-provisioning_ifrs9">
+<span class="toc-number">3.2</span>        <span class="toc-title">Ficha metodológica IFRS 9 / ECL</span>
+      </a>
+    </li>
     <li class="toc-level-1">
       <a href="#section-ifrs9">
 <span class="toc-number">4</span>        <span class="toc-title">Provisiones IFRS 9 / ECL</span>
@@ -821,6 +826,16 @@ tbody tr:nth-child(even) td {
     <li class="toc-level-1">
       <a href="#section-appendix_parameters">
 <span class="toc-number">Anexo C</span>        <span class="toc-title">Parámetros completos</span>
+      </a>
+    </li>
+    <li class="toc-level-2">
+      <a href="#section-appendix_parameters-survival">
+<span class="toc-number">C.1</span>        <span class="toc-title">Supervivencia y curva PD lifetime</span>
+      </a>
+    </li>
+    <li class="toc-level-2">
+      <a href="#section-appendix_parameters-provisioning_ifrs9">
+<span class="toc-number">C.2</span>        <span class="toc-title">Pérdida crediticia esperada (ECL) por etapas</span>
       </a>
     </li>
   </ul>
@@ -864,6 +879,26 @@ tbody tr:nth-child(even) td {
 
   <p>El dataset se validó contra un esquema declarado de 8 columnas, con tipos y nulabilidad explícitos; una desviación del esquema detiene la corrida en vez de propagarse.</p>
   <p>En el tratamiento de faltantes se rechaza toda variable con más de 99.00 % de valores faltantes.</p>
+
+
+</section>
+<section id="section-methodology-provisioning_ifrs9" data-section-id="methodology.provisioning_ifrs9" data-kind="prose" data-level="2" class="report-section subsection">
+  <h3 class="subsection-title"><span class="section-number">3.2</span>Ficha metodológica IFRS 9 / ECL</h3>
+
+
+  <p>Esta ficha metodológica se deriva del config efectivo y de las cards publicadas por la corrida; no replica parámetros ni supone que una capacidad configurada se ejecutó.</p>
+  <p>Activo en esta corrida:</p>
+  <p>Curva PD lifetime: Discrete-time hazard. 6.000 filas · 1.502 eventos · horizonte 5 años</p>
+  <p>Base de PD: TTC (through-the-cycle). La term-structure activa proviene de survival.</p>
+  <p>LGD y EAD: LGD provided · EAD provided. La EAD se mantiene constante por período (FALTA-DATO-IFRS-4).</p>
+  <p>Staging: 30/90 días + is_default. Stage 2 desde 30 días; Stage 3 desde 90 días o is_default.</p>
+  <p>Escenario de cálculo: Base 100 %. Escenario único; no hay ponderación macroeconómica múltiple.</p>
+  <p>Descuento: EIR anual. Descuento período a período con la columna eir.</p>
+  <p>Capacidad no ejercida en esta corrida:</p>
+  <p>Forward-looking: Capacidad no ejercida. La sección forward está inactiva y no condiciona la PD de esta corrida.</p>
+  <p>Escenarios macroeconómicos múltiples: Capacidad no ejercida. La corrida usa un único escenario base, sin ponderación macro múltiple.</p>
+  <p>Matrices de transición Markov: Capacidad no ejercida. La term-structure activa proviene de survival, no de Markov.</p>
+  <p>Fuentes técnicas: config.survival, survival.card, config.provisioning_ifrs9, provisioning_ifrs9.card.</p>
 
 
 </section>
@@ -966,12 +1001,12 @@ tbody tr:nth-child(even) td {
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>35d372e660ce3f908b77b5d566a9b0ebf2ff8d7c6540e715662779b5bf631d7a</dd>
-    <dt>created_at</dt><dd>2026-07-16T23:00:42.568432Z</dd>
+    <dt>config_hash</dt><dd>b5d31ebc27c4a4522bc05944aa4f259e32f301de28331c0a36276d566a3168e7</dd>
+    <dt>created_at</dt><dd>2026-07-17T01:31:38.370230Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>f6eb9411cbea6ce3f4ada1f8892514918468e9bf</dd>
+    <dt>git_sha</dt><dd>0c8cffb69ba492f6440fb7fa31d13f34bbd15c1c</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.2.0&#34;,
@@ -1013,6 +1048,269 @@ tbody tr:nth-child(even) td {
   <p>Este anexo reproduce el payload completo de cada etapa: los parámetros efectivos y las métricas estructuradas tal como las publicó cada step, sin resumir.</p>
 
 
+
+
+
+
+</section>
+<section id="section-appendix_parameters-survival" data-section-id="appendix_parameters.survival" data-kind="appendix" data-level="2" class="report-section appendix subsection">
+  <h3 class="subsection-title"><span class="section-number">C.1</span>Supervivencia y curva PD lifetime</h3>
+  <p class="source">Artefacto de origen: <code>survival.card</code></p>
+
+
+  <h4>Parámetros y payload</h4>
+  <dl>
+    <dt>dependency_versions</dt><dd><pre>{
+  &#34;numpy&#34;: &#34;2.4.6&#34;,
+  &#34;pandas&#34;: &#34;2.3.3&#34;,
+  &#34;statsmodels&#34;: &#34;0.14.6&#34;
+}</pre></dd>
+    <dt>diagnostics</dt><dd><pre>{
+  &#34;aft_family&#34;: null,
+  &#34;fit_statistics&#34;: {
+    &#34;aic&#34;: &#34;11002.310349&#34;,
+    &#34;converged&#34;: &#34;True&#34;,
+    &#34;deviance&#34;: &#34;10984.310349&#34;,
+    &#34;df_model&#34;: 8,
+    &#34;df_resid&#34;: 26636,
+    &#34;llf&#34;: &#34;-5492.155174&#34;,
+    &#34;n_iterations&#34;: 6,
+    &#34;n_obs&#34;: 26645
+  },
+  &#34;link&#34;: &#34;logit&#34;,
+  &#34;max_observed_time&#34;: &#34;5.000000&#34;,
+  &#34;method&#34;: &#34;discrete_hazard&#34;,
+  &#34;n_censored&#34;: 4498,
+  &#34;n_events&#34;: 1502,
+  &#34;n_rows&#34;: 6000,
+  &#34;schoenfeld_test&#34;: null,
+  &#34;warnings&#34;: []
+}</pre></dd>
+    <dt>duration_col</dt><dd>duration</dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;cox_aft&#34;: {
+    &#34;aft_family&#34;: null,
+    &#34;ph_p_value_threshold&#34;: null,
+    &#34;ph_test_enabled&#34;: true
+  },
+  &#34;discrete_hazard&#34;: {
+    &#34;include_period_dummies&#34;: true,
+    &#34;link&#34;: &#34;logit&#34;,
+    &#34;min_events_per_period&#34;: null,
+    &#34;pd_role&#34;: &#34;none&#34;
+  },
+  &#34;fail_on_falta_dato&#34;: true,
+  &#34;input&#34;: {
+    &#34;covariate_cols&#34;: [
+      &#34;days_past_due&#34;,
+      &#34;utilizacion_linea&#34;,
+      &#34;deuda_ingreso&#34;,
+      &#34;antiguedad_meses&#34;
+    ],
+    &#34;duration_col&#34;: &#34;duration&#34;,
+    &#34;event_col&#34;: &#34;event&#34;,
+    &#34;id_col&#34;: null,
+    &#34;linear_predictor_column&#34;: &#34;linear_predictor&#34;,
+    &#34;pd_column&#34;: &#34;pd_raw&#34;,
+    &#34;pd_source&#34;: &#34;none&#34;,
+    &#34;segment_col&#34;: null
+  },
+  &#34;kaplan_meier&#34;: {
+    &#34;confidence_level&#34;: null,
+    &#34;confidence_transform&#34;: null
+  },
+  &#34;method&#34;: &#34;discrete_hazard&#34;,
+  &#34;schema_version&#34;: &#34;1.0.0&#34;,
+  &#34;time_grid&#34;: {
+    &#34;evaluation_times&#34;: [],
+    &#34;horizon_periods&#34;: 5,
+    &#34;time_unit&#34;: &#34;year&#34;
+  },
+  &#34;type&#34;: &#34;standard&#34;
+}</pre></dd>
+    <dt>event_col</dt><dd>event</dd>
+    <dt>falta_dato</dt><dd>[]</dd>
+    <dt>method</dt><dd>discrete_hazard</dd>
+    <dt>n_events</dt><dd>1502</dd>
+    <dt>n_periods</dt><dd>5</dd>
+    <dt>n_rows</dt><dd>6000</dd>
+    <dt>output_columns</dt><dd><pre>[
+  &#34;row_id&#34;,
+  &#34;segment&#34;,
+  &#34;partition&#34;,
+  &#34;period&#34;,
+  &#34;time_value&#34;,
+  &#34;hazard&#34;,
+  &#34;survival&#34;,
+  &#34;pd_marginal&#34;,
+  &#34;pd_cumulative&#34;,
+  &#34;method&#34;,
+  &#34;pd_source&#34;,
+  &#34;scenario&#34;,
+  &#34;warning_codes&#34;
+]</pre></dd>
+    <dt>pd_source</dt><dd>none</dd>
+    <dt>time_unit</dt><dd>year</dd>
+  </dl>
+
+  <h4>Métricas estructuradas</h4>
+  <dl>
+    <dt>km_greenwood</dt><dd>{}</dd>
+    <dt>pd_source</dt><dd><pre>{
+  &#34;coverage_column&#34;: null,
+  &#34;linear_predictor_column&#34;: null,
+  &#34;pd_column&#34;: null,
+  &#34;pd_coverage&#34;: null,
+  &#34;pd_rows&#34;: null,
+  &#34;pd_source&#34;: &#34;none&#34;,
+  &#34;rows_without_match&#34;: [],
+  &#34;source_artifact&#34;: null
+}</pre></dd>
+    <dt>person_period</dt><dd><pre>{
+  &#34;events_by_period&#34;: {
+    &#34;1&#34;: 374,
+    &#34;2&#34;: 339,
+    &#34;3&#34;: 286,
+    &#34;4&#34;: 270,
+    &#34;5&#34;: 233
+  },
+  &#34;n_rows&#34;: 26645
+}</pre></dd>
+    <dt>schoenfeld</dt><dd>{}</dd>
+    <dt>term_structure_summary</dt><dd><pre>{
+  &#34;max_pd_cumulative&#34;: &#34;0.995033&#34;,
+  &#34;min_survival&#34;: &#34;0.004967&#34;,
+  &#34;n_periods&#34;: 5,
+  &#34;n_rows&#34;: 30000
+}</pre></dd>
+    <dt>time_grid</dt><dd><pre>{
+  &#34;evaluation_times&#34;: [],
+  &#34;horizon_periods&#34;: 5,
+  &#34;resolved_times&#34;: [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  &#34;source&#34;: &#34;horizon_periods&#34;,
+  &#34;time_unit&#34;: &#34;year&#34;,
+  &#34;warnings&#34;: []
+}</pre></dd>
+  </dl>
+
+
+
+
+</section>
+<section id="section-appendix_parameters-provisioning_ifrs9" data-section-id="appendix_parameters.provisioning_ifrs9" data-kind="appendix" data-level="2" class="report-section appendix subsection">
+  <h3 class="subsection-title"><span class="section-number">C.2</span>Pérdida crediticia esperada (ECL) por etapas</h3>
+  <p class="source">Artefacto de origen: <code>provisioning_ifrs9.card</code></p>
+
+
+  <h4>Parámetros y payload</h4>
+  <dl>
+    <dt>as_of_date</dt><dd>2025-06-30</dd>
+    <dt>dependency_versions</dt><dd><pre>{
+  &#34;numpy&#34;: &#34;2.4.6&#34;,
+  &#34;pandas&#34;: &#34;2.3.3&#34;
+}</pre></dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;as_of_date_col&#34;: &#34;as_of_date&#34;,
+  &#34;ead&#34;: {
+    &#34;ccf_col&#34;: null,
+    &#34;ccf_value&#34;: null,
+    &#34;drawn_col&#34;: &#34;drawn&#34;,
+    &#34;ead_col&#34;: &#34;ead&#34;,
+    &#34;exposure_profile_col&#34;: null,
+    &#34;limit_col&#34;: &#34;credit_limit&#34;,
+    &#34;method&#34;: &#34;provided&#34;
+  },
+  &#34;ecl&#34;: {
+    &#34;discount_convention&#34;: &#34;annual_eir_year_fraction&#34;,
+    &#34;eir_col&#34;: &#34;eir&#34;,
+    &#34;rounding&#34;: &#34;none&#34;,
+    &#34;stage3_direct&#34;: false
+  },
+  &#34;fail_on_falta_dato&#34;: true,
+  &#34;lgd&#34;: {
+    &#34;covariate_cols&#34;: [],
+    &#34;lgd_cap&#34;: &#34;1.000000&#34;,
+    &#34;lgd_col&#34;: &#34;lgd&#34;,
+    &#34;lgd_floor&#34;: &#34;0.000000&#34;,
+    &#34;method&#34;: &#34;provided&#34;,
+    &#34;recovery_col&#34;: null,
+    &#34;workout_discount&#34;: &#34;eir&#34;
+  },
+  &#34;pd&#34;: {
+    &#34;base_pd_source&#34;: &#34;term_structure&#34;,
+    &#34;horizon_12m_periods&#34;: 1,
+    &#34;max_lifetime_periods&#34;: null,
+    &#34;pit_mode&#34;: &#34;ttc_only&#34;,
+    &#34;rho&#34;: null,
+    &#34;rho_col&#34;: null,
+    &#34;systemic_factor_col&#34;: null,
+    &#34;term_structure_source&#34;: &#34;survival&#34;
+  },
+  &#34;portfolio_col&#34;: &#34;portfolio&#34;,
+  &#34;row_id_col&#34;: null,
+  &#34;scenarios&#34;: {
+    &#34;forbid_mean_scenario&#34;: true,
+    &#34;source&#34;: &#34;single&#34;,
+    &#34;weights&#34;: {}
+  },
+  &#34;schema_version&#34;: &#34;1.0.0&#34;,
+  &#34;staging&#34;: {
+    &#34;days_past_due_col&#34;: &#34;days_past_due&#34;,
+    &#34;dpd_default_backstop&#34;: 90,
+    &#34;dpd_sicr_backstop&#34;: 30,
+    &#34;is_default_col&#34;: &#34;is_default&#34;,
+    &#34;low_credit_risk_col&#34;: null,
+    &#34;low_credit_risk_exemption&#34;: false,
+    &#34;notch_downgrade_threshold&#34;: null,
+    &#34;origination_pd_life_col&#34;: null,
+    &#34;origination_rating_col&#34;: null,
+    &#34;rating_col&#34;: null,
+    &#34;sicr_pd_pit_backstop_multiple&#34;: &#34;3.000000&#34;,
+    &#34;sicr_pd_ratio_threshold&#34;: &#34;2.000000&#34;,
+    &#34;stage_override_col&#34;: null
+  },
+  &#34;type&#34;: &#34;standard&#34;
+}</pre></dd>
+    <dt>falta_dato</dt><dd><pre>[
+  &#34;FALTA-DATO-IFRS-4&#34;
+]</pre></dd>
+    <dt>n_rows</dt><dd>6000</dd>
+    <dt>n_stage1</dt><dd>5235</dd>
+    <dt>n_stage2</dt><dd>477</dd>
+    <dt>n_stage3</dt><dd>288</dd>
+    <dt>pit_mode</dt><dd>ttc_only</dd>
+    <dt>scenario_weights</dt><dd><pre>{
+  &#34;base&#34;: &#34;1.000000&#34;
+}</pre></dd>
+    <dt>scenarios</dt><dd><pre>[
+  &#34;base&#34;
+]</pre></dd>
+    <dt>term_structure_source</dt><dd>survival</dd>
+    <dt>total_ead</dt><dd>114325314.700000</dd>
+    <dt>total_ecl_reported</dt><dd>3423116.118598</dd>
+  </dl>
+
+  <h4>Métricas estructuradas</h4>
+  <dl>
+    <dt>ecl_by_scenario</dt><dd><pre>{
+  &#34;base&#34;: &#34;6911516.428053&#34;
+}</pre></dd>
+    <dt>staging_migration</dt><dd><pre>{
+  &#34;stage_1&#34;: 5235,
+  &#34;stage_2&#34;: 477,
+  &#34;stage_3&#34;: 288
+}</pre></dd>
+    <dt>term_structure_summary</dt><dd><pre>{
+  &#34;n_rows&#34;: 30000,
+  &#34;n_scenarios&#34;: 1
+}</pre></dd>
+  </dl>
 
 
 

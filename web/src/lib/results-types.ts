@@ -534,6 +534,43 @@ export interface InternalProvisioningResult {
 // dominio no corrió (p. ej. la corrida F3 de CMF/interno). La UI usa guard-por-presencia (CERO
 // cálculo): un número en pantalla siempre viene del artefacto.
 
+/** Card agregada de survival: evidencia observada del ajuste que alimenta la ficha F4. */
+export interface SurvivalResult {
+  method: string
+  pd_source: string
+  duration_col: string
+  event_col: string
+  time_unit: string
+  n_rows: number
+  n_events: number
+  n_periods: number
+  output_columns: string[]
+  diagnostics: Record<string, unknown>
+  dependency_versions?: Record<string, string>
+  falta_dato?: string[]
+  metric_sections?: Record<string, unknown>
+}
+
+export type MethodologyStatus = "active" | "not_exercised"
+
+/** Afirmación individual de la ficha, ya derivada por el backend desde config + cards. */
+export interface MethodologyFact {
+  id: string
+  status: MethodologyStatus
+  label: string
+  value: string
+  detail: string
+  sources: string[]
+}
+
+/** Ficha metodológica común a la UI y al informe; no se recalcula en TypeScript. */
+export interface Ifrs9MethodologyCard {
+  domain: "provisioning_ifrs9"
+  active: MethodologyFact[]
+  not_exercised: MethodologyFact[]
+  source_refs: string[]
+}
+
 /**
  * Fila de la distribución por etapa (`provisioning_ifrs9.staging_distribution`, 3 filas: Stage
  * 1/2/3). RECONCILIA con la card titular: suma de `total_ead`/`total_ecl_reported` = los totales.
@@ -640,6 +677,8 @@ export interface Ifrs9ProvisioningResult {
   sicr_triggers: Record<string, number>
   /** Muestra por operación (top-30 por ECL, 10 por stage); NO la cartera completa. */
   detail_sample: Ifrs9DetailRow[]
+  /** Ficha source-backed derivada del config efectivo y las cards de esta misma corrida. */
+  methodology?: Ifrs9MethodologyCard | null
 }
 
 // --- top-level --------------------------------------------------------------
@@ -663,6 +702,8 @@ export interface ResultsResponse {
   performance?: PerformanceResult
   /** Estabilidad post-modelo (PSI/CSI). `null` si no corrió; ausente en payloads viejos. */
   stability?: StabilityResponse | null
+  /** Card survival agregada; presente en F4 y `null` cuando el dominio no corrió. */
+  survival?: SurvivalResult | null
   /**
    * Provisiones (SDD-28). Las tres cards salen `null` en una corrida F1 (sin provisiones) y
    * pobladas en el preset F3. Ausentes en payloads viejos anteriores al serializer de B23.5.

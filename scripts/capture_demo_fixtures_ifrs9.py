@@ -55,6 +55,10 @@ if TYPE_CHECKING:
 PRESET_ID = "f4-ifrs9-retail"
 _FIXTURES_DIR = Path(__file__).resolve().parent.parent / "web" / "src" / "fixtures" / "demo"
 _COVERAGE_MIN, _COVERAGE_MAX = 0.01, 0.15  # rango creíble de retail (el ⚑ checkpoint del número)
+_EXPECTED_F4_STAGES = (5_235, 477, 288)
+_EXPECTED_F4_EAD = 114_325_315
+_EXPECTED_F4_ECL = 3_423_116
+_EXPECTED_F4_SURVIVAL = (6_000, 1_502)
 
 
 def _get(client: TestClient, path: str) -> Any:
@@ -142,6 +146,16 @@ def verify_business(results: dict[str, Any]) -> dict[str, float]:
         f"coverage {coverage:.2%} fuera del rango creíble ({_COVERAGE_MIN:.0%}-{_COVERAGE_MAX:.0%})"
     )
 
+    # Freeze IBK-01: el capture no puede mover silenciosamente los números de la demo insignia.
+    assert (n1, n2, n3) == _EXPECTED_F4_STAGES
+    assert round(total_ead) == _EXPECTED_F4_EAD
+    assert round(total_ecl) == _EXPECTED_F4_ECL
+    assert f"{coverage:.2%}" == "2.99%"
+
+    survival = results.get("survival")
+    assert isinstance(survival, dict), "results-ifrs9.json no trae la card survival"
+    assert (int(survival["n_rows"]), int(survival["n_events"])) == _EXPECTED_F4_SURVIVAL
+
     # La distribución de staging RECONCILIA con la card (conteos y ECL reportada total).
     dist = block["staging_distribution"]
     assert [row["stage"] for row in dist] == [1, 2, 3], (
@@ -217,12 +231,23 @@ def verify_artifacts() -> None:
         "ecl_term_structure",
         "sicr_triggers",
         "detail_sample",
+        "methodology",
     ):
         assert key in block, f"el fixture provisioning_ifrs9 no trae '{key}'"
     stages = {int(row["stage"]) for row in block["detail_sample"]}
     assert stages == {1, 2, 3}, (
         f"detail_sample del fixture no cubre las tres etapas: {sorted(stages)}"
     )
+    methodology = block["methodology"]
+    assert isinstance(methodology, dict), "la ficha metodológica F4 no es un objeto"
+    active = {fact["id"]: fact for fact in methodology["active"]}
+    assert active["lifetime_pd"]["detail"] == ("6.000 filas · 1.502 eventos · horizonte 5 años")
+    assert active["scenario"]["value"] == "Base 100 %"
+    assert {fact["id"] for fact in methodology["not_exercised"]} == {
+        "forward",
+        "macro_scenarios",
+        "markov",
+    }
 
     html = (_FIXTURES_DIR / "report-ifrs9.html").read_text(encoding="utf-8")
     assert html.count("Informe de Provisiones IFRS 9 / ECL") > 0, (
@@ -237,6 +262,10 @@ def verify_artifacts() -> None:
     assert "no extrapola la PD de horizonte fijo" in html, (
         "report-ifrs9.html no explica el mecanismo PD→lifetime (prosa survival ausente)"
     )
+    assert "Activo en esta corrida:" in html
+    assert "Capacidad no ejercida en esta corrida:" in html
+    assert 'data-section-id="appendix_parameters.survival"' in html
+    assert 'data-section-id="appendix_parameters.provisioning_ifrs9"' in html
     ecl_esperada = "$" + f"{round(float(block['total_ecl_reported'])):,}".replace(",", ".")
     assert ecl_esperada in html, (
         f"report-ifrs9.html no muestra la ECL reportada {ecl_esperada} (¿prosa desalineada?)"

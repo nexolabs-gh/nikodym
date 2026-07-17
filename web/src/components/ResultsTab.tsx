@@ -85,6 +85,10 @@ import type {
   VariableBinning,
 } from "@/lib/results-format"
 import type { Coefficient } from "@/lib/results-types"
+import type {
+  Ifrs9MethodologyCard,
+  MethodologyFact,
+} from "@/lib/results-types"
 import { useAppState } from "@/state/appStore"
 
 interface ResultsTabProps {
@@ -221,6 +225,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const ifrs9Summary = ifrs9SummaryRows(ifrs9)
   const ifrs9Detail = ifrs9DetailRows(ifrs9)
   const ifrs9Sicr = ifrs9SicrTriggers(ifrs9)
+  const ifrs9Methodology = ifrs9?.methodology ?? null
 
   return (
     <div className="space-y-6">
@@ -305,6 +310,10 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
       {ifrs9Head ? (
         <>
           <Ifrs9HeadlineCard headline={ifrs9Head} stages={ifrs9Stages} />
+
+          {ifrs9Methodology ? (
+            <Ifrs9MethodologyPanel card={ifrs9Methodology} />
+          ) : null}
 
           {/* Distribución por etapa: EAD por Stage 1/2/3 + cobertura (línea). */}
           {ifrs9Stages.length > 0 ? (
@@ -1183,6 +1192,84 @@ function InternalGroupsDetail({
         </table>
       </div>
     </details>
+  )
+}
+
+/**
+ * Ficha source-backed: el backend ya combinó config efectivo + cards de ESTA corrida. La UI sólo
+ * separa lo ejecutado de la capacidad disponible que no participó en el cálculo.
+ */
+function Ifrs9MethodologyPanel({ card }: { card: Ifrs9MethodologyCard }) {
+  return (
+    <ResultsSection
+      title="Ficha metodológica de la corrida"
+      description="Lectura trazable de cómo se obtuvo la ECL. Cada valor viene del config efectivo o de una card publicada por el motor; una capacidad disponible no se presenta como ejecutada."
+    >
+      <div className="grid gap-3 lg:grid-cols-2">
+        <MethodologyGroup
+          title="Activo en esta corrida"
+          tone="active"
+          facts={card.active}
+        />
+        <MethodologyGroup
+          title="Capacidad no ejercida"
+          tone="inactive"
+          facts={card.not_exercised}
+        />
+      </div>
+      <p className="mt-3 text-[0.68rem] leading-relaxed text-muted-foreground">
+        Fuentes técnicas: {card.source_refs.join(" · ")}
+      </p>
+    </ResultsSection>
+  )
+}
+
+function MethodologyGroup({
+  title,
+  tone,
+  facts,
+}: {
+  title: string
+  tone: "active" | "inactive"
+  facts: MethodologyFact[]
+}) {
+  const active = tone === "active"
+  return (
+    <section
+      className={
+        active
+          ? "rounded-lg border border-brand-accent-dark/25 bg-brand-accent/[0.045] p-4"
+          : "rounded-lg border border-border bg-foreground/[0.02] p-4"
+      }
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <span
+          className={
+            active
+              ? "size-2 rounded-full bg-brand-accent-dark"
+              : "size-2 rounded-full border border-muted-foreground/60"
+          }
+          aria-hidden="true"
+        />
+        <h4 className="text-sm font-medium text-foreground">{title}</h4>
+      </div>
+      <dl className="space-y-3">
+        {facts.map((fact) => (
+          <div key={fact.id} className="space-y-0.5">
+            <dt className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+              {fact.label}
+            </dt>
+            <dd className="text-sm font-medium text-foreground">{fact.value}</dd>
+            <dd className="text-xs leading-relaxed text-muted-foreground">
+              {fact.detail}
+            </dd>
+            <dd className="font-mono text-[0.62rem] leading-relaxed text-muted-foreground/75">
+              {fact.sources.join(" + ")}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }
 
