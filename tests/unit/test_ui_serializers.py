@@ -14,6 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -557,16 +558,19 @@ def test_serializa_las_cards_de_provisiones_del_preset_f3(tmp_path: Path) -> Non
 # ─────────────────────────────── IFRS 9 / ECL (preset F4 real) ───────────────────────────────
 
 
-def test_serializa_ifrs9_markov_sin_exigir_card_survival() -> None:
-    """Una fuente Markov válida no falla ni fabrica evidencia de ajuste survival."""
+@pytest.mark.parametrize("term_source", ["forward", "markov"])
+def test_serializa_ifrs9_fuente_no_survival_sin_fabricar_evidencia(
+    term_source: Literal["forward", "markov"],
+) -> None:
+    """Forward/Markov llegan a la UI sin exigir ni citar una card survival."""
     from nikodym.provisioning.ifrs9.config import (
         IfrsPdConfig,
         IfrsProvisioningConfig,
         IfrsScenarioConfig,
     )
 
-    class _MarkovIfrsCard(BaseModel):
-        term_structure_source: str = "markov"
+    class _NonSurvivalIfrsCard(BaseModel):
+        term_structure_source: str
         pit_mode: str = "ttc_only"
         scenarios: tuple[str, ...] = ("base",)
         scenario_weights: dict[str, float] = {"base": 1.0}
@@ -574,12 +578,16 @@ def test_serializa_ifrs9_markov_sin_exigir_card_survival() -> None:
 
     config = NikodymConfig(
         provisioning_ifrs9=IfrsProvisioningConfig(
-            pd=IfrsPdConfig(term_structure_source="markov", pit_mode="ttc_only"),
+            pd=IfrsPdConfig(term_structure_source=term_source, pit_mode="ttc_only"),
             scenarios=IfrsScenarioConfig(source="single"),
         )
     )
     study = Study(config)
-    study.artifacts.set("provisioning_ifrs9", "card", _MarkovIfrsCard())
+    study.artifacts.set(
+        "provisioning_ifrs9",
+        "card",
+        _NonSurvivalIfrsCard(term_structure_source=term_source),
+    )
 
     payload = serialize_study(study, governance=None)
 
@@ -588,8 +596,21 @@ def test_serializa_ifrs9_markov_sin_exigir_card_survival() -> None:
     assert isinstance(methodology, dict)
     active = {fact["id"]: fact for fact in methodology["active"]}
     assert "lifetime_pd" not in active
-    assert active["pd_basis"]["detail"] == "La term-structure activa proviene de markov."
-    assert "markov" not in {fact["id"] for fact in methodology["not_exercised"]}
+    assert active["pd_basis"]["detail"] == (f"La term-structure activa proviene de {term_source}.")
+    assert methodology["source_refs"] == [
+        "config.provisioning_ifrs9",
+        "provisioning_ifrs9.card",
+    ]
+    assert all("survival" not in ref for ref in methodology["source_refs"])
+
+    inactive = {fact["id"]: fact for fact in methodology["not_exercised"]}
+    if term_source == "forward":
+        assert "forward" not in inactive
+        assert inactive["markov"]["detail"] == (
+            "La term-structure activa proviene de forward, no de Markov."
+        )
+    else:
+        assert "markov" not in inactive
 
 
 def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:

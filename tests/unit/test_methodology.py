@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from nikodym.methodology import build_ifrs9_methodology_card, methodology_paragraphs
 
 
@@ -27,6 +29,15 @@ def test_ficha_ifrs9_deriva_activos_y_capacidades_de_config_y_cards() -> None:
     inactive = {fact.id: fact for fact in card.not_exercised}
     assert set(inactive) == {"forward", "macro_scenarios", "markov"}
     assert all(fact.value == "Capacidad no ejercida" for fact in inactive.values())
+    assert inactive["markov"].detail == (
+        "La term-structure activa proviene de survival, no de Markov."
+    )
+    assert card.source_refs == (
+        "config.survival",
+        "survival.card",
+        "config.provisioning_ifrs9",
+        "provisioning_ifrs9.card",
+    )
 
     paragraphs = methodology_paragraphs(card)
     assert "Activo en esta corrida:" in paragraphs
@@ -60,6 +71,45 @@ def test_ficha_cambia_con_sus_fuentes_y_exige_card_de_ejecucion() -> None:
         )
         is None
     )
+
+
+@pytest.mark.parametrize("term_source", ["forward", "markov"])
+def test_ficha_ifrs9_respalda_fuente_no_survival_sin_inventar_cards(
+    term_source: str,
+) -> None:
+    """Forward/Markov son fuentes válidas sin survival y sólo citan evidencia disponible."""
+    config = _config()
+    config["survival"] = None
+    config[term_source] = {"type": "standard"}
+    config["provisioning_ifrs9"]["pd"]["term_structure_source"] = term_source
+    ifrs9_card = _ifrs9_card()
+    ifrs9_card["term_structure_source"] = term_source
+
+    card = build_ifrs9_methodology_card(
+        config=config,
+        survival_card=None,
+        ifrs9_card=ifrs9_card,
+    )
+
+    assert card is not None
+    active = {fact.id: fact for fact in card.active}
+    assert "lifetime_pd" not in active
+    assert active["pd_basis"].detail == (f"La term-structure activa proviene de {term_source}.")
+    assert card.source_refs == (
+        f"config.{term_source}",
+        "config.provisioning_ifrs9",
+        "provisioning_ifrs9.card",
+    )
+    assert "config.survival" not in card.source_refs
+    assert "survival.card" not in card.source_refs
+
+    inactive = {fact.id: fact for fact in card.not_exercised}
+    if term_source == "forward":
+        assert inactive["markov"].detail == (
+            "La term-structure activa proviene de forward, no de Markov."
+        )
+    else:
+        assert "markov" not in inactive
 
 
 def _config() -> dict:

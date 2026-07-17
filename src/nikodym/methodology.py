@@ -94,10 +94,13 @@ def build_ifrs9_methodology_card(
     staging_cfg = _as_mapping(ifrs9_cfg.get("staging"))
     scenarios_cfg = _as_mapping(ifrs9_cfg.get("scenarios"))
     ecl_cfg = _as_mapping(ifrs9_cfg.get("ecl"))
+    term_source = _text(ifrs9.get("term_structure_source")) or _text(
+        pd_cfg.get("term_structure_source")
+    )
 
     active: list[MethodologyFact] = []
     method = _text(survival.get("method")) or _text(survival_cfg.get("method"))
-    if survival and method is not None:
+    if term_source == "survival" and survival and method is not None:
         rows = _integer(survival.get("n_rows"))
         events = _integer(survival.get("n_events"))
         time_grid = _as_mapping(survival_cfg.get("time_grid"))
@@ -117,13 +120,12 @@ def build_ifrs9_methodology_card(
                 label="Curva PD lifetime",
                 value=_SURVIVAL_METHOD_LABELS.get(method, method),
                 detail=" · ".join(detail_parts),
-                sources=("config.survival", "survival.card"),
+                sources=(
+                    ("config.survival", "survival.card") if survival_cfg else ("survival.card",)
+                ),
             )
         )
 
-    term_source = _text(ifrs9.get("term_structure_source")) or _text(
-        pd_cfg.get("term_structure_source")
-    )
     pit_mode = _text(ifrs9.get("pit_mode")) or _text(pd_cfg.get("pit_mode"))
     if pit_mode is not None:
         detail = (
@@ -271,20 +273,29 @@ def build_ifrs9_methodology_card(
                 status="not_exercised",
                 label="Matrices de transición Markov",
                 value="Capacidad no ejercida",
-                detail="La term-structure activa proviene de survival, no de Markov.",
+                detail=(
+                    f"La term-structure activa proviene de {term_source}, no de Markov."
+                    if term_source is not None
+                    else "Markov no proveyó la term-structure activa de esta corrida."
+                ),
                 sources=("config.markov", "provisioning_ifrs9.card"),
             )
         )
 
+    source_refs: list[str] = []
+    if term_source == "survival":
+        if survival_cfg:
+            source_refs.append("config.survival")
+        if survival:
+            source_refs.append("survival.card")
+    elif term_source in {"forward", "markov"} and _as_mapping(root.get(term_source)):
+        source_refs.append(f"config.{term_source}")
+    source_refs.extend(("config.provisioning_ifrs9", "provisioning_ifrs9.card"))
+
     return MethodologyCard(
         active=tuple(active),
         not_exercised=tuple(not_exercised),
-        source_refs=(
-            "config.survival",
-            "survival.card",
-            "config.provisioning_ifrs9",
-            "provisioning_ifrs9.card",
-        ),
+        source_refs=tuple(source_refs),
     )
 
 

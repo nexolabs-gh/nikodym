@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 import pytest
@@ -606,6 +606,54 @@ def test_ficha_ifrs9_y_anexo_c_comparten_config_y_cards_f4() -> None:
     # Los parámetros que alimentan la ficha vienen del config efectivo del mismo Study.
     assert bundle.pipeline_params["survival"]["time_grid"]["horizon_periods"] == 5
     assert bundle.pipeline_params["provisioning_ifrs9"]["staging"]["dpd_sicr_backstop"] == 30
+
+
+@pytest.mark.parametrize("term_source", ["forward", "markov"])
+def test_ficha_ifrs9_informe_admite_fuente_no_survival(
+    term_source: Literal["forward", "markov"],
+) -> None:
+    """El informe usa el DTO común sin inventar referencias survival para otras fuentes."""
+    from nikodym.provisioning.ifrs9.config import (
+        IfrsPdConfig,
+        IfrsProvisioningConfig,
+        IfrsScenarioConfig,
+    )
+
+    study = Study(
+        NikodymConfig(
+            provisioning_ifrs9=IfrsProvisioningConfig(
+                pd=IfrsPdConfig(term_structure_source=term_source, pit_mode="ttc_only"),
+                scenarios=IfrsScenarioConfig(source="single"),
+            )
+        )
+    )
+    study.run_context.lineage = _lineage()
+    study.artifacts.set(
+        "provisioning_ifrs9",
+        "card",
+        {
+            "term_structure_source": term_source,
+            "pit_mode": "ttc_only",
+            "scenarios": ("base",),
+            "scenario_weights": {"base": 1.0},
+            "falta_dato": (),
+        },
+    )
+
+    bundle = ReportBuilder.from_config(
+        ReportConfig(sections=SectionPolicyConfig(required_sections=()))
+    ).collect(study)
+    by_id = {section.id: section for section in bundle.sections}
+    body = " ".join(by_id["methodology.provisioning_ifrs9"].body)
+
+    assert f"La term-structure activa proviene de {term_source}." in body
+    assert "config.survival" not in body
+    assert "survival.card" not in body
+    assert "Fuentes técnicas: config.provisioning_ifrs9, provisioning_ifrs9.card." in body
+    if term_source == "forward":
+        assert "La term-structure activa proviene de forward, no de Markov." in body
+    else:
+        assert "Matrices de transición Markov" not in body
 
 
 def test_capitulo_resultados_es_condicional_any_of_a_los_dominios_scorecard() -> None:

@@ -1251,7 +1251,7 @@ function MethodologyGroup({
           }
           aria-hidden="true"
         />
-        <h4 className="text-sm font-medium text-foreground">{title}</h4>
+        <h3 className="text-sm font-medium text-foreground">{title}</h3>
       </div>
       <dl className="space-y-3">
         {facts.map((fact) => (
