@@ -544,6 +544,70 @@ def test_capitulo_ifrs9_es_condicional_a_su_card() -> None:
     assert subsecciones == ["ifrs9.provisioning_ifrs9"]
 
 
+def test_ficha_ifrs9_y_anexo_c_comparten_config_y_cards_f4() -> None:
+    """F4 publica la ficha source-backed y las dos cards crudas en el Anexo C."""
+    from nikodym.ui.presets import ifrs9_preset
+
+    study = Study(NikodymConfig.model_validate(ifrs9_preset()["config"]))
+    study.run_context.lineage = _lineage()
+    study.artifacts.set(
+        "survival",
+        "card",
+        {
+            "method": "discrete_hazard",
+            "pd_source": "none",
+            "time_unit": "year",
+            "n_rows": 6_000,
+            "n_events": 1_502,
+            "n_periods": 5,
+            "diagnostics": {"n_censored": 4_498},
+            "metric_sections": {"fit": {"link": "logit"}},
+        },
+    )
+    study.artifacts.set(
+        "provisioning_ifrs9",
+        "card",
+        {
+            "term_structure_source": "survival",
+            "pit_mode": "ttc_only",
+            "scenarios": ("base",),
+            "scenario_weights": {"base": 1.0},
+            "falta_dato": ("FALTA-DATO-IFRS-4",),
+            "metric_sections": {"staging_migration": {"stage_1": 5_235}},
+        },
+    )
+
+    bundle = ReportBuilder.from_config(
+        ReportConfig(sections=SectionPolicyConfig(required_sections=()))
+    ).collect(study)
+    by_id = {section.id: section for section in bundle.sections}
+
+    metodologia = by_id["methodology.provisioning_ifrs9"]
+    body = " ".join(metodologia.body)
+    assert "Activo en esta corrida:" in body
+    assert "6.000 filas · 1.502 eventos · horizonte 5 años" in body
+    assert "LGD provided · EAD provided" in body
+    assert "30/90 días + is_default" in body
+    assert "Base 100 %" in body
+    assert "EIR anual" in body
+    assert "Capacidad no ejercida en esta corrida:" in body
+    assert "Forward-looking" in body and "Markov" in body
+
+    anexo_survival = by_id["appendix_parameters.survival"]
+    anexo_ifrs9 = by_id["appendix_parameters.provisioning_ifrs9"]
+    assert anexo_survival.payload["n_events"] == 1_502
+    assert anexo_survival.payload["effective_config"]["time_grid"]["horizon_periods"] == 5
+    assert anexo_survival.metric_sections == {"fit": {"link": "logit"}}
+    assert anexo_ifrs9.payload["scenario_weights"] == {"base": 1.0}
+    assert anexo_ifrs9.payload["effective_config"]["staging"]["dpd_sicr_backstop"] == 30
+    assert anexo_ifrs9.metric_sections == {"staging_migration": {"stage_1": 5_235}}
+    assert anexo_survival.number < anexo_ifrs9.number
+
+    # Los parámetros que alimentan la ficha vienen del config efectivo del mismo Study.
+    assert bundle.pipeline_params["survival"]["time_grid"]["horizon_periods"] == 5
+    assert bundle.pipeline_params["provisioning_ifrs9"]["staging"]["dpd_sicr_backstop"] == 30
+
+
 def test_capitulo_resultados_es_condicional_any_of_a_los_dominios_scorecard() -> None:
     """«Resultados» (``requires_any_domain=RESULT_DOMAINS``) se omite si ningún dominio corrió.
 

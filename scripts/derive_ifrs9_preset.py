@@ -55,6 +55,10 @@ from nikodym.ui.presets import _STANDARD_CONFIG
 
 DATASET_ID = "ifrs9_retail_latam"
 HORIZON_YEARS = 5  # periodos ANUALES (== registro del dataset); grilla lifetime = 1..T años
+_EXPECTED_F4_STAGES = (5_235, 477, 288)
+_EXPECTED_F4_EAD = 114_325_315
+_EXPECTED_F4_ECL = 3_423_116
+_EXPECTED_F4_SURVIVAL = (6_000, 1_502)
 
 # Secciones que la cadena standalone IFRS 9 NO necesita: TODO el pipeline scorecard
 # (``binning``/``selection``/``model`` incluidos: con ``pd_source='none'`` survival ya no consume
@@ -159,6 +163,16 @@ def verify(cfg: dict) -> None:
         f"coverage ratio {coverage:.2%} fuera del rango creíble (1-15%)"
     )
     assert total_ecl > 0.0, "la ECL reportada total debe ser positiva"
+
+    # Freeze IBK-01: cualquier deriva de las cifras insignia exige una decisión explícita.
+    assert (n1, n2, n3) == _EXPECTED_F4_STAGES
+    assert round(total_ead) == _EXPECTED_F4_EAD
+    assert round(total_ecl) == _EXPECTED_F4_ECL
+    assert f"{coverage:.2%}" == "2.99%"
+
+    survival_card = study.artifacts.get("survival", "card")
+    assert (survival_card.n_rows, survival_card.n_events) == _EXPECTED_F4_SURVIVAL
+    assert survival_card.n_periods == HORIZON_YEARS
 
     # ⚑ Gate del fit standalone (P0 auditoría 2026-07-16): el hazard se ajusta sobre el libro
     # COMPLETO — la partición Dev/HO/OOT que el DataStep siempre produce no recorta la muestra

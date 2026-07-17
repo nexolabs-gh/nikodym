@@ -25,6 +25,7 @@ from pydantic import BaseModel
 
 from nikodym.core.exceptions import NikodymError
 from nikodym.governance import GovernanceConfig, ModelCardBuilder
+from nikodym.methodology import build_ifrs9_methodology_card
 from nikodym.ui.exceptions import UiSerializationError
 from nikodym.ui.reliability import reliability_curve
 
@@ -48,6 +49,9 @@ _CARD_KEY_BY_DOMAIN: dict[str, str] = {
     "calibration": "card",
     "performance": "card",
     "stability": "card",
+    # Survival se expone porque la ficha F4 necesita la evidencia observada del ajuste (filas,
+    # eventos y períodos). Es una card agregada pequeña; nunca se serializa la term-structure larga.
+    "survival": "card",
     # Provisiones (SDD-28): las tres cards usan la clave ``"card"``. Solo se serializan las cards y
     # sus frames AGREGADOS (ver ``_augment``); los frames ``detail`` por operación (6.000 filas)
     # jamás entran al payload — reventarían ``/api/results``.
@@ -172,6 +176,18 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
         block["sicr_triggers"] = _ifrs9_sicr_triggers(study)
         # Muestra por operación (top-N por ECL, repartida por stage) para una tabla en la UI.
         block["detail_sample"] = _ifrs9_detail_sample(study)
+        # Ficha compartida con el informe. Se deriva del config EFECTIVO y de cards publicadas, no
+        # del config que el usuario pueda estar editando después de esta corrida.
+        methodology = build_ifrs9_methodology_card(
+            config=study.config,
+            # Survival es la fuente de F4, pero IFRS 9 también admite term-structures Markov o
+            # forward. Una corrida válida con esas fuentes no publica necesariamente esta card.
+            survival_card=payload.get("survival"),
+            ifrs9_card=block,
+        )
+        block["methodology"] = (
+            methodology.model_dump(mode="json") if methodology is not None else None
+        )
 
 
 def _domain_records(study: Study, domain: str, key: str) -> list[dict[str, Any]] | None:

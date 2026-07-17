@@ -557,6 +557,41 @@ def test_serializa_las_cards_de_provisiones_del_preset_f3(tmp_path: Path) -> Non
 # ─────────────────────────────── IFRS 9 / ECL (preset F4 real) ───────────────────────────────
 
 
+def test_serializa_ifrs9_markov_sin_exigir_card_survival() -> None:
+    """Una fuente Markov válida no falla ni fabrica evidencia de ajuste survival."""
+    from nikodym.provisioning.ifrs9.config import (
+        IfrsPdConfig,
+        IfrsProvisioningConfig,
+        IfrsScenarioConfig,
+    )
+
+    class _MarkovIfrsCard(BaseModel):
+        term_structure_source: str = "markov"
+        pit_mode: str = "ttc_only"
+        scenarios: tuple[str, ...] = ("base",)
+        scenario_weights: dict[str, float] = {"base": 1.0}
+        falta_dato: tuple[str, ...] = ()
+
+    config = NikodymConfig(
+        provisioning_ifrs9=IfrsProvisioningConfig(
+            pd=IfrsPdConfig(term_structure_source="markov", pit_mode="ttc_only"),
+            scenarios=IfrsScenarioConfig(source="single"),
+        )
+    )
+    study = Study(config)
+    study.artifacts.set("provisioning_ifrs9", "card", _MarkovIfrsCard())
+
+    payload = serialize_study(study, governance=None)
+
+    assert payload["survival"] is None
+    methodology = payload["provisioning_ifrs9"]["methodology"]
+    assert isinstance(methodology, dict)
+    active = {fact["id"]: fact for fact in methodology["active"]}
+    assert "lifetime_pd" not in active
+    assert active["pd_basis"]["detail"] == "La term-structure activa proviene de markov."
+    assert "markov" not in {fact["id"] for fact in methodology["not_exercised"]}
+
+
 def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
     """El preset F4 serializa el bloque provisioning_ifrs9: card + frames AGREGADOS, sin ``detail``.
 
@@ -584,6 +619,13 @@ def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
     block = payload["provisioning_ifrs9"]
     assert isinstance(block, dict)
 
+    # La card de survival queda citable y alimenta la ficha; los eventos nunca se hardcodean en UI.
+    survival = payload["survival"]
+    assert isinstance(survival, dict)
+    assert survival["method"] == "discrete_hazard"
+    assert survival["n_rows"] == 6_000
+    assert survival["n_events"] == 1_502
+
     # (a) Card CT-2: los conteos por stage cuadran y hay ECL/EAD positivos con cobertura creíble.
     n_rows = block["n_rows"]
     assert block["n_stage1"] + block["n_stage2"] + block["n_stage3"] == n_rows
@@ -593,6 +635,27 @@ def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
     assert isinstance(block["total_ecl_reported"], (int, float)) and block["total_ecl_reported"] > 0
     coverage = block["total_ecl_reported"] / block["total_ead"]
     assert 0.01 <= coverage <= 0.15  # rango creíble de retail (el ⚑ checkpoint del número)
+    # Freeze IBK-01: cifras insignia F4, verificadas sobre la corrida REAL.
+    assert block["n_rows"] == 6_000
+    assert (block["n_stage1"], block["n_stage2"], block["n_stage3"]) == (5_235, 477, 288)
+    assert round(block["total_ead"]) == 114_325_315
+    assert round(block["total_ecl_reported"]) == 3_423_116
+    assert f"{coverage:.2%}" == "2.99%"
+
+    methodology = block["methodology"]
+    assert isinstance(methodology, dict)
+    active = {fact["id"]: fact for fact in methodology["active"]}
+    assert active["lifetime_pd"]["detail"] == ("6.000 filas · 1.502 eventos · horizonte 5 años")
+    assert active["pd_basis"]["value"] == "TTC (through-the-cycle)"
+    assert active["loss_inputs"]["value"] == "LGD provided · EAD provided"
+    assert active["staging"]["value"] == "30/90 días + is_default"
+    assert active["scenario"]["value"] == "Base 100 %"
+    assert active["discount"]["value"] == "EIR anual"
+    assert {fact["id"] for fact in methodology["not_exercised"]} == {
+        "forward",
+        "macro_scenarios",
+        "markov",
+    }
 
     # (b) Distribución de staging por Stage 1/2/3: 3 filas que RECONCILIAN con la card.
     dist = block["staging_distribution"]

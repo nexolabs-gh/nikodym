@@ -212,7 +212,7 @@ export function demoGetResults(): Promise<ResultsResponse> {
   return Promise.resolve(activeBundle().results)
 }
 
-/** HTML del informe del preset activo; 404 si el preset no genera reporte (IFRS 9). */
+/** HTML del informe del preset activo; 404 si su config no genera reporte. */
 export function demoGetReport(): Promise<string> {
   const { report } = activeBundle()
   return report === null ? Promise.reject(noReportError()) : Promise.resolve(report.html)

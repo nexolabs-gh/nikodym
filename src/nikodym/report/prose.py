@@ -26,6 +26,7 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
 
+from nikodym.methodology import build_ifrs9_methodology_card, methodology_paragraphs
 from nikodym.report.document import DOMAIN_TITLES
 
 if TYPE_CHECKING:
@@ -439,7 +440,19 @@ def methodology_body(bundle: ReportInputBundle, domain: str) -> tuple[str, ...]:
         return _methodology_scorecard(bundle)
     if domain == "calibration":
         return _methodology_calibration(bundle)
+    if domain == "provisioning_ifrs9":
+        return _methodology_provisioning_ifrs9(bundle)
     return ()
+
+
+def _methodology_provisioning_ifrs9(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Ficha F4 compartida con la UI, derivada del config y de las cards de la corrida."""
+    card = build_ifrs9_methodology_card(
+        config=bundle.pipeline_params,
+        survival_card=bundle.cards.get("survival"),
+        ifrs9_card=bundle.cards.get("provisioning_ifrs9"),
+    )
+    return methodology_paragraphs(card) if card is not None else ()
 
 
 def _methodology_data(bundle: ReportInputBundle) -> tuple[str, ...]:

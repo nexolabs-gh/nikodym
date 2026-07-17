@@ -43,8 +43,8 @@ interface ReporteTabProps {
 type ReportState =
   | { kind: "loading" }
   | { kind: "ready"; html: string }
-  // El preset corrido no genera informe (404 del backend, p. ej. IFRS 9 / ECL): NO es un fallo
-  // de carga, es un estado esperado → estado vacío sobrio, no el card de error rojo.
+  // El preset corrido no genera informe (404 del backend): NO es un fallo de carga, es un estado
+  // esperado para configuraciones sin `report` → estado vacío sobrio, no el card de error rojo.
   | { kind: "no-report" }
   | { kind: "error"; message: string }
 
@@ -159,8 +159,8 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
         setState({ kind: "ready", html })
       } catch (err) {
         if (!alive) return
-        // Un 404 significa que la corrida existe pero el preset no genera informe (p. ej. IFRS 9):
-        // estado esperado, no un fallo → estado vacío, no el card rojo.
+        // Un 404 significa que la corrida existe pero su config no genera informe: estado esperado,
+        // no un fallo → estado vacío, no el card rojo.
         if (err instanceof ApiError && err.status === 404) {
           setState({ kind: "no-report" })
         } else {
@@ -207,15 +207,15 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
     )
   }
 
-  // El preset corrido no genera informe (p. ej. IFRS 9 / ECL): estado vacío sobrio que remite a
-  // Resultados, NO el card de error rojo (que leería como una falla en medio de una demo).
+  // La corrida no genera informe: estado vacío sobrio que remite a Resultados, NO el card de error
+  // rojo (que leería como una falla en medio de una demo).
   if (state.kind === "no-report") {
     return (
       <Card className="shadow-card">
         <EmptyState
           icon={FileText}
           title="Este preset no genera un informe"
-          description="El informe de validación (HTML, PDF, Word y base editable) acompaña al preset del scorecard. Otros presets —como IFRS 9 / ECL— entregan todo su resultado en la pestaña Resultados y no producen un documento de validación."
+          description="Esta corrida se ejecutó sin la sección de reporte. Sus artefactos calculados siguen disponibles en la pestaña Resultados."
           tag="Reporte"
           action={{
             label: "Ver resultados",

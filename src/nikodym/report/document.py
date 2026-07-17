@@ -42,6 +42,7 @@ _SectionT = TypeVar("_SectionT", bound=_Identified)
 __all__ = [
     "APPENDIX_LINEAGE_ID",
     "APPENDIX_PARAMETERS_ID",
+    "APPENDIX_PARAMETER_DOMAINS",
     "APPENDIX_TABLES_ID",
     "CANONICAL_SECTION_ORDER",
     "CHAPTER_SPECS",
@@ -81,6 +82,7 @@ DOMAIN_TITLES: Final[dict[str, str]] = {
     "calibration": "Calibración",
     "performance": "Desempeño y discriminación",
     "stability": "Estabilidad",
+    "survival": "Supervivencia y curva PD lifetime",
     "provisioning": "La provisión a constituir — la regla del máximo",
     "provisioning_cmf": "Método estándar de la CMF (Cap. B-1)",
     "provisioning_internal": "Método interno del banco",
@@ -110,6 +112,14 @@ PROVISION_DOMAINS: Final[tuple[str, ...]] = (
 # ``provisioning_ifrs9`` trae staging, EAD y ECL reportada. Solo se emite si el dominio corrió.
 IFRS9_DOMAINS: Final[tuple[str, ...]] = ("provisioning_ifrs9",)
 
+# El Anexo C no redefine el pipeline scorecard: añade las cards de F4 que realmente corrieron.
+# Mantener esta tupla separada evita que ``survival``/IFRS 9 se vuelvan requisitos implícitos de F1.
+APPENDIX_PARAMETER_DOMAINS: Final[tuple[str, ...]] = (
+    *PIPELINE_DOMAINS,
+    "survival",
+    "provisioning_ifrs9",
+)
+
 APPENDIX_LINEAGE_ID: Final = "appendix_lineage"
 APPENDIX_TABLES_ID: Final = "appendix_tables"
 APPENDIX_PARAMETERS_ID: Final = "appendix_parameters"
@@ -123,6 +133,7 @@ METHODOLOGY_STEPS: Final[tuple[tuple[str, str], ...]] = (
     ("model", "Estimación del modelo PD"),
     ("scorecard", "Escalado del scorecard"),
     ("calibration", "Calibración de la PD"),
+    ("provisioning_ifrs9", "Ficha metodológica IFRS 9 / ECL"),
 )
 
 # Tablas que el CUERPO del informe muestra por dominio: las que un validador necesita leer para
@@ -330,7 +341,7 @@ _CHILD_ORDER: Final[dict[str, tuple[str, ...]]] = {
     "results": RESULT_DOMAINS,
     "provisions": PROVISION_DOMAINS,
     "ifrs9": IFRS9_DOMAINS,
-    APPENDIX_PARAMETERS_ID: PIPELINE_DOMAINS,
+    APPENDIX_PARAMETERS_ID: APPENDIX_PARAMETER_DOMAINS,
 }
 
 
