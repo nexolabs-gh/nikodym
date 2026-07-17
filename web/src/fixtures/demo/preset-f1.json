@@ -1,0 +1,414 @@
+{
+ "id": "f1-estandar-consumo",
+ "config": {
+  "schema_version": "1.0.0",
+  "name": "preset-estandar-consumo",
+  "repro": {
+   "seed": 20240706,
+   "strict_determinism": false
+  },
+  "run": {
+   "steps": null,
+   "fail_fast": true
+  },
+  "data": {
+   "type": "standard",
+   "load": {
+    "source": null,
+    "file_format": "auto",
+    "backend": "pandas",
+    "csv_options": {
+     "sep": ",",
+     "decimal": ".",
+     "encoding": "utf-8"
+    }
+   },
+   "schema": {
+    "columns": [
+     {
+      "name": "ingreso_mensual",
+      "dtype": "float",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "deuda_ingreso",
+      "dtype": "float",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "utilizacion_linea",
+      "dtype": "float",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "mora_max_12m",
+      "dtype": "int",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "antiguedad_meses",
+      "dtype": "int",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "segmento",
+      "dtype": "str",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "cohorte",
+      "dtype": "str",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     },
+     {
+      "name": "bad_flag",
+      "dtype": "int",
+      "nullable": false,
+      "required": true,
+      "coerce": false,
+      "ge": null,
+      "le": null,
+      "isin": null,
+      "unique": false
+     }
+    ],
+    "strict": false,
+    "ordered": false,
+    "index_col": "loan_id",
+    "unique_keys": null
+   },
+   "missing": {
+    "special_values": [],
+    "max_missing_rate": 0.99
+   },
+   "target": {
+    "target_col": "target",
+    "bad_rule": {
+     "all_of": [
+      {
+       "col": "bad_flag",
+       "op": "==",
+       "value": 1
+      }
+     ],
+     "any_of": []
+    },
+    "good_rule": null,
+    "indeterminate_rule": null,
+    "exclusion_rules": [],
+    "window": null
+   },
+   "partition": {
+    "strategy": {
+     "type": "cohort",
+     "cohort_col": "cohorte",
+     "oot_cohorts": [
+      "2024Q2"
+     ],
+     "holdout_fraction": 0.2
+    },
+    "ttd_includes_excluded": true,
+    "min_bads_per_partition": 30
+   }
+  },
+  "markov": null,
+  "eda": null,
+  "binning": {
+   "type": "standard",
+   "feature_columns": [
+    "ingreso_mensual",
+    "deuda_ingreso",
+    "utilizacion_linea",
+    "mora_max_12m",
+    "antiguedad_meses",
+    "segmento"
+   ],
+   "exclude_columns": [],
+   "categorical_columns": [
+    "segmento"
+   ],
+   "variable_overrides": [],
+   "max_n_prebins": 20,
+   "min_prebin_size": 0.05,
+   "min_n_bins": null,
+   "max_n_bins": 6,
+   "min_bin_size": 0.05,
+   "min_bin_n_event": 1,
+   "min_bin_n_nonevent": 1,
+   "monotonic_trend": "auto_asc_desc",
+   "min_event_rate_diff": 0.0,
+   "max_pvalue": null,
+   "max_pvalue_policy": "consecutive",
+   "solver": "mip",
+   "mip_solver": "bop",
+   "time_limit": 10,
+   "require_optimal": true,
+   "n_jobs": null,
+   "special_handling": "separate",
+   "metric_special": "empirical",
+   "metric_missing": "empirical",
+   "cat_cutoff": 0.01,
+   "cat_unknown": null,
+   "split_digits": null,
+   "output_suffix": "__woe",
+   "keep_structural_columns": true,
+   "fail_on_non_binnable": false
+  },
+  "selection": {
+   "type": "standard",
+   "feature_columns": "*",
+   "exclude_columns": [],
+   "force_include": [],
+   "force_exclude": [],
+   "min_iv": 0.02,
+   "max_iv": 0.5,
+   "max_iv_action": "flag",
+   "compute_univariate_metrics": true,
+   "min_auc": null,
+   "min_ks": null,
+   "min_gini": null,
+   "priority_order": [
+    "iv",
+    "auc",
+    "ks",
+    "name"
+   ],
+   "correlation": {
+    "enabled": true,
+    "method": "pearson",
+    "threshold": 0.75,
+    "clustering_method": "none"
+   },
+   "vif": {
+    "enabled": true,
+    "threshold": 5.0,
+    "add_intercept": true,
+    "max_iterations": null
+   },
+   "stability": {
+    "enabled": false,
+    "action": "report_only",
+    "stable_threshold": 0.1,
+    "review_threshold": 0.25,
+    "smoothing": 1e-06
+   },
+   "keep_structural_columns": true,
+   "fail_if_no_features": true
+  },
+  "model": {
+   "type": "standard",
+   "engine": "logit",
+   "fit_intercept": true,
+   "optimizer": "newton",
+   "fit_maxiter": 100,
+   "tol": 1e-08,
+   "alpha": 0.05,
+   "stepwise": {
+    "enabled": true,
+    "direction": "bidirectional",
+    "criterion": "wald_pvalue",
+    "entry_p_value": 0.05,
+    "exit_p_value": 0.05,
+    "max_iter": 100,
+    "min_features": 1
+   },
+   "sign_policy": {
+    "expected_beta_sign": "negative",
+    "action": "flag",
+    "fail_on_forced_inverted": false
+   },
+   "iv_contribution": {
+    "threshold": 0.9,
+    "action": "flag"
+   },
+   "force_include": [],
+   "force_exclude": [],
+   "fail_if_no_features": true
+  },
+  "scorecard": {
+   "type": "standard",
+   "pdo": 20.0,
+   "target_score": 600.0,
+   "target_odds": 50.0,
+   "score_direction": "higher_is_lower_risk",
+   "intercept_allocation": "uniform",
+   "rounding_method": "nearest_integer",
+   "output_suffix": "__points",
+   "score_column": "score",
+   "min_score": null,
+   "max_score": null,
+   "clip": false,
+   "point_overrides": []
+  },
+  "calibration": {
+   "type": "standard",
+   "method": "intercept_offset",
+   "target_pd": 0.2,
+   "anchor_kind": "through_the_cycle",
+   "anchor_source": "business_input",
+   "fit_partition": "desarrollo",
+   "target_tolerance": 1e-12,
+   "max_abs_offset": null,
+   "max_iter": 100,
+   "min_fit_rows": 30,
+   "require_both_classes_for_supervised": true,
+   "pd_raw_column": "pd_raw",
+   "linear_predictor_column": "linear_predictor",
+   "pd_calibrated_column": "pd_calibrated",
+   "linear_predictor_calibrated_column": "linear_predictor_calibrated",
+   "partition_column": "partition",
+   "target_column": "target"
+  },
+  "tuning": null,
+  "ml": null,
+  "explain": null,
+  "survival": null,
+  "forward": null,
+  "stress": null,
+  "provisioning_cmf": null,
+  "provisioning_ifrs9": null,
+  "provisioning": null,
+  "performance": {
+   "schema_version": "1.0.0",
+   "type": "standard",
+   "score_column": "score",
+   "pd_column": "pd_calibrated",
+   "target_column": "target",
+   "partition_column": "partition",
+   "score_direction": "higher_is_lower_risk",
+   "evaluation_source": "pd_calibrated",
+   "partitions": [
+    "desarrollo",
+    "holdout",
+    "oot"
+   ],
+   "n_deciles": 10,
+   "min_rows_per_partition": 30,
+   "min_events_per_partition": 1,
+   "optional_thresholds": {}
+  },
+  "stability": {
+   "schema_version": "1.0.0",
+   "type": "standard",
+   "score_column": "score",
+   "pd_column": "pd_calibrated",
+   "partition_column": "partition",
+   "score_direction": "higher_is_lower_risk",
+   "psi_bins": 10,
+   "csi_bins": 10,
+   "psi_stable_threshold": 0.1,
+   "psi_review_threshold": 0.25,
+   "smoothing": 1e-06,
+   "comparisons": [
+    "dev_vs_holdout",
+    "dev_vs_oot"
+   ],
+   "temporal_axis": "period",
+   "temporal_column": null,
+   "temporal_freq": "M",
+   "include_pd_stability": true,
+   "csi_source": "score_points"
+  },
+  "validation": null,
+  "report": {
+   "schema_version": "1.0.0",
+   "type": "standard",
+   "output_dir": "reports",
+   "basename": "scorecard_report",
+   "language": "es",
+   "formats": [
+    "html",
+    "pdf",
+    "md",
+    "docx"
+   ],
+   "html": {
+    "template_id": "scorecard_basic_v1",
+    "theme": "nikodym",
+    "embed_assets": true,
+    "include_interactive_charts": false,
+    "deterministic_ids": true
+   },
+   "pdf": {
+    "enabled": true,
+    "fail_if_unavailable": false
+   },
+   "docx": {
+    "fail_if_unavailable": false
+   },
+   "ai": {
+    "enabled": false,
+    "provider": "none",
+    "model": null,
+    "api_key_env": "ANTHROPIC_API_KEY",
+    "timeout_seconds": 20.0,
+    "max_input_tokens": 12000,
+    "send_raw_data": false,
+    "label_ai_text": true
+   },
+   "sections": {
+    "required_sections": [
+     "binning",
+     "selection",
+     "model",
+     "scorecard",
+     "calibration",
+     "performance",
+     "stability"
+    ],
+    "missing_policy": "error",
+    "include_raw_tables": false,
+    "max_table_rows": 200
+   }
+  },
+  "audit": null,
+  "governance": null,
+  "tracking": null
+ },
+ "config_hash": "decdb9017f555bd664469750a9f5f15f5440f08268f5af23eabcb3f5817d113b",
+ "dataset_id": "consumo_comportamiento",
+ "name": "Preset estándar F1 — consumo (comportamiento)",
+ "description": "Config F1 completo y curado, listo para correr sin tocar nada: scorecard de comportamiento (data→binning→selection→model→scorecard→calibration→performance→stability) sobre el dataset sintético de consumo."
+}
