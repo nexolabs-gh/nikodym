@@ -16,6 +16,7 @@ import {
   TESTS_SUITE,
 } from "@/components/landing-evidence"
 import { DEMO_MODE } from "@/lib/demo"
+import { presetDisplay } from "@/lib/presentation"
 import { cn } from "@/lib/utils"
 
 /**
@@ -288,21 +289,12 @@ function CurvaGains() {
 }
 
 /**
- * Título limpio de una card de demo: quita el prefijo interno «Preset F3 — » del nombre del preset
- * (jerga de repo) y capitaliza. Fallback seguro: si un preset no trae ese prefijo, deja su nombre.
- */
-function demoTitle(name: string): string {
-  return name
-    .replace(/^Preset\s+F\d+\s*[—–-]\s*/i, "")
-    .replace(/^./, (c) => c.toUpperCase())
-}
-
-/**
  * Selector de demos (SOLO en `demo.nikodym.cl`): una card por preset empaquetado (`listPresets()`),
- * para ELEGIR qué dominio ver sin enterrarlo en el selector de Ejecutar. Al elegir uno, entra al
+ * para ELEGIR qué área ver sin enterrarla en el selector de Ejecutar. Al elegir una, entra al
  * workspace en Ejecutar con ese pipeline ya cargado. Data-driven: si mañana hay más presets en la
  * demo, aparecen aquí solos. Falla en silencio (sin catálogo no se muestra; el hero conserva el
- * comando `pip`). El badge «experimental» se deriva de la propia descripción del preset.
+ * comando `pip`). Título, garantía y blurb salen de la capa de presentación (`presetDisplay`), no
+ * del nombre/descripción crudos del fixture: así landing y workspace muestran el mismo copy limpio.
  */
 function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
   const [presets, setPresets] = useState<PresetSummary[]>([])
@@ -328,9 +320,9 @@ function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
         Elige una demo
       </p>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {presets.map((p) => {
-          const experimental = p.description.toLowerCase().includes("experimental")
+          const { title, garantia, blurb } = presetDisplay(p)
           return (
             <button
               key={p.id}
@@ -338,21 +330,27 @@ function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
               onClick={() => onPick(p.id)}
               className={cn(
                 "group flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left",
-                "shadow-card transition-all hover:-translate-y-0.5 hover:border-brand-accent-dark/50",
+                "shadow-card outline-none transition-all hover:-translate-y-0.5 hover:border-brand-accent-dark/50",
+                "focus-visible:border-brand-accent-dark focus-visible:ring-3 focus-visible:ring-brand-accent-dark/40",
               )}
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="font-display font-bold leading-snug text-foreground">
-                  {demoTitle(p.name)}
+                  {title}
                 </span>
-                {experimental ? (
-                  <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-400/[0.06] px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.1em] text-amber-200/90">
-                    experimental
-                  </span>
-                ) : null}
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.1em]",
+                    garantia === "experimental"
+                      ? "border-amber-400/30 bg-amber-400/[0.06] text-amber-200/90"
+                      : "border-eyebrow/30 bg-eyebrow/[0.06] text-eyebrow",
+                  )}
+                >
+                  {garantia}
+                </span>
               </div>
               <span className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
-                {p.description}
+                {blurb}
               </span>
               <span className="mt-auto inline-flex items-center gap-1.5 pt-1 font-mono text-xs text-brand-accent-dark">
                 Ver esta demo

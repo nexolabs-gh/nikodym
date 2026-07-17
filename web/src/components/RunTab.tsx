@@ -27,6 +27,7 @@ import {
   type PresetSummary,
   type RunStatus,
 } from "@/lib/api"
+import { presetDisplay } from "@/lib/presentation"
 import { canRun, describeApiError } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 
@@ -185,7 +186,7 @@ export function RunTab({ onNavigate }: RunTabProps) {
                   <SelectContent>
                     {presets.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
-                        {p.name}
+                        {presetDisplay(p).title}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -198,9 +199,9 @@ export function RunTab({ onNavigate }: RunTabProps) {
                 />
               ) : null}
             </div>
-            {activePreset?.description ? (
+            {activePreset ? (
               <p className="text-xs leading-relaxed text-muted-foreground">
-                {activePreset.description}
+                {presetDisplay(activePreset).blurb}
               </p>
             ) : null}
           </CardContent>
