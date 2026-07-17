@@ -224,16 +224,16 @@ export const DOMINIOS = [
     superficie: "UI",
     garantia: "experimental",
     tagline:
-      "Un cálculo, dos normas. CMF: 10 matrices normativas B-1/B-3 en aritmética Decimal (entre " +
-      "ellas comercial, leasing, estudiantil, factoring, consumo v2025, vivienda PVG, avales y " +
-      "contingentes con CCF), con el archivo de parámetros sellado por SHA-256. IFRS 9: " +
-      "ECL = PD marginal × LGD × EAD descontada a la EIR, staging SICR con gatillos blandos, " +
-      "backstops duros de mora y exención de bajo riesgo, y PD configurable point-in-time " +
-      "(Vasicek) o through-the-cycle. El " +
-      "orquestador compara ambos marcos y reporta el máximo. Con una precisión que casi nadie " +
-      "hace: la regla del máximo del Capítulo B-1 (Circular 2.346) es entre el método estándar " +
-      "y el método interno del banco — no entre CMF e IFRS 9. El Compendio (A-2, num. 5) excluye " +
-      "el deterioro de NIIF 9 sobre las colocaciones.",
+      "Dos marcos regulatorios, motores separados. CMF: 10 matrices normativas B-1/B-3 en " +
+      "aritmética Decimal (entre ellas comercial, leasing, estudiantil, factoring, consumo v2025, " +
+      "vivienda PVG, avales y contingentes con CCF), con el archivo de parámetros sellado por " +
+      "SHA-256. IFRS 9: ECL = PD marginal × LGD × EAD descontada a la EIR, staging SICR con " +
+      "gatillos blandos, backstops duros de mora y exención de bajo riesgo, y PD configurable " +
+      "point-in-time (Vasicek) o through-the-cycle. La regla del máximo vive DENTRO de CMF: el " +
+      "Capítulo B-1 (Circular 2.346) obliga a reportar, por institución, el mayor entre el método " +
+      "estándar de la CMF y el método interno del banco — nunca un máximo entre CMF e IFRS 9, que " +
+      "son marcos separados. El Compendio (A-2, num. 5) excluye el deterioro de NIIF 9 sobre las " +
+      "colocaciones.",
     modulo: "nikodym.provisioning",
   },
   {
