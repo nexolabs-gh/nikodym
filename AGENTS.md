@@ -9,25 +9,34 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado operativo AutoDesarrollo (2026-07-02)
-Latido **PAUSADO**. No hay `autodev-cron`, `autodev-watchdog`, maestro headless, revisor ni gates corriendo; queda solo `autodev-caffeine`. La corrida supervisada real posterior al pulido ya se ejecuto sobre B21.4: el worker Codex llego a gates verdes, pero el revisor Codex rechazo tras 2 ciclos y el codigo fue revertido. La maquinaria sigue siendo **multi-motor por rol**: perfil actual recomendado `AUTODESARROLLO_PERFIL=codex-only`, pero se puede correr `claude-only` o mixto con `MAESTRO_MOTOR`, `WORKER_MOTOR`/`MOTOR`, `REVISOR_MOTOR`, `PLANIFICADOR_MOTOR`. No hay fallback oculto entre motores: el cambio debe ser explícito.
+## Estado del proyecto (2026-07-17)
+**Nikodym `1.2.0` publicado en PyPI** (`pip install nikodym`); repo `main` en `d40c654`. La librería
+ya **no** está en fase de construcción por capas — está publicada y en mejora continua:
+- **Pipeline scorecard F1 (comportamiento)**: API **estable** bajo garantía **SemVer 1.x** (binning WoE
+  monotónico, selección IV/VIF, logística sobre WoE, calibración, informe HTML/PDF/Word).
+- **Provisiones CMF (Chile, B-1) e IFRS 9/ECL**: implementadas, testeadas y con preset/UI/informe, pero
+  marcadas **experimentales** (madurez, no certificación).
+- **Stress, markov, forward, survival**: implementados y cubiertos por tests, pero hoy se usan
+  escribiendo el config en Python (sin preset/UI propios) → **experimentales**.
+- **UI React** en `web/` + **demo multi-dominio** (F1 scorecard · F3 CMF · F4 IFRS 9) deployada en
+  **demo.nikodym.cl** (fixtures de corridas reales, sin cálculo en el navegador).
+- Suite: **>3.900 tests**, `mypy --strict`, cobertura 100 % en código regulatorio, CI matriz verde
+  (macOS/Windows/Linux × Python 3.11–3.13).
 
-Rol del maestro: supervisor/orquestador, no programador de código de Nikodym. B21.3 ya quedo cerrado; el primer item ejecutable es B21.4 `stress/engine.py` sensibilidad, empezando por la agregacion real de `SensitivitySweepConfig.group_cols`. Leer `HANDOFF.md` antes de tocarlo.
+**Track vigente:** cola **pre-Interbank** en [`privado/COLA-CODEX-INTERBANK.md`](privado/COLA-CODEX-INTERBANK.md)
+(IBK-01…IBK-05). Al 2026-07-17: **IBK-01/02/03/04 cerradas** (bundle demo F1, narrativa por área,
+recaptura + ensayo end-to-end, demo deployada); **siguiente IBK-05** = release candidate **1.3.0** (bump,
+changelog, smoke clean-room del wheel, recaptura de informes). El **tag `vX.Y.Z` y PyPI exigen OK
+específico de Cami por release**. Reunión **Interbank miércoles 2026-07-22** (congelar demo ≤ martes 21).
+**Arrancar toda sesión leyendo [`HANDOFF.md`](HANDOFF.md).**
 
-## Estado actual (2026-06-24)
-**27 SDD en total** (antes 26): en Tanda 1 Rev se creó **SDD-27 `eda`** (huérfano del árbol que ningún SDD cubría).
-**Tanda 0 ✅ · Tanda 1 (Fundación) ✅ · Tanda 1 Rev ✅ cerrada.** Los 7 SDD de Fundación (01 `core`, 02 `data`, 03 `audit`+`governance`, 04 `tracking`, 05 convenciones+config, 24 testing, 25 packaging/CI) están **Aprobados + revisados** (cabecera "rev. Tanda 1 Rev"). Tanda 1 Rev: revisión adversarial multi-agente (context7) → integró 1 crítico + 7 altos + ~medios, ratificó las 5 decisiones abiertas, y re-verificó (2ª pasada, residuos corregidos). Molde fijado (core sin sklearn; identidad por `config_hash` JSON canónico que excluye INFRA_SECTIONS; excepciones `NikodymError` + subclases por módulo; `FanOutSink`; uniones anidadas con factory local; naming inglés stats/IFRS9 + español CMF; `StepAdapter` + claves de I/O; `config_cls` ClassVar). SDD-27 `eda` queda en **Borrador** (verificación formal en Tanda 2).
-
-**🔁 ESTRATEGIA DE CONSTRUCCIÓN confirmada (Cami, 2026-06-24): MIXTO-TRONCAL-MÁS-INCREMENTAL.** Refina (no reemplaza) el giro de waterfall a incremental por capa. Regla: **diseña de extremo a extremo lo que es caro cambiar (contratos transversales); difiere just-in-time lo barato (lógica intra-capa).** Análisis multi-agente (4 lectores de madurez + panel de 4 lentes que refutaron) convergió unánime: el molde de Fundación está maduro (4/5), pero 4 contratos que cruzan todas las capas estaban dimensionados solo para scoring lineal/escalar y se romperían en F4/F5 (cuando ya haya código y release encima). Por eso se hizo el **Hito 0** antes de codificar.
-
-**✅ Hito 0 — Contratos transversales (2026-06-24, cerrado).** Estabilizó la *extensibilidad* (aditiva, sin romper Tanda 1 Rev) de los 4 contratos, en [`docs/design/_CONTRATOS-TRANSVERSALES.md`](docs/design/_CONTRATOS-TRANSVERSALES.md) (CT-1…CT-4), propagado a SDD-01/02/03 (cabecera "rev. Hito 0"): **CT-1** `Step`/`StepAdapter` con `requires`/`provides` (firma DAG desde v1; scheduler topológico diferido a F5); **CT-2** puerta de extensión estructurada (`ProvisionResultLike.term_structure()`, `ModelCard.metric_sections`, `OverlayRecord.payload`); **CT-3** frontera datos transversal (scorecard) vs longitudinal (IFRS9/forward) escrita en SDD-02; **CT-4** `ModelInventory` `@runtime_checkable` + owner del ensamblado `assemble_run` en capa fina api/runner.
-
-**🟢 F0 (Fundación) EN CURSO. B1 `core` COMPLETO ✅. B2a `data` (config) COMPLETO ✅.** F0 se troceó en 4 bloques (B1 core · B2 data · B3 audit/governance/tracking/api · B4 testing+CI+3 criterios Hito 0). **B1a ✅** (esqueleto + `core/exceptions` + `core/seeding`, regulatorios 100%) · **B1b ✅** (`core/config`: schema·hashing·loader·migration) · **B1c ✅** (resto de `core`, 9 módulos). **B2 se trocea en B2a (config+endurecimiento ✅) · B2b (primitivas: loading·schema/validator·hashing·special) · B2c (target·partition) · B2d (card·step, Study end-to-end de datos).**
-**B1c ✅ verde — resto de `core`** (audit · results · base/mixins · registry/artifacts · steps · lineage · study). **Primer `Study` end-to-end con lineage reproducible (DoD F0).** `audit` (`AuditEvent`/`AuditKind`/`AuditSink`/`FanOutSink`) · `results` (Protocols económicos CT-2, `term_structure`) · `base` (`BaseNikodymEstimator` raíz propia + 6 familias, `get_params`/`set_params`/`from_config` sklearn-like) · `mixins` (`AuditableMixin`, `SerializationMixin` trust gate) · `registry`/`artifacts` (namespaced) · `steps` (`Step` Protocol CT-1, `StepAdapter`) · `lineage` (`LineageBundle`/`RunContext`, DoD F0) · `study` (orquestador motor v1 CT-1, save/load directorio atómico, reproducibilidad). Método ultracode: workflow de comprensión (10 agentes, APIs context7) → código por DanIA módulo-a-módulo → **revisión adversarial (27 agentes, 19 hallazgos integrados)** → **2ª pasada fidelidad-contrato (3 hallazgos integrados)**. **230 tests, cobertura 100%** global + regulatoria, `mypy --strict` (23 archivos), wheel OK, núcleo liviano. Decisiones de integrador y hallazgos cerrados en `HANDOFF.md` (resolución de pasos y `StepAdapter.execute` diferidos a T2 con error ruidoso; lineage conservado en corridas fallidas; save atómico con respaldo lateral; `apply_global` propaga `PYTHONHASHSEED`; `extra="forbid"` en modelos audit/lineage).
-
-**B2a ✅ verde — capa `data` (config + endurecimiento).** `DataConfig` (árbol Pydantic + mini-DSL `Predicate`/`Rule` sin `eval` + unión discriminada anidada por factory local). `NikodymConfig.data` endurecido a `DataConfig | None`: **el `model_rebuild()` que preveía SDD-02 §5 NO narra un campo ya resuelto en Pydantic 2.13** (verificado) → reemplazado por hook `_DATA_CONFIG_CLS` + `field_validator` que `nikodym.data` puebla al importarse (núcleo sigue liviano; golden `config_hash` invariante). Deps `pandera>=0.24` (`import pandera.pandas`) / `pyarrow>=14` activadas. **249 tests, cobertura 100%**, `mypy --strict` (25 archivos), wheel incluye `data`. Detalle y desviaciones a ratificar en `HANDOFF.md`.
-
-**Siguiente: B2b** (primitivas de `data`, SDD-02): `loading.py` (DataLoader CSV/Parquet), `schema.py` (SchemaValidator + builder `DataConfig→pandera.DataFrameSchema`, `validate(lazy=True)→DataValidationError`), `hashing.py` (`data_hash` por contenido lógico D2, con **fix de endianness** `.astype('<u8')`), `special.py`. Forma de trabajo: **yo-solo + fan-out**, sin equipo persistente. Tras F0 validado: T2 diseño (scoring) → F1 código → release público v0.1.0.
+## Auto-desarrollo (motor de trabajo)
+Método vigente: la skill de Claude **`/auto-desarrollo-claude`** (maestro Opus 4.8 que delega en writers
+en worktrees + revisor adversarial independiente + integrador; o maestro-solo si se pide explícitamente).
+La **maquinaria tmux/Codex multi-motor está FROZEN** (histórica): `autodev-cron`, watchdog, maestro
+headless y los perfiles por motor ya no corren. Detalle histórico en `docs/AUTONOMY.md`. La construcción
+por Tandas/SDD y el Hito 0 de contratos transversales (CT-1…CT-4) ya se completaron; su diseño vive en
+`docs/design/` y en «Decisiones de diseño fijadas» más abajo.
 
 ## Reglas de trabajo durables
 - **Incremental por capa (NUEVO, reemplaza "cero código ahora")**: cada capa se **diseña (SDD) → programa → valida con código y tests → ajusta → sigue**. Nunca se programa sin el SDD aprobado de esa capa, pero ya no se difiere todo el código hasta el final. El código de una capa es la prueba de fuego de su diseño; reabrir un SDD por feedback de código es esperado y barato.
