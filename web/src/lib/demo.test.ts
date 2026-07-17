@@ -14,14 +14,16 @@ import {
 } from "@/lib/demo"
 
 /**
- * Gate del modo demo MULTI-PRESET (SDD-28 / F7): la demo estática empaqueta DOS corridas reales
- * —`f3-provisiones-consumo` (default) y `f4-ifrs9-retail` (IFRS 9)— y rastrea el preset elegido para
- * que run/results/yaml/validate devuelvan el set correcto. Verifica que F3 sigue intacto (default),
- * que al elegir F4 todo el set cambia, y que AMBOS presets sirven su informe (el de F4 titulado
- * como informe IFRS 9). Todas las funciones demo son deterministas y no dependen de `DEMO_MODE` (solo `api.ts`
- * ramifica por él), así que se ejercitan directamente en el entorno node de vitest.
+ * Gate del modo demo MULTI-PRESET (SDD-28 / F7): la demo estática empaqueta TRES corridas reales
+ * —`f1-estandar-consumo` (scorecard puro), `f3-provisiones-consumo` (default) y `f4-ifrs9-retail`
+ * (IFRS 9)— y rastrea el preset elegido para que run/results/yaml/validate devuelvan el set correcto.
+ * Verifica que F3 sigue intacto (default), que al elegir F1/F4 todo el set cambia (sin contaminación
+ * cruzada de provisiones), y que los tres presets sirven su informe (F1 titulado como validación de
+ * scorecard, F4 como informe IFRS 9). Todas las funciones demo son deterministas y no dependen de
+ * `DEMO_MODE` (solo `api.ts` ramifica por él): se ejercitan directamente en el entorno node de vitest.
  */
 
+const F1_ID = "f1-estandar-consumo"
 const F3_ID = "f3-provisiones-consumo"
 const F4_ID = "f4-ifrs9-retail"
 const F4_CONFIG_HASH =
@@ -33,9 +35,9 @@ beforeEach(() => {
 })
 
 describe("demoListPresets", () => {
-  it("expone AMBOS presets en orden estable (F3 provisiones, F4 IFRS 9)", async () => {
+  it("expone LOS TRES presets en orden estable (F1 scorecard, F3 provisiones, F4 IFRS 9)", async () => {
     const { presets } = await demoListPresets()
-    expect(presets.map((p) => p.id)).toEqual([F3_ID, F4_ID])
+    expect(presets.map((p) => p.id)).toEqual([F1_ID, F3_ID, F4_ID])
     // Cada item trae lo justo para el selector (id/name/description/dataset_id).
     for (const p of presets) {
       expect(p.name.length).toBeGreaterThan(0)
@@ -157,6 +159,45 @@ describe("elegir el preset IFRS 9 (F4) rastrea todo el set", () => {
     expect(results.provisioning).toBeDefined()
     expect(results.provisioning_ifrs9 ?? null).toBeNull()
     await expect(demoGetReport()).resolves.toContain("<")
+  })
+})
+
+describe("elegir el preset scorecard (F1) rastrea todo el set", () => {
+  it("demoGetPresetById(F1) mueve el activo → results son scorecard PURO (sin provisiones)", async () => {
+    const preset = await demoGetPresetById(F1_ID)
+    expect(preset.id ?? preset.dataset_id).toBe(F1_ID)
+
+    const results = await demoGetResults()
+    // Scorecard puro: las cards de scorecard y performance vienen pobladas...
+    expect(results.scorecard ?? null).not.toBeNull()
+    expect(results.performance ?? null).not.toBeNull()
+    // ...y NINGUNA card de provisiones viaja (el F1 no calcula provisiones, ni CMF ni IFRS 9).
+    expect(results.provisioning ?? null).toBeNull()
+    expect(results.provisioning_cmf ?? null).toBeNull()
+    expect(results.provisioning_internal ?? null).toBeNull()
+    expect(results.provisioning_ifrs9 ?? null).toBeNull()
+
+    // run → results comparten el run_id real de la corrida capturada.
+    const run = await demoRunPipeline()
+    expect(run.run_id).toBe(results.run_id)
+  })
+
+  it("F1 SÍ genera informe: demoGetReport resuelve el informe de validación de scorecard", async () => {
+    await demoGetPresetById(F1_ID)
+    const html = await demoGetReport()
+    expect(html).toContain("<")
+    // Es el informe de scorecard (título dinámico del renderer), no el de provisiones IFRS 9.
+    expect(html).toContain("Informe de Validación de Scorecard")
+    expect(html).not.toContain("Informe de Provisiones IFRS 9 / ECL")
+  })
+
+  it("volver a F3 tras F1 restaura la demo de provisiones", async () => {
+    await demoGetPresetById(F1_ID)
+    await demoGetPresetById(F3_ID)
+    const results = await demoGetResults()
+    expect(results.provisioning).toBeDefined()
+    expect(results.provisioning ?? null).not.toBeNull()
+    expect(results.provisioning_ifrs9 ?? null).toBeNull()
   })
 })
 

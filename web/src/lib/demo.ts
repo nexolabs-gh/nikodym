@@ -2,14 +2,15 @@
  * Modo demo (showcase estático) — SDD-23 / lanzamiento F7.
  *
  * Sirve los fixtures de corridas REALES del motor para que la app funcione end-to-end SIN backend,
- * en el deploy estático de `demo.nikodym.cl`. Es MULTI-PRESET: empaqueta dos corridas capturadas
- * contra el backend FastAPI (ver `scripts/capture_demo_fixtures.py`):
+ * en el deploy estático de `demo.nikodym.cl`. Es MULTI-PRESET: empaqueta tres corridas capturadas
+ * contra el backend FastAPI (ver `scripts/capture_demo_fixtures*.py`):
+ *   - `f1-estandar-consumo` — scorecard de comportamiento puro (sin provisiones).
  *   - `f3-provisiones-consumo` — scorecard + provisiones CMF/interno (la regla del máximo B-1).
  *   - `f4-ifrs9-retail` — provisiones IFRS 9 / ECL de tres etapas (SDD-16, experimental).
  *
  * El preset ACTIVO se rastrea en un `activePresetId` de módulo: `demoGetPresetById` (que dispara el
  * selector de Ejecutar) lo mueve, y `demoGetResults`/`demoConfigToYaml`/`demoValidateConfig`/
- * `demoRunPipeline` devuelven el set del preset elegido. AMBOS presets traen informe (los cuatro
+ * `demoRunPipeline` devuelven el set del preset elegido. LOS TRES presets traen informe (los cuatro
  * entregables); un preset futuro sin informe degrada como el backend real (404), sin romper la UI.
  * La demo de provisiones (F3) queda idéntica: es el preset por defecto que siembra el arranque.
  *
@@ -40,6 +41,9 @@ import toYamlFixture from "@/fixtures/demo/toyaml.json"
 import presetIfrs9Fixture from "@/fixtures/demo/preset-ifrs9.json"
 import resultsIfrs9Fixture from "@/fixtures/demo/results-ifrs9.json"
 import toYamlIfrs9Fixture from "@/fixtures/demo/toyaml-ifrs9.json"
+import presetF1Fixture from "@/fixtures/demo/preset-f1.json"
+import resultsF1Fixture from "@/fixtures/demo/results-f1.json"
+import toYamlF1Fixture from "@/fixtures/demo/toyaml-f1.json"
 import reportHtml from "@/fixtures/demo/report.html?raw"
 // A diferencia de los JSON/HTML (embebidos como valores JS, que el DCE saca del build normal), el
 // PDF es binario: `?url` de Vite lo emite como asset estático y devuelve su URL servida. NOTA: el
@@ -55,6 +59,11 @@ import reportIfrs9Html from "@/fixtures/demo/report-ifrs9.html?raw"
 import reportIfrs9PdfUrl from "@/fixtures/demo/report-ifrs9.pdf?url"
 import reportIfrs9DocxUrl from "@/fixtures/demo/report-ifrs9.docx?url"
 import reportIfrs9QuartoZipUrl from "@/fixtures/demo/report-quarto-ifrs9.zip?url"
+// Informe scorecard (F1): mismos cuatro entregables, capturados por capture_demo_fixtures_f1.py.
+import reportF1Html from "@/fixtures/demo/report-f1.html?raw"
+import reportF1PdfUrl from "@/fixtures/demo/report-f1.pdf?url"
+import reportF1DocxUrl from "@/fixtures/demo/report-f1.docx?url"
+import reportF1QuartoZipUrl from "@/fixtures/demo/report-quarto-f1.zip?url"
 
 /** Activo solo en el build de la demo estática (`VITE_DEMO_MODE=true`). */
 export const DEMO_MODE: boolean = import.meta.env.VITE_DEMO_MODE === "true"
@@ -80,10 +89,13 @@ interface DemoBundle {
 
 const presetF3 = presetFixture as unknown as PresetResponse
 const presetF4 = presetIfrs9Fixture as unknown as PresetResponse
+const presetF1 = presetF1Fixture as unknown as PresetResponse
 const resultsF3 = resultsFixture as unknown as ResultsResponse
 const resultsF4 = resultsIfrs9Fixture as unknown as ResultsResponse
+const resultsF1 = resultsF1Fixture as unknown as ResultsResponse
 const toYamlF3 = toYamlFixture as unknown as ConfigToYamlResponse
 const toYamlF4 = toYamlIfrs9Fixture as unknown as ConfigToYamlResponse
+const toYamlF1 = toYamlF1Fixture as unknown as ConfigToYamlResponse
 const datasets = datasetsFixture as unknown as DatasetInfo[]
 
 /** Id estable de un preset (el fixture no siempre trae `id` → cae al `dataset_id`). */
@@ -91,11 +103,24 @@ function presetIdOf(preset: PresetResponse): string {
   return preset.id ?? preset.dataset_id
 }
 
+const F1_ID = presetIdOf(presetF1)
 const F3_ID = presetIdOf(presetF3)
 const F4_ID = presetIdOf(presetF4)
 
 /** Registro de presets empaquetados, por id. */
 const BUNDLES: Record<string, DemoBundle> = {
+  [F1_ID]: {
+    preset: presetF1,
+    results: resultsF1,
+    toYaml: toYamlF1,
+    runId: resultsF1.run_id ?? "demo-run-f1",
+    report: {
+      html: reportF1Html,
+      pdfUrl: reportF1PdfUrl,
+      docxUrl: reportF1DocxUrl,
+      editableZipUrl: reportF1QuartoZipUrl,
+    },
+  },
   [F3_ID]: {
     preset: presetF3,
     results: resultsF3,
@@ -122,8 +147,8 @@ const BUNDLES: Record<string, DemoBundle> = {
   },
 }
 
-/** Orden estable del selector: provisiones F3 primero, IFRS 9 F4 después. */
-const PRESET_ORDER: readonly string[] = [F3_ID, F4_ID]
+/** Orden estable del selector: scorecard F1 primero, provisiones F3, IFRS 9 F4. */
+const PRESET_ORDER: readonly string[] = [F1_ID, F3_ID, F4_ID]
 
 /**
  * Preset ACTIVO de la demo (single-flight de módulo). Default = F3 (el que siembra el arranque, así
@@ -147,9 +172,9 @@ export function demoGetPreset(): Promise<PresetResponse> {
 }
 
 /**
- * Catálogo de presets en la demo estática: expone AMBOS presets empaquetados (F3 provisiones y F4
- * IFRS 9), en orden estable. El backend real sirve todos los presets registrados; la demo, al ser
- * un showcase enlatado, expone los que tiene capturados.
+ * Catálogo de presets en la demo estática: expone LOS TRES presets empaquetados (F1 scorecard, F3
+ * provisiones y F4 IFRS 9), en orden estable. El backend real sirve todos los presets registrados;
+ * la demo, al ser un showcase enlatado, expone los que tiene capturados.
  */
 export function demoListPresets(): Promise<PresetsIndexResponse> {
   return Promise.resolve({
@@ -196,9 +221,10 @@ export function demoConfigFromYaml(): Promise<ConfigFromYamlResponse> {
 }
 
 /**
- * Catálogo de datasets: el sintético del preset F3 (sin cambios). El preset F4 recomienda un dataset
- * propio (`ifrs9_retail_latam`) que no está en este catálogo; al elegirlo, Ejecutar queda habilitado
- * igual (el `datasetId` del preset abre el gate) y Datos degrada sin preview, sin romperse.
+ * Catálogo de datasets: el registro completo del backend (recapturado con los fixtures F1), que ya
+ * incluye `ifrs9_retail_latam`, el dataset propio que recomienda el preset F4. La demo no tiene
+ * backend que materialice filas, así que Datos degrada sin preview de datos; al elegir cualquier
+ * preset, Ejecutar queda habilitado igual (el `datasetId` del preset abre el gate), sin romperse.
  */
 export function demoListDatasets(): Promise<DatasetInfo[]> {
   return Promise.resolve(datasets)
