@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "c790018e77e24ec19f94104974fec452",
+ "run_id": "5a240f62e01645e8bc2255159ab1a9e4",
  "error": null,
  "model_card": null,
  "binning": {
@@ -10031,6 +10031,7 @@
    }
   ]
  },
+ "survival": null,
  "provisioning_cmf": {
   "matrix_version": "cmf_b1_b3_2025_01",
   "as_of_date": "2024-06-30",
@@ -10479,5 +10480,6 @@
     "warning_codes": []
    }
   ]
- }
+ },
+ "provisioning_ifrs9": null
 }

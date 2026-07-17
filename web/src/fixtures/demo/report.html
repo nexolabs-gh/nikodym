@@ -658,6 +658,7 @@ tbody tr:nth-child(even) td {
     break-inside: avoid;
   }
 }</style>
+  <style>@page { @top-right { content: "Informe de Validación de Scorecard — CONFIDENCIAL"; } }</style>
 </head>
 <body>
 <main>
@@ -679,14 +680,14 @@ tbody tr:nth-child(even) td {
     <dt>Versión del informe</dt>
     <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
     <dt>Fecha de emisión</dt>
-    <dd>2026-07-15</dd>
+    <dd>2026-07-17</dd>
   </dl>
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=ac1653e6e0b83ff47490f6175c0c0a7596e7469cade01db9e3693f9b2e2a9ee3</code></div>
+    <div class="lineage-line"><code>config_hash=6789952344a23f4d06161e41ace0c87c0a7a997683bd6192f7daf92043a24b5e</code></div>
     <div class="lineage-line"><code>data_hash=7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</code></div>
-    <div class="lineage-line"><code>git_sha=56fcc2e64b9011a59d410aa492e1ec0f5b1ba1a6</code></div>
+    <div class="lineage-line"><code>git_sha=be7fd5d4bf7641a11e2355a32f9742e8f7d5ae9c</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -3597,7 +3598,6 @@ L 420.51375 486.278125
 
   <p>El alcance de la validación de este informe es el scorecard: discriminación, calibración y estabilidad. El informe reporta además el cálculo regulatorio de provisiones (capítulo «Provisiones regulatorias»), una función experimental fuera de la garantía SemVer 1.x. El backtesting y la integración con IFRS 9 corresponden a fases posteriores y no se cubren ni se infieren aquí.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
-  <p>Caveats de reproducibilidad declarados por la corrida: working tree git sucio: cambios sin commitear no reconstruibles.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
 
 
@@ -3609,14 +3609,12 @@ L 420.51375 486.278125
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>ac1653e6e0b83ff47490f6175c0c0a7596e7469cade01db9e3693f9b2e2a9ee3</dd>
-    <dt>created_at</dt><dd>2026-07-15T22:42:59.124097Z</dd>
+    <dt>config_hash</dt><dd>6789952344a23f4d06161e41ace0c87c0a7a997683bd6192f7daf92043a24b5e</dd>
+    <dt>created_at</dt><dd>2026-07-17T21:34:18.403995Z</dd>
     <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
-    <dt>determinism_caveats</dt><dd><pre>[
-  &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
-]</pre></dd>
-    <dt>git_dirty</dt><dd>true</dd>
-    <dt>git_sha</dt><dd>56fcc2e64b9011a59d410aa492e1ec0f5b1ba1a6</dd>
+    <dt>determinism_caveats</dt><dd>[]</dd>
+    <dt>git_dirty</dt><dd>false</dd>
+    <dt>git_sha</dt><dd>be7fd5d4bf7641a11e2355a32f9742e8f7d5ae9c</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.2.0&#34;,
