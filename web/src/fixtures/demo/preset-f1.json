@@ -351,7 +351,60 @@
    "include_pd_stability": true,
    "csi_source": "score_points"
   },
-  "validation": null,
+  "validation": {
+   "schema_version": "1.0.0",
+   "type": "standard",
+   "families": [
+    "discrimination",
+    "calibration",
+    "stability"
+   ],
+   "discrimination": {
+    "consume_performance": true,
+    "partitions": [
+     "desarrollo",
+     "holdout",
+     "oot"
+    ]
+   },
+   "calibration": {
+    "hosmer_lemeshow": true,
+    "hl_n_groups": 10,
+    "hl_grouping": "deciles",
+    "brier": true,
+    "binomial_by_grade": false,
+    "grade_col": "grade",
+    "pd_test": "jeffreys",
+    "alpha": 0.05,
+    "traffic_light_green_alpha": 0.05,
+    "traffic_light_red_alpha": 0.01,
+    "target_column": "target",
+    "pd_column": "pd_calibrated",
+    "partition_column": "partition",
+    "min_rows_per_group": 30
+   },
+   "stability": {
+    "consume_stability": true,
+    "psi_stable_threshold": 0.1,
+    "psi_review_threshold": 0.25
+   },
+   "backtesting": {
+    "enabled": false,
+    "parameters": [
+     "pd",
+     "lgd",
+     "ead"
+    ],
+    "segment_col": "portfolio",
+    "alpha": 0.05,
+    "one_sided": true,
+    "realised_pd_col": "realised_default",
+    "realised_lgd_col": "realised_lgd",
+    "realised_ead_col": "realised_ead",
+    "pd_test": "jeffreys"
+   },
+   "fail_on_falta_dato": true
+  },
   "report": {
    "schema_version": "1.0.0",
    "type": "standard",
@@ -407,7 +460,7 @@
   "governance": null,
   "tracking": null
  },
- "config_hash": "decdb9017f555bd664469750a9f5f15f5440f08268f5af23eabcb3f5817d113b",
+ "config_hash": "9f7dc881445c6a20de3d61d436fec1d167b0786dfc8a85558784464116dab106",
  "dataset_id": "consumo_comportamiento",
  "name": "Preset estándar F1 — consumo (comportamiento)",
  "description": "Config F1 completo y curado, listo para correr sin tocar nada: scorecard de comportamiento (data→binning→selection→model→scorecard→calibration→performance→stability) sobre el dataset sintético de consumo."
