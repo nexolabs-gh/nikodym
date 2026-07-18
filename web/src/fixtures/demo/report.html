@@ -1017,6 +1017,7 @@ figcaption {
       <a href="#exec-summary" class="lvl-1">Resumen ejecutivo</a>
       <a href="#section-introduction" class="lvl-1">Introducción</a>
       <a href="#section-context" class="lvl-1">Contexto del modelo y de la cartera</a>
+      <a href="#section-context-data" class="lvl-2">Población, particiones y exclusiones</a>
       <a href="#section-methodology" class="lvl-1">Metodología</a>
       <a href="#section-methodology-data" class="lvl-2">Tratamiento de datos y particiones</a>
       <a href="#section-methodology-binning" class="lvl-2">Binning WoE</a>
@@ -1041,6 +1042,7 @@ figcaption {
       <a href="#section-appendix_lineage" class="lvl-1">Lineage y reproducibilidad</a>
       <a href="#section-appendix_tables" class="lvl-1">Tablas detalladas</a>
       <a href="#section-appendix_parameters" class="lvl-1">Parámetros completos</a>
+      <a href="#section-appendix_parameters-data" class="lvl-2">Población, particiones y exclusiones</a>
       <a href="#section-appendix_parameters-binning" class="lvl-2">Binning WoE y poder predictivo</a>
       <a href="#section-appendix_parameters-selection" class="lvl-2">Selección de variables</a>
       <a href="#section-appendix_parameters-model" class="lvl-2">Modelo PD</a>
@@ -1086,9 +1088,9 @@ figcaption {
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=c820682495a1f6877fce49eaf016a0842ad0947a25fa0e222c7af0d7bbf3d910</code></div>
+    <div class="lineage-line"><code>config_hash=74a0876d4bfcc54b1d56052d70a7366f0ccf8567d464cf34f0855fd71f109549</code></div>
     <div class="lineage-line"><code>data_hash=7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</code></div>
-    <div class="lineage-line"><code>git_sha=4cb074c9286b4a5aa3d3eaf00655b7ef7dcceaa9</code></div>
+    <div class="lineage-line"><code>git_sha=a5a1ff03301e747598fd60743ddd94b1e8793dab</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1201,7 +1203,7 @@ figcaption {
   <p class="muted">No se configuraron umbrales de discriminación, de modo que el motor no puede levantar alertas sobre AUC, Gini ni KS: «sin alertas» significa que no había umbral contra el cual comparar, no que la métrica sea satisfactoria.</p>
   <p class="muted">Las bandas de PSI usan los umbrales configurados: estable por debajo de 0.10 y redesarrollo por sobre 0.25.</p>
 
-  <p class="scope-note">Alcance: validación de scorecard (discriminación, estabilidad y calibración). El backtesting y la integración con IFRS 9 corresponden a fases posteriores; este informe no los cubre ni infiere sus resultados. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
+  <p class="scope-note">Alcance: construcción y evaluación del scorecard. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
 </section>
 
 <section id="section-toc" data-section-id="toc" data-kind="toc" class="report-section chapter toc">
@@ -1220,6 +1222,11 @@ figcaption {
     <li class="toc-level-1">
       <a href="#section-context">
 <span class="toc-number">2</span>        <span class="toc-title">Contexto del modelo y de la cartera</span>
+      </a>
+    </li>
+    <li class="toc-level-2">
+      <a href="#section-context-data">
+<span class="toc-number">2.1</span>        <span class="toc-title">Población, particiones y exclusiones</span>
       </a>
     </li>
     <li class="toc-level-1">
@@ -1343,38 +1350,43 @@ figcaption {
       </a>
     </li>
     <li class="toc-level-2">
+      <a href="#section-appendix_parameters-data">
+<span class="toc-number">C.1</span>        <span class="toc-title">Población, particiones y exclusiones</span>
+      </a>
+    </li>
+    <li class="toc-level-2">
       <a href="#section-appendix_parameters-binning">
-<span class="toc-number">C.1</span>        <span class="toc-title">Binning WoE y poder predictivo</span>
+<span class="toc-number">C.2</span>        <span class="toc-title">Binning WoE y poder predictivo</span>
       </a>
     </li>
     <li class="toc-level-2">
       <a href="#section-appendix_parameters-selection">
-<span class="toc-number">C.2</span>        <span class="toc-title">Selección de variables</span>
+<span class="toc-number">C.3</span>        <span class="toc-title">Selección de variables</span>
       </a>
     </li>
     <li class="toc-level-2">
       <a href="#section-appendix_parameters-model">
-<span class="toc-number">C.3</span>        <span class="toc-title">Modelo PD</span>
+<span class="toc-number">C.4</span>        <span class="toc-title">Modelo PD</span>
       </a>
     </li>
     <li class="toc-level-2">
       <a href="#section-appendix_parameters-scorecard">
-<span class="toc-number">C.4</span>        <span class="toc-title">Scorecard</span>
+<span class="toc-number">C.5</span>        <span class="toc-title">Scorecard</span>
       </a>
     </li>
     <li class="toc-level-2">
       <a href="#section-appendix_parameters-calibration">
-<span class="toc-number">C.5</span>        <span class="toc-title">Calibración</span>
+<span class="toc-number">C.6</span>        <span class="toc-title">Calibración</span>
       </a>
     </li>
     <li class="toc-level-2">
       <a href="#section-appendix_parameters-performance">
-<span class="toc-number">C.6</span>        <span class="toc-title">Desempeño y discriminación</span>
+<span class="toc-number">C.7</span>        <span class="toc-title">Desempeño y discriminación</span>
       </a>
     </li>
     <li class="toc-level-2">
       <a href="#section-appendix_parameters-stability">
-<span class="toc-number">C.7</span>        <span class="toc-title">Estabilidad</span>
+<span class="toc-number">C.8</span>        <span class="toc-title">Estabilidad</span>
       </a>
     </li>
   </ul>
@@ -1395,6 +1407,8 @@ figcaption {
   <h2><span class="section-number">2</span>Contexto del modelo y de la cartera</h2>
 
 
+  <p>La población procesada contiene 6.000 observaciones, 17 variables de entrada y una tasa de incumplimiento de 6.90 %. Los conteos por estado, partición y motivo de exclusión se reproducen literalmente en las tablas de esta sección.</p>
+  <p>La columna objetivo publicada por data es «target».</p>
   <p>La variable objetivo del ejercicio es «target», construida por las reglas de incumplimiento declaradas en el config (Anexo C). La definición de negocio que justifica esas reglas —p. ej. 90+ días de mora— debe explicitarla el analista: el motor aplica la regla, no la fundamenta.</p>
   <p>La población se particionó por cohorte sobre «cohorte», reservando como OOT la cohorte «2024Q2», y un Holdout de 20.00 % del resto.</p>
 
@@ -1403,6 +1417,47 @@ figcaption {
   <p class="placeholder-guidance">Describe la cartera sobre la que se construyó el modelo: producto, segmento, volumen y período.</p>
   <p class="placeholder-guidance">Explicita la definición de incumplimiento utilizada (p. ej. 90+ días de mora) y por qué; declara las exclusiones aplicadas a la población y su justificación.</p>
 </div>
+
+</section>
+<section id="section-context-data" data-section-id="context.data" data-kind="data" data-level="2" class="report-section subsection">
+  <h3 class="subsection-title"><span class="section-number">2.1</span>Población, particiones y exclusiones</h3>
+
+
+  <p>Las tablas siguientes son una proyección de presentación del DataCardSection publicado por data. Estados, tamaños y tasas por partición, y exclusiones se copian literalmente; el informe no recalcula ni completa valores ausentes.</p>
+
+
+<figure class="table-block">
+  <figcaption class="table-title">Estados de la población</figcaption>
+  <table id="table-data-states" data-table-key="data.states">
+    <thead><tr><th>Estado</th><th>Observaciones</th></tr></thead>
+    <tbody>
+      <tr><td>bueno</td><td>5586</td></tr>
+      <tr><td>malo</td><td>414</td></tr>
+      <tr><td>indeterminado</td><td>0</td></tr>
+      <tr><td>excluido</td><td>0</td></tr>
+    </tbody>
+  </table>
+</figure>
+<figure class="table-block">
+  <figcaption class="table-title">Particiones de modelamiento</figcaption>
+  <table id="table-data-partitions" data-table-key="data.partitions">
+    <thead><tr><th>Partición</th><th>Observaciones</th><th>Tasa de incumplimiento</th></tr></thead>
+    <tbody>
+      <tr><td>desarrollo</td><td>3939</td><td>0.0663</td></tr>
+      <tr><td>holdout</td><td>1009</td><td>0.0723</td></tr>
+      <tr><td>oot</td><td>1052</td><td>0.0760</td></tr>
+      <tr><td>fuera_de_modelo</td><td>0</td><td>0.0000</td></tr>
+    </tbody>
+  </table>
+</figure>
+<figure class="table-block">
+  <figcaption class="table-title">Exclusiones aplicadas</figcaption>
+  <table id="table-data-exclusions" data-table-key="data.exclusions">
+    <thead><tr><th>Motivo</th><th>Exclusiones</th></tr></thead>
+    <tbody>
+    </tbody>
+  </table>
+</figure>
 
 </section>
 <section id="section-methodology" data-section-id="methodology" data-kind="prose" data-level="1" class="report-section chapter">
@@ -3997,7 +4052,7 @@ L 420.51375 486.278125
   <h2><span class="section-number">7</span>Limitaciones y supuestos</h2>
 
 
-  <p>El alcance de la validación de este informe es el scorecard: discriminación, calibración y estabilidad. El informe reporta además el cálculo regulatorio de provisiones (capítulo «Provisiones regulatorias»), una función experimental fuera de la garantía SemVer 1.x. El backtesting y la integración con IFRS 9 corresponden a fases posteriores y no se cubren ni se infieren aquí.</p>
+  <p>El informe cubre el scorecard y reporta además el cálculo regulatorio de provisiones (capítulo «Provisiones regulatorias»), una función experimental fuera de la garantía SemVer 1.x. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
 
@@ -4010,15 +4065,15 @@ L 420.51375 486.278125
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>c820682495a1f6877fce49eaf016a0842ad0947a25fa0e222c7af0d7bbf3d910</dd>
-    <dt>created_at</dt><dd>2026-07-18T14:41:53.813063Z</dd>
+    <dt>config_hash</dt><dd>74a0876d4bfcc54b1d56052d70a7366f0ccf8567d464cf34f0855fd71f109549</dd>
+    <dt>created_at</dt><dd>2026-07-18T17:31:35.861760Z</dd>
     <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>4cb074c9286b4a5aa3d3eaf00655b7ef7dcceaa9</dd>
+    <dt>git_sha</dt><dd>a5a1ff03301e747598fd60743ddd94b1e8793dab</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.2.0&#34;,
+  &#34;nikodym&#34;: &#34;1.3.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
@@ -4066,7 +4121,10 @@ L 420.51375 486.278125
   &#34;stability.stability_metrics&#34;,
   &#34;provisioning.comparison&#34;,
   &#34;provisioning_cmf.summary&#34;,
-  &#34;provisioning_internal.groups&#34;
+  &#34;provisioning_internal.groups&#34;,
+  &#34;data.states&#34;,
+  &#34;data.partitions&#34;,
+  &#34;data.exclusions&#34;
 ]</pre></dd>
   </dl>
 
@@ -4217,13 +4275,236 @@ L 420.51375 486.278125
 
 
 </section>
+<section id="section-appendix_parameters-data" data-section-id="appendix_parameters.data" data-kind="appendix" data-level="2" class="report-section appendix subsection">
+  <h3 class="subsection-title"><span class="section-number">C.1</span>Población, particiones y exclusiones</h3>
+  <p class="source">Artefacto de origen: <code>data.data_card</code></p>
+
+
+  <h4>Parámetros y payload</h4>
+  <dl>
+    <dt>bad_rate</dt><dd>0.0690</dd>
+    <dt>class_counts</dt><dd><pre>{
+  &#34;bueno&#34;: 5586,
+  &#34;excluido&#34;: 0,
+  &#34;indeterminado&#34;: 0,
+  &#34;malo&#34;: 414
+}</pre></dd>
+    <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;load&#34;: {
+    &#34;backend&#34;: &#34;pandas&#34;,
+    &#34;csv_options&#34;: {
+      &#34;decimal&#34;: &#34;.&#34;,
+      &#34;encoding&#34;: &#34;utf-8&#34;,
+      &#34;sep&#34;: &#34;,&#34;
+    },
+    &#34;file_format&#34;: &#34;auto&#34;,
+    &#34;source&#34;: &#34;/private/var/folders/12/yxnq95f55hg06fyynglz1scw0000gn/T/tmpzr7eolxf/datasets/provisiones_consumo.parquet&#34;
+  },
+  &#34;missing&#34;: {
+    &#34;max_missing_rate&#34;: &#34;0.9900&#34;,
+    &#34;special_values&#34;: []
+  },
+  &#34;partition&#34;: {
+    &#34;min_bads_per_partition&#34;: 30,
+    &#34;strategy&#34;: {
+      &#34;cohort_col&#34;: &#34;cohorte&#34;,
+      &#34;holdout_fraction&#34;: &#34;0.2000&#34;,
+      &#34;oot_cohorts&#34;: [
+        &#34;2024Q2&#34;
+      ],
+      &#34;type&#34;: &#34;cohort&#34;
+    },
+    &#34;ttd_includes_excluded&#34;: true
+  },
+  &#34;schema_&#34;: {
+    &#34;columns&#34;: [
+      {
+        &#34;coerce&#34;: false,
+        &#34;dtype&#34;: &#34;float&#34;,
+        &#34;ge&#34;: null,
+        &#34;isin&#34;: null,
+        &#34;le&#34;: null,
+        &#34;name&#34;: &#34;ingreso_mensual&#34;,
+        &#34;nullable&#34;: false,
+        &#34;required&#34;: true,
+        &#34;unique&#34;: false
+      },
+      {
+        &#34;coerce&#34;: false,
+        &#34;dtype&#34;: &#34;float&#34;,
+        &#34;ge&#34;: null,
+        &#34;isin&#34;: null,
+        &#34;le&#34;: null,
+        &#34;name&#34;: &#34;deuda_ingreso&#34;,
+        &#34;nullable&#34;: false,
+        &#34;required&#34;: true,
+        &#34;unique&#34;: false
+      },
+      {
+        &#34;coerce&#34;: false,
+        &#34;dtype&#34;: &#34;float&#34;,
+        &#34;ge&#34;: null,
+        &#34;isin&#34;: null,
+        &#34;le&#34;: null,
+        &#34;name&#34;: &#34;utilizacion_linea&#34;,
+        &#34;nullable&#34;: false,
+        &#34;required&#34;: true,
+        &#34;unique&#34;: false
+      },
+      {
+        &#34;coerce&#34;: false,
+        &#34;dtype&#34;: &#34;int&#34;,
+        &#34;ge&#34;: null,
+        &#34;isin&#34;: null,
+        &#34;le&#34;: null,
+        &#34;name&#34;: &#34;mora_max_12m&#34;,
+        &#34;nullable&#34;: false,
+        &#34;required&#34;: true,
+        &#34;unique&#34;: false
+      },
+      {
+        &#34;coerce&#34;: false,
+        &#34;dtype&#34;: &#34;int&#34;,
+        &#34;ge&#34;: null,
+        &#34;isin&#34;: null,
+        &#34;le&#34;: null,
+        &#34;name&#34;: &#34;antiguedad_meses&#34;,
+        &#34;nullable&#34;: false,
+        &#34;required&#34;: true,
+        &#34;unique&#34;: false
+      },
+      {
+        &#34;coerce&#34;: false,
+        &#34;dtype&#34;: &#34;str&#34;,
+        &#34;ge&#34;: null,
+        &#34;isin&#34;: null,
+        &#34;le&#34;: null,
+        &#34;name&#34;: &#34;segmento&#34;,
+        &#34;nullable&#34;: false,
+        &#34;required&#34;: true,
+        &#34;unique&#34;: false
+      },
+      {
+        &#34;coerce&#34;: false,
+        &#34;dtype&#34;: &#34;str&#34;,
+        &#34;ge&#34;: null,
+        &#34;isin&#34;: null,
+        &#34;le&#34;: null,
+        &#34;name&#34;: &#34;cohorte&#34;,
+        &#34;nullable&#34;: false,
+        &#34;required&#34;: true,
+        &#34;unique&#34;: false
+      },
+      {
+        &#34;coerce&#34;: false,
+        &#34;dtype&#34;: &#34;int&#34;,
+        &#34;ge&#34;: null,
+        &#34;isin&#34;: null,
+        &#34;le&#34;: null,
+        &#34;name&#34;: &#34;bad_flag&#34;,
+        &#34;nullable&#34;: false,
+        &#34;required&#34;: true,
+        &#34;unique&#34;: false
+      }
+    ],
+    &#34;index_col&#34;: &#34;loan_id&#34;,
+    &#34;ordered&#34;: false,
+    &#34;strict&#34;: false,
+    &#34;unique_keys&#34;: null
+  },
+  &#34;target&#34;: {
+    &#34;bad_rule&#34;: {
+      &#34;all_of&#34;: [
+        {
+          &#34;col&#34;: &#34;bad_flag&#34;,
+          &#34;op&#34;: &#34;==&#34;,
+          &#34;value&#34;: 1
+        }
+      ],
+      &#34;any_of&#34;: []
+    },
+    &#34;exclusion_rules&#34;: [],
+    &#34;good_rule&#34;: null,
+    &#34;indeterminate_rule&#34;: null,
+    &#34;target_col&#34;: &#34;target&#34;,
+    &#34;window&#34;: null
+  },
+  &#34;type&#34;: &#34;standard&#34;
+}</pre></dd>
+    <dt>exclusions_by_reason</dt><dd>{}</dd>
+    <dt>n_features</dt><dd>17</dd>
+    <dt>n_rows</dt><dd>6000</dd>
+    <dt>partition_bad_rates</dt><dd><pre>{
+  &#34;desarrollo&#34;: &#34;0.0663&#34;,
+  &#34;fuera_de_modelo&#34;: &#34;0.0000&#34;,
+  &#34;holdout&#34;: &#34;0.0723&#34;,
+  &#34;oot&#34;: &#34;0.0760&#34;
+}</pre></dd>
+    <dt>partition_sizes</dt><dd><pre>{
+  &#34;desarrollo&#34;: 3939,
+  &#34;fuera_de_modelo&#34;: 0,
+  &#34;holdout&#34;: 1009,
+  &#34;oot&#34;: 1052
+}</pre></dd>
+    <dt>performance_window_months</dt><dd>No disponible</dd>
+    <dt>source</dt><dd>provisiones_consumo.parquet</dd>
+    <dt>target_col</dt><dd>target</dd>
+  </dl>
+
+
+
+
+
+</section>
 <section id="section-appendix_parameters-binning" data-section-id="appendix_parameters.binning" data-kind="appendix" data-level="2" class="report-section appendix subsection">
-  <h3 class="subsection-title"><span class="section-number">C.1</span>Binning WoE y poder predictivo</h3>
+  <h3 class="subsection-title"><span class="section-number">C.2</span>Binning WoE y poder predictivo</h3>
   <p class="source">Artefacto de origen: <code>binning.binning_card</code></p>
 
 
   <h4>Parámetros y payload</h4>
   <dl>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;cat_cutoff&#34;: &#34;0.010000&#34;,
+  &#34;cat_unknown&#34;: null,
+  &#34;categorical_columns&#34;: [
+    &#34;segmento&#34;
+  ],
+  &#34;exclude_columns&#34;: [],
+  &#34;fail_on_non_binnable&#34;: false,
+  &#34;feature_columns&#34;: [
+    &#34;ingreso_mensual&#34;,
+    &#34;deuda_ingreso&#34;,
+    &#34;utilizacion_linea&#34;,
+    &#34;mora_max_12m&#34;,
+    &#34;antiguedad_meses&#34;,
+    &#34;segmento&#34;
+  ],
+  &#34;keep_structural_columns&#34;: true,
+  &#34;max_n_bins&#34;: 6,
+  &#34;max_n_prebins&#34;: 20,
+  &#34;max_pvalue&#34;: null,
+  &#34;max_pvalue_policy&#34;: &#34;consecutive&#34;,
+  &#34;metric_missing&#34;: &#34;empirical&#34;,
+  &#34;metric_special&#34;: &#34;empirical&#34;,
+  &#34;min_bin_n_event&#34;: 1,
+  &#34;min_bin_n_nonevent&#34;: 1,
+  &#34;min_bin_size&#34;: &#34;0.050000&#34;,
+  &#34;min_event_rate_diff&#34;: &#34;0.0000&#34;,
+  &#34;min_n_bins&#34;: null,
+  &#34;min_prebin_size&#34;: &#34;0.050000&#34;,
+  &#34;mip_solver&#34;: &#34;bop&#34;,
+  &#34;monotonic_trend&#34;: &#34;auto_asc_desc&#34;,
+  &#34;n_jobs&#34;: null,
+  &#34;output_suffix&#34;: &#34;__woe&#34;,
+  &#34;require_optimal&#34;: true,
+  &#34;solver&#34;: &#34;mip&#34;,
+  &#34;special_handling&#34;: &#34;separate&#34;,
+  &#34;split_digits&#34;: null,
+  &#34;time_limit&#34;: 10,
+  &#34;type&#34;: &#34;standard&#34;,
+  &#34;variable_overrides&#34;: []
+}</pre></dd>
     <dt>iv_by_variable</dt><dd><pre>{
   &#34;antiguedad_meses&#34;: &#34;0.237632&#34;,
   &#34;deuda_ingreso&#34;: &#34;0.650693&#34;,
@@ -4254,7 +4535,7 @@ L 420.51375 486.278125
 
 </section>
 <section id="section-appendix_parameters-selection" data-section-id="appendix_parameters.selection" data-kind="appendix" data-level="2" class="report-section appendix subsection">
-  <h3 class="subsection-title"><span class="section-number">C.2</span>Selección de variables</h3>
+  <h3 class="subsection-title"><span class="section-number">C.3</span>Selección de variables</h3>
   <p class="source">Artefacto de origen: <code>selection.selection_card</code></p>
 
 
@@ -4266,6 +4547,47 @@ L 420.51375 486.278125
   &#34;scikit-learn&#34;: &#34;1.7.2&#34;,
   &#34;scipy&#34;: &#34;1.18.0&#34;,
   &#34;statsmodels&#34;: &#34;0.14.6&#34;
+}</pre></dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;compute_univariate_metrics&#34;: true,
+  &#34;correlation&#34;: {
+    &#34;clustering_method&#34;: &#34;none&#34;,
+    &#34;enabled&#34;: true,
+    &#34;method&#34;: &#34;pearson&#34;,
+    &#34;threshold&#34;: &#34;0.750000&#34;
+  },
+  &#34;exclude_columns&#34;: [],
+  &#34;fail_if_no_features&#34;: true,
+  &#34;feature_columns&#34;: &#34;*&#34;,
+  &#34;force_exclude&#34;: [],
+  &#34;force_include&#34;: [],
+  &#34;keep_structural_columns&#34;: true,
+  &#34;max_iv&#34;: &#34;0.500000&#34;,
+  &#34;max_iv_action&#34;: &#34;flag&#34;,
+  &#34;min_auc&#34;: null,
+  &#34;min_gini&#34;: null,
+  &#34;min_iv&#34;: &#34;0.020000&#34;,
+  &#34;min_ks&#34;: null,
+  &#34;priority_order&#34;: [
+    &#34;iv&#34;,
+    &#34;auc&#34;,
+    &#34;ks&#34;,
+    &#34;name&#34;
+  ],
+  &#34;stability&#34;: {
+    &#34;action&#34;: &#34;report_only&#34;,
+    &#34;enabled&#34;: false,
+    &#34;review_threshold&#34;: &#34;0.250000&#34;,
+    &#34;smoothing&#34;: &#34;0.000001&#34;,
+    &#34;stable_threshold&#34;: &#34;0.100000&#34;
+  },
+  &#34;type&#34;: &#34;standard&#34;,
+  &#34;vif&#34;: {
+    &#34;add_intercept&#34;: true,
+    &#34;enabled&#34;: true,
+    &#34;max_iterations&#34;: null,
+    &#34;threshold&#34;: &#34;5.000000&#34;
+  }
 }</pre></dd>
     <dt>excluded_by_reason</dt><dd><pre>{
   &#34;low_iv&#34;: 1
@@ -4311,7 +4633,7 @@ L 420.51375 486.278125
 
 </section>
 <section id="section-appendix_parameters-model" data-section-id="appendix_parameters.model" data-kind="appendix" data-level="2" class="report-section appendix subsection">
-  <h3 class="subsection-title"><span class="section-number">C.3</span>Modelo PD</h3>
+  <h3 class="subsection-title"><span class="section-number">C.4</span>Modelo PD</h3>
   <p class="source">Artefacto de origen: <code>model.model_card</code></p>
 
 
@@ -4323,6 +4645,36 @@ L 420.51375 486.278125
   &#34;scikit-learn&#34;: &#34;1.7.2&#34;,
   &#34;scipy&#34;: &#34;1.18.0&#34;,
   &#34;statsmodels&#34;: &#34;0.14.6&#34;
+}</pre></dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;alpha&#34;: &#34;0.050000&#34;,
+  &#34;engine&#34;: &#34;logit&#34;,
+  &#34;fail_if_no_features&#34;: true,
+  &#34;fit_intercept&#34;: true,
+  &#34;fit_maxiter&#34;: 100,
+  &#34;force_exclude&#34;: [],
+  &#34;force_include&#34;: [],
+  &#34;iv_contribution&#34;: {
+    &#34;action&#34;: &#34;flag&#34;,
+    &#34;threshold&#34;: &#34;0.900000&#34;
+  },
+  &#34;optimizer&#34;: &#34;newton&#34;,
+  &#34;sign_policy&#34;: {
+    &#34;action&#34;: &#34;flag&#34;,
+    &#34;expected_beta_sign&#34;: &#34;negative&#34;,
+    &#34;fail_on_forced_inverted&#34;: false
+  },
+  &#34;stepwise&#34;: {
+    &#34;criterion&#34;: &#34;wald_pvalue&#34;,
+    &#34;direction&#34;: &#34;bidirectional&#34;,
+    &#34;enabled&#34;: true,
+    &#34;entry_p_value&#34;: &#34;0.050000&#34;,
+    &#34;exit_p_value&#34;: &#34;0.050000&#34;,
+    &#34;max_iter&#34;: 100,
+    &#34;min_features&#34;: 1
+  },
+  &#34;tol&#34;: &#34;0.000000&#34;,
+  &#34;type&#34;: &#34;standard&#34;
 }</pre></dd>
     <dt>engine</dt><dd>logit</dd>
     <dt>final_features</dt><dd><pre>[
@@ -4379,7 +4731,7 @@ L 420.51375 486.278125
 
 </section>
 <section id="section-appendix_parameters-scorecard" data-section-id="appendix_parameters.scorecard" data-kind="appendix" data-level="2" class="report-section appendix subsection">
-  <h3 class="subsection-title"><span class="section-number">C.4</span>Scorecard</h3>
+  <h3 class="subsection-title"><span class="section-number">C.5</span>Scorecard</h3>
   <p class="source">Artefacto de origen: <code>scorecard.card</code></p>
 
 
@@ -4388,6 +4740,21 @@ L 420.51375 486.278125
     <dt>dependency_versions</dt><dd><pre>{
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;
+}</pre></dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;clip&#34;: false,
+  &#34;intercept_allocation&#34;: &#34;uniform&#34;,
+  &#34;max_score&#34;: null,
+  &#34;min_score&#34;: null,
+  &#34;output_suffix&#34;: &#34;__points&#34;,
+  &#34;pdo&#34;: &#34;20.000000&#34;,
+  &#34;point_overrides&#34;: [],
+  &#34;rounding_method&#34;: &#34;nearest_integer&#34;,
+  &#34;score_column&#34;: &#34;score&#34;,
+  &#34;score_direction&#34;: &#34;higher_is_lower_risk&#34;,
+  &#34;target_odds&#34;: &#34;50.000000&#34;,
+  &#34;target_score&#34;: &#34;600.000000&#34;,
+  &#34;type&#34;: &#34;standard&#34;
 }</pre></dd>
     <dt>factor</dt><dd>28.853901</dd>
     <dt>max_score</dt><dd>No disponible</dd>
@@ -4416,7 +4783,7 @@ L 420.51375 486.278125
 
 </section>
 <section id="section-appendix_parameters-calibration" data-section-id="appendix_parameters.calibration" data-kind="appendix" data-level="2" class="report-section appendix subsection">
-  <h3 class="subsection-title"><span class="section-number">C.5</span>Calibración</h3>
+  <h3 class="subsection-title"><span class="section-number">C.6</span>Calibración</h3>
   <p class="source">Artefacto de origen: <code>calibration.card</code></p>
 
 
@@ -4429,6 +4796,25 @@ L 420.51375 486.278125
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;scipy&#34;: &#34;1.18.0&#34;
+}</pre></dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;anchor_kind&#34;: &#34;through_the_cycle&#34;,
+  &#34;anchor_source&#34;: &#34;development_observed&#34;,
+  &#34;fit_partition&#34;: &#34;desarrollo&#34;,
+  &#34;linear_predictor_calibrated_column&#34;: &#34;linear_predictor_calibrated&#34;,
+  &#34;linear_predictor_column&#34;: &#34;linear_predictor&#34;,
+  &#34;max_abs_offset&#34;: null,
+  &#34;max_iter&#34;: 100,
+  &#34;method&#34;: &#34;intercept_offset&#34;,
+  &#34;min_fit_rows&#34;: 30,
+  &#34;partition_column&#34;: &#34;partition&#34;,
+  &#34;pd_calibrated_column&#34;: &#34;pd_calibrated&#34;,
+  &#34;pd_raw_column&#34;: &#34;pd_raw&#34;,
+  &#34;require_both_classes_for_supervised&#34;: true,
+  &#34;target_column&#34;: &#34;target&#34;,
+  &#34;target_pd&#34;: null,
+  &#34;target_tolerance&#34;: &#34;0.000000&#34;,
+  &#34;type&#34;: &#34;standard&#34;
 }</pre></dd>
     <dt>fit_partition</dt><dd>desarrollo</dd>
     <dt>intercept</dt><dd>No disponible</dd>
@@ -4451,7 +4837,7 @@ L 420.51375 486.278125
 
 </section>
 <section id="section-appendix_parameters-performance" data-section-id="appendix_parameters.performance" data-kind="appendix" data-level="2" class="report-section appendix subsection">
-  <h3 class="subsection-title"><span class="section-number">C.6</span>Desempeño y discriminación</h3>
+  <h3 class="subsection-title"><span class="section-number">C.7</span>Desempeño y discriminación</h3>
   <p class="source">Artefacto de origen: <code>performance.card</code></p>
 
 
@@ -4466,6 +4852,25 @@ L 420.51375 486.278125
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;scikit-learn&#34;: &#34;1.7.2&#34;
+}</pre></dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;evaluation_source&#34;: &#34;pd_calibrated&#34;,
+  &#34;min_events_per_partition&#34;: 1,
+  &#34;min_rows_per_partition&#34;: 30,
+  &#34;n_deciles&#34;: 10,
+  &#34;optional_thresholds&#34;: {},
+  &#34;partition_column&#34;: &#34;partition&#34;,
+  &#34;partitions&#34;: [
+    &#34;desarrollo&#34;,
+    &#34;holdout&#34;,
+    &#34;oot&#34;
+  ],
+  &#34;pd_column&#34;: &#34;pd_calibrated&#34;,
+  &#34;schema_version&#34;: &#34;1.0.0&#34;,
+  &#34;score_column&#34;: &#34;score&#34;,
+  &#34;score_direction&#34;: &#34;higher_is_lower_risk&#34;,
+  &#34;target_column&#34;: &#34;target&#34;,
+  &#34;type&#34;: &#34;standard&#34;
 }</pre></dd>
     <dt>evaluation_source</dt><dd>pd_calibrated</dd>
     <dt>max_metrics_by_partition</dt><dd><pre>{
@@ -4513,7 +4918,7 @@ L 420.51375 486.278125
 
 </section>
 <section id="section-appendix_parameters-stability" data-section-id="appendix_parameters.stability" data-kind="appendix" data-level="2" class="report-section appendix subsection">
-  <h3 class="subsection-title"><span class="section-number">C.7</span>Estabilidad</h3>
+  <h3 class="subsection-title"><span class="section-number">C.8</span>Estabilidad</h3>
   <p class="source">Artefacto de origen: <code>stability.card</code></p>
 
 
@@ -4532,6 +4937,28 @@ L 420.51375 486.278125
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pandera&#34;: &#34;0.32.0&#34;
+}</pre></dd>
+    <dt>effective_config</dt><dd><pre>{
+  &#34;comparisons&#34;: [
+    &#34;dev_vs_holdout&#34;,
+    &#34;dev_vs_oot&#34;
+  ],
+  &#34;csi_bins&#34;: 10,
+  &#34;csi_source&#34;: &#34;score_points&#34;,
+  &#34;include_pd_stability&#34;: true,
+  &#34;partition_column&#34;: &#34;partition&#34;,
+  &#34;pd_column&#34;: &#34;pd_calibrated&#34;,
+  &#34;psi_bins&#34;: 10,
+  &#34;psi_review_threshold&#34;: &#34;0.250000&#34;,
+  &#34;psi_stable_threshold&#34;: &#34;0.100000&#34;,
+  &#34;schema_version&#34;: &#34;1.0.0&#34;,
+  &#34;score_column&#34;: &#34;score&#34;,
+  &#34;score_direction&#34;: &#34;higher_is_lower_risk&#34;,
+  &#34;smoothing&#34;: &#34;0.000001&#34;,
+  &#34;temporal_axis&#34;: &#34;period&#34;,
+  &#34;temporal_column&#34;: null,
+  &#34;temporal_freq&#34;: &#34;M&#34;,
+  &#34;type&#34;: &#34;standard&#34;
 }</pre></dd>
     <dt>max_psi_by_comparison</dt><dd><pre>{
   &#34;dev_vs_holdout&#34;: &#34;0.012205&#34;,
