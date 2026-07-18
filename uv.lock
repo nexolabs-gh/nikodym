@@ -2784,6 +2784,10 @@ lightgbm = [
     { name = "lightgbm" },
     { name = "scikit-learn" },
 ]
+markov = [
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
 ml = [
     { name = "scikit-learn" },
 ]
@@ -2933,6 +2937,7 @@ requires-dist = [
     { name = "scikit-learn", marker = "extra == 'scoring'", specifier = ">=1.6,<1.8" },
     { name = "scikit-learn", marker = "extra == 'xgboost'", specifier = ">=1.6" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.10" },
+    { name = "scipy", marker = "extra == 'markov'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'scoring'", specifier = ">=1.10" },
     { name = "shap", marker = "extra == 'all'", specifier = ">=0.44" },
     { name = "shap", marker = "extra == 'explain'", specifier = ">=0.44" },
@@ -2945,7 +2950,7 @@ requires-dist = [
     { name = "xgboost", marker = "extra == 'all'", specifier = ">=2.0" },
     { name = "xgboost", marker = "extra == 'xgboost'", specifier = ">=2.0" },
 ]
-provides-extras = ["ai", "all", "catboost", "docx", "excel", "explain", "forecasting", "lightgbm", "ml", "pdf", "polars", "report", "scoring", "survival", "sweep", "tracking", "tuning", "ui", "xgboost"]
+provides-extras = ["ai", "all", "catboost", "docx", "excel", "explain", "forecasting", "lightgbm", "markov", "ml", "pdf", "polars", "report", "scoring", "survival", "sweep", "tracking", "tuning", "ui", "xgboost"]
 
 [package.metadata.requires-dev]
 dev = [

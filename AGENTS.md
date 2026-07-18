@@ -10,7 +10,7 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
 ## Estado del proyecto (2026-07-17)
-**Nikodym `1.2.0` publicado en PyPI** (`pip install nikodym`); repo `main` en `d40c654`. La librería
+**Nikodym `1.3.0` publicado en PyPI** (`pip install nikodym`); repo `main` en `d40c654`. La librería
 ya **no** está en fase de construcción por capas — está publicada y en mejora continua:
 - **Pipeline scorecard F1 (comportamiento)**: API **estable** bajo garantía **SemVer 1.x** (binning WoE
   monotónico, selección IV/VIF, logística sobre WoE, calibración, informe HTML/PDF/Word).

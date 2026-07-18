@@ -86,6 +86,7 @@ explain = [                 # MIT / PSF / BSD
 # Forward-looking (F5).
 forecasting = ["statsmodels>=0.14", "pmdarima>=2.0"]  # BSD / MIT
 survival    = ["lifelines>=0.28"]                     # MIT — NO scikit-survival (GPL-3.0)
+markov      = ["scipy>=1.10"]                         # BSD — cadenas de Markov (scipy.linalg.expm): term-structure de PD
 # Infraestructura opcional.
 tracking = ["mlflow>=2.10"]                # Apache-2.0 (runs/registry, SDD-04)
 ui       = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "nikodym[excel]", "nikodym[docx]"]   # MIT / BSD-3 / Apache-2.0 (backend REST de la UI, SDD-23); multipart = uploads UploadFile; trae [excel] para la pestaña Datos y [docx] porque el preset estándar pide el .docx (sin él, el botón Word 404ea)

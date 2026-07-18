@@ -2,7 +2,7 @@
 
 Superficie pública de Nikodym RiskLib, organizada por dominio. Cada símbolo se genera
 automáticamente desde sus *docstrings* con [mkdocstrings]; las firmas y campos son los del código
-publicado (`1.2.0`).
+publicado (`1.3.0`).
 
 !!! note "Estabilidad (SemVer 1.x)"
     El pipeline de validación de scorecard (F1) —el trío `run` → `Study` → `NikodymConfig` y los

@@ -5,6 +5,27 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [1.3.0] — 2026-07-17
+
+### Añadido
+
+- Extra opcional `markov` (`pip install nikodym[markov]`, que provee `scipy`) para el módulo de
+  cadenas de Markov (`nikodym.markov`). Los mensajes de dependencia ausente en `markov/*.py` ya
+  apuntaban a `nikodym[markov]`; ahora ese extra **existe** de verdad.
+- Smoke clean-room del wheel para el preset `f4-ifrs9-retail`. `scripts/smoke_instalacion_pip.py`
+  queda **parametrizado por preset** (argumento CLI o variable de entorno), conservando el modo
+  scorecard F1 como comportamiento por defecto (el que usa el CI). Sobre una instalación real por
+  pip, verifica que la corrida IFRS 9 termina en `done` y produce `provisioning_ifrs9` con staging
+  (Stage 1/2/3) y ECL/cobertura.
+
+### Cambiado
+
+- Bump de versión 1.2.0 → 1.3.0.
+- Documentación (`docs_site/index.md`, `docs_site/api.md`) y estado del repo (`AGENTS.md`,
+  `CLAUDE.md`) reflejan 1.3.0.
+- Recaptura de los informes demo (F1 · F3 · F4): el lineage `library_versions.nikodym` de los
+  fixtures reporta 1.3.0. Sin cambio de cifras insignia ni del `config_hash` de los presets.
+
 ## [1.2.0] — 2026-07-15
 
 ### 🔴 Corregido — una regla normativa que afirmábamos y que NO EXISTE
