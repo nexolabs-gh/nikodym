@@ -363,12 +363,59 @@ _STANDARD_CONFIG: dict[str, Any] = {
         "include_pd_stability": True,
         "csi_source": "score_points",
     },
-    "validation": None,
+    # Validación formal explícita para la demo F1, derivada de ``ValidationConfig(...).model_dump``.
+    # Reúsa performance/stability y ejecuta HL+Brier sobre la PD calibrada. El fixture no trae
+    # ``grade``: el contraste por grado queda apagado; backtesting tampoco se activa porque esta
+    # corrida no tiene realizados IFRS 9. Los umbrales listados son defaults públicos del DTO, no
+    # parámetros internos de una institución.
+    "validation": {
+        "schema_version": "1.0.0",
+        "type": "standard",
+        "families": ["discrimination", "calibration", "stability"],
+        "discrimination": {
+            "consume_performance": True,
+            "partitions": ["desarrollo", "holdout", "oot"],
+        },
+        "calibration": {
+            "hosmer_lemeshow": True,
+            "hl_n_groups": 10,
+            "hl_grouping": "deciles",
+            "brier": True,
+            "binomial_by_grade": False,
+            "grade_col": "grade",
+            "pd_test": "jeffreys",
+            "alpha": 0.05,
+            "traffic_light_green_alpha": 0.05,
+            "traffic_light_red_alpha": 0.01,
+            "target_column": "target",
+            "pd_column": "pd_calibrated",
+            "partition_column": "partition",
+            "min_rows_per_group": 30,
+        },
+        "stability": {
+            "consume_stability": True,
+            "psi_stable_threshold": 0.1,
+            "psi_review_threshold": 0.25,
+        },
+        "backtesting": {
+            "enabled": False,
+            "parameters": ["pd", "lgd", "ead"],
+            "segment_col": "portfolio",
+            "alpha": 0.05,
+            "one_sided": True,
+            "realised_pd_col": "realised_default",
+            "realised_lgd_col": "realised_lgd",
+            "realised_ead_col": "realised_ead",
+            "pd_test": "jeffreys",
+        },
+        "fail_on_falta_dato": True,
+    },
     # Report HTML determinístico activado. Derivado con ``ReportConfig(sections=SectionPolicyConfig(
     # required_sections=(...)))`` + ``model_dump(mode="json", by_alias=True)`` (NO editar a mano).
-    # Las ``required_sections`` son EXACTAMENTE las cards que el preset produce (sin ``eda`` ni
-    # ``data``: el pipeline no corre EDA), para que ``ReportStep.requires`` no exija una card
-    # inalcanzable y el motor (CT-1) no rechace el config. ``report`` es INFRA (``INFRA_SECTIONS``)
+    # Las ``required_sections`` son las cards scorecard obligatorias (sin ``eda``); ``data_card`` y
+    # ``validation.result`` se consumen de manera aditiva y no entran en ``ReportStep.requires``.
+    # Así el motor CT-1 conserva el contrato estable de prerequisitos. ``report`` es INFRA
+    # (``INFRA_SECTIONS``)
     # → NO entra al ``config_hash``. ``output_dir`` se cablea a un dir absoluto bajo el workdir en
     # ejecución (``routes._wire_report_output_dir``); aquí queda el default relativo.
     #
@@ -585,6 +632,8 @@ def _provisiones_config() -> dict[str, Any]:
     cfg["provisioning_internal"] = deepcopy(_PROVISIONES_SECTIONS["provisioning_internal"])
     cfg["provisioning"] = deepcopy(_PROVISIONES_SECTIONS["provisioning"])
     cfg["provisioning_ifrs9"] = None
+    # La activación pedida es propia del fixture F1; F3 conserva su alcance regulatorio previo.
+    cfg["validation"] = None
     return cfg
 
 
@@ -758,6 +807,7 @@ def _ifrs9_config() -> dict[str, Any]:
         cfg[section] = None
     cfg["survival"] = deepcopy(_IFRS9_SURVIVAL_SECTION)
     cfg["provisioning_ifrs9"] = deepcopy(_IFRS9_PROVISIONING_SECTION)
+    cfg["validation"] = None
     # El informe hereda del F1 los cuatro entregables, pero esta cadena standalone no corre ningún
     # dominio scorecard: exigir cualquiera tumbaría el report (missing_policy='error'). La lista
     # queda VACÍA; el capítulo IFRS 9 se activa solo por la presencia de la card

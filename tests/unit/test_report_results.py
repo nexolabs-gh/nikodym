@@ -102,13 +102,20 @@ def test_report_section_golden_ct2_copias_frozen_y_extra() -> None:
 def test_report_input_bundle_golden_copias_frozen_y_extra() -> None:
     frame = _table()
     cards: dict[str, Any] = {"performance": {"auc": 0.74321}}
+    results: dict[str, Any] = {"validation": {"overall_status": "pass"}}
     figures: dict[str, Any] = {"roc": {"kind": "line", "points": [0.0, 1.0]}}
     section = _section()
-    bundle = _bundle(cards=cards, tables={"performance_table": frame}, figures=figures)
+    bundle = _bundle(
+        cards=cards,
+        results=results,
+        tables={"performance_table": frame},
+        figures=figures,
+    )
 
     assert tuple(ReportInputBundle.model_fields) == (
         "lineage",
         "cards",
+        "results",
         "tables",
         "figures",
         "sections",
@@ -116,6 +123,7 @@ def test_report_input_bundle_golden_copias_frozen_y_extra() -> None:
         "pipeline_params",
     )
     assert bundle.pipeline_params == {}
+    assert bundle.results == {"validation": {"overall_status": "pass"}}
     assert bundle.lineage == _lineage()
     assert bundle.cards == {"performance": {"auc": 0.74321}}
     assert_frame_equal(bundle.tables["performance_table"], _table())
@@ -124,14 +132,17 @@ def test_report_input_bundle_golden_copias_frozen_y_extra() -> None:
     assert bundle.missing_sections == ()
 
     cards["performance"]["auc"] = 99.0
+    results["validation"]["overall_status"] = "fail"
     frame.at[0, "ks"] = 99.0
     figures["roc"]["points"][0] = 99.0
     bundle.cards["performance"]["auc"] = 88.0
+    bundle.results["validation"]["overall_status"] = "warn"
     returned_frame = bundle.tables["performance_table"]
     returned_frame.at[0, "ks"] = 88.0
     bundle.figures["roc"]["points"][0] = 88.0
 
     assert bundle.cards == {"performance": {"auc": 0.74321}}
+    assert bundle.results == {"validation": {"overall_status": "pass"}}
     assert_frame_equal(bundle.tables["performance_table"], _table())
     assert bundle.figures == {"roc": {"kind": "line", "points": [0.0, 1.0]}}
 

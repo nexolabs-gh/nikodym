@@ -52,7 +52,7 @@ from nikodym.report.results import (
 # de secciones + índice lateral "En esta página") con un CSS nuevo y marca oficial, ambos inline en
 # el HTML → el digest se mueve. El markup del documento (data-section-id y orden canónico, tablas
 # con id/thead/tbody, literales config_hash=/data_hash=/git_sha=/root_seed=) queda intacto.
-GOLDEN_HTML_SHA256 = "83ae8bc82a01eeb51542db18e6821db5dd7594e2da01d41d830a5c59869756cd"
+GOLDEN_HTML_SHA256 = "7416fdaaa9b955a2fa026d7f4c0902f24f42f53b0e971236c8008cb6f90505ac"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -98,6 +98,7 @@ def test_html_golden_deterministico_y_orden_canonico() -> None:
     # jobs mínimos el gráfico degrada con gracia y el digest no lleva el slot.
     if _HAS_MATPLOTLIB:
         assert digest == GOLDEN_HTML_SHA256
+
     assert "2026-06-29" not in first
     assert "datetime.now" not in first
     assert not re.search(
@@ -129,6 +130,87 @@ def test_html_golden_deterministico_y_orden_canonico() -> None:
         coefficients_table.index(f"<th>{column}</th>") for column in ("feature", "beta", "p_value")
     ]
     assert column_positions == sorted(column_positions)
+
+
+def test_document_view_renderiza_validacion_formal_y_control_negativo() -> None:
+    """La proyección compartida lleva métrica/tablas sólo cuando validation está presente."""
+    base = _bundle()
+    validation_table = pd.DataFrame(
+        {
+            "partition": ["oot"],
+            "n_total": [200],
+            "n_bad": [40],
+            "auc": [0.81],
+            "gini": [0.62],
+            "ks": [0.48],
+            "source": ["performance_artifact"],
+            "status": ["ok"],
+        }
+    )
+    validation_sections = (
+        _section(
+            "validation",
+            "Validación formal",
+            kind="prose",
+            number="5",
+            domain="report",
+            body=("Estado técnico agregado: pass.",),
+            placeholder=PlaceholderBlock(
+                title="Veredicto de validación formal",
+                guidance=("Firmar el juicio humano.",),
+            ),
+        ),
+        _section(
+            "validation.discrimination",
+            "Discriminación",
+            level=2,
+            number="5.1",
+            domain="validation",
+        ),
+    )
+    bundle = base.model_copy(
+        update={
+            "cards": {
+                **base.cards,
+                "validation": {
+                    "model_ref": "scorecard@oracle",
+                    "families_run": ("discrimination",),
+                    "overall_status": "pass",
+                    "n_tests": 1,
+                    "n_failed": 0,
+                },
+            },
+            "results": {"validation": {"oracle": "atomic-result"}},
+            "tables": {**base.tables, "validation.discrimination": validation_table},
+            "sections": (*base.sections, *validation_sections),
+        },
+        deep=True,
+    )
+
+    view = renderer_module.build_document_view(bundle, config=ReportConfig())
+    metric = next(
+        item
+        for item in view["executive"]["metrics"]
+        if item["label"] == "Estado técnico de validación formal"
+    )
+    assert metric == {
+        "label": "Estado técnico de validación formal",
+        "scope": "scorecard@oracle",
+        "value": "0 de 1 test fallidos",
+        "band": "Pass técnico",
+        "band_class": "band-ok",
+    }
+    section = next(item for item in view["sections"] if item["id"] == "validation.discrimination")
+    assert section["tables"][0]["rows"][0][3:6] == ("0.810000", "0.620000", "0.480000")
+    assert section["placeholder"] is None
+
+    negative = renderer_module.build_document_view(base, config=ReportConfig())
+    assert not any(
+        item["label"] == "Estado técnico de validación formal"
+        for item in negative["executive"]["metrics"]
+    )
+    assert not any(item["id"].startswith("validation") for item in negative["sections"])
+    assert "no ejecutó la capa de validación formal" in negative["exec_scope_note"]
 
 
 def test_documento_tiene_indice_metricas_ejecutivas_y_titulos_legibles() -> None:

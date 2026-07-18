@@ -19,6 +19,7 @@ Sólo toma snapshots defensivos de estructuras mutables, especialmente ``DataFra
 from __future__ import annotations
 
 import copy
+import importlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
@@ -43,6 +44,7 @@ from nikodym.report.document import (
     PIPELINE_DOMAINS,
     PROVISION_DOMAINS,
     RESULT_DOMAINS,
+    VALIDATION_FAMILIES,
     ChapterSpec,
     domain_section_id,
 )
@@ -71,6 +73,8 @@ else:
 __all__ = ["CANONICAL_SECTION_ORDER", "ReportBuilder"]
 
 _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
+    # Población real (SDD-02). Opcional: no entra en ``ReportStep.requires``.
+    ("data", "data_card"),
     ("eda", "eda_card"),
     ("binning", "binning_card"),
     ("selection", "selection_card"),
@@ -93,8 +97,12 @@ _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     # (el mecanismo PD→lifetime se describe desde lo que la corrida realmente ajustó, no desde
     # supuestos del preset). Opcional como las demás cards de negocio.
     ("survival", "card"),
+    # Resumen de validación formal (SDD-22). El capítulo se gatea por el ``result`` atómico,
+    # no por esta card aislada; ambos son opcionales para report.
+    ("validation", "card"),
 )
 _CARD_KEY_BY_DOMAIN: Final[dict[str, str]] = dict(_CARD_ARTIFACTS)
+_RESULT_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (("validation", "result"),)
 _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("eda", "default_rate"),
     ("eda", "stability"),
@@ -145,6 +153,7 @@ _PARAM_DOMAINS: Final[tuple[str, ...]] = (
     "markov",
     "forward",
     "provisioning_ifrs9",
+    "validation",
 )
 
 
@@ -163,8 +172,12 @@ class ReportBuilder:
     def collect(self, study: Study) -> ReportInputBundle:
         """Recolecta cards, tablas, figuras, parámetros y lineage en un snapshot defensivo."""
         lineage = _lineage_from_study(study)
+        results = self._collect_results(study)
         cards = self._collect_cards(study)
+        _merge_atomic_result_cards(cards, results)
         tables = self._collect_tables(study)
+        tables.update(_data_card_tables(cards))
+        tables.update(_atomic_result_tables(results))
         tables.update(_extract_card_dataframes(cards))
         figures = self._collect_figures(study)
         pipeline_params = _collect_pipeline_params(study)
@@ -172,6 +185,7 @@ class ReportBuilder:
         bundle = ReportInputBundle(
             lineage=lineage,
             cards=cards,
+            results=results,
             tables=tables,
             figures=figures,
             sections=(),
@@ -197,6 +211,8 @@ class ReportBuilder:
         for spec in CHAPTER_SPECS:
             if spec.requires_domain and spec.requires_domain not in bundle.cards:
                 continue  # capítulo condicional: el dominio no corrió ⇒ no existe el capítulo
+            if spec.requires_result and spec.requires_result not in bundle.results:
+                continue  # capítulo condicional: falta el oracle agregado ⇒ no se emite
             if spec.requires_any_domain and not any(
                 domain in bundle.cards for domain in spec.requires_any_domain
             ):
@@ -261,6 +277,8 @@ class ReportBuilder:
             return self._methodology_subsections(bundle, number)
         if spec.id == "results":
             return self._domain_subsections(spec.id, RESULT_DOMAINS, bundle, number, kind="data")
+        if spec.id == "validation":
+            return self._validation_subsections(bundle, number)
         if spec.id == "provisions":
             return self._domain_subsections(spec.id, PROVISION_DOMAINS, bundle, number, kind="data")
         if spec.id == "ifrs9":
@@ -274,6 +292,42 @@ class ReportBuilder:
                 kind="appendix",
             )
         return ()
+
+    def _validation_subsections(
+        self,
+        bundle: ReportInputBundle,
+        number: str,
+    ) -> tuple[ReportSection, ...]:
+        """Proyecta una subsección por familia declarada por el ``ValidationResult`` atómico."""
+        card = bundle.cards.get("validation")
+        if not isinstance(card, Mapping):
+            return ()
+        raw_families = card.get("families_run", ())
+        families = (
+            tuple(str(item) for item in raw_families)
+            if isinstance(raw_families, tuple | list)
+            else ()
+        )
+        sections: list[ReportSection] = []
+        for family, title in VALIDATION_FAMILIES:
+            if family not in families:
+                continue
+            sections.append(
+                ReportSection(
+                    id=domain_section_id("validation", family),
+                    title=title,
+                    status="included",
+                    source_domain="validation",
+                    source_key="result",
+                    payload={},
+                    metric_sections={},
+                    kind="data",
+                    level=2,
+                    number=f"{number}.{len(sections) + 1}",
+                    body=prose.validation_family_body(bundle, family),
+                )
+            )
+        return tuple(sections)
 
     def _methodology_subsections(
         self,
@@ -315,7 +369,12 @@ class ReportBuilder:
         """Construye las subsecciones de dominio de un capítulo aplicando ``missing_policy``."""
         sections: list[ReportSection] = []
         for domain in domains:
-            status = self._domain_status(domain, bundle.cards)
+            if kind == "appendix" and domain in bundle.pipeline_params:
+                # Anexo C documenta todo config efectivo recolectado, incluso si el dominio no
+                # publicó card en esta corrida (p. ej. un bloque experimental config-only).
+                status: ReportSectionStatus | None = "included"
+            else:
+                status = self._domain_status(domain, bundle.cards)
             if status is None:
                 continue
             # El Anexo C anexa los parámetros de lo que sí corrió; un dominio ausente no tiene
@@ -345,9 +404,10 @@ class ReportBuilder:
         if domain not in set(self.config.sections.required_sections):
             return None
         if self.config.sections.missing_policy == "error":
+            card_key = _CARD_KEY_BY_DOMAIN.get(domain, "<sin contrato de card>")
             raise ReportInputError(
                 "Falta una card requerida para construir el reporte: "
-                f"dominio='{domain}', clave='{_CARD_KEY_BY_DOMAIN[domain]}'. "
+                f"dominio='{domain}', clave='{card_key}'. "
                 "Ejecute el step aguas arriba o use missing_policy='warn'/'skip' para un "
                 "reporte parcial explícito."
             )
@@ -366,7 +426,8 @@ class ReportBuilder:
         kind: str,
     ) -> ReportSection:
         """Construye una subsección de dominio: datos en el cuerpo, dump completo en el anexo."""
-        artifact_name = f"{domain}.{_CARD_KEY_BY_DOMAIN[domain]}"
+        card_key = _CARD_KEY_BY_DOMAIN.get(domain)
+        artifact_name = f"{domain}.{card_key or 'effective_config'}"
         payload: dict[str, Any] = {}
         metric_sections: dict[str, Any] = {}
         if status == "missing":
@@ -378,22 +439,22 @@ class ReportBuilder:
             }
         elif kind == "appendix":
             # Sólo el Anexo C reproduce el payload crudo: el cuerpo lo referencia, no lo repite.
-            payload, metric_sections = _payload_and_metric_sections(
-                _card_to_mapping(bundle.cards[domain], artifact_name),
-                artifact=artifact_name,
-            )
-            # En F4 la card prueba que el step corrió y el config aporta los parámetros efectivos
-            # (LGD/EAD, staging, horizonte y descuento). Ambos deben quedar auditables en Anexo C.
-            if domain in {"survival", "provisioning_ifrs9"}:
-                effective_config = bundle.pipeline_params.get(domain)
-                if isinstance(effective_config, Mapping):
-                    payload["effective_config"] = _copy_mapping(effective_config)
+            if domain in bundle.cards:
+                payload, metric_sections = _payload_and_metric_sections(
+                    _card_to_mapping(bundle.cards[domain], artifact_name),
+                    artifact=artifact_name,
+                )
+            # Cada dominio configurado publica su config efectivo completo junto con la card. No
+            # hay dump del config raíz: solo la sección namespaced que realmente alimentó el step.
+            effective_config = bundle.pipeline_params.get(domain)
+            if isinstance(effective_config, Mapping):
+                payload["effective_config"] = _copy_mapping(effective_config)
         return ReportSection(
             id=domain_section_id(parent_id, domain),
             title=DOMAIN_TITLES[domain],
             status=status,
             source_domain=domain,
-            source_key=_CARD_KEY_BY_DOMAIN[domain],
+            source_key=card_key or "effective_config",
             payload=payload,
             metric_sections=metric_sections,
             kind=cast(Any, kind),
@@ -432,6 +493,21 @@ class ReportBuilder:
             cards[domain] = raw
         return cards
 
+    def _collect_results(self, study: Study) -> dict[str, Any]:
+        """Recolecta DTOs agregados opcionales usados como oracle atómico por el documento."""
+        results: dict[str, Any] = {}
+        for domain, key in _RESULT_ARTIFACTS:
+            if not study.artifacts.has(domain, key):
+                continue
+            value = study.artifacts.get(domain, key)
+            if not isinstance(value, BaseModel):
+                raise ReportInputError(
+                    f"El resultado atómico '{domain}.{key}' debe ser un BaseModel; "
+                    f"tipo observado={type(value).__name__}."
+                )
+            results[domain] = _copy_value(value)
+        return results
+
     def _collect_tables(self, study: Study) -> dict[str, DataFrameLike]:
         """Extrae ``DataFrame`` de artefactos tabulares conocidos sin alterar upstream."""
         tables: dict[str, DataFrameLike] = {}
@@ -466,6 +542,8 @@ def _chapter_body(chapter_id: str, bundle: ReportInputBundle) -> tuple[str, ...]
         return prose.methodology_intro(bundle)
     if chapter_id == "results":
         return prose.results_intro(bundle)
+    if chapter_id == "validation":
+        return prose.validation_intro(bundle)
     if chapter_id == "provisions":
         return prose.provisions_intro(bundle)
     if chapter_id == "ifrs9":
@@ -501,6 +579,105 @@ def _placeholder(spec: ChapterSpec, config: ReportConfig) -> PlaceholderBlock | 
         title=spec.placeholder_title,
         guidance=spec.placeholder_guidance,
     )
+
+
+def _merge_atomic_result_cards(
+    cards: dict[str, dict[str, Any]],
+    results: Mapping[str, Any],
+) -> None:
+    """Usa la card incluida en el DTO atómico y rechaza un snapshot independiente incoherente."""
+    result = results.get("validation")
+    if result is None:
+        return
+    atomic_card = getattr(result, "card", None)
+    if atomic_card is None:
+        raise ReportInputError("validation.result no contiene su card resumen atómica.")
+    mapped = _card_to_mapping(atomic_card, "validation.result.card")
+    standalone = cards.get("validation")
+    if standalone is not None and standalone != mapped:
+        raise ReportInputError(
+            "validation.card no coincide con validation.result.card; el reporte rechaza una "
+            "lectura no atómica de la validación."
+        )
+    cards["validation"] = mapped
+
+
+def _data_card_tables(cards: Mapping[str, Mapping[str, Any]]) -> dict[str, DataFrameLike]:
+    """Proyecta estados, particiones y exclusiones copiando literales de ``DataCardSection``."""
+    card = cards.get("data")
+    if card is None:
+        return {}
+    class_counts = _required_mapping(card, "class_counts", artifact="data.data_card")
+    partition_sizes = _required_mapping(card, "partition_sizes", artifact="data.data_card")
+    partition_rates = _required_mapping(card, "partition_bad_rates", artifact="data.data_card")
+    exclusions = _required_mapping(card, "exclusions_by_reason", artifact="data.data_card")
+
+    states = [
+        {"Estado": str(state), "Observaciones": _copy_value(count)}
+        for state, count in class_counts.items()
+    ]
+    partitions = [
+        {
+            "Partición": str(partition),
+            "Observaciones": _copy_value(size),
+            "Tasa de incumplimiento": _copy_value(partition_rates.get(partition)),
+        }
+        for partition, size in partition_sizes.items()
+    ]
+    exclusion_rows = [
+        {"Motivo": str(reason), "Exclusiones": _copy_value(count)}
+        for reason, count in exclusions.items()
+    ]
+    return {
+        "data.states": _frame_from_records(states, ("Estado", "Observaciones")),
+        "data.partitions": _frame_from_records(
+            partitions,
+            ("Partición", "Observaciones", "Tasa de incumplimiento"),
+        ),
+        "data.exclusions": _frame_from_records(exclusion_rows, ("Motivo", "Exclusiones")),
+    }
+
+
+def _atomic_result_tables(results: Mapping[str, Any]) -> dict[str, DataFrameLike]:
+    """Copia los frames de las familias corridas desde un único ``ValidationResult``."""
+    result = results.get("validation")
+    if result is None:
+        return {}
+    card = getattr(result, "card", None)
+    raw_families = getattr(card, "families_run", ())
+    families = {str(item) for item in raw_families}
+    tables: dict[str, DataFrameLike] = {}
+    for family, _ in VALIDATION_FAMILIES:
+        if family not in families:
+            continue
+        frame = getattr(result, family, None)
+        if not _is_dataframe_like(frame):
+            raise ReportInputError(
+                f"validation.result.{family} debe ser un DataFrame del DTO atómico."
+            )
+        tables[f"validation.{family}"] = cast(DataFrameLike, _copy_value(frame))
+    return tables
+
+
+def _required_mapping(
+    card: Mapping[str, Any],
+    key: str,
+    *,
+    artifact: str,
+) -> Mapping[Any, Any]:
+    value = card.get(key)
+    if not isinstance(value, Mapping):
+        raise ReportInputError(f"{artifact}.{key} debe ser un mapping literal.")
+    return value
+
+
+def _frame_from_records(
+    records: list[dict[str, Any]],
+    columns: tuple[str, ...],
+) -> DataFrameLike:
+    """Construye una tabla de presentación sin importar pandas al cargar ``nikodym.report``."""
+    pd = importlib.import_module("pandas")
+    return cast(DataFrameLike, pd.DataFrame.from_records(records, columns=columns))
 
 
 def _collect_pipeline_params(study: Study) -> dict[str, Any]:

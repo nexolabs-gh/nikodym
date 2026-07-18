@@ -16,6 +16,7 @@ import nikodym.report as report_pkg
 from nikodym.core.config import NikodymConfig
 from nikodym.core.lineage import LineageBundle
 from nikodym.core.study import Study
+from nikodym.data.card import DataCardSection
 from nikodym.report import document
 from nikodym.report.builder import CANONICAL_SECTION_ORDER, ReportBuilder
 from nikodym.report.config import (
@@ -25,6 +26,14 @@ from nikodym.report.config import (
     SectionPolicyConfig,
 )
 from nikodym.report.exceptions import ReportInputError
+from nikodym.report.prose import executive_view, limitations_body
+from nikodym.validation.results import (
+    BacktestRecord,
+    CalibrationTestRecord,
+    DiscriminationRecord,
+    ValidationCardSection,
+    ValidationResult,
+)
 
 _CARD_ARTIFACTS: tuple[tuple[str, str], ...] = (
     ("eda", "eda_card"),
@@ -94,7 +103,11 @@ def test_collect_arma_el_documento_y_manifest_pre_render_golden() -> None:
     posiciones = [CANONICAL_SECTION_ORDER.index(seccion) for seccion in emitidos]
     assert posiciones == sorted(posiciones), "los capítulos no respetan el orden canónico"
     # Este bundle no activa ningún capítulo condicional ⇒ están todos los incondicionales.
-    assert emitidos == tuple(spec.id for spec in document.CHAPTER_SPECS if not spec.requires_domain)
+    assert emitidos == tuple(
+        spec.id
+        for spec in document.CHAPTER_SPECS
+        if not spec.requires_domain and not spec.requires_result
+    )
     assert bundle.missing_sections == ()
     assert bundle.cards["performance"] == {
         "summary": "performance-card",
@@ -205,7 +218,8 @@ def test_collect_no_muta_dataframes_upstream_y_expone_copias_defensivas() -> Non
     model_card_before = model_card_frame.copy(deep=True)
     coefficients_before = coefficients.copy(deep=True)
 
-    bundle = ReportBuilder.from_config(ReportConfig()).collect(study)
+    builder = ReportBuilder.from_config(ReportConfig())
+    bundle = builder.collect(study)
 
     assert_frame_equal(
         study.artifacts.get("model", "model_card")["embedded_table"],
@@ -459,6 +473,140 @@ def _binning_table() -> pd.DataFrame:
     return pd.DataFrame({"bin": ["bajo", "alto"], "iv": [0.10, 0.20]})
 
 
+def _data_card() -> DataCardSection:
+    """DataCardSection real con valores literales conocidos para el oracle del informe."""
+    return DataCardSection(
+        source="poblacion.parquet",
+        n_rows=1_000,
+        n_features=8,
+        target_col="target",
+        bad_rate=0.25,
+        class_counts={"good": 750, "bad": 250},
+        partition_sizes={"desarrollo": 600, "holdout": 200, "oot": 200},
+        partition_bad_rates={"desarrollo": 0.20, "holdout": 0.25, "oot": 0.40},
+        performance_window_months=12,
+        exclusions_by_reason={"ventana_incompleta": 17},
+        data_hash="data-card-hash",
+    )
+
+
+def _validation_result() -> ValidationResult:
+    """ValidationResult real con una fila conocida por familia, creado fuera de ``report``."""
+    discrimination_record = DiscriminationRecord(
+        partition="oot",
+        n_total=200,
+        n_bad=80,
+        auc=0.81,
+        gini=0.62,
+        ks=0.48,
+        source="performance_artifact",
+        status="ok",
+    )
+    calibration_record = CalibrationTestRecord(
+        partition="oot",
+        test="hosmer_lemeshow",
+        n_groups=10,
+        degrees_of_freedom=8,
+        statistic=7.5,
+        p_value=0.48,
+        alpha=0.05,
+        decision="pass",
+    )
+    backtest_record = BacktestRecord(
+        parameter="pd",
+        segment="retail",
+        n=200,
+        predicted_mean=0.25,
+        realised_mean=0.24,
+        test="jeffreys",
+        statistic=-0.2,
+        p_value=0.60,
+        alpha=0.05,
+        one_sided=True,
+        decision="pass",
+    )
+    discrimination = pd.DataFrame(
+        {
+            "partition": ["oot"],
+            "n_total": [200],
+            "n_bad": [80],
+            "auc": [0.81],
+            "gini": [0.62],
+            "ks": [0.48],
+            "source": ["performance_artifact"],
+            "status": ["ok"],
+        }
+    )
+    calibration = pd.DataFrame(
+        {
+            "partition": ["oot"],
+            "test": ["hosmer_lemeshow"],
+            "grade": ["ALL"],
+            "n": [200],
+            "observed_defaults": [80],
+            "expected_pd": [0.25],
+            "observed_dr": [0.40],
+            "statistic": [7.5],
+            "degrees_of_freedom": [8],
+            "p_value": [0.48],
+            "alpha": [0.05],
+            "decision": ["pass"],
+            "traffic_light": [None],
+        }
+    )
+    stability = pd.DataFrame(
+        {
+            "metric": ["score_psi"],
+            "comparison": ["dev_vs_oot"],
+            "feature": ["score"],
+            "value": [0.08],
+            "stable_threshold": [0.10],
+            "review_threshold": [0.25],
+            "band": ["stable"],
+            "action": ["none"],
+            "source": ["stability_artifact"],
+            "status": ["ok"],
+            "decision": ["pass"],
+        }
+    )
+    backtesting = pd.DataFrame(
+        {
+            "parameter": ["pd"],
+            "segment": ["retail"],
+            "n": [200],
+            "predicted_mean": [0.25],
+            "realised_mean": [0.24],
+            "test": ["jeffreys"],
+            "statistic": [-0.2],
+            "p_value": [0.60],
+            "alpha": [0.05],
+            "one_sided": [True],
+            "decision": ["pass"],
+        }
+    )
+    card = ValidationCardSection(
+        model_ref="scorecard@oracle",
+        families_run=("discrimination", "calibration", "stability", "backtesting"),
+        overall_status="pass",
+        n_tests=4,
+        n_failed=0,
+        dependency_versions={"pandas": "2.3.3"},
+        falta_dato=(),
+        metric_sections={},
+    )
+    return ValidationResult(
+        discrimination=discrimination,
+        calibration=calibration,
+        stability=stability,
+        backtesting=backtesting,
+        discrimination_records=(discrimination_record,),
+        calibration_records=(calibration_record,),
+        grade_records=(),
+        backtest_records=(backtest_record,),
+        card=card,
+    )
+
+
 def _nikodym_config() -> NikodymConfig:
     """Config raíz con parámetros REALES de binning y selección.
 
@@ -515,6 +663,136 @@ def test_capitulo_de_provisiones_es_condicional_a_su_card() -> None:
     assert numeros_con["provisions"] == "5"
     assert numeros_con["conclusions"] == "6", "el capítulo nuevo no desplazó la numeración"
     assert numeros_con["limitations"] == "7"
+
+
+def test_data_y_validation_reales_se_proyectan_literalmente_y_sin_mutar_upstream() -> None:
+    """Oracle independiente: DTOs reales creados fuera de report pasan sin recalcular números."""
+    from nikodym.ui.presets import standard_preset
+
+    study = _study_completo()
+    study.config = NikodymConfig.model_validate(standard_preset()["config"])
+    data_card = _data_card()
+    validation = _validation_result()
+    study.artifacts.set("data", "data_card", data_card)
+    study.artifacts.set("validation", "card", validation.card)
+    study.artifacts.set("validation", "result", validation)
+    study.artifacts.set("provisioning", "card", {"summary": "provisioning-card"})
+
+    builder = ReportBuilder.from_config(ReportConfig())
+    bundle = builder.collect(study)
+    by_id = {section.id: section for section in bundle.sections}
+    ids = [section.id for section in bundle.sections]
+
+    assert ids.index("context.data") < ids.index("context.eda")
+    assert by_id["context.data"].title == "Población, particiones y exclusiones"
+    assert ids.index("results") < ids.index("validation") < ids.index("provisions")
+    assert [section.id for section in bundle.sections if section.id.startswith("validation.")] == [
+        "validation.discrimination",
+        "validation.calibration",
+        "validation.stability",
+        "validation.backtesting",
+    ]
+    assert "corresponde al validador humano" in " ".join(by_id["validation"].body)
+    assert by_id["validation"].placeholder is not None
+
+    assert_frame_equal(
+        bundle.tables["data.states"],
+        pd.DataFrame({"Estado": ["good", "bad"], "Observaciones": [750, 250]}),
+    )
+    assert_frame_equal(
+        bundle.tables["data.partitions"],
+        pd.DataFrame(
+            {
+                "Partición": ["desarrollo", "holdout", "oot"],
+                "Observaciones": [600, 200, 200],
+                "Tasa de incumplimiento": [0.20, 0.25, 0.40],
+            }
+        ),
+    )
+    assert_frame_equal(
+        bundle.tables["data.exclusions"],
+        pd.DataFrame({"Motivo": ["ventana_incompleta"], "Exclusiones": [17]}),
+    )
+    for family in ("discrimination", "calibration", "stability", "backtesting"):
+        assert_frame_equal(bundle.tables[f"validation.{family}"], getattr(validation, family))
+
+    # El DTO agregado queda preservado como oracle y las lecturas del bundle son defensivas.
+    assert isinstance(bundle.results["validation"], ValidationResult)
+    returned = bundle.results["validation"].discrimination
+    returned.at[0, "auc"] = 0.01
+    assert validation.discrimination.at[0, "auc"] == 0.81
+
+    # Anexo C: data/validation y cada dominio configurado llevan config efectivo namespaced.
+    appendix_by_domain = {
+        section.source_domain: section
+        for section in bundle.sections
+        if section.id.startswith("appendix_parameters.")
+    }
+    for domain, effective_config in bundle.pipeline_params.items():
+        assert appendix_by_domain[domain].payload["effective_config"] == effective_config
+    assert (
+        by_id["appendix_parameters.data"].payload["effective_config"]["target"]["target_col"]
+        == "target"
+    )
+    assert (
+        by_id["appendix_parameters.validation"].payload["effective_config"]["calibration"][
+            "binomial_by_grade"
+        ]
+        is False
+    )
+    assert by_id["appendix_parameters.model"].payload["effective_config"]["engine"] == "logit"
+
+    # Los dominios config-only también quedan auditables: Anexo C no depende de una card.
+    config_only = bundle.model_copy(
+        update={
+            "pipeline_params": {
+                **bundle.pipeline_params,
+                "markov": {"states": ["al_dia", "mora"]},
+                "forward": {"scenario": "base"},
+            }
+        },
+        deep=True,
+    )
+    config_only_sections = builder.build_sections(config_only)
+    config_only_by_id = {section.id: section for section in config_only_sections}
+    assert config_only_by_id["appendix_parameters.markov"].payload == {
+        "effective_config": {"states": ["al_dia", "mora"]}
+    }
+    assert config_only_by_id["appendix_parameters.forward"].payload == {
+        "effective_config": {"scenario": "base"}
+    }
+
+    # Mutar la presentación no muta los DTOs aguas arriba.
+    projected_tables = bundle.tables
+    projected_tables["data.partitions"].loc[0, "Observaciones"] = 999
+    assert data_card.partition_sizes["desarrollo"] == 600
+
+
+def test_sin_validation_omite_capitulo_tablas_metrica_y_frases_positivas() -> None:
+    """Control negativo: una Study sin validation no aparenta haber ejecutado validación formal."""
+    bundle = ReportBuilder.from_config(ReportConfig()).collect(_study_completo())
+
+    ids = {section.id for section in bundle.sections}
+    assert "validation" not in ids
+    assert not any(section_id.startswith("validation.") for section_id in ids)
+    assert not any(key.startswith("validation.") for key in bundle.tables)
+    assert "validation" not in bundle.results
+    assert "Estado técnico de validación formal" not in " ".join(
+        paragraph for section in bundle.sections for paragraph in section.body
+    )
+
+    # Una card aislada se conserva para auditoría en Anexo C, pero no sustituye el DTO atómico.
+    card_only_study = _study_completo()
+    card_only_study.artifacts.set("validation", "card", _validation_result().card)
+    card_only = ReportBuilder.from_config(ReportConfig()).collect(card_only_study)
+    assert "validation" in card_only.cards
+    assert "validation" not in card_only.results
+    assert "validation" not in {section.id for section in card_only.sections}
+    assert not any(
+        metric.label == "Estado técnico de validación formal"
+        for metric in executive_view(card_only).metrics
+    )
+    assert "no ejecutó la capa de validación formal" in " ".join(limitations_body(card_only))
 
 
 def test_capitulo_ifrs9_es_condicional_a_su_card() -> None:

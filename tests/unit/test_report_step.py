@@ -73,7 +73,7 @@ ROOT_SEED = 20_240_629
 # un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
 # Recalculado con el re-skin Quarto (tema "nikodym": layout de 3 columnas + CSS nuevo inline en el
 # HTML). El markup del documento (orden canónico, tablas, literales de lineage) queda intacto.
-GOLDEN_STEP_HTML_SHA256 = "bdfea612a084b4b08eb820f6ab3f2a1a25310555c49909fc2779dfcdffc2d869"
+GOLDEN_STEP_HTML_SHA256 = "a165c1efd577d061020205bdfe653556587362cebef23344b8d955954e3c40af"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -96,6 +96,9 @@ def test_from_config_registro_reexport_y_contrato_step_exacto() -> None:
     assert step.config is cfg
     assert step.name == "report"
     assert step.requires == REPORT_REQUIRED_CARDS
+    assert ("data", "data_card") not in step.requires
+    assert ("validation", "card") not in step.requires
+    assert ("validation", "result") not in step.requires
     assert step.provides == tuple(("report", key) for key in REPORT_ARTIFACTS)
     step.emit(
         AuditEvent(
@@ -194,7 +197,9 @@ def test_execute_publica_result_manifest_goldens_audit_y_no_consume_rng(tmp_path
     # condicional (`provisions`) está en CANONICAL_SECTION_ORDER pero no se emite (SDD-28 D5).
     assert tuple(
         section.id for section in result.input_bundle.sections if section.level == 1
-    ) == tuple(spec.id for spec in CHAPTER_SPECS if not spec.requires_domain)
+    ) == tuple(
+        spec.id for spec in CHAPTER_SPECS if not spec.requires_domain and not spec.requires_result
+    )
     # Los ocho dominios del pipeline son ahora subsecciones, no secciones de primer nivel.
     ids = {section.id for section in result.input_bundle.sections}
     assert "results.performance" in ids
@@ -321,7 +326,7 @@ def test_manifest_en_memoria_y_exportado_tienen_identidad_canonica(tmp_path: Pat
     # El manifest reordena al orden canónico del documento aunque el bundle llegue invertido. Sin
     # provisiones, se emiten los capítulos incondicionales (el condicional no aparece; SDD-28 D5).
     assert tuple(section.id for section in memory_manifest.sections if section.level == 1) == tuple(
-        spec.id for spec in CHAPTER_SPECS if not spec.requires_domain
+        spec.id for spec in CHAPTER_SPECS if not spec.requires_domain and not spec.requires_result
     )
     assert tuple(section.id for section in written_manifest.sections) == tuple(
         section.id for section in memory_manifest.sections

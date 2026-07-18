@@ -41,6 +41,7 @@ _SENSITIVE_PATTERN: Final = re.compile(
 )
 _EMAIL_PATTERN: Final = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 _MAX_SEQUENCE_ITEMS: Final = 25
+_EXCLUDED_AI_KEYS: Final[frozenset[str]] = frozenset({"effective_config"})
 _DROP: Final = object()
 
 
@@ -263,7 +264,7 @@ def _section_payload(bundle: ReportInputBundle, section: ReportSection) -> dict[
 
 
 def _sanitize_value(value: Any, *, key_path: tuple[str, ...]) -> JSONValue | object:
-    if key_path and _is_sensitive_key(key_path[-1]):
+    if key_path and (key_path[-1] in _EXCLUDED_AI_KEYS or _is_sensitive_key(key_path[-1])):
         return _DROP
     if _is_dataframe_like(value):
         return _DROP

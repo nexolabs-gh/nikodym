@@ -45,6 +45,8 @@ __all__ = [
     "provisions_intro",
     "results_body",
     "results_intro",
+    "validation_family_body",
+    "validation_intro",
 ]
 
 _PARTITION_LABELS: Final[dict[str, str]] = {
@@ -66,6 +68,17 @@ _STABILITY_BANDS: Final[dict[str, str]] = {
     "review": "Requiere revisión",
     "redevelop": "Requiere redesarrollo",
     "not_evaluable": "No evaluable",
+}
+_VALIDATION_STATUS_BANDS: Final[dict[str, str]] = {
+    "pass": "Pass técnico",
+    "warn": "Requiere revisión",
+    "fail": "Falla técnica",
+}
+_VALIDATION_FAMILY_LABELS: Final[dict[str, str]] = {
+    "discrimination": "discriminación",
+    "calibration": "calibración",
+    "stability": "estabilidad",
+    "backtesting": "backtesting",
 }
 _SOLVER_LABELS: Final[dict[str, str]] = {
     "cp": "programación con restricciones (CP)",
@@ -212,6 +225,35 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
                 f"{_num(stable, decimals=2)} y redesarrollo por sobre {_num(review, decimals=2)}."
             )
 
+    validation = _card(bundle, "validation") if "validation" in bundle.results else None
+    if validation is not None:
+        n_tests = _int(validation.get("n_tests"))
+        n_failed = _int(validation.get("n_failed"))
+        status = _text(validation.get("overall_status"))
+        model_ref = _text(validation.get("model_ref")) or "Modelo evaluado"
+        if n_tests is not None and n_failed is not None:
+            metrics.append(
+                ExecutiveMetric(
+                    label="Estado técnico de validación formal",
+                    scope=model_ref,
+                    value=(
+                        f"{_miles(n_failed)} de {_miles(n_tests)} "
+                        f"{_plural(n_tests, 'test', 'tests')} fallidos"
+                    ),
+                    band=_VALIDATION_STATUS_BANDS.get(status or "", _NOT_AVAILABLE),
+                )
+            )
+        families = tuple(
+            _VALIDATION_FAMILY_LABELS.get(str(item), str(item))
+            for item in _sequence(validation.get("families_run"))
+        )
+        if families:
+            notes.append(
+                "La validación formal ejecutó "
+                f"{_enumerar(families)}. Su estado es una síntesis técnica del motor y no "
+                "sustituye el veredicto que debe firmar un validador humano."
+            )
+
     # IFRS 9: cifras contables reportadas por el motor (SDD-16). No son bandas de validación
     # —el semáforo no aplica—, pero SON las métricas clave de una corrida ECL: sin ellas el
     # resumen ejecutivo de un informe IFRS 9 quedaría vacío.
@@ -278,8 +320,30 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
 def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Redacta lo que el motor sí sabe de la población: volumen, incumplimiento y particiones."""
     paragraphs: list[str] = []
+    data = _card(bundle, "data")
     eda = _card(bundle, "eda")
     data_params = _params(bundle, "data")
+
+    if data is not None:
+        n_rows = _int(data.get("n_rows"))
+        n_features = _int(data.get("n_features"))
+        bad_rate = _float(data.get("bad_rate"))
+        target_col = _text(data.get("target_col"))
+        facts: list[str] = []
+        if n_rows is not None:
+            facts.append(f"{_miles(n_rows)} observaciones")
+        if n_features is not None:
+            facts.append(f"{_miles(n_features)} variables de entrada")
+        if bad_rate is not None:
+            facts.append(f"una tasa de incumplimiento de {_pct(bad_rate)}")
+        if facts:
+            paragraphs.append(
+                f"La población procesada contiene {_enumerar(tuple(facts))}. "
+                "Los conteos por estado, partición y motivo de exclusión se reproducen "
+                "literalmente en las tablas de esta sección."
+            )
+        if target_col is not None:
+            paragraphs.append(f"La columna objetivo publicada por data es «{target_col}».")
 
     if eda is not None:
         rate = _float(eda.get("overall_default_rate"))
@@ -354,7 +418,8 @@ def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
 
     if not paragraphs:
         paragraphs.append(
-            "La corrida no publicó datos de población (card de EDA ni config de datos); este "
+            "La corrida no publicó datos de población (data card, card de EDA ni config de "
+            "datos); este "
             "capítulo debe completarse íntegramente a mano."
         )
     return tuple(paragraphs)
@@ -820,6 +885,8 @@ def results_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
 
 def results_body(bundle: ReportInputBundle, domain: str) -> tuple[str, ...]:
     """Despacha la prosa de resultados de la etapa pedida."""
+    if domain == "data":
+        return _results_data(bundle)
     if domain == "binning":
         return _results_binning(bundle)
     if domain == "selection":
@@ -845,6 +912,88 @@ def results_body(bundle: ReportInputBundle, domain: str) -> tuple[str, ...]:
     if domain == "provisioning_ifrs9":
         return _results_provisioning_ifrs9(bundle)
     return ()
+
+
+def _results_data(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Describe la proyección literal del ``DataCardSection`` sin derivar estadísticas."""
+    if _card(bundle, "data") is None:
+        return ()
+    return (
+        "Las tablas siguientes son una proyección de presentación del DataCardSection publicado "
+        "por data. Estados, tamaños y tasas por partición, y exclusiones se copian literalmente; "
+        "el informe no recalcula ni completa valores ausentes.",
+    )
+
+
+# ────────────────────────────── validación formal ──────────────────────────────
+
+
+def validation_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Resume objetivamente la card del ``ValidationResult`` sin emitir veredicto humano."""
+    if "validation" not in bundle.results:
+        return ()
+    card = _card(bundle, "validation")
+    if card is None:
+        return ()
+    model_ref = _text(card.get("model_ref")) or "modelo sin referencia publicada"
+    status = _text(card.get("overall_status")) or "no disponible"
+    n_tests = _int(card.get("n_tests"))
+    n_failed = _int(card.get("n_failed"))
+    families = tuple(
+        _VALIDATION_FAMILY_LABELS.get(str(item), str(item))
+        for item in _sequence(card.get("families_run"))
+    )
+    paragraphs = [
+        f"La validación formal del modelo «{model_ref}» ejecutó {_enumerar(families)}. "
+        f"El estado técnico agregado publicado por el motor es «{status}».",
+    ]
+    if n_tests is not None and n_failed is not None:
+        paragraphs.append(
+            f"El resultado registra {_miles(n_tests)} {_plural(n_tests, 'test', 'tests')}, de los "
+            f"cuales {_miles(n_failed)} quedaron fallidos. Las tablas se copian del "
+            "ValidationResult atómico, sin recalcular métricas ni decisiones."
+        )
+    gaps = tuple(str(item) for item in _sequence(card.get("falta_dato")))
+    if gaps:
+        paragraphs.append(f"Brechas de dato declaradas por validation: {_enumerar(gaps)}.")
+    paragraphs.append(
+        "Este estado es evidencia técnica; el veredicto de aprobación, aprobación con "
+        "observaciones o rechazo corresponde al validador humano y queda POR COMPLETAR."
+    )
+    return tuple(paragraphs)
+
+
+def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str, ...]:
+    """Explica qué columnas publica cada familia; la tabla conserva los valores del DTO."""
+    table = bundle.tables.get(f"validation.{family}")
+    rows = len(table.index) if table is not None else 0
+    descriptions = {
+        "discrimination": (
+            "La tabla reproduce por partición AUC, Gini y KS, junto con población, fuente y "
+            "estado de evaluabilidad."
+        ),
+        "calibration": (
+            "La tabla reúne Hosmer-Lemeshow, Brier y, cuando fue configurado, el contraste por "
+            "grado con sus decisiones y semáforo publicados."
+        ),
+        "stability": (
+            "La tabla reproduce PSI/estabilidad, umbrales, banda, acción y decisión publicados "
+            "por validation."
+        ),
+        "backtesting": (
+            "La tabla contrasta valores estimados y realizados por parámetro y segmento, con el "
+            "test, p-valor y decisión publicados."
+        ),
+    }
+    description = descriptions.get(family)
+    if description is None:
+        return ()
+    if rows == 0:
+        return (
+            f"{description} La familia fue ejecutada, pero no publicó filas evaluables; las "
+            "brechas quedan declaradas en la síntesis del capítulo.",
+        )
+    return (f"{description} Filas publicadas por el DTO: {_miles(rows)}.",)
 
 
 def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
@@ -1629,6 +1778,8 @@ def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Limitaciones: alcance de la fase, caveats de determinismo y secciones ausentes."""
     tiene_provisiones = _card(bundle, "provisioning") is not None
     tiene_ifrs9 = _card(bundle, "provisioning_ifrs9") is not None
+    validation = _card(bundle, "validation") if "validation" in bundle.results else None
+    validation_families = set(_sequence(validation.get("families_run"))) if validation else set()
     if tiene_ifrs9 and not tiene_provisiones:
         # Corrida IFRS 9 (SDD-16): el capítulo de ECL ES el alcance. Decir aquí que "IFRS 9
         # corresponde a fases posteriores" sería falso; y la cadena mínima ECL no corre la
@@ -1641,49 +1792,48 @@ def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
             curva = (
                 "La curva PD lifetime se ajustó en esta misma corrida de forma autocontenida "
                 "sobre la historia de la propia cartera, sin insumos de un scorecard de "
-                "originación; su validación completa como modelo —discriminación, calibración "
-                "y estabilidad— no forma parte de esta corrida."
+                "originación."
             )
         else:
-            curva = (
-                "El modelo PD que alimenta la curva se estimó en esta misma corrida, pero su "
-                "validación completa como scorecard —discriminación, calibración y estabilidad— "
-                "no forma parte de esta corrida."
-            )
+            curva = "El modelo PD que alimenta la curva se estimó en esta misma corrida."
         alcance = (
             "El alcance de este informe es el cálculo de la pérdida crediticia esperada IFRS 9 "
             "(capítulo «Provisiones IFRS 9 / ECL»), una función experimental (SDD-16 en "
-            f"borrador) fuera de la garantía SemVer 1.x. {curva} El "
-            "backtesting de la ECL corresponde a fases posteriores y no se cubre ni se infiere "
-            "aquí."
+            f"borrador) fuera de la garantía SemVer 1.x. {curva}"
         )
     elif tiene_provisiones:
         # Con provisiones en la corrida el informe deja de ser "solo validación de scorecard":
         # se declara el capítulo regulatorio (experimental) para no subdeclarar lo que el informe
         # sí contiene (G8, SDD-28 §11). La salvedad de IFRS 9 solo aplica si NO corrió.
         alcance = (
-            "El alcance de la validación de este informe es el scorecard: discriminación, "
-            "calibración y estabilidad. El informe reporta además el cálculo regulatorio de "
+            "El informe cubre el scorecard y reporta además el cálculo regulatorio de "
             "provisiones (capítulo «Provisiones regulatorias»), una función experimental fuera "
             "de la garantía SemVer 1.x."
         )
         if tiene_ifrs9:
             alcance += (
                 " La corrida calculó también la pérdida esperada IFRS 9 (capítulo «Provisiones "
-                "IFRS 9 / ECL», igualmente experimental). El backtesting corresponde a fases "
-                "posteriores y no se cubre ni se infiere aquí."
-            )
-        else:
-            alcance += (
-                " El backtesting y la integración con IFRS 9 corresponden a fases posteriores "
-                "y no se cubren ni se infieren aquí."
+                "IFRS 9 / ECL», igualmente experimental)."
             )
     else:
-        alcance = (
-            "El alcance de este informe es la validación del scorecard: discriminación, "
-            "calibración y estabilidad. El backtesting y la integración con IFRS 9 "
-            "corresponden a fases posteriores y no se cubren ni se infieren aquí."
+        alcance = "El alcance de este informe es la construcción y evaluación del scorecard."
+
+    if validation is None:
+        alcance += (
+            " Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus "
+            "resultados."
         )
+    else:
+        families = tuple(
+            _VALIDATION_FAMILY_LABELS.get(str(item), str(item))
+            for item in _sequence(validation.get("families_run"))
+        )
+        alcance += (
+            f" La validación formal ejecutó {_enumerar(families)} y se documenta en su capítulo "
+            "propio; el estado técnico no sustituye el veredicto humano."
+        )
+    if tiene_ifrs9 and "backtesting" not in validation_families:
+        alcance += " El backtesting de la ECL no se ejecutó ni se infiere aquí."
     paragraphs: list[str] = [
         alcance,
         "Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no "

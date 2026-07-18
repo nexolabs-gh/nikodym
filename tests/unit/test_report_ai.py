@@ -239,6 +239,33 @@ def test_ai_payload_sanitiza_pii_antes_de_enviar_al_cliente() -> None:
     assert "saldo" in serialized
 
 
+def test_ai_payload_excluye_effective_config_completo_aunque_no_contenga_pii() -> None:
+    """La config efectiva queda fuera por contrato explícito, no sólo por el filtro de secretos."""
+    fake = FakeAIClient()
+    section = _section(
+        id="appendix_parameters.validation",
+        title="Validación formal",
+        kind="appendix",
+        payload={
+            "overall_status": "pass",
+            "effective_config": {
+                "families": ["discrimination", "calibration"],
+                "calibration": {"alpha": 0.05, "binomial_by_grade": False},
+            },
+        },
+    )
+
+    AINarrator(
+        AiNarrationConfig(enabled=True, provider="anthropic", model="modelo-test"),
+        client=fake,
+    ).enrich(_bundle_with((section,)))
+
+    serialized = json.dumps(fake.requests[0].payload, sort_keys=True, ensure_ascii=False)
+    assert "effective_config" not in serialized
+    assert "binomial_by_grade" not in serialized
+    assert '"overall_status": "pass"' in serialized
+
+
 def test_rule_based_casos_borde_de_secciones_sin_prosa() -> None:
     """Secciones ausentes, índice, anexos y datos sin prosa tienen texto propio, no genérico."""
     sections = (

@@ -493,19 +493,37 @@ def _exec_scope_note(bundle: ReportInputBundle) -> str:
     El texto histórico decía «la integración con IFRS 9 corresponde a fases posteriores»: falso
     —y en la primera página— cuando el capítulo central del informe ES la ECL IFRS 9.
     """
+    validation = bundle.cards.get("validation") if "validation" in bundle.results else None
+    families = set(validation.get("families_run", ())) if isinstance(validation, Mapping) else set()
+    if _is_ifrs9_run(bundle) and validation is not None:
+        backtesting = (
+            " e incluyó backtesting de la ECL"
+            if "backtesting" in families
+            else "; no incluyó backtesting de la ECL"
+        )
+        return (
+            "Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental, "
+            f"SDD-16 en borrador) y validación formal{backtesting}. Todos los valores provienen "
+            "de la corrida trazada en la portada: no se completan con supuestos."
+        )
     if _is_ifrs9_run(bundle):
         return (
             "Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental, "
-            "SDD-16 en borrador). La validación completa del scorecard y el backtesting de la "
-            "ECL corresponden a fases posteriores; este informe no los cubre ni infiere sus "
-            "resultados. Todos los valores provienen de la corrida trazada en la portada: no se "
-            "completan con supuestos."
+            "SDD-16 en borrador). Esta corrida no ejecutó la capa de validación formal ni el "
+            "backtesting de la ECL; el informe no infiere sus resultados. Todos los valores "
+            "provienen de la corrida trazada en la portada: no se completan con supuestos."
+        )
+    if validation is not None:
+        return (
+            "Alcance: scorecard y validación formal de las familias configuradas. El capítulo "
+            "«Validación formal» reproduce el resultado técnico atómico; el veredicto permanece "
+            "bajo responsabilidad humana. Todos los valores provienen de la corrida trazada en "
+            "la portada: no se completan con supuestos."
         )
     return (
-        "Alcance: validación de scorecard (discriminación, estabilidad y calibración). El "
-        "backtesting y la integración con IFRS 9 corresponden a fases posteriores; este informe "
-        "no los cubre ni infiere sus resultados. Todos los valores provienen de la corrida "
-        "trazada en la portada: no se completan con supuestos."
+        "Alcance: construcción y evaluación del scorecard. Esta corrida no ejecutó la capa de "
+        "validación formal; el informe no infiere sus resultados. Todos los valores provienen de "
+        "la corrida trazada en la portada: no se completan con supuestos."
     )
 
 
@@ -531,11 +549,11 @@ def _executive_view(bundle: ReportInputBundle) -> dict[str, Any]:
 
 def _band_class(band: str) -> str:
     """Clase CSS del semáforo: sólo se colorea lo que el motor sí evaluó."""
-    if band in {"Bajo el umbral configurado", "Requiere redesarrollo"}:
+    if band in {"Bajo el umbral configurado", "Requiere redesarrollo", "Falla técnica"}:
         return "band-alert"
     if band == "Requiere revisión":
         return "band-warn"
-    if band in {"Sin alertas", "Estable"}:
+    if band in {"Sin alertas", "Estable", "Pass técnico"}:
         return "band-ok"
     return "band-none"
 
@@ -602,6 +620,8 @@ def _tables_for_section(
             for key in sorted(bundle.tables, key=str)
             if key not in shown and key not in PER_OBSERVATION_TABLES
         )
+    elif section.id.startswith("validation.") and section.status == "included":
+        keys = (section.id,) if section.id in bundle.tables else ()
     elif section.kind == "data" and section.source_domain and section.status == "included":
         keys = tuple(
             key

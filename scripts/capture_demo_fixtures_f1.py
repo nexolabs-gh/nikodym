@@ -2,9 +2,10 @@
 
 La demo pública (``VITE_DEMO_MODE=true``, servida sin backend) monta la app sobre fixtures
 enlatados en ``web/src/fixtures/demo/``. Este script captura el set del preset
-``f1-estandar-consumo`` —el **scorecard de comportamiento** puro (data→binning→selection→model→
-scorecard→calibration→performance→stability), SIN provisiones— corriendo la cadena **de verdad**
-contra el backend, vía :func:`nikodym.ui.server.create_app` sobre ``TestClient`` (sin ``uvicorn``).
+``f1-estandar-consumo`` —el **scorecard de comportamiento** puro
+(data→binning→selection→model→scorecard→calibration→performance→stability→validation), SIN
+provisiones— corriendo la cadena **de verdad** contra el backend, vía
+:func:`nikodym.ui.server.create_app` sobre ``TestClient`` (sin ``uvicorn``).
 
 **No sobrescribe los fixtures F3/F4** (``*.json``/``*-ifrs9.*``, LIVE): escribe archivos NUEVOS con
 sufijo ``-f1`` para que el front arme una demo multi-preset. El preset F1 tiene el **report
@@ -69,6 +70,8 @@ _FIXTURES_DIR = Path(__file__).resolve().parent.parent / "web" / "src" / "fixtur
 # validación de scorecard (NO como el informe IFRS 9, que titula la cadena F4 sin scorecard).
 _SCORECARD_TITLE = "Informe de Validación de Scorecard"
 _IFRS9_TITLE = "Informe de Provisiones IFRS 9 / ECL"
+_VALIDATION_TITLE = "Validación formal"
+_DATA_TITLE = "Población, particiones y exclusiones"
 
 # El catálogo compartido debe listar la cartera IFRS 9 (hoy el fixture versionado está stale y no la
 # trae): el preset F4 la recomienda y sin ella la demo no la ofrece.
@@ -295,8 +298,9 @@ def verify_artifacts() -> None:
 
     - ``results-f1.json`` trae ``scorecard`` y ``performance`` NO nulas, y las cuatro cards de
       provisiones NULAS (el F1 es scorecard puro).
-    - ``report-f1.html`` se titula «Informe de Validación de Scorecard» (con el h1 de portada) y NO
-      trae el título IFRS 9; los binarios no están vacíos.
+    - ``preset-f1.json`` activa validation con discriminación, calibración y estabilidad.
+    - ``report-f1.html`` se titula «Informe de Validación de Scorecard», incorpora data y la
+      validación formal, y NO trae el título IFRS 9; los binarios no están vacíos.
     - ``datasets.json`` (catálogo compartido) lista ``ifrs9_retail_latam`` con ``n_rows`` 6.000.
     """
     raw = (_FIXTURES_DIR / "results-f1.json").read_text(encoding="utf-8")
@@ -312,6 +316,13 @@ def verify_artifacts() -> None:
             f"'{key}' NO es null en results-f1.json: el F1 no debe traer provisiones."
         )
 
+    preset = json.loads((_FIXTURES_DIR / "preset-f1.json").read_text(encoding="utf-8"))
+    validation = preset["config"].get("validation")
+    assert isinstance(validation, dict), "preset-f1.json no activa validation"
+    assert validation["families"] == ["discrimination", "calibration", "stability"]
+    assert validation["calibration"]["binomial_by_grade"] is False
+    assert validation["backtesting"]["enabled"] is False
+
     html = (_FIXTURES_DIR / "report-f1.html").read_text(encoding="utf-8")
     assert html.count(_SCORECARD_TITLE) > 0, "report-f1.html no se titula como scorecard"
     assert f'<h1 class="cover-title">{_SCORECARD_TITLE}</h1>' in html, (
@@ -320,6 +331,8 @@ def verify_artifacts() -> None:
     assert _IFRS9_TITLE not in html, (
         "report-f1.html trae el título IFRS 9: el título dinámico eligió el documento equivocado"
     )
+    assert _DATA_TITLE in html, "report-f1.html no proyecta el DataCardSection"
+    assert _VALIDATION_TITLE in html, "report-f1.html no trae el ValidationResult ejecutado"
     for name in ("report-f1.pdf", "report-f1.docx", "report-quarto-f1.zip"):
         size = (_FIXTURES_DIR / name).stat().st_size
         assert size > 1_000, f"{name} quedó sospechosamente chico ({size} bytes)"

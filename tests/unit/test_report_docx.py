@@ -108,6 +108,61 @@ def _bundle() -> ReportInputBundle:
     )
 
 
+def _bundle_validation() -> ReportInputBundle:
+    """Bundle con validation para comprobar el formato Word compartido."""
+    base = _bundle()
+    sections = (
+        *base.sections,
+        ReportSection(
+            id="validation",
+            title="Validación formal",
+            status="included",
+            source_domain="report",
+            source_key="validation",
+            kind="prose",
+            number="5",
+            body=("El estado técnico agregado es pass.",),
+            placeholder=PlaceholderBlock(
+                title="Veredicto de validación formal",
+                guidance=("Firmar el juicio humano.",),
+            ),
+        ),
+        ReportSection(
+            id="validation.calibration",
+            title="Calibración",
+            status="included",
+            source_domain="validation",
+            source_key="result",
+            kind="data",
+            level=2,
+            number="5.1",
+        ),
+    )
+    return base.model_copy(
+        update={
+            "cards": {
+                **base.cards,
+                "validation": {
+                    "model_ref": "scorecard@oracle",
+                    "families_run": ("calibration",),
+                    "overall_status": "pass",
+                    "n_tests": 1,
+                    "n_failed": 0,
+                },
+            },
+            "results": {"validation": {"oracle": "atomic-result"}},
+            "tables": {
+                **base.tables,
+                "validation.calibration": pd.DataFrame(
+                    {"test": ["hosmer_lemeshow"], "p_value": [0.48], "decision": ["pass"]}
+                ),
+            },
+            "sections": sections,
+        },
+        deep=True,
+    )
+
+
 def _config(**kwargs: Any) -> ReportConfig:
     """Config con metadatos de portada declarados."""
     base: dict[str, Any] = {
@@ -162,6 +217,26 @@ def test_docx_abre_sin_reparar_y_usa_estilos_nativos_de_word(tmp_path: Path) -> 
     # (4) Metadatos del archivo (los que Word muestra en Propiedades).
     assert word.core_properties.title == "Informe de Validación de Scorecard"
     assert word.core_properties.author == "Riesgo de Crédito"
+
+
+@_SKIP_DOCX
+def test_docx_incluye_validacion_formal_tabla_y_veredicto_humano() -> None:
+    """Word espeja el capítulo formal y mantiene su tabla editable y el juicio humano visible."""
+    import docx
+
+    payload = DocxReportRenderer.from_config(_config()).render(_bundle_validation())
+    word = docx.Document(io.BytesIO(payload))
+    text = "\n".join(paragraph.text for paragraph in word.paragraphs)
+    headings = [
+        paragraph.text
+        for paragraph in word.paragraphs
+        if paragraph.style.name in {"Heading 1", "Heading 2"}
+    ]
+
+    assert "5 Validación formal" in headings
+    assert "5.1 Calibración" in headings
+    assert "POR COMPLETAR — Veredicto de validación formal" in text
+    assert any(table.rows[1].cells[0].text == "hosmer_lemeshow" for table in word.tables)
 
 
 @_SKIP_DOCX

@@ -54,6 +54,7 @@ __all__ = [
     "PER_OBSERVATION_TABLES",
     "PIPELINE_DOMAINS",
     "RESULT_DOMAINS",
+    "VALIDATION_FAMILIES",
     "ChapterSpec",
     "domain_section_id",
     "ordered_sections",
@@ -74,6 +75,7 @@ PIPELINE_DOMAINS: Final[tuple[str, ...]] = (
 )
 
 DOMAIN_TITLES: Final[dict[str, str]] = {
+    "data": "Población, particiones y exclusiones",
     "eda": "Población y calidad de datos",
     "binning": "Binning WoE y poder predictivo",
     "selection": "Selección de variables",
@@ -82,7 +84,10 @@ DOMAIN_TITLES: Final[dict[str, str]] = {
     "calibration": "Calibración",
     "performance": "Desempeño y discriminación",
     "stability": "Estabilidad",
+    "validation": "Validación formal",
     "survival": "Supervivencia y curva PD lifetime",
+    "markov": "Matrices de transición",
+    "forward": "Escenarios forward-looking",
     "provisioning": "La provisión a constituir — la regla del máximo",
     "provisioning_cmf": "Método estándar de la CMF (Cap. B-1)",
     "provisioning_internal": "Método interno del banco",
@@ -90,7 +95,7 @@ DOMAIN_TITLES: Final[dict[str, str]] = {
 }
 
 # Dominios que alimentan el capítulo de Contexto (población) y los de Resultados (el cuerpo).
-CONTEXT_DOMAINS: Final[tuple[str, ...]] = ("eda",)
+CONTEXT_DOMAINS: Final[tuple[str, ...]] = ("data", "eda")
 RESULT_DOMAINS: Final[tuple[str, ...]] = (
     "binning",
     "selection",
@@ -112,20 +117,33 @@ PROVISION_DOMAINS: Final[tuple[str, ...]] = (
 # ``provisioning_ifrs9`` trae staging, EAD y ECL reportada. Solo se emite si el dominio corrió.
 IFRS9_DOMAINS: Final[tuple[str, ...]] = ("provisioning_ifrs9",)
 
+# Familias publicadas por el ``ValidationResult`` atómico (SDD-22), en el orden metodológico del
+# capítulo condicional. Solo se emiten las declaradas en ``card.families_run``.
+VALIDATION_FAMILIES: Final[tuple[tuple[str, str], ...]] = (
+    ("discrimination", "Discriminación"),
+    ("calibration", "Calibración"),
+    ("stability", "Estabilidad"),
+    ("backtesting", "Backtesting realizado vs. estimado"),
+)
+
 # El Anexo C no redefine el pipeline scorecard: añade las cards de F4 que realmente corrieron.
 # Mantener esta tupla separada evita que ``survival``/IFRS 9 se vuelvan requisitos implícitos de F1.
 APPENDIX_PARAMETER_DOMAINS: Final[tuple[str, ...]] = (
+    "data",
     *PIPELINE_DOMAINS,
     "survival",
+    "markov",
+    "forward",
     "provisioning_ifrs9",
+    "validation",
 )
 
 APPENDIX_LINEAGE_ID: Final = "appendix_lineage"
 APPENDIX_TABLES_ID: Final = "appendix_tables"
 APPENDIX_PARAMETERS_ID: Final = "appendix_parameters"
 
-# Etapas que describe el capítulo de Metodología, en el orden en que ocurrieron. ``data`` no publica
-# card (es config puro), pero su tratamiento es parte del procedimiento y debe quedar escrito.
+# Etapas que describe el capítulo de Metodología, en el orden en que ocurrieron. ``data`` aporta
+# config y una card de población opcional; su tratamiento debe quedar escrito aun sin esa card.
 METHODOLOGY_STEPS: Final[tuple[tuple[str, str], ...]] = (
     ("data", "Tratamiento de datos y particiones"),
     ("binning", "Binning WoE"),
@@ -141,6 +159,7 @@ METHODOLOGY_STEPS: Final[tuple[tuple[str, str], ...]] = (
 # que el cuerpo no mostró, no lo que ya mostró—: el cuerpo cura, el anexo completa. Repetir una
 # tabla íntegra en dos sitios no añade trazabilidad, añade páginas.
 KEY_TABLES: Final[dict[str, tuple[str, ...]]] = {
+    "data": ("data.states", "data.partitions", "data.exclusions"),
     "eda": ("eda.default_rate", "eda.quality"),
     "binning": ("binning.summary",),
     "selection": ("selection.selection_table", "selection.vif_table"),
@@ -177,6 +196,9 @@ PER_OBSERVATION_TABLES: Final[frozenset[str]] = frozenset(
 # Títulos legibles por artefacto tabular: el informe habla de "Coeficientes del modelo PD", no de
 # `model.coefficients`. Las claves dinámicas (una tabla por variable) se resuelven en `table_title`.
 _TABLE_TITLES: Final[dict[str, str]] = {
+    "data.states": "Estados de la población",
+    "data.partitions": "Particiones de modelamiento",
+    "data.exclusions": "Exclusiones aplicadas",
     "eda.default_rate": "Tasa de incumplimiento observada",
     "eda.stability": "Estabilidad temporal de las variables (EDA)",
     "eda.univariate": "Análisis univariado de variables candidatas",
@@ -200,6 +222,10 @@ _TABLE_TITLES: Final[dict[str, str]] = {
     "performance.discriminant_metrics": "Métricas de discriminación por partición",
     "stability.psi_table": "PSI por tramo de score",
     "stability.stability_metrics": "Métricas de estabilidad (PSI/CSI)",
+    "validation.discrimination": "Validación formal — discriminación",
+    "validation.calibration": "Validación formal — calibración",
+    "validation.stability": "Validación formal — estabilidad",
+    "validation.backtesting": "Validación formal — backtesting",
     "provisioning.comparison": "Comparación estándar vs. interno y regla del máximo",
     "provisioning_cmf.summary": "Provisión estándar por categoría CMF",
     "provisioning_internal.groups": "Provisión interna por grupo homogéneo (banda de score)",
@@ -232,6 +258,12 @@ class ChapterSpec(BaseModel):
     dominio: un informe que no corrió ninguna etapa de scorecard (p. ej. la cadena standalone
     ``data → survival → provisioning_ifrs9``) no debe traer un capítulo «Resultados» vacío.
     Vacía (el default) = sin condición any-of.
+    """
+    requires_result: str = ""
+    """Resultado atómico del que depende el capítulo.
+
+    Este gate exige que el ``ReportInputBundle`` haya recolectado el DTO agregado bajo
+    ``results[requires_result]``; una card resumen aislada no basta. Vacío = sin condición.
     """
 
 
@@ -270,6 +302,21 @@ CHAPTER_SPECS: Final[tuple[ChapterSpec, ...]] = (
     # emite un «Resultados» vacío: su resultado de negocio vive en el capítulo condicional
     # correspondiente (``provisions``/``ifrs9``) y la numeración se reajusta sola.
     ChapterSpec(id="results", title="Resultados", kind="prose", requires_any_domain=RESULT_DOMAINS),
+    # Capítulo CONDICIONAL de validación formal (SDD-22): el DTO agregado es el oracle. Va
+    # inmediatamente después de Resultados y antes de cualquier capítulo de provisiones.
+    ChapterSpec(
+        id="validation",
+        title="Validación formal",
+        kind="prose",
+        requires_result="validation",
+        placeholder_title="Veredicto de validación formal",
+        placeholder_guidance=(
+            "Emite el juicio humano sobre la aptitud del modelo para su uso previsto: aprobar, "
+            "aprobar con observaciones o rechazar.",
+            "Documenta observaciones, responsables, plazos y la fecha de la próxima revisión; "
+            "el estado técnico del motor no sustituye este veredicto.",
+        ),
+    ),
     # Capítulo CONDICIONAL (SDD-28 D5): solo se emite si la corrida calculó provisiones. Va tras
     # Resultados —es un resultado de negocio, no una validación del scorecard— y antes de
     # Conclusiones, que pueden referirlo. En una corrida de scorecard no aparece y la numeración se
@@ -339,6 +386,7 @@ _CHILD_ORDER: Final[dict[str, tuple[str, ...]]] = {
     "context": CONTEXT_DOMAINS,
     "methodology": tuple(step for step, _ in METHODOLOGY_STEPS),
     "results": RESULT_DOMAINS,
+    "validation": tuple(family for family, _ in VALIDATION_FAMILIES),
     "provisions": PROVISION_DOMAINS,
     "ifrs9": IFRS9_DOMAINS,
     APPENDIX_PARAMETERS_ID: APPENDIX_PARAMETER_DOMAINS,

@@ -14,6 +14,32 @@
 >
 > Reescribir este SDD contra el código es deuda pendiente.
 
+> **Contrato aditivo de población y validación formal (2026-07-18).** Esta adenda prevalece sobre
+> el pseudocódigo histórico de este SDD y describe la extensión implementada sobre el documento
+> vigente de `report/document.py`:
+>
+> - `ReportBuilder` recolecta opcionalmente `("data", "data_card")`,
+>   `("validation", "card")` y el oracle atómico `("validation", "result")`. Su ausencia no es
+>   error: `data` y `validation` **no** se agregan a `ReportStep.requires` ni a
+>   `SectionPolicyConfig.required_sections`.
+> - Cuando existe `DataCardSection`, el capítulo **Contexto** comienza con la subsección
+>   **Población, particiones y exclusiones**. Sus tablas de presentación copian literalmente los
+>   estados, particiones y exclusiones publicados por `data`; `report` no recalcula estadísticas,
+>   no infiere conteos y no muta artefactos aguas arriba.
+> - Cuando existe el `ValidationResult` atómico, aparece el capítulo condicional **Validación
+>   formal** inmediatamente después de **Resultados** y antes de provisiones. Presenta
+>   discriminación, calibración, estabilidad y backtesting mediante subsecciones y tablas
+>   derivadas del DTO, con prosa objetiva y una síntesis ejecutiva técnica. El veredicto final
+>   permanece como bloque humano **POR COMPLETAR**. Si `validation` está ausente, se omiten el
+>   capítulo, sus tablas y su métrica ejecutiva; sólo entonces puede declararse que no hubo
+>   validación formal.
+> - El **Anexo C** incorpora `data` y `validation`, y cada dominio cuya sección de configuración
+>   esté presente en `ReportInputBundle.pipeline_params` publica su `effective_config` completo.
+>   No se agrega un dump top-level de `NikodymConfig`, no se incluyen secretos y `effective_config`
+>   queda explícitamente fuera del payload enviado a la narrativa IA.
+> - Este contrato aplica por igual al HTML standalone, PDF WeasyPrint, Word y fuente editable
+>   Quarto/Markdown. La IA sigue siendo opt-in, sólo narrativa y nunca fuente de números.
+
 | Campo | Valor |
 |---|---|
 | **SDD** | 26 |

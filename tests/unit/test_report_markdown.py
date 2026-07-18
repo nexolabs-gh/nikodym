@@ -128,6 +128,61 @@ def _bundle() -> ReportInputBundle:
     )
 
 
+def _bundle_validation() -> ReportInputBundle:
+    """Añade el capítulo formal al bundle compartido por HTML/QMD/Word."""
+    base = _bundle()
+    sections = (
+        *base.sections,
+        ReportSection(
+            id="validation",
+            title="Validación formal",
+            status="included",
+            source_domain="report",
+            source_key="validation",
+            kind="prose",
+            number="5",
+            body=("El estado técnico agregado es pass.",),
+            placeholder=PlaceholderBlock(
+                title="Veredicto de validación formal",
+                guidance=("Firmar el juicio humano.",),
+            ),
+        ),
+        ReportSection(
+            id="validation.calibration",
+            title="Calibración",
+            status="included",
+            source_domain="validation",
+            source_key="result",
+            kind="data",
+            level=2,
+            number="5.1",
+        ),
+    )
+    return base.model_copy(
+        update={
+            "cards": {
+                **base.cards,
+                "validation": {
+                    "model_ref": "scorecard@oracle",
+                    "families_run": ("calibration",),
+                    "overall_status": "pass",
+                    "n_tests": 1,
+                    "n_failed": 0,
+                },
+            },
+            "results": {"validation": {"oracle": "atomic-result"}},
+            "tables": {
+                **base.tables,
+                "validation.calibration": pd.DataFrame(
+                    {"test": ["hosmer_lemeshow"], "p_value": [0.48], "decision": ["pass"]}
+                ),
+            },
+            "sections": sections,
+        },
+        deep=True,
+    )
+
+
 def _config(**kwargs: object) -> ReportConfig:
     """Config con metadatos de portada declarados."""
     base: dict[str, object] = {
@@ -165,6 +220,17 @@ def test_qmd_es_determinista_y_su_front_matter_es_yaml_valido() -> None:
     # La identidad de la corrida viaja DENTRO de la fuente editable.
     assert front_matter["nikodym"]["config_hash"] == "cfg123456789abcdef"
     assert front_matter["nikodym"]["entidad"] == "Banco Ejemplo S.A."
+
+
+def test_qmd_incluye_validacion_formal_tabla_y_veredicto_humano() -> None:
+    """La fuente editable consume la misma proyección del capítulo formal que el HTML."""
+    markdown = MarkdownReportRenderer.from_config(_config()).render(_bundle_validation())
+
+    assert "# 5 Validación formal" in markdown
+    assert "## 5.1 Calibración" in markdown
+    assert "Validación formal — calibración" in markdown
+    assert "hosmer_lemeshow" in markdown and "0.4800" in markdown
+    assert "POR COMPLETAR — Veredicto de validación formal" in markdown
 
 
 def test_qmd_espeja_los_capitulos_del_html_desde_la_misma_fuente() -> None:

@@ -112,11 +112,18 @@ class ReportInputBundle(_ReportBaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 
     _COPY_ON_ACCESS_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"cards", "tables", "figures", "pipeline_params"}
+        {"cards", "results", "tables", "figures", "pipeline_params"}
     )
 
     lineage: LineageBundleLike
     cards: dict[str, Any]
+    results: dict[str, Any] = Field(default_factory=dict)
+    """DTOs agregados que actúan como oracle atómico para capítulos condicionales.
+
+    En la extensión 2026-07-18 contiene opcionalmente ``{"validation": ValidationResult}``. La
+    card y las tablas de validación se proyectan desde ese mismo snapshot para no mezclar lecturas
+    de artefactos independientes de momentos distintos.
+    """
     tables: dict[str, DataFrameLike]
     figures: dict[str, Any]
     sections: tuple[ReportSection, ...]
@@ -129,7 +136,7 @@ class ReportInputBundle(_ReportBaseModel):
     ausente simplemente no aparece: la prosa omite lo que no puede afirmar.
     """
 
-    @field_validator("cards", "tables", "figures", "pipeline_params", mode="before")
+    @field_validator("cards", "results", "tables", "figures", "pipeline_params", mode="before")
     @classmethod
     def _copia_contenedores_mutables(cls, value: Any) -> Any:
         """Copia cards, tablas y figuras para aislar el bundle de mutaciones externas."""

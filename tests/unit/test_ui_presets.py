@@ -35,7 +35,9 @@ from nikodym.ui.presets import (
 # JSON canónico gana `"provisioning_internal":null` y el hash se mueve. VERIFICADO que ese es el
 # único motivo: el mismo payload sin esa clave reproduce, byte a byte, el golden anterior
 # (f53ffc9f11eaac299a42c857fd7704401361603d91fba584ce439382bb1f59a9).
-_EXPECTED_CONFIG_HASH = "decdb9017f555bd664469750a9f5f15f5440f08268f5af23eabcb3f5817d113b"
+# Actualizado en report-wave1 al activar ValidationConfig en F1 (discriminación + calibración +
+# estabilidad; binomial_by_grade/backtesting apagados por ausencia de esos datos en el fixture).
+_EXPECTED_CONFIG_HASH = "9f7dc881445c6a20de3d61d436fec1d167b0786dfc8a85558784464116dab106"
 
 
 # ─────────────────────────────── validez y hash estable ───────────────────────────────
@@ -94,6 +96,19 @@ def test_preset_pide_los_cuatro_entregables_sin_alterar_hash() -> None:
     assert "eda" not in report["sections"]["required_sections"]
     # report es INFRA → excluido del config_hash: la identidad del preset NO cambia por activarlo.
     assert config_hash(NikodymConfig.model_validate(config)) == _EXPECTED_CONFIG_HASH
+
+
+def test_standard_preset_activa_validacion_formal_sin_grade_ni_backtesting() -> None:
+    """F1 ejecuta las tres familias defendibles con el dataset disponible, sin inventar grade."""
+    validation = standard_preset()["config"]["validation"]
+    assert validation["families"] == ["discrimination", "calibration", "stability"]
+    assert validation["discrimination"]["consume_performance"] is True
+    assert validation["calibration"]["hosmer_lemeshow"] is True
+    assert validation["calibration"]["brier"] is True
+    assert validation["calibration"]["binomial_by_grade"] is False
+    assert validation["stability"]["consume_stability"] is True
+    assert validation["backtesting"]["enabled"] is False
+    assert "backtesting" not in validation["families"]
 
 
 def test_standard_preset_devuelve_copia_defensiva() -> None:
