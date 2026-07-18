@@ -10,7 +10,7 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
 ## Estado del proyecto (2026-07-17)
-**Nikodym `1.3.0` publicado en PyPI** (`pip install nikodym`); repo `main` en `d40c654`. La librería
+**Nikodym `1.3.0` publicado en PyPI** (`pip install nikodym`); repo `main` en `89583dd`. La librería
 ya **no** está en fase de construcción por capas — está publicada y en mejora continua:
 - **Pipeline scorecard F1 (comportamiento)**: API **estable** bajo garantía **SemVer 1.x** (binning WoE
   monotónico, selección IV/VIF, logística sobre WoE, calibración, informe HTML/PDF/Word).
@@ -23,12 +23,12 @@ ya **no** está en fase de construcción por capas — está publicada y en mejo
 - Suite: **>3.900 tests**, `mypy --strict`, cobertura 100 % en código regulatorio, CI matriz verde
   (macOS/Windows/Linux × Python 3.11–3.13).
 
-**Track vigente:** cola **pre-Interbank** en [`privado/COLA-CODEX-INTERBANK.md`](privado/COLA-CODEX-INTERBANK.md)
-(IBK-01…IBK-05). Al 2026-07-17: **IBK-01/02/03/04 cerradas** (bundle demo F1, narrativa por área,
-recaptura + ensayo end-to-end, demo deployada); **siguiente IBK-05** = release candidate **1.3.0** (bump,
-changelog, smoke clean-room del wheel, recaptura de informes). El **tag `vX.Y.Z` y PyPI exigen OK
-específico de Cami por release**. Reunión **Interbank miércoles 2026-07-22** (congelar demo ≤ martes 21).
-**Arrancar toda sesión leyendo [`HANDOFF.md`](HANDOFF.md).**
+**Track pre-Interbank COMPLETO:** la cola [`privado/COLA-CODEX-INTERBANK.md`](privado/COLA-CODEX-INTERBANK.md)
+(IBK-01…IBK-05) está **toda cerrada** al 2026-07-17. **IBK-05 (`89583dd`, tag `v1.3.0`) = RC 1.3.0 LIVE en
+PyPI + demo re-deployada** con lineage 1.3.0 (extra `markov` real, smoke clean-room F4, recaptura de
+informes). **No hay bloque IBK siguiente.** Reunión **Interbank miércoles 2026-07-22** (congelar demo ≤
+martes 21). El **tag `vX.Y.Z` y PyPI exigen OK específico de Cami por release** (el OK permanente cubre
+push/deploy, no tag/PyPI). **Arrancar toda sesión leyendo [`HANDOFF.md`](HANDOFF.md).**
 
 ## Auto-desarrollo (motor de trabajo)
 Método vigente: la skill de Claude **`/auto-desarrollo-claude`** (maestro Opus 4.8 que delega en writers
