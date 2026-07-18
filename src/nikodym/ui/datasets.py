@@ -4,10 +4,11 @@ Provee dos carteras de comportamiento realistas y **usables por el pipeline F1**
 plausibles + ``bad_flag`` binario correlacionado + ``segmento``/``cohorte`` para partición). La
 generación es **determinista y seeded** (``numpy.random.default_rng`` con una semilla constante por
 dataset): nunca depende del reloj ni de ``hash()`` (que varía con ``PYTHONHASHSEED``). Así, dos
-materializaciones producen el mismo contenido lógico y el ``config_hash`` de la corrida es estable
-(SDD-23 §9). :func:`materialize` cachea el parquet dentro del ``workdir`` y bloquea *path traversal*
-(rutas siempre bajo ``workdir/datasets``). Esta capa es *domain-agnostic*: no importa módulos de
-dominio ni reimplementa fórmulas de riesgo.
+materializaciones producen el mismo contenido lógico y el mismo ``data_hash``. El ``config_hash``
+también es estable cuando se conserva el ``workdir`` porque ``data.load.source`` contiene la ruta;
+entre workdirs puede cambiar aunque los datos sean idénticos. :func:`materialize` cachea el parquet
+dentro del ``workdir`` y bloquea *path traversal* (rutas siempre bajo ``workdir/datasets``). Esta
+capa es *domain-agnostic*: no importa módulos de dominio ni reimplementa fórmulas de riesgo.
 """
 
 from __future__ import annotations

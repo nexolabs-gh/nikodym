@@ -32,9 +32,11 @@ la demo, en ``web/src/lib/demo.ts``):
     GET  /api/report/{run_id}/md   -> report-quarto.zip
 
 Idempotente: se puede correr las veces que haga falta; sobrescribe siempre los mismos 8 paths y no
-deja basura. La única fuente de no-reproducibilidad byte-a-byte es el ``run_id`` (``uuid4().hex``
-que genera ``Study.run()``; el resto del contenido es determinista) — se captura tal cual, jamás se
-edita para fijarlo (sería una edición a mano, prohibida por R1).
+deja basura. Usa un ``workdir`` temporal **canónico** por plataforma para que la ruta materializada
+del dataset —que forma parte del config efectivo— no cambie en cada captura ni mueva el
+``config_hash``. El directorio se crea en exclusión mutua y se elimina aun si la corrida falla.
+``run_id`` y ``created_at`` sí cambian legítimamente; PDF/DOCX/ZIP también pueden incorporar
+metadatos de emisión, por lo que el gate congela cifras y lineage, no igualdad byte-a-byte.
 
 Uso (requiere los extras instalados: ``uv sync --all-extras``, si no el reporte/schema salen
 degradados)::
@@ -46,7 +48,10 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -58,6 +63,7 @@ if TYPE_CHECKING:
 
 PRESET_ID = "f3-provisiones-consumo"
 _FIXTURES_DIR = Path(__file__).resolve().parent.parent / "web" / "src" / "fixtures" / "demo"
+_CAPTURE_WORKDIR_NAME = "nikodym-demo-fixtures-f3"
 
 # G5 (SDD-28 §11): el informe no puede declarar que las PROVISIONES "corresponden a fases
 # posteriores" cuando el capítulo de provisiones ya existe. El criterio NO es "grep del literal
@@ -73,6 +79,30 @@ _NEGACION_PROVISIONES_RE = re.compile(r"provisi\w+[^.]{0,160}?fases?\s+posterior
 def _clp(monto: float) -> str:
     """Formatea un monto CLP como el informe: ``$`` + miles con punto, sin decimales."""
     return "$" + f"{round(monto):,}".replace(",", ".")
+
+
+@contextmanager
+def _canonical_capture_workdir(*, root: Path | None = None) -> Iterator[Path]:
+    """Crea el workdir estable de captura y evita dos escritores concurrentes.
+
+    ``TemporaryDirectory`` agrega un sufijo aleatorio que termina dentro de ``data.load.source`` y,
+    por tanto, del ``config_hash`` efectivo. Este contexto mantiene estable la ruta bajo la raíz
+    temporal de la plataforma, falla si ya existe (otra captura o residuo a revisar) y sólo elimina
+    el directorio que él mismo alcanzó a crear.
+    """
+    temp_root = Path(tempfile.gettempdir()).resolve() if root is None else root.resolve()
+    workdir = temp_root / _CAPTURE_WORKDIR_NAME
+    try:
+        workdir.mkdir()
+    except FileExistsError as exc:
+        raise RuntimeError(
+            f"el workdir canónico de captura ya existe: {workdir}. "
+            "Comprueba que no haya otra captura activa y elimina el residuo de forma explícita."
+        ) from exc
+    try:
+        yield workdir
+    finally:
+        shutil.rmtree(workdir)
 
 
 def _get(client: TestClient, path: str) -> Any:
@@ -256,8 +286,8 @@ def verify_artifacts() -> None:
 
 def main() -> None:
     """Captura, verifica el número, escribe los 8 fixtures y re-verifica el artefacto escrito."""
-    with tempfile.TemporaryDirectory() as tmp:
-        settings = UiConfig(workdir=tmp)
+    with _canonical_capture_workdir() as workdir:
+        settings = UiConfig(workdir=str(workdir))
         app = create_app(settings)
         # Import perezoso: TestClient (starlette) vive en el extra [ui], como el resto del backend.
         from starlette.testclient import TestClient

@@ -3,9 +3,10 @@
 :class:`UiConfig` parametriza **la herramienta** (tema, modo de despliegue, límite de subida,
 directorio de trabajo, secciones expuestas), **no** el experimento. Regla dura **D-UI-3**: no es
 una sección de :class:`~nikodym.core.config.NikodymConfig`, no se registra como dominio y **no
-entra al** ``config_hash``. Cambiar el tema, el modo o el ``workdir`` no altera la identidad de
-ningún experimento. Hereda de :class:`~nikodym.core.config.NikodymBaseConfig` (``extra='forbid'``,
-``frozen=True``).
+entra al** ``config_hash``. Cambiar estos ajustes no modifica por sí mismo la identidad de un
+experimento; al ejecutar, sin embargo, ``run_pipeline`` cablea una ruta bajo ``workdir`` en
+``data.load.source`` y esa ruta sí pertenece al config efectivo. Hereda de
+:class:`~nikodym.core.config.NikodymBaseConfig` (``extra='forbid'``, ``frozen=True``).
 """
 
 from __future__ import annotations
