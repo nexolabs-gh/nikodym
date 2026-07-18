@@ -48,7 +48,11 @@ from nikodym.report.results import (
 # Recalculado (SDD-28 G5) al retirar del resumen ejecutivo y de Limitaciones la frase que declaraba
 # las provisiones "fase posterior": el capítulo de provisiones ya existe (condicional, no en este
 # bundle F1). Verificado que el HTML cambió SOLO en esas dos frases (el orden canónico intacto).
-GOLDEN_HTML_SHA256 = "daf24d87eebe3f49460d7d96b647f52ded3bc6f7c0597f27c00c27a2ef0bc49f"
+# Recalculado (re-skin Quarto): el tema "nikodym" adoptó un layout editorial de 3 columnas (sidebar
+# de secciones + índice lateral "En esta página") con un CSS nuevo y marca oficial, ambos inline en
+# el HTML → el digest se mueve. El markup del documento (data-section-id y orden canónico, tablas
+# con id/thead/tbody, literales config_hash=/data_hash=/git_sha=/root_seed=) queda intacto.
+GOLDEN_HTML_SHA256 = "83ae8bc82a01eeb51542db18e6821db5dd7594e2da01d41d830a5c59869756cd"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 

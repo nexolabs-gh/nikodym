@@ -71,7 +71,9 @@ from nikodym.stability.config import StabilityConfig
 ROOT_SEED = 20_240_629
 # Golden del ``_digest_html`` (excluye ``<svg>``): con el extra ``report`` el bundle golden embebe
 # un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
-GOLDEN_STEP_HTML_SHA256 = "52268d6968ef32470c9eb9d99c6c72b47a59b37c8db1f9e64f37a37c10a65081"
+# Recalculado con el re-skin Quarto (tema "nikodym": layout de 3 columnas + CSS nuevo inline en el
+# HTML). El markup del documento (orden canónico, tablas, literales de lineage) queda intacto.
+GOLDEN_STEP_HTML_SHA256 = "bdfea612a084b4b08eb820f6ab3f2a1a25310555c49909fc2779dfcdffc2d869"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 

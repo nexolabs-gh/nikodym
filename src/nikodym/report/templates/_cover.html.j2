@@ -8,11 +8,15 @@
 
   <dl class="cover-fields">
     {% for field in cover %}
-    <dt>{{ field.label }}</dt>
-    <dd>{% if field.filled %}{{ field.value }}{% else %}<span class="to-fill" aria-label="Campo por completar"></span>{% endif %}</dd>
+    <div class="cover-field">
+      <dt>{{ field.label }}</dt>
+      <dd>{% if field.filled %}{{ field.value }}{% else %}<span class="to-fill" aria-label="Campo por completar"></span>{% endif %}</dd>
+    </div>
     {% endfor %}
-    <dt>Fecha de emisión</dt>
-    <dd>{{ emitted_date }}</dd>
+    <div class="cover-field">
+      <dt>Fecha de emisión</dt>
+      <dd>{{ emitted_date }}</dd>
+    </div>
   </dl>
 
   <div class="lineage-box">

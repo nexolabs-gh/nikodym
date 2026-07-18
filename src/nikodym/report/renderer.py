@@ -152,6 +152,7 @@ class HtmlReportRenderer:
             document = build_document_view(bundle, config=self.config, ai_blocks=ai_blocks)
             rendered = _load_template(environment).render(
                 css=_css_for_theme(self.config.html.theme),
+                theme=self.config.html.theme,
                 **document,
             )
         except ReportRenderError:
