@@ -4,24 +4,54 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Reporte IFRS 9 / ECL</title>
-  <style>/* Tema "nikodym": informe de validación de scorecard con estética institucional.
-   Determinista: sólo fuentes del sistema, sin @import ni activos remotos. La marca usa el
-   navy #1f4e79 (alineado con charts.py y docs.nikodym.cl). El MISMO markup sirve pantalla y
-   print; las reglas de paginación viven en @media print + @page. */
+  <style>/* Tema "nikodym": informe de validación con estética editorial tipo Quarto (sidebar de secciones +
+   contenido legible + índice lateral "En esta página"). Determinista: sólo fuentes del sistema, sin
+   @import ni activos remotos. Marca oficial Nikodym (kit de marca): navy #0A2240, azul #1859E0, cyan
+   #4FC3E8, alineada al símbolo N-red embebido en la portada y el sidebar. El MISMO markup sirve
+   pantalla y print: el sidebar y el índice lateral son de PANTALLA (se ocultan en @media print) y el
+   documento colapsa a una columna A4 para el PDF (WeasyPrint). */
 
 :root {
   color-scheme: light;
-  --ink: #17202a;
-  --muted: #5f6b7a;
-  --line: #d8dee6;
-  --soft: #f5f7fa;
-  --brand: #1f4e79;
-  --brand-soft: #eaf0f7;
-  --brand-ink: #14314c;
+
+  /* marca */
+  --navy: #0a2240;
+  --navy-deep: #051528;
+  --brand: #1859e0;
+  --brand-2: #2e6ff2;
+  --cyan: #4fc3e8;
+
+  /* tinta / neutros (sesgo frío hacia el navy de marca) */
+  --ink: #14202e;
+  --muted: #5a6b7d;
+  --faint: #8a97a6;
+  --line: #e1e7ee;
+  --line-soft: #eef2f7;
+
+  /* superficies */
+  --paper: #ffffff;
+  --canvas: #eceff4;
+  --rail: #f5f7fb;
+  --code-bg: #f3f6fb;
+  --brand-tint: #eaf1fd;
+  --brand-ink: #0a2240;
+
+  /* semáforo (separado del acento de marca) */
+  --ok: #12703f;
+  --ok-bg: #e6f3ec;
+  --ok-line: #bcdcc8;
   --warn: #8a5a00;
-  --warn-soft: #fff8e8;
+  --warn-bg: #fbf3e0;
+  --warn-line: #ecd8ac;
+  --alert: #8a1f1f;
+  --alert-bg: #f8e9e9;
+  --alert-line: #e6c3c3;
   --ai-ink: #7b2f00;
-  --ai-soft: #fff1dd;
+  --ai-bg: #fff1dd;
+
+  --shadow: 0 1px 2px rgba(10, 34, 64, 0.06), 0 10px 30px rgba(10, 34, 64, 0.07);
+  --mono: "SFMono-Regular", "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
@@ -30,75 +60,275 @@
 
 body {
   margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--sans);
   color: var(--ink);
-  background: #eef1f5;
-  line-height: 1.5;
-  font-size: 14px;
+  background: var(--canvas);
+  line-height: 1.62;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ─────────────────────────── layout: sidebar · doc · rail ─────────────────────────── */
+
+.doc-shell {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr) 236px;
+  max-width: 1360px;
+  margin: 0 auto;
+  align-items: start;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.doc-nav,
+.doc-rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 26px 22px;
+}
+
+.doc-nav {
+  background: var(--rail);
+  border-right: 1px solid var(--line);
+}
+
+.doc-rail {
+  padding-top: 40px;
 }
 
 main {
-  max-width: 880px;
-  margin: 0 auto;
-  padding: 0 0 56px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(23, 32, 42, 0.12);
+  min-width: 0;
+  background: var(--paper);
+  padding: 40px 52px 88px;
+}
+
+/* marca en el sidebar (símbolo N-red embebido + wordmark) */
+.doc-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+  text-decoration: none;
+}
+
+.doc-brand svg {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: block;
+}
+
+.doc-brand .doc-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.14;
+}
+
+.doc-brand strong {
+  font-size: 18px;
+  letter-spacing: -.01em;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.doc-brand span {
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+}
+
+.rail-heading {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 12px;
+}
+
+/* nav de secciones (sidebar) */
+.doc-secnav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13.5px;
+}
+
+.doc-secnav a {
+  color: var(--muted);
+  padding: 5px 12px;
+  border-left: 2px solid transparent;
+  border-radius: 0 4px 4px 0;
+}
+
+.doc-secnav a:hover {
+  color: var(--ink);
+  background: var(--brand-tint);
+  text-decoration: none;
+}
+
+.doc-secnav a.lvl-1 {
+  color: var(--ink);
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.doc-secnav a.lvl-2 {
+  padding-left: 24px;
+  font-size: 12.5px;
+}
+
+.doc-secnav a.active {
+  color: var(--brand);
+  border-left-color: var(--brand);
+  background: var(--brand-tint);
+  font-weight: 600;
+}
+
+/* índice lateral "En esta página" + entregables (right rail) */
+.doc-otp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-left: 1px solid var(--line);
+  padding-left: 14px;
+  font-size: 12.5px;
+}
+
+.doc-otp a {
+  color: var(--muted);
+}
+
+.doc-otp a.active {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.doc-downloads {
+  margin-top: 28px;
+  padding-left: 14px;
+}
+
+.doc-downloads .dl {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 0;
+  font-size: 13px;
+  color: var(--ink);
+  border-top: 1px solid var(--line-soft);
+}
+
+.doc-downloads .dl:first-of-type {
+  border-top: 0;
+}
+
+.doc-downloads .dl .tag {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+.doc-downloads .dl svg {
+  flex: 0 0 auto;
+  color: var(--brand);
 }
 
 /* ─────────────────────────── portada ─────────────────────────── */
 
 .cover {
-  padding: 56px 56px 40px;
-  border-top: 10px solid var(--brand);
-  border-bottom: 1px solid var(--line);
+  border-top: 4px solid var(--brand);
+  padding: 26px 0 36px;
+  margin-bottom: 8px;
 }
 
 .cover-brand {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--brand);
-  margin-bottom: 28px;
+  margin-bottom: 14px;
 }
 
 .cover-kicker {
-  font-size: 13px;
-  letter-spacing: 0.12em;
+  font-size: 12.5px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
 
 .cover-title {
-  font-size: 34px;
-  line-height: 1.16;
-  margin: 0 0 12px;
-  color: var(--brand-ink);
+  font-size: 37px;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  margin: 0 0 16px;
+  color: var(--navy);
+  font-weight: 800;
+  text-wrap: balance;
+  max-width: 20ch;
+}
+
+.confidential {
+  display: inline-block;
+  font-size: 11.5px;
   font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--alert);
+  background: var(--alert-bg);
+  border: 1px solid var(--alert-line);
+  padding: 5px 12px;
+  border-radius: 5px;
+  margin: 0 0 26px;
 }
 
 .cover-fields {
   display: grid;
-  grid-template-columns: minmax(140px, 220px) 1fr;
-  gap: 8px 18px;
-  margin: 0 0 28px;
-  font-size: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px 30px;
+  margin: 0 0 26px;
+}
+
+.cover-field {
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
 }
 
 .cover-fields dt {
   font-weight: 700;
   color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.04em;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  align-self: center;
+  margin-bottom: 4px;
 }
 
 .cover-fields dd {
-  margin: 0;
+  margin: 0 0 2px;
   color: var(--ink);
   font-weight: 600;
+  font-size: 14.5px;
 }
 
 /* Campo declarado en el config pero vacío: se imprime la línea para llenarla a mano. Nunca se
@@ -110,33 +340,21 @@ main {
   max-width: 320px;
 }
 
-.confidential {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #8a1f1f;
-  background: #fbeaea;
-  border: 1px solid #e6c3c3;
-  padding: 5px 12px;
-  margin: 0 0 28px;
-}
-
 .lineage-box {
   border: 1px solid var(--line);
-  background: var(--soft);
-  border-radius: 3px;
-  padding: 16px 18px;
-  margin: 0 0 28px;
+  background: var(--code-bg);
+  border-radius: 7px;
+  padding: 14px 16px;
+  margin: 0 0 26px;
 }
 
 .lineage-box .lineage-caption {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 0 0 10px;
+  margin: 0 0 8px;
 }
 
 .lineage-line {
@@ -144,8 +362,8 @@ main {
 }
 
 .lineage-line code {
-  font-family: "Courier New", Courier, monospace;
-  font-size: 12.5px;
+  font-family: var(--mono);
+  font-size: 12px;
   color: var(--brand-ink);
   word-break: break-all;
 }
@@ -153,13 +371,14 @@ main {
 .emitted {
   font-size: 13px;
   color: var(--muted);
-  margin: 0 0 28px;
+  margin: 0 0 26px;
 }
 
 .emitted strong {
   color: var(--ink);
 }
 
+/* firmas / gobernanza SR 11-7 */
 .roles {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -170,58 +389,63 @@ main {
 .roles .role {
   border: 1px solid var(--line);
   border-top: 3px solid var(--brand);
-  padding: 12px 14px 18px;
+  border-radius: 0 0 7px 7px;
+  padding: 14px 14px 18px;
 }
 
 .roles .role-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--muted);
-  margin: 0 0 6px;
+  color: var(--brand-ink);
+  margin: 0 0 26px;
 }
 
 .roles .role-field {
   border-bottom: 1px solid var(--line);
-  height: 26px;
+  height: 22px;
 }
 
 .roles .role-hint {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--faint);
   margin: 6px 0 0;
 }
 
 /* ─────────────────────────── resumen ejecutivo ─────────────────────────── */
 
 .exec-summary {
-  padding: 36px 56px 8px;
+  padding: 8px 0;
 }
 
 .exec-summary > h2 {
-  font-size: 21px;
-  color: var(--brand-ink);
-  margin: 0 0 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--brand);
+  font-size: 25px;
+  line-height: 1.2;
+  letter-spacing: -.015em;
+  color: var(--ink);
+  margin: 44px 0 8px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
 }
 
+/* veredicto: callout de énfasis (borde ámbar, es acción humana pendiente) */
 .verdict {
-  border: 1px solid var(--line);
-  border-left: 4px solid var(--brand);
-  background: var(--brand-soft);
-  padding: 16px 18px;
-  margin: 0 0 18px;
+  border: 1px solid var(--warn-line);
+  border-left: 4px solid var(--warn);
+  background: var(--warn-bg);
+  border-radius: 7px;
+  padding: 14px 16px;
+  margin: 20px 0 18px;
 }
 
 .verdict-label {
   display: block;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--brand-ink);
+  letter-spacing: 0.04em;
+  color: var(--warn);
   margin: 0 0 10px;
 }
 
@@ -239,6 +463,7 @@ main {
   padding-left: 24px;
   font-size: 14px;
   font-weight: 600;
+  color: var(--ink);
 }
 
 .verdict-options li::before {
@@ -248,9 +473,9 @@ main {
   top: 1px;
   width: 15px;
   height: 15px;
-  border: 1.5px solid var(--brand);
+  border: 1.5px solid var(--warn);
   background: #fff;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .verdict-note {
@@ -259,7 +484,6 @@ main {
   margin: 0;
 }
 
-/* El slot dejó de ser un hueco: aquí van las métricas clave con su banda. */
 .exec-metrics-slot {
   margin: 0 0 14px;
 }
@@ -273,33 +497,41 @@ main {
   text-align: right;
 }
 
+/* chips de estado (semáforo) */
 .band {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 2px;
-  border: 1px solid var(--line);
-  background: var(--soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 650;
+  padding: 2px 9px;
+  border-radius: 20px;
+  border: 0;
+  background: var(--line-soft);
   color: var(--muted);
 }
 
+.band::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 .band-ok {
-  background: #eaf4ec;
-  border-color: #bcd9c4;
-  color: #1f5c34;
+  background: var(--ok-bg);
+  color: var(--ok);
 }
 
 .band-warn {
-  background: var(--warn-soft);
-  border-color: #e6d3a3;
+  background: var(--warn-bg);
   color: var(--warn);
 }
 
 .band-alert {
-  background: #fbeaea;
-  border-color: #e6c3c3;
-  color: #8a1f1f;
+  background: var(--alert-bg);
+  color: var(--alert);
 }
 
 .scope-note {
@@ -310,7 +542,7 @@ main {
   margin: 14px 0 0;
 }
 
-/* ─────────────────────────── índice ─────────────────────────── */
+/* ─────────────────────────── índice interno del documento ─────────────────────────── */
 
 .toc-list {
   list-style: none;
@@ -319,19 +551,23 @@ main {
 }
 
 .toc-list li {
-  border-bottom: 1px dotted var(--line);
-  padding: 5px 0;
+  border-bottom: 1px solid var(--line-soft);
+  padding: 6px 0;
 }
 
 .toc-list a {
   display: flex;
-  gap: 10px;
-  color: var(--brand-ink);
+  gap: 12px;
+  color: var(--ink);
   text-decoration: none;
 }
 
+.toc-list a:hover {
+  color: var(--brand);
+}
+
 .toc-list .toc-number {
-  min-width: 46px;
+  min-width: 40px;
   color: var(--brand);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -339,7 +575,7 @@ main {
 
 .toc-list .toc-level-2 a {
   padding-left: 28px;
-  color: var(--ink);
+  color: var(--muted);
   font-size: 13px;
 }
 
@@ -348,20 +584,21 @@ main {
   padding: 3px 0;
 }
 
-/* ─────────────────────────── bloque POR COMPLETAR ─────────────────────────── */
+/* ─────────────────────────── callouts (POR COMPLETAR / narrativa) ─────────────────────────── */
 
 .placeholder {
-  border: 1px dashed var(--warn);
+  border: 1px solid var(--warn-line);
   border-left: 4px solid var(--warn);
-  background: var(--warn-soft);
+  background: var(--warn-bg);
+  border-radius: 7px;
   padding: 12px 16px;
-  margin: 14px 0;
+  margin: 16px 0;
 }
 
 .placeholder-title {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--warn);
   margin: 0 0 6px;
@@ -370,95 +607,14 @@ main {
 .placeholder-guidance {
   margin: 4px 0;
   color: var(--ink);
-  font-size: 13px;
-}
-
-/* ─────────────────────────── cuerpo por secciones ─────────────────────────── */
-
-.report-section {
-  padding: 4px 56px;
-}
-
-.report-section.chapter {
-  padding-top: 28px;
-  border-top: 1px solid var(--line);
-}
-
-.report-section.subsection {
-  padding-bottom: 8px;
-}
-
-.report-section > h2 {
-  font-size: 19px;
-  color: var(--brand-ink);
-  margin: 0 0 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--brand-soft);
-  font-weight: 700;
-}
-
-.subsection-title {
-  font-size: 15px;
-  color: var(--brand-ink);
-  margin: 18px 0 6px;
-  font-weight: 700;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.section-number {
-  color: var(--brand);
-  font-variant-numeric: tabular-nums;
-  margin-right: 8px;
-}
-
-.source {
-  font-size: 12px;
-  color: var(--muted);
-  margin: 0 0 8px;
-}
-
-.source code {
-  font-family: "Courier New", Courier, monospace;
-}
-
-h3,
-h4 {
-  font-size: 13px;
-  color: var(--brand-ink);
-  margin: 16px 0 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-/* Título legible de cada tabla: el informe habla de "Coeficientes del modelo PD", no de
-   `model.coefficients` (la clave interna queda como data-attribute, para trazar). */
-.table-block {
-  margin: 14px 0;
-  /* Pantalla: una tabla ancha hace scroll dentro de su bloque; nunca desborda el documento. */
-  overflow-x: auto;
-}
-
-.table-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--brand-ink);
-  margin: 0 0 4px;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-p {
-  margin: 8px 0;
-}
-
-.muted {
-  color: var(--muted);
+  font-size: 13.5px;
 }
 
 .missing {
+  border: 1px solid var(--warn-line);
   border-left: 4px solid var(--warn);
-  background: var(--warn-soft);
+  background: var(--warn-bg);
+  border-radius: 7px;
   padding: 10px 14px;
   margin: 12px 0;
 }
@@ -469,12 +625,104 @@ p {
 
 .ai-label {
   display: inline-block;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--ai-ink);
-  background: var(--ai-soft);
+  background: var(--ai-bg);
   padding: 2px 8px;
+  border-radius: 4px;
   margin-bottom: 6px;
+}
+
+/* ─────────────────────────── cuerpo por secciones ─────────────────────────── */
+
+.report-section {
+  padding: 0;
+}
+
+.report-section.chapter {
+  padding-top: 8px;
+}
+
+.report-section.subsection {
+  padding-bottom: 4px;
+}
+
+.report-section > h2 {
+  font-size: 25px;
+  line-height: 1.2;
+  letter-spacing: -.015em;
+  color: var(--ink);
+  margin: 48px 0 8px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.report-section.subsection > h2,
+.subsection-title {
+  font-size: 17.5px;
+  color: var(--ink);
+  margin: 30px 0 4px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+  text-transform: none;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.section-number {
+  color: var(--brand);
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.5ch;
+  font-weight: 700;
+}
+
+.source {
+  font-size: 12px;
+  color: var(--faint);
+  margin: 0 0 8px;
+}
+
+.source code {
+  font-family: var(--mono);
+}
+
+h3,
+h4 {
+  font-size: 12.5px;
+  color: var(--brand-ink);
+  margin: 22px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.table-block {
+  margin: 18px 0;
+  /* Pantalla: una tabla ancha hace scroll dentro de su bloque; nunca desborda el documento. */
+  overflow-x: auto;
+}
+
+.table-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+p {
+  margin: 12px 0;
+  max-width: 68ch;
+}
+
+.muted {
+  color: var(--muted);
 }
 
 dl {
@@ -497,40 +745,51 @@ dd {
 pre {
   white-space: pre-wrap;
   word-break: break-word;
-  background: var(--soft);
+  background: var(--code-bg);
   border: 1px solid var(--line);
-  padding: 8px 10px;
+  border-radius: 7px;
+  padding: 12px 14px;
   margin: 0;
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--mono);
   font-size: 12.5px;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 10px 0 4px;
-  font-size: 13px;
+  margin: 12px 0 4px;
+  font-size: 13.5px;
 }
 
-th,
-td {
-  border: 1px solid var(--line);
-  padding: 6px 9px;
+thead th {
+  text-align: left;
+  color: var(--ink);
+  font-weight: 700;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--line);
+  padding: 8px 12px;
+  vertical-align: bottom;
+}
+
+tbody td {
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  padding: 7px 12px;
   text-align: left;
   vertical-align: top;
-  /* Una celda larga se parte en vez de empujar la tabla fuera de la caja: en el PDF no hay scroll,
-     y una columna que se sale del papel es información PERDIDA. */
+  /* Una celda larga se parte en vez de empujar la tabla fuera de la caja: en el PDF no hay scroll. */
   overflow-wrap: anywhere;
 }
 
-th {
-  background: var(--brand-soft);
-  color: var(--brand-ink);
-  font-weight: 700;
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-tbody tr:nth-child(even) td {
-  background: #fafbfc;
+tbody tr:hover td {
+  background: var(--brand-tint);
 }
 
 .truncated {
@@ -539,13 +798,28 @@ tbody tr:nth-child(even) td {
   font-weight: 700;
 }
 
-/* Slot de gráfico: hueco preparado para el SVG determinista (se cablea en B3). */
+figure {
+  margin: 22px 0;
+}
+
+figure svg {
+  max-width: 100%;
+  height: auto;
+}
+
+figcaption {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+
+/* Slot de gráfico: hueco preparado para el SVG determinista. */
 .chart-slot {
-  border: 1px dashed var(--brand);
-  border-radius: 3px;
-  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
   min-height: 180px;
-  margin: 14px 0;
+  margin: 18px 0;
   padding: 12px;
   display: flex;
   align-items: flex-end;
@@ -554,7 +828,7 @@ tbody tr:nth-child(even) td {
 .chart-slot figcaption {
   font-size: 12px;
   color: var(--muted);
-  font-family: "Courier New", Courier, monospace;
+  font-family: var(--mono);
 }
 
 /* ─────────────────────────── paginación (PDF / print) ─────────────────────────── */
@@ -591,29 +865,37 @@ tbody tr:nth-child(even) td {
     font-size: 10.5pt;
   }
 
-  main {
+  /* En papel no hay sidebar ni índice lateral: el documento colapsa a una columna A4. */
+  .doc-shell {
+    display: block;
     max-width: none;
     margin: 0;
     box-shadow: none;
   }
 
+  .doc-nav,
+  .doc-rail {
+    display: none;
+  }
+
+  main {
+    padding: 0;
+  }
+
   .cover {
     padding: 0 0 24pt;
+    border-top: none;
     break-after: page;
   }
 
-  .exec-summary,
-  .report-section {
-    padding-left: 0;
-    padding-right: 0;
+  .exec-summary > h2,
+  .report-section > h2 {
+    font-size: 15pt;
   }
 
-  /* El salto de página lo manda el CAPÍTULO. Las subsecciones fluyen dentro de él: forzar un salto
-     por sección (como hacía la versión de log, donde cada card era una sección) produciría un PDF
-     de una página por dominio, con páginas casi vacías. */
+  /* El salto de página lo manda el CAPÍTULO; las subsecciones fluyen dentro. */
   .report-section.chapter {
     break-before: page;
-    border-top: none;
   }
 
   .report-section.subsection {
@@ -625,17 +907,21 @@ tbody tr:nth-child(even) td {
     break-after: avoid;
   }
 
-  /* En papel no hay scroll: la tabla se comprime (columnas de ancho fijo + tipografía menor) para
-     que TODAS entren en la página. Perder una columna en el PDF sería perder trazabilidad, que es
-     justamente lo que hace auditable a este informe. */
+  /* En papel la tabla se comprime (ancho fijo + tipografía menor) para que TODAS las columnas entren:
+     perder una columna en el PDF sería perder trazabilidad. */
   table {
     table-layout: fixed;
     font-size: 7.5pt;
   }
 
-  th,
-  td {
+  thead th,
+  tbody td {
     padding: 3px 4px;
+    border: 1px solid var(--line);
+  }
+
+  tbody tr:hover td {
+    background: transparent;
   }
 
   .chart-slot,
@@ -657,11 +943,95 @@ tbody tr:nth-child(even) td {
   tr {
     break-inside: avoid;
   }
+}
+
+/* ─────────────────────────── responsive (pantalla angosta) ─────────────────────────── */
+
+@media (max-width: 1080px) {
+  .doc-shell {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+  .doc-rail {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .doc-shell {
+    grid-template-columns: 1fr;
+  }
+  .doc-nav {
+    position: static;
+    max-height: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .doc-secnav {
+    flex-flow: row wrap;
+    gap: 2px;
+  }
+  .doc-secnav a,
+  .doc-secnav a.active {
+    border-left: 0;
+    border-radius: 5px;
+  }
+  main {
+    padding: 28px 20px 64px;
+  }
+  .cover-title {
+    font-size: 29px;
+  }
+  .cover-fields,
+  .roles {
+    grid-template-columns: 1fr;
+  }
 }</style>
   <style>@page { @top-right { content: "Informe de Provisiones IFRS 9 / ECL — CONFIDENCIAL"; } }</style>
 </head>
 <body>
-<main>
+<div class="doc-shell">
+  <aside class="doc-nav">
+    <span class="doc-brand">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+        <g stroke="#2E6FF2" stroke-width="1.8" opacity="0.42">
+          <line x1="14" y1="14" x2="50" y2="14"/>
+          <line x1="14" y1="14" x2="50" y2="32"/>
+          <line x1="14" y1="32" x2="50" y2="14"/>
+          <line x1="14" y1="32" x2="50" y2="32"/>
+          <line x1="14" y1="32" x2="50" y2="50"/>
+          <line x1="14" y1="50" x2="50" y2="32"/>
+          <line x1="14" y1="50" x2="50" y2="50"/>
+        </g>
+        <path d="M14 50 V14 L50 50 V14" fill="none" stroke="#0A2240" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="14" cy="14" r="4.5" fill="#0A2240"/>
+        <circle cx="14" cy="32" r="4.5" fill="#0A2240"/>
+        <circle cx="14" cy="50" r="4.5" fill="#0A2240"/>
+        <circle cx="50" cy="14" r="4.5" fill="#1859E0"/>
+        <circle cx="50" cy="32" r="4.5" fill="#1859E0"/>
+        <circle cx="50" cy="50" r="4.5" fill="#1859E0"/>
+      </svg>
+      <span class="doc-brand-text"><strong>Nikodym</strong><span>Validación de modelos</span></span>
+    </span>
+    <p class="rail-heading">Contenido</p>
+    <nav class="doc-secnav" aria-label="Secciones del informe">
+      <a href="#exec-summary" class="lvl-1">Resumen ejecutivo</a>
+      <a href="#section-introduction" class="lvl-1">Introducción</a>
+      <a href="#section-context" class="lvl-1">Contexto del modelo y de la cartera</a>
+      <a href="#section-methodology" class="lvl-1">Metodología</a>
+      <a href="#section-methodology-data" class="lvl-2">Tratamiento de datos y particiones</a>
+      <a href="#section-methodology-provisioning_ifrs9" class="lvl-2">Ficha metodológica IFRS 9 / ECL</a>
+      <a href="#section-ifrs9" class="lvl-1">Provisiones IFRS 9 / ECL</a>
+      <a href="#section-ifrs9-provisioning_ifrs9" class="lvl-2">Pérdida crediticia esperada (ECL) por etapas</a>
+      <a href="#section-conclusions" class="lvl-1">Conclusiones y recomendación</a>
+      <a href="#section-limitations" class="lvl-1">Limitaciones y supuestos</a>
+      <a href="#section-appendix_lineage" class="lvl-1">Lineage y reproducibilidad</a>
+      <a href="#section-appendix_tables" class="lvl-1">Tablas detalladas</a>
+      <a href="#section-appendix_parameters" class="lvl-1">Parámetros completos</a>
+      <a href="#section-appendix_parameters-survival" class="lvl-2">Supervivencia y curva PD lifetime</a>
+      <a href="#section-appendix_parameters-provisioning_ifrs9" class="lvl-2">Pérdida crediticia esperada (ECL) por etapas</a>
+    </nav>
+  </aside>
+  <main>
 <section class="cover">
   <div class="cover-brand">Nikodym</div>
   <p class="cover-kicker">Informe regulatorio — pérdida crediticia esperada</p>
@@ -669,25 +1039,37 @@ tbody tr:nth-child(even) td {
   <p class="confidential">USO INTERNO — CONFIDENCIAL</p>
 
   <dl class="cover-fields">
-    <dt>Modelo</dt>
-    <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
-    <dt>Entidad</dt>
-    <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
-    <dt>Cartera</dt>
-    <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
-    <dt>Responsable del desarrollo</dt>
-    <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
-    <dt>Versión del informe</dt>
-    <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
-    <dt>Fecha de emisión</dt>
-    <dd>2026-07-18</dd>
+    <div class="cover-field">
+      <dt>Modelo</dt>
+      <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
+    </div>
+    <div class="cover-field">
+      <dt>Entidad</dt>
+      <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
+    </div>
+    <div class="cover-field">
+      <dt>Cartera</dt>
+      <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
+    </div>
+    <div class="cover-field">
+      <dt>Responsable del desarrollo</dt>
+      <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
+    </div>
+    <div class="cover-field">
+      <dt>Versión del informe</dt>
+      <dd><span class="to-fill" aria-label="Campo por completar"></span></dd>
+    </div>
+    <div class="cover-field">
+      <dt>Fecha de emisión</dt>
+      <dd>2026-07-18</dd>
+    </div>
   </dl>
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=a3771ff5abce44db4d226e51ce63bdf38a7fb00d3cc0c15f3a923b86448ba2a3</code></div>
+    <div class="lineage-line"><code>config_hash=2fa601e1c595f2b233df26d5a07107d14fde5d4bb50aee9b68eec4dafd7c162c</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=ed86e9aa9ab912eb94a1fe4c4f6ade0d66311cc0</code></div>
+    <div class="lineage-line"><code>git_sha=3a35f0b73e8c092b1693f10b60fb545eb4330949</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1001,15 +1383,15 @@ tbody tr:nth-child(even) td {
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>a3771ff5abce44db4d226e51ce63bdf38a7fb00d3cc0c15f3a923b86448ba2a3</dd>
-    <dt>created_at</dt><dd>2026-07-18T01:14:39.710157Z</dd>
+    <dt>config_hash</dt><dd>2fa601e1c595f2b233df26d5a07107d14fde5d4bb50aee9b68eec4dafd7c162c</dd>
+    <dt>created_at</dt><dd>2026-07-18T14:42:07.010995Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>ed86e9aa9ab912eb94a1fe4c4f6ade0d66311cc0</dd>
+    <dt>git_sha</dt><dd>3a35f0b73e8c092b1693f10b60fb545eb4330949</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.3.0&#34;,
+  &#34;nikodym&#34;: &#34;1.2.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
@@ -1316,6 +1698,29 @@ tbody tr:nth-child(even) td {
 
 
 </section>
-</main>
+  </main>
+  <aside class="doc-rail">
+    <nav class="doc-otp" aria-label="En esta página">
+      <p class="rail-heading">En esta página</p>
+      <a href="#exec-summary">Resumen ejecutivo</a>
+      <a href="#section-introduction">Introducción</a>
+      <a href="#section-context">Contexto del modelo y de la cartera</a>
+      <a href="#section-methodology">Metodología</a>
+      <a href="#section-ifrs9">Provisiones IFRS 9 / ECL</a>
+      <a href="#section-conclusions">Conclusiones y recomendación</a>
+      <a href="#section-limitations">Limitaciones y supuestos</a>
+      <a href="#section-appendix_lineage">Lineage y reproducibilidad</a>
+      <a href="#section-appendix_tables">Tablas detalladas</a>
+      <a href="#section-appendix_parameters">Parámetros completos</a>
+    </nav>
+    <div class="doc-downloads">
+      <p class="rail-heading">Entregables</p>
+      <div class="dl"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 2h6l3 3v9H4z" stroke="currentColor" stroke-width="1.2"/><path d="M9.6 2v3.4H13" stroke="currentColor" stroke-width="1.2"/></svg>HTML<span class="tag">.html</span></div>
+      <div class="dl"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 2h6l3 3v9H4z" stroke="currentColor" stroke-width="1.2"/><path d="M9.6 2v3.4H13" stroke="currentColor" stroke-width="1.2"/></svg>PDF<span class="tag">.pdf</span></div>
+      <div class="dl"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 2h6l3 3v9H4z" stroke="currentColor" stroke-width="1.2"/><path d="M9.6 2v3.4H13" stroke="currentColor" stroke-width="1.2"/></svg>Word<span class="tag">.docx</span></div>
+      <div class="dl"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 2h6l3 3v9H4z" stroke="currentColor" stroke-width="1.2"/><path d="M9.6 2v3.4H13" stroke="currentColor" stroke-width="1.2"/></svg>Fuente editable<span class="tag">.qmd</span></div>
+    </div>
+  </aside>
+</div>
 </body>
 </html>
