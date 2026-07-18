@@ -265,8 +265,8 @@ def _wire_dataset_source(config: dict[str, Any], source: Path) -> dict[str, Any]
     if isinstance(data, dict):
         load = data.setdefault("load", {})
         if isinstance(load, dict):
-            # POSIX para rutas relativas: el mismo config conserva identidad en Windows/macOS/Linux.
-            load["source"] = str(source) if source.is_absolute() else source.as_posix()
+            # POSIX sólo para rutas sin ancla: una ruta raíz/drive/UNC conserva semántica nativa.
+            load["source"] = str(source) if source.anchor else source.as_posix()
     return edited
 
 

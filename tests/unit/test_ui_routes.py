@@ -13,7 +13,7 @@ import importlib.util
 import io
 import re
 from collections.abc import Iterator
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 import pandas as pd
@@ -247,6 +247,21 @@ def test_wire_dataset_source_relativo_usa_identificador_posix() -> None:
     )
 
     assert wired["data"]["load"]["source"] == ".nikodym_ui/datasets/cartera.parquet"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [PureWindowsPath(r"\tmp\x.parquet"), PureWindowsPath(r"C:\tmp\x.parquet")],
+)
+def test_wire_dataset_source_windows_anclado_conserva_representacion_nativa(
+    source: PureWindowsPath,
+) -> None:
+    """Una raíz o unidad Windows no se confunde con el identificador relativo portable."""
+    config = {"data": {"load": {"source": None}}}
+
+    wired = routes._wire_dataset_source(config, source)  # type: ignore[arg-type]
+
+    assert wired["data"]["load"]["source"] == str(source)
 
 
 def test_wire_dataset_source_sin_data_no_falla() -> None:
