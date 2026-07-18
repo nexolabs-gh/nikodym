@@ -142,11 +142,14 @@ class NikodymConfig(NikodymBaseConfig):
     explain: "ExplainConfig | None" = None      # SDD-14
     scorecard: "ScorecardConfig | None" = None  # SDD-09
     calibration: "CalibrationConfig | None" = None  # SDD-10
-    provisioning: "ProvisioningConfig | None" = None  # SDD-15/16/17
     forward: "ForwardConfig | None" = None      # SDD-20
     survival: "SurvivalConfig | None" = None    # SDD-18
     markov: "MarkovConfig | None" = None        # SDD-19
     stress: "StressConfig | None" = None        # SDD-21
+    provisioning_cmf: "CmfProvisioningConfig | None" = None       # SDD-15
+    provisioning_internal: "InternalProvisioningConfig | None" = None  # SDD-28
+    provisioning_ifrs9: "IfrsProvisioningConfig | None" = None    # SDD-16
+    provisioning: "ProvisioningConfig | None" = None              # SDD-17
     performance: "PerformanceConfig | None" = None  # SDD-11
     stability: "StabilityConfig | None" = None  # SDD-11
     validation: "ValidationConfig | None" = None    # SDD-22
@@ -154,7 +157,7 @@ class NikodymConfig(NikodymBaseConfig):
     governance: "GovernanceConfig | None" = None    # SDD-03
     audit: "AuditConfig | None" = None              # SDD-03
     tracking: "TrackingConfig | None" = None        # SDD-04
-    report: "ReportConfig | None" = None            # SDD-26 (report, Quarto; T2/F1)
+    report: "ReportConfig | None" = None            # SDD-26 (HTML/PDF/Word/Markdown; T2/F1)
 
     @model_validator(mode="after")
     def _check_cross_section(self) -> "Self":
@@ -206,7 +209,11 @@ Los migradores son funciones puras `dict→dict` decoradas `@migration("1.0.0", 
 - **Identidad (`config_hash`):** `sha256(json.dumps(cfg.model_dump(mode="json", by_alias=True, exclude=INFRA_SECTIONS), sort_keys=True, separators=(",", ":"), ensure_ascii=False))`, con `INFRA_SECTIONS = {"name", "governance", "audit", "tracking", "report"}`. Se hashea el **JSON con claves ordenadas** de las secciones **computacionales** (datos + método + semilla), excluyendo la infraestructura: así el URI de MLflow, la plantilla de reporte o el nombre del estudio no cambian la identidad del experimento (idempotencia del inventario, SDD-03/04). Independiente del estilo/versión de PyYAML y del orden de declaración (mismo experimento → mismo hash entre releases). Base del lineage bundle (SDD-03).
 - **YAML legible:** `yaml.safe_dump(cfg.model_dump(mode="json", by_alias=True), sort_keys=False)` (orden de declaración, para revisores). Tanto el YAML como el `config_hash` usan `by_alias=True` (serialización canónica única).
 - **Alias (excepcional):** por defecto el nombre del campo es el canónico (Python = YAML = hash = UI), **sin alias**. Se permite un `Field(alias=...)` **solo** para evitar colisión con un nombre reservado o un método de Pydantic (p.ej. campo `schema` ↔ `BaseModel.schema()`): en ese caso el **alias es el nombre canónico** (YAML/hash, vía `by_alias=True`) y se habilita `populate_by_name=True` en ese sub-config para construir también por nombre Python.
-- **UI:** la UI Streamlit (SDD-23) se genera desde `NikodymConfig.model_json_schema()` + introspección, sin duplicar lógica (§4 principio 6). Mapeo: `Literal`/`Enum`→selectbox, `bool`→checkbox, numérico con `ge/le`→slider, `str`→text_input; el discriminador controla el render condicional. Metadatos de presentación: `json_schema_extra={"ui_widget":…, "ui_group":…, "ui_order":…}` (contrato aquí; widgets en SDD-23). Preservación de comentarios (ruamel) **diferida** a la UI/CLI.
+- **UI:** la UI React/FastAPI (SDD-23) se genera desde `NikodymConfig.model_json_schema()` sin
+  duplicar lógica. `Literal`/`Enum`, booleanos, números, strings y uniones discriminadas se traducen
+  a controles del SPA; Pydantic sigue siendo el árbitro. Metadatos de presentación:
+  `json_schema_extra={"ui_widget":…, "ui_group":…, "ui_order":…}`. Preservación de comentarios
+  (ruamel) queda diferida a la UI/CLI.
 
 **5.6 Hydra/OmegaConf.** Capa fina **opcional** (extra `[sweep]`, import perezoso) solo para barridos por CLI: Hydra compone overrides → `dict` → `NikodymConfig.model_validate(dict)`. **Pydantic es siempre el árbitro final**; OmegaConf nunca es fuente de verdad ni dependencia de `core` (§6.2). (Licencias: `hydra-core` MIT, `omegaconf` BSD-3 — sin copyleft, D-LIC.)
 
@@ -217,7 +224,10 @@ Los migradores son funciones puras `dict→dict` decoradas `@migration("1.0.0", 
 Convenciones universales que todo módulo respeta:
 - **Input estándar:** `pandas.DataFrame` (índice = identificador de observación). Polars interno opcional si el volumen lo exige (D-DATA), tras la interfaz de SDD-02.
 - **Output de transformers:** `DataFrame` con **columnas nombradas** (no `ndarray` pelado) para trazabilidad.
-- **Output económico (provisioning):** `ProvisionResultLike`/`ECLResultLike` (Protocols en `core.results`, SDD-01 §4) con todas las columnas regulatorias; invariante `PE = PI·PDI·Exposición` fila a fila (verificable a mano); provisión final = `max(CMF, IFRS 9)` (§5.4, piso prudencial; lo toma SDD-17).
+- **Output económico (provisioning):** `ProvisionResultLike`/`ECLResultLike` (Protocols en
+  `core.results`, SDD-01 §4) con todas las columnas regulatorias; invariante
+  `PE = PI·PDI·Exposición` fila a fila. Para el B-1 chileno, la provisión se determina como
+  `max(método estándar CMF, método interno)` por institución; IFRS 9 permanece como motor separado.
 - **Config:** input YAML/dict → `NikodymConfig` frozen; identidad por `config_hash` (JSON canónico).
 
 **Invariantes universales.** `set(get_params(self)) == set(config_cls.model_fields) − {"type"}` — el `type` discriminador es campo del sub-config pero **no** kwarg de `__init__` (lo excluye `from_config`), y `_audit` es atributo del estimador (no campo de sub-config), ya excluido de `get_params` (SDD-01 §4, regla dura 5). El gancho `instancia → clase de sub-config` es `config_cls: ClassVar` de `BaseNikodymEstimator` (SDD-01 §4, añadido en Tanda 1 Rev, C08); sin él `_validate_config` y el check de SDD-24 §7.2 no son programables. Además: post-`fit` existe ≥1 atributo con sufijo `_`; el discriminador `type` de toda unión **de nivel sección** ∈ keys del `Registry` (las uniones **anidadas** se resuelven por factory local y quedan fuera de este cruce, §3); round-trip preserva igualdad de valores y `config_hash` estable bajo reordenamiento de claves y versión de PyYAML.
@@ -299,7 +309,8 @@ Operativizado por **SDD-24**; el contrato que SDD-05 impone:
 - **D5 — Metadatos `ui_*`:** **dict `ui_*` suelto** vía `json_schema_extra={"ui_widget","ui_group","ui_order"}` en v1 (no modelo tipado, que acoplaría SDD-05↔SDD-23 antes de tiempo). Los campos de inventario con vocabulario cerrado (`cartera`/`motor`/`fase`/`estado_validacion` en `GovernanceConfig`, SDD-03 §5) son `Literal` → la UI los renderiza como **selectbox** por el mapeo de §5.5, sin código nuevo.
 
 **Decisiones abiertas (delegadas).**
-- **Alcance de SDD-04 — RESUELTO (checkpoint Cami, 2026-06-23):** SDD-04 = `tracking` (MLflow) en F0/T1; el reporte Quarto pasa a **SDD-26 `report`** en T2/F1 (índice actualizado).
+- **Alcance de SDD-04 — RESUELTO (checkpoint Cami, 2026-06-23):** SDD-04 = `tracking`
+  (MLflow) en F0/T1; el reporte multipropósito vive en **SDD-26 `report`** en T2/F1.
 - Modelo de metadatos UI **tipado** (vs dict `ui_*` suelto) → diferido a v2, cuando SDD-23 (UI) lo justifique. *Responsable:* SDD-05↔SDD-23.
 
 **Riesgos.**

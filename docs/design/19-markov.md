@@ -6,7 +6,7 @@
 | **Módulo** | `nikodym.markov` |
 | **Fase** | F5 |
 | **Tanda de producción** | T5 |
-| **Estado** | Borrador |
+| **Estado** | ✅ Implementado; API experimental |
 | **Depende de** | SDD-02 |
 | **Lo consumen** | SDD-16/SDD-20 |
 | **Autor / Fecha** | DanIA / 2026-06-29 |
@@ -55,7 +55,7 @@ survival ───────────────────────�
 
 **Relación con CT-3.** SDD-02 modela el panel transversal de scorecard. `markov` depende de SDD-02 porque reusa su mecanismo de carga, validación, hash lógico, lineage y artifact store. Para F5, el dataset cargado por `data` debe ser un panel de migraciones con columnas `id`, `time` y `state` declaradas en `MarkovConfig.input`. Esto no convierte a SDD-02 en el panel longitudinal económico IFRS 9; ese diseño completo sigue diferido a F4/F5.
 
-**Cableado futuro en `core.study`.** Al implementar SDD-19:
+**Cableado implementado en `core.study`.** El registro vigente:
 - `_DOMAIN_MODULES["markov"] = "nikodym.markov"`;
 - `_DOMAIN_CONFIG_CLASSES["markov"] = ("nikodym.markov.config", "MarkovConfig")`;
 - `_DEFAULT_DOMAIN_ORDER` ubica `"markov"` después de `"data"` y antes de `"provisioning_ifrs9"`/`"forward"`;
@@ -698,7 +698,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - **Card / report.** `MarkovCard` debe permitir reconstruir el ajuste: método, estados, horizonte, tolerancias, conteos, matriz/generador, embedding, versions y `FALTA-DATO`.
 - **Lineage.** `markov` consume `data_hash` y `config_hash`; no los redefine. Aporta hashes auxiliares solo como secciones estructuradas del card si se implementan.
 - **Gobernanza CT-2.** `metric_sections` puede incluir `"transition_matrix_summary"`, `"generator_summary"`, `"embedding_diagnostics"` y `"term_structure_summary"` sin romper consumidores escalares.
-- **Golden hash anticipado.** Al cablear `MarkovConfig`, `GOLDEN_DEFAULT_CONFIG_HASH` se moverá porque `markov ∉ INFRA_SECTIONS`. El cambio debe actualizarse con test explícito y nota de repro; no se debe ocultar con exclusión de la sección.
+- **Golden hash.** `MarkovConfig` ya forma parte del contrato computacional; cualquier cambio mueve `GOLDEN_DEFAULT_CONFIG_HASH` y debe actualizarse con test explícito y nota de reproducibilidad.
 
 ## 10. Dependencias
 

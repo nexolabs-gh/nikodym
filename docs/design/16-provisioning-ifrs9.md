@@ -7,9 +7,9 @@
 | **Dominio** | Provisiones |
 | **Fase** | F4 |
 | **Tanda de producción** | T4 (Provisiones) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; API experimental |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config), SDD-10 (`calibration`); SDD-18 (`survival`) / SDD-19 (`markov`) como proveedores intercambiables de term-structure lifetime; SDD-20 (`forward`) como proveedor opcional de term-structure multiescenario PIT |
-| **Lo consumen** | SDD-17 (`provisioning`, orquestación/piso regulatorio), SDD-22 (`validation`), SDD-23 (`ui`), SDD-26 (`report`) |
+| **Lo consumen** | SDD-17 (`provisioning`, comparativo configurable no normativo frente a CMF), SDD-22 (`validation`), SDD-23 (`ui`), SDD-26 (`report`) |
 | **Autor / Fecha** | DanIA (redacción SDD-16 para T4/F4) / 2026-07-02 |
 
 ---
@@ -31,12 +31,14 @@
 - Registra con `log_decision` la fuente de term-structure, base PIT/TTC y `rho` usados, enfoque LGD/EAD, gatillos SICR disparados por fila, pesos de escenario, convención de descuento y cualquier `FALTA-DATO`.
 
 **Frontera dura de responsabilidad (qué NO hace, y quién lo hace).**
-- **No compara IFRS 9 contra el piso CMF ni aplica el máximo.** SDD-17 orquesta CMF vs IFRS 9 y aplica el máximo prudencial; SDD-16 solo expone `IfrsProvisionResult`, `summary` y `card` para esa comparación (interfaz en §6).
+- **No implementa la regla del máximo B-1.** Esa regla compara estándar CMF frente a método interno
+  por institución. SDD-16 sólo expone `IfrsProvisionResult`, `summary` y `card`; SDD-17 puede usarlos
+  en comparativos configurables entre marcos, sin atribuirles carácter prudencial chileno.
 - **No estima la term-structure lifetime PD.** SDD-18 (`survival`) y SDD-19 (`markov`) la producen; SDD-16 la consume por el contrato tidy y añade la capa económica (PIT, LGD, EAD, stage, EIR, escenario).
 - **No proyecta macro ni ajusta satellite models.** SDD-20 (`forward`) mantiene la cadena `macro_projection → satellite_model → pd_lgd_term_structure → ecl_engine → scenario_weighting`; SDD-16 es el `ecl_engine` que consume esa cadena, no la construye.
 - **No ancla la PD transversal de scorecard.** SDD-10 (`calibration`) produce `calibrated_pd_frame`; SDD-16 lo consume como PD 12m base cuando la config lo declara.
 - **No entrena ni calibra la scorecard F1.** SDD-08 produce `raw_pd_frame`; SDD-10 la PD calibrada; SDD-16 solo los consume como insumos declarados.
-- **No define la definición regulatoria de default, la ventana de desempeño ni el panel longitudinal por cuenta-período.** CT-3 difiere esa capa de datos a F4/F5; SDD-16 consume columnas económicas ya validadas y term-structures ya proyectadas.
+- **No define la definición de default ni la ventana de desempeño aplicables, ni el panel longitudinal por cuenta-período.** CT-3 difiere esa capa de datos; SDD-16 consume columnas económicas ya validadas y term-structures ya proyectadas.
 - **No inventa `rho`, pesos de escenario, umbrales SICR ni EIR.** Si no vienen de una fuente citada (ESPEC/IFRS 9/EBA/Basel) o de config, se exige config o se marca `FALTA-DATO`.
 - **No arrastra `provisioning` al núcleo.** `import nikodym.core` no importa `nikodym.provisioning`; scipy/pandas pesados se importan perezosamente dentro de `execute`/`calculate`.
 
@@ -51,12 +53,12 @@ data ─► ... ─► model ─► calibration ──┐
                                       │  calibrated_pd_frame (PD 12m base)
 survival / markov ─► term_structure ──┤
 forward ─► term_structure (PIT, k) ───┴─► provisioning_ifrs9 (SDD-16) ─► provisioning (SDD-17) ─► report/validation
-                                          PD_PIT · LGD · EAD · staging · ECL         máximo CMF vs IFRS 9
+                                          PD_PIT · LGD · EAD · staging · ECL         comparativo configurable
 ```
 
 **Interacción con `Study` y config declarativo.** `IfrsProvisioningStep` es un `Step` nativo registrado con `@register("standard", domain="provisioning_ifrs9")`. Como el proveedor de term-structure es configurable, sus `requires` (CT-1) se construyen en `from_config`: siempre `("data","frame")`; condicionalmente `("calibration","calibrated_pd_frame")` y `(<term_structure_source>, "term_structure")`. Luego resuelve la config, transforma PD a PIT/lifetime, estima LGD/EAD, asigna stage, calcula ECL y escribe sus artefactos bajo `"provisioning_ifrs9"`. El `rng` se recibe por contrato homogéneo de `Step`; el motor v1 es determinista y debe hacer `del rng`.
 
-**Cableado futuro en `core.study`.** Al implementar SDD-16:
+**Cableado implementado en `core.study`.** El registro vigente:
 - `_DOMAIN_MODULES["provisioning_ifrs9"] = "nikodym.provisioning.ifrs9"`;
 - `_DOMAIN_CONFIG_CLASSES["provisioning_ifrs9"] = ("nikodym.provisioning.ifrs9.config", "IfrsProvisioningConfig")`;
 - `_DEFAULT_DOMAIN_ORDER` ubica `"provisioning_ifrs9"` **después** de `"calibration"`, `"survival"`/`"markov"` y `"forward"` cuando esas secciones estén presentes, y **antes** de `"provisioning"` (SDD-17). El orden lineal no reemplaza CT-1: los prerequisitos reales se expresan por `requires`/`provides`; el scheduler topológico sigue diferido a F5.
@@ -150,7 +152,7 @@ EAD = drawn + CCF · (límite − drawn)
 4. **Cualitativo:** flag `stage_override_col` (watchlist, forbearance) → Stage 2/3 según valor.
 5. **Backstop 30 dpd:** `days_past_due ≥ 30` → Stage 2 (presunción rebatible IFRS 9 5.5.11).
 6. **Default 90 dpd:** `days_past_due ≥ 90` (o flag `is_default`) → Stage 3 (presunción de default IFRS 9 B5.5.37).
-7. **Low credit risk exemption** (opcional, IFRS 9 5.5.10): un instrumento de bajo riesgo crediticio (p.ej. grado de inversión) puede permanecer en Stage 1 aunque dispare gatillos cuantitativos, **salvo** que dispare un backstop duro (30/90 dpd), que siempre domina.
+7. **Low credit risk exemption** (opcional, IFRS 9 5.5.10): un instrumento de bajo riesgo crediticio puede permanecer en Stage 1 aunque dispare gatillos cuantitativos. Las referencias de 30/90 dpd son **presunciones rebatibles**. Por política conservadora explícita del motor v1, los gatillos DPD prevalecen sobre la exención; esa precedencia es una decisión de Nikodym, no una irrebatibilidad prescrita por IFRS 9.
 
 **Motor ECL (ESPEC §5.5, descuento a EIR).**
 
@@ -471,7 +473,7 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
 ```
 
 **Validaciones de config.**
-- `pit_mode="apply_vasicek"` exige `rho` o `rho_col`, y `systemic_factor_col` o escenarios `forward` con `Z`; si faltan, `IfrsConfigError` o `FALTA-DATO-IFRS-1` según `fail_on_falta_dato`.
+- `pit_mode="apply_vasicek"` necesita hoy `rho` escalar y `systemic_factor_col` explícita en runtime. El validador aún admite `rho_col` y presupone un `Z` implícito desde `forward`, aunque el motor v1 no consume el primero ni `forward` publica el segundo: brecha contractual conocida, incluida en P0 del roadmap.
 - `pit_mode="consume_pit"` exige que la term-structure entrante traiga `pd_basis="pit"` (de `forward`); si es TTC, `IfrsConfigError`.
 - `staging.sicr_pd_ratio_threshold` y `sicr_pd_pit_backstop_multiple` deben ser `> 1`; el ratio lifetime exige `origination_pd_life_col`, salvo que solo se usen backstops dpd.
 - `staging.notch_downgrade_threshold` exige `rating_col` y `origination_rating_col`.
@@ -486,13 +488,13 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
 - `base_pd_source="term_structure"`: la PD 12m se deriva de la misma curva lifetime (consistencia); `calibration` como alternativa cuando se ancla la PD 12m transversal.
 - `pit_mode="consume_pit"`: si `forward` (SDD-20) ya entregó curvas PIT multiescenario, SDD-16 no re-aplica Vasicek; evita doble ajuste macro.
 - `sicr_pd_ratio_threshold=2.0`, `sicr_pd_pit_backstop_multiple=3.0`: valores citados por ESPEC §5.5 (ratio lifetime `≥2×`, backstop PIT `≥3×`); **parametrizables por cartera** — deben calibrarse por la institución (D-IFRS-3).
-- `dpd_sicr_backstop=30`, `dpd_default_backstop=90`: presunciones rebatibles IFRS 9 (5.5.11 / B5.5.37); backstops duros regulatorios.
+- `dpd_sicr_backstop=30`, `dpd_default_backstop=90`: presunciones rebatibles IFRS 9 (5.5.11 / B5.5.37); la prioridad sobre la exención es política conservadora v1 de Nikodym.
 - `low_credit_risk_exemption=False`: la exención IFRS 9 5.5.10 es opt-in porque su uso es criterio de la entidad.
 - `scenarios.source="forward"`: los escenarios y pesos los define `forward`/la institución (D-IFRS-5, R0); nunca hardcodeados.
-- `rho=None`: sin default hardcodeado; la correlación de activos es parámetro regulatorio por cartera (D-IFRS-7, R0).
+- `rho=None`: sin default hardcodeado; `rho` es un parámetro metodológico/model risk. Las correlaciones Basel para capital no se trasladan automáticamente a ECL contable.
 - `discount_convention="annual_eir_year_fraction"`: EIR anual descontada por fracción de año, convención contable usual; `rounding="none"` publica el ECL económico exacto.
 
-**Hook diferido en `core.config.schema`.** Al implementar:
+**Hook implementado en `core.config.schema`.** El cableado vigente:
 - declarar `_PROVISIONING_IFRS9_CONFIG_CLS: type[BaseModel] | None = None`;
 - añadir campo `provisioning_ifrs9` como `Any` en runtime y `IfrsProvisioningConfig | None` bajo `TYPE_CHECKING`;
 - añadir `@field_validator("provisioning_ifrs9", mode="before")` (`_valida_provisioning_ifrs9`) que valida con `IfrsProvisioningConfig` si el hook está poblado, o exige JSON canónico determinista si no;
@@ -532,7 +534,11 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
 
 **Output `summary`.** Agregado por `portfolio × stage` (y `scenario` cuando aplica): `n_rows`, `total_ead`, `total_ecl_reported`, `coverage_ratio = total_ecl_reported / total_ead`, `warning_codes`.
 
-**Interfaz hacia SDD-17 (piso regulatorio, no diseñada aquí).** SDD-17 comparará el ECL IFRS 9 contra la provisión CMF (SDD-15) y aplicará el **máximo**. SDD-16 solo garantiza: (a) `IfrsProvisionResult.summary`/`card` con `total_ecl_reported` por cartera; (b) `term_structure()` no nula con el desglose por escenario/período; (c) claves `provides` estables. El *shape* del comparativo y la regla del máximo son responsabilidad de SDD-17.
+**Interfaz hacia SDD-17.** SDD-16 garantiza: (a) `IfrsProvisionResult.summary`/`card` con
+`total_ecl_reported` por cartera; (b) `term_structure()` no nula con el desglose por
+escenario/período; y (c) claves `provides` estables. SDD-17 puede usar el resultado en un comparativo
+configurable entre marcos. La regla normativa B-1 se aplica entre método estándar CMF y método
+interno por institución; IFRS 9 no es uno de sus operandos.
 
 **Invariantes.**
 - *No mutación:* no modifica `data.frame`, `calibrated_pd_frame` ni la term-structure de survival/markov/forward; usa copias defensivas.
@@ -555,7 +561,7 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
 7. **Derivar PD 12m/lifetime.** `PD_12m = Σ_{t≤H_12m} PD_marg`; `PD_life = PD_cum(T_max)` por fila/segmento y escenario.
 8. **Estimar LGD.** `LgdEngine.estimate` según enfoque; aplicar floor/cap; `LGD(t)` si el enfoque lo produce.
 9. **Estimar EAD.** `EadEngine.estimate`: `EAD = drawn + CCF·(límite − drawn)` o `EAD` provisto; perfil `EAD(t)` si existe, constante con warning si no.
-10. **Asignar staging.** `StagingEngine.assign`: evaluar gatillos 1–7 (§3); stage = máximo disparado; backstops dpd dominan; aplicar exención de bajo riesgo solo si no hay backstop duro.
+10. **Asignar staging.** `StagingEngine.assign`: evaluar gatillos 1–7 (§3); stage = máximo disparado; por política conservadora v1, DPD/default prevalecen sobre la exención de bajo riesgo.
 11. **Calcular ECL marginal.** Para cada fila/escenario/período: `ecl_marginal = PD_marg_k(t)·LGD_k(t)·EAD_k(t)·DF(t)`; sumar truncado a `H_12m` (Stage 1) o lifetime (Stage 2/3).
 12. **Ponderar escenarios.** `ECL_reportado = Σ_k w_k · ECL_k`; guard anti escenario medio activo.
 13. **Construir DTOs.** `IfrsStageRecord`, `IfrsEclRecord`, `IfrsEclTermRecord`, `IfrsProvisionCard`, `IfrsProvisionResult`; poblar `metric_sections` CT-2.
@@ -661,7 +667,7 @@ Marco transversal en SDD-24. Casos específicos con goldens verificables a mano:
 - **Golden ECL marginal (1 escenario, anual).** `PD_marg=(0.10,0.08)`, `LGD=0.40`, `EAD=(1000,900)`, `EIR=0.10`:
   `t=1: 0.10·0.40·1000/1.1 = 36.363636…`; `t=2: 0.08·0.40·900/1.21 = 23.801652…`; **`ECL = 60.165289…`**.
 - **Golden ECL multiescenario.** Con `w=(0.5,0.3,0.2)` y ECL por escenario `(50, 80, 120)`: `ECL = 0.5·50 + 0.3·80 + 0.2·120 = 73.0`.
-- **Golden staging.** `PD_life_origen=0.05`, `PD_life_actual=0.11` → ratio `2.2 ≥ 2.0` → Stage 2; `dpd=35 ≥ 30` → Stage 2; `dpd=95 ≥ 90` → Stage 3; exención de bajo riesgo no rescata un backstop dpd.
+- **Golden staging.** `PD_life_origen=0.05`, `PD_life_actual=0.11` → ratio `2.2 ≥ 2.0` → Stage 2; `dpd=35 ≥ 30` → Stage 2; `dpd=95 ≥ 90` → Stage 3; bajo la política v1, la exención no rescata una presunción DPD disparada.
 - **Truncado por stage.** Stage 1 usa solo `t≤H_12m` (12m); Stage 2/3 usan lifetime; `ecl_reported` cuadra con el stage.
 - **Guard anti escenario medio.** Promediar inputs macro (en vez de outputs) dispara warning/error; `Σ w_k = 1` validado.
 - **Interfaz term-structure.** Contrato tidy incompleto o invariante roto → `IfrsTermStructureError`; survival y markov como fuentes producen el mismo ECL dado el mismo `pd_marginal`.
@@ -687,9 +693,9 @@ Fixtures: `ifrs9_exposures.parquet` sintético (drawn/límite/dpd/EIR/rating/rec
 - **Rendimiento `O(n·T·K)`.** Mitigación: validar tamaño antes de materializar; vectorización con equivalencia bit-a-bit al motor de referencia.
 
 **FALTA-DATO explícitos.**
-- **FALTA-DATO-IFRS-1 — Factor sistémico `Z` y `rho`.** Sin `forward` ni config, no hay `Z_k(t)` ni correlación para Vasicek.
+- **FALTA-DATO-IFRS-1 — Factor sistémico `Z` y `rho`.** `apply_vasicek` requiere hoy columna `Z` y `rho` escalar explícitos; `forward` no los aporta implícitamente.
 - **FALTA-DATO-IFRS-2 — Horizonte 12m vs unidad temporal.** `H_12m` depende de la granularidad de la term-structure (mensual/trimestral/anual); debe declararse.
-- **FALTA-DATO-IFRS-3 — Definición regulatoria de default y ventana.** Heredada de la capa longitudinal (CT-3); SDD-16 consume `is_default`/dpd ya definidos.
+- **FALTA-DATO-IFRS-3 — Definición de default y ventana aplicables.** Heredadas de la capa longitudinal (CT-3); SDD-16 consume `is_default`/dpd ya definidos.
 - **FALTA-DATO-IFRS-4 — Perfil de exposición EAD(t).** Sin panel longitudinal, la amortización por período no está disponible.
 - **FALTA-DATO-IFRS-5 — EIR por instrumento.** Debe venir en `data.frame`; no se infiere una tasa.
 
@@ -702,24 +708,13 @@ Fixtures: `ifrs9_exposures.parquet` sintético (drawn/límite/dpd/EIR/rating/rec
 - **SDD-18 (`survival`) / SDD-19 (`markov`)**: contrato tidy hermano de term-structure lifetime PD (`pd_marginal`, `pd_cumulative`, `survival`, `hazard`, `scenario`); FALTA-DATO-SUR-6 (shape final IFRS 9) y FALTA-DATO-MKV-3 (horizonte económico) que SDD-16 resuelve.
 - **SDD-20 (`forward`)**: term-structure multiescenario PIT, `pd_basis`/`basis_state`, pesos de escenario; delega la transformación Vasicek a SDD-16 (§40).
 - **SDD-10 (`calibration`)**: `calibrated_pd_frame`; delega la conversión PIT/TTC macro a SDD-16/18/20 (§37).
-- **SDD-15 (`provisioning/cmf`)**: motor hermano; SDD-17 compara ambos y aplica el máximo.
+- **SDD-15 (`provisioning/cmf`)**: motor hermano; SDD-17 puede comparar ambos con fines
+  informativos, sin atribuir carácter prudencial a ese comparativo.
 - **core/config/hashing.py**: `INFRA_SECTIONS = {"name","governance","audit","tracking","report"}` — `provisioning_ifrs9` no pertenece → mueve `GOLDEN_DEFAULT_CONFIG_HASH`.
 
-## Decisiones para revisión de Cami
+## Decisiones implementadas y parámetros institucionales pendientes
 
-- **D-IFRS-1 — Dominio y clave de config `provisioning_ifrs9`.** Recomendación: dominio plano `"provisioning_ifrs9"` (espeja `provisioning_cmf` de SDD-15), para que SDD-17 (`provisioning`) orqueste ambos sin ambigüedad. Confirmar si Cami prefiere config anidado futuro `provisioning.ifrs9`.
-- **D-IFRS-2 — Enfoque LGD por default.** Recomendación: `method="provided"` (consumir la LGD de la institución, validada), con `beta_regression`/`fractional_response`/`workout` opt-in. Evita imponer un modelo LGD sin datos de la entidad. Confirmar.
-- **D-IFRS-3 — Umbrales SICR cuantitativos por default. [R0]** Recomendación: defaults citando ESPEC §5.5 (ratio lifetime `≥2.0×`, backstop PIT `≥3.0×`), con `30/90 dpd` como backstops duros IFRS 9. **Pero los multiplicadores son política de la entidad y afectan provisiones (plata/regulatorio)**: deben calibrarse por cartera antes de uso productivo. ¿Se dejan estos defaults o Cami fija otros?
-- **D-IFRS-4 — Lifetime vs 12m en el primer commit funcional.** Recomendación: entregar **ambos** desde B16.7, porque F5 (survival/markov/forward) ya está COMPLETA y provee la term-structure lifetime; Stage 1 (12m) es un truncado del mismo motor. No hay razón para diferir lifetime. (Nota: el release público v0.1.0 es de F1/scoring, muy anterior a F4; IFRS 9 no entra en v0.1.0.) Confirmar.
-- **D-IFRS-5 — Fuente y pesos de escenarios macro. [R0]** Recomendación: `scenarios.source="forward"` (SDD-20 define base/adverso/severo con pesos que suman 1); permitir override por config. **Los pesos son decisión económica/regulatoria de la institución (plata)**; Nikodym no los hardcodea. ¿Se acepta delegar en `forward`/config?
-- **D-IFRS-6 — Acoplamiento del piso CMF vs IFRS 9 (interfaz a SDD-17).** Recomendación: SDD-16 solo publica `result`/`summary`/`card` con `total_ecl_reported` y `term_structure()`; la comparación y el máximo viven en SDD-17. Confirmar el *shape* mínimo del comparativo que SDD-17 necesitará (por cartera, por operación, o ambos).
-- **D-IFRS-7 — Correlación de activos `rho`. [R0]** Recomendación: sin default hardcodeado; config por cartera (`rho`) o columna (`rho_col`), o `FALTA-DATO`. Basel IRB prescribe `ρ` por clase de activo (p.ej. 0.15 hipotecario, 0.04 retail revolving, 0.12–0.24 corporate), **pero son fórmulas de capital, no necesariamente ECL contable**; ofrecerlas como preset documentado es opción. ¿Preset Basel opcional o solo config explícita?
-- **D-IFRS-8 — Modo PIT por default.** Recomendación: `pit_mode="consume_pit"` cuando `forward` entrega curvas PIT; `apply_vasicek` cuando solo hay term-structure TTC + `Z`. Confirmar que no se re-aplique Vasicek sobre curvas ya PIT.
-- **D-IFRS-9 — Convención de descuento EIR.** Recomendación: `annual_eir_year_fraction` (EIR anual, descuento por fracción de año desde `time_value`). Alternativa `period_eir` (EIR ya por período). Confirmar convención contable preferida.
-- **D-IFRS-10 — Fuente de term-structure por default.** Recomendación: `survival` (ESPEC §5.6 la llama estándar IFRS 9 lifetime); `markov`/`forward` opt-in. Confirmar.
-- **D-IFRS-11 — Horizonte 12m en períodos.** Recomendación: `horizon_12m_periods` explícito según unidad temporal (mensual→12, trimestral→4, anual→1); no inferir. Confirmar unidad temporal canónica del proyecto o dejar 100% configurable.
-- **D-IFRS-12 — Tasa de descuento de recuperos workout.** Recomendación: EIR del instrumento por default; `contractual` como alternativa. Confirmar.
-- **D-IFRS-13 — Piso de EAD ante `límite < drawn`.** Recomendación: acotar `EAD ≥ drawn` (no permitir CCF que reduzca por debajo del dispuesto) o fallar con `IfrsEadError`. Confirmar política.
-- **D-IFRS-14 — Cálculo de Stage 3.** Recomendación: ECL lifetime con PD ya absorbida (default). Alternativa `stage3_direct=True` → `EAD·LGD` descontado directo, si la institución lo prefiere. Confirmar default.
-
-> **R0 (decisiones de producto/plata/normativa no disponible localmente):** D-IFRS-3 (umbrales SICR), D-IFRS-5 (pesos de escenario) y D-IFRS-7 (`rho`). El resto son defaults técnicos/contables defendibles con fuente citada, configurables. Ninguna decisión de este SDD dispara release público, PyPI, datos externos ni cambio de licencia.
+- **Implementado:** dominio plano `provisioning_ifrs9`; LGD `provided` por default; salidas 12m y lifetime; EIR anual por fracción de año; fuente lifetime configurable; ECL Stage 3 lifetime; comparativo SDD-17 separado y no normativo para CMF↔IFRS 9.
+- **Requiere decisión/calibración institucional antes de uso productivo:** umbrales SICR, pesos de escenario, `rho`, definición de default, horizonte 12m, reglas workout y perfil EAD/LGD. Nikodym no certifica esos parámetros.
+- **Deuda contractual trazada en el roadmap:** `rho_col` no consumida; `forward` no publica `Z`; validación de base PIT/TTC incompleta; guard de escenario medio sólo auditado; pesos cero no alineados; LGD de `forward` ignorada por el motor IFRS 9.
+- Ninguna de estas decisiones autoriza release, tag o PyPI; la API IFRS 9 continúa experimental.

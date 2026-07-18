@@ -55,7 +55,12 @@
             binning · selection · model · provisioning · markov · validation
 ```
 
-**Interacción con el `Study` y el config declarativo.** `data` es un componente **no-estimador** (SDD-05 §4.2: "splitter de particiones / validador de esquema" → no hereda base de estimador; contrato funcional propio). Se registra con `@register("standard", domain="data")` (D-CONV-2: `type` == key del Registry == nombre de sección). Su `execute(study, rng)` (contrato `Step`, SDD-01 §4) lee `study.config.data`, produce los artefactos y los escribe **namespaced** en `study.artifacts` bajo el dominio `"data"`. La UI Streamlit edita el `DataConfig` y previsualiza el resultado de validación/particiones.
+**Interacción con el `Study` y el config declarativo.** `data` es un componente **no-estimador**
+(SDD-05 §4.2: "splitter de particiones / validador de esquema" → no hereda base de estimador;
+contrato funcional propio). Se registra con `@register("standard", domain="data")` (D-CONV-2:
+`type` == key del Registry == nombre de sección). Su `execute(study, rng)` (contrato `Step`, SDD-01
+§4) lee `study.config.data`, produce artefactos y los escribe **namespaced** en `study.artifacts`
+bajo el dominio `"data"`. La UI React/FastAPI edita `DataConfig` y previsualiza validación/particiones.
 
 ---
 

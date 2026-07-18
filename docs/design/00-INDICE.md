@@ -3,15 +3,21 @@
 | | |
 |---|---|
 | **Documento** | Índice de Documentos de Diseño (SDD) |
-| **Versión** | 1.1 (Tanda 1 Rev) |
-| **Fecha** | 2026-06-24 |
-| **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.0 · [`docs/ROADMAP.md`](../ROADMAP.md) |
+| **Versión** | 1.2 (índice histórico consolidado) |
+| **Fecha** | 2026-07-18 |
+| **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.1 · [`docs/ROADMAP.md`](../ROADMAP.md) |
+
+> **Lectura actual:** este índice confirma qué SDD están implementados, pero no es un backlog. Para
+> `estable`/`experimental`, gates pendientes y prioridad vigente manda
+> [`ROADMAP.md`](../ROADMAP.md).
 
 > **Tanda 1 Rev (2026-06-24):** los 7 SDD de Fundación (01-05, 24, 25) se revisaron de forma adversarial e integraron sus correcciones (cabecera "rev. Tanda 1 Rev" en cada uno). Cambios de alcance: **+SDD-27 `eda`** (de 26 a **27 SDD**); **D2** revierte el `data_hash` a hash de contenido lógico (SDD-02). Detalle de hallazgos y decisiones en el cierre de la sesión.
 >
 > **Hito 0 — Contratos transversales (2026-06-24):** antes de codificar F0 se estabilizó la *extensibilidad* de los 4 contratos que cruzan todas las capas (orquestación DAG vía `requires`/`provides`; resultados/metrics/overlay con puerta de extensión estructurada; frontera datos transversal-vs-longitudinal; owner del ensamblado de corrida). Decisiones en [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md) (CT-1…CT-4), propagadas a SDD-01/02/03 (cabecera "rev. Hito 0"). Estrategia de construcción confirmada: **mixto-troncal-más-incremental** (spike troncal acotado → código F0 → incremental por capa con diseño *just-in-time*).
 
-Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nikodym RiskLib a nivel implementable, **antes de escribir código**. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) y cubre un módulo del árbol `src/nikodym/`.
+Este índice lista los **28 Documentos de Diseño (SDD)** que guiaron la construcción de Nikodym
+RiskLib. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) y cubre un módulo del árbol
+`src/nikodym/`; un cambio contractual nuevo requiere un SDD nuevo o una revisión explícita.
 
 ## Cómo se produce (proceso)
 1. **Andamiaje** (hecho): esta plantilla + este índice + el roadmap.
@@ -26,36 +32,37 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 
 | SDD | Módulo | Dominio | Fase | Tanda | Depende de | Estado |
 |---|---|---|---|---|---|---|
-| **01** | `core` | Fundación | F0 | T1 | — | ✅ Aprobado |
-| **02** | `data` | Fundación | F0 | T1 | 01 | ✅ Aprobado |
-| **03** | `audit` + `governance` | Fundación | F0 | T1 | 01 | ✅ Aprobado |
-| **04** | `tracking` (MLflow) | Fundación | F0 | T1 | 01, 03 | ✅ Aprobado |
-| **05** | Convenciones API + schema de config global | Fundación | F0 | T1 | 01 | ✅ Aprobado |
-| **24** | Estrategia de testing | Ingeniería | F0 | T1 | 01, 05 | ✅ Aprobado |
-| **25** | Packaging + CI (uv, hatchling, extras) | Ingeniería | F0 | T1 | — | ✅ Aprobado |
-| **06** | `binning` | Scoring | F1 | T2 | 02, 05 | 🟡 Borrador |
-| **07** | `selection` | Scoring | F1 | T2 | 06 | 🟡 Borrador |
-| **08** | `model` (logística + stepwise) | Scoring | F1 | T2 | 07 | 🟡 Borrador |
-| **09** | `scorecard` | Scoring | F1 | T2 | 08 | 🟡 Borrador |
-| **10** | `calibration` | Scoring | F1 | T2 | 08 | 🟡 Borrador |
-| **11** | `performance` + `stability` | Scoring | F1 | T2 | 09, 10 | 🟡 Borrador |
-| **12** | `ml` (SVM/RF/XGB/LGBM/CatBoost) | ML | F2 | T3 | 06, 08 | 🟡 Borrador |
-| **13** | `tuning` (Optuna) | ML | F2 | T3 | 12 | 🟡 Borrador |
-| **14** | `explain` (SHAP + reason codes) | ML | F2 | T3 | 12 | 🟡 Borrador |
-| **15** | `provisioning/cmf` (B-1, matrices, B-3, garantías) | Provisiones | F3 | T4 | 08, 02 | 🟡 Borrador |
-| **16** | `provisioning/ifrs9` (PD/LGD/EAD, staging, ECL) | Provisiones | F4 | T4 | 10, 18 | 🟡 Borrador |
-| **17** | `provisioning` (orquestación / regla del máximo) | Provisiones | F4 | T4 | 15, 16 | 🟡 Borrador ⚠️ corregido 2026-07-13 |
-| **18** | `survival` (KM/Cox/AFT/discrete-time) | Forward | F5 | T5 | 08 | 🟡 Borrador |
-| **19** | `markov` (transición, term structure) | Forward | F5 | T5 | 02 | 🟡 Borrador |
-| **20** | `forward` (macro ARIMA/VAR, satellite, escenarios) | Forward | F5 | T5 | 18, 19 | 🟡 Borrador |
-| **21** | `stress` (stress testing, sensibilidad) | Forward | F5 | T5 | 20 | 🟡 Borrador |
-| **22** | `validation` | Validación | F6 | T6 | 11, 16 | 🟡 Borrador |
-| **23** | `ui` (React/Vite + FastAPI, editor de config) | Producto | F7 | T6 | 05, 01, 03, 26, todos | 🟡 Borrador |
-| **26** | `report` (Quarto HTML+PDF, capa IA, export) | Reporte | F1 | T2 | 01 | 🟡 Borrador |
-| **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Aprobado |
-| **28** | `provisioning/internal` + regla del máximo (dataset → preset → UI → informe) | Producto | F8 | T7 | 08, 10, 15, 17, 23, 26 | 🟡 Borrador (v2) |
+| **01** | `core` | Fundación | F0 | T1 | — | ✅ Implementado |
+| **02** | `data` | Fundación | F0 | T1 | 01 | ✅ Implementado |
+| **03** | `audit` + `governance` | Fundación | F0 | T1 | 01 | ✅ Implementado |
+| **04** | `tracking` (MLflow) | Fundación | F0 | T1 | 01, 03 | ✅ Implementado |
+| **05** | Convenciones API + schema de config global | Fundación | F0 | T1 | 01 | ✅ Implementado |
+| **24** | Estrategia de testing | Ingeniería | F0 | T1 | 01, 05 | ✅ Implementado |
+| **25** | Packaging + CI (uv, hatchling, extras) | Ingeniería | F0 | T1 | — | ✅ Implementado |
+| **06** | `binning` | Scoring | F1 | T2 | 02, 05 | ✅ Implementado · estable F1 |
+| **07** | `selection` | Scoring | F1 | T2 | 06 | ✅ Implementado · estable F1 |
+| **08** | `model` (logística + stepwise) | Scoring | F1 | T2 | 07 | ✅ Implementado · estable F1 |
+| **09** | `scorecard` | Scoring | F1 | T2 | 08 | ✅ Implementado · estable F1 |
+| **10** | `calibration` | Scoring | F1 | T2 | 08 | ✅ Implementado · estable F1 |
+| **11** | `performance` + `stability` | Scoring | F1 | T2 | 09, 10 | ✅ Implementado · estable F1 |
+| **12** | `ml` (SVM/RF/XGB/LGBM/CatBoost) | ML | F2 | T3 | 06, 08 | ✅ Implementado · experimental |
+| **13** | `tuning` (Optuna) | ML | F2 | T3 | 12 | ✅ Implementado · experimental |
+| **14** | `explain` (SHAP + reason codes) | ML | F2 | T3 | 12 | ✅ Implementado · experimental |
+| **15** | `provisioning/cmf` (B-1, matrices, B-3, garantías) | Provisiones | F3 | T4 | 08, 02 | ✅ Implementado · experimental |
+| **16** | `provisioning/ifrs9` (PD/LGD/EAD, staging, ECL) | Provisiones | F4 | T4 | 10, 18 | ✅ Implementado · experimental |
+| **17** | `provisioning` (orquestación / regla del máximo) | Provisiones | F4 | T4 | 15, 16, 28 | ✅ Implementado · experimental |
+| **18** | `survival` (KM/Cox/AFT/discrete-time) | Forward | F5 | T5 | 08 | ✅ Implementado · experimental |
+| **19** | `markov` (transición, term structure) | Forward | F5 | T5 | 02 | ✅ Implementado · experimental |
+| **20** | `forward` (macro ARIMA/VAR, satellite, escenarios) | Forward | F5 | T5 | 18, 19 | ✅ Implementado · experimental |
+| **21** | `stress` (stress testing, sensibilidad) | Forward | F5 | T5 | 20 | ✅ Implementado · experimental |
+| **22** | `validation` | Validación | F6 | T6 | 11, 16 | ✅ Implementado · experimental |
+| **23** | `ui` (React/Vite + FastAPI, editor de config) | Producto | F7 | T6 | 05, 01, 03, 26, todos | ✅ Implementado · experimental |
+| **26** | `report` (HTML/PDF/Word, fuente editable, capa IA opcional) | Reporte | F1 | T2 | 01 | ✅ Implementado |
+| **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Implementado · estable F1 |
+| **28** | `provisioning/internal` + regla del máximo (dataset → preset → UI → informe) | Producto | F8 | T7 | 08, 10, 15, 17, 23, 26 | ✅ Implementado · experimental |
 
-**28 SDD · 8 tandas (T0–T7; T0 = verificación, sin SDD nuevo).** Leyenda estado: ⬜ Pendiente · 🟡 Borrador · 🔵 En revisión · ✅ Aprobado.
+**28 SDD · 8 tandas (T0–T7; T0 = verificación, sin SDD nuevo).** La madurez pública y la garantía
+SemVer se declaran únicamente en `ROADMAP.md`.
 
 > **SDD-28** (post-1.0) hace dos cosas. **(1)** Construye el motor que faltaba: el **método interno** (`PD × LGD × EAD` por grupo homogéneo), que es el que el Capítulo B-1 §3 describe textualmente y que el pipeline de scorecard ya alimenta. **(2)** Le abre la ruta hasta el usuario —dataset, preset, pantalla, capítulo— porque *una feature sin preset, sin pantalla y sin capítulo no existe*, y este proyecto ya lo pagó dos veces.
 >
@@ -63,7 +70,7 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 
 > **SDD-27 `eda`** se creó en **Tanda 1 Rev** (decisión D1): el paquete `eda/` figuraba en el árbol de paquetes (ESPEC §6.3) y en el config (SDD-05 §5.1) pero ningún SDD lo cubría — quedaba huérfano. Es el **paso 1 del pipeline de scorecard** (pre-binning, F1/T2), depende de 02 (`data`). **Aguas abajo** 06 (binning), 11 (performance+stability, deslindado) y 26 (report) **consumen sus diagnósticos** (tasa de default por período, figuras), pero NO es una dependencia dura de build de esos SDD — por eso no aparece en su columna "Depende de" (corren sobre el frame de `data`); el orden T2 garantiza que `eda` se diseñe primero.
 >
-> **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7) y el SDD se re-redactó para el stack **web premium React/Vite + Tailwind + shadcn/ui sobre backend FastAPI** (cero lógica de dominio en front ni back; el backend solo invoca la API pública `nikodym.run` y serializa artefactos). Especifica además la **API pública mínima `nikodym.run(config) → Study`** (export perezoso PEP 562) y los dos modos de deploy (local con motor real · demo comercial con corridas pre-cacheadas). Sus deps se ampliaron a 01/03/26 (además de 05 y todos). Sigue en 🟡 Borrador (pendiente de revisión de integración).
+> **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7) y el SDD se re-redactó para el stack **web premium React/Vite + Tailwind + shadcn/ui sobre backend FastAPI** (cero lógica de dominio en front ni back; el backend solo invoca la API pública `nikodym.run` y serializa artefactos). Especifica además la **API pública mínima `nikodym.run(config) → Study`** (export perezoso PEP 562) y los dos modos de deploy (local con motor real · demo comercial con corridas pre-cacheadas). Sus deps se ampliaron a 01/03/26 (además de 05 y todos) y fue implementado.
 
 ## Tandas de producción
 
@@ -71,11 +78,12 @@ Este índice lista **todos los Documentos de Diseño (SDD)** que especifican Nik
 |---|---|---|---|
 | **T0 — Verificación** | (ninguno nuevo) | Doble-check de TODO lo ya hecho (spec, normativa CMF, índice, roadmap, plantilla) contra fuente oficial; corregir antes de avanzar. | — |
 | **T1 — Fundación** | 01, 02, 03, 04, 05, 24, 25 | El núcleo del que todo cuelga; sin esto nada es auditable. | T0 |
-| **T2 — Scoring (F1)** | 27, 06, 07, 08, 09, 10, 11, 26 | EDA + el MVP open-source + reporte Quarto (release público). | T1 |
+| **T2 — Scoring (F1)** | 27, 06, 07, 08, 09, 10, 11, 26 | EDA + MVP open-source + informe determinístico (release público). | T1 |
 | **T3 — ML (F2)** | 12, 13, 14 | Benchmark predictivo + explicabilidad. | T2 |
-| **T4 — Provisiones (F3-F4)** | 15, 16, 17 | CMF + IFRS 9 + piso regulatorio. | T2 (PD); T5 parcial (lifetime) |
+| **T4 — Provisiones (F3-F4)** | 15, 16, 17 | CMF e IFRS 9 como motores separados + orquestación configurable. | T2 (PD); T5 parcial (lifetime) |
 | **T5 — Forward-looking (F5)** | 18, 19, 20, 21 | Lifetime PD, escenarios, stress. | T2 |
 | **T6 — Validación + UI (F6-F7)** | 22, 23 | Backtesting y producto no-code (UI = web premium React/Vite + FastAPI sobre la API pública). | T2–T5 |
+| **T7 — Provisiones end-to-end (F8)** | 28 | Método interno B-1 + máximo estándar/interno + ruta hasta UI/informe. | T2, T4, T6 |
 
 > **Nota de dependencia cruzada:** IFRS 9 lifetime (SDD-16) usa la term-structure de `survival`/`markov` (T5). Se especifica en T4 con interfaz abstracta y se conecta cuando T5 esté lista (ver roadmap, dependencia F4↔F5).
 

@@ -8,7 +8,7 @@
 | **Fecha** | 2026-06-27 |
 | **Fase** | F1 |
 | **Tanda de producción** | T2 (Scoring) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; pipeline F1 estable |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config) |
 | **Lo consumen** | SDD-07 (`selection`), SDD-08 (`model`), SDD-09 (`scorecard`), SDD-11 (`performance` + `stability`), SDD-12 (`ml`, como benchmark opcional), SDD-26 (`report`) |
 | **Autor / Fecha** | DanIA (redacción SDD-06 para T2) / 2026-06-27 |

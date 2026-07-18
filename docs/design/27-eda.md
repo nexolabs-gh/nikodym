@@ -6,7 +6,7 @@
 | **Módulo** | `nikodym.eda` |
 | **Fase** | F1 |
 | **Tanda de producción** | T2 (Scoring) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; pipeline F1 estable |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config) |
 | **Lo consumen** | SDD-06 (`binning`), SDD-11 (`performance` + `stability`, deslindado), SDD-26 (`report`) |
 | **Autor / Fecha** | DanIA (creado en **Tanda 1 Rev**, decisión D1; redacción para T2) / 2026-06-24 |

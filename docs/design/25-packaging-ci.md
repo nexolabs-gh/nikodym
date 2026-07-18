@@ -116,10 +116,10 @@ EXTRA_TO_DISTRIBUTIONS: dict[str, tuple[str, ...]] = {
     "forecasting": ("statsmodels", "pmdarima"),
     "survival":    ("lifelines",),
     "tracking":    ("mlflow",),
-    "ui":          ("streamlit",),
+    "ui":          ("fastapi", "uvicorn"),
     "sweep":       ("hydra-core", "omegaconf"),
     "polars":      ("polars",),           # backend de carga opcional (SDD-02 D-DATA-1)
-    # "all" se compone por unión (ver §5); "report" (Quarto) es binario externo, ver §8/§12.
+    # "all" se compone por unión (ver §5); `pdf` queda fuera por la política de licencias.
 }
 ```
 
@@ -258,7 +258,7 @@ lint = [
   "mypy>=1.10",
 ]
 docs = [
-  "mkdocs-material>=9.5",  # docs del repo; Quarto (binario externo) NO es dep pip (§12)
+  "mkdocs-material>=9.5",  # documentación del repo
 ]
 dev = [
   { include-group = "test" },
@@ -431,7 +431,9 @@ SDD-25 no procesa datos de negocio; sus "datos" son artefactos de build y CI.
 - **`uv.lock` desactualizado en CI** → `uv sync --locked` / `uv lock --check` **fallan** el job (no se auto-actualiza en CI; el dev corre `uv lock` localmente y commitea).
 - **Resolución que arrastra copyleft transitivo** → el job anti-copyleft **falla el build** y nombra la distribución infractora. (Mitigación de R-LIC.)
 - **`scikit-survival` solicitado** → no existe extra para él; si un usuario lo instala aparte, queda **fuera del wheel distribuido** y fuera del soporte (research only, ESPEC §7).
-- **Quarto ausente** (SDD-26): Quarto es un **binario externo**, no una dist pip; `report` no es un extra resoluble por pip. El módulo `report` detecta `quarto` en el `PATH` y, si falta, levanta un error claro ("instala Quarto desde quarto.org") — el contrato del mensaje es de SDD-26, pero el patrón de "dependencia externa no-pip" se fija aquí.
+- **Dependencia opcional de reporte ausente** (SDD-26): WeasyPrint, python-docx, openpyxl,
+  matplotlib o el cliente IA se cargan perezosamente. El formato degrada con aviso o falla según su
+  config; el HTML base sigue operativo. La fuente `.qmd` no ejecuta ni requiere Quarto.
 - **Python fuera de rango** (`<3.11`) → el resolutor rechaza la instalación por `requires-python`.
 - **Build con `tests/` colándose al wheel** → atrapado por el test de empaquetado (§11) que inspecciona el contenido del wheel.
 - **Versión inconsistente** (`__version__` ≠ tag) → el job `release` valida `v<__version__> == tag` y aborta si difieren.
@@ -509,7 +511,9 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
 - **D-PKG-6 — Versión dinámica desde `src/nikodym/__init__.py`** (no tag VCS). *Porqué:* fuente única legible, sin acoplar el build a git en entornos sin historia. *Alternativa considerada:* `hatch-vcs` (versión desde tags) — más automático pero falla en sdist sin `.git`; reevaluable.
 
 **Decisiones abiertas (delegadas).**
-- **`report` (Quarto) no es un extra pip.** Quarto es binario externo; el contrato de detección/mensaje es de **SDD-26**. El nombre del extra `[report]` queda **reservado** en la matriz §5 para SDD-26 (que decidirá si agrega deps pip como jinja2/plotly junto al binario Quarto). *Responsable:* DanIA + autor SDD-26. Acotada a T2/F1: no bloquea este SDD.
+- **Dependencias de reporte — RESUELTO.** Jinja2 está en la base para el HTML determinístico;
+  `[report]` agrega figuras opcionales, `[pdf]` agrega WeasyPrint y `[docx]` agrega python-docx.
+  La fuente `.qmd` es un export de texto y no invoca ni exige el binario Quarto. Ver SDD-26.
 - **Trusted Publishing (OIDC) vs token PyPI** para el job `release`. *Sugerencia:* OIDC (sin secretos). *Responsable:* DanIA al armar el repo público.
 - **`hatch-vcs` (versión por tag) vs `__init__.py`** — reevaluar al primer release público (SDD-26/F1).
 - **Política de `default-groups` de uv — RESUELTO (Tanda 1 Rev):** `default-groups = ["dev"]` en `[tool.uv]` (dev incluye test/lint/docs); entorno limpio con `--no-default-groups`. Ver §5.

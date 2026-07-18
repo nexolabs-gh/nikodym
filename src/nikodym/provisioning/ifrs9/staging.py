@@ -4,10 +4,10 @@
 (SICR) del SDD-16 §3 sobre el ``frame`` económico y las PD actuales (``pd_life``/``pd_pit``), y
 asigna a cada operación el **Stage más severo disparado** (``3 > 2 > 1``). Gatillos (§3):
 
-1. **Ratio PD lifetime** actual/origen ``>= sicr_pd_ratio_threshold`` → Stage 2 (blando). El ratio
+1. **Ratio PD lifetime** actual/origen ``>= sicr_pd_ratio_threshold`` → Stage 2. El ratio
    se pide sólo cuando ``origination_pd_life_col`` está configurada; su ausencia en el frame cuando
    se pide el ratio levanta :class:`IfrsStagingError` (contrato duro: NO se degrada).
-2. **Backstop PIT** actual/origen ``>= sicr_pd_pit_backstop_multiple`` → Stage 2 (blando). La PD PIT
+2. **Backstop PIT** actual/origen ``>= sicr_pd_pit_backstop_multiple`` → Stage 2. La PD PIT
    en origen se lee de la columna convencional de nombre fijo ``pd_pit_origination`` (no
    parametrizada en ``IfrsStagingConfig`` en B16.6; el panel longitudinal se difiere por CT-3); el
    gatillo se evalúa cuando esa columna está presente.
@@ -15,13 +15,15 @@ asigna a cada operación el **Stage más severo disparado** (``3 > 2 > 1``). Gat
    Stage 2 (blando). Las columnas de rating son grados numéricos crecientes en riesgo (mayor grado
    ⇒ peor calidad).
 4. **Override cualitativo** (``stage_override_col``) → fuerza Stage 2 o 3 según el valor de la
-   columna (``1`` = sin override, ``2``/``3`` = Stage forzado; blando).
-5. **Backstop 30 dpd** ``days_past_due >= dpd_sicr_backstop`` → Stage 2 (backstop **duro**).
+   columna (``1`` = sin override, ``2``/``3`` = Stage forzado).
+5. **Presunción 30 dpd** ``days_past_due >= dpd_sicr_backstop`` → Stage 2.
 6. **Default 90 dpd / is_default** ``days_past_due >= dpd_default_backstop`` o flag ``is_default`` →
-   Stage 3 (backstop **duro**).
+   Stage 3.
 7. **Exención de bajo riesgo** (opt-in ``low_credit_risk_exemption`` + ``low_credit_risk_col``):
-   rescata a Stage 1 los gatillos **blandos** (1-4), pero **nunca** los backstops duros dpd (5/6) ni
-   el default, que siempre dominan.
+   puede rescatar a Stage 1 los gatillos 1-4. Las referencias 30/90 dpd de IFRS 9 son presunciones
+   rebatibles. Por política conservadora explícita del motor v1, los gatillos DPD y el default
+   tienen prioridad sobre la exención; esta precedencia es una política de Nikodym, no
+   irrebatibilidad normativa.
 
 La salida es un ``DataFrame`` tidy por operación con ``stage`` (``1``/``2``/``3``),
 ``sicr_triggers`` (gatillos disparados por fila, en orden canónico auditable) y
@@ -134,7 +136,7 @@ class StagingEngine:
         pd_life_arr = _series_to_array(pd_life, frame, numpy, name="pd_life")
         pd_pit_arr = _series_to_array(pd_pit, frame, numpy, name="pd_pit")
         dpd = _dpd_column(frame, self._config.days_past_due_col, numpy)
-        soft_entries = [
+        exemptible_entries = [
             (_TRIGGER_PD_RATIO, numpy.where(self._fired_pd_ratio(frame, pd_life_arr, numpy), 2, 1)),
             (
                 _TRIGGER_PIT_BACKSTOP,
@@ -143,13 +145,13 @@ class StagingEngine:
             (_TRIGGER_NOTCH, numpy.where(self._fired_notch(frame, numpy), 2, 1)),
             (_TRIGGER_OVERRIDE, self._override_stage(frame, n, numpy)),
         ]
-        hard_entries = [
+        priority_entries = [
             (_TRIGGER_DPD_SICR, numpy.where(dpd >= self._config.dpd_sicr_backstop, 2, 1)),
             (_TRIGGER_DPD_DEFAULT, numpy.where(dpd >= self._config.dpd_default_backstop, 3, 1)),
             (_TRIGGER_IS_DEFAULT, numpy.where(self._fired_is_default(frame, n, numpy), 3, 1)),
         ]
         exempt = self._exempt_rows(frame, n, numpy)
-        return self._assemble(frame, soft_entries, hard_entries, exempt, pandas)
+        return self._assemble(frame, exemptible_entries, priority_entries, exempt, pandas)
 
     def _fired_pd_ratio(
         self, frame: DataFrame, pd_life_arr: NDArrayFloat, numpy: Any
@@ -216,32 +218,33 @@ class StagingEngine:
     def _assemble(
         self,
         frame: DataFrame,
-        soft_entries: list[tuple[str, Any]],
-        hard_entries: list[tuple[str, Any]],
+        exemptible_entries: list[tuple[str, Any]],
+        priority_entries: list[tuple[str, Any]],
         exempt: NDArrayBool,
         pandas: Any,
     ) -> DataFrame:
-        """Combina gatillos por fila: Stage = máximo disparado; la exención rescata lo blando."""
+        """Combina gatillos; la política v1 da prioridad a DPD/default sobre la exención."""
         stages: list[int] = []
         triggers: list[tuple[str, ...]] = []
         exempt_flags: list[bool] = []
         for i in range(frame.shape[0]):
             fired: list[str] = []
-            soft = 1
-            for name, stage_arr in soft_entries:
+            exemptible = 1
+            for name, stage_arr in exemptible_entries:
                 value = int(stage_arr[i])
                 if value > 1:
                     fired.append(name)
-                    soft = max(soft, value)
-            hard = 1
-            for name, stage_arr in hard_entries:
+                    exemptible = max(exemptible, value)
+            priority = 1
+            for name, stage_arr in priority_entries:
                 value = int(stage_arr[i])
                 if value > 1:
                     fired.append(name)
-                    hard = max(hard, value)
+                    priority = max(priority, value)
             exempt_i = bool(exempt[i])
-            # La exención rescata los gatillos blandos; los backstops dpd duros siempre dominan.
-            stage = hard if exempt_i else max(soft, hard)
+            # Política conservadora v1: DPD/default prevalecen; IFRS 9 los trata como presunciones
+            # rebatibles, no como reglas irrebatibles. La configurabilidad se difiere por SDD.
+            stage = priority if exempt_i else max(exemptible, priority)
             stages.append(stage)
             triggers.append(tuple(fired))
             exempt_flags.append(exempt_i)

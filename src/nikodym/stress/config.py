@@ -104,7 +104,7 @@ class StressInputConfig(NikodymBaseConfig):
     ecl_engine_artifact: tuple[str, str] | None = Field(
         default=None,
         title="Artefacto engine ECL",
-        description="Artefacto opcional con engine ECL futuro de SDD-16, sin import duro.",
+        description="Artefacto opcional con engine ECL inyectable, sin import runtime de SDD-16.",
         json_schema_extra={"ui_widget": "artifact_key", "ui_group": "Engines", "ui_order": 1},
     )
     provision_engine_artifact: tuple[str, str] | None = Field(

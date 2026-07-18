@@ -19,7 +19,9 @@ __all__ = ["EXTRA_TO_DISTRIBUTIONS", "has_extra", "require_extra"]
 # Mapa extra -> nombres de MÓDULOS importables a verificar (no las distribuciones pip
 # completas: p. ej. el extra "scoring" instala "scikit-learn" pero su módulo de import es
 # "sklearn"). Por contrato, el conjunto de CLAVES coincide exactamente con el de
-# [project.optional-dependencies] menos "all" (test de biyección, SDD-25 §11).
+# [project.optional-dependencies] menos "all" para los extras atendidos por ``require_extra``.
+# Otros extras poseen validación específica en su módulo (p. ej. report/pdf/docx/ai); por eso el
+# contrato es de inclusión, no una biyección exacta (test en ``test_optional.py``).
 EXTRA_TO_DISTRIBUTIONS: dict[str, tuple[str, ...]] = {
     "scoring": ("optbinning", "statsmodels", "sklearn"),
     "ml": ("sklearn",),

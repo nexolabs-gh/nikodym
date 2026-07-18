@@ -1,7 +1,7 @@
-"""Tests del ``ProvisioningOrchestrator`` (SDD-17 §6/§7/§11): máximo CMF vs IFRS 9 con goldens.
+"""Tests del orquestador de dos fuentes; incluye goldens CMF/IFRS 9 no normativos y B-1.
 
-Cubre los golden verificables a mano del SDD §11 (gana CMF, gana IFRS 9, empate, nivel ``total`` con
-carteras reales, no-linealidad por nivel, reconciliación ``Decimal``/``float`` en el borde de
+Cubre los goldens verificables a mano del SDD §11 (gana CMF, gana IFRS 9, empate, nivel ``total``
+con carteras reales, no-linealidad por nivel, reconciliación ``Decimal``/``float`` en el borde de
 tolerancia), la política de cobertura parcial, el passthrough marcado, la alineación por operación,
 el crosswalk de carteras, el redondeo, la delegación de ``term_structure()`` y la no mutación.
 """
@@ -102,7 +102,7 @@ def test_golden_empate() -> None:
 
 
 def test_golden_total_carteras_reales() -> None:
-    """Nivel total: CMF B4 provision=438750 (golden SDD-15) vs ECL 60.165289 -> muerde el piso."""
+    """Nivel total: CMF B4=438750 frente a ECL=60.165289; gana CMF en el comparativo."""
     cmf = _cmf_result(
         [{"row_id": "op1", "portfolio": "commercial", "provision": Decimal("438750")}],
         total=Decimal("438750"),
@@ -230,7 +230,7 @@ def test_cobertura_parcial_treat_missing_as_zero() -> None:
 
 
 def test_passthrough_solo_cmf() -> None:
-    """require_both=False con solo CMF -> passthrough marcado cmf_only y FALTA-DATO de piso."""
+    """require_both=False con solo CMF deja passthrough marcado y comparación incompleta."""
     cmf = _cmf_result([{"row_id": "op1", "portfolio": "commercial", "provision": Decimal("55")}])
     result = _orchestrator("portfolio", require_both=False).compare(
         result_a=cmf, result_b=None, as_of_date="2026-01-31"
@@ -239,12 +239,12 @@ def test_passthrough_solo_cmf() -> None:
     record = result.records[0]
     assert record.coverage == "cmf_only"
     assert record.binding == "cmf_only"
-    assert record.warnings == ("piso_incompleto",)
+    assert record.warnings == ("comparacion_incompleta", "piso_incompleto")
     assert result.card.engines_present == ("cmf",)
     assert result.card.ifrs9_term_structure_source is None
     assert result.card.cmf_matrix_version == "cmf_b1_b3_2025_01"
     assert result.term_structure() is None
-    assert any("piso incompleto" in nota for nota in result.card.falta_dato)
+    assert any("comparación incompleta" in nota for nota in result.card.falta_dato)
 
 
 def test_passthrough_solo_ifrs9_delegacion_term_structure() -> None:
@@ -505,7 +505,8 @@ def test_result_dtos_columnas_y_summary() -> None:
     assert result.summary.loc[0, "n_cells"] == 1
     metric = result.card.metric_sections["provisioning_orchestration"]
     assert metric["comparison_level"] == "portfolio"
-    assert metric["floor_bite_ratio"] == 1.0
+    assert metric["source_a_binding_ratio"] == 1.0
+    assert metric["floor_bite_ratio"] == 1.0  # alias legacy CT-2
     assert metric["binding_counts"]["cmf"] == 1
 
 
@@ -549,7 +550,7 @@ def test_no_mutacion_de_insumos() -> None:
 
 
 def test_audit_emite_decisiones() -> None:
-    """Con un sink inyectado, compare emite las decisiones auditables del piso (SDD-17 §9)."""
+    """Con un sink inyectado, compare emite las decisiones auditables de la regla (SDD-17)."""
     cmf = _cmf_result([{"row_id": "op1", "portfolio": "commercial", "provision": Decimal("100")}])
     ifrs9 = _ifrs9_result([{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}])
     sink = InMemoryAuditSink()
@@ -644,10 +645,10 @@ def test_to_float_normaliza_y_valida() -> None:
         orch._to_float(-1.0)
 
 
-def test_floor_bite_ratio_maneja_cero_celdas() -> None:
-    """_floor_bite_ratio devuelve None sin celdas y la fracción en otro caso."""
-    assert orch._floor_bite_ratio(0, 0) is None
-    assert orch._floor_bite_ratio(1, 2) == 0.5
+def test_source_a_binding_ratio_maneja_cero_celdas() -> None:
+    """_source_a_binding_ratio devuelve None sin celdas y la fracción en otro caso."""
+    assert orch._source_a_binding_ratio(0, 0) is None
+    assert orch._source_a_binding_ratio(1, 2) == 0.5
 
 
 def test_import_pandas_falla_con_mensaje_accionable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -779,11 +780,27 @@ def test_fuentes_regulatorias_por_regla() -> None:
     )
     assert "Cap. B-1, hoja 10-11" in norma.card.regulatory_sources[0]
     assert "mayor valor" in norma.card.regulatory_sources[0]
+    assert "una institución por corrida" in norma.card.regulatory_sources[0]
 
     interno_directo = _orchestrator(
         "total", source_b="provisioning_internal", rule="use_internal"
     ).compare(result_a=cmf, result_b=interno, as_of_date="2026-01-31")
     assert "no objetados" in interno_directo.card.regulatory_sources[0]
+    assert "no la verifica" in interno_directo.card.regulatory_sources[0]
+
+    diagnostico = _orchestrator("portfolio", source_b="provisioning_internal").compare(
+        result_a=cmf, result_b=interno, as_of_date="2026-01-31"
+    )
+    assert "SIN binding B-1" in diagnostico.card.regulatory_sources[0]
+
+    interno_vs_ifrs = _orchestrator(
+        "total",
+        source_a="provisioning_internal",
+        source_b="provisioning_ifrs9",
+        rule="use_internal",
+    ).compare(result_a=interno, result_b=ifrs9, as_of_date="2026-01-31")
+    assert "SIN norma chilena" in interno_vs_ifrs.card.regulatory_sources[0]
+    assert "no objetados" not in interno_vs_ifrs.card.regulatory_sources[0]
 
     # CMF vs IFRS 9 NO es una exigencia de la norma chilena y la card lo dice (Cap. A-2 num. 5).
     marcos = _orchestrator("total").compare(result_a=cmf, result_b=ifrs9, as_of_date="2026-01-31")
@@ -845,7 +862,8 @@ def test_metric_sections_nombra_regla_y_fuentes() -> None:
         "internal_only": 0,
     }
     # A nivel entidad hay UNA celda: el ratio solo puede valer 0 o 1 (diagnóstico, no titular).
-    assert metric["floor_bite_ratio"] == 0.0
+    assert metric["source_a_binding_ratio"] == 0.0
+    assert metric["floor_bite_ratio"] == 0.0  # alias legacy CT-2
 
 
 # ─────────────────────────── factories ───────────────────────────

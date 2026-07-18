@@ -388,7 +388,8 @@ class IfrsStagingConfig(NikodymBaseConfig):
         default=False,
         title="Aplicar exención de bajo riesgo crediticio",
         description=(
-            "Activa la exención IFRS 9 5.5.10 (opt-in; los backstops duros dpd siempre dominan)."
+            "Activa la exención IFRS 9 5.5.10. Por política conservadora del motor v1, las "
+            "presunciones rebatibles 30/90 dpd prevalecen sobre la exención."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Staging", "ui_order": 12},
     )

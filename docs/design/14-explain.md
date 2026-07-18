@@ -7,7 +7,7 @@
 | **Dominio** | Machine Learning / explicabilidad (unificada scorecard + challenger ML) |
 | **Fase** | F2 |
 | **Tanda de producción** | T3 (ML) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; API experimental |
 | **Depende de** | SDD-01 (`core`), SDD-05 (convenciones + config), **SDD-12 (`ml`)**; **reúsa** SDD-06 (`binning`, features/tablas WoE); **opcionalmente** SDD-08 (`model`) + SDD-09 (`scorecard`) para la mitad scorecard; SDD-07 (`selection`) condicional (fuente de features heredada de `ml`) |
 | **Lo consumen** | SDD-26 (`report`, comparativa scorecard-vs-ML + SHAP summary + reason codes); SDD-22 (`validation`, estabilidad de explicaciones — consumo opcional, no dura) |
 | **Autor / Fecha** | DanIA (worker A15, redacción SDD-14 para T3 — cierre de F2) / 2026-07-04 |
@@ -77,7 +77,7 @@ binning.tables ────────────┘       ▼
 
 Esto cumple CT-1: `ExplainStep` expone su DAG efectivo antes de ejecutar; el motor v1 valida prerequisitos; el scheduler topológico sigue diferido a F5 por CT-1.
 
-**Cableado futuro en `core.study`.**
+**Cableado implementado en `core.study`.**
 - `_DOMAIN_MODULES["explain"] = "nikodym.explain"`;
 - `_DOMAIN_CONFIG_CLASSES["explain"] = ("nikodym.explain.config", "ExplainConfig")`;
 - `_DEFAULT_DOMAIN_ORDER` ubica `"explain"` **después** de `"ml"` (y de `"scorecard"`), de modo que existan el challenger fiteado y —si aplica— el scorecard cuando `explain` ejecute; el orden real efectivo lo resuelve CT-1 por `requires`, no por suposición lineal;
@@ -599,7 +599,7 @@ El extra `[explain] = ["shap>=0.44", "matplotlib>=3.7", "numba>=0.60", "llvmlite
 
 ## 11. Estrategia de tests
 
-Marco transversal en SDD-24. Cobertura objetivo 100% para `explain` cuando se implemente (no es módulo regulatorio de piso, pero la marca exige calidad ejemplar). `filterwarnings=["error"]`, `mypy --strict`, ruff `E,F,I,N,UP,B,SIM,RUF,D` y docstrings públicas en español. Los tests que ejecutan SHAP van tras el marker `requires_explain` (extra `[explain]`), añadido en `pyproject.toml`; los que además ajustan/explican un challenger real van tras el marker del backend (`requires_xgboost`/…). La mitad scorecard (analítica) corre **sin** `shap`.
+Marco transversal en SDD-24. Cobertura objetivo 100% para `explain` (no es módulo regulatorio, pero la marca exige calidad ejemplar). `filterwarnings=["error"]`, `mypy --strict`, ruff `E,F,I,N,UP,B,SIM,RUF,D` y docstrings públicas en español. Los tests que ejecutan SHAP usan `requires_explain`; los que ajustan/explican un challenger real usan además el marker del backend. La mitad scorecard (analítica) corre **sin** `shap`.
 
 - **Golden lineal exacto (scorecard).** Con un modelo logístico de 1-2 features y WoE conocidos, `φ_j = β_j·(WoE_ij − E[WoE_j])` se computa a mano y se verifica exacto; el `φ_0 + Σφ` reconstruye el `η_i` de SDD-09; consistencia con los `puntos` de la tabla de scorecard (salvo `Factor`/`Offset`).
 - **Golden lineal cruzado (Linear SHAP).** `shap.LinearExplainer` sobre la misma logística reproduce las contribuciones analíticas dentro de tolerancia (verificación cruzada del camino exacto).

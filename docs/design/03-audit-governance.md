@@ -25,7 +25,8 @@
 - **No define ni emite** `AuditEvent`/`LineageBundle`: eso lo hace `core` (SDD-01); SDD-03 **consume** y persiste. No re-deriva semillas ni recomputa el `config_hash`/git SHA (los lee del bundle ya congelado).
 - **No provee la infraestructura MLflow** (servidor, tracking URI, `log_*`, `MlflowClient`): eso es **SDD-04** (`tracking`). `governance` define *qué entra al inventario* y *con qué metadatos*; SDD-04 ejecuta las llamadas de Registry. Frontera explícita en §2.
 - **No calcula** escenarios/overlays (eso es SDD-20/21) ni valida modelos (effective challenge = SDD-22): `governance` solo **registra auditablemente** lo que esos módulos producen.
-- **No genera el reporte HTML/PDF**: el render Quarto es **SDD-26** (`report`), que consume el model card como insumo.
+- **No genera el reporte HTML/PDF/Word**: **SDD-26** (`report`) consume el model card y renderiza
+  HTML con Jinja2, PDF con WeasyPrint y Word con python-docx.
 - **No es importado por `core`**: `core` define las interfaces; `audit`/`governance` las implementan y se inyectan (§6.1 ESPEC, D-CORE-1).
 
 ---
@@ -144,7 +145,7 @@ class ModelCard(BaseModel):                             # Pydantic, serializable
     review_date: datetime                               # fecha de emisión
     next_review_date: datetime                          # = review_date + GovernanceConfig.review_period_months
     environment: "EnvironmentSnapshot"
-    def to_markdown(self) -> str: ...                   # render markdown (insumo de SDD-26 / Quarto)
+    def to_markdown(self) -> str: ...                   # render Markdown (insumo editable de SDD-26)
     def to_json(self) -> str: ...                       # JSON canónico (auditoría/diff)
 
 class DecisionRecord(BaseModel):

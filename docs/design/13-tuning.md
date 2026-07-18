@@ -7,7 +7,7 @@
 | **Dominio** | Machine Learning / búsqueda de hiperparámetros |
 | **Fase** | F2 |
 | **Tanda de producción** | T3 (ML) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; API experimental |
 | **Depende de** | SDD-01 (`core`), SDD-05 (convenciones + config), **SDD-12 (`ml`)**; **reúsa** SDD-11 (`performance`) para la métrica objetivo; SDD-06 (`binning`)/SDD-07 (`selection`) como fuente de features (heredada de `ml`) |
 | **Lo consumen** | SDD-12 (`ml`, consume los hiperparámetros tuneados; rev. menor aditiva), SDD-26 (`report`, curva de optimización + trials) |
 | **Autor / Fecha** | DanIA (worker A14, redacción SDD-13 para T3) / 2026-07-04 |
@@ -75,7 +75,7 @@ binning.woe_frame ─────────┼──► tuning ──► tunin
 
 Esto cumple CT-1: `TuningStep` expone su DAG efectivo antes de ejecutar. El motor v1 valida prerequisitos; el scheduler topológico sigue diferido a F5 por CT-1. **`tuning` requiere que `NikodymConfig.ml` exista** (no se puede tunear un challenger sin saber qué backend): si `study.config.ml is None`, `TuningConfigError`.
 
-**Cableado futuro en `core.study`.**
+**Cableado implementado en `core.study`.**
 - `_DOMAIN_MODULES["tuning"] = "nikodym.tuning"`;
 - `_DOMAIN_CONFIG_CLASSES["tuning"] = ("nikodym.tuning.config", "TuningConfig")`;
 - `_DEFAULT_DOMAIN_ORDER` ubica `"tuning"` **antes** de `"ml"` (tras `"calibration"`), de modo que sus hiperparámetros existan cuando `ml` ejecute; el orden real efectivo lo resuelve CT-1 por `requires`, no por suposición lineal;
@@ -496,7 +496,7 @@ El extra `[tuning] = ["optuna>=3.5"]` **ya está declarado** en `pyproject.toml`
 
 ## 11. Estrategia de tests
 
-Marco transversal en SDD-24. Cobertura objetivo 100% para `tuning` cuando se implemente (no es módulo regulatorio de piso, pero la marca exige calidad ejemplar). `filterwarnings=["error"]`, `mypy --strict`, ruff `E,F,I,N,UP,B,SIM,RUF,D` y docstrings públicas en español. Los tests que ajustan challengers van tras el marker del backend (`requires_xgboost`/…); se añade el marker `requires_tuning` (extra `[tuning]`) en `pyproject.toml` (junto a los existentes, `pyproject.toml:L184-L187`).
+Marco transversal en SDD-24. Cobertura objetivo 100% para `tuning` (no es módulo regulatorio, pero la marca exige calidad ejemplar). `filterwarnings=["error"]`, `mypy --strict`, ruff `E,F,I,N,UP,B,SIM,RUF,D` y docstrings públicas en español. Los tests que ajustan challengers usan el marker del backend (`requires_xgboost`/…) y `requires_tuning`.
 
 - **Reproducibilidad byte-a-byte.** Dos corridas con misma semilla, `deterministic=True`, `n_jobs=1`, sin `timeout` y mismos datos ⇒ `trials`/`best_params`/`importance` idénticos tras normalización.
 - **No determinismo declarado.** Con `n_jobs>1` o `timeout`, `sampler_metadata.deterministic=False` y el card marca el caveat; no se asevera igualdad byte-a-byte.

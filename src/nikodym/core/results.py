@@ -62,7 +62,8 @@ class ECLResultLike(ProvisionResultLike, Protocol):
 
     La herencia ``ECLResultLike`` ← ``ProvisionResultLike`` es reutilización del contrato de lectura
     (``total``/``componentes``/``to_frame``), **no** parentesco de dominio: CMF e IFRS 9 son dos
-    motores separados (§5.4). El piso prudencial (máximo) lo aplica SDD-17, no estos Protocols.
+    motores separados (§5.4). SDD-17 compara fuentes configurables; el binding B-1 usa estándar
+    CMF frente a método interno, no estos Protocols.
     Heredar también de ``Protocol`` es obligatorio para que ``ECLResultLike`` siga siendo protocolo.
     """
 

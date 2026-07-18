@@ -3982,7 +3982,7 @@
           },
           "low_credit_risk_exemption": {
             "default": false,
-            "description": "Activa la exención IFRS 9 5.5.10 (opt-in; los backstops duros dpd siempre dominan).",
+            "description": "Activa la exención IFRS 9 5.5.10. Por política conservadora del motor v1, las presunciones rebatibles 30/90 dpd prevalecen sobre la exención.",
             "title": "Aplicar exención de bajo riesgo crediticio",
             "type": "boolean",
             "ui_group": "Staging",
@@ -4997,7 +4997,7 @@
               }
             ],
             "default": null,
-            "description": "Artefacto opcional con engine ECL futuro de SDD-16, sin import duro.",
+            "description": "Artefacto opcional con engine ECL inyectable, sin import runtime de SDD-16.",
             "title": "Artefacto engine ECL",
             "ui_group": "Engines",
             "ui_order": 1,

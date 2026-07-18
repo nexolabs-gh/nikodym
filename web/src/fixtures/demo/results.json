@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "7171e0ae2fc249409f72023f10d40758",
+ "run_id": "cde6931340fb4d6bafc8806bf1a3662b",
  "error": null,
  "model_card": null,
  "binning": {
@@ -10443,7 +10443,7 @@
   "ifrs9_term_structure_source": null,
   "internal_method": "pd_lgd",
   "regulatory_sources": [
-   "CNC (CMF) Cap. B-1, hoja 10-11 (Circular N° 2.346): la constitución de provisiones considera el mayor valor obtenido entre el método estándar y el método interno, por cada institución en Chile que consolida con el banco.",
+   "CNC (CMF) Cap. B-1, hoja 10-11 (Circular N° 2.346): la constitución de provisiones considera el mayor valor obtenido entre el método estándar y el método interno, por cada institución en Chile que consolida con el banco. Nikodym supone una institución por corrida y no valida ese perímetro.",
    "docs/normativa_cmf_parametros.md §3"
   ],
   "falta_dato": [],
@@ -10456,6 +10456,7 @@
     "numeric_reconciliation": "decimal_quantize",
     "tie_tolerance": 1e-09,
     "rounding": "none",
+    "source_a_binding_ratio": 1.0,
     "floor_bite_ratio": 1.0,
     "binding_counts": {
      "cmf": 1,

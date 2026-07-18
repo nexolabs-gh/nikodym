@@ -682,7 +682,8 @@ def _generate_ifrs9_retail(dataset_id: str) -> pd.DataFrame:
     2. **``days_past_due`` correlaciona con el riesgo latente pero NO es determinista del default
        futuro** (``event``/``bad_flag`` miran hacia adelante; la mora es el estado de hoy).
        Volverlos idénticos metería *target leakage* y el scorecard predeciría el presente.
-    3. **Staging visible S1/S2/S3.** La mora se reparte para que los backstops duros IFRS 9 muerdan:
+    3. **Staging visible S1/S2/S3.** La mora se reparte para activar las presunciones DPD bajo la
+       política conservadora v1:
        ~80 % al día, ~8 % 1-29 d (Stage 1), ~8 % 30-89 d (**Stage 2**, presunción 5.5.11) y ~4 %
        90+ d (**Stage 3**, presunción B5.5.37). ``is_default`` marca los 90+ d y una fracción
        reestructurada con mora <90 d (un default cualitativo, no capturado por la mora). Resultado:
@@ -698,7 +699,7 @@ def _generate_ifrs9_retail(dataset_id: str) -> pd.DataFrame:
     rebatibles de IFRS 9 y los defaults del motor; ``pit_mode='ttc_only'`` (sin ajuste PIT) y
     ``scenarios='single'`` evitan pedir ``rho``/``Z`` o pesos macro que no tendríamos cómo defender.
 
-    IFRS 9 es EXPERIMENTAL (SDD-16 en Borrador, fuera de la garantía SemVer 1.x).
+    IFRS 9 está implementado y es EXPERIMENTAL (fuera de la garantía SemVer 1.x).
     """
     spec = _DATASETS[dataset_id]
     rng = np.random.default_rng(spec["seed"])

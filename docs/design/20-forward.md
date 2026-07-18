@@ -7,7 +7,7 @@
 | **Dominio** | Forward / dinámica macro / IFRS 9 forward-looking |
 | **Fase** | F5 |
 | **Tanda de producción** | T5 (Forward-looking & dinámica) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; API experimental |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data` base/hash), SDD-05 (convenciones + config), SDD-18 (`survival`), SDD-19 (`markov`) |
 | **Lo consumen** | SDD-16 (`provisioning/ifrs9`), SDD-17 (`provisioning`), SDD-21 (`stress`), SDD-22 (`validation`), SDD-23 (`ui`), SDD-26 (`report`) |
 | **Autor / Fecha** | Codex (worker A9, redacción SDD-20 para T5) / 2026-06-29 |
@@ -22,22 +22,24 @@
 - Ajusta modelos de proyección macroeconómica: ARIMA, SARIMA, ARIMAX, VAR y VECM.
 - Ejecuta diagnóstico Ljung-Box sobre residuos de modelos macro cuando el método lo permite.
 - Produce proyecciones macro con horizonte explícito y trazabilidad de método, variables, frecuencia y versión de dependencias.
-- Define escenarios macro `base`, `adverse` y `severe` como mínimo, con pesos de probabilidad explícitos y suma igual a 1.
+- Por política default de Nikodym (`require_at_least_three=True`), exige escenarios `base`, `adverse` y `severe`, con pesos explícitos que suman 1. IFRS 9 no prescribe ese número fijo.
 - Implementa un guard ruidoso contra el "escenario medio": se ponderan outputs por escenario, nunca inputs macro promediados.
 - Ajusta y aplica `SatelliteModel` en forma Wilson/CreditPortfolioView: `logit(PD)` y, si aplica, `logit(LGD)` como función de factores macro.
 - Consume la term-structure base de `survival` (SDD-18) y/o `markov` (SDD-19), sin rediseñar esos motores.
 - Recalcula `hazard`, `survival`, `pd_marginal` y `pd_cumulative` para cada escenario preservando identidades lifetime.
 - Aplica reversión a media TTC más allá del horizonte reasonable & supportable mediante una regla configurada y auditada.
-- Publica artefactos namespaced bajo `"forward"`: proyección macro, term-structure forward-looking, pesos de escenario, diagnostics, result, card y bundle para ECL futuro.
+- Publica artefactos namespaced bajo `"forward"`: proyección macro, term-structure forward-looking, pesos de escenario, diagnostics, result, card y bundle consumido por el ECL vigente.
 - Aporta `ForwardConfig` como sección computacional de `NikodymConfig`; por tanto, cambios de modelo, horizonte, escenarios o reversiones mueven el `config_hash`.
 - Registra con `log_decision` la cadena completa `macro_projection → satellite_model → pd_lgd_term_structure → ecl_engine → scenario_weighting`.
 
 **Límites explícitos (qué NO hace, y quién lo hace).**
 - **No calcula ECL.** SDD-16 (`provisioning/ifrs9`) consume la term-structure forward-looking y calcula `Σ_t PD_marg_k(t)·LGD_k(t)·EAD_k(t)/(1+EIR)^t`.
 - **No implementa staging, SICR, EAD, CCF, EIR ni descuento.** Esos contratos pertenecen a SDD-16.
-- **No compara IFRS 9 contra el piso CMF.** SDD-17 orquesta CMF vs IFRS 9 y aplica el máximo.
+- **No aplica la regla del máximo B-1.** SDD-17 compara fuentes configurables; el binding normativo
+  chileno es método estándar CMF frente a método interno, por institución. Un comparativo con IFRS 9
+  es informativo entre marcos y no constituye el piso prudencial.
 - **No rediseña `survival` ni `markov`.** SDD-18 y SDD-19 son dueños de lifetime PD/term-structure base; `forward` solo las consume y transforma.
-- **No implementa la transformación PIT Vasicek monofactorial.** ESPECIFICACIONES §5.5 ubica esa transformación en IFRS 9; `forward` conserva el gancho y la metadata PIT/TTC para que SDD-16 la use.
+- **No implementa la transformación PIT Vasicek monofactorial.** Es una opción metodológica de Nikodym ubicada en SDD-16; IFRS 9 exige información forward-looking y ponderación probabilística, pero no prescribe esa fórmula. `forward` conserva la metadata PIT/TTC para que SDD-16 decida cómo consumirla.
 - **No diseña el panel longitudinal económico completo.** CT-3 reserva esa capa para IFRS 9/forward; este SDD fija solo los contratos de entrada/salida que `forward` necesita.
 - **No hace stress testing.** SDD-21 consume escenarios y satellite models para sensibilidad, reverse stress y escenarios severos fuera del caso base IFRS 9.
 - **No inventa shocks macro regulatorios, tasas EIR, maturities, umbrales SICR ni parámetros externos.** Lo no especificado queda como config requerida o `FALTA-DATO-FWD`.
@@ -49,7 +51,7 @@
 - **Quién lo invoca:** `Study.run()` como sección `forward` de `NikodymConfig`, o API programática para ajustar/proyectar macro y aplicar satellite models.
 - **A quién invoca:** `core` (`Step`, `ArtifactKey`, `ArtifactStore`, `AuditableMixin`, excepciones, lineage), `data` base solo para hash lógico/validación de frames cuando se reutilicen helpers, y dependencias estadísticas perezosas.
 - **Dependencias duras de dominio:** SDD-18 y SDD-19. La term-structure base debe venir de `survival`, de `markov` o de ambas según config.
-- **Dependencias duras base:** SDD-01, SDD-02 y SDD-05. No hay dependencia dura sobre SDD-16 porque IFRS 9 aún no existe.
+- **Dependencias duras base:** SDD-01, SDD-02 y SDD-05. No hay dependencia runtime sobre SDD-16: el motor IFRS 9 vigente consume el DTO estable sin ser importado por `forward`.
 
 ```text
 macro_history ─► macro_projection ─► projected_macro_by_scenario ─┐
@@ -59,7 +61,7 @@ survival.term_structure ─┐                              satellite_model
 markov.term_structure ───┘                                         ▼
                                                        forward_term_structure
                                                                    ▼
-                                              ecl_engine futuro (SDD-16)
+                                              ecl_engine vigente (SDD-16)
                                                                    ▼
                                                  scenario_weighting outputs
 ```
@@ -68,8 +70,8 @@ markov.term_structure ───┘                                         ▼
 - `macro_projection`: proyecta factores macro por horizonte y escenario.
 - `satellite_model`: traduce macro a ajustes de PD/LGD en escala logit.
 - `pd_lgd_term_structure`: frame tidy compatible con SDD-18/19, extendido con columnas forward.
-- `ecl_engine`: motor futuro IFRS 9; `forward` define el contrato de input, no lo implementa.
-- `scenario_weighting`: pondera outputs del ECL por escenario; nunca pondera inputs macro.
+- `ecl_engine`: motor IFRS 9 vigente; `forward` define el contrato de input y SDD-16 calcula ECL.
+- `scenario_weighting`: SDD-16 pondera outputs del ECL por escenario; nunca inputs macro.
 
 **Consistencia PIT.** Toda fila de salida debe declarar `pd_basis` y `basis_state`:
 - `pd_basis="pit"` para el tramo reasonable & supportable ajustado por macro;
@@ -87,7 +89,7 @@ La consistencia no significa que `forward` convierta todo con Vasicek. Significa
 
 Esto cumple CT-1: el objeto `Step` ya resuelto expone el DAG efectivo antes de ejecutar y el motor v1 puede validar prerequisitos.
 
-**Cableado futuro en `core.study`.**
+**Cableado implementado en `core.study`.**
 - `_DOMAIN_MODULES["forward"] = "nikodym.forward"`;
 - `_DOMAIN_CONFIG_CLASSES["forward"] = ("nikodym.forward.config", "ForwardConfig")`;
 - `_DEFAULT_DOMAIN_ORDER` ubica `"forward"` después de `"survival"`/`"markov"` cuando estén presentes y antes de `"stress"`/`"provisioning_ifrs9"` si se ejecutan en el mismo run;
@@ -111,7 +113,7 @@ src/nikodym/forward/
 `ForwardConfig`, jerarquía de errores, hook diferido en `NikodymConfig`, round-trip YAML, defaults D-FWD y validaciones sin imports pesados.
 
 **B20.2 - `results.py`.**
-DTOs frozen para proyección macro, satellite diagnostics, term-structure forward, pesos de escenario, card y bundle de input para ECL futuro.
+DTOs frozen para proyección macro, satellite diagnostics, term-structure forward, pesos de escenario, card y bundle de input para el ECL vigente.
 
 **B20.3 - `macro.py`.**
 `MacroProjectionModel`, ARIMA/SARIMA/ARIMAX/VAR/VECM, `fit/predict(horizon=...)`, Ljung-Box y determinismo.
@@ -128,7 +130,7 @@ DTOs frozen para proyección macro, satellite diagnostics, term-structure forwar
 ## 3. Conceptos y fundamentos
 
 **Fuente normativa/metodológica interna.**
-- ESPECIFICACIONES §5.5 fija ECL multi-período, PIT vs TTC y la fórmula Vasicek monofactorial que pertenece a IFRS 9.
+- ESPECIFICACIONES §5.5 adopta Vasicek como opción metodológica de Nikodym para TTC→PIT. IFRS 9 exige información forward-looking y resultados ponderados por probabilidad, sin prescribir esa fórmula.
 - ESPECIFICACIONES §5.6 fija macro ARIMA/SARIMA/ARIMAX, VAR/VECM, Ljung-Box, escenarios ponderados, satellite models y cadena forward.
 - ROADMAP F5 ubica `forward` como entregable macro + satellite + escenarios ponderados, cerrando el lifetime requerido por F4.
 - CT-1 exige `requires`/`provides`; CT-2 exige term-structure tidy; CT-3 separa datos transversales de longitudinales.
@@ -485,7 +487,7 @@ class ForwardConfig(NikodymBaseConfig):
 - `use_pmdarima_auto_order=True` solo aplica a ARIMA/SARIMA/ARIMAX univariado.
 - `auto_arima_random=True` exige `random_state`; sin semilla explícita se levanta `ForwardConfigError`.
 - `horizon_periods >= reasonable_supportable_periods` o se registra que no habrá tramo TTC dentro del horizonte.
-- `scenario.scenarios` debe tener nombres únicos, incluir `base`, `adverse` y `severe` si `require_at_least_three=True`, y pesos que sumen 1.
+- `scenario.scenarios` debe tener nombres únicos, incluir `base`, `adverse` y `severe` si `require_at_least_three=True`, y pesos que sumen 1. La terna es política default de Nikodym, no mínimo normativo IFRS 9.
 - `forbid_mean_scenario=True` impide nombres reservados `mean`, `average`, `weighted_mean_input`.
 - Si `adverse`/`severe` no traen `macro_path_path` ni shocks, se marca `FALTA-DATO-FWD-1`; por default falla porque no se inventan shocks macro.
 - `satellite.factor_cols` debe ser subconjunto de variables macro proyectadas.
@@ -501,7 +503,7 @@ class ForwardConfig(NikodymBaseConfig):
 
 **Round-trip YAML y UI.** El round-trip sigue SDD-05: dump JSON-mode, `sort_keys=False`, carga vía `load_config`. La UI debe renderizar pesos con validación de suma, escenario con tabla editable, horizonte/reversión con inputs numéricos y alerta visible si faltan paths/shocks adversos.
 
-**Hook diferido en `core.config.schema`.**
+**Hook implementado en `core.config.schema`.**
 - declarar `_FORWARD_CONFIG_CLS: type[BaseModel] | None = None`;
 - añadir `forward` como campo `Any` en runtime y `ForwardConfig | None` bajo `TYPE_CHECKING`;
 - añadir `@field_validator("forward", mode="before")`;
@@ -634,7 +636,7 @@ class ForwardConfig(NikodymBaseConfig):
 **Alternativas descartadas.**
 - *Escenario medio macro:* descartado por no linealidad de PD; queda prohibido por config/API.
 - *Promediar PD antes de ECL:* descartado como default; la cadena oficial pondera ECL outputs. `forward` puede producir diagnósticos de PD ponderada, pero no sustituye el input por escenario.
-- *Hard dependency sobre SDD-16:* descartado; SDD-16 aún no existe y debe consumir un contrato estable, no ser importado.
+- *Hard dependency runtime sobre SDD-16:* descartado; el motor vigente consume un contrato estable y no es importado por `forward`.
 - *Recalibrar `survival`/`markov` dentro de `forward`:* descartado; esos SDD son dueños de la term-structure base.
 - *Elegir shocks macro adversos/severos inventados:* descartado; si no vienen de usuario/fuente institucional, `FALTA-DATO-FWD-1`.
 - *Importar `statsmodels`, `pmdarima`, `pandas` o `scipy` en `__init__`:* descartado; viola núcleo liviano.
@@ -697,7 +699,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - **Card / report.** `ForwardCard` debe permitir reconstruir la corrida: macro, escenarios, satellite, term-structure, reversion, PIT/TTC, versions, diagnostics y `FALTA-DATO`.
 - **Gobernanza CT-2.** `metric_sections` puede incluir `"macro_projection_summary"`, `"ljung_box"`, `"scenario_weights"`, `"satellite_coefficients"`, `"pit_ttc_consistency"` y `"term_structure_summary"`.
 - **Lineage.** `forward` consume `data_hash`/`config_hash`; agrega hashes auxiliares para macro history y term-structure en card/diagnostics, no reemplaza el lineage base.
-- **Golden hash anticipado.** Al cablear `ForwardConfig`, `GOLDEN_DEFAULT_CONFIG_HASH` se moverá porque `forward` no es infraestructura; debe actualizarse explícitamente.
+- **Golden hash.** El cableado de `ForwardConfig` ya fue incorporado al contrato de hash; cualquier cambio computacional debe actualizar el golden explícitamente.
 
 ## 10. Dependencias
 
@@ -709,8 +711,8 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - SDD-19 (`markov`): term-structure lifetime PD tidy intercambiable con survival.
 
 **Aguas abajo.**
-- SDD-16 (`provisioning/ifrs9`) consume `ForwardEclInput`; calcula ECL por escenario, staging, LGD/EAD si faltan, descuento y Vasicek PIT/TTC.
-- SDD-17 (`provisioning`) compara IFRS 9 resultante contra CMF.
+- SDD-16 (`provisioning/ifrs9`) consume `ForwardEclInput`; calcula ECL por escenario, staging, LGD/EAD, descuento y, si corresponde, Vasicek PIT/TTC. La LGD que publique `forward` se ignora hoy y SDD-16 la reconstruye desde su config: deuda contractual explícita.
+- SDD-17 (`provisioning`) puede comparar el resultado IFRS 9 con otra fuente, con carácter diagnóstico; eso no constituye la regla B-1.
 - SDD-21 (`stress`) consume macro/satellite/escenarios y extiende a stress testing.
 - SDD-22 (`validation`) backtestea macro, satellite y PD forward.
 - SDD-23 (`ui`) edita config y muestra warnings/FALTA-DATO.
@@ -743,7 +745,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 
 ## 11. Estrategia de tests
 
-Marco transversal en SDD-24. Cobertura objetivo 100% para módulos `forward` cuando se implementen. `filterwarnings=["error"]`, `mypy --strict`, ruff `E,F,I,N,UP,B,SIM,RUF,D` y docstrings públicas en español.
+Marco transversal en SDD-24. Cobertura objetivo 100% para módulos `forward`. `filterwarnings=["error"]`, `mypy --strict`, ruff `E,F,I,N,UP,B,SIM,RUF,D` y docstrings públicas en español.
 
 - **Golden AR(1) cerrado + horizonte explícito.** Con `y_{t+1}=1+0.5·y_t` y último `y_t=4`, forecast esperado `3.0`, `2.5`, `2.25`; `predict()` sin `horizon` levanta `MacroProjectionError`.
 - **Golden Ljung-Box passthrough.** Residuos sintéticos conocidos publican lags configurados y p-values finitos; si `fail_on_ljung_box=True` y el p-value cae bajo umbral configurado, falla.
@@ -770,20 +772,9 @@ Marco transversal en SDD-24. Cobertura objetivo 100% para módulos `forward` cua
 
 Fixtures: `macro_history_small.parquet` sintético, term-structures pequeñas de survival/markov, `ForwardConfig` mínimo, config con coeficientes satellite fijos, escenarios con paths explícitos, `InMemoryAuditSink`, y datasets degenerados para missing, duplicados, pesos inválidos y PD fuera de rango.
 
-## 12. Decisiones abiertas y riesgos
+## 12. Decisiones implementadas, faltantes y riesgos
 
-**R0 (Cami).** Ninguno por ahora. No se fija producto irreversible, precio, release público, PyPI ni números regulatorios. Las decisiones D-FWD son defaults metodológicos editables y no bloqueantes.
-
-**D-FWD para revisión de Cami.**
-- **D-FWD-1 — Pesos default de escenarios.** Recomendación: `base=0.60`, `adverse=0.30`, `severe=0.10`, **default a confirmar por Cami**. No es parámetro regulatorio; Cami/institución puede sobreescribir.
-- **D-FWD-2 — Backend macro default.** Recomendación: `statsmodels` como backend primario y ARIMA(1,0,0) como baseline, **default a confirmar por Cami**. `pmdarima` queda opt-in para orden automático.
-- **D-FWD-3 — Horizonte default.** Recomendación: `horizon_periods=12` y `reasonable_supportable_periods=12`, **default a confirmar por Cami**. La unidad la declara el usuario.
-- **D-FWD-4 — Reversión TTC default.** Recomendación: reversión lineal en escala logit durante 24 períodos, **default a confirmar por Cami**.
-- **D-FWD-5 — Ljung-Box no bloqueante por default.** Recomendación: publicar diagnostics y permitir fail-fast por config.
-- **D-FWD-6 — Consumir survival y markov por default.** Recomendación: intentar ambas rutas en F5 para comparar lifetime PD; permitir una sola por config.
-- **D-FWD-7 — No promediar PD antes de ECL.** Recomendación: `forward` entrega curvas por escenario y objeto `ScenarioWeighting`; SDD-16 pondera ECL output.
-- **D-FWD-8 — Satellite LGD opcional.** Recomendación: diseñar el hook LGD, pero no exigir LGD hasta SDD-16.
-- **D-FWD-9 — Shocks macro no inventados.** Recomendación: defaults de nombres/pesos sí; rutas adversas/severas requieren path/shock institucional o fallan.
+Los defaults D-FWD-1…9 están implementados como política metodológica editable y no como parámetros regulatorios. Se mantienen el guard anti escenario medio, la reversión TTC configurable, los shocks externos obligatorios y la ausencia de dependencia runtime sobre IFRS 9. `default_a_confirmar` permanece deliberadamente visible para impedir que un valor de conveniencia se presente como aprobado.
 
 **FALTA-DATO explícitos.**
 - **FALTA-DATO-FWD-1 — Paths/shocks macro adverso y severo.** No hay valores externos en ESPECIFICACIONES; deben venir de institución/config.
@@ -791,14 +782,14 @@ Fixtures: `macro_history_small.parquet` sintético, term-structures pequeñas de
 - **FALTA-DATO-FWD-3 — Frecuencia temporal institucional.** Mensual/trimestral/anual no está fijado; `macro_source.frequency` y `time_unit` deben declararse.
 - **FALTA-DATO-FWD-4 — Naturaleza PIT/TTC de la term-structure base.** SDD-18/19 publican PD lifetime, pero no siempre conocen si es PIT/TTC; se requiere columna o config.
 - **FALTA-DATO-FWD-5 — Coeficientes satellite iniciales.** Si no hay historia suficiente para ajustar, deben venir como coeficientes fijos auditados.
-- **FALTA-DATO-FWD-6 — Tratamiento LGD forward-looking.** SDD-16 debe decidir si LGD viene de satellite, beta/fractional response o motor propio.
-- **FALTA-DATO-FWD-7 — Forma final del panel longitudinal IFRS 9.** `forward` entrega term-structure; SDD-16 fija cuenta×período×escenario con EAD/EIR/stage.
+- **FALTA-DATO-FWD-6 — Tratamiento LGD forward-looking.** `forward` puede publicar LGD, pero SDD-16 la ignora hoy y reconstruye LGD con `IfrsLgdConfig`; falta fijar precedencia o validación cruzada.
+- **FALTA-DATO-FWD-7 — Panel longitudinal IFRS 9.** SDD-16 ya fija cuenta×período×escenario con EAD/EIR/stage; la disponibilidad temporal y el perfil institucional de EAD/LGD siguen siendo inputs externos.
 
 **Riesgos y mitigaciones.**
 - **Promedio de inputs macro usado por conveniencia.** Mitigación: guard de config/API, golden test no lineal y auditoría `forward_no_mean_scenario_guard`.
 - **Falsa consistencia PIT.** Mitigación: columnas `pd_basis`/`basis_state`, `PitConsistencyError` y `ForwardEclInput` explícito.
 - **Defaults confundidos con parámetros regulatorios.** Mitigación: D-FWD marcados como "default a confirmar por Cami" y source `"default_a_confirmar"`.
-- **Sobreacoplamiento a IFRS 9 inexistente.** Mitigación: DTO `ForwardEclInput` y cero imports de SDD-16.
+- **Sobreacoplamiento a IFRS 9.** Mitigación: DTO `ForwardEclInput` y cero imports runtime de SDD-16.
 - **Dependencias pesadas en import.** Mitigación: imports perezosos y tests `sys.modules`.
 - **Modelos macro inestables con poca historia.** Mitigación: `min_history_periods`, diagnostics, fail-fast configurable y coeficientes/rutas externas.
 - **LGD ajustada sin base económica.** Mitigación: LGD opcional; si falta base, `forward` no inventa LGD.

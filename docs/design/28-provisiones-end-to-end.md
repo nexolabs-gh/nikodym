@@ -6,7 +6,7 @@
 | **Módulo** | `nikodym.provisioning.internal` (**nuevo**) + transversal: `ui` (datasets, presets, serializers, routes) · `report` · `core.study` · `web/` |
 | **Fase** | F8 (post-1.0) |
 | **Tanda de producción** | T7 |
-| **Estado** | Borrador |
+| **Estado** | ✅ Implementado; capacidad experimental y gate humano CMF pendiente |
 | **Depende de** | SDD-08 (`model`), SDD-10 (`calibration`), SDD-15 (`provisioning/cmf`), SDD-17 (orquestación), SDD-23 (`ui`), SDD-26 (`report`) |
 | **Lo consumen** | — (capa de producto) |
 | **Autor / Fecha** | DanIA · 2026-07-13 (v2 — v1 descartada, ver §0) |
@@ -123,7 +123,8 @@ sobrecosto_del_estándar = Σ provisión_reportada − Σ provisión_interna    
 
 *"Tu modelo interno pide X. El estándar de la CMF pide Y. La norma te obliga a constituir el mayor: Z. Ese delta — en pesos, y como % de tus colocaciones — es lo que el modelo estándar te cuesta."*
 
-Esa frase abre presupuesto. El `floor_bite_ratio` (fracción de celdas donde muerde el estándar) queda como **diagnóstico secundario**, nunca como titular: con la regla aplicada a nivel de entidad hay **una sola celda**, y un ratio sobre una celda solo puede valer 0 o 1.
+Esa frase abre presupuesto. `source_a_binding_ratio` es sólo un diagnóstico neutral de cuántas
+celdas vincula la fuente A: con nivel `total` hay una sola celda y el ratio sólo puede valer 0 o 1.
 
 ---
 
@@ -176,7 +177,7 @@ assert study.run_context.status == "done"
 
 card = study.artifacts.get("provisioning", "card")
 card.total_reported_provision            # lo que la norma obliga a constituir
-card.metric_sections["provisioning_orchestration"]["floor_bite_ratio"]   # ← ruta REAL (la v1 la citaba mal)
+card.metric_sections["provisioning_orchestration"]["source_a_binding_ratio"]
 ```
 
 ---
@@ -407,7 +408,8 @@ Mover `"report"` al final de `_DEFAULT_DOMAIN_ORDER` (`core/study.py:104-126`), 
 - Motores deterministas (CMF y el interno en `Decimal`, sin RNG). Dataset con `seed` fija.
 - Test de determinismo: dos corridas → **mismo `total_reported_provision`**, byte a byte.
 - **El audit-trail debe registrar la regla aplicada**: qué método ganó, en qué entidad, y con qué `rule` (`max` vs `use_internal`). Es la traza que un validador de modelos pide primero.
-- El capítulo del informe **imprime los warnings** del orquestador (`piso_incompleto`, `cobertura_imputada_cero`…), no se los traga.
+- El capítulo del informe **imprime los warnings** del orquestador
+  (`comparacion_incompleta`, `cobertura_imputada_cero`…), no se los traga.
 
 ---
 

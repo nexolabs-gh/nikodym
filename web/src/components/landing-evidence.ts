@@ -228,7 +228,8 @@ export const DOMINIOS = [
       "aritmética Decimal (entre ellas comercial, leasing, estudiantil, factoring, consumo v2025, " +
       "vivienda PVG, avales y contingentes con CCF), con el archivo de parámetros sellado por " +
       "SHA-256. IFRS 9: ECL = PD marginal × LGD × EAD descontada a la EIR, staging SICR con " +
-      "gatillos blandos, backstops duros de mora y exención de bajo riesgo, y PD configurable " +
+      "gatillos SICR, presunciones rebatibles de mora bajo la política conservadora v1, exención " +
+      "de bajo riesgo y PD configurable " +
       "point-in-time (Vasicek) o through-the-cycle. La regla del máximo vive DENTRO de CMF: el " +
       "Capítulo B-1 (Circular 2.346) obliga a reportar, por institución, el mayor entre el método " +
       "estándar de la CMF y el método interno del banco — nunca un máximo entre CMF e IFRS 9, que " +

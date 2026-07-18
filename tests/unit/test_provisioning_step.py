@@ -206,7 +206,7 @@ def test_execute_publica_cuatro_artefactos_y_audita() -> None:
     assert isinstance(result, ProvisionOrchestrationResult)
     for key in PROVISIONING_ARTIFACTS:
         assert study.artifacts.has("provisioning", key)
-    # Golden del máximo: cmf 100.00 > ifrs9 60.165289 -> muerde el piso CMF.
+    # Golden del comparativo: cmf 100.00 > ifrs9 60.165289 -> gana CMF.
     assert result.records[0].reported_provision == Decimal("100.00")
     assert result.records[0].binding == "cmf"
     assert study.artifacts.get("provisioning", "card").total_reported_provision == Decimal("100.00")
@@ -302,7 +302,7 @@ def test_execute_sin_motores_presentes_falla() -> None:
 
 
 def test_end_to_end_tres_motores_study_run() -> None:
-    """``Study.run`` real: cmf + ifrs9 alimentan provisioning; el piso CMF muerde (golden 360)."""
+    """``Study.run`` real: CMF e IFRS 9 alimentan un comparativo no normativo (golden 360)."""
     study = _study_tres_motores()
 
     study.run()

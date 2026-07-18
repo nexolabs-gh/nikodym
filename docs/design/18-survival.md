@@ -7,7 +7,7 @@
 | **Dominio** | Forward / lifetime PD |
 | **Fase** | F5 |
 | **Tanda de producción** | T5 (Forward-looking & dinámica) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; API experimental |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config), SDD-08 (`model`) |
 | **Lo consumen** | SDD-16 (`provisioning/ifrs9`), SDD-17 (`provisioning`), SDD-20 (`forward`), SDD-21 (`stress`), SDD-22 (`validation`), SDD-23 (`ui`), SDD-26 (`report`) |
 | **Autor / Fecha** | Codex (worker A7, redacción SDD-18 para T5) / 2026-06-29 |
@@ -53,7 +53,7 @@ data ─► survival ─► ifrs9/…                          (pd_source = none
 
 **Interacción con `Study` y config declarativo.** `SurvivalStep` es un `Step` nativo registrado con `@register("standard", domain="survival")`. Declara `requires`/`provides` (CT-1, `requires` **dinámico** según `pd_source` — patrón SDD-20 §81) y `execute(study, rng)`: lee `data.frame` (y `model.raw_pd_frame` solo si la config declara una fuente PD de F1), resuelve la configuración, ajusta el método seleccionado, predice curvas en el horizonte configurado y escribe sus artefactos bajo `"survival"`. El `rng` se recibe por contrato homogéneo de `Step`; los métodos v1 son deterministas y deben hacer `del rng`.
 
-**Cableado futuro en `core.study`.** Al implementar SDD-18:
+**Cableado implementado en `core.study`.** El registro vigente:
 - `_DOMAIN_MODULES["survival"] = "nikodym.survival"`;
 - `_DOMAIN_CONFIG_CLASSES["survival"] = ("nikodym.survival.config", "SurvivalConfig")`;
 - `_DEFAULT_DOMAIN_ORDER` ubica `"survival"` después de `"model"` y, si `"calibration"` está presente, después de `"calibration"` solo cuando `pd_source="calibration"`. Debe quedar antes de `"provisioning_ifrs9"`, `"forward"` y `"stress"`.
@@ -617,7 +617,8 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 
 **Aguas abajo.**
 - SDD-16 (`provisioning/ifrs9`) consume `term_structure()` para ECL 12m/lifetime y añade LGD/EAD/staging/descuento.
-- SDD-17 (`provisioning`) usa la salida IFRS 9 resultante para comparar contra piso CMF.
+- SDD-17 (`provisioning`) puede usar la salida IFRS 9 en comparativos informativos entre marcos;
+  la regla B-1 chilena compara el estándar CMF con el método interno por institución.
 - SDD-20 (`forward`) ajusta/transforma term-structures con macro/satellite y escenarios ponderados.
 - SDD-21 (`stress`) consume term-structures bajo escenarios severos.
 - SDD-22 (`validation`) backtestea lifetime PD y diagnósticos survival.
@@ -708,7 +709,7 @@ Fixtures: `survival_small.parquet` sintético con duración/evento, `raw_pd_fram
 - **D-SUR-6 — Shape de `term_structure`.** Recomendación: tidy mínimo `row_id/segment/period/time_value/hazard/survival/pd_marginal/pd_cumulative/method/pd_source/scenario`. SDD-16 añade campos económicos; no duplicar ECL aquí.
 - **D-SUR-7 — Política Schoenfeld.** Recomendación: publicar test siempre en Cox PH; sin umbral configurado, warning no bloqueante. Confirmar p-value y acción default si se quiere fail-fast.
 - **D-SUR-8 — AFT family.** Recomendación: no default hasta ratificación; exigir `aft_family`. Si Cami quiere default, elegirlo explícitamente y documentar fuente.
-- **D-SUR-9 — Packaging de extras.** Recomendación: documentar que la ruta F5 completa requiere `nikodym[scoring,survival]`. Alternativa: añadir `statsmodels>=0.14` también al extra `survival` cuando se implemente, para que el método default funcione con un solo extra.
+- **D-SUR-9 — Packaging de extras.** La ruta F5 completa usa los extras publicados; cualquier cambio de dependencias debe verificarse contra `pyproject.toml` y SDD-25, no contra esta alternativa histórica.
 - **D-SUR-10 — KM confidence intervals.** Recomendación: publicar Greenwood variance siempre; publicar IC solo si config trae `confidence_level` y `confidence_transform`. Confirmar si se fija 95% log-log como convención Nikodym.
 - **D-SUR-11 — Pesos.** Recomendación: v1 sin pesos por default; si la institución requiere exposure-weighted lifetime PD, que entre por config y card, no por inferencia silenciosa.
 - **D-SUR-12 — Competing risks/prepayment.** Recomendación: fuera de v1; default single-event default/censura derecha. Si SDD-16 necesita prepago para EAD, diseñarlo allí o en capa longitudinal.

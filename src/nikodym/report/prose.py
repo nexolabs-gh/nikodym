@@ -1333,8 +1333,12 @@ def _results_stability(bundle: ReportInputBundle) -> tuple[str, ...]:
 
 
 _PROVISION_WARNINGS: Final[dict[str, str]] = {
+    "comparacion_incompleta": (
+        "una de las dos fuentes no cubrió todas las exposiciones, así que la regla se aplicó "
+        "sobre cobertura parcial"
+    ),
     "piso_incompleto": (
-        "una de las dos fuentes no cubrió todas las exposiciones, así que el máximo se calculó "
+        "una de las dos fuentes no cubrió todas las exposiciones, así que la regla se aplicó "
         "sobre cobertura parcial"
     ),
     "cobertura_imputada_cero": (
@@ -1344,39 +1348,82 @@ _PROVISION_WARNINGS: Final[dict[str, str]] = {
 }
 
 
-def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
-    """Titular del capítulo: la provisión a constituir y el sobrecosto del estándar, en CLP.
+def _provision_warning_descriptions(warnings: tuple[str, ...]) -> tuple[str, ...]:
+    """Normaliza códigos y mensajes FALTA-DATO de cobertura sin duplicar aliases legacy."""
+    descriptions: list[str] = []
+    for warning in warnings:
+        description = _PROVISION_WARNINGS.get(warning)
+        folded = warning.casefold()
+        if description is None and (
+            "falta-dato-prov-3" in folded or "comparación incompleta" in folded
+        ):
+            description = _PROVISION_WARNINGS["comparacion_incompleta"]
+        elif description is None and ("imputó 0" in folded or "imputada" in folded):
+            description = _PROVISION_WARNINGS["cobertura_imputada_cero"]
+        elif description is None and "falta-dato-prov-1" in folded:
+            description = "algunas celdas no tenían contraparte y quedaron fuera del comparativo"
+        if description is not None and description not in descriptions:
+            descriptions.append(description)
+    return tuple(descriptions)
 
-    Es el número que vende el producto (SDD-28 §3.5): no un ratio de conteo, sino plata. La norma
-    obliga a constituir el mayor entre el método estándar de la CMF y el método interno del banco;
-    el delta entre ese máximo y el interno es lo que el estándar le cuesta al banco.
-    """
+
+def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Titular del capítulo según fuentes, nivel y regla efectivamente configurados."""
     orq = _card(bundle, "provisioning")
     if orq is None:
         return ()
     cmf = _card(bundle, "provisioning_cmf")
-    interno = _card(bundle, "provisioning_internal")
-
+    source_a = str(orq.get("source_a") or "")
+    source_b = str(orq.get("source_b") or "")
+    rule = str(orq.get("rule") or "")
+    level = str(orq.get("comparison_level") or "")
+    amount_a = _float(orq.get("total_provision_a"))
+    amount_b = _float(orq.get("total_provision_b"))
     reportado = _float(orq.get("total_reported_provision"))
-    estandar = _float(cmf.get("total_provision_amount")) if cmf is not None else None
-    interno_total = _float(interno.get("total_internal_provision")) if interno is not None else None
     exposicion = _float(cmf.get("total_exposure_amount")) if cmf is not None else None
     binding = str(orq.get("binding") or "")
+    amounts = {source_a: amount_a, source_b: amount_b}
+    estandar = amounts.get("cmf")
+    interno_total = amounts.get("internal")
+    is_standard_internal = {source_a, source_b} == {"cmf", "internal"}
+    is_b1_binding = is_standard_internal and level == "total"
 
-    paragraphs: list[str] = [
-        "El Compendio de Normas Contables para Bancos (Cap. B-1, hoja 10-11, Circular N° 2.346) "
-        "obliga a constituir provisiones por el mayor valor entre el método estándar de la CMF "
-        "y el método interno del banco, y a disponer de ambos métodos. Este capítulo aplica esa "
-        "regla sobre la cartera y reporta la provisión resultante."
-    ]
+    if is_b1_binding and rule == "max":
+        paragraphs: list[str] = [
+            "El Compendio de Normas Contables para Bancos (Cap. B-1, hoja 10-11, Circular "
+            "N° 2.346) exige considerar el mayor valor entre el método estándar de la CMF y el "
+            "método interno, por institución."
+        ]
+    elif is_b1_binding and rule == "use_internal":
+        paragraphs = [
+            "La corrida usa directamente el método interno. El Cap. B-1 permite esa ruta sólo "
+            "cuando el método fue evaluado y no objetado; Nikodym no verifica esa condición."
+        ]
+    else:
+        paragraphs = [
+            "Este capítulo presenta una comparación configurada entre dos fuentes. El resultado "
+            "es diagnóstico y no constituye por sí solo la regla B-1 por institución."
+        ]
 
-    if estandar is not None and interno_total is not None and reportado is not None:
+    if (
+        is_standard_internal
+        and estandar is not None
+        and interno_total is not None
+        and reportado is not None
+    ):
+        alcance = f"Sobre colocaciones por {_clp(exposicion)}, " if exposicion is not None else ""
         base = (
-            f"Sobre colocaciones por {_clp(exposicion)}, el método estándar de la CMF exige "
+            f"{alcance}el método estándar de la CMF calcula "
             f"{_clp(estandar)} y el método interno {_clp(interno_total)}. La provisión a "
-            f"constituir es {_clp(reportado)}."
+            f"reportar según la regla configurada es {_clp(reportado)}."
         )
-        if binding == "cmf":
+        if rule == "use_internal":
+            relacion = "por debajo" if interno_total < estandar else "por encima"
+            paragraphs.append(
+                base + f" Se usa el método interno, que queda {relacion} del estándar; la validez "
+                "regulatoria depende de su evaluación y no objeción institucional."
+            )
+        elif binding == "cmf":
             sobrecosto = reportado - interno_total
             extra_pct = (sobrecosto / interno_total * 100.0) if interno_total else None
             titular = (
@@ -1392,16 +1439,28 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
             )
         else:
             paragraphs.append(base + " Ambos métodos arrojan la misma provisión.")
+    elif amount_a is not None and amount_b is not None and reportado is not None:
+        labels = {
+            "cmf": "método estándar CMF",
+            "internal": "método interno",
+            "ifrs9": "ECL IFRS 9",
+        }
+        paragraphs.append(
+            f"{labels.get(source_a, source_a)}: {_clp(amount_a)}; "
+            f"{labels.get(source_b, source_b)}: {_clp(amount_b)}; resultado de la regla: "
+            f"{_clp(reportado)}."
+        )
 
-    paragraphs.append(
-        "La regla se aplica a nivel de entidad —«para cada institución en Chile que consolida con "
-        "el banco», según la norma—, no operación por operación."
-    )
+    if is_b1_binding:
+        paragraphs.append(
+            "El nivel total sólo representa «por institución» bajo el precontrato de una "
+            "institución por corrida; Nikodym no valida ese perímetro."
+        )
     return tuple(paragraphs)
 
 
 def _results_provisioning(bundle: ReportInputBundle) -> tuple[str, ...]:
-    """Subsección del orquestador: la regla del máximo, la asimetría de consolidación y warnings."""
+    """Subsección del orquestador: regla configurada, alcance normativo y warnings."""
     card = _card(bundle, "provisioning")
     if card is None:
         return ()
@@ -1410,11 +1469,19 @@ def _results_provisioning(bundle: ReportInputBundle) -> tuple[str, ...]:
     rule = str(card.get("rule") or "")
     binding = str(card.get("binding") or "")
     level = str(card.get("comparison_level") or "")
+    source_a = str(card.get("source_a") or "")
+    source_b = str(card.get("source_b") or "")
+    is_standard_internal = {source_a, source_b} == {"cmf", "internal"}
+    is_b1_binding = is_standard_internal and level == "total"
     if rule == "max":
         binding_label = {
             "cmf": "el método estándar de la CMF",
             "internal": "el método interno",
-            "tie": "ambos métodos por igual (empate)",
+            "ifrs9": "el ECL IFRS 9",
+            "tie": "ambas fuentes por igual (empate)",
+            "cmf_only": "sólo el método estándar CMF disponible",
+            "internal_only": "sólo el método interno disponible",
+            "ifrs9_only": "sólo el ECL IFRS 9 disponible",
         }.get(binding, binding)
         nivel_label = {
             "total": "la entidad",
@@ -1422,31 +1489,49 @@ def _results_provisioning(bundle: ReportInputBundle) -> tuple[str, ...]:
             "segment": "cada segmento",
         }
         paragraphs.append(
-            f"La provisión reportada es el máximo entre las dos fuentes, evaluado a nivel de "
-            f"{nivel_label.get(level, level)}. En esta cartera manda {binding_label}."
+            f"La regla configurada toma el máximo entre las dos fuentes a nivel de "
+            f"{nivel_label.get(level, level)}; resulta vinculante {binding_label}."
         )
+        if not is_b1_binding:
+            paragraphs.append(
+                "Este resultado es un comparativo diagnóstico y no constituye por sí solo la regla "
+                "B-1 por institución."
+            )
+    elif rule == "use_internal":
+        paragraphs.append(
+            "La regla configurada selecciona el método interno directamente, sin tomar el máximo."
+        )
+        if not is_b1_binding:
+            paragraphs.append(
+                "En este par o nivel la selección es diagnóstica y no acredita el uso regulatorio "
+                "del método interno bajo B-1."
+            )
 
     # La asimetría de consolidación es real y normativa: sin declararla, parece un bug (SDD-28 §8).
-    paragraphs.append(
-        "Los dos métodos agrupan la cartera de forma distinta, y es deliberado: el método estándar "
-        "consolida a nivel de deudor —sube a incumplimiento todas las operaciones de un deudor si "
-        "alguna supera 90 días de mora—, mientras que el método interno agrupa por banda de score. "
-        "La asimetría la impone la norma, no es un error de cálculo."
-    )
-
-    floor_bite = _float(
-        _mapping(_mapping(card.get("metric_sections")).get("provisioning_orchestration")).get(
-            "floor_bite_ratio"
-        )
-    )
-    if floor_bite is not None and level != "total":
+    if is_standard_internal:
         paragraphs.append(
-            f"El estándar muerde en el {_pct(floor_bite)} de las celdas comparadas (diagnóstico "
-            "secundario; el titular es el sobrecosto en pesos, no esta fracción)."
+            "Los dos métodos agrupan la cartera de forma distinta, y es deliberado: el método "
+            "estándar consolida a nivel de deudor —sube a incumplimiento todas sus operaciones si "
+            "alguna supera 90 días de mora—, mientras que el método interno agrupa por "
+            "banda de score. La asimetría responde a sus contratos respectivos, no es un error de "
+            "cálculo."
+        )
+
+    orchestration_metrics = _mapping(
+        _mapping(card.get("metric_sections")).get("provisioning_orchestration")
+    )
+    source_a_binding = _float(orchestration_metrics.get("source_a_binding_ratio"))
+    if source_a_binding is None:
+        source_a_binding = _float(orchestration_metrics.get("floor_bite_ratio"))
+    if source_a_binding is not None and level != "total":
+        source_a_label = "El estándar" if card.get("source_a") == "cmf" else "La fuente A"
+        paragraphs.append(
+            f"{source_a_label} resulta vinculante en el {_pct(source_a_binding)} de las celdas "
+            "comparadas (diagnóstico secundario, no regla por institución)."
         )
 
     warnings = tuple(str(code) for code in _sequence(card.get("falta_dato")))
-    descritos = tuple(_PROVISION_WARNINGS[code] for code in warnings if code in _PROVISION_WARNINGS)
+    descritos = _provision_warning_descriptions(warnings)
     if descritos:
         paragraphs.append(
             "El orquestador reportó advertencias que el lector debe conocer: "

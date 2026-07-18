@@ -28,7 +28,8 @@
 **Límites explícitos (qué NO hace, y quién lo hace).**
 - **No calcula riesgo de crédito**: ni binning, ni scoring, ni provisiones (eso es de los dominios SDD-06+).
 - **No persiste el audit-trail ni produce el model card ni el inventario**: `core` *ensambla* el `LineageBundle` y *emite* `AuditEvent`; **SDD-03 (`audit`+`governance`)** los registra y produce el model card / inventario.
-- **No hace tracking MLflow** (SDD-04) **ni reporte Quarto** (SDD-26): `core` no importa MLflow ni Quarto.
+- **No hace tracking MLflow** (SDD-04) **ni render de informes** (SDD-26): `core` no importa MLflow,
+  Jinja2, WeasyPrint ni python-docx.
 - **No define los sub-schemas de config de cada dominio**: `core` aloja el schema **raíz** `NikodymConfig` y la base común; cada dominio aporta su sub-config (contrato y convenciones en **SDD-05**).
 - **No depende de scikit-learn ni de ningún backend de ML/forecasting/UI** (ver D-CORE-1, §12).
 
@@ -37,7 +38,9 @@
 ## 2. Contexto y ubicación en la arquitectura
 
 - **Capa:** Fundación (transversal). Es la raíz del árbol `src/nikodym/` (ESPECIFICACIONES §6.3).
-- **Quién lo invoca:** todos los módulos de dominio (heredan las clases base, registran sus componentes, leen su sub-config del `NikodymConfig`, escriben/leen artefactos del `Study`) y las dos interfaces de uso (API programática y UI Streamlit).
+- **Quién lo invoca:** todos los módulos de dominio (heredan las clases base, registran sus
+  componentes, leen su sub-config del `NikodymConfig`, escriben/leen artefactos del `Study`) y las
+  dos interfaces de uso (API programática y UI React/FastAPI).
 - **A quién invoca:** a nadie del proyecto en tiempo de cálculo. **Inversión de dependencias:** `core` define interfaces (`AuditSink`, `Step`, `ProvisionResultLike`) que las capas externas implementan; nunca importa hacia arriba (la UI importa el núcleo, jamás al revés — §6.1). El único acoplamiento es un *auto-discovery* perezoso y tolerante a ausencia para forzar el registro de componentes instalados (§7).
 
 ```
@@ -204,7 +207,8 @@ class ECLResultLike(ProvisionResultLike, Protocol):   # añade lo específico IF
     por_instrumento: "pandas.DataFrame"  # columnas PD, LGD, EAD, ECL, stage (Literal 1/2/3) — granularidad por instrumento
     por_escenario: "Mapping[str, float]" # ECL por escenario ponderado (base/adverso/severo; nunca el escenario medio, ESPEC §5.6)
     # La herencia ECL<-Provision es reutilización del contrato de LECTURA (total/componentes/to_frame para report/governance),
-    # NO parentesco de dominio: CMF e IFRS 9 son dos motores SEPARADOS (§5.4). El piso prudencial (max) lo aplica SDD-17.
+    # NO parentesco de dominio: CMF e IFRS 9 son motores SEPARADOS (§5.4). SDD-17 compara fuentes;
+    # sólo representa el máximo B-1 para estándar-CMF frente a interno y con precondiciones explícitas.
 # (@runtime_checkable solo verifica PRESENCIA de atributos para asserts defensivos; la verificación estructural real es estática (mypy).)
 ```
 
@@ -224,7 +228,7 @@ class ArtifactNotFoundError(NikodymError): ...
 class ArtifactExistsError(NikodymError): ...
 class ReproducibilityError(NikodymError): ...      # config_hash no coincide al recargar (manipulación)
 class UntrustedStudyError(NikodymError): ...        # load(trust=False) de origen no verificado
-class RegulatoryError(NikodymError): ...            # p.ej. violación del piso prudencial CMF (lo usa SDD-15/17)
+class RegulatoryError(NikodymError): ...            # p.ej. violación de un contrato regulatorio de SDD-15/17
 class MissingDependencyError(NikodymError): ...     # extra no instalado al usar un backend opcional (import perezoso; SDD-25)
 ```
 
@@ -324,7 +328,12 @@ class NikodymConfig(NikodymBaseConfig):  # raíz; la UI genera su formulario des
 
 **`config_hash` (identidad de lineage).** `config_hash = sha256(json_canónico)` donde `json_canónico = json.dumps(cfg.model_dump(mode="json", by_alias=True, exclude=INFRA_SECTIONS), sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. (`by_alias=True` para que un campo con alias —p.ej. `schema` por colisión con `BaseModel.schema()`— se serialice por su nombre canónico YAML; ver SDD-05 §5.3.) El hash representa el **experimento** (datos + método + semilla), no la *plomería*: se **excluyen las secciones de infraestructura** `INFRA_SECTIONS = {"name", "governance", "audit", "tracking", "report"}` para que cambiar el URI de MLflow, la plantilla de reporte o el nombre del estudio **no** altere la identidad ni la idempotencia del inventario (SDD-03/04). Hashear el **JSON con claves ordenadas** (no el texto YAML) desacopla además la identidad del estilo y la versión de PyYAML y del orden de declaración de campos → el mismo experimento produce el mismo hash entre releases (mitiga R3/R5). **Rutas en `data`.** La sección `data` **sí** entra al `config_hash` (sus parámetros de método: target, particiones, reglas), pero la **ruta de origen** (`data.load.source`) es infraestructura local: el contenido de los datos lo ancla el `data_hash` del lineage, no la ruta. Para que el hash sea estable cross-máquina, `data.load.source` se **normaliza** antes de hashear (se aporta su basename, no la ruta absoluta); el mecanismo exacto lo fija SDD-02/05. (Ver Riesgos §12.)
 
-**Serialización YAML y UI.** El YAML es el formato de persistencia/edición legible (§5.1, §6.2). Carga: `NikodymConfig.model_validate(yaml.safe_load(...))`. Volcado legible: `yaml.safe_dump(cfg.model_dump(mode="json", by_alias=True), sort_keys=False)` (orden de declaración, para revisores). La UI Streamlit (SDD-23) se genera desde `NikodymConfig.model_json_schema()` + introspección, sin duplicar lógica (§4 principio 6). Edición incremental: la UI trabaja sobre un **borrador mutable** (dict) y materializa un `NikodymConfig` *frozen* al correr (reconcilia `frozen=True` con la edición). Preservación de comentarios (ruamel) **diferida** a la UI/CLI.
+**Serialización YAML y UI.** El YAML es el formato de persistencia/edición legible (§5.1, §6.2).
+Carga: `NikodymConfig.model_validate(yaml.safe_load(...))`. Volcado legible:
+`yaml.safe_dump(cfg.model_dump(mode="json", by_alias=True), sort_keys=False)` (orden de declaración,
+para revisores). La UI React/FastAPI (SDD-23) se genera desde `NikodymConfig.model_json_schema()` sin
+duplicar lógica. Trabaja sobre un **borrador mutable** (dict) y materializa un `NikodymConfig`
+*frozen* al correr. Preservación de comentarios (ruamel) queda diferida a la UI/CLI.
 
 ---
 
@@ -444,7 +453,10 @@ Toda excepción de `core` desciende de `NikodymError` y su mensaje (español) in
 
 > **Nota (deps de distribución vs imports de `core`).** La tabla lista lo que el **paquete `core`** importa. `pandas` **no** lo importa `core`, pero **sí** es dependencia base de la **distribución** (`pip install nikodym`), porque `data/` y los dominios la usan como contrato de I/O universal (SDD-05 §6); el mapa completo de deps base y extras lo fija **SDD-25**.
 
-**Vetado en `core`:** scikit-learn (y scipy), MLflow (→ SDD-04), Streamlit (→ SDD-23), xgboost/lightgbm/catboost/lifelines/statsmodels (→ dominios, extras opcionales), y **todo copyleft** (GPL; en particular `scikit-survival` GPL-3.0, §7). El patrón sklearn es una **convención** (SDD-05) que cumplen los estimadores de dominio, **no** una dependencia de `core` (D-CORE-1).
+**Vetado en `core`:** scikit-learn (y scipy), MLflow (→ SDD-04), FastAPI/React (→ SDD-23),
+xgboost/lightgbm/catboost/lifelines/statsmodels (→ dominios, extras opcionales), y **todo copyleft**
+(GPL; en particular `scikit-survival` GPL-3.0, §7). El patrón sklearn es una **convención** (SDD-05)
+que cumplen los estimadores de dominio, **no** una dependencia de `core` (D-CORE-1).
 
 `core` no es un *extra*: lo instala siempre `pip install nikodym`.
 
@@ -470,11 +482,12 @@ Detalle transversal en **SDD-24**; lo específico de `core`:
 - **D-CORE-3 — Identidad del config vía `config_hash` (sha256 del JSON canónico), no `__hash__`.** `frozen=True` evita mutación accidental pero **no** vuelve el modelo hashable (campos `list`/`dict`) ni congela anidados. *Regla:* los sub-configs evitan `dict`/`list` crudos cuando sea posible (preferir modelos/tuplas); la igualdad/identidad para lineage es el `config_hash`. *Porqué:* el hash debe ser estable, no atado a `__hash__` ni a PyYAML.
 - **D-CORE-4 — Persistencia del `Study` como directorio** (YAML legible + JSON + joblib por artefacto), no un blob único. *Porqué:* auditabilidad/diff; recarga selectiva; robustez. **El azar no se persiste** (se reconstruye desde `root_seed`).
 - **D-CORE-5 — `NotFittedError` desciende solo de `NikodymError`** (coherente con D-CORE-1). *Caveat (documentado):* un `except sklearn.exceptions.NotFittedError` no atrapa el de Nikodym; los estimadores de dominio que usen `check_is_fitted` de sklearn reciben además el tipo de sklearn, y pueden definir un `NotFittedError(NikodymError, sklearn.exceptions.NotFittedError)` local si necesitan capturar ambos.
-- **D-CORE-6 — `ProvisionResultLike`/`ECLResultLike` se quedan como `Protocol` (structural typing), no `dataclass`/Pydantic en core** (Tanda 1 Rev, decisión D4). *Porqué:* un tipo concreto en `core` invertiría la dependencia (forzaría a `provisioning/cmf` e `ifrs9` —SDD-15/16— a importar y heredar un tipo económico de `core`, violando el núcleo liviano §4.9 y reabriendo la circularidad que el Protocol resuelve), y un base compartido difuminaría que **CMF≠IFRS 9 son dos motores separados** (§5.4). *Contrato mínimo endurecido* (§4 `results.py`): `componentes`, `total`, `por_cartera`, `motor`, `to_frame()`; ECL añade `por_instrumento`, `por_escenario`. El Protocol **declara** el invariante `PE=PI·PDI·exposicion` y el piso prudencial, pero **no los ejecuta**: la validación cuantitativa es de los dominios (SDD-15/16/17), no de `core` (§1: "core no calcula riesgo"). El `dataclass` vs Pydantic de la *implementación* sigue delegado a SDD-15/16 (T4).
+- **D-CORE-6 — `ProvisionResultLike`/`ECLResultLike` se quedan como `Protocol` (structural typing), no `dataclass`/Pydantic en core** (Tanda 1 Rev, decisión D4). *Porqué:* un tipo concreto en `core` invertiría la dependencia (forzaría a `provisioning/cmf` e `ifrs9` —SDD-15/16— a importar y heredar un tipo económico de `core`, violando el núcleo liviano §4.9 y reabriendo la circularidad que el Protocol resuelve), y un base compartido difuminaría que **CMF≠IFRS 9 son dos motores separados** (§5.4). *Contrato mínimo endurecido* (§4 `results.py`): `componentes`, `total`, `por_cartera`, `motor`, `to_frame()`; ECL añade `por_instrumento`, `por_escenario`. El Protocol declara invariantes de lectura, pero **no ejecuta** reglas cuantitativas ni regulatorias: esa validación pertenece a los dominios SDD-15/16/17. SDD-17 sólo representa B-1 para estándar-CMF frente a interno, nivel total y sus precondiciones explícitas. El `dataclass` vs Pydantic de la *implementación* sigue delegado a SDD-15/16 (T4).
 - **D-CORE-7 — Estabilización de contratos transversales (Hito 0).** Ver [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md). Tres consecuencias en `core`, todas **aditivas** (no rompen el molde de Tanda 1 Rev): **(CT-1)** `Step`/`StepAdapter` declaran `requires`/`provides` (`ArtifactKey = tuple[str,str]`) → la **firma** expresa el DAG desde v1; el motor v1 **valida** prerequisitos (§7 a-bis) pero ejecuta en orden de declaración; el **scheduler topológico** (fan-in/fan-out de forward/stress) se difiere a F5 sin tocar la firma. **(CT-2)** `ProvisionResultLike` gana `term_structure() -> DataFrame | None` como **puerta de extensión temporal** (None en CMF agregado/scoring; curva lifetime en ECL/F4); el *shape* interno lo fija SDD-16. **(CT-4)** el Protocol `ModelInventory` (SDD-03) lleva `@runtime_checkable`, y el **ensamblado de la corrida** (componer `JsonlAuditSink`+sink de tracking en `FanOutSink`; resolver `NullInventory`/`MLflowInventory`/`MissingDependencyError`) vive en una **capa fina de API/runner fuera de `core`** (`assemble_run`, no contamina el núcleo liviano D-CORE-1): `core` sigue recibiendo el `AuditSink` ya compuesto vía `set_audit_sink`. *Validación con código (DoD F0):* un `Step` dummy con **fan-in** (dos `requires` de dos dominios) y un payload estructurado dummy estresan CT-1/CT-2 mientras cambiarlos es gratis.
 
 **Decisiones abiertas (delegadas).**
-- **Alcance de SDD-04 — RESUELTO (checkpoint Cami, 2026-06-23).** SDD-04 = `tracking` (MLflow) en F0/T1; el reporte Quarto se separa a **SDD-26 `report`** en T2/F1 (índice actualizado, alineado con el ROADMAP).
+- **Alcance de SDD-04 — RESUELTO (checkpoint Cami, 2026-06-23).** SDD-04 = `tracking`
+  (MLflow) en F0/T1; el informe auditable se separa a **SDD-26 `report`** en T2/F1.
 - **Formato del `data_hash` — RESUELTO (Tanda 1 Rev, D2):** hash del **contenido lógico por bloques** (`hash_pandas_object` + esquema canónico), que **reemplaza** el sha256 de los bytes del Parquet (no canónico cross-versión) y elimina el fallback muestreado. Detalle en **SDD-02** (D-DATA-2 revisado).
 - **Política de migración de `schema_version` — RESUELTO (Tanda 1 Rev, D3):** *version-gate* + migradores `@migration` dict→dict (registro **vacío en v1**; `fail` ruidoso si falta el migrador, nunca migración silenciosa). Detalle en **SDD-05 §5.4**.
 - Granularidad de los `AuditEvent` que emiten `core` vs los dominios. *Responsable:* **SDD-03**.

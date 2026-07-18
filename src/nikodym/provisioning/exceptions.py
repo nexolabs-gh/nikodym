@@ -20,7 +20,7 @@ __all__ = [
 
 
 class ProvisioningError(NikodymError):
-    """Error base de la orquestación de provisiones (piso prudencial CMF vs IFRS 9)."""
+    """Error base de la orquestación configurable de dos fuentes de provisión."""
 
 
 class ProvisioningConfigError(ProvisioningError):
@@ -28,7 +28,7 @@ class ProvisioningConfigError(ProvisioningError):
 
 
 class ProvisioningInputError(ProvisioningError):
-    """Error en los resultados de entrada (CMF/IFRS 9) que consume la orquestación."""
+    """Error en los resultados de fuente que consume la orquestación."""
 
 
 class ProvisioningAlignmentError(ProvisioningInputError):

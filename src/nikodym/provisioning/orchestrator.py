@@ -7,14 +7,19 @@ cualesquiera** —``provisioning_cmf`` (método estándar del B-1, montos ``Deci
 ``portfolio`` / ``segment`` / ``operation``), reconcilia sus dominios numéricos preservando los
 originales y aplica la **regla declarada** por celda:
 
-- ``rule='max'`` → ``reported = máximo(a, b)``. Entre **estándar e interno** esto es norma citada:
+- ``rule='max'`` → ``reported = máximo(a, b)``. Entre **estándar e interno**, a nivel ``total`` y
+  bajo el precontrato de una institución por corrida, esto representa la norma citada:
   Cap. B-1, hoja 10-11 (Circular N° 2.346), *"el mayor valor obtenido entre el respectivo método
-  estándar y el método interno"*, **por entidad** (de ahí que ``comparison_level='total'`` sea el
-  default). Entre CMF e IFRS 9 es un **comparativo entre marcos contables**, no una exigencia
+  estándar y el método interno"*, **por institución**. Nikodym no valida hoy que el perímetro de la
+  corrida contenga una sola institución. Entre CMF e IFRS 9 es un **comparativo entre marcos
+  contables**, no una exigencia
   chilena (Cap. A-2 num. 5 excluye el deterioro de NIIF 9 sobre las colocaciones).
-- ``rule='use_internal'`` → ``reported = interno``, aunque el estándar sea mayor. Es el otro modo
+- ``rule='use_internal'`` → ``reported = interno``, aunque la otra fuente sea mayor. Sólo representa
+  el otro modo
   del mismo párrafo del B-1: *"En el caso de uso de los métodos internos evaluados y no objetados
-  (…) la constitución de provisiones se efectuará de acuerdo con los resultados de su aplicación"*.
+  (…) la constitución de provisiones se efectuará de acuerdo con los resultados de su aplicación"*,
+  cuando el par es estándar/interno, el nivel es ``total`` y la institución acredita esa condición;
+  Nikodym no verifica la evaluación/no objeción.
 
 Publica el comparativo auditable como :class:`ProvisionOrchestrationResult` usando los DTOs de
 :mod:`nikodym.provisioning.results`; **no** recalcula PI/PDI/PE, ECL ni el método interno.
@@ -93,12 +98,18 @@ _TOTAL_CELL_ID = "TOTAL"
 _B1_MAX_RULE_SOURCE = (
     "CNC (CMF) Cap. B-1, hoja 10-11 (Circular N° 2.346): la constitución de provisiones considera "
     "el mayor valor obtenido entre el método estándar y el método interno, por cada institución en "
-    "Chile que consolida con el banco."
+    "Chile que consolida con el banco. Nikodym supone una institución por corrida y no valida ese "
+    "perímetro."
 )
 _B1_INTERNAL_RULE_SOURCE = (
     "CNC (CMF) Cap. B-1, hoja 10-11 (Circular N° 2.346): con métodos internos evaluados y no "
     "objetados, la constitución de provisiones se efectúa de acuerdo con los resultados de su "
-    "aplicación (el método interno, no el máximo)."
+    "aplicación (el método interno, no el máximo). La institución debe acreditar la evaluación/no "
+    "objeción; Nikodym no la verifica."
+)
+_B1_DIAGNOSTIC_RULE_SOURCE = (
+    "Comparativo diagnóstico SIN binding B-1: aunque las fuentes sean método estándar CMF e "
+    "interno, los niveles portfolio/segment/operation no representan la regla por institución."
 )
 _CROSS_FRAMEWORK_RULE_SOURCE = (
     "Comparativo entre marcos contables SIN norma chilena que lo exija: el Cap. A-2 num. 5 del CNC "
@@ -153,7 +164,8 @@ _SUMMARY_COLUMNS: tuple[str, ...] = (
 )
 
 # Códigos de warning por celda (comparativo) y notas FALTA-DATO (card).
-_WARN_FLOOR_INCOMPLETE = "piso_incompleto"
+_WARN_COMPARISON_INCOMPLETE = "comparacion_incompleta"
+_WARN_FLOOR_INCOMPLETE_LEGACY = "piso_incompleto"
 _WARN_IMPUTED_ZERO = "cobertura_imputada_cero"
 
 
@@ -229,7 +241,8 @@ class ProvisioningOrchestrator:
         if not both_engines:
             presente = name_a if engine_a is not None else name_b
             falta_dato.append(
-                f"FALTA-DATO-PROV-3: piso incompleto; solo el motor {presente} está presente "
+                f"FALTA-DATO-PROV-3: comparación incompleta; solo el motor {presente} está "
+                "presente "
                 "(require_both=False)."
             )
 
@@ -496,7 +509,8 @@ def _build_record(
             val_b=val_b,
             cfg=cfg,
             sources=sources,
-            warnings=(_WARN_FLOOR_INCOMPLETE,),
+            # ``piso_incompleto`` se conserva como alias legacy por el contrato aditivo CT-2.
+            warnings=(_WARN_COMPARISON_INCOMPLETE, _WARN_FLOOR_INCOMPLETE_LEGACY),
         )
     if cfg.coverage_policy == "fail":
         cubierta = _SOURCE_LABELS[source_a] if val_a is not None else _SOURCE_LABELS[source_b]
@@ -700,11 +714,15 @@ def _regulatory_sources(
 
 
 def _rule_source(cfg: ProvisioningConfig) -> str:
-    """Elige la cita de la regla: solo estándar-vs-interno es exigencia de la norma chilena."""
-    if cfg.rule == "use_internal":
+    """Cita B-1 sólo para estándar/interno a nivel total; los demás casos son diagnósticos."""
+    is_standard_internal = set(cfg.sources) == {CMF_SOURCE, INTERNAL_SOURCE}
+    is_b1_binding = is_standard_internal and cfg.comparison_level == "total"
+    if is_b1_binding and cfg.rule == "use_internal":
         return _B1_INTERNAL_RULE_SOURCE
-    if set(cfg.sources) == {CMF_SOURCE, INTERNAL_SOURCE}:
+    if is_b1_binding:
         return _B1_MAX_RULE_SOURCE
+    if is_standard_internal:
+        return _B1_DIAGNOSTIC_RULE_SOURCE
     return _CROSS_FRAMEWORK_RULE_SOURCE
 
 
@@ -715,7 +733,7 @@ def _metric_sections(
     name_a: str,
     name_b: str,
 ) -> dict[str, Any]:
-    """Construye el payload CT-2 aditivo (regla, fuentes, nivel, ``floor_bite_ratio``)."""
+    """Construye el payload CT-2 aditivo (regla, fuentes, nivel y binding de fuente A)."""
     counts = {
         name_a: sum(1 for r in records if r.binding == name_a),
         name_b: sum(1 for r in records if r.binding == name_b),
@@ -723,6 +741,7 @@ def _metric_sections(
         f"{name_a}_only": sum(1 for r in records if r.binding == f"{name_a}_only"),
         f"{name_b}_only": sum(1 for r in records if r.binding == f"{name_b}_only"),
     }
+    binding_ratio = _source_a_binding_ratio(counts[name_a], len(records))
     return {
         "provisioning_orchestration": {
             "rule": cfg.rule,
@@ -732,17 +751,19 @@ def _metric_sections(
             "numeric_reconciliation": cfg.numeric_reconciliation,
             "tie_tolerance": cfg.tie_tolerance,
             "rounding": cfg.rounding,
-            "floor_bite_ratio": _floor_bite_ratio(counts[name_a], len(records)),
+            "source_a_binding_ratio": binding_ratio,
+            # Alias legacy preservado por CT-2; semánticamente equivale a source_a_binding_ratio.
+            "floor_bite_ratio": binding_ratio,
             "binding_counts": counts,
         }
     }
 
 
-def _floor_bite_ratio(n_binding_a: int, n_cells: int) -> float | None:
-    """Fracción de celdas donde muerde la fuente A (el estándar, por default); ``None`` sin celdas.
+def _source_a_binding_ratio(n_binding_a: int, n_cells: int) -> float | None:
+    """Fracción de celdas vinculadas por la fuente A; ``None`` cuando no hay celdas.
 
-    Diagnóstico secundario, nunca titular: a nivel de entidad (``total``, el que fija la norma) hay
-    **una sola celda** y el ratio solo puede valer 0 o 1.
+    Es un diagnóstico neutral: la fuente A puede ser CMF, interna o IFRS 9. En nivel ``total`` sólo
+    puede valer 0 o 1.
     """
     if n_cells == 0:
         return None
@@ -855,6 +876,8 @@ def _emit_audit(
                 "binding": card.binding,
                 "regulatory_sources": list(card.regulatory_sources),
             },
+            # Token legacy preservado para consumidores de audit; el payload ya declara fuentes y
+            # regla, por lo que no atribuye carácter normativo a comparativos entre marcos.
             "aplicar_regla_de_constitucion",
         ),
         (

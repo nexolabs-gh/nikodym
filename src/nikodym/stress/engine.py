@@ -391,7 +391,7 @@ _NUMPY_NON_SCALAR = object()
 
 @runtime_checkable
 class EclEngineLike(Protocol):
-    """Contrato mínimo del engine ECL futuro sin import duro de SDD-16."""
+    """Contrato mínimo del engine ECL inyectable sin import runtime de SDD-16."""
 
     def calculate(self, ecl_input: "ForwardEclInput") -> "pandas.DataFrame":
         """Calcula ECL desde un ``ForwardEclInput`` compatible."""

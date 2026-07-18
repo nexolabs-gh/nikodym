@@ -7,7 +7,7 @@
 | **Dominio** | Scoring |
 | **Fase** | F1 |
 | **Tanda de producción** | T2 (Scoring) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; pipeline F1 estable |
 | **Depende de** | SDD-08 (`model`) |
 | **Lo consumen** | SDD-10 (`calibration`), SDD-11 (`performance` + `stability`), SDD-26 (`report`) |
 | **Autor / Fecha** | DanIA (redacción SDD-09 para T2) / 2026-06-28 |

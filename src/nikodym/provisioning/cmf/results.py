@@ -208,9 +208,8 @@ class CmfProvisionResult(BaseModel):
         """Retorna ``None`` en CMF B-1 agregado, cumpliendo CT-2/D-CORE-7.
 
         El modelo estándar CMF B-1 publica provisión agregada y por operación, no una curva
-        lifetime ni una estructura multi-período. SDD-16/17 deben usar ``summary``/``card`` para
-        el piso prudencial CMF y consumir este método solo cuando una extensión futura retorne un
-        DataFrame.
+        lifetime ni una estructura multi-período. SDD-17 usa ``summary``/``card`` para comparar
+        el método estándar con la fuente configurada; no fabrica una curva para CMF.
         """
         return None
 

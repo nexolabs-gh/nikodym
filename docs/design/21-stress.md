@@ -7,7 +7,7 @@
 | **Dominio** | Forward / stress testing / sensibilidad macro |
 | **Fase** | F5 |
 | **Tanda de producción** | T5 (Forward-looking & dinámica) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; API experimental |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data` base/hash), SDD-05 (convenciones + config), SDD-18 (`survival`), SDD-19 (`markov`), SDD-20 (`forward`) |
 | **Lo consumen** | SDD-16 (`provisioning/ifrs9`), SDD-17 (`provisioning`), SDD-22 (`validation`), SDD-23 (`ui`), SDD-26 (`report`) |
 | **Autor / Fecha** | Codex (worker A10, redacción SDD-21 para T5) / 2026-06-30 |
@@ -84,11 +84,11 @@ SDD-20 ya define esa cadena y el contrato `ForwardEclInput` sin depender de SDD-
 - siempre requiere `("forward","scenario_weighting")`;
 - siempre requiere `("forward","ecl_input")`;
 - requiere `cfg.input.ecl_engine_artifact` si alguna métrica objetivo usa `ecl`, `provision`, `loss` o `ratio` calculado por un motor económico;
-- requiere `cfg.input.provision_engine_artifact` si se pide provisión final CMF vs IFRS 9 futura.
+- requiere `cfg.input.provision_engine_artifact` si el target pide una provisión económica calculada por un motor inyectado.
 
 Esto cumple CT-1: el objeto `StressStep` expone el DAG efectivo antes de ejecutar. El motor v1 valida prerequisitos; el scheduler topológico real sigue diferido a F5 por CT-1.
 
-**Cableado futuro en `core.study`.**
+**Cableado implementado en `core.study`.**
 - `_DOMAIN_MODULES["stress"] = "nikodym.stress"`;
 - `_DOMAIN_CONFIG_CLASSES["stress"] = ("nikodym.stress.config", "StressConfig")`;
 - `_DEFAULT_DOMAIN_ORDER` ubica `"stress"` después de `"forward"`;
@@ -786,7 +786,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 
 ## 11. Estrategia de tests
 
-Marco transversal en SDD-24. Cobertura objetivo 100% para módulos `stress` cuando se implementen. `filterwarnings=["error"]`, `mypy --strict`, ruff `E,F,I,N,UP,B,SIM,RUF,D` y docstrings públicas en español.
+Marco transversal en SDD-24. Cobertura objetivo 100% para módulos `stress`. `filterwarnings=["error"]`, `mypy --strict`, ruff `E,F,I,N,UP,B,SIM,RUF,D` y docstrings públicas en español.
 
 - **Golden shock satellite logit.** Base hazard `0.02`, shock macro `x=1`, `β=0.5`: `logit(0.02)=-3.8918202981`, ajuste `-3.3918202981`, PD esperada `0.0325520809`, alineado con SDD-20 (20-forward.md:L748-L752).
 - **Golden ECL un período por engine stub.** Con `PD=0.0325520809`, `LGD=0.45`, `EAD=1000`, sin descuento: `ECL=14.6484363909`. Baseline sin shock `PD=0.02` da `ECL=9.0`; impacto absoluto `5.6484363909`.
@@ -832,7 +832,7 @@ Fixtures: `forward_macro_projection_small.parquet` sintético, `forward_term_str
 - **FALTA-DATO-STR-2 — Escenarios oficiales EBA/CCAR/DFAST/ICAAP.** No hay paths ni parámetros oficiales embebidos; deben venir de fuente institucional/oficial versionada.
 - **FALTA-DATO-STR-3 — Umbrales de capital o pérdida regulatorios chilenos.** No se inventan thresholds para reverse stress; el usuario los declara.
 - **FALTA-DATO-STR-4 — Calibración institucional de severidades.** Magnitudes de shocks por cartera/factor deben venir del usuario o análisis aprobado.
-- **FALTA-DATO-STR-5 — Motor ECL/provisión conectado.** Hasta SDD-16/17, impactos económicos completos requieren stub/test o artefacto externo.
+- **FALTA-DATO-STR-5 — Motor ECL/provisión conectado.** Los impactos económicos completos requieren un artefacto de engine explícito; `stress` no importa ni adivina SDD-16/17.
 - **FALTA-DATO-STR-6 — Métricas ratio específicas.** Denominadores como capital, patrimonio efectivo, RWA o cartera vigente no están definidos en SDD-21.
 - **FALTA-DATO-STR-7 — Política de shock relativo sobre factores negativos.** Debe declararse por factor si se usa `operation="relative"`.
 
@@ -840,7 +840,7 @@ Fixtures: `forward_macro_projection_small.parquet` sintético, `forward_term_str
 - **Stress se confunde con validación.** Mitigación: frontera dura hacia SDD-22 en §1/§2 y test anti métricas de validación.
 - **Defaults confundidos con escenarios regulatorios.** Mitigación: D-STR marcados como "default a confirmar por Cami" y `source="default_a_confirmar"` nunca usado como escenario oficial.
 - **Falsa precisión de reverse stress.** Mitigación: bisección con bracket/tolerancias auditadas y error si no hay monotonicidad.
-- **Sobreacoplamiento a IFRS 9 inexistente.** Mitigación: Protocols `EclEngineLike`/`ProvisionEngineLike`, cero imports de SDD-16/17 y modo forward-only.
+- **Sobreacoplamiento a IFRS 9.** Mitigación: Protocols `EclEngineLike`/`ProvisionEngineLike`, cero imports runtime de SDD-16/17 y modo forward-only.
 - **Dependencias pesadas en import.** Mitigación: imports perezosos y tests `sys.modules`.
 - **Explosión de tamaño de salida.** Mitigación: estimación previa, límites configurables y diagnostics de filas/evaluaciones.
 - **Shocks macro incompatibles con satellite.** Mitigación: validación de factores, operaciones y períodos antes de ejecutar.

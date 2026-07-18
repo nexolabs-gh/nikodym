@@ -9,8 +9,8 @@ contrato de I/O validado por estructura para preservar el import liviano del nú
 
 ``IfrsProvisionResult.term_structure()`` cumple CT-2 y **nunca** devuelve ``None`` para IFRS 9 (a
 diferencia del CMF B-1 agregado): retorna la term-structure de ECL en forma **larga**
-``[row_id, scenario, period, time_value, component, value]`` para que SDD-17 (piso regulatorio) y
-los reportes consuman el desglose auditable por escenario/período. ``metric_sections`` conserva la
+``[row_id, scenario, period, time_value, component, value]`` para que SDD-17 (comparativos) y los
+reportes consuman el desglose auditable por escenario/período. ``metric_sections`` conserva la
 puerta CT-2 como payload aditivo. Las colecciones mutables y DataFrames se copian defensivamente al
 validar y al acceder desde los DTOs; los floats publicados normalizan ``-0.0`` como ``0.0``.
 

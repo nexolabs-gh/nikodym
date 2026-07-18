@@ -26,7 +26,7 @@
 **Límites explícitos (qué NO hace, y quién lo hace).**
 - **No produce el model card ni define la política de inventario/aprobación**: eso es `governance` (SDD-03). `tracking` *persiste* el run y la versión registrada; `governance` *documenta* (model card) y *gobierna* (qué alias —`champion`/`production`— se asigna, próxima revisión). `governance` arma el `InventoryEntry` y **lee/escribe** el inventario que `tracking` materializa (vía el `Protocol ModelInventory`).
 - **No calcula nada**: no toca PD/PI ni métricas; solo **registra** lo que el `Study` ya produjo. Coherente con "la IA documenta, nunca calcula" (ESPEC §4): el tracking **no debe alterar el cálculo** (de ahí `autolog=False` por defecto, §5/§12).
-- **No genera el reporte Quarto** (SDD-26) ni la UI (SDD-23); expone IDs/URIs para que ellos enlacen.
+- **No genera informes** (SDD-26) ni la UI (SDD-23); expone IDs/URIs para que esas capas enlacen.
 - **No corre un servidor MLflow remoto en F0**: DoD F0 = tracking **local (file store)**. El modo servidor/DB es config-driven y queda habilitado pero no es el camino por defecto (§8, §12).
 - **No vive en `core`**: `core` no importa MLflow (SDD-01 §1, §10). `tracking` es un módulo de infraestructura aparte; MLflow es **extra opcional** (§10, D-TRK-1).
 

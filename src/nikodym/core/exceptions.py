@@ -85,7 +85,7 @@ class UntrustedStudyError(NikodymError):
 
 
 class RegulatoryError(NikodymError):
-    """Violación de una regla regulatoria dura (p. ej. el piso prudencial CMF; SDD-15/17)."""
+    """Violación de una regla regulatoria dura (p. ej. la regla B-1; SDD-15/17/28)."""
 
 
 class MissingDependencyError(NikodymError):

@@ -130,7 +130,7 @@ class ProvisioningStep(AuditableMixin):
                 "engines_present": list(card.engines_present),
                 "coverage_policy": config.coverage_policy,
             },
-            accion="trazar_brechas_piso_prudencial",
+            accion="trazar_brechas_comparacion",
         )
 
 

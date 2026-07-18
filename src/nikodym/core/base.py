@@ -184,6 +184,7 @@ class BaseECLModel(BaseProvisionModel):
     """Familia ECL (IFRS 9): contrato ``compute(...) → ECLResultLike`` (SDD-16).
 
     Reutiliza el contrato ``compute()`` de :class:`BaseProvisionModel` (no re-mixea
-    ``AuditableMixin``); la herencia es de contrato de cálculo, no parentesco de dominio: el piso
-    prudencial (máximo entre CMF e IFRS 9) lo aplica SDD-17.
+    ``AuditableMixin``); la herencia expresa sólo un contrato de cálculo. CMF e IFRS 9 son motores
+    separados; SDD-17 compara fuentes configurables y sólo representa el máximo B-1 para
+    estándar-CMF frente a método interno bajo sus precondiciones explícitas.
     """

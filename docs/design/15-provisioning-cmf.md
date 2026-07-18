@@ -7,7 +7,7 @@
 | **Dominio** | Provisiones |
 | **Fase** | F3 |
 | **Tanda de producción** | T4 (Provisiones) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; API experimental y gate humano CMF pendiente |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config); SDD-08 (`model`) solo cuando `pd_mapping.method="pd_breaks"` |
 | **Lo consumen** | SDD-16 (`provisioning/ifrs9`, comparación futura), SDD-17 (`provisioning`, orquestación/piso), SDD-22 (`validation`), SDD-23 (`ui`), SDD-26 (`report`) |
 | **Autor / Fecha** | DanIA (redacción SDD-15 para T4) / 2026-06-29 |
@@ -55,7 +55,7 @@ data -> ... -> model
 
 **Interaccion con `Study` y config declarativo.** `CmfProvisioningStep` es un `Step` nativo registrado con `@register("standard", domain="provisioning_cmf")`. Declara `requires`/`provides` (CT-1), con dependencia dura solo sobre `data.frame`; las dependencias `model.raw_pd_frame`, `data.labels` y `data.splits` se validan dentro de `execute` solo cuando `pd_mapping.method="pd_breaks"` las hace necesarias. Luego carga el bundle normativo activo, calcula resultados y escribe sus artefactos bajo `"provisioning_cmf"`. El `rng` se recibe por contrato homogeneo; v1 no usa azar y debe hacer `del rng`.
 
-**Orden canonico propuesto.** Al implementar SDD-15:
+**Orden canónico implementado.** El registro vigente:
 - `_DOMAIN_MODULES["provisioning_cmf"] = "nikodym.provisioning.cmf"`;
 - `_DOMAIN_CONFIG_CLASSES["provisioning_cmf"] = ("nikodym.provisioning.cmf.config", "CmfProvisioningConfig")`;
 - `_DEFAULT_DOMAIN_ORDER` ubica `"provisioning_cmf"` despues de `"model"`/`"calibration"` si esas secciones estan presentes, y despues de `"data"` en el caso standalone. El orden no implica dependencia dura: `requires` sigue siendo solo `data.frame`; `pd_breaks` valida su proveedor PD condicional dentro de `execute`.
@@ -359,7 +359,7 @@ class CmfProvisioningConfig(NikodymBaseConfig):
 - `financial_guarantee_policy="fail"` evita aceptar mitigacion con aforos pendientes.
 - `rounding="none"` publica el calculo economico exacto; el redondeo contable queda como decision explicita (D-CMF-5).
 
-**Hook diferido en `core.config.schema`.** Al implementar:
+**Hook implementado en `core.config.schema`.** El contrato vigente:
 - declarar `_PROVISIONING_CMF_CONFIG_CLS`;
 - añadir campo `provisioning_cmf` como `Any` en runtime y `CmfProvisioningConfig | None` bajo `TYPE_CHECKING`;
 - añadir validator `_valida_provisioning_cmf` que valida con `CmfProvisioningConfig` si el hook esta poblado, o exige JSON canonico determinista si no;
@@ -505,7 +505,8 @@ Toda excepcion propia desciende de `NikodymError`; mensajes en español e incluy
 
 **Aguas abajo.**
 - SDD-16 (`provisioning/ifrs9`) define la term-structure ECL lifetime; CMF agregado retorna `None` por CT-2.
-- SDD-17 (`provisioning`) aplica el maximo entre CMF e IFRS 9 usando el agregado CMF (`summary`/`card`) y la term-structure solo cuando exista.
+- SDD-17 (`provisioning`) compara fuentes configurables. El binding B-1 usa estándar CMF frente a
+  método interno por institución; IFRS 9 se conserva como motor separado y comparativo no normativo.
 - SDD-22 (`validation`) usa detalle/summary para backtesting regulatorio.
 - SDD-23 (`ui`) edita config y muestra brechas `FALTA-DATO`.
 - SDD-26 (`report`) presenta card, detalle y fuentes.

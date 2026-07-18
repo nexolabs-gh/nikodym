@@ -6,7 +6,7 @@
 | **Módulo** | `nikodym.selection` |
 | **Fase** | F1 |
 | **Tanda de producción** | T2 (Scoring) |
-| **Estado** | 🟡 Borrador |
+| **Estado** | ✅ Implementado; pipeline F1 estable |
 | **Depende de** | SDD-01 (`core`), SDD-02 (`data`), SDD-05 (convenciones + config), SDD-06 (`binning`) |
 | **Lo consumen** | SDD-08 (`model`), SDD-09 (`scorecard`), SDD-11 (`performance` + `stability`), SDD-26 (`report`) |
 | **Autor / Fecha** | DanIA (redacción SDD-07 para T2) / 2026-06-27 |

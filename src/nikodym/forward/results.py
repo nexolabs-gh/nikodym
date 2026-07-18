@@ -505,7 +505,7 @@ class SatelliteResult(BaseModel):
 
 
 class ForwardEclInput(BaseModel):
-    """Contrato de entrada hacia el motor ECL futuro sin dependencia dura a IFRS 9."""
+    """Contrato de entrada hacia el motor ECL sin dependencia runtime de IFRS 9."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, frozen=True, extra="forbid")
 

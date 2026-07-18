@@ -1091,9 +1091,9 @@ figcaption {
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=a242df1ee782350358b90ab8837ae4dcd9445197dad22734f506dfde2818d254</code></div>
+    <div class="lineage-line"><code>config_hash=e92fa29d3c9384613b494cfe263d3cd4cbed8dd0f7162b0bc6e80ea5954c35fb</code></div>
     <div class="lineage-line"><code>data_hash=7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</code></div>
-    <div class="lineage-line"><code>git_sha=0f1551bae9dae111d64814f6aed0837147b3b74c</code></div>
+    <div class="lineage-line"><code>git_sha=51936fc1c07573ac94754ecd76c5688065772bd5</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -3959,9 +3959,9 @@ L 420.51375 486.278125
   <h2><span class="section-number">5</span>Provisiones regulatorias</h2>
 
 
-  <p>El Compendio de Normas Contables para Bancos (Cap. B-1, hoja 10-11, Circular N° 2.346) obliga a constituir provisiones por el mayor valor entre el método estándar de la CMF y el método interno del banco, y a disponer de ambos métodos. Este capítulo aplica esa regla sobre la cartera y reporta la provisión resultante.</p>
-  <p>Sobre colocaciones por $8.079.005.434, el método estándar de la CMF exige $697.376.974 y el método interno $308.644.058. La provisión a constituir es $697.376.974. Manda el estándar: cuesta $388.732.916 por encima de lo que el propio modelo interno del banco pediría (un 126 % más).</p>
-  <p>La regla se aplica a nivel de entidad —«para cada institución en Chile que consolida con el banco», según la norma—, no operación por operación.</p>
+  <p>El Compendio de Normas Contables para Bancos (Cap. B-1, hoja 10-11, Circular N° 2.346) exige considerar el mayor valor entre el método estándar de la CMF y el método interno, por institución.</p>
+  <p>Sobre colocaciones por $8.079.005.434, el método estándar de la CMF calcula $697.376.974 y el método interno $308.644.058. La provisión a reportar según la regla configurada es $697.376.974. Manda el estándar: cuesta $388.732.916 por encima de lo que el propio modelo interno del banco pediría (un 126 % más).</p>
+  <p>El nivel total sólo representa «por institución» bajo el precontrato de una institución por corrida; Nikodym no valida ese perímetro.</p>
 
 
 </section>
@@ -3969,8 +3969,8 @@ L 420.51375 486.278125
   <h3 class="subsection-title"><span class="section-number">5.1</span>La provisión a constituir — la regla del máximo</h3>
 
 
-  <p>La provisión reportada es el máximo entre las dos fuentes, evaluado a nivel de la entidad. En esta cartera manda el método estándar de la CMF.</p>
-  <p>Los dos métodos agrupan la cartera de forma distinta, y es deliberado: el método estándar consolida a nivel de deudor —sube a incumplimiento todas las operaciones de un deudor si alguna supera 90 días de mora—, mientras que el método interno agrupa por banda de score. La asimetría la impone la norma, no es un error de cálculo.</p>
+  <p>La regla configurada toma el máximo entre las dos fuentes a nivel de la entidad; resulta vinculante el método estándar de la CMF.</p>
+  <p>Los dos métodos agrupan la cartera de forma distinta, y es deliberado: el método estándar consolida a nivel de deudor —sube a incumplimiento todas sus operaciones si alguna supera 90 días de mora—, mientras que el método interno agrupa por banda de score. La asimetría responde a sus contratos respectivos, no es un error de cálculo.</p>
 
 
 <figure class="table-block">
@@ -4072,6 +4072,7 @@ L 420.51375 486.278125
 
   <p>El informe cubre el scorecard y reporta además el cálculo regulatorio de provisiones (capítulo «Provisiones regulatorias»), una función experimental fuera de la garantía SemVer 1.x. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
+  <p>Caveats de reproducibilidad declarados por la corrida: working tree git sucio: cambios sin commitear no reconstruibles.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
 
 
@@ -4083,12 +4084,14 @@ L 420.51375 486.278125
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>a242df1ee782350358b90ab8837ae4dcd9445197dad22734f506dfde2818d254</dd>
-    <dt>created_at</dt><dd>2026-07-18T17:55:53.947577Z</dd>
+    <dt>config_hash</dt><dd>e92fa29d3c9384613b494cfe263d3cd4cbed8dd0f7162b0bc6e80ea5954c35fb</dd>
+    <dt>created_at</dt><dd>2026-07-18T22:22:37.497628Z</dd>
     <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
-    <dt>determinism_caveats</dt><dd>[]</dd>
-    <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>0f1551bae9dae111d64814f6aed0837147b3b74c</dd>
+    <dt>determinism_caveats</dt><dd><pre>[
+  &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
+]</pre></dd>
+    <dt>git_dirty</dt><dd>true</dd>
+    <dt>git_sha</dt><dd>51936fc1c07573ac94754ecd76c5688065772bd5</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.3.0&#34;,
@@ -4317,7 +4320,7 @@ L 420.51375 486.278125
       &#34;sep&#34;: &#34;,&#34;
     },
     &#34;file_format&#34;: &#34;auto&#34;,
-    &#34;source&#34;: &#34;/private/var/folders/12/yxnq95f55hg06fyynglz1scw0000gn/T/tmpd7cx8d31/datasets/provisiones_consumo.parquet&#34;
+    &#34;source&#34;: &#34;/private/var/folders/12/yxnq95f55hg06fyynglz1scw0000gn/T/tmp9o_y3e7x/datasets/provisiones_consumo.parquet&#34;
   },
   &#34;missing&#34;: {
     &#34;max_missing_rate&#34;: &#34;0.9900&#34;,
@@ -5058,7 +5061,7 @@ L 420.51375 486.278125
     <dt>n_binding_tie</dt><dd>0</dd>
     <dt>n_cells</dt><dd>1</dd>
     <dt>regulatory_sources</dt><dd><pre>[
-  &#34;CNC (CMF) Cap. B-1, hoja 10-11 (Circular N° 2.346): la constitución de provisiones considera el mayor valor obtenido entre el método estándar y el método interno, por cada institución en Chile que consolida con el banco.&#34;,
+  &#34;CNC (CMF) Cap. B-1, hoja 10-11 (Circular N° 2.346): la constitución de provisiones considera el mayor valor obtenido entre el método estándar y el método interno, por cada institución en Chile que consolida con el banco. Nikodym supone una institución por corrida y no valida ese perímetro.&#34;,
   &#34;docs/normativa_cmf_parametros.md §3&#34;
 ]</pre></dd>
     <dt>rule</dt><dd>max</dd>
@@ -5085,6 +5088,7 @@ L 420.51375 486.278125
   &#34;rounding&#34;: &#34;none&#34;,
   &#34;rule&#34;: &#34;max&#34;,
   &#34;source_a&#34;: &#34;cmf&#34;,
+  &#34;source_a_binding_ratio&#34;: &#34;1.000000&#34;,
   &#34;source_b&#34;: &#34;internal&#34;,
   &#34;tie_tolerance&#34;: &#34;0.000000&#34;
 }</pre></dd>

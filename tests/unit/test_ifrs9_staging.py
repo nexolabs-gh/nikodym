@@ -1,10 +1,11 @@
-"""Tests de ``provisioning.ifrs9.staging``: motor SICR / Stage 1/2/3 con gatillos y backstops.
+"""Tests de ``provisioning.ifrs9.staging``: motor SICR / Stage 1/2/3 con gatillos.
 
 Goldens verificables a mano (SDD-16 §8/§11): ratio ``PD_life 0.11/0.05 = 2.2 >= 2.0`` → Stage 2;
 backstop PIT ``0.15/0.04 = 3.75 >= 3.0`` → Stage 2; downgrade por notches → Stage 2; override
 cualitativo → Stage 2/3; ``dpd=35 >= 30`` → Stage 2; ``dpd=95 >= 90`` → Stage 3; ``is_default`` →
-Stage 3; y la exención de bajo riesgo rescata los gatillos blandos a Stage 1 **pero no** los
-backstops dpd duros. Además, errores controlados (``IfrsStagingError``/``IfrsInputError``) ante
+Stage 3; y la exención de bajo riesgo rescata los gatillos cuantitativos a Stage 1, pero la política
+conservadora v1 da prioridad a las presunciones DPD. Además, errores controlados
+(``IfrsStagingError``/``IfrsInputError``) ante
 columnas faltantes, PD en origen no positiva, override/flags inválidos, días de mora negativos/no
 enteros y desalineación de series; cobertura de los guards de dependencia perezosa.
 """
@@ -185,7 +186,7 @@ def test_override_columna_faltante_levanta() -> None:
         _assign(cfg, frame)
 
 
-# ─────────────────────────── gatillos 5/6: backstops dpd duros ───────────────────────────
+# ───────────────────── gatillos 5/6: presunciones dpd + default ─────────────────────
 
 
 def test_backstop_30dpd_golden_stage2() -> None:
@@ -252,7 +253,7 @@ def test_is_default_no_numerico_levanta() -> None:
 
 
 def test_stage_maximo_de_gatillos_multiples() -> None:
-    # Ratio (blando, S2) + default 90dpd (duro, S3) → máximo = Stage 3, ambos gatillos listados.
+    # Ratio (S2) + default 90dpd (S3) → máximo = Stage 3, ambos gatillos listados.
     cfg = IfrsStagingConfig(is_default_col=None, origination_pd_life_col="pd_life_orig")
     frame = pd.DataFrame({"days_past_due": [95], "pd_life_orig": [0.05]})
     out = _assign(cfg, frame, pd_life=pd.Series([0.11]), pd_pit=pd.Series([0.01]))
@@ -283,8 +284,8 @@ def test_exencion_rescata_gatillo_blando_a_stage1() -> None:
     assert out["sicr_triggers"].tolist() == [("sicr_pd_ratio",)]
 
 
-def test_exencion_no_rescata_backstop_dpd_duro() -> None:
-    # Golden SDD-16 §8: exención NO rescata un backstop dpd duro → queda en Stage 2.
+def test_exencion_no_rescata_presuncion_dpd_bajo_politica_v1() -> None:
+    # Política conservadora Nikodym v1: la exención no rescata el gatillo DPD → Stage 2.
     cfg = IfrsStagingConfig(
         is_default_col=None,
         low_credit_risk_exemption=True,

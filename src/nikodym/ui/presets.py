@@ -676,10 +676,10 @@ def provisiones_preset() -> dict[str, Any]:
 #
 # ``base_pd_source='term_structure'`` deriva la PD de la propia curva lifetime,
 # ``pit_mode='ttc_only'`` evita pedir ``rho``/``Z`` y ``scenarios='single'`` evita pesos macro. El
-# staging usa los backstops duros de mora 30/90 días (presunciones rebatibles IFRS 9 5.5.11 /
-# B5.5.37). El descuento es ``annual_eir_year_fraction`` con periodos ANUALES (``time_value`` =
-# año), así que la EIR del dataset es anual y el descuento es correcto. IFRS 9 es EXPERIMENTAL
-# (SDD-16 en Borrador, fuera de la garantía SemVer 1.x).
+# staging aplica por política conservadora v1 las presunciones rebatibles de mora 30/90 días
+# (IFRS 9 5.5.11 / B5.5.37). El descuento es ``annual_eir_year_fraction`` con periodos ANUALES
+# (``time_value`` = año), así que la EIR del dataset es anual y el descuento es correcto.
+# IFRS 9 está implementado y es EXPERIMENTAL (fuera de la garantía SemVer 1.x).
 #
 # Las secciones ``survival`` y ``provisioning_ifrs9`` se DERIVAN de los objetos Pydantic de dominio
 # con ``scripts/derive_ifrs9_preset.py`` (``model_dump(mode="json", by_alias=True)``), que además

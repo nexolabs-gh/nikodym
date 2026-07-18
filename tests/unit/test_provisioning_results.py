@@ -232,7 +232,11 @@ def test_comparison_summary_golden_frozen_y_conteos() -> None:
 
 def test_orchestration_card_golden_metric_sections_y_copias() -> None:
     metric_sections: dict[str, Any] = {
-        "floor_bite_ratio": {"serie": [1.0, -0.0, ("t",), float("inf")], "flag": True, "n": 2},
+        "source_a_binding_ratio": {
+            "serie": [1.0, -0.0, ("t",), float("inf")],
+            "flag": True,
+            "n": 2,
+        },
         "binding_by_portfolio": "texto",
     }
     card = _card(metric_sections=metric_sections)
@@ -260,9 +264,9 @@ def test_orchestration_card_golden_metric_sections_y_copias() -> None:
         "metric_sections",
     )
     observed = card.metric_sections
-    assert observed["floor_bite_ratio"]["serie"] == [1.0, 0.0, ("t",), None]
-    assert observed["floor_bite_ratio"]["flag"] is True
-    assert observed["floor_bite_ratio"]["n"] == 2
+    assert observed["source_a_binding_ratio"]["serie"] == [1.0, 0.0, ("t",), None]
+    assert observed["source_a_binding_ratio"]["flag"] is True
+    assert observed["source_a_binding_ratio"]["n"] == 2
     assert observed["binding_by_portfolio"] == "texto"
     assert card.engines_present == ("cmf", "ifrs9")
     assert card.cmf_matrix_version == "cmf_b1_b3_2025_01"

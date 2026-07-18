@@ -3,12 +3,12 @@
 | | |
 |---|---|
 | **Documento** | Especificación maestra |
-| **Versión** | 1.0 (Implementable) |
-| **Fecha** | 2026-06-23 |
+| **Versión** | 1.1 (producto publicado) |
+| **Fecha** | 2026-07-18 |
 | **Marca / nombre completo** | Nikodym RiskLib |
 | **Paquete Python** | `nikodym` (`pip install nikodym`, `import nikodym`) |
 | **Licencia** | **Apache-2.0** (open-source) |
-| **Estado** | Diseño cerrado. Parámetros CMF extraídos (validación humana pendiente pre-producción). Listo para Fase 0 cuando se autorice. |
+| **Estado** | Nikodym `1.3.0` publicado; pipeline F1 estable y dominios CMF/IFRS 9/forward/stress experimentales. Parámetros CMF con validación humana pendiente pre-producción. |
 
 > El nombre **Nikodym** viene de la derivada de **Radon–Nikodym** (cambio de medida), el corazón matemático del riesgo cuantitativo. Es marca compartida con la consultora **Nikodym**.
 
@@ -36,7 +36,7 @@ La meta: que **sea tonto no usar Nikodym RiskLib porque lo tiene todo, bien hech
 - **Modeladores / científicos de riesgo** de bancos, financieras, fintech, cooperativas, retail financiero.
 - **Equipos de riesgo / provisiones** que reportan a la **CMF** (Chile) y/o bajo **IFRS 9**.
 - **Validadores y auditores** (consumidores de la trazabilidad y documentación automática).
-- **Analistas no-programadores** vía la interfaz visual (fase posterior).
+- **Analistas no-programadores** vía la interfaz visual React/FastAPI.
 - **La propia consultora Nikodym** como usuaria intensiva en sus engagements.
 
 ---
@@ -53,7 +53,8 @@ La meta: que **sea tonto no usar Nikodym RiskLib porque lo tiene todo, bien hech
 - **Stress testing**: escenarios severos, sensibilidad, impacto en provisiones/ECL.
 - **Validación, estabilidad y monitoreo**: PSI/CSI, IV, ROC/KS/Gini, calibración, backtesting.
 - **Auditabilidad/reproducibilidad** y **gobernanza (SR 11-7)** como capa transversal.
-- **Documentación automática** (Quarto) con narrativa IA opcional, y **tracking** (MLflow).
+- **Documentación automática** HTML/PDF/Word, fuente editable Markdown/Quarto opcional, narrativa IA
+  opcional y **tracking** (MLflow).
 
 ### 3.2 Fuera de alcance (por ahora)
 - Riesgo de mercado, liquidez u operacional.
@@ -68,7 +69,8 @@ La meta: que **sea tonto no usar Nikodym RiskLib porque lo tiene todo, bien hech
 - **D-PKG.** Entorno/empaquetado: **`uv` + `hatchling`**, `pyproject.toml`, `src/` layout.
 - **D-CFG.** Configuración: **Pydantic v2** como única fuente de verdad (núcleo config-driven).
 - **D-DATA.** Interfaz de datos: **pandas** (polars interno opcional si el volumen lo exige).
-- **D-IA.** Proveedor de la capa narrativa: **Claude (Anthropic)**, opcional vía API key del usuario.
+- **D-IA.** La capa narrativa es opcional y actualmente usa **Anthropic** vía API key del usuario;
+  nunca calcula ni altera contenido cuantitativo.
 
 ---
 
@@ -79,7 +81,8 @@ La meta: que **sea tonto no usar Nikodym RiskLib porque lo tiene todo, bien hech
 3. **Gobernanza en el núcleo (SR 11-7), no como reporte.** Cada corrida emite un **model card** + bundle de lineage (git SHA + hash de datos + config + seed + `uv.lock`).
 4. **Monotonía con el riesgo.** Default en binning y modelos (incluido ML vía *monotonic constraints*). Efectos/β contrarios al riesgo se eliminan.
 5. **Configuración declarativa.** El config Pydantic ES el experimento; la UI es su editor visual.
-6. **Un solo núcleo, dos interfaces.** La UI (Streamlit) genera su formulario desde el mismo schema Pydantic y no duplica lógica.
+6. **Un solo núcleo, dos interfaces.** La UI React/FastAPI genera su formulario desde el mismo schema
+   Pydantic y no duplica lógica de dominio.
 7. **La IA documenta, no calcula.** Contenido cuantitativo 100% determinístico, existe sin API key.
 8. **No reinventar lo resuelto.** Binning → OptBinning; inferencia → statsmodels. El valor propio está en **orquestación, gobernanza y monitoreo**.
 9. **Núcleo liviano.** `core/` sin dependencias pesadas; backends ML/UI/forecasting detrás de *extras* opcionales con import perezoso.
@@ -142,7 +145,7 @@ Pipeline:
 >
 > **Consecuencias de diseño:**
 > - `provisioning/cmf` = el **método estándar**. Correcto tal cual.
-> - El **método interno** es `PD × LGD × EAD` por grupo homogéneo — el propio B-1 lo describe así (*"asociando a cada grupo una determinada probabilidad de incumplimiento y un porcentaje de recuperación (…) multiplicando el monto total de colocaciones del grupo respectivo por los porcentajes de incumplimiento estimado y de pérdida dado el incumplimiento"*). **Es exactamente lo que produce el pipeline de scorecard de F1.** Falta implementarlo como motor (ver SDD-28).
+> - El **método interno** es `PD × LGD × EAD` por grupo homogéneo — el propio B-1 lo describe así (*"asociando a cada grupo una determinada probabilidad de incumplimiento y un porcentaje de recuperación (…) multiplicando el monto total de colocaciones del grupo respectivo por los porcentajes de incumplimiento estimado y de pérdida dado el incumplimiento"*). Nikodym lo implementa en `provisioning/internal` y lo compara con el estándar mediante el orquestador, conforme al SDD-28.
 > - `provisioning/ifrs9` (ECL) **sigue siendo válido**, pero cambia de destinatario: entidades que sí aplican NIIF 9 completa (reporting a una matriz extranjera, entidades no bancarias, instrumentos distintos de colocaciones). **No es el piso prudencial chileno.**
 > - `provisioning` (orquestación) aplica una regla del máximo entre dos fuentes. **El encuadre normativo citable es estándar-vs-interno**; el comparativo CMF-vs-IFRS 9 se mantiene como comparativo entre marcos, **sin presentarlo como exigencia de la CMF**.
 
@@ -171,13 +174,16 @@ Pipeline:
 - **Validación**: discriminación (ROC/AUC, Gini, KS), calibración (Hosmer-Lemeshow, binomial, traffic-light, Brier), estabilidad (PSI), backtesting realizado-vs-estimado (t-test ECB para LGD/EAD).
 
 ### 5.8 Reporte y documentación (transversal)
-- **Quarto**: una fuente → **HTML + PDF (+ Word)**, parametrizable por modelo.
-- **Capa IA opcional** (Claude): resumen ejecutivo e interpretación, marcada como generada por IA, sin tocar números. Sin API key → reporte base determinístico completo.
-- Export **Excel/CSV/JSON**.
+- **Jinja2** como fuente primaria determinística → HTML autocontenido; **WeasyPrint** deriva PDF y
+  **python-docx** produce Word. Se entrega además una fuente Markdown/Quarto editable opcional.
+- **Capa IA opcional** (Anthropic): resumen ejecutivo e interpretación, marcada como generada por IA,
+  sin tocar números. Sin API key → reporte base determinístico completo.
+- Adjuntos tabulares **CSV/XLSX**; manifest y DTOs serializables a JSON para integración.
 
 ### 5.9 Interfaces de uso
 - **API programática** (todas las fases), estilo scikit-learn.
-- **UI visual** drag-and-drop (Fase 7): MVP **Streamlit** sobre la API, editor del config Pydantic.
+- **UI visual React/Vite + FastAPI**: editor del config Pydantic, ejecución local y demo estática
+  multi-dominio en `demo.nikodym.cl`.
 
 ---
 
@@ -185,14 +191,17 @@ Pipeline:
 
 ### 6.1 Principios estructurales
 - **`src/` layout, monopaquete con sub-paquetes por dominio** (no multi-paquete: el núcleo compartido es fuerte).
-- **`core/` agnóstico** (base classes, config, registry, seeding, lineage) sin backends pesados ni Streamlit. La UI importa el núcleo, nunca al revés.
+- **`core/` agnóstico** (base classes, config, registry, seeding, lineage) sin backends pesados ni
+  frontend. La UI importa el núcleo, nunca al revés.
 - **Registry interno con decoradores** (`@register("logit")`) para modelos propios; `entry_points` solo si terceros aportan modelos (no necesario v1).
 - **API estilo scikit-learn** (`fit/transform/predict`, `get_params/set_params`, sin lógica en `__init__`, validación en `fit`, `check_estimator`) en scoring, transformers (WoE/binning) y wrappers ML.
 - **Clases base propias** (mismo "sabor") donde el contrato sklearn no calza: **forecasting** (patrón sktime `fit/predict` con horizonte), **survival** (y estructurado evento+tiempo), **ECL/CMF** (`BaseECLModel`/`BaseProvisionModel`, salida económica multi-componente, no un `predict` único).
 
 ### 6.2 `Study` + config declarativo
 - El **`Study`** mantiene el estado y los artefactos; la API opera sobre él.
-- El **config Pydantic v2** describe el pipeline completo. La **UI Streamlit genera el formulario desde el mismo schema** y serializa de vuelta (round-trip YAML↔modelo). Hydra/OmegaConf solo como capa fina opcional para barridos por CLI.
+- El **config Pydantic v2** describe el pipeline completo. La **UI React genera el formulario desde el
+  mismo schema** y serializa de vuelta (round-trip YAML↔modelo). Hydra/OmegaConf queda como capa fina
+  opcional para barridos por CLI.
 
 ### 6.3 Árbol de paquetes
 ```
@@ -211,6 +220,7 @@ src/nikodym/
 ├── provisioning/ # orquesta y aplica la regla del máximo (ver §5.4: la regla del B-1 es
 │              # max(estándar, interno), NO max(CMF, IFRS 9))
 │   ├── cmf/      # motor estándar B-1 (PE=PI·PDI·Exposición, matrices, B-3, garantías)
+│   ├── internal/ # método interno B-1 (PD·LGD·EAD por grupo homogéneo)
 │   └── ifrs9/    # PD/LGD/EAD, staging (SICR), motor ECL (12m/lifetime)
 ├── forward/      # macro ARIMA/VAR, escenarios, satellite models (Wilson logit)
 ├── survival/     # KM, Cox, AFT, discrete-time hazard → lifetime PD [lifelines+statsmodels]
@@ -222,8 +232,8 @@ src/nikodym/
 ├── governance/   # model card, inventario, lineage (SR 11-7)
 ├── audit/        # semillas, registro de entorno, hash de datos, audit-trail
 ├── tracking/     # MLflow (runs, registry, artefactos)
-├── report/       # Quarto templates, gráficos, capa IA (Claude), export Excel/PDF
-├── ui/           # Streamlit (Fase 7) — consume la API
+├── report/       # Jinja2/WeasyPrint/python-docx, fuente Markdown, gráficos y capa IA opcional
+├── ui/           # backend FastAPI y persistencia local de corridas; frontend React vive en web/
 └── utils/
 ```
 
@@ -243,8 +253,9 @@ src/nikodym/
 | Supervivencia (research only) | ⚠️ scikit-survival | **GPL-3.0 — NO en el core distribuido** |
 | Series de tiempo | statsmodels, pmdarima | BSD/MIT ✅ |
 | Tracking | mlflow | Apache-2.0 ✅ |
-| Reporte | Quarto, jinja2, matplotlib, plotly | permisivas ✅ |
-| IA (opcional) | anthropic (Claude) | — (API) |
+| Reporte | jinja2, WeasyPrint, python-docx; fuente Quarto opcional | permisivas ✅ |
+| UI | React, Vite, FastAPI | permisivas ✅ |
+| IA (opcional) | anthropic | — (API) |
 | Build / entorno | **uv + hatchling**, pyproject.toml | permisivas ✅ |
 | Calidad (test/dev) | pytest, ruff, mypy, pre-commit | permisivas ✅ |
 | Property-based testing | hypothesis | MPL-2.0 (copyleft débil, scope por archivo) — solo dev/test, **no se redistribuye** en el wheel ✅ |
@@ -261,7 +272,7 @@ src/nikodym/
 - Gráficos: WoE, PSI, ROC/KS, distribución de score, calibración, term structure, escenarios.
 - Reason codes / SHAP según modelo.
 - **Model card** + **audit log** + **run MLflow**.
-- **Reporte Quarto (HTML + PDF)**.
+- **Informe HTML/PDF/Word** + fuente Markdown/Quarto editable y exports CSV/XLSX.
 
 ---
 
@@ -281,42 +292,50 @@ Tres pilares: desarrollo sólido · **effective challenge** (validación indepen
 
 - **Testing**: pytest + hypothesis; tests de reproducibilidad (mismo seed → mismo output); tests numéricos contra casos canónicos (fórmulas Vasicek, ECL, escalado).
 - **CI**: ruff, mypy (strict en API pública), tests, build; pre-commit.
-- **Docs**: Quarto / mkdocs-material; ejemplos ejecutables; tutoriales por dominio.
+- **Docs**: mkdocs-material; ejemplos ejecutables y tutoriales por dominio.
 - Semver, changelog, type hints y docstrings completos.
 
 ---
 
-## 11. Roadmap por fases (paso 0 → producto)
+## 11. Estado y roadmap
 
-| Fase | Nombre | Definition of Done |
-|---|---|---|
-| **0** | **Fundaciones & gobierno** | Repo Apache-2.0, `pyproject.toml` (uv+hatchling, `src/`), CI; `core` (Study + config Pydantic), `data` (validación, target, particiones, missing), `audit`+`governance` (semillas, lineage, model card), `tracking` (MLflow local). Todo lo posterior es auditable desde aquí. |
-| **1** | **Scorecard comportamiento (MVP open-source)** | Pipeline §5.2 completo, sin reject inference. Reporte Quarto. **Release público inicial** — escaparate de la consultora. |
-| **2** | **Machine Learning** | SVM/RF/XGBoost/LightGBM/**CatBoost** + Optuna + SHAP + monotonic constraints sobre el mismo pipeline. |
-| **3** | **Provisiones CMF (norma local)** | Motor `cmf_standard` (B-1: PE=PI·PDI·Exposición con matrices por cartera, B-3, garantías) + capa de comparación/piso. Quick-win regulatorio chileno. |
-| **4** | **IFRS 9 / ECL core** | PD (12m/lifetime, PIT/TTC Vasicek), LGD, EAD/CCF, staging (SICR), motor ECL; `provisioning/` toma el **máximo** CMF vs IFRS 9. |
-| **5** | **Forward-looking & dinámica** | ARIMA/VAR macro, satellite models, escenarios ponderados, Markov (cohort/duration), survival discrete-time (lifetime PD); **stress testing** (escenarios severos, sensibilidad). |
-| **6** | **Validación avanzada** | Backtesting (realizado-vs-estimado), tests de calibración, discriminación/estabilidad, monitoreo. |
-| **7** | **UI visual** | MVP Streamlit sobre la API (editor del config). |
-| **+** | **Originación & reject inference** | Sub-fase insertable cuando haya caso de uso: muestra TTD, reject inference (parcelling/fuzzy/reweighting validado por outcomes). |
+El único plan vivo es [`ROADMAP.md`](ROADMAP.md). Este documento define el contrato del producto y
+no mantiene una segunda cola de implementación.
 
-**Regla de secuencia:** cada fase entrega valor y no avanza sin DoD + tests + docs. **Dependencia notable:** IFRS 9 lifetime (Fase 4) se entrega con term-structure básica y se **enriquece** con forward-looking/survival (Fase 5).
+Estado resumido a `1.3.0`:
+
+| Capacidad | Estado de producto |
+|---|---|
+| Pipeline scorecard F1 | **Estable** bajo SemVer 1.x |
+| ML, CMF, método interno, IFRS 9, forward, survival, Markov, stress y validación | **Implementados; experimentales** |
+| UI React/FastAPI e informes HTML/PDF/Word | **Disponibles**; demo F1/F3/F4 publicada |
+| Parámetros CMF | Implementados con tests; **validación humana pre-producción pendiente** |
+| Originación/reject inference y plataforma institucional multiusuario | Futuro; requieren priorización y SDD |
+
+Toda capacidad nueva o cambio contractual sigue la secuencia **priorizar → SDD → implementar → gates
+→ revisión independiente**. Que un módulo exista no lo convierte en certificado ni amplía la garantía
+SemVer del pipeline F1.
 
 ---
 
 ## 12. Riesgos y decisiones abiertas
 
 **Riesgos**
-- **R1 — Boil-the-ocean.** Programa multi-trimestre/multi-año. Mitigación: fases con entregables independientes; Fase 1 ya es producto.
-- **R2 — Sobre-acoplamiento.** Mitigación: contratos vía `Study`/config; dominios independientes; `core/` liviano.
+- **R1 — Sobre-ampliación.** Mitigación: una sola prioridad por ola, SDD y entregable verificable.
+- **R2 — Sobre-acoplamiento.** Mitigación: contratos vía `Study`/config; dominios independientes;
+  `core/` liviano y ensamblado en la capa fina de runner/API.
 - **R3 — Determinismo frágil.** Mitigación: tests de reproducibilidad, pin de dependencias (`uv.lock`).
-- **R4 — IFRS 9 pesado** (LGD/EAD/lifetime). Mitigación: empezar por PD; modularizar.
+- **R4 — Madurez desigual.** CMF, IFRS 9 y los dominios dinámicos son experimentales; no presentarlos
+  como certificación ni ocultar datos faltantes, supuestos u overlays.
 - **R5 — Parámetros CMF cambian** (la norma se actualiza). Mitigación: matrices como **datos versionados**, no constantes hardcodeadas.
+- **R6 — Gate humano CMF.** La transcripción verificada y los tests no sustituyen la revisión humana
+  celda a celda ni la resolución de haircuts remitidos a normativa complementaria.
 
 **Decisiones abiertas (menores)**
-- **D1.** Licencia exacta: Apache-2.0 (propuesta) vs MIT. *(Apache-2.0 recomendada: cláusula de patentes, estándar corporativo.)*
-- **D2.** ¿polars interno desde cuándo? (depende de volúmenes reales de clientes).
-- **D3.** Nombre/branding del repo público y estrategia de release (README, landing, ejemplos) como activo de marketing de la consultora.
+- **D1.** ¿Polars interno desde cuándo? Depende de volúmenes reales de clientes.
+- **D2.** Contratos del futuro workspace de corridas y ejecución durable; requieren SDD antes de código.
+- **D3.** Autenticación, tenancy y despliegue institucional permanecen fuera del producto local hasta
+  que exista un caso de uso priorizado.
 
 ---
 

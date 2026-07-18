@@ -26,7 +26,13 @@ from nikodym.report.config import (
     SectionPolicyConfig,
 )
 from nikodym.report.exceptions import ReportInputError
-from nikodym.report.prose import executive_view, limitations_body
+from nikodym.report.prose import (
+    _results_provisioning,
+    executive_view,
+    limitations_body,
+    provisions_intro,
+)
+from nikodym.report.results import ReportInputBundle
 from nikodym.validation.results import (
     BacktestRecord,
     CalibrationTestRecord,
@@ -1057,3 +1063,84 @@ def test_limitaciones_ifrs9_distingue_curva_standalone_de_scorecard() -> None:
     bundle = builder.collect(con_scorecard)
     body = next(s for s in bundle.sections if s.id == "limitations").body
     assert any("El modelo PD que alimenta la curva" in paragraph for paragraph in body)
+
+
+def _provision_bundle(card: dict[str, Any]) -> ReportInputBundle:
+    """Bundle mínimo para probar la prosa del orquestador sin depender del renderer."""
+    return ReportInputBundle(
+        lineage=_lineage(),
+        cards={"provisioning": card},
+        results={},
+        tables={},
+        figures={},
+        sections=(),
+        missing_sections=(),
+    )
+
+
+def test_prosa_use_internal_no_afirma_que_supera_al_estandar() -> None:
+    """use_internal puede reportar menos que el estándar y explicita el gate de no objeción."""
+    bundle = _provision_bundle(
+        {
+            "rule": "use_internal",
+            "comparison_level": "total",
+            "source_a": "cmf",
+            "source_b": "internal",
+            "binding": "internal",
+            "total_provision_a": 100.0,
+            "total_provision_b": 80.0,
+            "total_reported_provision": 80.0,
+        }
+    )
+
+    body = " ".join(provisions_intro(bundle) + _results_provisioning(bundle))
+
+    assert "queda por debajo del estándar" in body
+    assert "Nikodym no verifica esa condición" in body
+    assert "ya provisiona por encima" not in body
+    assert "sin tomar el máximo" in body
+
+
+def test_prosa_comparativo_cmf_ifrs9_es_diagnostica() -> None:
+    """Un comparativo CMF/IFRS 9 válido nunca se presenta como binding chileno."""
+    bundle = _provision_bundle(
+        {
+            "rule": "max",
+            "comparison_level": "total",
+            "source_a": "cmf",
+            "source_b": "ifrs9",
+            "binding": "cmf",
+            "total_provision_a": 100.0,
+            "total_provision_b": 60.0,
+            "total_reported_provision": 100.0,
+        }
+    )
+
+    body = " ".join(provisions_intro(bundle) + _results_provisioning(bundle))
+
+    assert "comparativo diagnóstico" in body
+    assert "no constituye por sí solo la regla B-1" in body
+    assert "obliga a constituir" not in body
+
+
+def test_prosa_interpreta_falta_dato_de_comparacion_incompleta() -> None:
+    """Los mensajes FALTA-DATO-PROV-3 llegan al lector aunque no sean códigos aislados."""
+    bundle = _provision_bundle(
+        {
+            "rule": "max",
+            "comparison_level": "total",
+            "source_a": "cmf",
+            "source_b": "internal",
+            "binding": "cmf_only",
+            "falta_dato": (
+                "FALTA-DATO-PROV-3: comparación incompleta; solo el motor cmf está presente.",
+            ),
+            "metric_sections": {},
+        }
+    )
+
+    body = " ".join(_results_provisioning(bundle))
+
+    assert "advertencias" in body
+    assert "cobertura parcial" in body
+    assert "cmf_only" not in body

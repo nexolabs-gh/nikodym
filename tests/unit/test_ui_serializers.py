@@ -717,7 +717,7 @@ def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
         assert 0.0 < row["discount_factor_mean"] <= 1.0
         assert 0.0 <= row["pd_marginal_weighted"] <= 1.0
 
-    # (e) Gatillos SICR: los backstops duros de mora disparan; conteos enteros positivos.
+    # (e) Gatillos SICR: las presunciones DPD bajo la política v1 disparan; conteos positivos.
     triggers = block["sicr_triggers"]
     assert isinstance(triggers, dict) and triggers
     assert "dpd_default_backstop" in triggers  # 90+ días de mora → Stage 3

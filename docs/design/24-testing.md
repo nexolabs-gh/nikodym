@@ -8,7 +8,7 @@
 | **Tanda de producción** | T1 (Fundación) |
 | **Estado** | Aprobado |
 | **Depende de** | SDD-01 (`core`), SDD-05 (convenciones + config) |
-| **Lo consumen** | Los SDD de dominio que aportan estimadores/familias propias (02, 06–22): cada uno aplica el harness y la batería que aquí se definen. SDD-25 (packaging/CI) invoca esta suite. SDD-26 (report/Quarto) **no** es estimador ni familia propia: usa solo las utilidades genéricas (fixtures de config, `assert_bitwise_reproducible`), no el harness de contrato. |
+| **Lo consumen** | Los SDD de dominio que aportan estimadores/familias propias (02, 06–22): cada uno aplica el harness y la batería que aquí se definen. SDD-25 (packaging/CI) invoca esta suite. SDD-26 (`report`) **no** es estimador ni familia propia: usa utilidades genéricas y su batería específica de render/export, no el harness de estimadores. |
 | **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
 
 ---
