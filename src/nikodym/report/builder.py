@@ -144,14 +144,15 @@ _VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
 # La fuente editable se escribe como ``.qmd`` (Quarto), pero su formato lógico es ``md``.
 _SUFFIX_ALIASES: Final[dict[str, str]] = {"qmd": "md"}
 # Secciones de config que la Metodología necesita para describir lo que realmente se ejecutó.
-# F4 requiere los parámetros de survival/IFRS 9; no se agregan a ``PIPELINE_DOMAINS`` porque esa
-# constante conserva la semántica del pipeline scorecard F1.
+# F3/F4 requieren los parámetros regulatorios que realmente ejecutan; no se agregan a
+# ``PIPELINE_DOMAINS`` porque esa constante conserva la semántica del pipeline scorecard F1.
 _PARAM_DOMAINS: Final[tuple[str, ...]] = (
     "data",
     *PIPELINE_DOMAINS,
     "survival",
     "markov",
     "forward",
+    *PROVISION_DOMAINS,
     "provisioning_ifrs9",
     "validation",
 )

@@ -886,6 +886,53 @@ def test_ficha_ifrs9_y_anexo_c_comparten_config_y_cards_f4() -> None:
     assert bundle.pipeline_params["provisioning_ifrs9"]["staging"]["dpd_sicr_backstop"] == 30
 
 
+def test_anexo_c_publica_config_f3_real_sin_inventar_dominios_en_f1_f4() -> None:
+    """El Anexo C cubre los tres configs F3 reales y no los fabrica en otros presets."""
+    from nikodym.ui.presets import ifrs9_preset, provisiones_preset, standard_preset
+
+    builder = ReportBuilder.from_config(
+        ReportConfig(sections=SectionPolicyConfig(required_sections=()))
+    )
+    f3_study = Study(NikodymConfig.model_validate(provisiones_preset()["config"]))
+    f3_study.run_context.lineage = _lineage()
+    f3_bundle = builder.collect(f3_study)
+    f3_by_id = {section.id: section for section in f3_bundle.sections}
+
+    cmf = f3_by_id["appendix_parameters.provisioning_cmf"].payload["effective_config"]
+    assert cmf["matrices"]["active_version"] == "cmf_b1_b3_2025_01"
+    assert cmf["exposure"]["direct_exposure_col"] == "exposure_amount"
+
+    internal = f3_by_id["appendix_parameters.provisioning_internal"].payload["effective_config"]
+    assert internal["pd_source"] == "calibration"
+    assert internal["grouping"] == "score_band"
+    assert internal["n_score_bands"] == 10
+
+    orchestrator = f3_by_id["appendix_parameters.provisioning"].payload["effective_config"]
+    assert orchestrator["source_a"] == "provisioning_cmf"
+    assert orchestrator["source_b"] == "provisioning_internal"
+    assert orchestrator["rule"] == "max"
+    assert orchestrator["comparison_level"] == "total"
+
+    f3_ids = tuple(f3_by_id)
+    assert (
+        f3_ids.index("appendix_parameters.provisioning")
+        < f3_ids.index("appendix_parameters.provisioning_cmf")
+        < f3_ids.index("appendix_parameters.provisioning_internal")
+    )
+    assert "appendix_parameters.validation" not in f3_by_id
+
+    forbidden = {
+        "appendix_parameters.provisioning_cmf",
+        "appendix_parameters.provisioning_internal",
+        "appendix_parameters.provisioning",
+    }
+    for preset in (standard_preset(), ifrs9_preset()):
+        control_study = Study(NikodymConfig.model_validate(preset["config"]))
+        control_study.run_context.lineage = _lineage()
+        control_ids = {section.id for section in builder.collect(control_study).sections}
+        assert forbidden.isdisjoint(control_ids)
+
+
 @pytest.mark.parametrize("term_source", ["forward", "markov"])
 def test_ficha_ifrs9_informe_admite_fuente_no_survival(
     term_source: Literal["forward", "markov"],

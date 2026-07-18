@@ -126,14 +126,16 @@ VALIDATION_FAMILIES: Final[tuple[tuple[str, str], ...]] = (
     ("backtesting", "Backtesting realizado vs. estimado"),
 )
 
-# El Anexo C no redefine el pipeline scorecard: añade las cards de F4 que realmente corrieron.
-# Mantener esta tupla separada evita que ``survival``/IFRS 9 se vuelvan requisitos implícitos de F1.
+# El Anexo C no redefine el pipeline scorecard: añade los dominios F3/F4 que realmente corrieron.
+# Mantener esta tupla separada evita que provisiones/survival/IFRS 9 se vuelvan requisitos
+# implícitos de F1.
 APPENDIX_PARAMETER_DOMAINS: Final[tuple[str, ...]] = (
     "data",
     *PIPELINE_DOMAINS,
     "survival",
     "markov",
     "forward",
+    *PROVISION_DOMAINS,
     "provisioning_ifrs9",
     "validation",
 )

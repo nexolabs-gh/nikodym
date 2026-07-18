@@ -33,9 +33,11 @@
 >   permanece como bloque humano **POR COMPLETAR**. Si `validation` está ausente, se omiten el
 >   capítulo, sus tablas y su métrica ejecutiva; sólo entonces puede declararse que no hubo
 >   validación formal.
-> - El **Anexo C** incorpora `data` y `validation`, y cada dominio cuya sección de configuración
->   esté presente en `ReportInputBundle.pipeline_params` publica su `effective_config` completo.
->   No se agrega un dump top-level de `NikodymConfig`, no se incluyen secretos y `effective_config`
+> - El **Anexo C** incorpora `data`, el pipeline F1, `survival`, `markov`, `forward`,
+>   `provisioning_cmf`, `provisioning_internal`, `provisioning`, `provisioning_ifrs9` y
+>   `validation` cuando su sección de configuración está presente en
+>   `ReportInputBundle.pipeline_params`; cada uno publica su `effective_config` completo. No se
+>   agrega un dump top-level de `NikodymConfig`, no se incluyen secretos y `effective_config`
 >   queda explícitamente fuera del payload enviado a la narrativa IA.
 > - Este contrato aplica por igual al HTML standalone, PDF WeasyPrint, Word y fuente editable
 >   Quarto/Markdown. La IA sigue siendo opt-in, sólo narrativa y nunca fuente de números.

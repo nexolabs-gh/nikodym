@@ -214,6 +214,7 @@ def verify_artifacts() -> None:
 
     - ``results.json`` trae las 3 secciones de provisiones no nulas.
     - ``report.html`` trae el capítulo de provisiones y la cifra del sobrecosto (el titular, §3.5).
+    - El Anexo C publica el ``effective_config`` de CMF, método interno y orquestador.
     - El informe ya no declara las *provisiones* como fase posterior (G5); ver la nota de
       :data:`_NEGACION_PROVISIONES_RE` sobre por qué el criterio no es el literal genérico.
     """
@@ -235,6 +236,15 @@ def verify_artifacts() -> None:
     assert cifra in html_raw, (
         f"report.html no imprime la cifra del sobrecosto {cifra} (el titular del capítulo, §3.5)."
     )
+
+    for dominio in ("provisioning_cmf", "provisioning_internal", "provisioning"):
+        marker = f'data-section-id="appendix_parameters.{dominio}"'
+        assert marker in html_raw, f"report.html no publica el config efectivo F3 de {dominio}."
+        start = html_raw.index(marker)
+        end = html_raw.index("</section>", start)
+        assert "<dt>effective_config</dt>" in html_raw[start:end], (
+            f"Anexo C de {dominio} existe pero omite su effective_config."
+        )
 
     for nombre, contenido in (("report.html", html_raw), ("results.json", results_raw)):
         m = _NEGACION_PROVISIONES_RE.search(contenido)
