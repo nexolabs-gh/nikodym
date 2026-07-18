@@ -265,7 +265,8 @@ def _wire_dataset_source(config: dict[str, Any], source: Path) -> dict[str, Any]
     if isinstance(data, dict):
         load = data.setdefault("load", {})
         if isinstance(load, dict):
-            load["source"] = str(source)
+            # POSIX para rutas relativas: el mismo config conserva identidad en Windows/macOS/Linux.
+            load["source"] = str(source) if source.is_absolute() else source.as_posix()
     return edited
 
 
@@ -281,7 +282,7 @@ def _wire_report_output_dir(config: dict[str, Any], *, workdir: Path) -> dict[st
     edited = copy.deepcopy(config)
     report = edited.get("report")
     if isinstance(report, dict):
-        report["output_dir"] = str(workdir / "reports")
+        report["output_dir"] = str((workdir / "reports").resolve())
     return edited
 
 

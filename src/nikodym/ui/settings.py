@@ -5,7 +5,9 @@ directorio de trabajo, secciones expuestas), **no** el experimento. Regla dura *
 una sección de :class:`~nikodym.core.config.NikodymConfig`, no se registra como dominio y **no
 entra al** ``config_hash``. Cambiar estos ajustes no modifica por sí mismo la identidad de un
 experimento; al ejecutar, sin embargo, ``run_pipeline`` cablea una ruta bajo ``workdir`` en
-``data.load.source`` y esa ruta sí pertenece al config efectivo. Hereda de
+``data.load.source`` y esa ruta sí pertenece al config efectivo. El default relativo preserva una
+identidad portable; si el usuario configura un ``workdir`` absoluto, esa ubicación pasa a formar
+parte explícita del config. Hereda de
 :class:`~nikodym.core.config.NikodymBaseConfig` (``extra='forbid'``, ``frozen=True``).
 """
 

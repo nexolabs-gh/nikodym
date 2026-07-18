@@ -32,11 +32,12 @@ la demo, en ``web/src/lib/demo.ts``):
     GET  /api/report/{run_id}/md   -> report-quarto.zip
 
 Idempotente: se puede correr las veces que haga falta; sobrescribe siempre los mismos 8 paths y no
-deja basura. Usa un ``workdir`` temporal **canónico** por plataforma para que la ruta materializada
-del dataset —que forma parte del config efectivo— no cambie en cada captura ni mueva el
-``config_hash``. El directorio se crea en exclusión mutua y se elimina aun si la corrida falla.
-``run_id`` y ``created_at`` sí cambian legítimamente; PDF/DOCX/ZIP también pueden incorporar
-metadatos de emisión, por lo que el gate congela cifras y lineage, no igualdad byte-a-byte.
+deja basura. Usa un ``workdir`` **relativo y canónico** bajo la raíz del checkout: así
+``data.load.source`` conserva el mismo identificador POSIX en macOS/Linux/Windows y no publica una
+ruta del host ni mueve el ``config_hash`` entre checkouts. El directorio se crea en exclusión mutua
+y se elimina aun si la corrida falla. ``run_id`` y ``created_at`` sí cambian legítimamente;
+PDF/DOCX/ZIP también pueden incorporar metadatos de emisión, por lo que el gate congela cifras y
+lineage, no igualdad byte-a-byte.
 
 Uso (requiere los extras instalados: ``uv sync --all-extras``, si no el reporte/schema salen
 degradados)::
@@ -49,7 +50,6 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -62,8 +62,9 @@ if TYPE_CHECKING:
     from starlette.testclient import TestClient
 
 PRESET_ID = "f3-provisiones-consumo"
-_FIXTURES_DIR = Path(__file__).resolve().parent.parent / "web" / "src" / "fixtures" / "demo"
-_CAPTURE_WORKDIR_NAME = "nikodym-demo-fixtures-f3"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_FIXTURES_DIR = _PROJECT_ROOT / "web" / "src" / "fixtures" / "demo"
+_CAPTURE_WORKDIR_NAME = ".nikodym-demo-fixtures-f3"
 
 # G5 (SDD-28 §11): el informe no puede declarar que las PROVISIONES "corresponden a fases
 # posteriores" cuando el capítulo de provisiones ya existe. El criterio NO es "grep del literal
@@ -82,16 +83,12 @@ def _clp(monto: float) -> str:
 
 
 @contextmanager
-def _canonical_capture_workdir(*, root: Path | None = None) -> Iterator[Path]:
-    """Crea el workdir estable de captura y evita dos escritores concurrentes.
-
-    ``TemporaryDirectory`` agrega un sufijo aleatorio que termina dentro de ``data.load.source`` y,
-    por tanto, del ``config_hash`` efectivo. Este contexto mantiene estable la ruta bajo la raíz
-    temporal de la plataforma, falla si ya existe (otra captura o residuo a revisar) y sólo elimina
-    el directorio que él mismo alcanzó a crear.
-    """
-    temp_root = Path(tempfile.gettempdir()).resolve() if root is None else root.resolve()
-    workdir = temp_root / _CAPTURE_WORKDIR_NAME
+def _canonical_capture_workdir() -> Iterator[Path]:
+    """Crea el workdir relativo estable, bloquea dos writers y siempre lo limpia."""
+    workdir = Path(_CAPTURE_WORKDIR_NAME)
+    resolved = workdir.resolve()
+    if resolved.parent != Path.cwd().resolve():  # defensa ante una edición futura del nombre
+        raise RuntimeError(f"el workdir de captura escaparía del checkout: {resolved}")
     try:
         workdir.mkdir()
     except FileExistsError as exc:
@@ -102,7 +99,8 @@ def _canonical_capture_workdir(*, root: Path | None = None) -> Iterator[Path]:
     try:
         yield workdir
     finally:
-        shutil.rmtree(workdir)
+        # Limpia el target que validamos/creamos, aunque código interno haya cambiado el CWD.
+        shutil.rmtree(resolved)
 
 
 def _get(client: TestClient, path: str) -> Any:
@@ -286,6 +284,8 @@ def verify_artifacts() -> None:
 
 def main() -> None:
     """Captura, verifica el número, escribe los 8 fixtures y re-verifica el artefacto escrito."""
+    if Path.cwd().resolve() != _PROJECT_ROOT:
+        raise RuntimeError(f"ejecuta la captura desde la raíz del repositorio: {_PROJECT_ROOT}")
     with _canonical_capture_workdir() as workdir:
         settings = UiConfig(workdir=str(workdir))
         app = create_app(settings)

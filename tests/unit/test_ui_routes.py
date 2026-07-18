@@ -238,6 +238,17 @@ def test_wire_dataset_source_cablea_load_source() -> None:
     assert config["data"]["load"]["source"] is None  # el original no se mutó
 
 
+def test_wire_dataset_source_relativo_usa_identificador_posix() -> None:
+    """La ruta relativa usa `/` para conservar el mismo hash entre sistemas operativos."""
+    config = {"data": {"load": {"source": None}}}
+
+    wired = routes._wire_dataset_source(
+        config, Path(".nikodym_ui") / "datasets" / "cartera.parquet"
+    )
+
+    assert wired["data"]["load"]["source"] == ".nikodym_ui/datasets/cartera.parquet"
+
+
 def test_wire_dataset_source_sin_data_no_falla() -> None:
     """Un config sin sección ``data`` se devuelve intacto (no se inventa estructura)."""
     assert routes._wire_dataset_source({"repro": {"seed": 7}}, Path("/tmp/x.parquet")) == {
@@ -260,6 +271,18 @@ def test_wire_report_output_dir_cablea_absoluto_bajo_workdir(tmp_path: Path) -> 
     wired = routes._wire_report_output_dir(config, workdir=tmp_path)
     assert wired["report"]["output_dir"] == str(tmp_path / "reports")
     assert config["report"]["output_dir"] == "reports"  # el original no se mutó
+
+
+def test_wire_report_output_dir_resuelve_workdir_relativo(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """El manifiesto HTML recibe una salida absoluta aunque el workdir portable sea relativo."""
+    monkeypatch.chdir(tmp_path)
+    config = {"report": {"output_dir": "reports"}}
+
+    wired = routes._wire_report_output_dir(config, workdir=Path(".nikodym_ui"))
+
+    assert wired["report"]["output_dir"] == str(tmp_path / ".nikodym_ui" / "reports")
 
 
 def test_wire_report_output_dir_sin_report_es_idempotente(tmp_path: Path) -> None:

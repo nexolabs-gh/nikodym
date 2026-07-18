@@ -4,10 +4,10 @@ Provee dos carteras de comportamiento realistas y **usables por el pipeline F1**
 plausibles + ``bad_flag`` binario correlacionado + ``segmento``/``cohorte`` para partición). La
 generación es **determinista y seeded** (``numpy.random.default_rng`` con una semilla constante por
 dataset): nunca depende del reloj ni de ``hash()`` (que varía con ``PYTHONHASHSEED``). Así, dos
-materializaciones producen el mismo contenido lógico y el mismo ``data_hash``. El ``config_hash``
-también es estable cuando se conserva el ``workdir`` porque ``data.load.source`` contiene la ruta;
-entre workdirs puede cambiar aunque los datos sean idénticos. :func:`materialize` cachea el parquet
-dentro del ``workdir`` y bloquea *path traversal* (rutas siempre bajo ``workdir/datasets``). Esta
+materializaciones producen el mismo contenido lógico y el mismo ``data_hash``. Cuando ``workdir``
+es relativo, :func:`materialize` conserva una ruta relativa portable para que el ``config_hash`` no
+dependa del checkout; una ruta absoluta sigue siendo una decisión explícita del usuario y sí forma
+parte del config. El parquet se cachea bajo ``workdir/datasets`` y se bloquea *path traversal*. Esta
 capa es *domain-agnostic*: no importa módulos de dominio ni reimplementa fórmulas de riesgo.
 """
 
@@ -349,13 +349,7 @@ def materialize(dataset_id: str, *, workdir: Path) -> Path:
 
 def _dataset_path(workdir: Path, dataset_id: str) -> Path:
     """Resuelve la ruta del parquet y verifica que quede dentro de ``workdir/datasets``."""
-    datasets_dir = (workdir / "datasets").resolve()
-    candidate = (datasets_dir / f"{dataset_id}.parquet").resolve()
-    if datasets_dir not in candidate.parents:  # defensa en profundidad ante path traversal
-        raise UiDatasetError(  # pragma: no cover - inalcanzable con ids del registro (allowlist)
-            f"la ruta del dataset '{dataset_id}' escaparía del directorio de trabajo."
-        )
-    return candidate
+    return _validated_dataset_path(workdir, dataset_id, uploaded=False)
 
 
 def _upload_path(workdir: Path, dataset_id: str) -> Path:
@@ -364,13 +358,28 @@ def _upload_path(workdir: Path, dataset_id: str) -> Path:
     El ``dataset_id`` es hex puro con prefijo (``uploaded_<token>``), seguro por construcción; la
     verificación de que la ruta quede bajo ``workdir/datasets`` es defensa en profundidad.
     """
-    datasets_dir = (workdir / "datasets").resolve()
-    candidate = (datasets_dir / f"{dataset_id}.parquet").resolve()
-    if datasets_dir not in candidate.parents:  # defensa en profundidad ante path traversal
-        raise UiDatasetError(  # pragma: no cover - inalcanzable con id hex + prefijo (seguro)
-            f"la ruta del dataset subido '{dataset_id}' escaparía del directorio de trabajo."
+    return _validated_dataset_path(workdir, dataset_id, uploaded=True)
+
+
+def _validated_dataset_path(workdir: Path, dataset_id: str, *, uploaded: bool) -> Path:
+    """Valida contención real, incluidos symlinks, y conserva la representación relativa."""
+    raw_datasets_dir = workdir / "datasets"
+    resolved_workdir = workdir.resolve()
+    resolved_datasets_dir = raw_datasets_dir.resolve()
+    if resolved_workdir not in resolved_datasets_dir.parents:
+        qualifier = " subido" if uploaded else ""
+        raise UiDatasetError(
+            f"el directorio del dataset{qualifier} '{dataset_id}' escaparía del workdir."
         )
-    return candidate
+
+    raw_candidate = raw_datasets_dir / f"{dataset_id}.parquet"
+    resolved_candidate = raw_candidate.resolve()
+    if resolved_datasets_dir not in resolved_candidate.parents:
+        qualifier = " subido" if uploaded else ""
+        raise UiDatasetError(
+            f"la ruta del dataset{qualifier} '{dataset_id}' escaparía del workdir."
+        )
+    return resolved_candidate if workdir.is_absolute() else raw_candidate
 
 
 def _read_upload(content: bytes, filename: str, suffix: str) -> pd.DataFrame:

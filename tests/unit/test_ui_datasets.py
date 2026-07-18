@@ -282,6 +282,52 @@ def test_materialize_ruta_dentro_del_workdir(tmp_path: Path) -> None:
     assert datasets_dir in ruta.parents
 
 
+def test_materialize_workdir_relativo_conserva_ruta_portable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un workdir relativo no se expande a una ruta absoluta dependiente del checkout."""
+    monkeypatch.chdir(tmp_path)
+    workdir = Path(".nikodym_ui")
+
+    ruta = materialize("consumo_comportamiento", workdir=workdir)
+
+    assert ruta == Path(".nikodym_ui/datasets/consumo_comportamiento.parquet")
+    assert ruta.is_file()
+    assert not ruta.is_absolute()
+
+
+def _crear_symlink_datasets_externo(tmp_path: Path) -> tuple[Path, Path]:
+    workdir = tmp_path / "workdir"
+    external = tmp_path / "external"
+    workdir.mkdir()
+    external.mkdir()
+    try:
+        (workdir / "datasets").symlink_to(external, target_is_directory=True)
+    except OSError as exc:  # pragma: no cover - Windows sin privilegio de symlink
+        pytest.skip(f"el entorno no permite symlinks: {exc}")
+    return workdir, external
+
+
+def test_materialize_rechaza_datasets_symlink_fuera_del_workdir(tmp_path: Path) -> None:
+    """Un symlink ``datasets`` externo no puede sacar un parquet sintético del workdir."""
+    workdir, external = _crear_symlink_datasets_externo(tmp_path)
+
+    with pytest.raises(UiDatasetError, match="escaparía"):
+        materialize("consumo_comportamiento", workdir=workdir)
+
+    assert list(external.iterdir()) == []
+
+
+def test_ingest_upload_rechaza_datasets_symlink_fuera_del_workdir(tmp_path: Path) -> None:
+    """La misma guarda impide escribir un upload mediante un symlink externo."""
+    workdir, external = _crear_symlink_datasets_externo(tmp_path)
+
+    with pytest.raises(UiDatasetError, match="escaparía"):
+        datasets.ingest_upload(b"saldo,target\n100,0\n", "cartera.csv", workdir=workdir)
+
+    assert list(external.iterdir()) == []
+
+
 # ─────────────────────────── consumo_drift (deterioro temporal, B37) ───────────────────────────
 
 
