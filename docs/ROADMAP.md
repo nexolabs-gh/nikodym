@@ -3,13 +3,14 @@
 | | |
 |---|---|
 | **Documento** | Estado por capacidad y plan de evolución |
-| **Versión** | 1.1 |
-| **Fecha** | 2026-07-18 |
+| **Versión** | 1.2 |
+| **Fecha** | 2026-07-19 |
 | **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.1 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
-Nikodym `1.3.0` está publicado y el repositorio se encuentra en mejora continua. Las fases F0–F8
-que siguen conservan el diseño y los DoD históricos; **no son una cola automática**. El estado y el
-plan de esta sección son la fuente vigente.
+El código y tag de Nikodym están en `1.3.0`, pero la API oficial de PyPI seguía mostrando `1.2.0` como
+última publicación el 2026-07-19. `main` se encuentra en mejora continua y está por delante del tag.
+Las fases F0–F8 que siguen conservan el diseño y los DoD históricos; **no son una cola automática**.
+El estado y el plan de esta sección son la fuente vigente.
 
 ## Estado actual
 
@@ -41,7 +42,7 @@ plan de esta sección son la fuente vigente.
 5. Ejecutar gates completos, revisión independiente y verificar el activo desplegado contra el SHA
    aprobado.
 6. Congelar código, fixtures, informes y deploy a más tardar el **2026-07-21** para la reunión
-   Interbank del **2026-07-22**. No crear tag ni publicar PyPI en esta campaña.
+   Interbank del **2026-07-22**. No crear un tag adicional ni publicar PyPI en esta campaña.
 
 En paralelo permanece un gate humano separado: validar las matrices CMF celda a celda y resolver los
 haircuts remitidos a normativa complementaria. Hasta entonces no existe certificación normativa.
@@ -219,7 +220,8 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 ---
 
 ## Estrategia de release (open-source)
-- `1.3.0` es el release vigente; el pipeline F1 conserva la garantía SemVer 1.x.
+- `1.3.0` es la versión del código/tag; PyPI continúa en `1.2.0` hasta una publicación explícita.
+  El pipeline F1 conserva la garantía SemVer 1.x.
 - Releases incrementales con changelog, docs MkDocs, dataset/tutorial reproducible y smoke clean-room.
 - Cada tag y publicación PyPI requiere OK específico de Cami; push/deploy ordinarios no sustituyen ese gate.
 

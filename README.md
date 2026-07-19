@@ -26,7 +26,7 @@ No existe CLI.
 | Dominio | Superficie | Garantía |
 |---|---|---|
 | **Scorecard (F1)** — binning/WoE monotónico (optbinning), selección (IV/VIF), regresión logística, scorecard escalado (PDO/offset), calibración, desempeño (AUC/KS/Gini) y estabilidad (PSI/CSI) | UI, preset e informe | **estable** (SemVer 1.x) |
-| **Provisiones** — motores **CMF (Chile)** e **IFRS 9/ECL** separados, más una capa que compara dos metodologías y aplica el **máximo** | UI, preset e informe | experimental |
+| **Provisiones** — motores **CMF (Chile)** e **IFRS 9/ECL** separados; la orquestación B-1 compara método estándar CMF e interno y aplica la regla declarada | UI, preset e informe | experimental |
 | **Stress testing** — escenarios adversos, shocks macro en escala logit, sensibilidad y *reverse stress* por bisección | Python | experimental |
 | **Markov** — matrices de transición (cohorte/duración), Chapman-Kolmogorov, Aalen-Johansen, *term-structure* de PD | Python | experimental |
 | **Forward-looking** — ARIMA/auto-ARIMA, VAR/VECM, Ljung-Box y modelos satélite macro → PD/LGD | Python | experimental |

@@ -9,10 +9,11 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-18)
-**Nikodym `1.3.0` publicado en PyPI** (`pip install nikodym`). El tag `v1.3.0` conserva el corte de
-release `89583dd`; `51936fc` es el último corte funcional previo a esta consolidación técnica y documental
-(el SHA vigente queda registrado en `HANDOFF.md`). La librería
+## Estado del proyecto (2026-07-19)
+El código y el tag `v1.3.0` conservan el corte `89583dd`, pero la API oficial de PyPI seguía mostrando
+`1.2.0` como última publicación el 2026-07-19. `main` está 19 commits por delante del tag; el SHA vigente
+queda registrado en `HANDOFF.md`. Tratar `1.3.0` como versión del código/tag, no como paquete público
+confirmado, hasta completar una publicación con OK específico de Cami. La librería
 ya **no** está en fase de construcción por capas — está publicada y en mejora continua:
 - **Pipeline scorecard F1 (comportamiento)**: API **estable** bajo garantía **SemVer 1.x** (binning WoE
   monotónico, selección IV/VIF, logística sobre WoE, calibración, informe HTML/PDF/Word).
@@ -28,9 +29,9 @@ ya **no** está en fase de construcción por capas — está publicada y en mejo
   (macOS/Windows/Linux × Python 3.11–3.13).
 
 **Track pre-Interbank COMPLETO:** la cola [`privado/COLA-CODEX-INTERBANK.md`](privado/COLA-CODEX-INTERBANK.md)
-(IBK-01…IBK-05) está **toda cerrada** al 2026-07-17. **IBK-05 (`89583dd`, tag `v1.3.0`) = RC 1.3.0 LIVE en
-PyPI + demo re-deployada** con lineage 1.3.0 (extra `markov` real, smoke clean-room F4, recaptura de
-informes). **No hay bloque IBK siguiente.** Reunión **Interbank miércoles 2026-07-22** (congelar demo ≤
+(IBK-01…IBK-05) está **toda cerrada** al 2026-07-17. **IBK-05 (`89583dd`, tag `v1.3.0`) dejó el candidato
+y la demo con lineage 1.3.0**, pero PyPI continúa en 1.2.0; no afirmar que 1.3.0 está publicado. **No hay
+bloque IBK siguiente.** Reunión **Interbank miércoles 2026-07-22** (congelar demo ≤
 martes 21). El **tag `vX.Y.Z` y PyPI exigen OK específico de Cami por release** (el OK permanente cubre
 push/deploy, no tag/PyPI). **Arrancar toda sesión leyendo [`HANDOFF.md`](HANDOFF.md).**
 
