@@ -137,7 +137,7 @@ DTOs frozen para proyección macro, satellite diagnostics, term-structure forwar
 
 **Notación.**
 - `k ∈ K`: escenario macro (`base`, `adverse`, `severe`, u otros configurados).
-- `w_k`: peso de probabilidad del escenario, `w_k ≥ 0` y `Σ_k w_k = 1`.
+- `w_k`: peso de probabilidad del escenario, `w_k ≥ 0` y `Σ_k w_k = 1`. Nota de frontera: `w_k = 0` es válido en `forward` standalone (proyectar un escenario sin ponderarlo), pero el motor IFRS 9 (SDD-16) exige `w_k > 0` en todos los escenarios presentes — el escenario peso-0 debe excluirse de la term-structure entregada al ECL; hoy la cadena aborta con `IfrsEclError` (límite fijado por tests, resolución de fondo pendiente).
 - `t = 1, ..., H`: horizonte explícito de proyección.
 - `x_{k,t}`: vector de factores macro proyectados en escenario `k` y período `t`.
 - `PD^0_{i,t}`: PD base de la term-structure de `survival`/`markov`.
@@ -711,7 +711,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - SDD-19 (`markov`): term-structure lifetime PD tidy intercambiable con survival.
 
 **Aguas abajo.**
-- SDD-16 (`provisioning/ifrs9`) consume `ForwardEclInput`; calcula ECL por escenario, staging, LGD/EAD, descuento y, si corresponde, Vasicek PIT/TTC. La LGD que publique `forward` se ignora hoy y SDD-16 la reconstruye desde su config: deuda contractual explícita.
+- SDD-16 (`provisioning/ifrs9`) consume el artefacto `("forward", "term_structure")` (el DTO `ForwardEclInput` lo consume hoy `stress`, SDD-21); calcula ECL por escenario, staging, LGD/EAD y descuento. Vasicek (`apply_vasicek`) queda bloqueado por guard sobre curvas ya PIT de `forward` — la vía es `consume_pit`. La LGD que publique `forward` se ignora con aviso auditado `FALTA-DATO-IFRS-6` (SDD-16 la reconstruye desde su config); la precedencia queda pendiente de SDD propio.
 - SDD-17 (`provisioning`) puede comparar el resultado IFRS 9 con otra fuente, con carácter diagnóstico; eso no constituye la regla B-1.
 - SDD-21 (`stress`) consume macro/satellite/escenarios y extiende a stress testing.
 - SDD-22 (`validation`) backtestea macro, satellite y PD forward.
@@ -782,7 +782,7 @@ Los defaults D-FWD-1…9 están implementados como política metodológica edita
 - **FALTA-DATO-FWD-3 — Frecuencia temporal institucional.** Mensual/trimestral/anual no está fijado; `macro_source.frequency` y `time_unit` deben declararse.
 - **FALTA-DATO-FWD-4 — Naturaleza PIT/TTC de la term-structure base.** SDD-18/19 publican PD lifetime, pero no siempre conocen si es PIT/TTC; se requiere columna o config.
 - **FALTA-DATO-FWD-5 — Coeficientes satellite iniciales.** Si no hay historia suficiente para ajustar, deben venir como coeficientes fijos auditados.
-- **FALTA-DATO-FWD-6 — Tratamiento LGD forward-looking.** `forward` puede publicar LGD, pero SDD-16 la ignora hoy y reconstruye LGD con `IfrsLgdConfig`; falta fijar precedencia o validación cruzada.
+- **FALTA-DATO-FWD-6 — Tratamiento LGD forward-looking.** `forward` puede publicar LGD, pero SDD-16 la ignora y reconstruye LGD con `IfrsLgdConfig`; desde 2026-07-20 el descarte deja de ser silencioso (aviso `FALTA-DATO-IFRS-6` en card/warning_codes + auditoría `ifrs9_lgd`, con golden invariante que fija el límite; el gatillo es la columna `lgd` condicionada — `lgd_base`, linaje de la LGD base de entrada, queda fuera del aviso por diseño). Falta fijar precedencia o validación cruzada en un SDD propio.
 - **FALTA-DATO-FWD-7 — Panel longitudinal IFRS 9.** SDD-16 ya fija cuenta×período×escenario con EAD/EIR/stage; la disponibilidad temporal y el perfil institucional de EAD/LGD siguen siendo inputs externos.
 
 **Riesgos y mitigaciones.**

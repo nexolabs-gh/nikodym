@@ -211,6 +211,56 @@ def test_execute_publica_seis_artefactos_y_audita() -> None:
     } <= reglas
 
 
+def test_auditoria_pit_y_lgd_payloads() -> None:
+    """La decisión ``ifrs9_pit`` audita ``rho_col`` (SDD-16 §9) y ``ifrs9_lgd`` declara si la
+    term-structure entrante traía LGD forward descartada (FALTA-DATO-IFRS-6)."""
+    cfg = _cfg()
+    study = _study(cfg)
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+    step = IfrsProvisioningStep.from_config(cfg)
+    step._audit = sink
+
+    step.execute(study, np.random.default_rng(ROOT_SEED))
+
+    payloads = {
+        event.payload["regla"]: event.payload
+        for event in sink.events
+        if event.kind == "decision" and "regla" in event.payload
+    }
+    assert payloads["ifrs9_pit"]["valor"] == {
+        "rho": None,
+        "rho_col": None,
+        "systemic_factor_col": None,
+    }
+    # La ts survival no trae columna lgd → no hay LGD forward descartada.
+    assert payloads["ifrs9_lgd"]["valor"]["lgd_forward_presente"] is False
+
+
+def test_auditoria_lgd_forward_presente_true() -> None:
+    """Con una ts que trae columna ``lgd`` no nula, ``ifrs9_lgd`` audita el descarte."""
+    cfg = _cfg()
+    study = Study(NikodymConfig(provisioning_ifrs9=cfg))
+    study.artifacts.set("data", "frame", _frame())
+    ts = _ts()
+    ts["lgd"] = [0.9, 0.5]
+    study.artifacts.set("survival", "term_structure", ts)
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+    step = IfrsProvisioningStep.from_config(cfg)
+    step._audit = sink
+
+    result = step.execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert "FALTA-DATO-IFRS-6" in result.card.falta_dato
+    payloads = {
+        event.payload["regla"]: event.payload
+        for event in sink.events
+        if event.kind == "decision" and "regla" in event.payload
+    }
+    assert payloads["ifrs9_lgd"]["valor"]["lgd_forward_presente"] is True
+
+
 def test_study_run_publica_card_end_to_end() -> None:
     cfg = _cfg()
     study = _study(cfg)

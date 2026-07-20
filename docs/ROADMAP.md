@@ -31,10 +31,14 @@ El estado y el plan de esta sección son la fuente vigente.
 1. Recuperar **al menos 12 GiB libres** y completar el preflight reproducible de la campaña. El
    corte de esta consolidación quedó bajo ese umbral; no iniciar una ejecución larga con el disco
    en presión.
-2. Resolver o caracterizar con tests seis brechas de contrato `forward`→IFRS 9 detectadas en la
-   revisión: `rho_col` no consumida; `Z` implícito inexistente; falta de guard PIT/TTC antes de
-   Vasicek; `forbid_mean_scenario` sólo auditado; pesos cero incompatibles; LGD forward ignorada.
-   Cada corrección requiere actualizar SDD, tests y contrato público experimental en el mismo bloque.
+2. ✅ **Cerrado (2026-07-20).** Las seis brechas de contrato `forward`→IFRS 9 quedaron resueltas
+   o caracterizadas con tests, actualizando SDD-16/SDD-20 en el mismo bloque: `rho_col` rechazada
+   fail-fast en config (consumo real diferido); exención del `Z` implícito eliminada (Z siempre
+   explícito; con fuente forward la vía es `consume_pit`); guard anti doble ajuste PIT/TTC en el
+   motor; `forbid_mean_scenario` bloqueante en config y motor (antes sólo auditado); pesos cero
+   caracterizados como frontera con tests (resolución de fondo = decisión de política pendiente);
+   LGD forward ignorada ahora con aviso auditado `FALTA-DATO-IFRS-6` y golden invariante
+   (precedencia pendiente de SDD propio).
 3. Ejecutar una campaña adversarial autónoma y finita de **14 horas** sobre la demo F1/F3/F4: tarjeta, preset,
    dataset, resultados, lineage e informes HTML/PDF/Word/ZIP.
 4. Reproducir específicamente el riesgo de resultados obsoletos al cambiar de preset. Corregir sólo

@@ -32,6 +32,7 @@ from nikodym.provisioning.ifrs9.config import (
 )
 from nikodym.provisioning.ifrs9.exceptions import (
     IfrsConfigError,
+    IfrsEclError,
     IfrsInputError,
     IfrsTermStructureError,
 )
@@ -341,19 +342,24 @@ def test_apply_vasicek_transforma_pd() -> None:
 
 
 def test_apply_vasicek_sin_rho_falla() -> None:
+    """Sin rho el motor levanta en runtime aunque ``fail_on_falta_dato=False`` difiera el config.
+
+    Fija que NO existe ruta degradada FALTA-DATO para rho: el config con
+    ``fail_on_falta_dato=False`` construye, pero ``_apply_vasicek`` falla igual.
+    """
     cfg = IfrsProvisioningConfig(
         portfolio_col="portfolio",
         pd=IfrsPdConfig(
             term_structure_source="survival",
             pit_mode="apply_vasicek",
             rho=None,
-            rho_col="rho",
             systemic_factor_col="Z",
             horizon_12m_periods=1,
         ),
         lgd=IfrsLgdConfig(method="provided"),
         ead=IfrsEadConfig(method="provided"),
         scenarios=IfrsScenarioConfig(source="single"),
+        fail_on_falta_dato=False,
     )
     frame = _frame(ead=1000.0, lgd=0.5, eir=0.0)
     ts = _ts(pd_marginal=[0.02], periods=[1], with_curve=False, extra={"Z": [0.0]})
@@ -379,6 +385,103 @@ def test_apply_vasicek_sin_columna_z_falla() -> None:
     ts = _ts(pd_marginal=[0.02], periods=[1], with_curve=False)  # sin columna Z
     with pytest.raises(IfrsConfigError, match="factor sistémico Z"):
         _run(cfg, frame, ts)
+
+
+def test_apply_vasicek_sin_systemic_factor_col_falla_en_runtime() -> None:
+    """``fail_on_falta_dato=False`` tampoco habilita una ruta degradada para el Z ausente."""
+    cfg = IfrsProvisioningConfig(
+        portfolio_col="portfolio",
+        pd=IfrsPdConfig(
+            term_structure_source="survival",
+            pit_mode="apply_vasicek",
+            rho=0.15,
+            horizon_12m_periods=1,
+        ),
+        lgd=IfrsLgdConfig(method="provided"),
+        ead=IfrsEadConfig(method="provided"),
+        scenarios=IfrsScenarioConfig(source="single"),
+        fail_on_falta_dato=False,
+    )
+    frame = _frame(ead=1000.0, lgd=0.5, eir=0.0)
+    ts = _ts(pd_marginal=[0.02], periods=[1], with_curve=False)
+    with pytest.raises(IfrsConfigError, match="factor sistémico Z"):
+        _run(cfg, frame, ts)
+
+
+# ─────────────────────────── PD PIT: guard anti doble ajuste (pd_basis) ───────────────────────────
+
+
+def _cfg_vasicek() -> IfrsProvisioningConfig:
+    """Config ``apply_vasicek`` completa (rho y columna Z) para los tests del guard TTC."""
+    return IfrsProvisioningConfig(
+        portfolio_col="portfolio",
+        pd=IfrsPdConfig(
+            term_structure_source="survival",
+            pit_mode="apply_vasicek",
+            rho=0.15,
+            systemic_factor_col="Z",
+            horizon_12m_periods=1,
+        ),
+        lgd=IfrsLgdConfig(method="provided"),
+        ead=IfrsEadConfig(method="provided"),
+        scenarios=IfrsScenarioConfig(source="single"),
+    )
+
+
+def test_apply_vasicek_sobre_pd_basis_pit_falla() -> None:
+    """Aplicar Vasicek a una term-structure ya PIT (forward) se rechaza: doble ajuste macro."""
+    frame = _frame(ead=1000.0, lgd=0.5, eir=0.0)
+    ts = _ts(
+        pd_marginal=[0.02],
+        periods=[1],
+        with_curve=False,
+        extra={"Z": [0.0], "pd_basis": ["pit"]},
+    )
+    with pytest.raises(IfrsConfigError, match="doble ajuste"):
+        _run(_cfg_vasicek(), frame, ts)
+
+
+def test_apply_vasicek_pd_basis_mixto_falla() -> None:
+    """Una term-structure con ``pd_basis`` mixto tampoco es elegible para Vasicek."""
+    frame = _frame(ead=1000.0, lgd=0.5, eir=0.0)
+    ts = _ts(
+        pd_marginal=[0.02, 0.02],
+        periods=[1, 2],
+        with_curve=False,
+        extra={"Z": [0.0, 0.0], "pd_basis": ["ttc", "pit"]},
+    )
+    with pytest.raises(IfrsConfigError, match="doble ajuste"):
+        _run(_cfg_vasicek(), frame, ts)
+
+
+def test_apply_vasicek_pd_basis_nan_falla() -> None:
+    """``pd_basis`` faltante (NaN) en la columna presente se rechaza conservadoramente."""
+    frame = _frame(ead=1000.0, lgd=0.5, eir=0.0)
+    ts = _ts(
+        pd_marginal=[0.02],
+        periods=[1],
+        with_curve=False,
+        extra={"Z": [0.0], "pd_basis": [float("nan")]},
+    )
+    with pytest.raises(IfrsConfigError, match="doble ajuste"):
+        _run(_cfg_vasicek(), frame, ts)
+
+
+def test_apply_vasicek_pd_basis_ttc_explicito_ok() -> None:
+    """Etiquetar TTC explícito no rompe la ruta legítima: mismo golden Jensen del caso base."""
+    frame = _frame(ead=1000.0, lgd=0.5, eir=0.0)
+    ts = _ts(
+        pd_marginal=[0.02],
+        periods=[1],
+        with_curve=False,
+        extra={"Z": [0.0], "pd_basis": ["ttc"]},
+    )
+    result = _run(_cfg_vasicek(), frame, ts)
+    expected = float(norm.cdf(norm.ppf(0.02) / np.sqrt(0.85)))
+    np.testing.assert_allclose(
+        result.ecl_term_structure.iloc[0]["pd_marginal"], expected, rtol=1e-12
+    )
+    assert result.detail.iloc[0]["pd_basis"] == "pit"
 
 
 # ─────────────────────────── PD PIT: consume_pit ───────────────────────────
@@ -775,3 +878,166 @@ def test_dependency_versions_no_instalado(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(engine_module.metadata, "version", raise_not_found)
     versions = engine_module._dependency_versions(_cfg())
     assert versions == {"pandas": "no_instalado", "numpy": "no_instalado"}
+
+
+# ─────────────────────────── guard anti escenario medio (runtime) ───────────────────────────
+
+
+def test_forbid_mean_scenario_single_falla() -> None:
+    """Con el guard activo, un escenario 'mean' en la term-structure aborta el cálculo."""
+    ts = _ts(scenario=["mean", "mean"])
+    with pytest.raises(IfrsConfigError, match="reservados"):
+        _run(_cfg(), _frame(), ts)
+
+
+def test_forbid_mean_scenario_case_insensitive() -> None:
+    """El veto de nombres reservados es case-insensitive ('Mean', 'AVERAGE')."""
+    ts = _ts(scenario=["Mean", "AVERAGE"])
+    with pytest.raises(IfrsConfigError, match="reservados"):
+        _run(_cfg(), _frame(), ts)
+
+
+def test_forbid_mean_scenario_escape_hatch_calcula() -> None:
+    """Con ``forbid_mean_scenario=False`` el cálculo procede (decisión consciente y auditada).
+
+    El nombre del escenario no cambia ningún número: mismo golden Stage 1 del caso base.
+    """
+    cfg = _cfg().model_copy(
+        update={
+            "scenarios": IfrsScenarioConfig(source="single", forbid_mean_scenario=False),
+        }
+    )
+    result = _run(cfg, _frame(), _ts(scenario=["mean", "mean"]))
+    np.testing.assert_allclose(result.detail.iloc[0]["ecl_reported"], _ECL_12M, rtol=1e-12)
+    assert result.card.scenarios == ("mean",)
+
+
+def test_forbid_mean_scenario_source_forward_falla() -> None:
+    """El guard cubre ``source='forward'``: 'weighted_mean_input' aborta antes de ponderar."""
+    cfg = _cfg().model_copy(
+        update={
+            "ead": IfrsEadConfig(method="provided"),
+            "lgd": IfrsLgdConfig(method="provided"),
+            "scenarios": IfrsScenarioConfig(source="forward"),
+        }
+    )
+    frame = _frame(ead=1000.0, lgd=1.0, eir=0.0)
+    ts = _ts(
+        pd_marginal=[0.10, 0.20],
+        periods=[1, 1],
+        scenario=["base", "weighted_mean_input"],
+        extra={"scenario_weight": [0.7, 0.3]},
+    )
+    with pytest.raises(IfrsConfigError, match="reservados"):
+        _run(cfg, frame, ts)
+
+
+# ─────────────────────────── LGD forward ignorada (FALTA-DATO-IFRS-6) ───────────────────────────
+
+
+def _cfg_forward_consume_pit() -> IfrsProvisioningConfig:
+    """Config del golden 73.0: forward + consume_pit, EAD/LGD provistas, horizonte 12m=1."""
+    return IfrsProvisioningConfig(
+        portfolio_col="portfolio",
+        pd=IfrsPdConfig(
+            term_structure_source="forward", pit_mode="consume_pit", horizon_12m_periods=1
+        ),
+        lgd=IfrsLgdConfig(method="provided"),
+        ead=IfrsEadConfig(method="provided"),
+        scenarios=IfrsScenarioConfig(source="forward"),
+        ecl=IfrsEclConfig(),
+    )
+
+
+def _ts_forward_multiescenario(**extra_cols: list[Any]) -> pd.DataFrame:
+    """Term-structure forward del golden 73.0, con columnas extra opcionales (p. ej. ``lgd``)."""
+    extra: dict[str, list[Any]] = {
+        "scenario_weight": [0.5, 0.3, 0.2],
+        "pd_basis": ["pit", "pit", "pit"],
+    }
+    extra.update(extra_cols)
+    return _ts(
+        pd_marginal=[0.05, 0.08, 0.12],
+        periods=[1, 1, 1],
+        scenario=["base", "adverso", "severo"],
+        extra=extra,
+    )
+
+
+def test_lgd_forward_ignorada_golden_invariante() -> None:
+    """La ECL es invariante ante ``ts['lgd']``: la LGD forward NO precede en v1.
+
+    Golden de contraste (documenta la materialidad del descarte): si la LGD forward
+    ``[0.9, 0.5, 0.2]`` precediera a la del frame (1.0), la ECL sería
+    ``0.5·(50·0.9) + 0.3·(80·0.5) + 0.2·(120·0.2) = 39.3``, no 73.0. Este test es el guard
+    que DEBE fallar cuando alguien implemente la precedencia sin pasar por su SDD.
+    """
+    frame = _frame(ead=1000.0, lgd=1.0, eir=0.0)
+    ts = _ts_forward_multiescenario(lgd=[0.9, 0.5, 0.2])
+    result = _run(_cfg_forward_consume_pit(), frame, ts)
+    np.testing.assert_allclose(result.detail.iloc[0]["ecl_reported"], 73.0, rtol=1e-12)
+    np.testing.assert_allclose(result.detail.iloc[0]["lgd"], 1.0)
+    assert set(result.ecl_term_structure["lgd"].tolist()) == {1.0}
+    assert "FALTA-DATO-IFRS-6" in result.card.falta_dato
+    assert "FALTA-DATO-IFRS-6" in result.staging.iloc[0]["warning_codes"]
+
+
+def test_lgd_forward_toda_nula_no_emite_warning() -> None:
+    """La columna ``lgd`` toda-``None`` (forward sin satellite LGD) no cuenta como LGD forward."""
+    frame = _frame(ead=1000.0, lgd=1.0, eir=0.0)
+    result = _run(_cfg_forward_consume_pit(), frame, _ts_forward_multiescenario(lgd=[None] * 3))
+    np.testing.assert_allclose(result.detail.iloc[0]["ecl_reported"], 73.0, rtol=1e-12)
+    assert "FALTA-DATO-IFRS-6" not in result.card.falta_dato
+
+
+def test_lgd_forward_ausente_no_emite_warning() -> None:
+    """Sin columna ``lgd`` en la ts (survival/markov) no se emite el aviso: no hay qué descartar."""
+    result = _run(_cfg(), _frame(), _ts())
+    assert "FALTA-DATO-IFRS-6" not in result.card.falta_dato
+
+
+def test_lgd_base_sola_no_emite_warning() -> None:
+    """``lgd_base`` poblada con ``lgd`` toda-``None`` NO emite el aviso (exclusión por diseño).
+
+    Es el output real de forward con ``target_components=('pd',)``: ``lgd_base`` es linaje de la
+    LGD base de entrada, sin condicionamiento macro — no hay información forward-looking perdida
+    (SDD-16 FALTA-DATO-IFRS-6, SDD-20 FALTA-DATO-FWD-6).
+    """
+    frame = _frame(ead=1000.0, lgd=1.0, eir=0.0)
+    ts = _ts_forward_multiescenario(lgd=[None] * 3, lgd_base=[0.4] * 3)
+    result = _run(_cfg_forward_consume_pit(), frame, ts)
+    np.testing.assert_allclose(result.detail.iloc[0]["ecl_reported"], 73.0, rtol=1e-12)
+    assert "FALTA-DATO-IFRS-6" not in result.card.falta_dato
+
+
+# ─────────────────────────── pesos cero: frontera forward→IFRS 9 ───────────────────────────
+
+
+def test_peso_cero_forward_aborta_en_ecl_engine() -> None:
+    """Una ts forward con un escenario de peso 0 aborta con IfrsEclError (fallo tardío, fijado).
+
+    Caracterización de la brecha 'pesos cero incompatibles': forward permite w=0 (SDD-20) pero
+    ningún ``scenarios.source`` de IFRS 9 puede consumir esa ts; el rechazo ocurre dentro de
+    ``EclEngine`` tras staging. La resolución de fondo queda como decisión posterior (SDD-16 §8).
+    """
+    frame = _frame(ead=1000.0, lgd=1.0, eir=0.0)
+    ts = _ts_forward_multiescenario(scenario_weight=[0.7, 0.3, 0.0])
+    with pytest.raises(IfrsEclError, match="estrictamente positivo"):
+        _run(_cfg_forward_consume_pit(), frame, ts)
+
+
+def test_peso_cero_filtrado_aguas_arriba_calcula() -> None:
+    """La vía soportada: excluir las filas del escenario peso-0 antes de entregar la ts.
+
+    Con pesos ``{base: 0.7, adverso: 0.3}`` el golden es ``0.7·50 + 0.3·80 = 59.0`` — idéntico
+    al teórico con peso 0 (contribución nula), lo que documenta el workaround sin cambio numérico.
+    """
+    frame = _frame(ead=1000.0, lgd=1.0, eir=0.0)
+    ts = _ts(
+        pd_marginal=[0.05, 0.08],
+        periods=[1, 1],
+        scenario=["base", "adverso"],
+        extra={"scenario_weight": [0.7, 0.3], "pd_basis": ["pit", "pit"]},
+    )
+    result = _run(_cfg_forward_consume_pit(), frame, ts)
+    np.testing.assert_allclose(result.detail.iloc[0]["ecl_reported"], 59.0, rtol=1e-12)

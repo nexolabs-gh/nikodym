@@ -420,9 +420,12 @@ def test_pesos_no_finitos() -> None:
         _compute_con_pesos({"base": float("nan")})
 
 
-def test_pesos_no_positivos() -> None:
+@pytest.mark.parametrize("peso", [0.0, -0.1])
+def test_pesos_no_positivos(peso: float) -> None:
+    """Peso 0 y negativo caen en el mismo guard; si algún día se relaja el 0 (frontera forward,
+    decisión de política pendiente), el negativo debe seguir fallando."""
     with pytest.raises(IfrsEclError, match="estrictamente positivo"):
-        _compute_con_pesos({"base": 0.0})
+        _compute_con_pesos({"base": peso})
 
 
 def test_pesos_no_cubren_escenarios() -> None:

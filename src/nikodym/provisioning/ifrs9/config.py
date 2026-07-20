@@ -42,6 +42,9 @@ __all__ = [
 
 # Tolerancia absoluta para exigir que los pesos de escenario sumen 1 (SDD-16 §5).
 _WEIGHT_SUM_TOL: float = 1e-9
+# Nombres de escenario vetados por el guard anti escenario medio (espejo de SDD-20/forward:
+# se ponderan outputs por escenario, nunca inputs macro promediados).
+_RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weighted_mean_input"})
 
 
 def _require_non_empty_strings(values: dict[str, str], *, context: str) -> None:
@@ -136,11 +139,23 @@ class IfrsPdConfig(NikodymBaseConfig):
 
     @model_validator(mode="after")
     def _check_pd(self) -> Self:
-        """Valida que las columnas opcionales de PD, si se informan, no queden en blanco."""
+        """Valida las columnas opcionales de PD y rechaza fail-fast ``rho_col`` (diferida en v1).
+
+        Guard fail-fast (mismo criterio que ``exposure_profile_col``): el motor v1 sólo consume
+        ``pd.rho`` escalar; aceptar ``rho_col`` y calcular con el escalar sería una degradación
+        silenciosa con etiqueta falsa. Se rechaza aquí, no se degrada en silencio. El campo se
+        conserva por compatibilidad de schema/UI; su consumo real queda diferido (P0 roadmap).
+        """
         _require_non_empty_if_set(
             {"rho_col": self.rho_col, "systemic_factor_col": self.systemic_factor_col},
             context="pd",
         )
+        if self.rho_col is not None:
+            raise IfrsConfigError(
+                "pd.rho_col (correlación heterogénea por fila) no está consumida por el "
+                "motor v1 y queda diferida: use pd.rho escalar por cartera. Honrar rho_col "
+                "en silencio con el escalar sería una degradación con etiqueta falsa."
+            )
         return self
 
 
@@ -468,6 +483,16 @@ class IfrsScenarioConfig(NikodymBaseConfig):
             raise IfrsConfigError(
                 f"scenarios.weights no puede tener nombres de escenario vacíos: {vacias}."
             )
+        if self.forbid_mean_scenario:
+            reservados = sorted(
+                name for name in self.weights if name.lower() in _RESERVED_SCENARIO_NAMES
+            )
+            if reservados:
+                raise IfrsConfigError(
+                    "scenarios.forbid_mean_scenario=True veta escenarios medios reservados "
+                    f"en weights: {reservados} (se ponderan outputs por escenario, nunca "
+                    "inputs macro promediados)."
+                )
         no_finitos = [name for name, value in self.weights.items() if not math.isfinite(value)]
         if no_finitos:
             raise IfrsConfigError(f"scenarios.weights debe contener pesos finitos: {no_finitos}.")
@@ -615,14 +640,18 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
         )
         _require_non_empty_if_set({"row_id_col": self.row_id_col}, context="provisioning_ifrs9")
         if self.fail_on_falta_dato and self.pd.pit_mode == "apply_vasicek":
-            if self.pd.rho is None and self.pd.rho_col is None:
+            if self.pd.rho is None:
                 raise IfrsConfigError(
-                    "pd.pit_mode='apply_vasicek' exige rho o rho_col para la transformación "
-                    "Vasicek."
+                    "pd.pit_mode='apply_vasicek' exige rho (escalar, por cartera) para la "
+                    "transformación Vasicek."
                 )
-            if self.pd.systemic_factor_col is None and self.scenarios.source != "forward":
+            if self.pd.systemic_factor_col is None:
+                # Sin exención por scenarios.source='forward': forward no publica un factor
+                # sistémico Z (sus curvas ya son PIT), así que ese Z implícito no existe.
                 raise IfrsConfigError(
-                    "pd.pit_mode='apply_vasicek' exige systemic_factor_col o "
-                    "scenarios.source='forward' para el factor sistémico Z."
+                    "pd.pit_mode='apply_vasicek' exige systemic_factor_col con el factor "
+                    "sistémico Z explícito en la term-structure; forward no publica Z y "
+                    "sus curvas ya son PIT (use pit_mode='consume_pit' para evitar el "
+                    "doble ajuste macro)."
                 )
         return self

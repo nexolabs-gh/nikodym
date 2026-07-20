@@ -1624,6 +1624,12 @@ _IFRS9_WARNING_LABELS: Final[dict[str, str]] = {
         "la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, "
         "porque el dataset no trae un perfil de exposición por período (código FALTA-DATO-IFRS-4)"
     ),
+    # SDD-20 FALTA-DATO-FWD-6: la LGD condicionada de forward no se consume en v1.
+    "FALTA-DATO-IFRS-6": (
+        "la LGD condicionada por escenario que publica la capa forward-looking no se consumió: "
+        "la LGD del cálculo proviene del enfoque configurado en el motor IFRS 9 "
+        "(código FALTA-DATO-IFRS-6)"
+    ),
 }
 
 

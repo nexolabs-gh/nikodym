@@ -84,6 +84,14 @@ _TS_SCENARIO_WEIGHT_COLUMN: str = "scenario_weight"
 _SUMMARY_SCENARIO_LABEL: str = "all"
 # Tolerancias de las invariantes tidy de la term-structure (SDD-16 §6).
 _TS_INVARIANT_TOL: float = 1e-9
+# Nombres de escenario vetados por el guard anti escenario medio (espejo de forward/SDD-20;
+# cubre las tres fuentes porque se valida antes del branch por ``scenarios.source``).
+_RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weighted_mean_input"})
+# La LGD condicionada que publica forward en la term-structure NO se consume en v1 (SDD-20
+# FALTA-DATO-FWD-6, precedencia pendiente de SDD): el motor estima la LGD desde el ``frame``
+# (``IfrsLgdConfig``) y declara el descarte con este aviso en vez de callarlo.
+_TS_LGD_COLUMN: str = "lgd"
+_WARNING_LGD_FORWARD_IGNORED: str = "FALTA-DATO-IFRS-6"
 
 # Columnas canónicas de los artefactos (deben coincidir exactamente con ``results.py``, que las
 # revalida al construir el ``IfrsProvisionResult``; una divergencia rompe los tests ruidosamente).
@@ -222,7 +230,9 @@ class IfrsProvisioningEngine:
         pd_pit_arr = numpy.array([pd_12m_by_rid[rid] for rid in row_ids], dtype=numpy.float64)
 
         lgd_arr = self._estimate_lgd(frame, eir_arr, numpy, pandas)
-        ead_arr, ead_warnings = self._estimate_ead(frame, numpy)
+        ead_arr, row_warnings = self._estimate_ead(frame, numpy)
+        if _ts_lgd_present(ts):
+            row_warnings = [(*codes, _WARNING_LGD_FORWARD_IGNORED) for codes in row_warnings]
         stage_arr, triggers, exempt = self._assign_staging(frame, pd_life_arr, pd_pit_arr, pandas)
 
         lgd_by_rid = dict(zip(row_ids, (float(value) for value in lgd_arr), strict=True))
@@ -252,7 +262,7 @@ class IfrsProvisioningEngine:
             eir=eir_by_rid,
             triggers=triggers,
             exempt=exempt,
-            warnings=dict(zip(row_ids, ead_warnings, strict=True)),
+            warnings=dict(zip(row_ids, row_warnings, strict=True)),
             weights=weights,
             pd_basis=pd_basis,
         )
@@ -271,6 +281,16 @@ class IfrsProvisioningEngine:
         scenarios_present = _ordered_unique(
             str(value) for value in ts[_TS_SCENARIO_COLUMN].tolist()
         )
+        if self._config.scenarios.forbid_mean_scenario:
+            reservados = sorted(
+                name for name in scenarios_present if name.lower() in _RESERVED_SCENARIO_NAMES
+            )
+            if reservados:
+                raise IfrsConfigError(
+                    "forbid_mean_scenario=True veta escenarios medios reservados en la "
+                    f"term-structure: {reservados} (se ponderan outputs por escenario, "
+                    "nunca inputs macro promediados)."
+                )
         source = self._config.scenarios.source
         if source == "single":
             if len(scenarios_present) != 1:
@@ -668,6 +688,17 @@ def _is_missing(value: Any) -> bool:
     return isinstance(value, float) and math.isnan(value)
 
 
+def _ts_lgd_present(ts: DataFrame) -> bool:
+    """Indica si la term-structure trae una columna ``lgd`` con al menos un valor no nulo.
+
+    Forward publica la columna toda-``None`` cuando el satellite no proyecta LGD; ese caso no
+    cuenta como LGD forward presente (no habría nada que descartar).
+    """
+    if _TS_LGD_COLUMN not in ts.columns:
+        return False
+    return bool(ts[_TS_LGD_COLUMN].notna().any())
+
+
 def _require_pit_basis(ts: DataFrame) -> None:
     """Exige que la term-structure venga etiquetada ``pd_basis='pit'`` para ``consume_pit``."""
     if _TS_PD_BASIS_COLUMN not in ts.columns:
@@ -683,10 +714,28 @@ def _require_pit_basis(ts: DataFrame) -> None:
         )
 
 
+def _forbid_pit_basis(ts: DataFrame) -> None:
+    """Rechaza aplicar Vasicek sobre una term-structure ya PIT (guard anti doble ajuste macro).
+
+    Espejo de :func:`_require_pit_basis`: columna ``pd_basis`` ausente (survival/markov) o toda
+    ``'ttc'`` pasa; cualquier otro conjunto (``'pit'`` de forward, mixto o faltantes) se rechaza.
+    """
+    if _TS_PD_BASIS_COLUMN not in ts.columns:
+        return
+    basis = {str(value) for value in ts[_TS_PD_BASIS_COLUMN].tolist()}
+    if basis != {"ttc"}:
+        raise IfrsConfigError(
+            "pit_mode='apply_vasicek' sólo admite term-structures TTC; la entrante declara "
+            f"pd_basis={sorted(basis)} (¿curvas PIT de forward? use pit_mode='consume_pit' "
+            "para evitar el doble ajuste macro)."
+        )
+
+
 def _apply_vasicek(
     ts: DataFrame, config: IfrsProvisioningConfig, marginal: NDArrayFloat, numpy: Any
 ) -> NDArrayFloat:
     """Transforma la PD TTC a PIT con Vasicek monofactorial (``rho`` escalar, ``Z``) (SDD-16 §3)."""
+    _forbid_pit_basis(ts)
     rho = config.pd.rho
     if rho is None:
         raise IfrsConfigError(

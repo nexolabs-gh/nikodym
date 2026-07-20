@@ -240,6 +240,18 @@ def test_pd_columnas_opcionales_vacias_levantan(field: str) -> None:
         IfrsPdConfig(**{field: " "})
 
 
+def test_pd_rho_col_rechazada_fail_fast() -> None:
+    """``rho_col`` se rechaza en construcción: el motor v1 no la consume (guard fail-fast)."""
+    with pytest.raises(IfrsConfigError, match=r"rho_col.*no está consumida"):
+        IfrsPdConfig(rho_col="rho_het")
+
+
+def test_pd_rho_col_con_rho_escalar_tambien_rechazada() -> None:
+    """``rho_col`` junto a ``rho`` también se rechaza: descartarla en silencio sería peor."""
+    with pytest.raises(IfrsConfigError, match=r"rho_col.*no está consumida"):
+        IfrsPdConfig(pit_mode="apply_vasicek", rho=0.15, rho_col="rho_het")
+
+
 # ─────────────────────────── validaciones de LGD ───────────────────────────
 
 
@@ -413,6 +425,21 @@ def test_scenarios_source_config_valido_ok() -> None:
     assert cfg.weights == {"base": 0.7, "adverso": 0.3}
 
 
+@pytest.mark.parametrize("reservado", ["mean", "average", "weighted_mean_input", "Mean"])
+def test_scenarios_weights_reservados_levantan(reservado: str) -> None:
+    """El guard anti escenario medio veta nombres reservados en weights (case-insensitive)."""
+    with pytest.raises(IfrsConfigError, match="reservados"):
+        IfrsScenarioConfig(source="config", weights={reservado: 0.5, "base": 0.5})
+
+
+def test_scenarios_weights_reservados_escape_hatch() -> None:
+    """Con ``forbid_mean_scenario=False`` el nombre reservado construye (decisión auditada)."""
+    cfg = IfrsScenarioConfig(
+        source="config", weights={"mean": 0.5, "base": 0.5}, forbid_mean_scenario=False
+    )
+    assert cfg.weights == {"mean": 0.5, "base": 0.5}
+
+
 @pytest.mark.parametrize("source", ["forward", "single"])
 def test_scenarios_source_no_config_ignora_weights(source: str) -> None:
     """Con ``source`` distinto de config no se validan los pesos (se ignoran)."""
@@ -445,13 +472,13 @@ def test_root_row_id_col_vacia_levanta() -> None:
 
 
 def test_apply_vasicek_sin_rho_levanta() -> None:
-    """``pit_mode='apply_vasicek'`` exige rho o rho_col cuando se falla ante FALTA-DATO."""
+    """``pit_mode='apply_vasicek'`` exige rho escalar cuando se falla ante FALTA-DATO."""
     with pytest.raises(IfrsConfigError, match="rho"):
         IfrsProvisioningConfig(pd=IfrsPdConfig(pit_mode="apply_vasicek", systemic_factor_col="z"))
 
 
 def test_apply_vasicek_sin_factor_sistemico_levanta() -> None:
-    """``pit_mode='apply_vasicek'`` exige systemic_factor_col o escenarios forward para Z."""
+    """``pit_mode='apply_vasicek'`` exige systemic_factor_col con el Z explícito, siempre."""
     with pytest.raises(IfrsConfigError, match="systemic_factor_col"):
         IfrsProvisioningConfig(
             pd=IfrsPdConfig(pit_mode="apply_vasicek", rho=0.15),
@@ -467,13 +494,17 @@ def test_apply_vasicek_completo_ok() -> None:
     assert cfg.pd.pit_mode == "apply_vasicek"
 
 
-def test_apply_vasicek_rho_con_escenarios_forward_ok() -> None:
-    """``pit_mode='apply_vasicek'`` con rho y Z desde escenarios forward construye."""
-    cfg = IfrsProvisioningConfig(
-        pd=IfrsPdConfig(pit_mode="apply_vasicek", rho=0.15),
-        scenarios=IfrsScenarioConfig(source="forward"),
-    )
-    assert cfg.scenarios.source == "forward"
+def test_apply_vasicek_forward_sin_z_levanta() -> None:
+    """``scenarios.source='forward'`` ya no exime el Z: forward no publica factor sistémico.
+
+    Invierte el contrato previo (que prometía un Z implícito inexistente y reventaba tarde en
+    runtime): ahora el config falla en construcción y dirige a ``consume_pit``.
+    """
+    with pytest.raises(IfrsConfigError, match="consume_pit"):
+        IfrsProvisioningConfig(
+            pd=IfrsPdConfig(pit_mode="apply_vasicek", rho=0.15),
+            scenarios=IfrsScenarioConfig(source="forward"),
+        )
 
 
 def test_apply_vasicek_sin_fail_on_falta_dato_no_valida() -> None:

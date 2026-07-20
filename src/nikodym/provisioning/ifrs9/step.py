@@ -147,7 +147,11 @@ class IfrsProvisioningStep(AuditableMixin):
         self.log_decision(
             regla="ifrs9_pit",
             umbral=config.pd.pit_mode,
-            valor={"rho": config.pd.rho, "systemic_factor_col": config.pd.systemic_factor_col},
+            valor={
+                "rho": config.pd.rho,
+                "rho_col": config.pd.rho_col,
+                "systemic_factor_col": config.pd.systemic_factor_col,
+            },
             accion="resolver_pd_pit",
         )
         self.log_decision(
@@ -162,7 +166,12 @@ class IfrsProvisioningStep(AuditableMixin):
         self.log_decision(
             regla="ifrs9_lgd",
             umbral=config.lgd.method,
-            valor={"lgd_floor": config.lgd.lgd_floor, "lgd_cap": config.lgd.lgd_cap},
+            valor={
+                "lgd_floor": config.lgd.lgd_floor,
+                "lgd_cap": config.lgd.lgd_cap,
+                # La LGD forward de la term-structure no se consume en v1 (FALTA-DATO-IFRS-6).
+                "lgd_forward_presente": "FALTA-DATO-IFRS-6" in card.falta_dato,
+            },
             accion="estimar_lgd",
         )
         self.log_decision(
