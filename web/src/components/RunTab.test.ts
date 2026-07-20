@@ -6,14 +6,18 @@
  *
  * Igual que `bootstrap.test.ts`, el runner corre en `node` (sin DOM: no hay jsdom ni
  * testing-library y el goal veta deps nuevas), así que se prueba la LÓGICA con deps inyectadas —
- * `applyPreset`, el flujo REAL que usan tanto `RunTab.handlePreset` (selector in-workspace) como
- * `App.enterDemo` (selector del landing)— más un guardrail estático (`?raw`) de que ambos callers
- * siguen enrutando por `applyPreset` (si alguno vuelve a resembrar inline, se pierde el corte).
+ * `applyPreset`, el flujo REAL que usan los tres callers que cambian de preset: `RunTab.handlePreset`
+ * (selector in-workspace), `App.enterDemo` (selector del landing) y `ConfigTab.handleLoadPreset`
+ * ("Configuración estándar")— más guardrails estáticos (`?raw`) de que los tres siguen enrutando por
+ * `applyPreset` (si alguno vuelve a resembrar inline, se pierde el corte) y de que la OTRA ruta de
+ * ConfigTab, `handleStartBlank` ("Empezar de cero", sin preset → sin `applyPreset`), corta igual
+ * results/lastRun. Sin esos cortes, Resultados/Reporte quedaban con lineage mixto del dominio viejo.
  */
 
 import { describe, expect, it, vi } from "vitest"
 
 import appSource from "@/App.tsx?raw"
+import configTabSource from "@/components/ConfigTab.tsx?raw"
 import { applyPreset, type PresetSwitchDeps } from "@/components/RunTab"
 import runTabSource from "@/components/RunTab.tsx?raw"
 import type { PresetResponse, ResultsResponse } from "@/lib/api"
@@ -121,5 +125,28 @@ describe("los callers enrutan el cambio de preset por applyPreset (guardrail de 
 
   it("App.enterDemo delega en applyPreset al entrar con un preset del landing", () => {
     expect(appSource).toMatch(/await applyPreset\(/)
+  })
+
+  it('ConfigTab.handleLoadPreset ("Configuración estándar") delega en applyPreset (3er caller, mismo corte)', () => {
+    // Importa applyPreset desde RunTab…
+    expect(configTabSource).toMatch(
+      /import\s*\{[^}]*\bapplyPreset\b[^}]*\}\s*from\s*"@\/components\/RunTab"/,
+    )
+    // …y lo invoca (no re-siembra inline, que perdería el corte de results/lastRun).
+    expect(configTabSource).toMatch(/await applyPreset\(/)
+  })
+})
+
+describe('ConfigTab: "Empezar de cero" corta la corrida previa (ruta sin preset → sin applyPreset)', () => {
+  it("handleStartBlank limpia results y lastRun, para no dejar el dominio viejo en Resultados/Reporte", () => {
+    // Acota al CUERPO del handler (hasta el cierre `}, [` del useCallback) para no colar un
+    // setResults/setLastRun que viviera en otra parte del archivo (p.ej. otro handler).
+    const body =
+      configTabSource.match(
+        /const handleStartBlank = useCallback\(([\s\S]*?)\}, \[/,
+      )?.[1] ?? ""
+    expect(body).not.toBe("")
+    expect(body).toMatch(/setResults\(null\)/)
+    expect(body).toMatch(/setLastRun\(null\)/)
   })
 })

@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 
 import { FieldRenderer } from "@/components/FieldRenderer"
+import { applyPreset } from "@/components/RunTab"
 import {
   Accordion,
   AccordionContent,
@@ -220,37 +221,70 @@ function ConfigSectionForm(props: {
 export function ConfigTab({ section }: { section: string }) {
   // El schema, el config, su validación, la siembra y el dataset elegido viven en el store
   // compartido (useAppState); solo las acciones YAML y sus estados son locales a esta pestaña.
-  const { schema, config, setConfig, seed, setSeed, setDatasetId, validation } =
-    useAppState()
+  const {
+    schema,
+    config,
+    setConfig,
+    seed,
+    setSeed,
+    setDatasetId,
+    setSelectedDataset,
+    setResults,
+    setLastRun,
+    validation,
+  } = useAppState()
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
   const [presetBusy, setPresetBusy] = useState(false)
   const [presetError, setPresetError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  // "Configuración estándar": recarga el preset del backend y lo siembra (getPreset → setConfig).
+  // "Configuración estándar": recarga el preset estándar del backend y lo resiembra por el MISMO
+  // `applyPreset` que usan RunTab/enterDemo, para que —además de sembrar config/dataset/seed— CORTE
+  // la corrida previa (results/lastRun). Sin ese corte (bug P0), Resultados y Reporte seguían
+  // mostrando el dominio VIEJO con lineage mixto. El endpoint estándar (`getPreset`, sin id) ignora
+  // el `presetId`; RunTab está DESMONTADO en esta pestaña, así que `resetOutcome` es no-op (su
+  // outcome remonta idle solo al volver a Ejecutar) — el corte esencial es el de results/lastRun.
   const handleLoadPreset = useCallback(async () => {
     setPresetError(null)
     setPresetBusy(true)
     try {
-      const preset = await getPreset()
-      setConfig(structuredClone(preset.config))
-      setDatasetId(preset.dataset_id) // el preset trae el dataset recomendado (habilita Ejecutar)
-      setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
+      await applyPreset("", {
+        getPreset: () => getPreset(),
+        setConfig,
+        setDatasetId,
+        setSelectedDataset,
+        setSeed,
+        setResults,
+        setLastRun,
+        resetOutcome: () => {},
+      })
     } catch (err) {
       setPresetError(yamlErrorMessage(err))
     } finally {
       setPresetBusy(false)
     }
-  }, [setConfig, setDatasetId, setSeed])
+  }, [
+    setConfig,
+    setDatasetId,
+    setSelectedDataset,
+    setSeed,
+    setResults,
+    setLastRun,
+  ])
 
-  // "Empezar de cero": siembra el config mínimo del schema (defaults vacíos) — sin backend.
+  // "Empezar de cero": siembra el config mínimo del schema (defaults vacíos) — sin backend — y CORTA
+  // la corrida previa (results/lastRun). "De cero" cambia de dominio, así que Resultados y Reporte no
+  // deben seguir mostrando la corrida anterior con lineage mixto (mismo P0 que el cambio de preset).
   const handleStartBlank = useCallback(() => {
     setPresetError(null)
     setConfig(structuredClone(schema?.payload.defaults ?? {}))
     setDatasetId(null) // "de cero" no trae dataset → Ejecutar queda bloqueado hasta elegir uno
     setSeed({ kind: "defaults" })
-  }, [schema, setConfig, setDatasetId, setSeed])
+    // Corte con la corrida previa: evita el lineage mixto en Resultados/Reporte.
+    setResults(null)
+    setLastRun(null)
+  }, [schema, setConfig, setDatasetId, setSeed, setResults, setLastRun])
 
   const setField = useCallback(
     (path: Path, value: unknown) => {
