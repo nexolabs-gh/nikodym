@@ -24,12 +24,53 @@ import {
   getResults,
   listPresets,
   runPipeline,
+  type PresetResponse,
   type PresetSummary,
   type RunStatus,
 } from "@/lib/api"
 import { presetDisplay } from "@/lib/presentation"
 import { canRun, describeApiError } from "@/lib/validation"
-import { useAppState } from "@/state/appStore"
+import { useAppState, type AppState } from "@/state/appStore"
+
+/**
+ * Dependencias del cambio de preset (SDD-28), inyectadas para poder ejercitar el flujo sin montar
+ * React (mismo patrón que `bootstrapWorkspace`): la API que trae el preset y los setters del store
+ * que se resiembran o se LIMPIAN. `resetOutcome` limpia el estado local de la corrida en Ejecutar;
+ * al entrar desde el landing ese estado aún no existe (RunTab monta en idle), así que allí es no-op.
+ */
+export interface PresetSwitchDeps {
+  getPreset: (presetId: string) => Promise<PresetResponse>
+  setConfig: AppState["setConfig"]
+  setDatasetId: AppState["setDatasetId"]
+  setSelectedDataset: AppState["setSelectedDataset"]
+  setSeed: AppState["setSeed"]
+  setResults: AppState["setResults"]
+  setLastRun: AppState["setLastRun"]
+  resetOutcome: () => void
+}
+
+/**
+ * Resiembra el config y el dataset recomendado del preset elegido y CORTA con la corrida anterior
+ * (results / lastRun / outcome). Sin ese corte (bug P0): tras ejecutar un dominio y cambiar a otro
+ * sin re-ejecutar, Resultados y Reporte seguían mostrando el dominio VIEJO con lineage mixto y la
+ * tarjeta "Corrida completada" conservaba el outcome anterior. Lógica pura (sin React): los efectos
+ * van por `deps`, así el flujo completo (incluido el corte) se prueba sin DOM. La usan tanto
+ * `RunTab.handlePreset` (selector in-workspace) como `App.enterDemo` (selector del landing).
+ */
+export async function applyPreset(
+  presetId: string,
+  deps: PresetSwitchDeps,
+): Promise<void> {
+  const preset = await deps.getPreset(presetId)
+  deps.setConfig(structuredClone(preset.config))
+  deps.setDatasetId(preset.dataset_id)
+  deps.setSelectedDataset(null)
+  deps.setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
+  // Corte con la corrida previa: su dominio ya no aplica al preset recién sembrado.
+  deps.setResults(null)
+  deps.setLastRun(null)
+  deps.resetOutcome()
+}
 
 interface RunTabProps {
   /** Navega a otra sección del shell (la navegación vive en App, no en el store). */
@@ -110,18 +151,25 @@ export function RunTab({ onNavigate }: RunTabProps) {
       ? (presets.find((p) => p.name === seed.name) ?? null)
       : null
 
-  // Cambia de preset: pide su detalle (`GET /api/config/preset/{id}`) y RESIEMBRA el config y su
-  // dataset recomendado (el provider revalida solo al cambiar el config). Reinicia el preview del
-  // dataset para que Datos lo re-derive. Falla en silencio: el selector nunca rompe la app.
+  // Cambia de preset: pide su detalle (`GET /api/config/preset/{id}`), RESIEMBRA el config y su
+  // dataset recomendado (el provider revalida solo al cambiar el config), reinicia el preview del
+  // dataset y CORTA con la corrida anterior (results/lastRun/outcome) vía `applyPreset`, para que
+  // Resultados/Reporte/tarjeta no sigan mostrando el dominio viejo. Falla en silencio: el selector
+  // nunca rompe la app; si el detalle no llega, el preset vigente (y su corrida) siguen intactos.
   async function handlePreset(presetId: string) {
     if (switching || running) return
     setSwitching(true)
     try {
-      const preset = await getPresetById(presetId)
-      setConfig(structuredClone(preset.config))
-      setDatasetId(preset.dataset_id)
-      setSelectedDataset(null)
-      setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
+      await applyPreset(presetId, {
+        getPreset: getPresetById,
+        setConfig,
+        setDatasetId,
+        setSelectedDataset,
+        setSeed,
+        setResults,
+        setLastRun,
+        resetOutcome: () => setOutcome({ kind: "idle" }),
+      })
     } catch {
       /* no se pudo cambiar de preset: el actual sigue vigente; el usuario puede reintentar. */
     } finally {
