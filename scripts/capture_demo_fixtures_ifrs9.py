@@ -42,7 +42,9 @@ WeasyPrint; en macOS con Homebrew antepone ``DYLD_FALLBACK_LIBRARY_PATH=/opt/hom
 from __future__ import annotations
 
 import json
-import tempfile
+import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -53,12 +55,41 @@ if TYPE_CHECKING:
     from starlette.testclient import TestClient
 
 PRESET_ID = "f4-ifrs9-retail"
-_FIXTURES_DIR = Path(__file__).resolve().parent.parent / "web" / "src" / "fixtures" / "demo"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_FIXTURES_DIR = _PROJECT_ROOT / "web" / "src" / "fixtures" / "demo"
+_CAPTURE_WORKDIR_NAME = ".nikodym-demo-fixtures-f4"
 _COVERAGE_MIN, _COVERAGE_MAX = 0.01, 0.15  # rango creíble de retail (el ⚑ checkpoint del número)
 _EXPECTED_F4_STAGES = (5_235, 477, 288)
 _EXPECTED_F4_EAD = 114_325_315
 _EXPECTED_F4_ECL = 3_423_116
 _EXPECTED_F4_SURVIVAL = (6_000, 1_502)
+
+
+@contextmanager
+def _canonical_capture_workdir() -> Iterator[Path]:
+    """Crea el workdir relativo estable, bloquea dos writers y siempre lo limpia.
+
+    Igual que el capture F3: un ``workdir`` **relativo y canónico** bajo la raíz del checkout, para
+    que ``data.load.source`` conserve el mismo identificador POSIX en macOS/Linux/Windows y no
+    publique una ruta del host (``/var/folders/.../T/tmp...``) ni mueva el ``config_hash`` entre
+    checkouts. El directorio se crea en exclusión mutua y se elimina aun si la corrida falla.
+    """
+    workdir = Path(_CAPTURE_WORKDIR_NAME)
+    resolved = workdir.resolve()
+    if resolved.parent != Path.cwd().resolve():  # defensa ante una edición futura del nombre
+        raise RuntimeError(f"el workdir de captura escaparía del checkout: {resolved}")
+    try:
+        workdir.mkdir()
+    except FileExistsError as exc:
+        raise RuntimeError(
+            f"el workdir canónico de captura ya existe: {workdir}. "
+            "Comprueba que no haya otra captura activa y elimina el residuo de forma explícita."
+        ) from exc
+    try:
+        yield workdir
+    finally:
+        # Limpia el target que validamos/creamos, aunque código interno haya cambiado el CWD.
+        shutil.rmtree(resolved)
 
 
 def _get(client: TestClient, path: str) -> Any:
@@ -277,8 +308,11 @@ def verify_artifacts() -> None:
 
 def main() -> None:
     """Captura, verifica el número, escribe los 7 fixtures y re-verifica el artefacto escrito."""
-    with tempfile.TemporaryDirectory() as tmp:
-        app = create_app(UiConfig(workdir=tmp))
+    if Path.cwd().resolve() != _PROJECT_ROOT:
+        raise RuntimeError(f"ejecuta la captura desde la raíz del repositorio: {_PROJECT_ROOT}")
+    with _canonical_capture_workdir() as workdir:
+        settings = UiConfig(workdir=str(workdir))
+        app = create_app(settings)
         # Import perezoso: TestClient (starlette) vive en el extra [ui], como el resto del backend.
         from starlette.testclient import TestClient
 
