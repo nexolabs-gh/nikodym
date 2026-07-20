@@ -106,8 +106,12 @@ class IfrsPdConfig(NikodymBaseConfig):
     )
     rho_col: str | None = Field(
         default=None,
-        title="Columna de rho por fila",
-        description="Columna que sobrescribe rho por fila cuando la correlación es heterogénea.",
+        title="Columna de rho por fila (reservada)",
+        description=(
+            "Reservada, no consumida por el motor v1: la correlación heterogénea por fila está "
+            "diferida. El motor sólo usa `pd.rho` escalar por cartera y rechaza fail-fast este "
+            "campo si se fija (honrarlo con el escalar sería una degradación con etiqueta falsa)."
+        ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "PD", "ui_order": 5},
     )
     systemic_factor_col: str | None = Field(
@@ -623,10 +627,13 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
     )
     fail_on_falta_dato: bool = Field(
         default=True,
-        title="Fallar ante brechas críticas de dato",
+        title="Rechazo fail-fast de configuración PIT inconsistente",
         description=(
-            "Si es True, una brecha crítica de dato (p. ej. Vasicek sin rho/Z) falla en vez de "
-            "marcar FALTA-DATO."
+            "Con True (default), la validación rechaza fail-fast una configuración PIT "
+            "inconsistente —`pit_mode='apply_vasicek'` sin `pd.rho` escalar o sin factor "
+            "sistémico Z—, adelantando a validación el error que el motor daría igual en el "
+            "cálculo. En v1 no habilita un modo alternativo que «marque FALTA-DATO y continúe» "
+            "para ese caso."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 2},
     )
