@@ -69,10 +69,12 @@ Thumbs.db
 
 # Artefactos de corridas locales del pipeline (output_dir relativo por defecto = "reports")
 /reports/
-# Workdir transitorio de la captura canónica F3
+# Workdir transitorio de la captura canónica (F1/F3/F4)
+/.nikodym-demo-fixtures-f1/
 /.nikodym-demo-fixtures-f3/
+/.nikodym-demo-fixtures-f4/
 
-# Proceso interno de auto-desarrollo (vive en el repo privado nexolabs-gh/autodesarrollo)
+# Proceso interno de auto-desarrollo (motor = skill auto-desarrollo-claude; contexto en /privado/ local)
 HANDOFF.md
 AUTONOMY-LOG.md
 docs/AUTONOMY.md
