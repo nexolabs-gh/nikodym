@@ -183,13 +183,13 @@ def test_metodologia_redacta_los_parametros_reales_del_config() -> None:
     # Parámetros reales del BinningConfig del Study (solver mip, 4 bins, min_bin_size 0.10).
     assert "programación entera mixta (MIP)" in binning
     assert "máximo de 4 bins por variable" in binning
-    assert "10.00 % de la población" in binning
+    assert "10,00 % de la población" in binning
     assert "ascendente o descendente" in binning  # monotonic_trend="auto_asc_desc"
 
     # Umbrales reales del SelectionConfig (min_iv=0.03, VIF 4.5, correlación spearman 0.80).
-    assert "IV inferior a 0.03" in seleccion
-    assert "VIF bajo 4.5" in seleccion
-    assert "(spearman) sobre 0.80" in seleccion
+    assert "IV inferior a 0,03" in seleccion
+    assert "VIF bajo 4,5" in seleccion
+    assert "(spearman) sobre 0,80" in seleccion
 
     # Cero alucinación: sin card de scorecard/calibration en el fixture, no hay prosa inventada.
     assert "methodology.scorecard" not in by_id

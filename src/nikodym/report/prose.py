@@ -2029,14 +2029,18 @@ def _num(value: Any, *, decimals: int = 4) -> str:
         return _NOT_AVAILABLE
     if numeric == 0.0:
         numeric = 0.0
-    return f"{numeric:.{decimals}f}"
+    # Coma decimal (es-CL), coherente con `_pct`/`_clp`/`_miles`. `_num` no usa separador de miles,
+    # así que el único punto del formato fijo es el decimal.
+    return f"{numeric:.{decimals}f}".replace(".", ",")
 
 
 def _pct(value: Any, *, decimals: int = 2) -> str:
     numeric = _float(value)
     if numeric is None:
         return _NOT_AVAILABLE
-    return f"{numeric * 100:.{decimals}f} %"
+    # Coma decimal (es-CL): el separador de miles ya es punto en `_clp`/`_miles`; un porcentaje
+    # con punto decimal (`2.99 %`) rompe la convención chilena del informe (`2,99 %`).
+    return f"{numeric * 100:.{decimals}f} %".replace(".", ",")
 
 
 def _clp(value: Any) -> str:
