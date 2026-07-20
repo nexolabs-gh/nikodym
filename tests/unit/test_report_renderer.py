@@ -550,7 +550,12 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
     assert report_pkg.HtmlReportRenderer is HtmlReportRenderer
     assert report_pkg.PdfReportRenderer is PdfReportRenderer
 
-    assert renderer_module._display_scalar(None, key_path=("x",)) == "No disponible"
+    assert renderer_module._display_scalar(None, key_path=("x",)) == "—"
+    # Celda vacía unificada: NaN float y el sentinel de dominio "none" (iv_band/expected_sign/action)
+    # no se vuelcan crudos ("nan"/"none"), sino como el mismo em-dash que `None`.
+    assert renderer_module._display_scalar(float("nan"), key_path=("x",)) == "—"
+    assert renderer_module._display_scalar("none", key_path=("action",)) == "—"
+    assert renderer_module._format_float(float("nan"), key_path=("x",)) == "—"
     assert renderer_module._display_scalar(True, key_path=("x",)) == "true"
     assert renderer_module._display_scalar(7, key_path=("x",)) == "7"
     assert renderer_module._display_scalar({"b": 2, "a": -0.0}, key_path=("x",)) == (
@@ -587,7 +592,9 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
     assert renderer_module._table_view("x.frame", FrameLike(), max_rows=10)["rows"] == [
         ("0.000000",)
     ]
-    assert renderer_module._format_float(float("nan"), key_path=("x",)) == "nan"
+    assert renderer_module._format_float(float("nan"), key_path=("x",)) == "—"
+    # inf/-inf se conservan crudos a propósito: un infinito es un valor anómalo real que debe saltar
+    # a la vista del validador, no ocultarse como celda vacía.
     assert renderer_module._format_float(float("inf"), key_path=("x",)) == "inf"
     assert renderer_module._format_float(float("-inf"), key_path=("x",)) == "-inf"
     assert renderer_module._stable_json({"b": -0.0, "a": object()}) == (

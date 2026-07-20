@@ -912,9 +912,17 @@ def _display_json_value(value: Any, *, key_path: tuple[str, ...]) -> JSONValue:
     return {"unsupported_type": type(value).__name__}
 
 
+# Marcador único de celda sin valor en tablas/lineage del informe: em-dash (convención de estados
+# financieros para nil/ninguno/no-aplica). Unifica el `None` de Python, el `NaN`/`inf` de un float
+# y el sentinel de dominio `"none"` (p. ej. `iv_band`/`expected_sign`/`action` = "sin banda/signo/
+# acción"), que de otro modo se volcaban crudos ("nan"/"none"). No afirma "dato no disponible" —no
+# engaña— ni altera los enums de la API de results ni el `data_hash`: es sólo presentación.
+_EMPTY_CELL: Final[str] = "—"
+
+
 def _display_scalar(value: Any, *, key_path: tuple[str, ...]) -> str:
     if value is None:
-        return "No disponible"
+        return _EMPTY_CELL
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, int) and not isinstance(value, bool):
@@ -925,7 +933,8 @@ def _display_scalar(value: Any, *, key_path: tuple[str, ...]) -> str:
         return _display_value(value.model_dump(mode="python"), key_path=key_path)
     if isinstance(value, Mapping | Sequence) and not isinstance(value, str | bytes | bytearray):
         return _display_value(value, key_path=key_path)
-    return str(value)
+    text = str(value)
+    return _EMPTY_CELL if text == "none" else text
 
 
 def _format_float(value: float, *, key_path: tuple[str, ...]) -> str:
@@ -933,7 +942,7 @@ def _format_float(value: float, *, key_path: tuple[str, ...]) -> str:
         value = 0.0
     if not math.isfinite(value):
         if math.isnan(value):
-            return "nan"
+            return _EMPTY_CELL
         return "inf" if value > 0 else "-inf"
     key = ".".join(key_path).lower()
     if _is_percent_key(key):
