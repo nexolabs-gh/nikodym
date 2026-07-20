@@ -1023,11 +1023,16 @@ function ProvisioningHeadlineCard({
     <Card className="shadow-card">
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
-          <p className="text-sm font-medium text-eyebrow">
-            {standardBinds
-              ? "Sobrecosto del método estándar (CMF Cap. B-1)"
-              : "El método interno supera al estándar"}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-eyebrow">
+              {standardBinds
+                ? "Sobrecosto del método estándar (CMF Cap. B-1)"
+                : "El método interno supera al estándar"}
+            </p>
+            <span className="rounded-full border border-amber-400/30 bg-amber-400/[0.06] px-2 py-0.5 text-[0.68rem] font-medium text-amber-200/90">
+              Experimental · fuera de garantía SemVer 1.x
+            </span>
+          </div>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <p className="font-heading text-3xl font-semibold tabular-nums text-foreground">
               {formatClp(gap)}
