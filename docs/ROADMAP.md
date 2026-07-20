@@ -4,11 +4,11 @@
 |---|---|
 | **Documento** | Estado por capacidad y plan de evolución |
 | **Versión** | 1.2 |
-| **Fecha** | 2026-07-19 |
+| **Fecha** | 2026-07-20 |
 | **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.1 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
-El código y tag de Nikodym están en `1.3.0`, pero la API oficial de PyPI seguía mostrando `1.2.0` como
-última publicación el 2026-07-19. `main` se encuentra en mejora continua y está por delante del tag.
+El código, el tag `v1.3.0` y PyPI están en `1.3.0`. `main` se encuentra en mejora continua y está por
+delante del tag (próximo release = bump `1.4.0` con OK de Cami).
 Las fases F0–F8 que siguen conservan el diseño y los DoD históricos; **no son una cola automática**.
 El estado y el plan de esta sección son la fuente vigente.
 
@@ -39,14 +39,16 @@ El estado y el plan de esta sección son la fuente vigente.
    caracterizados como frontera con tests (resolución de fondo = decisión de política pendiente);
    LGD forward ignorada ahora con aviso auditado `FALTA-DATO-IFRS-6` y golden invariante
    (precedencia pendiente de SDD propio).
-3. Ejecutar una campaña adversarial autónoma y finita de **14 horas** sobre la demo F1/F3/F4: tarjeta, preset,
-   dataset, resultados, lineage e informes HTML/PDF/Word/ZIP.
-4. Reproducir específicamente el riesgo de resultados obsoletos al cambiar de preset. Corregir sólo
-   defectos **P0/P1 verificables**; no recapturar ni redesplegar por cosmética P2.
-5. Ejecutar gates completos, revisión independiente y verificar el activo desplegado contra el SHA
-   aprobado.
-6. Congelar código, fixtures, informes y deploy a más tardar el **2026-07-21** para la reunión
-   Interbank del **2026-07-22**. No crear un tag adicional ni publicar PyPI en esta campaña.
+3. ✅ **Cerrado (2026-07-20).** Campaña adversarial de la demo F1/F3/F4: caza por 7 ejes → 4 fixes P0/P1
+   integrados en `main` (P0 estado obsoleto al cambiar de preset en los 4 caminos; P1 selector de dataset;
+   P1 fuga de ruta host en informes F1/F4; P1 `toyaml` stale), con revisor fresco por candidato.
+4. ✅ **Cerrado (2026-07-20).** Reproducido el riesgo de resultados obsoletos al cambiar de preset (era
+   real) y corregido. Sólo se tocaron P0/P1 verificables.
+5. ✅ **Cerrado (2026-07-20).** Gates completos verdes (12/12), revisión independiente y `demo.nikodym.cl`
+   re-deployada y verificada por hash contra el SHA aprobado (`1aba6cf`).
+6. Congelar código, fixtures, informes y deploy antes de la reunión Interbank del **2026-07-22**. Objetivo
+   hacia el 2026-07-21; al 2026-07-20 Cami optó por seguir mejorando (pulido P2/P3 + SDD to-yaml +
+   descriptions) y publicar `1.4.0` al final. No se crea tag ni se publica PyPI sin OK específico de Cami.
 
 En paralelo permanece un gate humano separado: validar las matrices CMF celda a celda y resolver los
 haircuts remitidos a normativa complementaria. Hasta entonces no existe certificación normativa.
@@ -224,8 +226,8 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 ---
 
 ## Estrategia de release (open-source)
-- `1.3.0` es la versión del código/tag; PyPI continúa en `1.2.0` hasta una publicación explícita.
-  El pipeline F1 conserva la garantía SemVer 1.x.
+- `1.3.0` es la versión del código/tag y la publicada en PyPI; el próximo release será `1.4.0` (bump
+  con OK específico de Cami). El pipeline F1 conserva la garantía SemVer 1.x.
 - Releases incrementales con changelog, docs MkDocs, dataset/tutorial reproducible y smoke clean-room.
 - Cada tag y publicación PyPI requiere OK específico de Cami; push/deploy ordinarios no sustituyen ese gate.
 

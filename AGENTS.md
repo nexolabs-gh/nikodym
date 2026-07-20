@@ -9,11 +9,10 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-19)
-El código y el tag `v1.3.0` conservan el corte `89583dd`, pero la API oficial de PyPI seguía mostrando
-`1.2.0` como última publicación el 2026-07-19. `main` está 19 commits por delante del tag; el SHA vigente
-queda registrado en `HANDOFF.md`. Tratar `1.3.0` como versión del código/tag, no como paquete público
-confirmado, hasta completar una publicación con OK específico de Cami. La librería
+## Estado del proyecto (2026-07-20)
+PyPI publica **`1.3.0`** (RC IBK-05 quedó como release); el tag `v1.3.0` apunta a `89583dd` y `main` está
+~33 commits adelante del tag (el SHA vigente queda en `HANDOFF.md`). El próximo release será un bump a
+`1.4.0` con OK específico de Cami. La librería
 ya **no** está en fase de construcción por capas — está publicada y en mejora continua:
 - **Pipeline scorecard F1 (comportamiento)**: API **estable** bajo garantía **SemVer 1.x** (binning WoE
   monotónico, selección IV/VIF, logística sobre WoE, calibración, informe HTML/PDF/Word).
@@ -30,17 +29,17 @@ ya **no** está en fase de construcción por capas — está publicada y en mejo
 
 **Track pre-Interbank COMPLETO:** la cola [`privado/COLA-CODEX-INTERBANK.md`](privado/COLA-CODEX-INTERBANK.md)
 (IBK-01…IBK-05) está **toda cerrada** al 2026-07-17. **IBK-05 (`89583dd`, tag `v1.3.0`) dejó el candidato
-y la demo con lineage 1.3.0**, pero PyPI continúa en 1.2.0; no afirmar que 1.3.0 está publicado. **No hay
-bloque IBK siguiente.** Reunión **Interbank miércoles 2026-07-22** (congelar demo ≤
-martes 21). El **tag `vX.Y.Z` y PyPI exigen OK específico de Cami por release** (el OK permanente cubre
+y la demo con lineage 1.3.0; PyPI ya publica 1.3.0.** **No hay
+bloque IBK siguiente.** Reunión **Interbank miércoles 2026-07-22** (objetivo de congelar la demo hacia el
+martes 21, con margen a criterio de Cami; al 2026-07-20 se optó por seguir mejorando — ver `HANDOFF.md`). El **tag `vX.Y.Z` y PyPI exigen OK específico de Cami por release** (el OK permanente cubre
 push/deploy, no tag/PyPI). **Arrancar toda sesión leyendo [`HANDOFF.md`](HANDOFF.md).**
 
 ## Auto-desarrollo (motor de trabajo)
 Para una ejecución autónoma usar la skill explícitamente pedida por Cami y una tarea standalone o
 efímera: coordinador, un único writer, gates, revisor adversarial fresco e integración final. No usar
 un heartbeat que acumule contexto. La **maquinaria tmux multi-motor está FROZEN** (histórica):
-`autodev-cron`, watchdog, maestro headless y los perfiles por motor ya no corren. Detalle histórico en
-`docs/AUTONOMY.md`. La construcción por Tandas/SDD y el Hito 0 de contratos transversales (CT-1…CT-4)
+`autodev-cron`, watchdog, maestro headless y los perfiles por motor ya no corren. La construcción por
+Tandas/SDD y el Hito 0 de contratos transversales (CT-1…CT-4)
 ya se completaron; sus decisiones siguen vigentes en `docs/design/`.
 
 ## Reglas de trabajo durables
