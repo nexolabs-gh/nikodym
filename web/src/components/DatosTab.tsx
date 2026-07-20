@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react"
-import { ArrowRight, CircleAlert, Loader2, Play, Upload, X } from "lucide-react"
+import {
+  ArrowRight,
+  CircleAlert,
+  Loader2,
+  Lock,
+  Play,
+  Upload,
+  X,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -19,12 +27,14 @@ import {
 } from "@/lib/api"
 import {
   ALLOWED_DATA_EXTENSIONS,
+  datasetCatalogView,
   datasetOptionLabel,
   fromCatalog,
   fromUpload,
   isAllowedDataFile,
   type SelectedDataset,
 } from "@/lib/datasets"
+import { DEMO_MODE } from "@/lib/demo"
 import { describeApiError } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 
@@ -95,11 +105,10 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
     if (info) setSelectedDataset(fromCatalog(info))
   }, [datasets, datasetId, selectedDataset, setSelectedDataset])
 
-  // El <Select> refleja el datasetId SOLO si es una opción del catálogo; un id subido (fuera
-  // del catálogo) deja el selector en su placeholder, sin mostrar un id ajeno a la lista.
-  const catalogValue = datasets.some((d) => d.id === datasetId)
-    ? datasetId
-    : null
+  // Cómo presentar el catálogo: picker completo en el backend real; en la demo estática queda
+  // BLOQUEADO al dataset del preset activo (los fixtures fijan Resultados/Informe por preset, no por
+  // dataset → elegir otro dataset descuadraría la ficha respecto de la corrida). Ver `datasetCatalogView`.
+  const catalog = datasetCatalogView(DEMO_MODE, datasets, datasetId)
 
   function handlePickCatalog(id: string | null) {
     if (id === null) return
@@ -132,11 +141,6 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
     }
   }
 
-  const catalogItems = datasets.map((d) => ({
-    label: datasetOptionLabel(d),
-    value: d.id,
-  }))
-
   return (
     <div className="space-y-6">
       {/* Get-started del primer paso: qué es el flujo y que se puede correr sin configurar nada. */}
@@ -155,8 +159,9 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
               Datasets de ejemplo
             </p>
             <p className="text-sm text-muted-foreground">
-              Elige uno de los datasets sintéticos deterministas para correr el
-              pipeline sin traer datos propios.
+              {catalog.kind === "locked"
+                ? "En la demo el dataset lo fija el preset activo: la corrida es real y sus resultados corresponden a este dataset."
+                : "Elige uno de los datasets sintéticos deterministas para correr el pipeline sin traer datos propios."}
             </p>
           </div>
 
@@ -165,12 +170,14 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
               <CircleAlert className="size-3.5" aria-hidden="true" />
               {catalogError}
             </p>
+          ) : catalog.kind === "locked" ? (
+            <LockedExampleDataset dataset={catalog.dataset} />
           ) : (
             <div className="space-y-2">
               <Label htmlFor="dataset-catalogo">Dataset de ejemplo</Label>
               <Select
-                items={catalogItems}
-                value={catalogValue}
+                items={catalog.items}
+                value={catalog.value}
                 onValueChange={handlePickCatalog}
                 disabled={datasets.length === 0}
               >
@@ -252,6 +259,38 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
           onContinue={() => onNavigate("ejecutar")}
         />
       ) : null}
+    </div>
+  )
+}
+
+interface LockedExampleDatasetProps {
+  dataset: DatasetInfo | null
+}
+
+/**
+ * Vista BLOQUEADA del catálogo para la demo estática (patrón análogo a la subida vetada en
+ * `lib/api.ts`): en lugar del `<Select>`, un campo de solo lectura con el único dataset del preset
+ * activo + una nota. La demo sirve corridas reales fijadas por preset (no recalcula por dataset), así
+ * que elegir otro dataset descuadraría la ficha respecto de Resultados/Informe; por eso no se ofrece
+ * elección. `dataset` puede ser `null` un instante, mientras el catálogo llega tras el arranque.
+ */
+function LockedExampleDataset({ dataset }: LockedExampleDatasetProps) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-foreground">Dataset de ejemplo</p>
+      <div
+        aria-label="Dataset fijado por el preset activo"
+        className="flex h-8 w-full items-center gap-1.5 rounded-lg border border-input bg-muted/40 px-2.5 text-sm text-muted-foreground"
+      >
+        <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+        <span className="line-clamp-1">
+          {dataset ? datasetOptionLabel(dataset) : "Dataset del preset activo"}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        En la demo el dataset viene fijado por el preset activo, para que la ficha coincida con
+        los resultados y el informe. Cambia de preset en Ejecutar para ver otro dominio.
+      </p>
     </div>
   )
 }

@@ -63,3 +63,49 @@ export function fromUpload(resp: UploadedDataset): SelectedDataset {
 export function datasetOptionLabel(info: DatasetInfo): string {
   return `${info.name} · ${info.n_rows.toLocaleString("es-CL")} filas`
 }
+
+/** Una opción del selector de datasets de ejemplo: etiqueta visible + id que setea al elegirla. */
+export interface DatasetOption {
+  label: string
+  value: string
+}
+
+/**
+ * Modelo de la sección "Datasets de ejemplo" según el modo de despliegue (lógica pura, SDD-23 §1).
+ *
+ * - Backend real (`demoMode === false`) → `picker`: el usuario elige cualquiera de los datasets del
+ *   catálogo y esa elección re-corre el pipeline sobre ese dataset (Resultados/Informe coherentes).
+ * - Demo estática (`demoMode === true`) → `locked`: los resultados los fija el PRESET activo, NO el
+ *   `datasetId` (ver `lib/demo.ts`: `demoRunPipeline`/`demoGetResults` ignoran el dataset). Dejar
+ *   elegir otro dataset mostraría una ficha que no coincide con Resultados/Informe. Por eso el picker
+ *   queda BLOQUEADO al único dataset del preset activo —el que cuelga de `datasetId`—, sin exponer
+ *   opciones para setear otro.
+ */
+export type DatasetCatalogView =
+  | { kind: "picker"; items: DatasetOption[]; value: string | null }
+  | { kind: "locked"; dataset: DatasetInfo | null }
+
+/**
+ * Decide cómo presentar el catálogo de datasets. En la demo estática lo BLOQUEA al dataset del preset
+ * activo (`datasetId`) para que la ficha nunca discrepe de la corrida real que sirven los fixtures;
+ * en el backend real devuelve el picker completo, con `value` reflejando `datasetId` solo si es una
+ * opción del catálogo (un id subido, fuera del catálogo, deja el selector en su placeholder).
+ */
+export function datasetCatalogView(
+  demoMode: boolean,
+  datasets: DatasetInfo[],
+  datasetId: string | null,
+): DatasetCatalogView {
+  if (demoMode) {
+    return {
+      kind: "locked",
+      dataset: datasets.find((d) => d.id === datasetId) ?? null,
+    }
+  }
+  const value = datasets.some((d) => d.id === datasetId) ? datasetId : null
+  return {
+    kind: "picker",
+    items: datasets.map((d) => ({ label: datasetOptionLabel(d), value: d.id })),
+    value,
+  }
+}
