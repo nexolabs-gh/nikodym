@@ -1,8 +1,9 @@
 /**
  * Evidencia de la landing: TODO dato de esta página sale de una corrida REAL del motor
- * (el fixture `src/fixtures/demo/results.json`, dataset sintético de consumo, partición
- * holdout). Se copian aquí como constantes en vez de importar el fixture (120 KB) para no
- * meterlo en el bundle de la primera pantalla.
+ * (el fixture `src/fixtures/demo/results-f1.json` —el scorecard F1—, dataset sintético de
+ * consumo, partición holdout: el segundo bloque de diez de `performance.deciles`). Se copian
+ * aquí como constantes en vez de importar el fixture (160 KB) para no meterlo en el bundle de
+ * la primera pantalla.
  *
  * REGLA: si un número de aquí no se puede rastrear a una corrida real, no va. Nunca se
  * inventa una cifra en una superficie pública de un producto de riesgo.
