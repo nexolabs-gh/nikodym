@@ -929,6 +929,14 @@ figcaption {
     border: 1px solid var(--line);
   }
 
+  /* El encabezado se parte igual que la celda. Con `table-layout: fixed` el ancho de columna no
+     cede, así que un nombre largo (`total_exposure_amount`, 21 caracteres) desbordaba su celda e
+     invadía la vecina: en el PDF se leía «total_exposure_amounttotal_provision_amount», tres
+     encabezados encimados. `tbody td` ya se partía; a `thead th` le faltaba la misma regla. */
+  thead th {
+    overflow-wrap: anywhere;
+  }
+
   tbody tr:hover td {
     background: transparent;
   }
@@ -1015,7 +1023,7 @@ figcaption {
     grid-template-columns: 1fr;
   }
 }</style>
-  <style>@page { @top-right { content: "Informe de Validación de Scorecard — CONFIDENCIAL"; } }</style>
+  <style>@page { @top-right { content: "Informe de Provisiones y Validación de Scorecard — CONFIDENCIAL"; } }</style>
 </head>
 <body>
 <div class="doc-shell">
@@ -1088,7 +1096,7 @@ figcaption {
 <section class="cover">
   <div class="cover-brand">Nikodym</div>
   <p class="cover-kicker">Informe de validación de modelos</p>
-  <h1 class="cover-title">Informe de Validación de Scorecard</h1>
+  <h1 class="cover-title">Informe de Provisiones y Validación de Scorecard</h1>
   <p class="confidential">USO INTERNO — CONFIDENCIAL</p>
 
   <dl class="cover-fields">
@@ -1122,7 +1130,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9</code></div>
     <div class="lineage-line"><code>data_hash=7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</code></div>
-    <div class="lineage-line"><code>git_sha=86ecf0ce03f7ff61f2cb5825d235e0762b7af499</code></div>
+    <div class="lineage-line"><code>git_sha=9b851201c8b66056dbc98947fef0c7d9a3877118</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -4113,11 +4121,11 @@ L 420.51375 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9</dd>
-    <dt>created_at</dt><dd>2026-07-21T17:01:13.485408Z</dd>
+    <dt>created_at</dt><dd>2026-07-21T17:18:52.347288Z</dd>
     <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>86ecf0ce03f7ff61f2cb5825d235e0762b7af499</dd>
+    <dt>git_sha</dt><dd>9b851201c8b66056dbc98947fef0c7d9a3877118</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.4.1&#34;,
