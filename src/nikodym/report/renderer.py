@@ -502,23 +502,23 @@ def _exec_scope_note(bundle: ReportInputBundle) -> str:
             else "; no incluyó backtesting de la ECL"
         )
         return (
-            "Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental, "
-            f"SDD-16 en borrador) y validación formal{backtesting}. Todos los valores provienen "
-            "de la corrida trazada en la portada: no se completan con supuestos."
+            "Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental) y "
+            f"validación formal{backtesting}. Todos los valores provienen de la corrida trazada "
+            "en la portada: no se completan con supuestos."
         )
     if _is_ifrs9_run(bundle):
         return (
-            "Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental, "
-            "SDD-16 en borrador). Esta corrida no ejecutó la capa de validación formal ni el "
-            "backtesting de la ECL; el informe no infiere sus resultados. Todos los valores "
-            "provienen de la corrida trazada en la portada: no se completan con supuestos."
+            "Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental). "
+            "Esta corrida no ejecutó la capa de validación formal ni el backtesting de la ECL; el "
+            "informe no infiere sus resultados. Todos los valores provienen de la corrida trazada "
+            "en la portada: no se completan con supuestos."
         )
     if validation is not None:
         return (
             "Alcance: scorecard y validación formal de las familias configuradas. El capítulo "
-            "«Validación formal» reproduce el resultado técnico atómico; el veredicto permanece "
-            "bajo responsabilidad humana. Todos los valores provienen de la corrida trazada en "
-            "la portada: no se completan con supuestos."
+            "«Validación formal» reproduce el resultado que publicó el motor; el veredicto "
+            "permanece bajo responsabilidad humana. Todos los valores provienen de la corrida "
+            "trazada en la portada: no se completan con supuestos."
         )
     return (
         "Alcance: construcción y evaluación del scorecard. Esta corrida no ejecutó la capa de "

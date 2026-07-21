@@ -302,14 +302,13 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
             )
         notes.append(
             "Las cifras IFRS 9 son el cálculo contable que reportó el motor (función "
-            "experimental, SDD-16), no bandas de validación: la columna Estado no les aplica "
-            "semáforo."
+            "experimental), no bandas de validación: la columna Estado no les aplica semáforo."
         )
 
     if not metrics:
         notes.append(
-            "Las métricas clave no están disponibles: la corrida no publicó las cards de "
-            "desempeño ni de estabilidad. El informe no las sustituye por supuestos."
+            "Las métricas clave no están disponibles: esta corrida no evaluó desempeño ni "
+            "estabilidad. El informe no las sustituye por supuestos."
         )
     return ExecutiveView(metrics=tuple(metrics), notes=tuple(notes))
 
@@ -343,7 +342,7 @@ def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
                 "literalmente en las tablas de esta sección."
             )
         if target_col is not None:
-            paragraphs.append(f"La columna objetivo publicada por data es «{target_col}».")
+            paragraphs.append(f"La columna objetivo de esta corrida es «{target_col}».")
 
     if eda is not None:
         rate = _float(eda.get("overall_default_rate"))
@@ -919,9 +918,9 @@ def _results_data(bundle: ReportInputBundle) -> tuple[str, ...]:
     if _card(bundle, "data") is None:
         return ()
     return (
-        "Las tablas siguientes son una proyección de presentación del DataCardSection publicado "
-        "por data. Estados, tamaños y tasas por partición, y exclusiones se copian literalmente; "
-        "el informe no recalcula ni completa valores ausentes.",
+        "Las tablas siguientes reproducen lo que dejó la preparación de datos de esta corrida. "
+        "Estados, tamaños y tasas por partición, y exclusiones se copian literalmente; el informe "
+        "no recalcula ni completa valores ausentes.",
     )
 
 
@@ -950,8 +949,8 @@ def validation_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
     if n_tests is not None and n_failed is not None:
         paragraphs.append(
             f"El resultado registra {_miles(n_tests)} {_plural(n_tests, 'test', 'tests')}, de los "
-            f"cuales {_miles(n_failed)} quedaron fallidos. Las tablas se copian del "
-            "ValidationResult atómico, sin recalcular métricas ni decisiones."
+            f"cuales {_miles(n_failed)} quedaron fallidos. Las tablas se copian del resultado que "
+            "publicó la validación, sin recalcular métricas ni decisiones."
         )
     gaps = tuple(str(item) for item in _sequence(card.get("falta_dato")))
     if gaps:
@@ -977,8 +976,8 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
             "grado con sus decisiones y semáforo publicados."
         ),
         "stability": (
-            "La tabla reproduce PSI/estabilidad, umbrales, banda, acción y decisión publicados "
-            "por validation."
+            "La tabla reproduce PSI/estabilidad, umbrales, banda, acción y la decisión que dejó "
+            "la validación."
         ),
         "backtesting": (
             "La tabla contrasta valores estimados y realizados por parámetro y segmento, con el "
@@ -993,7 +992,7 @@ def validation_family_body(bundle: ReportInputBundle, family: str) -> tuple[str,
             f"{description} La familia fue ejecutada, pero no publicó filas evaluables; las "
             "brechas quedan declaradas en la síntesis del capítulo.",
         )
-    return (f"{description} Filas publicadas por el DTO: {_miles(rows)}.",)
+    return (f"{description} Filas evaluadas: {_miles(rows)}.",)
 
 
 def _results_eda(bundle: ReportInputBundle) -> tuple[str, ...]:
@@ -1677,9 +1676,8 @@ def ifrs9_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
         )
 
     paragraphs.append(
-        "El cálculo IFRS 9 es una función experimental (SDD-16 en borrador, fuera de la garantía "
-        "SemVer 1.x): los números son trazables y deterministas, pero la superficie puede cambiar "
-        "entre versiones."
+        "El cálculo IFRS 9 es una función experimental: los números son trazables y "
+        "deterministas, pero su interfaz puede cambiar en próximas versiones de la librería."
     )
     return tuple(paragraphs)
 
@@ -1768,7 +1766,7 @@ def _results_provisioning_ifrs9(bundle: ReportInputBundle) -> tuple[str, ...]:
     if warnings:
         descritos = tuple(_IFRS9_WARNING_LABELS.get(code, code) for code in warnings)
         paragraphs.append(
-            "El step reportó advertencias de datos que el lector debe conocer: "
+            "El motor reportó advertencias de datos que el lector debe conocer: "
             + _enumerar(descritos)
             + "."
         )
@@ -1854,8 +1852,8 @@ def conclusions_body(bundle: ReportInputBundle) -> tuple[str, ...]:
 
     if not hallazgos:
         return (
-            "El motor no dispone de hallazgos automáticos que resumir: la corrida no publicó las "
-            "cards de desempeño, estabilidad ni calibración.",
+            "El motor no dispone de hallazgos automáticos que resumir: esta corrida no evaluó "
+            "desempeño, estabilidad ni calibración.",
         )
     hallazgos.append(
         "Estos hallazgos son los que el motor puede sostener con los números de la corrida. La "
@@ -1889,8 +1887,8 @@ def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
             curva = "El modelo PD que alimenta la curva se estimó en esta misma corrida."
         alcance = (
             "El alcance de este informe es el cálculo de la pérdida crediticia esperada IFRS 9 "
-            "(capítulo «Provisiones IFRS 9 / ECL»), una función experimental (SDD-16 en "
-            f"borrador) fuera de la garantía SemVer 1.x. {curva}"
+            "(capítulo «Provisiones IFRS 9 / ECL»), una función experimental cuya interfaz puede "
+            f"cambiar en próximas versiones. {curva}"
         )
     elif tiene_provisiones:
         # Con provisiones en la corrida el informe deja de ser "solo validación de scorecard":
@@ -1898,8 +1896,8 @@ def limitations_body(bundle: ReportInputBundle) -> tuple[str, ...]:
         # sí contiene (G8, SDD-28 §11). La salvedad de IFRS 9 solo aplica si NO corrió.
         alcance = (
             "El informe cubre el scorecard y reporta además el cálculo regulatorio de "
-            "provisiones (capítulo «Provisiones regulatorias»), una función experimental fuera "
-            "de la garantía SemVer 1.x."
+            "provisiones (capítulo «Provisiones regulatorias»), una función experimental cuya "
+            "interfaz puede cambiar en próximas versiones."
         )
         if tiene_ifrs9:
             alcance += (

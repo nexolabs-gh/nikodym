@@ -999,7 +999,10 @@ def test_ficha_ifrs9_informe_admite_fuente_no_survival(
     assert f"La term-structure activa proviene de {term_source}." in body
     assert "config.survival" not in body
     assert "survival.card" not in body
-    assert "Fuentes técnicas: config.provisioning_ifrs9, provisioning_ifrs9.card." in body
+    assert (
+        "Trazabilidad — artefactos de origen: config.provisioning_ifrs9, provisioning_ifrs9.card."
+        in body
+    )
     if term_source == "forward":
         assert "La term-structure activa proviene de forward, no de Markov." in body
     else:

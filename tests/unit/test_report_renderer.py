@@ -53,10 +53,13 @@ from nikodym.report.results import (
 # de secciones + índice lateral "En esta página") con un CSS nuevo y marca oficial, ambos inline en
 # el HTML → el digest se mueve. El markup del documento (data-section-id y orden canónico, tablas
 # con id/thead/tbody, literales config_hash=/data_hash=/git_sha=/root_seed=) queda intacto.
+# Recalculado al reescribir en lenguaje de negocio la prosa que nombraba tipos internos
+# (DTO, ValidationResult, DataCardSection, «el step») y referencias a los SDD: sólo cambia
+# el texto de esos párrafos.
 # Recalculado (tabla ancha en el PDF): el `figure.table-block` de una tabla de 10+ columnas suma la
 # clase `table-block--wide`, que en @media print manda esa tabla a una hoja apaisada. Sólo cambia
 # ese atributo de clase; el resto del markup (ids, thead/tbody, orden, literales) es idéntico.
-GOLDEN_HTML_SHA256 = "7538a2e06d5d2c4a7fadddfd1d9a2fca10fb7fb540a22a431abfb95165b354aa"
+GOLDEN_HTML_SHA256 = "096f23e9b6cf4ed94fccd23c06752a8bd860be513accbf492a5c64c75395396a"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 

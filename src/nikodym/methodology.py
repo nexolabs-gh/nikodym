@@ -302,8 +302,9 @@ def build_ifrs9_methodology_card(
 def methodology_paragraphs(card: MethodologyCard) -> tuple[str, ...]:
     """Convierte la ficha compartida a prosa determinista para el informe."""
     paragraphs = [
-        "Esta ficha metodológica se deriva del config efectivo y de las cards publicadas por la "
-        "corrida; no replica parámetros ni supone que una capacidad configurada se ejecutó."
+        "Esta ficha metodológica se deriva de la configuración efectiva y de lo que dejó "
+        "publicado cada etapa de la corrida; no replica parámetros ni supone que una capacidad "
+        "configurada se ejecutó."
     ]
     if card.active:
         paragraphs.append("Activo en esta corrida:")
@@ -311,7 +312,7 @@ def methodology_paragraphs(card: MethodologyCard) -> tuple[str, ...]:
     if card.not_exercised:
         paragraphs.append("Capacidad no ejercida en esta corrida:")
         paragraphs.extend(_fact_sentence(fact) for fact in card.not_exercised)
-    paragraphs.append("Fuentes técnicas: " + ", ".join(card.source_refs) + ".")
+    paragraphs.append("Trazabilidad — artefactos de origen: " + ", ".join(card.source_refs) + ".")
     return tuple(paragraphs)
 
 

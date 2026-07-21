@@ -73,9 +73,12 @@ ROOT_SEED = 20_240_629
 # un único gráfico (forest de coeficientes) cuyo slot cuenta en el digest.
 # Recalculado con el re-skin Quarto (tema "nikodym": layout de 3 columnas + CSS nuevo inline en el
 # HTML). El markup del documento (orden canónico, tablas, literales de lineage) queda intacto.
+# Recalculado al reescribir en lenguaje de negocio la prosa que nombraba tipos internos
+# (DTO, ValidationResult, DataCardSection, «el step») y referencias a los SDD: sólo cambia
+# el texto de esos párrafos.
 # Recalculado al marcar las tablas de 10+ columnas con `table-block--wide` (hoja apaisada en el
 # PDF): el único cambio es esa clase en el `figure`.
-GOLDEN_STEP_HTML_SHA256 = "05ba24e864dc2d59e5939a274f98d13e2bfee19a4bda518be723ab2949624373"
+GOLDEN_STEP_HTML_SHA256 = "84b9f4f22200d9bb04cd37b2444d963b6809537845217ff2cfec5c28f32233d1"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
