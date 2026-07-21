@@ -98,6 +98,29 @@ def test_config_to_yaml_round_trip_preserva_hash() -> None:
     assert config_hash(recargado) == config_hash(cfg)
 
 
+def test_config_to_yaml_no_reintroduce_report_document_materializado() -> None:
+    """El ``to-yaml`` es determinista: no reinyecta ``report.document`` por la coacción.
+
+    ``report: Any`` se coacciona a ``ReportConfig`` sólo cuando ``nikodym.report`` ya fue
+    importado, y esa coacción materializa ``report.document`` (``default_factory``) que el config
+    del cliente no traía. Sin ``exclude_unset`` el YAML dependería de qué se hubiera importado antes
+    (no-determinista; así se colaba el bloque al capturar los fixtures de la demo tras generar un
+    informe). Se fuerza el import (peor caso) y un config SIN ``document`` no debe recuperarlo.
+    """
+    import nikodym.report  # noqa: F401  — puebla _REPORT_CONFIG_CLS: activa la coacción (peor caso)
+    from nikodym.report.config import ReportConfig
+
+    config = NikodymConfig(report=ReportConfig()).model_dump(mode="json", by_alias=True)
+    assert "document" in config["report"], "precondición: la coacción materializa document"
+    del config["report"]["document"]  # el cliente no lo envía
+
+    yaml_text = routes.config_to_yaml(config)["yaml"]
+    assert "document:" not in yaml_text
+    # El round-trip por hash se preserva (report es sección de infraestructura, fuera del hash).
+    recargado = loads_config(yaml_text)
+    assert config_hash(recargado) == config_hash(NikodymConfig.model_validate(config))
+
+
 def test_config_to_yaml_config_invalido_propaga_validation_error() -> None:
     """Un config inválido propaga ``ValidationError`` (el endpoint lo traduce a 422)."""
     from pydantic import ValidationError

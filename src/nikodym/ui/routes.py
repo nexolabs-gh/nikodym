@@ -103,6 +103,15 @@ def config_to_yaml(config: Any) -> dict[str, Any]:
     Reconstruye ``NikodymConfig`` y delega el volcado en ``dump_config`` (YAML en orden de
     declaración, ``allow_unicode``): la serialización la posee SDD-05, no se reimplementa (§3.3).
 
+    Se vuelca con ``exclude_unset=True`` para que el round-trip sea **determinista frente al estado
+    de imports del proceso**: sin ello, la sección ``report`` (``report: Any`` en el schema) se
+    coacciona a ``ReportConfig`` sólo si ``nikodym.report`` ya fue importado, y esa coacción
+    materializa ``report.document`` (default_factory) que el config editado del cliente no traía —
+    reintroduciendo un bloque espurio en el YAML según qué se hubiera importado antes (p. ej. al
+    capturar los fixtures de la demo tras generar un informe). Omitir los campos no provistos vuelve
+    el volcado idéntico en ambos casos (verificado byte a byte) sin tocar el ``config_hash`` (que ya
+    excluye ``report`` como sección de infraestructura) ni el lineage de corrida de ``study``.
+
     Parameters
     ----------
     config : Any
@@ -120,7 +129,7 @@ def config_to_yaml(config: Any) -> dict[str, Any]:
         **422** (config válido es precondición de exportar), igual que :func:`run_pipeline`.
     """
     model = NikodymConfig.model_validate(config)
-    return {"yaml": dump_config(model)}
+    return {"yaml": dump_config(model, exclude_unset=True)}
 
 
 def config_from_yaml(text: Any) -> dict[str, Any]:

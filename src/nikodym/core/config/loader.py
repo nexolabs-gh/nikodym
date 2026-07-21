@@ -80,18 +80,25 @@ def loads_config(text: str) -> NikodymConfig:
         raise ConfigError(f"config inválido: {exc}") from exc
 
 
-def dump_config(cfg: NikodymConfig) -> str:
+def dump_config(cfg: NikodymConfig, *, exclude_unset: bool = False) -> str:
     """Serializa un :class:`NikodymConfig` a YAML legible (orden de declaración).
 
     Parameters
     ----------
     cfg : NikodymConfig
         Config a volcar.
+    exclude_unset : bool, default False
+        Si es True, omite los campos que no fueron provistos explícitamente (toman su default al
+        recargar). Hace el volcado **determinista frente al estado de imports** para las secciones
+        de capa diferida (``report``/``audit``/``governance``/``validation``): un ``dict`` de
+        entrada sin, p. ej., ``report.document`` produce el MISMO YAML se haya importado o no la
+        capa que coacciona a ``ReportConfig`` (que materializaría ``document`` por default_factory).
+        El default False conserva el volcado completo (lineage auditable de una corrida).
 
     Returns
     -------
     str
         YAML con las claves en orden de declaración y las tildes sin escapar.
     """
-    payload = cfg.model_dump(mode="json", by_alias=True)
+    payload = cfg.model_dump(mode="json", by_alias=True, exclude_unset=exclude_unset)
     return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
