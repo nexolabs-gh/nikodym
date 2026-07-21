@@ -289,6 +289,48 @@ def test_multiescenario_forward_consume_pit_golden_73() -> None:
     }
 
 
+def test_ecl_by_scenario_viaja_con_su_rotulo() -> None:
+    """``ecl_by_scenario`` publica el rótulo que explica por qué no cuadra con la reportada.
+
+    Las dos cifras salen pegadas en el anexo de auditoría y difieren por construcción (aquí
+    250 crudo vs. 73 reportada): sin rótulo la diferencia se lee como descuadre contable. El
+    test ata el texto al hecho numérico que describe —si alguna vez reconciliaran, el rótulo
+    estaría mintiendo— y comprueba que nombra los dos motivos de la brecha.
+    """
+    cfg = IfrsProvisioningConfig(
+        portfolio_col="portfolio",
+        pd=IfrsPdConfig(
+            term_structure_source="forward", pit_mode="consume_pit", horizon_12m_periods=1
+        ),
+        lgd=IfrsLgdConfig(method="provided"),
+        ead=IfrsEadConfig(method="provided"),
+        scenarios=IfrsScenarioConfig(source="forward"),
+        ecl=IfrsEclConfig(),
+    )
+    ts = _ts(
+        pd_marginal=[0.05, 0.08, 0.12],
+        periods=[1, 1, 1],
+        scenario=["base", "adverso", "severo"],
+        extra={"scenario_weight": [0.5, 0.3, 0.2], "pd_basis": ["pit", "pit", "pit"]},
+    )
+    metric_sections = _run(cfg, _frame(ead=1000.0, lgd=1.0, eir=0.0), ts).card.metric_sections
+    basis = metric_sections["ecl_by_scenario_basis"]
+
+    crudo = sum(metric_sections["ecl_by_scenario"].values())
+    np.testing.assert_allclose(crudo, 250.0, rtol=1e-12)
+    assert crudo != pytest.approx(73.0)
+
+    assert "total_ecl_reported" in basis
+    assert "scenario_weights" in basis  # motivo 1: la cruda no pondera por escenario.
+    assert "Stage 1" in basis  # motivo 2: la reportada trunca Stage 1 a 12 meses.
+    assert "no reconcilian" in basis
+
+    # Ordenado alfabéticamente por el anexo, el rótulo cae inmediatamente bajo la cifra que
+    # explica; si dejaran de ser adyacentes, volvería a leerse una cifra huérfana.
+    claves = sorted(metric_sections)
+    assert claves[claves.index("ecl_by_scenario") + 1] == "ecl_by_scenario_basis"
+
+
 def test_scenarios_source_config_pondera() -> None:
     cfg = _cfg().model_copy(
         update={

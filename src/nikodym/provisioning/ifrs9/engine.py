@@ -93,6 +93,19 @@ _RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weight
 _TS_LGD_COLUMN: str = "lgd"
 _WARNING_LGD_FORWARD_IGNORED: str = "FALTA-DATO-IFRS-6"
 
+# Rótulo hermano de ``ecl_by_scenario`` en ``metric_sections``. Esa cifra y ``total_ecl_reported``
+# difieren por construcción, pero salían pegadas en el anexo de auditoría sin nada que lo explicara
+# —y una diferencia de ~2x sin rótulo se lee como descuadre contable. El texto viaja en el propio
+# artefacto, no en la plantilla del informe, para que acompañe a la cifra dondequiera que se lea
+# ``results`` (anexo, payload de la UI, consumidor externo).
+_ECL_BY_SCENARIO_BASIS: str = (
+    "Diagnóstico auditable de la term-structure (CT-2), no un desglose de total_ecl_reported: "
+    "suma la ECL marginal descontada de cada escenario por separado, sin aplicar scenario_weights "
+    "y sobre el horizonte completo de la curva, sin truncar Stage 1 a 12 meses. "
+    "total_ecl_reported sí pondera por escenario y aplica ese corte por stage, de modo que ambas "
+    "cifras no reconcilian entre sí: no deben sumarse ni compararse."
+)
+
 # Columnas canónicas de los artefactos (deben coincidir exactamente con ``results.py``, que las
 # revalida al construir el ``IfrsProvisionResult``; una divergencia rompe los tests ruidosamente).
 _STAGING_COLUMNS: tuple[str, ...] = (
@@ -506,6 +519,7 @@ class IfrsProvisioningEngine:
                 "stage_3": stages.count(3),
             },
             "ecl_by_scenario": _ecl_by_scenario(ecl_term_structure),
+            "ecl_by_scenario_basis": _ECL_BY_SCENARIO_BASIS,
             "term_structure_summary": {
                 "n_rows": len(ecl_term_structure.index),
                 "n_scenarios": len(weights),
