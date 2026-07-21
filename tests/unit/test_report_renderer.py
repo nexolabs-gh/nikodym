@@ -551,8 +551,9 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
     assert report_pkg.PdfReportRenderer is PdfReportRenderer
 
     assert renderer_module._display_scalar(None, key_path=("x",)) == "—"
-    # Celda vacía unificada: NaN float y el sentinel de dominio "none" (iv_band/expected_sign/action)
-    # no se vuelcan crudos ("nan"/"none"), sino como el mismo em-dash que `None`.
+    # Celda vacía unificada: NaN float y el sentinel de dominio "none"
+    # (iv_band/expected_sign/action) no se vuelcan crudos ("nan"/"none"),
+    # sino como el mismo em-dash que `None`.
     assert renderer_module._display_scalar(float("nan"), key_path=("x",)) == "—"
     assert renderer_module._display_scalar("none", key_path=("action",)) == "—"
     assert renderer_module._format_float(float("nan"), key_path=("x",)) == "—"
