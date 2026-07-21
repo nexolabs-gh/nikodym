@@ -57,8 +57,9 @@ Cierra los defectos conocidos que hoy sólo viven en el HANDOFF. Todos son acota
    `web/src/fixtures/schema.json` en **commit atómico**; diagnósticos del motor de selección con
    decimales sin formatear (`iv=0.650693017601`); `total_expected_loss_rate` serializado como string
    de 51 dígitos en el anexo de auditoría.
-3. **Respaldo remoto del workspace interno.** El material de trabajo no versionado en el repo público
-   carece de copia fuera del disco local.
+3. ~~**Respaldo remoto del workspace interno.**~~ **HECHO (2026-07-21).** El workspace interno ya
+   tiene repo privado propio fuera del disco local; el respaldo se verificó restaurándolo (clon
+   completo, idéntico al original) y se mantiene al día pusheando en cada cierre de sesión.
 
 ### B2 · La UI instalable y usable  ← *requisito de producto*
 
