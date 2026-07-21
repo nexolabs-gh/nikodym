@@ -5,10 +5,9 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
-## [Sin publicar]
+## [1.4.0] — 2026-07-20
 
 Pulido del informe y la demo (P2/P3) previo a la reunión Interbank, más dos correcciones de fondo.
-Pendiente de recaptura de fixtures + redeploy y del bump de versión antes de publicar.
 
 ### Corregido
 
@@ -46,6 +45,7 @@ Pendiente de recaptura de fixtures + redeploy y del bump de versión antes de pu
 
 - **Demo: badge «Experimental» en la card de provisiones CMF (F3)**, igual que la de IFRS 9 (F4), pues
   ambos motores de provisiones son experimentales por madurez.
+- Bump de versión 1.3.0 → 1.4.0.
 
 ## [1.3.0] — 2026-07-17
 
