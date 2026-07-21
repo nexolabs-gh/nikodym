@@ -5,6 +5,19 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [Sin publicar]
+
+### Corregido
+
+- **Identidad del config (`config_hash`): la ruta del dataset ya no altera la identidad.** El campo
+  `data.load.source` (ubicación del archivo en disco) entraba al `config_hash`, de modo que el mismo
+  dataset en otra ruta —o el preset con `source: null` frente a la corrida con la ruta real— producía
+  un hash distinto, desalineando el `config_hash` que muestra la app y el que aparece en el informe.
+  El `data_hash` ya captura el **contenido** del dataset; la ruta es incidental. Ahora `data.load.source`
+  se excluye del `config_hash` (además de las secciones de infraestructura). **Nota de contrato
+  (SemVer):** esto recalcula el `config_hash` de todo config que fijaba una ruta de dataset; el hash
+  del config por defecto (sin `data`) no cambia. Es una corrección de defecto, no una nueva convención.
+
 ## [1.3.0] — 2026-07-17
 
 ### Añadido

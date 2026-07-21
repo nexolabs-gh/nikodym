@@ -9,6 +9,7 @@ el motor OR-Tools/mip y ver el scorecard) NO vive aquí: es lento y se hace fuer
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from nikodym.core.config import NikodymConfig, config_hash
@@ -37,7 +38,10 @@ from nikodym.ui.presets import (
 # (f53ffc9f11eaac299a42c857fd7704401361603d91fba584ce439382bb1f59a9).
 # Actualizado en report-wave1 al activar ValidationConfig en F1 (discriminación + calibración +
 # estabilidad; binomial_by_grade/backtesting apagados por ausencia de esos datos en el fixture).
-_EXPECTED_CONFIG_HASH = "9f7dc881445c6a20de3d61d436fec1d167b0786dfc8a85558784464116dab106"
+# Actualizado en 1.4.0 al EXCLUIR ``data.load.source`` del config_hash (la ruta del dataset ya no
+# entra a la identidad; el data_hash captura el contenido). El preset trae ``source: null``, así que
+# el JSON canónico pierde esa clave y el hash se mueve; ahora coincide con el del informe capturado.
+_EXPECTED_CONFIG_HASH = "4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f"
 
 
 # ─────────────────────────────── validez y hash estable ───────────────────────────────
@@ -211,7 +215,8 @@ def test_endpoint_config_preset() -> None:
 # Si cambia un default de dominio, regenerar con ``scripts/derive_provisiones_preset``
 # y actualizar este valor conscientemente. Estable con/sin la capa de dominio importada (el config
 # deja ``target_pd: None`` explícito = su forma canónica; ver la nota en ``ui/presets.py``).
-_EXPECTED_F3_CONFIG_HASH = "21bf265d8e08e8ec8e76781f32a7652fa8ff17c807f000810af73546b916e5f3"
+# Actualizado en 1.4.0 al EXCLUIR ``data.load.source`` del config_hash (ver nota en el hash F1).
+_EXPECTED_F3_CONFIG_HASH = "66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9"
 
 
 def test_provisiones_preset_shape() -> None:
@@ -269,7 +274,8 @@ def test_provisiones_preset_activa_las_tres_secciones_y_la_regla_real() -> None:
 # así que el hash es estable con/sin la capa de dominio importada (verificado en ambas
 # condiciones al pinnearlo). Protege la identidad del preset justo cuando los fixtures de
 # demo.nikodym.cl se recapturan contra él.
-_EXPECTED_F4_CONFIG_HASH = "8c94bd4d9a406669c7c3f611d939e09963fc26cdf151fe0723bd66c973e8e23f"
+# Actualizado en 1.4.0 al EXCLUIR ``data.load.source`` del config_hash (ver nota en el hash F1).
+_EXPECTED_F4_CONFIG_HASH = "cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4"
 
 
 def test_ifrs9_preset_config_valida_y_hash_estable() -> None:
@@ -430,3 +436,23 @@ def test_endpoint_presets_index_y_preset_por_id() -> None:
     assert config_hash(NikodymConfig.model_validate(cuerpo["config"])) == _EXPECTED_F3_CONFIG_HASH
 
     assert client.get("/api/config/preset/preset-inexistente").status_code == 404
+
+
+def test_config_hash_ignora_la_ruta_del_dataset() -> None:
+    """La RUTA del dataset (``data.load.source``) no altera la identidad del config.
+
+    Regresión 1.4.0: antes, el mismo config con el dataset en otra ruta —o el preset con
+    ``source=None`` frente a la corrida con la ruta real— producía un ``config_hash`` distinto,
+    desalineando el hash que muestra la app y el del informe. La ruta es incidental; el
+    ``data_hash`` ya captura el CONTENIDO. Con el código anterior este test falla (hashes difieren).
+    """
+
+    def _hash_con_source(source: str | None) -> str:
+        config = copy.deepcopy(provisiones_preset()["config"])
+        config["data"]["load"]["source"] = source
+        return config_hash(NikodymConfig.model_validate(config))
+
+    ruta_a = _hash_con_source("/datos/cartera_a.parquet")
+    ruta_b = _hash_con_source("/otro/disco/cartera_b.parquet")
+    sin_ruta = _hash_con_source(None)
+    assert ruta_a == ruta_b == sin_ruta == _EXPECTED_F3_CONFIG_HASH
