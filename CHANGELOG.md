@@ -26,15 +26,24 @@ Pulido del informe y la demo (P2/P3) previo a la reunión Interbank, más dos co
   al capturar los fixtures de la demo tras generar un informe). Ahora el endpoint vuelca con
   `exclude_unset=True`: idéntico byte a byte en ambos casos, sin tocar el `config_hash` ni el lineage
   de corrida de `study`.
-- **Informe: coma decimal (es-CL) en toda la prosa y las tablas de texto.** Los porcentajes y números
+- **Informe: coma decimal (es-CL) en la prosa y en las cifras destacadas.** Los porcentajes y números
   (`_pct`/`_num`) emitían punto decimal (`2.99 %`, `IV 0.03`) mientras las cifras en pesos ya usaban
   el punto como separador de miles. Ahora el decimal es coma (`2,99 %`), coherente con la convención
-  chilena. Sólo presentación: no cambia valores ni `data_hash`. Los ejes de gráficos siguen sin locale.
+  chilena. Sólo presentación: no cambia valores ni `data_hash`. Las tablas de detalle y los ejes de
+  los gráficos conservan el punto a propósito: son volcado técnico de `results`, pensado para
+  copiarse a una herramienta de análisis.
 - **Informe: marcador único «—» para celdas sin valor en las tablas de detalle.** `NaN` se volcaba como
   `nan` y el sentinel de dominio `"none"` (de los enums `iv_band`/`expected_sign`/`action` = «sin banda/
   signo/acción») como `none`; ambos parecían celdas rotas. Se unifican a un em-dash (convención de
   estados financieros para nil/ninguno/no-aplica), sin tocar los enums de la API de results ni el
   `data_hash`. Los `inf`/`-inf` se conservan crudos a propósito (anomalía real que debe verse).
+- **Informe: las celdas de tabla ya no vuelcan `Decimal` crudo ni colecciones vacías.** Los motores de
+  provisiones publican sus cifras en `Decimal` para no perder exactitud contable, pero el renderer no
+  tenía rama para ese tipo y caía en `str(value)`: la tabla «Provisión interna por grupo homogéneo»
+  mostraba `pd_group = 0.0052290061597687685198855454245661540747073248842022` (52 dígitos), y lo
+  mismo `lgd_group` y `expected_loss_rate`. Ahora se formatean con la misma regla que un float (el
+  anexo JSON ya lo hacía así). En la misma línea, una colección vacía (`warning_codes: []`) muestra el
+  em-dash de «ninguno» en vez de `[]`/`{}` crudos. Sólo presentación: las cifras no cambian.
 - **IFRS 9: descriptions honestas de `rho_col` y `fail_on_falta_dato`.** Ambas prometían conducta que
   el motor no implementa: `rho_col` decía «sobrescribe rho por fila» pero el motor la rechaza fail-fast
   (correlación heterogénea diferida en v1); `fail_on_falta_dato` sugería un modo «marcar FALTA-DATO y
