@@ -70,6 +70,17 @@ brechas del contrato forward→IFRS 9; y pulido del informe y la demo previo a l
   mismo `lgd_group` y `expected_loss_rate`. Ahora se formatean con la misma regla que un float (el
   anexo JSON ya lo hacía así). En la misma línea, una colección vacía (`warning_codes: []`) muestra el
   em-dash de «ninguno» en vez de `[]`/`{}` crudos. Sólo presentación: las cifras no cambian.
+- **PDF: las tablas de 10+ columnas eran ilegibles y ahora van en hoja apaisada.** En A4 vertical
+  («Desempeño por decil de score»: 20 columnas sobre 170 mm útiles) cada columna recibía ~8 mm: los
+  encabezados se solapaban entre sí y cada cifra se partía en tres líneas (`505.` / `4441` / `62`),
+  de modo que la evidencia de monotonía y lift del scorecard llegaba al comité como un amasijo.
+  Esas tablas se marcan `table-block--wide` y en `@media print` van a `@page wide-table` (A4
+  apaisada) con ancho automático, tipografía menor y celdas sin partir. No se descarta ninguna
+  columna —perder una sería perder trazabilidad— y en pantalla no cambia nada.
+- **Informe IFRS 9: la tabla insignia se titulaba con la clave interna.** La única tabla del cuerpo
+  —la que sostiene ECL, EAD y cobertura— salía como `Tabla «provisioning_ifrs9.summary»` (en
+  mayúsculas por CSS) porque faltaba del catálogo de títulos, donde su hermana CMF sí estaba. Pasa a
+  «Pérdida crediticia esperada (ECL) por etapa».
 - **IFRS 9 (experimental): seis brechas del contrato forward→IFRS 9, cerradas con guards fail-fast.**
   Cuatro configuraciones que el motor aceptaba y luego **degradaba en silencio** ahora fallan con un
   mensaje que dice qué usar en su lugar: (1) `pd.rho_col` se rechaza al construir `IfrsPdConfig` —el
