@@ -7,7 +7,33 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [1.4.0] — 2026-07-20
 
-Pulido del informe y la demo (P2/P3) previo a la reunión Interbank, más dos correcciones de fondo.
+Informe con formato editorial, capítulo de validación formal y contexto poblacional; cierre de seis
+brechas del contrato forward→IFRS 9; y pulido del informe y la demo previo a la reunión Interbank.
+
+### Añadido
+
+- **Informe: capítulo condicional «Validación formal».** Cuando la corrida publica el
+  `ValidationResult` atómico (`validation.result`), el informe emite un capítulo nuevo —tras
+  «Resultados», antes de provisiones— con una subsección por familia declarada en `families_run`
+  (discriminación, calibración, estabilidad, backtesting). Las tablas se **copian** del DTO: `report`
+  no recalcula métricas ni decisiones. El resumen ejecutivo suma la métrica «Estado técnico de
+  validación formal», y el veredicto sigue siendo un bloque humano **POR COMPLETAR**: el estado del
+  motor no lo sustituye. Si la corrida trae además una card suelta `validation.card` que no coincide
+  con `result.card`, el builder falla en vez de mezclar lecturas de momentos distintos. La prosa de
+  alcance deja de prometer futuro: sin validación, el informe dice que **esta corrida no ejecutó** la
+  capa formal. El contrato es **aditivo** (`validation` no entra en `ReportStep.requires` ni en
+  `required_sections`): ninguna cadena existente se rompe.
+- **Informe: subsección «Población, particiones y exclusiones» en el capítulo de Contexto.** Si el
+  dominio `data` publicó su card, el informe proyecta tres tablas —estados, particiones (tamaño y tasa
+  de incumplimiento) y exclusiones por motivo— copiadas literalmente del `DataCardSection`: no infiere
+  conteos ni recalcula estadísticas. Es opcional: su ausencia no es error.
+- **Anexo C: cada dominio configurado publica su `effective_config`.** Antes sólo lo anexaban
+  `survival` y `provisioning_ifrs9`. Ahora lo hace todo dominio presente en el config de la corrida
+  —`data`, el pipeline scorecard, `survival`, `markov`, `forward`, `provisioning_ifrs9`, `validation`
+  y las tres secciones de provisiones F3 (`provisioning_cmf`, `provisioning_internal` y el
+  orquestador `provisioning` con su regla del máximo)—, incluso si no emitió card por ser config puro.
+  No se agrega un dump top-level de `NikodymConfig`, y `effective_config` queda **excluido** del
+  payload que se envía a la narrativa IA opcional.
 
 ### Corregido
 
@@ -44,14 +70,57 @@ Pulido del informe y la demo (P2/P3) previo a la reunión Interbank, más dos co
   mismo `lgd_group` y `expected_loss_rate`. Ahora se formatean con la misma regla que un float (el
   anexo JSON ya lo hacía así). En la misma línea, una colección vacía (`warning_codes: []`) muestra el
   em-dash de «ninguno» en vez de `[]`/`{}` crudos. Sólo presentación: las cifras no cambian.
+- **IFRS 9 (experimental): seis brechas del contrato forward→IFRS 9, cerradas con guards fail-fast.**
+  Cuatro configuraciones que el motor aceptaba y luego **degradaba en silencio** ahora fallan con un
+  mensaje que dice qué usar en su lugar: (1) `pd.rho_col` se rechaza al construir `IfrsPdConfig` —el
+  motor v1 sólo consume `pd.rho` escalar, y honrar la columna con el escalar sería una etiqueta
+  falsa—; (2) `pit_mode='apply_vasicek'` exige **siempre** `systemic_factor_col`: se elimina la
+  exención de `scenarios.source='forward'`, que suponía un factor sistémico Z que forward **no
+  publica** (sus curvas ya son PIT ⇒ `pit_mode='consume_pit'`); (3) aplicar Vasicek sobre una
+  term-structure ya etiquetada `pd_basis='pit'` queda bloqueado, evitando el doble ajuste macro
+  (espejo del guard que `consume_pit` ya tenía); (4) `forbid_mean_scenario=True` pasa de auditado a
+  **bloqueante**, en el config y en el motor, sobre las tres fuentes de escenarios y sin distinguir
+  mayúsculas (`mean`/`average`/`weighted_mean_input`) —se ponderan outputs por escenario, nunca
+  inputs macro promediados—; el escape hatch `flag=False` sigue disponible y queda auditado. Queda
+  además **caracterizada** con tests y golden (sin tocar el motor) la frontera de pesos cero:
+  `forward` admite peso 0 y IFRS 9 exige peso > 0; su resolución de fondo es una decisión de política
+  pendiente. **Nota de contrato:** ninguna ruta válida cambia de resultado numérico (`config_hash` y
+  demo F4 invariantes), pero un config que antes corría degradado ahora aborta. La capa IFRS 9 es
+  experimental, fuera de la garantía SemVer 1.x.
+- **IFRS 9: la LGD de la capa forward ya no se descarta en silencio.** Si la term-structure trae una
+  columna `lgd` con algún valor no nulo, el motor —que en v1 estima la LGD desde el `frame` según
+  `IfrsLgdConfig`— declara el descarte con el código **`FALTA-DATO-IFRS-6`**: aparece en los
+  `warning_codes` de cada fila, en `card.falta_dato`, en la traza de auditoría `ifrs9_lgd` y como
+  frase explícita en el informe. Sólo declaración: las cifras no cambian.
 - **IFRS 9: descriptions honestas de `rho_col` y `fail_on_falta_dato`.** Ambas prometían conducta que
-  el motor no implementa: `rho_col` decía «sobrescribe rho por fila» pero el motor la rechaza fail-fast
-  (correlación heterogénea diferida en v1); `fail_on_falta_dato` sugería un modo «marcar FALTA-DATO y
-  continuar» ante Vasicek sin rho/Z que no existe (el motor falla en cálculo siempre). Se reescriben
-  las descriptions (y títulos) para reflejar la conducta real.
+  el motor no implementa: `rho_col` decía «sobrescribe rho por fila» pero el motor la rechaza
+  fail-fast (guard introducido en este mismo release, ver arriba; correlación heterogénea diferida en
+  v1); `fail_on_falta_dato` sugería un modo «marcar FALTA-DATO y continuar» ante Vasicek sin rho/Z
+  que no existe (el motor falla en cálculo siempre). Se reescriben las descriptions (y títulos) para
+  reflejar la conducta real.
+- **Captura y config de la UI: la ruta del dataset deja de ser específica del host.** Con `workdir`
+  relativo (el default), la ruta que `run_pipeline` cablea a `data.load.source` se conserva relativa y
+  en separadores POSIX, de modo que el mismo config sale idéntico en distintos checkouts y en
+  Windows/macOS/Linux; una ruta con ancla (raíz, unidad o UNC) conserva su semántica nativa porque es
+  una elección explícita del usuario. Además, la validación de contención del directorio de datasets
+  ahora resuelve enlaces simbólicos **también en el directorio**, no sólo en el archivo: un
+  `workdir/datasets` symlinkeado fuera del workdir pasaba el control anterior.
 
 ### Cambiado
 
+- **Informe HTML con formato editorial (tema `nikodym`, el de fábrica).** El HTML pasa a un layout de
+  tres columnas en pantalla —sidebar de secciones con la marca Nikodym, contenido e índice lateral
+  «En esta página» con los entregables— sobre las clases ya existentes (portada, lineage, firmas
+  SR 11-7, veredicto/callouts, chips de estado, tablas). Los rieles son **de pantalla**: en
+  `@media print` el documento colapsa a una columna A4, así que el **PDF (WeasyPrint) queda intacto**.
+  El tema `plain` no cambia. El markup del documento —`data-section-id`, orden canónico de secciones,
+  `id`/`thead`/`tbody` de las tablas y los literales `config_hash=`/`data_hash=`/`git_sha=`/
+  `root_seed=`— se conserva: quien parsea el HTML no se ve afectado.
+- **Preset F1 de la UI: la corrida estándar ejecuta validación formal.** `standard_preset()` deja de
+  traer `validation: null` y activa discriminación, calibración (Hosmer-Lemeshow + Brier sobre la PD
+  calibrada) y estabilidad, reusando lo que ya calculan `performance`/`stability`. El contraste por
+  grado y el backtesting quedan apagados (el dataset no trae `grade` ni realizados). Los presets F3
+  (CMF) y F4 (IFRS 9) declaran `validation: null` explícitamente: conservan su alcance previo.
 - **Demo: badge «Experimental» en la card de provisiones CMF (F3)**, igual que la de IFRS 9 (F4), pues
   ambos motores de provisiones son experimentales por madurez.
 - Bump de versión 1.3.0 → 1.4.0.
