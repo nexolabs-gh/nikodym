@@ -929,9 +929,19 @@ def _display_scalar(value: Any, *, key_path: tuple[str, ...]) -> str:
         return str(value)
     if isinstance(value, float):
         return _format_float(value, key_path=key_path)
+    if isinstance(value, Decimal):
+        # Simétrico a `_display_json_value`: los motores de provisiones publican sus cifras en
+        # `Decimal` y `str(Decimal)` vuelca la mantisa completa —hasta 52 dígitos— en la celda
+        # (`pd_group` = 0.005229006159768768519885545424566154074707324884202). Se formatea con la
+        # misma regla que un float: sólo presentación, la cifra contable no se altera.
+        return _format_float(float(value), key_path=key_path)
     if isinstance(value, BaseModel):
         return _display_value(value.model_dump(mode="python"), key_path=key_path)
     if isinstance(value, Mapping | Sequence) and not isinstance(value, str | bytes | bytearray):
+        if not value:
+            # Colección vacía = «ninguno» (p. ej. `warning_codes: []`). Sin esto la celda mostraba
+            # `[]`/`{}` crudos, que se leen como celda rota; va al mismo marcador que `None`/`NaN`.
+            return _EMPTY_CELL
         return _display_value(value, key_path=key_path)
     text = str(value)
     return _EMPTY_CELL if text == "none" else text

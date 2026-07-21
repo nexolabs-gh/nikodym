@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -556,6 +557,18 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
     # sino como el mismo em-dash que `None`.
     assert renderer_module._display_scalar(float("nan"), key_path=("x",)) == "—"
     assert renderer_module._display_scalar("none", key_path=("action",)) == "—"
+    # Las provisiones publican en `Decimal`: la celda se formatea como un float, no como la
+    # mantisa completa (52 dígitos) que devolvería `str(Decimal)`.
+    assert (
+        renderer_module._display_scalar(
+            Decimal("0.0052290061597687685198855454245661540747073248842022"),
+            key_path=("pd_group",),
+        )
+        == "0.005229"
+    )
+    # Colección vacía = «ninguno», no `[]`/`{}` crudos.
+    assert renderer_module._display_scalar([], key_path=("warning_codes",)) == "—"
+    assert renderer_module._display_scalar({}, key_path=("x",)) == "—"
     assert renderer_module._format_float(float("nan"), key_path=("x",)) == "—"
     assert renderer_module._display_scalar(True, key_path=("x",)) == "true"
     assert renderer_module._display_scalar(7, key_path=("x",)) == "7"
