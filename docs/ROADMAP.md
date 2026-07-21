@@ -7,8 +7,8 @@
 | **Fecha** | 2026-07-20 |
 | **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.1 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
-El código, el tag `v1.3.0` y PyPI están en `1.3.0`. `main` se encuentra en mejora continua y está por
-delante del tag (próximo release = bump `1.4.0` con OK de Cami).
+El código, el tag `v1.4.0` y PyPI están en `1.4.0`. `main` se encuentra en mejora continua; el próximo
+release será un bump `1.5.0` con OK específico de Cami.
 Las fases F0–F8 que siguen conservan el diseño y los DoD históricos; **no son una cola automática**.
 El estado y el plan de esta sección son la fuente vigente.
 
@@ -46,15 +46,15 @@ El estado y el plan de esta sección son la fuente vigente.
    real) y corregido. Sólo se tocaron P0/P1 verificables.
 5. ✅ **Cerrado (2026-07-20).** Gates completos verdes (12/12), revisión independiente y `demo.nikodym.cl`
    re-deployada y verificada por hash contra el SHA aprobado (`1aba6cf`).
-6. Congelar código, fixtures, informes y deploy antes de la reunión Interbank del **2026-07-22**. Objetivo
-   hacia el 2026-07-21; al 2026-07-20 Cami optó por seguir mejorando (pulido P2/P3 + SDD to-yaml +
-   descriptions) y publicar `1.4.0` al final. **Código del bloque HECHO (2026-07-20, 6 commits sobre
-   `d8da31c`):** locale es-CL en el informe (`2,99 %`), marcador «—» para celdas vacías (`nan`/`none`),
-   descriptions honestas de `rho_col`/`fail_on_falta_dato` + fixture, badge «Experimental» en la card
-   CMF F3, `to-yaml` determinista (no reinyecta `report.document`) y `config_hash` que excluye
-   `data.load.source` (cambio de contrato SemVer autorizado; alinea app≡informe). **Falta:** una sola
-   recaptura de fixtures + redeploy + release `1.4.0` (detalle en `HANDOFF.md`). No se crea tag ni se
-   publica PyPI sin OK específico de Cami (dado para `1.4.0`).
+6. ✅ **Cerrado (2026-07-20) con el release `1.4.0`.** Al bloque de pulido P2/P3 (locale es-CL,
+   marcador «—», descriptions honestas de `rho_col`/`fail_on_falta_dato`, badge «Experimental» en la
+   card CMF F3, `to-yaml` determinista y `config_hash` sin `data.load.source`) se sumaron cuatro
+   defectos que encontró la verificación adversarial del propio release, todos de cara al lector del
+   informe: `Decimal` crudo en las celdas (52 dígitos en la tabla de provisiones internas), tablas de
+   10+ columnas ilegibles en el PDF (ahora en hoja apaisada), la tabla insignia de IFRS 9 rotulada
+   con su clave interna y la jerga de ingeniería en la prosa (DTO, `ValidationResult`, SDD-16,
+   SemVer). Demo recapturada y re-deployada, tag `v1.4.0` y PyPI publicados con OK de Cami. Falta
+   sólo congelar antes de la reunión del **2026-07-22**.
 
 En paralelo permanece un gate humano separado: validar las matrices CMF celda a celda y resolver los
 haircuts remitidos a normativa complementaria. Hasta entonces no existe certificación normativa.
@@ -232,7 +232,7 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 ---
 
 ## Estrategia de release (open-source)
-- `1.3.0` es la versión del código/tag y la publicada en PyPI; el próximo release será `1.4.0` (bump
+- `1.4.0` es la versión del código/tag y la publicada en PyPI; el próximo release será `1.5.0` (bump
   con OK específico de Cami). El pipeline F1 conserva la garantía SemVer 1.x.
 - Releases incrementales con changelog, docs MkDocs, dataset/tutorial reproducible y smoke clean-room.
 - Cada tag y publicación PyPI requiere OK específico de Cami; push/deploy ordinarios no sustituyen ese gate.
