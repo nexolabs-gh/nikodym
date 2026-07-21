@@ -490,7 +490,7 @@
    "fail_on_falta_dato": true
   }
  },
- "config_hash": "21bf265d8e08e8ec8e76781f32a7652fa8ff17c807f000810af73546b916e5f3",
+ "config_hash": "66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9",
  "dataset_id": "provisiones_consumo",
  "name": "Preset F3 — provisiones consumo (CMF + método interno)",
  "description": "Config completo listo para correr sin tocar nada: el scorecard F1 y, encima, las provisiones que la norma chilena exige — método estándar de la CMF (Cap. B-1) y método interno (PD·LGD·Exposición), con la provisión reportada = el mayor de los dos a nivel de entidad — sobre el dataset sintético de consumo con columnas regulatorias."

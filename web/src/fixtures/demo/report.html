@@ -1085,15 +1085,15 @@ figcaption {
     </div>
     <div class="cover-field">
       <dt>Fecha de emisión</dt>
-      <dd>2026-07-18</dd>
+      <dd>2026-07-21</dd>
     </div>
   </dl>
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=9b542e2f4334e67b379fa921d4b38fe325dad373405e5930f3360f6652bba807</code></div>
+    <div class="lineage-line"><code>config_hash=66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9</code></div>
     <div class="lineage-line"><code>data_hash=7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</code></div>
-    <div class="lineage-line"><code>git_sha=f205ea114cd48ad64371602d7774f3068c4517e2</code></div>
+    <div class="lineage-line"><code>git_sha=6a7c4bde4e9309792fe21569fe93f4df5d8afd13</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1136,67 +1136,67 @@ figcaption {
         <tr>
           <td>AUC</td>
           <td>Desarrollo</td>
-          <td class="num">0.8347</td>
+          <td class="num">0,8347</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>Gini</td>
           <td>Desarrollo</td>
-          <td class="num">0.6694</td>
+          <td class="num">0,6694</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>KS</td>
           <td>Desarrollo</td>
-          <td class="num">0.5236</td>
+          <td class="num">0,5236</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>AUC</td>
           <td>Holdout</td>
-          <td class="num">0.7956</td>
+          <td class="num">0,7956</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>Gini</td>
           <td>Holdout</td>
-          <td class="num">0.5913</td>
+          <td class="num">0,5913</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>KS</td>
           <td>Holdout</td>
-          <td class="num">0.4932</td>
+          <td class="num">0,4932</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>AUC</td>
           <td>Fuera de tiempo (OOT)</td>
-          <td class="num">0.7895</td>
+          <td class="num">0,7895</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>Gini</td>
           <td>Fuera de tiempo (OOT)</td>
-          <td class="num">0.5791</td>
+          <td class="num">0,5791</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>KS</td>
           <td>Fuera de tiempo (OOT)</td>
-          <td class="num">0.4723</td>
+          <td class="num">0,4723</td>
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
           <td>PSI del score</td>
           <td>Desarrollo vs. Holdout</td>
-          <td class="num">0.0122</td>
+          <td class="num">0,0122</td>
           <td><span class="band band-ok">Estable</span></td>
         </tr>
         <tr>
           <td>PSI del score</td>
           <td>Desarrollo vs. OOT</td>
-          <td class="num">0.0147</td>
+          <td class="num">0,0147</td>
           <td><span class="band band-ok">Estable</span></td>
         </tr>
       </tbody>
@@ -1204,7 +1204,7 @@ figcaption {
   </div>
 
   <p class="muted">No se configuraron umbrales de discriminación, de modo que el motor no puede levantar alertas sobre AUC, Gini ni KS: «sin alertas» significa que no había umbral contra el cual comparar, no que la métrica sea satisfactoria.</p>
-  <p class="muted">Las bandas de PSI usan los umbrales configurados: estable por debajo de 0.10 y redesarrollo por sobre 0.25.</p>
+  <p class="muted">Las bandas de PSI usan los umbrales configurados: estable por debajo de 0,10 y redesarrollo por sobre 0,25.</p>
 
   <p class="scope-note">Alcance: construcción y evaluación del scorecard. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
 </section>
@@ -1425,10 +1425,10 @@ figcaption {
   <h2><span class="section-number">2</span>Contexto del modelo y de la cartera</h2>
 
 
-  <p>La población procesada contiene 6.000 observaciones, 17 variables de entrada y una tasa de incumplimiento de 6.90 %. Los conteos por estado, partición y motivo de exclusión se reproducen literalmente en las tablas de esta sección.</p>
+  <p>La población procesada contiene 6.000 observaciones, 17 variables de entrada y una tasa de incumplimiento de 6,90 %. Los conteos por estado, partición y motivo de exclusión se reproducen literalmente en las tablas de esta sección.</p>
   <p>La columna objetivo publicada por data es «target».</p>
   <p>La variable objetivo del ejercicio es «target», construida por las reglas de incumplimiento declaradas en el config (Anexo C). La definición de negocio que justifica esas reglas —p. ej. 90+ días de mora— debe explicitarla el analista: el motor aplica la regla, no la fundamenta.</p>
-  <p>La población se particionó por cohorte sobre «cohorte», reservando como OOT la cohorte «2024Q2», y un Holdout de 20.00 % del resto.</p>
+  <p>La población se particionó por cohorte sobre «cohorte», reservando como OOT la cohorte «2024Q2», y un Holdout de 20,00 % del resto.</p>
 
 <div class="placeholder">
   <p class="placeholder-title">POR COMPLETAR — Contexto del modelo</p>
@@ -1491,7 +1491,7 @@ figcaption {
 
 
   <p>El dataset se validó contra un esquema declarado de 8 columnas, con tipos y nulabilidad explícitos; una desviación del esquema detiene la corrida en vez de propagarse.</p>
-  <p>En el tratamiento de faltantes se rechaza toda variable con más de 99.00 % de valores faltantes.</p>
+  <p>En el tratamiento de faltantes se rechaza toda variable con más de 99,00 % de valores faltantes.</p>
 
 
 </section>
@@ -1499,7 +1499,7 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">3.2</span>Binning WoE</h3>
 
 
-  <p>Se discretizó cada variable con OptBinning, resolviendo el problema óptimo por programación entera mixta (MIP), partiendo de un máximo de 20 pre-bins, con un máximo de 6 bins por variable y un tamaño mínimo de bin de 5.00 % de la población.</p>
+  <p>Se discretizó cada variable con OptBinning, resolviendo el problema óptimo por programación entera mixta (MIP), partiendo de un máximo de 20 pre-bins, con un máximo de 6 bins por variable y un tamaño mínimo de bin de 5,00 % de la población.</p>
   <p>La tendencia monótona exigida al WoE es automática (ascendente o descendente): el riesgo debe comportarse de forma coherente entre tramos contiguos, sin quiebres que un analista no pueda defender.</p>
   <p>De 6 variables candidatas, 6 quedaron binificadas.</p>
   <p>Los valores especiales se agrupan en un bin propio y los faltantes reciben el tratamiento «empirical» (OptBinning 0.20.0).</p>
@@ -1510,8 +1510,8 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">3.3</span>Selección de variables</h3>
 
 
-  <p>Se descartaron las variables con IV inferior a 0.02; las de IV superior a 0.50 se marcaron para revisión, porque un poder predictivo tan alto suele indicar fuga de información más que señal legítima.</p>
-  <p>Se eliminó la redundancia entre pares de variables con correlación (pearson) sobre 0.75 y se acotó la multicolinealidad exigiendo un VIF bajo 5.0.</p>
+  <p>Se descartaron las variables con IV inferior a 0,02; las de IV superior a 0,50 se marcaron para revisión, porque un poder predictivo tan alto suele indicar fuga de información más que señal legítima.</p>
+  <p>Se eliminó la redundancia entre pares de variables con correlación (pearson) sobre 0,75 y se acotó la multicolinealidad exigiendo un VIF bajo 5,0.</p>
   <p>El filtro dejó 5 de 6 variables candidatas; el motivo de exclusión de cada variable descartada consta en la tabla de selección.</p>
 
 
@@ -1520,8 +1520,8 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">3.4</span>Estimación del modelo PD</h3>
 
 
-  <p>La probabilidad de incumplimiento se modeló mediante regresión logística (logit) sobre las variables transformadas a WoE, con un nivel de significancia de 0.05.</p>
-  <p>La construcción del modelo usó stepwise bidireccional (criterio «wald_pvalue» y p-valor de entrada 0.05 y de salida 0.05).</p>
+  <p>La probabilidad de incumplimiento se modeló mediante regresión logística (logit) sobre las variables transformadas a WoE, con un nivel de significancia de 0,05.</p>
+  <p>La construcción del modelo usó stepwise bidireccional (criterio «wald_pvalue» y p-valor de entrada 0,05 y de salida 0,05).</p>
   <p>Se exige que el coeficiente de cada variable en WoE tenga el signo esperado (negativo): cuando se invierte, se marca la variable sin excluirla. Un signo invertido significa que la variable contradice la relación de riesgo que su binning declara.</p>
   <p>El modelo final retiene 5 de 5 variables de entrada.</p>
 
@@ -1532,7 +1532,7 @@ figcaption {
 
 
   <p>El modelo se escaló a puntaje con la convención PDO: un puntaje de 600 corresponde a odds de 50:1, y cada 20 puntos adicionales duplican esas odds.</p>
-  <p>De esa convención se derivan los parámetros efectivos de la escala: factor 28.8539 y offset 487.1229.</p>
+  <p>De esa convención se derivan los parámetros efectivos de la escala: factor 28,8539 y offset 487,1229.</p>
   <p>Un puntaje más alto indica menor riesgo y los puntajes se emiten con redondeo al entero más cercano.</p>
 
 
@@ -1541,8 +1541,8 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">3.6</span>Calibración de la PD</h3>
 
 
-  <p>La PD se calibró por desplazamiento del intercepto (intercept offset), ajustando sobre la partición de Desarrollo contra la tasa de incumplimiento observada en Desarrollo, con una PD objetivo de 6.63 %. El ancla es a través del ciclo (TTC).</p>
-  <p>El desplazamiento aplicado al intercepto es 0.0000, lo que preserva el ordenamiento del score: la calibración corrige el nivel de la PD, no su ranking.</p>
+  <p>La PD se calibró por desplazamiento del intercepto (intercept offset), ajustando sobre la partición de Desarrollo contra la tasa de incumplimiento observada en Desarrollo, con una PD objetivo de 6,63 %. El ancla es a través del ciclo (TTC).</p>
+  <p>El desplazamiento aplicado al intercepto es 0,0000, lo que preserva el ordenamiento del score: la calibración corrige el nivel de la PD, no su ranking.</p>
   <p>El ajuste se realizó sobre 3939 observaciones de Desarrollo.</p>
 
 
@@ -1559,7 +1559,7 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">4.1</span>Binning WoE y poder predictivo</h3>
 
 
-  <p>El poder predictivo univariado (IV) de las 6 variables binificadas lo encabezan «mora_max_12m» (1.409), «deuda_ingreso» (0.651) y «ingreso_mensual» (0.621). El IV de cada variable consta en la tabla siguiente y su binning completo, bin a bin, en el Anexo B.</p>
+  <p>El poder predictivo univariado (IV) de las 6 variables binificadas lo encabezan «mora_max_12m» (1,409), «deuda_ingreso» (0,651) y «ingreso_mensual» (0,621). El IV de cada variable consta en la tabla siguiente y su binning completo, bin a bin, en el Anexo B.</p>
   <p>La monotonía efectiva del WoE resultó en 3 variables con tendencia ascendente y 2 variables con tendencia descendente, y 1 sin tendencia monótona resuelta, lo que debe revisarse.</p>
 
 
@@ -1568,12 +1568,12 @@ figcaption {
   <table id="table-binning-summary" data-table-key="binning.summary">
     <thead><tr><th>name</th><th>dtype</th><th>status</th><th>selected</th><th>n_bins</th><th>iv</th><th>js</th><th>gini</th><th>quality_score</th><th>iv_band</th><th>is_suspicious_iv</th><th>is_zero_iv</th><th>monotonic_trend</th><th>skipped_reason</th></tr></thead>
     <tbody>
-      <tr><td>ingreso_mensual</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>0.621124</td><td>0.070379</td><td>0.394788</td><td>0.428357</td><td>suspicious</td><td>true</td><td>false</td><td>descending</td><td>No disponible</td></tr>
-      <tr><td>deuda_ingreso</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>0.650693</td><td>0.076195</td><td>0.420809</td><td>0.446131</td><td>suspicious</td><td>true</td><td>false</td><td>ascending</td><td>No disponible</td></tr>
-      <tr><td>utilizacion_linea</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>0.159054</td><td>0.019486</td><td>0.212641</td><td>0.019671</td><td>medium</td><td>false</td><td>false</td><td>ascending</td><td>No disponible</td></tr>
-      <tr><td>mora_max_12m</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>1.409086</td><td>0.142797</td><td>0.495264</td><td>0.001366</td><td>suspicious</td><td>true</td><td>false</td><td>ascending</td><td>No disponible</td></tr>
-      <tr><td>antiguedad_meses</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>0.237632</td><td>0.029093</td><td>0.263314</td><td>0.058653</td><td>medium</td><td>false</td><td>false</td><td>descending</td><td>No disponible</td></tr>
-      <tr><td>segmento</td><td>categorical</td><td>OPTIMAL</td><td>true</td><td>3</td><td>0.000469</td><td>0.000059</td><td>0.011782</td><td>0.000029</td><td>none</td><td>false</td><td>false</td><td>No disponible</td><td>No disponible</td></tr>
+      <tr><td>ingreso_mensual</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>0.621124</td><td>0.070379</td><td>0.394788</td><td>0.428357</td><td>suspicious</td><td>true</td><td>false</td><td>descending</td><td>—</td></tr>
+      <tr><td>deuda_ingreso</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>0.650693</td><td>0.076195</td><td>0.420809</td><td>0.446131</td><td>suspicious</td><td>true</td><td>false</td><td>ascending</td><td>—</td></tr>
+      <tr><td>utilizacion_linea</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>0.159054</td><td>0.019486</td><td>0.212641</td><td>0.019671</td><td>medium</td><td>false</td><td>false</td><td>ascending</td><td>—</td></tr>
+      <tr><td>mora_max_12m</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>1.409086</td><td>0.142797</td><td>0.495264</td><td>0.001366</td><td>suspicious</td><td>true</td><td>false</td><td>ascending</td><td>—</td></tr>
+      <tr><td>antiguedad_meses</td><td>numerical</td><td>OPTIMAL</td><td>true</td><td>6</td><td>0.237632</td><td>0.029093</td><td>0.263314</td><td>0.058653</td><td>medium</td><td>false</td><td>false</td><td>descending</td><td>—</td></tr>
+      <tr><td>segmento</td><td>categorical</td><td>OPTIMAL</td><td>true</td><td>3</td><td>0.000469</td><td>0.000059</td><td>0.011782</td><td>0.000029</td><td>—</td><td>false</td><td>false</td><td>—</td><td>—</td></tr>
     </tbody>
   </table>
 </figure>
@@ -1585,7 +1585,7 @@ figcaption {
 
   <p>Las 5 variables que pasaron el filtro son «antiguedad_meses», «deuda_ingreso», «ingreso_mensual», «mora_max_12m» y «utilizacion_linea».</p>
   <p>Las exclusiones se reparten en 1 por IV insuficiente.</p>
-  <p>Tras la selección, la correlación absoluta máxima entre las variables finales es 0.2963 y el VIF máximo es 1.25.</p>
+  <p>Tras la selección, la correlación absoluta máxima entre las variables finales es 0,2963 y el VIF máximo es 1,25.</p>
   <p>Quedaron marcadas por IV excesivo (posible fuga de información): «deuda_ingreso», «ingreso_mensual» y «mora_max_12m». Requieren una explicación de negocio antes de aprobar el modelo.</p>
 
 
@@ -1594,12 +1594,12 @@ figcaption {
   <table id="table-selection-selection_table" data-table-key="selection.selection_table">
     <thead><tr><th>feature</th><th>woe_column</th><th>included</th><th>reason</th><th>iv</th><th>iv_band</th><th>auc</th><th>gini</th><th>ks</th><th>max_abs_corr</th><th>max_corr_with</th><th>vif</th><th>max_csi</th><th>forced</th><th>detail</th></tr></thead>
     <tbody>
-      <tr><td>antiguedad_meses</td><td>antiguedad_meses__woe</td><td>true</td><td>included</td><td>0.237632</td><td>medium</td><td>0.631657</td><td>0.263314</td><td>0.202003</td><td>No disponible</td><td>No disponible</td><td>1.026062</td><td>No disponible</td><td>No disponible</td><td>No disponible</td></tr>
-      <tr><td>deuda_ingreso</td><td>deuda_ingreso__woe</td><td>true</td><td>high_iv</td><td>0.650693</td><td>suspicious</td><td>0.710405</td><td>0.420809</td><td>0.314239</td><td>No disponible</td><td>No disponible</td><td>1.105517</td><td>No disponible</td><td>No disponible</td><td>iv=0.650693017601 &gt;= max_iv=0.5</td></tr>
-      <tr><td>ingreso_mensual</td><td>ingreso_mensual__woe</td><td>true</td><td>high_iv</td><td>0.621124</td><td>suspicious</td><td>0.697394</td><td>0.394788</td><td>0.279975</td><td>No disponible</td><td>No disponible</td><td>1.091881</td><td>No disponible</td><td>No disponible</td><td>iv=0.621124012624 &gt;= max_iv=0.5</td></tr>
-      <tr><td>mora_max_12m</td><td>mora_max_12m__woe</td><td>true</td><td>high_iv</td><td>1.409086</td><td>suspicious</td><td>0.747632</td><td>0.495264</td><td>0.423340</td><td>No disponible</td><td>No disponible</td><td>1.250736</td><td>No disponible</td><td>No disponible</td><td>iv=1.40908616508 &gt;= max_iv=0.5</td></tr>
-      <tr><td>segmento</td><td>segmento__woe</td><td>false</td><td>low_iv</td><td>0.000469</td><td>none</td><td>0.505891</td><td>0.011782</td><td>0.008972</td><td>No disponible</td><td>No disponible</td><td>nan</td><td>No disponible</td><td>No disponible</td><td>iv=0.000469213025506 &lt; min_iv=0.02</td></tr>
-      <tr><td>utilizacion_linea</td><td>utilizacion_linea__woe</td><td>true</td><td>included</td><td>0.159054</td><td>medium</td><td>0.606320</td><td>0.212641</td><td>0.152438</td><td>No disponible</td><td>No disponible</td><td>1.023972</td><td>No disponible</td><td>No disponible</td><td>No disponible</td></tr>
+      <tr><td>antiguedad_meses</td><td>antiguedad_meses__woe</td><td>true</td><td>included</td><td>0.237632</td><td>medium</td><td>0.631657</td><td>0.263314</td><td>0.202003</td><td>—</td><td>—</td><td>1.026062</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td>deuda_ingreso</td><td>deuda_ingreso__woe</td><td>true</td><td>high_iv</td><td>0.650693</td><td>suspicious</td><td>0.710405</td><td>0.420809</td><td>0.314239</td><td>—</td><td>—</td><td>1.105517</td><td>—</td><td>—</td><td>iv=0.650693017601 &gt;= max_iv=0.5</td></tr>
+      <tr><td>ingreso_mensual</td><td>ingreso_mensual__woe</td><td>true</td><td>high_iv</td><td>0.621124</td><td>suspicious</td><td>0.697394</td><td>0.394788</td><td>0.279975</td><td>—</td><td>—</td><td>1.091881</td><td>—</td><td>—</td><td>iv=0.621124012624 &gt;= max_iv=0.5</td></tr>
+      <tr><td>mora_max_12m</td><td>mora_max_12m__woe</td><td>true</td><td>high_iv</td><td>1.409086</td><td>suspicious</td><td>0.747632</td><td>0.495264</td><td>0.423340</td><td>—</td><td>—</td><td>1.250736</td><td>—</td><td>—</td><td>iv=1.40908616508 &gt;= max_iv=0.5</td></tr>
+      <tr><td>segmento</td><td>segmento__woe</td><td>false</td><td>low_iv</td><td>0.000469</td><td>—</td><td>0.505891</td><td>0.011782</td><td>0.008972</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>iv=0.000469213025506 &lt; min_iv=0.02</td></tr>
+      <tr><td>utilizacion_linea</td><td>utilizacion_linea__woe</td><td>true</td><td>included</td><td>0.159054</td><td>medium</td><td>0.606320</td><td>0.212641</td><td>0.152438</td><td>—</td><td>—</td><td>1.023972</td><td>—</td><td>—</td><td>—</td></tr>
     </tbody>
   </table>
 </figure>
@@ -1608,11 +1608,11 @@ figcaption {
   <table id="table-selection-vif_table" data-table-key="selection.vif_table">
     <thead><tr><th>iteration</th><th>feature</th><th>woe_column</th><th>vif</th><th>removed</th><th>reason</th></tr></thead>
     <tbody>
-      <tr><td>0</td><td>mora_max_12m</td><td>mora_max_12m__woe</td><td>1.250736</td><td>false</td><td>No disponible</td></tr>
-      <tr><td>0</td><td>deuda_ingreso</td><td>deuda_ingreso__woe</td><td>1.105517</td><td>false</td><td>No disponible</td></tr>
-      <tr><td>0</td><td>ingreso_mensual</td><td>ingreso_mensual__woe</td><td>1.091881</td><td>false</td><td>No disponible</td></tr>
-      <tr><td>0</td><td>antiguedad_meses</td><td>antiguedad_meses__woe</td><td>1.026062</td><td>false</td><td>No disponible</td></tr>
-      <tr><td>0</td><td>utilizacion_linea</td><td>utilizacion_linea__woe</td><td>1.023972</td><td>false</td><td>No disponible</td></tr>
+      <tr><td>0</td><td>mora_max_12m</td><td>mora_max_12m__woe</td><td>1.250736</td><td>false</td><td>—</td></tr>
+      <tr><td>0</td><td>deuda_ingreso</td><td>deuda_ingreso__woe</td><td>1.105517</td><td>false</td><td>—</td></tr>
+      <tr><td>0</td><td>ingreso_mensual</td><td>ingreso_mensual__woe</td><td>1.091881</td><td>false</td><td>—</td></tr>
+      <tr><td>0</td><td>antiguedad_meses</td><td>antiguedad_meses__woe</td><td>1.026062</td><td>false</td><td>—</td></tr>
+      <tr><td>0</td><td>utilizacion_linea</td><td>utilizacion_linea__woe</td><td>1.023972</td><td>false</td><td>—</td></tr>
     </tbody>
   </table>
 </figure>
@@ -1623,7 +1623,7 @@ figcaption {
 
 
   <p>El modelo final incluye 5 variables: «antiguedad_meses», «deuda_ingreso», «ingreso_mensual», «mora_max_12m» y «utilizacion_linea».</p>
-  <p>En el ajuste in-sample, el optimizador convergió, el ajuste usó 3939 observaciones de Desarrollo, de las cuales 261 son incumplimientos y el pseudo-R² de McFadden es 0.2697.</p>
+  <p>En el ajuste in-sample, el optimizador convergió, el ajuste usó 3939 observaciones de Desarrollo, de las cuales 261 son incumplimientos y el pseudo-R² de McFadden es 0,2697.</p>
   <p>Marcadas por concentrar una contribución excesiva al IV del modelo: «mora_max_12m».</p>
 
   <figure class="chart-slot" id="chart-model-coefficients"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="468pt" height="288pt" viewBox="0 0 468 288" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" style="max-width:100%;height:auto"><title>Coeficientes del modelo (β, IC 95 %)</title>
@@ -1944,7 +1944,7 @@ L 457.2 26.16
   <table id="table-model-coefficients" data-table-key="model.coefficients">
     <thead><tr><th>feature</th><th>woe_column</th><th>beta</th><th>standard_error</th><th>wald_z</th><th>p_value</th><th>conf_low</th><th>conf_high</th><th>expected_sign</th><th>sign_ok</th><th>iv</th><th>iv_contribution</th></tr></thead>
     <tbody>
-      <tr><td>intercept</td><td>const</td><td>-2.631065</td><td>0.079779</td><td>-32.979575</td><td>0.000000</td><td>-2.787428</td><td>-2.474702</td><td>none</td><td>No disponible</td><td>nan</td><td>nan</td></tr>
+      <tr><td>intercept</td><td>const</td><td>-2.631065</td><td>0.079779</td><td>-32.979575</td><td>0.000000</td><td>-2.787428</td><td>-2.474702</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
       <tr><td>antiguedad_meses</td><td>antiguedad_meses__woe</td><td>-0.791222</td><td>0.157409</td><td>-5.026541</td><td>0.000000</td><td>-1.099738</td><td>-0.482706</td><td>negative</td><td>true</td><td>0.237632</td><td>0.077214</td></tr>
       <tr><td>deuda_ingreso</td><td>deuda_ingreso__woe</td><td>-0.794528</td><td>0.094834</td><td>-8.378054</td><td>0.000000</td><td>-0.980400</td><td>-0.608656</td><td>negative</td><td>true</td><td>0.650693</td><td>0.211429</td></tr>
       <tr><td>ingreso_mensual</td><td>ingreso_mensual__woe</td><td>-0.718930</td><td>0.103834</td><td>-6.923822</td><td>0.000000</td><td>-0.922442</td><td>-0.515419</td><td>negative</td><td>true</td><td>0.621124</td><td>0.201822</td></tr>
@@ -2016,7 +2016,7 @@ L 457.2 26.16
   <h3 class="subsection-title"><span class="section-number">4.5</span>Calibración</h3>
 
 
-  <p>En Desarrollo, la PD media calibrada es 6.63 %, frente a 6.63 % antes de calibrar, contra una tasa de incumplimiento observada de 6.63 %.</p>
+  <p>En Desarrollo, la PD media calibrada es 6,63 %, frente a 6,63 % antes de calibrar, contra una tasa de incumplimiento observada de 6,63 %.</p>
   <p>La calibración preservó el ordenamiento de las observaciones: la capacidad discriminante del modelo no se altera.</p>
 
   <figure class="chart-slot" id="chart-calibration-reliability"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="432pt" height="324pt" viewBox="0 0 432 324" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" style="max-width:100%;height:auto"><title>Curva de calibración (confiabilidad) por partición</title>
@@ -2548,9 +2548,9 @@ L 77.642344 73.680625
 
 
   <p>Las métricas de discriminación se calcularon sobre la PD calibrada.</p>
-  <p>En Desarrollo el modelo alcanza AUC 0.8347, Gini 0.6694 y KS 0.5236.</p>
-  <p>En Holdout el modelo alcanza AUC 0.7956, Gini 0.5913 y KS 0.4932.</p>
-  <p>En Fuera de tiempo (OOT) el modelo alcanza AUC 0.7895, Gini 0.5791 y KS 0.4723.</p>
+  <p>En Desarrollo el modelo alcanza AUC 0,8347, Gini 0,6694 y KS 0,5236.</p>
+  <p>En Holdout el modelo alcanza AUC 0,7956, Gini 0,5913 y KS 0,4932.</p>
+  <p>En Fuera de tiempo (OOT) el modelo alcanza AUC 0,7895, Gini 0,5791 y KS 0,4723.</p>
   <p>La tabla de desempeño reparte la población en 10 tramos de riesgo ordenados por score, y permite verificar que la tasa de incumplimiento observada sea monótona entre tramos.</p>
 
   <figure class="chart-slot" id="chart-performance-gains"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="432pt" height="324pt" viewBox="0 0 432 324" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" style="max-width:100%;height:auto"><title>Curva de ganancia acumulada por partición</title>
@@ -3299,9 +3299,9 @@ z
   <table id="table-performance-discriminant_metrics" data-table-key="performance.discriminant_metrics">
     <thead><tr><th>partition</th><th>n_total</th><th>n_bad</th><th>n_good</th><th>auc</th><th>gini</th><th>ks</th><th>ks_cutoff_risk_score</th><th>ks_cutoff_score</th><th>tpr_at_ks</th><th>fpr_at_ks</th><th>source</th><th>status</th></tr></thead>
     <tbody>
-      <tr><td>desarrollo</td><td>3939</td><td>261</td><td>3678</td><td>0.834688</td><td>0.669375</td><td>0.523629</td><td>0.077776</td><td>No disponible</td><td>0.662835</td><td>0.139206</td><td>pd_calibrated</td><td>ok</td></tr>
-      <tr><td>holdout</td><td>1009</td><td>73</td><td>936</td><td>0.795640</td><td>0.591280</td><td>0.493195</td><td>0.075312</td><td>No disponible</td><td>0.643836</td><td>0.150641</td><td>pd_calibrated</td><td>ok</td></tr>
-      <tr><td>oot</td><td>1052</td><td>80</td><td>972</td><td>0.789532</td><td>0.579064</td><td>0.472274</td><td>0.088074</td><td>No disponible</td><td>0.587500</td><td>0.115226</td><td>pd_calibrated</td><td>ok</td></tr>
+      <tr><td>desarrollo</td><td>3939</td><td>261</td><td>3678</td><td>0.834688</td><td>0.669375</td><td>0.523629</td><td>0.077776</td><td>—</td><td>0.662835</td><td>0.139206</td><td>pd_calibrated</td><td>ok</td></tr>
+      <tr><td>holdout</td><td>1009</td><td>73</td><td>936</td><td>0.795640</td><td>0.591280</td><td>0.493195</td><td>0.075312</td><td>—</td><td>0.643836</td><td>0.150641</td><td>pd_calibrated</td><td>ok</td></tr>
+      <tr><td>oot</td><td>1052</td><td>80</td><td>972</td><td>0.789532</td><td>0.579064</td><td>0.472274</td><td>0.088074</td><td>—</td><td>0.587500</td><td>0.115226</td><td>pd_calibrated</td><td>ok</td></tr>
     </tbody>
   </table>
 </figure>
@@ -3349,9 +3349,9 @@ z
   <h3 class="subsection-title"><span class="section-number">4.7</span>Estabilidad</h3>
 
 
-  <p>El PSI del score en Desarrollo vs. Holdout es 0.0122 (banda «Estable»). La distribución del score se mantiene, de modo que no hay evidencia de desplazamiento poblacional.</p>
-  <p>El PSI del score en Desarrollo vs. OOT es 0.0147 (banda «Estable»). La distribución del score se mantiene, de modo que no hay evidencia de desplazamiento poblacional.</p>
-  <p>A nivel de variable, el mayor CSI corresponde a «ingreso_mensual__points» con 0.0093.</p>
+  <p>El PSI del score en Desarrollo vs. Holdout es 0,0122 (banda «Estable»). La distribución del score se mantiene, de modo que no hay evidencia de desplazamiento poblacional.</p>
+  <p>El PSI del score en Desarrollo vs. OOT es 0,0147 (banda «Estable»). La distribución del score se mantiene, de modo que no hay evidencia de desplazamiento poblacional.</p>
+  <p>A nivel de variable, el mayor CSI corresponde a «ingreso_mensual__points» con 0,0093.</p>
   <p>El PSI se calculó sobre 10 tramos del score, definidos en Desarrollo.</p>
 
   <figure class="chart-slot" id="chart-stability-stability"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="504pt" height="540pt" viewBox="0 0 504 540" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" style="max-width:100%;height:auto"><title>Estabilidad PSI/CSI por comparación</title>
@@ -3829,21 +3829,21 @@ L 420.51375 486.278125
   <table id="table-stability-stability_metrics" data-table-key="stability.stability_metrics">
     <thead><tr><th>metric</th><th>comparison</th><th>feature</th><th>value</th><th>stable_threshold</th><th>review_threshold</th><th>band</th><th>action</th></tr></thead>
     <tbody>
-      <tr><td>score_psi</td><td>dev_vs_holdout</td><td>score</td><td>0.012205</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>score_psi</td><td>dev_vs_oot</td><td>score</td><td>0.010286</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>pd_psi</td><td>dev_vs_holdout</td><td>pd_calibrated</td><td>0.005395</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>pd_psi</td><td>dev_vs_oot</td><td>pd_calibrated</td><td>0.014715</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>antiguedad_meses__points</td><td>0.002325</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>antiguedad_meses__points</td><td>0.002744</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>deuda_ingreso__points</td><td>0.006457</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>deuda_ingreso__points</td><td>0.002961</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>ingreso_mensual__points</td><td>0.009319</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>ingreso_mensual__points</td><td>0.003840</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>mora_max_12m__points</td><td>0.001848</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>mora_max_12m__points</td><td>0.001885</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_holdout</td><td>utilizacion_linea__points</td><td>0.004609</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>csi</td><td>dev_vs_oot</td><td>utilizacion_linea__points</td><td>0.007257</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
-      <tr><td>temporal_score</td><td>period</td><td>score</td><td>0.010286</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>none</td></tr>
+      <tr><td>score_psi</td><td>dev_vs_holdout</td><td>score</td><td>0.012205</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>score_psi</td><td>dev_vs_oot</td><td>score</td><td>0.010286</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>pd_psi</td><td>dev_vs_holdout</td><td>pd_calibrated</td><td>0.005395</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>pd_psi</td><td>dev_vs_oot</td><td>pd_calibrated</td><td>0.014715</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_holdout</td><td>antiguedad_meses__points</td><td>0.002325</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_oot</td><td>antiguedad_meses__points</td><td>0.002744</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_holdout</td><td>deuda_ingreso__points</td><td>0.006457</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_oot</td><td>deuda_ingreso__points</td><td>0.002961</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_holdout</td><td>ingreso_mensual__points</td><td>0.009319</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_oot</td><td>ingreso_mensual__points</td><td>0.003840</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_holdout</td><td>mora_max_12m__points</td><td>0.001848</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_oot</td><td>mora_max_12m__points</td><td>0.001885</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_holdout</td><td>utilizacion_linea__points</td><td>0.004609</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>csi</td><td>dev_vs_oot</td><td>utilizacion_linea__points</td><td>0.007257</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
+      <tr><td>temporal_score</td><td>period</td><td>score</td><td>0.010286</td><td>0.100000</td><td>0.250000</td><td>stable</td><td>—</td></tr>
     </tbody>
   </table>
 </figure>
@@ -3988,7 +3988,7 @@ L 420.51375 486.278125
   <h3 class="subsection-title"><span class="section-number">5.2</span>Método estándar de la CMF (Cap. B-1)</h3>
 
 
-  <p>El método estándar de la CMF provisiona $697.376.974 sobre $8.079.005.434 de colocaciones, un índice de riesgo del 8.63 %.</p>
+  <p>El método estándar de la CMF provisiona $697.376.974 sobre $8.079.005.434 de colocaciones, un índice de riesgo del 8,63 %.</p>
   <p>En cartera de consumo el factor de provisión es PI por PDI; la categoría no es un input: la deriva el motor del tramo de mora, la tenencia de hipotecario y la mora en el sistema financiero, según la matriz del Cap. B-1. Matriz aplicada: cmf_b1_b3_2025_01.</p>
 
 
@@ -4054,9 +4054,9 @@ L 420.51375 486.278125
   <h2><span class="section-number">6</span>Conclusiones y recomendación</h2>
 
 
-  <p>Discriminación (AUC): Desarrollo 0.8347, Holdout 0.7956 y Fuera de tiempo (OOT) 0.7895.</p>
-  <p>Estabilidad (PSI del score): Desarrollo vs. Holdout 0.0122 («Estable») y Desarrollo vs. OOT 0.0147 («Estable»).</p>
-  <p>Calibración: la PD media calibrada en Desarrollo (6.63 %) se contrasta con la tasa observada (6.63 %).</p>
+  <p>Discriminación (AUC): Desarrollo 0,8347, Holdout 0,7956 y Fuera de tiempo (OOT) 0,7895.</p>
+  <p>Estabilidad (PSI del score): Desarrollo vs. Holdout 0,0122 («Estable») y Desarrollo vs. OOT 0,0147 («Estable»).</p>
+  <p>Calibración: la PD media calibrada en Desarrollo (6,63 %) se contrasta con la tasa observada (6,63 %).</p>
   <p>Estos hallazgos son los que el motor puede sostener con los números de la corrida. La recomendación —aprobar, aprobar con observaciones o rechazar— es un juicio humano y no se deriva automáticamente de ellos.</p>
 
 <div class="placeholder">
@@ -4083,22 +4083,22 @@ L 420.51375 486.278125
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>9b542e2f4334e67b379fa921d4b38fe325dad373405e5930f3360f6652bba807</dd>
-    <dt>created_at</dt><dd>2026-07-18T23:17:03.934521Z</dd>
+    <dt>config_hash</dt><dd>66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9</dd>
+    <dt>created_at</dt><dd>2026-07-21T01:16:22.067541Z</dd>
     <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>f205ea114cd48ad64371602d7774f3068c4517e2</dd>
+    <dt>git_sha</dt><dd>6a7c4bde4e9309792fe21569fe93f4df5d8afd13</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.3.0&#34;,
+  &#34;nikodym&#34;: &#34;1.4.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
 }</pre></dd>
     <dt>root_seed</dt><dd>20240706</dd>
     <dt>schema_version</dt><dd>1.0.0</dd>
-    <dt>uv_lock_hash</dt><dd>No disponible</dd>
+    <dt>uv_lock_hash</dt><dd>—</dd>
   </dl>
 
 
@@ -4465,7 +4465,7 @@ L 420.51375 486.278125
   &#34;holdout&#34;: 1009,
   &#34;oot&#34;: 1052
 }</pre></dd>
-    <dt>performance_window_months</dt><dd>No disponible</dd>
+    <dt>performance_window_months</dt><dd>—</dd>
     <dt>source</dt><dd>provisiones_consumo.parquet</dd>
     <dt>target_col</dt><dd>target</dd>
   </dl>
@@ -4775,8 +4775,8 @@ L 420.51375 486.278125
   &#34;type&#34;: &#34;standard&#34;
 }</pre></dd>
     <dt>factor</dt><dd>28.853901</dd>
-    <dt>max_score</dt><dd>No disponible</dd>
-    <dt>min_score</dt><dd>No disponible</dd>
+    <dt>max_score</dt><dd>—</dd>
+    <dt>min_score</dt><dd>—</dd>
     <dt>n_variables</dt><dd>5</dd>
     <dt>offset</dt><dd>487.122876</dd>
     <dt>overrides_count</dt><dd>0</dd>
@@ -4835,7 +4835,7 @@ L 420.51375 486.278125
   &#34;type&#34;: &#34;standard&#34;
 }</pre></dd>
     <dt>fit_partition</dt><dd>desarrollo</dd>
-    <dt>intercept</dt><dd>No disponible</dd>
+    <dt>intercept</dt><dd>—</dd>
     <dt>method</dt><dd>intercept_offset</dd>
     <dt>n_fit</dt><dd>3939</dd>
     <dt>observed_default_rate_dev</dt><dd>0.0663</dd>
@@ -4844,7 +4844,7 @@ L 420.51375 486.278125
     <dt>pd_raw_column</dt><dd>pd_raw</dd>
     <dt>ranking_preserved</dt><dd>true</dd>
     <dt>raw_mean_pd_dev</dt><dd>0.066260</dd>
-    <dt>slope</dt><dd>No disponible</dd>
+    <dt>slope</dt><dd>—</dd>
     <dt>target_pd</dt><dd>0.066260</dd>
     <dt>ties_created</dt><dd>0</dd>
   </dl>
@@ -5051,7 +5051,7 @@ L 420.51375 486.278125
   &#34;internal&#34;
 ]</pre></dd>
     <dt>falta_dato</dt><dd>[]</dd>
-    <dt>ifrs9_term_structure_source</dt><dd>No disponible</dd>
+    <dt>ifrs9_term_structure_source</dt><dd>—</dd>
     <dt>internal_method</dt><dd>pd_lgd</dd>
     <dt>n_binding_a</dt><dd>1</dd>
     <dt>n_binding_b</dt><dd>0</dd>
