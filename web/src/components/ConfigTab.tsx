@@ -418,7 +418,16 @@ export function ConfigTab({ section }: { section: string }) {
               variant="outline"
               size="sm"
               onClick={handleStartBlank}
-              title="Vaciar el formulario y armar el config desde cero"
+              // En la demo estática vaciar el config deja el recorrido sin salida: `handleStartBlank`
+              // borra el dataset (Ejecutar queda bloqueado) y corta la corrida, pero aquí no hay
+              // backend con el cual elegir otro dataset ni volver a correr. Se apaga con el motivo
+              // a la vista, en vez de ofrecer un botón que rompe la demo.
+              disabled={DEMO_MODE}
+              title={
+                DEMO_MODE
+                  ? "No disponible en la demo: sirve los resultados de tres corridas ya ejecutadas, sin backend que corra un config nuevo"
+                  : "Vaciar el formulario y armar el config desde cero"
+              }
             >
               <FilePlus2 aria-hidden="true" />
               Empezar de cero
@@ -437,8 +446,17 @@ export function ConfigTab({ section }: { section: string }) {
               variant="outline"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
-              disabled={yamlBusy || backendDown}
-              title={backendDown ? "Requiere el backend" : "Cargar un YAML existente"}
+              // En demo el YAML subido NO se lee: `demoConfigFromYaml` devuelve el config del preset
+              // activo, así que el botón parecía funcionar y en realidad ignoraba el archivo del
+              // usuario. Fingir que se cargó es peor que decir que no se puede.
+              disabled={yamlBusy || backendDown || DEMO_MODE}
+              title={
+                DEMO_MODE
+                  ? "No disponible en la demo: convertir un YAML propio exige el backend que valida el config"
+                  : backendDown
+                    ? "Requiere el backend"
+                    : "Cargar un YAML existente"
+              }
             >
               <Upload aria-hidden="true" />
               Cargar YAML

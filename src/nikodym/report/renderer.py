@@ -38,6 +38,7 @@ from pydantic import BaseModel
 from nikodym.report._manifest import (
     DOCUMENT_TITLE,
     IFRS9_DOCUMENT_TITLE,
+    PROVISIONING_DOCUMENT_TITLE,
     REPORT_TEMPLATE_VERSION,
     REPORT_TITLE,
     html_report_id,
@@ -471,6 +472,13 @@ def _emitted_date(bundle: ReportInputBundle) -> str:
     return bundle.lineage.created_at.date().isoformat()
 
 
+# Dominios cuya presencia convierte la corrida en «de provisiones» a efectos del título. El
+# orquestador (`provisioning`) cuenta: publica la regla del máximo, que es el titular del B-1.
+_PROVISIONING_CARDS: Final[frozenset[str]] = frozenset(
+    {"provisioning_cmf", "provisioning_internal", "provisioning", "provisioning_ifrs9"}
+)
+
+
 def _is_ifrs9_run(bundle: ReportInputBundle) -> bool:
     """Una corrida ECL «pura»: calculó IFRS 9 y no corrió el scorecard (SDD-16)."""
     return "provisioning_ifrs9" in bundle.cards and "scorecard" not in bundle.cards
@@ -480,10 +488,14 @@ def _document_title(bundle: ReportInputBundle) -> str:
     """Titula el documento según lo que la corrida ES, compartido por HTML, ``.qmd`` y Word.
 
     Una corrida IFRS 9 sin scorecard no es una validación de scorecard; titularla así en la
-    portada sería describir otro documento.
+    portada sería describir otro documento. Simétricamente, una corrida que calculó provisiones
+    **además** del scorecard tampoco es sólo una validación de scorecard: el usuario la corrió por
+    la provisión, y el título debe nombrarla.
     """
     if _is_ifrs9_run(bundle):
         return IFRS9_DOCUMENT_TITLE
+    if _PROVISIONING_CARDS & bundle.cards.keys():
+        return PROVISIONING_DOCUMENT_TITLE
     return DOCUMENT_TITLE
 
 

@@ -923,6 +923,14 @@ figcaption {
     border: 1px solid var(--line);
   }
 
+  /* El encabezado se parte igual que la celda. Con `table-layout: fixed` el ancho de columna no
+     cede, así que un nombre largo (`total_exposure_amount`, 21 caracteres) desbordaba su celda e
+     invadía la vecina: en el PDF se leía «total_exposure_amounttotal_provision_amount», tres
+     encabezados encimados. `tbody td` ya se partía; a `thead th` le faltaba la misma regla. */
+  thead th {
+    overflow-wrap: anywhere;
+  }
+
   tbody tr:hover td {
     background: transparent;
   }

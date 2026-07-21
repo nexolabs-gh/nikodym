@@ -59,7 +59,7 @@ from nikodym.report.results import (
 # Recalculado (tabla ancha en el PDF): el `figure.table-block` de una tabla de 10+ columnas suma la
 # clase `table-block--wide`, que en @media print manda esa tabla a una hoja apaisada. Sólo cambia
 # ese atributo de clase; el resto del markup (ids, thead/tbody, orden, literales) es idéntico.
-GOLDEN_HTML_SHA256 = "096f23e9b6cf4ed94fccd23c06752a8bd860be513accbf492a5c64c75395396a"
+GOLDEN_HTML_SHA256 = "359871b24ddd47f265176a4904f3f9af5ffa0fbfcf008aaf09cd8a1ef0a5188b"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -809,6 +809,30 @@ def _bundle_con_cards() -> ReportInputBundle:
             }
         }
     )
+
+
+def test_titulo_del_documento_nombra_las_provisiones_cuando_la_corrida_las_calculo() -> None:
+    """Una corrida con provisiones no se entrega como «Informe de Validación de Scorecard».
+
+    El preset de provisiones CMF corre scorecard + CMF + interno + orquestador, y como no es una
+    corrida IFRS 9 «pura» caía al título por defecto: el PDF de la demo de provisiones se titulaba
+    —portada y pie de sus 60 páginas— por el scorecard, sin nombrar aquello por lo que se corrió.
+    """
+    renderer = HtmlReportRenderer()
+
+    solo_scorecard = renderer.render(_bundle_con_cards())
+    assert "Informe de Validación de Scorecard" in solo_scorecard
+
+    con_provisiones = _bundle_con_cards()
+    con_provisiones = con_provisiones.model_copy(
+        update={"cards": {**con_provisiones.cards, "provisioning_cmf": {"total": 1}}}
+    )
+    html = renderer.render(con_provisiones)
+    assert "Informe de Provisiones y Validación de Scorecard" in html
+
+    # La corrida IFRS 9 pura (sin scorecard) conserva su propio título, que ya existía.
+    ifrs9_puro = _bundle().model_copy(update={"cards": {"provisioning_ifrs9": {"total": 1}}})
+    assert "Informe de Provisiones IFRS 9 / ECL" in renderer.render(ifrs9_puro)
 
 
 def _table_fragment(html: str, table_id: str) -> str:

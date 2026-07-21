@@ -26,7 +26,9 @@ stress testing. Paquete: `nikodym`.
 ## Principios
 
 - **Reproducibilidad total**: `(datos + config + semilla) → resultado idéntico`. Cada corrida
-  emite un *lineage bundle* (git SHA + hash de datos + config + semilla + `uv.lock`).
+  emite un *lineage bundle* (git SHA, estado del working tree, hash del contenido de los datos,
+  `config_hash`, semilla raíz y versiones de las librerías). El hash del `uv.lock` está pendiente:
+  el campo viaja vacío y el *model card* lo declara como limitación.
 - **Gobernanza por construcción** (SR 11-7): *model card* y *audit-trail* automáticos.
 - **Config declarativo** (Pydantic v2): *el config ES el experimento*.
 - **Núcleo liviano**: `import nikodym` no arrastra el stack ML; los backends pesados van tras
