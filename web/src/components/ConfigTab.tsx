@@ -23,6 +23,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ApiError, configFromYaml, configToYaml, getPreset } from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
 import { type Path, getAtPath, setAtPath } from "@/lib/config-store"
+import { DEMO_MODE } from "@/lib/demo"
 import {
   type Defs,
   type JsonSchema,
@@ -43,7 +44,13 @@ const SOURCE_BANNER: Record<
 > = {
   backend: {
     tone: "ok",
-    text: "Schema en vivo desde el backend (/api/schema).",
+    // En la demo pública NO hay backend: `loadSchema` marca la fuente como "backend" para que el
+    // editor no se vea degradado (schema.ts §DEMO_MODE), así que el texto de esa rama se leería
+    // como una afirmación falsa —«en vivo desde /api/schema»— en una página estática. Se dice la
+    // verdad sin rebajar el tono: el schema es el mismo que publicó el backend, capturado.
+    text: DEMO_MODE
+      ? "Schema capturado del backend en una corrida real; esta demo no ejecuta cálculo en el navegador."
+      : "Schema en vivo desde el backend (/api/schema).",
   },
   "fixture-opaque": {
     tone: "warn",

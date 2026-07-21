@@ -304,9 +304,18 @@ _STANDARD_CONFIG: dict[str, Any] = {
     "calibration": {
         "type": "standard",
         "method": "intercept_offset",
-        "target_pd": 0.2,
+        # 🔴 El ancla se ESTIMA de los datos, no se fija a mano. Con ``business_input`` +
+        # ``target_pd=0.20`` sobre esta cartera (tasa observada 23,3 % en Desarrollo) la calibración
+        # desplazaba el intercepto hacia un nivel que los datos no respaldan, y Hosmer-Lemeshow
+        # rechazaba en las TRES particiones (dev χ²=37,2 p=0,00001 · holdout χ²=20,0 p=0,010 ·
+        # oot χ²=32,2 p=0,00008): el informe abría con «3 de 3 tests fallidos · Falla técnica».
+        # Con ``development_observed`` el sesgo de nivel desaparece y sólo queda el rechazo de OOT
+        # (χ²=19,5 p=0,013), que es deriva temporal legítima de la cartera, no un defecto de config.
+        # ``target_pd`` va explícito en ``None`` (ver la nota de _PROVISIONES_CALIBRATION_OVERRIDE:
+        # omitir la clave haría que el ``config_hash`` dependiera de si el dominio está importado).
+        "target_pd": None,
         "anchor_kind": "through_the_cycle",
-        "anchor_source": "business_input",
+        "anchor_source": "development_observed",
         "fit_partition": "desarrollo",
         "target_tolerance": 1e-12,
         "max_abs_offset": None,
@@ -520,11 +529,14 @@ def standard_preset() -> dict[str, Any]:
 # CORRE la cadena entera y comprueba que el número tiene sentido de negocio. NO editar a mano:
 # regenerar con ese script si cambia un default de dominio.
 
-# 🔴 La calibración NO se hereda del F1. El F1 ancla la PD a ``target_pd=0.20`` (business_input).
-# Sobre esta cartera (default ~7 %) eso infla la PD 3x, el método interno supera al estándar, la
-# regla del máximo deja de morder y el producto se queda sin titular. ``development_observed``
-# estima la PD ancla como el promedio observado en Desarrollo y exige ``target_pd`` NULO (un valor
-# sería la trampa). No se ve con un test de ``status == done``: solo corriendo y viendo el número.
+# 🔴 La calibración NO se hereda a ciegas del F1: este override la FIJA para provisiones y se
+# mantiene aunque hoy coincida con el base. Cuando el F1 anclaba a ``target_pd=0.20``
+# (business_input), sobre esta cartera (default ~7 %) eso inflaba la PD 3x, el método interno
+# superaba al estándar, la regla del máximo dejaba de morder y el producto se quedaba sin titular.
+# El F1 ya usa ``development_observed`` —estima la PD ancla como el promedio observado en
+# Desarrollo y exige ``target_pd`` NULO (un valor sería la trampa)—, así que el delta es hoy un
+# no-op: se conserva como candado, para que un cambio futuro del F1 no arrastre a provisiones sin
+# que nadie lo note. No se ve con un test de ``status == done``: solo corriendo y viendo el número.
 #
 # ``target_pd`` se deja explícito en ``None``, NO se elimina: la forma canónica del config es la
 # que produce ``CalibrationConfig.model_dump`` (emite ``target_pd: None``). Omitir la clave haría

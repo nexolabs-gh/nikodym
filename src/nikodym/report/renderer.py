@@ -919,6 +919,10 @@ def _display_json_value(value: Any, *, key_path: tuple[str, ...]) -> JSONValue:
 # engaña— ni altera los enums de la API de results ni el `data_hash`: es sólo presentación.
 _EMPTY_CELL: Final[str] = "—"
 
+# Corte por encima del cual un float deja de mostrarse con seis decimales (ver `_format_float`).
+# Mil separa, en este dominio, los indicadores de riesgo —todos por debajo— de las cifras de plata.
+_LARGE_MAGNITUDE: Final[float] = 1_000.0
+
 
 def _display_scalar(value: Any, *, key_path: tuple[str, ...]) -> str:
     if value is None:
@@ -954,6 +958,17 @@ def _format_float(value: float, *, key_path: tuple[str, ...]) -> str:
         if math.isnan(value):
             return _EMPTY_CELL
         return "inf" if value > 0 else "-inf"
+    if abs(value) >= _LARGE_MAGNITUDE:
+        # Las cifras de plata (exposición, provisión, pérdida esperada) son floats grandes, y con la
+        # regla de 6 decimales la celda volcaba `697376973.922913`: doce dígitos de precisión falsa
+        # para un monto que la prosa muestra como $697.376.974. Se corta por MAGNITUD, no por nombre
+        # de columna, para barrer la clase entera —cualquier monto futuro, se llame como se llame—
+        # y no una lista de claves que hay que recordar ampliar. Por encima de mil, seis decimales
+        # no aportan información en ningún indicador de riesgo: los ratios (AUC, KS, PSI, IV, PD,
+        # LGD, tasas) viven todos muy por debajo del corte y conservan su precisión intacta.
+        # Se mantiene el punto decimal y NO se agrupan miles: estas tablas son volcado técnico de
+        # `results`, pensado para copiarse a una herramienta de análisis (CHANGELOG 1.4.0).
+        return f"{value:.2f}"
     key = ".".join(key_path).lower()
     if _is_percent_key(key):
         return f"{value:.4f}"

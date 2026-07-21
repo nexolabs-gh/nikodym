@@ -572,6 +572,21 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
         )
         == "0.005229"
     )
+    # Las cifras de plata (exposición, provisión) son floats grandes: con seis decimales la celda
+    # volcaba `697376973.922913`, doce dígitos de precisión falsa. Por encima de mil van a dos.
+    assert (
+        renderer_module._display_scalar(697376973.9229126, key_path=("total_exposure",))
+        == "697376973.92"
+    )
+    # El corte es por MAGNITUD, no por nombre de columna: también aplica a un `Decimal` contable...
+    assert (
+        renderer_module._display_scalar(Decimal("4338485154.07"), key_path=("provision_amount",))
+        == "4338485154.07"
+    )
+    # ...y no toca los indicadores de riesgo, que viven muy por debajo del corte.
+    assert renderer_module._display_scalar(0.7123458941, key_path=("auc",)) == "0.712346"
+    assert renderer_module._display_scalar(999.9999999, key_path=("x",)) == "1000.000000"
+    assert renderer_module._display_scalar(1000.0, key_path=("x",)) == "1000.00"
     # Colección vacía = «ninguno», no `[]`/`{}` crudos.
     assert renderer_module._display_scalar([], key_path=("warning_codes",)) == "—"
     assert renderer_module._display_scalar({}, key_path=("x",)) == "—"

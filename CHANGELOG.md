@@ -5,6 +5,40 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Corregido
+
+- **Preset F1: la PD ancla se estima de los datos en vez de fijarse a mano.** El preset
+  `f1-estandar-consumo` calibraba con `anchor_source="business_input"` y `target_pd=0.20` sobre una
+  cartera cuya tasa observada en Desarrollo es 23,3 %. La calibración desplazaba el intercepto hacia
+  un nivel que los datos no respaldan, y **Hosmer-Lemeshow rechazaba en las tres particiones**
+  (desarrollo χ²=37,2 p=0,00001 · holdout χ²=20,0 p=0,010 · OOT χ²=32,2 p=0,00008): el informe
+  insignia del pipeline estable abría su resumen ejecutivo con «3 de 3 tests fallidos · Falla
+  técnica». Con `anchor_source="development_observed"` y `target_pd` nulo —la misma configuración
+  que el preset F3 ya usaba, y el default del motor— el sesgo de nivel desaparece (desarrollo
+  χ²=6,0 p=0,65 · holdout χ²=10,1 p=0,26) y sólo queda el rechazo de OOT (χ²=19,5 p=0,013), que es
+  deriva temporal de la cartera y no un defecto de configuración. Cambia el `config_hash` del preset
+  F1 y las PD calibradas; **no** cambia la discriminación (AUC/Gini/KS son invariantes al nivel de
+  calibración) ni el config efectivo del F3, que ya aplicaba el override.
+- **Informe: las cifras de plata dejan de mostrarse con seis decimales.** Las celdas de exposición,
+  provisión y pérdida esperada volcaban `697376973.922913` —doce dígitos de precisión falsa— justo
+  debajo de la prosa que muestra el mismo monto como $697.376.974; eran 63 celdas en el informe de
+  provisiones. Los floats de magnitud ≥ 1.000 se emiten ahora con dos decimales. El corte es por
+  magnitud y no por nombre de columna, de modo que alcanza a cualquier monto futuro; los indicadores
+  de riesgo (AUC, KS, PSI, IV, PD, LGD, tasas) viven muy por debajo y conservan su precisión. Sólo
+  presentación: no cambia valores ni `data_hash`, y se mantiene el punto decimal sin agrupar miles,
+  porque estas tablas son volcado técnico pensado para copiarse a una herramienta de análisis.
+- **Demo: el editor de configuración ya no afirma tener un backend en vivo.** La demo pública marca
+  la fuente del schema como «backend» para que el editor no se vea degradado, y el aviso decía
+  «Schema en vivo desde el backend (/api/schema)» en una página estática donde no hay ninguna
+  llamada de red. Ahora declara que el schema fue capturado de una corrida real y que la demo no
+  ejecuta cálculo en el navegador.
+- **Demo: separador de miles consistente.** Los tooltips del histograma de score y del gráfico de
+  lift formateaban las frecuencias en `en-US` (`n = 3,961`) mientras el catálogo de datasets y la
+  pestaña de datos usan `es-CL` (`3.961 filas`), de modo que la misma pantalla mostraba las dos
+  convenciones.
+
 ## [1.4.0] — 2026-07-20
 
 Informe con formato editorial, capítulo de validación formal y contexto poblacional; cierre de seis

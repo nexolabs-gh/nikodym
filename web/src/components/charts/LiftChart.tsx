@@ -47,7 +47,7 @@ function LiftTooltip({ active, payload }: LiftTooltipProps) {
         </span>
       </p>
       <p className="mt-0.5 text-[0.7rem] text-muted-foreground">
-        n = {d.n_total.toLocaleString("en-US")}
+        n = {d.n_total.toLocaleString("es-CL")}
       </p>
     </div>
   )

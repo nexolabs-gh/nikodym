@@ -26,9 +26,9 @@ interface HistTooltipProps {
   payload?: ReadonlyArray<{ payload?: HistogramBin }>
 }
 
-/** Entero con separador de miles inequívoco (coma), para las frecuencias. */
+/** Entero con separador de miles es-CL, igual que el resto de la app (DatosTab, catálogo). */
 function count(n: number): string {
-  return n.toLocaleString("en-US")
+  return n.toLocaleString("es-CL")
 }
 
 /** Tooltip dedicado: rango de score del bin + su frecuencia. */

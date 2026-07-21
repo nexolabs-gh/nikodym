@@ -41,7 +41,7 @@ from nikodym.ui.presets import (
 # Actualizado en 1.4.0 al EXCLUIR ``data.load.source`` del config_hash (la ruta del dataset ya no
 # entra a la identidad; el data_hash captura el contenido). El preset trae ``source: null``, así que
 # el JSON canónico pierde esa clave y el hash se mueve; ahora coincide con el del informe capturado.
-_EXPECTED_CONFIG_HASH = "4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f"
+_EXPECTED_CONFIG_HASH = "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e"
 
 
 # ─────────────────────────────── validez y hash estable ───────────────────────────────
@@ -100,6 +100,22 @@ def test_preset_pide_los_cuatro_entregables_sin_alterar_hash() -> None:
     assert "eda" not in report["sections"]["required_sections"]
     # report es INFRA → excluido del config_hash: la identidad del preset NO cambia por activarlo.
     assert config_hash(NikodymConfig.model_validate(config)) == _EXPECTED_CONFIG_HASH
+
+
+def test_standard_preset_estima_el_ancla_de_calibracion_de_los_datos() -> None:
+    """🔴 El F1 no fija la PD ancla a mano: la estima de Desarrollo.
+
+    Con ``business_input`` + ``target_pd=0.20`` sobre la cartera del preset (tasa observada 23,3 %)
+    la calibración desplazaba el intercepto a un nivel que los datos no respaldan y
+    Hosmer-Lemeshow rechazaba en las TRES particiones (dev χ²=37,2 · holdout χ²=20,0 ·
+    oot χ²=32,2), de modo que el informe insignia abría con «3 de 3 tests fallidos · Falla
+    técnica». Con ``development_observed`` sólo queda el rechazo de OOT, que es deriva temporal de
+    la cartera. Esta es la guardia estática; el número real lo comprueba la captura de la demo.
+    """
+    calibration = standard_preset()["config"]["calibration"]
+    assert calibration["anchor_source"] == "development_observed"
+    # target_pd NULO: un valor fijo es la trampa, aquí y en el F3 (ver el test del preset F3).
+    assert calibration["target_pd"] is None
 
 
 def test_standard_preset_activa_validacion_formal_sin_grade_ni_backtesting() -> None:
