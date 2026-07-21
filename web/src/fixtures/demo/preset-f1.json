@@ -460,7 +460,7 @@
   "governance": null,
   "tracking": null
  },
- "config_hash": "9f7dc881445c6a20de3d61d436fec1d167b0786dfc8a85558784464116dab106",
+ "config_hash": "4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f",
  "dataset_id": "consumo_comportamiento",
  "name": "Preset estándar F1 — consumo (comportamiento)",
  "description": "Config F1 completo y curado, listo para correr sin tocar nada: scorecard de comportamiento (data→binning→selection→model→scorecard→calibration→performance→stability) sobre el dataset sintético de consumo."
