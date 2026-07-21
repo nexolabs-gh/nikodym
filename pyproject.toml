@@ -15,7 +15,12 @@ license-files = ["LICENSE"]
 authors = [{ name = "Nikodym", email = "admin@nxlabs.cl" }]
 keywords = ["credit-risk", "ifrs9", "ecl", "cmf", "scorecard", "provisioning"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  # 4 - Beta, no 3 - Alpha: el pipeline de scorecard (F1) es API estable bajo garantía SemVer 1.x
+  # desde 1.0 y el README lo declara así, de modo que "Alpha" contradecía en pypi.org lo que dice el
+  # propio proyecto. Tampoco es "5 - Production/Stable": las provisiones CMF e IFRS 9 siguen
+  # marcadas experimentales por madurez, y prometer estabilidad de toda la superficie sería
+  # sobrepromesa en un paquete que usarán instituciones financieras.
+  "Development Status :: 4 - Beta",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",

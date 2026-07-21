@@ -44,6 +44,25 @@ No existe CLI.
 - **Reproducibilidad total**: `(datos + config + semilla) → resultado idéntico`, con *lineage
   bundle* (git SHA + hash de datos + config + semilla + `uv.lock`) en cada corrida.
 
+## Tus datos no salen de tu infraestructura
+
+Nikodym es una librería, no un servicio: se instala con `pip` y corre donde tú la ejecutes —tu
+notebook, tu servidor, tu clúster, dentro de tu red—. Para una institución financiera esto suele
+importar más que cualquier métrica:
+
+- **Sin telemetría.** El paquete no reporta uso, ni versiones, ni nada. No hay código de analítica.
+- **Sin llamadas de red en el cálculo.** El pipeline no abre conexiones por sí solo: las cifras se
+  computan en tu proceso, con tus datos, y los artefactos se escriben en el `workdir` que declaras.
+- **Sin dependencias de un servicio nuestro.** No hay una API que tenga que estar arriba para que
+  el motor funcione, ni licencia que validar contra un servidor. Si Nexo Labs desaparece mañana, tu
+  corrida de pasado mañana sigue dando el mismo resultado.
+- **Las dos salidas posibles son tuyas y opcionales**: la narración por IA (apagada por defecto, con
+  tu clave y tu proveedor; la prosa del informe es determinista y no la escribe la IA) y el registro
+  de experimentos MLflow, que por defecto escribe en un directorio local. Detalle en
+  [SECURITY.md](SECURITY.md).
+
+Y como es Apache-2.0, puedes auditar el código, forkearlo y adaptarlo sin pedirnos permiso.
+
 ## Instalación
 
 ```bash

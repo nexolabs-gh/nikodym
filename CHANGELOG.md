@@ -5,7 +5,32 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
-## [No publicado]
+## [1.4.1] — 2026-07-21
+
+Corrección de tres defectos que la verificación adversarial previa a la reunión con Interbank
+encontró en lo que la demo y el informe muestran, más la documentación que un comprador
+institucional busca primero y no encontraba.
+
+### Añadido
+
+- **`SECURITY.md`**: cómo reportar una vulnerabilidad, qué esperar y en qué plazos, versiones con
+  soporte, y el alcance de lo que consideramos un problema de seguridad. Incluye la nota de datos:
+  el paquete no lleva telemetría y el pipeline de cálculo no abre conexiones por sí solo; las dos
+  salidas posibles (narración por IA y registro MLflow) son opcionales y las controla quien lo usa.
+- **`SUPPORT.md`**: qué canal atiende qué, y —explícito— lo que el proyecto **no** promete: no hay
+  SLA en el canal abierto, no somos el validador de tu institución, las matrices normativas exigen
+  validación humana, y qué superficie está bajo garantía SemVer 1.x frente a la experimental.
+- **README: sección «Tus datos no salen de tu infraestructura».** El argumento que más pesa para una
+  institución financiera —que esto es una librería que corre en su red, sin telemetría, sin llamadas
+  de red en el cálculo y sin depender de un servicio nuestro para funcionar— no estaba escrito en
+  ninguna parte.
+
+### Cambiado
+
+- **Clasificador de madurez en PyPI: `3 - Alpha` → `4 - Beta`.** `pypi.org` anunciaba «Alpha»
+  mientras el README declara el pipeline de scorecard como API estable bajo SemVer 1.x desde 1.0:
+  la primera señal de madurez que recibía un evaluador contradecía al propio proyecto. No se sube a
+  `5 - Production/Stable` porque las provisiones siguen marcadas experimentales por madurez.
 
 ### Corregido
 
