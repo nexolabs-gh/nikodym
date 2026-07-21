@@ -26,8 +26,10 @@ import {
 const F1_ID = "f1-estandar-consumo"
 const F3_ID = "f3-provisiones-consumo"
 const F4_ID = "f4-ifrs9-retail"
+// Recalculado en 1.4.0: `data.load.source` (la ruta del dataset en disco) dejó de entrar al
+// `config_hash`, que ahora identifica sólo el contenido lógico del config.
 const F4_CONFIG_HASH =
-  "8c94bd4d9a406669c7c3f611d939e09963fc26cdf151fe0723bd66c973e8e23f"
+  "cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4"
 
 beforeEach(() => {
   // Cada test arranca con el preset activo en su default (F3): el estado de módulo no se filtra.
