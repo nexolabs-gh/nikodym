@@ -327,7 +327,7 @@ def test_docx_degrada_o_falla_sin_python_docx(
     bundle = _bundle()
 
     tolerante = DocxReportRenderer.from_config(_config(docx=DocxRenderConfig()))
-    with pytest.warns(RuntimeWarning, match="python-docx no está disponible"):
+    with pytest.warns(RuntimeWarning, match="falta python-docx"):
         path = tolerante.write_docx_from_bundle(bundle, output_dir=str(tmp_path / "tolerante"))
     assert path is None
     assert not (tmp_path / "tolerante" / "scorecard_report.docx").exists()
@@ -348,7 +348,7 @@ def test_step_sin_python_docx_emite_el_reporte_igual(
     cfg = ReportConfig(output_dir=str(tmp_path), formats=("html", "docx"))
     study = _study_with_cards(cfg)
 
-    with pytest.warns(RuntimeWarning, match="python-docx no está disponible"):
+    with pytest.warns(RuntimeWarning, match="falta python-docx"):
         result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(1))
 
     assert result.docx_path is None

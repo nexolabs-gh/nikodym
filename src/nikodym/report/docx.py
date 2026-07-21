@@ -127,15 +127,16 @@ class DocxReportRenderer:
 
         Espejo de :meth:`~nikodym.report.renderer.PdfReportRenderer.write_pdf_from_html`: sin
         ``python-docx``, re-lanza la dependencia (``docx.fail_if_unavailable=True``) o emite un
-        ``RuntimeWarning`` y devuelve ``None`` (``False``), sin tumbar la corrida.
+        ``RuntimeWarning`` y devuelve ``None`` (``False``), sin tumbar la corrida. El warning
+        **propaga el diagnóstico** de la dependencia (qué extra instalar) en vez de reformularlo.
         """
         try:
             payload = self.render(bundle, ai_blocks=ai_blocks)
-        except ReportDependencyError:
+        except ReportDependencyError as exc:
             if self.config.docx.fail_if_unavailable:
                 raise
             warnings.warn(
-                "python-docx no está disponible; el reporte se generó sin el export .docx.",
+                f"{exc} — El reporte se generó sin el export .docx.",
                 RuntimeWarning,
                 stacklevel=2,
             )

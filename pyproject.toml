@@ -241,8 +241,14 @@ filterwarnings = [
   # Acotados por mensaje+categoría para no enmascarar otros RuntimeWarning. La degradación sigue
   # verificada explícitamente en tests/unit/test_report_pdf.py (con `pytest.warns`, que atrapa el
   # aviso pese a este filtro) y su ausencia sería un fallo real allí.
-  "ignore:WeasyPrint no está disponible:RuntimeWarning",
-  "ignore:python-docx no está disponible:RuntimeWarning",
+  # El patrón ancla el PREFIJO del mensaje, que hoy es el de `ReportDependencyError` propagado tal
+  # cual por el fallback (antes se reformulaba a un genérico "… no está disponible"). No puede
+  # incluir el `:` que sigue —pytest usa `:` para separar los campos del filtro—, y por eso corta
+  # justo antes; el prefijo sigue siendo unívoco y cubre las DOS variantes del PDF (falta el
+  # paquete / faltan sus nativas). Si el mensaje de la excepción cambia, este filtro deja de
+  # aplicar en silencio y los jobs sin extras fallan: cambiar ambos a la vez.
+  "ignore:No se pudo generar el PDF:RuntimeWarning",
+  "ignore:No se pudo generar el \\.docx:RuntimeWarning",
 ]
 
 [tool.coverage.run]

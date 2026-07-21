@@ -266,17 +266,23 @@ class PdfReportRenderer:
         ``pdf.fail_if_unavailable``: en ausencia de WeasyPrint re-lanza la dependencia (``True``) o
         emite ``RuntimeWarning`` y devuelve ``None`` (``False``). En éxito escribe
         ``{basename}.pdf`` y devuelve el ``Path`` real en disco.
+
+        El warning **propaga el diagnóstico de** :func:`~nikodym.report.pdf.render_pdf`, que
+        distingue "falta el paquete" de "el paquete está pero no encuentra sus nativas". Un texto
+        genérico ("WeasyPrint no está disponible") describía mal el segundo caso —el más común en
+        macOS y Windows, donde ``pip install nikodym[pdf]`` sí instaló WeasyPrint— y dejaba al
+        usuario reinstalando un paquete que ya tenía.
         """
         # Import perezoso: WeasyPrint (y sus nativas) nunca entra al import del paquete.
         from nikodym.report.pdf import render_pdf
 
         try:
             pdf_bytes = render_pdf(html)
-        except ReportDependencyError:
+        except ReportDependencyError as exc:
             if self.config.pdf.fail_if_unavailable:
                 raise
             warnings.warn(
-                "WeasyPrint no está disponible; se usó HTML básico determinístico sin PDF.",
+                f"{exc} — Se usó HTML básico determinístico sin PDF.",
                 RuntimeWarning,
                 stacklevel=2,
             )

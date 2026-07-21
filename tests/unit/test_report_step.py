@@ -508,7 +508,7 @@ def test_execute_pdf_en_formats_degrada_sin_weasyprint(
     )
     study = _study_with_report_artifacts(config=cfg)
 
-    with pytest.warns(RuntimeWarning, match="WeasyPrint no está disponible"):
+    with pytest.warns(RuntimeWarning, match="falta WeasyPrint"):
         result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
 
     assert result.pdf_path is None

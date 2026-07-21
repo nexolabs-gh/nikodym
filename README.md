@@ -76,6 +76,38 @@ pip install 'nikodym[all]'          # todo lo redistribuible (sin copyleft)
 Requiere Python ≥ 3.11. El núcleo base es liviano: `import nikodym` **no** arrastra el stack ML;
 los backends pesados viven tras *extras* opcionales con import perezoso.
 
+### El informe en PDF necesita librerías del sistema
+
+El informe sale en **HTML** con la instalación base, y en **Word** (`.docx`) con `nikodym[all]`. El
+**PDF** es el único formato con un requisito extra, y conviene saberlo antes de necesitarlo:
+
+```bash
+pip install 'nikodym[pdf]'          # NO está incluido en [all] — ver nota de licencia abajo
+```
+
+`nikodym[pdf]` instala WeasyPrint, pero WeasyPrint **no es Python puro**: carga Pango (≥ 1.44),
+HarfBuzz y libffi desde el sistema operativo, y `pip` no puede instalarlas. Hay que agregarlas por
+fuera ([documentación oficial de WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation)):
+
+| Sistema | Comando |
+|---|---|
+| macOS | `brew install weasyprint` |
+| Debian ≥ 11 / Ubuntu ≥ 20.04 | `apt install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0` |
+| Windows | MSYS2: `pacman -S mingw-w64-x86_64-pango` |
+
+**Si faltan, no se rompe nada**: la corrida termina igual, el informe se emite en HTML y un
+`RuntimeWarning` dice exactamente cuál de los dos requisitos falta —el paquete o las librerías del
+sistema—. Si prefieres que la ausencia sea un error en vez de una degradación (recomendable en un
+pipeline de producción que promete PDF), pon `report.pdf.fail_if_unavailable = True` en el config.
+
+> **En macOS con Homebrew en `/opt/homebrew`** (Apple Silicon), el enlazador puede no encontrar las
+> librerías aunque `brew` las haya instalado. Se resuelve exportando
+> `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib`.
+
+> **Por qué `[pdf]` no entra en `[all]`:** WeasyPrint arrastra Pyphen, de tri-licencia con GPL. El
+> meta-extra `[all]` se mantiene libre de copyleft para que puedas redistribuir un cierre completo
+> sin revisar licencias. El PDF queda a un `pip install` de distancia, como decisión tuya.
+
 ## Quickstart
 
 El experimento es un `NikodymConfig` declarativo; `nikodym.run(config)` lo ejecuta de extremo a

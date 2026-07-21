@@ -482,7 +482,7 @@ def test_pdf_render_deshabilitado_y_degradacion(
     fallback = PdfReportRenderer(
         ReportConfig(pdf=PdfRenderConfig(enabled=True, fail_if_unavailable=False))
     )
-    with pytest.warns(RuntimeWarning, match="WeasyPrint no está disponible"):
+    with pytest.warns(RuntimeWarning, match="falta WeasyPrint"):
         fallback_manifest = fallback.render(bundle, output_dir=str(tmp_path / "fallback"))
     assert fallback_manifest.output_format == "html"
     assert (tmp_path / "fallback" / "scorecard_report.html").is_file()

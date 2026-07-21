@@ -325,7 +325,7 @@ def test_pdf_renderer_degrada_o_falla_sin_weasyprint(
     fallback = PdfReportRenderer(
         ReportConfig(pdf=PdfRenderConfig(enabled=True, fail_if_unavailable=False))
     )
-    with pytest.warns(RuntimeWarning, match="WeasyPrint no está disponible"):
+    with pytest.warns(RuntimeWarning, match="falta WeasyPrint"):
         manifest = fallback.render(bundle, output_dir=str(tmp_path / "fallback"))
     assert manifest.output_format == "html"
     assert (tmp_path / "fallback" / "scorecard_report.html").is_file()
@@ -347,7 +347,7 @@ def test_write_pdf_from_html_degrada_o_falla_sin_weasyprint(
     html = "<h1>Nikodym</h1>"
 
     lenient = PdfReportRenderer(ReportConfig(pdf=PdfRenderConfig(fail_if_unavailable=False)))
-    with pytest.warns(RuntimeWarning, match="WeasyPrint no está disponible"):
+    with pytest.warns(RuntimeWarning, match="falta WeasyPrint"):
         path = lenient.write_pdf_from_html(html, output_dir=str(tmp_path / "lenient"))
     assert path is None
     assert not (tmp_path / "lenient" / "scorecard_report.pdf").exists()
@@ -355,6 +355,46 @@ def test_write_pdf_from_html_degrada_o_falla_sin_weasyprint(
     strict = PdfReportRenderer(ReportConfig(pdf=PdfRenderConfig(fail_if_unavailable=True)))
     with pytest.raises(ReportDependencyError, match="WeasyPrint"):
         strict.write_pdf_from_html(html, output_dir=str(tmp_path / "strict"))
+
+
+def test_warning_del_fallback_distingue_nativas_ausentes_de_paquete_ausente(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """El warning del fallback dice CUÁL de los dos fallos ocurrió, no un genérico.
+
+    Es el caso más común fuera de Linux: ``pip install nikodym[pdf]`` sí instaló WeasyPrint, pero
+    Pango/HarfBuzz/libffi no están en el sistema y el import revienta con ``OSError``. Un warning
+    genérico ("WeasyPrint no está disponible") mandaba al usuario a reinstalar un paquete que ya
+    tenía, escondiendo que lo que falta es una librería del sistema. ``render_pdf`` ya distinguía
+    ambos casos; el fallback descartaba ese diagnóstico al reformular el mensaje.
+    """
+    real_import = builtins.__import__
+
+    def import_sin_nativas(
+        name: str,
+        globals_: dict[str, Any] | None = None,
+        locals_: dict[str, Any] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> Any:
+        if name == "weasyprint":
+            raise OSError("cannot load library 'libpango-1.0-0': no such file")
+        return real_import(name, globals_, locals_, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", import_sin_nativas)
+
+    renderer = PdfReportRenderer(ReportConfig(pdf=PdfRenderConfig(fail_if_unavailable=False)))
+    with pytest.warns(RuntimeWarning) as capturado:
+        path = renderer.write_pdf_from_html("<h1>Nikodym</h1>", output_dir=str(tmp_path / "sin"))
+
+    assert path is None
+    mensaje = str(capturado[0].message)
+    # El diagnóstico correcto: el paquete ESTÁ, faltan las nativas del sistema.
+    assert "no encuentra sus librerías" in mensaje
+    assert "libpango" in mensaje, "el detalle del enlazador debe llegar al usuario"
+    # Y NO el diagnóstico equivocado, que mandaba a reinstalar el extra.
+    assert "falta WeasyPrint" not in mensaje
 
 
 # ─────────────────────── (d) import liviano (corre SIEMPRE) ───────────────────────
