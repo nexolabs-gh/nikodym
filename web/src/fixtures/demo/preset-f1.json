@@ -285,9 +285,9 @@
   "calibration": {
    "type": "standard",
    "method": "intercept_offset",
-   "target_pd": 0.2,
+   "target_pd": null,
    "anchor_kind": "through_the_cycle",
-   "anchor_source": "business_input",
+   "anchor_source": "development_observed",
    "fit_partition": "desarrollo",
    "target_tolerance": 1e-12,
    "max_abs_offset": null,
@@ -460,7 +460,7 @@
   "governance": null,
   "tracking": null
  },
- "config_hash": "4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f",
+ "config_hash": "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e",
  "dataset_id": "consumo_comportamiento",
  "name": "Preset estándar F1 — consumo (comportamiento)",
  "description": "Config F1 completo y curado, listo para correr sin tocar nada: scorecard de comportamiento (data→binning→selection→model→scorecard→calibration→performance→stability) sobre el dataset sintético de consumo."

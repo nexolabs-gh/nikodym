@@ -1118,9 +1118,9 @@ figcaption {
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f</code></div>
+    <div class="lineage-line"><code>config_hash=ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e</code></div>
     <div class="lineage-line"><code>data_hash=74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</code></div>
-    <div class="lineage-line"><code>git_sha=88e0067e761252671b02016e74e329c5965da95d</code></div>
+    <div class="lineage-line"><code>git_sha=d7eb9944ad06affd8939c6a4370de9908d6b8541</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1229,7 +1229,7 @@ figcaption {
         <tr>
           <td>Estado técnico de validación formal</td>
           <td>preset-estandar-consumo</td>
-          <td class="num">3 de 3 tests fallidos</td>
+          <td class="num">1 de 3 tests fallidos</td>
           <td><span class="band band-alert">Falla técnica</span></td>
         </tr>
       </tbody>
@@ -1565,8 +1565,8 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">3.6</span>Calibración de la PD</h3>
 
 
-  <p>La PD se calibró por desplazamiento del intercepto (intercept offset), ajustando sobre la partición de Desarrollo contra un ancla de negocio declarada explícitamente, con una PD objetivo de 20,00 %. El ancla es a través del ciclo (TTC).</p>
-  <p>El desplazamiento aplicado al intercepto es -0,2184, lo que preserva el ordenamiento del score: la calibración corrige el nivel de la PD, no su ranking.</p>
+  <p>La PD se calibró por desplazamiento del intercepto (intercept offset), ajustando sobre la partición de Desarrollo contra la tasa de incumplimiento observada en Desarrollo, con una PD objetivo de 23,33 %. El ancla es a través del ciclo (TTC).</p>
+  <p>El desplazamiento aplicado al intercepto es -0,0000, lo que preserva el ordenamiento del score: la calibración corrige el nivel de la PD, no su ranking.</p>
   <p>El ajuste se realizó sobre 3961 observaciones de Desarrollo.</p>
 
 
@@ -2053,7 +2053,7 @@ L 457.2 26.16
   <h3 class="subsection-title"><span class="section-number">4.5</span>Calibración</h3>
 
 
-  <p>En Desarrollo, la PD media calibrada es 20,00 %, frente a 23,33 % antes de calibrar, contra una tasa de incumplimiento observada de 23,33 %.</p>
+  <p>En Desarrollo, la PD media calibrada es 23,33 %, frente a 23,33 % antes de calibrar, contra una tasa de incumplimiento observada de 23,33 %.</p>
   <p>La calibración preservó el ordenamiento de las observaciones: la capacidad discriminante del modelo no se altera.</p>
 
   <figure class="chart-slot" id="chart-calibration-reliability"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="432pt" height="324pt" viewBox="0 0 432 324" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" style="max-width:100%;height:auto"><title>Curva de calibración (confiabilidad) por partición</title>
@@ -2088,95 +2088,95 @@ z
    </g>
    <g id="FillBetweenPolyCollection_1">
     <defs>
-     <path id="m386fb6b72e" d="M 69.698354 -58.559166 
-L 69.698354 -48.486359 
-L 81.695922 -63.495528 
-L 92.002104 -68.955618 
-L 102.127642 -76.000852 
-L 111.874391 -77.60097 
-L 123.004905 -91.654974 
-L 135.433784 -95.643902 
-L 150.287988 -114.321912 
-L 170.845084 -128.805106 
-L 219.623731 -160.316492 
-L 219.623731 -185.303318 
-L 219.623731 -185.303318 
-L 170.845084 -153.248698 
-L 150.287988 -137.767105 
-L 135.433784 -117.324598 
-L 123.004905 -113.150829 
-L 111.874391 -96.358832 
-L 102.127642 -94.660239 
-L 92.002104 -86.084503 
-L 81.695922 -79.320835 
-L 69.698354 -58.559166 
+     <path id="m3a8ae345db" d="M 73.211487 -58.559166 
+L 73.211487 -48.486359 
+L 87.719608 -63.495528 
+L 99.989579 -68.955618 
+L 111.88235 -76.000852 
+L 123.178846 -77.60097 
+L 135.900866 -91.654974 
+L 149.889131 -95.643902 
+L 166.308196 -114.321912 
+L 188.505749 -128.805106 
+L 238.461674 -160.316492 
+L 238.461674 -185.303318 
+L 238.461674 -185.303318 
+L 188.505749 -153.248698 
+L 166.308196 -137.767105 
+L 149.889131 -117.324598 
+L 135.900866 -113.150829 
+L 123.178846 -96.358832 
+L 111.88235 -94.660239 
+L 99.989579 -86.084503 
+L 87.719608 -79.320835 
+L 73.211487 -58.559166 
 z
 "/>
     </defs>
     <g clip-path="url(#p81c08e6746)">
-     <use xlink:href="#m386fb6b72e" x="0" y="324" style="fill: #1f4e79; fill-opacity: 0.15"/>
+     <use xlink:href="#m3a8ae345db" x="0" y="324" style="fill: #1f4e79; fill-opacity: 0.15"/>
     </g>
    </g>
    <g id="FillBetweenPolyCollection_2">
     <defs>
-     <path id="md182f055c5" d="M 70.146997 -84.964604 
-L 70.146997 -55.654915 
-L 81.634878 -54.018161 
-L 92.514958 -65.144523 
-L 103.749806 -81.304404 
-L 112.343671 -63.009309 
-L 121.547333 -77.512925 
-L 134.821815 -85.509998 
-L 152.050287 -105.062995 
-L 172.9237 -120.873888 
-L 225.6184 -146.63919 
-L 225.6184 -194.989842 
-L 225.6184 -194.989842 
-L 172.9237 -168.247989 
-L 152.050287 -150.645238 
-L 134.821815 -127.237836 
-L 121.547333 -117.175109 
-L 112.343671 -96.52667 
-L 103.749806 -121.896674 
-L 92.514958 -99.869534 
-L 81.634878 -82.35563 
-L 70.146997 -84.964604 
+     <path id="m3ab9c53d96" d="M 73.762072 -84.964604 
+L 73.762072 -55.654915 
+L 87.646287 -54.018161 
+L 100.593177 -65.144523 
+L 113.773332 -81.304404 
+L 123.721351 -63.009309 
+L 134.245752 -77.512925 
+L 149.199943 -85.509998 
+L 168.237128 -105.062995 
+L 190.728353 -120.873888 
+L 244.398274 -146.63919 
+L 244.398274 -194.989842 
+L 244.398274 -194.989842 
+L 190.728353 -168.247989 
+L 168.237128 -150.645238 
+L 149.199943 -127.237836 
+L 134.245752 -117.175109 
+L 123.721351 -96.52667 
+L 113.773332 -121.896674 
+L 100.593177 -99.869534 
+L 87.646287 -82.35563 
+L 73.762072 -84.964604 
 z
 "/>
     </defs>
     <g clip-path="url(#p81c08e6746)">
-     <use xlink:href="#md182f055c5" x="0" y="324" style="fill: #2e8b57; fill-opacity: 0.15"/>
+     <use xlink:href="#m3ab9c53d96" x="0" y="324" style="fill: #2e8b57; fill-opacity: 0.15"/>
     </g>
    </g>
    <g id="FillBetweenPolyCollection_3">
     <defs>
-     <path id="m1772ded57b" d="M 69.971226 -86.168974 
-L 69.971226 -56.063689 
-L 81.698603 -61.7027 
-L 92.684917 -75.783058 
-L 101.531761 -65.852179 
-L 110.472456 -83.400083 
-L 120.3632 -87.331537 
-L 134.281332 -69.900452 
-L 148.919487 -101.851442 
-L 171.591432 -115.543724 
-L 225.207746 -131.97788 
-L 225.207746 -180.510063 
-L 225.207746 -180.510063 
-L 171.591432 -162.893162 
-L 148.919487 -147.398825 
-L 134.281332 -107.269607 
-L 120.3632 -130.414397 
-L 110.472456 -124.574374 
-L 101.531761 -101.495318 
-L 92.684917 -115.093971 
-L 81.698603 -95.123273 
-L 69.971226 -86.168974 
+     <path id="ma4f69992da" d="M 73.543221 -86.168974 
+L 73.543221 -56.063689 
+L 87.72119 -61.7027 
+L 100.79769 -75.783058 
+L 111.188882 -65.852179 
+L 121.564603 -83.400083 
+L 132.897287 -87.331537 
+L 148.600506 -69.900452 
+L 164.807308 -101.851442 
+L 189.29094 -115.543724 
+L 243.974624 -131.97788 
+L 243.974624 -180.510063 
+L 243.974624 -180.510063 
+L 189.29094 -162.893162 
+L 164.807308 -147.398825 
+L 148.600506 -107.269607 
+L 132.897287 -130.414397 
+L 121.564603 -124.574374 
+L 111.188882 -101.495318 
+L 100.79769 -115.093971 
+L 87.72119 -95.123273 
+L 73.543221 -86.168974 
 z
 "/>
     </defs>
     <g clip-path="url(#p81c08e6746)">
-     <use xlink:href="#m1772ded57b" x="0" y="324" style="fill: #c1440e; fill-opacity: 0.15"/>
+     <use xlink:href="#ma4f69992da" x="0" y="324" style="fill: #c1440e; fill-opacity: 0.15"/>
     </g>
    </g>
    <g id="matplotlib.axis_1">
@@ -2385,16 +2385,16 @@ L 410.04 26.88
 " clip-path="url(#p81c08e6746)" style="fill: none; stroke-dasharray: 5.55,2.4; stroke-dashoffset: 0; stroke: #9aa0a6; stroke-width: 1.5"/>
    </g>
    <g id="line2d_26">
-    <path d="M 69.698354 271.600673 
-L 81.695922 253.544583 
-L 92.002104 247.366695 
-L 102.127642 239.485099 
-L 111.874391 237.803987 
-L 123.004905 222.267815 
-L 135.433784 218.128242 
-L 150.287988 198.377164 
-L 170.845084 183.252609 
-L 219.623731 151.159161 
+    <path d="M 73.211487 271.600673 
+L 87.719608 253.544583 
+L 99.989579 247.366695 
+L 111.88235 239.485099 
+L 123.178846 237.803987 
+L 135.900866 222.267815 
+L 149.889131 218.128242 
+L 166.308196 198.377164 
+L 188.505749 183.252609 
+L 238.461674 151.159161 
 " clip-path="url(#p81c08e6746)" style="fill: none; stroke: #1f4e79; stroke-width: 1.5; stroke-linecap: square"/>
     <defs>
      <path id="me9bd762e6b" d="M 0 1.5 
@@ -2410,29 +2410,29 @@ z
 " style="stroke: #1f4e79"/>
     </defs>
     <g clip-path="url(#p81c08e6746)">
-     <use xlink:href="#me9bd762e6b" x="69.698354" y="271.600673" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="81.695922" y="253.544583" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="92.002104" y="247.366695" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="102.127642" y="239.485099" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="111.874391" y="237.803987" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="123.004905" y="222.267815" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="135.433784" y="218.128242" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="150.287988" y="198.377164" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="170.845084" y="183.252609" style="fill: #1f4e79; stroke: #1f4e79"/>
-     <use xlink:href="#me9bd762e6b" x="219.623731" y="151.159161" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="73.211487" y="271.600673" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="87.719608" y="253.544583" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="99.989579" y="247.366695" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="111.88235" y="239.485099" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="123.178846" y="237.803987" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="135.900866" y="222.267815" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="149.889131" y="218.128242" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="166.308196" y="198.377164" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="188.505749" y="183.252609" style="fill: #1f4e79; stroke: #1f4e79"/>
+     <use xlink:href="#me9bd762e6b" x="238.461674" y="151.159161" style="fill: #1f4e79; stroke: #1f4e79"/>
     </g>
    </g>
    <g id="line2d_27">
-    <path d="M 70.146997 257.358651 
-L 81.634878 259.596308 
-L 92.514958 244.742075 
-L 103.749806 224.936432 
-L 112.343671 247.551049 
-L 121.547333 229.378139 
-L 134.821815 219.985021 
-L 152.050287 197.703673 
-L 172.9237 180.373735 
-L 225.6184 153.140975 
+    <path d="M 73.762072 257.358651 
+L 87.646287 259.596308 
+L 100.593177 244.742075 
+L 113.773332 224.936432 
+L 123.721351 247.551049 
+L 134.245752 229.378139 
+L 149.199943 219.985021 
+L 168.237128 197.703673 
+L 190.728353 180.373735 
+L 244.398274 153.140975 
 " clip-path="url(#p81c08e6746)" style="fill: none; stroke: #2e8b57; stroke-width: 1.5; stroke-linecap: square"/>
     <defs>
      <path id="m0cf09a4600" d="M 0 1.5 
@@ -2448,29 +2448,29 @@ z
 " style="stroke: #2e8b57"/>
     </defs>
     <g clip-path="url(#p81c08e6746)">
-     <use xlink:href="#m0cf09a4600" x="70.146997" y="257.358651" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="81.634878" y="259.596308" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="92.514958" y="244.742075" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="103.749806" y="224.936432" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="112.343671" y="247.551049" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="121.547333" y="229.378139" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="134.821815" y="219.985021" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="152.050287" y="197.703673" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="172.9237" y="180.373735" style="fill: #2e8b57; stroke: #2e8b57"/>
-     <use xlink:href="#m0cf09a4600" x="225.6184" y="153.140975" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="73.762072" y="257.358651" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="87.646287" y="259.596308" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="100.593177" y="244.742075" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="113.773332" y="224.936432" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="123.721351" y="247.551049" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="134.245752" y="229.378139" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="149.199943" y="219.985021" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="168.237128" y="197.703673" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="190.728353" y="180.373735" style="fill: #2e8b57; stroke: #2e8b57"/>
+     <use xlink:href="#m0cf09a4600" x="244.398274" y="153.140975" style="fill: #2e8b57; stroke: #2e8b57"/>
     </g>
    </g>
    <g id="line2d_28">
-    <path d="M 69.971226 256.630364 
-L 81.698603 249.056176 
-L 92.684917 231.383071 
-L 101.531761 243.628008 
-L 110.472456 222.460727 
-L 120.3632 217.484309 
-L 134.281332 238.528055 
-L 148.919487 201.08632 
-L 171.591432 185.937944 
-L 225.207746 168.264839 
+    <path d="M 73.543221 256.630364 
+L 87.72119 249.056176 
+L 100.79769 231.383071 
+L 111.188882 243.628008 
+L 121.564603 222.460727 
+L 132.897287 217.484309 
+L 148.600506 238.528055 
+L 164.807308 201.08632 
+L 189.29094 185.937944 
+L 243.974624 168.264839 
 " clip-path="url(#p81c08e6746)" style="fill: none; stroke: #c1440e; stroke-width: 1.5; stroke-linecap: square"/>
     <defs>
      <path id="m645dedae29" d="M 0 1.5 
@@ -2486,16 +2486,16 @@ z
 " style="stroke: #c1440e"/>
     </defs>
     <g clip-path="url(#p81c08e6746)">
-     <use xlink:href="#m645dedae29" x="69.971226" y="256.630364" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="81.698603" y="249.056176" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="92.684917" y="231.383071" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="101.531761" y="243.628008" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="110.472456" y="222.460727" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="120.3632" y="217.484309" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="134.281332" y="238.528055" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="148.919487" y="201.08632" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="171.591432" y="185.937944" style="fill: #c1440e; stroke: #c1440e"/>
-     <use xlink:href="#m645dedae29" x="225.207746" y="168.264839" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="73.543221" y="256.630364" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="87.72119" y="249.056176" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="100.79769" y="231.383071" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="111.188882" y="243.628008" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="121.564603" y="222.460727" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="132.897287" y="217.484309" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="148.600506" y="238.528055" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="164.807308" y="201.08632" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="189.29094" y="185.937944" style="fill: #c1440e; stroke: #c1440e"/>
+     <use xlink:href="#m645dedae29" x="243.974624" y="168.264839" style="fill: #c1440e; stroke: #c1440e"/>
     </g>
    </g>
    <g id="patch_3">
@@ -2541,7 +2541,7 @@ L 77.642344 49.679375
      </g>
     </g>
     <g id="text_17">
-     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="84.042344" y="52.479375" transform="rotate(-0 84.042344 52.479375)">desarrollo (Brier=0.161, ECE=0.034)</text>
+     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="84.042344" y="52.479375" transform="rotate(-0 84.042344 52.479375)">desarrollo (Brier=0.160, ECE=0.011)</text>
     </g>
     <g id="line2d_31">
      <path d="M 61.642344 61.68 
@@ -2553,7 +2553,7 @@ L 77.642344 61.68
      </g>
     </g>
     <g id="text_18">
-     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="84.042344" y="64.48" transform="rotate(-0 84.042344 64.48)">holdout (Brier=0.165, ECE=0.039)</text>
+     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="84.042344" y="64.48" transform="rotate(-0 84.042344 64.48)">holdout (Brier=0.164, ECE=0.028)</text>
     </g>
     <g id="line2d_32">
      <path d="M 61.642344 73.680625 
@@ -2565,7 +2565,7 @@ L 77.642344 73.680625
      </g>
     </g>
     <g id="text_19">
-     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="84.042344" y="76.480625" transform="rotate(-0 84.042344 76.480625)">oot (Brier=0.172, ECE=0.055)</text>
+     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="84.042344" y="76.480625" transform="rotate(-0 84.042344 76.480625)">oot (Brier=0.171, ECE=0.043)</text>
     </g>
    </g>
   </g>
@@ -3336,9 +3336,9 @@ z
   <table id="table-performance-discriminant_metrics" data-table-key="performance.discriminant_metrics">
     <thead><tr><th>partition</th><th>n_total</th><th>n_bad</th><th>n_good</th><th>auc</th><th>gini</th><th>ks</th><th>ks_cutoff_risk_score</th><th>ks_cutoff_score</th><th>tpr_at_ks</th><th>fpr_at_ks</th><th>source</th><th>status</th></tr></thead>
     <tbody>
-      <tr><td>desarrollo</td><td>3961</td><td>924</td><td>3037</td><td>0.712346</td><td>0.424692</td><td>0.320144</td><td>0.189651</td><td>—</td><td>0.706710</td><td>0.386566</td><td>pd_calibrated</td><td>ok</td></tr>
-      <tr><td>holdout</td><td>1031</td><td>244</td><td>787</td><td>0.694646</td><td>0.389292</td><td>0.311892</td><td>0.223207</td><td>—</td><td>0.590164</td><td>0.278272</td><td>pd_calibrated</td><td>ok</td></tr>
-      <tr><td>oot</td><td>1008</td><td>239</td><td>769</td><td>0.656096</td><td>0.312192</td><td>0.251906</td><td>0.259595</td><td>—</td><td>0.456067</td><td>0.204161</td><td>pd_calibrated</td><td>ok</td></tr>
+      <tr><td>desarrollo</td><td>3961</td><td>924</td><td>3037</td><td>0.712346</td><td>0.424692</td><td>0.320144</td><td>0.225512</td><td>—</td><td>0.706710</td><td>0.386566</td><td>pd_calibrated</td><td>ok</td></tr>
+      <tr><td>holdout</td><td>1031</td><td>244</td><td>787</td><td>0.694646</td><td>0.389292</td><td>0.311892</td><td>0.263350</td><td>—</td><td>0.590164</td><td>0.278272</td><td>pd_calibrated</td><td>ok</td></tr>
+      <tr><td>oot</td><td>1008</td><td>239</td><td>769</td><td>0.656096</td><td>0.312192</td><td>0.251906</td><td>0.303724</td><td>—</td><td>0.456067</td><td>0.204161</td><td>pd_calibrated</td><td>ok</td></tr>
     </tbody>
   </table>
 </figure>
@@ -3347,36 +3347,36 @@ z
   <table id="table-performance-performance_table" data-table-key="performance.performance_table">
     <thead><tr><th>partition</th><th>decile</th><th>n_total</th><th>n_bad</th><th>n_good</th><th>bad_rate</th><th>good_rate</th><th>mean_pd</th><th>min_pd</th><th>max_pd</th><th>mean_score</th><th>min_score</th><th>max_score</th><th>cum_total</th><th>cum_bad</th><th>cum_good</th><th>cum_bad_capture_rate</th><th>cum_good_capture_rate</th><th>lift</th><th>ks_at_decile</th></tr></thead>
     <tbody>
-      <tr><td>desarrollo</td><td>1</td><td>397</td><td>203</td><td>194</td><td>0.5113</td><td>0.4887</td><td>0.464277</td><td>0.368829</td><td>0.774565</td><td>484.874055</td><td>446.000000</td><td>497.000000</td><td>397</td><td>203</td><td>194</td><td>0.2197</td><td>0.0639</td><td>2.191989</td><td>0.155818</td></tr>
-      <tr><td>desarrollo</td><td>2</td><td>396</td><td>154</td><td>242</td><td>0.3889</td><td>0.6111</td><td>0.326896</td><td>0.293402</td><td>0.368829</td><td>501.558081</td><td>496.000000</td><td>507.000000</td><td>793</td><td>357</td><td>436</td><td>0.3864</td><td>0.1436</td><td>1.667088</td><td>0.242801</td></tr>
-      <tr><td>desarrollo</td><td>3</td><td>396</td><td>129</td><td>267</td><td>0.3258</td><td>0.6742</td><td>0.269114</td><td>0.245896</td><td>0.293402</td><td>509.434343</td><td>505.000000</td><td>514.000000</td><td>1189</td><td>486</td><td>703</td><td>0.5260</td><td>0.2315</td><td>1.396456</td><td>0.294496</td></tr>
-      <tr><td>desarrollo</td><td>4</td><td>396</td><td>99</td><td>297</td><td>0.2500</td><td>0.7500</td><td>0.227482</td><td>0.208969</td><td>0.245896</td><td>515.858586</td><td>512.000000</td><td>520.000000</td><td>1585</td><td>585</td><td>1000</td><td>0.6331</td><td>0.3293</td><td>1.071699</td><td>0.303845</td></tr>
-      <tr><td>desarrollo</td><td>5</td><td>396</td><td>93</td><td>303</td><td>0.2348</td><td>0.7652</td><td>0.192104</td><td>0.176307</td><td>0.208969</td><td>521.957071</td><td>518.000000</td><td>526.000000</td><td>1981</td><td>678</td><td>1303</td><td>0.7338</td><td>0.4290</td><td>1.006748</td><td>0.304724</td></tr>
-      <tr><td>desarrollo</td><td>6</td><td>396</td><td>67</td><td>329</td><td>0.1692</td><td>0.8308</td><td>0.160814</td><td>0.147936</td><td>0.176307</td><td>528.070707</td><td>524.000000</td><td>532.000000</td><td>2377</td><td>745</td><td>1632</td><td>0.8063</td><td>0.5374</td><td>0.725291</td><td>0.268905</td></tr>
-      <tr><td>desarrollo</td><td>7</td><td>396</td><td>65</td><td>331</td><td>0.1641</td><td>0.8359</td><td>0.133788</td><td>0.120596</td><td>0.147936</td><td>534.315657</td><td>530.000000</td><td>539.000000</td><td>2773</td><td>810</td><td>1963</td><td>0.8766</td><td>0.6464</td><td>0.703641</td><td>0.230262</td></tr>
-      <tr><td>desarrollo</td><td>8</td><td>396</td><td>54</td><td>342</td><td>0.1364</td><td>0.8636</td><td>0.105434</td><td>0.090212</td><td>0.120596</td><td>542.138889</td><td>538.000000</td><td>548.000000</td><td>3169</td><td>864</td><td>2305</td><td>0.9351</td><td>0.7590</td><td>0.584563</td><td>0.176092</td></tr>
-      <tr><td>desarrollo</td><td>9</td><td>396</td><td>44</td><td>352</td><td>0.1111</td><td>0.8889</td><td>0.076569</td><td>0.061318</td><td>0.090107</td><td>552.510101</td><td>546.000000</td><td>560.000000</td><td>3565</td><td>908</td><td>2657</td><td>0.9827</td><td>0.8749</td><td>0.476311</td><td>0.107807</td></tr>
-      <tr><td>desarrollo</td><td>10</td><td>396</td><td>16</td><td>380</td><td>0.0404</td><td>0.9596</td><td>0.042856</td><td>0.008485</td><td>0.061318</td><td>571.585859</td><td>558.000000</td><td>618.000000</td><td>3961</td><td>924</td><td>3037</td><td>1.0000</td><td>1.0000</td><td>0.173204</td><td>0.000000</td></tr>
-      <tr><td>holdout</td><td>1</td><td>104</td><td>52</td><td>52</td><td>0.5000</td><td>0.5000</td><td>0.480290</td><td>0.368464</td><td>0.732205</td><td>482.942308</td><td>452.000000</td><td>496.000000</td><td>104</td><td>52</td><td>52</td><td>0.2131</td><td>0.0661</td><td>2.112705</td><td>0.147041</td></tr>
-      <tr><td>holdout</td><td>2</td><td>103</td><td>41</td><td>62</td><td>0.3981</td><td>0.6019</td><td>0.332514</td><td>0.298887</td><td>0.368464</td><td>500.737864</td><td>496.000000</td><td>506.000000</td><td>207</td><td>93</td><td>114</td><td>0.3811</td><td>0.1449</td><td>1.681959</td><td>0.236294</td></tr>
-      <tr><td>holdout</td><td>3</td><td>103</td><td>34</td><td>69</td><td>0.3301</td><td>0.6699</td><td>0.274019</td><td>0.250344</td><td>0.298887</td><td>508.689320</td><td>504.000000</td><td>513.000000</td><td>310</td><td>127</td><td>183</td><td>0.5205</td><td>0.2325</td><td>1.394795</td><td>0.287963</td></tr>
-      <tr><td>holdout</td><td>4</td><td>103</td><td>25</td><td>78</td><td>0.2427</td><td>0.7573</td><td>0.225597</td><td>0.204709</td><td>0.250344</td><td>516.155340</td><td>511.000000</td><td>520.000000</td><td>413</td><td>152</td><td>261</td><td>0.6230</td><td>0.3316</td><td>1.025585</td><td>0.291312</td></tr>
-      <tr><td>holdout</td><td>5</td><td>103</td><td>22</td><td>81</td><td>0.2136</td><td>0.7864</td><td>0.188267</td><td>0.173891</td><td>0.204661</td><td>522.592233</td><td>519.000000</td><td>526.000000</td><td>516</td><td>174</td><td>342</td><td>0.7131</td><td>0.4346</td><td>0.902515</td><td>0.278553</td></tr>
-      <tr><td>holdout</td><td>6</td><td>103</td><td>13</td><td>90</td><td>0.1262</td><td>0.8738</td><td>0.162510</td><td>0.152213</td><td>0.173846</td><td>527.669903</td><td>525.000000</td><td>531.000000</td><td>619</td><td>187</td><td>432</td><td>0.7664</td><td>0.5489</td><td>0.533304</td><td>0.217473</td></tr>
-      <tr><td>holdout</td><td>7</td><td>103</td><td>23</td><td>80</td><td>0.2233</td><td>0.7767</td><td>0.138393</td><td>0.124609</td><td>0.151995</td><td>533.223301</td><td>530.000000</td><td>538.000000</td><td>722</td><td>210</td><td>512</td><td>0.8607</td><td>0.6506</td><td>0.943538</td><td>0.210084</td></tr>
-      <tr><td>holdout</td><td>8</td><td>103</td><td>15</td><td>88</td><td>0.1456</td><td>0.8544</td><td>0.106735</td><td>0.090472</td><td>0.124343</td><td>541.864078</td><td>536.000000</td><td>547.000000</td><td>825</td><td>225</td><td>600</td><td>0.9221</td><td>0.7624</td><td>0.615351</td><td>0.159742</td></tr>
-      <tr><td>holdout</td><td>9</td><td>103</td><td>10</td><td>93</td><td>0.0971</td><td>0.9029</td><td>0.076171</td><td>0.059697</td><td>0.090212</td><td>552.660194</td><td>546.000000</td><td>560.000000</td><td>928</td><td>235</td><td>693</td><td>0.9631</td><td>0.8806</td><td>0.410234</td><td>0.082556</td></tr>
-      <tr><td>holdout</td><td>10</td><td>103</td><td>9</td><td>94</td><td>0.0874</td><td>0.9126</td><td>0.044013</td><td>0.014361</td><td>0.059655</td><td>570.446602</td><td>560.000000</td><td>603.000000</td><td>1031</td><td>244</td><td>787</td><td>1.0000</td><td>1.0000</td><td>0.369211</td><td>0.000000</td></tr>
-      <tr><td>oot</td><td>1</td><td>101</td><td>45</td><td>56</td><td>0.4455</td><td>0.5545</td><td>0.480221</td><td>0.376923</td><td>0.732205</td><td>482.920792</td><td>452.000000</td><td>496.000000</td><td>101</td><td>45</td><td>56</td><td>0.1883</td><td>0.0728</td><td>1.879117</td><td>0.115463</td></tr>
-      <tr><td>oot</td><td>2</td><td>101</td><td>38</td><td>63</td><td>0.3762</td><td>0.6238</td><td>0.329443</td><td>0.291975</td><td>0.376607</td><td>501.188119</td><td>494.000000</td><td>507.000000</td><td>202</td><td>83</td><td>119</td><td>0.3473</td><td>0.1547</td><td>1.586810</td><td>0.192534</td></tr>
-      <tr><td>oot</td><td>3</td><td>101</td><td>32</td><td>69</td><td>0.3168</td><td>0.6832</td><td>0.265686</td><td>0.242490</td><td>0.291014</td><td>509.930693</td><td>506.000000</td><td>514.000000</td><td>303</td><td>115</td><td>188</td><td>0.4812</td><td>0.2445</td><td>1.336261</td><td>0.236698</td></tr>
-      <tr><td>oot</td><td>4</td><td>101</td><td>17</td><td>84</td><td>0.1683</td><td>0.8317</td><td>0.224310</td><td>0.203208</td><td>0.242120</td><td>516.405941</td><td>513.000000</td><td>520.000000</td><td>404</td><td>132</td><td>272</td><td>0.5523</td><td>0.3537</td><td>0.709889</td><td>0.198595</td></tr>
-      <tr><td>oot</td><td>5</td><td>101</td><td>26</td><td>75</td><td>0.2574</td><td>0.7426</td><td>0.184714</td><td>0.168869</td><td>0.202989</td><td>523.277228</td><td>519.000000</td><td>527.000000</td><td>505</td><td>158</td><td>347</td><td>0.6611</td><td>0.4512</td><td>1.085712</td><td>0.209852</td></tr>
-      <tr><td>oot</td><td>6</td><td>101</td><td>23</td><td>78</td><td>0.2277</td><td>0.7723</td><td>0.157103</td><td>0.144751</td><td>0.168869</td><td>529.069307</td><td>526.000000</td><td>533.000000</td><td>606</td><td>181</td><td>425</td><td>0.7573</td><td>0.5527</td><td>0.960437</td><td>0.204656</td></tr>
-      <tr><td>oot</td><td>7</td><td>101</td><td>15</td><td>86</td><td>0.1485</td><td>0.8515</td><td>0.132068</td><td>0.120596</td><td>0.144751</td><td>534.732673</td><td>532.000000</td><td>538.000000</td><td>707</td><td>196</td><td>511</td><td>0.8201</td><td>0.6645</td><td>0.626372</td><td>0.155584</td></tr>
-      <tr><td>oot</td><td>8</td><td>101</td><td>20</td><td>81</td><td>0.1980</td><td>0.8020</td><td>0.106984</td><td>0.092326</td><td>0.119822</td><td>541.574257</td><td>538.000000</td><td>547.000000</td><td>808</td><td>216</td><td>592</td><td>0.9038</td><td>0.7698</td><td>0.835163</td><td>0.133935</td></tr>
-      <tr><td>oot</td><td>9</td><td>100</td><td>13</td><td>87</td><td>0.1300</td><td>0.8700</td><td>0.076182</td><td>0.061411</td><td>0.091239</td><td>552.610000</td><td>546.000000</td><td>559.000000</td><td>908</td><td>229</td><td>679</td><td>0.9582</td><td>0.8830</td><td>0.548285</td><td>0.075194</td></tr>
-      <tr><td>oot</td><td>10</td><td>100</td><td>10</td><td>90</td><td>0.1000</td><td>0.9000</td><td>0.043492</td><td>0.007587</td><td>0.061318</td><td>571.250000</td><td>558.000000</td><td>622.000000</td><td>1008</td><td>239</td><td>769</td><td>1.0000</td><td>1.0000</td><td>0.421757</td><td>0.000000</td></tr>
+      <tr><td>desarrollo</td><td>1</td><td>397</td><td>203</td><td>194</td><td>0.5113</td><td>0.4887</td><td>0.517250</td><td>0.420969</td><td>0.810416</td><td>484.874055</td><td>446.000000</td><td>497.000000</td><td>397</td><td>203</td><td>194</td><td>0.2197</td><td>0.0639</td><td>2.191989</td><td>0.155818</td></tr>
+      <tr><td>desarrollo</td><td>2</td><td>396</td><td>154</td><td>242</td><td>0.3889</td><td>0.6111</td><td>0.376530</td><td>0.340634</td><td>0.420969</td><td>501.558081</td><td>496.000000</td><td>507.000000</td><td>793</td><td>357</td><td>436</td><td>0.3864</td><td>0.1436</td><td>1.667088</td><td>0.242801</td></tr>
+      <tr><td>desarrollo</td><td>3</td><td>396</td><td>129</td><td>267</td><td>0.3258</td><td>0.6742</td><td>0.314126</td><td>0.288604</td><td>0.340634</td><td>509.434343</td><td>505.000000</td><td>514.000000</td><td>1189</td><td>486</td><td>703</td><td>0.5260</td><td>0.2315</td><td>1.396456</td><td>0.294496</td></tr>
+      <tr><td>desarrollo</td><td>4</td><td>396</td><td>99</td><td>297</td><td>0.2500</td><td>0.7500</td><td>0.268100</td><td>0.247367</td><td>0.288604</td><td>515.858586</td><td>512.000000</td><td>520.000000</td><td>1585</td><td>585</td><td>1000</td><td>0.6331</td><td>0.3293</td><td>1.071699</td><td>0.303845</td></tr>
+      <tr><td>desarrollo</td><td>5</td><td>396</td><td>93</td><td>303</td><td>0.2348</td><td>0.7652</td><td>0.228273</td><td>0.210299</td><td>0.247367</td><td>521.957071</td><td>518.000000</td><td>526.000000</td><td>1981</td><td>678</td><td>1303</td><td>0.7338</td><td>0.4290</td><td>1.006748</td><td>0.304724</td></tr>
+      <tr><td>desarrollo</td><td>6</td><td>396</td><td>67</td><td>329</td><td>0.1692</td><td>0.8308</td><td>0.192500</td><td>0.177638</td><td>0.210299</td><td>528.070707</td><td>524.000000</td><td>532.000000</td><td>2377</td><td>745</td><td>1632</td><td>0.8063</td><td>0.5374</td><td>0.725291</td><td>0.268905</td></tr>
+      <tr><td>desarrollo</td><td>7</td><td>396</td><td>65</td><td>331</td><td>0.1641</td><td>0.8359</td><td>0.161168</td><td>0.145748</td><td>0.177638</td><td>534.315657</td><td>530.000000</td><td>539.000000</td><td>2773</td><td>810</td><td>1963</td><td>0.8766</td><td>0.6464</td><td>0.703641</td><td>0.230262</td></tr>
+      <tr><td>desarrollo</td><td>8</td><td>396</td><td>54</td><td>342</td><td>0.1364</td><td>0.8636</td><td>0.127862</td><td>0.109818</td><td>0.145748</td><td>542.138889</td><td>538.000000</td><td>548.000000</td><td>3169</td><td>864</td><td>2305</td><td>0.9351</td><td>0.7590</td><td>0.584563</td><td>0.176092</td></tr>
+      <tr><td>desarrollo</td><td>9</td><td>396</td><td>44</td><td>352</td><td>0.1111</td><td>0.8889</td><td>0.093494</td><td>0.075163</td><td>0.109693</td><td>552.510101</td><td>546.000000</td><td>560.000000</td><td>3565</td><td>908</td><td>2657</td><td>0.9827</td><td>0.8749</td><td>0.476311</td><td>0.107807</td></tr>
+      <tr><td>desarrollo</td><td>10</td><td>396</td><td>16</td><td>380</td><td>0.0404</td><td>0.9596</td><td>0.052725</td><td>0.010535</td><td>0.075163</td><td>571.585859</td><td>558.000000</td><td>618.000000</td><td>3961</td><td>924</td><td>3037</td><td>1.0000</td><td>1.0000</td><td>0.173204</td><td>0.000000</td></tr>
+      <tr><td>holdout</td><td>1</td><td>104</td><td>52</td><td>52</td><td>0.5000</td><td>0.5000</td><td>0.533095</td><td>0.420586</td><td>0.772817</td><td>482.942308</td><td>452.000000</td><td>496.000000</td><td>104</td><td>52</td><td>52</td><td>0.2131</td><td>0.0661</td><td>2.112705</td><td>0.147041</td></tr>
+      <tr><td>holdout</td><td>2</td><td>103</td><td>41</td><td>62</td><td>0.3981</td><td>0.6019</td><td>0.382540</td><td>0.346569</td><td>0.420586</td><td>500.737864</td><td>496.000000</td><td>506.000000</td><td>207</td><td>93</td><td>114</td><td>0.3811</td><td>0.1449</td><td>1.681959</td><td>0.236294</td></tr>
+      <tr><td>holdout</td><td>3</td><td>103</td><td>34</td><td>69</td><td>0.3301</td><td>0.6699</td><td>0.319495</td><td>0.293524</td><td>0.346569</td><td>508.689320</td><td>504.000000</td><td>513.000000</td><td>310</td><td>127</td><td>183</td><td>0.5205</td><td>0.2325</td><td>1.394795</td><td>0.287963</td></tr>
+      <tr><td>holdout</td><td>4</td><td>103</td><td>25</td><td>78</td><td>0.2427</td><td>0.7573</td><td>0.265979</td><td>0.242564</td><td>0.293524</td><td>516.155340</td><td>511.000000</td><td>520.000000</td><td>413</td><td>152</td><td>261</td><td>0.6230</td><td>0.3316</td><td>1.025585</td><td>0.291312</td></tr>
+      <tr><td>holdout</td><td>5</td><td>103</td><td>22</td><td>81</td><td>0.2136</td><td>0.7864</td><td>0.223916</td><td>0.207535</td><td>0.242510</td><td>522.592233</td><td>519.000000</td><td>526.000000</td><td>516</td><td>174</td><td>342</td><td>0.7131</td><td>0.4346</td><td>0.902515</td><td>0.278553</td></tr>
+      <tr><td>holdout</td><td>6</td><td>103</td><td>13</td><td>90</td><td>0.1262</td><td>0.8738</td><td>0.194459</td><td>0.182590</td><td>0.207483</td><td>527.669903</td><td>525.000000</td><td>531.000000</td><td>619</td><td>187</td><td>432</td><td>0.7664</td><td>0.5489</td><td>0.533304</td><td>0.217473</td></tr>
+      <tr><td>holdout</td><td>7</td><td>103</td><td>23</td><td>80</td><td>0.2233</td><td>0.7767</td><td>0.166537</td><td>0.150454</td><td>0.182337</td><td>533.223301</td><td>530.000000</td><td>538.000000</td><td>722</td><td>210</td><td>512</td><td>0.8607</td><td>0.6506</td><td>0.943538</td><td>0.210084</td></tr>
+      <tr><td>holdout</td><td>8</td><td>103</td><td>15</td><td>88</td><td>0.1456</td><td>0.8544</td><td>0.129392</td><td>0.110128</td><td>0.150142</td><td>541.864078</td><td>536.000000</td><td>547.000000</td><td>825</td><td>225</td><td>600</td><td>0.9221</td><td>0.7624</td><td>0.615351</td><td>0.159742</td></tr>
+      <tr><td>holdout</td><td>9</td><td>103</td><td>10</td><td>93</td><td>0.0971</td><td>0.9029</td><td>0.093017</td><td>0.073204</td><td>0.109818</td><td>552.660194</td><td>546.000000</td><td>560.000000</td><td>928</td><td>235</td><td>693</td><td>0.9631</td><td>0.8806</td><td>0.410234</td><td>0.082556</td></tr>
+      <tr><td>holdout</td><td>10</td><td>103</td><td>9</td><td>94</td><td>0.0874</td><td>0.9126</td><td>0.054147</td><td>0.017805</td><td>0.073154</td><td>570.446602</td><td>560.000000</td><td>603.000000</td><td>1031</td><td>244</td><td>787</td><td>1.0000</td><td>1.0000</td><td>0.369211</td><td>0.000000</td></tr>
+      <tr><td>oot</td><td>1</td><td>101</td><td>45</td><td>56</td><td>0.4455</td><td>0.5545</td><td>0.532996</td><td>0.429429</td><td>0.772817</td><td>482.920792</td><td>452.000000</td><td>496.000000</td><td>101</td><td>45</td><td>56</td><td>0.1883</td><td>0.0728</td><td>1.879117</td><td>0.115463</td></tr>
+      <tr><td>oot</td><td>2</td><td>101</td><td>38</td><td>63</td><td>0.3762</td><td>0.6238</td><td>0.379217</td><td>0.339087</td><td>0.429099</td><td>501.188119</td><td>494.000000</td><td>507.000000</td><td>202</td><td>83</td><td>119</td><td>0.3473</td><td>0.1547</td><td>1.586810</td><td>0.192534</td></tr>
+      <tr><td>oot</td><td>3</td><td>101</td><td>32</td><td>69</td><td>0.3168</td><td>0.6832</td><td>0.310365</td><td>0.284830</td><td>0.338045</td><td>509.930693</td><td>506.000000</td><td>514.000000</td><td>303</td><td>115</td><td>188</td><td>0.4812</td><td>0.2445</td><td>1.336261</td><td>0.236698</td></tr>
+      <tr><td>oot</td><td>4</td><td>101</td><td>17</td><td>84</td><td>0.1683</td><td>0.8317</td><td>0.264552</td><td>0.240870</td><td>0.284419</td><td>516.405941</td><td>513.000000</td><td>520.000000</td><td>404</td><td>132</td><td>272</td><td>0.5523</td><td>0.3537</td><td>0.709889</td><td>0.198595</td></tr>
+      <tr><td>oot</td><td>5</td><td>101</td><td>26</td><td>75</td><td>0.2574</td><td>0.7426</td><td>0.219868</td><td>0.201778</td><td>0.240622</td><td>523.277228</td><td>519.000000</td><td>527.000000</td><td>505</td><td>158</td><td>347</td><td>0.6611</td><td>0.4512</td><td>1.085712</td><td>0.209852</td></tr>
+      <tr><td>oot</td><td>6</td><td>101</td><td>23</td><td>78</td><td>0.2277</td><td>0.7723</td><td>0.188226</td><td>0.173944</td><td>0.201778</td><td>529.069307</td><td>526.000000</td><td>533.000000</td><td>606</td><td>181</td><td>425</td><td>0.7573</td><td>0.5527</td><td>0.960437</td><td>0.204656</td></tr>
+      <tr><td>oot</td><td>7</td><td>101</td><td>15</td><td>86</td><td>0.1485</td><td>0.8515</td><td>0.159166</td><td>0.145748</td><td>0.173944</td><td>534.732673</td><td>532.000000</td><td>538.000000</td><td>707</td><td>196</td><td>511</td><td>0.8201</td><td>0.6645</td><td>0.626372</td><td>0.155584</td></tr>
+      <tr><td>oot</td><td>8</td><td>101</td><td>20</td><td>81</td><td>0.1980</td><td>0.8020</td><td>0.129697</td><td>0.112335</td><td>0.144838</td><td>541.574257</td><td>538.000000</td><td>547.000000</td><td>808</td><td>216</td><td>592</td><td>0.9038</td><td>0.7698</td><td>0.835163</td><td>0.133935</td></tr>
+      <tr><td>oot</td><td>9</td><td>100</td><td>13</td><td>87</td><td>0.1300</td><td>0.8700</td><td>0.093027</td><td>0.075275</td><td>0.111041</td><td>552.610000</td><td>546.000000</td><td>559.000000</td><td>908</td><td>229</td><td>679</td><td>0.9582</td><td>0.8830</td><td>0.548285</td><td>0.075194</td></tr>
+      <tr><td>oot</td><td>10</td><td>100</td><td>10</td><td>90</td><td>0.1000</td><td>0.9000</td><td>0.053499</td><td>0.009422</td><td>0.075163</td><td>571.250000</td><td>558.000000</td><td>622.000000</td><td>1008</td><td>239</td><td>769</td><td>1.0000</td><td>1.0000</td><td>0.421757</td><td>0.000000</td></tr>
     </tbody>
   </table>
 </figure>
@@ -3995,7 +3995,7 @@ L 420.51375 486.278125
 
 
   <p>La validación formal del modelo «preset-estandar-consumo» ejecutó discriminación, calibración y estabilidad. El estado técnico agregado publicado por el motor es «fail».</p>
-  <p>El resultado registra 3 tests, de los cuales 3 quedaron fallidos. Las tablas se copian del resultado que publicó la validación, sin recalcular métricas ni decisiones.</p>
+  <p>El resultado registra 3 tests, de los cuales 1 quedaron fallidos. Las tablas se copian del resultado que publicó la validación, sin recalcular métricas ni decisiones.</p>
   <p>Este estado es evidencia técnica; el veredicto de aprobación, aprobación con observaciones o rechazo corresponde al validador humano y queda POR COMPLETAR.</p>
 
 <div class="placeholder">
@@ -4037,12 +4037,12 @@ L 420.51375 486.278125
   <table id="table-validation-calibration" data-table-key="validation.calibration">
     <thead><tr><th>partition</th><th>test</th><th>grade</th><th>n</th><th>observed_defaults</th><th>expected_pd</th><th>observed_dr</th><th>statistic</th><th>degrees_of_freedom</th><th>p_value</th><th>alpha</th><th>decision</th><th>traffic_light</th></tr></thead>
     <tbody>
-      <tr><td>desarrollo</td><td>hosmer_lemeshow</td><td>ALL</td><td>3961</td><td>924</td><td>0.200000</td><td>0.233274</td><td>37.243376</td><td>8</td><td>0.000010</td><td>0.050000</td><td>fail</td><td>—</td></tr>
-      <tr><td>desarrollo</td><td>brier</td><td>ALL</td><td>3961</td><td>924</td><td>0.200000</td><td>0.233274</td><td>0.161492</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
-      <tr><td>oot</td><td>hosmer_lemeshow</td><td>ALL</td><td>1008</td><td>239</td><td>0.200298</td><td>0.237103</td><td>32.223459</td><td>8</td><td>0.000085</td><td>0.050000</td><td>fail</td><td>—</td></tr>
-      <tr><td>oot</td><td>brier</td><td>ALL</td><td>1008</td><td>239</td><td>0.200298</td><td>0.237103</td><td>0.171861</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
-      <tr><td>holdout</td><td>hosmer_lemeshow</td><td>ALL</td><td>1031</td><td>244</td><td>0.203120</td><td>0.236663</td><td>19.983637</td><td>8</td><td>0.010398</td><td>0.050000</td><td>fail</td><td>—</td></tr>
-      <tr><td>holdout</td><td>brier</td><td>ALL</td><td>1031</td><td>244</td><td>0.203120</td><td>0.236663</td><td>0.165269</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
+      <tr><td>desarrollo</td><td>hosmer_lemeshow</td><td>ALL</td><td>3961</td><td>924</td><td>0.233274</td><td>0.233274</td><td>6.007946</td><td>8</td><td>0.646342</td><td>0.050000</td><td>pass</td><td>—</td></tr>
+      <tr><td>desarrollo</td><td>brier</td><td>ALL</td><td>3961</td><td>924</td><td>0.233274</td><td>0.233274</td><td>0.160175</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
+      <tr><td>oot</td><td>hosmer_lemeshow</td><td>ALL</td><td>1008</td><td>239</td><td>0.233378</td><td>0.237103</td><td>19.451071</td><td>8</td><td>0.012625</td><td>0.050000</td><td>fail</td><td>—</td></tr>
+      <tr><td>oot</td><td>brier</td><td>ALL</td><td>1008</td><td>239</td><td>0.233378</td><td>0.237103</td><td>0.171278</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
+      <tr><td>holdout</td><td>hosmer_lemeshow</td><td>ALL</td><td>1031</td><td>244</td><td>0.236546</td><td>0.236663</td><td>10.120587</td><td>8</td><td>0.256664</td><td>0.050000</td><td>pass</td><td>—</td></tr>
+      <tr><td>holdout</td><td>brier</td><td>ALL</td><td>1031</td><td>244</td><td>0.236546</td><td>0.236663</td><td>0.164275</td><td>—</td><td>—</td><td>—</td><td>not_evaluable</td><td>—</td></tr>
     </tbody>
   </table>
 </figure>
@@ -4086,7 +4086,7 @@ L 420.51375 486.278125
 
   <p>Discriminación (AUC): Desarrollo 0,7123, Holdout 0,6946 y Fuera de tiempo (OOT) 0,6561.</p>
   <p>Estabilidad (PSI del score): Desarrollo vs. Holdout 0,0132 («Estable») y Desarrollo vs. OOT 0,0068 («Estable»).</p>
-  <p>Calibración: la PD media calibrada en Desarrollo (20,00 %) se contrasta con la tasa observada (23,33 %).</p>
+  <p>Calibración: la PD media calibrada en Desarrollo (23,33 %) se contrasta con la tasa observada (23,33 %).</p>
   <p>Estos hallazgos son los que el motor puede sostener con los números de la corrida. La recomendación —aprobar, aprobar con observaciones o rechazar— es un juicio humano y no se deriva automáticamente de ellos.</p>
 
 <div class="placeholder">
@@ -4102,7 +4102,6 @@ L 420.51375 486.278125
 
   <p>El alcance de este informe es la construcción y evaluación del scorecard. La validación formal ejecutó discriminación, calibración y estabilidad y se documenta en su capítulo propio; el estado técnico no sustituye el veredicto humano.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
-  <p>Caveats de reproducibilidad declarados por la corrida: working tree git sucio: cambios sin commitear no reconstruibles.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
 
 
@@ -4114,14 +4113,12 @@ L 420.51375 486.278125
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f</dd>
-    <dt>created_at</dt><dd>2026-07-21T02:08:21.583822Z</dd>
+    <dt>config_hash</dt><dd>ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e</dd>
+    <dt>created_at</dt><dd>2026-07-21T15:38:23.684071Z</dd>
     <dt>data_hash</dt><dd>74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</dd>
-    <dt>determinism_caveats</dt><dd><pre>[
-  &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
-]</pre></dd>
-    <dt>git_dirty</dt><dd>true</dd>
-    <dt>git_sha</dt><dd>88e0067e761252671b02016e74e329c5965da95d</dd>
+    <dt>determinism_caveats</dt><dd>[]</dd>
+    <dt>git_dirty</dt><dd>false</dd>
+    <dt>git_sha</dt><dd>d7eb9944ad06affd8939c6a4370de9908d6b8541</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.4.0&#34;,
@@ -4731,17 +4728,17 @@ L 420.51375 486.278125
   &#34;utilizacion_linea&#34;
 ]</pre></dd>
     <dt>fit_statistics</dt><dd><pre>{
-  &#34;aic&#34;: &#34;3898.715734&#34;,
-  &#34;bic&#34;: &#34;3936.421245&#34;,
+  &#34;aic&#34;: &#34;3898.72&#34;,
+  &#34;bic&#34;: &#34;3936.42&#34;,
   &#34;converged&#34;: true,
   &#34;llr&#34;: &#34;416.536024&#34;,
   &#34;llr_p_value&#34;: &#34;0.000000&#34;,
-  &#34;log_likelihood&#34;: &#34;-1943.357867&#34;,
+  &#34;log_likelihood&#34;: &#34;-1943.36&#34;,
   &#34;n_events_dev&#34;: 924,
   &#34;n_iterations&#34;: 6,
   &#34;n_nonevents_dev&#34;: 3037,
   &#34;n_obs_dev&#34;: 3961,
-  &#34;null_log_likelihood&#34;: &#34;-2151.625879&#34;,
+  &#34;null_log_likelihood&#34;: &#34;-2151.63&#34;,
   &#34;optimizer&#34;: &#34;newton&#34;,
   &#34;pseudo_r2_mcfadden&#34;: &#34;0.096796&#34;
 }</pre></dd>
@@ -4836,8 +4833,8 @@ L 420.51375 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>anchor_kind</dt><dd>through_the_cycle</dd>
-    <dt>anchor_source</dt><dd>business_input</dd>
-    <dt>calibrated_mean_pd_dev</dt><dd>0.2000</dd>
+    <dt>anchor_source</dt><dd>development_observed</dd>
+    <dt>calibrated_mean_pd_dev</dt><dd>0.2333</dd>
     <dt>dependency_versions</dt><dd><pre>{
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
@@ -4845,7 +4842,7 @@ L 420.51375 486.278125
 }</pre></dd>
     <dt>effective_config</dt><dd><pre>{
   &#34;anchor_kind&#34;: &#34;through_the_cycle&#34;,
-  &#34;anchor_source&#34;: &#34;business_input&#34;,
+  &#34;anchor_source&#34;: &#34;development_observed&#34;,
   &#34;fit_partition&#34;: &#34;desarrollo&#34;,
   &#34;linear_predictor_calibrated_column&#34;: &#34;linear_predictor_calibrated&#34;,
   &#34;linear_predictor_column&#34;: &#34;linear_predictor&#34;,
@@ -4858,7 +4855,7 @@ L 420.51375 486.278125
   &#34;pd_raw_column&#34;: &#34;pd_raw&#34;,
   &#34;require_both_classes_for_supervised&#34;: true,
   &#34;target_column&#34;: &#34;target&#34;,
-  &#34;target_pd&#34;: &#34;0.200000&#34;,
+  &#34;target_pd&#34;: null,
   &#34;target_tolerance&#34;: &#34;0.000000&#34;,
   &#34;type&#34;: &#34;standard&#34;
 }</pre></dd>
@@ -4867,13 +4864,13 @@ L 420.51375 486.278125
     <dt>method</dt><dd>intercept_offset</dd>
     <dt>n_fit</dt><dd>3961</dd>
     <dt>observed_default_rate_dev</dt><dd>0.2333</dd>
-    <dt>offset</dt><dd>-0.218447</dd>
+    <dt>offset</dt><dd>-0.000000</dd>
     <dt>pd_calibrated_column</dt><dd>pd_calibrated</dd>
     <dt>pd_raw_column</dt><dd>pd_raw</dd>
     <dt>ranking_preserved</dt><dd>true</dd>
     <dt>raw_mean_pd_dev</dt><dd>0.233274</dd>
     <dt>slope</dt><dd>—</dd>
-    <dt>target_pd</dt><dd>0.200000</dd>
+    <dt>target_pd</dt><dd>0.233274</dd>
     <dt>ties_created</dt><dd>0</dd>
   </dl>
 
@@ -5111,7 +5108,7 @@ L 420.51375 486.278125
   &#34;stability&#34;
 ]</pre></dd>
     <dt>model_ref</dt><dd>preset-estandar-consumo</dd>
-    <dt>n_failed</dt><dd>3</dd>
+    <dt>n_failed</dt><dd>1</dd>
     <dt>n_tests</dt><dd>3</dd>
     <dt>overall_status</dt><dd>fail</dd>
   </dl>
@@ -5124,7 +5121,7 @@ L 420.51375 486.278125
     &#34;calibration&#34;,
     &#34;stability&#34;
   ],
-  &#34;n_failed&#34;: 3,
+  &#34;n_failed&#34;: 1,
   &#34;n_tests&#34;: 3,
   &#34;not_evaluable_grades&#34;: [],
   &#34;overall_status&#34;: &#34;fail&#34;,
