@@ -48,15 +48,19 @@ lista**: cada uno arranca cuando el anterior cierra o cuando su condición expl�
 
 Cierra los defectos conocidos que hoy sólo viven en el HANDOFF. Todos son acotados y verificables.
 
-1. **Rótulo de los dos ECL del anexo IFRS 9.** `total_ecl_reported` y `ecl_by_scenario` difieren ~2×
-   sin etiqueta que lo explique: la primera corta Stage 1 a 12 meses, la segunda suma lifetime para
-   todas las operaciones. No es error de cálculo, es falta de rótulo. **Extensión aditiva** del
-   contrato de `results`, nunca ruptura (CT-3).
-2. **Deuda cosmética del informe y del editor de config**: descriptions del schema con jerga interna
-   (`== @register('standard', …) (SDD-16 §4)`), visibles en la UI — su cambio obliga a regenerar
-   `web/src/fixtures/schema.json` en **commit atómico**; diagnósticos del motor de selección con
-   decimales sin formatear (`iv=0.650693017601`); `total_expected_loss_rate` serializado como string
-   de 51 dígitos en el anexo de auditoría.
+1. ~~**Rótulo de los dos ECL del anexo IFRS 9.**~~ **HECHO (2026-07-21, `ee9b0cb`).** Se añadió la
+   clave hermana `ecl_by_scenario_basis` (extensión aditiva, CT-3). El rótulo declara **dos**
+   motivos de la brecha, no uno: la cifra por escenario no aplica `scenario_weights` **y** cubre el
+   horizonte completo, mientras la reportada pondera y trunca Stage 1 a 12 meses. No apunta a
+   `staging_distribution` —esa clave vive en la capa UI y no existe en el anexo—.
+2. **Deuda cosmética del informe y del editor de config.** Pendiente sólo el primer ítem:
+   descriptions del schema con jerga interna (`== @register('standard', …) (SDD-16 §4)`), visibles
+   en la UI — su cambio obliga a regenerar `web/src/fixtures/schema.json` en **commit atómico**, así
+   que espera a que pase el freeze de la demo. ~~Diagnósticos del motor de selección con decimales
+   sin formatear~~ y ~~`total_expected_loss_rate` como string de 51 dígitos~~ **HECHOS (2026-07-21,
+   `f34d13c`)**: los `detail` de IV/VIF/correlación/contribución/p-valores pasan a 6 cifras
+   significativas y la tasa pasa de texto a `float` (**cambio de tipo** declarado en el CHANGELOG;
+   superficie experimental, fuera de la garantía SemVer 1.x).
 3. ~~**Respaldo remoto del workspace interno.**~~ **HECHO (2026-07-21).** El workspace interno ya
    tiene repo privado propio fuera del disco local; el respaldo se verificó restaurándolo (clon
    completo, idéntico al original) y se mantiene al día pusheando en cada cierre de sesión.
