@@ -167,6 +167,25 @@ def test_collect_arma_el_documento_y_manifest_pre_render_golden() -> None:
     }
 
 
+def test_toda_tabla_del_cuerpo_tiene_titulo_editorial() -> None:
+    """Ninguna tabla curada para el cuerpo puede rotularse con su clave interna.
+
+    `table_title` degrada a `Tabla «<clave>»` cuando la clave es desconocida —lo correcto para una
+    tabla arbitraria del anexo, que no rompe el render—, pero las de `KEY_TABLES` están elegidas a
+    mano para el cuerpo del informe: si una falta del catálogo, el lector ve el nombre de la clave
+    del motor (`Tabla «provisioning_ifrs9.summary»`, además en mayúsculas por CSS) encima de la
+    tabla que sostiene las cifras. Se verifica la CLASE completa, no un caso: el olvido es de
+    catálogo y reaparece con cada tabla nueva.
+    """
+    sin_titulo = [
+        clave
+        for claves in document.KEY_TABLES.values()
+        for clave in claves
+        if document.table_title(clave).startswith("Tabla «")
+    ]
+    assert sin_titulo == [], f"tablas del cuerpo sin título editorial: {sin_titulo}"
+
+
 def test_metodologia_redacta_los_parametros_reales_del_config() -> None:
     """La Metodología describe lo que se ejecutó, con los parámetros REALES del config.
 

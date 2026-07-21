@@ -853,6 +853,15 @@ figcaption {
   }
 }
 
+/* Página apaisada para las tablas anchas. Con A4 vertical (170 mm útiles) una tabla de 20 columnas
+   deja ~8 mm por columna: el encabezado se solapa y cada cifra se parte en tres líneas
+   («505.» / «4441» / «62»), es decir la evidencia de monotonía y lift del scorecard llega ilegible
+   al comité. Apaisada hay 257 mm y la tabla se lee. No se descarta ninguna columna: perder una
+   sería perder trazabilidad. */
+@page wide-table {
+  size: A4 landscape;
+}
+
 @media print {
   body {
     background: #fff;
@@ -928,6 +937,26 @@ figcaption {
 
   .table-block {
     overflow-x: visible;
+  }
+
+  /* Tabla ancha (10+ columnas): página propia y apaisada, tipografía menor y celdas sin partir.
+     `table-layout: auto` deja que cada columna tome lo que necesita en vez del reparto uniforme
+     que ahogaba a las de seis decimales. */
+  .table-block--wide {
+    page: wide-table;
+    break-before: page;
+  }
+
+  .table-block--wide table {
+    table-layout: auto;
+    font-size: 6pt;
+  }
+
+  .table-block--wide thead th,
+  .table-block--wide tbody td {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    padding: 2px 3px;
   }
 
   thead {

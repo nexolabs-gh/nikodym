@@ -231,6 +231,7 @@ _TABLE_TITLES: Final[dict[str, str]] = {
     "provisioning.comparison": "Comparación estándar vs. interno y regla del máximo",
     "provisioning_cmf.summary": "Provisión estándar por categoría CMF",
     "provisioning_internal.groups": "Provisión interna por grupo homogéneo (banda de score)",
+    "provisioning_ifrs9.summary": "Pérdida crediticia esperada (ECL) por etapa",
 }
 _BINNING_TABLE_PREFIX: Final = "binning.tables."
 

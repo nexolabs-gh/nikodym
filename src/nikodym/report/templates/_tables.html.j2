@@ -1,7 +1,9 @@
 {# Tablas con TÍTULO LEGIBLE ("Coeficientes del modelo PD"), no la clave interna del artefacto. La
    clave se conserva como dato de trazabilidad, pero deja de ser el encabezado. #}
 {% for table in section.tables %}
-<figure class="table-block">
+{# 10+ columnas no entran en A4 vertical: la hoja del PDF pasa a apaisada (clase `--wide`, ver CSS).
+   En pantalla la clase no cambia nada: ahí la tabla ya tiene scroll horizontal. #}
+<figure class="table-block{% if table.columns | length >= 10 %} table-block--wide{% endif %}">
   <figcaption class="table-title">{{ table.title }}</figcaption>
   <table id="{{ table.html_id }}" data-table-key="{{ table.key }}">
     <thead><tr>{% for column in table.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
