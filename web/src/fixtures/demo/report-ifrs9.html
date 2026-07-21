@@ -1071,7 +1071,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=91921e7fd5df1f9ba2f0379542198681e902c80c</code></div>
+    <div class="lineage-line"><code>git_sha=4607855308f38a9befd991a9d51a07ac959fa161</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1427,6 +1427,7 @@ figcaption {
 
   <p>El alcance de este informe es el cálculo de la pérdida crediticia esperada IFRS 9 (capítulo «Provisiones IFRS 9 / ECL»), una función experimental (SDD-16 en borrador) fuera de la garantía SemVer 1.x. La curva PD lifetime se ajustó en esta misma corrida de forma autocontenida sobre la historia de la propia cartera, sin insumos de un scorecard de originación. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados. El backtesting de la ECL no se ejecutó ni se infiere aquí.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
+  <p>Caveats de reproducibilidad declarados por la corrida: working tree git sucio: cambios sin commitear no reconstruibles.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
 
 
@@ -1439,11 +1440,13 @@ figcaption {
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</dd>
-    <dt>created_at</dt><dd>2026-07-21T01:18:51.899514Z</dd>
+    <dt>created_at</dt><dd>2026-07-21T01:28:07.018402Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
-    <dt>determinism_caveats</dt><dd>[]</dd>
-    <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>91921e7fd5df1f9ba2f0379542198681e902c80c</dd>
+    <dt>determinism_caveats</dt><dd><pre>[
+  &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
+]</pre></dd>
+    <dt>git_dirty</dt><dd>true</dd>
+    <dt>git_sha</dt><dd>4607855308f38a9befd991a9d51a07ac959fa161</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.4.0&#34;,

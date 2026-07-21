@@ -1091,7 +1091,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f</code></div>
     <div class="lineage-line"><code>data_hash=74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</code></div>
-    <div class="lineage-line"><code>git_sha=f6160ad258db1846d6d1dc73ab688a1f1ac10951</code></div>
+    <div class="lineage-line"><code>git_sha=4607855308f38a9befd991a9d51a07ac959fa161</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -4073,6 +4073,7 @@ L 420.51375 486.278125
 
   <p>El alcance de este informe es la construcción y evaluación del scorecard. La validación formal ejecutó discriminación, calibración y estabilidad y se documenta en su capítulo propio; el estado técnico no sustituye el veredicto humano.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
+  <p>Caveats de reproducibilidad declarados por la corrida: working tree git sucio: cambios sin commitear no reconstruibles.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
 
 
@@ -4085,11 +4086,13 @@ L 420.51375 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f</dd>
-    <dt>created_at</dt><dd>2026-07-21T01:17:56.105256Z</dd>
+    <dt>created_at</dt><dd>2026-07-21T01:27:57.411961Z</dd>
     <dt>data_hash</dt><dd>74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</dd>
-    <dt>determinism_caveats</dt><dd>[]</dd>
-    <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>f6160ad258db1846d6d1dc73ab688a1f1ac10951</dd>
+    <dt>determinism_caveats</dt><dd><pre>[
+  &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
+]</pre></dd>
+    <dt>git_dirty</dt><dd>true</dd>
+    <dt>git_sha</dt><dd>4607855308f38a9befd991a9d51a07ac959fa161</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.4.0&#34;,
