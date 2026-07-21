@@ -1120,7 +1120,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f</code></div>
     <div class="lineage-line"><code>data_hash=74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</code></div>
-    <div class="lineage-line"><code>git_sha=ad5fe58dcdc5eededee97a4d4d7c3c4b8ef979af</code></div>
+    <div class="lineage-line"><code>git_sha=88e0067e761252671b02016e74e329c5965da95d</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1240,7 +1240,7 @@ figcaption {
   <p class="muted">Las bandas de PSI usan los umbrales configurados: estable por debajo de 0,10 y redesarrollo por sobre 0,25.</p>
   <p class="muted">La validación formal ejecutó discriminación, calibración y estabilidad. Su estado es una síntesis técnica del motor y no sustituye el veredicto que debe firmar un validador humano.</p>
 
-  <p class="scope-note">Alcance: scorecard y validación formal de las familias configuradas. El capítulo «Validación formal» reproduce el resultado técnico atómico; el veredicto permanece bajo responsabilidad humana. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
+  <p class="scope-note">Alcance: scorecard y validación formal de las familias configuradas. El capítulo «Validación formal» reproduce el resultado que publicó el motor; el veredicto permanece bajo responsabilidad humana. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
 </section>
 
 <section id="section-toc" data-section-id="toc" data-kind="toc" class="report-section chapter toc">
@@ -1450,7 +1450,7 @@ figcaption {
 
 
   <p>La población procesada contiene 6.000 observaciones, 8 variables de entrada y una tasa de incumplimiento de 23,45 %. Los conteos por estado, partición y motivo de exclusión se reproducen literalmente en las tablas de esta sección.</p>
-  <p>La columna objetivo publicada por data es «target».</p>
+  <p>La columna objetivo de esta corrida es «target».</p>
   <p>La variable objetivo del ejercicio es «target», construida por las reglas de incumplimiento declaradas en el config (Anexo C). La definición de negocio que justifica esas reglas —p. ej. 90+ días de mora— debe explicitarla el analista: el motor aplica la regla, no la fundamenta.</p>
   <p>La población se particionó por cohorte sobre «cohorte», reservando como OOT la cohorte «2024Q2», y un Holdout de 20,00 % del resto.</p>
 
@@ -1465,7 +1465,7 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">2.1</span>Población, particiones y exclusiones</h3>
 
 
-  <p>Las tablas siguientes son una proyección de presentación del DataCardSection publicado por data. Estados, tamaños y tasas por partición, y exclusiones se copian literalmente; el informe no recalcula ni completa valores ausentes.</p>
+  <p>Las tablas siguientes reproducen lo que dejó la preparación de datos de esta corrida. Estados, tamaños y tasas por partición, y exclusiones se copian literalmente; el informe no recalcula ni completa valores ausentes.</p>
 
 
 <figure class="table-block">
@@ -3995,7 +3995,7 @@ L 420.51375 486.278125
 
 
   <p>La validación formal del modelo «preset-estandar-consumo» ejecutó discriminación, calibración y estabilidad. El estado técnico agregado publicado por el motor es «fail».</p>
-  <p>El resultado registra 3 tests, de los cuales 3 quedaron fallidos. Las tablas se copian del ValidationResult atómico, sin recalcular métricas ni decisiones.</p>
+  <p>El resultado registra 3 tests, de los cuales 3 quedaron fallidos. Las tablas se copian del resultado que publicó la validación, sin recalcular métricas ni decisiones.</p>
   <p>Este estado es evidencia técnica; el veredicto de aprobación, aprobación con observaciones o rechazo corresponde al validador humano y queda POR COMPLETAR.</p>
 
 <div class="placeholder">
@@ -4009,7 +4009,7 @@ L 420.51375 486.278125
   <h3 class="subsection-title"><span class="section-number">5.1</span>Discriminación</h3>
 
 
-  <p>La tabla reproduce por partición AUC, Gini y KS, junto con población, fuente y estado de evaluabilidad. Filas publicadas por el DTO: 3.</p>
+  <p>La tabla reproduce por partición AUC, Gini y KS, junto con población, fuente y estado de evaluabilidad. Filas evaluadas: 3.</p>
 
 
 <figure class="table-block">
@@ -4029,7 +4029,7 @@ L 420.51375 486.278125
   <h3 class="subsection-title"><span class="section-number">5.2</span>Calibración</h3>
 
 
-  <p>La tabla reúne Hosmer-Lemeshow, Brier y, cuando fue configurado, el contraste por grado con sus decisiones y semáforo publicados. Filas publicadas por el DTO: 6.</p>
+  <p>La tabla reúne Hosmer-Lemeshow, Brier y, cuando fue configurado, el contraste por grado con sus decisiones y semáforo publicados. Filas evaluadas: 6.</p>
 
 
 <figure class="table-block table-block--wide">
@@ -4052,7 +4052,7 @@ L 420.51375 486.278125
   <h3 class="subsection-title"><span class="section-number">5.3</span>Estabilidad</h3>
 
 
-  <p>La tabla reproduce PSI/estabilidad, umbrales, banda, acción y decisión publicados por validation. Filas publicadas por el DTO: 15.</p>
+  <p>La tabla reproduce PSI/estabilidad, umbrales, banda, acción y la decisión que dejó la validación. Filas evaluadas: 15.</p>
 
 
 <figure class="table-block table-block--wide">
@@ -4115,13 +4115,13 @@ L 420.51375 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f</dd>
-    <dt>created_at</dt><dd>2026-07-21T01:52:21.484318Z</dd>
+    <dt>created_at</dt><dd>2026-07-21T02:08:21.583822Z</dd>
     <dt>data_hash</dt><dd>74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</dd>
     <dt>determinism_caveats</dt><dd><pre>[
   &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
 ]</pre></dd>
     <dt>git_dirty</dt><dd>true</dd>
-    <dt>git_sha</dt><dd>ad5fe58dcdc5eededee97a4d4d7c3c4b8ef979af</dd>
+    <dt>git_sha</dt><dd>88e0067e761252671b02016e74e329c5965da95d</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.4.0&#34;,

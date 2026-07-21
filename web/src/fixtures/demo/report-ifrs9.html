@@ -1100,7 +1100,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=ad5fe58dcdc5eededee97a4d4d7c3c4b8ef979af</code></div>
+    <div class="lineage-line"><code>git_sha=88e0067e761252671b02016e74e329c5965da95d</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1168,9 +1168,9 @@ figcaption {
     </table>
   </div>
 
-  <p class="muted">Las cifras IFRS 9 son el cálculo contable que reportó el motor (función experimental, SDD-16), no bandas de validación: la columna Estado no les aplica semáforo.</p>
+  <p class="muted">Las cifras IFRS 9 son el cálculo contable que reportó el motor (función experimental), no bandas de validación: la columna Estado no les aplica semáforo.</p>
 
-  <p class="scope-note">Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental, SDD-16 en borrador). Esta corrida no ejecutó la capa de validación formal ni el backtesting de la ECL; el informe no infiere sus resultados. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
+  <p class="scope-note">Alcance: cálculo de la pérdida crediticia esperada IFRS 9 (función experimental). Esta corrida no ejecutó la capa de validación formal ni el backtesting de la ECL; el informe no infiere sus resultados. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
 </section>
 
 <section id="section-toc" data-section-id="toc" data-kind="toc" class="report-section chapter toc">
@@ -1280,7 +1280,7 @@ figcaption {
 
 
   <p>La población procesada contiene 6.000 observaciones, 17 variables de entrada y una tasa de incumplimiento de 9,63 %. Los conteos por estado, partición y motivo de exclusión se reproducen literalmente en las tablas de esta sección.</p>
-  <p>La columna objetivo publicada por data es «target».</p>
+  <p>La columna objetivo de esta corrida es «target».</p>
   <p>La población se particionó por cohorte sobre «cohorte», reservando como OOT la cohorte «2024Q2», y un Holdout de 20,00 % del resto.</p>
 
 <div class="placeholder">
@@ -1294,7 +1294,7 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">2.1</span>Población, particiones y exclusiones</h3>
 
 
-  <p>Las tablas siguientes son una proyección de presentación del DataCardSection publicado por data. Estados, tamaños y tasas por partición, y exclusiones se copian literalmente; el informe no recalcula ni completa valores ausentes.</p>
+  <p>Las tablas siguientes reproducen lo que dejó la preparación de datos de esta corrida. Estados, tamaños y tasas por partición, y exclusiones se copian literalmente; el informe no recalcula ni completa valores ausentes.</p>
 
 
 <figure class="table-block">
@@ -1352,7 +1352,7 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">3.2</span>Ficha metodológica IFRS 9 / ECL</h3>
 
 
-  <p>Esta ficha metodológica se deriva del config efectivo y de las cards publicadas por la corrida; no replica parámetros ni supone que una capacidad configurada se ejecutó.</p>
+  <p>Esta ficha metodológica se deriva de la configuración efectiva y de lo que dejó publicado cada etapa de la corrida; no replica parámetros ni supone que una capacidad configurada se ejecutó.</p>
   <p>Activo en esta corrida:</p>
   <p>Curva PD lifetime: Discrete-time hazard. 6.000 filas · 1.502 eventos · horizonte 5 años</p>
   <p>Base de PD: TTC (through-the-cycle). La term-structure activa proviene de survival.</p>
@@ -1364,7 +1364,7 @@ figcaption {
   <p>Forward-looking: Capacidad no ejercida. La sección forward está inactiva y no condiciona la PD de esta corrida.</p>
   <p>Escenarios macroeconómicos múltiples: Capacidad no ejercida. La corrida usa un único escenario base, sin ponderación macro múltiple.</p>
   <p>Matrices de transición Markov: Capacidad no ejercida. La term-structure activa proviene de survival, no de Markov.</p>
-  <p>Fuentes técnicas: config.survival, survival.card, config.provisioning_ifrs9, provisioning_ifrs9.card.</p>
+  <p>Trazabilidad — artefactos de origen: config.survival, survival.card, config.provisioning_ifrs9, provisioning_ifrs9.card.</p>
 
 
 </section>
@@ -1375,7 +1375,7 @@ figcaption {
   <p>IFRS 9 (NIIF 9) exige reconocer provisiones por pérdida crediticia esperada (ECL) según el deterioro relativo de cada exposición: las operaciones sin aumento significativo del riesgo (Stage 1) provisionan la pérdida esperada a 12 meses, y las que lo presentan o ya están deterioradas (Stage 2 y 3) provisionan la pérdida esperada de por vida (IFRS 9 5.5.3 y 5.5.5). Este capítulo reporta el cálculo sobre la cartera de la corrida.</p>
   <p>Sobre una exposición al incumplimiento (EAD) de $114.325.315, la pérdida crediticia esperada a constituir es $3.423.116, una cobertura del 2,99 %. Fecha de corte: 2025-06-30.</p>
   <p>De las 6.000 operaciones de la cartera, 5.235 clasifican en Stage 1, 477 en Stage 2 y 288 en Stage 3.</p>
-  <p>El cálculo IFRS 9 es una función experimental (SDD-16 en borrador, fuera de la garantía SemVer 1.x): los números son trazables y deterministas, pero la superficie puede cambiar entre versiones.</p>
+  <p>El cálculo IFRS 9 es una función experimental: los números son trazables y deterministas, pero su interfaz puede cambiar en próximas versiones de la librería.</p>
 
 
 </section>
@@ -1388,7 +1388,7 @@ figcaption {
   <p>El ajuste no toma insumos de un scorecard de originación: el orden de riesgo entre operaciones lo aportan covariables propias de la cartera, y el nivel y la forma temporal de la curva los fija la historia de duración observada. La pérdida esperada queda así autocontenida en el área IFRS 9.</p>
   <p>La corrida usa un escenario único (sin ponderación macroeconómica múltiple); la norma admite incorporar escenarios adicionales cuando la entidad disponga de ellos.</p>
   <p>La tabla resume la cartera por etapa: número de operaciones, EAD, ECL reportada y cobertura. La distribución por etapas reconcilia exactamente con el total del capítulo.</p>
-  <p>El step reportó advertencias de datos que el lector debe conocer: la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, porque el dataset no trae un perfil de exposición por período (código FALTA-DATO-IFRS-4).</p>
+  <p>El motor reportó advertencias de datos que el lector debe conocer: la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, porque el dataset no trae un perfil de exposición por período (código FALTA-DATO-IFRS-4).</p>
 
 
 <figure class="table-block">
@@ -1441,7 +1441,7 @@ figcaption {
   <h2><span class="section-number">5</span>Conclusiones y recomendación</h2>
 
 
-  <p>El motor no dispone de hallazgos automáticos que resumir: la corrida no publicó las cards de desempeño, estabilidad ni calibración.</p>
+  <p>El motor no dispone de hallazgos automáticos que resumir: esta corrida no evaluó desempeño, estabilidad ni calibración.</p>
 
 <div class="placeholder">
   <p class="placeholder-title">POR COMPLETAR — Conclusiones y recomendación</p>
@@ -1454,7 +1454,7 @@ figcaption {
   <h2><span class="section-number">6</span>Limitaciones y supuestos</h2>
 
 
-  <p>El alcance de este informe es el cálculo de la pérdida crediticia esperada IFRS 9 (capítulo «Provisiones IFRS 9 / ECL»), una función experimental (SDD-16 en borrador) fuera de la garantía SemVer 1.x. La curva PD lifetime se ajustó en esta misma corrida de forma autocontenida sobre la historia de la propia cartera, sin insumos de un scorecard de originación. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados. El backtesting de la ECL no se ejecutó ni se infiere aquí.</p>
+  <p>El alcance de este informe es el cálculo de la pérdida crediticia esperada IFRS 9 (capítulo «Provisiones IFRS 9 / ECL»), una función experimental cuya interfaz puede cambiar en próximas versiones. La curva PD lifetime se ajustó en esta misma corrida de forma autocontenida sobre la historia de la propia cartera, sin insumos de un scorecard de originación. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados. El backtesting de la ECL no se ejecutó ni se infiere aquí.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
   <p>Caveats de reproducibilidad declarados por la corrida: working tree git sucio: cambios sin commitear no reconstruibles.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
@@ -1469,13 +1469,13 @@ figcaption {
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</dd>
-    <dt>created_at</dt><dd>2026-07-21T01:52:30.305432Z</dd>
+    <dt>created_at</dt><dd>2026-07-21T02:08:30.922789Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd><pre>[
   &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
 ]</pre></dd>
     <dt>git_dirty</dt><dd>true</dd>
-    <dt>git_sha</dt><dd>ad5fe58dcdc5eededee97a4d4d7c3c4b8ef979af</dd>
+    <dt>git_sha</dt><dd>88e0067e761252671b02016e74e329c5965da95d</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.4.0&#34;,
