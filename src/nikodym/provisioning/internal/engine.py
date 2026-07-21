@@ -794,7 +794,16 @@ def _card(
                 "pd_aggregation": "exposure_weighted",
                 "rounding": cfg.rounding,
                 "groups_by_portfolio": dict(sorted(groups_by_portfolio.items())),
-                "total_expected_loss_rate": str(
+                # Ratio DERIVADO de presentación, no una cifra contable: se publica como ``float``.
+                # La división de ``Decimal`` arrastra los ~50 dígitos del contexto y salía por
+                # ``str()`` —única forma de cruzar el gate JSON de ``metric_sections``
+                # (``report/builder.py::_validate_metric_sections``, que rechaza ``Decimal``)—,
+                # dejando en el anexo 51 dígitos de precisión que el dato no tiene. El ``float``
+                # cruza el mismo gate, pero además llega como NÚMERO a quien lo consuma y lo
+                # formatea el renderer por nombre de clave (``rate`` → 4 decimales). Lo contable
+                # sigue exacto en ``total_exposure``/``total_internal_provision``, los dos en
+                # ``Decimal``: quien necesite el ratio al peso lo divide desde ahí.
+                "total_expected_loss_rate": float(
                     total_provision / total_exposure if total_exposure != _ZERO else _ZERO
                 ),
                 "warning_codes": tuple(warnings),

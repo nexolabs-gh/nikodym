@@ -782,7 +782,7 @@ def _apply_initial_filters(
             _exclude(
                 state,
                 "low_iv",
-                detail=f"iv={state.iv:.12g} < min_iv={estimator.min_iv:.12g}",
+                detail=f"iv={state.iv:.6g} < min_iv={estimator.min_iv:.6g}",
             )
             continue
         if estimator.max_iv is not None and state.iv >= estimator.max_iv:
@@ -790,11 +790,11 @@ def _apply_initial_filters(
                 _exclude(
                     state,
                     "high_iv",
-                    detail=f"iv={state.iv:.12g} >= max_iv={estimator.max_iv:.12g}",
+                    detail=f"iv={state.iv:.6g} >= max_iv={estimator.max_iv:.6g}",
                 )
                 continue
             state.reason = "high_iv"
-            state.detail = f"iv={state.iv:.12g} >= max_iv={estimator.max_iv:.12g}"
+            state.detail = f"iv={state.iv:.6g} >= max_iv={estimator.max_iv:.6g}"
         if estimator.min_auc is not None and _metric_below(state.auc, estimator.min_auc):
             _exclude(state, "low_auc")
             continue
@@ -913,7 +913,7 @@ def _apply_correlation_pruning(
         _exclude(
             state,
             "high_correlation",
-            detail=f"|rho|={corr_value:.12g} > threshold={threshold:.12g}",
+            detail=f"|rho|={corr_value:.6g} > threshold={threshold:.6g}",
         )
 
 
@@ -1099,7 +1099,7 @@ def _apply_vif_filter(
         )
         states[to_remove].included = False
         states[to_remove].reason = "high_vif"
-        states[to_remove].detail = f"vif={vif_values[to_remove]!r} > threshold={threshold:.12g}"
+        states[to_remove].detail = f"vif={vif_values[to_remove]:.6g} > threshold={threshold:.6g}"
         remaining.remove(to_remove)
         removed_row = rows[row_indexes[to_remove]]
         removed_row["removed"] = True

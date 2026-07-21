@@ -1101,7 +1101,7 @@ def _apply_iv_guard(
             lr_stat=None,
             beta=None,
             threshold=estimator.iv_contribution_threshold,
-            detail=f"iv_contribution={contribution:.12g}",
+            detail=f"iv_contribution={contribution:.6g}",
         )
         raise ModelFitError(
             "IV-contribution supera el umbral configurado: "
@@ -1121,7 +1121,7 @@ def _apply_iv_guard(
                 lr_stat=None,
                 beta=None,
                 threshold=estimator.iv_contribution_threshold,
-                detail=f"iv_contribution={contribution:.12g}",
+                detail=f"iv_contribution={contribution:.6g}",
             )
         return None
 
@@ -1145,7 +1145,7 @@ def _apply_iv_guard(
         lr_stat=None,
         beta=None,
         threshold=estimator.iv_contribution_threshold,
-        detail=f"iv_contribution={contribution:.12g}",
+        detail=f"iv_contribution={contribution:.6g}",
     )
     return tuple(item for item in current if item != feature)
 
@@ -1601,9 +1601,9 @@ def _criterion_detail(wald_p_value: float | None, lr_p_value: float | None) -> s
     """Texto compacto de diagnóstico para una decisión Wald/LR."""
     parts: list[str] = []
     if wald_p_value is not None:
-        parts.append(f"wald_p={wald_p_value:.12g}")
+        parts.append(f"wald_p={wald_p_value:.6g}")
     if lr_p_value is not None:
-        parts.append(f"lr_p={lr_p_value:.12g}")
+        parts.append(f"lr_p={lr_p_value:.6g}")
     return ", ".join(parts)
 
 

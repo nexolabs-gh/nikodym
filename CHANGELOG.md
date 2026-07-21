@@ -5,6 +5,36 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+Bloque **B1** del plan operativo: higiene de lo que el informe muestra. Todo lo de aquí ya está en
+`main` y sale publicado con `1.5.0`.
+
+### Añadido
+
+- **Rótulo de las dos cifras de ECL del anexo IFRS 9.** `total_ecl_reported` y `ecl_by_scenario`
+  difieren ~2× por construcción y salían pegadas sin explicación, lo que se lee como descuadre
+  contable. Se añade la clave hermana **`ecl_by_scenario_basis`** —extensión aditiva, la clave
+  original no se toca— que declara las dos razones de la brecha: la cifra por escenario **no**
+  aplica `scenario_weights` y cubre el horizonte completo de la curva, mientras la reportada sí
+  pondera y trunca Stage 1 a 12 meses. No es, ni era, un error de cálculo.
+
+### Cambiado
+
+- **`total_expected_loss_rate` (método interno) pasa de texto a número.** Se publicaba como
+  `str(Decimal)` —única forma de cruzar el gate JSON de `metric_sections`— y el anexo mostraba sus
+  51 dígitos: `"0.038203224448922777376082337534204431258983735881240"`. Ahora es un `float`, que
+  cruza el mismo gate, llega como número a quien lo consuma y el informe formatea a `0,0382`. ⚠️
+  **Cambio de tipo en una superficie experimental** (provisiones, fuera de la garantía SemVer 1.x):
+  un consumidor que tratara ese campo como cadena debe leerlo como número. Las cifras contables
+  (`total_exposure`, `total_internal_provision`) siguen exactas en `Decimal`.
+- **Los diagnósticos de selección y de modelo se publican con 6 cifras significativas**, no con 12.
+  El informe mostraba `iv=0.650693017601` y, en el caso del VIF, la mantisa completa del `float`;
+  ahora `iv=0.650693`. Alcanza a los campos `detail` de IV, VIF, correlación, contribución de IV y
+  p-valores Wald/LR. Se usa `.6g` y no `.6f` a propósito: una cifra diminuta conserva su magnitud
+  (`1.23457e-06`) en vez de aplanarse a `0.000000`. Los mensajes de **excepción** conservan las 12
+  cifras, que ahí sí sirven para depurar.
+
 ## [1.4.1] — 2026-07-21
 
 Corrección de tres defectos que la verificación adversarial previa a la reunión con Interbank

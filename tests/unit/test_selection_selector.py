@@ -7,7 +7,7 @@ import math
 import subprocess
 import sys
 import textwrap
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import pytest
@@ -576,6 +576,41 @@ def test_filtros_hard_y_ramas_diagnosticas() -> None:
     )
     assert flagged.selection_table_.iloc[0]["reason"] == "high_iv"
     assert flagged.selected_features_ == ("score",)
+
+
+def test_detail_de_seleccion_va_con_seis_significativos() -> None:
+    """El ``detail`` se lee en el informe: seis significativos, no la mantisa cruda del float.
+
+    El anexo publicaba ``iv=0.650693017601 >= max_iv=0.5``, doce dígitos de una precisión que el
+    IV no tiene. Se corta con ``.6g`` y no con ``.6f`` a propósito: el segundo caso comprueba que
+    una cifra diminuta conserva su magnitud en vez de aplanarse a ``0.000000``, que es la lectura
+    contraria a la verdad (un IV que no es cero pareciendo cero).
+    """
+    frame = pd.DataFrame(
+        {
+            "target": [0, 0, 1, 1],
+            "partition": ["desarrollo"] * 4,
+            "score__woe": [-0.4, -0.1, -0.2, -0.5],
+        }
+    )
+
+    def _detail(iv: float) -> str:
+        selector = FeatureSelector(
+            min_iv=0.70,
+            vif_enabled=False,
+            stability_enabled=False,
+            fail_if_no_features=False,
+        ).fit(
+            frame,
+            target_col="target",
+            partition_col="partition",
+            binning_summary=_summary({"score": iv}),
+            woe_column_map={"score": "score__woe"},
+        )
+        return cast("str", selector.selection_table_.iloc[0]["detail"])
+
+    assert _detail(0.650693017601234) == "iv=0.650693 < min_iv=0.7"
+    assert _detail(0.00000123456789) == "iv=1.23457e-06 < min_iv=0.7"
 
 
 def test_constante_no_finita_metricas_desactivadas_y_empty_selection_allowed() -> None:

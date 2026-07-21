@@ -8,6 +8,7 @@ el motor. Es lo primero que un validador de modelos pide y es lo único que acep
 from __future__ import annotations
 
 import importlib
+import json
 from decimal import Decimal
 from typing import Any, cast
 
@@ -484,7 +485,32 @@ def test_exposicion_cero_en_toda_la_cartera() -> None:
     assert result.card.total_exposure == Decimal("0")
     assert result.card.total_internal_provision == Decimal("0")
     assert result.summary.loc["consumer", "weighted_expected_loss_rate"] == Decimal("0")
-    assert result.card.metric_sections["provisioning_internal"]["total_expected_loss_rate"] == "0"
+    tasa = result.card.metric_sections["provisioning_internal"]["total_expected_loss_rate"]
+    assert tasa == 0.0
+    assert isinstance(tasa, float)  # número, no texto: lo formatea quien lo muestra
+
+
+def test_total_expected_loss_rate_es_numero_sin_mantisa_falsa() -> None:
+    """La tasa agregada viaja como número acotado, no como los ~50 dígitos de la división Decimal.
+
+    Salía por ``str(Decimal)`` —la única forma de cruzar el gate JSON de ``metric_sections``, que
+    rechaza ``Decimal``— y el anexo de auditoría terminaba mostrando 51 dígitos de precisión que el
+    dato no tiene. Como ``float`` cruza el mismo gate, llega como número a quien lo consuma y lo
+    formatea la capa de presentación.
+    """
+    result = _calculate(_cfg())
+    tasa = result.card.metric_sections["provisioning_internal"]["total_expected_loss_rate"]
+
+    assert isinstance(tasa, float)
+    assert 0.0 < tasa < 1.0
+    assert len(repr(tasa)) < 25, f"la tasa arrastra la mantisa completa: {tasa!r}"
+
+    # El dato exacto no se pierde: sigue en las dos cifras contables, ambas Decimal.
+    exacto = result.card.total_internal_provision / result.card.total_exposure
+    assert tasa == pytest.approx(float(exacto), rel=1e-12)
+
+    # Y cruza el gate que el informe aplica a metric_sections (era el motivo real del str()).
+    json.dumps(result.card.metric_sections, allow_nan=False)
 
 
 def test_exposicion_negativa_levanta() -> None:
