@@ -859,6 +859,15 @@ figcaption {
   }
 }
 
+/* Página apaisada para las tablas anchas. Con A4 vertical (170 mm útiles) una tabla de 20 columnas
+   deja ~8 mm por columna: el encabezado se solapa y cada cifra se parte en tres líneas
+   («505.» / «4441» / «62»), es decir la evidencia de monotonía y lift del scorecard llega ilegible
+   al comité. Apaisada hay 257 mm y la tabla se lee. No se descarta ninguna columna: perder una
+   sería perder trazabilidad. */
+@page wide-table {
+  size: A4 landscape;
+}
+
 @media print {
   body {
     background: #fff;
@@ -934,6 +943,26 @@ figcaption {
 
   .table-block {
     overflow-x: visible;
+  }
+
+  /* Tabla ancha (10+ columnas): página propia y apaisada, tipografía menor y celdas sin partir.
+     `table-layout: auto` deja que cada columna tome lo que necesita en vez del reparto uniforme
+     que ahogaba a las de seis decimales. */
+  .table-block--wide {
+    page: wide-table;
+    break-before: page;
+  }
+
+  .table-block--wide table {
+    table-layout: auto;
+    font-size: 6pt;
+  }
+
+  .table-block--wide thead th,
+  .table-block--wide tbody td {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    padding: 2px 3px;
   }
 
   thead {
@@ -1091,7 +1120,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f</code></div>
     <div class="lineage-line"><code>data_hash=74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</code></div>
-    <div class="lineage-line"><code>git_sha=4607855308f38a9befd991a9d51a07ac959fa161</code></div>
+    <div class="lineage-line"><code>git_sha=ad5fe58dcdc5eededee97a4d4d7c3c4b8ef979af</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1558,7 +1587,7 @@ figcaption {
   <p>La monotonía efectiva del WoE resultó en 3 variables con tendencia ascendente y 2 variables con tendencia descendente, y 1 sin tendencia monótona resuelta, lo que debe revisarse.</p>
 
 
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">Resumen de binning — IV por variable</figcaption>
   <table id="table-binning-summary" data-table-key="binning.summary">
     <thead><tr><th>name</th><th>dtype</th><th>status</th><th>selected</th><th>n_bins</th><th>iv</th><th>js</th><th>gini</th><th>quality_score</th><th>iv_band</th><th>is_suspicious_iv</th><th>is_zero_iv</th><th>monotonic_trend</th><th>skipped_reason</th></tr></thead>
@@ -1583,7 +1612,7 @@ figcaption {
   <p>Tras la selección, la correlación absoluta máxima entre las variables finales es 0,0303 y el VIF máximo es 1,00.</p>
 
 
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">Criterios de selección por variable</figcaption>
   <table id="table-selection-selection_table" data-table-key="selection.selection_table">
     <thead><tr><th>feature</th><th>woe_column</th><th>included</th><th>reason</th><th>iv</th><th>iv_band</th><th>auc</th><th>gini</th><th>ks</th><th>max_abs_corr</th><th>max_corr_with</th><th>vif</th><th>max_csi</th><th>forced</th><th>detail</th></tr></thead>
@@ -1948,7 +1977,7 @@ L 457.2 26.16
 </svg>
 </figure>
 
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">Coeficientes del modelo PD</figcaption>
   <table id="table-model-coefficients" data-table-key="model.coefficients">
     <thead><tr><th>feature</th><th>woe_column</th><th>beta</th><th>standard_error</th><th>wald_z</th><th>p_value</th><th>conf_low</th><th>conf_high</th><th>expected_sign</th><th>sign_ok</th><th>iv</th><th>iv_contribution</th></tr></thead>
@@ -1971,7 +2000,7 @@ L 457.2 26.16
   <p>El scorecard asigna puntajes a los tramos de 5 variables.</p>
 
 
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">Scorecard — puntajes por atributo</figcaption>
   <table id="table-scorecard-scorecard" data-table-key="scorecard.scorecard">
     <thead><tr><th>feature</th><th>woe_column</th><th>bin_label</th><th>bin_index</th><th>woe</th><th>beta</th><th>intercept_share</th><th>raw_points</th><th>points</th><th>rounding_delta</th><th>source</th></tr></thead>
@@ -3302,7 +3331,7 @@ z
 </svg>
 </figure>
 
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">Métricas de discriminación por partición</figcaption>
   <table id="table-performance-discriminant_metrics" data-table-key="performance.discriminant_metrics">
     <thead><tr><th>partition</th><th>n_total</th><th>n_bad</th><th>n_good</th><th>auc</th><th>gini</th><th>ks</th><th>ks_cutoff_risk_score</th><th>ks_cutoff_score</th><th>tpr_at_ks</th><th>fpr_at_ks</th><th>source</th><th>status</th></tr></thead>
@@ -3313,7 +3342,7 @@ z
     </tbody>
   </table>
 </figure>
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">Desempeño por decil de score</figcaption>
   <table id="table-performance-performance_table" data-table-key="performance.performance_table">
     <thead><tr><th>partition</th><th>decile</th><th>n_total</th><th>n_bad</th><th>n_good</th><th>bad_rate</th><th>good_rate</th><th>mean_pd</th><th>min_pd</th><th>max_pd</th><th>mean_score</th><th>min_score</th><th>max_score</th><th>cum_total</th><th>cum_bad</th><th>cum_good</th><th>cum_bad_capture_rate</th><th>cum_good_capture_rate</th><th>lift</th><th>ks_at_decile</th></tr></thead>
@@ -3855,7 +3884,7 @@ L 420.51375 486.278125
     </tbody>
   </table>
 </figure>
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">PSI por tramo de score</figcaption>
   <table id="table-stability-psi_table" data-table-key="stability.psi_table">
     <thead><tr><th>metric</th><th>comparison</th><th>feature</th><th>bin_label</th><th>expected_count</th><th>actual_count</th><th>expected_pct</th><th>actual_pct</th><th>component_value</th><th>total_value</th><th>band</th></tr></thead>
@@ -4003,7 +4032,7 @@ L 420.51375 486.278125
   <p>La tabla reúne Hosmer-Lemeshow, Brier y, cuando fue configurado, el contraste por grado con sus decisiones y semáforo publicados. Filas publicadas por el DTO: 6.</p>
 
 
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">Validación formal — calibración</figcaption>
   <table id="table-validation-calibration" data-table-key="validation.calibration">
     <thead><tr><th>partition</th><th>test</th><th>grade</th><th>n</th><th>observed_defaults</th><th>expected_pd</th><th>observed_dr</th><th>statistic</th><th>degrees_of_freedom</th><th>p_value</th><th>alpha</th><th>decision</th><th>traffic_light</th></tr></thead>
@@ -4026,7 +4055,7 @@ L 420.51375 486.278125
   <p>La tabla reproduce PSI/estabilidad, umbrales, banda, acción y decisión publicados por validation. Filas publicadas por el DTO: 15.</p>
 
 
-<figure class="table-block">
+<figure class="table-block table-block--wide">
   <figcaption class="table-title">Validación formal — estabilidad</figcaption>
   <table id="table-validation-stability" data-table-key="validation.stability">
     <thead><tr><th>metric</th><th>comparison</th><th>feature</th><th>value</th><th>stable_threshold</th><th>review_threshold</th><th>band</th><th>action</th><th>source</th><th>status</th><th>decision</th></tr></thead>
@@ -4086,13 +4115,13 @@ L 420.51375 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>4b93809debd102cf1644f8b5acaa9abbd693204e9f3fb7346f392425677ae49f</dd>
-    <dt>created_at</dt><dd>2026-07-21T01:27:57.411961Z</dd>
+    <dt>created_at</dt><dd>2026-07-21T01:52:21.484318Z</dd>
     <dt>data_hash</dt><dd>74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8</dd>
     <dt>determinism_caveats</dt><dd><pre>[
   &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
 ]</pre></dd>
     <dt>git_dirty</dt><dd>true</dd>
-    <dt>git_sha</dt><dd>4607855308f38a9befd991a9d51a07ac959fa161</dd>
+    <dt>git_sha</dt><dd>ad5fe58dcdc5eededee97a4d4d7c3c4b8ef979af</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.4.0&#34;,

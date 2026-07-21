@@ -859,6 +859,15 @@ figcaption {
   }
 }
 
+/* Página apaisada para las tablas anchas. Con A4 vertical (170 mm útiles) una tabla de 20 columnas
+   deja ~8 mm por columna: el encabezado se solapa y cada cifra se parte en tres líneas
+   («505.» / «4441» / «62»), es decir la evidencia de monotonía y lift del scorecard llega ilegible
+   al comité. Apaisada hay 257 mm y la tabla se lee. No se descarta ninguna columna: perder una
+   sería perder trazabilidad. */
+@page wide-table {
+  size: A4 landscape;
+}
+
 @media print {
   body {
     background: #fff;
@@ -934,6 +943,26 @@ figcaption {
 
   .table-block {
     overflow-x: visible;
+  }
+
+  /* Tabla ancha (10+ columnas): página propia y apaisada, tipografía menor y celdas sin partir.
+     `table-layout: auto` deja que cada columna tome lo que necesita en vez del reparto uniforme
+     que ahogaba a las de seis decimales. */
+  .table-block--wide {
+    page: wide-table;
+    break-before: page;
+  }
+
+  .table-block--wide table {
+    table-layout: auto;
+    font-size: 6pt;
+  }
+
+  .table-block--wide thead th,
+  .table-block--wide tbody td {
+    white-space: nowrap;
+    overflow-wrap: normal;
+    padding: 2px 3px;
   }
 
   thead {
@@ -1071,7 +1100,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=4607855308f38a9befd991a9d51a07ac959fa161</code></div>
+    <div class="lineage-line"><code>git_sha=ad5fe58dcdc5eededee97a4d4d7c3c4b8ef979af</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1363,7 +1392,7 @@ figcaption {
 
 
 <figure class="table-block">
-  <figcaption class="table-title">Tabla «provisioning_ifrs9.summary»</figcaption>
+  <figcaption class="table-title">Pérdida crediticia esperada (ECL) por etapa</figcaption>
   <table id="table-provisioning_ifrs9-summary" data-table-key="provisioning_ifrs9.summary">
     <thead><tr><th>portfolio</th><th>stage</th><th>scenario</th><th>n_rows</th><th>total_ead</th><th>total_ecl_reported</th><th>coverage_ratio</th><th>warning_codes</th></tr></thead>
     <tbody>
@@ -1440,13 +1469,13 @@ figcaption {
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</dd>
-    <dt>created_at</dt><dd>2026-07-21T01:28:07.018402Z</dd>
+    <dt>created_at</dt><dd>2026-07-21T01:52:30.305432Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd><pre>[
   &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
 ]</pre></dd>
     <dt>git_dirty</dt><dd>true</dd>
-    <dt>git_sha</dt><dd>4607855308f38a9befd991a9d51a07ac959fa161</dd>
+    <dt>git_sha</dt><dd>ad5fe58dcdc5eededee97a4d4d7c3c4b8ef979af</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.4.0&#34;,
