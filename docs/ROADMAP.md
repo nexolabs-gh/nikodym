@@ -48,7 +48,13 @@ El estado y el plan de esta sección son la fuente vigente.
    re-deployada y verificada por hash contra el SHA aprobado (`1aba6cf`).
 6. Congelar código, fixtures, informes y deploy antes de la reunión Interbank del **2026-07-22**. Objetivo
    hacia el 2026-07-21; al 2026-07-20 Cami optó por seguir mejorando (pulido P2/P3 + SDD to-yaml +
-   descriptions) y publicar `1.4.0` al final. No se crea tag ni se publica PyPI sin OK específico de Cami.
+   descriptions) y publicar `1.4.0` al final. **Código del bloque HECHO (2026-07-20, 6 commits sobre
+   `d8da31c`):** locale es-CL en el informe (`2,99 %`), marcador «—» para celdas vacías (`nan`/`none`),
+   descriptions honestas de `rho_col`/`fail_on_falta_dato` + fixture, badge «Experimental» en la card
+   CMF F3, `to-yaml` determinista (no reinyecta `report.document`) y `config_hash` que excluye
+   `data.load.source` (cambio de contrato SemVer autorizado; alinea app≡informe). **Falta:** una sola
+   recaptura de fixtures + redeploy + release `1.4.0` (detalle en `HANDOFF.md`). No se crea tag ni se
+   publica PyPI sin OK específico de Cami (dado para `1.4.0`).
 
 En paralelo permanece un gate humano separado: validar las matrices CMF celda a celda y resolver los
 haircuts remitidos a normativa complementaria. Hasta entonces no existe certificación normativa.

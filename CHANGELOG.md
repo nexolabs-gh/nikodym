@@ -7,6 +7,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [Sin publicar]
 
+Pulido del informe y la demo (P2/P3) previo a la reunión Interbank, más dos correcciones de fondo.
+Pendiente de recaptura de fixtures + redeploy y del bump de versión antes de publicar.
+
 ### Corregido
 
 - **Identidad del config (`config_hash`): la ruta del dataset ya no altera la identidad.** El campo
@@ -17,6 +20,32 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   se excluye del `config_hash` (además de las secciones de infraestructura). **Nota de contrato
   (SemVer):** esto recalcula el `config_hash` de todo config que fijaba una ruta de dataset; el hash
   del config por defecto (sin `data`) no cambia. Es una corrección de defecto, no una nueva convención.
+- **`POST /api/config/to-yaml` era no-determinista frente al estado de imports.** La sección `report`
+  (`report: Any` en el schema) se coacciona a `ReportConfig` sólo si `nikodym.report` ya fue importado,
+  y esa coacción materializa `report.document` (default_factory) que el config del cliente no traía. El
+  YAML salía con o sin ese bloque según qué se hubiera importado antes (así se colaba `report.document`
+  al capturar los fixtures de la demo tras generar un informe). Ahora el endpoint vuelca con
+  `exclude_unset=True`: idéntico byte a byte en ambos casos, sin tocar el `config_hash` ni el lineage
+  de corrida de `study`.
+- **Informe: coma decimal (es-CL) en toda la prosa y las tablas de texto.** Los porcentajes y números
+  (`_pct`/`_num`) emitían punto decimal (`2.99 %`, `IV 0.03`) mientras las cifras en pesos ya usaban
+  el punto como separador de miles. Ahora el decimal es coma (`2,99 %`), coherente con la convención
+  chilena. Sólo presentación: no cambia valores ni `data_hash`. Los ejes de gráficos siguen sin locale.
+- **Informe: marcador único «—» para celdas sin valor en las tablas de detalle.** `NaN` se volcaba como
+  `nan` y el sentinel de dominio `"none"` (de los enums `iv_band`/`expected_sign`/`action` = «sin banda/
+  signo/acción») como `none`; ambos parecían celdas rotas. Se unifican a un em-dash (convención de
+  estados financieros para nil/ninguno/no-aplica), sin tocar los enums de la API de results ni el
+  `data_hash`. Los `inf`/`-inf` se conservan crudos a propósito (anomalía real que debe verse).
+- **IFRS 9: descriptions honestas de `rho_col` y `fail_on_falta_dato`.** Ambas prometían conducta que
+  el motor no implementa: `rho_col` decía «sobrescribe rho por fila» pero el motor la rechaza fail-fast
+  (correlación heterogénea diferida en v1); `fail_on_falta_dato` sugería un modo «marcar FALTA-DATO y
+  continuar» ante Vasicek sin rho/Z que no existe (el motor falla en cálculo siempre). Se reescriben
+  las descriptions (y títulos) para reflejar la conducta real.
+
+### Cambiado
+
+- **Demo: badge «Experimental» en la card de provisiones CMF (F3)**, igual que la de IFRS 9 (F4), pues
+  ambos motores de provisiones son experimentales por madurez.
 
 ## [1.3.0] — 2026-07-17
 
