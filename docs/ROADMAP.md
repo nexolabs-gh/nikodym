@@ -3,11 +3,11 @@
 | | |
 |---|---|
 | **Documento** | Estado por capacidad y plan de evolución |
-| **Versión** | 1.2 |
-| **Fecha** | 2026-07-20 |
+| **Versión** | 1.3 |
+| **Fecha** | 2026-07-21 |
 | **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.1 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
-El código, el tag `v1.4.0` y PyPI están en `1.4.0`. `main` se encuentra en mejora continua; el próximo
+El código, el tag `v1.4.1` y PyPI están en `1.4.1`. `main` se encuentra en mejora continua; el próximo
 release será un bump `1.5.0` con OK específico de Cami.
 Las fases F0–F8 que siguen conservan el diseño y los DoD históricos; **no son una cola automática**.
 El estado y el plan de esta sección son la fuente vigente.
@@ -21,12 +21,124 @@ El estado y el plan de esta sección son la fuente vigente.
 | F3/F8 · CMF, método interno y orquestación | Implementado, **experimental** | Validación humana de matrices/haircuts pendiente |
 | F4 · IFRS 9/ECL | Implementado, **experimental** | Independiente del máximo B-1 chileno |
 | F5/F6 · forward, survival, Markov, stress y validación | Implementado, **experimental** | Uso por config Python; sin preset/UI propios |
-| F7 · UI React/FastAPI e informe | Disponible | Demo estática F1/F3/F4; ejecución local para datos propios |
+| F7 · UI React/FastAPI e informe | **Incompleta como producto** | El backend viaja en `[ui]`, pero el front no se distribuye ni hay comando de arranque → **B2** |
 | Originación/reject inference | Futuro | Requiere caso de uso, priorización y SDD |
 
-## Plan operativo vigente
+## Plan operativo vigente (desde 2026-07-21)
 
-### P0 — Cierre pre-Interbank
+El track pre-reunión quedó cerrado con el release `1.4.1`. Lo que sigue es el plan de mejora continua
+fijado el 2026-07-21, ordenado por prioridad de ejecución. **Ningún bloque se inicia por estar en esta
+lista**: cada uno arranca cuando el anterior cierra o cuando su condición explícita se cumple.
+
+### Marco de producto (decidido 2026-07-21)
+
+- **La librería es y seguirá siendo 100 % gratuita bajo Apache-2.0.** No hay edición cerrada, tier
+  comercial ni funcionalidad reservada. El código que se publica es el código completo.
+- **La monetización vive fuera del paquete**: integración en la institución, adaptación o *fork*
+  personalizado, funcionalidades a medida y servicios adyacentes de automatización. La librería abre
+  la conversación técnica; el trabajo pagado puede terminar siendo otra cosa. Esto **no** condiciona
+  qué se publica: nada se retiene del open-source para venderlo aparte.
+- **«Instalable y usable» es requisito, no adorno.** Quien ejecute `pip install nikodym` debe poder
+  levantar y usar el producto sin conocimiento interno del repo. Una capacidad que existe pero que el
+  usuario no puede alcanzar cuenta como no entregada.
+- **Los módulos experimentales se mantienen ofrecidos.** F5/F6 amplían lo que la librería puede
+  conversar con una institución; no se podan. Lo que les falta es ruta de uso, no justificación.
+
+### B1 · Higiene y deuda corta → habilita `1.5.0`
+
+Cierra los defectos conocidos que hoy sólo viven en el HANDOFF. Todos son acotados y verificables.
+
+1. **Rótulo de los dos ECL del anexo IFRS 9.** `total_ecl_reported` y `ecl_by_scenario` difieren ~2×
+   sin etiqueta que lo explique: la primera corta Stage 1 a 12 meses, la segunda suma lifetime para
+   todas las operaciones. No es error de cálculo, es falta de rótulo. **Extensión aditiva** del
+   contrato de `results`, nunca ruptura (CT-3).
+2. **Deuda cosmética del informe y del editor de config**: descriptions del schema con jerga interna
+   (`== @register('standard', …) (SDD-16 §4)`), visibles en la UI — su cambio obliga a regenerar
+   `web/src/fixtures/schema.json` en **commit atómico**; diagnósticos del motor de selección con
+   decimales sin formatear (`iv=0.650693017601`); `total_expected_loss_rate` serializado como string
+   de 51 dígitos en el anexo de auditoría.
+3. **Respaldo remoto del workspace interno.** El material de trabajo no versionado en el repo público
+   carece de copia fuera del disco local.
+
+### B2 · La UI instalable y usable  ← *requisito de producto*
+
+F7 ya **promete** que `pip install nikodym[ui]` trae el front buildeado (ver F7 más abajo). Hoy no lo
+cumple, y el hueco es de **distribución, no de ingeniería**: el backend FastAPI sí viaja en el wheel y
+`ui/server.py` ya monta los estáticos cuando encuentra el directorio.
+
+1. **Entry point.** `pyproject.toml` no declara `[project.scripts]`: no existe ningún comando. Definir
+   el comando de arranque y su contrato (host, puerto, directorio de trabajo, apertura del navegador).
+2. **Assets en el wheel.** El build del front (`pnpm build`, no `build:demo`) tiene que producirse en
+   el flujo de release y quedar dentro del paquete, con el gate de licencias intacto.
+3. **Documentación y gate.** Instalar y levantar en dos comandos, documentado en README y `docs_site`;
+   el smoke clean-room debe verificar que la UI **carga**, no sólo que el import no explota.
+
+> **Criterio de aceptación:** un tercero sin acceso al repo instala desde PyPI, levanta la UI, carga
+> un dataset propio y obtiene el informe. Mientras eso no ocurra, F7 no está entregado.
+
+### B3 · Abstracción de jurisdicción (CMF ≠ SBS ≠ …)
+
+Hoy el motor de provisiones regulatorias está casado con Chile: `provisioning/cmf/engine.py` concentra
+2.044 líneas con ids, carteras y buckets chilenos. En cambio `provisioning/internal/` ya es casi
+neutro — su única atadura real es el `default="cmf_portfolio"` de su config.
+
+Se ejecuta en dos etapas con condiciones distintas:
+
+1. **B3.a — SDD + refactor de abstracción (sin implementar ninguna jurisdicción nueva).** Fijar el
+   contrato que separa «motor de provisión estandarizada» de «parámetros y reglas de una
+   jurisdicción», y dejar `internal/` genuinamente neutro. **Tiene valor por sí solo**: es deuda
+   arquitectónica que hoy impide describir con honestidad el costo de un port.
+2. **B3.b — Implementación de una jurisdicción concreta.** No se inicia de forma especulativa;
+   requiere un compromiso comercial firmado. Sin él, el trabajo es una apuesta sobre normativa
+   extranjera que además puede cambiar antes de tener usuario.
+
+> **Regla de honestidad**: mientras B3.b no exista, la librería **no** tiene motor SBS ni de ninguna
+> otra jurisdicción, y no se insinúa lo contrario. El módulo `internal/` sí es utilizable hoy fuera de
+> Chile, y ése es el alcance real que se comunica.
+
+### B4 · Rutas de uso para F5/F6
+
+F5 (forward, survival, Markov, stress) y F6 (validación avanzada) están implementados y cubiertos por
+tests, pero sólo se usan escribiendo el config en Python. Se mantienen en la oferta, así que necesitan
+al menos **un preset documentado y un ejemplo ejecutable por capacidad** — no una UI completa. Sin
+eso, ofrecerlos es ofrecer algo que el usuario no puede ejecutar.
+
+### B5 · Validación humana de las matrices CMF (gate G0)
+
+Sigue siendo el DoD incumplido de F3 y **no lo puede hacer un agente**. Se ejecuta sí o sí, pero no
+encabeza la cola: CMF es Chile y el alcance del proyecto es LATAM. Hasta que ocurra, F3 se comunica
+como experimental sin excepción. Detonante natural: el primer compromiso concreto en Chile.
+
+### B6 · Workspace de evidencia de corridas v1
+
+Bloque planificado con anterioridad, mantenido pero **repriorizado según feedback comercial**. Produce
+y aprueba un único SDD; la primera rebanada vertical extiende la corrida local existente sin duplicar
+un motor MLOps:
+
+1. `SourceSnapshot`: identidad inmutable de fuente/as-of, esquema, conteos y hash lógico; inicialmente
+   sólo archivos, datasets sintéticos y uploads ya soportados.
+2. `ExecutionLedger`: transiciones y eventos append-only por `Step` en la capa fina runner/API, no en
+   `core`.
+3. Workspace: listar, reabrir, clonar y comparar corridas compatibles usando manifiestos y resultados
+   existentes.
+
+El SDD debe fijar migración de corridas actuales, escrituras atómicas, idempotencia, concurrencia,
+crash recovery, codecs JSON/Parquet, exclusión de secretos y reglas de compatibilidad. Estados
+asíncronos, cancelación cooperativa y reanudación se implementan sólo cuando el runner pueda cumplirlos
+de forma durable; nunca se simulan sobre HTTP.
+
+### B7 · Mapa regulatorio LATAM
+
+Investigación de reguladores de la región, hoy incompleta y con errores detectados por el verificador.
+**Queda en plan, sin prioridad.** Material de conversación, nunca de publicación ni de cotización, sin
+otra pasada completa de verificación contra fuente oficial.
+
+### B8 · Cola candidata, no autorizada
+
+`SplitPolicy`, `ScenarioContract`, `ValidationLedger`, `SatelliteModel v2`, `PortfolioStress` y
+`PortfolioForecast`. Ninguno se inicia por mera presencia en esta lista.
+
+## Historial: P0 — Cierre pre-Interbank *(cerrado con `1.4.1`)*
 
 1. Recuperar **al menos 12 GiB libres** y completar el preflight reproducible de la campaña. El
    corte de esta consolidación quedó bajo ese umbral; no iniciar una ejecución larga con el disco
@@ -56,35 +168,13 @@ El estado y el plan de esta sección son la fuente vigente.
    SemVer). Demo recapturada y re-deployada, tag `v1.4.0` y PyPI publicados con OK de Cami. Falta
    sólo congelar antes de la reunión del **2026-07-22**.
 
-En paralelo permanece un gate humano separado: validar las matrices CMF celda a celda y resolver los
-haircuts remitidos a normativa complementaria. Hasta entonces no existe certificación normativa.
-
-### P1 — Primer bloque posterior a Interbank
-
-Producir y aprobar un único SDD: **Workspace de evidencia de corridas v1**. La primera rebanada
-vertical debe extender la corrida local existente, sin duplicar un motor MLOps:
-
-1. `SourceSnapshot`: identidad inmutable de fuente/as-of, esquema, conteos y hash lógico; inicialmente
-   sólo archivos, datasets sintéticos y uploads ya soportados.
-2. `ExecutionLedger`: transiciones y eventos append-only por `Step` en la capa fina runner/API, no en
-   `core`.
-3. Workspace: listar, reabrir, clonar y comparar corridas compatibles usando manifiestos y resultados
-   existentes.
-
-El SDD debe fijar migración de corridas actuales, escrituras atómicas, idempotencia, concurrencia,
-crash recovery, codecs JSON/Parquet, exclusión de secretos y reglas de compatibilidad. Estados
-asíncronos, cancelación cooperativa y reanudación se implementan sólo cuando el runner pueda cumplirlos
-de forma durable; nunca se simulan sobre HTTP.
-
-### P2 — Cola candidata, no autorizada
-
-Después del SDD anterior, volver a priorizar con feedback comercial y evidencia: `SplitPolicy`,
-`ScenarioContract`, `ValidationLedger`, `SatelliteModel v2`, `PortfolioStress` y
-`PortfolioForecast`. Ninguno se inicia por mera presencia en esta lista.
+El gate humano de las matrices CMF **no** se cerró con este track: sigue abierto como **B5**.
 
 ## Qué no hacer
 
-- No inventar un bloque IBK-06 ni ampliar funcionalidades antes de la reunión.
+- No retener funcionalidad del open-source para venderla aparte: la librería es gratuita y completa.
+- No anunciar ni insinuar un motor de una jurisdicción que no esté implementado (ver B3).
+- No implementar una jurisdicción nueva de forma especulativa, sin compromiso comercial (B3.b).
 - No copiar DataHub, SQL, defaults ni metodología institucional; sólo reimplementar patrones genéricos.
 - No construir conectores remotos antes de fijar `SourceSnapshot`.
 - No mezclar `ExecutionLedger` operacional con `ValidationLedger` humano.
@@ -163,7 +253,9 @@ Esfuerzo relativo: S < M < L < XL.
 **DoD.** Cálculo de provisión por cartera reproducible contra casos de ejemplo; **validación humana de las matrices** registrada en governance; tests por cada matriz.
 **Dependencias.** F1 (segmentación/PD de entrada). **Riesgo:** los parámetros cambian con la norma → versionar.
 
-> 🔴 **DoD INCUMPLIDO: la validación humana de las matrices SIGUE PENDIENTE.** Los parámetros se transcribieron del compendio **con asistencia de IA y verificación visual**; no son oficiales de la CMF ni están validados por ella (así está confesado en el README y en la landing). **Un gerente de riesgo pregunta por su procedencia en los primeros cinco minutos.** Para cartera de consumo se usa **una sola** matriz (`consumer_standard_v2025`): validarla a mano, celda por celda, es el trabajo de mayor retorno del track — y **no lo puede hacer un agente**.
+> 🔴 **DoD INCUMPLIDO: la validación humana de las matrices SIGUE PENDIENTE.** Los parámetros se transcribieron del compendio **con asistencia de IA y verificación visual**; no son oficiales de la CMF ni están validados por ella (así está confesado en el README y en la landing). **Un gerente de riesgo pregunta por su procedencia en los primeros cinco minutos.** Para cartera de consumo se usa **una sola** matriz (`consumer_standard_v2025`): validarla a mano, celda por celda, **no lo puede hacer un agente**.
+>
+> **Prioridad fijada el 2026-07-21 (bloque B5):** se hace sí o sí, pero no encabeza la cola — CMF es Chile y el alcance del proyecto es LATAM. Detonante natural: el primer compromiso concreto en el mercado chileno. Mientras tanto F3 se comunica como experimental **sin excepción**.
 
 ## F4 — IFRS 9 / ECL
 **Objetivo.** ECL de 3 etapas como motor independiente; la orquestación configurable vive en una
@@ -219,7 +311,7 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 **SDDs.** 23 ui *(contrato evolucionado e implementado sobre React/FastAPI)*.
 **Stack.** React + Vite + Tailwind + shadcn/ui + charts premium; backend **FastAPI**; **cero lógica propia** (todo invoca la API de la lib).
 **Dos modos de despliegue.**
-- **Local (analista):** `pip install nikodym[ui]` trae el React ya buildeado + levanta FastAPI local; los datos no salen de su máquina.
+- **Local (analista):** `pip install nikodym[ui]` trae el React ya buildeado + levanta FastAPI local; los datos no salen de su máquina. 🔴 **PROMESA INCUMPLIDA** — el extra `[ui]` instala el backend FastAPI y `ui/server.py` monta los estáticos si los encuentra, pero **el front buildeado no viaja en el wheel y no existe `[project.scripts]`**: no hay comando de arranque ni documentación. Es el bloque **B2** del plan operativo; hasta cerrarlo, F7 no está entregado.
 - **Hosteada (comercial):** `nikodym.cl/demo`, dataset **sintético** precargado, flujo guiado "arma tu modelito en pocos pasos" + CTA de lead comercial.
 **DoD.** Un modelo F1 completo construible 100% desde la UI, idéntico al hecho por código; look&feel premium aprobado por revisión visual.
 **Dependencias.** Todo el core (motor V1 ✅ completo 2026-07-04).
@@ -232,8 +324,13 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 ---
 
 ## Estrategia de release (open-source)
-- `1.4.0` es la versión del código/tag y la publicada en PyPI; el próximo release será `1.5.0` (bump
+- `1.4.1` es la versión del código/tag y la publicada en PyPI; el próximo release será `1.5.0` (bump
   con OK específico de Cami). El pipeline F1 conserva la garantía SemVer 1.x.
+- **`1.5.0` = cierre de B1** (rótulo ECL + deuda cosmética). **`1.6.0` = cierre de B2** (UI instalable).
+  Se publican por separado: atar el release de higiene a la distribución de la UI retrasa correcciones
+  ya listas sin beneficio para nadie.
+- La librería se publica **completa y gratuita** bajo Apache-2.0. Ninguna capacidad se retiene del
+  paquete público por motivos comerciales.
 - Releases incrementales con changelog, docs MkDocs, dataset/tutorial reproducible y smoke clean-room.
 - Cada tag y publicación PyPI requiere OK específico de Cami; push/deploy ordinarios no sustituyen ese gate.
 

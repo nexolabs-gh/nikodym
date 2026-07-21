@@ -36,6 +36,12 @@ destapó la verificación adversarial previa a la reunión. Reunión **Interbank
 **tag `vX.Y.Z` y PyPI exigen OK específico de Cami por release** (el OK permanente cubre push/deploy,
 no tag/PyPI). **Arrancar toda sesión leyendo [`HANDOFF.md`](HANDOFF.md).**
 
+**Plan vigente desde 2026-07-21:** el track pre-reunión se reemplazó por los bloques **B1…B8** de
+[`docs/ROADMAP.md`](docs/ROADMAP.md) §«Plan operativo vigente». Orden: B1 higiene → B2 UI instalable →
+B3.a abstracción de jurisdicción → B4 rutas de uso F5/F6; B3.b (motor de una jurisdicción nueva) exige
+compromiso comercial firmado. El track comercial (precios, cláusulas, accesos) vive en
+`privado/PLAN-TRABAJO-2026-07-21.md` y **no se publica**.
+
 ## Auto-desarrollo (motor de trabajo)
 Para una ejecución autónoma usar la skill explícitamente pedida por Cami y una tarea standalone o
 efímera: coordinador, un único writer, gates, revisor adversarial fresco e integración final. No usar
@@ -63,6 +69,18 @@ ya se completaron; sus decisiones siguen vigentes en `docs/design/`.
 
 ## Decisiones de diseño fijadas
 - **Licencia** Apache-2.0 (open-source). Evitar dependencias copyleft (GPL) — p.ej. `scikit-survival` queda fuera del core.
+- **Modelo de negocio (Cami, 2026-07-21): la librería es 100 % gratuita y se publica completa.** No
+  existe tier comercial, edición cerrada ni funcionalidad reservada; **nunca retener una capacidad del
+  open-source para venderla aparte**. La monetización vive fuera del paquete: integración, fork
+  personalizado para una institución, features a medida y servicios adyacentes (p. ej. automatizar en
+  Python lo que el cliente hace en Excel). La librería abre la conversación; el trabajo pagado puede
+  ser otra cosa.
+- **«Instalable y usable» es requisito de entrega.** Una capacidad que el usuario de `pip install` no
+  puede alcanzar cuenta como no entregada, por más tests que tenga. Ver
+  [[feature-gateada-por-config-es-feature-inexistente]] y el bloque B2 del ROADMAP.
+- **No se anuncia un motor de una jurisdicción que no exista.** Hoy sólo hay CMF (Chile);
+  `provisioning/internal/` es el único componente jurisdiccionalmente reutilizable. Implementar una
+  jurisdicción nueva exige compromiso comercial firmado (B3.b).
 - **CMF ≠ IFRS 9**: dos motores separados (`provisioning/cmf` con PE=PI·PDI·Exposición, B-1; `provisioning/ifrs9` con ECL). ⚠️ **La regla del máximo del B-1 (Circular 2.346) es `max(método estándar, método interno del banco)`, por institución — NO `max(CMF, IFRS 9)`**: el Cap. A-2 num. 5 del Compendio excluye el deterioro de NIIF 9 sobre colocaciones. Ver ESPECIFICACIONES §5.4 (corregido 2026-07-13).
 - **MVP Fase 1**: scorecard de **comportamiento** (sin reject inference; originación es sub-fase posterior).
 - **Stack**: pandas (+ **pandera/pyarrow** deps base de `data`), **OptBinning** (binning), **statsmodels** (inferencia), **lifelines** (survival), Optuna, SHAP, MLflow, **Jinja2 + WeasyPrint** (informe HTML y PDF; Quarto se retiró en 1.0) y **python-docx** (export Word), capa IA opcional inyectable (documenta/narra, nunca calcula; la prosa del informe es determinista y NO la escribe la IA). Empaquetado **uv + hatchling** (≥1.27), `src/` layout. Config **Pydantic v2** (núcleo config-driven → la UI es editor del mismo config). Gobernanza **SR 11-7** en el núcleo.
