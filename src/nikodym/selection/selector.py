@@ -656,12 +656,21 @@ def _resolve_identifier_sequence(
     resolved: list[str] = []
     missing: list[str] = []
     for identifier in identifiers:
-        if identifier in available:
-            resolved.append(identifier)
-        elif identifier in reverse_mapping and reverse_mapping[identifier] in available:
-            resolved.append(reverse_mapping[identifier])
-        else:
+        raw_match = identifier if identifier in available else None
+        alias_match = reverse_mapping.get(identifier)
+        if alias_match not in available:
+            alias_match = None
+        if raw_match is not None and alias_match is not None and raw_match != alias_match:
+            raise SelectionFitError(
+                f"{label} declara el identificador ambiguo '{identifier}': coincide con la "
+                f"feature raw '{raw_match}' y con el alias WoE de la feature raw "
+                f"'{alias_match}'."
+            )
+        match = raw_match if raw_match is not None else alias_match
+        if match is None:
             missing.append(identifier)
+        else:
+            resolved.append(match)
     if missing:
         joined = ", ".join(f"'{name}'" for name in sorted(missing))
         available_names = ", ".join(f"'{name}'" for name in sorted(mapping))

@@ -427,6 +427,49 @@ def test_override_con_alias_woe_desconocido_falla(override: str) -> None:
         )
 
 
+def test_overrides_con_identificador_raw_que_es_alias_de_otra_feature_fallan() -> None:
+    """No aplica precedencia silenciosa cuando raw y alias resuelven a features distintas."""
+    frame = pd.DataFrame(
+        {
+            "target": [0, 1],
+            "partition": ["desarrollo", "desarrollo"],
+            "x__woe": [0.5, -0.5],
+            "x__woe__woe": [0.25, -0.25],
+        }
+    )
+    mapping = {"x": "x__woe", "x__woe": "x__woe__woe"}
+
+    with pytest.raises(
+        SelectionFitError,
+        match=(
+            r"force_exclude declara el identificador ambiguo 'x__woe': "
+            r"coincide con la feature raw 'x__woe' y con el alias WoE "
+            r"de la feature raw 'x'"
+        ),
+    ):
+        FeatureSelector(
+            force_include=("x",),
+            force_exclude=("x__woe",),
+        ).fit(
+            frame,
+            target_col="target",
+            partition_col="partition",
+            binning_summary=_summary({"x": 0.2, "x__woe": 0.3}),
+            woe_column_map=mapping,
+        )
+
+
+def test_identificador_raw_y_alias_convergentes_es_valido_y_se_deduplica() -> None:
+    """Un match doble es inequívoco cuando ambas rutas apuntan a la misma feature."""
+    assert selector_module._resolve_identifier_sequence(
+        ("x", "x"),
+        {"x"},
+        {"x": "x"},
+        {"x": "x"},
+        label="force_include",
+    ) == ("x",)
+
+
 @pytest.mark.parametrize(
     ("force_include", "force_exclude"),
     [("x1", "x1__woe"), ("x1__woe", "x1")],
