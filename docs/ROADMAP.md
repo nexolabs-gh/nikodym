@@ -69,6 +69,15 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
    **cuatro campos inertes** ya declarados como tales en su texto (`repro.strict_determinism`,
    `tuning.validation.fit_partition`, `survival.fail_on_falta_dato`, `report.pdf.enabled`):
    cablearlos o retirarlos es trabajo aparte, fuera de B1.
+
+   > **Medición del 2026-07-22 (tarde): esos cuatro campos son la punta de una clase mayor.** Un
+   > barrido sobre los **800 campos** de los **121 modelos** Pydantic del config identificó **58
+   > candidatos** a campo inerte, en dos patrones: el *huérfano* (el motor no nombra el campo) y el
+   > *leído-nunca* (el motor lo nombra pero le pasa un literal, sin leer el config). **Solo 2 de los
+   > 58 completaron verificación adversarial** —la corrida se agotó por cuota—, así que el resto son
+   > **hipótesis con evidencia, no defectos confirmados**, y varias tocan superficie regulatoria.
+   > Antes de cablear o retirar nada hay que terminar la verificación. Es el mismo sesgo de método
+   > que B1.2: el ítem enumeraba los síntomas notados, no el patrón.
 3. ~~**Respaldo remoto del workspace interno.**~~ **HECHO (2026-07-21).** El workspace interno ya
    tiene repo privado propio fuera del disco local; el respaldo se verificó restaurándolo (clon
    completo, idéntico al original) y se mantiene al día pusheando en cada cierre de sesión.
