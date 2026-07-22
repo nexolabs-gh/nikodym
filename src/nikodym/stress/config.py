@@ -63,55 +63,55 @@ _ECL_ENGINE_METRICS: frozenset[str] = frozenset({"ecl", "loss", "ratio"})
 
 
 class StressInputConfig(NikodymBaseConfig):
-    """Configuración de artefactos forward consumidos por stress."""
+    """Artefactos de la etapa forward que consume stress, más los motores opcionales."""
 
     forward_domain: str = Field(
         default="forward",
         title="Dominio forward",
-        description="Dominio del ArtifactStore desde el que se leen artefactos forward.",
+        description="Dominio del almacén de artefactos donde publica la etapa forward.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 1},
     )
     macro_projection_key: str = Field(
         default="macro_projection",
         title="Clave macro_projection",
-        description="Clave del artefacto de proyección macro publicado por ForwardStep.",
+        description="Clave del artefacto con la proyección macro que publica la etapa forward.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 2},
     )
     satellite_model_key: str = Field(
         default="satellite_model",
         title="Clave satellite_model",
-        description="Clave del modelo satellite publicado por ForwardStep.",
+        description="Clave del artefacto con el modelo satélite que publica la etapa forward.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 3},
     )
     term_structure_key: str = Field(
         default="term_structure",
         title="Clave term_structure",
-        description="Clave de la term-structure forward-looking publicada por ForwardStep.",
+        description="Clave de la term-structure forward-looking que publica la etapa forward.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 4},
     )
     scenario_weighting_key: str = Field(
         default="scenario_weighting",
         title="Clave scenario_weighting",
-        description="Clave del ponderador de escenarios publicado por ForwardStep.",
+        description="Clave del ponderador de escenarios que publica la etapa forward.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 5},
     )
     ecl_input_key: str = Field(
         default="ecl_input",
         title="Clave ecl_input",
-        description="Clave del contrato ForwardEclInput publicado por ForwardStep.",
+        description="Clave del artefacto con los insumos de ECL que publica la etapa forward.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 6},
     )
     ecl_engine_artifact: tuple[str, str] | None = Field(
         default=None,
-        title="Artefacto engine ECL",
-        description="Artefacto opcional con engine ECL inyectable, sin import runtime de SDD-16.",
-        json_schema_extra={"ui_widget": "artifact_key", "ui_group": "Engines", "ui_order": 1},
+        title="Artefacto del motor de ECL",
+        description="Artefacto opcional con el motor de ECL que calcula métricas económicas.",
+        json_schema_extra={"ui_widget": "artifact_key", "ui_group": "Motores", "ui_order": 1},
     )
     provision_engine_artifact: tuple[str, str] | None = Field(
         default=None,
-        title="Artefacto engine provisión",
-        description="Artefacto opcional con engine de provisión futura de SDD-17.",
-        json_schema_extra={"ui_widget": "artifact_key", "ui_group": "Engines", "ui_order": 2},
+        title="Artefacto del motor de provisiones",
+        description="Artefacto opcional con el motor que calcula la provisión futura.",
+        json_schema_extra={"ui_widget": "artifact_key", "ui_group": "Motores", "ui_order": 2},
     )
 
     @model_validator(mode="after")
@@ -248,7 +248,7 @@ class StressScenarioConfig(NikodymBaseConfig):
         ge=0.0,
         le=1.0,
         title="Peso",
-        description="Peso opcional para reportes; no sustituye ponderación IFRS 9 oficial.",
+        description="Peso opcional publicado en la salida; no sustituye la ponderación IFRS 9.",
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Escenario", "ui_order": 6},
     )
     require_dominates_forward_adverse: bool = Field(
@@ -421,8 +421,8 @@ class StressTargetConfig(NikodymBaseConfig):
     )
     requires_economic_engine: bool = Field(
         default=True,
-        title="Requiere engine económico",
-        description="Indica si la métrica exige engine ECL/provisión conectado.",
+        title="Requiere motor económico",
+        description="Indica si la métrica exige un motor de ECL o de provisiones conectado.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Target", "ui_order": 7},
     )
 
@@ -561,7 +561,7 @@ class StressOutputConfig(NikodymBaseConfig):
     metrics: tuple[StressMetric, ...] = Field(
         default=("pd_marginal", "pd_cumulative", "ecl"),
         title="Métricas",
-        description="Métricas publicadas por stress; ecl exige engine si se calcula.",
+        description="Métricas publicadas por stress; calcular ecl exige un motor de ECL.",
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "Salida", "ui_order": 1},
     )
     publish_stressed_macro: bool = Field(
@@ -573,7 +573,7 @@ class StressOutputConfig(NikodymBaseConfig):
     publish_stressed_term_structure: bool = Field(
         default=True,
         title="Publicar term-structure",
-        description="Publica la term-structure estresada CT-2.",
+        description="Publica la term-structure estresada: la curva de PD lifetime por período.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Salida", "ui_order": 3},
     )
     publish_reverse_path: bool = Field(
@@ -586,9 +586,9 @@ class StressOutputConfig(NikodymBaseConfig):
         default=True,
         title="Incluir baseline",
         description=(
-            "Incluye filas baseline para medir impactos absolutos y relativos. "
-            "B21.3 solo soporta True porque stress.impact exige value_base/value_stress; "
-            "False queda diferido hasta que existan filas baseline dedicadas."
+            "Incluye las filas baseline con que se miden los impactos absolutos y relativos. "
+            "Hoy solo se admite True: con False la corrida se detiene con error, porque el "
+            "impacto necesita el valor base y el estresado en la misma fila."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Salida", "ui_order": 5},
     )
@@ -649,14 +649,17 @@ class StressValidationConfig(NikodymBaseConfig):
     )
     fail_on_missing_ecl_engine: bool = Field(
         default=True,
-        title="Fallar sin engine ECL",
-        description="Falla si una métrica económica requiere engine ECL ausente.",
+        title="Fallar sin motor de ECL",
+        description="Falla si una métrica económica exige un motor de ECL que no está conectado.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Validación", "ui_order": 6},
     )
     fail_on_falta_dato: bool = Field(
         default=True,
-        title="Fallar ante FALTA-DATO",
-        description="Falla ante brechas FALTA-DATO-STR en vez de solo advertir.",
+        title="Fallar ante falta de dato",
+        description=(
+            "Si es True, las brechas de datos declaradas (avisos `FALTA-DATO-STR-*`) hacen "
+            "fallar la corrida en vez de solo advertir."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Validación", "ui_order": 7},
     )
 
@@ -668,18 +671,18 @@ class StressValidationConfig(NikodymBaseConfig):
 
 
 class StressConfig(NikodymBaseConfig):
-    """Sección ``stress`` de :class:`~nikodym.core.config.NikodymConfig`."""
+    """Aplica escenarios de stress, sensibilidad y reverse stress sobre la cartera."""
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección stress",
-        description="== @register('standard', domain='stress') (SDD-21 §4).",
+        description="Variante de la sección de stress; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     input: StressInputConfig = Field(
         default_factory=StressInputConfig,
         title="Entrada",
-        description="Artefactos forward y hooks opcionales de engines económicos.",
+        description="Artefactos de la etapa forward y motores económicos opcionales.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Entrada", "ui_order": 1},
     )
     scenarios: tuple[StressScenarioConfig, ...] = Field(
@@ -713,7 +716,7 @@ class StressConfig(NikodymBaseConfig):
     validation: StressValidationConfig = Field(
         default_factory=StressValidationConfig,
         title="Validación",
-        description="Tolerancias y políticas de falla FALTA-DATO.",
+        description="Tolerancias numéricas y política de falla ante brechas de datos.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Validación", "ui_order": 1},
     )
 

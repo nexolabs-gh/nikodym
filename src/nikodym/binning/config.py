@@ -122,12 +122,12 @@ class VariableBinningConfig(NikodymBaseConfig):
 
 
 class BinningConfig(NikodymBaseConfig):
-    """Sección ``binning`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-06 §5)."""
+    """Agrupa cada variable en tramos WoE y mide su poder predictivo con el IV."""
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección binning",
-        description="== @register('standard', domain='binning') (D-CONV-2).",
+        description="Variante de la sección de binning; hoy solo existe la estándar.",
         json_schema_extra={
             "ui_widget": "hidden",
             "ui_group": "General",
@@ -138,7 +138,7 @@ class BinningConfig(NikodymBaseConfig):
     feature_columns: tuple[str, ...] | Literal["*"] = Field(
         default="*",
         title="Variables candidatas",
-        description="'*' = todas las no estructurales del frame de data.",
+        description="'*' = todas las columnas no estructurales del dataset.",
         json_schema_extra={
             "ui_widget": "multiselect",
             "ui_group": "Variables",

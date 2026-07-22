@@ -70,8 +70,8 @@ class IfrsPdConfig(NikodymBaseConfig):
         default="survival",
         title="Proveedor de term-structure lifetime",
         description=(
-            "Módulo que publica la term-structure lifetime PD por el contrato tidy CT-2 "
-            "(survival estándar IFRS 9; markov/forward opt-in)."
+            "Origen de la term-structure de PD lifetime: survival es el estándar IFRS 9; markov "
+            "y forward son alternativas."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "PD", "ui_order": 1},
     )
@@ -80,7 +80,7 @@ class IfrsPdConfig(NikodymBaseConfig):
         title="Fuente de PD 12m base",
         description=(
             "term_structure deriva la PD 12m de la misma curva lifetime; calibration la ancla a "
-            "la PD transversal de SDD-10."
+            "la PD calibrada transversal."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "PD", "ui_order": 2},
     )
@@ -108,9 +108,9 @@ class IfrsPdConfig(NikodymBaseConfig):
         default=None,
         title="Columna de rho por fila (reservada)",
         description=(
-            "Reservada, no consumida por el motor v1: la correlación heterogénea por fila está "
-            "diferida. El motor sólo usa `pd.rho` escalar por cartera y rechaza fail-fast este "
-            "campo si se fija (honrarlo con el escalar sería una degradación con etiqueta falsa)."
+            "Reservada: la correlación por fila aún no está implementada. El motor usa el "
+            "escalar `pd.rho` por cartera y, si se informa esta columna, detiene la corrida con "
+            "error en vez de aplicar el escalar en silencio."
         ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "PD", "ui_order": 5},
     )
@@ -284,11 +284,11 @@ class IfrsEadConfig(NikodymBaseConfig):
     )
     exposure_profile_col: str | None = Field(
         default=None,
-        title="Perfil EAD(t) longitudinal (diferido a CT-3)",
+        title="Perfil EAD(t) longitudinal (reservado)",
         description=(
-            "Reservado para el perfil de exposición EAD(t) por período (panel longitudinal). "
-            "Diferido a CT-3: informarlo no se soporta en v1 y levanta IfrsConfigError, porque "
-            "una columna escalar no representa EAD(t) por período."
+            "Reservada: el perfil de exposición EAD(t) por período aún no está implementado. "
+            "Informar esta columna detiene la corrida con error, porque una columna escalar no "
+            "puede representar la EAD período a período."
         ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "EAD", "ui_order": 7},
     )
@@ -331,7 +331,9 @@ class IfrsStagingConfig(NikodymBaseConfig):
         gt=1.0,
         title="Ratio PD lifetime actual/origen",
         description=(
-            "Umbral del ratio PD lifetime actual/origen que dispara Stage 2 (ESPEC §5.5, >=2x)."
+            "Umbral del ratio PD lifetime actual/origen que dispara el paso a Stage 2. El "
+            "default 2,0 es el disparador de referencia; el motor admite cualquier valor mayor "
+            "que 1, y moverlo cambia la población clasificada en Stage 2."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Staging", "ui_order": 1},
     )
@@ -339,7 +341,10 @@ class IfrsStagingConfig(NikodymBaseConfig):
         default=3.0,
         gt=1.0,
         title="Backstop PIT",
-        description="Múltiplo del backstop PIT que dispara Stage 2 (ESPEC §5.5, >=3x).",
+        description=(
+            "Múltiplo del backstop PIT que dispara el paso a Stage 2. El default 3,0 es el "
+            "múltiplo de referencia; el motor admite cualquier valor mayor que 1."
+        ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Staging", "ui_order": 2},
     )
     dpd_sicr_backstop: int = Field(
@@ -407,8 +412,8 @@ class IfrsStagingConfig(NikodymBaseConfig):
         default=False,
         title="Aplicar exención de bajo riesgo crediticio",
         description=(
-            "Activa la exención IFRS 9 5.5.10. Por política conservadora del motor v1, las "
-            "presunciones rebatibles 30/90 dpd prevalecen sobre la exención."
+            "Activa la exención IFRS 9 5.5.10. Por política conservadora del motor, las "
+            "presunciones rebatibles de 30/90 días de mora prevalecen sobre la exención."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Staging", "ui_order": 12},
     )
@@ -454,7 +459,8 @@ class IfrsScenarioConfig(NikodymBaseConfig):
         default="forward",
         title="Fuente de escenarios/pesos",
         description=(
-            "forward toma escenarios y pesos de SDD-20; config los fija aquí; single usa w=1."
+            "forward toma escenarios y pesos de la sección forward; config los fija aquí; "
+            "single usa w=1."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Escenarios", "ui_order": 1},
     )
@@ -557,7 +563,10 @@ class IfrsEclConfig(NikodymBaseConfig):
 
 
 class IfrsProvisioningConfig(NikodymBaseConfig):
-    """Sección ``provisioning_ifrs9`` de :class:`~nikodym.core.config.NikodymConfig`."""
+    """Calcula las provisiones contables IFRS 9: staging y pérdida esperada (ECL).
+
+    Motor experimental: fuera de la garantía SemVer 1.x.
+    """
 
     schema_version: str = Field(
         default="1.0.0",
@@ -568,7 +577,7 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección provisioning_ifrs9",
-        description="== @register('standard', domain='provisioning_ifrs9') (SDD-16 §4).",
+        description="Variante de la sección de provisiones IFRS 9; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     as_of_date_col: str = Field(
@@ -629,11 +638,9 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
         default=True,
         title="Rechazo fail-fast de configuración PIT inconsistente",
         description=(
-            "Con True (default), la validación rechaza fail-fast una configuración PIT "
-            "inconsistente —`pit_mode='apply_vasicek'` sin `pd.rho` escalar o sin factor "
-            "sistémico Z—, adelantando a validación el error que el motor daría igual en el "
-            "cálculo. En v1 no habilita un modo alternativo que «marque FALTA-DATO y continúe» "
-            "para ese caso."
+            "Con True (default), una configuración PIT inconsistente —`pit_mode='apply_vasicek'` "
+            "sin `pd.rho` escalar o sin el factor sistémico Z— detiene la corrida al validar el "
+            "config. Con False el fallo aparece igual, pero más tarde, durante el cálculo."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 2},
     )

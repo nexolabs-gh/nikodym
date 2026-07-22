@@ -54,7 +54,7 @@ __all__ = [
 
 
 class TuningObjectiveConfig(NikodymBaseConfig):
-    """Métrica objetivo de la búsqueda de hiperparámetros (SDD-13 §5)."""
+    """Métrica objetivo que maximiza la búsqueda de hiperparámetros."""
 
     metric: TuningMetric = Field(
         default="auc",
@@ -74,7 +74,7 @@ class TuningObjectiveConfig(NikodymBaseConfig):
 
 
 class TuningSamplerConfig(NikodymBaseConfig):
-    """Sampler, pruner y presupuesto de trials del estudio Optuna (SDD-13 §5)."""
+    """Sampler, pruner y presupuesto de trials del estudio Optuna."""
 
     sampler: TuningSampler = Field(
         default="tpe",
@@ -112,7 +112,7 @@ class TuningSamplerConfig(NikodymBaseConfig):
 
 
 class TuningValidationConfig(NikodymBaseConfig):
-    """Estrategia de validación interna anti-leakage sobre ``desarrollo`` (SDD-13 §5/§7)."""
+    """Estrategia de validación interna sobre ``desarrollo``; holdout y OOT nunca entran."""
 
     strategy: ValidationStrategy = Field(
         default="cv",
@@ -142,18 +142,21 @@ class TuningValidationConfig(NikodymBaseConfig):
     fit_partition: str = Field(
         default="desarrollo",
         title="Partición de búsqueda",
-        description="Partición sobre la que se busca (nunca holdout/oot); coherente con ml.train.",
+        description=(
+            "Campo reservado: hoy no altera la búsqueda. La partición de ajuste efectiva es la "
+            "declarada en `ml.train.fit_partition`."
+        ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Validación", "ui_order": 4},
     )
 
 
 class TuningConfig(NikodymBaseConfig):
-    """Sección ``tuning`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-13 §5)."""
+    """Busca con Optuna los hiperparámetros del challenger definido en ``ml``."""
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección tuning",
-        description="== @register('standard', domain='tuning') (SDD-13 §4).",
+        description="Variante de la sección tuning; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 0},
     )
     schema_version: str = Field(
@@ -165,7 +168,7 @@ class TuningConfig(NikodymBaseConfig):
     objective: TuningObjectiveConfig = Field(
         default_factory=TuningObjectiveConfig,
         title="Objetivo",
-        description="Métrica de discriminación a optimizar (reúso de SDD-11, sin recodificar).",
+        description="Métrica de discriminación que la búsqueda maximiza.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Objetivo", "ui_order": 1},
     )
     optimizer: TuningSamplerConfig = Field(

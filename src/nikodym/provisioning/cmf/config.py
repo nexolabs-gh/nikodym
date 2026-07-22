@@ -190,7 +190,11 @@ class CmfExposureConfig(NikodymBaseConfig):
     is_default_col: str = Field(
         default="is_default",
         title="Indicador incumplimiento",
-        description="Columna booleana que activa el override B-3 de 100% en incumplimiento.",
+        description=(
+            "Columna booleana con el incumplimiento declarado por el banco: fuerza el factor de "
+            "conversión B-3 a 100 % en contingentes y, en cartera consumo, clasifica al deudor en "
+            "incumplimiento (PI 100 %) aunque su mora sea menor a 90 días."
+        ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Exposición", "ui_order": 4},
     )
     allow_negative_exposure: bool = Field(
@@ -230,8 +234,8 @@ class CmfGuaranteeConfig(NikodymBaseConfig):
         default="fail",
         title="Política ante aforos financieros faltantes",
         description=(
-            "Tratamiento de garantías financieras con aforos/haircuts no verificados "
-            "en la normativa recopilada."
+            "Tratamiento de las garantías financieras cuyos aforos no están verificados en la "
+            "normativa recopilada."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Garantías", "ui_order": 2},
     )
@@ -267,7 +271,12 @@ class CmfGuaranteeConfig(NikodymBaseConfig):
 
 
 class CmfProvisioningConfig(NikodymBaseConfig):
-    """Sección ``provisioning_cmf`` de :class:`~nikodym.core.config.NikodymConfig`."""
+    """Calcula la provisión regulatoria CMF (Cap. B-1 y B-3) con el bundle de matrices versionado.
+
+    El bundle activo se elige en ``matrices.active_version``.
+
+    Motor experimental: fuera de la garantía SemVer 1.x.
+    """
 
     schema_version: str = Field(
         default="1.0.0",
@@ -278,7 +287,7 @@ class CmfProvisioningConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección provisioning_cmf",
-        description="== @register('standard', domain='provisioning_cmf') (SDD-15 §4).",
+        description="Variante de la sección de provisiones CMF; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     as_of_date_col: str = Field(
@@ -302,7 +311,10 @@ class CmfProvisioningConfig(NikodymBaseConfig):
     category_col: str = Field(
         default="cmf_category",
         title="Categoría CMF",
-        description="Columna con categoría/tramo CMF provisto para el modo standalone.",
+        description=(
+            "Columna con la categoría o tramo CMF ya provisto en los datos; la lee el método "
+            "provided_cmf_category, que evita derivar la categoría desde la PD de un modelo."
+        ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 4},
     )
     days_past_due_col: str = Field(

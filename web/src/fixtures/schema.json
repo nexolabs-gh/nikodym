@@ -44,14 +44,14 @@
         "properties": {
           "seed": {
             "default": 42,
-            "description": "Semilla raíz del azar (>= 0; SeedSequence rechaza entropía negativa).",
+            "description": "Semilla raíz del azar que hace reproducible la corrida; entero mayor o igual a 0.",
             "minimum": 0,
             "title": "Semilla",
             "type": "integer"
           },
           "strict_determinism": {
             "default": false,
-            "description": "True fuerza single-thread en GBDT a costa de velocidad (caveat multihilo).",
+            "description": "Campo reservado: hoy no altera la corrida, cualquiera sea su valor. El modo single-thread determinista del challenger se controla en `ml.deterministic` junto con `ml.n_threads`.",
             "title": "Determinismo estricto",
             "type": "boolean"
           }
@@ -65,7 +65,7 @@
         "properties": {
           "fail_fast": {
             "default": true,
-            "description": "v1: forzado a True; False queda reservado para v2 (lo valida el orquestador).",
+            "description": "Detiene la corrida en el primer paso que falla. Desactivarlo está reservado y aún no se implementa: si se fija en False, la corrida avisa con una advertencia y se ejecuta igual deteniéndose ante el primer error.",
             "title": "Fallar rápido",
             "type": "boolean"
           },
@@ -82,7 +82,7 @@
               }
             ],
             "default": null,
-            "description": "None = pipeline por defecto (las secciones no-None en orden de declaración).",
+            "description": "Pasos a ejecutar. Si se deja vacío se ejecutan las secciones de dominio que estén configuradas, en el orden fijo del pipeline (los datos primero, el informe al final).",
             "title": "Pasos a ejecutar"
           }
         },
@@ -242,7 +242,7 @@
           "type": {
             "const": "cohort",
             "default": "cohort",
-            "description": "Discriminador del factory local _SPLITTERS.",
+            "description": "Identifica la estrategia como partición por cohorte.",
             "title": "Tipo de estrategia",
             "type": "string",
             "ui_help": "Identifica esta estrategia como partición por cohorte; normalmente lo fija el selector de la UI, no se edita a mano."
@@ -261,13 +261,13 @@
         "properties": {
           "coerce": {
             "default": false,
-            "description": "Castea al dtype declarado durante la validación (pandera coerce).",
+            "description": "Convierte la columna al tipo declarado durante la validación.",
             "title": "Coercionar tipo",
             "type": "boolean",
             "ui_help": "Convierte el dato al tipo declarado en vez de solo validarlo (p.ej. texto '10' a número). Útil si el origen no garantiza tipos limpios, pero puede esconder errores de formato si se abusa de ella."
           },
           "dtype": {
-            "description": "Tipo lógico esperado (se traduce a un dtype de pandera).",
+            "description": "Tipo de dato que debe tener la columna.",
             "enum": [
               "int",
               "float",
@@ -419,7 +419,7 @@
         "properties": {
           "backend": {
             "default": "pandas",
-            "description": "polars opcional para grandes volúmenes (D-DATA-1); la API expone pandas.",
+            "description": "Motor de lectura del archivo; 'polars' acelera datasets grandes y el resultado siempre se entrega como pandas.",
             "enum": [
               "pandas",
               "polars"
@@ -471,7 +471,7 @@
         "properties": {
           "max_missing_rate": {
             "default": 0.99,
-            "description": "Columnas sobre el umbral se reportan como decisión (las elimina selection, no data).",
+            "description": "Las columnas por sobre el umbral se reportan como decisión en el audit-trail; ninguna etapa las elimina automáticamente por este umbral.",
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Tasa máxima de missing por columna",
@@ -497,7 +497,7 @@
         "properties": {
           "min_bads_per_partition": {
             "default": 30,
-            "description": "Por debajo se emite DataValidationError (partición no evaluable).",
+            "description": "Por debajo de este mínimo la corrida se detiene con error: la partición no es evaluable.",
             "minimum": 0,
             "title": "Mínimo de malos por partición",
             "type": "integer",
@@ -647,7 +647,7 @@
               }
             ],
             "default": null,
-            "description": "Escalar para comparadores; tupla para 'in'/'notin'; None para 'isna'/'notna'. El modo de unión smart de Pydantic + el orden bool->int->float (lo más específico primero) evita la coerción (un `true` no se vuelve 1) y conserva list->tuple en el round-trip. (SDD-02 §5 pedía strict=True; Pydantic 2.13 no lo aplica a una unión.)",
+            "description": "Escalar para los comparadores; lista de valores para 'in'/'notin'; vacío para 'isna'/'notna'. El valor conserva su tipo original (un `true` no se convierte en 1).",
             "title": "Valor de comparación",
             "ui_help": "Valor contra el que se compara la columna. Para 'pertenece'/'no pertenece' ingresa una lista de valores; para 'es nulo'/'no es nulo' déjalo vacío."
           }
@@ -707,7 +707,7 @@
           "type": {
             "const": "random",
             "default": "random",
-            "description": "Discriminador del factory local _SPLITTERS.",
+            "description": "Identifica la estrategia como partición aleatoria.",
             "title": "Tipo de estrategia",
             "type": "string",
             "ui_help": "Identifica esta estrategia como partición aleatoria; normalmente lo fija el selector de la UI, no se edita a mano."
@@ -718,7 +718,7 @@
       },
       "data__Rule": {
         "additionalProperties": false,
-        "description": "Conjunción/disyunción de predicados (un nivel); se evalúa vectorizada, sin ``eval``.",
+        "description": "Combina condiciones con AND (``all_of``) y/o OR (``any_of``), en un único nivel.",
         "properties": {
           "all_of": {
             "description": "Todos deben cumplirse.",
@@ -831,7 +831,7 @@
             "ui_help": "Columnas a las que aplica este catálogo de centinelas. '*' aplica a todas las columnas del dataset."
           },
           "label": {
-            "description": "Nombre del bin que usará binning (SDD-06).",
+            "description": "Nombre del bin propio que binning asignará a estos valores.",
             "title": "Etiqueta del special",
             "type": "string",
             "ui_help": "Nombre con el que este special value aparecerá como bin propio en el binning, en vez de mezclarse con los nulos comunes."
@@ -866,7 +866,7 @@
         "properties": {
           "bad_rule": {
             "$ref": "#/$defs/data__Rule",
-            "description": "Mini-DSL columna/op/valor, p.ej. all_of=[{col:dpd_12m, op:'>=', value:90}]. malo=1.",
+            "description": "Condición que marca la observación como 'malo' (target = 1), p. ej. all_of=[{col: dpd_12m, op: '>=', value: 90}].",
             "title": "Regla de 'malo'",
             "ui_help": "Condición que define cuándo una observación es 'malo' (p.ej. mora >= 90 días). Es la regla central del target: 1 = malo."
           },
@@ -903,13 +903,13 @@
               }
             ],
             "default": null,
-            "description": "Mini-DSL; estas filas se excluyen del ajuste (target NA).",
+            "description": "Estas filas quedan con el target vacío y se excluyen del ajuste.",
             "title": "Regla de 'indeterminado' (zona gris)",
             "ui_help": "Condición de zona gris: observaciones que no son claramente buenas ni malas y por eso se excluyen del ajuste del modelo (target queda vacío), aunque quedan trazadas como 'indeterminado'."
           },
           "target_col": {
             "default": "target",
-            "description": "Columna 0/1 (NA si indeterminado/excluido) que produce la capa.",
+            "description": "Columna 0/1 generada; vacía si la observación es indeterminada o excluida.",
             "title": "Nombre de la columna target derivada",
             "type": "string",
             "ui_help": "Nombre de la columna 0/1 que el motor va a crear con el resultado del etiquetado (vacía si la observación es indeterminada o excluida)."
@@ -963,7 +963,7 @@
           "type": {
             "const": "temporal",
             "default": "temporal",
-            "description": "Discriminador del factory local _SPLITTERS.",
+            "description": "Identifica la estrategia como partición temporal.",
             "title": "Tipo de estrategia",
             "type": "string",
             "ui_help": "Identifica esta estrategia como partición temporal; normalmente lo fija el selector de la UI, no se edita a mano."
@@ -1019,7 +1019,7 @@
               }
             ],
             "default": null,
-            "description": "Fecha de observación a discretizar. Debe ser dtype datetime (validado por data).",
+            "description": "Fecha de observación que se agrupa en períodos; la columna debe ser de tipo fecha y la corrida se detiene si no lo es.",
             "title": "Columna de fecha (eje period)",
             "ui_group": "Tasa de default",
             "ui_order": 2,
@@ -1088,7 +1088,7 @@
         "properties": {
           "enabled": {
             "default": false,
-            "description": "Si True, los perfiles/figuras se calculan sobre una muestra (usa el rng de core). La tasa de default por período se calcula SIEMPRE sobre el total (no se muestrea).",
+            "description": "Calcula los perfiles y figuras sobre una muestra. La tasa de default por período se calcula siempre sobre el total, nunca sobre la muestra.",
             "title": "Muestrear para los perfiles univariados",
             "type": "boolean",
             "ui_group": "Muestreo",
@@ -1129,7 +1129,7 @@
           },
           "threshold": {
             "default": 0.25,
-            "description": "Por encima, se emite log_decision señalando posible redesarrollo (no aborta).",
+            "description": "Por encima del umbral se registra una decisión señalando posible redesarrollo; la corrida continúa.",
             "minimum": 0.0,
             "title": "Umbral del indicador",
             "type": "number",
@@ -1158,7 +1158,7 @@
               }
             ],
             "default": null,
-            "description": "None = todas las no-estructurales (excluye target/status/partition/fecha/cohorte). Qué columnas son features lo decide SDD-06/07; aquí es solo el alcance del perfil.",
+            "description": "Vacío = todas las columnas no estructurales (excluye target, estado, partición, fecha y cohorte). Define el alcance del perfil, no qué variables entran al modelo.",
             "title": "Columnas a perfilar",
             "ui_group": "Perfiles univariados",
             "ui_order": 4,
@@ -1166,7 +1166,7 @@
           },
           "compute_descriptive_iv": {
             "default": false,
-            "description": "Diagnóstico rápido; NO es el IV final de SDD-06. Etiquetado 'pre-binning'.",
+            "description": "Diagnóstico rápido etiquetado 'pre-binning'; no es el IV final del binning.",
             "title": "Calcular IV univariado descriptivo (pre-binning)",
             "type": "boolean",
             "ui_group": "Perfiles univariados",
@@ -1175,7 +1175,7 @@
           },
           "n_quantile_bins": {
             "default": 10,
-            "description": "Troceo DESCRIPTIVO para el perfil; NO es el binning de SDD-06.",
+            "description": "Troceo descriptivo del perfil; no es el binning que alimenta el modelo.",
             "maximum": 50,
             "minimum": 2,
             "title": "Tramos por cuantiles (numéricas, descriptivo)",
@@ -1201,11 +1201,11 @@
       },
       "explain__ExplainOutputConfig": {
         "additionalProperties": false,
-        "description": "Artefactos publicados por ``explain`` (contribuciones locales, top-K, figuras, SDD-14 §5).",
+        "description": "Artefactos de explicabilidad publicados: contribuciones locales, top-K y figuras.",
         "properties": {
           "emit_figures": {
             "default": true,
-            "description": "Si True, añade SHAP summary/dependence al card (matplotlib, import perezoso).",
+            "description": "Si True, añade al informe las figuras SHAP de resumen y de dependencia (requiere matplotlib).",
             "title": "Emitir figuras SHAP",
             "type": "boolean",
             "ui_group": "Salida",
@@ -1247,7 +1247,7 @@
       },
       "explain__LocalScopeConfig": {
         "additionalProperties": false,
-        "description": "Scope de las explicaciones locales que se materializan y publican (SDD-14 §5, D-EXP-6).",
+        "description": "Qué observaciones se explican individualmente y se publican.",
         "properties": {
           "partition": {
             "default": "holdout",
@@ -1299,7 +1299,7 @@
       },
       "explain__MLExplainerConfig": {
         "additionalProperties": false,
-        "description": "Selección y parametrización del explainer SHAP del challenger ML (SDD-14 §5, D-EXP-1).",
+        "description": "Selección y parametrización del explainer SHAP del challenger ML.",
         "properties": {
           "background_partition": {
             "default": "desarrollo",
@@ -1345,7 +1345,7 @@
           },
           "ml_explainer": {
             "default": "auto",
-            "description": "'auto' resuelve por backend (Tree para GBDT/RF, Linear para lineales, Kernel fallback); forzable a 'tree'/'linear'/'kernel' con validación de compatibilidad en runtime.",
+            "description": "'auto' elige el explainer según el backend (Tree para GBDT y Random Forest, Linear para modelos lineales, Kernel en el resto); forzar uno incompatible con el backend detiene la corrida con error.",
             "enum": [
               "auto",
               "tree",
@@ -1381,7 +1381,7 @@
       },
       "explain__ReasonCodesConfig": {
         "additionalProperties": false,
-        "description": "Política de reason codes (top-N drivers de la PD con dirección y magnitud, SDD-14 §5).",
+        "description": "Política de reason codes: top-N drivers de la PD con su dirección y magnitud.",
         "properties": {
           "adverse_direction": {
             "const": "increases_pd",
@@ -1414,7 +1414,7 @@
           },
           "top_n": {
             "default": 5,
-            "description": "Nº de drivers principales por observación; default 5 (referencia ECOA/FCRA 'key factors', NO norma CMF — FALTA-DATO-EXP-1).",
+            "description": "Nº de drivers principales por observación; el default 5 sigue los 'key factors' de ECOA/FCRA y NO responde a una norma CMF (brecha declarada FALTA-DATO-EXP-1).",
             "maximum": 50,
             "minimum": 1,
             "title": "N de reason codes",
@@ -1429,7 +1429,7 @@
       },
       "explain__ScorecardExplainConfig": {
         "additionalProperties": false,
-        "description": "Baseline de la mitad scorecard: contribución ``β·(WoE - baseline)`` (SDD-14 §5, D-EXP-7).",
+        "description": "Baseline del scorecard: la contribución de cada atributo es ``β·(WoE - baseline)``.",
         "properties": {
           "baseline": {
             "default": "population_mean",
@@ -1503,7 +1503,7 @@
               "survival",
               "markov"
             ],
-            "description": "Fuentes upstream de term-structure lifetime PD.",
+            "description": "Etapas de las que se toma la term-structure de PD lifetime.",
             "items": {
               "enum": [
                 "survival",
@@ -1988,7 +1988,7 @@
       },
       "forward__ScenarioConfig": {
         "additionalProperties": false,
-        "description": "Configuración de escenarios y guard anti escenario medio.",
+        "description": "Escenarios macro ponderados y bloqueo del escenario medio único.",
         "properties": {
           "forbid_mean_scenario": {
             "default": true,
@@ -2184,7 +2184,7 @@
       },
       "markov__MarkovDynamicsConfig": {
         "additionalProperties": false,
-        "description": "Configuración de proyección Markov.\n\nLa ruta Aalen-Johansen se activa solo con ``projection_mode='aalen_johansen'``; este schema no\nexpone campos fantasma ``homogeneous`` ni ``nonhomogeneous_method``.",
+        "description": "Proyecta las matrices de transición a cada horizonte pedido.\n\nEl estimador Aalen-Johansen se aplica solo cuando `projection_mode` vale `aalen_johansen`.",
         "properties": {
           "embedding_policy": {
             "default": "diagnose",
@@ -2259,11 +2259,11 @@
       },
       "markov__MarkovEstimationConfig": {
         "additionalProperties": false,
-        "description": "Configuración de estimación; ``delta_t ← cfg.estimation.interval``.",
+        "description": "Método, intervalo temporal y mínimos de conteo con que se estiman las transiciones.",
         "properties": {
           "interval": {
             "default": 1.0,
-            "description": "Mapeo de fórmulas: delta_t = interval; Δt se lee como cfg.estimation.interval.",
+            "description": "Longitud del intervalo temporal base (Δt) entre observaciones sucesivas.",
             "exclusiveMinimum": 0.0,
             "title": "Longitud del intervalo base",
             "type": "number",
@@ -2665,7 +2665,7 @@
       },
       "ml__MLComparisonConfig": {
         "additionalProperties": false,
-        "description": "Comparación cabeza-a-cabeza challenger-vs-campeón (reúso de SDD-11).",
+        "description": "Contrasta al challenger con el scorecard campeón usando el mismo motor de métricas.",
         "properties": {
           "metrics": {
             "default": [
@@ -2674,7 +2674,7 @@
               "ks",
               "psi"
             ],
-            "description": "Métricas de discriminación/estabilidad reúsadas de SDD-11 (no se recalculan).",
+            "description": "Métricas de discriminación y estabilidad con que se contrasta al challenger; se calculan con los mismos motores de las etapas de desempeño y estabilidad, nunca con otra fórmula.",
             "items": {
               "enum": [
                 "auc",
@@ -3234,7 +3234,7 @@
           },
           "max_iter": {
             "default": 100,
-            "description": "Límite de rondas del algoritmo stepwise; no controla las iteraciones del ajuste statsmodels, que viven en ModelConfig.fit_maxiter.",
+            "description": "Límite de rondas del algoritmo stepwise; no controla las iteraciones del ajuste estadístico, que se fijan en `model.fit_maxiter`.",
             "minimum": 1,
             "title": "Máximo de iteraciones stepwise",
             "type": "integer",
@@ -3300,7 +3300,7 @@
           },
           "is_default_col": {
             "default": "is_default",
-            "description": "Columna booleana que activa el override B-3 de 100% en incumplimiento.",
+            "description": "Columna booleana con el incumplimiento declarado por el banco: fuerza el factor de conversión B-3 a 100 % en contingentes y, en cartera consumo, clasifica al deudor en incumplimiento (PI 100 %) aunque su mora sea menor a 90 días.",
             "title": "Indicador incumplimiento",
             "type": "string",
             "ui_group": "Exposición",
@@ -3340,7 +3340,7 @@
           },
           "financial_guarantee_policy": {
             "default": "fail",
-            "description": "Tratamiento de garantías financieras con aforos/haircuts no verificados en la normativa recopilada.",
+            "description": "Tratamiento de las garantías financieras cuyos aforos no están verificados en la normativa recopilada.",
             "enum": [
               "fail",
               "ignore_if_missing",
@@ -3567,8 +3567,8 @@
               }
             ],
             "default": null,
-            "description": "Reservado para el perfil de exposición EAD(t) por período (panel longitudinal). Diferido a CT-3: informarlo no se soporta en v1 y levanta IfrsConfigError, porque una columna escalar no representa EAD(t) por período.",
-            "title": "Perfil EAD(t) longitudinal (diferido a CT-3)",
+            "description": "Reservada: el perfil de exposición EAD(t) por período aún no está implementado. Informar esta columna detiene la corrida con error, porque una columna escalar no puede representar la EAD período a período.",
+            "title": "Perfil EAD(t) longitudinal (reservado)",
             "ui_group": "EAD",
             "ui_order": 7,
             "ui_widget": "text_input"
@@ -3753,7 +3753,7 @@
         "properties": {
           "base_pd_source": {
             "default": "term_structure",
-            "description": "term_structure deriva la PD 12m de la misma curva lifetime; calibration la ancla a la PD transversal de SDD-10.",
+            "description": "term_structure deriva la PD 12m de la misma curva lifetime; calibration la ancla a la PD calibrada transversal.",
             "enum": [
               "calibration",
               "term_structure"
@@ -3833,7 +3833,7 @@
               }
             ],
             "default": null,
-            "description": "Reservada, no consumida por el motor v1: la correlación heterogénea por fila está diferida. El motor sólo usa `pd.rho` escalar por cartera y rechaza fail-fast este campo si se fija (honrarlo con el escalar sería una degradación con etiqueta falsa).",
+            "description": "Reservada: la correlación por fila aún no está implementada. El motor usa el escalar `pd.rho` por cartera y, si se informa esta columna, detiene la corrida con error en vez de aplicar el escalar en silencio.",
             "title": "Columna de rho por fila (reservada)",
             "ui_group": "PD",
             "ui_order": 5,
@@ -3857,7 +3857,7 @@
           },
           "term_structure_source": {
             "default": "survival",
-            "description": "Módulo que publica la term-structure lifetime PD por el contrato tidy CT-2 (survival estándar IFRS 9; markov/forward opt-in).",
+            "description": "Origen de la term-structure de PD lifetime: survival es el estándar IFRS 9; markov y forward son alternativas.",
             "enum": [
               "survival",
               "markov",
@@ -3888,7 +3888,7 @@
           },
           "source": {
             "default": "forward",
-            "description": "forward toma escenarios y pesos de SDD-20; config los fija aquí; single usa w=1.",
+            "description": "forward toma escenarios y pesos de la sección forward; config los fija aquí; single usa w=1.",
             "enum": [
               "forward",
               "config",
@@ -3982,7 +3982,7 @@
           },
           "low_credit_risk_exemption": {
             "default": false,
-            "description": "Activa la exención IFRS 9 5.5.10. Por política conservadora del motor v1, las presunciones rebatibles 30/90 dpd prevalecen sobre la exención.",
+            "description": "Activa la exención IFRS 9 5.5.10. Por política conservadora del motor, las presunciones rebatibles de 30/90 días de mora prevalecen sobre la exención.",
             "title": "Aplicar exención de bajo riesgo crediticio",
             "type": "boolean",
             "ui_group": "Staging",
@@ -4056,7 +4056,7 @@
           },
           "sicr_pd_pit_backstop_multiple": {
             "default": 3.0,
-            "description": "Múltiplo del backstop PIT que dispara Stage 2 (ESPEC §5.5, >=3x).",
+            "description": "Múltiplo del backstop PIT que dispara el paso a Stage 2. El default 3,0 es el múltiplo de referencia; el motor admite cualquier valor mayor que 1.",
             "exclusiveMinimum": 1.0,
             "title": "Backstop PIT",
             "type": "number",
@@ -4066,7 +4066,7 @@
           },
           "sicr_pd_ratio_threshold": {
             "default": 2.0,
-            "description": "Umbral del ratio PD lifetime actual/origen que dispara Stage 2 (ESPEC §5.5, >=2x).",
+            "description": "Umbral del ratio PD lifetime actual/origen que dispara el paso a Stage 2. El default 2,0 es el disparador de referencia; el motor admite cualquier valor mayor que 1, y moverlo cambia la población clasificada en Stage 2.",
             "exclusiveMinimum": 1.0,
             "title": "Ratio PD lifetime actual/origen",
             "type": "number",
@@ -4219,7 +4219,7 @@
           "send_raw_data": {
             "const": false,
             "default": false,
-            "description": "Bloqueado en F1: la narrativa IA nunca recibe datos crudos.",
+            "description": "Bloqueado: la narrativa IA nunca recibe datos crudos; solo admite False.",
             "title": "Enviar datos crudos",
             "type": "boolean",
             "ui_group": "Narrativa IA",
@@ -4309,7 +4309,7 @@
       },
       "report__DocxRenderConfig": {
         "additionalProperties": false,
-        "description": "Config del export ``.docx`` opcional (Word) vía ``python-docx``.\n\nEspejo de :class:`PdfRenderConfig`: el step decide por ``formats``, y esta sección sólo gobierna\nqué hacer cuando la dependencia opcional no está instalada.",
+        "description": "Config del export ``.docx`` opcional (Word) vía ``python-docx``.\n\nEl export se activa incluyendo ``docx`` en ``formats``; aquí solo se decide qué hacer cuando\nla dependencia opcional no está instalada.",
         "properties": {
           "fail_if_unavailable": {
             "default": false,
@@ -4357,7 +4357,7 @@
           },
           "render_charts": {
             "default": true,
-            "description": "True embebe los gráficos SVG deterministas del reporte en cada sección.",
+            "description": "True embebe los gráficos SVG deterministas del informe en cada sección.",
             "title": "Renderizar gráficos",
             "type": "boolean",
             "ui_group": "HTML",
@@ -4396,7 +4396,7 @@
         "properties": {
           "enabled": {
             "default": false,
-            "description": "Activa la generación opcional de un PDF del reporte mediante WeasyPrint.",
+            "description": "Solo aplica al uso directo del renderizador PDF. En una corrida, el PDF se activa incluyendo 'pdf' en `formats`.",
             "title": "Activar PDF",
             "type": "boolean",
             "ui_group": "PDF",
@@ -4431,7 +4431,7 @@
           },
           "max_table_rows": {
             "default": 200,
-            "description": "Máximo de filas visibles por tabla en el reporte renderizado.",
+            "description": "Máximo de filas visibles por tabla en el informe renderizado.",
             "minimum": 10,
             "title": "Máximo filas por tabla renderizada",
             "type": "integer",
@@ -4464,11 +4464,11 @@
               "performance",
               "stability"
             ],
-            "description": "Secciones de scorecard requeridas por el reporte canónico F1.",
+            "description": "Secciones del scorecard que el informe espera encontrar; qué hacer cuando falta alguna lo decide `missing_policy`.",
             "items": {
               "type": "string"
             },
-            "title": "Secciones obligatorias F1",
+            "title": "Secciones obligatorias del scorecard",
             "type": "array",
             "ui_group": "Secciones",
             "ui_order": 1,
@@ -4975,7 +4975,7 @@
       },
       "stress__StressInputConfig": {
         "additionalProperties": false,
-        "description": "Configuración de artefactos forward consumidos por stress.",
+        "description": "Artefactos de la etapa forward que consume stress, más los motores opcionales.",
         "properties": {
           "ecl_engine_artifact": {
             "anyOf": [
@@ -4997,15 +4997,15 @@
               }
             ],
             "default": null,
-            "description": "Artefacto opcional con engine ECL inyectable, sin import runtime de SDD-16.",
-            "title": "Artefacto engine ECL",
-            "ui_group": "Engines",
+            "description": "Artefacto opcional con el motor de ECL que calcula métricas económicas.",
+            "title": "Artefacto del motor de ECL",
+            "ui_group": "Motores",
             "ui_order": 1,
             "ui_widget": "artifact_key"
           },
           "ecl_input_key": {
             "default": "ecl_input",
-            "description": "Clave del contrato ForwardEclInput publicado por ForwardStep.",
+            "description": "Clave del artefacto con los insumos de ECL que publica la etapa forward.",
             "title": "Clave ecl_input",
             "type": "string",
             "ui_group": "Entrada",
@@ -5014,7 +5014,7 @@
           },
           "forward_domain": {
             "default": "forward",
-            "description": "Dominio del ArtifactStore desde el que se leen artefactos forward.",
+            "description": "Dominio del almacén de artefactos donde publica la etapa forward.",
             "title": "Dominio forward",
             "type": "string",
             "ui_group": "Entrada",
@@ -5023,7 +5023,7 @@
           },
           "macro_projection_key": {
             "default": "macro_projection",
-            "description": "Clave del artefacto de proyección macro publicado por ForwardStep.",
+            "description": "Clave del artefacto con la proyección macro que publica la etapa forward.",
             "title": "Clave macro_projection",
             "type": "string",
             "ui_group": "Entrada",
@@ -5050,15 +5050,15 @@
               }
             ],
             "default": null,
-            "description": "Artefacto opcional con engine de provisión futura de SDD-17.",
-            "title": "Artefacto engine provisión",
-            "ui_group": "Engines",
+            "description": "Artefacto opcional con el motor que calcula la provisión futura.",
+            "title": "Artefacto del motor de provisiones",
+            "ui_group": "Motores",
             "ui_order": 2,
             "ui_widget": "artifact_key"
           },
           "satellite_model_key": {
             "default": "satellite_model",
-            "description": "Clave del modelo satellite publicado por ForwardStep.",
+            "description": "Clave del artefacto con el modelo satélite que publica la etapa forward.",
             "title": "Clave satellite_model",
             "type": "string",
             "ui_group": "Entrada",
@@ -5067,7 +5067,7 @@
           },
           "scenario_weighting_key": {
             "default": "scenario_weighting",
-            "description": "Clave del ponderador de escenarios publicado por ForwardStep.",
+            "description": "Clave del ponderador de escenarios que publica la etapa forward.",
             "title": "Clave scenario_weighting",
             "type": "string",
             "ui_group": "Entrada",
@@ -5076,7 +5076,7 @@
           },
           "term_structure_key": {
             "default": "term_structure",
-            "description": "Clave de la term-structure forward-looking publicada por ForwardStep.",
+            "description": "Clave de la term-structure forward-looking que publica la etapa forward.",
             "title": "Clave term_structure",
             "type": "string",
             "ui_group": "Entrada",
@@ -5093,7 +5093,7 @@
         "properties": {
           "include_baseline_rows": {
             "default": true,
-            "description": "Incluye filas baseline para medir impactos absolutos y relativos. B21.3 solo soporta True porque stress.impact exige value_base/value_stress; False queda diferido hasta que existan filas baseline dedicadas.",
+            "description": "Incluye las filas baseline con que se miden los impactos absolutos y relativos. Hoy solo se admite True: con False la corrida se detiene con error, porque el impacto necesita el valor base y el estresado en la misma fila.",
             "title": "Incluir baseline",
             "type": "boolean",
             "ui_group": "Salida",
@@ -5106,7 +5106,7 @@
               "pd_cumulative",
               "ecl"
             ],
-            "description": "Métricas publicadas por stress; ecl exige engine si se calcula.",
+            "description": "Métricas publicadas por stress; calcular ecl exige un motor de ECL.",
             "items": {
               "enum": [
                 "pd_marginal",
@@ -5145,7 +5145,7 @@
           },
           "publish_stressed_term_structure": {
             "default": true,
-            "description": "Publica la term-structure estresada CT-2.",
+            "description": "Publica la term-structure estresada: la curva de PD lifetime por período.",
             "title": "Publicar term-structure",
             "type": "boolean",
             "ui_group": "Salida",
@@ -5249,7 +5249,7 @@
               }
             ],
             "default": null,
-            "description": "Peso opcional para reportes; no sustituye ponderación IFRS 9 oficial.",
+            "description": "Peso opcional publicado en la salida; no sustituye la ponderación IFRS 9.",
             "title": "Peso",
             "ui_group": "Escenario",
             "ui_order": 6,
@@ -5439,8 +5439,8 @@
           },
           "requires_economic_engine": {
             "default": true,
-            "description": "Indica si la métrica exige engine ECL/provisión conectado.",
-            "title": "Requiere engine económico",
+            "description": "Indica si la métrica exige un motor de ECL o de provisiones conectado.",
+            "title": "Requiere motor económico",
             "type": "boolean",
             "ui_group": "Target",
             "ui_order": 7,
@@ -5478,8 +5478,8 @@
         "properties": {
           "fail_on_falta_dato": {
             "default": true,
-            "description": "Falla ante brechas FALTA-DATO-STR en vez de solo advertir.",
-            "title": "Fallar ante FALTA-DATO",
+            "description": "Si es True, las brechas de datos declaradas (avisos `FALTA-DATO-STR-*`) hacen fallar la corrida en vez de solo advertir.",
+            "title": "Fallar ante falta de dato",
             "type": "boolean",
             "ui_group": "Validación",
             "ui_order": 7,
@@ -5487,8 +5487,8 @@
           },
           "fail_on_missing_ecl_engine": {
             "default": true,
-            "description": "Falla si una métrica económica requiere engine ECL ausente.",
-            "title": "Fallar sin engine ECL",
+            "description": "Falla si una métrica económica exige un motor de ECL que no está conectado.",
+            "title": "Fallar sin motor de ECL",
             "type": "boolean",
             "ui_group": "Validación",
             "ui_order": 6,
@@ -5650,14 +5650,14 @@
           },
           "pd_role": {
             "default": "covariate",
-            "description": "Rol de la PD/logit de F1 dentro del modelo de hazard discreto.",
+            "description": "Rol de la PD o el logit del scorecard en el modelo de hazard discreto.",
             "enum": [
               "covariate",
               "offset",
               "segment",
               "none"
             ],
-            "title": "Rol de PD F1",
+            "title": "Rol de la PD del scorecard",
             "type": "string",
             "ui_group": "Discrete hazard",
             "ui_order": 3,
@@ -5763,10 +5763,10 @@
           },
           "linear_predictor_column": {
             "default": "linear_predictor",
-            "description": "Columna con logit/predictor lineal de F1 para covariable u offset.",
+            "description": "Columna con el logit o predictor lineal del scorecard, usada como covariable u offset.",
             "title": "Columna predictor lineal",
             "type": "string",
-            "ui_group": "PD F1",
+            "ui_group": "PD del scorecard",
             "ui_order": 3,
             "ui_widget": "text_input"
           },
@@ -5775,13 +5775,13 @@
             "description": "Columna con PD cruda o calibrada según la fuente configurada.",
             "title": "Columna PD cruda",
             "type": "string",
-            "ui_group": "PD F1",
+            "ui_group": "PD del scorecard",
             "ui_order": 2,
             "ui_widget": "text_input"
           },
           "pd_source": {
             "default": "model_raw",
-            "description": "Fuente de PD de F1 usada como insumo trazable del modelo lifetime.",
+            "description": "Origen de la PD del scorecard usada como insumo del modelo lifetime.",
             "enum": [
               "model_raw",
               "calibration",
@@ -5789,7 +5789,7 @@
             ],
             "title": "Fuente PD",
             "type": "string",
-            "ui_group": "PD F1",
+            "ui_group": "PD del scorecard",
             "ui_order": 1,
             "ui_widget": "selectbox"
           },
@@ -5970,7 +5970,7 @@
       },
       "tuning__SearchSpaceConfig": {
         "additionalProperties": false,
-        "description": "Mapa hiperparámetro → distribución de búsqueda (SDD-13 §4/§5).\n\n``params`` vacío ⇒ el config resuelve el espacio por defecto del backend de ``ml`` vía\n:func:`default_search_space` (B13.4). Las claves deben ser campos del params-model del backend;\nese cross-check lo hace el config, no este schema.",
+        "description": "Mapa de hiperparámetro a distribución de búsqueda.\n\nSi se deja vacío, se usa el espacio de búsqueda por defecto del backend declarado en ``ml``.\nCada clave debe ser un hiperparámetro de ese backend.",
         "properties": {
           "params": {
             "additionalProperties": {
@@ -6003,7 +6003,7 @@
       },
       "tuning__TuningObjectiveConfig": {
         "additionalProperties": false,
-        "description": "Métrica objetivo de la búsqueda de hiperparámetros (SDD-13 §5).",
+        "description": "Métrica objetivo que maximiza la búsqueda de hiperparámetros.",
         "properties": {
           "direction": {
             "const": "maximize",
@@ -6035,7 +6035,7 @@
       },
       "tuning__TuningSamplerConfig": {
         "additionalProperties": false,
-        "description": "Sampler, pruner y presupuesto de trials del estudio Optuna (SDD-13 §5).",
+        "description": "Sampler, pruner y presupuesto de trials del estudio Optuna.",
         "properties": {
           "n_trials": {
             "default": 50,
@@ -6097,11 +6097,11 @@
       },
       "tuning__TuningValidationConfig": {
         "additionalProperties": false,
-        "description": "Estrategia de validación interna anti-leakage sobre ``desarrollo`` (SDD-13 §5/§7).",
+        "description": "Estrategia de validación interna sobre ``desarrollo``; holdout y OOT nunca entran.",
         "properties": {
           "fit_partition": {
             "default": "desarrollo",
-            "description": "Partición sobre la que se busca (nunca holdout/oot); coherente con ml.train.",
+            "description": "Campo reservado: hoy no altera la búsqueda. La partición de ajuste efectiva es la declarada en `ml.train.fit_partition`.",
             "title": "Partición de búsqueda",
             "type": "string",
             "ui_group": "Validación",
@@ -6149,7 +6149,7 @@
       },
       "validation__BacktestingValidationConfig": {
         "additionalProperties": false,
-        "description": "Backtesting realizado-vs-estimado IFRS 9 (t-test LGD/EAD, binomial/Jeffreys PD).",
+        "description": "Contrasta lo realizado contra lo estimado en IFRS 9 (LGD/EAD y PD).",
         "properties": {
           "alpha": {
             "default": 0.05,
@@ -6164,7 +6164,7 @@
           },
           "enabled": {
             "default": false,
-            "description": "Opt-in: exige artefactos F4 (provisioning_ifrs9) + columnas de resultado realizado que no todo modelo del repo tiene.",
+            "description": "Activa el backtesting. Exige los resultados de `provisioning_ifrs9` y las columnas de resultado realizado, que no todos los modelos del inventario tienen.",
             "title": "Ejecutar backtesting IFRS 9",
             "type": "boolean",
             "ui_group": "Backtesting",
@@ -6256,7 +6256,7 @@
       },
       "validation__CalibrationValidationConfig": {
         "additionalProperties": false,
-        "description": "Calibración: Hosmer-Lemeshow, binomial/Jeffreys por grado, Brier y semáforo.",
+        "description": "Mide la calibración: Hosmer-Lemeshow, binomial/Jeffreys, Brier score y semáforo.",
         "properties": {
           "alpha": {
             "default": 0.05,
@@ -6350,7 +6350,7 @@
           },
           "pd_column": {
             "default": "pd_calibrated",
-            "description": "Columna con la PD calibrada consumida de SDD-10 para HL/Brier/binomial.",
+            "description": "Columna con la PD calibrada que alimenta Hosmer-Lemeshow, Brier y el test por grado.",
             "title": "Columna PD calibrada",
             "type": "string",
             "ui_group": "Columnas",
@@ -6381,7 +6381,7 @@
           },
           "traffic_light_green_alpha": {
             "default": 0.05,
-            "description": "Corte del semáforo verde/ámbar sobre el p-valor del test por grado (default institucional; FALTA-DATO-VAL-2 para el anclaje regulatorio exacto).",
+            "description": "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un default institucional, no un umbral fijado por norma (brecha declarada FALTA-DATO-VAL-2).",
             "exclusiveMaximum": 1.0,
             "exclusiveMinimum": 0.0,
             "title": "Corte verde/ámbar (p-valor)",
@@ -6407,12 +6407,12 @@
       },
       "validation__DiscriminationValidationConfig": {
         "additionalProperties": false,
-        "description": "Discriminación: reúso/consumo de AUC/Gini/KS de SDD-11 (no recálculo).",
+        "description": "Reporta la discriminación (AUC, Gini, KS) con el motor de la etapa de desempeño.",
         "properties": {
           "consume_performance": {
             "default": true,
-            "description": "True consume ('performance','discriminant_metrics'); False fuerza el fallback por reúso de PerformanceEvaluator (nunca reimplementa AUC/Gini/KS).",
-            "title": "Consumir discriminant_metrics de SDD-11",
+            "description": "Con True se toman el AUC, el Gini y el KS ya calculados en la etapa de desempeño; con False se calculan aquí con ese mismo motor, nunca con otra fórmula.",
+            "title": "Reusar las métricas de discriminación ya calculadas",
             "type": "boolean",
             "ui_group": "Discriminación",
             "ui_order": 1,
@@ -6424,7 +6424,7 @@
               "holdout",
               "oot"
             ],
-            "description": "Particiones sobre las que se reporta la discriminación consumida/reúsada.",
+            "description": "Particiones sobre las que se reporta la discriminación del modelo.",
             "items": {
               "enum": [
                 "desarrollo",
@@ -6445,12 +6445,12 @@
       },
       "validation__StabilityValidationConfig": {
         "additionalProperties": false,
-        "description": "Estabilidad: reúso/consumo del PSI de SDD-11 (no recálculo).",
+        "description": "Reporta el PSI con el mismo motor de la etapa de estabilidad.",
         "properties": {
           "consume_stability": {
             "default": true,
-            "description": "True consume ('stability','stability_metrics'); False fuerza el fallback por reúso de StabilityEvaluator (nunca reimplementa PSI).",
-            "title": "Consumir stability_metrics de SDD-11",
+            "description": "Con True se toma el PSI ya calculado en la etapa de estabilidad; con False se calcula aquí con ese mismo motor, nunca con otra fórmula.",
+            "title": "Reusar el PSI ya calculado",
             "type": "boolean",
             "ui_group": "Estabilidad",
             "ui_order": 1,
@@ -6458,7 +6458,7 @@
           },
           "psi_review_threshold": {
             "default": 0.25,
-            "description": "Umbral sobre el cual el PSI consumido gatilla revisión/redesarrollo.",
+            "description": "Umbral sobre el cual el PSI gatilla revisión/redesarrollo.",
             "minimum": 0.0,
             "title": "PSI vigilar hasta",
             "type": "number",
@@ -6468,7 +6468,7 @@
           },
           "psi_stable_threshold": {
             "default": 0.1,
-            "description": "Umbral bajo el cual el PSI consumido se considera estable.",
+            "description": "Umbral bajo el cual el PSI se considera estable.",
             "minimum": 0.0,
             "title": "PSI estable hasta",
             "type": "number",
@@ -6482,16 +6482,16 @@
       }
     },
     "additionalProperties": false,
-    "description": "Config raíz declarativo: agrega las secciones transversales del experimento.\n\n``NikodymConfig()`` construye sin argumentos con todos los valores por defecto (DoD F0). Las\nsecciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;\nen F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,\n``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,\n``calibration``, ``tuning``, ``ml``, ``explain``, ``survival``, ``forward``, ``stress``,\n``provisioning_cmf``, ``provisioning_ifrs9``, ``performance``, ``stability``, ``validation``,\n``report``).",
+    "description": "Configuración completa del estudio: todas las secciones del pipeline en un solo objeto.\n\nCada sección es opcional: la que se deja vacía no se ejecuta, y ``NikodymConfig()`` sin\nargumentos construye un estudio con todas las secciones vacías. El orden de ejecución lo fija\nel motor, no el orden de los campos; ``audit``, ``governance`` y ``tracking`` documentan y\nregistran la corrida, pero no son pasos del pipeline.",
     "properties": {
       "audit": {
         "default": null,
-        "description": "Sección de infraestructura para persistencia del audit-trail (SDD-03).",
+        "description": "Registra el audit-trail de la corrida y el snapshot del entorno en que se ejecutó.",
         "title": "Auditoría"
       },
       "binning": {
         "additionalProperties": false,
-        "description": "Sección de binning supervisado WoE/IV (capa `binning`, SDD-06).",
+        "description": "Agrupa cada variable en tramos y los convierte a WoE, con el IV como medida de poder predictivo.",
         "properties": {
           "cat_cutoff": {
             "anyOf": [
@@ -6580,7 +6580,7 @@
               }
             ],
             "default": "*",
-            "description": "'*' = todas las no estructurales del frame de data.",
+            "description": "'*' = todas las columnas no estructurales del dataset.",
             "title": "Variables candidatas",
             "ui_group": "Variables",
             "ui_help": "Variables a binear. Deja '*' para incluir todas las columnas no estructurales del dataset, o elige una lista explícita para acotar el universo.",
@@ -6938,7 +6938,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='binning') (D-CONV-2).",
+            "description": "Variante de la sección de binning; hoy solo existe la estándar.",
             "title": "Tipo de sección binning",
             "type": "string",
             "ui_group": "General",
@@ -6964,7 +6964,7 @@
       },
       "calibration": {
         "additionalProperties": false,
-        "description": "Sección de calibración de PD cruda a PD calibrada (capa `calibration`).",
+        "description": "Ajusta la PD cruda del modelo a una tasa central de anclaje aprobada.",
         "properties": {
           "anchor_kind": {
             "default": "through_the_cycle",
@@ -6999,7 +6999,7 @@
           "fit_partition": {
             "const": "desarrollo",
             "default": "desarrollo",
-            "description": "Partición fija usada para ajustar calibration; no se parametriza en v1.",
+            "description": "Partición usada para ajustar la calibración; hoy solo puede ser Desarrollo.",
             "title": "Partición de ajuste",
             "type": "string",
             "ui_group": "Ajuste",
@@ -7164,7 +7164,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='calibration') (SDD-10 §4).",
+            "description": "Variante de la sección de calibración; hoy solo existe la estándar.",
             "title": "Tipo de sección calibration",
             "type": "string",
             "ui_group": "General",
@@ -7178,7 +7178,7 @@
       },
       "data": {
         "additionalProperties": false,
-        "description": "Sección de origen y validación de datos (capa `data`, SDD-02).",
+        "description": "Define de dónde se cargan los datos, cómo se valida su calidad y cómo se construyen el target y las particiones.",
         "properties": {
           "load": {
             "$ref": "#/$defs/data__LoadingConfig",
@@ -7213,7 +7213,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='data') (D-CONV-2).",
+            "description": "Variante de la sección de datos; hoy solo existe la estándar.",
             "title": "Tipo de sección de datos",
             "type": "string",
             "ui_help": "Identificador fijo de esta sección como 'standard'; normalmente no se edita a mano."
@@ -7228,7 +7228,7 @@
       },
       "eda": {
         "additionalProperties": false,
-        "description": "Sección de análisis exploratorio descriptivo (capa `eda`, SDD-27).",
+        "description": "Perfila la cartera antes de modelar: distribución de cada variable, calidad de los datos y tasa de default por período o cohorte.",
         "properties": {
           "analysis_partition": {
             "default": "desarrollo",
@@ -7263,7 +7263,7 @@
           },
           "sampling": {
             "$ref": "#/$defs/eda__SamplingConfig",
-            "description": "Parámetros de muestreo opt-in para perfiles sobre datasets grandes.",
+            "description": "Muestreo opcional de los perfiles cuando el dataset es muy grande.",
             "title": "Muestreo",
             "ui_group": "Muestreo",
             "ui_order": 6,
@@ -7280,7 +7280,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='eda') (D-CONV-2).",
+            "description": "Variante de la sección EDA; hoy solo existe la estándar.",
             "title": "Tipo de sección EDA",
             "type": "string",
             "ui_group": "General",
@@ -7301,7 +7301,7 @@
       },
       "explain": {
         "additionalProperties": false,
-        "description": "Sección de explicabilidad unificada scorecard + SHAP y reason codes (capa `explain`, SDD-14).",
+        "description": "Explica cada decisión: aporte en puntos de cada variable del scorecard, valores SHAP y reason codes.",
         "properties": {
           "contribution_space": {
             "default": "log_odds",
@@ -7429,7 +7429,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='explain') (SDD-14 §4).",
+            "description": "Variante de la sección explain; hoy solo existe la estándar.",
             "title": "Tipo de sección explain",
             "type": "string",
             "ui_group": "General",
@@ -7442,12 +7442,12 @@
       },
       "forward": {
         "additionalProperties": false,
-        "description": "Sección de proyección macro forward-looking y PIT/TTC (SDD-20).",
+        "description": "Proyecta la PD con variables macroeconómicas y convierte entre PD PIT y PD TTC.",
         "properties": {
           "fail_on_falta_dato": {
             "default": true,
-            "description": "Si es True, brechas críticas FALTA-DATO abortan en vez de solo advertir.",
-            "title": "Fallar ante FALTA-DATO",
+            "description": "Si es True, junto con «Fallar si faltan trayectorias», un escenario adverse o severe sin trayectoria macro ni shocks propios (aviso `FALTA-DATO-FWD-1`) hace fallar la validación del config.",
+            "title": "Fallar ante falta de dato",
             "type": "boolean",
             "ui_group": "Gobernanza",
             "ui_order": 1,
@@ -7478,7 +7478,7 @@
           },
           "scenarios": {
             "$ref": "#/$defs/forward__ScenarioConfig",
-            "description": "Escenarios macro, pesos y guard anti escenario medio.",
+            "description": "Escenarios macro, sus pesos y el bloqueo del escenario medio único.",
             "title": "Escenarios",
             "ui_group": "Escenarios",
             "ui_order": 1,
@@ -7504,7 +7504,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='forward') (SDD-20 §4).",
+            "description": "Variante de la sección forward; hoy solo existe la estándar.",
             "title": "Tipo de sección forward",
             "type": "string",
             "ui_group": "General",
@@ -7529,12 +7529,12 @@
       },
       "governance": {
         "default": null,
-        "description": "Sección de infraestructura para model card e inventario (SDD-03).",
+        "description": "Documenta el modelo para su gobierno: model card, inventario y diario de overlays.",
         "title": "Gobernanza"
       },
       "markov": {
         "additionalProperties": false,
-        "description": "Sección de matrices Markov de migración y PD lifetime (SDD-19).",
+        "description": "Estima matrices de migración entre estados de mora y proyecta con ellas la PD lifetime.",
         "properties": {
           "dynamics": {
             "$ref": "#/$defs/markov__MarkovDynamicsConfig",
@@ -7580,7 +7580,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='markov') (SDD-19 §4).",
+            "description": "Variante de la sección de Markov; hoy solo existe la estándar.",
             "title": "Tipo de sección markov",
             "type": "string",
             "ui_group": "General",
@@ -7601,7 +7601,7 @@
       },
       "ml": {
         "additionalProperties": false,
-        "description": "Sección del challenger de machine learning que reta al scorecard (capa `ml`, SDD-12).",
+        "description": "Entrena un challenger de machine learning que reta al scorecard campeón sobre los mismos datos.",
         "properties": {
           "backend": {
             "default": "xgboost",
@@ -7621,7 +7621,7 @@
           },
           "calibrate_challenger": {
             "default": false,
-            "description": "False por defecto: la comparación de discriminación no lo necesita; True alimenta validación/report con PD calibrada (reúso de PDCalibrator, SDD-10).",
+            "description": "False por defecto: la comparación de discriminación no lo necesita; True calibra la PD del challenger para alimentar la validación y el informe.",
             "title": "Calibrar el challenger",
             "type": "boolean",
             "ui_group": "General",
@@ -7646,7 +7646,7 @@
           },
           "feature_source": {
             "default": "binning_woe",
-            "description": "'binning_woe' por defecto (consistencia de pipeline); 'selection_woe' apples-to-apples; 'data_raw' diferido.",
+            "description": "'binning_woe' usa el WoE de todas las variables binadas; 'selection_woe' solo el de las seleccionadas; 'data_raw' aún no está implementado y detiene la corrida con error.",
             "enum": [
               "binning_woe",
               "selection_woe",
@@ -7760,7 +7760,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='ml') (SDD-12 §4).",
+            "description": "Variante de la sección ml; hoy solo existe la estándar.",
             "title": "Tipo de sección ml",
             "type": "string",
             "ui_group": "General",
@@ -7773,7 +7773,7 @@
       },
       "model": {
         "additionalProperties": false,
-        "description": "Sección de modelo logístico PD sobre variables WoE (capa `model`, SDD-08).",
+        "description": "Ajusta la regresión logística de PD sobre las variables WoE seleccionadas.",
         "properties": {
           "alpha": {
             "default": 0.05,
@@ -7823,7 +7823,7 @@
           },
           "fit_maxiter": {
             "default": 100,
-            "description": "Iteraciones máximas del ajuste statsmodels; override deliberado de Nikodym sobre el default maxiter=35 de statsmodels. No controla StepwiseConfig.max_iter.",
+            "description": "Iteraciones máximas del ajuste estadístico; Nikodym eleva a propósito el límite por defecto de statsmodels. No controla las rondas del stepwise, que se fijan en `model.stepwise.max_iter`.",
             "minimum": 1,
             "title": "Iteraciones máximas del ajuste",
             "type": "integer",
@@ -7912,7 +7912,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='model') (D-MOD-6).",
+            "description": "Variante de la sección de modelo; hoy solo existe la estándar.",
             "title": "Tipo de sección model",
             "type": "string",
             "ui_group": "General",
@@ -7932,7 +7932,7 @@
       },
       "performance": {
         "additionalProperties": false,
-        "description": "Sección de métricas de desempeño post-modelo (capa `performance`).",
+        "description": "Mide el desempeño del modelo ya ajustado: AUC, Gini, KS y tablas de gains por partición.",
         "properties": {
           "evaluation_source": {
             "default": "pd_calibrated",
@@ -8083,7 +8083,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='performance') (SDD-11 §4).",
+            "description": "Variante de la sección de desempeño; hoy solo existe la estándar.",
             "title": "Tipo de sección performance",
             "type": "string",
             "ui_group": "General",
@@ -8097,7 +8097,7 @@
       },
       "provisioning": {
         "additionalProperties": false,
-        "description": "Compara dos fuentes de provisión (source_a / source_b) y aplica la regla del máximo. La regla del Cap. B-1 (Circular N° 2.346) es entre el método estándar de la CMF y el método interno del banco, por institución (capa `provisioning`, SDD-17).",
+        "description": "Compara dos fuentes de provisión (source_a / source_b) y aplica la regla declarada en `rule`. La regla del máximo del Cap. B-1 (Circular N° 2.346) es entre el método estándar de la CMF y el método interno del banco, por institución.",
         "properties": {
           "as_of_date_col": {
             "default": "as_of_date",
@@ -8111,7 +8111,7 @@
           "cmf_portfolio_col": {
             "default": "portfolio",
             "description": "Columna de cartera del resultado CMF para agrupar la comparación.",
-            "title": "Columna de cartera en el detail del motor CMF",
+            "title": "Columna de cartera en el resultado del motor CMF",
             "type": "string",
             "ui_group": "Columnas",
             "ui_order": 2,
@@ -8134,7 +8134,7 @@
           },
           "consume_a": {
             "default": true,
-            "description": "Si es True, la orquestación consume el resultado publicado por source_a.",
+            "description": "Si es True, el resultado de source_a entra en la comparación.",
             "title": "Consumir el resultado de la fuente A si está presente",
             "type": "boolean",
             "ui_group": "Fuentes",
@@ -8143,7 +8143,7 @@
           },
           "consume_b": {
             "default": true,
-            "description": "Si es True, la orquestación consume el resultado publicado por source_b.",
+            "description": "Si es True, el resultado de source_b entra en la comparación.",
             "title": "Consumir el resultado de la fuente B si está presente",
             "type": "boolean",
             "ui_group": "Fuentes",
@@ -8184,7 +8184,7 @@
           },
           "coverage_policy": {
             "default": "use_available",
-            "description": "use_available reporta la fuente disponible marcada; fail levanta; treat_missing_as_zero asume 0 en la faltante (opt-in sensible: subestima la regla).",
+            "description": "use_available reporta la única fuente disponible y lo deja marcado; fail detiene la corrida con error; treat_missing_as_zero asume 0 en la fuente faltante, lo que subestima la provisión.",
             "enum": [
               "use_available",
               "fail",
@@ -8198,7 +8198,7 @@
           },
           "fail_on_falta_dato": {
             "default": true,
-            "description": "Si es True, una brecha crítica (p. ej. taxonomías de cartera sin crosswalk) falla en vez de marcar FALTA-DATO.",
+            "description": "Si es True, una brecha crítica de datos (p. ej. taxonomías de cartera sin equivalencia declarada en portfolio_crosswalk) detiene la corrida con error en vez de marcarla como falta de dato y seguir.",
             "title": "Fallar ante brechas críticas de dato",
             "type": "boolean",
             "ui_group": "General",
@@ -8208,7 +8208,7 @@
           "ifrs9_portfolio_col": {
             "default": "portfolio",
             "description": "Columna de cartera del resultado IFRS 9 para agrupar la comparación.",
-            "title": "Columna de cartera en el detail del motor IFRS 9",
+            "title": "Columna de cartera en el resultado del motor IFRS 9",
             "type": "string",
             "ui_group": "Columnas",
             "ui_order": 3,
@@ -8216,8 +8216,8 @@
           },
           "internal_portfolio_col": {
             "default": "portfolio",
-            "description": "Columna de cartera del resultado del método interno (SDD-28) para agrupar.",
-            "title": "Columna de cartera en el detail del método interno",
+            "description": "Columna de cartera del resultado del método interno para agrupar.",
+            "title": "Columna de cartera en el resultado del método interno",
             "type": "string",
             "ui_group": "Columnas",
             "ui_order": 4,
@@ -8225,7 +8225,7 @@
           },
           "numeric_reconciliation": {
             "default": "decimal_quantize",
-            "description": "decimal_quantize preserva la exactitud regulatoria del Decimal como dominio de reporte; float_isclose usa el dominio económico. Los originales se preservan en el detalle (CMF y el método interno publican Decimal; IFRS 9 publica float).",
+            "description": "decimal_quantize preserva la exactitud regulatoria del Decimal como dominio contable; float_isclose usa el dominio económico. Los originales se preservan en el detalle (CMF y el método interno publican Decimal; IFRS 9 publica float).",
             "enum": [
               "decimal_quantize",
               "float_isclose"
@@ -8240,7 +8240,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Crosswalk explícito de la taxonomía de cartera de la fuente A a la de la fuente B cuando no comparten clave; nunca se adivina por similitud (D-PROV-3, R0).",
+            "description": "Equivalencia explícita entre la taxonomía de cartera de la fuente A y la de la fuente B cuando no comparten clave; nunca se infiere por similitud de nombres.",
             "title": "Mapeo cartera de la fuente A → cartera de la fuente B (si difieren)",
             "type": "object",
             "ui_group": "Comparación",
@@ -8249,8 +8249,8 @@
           },
           "require_both": {
             "default": true,
-            "description": "La regla presupone ambas fuentes; con False degrada a passthrough marcado de la disponible (comparación incompleta, FALTA-DATO).",
-            "title": "Exigir ambas fuentes (si no, passthrough de la disponible)",
+            "description": "La regla supone ambas fuentes; con False se reporta la única fuente disponible, marcada como comparación incompleta por falta de dato.",
+            "title": "Exigir ambas fuentes (si no, se reporta la disponible)",
             "type": "boolean",
             "ui_group": "Fuentes",
             "ui_order": 8,
@@ -8258,7 +8258,7 @@
           },
           "rounding": {
             "default": "none",
-            "description": "Política explícita de redondeo contable de la provisión reportada; none publica el valor económico exacto (heredado de D-CMF-5).",
+            "description": "Política explícita de redondeo contable de la provisión reportada; none entrega el valor económico exacto.",
             "enum": [
               "none",
               "currency_2dp",
@@ -8358,7 +8358,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='provisioning') (SDD-17 §4).",
+            "description": "Variante de la sección de orquestación de provisiones; hoy solo existe la estándar.",
             "title": "Tipo de sección provisioning",
             "type": "string",
             "ui_group": "General",
@@ -8371,7 +8371,7 @@
       },
       "provisioning_cmf": {
         "additionalProperties": false,
-        "description": "Sección de provisiones regulatorias CMF B-1/B-3 (capa `provisioning_cmf`).",
+        "description": "Calcula las provisiones regulatorias por el método estándar de la CMF (Cap. B-1 y B-3): PE = PI · PDI · Exposición.",
         "properties": {
           "as_of_date_col": {
             "default": "as_of_date",
@@ -8384,7 +8384,7 @@
           },
           "category_col": {
             "default": "cmf_category",
-            "description": "Columna con categoría/tramo CMF provisto para el modo standalone.",
+            "description": "Columna con la categoría o tramo CMF ya provisto en los datos; la lee el método provided_cmf_category, que evita derivar la categoría desde la PD de un modelo.",
             "title": "Categoría CMF",
             "type": "string",
             "ui_group": "Columnas",
@@ -8471,7 +8471,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='provisioning_cmf') (SDD-15 §4).",
+            "description": "Variante de la sección de provisiones CMF; hoy solo existe la estándar.",
             "title": "Tipo de sección provisioning_cmf",
             "type": "string",
             "ui_group": "General",
@@ -8484,7 +8484,7 @@
       },
       "provisioning_ifrs9": {
         "additionalProperties": false,
-        "description": "Sección de provisiones contables IFRS 9/ECL (capa `provisioning_ifrs9`, SDD-16).",
+        "description": "Calcula las provisiones contables IFRS 9: clasificación en Stage 1/2/3 y pérdida crediticia esperada (ECL).",
         "properties": {
           "as_of_date_col": {
             "default": "as_of_date",
@@ -8511,7 +8511,7 @@
           },
           "fail_on_falta_dato": {
             "default": true,
-            "description": "Con True (default), la validación rechaza fail-fast una configuración PIT inconsistente —`pit_mode='apply_vasicek'` sin `pd.rho` escalar o sin factor sistémico Z—, adelantando a validación el error que el motor daría igual en el cálculo. En v1 no habilita un modo alternativo que «marque FALTA-DATO y continúe» para ese caso.",
+            "description": "Con True (default), una configuración PIT inconsistente —`pit_mode='apply_vasicek'` sin `pd.rho` escalar o sin el factor sistémico Z— detiene la corrida al validar el config. Con False el fallo aparece igual, pero más tarde, durante el cálculo.",
             "title": "Rechazo fail-fast de configuración PIT inconsistente",
             "type": "boolean",
             "ui_group": "General",
@@ -8585,7 +8585,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='provisioning_ifrs9') (SDD-16 §4).",
+            "description": "Variante de la sección de provisiones IFRS 9; hoy solo existe la estándar.",
             "title": "Tipo de sección provisioning_ifrs9",
             "type": "string",
             "ui_group": "General",
@@ -8598,7 +8598,7 @@
       },
       "provisioning_internal": {
         "additionalProperties": false,
-        "description": "Sección del método interno de provisiones CMF B-1 §3: grupos homogéneos con Exposición · PD · LGD (capa `provisioning_internal`, SDD-28).",
+        "description": "Calcula las provisiones por el método interno del banco (Cap. B-1 §3): grupos homogéneos de deudores con Exposición · PD · LGD.",
         "properties": {
           "as_of_date_col": {
             "default": "as_of_date",
@@ -8620,7 +8620,7 @@
           },
           "fail_on_falta_dato": {
             "default": true,
-            "description": "True: un nulo en exposición, PD, LGD o tasa de pérdida aborta la corrida. False: se imputa cero, se marca la operación con FALTA-DATO y se traza en la card.",
+            "description": "True: un nulo en exposición, PD, LGD o tasa de pérdida detiene la corrida con error. False: se imputa cero, la operación queda marcada como falta de dato y el resultado lo deja trazado.",
             "title": "Fallar ante falta de dato",
             "type": "boolean",
             "ui_group": "Método",
@@ -8696,7 +8696,7 @@
           },
           "n_score_bands": {
             "default": 10,
-            "description": "Cantidad de bandas por cuantil de PD; sólo aplica con grouping='score_band'.",
+            "description": "Cantidad de bandas por cuantil de PD; solo aplica con grouping='score_band'.",
             "minimum": 2,
             "title": "Número de bandas de score",
             "type": "integer",
@@ -8761,7 +8761,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='provisioning_internal') (SDD-28 §4.1).",
+            "description": "Variante de la sección del método interno; hoy solo existe la estándar.",
             "title": "Tipo de sección provisioning_internal",
             "type": "string",
             "ui_group": "General",
@@ -8774,7 +8774,7 @@
       },
       "report": {
         "additionalProperties": false,
-        "description": "Sección de generación de reporte auditable (capa `report`, SDD-26).",
+        "description": "Genera el informe auditable de la corrida y elige sus formatos de salida en `formats`.",
         "properties": {
           "ai": {
             "$ref": "#/$defs/report__AiNarrationConfig",
@@ -8786,7 +8786,7 @@
           },
           "basename": {
             "default": "scorecard_report",
-            "description": "Nombre base determinístico para los archivos del reporte.",
+            "description": "Nombre base determinístico para los archivos del informe.",
             "title": "Nombre base",
             "type": "string",
             "ui_group": "General",
@@ -8803,7 +8803,7 @@
           },
           "docx": {
             "$ref": "#/$defs/report__DocxRenderConfig",
-            "description": "Config del export .docx opcional del reporte mediante python-docx.",
+            "description": "Config del export .docx opcional del informe mediante python-docx.",
             "title": "Word",
             "ui_group": "Word",
             "ui_order": 1,
@@ -8813,7 +8813,7 @@
             "default": [
               "html"
             ],
-            "description": "Formatos generados por el reporte. Documentos: 'html' (siempre), 'pdf' (extra `pdf`, WeasyPrint + nativas) y las fuentes editables 'md' (Quarto/Markdown, sin extras) y 'docx' (Word, extra `docx`). Exports de datos: 'csv' y 'xlsx' (extra `excel`) entregan COMPLETAS las tablas por observación, que no viven en el documento. Todo formato ofrecido aquí tiene motor detrás: el enum no publica opciones que la corrida no pueda cumplir. Default: solo 'html'.",
+            "description": "Formatos generados por el informe. Documentos: 'html' (siempre), 'pdf' (extra `pdf`, WeasyPrint + nativas) y las fuentes editables 'md' (Quarto/Markdown, sin extras) y 'docx' (Word, extra `docx`). Exports de datos: 'csv' y 'xlsx' (extra `excel`) entregan COMPLETAS las tablas por observación, que no viven en el documento. Todo formato ofrecido aquí tiene motor detrás: el enum no publica opciones que la corrida no pueda cumplir. Default: solo 'html'.",
             "items": {
               "enum": [
                 "html",
@@ -8825,7 +8825,7 @@
               ],
               "type": "string"
             },
-            "title": "Formatos del reporte",
+            "title": "Formatos del informe",
             "type": "array",
             "ui_group": "General",
             "ui_order": 5,
@@ -8842,7 +8842,7 @@
           "language": {
             "const": "es",
             "default": "es",
-            "description": "Idioma del reporte; F1 soporta español.",
+            "description": "Idioma del informe; hoy solo está disponible el español.",
             "title": "Idioma",
             "type": "string",
             "ui_group": "General",
@@ -8851,7 +8851,7 @@
           },
           "output_dir": {
             "default": "reports",
-            "description": "Directorio relativo donde se escriben los artefactos del reporte.",
+            "description": "Directorio relativo donde se escriben los artefactos del informe.",
             "title": "Directorio de salida",
             "type": "string",
             "ui_group": "General",
@@ -8860,7 +8860,7 @@
           },
           "pdf": {
             "$ref": "#/$defs/report__PdfRenderConfig",
-            "description": "Config del PDF opcional del reporte mediante WeasyPrint.",
+            "description": "Config del PDF opcional del informe mediante WeasyPrint.",
             "title": "PDF",
             "ui_group": "PDF",
             "ui_order": 1,
@@ -8886,7 +8886,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='report') (SDD-26 §4).",
+            "description": "Variante de la sección de informe; hoy solo existe la estándar.",
             "title": "Tipo de sección report",
             "type": "string",
             "ui_group": "General",
@@ -8894,7 +8894,7 @@
             "ui_widget": "hidden"
           }
         },
-        "title": "Reporte",
+        "title": "Informe",
         "type": "object"
       },
       "repro": {
@@ -8913,7 +8913,7 @@
       },
       "scorecard": {
         "additionalProperties": false,
-        "description": "Sección de escalamiento log-odds a puntos (capa `scorecard`, SDD-09).",
+        "description": "Traduce el log-odds del modelo a puntos de scorecard según el PDO, el score objetivo y las odds objetivo.",
         "properties": {
           "clip": {
             "default": false,
@@ -9067,7 +9067,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='scorecard') (D-SCR-7).",
+            "description": "Variante de la sección de scorecard; hoy solo existe la estándar.",
             "title": "Tipo de sección scorecard",
             "type": "string",
             "ui_group": "General",
@@ -9081,7 +9081,7 @@
       },
       "selection": {
         "additionalProperties": false,
-        "description": "Sección de selección pre-modelo de variables WoE (capa `selection`, SDD-07).",
+        "description": "Filtra las variables WoE candidatas por IV, correlación, VIF y estabilidad PSI/CSI.",
         "properties": {
           "compute_univariate_metrics": {
             "default": true,
@@ -9316,7 +9316,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='selection') (D-CONV-2).",
+            "description": "Variante de la sección de selección; hoy solo existe la estándar.",
             "title": "Tipo de sección selection",
             "type": "string",
             "ui_group": "General",
@@ -9339,7 +9339,7 @@
       },
       "stability": {
         "additionalProperties": false,
-        "description": "Sección de métricas de estabilidad post-modelo (capa `stability`).",
+        "description": "Mide la estabilidad del score y de la PD calibrada entre particiones y en el tiempo, con PSI y CSI.",
         "properties": {
           "comparisons": {
             "default": [
@@ -9373,7 +9373,7 @@
           },
           "csi_source": {
             "default": "score_points",
-            "description": "woe_bins exige ratificar requires adicionales de binning.",
+            "description": "Fuente de las distribuciones del CSI. 'woe_bins' está reservada y aún no implementada: si se elige, la corrida se detiene con error.",
             "enum": [
               "score_points",
               "woe_bins"
@@ -9507,7 +9507,7 @@
               }
             ],
             "default": null,
-            "description": "Si None, se infiere solo si hay una columna inequívoca en data.frame.",
+            "description": "Si se deja vacía y el eje temporal no es 'none', se infiere de los datos cuando hay una sola columna candidata; si hay varias o ninguna, la corrida se detiene con error.",
             "title": "Columna de período/cohorte",
             "ui_group": "Temporal",
             "ui_order": 2,
@@ -9530,7 +9530,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='stability') (SDD-11 §4).",
+            "description": "Variante de la sección de estabilidad; hoy solo existe la estándar.",
             "title": "Tipo de sección stability",
             "type": "string",
             "ui_group": "General",
@@ -9543,11 +9543,11 @@
       },
       "stress": {
         "additionalProperties": false,
-        "description": "Sección de stress testing, sensibilidad y reverse stress (SDD-21).",
+        "description": "Aplica escenarios de stress testing, análisis de sensibilidad y reverse stress sobre la cartera.",
         "properties": {
           "input": {
             "$ref": "#/$defs/stress__StressInputConfig",
-            "description": "Artefactos forward y hooks opcionales de engines económicos.",
+            "description": "Artefactos de la etapa forward y motores económicos opcionales.",
             "title": "Entrada",
             "ui_group": "Entrada",
             "ui_order": 1,
@@ -9597,7 +9597,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='stress') (SDD-21 §4).",
+            "description": "Variante de la sección de stress; hoy solo existe la estándar.",
             "title": "Tipo de sección stress",
             "type": "string",
             "ui_group": "General",
@@ -9606,7 +9606,7 @@
           },
           "validation": {
             "$ref": "#/$defs/stress__StressValidationConfig",
-            "description": "Tolerancias y políticas de falla FALTA-DATO.",
+            "description": "Tolerancias numéricas y política de falla ante brechas de datos.",
             "title": "Validación",
             "ui_group": "Validación",
             "ui_order": 1,
@@ -9618,7 +9618,7 @@
       },
       "survival": {
         "additionalProperties": false,
-        "description": "Sección de survival analysis y lifetime PD (capa `survival`, SDD-18).",
+        "description": "Modela el tiempo hasta el incumplimiento con análisis de supervivencia y obtiene de ahí la PD lifetime.",
         "properties": {
           "cox_aft": {
             "$ref": "#/$defs/survival__CoxAftConfig",
@@ -9638,8 +9638,8 @@
           },
           "fail_on_falta_dato": {
             "default": true,
-            "description": "Si es True, brechas críticas FALTA-DATO abortan en vez de solo advertir.",
-            "title": "Fallar ante FALTA-DATO",
+            "description": "Campo reservado: hoy no altera la corrida, cualquiera sea su valor. Las brechas de datos de esta etapa quedan siempre registradas como aviso `FALTA-DATO-SUR-*` en su resultado.",
+            "title": "Fallar ante falta de dato",
             "type": "boolean",
             "ui_group": "Gobernanza",
             "ui_order": 1,
@@ -9647,7 +9647,7 @@
           },
           "input": {
             "$ref": "#/$defs/survival__SurvivalInputConfig",
-            "description": "Columnas de duración, evento, PD F1 y covariables survival.",
+            "description": "Columnas de duración, evento, PD del scorecard y covariables.",
             "title": "Entrada",
             "ui_group": "Entrada",
             "ui_order": 1,
@@ -9696,7 +9696,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='survival') (SDD-18 §4).",
+            "description": "Variante de la sección de survival; hoy solo existe la estándar.",
             "title": "Tipo de sección survival",
             "type": "string",
             "ui_group": "General",
@@ -9712,12 +9712,12 @@
       },
       "tracking": {
         "default": null,
-        "description": "Sección de infraestructura para MLflow runs/registry (SDD-04).",
+        "description": "Registra la corrida en MLflow y publica el modelo en el Model Registry.",
         "title": "Tracking"
       },
       "tuning": {
         "additionalProperties": false,
-        "description": "Sección de búsqueda de hiperparámetros con Optuna que afina el challenger (capa `tuning`, SDD-13).",
+        "description": "Busca con Optuna los hiperparámetros del challenger definido en `ml`.",
         "properties": {
           "deterministic": {
             "default": true,
@@ -9741,7 +9741,7 @@
           },
           "objective": {
             "$ref": "#/$defs/tuning__TuningObjectiveConfig",
-            "description": "Métrica de discriminación a optimizar (reúso de SDD-11, sin recodificar).",
+            "description": "Métrica de discriminación que la búsqueda maximiza.",
             "title": "Objetivo",
             "ui_group": "Objetivo",
             "ui_order": 1,
@@ -9784,7 +9784,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='tuning') (SDD-13 §4).",
+            "description": "Variante de la sección tuning; hoy solo existe la estándar.",
             "title": "Tipo de sección tuning",
             "type": "string",
             "ui_group": "General",
@@ -9805,11 +9805,11 @@
       },
       "validation": {
         "additionalProperties": false,
-        "description": "Sección de validación avanzada: calibración, backtesting y semáforo (capa `validation`, SDD-22).",
+        "description": "Valida el modelo con pruebas de calibración y backtesting, y resume el resultado en un semáforo.",
         "properties": {
           "backtesting": {
             "$ref": "#/$defs/validation__BacktestingValidationConfig",
-            "description": "Backtesting realizado-vs-estimado IFRS 9 (t-test LGD/EAD, binomial PD).",
+            "description": "Contrasta lo realizado contra lo estimado en IFRS 9 (t-test de LGD/EAD, binomial/Jeffreys de PD).",
             "title": "Backtesting IFRS 9",
             "ui_group": "Backtesting",
             "ui_order": 1,
@@ -9817,7 +9817,7 @@
           },
           "calibration": {
             "$ref": "#/$defs/validation__CalibrationValidationConfig",
-            "description": "Hosmer-Lemeshow, binomial/Jeffreys por grado, Brier y semáforo.",
+            "description": "Mide la calibración con Hosmer-Lemeshow, el contraste binomial/Jeffreys por grado, el Brier score y un semáforo.",
             "title": "Calibración",
             "ui_group": "Calibración",
             "ui_order": 1,
@@ -9825,7 +9825,7 @@
           },
           "discrimination": {
             "$ref": "#/$defs/validation__DiscriminationValidationConfig",
-            "description": "Reúso/consumo de AUC/Gini/KS de SDD-11 (no recálculo).",
+            "description": "Reporta la discriminación (AUC, Gini, KS) tomándola de la etapa de desempeño o calculándola con ese mismo motor, nunca con otra fórmula.",
             "title": "Discriminación",
             "ui_group": "Discriminación",
             "ui_order": 1,
@@ -9833,7 +9833,7 @@
           },
           "fail_on_falta_dato": {
             "default": true,
-            "description": "Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) falla en vez de marcar FALTA-DATO.",
+            "description": "Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar la corrida en vez de quedar registrada como falta de dato (aviso `FALTA-DATO-*`).",
             "title": "Fallar ante brechas críticas de dato",
             "type": "boolean",
             "ui_group": "General",
@@ -9846,7 +9846,7 @@
               "calibration",
               "stability"
             ],
-            "description": "Familias que corren; backtesting es opt-in (exige artefactos F4 + realizados que no todo modelo del repo tiene, DoD F6).",
+            "description": "Familias de validación que se ejecutan. El backtesting queda fuera por defecto: exige los resultados IFRS 9 y las columnas de resultado realizado.",
             "items": {
               "enum": [
                 "discrimination",
@@ -9873,7 +9873,7 @@
           },
           "stability": {
             "$ref": "#/$defs/validation__StabilityValidationConfig",
-            "description": "Reúso/consumo del PSI de SDD-11 (no recálculo).",
+            "description": "Reporta el PSI tomándolo de la etapa de estabilidad o calculándolo con ese mismo motor, nunca con otra fórmula.",
             "title": "Estabilidad",
             "ui_group": "Estabilidad",
             "ui_order": 1,
@@ -9882,7 +9882,7 @@
           "type": {
             "const": "standard",
             "default": "standard",
-            "description": "== @register('standard', domain='validation') (SDD-22 §4).",
+            "description": "Variante de la sección de validación; hoy solo existe la estándar.",
             "title": "Tipo de sección validation",
             "type": "string",
             "ui_group": "General",

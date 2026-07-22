@@ -10,12 +10,12 @@ __all__ = ["AuditConfig"]
 
 
 class AuditConfig(NikodymBaseConfig):
-    """Sub-config de infraestructura para audit-trail y snapshot de entorno."""
+    """Controla el audit-trail de la corrida y el snapshot del entorno de ejecución."""
 
     enabled: bool = Field(
         default=True,
         title="Auditoría activa",
-        description="Si False, el Study cae al NullAuditSink (sin persistencia de trail).",
+        description="Con False la corrida se ejecuta sin escribir el audit-trail en disco.",
     )
     trail_filename: str = Field(
         default="audit_trail.jsonl",

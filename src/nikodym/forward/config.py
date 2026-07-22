@@ -388,7 +388,7 @@ class ScenarioDefinitionConfig(NikodymBaseConfig):
 
 
 class ScenarioConfig(NikodymBaseConfig):
-    """Configuración de escenarios y guard anti escenario medio."""
+    """Escenarios macro ponderados y bloqueo del escenario medio único."""
 
     scenarios: tuple[ScenarioDefinitionConfig, ...] = Field(
         default=(
@@ -463,7 +463,7 @@ class ForwardInputConfig(NikodymBaseConfig):
     term_structure_sources: tuple[TermStructureSource, ...] = Field(
         default=("survival", "markov"),
         title="Fuentes term-structure",
-        description="Fuentes upstream de term-structure lifetime PD.",
+        description="Etapas de las que se toma la term-structure de PD lifetime.",
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "Entrada", "ui_order": 2},
     )
     pd_basis_assumption: PdBasisAssumption | None = Field(
@@ -525,7 +525,7 @@ class ForwardValidationConfig(NikodymBaseConfig):
 
 
 class ForwardConfig(NikodymBaseConfig):
-    """Sección ``forward`` de :class:`~nikodym.core.config.NikodymConfig`."""
+    """Proyecta la PD con variables macroeconómicas y convierte entre PD PIT y PD TTC."""
 
     schema_version: str = Field(
         default="1.0.0",
@@ -536,7 +536,7 @@ class ForwardConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección forward",
-        description="== @register('standard', domain='forward') (SDD-20 §4).",
+        description="Variante de la sección forward; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     input: ForwardInputConfig = Field(
@@ -560,7 +560,7 @@ class ForwardConfig(NikodymBaseConfig):
     scenarios: ScenarioConfig = Field(
         default_factory=ScenarioConfig,
         title="Escenarios",
-        description="Escenarios macro, pesos y guard anti escenario medio.",
+        description="Escenarios macro, sus pesos y el bloqueo del escenario medio único.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Escenarios", "ui_order": 1},
     )
     ttc_reversion: TtcReversionConfig = Field(
@@ -577,8 +577,12 @@ class ForwardConfig(NikodymBaseConfig):
     )
     fail_on_falta_dato: bool = Field(
         default=True,
-        title="Fallar ante FALTA-DATO",
-        description="Si es True, brechas críticas FALTA-DATO abortan en vez de solo advertir.",
+        title="Fallar ante falta de dato",
+        description=(
+            "Si es True, junto con «Fallar si faltan trayectorias», un escenario adverse o "
+            "severe sin trayectoria macro ni shocks propios (aviso `FALTA-DATO-FWD-1`) hace "
+            "fallar la validación del config."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Gobernanza", "ui_order": 1},
     )
 

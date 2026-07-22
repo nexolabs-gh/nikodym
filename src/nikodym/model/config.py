@@ -130,7 +130,7 @@ class StepwiseConfig(NikodymBaseConfig):
         title="Máximo de iteraciones stepwise",
         description=(
             "Límite de rondas del algoritmo stepwise; no controla las iteraciones del ajuste "
-            "statsmodels, que viven en ModelConfig.fit_maxiter."
+            "estadístico, que se fijan en `model.fit_maxiter`."
         ),
         json_schema_extra={
             "ui_widget": "number_input",
@@ -261,12 +261,12 @@ class IvContributionConfig(NikodymBaseConfig):
 
 
 class ModelConfig(NikodymBaseConfig):
-    """Sección ``model`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-08 §5)."""
+    """Ajusta la regresión logística de PD sobre las variables WoE seleccionadas."""
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección model",
-        description="== @register('standard', domain='model') (D-MOD-6).",
+        description="Variante de la sección de modelo; hoy solo existe la estándar.",
         json_schema_extra={
             "ui_widget": "hidden",
             "ui_group": "General",
@@ -325,8 +325,9 @@ class ModelConfig(NikodymBaseConfig):
         ge=1,
         title="Iteraciones máximas del ajuste",
         description=(
-            "Iteraciones máximas del ajuste statsmodels; override deliberado de Nikodym sobre el "
-            "default maxiter=35 de statsmodels. No controla StepwiseConfig.max_iter."
+            "Iteraciones máximas del ajuste estadístico; Nikodym eleva a propósito el límite por "
+            "defecto de statsmodels. No controla las rondas del stepwise, que se fijan en "
+            "`model.stepwise.max_iter`."
         ),
         json_schema_extra={
             "ui_widget": "number_input",

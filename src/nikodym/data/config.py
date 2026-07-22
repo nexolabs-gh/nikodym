@@ -109,7 +109,10 @@ class LoadingConfig(NikodymBaseConfig):
     backend: Literal["pandas", "polars"] = Field(
         default="pandas",
         title="Backend de carga",
-        description="polars opcional para grandes volúmenes (D-DATA-1); la API expone pandas.",
+        description=(
+            "Motor de lectura del archivo; 'polars' acelera datasets grandes y el resultado "
+            "siempre se entrega como pandas."
+        ),
         json_schema_extra={
             "ui_help": "Motor interno de lectura. 'pandas' es el estándar; 'polars' acelera la "
             "carga de datasets muy grandes, pero el resultado siempre se entrega como pandas.",
@@ -142,7 +145,7 @@ class ColumnSpec(NikodymBaseConfig):
     dtype: Literal["int", "float", "str", "bool", "category", "datetime"] = Field(
         ...,
         title="Tipo",
-        description="Tipo lógico esperado (se traduce a un dtype de pandera).",
+        description="Tipo de dato que debe tener la columna.",
         json_schema_extra={
             "ui_help": "Tipo de dato que debe tener la columna. La validación falla (o "
             "coerciona, si 'Coercionar tipo' está activo) cuando el dato real no calza.",
@@ -169,7 +172,7 @@ class ColumnSpec(NikodymBaseConfig):
     coerce: bool = Field(
         default=False,
         title="Coercionar tipo",
-        description="Castea al dtype declarado durante la validación (pandera coerce).",
+        description="Convierte la columna al tipo declarado durante la validación.",
         json_schema_extra={
             "ui_help": "Convierte el dato al tipo declarado en vez de solo validarlo (p.ej. "
             "texto '10' a número). Útil si el origen no garantiza tipos limpios, pero puede "
@@ -331,10 +334,8 @@ class Predicate(NikodymBaseConfig):
         default=None,
         title="Valor de comparación",
         description=(
-            "Escalar para comparadores; tupla para 'in'/'notin'; None para 'isna'/'notna'. El "
-            "modo de unión smart de Pydantic + el orden bool->int->float (lo más específico "
-            "primero) evita la coerción (un `true` no se vuelve 1) y conserva list->tuple en el "
-            "round-trip. (SDD-02 §5 pedía strict=True; Pydantic 2.13 no lo aplica a una unión.)"
+            "Escalar para los comparadores; lista de valores para 'in'/'notin'; vacío para "
+            "'isna'/'notna'. El valor conserva su tipo original (un `true` no se convierte en 1)."
         ),
         json_schema_extra={
             "ui_help": "Valor contra el que se compara la columna. Para 'pertenece'/'no "
@@ -344,7 +345,7 @@ class Predicate(NikodymBaseConfig):
 
 
 class Rule(NikodymBaseConfig):
-    """Conjunción/disyunción de predicados (un nivel); se evalúa vectorizada, sin ``eval``."""
+    """Combina condiciones con AND (``all_of``) y/o OR (``any_of``), en un único nivel."""
 
     all_of: tuple[Predicate, ...] = Field(
         default_factory=tuple,
@@ -403,7 +404,7 @@ class TargetConfig(NikodymBaseConfig):
     target_col: str = Field(
         default="target",
         title="Nombre de la columna target derivada",
-        description="Columna 0/1 (NA si indeterminado/excluido) que produce la capa.",
+        description="Columna 0/1 generada; vacía si la observación es indeterminada o excluida.",
         json_schema_extra={
             "ui_help": "Nombre de la columna 0/1 que el motor va a crear con el resultado del "
             "etiquetado (vacía si la observación es indeterminada o excluida).",
@@ -413,7 +414,8 @@ class TargetConfig(NikodymBaseConfig):
         ...,
         title="Regla de 'malo'",
         description=(
-            "Mini-DSL columna/op/valor, p.ej. all_of=[{col:dpd_12m, op:'>=', value:90}]. malo=1."
+            "Condición que marca la observación como 'malo' (target = 1), p. ej. "
+            "all_of=[{col: dpd_12m, op: '>=', value: 90}]."
         ),
         json_schema_extra={
             "ui_help": "Condición que define cuándo una observación es 'malo' (p.ej. mora >= 90 "
@@ -432,7 +434,7 @@ class TargetConfig(NikodymBaseConfig):
     indeterminate_rule: Rule | None = Field(
         default=None,
         title="Regla de 'indeterminado' (zona gris)",
-        description="Mini-DSL; estas filas se excluyen del ajuste (target NA).",
+        description="Estas filas quedan con el target vacío y se excluyen del ajuste.",
         json_schema_extra={
             "ui_help": "Condición de zona gris: observaciones que no son claramente buenas ni "
             "malas y por eso se excluyen del ajuste del modelo (target queda vacío), aunque "
@@ -507,7 +509,7 @@ class SpecialValueSpec(NikodymBaseConfig):
     label: str = Field(
         ...,
         title="Etiqueta del special",
-        description="Nombre del bin que usará binning (SDD-06).",
+        description="Nombre del bin propio que binning asignará a estos valores.",
         json_schema_extra={
             "ui_help": "Nombre con el que este special value aparecerá como bin propio en el "
             "binning, en vez de mezclarse con los nulos comunes.",
@@ -533,7 +535,8 @@ class MissingConfig(NikodymBaseConfig):
         le=1.0,
         title="Tasa máxima de missing por columna",
         description=(
-            "Columnas sobre el umbral se reportan como decisión (las elimina selection, no data)."
+            "Las columnas por sobre el umbral se reportan como decisión en el audit-trail; "
+            "ninguna etapa las elimina automáticamente por este umbral."
         ),
         json_schema_extra={
             "ui_help": "Umbral de tasa de nulos por columna a partir del cual se reporta como "
@@ -550,7 +553,7 @@ class TemporalSplitConfig(NikodymBaseConfig):
     type: Literal["temporal"] = Field(
         default="temporal",
         title="Tipo de estrategia",
-        description="Discriminador del factory local _SPLITTERS.",
+        description="Identifica la estrategia como partición temporal.",
         json_schema_extra={
             "ui_help": "Identifica esta estrategia como partición temporal; normalmente lo fija "
             "el selector de la UI, no se edita a mano.",
@@ -593,7 +596,7 @@ class RandomSplitConfig(NikodymBaseConfig):
     type: Literal["random"] = Field(
         default="random",
         title="Tipo de estrategia",
-        description="Discriminador del factory local _SPLITTERS.",
+        description="Identifica la estrategia como partición aleatoria.",
         json_schema_extra={
             "ui_help": "Identifica esta estrategia como partición aleatoria; normalmente lo "
             "fija el selector de la UI, no se edita a mano.",
@@ -658,7 +661,7 @@ class CohortSplitConfig(NikodymBaseConfig):
     type: Literal["cohort"] = Field(
         default="cohort",
         title="Tipo de estrategia",
-        description="Discriminador del factory local _SPLITTERS.",
+        description="Identifica la estrategia como partición por cohorte.",
         json_schema_extra={
             "ui_help": "Identifica esta estrategia como partición por cohorte; normalmente lo "
             "fija el selector de la UI, no se edita a mano.",
@@ -730,7 +733,10 @@ class PartitionConfig(NikodymBaseConfig):
         default=30,
         ge=0,
         title="Mínimo de malos por partición",
-        description="Por debajo se emite DataValidationError (partición no evaluable).",
+        description=(
+            "Por debajo de este mínimo la corrida se detiene con error: la partición no es "
+            "evaluable."
+        ),
         json_schema_extra={
             "ui_help": "Mínimo de casos malos que debe tener cada partición para considerarse "
             "evaluable. Si alguna partición queda por debajo, el motor detiene el proceso en "
@@ -741,19 +747,17 @@ class PartitionConfig(NikodymBaseConfig):
 
 # ── raíz del sub-config ────────────────────────────────────────────────────────
 class DataConfig(NikodymBaseConfig):
-    """Sección ``data`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-02 §5).
+    """Carga el dataset, valida su esquema, define el target y arma las particiones."""
 
-    Añade ``populate_by_name=True`` (no lo trae la base) para construir por nombre Python
-    (``DataConfig(schema_=...)``) además de por alias YAML (``schema:``); la serialización
-    canónica usa ``by_alias=True`` (clave ``schema`` en el ``config_hash``).
-    """
-
+    # ``populate_by_name=True`` (no lo trae la base) permite construir por nombre Python
+    # (``DataConfig(schema_=...)``) además de por alias YAML (``schema:``); la serialización
+    # canónica usa ``by_alias=True`` (clave ``schema`` en el ``config_hash``).
     model_config = ConfigDict(populate_by_name=True)
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección de datos",
-        description="== @register('standard', domain='data') (D-CONV-2).",
+        description="Variante de la sección de datos; hoy solo existe la estándar.",
         json_schema_extra={
             "ui_help": "Identificador fijo de esta sección como 'standard'; normalmente no se "
             "edita a mano.",

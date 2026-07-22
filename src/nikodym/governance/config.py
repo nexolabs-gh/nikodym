@@ -12,12 +12,11 @@ __all__ = ["GovernanceConfig"]
 
 
 class GovernanceConfig(NikodymBaseConfig):
-    """Sub-config de infraestructura para model cards, inventario y overlays.
+    """Documenta el modelo para su gobierno: model card, inventario y diario de overlays.
 
-    ``governance`` es sección de infraestructura: está excluida de ``config_hash`` por
-    ``INFRA_SECTIONS``. Cambiar propósito documental, política de publicación o metadata de
-    inventario no altera la identidad computacional del experimento; queda trazado en el model
-    card/audit-trail.
+    Cambiar el propósito, los metadatos de inventario o la política de publicación no altera los
+    resultados de la corrida ni su ``config_hash``; el cambio queda registrado en el model card
+    y en el audit-trail.
     """
 
     model_name: str = Field(
@@ -29,19 +28,19 @@ class GovernanceConfig(NikodymBaseConfig):
         default=None,
         title="Cartera",
         description="Naming CMF en español; se publica como tag nikodym.cartera.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "inventario", "ui_order": 1},
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Inventario", "ui_order": 1},
     )
     motor: Literal["scoring", "cmf", "ifrs9"] | None = Field(
         default=None,
         title="Motor",
         description="Separación de motores CMF/IFRS9/scoring; tag nikodym.motor.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "inventario", "ui_order": 2},
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Inventario", "ui_order": 2},
     )
     fase: Literal["F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "originacion"] | None = Field(
         default=None,
-        title="Fase del ROADMAP",
+        title="Fase de construcción",
         description="Fase de construcción del modelo; tag nikodym.fase.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "inventario", "ui_order": 3},
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Inventario", "ui_order": 3},
     )
     estado_validacion: Literal["desarrollo", "en_validacion", "validado", "retirado"] = Field(
         default="desarrollo",
@@ -50,13 +49,13 @@ class GovernanceConfig(NikodymBaseConfig):
             "Ciclo de vida de effective challenge; tag nikodym.estado_validacion. Es ortogonal "
             "a los aliases de despliegue."
         ),
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "inventario", "ui_order": 4},
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Inventario", "ui_order": 4},
     )
     author: str | None = Field(
         default=None,
         title="Autor / responsable",
         description="Email o identidad del responsable; tag nikodym.autor.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "inventario", "ui_order": 5},
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Inventario", "ui_order": 5},
     )
     purpose: str = Field(
         default=...,

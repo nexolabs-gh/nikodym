@@ -183,7 +183,7 @@ class MarkovStateConfig(NikodymBaseConfig):
 
 
 class MarkovEstimationConfig(NikodymBaseConfig):
-    """Configuración de estimación; ``delta_t ← cfg.estimation.interval``."""
+    """Método, intervalo temporal y mínimos de conteo con que se estiman las transiciones."""
 
     method: MarkovMethod = Field(
         default="cohort",
@@ -195,9 +195,7 @@ class MarkovEstimationConfig(NikodymBaseConfig):
         default=1.0,
         gt=0.0,
         title="Longitud del intervalo base",
-        description=(
-            "Mapeo de fórmulas: delta_t = interval; Δt se lee como cfg.estimation.interval."
-        ),
+        description="Longitud del intervalo temporal base (Δt) entre observaciones sucesivas.",
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Estimación", "ui_order": 2},
     )
     use_weights: bool = Field(
@@ -224,10 +222,9 @@ class MarkovEstimationConfig(NikodymBaseConfig):
 
 
 class MarkovDynamicsConfig(NikodymBaseConfig):
-    """Configuración de proyección Markov.
+    """Proyecta las matrices de transición a cada horizonte pedido.
 
-    La ruta Aalen-Johansen se activa solo con ``projection_mode='aalen_johansen'``; este schema no
-    expone campos fantasma ``homogeneous`` ni ``nonhomogeneous_method``.
+    El estimador Aalen-Johansen se aplica solo cuando `projection_mode` vale `aalen_johansen`.
     """
 
     projection_mode: ProjectionMode = Field(
@@ -306,7 +303,7 @@ class MarkovValidationConfig(NikodymBaseConfig):
 
 
 class MarkovConfig(NikodymBaseConfig):
-    """Sección ``markov`` de :class:`~nikodym.core.config.NikodymConfig`."""
+    """Estima matrices de transición y la curva de PD lifetime desde un panel de migraciones."""
 
     schema_version: str = Field(
         default="1.0.0",
@@ -317,7 +314,7 @@ class MarkovConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección markov",
-        description="== @register('standard', domain='markov') (SDD-19 §4).",
+        description="Variante de la sección de Markov; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     input: MarkovInputConfig = Field(

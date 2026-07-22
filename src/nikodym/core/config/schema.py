@@ -16,11 +16,12 @@ config es
 *frozen*: su identidad se fija por
 ``config_hash`` (ver
 :mod:`nikodym.core.config.hashing`), no por mutación.
-``NikodymConfig()`` debe construir sin argumentos —todas las secciones tienen valor por defecto—
-de modo que la UI sea un editor del mismo objeto. **Estable (SemVer 1.x):** el trío ``run`` →
-``Study`` → ``NikodymConfig`` es estable; las secciones de dominio se añaden de forma aditiva por
-capa (extensión, nunca ruptura), y el orden de declaración define el pipeline por defecto y el
-orden del YAML legible.
+``NikodymConfig()`` debe construir sin argumentos —cada sección tiene default ``None``, es decir
+queda vacía— de modo que la UI sea un editor del mismo objeto. **Estable (SemVer 1.x):** el trío
+``run`` → ``Study`` → ``NikodymConfig`` es estable; las secciones de dominio se añaden de forma
+aditiva por capa (extensión, nunca ruptura). El orden de declaración fija el orden del YAML
+legible, **no** el de ejecución: ese lo fija ``_DEFAULT_DOMAIN_ORDER`` en
+:mod:`nikodym.core.study`.
 """
 
 from __future__ import annotations
@@ -120,12 +121,18 @@ class ReproConfig(NikodymBaseConfig):
         default=42,
         ge=0,
         title="Semilla",
-        description="Semilla raíz del azar (>= 0; SeedSequence rechaza entropía negativa).",
+        description=(
+            "Semilla raíz del azar que hace reproducible la corrida; entero mayor o igual a 0."
+        ),
     )
     strict_determinism: bool = Field(
         default=False,
         title="Determinismo estricto",
-        description="True fuerza single-thread en GBDT a costa de velocidad (caveat multihilo).",
+        description=(
+            "Campo reservado: hoy no altera la corrida, cualquiera sea su valor. El modo "
+            "single-thread determinista del challenger se controla en `ml.deterministic` junto "
+            "con `ml.n_threads`."
+        ),
     )
 
 
@@ -135,26 +142,39 @@ class RunConfig(NikodymBaseConfig):
     steps: list[str] | None = Field(
         default=None,
         title="Pasos a ejecutar",
-        description="None = pipeline por defecto (las secciones no-None en orden de declaración).",
+        description=(
+            "Pasos a ejecutar. Si se deja vacío se ejecutan las secciones de dominio que estén "
+            "configuradas, en el orden fijo del pipeline (los datos primero, el informe al final)."
+        ),
     )
     fail_fast: bool = Field(
         default=True,
         title="Fallar rápido",
-        description="v1: forzado a True; False queda reservado para v2 (lo valida el orquestador).",
+        description=(
+            "Detiene la corrida en el primer paso que falla. Desactivarlo está reservado y aún "
+            "no se implementa: si se fija en False, la corrida avisa con una advertencia y se "
+            "ejecuta igual deteniéndose ante el primer error."
+        ),
     )
 
 
 class NikodymConfig(NikodymBaseConfig):
-    """Config raíz declarativo: agrega las secciones transversales del experimento.
+    """Configuración completa del estudio: todas las secciones del pipeline en un solo objeto.
 
-    ``NikodymConfig()`` construye sin argumentos con todos los valores por defecto (DoD F0). Las
-    secciones de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa;
-    en F0 solo viven las transversales (``schema_version``, ``name``, ``repro``, ``run``,
-    ``data``, ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``,
-    ``calibration``, ``tuning``, ``ml``, ``explain``, ``survival``, ``forward``, ``stress``,
-    ``provisioning_cmf``, ``provisioning_ifrs9``, ``performance``, ``stability``, ``validation``,
-    ``report``).
+    Cada sección es opcional: la que se deja vacía no se ejecuta, y ``NikodymConfig()`` sin
+    argumentos construye un estudio con todas las secciones vacías. El orden de ejecución lo fija
+    el motor, no el orden de los campos; ``audit``, ``governance`` y ``tracking`` documentan y
+    registran la corrida, pero no son pasos del pipeline.
     """
+
+    # Detalle interno (no viaja al schema que ve la UI): ``NikodymConfig()`` debe construir sin
+    # argumentos —cada sección tiene default ``None``— porque es el DoD F0. Las secciones
+    # de dominio (binning, model, provisioning, ...) se añaden de forma aditiva por capa; en F0
+    # solo vivían las transversales (``schema_version``, ``name``, ``repro``, ``run``, ``data``,
+    # ``markov``, ``eda``, ``binning``, ``selection``, ``model``, ``scorecard``, ``calibration``,
+    # ``tuning``, ``ml``, ``explain``, ``survival``, ``forward``, ``stress``,
+    # ``provisioning_cmf``, ``provisioning_ifrs9``, ``performance``, ``stability``,
+    # ``validation``, ``report``).
 
     schema_version: str = Field(
         default="1.0.0",
@@ -177,7 +197,10 @@ class NikodymConfig(NikodymBaseConfig):
         data: Any = Field(
             default=None,
             title="Datos",
-            description="Sección de origen y validación de datos (capa `data`, SDD-02).",
+            description=(
+                "Define de dónde se cargan los datos, cómo se valida su calidad y cómo se "
+                "construyen el target y las particiones."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -187,7 +210,10 @@ class NikodymConfig(NikodymBaseConfig):
         markov: Any = Field(
             default=None,
             title="Markov",
-            description="Sección de matrices Markov de migración y PD lifetime (SDD-19).",
+            description=(
+                "Estima matrices de migración entre estados de mora y proyecta con ellas la PD "
+                "lifetime."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -197,7 +223,10 @@ class NikodymConfig(NikodymBaseConfig):
         eda: Any = Field(
             default=None,
             title="EDA",
-            description="Sección de análisis exploratorio descriptivo (capa `eda`, SDD-27).",
+            description=(
+                "Perfila la cartera antes de modelar: distribución de cada variable, calidad de "
+                "los datos y tasa de default por período o cohorte."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -207,7 +236,10 @@ class NikodymConfig(NikodymBaseConfig):
         binning: Any = Field(
             default=None,
             title="Binning",
-            description="Sección de binning supervisado WoE/IV (capa `binning`, SDD-06).",
+            description=(
+                "Agrupa cada variable en tramos y los convierte a WoE, con el IV como medida de "
+                "poder predictivo."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -218,7 +250,8 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Selección",
             description=(
-                "Sección de selección pre-modelo de variables WoE (capa `selection`, SDD-07)."
+                "Filtra las variables WoE candidatas por IV, correlación, VIF y estabilidad "
+                "PSI/CSI."
             ),
         )
     if TYPE_CHECKING:
@@ -230,7 +263,7 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Modelo",
             description=(
-                "Sección de modelo logístico PD sobre variables WoE (capa `model`, SDD-08)."
+                "Ajusta la regresión logística de PD sobre las variables WoE seleccionadas."
             ),
         )
     if TYPE_CHECKING:
@@ -241,7 +274,10 @@ class NikodymConfig(NikodymBaseConfig):
         scorecard: Any = Field(
             default=None,
             title="Scorecard",
-            description=("Sección de escalamiento log-odds a puntos (capa `scorecard`, SDD-09)."),
+            description=(
+                "Traduce el log-odds del modelo a puntos de scorecard según el PDO, el score "
+                "objetivo y las odds objetivo."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -251,7 +287,7 @@ class NikodymConfig(NikodymBaseConfig):
         calibration: Any = Field(
             default=None,
             title="Calibración",
-            description="Sección de calibración de PD cruda a PD calibrada (capa `calibration`).",
+            description="Ajusta la PD cruda del modelo a una tasa central de anclaje aprobada.",
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -262,10 +298,7 @@ class NikodymConfig(NikodymBaseConfig):
         tuning: Any = Field(
             default=None,
             title="Tuning de hiperparámetros",
-            description=(
-                "Sección de búsqueda de hiperparámetros con Optuna que afina el challenger "
-                "(capa `tuning`, SDD-13)."
-            ),
+            description="Busca con Optuna los hiperparámetros del challenger definido en `ml`.",
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -276,8 +309,8 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Challenger ML",
             description=(
-                "Sección del challenger de machine learning que reta al scorecard "
-                "(capa `ml`, SDD-12)."
+                "Entrena un challenger de machine learning que reta al scorecard campeón sobre "
+                "los mismos datos."
             ),
         )
     if TYPE_CHECKING:
@@ -290,8 +323,8 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Explicabilidad",
             description=(
-                "Sección de explicabilidad unificada scorecard + SHAP y reason codes "
-                "(capa `explain`, SDD-14)."
+                "Explica cada decisión: aporte en puntos de cada variable del scorecard, valores "
+                "SHAP y reason codes."
             ),
         )
     if TYPE_CHECKING:
@@ -302,7 +335,10 @@ class NikodymConfig(NikodymBaseConfig):
         survival: Any = Field(
             default=None,
             title="Survival",
-            description="Sección de survival analysis y lifetime PD (capa `survival`, SDD-18).",
+            description=(
+                "Modela el tiempo hasta el incumplimiento con análisis de supervivencia y obtiene "
+                "de ahí la PD lifetime."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -312,7 +348,9 @@ class NikodymConfig(NikodymBaseConfig):
         forward: Any = Field(
             default=None,
             title="Forward-looking",
-            description="Sección de proyección macro forward-looking y PIT/TTC (SDD-20).",
+            description=(
+                "Proyecta la PD con variables macroeconómicas y convierte entre PD PIT y PD TTC."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -322,7 +360,10 @@ class NikodymConfig(NikodymBaseConfig):
         stress: Any = Field(
             default=None,
             title="Stress testing",
-            description="Sección de stress testing, sensibilidad y reverse stress (SDD-21).",
+            description=(
+                "Aplica escenarios de stress testing, análisis de sensibilidad y reverse stress "
+                "sobre la cartera."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -334,7 +375,8 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Provisiones CMF",
             description=(
-                "Sección de provisiones regulatorias CMF B-1/B-3 (capa `provisioning_cmf`)."
+                "Calcula las provisiones regulatorias por el método estándar de la CMF "
+                "(Cap. B-1 y B-3): PE = PI · PDI · Exposición."
             ),
         )
     if TYPE_CHECKING:
@@ -347,8 +389,8 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Provisiones método interno",
             description=(
-                "Sección del método interno de provisiones CMF B-1 §3: grupos homogéneos con "
-                "Exposición · PD · LGD (capa `provisioning_internal`, SDD-28)."
+                "Calcula las provisiones por el método interno del banco (Cap. B-1 §3): grupos "
+                "homogéneos de deudores con Exposición · PD · LGD."
             ),
         )
     if TYPE_CHECKING:
@@ -361,7 +403,8 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Provisiones IFRS 9",
             description=(
-                "Sección de provisiones contables IFRS 9/ECL (capa `provisioning_ifrs9`, SDD-16)."
+                "Calcula las provisiones contables IFRS 9: clasificación en Stage 1/2/3 y pérdida "
+                "crediticia esperada (ECL)."
             ),
         )
     if TYPE_CHECKING:
@@ -374,10 +417,10 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Provisiones (orquestación)",
             description=(
-                "Compara dos fuentes de provisión (source_a / source_b) y aplica la regla del "
-                "máximo. La regla del Cap. B-1 (Circular N° 2.346) es entre el método estándar de "
-                "la CMF y el método interno del banco, por institución (capa `provisioning`, "
-                "SDD-17)."
+                "Compara dos fuentes de provisión (source_a / source_b) y aplica la regla "
+                "declarada en `rule`. La regla del máximo del Cap. B-1 (Circular N° 2.346) es "
+                "entre el método estándar de la CMF y el método interno del banco, por "
+                "institución."
             ),
         )
     if TYPE_CHECKING:
@@ -388,7 +431,10 @@ class NikodymConfig(NikodymBaseConfig):
         performance: Any = Field(
             default=None,
             title="Desempeño",
-            description="Sección de métricas de desempeño post-modelo (capa `performance`).",
+            description=(
+                "Mide el desempeño del modelo ya ajustado: AUC, Gini, KS y tablas de gains por "
+                "partición."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -398,7 +444,10 @@ class NikodymConfig(NikodymBaseConfig):
         stability: Any = Field(
             default=None,
             title="Estabilidad",
-            description="Sección de métricas de estabilidad post-modelo (capa `stability`).",
+            description=(
+                "Mide la estabilidad del score y de la PD calibrada entre particiones y en el "
+                "tiempo, con PSI y CSI."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto. En runtime el campo es `Any` (rama `else`) y la
@@ -409,8 +458,8 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Validación avanzada",
             description=(
-                "Sección de validación avanzada: calibración, backtesting y semáforo "
-                "(capa `validation`, SDD-22)."
+                "Valida el modelo con pruebas de calibración y backtesting, y resume el resultado "
+                "en un semáforo."
             ),
         )
     if TYPE_CHECKING:
@@ -420,8 +469,11 @@ class NikodymConfig(NikodymBaseConfig):
     else:
         report: Any = Field(
             default=None,
-            title="Reporte",
-            description="Sección de generación de reporte auditable (capa `report`, SDD-26).",
+            title="Informe",
+            description=(
+                "Genera el informe auditable de la corrida y elige sus formatos de salida en "
+                "`formats`."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto sin importar `nikodym.audit` en runtime.
@@ -430,7 +482,9 @@ class NikodymConfig(NikodymBaseConfig):
         audit: Any = Field(
             default=None,
             title="Auditoría",
-            description="Sección de infraestructura para persistencia del audit-trail (SDD-03).",
+            description=(
+                "Registra el audit-trail de la corrida y el snapshot del entorno en que se ejecutó."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto sin importar `nikodym.governance` en runtime.
@@ -439,7 +493,9 @@ class NikodymConfig(NikodymBaseConfig):
         governance: Any = Field(
             default=None,
             title="Gobernanza",
-            description="Sección de infraestructura para model card e inventario (SDD-03).",
+            description=(
+                "Documenta el modelo para su gobierno: model card, inventario y diario de overlays."
+            ),
         )
     if TYPE_CHECKING:
         # Vista de mypy: tipo estricto sin importar `nikodym.tracking` ni MLflow en runtime.
@@ -448,7 +504,7 @@ class NikodymConfig(NikodymBaseConfig):
         tracking: Any = Field(
             default=None,
             title="Tracking",
-            description="Sección de infraestructura para MLflow runs/registry (SDD-04).",
+            description="Registra la corrida en MLflow y publica el modelo en el Model Registry.",
         )
 
     @field_validator("data", mode="before")

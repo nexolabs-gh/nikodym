@@ -93,7 +93,10 @@ class InternalLgdConfig(NikodymBaseConfig):
 
 
 class InternalProvisioningConfig(NikodymBaseConfig):
-    """Sección ``provisioning_internal`` de :class:`~nikodym.core.config.NikodymConfig`."""
+    """Calcula las provisiones del método interno del banco (Cap. B-1 §3) por grupo homogéneo.
+
+    Motor experimental: fuera de la garantía SemVer 1.x.
+    """
 
     schema_version: str = Field(
         default="1.0.0",
@@ -104,7 +107,7 @@ class InternalProvisioningConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección provisioning_internal",
-        description="== @register('standard', domain='provisioning_internal') (SDD-28 §4.1).",
+        description="Variante de la sección del método interno; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     as_of_date_col: str = Field(
@@ -158,7 +161,7 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         default=10,
         ge=2,
         title="Número de bandas de score",
-        description="Cantidad de bandas por cuantil de PD; sólo aplica con grouping='score_band'.",
+        description="Cantidad de bandas por cuantil de PD; solo aplica con grouping='score_band'.",
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Grupos", "ui_order": 3},
     )
     lgd: InternalLgdConfig = Field(
@@ -192,8 +195,9 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante falta de dato",
         description=(
-            "True: un nulo en exposición, PD, LGD o tasa de pérdida aborta la corrida. False: se "
-            "imputa cero, se marca la operación con FALTA-DATO y se traza en la card."
+            "True: un nulo en exposición, PD, LGD o tasa de pérdida detiene la corrida con error. "
+            "False: se imputa cero, la operación queda marcada como falta de dato y el resultado "
+            "lo deja trazado."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Método", "ui_order": 4},
     )

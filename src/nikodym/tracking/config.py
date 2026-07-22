@@ -10,17 +10,17 @@ __all__ = ["TrackingConfig"]
 
 
 class TrackingConfig(NikodymBaseConfig):
-    """Sub-config de infraestructura para MLflow runs y Model Registry.
+    """Registra la corrida en MLflow y publica el modelo en el Model Registry.
 
-    ``tracking`` es sección de infraestructura: está excluida de ``config_hash`` por
-    ``INFRA_SECTIONS``. Cambiar URI, experimento o política de logging no altera la identidad
-    computacional del experimento ni duplica versiones de inventario por destino.
+    Cambiar la URI, el experimento o la política de logging no altera los resultados de la
+    corrida ni su ``config_hash``, así que apuntar a otro destino no duplica versiones en el
+    inventario.
     """
 
     enabled: bool = Field(
         default=True,
         title="Tracking activo",
-        description="Si False, no se inyecta TrackingSink ni se abre un run MLflow.",
+        description="Con False la corrida no se registra en MLflow.",
     )
     tracking_uri: str | None = Field(
         default=None,
@@ -52,16 +52,16 @@ class TrackingConfig(NikodymBaseConfig):
         default=False,
         title="Registrar modelo al terminar",
         description=(
-            "Reservado v1: no dispara registro por sí solo; la publicación canónica la decide "
-            "governance.publish_to_inventory."
+            "Reservado: por sí solo no registra el modelo. La publicación al inventario la "
+            "decide governance.publish_to_inventory."
         ),
     )
     autolog: bool = Field(
         default=False,
         title="Autologging de MLflow",
         description=(
-            "Regla dura: Nikodym no activa autolog para no alterar el cálculo; el logging es "
-            "explícito y auditable."
+            "Nikodym nunca activa el autologging de MLflow: fijarlo en True se ignora con una "
+            "advertencia y el registro sigue siendo explícito y auditable."
         ),
     )
     log_study_artifacts: bool = Field(

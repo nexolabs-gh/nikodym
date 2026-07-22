@@ -45,7 +45,8 @@ class DefaultRateConfig(NikodymBaseConfig):
         default=None,
         title="Columna de fecha (eje period)",
         description=(
-            "Fecha de observación a discretizar. Debe ser dtype datetime (validado por data)."
+            "Fecha de observación que se agrupa en períodos; la columna debe ser de tipo fecha y "
+            "la corrida se detiene si no lo es."
         ),
         json_schema_extra={
             "ui_widget": "text_input",
@@ -105,7 +106,10 @@ class TemporalStabilityConfig(NikodymBaseConfig):
         default=0.25,
         ge=0.0,
         title="Umbral del indicador",
-        description="Por encima, se emite log_decision señalando posible redesarrollo (no aborta).",
+        description=(
+            "Por encima del umbral se registra una decisión señalando posible redesarrollo; la "
+            "corrida continúa."
+        ),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Estabilidad temporal",
@@ -122,7 +126,7 @@ class UnivariateConfig(NikodymBaseConfig):
         ge=2,
         le=50,
         title="Tramos por cuantiles (numéricas, descriptivo)",
-        description="Troceo DESCRIPTIVO para el perfil; NO es el binning de SDD-06.",
+        description="Troceo descriptivo del perfil; no es el binning que alimenta el modelo.",
         json_schema_extra={
             "ui_widget": "slider",
             "ui_group": "Perfiles univariados",
@@ -146,7 +150,7 @@ class UnivariateConfig(NikodymBaseConfig):
     compute_descriptive_iv: bool = Field(
         default=False,
         title="Calcular IV univariado descriptivo (pre-binning)",
-        description="Diagnóstico rápido; NO es el IV final de SDD-06. Etiquetado 'pre-binning'.",
+        description="Diagnóstico rápido etiquetado 'pre-binning'; no es el IV final del binning.",
         json_schema_extra={
             "ui_widget": "checkbox",
             "ui_group": "Perfiles univariados",
@@ -157,8 +161,8 @@ class UnivariateConfig(NikodymBaseConfig):
         default=None,
         title="Columnas a perfilar",
         description=(
-            "None = todas las no-estructurales (excluye target/status/partition/fecha/cohorte). "
-            "Qué columnas son features lo decide SDD-06/07; aquí es solo el alcance del perfil."
+            "Vacío = todas las columnas no estructurales (excluye target, estado, partición, "
+            "fecha y cohorte). Define el alcance del perfil, no qué variables entran al modelo."
         ),
         json_schema_extra={
             "ui_widget": "multiselect",
@@ -203,8 +207,8 @@ class SamplingConfig(NikodymBaseConfig):
         default=False,
         title="Muestrear para los perfiles univariados",
         description=(
-            "Si True, los perfiles/figuras se calculan sobre una muestra (usa el rng de core). "
-            "La tasa de default por período se calcula SIEMPRE sobre el total (no se muestrea)."
+            "Calcula los perfiles y figuras sobre una muestra. La tasa de default por período "
+            "se calcula siempre sobre el total, nunca sobre la muestra."
         ),
         json_schema_extra={
             "ui_widget": "checkbox",
@@ -226,12 +230,12 @@ class SamplingConfig(NikodymBaseConfig):
 
 
 class EdaConfig(NikodymBaseConfig):
-    """Sección ``eda`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-27 §5)."""
+    """Perfila la cartera antes de modelar: variables, calidad de datos y tasa de default."""
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección EDA",
-        description="== @register('standard', domain='eda') (D-CONV-2).",
+        description="Variante de la sección EDA; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 0},
     )
     analysis_partition: Literal["desarrollo", "holdout", "oot", "todas"] = Field(
@@ -282,6 +286,6 @@ class EdaConfig(NikodymBaseConfig):
     sampling: SamplingConfig = Field(
         default_factory=SamplingConfig,
         title="Muestreo",
-        description="Parámetros de muestreo opt-in para perfiles sobre datasets grandes.",
+        description="Muestreo opcional de los perfiles cuando el dataset es muy grande.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Muestreo", "ui_order": 6},
     )

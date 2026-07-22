@@ -34,6 +34,37 @@ Bloque **B1** del plan operativo: higiene de lo que el informe muestra. Todo lo 
   p-valores Wald/LR. Se usa `.6g` y no `.6f` a propósito: una cifra diminuta conserva su magnitud
   (`1.23457e-06`) en vez de aplanarse a `0.000000`. Los mensajes de **excepción** conservan las 12
   cifras, que ahí sí sirven para depurar.
+- **El editor de configuración deja de hablarle al usuario en jerga del repositorio.** El texto de
+  ayuda de cada campo venía citando documentos internos de diseño que quien instala la librería no
+  tiene: el índice de secciones decía cosas como `Sección de binning supervisado WoE/IV (capa
+  binning, SDD-06)` y 22 campos mostraban literalmente `== @register('standard', domain='...')`.
+  Se reescribieron **185 textos** —`description`, `title` y encabezados de grupo— en castellano
+  funcional, más los descriptores de preset y dataset que la demo publica. Se conservan, porque no
+  son jerga: las referencias normativas (`Circular N° 2.346`, `Cap. B-1`, `NIIF 9 B5.5.37`), la
+  terminología de riesgo (WoE, IV, PD, LGD, ECL, Stage 1/2/3, PSI, SICR) y los códigos
+  `FALTA-DATO-*` que el motor imprime en el informe y el usuario necesita rastrear.
+
+### Corregido
+
+- **Cinco textos del config afirmaban cosas que el motor no hace.** Salieron de verificar cada
+  enunciado contra el código, y varias venían de antes de esta limpieza:
+  - Los dos gatillos SICR de Stage 2 se describían con un mínimo (`>=2x`, `>=3x`) que el validador
+    **no impone**: ambos campos son `gt=1.0`, así que el motor acepta `1,05`. Ahora el texto dice
+    que 2,0 y 3,0 son el valor de referencia y que moverlos cambia la población en Stage 2.
+  - El indicador de incumplimiento declarado (`is_default_col`, CMF) decía mover solo el factor de
+    conversión B-3 de contingentes; **también clasifica al deudor de consumo en incumplimiento**
+    (PI 100 %) con mora menor a 90 días, lo que cambia la provisión de sus operaciones directas.
+  - La orquestación de provisiones decía aplicar "la regla del máximo" cuando la regla es
+    configurable (`max` o `use_internal`).
+  - El umbral de nulos por columna prometía que la selección de variables eliminaría esas columnas:
+    **ninguna etapa las elimina**; solo se registran como decisión en el audit-trail.
+  - Las métricas del challenger decían tomarse de la etapa de desempeño "sin recalcularlas"; el
+    paso instancia su propio evaluador y las recalcula con el mismo motor.
+- **Tres campos que no hacen nada dejan de anunciarse como operativos.** `repro.strict_determinism`,
+  `tuning.validation.fit_partition` y `survival.fail_on_falta_dato` no los lee ningún componente del
+  motor, y `report.pdf.enabled` solo aplica al uso directo del renderizador —en una corrida el PDF
+  se activa incluyendo `'pdf'` en `formats`—. Los cuatro textos ahora lo declaran. Cablearlos o
+  retirarlos es trabajo aparte.
 
 ## [1.4.1] — 2026-07-21
 

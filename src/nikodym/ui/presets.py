@@ -852,7 +852,7 @@ def ifrs9_preset() -> dict[str, Any]:
             "de la cartera (mora, utilización, carga financiera, antigüedad) y calcula la pérdida "
             "esperada IFRS 9 de tres etapas — staging Stage 1/2/3 por los backstops de mora 30/90 "
             "días y ECL 12 meses / lifetime descontada a la tasa efectiva. IFRS 9 es experimental "
-            "(SDD-16, fuera de la garantía SemVer 1.x)."
+            "(fuera de la garantía SemVer 1.x)."
         ),
         "config": _ifrs9_config(),
         "dataset_id": IFRS9_DATASET_ID,

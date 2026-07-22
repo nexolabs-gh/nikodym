@@ -63,15 +63,15 @@ __all__ = [
 
 
 class MLExplainerConfig(NikodymBaseConfig):
-    """Selección y parametrización del explainer SHAP del challenger ML (SDD-14 §5, D-EXP-1)."""
+    """Selección y parametrización del explainer SHAP del challenger ML."""
 
     ml_explainer: MLExplainerChoice = Field(
         default="auto",
         title="Explainer del challenger",
         description=(
-            "'auto' resuelve por backend (Tree para GBDT/RF, Linear para lineales, Kernel "
-            "fallback); forzable a 'tree'/'linear'/'kernel' con validación de compatibilidad "
-            "en runtime."
+            "'auto' elige el explainer según el backend (Tree para GBDT y Random Forest, Linear "
+            "para modelos lineales, Kernel en el resto); forzar uno incompatible con el backend "
+            "detiene la corrida con error."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Explainer", "ui_order": 1},
     )
@@ -113,7 +113,7 @@ class MLExplainerConfig(NikodymBaseConfig):
 
 
 class ReasonCodesConfig(NikodymBaseConfig):
-    """Política de reason codes (top-N drivers de la PD con dirección y magnitud, SDD-14 §5)."""
+    """Política de reason codes: top-N drivers de la PD con su dirección y magnitud."""
 
     top_n: int = Field(
         default=5,
@@ -121,8 +121,8 @@ class ReasonCodesConfig(NikodymBaseConfig):
         le=50,
         title="N de reason codes",
         description=(
-            "Nº de drivers principales por observación; default 5 (referencia ECOA/FCRA 'key "
-            "factors', NO norma CMF — FALTA-DATO-EXP-1)."
+            "Nº de drivers principales por observación; el default 5 sigue los 'key factors' de "
+            "ECOA/FCRA y NO responde a una norma CMF (brecha declarada FALTA-DATO-EXP-1)."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Reason codes", "ui_order": 1},
     )
@@ -148,7 +148,7 @@ class ReasonCodesConfig(NikodymBaseConfig):
 
 
 class LocalScopeConfig(NikodymBaseConfig):
-    """Scope de las explicaciones locales que se materializan y publican (SDD-14 §5, D-EXP-6)."""
+    """Qué observaciones se explican individualmente y se publican."""
 
     strategy: LocalScope = Field(
         default="sample",
@@ -182,7 +182,7 @@ class LocalScopeConfig(NikodymBaseConfig):
 
 
 class ScorecardExplainConfig(NikodymBaseConfig):
-    """Baseline de la mitad scorecard: contribución ``β·(WoE - baseline)`` (SDD-14 §5, D-EXP-7)."""
+    """Baseline del scorecard: la contribución de cada atributo es ``β·(WoE - baseline)``."""
 
     baseline: ScorecardBaseline = Field(
         default="population_mean",
@@ -199,7 +199,7 @@ class ScorecardExplainConfig(NikodymBaseConfig):
 
 
 class ExplainOutputConfig(NikodymBaseConfig):
-    """Artefactos publicados por ``explain`` (contribuciones locales, top-K, figuras, SDD-14 §5)."""
+    """Artefactos de explicabilidad publicados: contribuciones locales, top-K y figuras."""
 
     publish_local: bool = Field(
         default=True,
@@ -224,18 +224,21 @@ class ExplainOutputConfig(NikodymBaseConfig):
     emit_figures: bool = Field(
         default=True,
         title="Emitir figuras SHAP",
-        description="Si True, añade SHAP summary/dependence al card (matplotlib, import perezoso).",
+        description=(
+            "Si True, añade al informe las figuras SHAP de resumen y de dependencia (requiere "
+            "matplotlib)."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Salida", "ui_order": 4},
     )
 
 
 class ExplainConfig(NikodymBaseConfig):
-    """Sección ``explain`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-14 §5)."""
+    """Explica cada decisión con el aporte del scorecard, valores SHAP y reason codes."""
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección explain",
-        description="== @register('standard', domain='explain') (SDD-14 §4).",
+        description="Variante de la sección explain; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 0},
     )
     schema_version: str = Field(

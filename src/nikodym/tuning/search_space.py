@@ -118,11 +118,10 @@ ParamSpec = Annotated[IntSpec | FloatSpec | CategoricalSpec, Field(discriminator
 
 
 class SearchSpaceConfig(NikodymBaseConfig):
-    """Mapa hiperparámetro → distribución de búsqueda (SDD-13 §4/§5).
+    """Mapa de hiperparámetro a distribución de búsqueda.
 
-    ``params`` vacío ⇒ el config resuelve el espacio por defecto del backend de ``ml`` vía
-    :func:`default_search_space` (B13.4). Las claves deben ser campos del params-model del backend;
-    ese cross-check lo hace el config, no este schema.
+    Si se deja vacío, se usa el espacio de búsqueda por defecto del backend declarado en ``ml``.
+    Cada clave debe ser un hiperparámetro de ese backend.
     """
 
     params: dict[str, ParamSpec] = Field(default_factory=dict)

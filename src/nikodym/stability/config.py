@@ -44,7 +44,7 @@ _COLUMN_FIELDS: tuple[str, ...] = (
 
 
 class StabilityConfig(NikodymBaseConfig):
-    """Sección ``stability`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-11 §5)."""
+    """Mide la estabilidad del score y de la PD calibrada con PSI y CSI."""
 
     schema_version: str = Field(
         default="1.0.0",
@@ -55,7 +55,7 @@ class StabilityConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección stability",
-        description="== @register('standard', domain='stability') (SDD-11 §4).",
+        description="Variante de la sección de estabilidad; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     score_column: str = Field(
@@ -134,7 +134,10 @@ class StabilityConfig(NikodymBaseConfig):
     temporal_column: str | None = Field(
         default=None,
         title="Columna de período/cohorte",
-        description="Si None, se infiere solo si hay una columna inequívoca en data.frame.",
+        description=(
+            "Si se deja vacía y el eje temporal no es 'none', se infiere de los datos cuando hay "
+            "una sola columna candidata; si hay varias o ninguna, la corrida se detiene con error."
+        ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Temporal", "ui_order": 2},
     )
     temporal_freq: TemporalFrequency = Field(
@@ -154,7 +157,10 @@ class StabilityConfig(NikodymBaseConfig):
     csi_source: CsiSource = Field(
         default="score_points",
         title="Fuente de CSI",
-        description="woe_bins exige ratificar requires adicionales de binning.",
+        description=(
+            "Fuente de las distribuciones del CSI. 'woe_bins' está reservada y aún no "
+            "implementada: si se elige, la corrida se detiene con error."
+        ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Métricas", "ui_order": 7},
     )
 

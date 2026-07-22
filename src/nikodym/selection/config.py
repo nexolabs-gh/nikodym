@@ -243,12 +243,12 @@ class StabilitySelectionConfig(NikodymBaseConfig):
 
 
 class SelectionConfig(NikodymBaseConfig):
-    """Sección ``selection`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-07 §5)."""
+    """Filtra las variables WoE candidatas por IV, correlación, VIF y estabilidad PSI/CSI."""
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección selection",
-        description="== @register('standard', domain='selection') (D-CONV-2).",
+        description="Variante de la sección de selección; hoy solo existe la estándar.",
         json_schema_extra={
             "ui_widget": "hidden",
             "ui_group": "General",

@@ -105,7 +105,12 @@ def _require_non_empty_if_set(values: dict[str, str | None], *, context: str) ->
 
 
 class ProvisioningConfig(NikodymBaseConfig):
-    """Sección ``provisioning`` de :class:`~nikodym.core.config.NikodymConfig`."""
+    """Compara dos fuentes de provisión configurables y aplica la regla declarada.
+
+    La regla del máximo del Cap. B-1 (Circular N° 2.346) es entre el método estándar de la CMF y
+    el método interno del banco, por institución; comparar contra IFRS 9 es un contraste entre
+    marcos contables, no la exigencia local.
+    """
 
     schema_version: str = Field(
         default="1.0.0",
@@ -116,7 +121,9 @@ class ProvisioningConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección provisioning",
-        description="== @register('standard', domain='provisioning') (SDD-17 §4).",
+        description=(
+            "Variante de la sección de orquestación de provisiones; hoy solo existe la estándar."
+        ),
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     source_a: ProvisioningSource = Field(
@@ -170,28 +177,28 @@ class ProvisioningConfig(NikodymBaseConfig):
     )
     cmf_portfolio_col: str = Field(
         default="portfolio",
-        title="Columna de cartera en el detail del motor CMF",
+        title="Columna de cartera en el resultado del motor CMF",
         description="Columna de cartera del resultado CMF para agrupar la comparación.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
     )
     ifrs9_portfolio_col: str = Field(
         default="portfolio",
-        title="Columna de cartera en el detail del motor IFRS 9",
+        title="Columna de cartera en el resultado del motor IFRS 9",
         description="Columna de cartera del resultado IFRS 9 para agrupar la comparación.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
     )
     internal_portfolio_col: str = Field(
         default="portfolio",
-        title="Columna de cartera en el detail del método interno",
-        description="Columna de cartera del resultado del método interno (SDD-28) para agrupar.",
+        title="Columna de cartera en el resultado del método interno",
+        description="Columna de cartera del resultado del método interno para agrupar.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 4},
     )
     portfolio_crosswalk: dict[str, str] = Field(
         default_factory=dict,
         title="Mapeo cartera de la fuente A → cartera de la fuente B (si difieren)",
         description=(
-            "Crosswalk explícito de la taxonomía de cartera de la fuente A a la de la fuente B "
-            "cuando no comparten clave; nunca se adivina por similitud (D-PROV-3, R0)."
+            "Equivalencia explícita entre la taxonomía de cartera de la fuente A y la de la "
+            "fuente B cuando no comparten clave; nunca se infiere por similitud de nombres."
         ),
         json_schema_extra={"ui_widget": "kv_text", "ui_group": "Comparación", "ui_order": 2},
     )
@@ -210,13 +217,13 @@ class ProvisioningConfig(NikodymBaseConfig):
     consume_a: bool = Field(
         default=True,
         title="Consumir el resultado de la fuente A si está presente",
-        description="Si es True, la orquestación consume el resultado publicado por source_a.",
+        description="Si es True, el resultado de source_a entra en la comparación.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Fuentes", "ui_order": 4},
     )
     consume_b: bool = Field(
         default=True,
         title="Consumir el resultado de la fuente B si está presente",
-        description="Si es True, la orquestación consume el resultado publicado por source_b.",
+        description="Si es True, el resultado de source_b entra en la comparación.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Fuentes", "ui_order": 5},
     )
     consume_cmf: bool | None = Field(
@@ -241,10 +248,10 @@ class ProvisioningConfig(NikodymBaseConfig):
     )
     require_both: bool = Field(
         default=True,
-        title="Exigir ambas fuentes (si no, passthrough de la disponible)",
+        title="Exigir ambas fuentes (si no, se reporta la disponible)",
         description=(
-            "La regla presupone ambas fuentes; con False degrada a passthrough marcado de la "
-            "disponible (comparación incompleta, FALTA-DATO)."
+            "La regla supone ambas fuentes; con False se reporta la única fuente disponible, "
+            "marcada como comparación incompleta por falta de dato."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Fuentes", "ui_order": 8},
     )
@@ -252,8 +259,9 @@ class ProvisioningConfig(NikodymBaseConfig):
         default="use_available",
         title="Política ante celda cubierta por una sola fuente",
         description=(
-            "use_available reporta la fuente disponible marcada; fail levanta; "
-            "treat_missing_as_zero asume 0 en la faltante (opt-in sensible: subestima la regla)."
+            "use_available reporta la única fuente disponible y lo deja marcado; fail detiene la "
+            "corrida con error; treat_missing_as_zero asume 0 en la fuente faltante, lo que "
+            "subestima la provisión."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Cobertura", "ui_order": 1},
     )
@@ -261,8 +269,8 @@ class ProvisioningConfig(NikodymBaseConfig):
         default="decimal_quantize",
         title="Cómo reconciliar dominios numéricos (Decimal vs float)",
         description=(
-            "decimal_quantize preserva la exactitud regulatoria del Decimal como dominio de "
-            "reporte; float_isclose usa el dominio económico. Los originales se preservan en el "
+            "decimal_quantize preserva la exactitud regulatoria del Decimal como dominio "
+            "contable; float_isclose usa el dominio económico. Los originales se preservan en el "
             "detalle (CMF y el método interno publican Decimal; IFRS 9 publica float)."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Reconciliación", "ui_order": 1},
@@ -282,8 +290,8 @@ class ProvisioningConfig(NikodymBaseConfig):
         default="none",
         title="Redondeo de la provisión reportada",
         description=(
-            "Política explícita de redondeo contable de la provisión reportada; none publica el "
-            "valor económico exacto (heredado de D-CMF-5)."
+            "Política explícita de redondeo contable de la provisión reportada; none entrega el "
+            "valor económico exacto."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Reconciliación", "ui_order": 3},
     )
@@ -291,8 +299,9 @@ class ProvisioningConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante brechas críticas de dato",
         description=(
-            "Si es True, una brecha crítica (p. ej. taxonomías de cartera sin crosswalk) falla en "
-            "vez de marcar FALTA-DATO."
+            "Si es True, una brecha crítica de datos (p. ej. taxonomías de cartera sin "
+            "equivalencia declarada en portfolio_crosswalk) detiene la corrida con error en vez "
+            "de marcarla como falta de dato y seguir."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 2},
     )
@@ -392,8 +401,8 @@ class ProvisioningConfig(NikodymBaseConfig):
             raise ProvisioningConfigError(
                 f"comparison_level='{self.comparison_level}' con taxonomías de cartera distintas "
                 f"({col_a!r} en {self.source_a} != {col_b!r} en {self.source_b}) exige "
-                "portfolio_crosswalk explícito (o fail_on_falta_dato=False para diferirlo a "
-                "FALTA-DATO)."
+                "portfolio_crosswalk explícito (o fail_on_falta_dato=False para registrarlo como "
+                "brecha de datos en vez de detener la corrida)."
             )
 
     def _check_consumo(self) -> None:

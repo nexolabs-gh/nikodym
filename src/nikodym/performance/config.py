@@ -45,7 +45,7 @@ _OPTIONAL_THRESHOLD_KEYS: frozenset[str] = frozenset(
 
 
 class PerformanceConfig(NikodymBaseConfig):
-    """Sección ``performance`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-11 §5)."""
+    """Mide el desempeño del modelo ya ajustado: AUC, Gini, KS y tablas de gains por partición."""
 
     schema_version: str = Field(
         default="1.0.0",
@@ -64,7 +64,7 @@ class PerformanceConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección performance",
-        description="== @register('standard', domain='performance') (SDD-11 §4).",
+        description="Variante de la sección de desempeño; hoy solo existe la estándar.",
         json_schema_extra={
             "ui_widget": "hidden",
             "ui_group": "General",

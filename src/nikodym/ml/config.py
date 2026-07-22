@@ -366,12 +366,16 @@ class MLTrainConfig(NikodymBaseConfig):
 
 
 class MLComparisonConfig(NikodymBaseConfig):
-    """Comparación cabeza-a-cabeza challenger-vs-campeón (reúso de SDD-11)."""
+    """Contrasta al challenger con el scorecard campeón usando el mismo motor de métricas."""
 
     metrics: tuple[ComparisonMetric, ...] = Field(
         default=("auc", "gini", "ks", "psi"),
         title="Métricas de comparación",
-        description="Métricas de discriminación/estabilidad reúsadas de SDD-11 (no se recalculan).",
+        description=(
+            "Métricas de discriminación y estabilidad con que se contrasta al challenger; se "
+            "calculan con los mismos motores de las etapas de desempeño y estabilidad, nunca con "
+            "otra fórmula."
+        ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "Comparación", "ui_order": 1},
     )
     partitions: tuple[str, ...] = Field(
@@ -415,7 +419,10 @@ class MLOutputConfig(NikodymBaseConfig):
 
 
 class MLConfig(NikodymBaseConfig):
-    """Sección ``ml`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-12 §5)."""
+    """Entrena un challenger de machine learning que reta al scorecard campeón.
+
+    Compite sobre los mismos datos que el campeón.
+    """
 
     schema_version: str = Field(
         default="1.0.0",
@@ -426,7 +433,7 @@ class MLConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección ml",
-        description="== @register('standard', domain='ml') (SDD-12 §4).",
+        description="Variante de la sección ml; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     backend: MLBackendName = Field(
@@ -442,8 +449,8 @@ class MLConfig(NikodymBaseConfig):
         default="binning_woe",
         title="Fuente de features",
         description=(
-            "'binning_woe' por defecto (consistencia de pipeline); 'selection_woe' "
-            "apples-to-apples; 'data_raw' diferido."
+            "'binning_woe' usa el WoE de todas las variables binadas; 'selection_woe' solo el de "
+            "las seleccionadas; 'data_raw' aún no está implementado y detiene la corrida con error."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "General", "ui_order": 3},
     )
@@ -473,15 +480,17 @@ class MLConfig(NikodymBaseConfig):
     comparison: MLComparisonConfig = Field(
         default_factory=MLComparisonConfig,
         title="Comparación",
-        description="Comparación cabeza-a-cabeza challenger-vs-campeón (reúso de SDD-11).",
+        description=(
+            "Contrasta al challenger con el scorecard campeón usando el mismo motor de métricas."
+        ),
         json_schema_extra={"ui_widget": "section", "ui_group": "Comparación", "ui_order": 1},
     )
     calibrate_challenger: bool = Field(
         default=False,
         title="Calibrar el challenger",
         description=(
-            "False por defecto: la comparación de discriminación no lo necesita; True alimenta "
-            "validación/report con PD calibrada (reúso de PDCalibrator, SDD-10)."
+            "False por defecto: la comparación de discriminación no lo necesita; True calibra la "
+            "PD del challenger para alimentar la validación y el informe."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 4},
     )

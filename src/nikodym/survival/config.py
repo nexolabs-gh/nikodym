@@ -79,20 +79,34 @@ class SurvivalInputConfig(NikodymBaseConfig):
     pd_source: PdSource = Field(
         default="model_raw",
         title="Fuente PD",
-        description="Fuente de PD de F1 usada como insumo trazable del modelo lifetime.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "PD F1", "ui_order": 1},
+        description="Origen de la PD del scorecard usada como insumo del modelo lifetime.",
+        json_schema_extra={
+            "ui_widget": "selectbox",
+            "ui_group": "PD del scorecard",
+            "ui_order": 1,
+        },
     )
     pd_column: str = Field(
         default="pd_raw",
         title="Columna PD cruda",
         description="Columna con PD cruda o calibrada según la fuente configurada.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "PD F1", "ui_order": 2},
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "PD del scorecard",
+            "ui_order": 2,
+        },
     )
     linear_predictor_column: str = Field(
         default="linear_predictor",
         title="Columna predictor lineal",
-        description="Columna con logit/predictor lineal de F1 para covariable u offset.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "PD F1", "ui_order": 3},
+        description=(
+            "Columna con el logit o predictor lineal del scorecard, usada como covariable u offset."
+        ),
+        json_schema_extra={
+            "ui_widget": "text_input",
+            "ui_group": "PD del scorecard",
+            "ui_order": 3,
+        },
     )
     covariate_cols: tuple[str, ...] = Field(
         default=(),
@@ -191,8 +205,8 @@ class DiscreteHazardConfig(NikodymBaseConfig):
     )
     pd_role: PdRole = Field(
         default="covariate",
-        title="Rol de PD F1",
-        description="Rol de la PD/logit de F1 dentro del modelo de hazard discreto.",
+        title="Rol de la PD del scorecard",
+        description="Rol de la PD o el logit del scorecard en el modelo de hazard discreto.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Discrete hazard", "ui_order": 3},
     )
     min_events_per_period: int | None = Field(
@@ -234,7 +248,7 @@ class CoxAftConfig(NikodymBaseConfig):
 
 
 class SurvivalConfig(NikodymBaseConfig):
-    """Sección ``survival`` de :class:`~nikodym.core.config.NikodymConfig`."""
+    """Modela el tiempo hasta el incumplimiento y obtiene de ahí la PD lifetime."""
 
     schema_version: str = Field(
         default="1.0.0",
@@ -245,7 +259,7 @@ class SurvivalConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección survival",
-        description="== @register('standard', domain='survival') (SDD-18 §4).",
+        description="Variante de la sección de survival; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     method: SurvivalMethod = Field(
@@ -257,7 +271,7 @@ class SurvivalConfig(NikodymBaseConfig):
     input: SurvivalInputConfig = Field(
         default=...,
         title="Entrada",
-        description="Columnas de duración, evento, PD F1 y covariables survival.",
+        description="Columnas de duración, evento, PD del scorecard y covariables.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Entrada", "ui_order": 1},
     )
     time_grid: SurvivalTimeGridConfig = Field(
@@ -286,8 +300,12 @@ class SurvivalConfig(NikodymBaseConfig):
     )
     fail_on_falta_dato: bool = Field(
         default=True,
-        title="Fallar ante FALTA-DATO",
-        description="Si es True, brechas críticas FALTA-DATO abortan en vez de solo advertir.",
+        title="Fallar ante falta de dato",
+        description=(
+            "Campo reservado: hoy no altera la corrida, cualquiera sea su valor. Las brechas de "
+            "datos de esta etapa quedan siempre registradas como aviso `FALTA-DATO-SUR-*` en su "
+            "resultado."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Gobernanza", "ui_order": 1},
     )
 

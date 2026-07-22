@@ -74,27 +74,27 @@ def _require_no_collision(values: dict[str, str], *, context: str) -> None:
 
 
 class DiscriminationValidationConfig(NikodymBaseConfig):
-    """Discriminación: reúso/consumo de AUC/Gini/KS de SDD-11 (no recálculo)."""
+    """Reporta la discriminación (AUC, Gini, KS) con el motor de la etapa de desempeño."""
 
     consume_performance: bool = Field(
         default=True,
-        title="Consumir discriminant_metrics de SDD-11",
+        title="Reusar las métricas de discriminación ya calculadas",
         description=(
-            "True consume ('performance','discriminant_metrics'); False fuerza el fallback por "
-            "reúso de PerformanceEvaluator (nunca reimplementa AUC/Gini/KS)."
+            "Con True se toman el AUC, el Gini y el KS ya calculados en la etapa de desempeño; "
+            "con False se calculan aquí con ese mismo motor, nunca con otra fórmula."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Discriminación", "ui_order": 1},
     )
     partitions: tuple[DiscriminationPartition, ...] = Field(
         default=("desarrollo", "holdout", "oot"),
         title="Particiones a validar",
-        description="Particiones sobre las que se reporta la discriminación consumida/reúsada.",
+        description="Particiones sobre las que se reporta la discriminación del modelo.",
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "Discriminación", "ui_order": 2},
     )
 
 
 class CalibrationValidationConfig(NikodymBaseConfig):
-    """Calibración: Hosmer-Lemeshow, binomial/Jeffreys por grado, Brier y semáforo."""
+    """Mide la calibración: Hosmer-Lemeshow, binomial/Jeffreys, Brier score y semáforo."""
 
     hosmer_lemeshow: bool = Field(
         default=True,
@@ -154,8 +154,8 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         lt=1.0,
         title="Corte verde/ámbar (p-valor)",
         description=(
-            "Corte del semáforo verde/ámbar sobre el p-valor del test por grado (default "
-            "institucional; FALTA-DATO-VAL-2 para el anclaje regulatorio exacto)."
+            "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un default "
+            "institucional, no un umbral fijado por norma (brecha declarada FALTA-DATO-VAL-2)."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Semáforo", "ui_order": 1},
     )
@@ -179,7 +179,9 @@ class CalibrationValidationConfig(NikodymBaseConfig):
     pd_column: str = Field(
         default="pd_calibrated",
         title="Columna PD calibrada",
-        description="Columna con la PD calibrada consumida de SDD-10 para HL/Brier/binomial.",
+        description=(
+            "Columna con la PD calibrada que alimenta Hosmer-Lemeshow, Brier y el test por grado."
+        ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
     )
     partition_column: str = Field(
@@ -221,14 +223,14 @@ class CalibrationValidationConfig(NikodymBaseConfig):
 
 
 class StabilityValidationConfig(NikodymBaseConfig):
-    """Estabilidad: reúso/consumo del PSI de SDD-11 (no recálculo)."""
+    """Reporta el PSI con el mismo motor de la etapa de estabilidad."""
 
     consume_stability: bool = Field(
         default=True,
-        title="Consumir stability_metrics de SDD-11",
+        title="Reusar el PSI ya calculado",
         description=(
-            "True consume ('stability','stability_metrics'); False fuerza el fallback por reúso "
-            "de StabilityEvaluator (nunca reimplementa PSI)."
+            "Con True se toma el PSI ya calculado en la etapa de estabilidad; con False se "
+            "calcula aquí con ese mismo motor, nunca con otra fórmula."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Estabilidad", "ui_order": 1},
     )
@@ -236,14 +238,14 @@ class StabilityValidationConfig(NikodymBaseConfig):
         default=0.10,
         ge=0.0,
         title="PSI estable hasta",
-        description="Umbral bajo el cual el PSI consumido se considera estable.",
+        description="Umbral bajo el cual el PSI se considera estable.",
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Estabilidad", "ui_order": 2},
     )
     psi_review_threshold: float = Field(
         default=0.25,
         ge=0.0,
         title="PSI vigilar hasta",
-        description="Umbral sobre el cual el PSI consumido gatilla revisión/redesarrollo.",
+        description="Umbral sobre el cual el PSI gatilla revisión/redesarrollo.",
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Estabilidad", "ui_order": 3},
     )
 
@@ -258,14 +260,14 @@ class StabilityValidationConfig(NikodymBaseConfig):
 
 
 class BacktestingValidationConfig(NikodymBaseConfig):
-    """Backtesting realizado-vs-estimado IFRS 9 (t-test LGD/EAD, binomial/Jeffreys PD)."""
+    """Contrasta lo realizado contra lo estimado en IFRS 9 (LGD/EAD y PD)."""
 
     enabled: bool = Field(
         default=False,
         title="Ejecutar backtesting IFRS 9",
         description=(
-            "Opt-in: exige artefactos F4 (provisioning_ifrs9) + columnas de resultado realizado "
-            "que no todo modelo del repo tiene."
+            "Activa el backtesting. Exige los resultados de `provisioning_ifrs9` y las columnas "
+            "de resultado realizado, que no todos los modelos del inventario tienen."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Backtesting", "ui_order": 1},
     )
@@ -335,7 +337,7 @@ class BacktestingValidationConfig(NikodymBaseConfig):
 
 
 class ValidationConfig(NikodymBaseConfig):
-    """Sección ``validation`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-22 §5)."""
+    """Valida el modelo con calibración y backtesting, y lo resume en un semáforo."""
 
     schema_version: str = Field(
         default="1.0.0",
@@ -346,48 +348,60 @@ class ValidationConfig(NikodymBaseConfig):
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección validation",
-        description="== @register('standard', domain='validation') (SDD-22 §4).",
+        description="Variante de la sección de validación; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     families: tuple[ValidationFamily, ...] = Field(
         default=("discrimination", "calibration", "stability"),
         title="Familias de validación activas",
         description=(
-            "Familias que corren; backtesting es opt-in (exige artefactos F4 + realizados que no "
-            "todo modelo del repo tiene, DoD F6)."
+            "Familias de validación que se ejecutan. El backtesting queda fuera por defecto: "
+            "exige los resultados IFRS 9 y las columnas de resultado realizado."
         ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 2},
     )
     discrimination: DiscriminationValidationConfig = Field(
         default_factory=DiscriminationValidationConfig,
         title="Discriminación",
-        description="Reúso/consumo de AUC/Gini/KS de SDD-11 (no recálculo).",
+        description=(
+            "Reporta la discriminación (AUC, Gini, KS) tomándola de la etapa de desempeño o "
+            "calculándola con ese mismo motor, nunca con otra fórmula."
+        ),
         json_schema_extra={"ui_widget": "section", "ui_group": "Discriminación", "ui_order": 1},
     )
     calibration: CalibrationValidationConfig = Field(
         default_factory=CalibrationValidationConfig,
         title="Calibración",
-        description="Hosmer-Lemeshow, binomial/Jeffreys por grado, Brier y semáforo.",
+        description=(
+            "Mide la calibración con Hosmer-Lemeshow, el contraste binomial/Jeffreys por grado, "
+            "el Brier score y un semáforo."
+        ),
         json_schema_extra={"ui_widget": "section", "ui_group": "Calibración", "ui_order": 1},
     )
     stability: StabilityValidationConfig = Field(
         default_factory=StabilityValidationConfig,
         title="Estabilidad",
-        description="Reúso/consumo del PSI de SDD-11 (no recálculo).",
+        description=(
+            "Reporta el PSI tomándolo de la etapa de estabilidad o calculándolo con ese mismo "
+            "motor, nunca con otra fórmula."
+        ),
         json_schema_extra={"ui_widget": "section", "ui_group": "Estabilidad", "ui_order": 1},
     )
     backtesting: BacktestingValidationConfig = Field(
         default_factory=BacktestingValidationConfig,
         title="Backtesting IFRS 9",
-        description="Backtesting realizado-vs-estimado IFRS 9 (t-test LGD/EAD, binomial PD).",
+        description=(
+            "Contrasta lo realizado contra lo estimado en IFRS 9 (t-test de LGD/EAD, "
+            "binomial/Jeffreys de PD)."
+        ),
         json_schema_extra={"ui_widget": "section", "ui_group": "Backtesting", "ui_order": 1},
     )
     fail_on_falta_dato: bool = Field(
         default=True,
         title="Fallar ante brechas críticas de dato",
         description=(
-            "Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) falla en vez "
-            "de marcar FALTA-DATO."
+            "Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar "
+            "la corrida en vez de quedar registrada como falta de dato (aviso `FALTA-DATO-*`)."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 3},
     )
@@ -403,6 +417,7 @@ class ValidationConfig(NikodymBaseConfig):
             raise ValidationConfigError(
                 "families incluye 'backtesting' pero backtesting.enabled=False: el backtesting "
                 "IFRS 9 exige enabled=True y las columnas realizadas declaradas "
-                "(o fail_on_falta_dato=False para diferirlo a FALTA-DATO)."
+                "(o fail_on_falta_dato=False para registrarlo como brecha de datos en vez de "
+                "detener la corrida)."
             )
         return self

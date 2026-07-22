@@ -86,7 +86,7 @@ class HtmlRenderConfig(NikodymBaseConfig):
     render_charts: bool = Field(
         default=True,
         title="Renderizar gráficos",
-        description="True embebe los gráficos SVG deterministas del reporte en cada sección.",
+        description="True embebe los gráficos SVG deterministas del informe en cada sección.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "HTML", "ui_order": 6},
     )
 
@@ -97,7 +97,10 @@ class PdfRenderConfig(NikodymBaseConfig):
     enabled: bool = Field(
         default=False,
         title="Activar PDF",
-        description="Activa la generación opcional de un PDF del reporte mediante WeasyPrint.",
+        description=(
+            "Solo aplica al uso directo del renderizador PDF. En una corrida, el PDF se activa "
+            "incluyendo 'pdf' en `formats`."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "PDF", "ui_order": 1},
     )
     fail_if_unavailable: bool = Field(
@@ -111,8 +114,8 @@ class PdfRenderConfig(NikodymBaseConfig):
 class DocxRenderConfig(NikodymBaseConfig):
     """Config del export ``.docx`` opcional (Word) vía ``python-docx``.
 
-    Espejo de :class:`PdfRenderConfig`: el step decide por ``formats``, y esta sección sólo gobierna
-    qué hacer cuando la dependencia opcional no está instalada.
+    El export se activa incluyendo ``docx`` en ``formats``; aquí solo se decide qué hacer cuando
+    la dependencia opcional no está instalada.
     """
 
     fail_if_unavailable: bool = Field(
@@ -171,7 +174,7 @@ class AiNarrationConfig(NikodymBaseConfig):
     send_raw_data: Literal[False] = Field(
         default=False,
         title="Enviar datos crudos",
-        description="Bloqueado en F1: la narrativa IA nunca recibe datos crudos.",
+        description="Bloqueado: la narrativa IA nunca recibe datos crudos; solo admite False.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "Narrativa IA", "ui_order": 7},
     )
     label_ai_text: bool = Field(
@@ -245,8 +248,11 @@ class SectionPolicyConfig(NikodymBaseConfig):
             "performance",
             "stability",
         ),
-        title="Secciones obligatorias F1",
-        description="Secciones de scorecard requeridas por el reporte canónico F1.",
+        title="Secciones obligatorias del scorecard",
+        description=(
+            "Secciones del scorecard que el informe espera encontrar; qué hacer cuando falta "
+            "alguna lo decide `missing_policy`."
+        ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "Secciones", "ui_order": 1},
     )
     missing_policy: MissingPolicy = Field(
@@ -265,13 +271,13 @@ class SectionPolicyConfig(NikodymBaseConfig):
         default=200,
         ge=10,
         title="Máximo filas por tabla renderizada",
-        description="Máximo de filas visibles por tabla en el reporte renderizado.",
+        description="Máximo de filas visibles por tabla en el informe renderizado.",
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Secciones", "ui_order": 4},
     )
 
 
 class ReportConfig(NikodymBaseConfig):
-    """Sección ``report`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-26 §5)."""
+    """Genera el informe auditable de la corrida y elige sus formatos de salida en `formats`."""
 
     schema_version: str = Field(
         default="1.0.0",
@@ -282,32 +288,32 @@ class ReportConfig(NikodymBaseConfig):
     type: ReportType = Field(
         default="standard",
         title="Tipo de sección report",
-        description="== @register('standard', domain='report') (SDD-26 §4).",
+        description="Variante de la sección de informe; hoy solo existe la estándar.",
         json_schema_extra={"ui_widget": "hidden", "ui_group": "General", "ui_order": 1},
     )
     output_dir: str = Field(
         default="reports",
         title="Directorio de salida",
-        description="Directorio relativo donde se escriben los artefactos del reporte.",
+        description="Directorio relativo donde se escriben los artefactos del informe.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "General", "ui_order": 2},
     )
     basename: str = Field(
         default="scorecard_report",
         title="Nombre base",
-        description="Nombre base determinístico para los archivos del reporte.",
+        description="Nombre base determinístico para los archivos del informe.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "General", "ui_order": 3},
     )
     language: ReportLanguage = Field(
         default="es",
         title="Idioma",
-        description="Idioma del reporte; F1 soporta español.",
+        description="Idioma del informe; hoy solo está disponible el español.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "General", "ui_order": 4},
     )
     formats: tuple[BasicReportFormat, ...] = Field(
         default=("html",),
-        title="Formatos del reporte",
+        title="Formatos del informe",
         description=(
-            "Formatos generados por el reporte. Documentos: 'html' (siempre), 'pdf' (extra `pdf`, "
+            "Formatos generados por el informe. Documentos: 'html' (siempre), 'pdf' (extra `pdf`, "
             "WeasyPrint + nativas) y las fuentes editables 'md' (Quarto/Markdown, sin extras) y "
             "'docx' (Word, extra `docx`). Exports de datos: 'csv' y 'xlsx' (extra `excel`) "
             "entregan COMPLETAS las tablas por observación, que no viven en el documento. Todo "
@@ -331,13 +337,13 @@ class ReportConfig(NikodymBaseConfig):
     pdf: PdfRenderConfig = Field(
         default_factory=PdfRenderConfig,
         title="PDF",
-        description="Config del PDF opcional del reporte mediante WeasyPrint.",
+        description="Config del PDF opcional del informe mediante WeasyPrint.",
         json_schema_extra={"ui_widget": "section", "ui_group": "PDF", "ui_order": 1},
     )
     docx: DocxRenderConfig = Field(
         default_factory=DocxRenderConfig,
         title="Word",
-        description="Config del export .docx opcional del reporte mediante python-docx.",
+        description="Config del export .docx opcional del informe mediante python-docx.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Word", "ui_order": 1},
     )
     ai: AiNarrationConfig = Field(

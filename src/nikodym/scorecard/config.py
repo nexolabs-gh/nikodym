@@ -105,12 +105,12 @@ class PointOverrideConfig(NikodymBaseConfig):
 
 
 class ScorecardConfig(NikodymBaseConfig):
-    """Sección ``scorecard`` de :class:`~nikodym.core.config.NikodymConfig` (SDD-09 §5)."""
+    """Traduce el log-odds del modelo a puntos de scorecard."""
 
     type: Literal["standard"] = Field(
         default="standard",
         title="Tipo de sección scorecard",
-        description="== @register('standard', domain='scorecard') (D-SCR-7).",
+        description="Variante de la sección de scorecard; hoy solo existe la estándar.",
         json_schema_extra={
             "ui_widget": "hidden",
             "ui_group": "General",
