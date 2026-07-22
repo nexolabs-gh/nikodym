@@ -37,7 +37,6 @@ interface SectionDef {
   title: string
   cardDescription: string
   empty: string
-  tag: string
 }
 
 /** Prefijo de las secciones de config en el sidebar: `config:<clave-de-schema>`. */
@@ -118,7 +117,6 @@ const SECTIONS: SectionDef[] = [
       "Elige un dataset de ejemplo o sube el tuyo (CSV, Excel o Parquet).",
     empty:
       "El selector de datasets sintéticos (id, columnas, roles) se cableará a data.load.source, sin duplicar lógica de dominio.",
-    tag: "B23.5",
   },
   {
     value: "ejecutar",
@@ -128,7 +126,6 @@ const SECTIONS: SectionDef[] = [
     cardDescription: "Dispara la corrida vía nikodym.run (síncrona).",
     empty:
       "El disparador de la corrida y su estado (done / failed con lineage) aparecerán aquí, sin cálculo propio en el front.",
-    tag: "B23.5",
   },
   {
     value: "resultados",
@@ -138,7 +135,6 @@ const SECTIONS: SectionDef[] = [
     cardDescription: "Métricas, artefactos y visores de la corrida.",
     empty:
       "WoE/IV, coeficientes, KS/AUC/Gini, gains/lift, scorecard y calibración — solo formateo de artefactos ya materializados.",
-    tag: "B23.5",
   },
   {
     value: "reporte",
@@ -148,8 +144,7 @@ const SECTIONS: SectionDef[] = [
     cardDescription:
       "El informe de validación de tu última corrida: HTML, PDF, Word o base editable.",
     empty:
-      "El reporte HTML determinístico (SDD-26) se servirá tal cual, junto al YAML canónico que reproduce la corrida por código.",
-    tag: "B23.5",
+      "El informe determinístico se servirá tal cual, junto al YAML canónico que reproduce la corrida por código.",
   },
 ]
 
@@ -306,7 +301,6 @@ function App() {
                 icon={section.icon}
                 title="Próximamente"
                 description={section.empty}
-                tag={section.tag}
               />
             </Card>
           ) : null}

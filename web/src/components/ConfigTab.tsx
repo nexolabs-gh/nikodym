@@ -54,7 +54,7 @@ const SOURCE_BANNER: Record<
   },
   "fixture-opaque": {
     tone: "warn",
-    text: "El backend devolvió una sección F1 sin expandir (inesperado desde B23.4c, que ya materializa el schema completo); usando el snapshot local como respaldo.",
+    text: "El backend devolvió una sección sin expandir; usando el snapshot local como respaldo.",
   },
   "fixture-offline": {
     tone: "warn",
