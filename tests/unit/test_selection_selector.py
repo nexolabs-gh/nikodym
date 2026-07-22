@@ -470,6 +470,101 @@ def test_identificador_raw_y_alias_convergentes_es_valido_y_se_deduplica() -> No
     ) == ("x",)
 
 
+def test_alias_woe_compartido_falla_independiente_del_orden_del_mapping() -> None:
+    """Un alias identifica a lo sumo una raw alcanzable, sin precedencia por inserción."""
+    frame = pd.DataFrame(
+        {
+            "target": [0, 1],
+            "partition": ["desarrollo", "desarrollo"],
+            "shared": [0.5, -0.5],
+        }
+    )
+    summary = _summary({"left": 0.2, "right": 0.3})
+    mappings = (
+        {"left": "shared", "right": "shared"},
+        {"right": "shared", "left": "shared"},
+    )
+    expected = (
+        "woe_column_map debe ser inyectivo entre features alcanzables; "
+        "alias WoE 'shared' corresponde a las features raw 'left', 'right'."
+    )
+
+    observed: list[str] = []
+    for mapping in mappings:
+        with pytest.raises(SelectionFitError) as error:
+            FeatureSelector(feature_columns=("shared",)).fit(
+                frame,
+                target_col="target",
+                partition_col="partition",
+                binning_summary=summary,
+                woe_column_map=mapping,
+            )
+        observed.append(str(error.value))
+
+    assert observed == [expected, expected]
+
+
+def test_mapping_woe_inyectivo_preserva_resolucion_del_alias() -> None:
+    """El control unívoco conserva la canonicalización nominal existente."""
+    frame = pd.DataFrame(
+        {
+            "target": [0, 1],
+            "partition": ["desarrollo", "desarrollo"],
+            "left__woe": [0.5, -0.5],
+            "right__woe": [0.25, -0.25],
+        }
+    )
+    selector = FeatureSelector(
+        feature_columns=("right__woe",),
+        min_iv=0.0,
+        correlation_enabled=False,
+        vif_enabled=False,
+        stability_enabled=False,
+    ).fit(
+        frame,
+        target_col="target",
+        partition_col="partition",
+        binning_summary=_summary({"left": 0.2, "right": 0.3}),
+        woe_column_map={"left": "left__woe", "right": "right__woe"},
+    )
+
+    assert selector.candidate_features_ == ("right",)
+    assert selector.selected_woe_columns_ == ("right__woe",)
+
+
+def test_alias_compartido_por_feature_no_publicable_no_participa() -> None:
+    """La inyectividad se exige sólo entre features publicables y alcanzables."""
+    frame = pd.DataFrame(
+        {
+            "target": [0, 1],
+            "partition": ["desarrollo", "desarrollo"],
+            "shared": [0.5, -0.5],
+        }
+    )
+    summary = pd.DataFrame(
+        {
+            "name": ["left", "right"],
+            "selected": [True, False],
+            "iv": [0.2, 0.3],
+        }
+    )
+    selector = FeatureSelector(
+        feature_columns=("shared",),
+        min_iv=0.0,
+        correlation_enabled=False,
+        vif_enabled=False,
+        stability_enabled=False,
+    ).fit(
+        frame,
+        target_col="target",
+        partition_col="partition",
+        binning_summary=summary,
+        woe_column_map={"left": "shared", "right": "shared"},
+    )
+
+    assert selector.candidate_features_ == ("left",)
+
+
 @pytest.mark.parametrize(
     ("force_include", "force_exclude"),
     [("x1", "x1__woe"), ("x1__woe", "x1")],

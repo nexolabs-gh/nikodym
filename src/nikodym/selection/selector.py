@@ -545,7 +545,6 @@ def _resolve_candidates(
     """Resuelve features raw candidatas y su columna WoE asociada."""
     del pd
     mapping = {str(feature): str(column) for feature, column in woe_column_map.items()}
-    reverse_mapping = {column: feature for feature, column in mapping.items()}
     summary_rows = _summary_rows(summary)
     publishable = {
         feature for feature, row in summary_rows.items() if bool(row.get("selected", True))
@@ -556,6 +555,8 @@ def _resolve_candidates(
         if feature in publishable and woe_column in frame.columns
     }
     _validate_available_woe(mapping, publishable, frame)
+    _validate_injective_available_woe(mapping, available)
+    reverse_mapping = {mapping[feature]: feature for feature in sorted(available)}
 
     if feature_columns == "*":
         selected = set(available)
@@ -642,6 +643,28 @@ def _validate_available_woe(
     if missing_columns:
         joined = ", ".join(f"'{feature}'" for feature in missing_columns)
         raise SelectionFitError(f"woe_column_map apunta a columna(s) inexistente(s): {joined}.")
+
+
+def _validate_injective_available_woe(
+    mapping: Mapping[str, str],
+    available: set[str],
+) -> None:
+    """Rechaza aliases WoE compartidos por más de una feature alcanzable."""
+    features_by_alias: dict[str, list[str]] = {}
+    for feature in sorted(available):
+        features_by_alias.setdefault(mapping[feature], []).append(feature)
+    collisions = {
+        alias: features for alias, features in features_by_alias.items() if len(features) > 1
+    }
+    if collisions:
+        details = "; ".join(
+            f"alias WoE '{alias}' corresponde a las features raw "
+            + ", ".join(f"'{feature}'" for feature in collisions[alias])
+            for alias in sorted(collisions)
+        )
+        raise SelectionFitError(
+            "woe_column_map debe ser inyectivo entre features alcanzables; " + details + "."
+        )
 
 
 def _resolve_identifier_sequence(
