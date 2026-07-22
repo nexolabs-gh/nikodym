@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "c39077ab445a48da904467499946a23e",
+ "run_id": "6d7a663abed140918d0a732ab1c2108b",
  "error": null,
  "model_card": null,
  "binning": {
@@ -721,7 +721,7 @@
     "vif": null,
     "max_csi": null,
     "forced": null,
-    "detail": "iv=0.00292240935993 < min_iv=0.02"
+    "detail": "iv=0.00292241 < min_iv=0.02"
    },
    {
     "feature": "utilizacion_linea",
