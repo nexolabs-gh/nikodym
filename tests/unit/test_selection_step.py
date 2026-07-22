@@ -249,6 +249,31 @@ def test_execute_publica_result_card_versiones_y_no_consume_rng(
     assert card.n_selected == 1
 
 
+def test_execute_canonicaliza_force_include_alias_sin_mutar_config() -> None:
+    """El step aplica el alias WoE, audita en raw y conserva el config declarado."""
+    cfg = SelectionConfig(
+        min_iv=999.0,
+        force_include=("score__woe",),
+        correlation=CorrelationSelectionConfig(enabled=False),
+        vif=VifSelectionConfig(enabled=False),
+        stability=StabilitySelectionConfig(enabled=False),
+    )
+    study = _study_with_artifacts(cfg)
+    sink = InMemoryAuditSink()
+    step = SelectionStep.from_config(cfg)
+    step._audit = sink
+
+    result = step.execute(study, np.random.default_rng(1))
+    decision = result.selection_table.set_index("feature").loc["score"]
+
+    assert result.selected_features == ("score",)
+    assert decision["reason"] == "business_include"
+    assert decision["forced"] == "include"
+    assert [event.payload["regla"] for event in sink.events] == ["business_include"]
+    assert cfg.force_include == ("score__woe",)
+    assert step.config is cfg
+
+
 def test_validadores_de_artefactos_fallan_con_mensajes_en_espanol() -> None:
     """Los helpers ``_as_*`` rechazan artefactos mal tipados con contexto claro."""
     pd_mod = step_module._import_pandas()

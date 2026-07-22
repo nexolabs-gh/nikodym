@@ -199,6 +199,35 @@ def test_selection_pipeline_emite_decisiones_auditables_esperadas() -> None:
     assert "stability_csi" in rules
 
 
+def test_pipeline_aplica_overrides_con_alias_woe_y_conserva_config() -> None:
+    """Los aliases WoE llegan al selector como overrides raw equivalentes."""
+    selection = SelectionConfig(
+        min_iv=999.0,
+        force_include=("segment__woe",),
+        force_exclude=("score__woe",),
+        correlation=CorrelationSelectionConfig(enabled=False),
+        vif=VifSelectionConfig(enabled=False),
+        stability=StabilitySelectionConfig(enabled=False),
+    )
+    study = _study(selection=selection)
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+    _inject_frame(study)
+
+    study.run(steps=["data", "binning", "selection"])
+    table = study.artifacts.get("selection", "selection_table").set_index("feature")
+
+    assert study.artifacts.get("selection", "selected_features") == ("segment",)
+    assert table.loc["segment", "reason"] == "business_include"
+    assert table.loc["segment", "forced"] == "include"
+    assert table.loc["score", "reason"] == "business_exclude"
+    assert table.loc["score", "forced"] == "exclude"
+    rules = {event.payload["regla"] for event in sink.events if event.kind == "decision"}
+    assert {"business_include", "business_exclude"} <= rules
+    assert study.config.selection.force_include == ("segment__woe",)
+    assert study.config.selection.force_exclude == ("score__woe",)
+
+
 def test_pipeline_data_binning_selection_es_bitwise_reproducible_sin_muestreo() -> None:
     """La corrida completa sin muestreo es reproducible bit a bit."""
     assert_bitwise_reproducible(_run_pipeline_artifacts)

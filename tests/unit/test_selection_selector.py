@@ -366,6 +366,94 @@ def test_overrides_force_include_force_exclude_audit_y_errores() -> None:
         )
 
 
+def test_overrides_con_alias_woe_son_equivalentes_a_nombres_raw() -> None:
+    """Raw y alias WoE producen la misma selección, decisión y auditoría."""
+    frame, summary, woe_map = _canonical_frame_summary_map()
+    summary = summary.assign(iv=[0.01, 0.40, 0.15])
+
+    def fit_overrides(
+        *, force_include: tuple[str, ...], force_exclude: tuple[str, ...]
+    ) -> tuple[FeatureSelector, InMemoryAuditSink]:
+        audit = InMemoryAuditSink()
+        selector = FeatureSelector(
+            min_iv=0.20,
+            force_include=force_include,
+            force_exclude=force_exclude,
+            correlation_enabled=False,
+            vif_enabled=False,
+            stability_enabled=False,
+        ).fit(
+            frame,
+            target_col="target",
+            partition_col="partition",
+            binning_summary=summary,
+            woe_column_map=woe_map,
+            audit=audit,
+        )
+        return selector, audit
+
+    raw, raw_audit = fit_overrides(force_include=("x1",), force_exclude=("x3",))
+    alias, alias_audit = fit_overrides(force_include=("x1__woe",), force_exclude=("x3__woe",))
+
+    assert alias.selected_features_ == raw.selected_features_ == ("x2", "x1")
+    assert alias.selected_woe_columns_ == raw.selected_woe_columns_
+    assert alias.excluded_features_ == raw.excluded_features_
+    assert alias.decisions_ == raw.decisions_
+    assert_frame_equal(alias.selection_table_, raw.selection_table_)
+    assert [event.model_dump(exclude={"ts"}) for event in alias_audit.events] == [
+        event.model_dump(exclude={"ts"}) for event in raw_audit.events
+    ]
+    assert alias.get_params(deep=False)["force_include"] == ("x1__woe",)
+    assert alias.get_params(deep=False)["force_exclude"] == ("x3__woe",)
+
+
+@pytest.mark.parametrize("override", ["force_include", "force_exclude"])
+def test_override_con_alias_woe_desconocido_falla(override: str) -> None:
+    """Un alias WoE sin mapping falla para inclusión y exclusión forzadas."""
+    frame, summary, woe_map = _canonical_frame_summary_map()
+    force_include = ("fantasma__woe",) if override == "force_include" else ()
+    force_exclude = ("fantasma__woe",) if override == "force_exclude" else ()
+
+    with pytest.raises(SelectionFitError, match=rf"{override}.*'fantasma__woe'"):
+        FeatureSelector(
+            force_include=force_include,
+            force_exclude=force_exclude,
+        ).fit(
+            frame,
+            target_col="target",
+            partition_col="partition",
+            binning_summary=summary,
+            woe_column_map=woe_map,
+        )
+
+
+@pytest.mark.parametrize(
+    ("force_include", "force_exclude"),
+    [("x1", "x1__woe"), ("x1__woe", "x1")],
+)
+def test_overrides_raw_y_alias_equivalentes_en_conflicto_fallan(
+    force_include: str,
+    force_exclude: str,
+) -> None:
+    """El conflicto se detecta después de canonicalizar ambos identificadores."""
+    frame, summary, woe_map = _canonical_frame_summary_map()
+
+    with pytest.raises(
+        SelectionFitError,
+        match=r"force_include y force_exclude.*misma feature raw.*'x1'",
+    ):
+        FeatureSelector(
+            force_include=(force_include,),
+            force_exclude=(force_exclude,),
+        ).fit(
+            frame,
+            target_col="target",
+            partition_col="partition",
+            binning_summary=summary,
+            woe_column_map=woe_map,
+        )
+
+
 def test_force_include_correlacionada_llega_a_conflicto_vif() -> None:
     frame, summary, woe_map = _canonical_frame_summary_map()
     with pytest.raises(SelectionFitError, match="force_include"):

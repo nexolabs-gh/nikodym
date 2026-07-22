@@ -221,7 +221,7 @@ class FeatureSelector(TransformerMixin, BaseEstimator, NikodymTransformer):  # t
         _validate_unique_columns(frame, error_cls=SelectionFitError)
         _validate_required_columns(frame, target_col=target_col, partition_col=partition_col)
 
-        candidates = _resolve_candidates(
+        resolution = _resolve_candidates(
             frame=frame,
             summary=summary,
             woe_column_map=woe_column_map,
@@ -233,8 +233,14 @@ class FeatureSelector(TransformerMixin, BaseEstimator, NikodymTransformer):  # t
         )
         dev = _development_frame(frame, target_col=target_col, partition_col=partition_col)
         target = _development_target(dev[target_col])
-        states = _initial_candidate_states(candidates, summary, pd)
-        _validate_forced_finite(states, dev, self.force_include, self.force_exclude, np=np)
+        states = _initial_candidate_states(resolution.candidates, summary, pd)
+        _validate_forced_finite(
+            states,
+            dev,
+            resolution.force_include,
+            resolution.force_exclude,
+            np=np,
+        )
 
         compute_metrics = (
             self.compute_univariate_metrics
@@ -243,7 +249,14 @@ class FeatureSelector(TransformerMixin, BaseEstimator, NikodymTransformer):  # t
             or self.min_gini is not None
         )
         _apply_univariate_metrics(states, dev, target, compute_metrics=compute_metrics)
-        _apply_initial_filters(states, self, dev, np=np)
+        _apply_initial_filters(
+            states,
+            self,
+            dev,
+            force_include=resolution.force_include,
+            force_exclude=resolution.force_exclude,
+            np=np,
+        )
 
         ranked_features = _rank_features(
             tuple(feature for feature, state in states.items() if state.included),
@@ -395,6 +408,15 @@ class CandidateState:
     detail: str | None = None
 
 
+@dataclass(frozen=True)
+class _CandidateResolution:
+    """Candidatas y overrides canonicalizados al nombre raw publicado por binning."""
+
+    candidates: dict[str, str]
+    force_include: tuple[str, ...]
+    force_exclude: tuple[str, ...]
+
+
 def _import_pandas() -> Any:
     """Importa pandas localmente para preservar el import liviano de ``nikodym.selection``."""
     try:
@@ -519,7 +541,7 @@ def _resolve_candidates(
     force_include: tuple[str, ...],
     force_exclude: tuple[str, ...],
     pd: Any,
-) -> dict[str, str]:
+) -> _CandidateResolution:
     """Resuelve features raw candidatas y su columna WoE asociada."""
     del pd
     mapping = {str(feature): str(column) for feature, column in woe_column_map.items()}
@@ -557,31 +579,38 @@ def _resolve_candidates(
             label="exclude_columns",
         )
     )
-    forced_include = set(
-        _resolve_identifier_sequence(
-            force_include,
-            available,
-            mapping,
-            reverse_mapping,
-            label="force_include",
-        )
+    forced_include = _resolve_identifier_sequence(
+        force_include,
+        available,
+        mapping,
+        reverse_mapping,
+        label="force_include",
     )
-    forced_exclude = set(
-        _resolve_identifier_sequence(
-            force_exclude,
-            available,
-            mapping,
-            reverse_mapping,
-            label="force_exclude",
-        )
+    forced_exclude = _resolve_identifier_sequence(
+        force_exclude,
+        available,
+        mapping,
+        reverse_mapping,
+        label="force_exclude",
     )
+    conflicts = sorted(set(forced_include) & set(forced_exclude))
+    if conflicts:
+        joined = ", ".join(f"'{feature}'" for feature in conflicts)
+        raise SelectionFitError(
+            "force_include y force_exclude resuelven a la misma feature raw tras "
+            f"canonicalizar woe_column_map: {joined}."
+        )
 
-    candidate_features = (selected - excluded) | forced_include | forced_exclude
+    candidate_features = (selected - excluded) | set(forced_include) | set(forced_exclude)
     if not candidate_features:
         raise SelectionFitError(
             "No hay variables candidatas para selection tras resolver overrides."
         )
-    return {feature: mapping[feature] for feature in sorted(candidate_features)}
+    return _CandidateResolution(
+        candidates={feature: mapping[feature] for feature in sorted(candidate_features)},
+        force_include=forced_include,
+        force_exclude=forced_exclude,
+    )
 
 
 def _summary_rows(summary: DataFrame) -> dict[str, dict[str, object]]:
@@ -711,10 +740,8 @@ def _validate_forced_finite(
 ) -> None:
     """Falla si un override apunta a WoE no finita en Desarrollo."""
     forced = set(force_include) | set(force_exclude)
-    reverse = {state.woe_column: feature for feature, state in states.items()}
-    raw_forced = {reverse.get(name, name) for name in forced}
     nonfinite = []
-    for feature in sorted(raw_forced):
+    for feature in sorted(forced):
         state = states.get(feature)
         if state is None:
             continue
@@ -755,15 +782,19 @@ def _apply_initial_filters(
     estimator: FeatureSelector,
     dev: DataFrame,
     *,
+    force_include: tuple[str, ...],
+    force_exclude: tuple[str, ...],
     np: Any,
 ) -> None:
     """Aplica exclusiones técnicas, negocio e IV/AUC/KS/Gini antes del ranking."""
+    forced_include = set(force_include)
+    forced_exclude = set(force_exclude)
     for feature in sorted(states):
         state = states[feature]
-        if feature in estimator.force_exclude:
+        if feature in forced_exclude:
             _exclude(state, "business_exclude", forced="exclude")
             continue
-        if feature in estimator.force_include:
+        if feature in forced_include:
             state.forced = "include"
             state.reason = "business_include"
 

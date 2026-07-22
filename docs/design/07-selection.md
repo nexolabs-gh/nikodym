@@ -369,7 +369,7 @@ class SelectionConfig(NikodymBaseConfig):
 
 **`SelectionStep.execute(study, rng)` — secuencia canónica.**
 1. **Leer artefactos.** Validar presencia y tipos de `woe_frame`, `summary`, `tables`, `result`, `labels`, `splits`.
-2. **Resolver candidatos.** Desde `BinningResult.woe_column_map` y `binning.summary`, tomar variables con binning exitoso. Aplicar `feature_columns`, `exclude_columns`, `force_include`, `force_exclude`. Variables inexistentes en overrides levantan `SelectionFitError`.
+2. **Resolver candidatos.** Desde `BinningResult.woe_column_map` y `binning.summary`, tomar variables con binning exitoso. Aplicar `feature_columns`, `exclude_columns`, `force_include`, `force_exclude`. Cada identificador puede ser el nombre raw o su alias WoE; ambos se canonicalizan al nombre raw antes de aplicar los overrides. Variables inexistentes en overrides levantan `SelectionFitError`.
 3. **Partición Desarrollo.** Construir `dev = woe_frame[partition == "desarrollo" & target.notna()]`. Verificar ambas clases y que todas las columnas WoE candidatas sean finitas.
 4. **Métricas univariadas.** Para cada candidata:
    - traer `iv` de `binning.summary` (no recalcular);
@@ -419,7 +419,7 @@ class SelectionConfig(NikodymBaseConfig):
 - **VIF infinito o warning de divide-by-zero:** se interpreta como colinealidad perfecta; se elimina la variable no forzada de peor prioridad.
 - **`force_include` de variable con IV bajo:** se permite, pero se registra `log_decision(regla="business_include", umbral=min_iv, valor=iv, accion="incluir")`.
 - **`force_include` de variable inexistente/no binneada/no finita:** error ruidoso; un override de negocio no puede crear una feature válida.
-- **`force_include` y `force_exclude` sobre la misma variable:** `ConfigError` por validación de `SelectionConfig`.
+- **`force_include` y `force_exclude` sobre la misma variable:** `ConfigError` si el identificador declarado coincide; si uno usa el nombre raw y otro su alias WoE, `SelectionFitError` después de canonicalizar `woe_column_map`.
 - **Kendall/Spearman con demasiados empates:** se calcula igual; si pandas devuelve `NaN`, se trata como correlación no evaluable y se registra flag. No se usa para incluir por encima de umbral.
 - **Muestra pequeña para VIF (`n_dev <= p + 1`):** `SelectionFitError` si VIF está habilitado; el usuario debe reducir candidatos o desactivar VIF explícitamente y auditarlo.
 - **PSI/CSI con proporciones cero:** aplicar suavizado `smoothing` antes de `ln(actual/expected)`; la tabla marca que se usó suavizado.
