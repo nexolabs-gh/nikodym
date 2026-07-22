@@ -9,11 +9,11 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-21)
-PyPI publica **`1.4.1`**; el tag `v1.4.1` apunta a `e5816c7` (el SHA vigente de `main` queda en
+## Estado del proyecto (2026-07-22)
+PyPI publica **`1.5.0`**; el tag `v1.5.0` apunta al cierre del bloque B1 (el SHA vigente de `main` queda en
 `HANDOFF.md`). El paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es
 estable bajo SemVer 1.x, pero las provisiones siguen experimentales, así que «Production/Stable»
-sería sobrepromesa. El próximo release será un bump a `1.5.0` con OK específico de Cami. La librería
+sería sobrepromesa. El próximo release será un bump a `1.6.0` con OK específico de Cami. La librería
 ya **no** está en fase de construcción por capas — está publicada y en mejora continua:
 - **Pipeline scorecard F1 (comportamiento)**: API **estable** bajo garantía **SemVer 1.x** (binning WoE
   monotónico, selección IV/VIF, logística sobre WoE, calibración, informe HTML/PDF/Word).
@@ -30,9 +30,9 @@ ya **no** está en fase de construcción por capas — está publicada y en mejo
 
 **Track pre-Interbank COMPLETO:** la cola [`privado/COLA-CODEX-INTERBANK.md`](privado/COLA-CODEX-INTERBANK.md)
 (IBK-01…IBK-05) está **toda cerrada** al 2026-07-17. **No hay bloque IBK siguiente.** El release
-**1.4.1** (2026-07-21) dejó la demo y PyPI con lineage 1.4.1, tras corregir los defectos que
-destapó la verificación adversarial previa a la reunión. Reunión **Interbank miércoles
-2026-07-22**; el guion y el PPT los tiene Cami. El
+**1.5.0** (2026-07-22) cerró el bloque **B1** y dejó la demo y PyPI con lineage 1.5.0. La reunión
+con **Interbank** (2026-07-22) salió bien: van a revisar la librería y luego agendar una segunda
+sesión, así que el freeze de artefactos previo a esa reunión ya no aplica. El
 **tag `vX.Y.Z` y PyPI exigen OK específico de Cami por release** (el OK permanente cubre push/deploy,
 no tag/PyPI). **Arrancar toda sesión leyendo [`HANDOFF.md`](HANDOFF.md).**
 

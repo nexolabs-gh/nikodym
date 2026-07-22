@@ -7,8 +7,12 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [No publicado]
 
-Bloque **B1** del plan operativo: higiene de lo que el informe muestra. Todo lo de aquí ya está en
-`main` y sale publicado con `1.5.0`.
+## [1.5.0] — 2026-07-22
+
+Bloque **B1** del plan operativo, completo: higiene de lo que el informe y el editor de
+configuración le muestran a quien instala la librería. Ninguna cifra de negocio cambia; lo que
+cambia es que el artefacto deje de mostrar precisión que el dato no tiene, jerga del repositorio y
+afirmaciones que el motor no respalda.
 
 ### Añadido
 

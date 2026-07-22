@@ -3,12 +3,12 @@
 | | |
 |---|---|
 | **Documento** | Estado por capacidad y plan de evolución |
-| **Versión** | 1.3 |
-| **Fecha** | 2026-07-21 |
+| **Versión** | 1.4 |
+| **Fecha** | 2026-07-22 |
 | **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.1 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
-El código, el tag `v1.4.1` y PyPI están en `1.4.1`. `main` se encuentra en mejora continua; el próximo
-release será un bump `1.5.0` con OK específico de Cami.
+El código, el tag `v1.5.0` y PyPI están en `1.5.0`. `main` se encuentra en mejora continua; el próximo
+release será un bump `1.6.0` con OK específico de Cami.
 Las fases F0–F8 que siguen conservan el diseño y los DoD históricos; **no son una cola automática**.
 El estado y el plan de esta sección son la fuente vigente.
 
@@ -44,23 +44,31 @@ lista**: cada uno arranca cuando el anterior cierra o cuando su condición expl�
 - **Los módulos experimentales se mantienen ofrecidos.** F5/F6 amplían lo que la librería puede
   conversar con una institución; no se podan. Lo que les falta es ruta de uso, no justificación.
 
-### B1 · Higiene y deuda corta → habilita `1.5.0`
+### B1 · Higiene y deuda corta → **CERRADO** (publicado en `1.5.0`, 2026-07-22)
 
-Cierra los defectos conocidos que hoy sólo viven en el HANDOFF. Todos son acotados y verificables.
+Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y verificables.
 
 1. ~~**Rótulo de los dos ECL del anexo IFRS 9.**~~ **HECHO (2026-07-21, `ee9b0cb`).** Se añadió la
    clave hermana `ecl_by_scenario_basis` (extensión aditiva, CT-3). El rótulo declara **dos**
    motivos de la brecha, no uno: la cifra por escenario no aplica `scenario_weights` **y** cubre el
    horizonte completo, mientras la reportada pondera y trunca Stage 1 a 12 meses. No apunta a
    `staging_distribution` —esa clave vive en la capa UI y no existe en el anexo—.
-2. **Deuda cosmética del informe y del editor de config.** Pendiente sólo el primer ítem:
-   descriptions del schema con jerga interna (`== @register('standard', …) (SDD-16 §4)`), visibles
-   en la UI — su cambio obliga a regenerar `web/src/fixtures/schema.json` en **commit atómico**, así
-   que espera a que pase el freeze de la demo. ~~Diagnósticos del motor de selección con decimales
-   sin formatear~~ y ~~`total_expected_loss_rate` como string de 51 dígitos~~ **HECHOS (2026-07-21,
-   `f34d13c`)**: los `detail` de IV/VIF/correlación/contribución/p-valores pasan a 6 cifras
-   significativas y la tasa pasa de texto a `float` (**cambio de tipo** declarado en el CHANGELOG;
-   superficie experimental, fuera de la garantía SemVer 1.x).
+2. ~~**Deuda cosmética del informe y del editor de config.**~~ **HECHO.** ~~Diagnósticos del motor
+   de selección con decimales sin formatear~~ y ~~`total_expected_loss_rate` como string de 51
+   dígitos~~ **(2026-07-21, `f34d13c`)**: los `detail` de IV/VIF/correlación/contribución/p-valores
+   pasan a 6 cifras significativas y la tasa pasa de texto a `float` (**cambio de tipo** declarado
+   en el CHANGELOG; superficie experimental, fuera de la garantía SemVer 1.x). ~~Descriptions del
+   schema con jerga interna~~ **(2026-07-22, `2484511`)**: 185 textos reescritos —`description`,
+   `title` y `ui_group`— más los descriptores de preset y dataset, con el fixture regenerado en el
+   mismo commit atómico. El alcance real era una clase, no dos campos: 78 textos citaban documentos
+   internos en el editor que ve el usuario. **Se conservan** las referencias normativas, la
+   terminología de riesgo y los códigos `FALTA-DATO-*` que el motor imprime en el informe.
+   La limpieza destapó **nueve afirmaciones que el motor no respalda** (cinco anteriores a esta
+   pasada), entre ellas dos gatillos SICR descritos con un mínimo que el validador no impone y un
+   `is_default_col` que omitía la reclasificación del deudor de consumo a incumplimiento. Quedan
+   **cuatro campos inertes** ya declarados como tales en su texto (`repro.strict_determinism`,
+   `tuning.validation.fit_partition`, `survival.fail_on_falta_dato`, `report.pdf.enabled`):
+   cablearlos o retirarlos es trabajo aparte, fuera de B1.
 3. ~~**Respaldo remoto del workspace interno.**~~ **HECHO (2026-07-21).** El workspace interno ya
    tiene repo privado propio fuera del disco local; el respaldo se verificó restaurándolo (clon
    completo, idéntico al original) y se mantiene al día pusheando en cada cierre de sesión.
@@ -329,9 +337,10 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 ---
 
 ## Estrategia de release (open-source)
-- `1.4.1` es la versión del código/tag y la publicada en PyPI; el próximo release será `1.5.0` (bump
+- `1.5.0` es la versión del código/tag y la publicada en PyPI; el próximo release será `1.6.0` (bump
   con OK específico de Cami). El pipeline F1 conserva la garantía SemVer 1.x.
-- **`1.5.0` = cierre de B1** (rótulo ECL + deuda cosmética). **`1.6.0` = cierre de B2** (UI instalable).
+- **`1.5.0` = cierre de B1** (rótulo ECL + deuda cosmética) — **publicado el 2026-07-22**.
+  **`1.6.0` = cierre de B2** (UI instalable).
   Se publican por separado: atar el release de higiene a la distribución de la UI retrasa correcciones
   ya listas sin beneficio para nadie.
 - La librería se publica **completa y gratuita** bajo Apache-2.0. Ninguna capacidad se retiene del
