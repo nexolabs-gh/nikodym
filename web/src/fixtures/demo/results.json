@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "e5be68d9c4ad490a8432e46e236650ab",
+ "run_id": "ac6835321e4f43d1a3b5d4558c9e4679",
  "error": null,
  "model_card": null,
  "binning": {
@@ -685,7 +685,7 @@
     "vif": 1.105516966646702,
     "max_csi": null,
     "forced": null,
-    "detail": "iv=0.650693017601 >= max_iv=0.5"
+    "detail": "iv=0.650693 >= max_iv=0.5"
    },
    {
     "feature": "ingreso_mensual",
@@ -702,7 +702,7 @@
     "vif": 1.0918814108368795,
     "max_csi": null,
     "forced": null,
-    "detail": "iv=0.621124012624 >= max_iv=0.5"
+    "detail": "iv=0.621124 >= max_iv=0.5"
    },
    {
     "feature": "mora_max_12m",
@@ -719,7 +719,7 @@
     "vif": 1.2507359175400379,
     "max_csi": null,
     "forced": null,
-    "detail": "iv=1.40908616508 >= max_iv=0.5"
+    "detail": "iv=1.40909 >= max_iv=0.5"
    },
    {
     "feature": "segmento",
@@ -736,7 +736,7 @@
     "vif": null,
     "max_csi": null,
     "forced": null,
-    "detail": "iv=0.000469213025506 < min_iv=0.02"
+    "detail": "iv=0.000469213 < min_iv=0.02"
    },
    {
     "feature": "utilizacion_linea",
@@ -10304,7 +10304,7 @@
     "groups_by_portfolio": {
      "consumer": 10
     },
-    "total_expected_loss_rate": "0.038203224448922777376082337534204431258983735881240",
+    "total_expected_loss_rate": 0.038203224448922775,
     "warning_codes": []
    }
   },

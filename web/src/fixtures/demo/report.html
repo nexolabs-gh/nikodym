@@ -1122,7 +1122,7 @@ figcaption {
     </div>
     <div class="cover-field">
       <dt>Fecha de emisión</dt>
-      <dd>2026-07-21</dd>
+      <dd>2026-07-22</dd>
     </div>
   </dl>
 
@@ -1130,7 +1130,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9</code></div>
     <div class="lineage-line"><code>data_hash=7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</code></div>
-    <div class="lineage-line"><code>git_sha=9b851201c8b66056dbc98947fef0c7d9a3877118</code></div>
+    <div class="lineage-line"><code>git_sha=2aed91f2bc35b965ab6cbb73a5c6d33ecc585dd5</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1632,10 +1632,10 @@ figcaption {
     <thead><tr><th>feature</th><th>woe_column</th><th>included</th><th>reason</th><th>iv</th><th>iv_band</th><th>auc</th><th>gini</th><th>ks</th><th>max_abs_corr</th><th>max_corr_with</th><th>vif</th><th>max_csi</th><th>forced</th><th>detail</th></tr></thead>
     <tbody>
       <tr><td>antiguedad_meses</td><td>antiguedad_meses__woe</td><td>true</td><td>included</td><td>0.237632</td><td>medium</td><td>0.631657</td><td>0.263314</td><td>0.202003</td><td>—</td><td>—</td><td>1.026062</td><td>—</td><td>—</td><td>—</td></tr>
-      <tr><td>deuda_ingreso</td><td>deuda_ingreso__woe</td><td>true</td><td>high_iv</td><td>0.650693</td><td>suspicious</td><td>0.710405</td><td>0.420809</td><td>0.314239</td><td>—</td><td>—</td><td>1.105517</td><td>—</td><td>—</td><td>iv=0.650693017601 &gt;= max_iv=0.5</td></tr>
-      <tr><td>ingreso_mensual</td><td>ingreso_mensual__woe</td><td>true</td><td>high_iv</td><td>0.621124</td><td>suspicious</td><td>0.697394</td><td>0.394788</td><td>0.279975</td><td>—</td><td>—</td><td>1.091881</td><td>—</td><td>—</td><td>iv=0.621124012624 &gt;= max_iv=0.5</td></tr>
-      <tr><td>mora_max_12m</td><td>mora_max_12m__woe</td><td>true</td><td>high_iv</td><td>1.409086</td><td>suspicious</td><td>0.747632</td><td>0.495264</td><td>0.423340</td><td>—</td><td>—</td><td>1.250736</td><td>—</td><td>—</td><td>iv=1.40908616508 &gt;= max_iv=0.5</td></tr>
-      <tr><td>segmento</td><td>segmento__woe</td><td>false</td><td>low_iv</td><td>0.000469</td><td>—</td><td>0.505891</td><td>0.011782</td><td>0.008972</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>iv=0.000469213025506 &lt; min_iv=0.02</td></tr>
+      <tr><td>deuda_ingreso</td><td>deuda_ingreso__woe</td><td>true</td><td>high_iv</td><td>0.650693</td><td>suspicious</td><td>0.710405</td><td>0.420809</td><td>0.314239</td><td>—</td><td>—</td><td>1.105517</td><td>—</td><td>—</td><td>iv=0.650693 &gt;= max_iv=0.5</td></tr>
+      <tr><td>ingreso_mensual</td><td>ingreso_mensual__woe</td><td>true</td><td>high_iv</td><td>0.621124</td><td>suspicious</td><td>0.697394</td><td>0.394788</td><td>0.279975</td><td>—</td><td>—</td><td>1.091881</td><td>—</td><td>—</td><td>iv=0.621124 &gt;= max_iv=0.5</td></tr>
+      <tr><td>mora_max_12m</td><td>mora_max_12m__woe</td><td>true</td><td>high_iv</td><td>1.409086</td><td>suspicious</td><td>0.747632</td><td>0.495264</td><td>0.423340</td><td>—</td><td>—</td><td>1.250736</td><td>—</td><td>—</td><td>iv=1.40909 &gt;= max_iv=0.5</td></tr>
+      <tr><td>segmento</td><td>segmento__woe</td><td>false</td><td>low_iv</td><td>0.000469</td><td>—</td><td>0.505891</td><td>0.011782</td><td>0.008972</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>iv=0.000469213 &lt; min_iv=0.02</td></tr>
       <tr><td>utilizacion_linea</td><td>utilizacion_linea__woe</td><td>true</td><td>included</td><td>0.159054</td><td>medium</td><td>0.606320</td><td>0.212641</td><td>0.152438</td><td>—</td><td>—</td><td>1.023972</td><td>—</td><td>—</td><td>—</td></tr>
     </tbody>
   </table>
@@ -4121,14 +4121,14 @@ L 420.51375 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9</dd>
-    <dt>created_at</dt><dd>2026-07-21T17:18:52.347288Z</dd>
+    <dt>created_at</dt><dd>2026-07-22T17:24:05.111445Z</dd>
     <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>9b851201c8b66056dbc98947fef0c7d9a3877118</dd>
+    <dt>git_sha</dt><dd>2aed91f2bc35b965ab6cbb73a5c6d33ecc585dd5</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.4.1&#34;,
+  &#34;nikodym&#34;: &#34;1.5.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
@@ -5264,7 +5264,7 @@ L 420.51375 486.278125
   &#34;norma&#34;: &#34;CMF Cap. B-1 §3 (Circular N° 2.346): provisión = colocaciones del grupo · PD estimada · pérdida dado el incumplimiento.&#34;,
   &#34;pd_aggregation&#34;: &#34;exposure_weighted&#34;,
   &#34;rounding&#34;: &#34;currency_2dp&#34;,
-  &#34;total_expected_loss_rate&#34;: &#34;0.038203224448922777376082337534204431258983735881240&#34;,
+  &#34;total_expected_loss_rate&#34;: &#34;0.0382&#34;,
   &#34;warning_codes&#34;: []
 }</pre></dd>
   </dl>
