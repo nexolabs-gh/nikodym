@@ -79,6 +79,13 @@ F7 ya **promete** que `pip install nikodym[ui]` trae el front buildeado (ver F7 
 cumple, y el hueco es de **distribución, no de ingeniería**: el backend FastAPI sí viaja en el wheel y
 `ui/server.py` ya monta los estáticos cuando encuentra el directorio.
 
+> ⚠️ **Medir el alcance antes de ejecutar.** Los frentes que siguen son los que se detectaron al
+> escribir este bloque, no un barrido. B1.2 se describía como dos campos y resultaron 185 textos y
+> nueve afirmaciones sin respaldo en el motor; el sesgo es del método —enumerar síntomas reportados
+> en vez del patrón— y afecta por igual a los bloques que quedan. Antes de planificar B2, contar
+> qué falta **de verdad** para que un tercero levante la UI desde PyPI, y actualizar esta lista con
+> la cifra real.
+
 1. **Entry point.** `pyproject.toml` no declara `[project.scripts]`: no existe ningún comando. Definir
    el comando de arranque y su contrato (host, puerto, directorio de trabajo, apertura del navegador).
 2. **Assets en el wheel.** El build del front (`pnpm build`, no `build:demo`) tiene que producirse en
