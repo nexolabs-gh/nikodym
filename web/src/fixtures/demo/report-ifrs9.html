@@ -1100,7 +1100,7 @@ figcaption {
     </div>
     <div class="cover-field">
       <dt>Fecha de emisión</dt>
-      <dd>2026-07-21</dd>
+      <dd>2026-07-22</dd>
     </div>
   </dl>
 
@@ -1108,7 +1108,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=fce5101d5c006a83f2962edcc701c0d6bf31f293</code></div>
+    <div class="lineage-line"><code>git_sha=5f4a934eabef4be1a9d762c1cac3e6c3bb4d061a</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1476,14 +1476,14 @@ figcaption {
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</dd>
-    <dt>created_at</dt><dd>2026-07-21T17:24:33.202587Z</dd>
+    <dt>created_at</dt><dd>2026-07-22T17:26:01.364397Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>fce5101d5c006a83f2962edcc701c0d6bf31f293</dd>
+    <dt>git_sha</dt><dd>5f4a934eabef4be1a9d762c1cac3e6c3bb4d061a</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.4.1&#34;,
+  &#34;nikodym&#34;: &#34;1.5.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
@@ -1960,6 +1960,7 @@ figcaption {
     <dt>ecl_by_scenario</dt><dd><pre>{
   &#34;base&#34;: &#34;6911516.43&#34;
 }</pre></dd>
+    <dt>ecl_by_scenario_basis</dt><dd>Diagnóstico auditable de la term-structure, no un desglose de total_ecl_reported: suma la ECL marginal descontada de cada escenario por separado, sin aplicar scenario_weights y sobre el horizonte completo de la curva, sin truncar Stage 1 a 12 meses. total_ecl_reported sí pondera por escenario y aplica ese corte por stage, de modo que ambas cifras no reconcilian entre sí: no deben sumarse ni compararse.</dd>
     <dt>staging_migration</dt><dd><pre>{
   &#34;stage_1&#34;: 5235,
   &#34;stage_2&#34;: 477,

@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "ca5d220b7d6f436097453361c1c423dd",
+ "run_id": "e3f5629d89a04c0a9f896c6da3f72a81",
  "error": null,
  "model_card": null,
  "binning": null,
@@ -141,6 +141,7 @@
    "ecl_by_scenario": {
     "base": 6911516.428053379
    },
+   "ecl_by_scenario_basis": "Diagnóstico auditable de la term-structure, no un desglose de total_ecl_reported: suma la ECL marginal descontada de cada escenario por separado, sin aplicar scenario_weights y sobre el horizonte completo de la curva, sin truncar Stage 1 a 12 meses. total_ecl_reported sí pondera por escenario y aplica ese corte por stage, de modo que ambas cifras no reconcilian entre sí: no deben sumarse ni compararse.",
    "term_structure_summary": {
     "n_rows": 30000,
     "n_scenarios": 1
