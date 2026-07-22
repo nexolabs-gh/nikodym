@@ -99,7 +99,7 @@ _WARNING_LGD_FORWARD_IGNORED: str = "FALTA-DATO-IFRS-6"
 # artefacto, no en la plantilla del informe, para que acompañe a la cifra dondequiera que se lea
 # ``results`` (anexo, payload de la UI, consumidor externo).
 _ECL_BY_SCENARIO_BASIS: str = (
-    "Diagnóstico auditable de la term-structure (CT-2), no un desglose de total_ecl_reported: "
+    "Diagnóstico auditable de la term-structure, no un desglose de total_ecl_reported: "
     "suma la ECL marginal descontada de cada escenario por separado, sin aplicar scenario_weights "
     "y sobre el horizonte completo de la curva, sin truncar Stage 1 a 12 meses. "
     "total_ecl_reported sí pondera por escenario y aplica ese corte por stage, de modo que ambas "
