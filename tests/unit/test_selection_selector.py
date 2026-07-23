@@ -470,38 +470,102 @@ def test_identificador_raw_y_alias_convergentes_es_valido_y_se_deduplica() -> No
     ) == ("x",)
 
 
-def test_alias_woe_compartido_falla_independiente_del_orden_del_mapping() -> None:
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        {"kept": "kept__woe", "left": "shared", "right": "shared"},
+        {"right": "shared", "left": "shared", "kept": "kept__woe"},
+    ],
+    ids=("mapping-directo", "mapping-invertido"),
+)
+@pytest.mark.parametrize("feature_identifier", ["kept", "kept__woe"], ids=("raw", "alias"))
+def test_alias_woe_duplicado_fuera_del_alcance_no_bloquea(
+    mapping: dict[str, str],
+    feature_identifier: str,
+) -> None:
+    """Aliases duplicados fuera de selección y overrides no invalidan la candidata elegida."""
+    frame = pd.DataFrame(
+        {
+            "target": [0, 1],
+            "partition": ["desarrollo", "desarrollo"],
+            "kept__woe": [0.25, -0.25],
+            "shared": [0.5, -0.5],
+        }
+    )
+    selector = FeatureSelector(
+        feature_columns=(feature_identifier,),
+        min_iv=0.0,
+        compute_univariate_metrics=False,
+        correlation_enabled=False,
+        vif_enabled=False,
+        stability_enabled=False,
+    ).fit(
+        frame,
+        target_col="target",
+        partition_col="partition",
+        binning_summary=_summary({"kept": 0.1, "left": 0.2, "right": 0.3}),
+        woe_column_map=mapping,
+    )
+
+    assert selector.candidate_features_ == ("kept",)
+    assert selector.selected_features_ == ("kept",)
+    assert selector.selected_woe_columns_ == ("kept__woe",)
+
+
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        {"kept": "kept__woe", "left": "shared", "right": "shared"},
+        {"right": "shared", "left": "shared", "kept": "kept__woe"},
+    ],
+    ids=("mapping-directo", "mapping-invertido"),
+)
+@pytest.mark.parametrize(
+    "selector_kwargs",
+    [
+        {"feature_columns": ("left", "right")},
+        {"feature_columns": ("shared",)},
+        {"feature_columns": ("kept",), "exclude_columns": ("left", "right")},
+        {"feature_columns": ("kept",), "force_include": ("left", "right")},
+        {"feature_columns": ("kept",), "force_exclude": ("shared",)},
+    ],
+    ids=(
+        "raws-en-feature-columns",
+        "alias-en-feature-columns",
+        "raws-en-exclude-columns",
+        "raws-en-force-include",
+        "alias-en-force-exclude",
+    ),
+)
+def test_alias_woe_compartido_alcanzable_falla_independiente_del_orden_del_mapping(
+    mapping: dict[str, str],
+    selector_kwargs: dict[str, tuple[str, ...]],
+) -> None:
     """Un alias identifica a lo sumo una raw alcanzable, sin precedencia por inserción."""
     frame = pd.DataFrame(
         {
             "target": [0, 1],
             "partition": ["desarrollo", "desarrollo"],
+            "kept__woe": [0.25, -0.25],
             "shared": [0.5, -0.5],
         }
     )
-    summary = _summary({"left": 0.2, "right": 0.3})
-    mappings = (
-        {"left": "shared", "right": "shared"},
-        {"right": "shared", "left": "shared"},
-    )
+    summary = _summary({"kept": 0.1, "left": 0.2, "right": 0.3})
     expected = (
         "woe_column_map debe ser inyectivo entre features alcanzables; "
         "alias WoE 'shared' corresponde a las features raw 'left', 'right'."
     )
 
-    observed: list[str] = []
-    for mapping in mappings:
-        with pytest.raises(SelectionFitError) as error:
-            FeatureSelector(feature_columns=("shared",)).fit(
-                frame,
-                target_col="target",
-                partition_col="partition",
-                binning_summary=summary,
-                woe_column_map=mapping,
-            )
-        observed.append(str(error.value))
+    with pytest.raises(SelectionFitError) as error:
+        FeatureSelector(**selector_kwargs).fit(
+            frame,
+            target_col="target",
+            partition_col="partition",
+            binning_summary=summary,
+            woe_column_map=mapping,
+        )
 
-    assert observed == [expected, expected]
+    assert str(error.value) == expected
 
 
 def test_mapping_woe_inyectivo_preserva_resolucion_del_alias() -> None:

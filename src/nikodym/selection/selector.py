@@ -555,8 +555,25 @@ def _resolve_candidates(
         if feature in publishable and woe_column in frame.columns
     }
     _validate_available_woe(mapping, publishable, frame)
-    _validate_injective_available_woe(mapping, available)
-    reverse_mapping = {mapping[feature]: feature for feature in sorted(available)}
+    features_by_alias = _index_available_woe_aliases(mapping, available)
+    if feature_columns == "*":
+        reachable = set(available)
+    else:
+        reachable = _features_referenced_by_identifiers(
+            feature_columns,
+            available,
+            features_by_alias,
+        )
+    for identifiers in (exclude_columns, force_include, force_exclude):
+        reachable.update(
+            _features_referenced_by_identifiers(
+                identifiers,
+                available,
+                features_by_alias,
+            )
+        )
+    _validate_injective_available_woe(mapping, reachable)
+    reverse_mapping = {mapping[feature]: feature for feature in sorted(reachable)}
 
     if feature_columns == "*":
         selected = set(available)
@@ -647,11 +664,11 @@ def _validate_available_woe(
 
 def _validate_injective_available_woe(
     mapping: Mapping[str, str],
-    available: set[str],
+    reachable: set[str],
 ) -> None:
     """Rechaza aliases WoE compartidos por más de una feature alcanzable."""
     features_by_alias: dict[str, list[str]] = {}
-    for feature in sorted(available):
+    for feature in sorted(reachable):
         features_by_alias.setdefault(mapping[feature], []).append(feature)
     collisions = {
         alias: features for alias, features in features_by_alias.items() if len(features) > 1
@@ -665,6 +682,31 @@ def _validate_injective_available_woe(
         raise SelectionFitError(
             "woe_column_map debe ser inyectivo entre features alcanzables; " + details + "."
         )
+
+
+def _index_available_woe_aliases(
+    mapping: Mapping[str, str],
+    available: set[str],
+) -> dict[str, tuple[str, ...]]:
+    """Indexa cada alias con todas sus raws publicables, sin perder colisiones."""
+    features_by_alias: dict[str, list[str]] = {}
+    for feature in sorted(available):
+        features_by_alias.setdefault(mapping[feature], []).append(feature)
+    return {alias: tuple(features_by_alias[alias]) for alias in sorted(features_by_alias)}
+
+
+def _features_referenced_by_identifiers(
+    identifiers: tuple[str, ...],
+    available: set[str],
+    features_by_alias: Mapping[str, tuple[str, ...]],
+) -> set[str]:
+    """Devuelve todas las raws alcanzables por cada lectura posible de un identificador."""
+    reachable: set[str] = set()
+    for identifier in identifiers:
+        if identifier in available:
+            reachable.add(identifier)
+        reachable.update(features_by_alias.get(identifier, ()))
+    return reachable
 
 
 def _resolve_identifier_sequence(
