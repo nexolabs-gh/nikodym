@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Documento** | Estado por capacidad y plan de evolución |
-| **Versión** | 1.4 |
-| **Fecha** | 2026-07-22 |
+| **Versión** | 1.5 |
+| **Fecha** | 2026-07-23 |
 | **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.1 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
 El código, el tag `v1.5.0` y PyPI están en `1.5.0`. `main` se encuentra en mejora continua; el próximo
@@ -21,7 +21,7 @@ El estado y el plan de esta sección son la fuente vigente.
 | F3/F8 · CMF, método interno y orquestación | Implementado, **experimental** | Validación humana de matrices/haircuts pendiente |
 | F4 · IFRS 9/ECL | Implementado, **experimental** | Independiente del máximo B-1 chileno |
 | F5/F6 · forward, survival, Markov, stress y validación | Implementado, **experimental** | Uso por config Python; sin preset/UI propios |
-| F7 · UI React/FastAPI e informe | **Incompleta como producto** | El backend viaja en `[ui]`, pero el front no se distribuye ni hay comando de arranque → **B2** |
+| F7 · UI React/FastAPI e informe | **No entregada como producto** | B2.0 aprobado documentalmente; B2.1 pendiente. `1.5.0` no trae launcher/assets y `[ui]` no cierra sus presets |
 | Originación/reject inference | Futuro | Requiere caso de uso, priorización y SDD |
 
 ## Plan operativo vigente (desde 2026-07-21)
@@ -84,26 +84,82 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 
 ### B2 · La UI instalable y usable  ← *requisito de producto*
 
-F7 ya **promete** que `pip install nikodym[ui]` trae el front buildeado (ver F7 más abajo). Hoy no lo
-cumple, y el hueco es de **distribución, no de ingeniería**: el backend FastAPI sí viaja en el wheel y
-`ui/server.py` ya monta los estáticos cuando encuentra el directorio.
+**Estado: B2 total ABIERTO; B2.0 CERRADO Y APROBADO documentalmente; B2.1 PENDIENTE y
+habilitado.** La medición clean-room y la reapertura de SDD-23/25 se cerraron el 2026-07-23 sobre
+`dd89f7d35cefb0aebb4ec2055c4ca81c171dd59e`, con revisión adversarial final sin P0/P1/P2 y
+auditoría API aprobada. Esta transición aprueba el contrato; no implementa distribución ni cambia
+el producto publicado.
 
-> ⚠️ **Medir el alcance antes de ejecutar.** Los frentes que siguen son los que se detectaron al
-> escribir este bloque, no un barrido. B1.2 se describía como dos campos y resultaron 185 textos y
-> nueve afirmaciones sin respaldo en el motor; el sesgo es del método —enumerar síntomas reportados
-> en vez del patrón— y afecta por igual a los bloques que quedan. Antes de planificar B2, contar
-> qué falta **de verdad** para que un tercero levante la UI desde PyPI, y actualizar esta lista con
-> la cifra real.
+**Línea base oficial `1.5.0`.**
 
-1. **Entry point.** `pyproject.toml` no declara `[project.scripts]`: no existe ningún comando. Definir
-   el comando de arranque y su contrato (host, puerto, directorio de trabajo, apertura del navegador).
-2. **Assets en el wheel.** El build del front (`pnpm build`, no `build:demo`) tiene que producirse en
-   el flujo de release y quedar dentro del paquete, con el gate de licencias intacto.
-3. **Documentación y gate.** Instalar y levantar en dos comandos, documentado en README y `docs_site`;
-   el smoke clean-room debe verificar que la UI **carga**, no sólo que el import no explota.
+- Wheel `nikodym-1.5.0-py3-none-any.whl`, SHA-256
+  `5bc4ad78d6b134c199a5e392d714f35b1dac9807c59ff2a47eea4589e297f015`.
+- Sdist `nikodym-1.5.0.tar.gz`, SHA-256
+  `9d7db9efabb6590db492c71ac9f2c11043d5b431d4e0ab49cfb07a92fef9e524`.
+- `pip install "nikodym[ui]==1.5.0"` funciona para el backend, pero no instala console script,
+  `nikodym/ui/__main__.py`, `static/index.html` ni assets JS/CSS. `/api/*` responde con bootstrap
+  manual; `/` no entrega la SPA.
+- Un upload externo válido expuso dos brechas adicionales: al ejecutar se deja `loan_id` como
+  columna con `RangeIndex` pese al `index_col` del preset F1, y `[ui]` no instala scoring
+  que requieren los presets visibles F1/F3/F4. Ninguno completa una corrida ni genera informe con
+  solo el extra publicado.
 
-> **Criterio de aceptación:** un tercero sin acceso al repo instala desde PyPI, levanta la UI, carga
-> un dataset propio y obtiene el informe. Mientras eso no ocurra, F7 no está entregado.
+**DAG aprobado — un nodo habilita al siguiente.**
+
+1. **B2.1 · assets, supply-chain y licencias — PENDIENTE, habilitado por B2.0.** `web/` es fuente completa en Git, pero wheel/sdist
+   distribuyen solo el build normal versionado en `src/nikodym/ui/static/` y se construyen sin Node.
+   `.node-version` fija Node 22.22.2, `packageManager` fija pnpm 11.15.0 e instalación frozen; tooling
+   pasa a `devDependencies`. Un plugin versionado del build normal Vite (`transform` +
+   `generateBundle`) produce procedencia conservadora por output/hash; los inventarios pnpm
+   full/prod solo reconcilian declaraciones y **no** prueban redistribución. Notices nacen de la
+   procedencia y concatenan íntegramente todos los textos LICENSE/LICENCE/NOTICE/COPYING/COPYRIGHT
+   más atribuciones, con hashes fuente/final ligados al candidate; SPDX solo no basta.
+   `lightningcss`/MPL exige allowlist build-only exacta y ausencia de prod/procedencia. El build
+   normal veta módulos de `web/src/fixtures/demo/**` y un sentinel + hashes/firmas detecta material
+   inline/emitido. Otra allowlist inspecciona wheel/sdist y excluye `web/`, fixtures demo, `.vercel`,
+   datos y binarios. En Python, el gate permisivo cubre base + `--extra all`; `[pdf]` queda fuera por
+   WeasyPrint→Pyphen y se audita/documenta en un job opt-in separado.
+2. **B2.2 · launcher, runtime y seguridad.** `nikodym-ui = nikodym.ui.__main__:main`, `argparse`,
+   bind fijo `127.0.0.1:8000`, `.nikodym_ui`, navegador abierto y
+   `--no-open`/`--port`/`--workdir` —sin `--host`. Cada lanzamiento crea un token aleatorio de
+   256 bits, no log/URL, inyectado en memoria en el index; la SPA lo envía por header. Toda request
+   valida `Host` exacto; upload/run exigen `Origin` same-origin + token y CORS externo está apagado.
+   El index inyectado responde `Cache-Control: no-store` y no se persiste.
+   SPA `/`, API relativa `/api`, assets `/assets`, same-origin y
+   sin subpath en `1.6.0`; API registrada antes del fallback. Falta del index o de **cualquier**
+   `src`/`href` local —favicon incluido— falla antes de bind; exposición a red queda diferida como R0.
+3. **B2.3 · `[ui]`, uploads y presets.** Como delta, `[ui]` compone
+   `nikodym[scoring,excel,docx]` + FastAPI/Uvicorn/multipart y preserva
+   `scikit-learn>=1.6,<1.8`. `allow_live_execution=false` devuelve 403
+   en upload/run pero conserva lectura/validación. `upload_max_mb` tiene default único de 100 MiB y
+   lectura por chunks. Upload guarda los bytes originales en `uploaded_<sha256><suffix>` sin parsear
+   ni convertir y devuelve solo metadata física. `/run` copia el config cambiando únicamente
+   `source=None` y pasa el raw path a la extensión aditiva de `nikodym.run`; la API pública coacciona
+   `DataConfig` perezosamente, carga path/DataFrame con `DataLoader`, resuelve `schema_.index_col`
+   sin ambigüedad e inyecta el frame tras conectar audit. Preflight inválido ocurre antes de
+   `Study`/sink y el endpoint lo traduce a 422 —incluido `MissingDependencyError` de DataLoader—;
+   la misma clase nacida dentro de `Study.run` queda capturada como `Study failed`/200 y siempre
+   cierra el sink. No hay Parquet intermedio. HTML es obligatorio; PDF degrada.
+4. **B2.4 · candidate wheel clean-room + Playwright.** Fuera del checkout se instala solo
+   `<wheel>[ui]`, se lanza `--no-open` y se permite exclusivamente loopback. Se comprueba `/` +
+   HTTP 200 de cada `src`/`href` local —favicon incluido— y se ejecutan
+   F1/`consumo_comportamiento`, F3/`provisiones_consumo` y
+   F4/`ifrs9_retail_latam` hasta `done` + resultados + HTML; además F1 con CSV externo y `loan_id`.
+   Negativos Host/Origin/token y cero red externa son obligatorios. El control negativo elimina
+   `index.html` y, por separado, un recurso local obligatorio en una instalación descartable y exige
+   fallo antes de bind.
+5. **B2.5 · documentación y release.** README/docs explican instalación y arranque en dos comandos.
+   Release publica exactamente el wheel/sdist gateados, sin rebuild. Tag/PyPI `1.6.0` conservan el
+   OK específico de Cami.
+
+**Identidad del DoD.** Antes de correr: igualdad estructural del config +
+`config_hash(UI) == config_hash(código)`; la ubicación de datos se excluye del `config_hash`.
+Después de correr: igualdad de `data_hash` —contenido lógico— y resultados canónicos.
+
+> **Criterio de cierre de B2:** no basta un candidate local ni CI verde. B2 cierra únicamente cuando
+> los artefactos gateados se publican en PyPI y un tercero, sin checkout, repite desde esa publicación
+> `instalar → lanzar → F1/F3/F4 done + HTML → F1 con CSV propio`. La aprobación de B2.0 no satisface
+> este criterio: B2 total permanece abierto y F7 sigue no entregado.
 
 ### B3 · Abstracción de jurisdicción (CMF ≠ SBS ≠ …)
 
@@ -338,11 +394,19 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 
 **Objetivo.** Web premium sobre la API que construye y visualiza el `Study` (editor del config Pydantic), para dos públicos: analistas técnicos (MVP/benchmark rápido) y gerentes de riesgo no-técnicos (demo de venta).
 **SDDs.** 23 ui *(contrato evolucionado e implementado sobre React/FastAPI)*.
-**Stack.** React + Vite + Tailwind + shadcn/ui + charts premium; backend **FastAPI**; **cero lógica propia** (todo invoca la API de la lib).
+**Stack.** React + Vite + Tailwind + shadcn/ui + charts premium; backend **FastAPI**. No recalcula
+outputs contractuales, regulatorios ni de modelado; `reliability.py` es la única derivación
+determinista de presentación (read-only, trazada y fuera de modelo/ModelCard/informe).
 **Dos modos de despliegue.**
-- **Local (analista):** `pip install nikodym[ui]` trae el React ya buildeado + levanta FastAPI local; los datos no salen de su máquina. 🔴 **PROMESA INCUMPLIDA** — el extra `[ui]` instala el backend FastAPI y `ui/server.py` monta los estáticos si los encuentra, pero **el front buildeado no viaja en el wheel y no existe `[project.scripts]`**: no hay comando de arranque ni documentación. Es el bloque **B2** del plan operativo; hasta cerrarlo, F7 no está entregado.
+- **Local (analista):** `pip install nikodym[ui]` debe traer el React buildeado y levantar FastAPI
+  en loopback; los datos no salen de su máquina. 🔴 **PROMESA INCUMPLIDA EN `1.5.0`** — faltan
+  launcher/assets y el extra no cierra los presets visibles. B2.0 aprobó el contrato y habilitó
+  B2.1, pero hasta implementarlo, publicarlo y repetir el recorrido desde PyPI, F7 no está entregado.
 - **Hosteada (comercial):** `nikodym.cl/demo`, dataset **sintético** precargado, flujo guiado "arma tu modelito en pocos pasos" + CTA de lead comercial.
-**DoD.** Un modelo F1 completo construible 100% desde la UI, idéntico al hecho por código; look&feel premium aprobado por revisión visual.
+**DoD.** Un modelo F1 completo construible 100 % desde la UI: igualdad estructural +
+`config_hash` antes de ejecutar y, sobre el mismo contenido, `data_hash` + resultados canónicos
+después; informe HTML y look&feel premium aprobados. El cierre de producto exige el recorrido desde
+el artefacto publicado en PyPI.
 **Dependencias.** Todo el core (motor V1 ✅ completo 2026-07-04).
 
 ## F+ — Originación & reject inference (insertable)
