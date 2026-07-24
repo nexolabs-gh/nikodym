@@ -328,6 +328,54 @@ jobs:
           ./.venv-pip/bin/pip list | grep -Ei "^(nikodym|pandas|scikit-learn|numpy|optbinning) "
           ./.venv-pip/bin/python scripts/smoke_instalacion_pip.py
 
+      # El console script sólo existe de verdad si el shim que genera pip ARRANCA. El gate de
+      # distribución parsea el texto de `entry_points.txt` y el smoke de arriba llama a la app
+      # in-process: ninguno de los dos toca el ejecutable que recibe el usuario. Un `main()` que
+      # reviente al invocarse desde el shim pasaría los 16 jobs (enmienda B2.2, §4).
+      - name: Smoke del console script instalado (nikodym-ui)
+        shell: bash
+        run: |
+          ./.venv-pip/bin/nikodym-ui --help | grep -q -- --no-open
+          # `--host` no existe y no debe reaparecer por descuido: exponer a red es decisión R0.
+          # Se mira la línea de USAGE, no el texto libre: la descripción del comando dice "no
+          # existe --host", así que un grep suelto se encuentra a sí mismo y falla siempre.
+          if ./.venv-pip/bin/nikodym-ui --help | sed -n '/^usage:/,/^$/p' | grep -q -- --host; then
+            echo "nikodym-ui expone --host: el bind debe ser fijo a loopback (D-UI-R0)" >&2
+            exit 1
+          fi
+
+          puerto=8765
+          workdir="$(mktemp -d)"
+          ./.venv-pip/bin/nikodym-ui --no-open --port "$puerto" --workdir "$workdir" &
+          ui_pid=$!
+          trap 'kill "$ui_pid" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            curl -sf -H "Host: 127.0.0.1:$puerto" "http://127.0.0.1:$puerto/" -o index.html && break
+            sleep 1
+          done
+
+          # La SPA se sirve con el token YA sustituido...
+          grep -q 'name="nikodym-token"' index.html
+          if grep -q '__NIKODYM_TOKEN__' index.html; then
+            echo "el index servido conserva el placeholder: el token no se inyectó" >&2
+            exit 1
+          fi
+          # ...y la API responde de verdad. Servir `/` no basta como criterio: con un backend
+          # absoluto embebido la página carga y toda la API queda muerta (E-B2.2-9).
+          curl -sf -H "Host: 127.0.0.1:$puerto" "http://127.0.0.1:$puerto/api/schema" -o /dev/null
+
+          # Guardas: Host ajeno y mutador sin token deben rechazarse.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: localhost:8765' \
+            "http://127.0.0.1:$puerto/")" = "403"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Host: 127.0.0.1:$puerto" \
+            -H "Origin: http://127.0.0.1:$puerto" -H 'Content-Type: application/json' \
+            -d '{}' "http://127.0.0.1:$puerto/api/run")" = "403"
+
+          # El archivo en disco conserva el placeholder: la inyección es en memoria.
+          static="$(./.venv-pip/bin/python -c 'import nikodym.ui, pathlib; print(pathlib.Path(nikodym.ui.__file__).parent / "static")')"
+          grep -q '__NIKODYM_TOKEN__' "$static/index.html"
+
       - name: Verify wheel license metadata
         shell: bash
         run: |

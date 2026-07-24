@@ -18,7 +18,7 @@ from _ui_client import TEST_PORT, TEST_TOKEN, build_test_runtime, ui_client
 
 from nikodym.ui import __main__ as launcher
 from nikodym.ui.exceptions import UiLaunchError
-from nikodym.ui.runtime import TOKEN_HEADER, TOKEN_PLACEHOLDER, build_runtime, preflight_static
+from nikodym.ui.runtime import TOKEN_HEADER, TOKEN_PLACEHOLDER, preflight_static
 from nikodym.ui.settings import UiConfig
 
 _INDEX = (
@@ -89,7 +89,10 @@ def test_preflight_rechaza_symlink_que_escapa(tmp_path: Path) -> None:
     afuera.write_text("export {}", encoding="utf-8")
     destino = static / "assets" / "app.js"
     destino.unlink()
-    destino.symlink_to(afuera)
+    try:
+        destino.symlink_to(afuera)
+    except OSError:  # pragma: no cover - Windows sin privilegio de symlink
+        pytest.skip("el entorno no permite symlinks")
 
     with pytest.raises(UiLaunchError, match="escapa de static/"):
         preflight_static(static)
@@ -342,16 +345,22 @@ def test_el_launcher_anuncia_la_url(
     """Uvicorn omite su mensaje de arranque cuando se le pasan `sockets`."""
     servido: list[int] = []
     monkeypatch.setattr(launcher, "_servir", lambda *a, **k: servido.append(1))
+    # Puerto libre pedido al SO: uno fijo convierte cualquier colisión en el runner en un rojo
+    # espurio que no dice nada del código.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sonda:
+        sonda.bind(("127.0.0.1", 0))
+        puerto = sonda.getsockname()[1]
 
-    codigo = launcher.main(["--port", "8123", "--no-open", "--workdir", str(tmp_path / "wd")])
+    codigo = launcher.main(["--port", str(puerto), "--no-open", "--workdir", str(tmp_path / "wd")])
 
     assert codigo == 0
     assert servido == [1]
-    assert "http://127.0.0.1:8123/" in capsys.readouterr().out
+    assert f"http://127.0.0.1:{puerto}/" in capsys.readouterr().out
 
 
 def test_el_workdir_se_crea(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(launcher, "_servir", lambda *a, **k: None)
+    monkeypatch.setattr(launcher, "_reservar_socket", lambda port: None)
     destino = tmp_path / "nuevo" / "workdir"
 
     launcher.main(["--port", "8124", "--no-open", "--workdir", str(destino)])
@@ -359,13 +368,21 @@ def test_el_workdir_se_crea(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert destino.is_dir()
 
 
-def test_la_fixture_de_tests_usa_loopback_real() -> None:
-    """Apuntar la fixture a `testserver` pondría la suite verde y mataría el chequeo de Host."""
-    runtime = build_runtime(port=TEST_PORT, workdir=Path("."), token=TEST_TOKEN)
+def test_la_fixture_de_tests_usa_loopback_real(tmp_path: Path) -> None:
+    """La fixture compartida debe atar el cliente al bind real, no a `testserver`.
 
-    assert runtime.host == "127.0.0.1"
+    Afirma sobre los artefactos que la suite usa de verdad —`build_test_runtime` y el `base_url`
+    de `ui_client`—, no sobre el default de `RuntimeContext`: ese default no tiene forma de ser
+    otra cosa, así que comprobarlo no protegería de nada. El escape que este test cierra es
+    reescribir el helper con `host="testserver"` para acallar los 403: la suite quedaría verde con
+    el chequeo de Host —único mitigante de L2— desactivado en todos los tests a la vez.
+    """
+    runtime = build_test_runtime(tmp_path, static_dir=_static_minimo(tmp_path))
+    cliente = ui_client(UiConfig.model_validate({"workdir": str(tmp_path)}), runtime=runtime)
+
     assert runtime.expected_host == f"127.0.0.1:{TEST_PORT}"
-    assert runtime.origin == f"http://127.0.0.1:{TEST_PORT}"
+    assert str(cliente.base_url).startswith("http://127.0.0.1:")
+    assert "testserver" not in str(cliente.base_url)
 
 
 def test_los_recursos_de_raiz_no_aceptan_parametros(tmp_path: Path, static: Path) -> None:
@@ -383,3 +400,69 @@ def test_los_recursos_de_raiz_no_aceptan_parametros(tmp_path: Path, static: Path
     assert respuesta.status_code == 200
     assert "secreto" not in respuesta.text
     assert respuesta.text == "<svg/>"
+
+
+# ─────────────── superficie no contratada y errores de dominio ───────────────
+
+
+@pytest.mark.parametrize("ruta", ["/docs", "/redoc", "/openapi.json"])
+def test_no_se_sirve_la_consola_de_api(tmp_path: Path, static: Path, ruta: str) -> None:
+    """FastAPI las registra por defecto y cargan Swagger/ReDoc desde un CDN externo.
+
+    Serían el único contenido del origen local que ejecuta script de terceros, en el mismo origen
+    donde vive el token, y contradicen el gate anti-request que B2.1 costó tres ciclos.
+
+    El contrato afirmado es «no se sirve la consola», no un código concreto: `/docs` y `/redoc` son
+    ahora rutas de navegación cualesquiera y caen en la SPA (correcto), mientras que
+    `/openapi.json` lleva extensión y da 404. Lo que ninguno puede hacer es devolver Swagger.
+    """
+    respuesta = _cliente(tmp_path, static).get(ruta, headers={"Accept": "text/html"})
+
+    cuerpo = respuesta.text.lower()
+    assert "jsdelivr" not in cuerpo
+    assert "swagger" not in cuerpo
+    assert "redoc" not in cuerpo
+    assert "openapi" not in cuerpo
+
+
+def test_el_index_prohibe_ser_frameado(tmp_path: Path, static: Path) -> None:
+    """Framear el origen local es el paso previo de cualquier intento de operar desde fuera."""
+    cabeceras = _cliente(tmp_path, static).get("/").headers
+
+    assert cabeceras["x-frame-options"] == "DENY"
+    assert "frame-ancestors 'none'" in cabeceras["content-security-policy"]
+
+
+def test_el_404_de_la_api_conserva_su_mensaje(tmp_path: Path, static: Path) -> None:
+    """El handler de 404 se registra por CÓDIGO: intercepta también los 404 de dominio.
+
+    Sin propagar el `detail`, «preset desconocido: 'x'» le llega al usuario como un genérico que no
+    le dice qué arreglar. Los tests de 404 que sólo miran el status code no cazan esto.
+    """
+    respuesta = _cliente(tmp_path, static).get("/api/config/preset/no-existe")
+
+    assert respuesta.status_code == 404
+    assert "no-existe" in respuesta.json()["detail"]
+    assert respuesta.json()["detail"] != "Recurso no encontrado"
+
+
+def test_el_launcher_sin_el_extra_ui_no_escupe_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """`pip install nikodym` sin extras deja el ejecutable igual: debe fallar en español."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def _sin_uvicorn(name: str, *args: object, **kwargs: object) -> object:
+        if name == "uvicorn":
+            raise ImportError("No module named 'uvicorn'")
+        return real_import(name, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(builtins, "__import__", _sin_uvicorn)
+    monkeypatch.setattr(launcher, "_reservar_socket", lambda port: None)
+
+    codigo = launcher.main(["--port", "8125", "--no-open", "--workdir", str(tmp_path / "wd")])
+
+    assert codigo == 2
+    assert "nikodym[ui]" in capsys.readouterr().err

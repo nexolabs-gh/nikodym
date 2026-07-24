@@ -22,6 +22,7 @@ import {
 } from "../../scripts/frontend_provenance_plugin.mjs"
 import {
   assertNoAutomaticExternalRequests,
+  assertNoEmbeddedBackendOrigin,
   assertNoExternalRequestsInOutputs,
   assertNoFixtureMaterial,
   validateFixtureManifest,
@@ -978,4 +979,38 @@ test("MPL build-only pasa solo fuera de prod y procedencia", () => {
     () => reconcile({ ...args, provenance: { packages: [entry] } }),
     /procedencia/,
   )
+})
+
+// ── Origen absoluto embebido en el bundle (enmienda B2.2, E-B2.2-9) ──────────────────────────
+
+test("assertNoEmbeddedBackendOrigin caza un backend absoluto dentro del JS", (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "nikodym-origin-"))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const archivo = path.join(dir, "index-abc.js")
+
+  writeFileSync(archivo, 'const API_BASE="http://localhost:8000";export{}')
+  assert.throws(
+    () => assertNoEmbeddedBackendOrigin([archivo], dir),
+    /Origen absoluto embebido/,
+    "el literal que rompió la UI instalada durante todo B2.1 debe fallar el gate",
+  )
+
+  for (const variante of [
+    'fetch("http://127.0.0.1:8000/api/schema")',
+    'const u="https://localhost:3000/x"',
+    'const u="http://[::1]:8000/x"',
+  ]) {
+    writeFileSync(archivo, variante)
+    assert.throws(() => assertNoEmbeddedBackendOrigin([archivo], dir), /Origen absoluto embebido/)
+  }
+})
+
+test("assertNoEmbeddedBackendOrigin acepta el bundle same-origin", (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "nikodym-origin-ok-"))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const archivo = path.join(dir, "index-abc.js")
+
+  // Rutas relativas y un enlace externo en texto (documentación, no un backend) no son hallazgo.
+  writeFileSync(archivo, 'const API_BASE="";fetch(`${API_BASE}/api/schema`);const doc="https://docs.nikodym.cl"')
+  assert.doesNotThrow(() => assertNoEmbeddedBackendOrigin([archivo], dir))
 })

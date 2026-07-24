@@ -33,8 +33,14 @@ if TYPE_CHECKING:
 
 __all__ = ["create_app"]
 
-#: Cabeceras del index inyectado: el token no puede quedar en la caché de disco del navegador.
-_NO_STORE = {"Cache-Control": "no-store"}
+#: Cabeceras del index inyectado. `no-store` evita que el token quede en la caché de disco del
+#: navegador; `frame-ancestors 'none'` impide que una página remota framee el origen local, que es
+#: el paso previo de cualquier intento de operar contra la UI desde fuera.
+_NO_STORE = {
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "X-Frame-Options": "DENY",
+}
 
 
 def create_app(settings: UiConfig, runtime: RuntimeContext) -> FastAPI:
@@ -73,7 +79,12 @@ def create_app(settings: UiConfig, runtime: RuntimeContext) -> FastAPI:
     from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
     from fastapi.staticfiles import StaticFiles
 
-    app = FastAPI(title="Nikodym UI")
+    # Sin `/docs`, `/redoc` ni `/openapi.json`: FastAPI los registra por defecto y sus páginas
+    # cargan Swagger UI / ReDoc desde `cdn.jsdelivr.net` con un pin flotante. Serían el único
+    # contenido del origen local que ejecuta script de terceros, en el mismo origen donde vive el
+    # token — y contradicen de plano el gate anti-request que B2.1 costó tres ciclos. La UI local
+    # no es una consola de API; quien quiera explorar el contrato tiene SDD-23 §4.2.
+    app = FastAPI(title="Nikodym UI", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings
     app.state.runtime = runtime
 
@@ -117,11 +128,18 @@ def create_app(settings: UiConfig, runtime: RuntimeContext) -> FastAPI:
         path = request.url.path
         es_navegacion = (
             not path.startswith("/api/")
+            and not path.startswith("/assets/")
             and "." not in path.rsplit("/", 1)[-1]
             and "text/html" in request.headers.get("accept", "")
         )
         if not es_navegacion:
-            return JSONResponse(status_code=404, content={"detail": "Recurso no encontrado"})
+            # `add_exception_handler(404, ...)` se registra por CÓDIGO, así que este handler
+            # intercepta también los 404 de dominio de `/api/*`. Propagar el `detail` original es
+            # obligatorio: si no, "dataset sintético desconocido: X" le llega al usuario como un
+            # "Recurso no encontrado" que no le dice qué arreglar.
+            detalle = getattr(exc, "detail", None) or "Recurso no encontrado"
+            cabeceras = getattr(exc, "headers", None)
+            return JSONResponse(status_code=404, content={"detail": detalle}, headers=cabeceras)
         return _index()
 
     app.add_exception_handler(404, _fallback_spa)

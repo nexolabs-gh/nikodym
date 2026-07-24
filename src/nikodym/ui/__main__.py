@@ -23,7 +23,7 @@ import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from nikodym.ui.exceptions import UiError
+from nikodym.ui.exceptions import UiDependencyError, UiError
 from nikodym.ui.runtime import LOOPBACK_HOST, RuntimeContext, build_runtime
 from nikodym.ui.settings import UiConfig
 
@@ -82,6 +82,10 @@ def _reservar_socket(port: int) -> socket.socket:
     que otro proceso puede quedárselo: el navegador abriría contra un servidor ajeno en loopback.
     """
     reservado = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Uvicorn pone SO_REUSEADDR en el socket que crea él; el nuestro debe hacer lo mismo o
+    # relanzar tras Ctrl-C falla con un mensaje equivocado ("ya hay algo escuchando ahí") cuando
+    # en realidad es el TIME_WAIT del propio proceso anterior.
+    reservado.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         reservado.bind((LOOPBACK_HOST, port))
     except OSError as error:
@@ -106,7 +110,15 @@ def _abrir_cuando_arranque(server: Server, url: str) -> None:
 def _servir(
     runtime: RuntimeContext, settings: UiConfig, reservado: socket.socket, abrir: bool
 ) -> None:
-    import uvicorn
+    try:
+        import uvicorn
+    except ImportError as exc:  # pragma: no cover - guard del extra [ui] ausente
+        # `[project.scripts]` es incondicional: `pip install nikodym` sin extras deja igualmente el
+        # ejecutable. Sin este guard, el usuario ve un traceback crudo tras el anuncio de la URL.
+        raise UiDependencyError(
+            "la interfaz web requiere el extra 'ui'. Instálalo con: "
+            "pip install 'nikodym[ui]' (o uv add 'nikodym[ui]')."
+        ) from exc
 
     from nikodym.ui.server import create_app
 
@@ -142,6 +154,11 @@ def main(argv: list[str] | None = None) -> int:
         _servir(runtime, settings, reservado, abrir=not args.no_open)
     except UiError as error:
         print(f"nikodym-ui: {error}", file=sys.stderr)
+        return 2
+    except OSError as error:
+        # workdir sin permisos, index ilegible: es un fallo de entorno, no un bug que merezca
+        # traceback en la cara del usuario.
+        print(f"nikodym-ui: no se pudo preparar el entorno local ({error})", file=sys.stderr)
         return 2
     except KeyboardInterrupt:  # pragma: no cover - interacción del usuario
         return 130

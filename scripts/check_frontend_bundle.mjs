@@ -1852,6 +1852,34 @@ export function verifyFinalOutputs(outputs, provenance, staticDirectory = STATIC
   }
 }
 
+/**
+ * Ningún asset del bundle puede traer un backend absoluto embebido.
+ *
+ * `API_BASE` cayó durante todo B2.1 a `http://localhost:8000`, y ese literal viajó dentro del JS
+ * distribuido sin que nada lo viera: este archivo analiza **atributos de HTML**, no cadenas dentro
+ * del JS, así que el gate anti-request no lo cubría. Con el launcher sirviendo en 127.0.0.1:<puerto>
+ * y el middleware exigiendo `Host` exacto, un origen absoluto embebido deja la UI instalada
+ * navegando con toda la API muerta (enmienda B2.2, E-B2.2-9). La regla es barata y cierra la
+ * regresión: el front habla same-origin, con rutas relativas.
+ */
+const EMBEDDED_ORIGIN = /https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?/gi
+
+export function assertNoEmbeddedBackendOrigin(files, staticDirectory = STATIC) {
+  const hallazgos = []
+  for (const file of files) {
+    if (!/\.(?:js|css)$/i.test(file)) continue
+    const texto = readFileSync(file, "utf8")
+    for (const match of texto.matchAll(EMBEDDED_ORIGIN)) {
+      hallazgos.push(`${path.relative(staticDirectory, file)}: ${match[0]}`)
+    }
+  }
+  if (hallazgos.length > 0) {
+    throw new Error(
+      `Origen absoluto embebido en el bundle (el front debe hablar same-origin):\n  - ${hallazgos.join("\n  - ")}`,
+    )
+  }
+}
+
 export function main() {
   if (!existsSync(path.join(STATIC, "index.html"))) {
     throw new Error("Falta src/nikodym/ui/static/index.html")
@@ -1864,6 +1892,7 @@ export function main() {
   verifyFinalOutputs(outputs, provenance)
   assertNoFixtureMaterial(outputs, manifest)
   assertNoExternalRequestsInOutputs(outputs)
+  assertNoEmbeddedBackendOrigin(outputs)
   const report = {
     schema_version: 2,
     files_checked: outputs.length,

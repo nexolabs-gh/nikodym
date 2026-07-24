@@ -9,7 +9,17 @@
 > **Enmienda a:** `docs/design/23-ui.md` (SDD-23) y `docs/design/25-packaging-ci.md` (SDD-25).
 > **Autor / Fecha:** DanIA / 2026-07-24.
 >
-> **Registro de revisión — ronda 1 (2026-07-24).** Dos revisores adversariales frescos y read-only
+> **Registro de revisión — ronda 2, sobre el código (2026-07-24).** Dos revisores adversariales
+> frescos read-only sobre `02b7997..65c37a0`. Resultado: 1 P0 de contrato + 2 P1 funcionales + 4 P1
+> de cobertura, todos verificados por el coordinador y corregidos. Lo relevante: la app servía
+> `/docs` y `/redoc`, que **cargan Swagger/ReDoc desde `cdn.jsdelivr.net`** en el mismo origen que
+> guarda el token —única superficie del origen local que ejecuta script de terceros, y contradicción
+> frontal con el gate anti-request de B2.1—; el handler de 404 se tragaba el `detail` de todos los
+> errores de dominio de la API; e `import uvicorn` caía fuera del guard del extra, de modo que
+> `pip install nikodym` sin `[ui]` anunciaba la URL y escupía un traceback. Añadido el gate que
+> impide la regresión de E-B2.2-9 y el smoke del console script realmente instalado.
+>
+> **Registro de revisión — ronda 1, sobre el diseño (2026-07-24).** Dos revisores adversariales frescos y read-only
 > (lente de seguridad/runtime y lente de packaging/coherencia B2.1). **Ambos RECHAZARON** la versión
 > inicial: 3 P0 y 6 P1/P2 sustantivos, todos verificados por el coordinador contra el código antes de
 > integrarse. Los tres P0: el checker no podía importar el módulo movido en el job `build` del CI
@@ -250,6 +260,18 @@ El fallback devuelve **404** para cualquier `/api/*` no resuelto y para rutas co
 Un fallback que responde `200 text/html` a `/assets/perdido.js` convierte un asset faltante en una
 página en blanco sin error — el modo de fallo que B2.4 va a testear y que no debe existir.
 
+**No se sirve la consola de API.** `FastAPI(...)` se construye con `docs_url=None, redoc_url=None,
+openapi_url=None`. Por defecto registra `/docs` y `/redoc`, cuyas páginas cargan Swagger UI y ReDoc
+desde `cdn.jsdelivr.net` con pin flotante: serían el único contenido del origen local que ejecuta
+script de terceros, en el mismo origen donde vive el token. Además, toda respuesta con el index
+lleva `X-Frame-Options: DENY` y `Content-Security-Policy: frame-ancestors 'none'`, porque framear el
+origen local desde una página remota es el paso previo de cualquier intento de operar contra la UI.
+
+**El handler de 404 propaga el `detail` original.** `add_exception_handler(404, ...)` se registra por
+**código de estado**, así que intercepta también los 404 de dominio de `/api/*`. Sin propagar el
+detalle, «dataset sintético desconocido: X» le llega al usuario como un genérico inútil. Los tests
+de 404 que sólo afirman el status code no cazan esta clase: hay que afirmar el mensaje.
+
 **Se retira el mount `/static`** de `create_app`, andamio de B2.1: dos URLs para el mismo byte es
 superficie duplicada y contradice el contrato «assets bajo `/assets`» de SDD-23 §4.2.
 
@@ -307,6 +329,12 @@ gate en el front.
 **Contrato:** `API_BASE` pasa a ser **relativo** (`""`), que es lo que SDD-23 §4.2 ya manda («consume
 una API **relativa** bajo `/api`»). `web/src/lib/api.ts` entra al delta, y §4 exige un criterio que
 ejercite una llamada real de la SPA servida, no sólo `GET /`.
+
+**Con gate, o vuelve.** El literal viajó dentro del JS durante todo B2.1 sin que nada lo viera:
+`check_frontend_bundle.mjs` analiza **atributos de HTML**, no cadenas dentro del JS. Se añade a ese
+mismo script `assertNoEmbeddedBackendOrigin`, que falla si cualquier asset distribuido contiene un
+origen absoluto a `localhost`/`127.0.0.1`/`[::1]`. Del lado del front, `web/src/lib/api.test.ts`
+fija que `API_BASE === ""` y que el placeholder sin sustituir cuenta como ausencia de token.
 
 ---
 

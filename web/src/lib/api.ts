@@ -190,13 +190,15 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // `...init` va PRIMERO: al revés, un `init.headers` futuro reemplazaría el objeto entero y se
+  // llevaría por delante el token, produciendo un 403 sin causa aparente.
   const res = await fetch(`${API_BASE}/api/${path}`, {
+    ...init,
     headers: {
       "Content-Type": "application/json",
       ...tokenHeaders(),
       ...init?.headers,
     },
-    ...init,
   })
   if (!res.ok) {
     let body: unknown
