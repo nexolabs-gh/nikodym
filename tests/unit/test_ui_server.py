@@ -241,8 +241,12 @@ def test_endpoint_config_from_yaml_malformado_422(client: TestClient) -> None:
 # ─────────────────────────────── bootstrap de create_app ───────────────────────────────
 
 
-def test_create_app_sin_build_no_monta_static() -> None:
+def test_create_app_sin_build_no_monta_static(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Sin directorio de build, ``/static`` no se monta (guard, no falla)."""
+    monkeypatch.setattr(server, "_static_dir", lambda: tmp_path / "build-ausente")
+
     app = create_app(UiConfig())
     assert not any(getattr(ruta, "name", None) == "static" for ruta in app.routes)
     assert isinstance(app.state.settings, UiConfig)

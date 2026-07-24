@@ -153,8 +153,95 @@ jobs:
           uv run --no-sync coverage run -m pytest
           uv run --no-sync coverage report --include="$regulatory_include" --fail-under=100
 
+  frontend:
+    name: Frontend reproducible y licencias
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Activar Corepack
+        run: corepack enable
+
+      - name: Instalar con lock congelado
+        working-directory: web
+        run: |
+          test "$(node --version)" = "v$(cat ../.node-version)"
+          test "$(pnpm --version)" = "11.15.0"
+          pnpm install --frozen-lockfile
+
+      - name: Calidad y tests frontend
+        working-directory: web
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+
+      - name: Build demo aislado
+        working-directory: web
+        shell: bash
+        run: |
+          find ../src/nikodym/ui/static -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/static-before-demo
+          demo_dir="$(mktemp -d)"
+          NIKODYM_DEMO_OUT_DIR="$demo_dir" pnpm build:demo
+          test -f "$demo_dir/index.html"
+          find ../src/nikodym/ui/static -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/static-after-demo
+          diff -u /tmp/static-before-demo /tmp/static-after-demo
+
+      - name: Regenerar bundle normal dos veces
+        working-directory: web
+        shell: bash
+        run: |
+          pnpm build:package
+          find ../src/nikodym/ui/static -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/static-build-1
+          sha256sum dist/evidence/frontend-provenance.json > /tmp/provenance-build-1
+          pnpm build:package
+          find ../src/nikodym/ui/static -type f -print0 | sort -z | xargs -0 sha256sum > /tmp/static-build-2
+          sha256sum dist/evidence/frontend-provenance.json > /tmp/provenance-build-2
+          diff -u /tmp/static-build-1 /tmp/static-build-2
+          diff -u /tmp/provenance-build-1 /tmp/provenance-build-2
+
+      - name: Inventarios y gates supply-chain
+        working-directory: web
+        shell: bash
+        run: |
+          mkdir -p dist/evidence
+          pnpm licenses list --json --long > dist/evidence/frontend-licenses.full.raw.json
+          pnpm licenses list --prod --json --long > dist/evidence/frontend-licenses.prod.raw.json
+          pnpm test:supply-chain
+          node ../scripts/check_frontend_bundle.mjs
+          node ../scripts/check_frontend_licenses.mjs
+
+      - name: Build versionado sin drift
+        shell: bash
+        run: |
+          git diff --exit-code -- src/nikodym/ui/static
+          git status --porcelain --untracked-files=all -- src/nikodym/ui/static > /tmp/static-status
+          test ! -s /tmp/static-status
+
+      - name: Subir evidencia frontend autoritativa
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-candidate-evidence
+          path: web/dist/evidence/
+          if-no-files-found: error
+
+      - name: Subir evidencia diagnóstica si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-evidence-diagnostic
+          path: web/dist/evidence/
+          if-no-files-found: warn
+
   build:
     name: Build
+    needs: frontend
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -169,11 +256,50 @@ jobs:
       - name: Install Python
         run: uv python install 3.12
 
+      - name: Descargar evidencia frontend autoritativa
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-candidate-evidence
+          path: candidate/frontend-evidence
+
+      - name: Verificar evidencia descargada
+        run: test -f candidate/frontend-evidence/frontend-provenance.json
+
       - name: Build distributions
         run: uv build
 
+      - name: Verify candidate unit and frontend provenance
+        shell: bash
+        run: |
+          wheels=(dist/*.whl)
+          sdists=(dist/*.tar.gz)
+          test "${#wheels[@]}" -eq 1
+          test "${#sdists[@]}" -eq 1
+          uv run --no-sync python scripts/check_distribution_contents.py \
+            --frontend-provenance candidate/frontend-evidence/frontend-provenance.json \
+            "${wheels[0]}" "${sdists[0]}"
+
+      - name: Rebuild wheel from sdist and revalidate
+        shell: bash
+        run: |
+          wheels=(dist/*.whl)
+          sdists=(dist/*.tar.gz)
+          mkdir -p dist/from-sdist
+          uv build --wheel --out-dir dist/from-sdist "${sdists[0]}"
+          rebuilt=(dist/from-sdist/*.whl)
+          test "${#rebuilt[@]}" -eq 1
+          uv run --no-sync python scripts/check_distribution_contents.py \
+            --frontend-provenance candidate/frontend-evidence/frontend-provenance.json \
+            --reference-wheel "${wheels[0]}" \
+            "${rebuilt[0]}" "${sdists[0]}"
+
       - name: Smoke test wheel
-        run: uv run --isolated --no-project --with dist/*.whl python -c "import nikodym; print(nikodym.__version__)"
+        shell: bash
+        run: |
+          wheels=(dist/*.whl)
+          test "${#wheels[@]}" -eq 1
+          uv run --isolated --no-project --with "${wheels[0]}" \
+            python -c "import nikodym; print(nikodym.__version__)"
 
       # El gate que faltaba. El resto del CI corre con `uv sync --locked`: prueba el uv.lock, no lo
       # que recibe el usuario. Aquí se instala el wheel con **pip resolviendo libre**, igual que un
@@ -188,16 +314,18 @@ jobs:
         run: |
           python -m venv .venv-pip
           ./.venv-pip/bin/pip install --quiet --upgrade pip
-          wheel="$(ls dist/*.whl | head -n 1)"
-          ./.venv-pip/bin/pip install --quiet "${wheel}[scoring,ui,docx]" httpx2
+          wheels=(dist/*.whl)
+          test "${#wheels[@]}" -eq 1
+          ./.venv-pip/bin/pip install --quiet "${wheels[0]}[scoring,ui,docx]" httpx2
           ./.venv-pip/bin/pip list | grep -Ei "^(nikodym|pandas|scikit-learn|numpy|optbinning) "
           ./.venv-pip/bin/python scripts/smoke_instalacion_pip.py
 
       - name: Verify wheel license metadata
         shell: bash
         run: |
-          wheel="$(ls dist/*.whl | head -n 1)"
-          uv run --isolated --no-project python - "$wheel" <<'PY'
+          wheels=(dist/*.whl)
+          test "${#wheels[@]}" -eq 1
+          uv run --isolated --no-project python - "${wheels[0]}" <<'PY'
           from __future__ import annotations
 
           import email.parser
@@ -229,148 +357,58 @@ jobs:
         run: uv sync --locked --python 3.12 --extra all --no-dev
 
       - name: Verify runtime licenses
-        shell: bash
-        run: |
-          uv run --no-sync python - dist/runtime-requirements.txt dist/license-report.json <<'PY'
-          from __future__ import annotations
+        run: >-
+          uv run --no-sync python scripts/check_runtime_licenses.py
+          dist/runtime-requirements.txt dist/license-report.json
 
-          import json
-          import re
-          import sys
-          from importlib import metadata
-          from pathlib import Path
-
-          from packaging.requirements import InvalidRequirement, Requirement
-
-          requirements_path = Path(sys.argv[1])
-          report_path = Path(sys.argv[2])
-
-          copyleft_re = re.compile(
-              r"\b(?:AGPL|LGPL|GPL)(?:[-_ ]?v?\d+(?:\.\d+)?)?"
-              r"(?:[-_ ]?(?:only|or-later|\+))?\b|"
-              r"\bGNU\s+(?:Affero\s+General|Lesser\s+General|"
-              r"Library\s+or\s+Lesser\s+General|General)\s+Public\s+License\b",
-              re.IGNORECASE,
-          )
-
-          def normalized(name: str) -> str:
-              return re.sub(r"[-_.]+", "-", name).lower()
-
-          def requirement_names(path: Path) -> set[str]:
-              names: set[str] = set()
-              errors: list[str] = []
-              for raw_line in path.read_text(encoding="utf-8").splitlines():
-                  line = raw_line.strip()
-                  if (
-                      not line
-                      or line.startswith("#")
-                      or line.startswith("--")
-                      or line.startswith("-e ")
-                  ):
-                      continue
-                  if line.endswith("\\"):
-                      line = line[:-1].strip()
-                  try:
-                      requirement = Requirement(line)
-                  except InvalidRequirement:
-                      errors.append(line)
-                      continue
-                  if requirement.marker is not None and not requirement.marker.evaluate():
-                      continue
-                  names.add(normalized(requirement.name))
-              if errors:
-                  joined = "\n  - ".join(errors)
-                  raise SystemExit(f"No se pudieron parsear estas dependencias:\n  - {joined}")
-              return names
-
-          failures: list[str] = []
-          warnings: list[str] = []
-          report: list[dict[str, object]] = []
-
-          for name in sorted(requirement_names(requirements_path)):
-              try:
-                  dist = metadata.distribution(name)
-              except metadata.PackageNotFoundError:
-                  warnings.append(f"{name}: distribución no instalada para leer metadata real")
-                  report.append(
-                      {
-                          "name": name,
-                          "version": None,
-                          "license_expression": None,
-                          "license": None,
-                          "license_classifiers": [],
-                          "status": "metadata_unavailable",
-                      }
-                  )
-                  continue
-
-              meta = dist.metadata
-              license_expression = meta.get("License-Expression")
-              legacy_license = meta.get("License")
-              license_classifiers = [
-                  classifier
-                  for classifier in meta.get_all("Classifier", [])
-                  if classifier.startswith("License ::")
-              ]
-              specific_classifiers = [
-                  classifier
-                  for classifier in license_classifiers
-                  if classifier != "License :: OSI Approved"
-              ]
-              evidence = [
-                  value
-                  for value in (
-                      license_expression,
-                      *specific_classifiers,
-                      legacy_license if legacy_license and len(legacy_license) < 500 else None,
-                  )
-                  if value and value.strip() and value.strip().upper() != "UNKNOWN"
-              ]
-              evidence_text = "\n".join(evidence)
-
-              status = "ok"
-              if not evidence:
-                  status = "metadata_incomplete"
-                  warnings.append(f"{meta['Name']}: licencia ausente o no clasificable")
-              elif copyleft_re.search(evidence_text):
-                  status = "fail"
-                  failures.append(f"{meta['Name']}: licencia copyleft detectada: {evidence!r}")
-
-              report.append(
-                  {
-                      "name": meta["Name"],
-                      "version": dist.version,
-                      "license_expression": license_expression,
-                      "license": legacy_license,
-                      "license_classifiers": license_classifiers,
-                      "status": status,
-                  }
-              )
-
-          if warnings:
-              print("Avisos de metadata de licencias:", file=sys.stderr)
-              for warning in warnings:
-                  print(f"  - {warning}", file=sys.stderr)
-
-          report_path.write_text(
-              json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-              encoding="utf-8",
-          )
-
-          if failures:
-              print("Verificación anti-copyleft falló:", file=sys.stderr)
-              for failure in failures:
-                  print(f"  - {failure}", file=sys.stderr)
-              raise SystemExit(1)
-
-          print(f"Licencias runtime verificadas: {len(report)} distribuciones.")
-          PY
+      # El gate de arriba es hermético (offline): clasifica los pines no instalables aquí contra la
+      # copia vendorizada y hasheada de su core metadata. Este paso es el que además confirma que esa
+      # copia sigue siendo byte a byte lo que PyPI publica. Va SEPARADO y con red propia para que un
+      # timeout de PyPI no vuelva flaky al gate de aprobación, pero NO es opcional: sin `if:` ni
+      # `continue-on-error`, un fallo aquí rompe el job igual que cualquier otro.
+      - name: Verify vendored license evidence against PyPI
+        run: >-
+          uv run --no-sync python scripts/check_runtime_licenses.py
+          --verify-sources
+          dist/runtime-requirements.txt dist/license-report.verify.json
 
       - name: Upload license report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: license-report
           path: dist/license-report.json
+          if-no-files-found: error
+
+      - name: Ensamblar candidate y evidencia como unidad
+        shell: bash
+        run: |
+          wheels=(dist/*.whl)
+          sdists=(dist/*.tar.gz)
+          test "${#wheels[@]}" -eq 1
+          test "${#sdists[@]}" -eq 1
+          mkdir -p dist/candidate-unit/frontend-evidence
+          cp "${wheels[0]}" "${sdists[0]}" dist/license-report.json \
+            dist/runtime-requirements.txt scripts/runtime_license_allowlist.json \
+            dist/candidate-unit/
+          cp -R candidate/frontend-evidence/. dist/candidate-unit/frontend-evidence/
+          # La allowlist referencia por ruta+sha256 la core metadata vendorizada de los pines que no
+          # son instalables en el runner; sin ella el candidate cita evidencia que no viaja y nadie
+          # puede reproducir la clasificación desde el artefacto. Entra al SHA256SUMS de abajo.
+          cp -R scripts/runtime_license_metadata dist/candidate-unit/runtime_license_metadata
+          (
+            cd dist/candidate-unit
+            find . -type f ! -name SHA256SUMS -print0 \
+              | sort -z \
+              | xargs -0 sha256sum > SHA256SUMS
+          )
+
+      - name: Upload candidate distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-distributions-with-evidence
+          path: dist/candidate-unit/
+          if-no-files-found: error
 
   lock-check:
     name: Lock check

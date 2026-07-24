@@ -21,7 +21,7 @@ El estado y el plan de esta sección son la fuente vigente.
 | F3/F8 · CMF, método interno y orquestación | Implementado, **experimental** | Validación humana de matrices/haircuts pendiente |
 | F4 · IFRS 9/ECL | Implementado, **experimental** | Independiente del máximo B-1 chileno |
 | F5/F6 · forward, survival, Markov, stress y validación | Implementado, **experimental** | Uso por config Python; sin preset/UI propios |
-| F7 · UI React/FastAPI e informe | **No entregada como producto** | B2.0 aprobado documentalmente; B2.1 pendiente. `1.5.0` no trae launcher/assets y `[ui]` no cierra sus presets |
+| F7 · UI React/FastAPI e informe | **No entregada como producto** | B2.1 cerrado (assets, supply-chain y licencias); B2.2 pendiente y no habilitado. `1.5.0` no trae launcher/assets y `[ui]` no cierra sus presets |
 | Originación/reject inference | Futuro | Requiere caso de uso, priorización y SDD |
 
 ## Plan operativo vigente (desde 2026-07-21)
@@ -84,11 +84,12 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 
 ### B2 · La UI instalable y usable  ← *requisito de producto*
 
-**Estado: B2 total ABIERTO; B2.0 CERRADO Y APROBADO documentalmente; B2.1 PENDIENTE y
-habilitado.** La medición clean-room y la reapertura de SDD-23/25 se cerraron el 2026-07-23 sobre
+**Estado: B2 total ABIERTO; B2.0 CERRADO; B2.1 CERRADO (2026-07-24); B2.2 PENDIENTE y no habilitado.** La medición
+clean-room y la reapertura de SDD-23/25 se cerraron el 2026-07-23 sobre
 `dd89f7d35cefb0aebb4ec2055c4ca81c171dd59e`, con revisión adversarial final sin P0/P1/P2 y
-auditoría API aprobada. Esta transición aprueba el contrato; no implementa distribución ni cambia
-el producto publicado.
+auditoría API aprobada. Esa transición B2.0 aprobó el contrato sin implementar distribución; el
+cierre B2.1 descrito abajo sí incorpora los assets al candidate de `main`, pero no modifica
+retroactivamente el producto `1.5.0` publicado.
 
 **Línea base oficial `1.5.0`.**
 
@@ -106,19 +107,46 @@ el producto publicado.
 
 **DAG aprobado — un nodo habilita al siguiente.**
 
-1. **B2.1 · assets, supply-chain y licencias — PENDIENTE, habilitado por B2.0.** `web/` es fuente completa en Git, pero wheel/sdist
+1. **B2.1 · assets, supply-chain y licencias — ✅ CERRADO (2026-07-24).** `web/` es fuente completa en Git y wheel/sdist
    distribuyen solo el build normal versionado en `src/nikodym/ui/static/` y se construyen sin Node.
    `.node-version` fija Node 22.22.2, `packageManager` fija pnpm 11.15.0 e instalación frozen; tooling
    pasa a `devDependencies`. Un plugin versionado del build normal Vite (`transform` +
-   `generateBundle`) produce procedencia conservadora por output/hash; los inventarios pnpm
+   `generateBundle` + `writeBundle`) separa fuentes directas de la unión conservadora y liga los
+   bytes finales de cada output; los inventarios pnpm
    full/prod solo reconcilian declaraciones y **no** prueban redistribución. Notices nacen de la
-   procedencia y concatenan íntegramente todos los textos LICENSE/LICENCE/NOTICE/COPYING/COPYRIGHT
-   más atribuciones, con hashes fuente/final ligados al candidate; SPDX solo no basta.
+   procedencia y concatenan íntegramente todos los textos legales convencionales
+   LICENSE/LICENCE/NOTICE/COPYING/COPYRIGHT más atribuciones explícitas, con hashes fuente/final
+   ligados al candidate; SPDX solo no basta.
    `lightningcss`/MPL exige allowlist build-only exacta y ausencia de prod/procedencia. El build
    normal veta módulos de `web/src/fixtures/demo/**` y un sentinel + hashes/firmas detecta material
-   inline/emitido. Otra allowlist inspecciona wheel/sdist y excluye `web/`, fixtures demo, `.vercel`,
-   datos y binarios. En Python, el gate permisivo cubre base + `--extra all`; `[pdf]` queda fuera por
-   WeasyPrint→Pyphen y se audita/documenta en un job opt-in separado.
+   inline/emitido. La demo se construye en un directorio temporal y no puede alterar el árbol
+   distribuible; el build normal se repite y debe ser byte-idéntico. Otra allowlist inspecciona
+   wheel/sdist y excluye `web/`, fixtures demo, `.vercel`, datos y binarios. La fase B2.1 del
+   manifiesto exige index, notices y recursos locales; B2.2 añadirá `__main__` y entry point a
+   `required`. El job frontend sube evidencia autoritativa solo tras completar todos sus gates; un
+   job Python con checkout separado la descarga, exige exactamente un wheel universal y un sdist de
+   la misma versión y comprueba en ambos igualdad exacta de rutas/tamaños/SHA-256 con esa
+   procedencia. También reconstruye el wheel desde el sdist y revalida. Candidate, evidencia y
+   reportes quedan juntos bajo un `SHA256SUMS`. En Python, el gate permisivo cubre base +
+   `--extra all`; `[pdf]` queda fuera por WeasyPrint→Pyphen y se audita/documenta en un job opt-in
+   separado. B2.1 no añade launcher ni completa `[ui]`: ambos siguen en B2.2/B2.3.
+   **Cierre (2026-07-24), tras tres ciclos de revisión adversarial fresca.** Cada ciclo encontró el
+   siguiente nivel de la misma clase en el analizador del bundle: primero el receptor de la llamada
+   (`parent.fetch` pasaba), luego el grafo de bindings (`const {top:T} = window` pasaba, con PoC sobre
+   el `index.html` real). Ambos cerrados y cubiertos por tests que se verificó que **fallan con el
+   código anterior**, con aislamiento por hallazgo. El ciclo se cerró por contrato, no por
+   agotamiento: SDD-25 §6.1 declara ahora el alcance del gate y sus cinco límites medidos (L1…L5), de
+   modo que lo no cubierto está escrito en vez de implícito. Se añadieron además `window.open`,
+   `location.assign`/`replace`, `document.write`/`writeln`, `serviceWorker.register` e
+   `insertAdjacentHTML`, todos con 0 ocurrencias en el bundle real. En el lado Python, el gate de
+   licencias dejó de auditar sólo el corte del runner —evaluaba los markers contra un único entorno y
+   descartaba 9 pines en silencio— y pasa a una **matriz de 30 entornos soportados**, con las
+   declaraciones ancladas a la core metadata upstream vendorizada y hasheada, re-verificable contra
+   PyPI en un paso propio del CI. Eso destapó `nvidia-nccl-cu12` (`LicenseRef-NVIDIA-Proprietary`,
+   ~303 MB) entrando por `xgboost` en Linux: el extra pasa a resolver **`xgboost-cpu`** bajo
+   `sys_platform == 'linux'`, que es el mismo proyecto en Apache-2.0 y sin rutas GPU (98 MB → 5,7 MB
+   por wheel). El job `release` **sigue sin pasar por estos gates** y su cableado es B2.5; §7.7 lo
+   declara explícitamente en vez de describirlo como vigente.
 2. **B2.2 · launcher, runtime y seguridad.** `nikodym-ui = nikodym.ui.__main__:main`, `argparse`,
    bind fijo `127.0.0.1:8000`, `.nikodym_ui`, navegador abierto y
    `--no-open`/`--port`/`--workdir` —sin `--host`. Cada lanzamiento crea un token aleatorio de
@@ -400,8 +428,9 @@ determinista de presentación (read-only, trazada y fuera de modelo/ModelCard/in
 **Dos modos de despliegue.**
 - **Local (analista):** `pip install nikodym[ui]` debe traer el React buildeado y levantar FastAPI
   en loopback; los datos no salen de su máquina. 🔴 **PROMESA INCUMPLIDA EN `1.5.0`** — faltan
-  launcher/assets y el extra no cierra los presets visibles. B2.0 aprobó el contrato y habilitó
-  B2.1, pero hasta implementarlo, publicarlo y repetir el recorrido desde PyPI, F7 no está entregado.
+  launcher/assets y el extra no cierra los presets visibles. B2.1 ya versiona y gatea los assets
+  normales en `main`; hasta completar B2.2–B2.5, publicar y repetir el recorrido desde PyPI, F7 no
+  está entregado.
 - **Hosteada (comercial):** `nikodym.cl/demo`, dataset **sintético** precargado, flujo guiado "arma tu modelito en pocos pasos" + CTA de lead comercial.
 **DoD.** Un modelo F1 completo construible 100 % desde la UI: igualdad estructural +
 `config_hash` antes de ejecutar y, sobre el mismo contenido, `data_hash` + resultados canónicos

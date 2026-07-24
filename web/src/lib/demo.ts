@@ -23,6 +23,7 @@
  */
 
 import { ApiError } from "@/lib/api"
+import type { DemoRuntime } from "@/lib/demo-contract"
 import type {
   ConfigFromYamlResponse,
   ConfigToYamlResponse,
@@ -264,6 +265,24 @@ export function demoGetReportDocx(): Promise<Blob> {
   if (report === null) return Promise.reject(noReportError())
   return fetch(report.docxUrl).then((r) => r.blob())
 }
+
+/** Gate de tipos compartido: demo real y stub instalable satisfacen la misma superficie. */
+export const DEMO_RUNTIME = {
+  DEMO_MODE,
+  demoGetPreset,
+  demoListPresets,
+  demoGetPresetById,
+  demoValidateConfig,
+  demoConfigToYaml,
+  demoConfigFromYaml,
+  demoListDatasets,
+  demoRunPipeline,
+  demoGetResults,
+  demoGetReport,
+  demoGetReportPdf,
+  demoGetReportEditable,
+  demoGetReportDocx,
+} satisfies DemoRuntime
 
 /** Solo para tests: reinicia el preset activo al default (F3). Cada test arranca limpio. */
 export function resetDemoActivePresetForTests(): void {

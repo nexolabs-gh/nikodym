@@ -1,10 +1,18 @@
 """Bootstrap del backend FastAPI (SDD-23 §4.3, §7).
 
 :func:`create_app` construye la aplicación FastAPI con import **perezoso** de FastAPI (el núcleo
-liviano no arrastra el extra ``[ui]``): monta el router de :mod:`nikodym.ui.routes` y sirve el
-build estático de la SPA en ``/static`` **solo si** el directorio existe (aún no hay build → guard,
-no falla). Si el extra ``[ui]`` no está instalado, levanta :class:`UiDependencyError` con
-``instale nikodym[ui]``. No hay ``__main__``/console-script todavía (eso es B23.6).
+liviano no arrastra el extra ``[ui]``): monta el router de :mod:`nikodym.ui.routes` y expone los
+archivos del build estático versionado bajo ``/static`` **solo si** el directorio existe (el guard
+también cubre instalaciones incompletas sin fallar al importar). Si el extra ``[ui]`` no está
+instalado, levanta :class:`UiDependencyError` con ``instale nikodym[ui]``.
+
+.. warning::
+   Exponer los archivos **no** equivale todavía a servir la SPA navegable: el ``index.html`` del
+   build referencia sus recursos con base absoluta (``/assets/...``, ``/favicon.svg``), de modo que
+   abrir ``/static/index.html`` devuelve 404 en esos recursos y renderiza una página en blanco. El
+   servido navegable —orden de rutas API → assets → fallback SPA— es alcance de **B2.2**, igual que
+   el ``__main__``/console-script. B2.1 sólo garantiza que el build distribuido es correcto y
+   auditable, no que ya sea alcanzable por el usuario final.
 """
 
 from __future__ import annotations

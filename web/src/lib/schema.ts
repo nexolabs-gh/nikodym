@@ -10,7 +10,7 @@
  */
 
 import { API_BASE } from "@/lib/api"
-import { DEMO_MODE } from "@/lib/demo"
+import { DEMO_MODE } from "@/lib/demo-runtime"
 import type { JsonSchema } from "@/lib/form-engine"
 import fixtureSchema from "@/fixtures/schema.json"
 

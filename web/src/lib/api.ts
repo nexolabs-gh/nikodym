@@ -23,7 +23,7 @@ import {
   demoListPresets,
   demoRunPipeline,
   demoValidateConfig,
-} from "@/lib/demo"
+} from "@/lib/demo-runtime"
 
 // Los DTOs de resultados (B27) viven en `results-types.ts`; se re-exportan aquí para
 // que store y consumidores los tomen de la misma superficie que el resto de la API.
@@ -162,7 +162,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}/api/${path}`, {
     headers: { "Content-Type": "application/json", ...init?.headers },
     ...init,
   })
@@ -184,13 +184,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 /** GET /api/schema — JSON-Schema de NikodymConfig + defaults + orden de secciones. */
 export function getSchema(): Promise<SchemaResponse> {
-  return request<SchemaResponse>("/api/schema")
+  return request<SchemaResponse>("schema")
 }
 
 /** POST /api/validate — valida por reconstrucción en el backend (siempre 200). */
 export function validateConfig(config: ConfigDict): Promise<ValidateResponse> {
   if (DEMO_MODE) return demoValidateConfig()
-  return request<ValidateResponse>("/api/validate", {
+  return request<ValidateResponse>("validate", {
     method: "POST",
     body: JSON.stringify({ config }),
   })
@@ -203,7 +203,7 @@ export function validateConfig(config: ConfigDict): Promise<ValidateResponse> {
  */
 export function configToYaml(config: ConfigDict): Promise<ConfigToYamlResponse> {
   if (DEMO_MODE) return demoConfigToYaml()
-  return request<ConfigToYamlResponse>("/api/config/to-yaml", {
+  return request<ConfigToYamlResponse>("config/to-yaml", {
     method: "POST",
     body: JSON.stringify({ config }),
   })
@@ -218,7 +218,7 @@ export function configFromYaml(
   yamlText: string,
 ): Promise<ConfigFromYamlResponse> {
   if (DEMO_MODE) return demoConfigFromYaml()
-  return request<ConfigFromYamlResponse>("/api/config/from-yaml", {
+  return request<ConfigFromYamlResponse>("config/from-yaml", {
     method: "POST",
     body: JSON.stringify({ yaml: yamlText }),
   })
@@ -230,7 +230,7 @@ export function configFromYaml(
  */
 export function getPreset(): Promise<PresetResponse> {
   if (DEMO_MODE) return demoGetPreset()
-  return request<PresetResponse>("/api/config/preset")
+  return request<PresetResponse>("config/preset")
 }
 
 /**
@@ -239,7 +239,7 @@ export function getPreset(): Promise<PresetResponse> {
  */
 export function listPresets(): Promise<PresetsIndexResponse> {
   if (DEMO_MODE) return demoListPresets()
-  return request<PresetsIndexResponse>("/api/config/presets")
+  return request<PresetsIndexResponse>("config/presets")
 }
 
 /**
@@ -250,14 +250,14 @@ export function listPresets(): Promise<PresetsIndexResponse> {
 export function getPresetById(presetId: string): Promise<PresetResponse> {
   if (DEMO_MODE) return demoGetPresetById(presetId)
   return request<PresetResponse>(
-    `/api/config/preset/${encodeURIComponent(presetId)}`,
+    `config/preset/${encodeURIComponent(presetId)}`,
   )
 }
 
 /** GET /api/datasets — datasets sintéticos deterministas disponibles. */
 export function listDatasets(): Promise<DatasetInfo[]> {
   if (DEMO_MODE) return demoListDatasets()
-  return request<DatasetInfo[]>("/api/datasets")
+  return request<DatasetInfo[]>("datasets")
 }
 
 /**
@@ -298,7 +298,7 @@ export function runPipeline(
   datasetId: string,
 ): Promise<RunResponse> {
   if (DEMO_MODE) return demoRunPipeline()
-  return request<RunResponse>("/api/run", {
+  return request<RunResponse>("run", {
     method: "POST",
     body: JSON.stringify({ config, dataset_id: datasetId }),
   })
@@ -307,7 +307,7 @@ export function runPipeline(
 /** GET /api/results/{run_id} — artefactos serializados de una corrida. */
 export function getResults(runId: string): Promise<ResultsResponse> {
   if (DEMO_MODE) return demoGetResults()
-  return request<ResultsResponse>(`/api/results/${encodeURIComponent(runId)}`)
+  return request<ResultsResponse>(`results/${encodeURIComponent(runId)}`)
 }
 
 /** GET /api/report/{run_id} — HTML determinístico del reporte (texto crudo). */

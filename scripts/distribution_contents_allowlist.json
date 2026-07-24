@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "wheel": {
+    "allowed": [
+      "nikodym/*.py",
+      "nikodym/**/*.py",
+      "nikodym/py.typed",
+      "nikodym/report/templates/*.j2",
+      "nikodym/report/templates/*.css",
+      "nikodym/provisioning/cmf/data/*.yaml",
+      "nikodym/provisioning/cmf/data/*.json",
+      "nikodym/provisioning/cmf/data/*.sha256",
+      "nikodym/ui/static/index.html",
+      "nikodym/ui/static/*.svg",
+      "nikodym/ui/static/*.txt",
+      "nikodym/ui/static/assets/*.js",
+      "nikodym/ui/static/assets/*.css",
+      "*.dist-info/METADATA",
+      "*.dist-info/WHEEL",
+      "*.dist-info/RECORD",
+      "*.dist-info/licenses/LICENSE"
+    ],
+    "required": [
+      "nikodym/ui/static/index.html",
+      "nikodym/ui/static/THIRD_PARTY_NOTICES.frontend.txt"
+    ]
+  },
+  "sdist": {
+    "allowed": [
+      ".gitignore",
+      "CHANGELOG.md",
+      "LICENSE",
+      "PKG-INFO",
+      "README.md",
+      "pyproject.toml",
+      "src/nikodym/*.py",
+      "src/nikodym/**/*.py",
+      "src/nikodym/py.typed",
+      "src/nikodym/report/templates/*.j2",
+      "src/nikodym/report/templates/*.css",
+      "src/nikodym/provisioning/cmf/data/*.yaml",
+      "src/nikodym/provisioning/cmf/data/*.json",
+      "src/nikodym/provisioning/cmf/data/*.sha256",
+      "src/nikodym/ui/static/index.html",
+      "src/nikodym/ui/static/*.svg",
+      "src/nikodym/ui/static/*.txt",
+      "src/nikodym/ui/static/assets/*.js",
+      "src/nikodym/ui/static/assets/*.css",
+      "tests/*.py",
+      "tests/**/*.py"
+    ],
+    "required": [
+      "PKG-INFO",
+      "pyproject.toml",
+      "LICENSE",
+      "README.md",
+      "CHANGELOG.md",
+      "src/nikodym/ui/static/index.html",
+      "src/nikodym/ui/static/THIRD_PARTY_NOTICES.frontend.txt"
+    ]
+  },
+  "forbidden_parts": [
+    "web",
+    ".vercel",
+    "fixtures/demo",
+    "NIKODYM_DEMO_FIXTURE_ONLY",
+    "privado",
+    "secrets"
+  ],
+  "forbidden_suffixes": [
+    ".csv",
+    ".parquet",
+    ".xlsx",
+    ".xls",
+    ".pdf",
+    ".docx",
+    ".zip"
+  ]
+}

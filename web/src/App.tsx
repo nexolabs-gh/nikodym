@@ -27,7 +27,7 @@ import { applyPreset, RunTab } from "@/components/RunTab"
 import { Card } from "@/components/ui/card"
 import { API_BASE, getPresetById } from "@/lib/api"
 import { bootstrapOnce } from "@/lib/bootstrap"
-import { DEMO_MODE } from "@/lib/demo"
+import { DEMO_MODE } from "@/lib/demo-runtime"
 import { useAppState } from "@/state/appStore"
 
 interface SectionDef {

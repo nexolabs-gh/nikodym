@@ -23,7 +23,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ApiError, configFromYaml, configToYaml, getPreset } from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
 import { type Path, getAtPath, setAtPath } from "@/lib/config-store"
-import { DEMO_MODE } from "@/lib/demo"
+import { DEMO_MODE } from "@/lib/demo-runtime"
 import {
   type Defs,
   type JsonSchema,

@@ -1,0 +1,172 @@
+{
+  "schema_version": 2,
+  "entries": [
+    {
+      "name": "huey",
+      "version": "3.0.3",
+      "license": "MIT",
+      "license_file": "huey-3.0.3.dist-info/licenses/LICENSE",
+      "sha256": "a4b2c19135a1e6a43b661f5d817e28dc3f28b621ff969d870e47eb98adcd3250",
+      "rationale": "La metadata 3.0.3 no declara licencia clasificable; el wheel sí distribuye este texto MIT exacto."
+    },
+    {
+      "name": "skops",
+      "version": "0.14.0",
+      "license": "MIT",
+      "license_file": "skops-0.14.0.dist-info/licenses/LICENSE",
+      "sha256": "dc6e9951e4c7948f0ef73d5febe90f6cf72561094557c9ae5404ea3cd2ba45dd",
+      "rationale": "La metadata 0.14.0 solo declara el classifier genérico OSI Approved; el wheel distribuye este texto MIT exacto."
+    }
+  ],
+  "declarations": [
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "metadata": {
+        "Classifier": [
+          "License :: OSI Approved :: BSD License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl.metadata",
+      "metadata_file": "runtime_license_metadata/colorama-0.4.6.metadata",
+      "metadata_sha256": "7baed29eb50c3b29bdb33ff84e3177bf1bc05784f7685ecdcaa4471c7dd810cc",
+      "rationale": "Pin sólo Windows (sys_platform == 'win32'), no instalable en el entorno de auditoría. Core metadata 2.1 del wheel oficial verificada el 2026-07-24: sin License-Expression ni License, único classifier de licencia 'License :: OSI Approved :: BSD License' (BSD sin versión → BSD-2-Clause OR BSD-3-Clause, ambas permisivas)."
+    },
+    {
+      "name": "pywin32",
+      "version": "312",
+      "metadata": {
+        "License": "PSF",
+        "Classifier": [
+          "License :: OSI Approved :: Python Software Foundation License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/fe/1b/9cfdeac80ee45bebbbcb31f1b7b99a0d81a1c72de48d837be984e0e88b1d/pywin32-312-cp310-cp310-win32.whl.metadata",
+      "metadata_file": "runtime_license_metadata/pywin32-312.metadata",
+      "metadata_sha256": "77f53e90408dd3bdcf5f73a20d6548504313dee2ad34f8b3794b2202583a84b1",
+      "rationale": "Pin sólo Windows (sys_platform == 'win32'), no instalable en el entorno de auditoría. Core metadata 2.4 del wheel oficial verificada el 2026-07-24: 'License: PSF' + classifier 'Python Software Foundation License' → SPDX PSF-2.0 (lista SPDX 3.28.0), permisiva, sin cláusula recíproca."
+    },
+    {
+      "name": "waitress",
+      "version": "3.0.2",
+      "metadata": {
+        "License": "ZPL 2.1",
+        "Classifier": [
+          "License :: OSI Approved :: Zope Public License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/8d/57/a27182528c90ef38d82b636a11f606b0cbb0e17588ed205435f8affe3368/waitress-3.0.2-py3-none-any.whl.metadata",
+      "metadata_file": "runtime_license_metadata/waitress-3.0.2.metadata",
+      "metadata_sha256": "103a993b671c333c467cdafe1d1af460093d30846adb889a9f9fd980476df77a",
+      "rationale": "Pin sólo Windows (sys_platform == 'win32'), no instalable en el entorno de auditoría. Core metadata 2.1 del wheel oficial verificada el 2026-07-24: 'License: ZPL 2.1' + classifier Zope Public License → SPDX ZPL-2.1 'Zope Public License 2.1' (lista SPDX 3.28.0, OSI-aprobada, FSF-libre). El texto canónico SPDX es estilo BSD-3 con cláusulas de marca y de aviso de cambios: sin reciprocidad ni obligación de liberar fuente."
+    },
+    {
+      "name": "greenlet",
+      "version": "3.5.2",
+      "metadata": {
+        "License-Expression": "MIT AND PSF-2.0"
+      },
+      "source": "https://files.pythonhosted.org/packages/ce/09/fd997a19cbb97641233c7d5f8fc89314c132be2c8867c4f14beff979996f/greenlet-3.5.2-cp310-cp310-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl.metadata",
+      "metadata_file": "runtime_license_metadata/greenlet-3.5.2.metadata",
+      "metadata_sha256": "885fc744dd244f4c11f25fd66c4511a84094635f4803da8de8147114a1e0cecc",
+      "rationale": "Pin acotado por platform_machine, no instalable en máquinas darwin/arm64. Core metadata 2.4 del wheel oficial verificada el 2026-07-24: 'License-Expression: MIT AND PSF-2.0', ambas permisivas en la lista SPDX 3.28.0. Donde sí es instalable (linux/x86_64), el gate cruza esta declaración con la metadata instalada."
+    },
+    {
+      "name": "scipy",
+      "version": "1.17.1",
+      "metadata": {
+        "Classifier": [
+          "License :: OSI Approved :: BSD License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/4d/60/8804678875fc59362b0fb759ab3ecce1f09c10a735680318ac30da8cd76b/scipy-1.17.1-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl.metadata",
+      "metadata_file": "runtime_license_metadata/scipy-1.17.1.metadata",
+      "metadata_sha256": "7cdd5544eb610b86e000b6f0a21e86f84423faf0aacbb99990f3d41f25e1f314",
+      "rationale": "Pin de Python < 3.12, no instalable bajo 3.12/3.13. Core metadata 2.1 del wheel oficial verificada el 2026-07-24: el header 'License' trae el texto completo de la licencia (55 KB, por encima del corte de 500 caracteres del gate) y el único classifier de licencia es 'License :: OSI Approved :: BSD License' → BSD-2-Clause OR BSD-3-Clause."
+    },
+    {
+      "name": "shap",
+      "version": "0.51.0",
+      "metadata": {
+        "License": "MIT License",
+        "Classifier": [
+          "License :: OSI Approved :: MIT License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/fc/09/a952ef8a1fe64b8a7bb909b2d3ab614d33cff7fdf646d62c3bd35d84de02/shap-0.51.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl.metadata",
+      "metadata_file": "runtime_license_metadata/shap-0.51.0.metadata",
+      "metadata_sha256": "b1dadba326ac91f1538313daf6ca2d2e61ab2830941a18bb37e330d8e6f0ae97",
+      "rationale": "Pin de Python < 3.12 fuera de darwin/x86_64, no instalable bajo 3.12/3.13. Core metadata 2.4 del wheel oficial verificada el 2026-07-24: 'License: MIT License' + classifier MIT → SPDX MIT."
+    },
+    {
+      "name": "shap",
+      "version": "0.49.1",
+      "metadata": {
+        "License": "MIT License",
+        "Classifier": [
+          "License :: OSI Approved :: MIT License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/15/a1/66b4f04995ee23ff8638c21294f1a3a6dc87397af54c87aeeb037500f71f/shap-0.49.1-cp310-cp310-macosx_10_9_x86_64.whl.metadata",
+      "metadata_file": "runtime_license_metadata/shap-0.49.1.metadata",
+      "metadata_sha256": "ae3de5d4803675b5095dc147da48c95275d0800c3cc9ae765417fa9648e4f3fa",
+      "rationale": "Pin exclusivo de darwin/x86_64 (Mac Intel), no instalable en linux ni en darwin/arm64. Core metadata 2.4 del wheel oficial verificada el 2026-07-24: 'License: MIT License' + classifier MIT → SPDX MIT."
+    },
+    {
+      "name": "xgboost",
+      "version": "3.2.0",
+      "metadata": {
+        "License": "Apache-2.0",
+        "Classifier": [
+          "License :: OSI Approved :: Apache Software License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/2d/49/6e4cdd877c24adf56cb3586bc96d93d4dcd780b5ea1efb32e1ee0de08bae/xgboost-3.2.0-py3-none-macosx_10_15_x86_64.whl.metadata",
+      "metadata_file": "runtime_license_metadata/xgboost-3.2.0.metadata",
+      "metadata_sha256": "8b02a3c6097568dc929580af2a69f83f23d8ec645b6bc9d1e60945b2c37a0d0b",
+      "rationale": "Pin de Python < 3.12 fuera de Linux (en Linux el extra resuelve xgboost-cpu), no instalable bajo 3.12/3.13. La evidencia apunta a un wheel macOS porque es una de las plataformas donde el pin realmente aplica. Core metadata 2.4 del wheel oficial verificada el 2026-07-24: 'License: Apache-2.0' + classifier Apache Software License → SPDX Apache-2.0."
+    },
+    {
+      "name": "xgboost",
+      "version": "3.3.0",
+      "metadata": {
+        "License": "Apache-2.0",
+        "Classifier": [
+          "License :: OSI Approved :: Apache Software License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/fc/72/3b68983c0215ef65d48e9eeb1f168c3c6e3d62a61ece605de3209c79cae1/xgboost-3.3.0-py3-none-macosx_10_15_x86_64.whl.metadata",
+      "metadata_file": "runtime_license_metadata/xgboost-3.3.0.metadata",
+      "metadata_sha256": "26f1d3d8d95b540bb184abedf7af8488d73f022f9dc2c3c1ef90a5421deab9f4",
+      "rationale": "Pin de Python >= 3.12 fuera de Linux (en Linux el extra resuelve xgboost-cpu). Es instalable en el entorno de auditoría macOS —donde se cruza con la metadata instalada— pero NO en el runner Linux del CI, que instala xgboost-cpu: sin esta declaración el gate pasaría en local y fallaría en CI. Core metadata 2.4 del wheel oficial verificada el 2026-07-24: 'License: Apache-2.0' + classifier Apache Software License → SPDX Apache-2.0."
+    },
+    {
+      "name": "xgboost-cpu",
+      "version": "3.2.0",
+      "metadata": {
+        "License": "Apache-2.0",
+        "Classifier": [
+          "License :: OSI Approved :: Apache Software License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/ba/1d/c05e982a2220e1a208f5ca8792265cefb43e860e8796bff3245cc94fc2ce/xgboost_cpu-3.2.0-py3-none-manylinux_2_28_x86_64.whl.metadata",
+      "metadata_file": "runtime_license_metadata/xgboost-cpu-3.2.0.metadata",
+      "metadata_sha256": "581895c14365b9dc17c6a2a947bd174d1f743721775db8ba29b20acd110c1b37",
+      "rationale": "Pin exclusivo de Linux con Python < 3.12; xgboost-cpu sólo publica wheels manylinux y win, así que no es instalable en el entorno de auditoría (darwin/arm64). Core metadata 2.4 del wheel oficial verificada el 2026-07-24: 'License: Apache-2.0' + classifier Apache Software License → SPDX Apache-2.0. Reemplaza a `xgboost` en Linux para evitar la transitiva propietaria nvidia-nccl-cu12."
+    },
+    {
+      "name": "xgboost-cpu",
+      "version": "3.3.0",
+      "metadata": {
+        "License": "Apache-2.0",
+        "Classifier": [
+          "License :: OSI Approved :: Apache Software License"
+        ]
+      },
+      "source": "https://files.pythonhosted.org/packages/08/e7/54aba933bada361bb3da966dec9e3a065b5878f36be77c742774cba77511/xgboost_cpu-3.3.0-py3-none-manylinux_2_28_x86_64.whl.metadata",
+      "metadata_file": "runtime_license_metadata/xgboost-cpu-3.3.0.metadata",
+      "metadata_sha256": "fad445d081ea62ef3cfa1905ed4c8bcd23081afa65dd1b6be7c61cce6e456571",
+      "rationale": "Pin exclusivo de Linux con Python >= 3.12; xgboost-cpu sólo publica wheels manylinux y win, así que no es instalable en el entorno de auditoría (darwin/arm64). Core metadata 2.4 del wheel oficial verificada el 2026-07-24: 'License: Apache-2.0' + classifier Apache Software License → SPDX Apache-2.0. Reemplaza a `xgboost` en Linux para evitar la transitiva propietaria nvidia-nccl-cu12."
+    }
+  ]
+}

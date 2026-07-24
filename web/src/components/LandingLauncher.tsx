@@ -15,7 +15,7 @@ import {
   TESTS_DOMINIOS,
   TESTS_SUITE,
 } from "@/components/landing-evidence"
-import { DEMO_MODE } from "@/lib/demo"
+import { DEMO_MODE } from "@/lib/demo-runtime"
 import { presetDisplay } from "@/lib/presentation"
 import { cn } from "@/lib/utils"
 

@@ -38,11 +38,11 @@
   --color-brand-line: var(--brand-line);
   --color-brand-placeholder: var(--brand-placeholder);
 
-  /* Tipografía de la casa (vía Fontshare en index.html) */
-  --font-display: "Cabinet Grotesk", system-ui, sans-serif;
-  --font-heading: "Cabinet Grotesk", system-ui, sans-serif;
-  --font-sans: "Satoshi", system-ui, sans-serif;
-  --font-mono: "Spline Sans Mono", ui-monospace, monospace;
+  /* Pila local: el build instalable no realiza requests automáticos a fuentes externas. */
+  --font-display: "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  --font-heading: "Avenir Next", Avenir, "Segoe UI", system-ui, sans-serif;
+  --font-sans: Inter, "Segoe UI", Roboto, Helvetica, Arial, system-ui, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
 
   /* Sombra de la casa: navy profundo, nunca glow de acento */
   --shadow-card: 0 24px 48px -16px rgba(5, 21, 40, 0.35);

@@ -78,7 +78,17 @@ scoring = [
   "scipy>=1.10",          # BSD — arrastrado por statsmodels/sklearn, explícito
 ]
 # Backends ML (F2). Cada GBDT es un extra independiente (instalación selectiva).
-xgboost  = ["xgboost>=2.0",  "scikit-learn>=1.6"]   # Apache-2.0
+# `xgboost-cpu` SOLO en Linux (mismo proyecto, mismas versiones, Apache-2.0): allí el wheel estándar
+# `xgboost` arrastra `nvidia-nccl-cu12` (~303 MB, `License-Expression: LicenseRef-NVIDIA-Proprietary`),
+# que el gate de licencias runtime rechaza por no verificable — y que ningún banco quiere en un
+# `pip install`. Nikodym no tiene una sola ruta GPU/CUDA, así que la variante CPU no pierde capacidad.
+# Fuera de Linux el wheel estándar NO trae esa transitiva (su marker es `sys_platform == 'linux'`) y
+# `xgboost-cpu` ni siquiera publica wheels de macOS, así que allí se mantiene `xgboost`.
+xgboost  = [
+  "xgboost-cpu>=2.0; sys_platform == 'linux'",
+  "xgboost>=2.0; sys_platform != 'linux'",
+  "scikit-learn>=1.6",
+]   # Apache-2.0
 lightgbm = ["lightgbm>=4.0", "scikit-learn>=1.6"]   # MIT
 catboost = ["catboost>=1.2", "scikit-learn>=1.6"]   # Apache-2.0
 tuning   = ["optuna>=3.5"]                          # MIT

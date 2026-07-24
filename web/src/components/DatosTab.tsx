@@ -34,7 +34,7 @@ import {
   isAllowedDataFile,
   type SelectedDataset,
 } from "@/lib/datasets"
-import { DEMO_MODE } from "@/lib/demo"
+import { DEMO_MODE } from "@/lib/demo-runtime"
 import { describeApiError } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 

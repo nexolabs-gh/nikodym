@@ -1,7 +1,9 @@
 # SDD-25 — Packaging + CI (uv, hatchling, extras, gobernanza de licencias)
 
 > **Reapertura B2.0 — APROBADA (2026-07-23).** La fundación Python de este SDD está implementada;
-> el contrato de distribución de la UI quedó aprobado, pero sus gates aún no están implementados.
+> el contrato de distribución de la UI quedó aprobado. B2.1 —assets, procedencia, licencias/notices y
+> allowlist de artefactos— quedó **cerrado el 2026-07-24** tras tres ciclos de revisión adversarial;
+> launcher y gates B2.2–B2.5 siguen pendientes sin habilitar.
 > La medición clean-room de los
 > artefactos oficiales PyPI `1.5.0` fijó esta línea base:
 >
@@ -14,8 +16,8 @@
 >   frontend utilizable para completar el producto durante la instalación.
 >
 > Los hashes se contrastaron con el JSON oficial de PyPI. La medición se realizó fuera del checkout;
-> su ruta temporal no forma parte de este contrato. B2.0 habilita B2.1–B2.5, cuya implementación y
-> verificación siguen pendientes.
+> su ruta temporal no forma parte de este contrato. B2.0 aprobó el DAG y habilitó solo B2.1; durante
+> esta revisión B2.1 no está cerrado y B2.2 todavía no está habilitado.
 >
 > **Registro de revisión B2.0:** base
 > `dd89f7d35cefb0aebb4ec2055c4ca81c171dd59e`; revisión adversarial final **sin P0/P1/P2** y
@@ -28,7 +30,7 @@
 | **Módulo** | Infraestructura de proyecto (`pyproject.toml`, `uv.lock`, `.github/`). No es un paquete de `src/nikodym/`. |
 | **Fase** | F0 |
 | **Tanda de producción** | T1 (Fundación) |
-| **Estado** | ✅ Fundación implementada; revisión B2 aprobada; gates de distribución pendientes |
+| **Estado** | 🟡 Fundación implementada; gates B2.1 cerrados (2026-07-24); B2.2–B2.5 pendientes |
 | **Depende de** | — (no depende de ningún módulo `nikodym`; define el contenedor del que todos dependen) |
 | **Lo consumen** | Todos los SDD (cada dominio declara su extra y sus deps aquí); en especial SDD-01 (`uv_lock_hash` del `LineageBundle`), SDD-24 (CI de tests), SDD-05 (extra `[sweep]`), SDD-12/13/14/18/20/23/26 (extras de dominio). |
 | **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
@@ -210,16 +212,16 @@ m.fit(X, y)                          # MissingDependencyError con la instrucció
 
 ## 5. Configuración (el `pyproject.toml` y la matriz de extras)
 
-`pyproject.toml` vigente es la **única fuente canónica**. B2 propone solamente este delta:
+`pyproject.toml` vigente es la **única fuente canónica**. El delta aprobado se ejecuta por nodos:
 
-- `[project.scripts]`: `nikodym-ui = "nikodym.ui.__main__:main"`.
-- Fila `[project.optional-dependencies].ui`: componer `nikodym[scoring,excel,docx]` y conservar
-  FastAPI/Uvicorn/python-multipart; no duplicar distribuciones.
-- Wheel y sdist: incluir `src/nikodym/ui/static/**`, excluir `web/**` y aplicar la allowlist
-  ejecutable de §6.
-- Frontend: `.node-version=22.22.2`,
+- **B2.1 implementado:** wheel y sdist incluyen `src/nikodym/ui/static/**`, excluyen `web/**` y
+  aplican la allowlist ejecutable de §6. El frontend fija `.node-version=22.22.2`,
   `web/package.json#packageManager="pnpm@11.15.0"`, instalación frozen y tooling de build bajo
   `devDependencies`.
+- **B2.2 pendiente:** `[project.scripts]`: `nikodym-ui = "nikodym.ui.__main__:main"`.
+- **B2.3 pendiente:** `[project.optional-dependencies].ui` compondrá
+  `nikodym[scoring,excel,docx]` y conservará FastAPI/Uvicorn/python-multipart, sin duplicar
+  distribuciones.
 
 **Todo lo demás queda literalmente fuera del cambio.** Se preservan, entre otros, `pandas<3`,
 `pandera>=0.24`, `pyarrow>=14`, Jinja2 base, classifier **Beta**, URLs públicas y
@@ -258,32 +260,47 @@ SDD-25 no procesa datos de negocio; sus "datos" son artefactos de build y CI.
 **Allowlist ejecutable de distribución.** B2.1 añade
 `scripts/distribution_contents_allowlist.json` (con `schema_version`, patrones permitidos y entradas
 obligatorias separadas para wheel/sdist) y `scripts/check_distribution_contents.py`. El script abre
-ZIP/TAR, rechaza toda ruta que no esté allowlisted, exige console script, `__main__`, index y notices,
-y parsea el index del archivo: **cada** `src`/`href` local —JS, CSS, favicon u otro— debe resolver a
-un archivo regular dentro de `static/`; escapes, faltantes o URLs locales no allowlisted fallan.
+ZIP/TAR, rechaza toda ruta que no esté allowlisted y, en la fase B2.1, exige index, notices y recursos
+locales completos. B2.2 ampliará la lista `required` declarativa con console script y `__main__`.
+El checker exige exactamente un wheel universal `py3-none-any` sin build tag y un sdist de la misma
+versión; valida la identidad de sus basenames/metadata y los documentos raíz obligatorios del sdist.
+Parsea el index del archivo con atributos únicos: cada referencia automática
+`src`/`srcset`/`data`/`poster`/`xlink:href`, `href` no deliberado y `link` de carga o resolución debe
+apuntar a un archivo regular dentro de `static/`; anchors y canonical son navegación deliberada.
+Escapes, colisiones case-fold, faltantes, recursos externos o URLs locales no allowlisted fallan.
 Así `web/src/fixtures/demo/**`, `.vercel`, datos y binarios demo quedan excluidos **por
 construcción**, no por revisión visual ni globs dispersos.
 
+El CLI recibe obligatoriamente `--frontend-provenance` con el manifest `schema_version: 2` producido
+por el job frontend. Para wheel y sdist exige igualdad exacta del conjunto de rutas estáticas, tamaño
+y SHA-256; evidencia ausente, inválida, mutada, con extras o con rutas ambiguas falla.
+
 **Procedencia autoritativa del bundle normal.** B2.1 añade y registra en la configuración normal de
 Vite el plugin versionado `scripts/frontend_provenance_plugin.mjs`, con `apply: "build"` y hooks
-conservadores `transform` + `generateBundle`:
+conservadores `transform` + `generateBundle` + `writeBundle`:
 
 - `transform` registra la unión de todos los módulos que Vite procesa y que contribuyen o podrían
   contribuir al build normal, incluidos CSS y módulos luego eliminados por tree-shaking. Los ids se
   normalizan (separadores, prefijos virtuales y query de Vite) antes de clasificarlos.
-- `generateBundle` cruza esa unión con `chunk.modules` y todos los assets emitidos. Para cada output
-  guarda ruta relativa, SHA-256 y módulos fuente; cada id bajo `node_modules` —incluido CSS— se
+- `generateBundle` conserva por separado la unión conservadora y las fuentes directas que Vite/
+  Rolldown expone mediante `chunk.modules`/`originalFileNames`; no presenta una como sustituto de la
+  otra. Cada id bajo `node_modules` —incluidos los contributors explícitos Vite/Rolldown y los
+  paquetes importados desde CSS— se
   resuelve al `package.json` propietario más cercano y a su package root normalizado, relativo y
-  libre de rutas de máquina. Desde ese root recolecta **íntegramente todos** los archivos
-  distribuidos cuyo basename coincide, sin distinguir mayúsculas, con `LICENSE*`, `LICENCE*`,
-  `NOTICE*`, `COPYING*` o `COPYRIGHT*`, incluso en subdirectorios, además de
-  author/copyright/attribution declarados en metadata. La entrada por paquete es
-  `{name, version, license, package_root, license_files:[{relative_path, sha256}], author,
+  libre de rutas de máquina. Desde ese root recolecta **íntegramente todos** los archivos legales
+  distribuidos con basename convencional `LICENSE`/`LICENCE`/`NOTICE`/`COPYING`/`COPYRIGHT`,
+  calificadores de licencia conocidos o extensión textual, incluso en subdirectorios, además de
+  rutas legales declaradas explícitamente y author/copyright/attribution de metadata. Archivos de
+  código o mapas cuyo nombre solo comienza con `copyright` no se atribuyen por accidente. La entrada
+  por paquete es
+  `{name, version, license, package_root, license_files:[{relative_path, size, sha256}], author,
   copyright, attribution}`.
 - Un módulo/asset externo no atribuible, metadata/licencia ambigua, paquete de procedencia sin al
   menos un texto de licencia, archivo de atribución declarado/referenciado pero ausente o texto no
   legible como tal **falla el build**. SPDX por sí solo no satisface el contrato.
-- El resultado es `dist/evidence/frontend-provenance.json`, con `schema_version` y entradas por
+- `generateBundle` emite notices dentro del mismo build y `writeBundle` enumera todos los archivos
+  ya escritos, calculando tamaño/SHA-256 de sus bytes finales y ligando fuentes directas por output.
+  El resultado es `dist/evidence/frontend-provenance.json`, con `schema_version` y entradas por
   output/hash. Esa evidencia —no `dependencies`/`devDependencies` ni `pnpm licenses --prod`— define
   qué paquetes contribuyeron o pudieron contribuir al artefacto normal.
 - `THIRD_PARTY_NOTICES.frontend.txt` se genera desde la unión real en orden determinista
@@ -304,9 +321,11 @@ declaraciones, **no prueba de redistribución**.
   coherente; una discrepancia falla. El cierre prod sirve para reconciliar clasificación, no para
   omitir un paquete que Vite sí observó.
 - `web/frontend-build-license-allowlist.json` admite solo entradas exactas
-  `{name, version, license, scope:"build-only", rationale}`. `lightningcss`/MPL-2.0 puede pasar
-  únicamente con coincidencia exacta, presente en full y **ausente tanto de prod como de toda
-  procedencia Vite**. Si aparece en un output, pierde la excepción y falla.
+  `{name, version, license, scope:"build-only", rationale}`. Las entradas dormantes permiten que el
+  mismo archivo de política funcione en los cierres distintos de Linux/macOS/Windows y no tienen que
+  aparecer en el inventario full de cada plataforma. Si una excepción está activa —por ejemplo
+  `lightningcss`/MPL-2.0— debe coincidir exactamente, estar presente en full y **ausente tanto de prod
+  como de toda procedencia Vite**. Si aparece en un output, pierde la excepción y falla.
 - Cualquier paquete de procedencia con GPL/LGPL/AGPL/MPL, licencia ausente/ambigua o atribución
   incoherente falla. También falla si los archivos/atribuciones exigidos por la procedencia no
   aparecen íntegros en notices o si no coinciden sus hashes. Full/prod y la allowlist se adjuntan
@@ -329,26 +348,59 @@ declaraciones, **no prueba de redistribución**.
 
 **Invariantes (pre/post).**
 - *Cierre permisivo Python (regla dura, verificable en CI):* ninguna distribución con licencia
-  **GPL/LGPL/AGPL** aparece en el cierre transitivo de la base +
+  **GPL/LGPL/AGPL**, **ni ninguna licencia no verificable** (`LicenseRef-*`, expresión no-SPDX,
+  metadata ausente o ambigua sin allowlist hasheada), aparece en el cierre transitivo de la base +
   `[project.optional-dependencies].all`, obtenido con
   `uv export --format requirements-txt --extra all --no-dev`. El meta-extra `all` jamás referencia
   `[pdf]`. PDF es opt-in y se audita/documenta en un job separado porque
   WeasyPrint→Pyphen incorpora opciones copyleft; queda fuera de la garantía permisiva, no oculto
   dentro de ella. `hypothesis` permanece solo en development groups y `scikit-survival` no tiene
   extra.
+- *Alcance por matriz, no por runner (B2.1):* el cierre exportado es **universal** (lleva markers de
+  plataforma y de versión de Python), pero el gate corre en **un** entorno. Evaluar los markers
+  contra ese único entorno descartaría en silencio los pines de las demás plataformas —el gate
+  quedaría verde **por omisión, no por cobertura**. Por eso un pin entra al alcance si su marker es
+  satisfacible en **algún** entorno soportado (`sys_platform` × `platform_machine` × las minor de
+  `requires-python`), y **todo** pin en alcance debe quedar clasificado.
+- *Canal `declarations` (allowlist `schema_version: 2`):* para los pines en alcance que **no son
+  instalables en el entorno de auditoría** se transcriben las **cabeceras** de la core metadata
+  oficial (`License-Expression`/`License`/`Classifier`) junto con la URL `https://` de la fuente y su
+  rationale; el SPDX **lo deriva el gate** con el mismo pipeline que la metadata instalada. Fail-closed:
+  copyleft, `LicenseRef`, expresión no-SPDX, fuente no citable, declaración duplicada o declaración no
+  utilizada → rojo. Si el pin además es instalable, declaración y metadata instalada se cruzan y
+  cualquier contradicción falla: una declaración no puede tapar una metadata mala.
+  **Ancla de integridad (obligatoria).** Una transcripción a mano no es evidencia: cada declaración
+  cita además un `metadata_file` bajo `scripts/runtime_license_metadata/` con su `metadata_sha256`, y
+  **la clasificación se deriva de los bytes de ese archivo, no de la transcripción**. El gate valida
+  ruta segura, digest, identidad (`Name`/`Version` de la evidencia == el pin) y fidelidad (toda
+  cabecera transcrita aparece verbatim en la evidencia). Nótese que cuando la cabecera es
+  `License-Expression` su valor **es** una expresión SPDX, así que el humano sí escribe SPDX: la
+  garantía no es que no lo teclee, sino que se coteja contra la evidencia hasheada y no se le cree.
+  El gate es **hermético (sin red)**: un gate de licencias que falla por un timeout de PyPI entrena a
+  ignorar el rojo. La re-verificación upstream vive en `--verify-sources`, un paso separado del CI
+  **sin `if:` ni `continue-on-error`**, y el reporte publica `declaration_source`/`declaration_sha256`
+  de cada declaración para que un tercero las refute con `curl <source> | shasum -a 256` sin acceso al
+  repositorio. Confianza residual declarada: contra un maintainer de PyPI malicioso ninguna de las dos
+  vías protege, porque ambas leen la misma fuente upstream.
+- *`xgboost-cpu` en Linux (regla dura, B2.1):* el extra `xgboost` resuelve `xgboost-cpu` bajo
+  `sys_platform == 'linux'` y `xgboost` en el resto. En Linux el wheel estándar arrastra
+  `nvidia-nccl-cu12` (~303 MB, `License-Expression: LicenseRef-NVIDIA-Proprietary`), que viola el
+  invariante de licencia verificable de arriba. `xgboost-cpu` es el mismo proyecto, mismas versiones
+  y Apache-2.0; Nikodym no tiene ninguna ruta GPU/CUDA, así que la sustitución no pierde capacidad.
+  Fuera de Linux el wheel estándar no trae esa transitiva y `xgboost-cpu` no publica wheels de macOS.
 - *Núcleo liviano:* `import nikodym` no importa sklearn, xgboost, lightgbm, catboost, mlflow,
   FastAPI, Uvicorn, lifelines ni statsmodels (verificable con un test que inspecciona `sys.modules`
   tras el import — §11).
 - *Constraint sklearn:* scoring y sus consumidores resuelven `scikit-learn>=1.6,<1.8`; el ceiling
   global impide que extras hermanos lo amplíen accidentalmente.
-- *UI completa:* el wheel contiene `entry_points.txt`, `nikodym/ui/__main__.py`,
-  `nikodym/ui/static/index.html` y **cada** recurso local que cualquier `src`/`href` del índice
-  referencia, favicon incluido. Si falta uno, escapa `static/` o no es archivo regular, el candidate
-  no se promueve.
+- *Assets B2.1 completos:* wheel/sdist contienen `nikodym/ui/static/index.html`, notices y **cada**
+  recurso local que cualquier `src`/`href` del índice referencia, favicon incluido. Si falta uno,
+  escapa `static/` o no es archivo regular, el candidate no se promueve. B2.2 extiende el mismo
+  manifiesto para exigir `entry_points.txt` y `nikodym/ui/__main__.py`.
 - *Wheel/sdist limpios:* no contienen `tests/` en wheel, `*.parquet`, `*.csv`, fixtures demo,
   `.vercel`, binarios de informes ni `dependency-groups` en metadata. Ningún output está trazado a
   `web/src/fixtures/demo/**` ni contiene sus sentinel/hashes/firmas. El HTML/JS/CSS no realiza
-  requests automáticos a servicios externos.
+  requests automáticos a servicios externos, **en el alcance declarado abajo**.
 - *Licencias/notices del bundle:* la procedencia Vite por output/hash es la fuente autoritativa;
   todo paquete observado reconcilia contra full y aporta todos sus textos
   LICENSE/LICENCE/NOTICE/COPYING/COPYRIGHT, hashes y metadata de atribución. Falta, truncamiento o
@@ -360,6 +412,56 @@ declaraciones, **no prueba de redistribución**.
   instalados. Regenerar `static/` sí requiere el toolchain frontend pineado.
 - *Lock reproducible:* `uv sync --locked` no modifica el lock (falla si está desactualizado) → el árbol instalado es el pineado.
 - *Versión única:* `project.version` (dynamic) == `nikodym.__version__`; el tag git de release == `v<version>`.
+
+### 6.1 Contrato del gate anti-request del bundle (alcance y límites)
+
+`check_frontend_bundle.mjs` verifica que el artefacto frontend distribuido no alcance servicios
+externos. Ese enunciado necesita un alcance explícito: el gate cubre **sinks de request declarativos,
+navegación e inyección de markup, y ejecución dinámica**, analizados estáticamente sobre los archivos
+emitidos. **No** es un detector universal de canales de salida, y documentarlo como tal sería
+sobrepromesa. Lo que queda fuera está aquí porque cerrarlo rompería el artefacto honesto, no porque
+se haya pasado por alto; cada límite lleva la medición que lo sostiene.
+
+> **L1 — Claves computadas dinámicamente sobre receptores no globales.** El gate resuelve un acceso a
+> miembro cuando la clave es estáticamente computable (`x["fe"+"tch"]` sí se resuelve) y rechaza el
+> acceso computado dinámico cuando el receptor es autoridad global probada (`window[k](url)` falla
+> cerrado). No cubre `this[k](url)` ni `algo.opaco[k](url)` con clave dinámica sobre receptor no
+> global. Es una decisión de calibración medida, no una omisión: el bundle distribuible contiene
+> 1.367 accesos computados con clave dinámica sobre receptores locales, y extender la regla los
+> convertiría a todos en falsos positivos.
+>
+> **L2 — Sinks de asignación de URL y de HTML.** El gate no modela `location.href =`,
+> `elemento.src =`, `elemento.href =` ni `elemento.innerHTML =`. No son cerrables sin diseño previo
+> porque el bundle real los usa de forma legítima y dinámica: 1 `location.href`, 3 `.src=` (React DOM
+> hace `r.src=n.src`), 12 `.href=` y 5 `innerHTML`. Validar la URL en esas asignaciones rompería el
+> artefacto de inmediato. Sí están cubiertos, en cambio, `window.open`, `location.assign`,
+> `location.replace`, `document.write`, `document.writeln`, `navigator.serviceWorker.register` e
+> `insertAdjacentHTML`.
+>
+> **L3 — Análisis por archivo, sin flujo entre módulos.** Cada output se analiza de forma aislada; no
+> hay propagación de autoridad ni de valores entre archivos. Hoy es inocuo porque el frontend se
+> distribuye como un único `.js` más un `index.html`, pero la garantía se degrada en cuanto el build
+> adopte code-splitting o `import()` dinámico entre chunks. **Cualquier cambio de la configuración de
+> bundling debe revisar este supuesto.**
+>
+> **L4 — Alcance del análisis de HTML.** El gate audita el HTML de los artefactos en disco. El markup
+> construido en tiempo de ejecución no se audita; por eso las APIs que lo inyectan (`document.write`,
+> `insertAdjacentHTML`) se prohíben en seco en vez de validarse, y los handlers inline `on*` se
+> rechazan sin analizar su cuerpo.
+>
+> **L5 — Contención por escape, no por dominio completo.** La conclusión "este receptor es local" se
+> sostiene en que la autoridad global no puede entrar en un enlace local sin pasar por una asignación,
+> un argumento, un retorno, una propiedad o un `throw`, caminos todos vigilados. Verificado sobre 10
+> vectores de propagación indirecta (`o.w=window`, getters, `Array#push`, `Map#set`, `Object.assign`,
+> `defineProperty`, retorno de función, destructuring anidado con default). Un binding cuya
+> declaración el analizador no sigue —destructuring, parámetro con default, campo de clase, `catch`,
+> import— nunca cuenta como local, y `this` nunca cuenta como local porque en un script clásico es el
+> objeto global.
+
+La defensa real no es sólo este gate: el bundle nace de fuentes versionadas en Git, su procedencia
+liga cada output por hash, el CI reconstruye y exige reproducibilidad byte a byte, y la revisión de
+código sobre `web/` sigue siendo la primera barrera. El gate es la red que atrapa lo que se cuele por
+una dependencia, no un sustituto de esas capas.
 
 ---
 
@@ -396,25 +498,38 @@ declaraciones, **no prueba de redistribución**.
      `main` y PRs.
 2bis. **Job `coverage-regulatory`** (cablea el 100% por-módulo que delega SDD-24 §11): `pytest --cov=nikodym.core.exceptions --cov=nikodym.core.seeding --cov=nikodym.provisioning.cmf --cov=nikodym.provisioning.ifrs9 --cov-fail-under=100` (código regulatorio: 0 branches sin testear). El gate global 90 lo impone `fail_under=90` del job `test`.
 3. **Job `frontend`**: Node desde `.node-version`, Corepack exige
-   `packageManager=pnpm@11.15.0`, instalación frozen; lint/typecheck/Vitest/build normal.
-   El plugin Vite registrado ejecuta `transform`+`generateBundle`, emite procedencia por output/hash
-   y veta cualquier módulo de fixtures demo. `check_frontend_bundle.mjs` aplica además el gate de
-   sentinel/hashes/firmas. `pnpm licenses list --json --long` y `--prod --json --long` alimentan
-   `check_frontend_licenses.mjs`, que reconcilia ambos cierres declarativos contra la procedencia,
-   aplica la allowlist build-only exacta y genera notices **desde la procedencia**. Luego se
-   verifican cero requests externos y diff/status limpio.
-4. **Job `build`** (depende de `frontend`): `uv build` sin Node →
-   `scripts/check_distribution_contents.py` sobre wheel/sdist + smoke de import + verificación
-   anti-copyleft Python sobre
+   `packageManager=pnpm@11.15.0`, instalación frozen y lint/typecheck/Vitest. Construye la demo en
+   un directorio temporal y prueba que no alteró `static/`; luego regenera el build normal dos veces
+   y exige identidad byte a byte del árbol y del manifest de procedencia. El plugin Vite registrado
+   ejecuta `transform`+`generateBundle`+`writeBundle`, emite procedencia por output/hash y veta
+   cualquier módulo de fixtures demo. `check_frontend_bundle.mjs` aplica además el gate de
+   sentinel/hashes/firmas y requests automáticos externos. `pnpm licenses list --json --long` y
+   `--prod --json --long` alimentan `check_frontend_licenses.mjs`, que reconcilia ambos cierres
+   declarativos contra la procedencia, aplica la allowlist build-only exacta y genera notices
+   **desde la procedencia**. Tras diff/status limpio, sube un artefacto autoritativo solo si el job
+   completo tuvo éxito; el artefacto diagnóstico de fallos usa otro nombre y nunca se promueve.
+4. **Job `build`** (depende de `frontend`, con checkout propio): descarga la evidencia autoritativa
+   y ejecuta `uv build` sin Node. Exige exactamente un wheel y un sdist de la misma versión,
+   valida ambos con `scripts/check_distribution_contents.py --frontend-provenance` y reconstruye
+   un wheel desde el sdist para aplicar de nuevo la misma comparación exacta. Después corre smoke de
+   import + verificación anti-copyleft Python sobre
    `uv export --format requirements-txt --extra all --no-dev` y
-   `License-Expression: Apache-2.0`. Registra SHA-256 de wheel/sdist candidates.
-5. **Job `candidate-ui`**: fuera del checkout instala **solo** `<candidate-wheel>[ui]`, lanza
-   `nikodym-ui --no-open` y ejecuta el gate Playwright de §11; no resuelve el proyecto ni reutiliza
-   su entorno.
+   `License-Expression: Apache-2.0`. Wheel, sdist, reportes y evidencia frontend se copian a una sola
+   unidad de candidate con un `SHA256SUMS` que cubre todos sus archivos.
+5. **Job `candidate-ui`** — ⚠️ **NO IMPLEMENTADO (pendiente B2.4)**; no existe en `ci.yml`, y su
+   premisa —el console script `nikodym-ui`— es alcance de B2.2. El destino es que, fuera del
+   checkout, instale **solo** `<candidate-wheel>[ui]`, lance `nikodym-ui --no-open` y ejecute el gate
+   Playwright de §11, sin resolver el proyecto ni reutilizar su entorno.
 6. **Job `lock-check`**: `uv lock --check`.
-7. **Job `release`** (solo en tag `v*` y con OK específico de Cami): publica por Trusted Publishing
-   **exactamente el wheel y sdist cuyos hashes pasaron los gates**. No ejecuta `uv build` ni otro
-   rebuild.
+7. **Job `release`** (solo en tag `v*` y con OK específico de Cami) — ⚠️ **CONTRATO APROBADO, NO
+   IMPLEMENTADO (pendiente B2.5)**. El destino es publicar por Trusted Publishing **exactamente el
+   wheel y sdist cuyos hashes pasaron los gates**, sin `uv build` ni otro rebuild (D-PKG-9).
+   **Estado real hoy:** `release.yml` es un workflow independiente (`build` → `publish`) **sin
+   `needs` hacia `ci.yml`**: hace su propio `uv build` en un checkout limpio, corre `twine check` y
+   publica ese rebuild. Ningún gate de B2.1 —contenidos de distribución, procedencia del frontend,
+   licencias runtime, notices— toca el artefacto que llega a PyPI, y **un `ci.yml` rojo no bloquea
+   la publicación**. El riesgo queda acotado por el OK específico de Cami por release (no hay
+   publicación automática), pero no debe leerse este numeral como una garantía vigente.
 
 **Pre-commit.** `pyproject.toml` conserva la dependencia de desarrollo histórica, pero no existe una
 configuración versionada de hooks. B2 no crea ni certifica `.pre-commit-config.yaml`; el gate
@@ -438,10 +553,10 @@ obligatorio es el job `quality` descrito arriba.
   config; el HTML base sigue operativo. La fuente `.qmd` no ejecuta ni requiere Quarto.
 - **Python fuera de rango** (`<3.11`) → el resolutor rechaza la instalación por `requires-python`.
 - **Build con `tests/` colándose al wheel** → atrapado por el test de empaquetado (§11) que inspecciona el contenido del wheel.
-- **Build estático ausente/incompleto** → inspección del candidate falla si no existen console
-  script, `__main__.py`, `index.html` o cualquiera de sus `src`/`href` locales (favicon incluido).
-  El control negativo borra un recurso obligatorio en una instalación descartable y exige fallo
-  del launcher antes de bind.
+- **Build estático B2.1 ausente/incompleto** → inspección del candidate falla si no existen
+  `index.html`, notices o cualquiera de sus recursos locales (favicon incluido), o si su
+  conjunto/tamaño/SHA-256 difiere de la evidencia frontend descargada. Console script,
+  `__main__.py` y el control negativo del launcher se añaden en B2.2/B2.4.
 - **Metadata/texto de licencia Node ausente o ambiguo** → falla el job frontend; no se interpreta
   ausencia como permiso. También falla un archivo LICENSE/LICENCE/NOTICE/COPYING/COPYRIGHT o de
   atribución declarado/referenciado que falte, esté truncado o no coincida con su hash.
@@ -516,18 +631,21 @@ inventaría, audita y documenta aparte, sin presentarlo como parte del cierre pe
 
 Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que SDD-25 aporta):
 
-- **Build + smoke (CI).** `uv build` sin Node produce wheel+sdist; el smoke aislado confirma import
-  base y la inspección comprueba entry point, `__main__`, index/todos sus recursos locales y
-  exclusiones.
+- **Build + smoke (CI, alcance B2.1).** `uv build` sin Node produce exactamente un wheel universal y
+  un sdist de la misma versión; el smoke aislado confirma import base. La inspección exige
+  index/notices/todos sus recursos locales, exclusiones y coincidencia exacta con la procedencia
+  frontend. Un wheel reconstruido desde el sdist pasa la misma validación. Entry point y
+  `__main__` pertenecen a B2.2 y todavía no forman parte de este gate.
 - **Núcleo liviano (test de aislamiento).** Tras `import nikodym` en un entorno **solo-base** (sin
   extras), inspeccionar `sys.modules`: **ausentes** `sklearn`, `xgboost`, `lightgbm`, `catboost`,
   `mlflow`, `fastapi`, `uvicorn`, `lifelines`, `statsmodels`. **Presentes y aceptables** (deps base):
   `pandas`, `pandera`, `pyarrow`, `numpy`, `pydantic`, `joblib`, `yaml`. `polars` permanece ausente.
 - **Import perezoso (mensaje al usuario).** En un entorno sin el extra `xgboost`, usar el backend levanta `MissingDependencyError` cuyo mensaje **contiene** `"nikodym[xgboost]"`. Test parametrizado sobre todos los extras de `EXTRA_TO_DISTRIBUTIONS`.
 - **Contenido del wheel/sdist.** `scripts/check_distribution_contents.py` aplica la allowlist
-  versionada a ambos, exige console script/`__main__`/index/notices, parsea cada `src`/`href` local
-  —favicon incluido— y rechaza faltantes, escapes o cualquier entrada extra; `web/` y sus fixtures
-  demo no pueden entrar.
+  versionada a ambos, exige index/notices y el conjunto estático exacto del manifest de procedencia,
+  parsea todos los atributos de carga automática —favicon incluido— y rechaza faltantes, escapes,
+  colisiones, mutaciones o cualquier entrada extra; `web/` y sus fixtures demo no pueden entrar.
+  En B2.2 la política sumará console script/`__main__`.
 - **Anti-copyleft (mecánica especificada, C16).** Mitigación central de R-LIC; el verificador se define explícito (un invariante "verificable en CI" cuyo verificador no esté definido no garantiza nada):
   - **Entrada/herramienta:** `uv export --format requirements-txt --extra all --no-dev` produce el
     **cierre transitivo exacto base + meta-extra `all`** del lock (no solo deps directas). Por cada
@@ -598,8 +716,7 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
   reabre.
 - **D-PKG-5 — `requires-python>=3.11`, matriz 3.11–3.13.** *Porqué:* 3.11 es el piso razonable a 2026 (mejoras de typing/perf); evita cargar compat de 3.9/3.10. *Reversible* si un cliente institucional exige 3.10.
 - **D-PKG-6 — Versión dinámica desde `src/nikodym/__init__.py`** (no tag VCS). *Porqué:* fuente única legible, sin acoplar el build a git en entornos sin historia. *Alternativa considerada:* `hatch-vcs` (versión desde tags) — más automático pero falla en sdist sin `.git`; reevaluable.
-- **D-PKG-7 — Frontend fuente + build versionado (APROBADA CONTRACTUALMENTE EN B2.0;
-  IMPLEMENTACIÓN PENDIENTE).** `web/` es la fuente canónica;
+- **D-PKG-7 — Frontend fuente + build versionado (IMPLEMENTADA EN B2.1).** `web/` es la fuente canónica;
   permanece completo en Git y no entra a wheel/sdist. `src/nikodym/ui/static/` es el build
   reproducible distribuido. Regenerarlo requiere el toolchain pineado; construir/instalar no. La
   allowlist ejecutable de contenido y el diff/status limpio cierran el contrato.
@@ -610,14 +727,14 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
 - **D-PKG-9 — Release por promoción (APROBADA CONTRACTUALMENTE EN B2.0; IMPLEMENTACIÓN
   PENDIENTE).** El job de publicación recibe los mismos
   wheel/sdist cuyos SHA-256 pasaron inspección y clean-room. Se prohíbe reconstruir en release.
-- **D-PKG-10 — Procedencia Vite, no manifiesto de declaraciones (APROBADA CONTRACTUALMENTE EN
-  B2.0; IMPLEMENTACIÓN PENDIENTE).** El plugin normal
+- **D-PKG-10 — Procedencia Vite, no manifiesto de declaraciones (IMPLEMENTADA EN B2.1).** El plugin normal
   registrado en Vite observa módulos/assets y produce evidencia por output/hash; de ahí nacen los
-  notices completos (todos los LICENSE/LICENCE/NOTICE/COPYING/COPYRIGHT y atribuciones, con hashes).
-  `pnpm licenses` full/prod solo reconcilia los cierres declarados. Una licencia build-only se
-  exceptúa únicamente cuando su paquete exacto está ausente de procedencia.
-- **D-PKG-11 — Cierre permisivo = base + `[all]`, no todas las filas (APROBADA CONTRACTUALMENTE EN
-  B2.0; IMPLEMENTACIÓN PENDIENTE).** CI usa
+  notices completos (basenames legales convencionales y atribuciones explícitas, con hashes).
+  `pnpm licenses` full/prod solo reconcilia los cierres declarados. Una licencia build-only activa se
+  exceptúa únicamente cuando su paquete exacto está ausente de procedencia; entradas inactivas
+  permiten diferencias de cierre entre plataformas.
+- **D-PKG-11 — Cierre permisivo = base + `[all]`, no todas las filas (CONTRATO VIGENTE HEREDADO;
+  B2.1 NO LO REABRE).** CI usa
   `--extra all`; `[pdf]` queda fuera y un test de propiedad impide incorporarlo. Su cierre
   WeasyPrint→Pyphen se prueba, inventaría y documenta en un job opt-in separado.
 
@@ -675,4 +792,5 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
   además contra pnpm `11.15.0` local antes de fijar el candidato.
 - **Vite oficial (procedencia B2.0):**
   [`Plugin API`](https://vite.dev/guide/api-plugin.html) documenta plugins compatibles con Rollup,
-  el filtro `apply` y los hooks de build usados aquí (`transform`/`generateBundle`).
+  el filtro `apply` y los hooks de build usados aquí
+  (`transform`/`generateBundle`/`writeBundle`).
