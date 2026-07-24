@@ -3,7 +3,10 @@
 > **Reapertura B2.0 — APROBADA (2026-07-23).** La fundación Python de este SDD está implementada;
 > el contrato de distribución de la UI quedó aprobado. B2.1 —assets, procedencia, licencias/notices y
 > allowlist de artefactos— quedó **cerrado el 2026-07-24** tras tres ciclos de revisión adversarial;
-> launcher y gates B2.2–B2.5 siguen pendientes sin habilitar.
+> launcher y gates B2.2–B2.5 siguen pendientes; **B2.2 quedó habilitado el 2026-07-24** por la
+> enmienda aprobada [`_ENMIENDA-B2.2.md`](_ENMIENDA-B2.2.md), que es su fuente de verdad y toca este
+> SDD en §5 (`[project.scripts]`), §6 (allowlist: `entry_points.txt` en `allowed` **y** `required`,
+> con placeholder `{dist_info}`) y en el orden de pasos del job `build` en CI.
 > La medición clean-room de los
 > artefactos oficiales PyPI `1.5.0` fijó esta línea base:
 >

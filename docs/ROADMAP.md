@@ -209,6 +209,14 @@ Se ejecuta en dos etapas con condiciones distintas:
 > otra jurisdicción, y no se insinúa lo contrario. El módulo `internal/` sí es utilizable hoy fuera de
 > Chile, y ése es el alcance real que se comunica.
 
+**Requisito de producto añadido (Cami, 2026-07-24): la jurisdicción debe ser una elección visible,
+no un supuesto.** Hoy «provisiones» significa Chile sin decirlo, y el proyecto es LATAM. B3.a debe
+entregar la jurisdicción como **selector explícito** en preset y UI —`Provisiones · Chile (CMF)`—
+de modo que el usuario vea que está eligiendo un régimen y no «el» régimen. Condición dura, derivada
+de la regla de honestidad de arriba: el selector **nace con una sola opción real**; una jurisdicción
+sólo aparece en la lista cuando existe su motor (B3.b). Un desplegable que muestre `Perú (SBS)` en
+gris o «próximamente» es exactamente la insinuación que esta regla prohíbe.
+
 ### B4 · Rutas de uso para F5/F6
 
 F5 (forward, survival, Markov, stress) y F6 (validación avanzada) están implementados y cubiertos por
@@ -221,6 +229,24 @@ eso, ofrecerlos es ofrecer algo que el usuario no puede ejecutar.
 Sigue siendo el DoD incumplido de F3 y **no lo puede hacer un agente**. Se ejecuta sí o sí, pero no
 encabeza la cola: CMF es Chile y el alcance del proyecto es LATAM. Hasta que ocurra, F3 se comunica
 como experimental sin excepción. Detonante natural: el primer compromiso concreto en Chile.
+
+**Precisión (Cami, 2026-07-24): lo que molesta es que la procedencia pública se apoye en «asistencia
+de IA».** Es lo primero que lee un gerente de riesgo, y en un producto regulatorio una transcripción
+asistida no respalda un número. **La frase no se toca antes de la validación**: borrarla sin hacer el
+trabajo convierte una limitación declarada en una afirmación falsa de procedencia, que es un riesgo
+mucho mayor que el disclaimer. El orden es: validar → registrar en governance → recién entonces
+reescribir el texto, porque cambió el hecho.
+
+- **El trabajo pendiente es más acotado de lo que sugiere el disclaimer.** `normativa_cmf_parametros.md`
+  §3 documenta que las cuatro tablas críticas —comercial individual A1–B4, hipotecaria vivienda PVG,
+  PDI de consumo (Circular 2.346) y avales— ya se verificaron **visualmente contra el render del PDF
+  oficial**, con coincidencia 100 % y un error real detectado y corregido en la columna *Escala
+  Internacional* de avales. Lo que falta es la pasada humana celda por celda y su **registro
+  firmado**, no una extracción desde cero.
+- **Al cerrar, el texto cambia en varias superficies a la vez** (patrón conocido del repo): la doc
+  pública `docs_site/index.md`, el `README.md`, y `web/src/components/landing-evidence.ts` —que
+  además viaja al bundle distribuido y a la demo, así que exige recaptura y verificación del
+  artefacto final, no sólo del fuente.
 
 ### B6 · Workspace de evidencia de corridas v1
 
