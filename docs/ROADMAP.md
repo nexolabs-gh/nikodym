@@ -84,7 +84,13 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 
 ### B2 · La UI instalable y usable  ← *requisito de producto*
 
-**Estado: B2 total ABIERTO; B2.0 CERRADO; B2.1 CERRADO (2026-07-24); B2.2 PENDIENTE y no habilitado.** La medición
+**Estado: B2 total ABIERTO; B2.0 CERRADO; B2.1 CERRADO (2026-07-24); B2.2 IMPLEMENTADO el 2026-07-24
+y PENDIENTE DE CI.** B2.2 se programó tras aprobar su enmienda
+([`design/_ENMIENDA-B2.2.md`](design/_ENMIENDA-B2.2.md), fuente de verdad del nodo) y pasó dos rondas
+de revisión adversarial fresca —una sobre el diseño y otra sobre el código—. **No se declara cerrado
+hasta que los 16 jobs estén verdes**: los commits `c96e87d`…`49f067b` no se han contrastado aún
+contra la matriz Windows/macOS, y B2.1 necesitó dos correcciones que sólo aparecieron ahí. La
+medición
 clean-room y la reapertura de SDD-23/25 se cerraron el 2026-07-23 sobre
 `dd89f7d35cefb0aebb4ec2055c4ca81c171dd59e`, con revisión adversarial final sin P0/P1/P2 y
 auditoría API aprobada. Esa transición B2.0 aprobó el contrato sin implementar distribución; el

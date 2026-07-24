@@ -43,6 +43,15 @@ compromiso comercial firmado. El track comercial (precios, cláusulas, accesos) 
 `privado/PLAN-TRABAJO-2026-07-21.md` y **no se publica**.
 
 ## Auto-desarrollo (motor de trabajo)
+**Regla fijada por Cami el 2026-07-24: el auto-desarrollo se invoca SOLO cuando él lo pide de forma
+explícita.** Nunca se entra en modo autónomo por iniciativa propia ni porque la tarea parezca de
+campaña. En el **trabajo normal**, en cambio, se usa todo el potencial disponible —workflows,
+subagentes en paralelo, fan-out de búsqueda, revisores adversariales frescos— **sin pedir permiso
+cada vez**: basta con decir qué se lanzó y por qué. Son dos cosas distintas: el auto-desarrollo es un
+*modo de operación* (corridas largas sin nadie delante) y esa decisión es suya; los subagentes son
+*una herramienta más* dentro de una sesión normal. La pregunta explícita se reserva para montar un
+equipo persistente sobre el mismo árbol.
+
 Para una ejecución autónoma usar la skill explícitamente pedida por Cami y una tarea standalone o
 efímera: coordinador, un único writer, gates, revisor adversarial fresco e integración final. No usar
 un heartbeat que acumule contexto. La **maquinaria tmux multi-motor está FROZEN** (histórica):
