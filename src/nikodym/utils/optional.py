@@ -34,7 +34,6 @@ EXTRA_TO_DISTRIBUTIONS: dict[str, tuple[str, ...]] = {
     "survival": ("lifelines",),
     "tracking": ("mlflow",),
     "ui": ("fastapi", "uvicorn"),
-    "sweep": ("hydra", "omegaconf"),
     "polars": ("polars",),
 }
 

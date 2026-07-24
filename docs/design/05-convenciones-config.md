@@ -217,6 +217,8 @@ Los migradores son funciones puras `dict→dict` decoradas `@migration("1.0.0", 
 
 **5.6 Hydra/OmegaConf.** Capa fina **opcional** (extra `[sweep]`, import perezoso) solo para barridos por CLI: Hydra compone overrides → `dict` → `NikodymConfig.model_validate(dict)`. **Pydantic es siempre el árbitro final**; OmegaConf nunca es fuente de verdad ni dependencia de `core` (§6.2). (Licencias: `hydra-core` MIT, `omegaconf` BSD-3 — sin copyleft, D-LIC.)
 
+> ⚠️ **NO IMPLEMENTADO — extra retirado el 2026-07-24.** Esta capa nunca se programó: no existe `src/nikodym/sweep/` ni un solo import de `hydra`/`omegaconf` en el paquete. El extra `[sweep]` sí existía en `pyproject.toml` y estaba incluido en el meta-extra `all`, de modo que cada `pip install "nikodym[all]"` bajaba `hydra-core`, `omegaconf` y `antlr4-python3-runtime` sin código que las usara, y el gate de licencias auditaba ese cierre muerto. Se eliminó el extra (de `pyproject.toml`, del `all`, de `EXTRA_TO_DISTRIBUTIONS` y de la tabla de extras de `docs_site/getting-started.md`). El diseño de arriba **sigue vigente como diseño**: si se implementan barridos por CLI, el extra se reintroduce en el mismo cambio que su consumidor, nunca antes.
+
 ---
 
 ## 6. Contratos de datos (I/O)
@@ -244,7 +246,7 @@ Convenciones universales que todo módulo respeta:
 
 **Resolución de componente (runtime, orquestador SDD-01 §7):** `sección activa → (domain=nombre de sección, name=cfg.<sección>.type) → Registry.resolve(domain, name) → clase → from_config(sub_cfg)` (params espejo; sin lógica en `__init__`; validación en `fit`).
 
-**Barrido CLI (extra):** Hydra compone overrides → `dict` → `model_validate` → un `NikodymConfig` por punto → un `Study`.
+**Barrido CLI (extra):** Hydra compone overrides → `dict` → `model_validate` → un `NikodymConfig` por punto → un `Study`. *(Nunca implementado; extra `[sweep]` retirado el 2026-07-24 — ver la nota de §5.6.)*
 
 **Decisiones algorítmicas y alternativas descartadas:** uniones discriminadas en vez de `dict` interpretado en runtime (falla temprano, no a mitad de pipeline); hash sobre **JSON canónico** en vez de texto YAML (estable cross-version); validación cruzada en `model_validator` en vez de runtime (config inválido no pasa el parse).
 
@@ -277,7 +279,7 @@ Convenciones universales que todo módulo respeta:
 
 **Internas:** SDD-01 (`core`: schema raíz, loader, `config_hash`, Registry, base classes, excepciones, seeding, lineage) materializa este contrato. Todos los SDD de dominio aportan su sub-config; SDD-03 consume `config_hash`; SDD-23 consume `model_json_schema()`; SDD-24 consume las estrategias de test de contrato.
 
-**Externas:** las mismas que `core` (pydantic ≥2.5, PyYAML ≥6, numpy — MIT/BSD; ver SDD-01 §10). **Opcional:** `hydra-core` (MIT)/`omegaconf` (BSD-3), extra `[sweep]`, import perezoso; `ruamel.yaml` (MIT) diferido. **Ninguna copyleft** (D-LIC). El patrón sklearn es **convención**, no dependencia de `core`; sklearn es dep de los **extras** de scoring/ML donde los estimadores lo multiheredan para `check_estimator`.
+**Externas:** las mismas que `core` (pydantic ≥2.5, PyYAML ≥6, numpy — MIT/BSD; ver SDD-01 §10). **Opcional:** ~~`hydra-core` (MIT)/`omegaconf` (BSD-3), extra `[sweep]`, import perezoso~~ (extra retirado el 2026-07-24 por no tener consumidor — ver §5.6); `ruamel.yaml` (MIT) diferido. **Ninguna copyleft** (D-LIC). El patrón sklearn es **convención**, no dependencia de `core`; sklearn es dep de los **extras** de scoring/ML donde los estimadores lo multiheredan para `check_estimator`.
 
 ---
 
@@ -291,7 +293,7 @@ Operativizado por **SDD-24**; el contrato que SDD-05 impone:
 - **Cruce unión↔Registry (propiedad):** todo discriminador `type` de cualquier unión **de nivel sección** ∈ keys del `Registry` (atrapa drift); las uniones anidadas (factory local) se validan localmente en su módulo, no aquí (§3).
 - **Migración:** YAML `1.0.0` con migración a `1.1.0` registrada → carga OK; sin migración → `MigrationNotFoundError`; dict sin versión → asume `1.0.0`.
 - **Naming CMF (linter/test):** en `provisioning/cmf` no aparecen identificadores `pd`/`lgd`/`ead` (deben ser `pi`/`pdi`/`pe`).
-- **Fixtures:** `configs/minimo.yaml`, `configs/scorecard_completo.yaml`, `configs/con_provisioning.yaml`; estrategia Hypothesis de `NikodymConfig` reutilizable; camino Hydra (`overrides → dict → model_validate`) cubierto (o delegado a SDD-25 si requiere el extra).
+- **Fixtures:** `configs/minimo.yaml`, `configs/scorecard_completo.yaml`, `configs/con_provisioning.yaml`; estrategia Hypothesis de `NikodymConfig` reutilizable; camino Hydra (`overrides → dict → model_validate`) cubierto (o delegado a SDD-25 si requiere el extra) — **sin objeto mientras no exista el camino: el extra `[sweep]` se retiró el 2026-07-24 (§5.6)**.
 
 ---
 

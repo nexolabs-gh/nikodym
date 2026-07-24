@@ -200,8 +200,9 @@ Pipeline:
 ### 6.2 `Study` + config declarativo
 - El **`Study`** mantiene el estado y los artefactos; la API opera sobre él.
 - El **config Pydantic v2** describe el pipeline completo. La **UI React genera el formulario desde el
-  mismo schema** y serializa de vuelta (round-trip YAML↔modelo). Hydra/OmegaConf queda como capa fina
-  opcional para barridos por CLI.
+  mismo schema** y serializa de vuelta (round-trip YAML↔modelo). La capa fina Hydra/OmegaConf para
+  barridos por CLI se contempló en el diseño (SDD-05 §5.6) pero **nunca se implementó**; su extra
+  `[sweep]` se retiró el 2026-07-24 y volverá sólo junto con el código que lo consuma.
 
 ### 6.3 Árbol de paquetes
 ```

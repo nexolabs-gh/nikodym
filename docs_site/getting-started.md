@@ -52,7 +52,6 @@ los declarados en `[project.optional-dependencies]` del `pyproject.toml`.
 | `survival` | `nikodym[survival]` | Modelos de supervivencia (Cox / AFT). | `lifelines` |
 | `tracking` | `nikodym[tracking]` | Registro de corridas / *registry*. | `mlflow` |
 | `ui` | `nikodym[ui]` | Backend REST de la UI (incluye el extra `excel`). | `fastapi`, `uvicorn`, `python-multipart` |
-| `sweep` | `nikodym[sweep]` | Barridos de configuración por CLI. | `hydra-core`, `omegaconf` |
 | `polars` | `nikodym[polars]` | Backend de carga de datos con Polars. | `polars` |
 | `excel` | `nikodym[excel]` | Lectura de `.xlsx` en el `DataLoader`. | `openpyxl` |
 | `report` | `nikodym[report]` | Figuras opcionales del reporte. | `matplotlib`, `plotly` |

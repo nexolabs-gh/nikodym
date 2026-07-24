@@ -38,7 +38,7 @@
 | **Tanda de producción** | T1 (Fundación) |
 | **Estado** | 🟡 Fundación implementada; gates B2.1 y B2.2 cerrados (2026-07-24); B2.3–B2.5 pendientes |
 | **Depende de** | — (no depende de ningún módulo `nikodym`; define el contenedor del que todos dependen) |
-| **Lo consumen** | Todos los SDD (cada dominio declara su extra y sus deps aquí); en especial SDD-01 (`uv_lock_hash` del `LineageBundle`), SDD-24 (CI de tests), SDD-05 (extra `[sweep]`), SDD-12/13/14/18/20/23/26 (extras de dominio). |
+| **Lo consumen** | Todos los SDD (cada dominio declara su extra y sus deps aquí); en especial SDD-01 (`uv_lock_hash` del `LineageBundle`), SDD-24 (CI de tests), SDD-05 (extra `[sweep]`, **retirado el 2026-07-24** por no tener consumidor — ver §4.1), SDD-12/13/14/18/20/23/26 (extras de dominio). |
 | **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
 
 ---
@@ -171,11 +171,12 @@ EXTRA_TO_DISTRIBUTIONS: dict[str, tuple[str, ...]] = {
     "survival":    ("lifelines",),
     "tracking":    ("mlflow",),
     "ui":          ("fastapi", "uvicorn"),
-    "sweep":       ("hydra", "omegaconf"),
     "polars":      ("polars",),           # backend de carga opcional (SDD-02 D-DATA-1)
     # "all" se compone por unión según el pyproject vigente; `pdf` queda fuera por licencia.
 }
 ```
+
+> **Enmienda 2026-07-24 — se retira la fila `"sweep": ("hydra", "omegaconf")`.** El extra `[sweep]` (SDD-05 §5.6) nunca tuvo consumidor —no existe `src/nikodym/sweep/` ni un import de `hydra`/`omegaconf` en el paquete— pero figuraba en `pyproject.toml`, en el meta-extra `all` y en este mapa, así que todo `pip install "nikodym[all]"` instalaba `hydra-core`, `omegaconf` y `antlr4-python3-runtime` como superficie muerta que el gate de licencias tenía que auditar igual. Un extra sin código que lo use no es una capacidad diferida: es peso en el cierre redistribuible. Vuelve a existir cuando exista su consumidor, en el mismo cambio.
 
 `MissingDependencyError` vive en **`core.exceptions`** (no aquí; ver §8 y §10) y desciende de `NikodymError`, conforme a la regla de SDD-01 §4: `core.exceptions` aloja la raíz `NikodymError` y las excepciones del núcleo. `MissingDependencyError` es una excepción del núcleo porque la levanta la utilidad transversal `require_extra` (en `nikodym.utils`) y la consumen todos los dominios; por eso pertenece a `core`, no a un módulo de dominio. Su mensaje (español) nombra el extra y la línea exacta de instalación, p.ej.:
 
@@ -849,7 +850,7 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
 - **ROADMAP.md** F0 (entregables históricos: `src/` layout, `pyproject.toml` uv+hatchling con extras declarados y objetivo pre-commit; B2 no recertifica esa deuda), F1 (release público v0.1.0 en PyPI).
 - **00-INDICE.md** SDD-25 (Packaging+CI, F0/T1, depende de —, Ingeniería), §Convenciones (fórmulas/parámetros se citan, no se reescriben).
 - **SDD-01 (`core`)** §4 (jerarquía `core.exceptions`, base para `MissingDependencyError` propuesta), §9 (`LineageBundle.uv_lock_hash`, `library_versions`, `determinism_caveats`, `strict_determinism`), §10 (deps base del núcleo: pydantic/numpy/joblib/PyYAML; **conciliación ya hecha** —SDD-01 §10 distingue dep de distribución vs import de core y delega el mapa a SDD-25—: la distribución añade además pandas + pandera + pyarrow como deps base de `data`, C01), D-CORE-1 (`core` no depende de sklearn; multiherencia en dominios).
-- **SDD-05 (convenciones+config)** §4 (D-CONV-4: `check_estimator` solo en estimadores de dominio que multiheredan `BaseEstimator`, requiere sklearn ≥1.6), §5.6 (extra `[sweep]` Hydra/OmegaConf, import perezoso), §10 (sklearn dep de los extras, no de `core`).
+- **SDD-05 (convenciones+config)** §4 (D-CONV-4: `check_estimator` solo en estimadores de dominio que multiheredan `BaseEstimator`, requiere sklearn ≥1.6), §5.6 (extra `[sweep]` Hydra/OmegaConf, import perezoso — **nunca implementado; extra retirado el 2026-07-24**, ver la nota de §5.6 en SDD-05), §10 (sklearn dep de los extras, no de `core`).
 - **Verificado vía context7 (mecánica de packaging, doc oficial):**
   - **hatchling/Hatch** (`/pypa/hatch`): `[build-system] requires=["hatchling"]` + `build-backend="hatchling.build"`; `[tool.hatch.version] path=...`; `[tool.hatch.build.targets.wheel] packages=["src/foo"]`; `[tool.hatch.build.targets.sdist] include/exclude`; `[project.optional-dependencies]` para features opcionales; `dynamic=["version"]`.
   - **uv** (`/websites/astral_sh_uv`): `uv.lock` + `uv sync --locked` (reproducibilidad, falla si

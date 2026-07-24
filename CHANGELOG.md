@@ -7,6 +7,20 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [No publicado]
 
+### Eliminado
+
+- **Extra `sweep` (`hydra-core` + `omegaconf`), que nunca tuvo consumidor.** Se declaraba como
+  «barridos CLI» y entraba en el meta-extra `all`, de modo que todo `pip install "nikodym[all]"`
+  bajaba `hydra-core`, `omegaconf` y `antlr4-python3-runtime` sin que una sola línea del paquete las
+  importara: no existe `src/nikodym/sweep/` ni un consumidor de Hydra/OmegaConf en `src/`. En un
+  paquete que se audita por licencias y por contenido de distribución, un extra sin código que lo
+  use es superficie muerta que hay que auditar igual. Se retira de `pyproject.toml`, del `all`, del
+  mapa `EXTRA_TO_DISTRIBUTIONS` y de la tabla de extras de la documentación; el cierre runtime de
+  `all` baja de 155 a 152 distribuciones. **`pip install "nikodym[sweep]"` deja de existir**; nada
+  más cambia, porque no había funcionalidad detrás. Si algún día se implementan barridos por CLI
+  (diseño en SDD-05 §5.6, que sigue vigente como diseño), el extra vuelve en el mismo cambio que su
+  consumidor, no antes.
+
 ## [1.5.0] — 2026-07-22
 
 Bloque **B1** del plan operativo, completo: higiene de lo que el informe y el editor de
