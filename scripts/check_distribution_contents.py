@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import configparser
 import csv
 import email.parser
 import fnmatch
@@ -332,6 +333,18 @@ def _string_list(value: object, label: str, *, nonempty: bool = False) -> tuple[
     return tuple(result)
 
 
+#: Placeholder de la carpeta `.dist-info`, cuyo nombre depende de la versión: una ruta literal
+#: quedaría obsoleta en cada bump. Se resuelve tarde, contra el candidate concreto.
+_DIST_INFO_PLACEHOLDER = "{dist_info}"
+
+
+def _resolve_required(required: str, dist_info: str | None) -> str:
+    """Sustituye ``{dist_info}`` por la carpeta real del candidate (o por su patrón al validar)."""
+    if _DIST_INFO_PLACEHOLDER not in required:
+        return required
+    return required.replace(_DIST_INFO_PLACEHOLDER, dist_info if dist_info else "*.dist-info")
+
+
 def _policy_section(value: object, label: str) -> PolicySection:
     if not isinstance(value, dict) or set(value) != {"allowed", "required"}:
         raise DistributionContentError(
@@ -339,7 +352,11 @@ def _policy_section(value: object, label: str) -> PolicySection:
         )
     allowed = _string_list(value["allowed"], f"{label}.allowed", nonempty=True)
     required = _string_list(value["required"], f"{label}.required", nonempty=True)
-    for required_path in required:
+    for entry in required:
+        # La cobertura se comprueba al CARGAR la política, cuando aún no se conoce el candidate: el
+        # placeholder se normaliza a su patrón para que `required` siga siendo un subconjunto
+        # verificable de `allowed` sin depender del artefacto.
+        required_path = _resolve_required(entry, None)
         if not any(_matches_segments(required_path, pattern) for pattern in allowed):
             raise DistributionContentError(
                 f"Política inválida: requerido fuera de allowlist en {label}: {required_path}"
@@ -373,6 +390,43 @@ def _load_policy(path: Path) -> DistributionPolicy:
         forbidden_parts=_string_list(raw["forbidden_parts"], "forbidden_parts"),
         forbidden_suffixes=_string_list(raw["forbidden_suffixes"], "forbidden_suffixes"),
     )
+
+
+#: Console script que debe declarar el wheel para que `nikodym-ui` exista tras `pip install`.
+_CONSOLE_SCRIPT = ("nikodym-ui", "nikodym.ui.__main__:main")
+
+
+def _validate_console_script(content: ArchiveContent) -> None:
+    """Exige que ``entry_points.txt`` DECLARE el console script, no sólo que el archivo exista.
+
+    Un ``entry_points.txt`` presente y vacío satisface la lista de entradas obligatorias y deja al
+    usuario sin el comando: es exactamente el fallo que este gate debe cazar.
+    """
+    if content.kind != "wheel" or content.dist_info is None:
+        return
+    name = f"{content.dist_info}/entry_points.txt"
+    raw = content.files.get(name)
+    if raw is None:  # pragma: no cover - la lista `required` ya lo cubre
+        raise DistributionContentError(f"Entrada obligatoria ausente: {name}")
+    try:
+        text = raw.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as error:
+        raise DistributionContentError(f"{name} no es UTF-8") from error
+    parser = configparser.ConfigParser()
+    try:
+        parser.read_string(text)
+    except configparser.Error as error:
+        raise DistributionContentError(f"{name} no es un INI válido") from error
+    script, target = _CONSOLE_SCRIPT
+    declarado = (
+        parser["console_scripts"].get(script) if parser.has_section("console_scripts") else None
+    )
+    if declarado is None:
+        raise DistributionContentError(f"{name} no declara el console script {script!r}")
+    if declarado.strip() != target:
+        raise DistributionContentError(
+            f"{name} apunta {script!r} a {declarado.strip()!r} en vez de {target!r}"
+        )
 
 
 def _validate_semantics_anchor(content: ArchiveContent) -> None:
@@ -415,9 +469,12 @@ def validate_content(content: ArchiveContent, policy: DistributionPolicy) -> Non
             raise DistributionContentError(f"Extensión prohibida: {name}")
         if not any(_matches_segments(name, pattern) for pattern in section.allowed):
             raise DistributionContentError(f"Ruta fuera de allowlist: {name}")
-    missing = sorted(set(section.required) - content.files.keys())
+    required = {_resolve_required(entry, content.dist_info) for entry in section.required}
+    missing = sorted(required - content.files.keys())
     if missing:
         raise DistributionContentError(f"Entradas obligatorias ausentes: {missing}")
+
+    _validate_console_script(content)
 
     _validate_semantics_anchor(content)
 

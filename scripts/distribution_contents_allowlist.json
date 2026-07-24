@@ -23,7 +23,9 @@
     ],
     "required": [
       "nikodym/ui/static/index.html",
-      "nikodym/ui/static/THIRD_PARTY_NOTICES.frontend.txt"
+      "nikodym/ui/static/THIRD_PARTY_NOTICES.frontend.txt",
+      "nikodym/ui/__main__.py",
+      "{dist_info}/entry_points.txt"
     ]
   },
   "sdist": {
@@ -57,7 +59,8 @@
       "README.md",
       "CHANGELOG.md",
       "src/nikodym/ui/static/index.html",
-      "src/nikodym/ui/static/THIRD_PARTY_NOTICES.frontend.txt"
+      "src/nikodym/ui/static/THIRD_PARTY_NOTICES.frontend.txt",
+      "src/nikodym/ui/__main__.py"
     ]
   },
   "forbidden_parts": [

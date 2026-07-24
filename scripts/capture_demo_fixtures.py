@@ -55,6 +55,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from nikodym.ui.runtime import TOKEN_HEADER, build_runtime
 from nikodym.ui.server import create_app
 from nikodym.ui.settings import UiConfig
 
@@ -288,11 +289,19 @@ def main() -> None:
         raise RuntimeError(f"ejecuta la captura desde la raíz del repositorio: {_PROJECT_ROOT}")
     with _canonical_capture_workdir() as workdir:
         settings = UiConfig(workdir=str(workdir))
-        app = create_app(settings)
+        runtime = build_runtime(port=8000, workdir=workdir)
+        app = create_app(settings, runtime)
         # Import perezoso: TestClient (starlette) vive en el extra [ui], como el resto del backend.
         from starlette.testclient import TestClient
 
-        with TestClient(app) as client:
+        # Las guardas de B2.2 rigen también en la captura: el cliente se ata al bind real y manda
+        # Origin + token. Apuntar el contexto al `testserver` por defecto de TestClient para evitar
+        # el 403 desactivaría el chequeo de Host justo donde se genera la evidencia de la demo.
+        with TestClient(
+            app,
+            base_url=runtime.origin,
+            headers={"Origin": runtime.origin, TOKEN_HEADER: runtime.token},
+        ) as client:
             captured = capture(client)
 
     numeros = verify_business(captured["json"]["results.json"])

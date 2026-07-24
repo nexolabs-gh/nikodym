@@ -21,12 +21,12 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx2")
 
+from _ui_client import build_test_runtime, ui_client
 from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 from fastapi.testclient import TestClient
 
 from nikodym.core.config import NikodymConfig, ReproConfig, config_hash, dump_config, loads_config
 from nikodym.ui import datasets as datasets_module
-from nikodym.ui import server
 from nikodym.ui.server import create_app
 from nikodym.ui.settings import UiConfig
 
@@ -34,13 +34,13 @@ from nikodym.ui.settings import UiConfig
 @pytest.fixture
 def client() -> TestClient:
     """``TestClient`` sobre la app construida con ajustes por defecto."""
-    return TestClient(create_app(UiConfig()))
+    return ui_client()
 
 
 @pytest.fixture
 def client_tmp(tmp_path: Path) -> TestClient:
     """``TestClient`` con el ``workdir`` en un tmp aislado (para /run, /results, /report)."""
-    return TestClient(create_app(UiConfig(workdir=str(tmp_path))))
+    return ui_client(UiConfig(workdir=str(tmp_path)))
 
 
 def _patch_materialize(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -241,30 +241,16 @@ def test_endpoint_config_from_yaml_malformado_422(client: TestClient) -> None:
 # ─────────────────────────────── bootstrap de create_app ───────────────────────────────
 
 
-def test_create_app_sin_build_no_monta_static(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Sin directorio de build, ``/static`` no se monta (guard, no falla)."""
-    monkeypatch.setattr(server, "_static_dir", lambda: tmp_path / "build-ausente")
+def test_create_app_expone_settings_y_runtime(tmp_path: Path) -> None:
+    """El bootstrap deja ambos en ``app.state``: las rutas leen settings, las guardas el runtime."""
+    runtime = build_test_runtime(tmp_path)
+    app = create_app(UiConfig(workdir=str(tmp_path)), runtime)
 
-    app = create_app(UiConfig())
-    assert not any(getattr(ruta, "name", None) == "static" for ruta in app.routes)
     assert isinstance(app.state.settings, UiConfig)
-
-
-def test_create_app_monta_static_si_existe_build(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Con un build presente, ``/static`` sirve el ``index.html`` de la SPA."""
-    build = tmp_path / "static"
-    build.mkdir()
-    (build / "index.html").write_text("<!doctype html><title>nikodym</title>", encoding="utf-8")
-    monkeypatch.setattr(server, "_static_dir", lambda: build)
-
-    app = create_app(UiConfig())
-    assert any(getattr(ruta, "name", None) == "static" for ruta in app.routes)
-    respuesta = TestClient(app).get("/static/index.html")
-    assert respuesta.status_code == 200
+    assert app.state.runtime is runtime
+    # `/static` fue andamio de B2.1: montarlo ahora duplicaría cada byte en dos URLs y expondría el
+    # index crudo con el placeholder sin sustituir.
+    assert not any(getattr(ruta, "name", None) == "static" for ruta in app.routes)
 
 
 # ─────────────────── núcleo liviano por capas (snapshot de sys.modules) ───────────────────
@@ -275,6 +261,8 @@ def test_import_ui_liviano_fastapi_perezoso() -> None:
     code = textwrap.dedent(
         """
         import sys
+        from pathlib import Path
+
         import nikodym
         import nikodym.core.config
         import nikodym.ui
@@ -288,9 +276,10 @@ def test_import_ui_liviano_fastapi_perezoso() -> None:
             assert m not in sys.modules, "fuga tras imports puros: " + m
 
         # Recién construir la app trae fastapi.
+        from nikodym.ui.runtime import build_runtime
         from nikodym.ui.server import create_app
         from nikodym.ui.settings import UiConfig
-        create_app(UiConfig())
+        create_app(UiConfig(), build_runtime(port=8000, workdir=Path(".")))
         assert "fastapi" in sys.modules, "create_app no cargó fastapi"
         print("ok")
         """

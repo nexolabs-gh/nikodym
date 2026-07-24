@@ -211,12 +211,10 @@ def test_endpoint_config_preset() -> None:
 
     pytest.importorskip("fastapi")
     pytest.importorskip("httpx2")
-    from fastapi.testclient import TestClient
 
-    from nikodym.ui.server import create_app
-    from nikodym.ui.settings import UiConfig
+    from _ui_client import ui_client
 
-    client = TestClient(create_app(UiConfig()))
+    client = ui_client()
     respuesta = client.get("/api/config/preset")
     assert respuesta.status_code == 200
     cuerpo: dict[str, Any] = respuesta.json()
@@ -429,12 +427,10 @@ def test_endpoint_presets_index_y_preset_por_id() -> None:
 
     pytest.importorskip("fastapi")
     pytest.importorskip("httpx2")
-    from fastapi.testclient import TestClient
 
-    from nikodym.ui.server import create_app
-    from nikodym.ui.settings import UiConfig
+    from _ui_client import ui_client
 
-    client = TestClient(create_app(UiConfig()))
+    client = ui_client()
 
     indice = client.get("/api/config/presets")
     assert indice.status_code == 200

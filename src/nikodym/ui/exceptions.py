@@ -14,6 +14,7 @@ __all__ = [
     "UiDatasetError",
     "UiDependencyError",
     "UiError",
+    "UiLaunchError",
     "UiRunNotFoundError",
     "UiSerializationError",
     "UiStaticIndexError",
@@ -38,6 +39,14 @@ class UiSerializationError(UiError):
 
 class UiDependencyError(UiError):
     """Falta el extra ``[ui]`` (fastapi/uvicorn); el mensaje pide ``instale nikodym[ui]``."""
+
+
+class UiLaunchError(UiError):
+    """El launcher no puede arrancar: build incompleto, placeholder ausente o puerto ocupado.
+
+    Falla **antes** de bind y antes de abrir el navegador: un backend a medias que parezca una UI
+    sana es un fallo, no una degradación aceptable (SDD-23 §8).
+    """
 
 
 class UiStaticIndexError(UiError):

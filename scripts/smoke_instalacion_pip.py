@@ -39,6 +39,7 @@ import os
 import re
 import sys
 import zipfile
+from pathlib import Path
 from tempfile import mkdtemp
 from typing import TYPE_CHECKING
 
@@ -59,13 +60,28 @@ def _banner_versiones() -> None:
 
 
 def _crear_cliente() -> TestClient:
-    """Levanta la app FastAPI sobre un ``TestClient`` (sin ``uvicorn``), con workdir temporal."""
+    """Levanta la app FastAPI sobre un ``TestClient`` (sin ``uvicorn``), con workdir temporal.
+
+    El cliente se ata al bind real (`127.0.0.1:<puerto>`) y manda `Origin` + token, porque las
+    guardas de B2.2 valen también aquí: un smoke que las esquivara dejaría de probar la app que
+    recibe el usuario. Ese `base_url` es deliberado — el default de `TestClient` es
+    `http://testserver`, que el middleware rechaza, y apuntar el contexto a ese host para «arreglar»
+    el rojo desactivaría el chequeo de `Host` en todo el smoke.
+    """
     from fastapi.testclient import TestClient
 
+    from nikodym.ui.runtime import TOKEN_HEADER, build_runtime
     from nikodym.ui.server import create_app
     from nikodym.ui.settings import UiConfig
 
-    return TestClient(create_app(UiConfig(workdir=mkdtemp(prefix="smoke-pip-"))))
+    workdir = Path(mkdtemp(prefix="smoke-pip-"))
+    runtime = build_runtime(port=8000, workdir=workdir)
+    app = create_app(UiConfig(workdir=str(workdir)), runtime)
+    return TestClient(
+        app,
+        base_url=runtime.origin,
+        headers={"Origin": runtime.origin, TOKEN_HEADER: runtime.token},
+    )
 
 
 def _smoke_f1(client: TestClient) -> list[str]:

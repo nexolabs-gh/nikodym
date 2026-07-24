@@ -62,6 +62,11 @@ Changelog = "https://github.com/nexolabs-gh/nikodym/blob/main/CHANGELOG.md"
 # PyPI usa la clave literal como texto del enlace en su barra lateral.
 "Consultoría (Nexo Labs)" = "https://www.nikodym.cl/?ref=pypi#contact"
 
+# Primer console script de la librería (B2.2). `python -m nikodym.ui` y `nikodym-ui` recorren el
+# mismo camino: el módulo expone `main(argv) -> int` y el entry point sólo lo cablea.
+[project.scripts]
+nikodym-ui = "nikodym.ui.__main__:main"
+
 # ───────────────── EXTRAS de USUARIO (se redistribuyen en el wheel) ───────────────
 [project.optional-dependencies]
 # MVP scorecard (F1). sklearn>=1.6 OBLIGATORIO: check_estimator/tags (D-CONV-4).

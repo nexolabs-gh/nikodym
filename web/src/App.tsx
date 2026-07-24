@@ -308,7 +308,7 @@ function App() {
           <p className="mt-8 font-mono text-xs text-muted-foreground">
             {DEMO_MODE
               ? "Modo demo · corrida real de Nikodym sobre un dataset sintético de ejemplo"
-              : `Backend: ${API_BASE}`}
+              : `Backend: ${API_BASE || "same-origin"}`}
           </p>
         </div>
       </main>

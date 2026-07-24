@@ -17,6 +17,14 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
+      Token efímero de la sesión local: el launcher (`nikodym-ui`) sustituye este placeholder EN
+      MEMORIA al servir el index, y la respuesta va con `Cache-Control: no-store`. El archivo en
+      disco conserva siempre el literal. Debe aparecer exactamente UNA vez: el preflight cuenta las
+      ocurrencias y falla antes de bind si no. En la demo estática nadie lo sustituye, y el front
+      trata el literal como "sin token" (ver `sessionToken()` en `src/lib/api.ts`).
+    -->
+    <meta name="nikodym-token" content="__NIKODYM_TOKEN__" />
+    <!--
       La descripción se lee sola (buscador, previsualización de un link), así que la salvedad viaja
       dentro de ella: el motor calcula IFRS 9, CMF y stress, pero la interfaz llega al scorecard y a
       las provisiones (los otros dominios se usan desde Python). Debe casar con el hero de la landing.

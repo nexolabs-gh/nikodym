@@ -299,8 +299,13 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
             {download.message}
           </p>
         )}
+        {/* `sandbox` vacío = todas las restricciones activas. Un `srcdoc` HEREDA el origen del
+            padre, así que sin esto cualquier script dentro del informe podría leer el token de
+            sesión del `<meta>` y llamar a /api/run con Origin y token válidos (enmienda B2.2, L7).
+            El informe es HTML+CSS determinista y no ejecuta JS, así que no pierde nada. */}
         <iframe
           srcDoc={state.html}
+          sandbox=""
           title="Reporte del modelo"
           className="h-[75vh] w-full rounded-lg border border-border bg-white"
         />

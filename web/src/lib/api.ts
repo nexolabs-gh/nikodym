@@ -29,9 +29,37 @@ import {
 // que store y consumidores los tomen de la misma superficie que el resto de la API.
 export type { ResultsResponse } from "@/lib/results-types"
 
-/** Base del backend; configurable por entorno, con default local. */
-export const API_BASE: string =
-  import.meta.env.VITE_API_BASE ?? "http://localhost:8000"
+/**
+ * Base del backend: **relativa y same-origin** (SDD-23 §4.2, enmienda B2.2 E-B2.2-9).
+ *
+ * Antes caía a `http://localhost:8000`, y ese literal viajaba en el bundle distribuido. Con el
+ * launcher sirviendo en `127.0.0.1:<puerto>` —y el middleware rechazando cualquier otro `Host`—
+ * la SPA cargaba pero **toda** llamada a la API salía cross-origin y moría: formulario vacío, sin
+ * datasets, sin ejecutar. Una base relativa hace imposible esa clase de fallo.
+ */
+export const API_BASE = ""
+
+/** Literal que el launcher sustituye en memoria; en la demo estática queda sin sustituir. */
+const TOKEN_PLACEHOLDER = "__NIKODYM_TOKEN__"
+
+/**
+ * Token efímero de la sesión local, inyectado por el launcher en un `<meta>` del index.
+ *
+ * Devuelve `null` cuando no hay token real: en la demo estática nadie sustituye el placeholder, así
+ * que el literal debe tratarse como ausencia y no como credencial.
+ */
+export function sessionToken(): string | null {
+  if (typeof document === "undefined") return null
+  const meta = document.querySelector('meta[name="nikodym-token"]')
+  const value = meta?.getAttribute("content")?.trim() ?? ""
+  return value && value !== TOKEN_PLACEHOLDER ? value : null
+}
+
+/** Cabecera de sesión para las llamadas al backend local (vacía si no hay token). */
+export function tokenHeaders(): Record<string, string> {
+  const token = sessionToken()
+  return token ? { "X-Nikodym-Token": token } : {}
+}
 
 // ---------------------------------------------------------------------------
 // Contratos de datos (espejo del contrato REST del SDD-23 §4.2; se afinan en
@@ -163,7 +191,11 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}/api/${path}`, {
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...tokenHeaders(),
+      ...init?.headers,
+    },
     ...init,
   })
   if (!res.ok) {
@@ -278,6 +310,9 @@ export async function uploadDataset(file: File): Promise<UploadedDataset> {
   form.append("file", file)
   const res = await fetch(`${API_BASE}/api/upload`, {
     method: "POST",
+    // Sin `Content-Type`: el browser pone el boundary. El token sí va, porque `/api/upload` es
+    // mutador y el backend exige `Origin` same-origin + token (enmienda B2.2, E-B2.2-2).
+    headers: tokenHeaders(),
     body: form,
   })
   if (!res.ok) {

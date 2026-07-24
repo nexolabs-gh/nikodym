@@ -33,14 +33,18 @@ validate_candidate_set = _MODULE.validate_candidate_set
 _VERSION = "1.6.0"
 _DIST_INFO = f"nikodym-{_VERSION}.dist-info"
 
-# Semántica canónica del index (enmienda B2.2, E-B2.2-6): el candidate debe distribuirla byte a byte
-# igual que la que el checker importa, o el gate estaría aplicando reglas distintas de las que viajan
+# Semántica canónica del index (enmienda B2.2, E-B2.2-6): el candidate debe distribuirla byte a
+# byte igual que la que el checker importa, o el gate aplicaría reglas distintas de las que viajan
 # al usuario. Los fixtures la incluyen leyéndola del árbol, nunca transcrita.
-_SEMANTICS_BYTES = (
-    _POLICY.parents[1].joinpath("src/nikodym/ui/_static_index.py").read_bytes()
-)
+_SEMANTICS_BYTES = _POLICY.parents[1].joinpath("src/nikodym/ui/_static_index.py").read_bytes()
 _SEMANTICS_IN_WHEEL = "nikodym/ui/_static_index.py"
 _SEMANTICS_IN_SDIST = "src/nikodym/ui/_static_index.py"
+
+# Launcher B2.2: el wheel debe traer el módulo y DECLARAR el console script. Un `entry_points.txt`
+# presente pero vacío satisface la lista de obligatorios y deja al usuario sin el comando.
+_LAUNCHER_IN_WHEEL = "nikodym/ui/__main__.py"
+_LAUNCHER_IN_SDIST = "src/nikodym/ui/__main__.py"
+_ENTRY_POINTS = b"[console_scripts]\nnikodym-ui = nikodym.ui.__main__:main\n"
 
 
 def _metadata(
@@ -123,6 +127,8 @@ def _minimal_static(prefix: str) -> dict[str, bytes]:
 def _minimal_wheel() -> dict[str, bytes]:
     return _minimal_static("nikodym/ui/static") | {
         _SEMANTICS_IN_WHEEL: _SEMANTICS_BYTES,
+        _LAUNCHER_IN_WHEEL: b'"""launcher"""\n',
+        f"{_DIST_INFO}/entry_points.txt": _ENTRY_POINTS,
         f"{_DIST_INFO}/METADATA": _metadata(),
         f"{_DIST_INFO}/WHEEL": _wheel_metadata(),
         f"{_DIST_INFO}/RECORD": b"",
@@ -133,6 +139,7 @@ def _minimal_wheel() -> dict[str, bytes]:
 def _minimal_sdist() -> dict[str, bytes]:
     return _minimal_static("src/nikodym/ui/static") | {
         _SEMANTICS_IN_SDIST: _SEMANTICS_BYTES,
+        _LAUNCHER_IN_SDIST: b'"""launcher"""\n',
         "PKG-INFO": _metadata(),
         "pyproject.toml": b"[build-system]",
         "LICENSE": _LICENSE_BYTES,
@@ -803,14 +810,30 @@ def test_rebuild_desde_sdist_exige_mismo_mapa_y_bytes(tmp_path: Path) -> None:
         validate_candidate_set([changed, sdist], _POLICY, provenance, direct)
 
 
-def test_required_es_declarativo_para_que_b22_agregue_launcher(tmp_path: Path) -> None:
-    policy = json.loads(_POLICY.read_text(encoding="utf-8"))
-    policy["wheel"]["required"].append("nikodym/ui/__main__.py")
-    custom = tmp_path / "policy.json"
-    custom.write_text(json.dumps(policy), encoding="utf-8")
+def test_wheel_sin_launcher_no_se_promueve(tmp_path: Path) -> None:
+    """`required` ya exige el launcher de B2.2: sin él, `pip install` no deja el comando."""
     files = _minimal_wheel()
+    del files[_LAUNCHER_IN_WHEEL]
     with pytest.raises(DistributionContentError, match="__main__"):
-        _validate(tmp_path, _wheel(tmp_path, files), files, "wheel", custom)
+        _validate(tmp_path, _wheel(tmp_path, files), files, "wheel")
+
+
+@pytest.mark.parametrize(
+    "entry_points",
+    [
+        b"",
+        b"[console_scripts]\n",
+        b"[console_scripts]\nnikodym-ui = nikodym.ui.otro:main\n",
+        b"[gui_scripts]\nnikodym-ui = nikodym.ui.__main__:main\n",
+    ],
+)
+def test_entry_points_presente_pero_sin_declaracion_falla(
+    tmp_path: Path, entry_points: bytes
+) -> None:
+    """El archivo existe y la lista de obligatorios pasa; el comando seguiría sin existir."""
+    files = _minimal_wheel() | {f"{_DIST_INFO}/entry_points.txt": entry_points}
+    with pytest.raises(DistributionContentError, match=r"console script|entry_points"):
+        _validate(tmp_path, _wheel(tmp_path, files), files, "wheel")
 
 
 @pytest.mark.parametrize(

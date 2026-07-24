@@ -190,12 +190,13 @@ clase de deriva silenciosa que costó tres ciclos de revisión en B2.1.
   Hoy no importa porque el script es sólo stdlib; con esta enmienda el `import` muere con
   `ModuleNotFoundError` antes de validar un byte. **`.github/workflows/ci.yml` entra al delta (§3):**
   un `uv sync --locked --python 3.12 --no-default-groups` antes del primer checker.
-- **Anclaje exacto, no aproximado.** Afirmar `nikodym.__version__` == versión del candidate es
-  necesario pero insuficiente: la versión permanece fija durante decenas de commits, así que un
-  `_static_index.py` divergente auditaría un candidate de la misma versión sin que nadie lo note. El
-  checker compara además el **sha256 del módulo dentro del candidate**
-  (`nikodym/ui/_static_index.py` en el wheel, `src/…` en el sdist) contra los bytes del módulo
-  importado. Es exacto, no ejecuta nada del artefacto y no depende de que alguien recuerde bumpear.
+- **Anclaje por sha256 del módulo, no por versión.** El checker compara el **sha256 de
+  `_static_index.py` dentro del candidate** (`nikodym/ui/…` en el wheel, `src/nikodym/ui/…` en el
+  sdist) contra los bytes del módulo importado. Comparar `__version__` sería a la vez insuficiente
+  —permanece fija durante decenas de commits, así que un módulo divergente pasaría— y redundante,
+  porque bytes idénticos ya implican semántica idéntica. *(Corregido al implementar: la versión
+  añadía una restricción que no aportaba seguridad y rompía fixtures legítimos.)* La coherencia de
+  versión entre wheel y sdist la cubre `validate_candidate_set`.
 - Lo compartido es **puro**: parseo del index y resolución de cada referencia a una ruta relativa
   bajo `static/`. Lo que difiere es el **sustrato** de existencia, y se inyecta:
   - checker → miembros del ZIP/TAR (donde, además, `zipfile` normaliza `os.sep` a `/` al leer y al
@@ -233,8 +234,11 @@ reescribe en disco.
    `static/index.html` crudo —con el placeholder sin sustituir— y los notices de 179 KB en URLs no
    contratadas;
 3. `GET /` → index inyectado;
-4. fallback SPA `GET /{full_path:path}` → index inyectado **sólo** para navegación
-   (`Accept` que incluye `text/html`).
+4. fallback SPA → index inyectado **sólo** para navegación (`Accept` que incluye `text/html`).
+   *(Precisado al implementar: va como **handler de 404**, no como ruta `"/{full_path:path}"`. Una
+   ruta catch-all compite con el router y con `/assets`, y FastAPI la obliga a declarar el `Request`
+   como parámetro, lo que con anotaciones diferidas devolvía 422 en todas las rutas. Como handler
+   de 404 sólo se entra cuando nada resolvió.)*
 
 **`Cache-Control: no-store` va en TODA respuesta que lleve el index inyectado**, no sólo en `/`.
 El fallback sirve el mismo HTML con el mismo token: si el navegador cachea `/resultados` con el token
@@ -399,6 +403,24 @@ son 4 consumidores fuera de `tests/`, uno de ellos gate del CI).
 
 **Gates de cierre.** `ruff` · `mypy --strict` · `pytest` completo · los 6 gates de `web/` ·
 CI verde en los 16 jobs antes de declarar B2.2 cerrado.
+
+---
+
+## 4.bis Trampa encontrada al implementar
+
+**Un handler de ruta con parámetro-con-default es un query param.** El registro de los recursos de
+raíz se escribió primero así:
+
+```python
+@app.get(f"/{resource}")
+async def _recurso_de_raiz(target: str = resource) -> Any:   # ← MAL
+    return FileResponse(runtime.static_dir / target)
+```
+
+Parece un closure y no lo es: FastAPI interpreta `target` como **parámetro de consulta**, de modo
+que `/favicon.svg?target=<ruta>` servía cualquier archivo alcanzable desde `static_dir`. La forma
+correcta es una factory que cierre sobre la ruta y un handler **sin parámetros**. Cubierto por un
+test de regresión que pide `/favicon.svg?target=../secreto.txt` y exige el favicon.
 
 ---
 

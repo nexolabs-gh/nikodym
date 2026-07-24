@@ -599,11 +599,11 @@ def test_run_endpoint_dependencia_faltante_422(
     """``/run`` traduce ``MissingDependencyError`` a 422 con el mensaje del motor (§4.2/§8)."""
     pytest.importorskip("fastapi")
     pytest.importorskip("httpx2")
-    from fastapi.testclient import TestClient
+
+    from _ui_client import ui_client
 
     import nikodym
     from nikodym.core.exceptions import MissingDependencyError
-    from nikodym.ui.server import create_app
     from nikodym.ui.settings import UiConfig
 
     def _materialize(dataset_id: str, *, workdir: Path) -> Path:
@@ -615,7 +615,7 @@ def test_run_endpoint_dependencia_faltante_422(
     monkeypatch.setattr(datasets_module, "materialize", _materialize)
     monkeypatch.setattr(nikodym, "run", _raise_missing)
 
-    client = TestClient(create_app(UiConfig(workdir=str(tmp_path))))
+    client = ui_client(UiConfig(workdir=str(tmp_path)))
     config = full_f1_config("placeholder.parquet").model_dump(mode="json", by_alias=True)
     respuesta = client.post(
         "/api/run", json={"config": config, "dataset_id": "consumo_comportamiento"}

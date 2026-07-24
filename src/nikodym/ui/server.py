@@ -1,27 +1,31 @@
-"""Bootstrap del backend FastAPI (SDD-23 §4.3, §7).
+"""Bootstrap del backend FastAPI (SDD-23 §4.3, §7; enmienda B2.2 E-B2.2-7).
 
-:func:`create_app` construye la aplicación FastAPI con import **perezoso** de FastAPI (el núcleo
-liviano no arrastra el extra ``[ui]``): monta el router de :mod:`nikodym.ui.routes` y expone los
-archivos del build estático versionado bajo ``/static`` **solo si** el directorio existe (el guard
-también cubre instalaciones incompletas sin fallar al importar). Si el extra ``[ui]`` no está
-instalado, levanta :class:`UiDependencyError` con ``instale nikodym[ui]``.
+:func:`create_app` construye la aplicación con import **perezoso** de FastAPI (el núcleo liviano no
+arrastra el extra ``[ui]``) y registra, **en este orden**:
 
-.. warning::
-   Exponer los archivos **no** equivale todavía a servir la SPA navegable: el ``index.html`` del
-   build referencia sus recursos con base absoluta (``/assets/...``, ``/favicon.svg``), de modo que
-   abrir ``/static/index.html`` devuelve 404 en esos recursos y renderiza una página en blanco. El
-   servido navegable —orden de rutas API → assets → fallback SPA— es alcance de **B2.2**, igual que
-   el ``__main__``/console-script. B2.1 sólo garantiza que el build distribuido es correcto y
-   auditable, no que ya sea alcanzable por el usuario final.
+1. las guardas de seguridad local (``Host`` siempre; ``Origin`` + token en los mutadores);
+2. el router ``/api``;
+3. ``/assets`` y **exactamente** los recursos de raíz que devolvió el preflight;
+4. ``/`` y el fallback de navegación de la SPA, ambos con el token inyectado en memoria.
+
+El orden importa: el fallback nunca puede capturar un ``/api/*`` desconocido ni un asset ausente. Un
+fallback que responde ``200 text/html`` a ``/assets/perdido.js`` convierte un asset faltante en una
+página en blanco sin error, que es el modo de fallo que este contrato prohíbe.
+
+A diferencia de B2.1, **no se monta ``/static``**: dos URLs para el mismo byte son superficie
+duplicada, y montar el directorio entero expondría el ``index.html`` crudo —con el placeholder sin
+sustituir— y los notices en rutas no contratadas.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import TYPE_CHECKING
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 from nikodym.ui.exceptions import UiDependencyError
 from nikodym.ui.routes import build_router
+from nikodym.ui.runtime import RuntimeContext
+from nikodym.ui.security import install_security
 from nikodym.ui.settings import UiConfig
 
 if TYPE_CHECKING:
@@ -29,13 +33,11 @@ if TYPE_CHECKING:
 
 __all__ = ["create_app"]
 
-
-def _static_dir() -> Path:
-    """Directorio del build estático de la SPA (``nikodym/ui/static``), montado si existe."""
-    return Path(__file__).resolve().parent / "static"
+#: Cabeceras del index inyectado: el token no puede quedar en la caché de disco del navegador.
+_NO_STORE = {"Cache-Control": "no-store"}
 
 
-def create_app(settings: UiConfig) -> FastAPI:
+def create_app(settings: UiConfig, runtime: RuntimeContext) -> FastAPI:
     """Construye la aplicación FastAPI de la UI (import perezoso de FastAPI).
 
     Parameters
@@ -43,11 +45,17 @@ def create_app(settings: UiConfig) -> FastAPI:
     settings : UiConfig
         Ajustes de la app (tema, modo de despliegue, workdir, ...). Se guardan en ``app.state``
         para que las rutas los consulten; no entran al ``config_hash`` (D-UI-3).
+    runtime : RuntimeContext
+        Contexto del lanzamiento: bind efectivo, build ya verificado por el preflight y token
+        efímero. Es **obligatorio**: con un default ``None``, casi toda la suite construiría la app
+        sin las guardas de seguridad y los gates pasarían verdes sin ejercitarlas nunca. Los
+        consumidores que no son el launcher lo obtienen de
+        :func:`nikodym.ui.runtime.build_runtime`.
 
     Returns
     -------
     FastAPI
-        La app con el router ``/api`` montado y ``/static`` si hay build.
+        La app con seguridad, ``/api``, assets y SPA navegable.
 
     Raises
     ------
@@ -62,13 +70,59 @@ def create_app(settings: UiConfig) -> FastAPI:
             "pip install 'nikodym[ui]' (o uv add 'nikodym[ui]')."
         ) from exc
 
+    from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+    from fastapi.staticfiles import StaticFiles
+
     app = FastAPI(title="Nikodym UI")
     app.state.settings = settings
+    app.state.runtime = runtime
+
+    install_security(app, settings, runtime)
     app.include_router(build_router())
 
-    static_dir = _static_dir()
-    if static_dir.is_dir():
-        from fastapi.staticfiles import StaticFiles
+    assets_dir = runtime.static_dir / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
 
-        app.mount("/static", StaticFiles(directory=str(static_dir), html=True), name="static")
+    def _servir_archivo(target: str) -> Callable[[], Awaitable[Any]]:
+        """Crea un handler sin parámetros para un recurso fijo del preflight.
+
+        La ruta se cierra sobre `target`. Un parámetro con default —`async def h(target=resource)`—
+        parecería equivalente y no lo es: FastAPI lo tomaría por un **query param**, y
+        `/favicon.svg?target=../../secreto` serviría cualquier archivo del disco.
+        """
+
+        async def _handler() -> Any:
+            return FileResponse(runtime.static_dir / target)
+
+        return _handler
+
+    for resource in runtime.resources:
+        if not resource.startswith("assets/"):
+            app.get(f"/{resource}", include_in_schema=False)(_servir_archivo(resource))
+
+    def _index() -> Any:
+        return HTMLResponse(runtime.render_index(), headers=_NO_STORE)
+
+    @app.get("/", include_in_schema=False)
+    async def _raiz() -> Any:
+        return _index()
+
+    async def _fallback_spa(request: Any, exc: Any) -> Any:
+        """Sirve la SPA **sólo** para navegación; nunca enmascara un 404 real.
+
+        Va como handler de 404 y no como ruta catch-all: una ruta `"/{full_path:path}"` competiría
+        con el router y con `/assets`, mientras que aquí sólo se entra cuando nada resolvió.
+        """
+        path = request.url.path
+        es_navegacion = (
+            not path.startswith("/api/")
+            and "." not in path.rsplit("/", 1)[-1]
+            and "text/html" in request.headers.get("accept", "")
+        )
+        if not es_navegacion:
+            return JSONResponse(status_code=404, content={"detail": "Recurso no encontrado"})
+        return _index()
+
+    app.add_exception_handler(404, _fallback_spa)
     return app
