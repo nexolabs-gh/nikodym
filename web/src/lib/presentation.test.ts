@@ -83,7 +83,12 @@ describe("presetDisplay (encuadre regulatorio LatAm)", () => {
     expect(blurb).not.toContain("Chile")
   })
 
-  it("ningún blurb promete el extra inexistente nikodym[markov]", () => {
+  it("ningún blurb promete Markov: ninguna de las tres corridas de la demo lo ejerce", () => {
+    // El extra `nikodym[markov]` SÍ existe (pyproject: markov = ["scipy>=1.10"]) y el motor lo
+    // nombra en sus mensajes de error. Lo que el copy no puede prometer es la CAPACIDAD: los tres
+    // presets llevan `markov: null` y el fixture de F4 la declara `not_exercised` («La
+    // term-structure activa proviene de survival, no de Markov»). Mencionarla vendería una
+    // capacidad que la corrida no ejecuta.
     for (const p of [F1, F3, F4]) {
       expect(presetDisplay(p).blurb.toLowerCase()).not.toContain("markov")
     }

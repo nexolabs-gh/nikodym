@@ -124,11 +124,15 @@ docx     = ["python-docx>=1.1"]            # MIT — export Word opcional, impor
 ai       = ["anthropic>=0.40"]             # MIT — narrativa IA opcional, import perezoso
 # SVM/RF nativos de sklearn (SDD-12): solo requieren scikit-learn>=1.6.
 ml       = ["scikit-learn>=1.6"]           # BSD — modelos sklearn-native (SVM/RandomForest)
-# Meta-extra: TODO lo redistribuible. Excluye copyleft (scikit-survival GPL-3.0).
+# Meta-extra: TODO lo redistribuible. Excluye copyleft (scikit-survival GPL-3.0) y `pdf` (ver arriba:
+# Pyphen tri-licencia con GPL). `markov` SÍ entra: scipy es BSD y ya llegaba de rebote vía `scoring`,
+# así que la línea no cambia el cierre instalado — lo DECLARA. Sin ella, Markov funcionaba en `all`
+# por transitividad no declarada, y se habría roto en silencio el día que `scoring` dejara de listar
+# scipy explícito. Toda exclusión de `all` tiene que ser una decisión escrita, no una omisión.
 all = [
   "nikodym[scoring]", "nikodym[ml]", "nikodym[xgboost]", "nikodym[lightgbm]", "nikodym[catboost]",
   "nikodym[tuning]", "nikodym[explain]", "nikodym[forecasting]", "nikodym[survival]",
-  "nikodym[tracking]", "nikodym[ui]", "nikodym[sweep]", "nikodym[polars]",
+  "nikodym[markov]", "nikodym[tracking]", "nikodym[ui]", "nikodym[sweep]", "nikodym[polars]",
   "nikodym[excel]", "nikodym[report]", "nikodym[docx]", "nikodym[ai]",
 ]
 
