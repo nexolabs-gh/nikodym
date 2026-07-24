@@ -83,26 +83,8 @@ def _wheel(
     path = tmp_path / name
     with zipfile.ZipFile(path, "w") as archive:
         for filename, content in materialized.items():
-            archive.writestr(_entry(filename), content)
+            archive.writestr(filename, content)
     return path
-
-
-def _entry(raw_name: str) -> zipfile.ZipInfo | str:
-    """Entrada de ZIP cuyo nombre crudo sobrevive intacto en cualquier plataforma.
-
-    ``ZipInfo.__init__`` pasa el nombre por ``zipfile._sanitize_filename``, que hace
-    ``filename.replace(os.sep, "/")``: en Windows un ``directory\\entry`` se graba como
-    ``directory/entry`` —canónico— y el caso de ataque desaparece antes de llegar al
-    checker. Pero un wheel hostil SÍ puede traer backslashes en sus entradas, porque el
-    formato ZIP no los normaliza al leer, y ``_safe_name`` los rechaza precisamente por
-    eso. Sin este rodeo el test pasaba en Linux y en Windows validaba otra cosa. Sólo se
-    aplica a los nombres afectados, para no alterar la construcción del resto.
-    """
-    if "\\" not in raw_name:
-        return raw_name
-    info = zipfile.ZipInfo("placeholder")
-    info.filename = raw_name
-    return info
 
 
 def _record_bytes(files: dict[str, bytes], record_name: str) -> bytes:
@@ -306,7 +288,6 @@ def test_wheel_rechaza_traversal(tmp_path: Path) -> None:
     "name",
     [
         "./entry",
-        "directory\\entry",
         "directory//entry",
         "directory/./entry",
         "C:/entry",
@@ -315,6 +296,31 @@ def test_wheel_rechaza_traversal(tmp_path: Path) -> None:
 def test_wheel_rechaza_ruta_raw_no_canonica(tmp_path: Path, name: str) -> None:
     with pytest.raises(DistributionContentError, match=r"canónica|insegura"):
         read_archive(_wheel(tmp_path, {name: b"x"}))
+
+
+def test_wheel_neutraliza_el_separador_windows_en_las_entradas(tmp_path: Path) -> None:
+    """El backslash en una entrada de ZIP nunca llega a ser una ruta de directorio.
+
+    La garantía es la misma en las dos plataformas, pero la sostiene una capa distinta y por eso el
+    test se bifurca en vez de afirmar un único mensaje:
+
+    - En POSIX el nombre llega crudo hasta el checker y lo rechaza ``_safe_name``.
+    - En Windows es la propia stdlib la que lo neutraliza: ``ZipInfo.__init__`` pasa todo nombre por
+      ``_sanitize_filename`` (``filename.replace(os.sep, "/")``) **tanto al escribir como al leer**
+      —``ZipFile._RealGetContents`` construye un ``ZipInfo`` por entrada—, así que el checker recibe
+      ``directory/entry`` y ningún consumidor que use ``zipfile``, ``pip`` incluido, ve un separador
+      de Windows. Afirmar aquí el rechazo de ``_safe_name`` sería pedirle al test que demuestre algo
+      que la plataforma vuelve inalcanzable.
+    """
+    path = _wheel(tmp_path, {"directory\\entry": b"x"})
+    if sys.platform == "win32":
+        with zipfile.ZipFile(path) as archive:
+            assert archive.namelist() == ["directory/entry"]
+        return
+    with zipfile.ZipFile(path) as archive:
+        assert archive.namelist() == ["directory\\entry"]
+    with pytest.raises(DistributionContentError, match=r"canónica|insegura"):
+        read_archive(path)
 
 
 def test_archivos_rechazan_directorios_explicitos(tmp_path: Path) -> None:
