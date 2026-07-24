@@ -60,24 +60,46 @@ export const PIPELINE = [
     n: "05",
     paso: "Calibración",
     hace: "PD calibrada a la tasa objetivo, con curva de reliability.",
-    dato: "PD media 20,0 %",
+    dato: "PD media 23,3 %",
   },
   {
     n: "06",
     paso: "Informe",
     hace: "Documento con metodología y resultados. HTML, PDF y base editable.",
-    dato: "5 capítulos + anexos",
+    dato: "7 capítulos + 3 anexos",
   },
 ] as const
 
-/** Capítulos del informe que produce el motor. */
+/**
+ * Los capítulos del informe, en el orden y con los títulos del índice de la corrida real
+ * (`src/fixtures/demo/report-f1.html`). El resumen ejecutivo va sin número, igual que en el
+ * documento.
+ *
+ * `tipo: "editable"` = la sección trae un campo que firma un humano. Son los cuatro capítulos con
+ * bloque POR COMPLETAR (`ChapterSpec.placeholder_*`: Introducción, Contexto, Validación formal y
+ * Conclusiones) más el Resumen ejecutivo, que abre con el bloque «Veredicto de validación» que la
+ * propia plantilla declara «campo estructural… no es un resultado calculado por el motor»
+ * (`report/templates/_exec_summary.html.j2`). En Resumen ejecutivo y en Validación formal el motor
+ * sí redacta todo lo demás —métricas y tablas—; lo único que queda al humano es el veredicto de
+ * aptitud, que no lo emite una máquina.
+ *
+ * OJO: el 7 NO es una constante del motor. `CHAPTER_SPECS` emite capítulos condicionales y la
+ * numeración se reajusta sola (el fixture F3 emite 7, con «Provisiones regulatorias» en el 5; el de
+ * IFRS 9 emite 6). Este 7 es el de la corrida F1, que es la que declara la cabecera de este
+ * archivo. Si cambia la cadena de la demo, se recuenta contra el índice del informe nuevo.
+ */
 export const CAPITULOS = [
+  { n: "—", titulo: "Resumen ejecutivo", tipo: "editable" },
   { n: "1", titulo: "Introducción", tipo: "editable" },
-  { n: "2", titulo: "Contexto", tipo: "editable" },
+  { n: "2", titulo: "Contexto del modelo y de la cartera", tipo: "editable" },
   { n: "3", titulo: "Metodología", tipo: "generado" },
   { n: "4", titulo: "Resultados", tipo: "generado" },
-  { n: "5", titulo: "Conclusiones", tipo: "editable" },
-  { n: "A", titulo: "Anexos técnicos", tipo: "generado" },
+  { n: "5", titulo: "Validación formal", tipo: "editable" },
+  { n: "6", titulo: "Conclusiones y recomendación", tipo: "editable" },
+  { n: "7", titulo: "Limitaciones y supuestos", tipo: "generado" },
+  { n: "A", titulo: "Lineage y reproducibilidad", tipo: "generado" },
+  { n: "B", titulo: "Tablas detalladas", tipo: "generado" },
+  { n: "C", titulo: "Parámetros completos", tipo: "generado" },
 ] as const
 
 /**
@@ -302,14 +324,21 @@ export const SALVEDADES = [
     texto:
       "Los parámetros normativos se transcribieron del compendio con asistencia de IA y " +
       "verificación visual. No son parámetros oficiales de la CMF ni están validados por ella: " +
-      "requieren validación humana contra la norma vigente antes de cualquier uso productivo, y " +
-      "quedan dos brechas FALTA-DATO abiertas (aforos y haircuts de garantías financieras; tablas " +
-      "RAN 21-10).",
+      "requieren validación humana contra la norma vigente antes de cualquier uso productivo. En " +
+      "el manifiesto de parámetros CMF quedan dos brechas declaradas como FALTA-DATO: aforos y " +
+      "haircuts de garantías financieras, y las tablas del RAN 21-10. FALTA-DATO es la marca con " +
+      "que la librería publica toda brecha conocida, aquí y en el resto de los motores; no son las " +
+      "dos únicas de la librería.",
   },
   {
     clave: "Extras",
     texto:
-      "Auto-ARIMA y los modelos de sobrevivencia viven tras extras opcionales del paquete " +
-      "(pmdarima, lifelines).",
+      "`pip install nikodym` trae el núcleo —config, orquestación, la capa de datos y el informe " +
+      "HTML—, pero no el motor del scorecard: el pipeline F1, que es la superficie estable, exige " +
+      "nikodym[scoring]. La interfaz local exige nikodym[ui]; el auto-ARIMA, nikodym[forecasting] " +
+      "(pmdarima); los modelos de sobrevivencia, nikodym[survival] (lifelines); y cada backend de " +
+      "ML, SHAP, MLflow, Excel y el export Word, el suyo. nikodym[all] deja el paquete operativo " +
+      "salvo el PDF, que se instala aparte (nikodym[pdf], WeasyPrint) porque arrastra una " +
+      "transitiva copyleft que el cierre redistribuible no acepta.",
   },
 ] as const

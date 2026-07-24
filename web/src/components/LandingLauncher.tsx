@@ -46,7 +46,15 @@ import { cn } from "@/lib/utils"
  */
 
 const DOCS_URL = "https://docs.nikodym.cl"
-const PYPI_CMD = "pip install nikodym"
+/**
+ * El comando lleva el extra `[scoring]` a propósito: `pip install nikodym` instala el núcleo pero
+ * **no** el motor del scorecard (OptBinning, statsmodels, scikit-learn viven en ese extra), y este
+ * botón está justo al lado de la promesa «construye un scorecard». Un comando copiable que no hace
+ * lo que promete el botón de al lado es la versión pública de «feature gateada = feature
+ * inexistente». Las comillas no son decorativas: sin ellas, zsh expande los corchetes como glob y
+ * el comando muere con «no matches found».
+ */
+const PYPI_CMD = 'pip install "nikodym[scoring]"'
 
 /**
  * Consultora que construye el motor. La ancla es `#contact` (en inglés): con `#contacto` la página
@@ -79,7 +87,7 @@ function Seccion({
   )
 }
 
-/** `pip install nikodym`, copiable. El primer gesto real de un técnico. */
+/** El comando de instalación, copiable. El primer gesto real de un técnico. */
 function ComandoCopiable({ className }: { className?: string }) {
   const [copiado, setCopiado] = useState(false)
 
@@ -464,7 +472,7 @@ export function LandingLauncher({
                 <p className="mt-4 max-w-xl text-xs leading-relaxed text-muted-foreground">
                   Esta demo reproduce, paso a paso, la salida verbatim de una corrida real del
                   motor. No recalcula en el navegador ni acepta datasets propios: para eso,{" "}
-                  <span className="font-mono text-foreground">pip install nikodym</span>.
+                  <span className="font-mono text-foreground">{PYPI_CMD}</span>.
                 </p>
               ) : null}
             </div>
@@ -644,8 +652,8 @@ export function LandingLauncher({
                 </p>
                 <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
                   El motor redacta la metodología y los resultados con los parámetros que
-                  realmente usó, y te deja marcados los capítulos que solo puedes escribir tú:
-                  el contexto de tu cartera y la conclusión que vas a firmar.
+                  realmente usó, y te deja marcados los bloques que solo puedes firmar tú:
+                  el contexto de tu cartera, el veredicto de validación y la conclusión.
                 </p>
                 <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
                   Sale en HTML y PDF, y también como base editable para que armes tu propia
