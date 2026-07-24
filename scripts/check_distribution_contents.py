@@ -16,12 +16,19 @@ import stat
 import tarfile
 import zipfile
 from dataclasses import dataclass
-from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from urllib.parse import unquote, urlsplit
+
+from nikodym.ui import _static_index
+from nikodym.ui._static_index import UiStaticIndexError, resolve_local_resources
 
 _ROOT = Path(__file__).resolve().parents[1]
 _DEFAULT_POLICY = _ROOT / "scripts" / "distribution_contents_allowlist.json"
+
+# Rutas del módulo de semántica canónica dentro de cada artefacto (enmienda B2.2, E-B2.2-6).
+_SEMANTICS_MODULE = {
+    "wheel": "nikodym/ui/_static_index.py",
+    "sdist": "src/nikodym/ui/_static_index.py",
+}
 
 
 class DistributionContentError(ValueError):
@@ -274,91 +281,6 @@ def read_archive(path: Path) -> ArchiveContent:
     raise DistributionContentError(f"Formato no soportado: {path}")
 
 
-class _IndexResources(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self.resources: set[str] = set()
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        names = [name.casefold() for name, _value in attrs]
-        if len(names) != len(set(names)):
-            raise DistributionContentError(f"Atributo HTML duplicado en <{tag}>")
-        values = {name.casefold(): value or "" for name, value in attrs}
-        if values.get("srcdoc"):
-            raise DistributionContentError(f"srcdoc no vacío prohibido en <{tag}>")
-        if values.get("src"):
-            self.resources.add(values["src"])
-        for attribute in ("srcset", "imagesrcset"):
-            for candidate in values.get(attribute, "").split(","):
-                url = candidate.strip().split(maxsplit=1)[0] if candidate.strip() else ""
-                if url:
-                    self.resources.add(url)
-        if tag == "object" and values.get("data"):
-            self.resources.add(values["data"])
-        if values.get("poster"):
-            self.resources.add(values["poster"])
-        if values.get("background"):
-            self.resources.add(values["background"])
-        if tag not in {"a", "area", "link"} and values.get("href"):
-            self.resources.add(values["href"])
-        if tag not in {"a", "area"} and values.get("xlink:href"):
-            self.resources.add(values["xlink:href"])
-        if tag == "link" and values.get("href"):
-            rel = set(values.get("rel", "").lower().split())
-            if rel & {
-                "stylesheet",
-                "icon",
-                "preload",
-                "modulepreload",
-                "preconnect",
-                "prefetch",
-                "dns-prefetch",
-                "manifest",
-                "apple-touch-icon",
-                "prerender",
-            }:
-                self.resources.add(values["href"])
-        if (
-            tag == "meta"
-            and values.get("http-equiv", "").casefold() == "refresh"
-            and values.get("content")
-        ):
-            match = re.search(r"url\s*=\s*(.+)$", values["content"], re.IGNORECASE)
-            separator = re.search(r"[;,]", values["content"])
-            fallback = values["content"][separator.end() :].strip() if separator is not None else ""
-            target = match.group(1) if match is not None else fallback
-            if target:
-                self.resources.add(target.strip("\"' "))
-
-
-def _fully_unquote(value: str) -> str:
-    decoded = value
-    for _ in range(5):
-        if re.search(r"%(?:2e|2f|5c)", decoded, re.IGNORECASE):
-            raise DistributionContentError(f"Separador/traversal porcentual prohibido: {value!r}")
-        next_value = unquote(decoded)
-        if next_value == decoded:
-            return decoded
-        decoded = next_value
-    raise DistributionContentError(f"Codificación porcentual excesiva: {value!r}")
-
-
-def _local_resource_path(resource: str, static_prefix: str) -> str | None:
-    decoded = _fully_unquote(resource.strip())
-    if decoded.startswith("#"):
-        return None
-    parsed = urlsplit(decoded)
-    if parsed.scheme or parsed.netloc or decoded.startswith("//"):
-        raise DistributionContentError(f"Recurso automático externo prohibido: {resource!r}")
-    relative = parsed.path.lstrip("/")
-    if "\\" in relative:
-        raise DistributionContentError(f"Separador inseguro en recurso: {resource!r}")
-    resource_path = PurePosixPath(relative)
-    if resource_path.is_absolute() or ".." in resource_path.parts or not relative:
-        raise DistributionContentError(f"Recurso local escapa static/: {resource}")
-    return PurePosixPath(static_prefix, resource_path).as_posix()
-
-
 def _matches_segments(name: str, pattern: str) -> bool:
     name_parts = PurePosixPath(name).parts
     pattern_parts = PurePosixPath(pattern).parts
@@ -453,8 +375,37 @@ def _load_policy(path: Path) -> DistributionPolicy:
     )
 
 
+def _validate_semantics_anchor(content: ArchiveContent) -> None:
+    """Ancla el candidate a la semántica canónica con la que se le audita.
+
+    El checker importa **siempre** del árbol fuente sincronizado, nunca del candidate: instalar el
+    wheel y auditarlo con su propio código sería el modo en que un artefacto mutado se aprueba a sí
+    mismo. Para que esa importación sea legítima, el módulo distribuido debe ser byte a byte el que
+    se está usando.
+
+    El anclaje es el **sha256 del módulo**, no la versión del candidate: comparar
+    ``__version__`` sería a la vez insuficiente —permanece fija durante decenas de commits, así que
+    un módulo divergente pasaría— y redundante, porque bytes idénticos ya implican semántica
+    idéntica sea cual sea la versión. La coherencia de versión entre wheel y sdist la cubre
+    :func:`validate_candidate_set`.
+    """
+    module_name = _SEMANTICS_MODULE[content.kind]
+    candidate = content.files.get(module_name)
+    if candidate is None:
+        raise DistributionContentError(f"Semántica canónica ausente del candidate: {module_name}")
+    source = _static_index.__file__
+    if source is None:  # pragma: no cover - sólo bajo un loader sin archivo
+        raise DistributionContentError("No se pudo localizar nikodym.ui._static_index en disco")
+    local = Path(source).read_bytes()
+    if hashlib.sha256(candidate).hexdigest() != hashlib.sha256(local).hexdigest():
+        raise DistributionContentError(
+            f"Semántica canónica divergente: {module_name} del candidate no coincide con "
+            "nikodym.ui._static_index; el gate aplicaría reglas distintas de las distribuidas"
+        )
+
+
 def validate_content(content: ArchiveContent, policy: DistributionPolicy) -> None:
-    """Aplica allowlist, requeridos y referencias locales del index."""
+    """Aplica allowlist, requeridos, anclaje de semántica y referencias locales del index."""
     section = policy.wheel if content.kind == "wheel" else policy.sdist
 
     for name in content.files:
@@ -468,17 +419,20 @@ def validate_content(content: ArchiveContent, policy: DistributionPolicy) -> Non
     if missing:
         raise DistributionContentError(f"Entradas obligatorias ausentes: {missing}")
 
+    _validate_semantics_anchor(content)
+
     static_prefix = "nikodym/ui/static" if content.kind == "wheel" else "src/nikodym/ui/static"
     index_name = f"{static_prefix}/index.html"
     try:
         index_html = content.files[index_name].decode("utf-8", errors="strict")
     except UnicodeDecodeError as error:
         raise DistributionContentError("index.html no es UTF-8") from error
-    parser = _IndexResources()
-    parser.feed(index_html)
-    for resource in sorted(parser.resources):
-        local = _local_resource_path(resource, static_prefix)
-        if local is not None and local not in content.files:
+    try:
+        resolved = resolve_local_resources(index_html, static_prefix)
+    except UiStaticIndexError as error:
+        raise DistributionContentError(str(error)) from error
+    for resource, local in resolved:
+        if local not in content.files:
             raise DistributionContentError(
                 f"Recurso local del index ausente: {resource!r} -> {local}"
             )

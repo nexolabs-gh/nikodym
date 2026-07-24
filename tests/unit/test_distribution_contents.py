@@ -33,6 +33,15 @@ validate_candidate_set = _MODULE.validate_candidate_set
 _VERSION = "1.6.0"
 _DIST_INFO = f"nikodym-{_VERSION}.dist-info"
 
+# Semántica canónica del index (enmienda B2.2, E-B2.2-6): el candidate debe distribuirla byte a byte
+# igual que la que el checker importa, o el gate estaría aplicando reglas distintas de las que viajan
+# al usuario. Los fixtures la incluyen leyéndola del árbol, nunca transcrita.
+_SEMANTICS_BYTES = (
+    _POLICY.parents[1].joinpath("src/nikodym/ui/_static_index.py").read_bytes()
+)
+_SEMANTICS_IN_WHEEL = "nikodym/ui/_static_index.py"
+_SEMANTICS_IN_SDIST = "src/nikodym/ui/_static_index.py"
+
 
 def _metadata(
     version: str = _VERSION,
@@ -113,6 +122,7 @@ def _minimal_static(prefix: str) -> dict[str, bytes]:
 
 def _minimal_wheel() -> dict[str, bytes]:
     return _minimal_static("nikodym/ui/static") | {
+        _SEMANTICS_IN_WHEEL: _SEMANTICS_BYTES,
         f"{_DIST_INFO}/METADATA": _metadata(),
         f"{_DIST_INFO}/WHEEL": _wheel_metadata(),
         f"{_DIST_INFO}/RECORD": b"",
@@ -122,6 +132,7 @@ def _minimal_wheel() -> dict[str, bytes]:
 
 def _minimal_sdist() -> dict[str, bytes]:
     return _minimal_static("src/nikodym/ui/static") | {
+        _SEMANTICS_IN_SDIST: _SEMANTICS_BYTES,
         "PKG-INFO": _metadata(),
         "pyproject.toml": b"[build-system]",
         "LICENSE": _LICENSE_BYTES,
@@ -824,3 +835,42 @@ def test_policy_rechaza_schema_estructura_y_tipos(tmp_path: Path, mutate: object
     files = _minimal_wheel()
     with pytest.raises(DistributionContentError, match="Política inválida"):
         _validate(tmp_path, _wheel(tmp_path, files), files, "wheel", custom)
+
+
+# ── Anclaje de la semántica canónica (enmienda B2.2, E-B2.2-6) ──────────────────────────────────
+
+
+def test_checker_usa_la_semantica_del_paquete_sin_copia_propia() -> None:
+    """El script NO conserva su propia implementación: usa la que se distribuye.
+
+    Identidad de objeto, no igualdad de texto: dos copias con el mismo contenido hoy divergen
+    mañana, y esa deriva silenciosa sobre un control de seguridad es justo lo que B2.1 pagó tres
+    veces.
+    """
+    from nikodym.ui import _static_index
+
+    assert _MODULE.resolve_local_resources is _static_index.resolve_local_resources
+    assert _MODULE.UiStaticIndexError is _static_index.UiStaticIndexError
+    assert not hasattr(_MODULE, "_IndexResources")
+    assert not hasattr(_MODULE, "_local_resource_path")
+
+
+@pytest.mark.parametrize("kind", ["wheel", "sdist"])
+def test_candidate_sin_semantica_canonica_falla(tmp_path: Path, kind: str) -> None:
+    """Un candidate que no distribuye el módulo dejaría al launcher sin preflight."""
+    files = _minimal_wheel() if kind == "wheel" else _minimal_sdist()
+    del files[_SEMANTICS_IN_WHEEL if kind == "wheel" else _SEMANTICS_IN_SDIST]
+    artifact = _wheel(tmp_path, files) if kind == "wheel" else _sdist(tmp_path, files)
+    with pytest.raises(DistributionContentError, match="Semántica canónica ausente"):
+        _validate(tmp_path, artifact, files, kind)
+
+
+@pytest.mark.parametrize("kind", ["wheel", "sdist"])
+def test_candidate_con_semantica_divergente_falla(tmp_path: Path, kind: str) -> None:
+    """Auditar con reglas distintas de las que viajan al usuario es un gate que miente."""
+    name = _SEMANTICS_IN_WHEEL if kind == "wheel" else _SEMANTICS_IN_SDIST
+    files = _minimal_wheel() if kind == "wheel" else _minimal_sdist()
+    files[name] = _SEMANTICS_BYTES + b"\n# divergencia introducida por el candidate\n"
+    artifact = _wheel(tmp_path, files) if kind == "wheel" else _sdist(tmp_path, files)
+    with pytest.raises(DistributionContentError, match="Semántica canónica divergente"):
+        _validate(tmp_path, artifact, files, kind)

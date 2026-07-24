@@ -18,6 +18,7 @@
       "*.dist-info/METADATA",
       "*.dist-info/WHEEL",
       "*.dist-info/RECORD",
+      "*.dist-info/entry_points.txt",
       "*.dist-info/licenses/LICENSE"
     ],
     "required": [

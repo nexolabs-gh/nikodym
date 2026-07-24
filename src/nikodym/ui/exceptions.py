@@ -16,6 +16,7 @@ __all__ = [
     "UiError",
     "UiRunNotFoundError",
     "UiSerializationError",
+    "UiStaticIndexError",
 ]
 
 
@@ -37,3 +38,11 @@ class UiSerializationError(UiError):
 
 class UiDependencyError(UiError):
     """Falta el extra ``[ui]`` (fastapi/uvicorn); el mensaje pide ``instale nikodym[ui]``."""
+
+
+class UiStaticIndexError(UiError):
+    """El ``index.html`` de la SPA referencia un recurso externo, inseguro o fuera de ``static/``.
+
+    La levanta la semántica canónica de :mod:`nikodym.ui._static_index`, compartida por el gate de
+    distribución y por el preflight del launcher.
+    """
