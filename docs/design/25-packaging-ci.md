@@ -3,10 +3,12 @@
 > **Reapertura B2.0 — APROBADA (2026-07-23).** La fundación Python de este SDD está implementada;
 > el contrato de distribución de la UI quedó aprobado. B2.1 —assets, procedencia, licencias/notices y
 > allowlist de artefactos— quedó **cerrado el 2026-07-24** tras tres ciclos de revisión adversarial;
-> launcher y gates B2.2–B2.5 siguen pendientes; **B2.2 quedó habilitado el 2026-07-24** por la
-> enmienda aprobada [`_ENMIENDA-B2.2.md`](_ENMIENDA-B2.2.md), que es su fuente de verdad y toca este
-> SDD en §5 (`[project.scripts]`), §6 (allowlist: `entry_points.txt` en `allowed` **y** `required`,
-> con placeholder `{dist_info}`) y en el orden de pasos del job `build` en CI.
+> **B2.2 —launcher, runtime y seguridad— quedó cerrado el mismo 2026-07-24**, con los 16 jobs del CI
+> verdes, bajo la enmienda aprobada [`_ENMIENDA-B2.2.md`](_ENMIENDA-B2.2.md); sus decisiones están
+> **consolidadas en este SDD** —§5 (`[project.scripts]`), §6 (allowlist: `entry_points.txt` en
+> `allowed` **y** `required`, con placeholder `{dist_info}`) y §6.2 (alcance del preflight y el
+> `uv sync` previo al checker en el job `build`)—, de modo que la enmienda queda como registro
+> histórico y no como contrato paralelo. Los gates B2.3–B2.5 siguen pendientes.
 > La medición clean-room de los
 > artefactos oficiales PyPI `1.5.0` fijó esta línea base:
 >
@@ -20,7 +22,8 @@
 >
 > Los hashes se contrastaron con el JSON oficial de PyPI. La medición se realizó fuera del checkout;
 > su ruta temporal no forma parte de este contrato. B2.0 aprobó el DAG y habilitó solo B2.1; durante
-> esta revisión B2.1 no está cerrado y B2.2 todavía no está habilitado.
+> aquella revisión B2.1 no estaba cerrado y B2.2 todavía no estaba habilitado; ambos lo están desde el
+> 2026-07-24.
 >
 > **Registro de revisión B2.0:** base
 > `dd89f7d35cefb0aebb4ec2055c4ca81c171dd59e`; revisión adversarial final **sin P0/P1/P2** y
@@ -33,7 +36,7 @@
 | **Módulo** | Infraestructura de proyecto (`pyproject.toml`, `uv.lock`, `.github/`). No es un paquete de `src/nikodym/`. |
 | **Fase** | F0 |
 | **Tanda de producción** | T1 (Fundación) |
-| **Estado** | 🟡 Fundación implementada; gates B2.1 cerrados (2026-07-24); B2.2–B2.5 pendientes |
+| **Estado** | 🟡 Fundación implementada; gates B2.1 y B2.2 cerrados (2026-07-24); B2.3–B2.5 pendientes |
 | **Depende de** | — (no depende de ningún módulo `nikodym`; define el contenedor del que todos dependen) |
 | **Lo consumen** | Todos los SDD (cada dominio declara su extra y sus deps aquí); en especial SDD-01 (`uv_lock_hash` del `LineageBundle`), SDD-24 (CI de tests), SDD-05 (extra `[sweep]`), SDD-12/13/14/18/20/23/26 (extras de dominio). |
 | **Autor / Fecha** | DanIA (fan-out Tanda 1) / 2026-06-23 · rev. **Tanda 1 Rev** 2026-06-24 |
@@ -221,7 +224,11 @@ m.fit(X, y)                          # MissingDependencyError con la instrucció
   aplican la allowlist ejecutable de §6. El frontend fija `.node-version=22.22.2`,
   `web/package.json#packageManager="pnpm@11.15.0"`, instalación frozen y tooling de build bajo
   `devDependencies`.
-- **B2.2 pendiente:** `[project.scripts]`: `nikodym-ui = "nikodym.ui.__main__:main"`.
+- **B2.2 implementado (2026-07-24):** `[project.scripts]`: `nikodym-ui = "nikodym.ui.__main__:main"`
+  — el primer console script del paquete. Consecuencia para el CI, que no es cosmética: probar
+  `main()` in-process no dice nada sobre el ejecutable que genera `pip install`, así que el paso de
+  smoke pip ejercita `./.venv-pip/bin/nikodym-ui --help` y un arranque `--no-open` sobre el wheel
+  realmente instalado.
 - **B2.3 pendiente:** `[project.optional-dependencies].ui` compondrá
   `nikodym[scoring,excel,docx]` y conservará FastAPI/Uvicorn/python-multipart, sin duplicar
   distribuciones.
@@ -264,7 +271,23 @@ SDD-25 no procesa datos de negocio; sus "datos" son artefactos de build y CI.
 `scripts/distribution_contents_allowlist.json` (con `schema_version`, patrones permitidos y entradas
 obligatorias separadas para wheel/sdist) y `scripts/check_distribution_contents.py`. El script abre
 ZIP/TAR, rechaza toda ruta que no esté allowlisted y, en la fase B2.1, exige index, notices y recursos
-locales completos. B2.2 ampliará la lista `required` declarativa con console script y `__main__`.
+locales completos. **B2.2 amplió la lista `required` del wheel** con `nikodym/ui/__main__.py` y
+`{dist_info}/entry_points.txt`, con dos precisiones sin las cuales el gate falla el día que se añade
+`[project.scripts]`:
+
+- **`allowed` también cambia.** `validate_content` aplica la allowlist a **todos** los archivos del
+  wheel, y los únicos `*.dist-info/*` permitidos eran `METADATA`, `WHEEL`, `RECORD` y
+  `licenses/LICENSE`: sin `*.dist-info/entry_points.txt` en `allowed`, el candidate se rechaza por
+  «ruta fuera de allowlist» aunque el archivo esté en `required`.
+- **El placeholder se resuelve tarde.** Como el nombre del dist-info depende de la versión, la entrada
+  obligatoria se declara `{dist_info}/entry_points.txt`, pero `_policy_section` valida al **cargar la
+  política** que cada `required` case con algún `allowed`, sobre cadenas **sin resolver**; la
+  resolución ocurre después, en `validate_content`. El patrón de `allowed` debe casar la forma sin
+  resolver.
+
+El checker no se conforma con que el archivo exista: **parsea** `entry_points.txt` y exige la entrada
+`nikodym-ui = nikodym.ui.__main__:main` en el grupo `console_scripts`. Un archivo presente y vacío es
+exactamente el fallo que este gate debe cazar.
 El checker exige exactamente un wheel universal `py3-none-any` sin build tag y un sdist de la misma
 versión; valida la identidad de sus basenames/metadata y los documentos raíz obligatorios del sdist.
 Parsea el index del archivo con atributos únicos: cada referencia automática
@@ -465,6 +488,52 @@ La defensa real no es sólo este gate: el bundle nace de fuentes versionadas en 
 liga cada output por hash, el CI reconstruye y exige reproducibilidad byte a byte, y la revisión de
 código sobre `web/` sigue siendo la primera barrera. El gate es la red que atrapa lo que se cuele por
 una dependencia, no un sustituto de esas capas.
+
+**L6 — El gate no mira dentro del JS (añadido en B2.2).** Los cinco límites anteriores describen el
+análisis de HTML; el análisis de cadenas *dentro* del JS emitido no existía, y por eso el literal
+`http://localhost:8000` viajó en el bundle distribuido durante todo B2.1 sin que nada lo viera. B2.2
+añade al mismo script `assertNoEmbeddedBackendOrigin`, que falla si cualquier asset distribuido
+contiene un origen absoluto a `localhost`/`127.0.0.1`/`[::1]`. Es una comprobación **puntual y
+literal**, no un analizador: cubre esa clase concreta, no cadenas construidas por concatenación en
+tiempo de ejecución.
+
+### 6.2 Alcance del preflight del index: una sola semántica canónica, distribuida
+
+La semántica que resuelve los recursos del index (`_IndexResources`, `_fully_unquote`,
+`_local_resource_path`) nació dentro de `scripts/check_distribution_contents.py`, y **`scripts/` no
+viaja en el wheel**. El launcher corre en la instalación del usuario, donde ese archivo no existe, así
+que necesitaba la misma semántica: copiarla habría creado **dos fuentes de verdad sobre un gate de
+seguridad**, que es justo la deriva silenciosa que costó tres ciclos de revisión en B2.1.
+
+**Decisión (B2.2).** La semántica canónica vive en un módulo **distribuido**,
+`nikodym/ui/_static_index.py`, y el checker la importa. Reglas del contrato:
+
+- El script **no conserva copia**, y un test lo afirma por **identidad de objeto**, no por igualdad de
+  texto: dos implementaciones idénticas hoy divergen mañana.
+- **El checker importa del árbol fuente sincronizado, NUNCA del candidate.** Instalar el wheel y
+  auditarlo con su propio código sería exactamente el modo en que un artefacto mutado se aprueba a sí
+  mismo; queda prohibido por contrato.
+- **El anclaje es por sha256 del módulo, no por versión.** El checker compara el sha256 de
+  `_static_index.py` dentro del candidate (`nikodym/ui/…` en el wheel, `src/nikodym/ui/…` en el sdist)
+  contra los bytes del módulo importado. Comparar `__version__` sería a la vez insuficiente —permanece
+  fija durante decenas de commits, así que un módulo divergente pasaría— y redundante, porque bytes
+  idénticos ya implican semántica idéntica. La coherencia de versión entre wheel y sdist la cubre
+  `validate_candidate_set`.
+- Lo compartido es **puro**: parseo del index y resolución de cada referencia a una ruta relativa bajo
+  `static/`. Lo que difiere es el **sustrato** de existencia, y se inyecta: el checker lo resuelve
+  contra los miembros del ZIP/TAR; el launcher, contra el filesystem, donde además exige archivo
+  **regular** y que tras `Path.resolve()` la ruta siga dentro de `static_dir` — un symlink que escapa
+  no existe en un ZIP pero sí en disco.
+- El preflight falla con la **lista completa** de rutas faltantes o inválidas, no con la primera, y
+  falla **antes de bindear**: un backend a medias que parezca una UI sana es un fallo, no una
+  degradación aceptable.
+
+**Consecuencia para el CI, encontrada por la revisión adversarial del diseño.** El job `build` invoca
+el checker con `uv run --no-sync` *antes* de su primer `uv sync`. Mientras el script fue sólo stdlib
+eso no importaba; con esta decisión el `import` muere con `ModuleNotFoundError` antes de validar un
+byte. Por eso `.github/workflows/ci.yml` gana un `uv sync --locked --python 3.12 --no-default-groups`
+previo al primer checker. **Un paso de CI hay que ejecutarlo, no leerlo**: el bloque nuevo se extrajo
+del YAML y se corrió sustituyendo sólo la ruta del venv, y falló a la primera.
 
 ---
 

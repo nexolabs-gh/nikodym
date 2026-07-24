@@ -21,7 +21,7 @@ El estado y el plan de esta sección son la fuente vigente.
 | F3/F8 · CMF, método interno y orquestación | Implementado, **experimental** | Validación humana de matrices/haircuts pendiente |
 | F4 · IFRS 9/ECL | Implementado, **experimental** | Independiente del máximo B-1 chileno |
 | F5/F6 · forward, survival, Markov, stress y validación | Implementado, **experimental** | Uso por config Python; sin preset/UI propios |
-| F7 · UI React/FastAPI e informe | **No entregada como producto** | B2.1 cerrado (assets, supply-chain y licencias); B2.2 pendiente y no habilitado. `1.5.0` no trae launcher/assets y `[ui]` no cierra sus presets |
+| F7 · UI React/FastAPI e informe | **No entregada como producto** | B2.1 y B2.2 cerrados (assets, supply-chain, licencias; launcher, runtime y seguridad) en `main`. `1.5.0` —lo publicado— sigue sin launcher/assets, y `[ui]` no cierra sus presets hasta B2.3 |
 | Originación/reject inference | Futuro | Requiere caso de uso, priorización y SDD |
 
 ## Plan operativo vigente (desde 2026-07-21)
@@ -84,12 +84,18 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 
 ### B2 · La UI instalable y usable  ← *requisito de producto*
 
-**Estado: B2 total ABIERTO; B2.0 CERRADO; B2.1 CERRADO (2026-07-24); B2.2 IMPLEMENTADO el 2026-07-24
-y PENDIENTE DE CI.** B2.2 se programó tras aprobar su enmienda
+**Estado: B2 total ABIERTO; B2.0 CERRADO; B2.1 CERRADO (2026-07-24); B2.2 CERRADO (2026-07-24).**
+B2.2 se programó tras aprobar su enmienda
 ([`design/_ENMIENDA-B2.2.md`](design/_ENMIENDA-B2.2.md), fuente de verdad del nodo) y pasó dos rondas
-de revisión adversarial fresca —una sobre el diseño y otra sobre el código—. **No se declara cerrado
-hasta que los 16 jobs estén verdes**: los commits `c96e87d`…`49f067b` no se han contrastado aún
-contra la matriz Windows/macOS, y B2.1 necesitó dos correcciones que sólo aparecieron ahí. La
+de revisión adversarial fresca —una sobre el diseño y otra sobre el código—. El cierre se declara
+sobre `1f9b027` con los **16 jobs del CI verdes** (run `30126576076`), tras verificar además el wheel
+instalado en un venv limpio y el console script arrancado.
+**Límite medido del cierre (L-B2.2-CI):** `tests/unit/test_ui_launcher.py` se **skipea en los 9 jobs de
+matriz** Windows/macOS/Linux, porque `fastapi` sólo entra con `--extra ui` y la matriz instala
+`--extra scoring`. Toda la evidencia de ejecución del launcher sale por tanto de un **único job
+Linux** (`Tests all extras`) más la verificación local en macOS; el verde de Windows prueba que el
+paquete importa y que la suite general pasa, **no** que el launcher arranque ahí. Cerrar esa brecha
+es trabajo de B2.4 (clean-room), donde el recorrido se ejecuta desde el wheel. La
 medición
 clean-room y la reapertura de SDD-23/25 se cerraron el 2026-07-23 sobre
 `dd89f7d35cefb0aebb4ec2055c4ca81c171dd59e`, con revisión adversarial final sin P0/P1/P2 y
@@ -459,9 +465,10 @@ outputs contractuales, regulatorios ni de modelado; `reliability.py` es la únic
 determinista de presentación (read-only, trazada y fuera de modelo/ModelCard/informe).
 **Dos modos de despliegue.**
 - **Local (analista):** `pip install nikodym[ui]` debe traer el React buildeado y levantar FastAPI
-  en loopback; los datos no salen de su máquina. 🔴 **PROMESA INCUMPLIDA EN `1.5.0`** — faltan
-  launcher/assets y el extra no cierra los presets visibles. B2.1 ya versiona y gatea los assets
-  normales en `main`; hasta completar B2.2–B2.5, publicar y repetir el recorrido desde PyPI, F7 no
+  en loopback; los datos no salen de su máquina. 🔴 **PROMESA INCUMPLIDA EN `1.5.0`** — lo publicado
+  no trae launcher/assets y el extra no cierra los presets visibles. En `main`, B2.1 ya versiona y
+  gatea los assets y B2.2 añade el launcher `nikodym-ui` con su runtime y seguridad; falta que B2.3
+  complete `[ui]`. Hasta completar B2.3–B2.5, publicar y repetir el recorrido desde PyPI, F7 no
   está entregado.
 - **Hosteada (comercial):** `nikodym.cl/demo`, dataset **sintético** precargado, flujo guiado "arma tu modelito en pocos pasos" + CTA de lead comercial.
 **DoD.** Un modelo F1 completo construible 100 % desde la UI: igualdad estructural +

@@ -56,7 +56,7 @@ RiskLib. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) y cubre un mód
 | **20** | `forward` (macro ARIMA/VAR, satellite, escenarios) | Forward | F5 | T5 | 18, 19 | ✅ Implementado · experimental |
 | **21** | `stress` (stress testing, sensibilidad) | Forward | F5 | T5 | 20 | ✅ Implementado · experimental |
 | **22** | `validation` | Validación | F6 | T6 | 11, 16 | ✅ Implementado · experimental |
-| **23** | `ui` (React/Vite + FastAPI, editor de config) | Producto | F7 | T6 | 05, 01, 03, 26, todos | ✅ Contrato B2.0 aprobado para B2.1 · backend/front implementados; distribución pendiente |
+| **23** | `ui` (React/Vite + FastAPI, editor de config) | Producto | F7 | T6 | 05, 01, 03, 26, todos | ✅ Backend/front implementados · distribución en curso: B2.1 y B2.2 cerrados (assets, launcher, runtime y seguridad); falta B2.3–B2.5 |
 | **26** | `report` (HTML/PDF/Word, fuente editable, capa IA opcional) | Reporte | F1 | T2 | 01 | ✅ Implementado |
 | **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Implementado · estable F1 |
 | **28** | `provisioning/internal` + regla del máximo (dataset → preset → UI → informe) | Producto | F8 | T7 | 08, 10, 15, 17, 23, 26 | ✅ Implementado · experimental |
@@ -81,8 +81,14 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > solo reconcilia), cierre Python permisivo base + `[all]` con `[pdf]` separado, veto trazado de
 > fixtures demo, upload raw agnóstico y preflight/indexación en la extensión pública de
 > `nikodym.run`, token efímero no cacheable y gates F1/F3/F4. F7 permanece no entregado hasta
-> publicar y repetir el recorrido desde PyPI. B2.1 está habilitado, pero su implementación sigue
-> pendiente: aprobación de diseño no equivale a distribución.
+> publicar y repetir el recorrido desde PyPI.
+>
+> **Avance de la distribución (2026-07-24).** **B2.1 CERRADO** (assets versionados, supply-chain y
+> licencias) y **B2.2 CERRADO** (launcher `nikodym-ui`, runtime y seguridad local), este último bajo
+> la enmienda [`_ENMIENDA-B2.2.md`](_ENMIENDA-B2.2.md), aprobada por Cami, con dos rondas de revisión
+> adversarial y los 16 jobs del CI verdes. Sigue **B2.3** (`[ui]`, uploads y presets), que exige su
+> propia enmienda antes de programarse. Aprobación de diseño no equivale a distribución, y
+> distribución en `main` no equivale a producto publicado: `1.5.0` sigue sin launcher ni assets.
 >
 > **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7)
 > y el SDD pasó al stack React/Vite sobre FastAPI. La implementación histórica del backend/front no
