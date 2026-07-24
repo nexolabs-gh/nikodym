@@ -759,7 +759,12 @@ def test_declaracion_exige_evidencia_hasheada_y_de_la_misma_distribucion(tmp_pat
     [
         ("runtime_license_metadata/ausente.metadata", None, "ilegible"),
         ("../fuera.metadata", None, "insegura"),
-        ("/etc/passwd", None, "insegura"),
+        # POSIX la ve absoluta ("insegura"); Windows no la considera absoluta —le falta
+        # la letra de unidad— y la rechaza un paso después, por quedar fuera del
+        # directorio de evidencia. Las dos ramas son rechazos correctos, así que el test
+        # fija el rechazo y acepta cualquiera de los dos motivos en vez de atarse al
+        # mensaje de una sola plataforma.
+        ("/etc/passwd", None, r"insegura|fuera de runtime_license_metadata"),
         ("otro_directorio/x.metadata", None, "fuera de runtime_license_metadata"),
         (None, "no-es-un-hash", "SHA-256 de evidencia inválido"),
         (None, "0" * 64, "no coincide con su hash"),

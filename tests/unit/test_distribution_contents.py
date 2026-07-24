@@ -83,8 +83,26 @@ def _wheel(
     path = tmp_path / name
     with zipfile.ZipFile(path, "w") as archive:
         for filename, content in materialized.items():
-            archive.writestr(filename, content)
+            archive.writestr(_entry(filename), content)
     return path
+
+
+def _entry(raw_name: str) -> zipfile.ZipInfo | str:
+    """Entrada de ZIP cuyo nombre crudo sobrevive intacto en cualquier plataforma.
+
+    ``ZipInfo.__init__`` pasa el nombre por ``zipfile._sanitize_filename``, que hace
+    ``filename.replace(os.sep, "/")``: en Windows un ``directory\\entry`` se graba como
+    ``directory/entry`` —canónico— y el caso de ataque desaparece antes de llegar al
+    checker. Pero un wheel hostil SÍ puede traer backslashes en sus entradas, porque el
+    formato ZIP no los normaliza al leer, y ``_safe_name`` los rechaza precisamente por
+    eso. Sin este rodeo el test pasaba en Linux y en Windows validaba otra cosa. Sólo se
+    aplica a los nombres afectados, para no alterar la construcción del resto.
+    """
+    if "\\" not in raw_name:
+        return raw_name
+    info = zipfile.ZipInfo("placeholder")
+    info.filename = raw_name
+    return info
 
 
 def _record_bytes(files: dict[str, bytes], record_name: str) -> bytes:
