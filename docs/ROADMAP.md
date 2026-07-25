@@ -259,6 +259,12 @@ reescribir el texto, porque cambió el hecho.
   pública `docs_site/index.md`, el `README.md`, y `web/src/components/landing-evidence.ts` —que
   además viaja al bundle distribuido y a la demo, así que exige recaptura y verificación del
   artefacto final, no sólo del fuente.
+- **Estado del texto al 2026-07-25.** Las salvedades que rodean a la frase se reescribieron para
+  sacarles los códigos internos (`docs_site/index.md` y `landing-evidence.ts`, con el bundle
+  versionado rebuildeado). **La frase de «asistencia de IA» sigue intacta y así debe quedarse**
+  hasta que la validación humana ocurra. Al cerrar B5 hay que revisar las dos frases juntas: la de
+  procedencia y la de las dos tablas faltantes, que hoy dicen que el manifiesto las declara
+  faltantes en vez de rellenarlas.
 
 ### B6 · Workspace de evidencia de corridas v1
 
