@@ -36,10 +36,18 @@
 > su política de resolución y se contradicen entre motores**. Siete decisiones (CRP-1…CRP-7); EAD entra
 > al contrato distinguiendo **resolutor** de **consumidor**.
 >
-> **Orden de trabajo vigente: B3.a-1 → contrato de parámetros → B3.a-2.** De los 15 puntos de
-> chilenidad del código, sólo **cuatro** —la llave de segmentación: `governance/config.py:27`, las 6
-> carteras de `cmf/engine.py:96-103`, el default de `internal/config.py:119` y el crosswalk— bloquean
-> el contrato. Los otros once son contenido normativo del motor CMF **y ahí ser chileno es correcto**:
-> ese motor *es* el método estándar chileno; se abstraen con la jurisdicción nueva (B3.b).
+> **B3.a-1 CERRADO el 2026-07-25** (`main` = `1bbf737`, CI verde). Ojo: su premisa original era
+> **falsa** y el censo lo demostró — el `Literal` de `governance/config.py:27` no era la llave de
+> segmentación de ningún cálculo, y la llave real (`portfolio_col`) ya era `str` libre en los tres
+> motores. El bloqueo verdadero era que **nadie declaraba el dominio de valores del segmento**.
+> Se reformuló y se implementó como
+> [`docs/design/_ENMIENDA-SEGMENTACION.md`](docs/design/_ENMIENDA-SEGMENTACION.md) (D-SEG-1…D-SEG-11):
+> esquema de segmentación declarado (normativo / institucional / derivado del dato), que **viaja en
+> el resultado** de los tres motores, y régimen garantizado por un **registro régimen→motor con test
+> de cobertura** —no por el sistema de tipos, que no puede: ampliar un `Literal` compila igual sin
+> motor detrás—. **Siguiente nodo: el contrato de resolución de parámetros.**
+>
+> Lección de método que vale para todo ítem de roadmap: tres de los cuatro puntos que el plan daba
+> por bloqueantes eran nomenclatura. **Medir contra el código antes de planificar.**
 >
 > **Auto-desarrollo: SOLO cuando Cami lo pida explícitamente** (skill `/auto-desarrollo-claude`). En trabajo normal, usar workflows y subagentes con normalidad, sin pedir permiso cada vez — ver `AGENTS.md` §Auto-desarrollo. La maquinaria tmux/Codex multi-motor está FROZEN (histórica).
