@@ -18,10 +18,12 @@ stress testing. Paquete: `nikodym`.
 !!! warning "Antes de usarlo en producción"
     **Los parámetros normativos CMF no son oficiales**: se transcribieron del compendio con
     asistencia de IA y verificación visual, no provienen de la CMF ni están validados por ella, y
-    **requieren validación humana contra la norma vigente antes de cualquier uso productivo** (quedan
-    dos brechas `FALTA-DATO` declaradas: aforos/*haircuts* de garantías financieras y las tablas del
-    RAN 21-10). Además, **la EAD de IFRS 9 se despliega constante en el tiempo** —el panel
-    longitudinal está diferido— y el motor lo publica en cada fila con el código `FALTA-DATO-IFRS-4`.
+    **requieren validación humana contra la norma vigente antes de cualquier uso productivo**.
+    Faltan además dos tablas: los aforos y *haircuts* de garantías financieras, y las del RAN 21-10
+    — el manifiesto de parámetros las declara faltantes en vez de rellenarlas con un valor
+    inventado. Y **la curva lifetime de IFRS 9 asume exposición constante por período**: no modela
+    la amortización del crédito en el tiempo. El resultado lo deja anotado en cada fila, para que
+    nadie lo descubra tarde.
 
 ## Principios
 
