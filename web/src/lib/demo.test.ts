@@ -28,8 +28,11 @@ const F3_ID = "f3-provisiones-consumo"
 const F4_ID = "f4-ifrs9-retail"
 // Recalculado en 1.4.0: `data.load.source` (la ruta del dataset en disco) dejó de entrar al
 // `config_hash`, que ahora identifica sólo el contenido lógico del config.
+// Recalculado otra vez en 1.6.0: la sección `provisioning_ifrs9` ganó `portfolio_scheme`
+// (D-SEG-3), y esa sección sí entra al hash. El mismo valor está fijado del lado Python en
+// `tests/unit/test_ui_presets.py`; si los dos lados se separan, la identidad UI↔código se rompe.
 const F4_CONFIG_HASH =
-  "cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4"
+  "92163dd24fced5a0dd0a8c4ae971481502f3a396b9014eafb3205f78c7491660"
 
 beforeEach(() => {
   // Cada test arranca con el preset activo en su default (F3): el estado de módulo no se filtra.
