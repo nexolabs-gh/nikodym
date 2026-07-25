@@ -51,6 +51,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias, cast
 from nikodym.core.audit import AuditEvent
 from nikodym.core.config import NikodymBaseConfig
 from nikodym.core.exceptions import MissingDependencyError
+from nikodym.core.markers import INSTITUTIONAL_MARKER, is_declared_warning
 from nikodym.provisioning.internal.config import InternalProvisioningConfig
 from nikodym.provisioning.internal.exceptions import (
     InternalCalculationError,
@@ -86,7 +87,7 @@ _ONE = Decimal("1")
 # cartera bancaria en CLP roza los 12 dígitos enteros. 50 dígitos dejan margen de sobra bajo el
 # redondeo contable final, y fijarla explícitamente hace la corrida reproducible entre máquinas.
 _PRECISION = 50
-_INSTITUTIONAL_DATUM = "DATO-INSTITUCIONAL"
+_INSTITUTIONAL_DATUM = INSTITUTIONAL_MARKER
 _BANDAS_COLAPSADAS = "BANDAS-COLAPSADAS"
 _GRUPO_SIN_EXPOSICION = "GRUPO-SIN-EXPOSICION"
 _PD_LGD = "pd_lgd"
@@ -780,7 +781,11 @@ def _card(
         n_rows=len(rows),
         total_exposure=total_exposure,
         total_internal_provision=total_provision,
-        falta_dato=tuple(row.row_id for row in rows if _INSTITUTIONAL_DATUM in row.warnings),
+        falta_dato=tuple(
+            row.row_id
+            for row in rows
+            if any(is_declared_warning(warning) for warning in row.warnings)
+        ),
         metric_sections={
             "provisioning_internal": {
                 "norma": (

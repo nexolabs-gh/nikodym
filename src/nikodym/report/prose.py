@@ -1351,20 +1351,27 @@ _PROVISION_WARNINGS: Final[dict[str, str]] = {
 
 
 def _provision_warning_descriptions(warnings: tuple[str, ...]) -> tuple[str, ...]:
-    """Normaliza códigos y mensajes de cobertura sin duplicar aliases legacy."""
+    """Normaliza códigos y mensajes de cobertura sin duplicar aliases legacy.
+
+    Reconoce el código por su **sufijo de familia** (``-prov-1``, ``-prov-3``) y no por la marca que
+    lo precede: así cubre las dos clases de aviso declarado y también un resultado guardado con la
+    marca anterior. Y lo que no reconoce cae al código crudo en vez de descartarse —igual que
+    ``_IFRS9_WARNING_LABELS``—, porque `renderer.py` ya retira ``warning_codes`` de las tablas: un
+    aviso que esta función descarte no aparece en ninguna otra parte del informe.
+    """
     descriptions: list[str] = []
     for warning in warnings:
         description = _PROVISION_WARNINGS.get(warning)
         folded = warning.casefold()
-        if description is None and (
-            "dato-institucional-prov-3" in folded or "comparación incompleta" in folded
-        ):
+        if description is None and ("-prov-3" in folded or "comparación incompleta" in folded):
             description = _PROVISION_WARNINGS["comparacion_incompleta"]
         elif description is None and ("imputó 0" in folded or "imputada" in folded):
             description = _PROVISION_WARNINGS["cobertura_imputada_cero"]
-        elif description is None and "dato-institucional-prov-1" in folded:
+        elif description is None and "-prov-1" in folded:
             description = "algunas celdas no tenían contraparte y quedaron fuera del comparativo"
-        if description is not None and description not in descriptions:
+        elif description is None:
+            description = warning
+        if description not in descriptions:
             descriptions.append(description)
     return tuple(descriptions)
 
