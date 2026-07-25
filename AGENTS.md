@@ -84,6 +84,14 @@ ya se completaron; sus decisiones siguen vigentes en `docs/design/`.
   personalizado para una institución, features a medida y servicios adyacentes (p. ej. automatizar en
   Python lo que el cliente hace en Excel). La librería abre la conversación; el trabajo pagado puede
   ser otra cosa.
+- **Dos marcas de aviso declarado (2026-07-25).** `FALTA-DATO` = *lo debe Nikodym* (brecha del motor:
+  algo que no trae, difirió o no verificó contra la fuente oficial). `DATO-INSTITUCIONAL` = *lo debe la
+  institución* (parámetro, definición o dato de entrada que sólo ella puede fijar; el motor **se negó a
+  inventarlo**). Ambas viven en `src/nikodym/core/markers.py`; los filtros consumen
+  `is_declared_warning()`, **nunca** el literal —un filtro que sólo conozca una marca descarta la otra
+  en silencio—. Regla de clasificación de todo código nuevo: una capacidad **diferida** es del motor
+  aunque el parámetro lo escriba el usuario. Y los códigos internos **no van al copy público**: en la
+  landing y el README la limitación se explica en el idioma del lector, sin nombrar el código.
 - **«Instalable y usable» es requisito de entrega.** Una capacidad que el usuario de `pip install` no
   puede alcanzar cuenta como no entregada, por más tests que tenga. Ver
   [[feature-gateada-por-config-es-feature-inexistente]] y el bloque B2 del ROADMAP.
