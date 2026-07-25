@@ -155,17 +155,16 @@ El motor las publica de sí mismo —cada fila afectada emite su código de avis
 aquí se dicen igual de claro.
 
 > **Las dos marcas, y por qué son dos.** Cuando un número no sale de un dato real, el resultado lo
-> dice con una de dos marcas, y la diferencia importa:
+> dice con una de dos marcas, y la diferencia importa: una señala **una brecha nuestra** —algo que la
+> librería todavía no trae, difirió, o no verificó contra la fuente oficial— y la otra, **un dato que
+> sólo tu institución puede fijar**: los shocks macro de tu ejercicio de stress, tu taxonomía de
+> estados, tu definición operacional de default. En el segundo caso la marca no confiesa una carencia:
+> deja constancia de que el motor **se negó a inventar** un supuesto que no le corresponde. Un número
+> que la librería no puede justificar no se rellena con un default cómodo.
 >
-> - **`FALTA-DATO` — lo debe Nikodym.** Una brecha del motor: algo que la librería todavía no trae,
->   difirió, o no verificó contra la fuente oficial. Son pocas y son las que enumera esta sección.
-> - **`DATO-INSTITUCIONAL` — lo debe tu institución.** Los shocks macro de tu ejercicio de stress, tu
->   taxonomía de estados, tu definición operacional de default. Ahí el código no confiesa una
->   carencia: deja constancia de que el motor **se negó a inventar** un supuesto que no le
->   corresponde. Un número que la librería no puede justificar no se rellena con un default cómodo.
->
-> Hasta la versión 1.5.0 ambas cosas compartían la marca `FALTA-DATO`, y el parámetro que le toca al
-> banco se leía como defecto nuestro.
+> Las marcas viajan en la columna `warning_codes` del resultado. El catálogo completo —qué significa
+> cada código y qué hacer con él— está en
+> [Avisos declarados](https://docs.nikodym.cl/avisos-declarados/).
 
 - **Los parámetros normativos CMF no son oficiales.** Se transcribieron del compendio y **no
   provienen de la CMF ni están validados por ella** —la Comisión no certifica implementaciones de
@@ -174,7 +173,7 @@ aquí se dicen igual de claro.
   2.346/2024) se **cotejó celda por celda contra el texto del compendio** —sus 16 valores de PI,
   sus 6 de PDI y el PI de incumplimiento coinciden exactamente— y el cotejo queda registrado en
   [`docs/normativa_cmf_parametros.md`](docs/normativa_cmf_parametros.md) §3. Quedan dos brechas
-  abiertas y declaradas (`FALTA-DATO`): aforos y *haircuts* de garantías financieras, y las tablas
+  abiertas, y el motor las declara: aforos y *haircuts* de garantías financieras, y las tablas
   del RAN 21-10.
 - **Las causales de incumplimiento que el motor no puede inferir, las declara el banco.** De las
   tres del numeral B-1 3.2, solo la mora ≥ 90 días sale de los datos; el refinanciamiento para
@@ -182,8 +181,8 @@ aquí se dicen igual de claro.
   columna `is_default`**. Sin ella, un deudor reestructurado y al día se provisiona al 6,6 % en vez
   del 100 % que exige la norma.
 - **La EAD de IFRS 9 se despliega constante en el tiempo.** El panel longitudinal está diferido; el
-  motor no lo aplana en silencio: cada fila lo declara con el código `FALTA-DATO-IFRS-4`, y el
-  config **rechaza** `exposure_profile_col` en vez de fingir que lo usa.
+  motor no lo aplana en silencio: cada fila afectada lo declara en sus avisos, y el config
+  **rechaza** `exposure_profile_col` en vez de fingir que lo usa.
 - **Experimental no es "beta marketinera"**: todo lo que no sea el pipeline de scorecard puede
   cambiar de firma dentro de la 1.x, y no está *battle-tested* en producción.
 
@@ -197,9 +196,8 @@ aquí se dicen igual de claro.
   (Circular N° 2.346) es entre el **método estándar y el método interno** del banco — *no* entre CMF
   e IFRS 9: el Compendio (Cap. A-2, num. 5) **excluye** el deterioro de NIIF 9 sobre colocaciones.
 - **Lo que falta se declara, no se disimula**: un dato ausente sale marcado en el resultado, y la
-  marca dice de quién es —`FALTA-DATO` si es una brecha nuestra, `DATO-INSTITUCIONAL` si es un
-  parámetro que sólo tu institución puede fijar—; una opción sin motor detrás se rechaza al validar
-  el config, no al final de la corrida.
+  marca dice de quién es —una brecha nuestra, o un parámetro que sólo tu institución puede fijar—;
+  una opción sin motor detrás se rechaza al validar el config, no al final de la corrida.
 
 ## Documentación
 

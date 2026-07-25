@@ -61,6 +61,7 @@ nav:
       - Modelo y calibración: guias/modelo-calibracion.md
       - Desempeño y estabilidad: guias/desempeno-estabilidad.md
   - Glosario: glosario.md
+  - Avisos declarados: avisos-declarados.md
   - Referencia de la API: api.md
   - Changelog: changelog.md
 

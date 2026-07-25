@@ -31,7 +31,17 @@ _CODIGO_INTERNO = re.compile("|".join(re.escape(m) for m in DECLARED_MARKERS))
 #: `docs_site/changelog.md` es un snippet (`--8<-- "CHANGELOG.md"`) que publica el CHANGELOG técnico
 #: entero. Ahí los códigos son legítimos y quitarlos sería el error simétrico: un changelog existe
 #: para que quien mantiene rastree qué cambió en el motor, no para vender.
-_EXENTOS = {"changelog.md"}
+#:
+#: `avisos-declarados.md` es la página de referencia del *output* del motor: documenta qué significa
+#: cada código que el usuario ve en `warning_codes` de su DataFrame. Es la misma excepción que el
+#: volcado de auditoría del anexo del informe —ahí el código **es** el dato— y la razón de que el
+#: README pueda quedar limpio: la documentación tiene dónde vivir (P1.1, 2026-07-25).
+_EXENTOS = {"changelog.md", "avisos-declarados.md"}
+
+#: El `README.md` es la portada de GitHub y de PyPI: la superficie de copy público con más lectores
+#: del proyecto, y hasta el 2026-07-25 quedaba fuera del gate porque no había dónde documentar los
+#: códigos. Con `avisos-declarados.md` publicada, ya no hay excusa y entra al barrido.
+_README = Path(__file__).resolve().parents[2] / "README.md"
 
 
 #: Espejo de las marcas en el front. El `tsconfig` de la app expone sólo `vite/client`, así que su
@@ -64,3 +74,61 @@ def test_la_documentacion_publica_no_nombra_el_codigo_interno(pagina: Path) -> N
         if _CODIGO_INTERNO.search(linea)
     ]
     assert ofensores == []
+
+
+def test_el_readme_no_nombra_el_codigo_interno() -> None:
+    """La portada de GitHub y de PyPI es la superficie de copy público con más lectores."""
+    ofensores = [
+        f"README.md:{n}: {linea.strip()}"
+        for n, linea in enumerate(_README.read_text(encoding="utf-8").splitlines(), start=1)
+        if _CODIGO_INTERNO.search(linea)
+    ]
+    assert ofensores == []
+
+
+#: Página de referencia que sostiene la exención: si el README puede quedar limpio es porque el
+#: lector tiene dónde buscar el código que ve en su `warning_codes`.
+_REFERENCIA = _DOCS_SITE / "avisos-declarados.md"
+
+#: Los códigos con familia tal como los emite el motor (`FALTA-DATO-IFRS-4`), no la marca desnuda.
+_CODIGO_CON_FAMILIA = re.compile(
+    "(?:" + "|".join(re.escape(m) for m in DECLARED_MARKERS) + r")-[A-Z]+-\d+"
+)
+
+#: Raíz del paquete. Se barren sólo los `.py`: un `rglob` sobre todo `src/` tocaría el bundle
+#: minificado de `ui/static/assets/`, que devuelve ruido y ningún código legible.
+_PAQUETE = Path(__file__).resolve().parents[2] / "src" / "nikodym"
+
+
+def _codigos_del_motor() -> set[str]:
+    return {
+        codigo
+        for modulo in _PAQUETE.rglob("*.py")
+        for codigo in _CODIGO_CON_FAMILIA.findall(modulo.read_text(encoding="utf-8"))
+    }
+
+
+def test_el_censo_del_motor_no_esta_vacio() -> None:
+    """Sin esto, un `_PAQUETE` mal apuntado dejaría el gate verde comparando conjuntos vacíos."""
+    assert len(_codigos_del_motor()) >= 20
+
+
+def test_la_pagina_de_referencia_documenta_cada_codigo_que_emite_el_motor() -> None:
+    """Un código nuevo sin fila en la tabla deja al lector sin dónde buscarlo.
+
+    Es la contrapartida de haber sacado los códigos del README: la documentación se movió, no se
+    borró, y sólo sigue siendo cierto mientras la página esté completa.
+    """
+    documentados = set(_CODIGO_CON_FAMILIA.findall(_REFERENCIA.read_text(encoding="utf-8")))
+    sin_documentar = sorted(_codigos_del_motor() - documentados)
+    assert sin_documentar == [], (
+        f"Códigos que el motor nombra y la referencia no documenta: {sin_documentar}. "
+        f"Añádelos a docs_site/{_REFERENCIA.name}."
+    )
+
+
+def test_la_pagina_de_referencia_no_inventa_codigos() -> None:
+    """El error simétrico: documentar un código que ya no existe manda al lector a buscar humo."""
+    documentados = set(_CODIGO_CON_FAMILIA.findall(_REFERENCIA.read_text(encoding="utf-8")))
+    inexistentes = sorted(documentados - _codigos_del_motor())
+    assert inexistentes == []
