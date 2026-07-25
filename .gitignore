@@ -33,6 +33,14 @@ credentials*
 *.hdf5
 *.pkl
 *.pickle
+# El catálogo de datasets externos NO es un dataset: es la documentación de con qué datos reales se
+# valida la librería, y sin esta excepción el veto de `*.csv` se lo tragaría en silencio — que es
+# exactamente el modo de fallo que motivó `tests/unit/test_gitignore.py`.
+!/docs/datasets/catalogo.csv
+# `descargar.sh` resuelve su `raw/` relativo al directorio del script. Se ejecuta desde
+# `data/externos/` (donde es un symlink), pero si alguien lo corre desde su ubicación versionada
+# bajaría gigabytes de datos a un directorio que sí se commitea. Este veto es la red.
+/docs/datasets/raw/
 # Los comprimidos se vetan SÓLO bajo `data/`: `web/src/fixtures/demo/*.zip` son fixtures de la demo
 # que sí se versionan, y un veto global los dejaría fuera en silencio en la próxima recaptura.
 /data/**/*.zip

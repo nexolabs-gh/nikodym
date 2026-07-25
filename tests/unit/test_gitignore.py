@@ -102,6 +102,36 @@ def test_los_fixtures_comprimidos_de_la_demo_siguen_versionandose() -> None:
     assert not _ignorado("web/src/fixtures/demo/report-quarto-f1.zip")
 
 
+def test_el_catalogo_de_datasets_sigue_versionandose() -> None:
+    """El catálogo documenta con qué datos reales se valida la librería; no es un dataset.
+
+    Vive en `docs/datasets/catalogo.csv` y cae de lleno bajo el veto global de `*.csv`. Sin la
+    excepción explícita, `git add` lo ignoraría sin decir nada y la documentación del requisito 2 de
+    la visión —validar contra datos externos y sucios— se perdería en silencio en el próximo clon.
+    """
+    assert not _ignorado("docs/datasets/catalogo.csv")
+
+
+@pytest.mark.parametrize("extension", ("csv", "parquet", "zip", "gz", "xlsx"))
+def test_lo_que_bajaria_el_gestor_en_su_ubicacion_versionada_esta_vetado(extension: str) -> None:
+    """`descargar.sh` resuelve `raw/` relativo al script, y vive versionado en `docs/datasets/`.
+
+    Se ejecuta desde `data/externos/`, donde es un symlink; pero basta que alguien lo invoque desde
+    su ubicación real para que gigabytes de datos externos aterricen en un directorio que sí se
+    commitea, en un repo público.
+    """
+    assert _ignorado(f"docs/datasets/raw/scorecard/cartera.{extension}")
+
+
+def test_un_dataset_junto_al_catalogo_sigue_vetado() -> None:
+    """El error simétrico de la excepción anterior: reincluir la carpeta entera, no un archivo.
+
+    La excepción es de un único fichero por su ruta completa. Si alguien la relajara a
+    `!/docs/datasets/`, cualquier dato que aterrizara ahí entraría al repo público.
+    """
+    assert _ignorado("docs/datasets/cartera.csv")
+
+
 def test_ningun_patron_lleva_el_comentario_en_su_propia_linea() -> None:
     """El defecto de raíz, cazado en la forma y no sólo en el efecto.
 
