@@ -340,26 +340,28 @@ function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
                 "focus-visible:border-brand-accent-dark focus-visible:ring-3 focus-visible:ring-brand-accent-dark/40",
               )}
             >
-              <div className="flex items-start justify-between gap-2">
-                <span className="font-display font-bold leading-snug text-foreground">
-                  {title}
-                </span>
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full border px-2 py-0.5 text-[0.62rem] font-medium tracking-normal",
-                    garantia === "experimental"
-                      ? "border-amber-400/30 bg-amber-400/[0.06] text-amber-200/90"
-                      : "border-eyebrow/30 bg-eyebrow/[0.06] text-eyebrow",
-                  )}
-                >
-                  {garantia}
-                </span>
-              </div>
+              {/* El título toma el ancho completo: con la garantía al lado, un título de dos
+                  líneas —lo normal en ancho angosto— dejaba la píldora colgando de la primera. */}
+              <span className="font-display font-bold leading-snug text-foreground">{title}</span>
               {/* Sin `line-clamp`: los blurbs se curan cortos en `presentation.ts`. Un texto
                   cortado a media palabra («…bajo garant…») se lee como un bug, no como un resumen,
                   y `h-full` ya iguala la altura de las tres tarjetas por sí solo. */}
               <span className="text-xs leading-relaxed text-muted-foreground">{blurb}</span>
-              <span className="mt-auto inline-flex items-center gap-1.5 pt-1 text-xs font-medium text-brand-accent-dark">
+              {/* La garantía es metadato del pie, no un rótulo que compita con el título, y usa el
+                  mismo idioma visual que la tabla de dominios de §1 (mono, versalitas, sin píldora
+                  ni borde) en vez de inventar uno propio. Va en su propia línea y no compartiendo
+                  una con el CTA: a tres columnas, «experimental» en versalitas le come el ancho y
+                  parte «Ver esta demo» en dos. `mt-auto` aquí deja el pie —garantía y CTA— alineado
+                  entre las tres tarjetas y absorbe la diferencia de alto del blurb. */}
+              <span
+                className={cn(
+                  "mt-auto pt-2 font-mono text-[0.62rem] uppercase tracking-[0.12em]",
+                  garantia === "estable" ? "text-eyebrow" : "text-muted-foreground",
+                )}
+              >
+                {garantia}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-accent-dark">
                 Ver esta demo
                 <ArrowRight
                   className="size-3.5 transition-transform group-hover:translate-x-0.5"

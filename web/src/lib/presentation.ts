@@ -37,7 +37,7 @@ const CURATED: Record<string, PresetDisplay> = {
     garantia: "estable",
     // Los blurbs se muestran completos (sin `line-clamp`), así que se mantienen cortos y de largo
     // parejo: un texto que el layout corta a media palabra se lee como un error, no como un resumen.
-    // Lo que el badge ya dice —la garantía— no se repite aquí.
+    // Lo que la card ya muestra en su pie —la garantía— no se repite aquí.
     blurb:
       "Binning WoE monotónico, selección por IV y VIF, logística sobre WoE y calibración, " +
       "con AUC, KS y PSI.",
