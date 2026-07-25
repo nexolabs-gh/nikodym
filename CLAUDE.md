@@ -50,4 +50,18 @@
 > Lección de método que vale para todo ítem de roadmap: tres de los cuatro puntos que el plan daba
 > por bloqueantes eran nomenclatura. **Medir contra el código antes de planificar.**
 >
+> **Catálogo de datos externos (2026-07-25, noche).** 42 datasets públicos documentados en
+> [`docs/datasets/`](docs/datasets/); los datos viven en `data/externos/raw/` (vetado, **nunca** se
+> commitea) y son **efímeros** —`./descargar.sh get` los repone—. ⚠️ **Leer el §0-bis del README
+> antes de planificar sobre una fila del catálogo:** once de sus justificaciones prometen casos de
+> prueba que ningún motor puede correr hoy, cada uno documentado con `archivo:línea`. Misma lección
+> que B3.a-1, ahora aplicada a una fuente externa: **un relevamiento es hipótesis de alcance hasta
+> que se mide contra el código.**
+>
+> **La landing tiene un rediseño evaluado y EN COLA** (`privado/diseno-landing-2026-07-25/`): cuatro
+> piezas valen la pena, pero su banda de cifras publica «0 supuestos de país en el núcleo», que es
+> **falso** —el censo del contrato encontró 15 puntos y B3.a-2 está diferido a propósito— junto con
+> una cifra que se contradice con la propia página y una figura sin fixture detrás. No portarlo sin
+> las correcciones de §2 de esa evaluación.
+>
 > **Auto-desarrollo: SOLO cuando Cami lo pida explícitamente** (skill `/auto-desarrollo-claude`). En trabajo normal, usar workflows y subagentes con normalidad, sin pedir permiso cada vez — ver `AGENTS.md` §Auto-desarrollo. La maquinaria tmux/Codex multi-motor está FROZEN (histórica).

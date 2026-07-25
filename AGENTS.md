@@ -88,6 +88,21 @@ veían —la deriva de tasa base entre particiones no tiene guarda, y el gate de
 que el usuario declaró—. Un dataset sintético determinista no puede encontrarlos: produce tasa base
 estable y nulos limpios por construcción.
 
+**El catálogo de datos externos (2026-07-25, noche).** Ya no es un dataset suelto: hay un catálogo
+curado de 42 datasets públicos documentado en [`docs/datasets/`](datasets/) —README, `catalogo.csv`
+y el gestor `descargar.sh`—, con los datos en `data/externos/raw/` (vetado por `.gitignore`,
+**nunca** se commitea). Son **efímeros**: el ciclo es `get` → probar → `rm`, y lo permanente es la
+documentación. El gestor se ejecuta desde `data/externos/`, donde los cuatro documentos son
+symlinks a su copia versionada.
+
+⚠️ **Leer el §0-bis del README antes de planificar sobre una fila del catálogo.** El catálogo se
+escribió mirando los datasets, no el código, y **once de sus justificaciones describen casos de
+prueba que ningún motor puede correr hoy** —`stress` no lee archivos y además rechaza
+`source="official"`; no hay riesgo competitivo, ni fairness, ni RWA, ni reject inference (excluido
+por diseño en ESPECIFICACIONES §5.2, y sin embargo es la entrada de *prioridad 1* del catálogo)—.
+Cada discrepancia está con `archivo:línea`. Es el mismo error de método que ya se pagó en B3.a-1:
+**un relevamiento externo es hipótesis de alcance hasta que se mide contra el código.**
+
 ## Auto-desarrollo (motor de trabajo)
 **Regla fijada por Cami el 2026-07-24: el auto-desarrollo se invoca SOLO cuando él lo pide de forma
 explícita.** Nunca se entra en modo autónomo por iniciativa propia ni porque la tarea parezca de
@@ -176,4 +191,9 @@ cierto de verdad: el patrón de `data/` llevaba el comentario **en la misma lín
 escribió. **El comentario va siempre en su propia línea**, y `tests/unit/test_gitignore.py` lo hace
 cumplir preguntándole a git en vez de leer el archivo. Los datasets externos viven en `data/`
 (ignorado); los comprimidos se vetan **sólo** ahí, porque `web/src/fixtures/demo/*.zip` sí se
-versionan.
+versionan. Dos excepciones más, ambas con test (2026-07-25): `docs/datasets/catalogo.csv` se
+reincluye a mano —cae bajo el veto global de `*.csv` y sin eso la documentación de con qué datos se
+valida la librería se perdería en silencio en el próximo clon—, y `docs/datasets/raw/` se veta
+porque basta invocar `descargar.sh` desde su ubicación versionada para bajar gigabytes a un
+directorio que sí se commitea. La regla general: **cada excepción al veto se prueba en los dos
+sentidos** —que lo permitido pase y que lo prohibido siga vetado—.
