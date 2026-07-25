@@ -239,9 +239,20 @@ Se ejecuta en dos etapas con condiciones distintas:
 
    **Pendiente de B3.a-1 al 2026-07-25** (lo demás está implementado y con gates):
 
-   - **El selector de régimen en preset y UI** (criterio 8 de la enmienda, condición dura de este
-     bloque). El registro régimen→motor ya existe y expone el rótulo público; falta cablearlo a
-     `ui/presets.py` y a `web/src/lib/presentation.ts`.
+   - **El selector de régimen en preset y UI: DIFERIDO a propósito (Cami, 2026-07-25)**, no olvidado.
+     Se difiere hasta que la UI exponga las secciones de provisiones, y entonces el régimen nace como
+     **campo real** junto al resto de su config. Tres razones: (a) un desplegable con **una sola**
+     opción no es una elección, y ofrecer más contradiría la regla de honestidad de este mismo
+     bloque; (b) el objetivo de fondo —que «provisiones» deje de significar Chile sin decirlo— ya se
+     cumple donde el usuario lee: el informe titula «Método estándar de la CMF de Chile (Cap. B-1)»
+     (`report/document.py:94-96`) y la landing rotula CMF como chileno; (c) hoy las secciones
+     `provisioning*` **no son editables por formulario** (`web/src/lib/schema.ts` sólo declara las 7
+     de F1), así que un selector iría encima de un formulario que no existe. Lo que sí quedó listo:
+     el régimen viaja en el resultado (`segmentation.regime`) y el registro expone su rótulo público,
+     de modo que cablearlo será una línea que lee del registro, no un rediseño.
+     ⚠️ **Ese hueco de formulario es el pendiente real de paridad UI↔código** (requisito 1 de la
+     visión) y es mayor que el selector: el motor de provisiones sólo se alcanza por preset o
+     subiendo un YAML.
    - **El gate de entrada del motor CMF** (D-SEG-4): hoy una cartera desconocida se sigue
      descubriendo dentro de `_resolve_provision`, a mitad del cómputo, en vez de al entrar. Lo que
      **sí** quedó cerrado es que el dominio no pueda divergir: un test lee el if-chain con `ast` y
