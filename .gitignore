@@ -68,6 +68,11 @@ Thumbs.db
 *.swp
 *~
 
+# Config local de agentes. `launch.json` sí se versiona: levanta la landing en modo demo, que es
+# la única forma de ver el selector de demos —sólo existe en `demo.nikodym.cl`— antes de deployar.
+.claude/*
+!.claude/launch.json
+
 # Artefactos de corridas locales del pipeline (output_dir relativo por defecto = "reports")
 /reports/
 # Workdir transitorio de la captura canónica (F1/F3/F4)
