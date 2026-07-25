@@ -43,6 +43,34 @@ class MatrixConfig:
     fail_on_source_mismatch: bool = True
 
 
+def test_summary_y_card_fijan_el_orden_de_carteras_publicado() -> None:
+    """El orden de cartera de los artefactos publicados queda fijado (D-SEG-2, criterio 2).
+
+    Antes de la enmienda de segmentación **ningún** test lo fijaba: invertir el vocabulario de
+    carteras dejaba la suite completa en verde, pese a que ese orden gobierna las filas del
+    ``summary`` y las de ``card.portfolios``, que llegan al informe. El orden esperado se escribe
+    literal a propósito — derivarlo del esquema haría que el test se moviera junto con lo que
+    vigila y no cazaría una permutación.
+    """
+    result = _engine().calculate(_golden_frame(), as_of_date="2026-01-31")
+
+    carteras_summary = [str(indice).split("|", 1)[0] for indice in result.summary.index]
+    assert carteras_summary == [
+        "commercial_individual",
+        "commercial_individual",
+        "commercial_individual",
+        "commercial_group_generic_factoring",
+        "consumer",
+        "housing",
+    ]
+    assert [resumen.portfolio for resumen in result.card.portfolios] == [
+        "commercial_individual",
+        "commercial_group_generic_factoring",
+        "consumer",
+        "housing",
+    ]
+
+
 def test_engine_calcula_goldens_canonicos_y_no_muta_input() -> None:
     """Los goldens SDD-15 §11 se recalculan a mano y preservan orden."""
     frame = _golden_frame()

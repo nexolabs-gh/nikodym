@@ -43,6 +43,11 @@ from nikodym.provisioning.cmf.results import (
     CmfProvisionRecord,
     CmfProvisionResult,
 )
+from nikodym.provisioning.segmentation import regime_scheme
+
+_CMF_REGIME = "CL-CMF-B1"
+"""Régimen que implementa este motor. El motor estándar chileno *es* este régimen, por
+construcción: no se elige en runtime, se declara para que el resto del paquete pueda leerlo."""
 
 if TYPE_CHECKING:
     from decimal import Decimal
@@ -93,14 +98,12 @@ _SUMMARY_COLUMNS: tuple[str, ...] = (
     "matrix_version",
     "warning_codes",
 )
-_PORTFOLIO_ORDER: tuple[str, ...] = (
-    "commercial_individual",
-    "commercial_group_leasing",
-    "commercial_group_student",
-    "commercial_group_generic_factoring",
-    "consumer",
-    "housing",
-)
+# El vocabulario de carteras se declara UNA vez, en el esquema del régimen (D-SEG-2): aquí sólo se
+# consume su orden. Antes era una tupla literal, y el dominio quedaba declarado tres veces
+# desacopladas —esta tupla, el if-chain de `_resolve_provision` y la tabla de SDD-15— sin que nada
+# forzara que coincidieran. `test_provisioning_segmentation.py` vigila que el esquema y el
+# despachador sigan diciendo lo mismo.
+_PORTFOLIO_ORDER: tuple[str, ...] = regime_scheme(_CMF_REGIME).values
 _INDIVIDUAL_PERFORMING_MATRIX = "commercial_individual_performing_v2014"
 _INDIVIDUAL_DEFAULT_MATRIX = "commercial_individual_default_v2014"
 _LEASING_MATRIX = "commercial_group_leasing_v2018"
