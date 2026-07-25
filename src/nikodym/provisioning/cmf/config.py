@@ -297,6 +297,11 @@ class CmfProvisioningConfig(NikodymBaseConfig):
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
     )
     portfolio_col: str = Field(
+        # El default se mantiene alineado con el del método interno (D-SEG-9): la regla del máximo
+        # compara ambos motores sobre las MISMAS carteras, así que un default distinto en cada uno
+        # los desalinearía en toda config que no fije los dos. Y no se renombra a "portfolio":
+        # ése es el nombre de la columna de SALIDA que publican los tres motores en su `detail`,
+        # y reusarlo para la de entrada haría ambiguo cuál es cuál.
         default="cmf_portfolio",
         title="Cartera CMF",
         description="Columna con la cartera regulatoria CMF aplicable a cada exposición.",

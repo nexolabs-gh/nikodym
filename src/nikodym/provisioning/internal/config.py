@@ -117,9 +117,14 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
     )
     portfolio_col: str = Field(
+        # Ver D-SEG-9 en cmf/config.py: se mantiene alineado con el método estándar, y "portfolio"
+        # está tomado por la columna de salida de los tres motores.
         default="cmf_portfolio",
-        title="Cartera CMF",
-        description="Columna de cartera regulatoria; la misma que consume el método estándar.",
+        title="Cartera",
+        description=(
+            "Columna con la cartera de cada exposición, en la taxonomía que use su institución. "
+            "Debe ser la misma que consuma el método estándar con el que se compare."
+        ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
     )
     exposure_col: str = Field(
@@ -172,7 +177,7 @@ class InternalProvisioningConfig(NikodymBaseConfig):
     )
     method: InternalProvisioningMethod = Field(
         default="pd_lgd",
-        title="Método del B-1 §3",
+        title="Método de cálculo",
         description=(
             "pd_lgd: Exposición · PD · LGD por grupo. direct_loss_rate: tasa de pérdida esperada "
             "del grupo tomada directamente de loss_rate_col, sin descomponer."

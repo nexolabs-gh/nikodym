@@ -244,11 +244,18 @@ chileno, luego el motor no tiene por qué atribuirse una circular. La referencia
 capa que declara el régimen. Entran también el `title` del método (`internal/config.py:172-180`), los
 `title`/`description` de `portfolio_col` (`internal/config.py:121-122`) y la docstring del módulo.
 
-**D-SEG-9 — El default `cmf_portfolio` se cambia en los dos motores o en ninguno.** Está en
-`cmf/config.py:300` **y** en `internal/config.py:120`, y no por descuido: la regla del máximo compara
-ambos motores sobre las mismas carteras, y por eso la `description` del interno dice «la misma que
-consume el método estándar». Cambiar sólo el del interno los desalinea en toda config que no fije
-ambos —incluido el preset F3—. Se decide y se ejecuta como una sola cosa.
+**D-SEG-9 — El default `cmf_portfolio` se mantiene en los dos motores.** Está en `cmf/config.py:300`
+**y** en `internal/config.py:120`, y no por descuido: la regla del máximo compara ambos motores sobre
+las mismas carteras. Cambiar sólo el del interno los desalinearía en toda config que no fije ambos.
+
+**Resuelto al implementarlo: no se renombra ninguno.** El candidato natural, `"portfolio"`, es
+exactamente el nombre de la columna de **salida** que los tres motores publican en su `detail`
+(`cmf/engine.py:71`, `internal/results.py:31`, `ifrs9`), así que reusarlo para la columna de entrada
+haría ambiguo cuál es cuál. Y el costo era real —96 tests y las fixtures— a cambio de ninguna
+capacidad nueva: `portfolio_col` ya es `str` libre, así que un usuario de cualquier jurisdicción
+declara el nombre que quiera. El prefijo sobrevive sólo como *default*, que es la definición de
+atadura barata; lo que sí se corrige es su **copy público** (D-SEG-8), que era lo que llegaba al
+usuario.
 
 **D-SEG-10 — El enum de governance se abre y su `description` deja de mentir.** `cartera` pasa a `str`
 libre —el censo confirma que ninguna lógica compara contra sus literales— y su `description` deja de

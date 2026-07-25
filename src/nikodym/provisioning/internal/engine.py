@@ -788,9 +788,13 @@ def _card(
         ),
         metric_sections={
             "provisioning_internal": {
-                "norma": (
-                    "CMF Cap. B-1 §3 (Circular N° 2.346): provisión = colocaciones del grupo · "
-                    "PD estimada · pérdida dado el incumplimiento."
+                # Describe el MÉTODO, sin atribuirlo a una norma (D-SEG-8). La fórmula no es
+                # chilena, y esta sección viaja al informe y a la model card: citando el Cap. B-1
+                # aquí, un usuario de otra jurisdicción recibía una circular chilena en su PDF. La
+                # referencia normativa la aporta la capa que declara el régimen.
+                "metodo": (
+                    "provisión = exposición del grupo · PD estimada · pérdida dado el "
+                    "incumplimiento."
                 ),
                 "method": cfg.method,
                 "grouping": cfg.grouping,

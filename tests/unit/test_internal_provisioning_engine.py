@@ -789,3 +789,20 @@ def test_el_motor_no_consume_azar() -> None:
 
     assert generador.bit_generator.state == antes
     assert importlib.util.find_spec("nikodym.provisioning.internal.engine") is not None
+
+
+def test_el_resultado_no_atribuye_el_metodo_a_una_norma_de_una_jurisdiccion() -> None:
+    """El motor interno no cita una circular chilena en su resultado (D-SEG-8, criterio 6).
+
+    ``metric_sections`` no se queda en un artefacto interno: viaja al informe renderizado y a la
+    model card. Citando ahí el Cap. B-1 de la CMF, un usuario de cualquier otra jurisdicción
+    recibía una circular chilena dentro de su propio PDF. La fórmula que este motor implementa
+    —exposición · PD · LGD por grupo homogéneo— no es chilena, así que el motor no tiene por qué
+    atribuírsela a nadie: la referencia normativa la aporta la capa que declara el régimen.
+    """
+    seccion = _calculate(_cfg()).card.metric_sections["provisioning_internal"]
+    texto = json.dumps(seccion, ensure_ascii=False, default=str)
+
+    assert "metodo" in seccion
+    for rastro in ("CMF", "2.346", "B-1", "Circular"):
+        assert rastro not in texto, f"El resultado del motor interno sigue citando {rastro!r}."
