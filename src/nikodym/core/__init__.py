@@ -61,6 +61,13 @@ from nikodym.core.exceptions import (
     UntrustedStudyError,
 )
 from nikodym.core.lineage import LineageBundle, RunContext
+from nikodym.core.markers import (
+    DECLARED_MARKERS,
+    INSTITUTIONAL_MARKER,
+    MISSING_DATA_MARKER,
+    declared_prefixes,
+    is_declared_warning,
+)
 from nikodym.core.mixins import AuditableMixin, SerializationMixin
 from nikodym.core.registry import REGISTRY, Registry, register, unregister
 from nikodym.core.results import ECLResultLike, ProvisionResultLike
@@ -72,7 +79,10 @@ _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
 }
 
 __all__ = [
+    "DECLARED_MARKERS",
     "INFRA_SECTIONS",
+    "INSTITUTIONAL_MARKER",
+    "MISSING_DATA_MARKER",
     "REGISTRY",
     "SCHEMA_VERSION",
     "ArtifactExistsError",
@@ -121,7 +131,9 @@ __all__ = [
     "UnknownComponentError",
     "UntrustedStudyError",
     "config_hash",
+    "declared_prefixes",
     "dump_config",
+    "is_declared_warning",
     "load_config",
     "loads_config",
     "migrate",

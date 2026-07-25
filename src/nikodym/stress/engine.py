@@ -42,6 +42,7 @@ from typing import (
     runtime_checkable,
 )
 
+from nikodym.core.markers import is_declared_warning
 from nikodym.forward.results import FORWARD_ECL_CONTRACT_VERSION
 from nikodym.stress.config import (
     ReverseStressConfig,
@@ -657,7 +658,7 @@ class StressTestEngine:
             )
         )
         falta_dato_codes = tuple(
-            code for code in warning_codes if code.startswith("FALTA-DATO-STR")
+            code for code in warning_codes if is_declared_warning(code, family="STR")
         )
         diagnostics = StressDiagnostics(
             scenario_count=len(scenario_results),

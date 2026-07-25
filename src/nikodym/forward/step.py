@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypeAlias, cast
 
 from nikodym.core.audit import AuditEvent
 from nikodym.core.exceptions import ArtifactNotFoundError, MissingDependencyError
+from nikodym.core.markers import is_declared_warning
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
@@ -679,7 +680,7 @@ def _forward_diagnostics(
         blended_periods=_blended_periods(forward_term_structure),
         no_mean_scenario_guard_executed=True,
         no_mean_scenario_guard_result="passed",
-        falta_dato=tuple(code for code in warnings_seen if code.startswith("FALTA-DATO")),
+        falta_dato=tuple(code for code in warnings_seen if is_declared_warning(code)),
         warnings=warnings_seen,
     )
 

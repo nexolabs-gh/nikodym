@@ -32,6 +32,7 @@ from importlib import metadata
 from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeAlias, cast
 
 from nikodym.core.exceptions import MissingDependencyError
+from nikodym.core.markers import is_declared_warning
 from nikodym.provisioning.ifrs9.config import IfrsProvisioningConfig
 from nikodym.provisioning.ifrs9.ead import EadEngine
 from nikodym.provisioning.ifrs9.ecl import EclEngine
@@ -510,7 +511,7 @@ class IfrsProvisioningEngine:
             code
             for row in detail_rows
             for code in row["warning_codes"]
-            if str(code).startswith("FALTA-DATO")
+            if is_declared_warning(str(code))
         )
         metric_sections = {
             "staging_migration": {

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
 from nikodym.core.audit import AuditEvent
 from nikodym.core.exceptions import MissingDependencyError
+from nikodym.core.markers import is_declared_warning
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
@@ -538,7 +539,7 @@ def _card_from_outputs(
         output_columns=_TERM_STRUCTURE_COLUMNS,
         diagnostics=diagnostics,
         dependency_versions=_dependency_versions(),
-        falta_dato=tuple(code for code in diagnostics.warnings if code.startswith("FALTA-DATO")),
+        falta_dato=tuple(code for code in diagnostics.warnings if is_declared_warning(code)),
         metric_sections=metric_sections,
     )
 
