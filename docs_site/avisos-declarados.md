@@ -75,6 +75,7 @@ RAN 21-10. Están registradas en el
 | `DATO-INSTITUCIONAL-PROV-1` | Una celda de la comparación no tiene contraparte en el otro motor. |
 | `DATO-INSTITUCIONAL-PROV-2` | Una celda imputó 0 a un motor por `coverage_policy='treat_missing_as_zero'`. La imputación es tu política, no un supuesto nuestro. |
 | `DATO-INSTITUCIONAL-PROV-3` | Comparación incompleta: sólo un motor está presente (`require_both=False`). |
+| `DATO-INSTITUCIONAL-PROV-4` | Una cartera de la primera fuente no pertenece a la taxonomía que declaró la segunda, ni siquiera tras aplicar el mapeo. Sólo tu institución sabe qué cartera equivale a cuál, así que el motor no lo adivina: declara la equivalencia en `portfolio_crosswalk`. |
 | `DATO-INSTITUCIONAL-STR-1` | No existe un *delta* adverse trazable para ese escenario, factor y períodos, así que la dominancia no se puede verificar. |
 | `DATO-INSTITUCIONAL-STR-2` | `source='official'` exige metadata externa de archivo, hash y fuente. Un shock que se declara oficial trae su evidencia o no es oficial. |
 | `DATO-INSTITUCIONAL-STR-8` | `output.metrics` incluye `lgd`, pero `lgd`/`lgd_base` no están disponibles para ese escenario y período. |

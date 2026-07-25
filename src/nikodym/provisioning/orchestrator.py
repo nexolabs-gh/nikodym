@@ -72,6 +72,7 @@ from nikodym.provisioning.results import (
     ProvisionOrchestrationCard,
     ProvisionOrchestrationResult,
 )
+from nikodym.provisioning.segmentation import SegmentationScheme
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -232,12 +233,38 @@ class ProvisioningOrchestrator:
         cells_b: dict[str, ProvisionAmount] = (
             _source_cells(engine_b, source=source_b, cfg=cfg) if engine_b is not None else {}
         )
-        if cfg.comparison_level == "portfolio" and cfg.portfolio_crosswalk:
-            cells_a = _apply_crosswalk(cells_a, cfg.portfolio_crosswalk)
+        # D-SEG-6: el crosswalk se aplica también en `segment`. Eximir ese nivel —con el argumento
+        # de que ambas fuentes usan la misma `segment_col`— confunde *mismo nombre de columna* con
+        # *misma columna*: los valores se leen de dos frames producidos por dos motores distintos.
+        huerfanas: list[str] = []
+        if cfg.comparison_level in ("portfolio", "segment"):
+            cells_a, huerfanas = _apply_crosswalk(
+                cells_a,
+                cfg.portfolio_crosswalk,
+                destino=_scheme_of(engine_b),
+            )
         if cfg.comparison_level == "operation" and both_engines:
             _check_operation_alignment(cells_a, cells_b, source_a=source_a, source_b=source_b)
 
         falta_dato: list[str] = []
+        # D-SEG-7: una cartera que no pertenece al vocabulario de destino es una brecha declarada,
+        # no un silencio. Antes seguía de largo por `crosswalk.get(key, key)` y sólo afloraba aguas
+        # abajo como «celda sin contraparte» (PROV-1), que es el síntoma y no la causa.
+        if huerfanas:
+            detalle = ", ".join(repr(cartera) for cartera in huerfanas)
+            mensaje = (
+                f"la taxonomía de {name_a} trae carteras sin equivalencia en la de {name_b} "
+                f"({detalle}); declárelas en portfolio_crosswalk"
+            )
+            # D-SEG-7 adelanta aquí la semántica de CRP-6: en esta capa el flag no detenía nada
+            # —sólo se registraba como umbral de una decisión de auditoría—, pese a que su propio
+            # copy público promete exactamente esto.
+            if cfg.fail_on_falta_dato:
+                raise ProvisioningCoverageError(
+                    f"Comparación abortada: {mensaje}, o use fail_on_falta_dato=False para "
+                    "registrarlo como brecha de datos y continuar."
+                )
+            falta_dato.append(f"DATO-INSTITUCIONAL-PROV-4: {mensaje}.")
         if not both_engines:
             presente = name_a if engine_a is not None else name_b
             falta_dato.append(
@@ -438,13 +465,34 @@ def _missing_column_error(
     )
 
 
+def _scheme_of(result: SourceResult | None) -> SegmentationScheme | None:
+    """Esquema de segmentación que publicó una fuente, si lo declaró (D-SEG-3)."""
+    if result is None:
+        return None
+    return cast("SegmentationScheme | None", getattr(result.card, "segmentation", None))
+
+
 def _apply_crosswalk(
-    cells: dict[str, ProvisionAmount], crosswalk: dict[str, str]
-) -> dict[str, ProvisionAmount]:
-    """Remapea las carteras de la fuente A a la taxonomía de la fuente B, sumando colisiones."""
+    cells: dict[str, ProvisionAmount],
+    crosswalk: dict[str, str],
+    *,
+    destino: SegmentationScheme | None,
+) -> tuple[dict[str, ProvisionAmount], list[str]]:
+    """Remapea las carteras de la fuente A a la taxonomía de la fuente B, sumando colisiones.
+
+    Devuelve además las carteras que, ya remapeadas, **no pertenecen al vocabulario de destino**
+    (D-SEG-7). La condición es ésa y no «ausente del crosswalk»: un crosswalk es parcial por
+    diseño —sólo se declara lo que difiere— y lo que coincide pasa por identidad legítima, así que
+    marcar toda ausencia convertiría cada identidad correcta en brecha. Si el destino no declaró
+    esquema no hay contra qué contrastar y no se marca nada: el silencio de antes se conserva sólo
+    donde es inevitable.
+    """
     remapped: dict[str, ProvisionAmount] = {}
+    huerfanas: list[str] = []
     for key, value in cells.items():
         mapped = crosswalk.get(key, key)
+        if destino is not None and not destino.admits(mapped) and mapped not in huerfanas:
+            huerfanas.append(mapped)
         previo = remapped.get(mapped)
         if previo is None:
             remapped[mapped] = value
@@ -452,7 +500,7 @@ def _apply_crosswalk(
             remapped[mapped] = previo + value
         else:
             remapped[mapped] = math.fsum((float(previo), float(value)))
-    return remapped
+    return remapped, huerfanas
 
 
 def _check_operation_alignment(

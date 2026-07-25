@@ -48,6 +48,7 @@ from nikodym.provisioning.internal.results import (
     InternalProvisionRecord,
     InternalProvisionResult,
 )
+from nikodym.provisioning.segmentation import SchemeOwner, SegmentationScheme
 
 # ─────────────────────────── goldens del máximo (SDD §11) ───────────────────────────
 
@@ -960,7 +961,12 @@ def _cmf_result(rows: list[dict[str, Any]], *, total: Decimal | None = None) -> 
     )
 
 
-def _ifrs9_result(rows: list[dict[str, Any]], *, total: float | None = None) -> IfrsProvisionResult:
+def _ifrs9_result(
+    rows: list[dict[str, Any]],
+    *,
+    total: float | None = None,
+    scheme: SegmentationScheme | None = None,
+) -> IfrsProvisionResult:
     n = len(rows)
     stages = [int(row.get("stage", 1)) for row in rows]
     ecls = [float(row["ecl"]) for row in rows]
@@ -1048,6 +1054,7 @@ def _ifrs9_result(rows: list[dict[str, Any]], *, total: float | None = None) -> 
     )
     card = IfrsProvisionCard(
         as_of_date="2026-01-31",
+        segmentation=scheme,
         term_structure_source="survival",
         pit_mode="consume_pit",
         n_rows=n,
@@ -1142,3 +1149,60 @@ def _internal_result(
     return InternalProvisionResult(
         detail=detail, groups=groups, summary=summary, records=records, card=card
     )
+
+
+def _esquema_destino() -> SegmentationScheme:
+    """Taxonomía cerrada de la fuente B, contra la que se contrasta el remapeo."""
+    return SegmentationScheme(
+        scheme_id="taxonomia-banco",
+        owner=SchemeOwner.INSTITUTION,
+        version="1",
+        column="portfolio",
+        values=("commercial", "retail"),
+    )
+
+
+def test_cartera_fuera_de_la_taxonomia_de_destino_aborta_con_marca_declarada() -> None:
+    """Una cartera sin equivalencia es una brecha declarada, no un silencio (D-SEG-7).
+
+    Antes, ``crosswalk.get(key, key)`` la dejaba pasar tal cual y el problema sólo afloraba aguas
+    abajo como «celda sin contraparte» (PROV-1), que es el síntoma y no la causa. Con
+    ``fail_on_falta_dato=True`` —el default— la corrida se detiene, que es exactamente lo que el
+    copy público de ese campo promete desde siempre.
+    """
+    cmf = _cmf_result([{"row_id": "op1", "portfolio": "empresas", "provision": Decimal("90")}])
+    ifrs9 = _ifrs9_result(
+        [{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}], scheme=_esquema_destino()
+    )
+    orquestador = ProvisioningOrchestrator(ProvisioningConfig(comparison_level="portfolio"))
+
+    with pytest.raises(ProvisioningCoverageError, match="empresas"):
+        orquestador.compare(result_a=cmf, result_b=ifrs9, as_of_date="2026-01-31")
+
+
+def test_cartera_fuera_de_taxonomia_se_registra_si_no_se_exige_fallar() -> None:
+    """Con ``fail_on_falta_dato=False`` la corrida sigue, pero la brecha queda declarada."""
+    cmf = _cmf_result([{"row_id": "op1", "portfolio": "empresas", "provision": Decimal("90")}])
+    ifrs9 = _ifrs9_result(
+        [{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}], scheme=_esquema_destino()
+    )
+    orquestador = ProvisioningOrchestrator(
+        ProvisioningConfig(comparison_level="portfolio", fail_on_falta_dato=False)
+    )
+
+    result = orquestador.compare(result_a=cmf, result_b=ifrs9, as_of_date="2026-01-31")
+
+    assert any("PROV-4" in marca for marca in result.card.falta_dato)
+
+
+def test_la_identidad_legitima_del_crosswalk_no_se_marca() -> None:
+    """Un crosswalk es parcial por diseño: lo que ya coincide pasa por identidad y NO es brecha."""
+    cmf = _cmf_result([{"row_id": "op1", "portfolio": "commercial", "provision": Decimal("90")}])
+    ifrs9 = _ifrs9_result(
+        [{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}], scheme=_esquema_destino()
+    )
+    orquestador = ProvisioningOrchestrator(ProvisioningConfig(comparison_level="portfolio"))
+
+    result = orquestador.compare(result_a=cmf, result_b=ifrs9, as_of_date="2026-01-31")
+
+    assert not any("PROV-4" in marca for marca in result.card.falta_dato)
