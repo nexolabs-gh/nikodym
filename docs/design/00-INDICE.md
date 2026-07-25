@@ -108,9 +108,10 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > **Horizonte 12m de IFRS 9 — enmienda PROPUESTA, sin OK todavía (2026-07-25).** Verificar que un
 > código citado en un SDD exista en `src/` destapó algo mayor que una cita huérfana:
 > `DATO-INSTITUCIONAL-IFRS-2` nunca se emitió —`git log -S` confirma que jamás estuvo en el motor—,
-> y detrás de la promesa hay una **degradación silenciosa** real. Con `horizon_12m_periods ≥ T_max`
-> la máscara del horizonte queda toda verdadera y `pd_12m == pd_life`: la ECL de Stage 1 iguala a la
-> de Stage 2/3, que es la distinción que IFRS 9 existe para hacer, sin warning ni excepción. El
+> y detrás de la promesa hay una **degradación silenciosa** real. Cuando `horizon_12m_periods`
+> alcanza `min(T_max, max_lifetime_periods)` la máscara del horizonte queda toda verdadera: la ECL a
+> 12 meses iguala a la lifetime y un Stage 1 provisiona lo mismo que un Stage 2 —la distinción que
+> IFRS 9 existe para hacer— sin warning ni excepción. El
 > texto de SDD-16 ya se corrigió para que describa el comportamiento real (§8, §9 y la ficha), y el
 > diseño del arreglo vive en [`_ENMIENDA-IFRS9-HORIZONTE.md`](_ENMIENDA-IFRS9-HORIZONTE.md):
 > **propuesta, pendiente del OK de Cami; ninguna línea de motor escrita.** Deja fijada además una
