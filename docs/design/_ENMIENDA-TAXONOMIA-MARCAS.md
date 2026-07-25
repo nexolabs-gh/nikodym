@@ -1,6 +1,7 @@
 # Enmienda SDD — taxonomía de marcas: `FALTA-DATO` vs `DATO-INSTITUCIONAL`
 
-> **Estado: APROBADA (Cami, 2026-07-24).** Habilita el renombrado. Esta enmienda es la **fuente de
+> **Estado: APROBADA (Cami, 2026-07-24) y EJECUTADA el mismo día**, en nueve commits verdes por sí
+> mismos (`c6f203f`…`d01f5d9`). Habilita el renombrado. Esta enmienda es la **fuente de
 > verdad del contrato de marcas** mientras se ejecuta; al cerrar, sus decisiones se consolidan en los
 > SDD de cada capa (12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23), igual que se hizo con B2.2.
 >
@@ -24,20 +25,25 @@ distintos** repartidos en tres grupos que hoy comparten una sola marca. Dos prec
 
 - Son **52**, no 51: `FALTA-DATO-STR-LGD` (`stress/engine.py`) **no está declarado en ningún SDD**
   — nació en el código y no sigue la numeración de su familia (por eso se normaliza a `STR-8`).
-- Existe además `FALTA-DATO-PROV` **sin número** (`orchestrator.py:523`), con `PROV-2` libre.
+- Hay además **dos códigos sin número**: `FALTA-DATO-PROV` (`orchestrator.py`) y `FALTA-DATO-FWD`
+  (`forward/macro.py`), que se normalizan a `PROV-2` y `FWD-8`. Con ellos, los destinos a clasificar
+  son **54**, no 52.
+- Y **dos marcas desnudas sin familia**, emitidas en runtime: el motor interno cuando una fila no
+  trae exposición o LGD, y `validation` cuando el backtesting no tiene columnas realizadas. Ambas
+  son institucionales y quedan como `DATO-INSTITUCIONAL` a secas, sin número.
 - **30 de los 52 no aparecen en `src/`**: viven sólo en la sección «FALTA-DATO explícitos» de su SDD.
   Son *decisiones de diseño*, no marcas que el motor emita. La distinción operativa que importa es
   **código emitido** (viaja a `warning_codes` / `card.falta_dato` / informe / UI) vs **ítem de SDD**.
 
 Lo que la marca única produce hoy: el argumento de venta del producto —«el motor se niega a inventar
-un supuesto que no le corresponde»— aparece rotulado como defecto propio, 33 veces.
+un supuesto que no le corresponde»— aparece rotulado como defecto propio, 35 veces.
 
 ## 2. La taxonomía (D-MARCA-1)
 
 | Destino | Qué declara | Nº |
 |---|---|---|
 | **`FALTA-DATO`** | Brecha real del motor: algo que Nikodym no trae, difirió, o no verificó contra fuente oficial | 8 códigos + 2 `pending_items` CMF |
-| **`DATO-INSTITUCIONAL`** | Parámetro, definición o dato de entrada que le corresponde a la institución; el motor **se niega a inventarlo** | 33 |
+| **`DATO-INSTITUCIONAL`** | Parámetro, definición o dato de entrada que le corresponde a la institución; el motor **se niega a inventarlo** | 35 + 2 marcas desnudas |
 | **sin marca publicable** | TODO de ingeniería, sin significado para un usuario → issue de GitHub | 7 |
 | **cierre por resuelto** | Ítem de coordinación entre SDD que la implementación ya resolvió | 4 |
 
@@ -45,8 +51,9 @@ un supuesto que no le corresponde»— aparece rotulado como defecto propio, 33 
 `FALTA-DATO` = *lo debe Nikodym*. `DATO-INSTITUCIONAL` = *lo debe la institución*.
 
 **D-MARCA-2 — Familia y número se conservan.** `FWD-1` sigue siendo `FWD-1`: sólo cambia el prefijo.
-La trazabilidad contra los SDD, el CHANGELOG y los tickets históricos se mantiene intacta. Dos
-excepciones, ambas de normalización: `STR-LGD` → `STR-8` y `PROV` (sin número) → `PROV-2`.
+La trazabilidad contra los SDD, el CHANGELOG y los tickets históricos se mantiene intacta. Tres
+excepciones, todas de normalización: `STR-LGD` → `STR-8`, `PROV` (sin número) → `PROV-2` y `FWD`
+(sin número) → `FWD-8`. Los tres eran códigos nacidos en el código, nunca declarados en su SDD.
 
 **D-MARCA-3 — La marca no la elige quien escribe el mensaje.** Ambos prefijos viven en
 `nikodym/core/markers.py` y los filtros que arman la card consumen la constante compartida, no un
@@ -81,7 +88,7 @@ en docstrings y en una `description` de config. Se quedan en `FALTA-DATO` sin ma
 sólo mapea `IFRS-4`/`IFRS-6`) ni `methodology.py:161` (`IFRS-4`). **El texto del informe entregable no
 se mueve.**
 
-### B · `DATO-INSTITUCIONAL` — lo aporta la institución (33)
+### B · `DATO-INSTITUCIONAL` — lo aporta la institución (35)
 
 | Código | Evidencia (texto canónico o sitio de emisión) |
 |---|---|
@@ -106,6 +113,7 @@ se mueve.**
 | `FWD-4` | naturaleza PIT/TTC: «se requiere columna o config» — `scenarios.py:64` |
 | `FWD-5` | coeficientes satellite: «deben venir como coeficientes fijos auditados» — `satellite.py` ×4 |
 | `FWD-7` | «el perfil institucional de EAD/LGD sigue siendo input externo» |
+| `FWD-8` (ex sin número) | `macro.py` «`kind='vecm'` exige `vecm_rank` explícito»: statsmodels no lo infiere de forma estable |
 | `STR-1` | shocks comparables: dependen de las magnitudes que traiga el input de forward |
 | `STR-2` | escenarios oficiales: «deben venir de fuente institucional/oficial versionada» |
 | `STR-3` | umbrales de capital: «el usuario los declara» |
@@ -162,12 +170,18 @@ demo, a cambio de coherencia nominal. `falta_dato` queda como **término paragua
 declarados»**, documentado como tal; si se quiere alinear, va en 2.0 con alias Pydantic y período de
 deprecación.
 
-## 5. Criterio de aceptación
+## 5. Criterio de aceptación, y cómo quedó
 
 1. `git grep FALTA-DATO` devuelve **sólo** los 8 códigos de la clase A, los 2 `pending_items`, el
-   término paraguas y el texto que explica la taxonomía.
-2. Ningún código de la clase B se pierde entre el motor y la card: test que arma una card con un
-   código de cada marca y verifica que ambos llegan.
+   término paraguas y el texto que explica la taxonomía. ✅ Verificado por censo tras el último commit.
+2. Ningún código de la clase B se pierde entre el motor y la card. ✅ `tests/unit/test_core_markers.py`
+   fija que el predicado compartido reconoce las dos marcas, y que un warning de celda no se cuela.
 3. Los números insignia de la demo no se mueven: ECL $3.423.116 · EAD $114.325.315 · 2,99 %.
+   ✅ Verificados sobre el fixture recapturado. El diff de los tres sets es **sólo** lineage
+   (`git_sha`, `created_at`, `run_id`): ninguna cifra ni texto de negocio cambió, tal como predecía
+   §3 —el único código que el informe imprime es `IFRS-4`, que es clase A—.
 4. Gates completos verdes: `ruff check`, `ruff format --check`, `mypy --strict src/`, `pytest`
-   (baseline 4213 passed / 6 skipped) y los 5 gates de `web/`.
+   (**4232 passed / 2 skipped** con `DYLD_FALLBACK_LIBRARY_PATH`; baseline 4213 + 15 tests nuevos del
+   contrato de marcas + 4 de PDF que corren con las nativas presentes) y los gates de `web/`
+   (lint, typecheck, 269 tests, supply-chain, bundle y licencias), con el bundle reconstruido dos
+   veces byte-idénticas.

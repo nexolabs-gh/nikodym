@@ -90,6 +90,14 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > propia enmienda antes de programarse. Aprobación de diseño no equivale a distribución, y
 > distribución en `main` no equivale a producto publicado: `1.5.0` sigue sin launcher ni assets.
 >
+> **Taxonomía de marcas separada (2026-07-24).** `FALTA-DATO` cubría tres cosas distintas —una
+> brecha del motor, un input que aporta la institución y un TODO de ingeniería—. La enmienda
+> [`_ENMIENDA-TAXONOMIA-MARCAS.md`](_ENMIENDA-TAXONOMIA-MARCAS.md), aprobada por Cami y ejecutada el
+> mismo día, deja `FALTA-DATO` sólo para las brechas del motor (8 códigos + 2 `pending_items` CMF),
+> crea **`DATO-INSTITUCIONAL`** para los 35 que declara la institución, saca del contrato 7 TODO de
+> ingeniería y cierra 4 ítems que ya estaban resueltos. Afecta a los SDD 12, 13, 14, 15, 16, 17, 18,
+> 19, 20, 21 y 23; el contrato compartido vive en `nikodym/core/markers.py`.
+>
 > **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7)
 > y el SDD pasó al stack React/Vite sobre FastAPI. La implementación histórica del backend/front no
 > equivale a la implementación de la distribución aprobada en B2.0.
