@@ -42,6 +42,34 @@ B3.a abstracción de jurisdicción → B4 rutas de uso F5/F6; B3.b (motor de una
 compromiso comercial firmado. El track comercial (precios, cláusulas, accesos) vive en
 `privado/PLAN-TRABAJO-2026-07-21.md` y **no se publica**.
 
+## Visión de producto — qué significa «lista» (fijada por Cami el 2026-07-25)
+
+El criterio de éxito no es una lista de features cerradas: es que **cualquier equipo de riesgo de
+LATAM diga «no puedo vivir sin esta librería»**. De ahí bajan cuatro requisitos, y ninguno es
+opcional:
+
+1. **Paridad UI ↔ código.** Se instala y se trabaja 100 % por código o 100 % por interfaz gráfica,
+   sin perder ni ganar nada en ninguno de los dos caminos. Es la lectura fuerte de «instalable y
+   usable»: no basta con que la UI exista, tiene que *alcanzar todo*.
+2. **Validación contra datos reales y sucios.** Hasta el 2026-07-25 **todo el catálogo era sintético
+   determinista** (`src/nikodym/ui/datasets.py:1`). Una librería de riesgo validada sólo contra datos
+   que ella misma genera no está validada. Se prueba con datasets externos de varias plataformas
+   —uno solo no demuestra generalidad— y Cami autorizó registrarse o pagar por ellos si hace falta.
+3. **Flexibilidad total de inputs: se provee, se modela, o sale del histórico.** Para PD, LGD, EAD,
+   PIT/TTC, calibración y escenarios macro, y en los tres motores (IFRS 9, stress, forward). Si el
+   dato viene en el dataset se usa; si no viene, se modela; si hay historia, se puede estimar de
+   ella. **Todas las alternativas, no una.** ⚠️ Esto es un problema de *arquitectura*, no una suma de
+   features: exige un contrato transversal de resolución de parámetros **diseñado por SDD antes de
+   programar nada**. Atacarlo motor por motor produce N implementaciones ad-hoc intestables.
+4. **Multi-jurisdicción al final, por prioridad y por tamaño de banca: Chile → Perú (SBS) →
+   Colombia.** **Brasil queda fuera** por ahora (mundo aparte). Ojo con el orden: implementar una
+   jurisdicción nueva va al final, pero *dejar de asumir Chile* (B3.a) va antes de construir la
+   matriz de flexibilidad encima de una taxonomía chilena hardcodeada.
+
+**Criterio de método, dicho por Cami:** camino largo pero seguro, no «puras zancadillas». Un arreglo
+puntual que no acerca a estos cuatro puntos compite contra ellos por el tiempo, y hay que decirlo
+cuando ocurra.
+
 ## Auto-desarrollo (motor de trabajo)
 **Regla fijada por Cami el 2026-07-24: el auto-desarrollo se invoca SOLO cuando él lo pide de forma
 explícita.** Nunca se entra en modo autónomo por iniciativa propia ni porque la tarea parezca de
@@ -124,4 +152,10 @@ ya se completaron; sus decisiones siguen vigentes en `docs/design/`.
 - `design/_PLANTILLA-SDD.md` — plantilla de cada documento de diseño.
 
 ## Git
-Repo **PÚBLICO** en GitHub: **`nexolabs-gh/nikodym`** (cuenta `nexolabs-gh`), branch `main`, con issues habilitados. ⚠️ Ya no es privado —lo era durante la construcción— así que **todo lo que se commitea es visible para cualquiera**: nada de datos de clientes, credenciales ni detalle institucional fuera de `privado/`, que es un repo git **aparte y privado**, con respaldo remoto propio desde 2026-07-21 (antes era sólo local). Push directo a `main` autorizado en el cierre de sesión; **`privado/` se pushea en cada cierre igual que el público** — un respaldo que no se mantiene al día no es respaldo. No inventar coautoría: trailer solo si la herramienta que participó lo exige. `.gitignore` veta datos y secretos por defecto (proyecto regulatorio).
+Repo **PÚBLICO** en GitHub: **`nexolabs-gh/nikodym`** (cuenta `nexolabs-gh`), branch `main`, con issues habilitados. ⚠️ Ya no es privado —lo era durante la construcción— así que **todo lo que se commitea es visible para cualquiera**: nada de datos de clientes, credenciales ni detalle institucional fuera de `privado/`, que es un repo git **aparte y privado**, con respaldo remoto propio desde 2026-07-21 (antes era sólo local). Push directo a `main` autorizado en el cierre de sesión; **`privado/` se pushea en cada cierre igual que el público** — un respaldo que no se mantiene al día no es respaldo. No inventar coautoría: trailer solo si la herramienta que participó lo exige. `.gitignore` veta datos y secretos por defecto (proyecto regulatorio) — y desde el 2026-07-25 eso es
+cierto de verdad: el patrón de `data/` llevaba el comentario **en la misma línea**, y como en
+`.gitignore` el `#` sólo abre comentario al principio de la línea, el veto estaba inerte desde que se
+escribió. **El comentario va siempre en su propia línea**, y `tests/unit/test_gitignore.py` lo hace
+cumplir preguntándole a git en vez de leer el archivo. Los datasets externos viven en `data/`
+(ignorado); los comprimidos se vetan **sólo** ahí, porque `web/src/fixtures/demo/*.zip` sí se
+versionan.

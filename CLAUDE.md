@@ -21,7 +21,12 @@
 > las claves de los dicts de labels, los comentarios, los tests, `docs/design/` y el volcado de
 > auditoría del anexo del informe —ahí el código es la evidencia y borrarlo falsearía el audit
 > trail—. Dos gates lo vigilan: `web/src/lib/public-copy.test.ts` (todo `web/src`) y
-> `tests/unit/test_public_copy.py` (`docs_site/` + el espejo `web/src/lib/markers.ts`). El
-> `README.md` **sigue fuera** hasta que Cami decida (ver `HANDOFF.md` P1).
+> `tests/unit/test_public_copy.py` (`docs_site/` + el `README.md` + el espejo
+> `web/src/lib/markers.ts`). **El `README.md` entró al gate el 2026-07-25** (decisión de Cami): los
+> códigos salieron de la portada y su documentación vive en
+> [`docs_site/avisos-declarados.md`](docs_site/avisos-declarados.md), la página de referencia del
+> *output* del motor. Esa página es la **única** exención nueva, por la misma razón que el anexo del
+> informe: ahí el código es el dato. Dos tests atan la página al motor en los dos sentidos —un código
+> emitido sin documentar, y uno documentado que ya no existe—.
 >
 > **Auto-desarrollo: SOLO cuando Cami lo pida explícitamente** (skill `/auto-desarrollo-claude`). En trabajo normal, usar workflows y subagentes con normalidad, sin pedir permiso cada vez — ver `AGENTS.md` §Auto-desarrollo. La maquinaria tmux/Codex multi-motor está FROZEN (histórica).
