@@ -1047,3 +1047,99 @@ _CANONICAL_IDS = (
     "appendix_parameters.eda",
     "appendix_parameters.performance",
 )
+
+
+def test_warning_codes_no_se_pinta_como_columna_pero_el_resto_de_la_tabla_sobrevive() -> None:
+    """`warning_codes` es audit-trail, no una columna del documento.
+
+    El código `FALTA-DATO-IFRS-4` se repetía en las doce filas de «ECL por etapa» —una tabla de
+    portada— junto a cifras contables. El hecho que declara ya viaja dos veces en prosa completa
+    (ficha metodológica y narración del capítulo), así que en la tabla sólo aportaba ruido interno.
+    Lo que este test fija es que la columna desaparece del RENDER **sin** que se pierda ninguna
+    otra: retirar de más sería ocultar resultados.
+    """
+    tabla = pd.DataFrame(
+        {
+            "stage": ["Stage 1", "Stage 2"],
+            "ecl": [1000.0, 2000.0],
+            "warning_codes": [("FALTA-DATO-IFRS-4",), ("FALTA-DATO-IFRS-4",)],
+        }
+    )
+
+    vista = renderer_module._table_view("provisioning_ifrs9.summary", tabla, max_rows=10)
+
+    assert "warning_codes" not in vista["columns"]
+    assert vista["columns"] == ["stage", "ecl"]
+    # Las filas pierden exactamente esa celda, no una posición corrida ni una fila entera.
+    assert len(vista["rows"]) == 2
+    assert all(len(fila) == 2 for fila in vista["rows"])
+    assert vista["total_rows"] == 2
+    assert "FALTA-DATO-IFRS-4" not in json.dumps(vista, ensure_ascii=False)
+
+
+def test_una_tabla_sin_columnas_de_audit_trail_no_pierde_nada() -> None:
+    """Control negativo del filtro: sin `warning_codes`, la tabla sale intacta."""
+    tabla = pd.DataFrame({"stage": ["Stage 1"], "ecl": [1000.0]})
+
+    vista = renderer_module._table_view("x.summary", tabla, max_rows=10)
+
+    assert vista["columns"] == ["stage", "ecl"]
+    assert len(vista["rows"][0]) == 2
+
+
+def _bundle_provisiones(cards: dict[str, Any]) -> ReportInputBundle:
+    """Bundle mínimo para ejercitar la prosa de provisiones."""
+    return ReportInputBundle(lineage=_lineage(), cards=cards, tables={}, figures={}, sections=())
+
+
+def test_la_prosa_de_provisiones_nombra_el_pais_y_la_moneda() -> None:
+    """El informe circula fuera de Chile: «CMF» y «$» no identifican norma ni moneda.
+
+    Un lector de otra jurisdicción recibía un documento formalmente impecable del que no podía
+    deducir de qué país era el Compendio citado, ni en qué moneda estaban los montos —el HTML no
+    tenía una sola ocurrencia de «CLP» ni de «pesos»—.
+    """
+    prose = importlib.import_module("nikodym.report.prose")
+    bundle = _bundle_provisiones(
+        {
+            "provisioning": {
+                "source_a": "cmf",
+                "source_b": "internal",
+                "rule": "max",
+                "comparison_level": "total",
+                "total_provision_a": 1000.0,
+                "total_provision_b": 800.0,
+                "total_reported_provision": 1000.0,
+                "binding": "cmf",
+            },
+            "provisioning_cmf": {
+                "total_exposure_amount": 50000.0,
+                "total_provision_amount": 1000.0,
+            },
+        }
+    )
+
+    texto = " ".join(prose.provisions_intro(bundle)) + " ".join(prose._results_provisioning(bundle))
+
+    assert "Chile" in texto, "el Compendio citado debe decir de qué país es"
+    assert "CLP" in texto, "los montos deben declarar su moneda"
+
+
+def test_la_prosa_de_ifrs9_declara_la_moneda_de_los_montos() -> None:
+    """IFRS 9 es un marco internacional: la moneda se dice, no se supone por el símbolo «$»."""
+    prose = importlib.import_module("nikodym.report.prose")
+    bundle = _bundle_provisiones(
+        {"provisioning_ifrs9": {"total_ecl_reported": 3423116.0, "total_ead": 114325315.0}}
+    )
+
+    texto = " ".join(prose.ifrs9_intro(bundle))
+
+    assert "CLP" in texto
+
+
+def test_los_titulos_de_los_capitulos_de_provisiones_rotulan_el_pais() -> None:
+    """Los títulos son lo primero que se lee en el índice y en la portada del capítulo."""
+    from nikodym.report.document import DOMAIN_TITLES
+
+    assert "Chile" in DOMAIN_TITLES["provisioning"]
+    assert "Chile" in DOMAIN_TITLES["provisioning_cmf"]

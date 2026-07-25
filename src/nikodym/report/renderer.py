@@ -700,12 +700,29 @@ def _thousands(value: int) -> str:
     return f"{value:,}".replace(",", ".")
 
 
+_AUDIT_ONLY_COLUMNS: Final[frozenset[str]] = frozenset({"warning_codes"})
+"""Columnas de audit-trail que NO se pintan en las tablas del informe.
+
+`warning_codes` es un contrato legítimo de los resultados (`provisioning/ifrs9/results.py`) y sigue
+viajando entero en el JSON serializado, en el audit y en el `ModelCard`: **no se pierde nada**. Lo
+que se retira es su render como columna de una tabla del documento, donde el mismo código
+—`FALTA-DATO-IFRS-4`— se repetía en las doce filas de «ECL por etapa», junto a cifras contables y
+en una tabla de portada. Ahí un código interno no informa: el hecho que declara ya está dicho dos
+veces en prosa completa, en la ficha metodológica y en la narración del capítulo, que es donde un
+lector lo entiende.
+
+Condición para retirar una columna aquí: **el hecho que publica debe estar declarado en prosa**. Sin
+esa condición, esto sería ocultar una limitación, que es exactamente lo contrario de lo que el
+informe promete.
+"""
+
+
 def _table_view(key: str, table: Any, *, max_rows: int) -> dict[str, Any]:
     if not _is_dataframe_like(table):
         raise ReportRenderError(
             f"Tabla no renderizable en report: clave='{key}', acción='publique un DataFrame'."
         )
-    columns = tuple(table.columns)
+    columns = tuple(c for c in table.columns if str(c) not in _AUDIT_ONLY_COLUMNS)
     records = cast(list[Mapping[Any, Any]], table.to_dict(orient="records"))
     rows = [
         tuple(

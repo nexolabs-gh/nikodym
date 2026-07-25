@@ -88,8 +88,11 @@ DOMAIN_TITLES: Final[dict[str, str]] = {
     "survival": "Supervivencia y curva PD lifetime",
     "markov": "Matrices de transición",
     "forward": "Escenarios forward-looking",
-    "provisioning": "La provisión a constituir — la regla del máximo",
-    "provisioning_cmf": "Método estándar de la CMF (Cap. B-1)",
+    # El título nombra el país: el informe circula fuera de Chile y «la CMF» no es un referente
+    # universal. Sin el rótulo, un lector de otra jurisdicción recibe un documento formalmente
+    # impecable del que no puede deducir qué norma se aplicó.
+    "provisioning": "La provisión a constituir — la regla del máximo (Chile)",
+    "provisioning_cmf": "Método estándar de la CMF de Chile (Cap. B-1)",
     "provisioning_internal": "Método interno del banco",
     "provisioning_ifrs9": "Pérdida crediticia esperada (ECL) por etapas",
 }

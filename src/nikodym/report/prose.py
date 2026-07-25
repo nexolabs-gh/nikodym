@@ -265,7 +265,10 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
             metrics.append(
                 ExecutiveMetric(
                     label="ECL reportada (IFRS 9)",
-                    scope="Cartera total",
+                    # El `scope` rotula la moneda porque estas cifras abren el documento: el «$» de
+                    # `_clp` no identifica la unidad, y un lector fuera de Chile la leería en la
+                    # suya. Va en el scope y no en el valor para no repetir la unidad en cada fila.
+                    scope="Cartera total · CLP",
                     value=_clp(ecl),
                     band="Cifra contable",
                 )
@@ -274,7 +277,7 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
             metrics.append(
                 ExecutiveMetric(
                     label="Exposición al incumplimiento (EAD)",
-                    scope="Cartera total",
+                    scope="Cartera total · CLP",
                     value=_clp(ead),
                     band="Cifra contable",
                 )
@@ -1389,9 +1392,10 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
 
     if is_b1_binding and rule == "max":
         paragraphs: list[str] = [
-            "El Compendio de Normas Contables para Bancos (Cap. B-1, hoja 10-11, Circular "
-            "N° 2.346) exige considerar el mayor valor entre el método estándar de la CMF y el "
-            "método interno, por institución."
+            "El Compendio de Normas Contables para Bancos de la Comisión para el Mercado "
+            "Financiero (CMF) de Chile —Cap. B-1, hoja 10-11, Circular N° 2.346— exige considerar "
+            "el mayor valor entre el método estándar de la CMF y el método interno, por "
+            "institución."
         ]
     elif is_b1_binding and rule == "use_internal":
         paragraphs = [
@@ -1414,7 +1418,8 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
         base = (
             f"{alcance}el método estándar de la CMF calcula "
             f"{_clp(estandar)} y el método interno {_clp(interno_total)}. La provisión a "
-            f"reportar según la regla configurada es {_clp(reportado)}."
+            f"reportar según la regla configurada es {_clp(reportado)}. Las cifras van en pesos "
+            "chilenos (CLP)."
         )
         if rule == "use_internal":
             relacion = "por debajo" if interno_total < estandar else "por encima"
@@ -1556,6 +1561,10 @@ def _results_provisioning_cmf(bundle: ReportInputBundle) -> tuple[str, ...]:
             "de colocaciones"
         )
         detalle += f", un índice de riesgo del {_pct(indice)}." if indice is not None else "."
+        # El símbolo «$» no identifica la moneda: el informe se lee fuera de Chile y una cifra sin
+        # unidad es ilegible o, peor, se lee en la moneda del lector. Se rotula en la primera
+        # mención de montos del capítulo, no en cada celda, para no volver ruidosa la tabla.
+        detalle += " Cifras en pesos chilenos (CLP)."
         paragraphs.append(detalle)
     paragraphs.append(
         "En cartera de consumo el factor de provisión es PI por PDI; la categoría no es un input: "
@@ -1665,6 +1674,9 @@ def ifrs9_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
         )
         cobertura = (ecl / ead) if ead else None
         titular += f", una cobertura del {_pct(cobertura)}." if cobertura is not None else "."
+        # IFRS 9 es un marco internacional: el informe puede emitirse en cualquier país, así que la
+        # moneda de los montos se dice, no se supone por el símbolo «$».
+        titular += " Los montos van en pesos chilenos (CLP)."
         if as_of is not None:
             titular += f" Fecha de corte: {as_of}."
         paragraphs.append(titular)
