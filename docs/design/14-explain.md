@@ -643,7 +643,7 @@ Fixtures: `woe_frame_small.parquet` sintético con particiones y monotonía cono
 gobierno que declara la institución, no carencias del motor.
 - **DATO-INSTITUCIONAL-EXP-1 — Formato/número normativo de reason codes por jurisdicción.** El régimen de "adverse action reason codes / key factors" es **norma en EE. UU.** (ECOA/Reg B, FCRA), **no en Chile/CMF** (que no manda un formato ni un N fijo). `explain` entrega `top_n` configurable (default de referencia `5`) y dirección/magnitud estructuradas; el formato de comunicación al cliente y el N exigido son **dato del usuario/jurisdicción**, **no se inventa una norma CMF**.
 - **DATO-INSTITUCIONAL-EXP-2 — Umbral de "driver material".** Qué magnitud de contribución justifica listar un reason code (o una acción) es decisión de gobierno; `explain` reporta todas y el `min_abs_contribution`/`top_n`, no fija un umbral normativo.
-- **EXP-3 → issue de ingeniería (2026-07-24).** El determinismo cross-versión de `shap` es un caveat documentado con golden pineados a versión (D-EXP-golden): nunca fue un dato faltante.
+- **EXP-3 → issue de ingeniería (2026-07-24), [#5](https://github.com/nexolabs-gh/nikodym/issues/5).** El determinismo cross-versión de `shap` es un caveat documentado con golden pineados a versión (D-EXP-golden): nunca fue un dato faltante.
 
 > Los TODO de ingeniería de esta capa salieron del contrato al separar las marcas (`_ENMIENDA-TAXONOMIA-MARCAS.md`): no significan nada para quien usa la librería y viven como issues del repo, no como avisos publicables.
 

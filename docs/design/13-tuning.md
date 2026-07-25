@@ -537,7 +537,7 @@ Fixtures: `woe_frame_small.parquet` sintético con particiones, `labels`/`splits
 Los dos ítems que figuraban aquí —TUN-1, el presupuesto de CI del tuning, y TUN-2, el evaluador
 de importancia de hiperparámetros de Optuna— salieron del contrato al separar las marcas
 (`_ENMIENDA-TAXONOMIA-MARCAS.md`): son TODO de ingeniería, no significan nada para quien usa la
-librería y viven como issues del repo (2026-07-24).
+librería y viven como issues del repo (2026-07-24): [#3](https://github.com/nexolabs-gh/nikodym/issues/3) y [#4](https://github.com/nexolabs-gh/nikodym/issues/4).
 
 **Riesgos y mitigaciones.**
 - **Leakage de selección de hiperparámetros.** Mitigación: CV/holdout **interno de `desarrollo`**; `holdout`/`oot` nunca en el objetivo; test de aislamiento de particiones.

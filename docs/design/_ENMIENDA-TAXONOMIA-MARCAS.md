@@ -140,7 +140,12 @@ caveat»), `TUN-1` (presupuesto de CI del tuning), `TUN-2` (evaluador de importa
 
 Ninguno se emite en runtime. SDD-23 ya los rotulaba «FALTA-DATO (de ingeniería, no regulatorio)»: la
 distinción existía en la cabeza del autor, no en la marca. Salen de la sección de marcas de su SDD y
-quedan como issues; `UI-3` se elimina por resuelto.
+quedan como issues del repo —[#1](https://github.com/nexolabs-gh/nikodym/issues/1) (UI-1),
+[#2](https://github.com/nexolabs-gh/nikodym/issues/2) (UI-2),
+[#3](https://github.com/nexolabs-gh/nikodym/issues/3) (TUN-1),
+[#4](https://github.com/nexolabs-gh/nikodym/issues/4) (TUN-2) y
+[#5](https://github.com/nexolabs-gh/nikodym/issues/5) (ML-3 + EXP-3, que son el mismo caveat)—;
+`UI-3` no genera issue: ya estaba resuelto.
 
 ### D · Cierre por resuelto — coordinación entre SDD ya implementada (4)
 
