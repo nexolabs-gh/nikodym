@@ -713,7 +713,7 @@ aporta la institución; IFRS-4 e IFRS-6 son brechas del motor y conservan `FALTA
 - **ESPECIFICACIONES.md** §6.1: `BaseECLModel` con salida económica multi-componente.
 - **ROADMAP.md** F4: entregables (PD/LGD/EAD, staging, motor ECL, orquestación) y DoD (tests de fórmula Vasicek/ECL marginal contra valores canónicos; term-structure conectada por interfaz a F5).
 - **_CONTRATOS-TRANSVERSALES.md** CT-1 (`requires`/`provides`), CT-2 (`term_structure()`, `metric_sections`, `payload`), CT-3 (frontera transversal vs longitudinal), §4 (`provisioning/ifrs9` declarado regulatorio a 100% de cobertura).
-- **SDD-18 (`survival`) / SDD-19 (`markov`)**: contrato tidy hermano de term-structure lifetime PD (`pd_marginal`, `pd_cumulative`, `survival`, `hazard`, `scenario`); FALTA-DATO-SUR-6 (shape final IFRS 9) y FALTA-DATO-MKV-3 (horizonte económico) que SDD-16 resuelve.
+- **SDD-18 (`survival`) / SDD-19 (`markov`)**: contrato tidy hermano de term-structure lifetime PD (`pd_marginal`, `pd_cumulative`, `survival`, `hazard`, `scenario`); SUR-6 (shape final IFRS 9) y MKV-3 (horizonte económico), que SDD-16 resolvió y quedaron cerrados en sus SDD.
 - **SDD-20 (`forward`)**: term-structure multiescenario PIT, `pd_basis`/`basis_state`, pesos de escenario; delega la transformación Vasicek a SDD-16 (§40).
 - **SDD-10 (`calibration`)**: `calibrated_pd_frame`; delega la conversión PIT/TTC macro a SDD-16/18/20 (§37).
 - **SDD-15 (`provisioning/cmf`)**: motor hermano; SDD-17 puede comparar ambos con fines
