@@ -190,8 +190,8 @@ _DATASETS: dict[str, dict[str, Any]] = {
             "staging por los backstops de mora 30/90 días (presunciones IFRS 9 5.5.11 / B5.5.37). "
             "Montos de escala retail y AGNÓSTICOS de moneda (sin símbolo; la moneda se rotula en "
             "la vista). Genérico LatAm, sin país ni institución. IFRS 9 es EXPERIMENTAL (fuera de "
-            "la garantía SemVer 1.x) y la EAD se despliega CONSTANTE por período "
-            "(limitación conocida FALTA-DATO-IFRS-4: sin perfil de amortización)."
+            "la garantía SemVer 1.x) y la EAD se despliega CONSTANTE por período: no se modela la "
+            "amortización del crédito, y el motor lo declara en cada fila del resultado."
         ),
         "n_rows": 6000,
         "seed": 20_260_715,
