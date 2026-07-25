@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 import numpy as np
 import pandas as pd
 
+from nikodym.core.markers import INSTITUTIONAL_MARKER, MISSING_DATA_MARKER
 from nikodym.validation.backtesting import (
     binomial_realised_vs_predicted,
     ttest_realised_vs_predicted,
@@ -415,11 +416,12 @@ class ValidationEvaluator:
         self, ifrs9_detail: pd.DataFrame | None, realised: pd.DataFrame | None
     ) -> tuple[tuple[BacktestRecord, ...], list[str]]:
         """Corre el backtesting IFRS 9 o lo difiere a un aviso según ``fail_on_falta_dato``."""
-        blocker = self._backtesting_blocker(ifrs9_detail, realised)
-        if blocker is not None:
+        blocked = self._backtesting_blocker(ifrs9_detail, realised)
+        if blocked is not None:
+            marker, blocker = blocked
             if self.config.fail_on_falta_dato:
                 raise ValidationConfigError(blocker)
-            return (), [f"DATO-INSTITUCIONAL: {blocker}"]
+            return (), [f"{marker}: {blocker}"]
         # blocker None garantiza ambos frames no nulos; ``cast`` estrecha sin abrir una rama.
         records = self._run_backtesting(
             cast(pd.DataFrame, ifrs9_detail), cast(pd.DataFrame, realised)
@@ -434,23 +436,45 @@ class ValidationEvaluator:
 
     def _backtesting_blocker(
         self, ifrs9_detail: pd.DataFrame | None, realised: pd.DataFrame | None
-    ) -> str | None:
-        """Devuelve el motivo por el que el backtesting no puede correr, o ``None`` si sí puede."""
+    ) -> tuple[str, str] | None:
+        """Devuelve ``(marca, motivo)`` por el que el backtesting no corre, o ``None`` si sí puede.
+
+        La marca no es decorativa: dice de quién es la carencia. Cuatro de los cinco motivos los
+        resuelve quien corre —su config, encadenar el paso IFRS 9, sus columnas realizadas—, y por
+        eso son ``DATO-INSTITUCIONAL``. El quinto no: si el artefacto de IFRS 9 llegó pero **sin las
+        columnas estimadas que ese mismo motor produce**, lo que falta lo debía Nikodym, y rotularlo
+        como input de la institución afirmaría algo falso sobre de quién es el hueco.
+        """
         bt = self.config.backtesting
         if not bt.enabled:
-            return "families incluye 'backtesting' pero backtesting.enabled=False."
+            return (
+                INSTITUTIONAL_MARKER,
+                "families incluye 'backtesting' pero backtesting.enabled=False.",
+            )
         if ifrs9_detail is None:
-            return "falta el artefacto provisioning_ifrs9.detail para el backtesting."
+            return (
+                INSTITUTIONAL_MARKER,
+                "falta el artefacto provisioning_ifrs9.detail para el backtesting.",
+            )
         if realised is None:
-            return "falta data.frame con las columnas de resultado realizado para el backtesting."
+            return (
+                INSTITUTIONAL_MARKER,
+                "falta data.frame con las columnas de resultado realizado para el backtesting.",
+            )
         required_realised = _required_realised_columns(bt)
         missing_realised = [col for col in required_realised if col not in realised.columns]
         if missing_realised:
-            return f"data.frame no contiene columnas de resultado realizado: {missing_realised}."
+            return (
+                INSTITUTIONAL_MARKER,
+                f"data.frame no contiene columnas de resultado realizado: {missing_realised}.",
+            )
         required_estimated = _required_estimated_columns(bt)
         missing_estimated = [col for col in required_estimated if col not in ifrs9_detail.columns]
         if missing_estimated:
-            return f"provisioning_ifrs9.detail no contiene columnas estimadas: {missing_estimated}."
+            return (
+                MISSING_DATA_MARKER,
+                f"provisioning_ifrs9.detail no contiene columnas estimadas: {missing_estimated}.",
+            )
         return None
 
     def _run_backtesting(

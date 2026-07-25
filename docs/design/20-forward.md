@@ -652,7 +652,7 @@ class ForwardConfig(NikodymBaseConfig):
 - **Series macro constante o demasiado corta:** `ForwardFitError` si no cumple `min_history_periods`.
 - **ARIMAX sin exógenas futuras suficientes:** `MacroProjectionError`.
 - **VAR/VECM con una sola variable:** `ForwardConfigError`.
-- **VECM sin rank configurado cuando statsmodels no puede inferirlo de forma estable:** `ForwardConfigError` o `DATO-INSTITUCIONAL-FWD-8`.
+- **VECM sin rank configurado:** `ForwardConfigError` con `FALTA-DATO-FWD-8` (el motor todavía no selecciona el rango de cointegración).
 - **`pmdarima` faltante con `use_pmdarima_auto_order=True`:** `MissingDependencyError("instale nikodym[forecasting]")`.
 - **`auto_arima_random=True` sin `random_state`:** `ForwardConfigError`.
 - **Ljung-Box falla con `fail_on_ljung_box=True`:** `ForwardFitError`; con default solo warning auditado.
@@ -776,16 +776,16 @@ Fixtures: `macro_history_small.parquet` sintético, term-structures pequeñas de
 
 Los defaults D-FWD-1…9 están implementados como política metodológica editable y no como parámetros regulatorios. Se mantienen el guard anti escenario medio, la reversión TTC configurable, los shocks externos obligatorios y la ausencia de dependencia runtime sobre IFRS 9. `default_a_confirmar` permanece deliberadamente visible para impedir que un valor de conveniencia se presente como aprobado.
 
-**Avisos declarados (taxonomía: `_ENMIENDA-TAXONOMIA-MARCAS.md`).** Siete de los ocho declaran un
-input que aporta la institución; sólo FWD-6 es una brecha del motor.
+**Avisos declarados (taxonomía: `_ENMIENDA-TAXONOMIA-MARCAS.md`).** Seis de los ocho declaran un
+input que aporta la institución; FWD-6 y FWD-8 son brechas del motor.
 - **DATO-INSTITUCIONAL-FWD-1 — Paths/shocks macro adverso y severo.** No hay valores externos en ESPECIFICACIONES; deben venir de institución/config.
 - **DATO-INSTITUCIONAL-FWD-2 — Variables macro canónicas por cartera.** No se fija PIB, desempleo, inflación u otras; `factor_cols` lo declara el usuario.
 - **DATO-INSTITUCIONAL-FWD-3 — Frecuencia temporal institucional.** Mensual/trimestral/anual no está fijado; `macro_source.frequency` y `time_unit` deben declararse.
 - **DATO-INSTITUCIONAL-FWD-4 — Naturaleza PIT/TTC de la term-structure base.** SDD-18/19 publican PD lifetime, pero no siempre conocen si es PIT/TTC; se requiere columna o config.
 - **DATO-INSTITUCIONAL-FWD-5 — Coeficientes satellite iniciales.** Si no hay historia suficiente para ajustar, deben venir como coeficientes fijos auditados.
 - **FALTA-DATO-FWD-6 — Tratamiento LGD forward-looking (brecha del motor).** `forward` puede publicar LGD, pero SDD-16 la ignora y reconstruye LGD con `IfrsLgdConfig`; desde 2026-07-20 el descarte deja de ser silencioso (aviso `FALTA-DATO-IFRS-6` en card/warning_codes + auditoría `ifrs9_lgd`, con golden invariante que fija el límite; el gatillo es la columna `lgd` condicionada — `lgd_base`, linaje de la LGD base de entrada, queda fuera del aviso por diseño). Falta fijar precedencia o validación cruzada en un SDD propio.
-- **DATO-INSTITUCIONAL-FWD-8 — Rango de cointegración del VECM.** `kind='vecm'` exige `vecm_rank` explícito: statsmodels no lo infiere de forma estable y el motor no elige por la institución. Se numeró al normalizar la taxonomía (antes era un código sin número).
 - **DATO-INSTITUCIONAL-FWD-7 — Panel longitudinal IFRS 9.** SDD-16 ya fija cuenta×período×escenario con EAD/EIR/stage; la disponibilidad temporal y el perfil institucional de EAD/LGD siguen siendo inputs externos.
+- **FALTA-DATO-FWD-8 — Selección del rango de cointegración del VECM (brecha del motor).** `kind='vecm'` exige `vecm_rank` explícito porque Nikodym **todavía no selecciona el rango**; el test de Johansen lo estima de los datos (`statsmodels` expone `select_coint_rank` en el mismo módulo del que se importa `VECM`), así que no es una decisión de gobierno de la institución sino una capacidad que el motor aún no trae. Se numeró al normalizar la taxonomía (antes era un código sin número) y se corrigió su clase el 2026-07-25: nació institucional por error, contra la regla de que un diferimiento del motor —el mensaje decía «en esta versión»— es `FALTA-DATO`.
 
 **Riesgos y mitigaciones.**
 - **Promedio de inputs macro usado por conveniencia.** Mitigación: guard de config/API, golden test no lineal y auditoría `forward_no_mean_scenario_guard`.

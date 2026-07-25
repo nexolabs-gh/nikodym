@@ -536,6 +536,40 @@ def test_validate_backtesting_columnas_estimadas_ausentes_falla() -> None:
         ValidationEvaluator.from_config(cfg).validate(ifrs9_detail=detail, realised=_realised())
 
 
+def test_validate_backtesting_columnas_estimadas_ausentes_marca_brecha_del_motor() -> None:
+    """Sin las columnas que produce IFRS 9, la carencia es de Nikodym: ``FALTA-DATO``.
+
+    Rotularla ``DATO-INSTITUCIONAL`` diría que el dato lo debe aportar el banco, y lo que falta es
+    una salida del propio motor.
+    """
+    cfg = _config(
+        families=("backtesting",),
+        backtesting=BacktestingValidationConfig(enabled=True, segment_col="portfolio"),
+        fail_on_falta_dato=False,
+    )
+    detail = _ifrs9_detail().drop(columns=["ead"])
+    result = ValidationEvaluator.from_config(cfg).validate(
+        ifrs9_detail=detail, realised=_realised()
+    )
+    aviso = next(gap for gap in result.card.falta_dato if "columnas estimadas" in gap)
+    assert aviso.startswith("FALTA-DATO:")
+
+
+def test_validate_backtesting_columnas_realizadas_ausentes_marca_input_institucional() -> None:
+    """Las columnas de resultado realizado las trae el banco: ``DATO-INSTITUCIONAL``."""
+    cfg = _config(
+        families=("backtesting",),
+        backtesting=BacktestingValidationConfig(enabled=True, segment_col="portfolio"),
+        fail_on_falta_dato=False,
+    )
+    realised = _realised().drop(columns=["realised_lgd"])
+    result = ValidationEvaluator.from_config(cfg).validate(
+        ifrs9_detail=_ifrs9_detail(), realised=realised
+    )
+    aviso = next(gap for gap in result.card.falta_dato if "resultado realizado" in gap)
+    assert aviso.startswith("DATO-INSTITUCIONAL:")
+
+
 def test_validate_backtesting_indices_no_alineados_falla() -> None:
     """Estimado y realizado con índices distintos → ``ValidationDataError`` (sin merge ambiguo)."""
     cfg = _config(

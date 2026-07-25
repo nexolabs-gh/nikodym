@@ -29,8 +29,13 @@ distintos** repartidos en tres grupos que hoy comparten una sola marca. Dos prec
   (`forward/macro.py`), que se normalizan a `PROV-2` y `FWD-8`. Con ellos, los destinos a clasificar
   son **54**, no 52.
 - Y **dos marcas desnudas sin familia**, emitidas en runtime: el motor interno cuando una fila no
-  trae exposición o LGD, y `validation` cuando el backtesting no tiene columnas realizadas. Ambas
-  son institucionales y quedan como `DATO-INSTITUCIONAL` a secas, sin número.
+  trae exposición o LGD, y `validation` cuando el backtesting no puede correr. La primera es
+  institucional. La segunda **depende del motivo** y por eso se marca en el sitio que lo decide
+  (`_backtesting_blocker`): institucional cuando lo resuelve quien corre —su config, encadenar el
+  paso IFRS 9, sus columnas realizadas—, y `FALTA-DATO` cuando el `detail` de IFRS 9 llegó **sin las
+  columnas estimadas que ese mismo motor produce**. *(Corregido el 2026-07-25: la ejecución marcó los
+  cinco motivos como institucionales, incluido ese último, que culpaba a la institución de una
+  carencia propia.)*
 - **30 de los 52 no aparecen en `src/`**: viven sólo en la sección «FALTA-DATO explícitos» de su SDD.
   Son *decisiones de diseño*, no marcas que el motor emita. La distinción operativa que importa es
   **código emitido** (viaja a `warning_codes` / `card.falta_dato` / informe / UI) vs **ítem de SDD**.
@@ -42,8 +47,8 @@ un supuesto que no le corresponde»— aparece rotulado como defecto propio, 35 
 
 | Destino | Qué declara | Nº |
 |---|---|---|
-| **`FALTA-DATO`** | Brecha real del motor: algo que Nikodym no trae, difirió, o no verificó contra fuente oficial | 8 códigos + 2 `pending_items` CMF |
-| **`DATO-INSTITUCIONAL`** | Parámetro, definición o dato de entrada que le corresponde a la institución; el motor **se niega a inventarlo** | 35 + 2 marcas desnudas |
+| **`FALTA-DATO`** | Brecha real del motor: algo que Nikodym no trae, difirió, o no verificó contra fuente oficial | 9 códigos + 2 `pending_items` CMF |
+| **`DATO-INSTITUCIONAL`** | Parámetro, definición o dato de entrada que le corresponde a la institución; el motor **se niega a inventarlo** | 34 + 1 marca desnuda |
 | **sin marca publicable** | TODO de ingeniería, sin significado para un usuario → issue de GitHub | 7 |
 | **cierre por resuelto** | Ítem de coordinación entre SDD que la implementación ya resolvió | 4 |
 
@@ -65,7 +70,11 @@ Evidencia = texto canónico del SDD que lo declara y/o el sitio del código que 
 leyendo qué declara cada código, no por el nombre de su familia: por eso `ML-1` y `ML-2` van a clases
 distintas, y `STR-5` se separa del resto de `STR-*`.
 
-### A · `FALTA-DATO` — brecha real del motor (8 + 2)
+### A · `FALTA-DATO` — brecha real del motor (9 + 2)
+
+> **Corrección del 2026-07-25.** La ejecución dejó `FWD-8` en la clase B y una revisión adversarial
+> posterior lo devolvió aquí: su propio mensaje decía «en esta versión», que es la firma de un
+> diferimiento del motor. El reparto queda **9 + 2 / 34**, no 8 + 2 / 35.
 
 | Código | Evidencia | Por qué es brecha |
 |---|---|---|
@@ -77,6 +86,7 @@ distintas, y `STR-5` se separa del resto de `STR-*`.
 | `VAL-3` | SDD-22 «convención exacta del p-valor del Jeffreys test» | Verificación pendiente |
 | `STR-5` | SDD-21 «`stress` no importa ni adivina SDD-16/17» | El motor ECL no está conectado |
 | `ML-1` | SDD-12 · `ml/step.py:155` «`feature_source='data_raw'` está **diferido**» | Ruta no implementada |
+| `FWD-8` | SDD-20 · `forward/macro.py:449` «exige `vecm_rank` explícito» | El motor no selecciona el rango de cointegración; el test de Johansen lo estima de los datos |
 | `financial_guarantee_haircuts` | `manifest.json` §5.2 | Parámetro normativo no extraído |
 | `ran_21_10_numeric_tables` | `manifest.json` §5.3 | Tabla normativa no extraída |
 
@@ -88,7 +98,7 @@ en docstrings y en una `description` de config. Se quedan en `FALTA-DATO` sin ma
 sólo mapea `IFRS-4`/`IFRS-6`) ni `methodology.py:161` (`IFRS-4`). **El texto del informe entregable no
 se mueve.**
 
-### B · `DATO-INSTITUCIONAL` — lo aporta la institución (35)
+### B · `DATO-INSTITUCIONAL` — lo aporta la institución (34)
 
 | Código | Evidencia (texto canónico o sitio de emisión) |
 |---|---|
@@ -113,7 +123,6 @@ se mueve.**
 | `FWD-4` | naturaleza PIT/TTC: «se requiere columna o config» — `scenarios.py:64` |
 | `FWD-5` | coeficientes satellite: «deben venir como coeficientes fijos auditados» — `satellite.py` ×4 |
 | `FWD-7` | «el perfil institucional de EAD/LGD sigue siendo input externo» |
-| `FWD-8` (ex sin número) | `macro.py` «`kind='vecm'` exige `vecm_rank` explícito»: statsmodels no lo infiere de forma estable |
 | `STR-1` | shocks comparables: dependen de las magnitudes que traiga el input de forward |
 | `STR-2` | escenarios oficiales: «deben venir de fuente institucional/oficial versionada» |
 | `STR-3` | umbrales de capital: «el usuario los declara» |
@@ -150,8 +159,16 @@ quedan como issues del repo —[#1](https://github.com/nexolabs-gh/nikodym/issue
 ### D · Cierre por resuelto — coordinación entre SDD ya implementada (4)
 
 `SUR-6`, `MKV-3`, `MKV-4` y `MKV-6` sólo decían «SDD-16 / SDD-20 debe fijar X». Esos SDD están
-implementados: el contrato forward↔IFRS 9 vive en `tests/unit/test_forward_ifrs9_contract.py`, y la
-naturaleza PIT/TTC quedó cubierta por `FWD-4`. Se marcan ✅ RESUELTO con su evidencia, igual que `UI-3`.
+implementados: SDD-16 fija las columnas económicas y el proveedor de term-structure
+(`term_structure_source: Literal["survival","markov","forward"]`), ejercitado en
+`tests/unit/test_provisioning_step.py` y `tests/unit/test_ifrs9_engine.py`; el contrato
+forward↔IFRS 9 vive en `tests/unit/test_forward_ifrs9_contract.py`; y la naturaleza PIT/TTC quedó
+cubierta por `FWD-4`. Se marcan ✅ RESUELTO con su evidencia, igual que `UI-3`.
+
+> **Corrección del 2026-07-25.** La redacción original sostenía el cierre de `SUR-6` citando
+> `test_forward_ifrs9_contract.py`, que prueba la frontera **forward**↔IFRS 9 y no menciona survival
+> ni markov. El cierre era correcto; la prueba ofrecida, no. Citar un test que no cubre lo que se
+> afirma es la forma más fácil de que un cierre falso sobreviva a la revisión.
 
 ## 4. Alcance: qué se toca y qué no
 
@@ -177,8 +194,12 @@ deprecación.
 
 ## 5. Criterio de aceptación, y cómo quedó
 
-1. `git grep FALTA-DATO` devuelve **sólo** los 8 códigos de la clase A, los 2 `pending_items`, el
-   término paraguas y el texto que explica la taxonomía. ✅ Verificado por censo tras el último commit.
+1. `git grep FALTA-DATO` devuelve **sólo** los 9 códigos de la clase A, los 2 `pending_items`, el
+   término paraguas y el texto que explica la taxonomía. ⚠️ **El censo del cierre no era exhaustivo.**
+   Se declaró verificado y la revisión adversarial del 2026-07-25 encontró cuatro citas rezagadas
+   —tres en SDD-22, que quedó entero sin actualizar mientras su motor cambiaba de marca, y una en
+   SDD-14—. Corregidas ese día. La lección queda escrita porque es reutilizable: un censo que el
+   propio autor declara completo, sobre su propio cambio, no es evidencia; lo es un lector fresco.
 2. Ningún código de la clase B se pierde entre el motor y la card. ✅ `tests/unit/test_core_markers.py`
    fija que el predicado compartido reconoce las dos marcas, y que un warning de celda no se cuela.
 3. Los números insignia de la demo no se mueven: ECL $3.423.116 · EAD $114.325.315 · 2,99 %.

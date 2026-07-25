@@ -379,7 +379,7 @@ class ValidationConfig(NikodymBaseConfig):
 **Validaciones de config.**
 - `traffic_light_red_alpha < traffic_light_green_alpha` (rojo más estricto que ámbar).
 - `psi_stable_threshold < psi_review_threshold`.
-- `"backtesting" ∈ families` exige `backtesting.enabled=True` y las columnas realizadas declaradas; su omisión → `ValidationConfigError` o `FALTA-DATO` según `fail_on_falta_dato`.
+- `"backtesting" ∈ families` exige `backtesting.enabled=True` y las columnas realizadas declaradas; su omisión → `ValidationConfigError` o aviso declarado según `fail_on_falta_dato`. La marca del aviso depende de **de quién es la carencia**: `DATO-INSTITUCIONAL` cuando lo resuelve quien corre (config, encadenar IFRS 9, sus columnas realizadas) y `FALTA-DATO` cuando el `detail` de IFRS 9 llegó sin las columnas estimadas que ese mismo motor produce.
 - `hl_grouping="fixed_bands"` exige bandas declaradas (reservado; default deciles).
 - `grade_col`/`pd_column`/`target_column`/`partition_column` no vacíos ni colisionando.
 - `discrimination.consume_performance=False` fuerza el fallback por reúso de `PerformanceEvaluator` (no reimplementación).
@@ -500,7 +500,8 @@ class ValidationConfig(NikodymBaseConfig):
 - **Grupo HL/grado con una sola clase o bajo mínimo:** `not_evaluable` auditado; no aborta salvo que **todas** las particiones sean no evaluables.
 - **`pd_calibrated` fuera de `(0,1)` o no finita:** `ValidationDataError` ruidoso; SDD-22 no corrige PD aguas arriba.
 - **`p̄_g·(1−p̄_g)=0` en HL (grupo degenerado):** grupo `not_evaluable`; nunca división por cero silenciosa.
-- **Backtesting activo sin columnas realizadas:** `ValidationConfigError`/`FALTA-DATO` según `fail_on_falta_dato`; no se inventa el realizado.
+- **Backtesting activo sin columnas realizadas:** `ValidationConfigError`/`DATO-INSTITUCIONAL` según `fail_on_falta_dato`; no se inventa el realizado.
+- **Backtesting activo con `provisioning_ifrs9.detail` sin columnas estimadas:** `ValidationConfigError`/`FALTA-DATO` según `fail_on_falta_dato`. Es el único motivo del blocker que **no** es institucional: lo que falta es una salida del propio motor IFRS 9.
 - **`N` pequeño en t-test:** se reporta el estadístico con `not_evaluable` si `N < min` técnico; no se afirma significancia con muestras degeneradas.
 - **Semáforo sin anclaje regulatorio:** el `traffic_light` sale de default institucional configurable, etiquetado como tal, con `FALTA-DATO-VAL-2` en el card.
 - **Índices no alineables:** `ValidationDataError`; no se hace merge ambiguo.
@@ -564,7 +565,7 @@ Marco transversal en SDD-24. Casos específicos:
 - **Reúso, no duplicación (estabilidad).** `validation.stability` refleja `("stability","stability_metrics")`; test AST: no reimplementa PSI.
 - **Cierre del DAG.** `ValidationStep.from_config` compone los `requires` exactos de §6; falta uno → `ArtifactNotFoundError`. `provides` publica las seis claves.
 - **No mutación.** Snapshots profundos de `calibrated_pd_frame`, `labels`, `ifrs9.detail`, artefactos de SDD-11 permanecen iguales.
-- **Casos borde.** Grupo/grado bajo mínimo o de una clase → `not_evaluable`; backtesting sin columnas realizadas → error/`FALTA-DATO`; PD fuera de `(0,1)` → error.
+- **Casos borde.** Grupo/grado bajo mínimo o de una clase → `not_evaluable`; backtesting sin columnas realizadas → error/`DATO-INSTITUCIONAL`; backtesting con `detail` sin columnas estimadas → error/`FALTA-DATO`; PD fuera de `(0,1)` → error.
 - **Audit trail.** Tests fallados y bandas cruzadas emiten exactamente los `AuditEvent(kind="decision")` esperados con `regla`, `umbral`, `valor`, `accion`.
 - **Config.** Round-trip YAML de `ValidationConfig`; cambiar deciles, α, bandas del semáforo, test de PD o familias cambia `config_hash`; `validation ∉ INFRA_SECTIONS`.
 - **Pandera.** Validar schemas con `import pandera.pandas as pa`.
