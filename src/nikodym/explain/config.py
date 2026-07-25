@@ -122,7 +122,8 @@ class ReasonCodesConfig(NikodymBaseConfig):
         title="N de reason codes",
         description=(
             "Nº de drivers principales por observación; el default 5 sigue los 'key factors' de "
-            "ECOA/FCRA y NO responde a una norma CMF (brecha declarada DATO-INSTITUCIONAL-EXP-1)."
+            "ECOA/FCRA y NO responde a una norma CMF: el número lo fija su institución "
+            "(DATO-INSTITUCIONAL-EXP-1)."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Reason codes", "ui_order": 1},
     )

@@ -836,6 +836,7 @@ input que aporta la institución; sólo STR-5 es una brecha del motor.
 - **FALTA-DATO-STR-5 — Motor ECL/provisión conectado (brecha del motor).** Los impactos económicos completos requieren un artefacto de engine explícito; `stress` no importa ni adivina SDD-16/17.
 - **DATO-INSTITUCIONAL-STR-6 — Métricas ratio específicas.** Denominadores como capital, patrimonio efectivo, RWA o cartera vigente no están definidos en SDD-21.
 - **DATO-INSTITUCIONAL-STR-7 — Política de shock relativo sobre factores negativos.** Debe declararse por factor si se usa `operation="relative"`.
+- **DATO-INSTITUCIONAL-STR-8 — LGD base del term-structure de entrada.** `stress` no produce LGD: la toma del term-structure que recibe (`_prepare_lgd_base`), y si ese insumo no la trae, el impacto de severidad sobre LGD no se puede calcular. Se numeró al normalizar la taxonomía (antes era `STR-LGD`, un código sin número nacido en el motor); la ficha se escribió el 2026-07-25, cuando se detectó que el código se emitía sin estar declarado en ningún SDD.
 
 **Riesgos y mitigaciones.**
 - **Stress se confunde con validación.** Mitigación: frontera dura hacia SDD-22 en §1/§2 y test anti métricas de validación.

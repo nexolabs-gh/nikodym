@@ -623,7 +623,7 @@ Fixtures: `woe_frame_small.parquet` sintético con particiones y monotonía cono
 
 ## 12. Decisiones abiertas y riesgos
 
-**R0 (Cami).** **Ninguno.** `explain` no fija producto irreversible, release público, PyPI, repo-público, deploy ni plata. Las decisiones D-EXP son **defaults metodológicos editables** y se listan para revisión de Cami; **la metodología de explicabilidad no es R0** (así lo pide el encargo). El único punto sensible —el formato/número normativo de reason codes— se trata como **FALTA-DATO configurable**, no como norma inventada.
+**R0 (Cami).** **Ninguno.** `explain` no fija producto irreversible, release público, PyPI, repo-público, deploy ni plata. Las decisiones D-EXP son **defaults metodológicos editables** y se listan para revisión de Cami; **la metodología de explicabilidad no es R0** (así lo pide el encargo). El único punto sensible —el formato/número normativo de reason codes— se trata como **`DATO-INSTITUCIONAL-EXP-1` configurable**, no como norma inventada.
 
 **D-EXP para revisión de Cami.**
 - **D-EXP-1 — Explainer por backend.** Recomendación: TreeExplainer (GBDT/RF), LinearExplainer/analítico (logística/SVM lineal), KernelExplainer (fallback SVM rbf). `ml_explainer="auto"` resuelve; forzable. Tree/Linear exactos; Kernel aproximado.

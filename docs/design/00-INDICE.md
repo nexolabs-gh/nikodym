@@ -93,10 +93,17 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > **Taxonomía de marcas separada (2026-07-24).** `FALTA-DATO` cubría tres cosas distintas —una
 > brecha del motor, un input que aporta la institución y un TODO de ingeniería—. La enmienda
 > [`_ENMIENDA-TAXONOMIA-MARCAS.md`](_ENMIENDA-TAXONOMIA-MARCAS.md), aprobada por Cami y ejecutada el
-> mismo día, deja `FALTA-DATO` sólo para las brechas del motor (8 códigos + 2 `pending_items` CMF),
-> crea **`DATO-INSTITUCIONAL`** para los 35 que declara la institución, saca del contrato 7 TODO de
-> ingeniería y cierra 4 ítems que ya estaban resueltos. Afecta a los SDD 12, 13, 14, 15, 16, 17, 18,
-> 19, 20, 21 y 23; el contrato compartido vive en `nikodym/core/markers.py`.
+> mismo día, deja `FALTA-DATO` sólo para las brechas del motor (9 códigos + 2 `pending_items` CMF),
+> crea **`DATO-INSTITUCIONAL`** para los 34 que declara la institución, saca del contrato 7 TODO de
+> ingeniería y cierra 4 ítems que ya estaban resueltos. Afecta a los SDD 12, 13, 14, 16, 17, 18,
+> 19, 20, 21, 22 y 23; el contrato compartido vive en `nikodym/core/markers.py`.
+>
+> **Corrección del 2026-07-25 (revisión adversarial posterior a la ejecución).** `FWD-8` había
+> quedado clasificado como institucional siendo una brecha del motor —su propio mensaje decía «en
+> esta versión»—, así que vuelve a `FALTA-DATO` y el reparto pasa a 9/34. El blocker de backtesting
+> de SDD-22 marcaba institucionales cinco motivos distintos, uno de los cuales es la ausencia de
+> columnas que produce el propio motor IFRS 9: ese caso pasa a `FALTA-DATO`. Y `STR-8`, que el motor
+> emitía sin ficha en ningún SDD, quedó declarado en SDD-21.
 >
 > **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7)
 > y el SDD pasó al stack React/Vite sobre FastAPI. La implementación histórica del backend/front no

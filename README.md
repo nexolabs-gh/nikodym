@@ -151,8 +151,8 @@ resultados.
 
 ## Limitaciones que debes conocer antes de usarlo en serio
 
-El motor las publica de sí mismo —cada fila afectada emite su código `FALTA-DATO`—, así que aquí se
-dicen igual de claro.
+El motor las publica de sí mismo —cada fila afectada emite su código de aviso declarado—, así que
+aquí se dicen igual de claro.
 
 > **Las dos marcas, y por qué son dos.** Cuando un número no sale de un dato real, el resultado lo
 > dice con una de dos marcas, y la diferencia importa:

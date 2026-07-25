@@ -13,19 +13,22 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   puede tener dos causas distintas: que a Nikodym le falte algo, o que le falte a la institución un
   parámetro que sólo ella puede fijar. Hasta 1.5.0 ambas compartían la marca `FALTA-DATO`, de modo
   que el argumento de venta del producto —el motor **se niega a inventar** un supuesto que no le
-  corresponde— aparecía rotulado como defecto propio 33 veces. Ahora:
+  corresponde— aparecía rotulado como defecto propio 34 veces. Ahora:
   - **`FALTA-DATO`** queda sólo para las brechas del motor: `IFRS-4` (EAD constante, sin panel
-    longitudinal), `IFRS-6`/`FWD-6` (LGD forward descartada), `STR-5` (motor ECL no conectado a
-    stress), `ML-1` (`data_raw` diferido), `VAL-1`/`VAL-2`/`VAL-3` (convención del t-test ECB,
-    cortes del semáforo y p-valor de Jeffreys, pendientes de verificar contra el documento oficial)
-    y los dos `pending_items` del manifiesto CMF.
-  - **`DATO-INSTITUCIONAL`** es la marca nueva de los 33 códigos que declaran un input de la
+    longitudinal), `IFRS-6`/`FWD-6` (LGD forward descartada), `FWD-8` (el motor no selecciona el
+    rango de cointegración del VECM), `STR-5` (motor ECL no conectado a stress), `ML-1` (`data_raw`
+    diferido), `VAL-1`/`VAL-2`/`VAL-3` (convención del t-test ECB, cortes del semáforo y p-valor de
+    Jeffreys, pendientes de verificar contra el documento oficial) y los dos `pending_items` del
+    manifiesto CMF. Se le suma el aviso de `validation` cuando el `detail` de IFRS 9 llega sin las
+    columnas estimadas que ese mismo motor produce.
+  - **`DATO-INSTITUCIONAL`** es la marca nueva de los 34 códigos que declaran un input de la
     institución: shocks macro, taxonomía de estados, definición operacional de default, umbrales de
     gobierno, `rho`, EIR, cobertura del comparativo de provisiones.
 
   **Familia y número se conservan** (`FALTA-DATO-FWD-1` → `DATO-INSTITUCIONAL-FWD-1`), así que la
-  trazabilidad contra los SDD y este changelog se mantiene. Dos normalizaciones: `STR-LGD` → `STR-8`
-  y el `PROV` sin número → `PROV-2`. Todos los códigos que cambian pertenecen a capas
+  trazabilidad contra los SDD y este changelog se mantiene. Tres normalizaciones de códigos que
+  habían nacido sin número: `STR-LGD` → `STR-8`, el `PROV` sin número → `PROV-2` y el `FWD` sin
+  número → `FWD-8`. Todos los códigos que cambian pertenecen a capas
   **experimentales**; el pipeline F1 estable no emite ninguno. Los campos `falta_dato` y
   `fail_on_falta_dato` del config **no cambian**: siguen nombrando el conjunto de avisos declarados,
   para no romper el config de quien instaló 1.5.0.
