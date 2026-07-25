@@ -533,16 +533,18 @@ Fixtures: `woe_frame_small.parquet` sintético con particiones, `labels`/`splits
 - **D-TUN-consumo — Consumo por `ml`.** Recomendación: rev. menor aditiva de SDD-12 (`ml` gana un `requires` opcional sobre `("tuning","best_config")`, deuda B-ML-TUN); ausente `tuning`, `ml` intacto.
 - **D-TUN-tarea-agnóstico — Optimizador reusable para LGD/EAD.** Recomendación: diseñar `TuningOptimizer`/objetivo sin acoplarlos a clasificación binaria (permitir una métrica/`task` futura), pero **implementar solo PD/binario en v1**.
 
-**FALTA-DATO explícitos.**
-- **FALTA-DATO-TUN-1 — Presupuesto de CI para el tuning.** `n_trials · K · fit` puede ser caro en CI; el default (`n_trials=50`, `random_forest` en tests) debe validarse contra el presupuesto de la matriz (CT-5 diferido, `_CONTRATOS-TRANSVERSALES.md` §5).
-- **FALTA-DATO-TUN-2 — Evaluador de importancia de HP.** Optuna ofrece fANOVA (requiere sklearn, presente vía el backend) y PedAnova (puro). Default: el evaluador por default de la versión pineada; a documentar como caveat si cambia entre versiones.
+**Avisos declarados.** Ninguno: `tuning` no emite ni `FALTA-DATO` ni `DATO-INSTITUCIONAL`.
+Los dos ítems que figuraban aquí —TUN-1, el presupuesto de CI del tuning, y TUN-2, el evaluador
+de importancia de hiperparámetros de Optuna— salieron del contrato al separar las marcas
+(`_ENMIENDA-TAXONOMIA-MARCAS.md`): son TODO de ingeniería, no significan nada para quien usa la
+librería y viven como issues del repo (2026-07-24).
 
 **Riesgos y mitigaciones.**
 - **Leakage de selección de hiperparámetros.** Mitigación: CV/holdout **interno de `desarrollo`**; `holdout`/`oot` nunca en el objetivo; test de aislamiento de particiones.
 - **No determinismo del sampler tomado por bug.** Mitigación: sampler seedeado + secuencial + semilla de fit constante + golden pineados a versión de optuna.
 - **Reimplementar métricas/fit por inercia.** Mitigación: reúso de `PerformanceEvaluator` (SDD-11) y `MLChallenger` (SDD-12) + tests AST anti-reimplementación.
 - **Tunear la monotonía y romper la interpretación de riesgo.** Mitigación: monotonía **fija** durante la búsqueda; no es un HP.
-- **Costo de CI explosivo.** Mitigación: default modesto (`n_trials=50`), tests con backend liviano y espacio reducido; documentar el presupuesto (FALTA-DATO-TUN-1).
+- **Costo de CI explosivo.** Mitigación: default modesto (`n_trials=50`), tests con backend liviano y espacio reducido; documentar el presupuesto (issue de ingeniería, ex TUN-1).
 - **Acoplamiento circular con `ml`.** Mitigación: `tuning` corre **antes** de `ml` y depende de `ml` solo por **código** (importa clases); el consumo por `ml` es aditivo (B-ML-TUN), no un ciclo DAG.
 - **optuna pesado en import.** Mitigación: import perezoso + test `sys.modules`.
 

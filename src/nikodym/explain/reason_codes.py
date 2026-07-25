@@ -13,10 +13,10 @@ producen :class:`~nikodym.explain.results.ReasonCode` con la misma forma, habili
 de drivers aguas abajo. Por eso :func:`build_reason_codes` recibe contribuciones **ya calculadas** y
 no conoce el origen (SHAP o álgebra cerrada).
 
-**Sin norma inventada (FALTA-DATO-EXP-1).** ``top_n`` y ``adverse_direction`` son **configurables**
-(referencia ECOA/FCRA "key factors", *no* norma CMF): este módulo **no** hardcodea un número ni un
-umbral normativo. El piso ``min_abs_contribution`` filtra magnitudes irrelevantes sin fijar un
-umbral de gobierno (FALTA-DATO-EXP-2).
+**Sin norma inventada (DATO-INSTITUCIONAL-EXP-1).** ``top_n`` y ``adverse_direction`` son
+**configurables** (referencia ECOA/FCRA "key factors", *no* norma CMF): este módulo **no**
+hardcodea un número ni un umbral normativo. El piso ``min_abs_contribution`` filtra magnitudes
+irrelevantes sin fijar un umbral de gobierno (DATO-INSTITUCIONAL-EXP-2).
 
 **Función pura (SDD-14 §7).** :func:`build_reason_codes` **no** recibe ``audit`` ni emite
 ``log_decision`` (el acotado de ``top_n`` lo audita el motor B14.4); tampoco puebla ``bin_label``

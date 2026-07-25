@@ -401,7 +401,7 @@ class ValidationConfig(NikodymBaseConfig):
         title="Fallar ante brechas críticas de dato",
         description=(
             "Si es True, una brecha crítica (p. ej. backtesting activo sin insumos) hace fallar "
-            "la corrida en vez de quedar registrada como falta de dato (aviso `FALTA-DATO-*`)."
+            "la corrida en vez de quedar registrada como aviso declarado en el resultado."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 3},
     )

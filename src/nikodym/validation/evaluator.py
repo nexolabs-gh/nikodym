@@ -103,7 +103,7 @@ _POOLED_PARTITION: str = "ALL"
 _POOLED_GRADE: str = "ALL"
 # Dependencias cuya versión se registra en la card (evidencia reproducible; SDD-22 §8/§9).
 _DEPENDENCY_LIBRARIES: tuple[str, ...] = ("pandas", "numpy", "scipy")
-# Marcas FALTA-DATO por convención metodológica no verificada por render oficial (§3/§12).
+# Brechas del motor: convención metodológica aún no verificada por render oficial (§3/§12).
 _FALTA_DATO_TRAFFIC_LIGHT: str = "FALTA-DATO-VAL-2"
 _FALTA_DATO_JEFFREYS: str = "FALTA-DATO-VAL-3"
 _FALTA_DATO_TTEST: str = "FALTA-DATO-VAL-1"
@@ -414,12 +414,12 @@ class ValidationEvaluator:
     def _resolve_backtesting(
         self, ifrs9_detail: pd.DataFrame | None, realised: pd.DataFrame | None
     ) -> tuple[tuple[BacktestRecord, ...], list[str]]:
-        """Corre el backtesting IFRS 9 o difiere a ``FALTA-DATO`` según ``fail_on_falta_dato``."""
+        """Corre el backtesting IFRS 9 o lo difiere a un aviso según ``fail_on_falta_dato``."""
         blocker = self._backtesting_blocker(ifrs9_detail, realised)
         if blocker is not None:
             if self.config.fail_on_falta_dato:
                 raise ValidationConfigError(blocker)
-            return (), [f"FALTA-DATO: {blocker}"]
+            return (), [f"DATO-INSTITUCIONAL: {blocker}"]
         # blocker None garantiza ambos frames no nulos; ``cast`` estrecha sin abrir una rama.
         records = self._run_backtesting(
             cast(pd.DataFrame, ifrs9_detail), cast(pd.DataFrame, realised)

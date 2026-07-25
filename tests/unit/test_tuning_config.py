@@ -275,11 +275,11 @@ def test_kinds_admitidos_cubre_tipos() -> None:
     assert _kinds_admitidos(str) == frozenset()
 
 
-# ─────────────────────────── FALTA-DATO-TUN-1: config con random_forest y n_trials bajo ──────────
+# ─────────────────────────── Config barato de CI: random_forest y n_trials bajo ──────────
 
 
 def test_config_random_forest_n_trials_bajo() -> None:
-    """Config barato para CI: backend liviano y pocos trials (FALTA-DATO-TUN-1)."""
+    """Config barato para CI: backend liviano y pocos trials."""
     cfg = TuningConfig(optimizer=TuningSamplerConfig(n_trials=3))
     resuelto = cfg.resolve_search_space(MLConfig(backend="random_forest"))
     assert cfg.optimizer.n_trials == 3

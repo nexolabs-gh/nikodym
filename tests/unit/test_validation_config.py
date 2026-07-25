@@ -264,7 +264,7 @@ def test_backtesting_en_families_sin_enabled_falla() -> None:
 
 
 def test_backtesting_en_families_sin_enabled_difiere_a_falta_dato() -> None:
-    """Con ``fail_on_falta_dato=False`` la brecha se difiere a FALTA-DATO (no falla)."""
+    """Con ``fail_on_falta_dato=False`` la brecha se difiere a un aviso declarado (no falla)."""
     cfg = ValidationConfig(families=("calibration", "backtesting"), fail_on_falta_dato=False)
     assert "backtesting" in cfg.families
     assert cfg.backtesting.enabled is False

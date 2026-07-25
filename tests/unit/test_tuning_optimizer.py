@@ -3,7 +3,7 @@
 El optimizador se ejerce con las librerías **reales** (optuna + scikit-learn RandomForest, el extra
 base ``[ml]``): objetivo determinista con dataset diminuto y folds fijas, reproducibilidad
 byte-a-byte de ``trials``/``best`` (la importancia queda **fuera** del assert byte-a-byte, nitpick
-A14(1)/FALTA-DATO-TUN-2), anti-leakage de las folds, reúso sin recodificar de
+A14(1)), anti-leakage de las folds, reúso sin recodificar de
 ``PerformanceEvaluator``/``MLChallenger`` (test AST), extra ``[tuning]`` faltante, valor no finito y
 particiones degeneradas. Un subproceso verifica que ``import nikodym.tuning.optimizer`` es liviano.
 """

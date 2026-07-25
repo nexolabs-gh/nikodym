@@ -1414,7 +1414,7 @@
           },
           "top_n": {
             "default": 5,
-            "description": "Nº de drivers principales por observación; el default 5 sigue los 'key factors' de ECOA/FCRA y NO responde a una norma CMF (brecha declarada FALTA-DATO-EXP-1).",
+            "description": "Nº de drivers principales por observación; el default 5 sigue los 'key factors' de ECOA/FCRA y NO responde a una norma CMF (brecha declarada DATO-INSTITUCIONAL-EXP-1).",
             "maximum": 50,
             "minimum": 1,
             "title": "N de reason codes",

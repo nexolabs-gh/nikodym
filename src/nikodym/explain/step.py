@@ -777,7 +777,7 @@ def _build_card(
     )
     limitations: tuple[str, ...] = (
         "Los reason codes son top-N configurables (referencia ECOA/FCRA, no norma CMF — "
-        "FALTA-DATO-EXP-1).",
+        "DATO-INSTITUCIONAL-EXP-1).",
     )
     if not model_deterministic:
         limitations += (

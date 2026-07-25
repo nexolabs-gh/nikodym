@@ -22,7 +22,7 @@
 - Explica el **scorecard logístico** (campeón) de forma **exacta y determinista**: la contribución de cada atributo al log-odds es `β_j·(WoE_ij − baseline_j)`, equivalente a los `puntos` de SDD-09; **no** necesita SHAP ni muestreo (es álgebra cerrada). Consume la tabla de scorecard (SDD-09) y los coeficientes (SDD-08); **no** los recalcula.
 - Explica el **challenger ML** (SDD-12) vía **SHAP**, **seleccionando el explainer por backend** (TreeExplainer para GBDT/RF, LinearExplainer para modelos lineales, KernelExplainer como fallback model-agnóstico). Consume el `estimator` fiteado por SDD-12 por su **API sklearn-like** (`predict_proba`/`predict_pd`, `get_params`/`set_params`, `from_config`); **no** reentrena ni reimplementa el wrapper.
 - Produce **valores SHAP globales** (importancia media |SHAP| por feature, con dirección) y **locales** (contribución por observación) sobre un scope configurable, y expone el explainer para **explicar cualquier fila on-demand**.
-- Traduce las contribuciones (SHAP del ML o analíticas del scorecard) a **reason codes**: para cada observación, los **top-N drivers** que empujan la PD, con **dirección** (sube/baja la PD) y **magnitud**, en un formato de "factores principales" defendible ante auditoría (ver §3 y FALTA-DATO-EXP-1 sobre la norma de jurisdicción).
+- Traduce las contribuciones (SHAP del ML o analíticas del scorecard) a **reason codes**: para cada observación, los **top-N drivers** que empujan la PD, con **dirección** (sube/baja la PD) y **magnitud**, en un formato de "factores principales" defendible ante auditoría (ver §3 y DATO-INSTITUCIONAL-EXP-1 sobre la norma de jurisdicción).
 - Emite una **comparativa scorecard-vs-ML**: solapamiento y acuerdo de ranking entre los drivers del campeón (por `|β·WoE|`/IV) y los del challenger (por media |SHAP|), para que SDD-26 muestre "qué explica cada modelo" (ESPECIFICACIONES.md:L121).
 - Publica artefactos namespaced bajo `"explain"`: SHAP global/local, reason codes, contribuciones del scorecard, comparativa, metadata del explainer, resultado y card CT-2 (SHAP summary como `metric_sections`).
 - Aporta `ExplainConfig` como sección **computacional** de `NikodymConfig`; por tanto, cambios de explainer, tamaño de background, N de reason codes o unidad de contribución mueven el `config_hash`.
@@ -130,7 +130,7 @@ src/nikodym/explain/
 
 **Reason codes.** Un **reason code** es un **driver principal** de la predicción para una observación, expresado como `(rank, feature, dirección, magnitud)`, donde la dirección indica si la feature **sube** (`increases_pd`, adverso) o **baja** (`decreases_pd`, protector) la PD respecto de la base, y la magnitud es la contribución (`|φ_j|`). Se obtienen ordenando las contribuciones (SHAP del ML o `β·WoE` del scorecard) por magnitud y tomando los **top-N**. Es el mismo objeto para ambos mundos: por eso el contrato de reason codes es **común** (scorecard y ML producen `ReasonCode` con la misma forma), habilitando la comparativa.
 
-> **Marco regulatorio y honestidad de fuente (FALTA-DATO-EXP-1).** El concepto de "reason codes / adverse action key factors" está **codificado como norma en EE. UU.** (ECOA / Regulation B y FCRA exigen comunicar los "principal reasons"/"key factors" de una decisión de crédito adversa, típicamente hasta ~4-5 factores). En **Chile / CMF no existe una norma que mande un formato o un número fijo de reason codes** para scoring; la buena práctica de gobierno de modelos (SR 11-7 / transparencia) sí pide poder explicar cada decisión. Por eso `explain` **no hardcodea** un número normativo: entrega `top_n` **configurable** (default `5`, alineado con la convención ECOA/FCRA como referencia, no como norma chilena) y documenta que el formato/umbral exacto de la jurisdicción es dato del usuario. **No se inventa una norma CMF de reason codes.**
+> **Marco regulatorio y honestidad de fuente (DATO-INSTITUCIONAL-EXP-1).** El concepto de "reason codes / adverse action key factors" está **codificado como norma en EE. UU.** (ECOA / Regulation B y FCRA exigen comunicar los "principal reasons"/"key factors" de una decisión de crédito adversa, típicamente hasta ~4-5 factores). En **Chile / CMF no existe una norma que mande un formato o un número fijo de reason codes** para scoring; la buena práctica de gobierno de modelos (SR 11-7 / transparencia) sí pide poder explicar cada decisión. Por eso `explain` **no hardcodea** un número normativo: entrega `top_n` **configurable** (default `5`, alineado con la convención ECOA/FCRA como referencia, no como norma chilena) y documenta que el formato/umbral exacto de la jurisdicción es dato del usuario. **No se inventa una norma CMF de reason codes.**
 
 **Unidad de contribución (D-EXP-4).** SHAP puede explicar la **salida cruda / margen** (log-odds, aditiva) o la **probabilidad** (`predict_proba`, no aditiva de forma simple). Default: **log-odds (margen)** — es la escala en la que el scorecard es aditivo (`η = α + Σβ·WoE`), de modo que **scorecard y ML quedan en la misma unidad** y la comparativa es limpia; además la aditividad exacta permite el *additivity check* de SHAP. Alternativa `"probability"` disponible para interpretabilidad directa (∆PD), marcada como no perfectamente aditiva.
 
@@ -145,7 +145,7 @@ src/nikodym/explain/
 - `Φ_j = mean_i |φ_j(x_i)|`: importancia global de la feature `j`.
 - `RC_i = top_N_j |φ_j(x_i)|`: reason codes de la observación `i`.
 
-**Frameworks conceptuales.** No se embeben umbrales de "qué contribución es material" ni un número normativo de reason codes: `explain` reporta las contribuciones y los top-N; la política de comunicación (cuántos factores, con qué texto) es del usuario/jurisdicción (FALTA-DATO-EXP-1).
+**Frameworks conceptuales.** No se embeben umbrales de "qué contribución es material" ni un número normativo de reason codes: `explain` reporta las contribuciones y los top-N; la política de comunicación (cuántos factores, con qué texto) es del usuario/jurisdicción (DATO-INSTITUCIONAL-EXP-1).
 
 ## 4. API pública (contrato)
 
@@ -425,7 +425,7 @@ class ExplainConfig(NikodymBaseConfig):
 - `explainer.ml_explainer`: default D-EXP-1 `"auto"` (Tree para GBDT/RF, Linear para lineales, Kernel fallback).
 - `explainer.feature_perturbation`: default D-EXP-9 `"tree_path_dependent"` (exacto para el árbol, sin background, determinista); `"interventional"` disponible (semántica causal, requiere background).
 - `contribution_space`: default D-EXP-4 `"log_odds"` (aditivo, misma unidad que el scorecard; habilita additivity check y comparativa limpia).
-- `reason_codes.top_n`: default D-EXP-3 `5` (referencia ECOA/FCRA "key factors"; **no** norma CMF — FALTA-DATO-EXP-1). **A confirmar por Cami** el N y si se comunican también los protectores.
+- `reason_codes.top_n`: default D-EXP-3 `5` (referencia ECOA/FCRA "key factors"; **no** norma CMF — DATO-INSTITUCIONAL-EXP-1). **A confirmar por Cami** el N y si se comunican también los protectores.
 - `local_scope`: default D-EXP-6 `"sample"`/`200` sobre `holdout` (evita materializar SHAP de toda la base; el explainer queda disponible on-demand).
 - `scorecard.baseline`: default D-EXP-7 `"population_mean"` (`E[WoE]`, coincide con LinearExplainer interventional); `"neutral_zero"` (`WoE=0`) disponible.
 - `explainer.background_size`: default D-EXP-2 `100`, muestreado de `desarrollo`, seedeado (solo relevante para Kernel/interventional).
@@ -517,7 +517,7 @@ Cada clave `requires` **existe como `provides`** en su SDD vecino (DAG cerrado):
 - *Materializar SHAP de toda la base por default:* descartado; pesa (n_obs × n_features por partición). Default a muestra/partición con el explainer disponible on-demand.
 - *Usar `holdout`/`oot` como background/baseline:* descartado; filtra información de evaluación a la referencia de la explicación. Default `desarrollo`.
 - *Reimplementar Shapley/Tree SHAP:* descartado; se reúsa `shap` (test AST anti-reimplementación).
-- *Hardcodear un número normativo de reason codes:* descartado; no hay norma CMF de reason codes (FALTA-DATO-EXP-1). `top_n` configurable con default de referencia.
+- *Hardcodear un número normativo de reason codes:* descartado; no hay norma CMF de reason codes (DATO-INSTITUCIONAL-EXP-1). `top_n` configurable con default de referencia.
 - *`dict[str, Any]` de config de explainer:* descartado; sub-schemas Pydantic tipados (sin `eval`, validables).
 
 **Complejidad / rendimiento.** TreeExplainer: `O(n_obs · n_trees · depth · leaves)` (rápido, exacto). LinearExplainer/analítico: `O(n_obs · n_features)` (trivial). KernelExplainer: `O(n_obs · nsamples · costo_predict)` (caro; por eso es fallback y el scope local se acota). `explain` registra `n_obs_explained`, `n_features`, `explainer_kind`, `background_size` y `shap_seconds` en diagnostics.
@@ -628,7 +628,7 @@ Fixtures: `woe_frame_small.parquet` sintético con particiones y monotonía cono
 **D-EXP para revisión de Cami.**
 - **D-EXP-1 — Explainer por backend.** Recomendación: TreeExplainer (GBDT/RF), LinearExplainer/analítico (logística/SVM lineal), KernelExplainer (fallback SVM rbf). `ml_explainer="auto"` resuelve; forzable. Tree/Linear exactos; Kernel aproximado.
 - **D-EXP-2 — Tamaño de background.** Recomendación: `100` observaciones muestreadas de `desarrollo`, seedeadas (solo relevante para Kernel/interventional). **A confirmar por Cami** el tamaño según costo/estabilidad.
-- **D-EXP-3 — N de reason codes.** Recomendación: `top_n=5` (referencia ECOA/FCRA "key factors"; **no** norma CMF — FALTA-DATO-EXP-1). **A confirmar por Cami**; configurable.
+- **D-EXP-3 — N de reason codes.** Recomendación: `top_n=5` (referencia ECOA/FCRA "key factors"; **no** norma CMF — DATO-INSTITUCIONAL-EXP-1). **A confirmar por Cami**; configurable.
 - **D-EXP-4 — Unidad de contribución.** Recomendación: `"log_odds"` (aditiva, misma unidad que el scorecard, habilita additivity check y comparativa limpia); `"probability"` disponible (∆PD, no perfectamente aditiva).
 - **D-EXP-5 — Clase explicada.** Recomendación: explicar la **clase positiva (PD, clase 1)** siempre (coherente con `predict_pd` de SDD-12).
 - **D-EXP-6 — Scope local.** Recomendación: `"sample"`/`200` sobre `holdout`, con el explainer disponible on-demand; `"all"`/`"partition"` disponibles (con caveat de costo). Evita materializar SHAP de toda la base.
@@ -639,13 +639,16 @@ Fixtures: `woe_frame_small.parquet` sintético con particiones y monotonía cono
 - **D-EXP-golden — Golden por versión de `shap`.** Recomendación: pinear el rango (`shap>=0.44`) para los golden; un cambio de versión que mueva el golden es un evento auditado (no fallo silencioso).
 - **D-EXP-target-agnóstico — Explicabilidad reusable para LGD/EAD.** Recomendación: diseñar `UnifiedExplainer`/`ContributionExplainer` sin acoplarlos a clasificación binaria (permitir una salida/`task` futura), pero **implementar solo PD/binario en v1**; LGD/EAD entran cuando F4 los requiera.
 
-**FALTA-DATO explícitos.**
-- **FALTA-DATO-EXP-1 — Formato/número normativo de reason codes por jurisdicción.** El régimen de "adverse action reason codes / key factors" es **norma en EE. UU.** (ECOA/Reg B, FCRA), **no en Chile/CMF** (que no manda un formato ni un N fijo). `explain` entrega `top_n` configurable (default de referencia `5`) y dirección/magnitud estructuradas; el formato de comunicación al cliente y el N exigido son **dato del usuario/jurisdicción**, **no se inventa una norma CMF**.
-- **FALTA-DATO-EXP-2 — Umbral de "driver material".** Qué magnitud de contribución justifica listar un reason code (o una acción) es decisión de gobierno; `explain` reporta todas y el `min_abs_contribution`/`top_n`, no fija un umbral normativo.
-- **FALTA-DATO-EXP-3 — Garantías de determinismo cross-versión de `shap`.** Documentadas como caveat; los golden se pinean a versión (D-EXP-golden).
+**Avisos declarados (taxonomía: `_ENMIENDA-TAXONOMIA-MARCAS.md`).** Los dos vigentes son inputs de
+gobierno que declara la institución, no carencias del motor.
+- **DATO-INSTITUCIONAL-EXP-1 — Formato/número normativo de reason codes por jurisdicción.** El régimen de "adverse action reason codes / key factors" es **norma en EE. UU.** (ECOA/Reg B, FCRA), **no en Chile/CMF** (que no manda un formato ni un N fijo). `explain` entrega `top_n` configurable (default de referencia `5`) y dirección/magnitud estructuradas; el formato de comunicación al cliente y el N exigido son **dato del usuario/jurisdicción**, **no se inventa una norma CMF**.
+- **DATO-INSTITUCIONAL-EXP-2 — Umbral de "driver material".** Qué magnitud de contribución justifica listar un reason code (o una acción) es decisión de gobierno; `explain` reporta todas y el `min_abs_contribution`/`top_n`, no fija un umbral normativo.
+- **EXP-3 → issue de ingeniería (2026-07-24).** El determinismo cross-versión de `shap` es un caveat documentado con golden pineados a versión (D-EXP-golden): nunca fue un dato faltante.
+
+> Los TODO de ingeniería de esta capa salieron del contrato al separar las marcas (`_ENMIENDA-TAXONOMIA-MARCAS.md`): no significan nada para quien usa la librería y viven como issues del repo, no como avisos publicables.
 
 **Riesgos y mitigaciones.**
-- **Reason codes leídos como norma que no existe.** Mitigación: FALTA-DATO-EXP-1 explícito; default de referencia declarado como convención, no como norma CMF; formato configurable.
+- **Reason codes leídos como norma que no existe.** Mitigación: DATO-INSTITUCIONAL-EXP-1 explícito; default de referencia declarado como convención, no como norma CMF; formato configurable.
 - **SHAP reimplementado por inercia.** Mitigación: reúso de `shap` + test AST anti-reimplementación; solo la atribución lineal del scorecard es "a mano" (exacta, verificada contra LinearExplainer).
 - **Explicación no determinista tomada por bug.** Mitigación: default Tree/Linear exactos; Kernel seedeado + single-thread + golden pineados a versión.
 - **Fuga de referencia (`holdout`/`oot` como background).** Mitigación: background/baseline default `desarrollo`; `log_decision` de caveat si se usa evaluación.

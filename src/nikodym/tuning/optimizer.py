@@ -21,7 +21,7 @@ de ``desarrollo`` (o un holdout interno) y **reúsa**
 (``SeedManager.int_seed_for('tuning')``) siembra el sampler, las folds y el ``fit`` del challenger
 (constante entre trials). La importancia de hiperparámetros se siembra
 (``FanovaImportanceEvaluator(seed=...)``, nitpick A14(1)) pero se **excluye del assert byte-a-byte**
-(best-effort; puede variar entre versiones de optuna — FALTA-DATO-TUN-2). Si falta el extra
+(best-effort; puede variar entre versiones de optuna). Si falta el extra
 ``[tuning]`` se levanta :class:`~nikodym.core.exceptions.MissingDependencyError`
 (``instale nikodym[tuning]``), no una excepción propia.
 
@@ -348,7 +348,7 @@ def _trial_records(study: Any, *, optuna: Any) -> tuple[TuningTrialRecord, ...]:
 def _param_importances(optuna: Any, study: Any, seed: int) -> dict[str, float]:
     """Calcula la importancia de hiperparámetros seedeada (best-effort, excluida del golden, §9).
 
-    Nitpick A14(1)/FALTA-DATO-TUN-2: se siembra ``FanovaImportanceEvaluator`` para reproducibilidad
+    Nitpick A14(1): se siembra ``FanovaImportanceEvaluator`` para reproducibilidad
     dentro de una versión de optuna, pero el resultado no se asevera byte-a-byte (puede cambiar
     entre versiones). Un estudio con muy pocos trials no admite importancia: se degrada a un mapa
     vacío en lugar de fallar la optimización.
@@ -595,8 +595,8 @@ def _build_card(
         ],
     }
     limitations: tuple[str, ...] = (
-        "La importancia de hiperparámetros es best-effort y puede variar entre versiones de optuna "
-        "(FALTA-DATO-TUN-2): excluida del assert byte-a-byte.",
+        "La importancia de hiperparámetros es best-effort y puede variar entre versiones de "
+        "optuna: excluida del assert byte-a-byte.",
     )
     if not cfg.deterministic:
         limitations = (
