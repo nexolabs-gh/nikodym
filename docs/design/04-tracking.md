@@ -182,7 +182,8 @@ Esquema canónico de inventario en **3 capas** (D5): governance DEFINE el vocabu
 | `nikodym.uv_lock_hash` / `nikodym.data_hash` | tag (B) | `LineageBundle` |
 | `nikodym.run_id` | tag (B) | `RunContext.run_id` (liga la versión al run) |
 | `nikodym.model_card_uri` | tag (B) | puntero al `model_card.json` (el card NO se reconstruye desde tags) |
-| `nikodym.cartera` / `nikodym.motor` / `nikodym.fase` | tag (C) | vocab CERRADO `Literal` de `GovernanceConfig` (SDD-03 §5) |
+| `nikodym.motor` / `nikodym.fase` | tag (C) | vocab CERRADO `Literal` de `GovernanceConfig` (SDD-03 §5) |
+| `nikodym.cartera` | tag (C) | vocab **ABIERTO** (`str`): la taxonomía la fija la institución o su régimen, no el paquete (D-SEG-10) |
 | `nikodym.estado_validacion` / `nikodym.autor` / `nikodym.proxima_revision` | tag (C) | `GovernanceConfig` / `next_review_date` (ISO-8601) |
 | **alias** `champion` / `challenger` / `production` | alias (A) | `set_registered_model_alias` (1 alias→1 versión); gobernados por SDD-03 |
 | `cfg.<sección>.<campo>` | param | config aplanado, **excluyendo infra** (§7; ver fuga de params §8/§12) |

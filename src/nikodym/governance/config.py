@@ -24,11 +24,18 @@ class GovernanceConfig(NikodymBaseConfig):
         title="Nombre lógico del modelo",
         description="Identidad en el inventario (clave del MLflow Registry).",
     )
-    cartera: Literal["comercial", "consumo", "hipotecario", "grupal"] | None = Field(
+    # El vocabulario es libre a propósito (D-SEG-10): la taxonomía de carteras la fija la
+    # institución o el régimen regulatorio que declare, y este campo no gobierna ningún cálculo
+    # — su único consumidor lo publica como tag de inventario. Cerrarlo en español chileno no era
+    # garantía ni dentro del inventario: vuelve del Registry como texto libre, sin revalidar.
+    cartera: str | None = Field(
         default=None,
         title="Cartera",
-        description="Naming CMF en español; se publica como tag nikodym.cartera.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Inventario", "ui_order": 1},
+        description=(
+            "Segmento de cartera del modelo, en la taxonomía que use la institución; se publica "
+            "como tag nikodym.cartera. Es descriptivo del inventario: no altera ningún cálculo."
+        ),
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Inventario", "ui_order": 1},
     )
     motor: Literal["scoring", "cmf", "ifrs9"] | None = Field(
         default=None,

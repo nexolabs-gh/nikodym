@@ -211,8 +211,8 @@ auditable del modelo, serializable a **JSON canónico** (para *diff* y control d
   pasos). La model card lee de ahí las decisiones; si el trail no está disponible, la ficha lo
   declara explícitamente en vez de fingir completitud.
 - **Inventario de modelos**. Contrato (`ModelInventory`) para registrar cada corrida en un
-  *registry* (p. ej. MLflow) con anclaje idempotente `(model_name, config_hash)` y *tags* con
-  naming CMF: `cartera` (comercial/consumo/hipotecario/grupal), `motor` (scoring/cmf/ifrs9),
+  *registry* (p. ej. MLflow) con anclaje idempotente `(model_name, config_hash)` y *tags*:
+  `cartera` (texto libre, en la taxonomía que use su institución), `motor` (scoring/cmf/ifrs9),
   `fase`, `estado_validacion` (desarrollo → en_validacion → validado → retirado). Cuando la
   publicación está apagada, un `NullInventory` deja el flujo como no-op consciente y genera solo
   evidencia local.

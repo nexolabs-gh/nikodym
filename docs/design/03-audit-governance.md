@@ -177,7 +177,8 @@ class InventoryEntry(BaseModel):                        # QUÉ es una entrada de
                                                         #  (B) identidad obligatoria: "nikodym.config_hash" (ANCLA de idempotencia, §6),
                                                         #      "nikodym.data_hash", "nikodym.git_sha", "nikodym.root_seed",
                                                         #      "nikodym.run_id", "nikodym.schema_version", "nikodym.model_card_uri".
-                                                        #  (C) descriptivos con VOCABULARIO CERRADO (Literal en GovernanceConfig, §5):
+                                                        #  (C) descriptivos (GovernanceConfig, §5); vocabulario CERRADO salvo
+                                                        #      "nikodym.cartera", abierta por D-SEG-10 (taxonomía institucional):
                                                         #      "nikodym.cartera", "nikodym.motor", "nikodym.fase",
                                                         #      "nikodym.estado_validacion", "nikodym.autor", "nikodym.proxima_revision".
                                                         # Las métricas NO van como tags (cardinalidad/tipo): van en `metrics` y en results["metrics"].
@@ -301,9 +302,13 @@ class GovernanceConfig(NikodymBaseConfig):
     #    Cerrarlos como Literal evita drift (consumo/consumer/Consumo) que rompería el filtrado SR 11-7,
     #    y los hace testeables (estilo del test de naming de SDD-05 §11) y validados temprano por Pydantic.
     #    Los json_schema_extra ui_* permiten que la UI (SDD-23) los renderice como selectbox (SDD-05 §5.5).
-    cartera: Literal["comercial", "consumo", "hipotecario", "grupal"] | None = Field(None,
-        title="Cartera", description="Naming CMF en español (D-CONV-1); → tag nikodym.cartera. None si no aplica.",
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "inventario", "ui_order": 1})
+    #    EXCEPCIÓN (D-SEG-10, enmienda de segmentación): `cartera` quedó ABIERTA. Su vocabulario no
+    #    enumera componentes de este paquete sino una taxonomía institucional o de un régimen
+    #    regulatorio, y el campo no gobierna ningún cálculo — cerrarlo en español chileno ataba el
+    #    inventario a una jurisdicción sin dar garantía alguna (vuelve del Registry sin revalidar).
+    cartera: str | None = Field(None,
+        title="Cartera", description="Segmento de cartera en la taxonomía de la institución; → tag nikodym.cartera.",
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "inventario", "ui_order": 1})
     motor: Literal["scoring", "cmf", "ifrs9"] | None = Field(None,
         title="Motor", description="Separación de motores (CMF≠IFRS9); → tag nikodym.motor.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "inventario", "ui_order": 2})

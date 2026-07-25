@@ -48,11 +48,21 @@ def test_governance_config_purpose_obligatorio_y_defaults() -> None:
 
 
 def test_governance_vocabulario_cerrado_levanta() -> None:
-    """Los tags descriptivos de inventario usan vocabulario cerrado."""
-    with pytest.raises(ValidationError):
-        GovernanceConfig(purpose="x", cartera="consumer")  # type: ignore[arg-type]
+    """Los tags de inventario que enumeran componentes del propio paquete siguen cerrados."""
     with pytest.raises(ValidationError):
         GovernanceConfig(purpose="x", motor="ifrs")  # type: ignore[arg-type]
+    with pytest.raises(ValidationError):
+        GovernanceConfig(purpose="x", fase="F9")  # type: ignore[arg-type]
+
+
+def test_governance_cartera_admite_taxonomia_no_chilena() -> None:
+    """La taxonomía de carteras la fija la institución o su régimen, no este campo (D-SEG-10).
+
+    El vocabulario cerrado en español chileno era la única atadura jurisdiccional de un campo que
+    **no gobierna ningún cálculo**: su único consumidor lo publica como tag de inventario.
+    """
+    cfg = GovernanceConfig(purpose="x", cartera="commercial_individual")
+    assert cfg.cartera == "commercial_individual"
 
 
 def test_nikodymconfig_governance_instancia_y_dict_coaccionan() -> None:
