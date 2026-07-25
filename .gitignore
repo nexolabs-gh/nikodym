@@ -5,15 +5,40 @@
 *.pem
 secrets/
 credentials*
-/data/                       # datasets en la raíz (anclado: NO veta el paquete fuente `src/nikodym/data/`, SDD-02).
-                             # Los ficheros de datos en cualquier ruta los vetan los patrones por extensión de abajo.
+# Datasets en la raíz. Anclado con `/` para NO vetar el paquete fuente `src/nikodym/data/` (SDD-02).
+# El comentario va en su propia línea a propósito: en `.gitignore` el `#` sólo abre comentario al
+# principio de la línea, así que un `# …` al final convierte el patrón entero en un nombre literal
+# que no existe — y este veto quedó inerte desde que se escribió (corregido 2026-07-25).
+/data/
+# Ficheros de datos en cualquier ruta, por extensión. La lista cubre lo que traen los datasets
+# externos reales: no basta con los formatos que produce el proyecto.
 *.csv
+*.tsv
+*.psv
 *.parquet
 *.xlsx
 *.xls
 *.feather
+*.arrow
+*.orc
 *.dta
 *.sav
+*.data
+*.jsonl
+*.ndjson
+*.db
+*.sqlite
+*.sqlite3
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+# Los comprimidos se vetan SÓLO bajo `data/`: `web/src/fixtures/demo/*.zip` son fixtures de la demo
+# que sí se versionan, y un veto global los dejaría fuera en silencio en la próxima recaptura.
+/data/**/*.zip
+/data/**/*.gz
+/data/**/*.tar
+/data/**/*.7z
 
 # === Python ===
 __pycache__/
