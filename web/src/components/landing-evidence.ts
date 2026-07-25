@@ -333,7 +333,9 @@ export const SALVEDADES = [
   {
     clave: "Extras",
     texto:
-      "`pip install nikodym` trae el núcleo —config, orquestación, la capa de datos y el informe " +
+      // Sin backticks: esta prosa se pinta tal cual, sin renderizador markdown, así que un backtick
+      // aquí se le muestra al lector. El resto del párrafo ya escribe `nikodym[scoring]` en plano.
+      "pip install nikodym trae el núcleo —config, orquestación, la capa de datos y el informe " +
       "HTML—, pero no el motor del scorecard: el pipeline F1, que es la superficie estable, exige " +
       "nikodym[scoring]. La interfaz local exige nikodym[ui]; el auto-ARIMA, nikodym[forecasting] " +
       "(pmdarima); los modelos de sobrevivencia, nikodym[survival] (lifelines); y cada backend de " +
