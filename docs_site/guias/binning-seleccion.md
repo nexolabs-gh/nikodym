@@ -129,9 +129,10 @@ El proceso, por variable, es en dos fases:
 La monotonía obliga a que la tasa de evento (riesgo) se mueva en una sola dirección a través de los
 bins ordenados. No es un capricho estadístico; es un requisito de negocio y regulatorio:
 
-- **Interpretabilidad y defensa ante el regulador (CMF, SR 11-7)**: "a mayor deuda/ingreso, mayor
-  riesgo" es una relación que se puede explicar y validar. Un binning no monótono (riesgo que sube,
-  baja y vuelve a subir) casi siempre está ajustando ruido de la muestra.
+- **Interpretabilidad y defensa ante tu regulador y ante la validación interna (SR 11-7)**:
+  "a mayor deuda/ingreso, mayor riesgo" es una relación que se puede explicar y validar. Un binning
+  no monótono (riesgo que sube, baja y vuelve a subir) casi siempre está ajustando ruido de la
+  muestra.
 - **Robustez fuera de muestra**: las reversiones locales de riesgo raramente sobreviven en Holdout u
   OOT. Forzar monotonía es una forma de regularización que reduce el sobreajuste del binning.
 - **Coherencia con la scorecard**: si el WoE es monótono, el puntaje que asigna la scorecard también

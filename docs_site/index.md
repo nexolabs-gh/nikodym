@@ -100,7 +100,7 @@ que puedas leer el código antes de hablar con nosotros.
 
 Una librería calcula; no decide. El binning, la calibración y las métricas los corre el motor —pero
 a qué tasa central anclas (TTC o PIT), dónde pones el corte y qué supuestos sostienes ante
-Validación o ante la CMF sigue siendo juicio de modelo. Si ese es el problema, puedes
+Validación o ante tu regulador sigue siendo juicio de modelo. Si ese es el problema, puedes
 [proponer un caso](https://www.nikodym.cl/?ref=docs-home#contact). Cada caso se evalúa antes de
 aceptarse; si no hay caso, también te lo decimos, en menos de 48 horas hábiles.
 

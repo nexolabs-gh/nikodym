@@ -8,9 +8,9 @@ distintas sobre un scorecard:
   PSI y CSI.
 
 Sobre ambos se apoya el tercer pilar, el que convierte a Nikodym en algo defendible frente a un
-validador o a la CMF: la **gobernanza por construcción** (lineage, model card, audit-trail y
-reproducibilidad bit a bit). Un número de AUC solo vale si se puede reproducir y trazar cómo se
-obtuvo.
+validador interno o ante tu regulador: la **gobernanza por construcción** (lineage, model card,
+audit-trail y reproducibilidad bit a bit). Un número de AUC solo vale si se puede reproducir y
+trazar cómo se obtuvo.
 
 !!! note "Los números de esta guía"
     Todas las cifras concretas provienen de una **corrida de ejemplo** real (dataset sintético de
@@ -161,7 +161,7 @@ gracia del monitoreo es detectar cuándo un `mora_max_12m__points` cruza `0,10` 
 
 Aquí está el ángulo que separa a Nikodym de un notebook con `sklearn`. Cada corrida —además de las
 métricas— emite **evidencia auditable por construcción**, sin trabajo extra del analista. Es lo que
-un validador (SR 11-7) o un regulador (CMF) pide antes de aceptar un modelo en producción.
+un validador (SR 11-7) o tu regulador pide antes de aceptar un modelo en producción.
 
 ### Reproducibilidad bit a bit
 
@@ -219,12 +219,12 @@ auditable del modelo, serializable a **JSON canónico** (para *diff* y control d
 
 ### Por qué esto le habla a un regulador
 
-Un banco no compra un AUC alto: compra un modelo que pueda **defender** ante la CMF y ante su propia
-validación interna. Nikodym entrega, sin esfuerzo adicional del analista, exactamente lo que esos
-procesos exigen: identidad reproducible de cada corrida, propósito y limitaciones documentados,
-métricas trazables a los datos y al código que las generó, decisiones registradas y un calendario
-de revisión. La gobernanza deja de ser un anexo que alguien redacta a mano después del modelo y pasa
-a ser un subproducto verificable de haberlo corrido.
+Un banco no compra un AUC alto: compra un modelo que pueda **defender** ante su regulador y ante su
+propia validación interna. Nikodym entrega, sin esfuerzo adicional del analista, exactamente lo
+que esos procesos exigen: identidad reproducible de cada corrida, propósito y limitaciones
+documentados, métricas trazables a los datos y al código que las generó, decisiones registradas y
+un calendario de revisión. La gobernanza deja de ser un anexo que alguien redacta a mano después
+del modelo y pasa a ser un subproducto verificable de haberlo corrido.
 
 ---
 
