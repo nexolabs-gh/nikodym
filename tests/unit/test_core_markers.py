@@ -13,6 +13,7 @@ from nikodym.core.markers import (
     MISSING_DATA_MARKER,
     declared_prefixes,
     is_declared_warning,
+    strip_declared_codes,
 )
 
 
@@ -61,3 +62,58 @@ def test_declared_prefixes_sin_familia_son_las_marcas_desnudas() -> None:
     """Sin familia, los prefijos cubren tanto el código con familia como la marca sola."""
     assert declared_prefixes() == (MISSING_DATA_MARKER, INSTITUTIONAL_MARKER)
     assert declared_prefixes("IFRS") == ("FALTA-DATO-IFRS", "DATO-INSTITUCIONAL-IFRS")
+
+
+# --- Saneo del mensaje para el copy público (enmienda RUN-ERROR, D-ERR-4) ----------------------
+
+
+#: Mensajes REALES de `raise` del motor, con el código en las tres posiciones en que aparece: al
+#: frente, entre paréntesis a mitad de frase y al final. Un saneador probado sólo contra el caso
+#: fácil (código al frente) deja pasar los otros dos.
+_MENSAJES_REALES = [
+    (
+        "DATO-INSTITUCIONAL-FWD-1: adverse/severe deben declarar macro_path_path o shocks; "
+        "no se inventan.",
+        "adverse/severe deben declarar macro_path_path o shocks; no se inventan.",
+    ),
+    (
+        "feature_source='data_raw' está diferido (FALTA-DATO-ML-1): use 'binning_woe'.",
+        "feature_source='data_raw' está diferido: use 'binning_woe'.",
+    ),
+    (
+        "El backend exige imputación declarada (no tolera NaN): FALTA-DATO-ML-1.",
+        "El backend exige imputación declarada (no tolera NaN).",
+    ),
+    (
+        "FALTA-DATO-FWD-8: kind='vecm' exige vecm_rank explícito.",
+        "kind='vecm' exige vecm_rank explícito.",
+    ),
+]
+
+
+@pytest.mark.parametrize(("crudo", "esperado"), _MENSAJES_REALES, ids=lambda v: v[:28])
+def test_el_saneo_quita_el_codigo_y_deja_la_frase_legible(crudo: str, esperado: str) -> None:
+    """El panel de resultados es copy público: la limitación se explica, el código se va."""
+    assert strip_declared_codes(crudo) == esperado
+
+
+@pytest.mark.parametrize(("crudo", "esperado"), _MENSAJES_REALES, ids=lambda v: v[:28])
+def test_el_saneo_no_deja_ningun_codigo_en_pie(crudo: str, esperado: str) -> None:
+    """La garantía dura, independiente de la puntuación: ninguna marca sobrevive al saneo."""
+    del esperado
+    assert not any(marca in strip_declared_codes(crudo) for marca in DECLARED_MARKERS)
+
+
+def test_el_saneo_respeta_un_mensaje_que_no_trae_codigo() -> None:
+    """El caso mayoritario: un mensaje sin marca vuelve intacto, sin recortes creativos."""
+    mensaje = "El DataFrame no cumple el esquema declarado. columna: mora_max_12m; check: dtype"
+    assert strip_declared_codes(mensaje) == mensaje
+
+
+def test_el_saneo_alcanza_varios_codigos_en_el_mismo_mensaje() -> None:
+    """Un mensaje puede citar dos avisos; quitar sólo el primero deja el segundo a la vista."""
+    saneado = strip_declared_codes(
+        "Faltan dos: FALTA-DATO-IFRS-4 y DATO-INSTITUCIONAL-STR-2 en la misma corrida."
+    )
+    assert saneado == "Faltan dos: y en la misma corrida."
+    assert not any(marca in saneado for marca in DECLARED_MARKERS)

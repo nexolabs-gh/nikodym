@@ -22,6 +22,7 @@ las marcas descarta la otra **en silencio**, sin fallar (D-MARCA-3).
 
 from __future__ import annotations
 
+import re
 from typing import Final
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "MISSING_DATA_MARKER",
     "declared_prefixes",
     "is_declared_warning",
+    "strip_declared_codes",
 ]
 
 MISSING_DATA_MARKER: Final = "FALTA-DATO"
@@ -72,3 +74,59 @@ def is_declared_warning(code: str, *, family: str | None = None) -> bool:
         Si se indica, exige además que el código pertenezca a esa familia.
     """
     return code.startswith(declared_prefixes(family))
+
+
+#: Un código de aviso declarado tal como aparece **dentro de una frase**: la marca desnuda o con su
+#: familia y número (``FALTA-DATO``, ``DATO-INSTITUCIONAL-FWD-1``). Se ancla al comienzo de la marca
+#: para no morder un guion que venga antes.
+_DECLARED_CODE = re.compile(
+    r"(?:{})(?:-[A-Z0-9]+)*".format("|".join(re.escape(marker) for marker in DECLARED_MARKERS))
+)
+
+#: Restos que deja el recorte: un paréntesis que se quedó vacío, puntuación colgando al principio o
+#: al final de la frase, y espacios dobles donde estaba el código.
+_LIMPIEZAS: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
+    (re.compile(r"\(\s*[:;,.]?\s*\)"), ""),
+    (re.compile(r"\s+([.,;:!?])"), r"\1"),
+    (re.compile(r"([:;,])\s*([.!?])"), r"\2"),
+    (re.compile(r"[ \t]{2,}"), " "),
+    (re.compile(r"^[\s:;,.\-—]+"), ""),
+    (re.compile(r"[\s:;,\-—]+$"), ""),
+)
+
+
+def strip_declared_codes(text: str) -> str:
+    """Quita los códigos de aviso declarado de un texto, dejando la frase legible.
+
+    Existe para una frontera concreta: el mensaje de un ``NikodymError`` es prosa escrita para un
+    humano, pero **once** ``raise`` del motor le anteponen o intercalan el código de la marca
+    (``DATO-INSTITUCIONAL-FWD-1: adverse/severe deben declarar…``). Ese mensaje viaja tal cual a
+    ``run_context.error.message`` —superficie de código, donde el código es el dato— y **saneado**
+    al panel de resultados de la UI, que es copy público y donde la regla es explicar la limitación
+    en el idioma del lector, sin nombrar el código (enmienda RUN-ERROR, D-ERR-4).
+
+    No es un filtro de seguridad ni un sanitizador de HTML: sólo recorta los códigos del contrato de
+    marcas y normaliza la puntuación que queda huérfana.
+
+    Parameters
+    ----------
+    text : str
+        Texto que puede contener uno o más códigos de aviso declarado.
+
+    Returns
+    -------
+    str
+        El mismo texto sin los códigos. Un texto que no traía ninguno vuelve intacto salvo por el
+        recorte de espacios en los extremos.
+
+    Examples
+    --------
+    >>> strip_declared_codes("DATO-INSTITUCIONAL-FWD-1: declare macro_path_path o shocks.")
+    'declare macro_path_path o shocks.'
+    >>> strip_declared_codes("feature_source='data_raw' está diferido (FALTA-DATO-ML-1): use otro.")
+    "feature_source='data_raw' está diferido: use otro."
+    """
+    limpio = _DECLARED_CODE.sub("", text)
+    for patron, reemplazo in _LIMPIEZAS:
+        limpio = patron.sub(reemplazo, limpio)
+    return limpio

@@ -24,6 +24,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from nikodym.core.exceptions import NikodymError
+from nikodym.core.markers import strip_declared_codes
 from nikodym.governance import GovernanceConfig, ModelCardBuilder
 from nikodym.methodology import build_ifrs9_methodology_card
 from nikodym.ui.exceptions import UiSerializationError
@@ -64,14 +65,37 @@ _CARD_KEY_BY_DOMAIN: dict[str, str] = {
     "provisioning_ifrs9": "card",
 }
 
-# Mensaje estable de fallo. ``run_context`` NO persiste el mensaje del ``NikodymError`` de dominio
-# (solo se emite al audit-trail vía el evento ``run_end``), de modo que la serialización no puede
-# recuperarlo desde el ``Study``; se reporta el fallo de forma honesta y el detalle vive en el
-# reporte, el lineage y el audit-trail (SDD-23 §8; ver nota de desviación en el resumen de B23.3).
+# Mensaje de reserva. Desde la enmienda RUN-ERROR el mensaje del motor SÍ llega hasta aquí, por
+# ``run_context.error``; este texto cubre los dos casos en que igual no hay nada mejor que decir: un
+# ``Study`` recargado de un bundle guardado antes de la enmienda (sin el campo), y una excepción
+# inesperada, cuyo texto es detalle interno y no información para quien usa el formulario (D-ERR-5).
 _FAILURE_MESSAGE = (
     "La corrida falló durante la ejecución del pipeline. El model card parcial, el lineage y el "
     "audit-trail conservan la evidencia disponible del error de dominio."
 )
+
+
+def _failure_message(study: Study) -> str:
+    """Compone el mensaje de fallo que ve el usuario del panel de resultados (D-ERR-4/D-ERR-5).
+
+    Un error de dominio se publica con el texto que escribió el motor —que está redactado para un
+    humano y nombra la columna, el parámetro o el paso concreto—, pero **sin** el código de la marca
+    cuando el mensaje lo trae: el panel es copy público y ahí la limitación se explica en el idioma
+    del lector. El mensaje íntegro, con código, sigue disponible por código en
+    ``study.run_context.error.message``.
+    """
+    error = study.run_context.error
+    if error is None:
+        return _FAILURE_MESSAGE
+    if not error.is_domain_error:
+        return (
+            f"{_FAILURE_MESSAGE} El fallo no fue un error de dominio sino uno inesperado "
+            f"({error.type}); su detalle técnico vive en run_context.error."
+        )
+    saneado = strip_declared_codes(error.message)
+    if error.step is not None:
+        return f"El paso '{error.step}' falló: {saneado}"
+    return saneado
 
 
 def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dict[str, Any]:
@@ -98,7 +122,7 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
     payload: dict[str, Any] = {
         "status": status,
         "run_id": study.run_context.run_id,
-        "error": _FAILURE_MESSAGE if status == "failed" else None,
+        "error": _failure_message(study) if status == "failed" else None,
         "model_card": _serialize_model_card(study, governance),
     }
     for domain, key in _CARD_KEY_BY_DOMAIN.items():

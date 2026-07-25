@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Literal
@@ -24,11 +25,13 @@ from pydantic import BaseModel, ConfigDict
 
 import nikodym
 from nikodym.core.config import NikodymConfig
+from nikodym.core.lineage import RunError
+from nikodym.core.markers import DECLARED_MARKERS
 from nikodym.core.study import Study
 from nikodym.governance import GovernanceConfig
 from nikodym.ui import serializers
 from nikodym.ui.exceptions import UiSerializationError
-from nikodym.ui.serializers import dump_dto, serialize_study, to_records
+from nikodym.ui.serializers import _FAILURE_MESSAGE, dump_dto, serialize_study, to_records
 
 _GOVERNANCE = GovernanceConfig(purpose="serialización read-only F1", model_name="ui-serializer")
 # Claves de golden por card: shape esperado del §6 (subconjunto probatorio, no exhaustivo).
@@ -403,6 +406,83 @@ def test_serialize_study_fallida_reporta_error(
 
     assert payload["status"] == "failed"
     assert isinstance(payload["error"], str) and payload["error"]
+
+
+def test_el_panel_publica_el_mensaje_del_motor_y_no_el_generico(
+    fake_binning_process: object, tmp_path: Path
+) -> None:
+    """El usuario del formulario merece saber QUÉ falló, no sólo que algo falló (D-ERR-4).
+
+    Hasta la enmienda RUN-ERROR el backend sólo tenía un texto genérico que dar, porque el mensaje
+    del motor moría en el sink; el front ya sabía mostrarlo (``RunTab.tsx``/``ResultsTab.tsx``).
+    """
+    del fake_binning_process
+    parquet = tmp_path / "cartera.parquet"
+    write_behavior_parquet(parquet)
+    study = nikodym.run(failing_config(str(parquet)))
+    assert study.run_context.error is not None  # premisa: el motor dejó rastro
+
+    mensaje = serialize_study(study, governance=None)["error"]
+
+    assert study.run_context.error.message.splitlines()[0] in mensaje
+    assert mensaje != _FAILURE_MESSAGE
+
+
+def test_el_panel_nombra_el_paso_que_fallo(fake_binning_process: object, tmp_path: Path) -> None:
+    """En un pipeline de siete pasos, «falló la corrida» no le dice a nadie dónde mirar."""
+    del fake_binning_process
+    parquet = tmp_path / "cartera.parquet"
+    write_behavior_parquet(parquet)
+    study = nikodym.run(failing_config(str(parquet)))
+    paso = study.run_context.error.step if study.run_context.error else None
+    assert paso is not None  # premisa: el rastro nombra el paso
+
+    assert paso in serialize_study(study, governance=None)["error"]
+
+
+def test_el_panel_no_publica_el_codigo_interno_del_mensaje() -> None:
+    """Once `raise` del motor traen el código; el panel es copy público y no lo muestra."""
+    study = Study(NikodymConfig())
+    study.run_context.status = "failed"
+    study.run_context.error = RunError(
+        type="ConfigError",
+        message="DATO-INSTITUCIONAL-FWD-1: adverse/severe deben declarar macro_path_path.",
+        step="forward",
+        is_domain_error=True,
+        ts=datetime.now(UTC),
+    )
+
+    mensaje = serialize_study(study, governance=None)["error"]
+
+    assert not any(marca in mensaje for marca in DECLARED_MARKERS)
+    assert "adverse/severe deben declarar macro_path_path." in mensaje
+
+
+def test_una_excepcion_inesperada_conserva_el_mensaje_generico() -> None:
+    """El texto de un fallo no-dominio es interno: puede traer rutas del servidor (D-ERR-5)."""
+    study = Study(NikodymConfig())
+    study.run_context.status = "failed"
+    study.run_context.error = RunError(
+        type="KeyError",
+        message="'/Users/alguien/secreto/cartera.parquet'",
+        step="data",
+        is_domain_error=False,
+        ts=datetime.now(UTC),
+    )
+
+    mensaje = serialize_study(study, governance=None)["error"]
+
+    assert "/Users/alguien/secreto" not in mensaje
+    assert mensaje.startswith(_FAILURE_MESSAGE)
+    assert "KeyError" in mensaje
+
+
+def test_un_study_sin_rastro_cae_al_mensaje_generico() -> None:
+    """Un bundle previo a la enmienda se recarga sin ``error``: no debe reventar el panel."""
+    study = Study(NikodymConfig())
+    study.run_context.status = "failed"
+
+    assert serialize_study(study, governance=None)["error"] == _FAILURE_MESSAGE
 
 
 # ─────────────────────────────── to_records / dump_dto ───────────────────────────────

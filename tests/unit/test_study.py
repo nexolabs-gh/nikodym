@@ -185,6 +185,122 @@ def test_run_fail_fast_true_falla_es_guardable(
     study.save(tmp_path / "parcial")  # el Study parcial es guardable
 
 
+# --- Rastro del fallo en run_context (enmienda RUN-ERROR) --------------------------------------
+
+
+def _study_que_falla(
+    monkeypatch: pytest.MonkeyPatch, exc: Exception, *, paso: str = "boom"
+) -> Study:
+    """Corre un ``Study`` cuyo único paso levanta ``exc`` y devuelve el ``Study`` fallido."""
+    study = Study(_config())
+
+    class _Boom:
+        name = paso
+        requires: tuple = ()
+        provides: tuple = ()
+
+        def execute(self, study: Study, rng: object) -> None:
+            raise exc
+
+    monkeypatch.setattr(study, "_resolve_steps", lambda nombres: [_Boom()])
+    with pytest.raises(type(exc)):
+        study.run()
+    return study
+
+
+def test_el_fallo_deja_el_diagnostico_en_run_context_sin_sink(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El escenario que mata la adopción: sin sink configurado, ``failed`` era todo lo que había.
+
+    El preset F1 trae ``audit: null`` ⇒ ``NullAuditSink``, así que el mensaje del motor se emitía al
+    vacío. Este test corre **sin** ``set_audit_sink``: el caso del usuario de ``pip install``.
+    """
+    study = _study_que_falla(monkeypatch, NikodymError("falta la columna 'mora_max_12m'"))
+
+    error = study.run_context.error
+    assert error is not None
+    assert error.type == "NikodymError"
+    assert error.message == "falta la columna 'mora_max_12m'"
+    assert error.step == "boom"
+    assert error.is_domain_error is True
+
+
+def test_el_fallo_sella_finished_at(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Una corrida terminada declara cuándo terminó, haya salido bien o mal (D-ERR-3)."""
+    study = _study_que_falla(monkeypatch, NikodymError("boom"))
+
+    assert study.run_context.finished_at is not None
+    assert study.run_context.error is not None
+    assert study.run_context.finished_at >= study.run_context.started_at  # type: ignore[operator]
+
+
+def test_una_excepcion_inesperada_se_distingue_del_error_de_dominio(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``is_domain_error`` decide si el mensaje se le puede mostrar al usuario (D-ERR-5)."""
+    study = _study_que_falla(monkeypatch, KeyError("columna_interna"))
+
+    error = study.run_context.error
+    assert error is not None
+    assert error.type == "KeyError"
+    assert error.is_domain_error is False
+
+
+def test_run_end_conserva_la_clave_error_y_suma_las_nuevas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El payload crece de forma aditiva: un lector existente del trail no se entera (D-ERR-6)."""
+    study = Study(_config())
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+
+    class _Boom:
+        name = "boom"
+        requires: tuple = ()
+        provides: tuple = ()
+
+        def execute(self, study: Study, rng: object) -> None:
+            raise NikodymError("explotó el paso")
+
+    monkeypatch.setattr(study, "_resolve_steps", lambda nombres: [_Boom()])
+    with pytest.raises(NikodymError):
+        study.run()
+
+    payload = sink.events[-1].payload
+    assert payload["error"] == "explotó el paso"
+    assert payload["error_type"] == "NikodymError"
+    assert payload["step"] == "boom"
+
+
+def test_el_rastro_del_fallo_sobrevive_el_round_trip(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """De poco sirve el diagnóstico si se pierde al guardar el Study parcial para pedir ayuda."""
+    study = _study_que_falla(monkeypatch, NikodymError("falta la columna 'edad'"))
+    destino = study.save(tmp_path / "parcial")
+
+    recargado = Study.load(destino)
+
+    assert recargado.run_context.error is not None
+    assert recargado.run_context.error.message == "falta la columna 'edad'"
+    assert recargado.run_context.error.step == "boom"
+
+
+def test_un_run_metadata_sin_el_campo_sigue_recargando(tmp_path: Path) -> None:
+    """Compatibilidad hacia atrás (D-ERR-7): un bundle guardado antes de la enmienda no se rompe."""
+    study = Study(_config())
+    destino = study.save(tmp_path / "viejo")
+    metadata_path = destino / "run_metadata.json"
+    metadatos = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadatos.pop("error", None)  # como lo escribía la versión anterior
+    metadata_path.write_text(json.dumps(metadatos), encoding="utf-8")
+
+    recargado = Study.load(destino)
+
+    assert recargado.run_context.error is None
+
+
 # --- CT-1: validación de prerequisitos --------------------------------------------------------
 
 

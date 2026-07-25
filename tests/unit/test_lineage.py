@@ -43,6 +43,7 @@ def test_run_context_arranca_en_created() -> None:
     assert ctx.started_at is None
     assert ctx.finished_at is None
     assert ctx.lineage is None
+    assert ctx.error is None
 
 
 def test_run_context_serializa_sin_valores_ficticios() -> None:
@@ -53,6 +54,7 @@ def test_run_context_serializa_sin_valores_ficticios() -> None:
         "finished_at": None,
         "status": "created",
         "lineage": None,
+        "error": None,
     }
 
 

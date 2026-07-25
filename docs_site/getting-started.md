@@ -87,7 +87,7 @@ Comprueba que el núcleo importa y reporta versión:
 python -c "import nikodym; print(nikodym.__version__)"
 ```
 
-Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.3.x**). Que este
+Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.5.x**). Que este
 comando funcione confirma que el **núcleo base** está sano; no dice nada sobre los extras, porque
 sus imports son perezosos. Para verificar que el extra `scoring` quedó disponible, la prueba real es
 correr una corrida F1 (siguiente sección): si falta el extra, el motor fallará al importar
@@ -137,9 +137,18 @@ cohortada por trimestre para partición Dev/Held-out/OOT — determinista, sin d
 
 !!! warning "Chequea el estado antes de usar resultados"
     `nikodym.run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
-    `study.run_context.status == "failed"` (el error queda en el audit-trail y el lineage, no se
-    silencia). El consumidor por código **debe** verificar `study.run_context.status` antes de leer
-    artefactos.
+    `study.run_context.status == "failed"`. El consumidor por código **debe** verificar
+    `study.run_context.status` antes de leer artefactos.
+
+    Cuando falla, el diagnóstico está en `study.run_context.error` y no hay que configurar nada para
+    verlo:
+
+    ```python
+    if study.run_context.status == "failed":
+        error = study.run_context.error
+        print(error.step)     # el paso del pipeline que falló, p. ej. "data"
+        print(error.message)  # el mensaje del motor, con la columna o el parámetro concreto
+    ```
 
 ## Siguientes pasos
 

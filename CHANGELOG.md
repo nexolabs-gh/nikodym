@@ -7,6 +7,42 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [No publicado]
 
+### Añadido
+
+- **Una corrida que falla ahora dice por qué, por el camino que la documentación recomienda.**
+  `run_context` gana el campo `error` (`RunError`: `type`, `message`, `step`, `is_domain_error`,
+  `ts`). Hasta ahora el diagnóstico del motor —que es bueno: nombra la columna, el parámetro o el
+  paso concreto— se emitía **sólo** al audit-trail, y como el preset F1 trae `audit: null`, quien
+  seguía el getting-started al pie de la letra se quedaba con `status == "failed"`, `results` vacío
+  y 413 bytes de hashes en el lineage. El campo se puebla sin configurar nada:
+
+  ```python
+  study = nikodym.run(config)
+  if study.run_context.status == "failed":
+      print(study.run_context.error.step)     # "data"
+      print(study.run_context.error.message)  # el mensaje del motor, íntegro
+  ```
+
+  Extensión **aditiva**: el campo lleva default `None`, así que un `run_metadata.json` guardado
+  antes sigue recargando, y el evento `run_end` conserva su clave `error` y sólo suma `error_type`
+  y `step`. La documentación decía que el fallo vivía «en el audit-trail y en el lineage» en cinco
+  superficies (README, `docs_site/index`, `tutorial`, `getting-started` y el docstring de `run`);
+  de los dos lugares, el lineage no lo guardaba nunca y el audit-trail sólo con sink configurado.
+  Corregidas las cinco.
+
+### Corregido
+
+- **El panel de resultados de la UI muestra el fallo real, no un texto genérico.** El backend
+  no tenía otro que dar —el mensaje moría en el sink— y el front ya sabía mostrarlo. Ahora publica
+  el mensaje del motor con el paso que falló («El paso 'scorecard' falló: …»), **sin** el código de
+  aviso declarado: once `raise` del motor lo traen dentro del texto y el panel es copy público, así
+  que se recorta con `strip_declared_codes()`. El mensaje íntegro, con el código, sigue disponible
+  por código en `run_context.error.message`. Un fallo que **no** es error de dominio conserva el
+  mensaje genérico más el tipo de la excepción: su texto es detalle interno y puede traer rutas del
+  servidor.
+
+- **Una corrida fallida sellaba `finished_at` en `None`.** Terminaba, y el contexto no decía cuándo.
+
 ### Cambiado
 
 - **La marca `FALTA-DATO` se separa en dos, porque cubría dos cosas opuestas.** Un aviso declarado

@@ -33,10 +33,15 @@ def run(config: NikodymConfig) -> Study:
     **Semántica de fallo (D-UI-2, decidida).** ``Study.run()`` es el primitivo *fail-loud*:
     ante un fallo marca ``status="failed"``, conserva el lineage y re-levanta. Esta función es
     el envoltorio de producto: **captura el** ``NikodymError`` y devuelve el ``Study`` parcial
-    en vez de propagarlo. El fallo no se silencia (vive en ``study.run_context.status``, en el
-    audit-trail y en el lineage) pero tampoco explota. Por eso, el consumidor por código **debe
-    chequear** ``study.run_context.status`` (``"done"`` vs ``"failed"``) antes de usar
+    en vez de propagarlo. El fallo no se silencia pero tampoco explota. Por eso, el consumidor por
+    código **debe chequear** ``study.run_context.status`` (``"done"`` vs ``"failed"``) antes de usar
     ``study.results``.
+
+    **Dónde queda el diagnóstico.** En ``study.run_context.error``
+    (:class:`~nikodym.core.lineage.RunError`): tipo de la excepción, mensaje del motor y paso que
+    falló, sin que haya que configurar nada. El audit-trail lo repite en el evento ``run_end``, pero
+    **sólo si el config declara un sink** — el preset F1 trae ``audit: null``, así que no dependa de
+    él; y el lineage no guarda el error nunca (enmienda RUN-ERROR).
     """
     sink, inventory = assemble_run(config)
     governance_cfg = _governance_config(config.governance)

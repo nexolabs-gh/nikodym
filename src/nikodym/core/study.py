@@ -41,7 +41,7 @@ from nikodym.core.exceptions import (
     ReproducibilityError,
     UntrustedStudyError,
 )
-from nikodym.core.lineage import LineageBundle, RunContext
+from nikodym.core.lineage import LineageBundle, RunContext, RunError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.seeding import SeedManager
 
@@ -262,8 +262,10 @@ class Study:
         El argumento ``steps`` tiene prioridad sobre ``config.run.steps``. ``fail_fast=False`` no se
         soporta en v1: se emite un *warning* ruidoso (no un no-op silencioso) y se procede como
         ``True``. Una excepción en un paso (con ``fail_fast=True``) deja ``status="failed"`` pero
-        **conserva el lineage** (evidencia de trazabilidad, SR 11-7), emite ``run_end`` con el error
-        y se re-levanta; el ``Study`` parcial sigue siendo guardable.
+        **conserva el lineage** (evidencia de trazabilidad, SR 11-7), escribe el rastro del fallo en
+        ``run_context.error`` (:class:`~nikodym.core.lineage.RunError`: tipo, mensaje y paso), sella
+        ``finished_at``, emite ``run_end`` y se re-levanta; el ``Study`` parcial sigue siendo
+        guardable.
         """
         nombres = steps if steps is not None else self.config.run.steps
         if not self.config.run.fail_fast:
@@ -285,12 +287,39 @@ class Study:
         # ``data_hash`` queda None; en B2+ lo completa el paso de datos antes de cerrar.
         self._emit("run_start", None, {"run_id": run_id, "name": self.config.name})
         self.run_context.lineage = self._build_lineage()
+        # El paso en curso se rastrea fuera del try para poder nombrarlo en el rastro del fallo:
+        # sin él, "falló la corrida" no dice en qué etapa del pipeline (enmienda RUN-ERROR, D-ERR-2)
+        paso_actual: Step | None = None
         try:
             for paso in pasos:
+                paso_actual = paso
                 self._run_one(paso)
         except Exception as exc:
             self.run_context.status = "failed"
-            self._emit("run_end", None, {"run_id": run_id, "status": "failed", "error": str(exc)})
+            # El diagnóstico del motor se emitía SÓLO al sink; con un NullAuditSink (el que arma el
+            # preset recomendado) se perdía. Ahora vive también en el run_context que el usuario ya
+            # tiene en la mano (D-ERR-1), y la corrida declara cuándo terminó (D-ERR-3).
+            self.run_context.finished_at = datetime.now(UTC)
+            self.run_context.error = RunError(
+                type=type(exc).__name__,
+                message=str(exc),
+                step=paso_actual.name if paso_actual is not None else None,
+                is_domain_error=isinstance(exc, NikodymError),
+                ts=self.run_context.finished_at,
+            )
+            # Payload aditivo (D-ERR-6): 'error' se conserva tal cual estaba; un lector existente
+            # del trail no se entera de las claves nuevas (CT-3).
+            self._emit(
+                "run_end",
+                None,
+                {
+                    "run_id": run_id,
+                    "status": "failed",
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                    "step": self.run_context.error.step,
+                },
+            )
             raise
         self.run_context.finished_at = datetime.now(UTC)
         self.run_context.status = "done"

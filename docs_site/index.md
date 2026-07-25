@@ -85,9 +85,9 @@ print(metrics)
 ```
 
 `nikodym.run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
-`study.run_context.status == "failed"` (el error vive en el audit-trail y el lineage, no se
-silencia). Por eso el consumidor por código **debe** chequear `study.run_context.status` antes de
-usar los resultados.
+`study.run_context.status == "failed"`, y el diagnóstico —tipo del error, mensaje del motor y paso
+que falló— queda en `study.run_context.error`, sin configurar nada. Por eso el consumidor por código
+**debe** chequear `study.run_context.status` antes de usar los resultados.
 
 Con un config propio se sustituye el preset: se define el `NikodymConfig` (esquema de datos,
 binning, modelo, scorecard, calibración) y se apunta `data.load.source` al dataset real. Ver

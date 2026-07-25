@@ -20,7 +20,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-__all__ = ["LineageBundle", "RunContext"]
+__all__ = ["LineageBundle", "RunContext", "RunError"]
 
 
 class LineageBundle(BaseModel):
@@ -47,6 +47,38 @@ class LineageBundle(BaseModel):
     schema_version: str
 
 
+class RunError(BaseModel):
+    """Rastro estructurado del fallo que terminó una corrida (enmienda RUN-ERROR, D-ERR-2).
+
+    Existe porque ``status="failed"`` a secas no le sirve a nadie: el diagnóstico del motor se
+    emitía **sólo** al audit-trail, de modo que quien corría con el preset recomendado —que trae
+    ``audit: null`` y por tanto un ``NullAuditSink``— se quedaba con la palabra ``failed`` y con el
+    lineage, que son hashes. Este modelo lleva ese diagnóstico al propio ``RunContext``, que el
+    usuario ya tiene en la mano.
+
+    ``message`` guarda ``str(exc)`` **íntegro**, incluido el código de marca cuando el mensaje del
+    motor lo trae al frente (``DATO-INSTITUCIONAL-FWD-1: …``): esta es superficie de código, donde
+    el código es el dato, igual que en ``warning_codes`` y en el anexo de auditoría del informe. El
+    copy público —el panel de la UI— publica el mensaje **sin** el código
+    (:func:`~nikodym.core.markers.strip_declared_codes`, D-ERR-4).
+
+    ``is_domain_error`` distingue un :class:`~nikodym.core.exceptions.NikodymError` —mensaje de
+    dominio, redactado para un humano— de una excepción inesperada, cuyo texto puede ser un detalle
+    interno sin valor para quien usa el formulario (D-ERR-5).
+
+    ``frozen``/``extra="forbid"``: el rastro de un fallo no se reescribe ni admite claves intrusas
+    al revalidarlo desde ``run_metadata.json``.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    type: str
+    message: str
+    step: str | None
+    is_domain_error: bool
+    ts: datetime
+
+
 class RunContext(BaseModel):
     """Estado de vida de una corrida del ``Study``.
 
@@ -66,3 +98,6 @@ class RunContext(BaseModel):
     finished_at: datetime | None = None
     status: Literal["created", "running", "done", "failed"] = "created"
     lineage: LineageBundle | None = None
+    # Sólo poblado con status="failed" (D-ERR-1). El default None mantiene compatible la recarga de
+    # un run_metadata.json escrito antes de la enmienda (D-ERR-7).
+    error: RunError | None = None

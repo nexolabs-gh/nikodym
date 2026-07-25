@@ -108,8 +108,9 @@ assert study.run_context.status == "done"
 
 !!! warning "Chequea el estado siempre"
     `run` es *fail-loud pero no explosivo*: ante un fallo devuelve el `Study` **parcial** con
-    `status == "failed"` (el error queda en el audit-trail y el lineage, no se silencia). El consumidor
-    por código **debe** verificar `study.run_context.status == "done"` antes de usar los resultados.
+    `status == "failed"`, y el diagnóstico queda en `study.run_context.error` (tipo del error,
+    mensaje del motor y paso que falló). El consumidor por código **debe** verificar
+    `study.run_context.status == "done"` antes de usar los resultados.
 
 Los resultados no viven en un `dict` plano sino en el `ArtifactStore`, accesible con
 `study.artifacts.get(<dominio>, <clave>)`. Las secciones siguientes recorren cada dominio.
