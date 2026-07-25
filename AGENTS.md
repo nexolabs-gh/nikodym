@@ -70,6 +70,16 @@ opcional:
 puntual que no acerca a estos cuatro puntos compite contra ellos por el tiempo, y hay que decirlo
 cuando ocurra.
 
+**Estado del camino largo (2026-07-25, tarde).** El requisito 3 ya tiene contrato aprobado
+—[`docs/design/_CONTRATO-RESOLUCION-PARAMETROS.md`](design/_CONTRATO-RESOLUCION-PARAMETROS.md),
+CRP-1…CRP-7— escrito sobre un censo del código real de las siete capas. **Orden vigente: B3.a-1
+(la llave de segmentación deja de ser chilena) → contrato de parámetros → B3.a-2 con la jurisdicción
+nueva.** El requisito 2 dejó de ser teoría: el pipeline F1 corre sobre **Lending Club, 1.348.099
+préstamos reales**, y esa primera tarde de datos sucios destapó dos defectos que 4.300 tests verdes no
+veían —la deriva de tasa base entre particiones no tiene guarda, y el gate de bin puro ignora un WoE
+que el usuario declaró—. Un dataset sintético determinista no puede encontrarlos: produce tasa base
+estable y nulos limpios por construcción.
+
 ## Auto-desarrollo (motor de trabajo)
 **Regla fijada por Cami el 2026-07-24: el auto-desarrollo se invoca SOLO cuando él lo pide de forma
 explícita.** Nunca se entra en modo autónomo por iniciativa propia ni porque la tarea parezca de

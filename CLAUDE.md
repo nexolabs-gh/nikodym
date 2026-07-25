@@ -29,4 +29,17 @@
 > informe: ahí el código es el dato. Dos tests atan la página al motor en los dos sentidos —un código
 > emitido sin documentar, y uno documentado que ya no existe—.
 >
+> **Contrato de resolución de parámetros (2026-07-25, APROBADO).** El requisito 3 de la visión
+> —el dato se provee, se modela o sale del histórico— se diseñó como **contrato transversal**, no
+> motor por motor: [`docs/design/_CONTRATO-RESOLUCION-PARAMETROS.md`](docs/design/_CONTRATO-RESOLUCION-PARAMETROS.md).
+> El censo del código mostró que el problema no es que falten vías, sino que **cada parámetro ya tiene
+> su política de resolución y se contradicen entre motores**. Siete decisiones (CRP-1…CRP-7); EAD entra
+> al contrato distinguiendo **resolutor** de **consumidor**.
+>
+> **Orden de trabajo vigente: B3.a-1 → contrato de parámetros → B3.a-2.** De los 15 puntos de
+> chilenidad del código, sólo **cuatro** —la llave de segmentación: `governance/config.py:27`, las 6
+> carteras de `cmf/engine.py:96-103`, el default de `internal/config.py:119` y el crosswalk— bloquean
+> el contrato. Los otros once son contenido normativo del motor CMF **y ahí ser chileno es correcto**:
+> ese motor *es* el método estándar chileno; se abstraen con la jurisdicción nueva (B3.b).
+>
 > **Auto-desarrollo: SOLO cuando Cami lo pida explícitamente** (skill `/auto-desarrollo-claude`). En trabajo normal, usar workflows y subagentes con normalidad, sin pedir permiso cada vez — ver `AGENTS.md` §Auto-desarrollo. La maquinaria tmux/Codex multi-motor está FROZEN (histórica).
