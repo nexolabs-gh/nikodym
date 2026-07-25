@@ -90,8 +90,17 @@ ya se completaron; sus decisiones siguen vigentes en `docs/design/`.
   inventarlo**). Ambas viven en `src/nikodym/core/markers.py`; los filtros consumen
   `is_declared_warning()`, **nunca** el literal —un filtro que sólo conozca una marca descarta la otra
   en silencio—. Regla de clasificación de todo código nuevo: una capacidad **diferida** es del motor
-  aunque el parámetro lo escriba el usuario. Y los códigos internos **no van al copy público**: en la
-  landing y el README la limitación se explica en el idioma del lector, sin nombrar el código.
+  aunque el parámetro lo escriba el usuario. Y los códigos internos **no van al copy público**: la
+  limitación se explica en el idioma del lector, sin nombrar el código.
+- **Qué cuenta como copy público (precisado el 2026-07-25, tras dos defectos vivos).** No es sólo la
+  landing y el README: cuenta el **tooltip del formulario del UI instalable** —una `description` de
+  Pydantic viaja a `schema.json` y de ahí al `FieldRenderer`—, el panel de resultados, la **prosa
+  del informe** HTML/PDF/Word, `docs_site/`, y la descripción de un dataset o preset que devuelva el
+  backend (un fallback puede copiarla tal cual a una card). **No** cuentan: `warning_codes` y
+  `card.falta_dato`, las claves de los dicts de labels, comentarios, tests, `docs/design/` y el
+  volcado de auditoría del anexo del informe —ahí el código es la evidencia—. Lo vigilan
+  `web/src/lib/public-copy.test.ts` y `tests/unit/test_public_copy.py`; el `README.md` queda fuera
+  hasta que Cami decida (`HANDOFF.md` P1).
 - **«Instalable y usable» es requisito de entrega.** Una capacidad que el usuario de `pip install` no
   puede alcanzar cuenta como no entregada, por más tests que tenga. Ver
   [[feature-gateada-por-config-es-feature-inexistente]] y el bloque B2 del ROADMAP.

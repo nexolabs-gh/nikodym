@@ -10,7 +10,18 @@
 > `FALTA-DATO` si la carencia es **del motor** (9 códigos + 2 `pending_items` CMF) o
 > `DATO-INSTITUCIONAL` si el dato **lo aporta la institución** (34). El contrato vive en
 > `src/nikodym/core/markers.py` y **ningún filtro debe comparar el literal**: se consume
-> `is_declared_warning()`. Un código interno **nunca** va al copy público (landing, README): ahí se
-> explica la limitación en el idioma del lector.
+> `is_declared_warning()`. Un código interno **nunca** va al copy público: ahí se explica la
+> limitación en el idioma del lector.
+>
+> **Copy público NO es sólo la landing y el README** (2026-07-25: creerlo dejó vivos dos defectos).
+> Cuenta toda superficie que lea un humano: el **tooltip del formulario del UI instalable** —una
+> `description` de Pydantic viaja a `schema.json` y de ahí al `FieldRenderer`—, el panel de
+> resultados, la **prosa del informe** HTML/PDF/Word, `docs_site/` y la descripción de un dataset o
+> preset que el backend devuelva. **No** cuentan: `warning_codes` y `card.falta_dato` (son el dato),
+> las claves de los dicts de labels, los comentarios, los tests, `docs/design/` y el volcado de
+> auditoría del anexo del informe —ahí el código es la evidencia y borrarlo falsearía el audit
+> trail—. Dos gates lo vigilan: `web/src/lib/public-copy.test.ts` (todo `web/src`) y
+> `tests/unit/test_public_copy.py` (`docs_site/` + el espejo `web/src/lib/markers.ts`). El
+> `README.md` **sigue fuera** hasta que Cami decida (ver `HANDOFF.md` P1).
 >
 > **Auto-desarrollo: SOLO cuando Cami lo pida explícitamente** (skill `/auto-desarrollo-claude`). En trabajo normal, usar workflows y subagentes con normalidad, sin pedir permiso cada vez — ver `AGENTS.md` §Auto-desarrollo. La maquinaria tmux/Codex multi-motor está FROZEN (histórica).
