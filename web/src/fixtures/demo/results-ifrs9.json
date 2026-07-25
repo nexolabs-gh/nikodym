@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "087bd4f0bae246e5a97941a59aee148c",
+ "run_id": "88617189c71c4c708fc7cd6dfd814f3e",
  "error": null,
  "model_card": null,
  "binning": null,
@@ -132,6 +132,7 @@
   "falta_dato": [
    "FALTA-DATO-IFRS-4"
   ],
+  "segmentation": null,
   "metric_sections": {
    "staging_migration": {
     "stage_1": 5235,
