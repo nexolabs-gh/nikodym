@@ -83,7 +83,7 @@ def _scenario(name: str, weight: float, **overrides: object) -> ScenarioDefiniti
 
 
 def _valid_scenarios() -> ScenarioConfig:
-    """Escenarios base/adverse/severe con shocks explícitos para evitar FALTA-DATO."""
+    """Escenarios base/adverse/severe con shocks explícitos para evitar el aviso declarado."""
     return ScenarioConfig(
         scenarios=(
             _scenario("base", 0.60),
@@ -489,8 +489,8 @@ def test_forbid_mean_scenario_veta_nombres_reservados() -> None:
 
 
 def test_adverse_severe_sin_paths_ni_shocks_falla_por_default() -> None:
-    """FALTA-DATO-FWD-1 falla por default y no inventa shocks adversos/severos."""
-    with pytest.raises(ForwardScenarioError, match="FALTA-DATO-FWD-1"):
+    """DATO-INSTITUCIONAL-FWD-1 falla por default y no inventa shocks adversos/severos."""
+    with pytest.raises(ForwardScenarioError, match="DATO-INSTITUCIONAL-FWD-1"):
         _cfg(scenarios=ScenarioConfig())
 
     assert _cfg(scenarios=ScenarioConfig(), fail_on_falta_dato=False).fail_on_falta_dato is False

@@ -446,7 +446,7 @@ def _fit_var(prepared: _PreparedMacroFrame, *, cfg: ForwardConfig, np: Any) -> _
 def _fit_vecm(prepared: _PreparedMacroFrame, *, cfg: ForwardConfig, np: Any) -> _FitState:
     if cfg.macro.vecm_rank is None:
         raise ForwardConfigError(
-            "FALTA-DATO-FWD: kind='vecm' exige vecm_rank explícito en esta versión."
+            "DATO-INSTITUCIONAL-FWD-8: kind='vecm' exige vecm_rank explícito en esta versión."
         )
     vecm_cls = _import_vecm()
     k_ar_diff = cfg.macro.var_lags or 1

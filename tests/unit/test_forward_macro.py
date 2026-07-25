@@ -398,7 +398,7 @@ def test_var_y_vecm_multivariados_con_fakes(monkeypatch: pytest.MonkeyPatch) -> 
         42.0,
     ]
     missing_rank = _cfg(variables=("y", "z"), macro=MacroModelConfig(kind="vecm"))
-    with pytest.raises(ForwardConfigError, match="FALTA-DATO-FWD"):
+    with pytest.raises(ForwardConfigError, match="DATO-INSTITUCIONAL-FWD-8"):
         MacroProjectionModel.from_config(missing_rank).fit(_two_variable_frame())
 
 

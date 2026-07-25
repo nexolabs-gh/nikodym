@@ -651,7 +651,7 @@ def _forward_diagnostics(
     forward_term_structure: DataFrame,
     ttc_warning_codes: tuple[str, ...],
 ) -> ForwardDiagnostics:
-    """Construye el agregador ``ForwardDiagnostics`` con PIT/TTC y FALTA-DATO."""
+    """Construye el agregador ``ForwardDiagnostics`` con PIT/TTC y avisos declarados."""
     from nikodym.forward.results import ForwardDiagnostics
 
     basis_states = _ordered_basis_states(forward_term_structure)
@@ -835,7 +835,7 @@ def _pit_warnings(base_term_structure: DataFrame, *, cfg: ForwardConfig) -> tupl
     elif not observed <= {"pit", "ttc"}:
         warnings_seen.append("pd_basis_no_resuelta")
     if cfg.ttc_reversion.ttc_anchor == "input_term_structure" and observed and observed != {"ttc"}:
-        warnings_seen.append("FALTA-DATO-FWD-4")
+        warnings_seen.append("DATO-INSTITUCIONAL-FWD-4")
     return _dedupe(warnings_seen)
 
 
@@ -923,8 +923,8 @@ def _warning_codes_from_warnings(caught: Sequence[warnings.WarningMessage]) -> t
     codes: list[str] = []
     for item in caught:
         message = str(item.message)
-        if "FALTA-DATO-FWD-4" in message:
-            codes.append("FALTA-DATO-FWD-4")
+        if "DATO-INSTITUCIONAL-FWD-4" in message:
+            codes.append("DATO-INSTITUCIONAL-FWD-4")
         else:
             codes.append(f"{item.category.__name__}:{message}")
     return _dedupe(codes)

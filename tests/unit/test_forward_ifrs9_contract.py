@@ -38,7 +38,7 @@ from nikodym.provisioning.ifrs9.results import IfrsEclRecord, IfrsProvisionCard
 
 
 def _scenario(name: str, weight: float, shock: float = 0.0) -> ScenarioDefinitionConfig:
-    """Escenario con shock no vacío fuera de base (FALTA-DATO-FWD-1 exige shocks o path)."""
+    """Escenario con shock no vacío fuera de base (DATO-INSTITUCIONAL-FWD-1 exige shocks o path)."""
     shocks = {} if name == "base" else {"x": shock}
     return ScenarioDefinitionConfig(name=name, weight=weight, shocks=shocks)
 

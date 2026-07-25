@@ -522,9 +522,9 @@ def test_apply_ttc_reversion_advierte_ancla_pit_y_valida_invariantes() -> None:
     weighting = ScenarioWeighting.from_config(_cfg())
     forward = _forward_term_structure([0.02, 0.03, 0.04, 0.05, 0.06])
 
-    with pytest.warns(RuntimeWarning, match="FALTA-DATO-FWD-4"):
+    with pytest.warns(RuntimeWarning, match="DATO-INSTITUCIONAL-FWD-4"):
         weighting.apply_ttc_reversion(forward, ttc_anchor=_ttc_anchor([0.01] * 5, pd_basis="pit"))
-    with pytest.warns(RuntimeWarning, match="FALTA-DATO-FWD-4"):
+    with pytest.warns(RuntimeWarning, match="DATO-INSTITUCIONAL-FWD-4"):
         weighting.apply_ttc_reversion(forward, ttc_anchor=_ttc_anchor([0.01] * 5, pd_basis=None))
 
     disabled = ScenarioWeighting.from_config(

@@ -280,7 +280,7 @@ def _prepare_macro_history(
     # que sí ocurre en este modo) y su min_history sigue siendo una garantía legítima.
     if not is_fixed_coefficients and len(copied.index) < cfg.satellite.min_history_periods:
         raise SatelliteModelError(
-            "FALTA-DATO-FWD-5: historia insuficiente para ajustar satellite; "
+            "DATO-INSTITUCIONAL-FWD-5: historia insuficiente para ajustar satellite; "
             f"observaciones={len(copied.index)}, "
             f"min_history_periods={cfg.satellite.min_history_periods}."
         )
@@ -290,7 +290,7 @@ def _prepare_macro_history(
             raise ForwardInputError(f"El factor macro {column!r} contiene valores no finitos.")
         if values.size == 0:
             raise SatelliteModelError(
-                "FALTA-DATO-FWD-5: sin observaciones macro para el factor "
+                "DATO-INSTITUCIONAL-FWD-5: sin observaciones macro para el factor "
                 f"{column!r}; reference_macro (media de centrado) quedaría indefinido."
             )
         if int(pd.Series(values).nunique(dropna=False)) < 2 and not is_fixed_coefficients:
@@ -518,7 +518,7 @@ def _fit_component(
         clean = group.loc[group[target_column].notna()].copy(deep=True)
         if len(clean.index) < len(cfg.satellite.factor_cols) + 1:
             raise SatelliteModelError(
-                f"FALTA-DATO-FWD-5: observaciones insuficientes para {target_column} "
+                f"DATO-INSTITUCIONAL-FWD-5: observaciones insuficientes para {target_column} "
                 f"en segmento {segment!r}."
             )
         design = pd.DataFrame(index=clean.index)
@@ -587,7 +587,7 @@ def _load_fixed_coefficients(
     path = cfg.satellite.coefficient_table_path
     if path is None:
         raise SatelliteModelError(
-            "FALTA-DATO-FWD-5: mode='fixed_coefficients' exige coefficient_table_path."
+            "DATO-INSTITUCIONAL-FWD-5: mode='fixed_coefficients' exige coefficient_table_path."
         )
     table = _read_coefficient_table(path, pd=pd)
     required = ("target_component", "factor_col", "coefficient", "sign")

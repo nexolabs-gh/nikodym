@@ -354,9 +354,9 @@ def test_helpers_defensivos_y_ramas_perezosas(
     unknown_basis = _term_structure("survival", pd_basis="misterio")
     assert step_module._pit_warnings(unknown_basis, cfg=cfg) == (
         "pd_basis_no_resuelta",
-        "FALTA-DATO-FWD-4",
+        "DATO-INSTITUCIONAL-FWD-4",
     )
-    assert step_module._pit_warnings(pit_basis, cfg=cfg) == ("FALTA-DATO-FWD-4",)
+    assert step_module._pit_warnings(pit_basis, cfg=cfg) == ("DATO-INSTITUCIONAL-FWD-4",)
     no_assumption_cfg = cfg.model_copy(
         update={
             "input": ForwardInputConfig(

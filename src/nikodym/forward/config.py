@@ -580,8 +580,8 @@ class ForwardConfig(NikodymBaseConfig):
         title="Fallar ante falta de dato",
         description=(
             "Si es True, junto con «Fallar si faltan trayectorias», un escenario adverse o "
-            "severe sin trayectoria macro ni shocks propios (aviso `FALTA-DATO-FWD-1`) hace "
-            "fallar la validación del config."
+            "severe sin trayectoria macro ni shocks propios (aviso "
+            "`DATO-INSTITUCIONAL-FWD-1`) hace fallar la validación del config."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Gobernanza", "ui_order": 1},
     )
@@ -647,7 +647,7 @@ def _check_scenarios(scenarios: ScenarioConfig, weight_sum_tol: float) -> None:
 
 
 def _check_missing_stress_scenarios(cfg: ForwardConfig) -> None:
-    """Valida FALTA-DATO-FWD-1 para escenarios adverse/severe sin path ni shocks."""
+    """Valida DATO-INSTITUCIONAL-FWD-1 para escenarios adverse/severe sin path ni shocks."""
     if not cfg.fail_on_falta_dato or not cfg.validation.fail_on_missing_scenario_paths:
         return
     missing = [
@@ -659,6 +659,6 @@ def _check_missing_stress_scenarios(cfg: ForwardConfig) -> None:
     ]
     if missing:
         raise ForwardScenarioError(
-            "FALTA-DATO-FWD-1: adverse/severe deben declarar macro_path_path o shocks; "
+            "DATO-INSTITUCIONAL-FWD-1: adverse/severe deben declarar macro_path_path o shocks; "
             f"faltan {missing}."
         )

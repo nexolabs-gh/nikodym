@@ -443,7 +443,7 @@ def test_fixed_coefficients_relaja_min_history_con_piso_minimo(tmp_path: Path) -
             _cfg(mode="fixed_coefficients", coefficient_table_path=str(path), min_history_periods=5)
         ).fit(_term_structure([0.02, 0.03]), empty_macro)
 
-    # Regresión intacta: modo ``fit`` con historia corta sigue levantando FALTA-DATO-FWD-5.
+    # Regresión intacta: modo ``fit`` con historia corta sigue levantando DATO-INSTITUCIONAL-FWD-5.
     with pytest.raises(SatelliteModelError, match="historia insuficiente"):
         SatelliteModel.from_config(_cfg(min_history_periods=5)).fit(
             _term_structure([0.02, 0.03]), _macro_history([0.0, 1.0])

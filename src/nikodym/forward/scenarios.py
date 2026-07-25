@@ -61,7 +61,7 @@ _IDENTITY_COLUMNS: tuple[str, ...] = (
 _ANCHOR_KEY_COLUMNS: tuple[str, ...] = (*_IDENTITY_COLUMNS, "period")
 _CURVE_KEY_COLUMNS: tuple[str, ...] = (*_IDENTITY_COLUMNS, "scenario")
 _WARNING_FALTA_DATO_FWD_4 = (
-    "FALTA-DATO-FWD-4: ttc_anchor='input_term_structure' no trae pd_basis='ttc' "
+    "DATO-INSTITUCIONAL-FWD-4: ttc_anchor='input_term_structure' no trae pd_basis='ttc' "
     "resuelto; se usará como ancla TTC con base PIT/desconocida explícitamente advertida."
 )
 

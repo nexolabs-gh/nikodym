@@ -485,7 +485,7 @@ def test_forward_card_ct2_resultados_huerfanos_y_copias() -> None:
     with pytest.raises(ValidationError):
         SatelliteResult(extra="no permitido")
     with pytest.raises(ValidationError, match="frozen"):
-        card.falta_dato = ("FALTA-DATO-FWD-1",)
+        card.falta_dato = ("DATO-INSTITUCIONAL-FWD-1",)
     with pytest.raises(ValidationError, match="output_columns"):
         _card(output_columns=("row_id", " "))
     with pytest.raises(ValidationError):
@@ -861,7 +861,7 @@ def _macro_projection_frame(**updates: Any) -> pd.DataFrame:
         "method": ["arima", "arima", "arima"],
         "model_id": ["macro-1", "macro-1", "macro-1"],
         "is_reasonable_supportable": [True, True, True],
-        "warning_codes": [(), (), ("FALTA-DATO-FWD-1",)],
+        "warning_codes": [(), (), ("DATO-INSTITUCIONAL-FWD-1",)],
     }
     payload.update(updates)
     return pd.DataFrame(payload)
@@ -905,7 +905,7 @@ def _term_structure_frame(**updates: Any) -> pd.DataFrame:
         "satellite_model_id": ["sat-1", "sat-1", "sat-1"],
         "method": ["survival", "survival", "survival"],
         "pd_source": ["survival", "survival", "survival"],
-        "warning_codes": [(), (), ("FALTA-DATO-FWD-1",)],
+        "warning_codes": [(), (), ("DATO-INSTITUCIONAL-FWD-1",)],
     }
     payload.update(updates)
     return pd.DataFrame(
