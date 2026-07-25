@@ -213,6 +213,24 @@ Se ejecuta en dos etapas con condiciones distintas:
    contrato que separa «motor de provisión estandarizada» de «parámetros y reglas de una
    jurisdicción», y dejar `internal/` genuinamente neutro. **Tiene valor por sí solo**: es deuda
    arquitectónica que hoy impide describir con honestidad el costo de un port.
+
+   **B3.a se parte en dos (Cami, 2026-07-25), y sólo la primera mitad bloquea aguas abajo.** El censo
+   del código encontró 15 puntos de chilenidad, y no pesan igual:
+
+   - **B3.a-1 · la llave de segmentación.** `governance/config.py:27` (`cartera: Literal[...]`, el
+     único enum de carteras del repo), las 6 carteras literales de `cmf/engine.py:96-103`, el
+     `default="cmf_portfolio"` de `internal/config.py:119` y el crosswalk de
+     `provisioning/config.py:178-195`. **Va primero**: un parámetro se resuelve *por segmento*, así
+     que el [contrato de resolución de parámetros](design/_CONTRATO-RESOLUCION-PARAMETROS.md) no
+     puede montarse sobre un segmento que es un enum chileno.
+   - **B3.a-2 · el contenido normativo del motor CMF.** Matrices y su versionado, tramos de mora B-1,
+     `is_default = dpd >= 90` (`cmf/engine.py:540`), buckets PVB/PVG, rangos C1-C6, títulos del
+     informe. **No bloquea, y que sea chileno es correcto**: ese motor *es* el método estándar
+     chileno. Se abstrae cuando exista un segundo motor que exija el molde común — es decir, con
+     B3.b.
+
+   Orden resultante: **B3.a-1 → contrato de resolución de parámetros → B3.a-2 con la jurisdicción
+   nueva.**
 2. **B3.b — Implementación de una jurisdicción concreta.** No se inicia de forma especulativa;
    requiere un compromiso comercial firmado. Sin él, el trabajo es una apuesta sobre normativa
    extranjera que además puede cambiar antes de tener usuario.

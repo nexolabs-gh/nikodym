@@ -4,11 +4,11 @@
 |---|---|
 | **Documento** | Contrato transversal de resolución de parámetros (se provee · se modela · sale del histórico) |
 | **Tipo** | Decisiones troncales (cruzan `provisioning/{cmf,ifrs9,internal}`, `forward`, `stress`, `survival`, `calibration`) |
-| **Versión** | 0.1 — **BORRADOR, pendiente de aprobación de Cami** |
+| **Versión** | 1.0 |
 | **Fecha** | 2026-07-25 |
 | **Autor** | DanIA |
 | **Base** | Censo del código en `main` = `c02a4f7`; requisito 3 de la visión de producto (`AGENTS.md` §Visión) |
-| **Estado** | Propuesto. **No se programa nada hasta que esté aprobado** |
+| **Estado** | **APROBADO (Cami, 2026-07-25)**, incluidas las dos decisiones abiertas: EAD entra al contrato (CRP-7) y B3.a se parte en dos (§5) |
 
 ---
 
@@ -159,6 +159,31 @@ comportamiento en **todas** las capas. Lo que hoy significa otra cosa (el cheque
 IFRS 9) se renombra a lo que hace. El campo reservado de `survival` se implementa o se elimina; un
 campo que el usuario escribe y no hace nada es peor que ausente.
 
+### CRP-7 — Cada parámetro declara quién lo resuelve y quién sólo lo consume
+
+Un motor puede estar en dos posiciones frente a un parámetro: **resolutor** (aplica CRP-1…CRP-3 y
+produce el `Resolved[T]`) o **consumidor** (lo recibe ya resuelto y **no** puede inventarlo ni
+redefinirlo). La posición se declara; no se deduce de si el código casualmente lo toca.
+
+Esto decide el caso EAD, que estaba abierto. EAD **no** carece de dueño: tiene **tres**
+—`provisioning/cmf`, `provisioning/ifrs9` y `provisioning/internal` lo resuelven cada uno a su
+manera— y **ninguno** en la cadena de proyección, donde `forward` y `stress` lo reconocen sólo como
+nombre de columna a excluir al agrupar (`stress/engine.py:332-349`). Con CRP-7: los tres motores de
+provisión son **resolutores** de EAD y convergen al mismo contrato de vías; `forward` y `stress` se
+declaran **consumidores**.
+
+Dos consecuencias inmediatas, ambas defectos vivos que esto corrige:
+
+- `FALTA-DATO-IFRS-4` se emite hoy en **todas** las filas —el `warning_codes` siempre incluye el
+  código de perfil constante (`ifrs9/ead.py:137-142`)— incluso cuando la institución entregó EAD
+  real. Con la vía declarada, la marca corresponde sólo cuando el perfil EAD(t) se difirió de verdad.
+- El CCF sale de una columna, de un valor de config o de una tabla normativa según el motor. Son las
+  vías `PROVIDED`, `DECLARED` y `REGULATORY` del mismo parámetro, y hoy no se nombran así en ninguna
+  parte.
+
+**Se difiere:** la vía `ESTIMATED` de EAD (modelar el perfil EAD(t) desde el histórico), que es una
+capacidad nueva y va con el SDD de su motor.
+
 ## 4. Qué se fija ahora y qué se difiere
 
 **Se fija ahora** (barato, estructural, y caro de cambiar después): las cuatro vías, el `Resolved[T]`
@@ -170,23 +195,41 @@ la vía `ESTIMATED`; el orden de precedencia del modo `auto` por parámetro; y l
 nombres de columna literales del motor CMF (`engine.py:509-514`, `872`, `926`, `993`…) a parámetros
 declarados.
 
-**Fuera de alcance, y hay que decirlo:** EAD **no tiene dueño** en `forward` ni en `stress` — vive
-entero en el motor ECL inyectado y sólo se lo reconoce por nombre de columna a excluir
-(`stress/engine.py:332-349`). O entra al contrato con dueño explícito, o se declara fuera; hoy está
-en tierra de nadie.
+## 5. Relación con B3.a: sólo una mitad bloquea (decidido el 2026-07-25)
 
-## 5. Relación con B3.a (dejar de asumir Chile)
+El censo encontró **15 puntos** donde la jurisdicción chilena vive en el código. No todos pesan
+igual, y meterlos todos por delante sería frenar el contrato detrás de un refactor que en su mayor
+parte no lo condiciona. **B3.a se parte en dos:**
 
-El censo encontró **15 puntos** donde la jurisdicción chilena está en el código, y el más profundo no
-es la tabla de matrices sino la **taxonomía de carteras**: `cartera: Literal["comercial", "consumo",
-"hipotecario", "grupal"]` en `governance/config.py:27`, las 6 carteras literales del motor CMF
-(`cmf/engine.py:96-103`), los tramos de mora B-1, el `is_default = dpd >= 90` cableado
-(`cmf/engine.py:540`) y el default `cmf_portfolio` que ata a `internal/` (`internal/config.py:119`).
+**B3.a-1 — la llave de segmentación (bloquea; va primero).** Un parámetro se resuelve *por segmento*,
+así que el contrato no puede montarse sobre un segmento que es un enum chileno. Son cuatro puntos:
 
-Esto **confirma la decisión ya tomada**: B3.a va antes de construir la matriz de flexibilidad encima.
-Un `ParameterSpec` cuya llave de segmentación sea un `Literal` chileno hay que rehacerlo entero para
-Perú. Los dos trabajos tocan los mismos archivos, así que el orden importa y el orden es: **primero
-desacoplar la jurisdicción, después la resolución de parámetros.**
+| Punto | Estado hoy |
+|---|---|
+| `governance/config.py:27` | `cartera: Literal["comercial","consumo","hipotecario","grupal"]` — **el único `Literal` de carteras del repo**, en español chileno |
+| `cmf/engine.py:96-103` | las 6 carteras del método estándar como tupla literal; cualquier otra → `CmfMappingError` |
+| `internal/config.py:119` | `portfolio_col` es un `str` **libre** — sólo el *default* se llama `cmf_portfolio`. Es el punto más barato de los cuatro |
+| `provisioning/config.py:178-195` | el crosswalk de carteras entre motores hereda el mismo default |
+
+**B3.a-2 — el contenido normativo del motor CMF (no bloquea; va con la jurisdicción nueva).** Las
+matrices y su versionado, los tramos de mora B-1, el `is_default = dpd >= 90` cableado
+(`cmf/engine.py:540`), los buckets PVB/PVG, los rangos C1-C6 y los títulos del informe. **Que esto
+sea chileno es correcto: ese motor _es_ el método estándar chileno.** Se abstrae cuando exista un
+segundo motor de jurisdicción que exija el molde común, no antes — y esa implementación sigue
+exigiendo compromiso comercial firmado (B3.b).
+
+**Orden resultante:** B3.a-1 → contrato de resolución de parámetros → B3.a-2, junto con la
+jurisdicción nueva.
+
+**Por qué rinde más de lo que parece.** El patrón regulatorio de provisiones en LATAM es común
+—clasificar deudor u operación en categorías → porcentaje de provisión por categoría, modulado por
+garantías—: además de Chile (CMF) y Perú (SBS), lo comparten Colombia, México, Argentina, Uruguay,
+Paraguay, Bolivia, Ecuador, Panamá y Centroamérica. La arquitectura de tabla de parámetros por
+cartera y categoría que ya existe para CMF es reutilizable en casi todas, así que B3.a-1 no es
+trabajo para un país sino para el molde. ⚠️ **Esa lectura del panorama regional está sin verificar
+contra fuente oficial**: sirve para decidir orden de trabajo, **no** para escribir un motor. Antes de
+implementar cualquier jurisdicción rige el principio no negociable #11 (doble verificación trazada
+contra la norma oficial).
 
 ## 6. Criterios de aceptación
 
