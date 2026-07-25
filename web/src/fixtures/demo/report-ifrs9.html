@@ -1108,7 +1108,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=d897c7f95857b24686c5e46274b5fcc5115d9876</code></div>
+    <div class="lineage-line"><code>git_sha=c6580a0aa171898adac14fe7388a973c4ed219d0</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1364,7 +1364,7 @@ figcaption {
   <p>Activo en esta corrida:</p>
   <p>Curva PD lifetime: Discrete-time hazard. 6.000 filas · 1.502 eventos · horizonte 5 años</p>
   <p>Base de PD: TTC (through-the-cycle). La term-structure activa proviene de survival.</p>
-  <p>LGD y EAD: LGD provided · EAD provided. La EAD se mantiene constante por período (FALTA-DATO-IFRS-4).</p>
+  <p>LGD y EAD: LGD provided · EAD provided. La EAD se mantiene constante por período: no se modela la amortización del crédito.</p>
   <p>Staging: 30/90 días + is_default. Stage 2 desde 30 días; Stage 3 desde 90 días o is_default.</p>
   <p>Escenario de cálculo: Base 100 %. Escenario único; no hay ponderación macroeconómica múltiple.</p>
   <p>Descuento: EIR anual. Descuento período a período con la columna eir.</p>
@@ -1396,7 +1396,7 @@ figcaption {
   <p>El ajuste no toma insumos de un scorecard de originación: el orden de riesgo entre operaciones lo aportan covariables propias de la cartera, y el nivel y la forma temporal de la curva los fija la historia de duración observada. La pérdida esperada queda así autocontenida en el área IFRS 9.</p>
   <p>La corrida usa un escenario único (sin ponderación macroeconómica múltiple); la norma admite incorporar escenarios adicionales cuando la entidad disponga de ellos.</p>
   <p>La tabla resume la cartera por etapa: número de operaciones, EAD, ECL reportada y cobertura. La distribución por etapas reconcilia exactamente con el total del capítulo.</p>
-  <p>El motor reportó advertencias de datos que el lector debe conocer: la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, porque el dataset no trae un perfil de exposición por período (código FALTA-DATO-IFRS-4).</p>
+  <p>El motor reportó advertencias de datos que el lector debe conocer: la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, porque el dataset no trae un perfil de exposición por período.</p>
 
 
 <figure class="table-block">
@@ -1453,13 +1453,13 @@ figcaption {
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</dd>
-    <dt>created_at</dt><dd>2026-07-25T01:58:32.623568Z</dd>
+    <dt>created_at</dt><dd>2026-07-25T03:51:10.956571Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd><pre>[
   &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
 ]</pre></dd>
     <dt>git_dirty</dt><dd>true</dd>
-    <dt>git_sha</dt><dd>d897c7f95857b24686c5e46274b5fcc5115d9876</dd>
+    <dt>git_sha</dt><dd>c6580a0aa171898adac14fe7388a973c4ed219d0</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.5.0&#34;,

@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "5f927c83d2ac4f64be454a452f3ef393",
+ "run_id": "af58d0065a644d6da90f5e07ec98f995",
  "error": null,
  "model_card": null,
  "binning": null,
@@ -880,7 +880,7 @@
      "status": "active",
      "label": "LGD y EAD",
      "value": "LGD provided · EAD provided",
-     "detail": "La EAD se mantiene constante por período (FALTA-DATO-IFRS-4).",
+     "detail": "La EAD se mantiene constante por período: no se modela la amortización del crédito.",
      "sources": [
       "config.provisioning_ifrs9.lgd",
       "config.provisioning_ifrs9.ead",

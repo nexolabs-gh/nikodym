@@ -580,8 +580,7 @@ class ForwardConfig(NikodymBaseConfig):
         title="Fallar ante falta de dato",
         description=(
             "Si es True, junto con «Fallar si faltan trayectorias», un escenario adverse o "
-            "severe sin trayectoria macro ni shocks propios (aviso "
-            "`DATO-INSTITUCIONAL-FWD-1`) hace fallar la validación del config."
+            "severe sin trayectoria macro ni shocks propios hace fallar la validación del config."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Gobernanza", "ui_order": 1},
     )

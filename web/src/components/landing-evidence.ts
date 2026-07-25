@@ -218,9 +218,12 @@ export const TESTS_SUITE = "3.700"
  * Los seis dominios del motor, con su estado real en DOS ejes —y ninguno es "hecho / no hecho":
  *
  *   superficie: "UI"     → tiene preset, pantalla y capítulo en el informe.
- *               "Python" → hay que escribir el config a mano. Sin preset, sin pantalla, sin
- *                          capítulo en el informe, y NO existe CLI (`pyproject.toml` no declara
- *                          `[project.scripts]`).
+ *               "Python" → hay que escribir el config a mano. Sin preset, sin pantalla y sin
+ *                          capítulo en el informe. OJO: sí existe un comando — `pyproject.toml`
+ *                          declara `[project.scripts] nikodym-ui` desde B2.2 (`65c37a0`)—, pero
+ *                          levanta la interfaz y no corre estos dominios. El copy decía «no existe
+ *                          CLI» y quedó atrás del código: una afirmación falsable, y falsa, en la
+ *                          página cuya tesis es que todo aquí se puede verificar.
  *   garantia:   "estable"      → contrato congelado bajo SemVer 1.x.
  *               "experimental" → el motor calcula y está cubierto por tests, pero la firma puede
  *                                cambiar dentro de la 1.x. No está certificado ni es apto para
@@ -250,9 +253,10 @@ export const DOMINIOS = [
       "Dos marcos regulatorios, motores separados. CMF: 10 matrices normativas B-1/B-3 en " +
       "aritmética Decimal (entre ellas comercial, leasing, estudiantil, factoring, consumo v2025, " +
       "vivienda PVG, avales y contingentes con CCF), con el archivo de parámetros sellado por " +
-      "SHA-256. IFRS 9: ECL = PD marginal × LGD × EAD descontada a la EIR, staging SICR con " +
-      "gatillos SICR, presunciones rebatibles de mora bajo la política conservadora v1, exención " +
-      "de bajo riesgo y PD configurable " +
+      "SHA-256. IFRS 9: ECL = PD marginal × LGD × EAD descontada a la EIR, staging por SICR con " +
+      "gatillos auditables por fila (ratio de PD, backstops de mora, override cualitativo), " +
+      "presunciones rebatibles de mora que la exención de bajo riesgo no puede anular, y PD " +
+      "configurable " +
       "point-in-time (Vasicek) o through-the-cycle. La regla del máximo vive DENTRO de CMF: el " +
       "Capítulo B-1 (Circular 2.346) obliga a reportar, por institución, el mayor entre el método " +
       "estándar de la CMF y el método interno del banco — nunca un máximo entre CMF e IFRS 9, que " +
@@ -280,8 +284,9 @@ export const DOMINIOS = [
     tagline:
       "Estimadores de cohorte y de duración, Chapman-Kolmogorov, Aalen-Johansen y term-structure " +
       "de PD. El problema de embedding no se esconde: es una política declarada en el config " +
-      "(diagnose / regularize / forbid) y una matriz sin generador válido levanta error en vez de " +
-      "degradar en silencio. No hace roll rates ni curvas de cosecha: eso todavía no existe.",
+      "(diagnose / regularize / forbid). El default diagnostica —marca la matriz sin generador " +
+      "válido y sigue—; con forbid la corrida se cae. No hace roll rates ni curvas de cosecha: " +
+      "eso todavía no existe.",
     modulo: "nikodym.markov",
   },
   {
@@ -291,8 +296,8 @@ export const DOMINIOS = [
     garantia: "experimental",
     tagline:
       "ARIMA y auto-ARIMA, VAR y VECM sobre series macro, con Ljung-Box sobre los residuos como " +
-      "diagnóstico, y modelos satélite que traducen el escenario macroeconómico a PD y LGD, " +
-      "escenario por escenario.",
+      "diagnóstico, y modelos satélite que traducen el escenario macroeconómico a PD —y a LGD si " +
+      "le entregas la LGD base—, escenario por escenario.",
     modulo: "nikodym.forward",
   },
   {

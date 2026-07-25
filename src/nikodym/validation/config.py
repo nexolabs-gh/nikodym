@@ -155,7 +155,7 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         title="Corte verde/ámbar (p-valor)",
         description=(
             "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un default "
-            "institucional, no un umbral fijado por norma (brecha declarada FALTA-DATO-VAL-2)."
+            "institucional, no un umbral fijado por norma: fíjelo según su política de validación."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Semáforo", "ui_order": 1},
     )

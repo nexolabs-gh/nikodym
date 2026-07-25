@@ -489,7 +489,9 @@ export function LandingLauncher({
                 : tiene <span className="text-foreground">UI</span> (preset, pantalla y capítulo en
                 el informe) o se usa desde <span className="text-foreground">Python</span> (hay que
                 escribir el config a mano; no hay preset, ni pantalla, ni capítulo en el informe, y
-                no existe CLI).{" "}
+                el único comando del paquete —{" "}
+                <span className="font-mono text-foreground">nikodym-ui</span>— levanta la interfaz,
+                no corre estos dominios).{" "}
                 <span className="font-mono text-xs uppercase tracking-[0.1em] text-foreground">
                   Garantía
                 </span>

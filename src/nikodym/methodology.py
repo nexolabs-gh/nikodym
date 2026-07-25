@@ -158,8 +158,11 @@ def build_ifrs9_methodology_card(
             and ead_cfg.get("exposure_profile_col") is None
             and "FALTA-DATO-IFRS-4" in warnings
         )
+        # El código que decide esto (línea de arriba) es el identificador con el que el motor y la
+        # UI se entienden; el texto es para quien lee el informe, así que nombra la limitación en
+        # vez del código: la EAD no amortiza en el tiempo.
         detail = (
-            "La EAD se mantiene constante por período (FALTA-DATO-IFRS-4)."
+            "La EAD se mantiene constante por período: no se modela la amortización del crédito."
             if ead_constant
             else "Los métodos efectivos provienen del config de la corrida."
         )

@@ -657,9 +657,8 @@ class StressValidationConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante falta de dato",
         description=(
-            "Si es True, los avisos declarados de esta etapa (`FALTA-DATO-STR-*` y "
-            "`DATO-INSTITUCIONAL-STR-*`) hacen "
-            "fallar la corrida en vez de solo advertir."
+            "Si es True, los avisos declarados de esta etapa hacen fallar la corrida en vez de "
+            "solo advertir."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Validación", "ui_order": 7},
     )

@@ -1635,15 +1635,17 @@ _IFRS9_TERM_SOURCE_LABELS: Final[dict[str, str]] = {
 }
 _IFRS9_WARNING_LABELS: Final[dict[str, str]] = {
     # SDD-16 §6: el panel EAD(t) por período está diferido a CT-3; la EAD se despliega constante.
+    # La CLAVE es el código —así entra el aviso—; el VALOR es lo que lee un banco, y por eso no lo
+    # repite: quien lee el informe necesita la limitación, no el identificador con el que el motor
+    # la transporta. Quien sí quiera el código lo tiene en `warning_codes` de cada fila.
     "FALTA-DATO-IFRS-4": (
         "la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, "
-        "porque el dataset no trae un perfil de exposición por período (código FALTA-DATO-IFRS-4)"
+        "porque el dataset no trae un perfil de exposición por período"
     ),
     # SDD-20 FALTA-DATO-FWD-6: la LGD condicionada de forward no se consume en v1.
     "FALTA-DATO-IFRS-6": (
         "la LGD condicionada por escenario que publica la capa forward-looking no se consumió: "
-        "la LGD del cálculo proviene del enfoque configurado en el motor IFRS 9 "
-        "(código FALTA-DATO-IFRS-6)"
+        "la LGD del cálculo proviene del enfoque configurado en el motor IFRS 9"
     ),
 }
 
