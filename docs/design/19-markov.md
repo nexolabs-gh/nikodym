@@ -26,7 +26,7 @@
 - Deriva `PD_cum(t | state_0)` y `PD_marginal(t | state_0)` desde la probabilidad de absorción en el estado default.
 - Publica artefactos namespaced bajo `"markov"`: estimador, matriz de transición, generador, term-structure, diagnósticos, result y card.
 - Aporta el sub-config **`MarkovConfig`** (sección `markov` de `NikodymConfig`), computacional y por tanto incluido en el `config_hash`.
-- Registra en auditoría el método, estados, absorbentes, validaciones estocásticas, diagnóstico de embedding, horizonte y cualquier `FALTA-DATO-MKV`.
+- Registra en auditoría el método, estados, absorbentes, validaciones estocásticas, diagnóstico de embedding, horizonte y cualquier aviso `DATO-INSTITUCIONAL-MKV`.
 
 **Límites explícitos (qué NO hace, y quién lo hace).**
 - **No calcula ECL.** SDD-16 consume `markov.term_structure` y añade LGD/EAD/staging/descuento según ESPECIFICACIONES §5.5.
@@ -589,7 +589,7 @@ class MarkovConfig(NikodymBaseConfig):
 11. **Proyectar horizontes.** Chapman-Kolmogorov, `expm(Q·t)` o Aalen-Johansen.
 12. **Construir term-structure.** Derivar `pd_cumulative`, `pd_marginal`, `survival` y `hazard`.
 13. **Construir DTOs.** `MarkovDiagnostics`, `MarkovCard`, `MarkovResult`; poblar `metric_sections` CT-2 con resumen de matrices y embedding.
-14. **Auditar decisiones.** Método, estados, absorbentes, horizonte, embedding, validaciones y `FALTA-DATO`.
+14. **Auditar decisiones.** Método, estados, absorbentes, horizonte, embedding, validaciones y avisos declarados.
 15. **Publicar artefactos.** Escribir las siete claves `provides` bajo `"markov"`.
 
 **Cohort MLE.**
@@ -695,7 +695,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
   - `markov_generator`: `T_i`, intensidades, validación de Q;
   - `markov_embedding`: status, flags, distancia de regularización si aplica;
   - `markov_term_structure`: horizontes, PD acumulada/marginal y warnings.
-- **Card / report.** `MarkovCard` debe permitir reconstruir el ajuste: método, estados, horizonte, tolerancias, conteos, matriz/generador, embedding, versions y `FALTA-DATO`.
+- **Card / report.** `MarkovCard` debe permitir reconstruir el ajuste: método, estados, horizonte, tolerancias, conteos, matriz/generador, embedding, versions y los avisos declarados.
 - **Lineage.** `markov` consume `data_hash` y `config_hash`; no los redefine. Aporta hashes auxiliares solo como secciones estructuradas del card si se implementan.
 - **Gobernanza CT-2.** `metric_sections` puede incluir `"transition_matrix_summary"`, `"generator_summary"`, `"embedding_diagnostics"` y `"term_structure_summary"` sin romper consumidores escalares.
 - **Golden hash.** `MarkovConfig` ya forma parte del contrato computacional; cualquier cambio mueve `GOLDEN_DEFAULT_CONFIG_HASH` y debe actualizarse con test explícito y nota de reproducibilidad.
@@ -778,13 +778,14 @@ Fixtures: `markov_panel_small.parquet` sintético con `id/time/state`, `MarkovCo
 - **D-MKV-10 — PIT/forward.** Recomendación: `markov` no aplica satellite macro ni Vasicek; SDD-20 transforma la term-structure y garantiza consistencia PIT.
 - **D-MKV-11 — Artefacto `generator`.** Recomendación: publicar siempre la key `("markov","generator")`; valor `None` cuando no aplica para que CT-1/validación de provides sea estable.
 
-**FALTA-DATO explícitos.**
-- **FALTA-DATO-MKV-1 — Fuente exacta del panel de migraciones.** SDD-02 entrega el mecanismo de frame/hash, pero no fija columnas de `id/time/state`; se resuelve por `MarkovInputConfig`.
-- **FALTA-DATO-MKV-2 — Taxonomía institucional de estados/rating.** No hay catálogo universal en ESPECIFICACIONES; cada cartera debe declarar `states`, `default_state` y absorbentes.
-- **FALTA-DATO-MKV-3 — Horizonte económico IFRS 9.** SDD-19 trae horizontes de proyección; SDD-16 debe fijar maturities/EIR/stage que determinan qué horizontes se consumen.
-- **FALTA-DATO-MKV-4 — Prepago/cura/competing exits.** Se permite `absorbing_states`, pero el tratamiento económico de prepago/cura pertenece a SDD-16/20.
-- **FALTA-DATO-MKV-5 — Ponderación por exposición.** `weight_col` existe, pero no se asume por default si la institución no lo declara.
-- **FALTA-DATO-MKV-6 — Naturaleza PIT/TTC de la matriz histórica.** Markov publica la matriz observada y su term-structure; SDD-20 debe documentar si la usa como PIT, TTC o base ajustada por macro.
+**Avisos declarados (taxonomía: `_ENMIENDA-TAXONOMIA-MARCAS.md`).** Los tres vigentes declaran un
+input que aporta la institución, no una carencia del motor.
+- **DATO-INSTITUCIONAL-MKV-1 — Fuente exacta del panel de migraciones.** SDD-02 entrega el mecanismo de frame/hash, pero no fija columnas de `id/time/state`; se resuelve por `MarkovInputConfig`.
+- **DATO-INSTITUCIONAL-MKV-2 — Taxonomía institucional de estados/rating.** No hay catálogo universal en ESPECIFICACIONES; cada cartera debe declarar `states`, `default_state` y absorbentes.
+- **MKV-3 → ✅ RESUELTO (2026-07-24).** SDD-16 está implementado y fija maturities, EIR y stage: `IfrsProvisioningConfig` determina qué horizontes de la term-structure se consumen. Sale del conteo de brechas.
+- **MKV-4 → ✅ CERRADO (2026-07-24), no era un aviso.** Es la frontera de responsabilidad de la capa, ya escrita en §1 «qué NO hace»: `markov` permite `absorbing_states` y el tratamiento económico de prepago/cura vive en SDD-16/20. Un límite de alcance no es un dato que falte.
+- **DATO-INSTITUCIONAL-MKV-5 — Ponderación por exposición.** `weight_col` existe, pero no se asume por default si la institución no lo declara.
+- **MKV-6 → ✅ RESUELTO (2026-07-24).** SDD-20 lo documentó y lo hizo explícito en config: `ttc_anchor`/`pd_basis` declaran la naturaleza de la term-structure base, y su ausencia la avisa `DATO-INSTITUCIONAL-FWD-4`. Sale del conteo de brechas.
 
 **Riesgos y mitigaciones.**
 - **Term-structure incompatible con `survival`.** Mitigación: columnas tidy idénticas y `MarkovResult.term_structure()` CT-2; tests de contrato cruzado con SDD-18.

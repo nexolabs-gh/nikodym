@@ -662,7 +662,7 @@ def _term_structure_frame(**updates: Any) -> pd.DataFrame:
         "method": ["cohort", "cohort", "cohort"],
         "pd_source": ["markov", "markov", "markov"],
         "scenario": [math.nan, math.nan, math.nan],
-        "warning_codes": [(), (), ("FALTA-DATO-MKV-1",)],
+        "warning_codes": [(), (), ("DATO-INSTITUCIONAL-MKV-1",)],
     }
     payload.update(updates)
     return pd.DataFrame(
