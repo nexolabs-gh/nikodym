@@ -105,6 +105,18 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > columnas que produce el propio motor IFRS 9: ese caso pasa a `FALTA-DATO`. Y `STR-8`, que el motor
 > emitía sin ficha en ningún SDD, quedó declarado en SDD-21.
 >
+> **Horizonte 12m de IFRS 9 — enmienda PROPUESTA, sin OK todavía (2026-07-25).** Verificar que un
+> código citado en un SDD exista en `src/` destapó algo mayor que una cita huérfana:
+> `DATO-INSTITUCIONAL-IFRS-2` nunca se emitió —`git log -S` confirma que jamás estuvo en el motor—,
+> y detrás de la promesa hay una **degradación silenciosa** real. Con `horizon_12m_periods ≥ T_max`
+> la máscara del horizonte queda toda verdadera y `pd_12m == pd_life`: la ECL de Stage 1 iguala a la
+> de Stage 2/3, que es la distinción que IFRS 9 existe para hacer, sin warning ni excepción. El
+> texto de SDD-16 ya se corrigió para que describa el comportamiento real (§8, §9 y la ficha), y el
+> diseño del arreglo vive en [`_ENMIENDA-IFRS9-HORIZONTE.md`](_ENMIENDA-IFRS9-HORIZONTE.md):
+> **propuesta, pendiente del OK de Cami; ninguna línea de motor escrita.** Deja fijada además una
+> distinción que faltaba: de los seis códigos IFRS sólo IFRS-4 e IFRS-6 se emiten en runtime; los
+> otros cuatro son requisitos de entrada documentados.
+>
 > **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7)
 > y el SDD pasó al stack React/Vite sobre FastAPI. La implementación histórica del backend/front no
 > equivale a la implementación de la distribución aprobada en B2.0.

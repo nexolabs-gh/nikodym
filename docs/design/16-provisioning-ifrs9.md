@@ -614,7 +614,7 @@ interno por institución; IFRS 9 no es uno de sus operandos.
 - **`days_past_due` negativo o no entero:** `IfrsInputError`.
 - **Pesos de escenario que no suman 1 (`source="config"`):** `IfrsConfigError`.
 - **EIR faltante o negativa que produce `DF` no finito:** `IfrsEclError`.
-- **Horizonte `H_12m > T_max`:** warning; PD 12m usa todo el soporte disponible y se registra `DATO-INSTITUCIONAL-IFRS-2`.
+- **Horizonte `H_12m ≥ T_max`:** ⚠️ **degradación silenciosa conocida y NO cubierta.** La máscara `within_12m = period <= horizon_12m_periods` de `pd_pit.marginal_to_horizon` queda toda verdadera, así que `pd_12m == pd_life` y la ECL de Stage 1 iguala numéricamente a la de Stage 2/3 — **sin warning, sin excepción y sin aviso declarado**. El motor no contrasta `horizon_12m_periods` ni contra el soporte real de la curva ni contra `time_value`, pese a que esa columna es obligatoria y ya se consume como fracción de año en el descuento (`ecl.py`). Diseño del arreglo en [`_ENMIENDA-IFRS9-HORIZONTE.md`](_ENMIENDA-IFRS9-HORIZONTE.md). Hasta que se implemente, esta línea describe el comportamiento real: antes prometía un warning y un código `DATO-INSTITUCIONAL-IFRS-2` que nunca existieron en `src/`.
 - **`scipy` faltante para Vasicek/beta:** `MissingDependencyError("instale nikodym[...]")` en español.
 - **Índice duplicado o unión ambigua term-structure/frame:** `IfrsInputError`.
 
@@ -629,7 +629,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - **Audit trail (`log_decision`).** Registrar como mínimo:
   - `ifrs9_term_structure_source`: proveedor, método, columnas, cobertura;
   - `ifrs9_pit`: `pit_mode`, `rho`/`rho_col`, fuente de `Z`, orientación Vasicek;
-  - `ifrs9_pd_horizon`: `H_12m`, `T_max`, unidad temporal, aviso `DATO-INSTITUCIONAL-IFRS-2` de horizonte;
+  - `ifrs9_pd_horizon`: hoy registra `horizon_12m_periods` y `max_lifetime_periods` —ambos de config— más `card.falta_dato`. El `T_max` **observado** de la curva, la unidad temporal y un aviso de horizonte NO se registran: la enmienda de horizonte los añade junto con el chequeo que hoy falta;
   - `ifrs9_lgd`: enfoque, floor/cap, descuento workout, diagnósticos de ajuste y `lgd_forward_presente` (descarte FALTA-DATO-IFRS-6);
   - `ifrs9_ead`: método, CCF usado, perfil de exposición o constancia con warning;
   - `ifrs9_staging`: gatillos SICR disparados por conteo, backstops, exención de bajo riesgo;
@@ -700,8 +700,17 @@ Fixtures: `ifrs9_exposures.parquet` sintético (drawn/límite/dpd/EIR/rating/rec
 
 **Avisos declarados (taxonomía: `_ENMIENDA-TAXONOMIA-MARCAS.md`).** Cuatro declaran un input que
 aporta la institución; IFRS-4 e IFRS-6 son brechas del motor y conservan `FALTA-DATO`.
+
+⚠️ **Distinción que esta lista no hacía, y que llevó a §8 y §9 a afirmar un aviso que el motor
+nunca emitió.** Sólo **IFRS-4 e IFRS-6 existen como código emitido en runtime** (`ead.py:69` y
+`engine.py:95`; de ahí a `warning_codes` por fila, a `card.falta_dato` vía `is_declared_warning()` y
+a la prosa del informe por `_IFRS9_WARNING_LABELS`). **IFRS-1, IFRS-2, IFRS-3 e IFRS-5 son
+requisitos de entrada documentados**: nombran la exigencia y su política de fallo, no una etiqueta
+que viaje en el resultado. `git grep` de cualquiera de esos cuatro sobre `src/` devuelve cero, y eso
+es lo correcto — pero una ficha que dice «se registra» sin decir dónde invita a leerlos como
+emitidos. Un código que aparece en un SDD y no en `src/` es una promesa, no un contrato.
 - **DATO-INSTITUCIONAL-IFRS-1 — Factor sistémico `Z` y `rho`.** `apply_vasicek` requiere columna `Z` y `rho` escalar explícitos; `forward` no los aporta implícitamente (la exención del validador por `scenarios.source="forward"` se eliminó) y la política es `IfrsConfigError` siempre — no existe ruta degradada. La derivación de `Z` implícito desde datos observados es capacidad futura con SDD propio.
-- **DATO-INSTITUCIONAL-IFRS-2 — Horizonte 12m vs unidad temporal.** `H_12m` depende de la granularidad de la term-structure (mensual/trimestral/anual); debe declararse.
+- **DATO-INSTITUCIONAL-IFRS-2 — Horizonte 12m vs unidad temporal (requisito documentado, no emitido).** `H_12m` depende de la granularidad de la term-structure (mensual/trimestral/anual) y sólo la institución sabe cuál es la suya: declararlo es suyo. Pero el motor **no se limita a exigirlo**: `horizon_12m_periods: int = 12` (`ifrs9/config.py`) lo asume mensual por default, sin contrastarlo contra la curva ni contra `time_value`, y sin avisar. Esa **verificación omitida es brecha del motor, no del banco**, así que —por la regla de que una capacidad diferida es del motor aunque el parámetro lo escriba el usuario— el aviso que la cubra nace `FALTA-DATO`, no bajo este código. Ver [`_ENMIENDA-IFRS9-HORIZONTE.md`](_ENMIENDA-IFRS9-HORIZONTE.md) y el caso borde de §8.
 - **DATO-INSTITUCIONAL-IFRS-3 — Definición de default y ventana aplicables.** Heredadas de la capa longitudinal (CT-3); SDD-16 consume `is_default`/dpd ya definidos.
 - **FALTA-DATO-IFRS-4 — Perfil de exposición EAD(t) (brecha del motor).** Sin panel longitudinal, la amortización por período no está disponible.
 - **DATO-INSTITUCIONAL-IFRS-5 — EIR por instrumento.** Debe venir en `data.frame`; no se infiere una tasa.
