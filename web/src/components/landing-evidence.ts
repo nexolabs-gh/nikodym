@@ -326,9 +326,7 @@ export const SALVEDADES = [
       "verificación visual. No son parámetros oficiales de la CMF ni están validados por ella: " +
       "requieren validación humana contra la norma vigente antes de cualquier uso productivo. En " +
       "el manifiesto de parámetros CMF quedan dos brechas declaradas como FALTA-DATO: aforos y " +
-      "haircuts de garantías financieras, y las tablas del RAN 21-10. FALTA-DATO es la marca con " +
-      "que la librería publica toda brecha conocida, aquí y en el resto de los motores; no son las " +
-      "dos únicas de la librería.",
+      "haircuts de garantías financieras, y las tablas del RAN 21-10.",
   },
   {
     clave: "Extras",

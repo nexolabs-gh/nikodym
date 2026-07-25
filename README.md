@@ -152,7 +152,14 @@ resultados.
 ## Limitaciones que debes conocer antes de usarlo en serio
 
 El motor las publica de sí mismo —cada fila afectada emite su código `FALTA-DATO`—, así que aquí se
-dicen igual de claro:
+dicen igual de claro.
+
+> **Cómo leer un `FALTA-DATO`.** La marca cubre dos cosas que conviene no confundir. Unas pocas son
+> **brechas del motor**: algo que Nikodym todavía no trae, y son las que enumera esta sección. La
+> mayoría son **parámetros que sólo puede declarar tu institución** —los shocks macro de tu ejercicio
+> de stress, tu taxonomía de estados, tu definición operacional de default—, y ahí el código no
+> confiesa una carencia: deja constancia de que el motor **se negó a inventar** un supuesto que no le
+> corresponde. Un número que la librería no puede justificar no se rellena con un default cómodo.
 
 - **Los parámetros normativos CMF no son oficiales.** Se transcribieron del compendio y **no
   provienen de la CMF ni están validados por ella** —la Comisión no certifica implementaciones de
@@ -184,7 +191,8 @@ dicen igual de claro:
   (Circular N° 2.346) es entre el **método estándar y el método interno** del banco — *no* entre CMF
   e IFRS 9: el Compendio (Cap. A-2, num. 5) **excluye** el deterioro de NIIF 9 sobre colocaciones.
 - **Lo que falta se declara, no se disimula**: un dato ausente sale como `FALTA-DATO` en el
-  resultado; una opción sin motor detrás se rechaza al validar el config, no al final de la corrida.
+  resultado —sea una brecha del motor o un parámetro que sólo tu institución puede fijar—; una opción
+  sin motor detrás se rechaza al validar el config, no al final de la corrida.
 
 ## Documentación
 
