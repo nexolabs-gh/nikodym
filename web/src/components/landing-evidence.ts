@@ -316,17 +316,19 @@ export const SALVEDADES = [
   {
     clave: "EAD constante",
     texto:
-      "La EAD de IFRS 9 se despliega constante en el tiempo: el panel longitudinal está diferido, " +
-      "y cada fila lo publica con el código FALTA-DATO-IFRS-4.",
+      "La curva lifetime de IFRS 9 asume exposición constante por período: no modela la " +
+      "amortización del crédito en el tiempo. El resultado lo deja anotado en cada fila, para que " +
+      "nadie lo descubra tarde.",
   },
   {
     clave: "Parámetros CMF",
     texto:
       "Los parámetros normativos se transcribieron del compendio con asistencia de IA y " +
       "verificación visual. No son parámetros oficiales de la CMF ni están validados por ella: " +
-      "requieren validación humana contra la norma vigente antes de cualquier uso productivo. En " +
-      "el manifiesto de parámetros CMF quedan dos brechas declaradas como FALTA-DATO: aforos y " +
-      "haircuts de garantías financieras, y las tablas del RAN 21-10.",
+      "requieren validación humana contra la norma vigente antes de cualquier uso productivo. " +
+      "Además, dos tablas no están: los aforos y haircuts de garantías financieras, y las del " +
+      "RAN 21-10. El manifiesto de parámetros las declara faltantes en vez de rellenarlas con un " +
+      "valor inventado.",
   },
   {
     clave: "Extras",

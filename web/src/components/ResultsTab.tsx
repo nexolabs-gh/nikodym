@@ -1391,7 +1391,7 @@ function Ifrs9RunoffNote({ headline }: { headline: Ifrs9Headline }) {
       acumulada del último período NO iguala la ECL reportada ({formatMoney(headline.reportedEcl)}),
       que trunca por stage (12 meses en Stage 1).{" "}
       {eadConstant
-        ? "La curva asume exposición (EAD) constante por período (FALTA-DATO-IFRS-4): una simplificación conocida, no una amortización modelada."
+        ? "La curva asume exposición (EAD) constante por período: una simplificación conocida, no una amortización modelada."
         : null}
     </p>
   )
