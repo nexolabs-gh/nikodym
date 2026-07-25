@@ -1298,3 +1298,23 @@ def _decimal_runtime() -> engine_module.DecimalRuntime:
         hundred=Decimal("100"),
         pe_tolerance=Decimal("0.0001"),
     )
+
+
+def test_cartera_desconocida_se_rechaza_al_entrar_y_el_error_nombra_el_vocabulario() -> None:
+    """El dominio se valida en el gate de entrada, no a mitad del cómputo (D-SEG-4, CRP-5).
+
+    Antes, una cartera desconocida se descubría dentro de ``_resolve_provision``, fila por fila y
+    con el cálculo ya iniciado; el mensaje decía sólo «no soportada», sin nombrar qué se esperaba.
+    Ahora el error dice el régimen y su vocabulario completo, que es la palanca que el usuario
+    necesita para corregir su dataset.
+    """
+    frame = _golden_frame()
+    frame.loc["a1", "cmf_portfolio"] = "commercial_peru"
+
+    with pytest.raises(CmfMappingError) as excinfo:
+        _engine().calculate(frame, as_of_date="2026-01-31")
+
+    mensaje = str(excinfo.value)
+    assert "commercial_peru" in mensaje
+    assert "CL-CMF-B1" in mensaje
+    assert "commercial_individual" in mensaje and "housing" in mensaje

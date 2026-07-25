@@ -440,6 +440,26 @@ def _validate_base_contract(frame: DataFrame, *, cfg: CmfProvisioningConfig) -> 
         portfolio="base",
         row_id="<prevalidación>",
     )
+    _validate_portfolio_domain(frame, cfg=cfg)
+
+
+def _validate_portfolio_domain(frame: DataFrame, *, cfg: CmfProvisioningConfig) -> None:
+    """Rechaza carteras fuera del vocabulario del régimen ANTES de calcular (D-SEG-4, CRP-5).
+
+    El docstring de la validación base prometía «y carteras soportadas» desde siempre, pero el
+    chequeo no existía: una cartera desconocida se descubría dentro de ``_resolve_provision``, ya
+    iniciado el cómputo y fila por fila. CRP-5 exige que todo lo que depende del dato se valide en
+    un gate único de entrada. El ``raise`` del despachador se conserva como defensa en profundidad.
+    """
+    scheme = regime_scheme(_CMF_REGIME)
+    observadas = {str(valor) for valor in frame[cfg.portfolio_col].dropna().unique()}
+    desconocidas = sorted(valor for valor in observadas if not scheme.admits(valor))
+    if desconocidas:
+        esperadas = ", ".join(scheme.values)
+        raise CmfMappingError(
+            f"Cartera CMF no soportada por el motor CMF: {desconocidas}. El régimen "
+            f"{scheme.regime} admite exactamente: {esperadas}."
+        )
 
 
 def _resolve_pd_categories(
