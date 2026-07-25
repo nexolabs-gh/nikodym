@@ -17,6 +17,8 @@ const F1_ID = "f1-estandar-consumo"
 const F3_ID = "f3-provisiones-consumo"
 const F4_ID = "f4-ifrs9-retail"
 
+import { esAvisoDeclarado } from "@/lib/markers"
+
 /** Garantía de una superficie: contrato congelado (SemVer 1.x) o experimental. */
 export type Garantia = "estable" | "experimental"
 
@@ -87,6 +89,11 @@ export function presetDisplay(preset: {
     garantia: preset.description.toLowerCase().includes("experimental")
       ? "experimental"
       : "estable",
-    blurb: preset.description,
+    // La `description` de un preset no curado la escribe el backend, y el backend SÍ nombra los
+    // códigos internos en campos de ese tipo (el catálogo de datasets lo hace). Copiarla tal cual
+    // los publicaría en la card. Se descarta entera en vez de recortarle el código: quitarlo de una
+    // frase deja prosa rota («Escenarios con declarado en cada corrida»), y una card con título y
+    // garantía se lee bien, mientras que una con jerga a medio borrar se lee como un error.
+    blurb: esAvisoDeclarado(preset.description) ? "" : preset.description,
   }
 }

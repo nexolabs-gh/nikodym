@@ -34,8 +34,20 @@ _CODIGO_INTERNO = re.compile("|".join(re.escape(m) for m in DECLARED_MARKERS))
 _EXENTOS = {"changelog.md"}
 
 
+#: Espejo de las marcas en el front. El `tsconfig` de la app expone sólo `vite/client`, así que su
+#: propio gate no puede leer este módulo Python; la correspondencia se verifica desde aquí, que es
+#: el único lado con acceso a los dos.
+_MARKERS_TS = Path(__file__).resolve().parents[2] / "web" / "src" / "lib" / "markers.ts"
+
+
 def _paginas() -> list[Path]:
     return sorted(p for p in _DOCS_SITE.rglob("*.md") if p.name not in _EXENTOS)
+
+
+def test_el_front_espeja_exactamente_las_marcas_del_contrato() -> None:
+    """Una marca nueva aquí y no allá abre un hueco mudo: el front deja de reconocer sus avisos."""
+    espejadas = re.findall(r'"([A-Z-]+)"', _MARKERS_TS.read_text(encoding="utf-8"))
+    assert sorted(espejadas) == sorted(DECLARED_MARKERS)
 
 
 def test_hay_paginas_que_revisar() -> None:
