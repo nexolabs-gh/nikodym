@@ -88,7 +88,7 @@ _PARTITION_COL: Final = "partition"
 _CALIBRATION_SOURCE: Final = "calibration"
 _MODEL_RAW_SOURCE: Final = "model_raw"
 _NO_PD_SOURCE: Final = "none"
-_NO_TIME_GRID_WARNING: Final = "FALTA-DATO-SUR-1"
+_NO_TIME_GRID_WARNING: Final = "DATO-INSTITUCIONAL-SUR-1"
 
 
 @register("standard", domain="survival")

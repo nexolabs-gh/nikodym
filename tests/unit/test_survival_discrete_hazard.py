@@ -218,7 +218,7 @@ def test_invariantes_term_structure_y_fallback_de_grilla() -> None:
             abs=1e-12,
         )
         assert group["pd_marginal"].sum() == pytest.approx(group["pd_cumulative"].iloc[-1])
-    assert term["warning_codes"].tolist() == [("FALTA-DATO-SUR-1",)] * 6
+    assert term["warning_codes"].tolist() == [("DATO-INSTITUCIONAL-SUR-1",)] * 6
 
 
 def test_cloglog_saturado_y_roles_pd_covariate_offset_segment() -> None:

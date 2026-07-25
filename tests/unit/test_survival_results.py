@@ -176,7 +176,7 @@ def test_survival_term_record_golden_invariantes_y_mapping_warnings() -> None:
         "pd_source": "none",
         "segment": "retail",
         "scenario": None,
-        "warnings": ["FALTA-DATO-SUR-1"],
+        "warnings": ["DATO-INSTITUCIONAL-SUR-1"],
     }
     assert math.copysign(1.0, record.pd_marginal) == 1.0
     assert "warnings" not in _term_structure_frame().columns
@@ -474,7 +474,7 @@ def _term_record(**updates: Any) -> SurvivalTermRecord:
         "pd_source": "none",
         "segment": "retail",
         "scenario": None,
-        "warnings": ("FALTA-DATO-SUR-1",),
+        "warnings": ("DATO-INSTITUCIONAL-SUR-1",),
     }
     payload.update(updates)
     return SurvivalTermRecord(**payload)
@@ -557,7 +557,7 @@ def _term_structure_frame(**updates: Any) -> pd.DataFrame:
         "method": ["discrete_hazard", "discrete_hazard"],
         "pd_source": ["model_raw", "model_raw"],
         "scenario": [math.nan, math.nan],
-        "warning_codes": [(), ("FALTA-DATO-SUR-1",)],
+        "warning_codes": [(), ("DATO-INSTITUCIONAL-SUR-1",)],
     }
     payload.update(updates)
     return pd.DataFrame(payload, index=pd.Index(["loan-001|1", "loan-001|2"], name="curve_id"))

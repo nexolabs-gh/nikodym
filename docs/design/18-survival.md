@@ -25,7 +25,7 @@
 - Usa la PD/logit de SDD-08 como insumo trazable de riesgo transversal; por default no sustituye ni recalibra ese modelo.
 - Publica artefactos namespaced bajo `"survival"`: estimador fiteado, curvas, hazards, term-structure, diagnósticos, resultado agregado y card.
 - Aporta el sub-config **`SurvivalConfig`** (sección `survival` de `NikodymConfig`), computacional y por tanto incluido en el `config_hash`.
-- Registra con `log_decision` método, definición de evento/tiempo, fuente PD, expansión person-period, link, ruta Cox/AFT/KM, diagnósticos y brechas `FALTA-DATO`.
+- Registra con `log_decision` método, definición de evento/tiempo, fuente PD, expansión person-period, link, ruta Cox/AFT/KM, diagnósticos y los avisos `DATO-INSTITUCIONAL` declarados.
 
 **Frontera dura de responsabilidad (qué NO hace, y quién lo hace).**
 - **No calcula ECL.** SDD-16 consume `survival.term_structure` para calcular ECL con LGD/EAD, escenarios y descuento a EIR según ESPECIFICACIONES §5.5.
@@ -34,7 +34,7 @@
 - **No reemplaza `data` longitudinal de IFRS 9/forward.** SDD-02 modela el panel transversal de scorecard; CT-3 difiere la capa longitudinal a F4/F5. `survival` puede expandir person-period para ajuste, pero no diseña el panel EAD/LGD por cuenta-periodo.
 - **No entrena la scorecard F1.** SDD-08 produce `model.raw_pd_frame`; SDD-10 puede producir `calibration.calibrated_pd_frame`. `survival` los consume si la config lo declara.
 - **No usa `scikit-survival` en el core distribuido.** ESPECIFICACIONES §7 lo marca GPL-3.0 y fuera del core; este SDD usa lifelines + statsmodels.
-- **No inventa horizonte lifetime, granularidad temporal, definición de evento/default ni umbrales de diagnóstico.** Si no están en ESPECIFICACIONES §5.6 o en SDD aguas arriba, quedan como config requerida o `FALTA-DATO`.
+- **No inventa horizonte lifetime, granularidad temporal, definición de evento/default ni umbrales de diagnóstico.** Si no están en ESPECIFICACIONES §5.6 o en SDD aguas arriba, quedan como config requerida o aviso `DATO-INSTITUCIONAL`.
 
 ## 2. Contexto y ubicación en la arquitectura
 
@@ -123,7 +123,7 @@ La varianza Greenwood asociada es:
 Var[S_hat(t)] = S_hat(t)^2 · Σ_{t_j <= t} d_j / (n_j · (n_j - d_j))
 ```
 
-ESPECIFICACIONES §5.6 autoriza Kaplan-Meier, pero no fija nivel de confianza, transformación de intervalo ni política de clipping. Por eso `confidence_level` queda como config opcional y **FALTA-DATO-SUR-3** queda marcado para Cami.
+ESPECIFICACIONES §5.6 autoriza Kaplan-Meier, pero no fija nivel de confianza, transformación de intervalo ni política de clipping. Por eso `confidence_level` queda como config opcional y **DATO-INSTITUCIONAL-SUR-3** queda marcado para Cami.
 
 **Discrete-time hazard (person-period).** Es la ruta estándar IFRS 9 lifetime señalada en ESPECIFICACIONES §5.6. Cada observación se expande a filas `i,t` hasta evento/censura. Se ajusta:
 
@@ -438,9 +438,9 @@ class SurvivalConfig(NikodymBaseConfig):
 - `duration_col != event_col`; ninguna columna configurable puede ser string vacío.
 - `event_col` debe mapear a `{0,1}` al validar entrada; `1` significa evento/default observado.
 - `duration_col` debe ser finita y positiva en filas modelables; `duration <= 0` levanta `SurvivalInputError`.
-- `time_grid.horizon_periods` y `evaluation_times` no pueden estar ambos vacíos si el usuario exige proyección fuera del rango observado. Si ambos faltan, el motor solo evalúa hasta `max(duration_col)` observado y registra `FALTA-DATO-SUR-1`.
+- `time_grid.horizon_periods` y `evaluation_times` no pueden estar ambos vacíos si el usuario exige proyección fuera del rango observado. Si ambos faltan, el motor solo evalúa hasta `max(duration_col)` observado y registra `DATO-INSTITUCIONAL-SUR-1`.
 - `method="aft"` exige `cox_aft.aft_family` distinto de `None` hasta que Cami ratifique un default.
-- `kaplan_meier.confidence_level` exige `confidence_transform` si se van a publicar bounds de IC; sin ambos, se publica Greenwood variance y se registra `FALTA-DATO-SUR-3`.
+- `kaplan_meier.confidence_level` exige `confidence_transform` si se van a publicar bounds de IC; sin ambos, se publica Greenwood variance y se registra `DATO-INSTITUCIONAL-SUR-3`.
 - `discrete_hazard.pd_role="offset"` exige `linear_predictor_column` finita y documenta que el coeficiente queda fijado; esto requiere ratificación en D-SUR-3.
 - `input.pd_source="calibration"` exige artefacto `("calibration", "calibrated_pd_frame")` y columna `pd_calibrated` o una columna configurada futura.
 
@@ -521,11 +521,11 @@ class SurvivalConfig(NikodymBaseConfig):
 5. **Copias defensivas.** Copiar frames y validar índice único/alineación.
 6. **Validar tiempo/evento.** Chequear duración positiva, evento binario, censura derecha y particiones.
 7. **Unir PD F1.** Alinear `pd_raw`/`linear_predictor` por índice; registrar fuente y cobertura.
-8. **Resolver grilla temporal.** Usar `evaluation_times`; si no existen, usar `horizon_periods`; si tampoco existe, usar tiempos observados y registrar `FALTA-DATO-SUR-1`.
+8. **Resolver grilla temporal.** Usar `evaluation_times`; si no existen, usar `horizon_periods`; si tampoco existe, usar tiempos observados y registrar `DATO-INSTITUCIONAL-SUR-1`.
 9. **Ajustar método.** Instanciar `KaplanMeierSurvivalModel`, `DiscreteTimeHazardModel`, `CoxPHSurvivalModel` o `AFTSurvivalModel`.
 10. **Predecir term-structure.** Calcular `hazard`, `survival`, `pd_marginal`, `pd_cumulative`.
 11. **Construir DTOs.** `SurvivalDiagnostics`, `SurvivalCard`, `SurvivalResult`; poblar `metric_sections` con resumen estructurado.
-12. **Auditar decisiones.** Método, link, PD source, cobertura de datos, tiempos, `FALTA-DATO`, Schoenfeld/AFT/KM.
+12. **Auditar decisiones.** Método, link, PD source, cobertura de datos, tiempos, avisos `DATO-INSTITUCIONAL`, Schoenfeld/AFT/KM.
 13. **Publicar artefactos.** Escribir las siete claves `provides` bajo `"survival"`.
 
 **`KaplanMeierSurvivalModel.fit(...)`.**
@@ -563,7 +563,7 @@ class SurvivalConfig(NikodymBaseConfig):
 - *Calcular lifetime PD como multiplicador plano de la PD 12m:* descartado; ESPECIFICACIONES §5.6 fija supervivencia/hazard y §5.5 consume PD marginal por período.
 - *Usar bytes de parquet o `hash()` para reproducibilidad de outputs:* descartado; se conserva la regla del proyecto: contenido lógico por bloques y, si se materializan hashes auxiliares, endian explícito `astype("<u8")`.
 - *Forzar SDD-02 a panel longitudinal IFRS 9:* descartado por CT-3; survival expande person-period localmente, pero no redefine el contrato de datos longitudinal.
-- *Elegir familia AFT o nivel de confianza KM sin fuente:* descartado; queda config requerida/`FALTA-DATO`.
+- *Elegir familia AFT o nivel de confianza KM sin fuente:* descartado; queda config requerida / aviso `DATO-INSTITUCIONAL`.
 
 **Complejidad / rendimiento.** KM es O(n log n) por ordenamiento. Discrete hazard expande a O(n × T) filas; es la ruta de mayor costo y debe validar tamaño antes de materializar. Cox/AFT dependen del solver lifelines y del número de covariables; `selection`/F1 debe haber reducido dimensionalidad si se reutilizan covariables de scoring.
 
@@ -595,14 +595,14 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - **Normalización numérica.** Publicar `-0.0` como `0.0`; no usar `hash()` builtin; si se prueban hashes de frames, usar `pandas.util.hash_pandas_object` y convertir a enteros con endian explícito `.astype("<u8")`.
 - **Audit trail (`log_decision`).** Registrar, como mínimo:
   - `survival_method`: método, link/familia, fuente PD y columnas de entrada;
-  - `survival_time_grid`: unidad, horizonte, tiempos de evaluación y si hubo `FALTA-DATO-SUR-1`;
+  - `survival_time_grid`: unidad, horizonte, tiempos de evaluación y si hubo `DATO-INSTITUCIONAL-SUR-1`;
   - `survival_input_quality`: filas, eventos, censuras, missing/exclusiones;
   - `survival_pd_source`: artefacto fuente, columna PD/logit, cobertura y filas sin match;
   - `survival_person_period`: número de filas expandidas, períodos y eventos por período;
   - `survival_km_greenwood`: si aplica, varianza/IC y configuración de intervalo;
   - `survival_schoenfeld`: resultado del test Cox PH si aplica;
   - `survival_aft`: familia, convergencia y warnings si aplica.
-- **Card / report.** `SurvivalCard` debe permitir reconstruir el ajuste: método, definición de tiempo/evento, fuente PD, grilla temporal, conteos, diagnósticos, versiones de dependencias y `FALTA-DATO`.
+- **Card / report.** `SurvivalCard` debe permitir reconstruir el ajuste: método, definición de tiempo/evento, fuente PD, grilla temporal, conteos, diagnósticos, versiones de dependencias y los avisos declarados.
 - **Lineage.** `survival` no completa `data_hash` ni `config_hash`; los consume. Su aporte al lineage son config computacional, versiones de dependencias, fuente PD, term-structure hashable y decisiones auditadas.
 - **Gobernanza CT-2.** `metric_sections` puede incluir secciones estructuradas como `"term_structure_summary"`, `"schoenfeld"`, `"km_greenwood"` y `"person_period"`, sin romper consumidores escalares.
 
@@ -622,7 +622,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - SDD-20 (`forward`) ajusta/transforma term-structures con macro/satellite y escenarios ponderados.
 - SDD-21 (`stress`) consume term-structures bajo escenarios severos.
 - SDD-22 (`validation`) backtestea lifetime PD y diagnósticos survival.
-- SDD-23 (`ui`) edita config y muestra brechas `FALTA-DATO`.
+- SDD-23 (`ui`) edita config y muestra los avisos declarados.
 - SDD-26 (`report`) renderiza curvas, diagnostics y card.
 
 **Externas.**
@@ -648,7 +648,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 Marco transversal en SDD-24. Casos específicos:
 
 - **Golden KM simple.** Dataset pequeño con tiempos/eventos conocidos; verificar `S_hat(t)=∏(1-d/n)` y `greenwood_variance` a mano.
-- **Greenwood sin IC default.** Con `confidence_level=None`, se publica varianza y `FALTA-DATO-SUR-3`; con nivel/transformación configurados, se publican bounds finitos y ordenados.
+- **Greenwood sin IC default.** Con `confidence_level=None`, se publica varianza y `DATO-INSTITUCIONAL-SUR-3`; con nivel/transformación configurados, se publican bounds finitos y ordenados.
 - **Golden discrete hazard.** Hazards fijos `h(1)=0.10`, `h(2)=0.20`: `S(1)=0.90`, `PD_marginal(1)=0.10`, `S(2)=0.72`, `PD_marginal(2)=0.18`, `PD_acumulada(2)=0.28`.
 - **Person-period.** Una fila con evento en período 3 genera filas `t=1,2,3` y target de período `0,0,1`; una censurada en período 2 genera `0,0` y no filas posteriores.
 - **Contrato con F1.** `SurvivalStep.requires` exige `data.frame` y `model.raw_pd_frame`; falta uno → `ArtifactNotFoundError`. `pd_source="calibration"` exige `calibration.calibrated_pd_frame`.
@@ -669,24 +669,26 @@ Fixtures: `survival_small.parquet` sintético con duración/evento, `raw_pd_fram
 
 **Riesgos.**
 - **Confundir PD 12m/transversal con PD lifetime.** Mitigación: `model.raw_pd_frame` es insumo, no salida final; `survival.term_structure` publica PD marginal/acumulada por período.
-- **Inventar horizonte o unidad temporal.** Mitigación: `duration_col` es requerido; `horizon_periods=None` registra `FALTA-DATO-SUR-1`; SDD-16 debe traer maturities/ECL.
+- **Inventar horizonte o unidad temporal.** Mitigación: `duration_col` es requerido; `horizon_periods=None` registra `DATO-INSTITUCIONAL-SUR-1`; SDD-16 debe traer maturities/ECL.
 - **Sobreajustar person-period por expansión O(n×T).** Mitigación: validar tamaño, eventos por período y publicar diagnostics.
 - **Violación de proporcionalidad en Cox.** Mitigación: diagnóstico Schoenfeld obligatorio cuando `method="cox_ph"`; política de acción queda para Cami.
 - **Uso accidental de GPL.** Mitigación: veto explícito a `scikit-survival`, test de import y revisión de extras.
 - **Term-structure incompatible con SDD-16.** Mitigación: output tidy mínimo y CT-2; SDD-16 puede añadir columnas económicas sin romper SDD-18.
 - **Datos longitudinales forzados sobre SDD-02.** Mitigación: CT-3; `survival` solo expande localmente para hazard, no redefine la capa longitudinal IFRS 9.
-- **Defaults estadísticos malinterpretados como normativos.** Mitigación: los parámetros no fijados en ESPEC quedan `None`, requeridos o `FALTA-DATO`.
+- **Defaults estadísticos malinterpretados como normativos.** Mitigación: los parámetros no fijados en ESPEC quedan `None`, requeridos o con aviso `DATO-INSTITUCIONAL`.
 
-**FALTA-DATO explícitos.**
-- **FALTA-DATO-SUR-1 — Horizonte lifetime y granularidad temporal.** ESPECIFICACIONES §5.6 no fija `horizon_periods`, unidad mensual/trimestral/anual ni regla de extrapolación; SDD-16 debe aportar maturities o Cami debe fijar default.
-- **FALTA-DATO-SUR-2 — Definición operacional de evento/default y censura.** SDD-02 tiene target binario de scorecard, pero no define duración, cura, refinanciación, prepago ni competing risks.
-- **FALTA-DATO-SUR-3 — Nivel y transformación de IC Kaplan-Meier.** ESPECIFICACIONES §5.6 autoriza KM, pero no fija `confidence_level` ni `plain` vs `loglog`.
-- **FALTA-DATO-SUR-4 — Rol exacto de la PD F1 en discrete hazard.** ESPECIFICACIONES dice que reusa scoring, pero no fija covariable vs offset vs segmentación.
-- **FALTA-DATO-SUR-5 — Grano de salida.** Cuenta, operación, cliente o segmento/pool debe definirse por datos/negocio; el SDD soporta fila o segmento.
-- **FALTA-DATO-SUR-6 — Shape final IFRS 9.** SDD-18 publica lifetime PD; SDD-16 debe fijar columnas económicas finales de ECL/stage/EIR/LGD/EAD/escenario.
-- **FALTA-DATO-SUR-7 — Umbrales de diagnóstico Cox/Schoenfeld.** No hay p-value ni acción normativa en ESPECIFICACIONES.
-- **FALTA-DATO-SUR-8 — Familia AFT default.** ESPECIFICACIONES menciona AFT, pero no Weibull/lognormal/loglogistic.
-- **FALTA-DATO-SUR-9 — Pesos de observación/exposición.** No está definido si survival pondera por exposición, saldo, cuenta o peso muestral.
+**Avisos declarados (taxonomía: `_ENMIENDA-TAXONOMIA-MARCAS.md`).** Ninguno de los de esta capa es
+una brecha del motor: los ocho declaran un input que aporta la institución, y por eso llevan la marca
+`DATO-INSTITUCIONAL`.
+- **DATO-INSTITUCIONAL-SUR-1 — Horizonte lifetime y granularidad temporal.** ESPECIFICACIONES §5.6 no fija `horizon_periods`, unidad mensual/trimestral/anual ni regla de extrapolación; SDD-16 debe aportar maturities o Cami debe fijar default.
+- **DATO-INSTITUCIONAL-SUR-2 — Definición operacional de evento/default y censura.** SDD-02 tiene target binario de scorecard, pero no define duración, cura, refinanciación, prepago ni competing risks.
+- **DATO-INSTITUCIONAL-SUR-3 — Nivel y transformación de IC Kaplan-Meier.** ESPECIFICACIONES §5.6 autoriza KM, pero no fija `confidence_level` ni `plain` vs `loglog`.
+- **DATO-INSTITUCIONAL-SUR-4 — Rol exacto de la PD F1 en discrete hazard.** ESPECIFICACIONES dice que reusa scoring, pero no fija covariable vs offset vs segmentación.
+- **DATO-INSTITUCIONAL-SUR-5 — Grano de salida.** Cuenta, operación, cliente o segmento/pool debe definirse por datos/negocio; el SDD soporta fila o segmento.
+- **SUR-6 → ✅ RESUELTO (2026-07-24).** El shape final IFRS 9 dejó de estar abierto cuando SDD-16 se implementó: fija las columnas económicas de ECL/stage/EIR/LGD/EAD/escenario, y el contrato entre ambas capas vive en `tests/unit/test_forward_ifrs9_contract.py`. Sale del conteo de brechas.
+- **DATO-INSTITUCIONAL-SUR-7 — Umbrales de diagnóstico Cox/Schoenfeld.** No hay p-value ni acción normativa en ESPECIFICACIONES.
+- **DATO-INSTITUCIONAL-SUR-8 — Familia AFT default.** ESPECIFICACIONES menciona AFT, pero no Weibull/lognormal/loglogistic.
+- **DATO-INSTITUCIONAL-SUR-9 — Pesos de observación/exposición.** No está definido si survival pondera por exposición, saldo, cuenta o peso muestral.
 
 **Fuentes verificadas / citas.**
 - **ESPECIFICACIONES.md** §5.5: ECL multi-período, `PD_marg_k(t)`, Stage 1 12m y Stage 2/3 lifetime.

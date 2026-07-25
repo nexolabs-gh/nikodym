@@ -302,9 +302,9 @@ class SurvivalConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante falta de dato",
         description=(
-            "Campo reservado: hoy no altera la corrida, cualquiera sea su valor. Las brechas de "
-            "datos de esta etapa quedan siempre registradas como aviso `FALTA-DATO-SUR-*` en su "
-            "resultado."
+            "Campo reservado: hoy no altera la corrida, cualquiera sea su valor. Las brechas "
+            "de datos de esta etapa quedan siempre registradas como aviso "
+            "`DATO-INSTITUCIONAL-SUR-*` en su resultado."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Gobernanza", "ui_order": 1},
     )

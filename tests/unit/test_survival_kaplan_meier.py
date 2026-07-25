@@ -118,7 +118,7 @@ def test_kaplan_meier_golden_manual_greenwood_no_muta_y_publica_frames() -> None
             "method": ["kaplan_meier"] * 4,
             "pd_source": ["none"] * 4,
             "scenario": [None, None, None, None],
-            "warning_codes": [("FALTA-DATO-SUR-3",)] * 4,
+            "warning_codes": [("DATO-INSTITUCIONAL-SUR-3",)] * 4,
         },
         index=pd.Index(["__all__|1", "__all__|2", "__all__|3", "__all__|4"], name="curve_id"),
     )
@@ -185,15 +185,15 @@ def test_censura_total_publica_supervivencia_plana_y_warning() -> None:
     assert term["hazard"].tolist() == [0.0, 0.0, 0.0]
     assert term["pd_marginal"].tolist() == [0.0, 0.0, 0.0]
     assert term["warning_codes"].tolist() == [
-        ("FALTA-DATO-SUR-3", "FALTA-DATO-SUR-2"),
-        ("FALTA-DATO-SUR-3", "FALTA-DATO-SUR-2"),
-        ("FALTA-DATO-SUR-3", "FALTA-DATO-SUR-2"),
+        ("DATO-INSTITUCIONAL-SUR-3", "DATO-INSTITUCIONAL-SUR-2"),
+        ("DATO-INSTITUCIONAL-SUR-3", "DATO-INSTITUCIONAL-SUR-2"),
+        ("DATO-INSTITUCIONAL-SUR-3", "DATO-INSTITUCIONAL-SUR-2"),
     ]
     assert fallback_term["time_value"].tolist() == [3.0]
     assert fallback_term["warning_codes"].iloc[0] == (
-        "FALTA-DATO-SUR-3",
-        "FALTA-DATO-SUR-1",
-        "FALTA-DATO-SUR-2",
+        "DATO-INSTITUCIONAL-SUR-3",
+        "DATO-INSTITUCIONAL-SUR-1",
+        "DATO-INSTITUCIONAL-SUR-2",
     )
 
 
@@ -270,9 +270,9 @@ def test_constructor_sin_config_usa_pd_source_none_y_fallback_observado() -> Non
     assert term["time_value"].tolist() == [1.0, 2.0, 3.0]
     assert term["pd_source"].tolist() == ["none", "none", "none"]
     assert term["warning_codes"].tolist() == [
-        ("FALTA-DATO-SUR-3", "FALTA-DATO-SUR-1"),
-        ("FALTA-DATO-SUR-3", "FALTA-DATO-SUR-1"),
-        ("FALTA-DATO-SUR-3", "FALTA-DATO-SUR-1"),
+        ("DATO-INSTITUCIONAL-SUR-3", "DATO-INSTITUCIONAL-SUR-1"),
+        ("DATO-INSTITUCIONAL-SUR-3", "DATO-INSTITUCIONAL-SUR-1"),
+        ("DATO-INSTITUCIONAL-SUR-3", "DATO-INSTITUCIONAL-SUR-1"),
     ]
 
 
@@ -293,9 +293,10 @@ def test_warning_fallback_no_queda_pegado_entre_predicciones() -> None:
     )
     explicit_without_history = another.term_structure(_km_frame(), times=[1, 2, 3])
 
-    assert all("FALTA-DATO-SUR-1" in codes for codes in fallback["warning_codes"])
+    assert all("DATO-INSTITUCIONAL-SUR-1" in codes for codes in fallback["warning_codes"])
     assert all(
-        "FALTA-DATO-SUR-1" not in codes for codes in explicit_after_fallback["warning_codes"]
+        "DATO-INSTITUCIONAL-SUR-1" not in codes
+        for codes in explicit_after_fallback["warning_codes"]
     )
     assert (
         explicit_after_fallback["warning_codes"].tolist()
@@ -305,7 +306,7 @@ def test_warning_fallback_no_queda_pegado_entre_predicciones() -> None:
         explicit_after_fallback["warning_codes"].tolist()
         == explicit_without_history["warning_codes"].tolist()
     )
-    assert model.warning_codes_ == ("FALTA-DATO-SUR-3",)
+    assert model.warning_codes_ == ("DATO-INSTITUCIONAL-SUR-3",)
 
 
 def test_errores_de_configuracion_y_no_fiteado() -> None:

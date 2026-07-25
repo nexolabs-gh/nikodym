@@ -57,7 +57,7 @@ __all__ = ["DiscreteTimeHazardModel"]
 
 _METHOD: Literal["discrete_hazard"] = "discrete_hazard"
 _SCORING_EXTRA_MESSAGE = "DiscreteTimeHazardModel requiere statsmodels; instale nikodym[scoring]."
-_NO_TIME_GRID_WARNING = "FALTA-DATO-SUR-1"
+_NO_TIME_GRID_WARNING = "DATO-INSTITUCIONAL-SUR-1"
 _PARTITION_COL = "partition"
 _PARTITION_DESARROLLO = "desarrollo"
 _TARGET_COL = "__event_it"

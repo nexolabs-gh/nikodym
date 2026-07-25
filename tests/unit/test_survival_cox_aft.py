@@ -152,7 +152,7 @@ def test_cox_con_umbral_ph_no_emite_warning_y_marca_violacion() -> None:
     term = model.term_structure(frame.iloc[:1], times=[])
 
     assert model.proportional_hazard_diagnostics()["violations"] == ("age",)
-    assert term["warning_codes"].tolist() == [("FALTA-DATO-SUR-1",)] * len(term.index)
+    assert term["warning_codes"].tolist() == [("DATO-INSTITUCIONAL-SUR-1",)] * len(term.index)
 
 
 def test_aft_rossi_goldens_tres_familias_y_frames() -> None:

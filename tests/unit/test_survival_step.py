@@ -127,9 +127,9 @@ def test_run_default_discrete_publica_artifacts_invariantes_y_auditoria() -> Non
     assert study.artifacts.keys()[-7:] == [("survival", key) for key in SURVIVAL_ARTIFACTS]
     assert result.card.method == "discrete_hazard"
     assert result.card.metric_sections["person_period"]["n_rows"] == 228
-    assert result.card.metric_sections["time_grid"]["warnings"] == ("FALTA-DATO-SUR-1",)
-    assert result.card.falta_dato == ("FALTA-DATO-SUR-1",)
-    assert set(term["warning_codes"]) == {("FALTA-DATO-SUR-1",)}
+    assert result.card.metric_sections["time_grid"]["warnings"] == ("DATO-INSTITUCIONAL-SUR-1",)
+    assert result.card.falta_dato == ("DATO-INSTITUCIONAL-SUR-1",)
+    assert set(term["warning_codes"]) == {("DATO-INSTITUCIONAL-SUR-1",)}
     _assert_term_invariants(term)
     assert_frame_equal(study.artifacts.get("data", "frame"), original_frame)
     assert_frame_equal(study.artifacts.get("model", "raw_pd_frame"), original_pd)
@@ -276,7 +276,7 @@ def test_kaplan_meier_y_helpers_defensivos_del_step() -> None:
     assert result.card.method == "kaplan_meier"
     assert result.card.metric_sections["km_greenwood"]["n_curves"] == 1
     assert result.diagnostics.method == "kaplan_meier"
-    assert result.term_structure()["warning_codes"].tolist() == [("FALTA-DATO-SUR-3",)] * 3
+    assert result.term_structure()["warning_codes"].tolist() == [("DATO-INSTITUCIONAL-SUR-3",)] * 3
     assert (
         step_module._time_grid_from_config_or_data(
             frame,
@@ -376,9 +376,9 @@ def test_kaplan_meier_y_helpers_defensivos_del_step() -> None:
     no_warning_frame = pd.DataFrame({"warning_codes": [()]})
     assert step_module._with_step_warnings(no_warning_frame, ()) is no_warning_frame
     without_warning_column = pd.DataFrame({"x": [1]})
-    assert step_module._with_step_warnings(without_warning_column, ("FALTA-DATO-SUR-1",)).equals(
-        without_warning_column
-    )
+    assert step_module._with_step_warnings(
+        without_warning_column, ("DATO-INSTITUCIONAL-SUR-1",)
+    ).equals(without_warning_column)
     assert step_module._warning_codes(pd.DataFrame({"x": [1]})) == ()
     assert step_module._warning_codes(pd.DataFrame({"warning_codes": ["A", None]})) == ("A",)
     assert step_module._as_warning_tuple("A") == ("A",)
