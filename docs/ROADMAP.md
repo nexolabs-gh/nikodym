@@ -62,7 +62,7 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
    `title` y `ui_group`— más los descriptores de preset y dataset, con el fixture regenerado en el
    mismo commit atómico. El alcance real era una clase, no dos campos: 78 textos citaban documentos
    internos en el editor que ve el usuario. **Se conservan** las referencias normativas, la
-   terminología de riesgo y los códigos `FALTA-DATO-*` que el motor imprime en el informe.
+   terminología de riesgo y los códigos de aviso que el motor imprime en el informe.
    La limpieza destapó **nueve afirmaciones que el motor no respalda** (cinco anteriores a esta
    pasada), entre ellas dos gatillos SICR descritos con un mínimo que el validador no impone y un
    `is_default_col` que omitía la reclasificación del deudor de consumo a incumplimiento. Quedan

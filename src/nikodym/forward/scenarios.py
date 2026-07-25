@@ -60,7 +60,7 @@ _IDENTITY_COLUMNS: tuple[str, ...] = (
 )
 _ANCHOR_KEY_COLUMNS: tuple[str, ...] = (*_IDENTITY_COLUMNS, "period")
 _CURVE_KEY_COLUMNS: tuple[str, ...] = (*_IDENTITY_COLUMNS, "scenario")
-_WARNING_FALTA_DATO_FWD_4 = (
+_WARNING_INSTITUTIONAL_FWD_4 = (
     "DATO-INSTITUCIONAL-FWD-4: ttc_anchor='input_term_structure' no trae pd_basis='ttc' "
     "resuelto; se usará como ancla TTC con base PIT/desconocida explícitamente advertida."
 )
@@ -488,7 +488,7 @@ def _warn_if_anchor_basis_unresolved(anchor: DataFrame, *, cfg: ForwardConfig) -
     if cfg.ttc_reversion.ttc_anchor != "input_term_structure":
         return
     if "pd_basis" not in anchor.columns:
-        warnings.warn(_WARNING_FALTA_DATO_FWD_4, RuntimeWarning, stacklevel=2)
+        warnings.warn(_WARNING_INSTITUTIONAL_FWD_4, RuntimeWarning, stacklevel=2)
         return
     observed = {
         str(value).strip().lower()
@@ -496,7 +496,7 @@ def _warn_if_anchor_basis_unresolved(anchor: DataFrame, *, cfg: ForwardConfig) -
         if str(value).strip()
     }
     if observed != {"ttc"}:
-        warnings.warn(_WARNING_FALTA_DATO_FWD_4, RuntimeWarning, stacklevel=2)
+        warnings.warn(_WARNING_INSTITUTIONAL_FWD_4, RuntimeWarning, stacklevel=2)
 
 
 def _ttc_lambda(period: int, *, cfg: ForwardConfig) -> float:

@@ -348,10 +348,10 @@ _ECONOMIC_ENGINE_MEASURE_COLUMNS: frozenset[str] = frozenset(
     }
 )
 _SEGMENT_ALL = "__all__"
-_FALTA_DATO_DOMINANCE = "DATO-INSTITUCIONAL-STR-1"
-_FALTA_DATO_OFFICIAL = "DATO-INSTITUCIONAL-STR-2"
+_INSTITUTIONAL_DOMINANCE = "DATO-INSTITUCIONAL-STR-1"
+_INSTITUTIONAL_OFFICIAL = "DATO-INSTITUCIONAL-STR-2"
 _WARNING_MISSING_ECL = "FALTA-DATO-STR-5"
-_FALTA_DATO_LGD = "DATO-INSTITUCIONAL-STR-8"
+_INSTITUTIONAL_LGD = "DATO-INSTITUCIONAL-STR-8"
 _FORWARD_ECL_CONTRACT_VERSION = FORWARD_ECL_CONTRACT_VERSION
 _FORWARD_ECL_CHAIN = (
     "macro_projection → satellite_model → pd_lgd_term_structure → ecl_engine → scenario_weighting"
@@ -1818,12 +1818,12 @@ def _validate_shock_source(
     if shock.source != "official":
         return ()
     message = (
-        f"{_FALTA_DATO_OFFICIAL}: source='official' exige evidencia externa para "
+        f"{_INSTITUTIONAL_OFFICIAL}: source='official' exige evidencia externa para "
         f"scenario={scenario.name!r}, factor={shock.factor!r}."
     )
     _emit_falta_dato(
         audit,
-        code=_FALTA_DATO_OFFICIAL,
+        code=_INSTITUTIONAL_OFFICIAL,
         blocked=cfg.validation.fail_on_falta_dato,
         scenario=scenario.name,
         factor=shock.factor,
@@ -1834,7 +1834,7 @@ def _validate_shock_source(
     )
     if cfg.validation.fail_on_falta_dato:
         raise StressFaltaDatoError(message)
-    return (_FALTA_DATO_OFFICIAL,)
+    return (_INSTITUTIONAL_OFFICIAL,)
 
 
 def _coerce_float_columns(frame: DataFrame, *, columns: tuple[str, ...]) -> None:
@@ -1968,7 +1968,7 @@ def _check_dominance(
         )
         return ()
     message = (
-        f"{_FALTA_DATO_DOMINANCE}: no existe delta adverse trazable para "
+        f"{_INSTITUTIONAL_DOMINANCE}: no existe delta adverse trazable para "
         f"scenario={scenario.name!r}, factor={shock.factor!r}, periods={tuple(missing)}."
     )
     _emit_audit_decision(
@@ -1985,13 +1985,13 @@ def _check_dominance(
         valor={
             "result": "falta_dato",
             "checks": tuple(checks),
-            "warning_codes": (_FALTA_DATO_DOMINANCE,),
+            "warning_codes": (_INSTITUTIONAL_DOMINANCE,),
         },
         accion="falta_dato",
     )
     _emit_falta_dato(
         audit,
-        code=_FALTA_DATO_DOMINANCE,
+        code=_INSTITUTIONAL_DOMINANCE,
         blocked=cfg.validation.fail_on_falta_dato,
         scenario=scenario.name,
         factor=shock.factor,
@@ -2002,7 +2002,7 @@ def _check_dominance(
     )
     if cfg.validation.fail_on_falta_dato:
         raise StressFaltaDatoError(message)
-    return (_FALTA_DATO_DOMINANCE,)
+    return (_INSTITUTIONAL_DOMINANCE,)
 
 
 def _stress_delta_for_dominance(
@@ -2465,13 +2465,13 @@ def _forward_only_impact_rows(
                 if metric == "lgd":
                     period_value = _positive_int(period, field_name="period")
                     message = (
-                        f"{_FALTA_DATO_LGD}: output.metrics incluye 'lgd' pero "
+                        f"{_INSTITUTIONAL_LGD}: output.metrics incluye 'lgd' pero "
                         "lgd/lgd_base no están disponibles para "
                         f"scenario={scenario.name!r}, period={period_value}."
                     )
                     _emit_falta_dato(
                         audit,
-                        code=_FALTA_DATO_LGD,
+                        code=_INSTITUTIONAL_LGD,
                         blocked=cfg.validation.fail_on_falta_dato,
                         scenario=scenario.name,
                         factor=None,
@@ -2482,7 +2482,7 @@ def _forward_only_impact_rows(
                     )
                     if cfg.validation.fail_on_falta_dato:
                         raise StressFaltaDatoError(message)
-                    warnings_seen.append(_FALTA_DATO_LGD)
+                    warnings_seen.append(_INSTITUTIONAL_LGD)
                 continue
             rows.append(
                 _impact_row(

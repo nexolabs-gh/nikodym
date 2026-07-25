@@ -664,7 +664,7 @@ export interface Ifrs9ProvisioningResult {
   scenarios: string[]
   scenario_weights: Record<string, number>
   dependency_versions?: Record<string, unknown>
-  /** Códigos de dato faltante/supuesto (p. ej. `["FALTA-DATO-IFRS-4"]` = EAD constante). */
+  /** Avisos declarados: `FALTA-DATO-*` (brecha del motor) o `DATO-INSTITUCIONAL-*` (input del banco). */
   falta_dato: string[]
   metric_sections?: Record<string, unknown>
   /** Distribución por etapa (3 filas: Stage 1/2/3); reconcilia con los totales de la card. */
