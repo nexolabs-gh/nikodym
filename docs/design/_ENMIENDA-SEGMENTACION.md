@@ -209,6 +209,17 @@ le falta el esquema, se conserva la guarda actual por nombre de columna.** La re
 enmienda nunca deje **menos** validación que hoy: sustituir un chequeo tosco por uno que sólo dispara
 cuando el usuario declaró algo opcional sería un retroceso disfrazado de mejora.
 
+**Precisado al implementarlo: la comparación de esquemas es de RUNTIME, no de validación de config.**
+Cuando se valida el config todavía no hay resultados, y `ProvisioningConfig` no puede leer a sus
+secciones hermanas —son independientes por diseño (`core/config/schema.py:372-416`)—, así que ahí no
+hay dos esquemas que comparar. La comparación real ocurre donde sí existen ambos: en el orquestador,
+contrastando cada cartera remapeada contra el vocabulario que la fuente de destino publicó en su card
+(D-SEG-7). El efecto buscado se obtiene igual —esquemas distintos sin crosswalk terminan en
+`PROV-4`—, y la guarda de config por nombre de columna se conserva **tal cual** como red de seguridad.
+Lo que **no** queda implementado es la mitad simétrica: relajar la exigencia cuando ambas fuentes
+declaran el mismo esquema con columnas de nombre distinto. Exigiría que la sección del orquestador
+lea las de los motores, que es un cambio de arquitectura fuera del alcance de esta enmienda.
+
 **D-SEG-6 — En `comparison_level="segment"` el crosswalk se aplica, no se exime.** La asimetría de
 §1.5.4 se corrige por el lado de aplicar (`orchestrator.py:235` pasa a cubrir ambos niveles), no por
 el de eximir. La tentación contraria —«en `segment` ambas fuentes usan la misma `segment_col`, luego
@@ -263,6 +274,14 @@ decir «Naming CMF en español». Se documenta que el valor vuelve del Registry 
 (`tracking/inventory.py:225`), que es la razón de fondo por la que el `Literal` nunca fue garantía.
 
 **D-SEG-11 — Una config que no declara régimen no se rechaza ni se completa en silencio: se marca.**
+
+> **Estado al implementar: sin objeto todavía, y es consecuencia de D-SEG-1.** Al decidir que el
+> régimen es *atributo del motor* —el motor estándar chileno **es** su régimen, no lo elige— no queda
+> ninguna config donde el usuario pueda omitirlo: no hay campo que dejar en blanco. La decisión se
+> conserva escrita porque vuelve a tener objeto en cuanto exista un segundo motor y el régimen pase a
+> ser elegible; ese día, además, la marca debe convertirse en error, porque recién entonces hay
+> ambigüedad genuina.
+
 Decisión de DanIA (2026-07-25) sobre la migración desde `1.5.x`, por coherencia con las dos reglas ya
 vigentes del proyecto. Asumir `CL-CMF-B1` en silencio sería el motor inventando un dato institucional,
 que es justo lo que la marca `DATO-INSTITUCIONAL` existe para impedir; y rechazar la config rompería a

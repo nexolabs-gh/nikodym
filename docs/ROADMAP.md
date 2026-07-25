@@ -217,12 +217,17 @@ Se ejecuta en dos etapas con condiciones distintas:
    **B3.a se parte en dos (Cami, 2026-07-25), y sólo la primera mitad bloquea aguas abajo.** El censo
    del código encontró 15 puntos de chilenidad, y no pesan igual:
 
-   - **B3.a-1 · la llave de segmentación.** `governance/config.py:27` (`cartera: Literal[...]`, el
-     único enum de carteras del repo), las 6 carteras literales de `cmf/engine.py:96-103`, el
-     `default="cmf_portfolio"` de `internal/config.py:119` y el crosswalk de
-     `provisioning/config.py:178-195`. **Va primero**: un parámetro se resuelve *por segmento*, así
-     que el [contrato de resolución de parámetros](design/_CONTRATO-RESOLUCION-PARAMETROS.md) no
-     puede montarse sobre un segmento que es un enum chileno.
+   - **B3.a-1 · la llave de segmentación. REDEFINIDO el 2026-07-25 tras medirlo contra el código**
+     ([`_ENMIENDA-SEGMENTACION.md`](design/_ENMIENDA-SEGMENTACION.md)). La premisa original —«el
+     segmento es un enum chileno»— resultó **falsa**: el `Literal` de `governance/config.py:27` no es
+     la llave de segmentación de ningún cálculo (una sola lectura, un tag de inventario, ni siquiera
+     llega al `schema.json`), y la llave real, `portfolio_col`, ya era `str` libre en los tres
+     motores. El bloqueo verdadero era otro: **nadie declaraba el dominio de valores del segmento**,
+     y sin dominio no hay CRP-1 ni CRP-3. B3.a-1 pasa a ser: la llave gana **esquema declarado**
+     (normativo / institucional / derivado del dato), el esquema **viaja en el resultado** —el
+     orquestador nunca ve el config de los motores— y el régimen se garantiza con un **registro
+     régimen→motor** con test de cobertura, no con el sistema de tipos. **Implementado**
+     (D-SEG-1…D-SEG-10); ver §«Pendiente de B3.a-1» abajo.
    - **B3.a-2 · el contenido normativo del motor CMF.** Matrices y su versionado, tramos de mora B-1,
      `is_default = dpd >= 90` (`cmf/engine.py:540`), buckets PVB/PVG, rangos C1-C6, títulos del
      informe. **No bloquea, y que sea chileno es correcto**: ese motor *es* el método estándar
@@ -231,6 +236,17 @@ Se ejecuta en dos etapas con condiciones distintas:
 
    Orden resultante: **B3.a-1 → contrato de resolución de parámetros → B3.a-2 con la jurisdicción
    nueva.**
+
+   **Pendiente de B3.a-1 al 2026-07-25** (lo demás está implementado y con gates):
+
+   - **El selector de régimen en preset y UI** (criterio 8 de la enmienda, condición dura de este
+     bloque). El registro régimen→motor ya existe y expone el rótulo público; falta cablearlo a
+     `ui/presets.py` y a `web/src/lib/presentation.ts`.
+   - **El gate de entrada del motor CMF** (D-SEG-4): hoy una cartera desconocida se sigue
+     descubriendo dentro de `_resolve_provision`, a mitad del cómputo, en vez de al entrar. Lo que
+     **sí** quedó cerrado es que el dominio no pueda divergir: un test lee el if-chain con `ast` y
+     exige que despachador y esquema declaren exactamente lo mismo.
+   - **La recaptura de la demo**, que va una sola vez y al final (ver §5 de la enmienda).
 2. **B3.b — Implementación de una jurisdicción concreta.** No se inicia de forma especulativa;
    requiere un compromiso comercial firmado. Sin él, el trabajo es una apuesta sobre normativa
    extranjera que además puede cambiar antes de tener usuario.
