@@ -325,9 +325,7 @@ function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
 
   return (
     <div className="space-y-3">
-      <p className="font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">
-        Elige una demo
-      </p>
+      <p className="text-xs font-semibold tracking-wide text-eyebrow">Elige una demo</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {presets.map((p) => {
           const { title, garantia, blurb } = presetDisplay(p)
@@ -348,7 +346,7 @@ function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
                 </span>
                 <span
                   className={cn(
-                    "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[0.6rem] uppercase tracking-[0.1em]",
+                    "shrink-0 rounded-full border px-2 py-0.5 text-[0.62rem] font-medium tracking-normal",
                     garantia === "experimental"
                       ? "border-amber-400/30 bg-amber-400/[0.06] text-amber-200/90"
                       : "border-eyebrow/30 bg-eyebrow/[0.06] text-eyebrow",
@@ -357,10 +355,11 @@ function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
                   {garantia}
                 </span>
               </div>
-              <span className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
-                {blurb}
-              </span>
-              <span className="mt-auto inline-flex items-center gap-1.5 pt-1 font-mono text-xs text-brand-accent-dark">
+              {/* Sin `line-clamp`: los blurbs se curan cortos en `presentation.ts`. Un texto
+                  cortado a media palabra («…bajo garant…») se lee como un bug, no como un resumen,
+                  y `h-full` ya iguala la altura de las tres tarjetas por sí solo. */}
+              <span className="text-xs leading-relaxed text-muted-foreground">{blurb}</span>
+              <span className="mt-auto inline-flex items-center gap-1.5 pt-1 text-xs font-medium text-brand-accent-dark">
                 Ver esta demo
                 <ArrowRight
                   className="size-3.5 transition-transform group-hover:translate-x-0.5"
@@ -417,28 +416,22 @@ export function LandingLauncher({
               {/* Sin número de versión: un literal aquí se pudre en el siguiente release y la
                   landing termina anunciando una versión que ya no es la de PyPI. La versión viva
                   la dice el lineage del informe, que sale de la corrida. */}
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-eyebrow">
+              <p className="text-xs font-medium tracking-wide text-eyebrow">
                 Motor de riesgo de crédito · Python · Apache-2.0
               </p>
-              {/* Las dos líneas del H1 son inseparables: la primera promete, la segunda confiesa. */}
+              {/* UNA idea, dos líneas. El H1 anterior apilaba tres proposiciones y el subtítulo las
+                  repetía enteras, así que el mismo argumento ocupaba las tres posiciones
+                  tipográficas más fuertes de la página. El detalle por dominio vive en §1, que es
+                  donde alguien lo va a buscar. */}
               <h1 className="mt-5 font-display text-[clamp(2.05rem,4.6vw,3.5rem)] font-bold leading-[1.05] tracking-tight text-foreground">
-                IFRS 9, CMF y stress
+                Del dataset al informe,
                 <br />
-                ya los calcula el motor.
-                <br />
-                <span className="text-muted-foreground">
-                  La interfaz ya llega al scorecard y a las provisiones.
-                </span>
+                en una corrida.
               </h1>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground">
-                El scorecard y las provisiones tienen preset, pantalla e informe; el scorecard es
-                además la única superficie bajo garantía SemVer 1.x (las provisiones, la más nueva,
-                siguen experimentales). Los otros cuatro ya están implementados y testeados —más de{" "}
-                {TESTS_DOMINIOS} tests pasan sobre ellos—, pero hoy se usan escribiendo el config en
-                Python a mano, y siguen marcados como experimentales.{" "}
-                <span className="text-foreground">
-                  No es un roadmap: es el código que ya viene en el paquete.
-                </span>
+                Scorecard, IFRS 9 y provisiones CMF de Chile. El informe de validación sale con los
+                parámetros que la corrida usó de verdad y el lineage para reproducirla en otra
+                máquina.
               </p>
 
               {DEMO_MODE ? (

@@ -35,24 +35,26 @@ const CURATED: Record<string, PresetDisplay> = {
   [F1_ID]: {
     title: "Scorecard de comportamiento",
     garantia: "estable",
+    // Los blurbs se muestran completos (sin `line-clamp`), así que se mantienen cortos y de largo
+    // parejo: un texto que el layout corta a media palabra se lee como un error, no como un resumen.
+    // Lo que el badge ya dice —la garantía— no se repite aquí.
     blurb:
-      "Binning WoE monotónico, selección por IV y VIF, logística sobre WoE y calibración a " +
-      "scorecard, con AUC/KS y PSI. Es la única superficie bajo garantía SemVer 1.x. Genérico LatAm.",
+      "Binning WoE monotónico, selección por IV y VIF, logística sobre WoE y calibración, " +
+      "con AUC, KS y PSI.",
   },
   [F3_ID]: {
     title: "CMF vs. método interno",
     garantia: "experimental",
     blurb:
-      "Provisión de consumo por el método estándar de la CMF (Chile, Cap. B-1) y por el método " +
-      "interno del banco (PD·LGD·Exposición), reportando por institución el mayor de los dos, " +
-      "según la regla del B-1.",
+      "Provisión de consumo por el método estándar de la CMF (Chile) y por el método interno " +
+      "del banco, reportando por institución el mayor de los dos.",
   },
   [F4_ID]: {
     title: "IFRS 9 / ECL retail",
     garantia: "experimental",
     blurb:
-      "Pérdida esperada IFRS 9 de tres etapas sobre cartera retail LatAm: staging por mora 30/90 " +
-      "días y ECL 12 meses / lifetime descontada a la tasa efectiva. Marco separado de la CMF.",
+      "Pérdida esperada IFRS 9 de tres etapas sobre cartera retail LatAm: staging por mora y ECL " +
+      "a 12 meses o lifetime. Marco separado de la CMF.",
   },
 }
 
