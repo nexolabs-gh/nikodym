@@ -22,8 +22,8 @@
 Censo sobre el árbol versionado: **454 ocurrencias del string en 105 archivos**, con **52 códigos
 distintos** repartidos en tres grupos que hoy comparten una sola marca. Dos precisiones del censo:
 
-- Son **52**, no 51: `FALTA-DATO-STR-LGD` (`stress/engine.py:353`) **no está declarado en ningún SDD**
-  — nació en el código y no sigue la numeración de su familia.
+- Son **52**, no 51: `FALTA-DATO-STR-LGD` (`stress/engine.py`) **no está declarado en ningún SDD**
+  — nació en el código y no sigue la numeración de su familia (por eso se normaliza a `STR-8`).
 - Existe además `FALTA-DATO-PROV` **sin número** (`orchestrator.py:523`), con `PROV-2` libre.
 - **30 de los 52 no aparecen en `src/`**: viven sólo en la sección «FALTA-DATO explícitos» de su SDD.
   Son *decisiones de diseño*, no marcas que el motor emita. La distinción operativa que importa es

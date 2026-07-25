@@ -33,7 +33,7 @@
 **Límites explícitos (qué NO hace, y quién lo hace).**
 - **No valida modelos ni hace backtesting formal.** ESPECIFICACIONES separa la validación avanzada en F6/SDD-22: discriminación, calibración, estabilidad y backtesting aparecen como sucesor, no como responsabilidad de `stress` (ESPECIFICACIONES.md:L150-L155).
 - **No calcula métricas ROC/AUC/Gini/KS, Hosmer-Lemeshow, binomial, traffic-light, Brier, PSI ni t-test ECB.** Todas esas métricas pertenecen a SDD-22/F6.
-- **No inventa escenarios regulatorios EBA, CCAR/DFAST, ICAAP ni CMF.** ESPECIFICACIONES solo los cita como frameworks conceptuales y reverse stress (ESPECIFICACIONES.md:L153-L154); los shocks entran por config o fallan como `FALTA-DATO-STR`.
+- **No inventa escenarios regulatorios EBA, CCAR/DFAST, ICAAP ni CMF.** ESPECIFICACIONES solo los cita como frameworks conceptuales y reverse stress (ESPECIFICACIONES.md:L153-L154); los shocks entran por config o fallan como `DATO-INSTITUCIONAL-STR`.
 - **No recalibra el satellite model.** SDD-20 ajusta/carga satellite models; `stress` los aplica bajo shocks y registra la fuente.
 - **No rediseña `forward`, `survival` ni `markov`.** Reusa la term-structure y los contratos CT-2 ya publicados por SDD-18/19/20.
 - **No implementa staging, SICR, LGD/EAD faltantes, EIR, descuento ni piso prudencial CMF.** SDD-16/17 calculan ECL/provisiones completas.
@@ -150,7 +150,7 @@ additive: x_str = x + a_s · δ
 relative: x_str = x · (1 + a_s · δ)
 ```
 
-`stress` no decide si `δ` es macroeconómicamente plausible. Valida que el shock esté declarado, que los factores existan, que no produzca valores no finitos, y que la fuente quede auditada. La plausibilidad regulatoria/institucional es responsabilidad del usuario o de una fuente oficial que se conecte como input; si no existe, queda `FALTA-DATO-STR`.
+`stress` no decide si `δ` es macroeconómicamente plausible. Valida que el shock esté declarado, que los factores existan, que no produzca valores no finitos, y que la fuente quede auditada. La plausibilidad regulatoria/institucional es responsabilidad del usuario o de una fuente oficial que se conecte como input; si no existe, queda como aviso `DATO-INSTITUCIONAL-STR`.
 
 **Más severo que `adverse`.** SDD-20 ya define escenarios base/adverse/severe para forward. `stress` se ubica fuera del caso base IFRS 9: puede tomar el escenario `severe` forward como punto de partida o aplicar shocks adicionales sobre cualquier escenario forward. Si `cfg.validation.require_dominates_forward_adverse=True`, cada shock comparable debe cumplir:
 
@@ -158,7 +158,7 @@ relative: x_str = x · (1 + a_s · δ)
 abs(a_s · δ_{s,j}) >= abs(δ_adverse,j)
 ```
 
-para factores y operaciones comparables. Si no existe `δ_adverse,j` trazable en forward, el motor no inventa la comparación: registra `FALTA-DATO-STR-1` y falla cuando `fail_on_falta_dato=True`.
+para factores y operaciones comparables. Si no existe `δ_adverse,j` trazable en forward, el motor no inventa la comparación: registra `DATO-INSTITUCIONAL-STR-1` y falla cuando `fail_on_falta_dato=True`.
 
 **Satellite bajo stress.** La propagación central reutiliza la forma de SDD-20:
 
@@ -367,7 +367,7 @@ class StressStep(AuditableMixin):
 | `"impact"` | `pandas.DataFrame` | impactos por métrica, escenario y severidad |
 | `"sensitivity"` | `tuple[StressSensitivityResult, ...]` | resultados de barridos |
 | `"reverse"` | `tuple[ReverseStressResult, ...]` | resultados de reverse stress |
-| `"diagnostics"` | `StressDiagnostics` | warnings, FALTA-DATO, monotonicidad y dependencias |
+| `"diagnostics"` | `StressDiagnostics` | warnings, avisos declarados, monotonicidad y dependencias |
 | `"result"` | `StressResult` | contenedor agregado |
 | `"card"` | `StressCard` | resumen governance/report con `metric_sections` CT-2 |
 
@@ -506,8 +506,8 @@ class StressConfig(NikodymBaseConfig):
 - `reverse.bracket` debe cumplir `lo < hi`, ambos finitos y no negativos.
 - `reverse.target` es obligatorio cuando `reverse.enabled=True`.
 - Targets `ecl`, `provision`, `loss` o `ratio` requieren `ecl_engine_artifact` o un engine pasado por API si `requires_economic_engine=True`.
-- Si `require_dominates_forward_adverse=True` y no se puede demostrar dominancia frente a forward adverse, se registra `FALTA-DATO-STR-1` y por default falla.
-- Si se marca `source="official"` sin metadata de archivo/hash/fuente externa en el input, se registra `FALTA-DATO-STR-2` y por default falla.
+- Si `require_dominates_forward_adverse=True` y no se puede demostrar dominancia frente a forward adverse, se registra `DATO-INSTITUCIONAL-STR-1` y por default falla.
+- Si se marca `source="official"` sin metadata de archivo/hash/fuente externa en el input, se registra `DATO-INSTITUCIONAL-STR-2` y por default falla.
 
 **Campos, defaults y sentido.**
 - `input.forward_domain`: dominio desde el que se leen artefactos forward; default `"forward"` por convención SDD-20.
@@ -524,7 +524,7 @@ class StressConfig(NikodymBaseConfig):
 - `ReverseStressConfig.max_iterations`: default D-STR-5 `64`, suficiente para bisección doble precisión en brackets razonables, **default a confirmar por Cami**.
 - `StressOutputConfig.metrics`: incluye `ecl` por defecto para exponer el alcance pedido; si no hay engine, se falla ruidoso o se reduce por config.
 
-**Round-trip YAML y UI.** El round-trip sigue SDD-05: dump JSON-mode, `sort_keys=False`, carga vía `load_config`. La UI debe renderizar escenarios como tabla de shocks, grilla de sensibilidad como control numérico, reverse stress como target + bracket + tolerancias, y advertencias visibles para `FALTA-DATO-STR`.
+**Round-trip YAML y UI.** El round-trip sigue SDD-05: dump JSON-mode, `sort_keys=False`, carga vía `load_config`. La UI debe renderizar escenarios como tabla de shocks, grilla de sensibilidad como control numérico, reverse stress como target + bracket + tolerancias, y advertencias visibles para los avisos declarados de la etapa.
 
 **Hook diferido en `core.config.schema`.**
 - declarar `_STRESS_CONFIG_CLS: type[BaseModel] | None = None`;
@@ -666,7 +666,7 @@ El contrato forward está documentado en SDD-20 (20-forward.md:L556-L585). Si fa
 14. **Ejecutar reverse stress.** Para cada `ReverseStressConfig.enabled`, validar bracket, chequear monotonicidad y correr bisección.
 15. **Validar invariantes.** Probabilidades, monotonicidad, columnas, no finitos, engines requeridos y outputs.
 16. **Construir DTOs.** `StressDiagnostics`, `StressCard`, `StressResult` y subresultados frozen.
-17. **Auditar decisiones.** Escenarios, shocks, FALTA-DATO, sensibilidad, reverse path, engines y resultados.
+17. **Auditar decisiones.** Escenarios, shocks, avisos declarados, sensibilidad, reverse path, engines y resultados.
 18. **Publicar artefactos.** Escribir todas las claves `provides` bajo `"stress"`.
 
 **Flujos internos por clase.**
@@ -705,8 +705,8 @@ El contrato forward está documentado en SDD-20 (20-forward.md:L556-L585). Si fa
 - **Operación relativa sobre factor con ceros/negativos sin política:** `StressConfigError`.
 - **Períodos fuera del horizonte forward:** `StressConfigError`.
 - **No existe `base_forward_scenario`:** `StressScenarioError`.
-- **No se puede comparar dominancia frente a adverse:** `FALTA-DATO-STR-1`; por default falla.
-- **Fuente oficial declarada sin evidencia/hash:** `FALTA-DATO-STR-2`; por default falla.
+- **No se puede comparar dominancia frente a adverse:** `DATO-INSTITUCIONAL-STR-1`; por default falla.
+- **Fuente oficial declarada sin evidencia/hash:** `DATO-INSTITUCIONAL-STR-2`; por default falla.
 - **Probabilidades fuera de `[0,1]`:** `StressEngineError`; no se clipea silenciosamente fuera de tolerancia.
 - **PD acumulada decrece tras stress:** `StressEngineError`.
 - **Engine ECL requerido y ausente:** `StressDependencyError`.
@@ -736,14 +736,14 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - **Audit trail (`log_decision`).** Registrar como mínimo:
   - `stress_forward_inputs`: claves, hashes auxiliares, escenarios forward y contract_version;
   - `stress_scenario_config`: nombres, fuentes, factores, operaciones, severidades y períodos;
-  - `stress_dominance_check`: comparación frente a adverse/severe forward o `FALTA-DATO`;
+  - `stress_dominance_check`: comparación frente a adverse/severe forward o aviso `DATO-INSTITUCIONAL-STR-1`;
   - `stress_macro_application`: filas afectadas, valores base, shocks aplicados y warnings;
   - `stress_satellite_application`: modelo satellite, factores, coeficientes/metadata y delta logit;
   - `stress_term_structure`: filas, probabilidades, monotonicidad y basis PIT/TTC;
   - `stress_economic_engine`: engine usado, versión, métricas calculadas y ausencia si no aplica;
   - `stress_sensitivity`: grilla, métrica, resultados, monotonicidad y warnings;
   - `stress_reverse`: target, bracket, tolerancias, iteraciones, convergencia y path;
-  - `stress_falta_dato`: brechas `FALTA-DATO-STR` y si bloquearon.
+  - `stress_falta_dato`: avisos declarados de stress y si bloquearon.
 - **Card / report.** `StressCard.metric_sections` debe incluir `"scenario_impacts"`, `"sensitivity_curves"`, `"reverse_stress"`, `"term_structure_summary"` y `"falta_dato"` cuando existan.
 - **Lineage.** `stress` consume `config_hash` y hashes auxiliares de forward; agrega hashes de stress inputs/outputs, no reemplaza el lineage base.
 
@@ -797,7 +797,7 @@ Marco transversal en SDD-24. Cobertura objetivo 100% para módulos `stress`. `fi
 - **Bisección sin bracket.** Si target queda fuera de `[lo,hi]`, `ReverseStressError` incluye `M(lo)`, `M(hi)` y `threshold`.
 - **No monotonicidad.** Un engine stub no monotónico activa `NonMonotonicStressError` cuando `require_monotonic=True`.
 - **Dominancia adverse.** Si `require_dominates_forward_adverse=True` y el shock severo es menor que adverse comparable, `StressScenarioError`.
-- **FALTA-DATO escenarios oficiales.** `source="official"` sin hash/fuente registra `FALTA-DATO-STR-2` y falla con `fail_on_falta_dato=True`.
+- **Escenarios oficiales sin evidencia.** `source="official"` sin hash/fuente registra `DATO-INSTITUCIONAL-STR-2` y falla con `fail_on_falta_dato=True`.
 - **Engine faltante.** Métrica `ecl` sin `EclEngineLike` levanta `StressDependencyError` si `fail_on_missing_ecl_engine=True`.
 - **Forward-only.** Métricas `pd_marginal`/`pd_cumulative` funcionan sin ECL engine y publican `engine_source="forward_only"`.
 - **CT-1 dinámico.** `StressStep.from_config` requiere artefactos forward y agrega engine artifacts solo si targets lo necesitan.
@@ -823,18 +823,19 @@ Fixtures: `forward_macro_projection_small.parquet` sintético, `forward_term_str
 - **D-STR-5 — Iteraciones máximas reverse.** Recomendación: `max_iterations=64`, **default a confirmar por Cami**.
 - **D-STR-6 — Reverse stress en v0.1.0 de stress.** Recomendación: incluirlo en B21.2 porque ESPECIFICACIONES lo nombra explícitamente, pero con targets configurados por usuario.
 - **D-STR-7 — ECL como métrica default.** Recomendación: dejar `ecl` en `output.metrics` para representar el objetivo económico, pero fallar ruidoso si no hay engine.
-- **D-STR-8 — Dominancia frente a adverse.** Recomendación: exigir dominancia cuando los shocks sean comparables y fallar con `FALTA-DATO` si no se puede demostrar.
+- **D-STR-8 — Dominancia frente a adverse.** Recomendación: exigir dominancia cuando los shocks sean comparables y fallar con el aviso declarado si no se puede demostrar.
 - **D-STR-9 — Operación de shock default.** Recomendación: `additive` por transparencia en factores macro expresados en puntos/tasas, **default a confirmar por Cami**.
 - **D-STR-10 — Sin Monte Carlo en v1.** Recomendación: no incluir simulación hasta tener validación y governance de semillas; stress v1 determinista.
 
-**FALTA-DATO explícitos.**
-- **FALTA-DATO-STR-1 — Shocks adverse/severe comparables de forward.** Si forward no trae magnitudes trazables por factor, no se puede probar que stress domina adverse.
-- **FALTA-DATO-STR-2 — Escenarios oficiales EBA/CCAR/DFAST/ICAAP.** No hay paths ni parámetros oficiales embebidos; deben venir de fuente institucional/oficial versionada.
-- **FALTA-DATO-STR-3 — Umbrales de capital o pérdida regulatorios chilenos.** No se inventan thresholds para reverse stress; el usuario los declara.
-- **FALTA-DATO-STR-4 — Calibración institucional de severidades.** Magnitudes de shocks por cartera/factor deben venir del usuario o análisis aprobado.
-- **FALTA-DATO-STR-5 — Motor ECL/provisión conectado.** Los impactos económicos completos requieren un artefacto de engine explícito; `stress` no importa ni adivina SDD-16/17.
-- **FALTA-DATO-STR-6 — Métricas ratio específicas.** Denominadores como capital, patrimonio efectivo, RWA o cartera vigente no están definidos en SDD-21.
-- **FALTA-DATO-STR-7 — Política de shock relativo sobre factores negativos.** Debe declararse por factor si se usa `operation="relative"`.
+**Avisos declarados (taxonomía: `_ENMIENDA-TAXONOMIA-MARCAS.md`).** Siete de los ocho declaran un
+input que aporta la institución; sólo STR-5 es una brecha del motor.
+- **DATO-INSTITUCIONAL-STR-1 — Shocks adverse/severe comparables de forward.** Si forward no trae magnitudes trazables por factor, no se puede probar que stress domina adverse.
+- **DATO-INSTITUCIONAL-STR-2 — Escenarios oficiales EBA/CCAR/DFAST/ICAAP.** No hay paths ni parámetros oficiales embebidos; deben venir de fuente institucional/oficial versionada.
+- **DATO-INSTITUCIONAL-STR-3 — Umbrales de capital o pérdida regulatorios chilenos.** No se inventan thresholds para reverse stress; el usuario los declara.
+- **DATO-INSTITUCIONAL-STR-4 — Calibración institucional de severidades.** Magnitudes de shocks por cartera/factor deben venir del usuario o análisis aprobado.
+- **FALTA-DATO-STR-5 — Motor ECL/provisión conectado (brecha del motor).** Los impactos económicos completos requieren un artefacto de engine explícito; `stress` no importa ni adivina SDD-16/17.
+- **DATO-INSTITUCIONAL-STR-6 — Métricas ratio específicas.** Denominadores como capital, patrimonio efectivo, RWA o cartera vigente no están definidos en SDD-21.
+- **DATO-INSTITUCIONAL-STR-7 — Política de shock relativo sobre factores negativos.** Debe declararse por factor si se usa `operation="relative"`.
 
 **Riesgos y mitigaciones.**
 - **Stress se confunde con validación.** Mitigación: frontera dura hacia SDD-22 en §1/§2 y test anti métricas de validación.

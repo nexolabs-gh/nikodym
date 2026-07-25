@@ -296,7 +296,7 @@ def test_diagnostics_y_card_golden_payloads_copias_y_defaults() -> None:
         scenario_count=1,
         sensitivity_count=1,
         reverse_count=1,
-        falta_dato_codes=("FALTA-DATO-STR-1",),
+        falta_dato_codes=("DATO-INSTITUCIONAL-STR-1",),
         warning_codes=("WARN-STR-1",),
         dependency_versions=dependency_versions,
     )
@@ -334,7 +334,7 @@ def test_diagnostics_y_card_golden_payloads_copias_y_defaults() -> None:
         "scenario_count": 1,
         "sensitivity_count": 1,
         "reverse_count": 1,
-        "falta_dato_codes": ["FALTA-DATO-STR-1"],
+        "falta_dato_codes": ["DATO-INSTITUCIONAL-STR-1"],
         "warning_codes": ["WARN-STR-1"],
         "dependency_versions": {"pandas": "2.3.3", "engine": "1", "0.0": "0.0", "flag": "True"},
     }

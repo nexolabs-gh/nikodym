@@ -669,7 +669,7 @@ def test_source_official_sin_metadata_falla_falta_dato_str_2() -> None:
     """Escenarios oficiales sin evidencia/hash no se aceptan por default."""
     scenario = _scenario(shocks=(_shock(source="official"),))
     validation = _validation_relajada(fail_on_falta_dato=True)
-    with pytest.raises(StressFaltaDatoError, match="FALTA-DATO-STR-2"):
+    with pytest.raises(StressFaltaDatoError, match="DATO-INSTITUCIONAL-STR-2"):
         _cfg(scenarios=(scenario,), validation=validation)
 
 

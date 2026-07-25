@@ -45,7 +45,7 @@ class StressDependencyError(StressError):
 
 
 class StressFaltaDatoError(StressError):
-    """Error por brecha FALTA-DATO-STR que no puede inventarse silenciosamente."""
+    """Error por un aviso declarado de stress que no puede inventarse silenciosamente."""
 
 
 class ReverseStressError(StressEngineError):

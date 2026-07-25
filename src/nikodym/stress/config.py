@@ -657,7 +657,8 @@ class StressValidationConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante falta de dato",
         description=(
-            "Si es True, las brechas de datos declaradas (avisos `FALTA-DATO-STR-*`) hacen "
+            "Si es True, los avisos declarados de esta etapa (`FALTA-DATO-STR-*` y "
+            "`DATO-INSTITUCIONAL-STR-*`) hacen "
             "fallar la corrida en vez de solo advertir."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Validación", "ui_order": 7},
@@ -936,7 +937,7 @@ def _check_missing_economic_engine(cfg: StressConfig) -> None:
 
 
 def _check_falta_dato(cfg: StressConfig) -> None:
-    """Valida brechas FALTA-DATO-STR que no pueden demostrarse desde config puro."""
+    """Valida avisos declarados de stress que no pueden demostrarse desde config puro."""
     if not cfg.validation.fail_on_falta_dato:
         return
     official_shocks = [
@@ -947,6 +948,6 @@ def _check_falta_dato(cfg: StressConfig) -> None:
     ]
     if official_shocks:
         raise StressFaltaDatoError(
-            "FALTA-DATO-STR-2: source='official' exige metadata externa de archivo/hash/fuente; "
-            f"sin evidencia={official_shocks}."
+            "DATO-INSTITUCIONAL-STR-2: source='official' exige metadata externa de "
+            f"archivo/hash/fuente; sin evidencia={official_shocks}."
         )

@@ -2882,7 +2882,7 @@ def test_lgd_solicitado_sin_datos_falla_o_emite_falta_dato() -> None:
     relaxed_result = _run_forward_only(relaxed_cfg, term=term, audit=relaxed_audit)
 
     assert relaxed_result.tidy().empty
-    assert relaxed_result.diagnostics.falta_dato_codes == ("FALTA-DATO-STR-LGD",)
+    assert relaxed_result.diagnostics.falta_dato_codes == ("DATO-INSTITUCIONAL-STR-8",)
     falta_event = next(
         event.payload
         for event in relaxed_audit.events
@@ -2900,7 +2900,7 @@ def test_lgd_solicitado_sin_datos_falla_o_emite_falta_dato() -> None:
             fail_on_missing_ecl_engine=True,
         ),
     )
-    with pytest.raises(StressFaltaDatoError, match="FALTA-DATO-STR-LGD"):
+    with pytest.raises(StressFaltaDatoError, match="DATO-INSTITUCIONAL-STR-8"):
         _run_forward_only(strict_cfg, term=term)
 
 
@@ -2934,7 +2934,7 @@ def test_lgd_solicitado_con_columnas_faltantes_emite_falta_dato() -> None:
     result = _run_forward_only(cfg, term=term)
 
     assert result.tidy().empty
-    assert result.diagnostics.falta_dato_codes == ("FALTA-DATO-STR-LGD",)
+    assert result.diagnostics.falta_dato_codes == ("DATO-INSTITUCIONAL-STR-8",)
 
 
 def test_impactos_economicos_publican_periodos_string_como_enteros() -> None:
@@ -3077,8 +3077,8 @@ def test_dominancia_adverse_y_falta_dato_segun_config() -> None:
         macro=_macro_projection(periods=(1,), include_adverse=False),
         audit=missing_audit,
     )
-    assert result.diagnostics.falta_dato_codes == ("FALTA-DATO-STR-1",)
-    assert result.scenario_results[0].warning_codes == ("FALTA-DATO-STR-1",)
+    assert result.diagnostics.falta_dato_codes == ("DATO-INSTITUCIONAL-STR-1",)
+    assert result.scenario_results[0].warning_codes == ("DATO-INSTITUCIONAL-STR-1",)
     missing_events = [event.payload for event in missing_audit.events]
     dominance_event = next(
         payload for payload in missing_events if payload["regla"] == "stress_dominance_check"
@@ -3089,7 +3089,7 @@ def test_dominancia_adverse_y_falta_dato_segun_config() -> None:
         payload for payload in missing_events if payload["regla"] == "stress_falta_dato"
     )
     assert falta_event["valor"]["reason"] == "missing_forward_adverse_delta"
-    assert falta_event["umbral"] == {"code": "FALTA-DATO-STR-1", "blocked": False}
+    assert falta_event["umbral"] == {"code": "DATO-INSTITUCIONAL-STR-1", "blocked": False}
 
     strict_cfg = StressConfig(
         scenarios=(_scenario(require_dominates=True),),
@@ -3097,7 +3097,7 @@ def test_dominancia_adverse_y_falta_dato_segun_config() -> None:
         validation=StressValidationConfig(),
     )
     strict_audit = InMemoryAuditSink()
-    with pytest.raises(StressFaltaDatoError, match="FALTA-DATO-STR-1"):
+    with pytest.raises(StressFaltaDatoError, match="DATO-INSTITUCIONAL-STR-1"):
         _run_forward_only(
             strict_cfg,
             macro=_macro_projection(periods=(1,), include_adverse=False),
@@ -3109,7 +3109,7 @@ def test_dominancia_adverse_y_falta_dato_segun_config() -> None:
         if event.payload["regla"] == "stress_falta_dato"
     )
     assert strict_falta["accion"] == "block"
-    assert strict_falta["umbral"] == {"code": "FALTA-DATO-STR-1", "blocked": True}
+    assert strict_falta["umbral"] == {"code": "DATO-INSTITUCIONAL-STR-1", "blocked": True}
 
 
 def test_dominancia_default_estricta_corre_con_adverse_comparable() -> None:
@@ -3550,19 +3550,19 @@ def test_engines_invalidos_missing_relajado_y_source_official() -> None:
         ecl_engine=ecl,
         audit=official_audit,
     )
-    assert official_result.diagnostics.falta_dato_codes == ("FALTA-DATO-STR-2",)
+    assert official_result.diagnostics.falta_dato_codes == ("DATO-INSTITUCIONAL-STR-2",)
     official_falta = next(
         event.payload
         for event in official_audit.events
         if event.payload["regla"] == "stress_falta_dato"
     )
     assert official_falta["valor"]["source"] == "official"
-    assert official_falta["umbral"] == {"code": "FALTA-DATO-STR-2", "blocked": False}
+    assert official_falta["umbral"] == {"code": "DATO-INSTITUCIONAL-STR-2", "blocked": False}
     official_warnings = {
         str(row.metric): row.warning_codes for row in official_result.tidy().itertuples(index=False)
     }
-    assert official_warnings["pd_marginal"] == ("FALTA-DATO-STR-2",)
-    assert official_warnings["ecl"] == ("FALTA-DATO-STR-2",)
+    assert official_warnings["pd_marginal"] == ("DATO-INSTITUCIONAL-STR-2",)
+    assert official_warnings["ecl"] == ("DATO-INSTITUCIONAL-STR-2",)
     assert ecl.calls[1].loc[0, "scenario_weight"] == pytest.approx(1.0)
 
 
@@ -3968,7 +3968,7 @@ def test_helpers_de_adverse_macro_y_validadores_tabulares_directos() -> None:
         source="official",
         description=None,
     )
-    with pytest.raises(StressFaltaDatoError, match="FALTA-DATO-STR-2"):
+    with pytest.raises(StressFaltaDatoError, match="DATO-INSTITUCIONAL-STR-2"):
         engine_module._validate_shock_source(official, scenario=_scenario(), cfg=strict_cfg)
 
     adverse_model = pd.DataFrame(
@@ -4293,7 +4293,7 @@ def test_helpers_satellite_economicos_y_frames_privados() -> None:
         audit=None,
     )
     assert lgd_rows == []
-    assert lgd_warnings == ("FALTA-DATO-STR-LGD",)
+    assert lgd_warnings == ("DATO-INSTITUCIONAL-STR-8",)
     pd_rows, pd_warnings = engine_module._forward_only_impact_rows(
         scenario,
         severity=1.0,
