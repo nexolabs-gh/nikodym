@@ -1128,9 +1128,9 @@ figcaption {
 
   <div class="lineage-box">
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
-    <div class="lineage-line"><code>config_hash=66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9</code></div>
+    <div class="lineage-line"><code>config_hash=857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d</code></div>
     <div class="lineage-line"><code>data_hash=7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</code></div>
-    <div class="lineage-line"><code>git_sha=4e44f18b2a9cc0bf7aff659612546b59904a35b8</code></div>
+    <div class="lineage-line"><code>git_sha=fc651dc272835aa729bc7cabeb55e3312ea95eae</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -4120,12 +4120,12 @@ L 420.51375 486.278125
 
   <h4>Parámetros y payload</h4>
   <dl>
-    <dt>config_hash</dt><dd>66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9</dd>
-    <dt>created_at</dt><dd>2026-07-25T04:09:43.879020Z</dd>
+    <dt>config_hash</dt><dd>857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d</dd>
+    <dt>created_at</dt><dd>2026-07-25T22:25:25.717396Z</dd>
     <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>4e44f18b2a9cc0bf7aff659612546b59904a35b8</dd>
+    <dt>git_sha</dt><dd>fc651dc272835aa729bc7cabeb55e3312ea95eae</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.5.0&#34;,
@@ -5193,6 +5193,22 @@ L 420.51375 486.278125
     <dt>regulatory_sources</dt><dd><pre>[
   &#34;docs/normativa_cmf_parametros.md §3&#34;
 ]</pre></dd>
+    <dt>segmentation</dt><dd><pre>{
+  &#34;closed&#34;: true,
+  &#34;column&#34;: &#34;cmf_portfolio&#34;,
+  &#34;owner&#34;: &#34;regime&#34;,
+  &#34;regime&#34;: &#34;CL-CMF-B1&#34;,
+  &#34;scheme_id&#34;: &#34;cl-cmf-b1-portfolios&#34;,
+  &#34;values&#34;: [
+    &#34;commercial_individual&#34;,
+    &#34;commercial_group_leasing&#34;,
+    &#34;commercial_group_student&#34;,
+    &#34;commercial_group_generic_factoring&#34;,
+    &#34;consumer&#34;,
+    &#34;housing&#34;
+  ],
+  &#34;version&#34;: &#34;2025-01&#34;
+}</pre></dd>
     <dt>total_exposure_amount</dt><dd>8079005433.76</dd>
     <dt>total_provision_amount</dt><dd>697376973.92</dd>
   </dl>
@@ -5237,6 +5253,7 @@ L 420.51375 486.278125
   &#34;pd_column&#34;: &#34;pd_calibrated&#34;,
   &#34;pd_source&#34;: &#34;calibration&#34;,
   &#34;portfolio_col&#34;: &#34;cmf_portfolio&#34;,
+  &#34;portfolio_scheme&#34;: null,
   &#34;rounding&#34;: &#34;currency_2dp&#34;,
   &#34;schema_version&#34;: &#34;1.0.0&#34;,
   &#34;type&#34;: &#34;standard&#34;
@@ -5247,6 +5264,7 @@ L 420.51375 486.278125
     <dt>n_groups</dt><dd>10</dd>
     <dt>n_rows</dt><dd>6000</dd>
     <dt>pd_source</dt><dd>calibration</dd>
+    <dt>segmentation</dt><dd>—</dd>
     <dt>total_exposure</dt><dd>8079005433.76</dd>
     <dt>total_internal_provision</dt><dd>308644057.91</dd>
   </dl>
@@ -5260,8 +5278,8 @@ L 420.51375 486.278125
   },
   &#34;lgd_method&#34;: &#34;provided&#34;,
   &#34;method&#34;: &#34;pd_lgd&#34;,
+  &#34;metodo&#34;: &#34;provisión = exposición del grupo · PD estimada · pérdida dado el incumplimiento.&#34;,
   &#34;n_score_bands&#34;: 10,
-  &#34;norma&#34;: &#34;CMF Cap. B-1 §3 (Circular N° 2.346): provisión = colocaciones del grupo · PD estimada · pérdida dado el incumplimiento.&#34;,
   &#34;pd_aggregation&#34;: &#34;exposure_weighted&#34;,
   &#34;rounding&#34;: &#34;currency_2dp&#34;,
   &#34;total_expected_loss_rate&#34;: &#34;0.0382&#34;,

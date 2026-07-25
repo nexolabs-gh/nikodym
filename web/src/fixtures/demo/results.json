@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "51ffa8e34b8a490980cc31c356911db6",
+ "run_id": "b86105938efa44b5bc2f9d3231cf2f45",
  "error": null,
  "model_card": null,
  "binning": {
@@ -10051,6 +10051,22 @@
   "regulatory_sources": [
    "docs/normativa_cmf_parametros.md §3"
   ],
+  "segmentation": {
+   "scheme_id": "cl-cmf-b1-portfolios",
+   "owner": "regime",
+   "version": "2025-01",
+   "column": "cmf_portfolio",
+   "values": [
+    "commercial_individual",
+    "commercial_group_leasing",
+    "commercial_group_student",
+    "commercial_group_generic_factoring",
+    "consumer",
+    "housing"
+   ],
+   "closed": true,
+   "regime": "CL-CMF-B1"
+  },
   "metric_sections": {
    "cmf_b1_engine": {
     "matrix_sha256": "6272bd0dfa5821db8def039014d7288b694b520f51ddda5a0b52349ce2e8d794",
@@ -10292,9 +10308,10 @@
   "total_exposure": 8079005433.76,
   "total_internal_provision": 308644057.91,
   "falta_dato": [],
+  "segmentation": null,
   "metric_sections": {
    "provisioning_internal": {
-    "norma": "CMF Cap. B-1 §3 (Circular N° 2.346): provisión = colocaciones del grupo · PD estimada · pérdida dado el incumplimiento.",
+    "metodo": "provisión = exposición del grupo · PD estimada · pérdida dado el incumplimiento.",
     "method": "pd_lgd",
     "grouping": "score_band",
     "n_score_bands": 10,
