@@ -592,6 +592,9 @@ _PROVISIONES_SECTIONS: dict[str, Any] = {
         "type": "standard",
         "as_of_date_col": "as_of_date",
         "portfolio_col": "cmf_portfolio",
+        # El None va EXPLÍCITO: el dump del config —y por tanto el config_hash— cambia según qué
+        # capas estén importadas si el preset se apoya en el default (D-SEG-3).
+        "portfolio_scheme": None,
         "exposure_col": "exposure_amount",
         "pd_source": "calibration",
         "pd_column": "pd_calibrated",
@@ -754,6 +757,7 @@ _IFRS9_PROVISIONING_SECTION: dict[str, Any] = {
     "as_of_date_col": "as_of_date",
     "row_id_col": None,
     "portfolio_col": "portfolio",
+    "portfolio_scheme": None,
     "pd": {
         "term_structure_source": "survival",
         "base_pd_source": "term_structure",

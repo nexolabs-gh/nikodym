@@ -302,6 +302,7 @@ class CmfProvisioningEngine:
             matrix_bundle=self.matrices,
             summary=summary,
             decimal=decimal,
+            portfolio_col=cfg.portfolio_col,
         )
         result = CmfProvisionResult(
             detail=detail,
@@ -1951,6 +1952,7 @@ def _card(
     matrix_bundle: CmfMatrixBundle,
     summary: DataFrame,
     decimal: DecimalRuntime,
+    portfolio_col: str,
 ) -> CmfProvisionCard:
     """Construye la card CMF agregada para governance/report."""
     total_exposure = sum((record.exposure_amount for record in records), decimal.zero)
@@ -1989,6 +1991,9 @@ def _card(
         total_provision_amount=total_provision,
         portfolios=portfolio_summaries,
         regulatory_sources=sources,
+        # El motor estándar chileno ES su régimen, así que su esquema no se elige: se declara y
+        # viaja en el resultado (D-SEG-3), con la columna efectiva de esta corrida.
+        segmentation=regime_scheme(_CMF_REGIME).model_copy(update={"column": portfolio_col}),
         metric_sections={
             "cmf_b1_engine": {
                 "matrix_sha256": matrix_bundle.manifest.yaml_sha256,

@@ -220,6 +220,7 @@ def test_ifrs_provision_card_golden_metric_sections_y_copias() -> None:
         "scenario_weights",
         "dependency_versions",
         "falta_dato",
+        "segmentation",
         "metric_sections",
     )
     observed = card.metric_sections

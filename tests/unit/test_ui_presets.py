@@ -230,7 +230,7 @@ def test_endpoint_config_preset() -> None:
 # y actualizar este valor conscientemente. Estable con/sin la capa de dominio importada (el config
 # deja ``target_pd: None`` explícito = su forma canónica; ver la nota en ``ui/presets.py``).
 # Actualizado en 1.4.0 al EXCLUIR ``data.load.source`` del config_hash (ver nota en el hash F1).
-_EXPECTED_F3_CONFIG_HASH = "66cfffd0a9bf096ae7197e923f3d77bef483eb02f41f15e3555d657365a887d9"
+_EXPECTED_F3_CONFIG_HASH = "857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d"
 
 
 def test_provisiones_preset_shape() -> None:
@@ -289,7 +289,7 @@ def test_provisiones_preset_activa_las_tres_secciones_y_la_regla_real() -> None:
 # condiciones al pinnearlo). Protege la identidad del preset justo cuando los fixtures de
 # demo.nikodym.cl se recapturan contra él.
 # Actualizado en 1.4.0 al EXCLUIR ``data.load.source`` del config_hash (ver nota en el hash F1).
-_EXPECTED_F4_CONFIG_HASH = "cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4"
+_EXPECTED_F4_CONFIG_HASH = "92163dd24fced5a0dd0a8c4ae971481502f3a396b9014eafb3205f78c7491660"
 
 
 def test_ifrs9_preset_config_valida_y_hash_estable() -> None:

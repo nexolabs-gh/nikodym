@@ -138,6 +138,7 @@ def test_cmf_provision_card_golden_metric_sections_default_y_copias() -> None:
         "total_provision_amount",
         "portfolios",
         "regulatory_sources",
+        "segmentation",
         "metric_sections",
     )
     assert card.model_dump(mode="json") == {
@@ -148,6 +149,7 @@ def test_cmf_provision_card_golden_metric_sections_default_y_copias() -> None:
         "total_provision_amount": "90.00036",
         "portfolios": [_portfolio_summary().model_dump(mode="json")],
         "regulatory_sources": ["CNC B-1 §2.1", "CNC B-3 §3"],
+        "segmentation": None,
         "metric_sections": {
             "zeta": {"serie": [2, {"b": "segundo", "a": "primero"}]},
             "alfa": {"valor": 1, "flags": ["ok"]},

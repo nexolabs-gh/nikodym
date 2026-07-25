@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from nikodym.provisioning.segmentation import SegmentationScheme
+
 if TYPE_CHECKING:
     import pandas
 
@@ -279,6 +281,9 @@ class IfrsProvisionCard(BaseModel):
     scenario_weights: dict[str, float]
     dependency_versions: dict[str, str]
     falta_dato: tuple[str, ...] = ()
+    # Ver D-SEG-3 en cmf/results.py: el esquema de segmentación viaja en el resultado, con default
+    # None para que una card anterior a la enmienda siga recargando.
+    segmentation: SegmentationScheme | None = None
     metric_sections: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("as_of_date", "term_structure_source", "pit_mode")

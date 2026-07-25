@@ -192,3 +192,27 @@ def regime_spec(regime_id: str) -> RegimeSpec:
 def regime_scheme(regime_id: str) -> SegmentationScheme:
     """Esquema de segmentación del régimen indicado."""
     return regime_spec(regime_id).scheme
+
+
+def scheme_by_id(scheme_id: str | None, *, column: str) -> SegmentationScheme | None:
+    """Resuelve el esquema que un motor no normativo declara para su columna de cartera.
+
+    Devuelve ``None`` cuando no se declaró ninguno: eso **no** es un error, es el estado de toda
+    config anterior a esta enmienda, y aguas arriba activa la red de seguridad de D-SEG-5 en vez de
+    romper la corrida. Un id que coincide con el de un esquema normativo conocido resuelve a ése
+    —así una institución que usa la taxonomía de la norma puede decirlo y evitarse el crosswalk—; y
+    cualquier otro id produce un esquema **institucional abierto**, porque el motor no tiene forma
+    de conocer el vocabulario del banco: sólo puede registrar cuál dijo que era.
+    """
+    if scheme_id is None:
+        return None
+    for spec in REGIME_REGISTRY.values():
+        if spec.scheme.scheme_id == scheme_id:
+            return spec.scheme.model_copy(update={"column": column})
+    return SegmentationScheme(
+        scheme_id=scheme_id,
+        owner=SchemeOwner.INSTITUTION,
+        version="declarado",
+        column=column,
+        closed=False,
+    )

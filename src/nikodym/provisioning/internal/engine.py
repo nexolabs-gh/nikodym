@@ -65,6 +65,7 @@ from nikodym.provisioning.internal.results import (
     InternalProvisionRecord,
     InternalProvisionResult,
 )
+from nikodym.provisioning.segmentation import scheme_by_id
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -774,6 +775,10 @@ def _card(
         )
     return InternalProvisionCard(
         as_of_date=as_of_date,
+        # El esquema viaja en el resultado (D-SEG-3). Con grouping='score_band' la llave de GRUPO
+        # se deriva en la corrida, pero lo que se compara contra otro motor es la CARTERA: es su
+        # taxonomía la que se declara aquí, y `None` significa «no declarada», no «no existe».
+        segmentation=scheme_by_id(cfg.portfolio_scheme, column=cfg.portfolio_col),
         method=cfg.method,
         grouping=cfg.grouping,
         pd_source=cfg.pd_source,

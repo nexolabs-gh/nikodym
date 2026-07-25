@@ -60,6 +60,7 @@ def _ifrs9_defaults() -> dict[str, Any]:
         "as_of_date_col": "as_of_date",
         "row_id_col": None,
         "portfolio_col": "portfolio",
+        "portfolio_scheme": None,
         "pd": {
             "term_structure_source": "survival",
             "base_pd_source": "term_structure",

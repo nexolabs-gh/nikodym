@@ -127,6 +127,16 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
     )
+    portfolio_scheme: str | None = Field(
+        default=None,
+        title="Esquema de carteras",
+        description=(
+            "Identificador de la taxonomía de carteras que usa la columna anterior. Declararlo "
+            "permite comparar contra otro motor sin mapeo cuando ambos usan la misma taxonomía; "
+            "si se omite, la comparación exige un mapeo explícito entre taxonomías."
+        ),
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 21},
+    )
     exposure_col: str = Field(
         default="exposure_amount",
         title="Exposición",

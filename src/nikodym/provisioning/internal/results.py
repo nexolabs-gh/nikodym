@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from nikodym.provisioning.segmentation import SegmentationScheme
+
 if TYPE_CHECKING:
     import pandas
 
@@ -116,6 +118,9 @@ class InternalProvisionCard(BaseModel):
     total_exposure: Decimal
     total_internal_provision: Decimal
     falta_dato: tuple[str, ...] = ()
+    # Ver D-SEG-3 en cmf/results.py: el esquema viaja en el resultado, con default None para que
+    # una card anterior a la enmienda siga recargando.
+    segmentation: SegmentationScheme | None = None
     metric_sections: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("total_exposure", "total_internal_provision")

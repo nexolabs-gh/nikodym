@@ -50,6 +50,7 @@ from nikodym.provisioning.ifrs9.results import (
     IfrsStageRecord,
 )
 from nikodym.provisioning.ifrs9.staging import StagingEngine
+from nikodym.provisioning.segmentation import scheme_by_id
 
 if TYPE_CHECKING:
     import numpy as np
@@ -528,6 +529,11 @@ class IfrsProvisioningEngine:
         }
         return IfrsProvisionCard(
             as_of_date=as_of_date,
+            # Ver D-SEG-3: el esquema de carteras viaja en el resultado para que el orquestador
+            # pueda contrastarlo contra el de la otra fuente sin adivinar.
+            segmentation=scheme_by_id(
+                self._config.portfolio_scheme, column=self._config.portfolio_col
+            ),
             term_structure_source=self._config.pd.term_structure_source,
             pit_mode=self._config.pd.pit_mode,
             n_rows=len(detail_rows),

@@ -598,6 +598,16 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
         description="Columna con la cartera para agregar y parametrizar umbrales SICR por cartera.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
     )
+    portfolio_scheme: str | None = Field(
+        default=None,
+        title="Esquema de carteras",
+        description=(
+            "Identificador de la taxonomía de carteras que usa la columna anterior. Declararlo "
+            "permite comparar contra otro motor sin mapeo cuando ambos usan la misma taxonomía; "
+            "si se omite, la comparación exige un mapeo explícito entre taxonomías."
+        ),
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 22},
+    )
     pd: IfrsPdConfig = Field(
         default_factory=IfrsPdConfig,
         title="PD 12m/lifetime + PIT",

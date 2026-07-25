@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from nikodym.provisioning.cmf.matrices import CmfMatrixBundle
+from nikodym.provisioning.segmentation import SegmentationScheme
 
 if TYPE_CHECKING:
     import pandas
@@ -142,6 +143,11 @@ class CmfProvisionCard(BaseModel):
     total_provision_amount: Decimal
     portfolios: tuple[CmfPortfolioSummary, ...]
     regulatory_sources: tuple[str, ...]
+    # El esquema de segmentación viaja EN el resultado (D-SEG-3): el orquestador recibe resultados,
+    # nunca ve el config de los motores, así que un esquema declarado sólo en el config sería una
+    # afirmación que nadie puede contrastar contra lo que el motor realmente emitió. Default None
+    # por retrocompatibilidad: una card guardada antes de esta enmienda recarga sin tocarla.
+    segmentation: SegmentationScheme | None = None
     metric_sections: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("total_exposure_amount", "total_provision_amount")
