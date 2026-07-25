@@ -1100,7 +1100,7 @@ figcaption {
     </div>
     <div class="cover-field">
       <dt>Fecha de emisión</dt>
-      <dd>2026-07-22</dd>
+      <dd>2026-07-25</dd>
     </div>
   </dl>
 
@@ -1108,7 +1108,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=5f4a934eabef4be1a9d762c1cac3e6c3bb4d061a</code></div>
+    <div class="lineage-line"><code>git_sha=2293cbc2abaf24f5cda86d88a9a1057a3399af45</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1150,13 +1150,13 @@ figcaption {
       <tbody>
         <tr>
           <td>ECL reportada (IFRS 9)</td>
-          <td>Cartera total</td>
+          <td>Cartera total · CLP</td>
           <td class="num">$3.423.116</td>
           <td><span class="band band-none">Cifra contable</span></td>
         </tr>
         <tr>
           <td>Exposición al incumplimiento (EAD)</td>
-          <td>Cartera total</td>
+          <td>Cartera total · CLP</td>
           <td class="num">$114.325.315</td>
           <td><span class="band band-none">Cifra contable</span></td>
         </tr>
@@ -1381,7 +1381,7 @@ figcaption {
 
 
   <p>IFRS 9 (NIIF 9) exige reconocer provisiones por pérdida crediticia esperada (ECL) según el deterioro relativo de cada exposición: las operaciones sin aumento significativo del riesgo (Stage 1) provisionan la pérdida esperada a 12 meses, y las que lo presentan o ya están deterioradas (Stage 2 y 3) provisionan la pérdida esperada de por vida (IFRS 9 5.5.3 y 5.5.5). Este capítulo reporta el cálculo sobre la cartera de la corrida.</p>
-  <p>Sobre una exposición al incumplimiento (EAD) de $114.325.315, la pérdida crediticia esperada a constituir es $3.423.116, una cobertura del 2,99 %. Fecha de corte: 2025-06-30.</p>
+  <p>Sobre una exposición al incumplimiento (EAD) de $114.325.315, la pérdida crediticia esperada a constituir es $3.423.116, una cobertura del 2,99 %. Los montos van en pesos chilenos (CLP). Fecha de corte: 2025-06-30.</p>
   <p>De las 6.000 operaciones de la cartera, 5.235 clasifican en Stage 1, 477 en Stage 2 y 288 en Stage 3.</p>
   <p>El cálculo IFRS 9 es una función experimental: los números son trazables y deterministas, pero su interfaz puede cambiar en próximas versiones de la librería.</p>
 
@@ -1402,44 +1402,20 @@ figcaption {
 <figure class="table-block">
   <figcaption class="table-title">Pérdida crediticia esperada (ECL) por etapa</figcaption>
   <table id="table-provisioning_ifrs9-summary" data-table-key="provisioning_ifrs9.summary">
-    <thead><tr><th>portfolio</th><th>stage</th><th>scenario</th><th>n_rows</th><th>total_ead</th><th>total_ecl_reported</th><th>coverage_ratio</th><th>warning_codes</th></tr></thead>
+    <thead><tr><th>portfolio</th><th>stage</th><th>scenario</th><th>n_rows</th><th>total_ead</th><th>total_ecl_reported</th><th>coverage_ratio</th></tr></thead>
     <tbody>
-      <tr><td>Comercial</td><td>1</td><td>all</td><td>775</td><td>31178795.53</td><td>581332.24</td><td>0.018645</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Comercial</td><td>2</td><td>all</td><td>75</td><td>3137275.52</td><td>390914.01</td><td>0.124603</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Comercial</td><td>3</td><td>all</td><td>51</td><td>2145243.75</td><td>375806.68</td><td>0.175181</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Consumo</td><td>1</td><td>all</td><td>2125</td><td>18099269.13</td><td>393131.23</td><td>0.021721</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Consumo</td><td>2</td><td>all</td><td>177</td><td>1561397.65</td><td>201559.53</td><td>0.129089</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Consumo</td><td>3</td><td>all</td><td>114</td><td>990794.93</td><td>178471.85</td><td>0.180130</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Hipotecario</td><td>1</td><td>all</td><td>809</td><td>43611647.09</td><td>437771.24</td><td>0.010038</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Hipotecario</td><td>2</td><td>all</td><td>69</td><td>3693801.39</td><td>303704.23</td><td>0.082220</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Hipotecario</td><td>3</td><td>all</td><td>38</td><td>2244951.10</td><td>251942.93</td><td>0.112226</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Tarjetas</td><td>1</td><td>all</td><td>1526</td><td>6614503.17</td><td>159269.35</td><td>0.024079</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Tarjetas</td><td>2</td><td>all</td><td>156</td><td>672454.41</td><td>84444.87</td><td>0.125577</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
-      <tr><td>Tarjetas</td><td>3</td><td>all</td><td>85</td><td>375181.03</td><td>64767.96</td><td>0.172631</td><td>[
-  &#34;FALTA-DATO-IFRS-4&#34;
-]</td></tr>
+      <tr><td>Comercial</td><td>1</td><td>all</td><td>775</td><td>31178795.53</td><td>581332.24</td><td>0.018645</td></tr>
+      <tr><td>Comercial</td><td>2</td><td>all</td><td>75</td><td>3137275.52</td><td>390914.01</td><td>0.124603</td></tr>
+      <tr><td>Comercial</td><td>3</td><td>all</td><td>51</td><td>2145243.75</td><td>375806.68</td><td>0.175181</td></tr>
+      <tr><td>Consumo</td><td>1</td><td>all</td><td>2125</td><td>18099269.13</td><td>393131.23</td><td>0.021721</td></tr>
+      <tr><td>Consumo</td><td>2</td><td>all</td><td>177</td><td>1561397.65</td><td>201559.53</td><td>0.129089</td></tr>
+      <tr><td>Consumo</td><td>3</td><td>all</td><td>114</td><td>990794.93</td><td>178471.85</td><td>0.180130</td></tr>
+      <tr><td>Hipotecario</td><td>1</td><td>all</td><td>809</td><td>43611647.09</td><td>437771.24</td><td>0.010038</td></tr>
+      <tr><td>Hipotecario</td><td>2</td><td>all</td><td>69</td><td>3693801.39</td><td>303704.23</td><td>0.082220</td></tr>
+      <tr><td>Hipotecario</td><td>3</td><td>all</td><td>38</td><td>2244951.10</td><td>251942.93</td><td>0.112226</td></tr>
+      <tr><td>Tarjetas</td><td>1</td><td>all</td><td>1526</td><td>6614503.17</td><td>159269.35</td><td>0.024079</td></tr>
+      <tr><td>Tarjetas</td><td>2</td><td>all</td><td>156</td><td>672454.41</td><td>84444.87</td><td>0.125577</td></tr>
+      <tr><td>Tarjetas</td><td>3</td><td>all</td><td>85</td><td>375181.03</td><td>64767.96</td><td>0.172631</td></tr>
     </tbody>
   </table>
 </figure>
@@ -1464,6 +1440,7 @@ figcaption {
 
   <p>El alcance de este informe es el cálculo de la pérdida crediticia esperada IFRS 9 (capítulo «Provisiones IFRS 9 / ECL»), una función experimental cuya interfaz puede cambiar en próximas versiones. La curva PD lifetime se ajustó en esta misma corrida de forma autocontenida sobre la historia de la propia cartera, sin insumos de un scorecard de originación. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados. El backtesting de la ECL no se ejecutó ni se infiere aquí.</p>
   <p>Todas las métricas provienen de la corrida trazada en el Anexo A. El informe no completa ningún hueco con supuestos: lo que no se pudo calcular aparece declarado como no disponible.</p>
+  <p>Caveats de reproducibilidad declarados por la corrida: working tree git sucio: cambios sin commitear no reconstruibles.</p>
   <p>No hay secciones obligatorias ausentes en esta corrida.</p>
 
 
@@ -1476,11 +1453,13 @@ figcaption {
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>cbe5d9fa856ae838623e88974bf1ea783825289ff8580c9b02098a0392c8f4d4</dd>
-    <dt>created_at</dt><dd>2026-07-22T17:26:01.364397Z</dd>
+    <dt>created_at</dt><dd>2026-07-25T00:21:55.275350Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
-    <dt>determinism_caveats</dt><dd>[]</dd>
-    <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>5f4a934eabef4be1a9d762c1cac3e6c3bb4d061a</dd>
+    <dt>determinism_caveats</dt><dd><pre>[
+  &#34;working tree git sucio: cambios sin commitear no reconstruibles&#34;
+]</pre></dd>
+    <dt>git_dirty</dt><dd>true</dd>
+    <dt>git_sha</dt><dd>2293cbc2abaf24f5cda86d88a9a1057a3399af45</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.5.0&#34;,
