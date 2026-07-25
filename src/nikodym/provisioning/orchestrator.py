@@ -163,7 +163,7 @@ _SUMMARY_COLUMNS: tuple[str, ...] = (
     "warning_codes",
 )
 
-# Códigos de warning por celda (comparativo) y notas FALTA-DATO (card).
+# Códigos de warning por celda (comparativo) y avisos declarados (card).
 _WARN_COMPARISON_INCOMPLETE = "comparacion_incompleta"
 _WARN_FLOOR_INCOMPLETE_LEGACY = "piso_incompleto"
 _WARN_IMPUTED_ZERO = "cobertura_imputada_cero"
@@ -241,7 +241,7 @@ class ProvisioningOrchestrator:
         if not both_engines:
             presente = name_a if engine_a is not None else name_b
             falta_dato.append(
-                f"FALTA-DATO-PROV-3: comparación incompleta; solo el motor {presente} está "
+                f"DATO-INSTITUCIONAL-PROV-3: comparación incompleta; solo el motor {presente} está "
                 "presente "
                 "(require_both=False)."
             )
@@ -520,7 +520,8 @@ def _build_record(
         )
     if cfg.coverage_policy == "treat_missing_as_zero":
         falta_dato.append(
-            f"FALTA-DATO-PROV: celda {cell_id!r} imputó 0 al motor {SOURCE_NAMES[faltante]} "
+            f"DATO-INSTITUCIONAL-PROV-2: celda {cell_id!r} imputó 0 al motor "
+            f"{SOURCE_NAMES[faltante]} "
             "(treat_missing_as_zero)."
         )
         return _both_record(
@@ -532,7 +533,7 @@ def _build_record(
             warnings=(_WARN_IMPUTED_ZERO,),
         )
     falta_dato.append(
-        f"FALTA-DATO-PROV-1: celda {cell_id!r} sin contraparte {SOURCE_NAMES[faltante]}."
+        f"DATO-INSTITUCIONAL-PROV-1: celda {cell_id!r} sin contraparte {SOURCE_NAMES[faltante]}."
     )
     ausente = name_b if val_a is not None else name_a
     return _only_record(

@@ -1351,18 +1351,18 @@ _PROVISION_WARNINGS: Final[dict[str, str]] = {
 
 
 def _provision_warning_descriptions(warnings: tuple[str, ...]) -> tuple[str, ...]:
-    """Normaliza códigos y mensajes FALTA-DATO de cobertura sin duplicar aliases legacy."""
+    """Normaliza códigos y mensajes de cobertura sin duplicar aliases legacy."""
     descriptions: list[str] = []
     for warning in warnings:
         description = _PROVISION_WARNINGS.get(warning)
         folded = warning.casefold()
         if description is None and (
-            "falta-dato-prov-3" in folded or "comparación incompleta" in folded
+            "dato-institucional-prov-3" in folded or "comparación incompleta" in folded
         ):
             description = _PROVISION_WARNINGS["comparacion_incompleta"]
         elif description is None and ("imputó 0" in folded or "imputada" in folded):
             description = _PROVISION_WARNINGS["cobertura_imputada_cero"]
-        elif description is None and "falta-dato-prov-1" in folded:
+        elif description is None and "dato-institucional-prov-1" in folded:
             description = "algunas celdas no tenían contraparte y quedaron fuera del comparativo"
         if description is not None and description not in descriptions:
             descriptions.append(description)

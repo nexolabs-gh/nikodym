@@ -616,12 +616,12 @@ def test_falta_dato_con_fail_false_imputa_cero_y_deja_traza() -> None:
     grupo_a = _groups_by_id(result)["A"]
 
     assert result.card.falta_dato == ("op03", "op04")
-    assert result.detail.loc["op03", "warning_codes"] == ("FALTA-DATO",)
+    assert result.detail.loc["op03", "warning_codes"] == ("DATO-INSTITUCIONAL",)
     assert result.detail.loc["op03", "exposure_amount"] == Decimal("0")
     assert result.detail.loc["op03", "lgd"] == Decimal("0")
     # Grupo A con op03 en cero: exposición = 1M + 1M + 0 + 4M = 6.000.000.
     assert grupo_a["total_exposure"] == Decimal("6000000")
-    assert grupo_a["warning_codes"] == ("FALTA-DATO",)  # una sola vez, pese a las dos filas
+    assert grupo_a["warning_codes"] == ("DATO-INSTITUCIONAL",)  # una vez, pese a las dos filas
     assert sum(result.detail["provision_amount"]) == result.card.total_internal_provision
 
 

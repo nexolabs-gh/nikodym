@@ -1146,7 +1146,7 @@ def test_prosa_comparativo_cmf_ifrs9_es_diagnostica() -> None:
 
 
 def test_prosa_interpreta_falta_dato_de_comparacion_incompleta() -> None:
-    """Los mensajes FALTA-DATO-PROV-3 llegan al lector aunque no sean códigos aislados."""
+    """Los mensajes DATO-INSTITUCIONAL-PROV-3 llegan al lector aunque no sean códigos aislados."""
     bundle = _provision_bundle(
         {
             "rule": "max",
@@ -1155,7 +1155,8 @@ def test_prosa_interpreta_falta_dato_de_comparacion_incompleta() -> None:
             "source_b": "internal",
             "binding": "cmf_only",
             "falta_dato": (
-                "FALTA-DATO-PROV-3: comparación incompleta; solo el motor cmf está presente.",
+                "DATO-INSTITUCIONAL-PROV-3: comparación incompleta; solo el motor cmf está "
+                "presente.",
             ),
             "metric_sections": {},
         }

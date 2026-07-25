@@ -287,7 +287,7 @@ Decisiones auditadas:
 - reconciliación, tolerancia y redondeo;
 - conteos por binding;
 - cobertura e imputación;
-- brechas `FALTA-DATO`;
+- avisos declarados (`FALTA-DATO` / `DATO-INSTITUCIONAL`);
 - fuentes regulatorias heredadas.
 
 El token histórico de acción `aplicar_regla_de_constitucion` se conserva por compatibilidad del

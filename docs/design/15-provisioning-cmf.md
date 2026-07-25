@@ -508,7 +508,7 @@ Toda excepcion propia desciende de `NikodymError`; mensajes en español e incluy
 - SDD-17 (`provisioning`) compara fuentes configurables. El binding B-1 usa estándar CMF frente a
   método interno por institución; IFRS 9 se conserva como motor separado y comparativo no normativo.
 - SDD-22 (`validation`) usa detalle/summary para backtesting regulatorio.
-- SDD-23 (`ui`) edita config y muestra brechas `FALTA-DATO`.
+- SDD-23 (`ui`) edita config y muestra los avisos declarados.
 - SDD-26 (`report`) presenta card, detalle y fuentes.
 
 **Externas.**
@@ -553,7 +553,7 @@ Fixtures: `cmf_small_exposures.parquet` sintetico sin datos reales, `raw_pd_fram
 - **Garantias financieras sin haircuts.** Mitigacion: fail-fast default; no se imputan descuentos.
 - **Sobreajuste del diseno a una entidad.** Mitigacion: columnas configurables y datos normativos separados del motor; defaults conservadores.
 - **Rendimiento con Decimal.** Mitigacion: motor de referencia decimal para goldens; vectorizacion por grupos si el volumen lo exige, con tests de equivalencia.
-- **Reporte de resultados incompletos como definitivos.** Mitigacion: `CmfProvisionCard` expone warnings y fuentes; SDD-17/report deben mostrar `FALTA-DATO` de forma visible.
+- **Reporte de resultados incompletos como definitivos.** Mitigacion: `CmfProvisionCard` expone warnings y fuentes; SDD-17/report deben mostrar los avisos declarados de forma visible.
 
 **Fuentes verificadas / citas.**
 - **docs/normativa_cmf_parametros.md** Advertencias, §§1-7: fuente primaria interna de numeros para B-1/B-3 recopilados, verificados visualmente 2026-06-23, con pendientes explicitos.
@@ -569,7 +569,7 @@ Fixtures: `cmf_small_exposures.parquet` sintetico sin datos reales, `raw_pd_fram
 
 - **D-CMF-1 - Dominio y clave de config `provisioning_cmf`.** Recomendacion: usar dominio plano `"provisioning_cmf"` para evitar ambiguedad con SDD-17 (`provisioning`) y con IFRS 9. Confirmar si Cami prefiere config anidado futuro `provisioning.cmf`.
 - **D-CMF-2 - Fuente default de PD para mapeo PI.** Recomendacion conservadora: no usar PD por default (`provided_cmf_category`). Si el usuario activa `pd_mapping.method="pd_breaks"`, usar `model.raw_pd_frame.pd_raw` como fuente inicial trazable; si Cami quiere PD calibrada de SDD-10 como fuente recomendada, cambiar esa ruta condicional a `calibration.calibrated_pd_frame`.
-- **D-CMF-3 - Cortes PD -> categorias CMF.** No hay cortes regulatorios recopilados para convertir PD continua F1 a A1-B4/C. Recomendacion: no hardcodear; exigir `pd_breaks` configurados por usuario o columna `cmf_category` provista. FALTA-DATO si se pretendia un mapping estandar Nikodym.
+- **D-CMF-3 - Cortes PD -> categorias CMF.** No hay cortes regulatorios recopilados para convertir PD continua F1 a A1-B4/C. Recomendacion: no hardcodear; exigir `pd_breaks` configurados por usuario o columna `cmf_category` provista: es un `DATO-INSTITUCIONAL`, no una brecha del motor, porque no existe mapping estandar que Nikodym pueda invocar.
 - **D-CMF-4 - Revalidar B-3 antes del release F3.** La tabla B-3 contable queda activa por default con los factores verificados de `docs/normativa_cmf_parametros.md` §6. Recomendacion: antes del release F3, revalidar la tabla completa contra el PDF vigente del Compendio y, si la norma cambio, emitir una nueva matriz `contingent_b3_vYYYY_MM` versionada.
 - **D-CMF-5 - Redondeo contable.** Recomendacion: calcular y auditar sin redondeo (`rounding="none"`) y dejar redondeo de moneda como opcion explicita. Cami decide si v1 debe redondear a pesos/centavos por defecto.
 - **D-CMF-6 - Haircuts de garantias financieras.** `docs/normativa_cmf_parametros.md` marca aforos/haircuts como pendiente. Recomendacion: fail-fast por default y permitir solo `recoverable_amount` provisto/auditado por el usuario hasta localizar la circular especifica.

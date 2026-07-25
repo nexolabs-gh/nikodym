@@ -86,7 +86,7 @@ _ONE = Decimal("1")
 # cartera bancaria en CLP roza los 12 dígitos enteros. 50 dígitos dejan margen de sobra bajo el
 # redondeo contable final, y fijarla explícitamente hace la corrida reproducible entre máquinas.
 _PRECISION = 50
-_FALTA_DATO = "FALTA-DATO"
+_INSTITUTIONAL_DATUM = "DATO-INSTITUCIONAL"
 _BANDAS_COLAPSADAS = "BANDAS-COLAPSADAS"
 _GRUPO_SIN_EXPOSICION = "GRUPO-SIN-EXPOSICION"
 _PD_LGD = "pd_lgd"
@@ -389,8 +389,8 @@ def _required_decimal(
             f"Falta el dato de '{column}' en la fila {row_id!r}. Con "
             "fail_on_falta_dato=False se imputa cero y se traza en la card."
         )
-    if _FALTA_DATO not in warnings:
-        warnings.append(_FALTA_DATO)
+    if _INSTITUTIONAL_DATUM not in warnings:
+        warnings.append(_INSTITUTIONAL_DATUM)
     return _ZERO
 
 
@@ -780,7 +780,7 @@ def _card(
         n_rows=len(rows),
         total_exposure=total_exposure,
         total_internal_provision=total_provision,
-        falta_dato=tuple(row.row_id for row in rows if _FALTA_DATO in row.warnings),
+        falta_dato=tuple(row.row_id for row in rows if _INSTITUTIONAL_DATUM in row.warnings),
         metric_sections={
             "provisioning_internal": {
                 "norma": (

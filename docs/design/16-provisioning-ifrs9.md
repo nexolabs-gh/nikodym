@@ -28,7 +28,7 @@
 - Ejecuta el **motor ECL marginal por período** con descuento a la **EIR** del instrumento, ponderando por escenario (`w_k`), truncando a 12m en Stage 1 y a lifetime en Stage 2/3.
 - Publica artefactos namespaced bajo `"provisioning_ifrs9"`: staging, detalle de ECL por fila, term-structure de ECL (escenario × t × componente), resumen, resultado agregado y card.
 - Aporta el sub-config **`IfrsProvisioningConfig`** (sección `provisioning_ifrs9` de `NikodymConfig`), computacional y por tanto incluido en el `config_hash`.
-- Registra con `log_decision` la fuente de term-structure, base PIT/TTC y `rho` usados, enfoque LGD/EAD, gatillos SICR disparados por fila, pesos de escenario, convención de descuento y cualquier `FALTA-DATO`.
+- Registra con `log_decision` la fuente de term-structure, base PIT/TTC y `rho` usados, enfoque LGD/EAD, gatillos SICR disparados por fila, pesos de escenario, convención de descuento y cualquier aviso declarado.
 
 **Frontera dura de responsabilidad (qué NO hace, y quién lo hace).**
 - **No implementa la regla del máximo B-1.** Esa regla compara estándar CMF frente a método interno
@@ -39,7 +39,7 @@
 - **No ancla la PD transversal de scorecard.** SDD-10 (`calibration`) produce `calibrated_pd_frame`; SDD-16 lo consume como PD 12m base cuando la config lo declara.
 - **No entrena ni calibra la scorecard F1.** SDD-08 produce `raw_pd_frame`; SDD-10 la PD calibrada; SDD-16 solo los consume como insumos declarados.
 - **No define la definición de default ni la ventana de desempeño aplicables, ni el panel longitudinal por cuenta-período.** CT-3 difiere esa capa de datos; SDD-16 consume columnas económicas ya validadas y term-structures ya proyectadas.
-- **No inventa `rho`, pesos de escenario, umbrales SICR ni EIR.** Si no vienen de una fuente citada (ESPEC/IFRS 9/EBA/Basel) o de config, se exige config o se marca `FALTA-DATO`.
+- **No inventa `rho`, pesos de escenario, umbrales SICR ni EIR.** Si no vienen de una fuente citada (ESPEC/IFRS 9/EBA/Basel) o de config, se exige config o se marca `DATO-INSTITUCIONAL`.
 - **No arrastra `provisioning` al núcleo.** `import nikodym.core` no importa `nikodym.provisioning`; scipy/pandas pesados se importan perezosamente dentro de `execute`/`calculate`.
 
 ## 2. Contexto y ubicación en la arquitectura
@@ -598,7 +598,7 @@ interno por institución; IFRS 9 no es uno de sus operandos.
 - **Falta `data.frame` o la term-structure configurada:** `ArtifactNotFoundError` por CT-1 antes de `execute`.
 - **`base_pd_source="calibration"` sin `calibrated_pd_frame`:** `ArtifactNotFoundError` o `IfrsConfigError` citando `base_pd_source`.
 - **Term-structure con columnas faltantes o invariantes rotas:** `IfrsTermStructureError` listando la columna/regla y la primera fila afectada.
-- **`pit_mode="apply_vasicek"` sin `rho` o sin `Z`:** `IfrsConfigError` siempre — en construcción con `fail_on_falta_dato=True`, o en runtime si se difirió con `False`; no existe ruta FALTA-DATO degradada para `rho`/`Z` (FALTA-DATO-IFRS-1 documenta el requisito, no una degradación).
+- **`pit_mode="apply_vasicek"` sin `rho` o sin `Z`:** `IfrsConfigError` siempre — en construcción con `fail_on_falta_dato=True`, o en runtime si se difirió con `False`; no existe ruta FALTA-DATO degradada para `rho`/`Z` (DATO-INSTITUCIONAL-IFRS-1 documenta el requisito, no una degradación).
 - **`pit_mode="apply_vasicek"` con term-structure etiquetada `pd_basis="pit"` (o mixta/faltante en la columna presente):** `IfrsConfigError` — guard anti doble ajuste macro; columna ausente (survival/markov) o toda `"ttc"` permitida.
 - **`pit_mode="consume_pit"` con term-structure TTC:** `IfrsConfigError` (no se re-etiqueta una curva TTC como PIT).
 - **Escenario con nombre reservado (`mean`/`average`/`weighted_mean_input`, case-insensitive) y guard activo:** `IfrsConfigError` en las tres fuentes (`single`/`config`/`forward`); `forbid_mean_scenario=False` calcula y la decisión queda auditada.
@@ -614,7 +614,7 @@ interno por institución; IFRS 9 no es uno de sus operandos.
 - **`days_past_due` negativo o no entero:** `IfrsInputError`.
 - **Pesos de escenario que no suman 1 (`source="config"`):** `IfrsConfigError`.
 - **EIR faltante o negativa que produce `DF` no finito:** `IfrsEclError`.
-- **Horizonte `H_12m > T_max`:** warning; PD 12m usa todo el soporte disponible y se registra `FALTA-DATO-IFRS-2`.
+- **Horizonte `H_12m > T_max`:** warning; PD 12m usa todo el soporte disponible y se registra `DATO-INSTITUCIONAL-IFRS-2`.
 - **`scipy` faltante para Vasicek/beta:** `MissingDependencyError("instale nikodym[...]")` en español.
 - **Índice duplicado o unión ambigua term-structure/frame:** `IfrsInputError`.
 
@@ -629,7 +629,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - **Audit trail (`log_decision`).** Registrar como mínimo:
   - `ifrs9_term_structure_source`: proveedor, método, columnas, cobertura;
   - `ifrs9_pit`: `pit_mode`, `rho`/`rho_col`, fuente de `Z`, orientación Vasicek;
-  - `ifrs9_pd_horizon`: `H_12m`, `T_max`, unidad temporal, `FALTA-DATO` de horizonte;
+  - `ifrs9_pd_horizon`: `H_12m`, `T_max`, unidad temporal, aviso `DATO-INSTITUCIONAL-IFRS-2` de horizonte;
   - `ifrs9_lgd`: enfoque, floor/cap, descuento workout, diagnósticos de ajuste y `lgd_forward_presente` (descarte FALTA-DATO-IFRS-6);
   - `ifrs9_ead`: método, CCF usado, perfil de exposición o constancia con warning;
   - `ifrs9_staging`: gatillos SICR disparados por conteo, backstops, exención de bajo riesgo;
@@ -647,7 +647,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
 - SDD-05: `NikodymBaseConfig`, hooks diferidos, `INFRA_SECTIONS`, round-trip YAML.
 - SDD-10 (`calibration`): `calibrated_pd_frame` como PD 12m base condicional.
 - SDD-18 (`survival`) / SDD-19 (`markov`): proveedores intercambiables de term-structure lifetime por el contrato tidy hermano (CT-2); **sin importar internals**.
-- SDD-20 (`forward`): proveedor opcional de term-structure multiescenario PIT (no publica factor sistémico `Z`; FALTA-DATO-IFRS-1).
+- SDD-20 (`forward`): proveedor opcional de term-structure multiescenario PIT (no publica factor sistémico `Z`; DATO-INSTITUCIONAL-IFRS-1).
 - Aguas abajo: SDD-17 (orquestación/piso), SDD-22 (validación/backtesting ECL), SDD-23 (ui), SDD-26 (report).
 
 **Externas.**
@@ -691,20 +691,21 @@ Fixtures: `ifrs9_exposures.parquet` sintético (drawn/límite/dpd/EIR/rating/rec
 **Riesgos.**
 - **Doble ajuste macro (Vasicek sobre curva ya PIT).** Mitigación: guard implementado en el motor (`IfrsConfigError` sobre term-structures etiquetadas no-TTC), además del default `pit_mode="consume_pit"`.
 - **Umbrales SICR mal calibrados.** Mitigación: parametrizables por cartera; defaults citan ESPEC/IFRS 9 pero se marcan como requerir calibración de la institución (D-IFRS-3).
-- **`rho` inventada.** Mitigación: sin default hardcodeado; config por cartera o `FALTA-DATO` (D-IFRS-7).
+- **`rho` inventada.** Mitigación: sin default hardcodeado; config por cartera o `DATO-INSTITUCIONAL-IFRS-1` (D-IFRS-7).
 - **Confundir PD 12m/transversal con lifetime.** Mitigación: ambas se derivan explícitamente de la term-structure con `H_12m` declarado.
 - **Escenario medio.** Mitigación: guard bloqueante en config y motor (nombres reservados vetados); se ponderan outputs.
 - **Panel longitudinal ausente (EAD(t)/LGD(t)).** Mitigación: CT-3; perfil por período si existe, constante con warning si no; no se fuerza SDD-02.
 - **Acoplamiento frágil con survival/markov.** Mitigación: contrato tidy CT-2; tests cruzados; sin imports de internals.
 - **Rendimiento `O(n·T·K)`.** Mitigación: validar tamaño antes de materializar; vectorización con equivalencia bit-a-bit al motor de referencia.
 
-**FALTA-DATO explícitos.**
-- **FALTA-DATO-IFRS-1 — Factor sistémico `Z` y `rho`.** `apply_vasicek` requiere columna `Z` y `rho` escalar explícitos; `forward` no los aporta implícitamente (la exención del validador por `scenarios.source="forward"` se eliminó) y la política es `IfrsConfigError` siempre — no existe ruta degradada. La derivación de `Z` implícito desde datos observados es capacidad futura con SDD propio.
-- **FALTA-DATO-IFRS-2 — Horizonte 12m vs unidad temporal.** `H_12m` depende de la granularidad de la term-structure (mensual/trimestral/anual); debe declararse.
-- **FALTA-DATO-IFRS-3 — Definición de default y ventana aplicables.** Heredadas de la capa longitudinal (CT-3); SDD-16 consume `is_default`/dpd ya definidos.
-- **FALTA-DATO-IFRS-4 — Perfil de exposición EAD(t).** Sin panel longitudinal, la amortización por período no está disponible.
-- **FALTA-DATO-IFRS-5 — EIR por instrumento.** Debe venir en `data.frame`; no se infiere una tasa.
-- **FALTA-DATO-IFRS-6 — LGD forward descartada.** Si la term-structure entrante trae columna `lgd` con valores no nulos (SDD-20), el motor v1 la ignora — la LGD sale de `IfrsLgdConfig` — y lo declara en `warning_codes` por fila y `card.falta_dato`; la auditoría `ifrs9_lgd` expone `lgd_forward_presente`. El gatillo es la columna `lgd` (LGD condicionada); `lgd_base` — linaje de la LGD base de entrada, sin condicionamiento macro — queda fuera del aviso por diseño. La precedencia de la LGD condicionada (FALTA-DATO-FWD-6 de SDD-20) queda pendiente de un SDD propio; el golden invariante de tests debe fallar si alguien la implementa sin ese SDD.
+**Avisos declarados (taxonomía: `_ENMIENDA-TAXONOMIA-MARCAS.md`).** Cuatro declaran un input que
+aporta la institución; IFRS-4 e IFRS-6 son brechas del motor y conservan `FALTA-DATO`.
+- **DATO-INSTITUCIONAL-IFRS-1 — Factor sistémico `Z` y `rho`.** `apply_vasicek` requiere columna `Z` y `rho` escalar explícitos; `forward` no los aporta implícitamente (la exención del validador por `scenarios.source="forward"` se eliminó) y la política es `IfrsConfigError` siempre — no existe ruta degradada. La derivación de `Z` implícito desde datos observados es capacidad futura con SDD propio.
+- **DATO-INSTITUCIONAL-IFRS-2 — Horizonte 12m vs unidad temporal.** `H_12m` depende de la granularidad de la term-structure (mensual/trimestral/anual); debe declararse.
+- **DATO-INSTITUCIONAL-IFRS-3 — Definición de default y ventana aplicables.** Heredadas de la capa longitudinal (CT-3); SDD-16 consume `is_default`/dpd ya definidos.
+- **FALTA-DATO-IFRS-4 — Perfil de exposición EAD(t) (brecha del motor).** Sin panel longitudinal, la amortización por período no está disponible.
+- **DATO-INSTITUCIONAL-IFRS-5 — EIR por instrumento.** Debe venir en `data.frame`; no se infiere una tasa.
+- **FALTA-DATO-IFRS-6 — LGD forward descartada (brecha del motor).** Si la term-structure entrante trae columna `lgd` con valores no nulos (SDD-20), el motor v1 la ignora — la LGD sale de `IfrsLgdConfig` — y lo declara en `warning_codes` por fila y `card.falta_dato`; la auditoría `ifrs9_lgd` expone `lgd_forward_presente`. El gatillo es la columna `lgd` (LGD condicionada); `lgd_base` — linaje de la LGD base de entrada, sin condicionamiento macro — queda fuera del aviso por diseño. La precedencia de la LGD condicionada (FALTA-DATO-FWD-6 de SDD-20) queda pendiente de un SDD propio; el golden invariante de tests debe fallar si alguien la implementa sin ese SDD.
 
 **Fuentes verificadas / citas.**
 - **ESPECIFICACIONES.md** §5.5: PD 12m/lifetime + Vasicek monofactorial (fórmula y orientación), LGD beta/fractional/workout, EAD/CCF, staging/SICR (ratio ≥2×, backstop ≥3×, 30/90 dpd, low credit risk exemption), motor ECL con descuento a EIR y multiescenario, Stage 1 = 12m / Stage 2-3 = lifetime.
