@@ -31,8 +31,12 @@ const F4_ID = "f4-ifrs9-retail"
 // Recalculado otra vez en 1.6.0: la sección `provisioning_ifrs9` ganó `portfolio_scheme`
 // (D-SEG-3), y esa sección sí entra al hash. El mismo valor está fijado del lado Python en
 // `tests/unit/test_ui_presets.py`; si los dos lados se separan, la identidad UI↔código se rompe.
+// Recalculado una tercera vez en 1.6.0 por D-CRP6-8: el preset declara los intervalos de
+// confianza de Kaplan-Meier. Los dos goldens fallaron a la vez —éste y el de Python—, que es
+// exactamente lo que se les pide: son el par que detecta un fixture de demo servido con un
+// config distinto del que trae el paquete instalado.
 const F4_CONFIG_HASH =
-  "92163dd24fced5a0dd0a8c4ae971481502f3a396b9014eafb3205f78c7491660"
+  "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6"
 
 beforeEach(() => {
   // Cada test arranca con el preset activo en su default (F3): el estado de módulo no se filtra.
