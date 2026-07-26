@@ -7,7 +7,47 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [No publicado]
 
+### Corregido
+
+- **⚠️ La ECL de IFRS 9 se calculaba mal cuando la curva de PD no venía en años.** El descuento
+  `DF(t) = (1 + EIR)^(-τ)` usaba `time_value` como exponente **asumiendo años, sin verificarlo**.
+  La misma cartera, en los mismos instantes, declarada en meses en vez de años perdía del orden de
+  un **40-50 % de provisión, en silencio**: nada en el motor lo impedía ni lo declaraba.
+
+  Desde esta versión la term-structure **transporta su unidad temporal** en una columna `time_unit`
+  —la declaran `survival` (`time_grid.time_unit`) y `markov` (`dynamics.time_unit`), y `forward` la
+  propaga— e IFRS 9 convierte a años antes de descontar. La evidencia publica **las dos** columnas,
+  `time_value` cruda y `time_value_years` convertida, para que la conversión sea un paso aritmético
+  comprobable y siga reconciliando fila a fila con la curva de origen.
+
+  Si su curva ya estaba en años, sus cifras **no cambian**.
+
 ### Cambiado
+
+- **⚠️ Una curva que no declara su unidad temporal ahora detiene la corrida de IFRS 9.** Cuando la
+  term-structure no trae `time_unit`, o trae un literal no convertible, el motor presume años y
+  emite `DATO-INSTITUCIONAL-IFRS-7`. Es un aviso **gobernable**, y `fail_on_falta_dato` viene en
+  `True`, así que la corrida se detiene en vez de entregar una cifra que podría estar mal por un
+  factor de 12 o de 365.
+
+  **Esto afecta a quien nunca tocó el campo**, porque el default de fábrica de `survival` y
+  `markov` es `"period"`, que nombra un índice y no una duración. Las dos salidas, ambas explícitas:
+
+  ```python
+  # (a) declarar la unidad — recomendado, y es de una línea
+  cfg.survival.time_grid.time_unit = "month"   # o "year", "quarter", "day", …
+  # (b) aceptar la presunción de años, dejando el aviso en el resultado
+  cfg.provisioning_ifrs9.fail_on_falta_dato = False
+  ```
+
+  La tabla de unidades reconocidas vive en `nikodym.core.time_units` y acepta español e inglés,
+  singular y plural, con o sin tildes.
+
+- **IFRS 9 declara cuando el horizonte de 12 meses no cuadra con el largo de la curva**
+  (`FALTA-DATO-IFRS-8`). Si `horizon_12m_periods` alcanza todo el soporte, un Stage 1 provisionaba
+  exactamente lo mismo que un Stage 2; si caía por debajo del primer período, Stage 1 provisionaba
+  cero. En ambos casos la corrida terminaba sin decir nada. Un truncado deliberado vía
+  `max_lifetime_periods` **no** dispara el aviso: avisar de lo que usted pidió sería ruido.
 
 - **⚠️ `survival` cumple `fail_on_falta_dato`, que hasta ahora era un campo sin efecto.** El propio
   config lo admitía por escrito («campo reservado: hoy no altera la corrida»). Desde esta versión

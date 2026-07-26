@@ -137,7 +137,13 @@ class SurvivalTimeGridConfig(NikodymBaseConfig):
     time_unit: str = Field(
         default="period",
         title="Unidad temporal",
-        description="Unidad declarativa de duración y evaluación; por defecto, período genérico.",
+        description=(
+            "Unidad en que están expresados los tiempos de la curva: 'year', 'month', 'quarter', "
+            "'semester', 'week' o 'day' (también en español). Viaja con la curva y el motor IFRS 9 "
+            "la usa para descontar la pérdida esperada, así que declararla mal —o dejarla en el "
+            "valor por defecto 'period', que nombra un índice y no una duración— cambia la "
+            "provisión. Si no la declara, IFRS 9 asume años y lo deja anotado en el resultado."
+        ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Horizonte", "ui_order": 1},
     )
     horizon_periods: int | None = Field(

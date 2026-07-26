@@ -2246,7 +2246,7 @@
           },
           "time_unit": {
             "default": "period",
-            "description": "Unidad declarativa de intervalos, horizontes y tiempos de evaluación.",
+            "description": "Unidad en que están expresados los intervalos, horizontes y tiempos de evaluación: 'year', 'month', 'quarter', 'semester', 'week' o 'day' (también en español). Viaja con la curva y el motor IFRS 9 la usa para descontar la pérdida esperada, así que declararla mal —o dejarla en el valor por defecto 'period', que nombra un índice y no una duración— cambia la provisión. Si no la declara, IFRS 9 asume años y lo deja anotado en el resultado.",
             "title": "Unidad temporal declarada",
             "type": "string",
             "ui_group": "Dinámica",
@@ -5852,7 +5852,7 @@
           },
           "time_unit": {
             "default": "period",
-            "description": "Unidad declarativa de duración y evaluación; por defecto, período genérico.",
+            "description": "Unidad en que están expresados los tiempos de la curva: 'year', 'month', 'quarter', 'semester', 'week' o 'day' (también en español). Viaja con la curva y el motor IFRS 9 la usa para descontar la pérdida esperada, así que declararla mal —o dejarla en el valor por defecto 'period', que nombra un índice y no una duración— cambia la provisión. Si no la declara, IFRS 9 asume años y lo deja anotado en el resultado.",
             "title": "Unidad temporal",
             "type": "string",
             "ui_group": "Horizonte",

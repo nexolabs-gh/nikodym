@@ -532,7 +532,7 @@ class ForwardConfig(NikodymBaseConfig):
 
 **Input `term_structure` desde SDD-18/19.** Columnas mínimas consistentes:
 - `row_id`, `segment`, `partition` si aplican;
-- `period`, `time_value`;
+- `period`, `time_value`, y `time_unit` cuando el productor la declara (D-HOR-0). `forward` **no** la exige —una curva de terceros o anterior a D-HOR-0 no la trae— pero sí la **propaga** fila a fila: es lo único que permite a SDD-16 convertir a años cuando se concatenan N fuentes con unidades distintas;
 - `hazard`, `survival`, `pd_marginal`, `pd_cumulative`;
 - `method`, `pd_source`, `scenario`, `warning_codes`.
 

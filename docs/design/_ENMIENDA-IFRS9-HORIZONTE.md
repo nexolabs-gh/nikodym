@@ -1,6 +1,34 @@
 # Enmienda SDD — horizonte 12m de IFRS 9: la verificación que el motor no hace
 
-> **Estado: APROBADA (Cami, 2026-07-26).** D-HOR-0 quedó resuelto y el alcance fijado: **la
+> **Estado: IMPLEMENTADA (2026-07-26).** Códigos `DATO-INSTITUCIONAL-IFRS-7` (unidad temporal) y
+> `FALTA-DATO-IFRS-8` (horizonte), en `provisioning/ifrs9/engine.py`; tabla de conversión en
+> `core/time_units.py`; columna `time_unit` en las term-structures de `survival`, `markov` y
+> `forward`. Verificado en vivo: la misma economía declarada en años y en meses converge a la misma
+> ECL (antes, −40,45 % en el fixture de test; −50,8 % en el de §5.1).
+>
+> **Cuatro cosas cambiaron al programarla, y quedan escritas aquí porque el error es informativo:**
+>
+> 1. **El código NO podía ser `IFRS-1`.** Un `git grep` sobre `src/` lo daba por libre, pero el
+>    espacio `IFRS-N` está asignado en el catálogo de SDD-16 §6 y es **compartido por las dos
+>    marcas**: `IFRS-1` es el factor sistémico `Z`/`rho`. Los dos tests bidireccionales de
+>    `test_public_copy.py` habrían quedado verdes igual, porque comparan strings y no semántica.
+> 2. **«No rompe a ningún usuario actual» (§5.2) resultó FALSO.** La marca es gobernable y
+>    `fail_on_falta_dato` viene en `True`, así que una curva sin unidad declarada —incluido el
+>    default `"period"` de `survival`— **detiene la corrida**: 27 tests de la suite lo hicieron
+>    explícito. Cami decidió mantener el corte tras medirlo: el arreglo del usuario es declarar una
+>    palabra, y la alternativa deja viva la cifra mala que esta enmienda existe para arreglar.
+> 3. **El blast radius de tests se resolvió de dos maneras distintas**, no de una. Donde el aviso
+>    dispara con razón pero es ajeno a lo que el test prueba, se apaga el gate; donde el test existe
+>    para ver la corrida TERMINAR con el flag en `True` (`test_crp6_semantica_flag.py`), apagarlo lo
+>    habría vaciado y hubo que alargar la curva.
+> 4. **`stress` no se tocó, y ahora está verificado por qué**: tiene dos mecanismos de validación y
+>    el que aplica al contrato de `forward` (`_validate_forward_ecl_dataframe`) es por
+>    **subconjunto**, así que la columna nueva entra y se descarta sin ruido.
+>
+> El `config_hash` del preset F4 **no se movió** (`013e69dc…`), que era la prueba de que la unidad
+> viaja en el dato y no en el config.
+>
+> **Estado previo: APROBADA (Cami, 2026-07-26).** D-HOR-0 quedó resuelto y el alcance fijado: **la
 > term-structure transporta su unidad temporal**, y el descuento y el horizonte entran **juntos**
 > en el mismo release. Ver §5, reescrita con la decisión y con la medición que la precedió.
 >

@@ -489,6 +489,7 @@ class SurvivalConfig(NikodymBaseConfig):
 | `partition` | partición de F1 cuando aplica |
 | `period` | entero ordinal de proyección |
 | `time_value` | tiempo en la unidad declarada |
+| `time_unit` | unidad en que está expresado `time_value` (D-HOR-0); la copia `time_grid.time_unit`/`dynamics.time_unit` para que SDD-16 pueda convertir a años antes de descontar. `"period"`, el default, **no** es convertible y SDD-16 la trata como no declarada |
 | `hazard` | `h(t)` si el método lo publica/deriva |
 | `survival` | `S(t)` |
 | `pd_marginal` | `S(t-1) * h(t)` según ESPECIFICACIONES §5.6 |

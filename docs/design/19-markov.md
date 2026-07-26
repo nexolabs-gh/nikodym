@@ -559,7 +559,8 @@ class MarkovConfig(NikodymBaseConfig):
 | `warning_codes` | códigos por fila/período si hubo advertencias |
 
 **Compatibilidad con `survival`.**
-- Las columnas `period`, `time_value`, `hazard`, `survival`, `pd_marginal`, `pd_cumulative`, `method`, `pd_source`, `scenario` y `warning_codes` tienen el mismo significado operativo que en SDD-18.
+- La columna `time_unit` (D-HOR-0) copia `dynamics.time_unit` y viaja pegada a `time_value`, para que SDD-16 convierta a años antes de descontar en vez de asumir la unidad.
+- Las columnas `period`, `time_value`, `time_unit`, `hazard`, `survival`, `pd_marginal`, `pd_cumulative`, `method`, `pd_source`, `scenario` y `warning_codes` tienen el mismo significado operativo que en SDD-18.
 - `survival` no significa "seguir en el mismo rating"; significa "no haber llegado a default".
 - `pd_cumulative` y `pd_marginal` son la interfaz económica para SDD-16/20.
 
