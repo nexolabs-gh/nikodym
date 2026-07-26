@@ -114,9 +114,17 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > IFRS 9 existe para hacer— sin warning ni excepción. El
 > texto de SDD-16 ya se corrigió para que describa el comportamiento real (§8, §9 y la ficha), y el
 > diseño del arreglo vive en [`_ENMIENDA-IFRS9-HORIZONTE.md`](_ENMIENDA-IFRS9-HORIZONTE.md):
-> **propuesta, pendiente del OK de Cami; ninguna línea de motor escrita.** Deja fijada además una
+> **APROBADA el 2026-07-26; ninguna línea de motor escrita todavía.** Deja fijada además una
 > distinción que faltaba: de los seis códigos IFRS sólo IFRS-4 e IFRS-6 se emiten en runtime; los
 > otros cuatro son requisitos de entrada documentados.
+>
+> ⚠️ **Su título apunta al síntoma menor.** Medido el 2026-07-26 sobre el motor: el horizonte mal
+> declarado **no cambia la ECL total** —sólo el corte de stage 1—, mientras que la unidad de
+> `time_value` la mueve un **−50,8 %** (misma curva declarada en meses en vez de años). `ifrs9`
+> usa `time_value` como exponente de `(1+EIR)^(-τ)` asumiendo años, y la term-structure no
+> transportaba su unidad. **D-HOR-0 resuelto por Cami: la term-structure la transporta**; si no la
+> declara, se asume años **con marca declarada** `DATO-INSTITUCIONAL` —aditivo, no rompe a nadie— y
+> `fail_on_falta_dato` la gobierna. Descuento y horizonte entran juntos.
 >
 > **El fallo de una corrida deja rastro legible (2026-07-25, APROBADA y ejecutada).**
 > [`_ENMIENDA-RUN-ERROR.md`](_ENMIENDA-RUN-ERROR.md), sobre SDD-01 (§4 `RunContext`, §7.3) y SDD-23

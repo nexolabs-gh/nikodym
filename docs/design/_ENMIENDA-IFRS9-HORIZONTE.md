@@ -1,7 +1,13 @@
 # Enmienda SDD — horizonte 12m de IFRS 9: la verificación que el motor no hace
 
-> **Estado: PROPUESTA — requiere OK de Cami antes de programar.** No se ha escrito una línea de
-> motor. Lo único ejecutado es la corrección del texto de SDD-16, que afirmaba un aviso inexistente.
+> **Estado: APROBADA (Cami, 2026-07-26).** D-HOR-0 quedó resuelto y el alcance fijado: **la
+> term-structure transporta su unidad temporal**, y el descuento y el horizonte entran **juntos**
+> en el mismo release. Ver §5, reescrita con la decisión y con la medición que la precedió.
+>
+> ⚠️ **El título de esta enmienda apunta al síntoma menor, y conviene saberlo antes de leerla.**
+> Medido el 2026-07-26 sobre el motor: el horizonte 12m mal declarado **no cambia la ECL total**
+> —sólo el corte de stage 1—, mientras que la unidad de `time_value` la mueve un **−50,8 %**. Lo
+> que se programa es la unidad temporal; el aviso de horizonte es su consecuencia.
 >
 > **Revisión adversarial (2026-07-25):** la primera versión de esta enmienda tenía **un argumento
 > falso, un gatillo que no funcionaba y un blast radius subestimado**. Un revisor fresco lo demostró
@@ -9,8 +15,8 @@
 > anotado, abajo, qué decía la versión anterior — porque el error es informativo: casi todo venía de
 > razonar sobre lo que el código *debería* hacer.
 >
-> **Base:** `main` = `c6580a0`.
-> **Autor / Fecha:** DanIA / 2026-07-25.
+> **Base:** `main` = `c6580a0`; decisiones de §5 tomadas sobre `d2ba1bb`.
+> **Autor / Fecha:** DanIA / 2026-07-25, resuelta el 2026-07-26.
 
 | Campo | Valor |
 |---|---|
@@ -18,7 +24,8 @@
 | **Enmienda a** | SDD-16 (§8 casos borde, §9 audit trail, ficha IFRS-2) |
 | **No toca** | La clasificación de IFRS-1…IFRS-6, ni el contrato de `core/markers.py`, ni la firma de `marginal_to_horizon` |
 | **Release** | `1.6.0` — `provisioning/ifrs9` es experimental; el pipeline F1 estable no participa |
-| **Decisión previa que la bloquea** | **En qué unidad está `time_value`, quién la declara y quién la verifica** (§5). Sin eso, cualquier gatillo se apoya en un supuesto no escrito |
+| **Decisión previa que la bloqueaba** | **En qué unidad está `time_value`, quién la declara y quién la verifica** — **RESUELTA en §5.2**: la term-structure la transporta |
+| **Impacto real** | El descuento: **−50,8 %** de ECL medido al declarar la misma curva en meses en vez de años (§5.1). El horizonte no mueve la ECL total |
 
 ---
 
@@ -146,19 +153,64 @@ no excepción se sostiene por otra razón: el motor **infiere** el desajuste a p
 unidad no controla, y un fail-fast sobre una inferencia rompe corridas legítimas con convenciones
 que no anticipamos.
 
-## 5. La decisión que va primero
+## 5. La decisión que iba primero — RESUELTA (Cami, 2026-07-26)
 
-**¿En qué unidad está `time_value`, quién la declara y quién la verifica?** De eso dependen tres
-cosas, y sólo una es esta enmienda:
+**¿En qué unidad está `time_value`, quién la declara y quién la verifica?** De eso dependían tres
+cosas:
 
 1. El gatillo por unidad (§2), que sin esto no se puede escribir.
 2. **El descuento de la ECL**, que hoy asume años sin verificarlo — de mayor impacto que el horizonte.
 3. La frontera con survival/markov, que publican `time_value` en la unidad que declaran y no
    convierten.
 
-Mi recomendación es resolver (1)+(2) juntos en una enmienda de **unidad temporal**, y que el aviso
-de horizonte sea una consecuencia suya, no un parche previo. Programar sólo el gatillo A ahora
-arregla el caso visible y deja intacto el que mueve la cifra.
+### 5.1 · Lo que se midió antes de decidir
+
+La sospecha de (2) se confirmó corriendo el motor, con la **misma economía** expresada en dos
+unidades —cuatro cortes trimestrales sobre un horizonte de un año, mismo EIR anual, misma
+PD/LGD/EAD—:
+
+| `time_value` declarado | ECL |
+|---|---|
+| años (0,25 · 0,50 · 0,75 · 1,00) | **1.677,76** |
+| meses (3 · 6 · 9 · 12) — *los mismos instantes* | **826,06** |
+
+**−50,8 % de provisión** por cambiar sólo la unidad. Y en la misma corrida, el horizonte con su
+default (`horizon_12m_periods=12`) sobre una curva trimestral **no movió la ECL total**: su efecto
+se limita al corte de stage 1. **El síntoma que da nombre a la enmienda es el menor de los dos.**
+
+El preset F4 de la demo está a salvo **por suerte, no por diseño**: declara `time_unit="year"` y su
+EIR es anual. El default de `time_unit` es `"period"`, que no es ninguna unidad.
+
+### 5.2 · D-HOR-0 — La term-structure transporta su unidad temporal
+
+**Decisión de Cami**, sobre la alternativa de fijar años como convención única con gate de entrada.
+La term-structure declara en qué unidad viene y `ifrs9` convierte, en vez de asumir.
+
+Se eligió pese a que agranda el contrato de la term-structure y deja dos rutas de cálculo que
+mantener, porque **no rompe a ningún usuario actual** y deja la unidad como un dato del productor
+—que es quien la conoce— en lugar de una obligación del consumidor.
+
+**Consecuencias de diseño (R0 técnico, DanIA):**
+
+- **La unidad viaja con el dato, no en el config de `ifrs9`.** Ponerla en el config permitiría
+  declarar una unidad distinta de la que la curva trae de verdad, que es el mismo agujero por otra
+  puerta.
+- **Si la term-structure no declara unidad, se asume años y se emite marca declarada.** Es
+  extensión aditiva (CT-2): quien hoy pasa curvas en años no ve ningún cambio, y quien no la declara
+  se entera en vez de recibir una cifra silenciosamente mala. La marca es **`DATO-INSTITUCIONAL`**:
+  la periodicidad de la curva sólo la sabe la institución y el motor **se niega a inventarla** — la
+  presunción de años es explícita y auditable, no un supuesto escondido.
+- **Como marca declarada, `fail_on_falta_dato` la gobierna** (CRP-6, ya cerrado en las siete capas):
+  quien quiera fail-fast lo tiene sin nada nuevo, y es **gobernable**, no estructural — declarar la
+  unidad la hace desaparecer.
+- **Una unidad no convertible (`"period"`, el default de `survival`) no se adivina.** No es
+  ambigüedad que el motor pueda resolver: se trata como unidad no declarada.
+
+### 5.3 · Alcance del release (Cami, 2026-07-26)
+
+**Descuento y horizonte entran juntos**, como recomendaba la versión anterior de esta sección: el
+aviso de horizonte sale como consecuencia de la decisión de unidad, no como parche previo. Arreglar
+sólo el horizonte dejaría intacto el −50,8 %.
 
 ## 6. Lo que queda fuera a propósito
 
