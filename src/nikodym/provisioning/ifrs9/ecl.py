@@ -68,7 +68,7 @@ else:
     DataFrame: TypeAlias = Any
     Series: TypeAlias = Any
 
-__all__ = ["EclEngine"]
+__all__ = ["EclEngine", "validate_scenario_weights"]
 
 # Columnas mínimas de la malla tidy de componentes alineados por (row_id, scenario, period).
 _COMPONENT_COLUMNS: tuple[str, ...] = (
@@ -171,7 +171,7 @@ class EclEngine:
         _validate_horizons(horizon_12m, max_lifetime)
         cols = _read_components(components, numpy, max_lifetime)
         scenario_keys = [str(scenario) for scenario in cols["scenario"]]
-        weight_by_scenario = _resolve_weights(weights, set(scenario_keys))
+        weight_by_scenario = validate_scenario_weights(weights, set(scenario_keys))
         eir_map = _resolve_eir(eir, numpy)
         stage_map = _resolve_stages(stages, numpy)
         row_id_keys = [str(row_id) for row_id in cols["row_id"]]
@@ -357,7 +357,9 @@ def _direct_lifetime(
     return {str(row_id): float(value) for row_id, value in summed.items()}
 
 
-def _resolve_weights(weights: Mapping[str, float], scenarios_present: set[str]) -> dict[str, float]:
+def validate_scenario_weights(
+    weights: Mapping[str, float], scenarios_present: set[str]
+) -> dict[str, float]:
     """Valida los pesos (positivos, que cubren los escenarios y suman 1); no los inventa."""
     if not weights:
         raise IfrsEclError("Los pesos de escenario no pueden estar vacíos (no se inventan).")

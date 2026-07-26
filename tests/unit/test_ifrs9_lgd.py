@@ -118,7 +118,32 @@ def test_workout_golden_descuento_eir() -> None:
     np.testing.assert_allclose(out["lgd"].to_numpy(), [0.5454545454545454], rtol=1e-9)
 
 
-def test_workout_descuento_contractual_sin_costo() -> None:
+def test_workout_descuento_contractual_con_costo_cero_explicito() -> None:
+    """El costo cero es una declaración de la institución, no un supuesto del motor (CRP-5).
+
+    Este test asumía el costo en cero cuando la columna faltaba. Esa comodidad subestimaba la LGD
+    en silencio —el censo lo midió en 20 pp— y era asimétrica con ``recovery_time_years``, que
+    siempre levantó. Ahora el cero se escribe.
+    """
+    cfg = IfrsLgdConfig(method="workout", recovery_col="recovery", workout_discount="contractual")
+    frame = pd.DataFrame(
+        {
+            "recovery": [800.0],
+            "recovery_cost": [0.0],
+            "ead": [1000.0],
+            "recovery_time_years": [2.0],
+            "contractual_rate": [0.05],
+        }
+    )
+    out = LgdEngine.from_config(cfg).estimate(frame)
+
+    # PV = 800/1.05^2; el golden no cambia, cambia quién declara el cero.
+    expected = 1.0 - 800.0 / (1.05**2.0) / 1000.0
+    np.testing.assert_allclose(out["lgd"].to_numpy(), [expected], rtol=1e-12)
+
+
+def test_workout_sin_columna_de_costo_levanta() -> None:
+    """La columna ausente ya no se imputa: el enfoque *workout* la exige (CRP-5)."""
     cfg = IfrsLgdConfig(method="workout", recovery_col="recovery", workout_discount="contractual")
     frame = pd.DataFrame(
         {
@@ -128,11 +153,9 @@ def test_workout_descuento_contractual_sin_costo() -> None:
             "contractual_rate": [0.05],
         }
     )
-    out = LgdEngine.from_config(cfg).estimate(frame)
 
-    # Sin columna de costos, el costo es 0; PV = 800/1.05^2.
-    expected = 1.0 - 800.0 / (1.05**2.0) / 1000.0
-    np.testing.assert_allclose(out["lgd"].to_numpy(), [expected], rtol=1e-12)
+    with pytest.raises(IfrsLgdError, match="recovery_cost"):
+        LgdEngine.from_config(cfg).estimate(frame)
 
 
 # ─────────────────────────── regresión: beta y fractional (nunca OLS) ───────────────────────────
@@ -191,7 +214,14 @@ def test_workout_sin_columna_tiempo() -> None:
 
 def test_workout_eir_ausente() -> None:
     cfg = IfrsLgdConfig(method="workout", recovery_col="recovery", workout_discount="eir")
-    frame = pd.DataFrame({"recovery": [600.0], "ead": [1000.0], "recovery_time_years": [1.0]})
+    frame = pd.DataFrame(
+        {
+            "recovery": [600.0],
+            "recovery_cost": [0.0],
+            "ead": [1000.0],
+            "recovery_time_years": [1.0],
+        }
+    )
     with pytest.raises(IfrsLgdError, match="requiere la serie eir"):
         LgdEngine.from_config(cfg).estimate(frame)
 
@@ -201,6 +231,7 @@ def test_workout_eir_longitud_no_alinea() -> None:
     frame = pd.DataFrame(
         {
             "recovery": [600.0, 600.0],
+            "recovery_cost": [0.0, 0.0],
             "ead": [1000.0, 1000.0],
             "recovery_time_years": [1.0, 1.0],
         }
@@ -214,6 +245,7 @@ def test_workout_ead_no_positiva() -> None:
     frame = pd.DataFrame(
         {
             "recovery": [600.0],
+            "recovery_cost": [0.0],
             "ead": [0.0],
             "recovery_time_years": [1.0],
             "contractual_rate": [0.05],
@@ -228,6 +260,7 @@ def test_workout_tiempo_negativo() -> None:
     frame = pd.DataFrame(
         {
             "recovery": [600.0],
+            "recovery_cost": [0.0],
             "ead": [1000.0],
             "recovery_time_years": [-1.0],
             "contractual_rate": [0.05],
@@ -242,6 +275,7 @@ def test_workout_tasa_menor_o_igual_menos_uno() -> None:
     frame = pd.DataFrame(
         {
             "recovery": [600.0],
+            "recovery_cost": [0.0],
             "ead": [1000.0],
             "recovery_time_years": [1.0],
             "contractual_rate": [-1.5],

@@ -32,6 +32,27 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Corregido
 
+- **IFRS 9 dejó de calcular mal en silencio en dos puntos, y de validar tarde en un tercero**
+  (primer paso del contrato de resolución de parámetros, CRP-5). Los tres se midieron corriendo el
+  motor, no leyéndolo:
+  - **La LGD del enfoque `workout` se subestimaba cuando faltaba `recovery_cost`.** El motor asumía
+    coste cero: con EAD 100 y recuperación 50 devolvía `0.50` en vez de `0.70`, **20 puntos
+    porcentuales menos**, sin emitir ningún aviso. Era además asimétrico con su insumo hermano
+    `recovery_time_years`, que siempre levantó. Ahora la columna se exige; si la institución no
+    incurre en costos de recuperación, declara ceros explícitos.
+  - **Una operación en incumplimiento genuino salía Stage 1.** Si la columna `is_default` —declarada
+    por defecto— no venía en el frame, el gatillo de Stage 3 devolvía «no» para toda la cartera sin
+    decir nada. El motor trataba igual una elección del usuario y una carencia del dato. Ahora la
+    ausencia levanta, y para no evaluar ese gatillo se declara `staging.is_default_col=None`.
+  - **Los pesos de escenario inválidos ya habían ponderado la PD antes de ser rechazados.** La
+    validación vivía sólo en el cálculo de la ECL, es decir después de calcular con el número malo.
+    El veredicto era correcto y el momento no: ahora se validan al resolverlos, antes de ponderar.
+
+  **Cambio de comportamiento:** una corrida que hoy pasa puede empezar a fallar si el frame no trae
+  `recovery_cost` (sólo con `lgd.method="workout"`) o `is_default`. En ambos casos el fallo sustituye
+  a un resultado que era incorrecto o incompleto. `provisioning/ifrs9` es experimental y queda fuera
+  de la garantía SemVer 1.x.
+
 - **El panel de resultados de la UI muestra el fallo real, no un texto genérico.** El backend
   no tenía otro que dar —el mensaje moría en el sink— y el front ya sabía mostrarlo. Ahora publica
   el mensaje del motor con el paso que falló («El paso 'scorecard' falló: …»), **sin** el código de

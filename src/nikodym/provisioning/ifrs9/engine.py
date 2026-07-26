@@ -35,7 +35,7 @@ from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.markers import is_declared_warning
 from nikodym.provisioning.ifrs9.config import IfrsProvisioningConfig
 from nikodym.provisioning.ifrs9.ead import EadEngine
-from nikodym.provisioning.ifrs9.ecl import EclEngine
+from nikodym.provisioning.ifrs9.ecl import EclEngine, validate_scenario_weights
 from nikodym.provisioning.ifrs9.exceptions import (
     IfrsConfigError,
     IfrsInputError,
@@ -292,7 +292,14 @@ class IfrsProvisioningEngine:
     # --- Etapas económicas (reutilizan los motores puros de bloques previos) -------------------
 
     def _resolve_weights(self, ts: DataFrame, numpy: Any) -> dict[str, float]:
-        """Resuelve los pesos de escenario según ``scenarios.source`` (SDD-16 §5/§7)."""
+        """Resuelve los pesos de escenario según ``scenarios.source`` (SDD-16 §5/§7).
+
+        CRP-5: la validación de los pesos —positivos, que cubren los escenarios y suman 1— se
+        aplica **aquí**, antes de que :func:`_weighted_horizons` los use para ponderar la PD 12m y
+        lifetime. Antes vivía sólo en ``EclEngine``, es decir después de haber calculado con el
+        número malo: el veredicto era correcto y el momento no. ``EclEngine`` la conserva como
+        defensa en profundidad, porque también se le puede invocar directamente.
+        """
         scenarios_present = _ordered_unique(
             str(value) for value in ts[_TS_SCENARIO_COLUMN].tolist()
         )
@@ -313,18 +320,19 @@ class IfrsProvisioningEngine:
                     "scenarios.source='single' exige exactamente un escenario en la "
                     f"term-structure; presentes={scenarios_present}."
                 )
-            return {scenarios_present[0]: 1.0}
-        if source == "config":
-            weights = {
+            resolved = {scenarios_present[0]: 1.0}
+        elif source == "config":
+            resolved = {
                 str(key): float(value) for key, value in self._config.scenarios.weights.items()
             }
-            if set(weights) != set(scenarios_present):
+            if set(resolved) != set(scenarios_present):
                 raise IfrsConfigError(
                     "scenarios.source='config' exige pesos que cubran exactamente los escenarios "
-                    f"presentes (pesos={sorted(weights)}, escenarios={scenarios_present})."
+                    f"presentes (pesos={sorted(resolved)}, escenarios={scenarios_present})."
                 )
-            return weights
-        return _forward_weights(ts, scenarios_present, numpy)
+        else:
+            resolved = _forward_weights(ts, scenarios_present, numpy)
+        return validate_scenario_weights(resolved, set(scenarios_present))
 
     def _resolve_pit_marginal(
         self, ts: DataFrame, config: IfrsProvisioningConfig, numpy: Any

@@ -139,10 +139,16 @@ class LgdEngine:
         recovery = _column(frame, recovery_col, numpy)
         ead = _column(frame, _WORKOUT_EAD_COLUMN, numpy)
         time_years = _column(frame, _WORKOUT_TIME_COLUMN, numpy)
-        if _WORKOUT_COST_COLUMN in frame.columns:
-            cost = _column(frame, _WORKOUT_COST_COLUMN, numpy)
-        else:
-            cost = numpy.zeros_like(recovery)
+        if _WORKOUT_COST_COLUMN not in frame.columns:
+            # CRP-5: asumir cero aquí subestimaba la LGD sin avisar —con EAD 100 y recuperación 50,
+            # 0.50 en vez de 0.70— y era asimétrico con `recovery_time_years`, que sí levanta. Un
+            # insumo ausente del enfoque no se inventa: se rechaza en la entrada.
+            raise IfrsLgdError(
+                f"El enfoque LGD 'workout' exige la columna '{_WORKOUT_COST_COLUMN}' en el frame. "
+                "Si la institución no incurre en costos de recuperación, declárela con ceros "
+                "explícitos; el motor no asume el valor."
+            )
+        cost = _column(frame, _WORKOUT_COST_COLUMN, numpy)
         rate = self._workout_rate(frame, eir, numpy)
         if bool(numpy.any(rate <= -1.0)):
             raise IfrsLgdError(

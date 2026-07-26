@@ -198,10 +198,22 @@ class StagingEngine:
         return _stage_override_array(frame, col, numpy)
 
     def _fired_is_default(self, frame: DataFrame, n: int, numpy: Any) -> NDArrayBool:
-        """Gatillo 6: flag de default opcional (SDD-16 §6); se usa si la columna existe."""
+        """Gatillo 6: flag de default (SDD-16 §6). ``None`` apaga; ausente del frame **levanta**.
+
+        CRP-5: las dos condiciones vivían en el mismo ``or`` y eso colapsaba una elección del
+        usuario con una carencia del dato. Como ``is_default_col`` trae default ``"is_default"``,
+        un frame que no la trajera apagaba el gatillo Stage 3 en silencio y una operación en
+        incumplimiento genuino salía Stage 1 con ``warnings`` vacío. La ruta de escape sigue
+        existiendo y ahora es explícita: ``is_default_col=None``.
+        """
         col = self._config.is_default_col
-        if col is None or col not in frame.columns:
+        if col is None:
             return cast("NDArrayBool", numpy.zeros(n, dtype=bool))
+        if col not in frame.columns:
+            raise IfrsStagingError(
+                f"La columna del flag de incumplimiento '{col}' no está en el frame. Para no "
+                "evaluar el gatillo Stage 3 por default, declare staging.is_default_col=None."
+            )
         return _bool_column(frame, col, numpy)
 
     def _exempt_rows(self, frame: DataFrame, n: int, numpy: Any) -> NDArrayBool:

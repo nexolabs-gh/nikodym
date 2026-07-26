@@ -219,12 +219,18 @@ def test_is_default_flag_stage3() -> None:
     assert out["sicr_triggers"].tolist() == [("is_default",)]
 
 
-def test_is_default_columna_ausente_se_ignora() -> None:
-    # is_default_col con default 'is_default' pero sin la columna → opcional (§6): se ignora.
+def test_is_default_columna_ausente_levanta() -> None:
+    """La columna declarada y ausente es una carencia del dato, no un opt-out (CRP-5).
+
+    Ignorarla apagaba el gatillo Stage 3 para toda la cartera sin emitir nada: una operación en
+    incumplimiento genuino salía Stage 1. Como ``is_default_col`` trae default ``"is_default"``,
+    el motor prometía un gatillo que el frame no podía sostener. El opt-out sigue disponible y
+    ahora hay que escribirlo (test siguiente).
+    """
     cfg = IfrsStagingConfig()
     frame = pd.DataFrame({"days_past_due": [0]})
-    out = _assign(cfg, frame)
-    assert out["stage"].tolist() == [1]
+    with pytest.raises(IfrsStagingError, match="is_default"):
+        _assign(cfg, frame)
 
 
 def test_is_default_desactivado_col_none() -> None:

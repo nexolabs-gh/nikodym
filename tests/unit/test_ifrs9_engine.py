@@ -822,8 +822,22 @@ def test_summary_agrega_por_cartera_stage() -> None:
     )
     frame = pd.DataFrame(
         [
-            {"portfolio": "retail", "ead": 1000.0, "lgd": 0.5, "eir": 0.0, "days_past_due": 0},
-            {"portfolio": "sme", "ead": 0.0, "lgd": 0.5, "eir": 0.0, "days_past_due": 0},
+            {
+                "portfolio": "retail",
+                "ead": 1000.0,
+                "lgd": 0.5,
+                "eir": 0.0,
+                "days_past_due": 0,
+                "is_default": False,
+            },
+            {
+                "portfolio": "sme",
+                "ead": 0.0,
+                "lgd": 0.5,
+                "eir": 0.0,
+                "days_past_due": 0,
+                "is_default": False,
+            },
         ],
         index=pd.Index(["op1", "op2"]),
     )

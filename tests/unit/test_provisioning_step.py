@@ -552,6 +552,7 @@ def _study_tres_motores() -> Study:
                 "lgd": 0.5,
                 "eir": 0.10,
                 "days_past_due": 0,
+                "is_default": False,
             }
         ],
         index=pd.Index(["loan-1"], name="loan_id"),

@@ -74,6 +74,7 @@ def _frame() -> pd.DataFrame:
                 "lgd": 0.5,
                 "eir": 0.10,
                 "days_past_due": 0,
+                "is_default": False,
             }
         ],
         index=pd.Index(["op1"], name="loan_id"),
