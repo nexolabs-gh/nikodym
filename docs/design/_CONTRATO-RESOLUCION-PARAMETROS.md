@@ -28,6 +28,16 @@ regla rectora de los contratos transversales v1: *diseña de extremo a extremo l
 
 ## 2. El problema, medido
 
+> ⚠️ **Este §2 está enmendado. No leerlo sin
+> [`_ENMIENDA-CRP-IFRS9.md`](_ENMIENDA-CRP-IFRS9.md)** (aprobada por Cami el 2026-07-25). El re-censo
+> sobre `f4fa383`, con lectores frescos independientes, confirmó P1, P4 y P5 —esta última ampliada a
+> siete definiciones y cinco semánticas—, **refutó P3** (la procedencia no la registra «un solo lugar»)
+> y corrigió los dos polos de P2 (`rho` es condicional, no exigido; los umbrales SICR no son constantes
+> cableadas). El problema además es mayor de lo medido aquí: **seis** gatillos apagados por defecto y
+> **nueve** warnings de carencia sin marca. La enmienda fija también el orden de adopción
+> —**CRP-5 → CRP-6 → CRP-4 → CRP-1/CRP-3 → CRP-7**, que corrige el §7 de este documento— y las tres
+> decisiones sin las cuales `Resolved[T]` no era implementable.
+
 Censo sobre el código real de `provisioning/{cmf,ifrs9,internal}`, `forward`, `stress`, `survival` y
 `calibration` (~7.000 líneas leídas, cada afirmación con `archivo:línea`). Cuatro patologías, y
 ninguna es una opinión de estilo:

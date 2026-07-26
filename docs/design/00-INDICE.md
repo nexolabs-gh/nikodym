@@ -118,6 +118,22 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > distinción que faltaba: de los seis códigos IFRS sólo IFRS-4 e IFRS-6 se emiten en runtime; los
 > otros cuatro son requisitos de entrada documentados.
 >
+> **Contrato de resolución de parámetros — su censo, re-medido y enmendado (2026-07-25, APROBADO).**
+> [`_ENMIENDA-CRP-IFRS9.md`](_ENMIENDA-CRP-IFRS9.md) corrige el §2 del
+> [`_CONTRATO-RESOLUCION-PARAMETROS.md`](_CONTRATO-RESOLUCION-PARAMETROS.md) y fija por dónde se
+> adopta. **No leer ese §2 sin esta enmienda:** cinco lectores frescos sobre `f4fa383` confirmaron P1,
+> P4 y P5 —ampliada a **siete** definiciones y **cinco** semánticas de `fail_on_falta_dato`—, pero
+> **refutaron P3** (la procedencia no la registra «un solo lugar»; hay más de una docena de
+> mecanismos, varios anteriores al propio censo) y corrigieron los dos polos de P2. El problema es
+> mayor de lo medido: **seis** gatillos apagados por defecto y **nueve** warnings de carencia sin
+> marca, no cuatro. Orden de adopción fijado: **CRP-5 → CRP-6 → CRP-4 → CRP-1/CRP-3 → CRP-7**, que
+> corrige el §7 del contrato — CRP-4 sólo rotula, y lo que corrige las dos cifras erradas es el gate
+> de entrada. Añade las tres decisiones sin las cuales `Resolved[T]` no era implementable: firma
+> `Generic[T]` (PEP 695 exige 3.12 y el proyecto soporta 3.11), el centinela de `is_default` —hoy no
+> es computable en ningún canal— y la taxonomía con familia y número de los nueve warnings.
+> **Su §7 registra los seis puntos que la propia enmienda tuvo que corregir tras revisión
+> adversarial**, incluido uno con la misma premisa falsa que ella denuncia.
+>
 > **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7)
 > y el SDD pasó al stack React/Vite sobre FastAPI. La implementación histórica del backend/front no
 > equivale a la implementación de la distribución aprobada en B2.0.
