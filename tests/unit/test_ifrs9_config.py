@@ -508,14 +508,21 @@ def test_apply_vasicek_forward_sin_z_levanta() -> None:
         )
 
 
-def test_apply_vasicek_sin_fail_on_falta_dato_no_valida() -> None:
-    """Con ``fail_on_falta_dato=False`` la brecha Vasicek se difiere (no falla en config)."""
-    cfg = IfrsProvisioningConfig(
-        pd=IfrsPdConfig(pit_mode="apply_vasicek"),
-        scenarios=IfrsScenarioConfig(source="single"),
-        fail_on_falta_dato=False,
-    )
-    assert cfg.pd.rho is None
+def test_apply_vasicek_valida_aunque_fail_on_falta_dato_sea_false() -> None:
+    """El chequeo PIT es incondicional: no lo apaga ningún flag (D-CRP6-3).
+
+    ⚠️ **Invertido en CRP-6.** Este test afirmaba que con ``fail_on_falta_dato=False`` la brecha
+    Vasicek «se difiere». Diferirla no era una ruta degradada —``_apply_vasicek`` levanta igual, y
+    hay tests que lo fijan—: era mover la validación al medio del cálculo, que es exactamente lo
+    que CRP-5 prohíbe. El flag pasó a gobernar los avisos declarados de la capa, que es lo que su
+    nombre promete.
+    """
+    with pytest.raises(IfrsConfigError, match="rho"):
+        IfrsProvisioningConfig(
+            pd=IfrsPdConfig(pit_mode="apply_vasicek"),
+            scenarios=IfrsScenarioConfig(source="single"),
+            fail_on_falta_dato=False,
+        )
 
 
 # ─────────────────────────── restricciones Pydantic ───────────────────────────

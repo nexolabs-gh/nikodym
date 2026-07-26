@@ -414,10 +414,14 @@ class ValidationConfig(NikodymBaseConfig):
             and not self.backtesting.enabled
             and self.fail_on_falta_dato
         ):
+            # D-CRP6-6: el mensaje nombra su marca, como sus pares. Sin el código, esta carencia
+            # no aparecía en el volcado de auditoría al mismo nivel que las demás. El número sigue
+            # la familia VAL sin reutilizar el 1-3, ya tomados por `FALTA-DATO-VAL-*`: son marcas
+            # distintas y el par no colisiona, pero dos «VAL-1» en la misma página se leen mal.
             raise ValidationConfigError(
-                "families incluye 'backtesting' pero backtesting.enabled=False: el backtesting "
-                "IFRS 9 exige enabled=True y las columnas realizadas declaradas "
-                "(o fail_on_falta_dato=False para registrarlo como brecha de datos en vez de "
-                "detener la corrida)."
+                "DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting' pero "
+                "backtesting.enabled=False; el backtesting IFRS 9 exige enabled=True y las "
+                "columnas realizadas declaradas (o fail_on_falta_dato=False para registrarlo "
+                "como brecha de datos en vez de detener la corrida)."
             )
         return self

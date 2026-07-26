@@ -646,11 +646,13 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
     )
     fail_on_falta_dato: bool = Field(
         default=True,
-        title="Rechazo fail-fast de configuración PIT inconsistente",
+        title="Fallar ante falta de dato",
         description=(
-            "Con True (default), una configuración PIT inconsistente —`pit_mode='apply_vasicek'` "
-            "sin `pd.rho` escalar o sin el factor sistémico Z— detiene la corrida al validar el "
-            "config. Con False el fallo aparece igual, pero más tarde, durante el cálculo."
+            "Con True (default), un aviso declarado que el motor emita durante el cálculo detiene "
+            "la corrida en vez de quedar registrado y seguir. No cubre las limitaciones que esta "
+            "capa arrastra en toda corrida, como el perfil de exposición constante por período: "
+            "ésas quedan siempre anotadas en el resultado, porque no dependen de los datos que "
+            "usted entregue."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 2},
     )
@@ -663,7 +665,11 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
             context="provisioning_ifrs9",
         )
         _require_non_empty_if_set({"row_id_col": self.row_id_col}, context="provisioning_ifrs9")
-        if self.fail_on_falta_dato and self.pd.pit_mode == "apply_vasicek":
+        # D-CRP6-3: el chequeo PIT es incondicional y no mira `fail_on_falta_dato`. Antes lo hacía,
+        # pero `False` no abría ninguna ruta degradada —`_apply_vasicek` levanta igual—: su único
+        # efecto era mover esta validación al medio del cálculo, que es lo que CRP-5 prohíbe. El
+        # patrón es el de `cmf/engine.py:443`, que valida el dominio de cartera en la entrada.
+        if self.pd.pit_mode == "apply_vasicek":
             if self.pd.rho is None:
                 raise IfrsConfigError(
                     "pd.pit_mode='apply_vasicek' exige rho (escalar, por cartera) para la "

@@ -57,3 +57,12 @@ class IfrsStagingError(IfrsProvisioningError):
 
 class IfrsEclError(IfrsProvisioningError):
     """Error en el motor ECL marginal (descuento a EIR, ponderación de escenarios)."""
+
+
+class IfrsFaltaDatoError(IfrsProvisioningError):
+    """Error por un aviso declarado **gobernable** con ``fail_on_falta_dato=True`` (D-CRP6-3).
+
+    No lo levantan los avisos estructurales —los que el motor emite en toda corrida por una
+    capacidad diferida propia—, que se registran en la card y nunca detienen: ver
+    :func:`nikodym.core.markers.governable_warnings`.
+    """

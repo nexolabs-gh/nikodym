@@ -489,18 +489,25 @@ def test_forbid_mean_scenario_veta_nombres_reservados() -> None:
 
 
 def test_adverse_severe_sin_paths_ni_shocks_falla_por_default() -> None:
-    """DATO-INSTITUCIONAL-FWD-1 falla por default y no inventa shocks adversos/severos."""
+    """DATO-INSTITUCIONAL-FWD-1 falla por default y no inventa shocks adversos/severos.
+
+    ⚠️ **Invertido en CRP-6 (D-CRP6-5).** La tercera aserción afirmaba lo contrario: que
+    ``fail_on_missing_scenario_paths=False`` bastaba para construir el config pese a la carencia.
+    Eso era precisamente el apagado silencioso —un segundo flag anulando al que el usuario dejó en
+    ``True``—, así que ahora levanta igual y el campo quedó deprecado.
+    """
     with pytest.raises(ForwardScenarioError, match="DATO-INSTITUCIONAL-FWD-1"):
         _cfg(scenarios=ScenarioConfig())
 
     assert _cfg(scenarios=ScenarioConfig(), fail_on_falta_dato=False).fail_on_falta_dato is False
-    assert (
+    with (
+        pytest.warns(DeprecationWarning, match="fail_on_missing_scenario_paths"),
+        pytest.raises(ForwardScenarioError, match="DATO-INSTITUCIONAL-FWD-1"),
+    ):
         _cfg(
             scenarios=ScenarioConfig(),
             validation=ForwardValidationConfig(fail_on_missing_scenario_paths=False),
-        ).validation.fail_on_missing_scenario_paths
-        is False
-    )
+        )
 
 
 def test_satellite_factor_cols_subconjunto_de_variables_macro() -> None:

@@ -248,6 +248,31 @@ Se ejecuta en dos etapas con condiciones distintas:
    se apaga cuando falta la columna declarada, y los pesos de escenario se validan antes de ponderar
    la PD y no después.
 
+   **CRP-6 — bloque A implementado, bloque B pendiente** ([`_ENMIENDA-CRP6-FLAG.md`](design/_ENMIENDA-CRP6-FLAG.md),
+   D-CRP6-1…D-CRP6-8, aprobada). El censo de las siete capas se re-midió contra *la pregunta que
+   CRP-6 define* en vez de contra el mecanismo, y **cinco ya cumplían**: comprobar en el config
+   cuando la carencia ya es demostrable no es otra semántica, es CRP-5. Las «cinco semánticas» son
+   ciertas en su unidad —igual que el «34 vs 24» de las marcas—, pero no son la unidad que dimensiona
+   el trabajo. Dos hallazgos que ningún censo previo tenía:
+
+   - **El flag de `ifrs9` no gobernaba ninguna marca.** Su `False` sólo movía el chequeo PIT al medio
+     del cálculo (`_apply_vasicek` levantaba igual), que es lo que CRP-5 prohíbe. Por eso el chequeo
+     pasó a ser **incondicional** en vez de renombrarse como mandaba el contrato: sin migrador, sin
+     tocar `schema.json` por el nombre y sin recaptura.
+   - **`FALTA-DATO-IFRS-4` se emite en toda corrida** —medido con la EAD entregada por la
+     institución—, así que conectar el flag tal cual habría **abortado todo IFRS 9** con su default y
+     en los tres presets. De ahí la distinción que CRP-4 hereda: marca **gobernable** (existe una
+     entrada válida sin ella) vs **estructural** (capacidad diferida del motor: se registra siempre,
+     nunca detiene). Vive en `core/markers.py::governable_warnings`.
+
+   Se descubrió además que el **preset publicado se contradice**: declara `fail_on_falta_dato=True`
+   y entrega la carencia `SUR-3`. Es invisible hoy porque el flag es no-op en `survival`.
+
+   **Bloque B (pendiente, no opcional):** `survival` implementa el flag y el preset declara sus
+   intervalos de confianza. Mueve `config_hash`, así que va junto al P2 —el preset F4 sale de
+   `pit_mode="ttc_only"`— con el bump de versión y **una sola** recaptura patrón C-D. Hasta
+   entonces CRP-6 **no** está cumplido: el criterio de las siete capas cubre seis.
+
    **Pendiente de B3.a-1 al 2026-07-25** (lo demás está implementado y con gates):
 
    - **El selector de régimen en preset y UI: DIFERIDO a propósito (Cami, 2026-07-25)**, no olvidado.

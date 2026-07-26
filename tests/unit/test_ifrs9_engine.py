@@ -384,29 +384,29 @@ def test_apply_vasicek_transforma_pd() -> None:
 
 
 def test_apply_vasicek_sin_rho_falla() -> None:
-    """Sin rho el motor levanta en runtime aunque ``fail_on_falta_dato=False`` difiera el config.
+    """Sin rho no hay ruta degradada, y desde CRP-6 el rechazo llega ya en el config.
 
-    Fija que NO existe ruta degradada FALTA-DATO para rho: el config con
-    ``fail_on_falta_dato=False`` construye, pero ``_apply_vasicek`` falla igual.
+    ⚠️ **Invertido en CRP-6 (D-CRP6-3).** Antes este test construía el config con
+    ``fail_on_falta_dato=False`` y comprobaba que ``_apply_vasicek`` levantara igual, a mitad del
+    cálculo. Esa era la prueba de que el flag no abría ninguna ruta degradada —sólo movía la
+    validación—, así que el chequeo pasó a ser incondicional. La intención original se conserva
+    intacta: sin ``rho`` no se corre. Lo que cambia es *cuándo* se entera el usuario.
     """
-    cfg = IfrsProvisioningConfig(
-        portfolio_col="portfolio",
-        pd=IfrsPdConfig(
-            term_structure_source="survival",
-            pit_mode="apply_vasicek",
-            rho=None,
-            systemic_factor_col="Z",
-            horizon_12m_periods=1,
-        ),
-        lgd=IfrsLgdConfig(method="provided"),
-        ead=IfrsEadConfig(method="provided"),
-        scenarios=IfrsScenarioConfig(source="single"),
-        fail_on_falta_dato=False,
-    )
-    frame = _frame(ead=1000.0, lgd=0.5, eir=0.0)
-    ts = _ts(pd_marginal=[0.02], periods=[1], with_curve=False, extra={"Z": [0.0]})
-    with pytest.raises(IfrsConfigError, match="rho escalar"):
-        _run(cfg, frame, ts)
+    with pytest.raises(IfrsConfigError, match="rho"):
+        IfrsProvisioningConfig(
+            portfolio_col="portfolio",
+            pd=IfrsPdConfig(
+                term_structure_source="survival",
+                pit_mode="apply_vasicek",
+                rho=None,
+                systemic_factor_col="Z",
+                horizon_12m_periods=1,
+            ),
+            lgd=IfrsLgdConfig(method="provided"),
+            ead=IfrsEadConfig(method="provided"),
+            scenarios=IfrsScenarioConfig(source="single"),
+            fail_on_falta_dato=False,
+        )
 
 
 def test_apply_vasicek_sin_columna_z_falla() -> None:
@@ -430,24 +430,44 @@ def test_apply_vasicek_sin_columna_z_falla() -> None:
 
 
 def test_apply_vasicek_sin_systemic_factor_col_falla_en_runtime() -> None:
-    """``fail_on_falta_dato=False`` tampoco habilita una ruta degradada para el Z ausente."""
-    cfg = IfrsProvisioningConfig(
+    """El Z ausente se rechaza en los dos momentos, y ninguno de los dos sobra.
+
+    El config caza que **no se declare** la columna; el runtime caza que se declare una que la
+    term-structure **no trae**, que es un caso que el config no puede ver porque no conoce el dato.
+    Tras CRP-6 el primero ya no depende de ningún flag; el segundo se conserva como defensa en
+    profundidad, no como validación tardía.
+    """
+    with pytest.raises(IfrsConfigError, match="factor sistémico Z"):
+        IfrsProvisioningConfig(
+            portfolio_col="portfolio",
+            pd=IfrsPdConfig(
+                term_structure_source="survival",
+                pit_mode="apply_vasicek",
+                rho=0.15,
+                horizon_12m_periods=1,
+            ),
+            lgd=IfrsLgdConfig(method="provided"),
+            ead=IfrsEadConfig(method="provided"),
+            scenarios=IfrsScenarioConfig(source="single"),
+        )
+
+    declarada_pero_ausente = IfrsProvisioningConfig(
         portfolio_col="portfolio",
         pd=IfrsPdConfig(
             term_structure_source="survival",
             pit_mode="apply_vasicek",
             rho=0.15,
+            systemic_factor_col="Z",
             horizon_12m_periods=1,
         ),
         lgd=IfrsLgdConfig(method="provided"),
         ead=IfrsEadConfig(method="provided"),
         scenarios=IfrsScenarioConfig(source="single"),
-        fail_on_falta_dato=False,
     )
     frame = _frame(ead=1000.0, lgd=0.5, eir=0.0)
     ts = _ts(pd_marginal=[0.02], periods=[1], with_curve=False)
     with pytest.raises(IfrsConfigError, match="factor sistémico Z"):
-        _run(cfg, frame, ts)
+        _run(declarada_pero_ausente, frame, ts)
 
 
 # ─────────────────────────── PD PIT: guard anti doble ajuste (pd_basis) ───────────────────────────
@@ -991,18 +1011,27 @@ def test_forbid_mean_scenario_source_forward_falla() -> None:
 # ─────────────────────────── LGD forward ignorada (FALTA-DATO-IFRS-6) ───────────────────────────
 
 
-def _cfg_forward_consume_pit() -> IfrsProvisioningConfig:
-    """Config del golden 73.0: forward + consume_pit, EAD/LGD provistas, horizonte 12m=1."""
-    return IfrsProvisioningConfig(
-        portfolio_col="portfolio",
-        pd=IfrsPdConfig(
+def _cfg_forward_consume_pit(**overrides: Any) -> IfrsProvisioningConfig:
+    """Config del golden 73.0: forward + consume_pit, EAD/LGD provistas, horizonte 12m=1.
+
+    ``fail_on_falta_dato=False`` porque estos goldens **observan** el aviso declarado que la capa
+    emite al descartar la LGD de forward (D-CRP6-1): con el flag en su default la corrida se
+    detendría antes de producir la cifra que aquí se contrasta. Es el comportamiento correcto, y
+    los tests que lo ejercen son justamente los que tienen que pedir la ruta que no detiene.
+    """
+    data: dict[str, Any] = {
+        "portfolio_col": "portfolio",
+        "pd": IfrsPdConfig(
             term_structure_source="forward", pit_mode="consume_pit", horizon_12m_periods=1
         ),
-        lgd=IfrsLgdConfig(method="provided"),
-        ead=IfrsEadConfig(method="provided"),
-        scenarios=IfrsScenarioConfig(source="forward"),
-        ecl=IfrsEclConfig(),
-    )
+        "lgd": IfrsLgdConfig(method="provided"),
+        "ead": IfrsEadConfig(method="provided"),
+        "scenarios": IfrsScenarioConfig(source="forward"),
+        "ecl": IfrsEclConfig(),
+        "fail_on_falta_dato": False,
+    }
+    data.update(overrides)
+    return IfrsProvisioningConfig(**data)
 
 
 def _ts_forward_multiescenario(**extra_cols: list[Any]) -> pd.DataFrame:

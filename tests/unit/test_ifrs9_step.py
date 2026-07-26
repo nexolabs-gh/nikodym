@@ -46,8 +46,12 @@ ROOT_SEED = 20_260_703
 _ECL_12M = 45.45454545454545
 
 
-def _cfg(**pd_overrides: Any) -> IfrsProvisioningConfig:
-    """Config del step: survival, ttc_only, single, EAD/LGD provistas, horizonte 12m=1."""
+def _cfg(*, fail_on_falta_dato: bool = True, **pd_overrides: Any) -> IfrsProvisioningConfig:
+    """Config del step: survival, ttc_only, single, EAD/LGD provistas, horizonte 12m=1.
+
+    ``fail_on_falta_dato`` queda en el default salvo que el test **observe** un aviso declarado
+    gobernable (D-CRP6-1): en ese caso la corrida se detendría antes de producir lo que se audita.
+    """
     pd_kwargs: dict[str, Any] = {
         "term_structure_source": "survival",
         "pit_mode": "ttc_only",
@@ -60,6 +64,7 @@ def _cfg(**pd_overrides: Any) -> IfrsProvisioningConfig:
         lgd=IfrsLgdConfig(method="provided"),
         ead=IfrsEadConfig(method="provided"),
         scenarios=IfrsScenarioConfig(source="single"),
+        fail_on_falta_dato=fail_on_falta_dato,
     )
 
 
@@ -240,7 +245,7 @@ def test_auditoria_pit_y_lgd_payloads() -> None:
 
 def test_auditoria_lgd_forward_presente_true() -> None:
     """Con una ts que trae columna ``lgd`` no nula, ``ifrs9_lgd`` audita el descarte."""
-    cfg = _cfg()
+    cfg = _cfg(fail_on_falta_dato=False)
     study = Study(NikodymConfig(provisioning_ifrs9=cfg))
     study.artifacts.set("data", "frame", _frame())
     ts = _ts()

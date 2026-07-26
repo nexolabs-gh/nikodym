@@ -32,12 +32,13 @@ from importlib import metadata
 from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeAlias, cast
 
 from nikodym.core.exceptions import MissingDependencyError
-from nikodym.core.markers import is_declared_warning
+from nikodym.core.markers import governable_warnings, is_declared_warning
 from nikodym.provisioning.ifrs9.config import IfrsProvisioningConfig
 from nikodym.provisioning.ifrs9.ead import EadEngine
 from nikodym.provisioning.ifrs9.ecl import EclEngine, validate_scenario_weights
 from nikodym.provisioning.ifrs9.exceptions import (
     IfrsConfigError,
+    IfrsFaltaDatoError,
     IfrsInputError,
     IfrsTermStructureError,
 )
@@ -94,6 +95,14 @@ _RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weight
 # (``IfrsLgdConfig``) y declara el descarte con este aviso en vez de callarlo.
 _TS_LGD_COLUMN: str = "lgd"
 _WARNING_LGD_FORWARD_IGNORED: str = "FALTA-DATO-IFRS-6"
+
+# D-CRP6-2: avisos **estructurales** de esta capa, los que el motor emite en toda corrida por una
+# capacidad diferida propia. `fail_on_falta_dato` no los gobierna: se registran siempre en la card y
+# nunca detienen. `FALTA-DATO-IFRS-4` declara que el perfil EAD(t) longitudinal está diferido a CT-3
+# (`ead.py`), y se emite incluso cuando la institución entrega la EAD real —medido—, así que
+# abortar por él dejaría el motor inservible con su propio valor por defecto. Que no detenga no lo
+# absuelve: su arreglo es CT-3, y CRP-7 ya lo tiene asignado.
+_STRUCTURAL_WARNINGS: frozenset[str] = frozenset({"FALTA-DATO-IFRS-4"})
 
 # Rótulo hermano de ``ecl_by_scenario`` en ``metric_sections``. Esa cifra y ``total_ecl_reported``
 # difieren por construcción, pero salían pegadas en el anexo de auditoría sin nada que lo explicara
@@ -522,6 +531,16 @@ class IfrsProvisioningEngine:
             for code in row["warning_codes"]
             if is_declared_warning(str(code))
         )
+        # D-CRP6-1: aquí es donde la capa conoce **todas** sus marcas, así que es donde el flag
+        # decide. Sólo las gobernables detienen (D-CRP6-2); las estructurales siguen viajando en
+        # `falta_dato` para que el audit trail las conserve.
+        gobernables = governable_warnings(falta_dato, structural=_STRUCTURAL_WARNINGS)
+        if self._config.fail_on_falta_dato and gobernables:
+            detalle = ", ".join(gobernables)
+            raise IfrsFaltaDatoError(
+                f"Corrida abortada por avisos declarados: {detalle}. Use fail_on_falta_dato=False "
+                "para registrarlos en el resultado y continuar."
+            )
         metric_sections = {
             "staging_migration": {
                 "stage_1": stages.count(1),

@@ -79,6 +79,7 @@ RAN 21-10. Están registradas en el
 | `DATO-INSTITUCIONAL-STR-1` | No existe un *delta* adverse trazable para ese escenario, factor y períodos, así que la dominancia no se puede verificar. |
 | `DATO-INSTITUCIONAL-STR-2` | `source='official'` exige metadata externa de archivo, hash y fuente. Un shock que se declara oficial trae su evidencia o no es oficial. |
 | `DATO-INSTITUCIONAL-STR-8` | `output.metrics` incluye `lgd`, pero `lgd`/`lgd_base` no están disponibles para ese escenario y período. |
+| `DATO-INSTITUCIONAL-VAL-4` | Pediste la familia `backtesting` pero la dejaste apagada. El backtesting IFRS 9 necesita estar habilitado y con sus columnas realizadas declaradas: cuáles son sólo lo sabe tu institución. |
 | `DATO-INSTITUCIONAL-SUR-1` | La grilla temporal de la curva de supervivencia. Sin ella el motor cae a los tiempos de evento observados —y si no hubo eventos, a los máximos observados— y lo advierte. |
 | `DATO-INSTITUCIONAL-SUR-2` | No hay eventos observados en la partición, así que la curva no es estimable con esos datos. |
 | `DATO-INSTITUCIONAL-SUR-3` | El intervalo de confianza de la curva no está disponible con la configuración entregada. |

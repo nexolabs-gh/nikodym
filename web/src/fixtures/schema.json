@@ -1530,8 +1530,8 @@
         "properties": {
           "fail_on_missing_scenario_paths": {
             "default": true,
-            "description": "Falla si adverse/severe no declaran path ni shocks.",
-            "title": "Fallar si faltan trayectorias",
+            "description": "DEPRECADO: ya no tiene efecto. Que un escenario adverse o severe sin trayectoria ni shocks detenga la corrida lo decide «Fallar ante falta de dato», el mismo ajuste que gobierna el resto de los avisos declarados.",
+            "title": "Fallar si faltan trayectorias (deprecado)",
             "type": "boolean",
             "ui_group": "Validación",
             "ui_order": 4,
@@ -7446,7 +7446,7 @@
         "properties": {
           "fail_on_falta_dato": {
             "default": true,
-            "description": "Si es True, junto con «Fallar si faltan trayectorias», un escenario adverse o severe sin trayectoria macro ni shocks propios hace fallar la validación del config.",
+            "description": "Si es True, un escenario adverse o severe sin trayectoria macro ni shocks propios detiene la corrida en vez de quedar registrado como aviso declarado y seguir.",
             "title": "Fallar ante falta de dato",
             "type": "boolean",
             "ui_group": "Gobernanza",
@@ -8511,8 +8511,8 @@
           },
           "fail_on_falta_dato": {
             "default": true,
-            "description": "Con True (default), una configuración PIT inconsistente —`pit_mode='apply_vasicek'` sin `pd.rho` escalar o sin el factor sistémico Z— detiene la corrida al validar el config. Con False el fallo aparece igual, pero más tarde, durante el cálculo.",
-            "title": "Rechazo fail-fast de configuración PIT inconsistente",
+            "description": "Con True (default), un aviso declarado que el motor emita durante el cálculo detiene la corrida en vez de quedar registrado y seguir. No cubre las limitaciones que esta capa arrastra en toda corrida, como el perfil de exposición constante por período: ésas quedan siempre anotadas en el resultado, porque no dependen de los datos que usted entregue.",
+            "title": "Fallar ante falta de dato",
             "type": "boolean",
             "ui_group": "General",
             "ui_order": 2,

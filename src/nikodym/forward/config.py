@@ -13,6 +13,7 @@ activa.
 
 from __future__ import annotations
 
+import warnings
 from math import isclose, isfinite
 from typing import Any, Literal, Self
 
@@ -518,10 +519,34 @@ class ForwardValidationConfig(NikodymBaseConfig):
     )
     fail_on_missing_scenario_paths: bool = Field(
         default=True,
-        title="Fallar si faltan trayectorias",
-        description="Falla si adverse/severe no declaran path ni shocks.",
+        title="Fallar si faltan trayectorias (deprecado)",
+        description=(
+            "DEPRECADO: ya no tiene efecto. Que un escenario adverse o severe sin trayectoria ni "
+            "shocks detenga la corrida lo decide «Fallar ante falta de dato», el mismo ajuste que "
+            "gobierna el resto de los avisos declarados."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Validación", "ui_order": 4},
     )
+
+    @model_validator(mode="after")
+    def _avisar_flag_deprecado(self) -> Self:
+        """Avisa del retiro de ``fail_on_missing_scenario_paths`` (D-CRP6-5).
+
+        Sólo cuando llega en ``False``: es el único valor cuyo efecto cambia. Antes bastaba para
+        apagar la comprobación aunque ``fail_on_falta_dato`` estuviera en ``True``; ahora no la
+        apaga, y quien dependiera de eso tiene que enterarse. En ``True`` el comportamiento es
+        idéntico al anterior y avisar sería ruido.
+        """
+        if not self.fail_on_missing_scenario_paths:
+            warnings.warn(
+                "fail_on_missing_scenario_paths está DEPRECADO en ForwardValidationConfig y ya no "
+                "tiene efecto: la decisión de detener la corrida ante un escenario adverse/severe "
+                "sin trayectoria ni shocks la toma fail_on_falta_dato (CRP-6). Retire el campo; "
+                "para no detenerse use fail_on_falta_dato=False.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return self
 
 
 class ForwardConfig(NikodymBaseConfig):
@@ -579,8 +604,8 @@ class ForwardConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante falta de dato",
         description=(
-            "Si es True, junto con «Fallar si faltan trayectorias», un escenario adverse o "
-            "severe sin trayectoria macro ni shocks propios hace fallar la validación del config."
+            "Si es True, un escenario adverse o severe sin trayectoria macro ni shocks propios "
+            "detiene la corrida en vez de quedar registrado como aviso declarado y seguir."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Gobernanza", "ui_order": 1},
     )
@@ -647,7 +672,10 @@ def _check_scenarios(scenarios: ScenarioConfig, weight_sum_tol: float) -> None:
 
 def _check_missing_stress_scenarios(cfg: ForwardConfig) -> None:
     """Valida DATO-INSTITUCIONAL-FWD-1 para escenarios adverse/severe sin path ni shocks."""
-    if not cfg.fail_on_falta_dato or not cfg.validation.fail_on_missing_scenario_paths:
+    # D-CRP6-5: la decisión es de `fail_on_falta_dato` y de nadie más. El AND con
+    # `fail_on_missing_scenario_paths` era apagado silencioso: el usuario dejaba el flag principal
+    # en True y la carencia no lo detenía, sin que nada se lo dijera.
+    if not cfg.fail_on_falta_dato:
         return
     missing = [
         scenario.name
