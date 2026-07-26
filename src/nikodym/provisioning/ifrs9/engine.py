@@ -111,6 +111,16 @@ _TS_TIME_UNIT_COLUMN: str = "time_unit"
 _TS_YEARS_COLUMN: str = "time_value_years"
 _WARNING_TIME_UNIT_ASSUMED: str = "DATO-INSTITUCIONAL-IFRS-7"
 
+# D-HOR-0: `horizon_12m_periods` declara cuántos períodos de la curva cubren 12 meses, y hasta ahora
+# nadie lo contrastaba contra la curva recibida. Cuando el horizonte alcanza el soporte, la máscara
+# de Stage 1 queda toda verdadera y un Stage 1 provisiona exactamente lo mismo que un Stage 2; y
+# cuando cae bajo el primer período, no selecciona nada y Stage 1 provisiona CERO. En los dos casos
+# la corrida termina `done` y los totales se ven razonables. Es brecha del motor —el parámetro lo
+# escribe el usuario, pero verificar que sea coherente con lo recibido es nuestro—, así que
+# `FALTA-DATO` (mismo precedente que FWD-8). Ver `IFRS-2` en el catálogo de SDD-16 §6: ese código
+# queda como requisito documentado y no se emite.
+_WARNING_HORIZON_MISMATCH: str = "FALTA-DATO-IFRS-8"
+
 # D-CRP6-2: avisos **estructurales** de esta capa, los que el motor emite en toda corrida por una
 # capacidad diferida propia. `fail_on_falta_dato` no los gobierna: se registran siempre en la card y
 # nunca detienen. `FALTA-DATO-IFRS-4` declara que el perfil EAD(t) longitudinal está diferido a CT-3
@@ -254,6 +264,9 @@ class IfrsProvisioningEngine:
         eir_arr = _frame_float_column(frame, config.ecl.eir_col, "eir", numpy)
 
         _validate_term_structure(ts, numpy)
+        # El soporte BRUTO se mide antes de truncar: es lo que distingue un truncado deliberado
+        # (`max_lifetime_periods` recorta una curva más larga) del horizonte que se comió la curva.
+        t_max_bruto = int(_ts_float(ts, "period", numpy).max())
         ts = _prepare_term_structure(ts, config, numpy)
         _check_row_coverage(row_ids, [str(value) for value in ts["row_id"].to_numpy()])
 
@@ -283,6 +296,10 @@ class IfrsProvisioningEngine:
                 (*codes, _WARNING_TIME_UNIT_ASSUMED) if rid in sin_unidad else codes
                 for rid, codes in zip(row_ids, row_warnings, strict=True)
             ]
+        # En bloque, a diferencia de IFRS-7: el horizonte es un escalar de config contrastado
+        # contra el soporte de la curva, así que o desajusta para toda la corrida o no desajusta.
+        if _horizonte_inconmensurable(ts, config, t_max_bruto, numpy):
+            row_warnings = [(*codes, _WARNING_HORIZON_MISMATCH) for codes in row_warnings]
         stage_arr, triggers, exempt = self._assign_staging(frame, pd_life_arr, pd_pit_arr, pandas)
 
         lgd_by_rid = dict(zip(row_ids, (float(value) for value in lgd_arr), strict=True))
@@ -805,6 +822,37 @@ def _ts_row_ids_sin_unidad(ts: DataFrame) -> set[str]:
         for row_id, unidad in zip(row_ids, unidades, strict=True)
         if year_fraction(unidad) is None
     }
+
+
+def _horizonte_inconmensurable(
+    ts: DataFrame, config: IfrsProvisioningConfig, t_max_bruto: int, numpy: Any
+) -> bool:
+    """Indica si ``horizon_12m_periods`` no es conmensurable con el soporte de la curva.
+
+    Dos formas de no serlo, y ambas se resuelven sobre **cotas enteras de un frame no vacío** —que
+    ya garantizan ``_validate_term_structure`` y ``_prepare_term_structure``—, nunca sobre un
+    estadístico de una selección posiblemente vacía: ése era el defecto del gatillo que esta
+    enmienda reemplaza, porque una mediana sobre selección vacía da ``NaN`` y en toda comparación
+    devuelve ``False``, dejando el predicado **mudo**.
+
+    - **El horizonte se come la curva** (``H >= T_max`` efectivo): Stage 1 provisiona lo mismo que
+      Stage 2. Se exceptúa el truncado deliberado —quien fija ``max_lifetime_periods`` por debajo
+      del soporte bruto está recortando a propósito, y avisarle de lo que pidió es ruido que enseña
+      a ignorar el aviso—.
+    - **El horizonte cae bajo el soporte** (``H < T_min``): la máscara de 12 meses no selecciona
+      nada y Stage 1 provisiona cero, sin error.
+    """
+    period = _ts_float(ts, "period", numpy)
+    t_max_efectivo = int(period.max())
+    t_min_efectivo = int(period.min())
+    horizonte = config.pd.horizon_12m_periods
+    max_lifetime = config.pd.max_lifetime_periods
+    # `<` y no `<=`: un tope igual al soporte no recorta nada, así que no es una decisión del
+    # usuario sobre el horizonte y el aviso debe seguir disparando si el horizonte lo alcanza.
+    truncado_deliberado = max_lifetime is not None and max_lifetime < t_max_bruto
+    come_la_curva = not truncado_deliberado and horizonte >= t_max_efectivo
+    bajo_el_soporte = horizonte < t_min_efectivo
+    return come_la_curva or bajo_el_soporte
 
 
 def _ts_lgd_present(ts: DataFrame) -> bool:

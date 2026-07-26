@@ -262,7 +262,6 @@ def test_period_eir_no_usa_la_unidad_pero_igual_la_declara() -> None:
 # ─────────────────────────── el horizonte 12m contra el soporte de la curva ───────────────────────
 
 
-@pytest.mark.xfail(strict=True, reason="D-HOR-0 sin implementar: no existe FALTA-DATO-IFRS-8")
 def test_horizonte_que_cubre_toda_la_curva_se_declara() -> None:
     """Cuando el horizonte alcanza el soporte, un Stage 1 provisiona lo mismo que un Stage 2.
 
@@ -293,7 +292,6 @@ def test_truncado_deliberado_no_avisa() -> None:
     assert _AVISO_HORIZONTE not in result.card.falta_dato
 
 
-@pytest.mark.xfail(strict=True, reason="D-HOR-0 sin implementar: no existe FALTA-DATO-IFRS-8")
 def test_horizonte_bajo_el_soporte_de_la_curva_se_declara() -> None:
     """El caso que el gatillo original dejaba **mudo**: el horizonte cae bajo el primer período.
 

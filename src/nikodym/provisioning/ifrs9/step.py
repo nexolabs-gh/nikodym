@@ -174,7 +174,13 @@ class IfrsProvisioningStep(AuditableMixin):
                 "horizon_12m_periods": config.pd.horizon_12m_periods,
                 "max_lifetime_periods": config.pd.max_lifetime_periods,
             },
-            valor={"falta_dato": card.falta_dato},
+            valor={
+                "falta_dato": card.falta_dato,
+                # D-HOR-0: el soporte OBSERVADO de la curva, que es contra lo que se contrasta el
+                # horizonte. Sin él, el audit trail registraba los dos campos de config y no había
+                # forma de reconstruir por qué el aviso salió (o por qué no salió).
+                "soporte_periodos": _period_bounds(term_structure),
+            },
             accion="derivar_horizontes_pd",
         )
         self.log_decision(
@@ -347,6 +353,16 @@ def _as_calibrated_dataframe(value: object, pd: Any, artifact: str) -> DataFrame
         "base_pd_source='calibration' exige un artefacto de PD calibrada pandas.DataFrame: "
         f"artefacto='{artifact}', tipo observado={type(value).__name__}."
     )
+
+
+def _period_bounds(term_structure: DataFrame) -> dict[str, int]:
+    """Devuelve el primer y el último período de la curva recibida, sin truncar.
+
+    Es el soporte **bruto**: lo que el motor contrasta contra ``horizon_12m_periods`` y contra
+    ``max_lifetime_periods`` para distinguir un truncado deliberado de un horizonte mal declarado.
+    """
+    period = term_structure["period"]
+    return {"min": int(period.min()), "max": int(period.max())}
 
 
 def _observed_time_units(term_structure: DataFrame) -> tuple[str, ...]:

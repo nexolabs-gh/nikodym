@@ -73,24 +73,31 @@ def _frame() -> pd.DataFrame:
 
 
 def _ts(*, with_lgd: bool = False) -> pd.DataFrame:
-    """Term-structure tidy mínima; con ``with_lgd`` trae la LGD de forward que IFRS 9 descarta."""
+    """Term-structure tidy mínima; con ``with_lgd`` trae la LGD de forward que IFRS 9 descarta.
+
+    **Dos** períodos, no uno, y la unidad declarada: ambas cosas son para que la curva no dispare
+    los avisos de D-HOR-0, que son ajenos a lo que este archivo prueba. Con un solo período el
+    horizonte 12m (``horizon_12m_periods=1``) alcanzaría todo el soporte y ``FALTA-DATO-IFRS-8``
+    —gobernable— detendría las corridas con el flag en ``True``, que es justo el escenario que estos
+    tests necesitan ver terminar.
+    """
     data: dict[str, Any] = {
-        "row_id": ["op1"],
-        "segment": ["retail"],
-        "partition": ["train"],
-        "period": [1],
-        "time_value": [1.0],
-        "time_unit": ["year"],
-        "hazard": [0.02],
-        "survival": [0.98],
-        "pd_marginal": [0.02],
-        "pd_cumulative": [0.02],
-        "method": ["kaplan_meier"],
-        "pd_source": ["survival"],
-        "scenario": [None],
+        "row_id": ["op1", "op1"],
+        "segment": ["retail", "retail"],
+        "partition": ["train", "train"],
+        "period": [1, 2],
+        "time_value": [1.0, 2.0],
+        "time_unit": ["year", "year"],
+        "hazard": [0.02, 0.02],
+        "survival": [0.98, 0.9604],
+        "pd_marginal": [0.02, 0.0196],
+        "pd_cumulative": [0.02, 0.0396],
+        "method": ["kaplan_meier", "kaplan_meier"],
+        "pd_source": ["survival", "survival"],
+        "scenario": [None, None],
     }
     if with_lgd:
-        data["lgd"] = [0.45]
+        data["lgd"] = [0.45, 0.45]
     return pd.DataFrame(data)
 
 

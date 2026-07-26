@@ -114,6 +114,12 @@ def _cfg(**pd_overrides: Any) -> IfrsProvisioningConfig:
     return IfrsProvisioningConfig(
         row_id_col=None,
         portfolio_col="portfolio",
+        # D-HOR-0: varios fixtures de aquí son curvas de UN período con `horizon_12m_periods=1`, y
+        # ahí `FALTA-DATO-IFRS-8` dispara con razón —Stage 1 provisiona lo mismo que Stage 2—. El
+        # aviso es correcto pero ajeno a lo que estos goldens prueban, y alargar las curvas movería
+        # sus cifras. Se apaga el gate, como ya hacían explícitamente otros dos tests del archivo;
+        # quien prueba el gate es `test_crp6_semantica_flag.py`.
+        fail_on_falta_dato=False,
         pd=IfrsPdConfig(**pd_kwargs),
         lgd=IfrsLgdConfig(method="provided", recovery_col="recovery"),
         ead=IfrsEadConfig(method="ccf", ccf_value=0.5),
@@ -270,6 +276,9 @@ def test_golden_staging_stage3_dpd() -> None:
 def test_multiescenario_forward_consume_pit_golden_73() -> None:
     cfg = IfrsProvisioningConfig(
         portfolio_col="portfolio",
+        # D-HOR-0: curva de un período con horizonte 1 -> `FALTA-DATO-IFRS-8` dispara con
+        # razón, pero es ajeno a lo que este golden prueba (ver `_cfg`).
+        fail_on_falta_dato=False,
         pd=IfrsPdConfig(
             term_structure_source="forward", pit_mode="consume_pit", horizon_12m_periods=1
         ),
@@ -307,6 +316,9 @@ def test_ecl_by_scenario_viaja_con_su_rotulo() -> None:
     """
     cfg = IfrsProvisioningConfig(
         portfolio_col="portfolio",
+        # D-HOR-0: curva de un período con horizonte 1 -> `FALTA-DATO-IFRS-8` dispara con
+        # razón, pero es ajeno a lo que este golden prueba (ver `_cfg`).
+        fail_on_falta_dato=False,
         pd=IfrsPdConfig(
             term_structure_source="forward", pit_mode="consume_pit", horizon_12m_periods=1
         ),
@@ -364,6 +376,9 @@ def test_scenarios_source_config_pondera() -> None:
 def test_apply_vasicek_transforma_pd() -> None:
     cfg = IfrsProvisioningConfig(
         portfolio_col="portfolio",
+        # D-HOR-0: curva de un período con horizonte 1 -> `FALTA-DATO-IFRS-8` dispara con
+        # razón, pero es ajeno a lo que este golden prueba (ver `_cfg`).
+        fail_on_falta_dato=False,
         pd=IfrsPdConfig(
             term_structure_source="survival",
             pit_mode="apply_vasicek",
@@ -485,6 +500,8 @@ def _cfg_vasicek() -> IfrsProvisioningConfig:
     """Config ``apply_vasicek`` completa (rho y columna Z) para los tests del guard TTC."""
     return IfrsProvisioningConfig(
         portfolio_col="portfolio",
+        # D-HOR-0: sus fixtures son curvas de un período con horizonte 1 (ver `_cfg`).
+        fail_on_falta_dato=False,
         pd=IfrsPdConfig(
             term_structure_source="survival",
             pit_mode="apply_vasicek",

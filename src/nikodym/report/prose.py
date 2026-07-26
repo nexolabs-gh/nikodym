@@ -1655,6 +1655,13 @@ _IFRS9_WARNING_LABELS: Final[dict[str, str]] = {
         "expresados sus plazos, así que el descuento los interpretó como años; declare la unidad "
         "de la curva si sus plazos están en meses, trimestres u otra periodicidad"
     ),
+    # D-HOR-0: el horizonte de 12 meses no es conmensurable con el soporte de la curva. El texto
+    # nombra la consecuencia contable —que es lo que le importa a quien lee— y no el predicado.
+    "FALTA-DATO-IFRS-8": (
+        "el horizonte declarado para los 12 meses no es coherente con el largo de la curva de "
+        "probabilidad de incumplimiento, de modo que la pérdida esperada a 12 meses del Stage 1 "
+        "no cubre exactamente ese plazo: revise cuántos períodos de su curva equivalen a un año"
+    ),
 }
 
 

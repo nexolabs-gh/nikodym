@@ -46,6 +46,7 @@ Los códigos siguen la forma `MARCA-FAMILIA-N`. La familia dice de qué capacida
 | --- | --- |
 | `FALTA-DATO-IFRS-4` | La EAD se despliega **constante por período**: el panel longitudinal está diferido. Cada fila lo declara, y el config **rechaza** `exposure_profile_col` en vez de fingir que lo usa. |
 | `FALTA-DATO-IFRS-6` | La LGD condicionada que trae la *term-structure* de forward-looking no se consume en v1: el motor estima la LGD desde el `frame` y declara el descarte en vez de callarlo. |
+| `FALTA-DATO-IFRS-8` | El `horizon_12m_periods` que declaraste no es conmensurable con el largo de tu curva: o el horizonte alcanza todo su soporte —y entonces un Stage 1 provisiona lo mismo que un Stage 2— o cae por debajo del primer período —y Stage 1 provisiona cero—. En ambos casos la corrida terminaba `done` y los totales se veían razonables. Declararlo es tuyo; **verificar que sea coherente con la curva recibida es del motor**, y hasta ahora no lo hacía. |
 | `FALTA-DATO-ML-1` | `feature_source='data_raw'` está diferido. El modo crudo exige una política de imputación por variable que la librería todavía no ofrece; usa `binning_woe` o `selection_woe`. |
 | `FALTA-DATO-FWD-6` | La precedencia entre la LGD de forward y la de IFRS 9 está pendiente de diseño. No se emite en runtime: queda documentado en el código que la fija. |
 | `FALTA-DATO-FWD-8` | `kind='vecm'` exige `vecm_rank` explícito, porque el motor todavía **no selecciona el rango de cointegración**. |
