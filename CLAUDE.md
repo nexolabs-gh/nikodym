@@ -4,6 +4,13 @@
 
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
+> ⚠️ **El código está en `1.6.0` desde el 2026-07-26; PyPI sigue publicando `1.5.0`.** El bump entró
+> con el bloque B de CRP-6 porque el informe embebe `library_versions.nikodym` y había que
+> recapturar la demo. **No hay tag `v1.6.0` ni release**: eso exige OK específico de Cami, y hay una
+> razón para no publicar todavía —la enmienda del horizonte, aprobada y sin programar, arregla una
+> ECL que se subestima un 50 % (ver abajo)—. Publicar antes sería sacar un motor con una cifra mala
+> conocida.
+>
 > Nikodym `1.5.0` está en PyPI (tag `v1.5.0`, 2026-07-22, cierre del bloque **B1**); el proyecto ya no está en construcción por capas sino en mejora continua. El **track pre-Interbank está completo** (IBK-01…05 cerradas); no hay bloque IBK siguiente, y el freeze de artefactos terminó con la reunión del 2026-07-22. El plan vigente son los bloques **B1…B8** del `ROADMAP`: el bloque en curso es **B2** (UI instalable), que habilita `1.6.0` — **B2.0, B2.1 y B2.2 están cerrados** (B2.2 —launcher, runtime y seguridad— el 2026-07-24, con los 16 jobs del CI verdes); sus decisiones quedaron **consolidadas en SDD-23 y SDD-25**, así que `docs/design/_ENMIENDA-B2.2.md` es ya registro histórico y no contrato vigente. El siguiente nodo es **B2.3** (`[ui]`, uploads y presets), que exige su propia enmienda antes de programar.
 >
 > **Taxonomía de marcas (2026-07-25, ejecutada y publicada):** un aviso declarado se marca
@@ -101,6 +108,25 @@
 > Lección de método que vale para todo ítem de roadmap: tres de los cuatro puntos que el plan daba
 > por bloqueantes eran nomenclatura, y el cuarto describía una contradicción que no ocurría.
 > **Medir contra el código antes de planificar.**
+>
+> **La unidad temporal mueve la ECL un 50 %, y el horizonte 12m era el síntoma menor** (medido el
+> 2026-07-26). [`docs/design/_ENMIENDA-IFRS9-HORIZONTE.md`](docs/design/_ENMIENDA-IFRS9-HORIZONTE.md)
+> quedó **APROBADA** con D-HOR-0 resuelto, y es el **próximo nodo de código**; no hay una línea de
+> motor escrita. Lo que hay que saber antes de abrirla:
+>
+> - **`ifrs9` usa `time_value` como exponente de `(1+EIR)^(-τ)` asumiendo años, y nadie lo
+>   verifica.** La misma cartera en los mismos instantes, declarada en meses en vez de años, da
+>   **826,06 de ECL contra 1.677,76: −50,8 %**. El default de `time_unit` en `survival` es
+>   `"period"`, que no es ninguna unidad; el preset F4 se salva **por suerte** porque declara
+>   `"year"`.
+> - **El horizonte, en cambio, no mueve la ECL total** —sólo el corte de stage 1—, así que el título
+>   de la enmienda apunta al menor de sus dos problemas. Descuento y horizonte entran juntos.
+> - **D-HOR-0 (Cami): la term-structure transporta su unidad**, no el config de `ifrs9` —declararla
+>   aparte sería el mismo agujero por otra puerta—. Si falta, se asume años **con marca
+>   `DATO-INSTITUCIONAL`** (aditivo, no rompe a nadie), gobernable por `fail_on_falta_dato`.
+> - **Blast radius: 16 archivos** tocan `_TERM_STRUCTURE_COLUMNS` (los tres productores más
+>   `stress`), y `discount_convention="period_eir"` **no** usa `time_value` — sólo el default
+>   `annual_eir_year_fraction` está afectado.
 >
 > **Catálogo de datos externos (2026-07-25, noche).** 42 datasets públicos documentados en
 > [`docs/datasets/`](docs/datasets/); los datos viven en `data/externos/raw/` (vetado, **nunca** se
