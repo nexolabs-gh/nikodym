@@ -155,6 +155,21 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > **Su §7 registra los seis puntos que la propia enmienda tuvo que corregir tras revisión
 > adversarial**, incluido uno con la misma premisa falsa que ella denuncia.
 >
+> **CRP-6 — la semántica única del flag, y la marca que no se puede gobernar (2026-07-25,
+> APROBADA).** [`_ENMIENDA-CRP6-FLAG.md`](_ENMIENDA-CRP6-FLAG.md), D-CRP6-1…D-CRP6-8, enmienda a
+> SDD-16, SDD-19, SDD-20 y SDD-22. Re-mide el censo de las siete capas contra *la pregunta que CRP-6
+> define* en vez de contra el mecanismo: **cinco de las siete ya cumplían**, porque comprobar en el
+> config cuando la carencia ya es demostrable no es otra semántica, es CRP-5. Destapa dos cosas que
+> ningún censo previo vio: el flag de `ifrs9` **no gobierna ninguna marca** —su `False` sólo mueve
+> una validación al medio del cálculo, justo lo que CRP-5 prohíbe, así que el chequeo PIT pasa a ser
+> **incondicional** en vez de renombrarse (sin migrador ni recaptura)—, y `FALTA-DATO-IFRS-4` **se
+> emite en toda corrida**, de modo que conectar el flag tal cual habría abortado todo IFRS 9 con su
+> default. De ahí la decisión que CRP-4 hereda: marca **gobernable** (existe una entrada válida sin
+> ella) vs **estructural** (capacidad diferida del motor; se registra, nunca detiene). Mide además
+> que el **preset publicado se miente a sí mismo** —`fail_on_falta_dato=True` junto a la carencia
+> `SUR-3`—, invisible hasta hoy porque el flag es no-op en `survival`. Se adopta en **dos bloques**
+> por la frontera de `config_hash` (§7): el B va con el P2 y una única recaptura.
+>
 > **SDD-23 `ui` reescrito (2026-07-06):** el borrador Streamlit quedó **descartado** (ROADMAP §F7)
 > y el SDD pasó al stack React/Vite sobre FastAPI. La implementación histórica del backend/front no
 > equivale a la implementación de la distribución aprobada en B2.0.
