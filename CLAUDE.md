@@ -7,11 +7,19 @@
 > Nikodym `1.5.0` está en PyPI (tag `v1.5.0`, 2026-07-22, cierre del bloque **B1**); el proyecto ya no está en construcción por capas sino en mejora continua. El **track pre-Interbank está completo** (IBK-01…05 cerradas); no hay bloque IBK siguiente, y el freeze de artefactos terminó con la reunión del 2026-07-22. El plan vigente son los bloques **B1…B8** del `ROADMAP`: el bloque en curso es **B2** (UI instalable), que habilita `1.6.0` — **B2.0, B2.1 y B2.2 están cerrados** (B2.2 —launcher, runtime y seguridad— el 2026-07-24, con los 16 jobs del CI verdes); sus decisiones quedaron **consolidadas en SDD-23 y SDD-25**, así que `docs/design/_ENMIENDA-B2.2.md` es ya registro histórico y no contrato vigente. El siguiente nodo es **B2.3** (`[ui]`, uploads y presets), que exige su propia enmienda antes de programar.
 >
 > **Taxonomía de marcas (2026-07-25, ejecutada y publicada):** un aviso declarado se marca
-> `FALTA-DATO` si la carencia es **del motor** (9 códigos + 2 `pending_items` CMF) o
-> `DATO-INSTITUCIONAL` si el dato **lo aporta la institución** (34). El contrato vive en
-> `src/nikodym/core/markers.py` y **ningún filtro debe comparar el literal**: se consume
-> `is_declared_warning()`. Un código interno **nunca** va al copy público: ahí se explica la
-> limitación en el idioma del lector.
+> `FALTA-DATO` si la carencia es **del motor** o `DATO-INSTITUCIONAL` si el dato **lo aporta la
+> institución**. El contrato vive en `src/nikodym/core/markers.py` y **ningún filtro debe comparar
+> el literal**: se consume `is_declared_warning()`. Un código interno **nunca** va al copy público:
+> ahí se explica la limitación en el idioma del lector.
+>
+> ⚠️ **Cuidado con las cifras de esta taxonomía: circulan dos unidades distintas** (medido el
+> 2026-07-25, cierra un pendiente que venía de dos sesiones). El «9 + 2 `pending_items`» y el «34»
+> de la enmienda cuentan **fichas de SDD**, y varias de esas fichas son *requisitos de entrada
+> documentados que el motor nunca emite en runtime* —de la familia IFRS, por ejemplo, sólo IFRS-4 e
+> IFRS-6 se emiten—. Lo que el motor **nombra** en `src/` son **24 códigos: 9 `FALTA-DATO` y 15
+> `DATO-INSTITUCIONAL`**, y ése es el universo que miden el gate `tests/unit/test_public_copy.py` y
+> la página [`docs_site/avisos-declarados.md`](docs_site/avisos-declarados.md). Las dos cifras son
+> correctas en su propia unidad; compararlas entre sí no significa nada.
 >
 > **Copy público NO es sólo la landing y el README** (2026-07-25: creerlo dejó vivos dos defectos).
 > Cuenta toda superficie que lea un humano: el **tooltip del formulario del UI instalable** —una
