@@ -56,8 +56,28 @@
 > esquema de segmentación declarado (normativo / institucional / derivado del dato), que **viaja en
 > el resultado** de los tres motores, y régimen garantizado por un **registro régimen→motor con test
 > de cobertura** —no por el sistema de tipos, que no puede: ampliar un `Literal` compila igual sin
-> motor detrás—. **Siguiente nodo: el contrato de resolución de parámetros**, cuyo §2 quedó enmendado
-> y cuyo primer paso (CRP-5, el gate de entrada) ya está implementado — ver `ROADMAP.md` §B3.
+> motor detrás—. El contrato de resolución de parámetros es el nodo en curso: su §2 quedó enmendado
+> y sus dos primeros pasos (CRP-5 y CRP-6 bloque A) están implementados — ver `ROADMAP.md` §B3.
+>
+> **CRP-6 — bloque A implementado el 2026-07-26 (`368bcf5`, CI 16/16); el bloque B está PENDIENTE.**
+> [`docs/design/_ENMIENDA-CRP6-FLAG.md`](docs/design/_ENMIENDA-CRP6-FLAG.md), D-CRP6-1…D-CRP6-8.
+> `fail_on_falta_dato` significa **una sola cosa**: *¿una marca declarada **gobernable** emitida en
+> la corrida la detiene?* Dos cosas que hay que saber antes de tocar esto:
+>
+> - **No toda marca declarada es gobernable.** Una marca es **estructural** si el motor la emite en
+>   toda corrida por una capacidad diferida propia —`FALTA-DATO-IFRS-4` aparece **incluso con la EAD
+>   entregada por la institución**, medido—. Las estructurales se registran siempre y **nunca**
+>   detienen: abortar por ellas dejaría el motor inservible con su propio default. El criterio vive
+>   en `core/markers.py::governable_warnings()` y **no se reimplementa con un `if` por motor**. Que
+>   no detengan no las absuelve: su arreglo es ampliar la capacidad, y CRP-7 tiene asignada IFRS-4.
+> - **El chequeo PIT de `ifrs9` es incondicional** y no lo apaga ningún flag. El contrato mandaba
+>   *renombrar* ese flag; medido, su `False` no abría ruta degradada alguna —`_apply_vasicek` levanta
+>   igual— y sólo movía la validación al medio del cálculo, que es lo que CRP-5 prohíbe.
+>
+> ⚠️ **CRP-6 cubre seis capas de siete: NO está cumplido.** El bloque B —`survival` implementa el
+> flag, y el preset declara sus intervalos de confianza porque hoy **se contradice a sí mismo**
+> (`fail_on_falta_dato=True` junto a la carencia `SUR-3`)— va con el P2, el bump de versión y **una
+> sola** recaptura patrón C-D, porque los tres mueven `config_hash`.
 >
 > Lección de método que vale para todo ítem de roadmap: tres de los cuatro puntos que el plan daba
 > por bloqueantes eran nomenclatura. **Medir contra el código antes de planificar.**

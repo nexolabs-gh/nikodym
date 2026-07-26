@@ -70,10 +70,19 @@ opcional:
 puntual que no acerca a estos cuatro puntos compite contra ellos por el tiempo, y hay que decirlo
 cuando ocurra.
 
-**Estado del camino largo (2026-07-25, noche).** El requisito 3 tiene contrato aprobado
+**Estado del camino largo (2026-07-26).** El requisito 3 tiene contrato aprobado
 —[`docs/design/_CONTRATO-RESOLUCION-PARAMETROS.md`](design/_CONTRATO-RESOLUCION-PARAMETROS.md),
-CRP-1…CRP-7— y **B3.a-1 ya está cerrado**, así que el contrato es el siguiente nodo y ya no está
-bloqueado.
+CRP-1…CRP-7—, **B3.a-1 está cerrado** y el contrato **está en ejecución**: CRP-5 implementado
+(`afa3403`) y **CRP-6 bloque A** (`368bcf5`). El bloque B de CRP-6 sigue pendiente, así que la
+semántica única del flag cubre **seis capas de siete** — ver `CLAUDE.md` y `ROADMAP.md` §B3.
+
+Los dos pasos ejecutados dejaron la misma lección, ya cuatro veces pagada en este repo: **el plan
+escrito no sobrevive a la primera medición contra el código.** CRP-6 no era implementable como
+estaba redactado —el flag de `ifrs9` no gobernaba ninguna marca, y `FALTA-DATO-IFRS-4` se emite en
+toda corrida, de modo que conectarlo tal cual habría abortado el motor entero con su default—. Y hay
+un matiz nuevo que conviene tener presente al leer cualquier censo heredado: **un censo clasifica por
+el mecanismo que eligió, no por la pregunta que decide el trabajo.** El de CRP-6 contaba cinco
+semánticas; contra la pregunta real, cinco de las siete capas ya cumplían.
 
 B3.a-1 no se ejecutó como estaba escrito: **su premisa era falsa y el censo lo demostró.** El enum
 chileno de `governance` no era la llave de segmentación de ningún cálculo y la llave real ya era
