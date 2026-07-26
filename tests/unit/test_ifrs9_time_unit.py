@@ -24,6 +24,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
 from nikodym.provisioning.ifrs9 import IfrsProvisioningConfig, IfrsProvisioningEngine
 from nikodym.provisioning.ifrs9.config import (
@@ -262,32 +263,41 @@ def test_period_eir_no_usa_la_unidad_pero_igual_la_declara() -> None:
 # ─────────────────────────── el horizonte 12m contra el soporte de la curva ───────────────────────
 
 
-def test_horizonte_que_cubre_toda_la_curva_se_declara() -> None:
-    """Cuando el horizonte alcanza el soporte, un Stage 1 provisiona lo mismo que un Stage 2.
+def test_el_horizonte_que_cubre_toda_la_curva_no_es_defecto_por_si_solo() -> None:
+    """Regresión del falso positivo que abortaba la configuración de fábrica.
 
-    La corrida termina ``done``, la card no dice nada y los totales se ven razonables: es el modo
-    de fallo A de la §1, el único confirmado ejecutando el motor.
+    Curva **mensual de 12 períodos** con ``horizon_12m_periods=12``: el horizonte cubre todo el
+    soporte y Stage 1 iguala a Stage 2 — y eso es **correcto**, porque es una curva lifetime de doce
+    meses y ésa es la contabilidad esperada. El primer diseño de `FALTA-DATO-IFRS-8` copió el «modo
+    A» de la enmienda (``H >= T_max``) y disparaba justo aquí; como la marca es gobernable y
+    ``fail_on_falta_dato`` viene en ``True``, **detenía la corrida más común que existe**.
+
+    Lo que el modo A intentaba aproximar sin poder medirlo es si el horizonte dura un año, y eso
+    ahora se verifica contra `time_value_years` en vez de inferirse del largo de la curva.
     """
-    cfg = _cfg(horizon_12m_periods=len(_PD_MARGINAL))
+    ts = _ts_larga(n=12, unidad="month", anios_por_periodo=1.0 / 12.0)
 
-    result = _run(cfg, _frame(), _ts(time_value=_ANIOS, time_unit="year"))
+    result = _run(_cfg(horizon_12m_periods=12), _frame(), ts)
 
-    assert _AVISO_HORIZONTE in result.card.falta_dato
+    assert _AVISO_HORIZONTE not in result.card.falta_dato
 
 
 def test_truncado_deliberado_no_avisa() -> None:
     """Quien fija ``max_lifetime_periods`` está truncando a propósito: avisarle es ruido.
 
-    Pasa ya hoy —el aviso todavía no existe— y por eso va **sin** ``xfail``: es una guarda, no una
-    capacidad pendiente. Su trabajo empieza en C4, cuando el predicado exista y pueda equivocarse.
-
     El predicado tiene que distinguir el truncado deliberado del horizonte que se comió la curva
     sin que nadie lo mirara. Un aviso que dispara sobre el caso correcto se aprende a ignorar, y
     eso lo mata.
+
+    La curva es **anual** (un período = un año) y no la trimestral del resto del archivo: con
+    ``H=1`` sobre una trimestral, el «ECL a 12 meses» cubriría tres, y el chequeo del modo B
+    dispararía **con razón**. La exención del truncado deliberado cubre el disyunto del soporte, no
+    licencia para llamar «12 meses» a un trimestre.
     """
     cfg = _cfg(horizon_12m_periods=1, max_lifetime_periods=1)
+    ts = _ts_larga(n=4, unidad="year", anios_por_periodo=1.0)
 
-    result = _run(cfg, _frame(), _ts(time_value=_ANIOS, time_unit="year"))
+    result = _run(cfg, _frame(), ts)
 
     assert _AVISO_HORIZONTE not in result.card.falta_dato
 
@@ -316,11 +326,124 @@ def test_declarar_la_unidad_hace_desaparecer_la_marca() -> None:
     Sin esta dirección, un predicado que devolviera siempre ``True`` pasaría el resto de la suite.
     Es lo que hace a la marca **gobernable** y no estructural.
 
-    Pasa ya hoy, pero **por la razón equivocada** (el aviso no existe todavía); desde C3 pasará por
-    la correcta. Va sin ``xfail`` justamente para que el día que el predicado se pase de ansioso
-    este test lo cace.
+    Existe justamente para que el día que el predicado se pase de ansioso este test lo cace.
+
+    ``horizon_12m_periods=4`` y no el 1 del ``_cfg`` por defecto: la curva de este archivo son
+    cuatro cortes **trimestrales**, así que un año son cuatro períodos. Con ``H=1`` el «ECL a 12
+    meses» cubriría tres, y `FALTA-DATO-IFRS-8` saldría con razón — la aserción de abajo exige que
+    la card traiga **sólo** la marca estructural, así que este test también cuida esa coherencia.
     """
-    result = _run(_cfg(), _frame(), _ts(time_value=_ANIOS, time_unit="year"))
+    result = _run(_cfg(horizon_12m_periods=4), _frame(), _ts(time_value=_ANIOS, time_unit="year"))
 
     assert _AVISO_UNIDAD not in result.card.falta_dato
     assert result.card.falta_dato == (_AVISO_ESTRUCTURAL,)
+
+
+# ─────────── el horizonte contra los años que la unidad hace calculables (D-HOR-0, modo B) ────────
+
+
+def _ts_larga(*, n: int, unidad: str, anios_por_periodo: float) -> pd.DataFrame:
+    """Curva de ``n`` períodos donde cada período dura ``anios_por_periodo`` años."""
+    pdm = [0.01] * n
+    cum = np.cumsum(pdm).tolist()
+    return pd.DataFrame(
+        {
+            "row_id": ["op1"] * n,
+            "period": list(range(1, n + 1)),
+            "time_value": [(p * anios_por_periodo) / _FRACCION[unidad] for p in range(1, n + 1)],
+            "time_unit": [unidad] * n,
+            "pd_marginal": pdm,
+            "survival": [1.0 - c for c in cum],
+            "pd_cumulative": cum,
+            "scenario": [None] * n,
+            "warning_codes": [()] * n,
+        }
+    )
+
+
+_FRACCION = {"year": 1.0, "quarter": 0.25, "month": 1.0 / 12.0}
+
+
+@pytest.mark.parametrize(
+    ("unidad", "horizonte_correcto", "horizonte_malo"),
+    [("year", 1, 12), ("quarter", 4, 12), ("month", 12, 1)],
+)
+def test_el_horizonte_12m_tiene_que_durar_un_ano(
+    unidad: str, horizonte_correcto: int, horizonte_malo: int
+) -> None:
+    """El modo B de la §1: el horizonte declarado en períodos que no suman un año.
+
+    Es el caso que más pesa en producción, y el que la §2 de la enmienda daba por indetectable
+    **porque la unidad no estaba fijada en ninguna parte**. D-HOR-0 la fijó, así que el gatillo
+    pasó a ser implementable: el período del horizonte cae en `time_value_years` y se comprueba.
+
+    Medido antes de arreglarlo: con el default de fábrica `horizon_12m_periods=12` sobre una curva
+    ANUAL correctamente declarada, el «ECL a 12 meses» cubría doce años y sobrestimaba el Stage 1
+    unas 7,5 veces, sin una sola marca.
+    """
+    ts = _ts_larga(n=20, unidad=unidad, anios_por_periodo=_FRACCION[unidad])
+
+    bueno = _run(_cfg(horizon_12m_periods=horizonte_correcto), _frame(), ts)
+    malo = _run(_cfg(horizon_12m_periods=horizonte_malo), _frame(), ts)
+
+    assert _AVISO_HORIZONTE not in bueno.card.falta_dato, "dispara sobre el horizonte CORRECTO"
+    assert _AVISO_HORIZONTE in malo.card.falta_dato
+
+
+def test_sin_unidad_declarada_el_chequeo_de_un_ano_no_opina() -> None:
+    """Sobre una curva sin unidad, `time_value_years` es una presunción del motor, no un dato.
+
+    Disparar el aviso de horizonte con ella sería acusar al usuario de un supuesto ajeno, y además
+    duplicaría lo que `DATO-INSTITUCIONAL-IFRS-7` ya dice. Sale la marca de unidad; la de horizonte
+    no.
+    """
+    ts = _ts_larga(n=20, unidad="year", anios_por_periodo=1.0).drop(columns=["time_unit"])
+
+    result = _run(_cfg(horizon_12m_periods=12), _frame(), ts)
+
+    assert _AVISO_UNIDAD in result.card.falta_dato
+    assert _AVISO_HORIZONTE not in result.card.falta_dato
+
+
+def test_el_record_de_evidencia_rechaza_una_conversion_corrupta() -> None:
+    """`time_value_years` cumple el mismo contrato que su hermano crudo.
+
+    Era la única columna de la tabla de evidencia sin validación, justo la que la enmienda vende
+    como «paso aritmético auditable»: un `inf` o un `nan` habrían pasado como evidencia buena.
+    """
+    from nikodym.provisioning.ifrs9.results import IfrsEclTermRecord
+
+    base = {
+        "row_id": "op1",
+        "scenario": "base",
+        "period": 1,
+        "time_value": 1.0,
+        "pd_marginal": 0.1,
+        "lgd": 0.4,
+        "ead": 1000.0,
+        "discount_factor": 0.9,
+        "ecl_marginal": 36.0,
+    }
+
+    assert IfrsEclTermRecord(**base).time_value_years is None  # opcional: puede no viajar
+    assert IfrsEclTermRecord(**base, time_value_years=0.25).time_value_years == 0.25
+
+    for corrupto in (float("inf"), float("nan"), -1.0):
+        with pytest.raises(ValidationError):
+            IfrsEclTermRecord(**base, time_value_years=corrupto)
+
+
+def test_el_audit_trail_registra_la_unidad_observada_y_el_soporte() -> None:
+    """El step publica lo OBSERVADO en la curva, no sólo lo configurado.
+
+    `_observed_time_units` devuelve `()` cuando la curva no trae la columna —el caso de aditividad
+    CT-2 que el docstring dice servir—, y esa rama no la ejercitaba ningún test del step.
+    """
+    from nikodym.provisioning.ifrs9.step import _observed_time_units, _period_bounds
+
+    con_unidad = _ts(time_value=_ANIOS, time_unit="year")
+    sin_unidad = _ts(time_value=_ANIOS, declara_unidad=False)
+
+    assert _observed_time_units(con_unidad) == ("year",)
+    assert _observed_time_units(sin_unidad) == ()
+    assert _period_bounds(con_unidad) == {"min": 1, "max": 4}

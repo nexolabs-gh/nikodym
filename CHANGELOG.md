@@ -43,11 +43,19 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   La tabla de unidades reconocidas vive en `nikodym.core.time_units` y acepta español e inglés,
   singular y plural, con o sin tildes.
 
-- **IFRS 9 declara cuando el horizonte de 12 meses no cuadra con el largo de la curva**
-  (`FALTA-DATO-IFRS-8`). Si `horizon_12m_periods` alcanza todo el soporte, un Stage 1 provisionaba
-  exactamente lo mismo que un Stage 2; si caía por debajo del primer período, Stage 1 provisionaba
-  cero. En ambos casos la corrida terminaba sin decir nada. Un truncado deliberado vía
-  `max_lifetime_periods` **no** dispara el aviso: avisar de lo que usted pidió sería ruido.
+- **⚠️ IFRS 9 verifica que el horizonte de 12 meses dure de verdad un año, y detiene si no**
+  (`FALTA-DATO-IFRS-8`). `horizon_12m_periods` declara cuántos períodos de su curva cubren doce
+  meses, y hasta ahora nadie lo contrastaba con la curva recibida. Con la unidad ya declarada, el
+  motor mira el período del horizonte y comprueba que caiga cerca de un año.
+
+  **Esto afecta al default de fábrica.** `horizon_12m_periods` viene en `12`, que es correcto para
+  una curva mensual y está mal para una anual o trimestral: sobre una curva anual, el «ECL a 12
+  meses» de Stage 1 cubría doce años y quedaba unas **7,5 veces sobreestimado**, en silencio. La
+  salida es declarar el horizonte que corresponde a su periodicidad —`12` mensual, `4` trimestral,
+  `1` anual— o apagar `fail_on_falta_dato` para que quede sólo anotado.
+
+  El aviso cubre también el extremo opuesto: un horizonte por debajo del primer período de la
+  curva, donde Stage 1 provisionaba **cero** sin error.
 
 - **⚠️ `survival` cumple `fail_on_falta_dato`, que hasta ahora era un campo sin efecto.** El propio
   config lo admitía por escrito («campo reservado: hoy no altera la corrida»). Desde esta versión

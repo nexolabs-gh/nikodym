@@ -373,6 +373,9 @@ def test_components_vacio() -> None:
         ("period", 0, "period debe ser un entero"),
         ("period", 1.5, "period debe ser un entero"),
         ("time_value", -1.0, "time_value debe ser"),
+        # D-HOR-0: el convertido cumple el mismo contrato que el crudo. Faltaba, y era la única
+        # columna de la evidencia sin guarda pese a ser la que gobierna el exponente del descuento.
+        ("time_value_years", -1.0, "time_value_years debe ser"),
         ("pd_marginal", 1.5, r"pd_marginal debe estar en \[0, 1\]"),
         ("lgd", -0.1, r"lgd debe estar en \[0, 1\]"),
         ("ead", -1.0, "ead debe ser mayor"),

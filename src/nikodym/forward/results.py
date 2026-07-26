@@ -88,7 +88,13 @@ _FORWARD_TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "pd_source",
     "warning_codes",
 )
-_FORWARD_TERM_STRUCTURE_OPTIONAL_ECL_COLUMNS: frozenset[str] = frozenset({"lgd", "lgd_base"})
+# `time_unit` entra aquí por la misma razón que `lgd`: una term-structure previa a D-HOR-0, o de un
+# productor de terceros, no la trae, y `satellite.py` documenta que esa curva **debe seguir
+# corriendo**. Sin esta línea el DTO la rechazaba por igualdad exacta de columnas, rompiendo el
+# handoff hacia `stress` para todo usuario de 1.5.0 — justo lo contrario de lo que CT-2 promete.
+_FORWARD_TERM_STRUCTURE_OPTIONAL_ECL_COLUMNS: frozenset[str] = frozenset(
+    {"lgd", "lgd_base", "time_unit"}
+)
 _SCENARIO_WEIGHT_COLUMNS: tuple[str, ...] = (
     "scenario",
     "weight",

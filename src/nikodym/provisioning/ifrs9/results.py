@@ -251,11 +251,24 @@ class IfrsEclTermRecord(BaseModel):
         """Exige floats finitos y publica ``-0.0`` como ``0.0``."""
         return _normalize_required_float(value)
 
+    @field_validator("time_value_years", mode="before")
+    @classmethod
+    def _normaliza_anios(cls, value: Any) -> float | None:
+        """Exige un float finito cuando la conversión se publica, y normaliza ``-0.0``.
+
+        Es opcional en el contrato, pero cuando viaja tiene que cumplir lo mismo que su hermano
+        crudo: la columna que la enmienda vende como «paso aritmético auditable» era la única de la
+        tabla sin validación, y un ``inf`` o un ``nan`` habrían pasado como evidencia buena.
+        """
+        return None if value is None else _normalize_required_float(value)
+
     @model_validator(mode="after")
     def _check_invariantes(self) -> Self:
         """Valida rangos de PD/LGD/EAD, ``ECL >= 0`` y ``DF ∈ (0, 1]`` (SDD-16 §6)."""
         if self.time_value < 0.0:
             raise ValueError("time_value debe ser mayor o igual a 0.")
+        if self.time_value_years is not None and self.time_value_years < 0.0:
+            raise ValueError("time_value_years debe ser mayor o igual a 0.")
         _check_unit_interval(self.pd_marginal, field_name="pd_marginal")
         _check_unit_interval(self.lgd, field_name="lgd")
         if self.ead < 0.0:

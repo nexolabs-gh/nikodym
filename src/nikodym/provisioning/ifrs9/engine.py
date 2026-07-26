@@ -112,14 +112,19 @@ _TS_YEARS_COLUMN: str = "time_value_years"
 _WARNING_TIME_UNIT_ASSUMED: str = "DATO-INSTITUCIONAL-IFRS-7"
 
 # D-HOR-0: `horizon_12m_periods` declara cuántos períodos de la curva cubren 12 meses, y hasta ahora
-# nadie lo contrastaba contra la curva recibida. Cuando el horizonte alcanza el soporte, la máscara
-# de Stage 1 queda toda verdadera y un Stage 1 provisiona exactamente lo mismo que un Stage 2; y
-# cuando cae bajo el primer período, no selecciona nada y Stage 1 provisiona CERO. En los dos casos
-# la corrida termina `done` y los totales se ven razonables. Es brecha del motor —el parámetro lo
-# escribe el usuario, pero verificar que sea coherente con lo recibido es nuestro—, así que
-# `FALTA-DATO` (mismo precedente que FWD-8). Ver `IFRS-2` en el catálogo de SDD-16 §6: ese código
-# queda como requisito documentado y no se emite.
+# nadie lo contrastaba contra la curva recibida. Con la unidad declarada, el período del horizonte
+# cae en `time_value_years` y se puede VERIFICAR que dure un año: con el default de fábrica (12)
+# sobre una curva anual, el «ECL a 12 meses» cubría doce años y sobrestimaba el Stage 1 unas 7,5
+# veces, en silencio. El otro caso es el horizonte por debajo del primer período, donde Stage 1
+# provisiona CERO. Es brecha del motor —el parámetro lo escribe el usuario, pero verificar que sea
+# coherente con lo recibido es nuestro—, así que `FALTA-DATO` (mismo precedente que FWD-8). Ver
+# `IFRS-2` en el catálogo de SDD-16 §6: ese código queda como requisito documentado y no se emite.
 _WARNING_HORIZON_MISMATCH: str = "FALTA-DATO-IFRS-8"
+# Tolerancia del chequeo «el período del horizonte dura ~1 año». Ancha a propósito: cubre 360 vs 365
+# días, curvas que empiezan a contar en 0 y redondeos de calendario, y sigue cazando el error que
+# importa —que el horizonte cubra 3 o 12 años en vez de uno—. Un gatillo estrecho dispararía sobre
+# curvas legítimas, y un aviso que dispara sobre el caso correcto se aprende a ignorar.
+_HORIZONTE_ANIO_TOL: float = 0.25
 
 # D-CRP6-2: avisos **estructurales** de esta capa, los que el motor emite en toda corrida por una
 # capacidad diferida propia. `fail_on_falta_dato` no los gobierna: se registran siempre en la card y
@@ -264,9 +269,6 @@ class IfrsProvisioningEngine:
         eir_arr = _frame_float_column(frame, config.ecl.eir_col, "eir", numpy)
 
         _validate_term_structure(ts, numpy)
-        # El soporte BRUTO se mide antes de truncar: es lo que distingue un truncado deliberado
-        # (`max_lifetime_periods` recorta una curva más larga) del horizonte que se comió la curva.
-        t_max_bruto = int(_ts_float(ts, "period", numpy).max())
         ts = _prepare_term_structure(ts, config, numpy)
         _check_row_coverage(row_ids, [str(value) for value in ts["row_id"].to_numpy()])
 
@@ -298,7 +300,7 @@ class IfrsProvisioningEngine:
             ]
         # En bloque, a diferencia de IFRS-7: el horizonte es un escalar de config contrastado
         # contra el soporte de la curva, así que o desajusta para toda la corrida o no desajusta.
-        if _horizonte_inconmensurable(ts, config, t_max_bruto, numpy):
+        if _horizonte_inconmensurable(ts, config, numpy):
             row_warnings = [(*codes, _WARNING_HORIZON_MISMATCH) for codes in row_warnings]
         stage_arr, triggers, exempt = self._assign_staging(frame, pd_life_arr, pd_pit_arr, pandas)
 
@@ -824,35 +826,66 @@ def _ts_row_ids_sin_unidad(ts: DataFrame) -> set[str]:
     }
 
 
-def _horizonte_inconmensurable(
-    ts: DataFrame, config: IfrsProvisioningConfig, t_max_bruto: int, numpy: Any
-) -> bool:
-    """Indica si ``horizon_12m_periods`` no es conmensurable con el soporte de la curva.
+def _horizonte_inconmensurable(ts: DataFrame, config: IfrsProvisioningConfig, numpy: Any) -> bool:
+    """Indica si ``horizon_12m_periods`` no es conmensurable con la curva recibida.
 
-    Dos formas de no serlo, y ambas se resuelven sobre **cotas enteras de un frame no vacío** —que
-    ya garantizan ``_validate_term_structure`` y ``_prepare_term_structure``—, nunca sobre un
-    estadístico de una selección posiblemente vacía: ése era el defecto del gatillo que esta
-    enmienda reemplaza, porque una mediana sobre selección vacía da ``NaN`` y en toda comparación
-    devuelve ``False``, dejando el predicado **mudo**.
+    Dos criterios, y **ninguno de los dos es «el horizonte alcanza el soporte»**. Ese era el modo A
+    de la §1 de la enmienda, y programarlo demostró que es un gatillo **equivocado**: una curva
+    mensual de 12 períodos con ``horizon_12m_periods=12`` —la configuración de fábrica, y el caso
+    más común que existe— tiene el horizonte cubriendo toda la curva **y es correcta**: es una
+    curva lifetime de doce meses, donde que Stage 1 iguale a Stage 2 es la contabilidad esperada,
+    no un defecto. Un aviso que dispara ahí se aprende a ignorar, y como es gobernable, además
+    abortaba la corrida.
 
-    - **El horizonte se come la curva** (``H >= T_max`` efectivo): Stage 1 provisiona lo mismo que
-      Stage 2. Se exceptúa el truncado deliberado —quien fija ``max_lifetime_periods`` por debajo
-      del soporte bruto está recortando a propósito, y avisarle de lo que pidió es ruido que enseña
-      a ignorar el aviso—.
-    - **El horizonte cae bajo el soporte** (``H < T_min``): la máscara de 12 meses no selecciona
-      nada y Stage 1 provisiona cero, sin error.
+    Lo que el modo A intentaba aproximar sin poder medirlo era esto:
+
+    - **El período del horizonte no dura un año.** Con la unidad declarada, ese período cae en
+      ``time_value_years`` y se **verifica** en vez de inferirse. Es el modo B de la §1, que la §2
+      daba por indetectable *porque la unidad no estaba fijada en ninguna parte* — al fijarla,
+      D-HOR-0 desbloqueó su propio gatillo. Medido: con el default ``horizon_12m_periods=12`` sobre
+      una curva **anual**, el «ECL a 12 meses» cubría doce años y sobrestimaba el Stage 1 unas 7,5
+      veces, en silencio y con la unidad correctamente declarada. Sólo corre si la unidad es
+      convertible: sobre una curva que no la declara, ``time_value_years`` es una presunción del
+      propio motor, y acusar al usuario con ella sería acusarlo de un supuesto ajeno — además de
+      duplicar lo que ``DATO-INSTITUCIONAL-IFRS-7`` ya dice.
+    - **El horizonte cae por debajo del primer período** (``H < T_min``): la máscara de 12 meses no
+      selecciona nada y Stage 1 provisiona **cero**, sin error. Éste no necesita unidad: es un
+      defecto cualquiera sea la periodicidad, y se resuelve sobre cotas enteras de un frame no
+      vacío —que ya garantizan ``_validate_term_structure`` y ``_prepare_term_structure``—, nunca
+      sobre un estadístico de una selección posiblemente vacía, que devolvería ``NaN`` y con él
+      ``False``, dejando el predicado mudo.
     """
     period = _ts_float(ts, "period", numpy)
-    t_max_efectivo = int(period.max())
-    t_min_efectivo = int(period.min())
     horizonte = config.pd.horizon_12m_periods
-    max_lifetime = config.pd.max_lifetime_periods
-    # `<` y no `<=`: un tope igual al soporte no recorta nada, así que no es una decisión del
-    # usuario sobre el horizonte y el aviso debe seguir disparando si el horizonte lo alcanza.
-    truncado_deliberado = max_lifetime is not None and max_lifetime < t_max_bruto
-    come_la_curva = not truncado_deliberado and horizonte >= t_max_efectivo
-    bajo_el_soporte = horizonte < t_min_efectivo
-    return come_la_curva or bajo_el_soporte
+    bajo_el_soporte = horizonte < int(period.min())
+    return bajo_el_soporte or _horizonte_no_dura_un_ano(ts, horizonte, numpy)
+
+
+def _horizonte_no_dura_un_ano(ts: DataFrame, horizonte: int, numpy: Any) -> bool:
+    """Indica si el período del horizonte 12m no cae, de hecho, cerca de un año.
+
+    Se mide sobre ``time_value_years`` —el instante ya convertido— y **sólo** cuando la curva
+    declaró una unidad convertible. Sobre una curva sin unidad, ese valor es la presunción del
+    propio motor: acusar al usuario con ella sería acusarlo de un supuesto ajeno, y
+    ``DATO-INSTITUCIONAL-IFRS-7`` ya cubre ese caso.
+
+    La tolerancia es ancha a propósito. Un año son 12 meses, 4 trimestres o 52 semanas, pero también
+    365 días contra los 360 de alguna convención, o un `time_value` que arranca en 0 en vez de en el
+    fin del primer período. El aviso busca el error de **orden de magnitud** —doce años donde debía
+    haber uno—, no la discrepancia de calendario; un gatillo estrecho dispararía sobre curvas
+    legítimas y se aprendería a ignorar.
+    """
+    if _TS_TIME_UNIT_COLUMN not in ts.columns or _TS_YEARS_COLUMN not in ts.columns:
+        return False
+    if any(year_fraction(unidad) is None for unidad in _time_unit_values(ts)):
+        return False
+    periodos = _ts_float(ts, "period", numpy)
+    anios = _ts_float(ts, _TS_YEARS_COLUMN, numpy)
+    del_horizonte = anios[periodos == float(horizonte)]
+    if del_horizonte.shape[0] == 0:
+        # El período del horizonte no existe en la curva; los otros dos disyuntos ya lo cubren.
+        return False
+    return bool(numpy.any(numpy.abs(del_horizonte - 1.0) > _HORIZONTE_ANIO_TOL))
 
 
 def _ts_lgd_present(ts: DataFrame) -> bool:

@@ -6,7 +6,24 @@
 > `forward`. Verificado en vivo: la misma economía declarada en años y en meses converge a la misma
 > ECL (antes, −40,45 % en el fixture de test; −50,8 % en el de §5.1).
 >
-> **Cuatro cosas cambiaron al programarla, y quedan escritas aquí porque el error es informativo:**
+> **⚠️ Y una quinta, encontrada por la auditoría adversarial previa al release, que invalida el
+> «modo A» de la §1 como criterio.** El primer intento implementó IFRS-8 tal como esta enmienda lo
+> describe —`H >= T_max` con exención de truncado deliberado— y eso es un **falso positivo sobre el
+> caso más común que existe**: una curva mensual de 12 períodos con `horizon_12m_periods=12`, la
+> configuración de fábrica, tiene el horizonte cubriendo todo el soporte **y es correcta** (curva
+> lifetime de doce meses; Stage 1 = Stage 2 es la contabilidad esperada). Como la marca es
+> gobernable, además **abortaba** esa corrida. Y simultáneamente el predicado se quedaba **mudo**
+> ante el error que sí mueve la cifra: curva anual con el default `12`, «ECL a 12 meses» cubriendo
+> doce años, Stage 1 sobreestimado **7,5×**.
+>
+> El criterio correcto es el **modo B**, que esta misma enmienda volvió medible al fijar la unidad:
+> se verifica contra `time_value_years` que el período del horizonte dure ~1 año. El modo A era la
+> aproximación que se podía hacer *sin* la unidad; con ella, sobra. La §1 se conserva sin editar
+> porque describe fielmente el diagnóstico previo, pero **su modo A no es el contrato implementado**
+> — ver SDD-16 §8.
+>
+> **Cuatro cosas más cambiaron al programarla, y quedan escritas aquí porque el error es
+> informativo:**
 >
 > 1. **El código NO podía ser `IFRS-1`.** Un `git grep` sobre `src/` lo daba por libre, pero el
 >    espacio `IFRS-N` está asignado en el catálogo de SDD-16 §6 y es **compartido por las dos
