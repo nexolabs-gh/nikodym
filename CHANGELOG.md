@@ -7,6 +7,8 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [No publicado]
 
+## [1.6.0] — 2026-07-26
+
 ### Corregido
 
 - **⚠️ La ECL de IFRS 9 se calculaba mal cuando la curva de PD no venía en años.** El descuento
