@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "da13f353d93d487787efbdb07cdb6492",
+ "run_id": "567211f69a5c4173a89b687c2a5df824",
  "error": null,
  "model_card": null,
  "binning": null,
@@ -25,6 +25,7 @@
    "partition",
    "period",
    "time_value",
+   "time_unit",
    "hazard",
    "survival",
    "pd_marginal",
@@ -914,7 +915,7 @@
      "status": "active",
      "label": "Descuento",
      "value": "EIR anual",
-     "detail": "Descuento período a período con la columna eir.",
+     "detail": "Descuento período a período con la columna eir. Los plazos de la curva se convierten a años según la unidad temporal que ella declara; si no la declara, se asumen años y queda constancia en el resultado.",
      "sources": [
       "config.provisioning_ifrs9.ecl"
      ]

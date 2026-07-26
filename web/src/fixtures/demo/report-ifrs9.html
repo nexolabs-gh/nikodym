@@ -1108,7 +1108,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=8a7916bf76c9ccb3737ad0658b632b1cc14779ab</code></div>
+    <div class="lineage-line"><code>git_sha=75ea735a240bf63f8913281578106aec7ff14aa6</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1367,7 +1367,7 @@ figcaption {
   <p>LGD y EAD: LGD provided · EAD provided. La EAD se mantiene constante por período: no se modela la amortización del crédito.</p>
   <p>Staging: 30/90 días + is_default. Stage 2 desde 30 días; Stage 3 desde 90 días o is_default.</p>
   <p>Escenario de cálculo: Base 100 %. Escenario único; no hay ponderación macroeconómica múltiple.</p>
-  <p>Descuento: EIR anual. Descuento período a período con la columna eir.</p>
+  <p>Descuento: EIR anual. Descuento período a período con la columna eir. Los plazos de la curva se convierten a años según la unidad temporal que ella declara; si no la declara, se asumen años y queda constancia en el resultado.</p>
   <p>Capacidad no ejercida en esta corrida:</p>
   <p>Forward-looking: Capacidad no ejercida. La sección forward está inactiva y no condiciona la PD de esta corrida.</p>
   <p>Escenarios macroeconómicos múltiples: Capacidad no ejercida. La corrida usa un único escenario base, sin ponderación macro múltiple.</p>
@@ -1452,11 +1452,11 @@ figcaption {
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6</dd>
-    <dt>created_at</dt><dd>2026-07-26T16:27:48.687279Z</dd>
+    <dt>created_at</dt><dd>2026-07-26T20:05:28.171627Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>8a7916bf76c9ccb3737ad0658b632b1cc14779ab</dd>
+    <dt>git_sha</dt><dd>75ea735a240bf63f8913281578106aec7ff14aa6</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
   &#34;nikodym&#34;: &#34;1.6.0&#34;,
@@ -1775,6 +1775,7 @@ figcaption {
   &#34;partition&#34;,
   &#34;period&#34;,
   &#34;time_value&#34;,
+  &#34;time_unit&#34;,
   &#34;hazard&#34;,
   &#34;survival&#34;,
   &#34;pd_marginal&#34;,
