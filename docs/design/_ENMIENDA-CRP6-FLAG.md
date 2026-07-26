@@ -149,10 +149,24 @@ consolidan (`engine.py:519`, `_build_card`), que es el único punto donde la cap
 
 ### 3.4 · D-CRP6-4 — `survival` implementa el flag sobre sus tres marcas
 
-Deja de ser campo reservado. Gobierna `DATO-INSTITUCIONAL-SUR-1/2/3` (`kaplan_meier.py:55-57`,
-emitidas en `:332`, `:585` y `:611`), las tres gobernables: cada una depende de la entrada.
+Deja de ser campo reservado. Gobierna `DATO-INSTITUCIONAL-SUR-1/2/3`, las tres gobernables: cada
+una depende de la entrada.
 
 **No se elimina**, confirmando E-CRP-6: sería ruptura pública sin ruta de migración.
+
+**Corregido al programarlo — el censo de emisores estaba incompleto.** La v1.0 localizaba las tres
+marcas en `kaplan_meier.py:55-57`. Medido, `SUR-1` tiene **cuatro** emisores: `kaplan_meier.py:585`,
+`cox_aft.py:889`, `discrete_hazard.py:968` y el propio `step.py:528`, que la emite cuando ninguna
+grilla fue declarada y hay que caer a los tiempos observados. El alcance no crece, pero **el lugar
+del gate sí importaba**: va en `step.py::_card_from_model`, el único punto donde la capa conoce
+todas sus marcas vengan del motor o del step —análogo exacto del `_build_card` de IFRS 9—. Puesto
+dentro de un motor, la carencia del step se habría escapado.
+
+**`survival` no declara ninguna marca estructural, y se midió en los dos sentidos.** La analogía
+con IFRS 9 invita a copiar una lista de estructurales; aquí sería falsa. `SUR-1` desaparece
+declarando `horizon_periods` o `evaluation_times`; `SUR-3`, declarando `confidence_level`. La
+llamada va con `structural=()` **a propósito**, y el comentario en el código lo dice para que nadie
+lo lea como un olvido.
 
 ### 3.5 · D-CRP6-5 — `forward` pierde el AND
 
@@ -202,6 +216,24 @@ provisión**. Es un defecto de resolución de parámetros, no de semántica del 
 
 ### 3.8 · D-CRP6-8 — El preset declara sus intervalos de confianza
 
+⚠️ **La premisa de esta decisión era falsa, y la medición lo mostró antes de programarla.** §2.3
+afirmaba que el preset F4 «se contradice a sí mismo»: `fail_on_falta_dato=True` junto a la carencia
+`SUR-3`. Corrido el preset real sobre su dataset real (`ifrs9_retail_latam`, 6.000 filas), emite
+`falta_dato=()`. No hay contradicción: el preset declara `method="discrete_hazard"`, y `SUR-3` sólo
+la emite `kaplan_meier.py:611`, de modo que `confidence_level=None` **nunca se lee**. Con el flag ya
+implementado el preset sigue corriendo igual.
+
+**La decisión no cambia; cambia su razón, que es lo que había que reescribir.** `method` es editable
+desde el formulario del UI instalable. Antes del bloque A eso daba lo mismo. Ahora, quien parta del
+preset F4 y elija `kaplan_meier` en el selector vería **abortar una corrida que hoy termina bien** —
+y el aborto sería correcto según el contrato, lo que lo vuelve peor: no es un bug que se arregle
+después, es un preset publicado que deja de correr al tocar un control legítimo. Declarar los
+intervalos lo previene.
+
+Es el tercer caso de la misma clase en esta enmienda (el flag de `ifrs9` que no gobernaba nada,
+`FALTA-DATO-IFRS-4` emitida en toda corrida, y ahora esto). **Un censo describe el mecanismo; sólo
+correr el motor dice qué pasa.**
+
 De las tres salidas a §2.3 —declarar los intervalos, poner el flag en `False`, o reclasificar
 `SUR-3`— se toma la primera:
 
@@ -220,8 +252,13 @@ cambios deben entrar en la **misma** recaptura.
 ## 6. Riesgos
 
 - **`survival` pasa de no-op a gobernar tres marcas con el flag en `True` por defecto.** Riesgo
-  medido y cerrado en §2.3: el único caso vivo es el preset de IFRS 9, y D-CRP6-8 lo resuelve. Falta
-  el mismo barrido sobre los fixtures del front antes de dar por cerrada la implementación.
+  medido y cerrado: el preset de IFRS 9 no emitía ninguna marca ni antes ni después (ver D-CRP6-8),
+  y de los 4.349 tests el único que hubo que tocar fue el **golden del `config_hash` del F4**, que
+  falló exactamente como debía al cambiar el preset y forzó la recaptura al mismo lote en vez de
+  dejarla pendiente en silencio. El riesgo real que sí queda vivo es
+  el del **usuario existente** cuyo config no declara grilla: hasta ahora recibía `SUR-1` como aviso
+  y desde el bloque B su corrida se detiene. Es exactamente lo que el flag promete y su default
+  siempre dijo, pero es un cambio de comportamiento observable → va en las notas del release.
 - El criterio gobernable/estructural se fija aquí y lo hereda CRP-4 para los nueve warnings. Si el
   inventario de CRP-4 encuentra un caso que no clasifica, se reabre esta decisión, no se parchea.
 - La recaptura de demo tiene dos reincidencias registradas por árbol sucio (patrón C-D exige árbol

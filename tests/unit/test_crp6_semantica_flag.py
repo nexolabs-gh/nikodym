@@ -17,11 +17,14 @@ inaplicable en IFRS 9. Una marca declarada es
     detiene, porque el usuario no tiene ninguna acción que la evite: abortar por ella no sería
     fail-fast, sería dejar el motor inservible con su propio valor por defecto.
 
-⚠️ **Cobertura parcial declarada.** Este gate cubre el **bloque A** de la enmienda §7. `survival`
-sigue siendo un campo no-op hasta el bloque B, que va con el P2 del handoff porque mueve
-``config_hash`` y arrastra la recaptura de demo. Mientras tanto la cobertura de las siete capas
-—criterio 1 de §5— **no** está completa, y decirlo aquí es preferible a un archivo que parezca
-cerrarla.
+Con el **bloque B** (`survival`, D-CRP6-4) el gate cubre las **siete** capas y el criterio 1 de §5
+pasa. La advertencia de cobertura parcial que este docstring llevaba desde el bloque A se retiró
+junto con el no-op que la motivaba.
+
+⚠️ **`survival` no declara ninguna marca estructural, y eso se midió, no se supuso.** La analogía
+con IFRS 9 invita a copiar una lista de estructurales; aquí sería falsa. ``SUR-1`` y ``SUR-3`` se
+comprobaron **en los dos sentidos** —aparecen sin la declaración y desaparecen con ella—, así que
+las tres marcas de la capa son gobernables y la lista va vacía.
 """
 
 from __future__ import annotations
@@ -31,7 +34,9 @@ from typing import Any
 import pandas as pd
 import pytest
 
+from nikodym.core.config import NikodymConfig
 from nikodym.core.markers import governable_warnings, is_declared_warning
+from nikodym.core.study import Study
 from nikodym.forward.config import ForwardConfig
 from nikodym.forward.exceptions import ForwardScenarioError
 from nikodym.provisioning.ifrs9 import IfrsProvisioningConfig, IfrsProvisioningEngine
@@ -42,6 +47,8 @@ from nikodym.provisioning.ifrs9.config import (
     IfrsScenarioConfig,
 )
 from nikodym.provisioning.ifrs9.exceptions import IfrsConfigError, IfrsFaltaDatoError
+from nikodym.survival.config import SurvivalConfig
+from nikodym.survival.exceptions import SurvivalFaltaDatoError
 from nikodym.validation.config import ValidationConfig
 from nikodym.validation.exceptions import ValidationConfigError
 
@@ -260,3 +267,90 @@ def test_validation_nombra_su_marca_declarada() -> None:
 def _primer_codigo(mensaje: str) -> str:
     """Extrae el primer token del mensaje, donde el contrato pone el código de la marca."""
     return mensaje.split(":", 1)[0].strip()
+
+
+# ───────────────── D-CRP6-4: `survival` deja de ser un campo no-op ─────────────────
+
+
+def _survival_frame() -> pd.DataFrame:
+    """Libro mínimo con eventos y censura: nada degenerado que emita ``SUR-2`` de rebote."""
+    duraciones = [1.0, 2.0, 3.0, 4.0, 5.0] * 8
+    eventos = [1, 0, 1, 0, 1] * 8
+    return pd.DataFrame(
+        {"duration": duraciones, "event": eventos},
+        index=pd.Index([f"op{i}" for i in range(len(duraciones))], name="loan_id"),
+    )
+
+
+def _survival_config(
+    *, fail_on_falta_dato: bool, confidence_level: float | None, horizon_periods: int | None = 3
+) -> SurvivalConfig:
+    """Config Kaplan-Meier standalone; ``confidence_level=None`` es la carencia ``SUR-3``."""
+    return SurvivalConfig.model_validate(
+        {
+            "method": "kaplan_meier",
+            "input": {"duration_col": "duration", "event_col": "event", "pd_source": "none"},
+            "time_grid": {
+                "time_unit": "year",
+                "horizon_periods": horizon_periods,
+                "evaluation_times": [],
+            },
+            "kaplan_meier": {
+                "confidence_level": confidence_level,
+                "confidence_transform": None if confidence_level is None else "loglog",
+            },
+            "discrete_hazard": {"pd_role": "none"},
+            "fail_on_falta_dato": fail_on_falta_dato,
+        }
+    )
+
+
+def _run_survival(cfg: SurvivalConfig) -> Any:
+    """Corre la cadena ``data → survival`` y devuelve el resultado publicado."""
+    study = Study(NikodymConfig(survival=cfg))
+    study.artifacts.set("data", "frame", _survival_frame())
+    study.run(steps=["survival"])
+    return study.artifacts.get("survival", "result")
+
+
+def test_survival_marca_gobernable_detiene_con_el_flag_en_true() -> None:
+    """La carencia ``SUR-3`` detiene la corrida, que es lo que el flag venía prometiendo.
+
+    Hasta el bloque B este campo era un **no-op**: la propia enmienda lo condenaba y el config lo
+    admitía por escrito (*"campo reservado: hoy no altera la corrida"*). Un flag de gobernanza que
+    no gobierna es peor que no tenerlo — el usuario cree que su corrida está protegida.
+    """
+    with pytest.raises(SurvivalFaltaDatoError, match="DATO-INSTITUCIONAL-SUR-3"):
+        _run_survival(_survival_config(fail_on_falta_dato=True, confidence_level=None))
+
+
+def test_survival_marca_gobernable_queda_registrada_con_el_flag_en_false() -> None:
+    """Con ``False`` la misma carencia no detiene: viaja en la card y la corrida termina."""
+    result = _run_survival(_survival_config(fail_on_falta_dato=False, confidence_level=None))
+
+    assert "DATO-INSTITUCIONAL-SUR-3" in result.card.falta_dato
+
+
+def test_survival_sin_carencia_no_detiene_aunque_el_flag_este_en_true() -> None:
+    """Declarado el intervalo, no hay marca que gobernar: el flag en ``True`` no estorba.
+
+    Es la mitad que faltaba para probar que ``SUR-3`` es **gobernable** y no estructural: existe
+    una entrada válida con la que la capa no la emite. Sin este sentido, el criterio de D-CRP6-2
+    quedaría afirmado y no medido.
+    """
+    result = _run_survival(_survival_config(fail_on_falta_dato=True, confidence_level=0.95))
+
+    assert result.card.falta_dato == ()
+
+
+def test_survival_gobierna_la_carencia_de_grilla_del_step() -> None:
+    """``SUR-1`` la emite el step, no el modelo, y el flag la gobierna igual.
+
+    Importa porque los cuatro emisores de ``SUR-1`` (``kaplan_meier``, ``cox_aft``,
+    ``discrete_hazard`` y el propio ``step``) desembocan en un **único** punto de decisión. Si el
+    gate se hubiera puesto dentro de un motor, esta carencia se habría escapado.
+    """
+    with pytest.raises(SurvivalFaltaDatoError, match="DATO-INSTITUCIONAL-SUR-1"):
+        _run_survival(
+            _survival_config(fail_on_falta_dato=True, confidence_level=0.95, horizon_periods=None)
+        )

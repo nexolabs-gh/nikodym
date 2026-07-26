@@ -73,8 +73,10 @@ cuando ocurra.
 **Estado del camino largo (2026-07-26).** El requisito 3 tiene contrato aprobado
 —[`docs/design/_CONTRATO-RESOLUCION-PARAMETROS.md`](design/_CONTRATO-RESOLUCION-PARAMETROS.md),
 CRP-1…CRP-7—, **B3.a-1 está cerrado** y el contrato **está en ejecución**: CRP-5 implementado
-(`afa3403`) y **CRP-6 bloque A** (`368bcf5`). El bloque B de CRP-6 sigue pendiente, así que la
-semántica única del flag cubre **seis capas de siete** — ver `CLAUDE.md` y `ROADMAP.md` §B3.
+(`afa3403`) y **CRP-6 cumplido en las siete capas** (bloque A en `368bcf5`, bloque B a
+continuación) — ver `CLAUDE.md` y `ROADMAP.md` §B3. Queda fuera el P2 (`pit_mode` del preset F4),
+que **no es orden de trabajo sino imposibilidad medida**: sus dos salidas exigen encadenar `forward`
+o ampliar el dataset sintético.
 
 Los dos pasos ejecutados dejaron la misma lección, ya cuatro veces pagada en este repo: **el plan
 escrito no sobrevive a la primera medición contra el código.** CRP-6 no era implementable como

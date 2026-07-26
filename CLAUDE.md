@@ -59,7 +59,8 @@
 > motor detrás—. El contrato de resolución de parámetros es el nodo en curso: su §2 quedó enmendado
 > y sus dos primeros pasos (CRP-5 y CRP-6 bloque A) están implementados — ver `ROADMAP.md` §B3.
 >
-> **CRP-6 — bloque A implementado el 2026-07-26 (`368bcf5`, CI 16/16); el bloque B está PENDIENTE.**
+> **CRP-6 — CUMPLIDO en las siete capas el 2026-07-26** (bloque A en `368bcf5`, bloque B a
+> continuación).
 > [`docs/design/_ENMIENDA-CRP6-FLAG.md`](docs/design/_ENMIENDA-CRP6-FLAG.md), D-CRP6-1…D-CRP6-8.
 > `fail_on_falta_dato` significa **una sola cosa**: *¿una marca declarada **gobernable** emitida en
 > la corrida la detiene?* Dos cosas que hay que saber antes de tocar esto:
@@ -74,13 +75,32 @@
 >   *renombrar* ese flag; medido, su `False` no abría ruta degradada alguna —`_apply_vasicek` levanta
 >   igual— y sólo movía la validación al medio del cálculo, que es lo que CRP-5 prohíbe.
 >
-> ⚠️ **CRP-6 cubre seis capas de siete: NO está cumplido.** El bloque B —`survival` implementa el
-> flag, y el preset declara sus intervalos de confianza porque hoy **se contradice a sí mismo**
-> (`fail_on_falta_dato=True` junto a la carencia `SUR-3`)— va con el P2, el bump de versión y **una
-> sola** recaptura patrón C-D, porque los tres mueven `config_hash`.
+> El bloque B cerró la capa que faltaba, y otra vez **el plan escrito no sobrevivió a la medición**
+> —van seis veces en este repo—:
+>
+> - **`SUR-1` tiene cuatro emisores**, no sólo `kaplan_meier`: también `cox_aft`, `discrete_hazard`
+>   y el propio `step`. Por eso el gate vive en `survival/step.py::_card_from_model` y **no dentro
+>   de un motor**: es el único punto donde la capa conoce todas sus marcas.
+> - **`survival` no declara ninguna marca estructural.** La analogía con `ifrs9` invita a copiar una
+>   lista de estructurales; aquí sería falsa. `SUR-1` y `SUR-3` se midieron **en los dos sentidos**,
+>   así que la llamada va con `structural=()` a propósito, dicho en el código para que no se lea
+>   como olvido.
+> - **El «preset que se contradice a sí mismo» no existía.** Se dio por hecho dos sesiones seguidas
+>   que el preset F4 mezcla `fail_on_falta_dato=True` con la carencia `SUR-3`. Corrido sobre su
+>   dataset real emite `falta_dato=()`: usa `method="discrete_hazard"` y `SUR-3` sólo la emite
+>   `kaplan_meier`. La decisión de declarar los intervalos **se mantuvo con otra razón** —`method`
+>   es editable desde el formulario y el preset dejaría de correr al cambiarlo—, y esa razón quedó
+>   escrita en el SDD y en el propio preset.
+>
+> ⚠️ **El P2 quedó fuera y no por orden de trabajo: hoy es inalcanzable.** Sacar al preset F4 de
+> `pit_mode="ttc_only"` sólo tiene dos salidas, y ninguna está disponible — `consume_pit` exige una
+> term-structure `pd_basis='pit'` que `survival` no produce (habría que encadenar `forward`), y
+> `apply_vasicek` exige `rho` **y** `systemic_factor_col`, columna que el dataset
+> `ifrs9_retail_latam` no tiene. Es alcance de otra magnitud y espera decisión de Cami.
 >
 > Lección de método que vale para todo ítem de roadmap: tres de los cuatro puntos que el plan daba
-> por bloqueantes eran nomenclatura. **Medir contra el código antes de planificar.**
+> por bloqueantes eran nomenclatura, y el cuarto describía una contradicción que no ocurría.
+> **Medir contra el código antes de planificar.**
 >
 > **Catálogo de datos externos (2026-07-25, noche).** 42 datasets públicos documentados en
 > [`docs/datasets/`](docs/datasets/); los datos viven en `data/externos/raw/` (vetado, **nunca** se

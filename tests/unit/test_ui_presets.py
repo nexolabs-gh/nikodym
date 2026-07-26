@@ -289,7 +289,10 @@ def test_provisiones_preset_activa_las_tres_secciones_y_la_regla_real() -> None:
 # condiciones al pinnearlo). Protege la identidad del preset justo cuando los fixtures de
 # demo.nikodym.cl se recapturan contra él.
 # Actualizado en 1.4.0 al EXCLUIR ``data.load.source`` del config_hash (ver nota en el hash F1).
-_EXPECTED_F4_CONFIG_HASH = "92163dd24fced5a0dd0a8c4ae971481502f3a396b9014eafb3205f78c7491660"
+# Actualizado en 1.6.0 por D-CRP6-8: el preset declara `confidence_level`/`confidence_transform`
+# de Kaplan-Meier. Este golden hizo su trabajo —falló al cambiar el preset— y por eso la recaptura
+# de los fixtures de demo.nikodym.cl entró al mismo lote en vez de quedar pendiente en silencio.
+_EXPECTED_F4_CONFIG_HASH = "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6"
 
 
 def test_ifrs9_preset_config_valida_y_hash_estable() -> None:

@@ -7,6 +7,37 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [No publicado]
 
+### Cambiado
+
+- **⚠️ `survival` cumple `fail_on_falta_dato`, que hasta ahora era un campo sin efecto.** El propio
+  config lo admitía por escrito («campo reservado: hoy no altera la corrida»). Desde esta versión
+  gobierna sus tres avisos declarados —`DATO-INSTITUCIONAL-SUR-1/2/3`— con la misma semántica que
+  las otras seis capas: con el flag activo, un aviso detiene la corrida; desactivado, queda
+  registrado en la card y la corrida sigue.
+
+  **Es un cambio de comportamiento observable y el default es `True`.** Si su config no declara
+  grilla temporal (`time_grid.horizon_periods` ni `time_grid.evaluation_times`), `survival` venía
+  cayendo a los tiempos observados y emitiendo `DATO-INSTITUCIONAL-SUR-1` como aviso; ahora esa
+  misma corrida **se detiene**. Las dos salidas, ambas explícitas:
+
+  ```python
+  # (a) declarar la grilla — recomendado: es la definición que el aviso venía pidiendo
+  cfg.survival.time_grid.horizon_periods = 5
+  # (b) conservar el comportamiento anterior, dejando el aviso en el resultado
+  cfg.survival.fail_on_falta_dato = False
+  ```
+
+  Con esto, `fail_on_falta_dato` significa **una sola cosa** en las siete capas del paquete (CRP-6
+  del contrato de resolución de parámetros, cerrado). Los avisos que un motor emite en **toda**
+  corrida por una capacidad diferida propia siguen sin detener nunca: se registran igual, pero
+  abortar por ellos dejaría el motor inservible con su propio valor por defecto.
+
+- **El preset `f4-ifrs9-retail` declara los intervalos de confianza de Kaplan-Meier**
+  (`confidence_level=0.95`, `confidence_transform="loglog"`). El preset corre `discrete_hazard`, así
+  que sus cifras **no cambian**; lo que cambia es que ahora sigue corriendo si usted cambia el
+  método a `kaplan_meier` desde el formulario. Su `config_hash` cambió, y los fixtures de la demo
+  pública se recapturaron contra él.
+
 ### Añadido
 
 - **Una corrida que falla ahora dice por qué, por el camino que la documentación recomienda.**

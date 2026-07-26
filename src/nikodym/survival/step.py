@@ -26,12 +26,16 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
 from nikodym.core.audit import AuditEvent
 from nikodym.core.exceptions import ArtifactNotFoundError, MissingDependencyError
-from nikodym.core.markers import is_declared_warning
+from nikodym.core.markers import governable_warnings, is_declared_warning
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
 from nikodym.survival.config import SurvivalConfig, SurvivalMethod
-from nikodym.survival.exceptions import SurvivalConfigError, SurvivalInputError
+from nikodym.survival.exceptions import (
+    SurvivalConfigError,
+    SurvivalFaltaDatoError,
+    SurvivalInputError,
+)
 from nikodym.survival.results import SurvivalCard, SurvivalDiagnostics, SurvivalResult
 
 if TYPE_CHECKING:
@@ -611,7 +615,13 @@ def _card_from_model(
     time_context: dict[str, Any],
     warnings: tuple[str, ...],
 ) -> SurvivalCard:
-    """Construye una ``SurvivalCard`` CT-2 con secciones métricas aditivas."""
+    """Construye una ``SurvivalCard`` CT-2 con secciones métricas aditivas.
+
+    Es además donde ``fail_on_falta_dato`` decide (D-CRP6-4): el único punto en que la capa conoce
+    **todas** sus marcas, vengan del modelo o del step. Los cuatro emisores de
+    ``DATO-INSTITUCIONAL-SUR-1`` desembocan aquí, así que un gate por motor habría dejado escapar
+    el del propio step.
+    """
     n_periods = int(cast(Any, term_structure["period"]).nunique(dropna=True))
     metric_sections = _metric_sections(
         model,
@@ -620,6 +630,17 @@ def _card_from_model(
         pd_context=pd_context,
         time_context=time_context,
     )
+    falta_dato = tuple(code for code in warnings if is_declared_warning(code))
+    # `structural=()` no es un descuido heredado de IFRS 9: se midió que las tres marcas de esta
+    # capa desaparecen con una entrada válida —declarar la grilla evita `SUR-1`, declarar el
+    # intervalo evita `SUR-3`—, así que todas son gobernables.
+    gobernables = governable_warnings(falta_dato, structural=())
+    if cfg.fail_on_falta_dato and gobernables:
+        detalle = ", ".join(gobernables)
+        raise SurvivalFaltaDatoError(
+            f"Corrida abortada por avisos declarados: {detalle}. Use fail_on_falta_dato=False "
+            "para registrarlos en el resultado y continuar."
+        )
     return SurvivalCard(
         method=cfg.method,
         pd_source=cfg.input.pd_source,

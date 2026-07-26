@@ -740,7 +740,11 @@ _IFRS9_SURVIVAL_SECTION: dict[str, Any] = {
         ],
     },
     "time_grid": {"time_unit": "year", "horizon_periods": 5, "evaluation_times": []},
-    "kaplan_meier": {"confidence_level": None, "confidence_transform": None},
+    # D-CRP6-8: declarados aunque este preset corra `discrete_hazard` y no llegue a leerlos. La
+    # razón no es la que la enmienda escribió —medido, el preset NO se contradice hoy: emite
+    # `falta_dato=()`—, sino que `method` es editable desde el formulario: con el flag ya
+    # implementado, quien lo cambiara a `kaplan_meier` vería abortar una corrida que hoy termina.
+    "kaplan_meier": {"confidence_level": 0.95, "confidence_transform": "loglog"},
     "discrete_hazard": {
         "link": "logit",
         "include_period_dummies": True,

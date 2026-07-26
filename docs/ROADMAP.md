@@ -248,7 +248,7 @@ Se ejecuta en dos etapas con condiciones distintas:
    se apaga cuando falta la columna declarada, y los pesos de escenario se validan antes de ponderar
    la PD y no después.
 
-   **CRP-6 — bloque A implementado, bloque B pendiente** ([`_ENMIENDA-CRP6-FLAG.md`](design/_ENMIENDA-CRP6-FLAG.md),
+   **CRP-6 — CUMPLIDO en las siete capas** ([`_ENMIENDA-CRP6-FLAG.md`](design/_ENMIENDA-CRP6-FLAG.md),
    D-CRP6-1…D-CRP6-8, aprobada). El censo de las siete capas se re-midió contra *la pregunta que
    CRP-6 define* en vez de contra el mecanismo, y **cinco ya cumplían**: comprobar en el config
    cuando la carencia ya es demostrable no es otra semántica, es CRP-5. Las «cinco semánticas» son
@@ -265,13 +265,27 @@ Se ejecuta en dos etapas con condiciones distintas:
      entrada válida sin ella) vs **estructural** (capacidad diferida del motor: se registra siempre,
      nunca detiene). Vive en `core/markers.py::governable_warnings`.
 
-   Se descubrió además que el **preset publicado se contradice**: declara `fail_on_falta_dato=True`
-   y entrega la carencia `SUR-3`. Es invisible hoy porque el flag es no-op en `survival`.
+   **Bloque B implementado el 2026-07-26: las siete capas cubiertas.** `survival` dejó de ser el
+   campo no-op que la propia enmienda condenaba —el gate vive en `step.py::_card_from_model`, el
+   único punto donde la capa conoce todas sus marcas— y el preset F4 declara sus intervalos de
+   confianza. Dos correcciones al plan escrito, ambas por medición previa:
 
-   **Bloque B (pendiente, no opcional):** `survival` implementa el flag y el preset declara sus
-   intervalos de confianza. Mueve `config_hash`, así que va junto al P2 —el preset F4 sale de
-   `pit_mode="ttc_only"`— con el bump de versión y **una sola** recaptura patrón C-D. Hasta
-   entonces CRP-6 **no** está cumplido: el criterio de las siete capas cubre seis.
+   - **`SUR-1` tenía cuatro emisores, no uno.** El censo sólo citaba `kaplan_meier`; también la
+     emiten `cox_aft`, `discrete_hazard` y el propio `step` cuando no se declaró grilla. No amplió
+     el alcance, pero sí decidió **dónde** va el gate: dentro de un motor, la carencia del step se
+     habría escapado.
+   - **El «preset que se contradice» no existía.** El censo daba por hecho que el preset F4 declara
+     `fail_on_falta_dato=True` junto a la carencia `SUR-3`. Corrido sobre su dataset real emite
+     `falta_dato=()`: usa `method="discrete_hazard"` y `SUR-3` sólo la emite `kaplan_meier`, así que
+     `confidence_level=None` nunca se lee. La decisión se mantuvo con **otra razón** —`method` es
+     editable desde el formulario, y con el flag activo el preset dejaría de correr al cambiarlo—.
+
+   **Queda fuera el P2** (el preset F4 sale de `pit_mode="ttc_only"`), y no por orden de trabajo:
+   medido, **ninguna de sus dos salidas es alcanzable hoy**. `consume_pit` exige una term-structure
+   con `pd_basis='pit'` que `survival` no produce (habría que encadenar `forward`), y
+   `apply_vasicek` exige `rho` **y** `systemic_factor_col`, columna que el dataset
+   `ifrs9_retail_latam` no tiene (habría que ampliar `_generate_ifrs9_retail`). Es alcance de otra
+   magnitud que CRP-6 y espera decisión de Cami.
 
    **Pendiente de B3.a-1 al 2026-07-25** (lo demás está implementado y con gates):
 

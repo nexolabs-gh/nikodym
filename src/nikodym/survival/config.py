@@ -302,9 +302,9 @@ class SurvivalConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante falta de dato",
         description=(
-            "Campo reservado: hoy no altera la corrida, cualquiera sea su valor. Los avisos "
-            "declarados de esta etapa quedan siempre registrados en su resultado: son inputs que "
-            "fija su institución, no brechas del motor."
+            "Detiene la corrida si esta etapa emite un aviso declarado: una definición que sólo "
+            "su institución puede fijar y que el motor se negó a inventar. Con el valor "
+            "desactivado la corrida continúa y el aviso queda registrado en el resultado."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Gobernanza", "ui_order": 1},
     )
