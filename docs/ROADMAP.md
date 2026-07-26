@@ -304,6 +304,26 @@ Se ejecuta en dos etapas con condiciones distintas:
      visión) y es mayor que el selector: el motor de provisiones sólo se alcanza por preset o
      subiendo un YAML.
    - **La recaptura de la demo**, que va una sola vez y al final (ver §5 de la enmienda).
+     **Ejecutada el 2026-07-26** con el bloque B de CRP-6: bump a `1.6.0` y las tres capturas
+     (F1, F3, F4) en patrón C-D.
+
+   **Sacar el preset F4 de `pit_mode="ttc_only"` — PENDIENTE, y no es un cambio de una línea**
+   (medido el 2026-07-26; venía arrastrándose como «P2» del handoff). El preset publica PD **TTC**
+   presentadas dentro de un motor IFRS 9, y salir de ahí tiene exactamente dos vías, **ninguna
+   alcanzable con lo que hoy existe**:
+
+   - **`pit_mode="consume_pit"`** exige una term-structure etiquetada `pd_basis='pit'` en todas sus
+     filas (`ifrs9/engine.py::_require_pit_basis`). La produce `survival`, que es TTC —el propio
+     mensaje de error lo dice—. Habría que **encadenar `forward` en el preset F4** para que las
+     curvas lleguen PIT: es la vía metodológicamente más rica y el cambio de cadena más grande.
+   - **`pit_mode="apply_vasicek"`** exige `rho` **y** `systemic_factor_col`
+     (`ifrs9/config.py:672-684`), y el dataset `ifrs9_retail_latam` **no trae ninguna columna de
+     factor sistémico** (17 columnas, verificadas). Habría que ampliar `_generate_ifrs9_retail` en
+     `ui/datasets.py`: vía más corta, pero toca el generador de datos y arrastra otra recaptura.
+
+   Cualquiera de las dos mueve `config_hash` y cifras del informe, así que va con su propio bump y
+   su propia recaptura. **Decisión de Cami pendiente**; entretanto el preset es honesto —declara
+   `ttc_only`— pero no ejercita el forward-looking que IFRS 9 sí contempla.
 
    **Cerrado desde que se escribió esta lista:** el **gate de entrada del motor CMF** (D-SEG-4) ya no
    descubre la cartera desconocida a mitad del cómputo — `_validate_portfolio_domain`
