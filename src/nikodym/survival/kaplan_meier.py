@@ -61,6 +61,7 @@ _TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "partition",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0: pegada a `time_value`; `ifrs9` convierte a años con ella.
     "hazard",
     "survival",
     "pd_marginal",
@@ -454,6 +455,7 @@ def _term_structure_rows(
                     "partition": _PARTITION,
                     "period": point.period,
                     "time_value": point.time_value,
+                    "time_unit": cfg.time_grid.time_unit,
                     "hazard": point.hazard,
                     "survival": point.survival,
                     "pd_marginal": point.pd_marginal,

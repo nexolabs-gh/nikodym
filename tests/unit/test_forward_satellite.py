@@ -59,6 +59,7 @@ _FORWARD_COLUMNS = [
     "source_model",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0
     "scenario",
     "scenario_weight",
     "hazard",

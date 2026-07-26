@@ -57,6 +57,7 @@ _TERM_COLUMNS = [
     "partition",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0
     "hazard",
     "survival",
     "pd_marginal",

@@ -57,6 +57,7 @@ _TERM_COLUMNS: tuple[str, ...] = (
     "partition",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0
     "hazard",
     "survival",
     "pd_marginal",
@@ -100,12 +101,15 @@ class FakeDataFrame:
         assert index is False
         return iter(
             [
+                # Tupla POSICIONAL emparejada con `_TERM_COLUMNS` por `zip(strict=True)`: un campo
+                # nuevo en medio desplaza todo lo de atrás, y el `strict` lo vuelve ruidoso.
                 (
                     "state:A",
                     "retail",
                     "desarrollo",
                     1,
                     1.0,
+                    "year",
                     None,
                     0.90,
                     0.10,
@@ -655,6 +659,7 @@ def _term_structure_frame(**updates: Any) -> pd.DataFrame:
         "partition": ["desarrollo", "desarrollo", "desarrollo"],
         "period": [1, 2, 3],
         "time_value": [1.0, 2.0, 3.0],
+        "time_unit": ["year", "year", "year"],
         "hazard": [0.10, 0.11111111111111112, 0.125],
         "survival": [0.90, 0.80, 0.70],
         "pd_marginal": [0.10, 0.10, 0.10],

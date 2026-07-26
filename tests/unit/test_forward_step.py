@@ -57,6 +57,7 @@ _FORWARD_COLUMNS = [
     "source_model",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0
     "scenario",
     "scenario_weight",
     "hazard",
@@ -581,6 +582,7 @@ def _forward_for_reversion_with_lgd() -> pd.DataFrame:
                     "source_model": "survival",
                     "period": period,
                     "time_value": float(period),
+                    "time_unit": "year",
                     "scenario": scenario,
                     "scenario_weight": weight,
                     "hazard": hazard,

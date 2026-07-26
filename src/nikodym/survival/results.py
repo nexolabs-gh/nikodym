@@ -45,6 +45,11 @@ _TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "partition",
     "period",
     "time_value",
+    # D-HOR-0: la unidad viaja PEGADA a `time_value` y por fila, no en un config aguas abajo.
+    # `ifrs9` la usa para convertir a años antes de descontar; sin ella presume años y lo declara.
+    # Por fila y no por frame porque `forward` concatena N fuentes en una sola tabla: un escalar
+    # las mezclaría en silencio.
+    "time_unit",
     "hazard",
     "survival",
     "pd_marginal",
@@ -83,6 +88,7 @@ class SurvivalTermRecord(BaseModel):
     row_id: str
     period: int = Field(ge=1)
     time_value: float
+    time_unit: str | None = None
     survival: float
     hazard: float | None
     pd_marginal: float

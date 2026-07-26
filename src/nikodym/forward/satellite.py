@@ -72,6 +72,7 @@ _FORWARD_TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "source_model",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0: forward la TRANSPORTA; no la produce ni la inventa.
     "scenario",
     "scenario_weight",
     "hazard",
@@ -343,7 +344,10 @@ def _prepare_term_structure(
 
 
 def _ensure_optional_columns(frame: DataFrame) -> None:
-    for column in ("row_id", "segment", "partition", "scenario"):
+    # `time_unit` entra aquí y NO a `_validate_required_term_columns` a propósito (CT-2 aditivo):
+    # una curva de un productor de terceros, o anterior a D-HOR-0, no la trae y debe seguir
+    # corriendo. Ausente equivale a «no declarada», que es lo que `ifrs9` sabe manejar.
+    for column in ("row_id", "segment", "partition", "scenario", "time_unit"):
         if column not in frame.columns:
             frame[column] = None
     if "source_model" not in frame.columns:
@@ -984,6 +988,10 @@ def _output_row(
         "source_model": source_model,
         "period": int(row.period),
         "time_value": _clean_float(float(row.time_value)),
+        # Se COPIA de la fila entrante: forward no calcula instantes, los propaga. Por fila y no
+        # por frame porque `_term_structures_from_study` concatena N fuentes que pueden declarar
+        # unidades distintas.
+        "time_unit": _none_if_missing(getattr(row, "time_unit", None)),
         "scenario": scenario,
         "scenario_weight": _non_negative_float(float(scenario_weight)),
         "hazard": hazard,

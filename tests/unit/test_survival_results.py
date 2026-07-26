@@ -46,6 +46,7 @@ _TERM_COLUMNS: tuple[str, ...] = (
     "partition",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0: la unidad viaja pegada a `time_value`, por fila.
     "hazard",
     "survival",
     "pd_marginal",
@@ -128,12 +129,17 @@ class FakeDataFrame:
         assert index is False
         return iter(
             [
+                # Tupla POSICIONAL, emparejada con `_TERM_COLUMNS` por un `zip(strict=True)`: un
+                # campo nuevo en medio de la tupla canónica desplaza todo lo que viene detrás. El
+                # `strict` es lo que convierte ese desplazamiento en un error ruidoso en vez de en
+                # una fila silenciosamente corrida.
                 (
                     "loan-001",
                     "retail",
                     "desarrollo",
                     1,
                     1.0,
+                    "year",
                     None,
                     1.0,
                     0.0,
@@ -154,6 +160,7 @@ def test_survival_term_record_golden_invariantes_y_mapping_warnings() -> None:
         "row_id",
         "period",
         "time_value",
+        "time_unit",
         "survival",
         "hazard",
         "pd_marginal",
@@ -168,6 +175,8 @@ def test_survival_term_record_golden_invariantes_y_mapping_warnings() -> None:
         "row_id": "loan-001",
         "period": 1,
         "time_value": 0.0,
+        # El record no la exige: una curva que no la declara sigue siendo válida (CT-2 aditivo).
+        "time_unit": None,
         "survival": 1.0,
         "hazard": 0.0,
         "pd_marginal": 0.0,
@@ -550,6 +559,7 @@ def _term_structure_frame(**updates: Any) -> pd.DataFrame:
         "partition": ["desarrollo", "desarrollo"],
         "period": [1, 2],
         "time_value": [1.0, 2.0],
+        "time_unit": ["year", "year"],
         "hazard": [-0.0, 0.10],
         "survival": [1.0, 0.90],
         "pd_marginal": [-0.0, 0.10],

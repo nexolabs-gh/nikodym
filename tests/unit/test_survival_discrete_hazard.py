@@ -41,6 +41,7 @@ _TERM_COLUMNS: tuple[str, ...] = (
     "partition",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0
     "hazard",
     "survival",
     "pd_marginal",

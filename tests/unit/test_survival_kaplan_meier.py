@@ -34,6 +34,7 @@ _TERM_COLUMNS: tuple[str, ...] = (
     "partition",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0
     "hazard",
     "survival",
     "pd_marginal",
@@ -111,6 +112,9 @@ def test_kaplan_meier_golden_manual_greenwood_no_muta_y_publica_frames() -> None
             "partition": [None, None, None, None],
             "period": [1, 2, 3, 4],
             "time_value": [1.0, 2.0, 3.0, 4.0],
+            # El default de fábrica de `time_grid.time_unit`, que este test no toca. `"period"` no
+            # es una unidad convertible: `ifrs9` la tratará como no declarada (D-HOR-0).
+            "time_unit": ["period"] * 4,
             "hazard": [0.2, 0.25, 0.5, 0.0],
             "survival": [0.8, 0.6, 0.3, 0.3],
             "pd_marginal": [0.2, 0.2, 0.3, 0.0],

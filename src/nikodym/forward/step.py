@@ -76,6 +76,7 @@ _FORWARD_TERM_STRUCTURE_COLUMNS: Final[tuple[str, ...]] = (
     "source_model",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0: forward la TRANSPORTA; no la produce ni la inventa.
     "scenario",
     "scenario_weight",
     "hazard",

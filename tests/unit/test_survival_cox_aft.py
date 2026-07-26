@@ -41,6 +41,7 @@ _TERM_COLUMNS: tuple[str, ...] = (
     "partition",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0
     "hazard",
     "survival",
     "pd_marginal",
@@ -93,6 +94,8 @@ def test_cox_rossi_goldens_schoenfeld_warning_no_bloqueante_y_no_muta() -> None:
             "partition": [None, None, None],
             "period": [1, 2, 3],
             "time_value": [10.0, 20.0, 30.0],
+            # Default de fábrica de `time_grid.time_unit`; `"period"` no es unidad convertible.
+            "time_unit": ["period", "period", "period"],
             "hazard": [0.030321364964003505, 0.05374108996471649, 0.046345008592101],
             "survival": [0.9696786350359965, 0.9175670482736635, 0.8750423955375919],
             "pd_marginal": [0.030321364964003505, 0.052111586762332976, 0.04252465273607169],

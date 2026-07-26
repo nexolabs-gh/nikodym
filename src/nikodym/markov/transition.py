@@ -74,6 +74,7 @@ _TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "partition",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0: pegada a `time_value`; `ifrs9` convierte a años con ella.
     "hazard",
     "survival",
     "pd_marginal",
@@ -278,6 +279,7 @@ class TransitionMatrixEstimator(AuditableMixin):
                         "partition": None,
                         "period": _period_number(point.horizon),
                         "time_value": point.horizon,
+                        "time_unit": self.config_.dynamics.time_unit,
                         "hazard": hazard,
                         "survival": survival,
                         "pd_marginal": pd_marginal,

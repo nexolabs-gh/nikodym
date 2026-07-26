@@ -59,6 +59,7 @@ _TERM_COLUMNS: tuple[str, ...] = (
     "source_model",
     "period",
     "time_value",
+    "time_unit",  # D-HOR-0
     "scenario",
     "scenario_weight",
     "hazard",
@@ -112,6 +113,8 @@ class FakeDataFrame:
         assert index is False
         return iter(
             [
+                # Tupla POSICIONAL emparejada con las columnas canónicas por `zip(strict=True)`:
+                # un campo nuevo en medio desplaza todo lo de atrás, y el `strict` lo hace ruidoso.
                 (
                     "id-1",
                     "retail",
@@ -119,6 +122,7 @@ class FakeDataFrame:
                     "survival",
                     1,
                     1.0,
+                    "year",
                     "base",
                     0.60,
                     0.10,
@@ -887,6 +891,7 @@ def _term_structure_frame(**updates: Any) -> pd.DataFrame:
         "source_model": ["survival", "survival", "survival"],
         "period": [1, 2, 3],
         "time_value": [1.0, 2.0, 3.0],
+        "time_unit": ["year", "year", "year"],
         "scenario": ["base", "base", "base"],
         "scenario_weight": [0.60, 0.60, 0.60],
         "hazard": [0.10, 0.20, 0.125],
