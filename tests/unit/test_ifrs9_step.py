@@ -93,6 +93,7 @@ def _ts() -> pd.DataFrame:
             "row_id": ["op1", "op1"],
             "period": [1, 2],
             "time_value": [1.0, 2.0],
+            "time_unit": ["year", "year"],
             "survival": [0.90, 0.82],
             "pd_marginal": [0.10, 0.08],
             "pd_cumulative": [0.10, 0.18],

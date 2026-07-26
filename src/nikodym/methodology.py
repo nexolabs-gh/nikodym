@@ -235,6 +235,14 @@ def build_ifrs9_methodology_card(
             if eir_col is not None
             else "Descuento período a período según el config efectivo."
         )
+        # D-HOR-0: bajo la convención anual el exponente va EN AÑOS, convertido desde la unidad que
+        # la term-structure declara. Decirlo aquí es lo que hace auditable el supuesto; si la curva
+        # no la declara, el aviso declarado de la card lo dice con todas sus letras.
+        if discount == "annual_eir_year_fraction":
+            detail += (
+                " Los plazos de la curva se convierten a años según la unidad temporal que ella "
+                "declara; si no la declara, se asumen años y queda constancia en el resultado."
+            )
         active.append(
             MethodologyFact(
                 id="discount",

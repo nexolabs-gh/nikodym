@@ -72,6 +72,7 @@ RAN 21-10. Están registradas en el
 | `DATO-INSTITUCIONAL-FWD-1` | Los escenarios `adverse` y `severe` deben declarar su `macro_path_path` o sus `shocks`. Un escenario adverso sin trayectoria no es un escenario. |
 | `DATO-INSTITUCIONAL-FWD-4` | `ttc_anchor='input_term_structure'` sin un `pd_basis='ttc'` resuelto: se usa como ancla TTC con base PIT o desconocida, y se advierte explícitamente. |
 | `DATO-INSTITUCIONAL-FWD-5` | Historia insuficiente para ajustar el modelo satélite, según el `min_history_periods` que tú fijaste. |
+| `DATO-INSTITUCIONAL-IFRS-7` | La unidad temporal de la curva de PD. El descuento eleva el plazo de cada punto como exponente **en años**, así que si tu curva viene en meses o trimestres y no lo dice, la provisión sale mal por un factor grande. Cuando la curva no la declara, el motor asume años y lo deja escrito aquí en vez de callarlo. Se declara en `time_grid.time_unit` (survival) o `dynamics.time_unit` (markov); ojo con el default `"period"`, que **no** es una unidad. |
 | `DATO-INSTITUCIONAL-PROV-1` | Una celda de la comparación no tiene contraparte en el otro motor. |
 | `DATO-INSTITUCIONAL-PROV-2` | Una celda imputó 0 a un motor por `coverage_policy='treat_missing_as_zero'`. La imputación es tu política, no un supuesto nuestro. |
 | `DATO-INSTITUCIONAL-PROV-3` | Comparación incompleta: sólo un motor está presente (`require_both=False`). |
@@ -115,14 +116,17 @@ Depende de la marca, y por eso son dos:
 - **`DATO-INSTITUCIONAL`**: falta un input tuyo. La tabla de arriba dice cuál. Entrégalo y el aviso
   desaparece.
 
-Varias capas exponen un `fail_on_falta_dato` en su config, pero **no significa lo mismo en todas**, y
-conviene saberlo antes de confiar en él como interruptor general:
+`fail_on_falta_dato` significa **una sola cosa** en todas las capas que lo exponen: *¿un aviso
+declarado **gobernable** emitido durante la corrida la detiene?* Con `True` —el default— la detiene;
+con `False` queda registrado en el resultado y el cálculo sigue.
 
-- En `forward`, `stress`, `validation` y la comparación de provisiones **sí gobierna** el
-  comportamiento ante avisos declarados.
-- En **IFRS 9 no mira los avisos**: pese al nombre, decide si una configuración PIT inconsistente
-  —`pit_mode='apply_vasicek'` sin `pd.rho` escalar o sin factor sistémico Z— detiene la corrida al
-  validar el config o falla más tarde, durante el cálculo. Activarlo **no** hará que un
-  `FALTA-DATO-IFRS-4` corte nada.
-- En **`survival` es un campo reservado**: hoy no altera la corrida, cualquiera sea su valor. Sus
-  avisos declarados son todos inputs institucionales, y quedan siempre registrados en el resultado.
+La única sutileza que hay que conocer es qué avisos son **gobernables**:
+
+- Un aviso es **estructural** cuando el motor lo emite en toda corrida por una capacidad diferida
+  propia, y por eso **nunca** detiene: abortar por él dejaría el motor inservible con su propio
+  valor por defecto. `FALTA-DATO-IFRS-4` es el caso: la EAD constante por período se declara siempre,
+  entregues los datos que entregues, así que activar el flag **no** hará que corte.
+- Todos los demás son **gobernables**: dependen de lo que entregues, y declarar el dato que piden
+  los hace desaparecer. `DATO-INSTITUCIONAL-IFRS-7` —la unidad temporal de la curva— es uno de
+  ellos, así que con el flag en su valor por defecto una curva que no declare su unidad **detiene la
+  corrida**. Declararla es todo lo que hace falta para que siga.

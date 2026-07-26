@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self, TypeAlias, cast
 
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.markers import governable_warnings, is_declared_warning
+from nikodym.core.time_units import year_fraction
 from nikodym.provisioning.ifrs9.config import IfrsProvisioningConfig
 from nikodym.provisioning.ifrs9.ead import EadEngine
 from nikodym.provisioning.ifrs9.ecl import EclEngine, validate_scenario_weights
@@ -95,6 +96,20 @@ _RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weight
 # (``IfrsLgdConfig``) y declara el descarte con este aviso en vez de callarlo.
 _TS_LGD_COLUMN: str = "lgd"
 _WARNING_LGD_FORWARD_IGNORED: str = "FALTA-DATO-IFRS-6"
+
+# D-HOR-0: la term-structure declara en qué unidad está su ``time_value`` y el motor lo convierte a
+# años antes de usarlo como exponente del descuento. Cuando no la declara —columna ausente, vacía, o
+# un literal no convertible como ``"period"``, el default de fábrica de survival/markov— se presume
+# años y se deja constancia. La marca es `DATO-INSTITUCIONAL` porque la periodicidad de la curva
+# sólo la sabe la institución: el motor se niega a inventarla y hace explícita la presunción.
+#
+# El código es `IFRS-7` y NO `IFRS-1`: el espacio de numeración `IFRS-N` está asignado en el
+# catálogo de SDD-16 §6 y es compartido por las dos marcas —`IFRS-1` es el factor sistémico `Z`—. Un
+# `git grep` sobre `src/` lo daría por libre, porque IFRS-1/2/3/5 son requisitos documentados que
+# nunca se emiten en runtime.
+_TS_TIME_UNIT_COLUMN: str = "time_unit"
+_TS_YEARS_COLUMN: str = "time_value_years"
+_WARNING_TIME_UNIT_ASSUMED: str = "DATO-INSTITUCIONAL-IFRS-7"
 
 # D-CRP6-2: avisos **estructurales** de esta capa, los que el motor emite en toda corrida por una
 # capacidad diferida propia. `fail_on_falta_dato` no los gobierna: se registran siempre en la card y
@@ -257,6 +272,17 @@ class IfrsProvisioningEngine:
         ead_arr, row_warnings = self._estimate_ead(frame, numpy)
         if _ts_lgd_present(ts):
             row_warnings = [(*codes, _WARNING_LGD_FORWARD_IGNORED) for codes in row_warnings]
+        # Por `row_id` y no en bloque, a diferencia de IFRS-6: con `forward` conviven filas que
+        # declaran la unidad y filas que no. La marca sale sea cual sea `discount_convention`,
+        # porque describe una propiedad del INPUT y no de una rama de cálculo aguas abajo:
+        # condicionarla a la convención haría que la misma curva sea «declarada» o «no declarada»
+        # según un ajuste posterior, que es el agujero que D-HOR-0 cierra.
+        sin_unidad = _ts_row_ids_sin_unidad(ts)
+        if sin_unidad:
+            row_warnings = [
+                (*codes, _WARNING_TIME_UNIT_ASSUMED) if rid in sin_unidad else codes
+                for rid, codes in zip(row_ids, row_warnings, strict=True)
+            ]
         stage_arr, triggers, exempt = self._assign_staging(frame, pd_life_arr, pd_pit_arr, pandas)
 
         lgd_by_rid = dict(zip(row_ids, (float(value) for value in lgd_arr), strict=True))
@@ -703,8 +729,28 @@ def _ts_float(ts: DataFrame, column: str, numpy: Any) -> NDArrayFloat:
     return cast("NDArrayFloat", array)
 
 
+def _time_unit_values(ts: DataFrame) -> list[str | None]:
+    """Devuelve la unidad temporal declarada por fila, o ``None`` donde no la haya.
+
+    La columna es opcional (CT-2 aditivo): una curva anterior a D-HOR-0, o de un productor de
+    terceros, no la trae y debe seguir corriendo.
+    """
+    if _TS_TIME_UNIT_COLUMN not in ts.columns:
+        return [None] * ts.shape[0]
+    return [
+        None if value is None or _is_missing(value) else str(value)
+        for value in ts[_TS_TIME_UNIT_COLUMN].tolist()
+    ]
+
+
 def _prepare_term_structure(ts: DataFrame, config: IfrsProvisioningConfig, numpy: Any) -> DataFrame:
-    """Normaliza la columna ``scenario`` y trunca por ``max_lifetime`` (SDD-16 §7)."""
+    """Normaliza ``scenario``, convierte ``time_value`` a años y trunca por ``max_lifetime``.
+
+    La conversión vive aquí —y no en ``EclEngine``— porque esta es la función que normaliza lo que
+    los productores dejaron ambiguo, ya recibe el ``config``, y su salida alimenta por igual a
+    ``_weighted_horizons``, ``_components_frame`` y el motor ECL: un solo punto, aguas arriba de
+    todo (D-HOR-0).
+    """
     scenario = [
         _SINGLE_SCENARIO_LABEL if value is None or _is_missing(value) else str(value)
         for value in (
@@ -718,8 +764,17 @@ def _prepare_term_structure(ts: DataFrame, config: IfrsProvisioningConfig, numpy
         raise IfrsTermStructureError(
             "period de la term-structure debe ser un entero mayor o igual a 1."
         )
+    time_value = _ts_float(ts, "time_value", numpy)
+    # List comprehension y no `.map()`/`.fillna()`: sobre una columna `object` con `None` esas dos
+    # emiten el `FutureWarning` de downcasting de pandas >= 2.2, y con `filterwarnings=["error"]`
+    # eso tumba la suite entera. Mismo patrón que la normalización de `scenario`, arriba.
+    years = [
+        valor * (year_fraction(unidad) or 1.0)
+        for valor, unidad in zip(time_value.tolist(), _time_unit_values(ts), strict=True)
+    ]
     prepared = ts.copy(deep=True)
     prepared[_TS_SCENARIO_COLUMN] = scenario
+    prepared[_TS_YEARS_COLUMN] = years
     max_lifetime = config.pd.max_lifetime_periods
     if max_lifetime is not None:
         prepared = prepared.loc[period <= max_lifetime].copy(deep=True)
@@ -734,6 +789,22 @@ def _prepare_term_structure(ts: DataFrame, config: IfrsProvisioningConfig, numpy
 def _is_missing(value: Any) -> bool:
     """Indica si un escalar de ``scenario`` es un faltante (``NaN``) sin importar pandas."""
     return isinstance(value, float) and math.isnan(value)
+
+
+def _ts_row_ids_sin_unidad(ts: DataFrame) -> set[str]:
+    """Devuelve los ``row_id`` con alguna fila cuya unidad temporal no sea convertible.
+
+    Por fila y no por frame: ``forward`` concatena N term-structures en una sola tabla, así que
+    unas filas pueden declarar la unidad y otras no. Un veredicto por frame marcaría de más o de
+    menos, y en ambos casos mentiría.
+    """
+    unidades = _time_unit_values(ts)
+    row_ids = [str(value) for value in ts["row_id"].to_numpy()]
+    return {
+        row_id
+        for row_id, unidad in zip(row_ids, unidades, strict=True)
+        if year_fraction(unidad) is None
+    }
 
 
 def _ts_lgd_present(ts: DataFrame) -> bool:
@@ -882,6 +953,7 @@ def _components_frame(
             "scenario": [str(value) for value in ts[_TS_SCENARIO_COLUMN].tolist()],
             "period": ts["period"].to_numpy(),
             "time_value": ts["time_value"].to_numpy(),
+            "time_value_years": ts[_TS_YEARS_COLUMN].to_numpy(),
             "pd_marginal": ts["pd_marginal"].to_numpy(),
             "lgd": [lgd_by_rid[rid] for rid in ts_row_ids],
             "ead": [ead_by_rid[rid] for rid in ts_row_ids],

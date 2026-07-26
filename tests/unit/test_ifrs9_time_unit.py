@@ -110,7 +110,12 @@ def _ts(
 
 
 def _cfg(**pd_overrides: Any) -> IfrsProvisioningConfig:
-    """Config base: survival, ttc_only, EAD y LGD provistas, horizonte 12m = 1 período."""
+    """Config base: survival, ttc_only, EAD y LGD provistas, horizonte 12m = 1 período.
+
+    ``fail_on_falta_dato=False`` explícito, contra el default ``True`` de la clase: casi todos los
+    tests de aquí **inspeccionan** ``card.falta_dato``, y con el flag encendido la corrida aborta
+    antes de que exista card que mirar. El test del gate lo vuelve a encender a propósito.
+    """
     pd_kwargs: dict[str, Any] = {
         "term_structure_source": "survival",
         "pit_mode": "ttc_only",
@@ -120,6 +125,7 @@ def _cfg(**pd_overrides: Any) -> IfrsProvisioningConfig:
     return IfrsProvisioningConfig(
         row_id_col=None,
         portfolio_col="portfolio",
+        fail_on_falta_dato=False,
         pd=IfrsPdConfig(**pd_kwargs),
         lgd=IfrsLgdConfig(method="provided"),
         ead=IfrsEadConfig(method="provided"),
@@ -143,9 +149,6 @@ def _ecl_lifetime(result: IfrsProvisionResult) -> float:
 # ─────────────────────────── la unidad temporal y el descuento ───────────────────────────
 
 
-@pytest.mark.xfail(
-    strict=True, reason="D-HOR-0 sin implementar: ifrs9 asume que time_value son años"
-)
 def test_la_misma_economia_en_dos_unidades_da_la_misma_ecl() -> None:
     """El invariante que da sentido a toda la enmienda: la unidad no puede mover la provisión.
 
@@ -159,9 +162,6 @@ def test_la_misma_economia_en_dos_unidades_da_la_misma_ecl() -> None:
     np.testing.assert_allclose(_ecl_lifetime(en_meses), _ECL_LIFETIME_ANIOS, rtol=1e-12)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="D-HOR-0 sin implementar: no existe DATO-INSTITUCIONAL-IFRS-7"
-)
 def test_curva_sin_unidad_declarada_presume_anos_y_lo_dice() -> None:
     """Sin unidad se presume años —no se adivina—, y la presunción queda declarada y auditable."""
     result = _run(_cfg(), _frame(), _ts(time_value=_ANIOS, declara_unidad=False))
@@ -170,9 +170,6 @@ def test_curva_sin_unidad_declarada_presume_anos_y_lo_dice() -> None:
     assert _AVISO_UNIDAD in result.card.falta_dato
 
 
-@pytest.mark.xfail(
-    strict=True, reason="D-HOR-0 sin implementar: no existe DATO-INSTITUCIONAL-IFRS-7"
-)
 def test_period_no_es_una_unidad_convertible() -> None:
     """``"period"`` es el default de fábrica de survival y markov, y no es ninguna unidad.
 
@@ -183,9 +180,6 @@ def test_period_no_es_una_unidad_convertible() -> None:
     assert _AVISO_UNIDAD in result.card.falta_dato
 
 
-@pytest.mark.xfail(
-    strict=True, reason="D-HOR-0 sin implementar: no existe DATO-INSTITUCIONAL-IFRS-7"
-)
 def test_unidad_desconocida_no_rompe_la_corrida() -> None:
     """Un literal fuera de la tabla se declara, **no** se levanta como error.
 
@@ -199,9 +193,6 @@ def test_unidad_desconocida_no_rompe_la_corrida() -> None:
     assert _AVISO_UNIDAD in result.card.falta_dato
 
 
-@pytest.mark.xfail(
-    strict=True, reason="D-HOR-0 sin implementar: no existe DATO-INSTITUCIONAL-IFRS-7"
-)
 def test_fail_on_falta_dato_gobierna_la_unidad_no_declarada() -> None:
     """La marca es **gobernable**, no estructural: quien quiera fail-fast lo tiene sin nada nuevo.
 
@@ -214,7 +205,6 @@ def test_fail_on_falta_dato_gobierna_la_unidad_no_declarada() -> None:
         _run(cfg, _frame(), _ts(time_value=_ANIOS, declara_unidad=False))
 
 
-@pytest.mark.xfail(strict=True, reason="D-HOR-0 sin implementar: la conversión no existe")
 def test_unidades_distintas_por_fila_se_convierten_por_fila() -> None:
     """La conversión es por fila, no por frame.
 
@@ -242,7 +232,6 @@ def test_unidades_distintas_por_fila_se_convierten_por_fila() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True, reason="D-HOR-0 sin implementar: no existe time_value_years")
 def test_la_evidencia_publica_el_crudo_y_el_convertido() -> None:
     """La conversión se audita como un paso aritmético comprobable, no como un renombre.
 
@@ -256,9 +245,6 @@ def test_la_evidencia_publica_el_crudo_y_el_convertido() -> None:
     np.testing.assert_allclose(ts_out["time_value_years"].to_numpy(), _ANIOS, rtol=1e-12)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="D-HOR-0 sin implementar: no existe DATO-INSTITUCIONAL-IFRS-7"
-)
 def test_period_eir_no_usa_la_unidad_pero_igual_la_declara() -> None:
     """La marca describe una propiedad del *input*, no de una rama de cálculo aguas abajo.
 

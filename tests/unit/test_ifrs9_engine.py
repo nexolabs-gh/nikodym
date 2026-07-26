@@ -72,9 +72,16 @@ def _ts(
     scenario: list[Any] | None = None,
     row_id: list[str] | None = None,
     with_curve: bool = True,
+    time_unit: str | None = "year",
     extra: dict[str, list[Any]] | None = None,
 ) -> pd.DataFrame:
-    """Term-structure tidy (survival) de ``op1`` con invariante ``pd_cumulative = 1 - survival``."""
+    """Term-structure tidy (survival) de ``op1`` con invariante ``pd_cumulative = 1 - survival``.
+
+    ``time_unit="year"`` por default (D-HOR-0): es lo que emite un productor real desde C2, y sin
+    declararla el motor emite ``DATO-INSTITUCIONAL-IFRS-7``, que con ``fail_on_falta_dato=True``
+    —el default de la config— detiene la corrida. Ponerlo aquí mantiene intactas las llamadas de
+    esta suite; los tests que quieran probar la presunción pasan ``time_unit=None``.
+    """
     marginal = pd_marginal if pd_marginal is not None else [0.10, 0.08]
     n = len(marginal)
     period = periods if periods is not None else list(range(1, n + 1))
@@ -83,6 +90,7 @@ def _ts(
         "row_id": row_id if row_id is not None else ["op1"] * n,
         "period": period,
         "time_value": [float(p) for p in period],
+        "time_unit": [time_unit] * n,
         "pd_marginal": marginal,
         "scenario": scenario if scenario is not None else [None] * n,
         "warning_codes": [()] * n,

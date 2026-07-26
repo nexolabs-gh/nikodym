@@ -78,6 +78,7 @@ def _ts(
         "row_id": ["op1"] * n,
         "period": period,
         "time_value": [float(p) for p in period],
+        "time_unit": ["year"] * n,
         "pd_marginal": marginal,
         "scenario": scenario if scenario is not None else [None] * n,
         "warning_codes": [()] * n,

@@ -33,7 +33,12 @@ from nikodym.core.exceptions import ArtifactNotFoundError, MissingDependencyErro
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
+from nikodym.core.time_units import known_time_units
 from nikodym.provisioning.ifrs9.config import IfrsProvisioningConfig
+from nikodym.provisioning.ifrs9.engine import (
+    _TS_TIME_UNIT_COLUMN,
+    _WARNING_TIME_UNIT_ASSUMED,
+)
 from nikodym.provisioning.ifrs9.exceptions import IfrsConfigError, IfrsInputError
 
 if TYPE_CHECKING:
@@ -116,7 +121,7 @@ class IfrsProvisioningStep(AuditableMixin):
             as_of_date=as_of_date,
             audit=self,
         )
-        self._log_ifrs_decisions(config=cfg, result=result)
+        self._log_ifrs_decisions(config=cfg, result=result, term_structure=term_structure)
         self._publish_artifacts(study, result)
         return result
 
@@ -134,9 +139,18 @@ class IfrsProvisioningStep(AuditableMixin):
         study.artifacts.set("provisioning_ifrs9", "card", result.card.model_copy(deep=True))
 
     def _log_ifrs_decisions(
-        self, *, config: IfrsProvisioningConfig, result: IfrsProvisionResult
+        self,
+        *,
+        config: IfrsProvisioningConfig,
+        result: IfrsProvisionResult,
+        term_structure: DataFrame,
     ) -> None:
-        """Registra las decisiones auditables exigidas por SDD-16 §9."""
+        """Registra las decisiones auditables exigidas por SDD-16 §9.
+
+        Recibe la ``term_structure`` de ENTRADA —no basta ``result``— porque la unidad temporal
+        declarada es una propiedad de la curva recibida y no sobrevive al cálculo: la salida ya
+        publica los plazos convertidos (D-HOR-0).
+        """
         card = result.card
         self.log_decision(
             regla="ifrs9_term_structure_source",
@@ -216,6 +230,18 @@ class IfrsProvisioningStep(AuditableMixin):
                 "total_ecl_reported": card.total_ecl_reported,
             },
             accion="calcular_ecl",
+        )
+        # D-HOR-0: `ifrs9_ecl` registra la CONVENCIÓN configurada; esta decisión registra lo
+        # OBSERVADO en la curva que llegó, que es lo que decide el exponente del descuento. Sin
+        # ella, un auditor no puede distinguir una curva declarada en años de una que se presumió.
+        self.log_decision(
+            regla="ifrs9_discount_time_unit",
+            umbral={"unidades_convertibles": known_time_units()},
+            valor={
+                "unidades_observadas": _observed_time_units(term_structure),
+                "unidad_presumida_anios": _WARNING_TIME_UNIT_ASSUMED in card.falta_dato,
+            },
+            accion="convertir_time_value_a_anios",
         )
 
 
@@ -320,6 +346,26 @@ def _as_calibrated_dataframe(value: object, pd: Any, artifact: str) -> DataFrame
     raise IfrsConfigError(
         "base_pd_source='calibration' exige un artefacto de PD calibrada pandas.DataFrame: "
         f"artefacto='{artifact}', tipo observado={type(value).__name__}."
+    )
+
+
+def _observed_time_units(term_structure: DataFrame) -> tuple[str, ...]:
+    """Lista las unidades temporales que la term-structure recibida declara, en orden estable.
+
+    Tupla y no escalar porque ``forward`` concatena N fuentes: dos curvas con unidades distintas
+    conviven en el mismo frame y el audit trail debe mostrarlas todas. Vacía significa que ninguna
+    fila la declaró.
+    """
+    if _TS_TIME_UNIT_COLUMN not in term_structure.columns:
+        return ()
+    return tuple(
+        sorted(
+            {
+                str(value)
+                for value in term_structure[_TS_TIME_UNIT_COLUMN].tolist()
+                if value is not None and str(value) != "nan"
+            }
+        )
     )
 
 

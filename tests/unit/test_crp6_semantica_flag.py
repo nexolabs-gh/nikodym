@@ -80,6 +80,7 @@ def _ts(*, with_lgd: bool = False) -> pd.DataFrame:
         "partition": ["train"],
         "period": [1],
         "time_value": [1.0],
+        "time_unit": ["year"],
         "hazard": [0.02],
         "survival": [0.98],
         "pd_marginal": [0.02],

@@ -1647,6 +1647,14 @@ _IFRS9_WARNING_LABELS: Final[dict[str, str]] = {
         "la LGD condicionada por escenario que publica la capa forward-looking no se consumió: "
         "la LGD del cálculo proviene del enfoque configurado en el motor IFRS 9"
     ),
+    # D-HOR-0: la curva no declaró su unidad temporal y el descuento la interpretó como años. El
+    # texto dice qué se supuso y qué hacer al respecto, sin nombrar el código: quien lee el informe
+    # necesita saber que hay un supuesto sobre su curva, no el identificador interno.
+    "DATO-INSTITUCIONAL-IFRS-7": (
+        "la curva de probabilidad de incumplimiento no declara en qué unidad de tiempo están "
+        "expresados sus plazos, así que el descuento los interpretó como años; declare la unidad "
+        "de la curva si sus plazos están en meses, trimestres u otra periodicidad"
+    ),
 }
 
 

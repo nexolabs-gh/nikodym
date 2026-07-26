@@ -69,7 +69,11 @@ _ECL_TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "row_id",
     "scenario",
     "period",
+    # D-HOR-0: el crudo que emitió el productor y el convertido a años que se usó para descontar.
+    # Los dos, para que la conversión sea un paso aritmético comprobable desde la evidencia y no un
+    # renombre silencioso que rompa la reconciliación con la curva de survival.
     "time_value",
+    "time_value_years",
     "pd_marginal",
     "lgd",
     "ead",
@@ -222,6 +226,10 @@ class IfrsEclTermRecord(BaseModel):
     scenario: str
     period: int = Field(ge=1)
     time_value: float
+    # D-HOR-0: el mismo instante en años, que es el exponente con el que se descontó esta fila.
+    # Opcional para no romper a quien construya el record a mano; ausente equivale a «`time_value`
+    # ya son años», que es la semántica correcta cuando nadie declaró unidad.
+    time_value_years: float | None = None
     pd_marginal: float
     lgd: float
     ead: float

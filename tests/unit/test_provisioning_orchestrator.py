@@ -1008,6 +1008,7 @@ def _ifrs9_result(
             "scenario": ["base"] * n,
             "period": [1] * n,
             "time_value": [1.0] * n,
+            "time_value_years": [1.0] * n,
             "pd_marginal": [0.1] * n,
             "lgd": [0.4] * n,
             "ead": [1000.0] * n,

@@ -9,9 +9,15 @@ la EIR por instrumento y el stage por operación. Implementa la fórmula canóni
 - **Motor marginal.** Para cada componente ``ecl_marginal = PD_marg · LGD · EAD · DF``, con
   ``DF(t) = (1 + EIR)^(-tau(t))``. La convención de ``tau(t)`` la fija
   ``IfrsEclConfig.discount_convention`` (D-IFRS-9): ``annual_eir_year_fraction`` usa
-  ``tau(t) = time_value`` (fracción de año) y ``period_eir`` usa ``tau(t) = period`` (índice de
-  período). El factor de descuento se valida en ``(0, 1]`` sin clip silencioso (fuera de rango o no
-  finito levanta :class:`IfrsEclError`).
+  ``tau(t) = time_value_years`` y ``period_eir`` usa ``tau(t) = period`` (índice de período). El
+  factor de descuento se valida en ``(0, 1]`` sin clip silencioso (fuera de rango o no finito
+  levanta :class:`IfrsEclError`).
+
+  ``time_value_years`` es el ``time_value`` de la curva **ya convertido a años** por
+  ``engine._prepare_term_structure`` a partir de la unidad que la term-structure declara (D-HOR-0).
+  Es opcional: si no viene, se usa ``time_value`` tal cual, que es lo correcto cuando la curva no
+  declaró unidad y el motor presumió años dejando constancia. La salida publica **las dos** para
+  que la conversión quede auditable como un paso aritmético, no como un renombre.
 - **Truncado por horizonte según stage.** ``ECL 12m`` suma los períodos ``period <= horizon_12m``;
   ``ECL lifetime`` suma hasta ``max_lifetime`` (o todo el soporte si es ``None``).
   ``H(1)=horizon_12m`` (Stage 1); ``H(2)=H(3)=max_lifetime`` (Stage 2/3).
@@ -80,12 +86,22 @@ _COMPONENT_COLUMNS: tuple[str, ...] = (
     "lgd",
     "ead",
 )
+# Columna OPCIONAL de la malla: ``time_value`` ya convertido a años por ``engine._prepare_term_
+# structure`` (D-HOR-0). No entra a ``_COMPONENT_COLUMNS`` a propósito: quien llame a ``EclEngine``
+# con una malla armada a mano —tests, consumidores externos— sigue funcionando, y su ausencia
+# significa «``time_value`` ya son años», que es la semántica correcta cuando nadie declaró unidad.
+_COMPONENT_YEARS_COLUMN: str = "time_value_years"
 # Columnas canónicas de la salida ``ecl_term_structure`` (orden fijo SDD-16 §6, homólogo a results).
+# ``time_value`` viaja CRUDO —tal como lo emitió el productor— junto al convertido: con sólo el
+# convertido la evidencia dejaría de reconciliar fila a fila con la curva de survival, y con sólo el
+# crudo ``DF = (1+EIR)^-tau`` no se podría verificar desde la tabla. Con ambos, la conversión es un
+# paso aritmético comprobable.
 _TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "row_id",
     "scenario",
     "period",
     "time_value",
+    "time_value_years",
     "pd_marginal",
     "lgd",
     "ead",
@@ -182,7 +198,7 @@ class EclEngine:
         weight_arr = numpy.array(
             [weight_by_scenario[scenario] for scenario in scenario_keys], dtype=numpy.float64
         )
-        discount = self._discount_factor(eir_arr, cols["period"], cols["time_value"], numpy)
+        discount = self._discount_factor(eir_arr, cols["period"], cols["time_value_years"], numpy)
         ecl_marginal = cols["pd_marginal"] * cols["lgd"] * cols["ead"] * discount
         ecl_marginal = numpy.where(ecl_marginal == 0.0, 0.0, ecl_marginal)
         term_structure = self._term_structure(cols, discount, ecl_marginal, pandas, numpy)
@@ -193,15 +209,20 @@ class EclEngine:
         self,
         eir_arr: NDArrayFloat,
         period_arr: NDArrayInt,
-        time_value_arr: NDArrayFloat,
+        time_value_years_arr: NDArrayFloat,
         numpy: Any,
     ) -> NDArrayFloat:
-        """Calcula ``DF(t) = (1 + EIR)^(-tau(t))`` según la convención y lo valida en ``(0, 1]``."""
+        """Calcula ``DF(t) = (1 + EIR)^(-tau(t))`` según la convención y lo valida en ``(0, 1]``.
+
+        ``tau`` va **en años** en la convención anual: recibe ``time_value_years``, no el
+        ``time_value`` crudo. Antes de D-HOR-0 se elevaba el crudo asumiendo que ya eran años, y una
+        curva declarada en meses perdía del orden de un 40-50 % de provisión en silencio.
+        """
         base = 1.0 + eir_arr  # ``_resolve_eir`` garantiza EIR > -1, luego base > 0.
         if self._config.discount_convention == "period_eir":
             exponent = period_arr.astype(numpy.float64)
         else:
-            exponent = time_value_arr
+            exponent = time_value_years_arr
         # Base positiva evita ``nan``; se ignoran overflow/underflow para no romper
         # filterwarnings=error y se validan finitud/rango en vez de clipar en silencio.
         with numpy.errstate(over="ignore", under="ignore", divide="ignore"):
@@ -230,6 +251,9 @@ class EclEngine:
             "scenario": cols["scenario"],
             "period": cols["period"],
             "time_value": numpy.where(cols["time_value"] == 0.0, 0.0, cols["time_value"]),
+            "time_value_years": numpy.where(
+                cols["time_value_years"] == 0.0, 0.0, cols["time_value_years"]
+            ),
             "pd_marginal": numpy.where(cols["pd_marginal"] == 0.0, 0.0, cols["pd_marginal"]),
             "lgd": numpy.where(cols["lgd"] == 0.0, 0.0, cols["lgd"]),
             "ead": numpy.where(cols["ead"] == 0.0, 0.0, cols["ead"]),
@@ -314,11 +338,22 @@ def _read_components(frame: DataFrame, numpy: Any, max_lifetime: int | None) -> 
     ead = _to_float_array(frame["ead"].to_numpy(), "ead", numpy)
     if bool(numpy.any(ead < 0.0)):
         raise IfrsEclError("ead debe ser mayor o igual a 0.")
+    # D-HOR-0: si el motor ya convirtió, se usa; si no, `time_value` YA son años por presunción
+    # declarada (o porque nadie declaró unidad, que es el mismo caso).
+    if _COMPONENT_YEARS_COLUMN in frame.columns:
+        time_value_years = _to_float_array(
+            frame[_COMPONENT_YEARS_COLUMN].to_numpy(), _COMPONENT_YEARS_COLUMN, numpy
+        )
+        if bool(numpy.any(time_value_years < 0.0)):
+            raise IfrsEclError(f"{_COMPONENT_YEARS_COLUMN} debe ser mayor o igual a 0.")
+    else:
+        time_value_years = time_value
     cols: dict[str, Any] = {
         "row_id": frame["row_id"].to_numpy(),
         "scenario": frame["scenario"].to_numpy(),
         "period": period,
         "time_value": time_value,
+        "time_value_years": time_value_years,
         "pd_marginal": pd_marginal,
         "lgd": lgd,
         "ead": ead,
