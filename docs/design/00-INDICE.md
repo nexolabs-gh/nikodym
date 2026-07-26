@@ -118,6 +118,27 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > distinción que faltaba: de los seis códigos IFRS sólo IFRS-4 e IFRS-6 se emiten en runtime; los
 > otros cuatro son requisitos de entrada documentados.
 >
+> **El fallo de una corrida deja rastro legible (2026-07-25, APROBADA y ejecutada).**
+> [`_ENMIENDA-RUN-ERROR.md`](_ENMIENDA-RUN-ERROR.md), sobre SDD-01 (§4 `RunContext`, §7.3) y SDD-23
+> §8. Por el camino que la propia documentación recomienda, una corrida que fallaba no dejaba ni el
+> mensaje ni el paso: el error se emitía a un sink nulo y se perdía. Extensión **aditiva** de
+> `RunContext`, así que no toca la garantía SemVer 1.x de F1, y **no** altera D-UI-2 (`nikodym.run`
+> devuelve el `Study` parcial; `Study.run()` sigue siendo *fail-loud*).
+>
+> **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
+> implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
+> D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su
+> premisa era falsa:** el `Literal` chileno de `governance/config.py` no era la llave de
+> segmentación de ningún cálculo y la llave real (`portfolio_col`) ya era `str` libre en los tres
+> motores; lo que faltaba era que **alguien declarara el dominio de valores del segmento**. Deja un
+> esquema declarado —normativo / institucional / derivado del dato— que **viaja en el resultado** de
+> los tres motores, y garantiza el régimen con un **registro régimen→motor con test de cobertura**,
+> no con el sistema de tipos (ampliar un `Literal` compila igual sin motor detrás). Adelanta dos
+> piezas del contrato de parámetros para que éste las herede en vez de contradecirlas: **CRP-3
+> parcial** (la procedencia del segmento en el resultado) y **CRP-6 parcial** (D-SEG-7,
+> `orchestrator.py`, hoy el **patrón de referencia** de la semántica única del flag). Tres de sus
+> decisiones cambiaron al programarlas y quedaron escritas con su razón en el propio SDD.
+>
 > **Contrato de resolución de parámetros — su censo, re-medido y enmendado (2026-07-25, APROBADO).**
 > [`_ENMIENDA-CRP-IFRS9.md`](_ENMIENDA-CRP-IFRS9.md) corrige el §2 del
 > [`_CONTRATO-RESOLUCION-PARAMETROS.md`](_CONTRATO-RESOLUCION-PARAMETROS.md) y fija por dónde se
