@@ -49,11 +49,15 @@
 > segmentación de ningún cálculo, y la llave real (`portfolio_col`) ya era `str` libre en los tres
 > motores. El bloqueo verdadero era que **nadie declaraba el dominio de valores del segmento**.
 > Se reformuló y se implementó como
-> [`docs/design/_ENMIENDA-SEGMENTACION.md`](docs/design/_ENMIENDA-SEGMENTACION.md) (D-SEG-1…D-SEG-11):
+> [`docs/design/_ENMIENDA-SEGMENTACION.md`](docs/design/_ENMIENDA-SEGMENTACION.md) (D-SEG-1…D-SEG-11,
+> de las que **el código cita diez**: D-SEG-11 quedó *sin objeto* por ser consecuencia de D-SEG-1 —si
+> el régimen es atributo del motor, no queda config donde omitirlo— y se conserva escrita para el día
+> que exista un segundo motor. No la busques en `src/`: no es un olvido):
 > esquema de segmentación declarado (normativo / institucional / derivado del dato), que **viaja en
 > el resultado** de los tres motores, y régimen garantizado por un **registro régimen→motor con test
 > de cobertura** —no por el sistema de tipos, que no puede: ampliar un `Literal` compila igual sin
-> motor detrás—. **Siguiente nodo: el contrato de resolución de parámetros.**
+> motor detrás—. **Siguiente nodo: el contrato de resolución de parámetros**, cuyo §2 quedó enmendado
+> y cuyo primer paso (CRP-5, el gate de entrada) ya está implementado — ver `ROADMAP.md` §B3.
 >
 > Lección de método que vale para todo ítem de roadmap: tres de los cuatro puntos que el plan daba
 > por bloqueantes eran nomenclatura. **Medir contra el código antes de planificar.**

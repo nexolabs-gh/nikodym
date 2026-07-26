@@ -237,6 +237,17 @@ Se ejecuta en dos etapas con condiciones distintas:
    Orden resultante: **B3.a-1 → contrato de resolución de parámetros → B3.a-2 con la jurisdicción
    nueva.**
 
+   **Estado del contrato al 2026-07-26.** Su §2 se re-midió con lectores frescos y quedó enmendado
+   ([`_ENMIENDA-CRP-IFRS9.md`](design/_ENMIENDA-CRP-IFRS9.md), aprobada): cayó P3 —la procedencia no
+   la registra «un solo lugar»—, se corrigieron los dos polos de P2, y el problema resultó mayor de
+   lo medido (seis gatillos apagados por defecto, nueve warnings de carencia sin marca, siete
+   definiciones de `fail_on_falta_dato` con cinco semánticas). El orden de adopción quedó
+   **CRP-5 → CRP-6 → CRP-4 → CRP-1/CRP-3 → CRP-7**, porque CRP-4 sólo rotula y lo que corrige las
+   cifras es el gate. **CRP-5 está implementado en IFRS 9** (`afa3403`, CI verde): la LGD *workout*
+   ya no asume coste de recuperación cero —subestimaba 20 pp en silencio—, el gatillo Stage 3 ya no
+   se apaga cuando falta la columna declarada, y los pesos de escenario se validan antes de ponderar
+   la PD y no después.
+
    **Pendiente de B3.a-1 al 2026-07-25** (lo demás está implementado y con gates):
 
    - **El selector de régimen en preset y UI: DIFERIDO a propósito (Cami, 2026-07-25)**, no olvidado.
@@ -253,11 +264,13 @@ Se ejecuta en dos etapas con condiciones distintas:
      ⚠️ **Ese hueco de formulario es el pendiente real de paridad UI↔código** (requisito 1 de la
      visión) y es mayor que el selector: el motor de provisiones sólo se alcanza por preset o
      subiendo un YAML.
-   - **El gate de entrada del motor CMF** (D-SEG-4): hoy una cartera desconocida se sigue
-     descubriendo dentro de `_resolve_provision`, a mitad del cómputo, en vez de al entrar. Lo que
-     **sí** quedó cerrado es que el dominio no pueda divergir: un test lee el if-chain con `ast` y
-     exige que despachador y esquema declaren exactamente lo mismo.
    - **La recaptura de la demo**, que va una sola vez y al final (ver §5 de la enmienda).
+
+   **Cerrado desde que se escribió esta lista:** el **gate de entrada del motor CMF** (D-SEG-4) ya no
+   descubre la cartera desconocida a mitad del cómputo — `_validate_portfolio_domain`
+   (`cmf/engine.py:446-462`) la rechaza al entrar, con el `raise` del despachador conservado como
+   defensa en profundidad (`fc651dc`). Es además el **patrón de referencia de CRP-5**: el gate de
+   entrada de IFRS 9 lo replica (`afa3403`).
 2. **B3.b — Implementación de una jurisdicción concreta.** No se inicia de forma especulativa;
    requiere un compromiso comercial firmado. Sin él, el trabajo es una apuesta sobre normativa
    extranjera que además puede cambiar antes de tener usuario.
