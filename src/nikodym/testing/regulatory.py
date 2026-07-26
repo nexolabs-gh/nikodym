@@ -21,6 +21,11 @@ __all__ = [
 REGULATORY_COVERAGE_PATHS: Final[tuple[str, ...]] = (
     "src/nikodym/core/exceptions.py",
     "src/nikodym/core/seeding.py",
+    # D-HOR-0: la tabla de conversión de unidad temporal decide el exponente del descuento de la
+    # ECL. Un alias mal escrito no rompe nada visible: cae en «unidad no declarada», el motor
+    # presume años y la provisión sale mal por un factor de 12 o de 365. Es cifra contable, así que
+    # entra al gate entera.
+    "src/nikodym/core/time_units.py",
     "src/nikodym/provisioning/cmf/__init__.py",
     "src/nikodym/provisioning/ifrs9/__init__.py",
     # SDD-28: el método interno del B-1 entra COMPLETO al gate (no sólo su `__init__`). Es la cifra

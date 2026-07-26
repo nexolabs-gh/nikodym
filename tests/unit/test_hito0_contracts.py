@@ -47,6 +47,9 @@ _EXPECTED_OVERLAY_PAYLOAD_JSON = (
 _EXPECTED_REGULATORY_PATHS = (
     "src/nikodym/core/exceptions.py",
     "src/nikodym/core/seeding.py",
+    # D-HOR-0: la tabla de conversión de unidad temporal decide el exponente del descuento de la
+    # ECL, así que es cifra contable y entra entera al gate.
+    "src/nikodym/core/time_units.py",
     "src/nikodym/provisioning/cmf/__init__.py",
     "src/nikodym/provisioning/ifrs9/__init__.py",
     # SDD-28: el método interno del B-1 entra COMPLETO al gate (no sólo su `__init__`).
@@ -60,6 +63,7 @@ _EXPECTED_REGULATORY_PATHS = (
 _EXPECTED_REGULATORY_INCLUDE_ARG = (
     "*/nikodym/core/exceptions.py,"
     "*/nikodym/core/seeding.py,"
+    "*/nikodym/core/time_units.py,"
     "*/nikodym/provisioning/cmf/__init__.py,"
     "*/nikodym/provisioning/ifrs9/__init__.py,"
     "*/nikodym/provisioning/internal/__init__.py,"
