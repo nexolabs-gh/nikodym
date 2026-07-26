@@ -30,8 +30,18 @@ _INDICE = _DIRECTORIO / "00-INDICE.md"
 #: indexado si su número tiene fila, aunque el nombre del archivo no aparezca literal.
 _FILA_NUMERADA = re.compile(r"^\| \*\*(\d+)\*\* \|", re.MULTILINE)
 
-#: Referencias a archivos `.md` dentro del propio directorio (enlaces markdown o menciones sueltas).
+#: Cualquier archivo `.md` que el índice mencione (enlaces markdown o menciones sueltas).
 _ARCHIVO_CITADO = re.compile(r"[\w.-]+\.md")
+
+#: Nombre con forma de documento de diseño: ``07-selection.md`` o ``_ENMIENDA-X.md``. El índice
+#: también enlaza fuera de su directorio —`ESPECIFICACIONES.md`, `ROADMAP.md`, `HANDOFF.md`— y esos
+#: no son responsabilidad de este gate.
+#:
+#: ⚠️ `HANDOFF.md` es la razón de que este filtro exista y no baste con `Path.exists()`: en la raíz
+#: es un **symlink a `privado/HANDOFF.md`**, y `privado/` es un repo git aparte que **no se clona en
+#: CI**. `exists()` sigue el symlink, así que allí devuelve `False` y el gate acusaba un documento
+#: inexistente que sí existe. Localmente pasaba y en los once jobs del CI fallaba.
+_DOC_DE_DISENO = re.compile(r"^(?:\d{2}-|_)[\w.-]*\.md$")
 
 #: El propio índice y la plantilla no se indexan a sí mismos.
 _EXENTOS = frozenset({"00-INDICE.md", "_PLANTILLA-SDD.md"})
@@ -75,22 +85,21 @@ def test_todo_documento_de_diseno_esta_en_el_indice() -> None:
     )
 
 
+def _citados_de_diseno(texto: str) -> set[str]:
+    """Archivos citados por el índice que tienen forma de documento de diseño."""
+    return {nombre for nombre in _ARCHIVO_CITADO.findall(texto) if _DOC_DE_DISENO.match(nombre)}
+
+
 def test_el_indice_no_cita_documentos_inexistentes() -> None:
     """El error simétrico: un enlace a un archivo que ya no está manda al lector a buscar humo."""
-    citados = set(_ARCHIVO_CITADO.findall(_texto_del_indice()))
-    del_directorio = {nombre for nombre in citados if (_DIRECTORIO / nombre).name in citados}
     inexistentes = sorted(
         nombre
-        for nombre in del_directorio
+        for nombre in _citados_de_diseno(_texto_del_indice())
         if not (_DIRECTORIO / nombre).exists()
-        # El índice también enlaza fuera de su directorio (ESPECIFICACIONES, ROADMAP); ésos se
-        # resuelven contra la raíz de docs/ y no son responsabilidad de este gate.
-        and not (_RAIZ / "docs" / nombre).exists()
-        and not (_RAIZ / nombre).exists()
     )
 
     assert inexistentes == [], (
-        f"El índice cita documentos que no existen: {inexistentes}. "
+        f"El índice cita documentos de diseño que no existen: {inexistentes}. "
         "Corrija el enlace o restituya el archivo."
     )
 
@@ -110,3 +119,24 @@ def test_el_gate_detecta_un_documento_ausente_del_indice() -> None:
     # Control positivo: los dos caminos de indexado reconocen lo que sí está.
     assert _esta_indexado("01-core.md", texto, numerados)
     assert _esta_indexado("_ENMIENDA-SEGMENTACION.md", texto, numerados)
+
+
+def test_el_gate_de_enlaces_ignora_lo_que_vive_fuera_de_design() -> None:
+    """`HANDOFF.md` es un symlink a `privado/`, un repo aparte que el CI no clona.
+
+    La primera versión de este gate resolvía cada cita con `Path.exists()`, que sigue el symlink:
+    en local existía y en los once jobs del CI no. Un gate que sólo es verde en la máquina del autor
+    no vigila nada, así que el alcance queda escrito y probado — este gate opina sobre
+    `docs/design/`, no sobre los enlaces del índice hacia el resto del repo.
+    """
+    fuera_de_alcance = ("HANDOFF.md", "ESPECIFICACIONES.md", "ROADMAP.md", "README.md")
+    for nombre in fuera_de_alcance:
+        assert not _DOC_DE_DISENO.match(nombre), f"{nombre} no debería entrar al gate"
+
+    # Y lo que sí es de diseño entra por sus dos formas: numerada y de enmienda.
+    assert _DOC_DE_DISENO.match("16-provisioning-ifrs9.md")
+    assert _DOC_DE_DISENO.match("_ENMIENDA-SEGMENTACION.md")
+
+    # El gate real no debe estar mirando ninguno de los de fuera de alcance.
+    citados = _citados_de_diseno(_texto_del_indice())
+    assert citados.isdisjoint(fuera_de_alcance)
