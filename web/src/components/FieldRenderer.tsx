@@ -74,6 +74,12 @@ export function FieldRenderer(props: FieldRendererProps) {
   const { schema, defs, depth = 0 } = props
   const kind = resolveWidget(schema, { defs, required: props.required })
 
+  // Fontanería del config (`schema_version`, `type`, campos deprecados): no se pinta. Los
+  // enumeradores de `form-engine` ya la filtran; esto es defensa en profundidad para cualquier
+  // camino que instancie un `FieldRenderer` sin pasar por ellos. Va ANTES del `FieldShell` para no
+  // dejar un label huérfano sobre un widget que no existe.
+  if (kind === "hidden") return null
+
   // Sección opcional `X | None`: se antepone el toggle activar/None (SDD §5). La unión
   // discriminada tiene su propio flujo (Select de variante) y no se trata como nullable.
   const { schema: base, nullable } = unwrapNullable(resolveRef(schema, defs))

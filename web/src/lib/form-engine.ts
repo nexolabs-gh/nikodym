@@ -61,6 +61,8 @@ export type WidgetKind =
   | "discriminated"
   | "multiselect"
   | "json"
+  /** Fontanería del config que el usuario no edita: no se pinta (ver `HIDDEN_WIDGET`). */
+  | "hidden"
 
 export interface ResolveContext {
   /** Defs para resolver `$ref` (`#/$defs/<Name>`). */
@@ -72,21 +74,58 @@ export interface ResolveContext {
 /** Umbral de longitud de `description` a partir del cual un string usa textarea. */
 export const TEXTAREA_DESCRIPTION_THRESHOLD = 120
 
-/** Aliases de `ui_widget` (json_schema_extra) → WidgetKind. Override del default. */
+/** Widget de un campo marcado `hidden`: el dispatcher no lo pinta y los enumeradores lo omiten. */
+export const HIDDEN_WIDGET: WidgetKind = "hidden"
+
+/**
+ * Aliases de `ui_widget` (json_schema_extra) → WidgetKind. Override del default.
+ *
+ * Cubre el vocabulario COMPLETO que emiten los configs de `src/`, y eso lo vigila
+ * `tests/unit/test_ui_widget_vocabulary.py`. No es celo: hasta que entró ese gate, de los 20
+ * literales que el motor emitía este mapa conocía **cuatro** (`number_input`, `checkbox`,
+ * `multiselect`, `slider`). Los demás caían a la resolución por tipo, que acertaba por accidente
+ * en unos (`text_input` → text, `selectbox` → select porque traen `enum`) y fallaba callada en
+ * otros: `hidden` se renderizaba, y los `dict[str, X]` (`kv_*`, `key_value`) pintaban un fieldset
+ * VACÍO, porque son `type: "object"` sin `properties`.
+ */
 const UI_WIDGET_ALIASES: Record<string, WidgetKind> = {
   select: "select",
+  selectbox: "select",
   switch: "switch",
   checkbox: "switch",
   slider: "slider",
   number: "number",
   number_input: "number",
   text: "text",
+  text_input: "text",
   input: "text",
+  artifact_key: "text",
   textarea: "textarea",
+  text_area: "textarea",
   multiselect: "multiselect",
   json: "json",
   group: "group",
+  section: "group",
   accordion: "group",
+  hidden: HIDDEN_WIDGET,
+  // Colecciones y mapas: no hay widget nativo para ellos, y el editor JSON es honesto y usable.
+  // Sin este bloque, los `*_list`/`*_tuple` caían a JSON igual (por tipo), pero los `dict[str, X]`
+  // resolvían a `group` y pintaban una caja sin un solo campo dentro.
+  text_list: "json",
+  number_list: "json",
+  number_tuple: "json",
+  table: "json",
+  editable_table: "json",
+  key_value: "json",
+  kv_text: "json",
+  kv_number: "json",
+  number_or_select: "json",
+  text_or_number: "json",
+}
+
+/** ¿Este campo es fontanería del config, que el formulario no debe pintar? */
+export function isHiddenField(schema: JsonSchema): boolean {
+  return uiWidgetToKind(schema.ui_widget) === HIDDEN_WIDGET
 }
 
 // ---------------------------------------------------------------------------
@@ -231,10 +270,13 @@ export function fieldPlaceholder(schema: JsonSchema): string | undefined {
 /**
  * Lista ordenada de campos `[name, schema]` de un objeto (resuelto), ordenados por
  * `ui_order` cuando existe y luego por orden de declaración.
+ *
+ * Omite los campos `hidden`. El filtro vive aquí y en `groupedFields` —los dos enumeradores— para
+ * que `ConfigSectionForm`, `GroupField` y `DiscriminatedField` lo hereden sin repetirlo.
  */
 export function orderedFields(objectSchema: JsonSchema): [string, JsonSchema][] {
   const props = objectSchema.properties ?? {}
-  const entries = Object.entries(props)
+  const entries = Object.entries(props).filter(([, schema]) => !isHiddenField(schema))
   return entries
     .map((entry, index) => ({ entry, index }))
     .sort((a, b) => {
@@ -267,6 +309,9 @@ export interface FieldGroup {
  *
  * Los campos sin `ui_group` caen en un grupo `group: null` (consúmelo como "General" o sin
  * encabezado). Puro y testeable con fixtures; la validación autoritativa sigue siendo del backend.
+ *
+ * Omite los campos `hidden`, igual que `orderedFields`. Un grupo que quede sin campos visibles no
+ * se emite: pintaría un encabezado sobre nada.
  */
 export function groupedFields(objectSchema: JsonSchema): FieldGroup[] {
   const props = objectSchema.properties ?? {}
@@ -275,6 +320,7 @@ export function groupedFields(objectSchema: JsonSchema): FieldGroup[] {
   const order: string[] = [] // orden de aparición (declaración) de cada grupo
   let index = 0
   for (const [name, schema] of Object.entries(props)) {
+    if (isHiddenField(schema)) continue
     const raw = schema.ui_group
     const key = typeof raw === "string" && raw.length > 0 ? raw : NO_GROUP
     let bucket = buckets.get(key)

@@ -12,6 +12,7 @@ import {
   fieldPlaceholder,
   groupedFields,
   hasBothBounds,
+  isHiddenField,
   multiselectOptions,
   numericBounds,
   orderedFields,
@@ -210,6 +211,32 @@ describe("resolveWidget — override por ui_widget", () => {
       "switch",
     )
   })
+
+  it("ui_widget=hidden → hidden, aunque el tipo diga otra cosa", () => {
+    // `schema_version` es un string: sin este alias resolvía a `text` y el usuario veía —y podía
+    // romper— la fontanería del config.
+    expect(resolveWidget({ type: "string", ui_widget: "hidden" })).toBe("hidden")
+    expect(isHiddenField({ type: "string", ui_widget: "hidden" })).toBe(true)
+    expect(isHiddenField({ type: "string" })).toBe(false)
+  })
+
+  it("un dict[str, X] va al editor JSON, no a un fieldset vacío", () => {
+    // `kv_text`/`key_value` son `type: "object"` SIN `properties`: resolvían a `group` y pintaban
+    // una caja con leyenda y ni un campo dentro.
+    const mapa: JsonSchema = {
+      type: "object",
+      additionalProperties: { type: "string" },
+      ui_widget: "kv_text",
+    }
+    expect(resolveWidget(mapa)).toBe("json")
+  })
+
+  it("los alias del motor resuelven a su widget (no por accidente del tipo)", () => {
+    expect(resolveWidget({ type: "string", ui_widget: "text_input" })).toBe("text")
+    expect(resolveWidget({ type: "string", ui_widget: "selectbox", enum: ["a"] })).toBe("select")
+    expect(resolveWidget({ type: "array", ui_widget: "number_list" })).toBe("json")
+    expect(resolveWidget({ type: "object", ui_widget: "section" })).toBe("group")
+  })
 })
 
 describe("resolveRef", () => {
@@ -327,6 +354,20 @@ describe("groupedFields (agrupado por ui_group, B30)", () => {
       monotonic_trend: { type: "string", ui_group: "Monotonía", ui_order: 1 },
     },
   }
+
+  it("omite los campos hidden, y el grupo que se queda sin visibles no se emite", () => {
+    const conFontaneria: JsonSchema = {
+      type: "object",
+      properties: {
+        schema_version: { type: "string", ui_widget: "hidden", ui_group: "Interno" },
+        type: { type: "string", ui_widget: "hidden", ui_group: "Interno" },
+        min_prebin_size: { type: "number", ui_group: "Restricciones" },
+      },
+    }
+    expect(orderedFields(conFontaneria).map(([n]) => n)).toEqual(["min_prebin_size"])
+    // «Interno» era sólo fontanería: pintar su encabezado sobre nada sería peor que omitirlo.
+    expect(groupedFields(conFontaneria).map((g) => g.group)).toEqual(["Restricciones"])
+  })
 
   it("agrupa por ui_group y ordena los grupos por orden de declaración", () => {
     const groups = groupedFields(BINNING_LIKE)
