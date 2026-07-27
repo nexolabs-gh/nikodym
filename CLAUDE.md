@@ -4,14 +4,19 @@
 
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
-> ⚠️ **El código está en `1.6.0` desde el 2026-07-26; PyPI sigue publicando `1.5.0`.** El bump entró
-> con el bloque B de CRP-6 porque el informe embebe `library_versions.nikodym` y había que
-> recapturar la demo. **No hay tag `v1.6.0` ni release**: eso exige OK específico de Cami, y hay una
-> razón para no publicar todavía —la enmienda del horizonte, aprobada y sin programar, arregla una
-> ECL que se subestima un 50 % (ver abajo)—. Publicar antes sería sacar un motor con una cifra mala
-> conocida.
+> ✅ **`1.6.0` PUBLICADO en PyPI el 2026-07-26** (tag `v1.6.0` sobre `86e121b`, con OK explícito de
+> Cami). Cierra la enmienda del horizonte: **la term-structure transporta su unidad temporal** y
+> `ifrs9` convierte a años antes de descontar. Verificado instalando **desde PyPI**, no desde el
+> árbol: la misma cartera declarada en años y en meses da la misma ECL —desvío 0,00 %, era 40,45 %—.
 >
-> Nikodym `1.5.0` está en PyPI (tag `v1.5.0`, 2026-07-22, cierre del bloque **B1**); el proyecto ya no está en construcción por capas sino en mejora continua. El **track pre-Interbank está completo** (IBK-01…05 cerradas); no hay bloque IBK siguiente, y el freeze de artefactos terminó con la reunión del 2026-07-22. El plan vigente son los bloques **B1…B8** del `ROADMAP`: el bloque en curso es **B2** (UI instalable), que habilita `1.6.0` — **B2.0, B2.1 y B2.2 están cerrados** (B2.2 —launcher, runtime y seguridad— el 2026-07-24, con los 16 jobs del CI verdes); sus decisiones quedaron **consolidadas en SDD-23 y SDD-25**, así que `docs/design/_ENMIENDA-B2.2.md` es ya registro histórico y no contrato vigente. El siguiente nodo es **B2.3** (`[ui]`, uploads y presets), que exige su propia enmienda antes de programar.
+> ⚠️ **Trae dos cambios de comportamiento cuyo default es DETENER, y ambos afectan a configuraciones
+> de fábrica.** Quien actualice desde `1.5.0` se topa con esto: (a) una curva sin `time_unit`
+> convertible emite `DATO-INSTITUCIONAL-IFRS-7` —y el default de `survival`/`markov` es `"period"`,
+> que no es una unidad—; (b) un `horizon_12m_periods` que no dure un año emite `FALTA-DATO-IFRS-8`
+> —y su default es `12`, correcto sólo para curvas mensuales—. La salida en ambos casos es declarar
+> el dato (una línea) o apagar `fail_on_falta_dato`. Está en el CHANGELOG con ejemplos.
+>
+> Nikodym `1.5.0` fue el cierre del bloque **B1** (tag `v1.5.0`, 2026-07-22); el proyecto ya no está en construcción por capas sino en mejora continua. El **track pre-Interbank está completo** (IBK-01…05 cerradas); no hay bloque IBK siguiente, y el freeze de artefactos terminó con la reunión del 2026-07-22. El plan vigente son los bloques **B1…B8** del `ROADMAP`: el bloque en curso es **B2** (UI instalable) — ojo, `1.6.0` salió **sin** cerrar B2, porque la corrección de la ECL no podía esperar al bloque; el criterio de cierre de B2 sigue siendo el suyo (ver ROADMAP §B2) y **no** se cumplió con este release. **B2.0, B2.1 y B2.2 están cerrados** (B2.2 —launcher, runtime y seguridad— el 2026-07-24, con los 16 jobs del CI verdes); sus decisiones quedaron **consolidadas en SDD-23 y SDD-25**, así que `docs/design/_ENMIENDA-B2.2.md` es ya registro histórico y no contrato vigente. El siguiente nodo es **B2.3** (`[ui]`, uploads y presets), que exige su propia enmienda antes de programar.
 >
 > **Taxonomía de marcas (2026-07-25, ejecutada y publicada):** un aviso declarado se marca
 > `FALTA-DATO` si la carencia es **del motor** o `DATO-INSTITUCIONAL` si el dato **lo aporta la
@@ -23,8 +28,10 @@
 > 2026-07-25, cierra un pendiente que venía de dos sesiones). El «9 + 2 `pending_items`» y el «34»
 > de la enmienda cuentan **fichas de SDD**, y varias de esas fichas son *requisitos de entrada
 > documentados que el motor nunca emite en runtime* —de la familia IFRS, por ejemplo, sólo IFRS-4 e
-> IFRS-6 se emiten—. Lo que el motor **nombra** en `src/` son **24 códigos: 9 `FALTA-DATO` y 15
-> `DATO-INSTITUCIONAL`**, y ése es el universo que miden el gate `tests/unit/test_public_copy.py` y
+> IFRS-6 se emitían; desde `1.6.0` también IFRS-7 e IFRS-8—. Lo que el motor **nombra** en `src/` son
+> **27 códigos: 10 `FALTA-DATO` y 17 `DATO-INSTITUCIONAL`** (medido el 2026-07-26 con el criterio
+> del propio gate, `_codigos_del_motor()`; no con un `grep` propio, que da menos). Ése es el
+> universo que miden el gate `tests/unit/test_public_copy.py` y
 > la página [`docs_site/avisos-declarados.md`](docs_site/avisos-declarados.md). Las dos cifras son
 > correctas en su propia unidad; compararlas entre sí no significa nada.
 >
@@ -109,25 +116,31 @@
 > por bloqueantes eran nomenclatura, y el cuarto describía una contradicción que no ocurría.
 > **Medir contra el código antes de planificar.**
 >
-> **La unidad temporal mueve la ECL un 50 %, y el horizonte 12m era el síntoma menor** (medido el
-> 2026-07-26). [`docs/design/_ENMIENDA-IFRS9-HORIZONTE.md`](docs/design/_ENMIENDA-IFRS9-HORIZONTE.md)
-> quedó **APROBADA** con D-HOR-0 resuelto, y es el **próximo nodo de código**; no hay una línea de
-> motor escrita. Lo que hay que saber antes de abrirla:
+> **La unidad temporal: CERRADA y publicada en `1.6.0`** (2026-07-26).
+> [`docs/design/_ENMIENDA-IFRS9-HORIZONTE.md`](docs/design/_ENMIENDA-IFRS9-HORIZONTE.md) está
+> **IMPLEMENTADA**. La curva declara su unidad en una columna `time_unit`, `ifrs9` convierte con
+> `core/time_units.py` y publica `time_value` crudo **y** `time_value_years` para que la conversión
+> sea auditable. Cuatro cosas que conviene no re-aprender:
 >
-> - **`ifrs9` usa `time_value` como exponente de `(1+EIR)^(-τ)` asumiendo años, y nadie lo
->   verifica.** La misma cartera en los mismos instantes, declarada en meses en vez de años, da
->   **826,06 de ECL contra 1.677,76: −50,8 %**. El default de `time_unit` en `survival` es
->   `"period"`, que no es ninguna unidad; el preset F4 se salva **por suerte** porque declara
->   `"year"`.
-> - **El horizonte, en cambio, no mueve la ECL total** —sólo el corte de stage 1—, así que el título
->   de la enmienda apunta al menor de sus dos problemas. Descuento y horizonte entran juntos.
-> - **D-HOR-0 (Cami): la term-structure transporta su unidad**, no el config de `ifrs9` —declararla
->   aparte sería el mismo agujero por otra puerta—. Si falta, se asume años **con marca
->   `DATO-INSTITUCIONAL`** (aditivo, no rompe a nadie), gobernable por `fail_on_falta_dato`.
-> - **Blast radius: 16 archivos** tocan `_TERM_STRUCTURE_COLUMNS` (los tres productores más
->   `stress`), y `discount_convention="period_eir"` **no** usa `time_value` — sólo el default
->   `annual_eir_year_fraction` está afectado.
->
+> - **El catálogo de códigos de SDD-16 §6 es la fuente de verdad de la NUMERACIÓN, no `src/`.** El
+>   espacio `IFRS-N` lo comparten las dos marcas, así que un `git grep` da por libres los números de
+>   los requisitos documentados. Se estuvo a punto de reutilizar `IFRS-1` —el factor sistémico `Z`—
+>   y los dos tests bidireccionales de `test_public_copy.py` habrían quedado **verdes**, porque
+>   comparan strings y no semántica. Los códigos nuevos son `DATO-INSTITUCIONAL-IFRS-7` (unidad) y
+>   `FALTA-DATO-IFRS-8` (horizonte).
+> - **El «modo A» de la §1 de la enmienda es un criterio EQUIVOCADO, y está implementado el modo B.**
+>   `H >= T_max` dispara sobre la curva lifetime de doce meses —la config de fábrica, correcta— y
+>   como la marca es gobernable, abortaba. Lo que hay ahora verifica contra `time_value_years` que
+>   el período del horizonte dure ~1 año. La §1 se conserva sin editar porque describe el
+>   diagnóstico previo, pero **no es el contrato**; el contrato está en SDD-16 §8.
+> - **Un gate al 100 % puede no probar nada.** `core/time_units.py` entró a la cobertura regulatoria
+>   con una justificación que era falsa: sus 78 alias son **un solo statement**, y mutar `monthly`
+>   de 1/12 a 1.0 pasaba la suite entera. Lo arregla una tabla alias→canónico **escrita a mano** en
+>   el test, nunca derivada del propio dict.
+> - **`fail_on_falta_dato` viene en `True`**, así que toda marca gobernable nueva es un cambio de
+>   comportamiento para usuarios existentes. La enmienda afirmaba «no rompe a ningún usuario actual»
+>   y era falso: 27 tests lo demostraron. Cami decidió mantener el corte tras medirlo.
+
 > **Catálogo de datos externos (2026-07-25, noche).** 42 datasets públicos documentados en
 > [`docs/datasets/`](docs/datasets/); los datos viven en `data/externos/raw/` (vetado, **nunca** se
 > commitea) y son **efímeros** —`./descargar.sh get` los repone—. ⚠️ **Leer el §0-bis del README

@@ -307,6 +307,25 @@ Se ejecuta en dos etapas con condiciones distintas:
      **Ejecutada el 2026-07-26** con el bloque B de CRP-6: bump a `1.6.0` y las tres capturas
      (F1, F3, F4) en patrón C-D.
 
+   **La unidad temporal de la term-structure — CERRADA y PUBLICADA en `1.6.0`** (2026-07-26,
+   [`_ENMIENDA-IFRS9-HORIZONTE.md`](design/_ENMIENDA-IFRS9-HORIZONTE.md), IMPLEMENTADA). El
+   descuento de la ECL asumía que `time_value` estaba en años sin verificarlo: la misma cartera
+   declarada en meses perdía **~40-50 % de provisión**, en silencio. La curva ahora declara su
+   unidad y `ifrs9` convierte antes de descontar. Dos códigos nuevos, ambos gobernables y por tanto
+   **con el default en detener**: `DATO-INSTITUCIONAL-IFRS-7` (unidad no declarada) y
+   `FALTA-DATO-IFRS-8` (horizonte que no dura un año). Tres cosas que no estaban en el plan:
+
+   - **El «modo A» de la §1 de la enmienda es un criterio equivocado y NO es el contrato
+     implementado.** `H >= T_max` dispara sobre la curva lifetime de doce meses —la config de
+     fábrica, correcta— y, siendo gobernable, la abortaba. El criterio real verifica contra
+     `time_value_years` que el período del horizonte dure ~1 año.
+   - **La afirmación «no rompe a ningún usuario actual» (§5.2) era falsa**, medida en 27 tests. Cami
+     decidió mantener el corte: el arreglo del usuario es una línea, y la alternativa dejaba viva la
+     cifra mala.
+   - **Dos hallazgos quedaron abiertos** y son el primer candidato de la próxima sesión: `stress` no
+     propaga `time_unit` en su salida (63 tests de fixture por actualizar) y el panel de la UI
+     publica `time_value` crudo junto a un factor de descuento calculado sobre años.
+
    **Sacar el preset F4 de `pit_mode="ttc_only"` — PENDIENTE, y no es un cambio de una línea**
    (medido el 2026-07-26; venía arrastrándose como «P2» del handoff). El preset publica PD **TTC**
    presentadas dentro de un motor IFRS 9, y salir de ahí tiene exactamente dos vías, **ninguna

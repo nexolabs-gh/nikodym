@@ -9,12 +9,19 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-22)
-PyPI publica **`1.5.0`**; el tag `v1.5.0` apunta al cierre del bloque B1 (el SHA vigente de `main` queda en
-`HANDOFF.md`). El paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es
-estable bajo SemVer 1.x, pero las provisiones siguen experimentales, así que «Production/Stable»
-sería sobrepromesa. El próximo release será un bump a `1.6.0` con OK específico de Cami. La librería
-ya **no** está en fase de construcción por capas — está publicada y en mejora continua:
+## Estado del proyecto (2026-07-26)
+PyPI publica **`1.6.0`** (tag `v1.6.0` sobre `86e121b`, 2026-07-26, con OK explícito de Cami); el
+tag `v1.5.0` apunta al cierre del bloque B1 (el SHA vigente de `main` queda en `HANDOFF.md`). El
+paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es estable bajo SemVer
+1.x, pero las provisiones siguen experimentales, así que «Production/Stable» sería sobrepromesa.
+
+**`1.6.0` corrige una cifra y rompe dos configuraciones de fábrica**, y eso hay que tenerlo presente
+al hablar con cualquiera que venga de `1.5.0`: el descuento de la ECL asumía que `time_value` estaba
+en años sin verificarlo (−40 a −50 % de provisión con una curva en meses), y ahora la
+term-structure transporta su unidad. Como contrapartida, una curva sin unidad declarada o un
+`horizon_12m_periods` que no dure un año **detienen la corrida** con el default. Cada release sigue
+exigiendo **OK específico de Cami**. La librería ya **no** está en fase de construcción por capas
+— está publicada y en mejora continua:
 - **Pipeline scorecard F1 (comportamiento)**: API **estable** bajo garantía **SemVer 1.x** (binning WoE
   monotónico, selección IV/VIF, logística sobre WoE, calibración, informe HTML/PDF/Word).
 - **Provisiones CMF (Chile, B-1) e IFRS 9/ECL**: implementadas, testeadas y con preset/UI/informe, pero
