@@ -90,9 +90,14 @@ def public_engine_message(message: str, *, error_type: str | None, is_domain_err
     se sustituye por una nota que nombra el tipo y dice dónde vive el detalle técnico.
     """
     if not is_domain_error:
+        # No se nombra dónde vive el detalle técnico: la cadena que consume este texto captura la
+        # excepción y no la escribe en ninguna parte, así que remitir a «el log del servidor» —como
+        # decía antes— manda al lector a buscar algo que no existe. Si aparece, es un defecto de la
+        # librería y lo accionable es reportarlo, no revisar el config.
         return (
-            f"El motor falló con un error inesperado ({error_type or 'sin tipo'}); su detalle "
-            "técnico no es información de configuración y vive en el log del servidor."
+            f"El motor falló con un error inesperado ({error_type or 'sin tipo'}). No es un "
+            "problema de tu configuración: si vuelve a ocurrir, es un defecto de la librería y "
+            "conviene reportarlo."
         )
     return strip_declared_codes(message)
 

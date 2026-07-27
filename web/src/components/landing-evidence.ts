@@ -204,15 +204,20 @@ export const CODIGO: readonly (readonly { t: string; c: string }[])[] = [
 ]
 
 /**
- * Conteos de tests de la 1.1.0, medidos con `uv run pytest --collect-only -q`:
- *   - suite completa .................. 3.755 (3.749 pasan · 6 skips = extra `pdf`/WeasyPrint)
- *   - los cuatro dominios sin interfaz . 649 (test_{markov,stress,forward,survival}_*.py; remedido
- *                                             al mover provisiones a UI en el track SDD-28)
+ * Conteos de tests, medidos con `pytest --collect-only -q`:
+ *   - suite completa .................. 4.482 (1.7.0; eran 3.755 en la 1.1.0)
+ *   - los TRES dominios sin interfaz .. 566 (test_{markov,stress,forward}_*.py, medido 2026-07-27)
+ *
+ * ⚠️ `TESTS_DOMINIOS` bajó de "600" a "500" y no es un ajuste cosmético: **survival salió del
+ * grupo** al ganar pantalla en el formulario (1.7.0), y sus 89 tests se iban con él. Los tres que
+ * quedan suman 566, así que "más de 600" pasaba a ser FALSO — la cifra sólo cuadraba mientras
+ * survival contaba como dominio sin interfaz. Al mover un dominio de grupo hay que remedir esto.
+ *
  * Se publican DEBAJO de lo medido ("más de"): un número exacto se pudre con cada commit, y la
  * página entera se sostiene sobre que sus cifras cuadren cuando alguien las corre.
  */
-export const TESTS_DOMINIOS = "600"
-export const TESTS_SUITE = "3.700"
+export const TESTS_DOMINIOS = "500"
+export const TESTS_SUITE = "4.400"
 
 /**
  * Los seis dominios del motor, con su estado real en DOS ejes —y ninguno es "hecho / no hecho":
@@ -302,8 +307,11 @@ export const DOMINIOS = [
   },
   {
     key: "survival",
+    // Pasó a "UI" en 1.7.0, y cumple los TRES requisitos de la definición de arriba, medidos:
+    // pantalla (`CONFIG_SECTIONS` del formulario), preset (el F4 la activa) y capítulo en el
+    // informe (`report/builder.py`). Los dos últimos ya existían; lo que faltaba era la pantalla.
     label: "Survival",
-    superficie: "Python",
+    superficie: "UI",
     garantia: "experimental",
     tagline:
       "Kaplan-Meier, modelos de Cox y AFT, y hazard en tiempo discreto sobre datos censurados: " +

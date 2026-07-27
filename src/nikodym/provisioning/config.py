@@ -165,12 +165,14 @@ class ProvisioningConfig(NikodymBaseConfig):
     comparison_level: ProvisioningComparisonLevel = Field(
         default="total",
         title="Nivel de agregación de la regla",
+        # El tooltip del formulario se pinta como TEXTO PLANO (`FieldRenderer` no interpreta
+        # Markdown), así que los asteriscos y el `->` se veían literales en pantalla. Esta sección
+        # no se renderizaba antes de 1.7.0; al abrirla, la description pasó a ser copy público.
         description=(
-            "**La norma fija el nivel**: el Cap. B-1 (hoja 10-11) manda aplicar la regla 'para "
-            "cada "
-            "institución en Chile que consolida con el banco', esto es, a nivel de ENTIDAD -> "
-            "'total' (el default). 'portfolio', 'segment' y 'operation' son DIAGNÓSTICOS (¿dónde "
-            "muerde el estándar?), no la regla: el máximo por celda sobre-reporta respecto del "
+            "La norma fija el nivel: el Cap. B-1 (hoja 10-11) manda aplicar la regla «para cada "
+            "institución en Chile que consolida con el banco», esto es, a nivel de ENTIDAD → "
+            "'total' (el default). 'portfolio', 'segment' y 'operation' son DIAGNÓSTICOS —dónde "
+            "muerde el estándar—, no la regla: el máximo por celda sobre-reporta respecto del "
             "máximo de entidad (Σ max ≥ max Σ) y no es la provisión a constituir."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Comparación", "ui_order": 1},

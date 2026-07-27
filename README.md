@@ -30,7 +30,7 @@ No existe CLI.
 | **Stress testing** — escenarios adversos, shocks macro en escala logit, sensibilidad y *reverse stress* por bisección | Python | experimental |
 | **Markov** — matrices de transición (cohorte/duración), Chapman-Kolmogorov, Aalen-Johansen, *term-structure* de PD | Python | experimental |
 | **Forward-looking** — ARIMA/auto-ARIMA, VAR/VECM, Ljung-Box y modelos satélite macro → PD/LGD | Python | experimental |
-| **Survival** — Kaplan-Meier, Cox/AFT y *hazard* discreto sobre datos censurados | Python | experimental |
+| **Survival** — Kaplan-Meier, Cox/AFT y *hazard* discreto sobre datos censurados | UI, preset e informe | experimental |
 
 - **Backends ML (F2)**: XGBoost, LightGBM, CatBoost y tuning (Optuna) como *extras* selectivos,
   con explicabilidad (SHAP) opcional.

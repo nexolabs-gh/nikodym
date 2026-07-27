@@ -107,10 +107,11 @@ class IfrsPdConfig(NikodymBaseConfig):
     rho_col: str | None = Field(
         default=None,
         title="Columna de rho por fila (reservada)",
+        # Sin backticks: el tooltip se pinta como texto plano y se veían literales en pantalla.
         description=(
             "Reservada: la correlación por fila aún no está implementada. El motor usa el "
-            "escalar `pd.rho` por cartera y, si se informa esta columna, detiene la corrida con "
-            "error en vez de aplicar el escalar en silencio."
+            "escalar «rho» de PD por cartera y, si se informa esta columna, detiene la corrida "
+            "con error en vez de aplicar el escalar en silencio."
         ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "PD", "ui_order": 5},
     )

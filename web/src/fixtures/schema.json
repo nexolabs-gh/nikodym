@@ -3833,7 +3833,7 @@
               }
             ],
             "default": null,
-            "description": "Reservada: la correlación por fila aún no está implementada. El motor usa el escalar `pd.rho` por cartera y, si se informa esta columna, detiene la corrida con error en vez de aplicar el escalar en silencio.",
+            "description": "Reservada: la correlación por fila aún no está implementada. El motor usa el escalar «rho» de PD por cartera y, si se informa esta columna, detiene la corrida con error en vez de aplicar el escalar en silencio.",
             "title": "Columna de rho por fila (reservada)",
             "ui_group": "PD",
             "ui_order": 5,
@@ -8221,7 +8221,7 @@
               },
               "comparison_level": {
                 "default": "total",
-                "description": "**La norma fija el nivel**: el Cap. B-1 (hoja 10-11) manda aplicar la regla 'para cada institución en Chile que consolida con el banco', esto es, a nivel de ENTIDAD -> 'total' (el default). 'portfolio', 'segment' y 'operation' son DIAGNÓSTICOS (¿dónde muerde el estándar?), no la regla: el máximo por celda sobre-reporta respecto del máximo de entidad (Σ max ≥ max Σ) y no es la provisión a constituir.",
+                "description": "La norma fija el nivel: el Cap. B-1 (hoja 10-11) manda aplicar la regla «para cada institución en Chile que consolida con el banco», esto es, a nivel de ENTIDAD → 'total' (el default). 'portfolio', 'segment' y 'operation' son DIAGNÓSTICOS —dónde muerde el estándar—, no la regla: el máximo por celda sobre-reporta respecto del máximo de entidad (Σ max ≥ max Σ) y no es la provisión a constituir.",
                 "enum": [
                   "total",
                   "portfolio",

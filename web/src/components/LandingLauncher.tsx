@@ -501,7 +501,7 @@ export function LandingLauncher({
                 certificado ni es apto para producción por el solo hecho de existir).
               </p>
               <p>
-                Los cuatro dominios sin interfaz son motores deterministas, sin stubs: más de{" "}
+                Los tres dominios sin interfaz son motores deterministas, sin stubs: más de{" "}
                 <span className="font-mono text-foreground">{TESTS_DOMINIOS}</span> tests pasan
                 sobre ellos, y más de{" "}
                 <span className="font-mono text-foreground">{TESTS_SUITE}</span> en la suite

@@ -21,8 +21,17 @@ publicado (`1.4.0`).
 
 Punto de entrada único (`run`) y las estructuras *stateful* que produce: el `Study` contenedor, su
 `ArtifactStore` *namespaced*, el `RunContext` (estado + lineage) y el `LineageBundle` reproducible.
+`check_pipeline` responde si un config **se puede** ejecutar, sin ejecutarlo.
 
 ::: nikodym.run
+    options:
+      heading_level: 3
+
+::: nikodym.check_pipeline
+    options:
+      heading_level: 3
+
+::: nikodym.api.PipelineCheck
     options:
       heading_level: 3
 

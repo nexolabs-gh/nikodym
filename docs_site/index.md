@@ -4,15 +4,15 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 scoring/scorecards, ML, provisiones **CMF (Chile)** e **IFRS 9/ECL**, forward-looking y
 stress testing. Paquete: `nikodym`.
 
-!!! note "Estado: 1.4.0 — release estable"
+!!! note "Estado: 1.7.0 — release estable"
     Disponible en PyPI: `pip install nikodym`. El pipeline de scorecard (F1) es **API estable
     (SemVer 1.x)**; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
     resultados/métricas/orquestación) siguen experimentales, fuera de la garantía SemVer 1.x.
 
-    **Los seis dominios calculan hoy** —son motores deterministas, con más de 600 tests sobre los
-    cuatro que no tienen interfaz—, pero **solo el scorecard y las provisiones tienen UI, preset y
-    capítulo en el informe** (el scorecard bajo garantía SemVer 1.x; las provisiones, la más nueva,
-    aún experimentales). Stress, Markov, forward-looking y survival se usan escribiendo el config
+    **Los seis dominios calculan hoy** —son motores deterministas, con más de 500 tests sobre los
+    tres que no tienen interfaz—, pero **solo el scorecard, las provisiones y survival tienen UI,
+    preset y capítulo en el informe** (el scorecard bajo garantía SemVer 1.x; los otros dos, más
+    nuevos, aún experimentales). Stress, Markov y forward-looking se usan escribiendo el config
     en Python: no hay CLI. Lo que les falta es superficie, no aritmética.
 
 !!! warning "Antes de usarlo en producción"
