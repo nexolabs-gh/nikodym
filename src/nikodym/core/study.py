@@ -273,9 +273,6 @@ class Study:
                 "fail_fast=False no está soportado en v1: se fuerza True (reservado para v2).",
                 stacklevel=2,
             )
-        pasos = self._resolve_steps(nombres)
-        self._validate_pipeline(pasos)
-
         run_id = uuid.uuid4().hex
         self.run_context.run_id = run_id
         self.run_context.started_at = datetime.now(UTC)
@@ -287,6 +284,23 @@ class Study:
         # ``data_hash`` queda None; en B2+ lo completa el paso de datos antes de cerrar.
         self._emit("run_start", None, {"run_id": run_id, "name": self.config.name})
         self.run_context.lineage = self._build_lineage()
+
+        # La RESOLUCIÓN del pipeline va después del `run_id` y bajo el mismo registro de fallo que
+        # la ejecución (D-ERR-8/D-ERR-9). Estaba antes, y sin `try`: un config inejecutable dejaba
+        # el `run_context` intacto —`status="created"`, `error=None`— y `nikodym.run`, que captura
+        # el `NikodymError`, devolvía un Study en el que no había NADA que inspeccionar. El motor
+        # produce ahí un diagnóstico exacto («el paso X requiere (Y, Z), que ningún paso aguas
+        # arriba produce»); se perdía entero, y aguas abajo la UI no podía ni persistir la corrida
+        # —sin `run_id` no hay qué guardar— así que respondía un HTTP 500 opaco.
+        try:
+            pasos = self._resolve_steps(nombres)
+            self._validate_pipeline(pasos)
+        except Exception as exc:
+            # step=None a propósito (D-ERR-11): no hay paso en curso porque el config es
+            # inejecutable ANTES del primero, y eso le dice al lector dónde mirar.
+            self._registrar_fallo(exc, paso=None, run_id=run_id)
+            raise
+
         # El paso en curso se rastrea fuera del try para poder nombrarlo en el rastro del fallo:
         # sin él, "falló la corrida" no dice en qué etapa del pipeline (enmienda RUN-ERROR, D-ERR-2)
         paso_actual: Step | None = None
@@ -295,36 +309,48 @@ class Study:
                 paso_actual = paso
                 self._run_one(paso)
         except Exception as exc:
-            self.run_context.status = "failed"
-            # El diagnóstico del motor se emitía SÓLO al sink; con un NullAuditSink (el que arma el
-            # preset recomendado) se perdía. Ahora vive también en el run_context que el usuario ya
-            # tiene en la mano (D-ERR-1), y la corrida declara cuándo terminó (D-ERR-3).
-            self.run_context.finished_at = datetime.now(UTC)
-            self.run_context.error = RunError(
-                type=type(exc).__name__,
-                message=str(exc),
-                step=paso_actual.name if paso_actual is not None else None,
-                is_domain_error=isinstance(exc, NikodymError),
-                ts=self.run_context.finished_at,
-            )
-            # Payload aditivo (D-ERR-6): 'error' se conserva tal cual estaba; un lector existente
-            # del trail no se entera de las claves nuevas (CT-3).
-            self._emit(
-                "run_end",
-                None,
-                {
-                    "run_id": run_id,
-                    "status": "failed",
-                    "error": str(exc),
-                    "error_type": type(exc).__name__,
-                    "step": self.run_context.error.step,
-                },
-            )
+            self._registrar_fallo(exc, paso=paso_actual, run_id=run_id)
             raise
         self.run_context.finished_at = datetime.now(UTC)
         self.run_context.status = "done"
         self._emit("run_end", None, {"run_id": run_id, "status": "done"})
         return self
+
+    def _registrar_fallo(self, exc: Exception, *, paso: Step | None, run_id: str) -> None:
+        """Deja el rastro de una corrida fallida en ``run_context`` y en el trail (D-ERR-10).
+
+        UN solo sitio para las dos fases —resolución del pipeline y ejecución de los pasos—, porque
+        tenerlo duplicado es exactamente lo que permitió que divergieran: el manejo de fallo cubría
+        el bucle de pasos y dejaba fuera la resolución, de modo que un config inejecutable no dejaba
+        rastro alguno.
+
+        El diagnóstico del motor se emitía SÓLO al sink; con un ``NullAuditSink`` (el que arma el
+        preset recomendado) se perdía. Vive también en el ``run_context`` que el usuario ya tiene en
+        la mano (D-ERR-1), y la corrida declara cuándo terminó (D-ERR-3). ``paso=None`` significa
+        que no había paso en curso (D-ERR-11).
+        """
+        self.run_context.status = "failed"
+        self.run_context.finished_at = datetime.now(UTC)
+        self.run_context.error = RunError(
+            type=type(exc).__name__,
+            message=str(exc),
+            step=paso.name if paso is not None else None,
+            is_domain_error=isinstance(exc, NikodymError),
+            ts=self.run_context.finished_at,
+        )
+        # Payload aditivo (D-ERR-6): 'error' se conserva tal cual estaba; un lector existente
+        # del trail no se entera de las claves nuevas (CT-3).
+        self._emit(
+            "run_end",
+            None,
+            {
+                "run_id": run_id,
+                "status": "failed",
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+                "step": self.run_context.error.step,
+            },
+        )
 
     def run_step(self, name: str) -> Any:
         """Ejecuta un paso aislado y devuelve su resultado; no altera ``run_context.status``.

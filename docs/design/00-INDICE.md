@@ -133,6 +133,18 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `RunContext`, así que no toca la garantía SemVer 1.x de F1, y **no** altera D-UI-2 (`nikodym.run`
 > devuelve el `Study` parcial; `Study.run()` sigue siendo *fail-loud*).
 >
+> **…y el fallo de RESOLUCIÓN también (2026-07-27, APROBADA e implementada).**
+> [`_ENMIENDA-RUN-ERROR-RESOLUCION.md`](_ENMIENDA-RUN-ERROR-RESOLUCION.md), D-ERR-8…D-ERR-11,
+> continúa la numeración de la anterior. **La enmienda de arriba resolvió la mitad del problema que
+> describía:** su manejo de fallo vive dentro del `try` que envuelve el bucle de pasos, así que
+> cubría los fallos de *ejecución* y dejaba fuera los de *resolución* del pipeline. Medido por el
+> camino del usuario de la UI el 2026-07-27 —encender `provisioning_ifrs9` sin `survival`—: el motor
+> emitía un `ConfigError` exacto que se perdía entero, `nikodym.run` devolvía un `Study` en
+> `"created"` con `run_id` y `error` en `None` —ni `"done"` ni `"failed"`— y la UI, incapaz de
+> persistir una corrida sin `run_id`, respondía un **HTTP 500 opaco**. `run_id` pasa a asignarse
+> antes de resolver, y el registro del fallo vive en un helper único para que las dos fases no
+> puedan volver a divergir. Cambia comportamiento observable: ver su §4.
+>
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
 > D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su

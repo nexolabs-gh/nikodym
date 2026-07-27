@@ -235,6 +235,68 @@ def test_el_fallo_sella_finished_at(monkeypatch: pytest.MonkeyPatch) -> None:
     assert study.run_context.finished_at >= study.run_context.started_at  # type: ignore[operator]
 
 
+def _study_inejecutable(monkeypatch: pytest.MonkeyPatch) -> Study:
+    """``Study`` cuyo pipeline no RESUELVE: un paso exige un artefacto que nadie produce."""
+    study = Study(_config())
+
+    class _Consumidor:
+        name = "consumidor"
+        requires: tuple = (("survival", "term_structure"),)
+        provides: tuple = ()
+
+        def execute(self, study: Study, rng: object) -> None:  # pragma: no cover - no se ejecuta
+            raise AssertionError("un config inejecutable no debe llegar a ejecutar nada")
+
+    monkeypatch.setattr(study, "_resolve_steps", lambda nombres: [_Consumidor()])
+    with pytest.raises(ConfigError):
+        study.run()
+    return study
+
+
+def test_el_config_inejecutable_deja_el_diagnostico_igual_que_un_fallo_de_paso() -> None:
+    """D-ERR-8: la garantía de D-ERR-1 cubre la corrida entera, no sólo el bucle de pasos.
+
+    Medido el 2026-07-27 por el camino del usuario de la UI: encender `provisioning_ifrs9` sin
+    `survival` produce un `ConfigError` EXCELENTE —dice qué artefacto falta y quién lo pedía— que
+    se perdía completo, porque `_resolve_steps`/`_validate_pipeline` corren fuera del `try` que
+    registra el fallo. `nikodym.run` devolvía entonces un `Study` en `"created"`, con `run_id` y
+    `error` en `None`: ni `"done"` ni `"failed"`, o sea un estado que su propio docstring no
+    contempla al mandar chequear el status. El fallo no se degradaba, se silenciaba.
+    """
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        study = _study_inejecutable(monkeypatch)
+    finally:
+        monkeypatch.undo()
+
+    ctx = study.run_context
+    assert ctx.status == "failed"
+    assert ctx.run_id is not None, "sin run_id la corrida no se puede persistir (era el HTTP 500)"
+    assert ctx.finished_at is not None
+    assert ctx.error is not None
+    assert ctx.error.type == "ConfigError"
+    assert "inejecutable" in ctx.error.message
+    # D-ERR-11: no hay paso en curso, y eso es información — el problema está en el config, no en
+    # los datos. Un fallo DENTRO de un paso sí lo nombra (ver el test de arriba, step="boom").
+    assert ctx.error.step is None
+    assert ctx.error.is_domain_error is True
+
+
+def test_el_config_inejecutable_conserva_el_lineage() -> None:
+    """El invariante post-run del SDD-01 §6 no distingue en qué fase se cayó la corrida.
+
+    Sin lineage, una corrida fallida no es auditable — y es justo el caso que más interesa auditar.
+    """
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        study = _study_inejecutable(monkeypatch)
+    finally:
+        monkeypatch.undo()
+
+    assert study.run_context.lineage is not None
+    assert study.run_context.lineage.config_hash
+
+
 def test_una_excepcion_inesperada_se_distingue_del_error_de_dominio(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

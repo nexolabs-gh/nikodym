@@ -244,9 +244,16 @@ def test_hito0_ct1_step_dummy_fan_in_faltante_falla_pre_run(
     with pytest.raises(ConfigError, match=r"calibration.*pd_curve.*inejecutable"):
         study.run(steps=["binning", "ifrs9"])
 
+    # Lo que CT-1 garantiza —y no cambió—: el fan-in no se ejecuta y no se materializa artefacto.
     assert fan_in_step.executed is False
-    assert study.run_context.status == "created"
     assert study.artifacts.keys() == []
+    # El estado sí cambió, y a propósito (D-ERR-8, 2026-07-27). Este assert decía `"created"`, que
+    # era lo que ocurría y no lo que se quería garantizar: la corrida se caía antes de que hubiera
+    # `run_id`, así que no dejaba rastro de por qué. Ahora una corrida inejecutable queda `"failed"`
+    # con su diagnóstico, igual que una que falla dentro de un paso.
+    assert study.run_context.status == "failed"
+    assert study.run_context.error is not None
+    assert study.run_context.error.step is None  # inejecutable ANTES del primer paso (D-ERR-11)
 
 
 def test_hito0_ct2_metric_sections_pasan_por_log_metrics_y_model_card(

@@ -9,6 +9,27 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Corregido
 
+- **⚠️ Un config inejecutable no dejaba ningún rastro, y en la interfaz daba un HTTP 500.** Cuando el
+  pipeline no se puede resolver —por ejemplo, activar `provisioning_ifrs9` sin `survival`, que le
+  provee la term-structure— el motor produce un diagnóstico exacto:
+
+  ```
+  El paso 'provisioning_ifrs9' requiere ('survival', 'term_structure'),
+  que ningún paso aguas arriba produce: config inejecutable.
+  ```
+
+  Ese mensaje se perdía entero. La resolución del pipeline ocurría antes de que la corrida tuviera
+  `run_id` y fuera del bloque que registra el fallo, así que `nikodym.run()` devolvía un `Study` con
+  `status="created"` —ni `"done"` ni `"failed"`—, `run_id=None` y `error=None`: nada que
+  inspeccionar. La interfaz, incapaz de persistir una corrida sin `run_id`, respondía un 500 opaco.
+
+  Ahora una corrida inejecutable queda `status="failed"` con su `run_context.error`, su `run_id` y
+  su lineage, igual que una que falla dentro de un paso, y la interfaz muestra el mensaje del motor.
+
+  **Cambio de comportamiento** para quien inspeccione el `Study` de un config inejecutable: donde
+  antes veía `"created"` ahora ve `"failed"`. Es el valor que la documentación siempre dijo que
+  vería. `Study.run()` sigue re-levantando: el primitivo *fail-loud* no cambia.
+
 - **La curva de ECL del panel publicaba un plazo que no descuenta.** El bloque
   `provisioning_ifrs9.ecl_term_structure` de la respuesta de resultados traía `time_value` **crudo**
   —en la unidad del productor de la term-structure— junto a un `discount_factor_mean` calculado
