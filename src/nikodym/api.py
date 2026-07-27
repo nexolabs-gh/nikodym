@@ -88,7 +88,10 @@ def check_pipeline(config: NikodymConfig) -> PipelineCheck:
         ``executable=True`` + ``steps`` en orden, o ``executable=False`` + el diagnóstico del motor.
     """
     try:
-        pasos = Study(config).check_pipeline()
+        # `apply_global_seed=False`: comprobar no puede sembrar los RNG del proceso. El formulario
+        # llama aquí en cada tecleo, y sembrar dejaba el hint `PYTHONHASHSEED` —que se fija una sola
+        # vez por proceso— anclado a la semilla del config que se editaba, no a la de la corrida.
+        pasos = Study(config, apply_global_seed=False).check_pipeline()
     except ValidationError as exc:
         return PipelineCheck(
             executable=False,

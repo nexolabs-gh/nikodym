@@ -244,3 +244,42 @@ def test_check_pipeline_es_superficie_publica_del_paquete() -> None:
     assert nikodym.check_pipeline is check_pipeline
     assert "check_pipeline" in dir(nikodym)
     assert "PipelineCheck" in dir(nikodym)
+
+
+# --- Comprobar no puede sembrar el proceso ------------------------------------------------------
+
+
+def test_comprobar_no_siembra_los_rng_del_proceso(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El formulario llama aquí en CADA tecleo: sembrar sería un efecto de proceso, no del objeto.
+
+    `SeedManager.apply_global` resetea el `random` global y fija el hint `PYTHONHASHSEED` que
+    heredan los subprocesos (joblib/loky, GBDT). Lo fija **sólo la primera vez**, así que con la
+    comprobación sembrando, ese hint quedaba anclado a la semilla del config que se estaba
+    editando y no a la de la corrida que se ejecuta después — el no-determinismo silencioso que
+    SDD-01 §9 existe para evitar.
+    """
+    import os
+    import random
+
+    monkeypatch.delenv("PYTHONHASHSEED", raising=False)
+    random.seed(123)
+    esperado = [random.random() for _ in range(2)]
+
+    random.seed(123)
+    primero = random.random()
+    check_pipeline(NikodymConfig.model_validate({"repro": {"seed": 999}}))
+    segundo = random.random()
+
+    assert [primero, segundo] == esperado, "la comprobación pisó el stream global de random"
+    assert os.environ.get("PYTHONHASHSEED") is None, "la comprobación fijó el hint de la corrida"
+
+
+def test_la_corrida_si_siembra(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El sentido contrario, para que el arreglo no se pase de frenada: correr SÍ siembra."""
+    import os
+
+    monkeypatch.delenv("PYTHONHASHSEED", raising=False)
+    with pytest.warns(UserWarning, match="PYTHONHASHSEED"):
+        Study(NikodymConfig.model_validate({"repro": {"seed": 7}}))
+
+    assert os.environ.get("PYTHONHASHSEED") is not None
