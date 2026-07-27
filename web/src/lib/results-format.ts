@@ -1257,14 +1257,20 @@ export function ifrs9StageRows(
  */
 export interface Ifrs9TermPoint {
   period: number
+  /**
+   * Instante CRUDO, en la unidad del productor de la curva (survival/markov). Si va a rotularlo
+   * como «el plazo» en pantalla, ojo: no es el exponente del descuento, y viaja sin unidad.
+   */
   timeValue: number
+  /** El mismo instante en AÑOS: el τ con el que se calculó `discount` (D-HOR-0). */
+  timeValueYears: number
   /** ECL marginal del período, sin moneda. */
   marginal: number
   /** ECL acumulada hasta el período, sin moneda. */
   cumulative: number
   /** PD marginal ponderada del período (proporción [0,1]). */
   pdWeighted: number
-  /** Factor de descuento medio a la EIR (proporción [0,1]). */
+  /** Factor de descuento medio a la EIR (proporción [0,1]): `DF = (1 + EIR)^(-timeValueYears)`. */
   discount: number
   n: number
 }
@@ -1279,6 +1285,7 @@ export function ifrs9TermStructure(
     .map((r) => ({
       period: r.period,
       timeValue: r.time_value,
+      timeValueYears: r.time_value_years,
       marginal: r.ecl_marginal,
       cumulative: r.ecl_cumulative,
       pdWeighted: r.pd_marginal_weighted,

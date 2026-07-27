@@ -611,7 +611,19 @@ export interface Ifrs9SummaryRow {
  */
 export interface Ifrs9TermStructureRow {
   period: number
+  /**
+   * Instante CRUDO del período, en la unidad en que lo emitió el productor de la term-structure
+   * (survival/markov). Reconcilia fila a fila con la curva de origen, pero NO es el exponente del
+   * descuento: para eso está `time_value_years`. Viaja sin rótulo de unidad — `time_unit` se
+   * consume en el motor y no llega al payload.
+   */
   time_value: number
+  /**
+   * El mismo instante convertido a años (D-HOR-0): es el τ con el que se calculó
+   * `discount_factor_mean`, y el único con el que `DF = (1 + EIR)^(-τ)` cuadra. Con una curva
+   * mensual, usar `time_value` daría la tasa mensual equivalente en vez de la EIR anual.
+   */
+  time_value_years: number
   ecl_marginal: number
   ecl_cumulative: number
   pd_marginal_weighted: number

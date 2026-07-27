@@ -1760,6 +1760,7 @@ const ifrs9Sample: Ifrs9ProvisioningResult = {
     {
       period: 2,
       time_value: 2.0,
+      time_value_years: 2.0,
       ecl_marginal: 1720279.9087077375,
       ecl_cumulative: 3982956.3334911074,
       pd_marginal_weighted: 0.05689603697309872,
@@ -1769,6 +1770,7 @@ const ifrs9Sample: Ifrs9ProvisioningResult = {
     {
       period: 1,
       time_value: 1.0,
+      time_value_years: 1.0,
       ecl_marginal: 2262676.42478337,
       ecl_cumulative: 2262676.42478337,
       pd_marginal_weighted: 0.06311502122800476,
@@ -1778,6 +1780,7 @@ const ifrs9Sample: Ifrs9ProvisioningResult = {
     {
       period: 3,
       time_value: 3.0,
+      time_value_years: 3.0,
       ecl_marginal: 1219354.8518568694,
       ecl_cumulative: 5202311.185347977,
       pd_marginal_weighted: 0.0475663504464256,
@@ -1961,6 +1964,33 @@ describe("ifrs9TermStructure", () => {
     // Honestidad: la acumulada del último período NO iguala la ECL reportada (trunca por stage).
     const last = pts[pts.length - 1]
     expect(last?.cumulative).not.toBeCloseTo(ifrs9Sample.total_ecl_reported, 0)
+  })
+
+  it("distingue el plazo crudo del plazo con el que se descontó (curva mensual)", () => {
+    // El fixture de arriba viene del preset F4, que declara `time_unit="year"`: ahí las dos
+    // columnas coinciden y ninguna assertion puede separarlas. Con una curva MENSUAL sí:
+    // el motor descuenta con τ en años, y elevar con el crudo daría la tasa mensual equivalente
+    // (1,53 %) en vez de la EIR anual del 20 %.
+    const eir = 0.2
+    const mensual = {
+      ...ifrs9Sample,
+      ecl_term_structure: [1, 2, 3].map((mes) => ({
+        period: mes,
+        time_value: mes,
+        time_value_years: mes / 12,
+        ecl_marginal: 100 * mes,
+        ecl_cumulative: 100 * mes,
+        pd_marginal_weighted: 0.01 * mes,
+        discount_factor_mean: (1 + eir) ** (-mes / 12),
+        n_rows: 10,
+      })),
+    }
+
+    const pts = ifrs9TermStructure(mensual)
+    expect(pts[0]?.timeValueYears).not.toBe(pts[0]?.timeValue)
+    for (const p of pts) {
+      expect(p.discount ** (-1 / p.timeValueYears) - 1).toBeCloseTo(eir, 10)
+    }
   })
 
   it("[] cuando falta la card o el frame", () => {
