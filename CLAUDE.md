@@ -5,7 +5,34 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-27, `cf217a2`, CI verde 16/16, SIN publicar)
+> ## Lo último (2026-07-27, `b0161c7`, CI verde 16/16, **`1.7.0` PUBLICADO en PyPI**)
+>
+> ✅ **`1.7.0` LIVE** (tag `v1.7.0` sobre `710e6b8`, OK explícito de Cami). Verificado **desde PyPI**
+> en venv limpio: la SPA del paquete responde 200, `/api/validate` sirve el aviso nuevo y el
+> round-trip `save`→`load` funciona. Demo re-deployada y verificada en el HTML servido
+> (`index-SIAywzfc.js`, hash idéntico al build local).
+>
+> ⚠️ **LO MÁS IMPORTANTE DE ESTA SESIÓN NO ES EL RELEASE: es el P0 que la auditoría previa frenó.**
+> `Study.save()` guardaba una corrida **exitosa** que `Study.load()` después rechazaba con
+> `ReproducibilityError`, y ni 4.476 tests ni CI 16/16 lo veían. Regresión de `cf217a2`: mover el
+> `run_id` antes de resolver (D-ERR-9) se llevó consigo `_build_lineage()`, y **resolver COACCIONA el
+> config** (`_coerce_domain_config` materializa los defaults que el YAML no traía), así que el
+> lineage congelaba un `config_hash` que el propio `config.yaml` contradecía. Alcance más allá del
+> round-trip: el hash del model card, del informe y del ancla de MLflow era el del config *como se
+> escribió*, no el que *se ejecutó*. **El lineage se congela ahora DESPUÉS de resolver, en un
+> `finally`** que mantiene D-ERR-8 (se cuelga igual si la resolución falla). No tocar ese orden.
+>
+> **Por qué ningún test lo cazaba, y vale para cualquier defecto de esta familia:** los round-trips
+> construyen el config en Python **ya tipado** y los presets escriben **todos** los campos
+> explícitos — dos formas de no tener nunca una sección opaca. El caso exige sección opaca (YAML +
+> capa no importada) **y** un campo con default omitido. Para montarlo hay que forzar el dict con
+> `model_copy` (no el constructor: dentro de la suite la capa ya está importada y se coacciona en la
+> raíz, tapando el defecto).
+>
+> **Comprobar un config tampoco puede sembrar el proceso.** `Study.__init__` llama `apply_global()`,
+> que resetea el `random` global y fija el hint `PYTHONHASHSEED` **una sola vez por proceso**. Con
+> `/api/validate` llamándolo en cada tecleo, ese hint quedaba anclado a la semilla del config que se
+> **editaba**. De ahí `Study(config, apply_global_seed=False)`, que usa `nikodym.check_pipeline`.
 >
 > **El formulario del UI instalable pasó de 7 secciones a 12**: entran `survival` y las cuatro de
 > `provisioning*`. Es el núcleo técnico de la paridad UI↔código (requisito 1), y **no cierra ningún
@@ -20,8 +47,12 @@
 >    `web/src/fixtures/schema.json` (`scripts/gen_schema_fixture.py`) Y a rebuildear el bundle**
 >    (`pnpm build:package` desde `web/`), porque el fixture viaja dentro del `.js` instalable. Lo
 >    exigen el gate G7 (`tests/unit/test_ui_schema_fixture.py`) y el gate de drift del CI.
-> 3. **`ui_widget: "hidden"` no se renderiza**, y el vocabulario completo motor↔front lo vigila
+> 3. **`ui_widget: "hidden"` no se renderiza**, y el vocabulario motor↔front lo vigila
 >    `tests/unit/test_ui_widget_vocabulary.py`. Conocía 4 de los 20 literales que emite `src/`.
+>    ⚠️ Ese gate **inspecciona 14 de los 20**: recorre bien `properties` de la raíz, pero para
+>    `$defs` itera `nodo.values()` y les pide `properties`, que en un schema de def nunca acierta.
+>    Hoy da verde legítimo (0 huérfanos), pero **no cazaría un literal nuevo declarado en un campo
+>    anidado**; decir que vigila «el vocabulario completo» es hoy una sobrepromesa.
 > 4. **El catálogo de secciones navegables vive UNA vez**, en `CONFIG_SECTIONS` de
 >    `web/src/lib/schema.ts`; los iconos se quedan en `App.tsx` para que `lib/` no importe React.
 >    `F1_SECTIONS` **no** es la lista de lo editable: es sólo la sonda de degradación del schema.
