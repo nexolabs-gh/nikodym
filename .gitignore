@@ -76,6 +76,13 @@ uv.lock.bak
 htmlcov/
 coverage.xml
 
+# === Workdir del UI instalable ===
+# `python -m nikodym.ui` lo crea donde se lo lance, así que basta con arrancar la interfaz DENTRO
+# de un clon para que aterricen aquí el parquet del dataset materializado y el results.json de cada
+# corrida. En un repo público eso es una fuga de datos a un `git add .` de distancia. Sin ancla `/`
+# a propósito: el workdir sigue al cwd del usuario, no a la raíz del repo.
+.nikodym_ui/
+
 # === MLflow / artefactos de modelos ===
 mlruns/
 mlartifacts/

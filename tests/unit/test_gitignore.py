@@ -147,3 +147,26 @@ def test_ningun_patron_lleva_el_comentario_en_su_propia_linea() -> None:
         if (despojada := linea.strip()) and not despojada.startswith("#") and "#" in despojada
     ]
     assert ofensores == []
+
+
+def test_el_workdir_del_ui_instalable_esta_vetado() -> None:
+    """Lanzar la interfaz dentro de un clon no puede dejar datos listos para commitear.
+
+    `python -m nikodym.ui` crea su workdir en el cwd, así que basta con arrancarla desde la raíz del
+    repo —lo natural mientras se desarrolla— para que aparezcan el parquet del dataset materializado
+    y el `results.json` de cada corrida. Se descubrió así, verificando el aviso de config
+    inejecutable contra el servidor real: `git status` ofreció el directorio entero.
+    """
+    assert _ignorado(".nikodym_ui/datasets/consumo_comportamiento.parquet")
+    assert _ignorado(".nikodym_ui/runs/abc123/results.json")
+
+
+def test_el_workdir_esta_vetado_tambien_fuera_de_la_raiz() -> None:
+    """El veto va SIN ancla `/`: el workdir sigue al cwd de quien lanza, no a la raíz del repo."""
+    assert _ignorado("notebooks/.nikodym_ui/runs/abc123/results.json")
+
+
+def test_el_paquete_del_ui_sigue_versionandose() -> None:
+    """El error simétrico: el veto es del workdir generado, no del código que lo crea."""
+    assert not _ignorado("src/nikodym/ui/__main__.py")
+    assert not _ignorado("src/nikodym/ui/static/index.html")
