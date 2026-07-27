@@ -145,6 +145,18 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > antes de resolver, y el registro del fallo vive en un helper único para que las dos fases no
 > puedan volver a divergir. Cambia comportamiento observable: ver su §4.
 >
+> **…y la ejecutabilidad se sabe MIENTRAS se edita (2026-07-27, APROBADA e implementada).**
+> [`_ENMIENDA-VALIDACION-PIPELINE.md`](_ENMIENDA-VALIDACION-PIPELINE.md), D-PIPE-1…D-PIPE-6, cierra
+> el candidato que la anterior dejó anotado sin decidir en su §3. `Study.check_pipeline()` resuelve
+> y valida **sin ejecutar nada** —medido: función del config, sin dataset, sin disco y ≤0,1 ms con
+> los dominios importados—, `nikodym.check_pipeline(config)` lo envuelve capturando (misma relación
+> que `run` con `Study.run`, D-UI-2) y `/api/validate` lo consume en un campo **aditivo**
+> `pipeline`. La capacidad vive en el núcleo y no en la UI a propósito: ponerla sólo en el
+> formulario dejaba al camino por código descubriendo el problema al ejecutar, que es media paridad.
+> **`valid` NO cambia de significado** (D-PIPE-1) y el aviso **no bloquea** Ejecutar (D-PIPE-4,
+> decisión de Cami): desde D-ERR-8 el intento se registra con su diagnóstico, y bloquear se lo
+> quitaría al usuario. El prefijo `D-VAL-` estaba tomado por SDD-22, de ahí `D-PIPE-`.
+>
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
 > D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su
