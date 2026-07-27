@@ -11,26 +11,45 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado del proyecto (2026-07-27)
 
-**`main` = `cf217a2`, CI verde 16/16, sin publicar** (PyPI sigue en `1.6.0`). La sesión del
-2026-07-27 entregó el **núcleo técnico de la paridad UI↔código en provisiones**: el formulario del UI
-instalable pasó de 7 secciones a **12** —entran `survival` y las cuatro de `provisioning*`—, más tres
-gates que antes no existían (staleness del fixture del schema, cobertura del vocabulario de widgets,
-y el estado que deja una corrida fallida). **No cierra ningún nodo de B2**, cuyo criterio exige PyPI
-más un tercero sin checkout; es trabajo del requisito 1 de la visión, que atraviesa el bloque.
+**`main` = `710e6b8`, CI verde 16/16, `1.7.0` PUBLICADO en PyPI** (tag `v1.7.0`, con OK explícito de
+Cami). La sesión del 2026-07-27 entregó el **núcleo técnico de la paridad UI↔código en provisiones**
+—el formulario del UI instalable pasó de 7 secciones a **12**, entran `survival` y las cuatro de
+`provisioning*`— más el aviso en vivo de config inejecutable y `nikodym.check_pipeline`.
 
-Probar ese formulario recién abierto destapó un defecto **del núcleo** que 4.451 tests verdes no
-veían: un config inejecutable no dejaba rastro alguno y la UI respondía un HTTP 500, pese a que el
-motor produce ahí un diagnóstico exacto. Cerrado con
+⚠️ **La auditoría previa a publicar encontró un P0 que 4.476 tests y CI 16/16 no veían, y frenó el
+release.** Vale más que la feature: `Study.save()` guardaba una corrida exitosa que `Study.load()`
+después rechazaba con `ReproducibilityError`. Era regresión de `cf217a2`: mover el `run_id` antes de
+resolver el pipeline (D-ERR-9) se llevó consigo el `_build_lineage()`, y **resolver COACCIONA el
+config** (`_coerce_domain_config` materializa los defaults que el YAML no traía), así que el lineage
+congelaba un `config_hash` que el propio `config.yaml` contradecía. Alcance real más allá del
+round-trip: el hash publicado en el model card, el informe y el ancla de MLflow era el del config
+*como se escribió*, no el que *se ejecutó*.
+
+**Por qué ningún test lo cazaba, y es la lección transferible:** los round-trips construyen el config
+en Python **ya tipado** y los presets escriben **todos** los campos explícitos — dos formas de no
+tener nunca una sección opaca. El defecto exige sección opaca (YAML + capa no importada) **y** un
+campo con default omitido. Un test que no pueda producir el estado no puede cazar su defecto.
+
+Probar el formulario ya había destapado antes otro defecto del núcleo (config inejecutable sin
+rastro → HTTP 500), cerrado con
 [`_ENMIENDA-RUN-ERROR-RESOLUCION.md`](design/_ENMIENDA-RUN-ERROR-RESOLUCION.md) (D-ERR-8…D-ERR-11).
 Detalle operativo y las cuatro reglas para tocar el formulario: `CLAUDE.md` §«Lo último».
 
-## Estado publicado (2026-07-26)
-PyPI publica **`1.6.0`** (tag `v1.6.0` sobre `86e121b`, 2026-07-26, con OK explícito de Cami); el
+## Estado publicado (2026-07-27)
+PyPI publica **`1.7.0`** (tag `v1.7.0` sobre `710e6b8`, 2026-07-27, con OK explícito de Cami); el
 tag `v1.5.0` apunta al cierre del bloque B1 (el SHA vigente de `main` queda en `HANDOFF.md`). El
 paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es estable bajo SemVer
 1.x, pero las provisiones siguen experimentales, así que «Production/Stable» sería sobrepromesa.
 
-**`1.6.0` corrige una cifra y rompe dos configuraciones de fábrica**, y eso hay que tenerlo presente
+**`1.7.0` abre la interfaz a provisiones y survival** —el formulario pasa de 7 a 12 secciones— y
+suma el aviso en vivo de config inejecutable más `nikodym.check_pipeline`. **No rompe a nadie**: los
+tres cambios de contrato son aditivos. **Survival dejó de ser un dominio «sólo Python»** y eso ya
+está corregido en la landing, el README y `docs_site`; ojo con la cifra de tests de los dominios sin
+interfaz, que bajó a «más de 500» porque los 89 de survival se fueron con él. Verificado instalando
+**desde PyPI**, no desde el árbol: el round-trip `save`→`load` que el P0 rompía funciona, y la SPA
+del paquete sirve el aviso nuevo.
+
+**`1.6.0` corrigió una cifra y rompió dos configuraciones de fábrica**, y eso hay que tenerlo presente
 al hablar con cualquiera que venga de `1.5.0`: el descuento de la ECL asumía que `time_value` estaba
 en años sin verificarlo (−40 a −50 % de provisión con una curva en meses), y ahora la
 term-structure transporta su unidad. Como contrapartida, una curva sin unidad declarada o un
