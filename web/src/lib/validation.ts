@@ -5,7 +5,7 @@
  * ni finitud (§3.3). Lógica pura, testeable con vitest sin React ni DOM (entorno node).
  */
 
-import type { ValidationErrorItem } from "@/lib/api"
+import type { PipelineInfo, ValidationErrorItem } from "@/lib/api"
 import type { Path } from "@/lib/config-store"
 
 /**
@@ -81,9 +81,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export type ValidationState =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "valid"; hash: string }
+  | { kind: "valid"; hash: string; pipeline: PipelineInfo | null }
   | { kind: "invalid"; count: number; lookup: Map<string, string> }
   | { kind: "unreachable" }
+
+/**
+ * Aviso de config inejecutable, o `null` si no hay nada que advertir (enmienda
+ * VALIDACION-PIPELINE, D-PIPE-5). PURO: sin React ni DOM.
+ *
+ * El **encabezado** es copy del front —el idioma del lector— y el **cuerpo** es el mensaje del
+ * motor tal cual lo entregó el backend, ya saneado de códigos de marca. El front no traduce ese
+ * mensaje ni deduce qué sección hay que encender: el motor es el que sabe (SDD-23 §3.3).
+ *
+ * Sólo aplica sobre un config VÁLIDO: mientras el config no reconstruye no hay pipeline que
+ * resolver, y encimar dos avisos sobre el mismo campo roto sería ruido.
+ */
+export function pipelineWarning(state: ValidationState): string | null {
+  if (state.kind !== "valid") return null
+  if (state.pipeline === null || state.pipeline.executable) return null
+  return state.pipeline.message
+}
 
 /**
  * Gate PURO de la corrida (SDD-23 §8): solo se puede ejecutar con un config **válido**

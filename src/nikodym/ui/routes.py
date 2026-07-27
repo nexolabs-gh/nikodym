@@ -29,6 +29,7 @@ from nikodym.core.config.schema import build_full_json_schema
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.ui import datasets, presets, runs
 from nikodym.ui.exceptions import UiDatasetError, UiRunNotFoundError
+from nikodym.ui.serializers import public_engine_message
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, Request, Response
@@ -78,6 +79,11 @@ def schema_payload() -> dict[str, Any]:
 def validate_config(config: Any) -> dict[str, Any]:
     """Valida un config por **reconstrucción** de ``NikodymConfig`` (SDD-23 §3.3).
 
+    Responde además si el config es **ejecutable**, que es una pregunta distinta de si es válido
+    (enmienda VALIDACION-PIPELINE): un config puede reconstruir perfectamente el modelo Pydantic y
+    aun así no poder correr, porque un paso pide un artefacto que ningún paso aguas arriba produce.
+    Saberlo mientras se edita es lo que evita que el usuario lo descubra al apretar Ejecutar.
+
     Parameters
     ----------
     config : Any
@@ -86,15 +92,61 @@ def validate_config(config: Any) -> dict[str, Any]:
     Returns
     -------
     dict
-        ``{valid, config_hash, errors}``. En éxito, ``valid=True`` y el ``config_hash`` del modelo;
-        ante un ``ValidationError``, ``valid=False``, ``config_hash=None`` y la lista estructurada
-        de ``{loc, msg, type}``. Nunca reimplementa rangos/enums: la verdad es Pydantic.
+        ``{valid, config_hash, errors, pipeline}``. En éxito, ``valid=True`` y el ``config_hash``
+        del modelo; ante un ``ValidationError``, ``valid=False``, ``config_hash=None`` y la lista
+        estructurada de ``{loc, msg, type}``. Nunca reimplementa rangos/enums: la verdad es
+        Pydantic.
+
+        ``pipeline`` es ``{executable, steps, message}`` y vale ``None`` cuando el config no
+        reconstruye: sin modelo no hay pipeline que resolver, y fabricar un veredicto sería
+        inventarlo. **``valid`` NO cambia de significado** (D-PIPE-1): sigue siendo «reconstruye el
+        modelo», que es la precondición de ``/api/run`` y del round-trip YAML. La ejecutabilidad
+        viaja en su propio campo, aditivo (CT-3), porque un fallo de pipeline no tiene ``loc`` de
+        campo y en ``errors`` —que el front indexa por ``loc``— quedaría invisible.
     """
     try:
         model = NikodymConfig.model_validate(config)
     except ValidationError as exc:
-        return {"valid": False, "config_hash": None, "errors": _format_errors(exc)}
-    return {"valid": True, "config_hash": config_hash(model), "errors": []}
+        return {
+            "valid": False,
+            "config_hash": None,
+            "errors": _format_errors(exc),
+            "pipeline": None,
+        }
+    return {
+        "valid": True,
+        "config_hash": config_hash(model),
+        "errors": [],
+        "pipeline": _pipeline_payload(model),
+    }
+
+
+def _pipeline_payload(model: NikodymConfig) -> dict[str, Any]:
+    """Proyecta el veredicto de ``nikodym.check_pipeline`` al contrato REST (D-PIPE-2/D-PIPE-5).
+
+    El backend **transporta** el diagnóstico del motor; no lo traduce ni mapea artefacto→sección.
+    Eso sería lógica de dominio en la capa UI, que SDD-23 §3.3 prohíbe: el motor es el que sabe
+    qué le falta al pipeline. El encabezado del aviso —el copy propio— lo pone el front.
+
+    El mensaje se publica saneado de códigos de marca (:func:`public_engine_message`): esto es copy
+    público, y ahí la limitación se explica en el idioma del lector. El mensaje íntegro sigue
+    disponible por código en ``nikodym.check_pipeline(config).message``.
+    """
+    check = nikodym.check_pipeline(model)
+    message = (
+        None
+        if check.message is None
+        else public_engine_message(
+            check.message,
+            error_type=check.error_type,
+            is_domain_error=check.is_domain_error,
+        )
+    )
+    return {
+        "executable": check.executable,
+        "steps": list(check.steps),
+        "message": message,
+    }
 
 
 def config_to_yaml(config: Any) -> dict[str, Any]:

@@ -83,11 +83,29 @@ export interface ValidationErrorItem {
   type: string
 }
 
+/**
+ * Ejecutabilidad del pipeline resuelto (enmienda VALIDACION-PIPELINE, D-PIPE-2).
+ *
+ * Pregunta DISTINTA de la validez: un config puede reconstruir el modelo y aun así no poder
+ * correr, porque un paso pide un artefacto que ningún paso aguas arriba produce. `message` ya
+ * viene saneado por el backend (copy público); el front solo lo pinta, no lo interpreta ni mapea
+ * artefacto→sección — eso es lógica de dominio y vive en el motor (SDD-23 §3.3).
+ */
+export interface PipelineInfo {
+  executable: boolean
+  /** Pasos en el orden en que correrían; vacío si no es ejecutable. */
+  steps: string[]
+  /** Por qué no es ejecutable, en palabras del motor; `null` si lo es. */
+  message: string | null
+}
+
 /** POST /api/validate */
 export interface ValidateResponse {
   valid: boolean
   config_hash: string | null
   errors: ValidationErrorItem[]
+  /** `null` cuando el config no reconstruye: sin modelo no hay pipeline que resolver. */
+  pipeline: PipelineInfo | null
 }
 
 /** POST /api/config/to-yaml — YAML canónico del config (`dump_config`, SDD-05 §5.5). */

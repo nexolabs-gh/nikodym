@@ -200,12 +200,21 @@ export function demoGetPresetById(presetId: string): Promise<PresetResponse> {
   return Promise.resolve((BUNDLES[presetId] ?? BUNDLES[F3_ID]).preset)
 }
 
-/** En demo el config no se recomputa: el preset ACTIVO se acepta como válido (abre el gate de Ejecutar). */
+/**
+ * En demo el config no se recomputa: el preset ACTIVO se acepta como válido (abre el gate de
+ * Ejecutar).
+ *
+ * `pipeline: null` —«sin información»— y no un `executable: true` fabricado: resolver el pipeline
+ * exige el motor, que aquí no existe. Un veredicto inventado sobreviviría a cualquier edición del
+ * config en la demo y seguiría diciendo que todo corre, que es peor que no decir nada. El front
+ * trata `null` como «nada que advertir», así que la demo se comporta igual que antes.
+ */
 export function demoValidateConfig(): Promise<ValidateResponse> {
   return Promise.resolve({
     valid: true,
     config_hash: activeBundle().preset.config_hash,
     errors: [],
+    pipeline: null,
   })
 }
 

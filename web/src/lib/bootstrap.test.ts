@@ -75,7 +75,7 @@ describe("bootstrapWorkspace (siembra del preset al entrar)", () => {
     // Réplica del arranque del provider: bootstrap → validación en vivo (el backend produce el
     // config_hash) → gate. Antes de UX1 esto solo ocurría si el usuario abría ConfigTab.
     const outcome = await bootstrapWorkspace(okDeps())
-    const validation = { kind: "valid", hash: PRESET.config_hash } as const
+    const validation = { kind: "valid", hash: PRESET.config_hash, pipeline: null } as const
 
     expect(canRun(validation, outcome.datasetId)).toEqual({ ok: true })
   })
@@ -154,7 +154,7 @@ describe("seedDatasetId (el preset no pisa la elección del usuario)", () => {
     }
     const outcome = await bootstrapWorkspace(deps)
     expect(seedDatasetId(null, outcome)).toBeNull()
-    expect(canRun({ kind: "valid", hash: "x" }, seedDatasetId(null, outcome))).toEqual({
+    expect(canRun({ kind: "valid", hash: "x", pipeline: null }, seedDatasetId(null, outcome))).toEqual({
       ok: false,
       reason: "Falta elegir dataset",
     })

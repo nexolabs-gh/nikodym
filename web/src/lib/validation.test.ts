@@ -6,6 +6,7 @@ import {
   describeApiError,
   errorAtPath,
   pathKey,
+  pipelineWarning,
 } from "./validation"
 
 describe("pathKey", () => {
@@ -95,7 +96,7 @@ describe("describeApiError (422 de los endpoints YAML)", () => {
 
 describe("canRun (gate de la corrida, SDD §8)", () => {
   it("config válido + dataset ⇒ ok, sin motivo", () => {
-    expect(canRun({ kind: "valid", hash: "abc123" }, "consumo")).toEqual({
+    expect(canRun({ kind: "valid", hash: "abc123", pipeline: null }, "consumo")).toEqual({
       ok: true,
     })
   })
@@ -127,11 +128,11 @@ describe("canRun (gate de la corrida, SDD §8)", () => {
   })
 
   it("config válido pero sin dataset (null o vacío) ⇒ bloquea por dataset", () => {
-    expect(canRun({ kind: "valid", hash: "abc123" }, null)).toEqual({
+    expect(canRun({ kind: "valid", hash: "abc123", pipeline: null }, null)).toEqual({
       ok: false,
       reason: "Falta elegir dataset",
     })
-    expect(canRun({ kind: "valid", hash: "abc123" }, "")).toEqual({
+    expect(canRun({ kind: "valid", hash: "abc123", pipeline: null }, "")).toEqual({
       ok: false,
       reason: "Falta elegir dataset",
     })
@@ -142,5 +143,52 @@ describe("canRun (gate de la corrida, SDD §8)", () => {
       ok: false,
       reason: "Preparando la configuración…",
     })
+  })
+})
+
+describe("pipelineWarning (aviso de config inejecutable, D-PIPE-2/D-PIPE-5)", () => {
+  const inejecutable = {
+    executable: false,
+    steps: [],
+    message:
+      "El paso 'provisioning_ifrs9' requiere ('survival', 'term_structure'), que ningún paso aguas arriba produce: config inejecutable.",
+  }
+
+  it("publica el mensaje del motor cuando el config no es ejecutable", () => {
+    expect(
+      pipelineWarning({ kind: "valid", hash: "abc", pipeline: inejecutable }),
+    ).toBe(inejecutable.message)
+  })
+
+  it("calla si el config es ejecutable", () => {
+    expect(
+      pipelineWarning({
+        kind: "valid",
+        hash: "abc",
+        pipeline: { executable: true, steps: ["data", "binning"], message: null },
+      }),
+    ).toBeNull()
+  })
+
+  it("calla si el backend no informó pipeline (demo o backend anterior)", () => {
+    // `null` es "sin información", no "inejecutable": un aviso inventado es peor que ninguno.
+    expect(pipelineWarning({ kind: "valid", hash: "abc", pipeline: null })).toBeNull()
+  })
+
+  it("calla mientras el config no es válido: sin modelo no hay pipeline que resolver", () => {
+    expect(
+      pipelineWarning({ kind: "invalid", count: 1, lookup: new Map() }),
+    ).toBeNull()
+    expect(pipelineWarning({ kind: "checking" })).toBeNull()
+    expect(pipelineWarning({ kind: "idle" })).toBeNull()
+    expect(pipelineWarning({ kind: "unreachable" })).toBeNull()
+  })
+
+  it("NO bloquea la corrida: canRun ignora la ejecutabilidad (D-PIPE-4)", () => {
+    // El motor es la autoridad y desde D-ERR-8 registra el intento fallido con su diagnóstico;
+    // bloquear aquí le quitaría al usuario el intento y su audit-trail.
+    expect(
+      canRun({ kind: "valid", hash: "abc", pipeline: inejecutable }, "consumo"),
+    ).toEqual({ ok: true })
   })
 })

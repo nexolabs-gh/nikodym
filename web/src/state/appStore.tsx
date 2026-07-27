@@ -112,7 +112,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         .then((res) => {
           if (seq !== requestSeq.current) return // respuesta obsoleta
           if (res.valid && res.config_hash) {
-            setValidation({ kind: "valid", hash: res.config_hash })
+            // `pipeline` puede faltar si el backend es anterior a la enmienda
+            // VALIDACION-PIPELINE (o es un fixture viejo): se trata como "sin información", que
+            // es lo que era antes, y no como "inejecutable" — un aviso inventado es peor que
+            // ninguno.
+            setValidation({
+              kind: "valid",
+              hash: res.config_hash,
+              pipeline: res.pipeline ?? null,
+            })
           } else {
             setValidation({
               kind: "invalid",

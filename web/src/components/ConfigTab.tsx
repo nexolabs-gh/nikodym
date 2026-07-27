@@ -7,6 +7,7 @@ import {
   FilePlus2,
   Loader2,
   Sparkles,
+  TriangleAlert,
   Upload,
 } from "lucide-react"
 
@@ -34,7 +35,11 @@ import {
   resolveRef,
 } from "@/lib/form-engine"
 import { type SchemaSource, configSectionSchema } from "@/lib/schema"
-import { type ValidationState, describeApiError } from "@/lib/validation"
+import {
+  type ValidationState,
+  describeApiError,
+  pipelineWarning,
+} from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 
 const SOURCE_BANNER: Record<
@@ -529,6 +534,26 @@ export function ConfigTab({ section }: { section: string }) {
             />
           </div>
         </div>
+        {/* Config válido pero inejecutable (enmienda VALIDACION-PIPELINE): se avisa MIENTRAS se
+            edita, no al apretar Ejecutar. No bloquea la corrida (D-PIPE-4): el motor es la
+            autoridad y registra el intento con su diagnóstico, así que quitarle al usuario la
+            posibilidad de intentar sería peor que un aviso que alguna vez sobre. */}
+        {pipelineWarning(validation) ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-400/[0.06] px-3 py-2 text-xs text-amber-100/90"
+          >
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              <strong className="font-medium">
+                Este config todavía no se puede ejecutar.
+              </strong>{" "}
+              {pipelineWarning(validation)}
+            </span>
+          </div>
+        ) : null}
+
         {presetError ? (
           <p className="text-xs text-destructive">{presetError}</p>
         ) : null}

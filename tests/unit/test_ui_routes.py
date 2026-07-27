@@ -13,6 +13,7 @@ import importlib.util
 import io
 import re
 from collections.abc import Iterator
+from copy import deepcopy
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
@@ -25,6 +26,7 @@ from nikodym.core.config.migration import _MIGRATORS, migration
 from nikodym.core.config.schema import rama_objeto
 from nikodym.core.exceptions import ConfigError
 from nikodym.ui import datasets as datasets_module
+from nikodym.ui import presets as presets_module
 from nikodym.ui import routes
 from nikodym.ui.exceptions import UiDatasetError
 
@@ -71,10 +73,21 @@ def test_schema_payload_expande_dominios_f1() -> None:
 
 
 def test_validate_config_valido_devuelve_hash() -> None:
-    """Un config válido reconstruye el modelo y devuelve su ``config_hash``."""
+    """Un config válido reconstruye el modelo y devuelve su ``config_hash``.
+
+    La igualdad es exacta a propósito —fija la forma completa del payload—, así que incluye
+    ``pipeline``, que la enmienda VALIDACION-PIPELINE suma de forma **aditiva** (D-PIPE-2). Un
+    config sin secciones activas es ejecutable con pipeline vacío: no hay nada que correr, y eso
+    no es un error del config.
+    """
     cfg = NikodymConfig(repro=ReproConfig(seed=7))
     resultado = routes.validate_config(cfg.model_dump(mode="json", by_alias=True))
-    assert resultado == {"valid": True, "config_hash": config_hash(cfg), "errors": []}
+    assert resultado == {
+        "valid": True,
+        "config_hash": config_hash(cfg),
+        "errors": [],
+        "pipeline": {"executable": True, "steps": [], "message": None},
+    }
 
 
 def test_validate_config_invalido_estructura_errores() -> None:
@@ -93,6 +106,95 @@ def test_validate_config_campo_desconocido() -> None:
     resultado = routes.validate_config({"campo_que_no_existe": 1})
     assert resultado["valid"] is False
     assert any(err["type"] == "extra_forbidden" for err in resultado["errors"])
+
+
+# --- Ejecutabilidad del pipeline (enmienda VALIDACION-PIPELINE) ---------------------------------
+
+
+def test_config_inejecutable_es_valido_pero_no_ejecutable() -> None:
+    """El caso que motivó la enmienda: IFRS 9 encendido sin la sección que produce su curva.
+
+    Los dos sentidos de D-PIPE-1 en una sola aserción: el config **es válido** —reconstruye el
+    modelo, que es lo que ``valid`` significa y sigue significando— y a la vez **no es
+    ejecutable**. Antes, el usuario sólo se enteraba al apretar Ejecutar.
+    """
+    crudo = deepcopy(presets_module.get_preset("f4-ifrs9-retail")["config"])
+    crudo["survival"] = None
+
+    resultado = routes.validate_config(crudo)
+
+    assert resultado["valid"] is True
+    assert resultado["errors"] == []
+    assert resultado["pipeline"]["executable"] is False
+    assert resultado["pipeline"]["steps"] == []
+    assert "provisioning_ifrs9" in resultado["pipeline"]["message"]
+
+
+def test_preset_ejecutable_anuncia_los_pasos_que_correria() -> None:
+    """Un preset de fábrica es ejecutable y publica su pipeline resuelto, en orden."""
+    resultado = routes.validate_config(presets_module.get_preset("f4-ifrs9-retail")["config"])
+
+    assert resultado["pipeline"] == {
+        "executable": True,
+        "steps": ["data", "survival", "provisioning_ifrs9", "report"],
+        "message": None,
+    }
+
+
+def test_config_que_no_reconstruye_no_inventa_veredicto_de_pipeline() -> None:
+    """Sin modelo no hay pipeline que resolver: ``pipeline`` es ``None``, no un falso negativo."""
+    resultado = routes.validate_config({"repro": {"seed": -1}})
+
+    assert resultado["valid"] is False
+    assert resultado["pipeline"] is None
+
+
+def test_el_aviso_no_publica_codigos_de_marca(monkeypatch: pytest.MonkeyPatch) -> None:
+    """El mensaje llega saneado al copy público (D-ERR-4/D-PIPE-5), con el código fuera.
+
+    El corte se prueba aquí y no en ``check_pipeline``, que conserva el código porque es
+    superficie de código: la misma frase, distinta según quién la lee.
+    """
+    from nikodym import api as api_module
+
+    monkeypatch.setattr(
+        routes.nikodym,
+        "check_pipeline",
+        lambda _config: api_module.PipelineCheck(
+            executable=False,
+            message="FALTA-DATO-IFRS-4: la EAD comprometida no se modela todavía.",
+            error_type="ConfigError",
+            is_domain_error=True,
+        ),
+    )
+
+    mensaje = routes.validate_config({})["pipeline"]["message"]
+
+    assert mensaje is not None
+    assert "FALTA-DATO-IFRS-4" not in mensaje
+    assert "EAD comprometida" in mensaje
+
+
+def test_un_fallo_inesperado_no_publica_su_detalle_interno(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Lo que no es accionable por quien configura no se publica crudo (D-ERR-5)."""
+    from nikodym import api as api_module
+
+    monkeypatch.setattr(
+        routes.nikodym,
+        "check_pipeline",
+        lambda _config: api_module.PipelineCheck(
+            executable=False,
+            message="AttributeError: 'NoneType' object has no attribute '_frame'",
+            error_type="AttributeError",
+            is_domain_error=False,
+        ),
+    )
+
+    mensaje = routes.validate_config({})["pipeline"]["message"]
+
+    assert mensaje is not None
+    assert "_frame" not in mensaje
+    assert "AttributeError" in mensaje
 
 
 def test_datasets_payload_es_el_catalogo() -> None:

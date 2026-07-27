@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
     from nikodym.core.study import Study
 
-__all__ = ["dump_dto", "serialize_study", "to_records"]
+__all__ = ["dump_dto", "public_engine_message", "serialize_study", "to_records"]
 
 # Mapa canónico dominio → clave de su *card* en ``study.artifacts``. La clave NO es uniforme:
 # binning/selection/model usan ``"<dom>_card"``; scorecard/calibration/performance/stability usan
@@ -75,6 +75,28 @@ _FAILURE_MESSAGE = (
 )
 
 
+def public_engine_message(message: str, *, error_type: str | None, is_domain_error: bool) -> str:
+    """Convierte el diagnóstico de una excepción del motor en copy publicable (D-ERR-4/D-ERR-5).
+
+    La **regla** es una sola para las dos superficies que publican un fallo del motor —el panel de
+    resultados de una corrida fallida y el aviso de config inejecutable del formulario (D-PIPE-5)—,
+    porque duplicarla es lo que permitiría que una de las dos empiece a filtrar códigos internos
+    sin que nadie se entere. El **texto** de reserva sí es propio de cada superficie: una corrida
+    fallida puede remitir al model card y al lineage, y un config inejecutable no tiene ninguno.
+
+    Un error de dominio se publica con el texto que escribió el motor, **sin** el código de la
+    marca cuando lo trae al frente: el código es el dato en superficie de código, no en el idioma
+    del lector. Lo que no es error de dominio no se publica crudo —su texto es detalle interno— y
+    se sustituye por una nota que nombra el tipo y dice dónde vive el detalle técnico.
+    """
+    if not is_domain_error:
+        return (
+            f"El motor falló con un error inesperado ({error_type or 'sin tipo'}); su detalle "
+            "técnico no es información de configuración y vive en el log del servidor."
+        )
+    return strip_declared_codes(message)
+
+
 def _failure_message(study: Study) -> str:
     """Compone el mensaje de fallo que ve el usuario del panel de resultados (D-ERR-4/D-ERR-5).
 
@@ -92,7 +114,9 @@ def _failure_message(study: Study) -> str:
             f"{_FAILURE_MESSAGE} El fallo no fue un error de dominio sino uno inesperado "
             f"({error.type}); su detalle técnico vive en run_context.error."
         )
-    saneado = strip_declared_codes(error.message)
+    # El saneo lo posee ``public_engine_message`` (misma regla que el aviso del formulario): aquí
+    # sólo se decide el encabezado, que sí es propio del panel de una corrida.
+    saneado = public_engine_message(error.message, error_type=error.type, is_domain_error=True)
     if error.step is not None:
         return f"El paso '{error.step}' falló: {saneado}"
     return saneado

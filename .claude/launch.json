@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "web", "dev", "--mode", "demo", "--port", "5199"],
       "port": 5199
+    },
+    {
+      "name": "ui-instalable",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "nikodym.ui", "--port", "5210", "--no-open"],
+      "port": 5210
     }
   ]
 }
