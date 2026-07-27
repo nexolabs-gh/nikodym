@@ -9,7 +9,22 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-26)
+## Estado del proyecto (2026-07-27)
+
+**`main` = `cf217a2`, CI verde 16/16, sin publicar** (PyPI sigue en `1.6.0`). La sesión del
+2026-07-27 entregó el **núcleo técnico de la paridad UI↔código en provisiones**: el formulario del UI
+instalable pasó de 7 secciones a **12** —entran `survival` y las cuatro de `provisioning*`—, más tres
+gates que antes no existían (staleness del fixture del schema, cobertura del vocabulario de widgets,
+y el estado que deja una corrida fallida). **No cierra ningún nodo de B2**, cuyo criterio exige PyPI
+más un tercero sin checkout; es trabajo del requisito 1 de la visión, que atraviesa el bloque.
+
+Probar ese formulario recién abierto destapó un defecto **del núcleo** que 4.451 tests verdes no
+veían: un config inejecutable no dejaba rastro alguno y la UI respondía un HTTP 500, pese a que el
+motor produce ahí un diagnóstico exacto. Cerrado con
+[`_ENMIENDA-RUN-ERROR-RESOLUCION.md`](design/_ENMIENDA-RUN-ERROR-RESOLUCION.md) (D-ERR-8…D-ERR-11).
+Detalle operativo y las cuatro reglas para tocar el formulario: `CLAUDE.md` §«Lo último».
+
+## Estado publicado (2026-07-26)
 PyPI publica **`1.6.0`** (tag `v1.6.0` sobre `86e121b`, 2026-07-26, con OK explícito de Cami); el
 tag `v1.5.0` apunta al cierre del bloque B1 (el SHA vigente de `main` queda en `HANDOFF.md`). El
 paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es estable bajo SemVer

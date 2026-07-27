@@ -85,6 +85,39 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 ### B2 · La UI instalable y usable  ← *requisito de producto*
 
 **Estado: B2 total ABIERTO; B2.0 CERRADO; B2.1 CERRADO (2026-07-24); B2.2 CERRADO (2026-07-24).**
+
+> **Paridad UI↔código en provisiones: el núcleo técnico entregado el 2026-07-27** (`cf217a2`, CI
+> verde 16/16). **NO cierra B2.3 ni ningún nodo del DAG** —B2.3 es el extra `[ui]`, uploads y
+> presets— y menos B2 total, cuyo criterio exige PyPI + un tercero sin checkout. Es trabajo del
+> **requisito 1 de la visión**, que atraviesa el bloque sin ser un nodo suyo.
+>
+> El formulario pasa de **7 secciones a 12**: entran `survival`, `provisioning_cmf`,
+> `provisioning_internal`, `provisioning_ifrs9` y `provisioning`. El backend ya las mandaba
+> expandidas; era el front el que las descartaba con una whitelist duplicada en dos archivos. Cuatro
+> cosas que conviene no re-aprender:
+>
+> - **Empotrar una sección de dominio le borraba la nulabilidad.** Son campos `Any` con
+>   `default=None`, así que `"default": null` era el ÚNICO portador —no hay `anyOf` que copiar— y
+>   `_empotrar_seccion` sustituía el nodo entero. Afectaba a las **12**, no sólo a provisiones: ni
+>   las 7 de F1 se podían apagar. Ahora se emite `anyOf: [<objeto>, {"type":"null"}]`, la misma
+>   gramática que Pydantic usa para un `X | None`. **`rama_objeto()` (`core/config/schema.py`) es el
+>   único sitio que conoce esa forma**; preguntarle `"properties"` a la raíz da falso negativo.
+> - **De los 20 literales de `ui_widget` que emite `src/`, el front conocía CUATRO.** El resto caía a
+>   la resolución por tipo, que acertaba por accidente en unos y fallaba callada en otros: `hidden`
+>   se renderizaba —`schema_version` como texto libre editable— y los `dict[str,X]` pintaban un
+>   fieldset vacío. Lo vigila `tests/unit/test_ui_widget_vocabulary.py`.
+> - **⚠️ Tocar un `description`/`ui_widget` de cualquier config obliga a regenerar
+>   `web/src/fixtures/schema.json` Y rebuildear el bundle** (`pnpm build:package`), porque el fixture
+>   viaja dentro del `.js` instalable. Lo exige `tests/unit/test_ui_schema_fixture.py` (gate G7, nace
+>   verde) más el gate de drift del CI.
+> - **El primer usuario del formulario destapó un defecto del núcleo**, no de la UI: ver el bloque
+>   de la enmienda RUN-ERROR-RESOLUCION en `docs/design/00-INDICE.md`. Abrir una superficie nueva
+>   permite armar estados que ningún preset produce.
+>
+> **Sigue fuera:** los 159 `ui_help` de esas cinco secciones (155 traen `description` publicable, que
+> el front usa de fallback), y validar el pipeline en `/api/validate` —avisaría «te falta survival»
+> mientras el usuario edita, en vez de al ejecutar, pero cambia el significado de «config válido»;
+> candidato explícito en la §3 de esa enmienda, sin decidir—.
 B2.2 se programó tras aprobar su enmienda
 ([`design/_ENMIENDA-B2.2.md`](design/_ENMIENDA-B2.2.md), fuente de verdad del nodo) y pasó dos rondas
 de revisión adversarial fresca —una sobre el diseño y otra sobre el código—. El cierre se declara
@@ -296,13 +329,15 @@ Se ejecuta en dos etapas con condiciones distintas:
      bloque; (b) el objetivo de fondo —que «provisiones» deje de significar Chile sin decirlo— ya se
      cumple donde el usuario lee: el informe titula «Método estándar de la CMF de Chile (Cap. B-1)»
      (`report/document.py:94-96`) y la landing rotula CMF como chileno; (c) hoy las secciones
-     `provisioning*` **no son editables por formulario** (`web/src/lib/schema.ts` sólo declara las 7
-     de F1), así que un selector iría encima de un formulario que no existe. Lo que sí quedó listo:
-     el régimen viaja en el resultado (`segmentation.regime`) y el registro expone su rótulo público,
-     de modo que cablearlo será una línea que lee del registro, no un rediseño.
-     ⚠️ **Ese hueco de formulario es el pendiente real de paridad UI↔código** (requisito 1 de la
-     visión) y es mayor que el selector: el motor de provisiones sólo se alcanza por preset o
-     subiendo un YAML.
+     `provisioning*` no eran editables por formulario, así que un selector iría encima de un
+     formulario que no existía. Lo que sí quedó listo: el régimen viaja en el resultado
+     (`segmentation.regime`) y el registro expone su rótulo público, de modo que cablearlo será una
+     línea que lee del registro, no un rediseño.
+     ✅ **La razón (c) CADUCÓ el 2026-07-27**: las cuatro secciones `provisioning*` y `survival` ya
+     son editables por formulario (`cf217a2`, ver §B2). El selector de régimen deja de estar
+     bloqueado por «no hay dónde ponerlo» y pasa a depender sólo de su razón (a) —un desplegable con
+     una sola opción no es una elección—, que sigue vigente mientras exista un único motor. Las
+     razones (a) y (b) no cambian.
    - **La recaptura de la demo**, que va una sola vez y al final (ver §5 de la enmienda).
      **Ejecutada el 2026-07-26** con el bloque B de CRP-6: bump a `1.6.0` y las tres capturas
      (F1, F3, F4) en patrón C-D.

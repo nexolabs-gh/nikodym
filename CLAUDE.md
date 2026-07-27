@@ -4,6 +4,39 @@
 
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
+>
+> ## Lo último (2026-07-27, `cf217a2`, CI verde 16/16, SIN publicar)
+>
+> **El formulario del UI instalable pasó de 7 secciones a 12**: entran `survival` y las cuatro de
+> `provisioning*`. Es el núcleo técnico de la paridad UI↔código (requisito 1), y **no cierra ningún
+> nodo de B2** —ver ROADMAP §B2, que lo dice con su criterio—. Cuatro reglas que hay que respetar al
+> tocar esto:
+>
+> 1. **Una sección de dominio viaja como `anyOf: [<objeto>, {"type":"null"}]`**, porque es apagable.
+>    `rama_objeto()` (`core/config/schema.py`) es el ÚNICO sitio que conoce esa forma; su espejo en
+>    el front es `configSectionSchema()` (`web/src/lib/schema.ts`). Preguntarle `"properties"` al
+>    nodo raíz da falso negativo y declara opaco lo que sí se expandió.
+> 2. **⚠️ Tocar un `description` o un `ui_widget` de cualquier config obliga a regenerar
+>    `web/src/fixtures/schema.json` (`scripts/gen_schema_fixture.py`) Y a rebuildear el bundle**
+>    (`pnpm build:package` desde `web/`), porque el fixture viaja dentro del `.js` instalable. Lo
+>    exigen el gate G7 (`tests/unit/test_ui_schema_fixture.py`) y el gate de drift del CI.
+> 3. **`ui_widget: "hidden"` no se renderiza**, y el vocabulario completo motor↔front lo vigila
+>    `tests/unit/test_ui_widget_vocabulary.py`. Conocía 4 de los 20 literales que emite `src/`.
+> 4. **El catálogo de secciones navegables vive UNA vez**, en `CONFIG_SECTIONS` de
+>    `web/src/lib/schema.ts`; los iconos se quedan en `App.tsx` para que `lib/` no importe React.
+>    `F1_SECTIONS` **no** es la lista de lo editable: es sólo la sonda de degradación del schema.
+>
+> **Y una lección de método que ya se pagó:** el primer usuario del formulario nuevo destapó un
+> defecto **del núcleo** que 4.451 tests y CI 16/16 no veían — un config inejecutable no dejaba
+> rastro (`status="created"`, `run_id=None`, `error=None`) y la UI devolvía un HTTP 500 opaco, aunque
+> el motor produce ahí un diagnóstico exacto. Vivía en el hueco que dejó la enmienda RUN-ERROR: su
+> manejo de fallo cubría la EJECUCIÓN de los pasos y no la RESOLUCIÓN del pipeline. Lo cierra
+> [`_ENMIENDA-RUN-ERROR-RESOLUCION.md`](docs/design/_ENMIENDA-RUN-ERROR-RESOLUCION.md)
+> (D-ERR-8…D-ERR-11). **Abrir una superficie de UI permite armar estados que ningún preset produce**,
+> y un test que sólo hace `pytest.raises` no verifica el estado que la excepción deja atrás.
+>
+> ---
+>
 > ✅ **`1.6.0` PUBLICADO en PyPI el 2026-07-26** (tag `v1.6.0` sobre `86e121b`, con OK explícito de
 > Cami). Cierra la enmienda del horizonte: **la term-structure transporta su unidad temporal** y
 > `ifrs9` convierte a años antes de descontar. Verificado instalando **desde PyPI**, no desde el
