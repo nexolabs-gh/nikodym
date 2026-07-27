@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from pydantic import ValidationError
 
 from nikodym.audit import AuditConfig, JsonlAuditSink
 from nikodym.core.audit import AuditSink, FanOutSink, NullAuditSink
@@ -20,7 +23,112 @@ from nikodym.governance import (
 from nikodym.tracking import MLflowInventory, TrackingConfig, TrackingRecorder, TrackingSink
 from nikodym.utils.optional import require_extra
 
-__all__ = ["assemble_run", "run"]
+__all__ = ["PipelineCheck", "assemble_run", "check_pipeline", "run"]
+
+
+@dataclass(frozen=True, slots=True)
+class PipelineCheck:
+    """Veredicto de ejecutabilidad de un config, sin correr nada (D-PIPE-2/D-PIPE-3).
+
+    ``steps`` trae los pasos en el orden en que correrían —útil por sí solo: es lo que el usuario
+    va a ejecutar—, y queda **vacío** si el config no es ejecutable, porque en ese caso no hay
+    pipeline que anunciar.
+
+    ``message`` guarda ``str(exc)`` **íntegro**, con el código de marca si el motor lo trae al
+    frente: esta es superficie de código, donde el código es el dato, igual que en
+    :class:`~nikodym.core.lineage.RunError`. El copy público lo sanea al publicarlo
+    (:func:`~nikodym.core.markers.strip_declared_codes`, D-ERR-4).
+
+    ``is_domain_error`` distingue el diagnóstico **accionable por quien configura** de una
+    excepción inesperada, cuyo texto puede ser detalle interno sin valor para quien usa el
+    formulario (mismo criterio que D-ERR-5).
+
+    Cubre dos familias, y el ``ValidationError`` no es un añadido cosmético: las secciones de
+    dominio son ``Any`` en el schema raíz, así que un valor fuera de rango dentro de ellas **no lo
+    caza** ``NikodymConfig.model_validate`` — lo caza la coacción que hace la resolución, y llega
+    aquí como ``ValidationError`` de Pydantic. Es el diagnóstico más accionable que produce esta
+    función (nombra el campo y la restricción); clasificarlo como «inesperado» lo habría ocultado
+    justo en el caso más común.
+    """
+
+    executable: bool
+    steps: tuple[str, ...] = ()
+    error_type: str | None = None
+    message: str | None = None
+    is_domain_error: bool = False
+
+
+def check_pipeline(config: NikodymConfig) -> PipelineCheck:
+    """Responde si ``config`` es ejecutable, **sin ejecutarlo**, y con qué pasos.
+
+    Envoltorio de producto de :meth:`~nikodym.core.study.Study.check_pipeline`: donde el primitivo
+    del núcleo re-levanta, esta función **captura y devuelve el veredicto**, igual que :func:`run`
+    frente a ``Study.run`` (D-UI-2). Sirve para avisar mientras se edita —el usuario sabe que le
+    falta encender una sección antes de apretar Ejecutar— y es la misma respuesta por código y por
+    interfaz (D-PIPE-3).
+
+    No ejecuta pasos, no lee el dataset, no monta sinks ni inventario y no deja rastro de corrida:
+    comprobar no es correr.
+
+    **Captura ``Exception``, no sólo ``NikodymError``.** Es deliberado y más amplio que :func:`run`:
+    una comprobación existe para informar, así que tumbar a quien la llama —el formulario la invoca
+    en cada tecleo— sería peor que cualquier fallo que quiera reportar. Un ``from_config`` de
+    dominio puede levantar algo que no es de la familia del motor; ``is_domain_error`` lo declara
+    en vez de disfrazarlo (D-PIPE-6).
+
+    Parameters
+    ----------
+    config : NikodymConfig
+        Config ya reconstruido. Que reconstruya es precondición, no resultado: la validez del
+        modelo Pydantic y la ejecutabilidad del pipeline son dos preguntas distintas (D-PIPE-1).
+
+    Returns
+    -------
+    PipelineCheck
+        ``executable=True`` + ``steps`` en orden, o ``executable=False`` + el diagnóstico del motor.
+    """
+    try:
+        pasos = Study(config).check_pipeline()
+    except ValidationError as exc:
+        return PipelineCheck(
+            executable=False,
+            error_type=type(exc).__name__,
+            message=_mensaje_de_validacion(exc),
+            is_domain_error=True,
+        )
+    # Captura amplia a propósito (ver docstring): informar nunca debe tumbar al llamante.
+    except Exception as exc:
+        return PipelineCheck(
+            executable=False,
+            error_type=type(exc).__name__,
+            message=str(exc),
+            is_domain_error=isinstance(exc, NikodymError),
+        )
+    return PipelineCheck(executable=True, steps=tuple(pasos))
+
+
+# Tope de errores citados en el mensaje: un config recién editado puede violar decenas de
+# restricciones a la vez, y volcarlas todas convierte el aviso en un muro. El mensaje DICE cuántas
+# omitió (nunca trunca en silencio) y el detalle íntegro sigue estando en el ValidationError.
+_MAX_ERRORES_CITADOS = 5
+
+
+def _mensaje_de_validacion(exc: ValidationError) -> str:
+    """Compacta un ``ValidationError`` de coacción a ``campo: restricción``, una por línea.
+
+    ``str(exc)`` es multilínea y arrastra ``[type=…, input_value=…]`` más una URL a la
+    documentación de Pydantic: legible para quien programa, ruido para quien edita un formulario.
+    Aquí se cita lo accionable —la ruta del campo y la restricción violada—; el objeto íntegro
+    sigue disponible para quien llame a la API por código.
+    """
+    errores = exc.errors()
+    lineas = [
+        f"{'.'.join(str(parte) for parte in error['loc'])}: {error['msg']}"
+        for error in errores[:_MAX_ERRORES_CITADOS]
+    ]
+    if len(errores) > _MAX_ERRORES_CITADOS:
+        lineas.append(f"(y {len(errores) - _MAX_ERRORES_CITADOS} problema(s) más)")
+    return " · ".join(lineas)
 
 
 def run(config: NikodymConfig) -> Study:

@@ -316,6 +316,34 @@ class Study:
         self._emit("run_end", None, {"run_id": run_id, "status": "done"})
         return self
 
+    def check_pipeline(self, steps: list[str] | None = None) -> list[str]:
+        """Resuelve y valida el pipeline **sin ejecutar nada**; devuelve los pasos en orden.
+
+        Responde la pregunta «¿este config se puede correr?» antes de correrlo, que es lo que
+        permite avisarlo mientras se edita en vez de al apretar Ejecutar (enmienda
+        VALIDACION-PIPELINE, D-PIPE-3). La capacidad vive aquí, en el núcleo, y no en la capa UI:
+        quien trabaja por código tiene la misma respuesta que quien usa el formulario, que es el
+        requisito de paridad.
+
+        Es *fail-loud* como :meth:`run`: un config inejecutable levanta el ``ConfigError`` del
+        motor con su diagnóstico. El envoltorio de producto que lo captura y devuelve un veredicto
+        inspeccionable es :func:`nikodym.check_pipeline`, igual que :func:`nikodym.run` frente a
+        :meth:`run` (D-UI-2).
+
+        **No toca el ``run_context``**: no asigna ``run_id``, no cambia ``status`` ni sella
+        ``finished_at``. Comprobar no es correr, y una comprobación no debe dejar rastro de corrida
+        en el audit-trail. Medido: es función del config, sin dataset, sin disco y sin efectos
+        observables (≤0,1 ms con los dominios ya importados).
+
+        El único efecto es el de :meth:`_resolve_steps`: importa perezosamente los dominios activos
+        y coacciona los sub-configs opacos a su clase real, exactamente como haría :meth:`run`. Es
+        idempotente y no altera el ``config_hash``.
+        """
+        nombres = steps if steps is not None else self.config.run.steps
+        pasos = self._resolve_steps(nombres)
+        self._validate_pipeline(pasos)
+        return [paso.name for paso in pasos]
+
     def _registrar_fallo(self, exc: Exception, *, paso: Step | None, run_id: str) -> None:
         """Deja el rastro de una corrida fallida en ``run_context`` y en el trail (D-ERR-10).
 
