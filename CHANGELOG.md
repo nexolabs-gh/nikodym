@@ -5,7 +5,7 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
-## [No publicado]
+## [1.7.0] — 2026-07-27
 
 ### Corregido
 
@@ -14,8 +14,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   provee la term-structure— el motor produce un diagnóstico exacto:
 
   ```
-  El paso 'provisioning_ifrs9' requiere ('survival', 'term_structure'),
-  que ningún paso aguas arriba produce: config inejecutable.
+  El paso 'provisioning_ifrs9' necesita 'term_structure', que produce 'survival',
+  y ningún paso anterior lo genera: active 'survival' antes de 'provisioning_ifrs9'
+  o quite este paso.
   ```
 
   Ese mensaje se perdía entero. La resolución del pipeline ocurría antes de que la corrida tuviera
@@ -52,7 +53,41 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   `default: null`, la misma forma que Pydantic emite para un `X | None`. Afectaba a **todas** las
   secciones, no sólo a las de provisiones.
 
+- **Lanzar la interfaz dentro de un clon del repositorio dejaba datos listos para commitear.**
+  `python -m nikodym.ui` crea su directorio de trabajo en el directorio actual, así que arrancarla
+  desde la raíz de un checkout dejaba sin vetar el parquet del dataset materializado y el
+  `results.json` de cada corrida. Sólo afecta a quien trabaja sobre el repositorio —no al paquete
+  instalado—, pero en un repositorio público es una fuga a un `git add` de distancia.
+
 ### Añadido
+
+- **El formulario de la interfaz pasa de 7 secciones a 12: entran survival y las cuatro de
+  provisiones.** Hasta ahora, quien instalaba la interfaz sólo podía configurar por formulario el
+  pipeline de scorecard; para calcular provisiones CMF o IFRS 9 había que escribir el config en
+  Python, aunque el motor ya las soportara. Ahora se editan desde la interfaz `survival`,
+  `provisioning_cmf`, `provisioning_internal`, `provisioning_ifrs9` y `provisioning`, con sus 178
+  campos, cada uno con el mismo tipo, rango y ayuda que declara el config.
+
+  El backend ya las enviaba completas: era el front el que las descartaba. En el camino, el
+  formulario deja de pintar la fontanería del config —`schema_version`, los discriminadores `type`
+  y otros 38 campos que el usuario no debe tocar— y aprende los 20 tipos de control que el motor
+  declara, de los que antes reconocía cuatro.
+
+- **La interfaz avisa que un config no se puede ejecutar mientras se edita, no al ejecutar.**
+  Activar `provisioning_ifrs9` sin `survival` produce un config que reconstruye perfectamente y que
+  el motor no puede correr. Antes eso se descubría apretando Ejecutar; ahora `POST /api/validate`
+  responde además un bloque `pipeline` con `executable`, los `steps` que correrían y, si no es
+  ejecutable, el diagnóstico del motor, que el formulario muestra en un aviso.
+
+  El aviso **no bloquea** la corrida: el motor sigue siendo la autoridad y registra el intento
+  fallido con su diagnóstico, su `run_id` y su lineage.
+
+- **`nikodym.check_pipeline(config)`: responde si un config es ejecutable sin ejecutarlo.** La misma
+  respuesta que obtiene la interfaz, disponible por código —devuelve `executable`, los pasos en el
+  orden en que correrían y el diagnóstico si no es ejecutable—, para que trabajar por código y por
+  interfaz no den información distinta. No lee el dataset, no monta sumideros de auditoría ni
+  inventario, y no deja rastro de corrida: comprobar no es correr. El primitivo del núcleo
+  equivalente es `Study.check_pipeline()`, que re-levanta en vez de capturar.
 
 - **Gate de staleness del fixture del schema del front.** `web/src/fixtures/schema.json` lo genera
   `scripts/gen_schema_fixture.py`, pero nada comprobaba que se hubiera corrido —y ya se había

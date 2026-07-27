@@ -10,7 +10,7 @@ pública de alto nivel (`run`, `check_pipeline`, `assemble_run`) se re-exporta d
 
 from typing import TYPE_CHECKING, Any
 
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 __all__ = ["PipelineCheck", "__version__", "assemble_run", "check_pipeline", "run"]
 
