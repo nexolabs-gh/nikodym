@@ -34,7 +34,15 @@ export interface LoadedSchema {
   error?: string
 }
 
-/** Secciones del flujo F1 que el form de B23.4b renderiza. */
+/**
+ * Sonda de degradación del schema: si NINGUNA de estas llegara con campos, es que el backend
+ * respondió con los dominios opacos y hay que caer al snapshot.
+ *
+ * NO es la lista de secciones que el formulario edita — eso lo decide `configSectionSchema`
+ * preguntándole al schema cargado, no una whitelist. Lo fue hasta que provisiones y survival
+ * entraron al formulario, y confundir ambas cosas es lo que las mantuvo fuera: el backend las
+ * mandaba expandidas y el front las descartaba.
+ */
 export const F1_SECTIONS = [
   "data",
   "binning",
@@ -57,10 +65,35 @@ export function isRenderableSection(schema: JsonSchema | undefined): boolean {
   )
 }
 
-/** ¿El backend expandió las secciones F1, o llegaron opacas? */
+/**
+ * Rama con campos de una sección de dominio, o `null` si llegó opaca (extra no instalado).
+ *
+ * Una sección expandida es APAGABLE, así que el backend la emite como
+ * `anyOf: [<objeto>, {"type": "null"}]` con `default: null` — la misma gramática que Pydantic usa
+ * para un `X | None`. Espejo de `rama_objeto` en `core/config/schema.py`, que es donde vive el
+ * contrato; aquí se replica porque el `tsconfig` no puede leer Python (mismo motivo que
+ * `markers.ts`). `nullable` dice si la sección declara su rama nula, o sea si el formulario puede
+ * ofrecer apagarla.
+ */
+export function configSectionSchema(
+  payload: SchemaPayload,
+  section: string,
+): { schema: JsonSchema; nullable: boolean } | null {
+  const raw = (payload.json_schema.properties ?? {})[section]
+  if (!raw) return null
+  const variants = raw.anyOf ?? raw.oneOf
+  if (variants) {
+    const branch = variants.find((v) => v.type !== "null")
+    const nullable = variants.some((v) => v.type === "null")
+    if (!branch || !isRenderableSection(branch)) return null
+    return { schema: branch, nullable }
+  }
+  return isRenderableSection(raw) ? { schema: raw, nullable: false } : null
+}
+
+/** ¿El backend expandió las secciones, o llegaron opacas? */
 export function f1SectionsRenderable(payload: SchemaPayload): boolean {
-  const props = payload.json_schema.properties ?? {}
-  return F1_SECTIONS.some((section) => isRenderableSection(props[section]))
+  return F1_SECTIONS.some((section) => configSectionSchema(payload, section) !== null)
 }
 
 /** Fetch crudo de `GET /api/schema` (lanza en error de red/HTTP). */

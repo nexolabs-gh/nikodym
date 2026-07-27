@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from nikodym.core.config.schema import rama_objeto
 from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
 from nikodym.ui.routes import schema_payload
 
@@ -33,14 +34,19 @@ def main() -> None:
     """Escribe el fixture con el schema, los defaults y el orden de secciones actuales."""
     payload = schema_payload()
     # Solo se vigilan los dominios COMPUTACIONALES: son los que la UI edita y los únicos que
-    # `build_full_json_schema` expande. Si uno sale sin `properties`, es que su extra no está
-    # instalado y el fixture saldría degradado. (Las secciones INFRA —audit, governance, tracking—
-    # y los escalares —name, schema_version— nunca se expanden: no son un problema.)
+    # `build_full_json_schema` expande. Si uno sale opaco, es que su extra no está instalado y el
+    # fixture saldría degradado. (Las secciones INFRA —audit, governance, tracking— y los escalares
+    # —name, schema_version— nunca se expanden: no son un problema.)
+    #
+    # La opacidad se pregunta con `rama_objeto` y NO con `.get("properties")`: una sección expandida
+    # es apagable, y por eso viaja como `anyOf: [<objeto>, {"type": "null"}]`. Preguntar por
+    # `properties` en la raíz declararía opacos los 29 dominios y abortaría con el fixture correcto.
     propiedades = payload["json_schema"]["properties"]
     opacas = [
         dominio
         for dominio in _DOMAIN_CONFIG_CLASSES
-        if dominio in propiedades and not propiedades[dominio].get("properties")
+        if dominio in propiedades
+        and not (rama_objeto(propiedades[dominio]) or {}).get("properties")
     ]
     if opacas:
         print(f"⚠️  Dominios OPACOS (falta su extra): {opacas}")

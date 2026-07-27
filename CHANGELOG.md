@@ -20,6 +20,25 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   artefacto del motor desde `1.6.0`. Es un campo nuevo, aditivo: nada de lo que había cambia de
   significado ni de valor.
 
+- **Una sección de configuración no se podía apagar desde el formulario.** El schema compuesto que
+  sirve `GET /api/schema` perdía la nulabilidad de cada sección de dominio: las secciones son
+  campos `Any` con `default=None`, y al empotrar el sub-schema se sustituía el nodo entero,
+  llevándose el `"default": null` que era su único portador. El compuesto acababa declarando
+  `type: "object"` + `required`, o sea lo contrario de la verdad — el mismo payload trae todas las
+  secciones en `null` en sus `defaults`.
+
+  Ahora cada sección expandida viaja como `anyOf: [<objeto>, {"type": "null"}]` con
+  `default: null`, la misma forma que Pydantic emite para un `X | None`. Afectaba a **todas** las
+  secciones, no sólo a las de provisiones.
+
+### Añadido
+
+- **Gate de staleness del fixture del schema del front.** `web/src/fixtures/schema.json` lo genera
+  `scripts/gen_schema_fixture.py`, pero nada comprobaba que se hubiera corrido —y ya se había
+  desincronizado en silencio una vez, publicando en la demo un encuadre normativo que el código
+  había corregido—. `tests/unit/test_ui_schema_fixture.py` lo compara ahora con el payload vivo en
+  cada corrida de la suite, tolerando los dominios cuyo extra no esté instalado.
+
 ## [1.6.0] — 2026-07-26
 
 ### Corregido

@@ -22,6 +22,7 @@ from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 
 from nikodym.core.config import NikodymConfig, ReproConfig, config_hash, dump_config, loads_config
 from nikodym.core.config.migration import _MIGRATORS, migration
+from nikodym.core.config.schema import rama_objeto
 from nikodym.core.exceptions import ConfigError
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui import routes
@@ -42,17 +43,30 @@ def test_schema_payload_shape() -> None:
 
 
 def test_schema_payload_expande_dominios_f1() -> None:
-    """``/schema`` entrega el schema COMPLETO: secciones F1 con ``properties`` (no opacas).
+    """``/schema`` entrega el schema COMPLETO: secciones F1 expandidas y apagables (no opacas).
 
     Con el extra ``scoring`` instalado (job del CI), el motor de formulario del front recibe los
     campos reales de cada sección de dominio F1, no el schema opaco. La materialización vive en el
     core (``build_full_json_schema``); ``nikodym.ui`` sigue domain-agnostic (ver test AST abajo).
+
+    Se comprueban las DOS mitades del contrato, porque la sección viaja como
+    ``anyOf: [<objeto>, {"type": "null"}]``: que la rama-objeto trae los campos, y que la rama nula
+    está — sin ella el formulario no puede apagar la sección, que es la mitad que se perdía.
     """
     payload = routes.schema_payload()
     props = payload["json_schema"]["properties"]
-    assert "properties" in props["binning"], "binning llegó opaca al front"
-    for seccion in ("data", "selection", "model", "scorecard", "calibration", "performance"):
-        assert "properties" in props[seccion], f"{seccion} llegó opaca"
+    for seccion in (
+        "data",
+        "binning",
+        "selection",
+        "model",
+        "scorecard",
+        "calibration",
+        "performance",
+    ):
+        rama = rama_objeto(props[seccion])
+        assert rama is not None and "properties" in rama, f"{seccion} llegó opaca al front"
+        assert props[seccion]["default"] is None, f"{seccion} llegó sin poder apagarse"
     assert len(payload["json_schema"]["$defs"]) > 2  # opaco traía 2 (ReproConfig/RunConfig)
 
 

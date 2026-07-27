@@ -1199,6 +1199,31 @@ def _prefixar_refs(nodo: Any, prefijo: str) -> Any:
     return nodo
 
 
+#: Centinela para distinguir «no declaró ``default``» de «declaró ``default: None``». La diferencia
+#: es justo la que decide si la sección se puede apagar, así que un ``.get(..., None)`` no sirve.
+_SIN_DEFAULT: Any = object()
+
+
+def rama_objeto(nodo: Any) -> dict[str, Any] | None:
+    """La rama con campos de un nodo de sección, o ``None`` si la sección quedó **opaca**.
+
+    Una sección de dominio expandida se emite como ``anyOf: [<objeto>, {"type": "null"}]`` porque
+    es apagable (ver :func:`_empotrar_seccion`), así que preguntarle ``"properties" in nodo`` —lo
+    que hacía todo consumidor antes de la unión— da falso negativo y declara opaco lo que sí se
+    expandió. Este helper es el ÚNICO lugar que conoce la forma: lo consumen el generador del
+    fixture del front y los tests, para que un cambio de representación se pague una sola vez.
+
+    Devuelve ``None`` para un nodo opaco (el que Pydantic emite para un campo ``Any``: sólo
+    ``default``/``title``/``description``) y para cualquier cosa que no sea un ``dict``.
+    """
+    if not isinstance(nodo, dict):
+        return None
+    for variante in nodo.get("anyOf", ()):
+        if isinstance(variante, dict) and variante.get("type") != "null":
+            return variante
+    return nodo if "properties" in nodo else None
+
+
 def _empotrar_seccion(
     props: dict[str, Any],
     defs: dict[str, Any],
@@ -1210,6 +1235,20 @@ def _empotrar_seccion(
     Prefija/hoistea los ``$defs`` del sub-config (evita colisiones entre dominios) y conserva el
     ``title``/``description`` de la sección raíz (las etiquetas que ve la UI). Muta ``props`` y
     ``defs`` del schema raíz (una copia; nunca el schema cacheado de ``NikodymConfig``).
+
+    **Conserva también la nulabilidad de la sección**, que es lo que permite apagarla desde el
+    formulario. Las secciones de dominio son campos ``Any`` con ``default=None``, y como el tipo es
+    ``Any`` no hay ``anyOf`` que copiar: ``"default": null`` es el ÚNICO portador de esa
+    información en el schema raíz. Sustituir el nodo entero por el sub-schema —lo que se hacía
+    hasta ahora— la borraba, y el compuesto acababa declarando ``type: "object"`` + ``required``,
+    o sea lo contrario de la verdad: el mismo payload trae la sección en ``null`` en sus
+    ``defaults``.
+
+    Se emite ``anyOf: [<objeto>, {"type": "null"}]`` con ``default: null`` fuera, que es
+    exactamente la forma en que Pydantic emite un ``X | None``. Una sola gramática de nulabilidad
+    en todo el documento: la alternativa —dejar ``default: null`` sobre un nodo ``type: "object"``
+    con ``additionalProperties: false``— es un nodo auto-contradictorio, que declara un default que
+    viola su propio tipo.
     """
     prefijo = f"{nombre}__"
     sub_defs = sub_schema.pop("$defs", {})
@@ -1217,11 +1256,17 @@ def _empotrar_seccion(
     for def_nombre, def_schema in sub_defs.items():
         defs[prefijo + def_nombre] = _prefixar_refs(def_schema, prefijo)
     seccion_raiz = props.get(nombre, {})
+    default = seccion_raiz.get("default", _SIN_DEFAULT)
+    nodo: dict[str, Any] = (
+        {"anyOf": [sub_schema, {"type": "null"}], "default": None}
+        if default is None
+        else sub_schema
+    )
     if "title" in seccion_raiz:
-        sub_schema["title"] = seccion_raiz["title"]
+        nodo["title"] = seccion_raiz["title"]
     if "description" in seccion_raiz:
-        sub_schema["description"] = seccion_raiz["description"]
-    props[nombre] = sub_schema
+        nodo["description"] = seccion_raiz["description"]
+    props[nombre] = nodo
 
 
 def build_full_json_schema() -> dict[str, Any]:

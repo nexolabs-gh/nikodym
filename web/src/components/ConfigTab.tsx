@@ -30,11 +30,7 @@ import {
   groupedFields,
   resolveRef,
 } from "@/lib/form-engine"
-import {
-  F1_SECTIONS,
-  type SchemaSource,
-  isRenderableSection,
-} from "@/lib/schema"
+import { type SchemaSource, configSectionSchema } from "@/lib/schema"
 import { type ValidationState, describeApiError } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 
@@ -344,14 +340,16 @@ export function ConfigTab({ section }: { section: string }) {
   }
 
   const { payload, source, error } = schema
-  const properties = payload.json_schema.properties ?? {}
   const defs = payload.json_schema.$defs ?? {}
-  // Solo la sección activa (elegida en el sidebar); si el schema no la trae renderable, se avisa.
-  const rawSection = properties[section]
-  const sectionRenderable =
-    (F1_SECTIONS as readonly string[]).includes(section) &&
-    isRenderableSection(rawSection)
-  const resolvedSection = sectionRenderable ? resolveRef(rawSection, defs) : null
+  // Solo la sección activa (elegida en el sidebar). La pregunta es «¿el schema cargado trae un
+  // formulario para esta clave?», NO «¿está en una lista de siete?»: el filtro por whitelist es lo
+  // que mantenía provisiones y survival fuera del formulario aunque el backend las mandara
+  // expandidas. Así el aviso de abajo recupera su propósito real: sección opaca por extra ausente.
+  const sectionEntry = configSectionSchema(payload, section)
+  const sectionRenderable = sectionEntry !== null
+  const resolvedSection = sectionEntry
+    ? resolveRef(sectionEntry.schema, defs)
+    : null
   const banner = SOURCE_BANNER[source]
   const errorLookup =
     validation.kind === "invalid" ? validation.lookup : undefined
