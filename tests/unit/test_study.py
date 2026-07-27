@@ -275,7 +275,11 @@ def test_el_config_inejecutable_deja_el_diagnostico_igual_que_un_fallo_de_paso()
     assert ctx.finished_at is not None
     assert ctx.error is not None
     assert ctx.error.type == "ConfigError"
-    assert "inejecutable" in ctx.error.message
+    # El diagnóstico se verifica por lo ACCIONABLE que dice —qué paso, qué le falta y qué
+    # hacer—, no por una palabra suelta: el texto viaja al aviso del formulario y debe poder
+    # mejorarse como copy sin romper este test.
+    assert "necesita" in ctx.error.message
+    assert "active" in ctx.error.message
     # D-ERR-11: no hay paso en curso, y eso es información — el problema está en el config, no en
     # los datos. Un fallo DENTRO de un paso sí lo nombra (ver el test de arriba, step="boom").
     assert ctx.error.step is None
@@ -401,7 +405,7 @@ def test_ct1_pre_run_global_sin_proveedor() -> None:
         requires: tuple = (("up", "k"),)
         provides: tuple = ()
 
-    with pytest.raises(ConfigError, match="inejecutable"):
+    with pytest.raises(ConfigError, match=r"'c'.*'k'.*'up'"):
         study._validate_pipeline([_Consumidor()])
 
 
@@ -923,3 +927,39 @@ def test_save_apartado_respaldo_falla(monkeypatch: pytest.MonkeyPatch, tmp_path:
     with pytest.raises(RuntimeError, match="crash al apartar"):
         study.save(destino)
     assert (destino / "config.yaml").read_text(encoding="utf-8") == original
+
+
+def test_el_lineage_congela_el_hash_del_config_ya_coaccionado(tmp_path: Path) -> None:
+    """Regresión: el lineage no puede guardar un ``config_hash`` que ``save()`` contradiga.
+
+    ``_resolve_steps`` **coacciona** las secciones de dominio que llegan opacas, y esa coacción
+    materializa los defaults que el dict no traía — o sea, cambia el ``config_hash``. Mientras el
+    lineage se construyó ANTES de resolver, guardaba el hash del config opaco y ``config.yaml`` el
+    del coaccionado, así que ``Study.load()`` rechazaba con ``ReproducibilityError`` un estudio que
+    esa misma versión acababa de guardar.
+
+    Dos detalles del montaje, y ninguno es cosmético:
+
+    - La sección se fuerza a dict con ``model_copy`` en vez de pasarla al constructor, porque el
+      validador de la raíz la coacciona **si la capa ya está importada**. Dentro de la suite lo
+      está, así que un montaje "natural" tapa el defecto — y por eso ningún test lo cazó.
+    - Se omite un campo con default (``missing``), que es lo que distingue a un YAML escrito a mano
+      de un preset: los presets escriben todos los campos explícitos y por eso tampoco lo destapan.
+
+    La corrida falla al ejecutar (no hay fuente de datos) y da igual: lo que se verifica es el
+    estado que deja, no la excepción.
+    """
+    from nikodym.data.config import DataConfig
+
+    tipado = NikodymConfig.model_validate({"data": _minimal_data_dict()})
+    crudo = DataConfig.model_validate(tipado.data).model_dump(mode="json", by_alias=True)
+    del crudo["missing"]
+    opaco = tipado.model_copy(update={"data": crudo})
+    assert isinstance(opaco.data, dict), "precondición: la sección debe llegar OPACA"
+
+    study = Study(opaco)
+    with pytest.raises(Exception):  # noqa: B017 - el fallo del paso es irrelevante aquí
+        study.run(steps=["data"])
+
+    assert study.run_context.lineage is not None, "D-ERR-8: el lineage se cuelga aunque falle"
+    assert study.run_context.lineage.config_hash == config_hash(study.config)

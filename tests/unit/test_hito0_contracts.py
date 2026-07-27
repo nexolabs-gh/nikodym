@@ -241,7 +241,10 @@ def test_hito0_ct1_step_dummy_fan_in_faltante_falla_pre_run(
     steps = [_BinningProvider(), fan_in_step]
     monkeypatch.setattr(study, "_resolve_steps", lambda nombres: steps)
 
-    with pytest.raises(ConfigError, match=r"calibration.*pd_curve.*inejecutable"):
+    # El diagnóstico nombra el artefacto que falta y el dominio que lo produce, en ese orden
+    # ("necesita 'pd_curve', que produce 'calibration'"): lo que CT-1 exige es que ambos aparezcan,
+    # no una redacción concreta.
+    with pytest.raises(ConfigError, match=r"pd_curve.*calibration"):
         study.run(steps=["binning", "ifrs9"])
 
     # Lo que CT-1 garantiza —y no cambió—: el fan-in no se ejecuta y no se materializa artefacto.

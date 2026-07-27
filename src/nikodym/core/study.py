@@ -221,14 +221,28 @@ class Study:
     El ``config`` es inmutable: su identidad se ancla al ``config_hash``.
     """
 
-    def __init__(self, config: NikodymConfig, *, name: str | None = None) -> None:
+    def __init__(
+        self,
+        config: NikodymConfig,
+        *,
+        name: str | None = None,
+        apply_global_seed: bool = True,
+    ) -> None:
         if name is not None:
             # El config es frozen: un override de nombre construye un config nuevo (name es INFRA,
             # no entra al config_hash, así que no altera la identidad de la corrida).
             config = config.model_copy(update={"name": name})
         self.config = config
         self.seed_manager = SeedManager(config.repro.seed)
-        self.seed_manager.apply_global()
+        # `apply_global_seed=False` es para INSPECCIONAR un config sin correrlo (lo usa
+        # `nikodym.check_pipeline`, que el formulario invoca en cada tecleo). Sembrar es un efecto
+        # de PROCESO, no del objeto: `apply_global` resetea el `random` global y fija el hint
+        # `PYTHONHASHSEED` que heredan los subprocesos —y lo fija SÓLO la primera vez—. Con la
+        # comprobación sembrando, ese hint quedaba anclado a la semilla del config que se estaba
+        # EDITANDO, no a la de la corrida que después se ejecuta: justo el no-determinismo
+        # silencioso que SDD-01 §9 existe para evitar. Medido.
+        if apply_global_seed:
+            self.seed_manager.apply_global()
         self._audit: AuditSink = NullAuditSink()
         self.artifacts = ArtifactStore(audit=self._audit)
         self.results: dict[str, Any] = {}
@@ -278,12 +292,9 @@ class Study:
         self.run_context.started_at = datetime.now(UTC)
         self.run_context.status = "running"
         # Secuencia del SDD-01 §7.3 paso 2: status="running" → emitir run_start → iniciar el
-        # LineageBundle. El bundle se cuelga del run_context ANTES del bucle de pasos, de modo que
-        # invariante post-run (§6) se cumple también si la corrida falla: la evidencia (config_hash,
-        # git_sha, versiones) no se pierde justo en el caso que más interesa auditar. En F0
-        # ``data_hash`` queda None; en B2+ lo completa el paso de datos antes de cerrar.
+        # LineageBundle. En F0 ``data_hash`` queda None; en B2+ lo completa el paso de datos antes
+        # de cerrar.
         self._emit("run_start", None, {"run_id": run_id, "name": self.config.name})
-        self.run_context.lineage = self._build_lineage()
 
         # La RESOLUCIÓN del pipeline va después del `run_id` y bajo el mismo registro de fallo que
         # la ejecución (D-ERR-8/D-ERR-9). Estaba antes, y sin `try`: un config inejecutable dejaba
@@ -300,6 +311,22 @@ class Study:
             # inejecutable ANTES del primero, y eso le dice al lector dónde mirar.
             self._registrar_fallo(exc, paso=None, run_id=run_id)
             raise
+        finally:
+            # ⚠️ EL LINEAGE SE CONGELA DESPUÉS DE RESOLVER, y el `finally` es lo que mantiene la
+            # garantía de D-ERR-8: se cuelga igual si la resolución falla, así que la evidencia
+            # (config_hash, git_sha, versiones) no se pierde justo en el caso que más interesa
+            # auditar.
+            #
+            # Construirlo ANTES de resolver —como quedó al implementar D-ERR-9— congelaba un
+            # `config_hash` que el propio `save()` luego contradecía: `_resolve_steps` COACCIONA las
+            # secciones de dominio que llegan opacas (`_coerce_domain_config` hace un `model_copy`),
+            # y esa coacción materializa los defaults que el YAML no traía. El lineage guardaba el
+            # hash del config opaco y el `config.yaml` el del coaccionado, así que `Study.load()`
+            # rechazaba con `ReproducibilityError` un estudio que esta misma versión acababa
+            # de guardar. Medido con un config cargado de YAML al que le falta un campo con default
+            # —el caso de quien lo escribe a mano—; no se ve con los presets, que escriben todos los
+            # campos explícitos, ni con un config construido en Python, que ya llega tipado.
+            self.run_context.lineage = self._build_lineage()
 
         # El paso en curso se rastrea fuera del try para poder nombrarlo en el rastro del fallo:
         # sin él, "falló la corrida" no dice en qué etapa del pipeline (enmienda RUN-ERROR, D-ERR-2)
@@ -332,12 +359,18 @@ class Study:
 
         **No toca el ``run_context``**: no asigna ``run_id``, no cambia ``status`` ni sella
         ``finished_at``. Comprobar no es correr, y una comprobación no debe dejar rastro de corrida
-        en el audit-trail. Medido: es función del config, sin dataset, sin disco y sin efectos
-        observables (≤0,1 ms con los dominios ya importados).
+        en el audit-trail. No lee el dataset ni escribe en disco, y cuesta ≤0,1 ms con los dominios
+        ya importados (la primera llamada del proceso paga sus imports perezosos, ~1-3 s).
 
-        El único efecto es el de :meth:`_resolve_steps`: importa perezosamente los dominios activos
-        y coacciona los sub-configs opacos a su clase real, exactamente como haría :meth:`run`. Es
-        idempotente y no altera el ``config_hash``.
+        **Sí tiene un efecto, y no es cosmético:** :meth:`_resolve_steps` coacciona los sub-configs
+        opacos a su clase real, exactamente como haría :meth:`run`, y esa coacción materializa los
+        defaults que un config cargado de YAML no traía — con lo que **el ``config_hash`` de este
+        ``Study`` puede cambiar**. Es convergente (coaccionar dos veces da lo mismo) y deja el
+        config en el estado que tendría al correr, así que una corrida posterior sobre el mismo
+        ``Study`` es consistente; pero quien compare hashes alrededor de esta llamada debe saberlo.
+
+        Lo que **no** hace es sembrar los RNG del proceso cuando el ``Study`` se construyó con
+        ``apply_global_seed=False``, que es como lo hace :func:`nikodym.check_pipeline`.
         """
         nombres = steps if steps is not None else self.config.run.steps
         pasos = self._resolve_steps(nombres)
@@ -467,11 +500,16 @@ class Study:
         """
         disponibles: set[ArtifactKey] = set(self.artifacts.keys())
         for paso in pasos:
-            for clave in paso.requires:
-                if clave not in disponibles:
+            for dominio, clave in paso.requires:
+                if (dominio, clave) not in disponibles:
+                    # La clave se redacta, no se interpola cruda: este mensaje viaja al aviso del
+                    # formulario, que es copy público, y ahí `('survival', 'term_structure')` es el
+                    # `repr` de una tupla de Python. El hermano `_check_prerequisites` ya lo hacía
+                    # así; tenerlos formateados distinto era la incoherencia, no una decisión.
                     raise ConfigError(
-                        f"El paso '{paso.name}' requiere {clave}, que ningún paso aguas arriba "
-                        "produce: config inejecutable."
+                        f"El paso '{paso.name}' necesita '{clave}', que produce '{dominio}', "
+                        f"y ningún paso anterior lo genera: active '{dominio}' antes de "
+                        f"'{paso.name}' o quite este paso."
                     )
             disponibles.update(paso.provides)
 
