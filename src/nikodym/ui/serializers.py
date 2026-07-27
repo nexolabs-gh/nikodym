@@ -362,11 +362,25 @@ def _ifrs9_staging_distribution(study: Study) -> list[dict[str, Any]] | None:
 
 
 def _ifrs9_ecl_curve(study: Study) -> list[dict[str, Any]] | None:
-    """Curva de ECL IFRS 9 por período (año), agregada desde ``ecl_term_structure``.
+    """Curva de ECL IFRS 9 por período, agregada desde ``ecl_term_structure``.
 
     Suma la ECL marginal por período y su acumulada, y publica la PD marginal ponderada por EAD y el
     factor de descuento medio de cada período. Agrega la term-structure larga por operación (que NO
     entra al payload por tamaño) a una curva de pocas filas. ``None`` si el artefacto falta.
+
+    **El período NO es un año** (D-HOR-0): es el índice de la grilla, y el instante que le
+    corresponde viaja en DOS columnas, igual que en el artefacto del motor (``ecl.py`` §columnas
+    canónicas). ``time_value`` es el instante CRUDO, en la unidad en que lo emitió el productor
+    de la term-structure —así la curva reconcilia fila a fila con la de ``survival``/``markov``—,
+    y ``time_value_years`` es el τ **convertido a años con el que se calculó**
+    ``discount_factor``. Publicar sólo el crudo dejaría un plazo que no reconstruye su propio
+    factor de descuento: con una curva mensual, ``DF ** (-1/time_value) - 1`` da 1,5 % donde la
+    EIR es 20 %.
+
+    ``time_unit`` (la etiqueta textual de la unidad) **no llega hasta aquí**: se consume en
+    ``engine._prepare_term_structure`` y no entra a las columnas canónicas de
+    ``ecl_term_structure``. Por eso el crudo viaja sin rótulo de unidad, y el cociente contra el
+    convertido es la única vía de deducirla desde el payload.
 
     **Semántica (importante para el front):** es el *runoff* de la ECL **LIFETIME de toda la
     cartera** (cada operación medida en TODO el horizonte, la forma de la term-structure), NO el
@@ -384,6 +398,7 @@ def _ifrs9_ecl_curve(study: Study) -> list[dict[str, Any]] | None:
         .groupby("period", as_index=False)
         .agg(
             time_value=("time_value", "first"),
+            time_value_years=("time_value_years", "first"),
             ecl_marginal=("ecl_marginal", "sum"),
             _pd_ead=("_pd_ead", "sum"),
             _ead=("ead", "sum"),
@@ -403,6 +418,7 @@ def _ifrs9_ecl_curve(study: Study) -> list[dict[str, Any]] | None:
         [
             "period",
             "time_value",
+            "time_value_years",
             "ecl_marginal",
             "ecl_cumulative",
             "pd_marginal_weighted",

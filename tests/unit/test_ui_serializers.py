@@ -315,6 +315,68 @@ def test_stability_augment_frames_ausentes_a_none() -> None:
     assert payload["stability"]["stability_metrics"] is None
 
 
+def test_ifrs9_ecl_curve_publica_el_plazo_con_el_que_descuenta() -> None:
+    """La curva publica el τ **en años** junto al crudo, para que el DF se verifique desde la tabla.
+
+    Curva declarada en MESES con EIR 20 % anual: ``time_value`` son 1, 2, 3 (meses) y el motor
+    descontó con ``time_value_years`` = 1/12, 2/12, 3/12. Es el único escenario que distingue las
+    dos columnas, y por eso este test **no puede** ser el del preset F4: ese declara
+    ``time_grid.time_unit="year"`` (``ui/presets.py``), luego ``time_value == time_value_years``
+    y ninguna assertion sobre la corrida real puede separarlas.
+
+    Antes de D-HOR-0 el serializer publicaba sólo el crudo, así que el lector de la tabla veía un
+    plazo que **no** reconstruye su propio factor de descuento: elevar con el crudo da 1,5 % donde
+    la EIR es 20 %. Esa es la assertion (3), y es la que fija el defecto.
+    """
+    eir = 0.20
+    meses = [1, 2, 3]
+    anios = [mes / 12.0 for mes in meses]
+    # Dos operaciones por período: el groupby agrega de verdad (``first`` sobre el plazo, media
+    # sobre el DF), no proyecta filas sueltas.
+    term_structure = pd.DataFrame(
+        {
+            "row_id": ["op-1", "op-2"] * 3,
+            "scenario": ["base"] * 6,
+            "period": [1, 1, 2, 2, 3, 3],
+            "time_value": [float(mes) for mes in meses for _ in range(2)],
+            "time_value_years": [tau for tau in anios for _ in range(2)],
+            "pd_marginal": [0.01, 0.03, 0.02, 0.04, 0.03, 0.05],
+            "lgd": [0.45] * 6,
+            "ead": [1_000.0, 3_000.0] * 3,
+            "discount_factor": [(1.0 + eir) ** -tau for tau in anios for _ in range(2)],
+            "ecl_marginal": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        }
+    )
+
+    class _ConTermStructure:
+        def has(self, domain: str, key: str) -> bool:
+            return (domain, key) == ("provisioning_ifrs9", "ecl_term_structure")
+
+        def get(self, domain: str, key: str) -> object:
+            return term_structure
+
+    study = SimpleNamespace(artifacts=_ConTermStructure())
+    curva = serializers._ifrs9_ecl_curve(study)  # type: ignore[arg-type]
+    assert curva is not None
+    assert len(curva) == 3
+
+    for fila, mes, tau in zip(curva, meses, anios, strict=True):
+        # (1) el plazo convertido viaja y es el que el motor usó para descontar.
+        assert fila["time_value_years"] == pytest.approx(tau, rel=1e-12)
+        # (2) con él, la EIR se reconstruye desde los propios números del payload.
+        eir_implicita = fila["discount_factor_mean"] ** (-1.0 / fila["time_value_years"]) - 1.0
+        assert eir_implicita == pytest.approx(eir, rel=1e-9)
+        # (3) con el crudo NO se reconstruye: las columnas no son intercambiables. Publicar sólo
+        #     ``time_value`` era publicar un plazo incoherente con su propio factor de descuento —
+        #     lo que sale es la tasa MENSUAL equivalente (1,52 %), no la EIR anual del 20 %.
+        eir_desde_crudo = fila["discount_factor_mean"] ** (-1.0 / fila["time_value"]) - 1.0
+        assert eir_desde_crudo == pytest.approx((1.0 + eir) ** (1.0 / 12.0) - 1.0, rel=1e-9)
+        assert eir_desde_crudo < eir / 10.0
+        # (4) el crudo sobrevive: es un campo NUEVO, no un renombre. La curva sigue reconciliando
+        #     fila a fila con la term-structure de survival/markov, que emite en la unidad cruda.
+        assert fila["time_value"] == float(mes)
+
+
 def test_frame_records_ausente_a_null_pero_inf_falla() -> None:
     """``_frame_records`` mapea ``NaN`` (ausente) a ``null``, pero un ``Inf`` genuino falla."""
     ausente = pd.DataFrame({"iv": [0.5, float("nan")], "feature": ["a", "b"]})
@@ -786,6 +848,7 @@ def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
     assert {
         "period",
         "time_value",
+        "time_value_years",
         "ecl_marginal",
         "ecl_cumulative",
         "pd_marginal_weighted",
@@ -796,6 +859,16 @@ def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
     for row in curve:
         assert 0.0 < row["discount_factor_mean"] <= 1.0
         assert 0.0 <= row["pd_marginal_weighted"] <= 1.0
+        # El preset declara ``time_grid.time_unit="year"``, así que aquí las dos columnas coinciden.
+        # Por eso esta corrida NO basta para probar la conversión, y existe además
+        # ``test_ifrs9_ecl_curve_publica_el_plazo_con_el_que_descuenta`` con una curva en meses.
+        assert row["time_value_years"] == pytest.approx(row["time_value"], rel=1e-12)
+        # El τ publicado reconstruye una EIR creíble desde los propios números de la tabla. El
+        # rango es ancho a propósito: ``discount_factor_mean`` es una MEDIA de factores sobre
+        # operaciones con EIR heterogénea, así que por Jensen la implícita deriva entre períodos
+        # (aquí 26,3 % → 24,1 %). Es aritmética esperada, no un defecto.
+        eir_implicita = row["discount_factor_mean"] ** (-1.0 / row["time_value_years"]) - 1.0
+        assert 0.20 <= eir_implicita <= 0.30
 
     # (e) Gatillos SICR: las presunciones DPD bajo la política v1 disparan; conteos positivos.
     triggers = block["sicr_triggers"]

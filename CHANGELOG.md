@@ -7,6 +7,19 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [No publicado]
 
+### Corregido
+
+- **La curva de ECL del panel publicaba un plazo que no descuenta.** El bloque
+  `provisioning_ifrs9.ecl_term_structure` de la respuesta de resultados traía `time_value` **crudo**
+  —en la unidad del productor de la term-structure— junto a un `discount_factor_mean` calculado
+  sobre el plazo ya convertido a años. Con una curva mensual, la tabla mostraba un plazo y un factor
+  que no se corresponden: `DF ** (-1/time_value) - 1` daba 1,5 % donde la EIR era 20 %, y el lector
+  no podía verificar `DF = (1 + EIR)^(-τ)` con los números que tenía delante.
+
+  Ahora la curva publica **las dos** columnas, `time_value` y `time_value_years`, como ya hacía el
+  artefacto del motor desde `1.6.0`. Es un campo nuevo, aditivo: nada de lo que había cambia de
+  significado ni de valor.
+
 ## [1.6.0] — 2026-07-26
 
 ### Corregido
