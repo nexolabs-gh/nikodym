@@ -1,6 +1,6 @@
 {
  "status": "done",
- "run_id": "567211f69a5c4173a89b687c2a5df824",
+ "run_id": "c031408ee2b84cfcb8639b721c330bc8",
  "error": null,
  "model_card": null,
  "binning": null,
@@ -322,6 +322,7 @@
    {
     "period": 1,
     "time_value": 1.0,
+    "time_value_years": 1.0,
     "ecl_marginal": 2262676.42478337,
     "ecl_cumulative": 2262676.42478337,
     "pd_marginal_weighted": 0.06311502122800476,
@@ -331,6 +332,7 @@
    {
     "period": 2,
     "time_value": 2.0,
+    "time_value_years": 2.0,
     "ecl_marginal": 1720279.9087077375,
     "ecl_cumulative": 3982956.3334911074,
     "pd_marginal_weighted": 0.05689603697309872,
@@ -340,6 +342,7 @@
    {
     "period": 3,
     "time_value": 3.0,
+    "time_value_years": 3.0,
     "ecl_marginal": 1219354.8518568694,
     "ecl_cumulative": 5202311.185347977,
     "pd_marginal_weighted": 0.0475663504464256,
@@ -349,6 +352,7 @@
    {
     "period": 4,
     "time_value": 4.0,
+    "time_value_years": 4.0,
     "ecl_marginal": 982123.23926424,
     "ecl_cumulative": 6184434.424612217,
     "pd_marginal_weighted": 0.04493447005671387,
@@ -358,6 +362,7 @@
    {
     "period": 5,
     "time_value": 5.0,
+    "time_value_years": 5.0,
     "ecl_marginal": 727082.0034411624,
     "ecl_cumulative": 6911516.428053379,
     "pd_marginal_weighted": 0.03880127638933928,
