@@ -53,6 +53,98 @@ export const F1_SECTIONS = [
   "performance",
 ] as const
 
+/** Una sección de configuración navegable desde el sidebar. */
+export interface ConfigSectionDef {
+  /** Clave de sección del schema (`json_schema.properties`). */
+  key: string
+  /** Etiqueta humana, on-brand (sidebar + encabezado). */
+  label: string
+  /** Subtítulo del encabezado. */
+  description: string
+}
+
+/**
+ * Catálogo de secciones que el formulario ofrece, en orden de pipeline.
+ *
+ * Vive aquí y no en `App.tsx` para que exista UNA sola lista: estaba duplicada entre el sidebar y
+ * la whitelist de `ConfigTab`, y mantener las dos sincronizadas a mano es justo lo que dejó
+ * provisiones y survival fuera del formulario mientras el backend ya las mandaba expandidas. El
+ * icono NO es parte del catálogo: vive en `App.tsx`, para que este módulo siga siendo lógica pura
+ * testeable sin React.
+ *
+ * Una sección listada aquí cuyo extra no esté instalado llega opaca y `ConfigTab` lo avisa: el
+ * catálogo declara la intención, el schema cargado decide lo que se puede pintar.
+ */
+export const CONFIG_SECTIONS: ConfigSectionDef[] = [
+  {
+    key: "data",
+    label: "Esquema y target",
+    description:
+      "Cómo se interpreta el dataset cargado: esquema, tipos, target, missing y partición.",
+  },
+  {
+    key: "binning",
+    label: "Optimal Binning",
+    description: "Binning óptimo (OptBinning): restricciones, monotonía, solver y salida.",
+  },
+  {
+    key: "selection",
+    label: "Selección de variables",
+    description:
+      "Filtros de selección: IV, métricas univariadas, correlación, VIF y estabilidad.",
+  },
+  {
+    key: "model",
+    label: "Modelo",
+    description: "Ajuste del modelo, inferencia, stepwise y política de signos de beta.",
+  },
+  {
+    key: "scorecard",
+    label: "Scorecard",
+    description: "Escalado a puntaje: PDO, odds objetivo, rango y publicación.",
+  },
+  {
+    key: "calibration",
+    label: "Calibración",
+    description: "Calibración de PD: método, ancla y ajuste.",
+  },
+  {
+    key: "performance",
+    label: "Performance",
+    description: "Métricas de desempeño: columnas, población y deciles.",
+  },
+  {
+    key: "survival",
+    label: "Survival — PD lifetime",
+    description:
+      "Tiempo hasta el incumplimiento: método, grilla temporal, covariables y unidad de la curva.",
+  },
+  {
+    key: "provisioning_cmf",
+    label: "Provisiones CMF",
+    description:
+      "Método estándar de la CMF de Chile (Cap. B-1): matrices, mapeo de PD, exposición y garantías.",
+  },
+  {
+    key: "provisioning_internal",
+    label: "Provisiones método interno",
+    description:
+      "Método interno del banco: grupos homogéneos, PD, LGD y exposición propias de la institución.",
+  },
+  {
+    key: "provisioning_ifrs9",
+    label: "Provisiones IFRS 9",
+    description:
+      "ECL de tres etapas: PD lifetime, LGD, EAD, staging por SICR, escenarios y descuento a la EIR.",
+  },
+  {
+    key: "provisioning",
+    label: "Comparación de provisiones",
+    description:
+      "La regla del máximo del Cap. B-1: qué dos métodos se comparan y a qué nivel de agregación.",
+  },
+]
+
 /** ¿El schema de una sección es renderable (tiene campos), no opaco? */
 export function isRenderableSection(schema: JsonSchema | undefined): boolean {
   if (!schema) return false

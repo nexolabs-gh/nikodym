@@ -6,12 +6,17 @@ import {
   Database,
   FileText,
   Gauge,
+  GitCompare,
+  Landmark,
+  Layers,
   ListFilter,
   Play,
   Scale,
   Sigma,
   SlidersHorizontal,
   Table2,
+  TrendingDown,
+  Users,
   type LucideIcon,
 } from "lucide-react"
 
@@ -28,6 +33,7 @@ import { Card } from "@/components/ui/card"
 import { API_BASE, getPresetById } from "@/lib/api"
 import { bootstrapOnce } from "@/lib/bootstrap"
 import { DEMO_MODE } from "@/lib/demo-runtime"
+import { CONFIG_SECTIONS } from "@/lib/schema"
 import { useAppState } from "@/state/appStore"
 
 interface SectionDef {
@@ -43,68 +49,24 @@ interface SectionDef {
 const CONFIG_PREFIX = "config:"
 const configValue = (key: string) => `${CONFIG_PREFIX}${key}`
 
-interface ConfigSectionDef {
-  /** Clave de sección del schema (F1_SECTIONS). */
-  key: string
-  /** Etiqueta humana, on-brand (sidebar + encabezado). */
-  label: string
-  icon: LucideIcon
-  /** Subtítulo del encabezado. */
-  description: string
-}
-
 /**
- * Las 7 secciones del config F1 (B30): cada una es un item navegable del sidebar bajo
- * "Configuración" y muestra SOLO su formulario. El orden y las claves siguen a F1_SECTIONS
- * (`lib/schema.ts`); los labels son humanos (no "binning" → "Optimal Binning").
+ * Icono de cada sección de configuración. Vive aquí y no junto al catálogo (`lib/schema.ts`) para
+ * que ese módulo no importe `lucide-react` y siga siendo lógica pura, testeable sin React.
  */
-const CONFIG_SECTIONS: ConfigSectionDef[] = [
-  {
-    key: "data",
-    label: "Esquema y target",
-    icon: Table2,
-    description:
-      "Cómo se interpreta el dataset cargado: esquema, tipos, target, missing y partición.",
-  },
-  {
-    key: "binning",
-    label: "Optimal Binning",
-    icon: Boxes,
-    description:
-      "Binning óptimo (OptBinning): restricciones, monotonía, solver y salida.",
-  },
-  {
-    key: "selection",
-    label: "Selección de variables",
-    icon: ListFilter,
-    description:
-      "Filtros de selección: IV, métricas univariadas, correlación, VIF y estabilidad.",
-  },
-  {
-    key: "model",
-    label: "Modelo",
-    icon: Sigma,
-    description: "Ajuste del modelo, inferencia, stepwise y política de signos de beta.",
-  },
-  {
-    key: "scorecard",
-    label: "Scorecard",
-    icon: Gauge,
-    description: "Escalado a puntaje: PDO, odds objetivo, rango y publicación.",
-  },
-  {
-    key: "calibration",
-    label: "Calibración",
-    icon: Scale,
-    description: "Calibración de PD: método, ancla y ajuste.",
-  },
-  {
-    key: "performance",
-    label: "Performance",
-    icon: Activity,
-    description: "Métricas de desempeño: columnas, población y deciles.",
-  },
-]
+const SECTION_ICONS: Record<string, LucideIcon> = {
+  data: Table2,
+  binning: Boxes,
+  selection: ListFilter,
+  model: Sigma,
+  scorecard: Gauge,
+  calibration: Scale,
+  performance: Activity,
+  survival: TrendingDown,
+  provisioning_cmf: Landmark,
+  provisioning_internal: Users,
+  provisioning_ifrs9: Layers,
+  provisioning: GitCompare,
+}
 
 /** Secciones del flujo de nivel-app (SDD-23 §4.3), sin "Configuración" (que ahora se anida). */
 const SECTIONS: SectionDef[] = [
@@ -150,9 +112,9 @@ const SECTIONS: SectionDef[] = [
 
 /**
  * Árbol de navegación del sidebar, en el orden del flujo real:
- * 1) Cargar datos (upload) → 2) Configuración (7 sub-secciones; la 1ª es la lectura/esquema)
- * → 3) Ejecutar → 4) Resultados → 5) Reporte. Cargar-datos va ARRIBA de la config porque
- * primero se trae el dataset y luego se configura cómo leerlo.
+ * 1) Cargar datos (upload) → 2) Configuración (las sub-secciones de `CONFIG_SECTIONS`; la 1ª es la
+ * lectura/esquema) → 3) Ejecutar → 4) Resultados → 5) Reporte. Cargar-datos va ARRIBA de la config
+ * porque primero se trae el dataset y luego se configura cómo leerlo.
  */
 const [DATA_SECTION, ...FLOW_SECTIONS] = SECTIONS
 const NAV: NavItem[] = [
@@ -164,7 +126,7 @@ const NAV: NavItem[] = [
     children: CONFIG_SECTIONS.map((s) => ({
       value: configValue(s.key),
       label: s.label,
-      icon: s.icon,
+      icon: SECTION_ICONS[s.key] ?? SlidersHorizontal,
     })),
   },
   ...FLOW_SECTIONS.map((s) => ({ value: s.value, label: s.label, icon: s.icon })),

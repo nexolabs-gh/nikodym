@@ -19,6 +19,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ApiError, configFromYaml, configToYaml, getPreset } from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
@@ -27,6 +29,7 @@ import { DEMO_MODE } from "@/lib/demo-runtime"
 import {
   type Defs,
   type JsonSchema,
+  defaultForSchema,
   groupedFields,
   resolveRef,
 } from "@/lib/form-engine"
@@ -135,11 +138,47 @@ function HashStatus({ state }: { state: ValidationState }) {
 }
 
 /**
- * Formulario de UNA sección F1 (`section`), agrupando sus campos por `ui_group` (contrato
- * SDD-05 §5.5): si la sección declara grupos, los pinta como sub-accordions (abiertos por
- * defecto) con el título del grupo; si no (caso `data`, sub-modelos sin `ui_group`), los pinta
- * planos en una tarjeta. Los `path` de cada campo (`[section, name]`) no cambian, así que la
- * validación en vivo, el `config_hash` y el round-trip YAML siguen operando igual (B30).
+ * Interruptor de una sección de configuración completa (activar / desactivar).
+ *
+ * Apagarla la pone en `null`, que es lo que el motor entiende por «esta sección no corre». Existía
+ * por código desde siempre; en la UI no, porque el schema compuesto perdía la nulabilidad de la
+ * sección al empotrar el sub-config y el motor de formulario no tenía cómo saber que era opcional.
+ */
+function SectionToggle(props: {
+  sectionKey: string
+  active: boolean
+  onToggle: (next: boolean) => void
+}) {
+  const { sectionKey, active, onToggle } = props
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 shadow-card">
+      <Switch
+        id={`section-toggle-${sectionKey}`}
+        checked={active}
+        onCheckedChange={onToggle}
+        aria-label={active ? "Desactivar la sección" : "Activar la sección"}
+      />
+      <Label
+        htmlFor={`section-toggle-${sectionKey}`}
+        className="cursor-pointer text-sm text-foreground/90"
+      >
+        {active ? "Sección activa" : "Sección desactivada"}
+      </Label>
+      <span className="text-xs text-muted-foreground">
+        {active
+          ? "Se incluye en el config y se ejecuta."
+          : "Queda fuera del config; el motor no la corre."}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Formulario de UNA sección (`section`), agrupando sus campos por `ui_group` (contrato SDD-05
+ * §5.5): si la sección declara grupos, los pinta como sub-accordions (abiertos por defecto) con el
+ * título del grupo; si no (caso `data`, sub-modelos sin `ui_group`), los pinta planos en una
+ * tarjeta. Los `path` de cada campo (`[section, name]`) no cambian, así que la validación en vivo,
+ * el `config_hash` y el round-trip YAML siguen operando igual (B30).
  */
 function ConfigSectionForm(props: {
   sectionKey: string
@@ -241,6 +280,10 @@ export function ConfigTab({ section }: { section: string }) {
   const [presetBusy, setPresetBusy] = useState(false)
   const [presetError, setPresetError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // Último valor no nulo de cada sección, para restaurarlo al reactivarla. Cubre el caso real
+  // —apagar y arrepentirse— sin perder lo configurado; `variantDefaults` es poco profundo y
+  // resembrar desde cero dejaría secciones como `survival` o `data` incompletas.
+  const lastSectionValue = useRef<Record<string, unknown>>({})
 
   // "Configuración estándar": recarga el preset estándar del backend y lo resiembra por el MISMO
   // `applyPreset` que usan RunTab/enterDemo, para que —además de sembrar config/dataset/seed— CORTE
@@ -350,6 +393,23 @@ export function ConfigTab({ section }: { section: string }) {
   const resolvedSection = sectionEntry
     ? resolveRef(sectionEntry.schema, defs)
     : null
+
+  // Una sección apagada es `null` en el config: el orquestador no puede referenciarla desde
+  // `run.steps` y el motor no la ejecuta. Es exactamente lo que se puede hacer por código, y hasta
+  // ahora la UI no alcanzaba porque el schema compuesto perdía la nulabilidad al empotrar.
+  const sectionValue = config[section]
+  const sectionActive = sectionValue !== null && sectionValue !== undefined
+  const toggleSection = (next: boolean) => {
+    if (next) {
+      const restaurado =
+        lastSectionValue.current[section] ??
+        (resolvedSection ? defaultForSchema(resolvedSection, defs) : {})
+      setField([section], restaurado)
+    } else {
+      if (sectionValue !== undefined) lastSectionValue.current[section] = sectionValue
+      setField([section], null)
+    }
+  }
   const banner = SOURCE_BANNER[source]
   const errorLookup =
     validation.kind === "invalid" ? validation.lookup : undefined
@@ -481,14 +541,30 @@ export function ConfigTab({ section }: { section: string }) {
         ) : null}
 
         {sectionRenderable && resolvedSection ? (
-          <ConfigSectionForm
-            sectionKey={section}
-            schema={resolvedSection}
-            defs={defs}
-            config={config}
-            setField={setField}
-            errors={errorLookup}
-          />
+          <div className="space-y-4">
+            {sectionEntry.nullable ? (
+              <SectionToggle
+                sectionKey={section}
+                active={sectionActive}
+                onToggle={toggleSection}
+              />
+            ) : null}
+            {sectionActive ? (
+              <ConfigSectionForm
+                sectionKey={section}
+                schema={resolvedSection}
+                defs={defs}
+                config={config}
+                setField={setField}
+                errors={errorLookup}
+              />
+            ) : (
+              <p className="rounded-xl border border-dashed border-border bg-card/50 p-5 text-sm text-muted-foreground">
+                Sección desactivada: no se incluye en el config ni se ejecuta. Al reactivarla vuelve
+                con los valores que tenía.
+              </p>
+            )}
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">
             La sección «{section}» no está disponible en el schema cargado.

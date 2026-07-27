@@ -9,7 +9,12 @@
 
 import { describe, expect, it } from "vitest"
 
-import { FIXTURE_SCHEMA, configSectionSchema, f1SectionsRenderable } from "@/lib/schema"
+import {
+  CONFIG_SECTIONS,
+  FIXTURE_SCHEMA,
+  configSectionSchema,
+  f1SectionsRenderable,
+} from "@/lib/schema"
 import type { SchemaPayload } from "@/lib/schema"
 
 /** Payload mínimo con las secciones dadas, para probar formas concretas del nodo. */
@@ -83,21 +88,42 @@ describe("f1SectionsRenderable", () => {
   })
 })
 
+describe("CONFIG_SECTIONS (catálogo navegable)", () => {
+  it("no repite claves", () => {
+    const claves = CONFIG_SECTIONS.map((s) => s.key)
+    expect(new Set(claves).size).toBe(claves.length)
+  })
+
+  it("toda sección del catálogo existe en el schema y se puede pintar", () => {
+    // El catálogo declara la intención; el schema decide. Una clave que no exista ahí sería un
+    // ítem de sidebar que sólo sabe decir «no está disponible».
+    const huerfanas = CONFIG_SECTIONS.filter(
+      (s) => configSectionSchema(FIXTURE_SCHEMA, s.key) === null,
+    ).map((s) => s.key)
+    expect(huerfanas).toEqual([])
+  })
+
+  it("toda sección del catálogo está en el section_order del backend", () => {
+    const orden = new Set(FIXTURE_SCHEMA.section_order)
+    expect(CONFIG_SECTIONS.filter((s) => !orden.has(s.key)).map((s) => s.key)).toEqual([])
+  })
+
+  it("cubre las cinco secciones que la paridad UI↔código exigía", () => {
+    const claves = new Set(CONFIG_SECTIONS.map((s) => s.key))
+    for (const nueva of [
+      "survival",
+      "provisioning",
+      "provisioning_cmf",
+      "provisioning_ifrs9",
+      "provisioning_internal",
+    ]) {
+      expect(claves.has(nueva)).toBe(true)
+    }
+  })
+})
+
 describe("el fixture del schema (contrato con el backend)", () => {
-  const secciones = [
-    "data",
-    "binning",
-    "selection",
-    "model",
-    "scorecard",
-    "calibration",
-    "performance",
-    "survival",
-    "provisioning",
-    "provisioning_cmf",
-    "provisioning_ifrs9",
-    "provisioning_internal",
-  ]
+  const secciones = CONFIG_SECTIONS.map((s) => s.key)
 
   it.each(secciones)("«%s» trae campos y declara que se puede apagar", (seccion) => {
     const entry = configSectionSchema(FIXTURE_SCHEMA, seccion)
