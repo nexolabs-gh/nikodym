@@ -32,6 +32,12 @@ por ahora, y el gate de cobertura lo declara en vez de callarlo.
 - **El formulario alcanza la sección `stability`** (PSI/CSI, umbrales, comparaciones y eje
   temporal): era parte del camino F1 y sólo se podía editar por YAML o por código.
 
+- **La interfaz gráfica ya está documentada** (B2.5). El README y `docs_site` explican cómo
+  instalarla y levantarla en dos comandos —`pip install 'nikodym[ui,scoring]'` y `nikodym-ui`—, sus
+  opciones (`--port`, `--workdir`, `--no-open`), que escucha **sólo** en `127.0.0.1` sin forma de
+  cambiarlo, y que edita el mismo `NikodymConfig` que usarías por código. Hasta ahora el comando no
+  se mencionaba en ninguna parte: sólo se llegaba a él leyendo el `pyproject.toml`.
+
 ### Corregido
 
 - **Un invariante de config roto devolvía HTTP 500 en `/api/validate`**, cuyo contrato es responder

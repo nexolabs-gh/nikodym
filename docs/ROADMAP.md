@@ -84,7 +84,23 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 
 ### B2 · La UI instalable y usable  ← *requisito de producto*
 
-**Estado: B2 total ABIERTO; B2.0 CERRADO; B2.1 CERRADO (2026-07-24); B2.2 CERRADO (2026-07-24).**
+**Estado: B2 total ABIERTO; B2.0, B2.1 y B2.2 CERRADOS (2026-07-24); B2.3 CERRADO (medido el
+2026-07-28); B2.5 PARCIAL (documentación hecha el 2026-07-28; falta la pata de release).**
+
+> **B2.3 estaba declarado abierto y el código decía otra cosa** (medido el 2026-07-28 contra
+> `1.8.0` **desde PyPI**, no desde el árbol): el extra `[ui]` existe, `/api/upload` funciona y los
+> tres presets corren hasta `done` con informe. Lo que sí sigue abierto es **B2.4** —no hay
+> clean-room automatizado ni Playwright en el repo— y el **tercero sin checkout** del criterio de
+> cierre, que ningún agente sustituye: elimina la dependencia del árbol, no el sesgo de conocimiento
+> interno.
+>
+> ⚠️ **Y una discrepancia de este nodo que sigue viva:** B2.3 especifica que `[ui]` compone
+> `nikodym[scoring,excel,docx]`, pero el extra publicado es
+> `fastapi + uvicorn + python-multipart + nikodym[excel] + nikodym[docx]` — **sin `scoring`**.
+> Medido en venv limpio desde PyPI: con `nikodym[ui]` a secas la interfaz arranca y la corrida F1 se
+> detiene en el paso `binning` pidiendo `nikodym[scoring]`. La documentación de B2.5 instruye
+> `pip install 'nikodym[ui,scoring]'`, que es lo que funciona hoy; **cambiar el extra es un cambio
+> del paquete publicado y espera decisión.**
 
 > **Paridad UI↔código en provisiones: el núcleo técnico entregado el 2026-07-27** (`cf217a2`, CI
 > verde 16/16). **NO cierra B2.3 ni ningún nodo del DAG** —B2.3 es el extra `[ui]`, uploads y
@@ -224,6 +240,12 @@ retroactivamente el producto `1.5.0` publicado.
 5. **B2.5 · documentación y release.** README/docs explican instalación y arranque en dos comandos.
    Release publica exactamente el wheel/sdist gateados, sin rebuild. Tag/PyPI `1.6.0` conservan el
    OK específico de Cami.
+   **Documentación HECHA el 2026-07-28:** el README suma «La misma corrida, sin escribir código» y
+   `docs_site` documenta `nikodym-ui` con sus tres opciones, el bind sólo-loopback y la paridad
+   UI↔código; la fila del extra `ui` en la matriz estaba incompleta (decía «backend REST», omitía
+   el comando y el extra `docx`) y la versión de la serie estaba en `1.5.x`. **Falta la pata de
+   release:** el job `release` sigue sin pasar por los gates de B2.1 y publica con rebuild — §7.7 lo
+   declara—, así que este nodo queda PARCIAL.
 
 **Identidad del DoD.** Antes de correr: igualdad estructural del config +
 `config_hash(UI) == config_hash(código)`; la ubicación de datos se excluye del `config_hash`.

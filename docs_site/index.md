@@ -45,8 +45,23 @@ stress testing. Paquete: `nikodym`.
 ```bash
 pip install nikodym                 # núcleo base (config, Study, lineage)
 pip install 'nikodym[scoring]'      # MVP scorecard (optbinning + statsmodels + sklearn>=1.6)
+pip install 'nikodym[ui,scoring]'   # + la interfaz gráfica local (comando `nikodym-ui`)
 pip install 'nikodym[all]'          # todo lo redistribuible (sin copyleft)
 ```
+
+## Dos caminos: código o interfaz
+
+El mismo motor y el mismo config, por donde prefieras trabajar. Por código, el quickstart de abajo.
+Por interfaz, dos comandos:
+
+```bash
+pip install 'nikodym[ui,scoring]'
+nikodym-ui
+```
+
+Levanta la interfaz en `http://127.0.0.1:8000` —sólo loopback, tus datos no salen de tu máquina— y
+abre el navegador. Detalle y opciones en
+[Instalación y primeros pasos](getting-started.md#el-mismo-pipeline-sin-escribir-codigo).
 
 ## Quickstart
 

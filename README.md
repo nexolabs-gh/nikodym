@@ -70,6 +70,7 @@ Y como es Apache-2.0, puedes auditar el código, forkearlo y adaptarlo sin pedir
 ```bash
 pip install nikodym                 # núcleo base (config, Study, lineage)
 pip install 'nikodym[scoring]'      # MVP scorecard (optbinning + statsmodels + sklearn>=1.6)
+pip install 'nikodym[ui,scoring]'   # + la interfaz gráfica local (ver más abajo)
 pip install 'nikodym[all]'          # todo lo redistribuible (sin copyleft)
 ```
 
@@ -148,6 +149,43 @@ print(metrics)
 `study.run_context.status == "failed"`, y el diagnóstico —tipo del error, mensaje del motor y paso
 que falló— queda en `study.run_context.error`, sin configurar nada. El consumidor por código
 **debe** chequear `study.run_context.status` antes de usar los resultados.
+
+## La misma corrida, sin escribir código
+
+Nikodym trae una interfaz gráfica local. Son dos comandos:
+
+```bash
+pip install 'nikodym[ui,scoring]'
+nikodym-ui
+```
+
+El segundo levanta la interfaz en `http://127.0.0.1:8000` y abre el navegador. Desde ahí eliges un
+dataset —uno de ejemplo o el tuyo, en CSV, Excel o Parquet—, ajustas la configuración en un
+formulario, ejecutas y descargas el informe.
+
+**No es una demo aparte: es el mismo motor y el mismo `NikodymConfig`.** Lo que armas en el
+formulario se puede exportar a YAML y correr por código, y produce el mismo `config_hash`. Puedes
+empezar por la interfaz y terminar en un script, o al revés.
+
+Antes de ejecutar, la interfaz compara tu configuración con las columnas de tu archivo y te dice
+**de una vez** cuáles no calzan, con un enlace al campo que hay que corregir. Es un aviso, no un
+bloqueo: puedes ejecutar igual.
+
+Tres opciones, todas locales:
+
+```bash
+nikodym-ui --port 8123      # otro puerto (por defecto 8000)
+nikodym-ui --workdir ./runs # dónde guardar corridas y datasets (por defecto .nikodym_ui)
+nikodym-ui --no-open        # no abrir el navegador
+```
+
+> **Escucha sólo en `127.0.0.1` y no hay forma de cambiarlo**: no existe un `--host`. Tus datos no
+> salen de tu máquina, y la interfaz no es alcanzable desde la red. Cada lanzamiento genera un token
+> propio que nunca se escribe en el log ni en la URL. Detalle en [SECURITY.md](SECURITY.md).
+
+> **Por qué `[ui,scoring]` y no sólo `[ui]`:** el extra `ui` trae el servidor y la interfaz, pero no
+> el motor del scorecard. Con `nikodym[ui]` a secas la interfaz arranca y la corrida F1 se detiene
+> pidiendo `nikodym[scoring]`.
 
 ## Limitaciones que debes conocer antes de usarlo en serio
 

@@ -51,7 +51,7 @@ los declarados en `[project.optional-dependencies]` del `pyproject.toml`.
 | `forecasting` | `nikodym[forecasting]` | Forward-looking / proyección macro (F5). | `statsmodels`, `pmdarima` |
 | `survival` | `nikodym[survival]` | Modelos de supervivencia (Cox / AFT). | `lifelines` |
 | `tracking` | `nikodym[tracking]` | Registro de corridas / *registry*. | `mlflow` |
-| `ui` | `nikodym[ui]` | Backend REST de la UI (incluye el extra `excel`). | `fastapi`, `uvicorn`, `python-multipart` |
+| `ui` | `nikodym[ui]` | **Interfaz gráfica local** y su backend REST: instala el comando `nikodym-ui` (incluye los extras `excel` y `docx`). No trae el motor del scorecard: para correr F1 combínalo con `scoring`. | `fastapi`, `uvicorn`, `python-multipart` |
 | `polars` | `nikodym[polars]` | Backend de carga de datos con Polars. | `polars` |
 | `excel` | `nikodym[excel]` | Lectura de `.xlsx` en el `DataLoader`. | `openpyxl` |
 | `report` | `nikodym[report]` | Figuras opcionales del reporte. | `matplotlib`, `plotly` |
@@ -87,7 +87,7 @@ Comprueba que el núcleo importa y reporta versión:
 python -c "import nikodym; print(nikodym.__version__)"
 ```
 
-Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.5.x**). Que este
+Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.8.x**). Que este
 comando funcione confirma que el **núcleo base** está sano; no dice nada sobre los extras, porque
 sus imports son perezosos. Para verificar que el extra `scoring` quedó disponible, la prueba real es
 correr una corrida F1 (siguiente sección): si falta el extra, el motor fallará al importar
@@ -149,6 +149,49 @@ cohortada por trimestre para partición Dev/Held-out/OOT — determinista, sin d
         print(error.step)     # el paso del pipeline que falló, p. ej. "data"
         print(error.message)  # el mensaje del motor, con la columna o el parámetro concreto
     ```
+
+## El mismo pipeline, sin escribir código
+
+Todo lo anterior se puede hacer desde una **interfaz gráfica local**, que se instala y se levanta en
+dos comandos:
+
+```bash
+pip install 'nikodym[ui,scoring]'
+nikodym-ui
+```
+
+`nikodym-ui` sirve la interfaz en `http://127.0.0.1:8000` y abre el navegador. El flujo es el del
+sidebar: elegir datos → configurar → ejecutar → resultados → informe.
+
+!!! warning "`[ui]` no incluye el motor del scorecard"
+    El extra `ui` trae el servidor y la interfaz, pero no `optbinning`/`statsmodels`. Con
+    `nikodym[ui]` a secas la interfaz **arranca** y la corrida F1 se **detiene** con un mensaje
+    explícito pidiendo `nikodym[scoring]`. Por eso el comando de instalación combina los dos.
+
+### Opciones del comando
+
+| Opción | Qué hace |
+|---|---|
+| `--port PORT` | Puerto local (1024–65535). Por defecto `8000`. |
+| `--workdir DIR` | Dónde se guardan corridas y datasets. Por defecto `.nikodym_ui` en el directorio actual. |
+| `--no-open` | No abrir el navegador automáticamente. |
+
+!!! note "Sólo escucha en loopback, y no es configurable"
+    El bind es siempre `127.0.0.1`: **no existe `--host`**. La interfaz no es alcanzable desde la
+    red y tus datos no salen de tu máquina. Cada lanzamiento genera además un token propio que no se
+    escribe en el log ni en la URL, y las operaciones de escritura exigen origen local.
+
+### Es la misma corrida, no una versión reducida
+
+La interfaz **edita el mismo `NikodymConfig`** que usarías por código, y el motor es el mismo:
+
+- Lo que armas en el formulario se exporta a YAML y se ejecuta con `nikodym.run`, produciendo el
+  mismo `config_hash`.
+- Un YAML existente se puede cargar en el formulario y seguir editándolo ahí.
+
+Antes de ejecutar, la interfaz compara la configuración con las columnas de tu archivo y lista
+**todos** los desajustes de una vez, cada uno con un enlace al campo que hay que corregir. Informa,
+no bloquea: puedes ejecutar igual y dejar que la corrida sea la autoridad.
 
 ## Siguientes pasos
 
