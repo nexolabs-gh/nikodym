@@ -103,6 +103,33 @@ def test_validate_config_invalido_estructura_errores() -> None:
     assert error["loc"] == ["repro", "seed"]
 
 
+def test_validate_config_invariante_de_dominio_no_revienta_el_endpoint() -> None:
+    """Un ``ConfigError`` es ``valid=False``, NO una excepción que sale como 500.
+
+    Encontrado en vivo al abrir la sección `stability` en el formulario: activar un campo opcional
+    sin escribirle valor deja ``temporal_column=""``, y ``StabilityConfig._check_invariantes``
+    levanta ``ConfigError``. Como esa excepción **no hereda de ``ValueError``**, Pydantic no la
+    envuelve en ``ValidationError`` y escapaba entera: este endpoint —cuyo contrato es responder
+    SIEMPRE 200 (SDD-23 §4.2)— devolvía 500, y el front lo mostraba como «backend no disponible»,
+    que es una afirmación falsa sobre un backend sano.
+
+    Seis módulos `config.py` levantan `ConfigError` al validar, así que el caso no es exclusivo de
+    `stability`; por eso el arreglo vive en el endpoint y no en una sección.
+    """
+    resultado = routes.validate_config(
+        {"stability": {"score_column": "score", "temporal_column": ""}}
+    )
+
+    assert resultado["valid"] is False
+    assert resultado["config_hash"] is None
+    assert resultado["pipeline"] is None
+    assert resultado["errors"], "un config que no reconstruye debe decir por qué"
+    error = resultado["errors"][0]
+    assert set(error) == {"loc", "msg", "type"}, "misma forma que un error de Pydantic"
+    assert error["type"] == "config_error"
+    assert "temporal_column" in error["msg"]
+
+
 def test_validate_config_campo_desconocido() -> None:
     """``extra='forbid'``: un campo desconocido es inválido (no se descarta en silencio)."""
     resultado = routes.validate_config({"campo_que_no_existe": 1})

@@ -120,6 +120,20 @@ def validate_config(config: Any) -> dict[str, Any]:
             "errors": _format_errors(exc),
             "pipeline": None,
         }
+    except ConfigError as exc:
+        # Un invariante de dominio que se rompe **también** es «este config no reconstruye», y por
+        # tanto `valid=False` — no un 500. `ConfigError` no hereda de `ValueError`, así que Pydantic
+        # no lo envuelve en `ValidationError` y escapaba entero: bastaba activar un campo opcional
+        # sin escribirle valor (`stability.temporal_column=""`) para que este endpoint —cuyo
+        # contrato es responder SIEMPRE 200— devolviera 500 y el front lo leyera como «backend no
+        # disponible», que es falso. Seis `config.py` levantan `ConfigError` al validar, así que el
+        # arreglo va aquí y no sección por sección. Mismo criterio que `/api/config/from-yaml`.
+        return {
+            "valid": False,
+            "config_hash": None,
+            "errors": _error_de_dominio(exc),
+            "pipeline": None,
+        }
     return {
         "valid": True,
         "config_hash": config_hash(model),
@@ -431,6 +445,18 @@ def _format_errors(exc: ValidationError) -> list[dict[str, Any]]:
     ]
 
 
+def _error_de_dominio(exc: ConfigError) -> list[dict[str, Any]]:
+    """Proyecta un ``ConfigError`` a la MISMA forma que un error de Pydantic.
+
+    Va con ``loc`` vacío porque un invariante de dominio no pertenece a un campo: nace de la
+    relación entre varios (``_check_invariantes``). El front indexa por ``loc`` para pintar el
+    error junto a su campo, así que éste no se anclará a ninguno — pero sí entra en el contador de
+    «config inválido», que es lo que el usuario necesita para saber que no puede correr. Fabricar
+    un ``loc`` a partir del texto del mensaje sería adivinar.
+    """
+    return [{"loc": [], "msg": str(exc), "type": "config_error"}]
+
+
 def build_router() -> APIRouter:
     """Construye el ``APIRouter`` con los endpoints del contrato (import perezoso de FastAPI)."""
     from fastapi import APIRouter, HTTPException, Request, Response, UploadFile
@@ -466,6 +492,10 @@ def build_router() -> APIRouter:
             )
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=_format_errors(exc)) from exc
+        except ConfigError as exc:
+            # Un invariante de dominio roto es entrada del usuario, no un fallo del servidor: 422
+            # con el mensaje del motor, nunca un 500 opaco (SDD-23 §8, igual que `from-yaml`).
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except UiDatasetError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -517,6 +547,9 @@ def build_router() -> APIRouter:
             return run_pipeline(payload.get("config"), payload.get("dataset_id"), workdir=workdir)
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=_format_errors(exc)) from exc
+        except ConfigError as exc:
+            # Mismo criterio que `/api/validate` y `from-yaml`: el config es entrada del usuario.
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except UiDatasetError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except MissingDependencyError as exc:
@@ -540,6 +573,9 @@ def build_router() -> APIRouter:
             return config_to_yaml(payload.get("config"))
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=_format_errors(exc)) from exc
+        except ConfigError as exc:
+            # Mismo criterio que `/api/validate` y `from-yaml`: el config es entrada del usuario.
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @router.post("/config/from-yaml")
     async def config_from_yaml_endpoint(payload: dict[str, Any]) -> dict[str, Any]:
