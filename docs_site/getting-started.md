@@ -51,7 +51,7 @@ los declarados en `[project.optional-dependencies]` del `pyproject.toml`.
 | `forecasting` | `nikodym[forecasting]` | Forward-looking / proyección macro (F5). | `statsmodels`, `pmdarima` |
 | `survival` | `nikodym[survival]` | Modelos de supervivencia (Cox / AFT). | `lifelines` |
 | `tracking` | `nikodym[tracking]` | Registro de corridas / *registry*. | `mlflow` |
-| `ui` | `nikodym[ui]` | **Interfaz gráfica local** y su backend REST: instala el comando `nikodym-ui` (incluye los extras `excel` y `docx`). No trae el motor del scorecard: para correr F1 combínalo con `scoring`. | `fastapi`, `uvicorn`, `python-multipart` |
+| `ui` | `nikodym[ui]` | **Interfaz gráfica local**, lista para correr: instala el comando `nikodym-ui` y **todo lo que su formulario puede ejecutar** (compone `scoring`, `survival`, `excel` y `docx`). | `fastapi`, `uvicorn`, `python-multipart` |
 | `polars` | `nikodym[polars]` | Backend de carga de datos con Polars. | `polars` |
 | `excel` | `nikodym[excel]` | Lectura de `.xlsx` en el `DataLoader`. | `openpyxl` |
 | `report` | `nikodym[report]` | Figuras opcionales del reporte. | `matplotlib`, `plotly` |
@@ -156,17 +156,19 @@ Todo lo anterior se puede hacer desde una **interfaz gráfica local**, que se in
 dos comandos:
 
 ```bash
-pip install 'nikodym[ui,scoring]'
+pip install 'nikodym[ui]'
 nikodym-ui
 ```
 
 `nikodym-ui` sirve la interfaz en `http://127.0.0.1:8000` y abre el navegador. El flujo es el del
 sidebar: elegir datos → configurar → ejecutar → resultados → informe.
 
-!!! warning "`[ui]` no incluye el motor del scorecard"
-    El extra `ui` trae el servidor y la interfaz, pero no `optbinning`/`statsmodels`. Con
-    `nikodym[ui]` a secas la interfaz **arranca** y la corrida F1 se **detiene** con un mensaje
-    explícito pidiendo `nikodym[scoring]`. Por eso el comando de instalación combina los dos.
+!!! note "`[ui]` trae lo que el formulario puede ejecutar"
+    No es sólo el servidor: compone `scoring` y `survival`, así que los tres presets —F1 scorecard,
+    F3 provisiones CMF y F4 IFRS 9— corren hasta el informe con esa única instalación. Son unos
+    700 MB en disco. Un extra llamado `ui` que instalara la interfaz pero no el motor que ésta
+    dispara prometería algo que no cumple. El **PDF** queda fuera aparte (`nikodym[pdf]`), por la
+    licencia de WeasyPrint.
 
 ### Opciones del comando
 

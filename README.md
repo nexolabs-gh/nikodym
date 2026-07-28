@@ -70,7 +70,7 @@ Y como es Apache-2.0, puedes auditar el código, forkearlo y adaptarlo sin pedir
 ```bash
 pip install nikodym                 # núcleo base (config, Study, lineage)
 pip install 'nikodym[scoring]'      # MVP scorecard (optbinning + statsmodels + sklearn>=1.6)
-pip install 'nikodym[ui,scoring]'   # + la interfaz gráfica local (ver más abajo)
+pip install 'nikodym[ui]'           # interfaz gráfica local, lista para correr (ver más abajo)
 pip install 'nikodym[all]'          # todo lo redistribuible (sin copyleft)
 ```
 
@@ -155,7 +155,7 @@ que falló— queda en `study.run_context.error`, sin configurar nada. El consum
 Nikodym trae una interfaz gráfica local. Son dos comandos:
 
 ```bash
-pip install 'nikodym[ui,scoring]'
+pip install 'nikodym[ui]'
 nikodym-ui
 ```
 
@@ -183,9 +183,10 @@ nikodym-ui --no-open        # no abrir el navegador
 > salen de tu máquina, y la interfaz no es alcanzable desde la red. Cada lanzamiento genera un token
 > propio que nunca se escribe en el log ni en la URL. Detalle en [SECURITY.md](SECURITY.md).
 
-> **Por qué `[ui,scoring]` y no sólo `[ui]`:** el extra `ui` trae el servidor y la interfaz, pero no
-> el motor del scorecard. Con `nikodym[ui]` a secas la interfaz arranca y la corrida F1 se detiene
-> pidiendo `nikodym[scoring]`.
+> **`[ui]` trae todo lo que el formulario puede ejecutar**, no sólo el servidor: el motor del
+> scorecard y el de supervivencia entran con él. Son ~700 MB en disco, y es deliberado — un extra
+> llamado `ui` que instala la interfaz pero no lo que la interfaz dispara promete algo que no
+> cumple. Lo único que queda fuera es el PDF (`nikodym[pdf]`), por licencia.
 
 ## Limitaciones que debes conocer antes de usarlo en serio
 

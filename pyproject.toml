@@ -109,7 +109,17 @@ survival    = ["lifelines>=0.28"]                     # MIT — NO scikit-surviv
 markov      = ["scipy>=1.10"]                         # BSD — cadenas de Markov (scipy.linalg.expm): term-structure de PD
 # Infraestructura opcional.
 tracking = ["mlflow>=2.10"]                # Apache-2.0 (runs/registry, SDD-04)
-ui       = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "nikodym[excel]", "nikodym[docx]"]   # MIT / BSD-3 / Apache-2.0 (backend REST de la UI, SDD-23); multipart = uploads UploadFile; trae [excel] para la pestaña Datos y [docx] porque el preset estándar pide el .docx (sin él, el botón Word 404ea)
+# `ui` trae TODO lo que su formulario puede ejecutar, no sólo el servidor. Medido el 2026-07-28 en
+# venv limpio desde PyPI: con el extra anterior —servidor + [excel] + [docx]— la interfaz arrancaba
+# y los TRES presets fallaban (F1 y F3 en `binning` por OptBinning; F4 en `survival` por
+# statsmodels). Un extra llamado `ui` que no ejecuta nada es una promesa falsa por su propio nombre,
+# y el criterio de cierre de B2 se apoya en que un tercero escriba el comando obvio y funcione.
+# `survival` (lifelines, MIT) entra porque su sección SÍ está en el formulario y `method` es
+# editable: el preset usa `discrete_hazard` (statsmodels, viene con scoring), pero elegir
+# `kaplan_meier`/`cox_aft` desde la UI exige lifelines. Lo que NO entra es lo que el formulario no
+# ofrece (`ml`, `tuning`, `explain`, `markov`, `forward`) ni `[pdf]`, que arrastra copyleft y por eso
+# tampoco está en `all`. El gate `tests/unit/test_extra_ui_cubre_el_formulario.py` lo hace cumplir.
+ui       = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "nikodym[scoring]", "nikodym[survival]", "nikodym[excel]", "nikodym[docx]"]   # MIT / BSD-3 / Apache-2.0 (interfaz local completa, SDD-23); multipart = uploads UploadFile
 # RETIRADO 2026-07-24 — extra `sweep` (hydra-core + omegaconf, "barridos CLI"): nunca tuvo consumidor
 # (no existe `src/nikodym/sweep/` ni un import de hydra/omegaconf en el paquete), pero entraba en `all`,
 # así que todo `pip install "nikodym[all]"` bajaba hydra-core, omegaconf y antlr4-python3-runtime para

@@ -45,7 +45,7 @@ stress testing. Paquete: `nikodym`.
 ```bash
 pip install nikodym                 # núcleo base (config, Study, lineage)
 pip install 'nikodym[scoring]'      # MVP scorecard (optbinning + statsmodels + sklearn>=1.6)
-pip install 'nikodym[ui,scoring]'   # + la interfaz gráfica local (comando `nikodym-ui`)
+pip install 'nikodym[ui]'           # interfaz gráfica local, lista para correr (`nikodym-ui`)
 pip install 'nikodym[all]'          # todo lo redistribuible (sin copyleft)
 ```
 
@@ -55,7 +55,7 @@ El mismo motor y el mismo config, por donde prefieras trabajar. Por código, el 
 Por interfaz, dos comandos:
 
 ```bash
-pip install 'nikodym[ui,scoring]'
+pip install 'nikodym[ui]'
 nikodym-ui
 ```
 

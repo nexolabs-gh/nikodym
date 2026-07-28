@@ -94,13 +94,20 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 > cierre, que ningún agente sustituye: elimina la dependencia del árbol, no el sesgo de conocimiento
 > interno.
 >
-> ⚠️ **Y una discrepancia de este nodo que sigue viva:** B2.3 especifica que `[ui]` compone
-> `nikodym[scoring,excel,docx]`, pero el extra publicado es
-> `fastapi + uvicorn + python-multipart + nikodym[excel] + nikodym[docx]` — **sin `scoring`**.
-> Medido en venv limpio desde PyPI: con `nikodym[ui]` a secas la interfaz arranca y la corrida F1 se
-> detiene en el paso `binning` pidiendo `nikodym[scoring]`. La documentación de B2.5 instruye
-> `pip install 'nikodym[ui,scoring]'`, que es lo que funciona hoy; **cambiar el extra es un cambio
-> del paquete publicado y espera decisión.**
+> ✅ **La discrepancia de B2.3 sobre el extra `[ui]`: CORREGIDA el 2026-07-28** (decisión de Cami:
+> «no quiero promesas falsas»). El extra publicado era
+> `fastapi + uvicorn + python-multipart + nikodym[excel] + nikodym[docx]` —**sin `scoring`**—, y
+> medido en venv limpio desde PyPI los **tres** presets fallaban: F1 y F3 en `binning` (OptBinning),
+> F4 en `survival` (statsmodels). Ahora `[ui]` compone además `nikodym[scoring]` y
+> `nikodym[survival]`; verificado instalando el wheel en venv limpio con **sólo** `[ui]`: F1/F3/F4
+> corren hasta `done` con informe (244 / 252 / 61 KB). Coste: 310 → **703 MB**.
+>
+> El criterio quedó escrito y gateado: **`[ui]` trae lo que su formulario puede ejecutar.**
+> `survival` entra porque su sección está en el formulario y `method` es editable —el preset usa
+> `discrete_hazard`, pero elegir `kaplan_meier`/`cox_aft` exige lifelines—; `ml`, `tuning`,
+> `explain`, `markov` y `forward` **no** entran porque el formulario no los ofrece, y `[pdf]` nunca
+> entra por copyleft. Lo vigila `tests/unit/test_extra_ui_cubre_el_formulario.py`, que además exige
+> declarar el extra de toda sección nueva del formulario.
 
 > **Paridad UI↔código en provisiones: el núcleo técnico entregado el 2026-07-27** (`cf217a2`, CI
 > verde 16/16). **NO cierra B2.3 ni ningún nodo del DAG** —B2.3 es el extra `[ui]`, uploads y
