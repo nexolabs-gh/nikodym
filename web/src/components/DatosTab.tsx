@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react"
 
+import { PreflightNotice } from "@/components/PreflightNotice"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -41,6 +42,8 @@ import { useAppState } from "@/state/appStore"
 interface DatosTabProps {
   /** Navega a otra sección del shell (la navegación vive en App, no en el store). */
   onNavigate: (section: string) => void
+  /** Abre en Configuración el campo que causa un desajuste del preflight (D-PRE-8). */
+  onJumpToField: (path: string) => void
 }
 
 /** Mensaje legible de un fallo de la API (subida): detalle del backend o el error crudo. */
@@ -58,7 +61,7 @@ function uploadErrorMessage(err: unknown): string {
  * (el preview). CERO lógica de dominio (SDD-23 §1): el front normaliza formas y transporta;
  * el backend lee el archivo y expone columnas. Si el backend está caído, degrada suave.
  */
-export function DatosTab({ onNavigate }: DatosTabProps) {
+export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
   const {
     datasetId,
     setDatasetId,
@@ -66,6 +69,7 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
     setSelectedDataset,
     welcomeDismissed,
     setWelcomeDismissed,
+    preflight,
   } = useAppState()
 
   const [datasets, setDatasets] = useState<DatasetInfo[]>([])
@@ -259,6 +263,13 @@ export function DatosTab({ onNavigate }: DatosTabProps) {
           onContinue={() => onNavigate("ejecutar")}
         />
       ) : null}
+
+      {/* Preflight config↔dataset (D-PRE-1): en cuanto hay dataset elegido y un config válido, se
+          dice si las columnas que el config nombra están en el archivo — ANTES de correr, y todas
+          de una vez. Va DESPUÉS del preview a propósito: el diagnóstico se entiende habiendo visto
+          las columnas que el dataset sí trae. Cada desajuste salta a su campo en Configuración.
+          Informa, NO bloquea (D-PRE-5). */}
+      <PreflightNotice state={preflight} onJump={(m) => onJumpToField(m.path)} />
     </div>
   )
 }

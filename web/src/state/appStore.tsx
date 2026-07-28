@@ -10,13 +10,20 @@ import {
   type SetStateAction,
 } from "react"
 
-import { validateConfig, type ResultsResponse, type RunStatus } from "@/lib/api"
+import {
+  preflightDataset,
+  validateConfig,
+  type ResultsResponse,
+  type RunStatus,
+} from "@/lib/api"
 import {
   bootstrapOnce,
   seedDatasetId,
   type SeedState,
 } from "@/lib/bootstrap"
 import type { SelectedDataset } from "@/lib/datasets"
+import { DEMO_MODE } from "@/lib/demo-runtime"
+import type { PreflightState } from "@/lib/preflight"
 import type { LoadedSchema } from "@/lib/schema"
 import { buildErrorLookup, type ValidationState } from "@/lib/validation"
 
@@ -54,6 +61,17 @@ export interface AppState {
   setSelectedDataset: Dispatch<SetStateAction<SelectedDataset | null>>
   validation: ValidationState
   setValidation: Dispatch<SetStateAction<ValidationState>>
+  /** Veredicto config↔dataset en vivo (D-PRE-1); `idle` mientras la pregunta no aplica. */
+  preflight: PreflightState
+  /**
+   * Campo que el usuario pidió enfocar desde un aviso del preflight: el `path` **crudo** del
+   * desajuste, tal como lo emite el motor. La traducción a `id` de control la resuelve quien
+   * atiende el pedido (`App`), porque un path puede corresponder a más de un `id` candidato.
+   * Vive en el store porque quien lo pide (el aviso en Datos) y quien lo atiende están en
+   * pestañas distintas.
+   */
+  focusField: string | null
+  setFocusField: Dispatch<SetStateAction<string | null>>
   lastRun: LastRun | null
   setLastRun: Dispatch<SetStateAction<LastRun | null>>
   results: ResultsResponse | null
@@ -77,7 +95,14 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [lastRun, setLastRun] = useState<LastRun | null>(null)
   const [results, setResults] = useState<ResultsResponse | null>(null)
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
+  const [preflight, setPreflight] = useState<PreflightState>({ kind: "idle" })
+  const [focusField, setFocusField] = useState<string | null>(null)
   const requestSeq = useRef(0)
+  const preflightSeq = useRef(0)
+  // Último config renderizado, para que el preflight NO dependa de `config` como disparador (ver
+  // su efecto). Asignar en el cuerpo del render es el patrón de «ref al último valor».
+  const configRef = useRef(config)
+  configRef.current = config
 
   // Arranque de la sesión: carga el schema y siembra el PRESET ESTÁNDAR (config completo +
   // dataset recomendado) SIN depender de que se abra Configuración → entrar al workspace basta
@@ -137,6 +162,51 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer)
   }, [config, schema])
 
+  // Preflight config↔dataset (enmienda PREFLIGHT-DATASET, D-PRE-1): compara lo que el config
+  // NOMBRA contra las columnas que el dataset TRAE, sin correr nada y sin leer los datos. Va
+  // ENCADENADO detrás de la validación —sólo dispara con un `config_hash` en mano— por tres
+  // razones medidas: (1) `/api/preflight` NO responde siempre 200 como `/api/validate`: da 422 si
+  // el config no reconstruye, y encadenarlo vuelve inalcanzable ese 422; (2) el hash sólo cambia
+  // cuando cambia el config de verdad, así que hereda el debounce de la validación sin sumar uno
+  // propio; (3) sobre un config roto, un aviso de columnas sería ruido encima del error que el
+  // usuario ya tiene delante.
+  const validHash = validation.kind === "valid" ? validation.hash : null
+  useEffect(() => {
+    // La demo estática no tiene backend que materialice un dataset, y sirve corridas reales ya
+    // compatibles por construcción: preguntar sólo produciría un fallo de red y un aviso falso.
+    if (DEMO_MODE) return
+    if (validHash === null || datasetId === null || datasetId === "") {
+      setPreflight({ kind: "idle" })
+      return
+    }
+    const seq = ++preflightSeq.current
+    setPreflight({ kind: "checking" })
+    void preflightDataset(configRef.current, datasetId)
+      .then((res) => {
+        if (seq !== preflightSeq.current) return // respuesta obsoleta
+        setPreflight(
+          res.compatible
+            ? { kind: "ok" }
+            : {
+                kind: "issues",
+                mismatches: res.mismatches,
+                uninspected: res.uninspected,
+              },
+        )
+      })
+      .catch(() => {
+        if (seq !== preflightSeq.current) return
+        setPreflight({ kind: "unreachable" }) // degrada suave; NO inventa veredicto
+      })
+    // ⚠️ `config` NO va en las dependencias, y no es un olvido: es la corrección de una carrera
+    // medida en vivo. Con él, editar disparaba el preflight en el MISMO render en que `config` ya
+    // era el nuevo pero `validation` todavía traía el hash del anterior — se enviaba un config sin
+    // validar y el endpoint respondía 422. El hash es la identidad del config **ya validado**: si
+    // el usuario sigue tecleando, la validación vuelve a `checking`, el hash desaparece y esto no
+    // corre; cuando reaparece, `configRef.current` es exactamente el config que lo produjo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validHash, datasetId])
+
   // Los setters de useState son estables → el value solo cambia con el estado real.
   const value = useMemo<AppState>(
     () => ({
@@ -151,6 +221,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setSelectedDataset,
       validation,
       setValidation,
+      preflight,
+      focusField,
+      setFocusField,
       lastRun,
       setLastRun,
       results,
@@ -165,6 +238,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       datasetId,
       selectedDataset,
       validation,
+      preflight,
+      focusField,
       lastRun,
       results,
       welcomeDismissed,

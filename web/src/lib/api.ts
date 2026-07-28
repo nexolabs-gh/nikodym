@@ -108,6 +108,34 @@ export interface ValidateResponse {
   pipeline: PipelineInfo | null
 }
 
+/**
+ * Un desajuste entre lo que el config nombra y lo que el dataset trae (D-PRE-8).
+ *
+ * `path` es la ruta del campo en el config **con alias serializados** (`data.schema.index_col`),
+ * y los elementos de lista van con corchetes (`data.schema.columns[3].name`) — el motor la emite
+ * así para que el formulario pueda enfocar el campo. `message` es copy público en español, que se
+ * pinta tal cual: el front no lo traduce ni lo reinterpreta.
+ */
+export interface PreflightMismatch {
+  path: string
+  declared: string
+  kind: "missing_column" | "index_not_a_column"
+  message: string
+}
+
+/**
+ * POST /api/preflight — el config contra las columnas del dataset, sin correr nada (D-PRE-1).
+ *
+ * `uninspected` son las secciones que llegaron opacas y **no se pudieron mirar** (D-PRE-9): no son
+ * un desajuste, pero impiden declarar `compatible`. Decir «todo bien» sobre lo que no se miró es
+ * la peor respuesta para quien está por lanzar una corrida.
+ */
+export interface PreflightResponse {
+  compatible: boolean
+  mismatches: PreflightMismatch[]
+  uninspected: string[]
+}
+
 /** POST /api/config/to-yaml — YAML canónico del config (`dump_config`, SDD-05 §5.5). */
 export interface ConfigToYamlResponse {
   yaml: string
@@ -245,6 +273,27 @@ export function validateConfig(config: ConfigDict): Promise<ValidateResponse> {
   return request<ValidateResponse>("validate", {
     method: "POST",
     body: JSON.stringify({ config }),
+  })
+}
+
+/**
+ * POST /api/preflight — compara el config con las columnas del dataset **antes** de correr.
+ *
+ * NO tiene rama demo, igual que `uploadDataset`: la demo estática no tiene backend que
+ * materialice un dataset, y sus corridas son reales y ya compatibles por construcción. El
+ * provider directamente no lo llama en `DEMO_MODE`.
+ *
+ * A diferencia de `/api/validate`, este endpoint **no siempre responde 200**: da 422 si el
+ * config no reconstruye y 404 si el dataset no existe. El llamador lo encadena detrás de una
+ * validación válida, así que el 422 no se alcanza en el flujo normal.
+ */
+export function preflightDataset(
+  config: ConfigDict,
+  datasetId: string,
+): Promise<PreflightResponse> {
+  return request<PreflightResponse>("preflight", {
+    method: "POST",
+    body: JSON.stringify({ config, dataset_id: datasetId }),
   })
 }
 

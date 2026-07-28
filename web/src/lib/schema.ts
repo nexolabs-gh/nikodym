@@ -114,6 +114,12 @@ export const CONFIG_SECTIONS: ConfigSectionDef[] = [
     description: "Métricas de desempeño: columnas, población y deciles.",
   },
   {
+    key: "stability",
+    label: "Estabilidad",
+    description:
+      "PSI y CSI del score y de la PD calibrada: umbrales, comparaciones entre particiones y eje temporal.",
+  },
+  {
     key: "survival",
     label: "Survival — PD lifetime",
     description:

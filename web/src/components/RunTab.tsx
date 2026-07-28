@@ -6,6 +6,7 @@ import {
   Database,
   Loader2,
   Play,
+  TriangleAlert,
 } from "lucide-react"
 
 import { EmptyState } from "@/components/EmptyState"
@@ -29,6 +30,7 @@ import {
   type RunStatus,
 } from "@/lib/api"
 import { presetDisplay } from "@/lib/presentation"
+import { runHint } from "@/lib/preflight"
 import { canRun, describeApiError } from "@/lib/validation"
 import { useAppState, type AppState } from "@/state/appStore"
 
@@ -108,6 +110,7 @@ export function RunTab({ onNavigate }: RunTabProps) {
     config,
     datasetId,
     validation,
+    preflight,
     seed,
     setConfig,
     setDatasetId,
@@ -123,6 +126,10 @@ export function RunTab({ onNavigate }: RunTabProps) {
   const [switching, setSwitching] = useState(false)
 
   const gate = canRun(validation, datasetId)
+  // Aviso del preflight (D-PRE-5): cambia el ASPECTO del botón y pone la advertencia al lado, pero
+  // NO toca `disabled`. Informar no es bloquear: la corrida sigue siendo la autoridad sobre sí
+  // misma, y quitarle al usuario la posibilidad de intentar sería peor que un aviso que sobre.
+  const hint = runHint(preflight)
   const running = outcome.kind === "running"
   const configHash = validation.kind === "valid" ? validation.hash : null
   // El arranque de la sesión (provider) siembra y valida el preset solo: mientras no termina
@@ -260,15 +267,30 @@ export function RunTab({ onNavigate }: RunTabProps) {
       <Card className="shadow-card">
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={handleRun} disabled={!gate.ok || running}>
+            {/* `disabled` NO mira el preflight: sólo el gate de siempre (config válido + dataset).
+                Lo único que cambia con un desajuste es el aspecto y el texto. */}
+            <Button
+              onClick={handleRun}
+              disabled={!gate.ok || running}
+              variant={hint !== null && !preparing ? "outline" : "default"}
+            >
               {running || preparing ? (
                 <Loader2 className="animate-spin" aria-hidden="true" />
               ) : (
                 <Play aria-hidden="true" />
               )}
-              {preparing ? "Cargando configuración…" : "Ejecutar corrida"}
+              {preparing
+                ? "Cargando configuración…"
+                : hint !== null
+                  ? "Ejecutar de todos modos"
+                  : "Ejecutar corrida"}
             </Button>
-            {gate.ok ? (
+            {gate.ok && hint !== null ? (
+              <p className="inline-flex max-w-md items-start gap-1.5 text-xs text-amber-200/90">
+                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                {hint}
+              </p>
+            ) : gate.ok ? (
               <p className="text-xs text-muted-foreground">
                 Config válido · dataset{" "}
                 <span className="font-mono text-muted-foreground">{datasetId}</span>

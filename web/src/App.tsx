@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Activity,
   Boxes,
@@ -17,6 +17,7 @@ import {
   Table2,
   TrendingDown,
   Users,
+  Waves,
   type LucideIcon,
 } from "lucide-react"
 
@@ -33,6 +34,11 @@ import { Card } from "@/components/ui/card"
 import { API_BASE, getPresetById } from "@/lib/api"
 import { bootstrapOnce } from "@/lib/bootstrap"
 import { DEMO_MODE } from "@/lib/demo-runtime"
+import {
+  candidateFieldIds,
+  sectionIsEditable,
+  sectionOfPath,
+} from "@/lib/preflight"
 import { CONFIG_SECTIONS } from "@/lib/schema"
 import { useAppState } from "@/state/appStore"
 
@@ -61,6 +67,7 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
   scorecard: Gauge,
   calibration: Scale,
   performance: Activity,
+  stability: Waves,
   survival: TrendingDown,
   provisioning_cmf: Landmark,
   provisioning_internal: Users,
@@ -132,6 +139,34 @@ const NAV: NavItem[] = [
   ...FLOW_SECTIONS.map((s) => ({ value: s.value, label: s.label, icon: s.icon })),
 ]
 
+/**
+ * Control **visible** que corresponde a `id`, o `null` si no hay ninguno en el DOM.
+ *
+ * ⚠️ No basta `getElementById`, y se midió en vivo: un campo opcional **apagado** se pinta como un
+ * `<span role="switch">` («Activar …») y el `id` del path lo lleva un `<input type="checkbox">`
+ * interno del componente, con `aria-hidden` y `position: fixed`. Enfocar ése no mueve la página a
+ * ninguna parte y el salto falla en silencio — justo en los campos opcionales, que son la mayoría
+ * de los que el preflight señala (`index_col`, `temporal_column`, `cohort_col`).
+ *
+ * Por eso se descartan los `aria-hidden` y se prefiere el primer nodo enfocable; si sólo queda el
+ * oculto, se cae al switch visible de su mismo grupo, que es el control que el usuario debe tocar
+ * para poder escribir el nombre.
+ */
+function controlVisible(id: string): HTMLElement | null {
+  const nodos = [
+    ...document.querySelectorAll<HTMLElement>(`[id="${CSS.escape(id)}"]`),
+  ]
+  const enfocable = nodos.find(
+    (el) => el.getAttribute("aria-hidden") !== "true" && el.tabIndex >= 0,
+  )
+  if (enfocable) return enfocable
+  const oculto = nodos[0]
+  if (!oculto) return null
+  return (
+    oculto.parentElement?.querySelector<HTMLElement>('[role="switch"]') ?? oculto
+  )
+}
+
 /** Sección de config activa (clave de schema) a partir del valor del sidebar, o `null`. */
 function configKeyOf(active: string): string | null {
   return active.startsWith(CONFIG_PREFIX)
@@ -171,11 +206,44 @@ function App() {
     setSeed,
     setResults,
     setLastRun,
+    focusField,
+    setFocusField,
   } = useAppState()
+
+  // Atiende el foco que pidió un aviso del preflight (D-PRE-8). Vive AQUÍ y no en `ConfigTab` por
+  // dos razones: esa pestaña es un editor puro sin efectos —gate de `bootstrap.test.ts`, que
+  // protege la regresión UX1— y este efecto corre tras el commit del árbol completo, con el
+  // formulario de la sección ya montado.
+  //
+  // Se prueban los candidatos de `candidateFieldIds` en orden: el campo exacto y, si el formulario
+  // no expande esa lista, el control que edita la lista entera. Si ninguno está en el DOM se
+  // limpia igual y el usuario queda en la sección correcta, que es el fallback declarado.
+  useEffect(() => {
+    if (focusField === null) return
+    for (const id of candidateFieldIds(focusField)) {
+      const el = controlVisible(id)
+      if (el === null) continue
+      el.scrollIntoView({ block: "center", behavior: "smooth" })
+      el.focus({ preventScroll: true })
+      break
+    }
+    setFocusField(null)
+  }, [focusField, setFocusField])
 
   // "config" a secas (p.ej. una navegación programática) cae en la primera sub-sección.
   const navigate = (value: string) =>
     setActive(value === "config" ? configValue(CONFIG_SECTIONS[0].key) : value)
+
+  // Salto desde un aviso del preflight al campo que lo causa (D-PRE-8): abre la sección de config
+  // que le corresponde y deja pedido el foco, que atiende `ConfigTab` cuando ya montó su
+  // formulario. La navegación vive aquí —es la dueña de `active`—; el foco viaja por el store
+  // porque quien lo pide (el aviso en Datos) y quien lo atiende están en pestañas distintas.
+  const jumpToField = (path: string) => {
+    const seccion = sectionOfPath(path)
+    if (!sectionIsEditable(seccion)) return // sin pestaña que abrir; el aviso ya lo dice
+    setActive(configValue(seccion))
+    setFocusField(path) // el path CRUDO: la traducción a `id` la resuelve el efecto de foco
+  }
 
   // Entrada desde el landing. SIN preset (build normal / CTA genérico): flujo completo, arranca en
   // Datos. CON preset (selector de demos de `demo.nikodym.cl`): resiembra ESE pipeline y entra
@@ -254,7 +322,7 @@ function App() {
           ) : active === "resultados" ? (
             <ResultsTab onNavigate={navigate} />
           ) : active === "datos" ? (
-            <DatosTab onNavigate={navigate} />
+            <DatosTab onNavigate={navigate} onJumpToField={jumpToField} />
           ) : active === "reporte" ? (
             <ReporteTab onNavigate={navigate} />
           ) : section ? (

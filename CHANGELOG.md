@@ -25,6 +25,23 @@ La comprobación **informa, no bloquea** — la corrida sigue siendo la autorida
 Alcance: el pipeline F1. `provisioning*`, `survival`, `markov`, `forward` y `stress` quedan fuera
 por ahora, y el gate de cobertura lo declara en vez de callarlo.
 
+- **La interfaz lo usa: el aviso aparece mientras trabajas.** En «Cargar datos», junto a las
+  columnas de tu archivo, y en cada sección de «Configuración» con los desajustes que le tocan.
+  **Un click en un aviso te lleva al campo** que hay que corregir. El botón Ejecutar cambia de
+  aspecto y avisa, pero **no se bloquea nunca**: puedes correr igual.
+- **El formulario alcanza la sección `stability`** (PSI/CSI, umbrales, comparaciones y eje
+  temporal): era parte del camino F1 y sólo se podía editar por YAML o por código.
+
+### Corregido
+
+- **Un invariante de config roto devolvía HTTP 500 en `/api/validate`**, cuyo contrato es responder
+  siempre 200, y la interfaz lo mostraba como «Backend no disponible» — una afirmación falsa sobre
+  un backend sano. Ocurría con algo tan simple como activar un campo opcional sin escribirle valor.
+  La causa: `ConfigError` no hereda de `ValueError`, así que Pydantic no lo envuelve y la excepción
+  escapaba entera. Ahora es `valid=false` con su mensaje, y **422 en `/api/preflight`,
+  `/api/run` y `/api/config/to-yaml`** — nunca un 500. Alcanza a las seis secciones de config que
+  validan invariantes propios, no sólo a la que lo destapó.
+
 ## [1.8.0] — 2026-07-27
 
 La identidad criptográfica del config dejó de depender de qué módulos hubiera importado el proceso.

@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 
 import { FieldRenderer } from "@/components/FieldRenderer"
+import { PreflightNotice } from "@/components/PreflightNotice"
 import { applyPreset } from "@/components/RunTab"
 import {
   Accordion,
@@ -279,6 +280,8 @@ export function ConfigTab({ section }: { section: string }) {
     setResults,
     setLastRun,
     validation,
+    preflight,
+    setFocusField,
   } = useAppState()
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
@@ -343,6 +346,11 @@ export function ConfigTab({ section }: { section: string }) {
     },
     [setConfig],
   )
+
+  // ⚠️ Esta pestaña NO puede tener efectos: es un editor puro, y el gate de `bootstrap.test.ts`
+  // lo hace cumplir (un efecto de montaje resembraba el preset y pisaba las ediciones, UX1). El
+  // foco que piden los avisos del preflight lo atiende `App`, que además es la dueña de la
+  // navegación; aquí sólo se DECLARA el pedido.
 
   const handleDownloadYaml = async () => {
     setYamlError(null)
@@ -553,6 +561,14 @@ export function ConfigTab({ section }: { section: string }) {
             </span>
           </div>
         ) : null}
+
+        {/* Desajustes del preflight que caen en ESTA sección (D-PRE-8): el aviso se pinta junto al
+            formulario que los arregla, y el click enfoca el campo exacto. */}
+        <PreflightNotice
+          state={preflight}
+          section={section}
+          onJump={(m) => setFocusField(m.path)}
+        />
 
         {presetError ? (
           <p className="text-xs text-destructive">{presetError}</p>

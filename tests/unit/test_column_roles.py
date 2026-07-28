@@ -12,6 +12,9 @@ cobertura total, que es justo lo que no es.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 from pydantic import BaseModel, Field
 
@@ -34,6 +37,21 @@ SECCIONES_EN_ALCANCE = (
     PerformanceConfig,
     StabilityConfig,
 )
+
+#: Clave de config de cada sección en alcance: la que abre el `path` de un desajuste
+#: (``data.partition.strategy.cohort_col``) y la que el sidebar usa para navegar.
+CLAVES_EN_ALCANCE = {
+    DataConfig: "data",
+    BinningConfig: "binning",
+    SelectionConfig: "selection",
+    ScorecardConfig: "scorecard",
+    CalibrationConfig: "calibration",
+    PerformanceConfig: "performance",
+    StabilityConfig: "stability",
+}
+
+#: Catálogo de secciones navegables del formulario (front). Vive UNA vez, en `lib/schema.ts`.
+_SCHEMA_TS = Path(__file__).resolve().parents[2] / "web" / "src" / "lib" / "schema.ts"
 
 #: Sufijos que delatan un campo que nombra columnas. `name`/`col` sueltos (``ColumnSpec.name``,
 #: ``Predicate.col``) no caben en un patrón por sufijo sin arrastrar falsos positivos, así que van
@@ -69,6 +87,52 @@ def _campos_de_columna() -> list[tuple[type[BaseModel], str]]:
                 if nombre.endswith(SUFIJOS):
                     encontrados.append((modelo, nombre))
     return sorted(set(encontrados), key=lambda par: (par[0].__name__, par[1]))
+
+
+def _secciones_navegables() -> set[str]:
+    """Claves de `CONFIG_SECTIONS` (`web/src/lib/schema.ts`), leídas del propio catálogo.
+
+    Se lee el archivo en vez de duplicar la lista aquí, por la misma razón que
+    ``test_public_copy.py`` lee ``markers.ts``: una copia a mano se desincroniza en silencio, que
+    es justo el modo de fallo que el gate persigue.
+    """
+    texto = _SCHEMA_TS.read_text(encoding="utf-8")
+    _, _, resto = texto.partition("export const CONFIG_SECTIONS")
+    bloque, _, _ = resto.partition("\n]")
+    return set(re.findall(r'key:\s*"([a-z_0-9]+)"', bloque))
+
+
+def test_toda_seccion_en_alcance_del_preflight_es_navegable_en_el_formulario() -> None:
+    """Un desajuste cuya sección no está en el formulario es un diagnóstico inaccionable.
+
+    El preflight devuelve la ruta del campo **para que el formulario pueda enfocarlo** (D-PRE-8).
+    Si esa sección no está en `CONFIG_SECTIONS`, el usuario recibe un aviso exacto sobre un campo
+    que la interfaz no ofrece: sólo le queda editar el YAML a mano. Es la definición de feature a
+    medias del repo, y contradice el requisito 1 de la visión (paridad UI ↔ código).
+
+    Ocurrió de verdad: `stability` era sección del config —y de las siete del camino F1— pero no
+    estaba en el catálogo del sidebar, así que `stability.temporal_column` se reportaba sin
+    destino. Se detectó conectando el preflight a la SPA, no antes.
+
+    Ampliar el alcance del preflight (P5: `provisioning*`, `survival`, `markov`, `forward`,
+    `stress`) obliga a pasar por aquí: o la sección se ofrece en el formulario, o se declara por
+    qué no.
+    """
+    navegables = _secciones_navegables()
+    assert navegables, (
+        f"No se pudo leer `CONFIG_SECTIONS` de {_SCHEMA_TS.name}: si el catálogo cambió de forma, "
+        "este gate quedaría verde sin comprobar nada."
+    )
+
+    ausentes = sorted(
+        clave for clave in CLAVES_EN_ALCANCE.values() if clave not in navegables
+    )
+
+    assert not ausentes, (
+        f"Secciones que el preflight puede señalar pero el formulario no ofrece: {ausentes}. "
+        "El usuario recibiría un desajuste con su ruta exacta y ningún campo donde corregirlo. "
+        f"Agrégalas a `CONFIG_SECTIONS` en {_SCHEMA_TS.name} (y su icono en `App.tsx`)."
+    )
 
 
 def test_todo_campo_de_columna_del_camino_f1_declara_su_rol() -> None:
