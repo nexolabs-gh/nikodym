@@ -5,7 +5,15 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
-## [No publicado]
+## [1.8.0] — 2026-07-27
+
+La identidad criptográfica del config dejó de depender de qué módulos hubiera importado el proceso.
+
+**Nota de contrato (SemVer):** sale como **minor**, no como patch, porque **recalcula el
+`config_hash`** de los configs con secciones opacas y campos omitidos — y con él la clave de
+idempotencia del inventario MLflow. Un patch se lo llevaría quien tenga un pin `~=1.7.0` sin haberlo
+decidido. Mismo criterio que `1.4.0`, que también recalculó identidad al excluir `data.load.source`.
+El algoritmo de canonicalización no cambia y sigue estable dentro de 1.x.
 
 ### Corregido
 
