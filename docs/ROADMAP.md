@@ -21,7 +21,7 @@ El estado y el plan de esta sección son la fuente vigente.
 | F3/F8 · CMF, método interno y orquestación | Implementado, **experimental** | Validación humana de matrices/haircuts pendiente |
 | F4 · IFRS 9/ECL | Implementado, **experimental** | Independiente del máximo B-1 chileno |
 | F5/F6 · forward, survival, Markov, stress y validación | Implementado, **experimental** | Uso por config Python; sin preset/UI propios |
-| F7 · UI React/FastAPI e informe | **No entregada como producto** | B2.1 y B2.2 cerrados (assets, supply-chain, licencias; launcher, runtime y seguridad) en `main`. `1.5.0` —lo publicado— sigue sin launcher/assets, y `[ui]` no cierra sus presets hasta B2.3 |
+| F7 · UI React/FastAPI e informe | **No entregada como producto** | B2.0–B2.3 cerrados en `main` (assets, supply-chain, licencias; launcher, runtime y seguridad; extra `[ui]`, uploads y presets) y la documentación de B2.5. Abiertos: B2.4, la pata de release de B2.5 y el tercero sin checkout |
 | Originación/reject inference | Futuro | Requiere caso de uso, priorización y SDD |
 
 ## Plan operativo vigente (desde 2026-07-21)
@@ -213,8 +213,9 @@ retroactivamente el producto `1.5.0` publicado.
    PyPI en un paso propio del CI. Eso destapó `nvidia-nccl-cu12` (`LicenseRef-NVIDIA-Proprietary`,
    ~303 MB) entrando por `xgboost` en Linux: el extra pasa a resolver **`xgboost-cpu`** bajo
    `sys_platform == 'linux'`, que es el mismo proyecto en Apache-2.0 y sin rutas GPU (98 MB → 5,7 MB
-   por wheel). El job `release` **sigue sin pasar por estos gates** y su cableado es B2.5; §7.7 lo
-   declara explícitamente en vez de describirlo como vigente.
+   por wheel). El job `release` **sigue sin pasar por estos gates** y su cableado es B2.5; se declara
+   aquí explícitamente en vez de describirlo como vigente. (Verificable en
+   `.github/workflows/release.yml`: publica con rebuild, no el artefacto gateado por el job `build`.)
 2. **B2.2 · launcher, runtime y seguridad.** `nikodym-ui = nikodym.ui.__main__:main`, `argparse`,
    bind fijo `127.0.0.1:8000`, `.nikodym_ui`, navegador abierto y
    `--no-open`/`--port`/`--workdir` —sin `--host`. Cada lanzamiento crea un token aleatorio de
@@ -251,8 +252,8 @@ retroactivamente el producto `1.5.0` publicado.
    `docs_site` documenta `nikodym-ui` con sus tres opciones, el bind sólo-loopback y la paridad
    UI↔código; la fila del extra `ui` en la matriz estaba incompleta (decía «backend REST», omitía
    el comando y el extra `docx`) y la versión de la serie estaba en `1.5.x`. **Falta la pata de
-   release:** el job `release` sigue sin pasar por los gates de B2.1 y publica con rebuild — §7.7 lo
-   declara—, así que este nodo queda PARCIAL.
+   release:** el job `release` sigue sin pasar por los gates de B2.1 y publica con rebuild —lo
+   declara el nodo B2.1 arriba—, así que este nodo queda PARCIAL.
 
 **Identidad del DoD.** Antes de correr: igualdad estructural del config +
 `config_hash(UI) == config_hash(código)`; la ubicación de datos se excluye del `config_hash`.
@@ -672,10 +673,11 @@ determinista de presentación (read-only, trazada y fuera de modelo/ModelCard/in
 **Dos modos de despliegue.**
 - **Local (analista):** `pip install nikodym[ui]` debe traer el React buildeado y levantar FastAPI
   en loopback; los datos no salen de su máquina. 🔴 **PROMESA INCUMPLIDA EN `1.5.0`** — lo publicado
-  no trae launcher/assets y el extra no cierra los presets visibles. En `main`, B2.1 ya versiona y
-  gatea los assets y B2.2 añade el launcher `nikodym-ui` con su runtime y seguridad; falta que B2.3
-  complete `[ui]`. Hasta completar B2.3–B2.5, publicar y repetir el recorrido desde PyPI, F7 no
-  está entregado.
+  no trae launcher/assets y el extra no cierra los presets visibles. **En `main` ya está cumplida**
+  (2026-07-28): B2.1 versiona y gatea los assets, B2.2 añade el launcher `nikodym-ui` con su runtime
+  y seguridad, y B2.3 cierra el extra `[ui]` —que desde `d842ccd` compone `scoring` y `survival`, así
+  que `pip install nikodym[ui]` corre los tres presets—. Hasta **publicarlo** y repetir el recorrido
+  desde PyPI con un tercero sin checkout, F7 no está entregado.
 - **Hosteada (comercial):** `nikodym.cl/demo`, dataset **sintético** precargado, flujo guiado "arma tu modelito en pocos pasos" + CTA de lead comercial.
 **DoD.** Un modelo F1 completo construible 100 % desde la UI: igualdad estructural +
 `config_hash` antes de ejecutar y, sobre el mismo contenido, `data_hash` + resultados canónicos

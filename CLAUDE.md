@@ -5,7 +5,62 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-28, `f3d9f68`, CI verde 16/16, **sin release nuevo**)
+> ## Lo último (2026-07-28, `d842ccd`, CI verde 16/16, **sin release nuevo**)
+>
+> ✅ **El preflight ya es interfaz, no sólo capacidad.** El aviso vive en «Cargar datos» y en cada
+> sección de «Configuración»; **un click salta al campo** que hay que corregir; el botón Ejecutar
+> cambia de aspecto y **nunca bloquea** (D-PRE-5). Tres decisiones de UX de Cami. El estado vive en
+> `appStore` y va **encadenado detrás de la validación** —dispara sólo con `config_hash` en mano—,
+> así hereda su debounce y no gasta una llamada por tecleo.
+>
+> ✅ **Y lo que más vale es la CLASE que cierran los tres arreglos: algo que existe y el usuario no
+> puede alcanzar.** La sesión anterior cerró esa clase en el núcleo (la sección opaca); ésta la
+> cerró en el producto, en tres capas, y dos dejaron gate:
+>
+> | capa | existía | el usuario veía | gate |
+> |---|---|---|---|
+> | capacidad | `check_dataset` + `/api/preflight` | la SPA no los llamaba | la feature *es* el arreglo |
+> | formulario | `stability`, sección del camino F1 | el preflight la señalaba **sin pestaña** a la que saltar | `test_column_roles.py` |
+> | paquete | el motor completo, tras extras | `pip install nikodym[ui]` levantaba una interfaz que **no corría ninguno de sus 3 presets** | `test_extra_ui_cubre_el_formulario.py` |
+>
+> **Los dos gates miden deriva contra `CONFIG_SECTIONS`, no listas escritas al lado.** Cuando el
+> formulario crezca —hoy el backend expande **24** secciones y el formulario ofrece **13**—, el CI
+> exige la pestaña y el extra, o que la sección salga. Verificados inyectando el defecto anterior.
+>
+> ⚠️ **`[ui]` ya no es «el servidor»: trae lo que su formulario puede ejecutar** (decisión de Cami,
+> «no quiero promesas falsas»). Compone `scoring` y `survival`; **310 → 703 MB**. `survival` entra
+> porque su sección está en el formulario y `method` es editable —el preset F4 usa `discrete_hazard`,
+> pero `kaplan_meier`/`cox_aft` exigen lifelines—; `ml`/`tuning`/`explain`/`markov`/`forward` **no**
+> entran porque el formulario no los ofrece; **`[pdf]` nunca entra** (copyleft). Verificado
+> instalando el wheel en venv limpio con **sólo `[ui]`**: 0/3 → 3/3 presets a `done` con informe.
+>
+> ✅ **B2.5 documentación HECHA** (el nodo queda **PARCIAL**: falta su pata de release). Al comando
+> `nikodym-ui` sólo se llegaba leyendo el `pyproject.toml`.
+>
+> **Cinco cosas de esta sesión que conviene no re-aprender:**
+>
+> 1. **🔴 Un salto por `path` se verifica en el DOM, no comparando strings.** Dos defectos que ningún
+>    test de strings habría cazado: el formulario **no expande las listas de objetos** —de
+>    `data.schema.columns[0].name` no hay control, hay uno para la lista entera— y el foco caía al
+>    `body` en **8 de 15** desajustes; y un campo **opcional apagado** se pinta como switch, con el
+>    `id` en un checkbox `aria-hidden` en `position: fixed`. Lo resuelven `candidateFieldIds` y
+>    `controlVisible` (`web/src/lib/preflight.ts`, `App.tsx`).
+> 2. **🔴 `ConfigError` no hereda de `ValueError`**, así que Pydantic no lo envuelve y escapa entero:
+>    `/api/validate` —contrato «siempre 200»— devolvía **500**, y el front lo mostraba como «Backend
+>    no disponible», que es falso. **Seis `config.py` lo levantan al validar**, así que se traduce en
+>    el endpoint, no por sección: `validate` → `valid=false`; `preflight`/`run`/`to-yaml` → 422.
+>    `from-yaml` ya lo hacía y es el precedente.
+> 3. **🔴 El gate de ruff son DOS comandos:** `ruff check .` **y** `ruff format --check .`. Correr
+>    sólo el primero costó un CI rojo en `Quality`.
+> 4. **⚠️ Un efecto que depende del `config` dispara con el hash del render anterior.** El preflight
+>    salía con el config nuevo y el `config_hash` viejo → 422 en cada tecleo. La dependencia correcta
+>    es **sólo el hash**, con el config vía `ref`.
+> 5. **⚠️ `ConfigTab` no puede tener `useEffect`** —gate de `bootstrap.test.ts`, que protege la
+>    regresión UX1—, por eso el foco del salto vive en `App.tsx`.
+>
+> ---
+>
+> ### Lo de la sesión anterior (`f3d9f68`, 2026-07-28)
 >
 > ✅ **El config y tu dataset se comparan ANTES de correr.** `nikodym.check_dataset(config, columnas)`
 > y `POST /api/preflight` devuelven **todos** los desajustes de una vez, sin ejecutar nada y sin leer
@@ -16,9 +71,8 @@
 > Es **aditivo**: no toca el `config_hash`, ni el veredicto de `/api/run`, ni comportamiento
 > existente. Informa, **no bloquea** (D-PRE-5).
 >
-> ⚠️ **La SPA todavía NO lo llama.** Funciona por código y por HTTP, no por interfaz — y según la
-> regla del propio repo eso es feature a medias. Es el objetivo de la próxima sesión, y exige
-> decisiones de UX que Cami no ha tomado (ver `HANDOFF.md`).
+> ✅ **La SPA ya lo llama** (cerrado en `473af0a`, ver arriba). Cuando se escribió esta línea
+> funcionaba sólo por código y por HTTP, que según la regla del repo es feature a medias.
 >
 > ✅ **Y lo que más vale de la sesión no es la feature: es el gate de CLASE** (`b968fb3`,
 > `tests/unit/test_seccion_opaca_invariante.py`). **Los tres defectos serios de los últimos tres
@@ -64,11 +118,10 @@
 > callarlo — una lista corta sin explicación se lee como cobertura total. Ampliarlo es registrar sus
 > campos con `column_role`; el mecanismo no cambia.
 >
-> ⚠️ **`docs/ROADMAP.md:87` quedó stale sobre B2.3**: declara B2.3 sin cerrar, pero medido contra el
-> código el extra `[ui]` existe y compone lo que B2.3 pide, `/api/upload` funciona y los tres presets
-> corren desde PyPI. Lo que de verdad falta de B2 es **B2.4** (no hay clean-room automatizado ni
-> Playwright), **B2.5** (ni el README ni `docs_site` mencionan `nikodym-ui`) y el **tercero sin
-> checkout** del criterio de cierre.
+> ✅ **El ROADMAP ya no está stale sobre B2** (corregido en `5662172`/`d842ccd`): B2.3 quedó
+> declarado cerrado y su discrepancia del extra `[ui]` —decía componer `scoring` y no lo hacía— está
+> resuelta. Lo que sigue abierto de B2 es **B2.4** (no hay clean-room automatizado ni Playwright), la
+> **pata de release de B2.5** y el **tercero sin checkout** del criterio de cierre.
 >
 > ---
 >
@@ -189,7 +242,7 @@
 > —y su default es `12`, correcto sólo para curvas mensuales—. La salida en ambos casos es declarar
 > el dato (una línea) o apagar `fail_on_falta_dato`. Está en el CHANGELOG con ejemplos.
 >
-> Nikodym `1.5.0` fue el cierre del bloque **B1** (tag `v1.5.0`, 2026-07-22); el proyecto ya no está en construcción por capas sino en mejora continua. El **track pre-Interbank está completo** (IBK-01…05 cerradas); no hay bloque IBK siguiente, y el freeze de artefactos terminó con la reunión del 2026-07-22. El plan vigente son los bloques **B1…B8** del `ROADMAP`: el bloque en curso es **B2** (UI instalable) — ojo, `1.6.0` salió **sin** cerrar B2, porque la corrección de la ECL no podía esperar al bloque; el criterio de cierre de B2 sigue siendo el suyo (ver ROADMAP §B2) y **no** se cumplió con este release. **B2.0, B2.1 y B2.2 están cerrados** (B2.2 —launcher, runtime y seguridad— el 2026-07-24, con los 16 jobs del CI verdes); sus decisiones quedaron **consolidadas en SDD-23 y SDD-25**, así que `docs/design/_ENMIENDA-B2.2.md` es ya registro histórico y no contrato vigente. El siguiente nodo es **B2.3** (`[ui]`, uploads y presets), que exige su propia enmienda antes de programar.
+> Nikodym `1.5.0` fue el cierre del bloque **B1** (tag `v1.5.0`, 2026-07-22); el proyecto ya no está en construcción por capas sino en mejora continua. El **track pre-Interbank está completo** (IBK-01…05 cerradas); no hay bloque IBK siguiente, y el freeze de artefactos terminó con la reunión del 2026-07-22. El plan vigente son los bloques **B1…B8** del `ROADMAP`: el bloque en curso es **B2** (UI instalable) — ojo, `1.6.0` salió **sin** cerrar B2, porque la corrección de la ECL no podía esperar al bloque; el criterio de cierre de B2 sigue siendo el suyo (ver ROADMAP §B2) y **no** se cumplió con este release. **B2.0, B2.1 y B2.2 están cerrados** (B2.2 —launcher, runtime y seguridad— el 2026-07-24, con los 16 jobs del CI verdes); sus decisiones quedaron **consolidadas en SDD-23 y SDD-25**, así que `docs/design/_ENMIENDA-B2.2.md` es ya registro histórico y no contrato vigente. ⚠️ **Lo que sigue de este párrafo es histórico: decía «el siguiente nodo es B2.3, que exige su propia enmienda antes de programar», y B2.3 quedó CERRADO el 2026-07-28** —el extra `[ui]`, los uploads y los presets funcionan, sin enmienda propia—. Ver el bloque «Lo último» arriba y `docs/ROADMAP.md` §B2.
 >
 > **Taxonomía de marcas (2026-07-25, ejecutada y publicada):** un aviso declarado se marca
 > `FALTA-DATO` si la carencia es **del motor** o `DATO-INSTITUCIONAL` si el dato **lo aporta la

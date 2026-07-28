@@ -11,18 +11,52 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado del proyecto (2026-07-28)
 
-**`main` = `f3d9f68`, CI verde 16/16 (conteo por `gh`), sin release nuevo.** Lo publicado en PyPI
-sigue siendo **`1.8.0`**; el trabajo de esta sesión es aditivo y espera en `CHANGELOG.md` bajo «Sin
-publicar». Suite 4510 passed / 6 skipped.
+**`main` = `d842ccd`, CI verde 16/16 (conteo por `gh`), sin release nuevo.** Lo publicado en PyPI
+sigue siendo **`1.8.0`**; el trabajo espera en `CHANGELOG.md` bajo «Sin publicar». Suite 4515 passed
+/ 6 skipped; vitest 331/331.
+
+⚠️ **El release pendiente NO es rutinario: cambia lo que instala un comando.** `pip install
+nikodym[ui]` pasa de 310 a 703 MB y de 0 a 3 presets ejecutables. No toca API pública ni
+`config_hash`. Recomendación escrita en `HANDOFF.md` (P0): **`1.9.0`**, minor.
+
+**El preflight ya es interfaz, no sólo capacidad.** El aviso vive en «Cargar datos» y en cada sección
+de «Configuración»; un click **salta al campo**; el botón Ejecutar cambia de aspecto y **nunca
+bloquea** (D-PRE-5). Va encadenado detrás de la validación —dispara sólo con `config_hash` en mano—,
+así que hereda su debounce y no gasta una llamada por tecleo.
+
+**Y los tres arreglos de la sesión son la misma CLASE: algo que existe y el usuario no puede
+alcanzar.** La sesión anterior cerró esa clase en el núcleo (la sección opaca); ésta la cerró en el
+producto, en tres capas —capacidad sin interfaz, sección de config sin pestaña (`stability`), y un
+extra `[ui]` que instalaba una interfaz incapaz de correr **ninguno** de sus tres presets—. Las dos
+últimas dejaron gate, y **ambos miden deriva contra `CONFIG_SECTIONS`**, no listas escritas al lado:
+`tests/unit/test_column_roles.py` (toda sección que el preflight puede señalar es navegable) y
+`tests/unit/test_extra_ui_cubre_el_formulario.py` (`[ui]` trae lo que el formulario puede ejecutar).
+
+⚠️ **`[ui]` ya no es «el servidor»** (decisión de Cami, «no quiero promesas falsas»): compone
+`scoring` y `survival`. `survival` entra porque su sección está en el formulario y `method` es
+editable; `ml`/`tuning`/`explain`/`markov`/`forward` **no**, porque el formulario no los ofrece; y
+**`[pdf]` nunca**, por copyleft. Verificado instalando el wheel en venv limpio con sólo `[ui]`.
+
+⚠️ **`ConfigError` no hereda de `ValueError`.** Pydantic no lo envuelve, así que escapaba entero y
+`/api/validate` —contrato «siempre 200»— devolvía **500**, que el front mostraba como «Backend no
+disponible». Seis `config.py` lo levantan al validar: se traduce en el endpoint, no por sección.
+
+**Estado de B2:** cerrados B2.0–B2.3 y la documentación de B2.5; abiertos **B2.4** (no hay clean-room
+automatizado ni Playwright), la **pata de release de B2.5** (el job publica con rebuild) y el
+**tercero sin checkout**, que no lo sustituye ningún agente: el recorrido automatizable elimina la
+dependencia del árbol, **no** el sesgo de conocimiento interno.
+
+---
+
+### Lo de la sesión del 2026-07-28 (mañana)
 
 **El config y el dataset se comparan ANTES de correr.** `nikodym.check_dataset(config, columnas)` y
 `POST /api/preflight` devuelven **todos** los desajustes de una vez, sin ejecutar nada. Medido desde
 PyPI en venv limpio: un CSV con nombres de columna propios exigía **seis ediciones del preset F1 en
 seis lugares distintos**, reveladas **de a una** —cada corrida fallida destapaba la siguiente—.
 [`_ENMIENDA-PREFLIGHT-DATASET.md`](design/_ENMIENDA-PREFLIGHT-DATASET.md), D-PRE-1…D-PRE-9.
-⚠️ **La SPA aún no lo llama**: funciona por código y por HTTP, no por interfaz.
 
-**Y lo que más vale de la sesión no es la feature: es haber atacado una CLASE de defecto.** Los tres
+**Y lo que más vale de esa sesión no es la feature: es haber atacado una CLASE de defecto.** Los tres
 defectos serios de los últimos tres releases —el `save`→`load` que se rechazaba a sí mismo (`1.7.0`),
 los dos `config_hash` según los imports (`1.8.0`) y el preflight que decía `compatible=True` sobre un
 config con 17 desajustes— **son el mismo defecto con tres disfraces**: una sección de config existe
@@ -35,13 +69,9 @@ declare su política (`comprobado` con test, o `exento: <razón>`).
 alguien haya llamado `cargar_configs_de_dominio()`, y tener la capa importada **no basta**. Ésa es la
 razón de que la familia reapareciera tres veces conviviendo con 4.500 tests verdes.
 
-**Estado real de B2, medido contra el código** (corrige `docs/ROADMAP.md:87`, que quedó stale): el
-extra `[ui]`, `/api/upload` y los tres presets **funcionan desde PyPI** —el recorrido clean-room pasa
-F1/F3/F4 hasta `done` + informe, con los negativos de seguridad verdes—. Lo que falta es **B2.4** (no
-hay clean-room automatizado ni Playwright), **B2.5** (ni el README ni `docs_site` mencionan
-`nikodym-ui`) y el **tercero sin checkout** del criterio de cierre. Ese último no lo sustituye ningún
-agente: el recorrido de esta sesión elimina la dependencia del árbol, **no** el sesgo de conocimiento
-interno.
+Ese recorrido midió además que el extra `[ui]`, `/api/upload` y los tres presets **funcionan desde
+PyPI** (F1/F3/F4 hasta `done` + informe, con los negativos de seguridad verdes), lo que destapó que
+`docs/ROADMAP.md` declaraba B2.3 abierto contra lo que decía el código. Ya está corregido.
 
 ---
 
@@ -128,7 +158,7 @@ exigiendo **OK específico de Cami**. La librería ya **no** está en fase de co
   **demo.nikodym.cl** (fixtures de corridas reales, sin cálculo en el navegador).
 - **Informe** HTML/PDF/Word con estilo editorial, contexto poblacional, validación formal y config
   efectiva por dominio; F3 fue recapturado desde una corrida real durante esta consolidación.
-- Suite: **>3.900 tests**, `mypy --strict`, cobertura 100 % en código regulatorio, CI matriz verde
+- Suite: **>4.500 tests** (4.515 al 2026-07-28), `mypy --strict`, cobertura 100 % en código regulatorio, CI matriz verde
   (macOS/Windows/Linux × Python 3.11–3.13).
 
 **Track pre-Interbank COMPLETO:** la cola [`privado/COLA-CODEX-INTERBANK.md`](privado/COLA-CODEX-INTERBANK.md)
@@ -274,8 +304,9 @@ ya se completaron; sus decisiones siguen vigentes en `docs/design/`.
   backend (un fallback puede copiarla tal cual a una card). **No** cuentan: `warning_codes` y
   `card.falta_dato`, las claves de los dicts de labels, comentarios, tests, `docs/design/` y el
   volcado de auditoría del anexo del informe —ahí el código es la evidencia—. Lo vigilan
-  `web/src/lib/public-copy.test.ts` y `tests/unit/test_public_copy.py`; el `README.md` queda fuera
-  hasta que Cami decida (`HANDOFF.md` P1).
+  `web/src/lib/public-copy.test.ts` y `tests/unit/test_public_copy.py`. **El `README.md` SÍ está en
+  el gate** desde el 2026-07-25 (decisión de Cami): lo consume `test_public_copy.py:44`, y la
+  documentación de los códigos vive en `docs_site/avisos-declarados.md`, su única exención nueva.
 - **«Instalable y usable» es requisito de entrega.** Una capacidad que el usuario de `pip install` no
   puede alcanzar cuenta como no entregada, por más tests que tenga. Ver
   [[feature-gateada-por-config-es-feature-inexistente]] y el bloque B2 del ROADMAP.
