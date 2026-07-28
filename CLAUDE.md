@@ -5,7 +5,74 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-27, `2c9ed79`, CI verde 16/16, **`1.8.0` PUBLICADO en PyPI**)
+> ## Lo último (2026-07-28, `b968fb3`, CI verde 16/16, **sin release nuevo**)
+>
+> ✅ **El config y tu dataset se comparan ANTES de correr.** `nikodym.check_dataset(config, columnas)`
+> y `POST /api/preflight` devuelven **todos** los desajustes de una vez, sin ejecutar nada y sin leer
+> los datos. Medido desde PyPI en venv limpio: un CSV con nombres de columna propios exigía **seis
+> ediciones del preset F1 en seis lugares distintos**, y el motor las revelaba **de a una** —cada
+> corrida fallida destapaba la siguiente—.
+> [`_ENMIENDA-PREFLIGHT-DATASET.md`](docs/design/_ENMIENDA-PREFLIGHT-DATASET.md), D-PRE-1…D-PRE-9.
+> Es **aditivo**: no toca el `config_hash`, ni el veredicto de `/api/run`, ni comportamiento
+> existente. Informa, **no bloquea** (D-PRE-5).
+>
+> ⚠️ **La SPA todavía NO lo llama.** Funciona por código y por HTTP, no por interfaz — y según la
+> regla del propio repo eso es feature a medias. Es el objetivo de la próxima sesión, y exige
+> decisiones de UX que Cami no ha tomado (ver `HANDOFF.md`).
+>
+> ✅ **Y lo que más vale de la sesión no es la feature: es el gate de CLASE** (`b968fb3`,
+> `tests/unit/test_seccion_opaca_invariante.py`). **Los tres defectos serios de los últimos tres
+> releases son UN SOLO defecto con tres disfraces** — `1.7.0` (el `save`→`load` que se rechazaba a
+> sí mismo), `1.8.0` (dos `config_hash` según los imports) y el del preflight de esta sesión (decía
+> `compatible=True` sobre un config con 17 desajustes). Causa única: **una sección de config existe
+> en dos estados —tipada u opaca— y casi ningún consumidor lo contempla.** Los tres se habían
+> parcheado donde dolía; ahora el gate exige que cada superficie pública responda **lo mismo** en
+> los dos estados, y que todo consumidor nuevo de `NikodymConfig` declare su política (`comprobado`
+> con test, o `exento: <razón>`). Verificado reintroduciendo los defectos: se pone rojo.
+>
+> **Seis cosas de esta sesión que conviene no re-aprender:**
+>
+> 1. **⚠️ El estado OPACO es el DEFAULT, no un caso raro de procesos mínimos.** `model_validate` no
+>    coacciona las secciones salvo que alguien haya llamado `cargar_configs_de_dominio()`; tener
+>    `nikodym.binning` importado **no basta**. Eso explica que la misma familia de defectos
+>    reapareciera tres veces conviviendo con 4.500 tests verdes.
+> 2. **Clasificar un campo por su nombre falla en 5 de 26.** `keep_structural_columns` es un `bool`;
+>    `selection.feature_columns`/`exclude_columns` refieren las variables WoE que publica *binning*,
+>    no columnas del dataset; y en `stability` conviven `temporal_column` (entrada) y
+>    `partition_column` (derivada) con idéntico aspecto. De ahí el vocabulario de cuatro valores
+>    (`input`/`derived`/`index`/`not_a_column`) declarado en el propio `Field`, como `ui_help`.
+> 3. **🔴 El falso positivo más caro sólo apareció probando EN VIVO.** El esquema Arrow lista el
+>    índice como una columna más, así que el dataset del catálogo salía incompatible **con su propio
+>    preset**. Un test que pasa los nombres a mano ya los trae separados y **nunca reproduce el
+>    estado**; hay que ir contra el parquet real.
+> 4. **🔴 Estuve a punto de reportar un cuarto defecto que NO existe.** El gate acusó a
+>    `dump_config`; medido, `config_to_yaml` usa `exclude_unset=True` **a propósito y documentado**
+>    para ser determinista frente a los imports, y `Study.save()` vuelca el config ya resuelto. Está
+>    escrito en el test para que nadie «arregle» esa decisión.
+> 5. **⚠️ `cancelled` ≠ `failed` en el CI.** El run cerró en `failure` dos intentos seguidos con
+>    **15/16 verdes y ningún job `failed`**: el único no-verde era macOS 3.12 en `cancelled` con
+>    `steps: []` —nunca ejecutó una línea— mientras macOS 3.11 y 3.13 pasaban sobre el mismo commit.
+>    Al tercer intento consiguió runner: 16/16. **Antes de buscar el defecto, mirar si hay algún job
+>    `failed`**; si no lo hay y `steps` viene vacío, es la cola de runners macOS.
+> 6. **El preset F1 está acoplado a la forma física de su dataset**, y arreglar sólo `index_col` da
+>    **falsa sensación de cierre**: con un CSV fabricado con los nombres exactos del preset basta una
+>    edición y corre; con nombres propios faltan cinco más. El tercero real no trae los nombres del
+>    catálogo.
+>
+> ⚠️ **Alcance del preflight: camino F1, a propósito** (D-PRE-4). `provisioning*`, `survival`,
+> `markov`, `forward` y `stress` quedan fuera y el gate de cobertura **lo declara** en vez de
+> callarlo — una lista corta sin explicación se lee como cobertura total. Ampliarlo es registrar sus
+> campos con `column_role`; el mecanismo no cambia.
+>
+> ⚠️ **`docs/ROADMAP.md:87` quedó stale sobre B2.3**: declara B2.3 sin cerrar, pero medido contra el
+> código el extra `[ui]` existe y compone lo que B2.3 pide, `/api/upload` funciona y los tres presets
+> corren desde PyPI. Lo que de verdad falta de B2 es **B2.4** (no hay clean-room automatizado ni
+> Playwright), **B2.5** (ni el README ni `docs_site` mencionan `nikodym-ui`) y el **tercero sin
+> checkout** del criterio de cierre.
+>
+> ---
+>
+> ### Lo de la sesión anterior (`1.8.0`, 2026-07-27)
 >
 > ✅ **`1.8.0` LIVE** (tag `v1.8.0` sobre `2c9ed79`, OK explícito de Cami). **La identidad del config
 > dejó de depender de qué módulos hubiera importado el proceso.** El mismo config producía **dos
@@ -52,7 +119,7 @@
 >
 > ---
 >
-> ### Lo de la sesión anterior (`1.7.0`, 2026-07-27)
+> ### Lo de dos sesiones atrás (`1.7.0`, 2026-07-27)
 >
 > ⚠️ **LO MÁS IMPORTANTE DE ESTA SESIÓN NO ES EL RELEASE: es el P0 que la auditoría previa frenó.**
 > `Study.save()` guardaba una corrida **exitosa** que `Study.load()` después rechazaba con

@@ -9,10 +9,45 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-27)
+## Estado del proyecto (2026-07-28)
 
-**`main` = `2c9ed79`, CI verde 16/16, `1.8.0` PUBLICADO en PyPI** (tag `v1.8.0`, con OK explícito de
-Cami).
+**`main` = `b968fb3`, CI verde 16/16 (conteo por `gh`), sin release nuevo.** Lo publicado en PyPI
+sigue siendo **`1.8.0`**; el trabajo de esta sesión es aditivo y espera en `CHANGELOG.md` bajo «Sin
+publicar». Suite 4510 passed / 6 skipped.
+
+**El config y el dataset se comparan ANTES de correr.** `nikodym.check_dataset(config, columnas)` y
+`POST /api/preflight` devuelven **todos** los desajustes de una vez, sin ejecutar nada. Medido desde
+PyPI en venv limpio: un CSV con nombres de columna propios exigía **seis ediciones del preset F1 en
+seis lugares distintos**, reveladas **de a una** —cada corrida fallida destapaba la siguiente—.
+[`_ENMIENDA-PREFLIGHT-DATASET.md`](design/_ENMIENDA-PREFLIGHT-DATASET.md), D-PRE-1…D-PRE-9.
+⚠️ **La SPA aún no lo llama**: funciona por código y por HTTP, no por interfaz.
+
+**Y lo que más vale de la sesión no es la feature: es haber atacado una CLASE de defecto.** Los tres
+defectos serios de los últimos tres releases —el `save`→`load` que se rechazaba a sí mismo (`1.7.0`),
+los dos `config_hash` según los imports (`1.8.0`) y el preflight que decía `compatible=True` sobre un
+config con 17 desajustes— **son el mismo defecto con tres disfraces**: una sección de config existe
+en **dos estados**, tipada u opaca, y casi ningún consumidor lo contempla. Los tres se habían
+parcheado donde dolía. `tests/unit/test_seccion_opaca_invariante.py` exige ahora que cada superficie
+pública responda **lo mismo** en los dos estados, y que todo consumidor nuevo de `NikodymConfig`
+declare su política (`comprobado` con test, o `exento: <razón>`).
+
+⚠️ **El estado opaco es el DEFAULT, no un caso raro:** `model_validate` no coacciona salvo que
+alguien haya llamado `cargar_configs_de_dominio()`, y tener la capa importada **no basta**. Ésa es la
+razón de que la familia reapareciera tres veces conviviendo con 4.500 tests verdes.
+
+**Estado real de B2, medido contra el código** (corrige `docs/ROADMAP.md:87`, que quedó stale): el
+extra `[ui]`, `/api/upload` y los tres presets **funcionan desde PyPI** —el recorrido clean-room pasa
+F1/F3/F4 hasta `done` + informe, con los negativos de seguridad verdes—. Lo que falta es **B2.4** (no
+hay clean-room automatizado ni Playwright), **B2.5** (ni el README ni `docs_site` mencionan
+`nikodym-ui`) y el **tercero sin checkout** del criterio de cierre. Ese último no lo sustituye ningún
+agente: el recorrido de esta sesión elimina la dependencia del árbol, **no** el sesgo de conocimiento
+interno.
+
+---
+
+### Lo de la sesión anterior (2026-07-27)
+
+**`1.8.0` PUBLICADO en PyPI** (tag `v1.8.0` sobre `2c9ed79`, con OK explícito de Cami).
 
 **`1.8.0` corrige que la identidad criptográfica del config dependía del orden de los `import`.** El
 mismo config producía dos `config_hash` distintos según si la capa de dominio estaba importada:
