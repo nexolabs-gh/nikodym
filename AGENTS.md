@@ -11,10 +11,31 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado del proyecto (2026-07-27)
 
-**`main` = `710e6b8`, CI verde 16/16, `1.7.0` PUBLICADO en PyPI** (tag `v1.7.0`, con OK explícito de
-Cami). La sesión del 2026-07-27 entregó el **núcleo técnico de la paridad UI↔código en provisiones**
-—el formulario del UI instalable pasó de 7 secciones a **12**, entran `survival` y las cuatro de
-`provisioning*`— más el aviso en vivo de config inejecutable y `nikodym.check_pipeline`.
+**`main` = `2c9ed79`, CI verde 16/16, `1.8.0` PUBLICADO en PyPI** (tag `v1.8.0`, con OK explícito de
+Cami).
+
+**`1.8.0` corrige que la identidad criptográfica del config dependía del orden de los `import`.** El
+mismo config producía dos `config_hash` distintos según si la capa de dominio estaba importada:
+sin ella la sección viaja como blob opaco y se canonicaliza **sin normalizar**. De ese digest cuelgan
+el lineage, el model card, el informe y el ancla de idempotencia de MLflow. `config_hash` coacciona
+ahora antes de canonicalizar —la identidad es la del config **que se ejecutaría**—, sin tocar el blob
+opaco del núcleo liviano.
+[`_ENMIENDA-CONFIG-HASH-IMPORTS.md`](design/_ENMIENDA-CONFIG-HASH-IMPORTS.md), D-HASH-1…D-HASH-8.
+
+⚠️ **Sale como minor a propósito: recalcula identidad.** Un config con secciones opacas y campos
+omitidos cambia de `config_hash`, y con él la clave de idempotencia de su inventario MLflow. Los
+`Study` guardados con `save()` **no** se mueven (escriben el config ya coaccionado y completo,
+verificado con un round-trip entre procesos). Precedente idéntico: `1.4.0`.
+
+**Y la premisa con que se había priorizado ese trabajo era falsa.** El pendiente decía que el defecto
+afectaba «al usuario mientras trabaja» en la UI; medido, por la interfaz **no se alcanza** —el
+formulario no valida hasta recibir el schema, y `/api/schema` importa los dominios—. Afecta al cliente
+HTTP directo y al uso por código con `dict`, y el defecto grave no era el que daba título al ítem.
+Van nueve veces que el plan escrito no sobrevive a la primera medición contra el código.
+
+La sesión previa del 2026-07-27 había entregado el **núcleo técnico de la paridad UI↔código en
+provisiones** —el formulario del UI instalable pasó de 7 secciones a **12**, entran `survival` y las
+cuatro de `provisioning*`— más el aviso en vivo de config inejecutable y `nikodym.check_pipeline`.
 
 ⚠️ **La auditoría previa a publicar encontró un P0 que 4.476 tests y CI 16/16 no veían, y frenó el
 release.** Vale más que la feature: `Study.save()` guardaba una corrida exitosa que `Study.load()`
@@ -36,10 +57,16 @@ rastro → HTTP 500), cerrado con
 Detalle operativo y las cuatro reglas para tocar el formulario: `CLAUDE.md` §«Lo último».
 
 ## Estado publicado (2026-07-27)
-PyPI publica **`1.7.0`** (tag `v1.7.0` sobre `710e6b8`, 2026-07-27, con OK explícito de Cami); el
+PyPI publica **`1.8.0`** (tag `v1.8.0` sobre `2c9ed79`, 2026-07-27, con OK explícito de Cami); el
 tag `v1.5.0` apunta al cierre del bloque B1 (el SHA vigente de `main` queda en `HANDOFF.md`). El
 paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es estable bajo SemVer
 1.x, pero las provisiones siguen experimentales, así que «Production/Stable» sería sobrepromesa.
+
+**Regla de release que `1.8.0` dejó explícita: un cambio de `config_hash` va en MINOR, nunca en
+patch.** Se propuso publicarlo como `1.7.1` y estaba mal fundamentado: el precedente del repo es
+`1.4.0` —recalculó identidad al excluir `data.load.source` y salió como minor con nota de contrato
+SemVer—, mientras que `1.4.1` fue documentación y defectos de presentación. Un patch se lo lleva
+quien tenga pin `~=1.7.0` sin haberlo decidido.
 
 **`1.7.0` abre la interfaz a provisiones y survival** —el formulario pasa de 7 a 12 secciones— y
 suma el aviso en vivo de config inejecutable más `nikodym.check_pipeline`. **No rompe a nadie**: los

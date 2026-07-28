@@ -5,12 +5,54 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-27, `b0161c7`, CI verde 16/16, **`1.7.0` PUBLICADO en PyPI**)
+> ## Lo último (2026-07-27, `2c9ed79`, CI verde 16/16, **`1.8.0` PUBLICADO en PyPI**)
 >
-> ✅ **`1.7.0` LIVE** (tag `v1.7.0` sobre `710e6b8`, OK explícito de Cami). Verificado **desde PyPI**
-> en venv limpio: la SPA del paquete responde 200, `/api/validate` sirve el aviso nuevo y el
-> round-trip `save`→`load` funciona. Demo re-deployada y verificada en el HTML servido
-> (`index-SIAywzfc.js`, hash idéntico al build local).
+> ✅ **`1.8.0` LIVE** (tag `v1.8.0` sobre `2c9ed79`, OK explícito de Cami). **La identidad del config
+> dejó de depender de qué módulos hubiera importado el proceso.** El mismo config producía **dos
+> `config_hash` distintos** según si la capa de dominio estaba importada: sin ella la sección viaja
+> como blob opaco y se canonicaliza **sin normalizar**, así que los defaults que el YAML no traía no
+> se materializan. De ese digest cuelgan el lineage, el model card, el informe y el ancla de
+> idempotencia de MLflow. Ahora `config_hash` coacciona antes de canonicalizar: la identidad es la
+> del config **que se ejecutaría**, la misma semántica que el lineage adoptó en `1.7.0`.
+> [`_ENMIENDA-CONFIG-HASH-IMPORTS.md`](docs/design/_ENMIENDA-CONFIG-HASH-IMPORTS.md), D-HASH-1…D-HASH-8.
+> Verificado **desde PyPI** en venv limpio, en dos procesos: hashes idénticos con y sin la capa, y el
+> round-trip `save`→`load` del P0 anterior sigue cerrado.
+>
+> **Cuatro cosas de esta sesión que conviene no re-aprender:**
+>
+> 1. **La premisa con que se priorizó el ítem era FALSA, y medirlo cambió el trabajo.** El pendiente
+>    decía «el defecto de `valid`, el único que afecta al usuario mientras trabaja». Medido: por la
+>    UI **no se alcanza** —el front no valida hasta recibir el schema (`appStore.tsx:107`,
+>    `if (schema === null) return`) y `GET /api/schema` importa los dominios—. A quien afecta es al
+>    cliente HTTP directo y al uso por código con `dict`. Y el defecto grave no era `valid` sino la
+>    identidad. Van **nueve veces** que el plan escrito no sobrevive a la primera medición.
+> 2. **Un cambio de `config_hash` va en MINOR, nunca en patch.** Se propuso `1.7.1` y estaba mal: el
+>    precedente del repo es `1.4.0`, que recalculó identidad al excluir `data.load.source` y salió
+>    como minor con nota de contrato SemVer (`1.4.1`, en cambio, fue docs y presentación). Un patch
+>    se lo lleva quien tenga pin `~=1.7.0` sin decidirlo, y aquí lo que cambia es su clave de
+>    idempotencia en MLflow.
+> 3. **`config_hash` tiene que seguir siendo TOTAL** (D-HASH-8, salió al programar). Una sección
+>    opaca puede llevar un campo que el schema del dominio prohíbe —el blob lo acepta por no conocer
+>    su schema—, así que coaccionar puede levantar `ValidationError` donde antes había digest.
+>    Propagarlo convertiría en 500 el 200 incondicional de `/api/validate`. Si la coacción falla se
+>    devuelve el config sin coaccionar: el error lo reporta el validador, no el hash.
+> 4. **Un test puede fallar con el código viejo y aun así ser falso verde.** Uno de los dos tests de
+>    regresión pasaba con el código defectuoso porque su valor **esperado** se calculaba en el
+>    proceso de pytest, expuesto al mismo estado de imports que el defecto: los dos lados salían
+>    malos y coincidían. Lleva ahora un `import` explícito con su razón escrita. Corolario del repo:
+>    **los defectos de import se prueban en `subprocess`**, porque dentro de la suite todo está
+>    siempre importado.
+>
+> ⚠️ **El blob opaco del núcleo liviano NO se tocó y es contrato** (SDD-23 §4.1/§9): la coacción vive
+> en el hash, no en `model_validate`. `import nikodym.core.config` sigue sin arrastrar dominios y los
+> **18** tests `test_core_valida_<X>_como_blob_opaco_sin_importar_<X>` —más los 43 `core_only`— siguen
+> siendo la prueba de que no se invadió. Un extra ausente deja su sección opaca **a propósito**: la
+> garantía es «el hash no depende del ORDEN de los imports dentro de una instalación dada», no
+> igualdad entre instalaciones con distintos extras.
+>
+> ---
+>
+> ### Lo de la sesión anterior (`1.7.0`, 2026-07-27)
 >
 > ⚠️ **LO MÁS IMPORTANTE DE ESTA SESIÓN NO ES EL RELEASE: es el P0 que la auditoría previa frenó.**
 > `Study.save()` guardaba una corrida **exitosa** que `Study.load()` después rechazaba con
