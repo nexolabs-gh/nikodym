@@ -765,3 +765,59 @@ def test_run_endpoint_dependencia_faltante_422(
 
     assert respuesta.status_code == 422
     assert "nikodym[tracking]" in respuesta.json()["detail"]
+
+
+# ── preflight config↔dataset (enmienda PREFLIGHT-DATASET, D-PRE-1…D-PRE-9) ────────────────────
+
+
+def test_preflight_no_confunde_el_indice_del_parquet_con_una_columna(tmp_path: Path) -> None:
+    """El dataset del catálogo NO puede salir incompatible con su propio preset.
+
+    Es el falso positivo que costó detectar: el esquema Arrow lista el índice como un campo más,
+    así que `read_schema().names` devolvía `loan_id` entre las columnas y el preflight acusaba a
+    `data.schema.index_col` justo en el caso más común. Sólo se ve **probando contra el parquet
+    real**: un test que pase los nombres a mano ya los trae separados y nunca reproduce el estado.
+    """
+    from nikodym.ui.routes import preflight_dataset
+
+    resultado = preflight_dataset(
+        presets_module.get_preset("f1-estandar-consumo")["config"],
+        "consumo_comportamiento",
+        workdir=tmp_path,
+    )
+
+    assert resultado["compatible"] is True, resultado["mismatches"]
+    assert resultado["mismatches"] == []
+    assert resultado["uninspected"] == []
+
+
+def test_preflight_reporta_todos_los_desajustes_de_un_csv_ajeno(tmp_path: Path) -> None:
+    """El caso que originó la capacidad: seis corridas seriales pasan a ser una llamada."""
+    from nikodym.ui.routes import preflight_dataset, upload_dataset
+
+    ajeno = pd.DataFrame(
+        {
+            "rut_operacion": ["L1", "L2", "L3"],
+            "periodo_camada": ["2024Q1", "2024Q1", "2024Q2"],
+            "renta_liquida": [1.0, 2.0, 3.0],
+            "marca_incumplimiento": [0, 1, 0],
+        }
+    )
+    buffer = io.BytesIO()
+    ajeno.to_csv(buffer, index=False)
+    subida = upload_dataset(buffer.getvalue(), "cartera_ajena.csv", workdir=tmp_path)
+
+    resultado = preflight_dataset(
+        presets_module.get_preset("f1-estandar-consumo")["config"],
+        subida["dataset_id"],
+        workdir=tmp_path,
+    )
+
+    assert resultado["compatible"] is False
+    rutas = {m["path"] for m in resultado["mismatches"]}
+    assert "data.partition.strategy.cohort_col" in rutas
+    assert "binning.feature_columns" in rutas
+    # Todos en una sola llamada, que es la razón de existir de la capacidad (D-PRE-2).
+    assert len(resultado["mismatches"]) > 5
+    # Y el copy es para un humano: sin códigos internos ni jerga de pandera.
+    assert all("check:" not in m["message"] for m in resultado["mismatches"])

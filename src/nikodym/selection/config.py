@@ -261,6 +261,7 @@ class SelectionConfig(NikodymBaseConfig):
         title="Variables candidatas",
         description="'*' = todas las variables seleccionadas por el proceso de binning.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 1,
@@ -275,6 +276,7 @@ class SelectionConfig(NikodymBaseConfig):
         title="Exclusiones técnicas",
         description="Columnas WoE o features a excluir antes de aplicar filtros de selección.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 2,
@@ -486,6 +488,7 @@ class SelectionConfig(NikodymBaseConfig):
         title="Conservar columnas estructurales",
         description="Incluye columnas estructurales junto a las columnas WoE seleccionadas.",
         json_schema_extra={
+            "column_role": "not_a_column",
             "ui_widget": "checkbox",
             "ui_group": "Salida",
             "ui_order": 1,

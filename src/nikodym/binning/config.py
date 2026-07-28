@@ -140,6 +140,7 @@ class BinningConfig(NikodymBaseConfig):
         title="Variables candidatas",
         description="'*' = todas las columnas no estructurales del dataset.",
         json_schema_extra={
+            "column_role": "input",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 1,
@@ -152,6 +153,7 @@ class BinningConfig(NikodymBaseConfig):
         title="Variables excluidas",
         description="Columnas a excluir del binning aunque entren por feature_columns='*'.",
         json_schema_extra={
+            "column_role": "input",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 2,
@@ -166,6 +168,7 @@ class BinningConfig(NikodymBaseConfig):
             "Variables que OptBinning debe tratar como categóricas aunque pandas no lo infiera."
         ),
         json_schema_extra={
+            "column_role": "input",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 3,
@@ -503,6 +506,7 @@ class BinningConfig(NikodymBaseConfig):
         title="Conservar columnas estructurales de data",
         description="Incluye columnas estructurales mínimas junto a las columnas WoE publicadas.",
         json_schema_extra={
+            "column_role": "not_a_column",
             "ui_widget": "checkbox",
             "ui_group": "Salida",
             "ui_order": 3,

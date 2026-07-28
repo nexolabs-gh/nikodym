@@ -225,6 +225,7 @@ class ScorecardConfig(NikodymBaseConfig):
         title="Columna score total",
         description="Nombre de la columna que contendrá el score total por registro.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Salida",
             "ui_order": 2,

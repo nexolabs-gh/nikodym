@@ -5,6 +5,26 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## Sin publicar
+
+### Añadido
+
+- **El config y tu dataset se comparan ANTES de correr.** `nikodym.check_dataset(config, columnas)`
+  y su espejo REST `POST /api/preflight` responden qué columnas declara el config que tu archivo no
+  tiene, **todas de una vez** y sin ejecutar nada. Hasta ahora eso se descubría de a una: cada
+  corrida fallida destapaba el siguiente desajuste. Medido sobre un CSV con nombres de columna
+  propios y el preset F1, eran **seis corridas** para llegar a la primera ejecución.
+- Cada mensaje trae la ruta del campo en el config (`data.partition.strategy.cohort_col`), para que
+  la interfaz pueda llevarte directo al campo que hay que corregir.
+- Caso especial de `index_col`: un archivo CSV no puede transportar un índice, así que cuando esa
+  columna existe pero como columna corriente, el aviso lo dice y nombra las dos salidas.
+
+Aditivo: no cambia comportamiento existente, ni el `config_hash`, ni el veredicto de `/api/run`.
+La comprobación **informa, no bloquea** — la corrida sigue siendo la autoridad sobre sí misma.
+
+Alcance: el pipeline F1. `provisioning*`, `survival`, `markov`, `forward` y `stress` quedan fuera
+por ahora, y el gate de cobertura lo declara en vez de callarlo.
+
 ## [1.8.0] — 2026-07-27
 
 La identidad criptográfica del config dejó de depender de qué módulos hubiera importado el proceso.

@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from nikodym.audit import AuditConfig, JsonlAuditSink
 from nikodym.core.audit import AuditSink, FanOutSink, NullAuditSink
 from nikodym.core.config import NikodymConfig
+from nikodym.core.dataset_check import DatasetCheck, check_dataset
 from nikodym.core.exceptions import NikodymError
 from nikodym.core.study import Study
 from nikodym.governance import (
@@ -23,7 +24,14 @@ from nikodym.governance import (
 from nikodym.tracking import MLflowInventory, TrackingConfig, TrackingRecorder, TrackingSink
 from nikodym.utils.optional import require_extra
 
-__all__ = ["PipelineCheck", "assemble_run", "check_pipeline", "run"]
+__all__ = [
+    "DatasetCheck",
+    "PipelineCheck",
+    "assemble_run",
+    "check_dataset",
+    "check_pipeline",
+    "run",
+]
 
 
 @dataclass(frozen=True, slots=True)

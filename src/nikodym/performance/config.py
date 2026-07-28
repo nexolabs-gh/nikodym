@@ -77,6 +77,7 @@ class PerformanceConfig(NikodymBaseConfig):
         title="Columna score",
         description="Columna con el score operacional publicado por scorecard.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 1,
@@ -91,6 +92,7 @@ class PerformanceConfig(NikodymBaseConfig):
         title="Columna PD calibrada",
         description="Columna con la probabilidad de default calibrada post-modelo.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 2,
@@ -106,6 +108,7 @@ class PerformanceConfig(NikodymBaseConfig):
         title="Columna target",
         description="Columna binaria 0/1 usada para métricas supervisadas de desempeño.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 3,
@@ -120,6 +123,7 @@ class PerformanceConfig(NikodymBaseConfig):
         title="Columna partición",
         description="Columna que identifica Desarrollo, Holdout y OOT.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 4,

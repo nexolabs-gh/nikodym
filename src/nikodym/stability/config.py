@@ -62,19 +62,34 @@ class StabilityConfig(NikodymBaseConfig):
         default="score",
         title="Columna score",
         description="Columna con el score operacional publicado por scorecard.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+        },
     )
     pd_column: str = Field(
         default="pd_calibrated",
         title="Columna PD calibrada",
         description="Columna con la probabilidad de default calibrada post-modelo.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+        },
     )
     partition_column: str = Field(
         default="partition",
         title="Columna partición",
         description="Columna que identifica Desarrollo, Holdout y OOT.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 3,
+        },
     )
     score_direction: ScoreDirection = Field(
         default="higher_is_lower_risk",
@@ -138,7 +153,12 @@ class StabilityConfig(NikodymBaseConfig):
             "Si se deja vacía y el eje temporal no es 'none', se infiere de los datos cuando hay "
             "una sola columna candidata; si hay varias o ninguna, la corrida se detiene con error."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Temporal", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Temporal",
+            "ui_order": 2,
+        },
     )
     temporal_freq: TemporalFrequency = Field(
         default="M",

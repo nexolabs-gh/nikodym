@@ -216,6 +216,7 @@
         "description": "Partición por cohorte (vintage): OOT = cohortes reservadas; Dev/HO in-cohort.",
         "properties": {
           "cohort_col": {
+            "column_role": "input",
             "description": "Columna de añada/vintage de cada observación.",
             "title": "Columna de cohorte",
             "type": "string",
@@ -326,6 +327,7 @@
             "ui_help": "Valor máximo permitido (inclusive). Déjalo vacío si la columna no tiene techo lógico."
           },
           "name": {
+            "column_role": "input",
             "description": "Identificador de la columna.",
             "title": "Nombre de columna",
             "type": "string",
@@ -554,6 +556,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Si se da, una ventana no madurada se marca 'excluido' por ventana incompleta.",
             "title": "Fecha de corte de datos",
@@ -569,6 +572,7 @@
             "ui_help": "Cuántos meses deben pasar desde la fecha de observación para considerar 'madura' la ventana de desempeño (p.ej. 12 para el estándar de 12 meses)."
           },
           "observation_date_col": {
+            "column_role": "input",
             "description": "Columna con la fecha de observación.",
             "title": "Fecha de observación",
             "type": "string",
@@ -586,6 +590,7 @@
         "description": "Comparación atómica ``columna op valor`` evaluada por un parser propio con *allowlist*.",
         "properties": {
           "col": {
+            "column_role": "input",
             "description": "Nombre de la columna del predicado.",
             "title": "Columna sobre la que opera",
             "type": "string",
@@ -764,6 +769,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "index",
             "default": null,
             "description": "Columna que actúa de identificador de observación (índice).",
             "title": "Columna índice",
@@ -799,6 +805,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columnas cuya combinación debe ser única por fila.",
             "title": "Llave(s) de unicidad de fila",
@@ -908,6 +915,7 @@
             "ui_help": "Condición de zona gris: observaciones que no son claramente buenas ni malas y por eso se excluyen del ajuste del modelo (target queda vacío), aunque quedan trazadas como 'indeterminado'."
           },
           "target_col": {
+            "column_role": "derived",
             "default": "target",
             "description": "Columna 0/1 generada; vacía si la observación es indeterminada o excluida.",
             "title": "Nombre de la columna target derivada",
@@ -940,6 +948,7 @@
         "description": "Partición temporal: OOT por fecha de corte; Dev/HO in-time.",
         "properties": {
           "date_col": {
+            "column_role": "input",
             "description": "Fecha que define el corte OOT.",
             "title": "Columna de fecha para el corte OOT",
             "type": "string",
@@ -6535,6 +6544,7 @@
                 "ui_widget": "text_or_number"
               },
               "categorical_columns": {
+                "column_role": "input",
                 "description": "Variables que OptBinning debe tratar como categóricas aunque pandas no lo infiera.",
                 "items": {
                   "type": "string"
@@ -6547,6 +6557,7 @@
                 "ui_widget": "multiselect"
               },
               "exclude_columns": {
+                "column_role": "input",
                 "description": "Columnas a excluir del binning aunque entren por feature_columns='*'.",
                 "items": {
                   "type": "string"
@@ -6581,6 +6592,7 @@
                     "type": "string"
                   }
                 ],
+                "column_role": "input",
                 "default": "*",
                 "description": "'*' = todas las columnas no estructurales del dataset.",
                 "title": "Variables candidatas",
@@ -6590,6 +6602,7 @@
                 "ui_widget": "multiselect"
               },
               "keep_structural_columns": {
+                "column_role": "not_a_column",
                 "default": true,
                 "description": "Incluye columnas estructurales mínimas junto a las columnas WoE publicadas.",
                 "title": "Conservar columnas estructurales de data",
@@ -7020,6 +7033,7 @@
                 "ui_widget": "selectbox"
               },
               "linear_predictor_calibrated_column": {
+                "column_role": "derived",
                 "default": "linear_predictor_calibrated",
                 "description": "Columna de salida que contendrá el predictor lineal calibrado.",
                 "title": "Columna logit calibrado",
@@ -7030,6 +7044,7 @@
                 "ui_widget": "text_input"
               },
               "linear_predictor_column": {
+                "column_role": "derived",
                 "default": "linear_predictor",
                 "description": "Columna de entrada con el predictor lineal crudo del modelo.",
                 "title": "Columna logit crudo",
@@ -7094,6 +7109,7 @@
                 "ui_widget": "number_input"
               },
               "partition_column": {
+                "column_role": "derived",
                 "default": "partition",
                 "description": "Columna estructural que identifica Desarrollo, Holdout, OOT y exclusiones.",
                 "title": "Columna partición",
@@ -7104,6 +7120,7 @@
                 "ui_widget": "text_input"
               },
               "pd_calibrated_column": {
+                "column_role": "derived",
                 "default": "pd_calibrated",
                 "description": "Columna de salida que contendrá la probabilidad de default calibrada.",
                 "title": "Columna PD calibrada",
@@ -7114,6 +7131,7 @@
                 "ui_widget": "text_input"
               },
               "pd_raw_column": {
+                "column_role": "derived",
                 "default": "pd_raw",
                 "description": "Columna de entrada con la probabilidad de default cruda del modelo.",
                 "title": "Columna PD cruda",
@@ -7134,6 +7152,7 @@
                 "ui_widget": "checkbox"
               },
               "target_column": {
+                "column_role": "derived",
                 "default": "target",
                 "description": "Columna binaria 0/1 usada por métodos supervisados durante fit.",
                 "title": "Columna target",
@@ -8087,6 +8106,7 @@
                 "ui_widget": "key_value"
               },
               "partition_column": {
+                "column_role": "derived",
                 "default": "partition",
                 "description": "Columna que identifica Desarrollo, Holdout y OOT.",
                 "title": "Columna partición",
@@ -8119,6 +8139,7 @@
                 "ui_widget": "multiselect"
               },
               "pd_column": {
+                "column_role": "derived",
                 "default": "pd_calibrated",
                 "description": "Columna con la probabilidad de default calibrada post-modelo.",
                 "title": "Columna PD calibrada",
@@ -8139,6 +8160,7 @@
                 "ui_widget": "hidden"
               },
               "score_column": {
+                "column_role": "derived",
                 "default": "score",
                 "description": "Columna con el score operacional publicado por scorecard.",
                 "title": "Columna score",
@@ -8163,6 +8185,7 @@
                 "ui_widget": "selectbox"
               },
               "target_column": {
+                "column_role": "derived",
                 "default": "target",
                 "description": "Columna binaria 0/1 usada para métricas supervisadas de desempeño.",
                 "title": "Columna target",
@@ -9204,6 +9227,7 @@
                 "ui_widget": "selectbox"
               },
               "score_column": {
+                "column_role": "derived",
                 "default": "score",
                 "description": "Nombre de la columna que contendrá el score total por registro.",
                 "title": "Columna score total",
@@ -9297,6 +9321,7 @@
                 "ui_widget": "section"
               },
               "exclude_columns": {
+                "column_role": "derived",
                 "description": "Columnas WoE o features a excluir antes de aplicar filtros de selección.",
                 "items": {
                   "type": "string"
@@ -9331,6 +9356,7 @@
                     "type": "string"
                   }
                 ],
+                "column_role": "derived",
                 "default": "*",
                 "description": "'*' = todas las variables seleccionadas por el proceso de binning.",
                 "title": "Variables candidatas",
@@ -9364,6 +9390,7 @@
                 "ui_widget": "multiselect"
               },
               "keep_structural_columns": {
+                "column_role": "not_a_column",
                 "default": true,
                 "description": "Incluye columnas estructurales junto a las columnas WoE seleccionadas.",
                 "title": "Conservar columnas estructurales",
@@ -9598,6 +9625,7 @@
                 "ui_widget": "checkbox"
               },
               "partition_column": {
+                "column_role": "derived",
                 "default": "partition",
                 "description": "Columna que identifica Desarrollo, Holdout y OOT.",
                 "title": "Columna partición",
@@ -9607,6 +9635,7 @@
                 "ui_widget": "text_input"
               },
               "pd_column": {
+                "column_role": "derived",
                 "default": "pd_calibrated",
                 "description": "Columna con la probabilidad de default calibrada post-modelo.",
                 "title": "Columna PD calibrada",
@@ -9656,6 +9685,7 @@
                 "ui_widget": "hidden"
               },
               "score_column": {
+                "column_role": "derived",
                 "default": "score",
                 "description": "Columna con el score operacional publicado por scorecard.",
                 "title": "Columna score",
@@ -9710,6 +9740,7 @@
                     "type": "null"
                   }
                 ],
+                "column_role": "input",
                 "default": null,
                 "description": "Si se deja vacía y el eje temporal no es 'none', se infiere de los datos cuando hay una sola columna candidata; si hay varias o ninguna, la corrida se detiene con error.",
                 "title": "Columna de período/cohorte",

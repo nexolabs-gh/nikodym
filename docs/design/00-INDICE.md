@@ -175,6 +175,19 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > implementación volvía `config_hash` fallable, lo que habría convertido en 500 el 200 incondicional
 > de `/api/validate`.
 >
+> **…y el config y el dataset propio se comparan ANTES de correr (2026-07-28, APROBADA e
+> implementada).** [`_ENMIENDA-PREFLIGHT-DATASET.md`](_ENMIENDA-PREFLIGHT-DATASET.md),
+> D-PRE-1…D-PRE-8, enmienda a SDD-23 §7 y al alcance de `check_pipeline`, que responde «¿es
+> ejecutable?» **sin leer el dataset** y por eso no ve esta familia de desajustes. Medido desde PyPI
+> en un venv limpio: un CSV con nombres de columna propios exige **6 ediciones del preset F1 en 6
+> lugares distintos**, y el motor las revela **de a una** —cada corrida fallida destapa la
+> siguiente—. Los mensajes del motor son buenos; lo que falta es verlos todos juntos. La decisión
+> que sostiene el diseño es D-PRE-3: un campo que nombra columna puede referirse a una columna **de
+> entrada** o a una **derivada** que produce el propio pipeline (`score_column`, `pd_column`,
+> `partition_column`), y sólo las primeras se exigen — de los 26 campos del camino F1 que nombran
+> columnas, sólo 6 son de entrada. Alcance explícito: F1; los demás dominios quedan fuera **a
+> propósito** y el test de cobertura lo declara (D-PRE-4).
+>
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
 > D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su

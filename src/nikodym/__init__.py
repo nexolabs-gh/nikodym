@@ -12,12 +12,29 @@ from typing import TYPE_CHECKING, Any
 
 __version__ = "1.8.0"
 
-__all__ = ["PipelineCheck", "__version__", "assemble_run", "check_pipeline", "run"]
+__all__ = [
+    "DatasetCheck",
+    "PipelineCheck",
+    "__version__",
+    "assemble_run",
+    "check_dataset",
+    "check_pipeline",
+    "run",
+]
 
-_LAZY = frozenset({"run", "check_pipeline", "assemble_run", "PipelineCheck"})
+_LAZY = frozenset(
+    {"run", "check_pipeline", "check_dataset", "assemble_run", "PipelineCheck", "DatasetCheck"}
+)
 
 if TYPE_CHECKING:  # pragma: no cover - solo para el type-checker, no en runtime
-    from nikodym.api import PipelineCheck, assemble_run, check_pipeline, run
+    from nikodym.api import (
+        DatasetCheck,
+        PipelineCheck,
+        assemble_run,
+        check_dataset,
+        check_pipeline,
+        run,
+    )
 
 
 def __getattr__(name: str) -> Any:

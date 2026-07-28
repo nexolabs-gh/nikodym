@@ -18,6 +18,7 @@ pasa por ``nikodym.run`` (SDD-23 §3.3, §4.2, §11).
 from __future__ import annotations
 
 import copy
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -124,6 +125,71 @@ def validate_config(config: Any) -> dict[str, Any]:
         "config_hash": config_hash(model),
         "errors": [],
         "pipeline": _pipeline_payload(model),
+    }
+
+
+def _columnas_del_parquet(source: Path) -> tuple[str, ...]:
+    """Nombres de las **columnas** del parquet, sin el índice, y sin cargar los datos.
+
+    El esquema Arrow no distingue una cosa de la otra: ``read_schema().names`` lista el índice como
+    un campo más. Tomarlo tal cual hacía que el dataset del catálogo —cuyo ``loan_id`` vive en el
+    índice— se reportara incompatible con su propio preset, que es el falso positivo más caro
+    posible. Los metadatos ``pandas`` del parquet sí lo declaran, en ``index_columns``.
+
+    Se detectó **probando el endpoint en vivo**: el test unitario no podía verlo porque le pasaba
+    los nombres a mano, ya separados.
+    """
+    # `pyarrow` no trae stubs; leer sólo el esquema evita cargar el dataset entero, que es la
+    # diferencia entre comprobar y correr (D-PRE-1).
+    import pyarrow.parquet as pq
+
+    esquema = pq.read_schema(source)  # type: ignore[no-untyped-call]
+    metadatos = esquema.metadata or {}
+    indices: set[str] = set()
+    if b"pandas" in metadatos:
+        pandas_meta = json.loads(metadatos[b"pandas"])
+        indices = {
+            nombre for nombre in pandas_meta.get("index_columns", []) if isinstance(nombre, str)
+        }
+    return tuple(nombre for nombre in esquema.names if nombre not in indices)
+
+
+def preflight_dataset(config: Any, dataset_id: Any, *, workdir: Path) -> dict[str, Any]:
+    """Compara ``config`` con las columnas de un dataset **antes** de correr (D-PRE-7).
+
+    Espejo REST de :func:`nikodym.check_dataset`, que es la misma respuesta por código y por
+    interfaz. Existe porque ``/api/validate`` responde «¿es válido y ejecutable?» sin mirar el
+    dataset: un config impecable puede nombrar columnas que el archivo del usuario no tiene, y hoy
+    eso se descubre **de a una**, pagando una corrida por cada desajuste.
+
+    Parameters
+    ----------
+    config : Any
+        Dict del config editado. Un ``ValidationError`` se propaga para que el endpoint dé 422.
+    dataset_id : Any
+        Identificador del dataset ya conocido por la UI (del catálogo o subido).
+    workdir : Path
+        Directorio de trabajo donde viven los datasets materializados.
+
+    Returns
+    -------
+    dict
+        ``{compatible, mismatches, uninspected}``. Los nombres de columna se leen del parquet ya
+        materializado **sin cargar los datos**: el esquema basta.
+    """
+    cargar_configs_de_dominio()  # misma razón que en `validate_config`: D-HASH-5
+    model = NikodymConfig.model_validate(config)
+    source = datasets.materialize(dataset_id, workdir=workdir)  # UiDatasetError → 404
+
+    columnas = _columnas_del_parquet(source)
+    veredicto = nikodym.check_dataset(model, columnas)
+    return {
+        "compatible": veredicto.compatible,
+        "mismatches": [
+            {"path": m.path, "declared": m.declared, "kind": m.kind, "message": m.message}
+            for m in veredicto.mismatches
+        ],
+        "uninspected": list(veredicto.uninspected),
     }
 
 
@@ -389,6 +455,19 @@ def build_router() -> APIRouter:
     async def validate(payload: dict[str, Any]) -> dict[str, Any]:
         """Valida el config recibido en ``{config}`` por reconstrucción (siempre 200)."""
         return validate_config(payload.get("config"))
+
+    @router.post("/preflight")
+    async def preflight_endpoint(payload: dict[str, Any], request: Request) -> dict[str, Any]:
+        """Compara ``{config, dataset_id}`` con las columnas del dataset, sin correr nada."""
+        workdir = Path(request.app.state.settings.workdir)
+        try:
+            return preflight_dataset(
+                payload.get("config"), payload.get("dataset_id"), workdir=workdir
+            )
+        except ValidationError as exc:
+            raise HTTPException(status_code=422, detail=_format_errors(exc)) from exc
+        except UiDatasetError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.get("/datasets")
     async def datasets_endpoint() -> list[dict[str, Any]]:

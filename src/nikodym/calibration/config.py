@@ -237,6 +237,7 @@ class CalibrationConfig(NikodymBaseConfig):
         title="Columna PD cruda",
         description="Columna de entrada con la probabilidad de default cruda del modelo.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 1,
@@ -248,6 +249,7 @@ class CalibrationConfig(NikodymBaseConfig):
         title="Columna logit crudo",
         description="Columna de entrada con el predictor lineal crudo del modelo.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 2,
@@ -262,6 +264,7 @@ class CalibrationConfig(NikodymBaseConfig):
         title="Columna PD calibrada",
         description="Columna de salida que contendrá la probabilidad de default calibrada.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 3,
@@ -273,6 +276,7 @@ class CalibrationConfig(NikodymBaseConfig):
         title="Columna logit calibrado",
         description="Columna de salida que contendrá el predictor lineal calibrado.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 4,
@@ -284,6 +288,7 @@ class CalibrationConfig(NikodymBaseConfig):
         title="Columna partición",
         description="Columna estructural que identifica Desarrollo, Holdout, OOT y exclusiones.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 5,
@@ -298,6 +303,7 @@ class CalibrationConfig(NikodymBaseConfig):
         title="Columna target",
         description="Columna binaria 0/1 usada por métodos supervisados durante fit.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "Columnas",
             "ui_order": 6,

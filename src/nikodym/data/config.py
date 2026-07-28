@@ -138,6 +138,7 @@ class ColumnSpec(NikodymBaseConfig):
         title="Nombre de columna",
         description="Identificador de la columna.",
         json_schema_extra={
+            "column_role": "input",
             "ui_help": "Nombre exacto de la columna tal como aparece en el dataset (incluidas "
             "mayúsculas/minúsculas).",
         },
@@ -254,6 +255,7 @@ class SchemaConfig(NikodymBaseConfig):
         title="Columna índice",
         description="Columna que actúa de identificador de observación (índice).",
         json_schema_extra={
+            "column_role": "index",
             "ui_help": "Nombre del índice del DataFrame (no una columna normal) que identifica "
             "cada observación. Debe existir y ser único; si el identificador vive como columna "
             "común, decláralo en 'Columnas esperadas' o en 'Llave(s) de unicidad', no aquí.",
@@ -264,6 +266,7 @@ class SchemaConfig(NikodymBaseConfig):
         title="Llave(s) de unicidad de fila",
         description="Columnas cuya combinación debe ser única por fila.",
         json_schema_extra={
+            "column_role": "input",
             "ui_help": "Columna o combinación de columnas que debe identificar de forma única "
             "cada fila (p.ej. cliente + fecha). Filas repetidas en esa combinación hacen fallar "
             "la validación.",
@@ -280,6 +283,7 @@ class PerformanceWindow(NikodymBaseConfig):
         title="Fecha de observación",
         description="Columna con la fecha de observación.",
         json_schema_extra={
+            "column_role": "input",
             "ui_help": "Columna con la fecha en que se observa a cada cliente/operación (el "
             "punto de partida de la ventana de desempeño).",
         },
@@ -301,6 +305,7 @@ class PerformanceWindow(NikodymBaseConfig):
         title="Fecha de corte de datos",
         description="Si se da, una ventana no madurada se marca 'excluido' por ventana incompleta.",
         json_schema_extra={
+            "column_role": "input",
             "ui_help": "Columna con la fecha de corte de los datos disponibles. Si la "
             "declaras, las observaciones cuya ventana aún no maduró a esa fecha se excluyen "
             "automáticamente como 'ventana incompleta' (nunca se asumen buenas).",
@@ -317,6 +322,7 @@ class Predicate(NikodymBaseConfig):
         title="Columna sobre la que opera",
         description="Nombre de la columna del predicado.",
         json_schema_extra={
+            "column_role": "input",
             "ui_help": "Columna del dataset sobre la que se evalúa esta condición.",
         },
     )
@@ -406,6 +412,7 @@ class TargetConfig(NikodymBaseConfig):
         title="Nombre de la columna target derivada",
         description="Columna 0/1 generada; vacía si la observación es indeterminada o excluida.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_help": "Nombre de la columna 0/1 que el motor va a crear con el resultado del "
             "etiquetado (vacía si la observación es indeterminada o excluida).",
         },
@@ -564,6 +571,7 @@ class TemporalSplitConfig(NikodymBaseConfig):
         title="Columna de fecha para el corte OOT",
         description="Fecha que define el corte OOT.",
         json_schema_extra={
+            "column_role": "input",
             "ui_help": "Columna de fecha que define el corte entre datos dentro y fuera de "
             "tiempo (OOT).",
         },
@@ -672,6 +680,7 @@ class CohortSplitConfig(NikodymBaseConfig):
         title="Columna de cohorte",
         description="Columna de añada/vintage de cada observación.",
         json_schema_extra={
+            "column_role": "input",
             "ui_help": "Columna que identifica la cohorte o añada (vintage) de cada observación "
             "(p.ej. mes de originación).",
         },
