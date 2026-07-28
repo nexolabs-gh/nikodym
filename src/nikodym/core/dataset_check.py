@@ -57,7 +57,7 @@ ROLES = frozenset({ROL_ENTRADA, ROL_DERIVADA, ROL_INDICE, ROL_NO_COLUMNA})
 #: Comodín de ``feature_columns``: «todas las disponibles». No es un nombre de columna.
 COMODIN = "*"
 
-TipoDesajuste = Literal["missing_column", "index_not_a_column"]
+TipoDesajuste = Literal["missing_column", "index_not_a_column", "missing_index"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +75,12 @@ class Mismatch:
     """El nombre de columna que el config declara y el dataset no satisface."""
 
     kind: TipoDesajuste
-    """``missing_column`` (no existe) o ``index_not_a_column`` (existe, pero como columna)."""
+    """Qué le pasa a la columna declarada.
+
+    ``missing_column`` (no existe), ``index_not_a_column`` (existe, pero como columna corriente
+    donde se esperaba el índice) o ``missing_index`` (se esperaba el índice y el nombre no está
+    **ni** en el índice **ni** entre las columnas).
+    """
 
     message: str
     """Copy público, en español y sin códigos internos: lo lee el usuario tal cual (D-PRE-8)."""
@@ -170,7 +175,20 @@ def _mensaje_indice(ruta: str, columna: str) -> str:
     )
 
 
-def check_dataset(config: NikodymConfig, columns: Sequence[str]) -> DatasetCheck:
+def _mensaje_indice_ausente(ruta: str, columna: str) -> str:
+    return (
+        f"El dataset no tiene «{columna}» ni en el índice ni entre sus columnas, y {ruta} lo "
+        f"declara como identificador de observación. Corrige el nombre en ese campo o deja el "
+        f"campo vacío para que la corrida numere las filas."
+    )
+
+
+def check_dataset(
+    config: NikodymConfig,
+    columns: Sequence[str],
+    *,
+    index_columns: Sequence[str] | None = None,
+) -> DatasetCheck:
     """Compara ``config`` con los nombres de columna de un dataset, sin ejecutarlo ni leerlo.
 
     Es **total**: devuelve *todos* los desajustes de una vez (D-PRE-2), que es su razón de existir
@@ -183,8 +201,14 @@ def check_dataset(config: NikodymConfig, columns: Sequence[str]) -> DatasetCheck
     config : NikodymConfig
         Config ya reconstruido. Las secciones que viajen como ``dict`` opaco se omiten.
     columns : Sequence[str]
-        Nombres de las columnas del dataset. La UI los tiene sin leer el archivo: los devuelve
-        ``POST /api/upload``.
+        Nombres de las columnas del dataset, **sin el índice**. La UI los tiene sin leer el
+        archivo: los devuelve ``POST /api/upload``.
+    index_columns : Sequence[str] | None, optional
+        Nombres que el dataset lleva en el **índice**. Su ausencia (``None``) significa «no se
+        sabe», no «no hay»: sin ese dato un ``index_col`` que no aparece en ``columns`` es
+        indistinguible de uno correcto —el índice, por definición, no está entre las columnas—, y
+        afirmar que falta sería el falso positivo más caro posible (el dataset del catálogo contra
+        su propio preset). Sólo cuando se declaran los índices se puede emitir ``missing_index``.
 
     Returns
     -------
@@ -199,6 +223,7 @@ def check_dataset(config: NikodymConfig, columns: Sequence[str]) -> DatasetCheck
     config = _coaccionar_secciones_opacas(config)
 
     presentes = set(columns)
+    indices = None if index_columns is None else set(index_columns)
     desajustes: list[Mismatch] = []
     opacas = tuple(
         nombre
@@ -215,6 +240,15 @@ def check_dataset(config: NikodymConfig, columns: Sequence[str]) -> DatasetCheck
             if columna in presentes:
                 desajustes.append(
                     Mismatch(ruta, columna, "index_not_a_column", _mensaje_indice(ruta, columna))
+                )
+            elif indices is not None and columna not in indices:
+                # Tercer caso: ni índice ni columna. Antes no tenía rama y se iba en silencio, así
+                # que el preflight devolvía `compatible=True` sobre un config que la corrida
+                # rechaza en el primer paso — exactamente el «todo bien» sobre lo no mirado que
+                # D-PRE-9 declara la peor respuesta posible. Sólo se puede afirmar con los índices
+                # del dataset en la mano: ver `index_columns`.
+                desajustes.append(
+                    Mismatch(ruta, columna, "missing_index", _mensaje_indice_ausente(ruta, columna))
                 )
             continue
         if columna not in presentes:

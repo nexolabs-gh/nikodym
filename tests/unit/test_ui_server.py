@@ -238,6 +238,57 @@ def test_endpoint_config_from_yaml_malformado_422(client: TestClient) -> None:
     assert "malformado" in detalle
 
 
+# ─────────────────────────────── preflight config↔dataset ───────────────────────────────
+
+
+def test_endpoint_preflight_preset_contra_su_dataset_es_compatible(
+    client_tmp: TestClient,
+) -> None:
+    """El preset del catálogo contra su propio dataset no acusa nada.
+
+    Es el falso positivo más caro posible y sólo se ve por HTTP: el esquema Arrow lista el índice
+    como una columna más, así que un test que pase los nombres a mano ya los trae separados y
+    **nunca reproduce el estado**.
+    """
+    preset = client_tmp.get("/api/config/preset/f1-estandar-consumo").json()
+    respuesta = client_tmp.post(
+        "/api/preflight",
+        json={"config": preset["config"], "dataset_id": preset["dataset_id"]},
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["compatible"] is True
+    assert cuerpo["mismatches"] == []
+    assert cuerpo["uninspected"] == []
+
+
+def test_endpoint_preflight_index_col_inexistente_no_pasa_por_compatible(
+    client_tmp: TestClient,
+) -> None:
+    """Un ``index_col`` que no está ni en el índice ni en las columnas se reporta (D-PRE-9).
+
+    Antes devolvía ``compatible=True`` con ``mismatches`` y ``uninspected`` vacíos —verde total—
+    sobre un config que la corrida rechaza en su primer paso. Va por HTTP porque el endpoint es
+    quien separa índice de columnas: en `check_dataset` esa distinción ya viene dada.
+    """
+    preset = client_tmp.get("/api/config/preset/f1-estandar-consumo").json()
+    config = preset["config"]
+    config["data"]["schema"]["index_col"] = "NO_EXISTE"
+
+    respuesta = client_tmp.post(
+        "/api/preflight", json={"config": config, "dataset_id": preset["dataset_id"]}
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["compatible"] is False
+    desajustes = [m for m in cuerpo["mismatches"] if m["kind"] == "missing_index"]
+    assert len(desajustes) == 1
+    assert desajustes[0]["path"] == "data.schema.index_col"
+    assert desajustes[0]["declared"] == "NO_EXISTE"
+
+
 # ─────────────────────────────── bootstrap de create_app ───────────────────────────────
 
 

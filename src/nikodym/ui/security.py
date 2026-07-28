@@ -19,10 +19,19 @@ from nikodym.ui.settings import UiConfig
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-__all__ = ["MUTATING_PATHS", "install_security"]
+__all__ = ["CREDENTIALED_PATHS", "MUTATING_PATHS", "install_security"]
 
 #: Endpoints que escriben o ejecutan; exigen ``Origin`` same-origin y token además del ``Host``.
 MUTATING_PATHS = frozenset({"/api/upload", "/api/run"})
+
+#: Endpoints que exigen las mismas credenciales que un mutador pero **no ejecutan el pipeline**.
+#:
+#: ``/api/preflight`` materializa el dataset para leerle el esquema, así que escribe en el
+#: ``workdir`` y no puede quedar abierto a cualquier proceso local —el token existe justamente
+#: porque el bind a loopback no se considera suficiente—. Pero comprobar no es correr: dejarlo en
+#: :data:`MUTATING_PATHS` lo habría apagado con ``allow_live_execution=false``, que es el modo en
+#: el que un aviso de config↔dataset más se agradece. De ahí la categoría propia.
+CREDENTIALED_PATHS = frozenset({"/api/preflight"})
 
 
 def install_security(app: FastAPI, settings: UiConfig, runtime: RuntimeContext) -> None:
@@ -44,8 +53,9 @@ def install_security(app: FastAPI, settings: UiConfig, runtime: RuntimeContext) 
                 f"{runtime.expected_host}; abra {runtime.url}"
             )
 
-        if request.url.path.rstrip("/") in MUTATING_PATHS:
-            if not settings.allow_live_execution:
+        ruta = request.url.path.rstrip("/")
+        if ruta in MUTATING_PATHS or ruta in CREDENTIALED_PATHS:
+            if ruta in MUTATING_PATHS and not settings.allow_live_execution:
                 return _denegar(
                     "La ejecución en vivo está deshabilitada (allow_live_execution=false): "
                     "puede consultar schema, presets, resultados e informes, pero no subir "

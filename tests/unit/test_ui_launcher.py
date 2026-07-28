@@ -208,6 +208,51 @@ def test_mutadores_exigen_origin_same_origin(tmp_path: Path, static: Path) -> No
     assert "Origen no admitido" in respuesta.json()["detail"]
 
 
+def test_preflight_exige_token_aunque_no_ejecute(tmp_path: Path, static: Path) -> None:
+    """``/api/preflight`` materializa el dataset, así que no puede quedar sin credenciales.
+
+    Nació fuera de la lista de guardas: respondía 200 y escribía el parquet a cualquier proceso
+    local, mientras ``/api/run`` daba 403 en las mismas condiciones.
+    """
+    runtime = build_test_runtime(tmp_path, static_dir=static)
+    client = ui_client(
+        UiConfig.model_validate({"workdir": str(tmp_path)}),
+        runtime=runtime,
+        con_credenciales=False,
+    )
+
+    respuesta = client.post(
+        "/api/preflight",
+        json={"config": {}, "dataset_id": "consumo_comportamiento"},
+        headers={"Origin": runtime.origin},
+    )
+
+    assert respuesta.status_code == 403
+    assert "Falta el X-Nikodym-Token" in respuesta.json()["detail"]
+    assert TEST_TOKEN not in respuesta.text
+    # Y no llegó a escribir: la guarda corta antes del endpoint.
+    assert list((tmp_path / "datasets").glob("*")) == []
+
+
+def test_preflight_sigue_disponible_con_allow_live_execution_false(
+    tmp_path: Path, static: Path
+) -> None:
+    """Comprobar no es correr: el flag apaga ejecutar, y un aviso config↔dataset no ejecuta.
+
+    Por eso el endpoint vive en ``CREDENTIALED_PATHS`` y no en ``MUTATING_PATHS``: exige las
+    mismas credenciales, pero no desaparece en el modo donde más se agradece.
+    """
+    client = _cliente(tmp_path, static, allow_live_execution=False)
+
+    respuesta = client.post(
+        "/api/preflight", json={"config": {}, "dataset_id": "dataset-que-no-existe"}
+    )
+
+    # 404 por el dataset desconocido —no 403—: la guarda lo dejó pasar.
+    assert respuesta.status_code == 404
+    assert client.post("/api/run", json={"config": {}, "dataset_id": "x"}).status_code == 403
+
+
 def test_allow_live_execution_false_deniega_upload_y_run_pero_deja_leer(
     tmp_path: Path, static: Path
 ) -> None:

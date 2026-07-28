@@ -142,8 +142,8 @@ def validate_config(config: Any) -> dict[str, Any]:
     }
 
 
-def _columnas_del_parquet(source: Path) -> tuple[str, ...]:
-    """Nombres de las **columnas** del parquet, sin el índice, y sin cargar los datos.
+def _columnas_del_parquet(source: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Nombres del parquet separados en ``(columnas, índices)``, sin cargar los datos.
 
     El esquema Arrow no distingue una cosa de la otra: ``read_schema().names`` lista el índice como
     un campo más. Tomarlo tal cual hacía que el dataset del catálogo —cuyo ``loan_id`` vive en el
@@ -152,6 +152,10 @@ def _columnas_del_parquet(source: Path) -> tuple[str, ...]:
 
     Se detectó **probando el endpoint en vivo**: el test unitario no podía verlo porque le pasaba
     los nombres a mano, ya separados.
+
+    Los índices se **devuelven** en vez de sólo descartarse: sin ellos, ``check_dataset`` no puede
+    distinguir un ``index_col`` correcto de uno que no existe en ninguna parte —ninguno de los dos
+    está entre las columnas— y el segundo se iba en silencio con ``compatible=True``.
     """
     # `pyarrow` no trae stubs; leer sólo el esquema evita cargar el dataset entero, que es la
     # diferencia entre comprobar y correr (D-PRE-1).
@@ -165,7 +169,8 @@ def _columnas_del_parquet(source: Path) -> tuple[str, ...]:
         indices = {
             nombre for nombre in pandas_meta.get("index_columns", []) if isinstance(nombre, str)
         }
-    return tuple(nombre for nombre in esquema.names if nombre not in indices)
+    columnas = tuple(nombre for nombre in esquema.names if nombre not in indices)
+    return columnas, tuple(nombre for nombre in esquema.names if nombre in indices)
 
 
 def preflight_dataset(config: Any, dataset_id: Any, *, workdir: Path) -> dict[str, Any]:
@@ -195,8 +200,8 @@ def preflight_dataset(config: Any, dataset_id: Any, *, workdir: Path) -> dict[st
     model = NikodymConfig.model_validate(config)
     source = datasets.materialize(dataset_id, workdir=workdir)  # UiDatasetError → 404
 
-    columnas = _columnas_del_parquet(source)
-    veredicto = nikodym.check_dataset(model, columnas)
+    columnas, indices = _columnas_del_parquet(source)
+    veredicto = nikodym.check_dataset(model, columnas, index_columns=indices)
     return {
         "compatible": veredicto.compatible,
         "mismatches": [

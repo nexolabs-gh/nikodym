@@ -140,6 +140,62 @@ def test_index_col_satisfecho_por_el_indice_no_se_reporta(config_f1: NikodymConf
     assert not [m for m in veredicto.mismatches if m.kind == "index_not_a_column"]
 
 
+def test_index_col_ausente_del_todo_se_reporta(config_f1: NikodymConfig) -> None:
+    """El TERCER caso de ``index_col``: ni índice ni columna.
+
+    D-PRE-6 diseñó el campo «en sus dos sentidos» y este se quedó sin rama, así que el preflight
+    devolvía ``compatible=True`` —verde total, ``uninspected`` vacío— sobre un config que la
+    corrida rechaza en el primer paso. Es justo el «todo bien» sobre lo no mirado que D-PRE-9
+    declara la peor respuesta posible.
+    """
+    config = config_f1.model_copy(
+        update={
+            "data": config_f1.data.model_copy(
+                update={
+                    "schema_": config_f1.data.schema_.model_copy(update={"index_col": "NO_EXISTE"})
+                }
+            )
+        }
+    )
+
+    veredicto = check_dataset(config, COLUMNAS_CATALOGO, index_columns=("loan_id",))
+
+    faltantes = [m for m in veredicto.mismatches if m.kind == "missing_index"]
+    assert len(faltantes) == 1
+    assert faltantes[0].path == "data.schema.index_col"
+    assert faltantes[0].declared == "NO_EXISTE"
+    assert not veredicto.compatible
+
+
+def test_declarar_los_indices_no_reintroduce_el_falso_positivo_del_catalogo(
+    config_f1: NikodymConfig,
+) -> None:
+    """El preset contra su propio dataset sigue limpio **con** los índices declarados.
+
+    Es el falso positivo más caro posible —el dataset del catálogo incompatible con su propio
+    preset— y sólo apareció probando en vivo, así que se ancla en los dos sentidos.
+    """
+    veredicto = check_dataset(config_f1, COLUMNAS_CATALOGO, index_columns=("loan_id",))
+
+    assert veredicto.compatible
+    assert veredicto.mismatches == ()
+
+
+def test_sin_declarar_los_indices_no_se_afirma_que_el_indice_falte(
+    config_f1: NikodymConfig,
+) -> None:
+    """``index_columns=None`` significa «no se sabe», no «no hay» — y callar es lo correcto.
+
+    El índice, por definición, no está entre las columnas: sin ese dato un ``index_col`` correcto
+    es indistinguible de uno inexistente. Quien llame sin el parámetro debe seguir viendo el
+    comportamiento anterior, no una acusación falsa sobre su propio dataset.
+    """
+    veredicto = check_dataset(config_f1, COLUMNAS_CATALOGO)
+
+    assert not [m for m in veredicto.mismatches if m.kind == "missing_index"]
+    assert veredicto.compatible
+
+
 def test_una_seccion_opaca_que_coacciona_se_inspecciona_igual(
     config_f1: NikodymConfig,
 ) -> None:

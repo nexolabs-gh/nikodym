@@ -119,7 +119,7 @@ export interface ValidateResponse {
 export interface PreflightMismatch {
   path: string
   declared: string
-  kind: "missing_column" | "index_not_a_column"
+  kind: "missing_column" | "index_not_a_column" | "missing_index"
   message: string
 }
 
