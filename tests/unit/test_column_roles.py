@@ -124,9 +124,7 @@ def test_toda_seccion_en_alcance_del_preflight_es_navegable_en_el_formulario() -
         "este gate quedaría verde sin comprobar nada."
     )
 
-    ausentes = sorted(
-        clave for clave in CLAVES_EN_ALCANCE.values() if clave not in navegables
-    )
+    ausentes = sorted(clave for clave in CLAVES_EN_ALCANCE.values() if clave not in navegables)
 
     assert not ausentes, (
         f"Secciones que el preflight puede señalar pero el formulario no ofrece: {ausentes}. "
