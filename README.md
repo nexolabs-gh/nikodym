@@ -186,7 +186,9 @@ nikodym-ui --no-open        # no abrir el navegador
 > **`[ui]` trae todo lo que el formulario puede ejecutar**, no sólo el servidor: el motor del
 > scorecard y el de supervivencia entran con él. Son ~700 MB en disco, y es deliberado — un extra
 > llamado `ui` que instala la interfaz pero no lo que la interfaz dispara promete algo que no
-> cumple. Lo único que queda fuera es el PDF (`nikodym[pdf]`), por licencia.
+> cumple. Quedan fuera el PDF (`nikodym[pdf]`), por licencia, y el backend de lectura `polars`
+> (`nikodym[polars]`), que es una opción de rendimiento: el resultado no cambia, y si lo eliges sin
+> tenerlo instalado la corrida te lo dice con el comando exacto.
 
 ## Limitaciones que debes conocer antes de usarlo en serio
 

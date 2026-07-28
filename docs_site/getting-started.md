@@ -51,7 +51,7 @@ los declarados en `[project.optional-dependencies]` del `pyproject.toml`.
 | `forecasting` | `nikodym[forecasting]` | Forward-looking / proyección macro (F5). | `statsmodels`, `pmdarima` |
 | `survival` | `nikodym[survival]` | Modelos de supervivencia (Cox / AFT). | `lifelines` |
 | `tracking` | `nikodym[tracking]` | Registro de corridas / *registry*. | `mlflow` |
-| `ui` | `nikodym[ui]` | **Interfaz gráfica local**, lista para correr: instala el comando `nikodym-ui` y **todo lo que su formulario puede ejecutar** (compone `scoring`, `survival`, `excel` y `docx`). | `fastapi`, `uvicorn`, `python-multipart` |
+| `ui` | `nikodym[ui]` | **Interfaz gráfica local**, lista para correr: instala el comando `nikodym-ui` y **todo lo que su formulario puede ejecutar**. | `fastapi`, `uvicorn`, `python-multipart` + los extras `scoring`, `survival`, `excel` y `docx` |
 | `polars` | `nikodym[polars]` | Backend de carga de datos con Polars. | `polars` |
 | `excel` | `nikodym[excel]` | Lectura de `.xlsx` en el `DataLoader`. | `openpyxl` |
 | `report` | `nikodym[report]` | Figuras opcionales del reporte. | `matplotlib`, `plotly` |
@@ -87,7 +87,7 @@ Comprueba que el núcleo importa y reporta versión:
 python -c "import nikodym; print(nikodym.__version__)"
 ```
 
-Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.8.x**). Que este
+Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.9.x**). Que este
 comando funcione confirma que el **núcleo base** está sano; no dice nada sobre los extras, porque
 sus imports son perezosos. Para verificar que el extra `scoring` quedó disponible, la prueba real es
 correr una corrida F1 (siguiente sección): si falta el extra, el motor fallará al importar
@@ -167,8 +167,9 @@ sidebar: elegir datos → configurar → ejecutar → resultados → informe.
     No es sólo el servidor: compone `scoring` y `survival`, así que los tres presets —F1 scorecard,
     F3 provisiones CMF y F4 IFRS 9— corren hasta el informe con esa única instalación. Son unos
     700 MB en disco. Un extra llamado `ui` que instalara la interfaz pero no el motor que ésta
-    dispara prometería algo que no cumple. El **PDF** queda fuera aparte (`nikodym[pdf]`), por la
-    licencia de WeasyPrint.
+    dispara prometería algo que no cumple. Quedan fuera el **PDF** (`nikodym[pdf]`), por la licencia
+    de WeasyPrint, y el backend de lectura **`polars`** (`nikodym[polars]`), que sólo acelera la
+    carga sin cambiar el resultado; si lo eliges sin instalarlo, la corrida te da el comando exacto.
 
 ### Opciones del comando
 

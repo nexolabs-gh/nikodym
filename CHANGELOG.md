@@ -5,7 +5,7 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
-## Sin publicar
+## [1.9.0] — 2026-07-28
 
 ### Añadido
 
@@ -29,6 +29,13 @@ por ahora, y el gate de cobertura lo declara en vez de callarlo.
   columnas de tu archivo, y en cada sección de «Configuración» con los desajustes que le tocan.
   **Un click en un aviso te lleva al campo** que hay que corregir. El botón Ejecutar cambia de
   aspecto y avisa, pero **no se bloquea nunca**: puedes correr igual.
+
+  > **Salvedad conocida:** las listas de variables de *binning* (`feature_columns`,
+  > `exclude_columns`, `categorical_columns`) todavía **no son editables desde el formulario** —su
+  > control se dibuja a partir de las variables WoE, que no existen hasta que la corrida las
+  > produce—, así que un aviso sobre ellas te lleva a su sección pero no enfoca un campo. Para
+  > ajustarlas, usa «Descargar YAML» / «Cargar YAML» en la misma página. Es anterior a esta versión;
+  > el preflight sólo la hace visible.
 - **El formulario alcanza la sección `stability`** (PSI/CSI, umbrales, comparaciones y eje
   temporal): era parte del camino F1 y sólo se podía editar por YAML o por código.
 
@@ -37,7 +44,17 @@ por ahora, y el gate de cobertura lo declara en vez de callarlo.
   —F1 y F3 en el binning, F4 en survival—. Ahora `[ui]` compone también `scoring` y `survival`, así
   que los tres corren hasta el informe con esa sola instalación. Pesa ~700 MB en disco, y es
   deliberado: un extra llamado `ui` que no puede ejecutar nada promete algo que no cumple. El PDF
-  sigue aparte (`nikodym[pdf]`), por licencia.
+  sigue aparte (`nikodym[pdf]`), por licencia, y también el backend de lectura `polars`
+  (`nikodym[polars]`), que sólo acelera la carga sin cambiar el resultado.
+
+  > **Nota de contrato — lee esto si ya usabas `nikodym[ui]`.** El extra cambia de composición, no
+  > sólo de tamaño: **de 310 a 703 MB** y de **0 a 3 presets ejecutables**. Dos consecuencias
+  > prácticas: (a) la instalación tarda más y ocupa el triple, así que revisa tus imágenes de
+  > contenedor y cachés de CI; (b) `[ui]` **hereda ahora el techo `scikit-learn<1.8`** que `scoring`
+  > ya imponía. Si tenías `nikodym[ui]` conviviendo con `scikit-learn` 1.8 o 1.9 —que pip te dejaba
+  > instalar, porque el extra no lo acotaba—, al actualizar pip degradará `scikit-learn` o fallará
+  > la resolución. Es la contrapartida de que la interfaz traiga un motor que de verdad corre.
+  > No cambia API pública ni `config_hash`.
 - **La interfaz gráfica ya está documentada** (B2.5). El README y `docs_site` explican cómo
   instalarla y levantarla en dos comandos —`pip install 'nikodym[ui]'` y `nikodym-ui`—, sus
   opciones (`--port`, `--workdir`, `--no-open`), que escucha **sólo** en `127.0.0.1` sin forma de
@@ -53,6 +70,21 @@ por ahora, y el gate de cobertura lo declara en vez de callarlo.
   escapaba entera. Ahora es `valid=false` con su mensaje, y **422 en `/api/preflight`,
   `/api/run` y `/api/config/to-yaml`** — nunca un 500. Alcanza a las seis secciones de config que
   validan invariantes propios, no sólo a la que lo destapó.
+
+- **El preflight declaraba compatible un `data.schema.index_col` que el dataset no tiene.** Era el
+  tercer estado de ese campo —ni índice, ni columna corriente— y no tenía diagnóstico: el aviso
+  respondía «todo bien», con la lista de desajustes y la de secciones no inspeccionadas **vacías**,
+  y la corrida moría en su primer paso. En el caso que motivó la función —un CSV con nombres de
+  columna propios contra el preset F1— los desajustes reportados pasan de **15 a 16**: faltaba
+  justo el identificador de la observación. `nikodym.check_dataset` acepta ahora
+  `index_columns=` para distinguirlo; omitirlo conserva el comportamiento anterior, porque sin ese
+  dato un índice correcto es indistinguible de uno inexistente.
+
+- **`POST /api/preflight` no exigía el token de sesión.** Respondía 200 —y materializaba el dataset
+  en el directorio de trabajo— a cualquier proceso local, mientras `/api/run` devolvía 403 en las
+  mismas condiciones: el endpoint nació fuera de la lista de guardas. Ahora pide token y
+  same-origin como los demás. **Sigue disponible con `allow_live_execution=false`**: comprobar no
+  es correr, y es el modo donde un aviso de config↔dataset más se agradece.
 
 ## [1.8.0] — 2026-07-27
 
