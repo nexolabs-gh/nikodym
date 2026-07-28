@@ -157,6 +157,24 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > decisión de Cami): desde D-ERR-8 el intento se registra con su diagnóstico, y bloquear se lo
 > quitaría al usuario. El prefijo `D-VAL-` estaba tomado por SDD-22, de ahí `D-PIPE-`.
 >
+> **…y la identidad del config deja de depender de qué importó el proceso (2026-07-27, APROBADA e
+> implementada).** [`_ENMIENDA-CONFIG-HASH-IMPORTS.md`](_ENMIENDA-CONFIG-HASH-IMPORTS.md),
+> D-HASH-1…D-HASH-8, enmienda a SDD-01 §5. El **mismo** config producía **dos `config_hash`
+> distintos** según si la capa de dominio estaba importada: una sección opaca se canonicalizaba sin
+> normalizar, y coaccionar materializa los defaults que el dict no traía. `config_hash` coacciona
+> ahora antes de canonicalizar (D-HASH-1) — la identidad es la del config **que se ejecutaría**, la
+> misma semántica que el lineage adoptó al arreglar su P0. El *blob* opaco del núcleo liviano queda
+> intacto (D-HASH-2): la coacción vive en el hash, no en `model_validate`.
+>
+> Tres cosas que conviene no re-aprender. **La premisa con que se priorizó era falsa** —«afecta al
+> usuario mientras trabaja»—: medido, por la UI **no se alcanza**, porque el formulario no valida
+> hasta recibir el schema y `/api/schema` importa los dominios; a quien afecta es al cliente HTTP
+> directo y al uso por código con `dict`. **El test de regresión exige subproceso**: dentro de la
+> suite las capas siempre están importadas, así que un montaje natural nunca vive en el lado opaco
+> de la brecha (se verificó que falla sin el arreglo). Y **D-HASH-8 nació al programar**: la primera
+> implementación volvía `config_hash` fallable, lo que habría convertido en 500 el 200 incondicional
+> de `/api/validate`.
+>
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
 > D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su

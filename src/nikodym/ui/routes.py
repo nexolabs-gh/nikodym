@@ -25,7 +25,7 @@ from pydantic import ValidationError
 
 import nikodym
 from nikodym.core.config import NikodymConfig, config_hash, dump_config, loads_config
-from nikodym.core.config.schema import build_full_json_schema
+from nikodym.core.config.schema import build_full_json_schema, cargar_configs_de_dominio
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.ui import datasets, presets, runs
 from nikodym.ui.exceptions import UiDatasetError, UiRunNotFoundError
@@ -104,6 +104,12 @@ def validate_config(config: Any) -> dict[str, Any]:
         viaja en su propio campo, aditivo (CT-3), porque un fallo de pipeline no tiene ``loc`` de
         campo y en ``errors`` —que el front indexa por ``loc``— quedaría invisible.
     """
+    # D-HASH-5: sin esto, `valid` depende de qué importó el proceso. Por la UI no se alcanza —el
+    # front no valida hasta tener el schema, y `/api/schema` importa los dominios—, pero un cliente
+    # HTTP directo que pegue aquí primero recibía `valid=true` sobre un config con rangos violados.
+    # No cambia el SIGNIFICADO de `valid` (D-PIPE-1 sigue en pie): lo hace significar lo mismo
+    # siempre. Cuesta ~0,3 s una única vez por proceso, y sólo si nadie pidió el schema antes.
+    cargar_configs_de_dominio()
     try:
         model = NikodymConfig.model_validate(config)
     except ValidationError as exc:

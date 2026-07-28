@@ -66,6 +66,7 @@ __all__ = [
     "ReproConfig",
     "RunConfig",
     "build_full_json_schema",
+    "cargar_configs_de_dominio",
 ]
 
 # Hook poblado por `nikodym.data` al importarse: la clase real del sub-config de la sección `data`.
@@ -73,6 +74,15 @@ __all__ = [
 # `NikodymConfig` valide/coaccione esa sección sin que el núcleo conozca el módulo. Mientras sea
 # None (core en solitario), `data` se trata como un blob JSON-canónico opaco (ver `_valida_data`).
 # Reemplaza el `model_rebuild()` del SDD-02 §5: Pydantic v2 no re-narra un campo ya resuelto (B2a).
+#
+# ⚠️ QUÉ GARANTIZA EL BLOB OPACO, Y QUÉ NO (D-HASH-4). Exigirle JSON-canónico protege del
+# no-determinismo del propio dict —sets, floats no finitos, objetos no serializables—, y nada más.
+# NO protege la identidad: una sección opaca y la misma sección coaccionada producen `config_hash`
+# distintos, porque coaccionar materializa los defaults que el dict no traía. Durante mucho tiempo
+# estas docstrings prometieron «no corromper el config_hash entre procesos», que era falso y se
+# midió. Quien cierra esa brecha es `config_hash`, coaccionando antes de canonicalizar
+# (`_coaccionar_secciones_opacas` en `hashing.py`); el blob opaco se conserva intacto porque es
+# contrato del núcleo liviano, con 18 tests que lo fijan a propósito.
 _DATA_CONFIG_CLS: type[BaseModel] | None = None
 _EDA_CONFIG_CLS: type[BaseModel] | None = None
 _EXPLAIN_CONFIG_CLS: type[BaseModel] | None = None
@@ -516,7 +526,8 @@ class NikodymConfig(NikodymBaseConfig):
         coacciona a :class:`DataConfig` (``extra='forbid'``, tipos, mini-DSL); una instancia ya
         validada pasa tal cual. Sin la capa cargada, ``data`` es un *blob* opaco: se exige
         JSON-canónico y determinista (sin sets —cuyo orden depende de ``PYTHONHASHSEED``—, objetos
-        no serializables ni floats no finitos) para no corromper el ``config_hash`` entre procesos.
+        no serializables ni floats no finitos); la identidad la normaliza ``config_hash``
+        (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -541,8 +552,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.markov`` importado (``_MARKOV_CONFIG_CLS`` poblado), un ``dict`` se valida y
         coacciona a :class:`MarkovConfig` (``extra='forbid'`` y rangos); una instancia ya validada
         pasa tal cual. Sin la capa cargada, ``markov`` es un *blob* opaco: se exige JSON-canónico y
-        determinista (sin sets, objetos no serializables ni floats no finitos) para no corromper el
-        ``config_hash`` entre procesos.
+        determinista (sin sets, objetos no serializables ni floats no finitos); la identidad la
+        normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -568,8 +579,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.eda`` importado (``_EDA_CONFIG_CLS`` poblado), un ``dict`` se valida y
         coacciona a :class:`EdaConfig` (``extra='forbid'`` y rangos); una instancia ya validada
         pasa tal cual. Sin la capa cargada, ``eda`` es un *blob* opaco: se exige JSON-canónico y
-        determinista (sin sets, objetos no serializables ni floats no finitos) para no corromper el
-        ``config_hash`` entre procesos.
+        determinista (sin sets, objetos no serializables ni floats no finitos); la identidad la
+        normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -594,8 +605,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.binning`` importado (``_BINNING_CONFIG_CLS`` poblado), un ``dict`` se valida
         y coacciona a :class:`BinningConfig` (``extra='forbid'`` y rangos); una instancia ya
         validada pasa tal cual. Sin la capa cargada, ``binning`` es un *blob* opaco: se exige
-        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos)
-        para no corromper el ``config_hash`` entre procesos.
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos); la
+        identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -621,8 +632,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.selection`` importado (``_SELECTION_CONFIG_CLS`` poblado), un ``dict`` se
         valida y coacciona a :class:`SelectionConfig` (``extra='forbid'`` y rangos); una instancia
         ya validada pasa tal cual. Sin la capa cargada, ``selection`` es un *blob* opaco: se exige
-        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos) para
-        no corromper el ``config_hash`` entre procesos.
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos); la
+        identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -648,8 +659,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.model`` importado (``_MODEL_CONFIG_CLS`` poblado), un ``dict`` se valida y
         coacciona a :class:`ModelConfig` (``extra='forbid'`` y rangos); una instancia ya validada
         pasa tal cual. Sin la capa cargada, ``model`` es un *blob* opaco: se exige JSON-canónico y
-        determinista (sin sets, objetos no serializables ni floats no finitos) para no corromper el
-        ``config_hash`` entre procesos.
+        determinista (sin sets, objetos no serializables ni floats no finitos); la identidad la
+        normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -675,8 +686,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.scorecard`` importado (``_SCORECARD_CONFIG_CLS`` poblado), un ``dict`` se
         valida y coacciona a :class:`ScorecardConfig` (``extra='forbid'`` y rangos); una instancia
         ya validada pasa tal cual. Sin la capa cargada, ``scorecard`` es un *blob* opaco: se exige
-        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos) para
-        no corromper el ``config_hash`` entre procesos.
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos); la
+        identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -703,7 +714,7 @@ class NikodymConfig(NikodymBaseConfig):
         se valida y coacciona a :class:`CalibrationConfig` (``extra='forbid'`` y rangos); una
         instancia ya validada pasa tal cual. Sin la capa cargada, ``calibration`` es un *blob*
         opaco: se exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats
-        no finitos) para no corromper el ``config_hash`` entre procesos.
+        no finitos); la identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -730,7 +741,7 @@ class NikodymConfig(NikodymBaseConfig):
         coacciona a :class:`TuningConfig` (``extra='forbid'``, espacio de búsqueda tipado); una
         instancia ya validada pasa tal cual. Sin la capa cargada, ``tuning`` es un *blob* opaco: se
         exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats no
-        finitos) para no corromper el ``config_hash`` entre procesos.
+        finitos); la identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -757,7 +768,7 @@ class NikodymConfig(NikodymBaseConfig):
         coacciona a :class:`MLConfig` (``extra='forbid'``, hiperparámetros tipados por backend);
         una instancia ya validada pasa tal cual. Sin la capa cargada, ``ml`` es un *blob* opaco: se
         exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats no
-        finitos) para no corromper el ``config_hash`` entre procesos.
+        finitos); la identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -782,8 +793,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.explain`` importado (``_EXPLAIN_CONFIG_CLS`` poblado), un ``dict`` se valida y
         coacciona a :class:`ExplainConfig` (``extra='forbid'``, explainer/reason codes tipados); una
         instancia ya validada pasa tal cual. Sin la capa cargada, ``explain`` es un *blob* opaco: se
-        exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos)
-        para no corromper el ``config_hash`` entre procesos.
+        exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats no
+        finitos); la identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -809,8 +820,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.survival`` importado (``_SURVIVAL_CONFIG_CLS`` poblado), un ``dict`` se
         valida y coacciona a :class:`SurvivalConfig` (``extra='forbid'`` y rangos); una instancia
         ya validada pasa tal cual. Sin la capa cargada, ``survival`` es un *blob* opaco: se exige
-        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos) para
-        no corromper el ``config_hash`` entre procesos.
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos); la
+        identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -836,8 +847,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.forward`` importado (``_FORWARD_CONFIG_CLS`` poblado), un ``dict`` se valida
         y coacciona a :class:`ForwardConfig` (``extra='forbid'`` y rangos); una instancia ya
         validada pasa tal cual. Sin la capa cargada, ``forward`` es un *blob* opaco: se exige
-        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos) para
-        no corromper el ``config_hash`` entre procesos.
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos); la
+        identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -863,8 +874,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.stress`` importado (``_STRESS_CONFIG_CLS`` poblado), un ``dict`` se valida
         y coacciona a :class:`StressConfig` (``extra='forbid'`` y rangos); una instancia ya
         validada pasa tal cual. Sin la capa cargada, ``stress`` es un *blob* opaco: se exige
-        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos) para
-        no corromper el ``config_hash`` entre procesos.
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos); la
+        identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -891,8 +902,8 @@ class NikodymConfig(NikodymBaseConfig):
         ``dict`` se valida y coacciona a :class:`CmfProvisioningConfig` (``extra='forbid'`` y
         rangos); una instancia ya validada pasa tal cual. Sin la capa cargada,
         ``provisioning_cmf`` es un *blob* opaco: se exige JSON-canónico y determinista (sin sets,
-        objetos no serializables ni floats no finitos) para no corromper el ``config_hash`` entre
-        procesos.
+        objetos no serializables ni floats no finitos); la identidad la normaliza ``config_hash``
+        (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -919,8 +930,8 @@ class NikodymConfig(NikodymBaseConfig):
         poblado), un ``dict`` se valida y coacciona a :class:`InternalProvisioningConfig`
         (``extra='forbid'`` y rangos); una instancia ya validada pasa tal cual. Sin la capa cargada,
         ``provisioning_internal`` es un *blob* opaco: se exige JSON-canónico y determinista (sin
-        sets, objetos no serializables ni floats no finitos) para no corromper el ``config_hash``
-        entre procesos.
+        sets, objetos no serializables ni floats no finitos); la identidad la normaliza
+        ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -947,8 +958,8 @@ class NikodymConfig(NikodymBaseConfig):
         un ``dict`` se valida y coacciona a :class:`IfrsProvisioningConfig` (``extra='forbid'`` y
         rangos); una instancia ya validada pasa tal cual. Sin la capa cargada,
         ``provisioning_ifrs9`` es un *blob* opaco: se exige JSON-canónico y determinista (sin sets,
-        objetos no serializables ni floats no finitos) para no corromper el ``config_hash`` entre
-        procesos.
+        objetos no serializables ni floats no finitos); la identidad la normaliza ``config_hash``
+        (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -975,7 +986,7 @@ class NikodymConfig(NikodymBaseConfig):
         se valida y coacciona a :class:`ProvisioningConfig` (``extra='forbid'`` y rangos); una
         instancia ya validada pasa tal cual. Sin la capa cargada, ``provisioning`` es un *blob*
         opaco: se exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats
-        no finitos) para no corromper el ``config_hash`` entre procesos.
+        no finitos); la identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -1002,7 +1013,7 @@ class NikodymConfig(NikodymBaseConfig):
         se valida y coacciona a :class:`PerformanceConfig` (``extra='forbid'`` y rangos); una
         instancia ya validada pasa tal cual. Sin la capa cargada, ``performance`` es un *blob*
         opaco: se exige JSON-canónico y determinista (sin sets, objetos no serializables ni floats
-        no finitos) para no corromper el ``config_hash`` entre procesos.
+        no finitos); la identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -1028,8 +1039,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.stability`` importado (``_STABILITY_CONFIG_CLS`` poblado), un ``dict`` se
         valida y coacciona a :class:`StabilityConfig` (``extra='forbid'`` y rangos); una instancia
         ya validada pasa tal cual. Sin la capa cargada, ``stability`` es un *blob* opaco: se exige
-        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos)
-        para no corromper el ``config_hash`` entre procesos.
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos); la
+        identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -1055,8 +1066,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.validation`` importado (``_VALIDATION_CONFIG_CLS`` poblado), un ``dict`` se
         valida y coacciona a :class:`ValidationConfig` (``extra='forbid'`` y rangos); una instancia
         ya validada pasa tal cual. Sin la capa cargada, ``validation`` es un *blob* opaco: se exige
-        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos)
-        para no corromper el ``config_hash`` entre procesos.
+        JSON-canónico y determinista (sin sets, objetos no serializables ni floats no finitos); la
+        identidad la normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -1082,8 +1093,8 @@ class NikodymConfig(NikodymBaseConfig):
         Con ``nikodym.report`` importado (``_REPORT_CONFIG_CLS`` poblado), un ``dict`` se valida y
         coacciona a :class:`ReportConfig` (``extra='forbid'`` y rangos); una instancia ya validada
         pasa tal cual. Sin la capa cargada, ``report`` es un *blob* opaco: se exige JSON-canónico
-        y determinista (sin sets, objetos no serializables ni floats no finitos) para no corromper
-        el ``config_hash`` entre procesos.
+        y determinista (sin sets, objetos no serializables ni floats no finitos); la identidad la
+        normaliza ``config_hash`` (D-HASH-1).
         """
         if valor is None:
             return valor
@@ -1284,23 +1295,50 @@ def build_full_json_schema() -> dict[str, Any]:
     nikodym.core.config`` NO arrastra dominios (núcleo liviano, SDD-23 §4.1/§9). Mismo ``shape`` que
     ``NikodymConfig.model_json_schema()``: es un ``dict`` JSON-Schema Draft 2020-12.
     """
-    # Import perezoso: reusa el mapa canónico de dominios sin ciclo de import (``study`` importa
-    # ``schema`` en top-level) y sin arrastrar dominios al importar ``core.config``.
-    from nikodym.core.exceptions import MissingDependencyError
-    from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
-
     schema = copy.deepcopy(NikodymConfig.model_json_schema())
     defs: dict[str, Any] = schema.setdefault("$defs", {})
     props: dict[str, Any] = schema.get("properties", {})
 
     # Todas las claves de ``_DOMAIN_CONFIG_CLASSES`` son campos de ``NikodymConfig`` (mismo core),
     # así que están en ``props``; ``_empotrar_seccion`` usa ``props.get`` defensivamente igual.
-    for nombre, (modulo, clase) in _DOMAIN_CONFIG_CLASSES.items():
-        try:
-            config_cls = getattr(importlib.import_module(modulo), clase)
-        except (ImportError, MissingDependencyError, AttributeError):
-            # Extra del dominio ausente → la sección queda opaca (degrada sin romper).
-            continue
+    for nombre, config_cls in cargar_configs_de_dominio().items():
         _empotrar_seccion(props, defs, nombre, copy.deepcopy(config_cls.model_json_schema()))
 
     return schema
+
+
+def cargar_configs_de_dominio() -> dict[str, type[BaseModel]]:
+    """Importa las capas de dominio instaladas y devuelve ``{sección: clase de config}``.
+
+    El efecto colateral es **el punto**, no un accidente: importar una capa ejecuta su ``__init__``,
+    que registra su clase en el hook ``_<X>_CONFIG_CLS`` de este módulo. Ése es el único mecanismo
+    que vuelve **determinista** la validación de las secciones de dominio y, con ella, el
+    ``config_hash`` (D-HASH-1/D-HASH-2 de
+    :doc:`la enmienda </design/_ENMIENDA-CONFIG-HASH-IMPORTS>`). Sin llamarla, que una sección se
+    valide o quede opaca depende de qué haya importado el proceso **antes**, y el mismo config
+    produce dos identidades distintas.
+
+    Un dominio cuyo extra no esté instalado se omite —su sección queda opaca— y eso **no es un
+    fallo** (D-HASH-3): un config que lo necesita no se puede ejecutar en esta instalación, así que
+    su identidad no ancla ninguna corrida. La garantía es «el hash no depende del **orden** de los
+    imports dentro de una instalación dada», no igualdad entre instalaciones con distintos extras.
+
+    Returns
+    -------
+    dict[str, type[BaseModel]]
+        Clases de config de los dominios importables, por nombre de sección. El orden es el del
+        mapa canónico ``_DOMAIN_CONFIG_CLASSES``.
+    """
+    # Import perezoso: reusa el mapa canónico de dominios sin ciclo de import (``study`` importa
+    # ``schema`` en top-level) y sin arrastrar dominios al importar ``core.config``.
+    from nikodym.core.exceptions import MissingDependencyError
+    from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
+
+    disponibles: dict[str, type[BaseModel]] = {}
+    for nombre, (modulo, clase) in _DOMAIN_CONFIG_CLASSES.items():
+        try:
+            disponibles[nombre] = getattr(importlib.import_module(modulo), clase)
+        except (ImportError, MissingDependencyError, AttributeError):
+            # Extra del dominio ausente → la sección queda opaca (degrada sin romper).
+            continue
+    return disponibles

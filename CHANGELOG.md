@@ -5,6 +5,46 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Corregido
+
+- **⚠️ El `config_hash` dependía de qué módulos hubiera importado el proceso.** El mismo config
+  producía **dos identidades distintas** según si la capa de ese dominio ya estaba importada: sin
+  ella, la sección viaja como un blob opaco y se canonicaliza **sin normalizar**, así que los
+  defaults que el YAML no traía no se materializaban. Con la capa importada, sí. Es la identidad
+  criptográfica de la que cuelgan el lineage, el hash del model card, el del informe y el ancla de
+  idempotencia de MLflow.
+
+  Se ve con dos líneas, en dos procesos distintos:
+
+  ```python
+  # proceso A (sin importar nikodym.binning)     → 8fb0c28b…
+  # proceso B (con import nikodym.binning)       → e8afdfca…
+  from nikodym.core.config import NikodymConfig, config_hash
+  config_hash(NikodymConfig.model_validate({"binning": {"max_n_prebins": 15}}))
+  ```
+
+  Ahora `config_hash` coacciona las secciones que lleguen opacas antes de canonicalizar: la
+  identidad es la del config **que se ejecutaría**, que es la misma semántica que el lineage ya
+  adoptó en `1.7.0`. El *blob* opaco del núcleo liviano no cambia — `import nikodym.core.config`
+  sigue sin arrastrar dominios.
+
+  **Cambio de comportamiento.** Un config con secciones opacas y campos omitidos —típicamente un
+  `config.yaml` escrito a mano y cargado sin importar sus capas— **cambia de `config_hash`**, y con
+  él su clave de idempotencia en el inventario MLflow. Un `Study` guardado con `save()` no se ve
+  afectado: escribe el config ya coaccionado y completo, así que su digest no se mueve (verificado
+  con un round-trip `save`→`load` entre procesos). Precedente del mismo tipo: la exclusión de
+  `data.load.source` en `1.4.0`. El algoritmo de canonicalización no cambia y sigue estable bajo
+  SemVer 1.x.
+
+- **`POST /api/validate` podía aprobar un config inválido si era el primer request del proceso.**
+  Por la misma causa: un rango violado dentro de una sección de dominio —`binning.min_bin_size: -1`—
+  devolvía `valid: true` con cero errores, y publicaba un `config_hash` para ese config. Por la
+  interfaz no se alcanzaba (el formulario no valida hasta recibir el schema, y `GET /api/schema`
+  importa los dominios), pero sí un cliente que llame a la API directamente. El significado de
+  `valid` no cambia: ahora significa lo mismo siempre.
+
 ## [1.7.0] — 2026-07-27
 
 ### Corregido

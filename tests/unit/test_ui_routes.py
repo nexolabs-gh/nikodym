@@ -12,6 +12,8 @@ import ast
 import importlib.util
 import io
 import re
+import subprocess
+import sys
 from collections.abc import Iterator
 from copy import deepcopy
 from pathlib import Path, PureWindowsPath
@@ -106,6 +108,30 @@ def test_validate_config_campo_desconocido() -> None:
     resultado = routes.validate_config({"campo_que_no_existe": 1})
     assert resultado["valid"] is False
     assert any(err["type"] == "extra_forbidden" for err in resultado["errors"])
+
+
+def test_validate_config_no_depende_de_que_el_proceso_haya_pedido_el_schema() -> None:
+    """D-HASH-5: ``valid`` significa lo mismo sea o no el primer request del proceso.
+
+    Antes de la enmienda, un rango violado **dentro de una sección de dominio** devolvía
+    ``valid=true`` con cero errores si el proceso aún no había importado esa capa —y publicaba un
+    ``config_hash`` para ese config inválido—. Por la UI no se alcanzaba (el front no valida hasta
+    tener el schema, y ``GET /api/schema`` importa los dominios), pero sí un cliente HTTP directo
+    que pegue a ``/api/validate`` primero.
+
+    En subproceso a propósito: dentro de la suite las capas ya están importadas, así que un montaje
+    «natural» no reproduce el estado y sería un falso verde.
+    """
+    codigo = """
+import json, sys
+from nikodym.ui import routes
+assert "nikodym.binning" not in sys.modules, "precondición: proceso frío, sin la capa"
+resultado = routes.validate_config({"binning": {"min_bin_size": -1}})
+assert resultado["valid"] is False, resultado
+assert resultado["config_hash"] is None, "no se publica identidad de un config inválido"
+assert [e["loc"] for e in resultado["errors"]] == [["binning", "min_bin_size"]], resultado
+"""
+    subprocess.run([sys.executable, "-c", codigo], check=True)
 
 
 # --- Ejecutabilidad del pipeline (enmienda VALIDACION-PIPELINE) ---------------------------------
