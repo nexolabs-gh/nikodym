@@ -5,7 +5,7 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-28, `b968fb3`, CI verde 16/16, **sin release nuevo**)
+> ## Lo último (2026-07-28, `f3d9f68`, CI verde 16/16, **sin release nuevo**)
 >
 > ✅ **El config y tu dataset se comparan ANTES de correr.** `nikodym.check_dataset(config, columnas)`
 > y `POST /api/preflight` devuelven **todos** los desajustes de una vez, sin ejecutar nada y sin leer

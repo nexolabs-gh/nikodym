@@ -11,7 +11,7 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado del proyecto (2026-07-28)
 
-**`main` = `b968fb3`, CI verde 16/16 (conteo por `gh`), sin release nuevo.** Lo publicado en PyPI
+**`main` = `f3d9f68`, CI verde 16/16 (conteo por `gh`), sin release nuevo.** Lo publicado en PyPI
 sigue siendo **`1.8.0`**; el trabajo de esta sesión es aditivo y espera en `CHANGELOG.md` bajo «Sin
 publicar». Suite 4510 passed / 6 skipped.
 
