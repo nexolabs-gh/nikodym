@@ -109,15 +109,12 @@ def test_canonico_lazy_agrega_columna_faltante_tipo_y_rango() -> None:
         validator.validate(df)
 
     message = str(exc_info.value)
-    assert "Se detectaron 3 fallo(s)" in message
-    assert message.count("- columna:") == 3
-    assert "columna_faltante" in message
-    assert "column_in_dataframe" in message
-    assert "edad" in message
-    assert "dtype('int64')" in message
-    assert "no-num" in message
-    assert "saldo" in message
-    assert "in_range" in message
+    assert "(3 problemas)" in message
+    assert message.count("\n- «") == 3
+    assert "«columna_faltante»: el dataset no la trae" in message
+    assert "«edad»: su tipo de dato no es el declarado" in message
+    assert "«saldo»: queda fuera del rango declarado" in message
+    assert "999.0" in message
     assert "999.0" in message
 
 
@@ -130,7 +127,7 @@ def test_nullable_false_rechaza_nulos_y_nullable_true_los_admite() -> None:
         nullable_false.validate(df)
 
     assert "segmento" in str(exc_info.value)
-    assert "not_nullable" in str(exc_info.value)
+    assert "tiene valores vacíos y se declaró que no los admite" in str(exc_info.value)
     assert_frame_equal(nullable_true.validate(df), df)
 
 
@@ -155,28 +152,43 @@ def test_unique_de_columna_y_unique_keys_rechazan_duplicados() -> None:
             )
         ).validate(duplicated_rows)
 
-    assert "field_uniqueness" in str(column_exc.value)
-    assert "multiple_fields_uniqueness" in str(keys_exc.value)
+    assert "tiene valores repetidos y se declaró única" in str(column_exc.value)
+    assert "la combinación de llaves de unicidad se repite" in str(keys_exc.value)
     assert "cliente_id" in str(keys_exc.value)
     assert "mes" in str(keys_exc.value)
 
 
 @pytest.mark.parametrize(
-    ("spec", "valid_value", "invalid_value", "check_name"),
+    ("spec", "valid_value", "invalid_value", "explicacion"),
     [
         (
             ColumnSpec(name="estado", dtype="str", isin=("vigente", "mora")),
             "vigente",
             "otro",
-            "isin",
+            "no es ninguno de los valores admitidos",
         ),
-        (ColumnSpec(name="edad", dtype="int", ge=18), 18, 17, "greater_than_or_equal_to"),
-        (ColumnSpec(name="saldo", dtype="float", le=100), 100.0, 101.0, "less_than_or_equal_to"),
-        (ColumnSpec(name="score", dtype="float", ge=0, le=1), 0.5, -0.1, "in_range"),
+        (
+            ColumnSpec(name="edad", dtype="int", ge=18),
+            18,
+            17,
+            "es menor que el mínimo declarado",
+        ),
+        (
+            ColumnSpec(name="saldo", dtype="float", le=100),
+            100.0,
+            101.0,
+            "es mayor que el máximo declarado",
+        ),
+        (
+            ColumnSpec(name="score", dtype="float", ge=0, le=1),
+            0.5,
+            -0.1,
+            "queda fuera del rango declarado",
+        ),
     ],
 )
 def test_checks_isin_ge_le_e_in_range_aceptan_y_rechazan(
-    spec: ColumnSpec, valid_value: object, invalid_value: object, check_name: str
+    spec: ColumnSpec, valid_value: object, invalid_value: object, explicacion: str
 ) -> None:
     validator = SchemaValidator(_cfg(spec))
 
@@ -188,7 +200,7 @@ def test_checks_isin_ge_le_e_in_range_aceptan_y_rechazan(
         validator.validate(invalid)
 
     assert spec.name in str(exc_info.value)
-    assert check_name in str(exc_info.value)
+    assert explicacion in str(exc_info.value)
     assert str(invalid_value) in str(exc_info.value)
 
 
@@ -202,7 +214,7 @@ def test_strict_true_filter_y_false_manejan_columnas_extra() -> None:
     filtered = SchemaValidator(_cfg(spec, strict="filter")).validate(df)
     allowed = SchemaValidator(_cfg(spec, strict=False)).validate(df)
 
-    assert "column_in_schema" in str(strict_exc.value)
+    assert "el dataset la trae y el esquema no la declara" in str(strict_exc.value)
     assert "extra" in str(strict_exc.value)
     assert filtered.to_dict(orient="list") == {"saldo": [100.0]}
     assert_frame_equal(allowed, df)
@@ -254,23 +266,27 @@ def test_index_col_valida_indice_pandas_existente_y_no_una_columna_ordinaria() -
     with pytest.raises(DataValidationError) as duplicated_exc:
         validator.validate(indice_duplicado)
 
-    assert "field_name('loan_id')" in str(column_exc.value)
-    assert "field_uniqueness" in str(duplicated_exc.value)
+    assert "el índice no se llama como el esquema espera" in str(column_exc.value)
+    assert "tiene valores repetidos y se declaró única" in str(duplicated_exc.value)
     assert "loan_id" in str(duplicated_exc.value)
 
 
 def test_datavalidationerror_tiene_reporte_en_espanol_con_columna_check_y_valor() -> None:
+    """El mensaje es copy público: lo lee un humano en el panel de la UI, no un desarrollador.
+
+    Por eso NO puede llevar los literales de `pandera` (`in_range`, `not_nullable`,
+    `column_in_dataframe`, `lazy=True`): el D1 midió que llegaban crudos hasta la pantalla.
+    """
     validator = SchemaValidator(_cfg(ColumnSpec(name="score", dtype="float", ge=0, le=1)))
 
     with pytest.raises(DataValidationError) as exc_info:
         validator.validate(pd.DataFrame({"score": [2.5]}))
 
     message = str(exc_info.value)
-    assert "El DataFrame no cumple el esquema declarado" in message
-    assert "columna: score" in message
-    assert "check: in_range" in message
-    assert "valor ofensor: 2.5" in message
-    assert "índice: 0" in message
+    assert "El dataset no cumple el esquema declarado en data.schema" in message
+    assert "«score»: queda fuera del rango declarado (valor: 2.5, fila 0)." in message
+    for jerga in ("in_range", "lazy=True", "DataFrame no cumple", "valor ofensor"):
+        assert jerga not in message
 
 
 def test_helpers_de_reporte_cubren_fallbacks_defensivos() -> None:
@@ -282,13 +298,16 @@ def test_helpers_de_reporte_cubren_fallbacks_defensivos() -> None:
 
     assert (
         schema_module._format_failure_row({"schema_context": "DataFrameSchema"})
-        == "- columna: DataFrameSchema; check: <sin valor>; valor ofensor: <sin valor>; "
-        "índice: <sin valor>"
+        == "- «DataFrameSchema»: no cumple el esquema."
     )
-    assert (
-        schema_module._format_failure_row({})
-        == "- columna: <dataframe>; check: <sin valor>; valor ofensor: <sin valor>; "
-        "índice: <sin valor>"
+    assert schema_module._format_failure_row({}) == "- «<dataframe>»: no cumple el esquema."
+    # Un check que la tabla no conoce CONSERVA su literal: perder información sería peor que
+    # mostrarla fea. Y la familia manda sobre los argumentos en los checks parametrizados.
+    assert "no cumple «inventado_v2»" in schema_module._format_failure_row(
+        {"column": "x", "check": "inventado_v2"}
+    )
+    assert "queda fuera del rango declarado" in schema_module._format_failure_row(
+        {"column": "x", "check": "in_range(0, 10)"}
     )
     assert schema_module._format_value([1]) == "[1]"
     assert schema_module._is_missing(BadArray()) is False

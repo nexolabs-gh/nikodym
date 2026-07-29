@@ -137,21 +137,61 @@ def _format_schema_errors(exc: pa.errors.SchemaErrors) -> str:
     """Convierte ``failure_cases`` de pandera en un reporte accionable en español."""
     failure_cases = exc.failure_cases
     count = len(failure_cases.index)
-    header = (
-        "El DataFrame no cumple el esquema declarado. "
-        f"Se detectaron {count} fallo(s) con validación lazy=True:"
-    )
+    plural = "problema" if count == 1 else "problemas"
+    header = f"El dataset no cumple el esquema declarado en data.schema ({count} {plural}):"
     rows = [_format_failure_row(row) for row in failure_cases.to_dict(orient="records")]
     return "\n".join([header, *rows])
 
 
+#: Traducción de los ``check`` de pandera a lo que le pasa al dato, en el idioma del lector.
+#:
+#: El literal crudo es jerga de la librería —``column_in_dataframe``, ``not_nullable``,
+#: ``coerce_dtype('int64')``— y viajaba tal cual al panel de la UI, que es copy público. **Las
+#: claves se midieron**, no se dedujeron: se provocó cada fallo contra `pandera` y se leyó el
+#: literal que emite (dos lotes, 2026-07-29). Lo que no esté aquí conserva su literal: perder
+#: información sería peor que mostrarla fea, y el prefijo antes del paréntesis cubre las familias
+#: parametrizadas (``in_range(0, 10)``, ``isin([...])``) sin repetir sus argumentos.
+_EXPLICACION_DEL_CHECK: dict[str, str] = {
+    "column_in_dataframe": "el dataset no la trae, y el esquema la declara obligatoria",
+    "column_in_schema": "el dataset la trae y el esquema no la declara (data.schema.strict)",
+    "not_nullable": "tiene valores vacíos y se declaró que no los admite",
+    "field_uniqueness": "tiene valores repetidos y se declaró única",
+    "multiple_fields_uniqueness": "la combinación de llaves de unicidad se repite",
+    "dtype": "su tipo de dato no es el declarado",
+    "coerce_dtype": "su valor no se pudo convertir al tipo declarado",
+    "field_name": "el índice no se llama como el esquema espera",
+    "in_range": "queda fuera del rango declarado",
+    "greater_than_or_equal_to": "es menor que el mínimo declarado",
+    "less_than_or_equal_to": "es mayor que el máximo declarado",
+    "isin": "no es ninguno de los valores admitidos",
+}
+
+
+def _explicacion(check: str) -> str:
+    """Qué le pasa al dato, en español; el literal crudo si el check no está traducido."""
+    directa = _EXPLICACION_DEL_CHECK.get(check)
+    if directa is not None:
+        return directa
+    # Los checks parametrizados llegan como `in_range(0, 10)`: la familia manda, no sus argumentos,
+    # que ya viajan en el propio literal y no hace falta repetir.
+    familia, _, _ = check.partition("(")
+    return _EXPLICACION_DEL_CHECK.get(familia, f"no cumple «{check}»")
+
+
 def _format_failure_row(row: dict[Any, Any]) -> str:
-    """Formatea una fila de ``failure_cases`` con columna/check/valor/índice."""
+    """Formatea una fila de ``failure_cases`` como una frase, no como un volcado de pandera."""
     column = _column_label(row)
-    check = _format_value(row.get("check"))
-    failure_case = _format_value(row.get("failure_case"))
-    index = _format_value(row.get("index"))
-    return f"- columna: {column}; check: {check}; valor ofensor: {failure_case}; índice: {index}"
+    check = row.get("check")
+    explicacion = _explicacion(check) if isinstance(check, str) else "no cumple el esquema"
+
+    detalle = ""
+    failure_case = row.get("failure_case")
+    if not _is_missing(failure_case) and _format_value(failure_case) != column:
+        detalle = f" (valor: {_format_value(failure_case)}"
+        index = row.get("index")
+        detalle += f", fila {_format_value(index)})" if not _is_missing(index) else ")"
+
+    return f"- «{column}»: {explicacion}{detalle}."
 
 
 def _column_label(row: dict[Any, Any]) -> str:
