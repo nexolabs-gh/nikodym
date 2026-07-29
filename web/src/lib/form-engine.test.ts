@@ -7,6 +7,7 @@ import {
   type Defs,
   type JsonSchema,
   acceptsWildcard,
+  appendListItem,
   columnRole,
   defaultForSchema,
   discriminatedBranches,
@@ -19,9 +20,14 @@ import {
   hasBothBounds,
   hasClosedOptions,
   isHiddenField,
+  isObjectList,
+  itemSchema,
+  listItemLabel,
+  moveListItem,
   multiselectOptions,
   numericBounds,
   orderedFields,
+  removeListItem,
   resolveRef,
   resolveWidget,
   schemaType,
@@ -564,6 +570,137 @@ describe("multiselect (B23.5a §5)", () => {
     expect(toggleMultiselect(["a", "DEBTINC"], "DEBTINC", false, OPTIONS)).toEqual([
       "a",
     ])
+  })
+})
+
+describe("listas de sub-objetos — una fila por elemento, no JSON crudo", () => {
+  const COLUMNA: JsonSchema = {
+    type: "object",
+    properties: {
+      name: { type: "string", title: "Nombre" },
+      dtype: { type: "string", enum: ["int", "float", "str"], default: "float" },
+      nullable: { type: "boolean", default: false },
+    },
+    required: ["name"],
+  }
+  const LISTA: JsonSchema = { type: "array", items: COLUMNA }
+  const DEFS: Defs = { Data_ColumnSpec: COLUMNA }
+
+  it("array de objetos → list (antes caía al editor JSON)", () => {
+    expect(resolveWidget(LISTA)).toBe("list")
+    expect(isObjectList(LISTA)).toBe(true)
+  })
+
+  it("resuelve el item por $ref", () => {
+    const porRef: JsonSchema = {
+      type: "array",
+      items: { $ref: "#/$defs/Data_ColumnSpec" },
+    }
+    expect(resolveWidget(porRef, { defs: DEFS })).toBe("list")
+    expect(itemSchema(porRef, DEFS)?.properties?.name).toBeDefined()
+  })
+
+  it("ui_widget `table` y `section` NO ganan sobre una lista de objetos", () => {
+    // Los dos alias que el motor emite sobre listas de objetos fallaban en direcciones opuestas:
+    // `table` (`scorecard.point_overrides`) caía al editor JSON, y `section`
+    // (`binning.variable_overrides`) resolvía a `group`, que sobre un array no encuentra
+    // `properties` y pintaba un fieldset con «Sin campos.».
+    expect(resolveWidget({ ...LISTA, ui_widget: "table" })).toBe("list")
+    expect(resolveWidget({ ...LISTA, ui_widget: "section" })).toBe("list")
+  })
+
+  it("`hidden` sigue mandando sobre todo lo demás", () => {
+    expect(resolveWidget({ ...LISTA, ui_widget: "hidden" })).toBe("hidden")
+  })
+
+  it("un dict[str, X] (object SIN properties) sigue yendo al editor JSON", () => {
+    const mapa: JsonSchema = {
+      type: "array",
+      items: { type: "object", additionalProperties: { type: "string" } },
+    }
+    expect(isObjectList(mapa)).toBe(false)
+    expect(resolveWidget(mapa)).toBe("json")
+  })
+
+  it("añadir siembra la fila con los defaults de su schema", () => {
+    // Medido: siembra lo que pondría el modelo de Pydantic —los campos con `default`— y NO
+    // inventa valor para un requerido que no lo tiene (`name`). La fila nace con el nombre
+    // ausente y su input vacío, que es justo lo que el usuario va a escribir; sembrar `""`
+    // metería en el config un nombre de columna vacío que el backend rechazaría con un
+    // diagnóstico peor que el campo en blanco.
+    expect(appendListItem([], COLUMNA)).toEqual([
+      { dtype: "float", nullable: false },
+    ])
+    // Y no pisa lo que ya había.
+    expect(appendListItem([{ name: "BAD" }], COLUMNA)).toHaveLength(2)
+  })
+
+  it("eliminar quita solo esa fila; un índice inexistente no cambia nada", () => {
+    const filas = [{ name: "a" }, { name: "b" }, { name: "c" }]
+    expect(removeListItem(filas, 1)).toEqual([{ name: "a" }, { name: "c" }])
+    expect(removeListItem(filas, 9)).toEqual(filas)
+    expect(removeListItem("no es lista", 0)).toEqual([])
+  })
+
+  it("reordenar respeta los bordes (el orden lo compara `data.schema.ordered`)", () => {
+    const filas = [{ name: "a" }, { name: "b" }, { name: "c" }]
+    expect(moveListItem(filas, 2, -1)).toEqual([
+      { name: "a" },
+      { name: "c" },
+      { name: "b" },
+    ])
+    expect(moveListItem(filas, 0, -1)).toEqual(filas) // ya está arriba
+    expect(moveListItem(filas, 2, 1)).toEqual(filas) // ya está abajo
+  })
+
+  it("la etiqueta de una fila sale de su campo identificatorio", () => {
+    expect(listItemLabel({ name: "DEBTINC", dtype: "float" })).toBe("DEBTINC")
+    expect(listItemLabel({ col: "BAD", op: "==" })).toBe("BAD")
+    expect(listItemLabel({ op: "==", value: 1 })).toBe("==") // primer string no vacío
+    expect(listItemLabel({ value: 1 })).toBeNull()
+    expect(listItemLabel(null)).toBeNull()
+  })
+})
+
+describe("las listas de objetos del SCHEMA REAL del backend", () => {
+  const defs: Defs = (fixtureSchema as unknown as SchemaPayload).json_schema.$defs ?? {}
+  const raiz = (fixtureSchema as unknown as SchemaPayload).json_schema
+
+  /** Baja por un path de secciones/campos resolviendo uniones y $ref, como hace el renderer. */
+  const campoEn = (ruta: string[]): JsonSchema | undefined => {
+    let nodo: JsonSchema | undefined = raiz
+    for (const tramo of ruta) {
+      if (!nodo) return undefined
+      const candidatas: JsonSchema[] = nodo.anyOf ?? nodo.oneOf ?? [nodo]
+      const ramas: JsonSchema[] = candidatas.map((r: JsonSchema) =>
+        resolveRef(r, defs),
+      )
+      const conProps: JsonSchema | undefined = ramas.find(
+        (r: JsonSchema) => r.properties?.[tramo] !== undefined,
+      )
+      const siguiente: JsonSchema | undefined = conProps?.properties?.[tramo]
+      nodo = siguiente ? resolveRef(siguiente, defs) : undefined
+    }
+    return nodo
+  }
+
+  it("data.schema.columns se edita fila a fila, con un campo `name` por fila", () => {
+    // El caso que se midió en cámara: 1.552 caracteres de JSON en un textarea de cinco líneas,
+    // y 2.412 que teclear para describir HMEQ.
+    const campo = campoEn(["data", "schema", "columns"])
+    expect(campo, "data.schema.columns no está en el schema").toBeDefined()
+    expect(resolveWidget(campo!, { defs })).toBe("list")
+    expect(itemSchema(campo!, defs)?.properties?.name).toBeDefined()
+  })
+
+  it.each([
+    ["data.target.bad_rule.all_of", ["data", "target", "bad_rule", "all_of"]],
+    ["binning.variable_overrides", ["binning", "variable_overrides"]],
+    ["scorecard.point_overrides", ["scorecard", "point_overrides"]],
+  ])("%s también", (_nombre, ruta) => {
+    const campo = campoEn(ruta as string[])
+    expect(campo).toBeDefined()
+    expect(resolveWidget(campo!, { defs })).toBe("list")
   })
 })
 

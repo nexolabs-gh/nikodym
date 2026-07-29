@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Info } from "lucide-react"
+import { ChevronDown, ChevronUp, Info, Plus, Trash2 } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,11 +30,17 @@ import {
   enumOptions,
   fieldHelp,
   fieldLabel,
+  appendListItem,
   fieldPlaceholder,
   hasClosedOptions,
+  itemSchema,
+  listItemLabel,
+  listItems,
+  moveListItem,
   multiselectOptions,
   numericBounds,
   orderedFields,
+  removeListItem,
   resolveRef,
   resolveWidget,
   toggleMultiselect,
@@ -160,6 +166,8 @@ function WidgetSwitch(
       return <DiscriminatedField {...props} />
     case "multiselect":
       return <MultiselectField {...props} />
+    case "list":
+      return <ListField {...props} />
     default:
       return <JsonField {...props} />
   }
@@ -714,6 +722,136 @@ function MultiselectField(props: FieldRendererProps) {
         </>
       )}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Lista de sub-objetos — una fila editable por elemento
+// ---------------------------------------------------------------------------
+
+/**
+ * Lista de sub-objetos: una fila por elemento, cada una renderizada con el MISMO motor recursivo
+ * que un grupo (`GroupFieldList`), más añadir / eliminar / reordenar.
+ *
+ * Sustituye al editor JSON en las once listas de objetos del config. Ese editor no era un atajo
+ * incómodo, era un muro: `data.schema.columns` son 1.552 caracteres de JSON en un textarea de
+ * cinco líneas, y describir un dataset de trece columnas exigía teclear 2.412 a mano.
+ *
+ * Cada fila usa `path = [...path, i]`, así que sus campos quedan con `id="…columns.3.name"`. Eso
+ * es exactamente lo que `candidateFieldIds` busca **primero** al traducir la ruta del motor
+ * (`data.schema.columns[3].name`), de modo que el salto del preflight pasa a enfocar el campo
+ * exacto sin tocar una línea del preflight: ya estaba escrito para degradar solo.
+ *
+ * El orden se preserva y se puede cambiar porque el config lo usa: `data.schema.ordered` compara
+ * el orden declarado contra el del dataset.
+ */
+function ListField(props: FieldRendererProps) {
+  const { schema, path, value, defs, onChange, depth = 0, errors, datasetColumns } =
+    props
+  const item = itemSchema(schema, defs)
+  const items = listItems(value)
+
+  if (!item) return <JsonField {...props} />
+
+  const campos = orderedFields(item)
+  const required = new Set(item.required ?? [])
+
+  return (
+    <div className="space-y-2">
+      {items.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
+          Lista vacía.
+        </p>
+      ) : (
+        <ol className="space-y-2">
+          {items.map((elemento, indice) => {
+            const etiqueta = listItemLabel(elemento)
+            const filaPath = [...path, indice]
+            return (
+              <li
+                key={indice}
+                className={cn(
+                  "space-y-3 rounded-lg border border-border bg-foreground/[0.02] p-3",
+                  depth > 0 && "border-l-2 border-l-brand-accent/40",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {indice + 1}.{" "}
+                    <span className="text-foreground/90">
+                      {etiqueta ?? "sin nombre"}
+                    </span>
+                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <ListRowButton
+                      label={`Subir ${etiqueta ?? indice + 1}`}
+                      disabled={indice === 0}
+                      onClick={() => onChange(path, moveListItem(value, indice, -1))}
+                    >
+                      <ChevronUp className="size-3.5" aria-hidden="true" />
+                    </ListRowButton>
+                    <ListRowButton
+                      label={`Bajar ${etiqueta ?? indice + 1}`}
+                      disabled={indice === items.length - 1}
+                      onClick={() => onChange(path, moveListItem(value, indice, 1))}
+                    >
+                      <ChevronDown className="size-3.5" aria-hidden="true" />
+                    </ListRowButton>
+                    <ListRowButton
+                      label={`Eliminar ${etiqueta ?? indice + 1}`}
+                      onClick={() => onChange(path, removeListItem(value, indice))}
+                    >
+                      <Trash2 className="size-3.5" aria-hidden="true" />
+                    </ListRowButton>
+                  </div>
+                </div>
+                <GroupFieldList
+                  fields={campos}
+                  path={filaPath}
+                  groupValue={asRecord(elemento)}
+                  defs={defs}
+                  onChange={onChange}
+                  required={required}
+                  depth={depth + 1}
+                  errors={errors}
+                  datasetColumns={datasetColumns}
+                />
+              </li>
+            )
+          })}
+        </ol>
+      )}
+      <button
+        type="button"
+        id={path.join(".")}
+        onClick={() => onChange(path, appendListItem(value, item, defs))}
+        className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1 text-xs text-foreground/90 transition-colors hover:bg-foreground/5"
+      >
+        <Plus className="size-3.5" aria-hidden="true" />
+        Añadir
+      </button>
+    </div>
+  )
+}
+
+/** Botón de acción de una fila (subir/bajar/eliminar): mismo aspecto, `aria-label` propio. */
+function ListRowButton(props: {
+  label: string
+  disabled?: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={props.label}
+      title={props.label}
+      disabled={props.disabled}
+      onClick={props.onClick}
+      className="rounded-md border border-input p-1 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+    >
+      {props.children}
+    </button>
   )
 }
 

@@ -60,6 +60,8 @@ export type WidgetKind =
   | "group"
   | "discriminated"
   | "multiselect"
+  /** Lista de sub-objetos: una fila editable por elemento (`data.schema.columns`, reglas…). */
+  | "list"
   | "json"
   /** Fontanería del config que el usuario no edita: no se pinta (ver `HIDDEN_WIDGET`). */
   | "hidden"
@@ -377,6 +379,15 @@ export function resolveWidget(
 
   // (1) ui_widget del campo original tiene prioridad (antes de resolver $ref).
   const override = uiWidgetToKind(field.ui_widget)
+  if (override === HIDDEN_WIDGET) return HIDDEN_WIDGET
+
+  // (1-bis) Una lista de SUB-OBJETOS se edita fila a fila, y eso gana sobre el alias declarado:
+  // ninguno de los que emite el motor describe esa forma, y los dos que lo intentan fallaban en
+  // direcciones opuestas —`table` (`scorecard.point_overrides`) caía al editor JSON, y `section`
+  // (`binning.variable_overrides`) resolvía a `group`, que sobre un array no encuentra
+  // `properties` y pintaba un fieldset con «Sin campos.»—. `hidden` sí sigue mandando: es la
+  // única decisión que dice "no pintes esto", y un widget no puede sobreescribirla.
+  if (isObjectList(field, defs)) return "list"
   if (override) return override
 
   // (2) Resolver $ref para inspeccionar el destino.
@@ -418,6 +429,7 @@ export function resolveWidget(
     if (items && (Array.isArray(items.enum) || items.const !== undefined)) {
       return "multiselect"
     }
+    if (isObjectList(resolved, defs)) return "list"
     // Una lista de NOMBRES DE COLUMNA no puede traer `enum` —sus valores dependen del archivo que
     // cargue el usuario, no del schema—, pero es tan elegible como un enum: sus opciones salen del
     // dataset. Sin esta rama, `data.schema.unique_keys` (que declara el rol pero no `ui_widget`)
@@ -501,6 +513,102 @@ export function defaultForSchema(schema: JsonSchema, defs: Defs = {}): unknown {
     return options.length > 0 ? options[0] : ""
   }
   return {}
+}
+
+// ---------------------------------------------------------------------------
+// Listas de sub-objetos — una fila editable por elemento
+// ---------------------------------------------------------------------------
+
+/**
+ * Schema del ELEMENTO de una lista, resuelto; `undefined` si el campo no es una lista.
+ *
+ * Mira también las ramas de una unión, por la misma razón que `columnRole`: los campos que
+ * importan suelen viajar como `X | None` o `tuple[...] | Literal[...]`.
+ */
+export function itemSchema(
+  schema: JsonSchema,
+  defs: Defs = {},
+): JsonSchema | undefined {
+  const array = arrayBranch(schema, defs)
+  if (!array?.items) return undefined
+  return resolveRef(array.items, defs)
+}
+
+/**
+ * ¿Es una lista cuyos elementos son sub-objetos con campos propios?
+ *
+ * Es la pregunta que decide entre «una fila por elemento» y el editor JSON. Exige `properties`
+ * de verdad: un `dict[str, X]` es `type: "object"` SIN properties y no tiene formulario que
+ * pintar —de ahí que siga yendo al editor JSON, que para ese caso es honesto—.
+ */
+export function isObjectList(schema: JsonSchema, defs: Defs = {}): boolean {
+  const item = itemSchema(schema, defs)
+  if (!item) return false
+  return Object.keys(item.properties ?? {}).length > 0
+}
+
+/** Los elementos actuales de una lista (array vacío si el valor no es un array). */
+export function listItems(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
+/**
+ * Devuelve la lista con un elemento nuevo al final, sembrado con los defaults de su schema
+ * (`variantDefaults` vía `defaultForSchema`), para que la fila nazca con lo que el modelo de
+ * Pydantic pondría y el usuario sólo rellene lo que le falta.
+ */
+export function appendListItem(
+  value: unknown,
+  item: JsonSchema,
+  defs: Defs = {},
+): unknown[] {
+  return [...listItems(value), defaultForSchema(item, defs)]
+}
+
+/** Devuelve la lista sin el elemento `index` (sin cambios si el índice no existe). */
+export function removeListItem(value: unknown, index: number): unknown[] {
+  const items = listItems(value)
+  if (index < 0 || index >= items.length) return items
+  return [...items.slice(0, index), ...items.slice(index + 1)]
+}
+
+/**
+ * Mueve el elemento `index` `delta` posiciones (−1 arriba, +1 abajo). Sin cambios si el
+ * movimiento sale de la lista: el orden importa —`data.schema.columns` lo compara `ordered`— y
+ * un botón que no hace nada es preferible a uno que reordena a lo loco en el borde.
+ */
+export function moveListItem(
+  value: unknown,
+  index: number,
+  delta: number,
+): unknown[] {
+  const items = listItems(value)
+  const destino = index + delta
+  if (index < 0 || index >= items.length) return items
+  if (destino < 0 || destino >= items.length) return items
+  const copia = [...items]
+  const [movido] = copia.splice(index, 1)
+  copia.splice(destino, 0, movido)
+  return copia
+}
+
+/**
+ * Etiqueta de una fila: el valor de su campo más identificatorio, para no leer «Elemento 3» sobre
+ * algo que ya se llama «DEBTINC». Se prefiere `name`, luego `col`, luego `variable`, y el primer
+ * string no vacío como último recurso. `null` si la fila no tiene ninguno (el llamador cae al
+ * ordinal).
+ */
+export function listItemLabel(item: unknown): string | null {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null
+  const record = item as Record<string, unknown>
+  for (const clave of ["name", "col", "variable", "feature", "column"]) {
+    const valor = record[clave]
+    if (typeof valor === "string" && valor.length > 0) return valor
+  }
+  for (const valor of Object.values(record)) {
+    if (typeof valor === "string" && valor.length > 0) return valor
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
