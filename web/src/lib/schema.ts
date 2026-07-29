@@ -149,6 +149,16 @@ export const CONFIG_SECTIONS: ConfigSectionDef[] = [
     description:
       "La regla del máximo del Cap. B-1: qué dos métodos se comparan y a qué nivel de agregación.",
   },
+  {
+    // Va al final porque el informe es el último paso del pipeline. `report.document` es lo que
+    // llena la PORTADA del entregable —modelo, entidad, cartera, responsable, versión—: sin esta
+    // sección en el catálogo esos cinco campos sólo se podían escribir por YAML o por código, así
+    // que el informe que salía del camino 100 % por interfaz llegaba con la portada en blanco.
+    key: "report",
+    label: "Informe",
+    description:
+      "El entregable: portada, idioma, formatos de salida y qué capítulos exige el documento.",
+  },
 ]
 
 /** ¿El schema de una sección es renderable (tiene campos), no opaco? */

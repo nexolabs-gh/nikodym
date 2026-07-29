@@ -25,6 +25,7 @@ import {
   listItemLabel,
   moveListItem,
   multiselectOptions,
+  optionsFromDataset,
   numericBounds,
   orderedFields,
   removeListItem,
@@ -746,6 +747,30 @@ describe("listas de nombres de columna — opciones del DATASET, no del schema",
   it("sin dataset cargado devuelve [] y la lista NO es cerrada (⇒ entrada libre)", () => {
     expect(multiselectOptions(LISTA_CON_ROL, {})).toEqual([])
     expect(hasClosedOptions(LISTA_CON_ROL)).toBe(false)
+  })
+
+  it("«no está en el dataset» sólo se puede decir si las opciones SALEN del dataset", () => {
+    // Regresión medida el 2026-07-29 al añadir la sección `report` al formulario:
+    // `report.sections.required_sections` es una lista de strings que nombra SECCIONES del informe,
+    // sin `enum` ni `column_role`. Sin opciones que ofrecer, sus siete valores de fábrica caían en
+    // la rama «ausente» y la pantalla los pintaba en rojo con «(no está en el dataset)» sobre un
+    // config perfectamente válido.
+    const SECCIONES_DEL_INFORME: JsonSchema = { type: "array", items: { type: "string" } }
+    expect(optionsFromDataset(SECCIONES_DEL_INFORME)).toBe(false)
+    expect(multiselectOptions(SECCIONES_DEL_INFORME, { datasetColumns: COLUMNAS })).toEqual([])
+
+    // Una lista de nombres de columna SÍ autoriza la marca, con dataset cargado o sin él.
+    expect(optionsFromDataset(LISTA_CON_ROL)).toBe(true)
+    expect(optionsFromDataset(LISTA_O_COMODIN)).toBe(true)
+
+    // Un enum manda sobre el rol: lista cerrada ⇒ el dataset no tiene nada que decir.
+    expect(
+      optionsFromDataset({
+        type: "array",
+        items: { enum: ["pd", "lgd"] },
+        column_role: "input",
+      }),
+    ).toBe(false)
   })
 
   it("un enum del schema sigue mandando sobre las columnas, y es lista CERRADA", () => {

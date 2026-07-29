@@ -43,6 +43,14 @@ EXTRA_POR_SECCION = {
     "provisioning_internal": "scoring",
     "provisioning_ifrs9": "scoring",
     "provisioning": "scoring",
+    # El informe HTML es NÚCLEO (Jinja2 es dependencia base), así que la sección corre sin extra.
+    # Sus formatos opcionales ya viajan en `[ui]`: `docx` (Word) y `excel` (tablas). El `.qmd` es
+    # texto y no admite degradación. La excepción declarada es `pdf` (WeasyPrint): `formats` es
+    # editable desde esta sección, así que se puede pedir un PDF que `[ui]` NO trae —y no lo va a
+    # traer nunca, por la transitiva copyleft que el cierre redistribuible no acepta—. Degrada con
+    # gracia (aviso + `pdf_path=None`) y ya venía en los `formats` del preset antes de esta
+    # sección, así que exponerlo en el formulario no promete nada nuevo.
+    "report": None,
 }
 
 

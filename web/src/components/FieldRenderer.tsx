@@ -39,6 +39,7 @@ import {
   moveListItem,
   multiselectOptions,
   numericBounds,
+  optionsFromDataset,
   orderedFields,
   removeListItem,
   resolveRef,
@@ -591,6 +592,13 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
  * dataset no tiene es justo lo que el preflight señala, y esconderlo dejaba al usuario mirando
  * «Sin opciones.» con doce variables dentro del config.
  *
+ * ⚠️ Pero acusar a un valor de **no estar en el dataset** sólo es cierto si las opciones SALEN del
+ * dataset (`column_role: "input"`). Hay listas de strings que no nombran columnas —
+ * `report.sections.required_sections` nombra secciones del informe— y ésas no traen `enum` ni rol,
+ * así que se quedan sin opciones y TODOS sus valores caían en la rama «ausente»: un config de
+ * fábrica, perfectamente válido, se pintaba con siete etiquetas rojas diciendo una falsedad. La
+ * marca se decide por el ORIGEN de las opciones, no por «el valor no está en la lista».
+ *
  * Si el campo admite el comodín `"*"` (`tuple[str, ...] | Literal["*"]`) antepone un switch
  * «todas»: es el valor que traen los presets, y sin él no había forma de volver a ponerlo.
  */
@@ -604,6 +612,10 @@ function MultiselectField(props: FieldRendererProps) {
   const current = Array.isArray(value) ? value : []
   const selected = new Set(current)
   const base = path.join(".")
+  // ¿Las opciones son las columnas del dataset? Es lo único que autoriza a decir «no está en el
+  // dataset» de un valor suelto (ver el ⚠️ del docstring). La regla vive en `form-engine` porque
+  // es lógica, no presentación: aquí no se podría testear (vitest corre sin DOM).
+  const opcionesDelDataset = optionsFromDataset(schema, defs)
   // Un valor elegido que no está entre las opciones (columna que el dataset no trae, o config
   // cargado antes que el archivo): se pinta al final para que sea visible y desmarcable.
   const extra = current.filter((v) => !options.includes(v))
@@ -651,14 +663,16 @@ function MultiselectField(props: FieldRendererProps) {
             <p className="text-xs text-muted-foreground">
               {closed
                 ? "Sin opciones."
-                : "Todavía no hay columnas que ofrecer: carga un dataset, o escribe el nombre abajo."}
+                : opcionesDelDataset
+                  ? "Todavía no hay columnas que ofrecer: carga un dataset, o escribe el nombre abajo."
+                  : "Sin valores: escribe el que necesites abajo."}
             </p>
           ) : (
             <div className="space-y-1.5">
               {visible.map((option) => {
                 const key = String(option)
                 const optionId = `${base}.${key}`
-                const ausente = !options.includes(option)
+                const ausente = opcionesDelDataset && !options.includes(option)
                 return (
                   <label
                     key={key}

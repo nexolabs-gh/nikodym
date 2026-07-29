@@ -253,7 +253,17 @@ class SectionPolicyConfig(NikodymBaseConfig):
             "Secciones del scorecard que el informe espera encontrar; qué hacer cuando falta "
             "alguna lo decide `missing_policy`."
         ),
-        json_schema_extra={"ui_widget": "multiselect", "ui_group": "Secciones", "ui_order": 1},
+        json_schema_extra={
+            "ui_widget": "multiselect",
+            "ui_group": "Secciones",
+            "ui_order": 1,
+            # `not_a_column`: estos nombres son SECCIONES del informe (`binning`, `model`, …), no
+            # columnas del dataset. Declararlo importa para el formulario: sin rol, el multiselect
+            # se quedaba sin opciones y pintaba sus ocho valores de fábrica en rojo con «(no está
+            # en el dataset)» —una falsedad sobre un config válido—. Y no amplía el preflight:
+            # `dataset_check.py` hace `continue` sobre este rol.
+            "column_role": "not_a_column",
+        },
     )
     missing_policy: MissingPolicy = Field(
         default="error",

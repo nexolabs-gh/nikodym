@@ -4463,6 +4463,7 @@
             "ui_widget": "selectbox"
           },
           "required_sections": {
+            "column_role": "not_a_column",
             "default": [
               "eda",
               "binning",

@@ -4,6 +4,7 @@ import {
   Boxes,
   ChartColumn,
   Database,
+  FileSignature,
   FileText,
   Gauge,
   GitCompare,
@@ -73,6 +74,10 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
   provisioning_internal: Users,
   provisioning_ifrs9: Layers,
   provisioning: GitCompare,
+  // `FileSignature` y no `FileText`: ése ya es el icono del paso «Reporte» del flujo, que MUESTRA el
+  // informe. Esta sección lo CONFIGURA —incluida la portada que firma la institución—, y dos
+  // entradas del sidebar con el mismo icono se leen como la misma pantalla.
+  report: FileSignature,
 }
 
 /** Secciones del flujo de nivel-app (SDD-23 §4.3), sin "Configuración" (que ahora se anida). */

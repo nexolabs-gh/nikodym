@@ -724,6 +724,23 @@ export function hasClosedOptions(schema: JsonSchema, defs: Defs = {}): boolean {
 }
 
 /**
+ * ¿Las opciones de este multiselect SALEN del dataset cargado?
+ *
+ * Es la única condición que autoriza a decirle al usuario que un valor suyo **no está en el
+ * dataset**: hay listas de strings que no nombran columnas —`report.sections.required_sections`
+ * nombra secciones del informe— y ésas no traen `enum` ni `column_role`, así que se quedan sin
+ * opciones y todos sus valores parecen «ausentes». Marcarlos pintaba un config de fábrica,
+ * perfectamente válido, con etiquetas rojas diciendo una falsedad.
+ *
+ * Un `enum` manda sobre el rol (misma precedencia que :func:`multiselectOptions`): si el schema
+ * enumera los valores, la lista es cerrada y el dataset no tiene nada que decir.
+ */
+export function optionsFromDataset(schema: JsonSchema, defs: Defs = {}): boolean {
+  if (hasClosedOptions(schema, defs)) return false
+  return columnRole(schema, defs) === "input"
+}
+
+/**
  * Alterna `option` en el valor de un multiselect y devuelve el array resultante en ORDEN
  * ESTABLE (= el de `options`, no el de marcado). Pura; el widget la invoca en cada check/uncheck.
  *
