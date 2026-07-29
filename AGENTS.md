@@ -9,42 +9,54 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-28)
+## Estado del proyecto (2026-07-28, noche)
 
-**`main` = `d842ccd`, CI verde 16/16 (conteo por `gh`), sin release nuevo.** Lo publicado en PyPI
-sigue siendo **`1.8.0`**; el trabajo espera en `CHANGELOG.md` bajo «Sin publicar». Suite 4515 passed
-/ 6 skipped; vitest 331/331.
+**`main` = `cd75aa9`, CI verde 16/16 (conteo por `gh`), `1.9.0` PUBLICADO en PyPI** (tag `v1.9.0`,
+con OK explícito de Cami). Suite 4522 passed / 6 skipped; vitest 331/331.
 
-⚠️ **El release pendiente NO es rutinario: cambia lo que instala un comando.** `pip install
-nikodym[ui]` pasa de 310 a 703 MB y de 0 a 3 presets ejecutables. No toca API pública ni
-`config_hash`. Recomendación escrita en `HANDOFF.md` (P0): **`1.9.0`**, minor.
+🔴 **PRIORIDAD ABSOLUTA hasta el 2026-08-02: el webinar EN VIVO de Cami** sobre regresión logística y
+scorecard, con **demo real no precargada**, dataset **HMEQ**, en código **y** en UI, ante audiencia
+mixta con decisores. El plan de 5 días, el arco narrativo y los cinco riesgos conocidos están en
+`HANDOFF.md`. **B2.4, la recaptura de la demo, vitest→jsdom y la pata de release de B2.5 quedan
+CONGELADOS hasta el 2026-08-03**: no acercan el webinar.
 
-**El preflight ya es interfaz, no sólo capacidad.** El aviso vive en «Cargar datos» y en cada sección
-de «Configuración»; un click **salta al campo**; el botón Ejecutar cambia de aspecto y **nunca
-bloquea** (D-PRE-5). Va encadenado detrás de la validación —dispara sólo con `config_hash` en mano—,
-así que hereda su debounce y no gasta una llamada por tecleo.
+**La auditoría adversarial previa al release lo FRENÓ y encontró dos defectos que 4.522 tests y CI
+16/16 no veían** — segundo release consecutivo en que ocurre. Ambos corregidos antes de publicar:
 
-**Y los tres arreglos de la sesión son la misma CLASE: algo que existe y el usuario no puede
-alcanzar.** La sesión anterior cerró esa clase en el núcleo (la sección opaca); ésta la cerró en el
-producto, en tres capas —capacidad sin interfaz, sección de config sin pestaña (`stability`), y un
-extra `[ui]` que instalaba una interfaz incapaz de correr **ninguno** de sus tres presets—. Las dos
-últimas dejaron gate, y **ambos miden deriva contra `CONFIG_SECTIONS`**, no listas escritas al lado:
-`tests/unit/test_column_roles.py` (toda sección que el preflight puede señalar es navegable) y
-`tests/unit/test_extra_ui_cubre_el_formulario.py` (`[ui]` trae lo que el formulario puede ejecutar).
+- **El preflight declaraba compatible un `data.schema.index_col` inexistente.** `index_col` tenía
+  **tres** estados y sólo dos ramas; el tercero se iba en silencio con `compatible=True` y
+  `mismatches`/`uninspected` **vacíos**, sobre un config que la corrida rechaza en su primer paso.
+  La causa era **de firma**: `check_dataset` recibía sólo las columnas, y el índice por definición no
+  está entre ellas, así que un `index_col` correcto era indistinguible de uno inexistente. De ahí
+  `index_columns=`; ⚠️ **`None` significa «no se sabe», no «no hay»**, y omitirlo conserva el
+  comportamiento anterior a propósito —afirmar sin ese dato reintroduce el falso positivo más caro—.
+- **`POST /api/preflight` no exigía token**: 200 y materializaba el parquet a cualquier proceso
+  local, con `/api/run` dando 403 en las mismas condiciones. Va en `CREDENTIALED_PATHS`, **no** en
+  `MUTATING_PATHS`: exige las mismas credenciales pero **sigue vivo con
+  `allow_live_execution=false`**, porque comprobar no es correr.
 
 ⚠️ **`[ui]` ya no es «el servidor»** (decisión de Cami, «no quiero promesas falsas»): compone
-`scoring` y `survival`. `survival` entra porque su sección está en el formulario y `method` es
-editable; `ml`/`tuning`/`explain`/`markov`/`forward` **no**, porque el formulario no los ofrece; y
-**`[pdf]` nunca**, por copyleft. Verificado instalando el wheel en venv limpio con sólo `[ui]`.
+`scoring`, `survival`, `excel` y `docx`. 310 → **703 MB**, 0 → **3 presets ejecutables**. Hereda con
+ello el techo **`scikit-learn<1.8`** que `scoring` ya imponía. `ml`/`tuning`/`explain`/`markov`/
+`forward` **no** entran porque el formulario no los ofrece; **`[pdf]` nunca**, por copyleft; y
+**`polars` tampoco** —es alcanzable desde el formulario (`data.backend`) pero degrada con el comando
+exacto y no cambia el resultado, así que se corrigió la frase del README en vez de sumar el extra—.
 
 ⚠️ **`ConfigError` no hereda de `ValueError`.** Pydantic no lo envuelve, así que escapaba entero y
 `/api/validate` —contrato «siempre 200»— devolvía **500**, que el front mostraba como «Backend no
 disponible». Seis `config.py` lo levantan al validar: se traduce en el endpoint, no por sección.
 
 **Estado de B2:** cerrados B2.0–B2.3 y la documentación de B2.5; abiertos **B2.4** (no hay clean-room
-automatizado ni Playwright), la **pata de release de B2.5** (el job publica con rebuild) y el
-**tercero sin checkout**, que no lo sustituye ningún agente: el recorrido automatizable elimina la
-dependencia del árbol, **no** el sesgo de conocimiento interno.
+automatizado ni Playwright), la **pata de release de B2.5** (el job publica con rebuild, sin pasar
+por ningún gate) y el **tercero sin checkout**, que no lo sustituye ningún agente: el recorrido
+automatizable elimina la dependencia del árbol, **no** el sesgo de conocimiento interno.
+**Todo ello congelado hasta el 2026-08-03 por el webinar.**
+
+⚠️ **Tres gates son más débiles de lo que su nombre promete** (auditoría del 2026-07-28, sin
+arreglar): `test_column_roles.py` mide una lista hardcodeada y no el footprint real de `column_role`
+—verificado inyectando un rol en `markov`: queda verde—; el gate del extra `[ui]` sólo itera 5 de 12
+extras; y `schema.test.ts` deriva sus casos de lo que vigila, así que **`model` se puede borrar del
+formulario con todo el CI verde**. Detalle en `HANDOFF.md` P5.
 
 ---
 
@@ -121,11 +133,15 @@ rastro → HTTP 500), cerrado con
 [`_ENMIENDA-RUN-ERROR-RESOLUCION.md`](design/_ENMIENDA-RUN-ERROR-RESOLUCION.md) (D-ERR-8…D-ERR-11).
 Detalle operativo y las cuatro reglas para tocar el formulario: `CLAUDE.md` §«Lo último».
 
-## Estado publicado (2026-07-27)
-PyPI publica **`1.8.0`** (tag `v1.8.0` sobre `2c9ed79`, 2026-07-27, con OK explícito de Cami); el
+## Estado publicado (2026-07-28)
+PyPI publica **`1.9.0`** (tag `v1.9.0` sobre `cd75aa9`, 2026-07-28, con OK explícito de Cami); el
 tag `v1.5.0` apunta al cierre del bloque B1 (el SHA vigente de `main` queda en `HANDOFF.md`). El
 paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es estable bajo SemVer
 1.x, pero las provisiones siguen experimentales, así que «Production/Stable» sería sobrepromesa.
+
+⚠️ **Al verificar un release recién subido, `pip install` SIN `--no-cache-dir` puede traerte el
+release ANTERIOR** con el nuevo ya en el índice, y parecer verde. Pasó con `1.9.0`: la primera
+instalación limpia trajo `1.8.0` mientras `pip index versions` decía `LATEST: 1.9.0`.
 
 **Regla de release que `1.8.0` dejó explícita: un cambio de `config_hash` va en MINOR, nunca en
 patch.** Se propuso publicarlo como `1.7.1` y estaba mal fundamentado: el precedente del repo es

@@ -5,7 +5,69 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-28, `d842ccd`, CI verde 16/16, **sin release nuevo**)
+> ## Lo último (2026-07-28 noche, `cd75aa9`, CI verde 16/16, **`1.9.0` LIVE en PyPI**)
+>
+> 🔴 **LO PRIMERO: hay un webinar EN VIVO el ~2026-08-02 y manda sobre todo.** Cami expone regresión
+> logística y scorecard con **demo real, no precargada**, dataset **HMEQ**, en código **y** en UI,
+> ante **audiencia mixta con decisores**. Plan de 5 días, arco narrativo y los cinco riesgos
+> conocidos: `HANDOFF.md`. **Congelados hasta el 2026-08-03**: B2.4, la recaptura de la demo,
+> vitest→jsdom y la pata de release de B2.5 — ninguno acerca el webinar.
+>
+> **El plan tiene una idea central: ENSAYAR PRIMERO, ARREGLAR DESPUÉS.** El D1 es correr la demo
+> entera sin preparar nada, para que la lista de problemas salga con cuatro días de margen. Preparar
+> tres días y ensayar el cuarto es cómo se llega sin margen.
+>
+> **Y el arco sale del propio dato:** ninguna columna de HMEQ calza con el preset F1, así que el
+> preflight lista **de una vez** los ~16 desajustes sin correr nada. Es el dolor real de un analista
+> resuelto en vivo con la propia librería. ⚠️ **HMEQ no trae columna de tiempo** y el preset F1
+> particiona por cohorte: eso el D1 tiene que resolverlo, no darlo por hecho.
+>
+> ✅ **`1.9.0` PUBLICADO** (tag `v1.9.0` sobre `cd75aa9`, OK explícito de Cami), verificado **desde
+> PyPI** en venv limpio con **sólo `[ui]`**: 705 MB, F1/F3/F4 a `done` con informe (3/3), y los dos
+> arreglos comprobados contra el artefacto publicado.
+>
+> ⚠️ **LO QUE MÁS VALE NO ES EL RELEASE: es que la auditoría adversarial lo FRENÓ** y encontró dos
+> defectos que 4.522 tests y CI 16/16 no veían. **Segundo release consecutivo en que ocurre.** Lo que
+> se publicó no es lo que se iba a publicar por la mañana. Y **las tres sospechas más caras salieron
+> REFUTADAS con medición**, que también vale: licencias copyleft por `lifelines` (`[ui] ⊆ [all]`, y
+> el lock **no añade un solo paquete**), drift del bundle (rebuild → `git status` vacío) y
+> `config_hash` movido por el extra (hash byte-idéntico con las deps pesadas bloqueadas).
+>
+> 1. **🔴 El preflight decía `compatible=True` sobre un `data.schema.index_col` inexistente**, con
+>    `mismatches` y `uninspected` **vacíos** —la señal más fuerte posible— y la corrida muriendo en su
+>    primer paso. `index_col` tenía **tres** estados y sólo dos ramas. **La causa era de FIRMA, no un
+>    `if` olvidado:** `check_dataset` recibía sólo las columnas, y el índice por definición no está
+>    entre ellas, así que un `index_col` correcto era indistinguible de uno inexistente. De ahí
+>    `index_columns=`. ⚠️ **`None` significa «no se sabe», no «no hay»**: omitirlo conserva el
+>    comportamiento anterior **a propósito**, porque afirmar sin ese dato reintroduce el falso
+>    positivo más caro (el dataset del catálogo contra su propio preset). Test en los dos sentidos.
+> 2. **🔴 `POST /api/preflight` no exigía token**: 200 y materializaba el parquet a cualquier proceso
+>    local, mientras `/api/run` daba 403 en las mismas condiciones. Va en **`CREDENTIALED_PATHS`, no
+>    en `MUTATING_PATHS`**: mismas credenciales, pero **sigue vivo con `allow_live_execution=false`**
+>    porque comprobar no es correr. ⚠️ Se reportó como **filtración de datos del usuario y NO lo es**:
+>    el id de un upload es el **sha256 de su contenido** y `/api/datasets` no los lista.
+>
+> **Cuatro cosas de esta sesión que conviene no re-aprender:**
+>
+> 1. **🔴 PyPI recién publicado puede darte el release ANTERIOR y parecer verde.** La primera
+>    instalación limpia trajo `1.8.0` con `1.9.0` ya en el índice. **Siempre `--no-cache-dir`.**
+> 2. **🔴 Un hallazgo de subagente se verifica en la RUTA REAL antes de reportarlo, y se calibra su
+>    gravedad.** El P1 más serio llegó ubicado en `data.load.index_col`, donde **no se reproduce**
+>    (422 `extra_forbidden`): vive en `data.schema.index_col`. El defecto era real; la referencia, no.
+> 3. **🔴 El gate de ruff son DOS comandos.** Otra vez: `check` pasó y `format --check` marcó 2
+>    archivos.
+> 4. **⚠️ Un cambio sólo de TIPO en TypeScript no mueve el bundle** —tocar un union en `api.ts` no
+>    cambió un byte del `.js`—, así que «toqué `web/`» no implica drift.
+>
+> ⚠️ **Tres gates son más débiles de lo que su nombre promete, y quedaron SIN arreglar:**
+> `test_column_roles.py` mide una lista hardcodeada y no el footprint real de `column_role`
+> (verificado inyectando un rol en `markov`: queda verde mientras el motor emite un diagnóstico
+> inalcanzable); el gate del extra `[ui]` sólo itera **5 de 12** extras; y `schema.test.ts` deriva
+> sus casos de lo que vigila, así que **`model` se puede borrar del formulario con todo el CI verde**.
+>
+> ---
+>
+> ### Lo de la sesión anterior (`d842ccd`, 2026-07-28): el preflight se vuelve interfaz
 >
 > ✅ **El preflight ya es interfaz, no sólo capacidad.** El aviso vive en «Cargar datos» y en cada
 > sección de «Configuración»; **un click salta al campo** que hay que corregir; el botón Ejecutar

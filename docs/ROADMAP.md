@@ -87,6 +87,26 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 **Estado: B2 total ABIERTO; B2.0, B2.1 y B2.2 CERRADOS (2026-07-24); B2.3 CERRADO (medido el
 2026-07-28); B2.5 PARCIAL (documentación hecha el 2026-07-28; falta la pata de release).**
 
+> ⏸️ **CONGELADO hasta el 2026-08-03 por decisión de Cami (2026-07-28).** Hay un webinar en vivo el
+> ~2026-08-02 sobre regresión logística y scorecard, con demo real no precargada, y ningún nodo de
+> B2 lo acerca. Se retoma el lunes 2026-08-03. Detalle del plan en `HANDOFF.md`.
+>
+> **B2.4 quedó diseñado en dos piezas** (2026-07-28), porque su DoD mezcla dos problemas de coste muy
+> distinto y **sólo uno necesita navegador**:
+> - **(A) la mitad HTTP** —200 de cada `src`/`href` local, cero red externa, los dos controles
+>   negativos, F1 con CSV externo y `loan_id`— **no** necesita navegador: se extiende
+>   `scripts/smoke_instalacion_pip.py` y entra al CI en el job `Build`, que ya instala el wheel y
+>   levanta el servidor. ~medio día.
+> - **(B) el recorrido de UI** sí necesita navegador real, y **jsdom NO sirve**: el defecto que se
+>   cazó el 2026-07-28 era de *layout* (el foco caía al `<body>`; el `id` vivía en un checkbox
+>   `aria-hidden` en `position: fixed`) y jsdom no hace layout. Playwright **versionado y manual,
+>   fuera del CI** — meter navegadores a los 16 jobs cuesta minutos, binarios y flakiness para
+>   proteger una superficie que cambia poco. ~medio día a 1 día.
+>
+> ⚠️ **El problema de encaje con la matriz NO se plantea**: el smoke vive en el job `Build` (1 de 16),
+> no en la matriz. `tests/unit/test_ui_launcher.py` se skipea porque está en `tests/unit/`, que sí
+> corre en los 9 jobs de matriz; un clean-room no tiene por qué vivir ahí.
+
 > **B2.3 estaba declarado abierto y el código decía otra cosa** (medido el 2026-07-28 contra
 > `1.8.0` **desde PyPI**, no desde el árbol): el extra `[ui]` existe, `/api/upload` funciona y los
 > tres presets corren hasta `done` con informe. Lo que sí sigue abierto es **B2.4** —no hay
