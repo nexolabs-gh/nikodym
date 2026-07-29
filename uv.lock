@@ -2799,6 +2799,7 @@ tuning = [
 ui = [
     { name = "fastapi" },
     { name = "lifelines" },
+    { name = "matplotlib" },
     { name = "openpyxl" },
     { name = "optbinning" },
     { name = "python-docx" },
@@ -2884,6 +2885,7 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'all'", specifier = ">=3.7" },
     { name = "matplotlib", marker = "extra == 'explain'", specifier = ">=3.7" },
     { name = "matplotlib", marker = "extra == 'report'", specifier = ">=3.7" },
+    { name = "matplotlib", marker = "extra == 'ui'", specifier = ">=3.7" },
     { name = "mlflow", marker = "extra == 'all'", specifier = ">=2.10" },
     { name = "mlflow", marker = "extra == 'tracking'", specifier = ">=2.10" },
     { name = "numba", marker = "extra == 'all'", specifier = ">=0.60" },
