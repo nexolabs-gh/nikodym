@@ -11,16 +11,62 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado del proyecto (2026-07-29)
 
-**`main` = `e688280`, gates locales verdes, ⚠️ CI SIN CONFIRMAR: falta pushear.** PyPI sigue en
-`1.9.0` (tag `v1.9.0` sobre `cd75aa9`). Suite **4524 passed / 6 skipped**; vitest **356/356**;
-`mypy` 242; `ruff check` **y** `ruff format --check`; bundle sin drift.
+**`main` = `0ea4cba`, CI 16/16 confirmado con `gh`, todo pusheado.** PyPI sigue en `1.9.0` (tag
+`v1.9.0` sobre `cd75aa9`). Suite **4545 passed / 6 skipped**; vitest **357/357**; `mypy` 242;
+`ruff check` **y** `ruff format --check`; bundle sin drift.
 
-🔴 **PRIORIDAD ABSOLUTA hasta el 2026-08-02: el webinar EN VIVO de Cami** sobre regresión logística y
-scorecard, con **demo real no precargada**, dataset **HMEQ**, en código **y** en UI, ante audiencia
-mixta con decisores. **B2.4, la recaptura de la demo, vitest→jsdom y la pata de release de B2.5
-quedan CONGELADOS hasta el 2026-08-03**: no acercan el webinar.
+🔴 **PRIORIDAD ABSOLUTA: el webinar EN VIVO de Cami es MAÑANA, el 2026-07-30.** La fecha estaba mal
+en toda la documentación anterior (decía 2026-08-02) y Cami la corrigió el 2026-07-29: queda lo que
+reste de ese día y **la mañana del 2026-07-30**. Es sobre regresión logística y scorecard, con **demo
+real no precargada**, dataset **HMEQ**, en código **y** en UI, ante audiencia mixta con decisores.
+**Congelados hasta después del webinar**: B2.4, la recaptura de la demo, vitest→jsdom, la pata de
+release de B2.5, el menor 8 del D1 y las 6 invariantes del censo que no entraron.
 
-**El ensayo D1 se corrió entero (2026-07-29) y la demo se sostiene:** HMEQ da **AUC 0,918 dev /
+🔴 **Y lo que falta NO es código: es el ensayo de punta a punta.** Cami lo pidió así —«sacar una
+scorecard del dataset y mostrar todos los pasos tanto como en código como en UI», «no nos apuremos,
+hagamos las cosas bien», y el guion/PPT **al final**—. **Nadie ha llevado el preset F1 hasta HMEQ
+corriendo entero por el formulario hasta el informe**: el D1 declaró ese camino bloqueado (N2), la
+sesión siguiente arregló la causa pero midió sólo un tramo («18 → 11 desajustes», una corrida `done`
+tras corregir **una** columna), y encima hay dos commits nuevos, uno de los cuales añade un aviso en
+esa misma pantalla. Primer paso concreto: `HANDOFF.md`.
+
+**El P1 quedó cerrado, y no era una invariante sino siete.** `check_dataset` **y** `check_pipeline`
+declaraban verde un config que muere en el paso 8 de 10 (`stability.temporal_axis` en su default
+`"period"` sobre un dataset sin columna de período). El censo halló **13 candidatas** de la misma
+clase y **7 se confirmaron en vivo**, todas con las dos superficies en verde. Entran cinco.
+[`_ENMIENDA-INVARIANTES-PREVIAS.md`](design/_ENMIENDA-INVARIANTES-PREVIAS.md), D-INV-1…D-INV-9.
+
+- **La invariante la declara el dominio que la impone** (`requisitos_incumplidos(columnas)`), no un
+  registro central: mismo criterio que `column_role`.
+- **Se consume por `check_dataset`; `check_pipeline` NO se tocó** y sigue siendo lo único que gobierna
+  el botón Ejecutar. «`check_pipeline` es el sitio natural» describe el sitio correcto para **otra**
+  pregunta: esa función resuelve el DAG de pasos, y ninguna de las siete tiene que ver con eso.
+- ⚠️ **A3 y C2 quedaron fuera con su razón MEDIDA** (D-INV-8): comprobar `stratify_by` daría **falsos
+  positivos** —`Partitioner.suggest` la apunta a `target_col`, columna derivada que por definición no
+  está en el CSV—, y `required_sections` es una invariante **entre** secciones, que un protocolo por
+  sección no expresa sin el acoplamiento que D-INV-1 evita.
+
+🔴 **`study.results` es un canal muerto CON consumidores.** `ModelCardBuilder` y `TrackingSink` leen
+de él y siempre está vacío, así que un model card publicado sale sin métricas y MLflow recibe vacío;
+no se ve en la demo porque los tres presets traen `governance: null` y `tracking: null` (medido). Se
+corrigió el docstring de `nikodym.run`, que mandaba usarlo —ahora apunta a
+`study.artifacts.get(dominio, clave)`—. Llenarlo es contrato, o sea SDD.
+
+✅ **Playwright de verdad SÍ funciona sobre esta UI** (MCP `mcp__playwright__*`): maneja los `Select`
+de Base UI sin problema. La nota anterior sigue valiendo —`dispatchEvent` sintético no sirve— pero ya
+no hay que esperar a B2.4 para verificar un recorrido en vivo.
+
+⚠️ **Y mirar la pantalla destapó dos defectos de copy que ningún test habría visto**, ambos escritos
+en esa misma sesión: el aviso por sección decía «nombra una columna que el dataset no tiene» —falso
+para dos de los cuatro tipos— y un mensaje nuevo mandaba a elegir un «ninguno» que en el selector se
+llama `none`. El error de esquema, además, era un volcado de `pandera` en copy público; **doce tests
+aseveraban justo esa jerga**, o sea que la defendían.
+
+---
+
+### Lo de la sesión anterior (`987f678`, 2026-07-29)
+
+**El ensayo D1 se corrió entero y la demo se sostiene:** HMEQ da **AUC 0,918 dev /
 0,887 HO / 0,913 OOT**, PSI ≤ 0,011, los 9 coeficientes con signo correcto y el informe **sin un solo
 aviso declarado**. Los 9 hallazgos con su `archivo:línea` y los tiempos cronometrados están en
 `privado/WEBINAR-D1-ENSAYO-2026-07-28.md`.
@@ -77,7 +123,7 @@ disponible». Seis `config.py` lo levantan al validar: se traduce en el endpoint
 automatizado ni Playwright), la **pata de release de B2.5** (el job publica con rebuild, sin pasar
 por ningún gate) y el **tercero sin checkout**, que no lo sustituye ningún agente: el recorrido
 automatizable elimina la dependencia del árbol, **no** el sesgo de conocimiento interno.
-**Todo ello congelado hasta el 2026-08-03 por el webinar.**
+**Todo ello congelado hasta después del webinar (2026-07-30) por el webinar.**
 
 ⚠️ **De los tres gates más débiles que su nombre (auditoría del 2026-07-28), `test_column_roles.py`
 quedó ARREGLADO el 2026-07-29** (`e688280`, verificado inyectando otra vez el rol en `markov`).

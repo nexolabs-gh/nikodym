@@ -5,11 +5,76 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-29, `e688280`, gates locales verdes, **CI sin confirmar: falta pushear**)
+> ## Lo último (2026-07-29, `0ea4cba`, **CI 16/16 confirmado con `gh`**, todo pusheado)
 >
-> 🔴 **LO PRIMERO: el webinar EN VIVO es el ~2026-08-02 y manda sobre todo.** Quedan **3 días**.
-> **Congelados hasta el 2026-08-03**: B2.4, la recaptura de la demo, vitest→jsdom y la pata de
-> release de B2.5. El plan, los tiempos cronometrados y el primer paso concreto: `HANDOFF.md`.
+> 🔴 **LO PRIMERO: el webinar EN VIVO es MAÑANA, el 2026-07-30.** Cami corrigió la fecha al cerrar
+> esta sesión —**no** es el 2026-08-02, como decía toda la documentación anterior—. Queda lo que
+> reste del 2026-07-29 y **la mañana del 2026-07-30**.
+>
+> 🔴 **Y lo que falta NO es código: es el ensayo de punta a punta.** Cami lo dijo así: «me interesa
+> sacar una scorecard del dataset y mostrar todos los pasos tanto como en código como en UI», «no nos
+> apuremos, hagamos las cosas bien», y **el guion/PPT va al final**. Nadie ha llevado el preset F1
+> hasta HMEQ corriendo **entero por el formulario** hasta el informe: el D1 declaró ese camino
+> bloqueado (N2), la sesión siguiente arregló la causa pero midió sólo un tramo («18 → 11 desajustes»,
+> una corrida `done` tras corregir **una** columna), y encima hay dos commits nuevos —uno de ellos
+> añade un aviso en esa misma pantalla—. El primer paso concreto está en `HANDOFF.md`.
+>
+> **Congelados hasta después del webinar**: B2.4, la recaptura de la demo, vitest→jsdom, la pata de
+> release de B2.5, el menor 8 del D1 y las 6 invariantes del censo que no entraron.
+>
+> ✅ **Playwright de verdad SÍ funciona sobre esta UI** (MCP `mcp__playwright__*`, verificado en esta
+> sesión: abrió el `Select` del eje temporal y eligió `none`). La nota anterior sigue siendo cierta
+> —`dispatchEvent` sintético no sirve para Base UI— pero **ya no hay que esperar a B2.4 para verificar
+> un recorrido en vivo**.
+>
+> ✅ **El P1 cerrado, y el aviso del HANDOFF anterior era correcto: NO era sólo `stability`.** El
+> censo halló **13 candidatas** de la misma clase y **7 se confirmaron en vivo**, todas con
+> `check_dataset` **y** `check_pipeline` en verde y la corrida muriendo igual: `oot_from` no
+> parseable, `validation.families` vacío, `comparisons`/`partitions` duplicadas,
+> `required_sections` sobre un dominio apagado. Entran cinco.
+> [`_ENMIENDA-INVARIANTES-PREVIAS.md`](docs/design/_ENMIENDA-INVARIANTES-PREVIAS.md), D-INV-1…D-INV-9.
+>
+> **Tres decisiones de diseño que conviene no re-litigar:**
+>
+> 1. **La invariante la declara el dominio que la impone** (`requisitos_incumplidos(columnas)`), no un
+>    registro central: mismo criterio que `column_role`, y por la misma razón escrita en
+>    `dataset_check.py` —es propiedad de la sección, no un criterio transversal—.
+> 2. **Se consume por `check_dataset`, y `check_pipeline` NO se tocó.** La hipótesis «`check_pipeline`
+>    es el sitio natural» describe el sitio correcto **para otra pregunta**: esa función resuelve el
+>    DAG de pasos. Efecto lateral decisivo a un día del webinar: **cero cambios en el gate del botón
+>    Ejecutar** y cero cableado nuevo en el front.
+> 3. **Un requisito incumplido avisa, no bloquea** (D-INV-3, sigue D-PRE-5).
+>
+> ⚠️ **A3 y C2 quedaron fuera CON SU RAZÓN MEDIDA, no por falta de tiempo** (D-INV-8): comprobar
+> `stratify_by` daría **falsos positivos** —`Partitioner.suggest` la apunta a `target_col`, columna
+> derivada que por definición no está en el CSV—, y `required_sections` es una invariante **entre**
+> secciones, que un protocolo por sección no expresa sin el acoplamiento que D-INV-1 evita.
+>
+> 🔴 **`study.results` resultó un canal MUERTO que sí tiene consumidores.** `ModelCardBuilder`
+> (`governance/model_card.py:189`) y `TrackingSink` (`tracking/sink.py:47`) leen de él, así que un
+> model card publicado sale **sin métricas** y MLflow recibe vacío; no se ve en la demo porque los
+> tres presets traen `governance: null` y `tracking: null` (medido). Se corrigió **el docstring** de
+> `nikodym.run`, que mandaba usarlo —ahora apunta a `study.artifacts.get(dominio, clave)`, con
+> ejemplo—, y el defecto quedó escrito en `core/study.py`. Llenarlo es contrato, o sea SDD.
+>
+> **Cuatro cosas más de esta sesión que conviene no re-aprender:**
+>
+> 1. **🔴 Mirar la pantalla destapó dos defectos de copy que ningún test habría visto, y los dos eran
+>    escritos en esa misma sesión:** el aviso por sección decía «nombra una columna que el dataset no
+>    tiene» —falso para dos de los cuatro tipos de desajuste— y el mensaje nuevo mandaba a elegir un
+>    «ninguno» que **en el selector se llama `none`**, porque las opciones se pintan crudas.
+> 2. **🔴 Un hallazgo de censo se verifica MUTANDO el config y corriendo**, no leyendo el código: de 8
+>    candidatas probadas, 7 confirmadas y **1 sin veredicto** (la mutación murió en `model_validate`).
+> 3. **⚠️ La constante que comparten el aviso y el motor estaba TRIPLICADA** (`evaluator.py`,
+>    `step.py` y la que pedía el aviso). Vive ahora en
+>    `stability/config.py::TEMPORAL_CANDIDATE_NAMES`, y el test exige que sean el **mismo objeto**.
+> 4. **⚠️ Doce tests aseveraban justo lo que había que quitar:** `test_data_schema.py` verificaba los
+>    literales de `pandera` en un mensaje que es **copy público**, o sea que los tests defendían la
+>    jerga. El error del esquema ya se lee como una frase en español.
+>
+> ---
+>
+> ### Lo de la sesión anterior (`987f678`, 2026-07-29): el D1 corrido y el formulario de raíz
 >
 > ✅ **El D1 se corrió entero (código + UI) y la demo se sostiene:** HMEQ da **AUC 0,918 dev /
 > 0,887 HO / 0,913 OOT**, PSI ≤ 0,011, los 9 coeficientes con signo correcto y el informe **sin un
@@ -54,7 +119,8 @@
 > 5. **⚠️ Automatizar la UI con `dispatchEvent` sintético no sirve para Base UI y corrompe el
 >    estado** (los `Select` no cambian, y un popup queda abierto bloqueando a Playwright). Dos veces
 >    confundí un artefacto de mi robot con un defecto de la app. Un recorrido real exige Playwright
->    de verdad — que es B2.4, congelado.
+>    de verdad — ⚠️ **y eso ya está disponible**: el MCP `mcp__playwright__*` maneja los `Select` sin
+>    problema (verificado el 2026-07-29 por la tarde), así que no hay que esperar a B2.4.
 >
 > ⚠️ **Un matiz de `column_role` que evita tocar comportamiento sin querer:** `dataset_check.py`
 > hace `continue` sobre `derived`/`not_a_column`, así que **clasificar con esos dos roles NO amplía
@@ -73,7 +139,8 @@
 > Cambiar a partición aleatoria son **2 clicks** en la UI y mantiene las tres particiones (así que
 > no hay que tocar `performance.partitions` ni `stability.comparisons`), **pero**
 > `stability.temporal_axis` se queda en su default `"period"` y **aborta la corrida en el paso 8 de
-> 10**, con las dos comprobaciones previas en verde. Es el P1 de la próxima sesión.
+> 10**, con las dos comprobaciones previas en verde. ✅ **Cerrado el 2026-07-29 por la tarde** — y al
+> medirlo resultó que no era una invariante sino **siete**: ver el bloque «Lo último» arriba.
 >
 > ---
 >
