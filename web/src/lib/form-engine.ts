@@ -418,6 +418,11 @@ export function resolveWidget(
     if (items && (Array.isArray(items.enum) || items.const !== undefined)) {
       return "multiselect"
     }
+    // Una lista de NOMBRES DE COLUMNA no puede traer `enum` —sus valores dependen del archivo que
+    // cargue el usuario, no del schema—, pero es tan elegible como un enum: sus opciones salen del
+    // dataset. Sin esta rama, `data.schema.unique_keys` (que declara el rol pero no `ui_widget`)
+    // caía al editor JSON aunque el front tuviera las columnas a mano.
+    if (columnRole(field, defs) !== undefined) return "multiselect"
     return "json"
   }
 
@@ -502,15 +507,124 @@ export function defaultForSchema(schema: JsonSchema, defs: Defs = {}): unknown {
 // Multiselect (B23.5a §5) — `tuple[Literal, ...]` / array de enum
 // ---------------------------------------------------------------------------
 
-/** Opciones de un multiselect (`array` de `enum`/`const`): el `enum` de sus `items`. */
-export function multiselectOptions(schema: JsonSchema): unknown[] {
-  return schema.items ? enumOptions(schema.items) : []
+/**
+ * Vocabulario `column_role` que el motor declara en el propio `Field` (D-PRE-3, el mismo que
+ * consume el preflight): dice qué ES el valor de un campo que nombra columnas.
+ *
+ *  - `input`        — una columna del DATASET que el usuario carga. Su lista de opciones existe
+ *                     antes de correr nada: la trae `POST /api/upload` / `GET /api/datasets`.
+ *  - `derived`      — una variable que PRODUCE un paso anterior (p.ej. las WoE de binning). No
+ *                     hay lista cerrada antes de la corrida, así que se edita libre.
+ *  - `index`        — el índice, que por definición no está entre las columnas.
+ *  - `not_a_column` — el nombre engaña pero no refiere a ninguna columna.
+ */
+export type ColumnRole = "input" | "derived" | "index" | "not_a_column"
+
+/** Contexto de DATOS del formulario (no del schema): lo que el motor puro no puede deducir solo. */
+export interface FieldDataContext {
+  /** Columnas del dataset activo. `undefined` = todavía no hay dataset cargado. */
+  datasetColumns?: string[]
+}
+
+/** Ramas no-`null` de un campo (`anyOf`/`oneOf`), resueltas; el propio campo si no es unión. */
+function branchesOf(schema: JsonSchema, defs: Defs = {}): JsonSchema[] {
+  const variants = schema.anyOf ?? schema.oneOf
+  if (!variants) return [resolveRef(schema, defs)]
+  return variants.filter((v) => !isNullSchema(v)).map((v) => resolveRef(v, defs))
+}
+
+/**
+ * `column_role` declarado por el campo (o por alguna de sus ramas). `undefined` si no lo declara.
+ *
+ * Se mira TAMBIÉN en las ramas porque los campos más importantes son uniones: `feature_columns`
+ * es `tuple[str, ...] | Literal["*"]`, y ahí el rol viaja en el campo, no en la rama de array.
+ */
+export function columnRole(
+  schema: JsonSchema,
+  defs: Defs = {},
+): ColumnRole | undefined {
+  const candidates = [schema, ...branchesOf(schema, defs)]
+  for (const candidate of candidates) {
+    const role = candidate.column_role
+    if (
+      role === "input" ||
+      role === "derived" ||
+      role === "index" ||
+      role === "not_a_column"
+    ) {
+      return role
+    }
+  }
+  return undefined
+}
+
+/** La rama `array` de un campo (o el campo mismo si ya lo es); `undefined` si no tiene ninguna. */
+export function arrayBranch(
+  schema: JsonSchema,
+  defs: Defs = {},
+): JsonSchema | undefined {
+  return branchesOf(schema, defs).find((b) => schemaType(b) === "array")
+}
+
+/** Comodín «todas las variables» del config (`Literal["*"]`). */
+export const WILDCARD = "*"
+
+/**
+ * ¿El campo acepta el comodín `"*"` («todas las variables») además de una lista explícita?
+ *
+ * Es la forma de `binning.feature_columns` y `selection.feature_columns`
+ * (`tuple[str, ...] | Literal["*"]`): sin esto el widget sólo sabría ofrecer la lista y no habría
+ * manera de volver al default del preset, que es justamente `"*"`.
+ */
+export function acceptsWildcard(schema: JsonSchema, defs: Defs = {}): boolean {
+  return branchesOf(schema, defs).some(
+    (b) => b.const === WILDCARD || (Array.isArray(b.enum) && b.enum.includes(WILDCARD)),
+  )
+}
+
+/**
+ * Opciones de un multiselect. Dos orígenes, en este orden:
+ *
+ *  1. El **schema**, cuando la lista es cerrada (`enum`/`const` de los `items`).
+ *  2. El **dataset**, cuando el campo declara `column_role: "input"` — sus valores son nombres de
+ *     columna, que ningún `enum` puede conocer porque dependen del archivo que cargue el usuario.
+ *
+ * Cualquier otro caso devuelve `[]`, que NO significa «no hay nada que elegir» sino «no hay lista
+ * cerrada»: el widget cae entonces a entrada libre. Confundir ambos es lo que hacía que
+ * `feature_columns` pintara «Sin opciones.» con doce variables dentro.
+ */
+export function multiselectOptions(
+  schema: JsonSchema,
+  context: FieldDataContext = {},
+  defs: Defs = {},
+): unknown[] {
+  const array = arrayBranch(schema, defs) ?? schema
+  const fromSchema = array.items ? enumOptions(resolveRef(array.items, defs)) : []
+  if (fromSchema.length > 0) return fromSchema
+  if (columnRole(schema, defs) === "input") return context.datasetColumns ?? []
+  return []
+}
+
+/**
+ * ¿La lista de opciones es CERRADA (el schema las enumera) o abierta (nombres de columna, que el
+ * usuario puede escribir aunque no estén en el dataset cargado)? Decide si el widget ofrece
+ * además un campo para añadir un valor a mano.
+ */
+export function hasClosedOptions(schema: JsonSchema, defs: Defs = {}): boolean {
+  const array = arrayBranch(schema, defs) ?? schema
+  return array.items ? enumOptions(resolveRef(array.items, defs)).length > 0 : false
 }
 
 /**
  * Alterna `option` en el valor de un multiselect y devuelve el array resultante en ORDEN
- * ESTABLE (= el de `options`, no el de marcado). Pura; el widget la invoca en cada
- * check/uncheck. Los valores fuera de `options` se descartan (canónico).
+ * ESTABLE (= el de `options`, no el de marcado). Pura; el widget la invoca en cada check/uncheck.
+ *
+ * ⚠️ Los valores seleccionados que NO están en `options` se CONSERVAN, al final y en su orden.
+ * Descartarlos —lo que se hacía antes— borra en silencio el trabajo del usuario en cuanto las
+ * opciones vienen del dataset y no del schema: basta cambiar de archivo, o cargar un config cuyas
+ * columnas aún no se han subido, para que el valor se vacíe solo. Que un valor no esté entre las
+ * opciones es exactamente lo que el preflight tiene que poder señalar; el formulario no debe
+ * taparlo borrándolo.
  */
 export function toggleMultiselect(
   current: unknown,
@@ -518,8 +632,11 @@ export function toggleMultiselect(
   checked: boolean,
   options: unknown[],
 ): unknown[] {
-  const selected = new Set(Array.isArray(current) ? current : [])
+  const previous = Array.isArray(current) ? current : []
+  const selected = new Set(previous)
   if (checked) selected.add(option)
   else selected.delete(option)
-  return options.filter((o) => selected.has(o))
+  const known = options.filter((o) => selected.has(o))
+  const unknown = previous.filter((v) => selected.has(v) && !options.includes(v))
+  return [...known, ...unknown]
 }

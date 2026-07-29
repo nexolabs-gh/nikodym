@@ -22,6 +22,8 @@ import { errorAtPath } from "@/lib/validation"
 import {
   type Defs,
   type JsonSchema,
+  WILDCARD,
+  acceptsWildcard,
   defaultForSchema,
   discriminatedBranches,
   discriminatorProperty,
@@ -29,6 +31,7 @@ import {
   fieldHelp,
   fieldLabel,
   fieldPlaceholder,
+  hasClosedOptions,
   multiselectOptions,
   numericBounds,
   orderedFields,
@@ -56,6 +59,12 @@ export interface FieldRendererProps {
    * mensaje de su `path` si matchea. El front SOLO lo pinta; la verdad es Pydantic.
    */
   errors?: Map<string, string>
+  /**
+   * Columnas del dataset activo, para los campos que declaran `column_role: "input"`. Es contexto
+   * de DATOS, no de schema: `form-engine` no puede deducirlo, y sin él una lista de nombres de
+   * columna no tiene opciones que ofrecer. `undefined` = aún no hay dataset cargado.
+   */
+  datasetColumns?: string[]
 }
 
 /** Error de validación del backend para un campo (SDD §3.3): el front SOLO lo pinta. */
@@ -297,8 +306,18 @@ function TextareaField(props: FieldRendererProps) {
 // ---------------------------------------------------------------------------
 
 function GroupField(props: FieldRendererProps) {
-  const { name, schema, path, value, defs, onChange, depth = 0, hideLabel, errors } =
-    props
+  const {
+    name,
+    schema,
+    path,
+    value,
+    defs,
+    onChange,
+    depth = 0,
+    hideLabel,
+    errors,
+    datasetColumns,
+  } = props
   const resolved = resolveRef(unwrapNullable(schema).schema, defs)
   const fields = orderedFields(resolved)
   const label = fieldLabel(name, schema)
@@ -328,6 +347,7 @@ function GroupField(props: FieldRendererProps) {
         required={required}
         depth={depth}
         errors={errors}
+        datasetColumns={datasetColumns}
       />
     </fieldset>
   )
@@ -353,9 +373,19 @@ function GroupFieldList(props: {
   required: Set<string>
   depth: number
   errors?: Map<string, string>
+  datasetColumns?: string[]
 }) {
-  const { fields, path, groupValue, defs, onChange, required, depth, errors } =
-    props
+  const {
+    fields,
+    path,
+    groupValue,
+    defs,
+    onChange,
+    required,
+    depth,
+    errors,
+    datasetColumns,
+  } = props
   if (fields.length === 0) {
     return <p className="text-xs text-muted-foreground">Sin campos.</p>
   }
@@ -373,6 +403,7 @@ function GroupFieldList(props: {
           required={required.has(childName)}
           depth={depth + 1}
           errors={errors}
+          datasetColumns={datasetColumns}
         />
       ))}
     </>
@@ -390,7 +421,8 @@ function GroupFieldList(props: {
  * que los campos de la anterior se descartan (SDD §5, ejemplo `model` logit↔xgboost).
  */
 function DiscriminatedField(props: FieldRendererProps) {
-  const { schema, path, value, defs, onChange, depth = 0, errors } = props
+  const { schema, path, value, defs, onChange, depth = 0, errors, datasetColumns } =
+    props
   const propName = discriminatorProperty(schema)
   const branches = discriminatedBranches(schema, defs)
   const current = asRecord(value)
@@ -439,6 +471,7 @@ function DiscriminatedField(props: FieldRendererProps) {
             required={required}
             depth={depth}
             errors={errors}
+            datasetColumns={datasetColumns}
           />
         </fieldset>
       ) : null}
@@ -457,8 +490,18 @@ function DiscriminatedField(props: FieldRendererProps) {
  * para reflejar lo que emite `model_dump` de Pydantic.
  */
 function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
-  const { name, schema, path, value, defs, onChange, baseSchema, required, errors } =
-    props
+  const {
+    name,
+    schema,
+    path,
+    value,
+    defs,
+    onChange,
+    baseSchema,
+    required,
+    errors,
+    datasetColumns,
+  } = props
   const depth = props.depth ?? 0
   const label = fieldLabel(name, schema)
   const help = fieldHelp(schema)
@@ -515,6 +558,7 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
             depth={depth}
             hideLabel
             errors={errors}
+            datasetColumns={datasetColumns}
           />
         </div>
       ) : null}
@@ -527,46 +571,147 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
 // ---------------------------------------------------------------------------
 
 /**
- * `tuple[Literal, ...]` / array de enum: grupo de checkboxes con opciones = `enum` de los
- * items. El valor es el array de tags marcados en orden estable (= orden del enum, SDD §5).
+ * Lista de valores elegibles. Tres orígenes de opciones, y la diferencia entre ellos es lo que
+ * decide qué se pinta:
+ *
+ *  - **lista cerrada** (`enum` de los items) → sólo checkboxes;
+ *  - **columnas del dataset** (`column_role: "input"`) → checkboxes + campo para añadir a mano,
+ *    porque el usuario puede nombrar una columna de un archivo que aún no cargó;
+ *  - **sin lista** (`derived`, o dataset todavía sin cargar) → sólo entrada libre.
+ *
+ * Los valores ya seleccionados se pintan SIEMPRE, estén o no entre las opciones: un valor que el
+ * dataset no tiene es justo lo que el preflight señala, y esconderlo dejaba al usuario mirando
+ * «Sin opciones.» con doce variables dentro del config.
+ *
+ * Si el campo admite el comodín `"*"` (`tuple[str, ...] | Literal["*"]`) antepone un switch
+ * «todas»: es el valor que traen los presets, y sin él no había forma de volver a ponerlo.
  */
 function MultiselectField(props: FieldRendererProps) {
-  const { schema, path, value, defs, onChange } = props
-  const resolved = resolveRef(unwrapNullable(schema).schema, defs)
-  const options = multiselectOptions(resolved)
-  const selected = new Set(Array.isArray(value) ? value : [])
+  const { schema, path, value, defs, onChange, datasetColumns } = props
+  const [draft, setDraft] = useState("")
+  const options = multiselectOptions(schema, { datasetColumns }, defs)
+  const closed = hasClosedOptions(schema, defs)
+  const wildcard = acceptsWildcard(schema, defs)
+  const isWildcard = value === WILDCARD
+  const current = Array.isArray(value) ? value : []
+  const selected = new Set(current)
   const base = path.join(".")
+  // Un valor elegido que no está entre las opciones (columna que el dataset no trae, o config
+  // cargado antes que el archivo): se pinta al final para que sea visible y desmarcable.
+  const extra = current.filter((v) => !options.includes(v))
+  const visible = [...options, ...extra]
+
+  const setList = (next: unknown[]) => onChange(path, next)
+
+  const addDraft = () => {
+    const name = draft.trim()
+    if (name === "" || selected.has(name)) {
+      setDraft("")
+      return
+    }
+    setList(toggleMultiselect(current, name, true, [...options, ...extra, name]))
+    setDraft("")
+  }
 
   return (
     <div className="space-y-2 rounded-lg border border-border bg-foreground/[0.02] p-3">
-      {options.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Sin opciones.</p>
+      {wildcard ? (
+        <div className="flex items-center gap-2 border-b border-border pb-2">
+          <Switch
+            id={`${base}.__wildcard`}
+            checked={isWildcard}
+            onCheckedChange={(next) => onChange(path, next ? WILDCARD : [])}
+            aria-label="Usar todas las variables"
+          />
+          <Label
+            htmlFor={`${base}.__wildcard`}
+            className="text-sm text-foreground/90"
+          >
+            Todas las variables disponibles
+          </Label>
+        </div>
+      ) : null}
+
+      {isWildcard ? (
+        <p className="text-xs text-muted-foreground">
+          Se usarán todas las variables disponibles. Apaga el interruptor para elegirlas una a
+          una.
+        </p>
       ) : (
-        options.map((option) => {
-          const key = String(option)
-          const optionId = `${base}.${key}`
-          return (
-            <label
-              key={key}
-              htmlFor={optionId}
-              className="flex items-center gap-2 text-sm text-foreground/90"
-            >
-              <input
-                id={optionId}
-                type="checkbox"
-                checked={selected.has(option)}
-                onChange={(event) =>
-                  onChange(
-                    path,
-                    toggleMultiselect(value, option, event.target.checked, options),
-                  )
-                }
-                className="size-4 accent-brand-accent-dark"
+        <>
+          {visible.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {closed
+                ? "Sin opciones."
+                : "Todavía no hay columnas que ofrecer: carga un dataset, o escribe el nombre abajo."}
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {visible.map((option) => {
+                const key = String(option)
+                const optionId = `${base}.${key}`
+                const ausente = !options.includes(option)
+                return (
+                  <label
+                    key={key}
+                    htmlFor={optionId}
+                    className="flex items-center gap-2 text-sm text-foreground/90"
+                  >
+                    <input
+                      id={optionId}
+                      type="checkbox"
+                      checked={selected.has(option)}
+                      onChange={(event) =>
+                        setList(
+                          toggleMultiselect(
+                            value,
+                            option,
+                            event.target.checked,
+                            visible,
+                          ),
+                        )
+                      }
+                      className="size-4 accent-brand-accent-dark"
+                    />
+                    <span className={cn(ausente && "text-destructive")}>{key}</span>
+                    {ausente ? (
+                      <span className="text-xs text-muted-foreground">
+                        (no está en el dataset)
+                      </span>
+                    ) : null}
+                  </label>
+                )
+              })}
+            </div>
+          )}
+
+          {closed ? null : (
+            <div className="flex items-center gap-2 pt-1">
+              {/* El `id` del PATH vive aquí: es el control al que salta el aviso del preflight. */}
+              <Input
+                id={base}
+                value={draft}
+                placeholder="Añadir por nombre…"
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
+                    addDraft()
+                  }
+                }}
+                className="h-8 text-sm"
               />
-              {key}
-            </label>
-          )
-        })
+              <button
+                type="button"
+                onClick={addDraft}
+                disabled={draft.trim() === ""}
+                className="shrink-0 rounded-md border border-input px-2.5 py-1 text-xs text-foreground/90 transition-colors hover:bg-foreground/5 disabled:opacity-50"
+              >
+                Añadir
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

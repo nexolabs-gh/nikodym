@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest"
 
+import fixtureSchema from "@/fixtures/schema.json"
+import type { SchemaPayload } from "@/lib/schema"
+
 import {
   type Defs,
   type JsonSchema,
+  acceptsWildcard,
+  columnRole,
   defaultForSchema,
   discriminatedBranches,
   discriminatorProperty,
@@ -12,6 +17,7 @@ import {
   fieldPlaceholder,
   groupedFields,
   hasBothBounds,
+  hasClosedOptions,
   isHiddenField,
   multiselectOptions,
   numericBounds,
@@ -543,6 +549,131 @@ describe("multiselect (B23.5a §5)", () => {
 
   it("valor no-array de partida se trata como vacío", () => {
     expect(toggleMultiselect(null, "b", true, OPTIONS)).toEqual(["b"])
+  })
+
+  it("CONSERVA los valores elegidos que no están entre las opciones", () => {
+    // Regresión: descartarlos borraba en silencio el trabajo del usuario en cuanto las opciones
+    // vienen del dataset y no del schema (cambiar de archivo, o cargar un YAML antes de subir el
+    // CSV, vaciaba el campo solo). Un valor ausente es lo que el preflight debe poder señalar.
+    expect(toggleMultiselect(["a", "DEBTINC"], "b", true, OPTIONS)).toEqual([
+      "a",
+      "b",
+      "DEBTINC",
+    ])
+    // Y se puede desmarcar aunque no esté en options.
+    expect(toggleMultiselect(["a", "DEBTINC"], "DEBTINC", false, OPTIONS)).toEqual([
+      "a",
+    ])
+  })
+})
+
+describe("listas de nombres de columna — opciones del DATASET, no del schema", () => {
+  /** `tuple[str, ...]` con rol, la forma de `binning.categorical_columns`. */
+  const LISTA_CON_ROL: JsonSchema = {
+    type: "array",
+    items: { type: "string" },
+    column_role: "input",
+    ui_widget: "multiselect",
+  }
+
+  /** `tuple[str, ...] | Literal["*"]`, la forma de `binning.feature_columns`. */
+  const LISTA_O_COMODIN: JsonSchema = {
+    anyOf: [{ type: "array", items: { type: "string" } }, { const: "*" }],
+    column_role: "input",
+    ui_widget: "multiselect",
+  }
+
+  const COLUMNAS = ["BAD", "LOAN", "DEBTINC"]
+
+  it("column_role se lee en el campo y también en sus ramas", () => {
+    expect(columnRole(LISTA_CON_ROL)).toBe("input")
+    expect(columnRole(LISTA_O_COMODIN)).toBe("input")
+    expect(columnRole({ type: "array", items: { type: "string" } })).toBeUndefined()
+  })
+
+  it("sin enum pero con rol `input`, las opciones son las columnas del dataset", () => {
+    // Antes devolvía [] y el formulario pintaba «Sin opciones.» con cero controles.
+    expect(multiselectOptions(LISTA_CON_ROL, { datasetColumns: COLUMNAS })).toEqual(
+      COLUMNAS,
+    )
+  })
+
+  it("también en la unión con el comodín, donde la raíz no tiene `items`", () => {
+    // El caso que rompía: `multiselectOptions` miraba `schema.items` y una unión no lo tiene,
+    // así que `feature_columns` —el campo central de la demo— no ofrecía nada.
+    expect(multiselectOptions(LISTA_O_COMODIN, { datasetColumns: COLUMNAS })).toEqual(
+      COLUMNAS,
+    )
+  })
+
+  it("sin dataset cargado devuelve [] y la lista NO es cerrada (⇒ entrada libre)", () => {
+    expect(multiselectOptions(LISTA_CON_ROL, {})).toEqual([])
+    expect(hasClosedOptions(LISTA_CON_ROL)).toBe(false)
+  })
+
+  it("un enum del schema sigue mandando sobre las columnas, y es lista CERRADA", () => {
+    const conEnum: JsonSchema = {
+      type: "array",
+      items: { enum: ["pd", "lgd"] },
+      column_role: "input",
+    }
+    expect(multiselectOptions(conEnum, { datasetColumns: COLUMNAS })).toEqual([
+      "pd",
+      "lgd",
+    ])
+    expect(hasClosedOptions(conEnum)).toBe(true)
+  })
+
+  it("acceptsWildcard distingue la unión con `*` de una lista simple", () => {
+    expect(acceptsWildcard(LISTA_O_COMODIN)).toBe(true)
+    expect(acceptsWildcard(LISTA_CON_ROL)).toBe(false)
+  })
+
+  it("un array de strings con rol resuelve a multiselect aunque no declare ui_widget", () => {
+    // `data.schema.unique_keys` declara el rol y ningún `ui_widget`: caía al editor JSON.
+    const sinWidget: JsonSchema = {
+      type: "array",
+      items: { type: "string" },
+      column_role: "input",
+    }
+    expect(resolveWidget(sinWidget)).toBe("multiselect")
+    // Sin rol, una lista de strings sigue siendo JSON: no todo array de texto son columnas
+    // (`data.partition.strategy.oot_cohorts` son VALORES de cohorte).
+    expect(resolveWidget({ type: "array", items: { type: "string" } })).toBe("json")
+  })
+})
+
+describe("las tres listas de binning contra el SCHEMA REAL del backend", () => {
+  // Ancla con nombres escritos a mano —no derivados de lo que se vigila— sobre el fixture que
+  // viaja en el paquete. Es el caso que se vio roto en cámara: subir un CSV y no poder elegir
+  // ni ver una sola variable. Si el motor deja de declarar `column_role` en cualquiera de los
+  // tres, esto se pone rojo aunque el resto del formulario siga compilando.
+  const defs: Defs = (fixtureSchema as unknown as SchemaPayload).json_schema.$defs ?? {}
+  const binning = resolveRef(
+    (fixtureSchema as unknown as SchemaPayload).json_schema.properties?.binning ?? {},
+    defs,
+  )
+  const seccion = (binning.anyOf ?? binning.oneOf ?? [binning])
+    .map((rama) => resolveRef(rama, defs))
+    .find((rama) => rama.properties !== undefined)
+
+  const COLUMNAS_HMEQ = ["BAD", "LOAN", "DEBTINC", "REASON", "JOB"]
+
+  it.each(["feature_columns", "exclude_columns", "categorical_columns"])(
+    "binning.%s ofrece las columnas del dataset",
+    (nombre) => {
+      const campo = seccion?.properties?.[nombre]
+      expect(campo, `binning.${nombre} no está en el schema`).toBeDefined()
+      expect(columnRole(campo!, defs)).toBe("input")
+      expect(resolveWidget(campo!, { defs })).toBe("multiselect")
+      expect(
+        multiselectOptions(campo!, { datasetColumns: COLUMNAS_HMEQ }, defs),
+      ).toEqual(COLUMNAS_HMEQ)
+    },
+  )
+
+  it("feature_columns admite el comodín `*` (el valor que traen los presets)", () => {
+    expect(acceptsWildcard(seccion!.properties!.feature_columns, defs)).toBe(true)
   })
 })
 

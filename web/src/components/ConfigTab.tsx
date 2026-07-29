@@ -193,8 +193,10 @@ function ConfigSectionForm(props: {
   config: Record<string, unknown>
   setField: (path: Path, value: unknown) => void
   errors?: Map<string, string>
+  datasetColumns?: string[]
 }) {
-  const { sectionKey, schema, defs, config, setField, errors } = props
+  const { sectionKey, schema, defs, config, setField, errors, datasetColumns } =
+    props
   const groups = groupedFields(schema)
   const required = new Set(schema.required ?? [])
   const renderField = ([name, fieldSchema]: [string, JsonSchema]) => (
@@ -208,6 +210,7 @@ function ConfigSectionForm(props: {
       onChange={setField}
       required={required.has(name)}
       errors={errors}
+      datasetColumns={datasetColumns}
     />
   )
 
@@ -282,6 +285,7 @@ export function ConfigTab({ section }: { section: string }) {
     validation,
     preflight,
     setFocusField,
+    selectedDataset,
   } = useAppState()
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
@@ -397,6 +401,14 @@ export function ConfigTab({ section }: { section: string }) {
 
   const { payload, source, error } = schema
   const defs = payload.json_schema.$defs ?? {}
+  // Columnas del dataset activo: son las OPCIONES de todo campo que declare `column_role: "input"`
+  // (`binning.feature_columns`, `categorical_columns`, `data.schema.unique_keys`…). El schema no
+  // puede traerlas —dependen del archivo del usuario—, así que viajan como contexto de datos.
+  // `undefined` (no `[]`) cuando aún no hay dataset: el widget distingue «no hay lista» de
+  // «la lista está vacía» y ofrece entrada libre en vez de un «Sin opciones.» que miente.
+  const datasetColumns = selectedDataset
+    ? selectedDataset.columns.map((c) => c.name)
+    : undefined
   // Solo la sección activa (elegida en el sidebar). La pregunta es «¿el schema cargado trae un
   // formulario para esta clave?», NO «¿está en una lista de siete?»: el filtro por whitelist es lo
   // que mantenía provisiones y survival fuera del formulario aunque el backend las mandara
@@ -598,6 +610,7 @@ export function ConfigTab({ section }: { section: string }) {
                 config={config}
                 setField={setField}
                 errors={errorLookup}
+                datasetColumns={datasetColumns}
               />
             ) : (
               <p className="rounded-xl border border-dashed border-border bg-card/50 p-5 text-sm text-muted-foreground">
