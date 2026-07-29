@@ -294,6 +294,7 @@ class SelectionConfig(NikodymBaseConfig):
             "Variables que negocio exige conservar salvo que sean inexistentes o inválidas."
         ),
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 3,
@@ -309,6 +310,7 @@ class SelectionConfig(NikodymBaseConfig):
         title="Forzar exclusión",
         description="Variables que negocio exige descartar siempre antes del modelo.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 4,

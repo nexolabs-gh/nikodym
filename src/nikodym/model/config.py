@@ -422,6 +422,7 @@ class ModelConfig(NikodymBaseConfig):
         title="Forzar inclusión",
         description="Variables que negocio exige conservar salvo fallo estadístico ruidoso.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 1,
@@ -437,6 +438,7 @@ class ModelConfig(NikodymBaseConfig):
         title="Forzar exclusión",
         description="Variables que negocio exige descartar antes del ajuste del modelo.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 2,

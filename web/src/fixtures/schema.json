@@ -7934,6 +7934,7 @@
                 "ui_widget": "number_input"
               },
               "force_exclude": {
+                "column_role": "derived",
                 "description": "Variables que negocio exige descartar antes del ajuste del modelo.",
                 "items": {
                   "type": "string"
@@ -7946,6 +7947,7 @@
                 "ui_widget": "multiselect"
               },
               "force_include": {
+                "column_role": "derived",
                 "description": "Variables que negocio exige conservar salvo fallo estadístico ruidoso.",
                 "items": {
                   "type": "string"
@@ -9366,6 +9368,7 @@
                 "ui_widget": "multiselect"
               },
               "force_exclude": {
+                "column_role": "derived",
                 "description": "Variables que negocio exige descartar siempre antes del modelo.",
                 "items": {
                   "type": "string"
@@ -9378,6 +9381,7 @@
                 "ui_widget": "multiselect"
               },
               "force_include": {
+                "column_role": "derived",
                 "description": "Variables que negocio exige conservar salvo que sean inexistentes o inválidas.",
                 "items": {
                   "type": "string"
