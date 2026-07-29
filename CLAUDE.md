@@ -5,22 +5,79 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-28 noche, `cd75aa9`, CI verde 16/16, **`1.9.0` LIVE en PyPI**)
+> ## Lo último (2026-07-29, `e688280`, gates locales verdes, **CI sin confirmar: falta pushear**)
 >
-> 🔴 **LO PRIMERO: hay un webinar EN VIVO el ~2026-08-02 y manda sobre todo.** Cami expone regresión
-> logística y scorecard con **demo real, no precargada**, dataset **HMEQ**, en código **y** en UI,
-> ante **audiencia mixta con decisores**. Plan de 5 días, arco narrativo y los cinco riesgos
-> conocidos: `HANDOFF.md`. **Congelados hasta el 2026-08-03**: B2.4, la recaptura de la demo,
-> vitest→jsdom y la pata de release de B2.5 — ninguno acerca el webinar.
+> 🔴 **LO PRIMERO: el webinar EN VIVO es el ~2026-08-02 y manda sobre todo.** Quedan **3 días**.
+> **Congelados hasta el 2026-08-03**: B2.4, la recaptura de la demo, vitest→jsdom y la pata de
+> release de B2.5. El plan, los tiempos cronometrados y el primer paso concreto: `HANDOFF.md`.
 >
-> **El plan tiene una idea central: ENSAYAR PRIMERO, ARREGLAR DESPUÉS.** El D1 es correr la demo
-> entera sin preparar nada, para que la lista de problemas salga con cuatro días de margen. Preparar
-> tres días y ensayar el cuarto es cómo se llega sin margen.
+> ✅ **El D1 se corrió entero (código + UI) y la demo se sostiene:** HMEQ da **AUC 0,918 dev /
+> 0,887 HO / 0,913 OOT**, PSI ≤ 0,011, los 9 coeficientes con signo correcto y el informe **sin un
+> solo aviso declarado**. Los 9 hallazgos con su `archivo:línea` y los tiempos medidos están en
+> [`privado/WEBINAR-D1-ENSAYO-2026-07-28.md`](privado/WEBINAR-D1-ENSAYO-2026-07-28.md).
 >
-> **Y el arco sale del propio dato:** ninguna columna de HMEQ calza con el preset F1, así que el
-> preflight lista **de una vez** los ~16 desajustes sin correr nada. Es el dolor real de un analista
-> resuelto en vivo con la propia librería. ⚠️ **HMEQ no trae columna de tiempo** y el preset F1
-> particiona por cohorte: eso el D1 tiene que resolverlo, no darlo por hecho.
+> 🔴 **El PDF no era el `DYLD` que decía la memoria.** `nikodym-ui` tiene shebang `#!/bin/sh`, y
+> **macOS (SIP) borra `DYLD_*` al pasar por `/bin/sh`**, así que exportarla no sirve por esa vía —
+> verificado con `/bin/sh -c 'echo $DYLD_FALLBACK_LIBRARY_PATH'` → vacío. **El comando bueno es
+> `python -m nikodym.ui`** (`pyproject.toml:68` declara los dos entrypoints): con él salen los
+> cuatro formatos y cero warnings. `PYTHONHASHSEED=0` mata además el warning de `study.py:245`.
+>
+> ✅ **Y lo que más vale: el formulario quedó arreglado DE RAÍZ**, por decisión explícita de Cami
+> («hay que dejar todo bien, no parches») que descartó el plan B de cargar un YAML. Tres commits
+> que cierran una clase entera — **ninguna lista del config queda sin control**:
+>
+> | commit | qué cierra |
+> |---|---|
+> | `5969dc0` | el multiselect toma sus opciones del **dataset**, vía `column_role` |
+> | `dd8161f` | las **11 listas de objetos** se editan fila a fila, no como JSON crudo |
+> | `e688280` | el gate mide el **footprint real** del motor, no una lista escrita al lado |
+>
+> Medido en vivo con HMEQ sobre el bundle reconstruido: los avisos del preflight que enfocan el
+> **campo exacto** pasan de **0 a 18/18**; corregir binning desde el formulario baja los desajustes
+> de **18 → 11**; y editar una lista con sus botones deja el config válido y la corrida termina en
+> **12,8 s** con «Ejecutar corrida», no «de todos modos».
+>
+> **Cinco cosas de esta sesión que conviene no re-aprender:**
+>
+> 1. **🔴 El salto del preflight se arregló SOLO al expandir las listas**, sin tocar una línea de
+>    `preflight.ts`: `candidateFieldIds` ya probaba del id más específico al más general «por si
+>    algún día las listas se expanden». Escribir la degradación explícita ahorró el trabajo hoy.
+> 2. **🔴 `[]` significaba dos cosas y por eso el defecto era invisible:** «no hay nada que elegir»
+>    y «no hay lista cerrada». Con opciones que salen del dataset, el segundo es el caso normal.
+>    Ahora `[]` = lista abierta ⇒ entrada libre, y «Sin opciones.» sólo aparece si el enum está vacío.
+> 3. **🔴 `toggleMultiselect` descartaba los valores fuera de `options`.** Con opciones del schema
+>    no se notaba; con opciones del dataset borra el trabajo del usuario en silencio al cambiar de
+>    archivo. Ahora se conservan en rojo con «no está en el dataset»: que un valor no calce es lo
+>    que el preflight existe para señalar, y el formulario no debe taparlo borrándolo.
+> 4. **⚠️ `pnpm typecheck` pasó donde `pnpm build:package` falló** (caché incremental de `tsc -b`):
+>    **el gate real del front es el build**, no el typecheck.
+> 5. **⚠️ Automatizar la UI con `dispatchEvent` sintético no sirve para Base UI y corrompe el
+>    estado** (los `Select` no cambian, y un popup queda abierto bloqueando a Playwright). Dos veces
+>    confundí un artefacto de mi robot con un defecto de la app. Un recorrido real exige Playwright
+>    de verdad — que es B2.4, congelado.
+>
+> ⚠️ **Un matiz de `column_role` que evita tocar comportamiento sin querer:** `dataset_check.py`
+> hace `continue` sobre `derived`/`not_a_column`, así que **clasificar con esos dos roles NO amplía
+> el preflight**. Por eso los cuatro `force_*` pudieron declararse gratis; en cambio
+> `survival.input.covariate_cols` y `LgdConfig.covariate_cols` **sí** son columnas y declararles
+> `input` ampliaría el preflight fuera de F1 (D-PRE-4): quedan **exentos con su razón escrita** en
+> `EXENTOS_MULTISELECT`, que es alcance a decidir por Cami, no un olvido.
+>
+> **La idea del plan —ENSAYAR PRIMERO, ARREGLAR DESPUÉS— se pagó sola.** El D1 se corrió sin
+> preparar nada y destapó lo que ningún plan escrito traía: que el PDF no depende del `DYLD` sino
+> del entrypoint, que el editor de listas es JSON crudo, y que preflight y `check_pipeline` dan
+> verde sobre un config que muere en el paso 8. **El arco narrativo se confirmó y creció**: no son
+> «~16» desajustes sino **18**, y ahora los 18 saltan al campo exacto.
+>
+> ⚠️ **Lo de «HMEQ no trae columna de tiempo» tenía una segunda mitad que nadie había medido.**
+> Cambiar a partición aleatoria son **2 clicks** en la UI y mantiene las tres particiones (así que
+> no hay que tocar `performance.partitions` ni `stability.comparisons`), **pero**
+> `stability.temporal_axis` se queda en su default `"period"` y **aborta la corrida en el paso 8 de
+> 10**, con las dos comprobaciones previas en verde. Es el P1 de la próxima sesión.
+>
+> ---
+>
+> ### Lo de la sesión anterior (`cd75aa9`, 2026-07-28 noche): `1.9.0` LIVE en PyPI
 >
 > ✅ **`1.9.0` PUBLICADO** (tag `v1.9.0` sobre `cd75aa9`, OK explícito de Cami), verificado **desde
 > PyPI** en venv limpio con **sólo `[ui]`**: 705 MB, F1/F3/F4 a `done` con informe (3/3), y los dos
@@ -59,11 +116,11 @@
 > 4. **⚠️ Un cambio sólo de TIPO en TypeScript no mueve el bundle** —tocar un union en `api.ts` no
 >    cambió un byte del `.js`—, así que «toqué `web/`» no implica drift.
 >
-> ⚠️ **Tres gates son más débiles de lo que su nombre promete, y quedaron SIN arreglar:**
-> `test_column_roles.py` mide una lista hardcodeada y no el footprint real de `column_role`
-> (verificado inyectando un rol en `markov`: queda verde mientras el motor emite un diagnóstico
-> inalcanzable); el gate del extra `[ui]` sólo itera **5 de 12** extras; y `schema.test.ts` deriva
-> sus casos de lo que vigila, así que **`model` se puede borrar del formulario con todo el CI verde**.
+> ⚠️ **Tres gates eran más débiles de lo que su nombre promete. `test_column_roles.py` quedó
+> ARREGLADO el 2026-07-29** (`e688280`): mide el footprint real y se verificó inyectando otra vez
+> el rol en `markov`. **Siguen abiertos los otros dos:** el gate del extra `[ui]` sólo itera **5 de
+> 12** extras; y `schema.test.ts` deriva sus casos de lo que vigila, así que **`model` se puede
+> borrar del formulario con todo el CI verde**.
 >
 > ---
 >

@@ -9,19 +9,46 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-28, noche)
+## Estado del proyecto (2026-07-29)
 
-**`main` = `cd75aa9`, CI verde 16/16 (conteo por `gh`), `1.9.0` PUBLICADO en PyPI** (tag `v1.9.0`,
-con OK explícito de Cami). Suite 4522 passed / 6 skipped; vitest 331/331.
+**`main` = `e688280`, gates locales verdes, ⚠️ CI SIN CONFIRMAR: falta pushear.** PyPI sigue en
+`1.9.0` (tag `v1.9.0` sobre `cd75aa9`). Suite **4524 passed / 6 skipped**; vitest **356/356**;
+`mypy` 242; `ruff check` **y** `ruff format --check`; bundle sin drift.
 
 🔴 **PRIORIDAD ABSOLUTA hasta el 2026-08-02: el webinar EN VIVO de Cami** sobre regresión logística y
 scorecard, con **demo real no precargada**, dataset **HMEQ**, en código **y** en UI, ante audiencia
-mixta con decisores. El plan de 5 días, el arco narrativo y los cinco riesgos conocidos están en
-`HANDOFF.md`. **B2.4, la recaptura de la demo, vitest→jsdom y la pata de release de B2.5 quedan
-CONGELADOS hasta el 2026-08-03**: no acercan el webinar.
+mixta con decisores. **B2.4, la recaptura de la demo, vitest→jsdom y la pata de release de B2.5
+quedan CONGELADOS hasta el 2026-08-03**: no acercan el webinar.
 
-**La auditoría adversarial previa al release lo FRENÓ y encontró dos defectos que 4.522 tests y CI
-16/16 no veían** — segundo release consecutivo en que ocurre. Ambos corregidos antes de publicar:
+**El ensayo D1 se corrió entero (2026-07-29) y la demo se sostiene:** HMEQ da **AUC 0,918 dev /
+0,887 HO / 0,913 OOT**, PSI ≤ 0,011, los 9 coeficientes con signo correcto y el informe **sin un solo
+aviso declarado**. Los 9 hallazgos con su `archivo:línea` y los tiempos cronometrados están en
+`privado/WEBINAR-D1-ENSAYO-2026-07-28.md`.
+
+🔴 **El PDF de la UI no dependía del `DYLD` sino del entrypoint.** `nikodym-ui` tiene shebang
+`#!/bin/sh` y **macOS (SIP) borra `DYLD_*` al pasar por `/bin/sh`**: exportar la variable no sirve
+por esa vía. **El comando bueno es `python -m nikodym.ui`** (`pyproject.toml:68` declara los dos),
+y con él salen los cuatro formatos y cero warnings.
+
+**Y el formulario quedó arreglado DE RAÍZ** —decisión explícita de Cami, «hay que dejar todo bien,
+no parches», que descartó el plan B de cargar un YAML—. Tres commits cierran una clase entera:
+**ninguna lista del config queda sin control**.
+
+- `5969dc0` — **el multiselect toma sus opciones del dataset**, vía `column_role`. Una lista de
+  nombres de columna no puede traer `enum` (dependen del archivo del usuario), y era lo único que
+  `multiselectOptions` miraba. ⚠️ `toggleMultiselect` además **descartaba** los valores fuera de las
+  opciones: inofensivo con opciones del schema, destructivo con opciones del dataset.
+- `dd8161f` — **las 11 listas de objetos se editan fila a fila**. `data.schema.columns` eran 1.552
+  caracteres de JSON en un `<textarea rows=5>`. El salto del preflight se arregló **solo**: los
+  avisos que enfocan el campo exacto pasan de **0 a 18/18**.
+- `e688280` — **el gate de `column_role` mide el footprint real**, no una tupla escrita al lado.
+  ⚠️ Matiz útil: `dataset_check.py` hace `continue` sobre `derived`/`not_a_column`, así que
+  clasificar con esos roles **no amplía el preflight**; declarar `input` en `survival`/
+  `provisioning_ifrs9` **sí** lo haría, y por eso quedan exentos con su razón escrita.
+
+**La auditoría adversarial previa al release de `1.9.0` lo FRENÓ y encontró dos defectos que 4.522
+tests y CI 16/16 no veían** — segundo release consecutivo en que ocurre. Ambos corregidos antes de
+publicar:
 
 - **El preflight declaraba compatible un `data.schema.index_col` inexistente.** `index_col` tenía
   **tres** estados y sólo dos ramas; el tercero se iba en silencio con `compatible=True` y
@@ -52,11 +79,11 @@ por ningún gate) y el **tercero sin checkout**, que no lo sustituye ningún age
 automatizable elimina la dependencia del árbol, **no** el sesgo de conocimiento interno.
 **Todo ello congelado hasta el 2026-08-03 por el webinar.**
 
-⚠️ **Tres gates son más débiles de lo que su nombre promete** (auditoría del 2026-07-28, sin
-arreglar): `test_column_roles.py` mide una lista hardcodeada y no el footprint real de `column_role`
-—verificado inyectando un rol en `markov`: queda verde—; el gate del extra `[ui]` sólo itera 5 de 12
-extras; y `schema.test.ts` deriva sus casos de lo que vigila, así que **`model` se puede borrar del
-formulario con todo el CI verde**. Detalle en `HANDOFF.md` P5.
+⚠️ **De los tres gates más débiles que su nombre (auditoría del 2026-07-28), `test_column_roles.py`
+quedó ARREGLADO el 2026-07-29** (`e688280`, verificado inyectando otra vez el rol en `markov`).
+**Siguen abiertos los otros dos**: el gate del extra `[ui]` sólo itera 5 de 12 extras; y
+`schema.test.ts` deriva sus casos de lo que vigila, así que **`model` se puede borrar del formulario
+con todo el CI verde**. Detalle en `HANDOFF.md`.
 
 ---
 
