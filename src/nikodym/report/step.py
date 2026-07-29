@@ -207,17 +207,24 @@ def _validate_required_cards(
 
 
 def _resolve_html_path(config: ReportConfig, manifest: ReportManifest) -> str | None:
-    """Ruta ABSOLUTA/real del HTML escrito, para que consumidores puedan abrirlo (SDD-23 §4.3).
+    """Ruta real del HTML escrito, para que consumidores puedan abrirlo (SDD-23 §4.3).
 
-    ``manifest.path`` es el basename determinístico (portable, entra al golden del manifiesto);
-    ``ReportResult.html_path`` es la ruta real en disco = ``output_dir/basename``, lo que un
-    consumidor como :func:`nikodym.ui.runs._report_html` necesita para leer y persistir el reporte.
+    ``ReportResult.html_path`` es la ruta real en disco = ``output_dir`` + el nombre del archivo.
     Sin ``output_dir`` no se escribe archivo → ``None`` (reporte sólo-en-memoria).
+
+    ⚠️ **``manifest.path`` NO es siempre un basename, y de ahí sale el único bug posible aquí.**
+    ``HtmlReportRenderer.write`` lo construye con ``_manifest_path``, que devuelve el basename
+    **sólo si ``output_dir`` es absoluto**; si es relativo devuelve ``output_dir/basename``, porque
+    esa forma es la portable para el golden del manifiesto. Concatenar ``output_dir`` con eso
+    duplicaba el directorio (``reports/reports/scorecard_report.html``) y publicaba una ruta que no
+    existe — con el ``output_dir`` relativo del preset F1, que es el caso por defecto de quien use
+    la librería por código. Por eso se toma el **nombre** de ``manifest.path``, no la ruta entera.
+    Los otros tres formatos no pasaban por aquí y nunca tuvieron el defecto.
     """
     output_dir = config.output_dir.strip()
     if not output_dir or not manifest.path:
         return None
-    return str(Path(output_dir) / manifest.path)
+    return str(Path(output_dir) / Path(manifest.path).name)
 
 
 def _maybe_write_pdf(

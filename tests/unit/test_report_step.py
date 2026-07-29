@@ -478,6 +478,38 @@ def _block_weasyprint(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(builtins, "__import__", fake_import)
 
 
+@pytest.mark.parametrize("output_dir_relativo", [True, False])
+def test_html_path_apunta_al_archivo_real_con_output_dir_relativo_y_absoluto(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    output_dir_relativo: bool,
+) -> None:
+    """``html_path`` tiene que existir en disco en los DOS estados de ``output_dir``.
+
+    Regresión medida el 2026-07-29 en el ensayo D2: con ``output_dir`` **relativo** —que es el del
+    preset F1, o sea el caso por defecto de quien usa la librería por código— ``html_path`` salía
+    duplicado (``reports/reports/scorecard_report.html``) y no existía, porque ``manifest.path`` ya
+    trae el directorio en ese estado. Con ``output_dir`` absoluto salía bien, y por eso la interfaz
+    —que pasa una ruta absoluta— nunca lo vio. Los otros tres formatos no comparten el camino.
+    """
+    monkeypatch.chdir(tmp_path)
+    output_dir = "reports" if output_dir_relativo else str(tmp_path / "salida")
+    cfg = ReportConfig(output_dir=output_dir, formats=("html", "md", "docx"))
+    study = _study_with_report_artifacts(config=cfg)
+
+    result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert result.html_path is not None
+    assert Path(result.html_path).is_file(), f"html_path inexistente: {result.html_path}"
+    # El basename no se duplica ni en el nombre ni en el directorio.
+    assert Path(result.html_path).name == "scorecard_report.html"
+    assert Path(result.html_path).parent.name == Path(output_dir).name
+    # Los otros formatos siguen apuntando a archivos reales (no regresionan con este cambio).
+    for otro in (result.md_path, result.docx_path):
+        assert otro is not None
+        assert Path(otro).is_file(), f"ruta inexistente: {otro}"
+
+
 def test_execute_sin_pdf_en_formats_no_escribe_pdf(tmp_path: Path) -> None:
     """Sin ``"pdf"`` en ``formats`` el step no escribe PDF ni refleja ``pdf_path``."""
     cfg = ReportConfig(output_dir=str(tmp_path), sections=SectionPolicyConfig(max_table_rows=10))
