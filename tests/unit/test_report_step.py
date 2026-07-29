@@ -491,10 +491,14 @@ def test_html_path_apunta_al_archivo_real_con_output_dir_relativo_y_absoluto(
     duplicado (``reports/reports/scorecard_report.html``) y no existía, porque ``manifest.path`` ya
     trae el directorio en ese estado. Con ``output_dir`` absoluto salía bien, y por eso la interfaz
     —que pasa una ruta absoluta— nunca lo vio. Los otros tres formatos no comparten el camino.
+
+    ``formats`` se queda en ``("html", "md")``: ``md`` no necesita ningún extra, mientras que
+    ``docx`` sí (``python-docx``) y en los jobs mínimos del CI degrada a ``None`` con gracia.
+    Aseverar su ruta convertiría un test de ``html_path`` en un test de instalación.
     """
     monkeypatch.chdir(tmp_path)
     output_dir = "reports" if output_dir_relativo else str(tmp_path / "salida")
-    cfg = ReportConfig(output_dir=output_dir, formats=("html", "md", "docx"))
+    cfg = ReportConfig(output_dir=output_dir, formats=("html", "md"))
     study = _study_with_report_artifacts(config=cfg)
 
     result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
@@ -504,10 +508,9 @@ def test_html_path_apunta_al_archivo_real_con_output_dir_relativo_y_absoluto(
     # El basename no se duplica ni en el nombre ni en el directorio.
     assert Path(result.html_path).name == "scorecard_report.html"
     assert Path(result.html_path).parent.name == Path(output_dir).name
-    # Los otros formatos siguen apuntando a archivos reales (no regresionan con este cambio).
-    for otro in (result.md_path, result.docx_path):
-        assert otro is not None
-        assert Path(otro).is_file(), f"ruta inexistente: {otro}"
+    # El otro formato sin extra sigue apuntando a un archivo real (no regresiona con el cambio).
+    assert result.md_path is not None
+    assert Path(result.md_path).is_file(), f"md_path inexistente: {result.md_path}"
 
 
 def test_execute_sin_pdf_en_formats_no_escribe_pdf(tmp_path: Path) -> None:
