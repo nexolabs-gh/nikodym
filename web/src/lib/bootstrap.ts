@@ -18,12 +18,21 @@ import { loadSchema, type LoadedSchema } from "@/lib/schema"
 /**
  * Qué se sembró en el form (SDD-23 §3.2). `preset` = configuración estándar del backend (default);
  * `defaults` = "empezar de cero" con los defaults vacíos del schema (elección explícita);
- * `fallback` = defaults porque el preset no estaba disponible al arrancar (backend caído).
+ * `fallback` = defaults porque el preset no estaba disponible al arrancar (backend caído);
+ * `yaml` = el usuario trajo su propio config con «Cargar YAML».
+ *
+ * ⚠️ `yaml` existe porque su ausencia hacía MENTIR al selector de preset: cargar un YAML sólo
+ * llamaba a `setConfig`, así que el `seed` seguía diciendo `preset` y el selector de Ejecutar
+ * mostraba `f1-estandar-consumo` sobre un config que ya no era ése — y tocarlo resembraba el
+ * preset entero, borrando el trabajo del usuario sin avisar. Lo que se sembró es parte del estado
+ * del workspace, no un detalle del arranque: quien cambie el config por otro camino debe decirlo
+ * aquí.
  */
 export type SeedState =
   | { kind: "preset"; name: string; datasetId: string }
   | { kind: "defaults" }
   | { kind: "fallback" }
+  | { kind: "yaml"; fileName: string }
 
 /** Puertas al backend que necesita el arranque; se inyectan para poder testearlo sin red. */
 export interface BootstrapDeps {

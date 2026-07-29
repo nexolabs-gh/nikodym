@@ -20,6 +20,7 @@ from typing import Any, Literal, Self
 from pydantic import Field, field_validator, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import Requisito
 from nikodym.core.exceptions import ConfigError
 
 ScoreDirection = Literal["higher_is_lower_risk", "higher_is_higher_risk"]
@@ -293,6 +294,26 @@ class PerformanceConfig(NikodymBaseConfig):
             _require_finite(f"optional_thresholds.{clave}", umbral)
 
         return self
+
+    def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
+        """Invariantes que el evaluador exige y que sólo se descubrían corriendo (D-INV-1).
+
+        No dependen del dataset —``columnas`` va sin usar—, pero el protocolo la recibe igual
+        porque el comprobador no sabe de antemano qué necesita cada dominio.
+        """
+        del columnas
+        if len(set(self.partitions)) == len(self.partitions):
+            return ()
+        return (
+            Requisito(
+                path="partitions",
+                declared=", ".join(self.partitions),
+                message=(
+                    "Hay particiones repetidas en la lista a evaluar. Deja una sola vez cada "
+                    "partición: repetirla no calcula nada nuevo y detiene la corrida."
+                ),
+            ),
+        )
 
 
 def _column_values(cfg: PerformanceConfig) -> dict[str, str]:

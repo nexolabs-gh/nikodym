@@ -28,6 +28,7 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import Requisito
 from nikodym.validation.exceptions import ValidationConfigError
 
 ValidationFamily = Literal["discrimination", "calibration", "stability", "backtesting"]
@@ -425,3 +426,25 @@ class ValidationConfig(NikodymBaseConfig):
                 "como brecha de datos en vez de detener la corrida)."
             )
         return self
+
+    def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
+        """Invariantes que el evaluador exige y que sólo se descubrían corriendo (D-INV-1).
+
+        ``families`` vacío es el caso caro: el campo no tiene ``min_length``, ``_check_validation``
+        sólo mira la coherencia backtesting↔enabled, y ``validation`` corre **penúltimo** en el F1
+        — así que un ``if`` de una línea tumbaba la corrida con todo el cómputo ya pagado.
+        """
+        del columnas  # no depende del dataset
+        if self.families:
+            return ()
+        return (
+            Requisito(
+                path="families",
+                declared="(ninguna)",
+                message=(
+                    "No hay ninguna familia de validación activa, y la validación no puede correr "
+                    "vacía. Elige al menos una (discriminación, calibración o estabilidad) o "
+                    "apaga la sección entera."
+                ),
+            ),
+        )

@@ -38,10 +38,14 @@ export function PreflightNotice({ state, section, onJump }: PreflightNoticeProps
     if (propios.length === 0) return null
     return (
       <Panel tone="warn">
+        {/* «pendiente», no «nombra una columna que el dataset no tiene»: dos de los cuatro tipos
+            de desajuste no son eso. `index_not_a_column` señala una columna que el dataset SÍ
+            trae, y `unmet_requirement` no habla de columnas sino de una invariante del config
+            (D-INV-2). El detalle exacto lo da cada mensaje de la lista, que viene del motor. */}
         <p className="font-medium">
           {propios.length === 1
-            ? "1 campo de esta sección nombra una columna que el dataset no tiene."
-            : `${propios.length} campos de esta sección nombran columnas que el dataset no tiene.`}
+            ? "1 campo de esta sección está pendiente."
+            : `${propios.length} campos de esta sección están pendientes.`}
         </p>
         <MismatchList mismatches={propios} onJump={onJump} />
       </Panel>

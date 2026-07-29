@@ -188,6 +188,24 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > columnas, sólo 6 son de entrada. Alcance explícito: F1; los demás dominios quedan fuera **a
 > propósito** y el test de cobertura lo declara (D-PRE-4).
 >
+> **…y el config que se contradice a sí mismo se avisa ANTES, no en el paso 8 (2026-07-29, APROBADA
+> e implementada).** [`_ENMIENDA-INVARIANTES-PREVIAS.md`](_ENMIENDA-INVARIANTES-PREVIAS.md),
+> D-INV-1…D-INV-9, enmienda a `_ENMIENDA-PREFLIGHT-DATASET.md` y a SDD-23 §4. Medido con HMEQ
+> durante el ensayo del webinar: partición aleatoria + `stability.temporal_axis` en su default
+> `"period"` deja a `check_dataset` en `compatible=True, mismatches=0` **y** a `check_pipeline` en
+> `executable=True`, y la corrida muere a los 4,4 s en el paso **8 de 10**. Es la familia de D-PRE-9
+> —«todo bien» sobre lo que no se miró— por una vía nueva: no hay sección opaca ni columna que
+> falte, sino una **invariante interna** que ninguna superficie comprueba. **Y no era sólo
+> `stability`:** el censo halló 13 candidatas y **7 se confirmaron en vivo**, todas con las dos
+> superficies en verde. La decisión que sostiene el diseño es D-INV-1: la invariante la declara el
+> dominio que la impone (`requisitos_incumplidos`), no un registro central — mismo criterio que
+> `column_role`. Se consume por `check_dataset`, que ya informa sin bloquear y ya llega hasta el
+> salto al campo (D-INV-2); **`check_pipeline` no se toca** y sigue siendo lo único que gobierna el
+> botón (D-INV-3). Entran 5 invariantes; **A3 y C2 quedan fuera con su razón medida** (D-INV-8):
+> `stratify_by` apunta a una columna **derivada** en el uso canónico y comprobarla daría falsos
+> positivos, y `required_sections` es una invariante **entre** secciones, que el protocolo por
+> sección no puede expresar sin el acoplamiento que D-INV-1 evita.
+>
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
 > D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su

@@ -77,11 +77,11 @@ export function sectionOfPath(path: string): string {
 /**
  * ¿El formulario ofrece esta sección? Decide si un desajuste puede ofrecer «ir al campo».
  *
- * ⚠️ No todas las secciones del config están en el formulario, y el preflight lo destapa: uno de
- * los seis desajustes del caso medido cae en `stability.temporal_column`, y `stability` **no**
- * está en `CONFIG_SECTIONS` —es sección del config, pero hoy sólo se edita por YAML o por
- * código—. Ofrecer un salto a una pestaña que no existe sería peor que no ofrecerlo: el aviso lo
- * dice en vez de fingir.
+ * ⚠️ No todas las secciones del config están en el formulario, y el preflight lo destapa: hoy el
+ * motor trae 22 secciones de dominio y `CONFIG_SECTIONS` ofrece 13, así que un desajuste puede
+ * caer en una sección sin pestaña a la que saltar. Ofrecer un salto a una pestaña que no existe sería peor
+ * que no ofrecerlo: el aviso lo dice en vez de fingir. (`stability` fue el caso que destapó esto y
+ * **ya está** en `CONFIG_SECTIONS` desde `d842ccd`; el criterio, no.)
  */
 export function sectionIsEditable(section: string): boolean {
   return CONFIG_SECTIONS.some((s) => s.key === section)
@@ -130,19 +130,25 @@ export function runHint(state: PreflightState): string | null {
 /**
  * Encabezado del panel de avisos, o `null` si no hay panel que mostrar.
  *
- * El estado `ok` SÍ dice algo —«el dataset calza»— porque es información que el usuario no tiene
- * de otro modo y que evita la duda de si la comprobación llegó a correr.
+ * El estado `ok` SÍ dice algo —«el config y el dataset calzan»— porque es información que el
+ * usuario no tiene de otro modo y que evita la duda de si la comprobación llegó a correr.
+ *
+ * ⚠️ El texto habla de **campos**, no de columnas, y no es un matiz cosmético: dos de los cuatro
+ * tipos de desajuste no son columnas ausentes. `index_not_a_column` señala una columna que el
+ * dataset **sí tiene** —decir «que el dataset no tiene» era directamente falso—, y
+ * `unmet_requirement` no habla de ninguna columna, sino de una invariante del propio config
+ * (D-INV-2). `runHint` ya usaba esta formulación; ahora coinciden.
  */
 export function preflightHeadline(state: PreflightState): string | null {
   switch (state.kind) {
     case "ok":
-      return "El dataset trae todas las columnas que el config declara."
+      return "El config calza con el dataset: ningún campo pendiente."
     case "issues": {
       const n = state.mismatches.length
       if (n === 0) return "Hay partes del config que no se pudieron comparar con el dataset."
       return n === 1
-        ? "El config declara 1 columna que el dataset no tiene."
-        : `El config declara ${n} columnas que el dataset no tiene.`
+        ? "Hay 1 campo del config que el dataset no satisface."
+        : `Hay ${n} campos del config que el dataset no satisface.`
     }
     default:
       return null

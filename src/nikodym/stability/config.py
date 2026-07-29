@@ -19,7 +19,15 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import Requisito
 from nikodym.core.exceptions import ConfigError
+
+#: Nombres que el evaluador acepta como columna de período/cohorte cuando ``temporal_column`` va
+#: vacía. Vive **aquí y no en el evaluador** desde la enmienda INVARIANTES-PREVIAS: el aviso y el
+#: motor tienen que mirar exactamente el mismo conjunto, o el aviso mentiría en cuanto uno de los
+#: dos creciera. Misma lección que el gate de `column_role` (`e688280`): medir el footprint real,
+#: no una lista escrita al lado.
+TEMPORAL_CANDIDATE_NAMES: frozenset[str] = frozenset({"period", "periodo", "cohort", "cohorte"})
 
 ScoreDirection = Literal["higher_is_lower_risk", "higher_is_higher_risk"]
 StabilityComparison = Literal["dev_vs_holdout", "dev_vs_oot"]
@@ -28,6 +36,7 @@ TemporalFrequency = Literal["M", "Q", "Y"]
 CsiSource = Literal["score_points", "woe_bins"]
 
 __all__ = [
+    "TEMPORAL_CANDIDATE_NAMES",
     "CsiSource",
     "ScoreDirection",
     "StabilityComparison",
@@ -218,6 +227,69 @@ class StabilityConfig(NikodymBaseConfig):
             )
 
         return self
+
+    def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
+        """Invariantes que esta sección impone y que la corrida rechazaría (D-INV-1).
+
+        No son validaciones de forma —de eso se encarga ``_check_invariantes``— sino exigencias
+        sobre la **combinación** de campos y sobre el dataset, que hasta ahora sólo se descubrían
+        pagando la corrida entera: el caso de origen de la enmienda moría en el paso 8 de 10 con el
+        preflight y ``check_pipeline`` en verde.
+        """
+        requisitos: list[Requisito] = []
+
+        # El eje temporal exige una columna de período. `_resolve_temporal_column` la busca primero
+        # en `temporal_column` y, si está vacía, la INFIERE por nombre entre las candidatas; si
+        # no halla ninguna (o halla varias) aborta el paso. Que `temporal_column` esté vacía es su
+        # default, así que el caso llega solo a cualquiera con un dataset sin columna temporal.
+        if self.temporal_axis != "none" and self.temporal_column is None and columnas is not None:
+            # `columnas is not None`: sin los nombres no se puede afirmar nada (D-INV-4).
+            candidatas = sorted(c for c in columnas if c.lower() in TEMPORAL_CANDIDATE_NAMES)
+            if not candidatas:
+                requisitos.append(
+                    Requisito(
+                        path="temporal_axis",
+                        declared=self.temporal_axis,
+                        # El texto nombra el literal que el usuario VE en el selector (`none`),
+                        # no su traducción: verificado en vivo que las opciones se pintan crudas,
+                        # y mandarlo a buscar un «ninguno» que no existe es peor que no decir nada.
+                        message=(
+                            f"La estabilidad temporal está activada (eje «{self.temporal_axis}») y "
+                            f"el dataset no trae ninguna columna de período o cohorte, así que la "
+                            f"corrida se detendrá al llegar a estabilidad. Pon el eje temporal en "
+                            f"«none», o indica la columna de período en el campo de al lado."
+                        ),
+                    )
+                )
+            elif len(candidatas) > 1:
+                nombres = ", ".join(f"«{c}»" for c in candidatas)
+                requisitos.append(
+                    Requisito(
+                        path="temporal_column",
+                        declared=self.temporal_axis,
+                        message=(
+                            f"El dataset trae más de una columna que podría ser el período "
+                            f"({nombres}) y el motor no elige por ti. Indica cuál usar en este "
+                            f"campo, o desactiva el eje temporal."
+                        ),
+                    )
+                )
+
+        # `comparisons` es una tupla y el evaluador rechaza los repetidos: cada comparación produce
+        # una fila del informe y dos iguales serían dos filas idénticas con distinto significado.
+        if len(set(self.comparisons)) != len(self.comparisons):
+            requisitos.append(
+                Requisito(
+                    path="comparisons",
+                    declared=", ".join(self.comparisons),
+                    message=(
+                        "Hay comparaciones de estabilidad repetidas. Deja una sola vez cada par de "
+                        "particiones que quieras comparar."
+                    ),
+                )
+            )
+
+        return tuple(requisitos)
 
 
 def _column_values(cfg: StabilityConfig) -> dict[str, str]:

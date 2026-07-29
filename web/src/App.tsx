@@ -274,6 +274,11 @@ function App() {
       setActive(DATA_SECTION.value)
     }
     setView("workspace")
+    // El landing y el workspace comparten el scroll de la ventana, así que entrar desde una CTA
+    // que está a mitad de página deja la app abierta por su mitad (medido: `scrollY = 215`, la
+    // barra de pasos fuera de cuadro). Cambiar de vista no es navegar, así que el navegador no
+    // lo resetea por su cuenta.
+    window.scrollTo(0, 0)
   }
 
   if (view === "landing") {

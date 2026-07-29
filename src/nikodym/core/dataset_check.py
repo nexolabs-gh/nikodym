@@ -57,7 +57,39 @@ ROLES = frozenset({ROL_ENTRADA, ROL_DERIVADA, ROL_INDICE, ROL_NO_COLUMNA})
 #: Comodín de ``feature_columns``: «todas las disponibles». No es un nombre de columna.
 COMODIN = "*"
 
-TipoDesajuste = Literal["missing_column", "index_not_a_column", "missing_index"]
+#: Nombre del método con que una config de sección declara sus **invariantes previas**
+#: (enmienda INVARIANTES-PREVIAS, D-INV-1). Es una convención de nombre y no una clase base a
+#: propósito: las configs de dominio no deben heredar del núcleo para poder declarar algo suyo.
+METODO_REQUISITOS = "requisitos_incumplidos"
+
+TipoDesajuste = Literal[
+    "missing_column", "index_not_a_column", "missing_index", "unmet_requirement"
+]
+
+
+@dataclass(frozen=True, slots=True)
+class Requisito:
+    """Una exigencia del propio config que la corrida va a incumplir (D-INV-1).
+
+    A diferencia de un :class:`Mismatch` por columna, aquí **no falta ningún nombre de columna**:
+    lo que falla es una combinación de campos —``temporal_axis`` ≠ ``none`` sin columna de período,
+    ``comparisons`` con duplicados, ``families`` vacío—. El motor ya lo diagnostica bien; lo que
+    faltaba era decirlo **antes** de pagar la corrida.
+    """
+
+    path: str
+    """Ruta **RELATIVA** del campo que lo arregla, dentro de su sección (``temporal_axis``).
+
+    Relativa a propósito (D-INV-5): la sección no sabe dónde está montada, y es el recorrido quien
+    le antepone el prefijo. Así el dominio declara su invariante sin conocer al formulario que la
+    va a pintar.
+    """
+
+    declared: str
+    """El valor que crea la exigencia (``"period"``), para que el aviso sea concreto."""
+
+    message: str
+    """Copy público, en español y sin códigos internos, y **con la salida** (D-INV-6)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +175,35 @@ def _declaraciones(config: Any, prefijo: str = "") -> Iterator[tuple[str, str, s
         for i, elemento in enumerate(config):
             if isinstance(elemento, BaseModel):
                 yield from _declaraciones(elemento, f"{prefijo.rstrip('.')}[{i}].")
+
+
+def _requisitos(
+    config: Any, columnas: frozenset[str] | None, prefijo: str = ""
+) -> Iterator[tuple[str, Requisito]]:
+    """Recorre el config y emite ``(ruta absoluta, requisito)`` por cada invariante incumplida.
+
+    Camina igual que :func:`_declaraciones` —modelos anidados, listas y tuplas— y en cada modelo
+    pregunta por el protocolo :data:`METODO_REQUISITOS`. Una sección que viaje como ``dict`` opaco
+    se salta por la misma razón de siempre: sin su modelo no hay método al que preguntar.
+
+    El dominio devuelve rutas **relativas** y aquí se les antepone el prefijo (D-INV-5).
+    """
+    if not isinstance(config, BaseModel):
+        if isinstance(config, (list, tuple)):
+            for i, elemento in enumerate(config):
+                yield from _requisitos(elemento, columnas, f"{prefijo.rstrip('.')}[{i}].")
+        return
+
+    metodo = getattr(config, METODO_REQUISITOS, None)
+    if callable(metodo):
+        for requisito in metodo(columnas):
+            yield f"{prefijo}{requisito.path}", requisito
+
+    modelo = type(config)
+    for nombre in modelo.model_fields:
+        yield from _requisitos(
+            getattr(config, nombre, None), columnas, f"{prefijo}{_alias(modelo, nombre)}."
+        )
 
 
 def _columnas_de(valor: Any) -> tuple[str, ...]:
@@ -255,6 +316,16 @@ def check_dataset(
             desajustes.append(
                 Mismatch(ruta, columna, "missing_column", _mensaje_falta(ruta, columna))
             )
+
+    # Invariantes previas (D-INV-1/D-INV-2): lo que el config se exige a sí mismo y no cumple. No
+    # hay columna que falte —el desajuste es entre campos—, así que las declara el dominio que las
+    # impone y no este recorrido. Aquí las columnas SIEMPRE se conocen (son parámetro obligatorio),
+    # así que van completas; el `None` del protocolo es para un consumidor que no las tenga, y
+    # significa «no se sabe», no «no hay» (D-INV-4).
+    for ruta, requisito in _requisitos(config, frozenset(presentes)):
+        desajustes.append(
+            Mismatch(ruta, requisito.declared, "unmet_requirement", requisito.message)
+        )
 
     return DatasetCheck(
         compatible=not desajustes and not opacas,

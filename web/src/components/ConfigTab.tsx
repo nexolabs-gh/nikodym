@@ -381,6 +381,10 @@ export function ConfigTab({ section }: { section: string }) {
       const text = await file.text()
       const result = await configFromYaml(text)
       setConfig(result.config) // el backend es la fuente: puebla el form con el config migrado
+      // El config ya no es el del preset sembrado, y el `seed` es quien lo sabe: sin esta línea el
+      // selector de Ejecutar seguía anunciando `f1-estandar-consumo` sobre el YAML del usuario, y
+      // tocarlo resembraba el preset encima de su trabajo.
+      setSeed({ kind: "yaml", fileName: file.name })
     } catch (err) {
       setYamlError(yamlErrorMessage(err))
     } finally {

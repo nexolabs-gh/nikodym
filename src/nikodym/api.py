@@ -153,8 +153,19 @@ def run(config: NikodymConfig) -> Study:
     ante un fallo marca ``status="failed"``, conserva el lineage y re-levanta. Esta función es
     el envoltorio de producto: **captura el** ``NikodymError`` y devuelve el ``Study`` parcial
     en vez de propagarlo. El fallo no se silencia pero tampoco explota. Por eso, el consumidor por
-    código **debe chequear** ``study.run_context.status`` (``"done"`` vs ``"failed"``) antes de usar
-    ``study.results``.
+    código **debe chequear** ``study.run_context.status`` (``"done"`` vs ``"failed"``) antes de leer
+    los resultados.
+
+    **Dónde quedan los resultados: en** ``study.artifacts``, indexado por ``(dominio, clave)``::
+
+        study = nikodym.run(config)
+        assert study.run_context.status == "done"
+        study.artifacts.get("performance", "result")     # métricas de discriminación
+        study.artifacts.get("model", "coefficients")     # los betas del modelo
+        study.artifacts.keys()                           # todo lo que dejó la corrida
+
+    ⚠️ **No en** ``study.results``, que este docstring mandaba usar y **siempre está vacío**: es un
+    canal de publicación que ningún paso llena hoy (ver :class:`~nikodym.core.study.Study`).
 
     **Dónde queda el diagnóstico.** En ``study.run_context.error``
     (:class:`~nikodym.core.lineage.RunError`): tipo de la excepción, mensaje del motor y paso que

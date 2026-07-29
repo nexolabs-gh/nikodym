@@ -259,6 +259,16 @@ export function RunTab({ onNavigate }: RunTabProps) {
                 {presetDisplay(activePreset).blurb}
               </p>
             ) : null}
+            {/* De dónde viene el config cuando NO es un preset. El selector vacío ya no miente,
+                pero por sí solo tampoco explica nada; y elegir un preset aquí reemplaza lo que el
+                usuario trajo, así que conviene decirlo ANTES de que lo descubra perdiéndolo. */}
+            {seed !== null && seed.kind !== "preset" ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {seed.kind === "yaml"
+                  ? `El config activo viene de «${seed.fileName}», no de un preset. Elegir uno aquí lo reemplaza.`
+                  : "El config activo no viene de un preset. Elegir uno aquí lo reemplaza."}
+              </p>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}

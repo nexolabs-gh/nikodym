@@ -119,7 +119,13 @@ export interface ValidateResponse {
 export interface PreflightMismatch {
   path: string
   declared: string
-  kind: "missing_column" | "index_not_a_column" | "missing_index"
+  /**
+   * `unmet_requirement` NO es una columna que falte: es una invariante del propio config que la
+   * corrida va a rechazar (enmienda INVARIANTES-PREVIAS, D-INV-2). Viaja por este mismo canal
+   * porque necesita exactamente lo mismo —una ruta a la que saltar y un mensaje que leer— y el
+   * front nunca discriminó por `kind`.
+   */
+  kind: "missing_column" | "index_not_a_column" | "missing_index" | "unmet_requirement"
   message: string
 }
 

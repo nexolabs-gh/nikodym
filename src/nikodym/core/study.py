@@ -245,6 +245,15 @@ class Study:
             self.seed_manager.apply_global()
         self._audit: AuditSink = NullAuditSink()
         self.artifacts = ArtifactStore(audit=self._audit)
+        # ⚠️ Canal de publicación de métricas hacia `governance` y `tracking`, y NINGÚN paso del
+        # motor lo llena hoy: tras una corrida F1 completa sigue siendo `{}` (medido). Sus dos
+        # consumidores lo leen igual —`ModelCardBuilder` toma de aquí `metrics`/`metric_sections`
+        # (`governance/model_card.py:189`) y `TrackingSink` lo vuelca entero a MLflow
+        # (`tracking/sink.py:47`)—, así que un model card publicado sale SIN métricas. No se ve
+        # en los presets porque los tres traen `governance: null` y `tracking: null`; quien los
+        # encienda sí lo nota. Los resultados reales viven en `self.artifacts`, por
+        # `(dominio, clave)`.
+        # Llenarlo es contrato (qué claves, qué DTOs) y por tanto trabajo de SDD, no un parche aquí.
         self.results: dict[str, Any] = {}
         self.run_context = RunContext()
 

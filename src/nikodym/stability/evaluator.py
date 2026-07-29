@@ -28,6 +28,7 @@ from nikodym.core.config import NikodymBaseConfig
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.stability.config import (
+    TEMPORAL_CANDIDATE_NAMES,
     CsiSource,
     ScoreDirection,
     StabilityComparison,
@@ -70,7 +71,6 @@ _COMPARISON_PARTITIONS: dict[StabilityComparison, tuple[str, str]] = {
     "dev_vs_holdout": (_DEVELOPMENT_PARTITION, "holdout"),
     "dev_vs_oot": (_DEVELOPMENT_PARTITION, "oot"),
 }
-_TEMPORAL_CANDIDATE_NAMES: frozenset[str] = frozenset({"period", "periodo", "cohort", "cohorte"})
 _BAND_TO_ACTION: dict[str, str] = {
     "stable": "none",
     "review": "vigilar",
@@ -658,7 +658,7 @@ def _resolve_temporal_column(frame: DataFrame, cfg: StabilityConfig) -> str | No
         return cfg.temporal_column
 
     candidates = [
-        str(column) for column in frame.columns if str(column).lower() in _TEMPORAL_CANDIDATE_NAMES
+        str(column) for column in frame.columns if str(column).lower() in TEMPORAL_CANDIDATE_NAMES
     ]
     if not candidates:
         raise StabilityDataError(

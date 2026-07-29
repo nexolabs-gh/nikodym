@@ -22,6 +22,7 @@ from typing import Annotated, Final, Literal
 from pydantic import ConfigDict, Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import Requisito
 
 __all__ = [
     "EXCLUSION_WINDOW_REASON",
@@ -596,6 +597,34 @@ class TemporalSplitConfig(NikodymBaseConfig):
             "Holdout; el resto queda en Desarrollo.",
         },
     )
+
+    def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
+        """Invariantes de la partición temporal que sólo se descubrían corriendo (D-INV-1).
+
+        ``oot_from`` es un ``str`` libre —no hay validador de formato— y el único punto que lo
+        parsea vive ya dentro del paso ``data``, el **primero** del pipeline: una fecha mal escrita
+        tumbaba la corrida después de haber cargado el archivo entero.
+        """
+        del columnas  # no depende del dataset
+        try:  # import perezoso: la config no arrastra pandas al importarse
+            import pandas as pd
+        except ImportError:  # pragma: no cover - sin pandas no hay corrida que avisar
+            return ()
+        try:
+            pd.Timestamp(self.oot_from)
+        except ValueError:
+            return (
+                Requisito(
+                    path="oot_from",
+                    declared=self.oot_from,
+                    message=(
+                        f"«{self.oot_from}» no es una fecha que el motor sepa leer, y la partición "
+                        f"temporal la necesita para separar el OOT. Escríbela en formato ISO 8601 "
+                        f"(por ejemplo 2024-07-01)."
+                    ),
+                ),
+            )
+        return ()
 
 
 class RandomSplitConfig(NikodymBaseConfig):

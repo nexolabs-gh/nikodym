@@ -28,7 +28,7 @@ from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
-from nikodym.stability.config import StabilityConfig
+from nikodym.stability.config import TEMPORAL_CANDIDATE_NAMES, StabilityConfig
 from nikodym.stability.evaluator import StabilityEvaluator
 from nikodym.stability.exceptions import StabilityDataError
 
@@ -58,9 +58,6 @@ _SCORING_EXTRA_MESSAGE: Final = (
     "StabilityStep requiere pandas/numpy/pandera; instale nikodym[scoring]."
 )
 _POINTS_SUFFIX: Final = "__points"
-_TEMPORAL_CANDIDATE_NAMES: Final[frozenset[str]] = frozenset(
-    {"period", "periodo", "cohort", "cohorte"}
-)
 
 
 @register("standard", domain="stability")
@@ -308,7 +305,7 @@ def _temporal_candidate_columns(frame: DataFrame) -> tuple[str, ...]:
         sorted(
             str(column)
             for column in frame.columns
-            if str(column).lower() in _TEMPORAL_CANDIDATE_NAMES
+            if str(column).lower() in TEMPORAL_CANDIDATE_NAMES
         )
     )
 

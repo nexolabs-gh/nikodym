@@ -195,7 +195,7 @@ describe("runHint", () => {
 
 describe("preflightHeadline", () => {
   it("afirma la compatibilidad cuando la hay", () => {
-    expect(preflightHeadline({ kind: "ok" })).toContain("todas las columnas")
+    expect(preflightHeadline({ kind: "ok" })).toContain("calza")
   })
 
   it("calla en los estados sin veredicto", () => {
@@ -211,14 +211,27 @@ describe("preflightHeadline", () => {
         mismatches: [mismatch("data.a")],
         uninspected: [],
       }),
-    ).toContain("1 columna")
+    ).toContain("1 campo")
     expect(
       preflightHeadline({
         kind: "issues",
         mismatches: [mismatch("data.a"), mismatch("data.b")],
         uninspected: [],
       }),
-    ).toContain("2 columnas")
+    ).toContain("2 campos")
+  })
+
+  it("NO habla de columnas: dos de los cuatro tipos de desajuste no lo son", () => {
+    // `index_not_a_column` señala una columna que el dataset SÍ tiene, y `unmet_requirement` no
+    // habla de ninguna columna sino de una invariante del propio config (D-INV-2). El encabezado
+    // anterior («el config declara N columnas que el dataset no tiene») era falso en ambos.
+    const texto = preflightHeadline({
+      kind: "issues",
+      mismatches: [mismatch("stability.temporal_axis")],
+      uninspected: [],
+    })
+
+    expect(texto).not.toContain("columna")
   })
 })
 
