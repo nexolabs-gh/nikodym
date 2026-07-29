@@ -119,7 +119,7 @@ tracking = ["mlflow>=2.10"]                # Apache-2.0 (runs/registry, SDD-04)
 # `kaplan_meier`/`cox_aft` desde la UI exige lifelines. Lo que NO entra es lo que el formulario no
 # ofrece (`ml`, `tuning`, `explain`, `markov`, `forward`) ni `[pdf]`, que arrastra copyleft y por eso
 # tampoco está en `all`. El gate `tests/unit/test_extra_ui_cubre_el_formulario.py` lo hace cumplir.
-ui       = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "nikodym[scoring]", "nikodym[survival]", "nikodym[excel]", "nikodym[docx]"]   # MIT / BSD-3 / Apache-2.0 (interfaz local completa, SDD-23); multipart = uploads UploadFile
+ui       = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "nikodym[scoring]", "nikodym[survival]", "nikodym[excel]", "nikodym[docx]", "nikodym[report]"]   # MIT / BSD-3 / Apache-2.0 / PSF (interfaz local completa, SDD-23); multipart = uploads UploadFile; `report` = matplotlib, porque el formulario ofrece `report.html.render_charts` y viene en True
 # RETIRADO 2026-07-24 — extra `sweep` (hydra-core + omegaconf, "barridos CLI"): nunca tuvo consumidor
 # (no existe `src/nikodym/sweep/` ni un import de hydra/omegaconf en el paquete), pero entraba en `all`,
 # así que todo `pip install "nikodym[all]"` bajaba hydra-core, omegaconf y antlr4-python3-runtime para

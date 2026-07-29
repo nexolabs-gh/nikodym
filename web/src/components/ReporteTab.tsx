@@ -26,7 +26,7 @@ import {
   REPORT_FILENAME,
   REPORT_PDF_FILENAME,
   reportErrorMessage,
-  reportPdfErrorMessage,
+  reportDownloadErrorMessage,
 } from "@/lib/report"
 import { useAppState } from "@/state/appStore"
 
@@ -69,15 +69,27 @@ type DownloadState =
 /** Qué pedir, cómo llamar al archivo y qué botón mostrar, por entregable. */
 const ENTREGABLES: Record<
   Entregable,
-  { fetch: (runId: string) => Promise<Blob>; filename: string; label: string }
+  { fetch: (runId: string) => Promise<Blob>; filename: string; label: string; nombre: string }
 > = {
-  pdf: { fetch: getReportPdf, filename: REPORT_PDF_FILENAME, label: "Descargar PDF" },
+  pdf: {
+    fetch: getReportPdf,
+    filename: REPORT_PDF_FILENAME,
+    label: "Descargar PDF",
+    // `nombre` es cómo se llama el archivo DENTRO de la frase del error, no la etiqueta del botón.
+    nombre: "PDF",
+  },
   editable: {
     fetch: getReportEditable,
     filename: REPORT_EDITABLE_FILENAME,
     label: "Base editable (Quarto)",
+    nombre: "archivo editable (Quarto)",
   },
-  docx: { fetch: getReportDocx, filename: REPORT_DOCX_FILENAME, label: "Word (.docx)" },
+  docx: {
+    fetch: getReportDocx,
+    filename: REPORT_DOCX_FILENAME,
+    label: "Word (.docx)",
+    nombre: "documento Word",
+  },
 }
 
 /**
@@ -142,7 +154,10 @@ export function ReporteTab({ onNavigate }: ReporteTabProps) {
       downloadBlob(blob, entregable.filename)
       setDownload({ kind: "idle" })
     } catch (err) {
-      setDownload({ kind: "error", message: reportPdfErrorMessage(err) })
+      setDownload({
+        kind: "error",
+        message: reportDownloadErrorMessage(err, entregable.nombre),
+      })
     }
   }
 

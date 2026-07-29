@@ -89,7 +89,10 @@ export function PreflightNotice({ state, section, onJump }: PreflightNoticeProps
         <span>{titulo}</span>
       </p>
       <p className="mt-1 opacity-90">
-        Puedes ejecutar de todos modos: esto es un aviso, no un bloqueo. Corregir los nombres
+        {/* «Corregir los nombres» era falso para `unmet_requirement`: ahí no hay ningún nombre
+            que corregir, sino una invariante del propio config (p. ej. un eje temporal activo sin
+            columna de período). Se dice «lo pendiente», que cubre los cuatro tipos. */}
+        Puedes ejecutar de todos modos: esto es un aviso, no un bloqueo. Corregir lo pendiente
         antes evita una corrida que probablemente falle.
       </p>
       <MismatchList mismatches={state.mismatches} onJump={onJump} />

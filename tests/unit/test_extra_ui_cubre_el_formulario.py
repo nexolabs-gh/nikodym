@@ -43,14 +43,20 @@ EXTRA_POR_SECCION = {
     "provisioning_internal": "scoring",
     "provisioning_ifrs9": "scoring",
     "provisioning": "scoring",
-    # El informe HTML es NÚCLEO (Jinja2 es dependencia base), así que la sección corre sin extra.
-    # Sus formatos opcionales ya viajan en `[ui]`: `docx` (Word) y `excel` (tablas). El `.qmd` es
-    # texto y no admite degradación. La excepción declarada es `pdf` (WeasyPrint): `formats` es
-    # editable desde esta sección, así que se puede pedir un PDF que `[ui]` NO trae —y no lo va a
-    # traer nunca, por la transitiva copyleft que el cierre redistribuible no acepta—. Degrada con
-    # gracia (aviso + `pdf_path=None`) y ya venía en los `formats` del preset antes de esta
-    # sección, así que exponerlo en el formulario no promete nada nuevo.
-    "report": None,
+    # ⚠️ `report` y NO `None`, aunque el HTML del informe sea núcleo (Jinja2 es dependencia base).
+    # La razón la midió la auditoría previa a `1.10.0`: el formulario ofrece
+    # `report.html.render_charts`, que viene en `True` y cuyo motor (`report/charts.py`) importa
+    # matplotlib — el extra `report`—. Hoy matplotlib llega igual por transitividad de `optbinning`
+    # y `lifelines`, así que declararlo `None` daba verde por accidente, no por diseño: el día que
+    # una de esas dos lo deje de arrastrar, `[ui]` levanta un formulario que produce informes sin
+    # gráficos. Los otros formatos opcionales ya viajaban: `docx` (Word) y `excel` (tablas); el
+    # `.qmd` es texto y no admite degradación.
+    #
+    # La excepción declarada sigue siendo `pdf` (WeasyPrint): `formats` es editable desde esta
+    # sección, así que se puede pedir un PDF que `[ui]` NO trae —y no lo va a traer nunca, por la
+    # transitiva copyleft que el cierre redistribuible no acepta—. Degrada con gracia (aviso +
+    # `pdf_path=None`) y ya venía en los `formats` del preset antes de esta sección.
+    "report": "report",
 }
 
 

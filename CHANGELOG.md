@@ -5,6 +5,72 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [1.10.0] — 2026-07-29
+
+**El formulario de la interfaz deja de ser una vitrina: ya se puede llevar un dataset propio del
+archivo al informe sin escribir una línea de YAML.** Hasta la `1.9.0` ese camino estaba cortado en
+tres sitios distintos, y el corte no se veía hasta que uno lo intentaba de verdad.
+
+### Añadido
+
+- **Elegir las variables del binning ya es posible.** Los tres multiselect de `binning`
+  —`feature_columns`, `exclude_columns`, `categorical_columns`— pintaban **«Sin opciones.»** incluso
+  con las variables ya dentro del config: no es que no se pudieran editar, es que **no se podía ni
+  ver qué variables entraban al modelo**. Una lista de nombres de columna no puede traer sus
+  opciones en el schema —dependen del archivo que cargues—, y era lo único que el formulario miraba.
+  Ahora las opciones **salen del dataset activo**, y un valor que el archivo no trae se conserva
+  marcado en vez de borrarse en silencio.
+
+- **Las once listas de objetos del config se editan fila a fila.** `data.schema.columns` era un
+  `<textarea>` de cinco líneas con 1.552 caracteres de JSON crudo, etiquetado «Editor JSON (tipo no
+  mapeado)». Ahora cada fila tiene sus campos, con botones para añadir, eliminar y reordenar. Efecto
+  colateral medido: los avisos del preflight que **enfocan el campo exacto** al hacer click pasan de
+  **0 a 18 de 18** — el salto ya probaba del id más específico al más general, sólo le faltaba que
+  el campo existiera.
+
+- **La interfaz ofrece la sección «Informe»**, con la **portada del entregable** (modelo, entidad,
+  cartera, responsable del desarrollo, versión), el idioma, los formatos de salida y qué capítulos
+  exige el documento. Antes esos cinco campos sólo se escribían por YAML o por código, así que el
+  informe que salía del camino por interfaz llegaba con la primera página en blanco. El catálogo de
+  secciones editables pasa de 13 a 14.
+
+- **El config se comprueba contra sus propias invariantes, no sólo contra los nombres de columna.**
+  `nikodym.check_dataset` avisa ahora de cinco requisitos que un config puede incumplir aunque todas
+  sus columnas existan; el caso que lo motivó: con partición aleatoria y `stability.temporal_axis`
+  en su default `"period"`, la corrida moría **en el paso 8 de 10** con las dos comprobaciones
+  previas en verde. Entran además `data.partition.strategy.oot_from` en blanco o no parseable como
+  fecha, `validation.families` vacío, y `stability.comparisons` / `performance.partitions` con
+  duplicados.
+  Cada aviso nombra su campo y **avisa sin bloquear**: la corrida sigue siendo la autoridad sobre sí
+  misma.
+
+### Cambiado
+
+- **El error de validación de esquema se lee como una frase, no como un volcado de `pandera`.**
+  Decía «validación lazy=True … check: `column_in_dataframe`; valor ofensor: …; índice: `<sin
+  valor>`» y lo lee un usuario, no un desarrollador de la librería. Ahora explica en español qué
+  columna falta, qué tipo se esperaba o qué regla se incumplió. Es copy público: el código interno
+  no viaja al lector.
+
+- **`report.sections.required_sections` declara que sus valores no son columnas.** Nombra secciones
+  del informe, y sin esa declaración el formulario lo trataba como una lista de columnas y marcaba
+  sus ocho valores de fábrica como ausentes del dataset. No amplía el alcance del preflight.
+
+### Corregido
+
+- **`ReportResult.html_path` apuntaba a un archivo que no existe** cuando `report.output_dir` es
+  **relativo** —el caso por defecto de quien usa la librería por código, porque es lo que trae el
+  preset F1—: devolvía `reports/reports/scorecard_report.html` en vez de
+  `reports/scorecard_report.html`. Los otros tres formatos nunca tuvieron el defecto. Quien lea el
+  HTML por esa ruta pasa de un `FileNotFoundError` a abrir el informe.
+
+- **El aviso del preflight ya no llama «columnas» a lo que no lo es**, y el mensaje del eje temporal
+  nombra la opción con el literal que el selector muestra de verdad.
+
+Aditivo: **no cambia el `config_hash`** de ningún config existente, ni el veredicto de `/api/run`,
+ni ninguna firma del pipeline F1. Sale como MINOR porque añade capacidades de interfaz y de
+comprobación, no porque mueva identidad.
+
 ## [1.9.0] — 2026-07-28
 
 ### Añadido

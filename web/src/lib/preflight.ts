@@ -78,7 +78,7 @@ export function sectionOfPath(path: string): string {
  * ¿El formulario ofrece esta sección? Decide si un desajuste puede ofrecer «ir al campo».
  *
  * ⚠️ No todas las secciones del config están en el formulario, y el preflight lo destapa: hoy el
- * motor trae 22 secciones de dominio y `CONFIG_SECTIONS` ofrece 13, así que un desajuste puede
+ * motor trae 22 secciones de dominio y `CONFIG_SECTIONS` ofrece 14, así que un desajuste puede
  * caer en una sección sin pestaña a la que saltar. Ofrecer un salto a una pestaña que no existe sería peor
  * que no ofrecerlo: el aviso lo dice en vez de fingir. (`stability` fue el caso que destapó esto y
  * **ya está** en `CONFIG_SECTIONS` desde `d842ccd`; el criterio, no.)
@@ -122,9 +122,12 @@ export function runHint(state: PreflightState): string | null {
       "no sabe leer. Puedes ejecutar igual."
     )
   }
+  // ⚠️ El sujeto es el CONFIG, no el dataset: `unmet_requirement` son invariantes internas que no
+  // dependen del archivo (`requisitos_incumplidos` recibe las columnas y hace `del columnas`).
+  // Decir «el dataset no calza» sobre un `oot_from` mal escrito culpa a quien no tiene la culpa.
   return n === 1
-    ? "El dataset no calza con 1 campo del config. Puedes ejecutar igual, pero es probable que la corrida falle."
-    : `El dataset no calza con ${n} campos del config. Puedes ejecutar igual, pero es probable que la corrida falle.`
+    ? "Hay 1 campo del config pendiente. Puedes ejecutar igual, pero es probable que la corrida falle."
+    : `Hay ${n} campos del config pendientes. Puedes ejecutar igual, pero es probable que la corrida falle.`
 }
 
 /**
@@ -147,8 +150,8 @@ export function preflightHeadline(state: PreflightState): string | null {
       const n = state.mismatches.length
       if (n === 0) return "Hay partes del config que no se pudieron comparar con el dataset."
       return n === 1
-        ? "Hay 1 campo del config que el dataset no satisface."
-        : `Hay ${n} campos del config que el dataset no satisface.`
+        ? "Hay 1 campo del config pendiente antes de ejecutar."
+        : `Hay ${n} campos del config pendientes antes de ejecutar.`
     }
     default:
       return null

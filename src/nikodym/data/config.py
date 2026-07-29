@@ -604,6 +604,11 @@ class TemporalSplitConfig(NikodymBaseConfig):
         ``oot_from`` es un ``str`` libre —no hay validador de formato— y el único punto que lo
         parsea vive ya dentro del paso ``data``, el **primero** del pipeline: una fecha mal escrita
         tumbaba la corrida después de haber cargado el archivo entero.
+
+        ⚠️ **No basta con atrapar la excepción**: ``pandas`` devuelve ``NaT`` **sin levantar** para
+        ``""`` y para ``"nan"``, así que un ``oot_from`` vacío —el caso más probable de todos, y
+        justo el que el aviso existe para cazar— se iba en silencio. Se comprueba el resultado, no
+        sólo que no explote.
         """
         del columnas  # no depende del dataset
         try:  # import perezoso: la config no arrastra pandas al importarse
@@ -611,20 +616,24 @@ class TemporalSplitConfig(NikodymBaseConfig):
         except ImportError:  # pragma: no cover - sin pandas no hay corrida que avisar
             return ()
         try:
-            pd.Timestamp(self.oot_from)
+            ilegible = pd.isna(pd.Timestamp(self.oot_from))
         except ValueError:
-            return (
-                Requisito(
-                    path="oot_from",
-                    declared=self.oot_from,
-                    message=(
-                        f"«{self.oot_from}» no es una fecha que el motor sepa leer, y la partición "
-                        f"temporal la necesita para separar el OOT. Escríbela en formato ISO 8601 "
-                        f"(por ejemplo 2024-07-01)."
-                    ),
-                ),
+            ilegible = True
+        if not ilegible:
+            return ()
+        # Copy público: citar un valor en blanco entre comillas («« »») no le dice nada al lector.
+        if self.oot_from.strip() == "":
+            aviso = (
+                "Falta la fecha desde la que empieza el OOT, y la partición temporal la necesita "
+                "para separarlo. Escríbela en formato ISO 8601 (por ejemplo 2024-07-01)."
             )
-        return ()
+        else:
+            aviso = (
+                f"«{self.oot_from}» no es una fecha que el motor sepa leer, y la partición "
+                f"temporal la necesita para separar el OOT. Escríbela en formato ISO 8601 "
+                f"(por ejemplo 2024-07-01)."
+            )
+        return (Requisito(path="oot_from", declared=self.oot_from, message=aviso),)
 
 
 class RandomSplitConfig(NikodymBaseConfig):

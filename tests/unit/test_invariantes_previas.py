@@ -131,6 +131,25 @@ def test_fecha_de_corte_oot_valida_no_avisa() -> None:
     assert cfg.requisitos_incumplidos(None) == ()
 
 
+@pytest.mark.parametrize("vacia", ["", "   ", "nan"])
+def test_fecha_de_corte_oot_vacia_avisa_aunque_pandas_no_levante(vacia: str) -> None:
+    """El caso más probable de todos se iba en silencio: `pandas` devuelve `NaT` sin levantar.
+
+    Hallado por la auditoría previa a `1.10.0`: atrapar `ValueError` no basta, porque
+    `pd.Timestamp("")` y `pd.Timestamp("nan")` **no** levantan — devuelven `NaT`—, así que un
+    `oot_from` en blanco pasaba el chequeo cuya razón de existir es justo esa fecha.
+    """
+    cfg = TemporalSplitConfig(date_col="fecha", oot_from=vacia)
+
+    requisitos = cfg.requisitos_incumplidos(None)
+
+    assert [r.path for r in requisitos] == ["oot_from"]
+    # Copy público: un valor en blanco no se cita entre comillas, se nombra la carencia.
+    if vacia.strip() == "":
+        assert requisitos[0].message.startswith("Falta la fecha desde la que empieza el OOT")
+        assert "«" not in requisitos[0].message
+
+
 # ── la integración: lo que ve quien llama a la superficie pública ─────────────────────────────
 def test_check_dataset_publica_el_requisito_con_su_ruta_absoluta() -> None:
     """D-INV-5: el dominio declara rutas relativas y el recorrido les pone su prefijo.

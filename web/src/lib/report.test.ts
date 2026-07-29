@@ -5,7 +5,7 @@ import {
   REPORT_FILENAME,
   REPORT_PDF_FILENAME,
   reportErrorMessage,
-  reportPdfErrorMessage,
+  reportDownloadErrorMessage,
 } from "./report"
 
 describe("REPORT_FILENAME", () => {
@@ -49,31 +49,35 @@ describe("reportErrorMessage", () => {
   })
 })
 
-describe("reportPdfErrorMessage", () => {
+describe("reportDownloadErrorMessage", () => {
   it("ApiError 404 ⇒ mensaje claro de 'sin PDF' (el PDF es opt-in)", () => {
     const err = new ApiError("HTTP 404 en /api/report/pdf", 404)
-    expect(reportPdfErrorMessage(err)).toBe("Esta corrida no generó un PDF.")
+    expect(reportDownloadErrorMessage(err, "PDF")).toBe("Esta corrida no generó el PDF.")
+    // El defecto que cerró la auditoría de 1.10.0: los tres botones compartían el mensaje del PDF.
+    expect(reportDownloadErrorMessage(err, "documento Word")).toBe(
+      "Esta corrida no generó el documento Word.",
+    )
   })
 
   it("ApiError no-404 con detalle en el body ⇒ describeApiError (detalle del backend)", () => {
     const err = new ApiError("HTTP 422 en /api/report/pdf", 422, {
       detail: "el PDF falló al renderizar",
     })
-    expect(reportPdfErrorMessage(err)).toBe("el PDF falló al renderizar")
+    expect(reportDownloadErrorMessage(err, "PDF")).toBe("el PDF falló al renderizar")
   })
 
   it("ApiError no-404 sin body ⇒ cae al mensaje del error", () => {
     const err = new ApiError("HTTP 500 en /api/report/pdf", 500)
-    expect(reportPdfErrorMessage(err)).toBe("HTTP 500 en /api/report/pdf")
+    expect(reportDownloadErrorMessage(err, "PDF")).toBe("HTTP 500 en /api/report/pdf")
   })
 
   it("Error genérico (red) ⇒ su message", () => {
-    expect(reportPdfErrorMessage(new Error("Failed to fetch"))).toBe(
+    expect(reportDownloadErrorMessage(new Error("Failed to fetch"), "PDF")).toBe(
       "Failed to fetch",
     )
   })
 
   it("valor no-Error ⇒ su string", () => {
-    expect(reportPdfErrorMessage("boom")).toBe("boom")
+    expect(reportDownloadErrorMessage("boom", "PDF")).toBe("boom")
   })
 })

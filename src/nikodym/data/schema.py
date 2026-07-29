@@ -98,7 +98,10 @@ class SchemaValidator:
         ------
         DataValidationError
             Si pandera detecta incumplimientos. El mensaje agrega todos los fallos de
-            ``failure_cases`` en español, con columna, check, valor ofensor e índice.
+            ``failure_cases`` **explicados en español**: qué columna falta, qué tipo se esperaba o
+            qué regla se incumplió. Es copy público, así que **no** transporta los literales de
+            ``pandera`` (``column_in_dataframe``, ``not_nullable``, ``in_range``) ni el vocabulario
+            de su volcado — los lee un usuario, no quien desarrolla la librería.
         """
         del audit
         try:

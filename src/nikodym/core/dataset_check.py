@@ -104,14 +104,23 @@ class Mismatch:
     """
 
     declared: str
-    """El nombre de columna que el config declara y el dataset no satisface."""
+    """Lo que el config declara y el dataset no satisface.
+
+    ⚠️ **No siempre es un nombre de columna**, y por eso no se llama ``column``: con
+    ``kind="unmet_requirement"`` transporta el valor que incumple el requisito
+    —``"period"``, ``"desarrollo, desarrollo"``, ``"(ninguna)"``—, que no nombra ninguna columna.
+    Ningún consumidor debe presentarlo como columna sin mirar antes ``kind``.
+    """
 
     kind: TipoDesajuste
-    """Qué le pasa a la columna declarada.
+    """Qué es lo que no calza.
 
-    ``missing_column`` (no existe), ``index_not_a_column`` (existe, pero como columna corriente
-    donde se esperaba el índice) o ``missing_index`` (se esperaba el índice y el nombre no está
-    **ni** en el índice **ni** entre las columnas).
+    Los tres primeros hablan de una columna: ``missing_column`` (no existe),
+    ``index_not_a_column`` (existe, pero como columna corriente donde se esperaba el índice) y
+    ``missing_index`` (se esperaba el índice y el nombre no está **ni** en el índice **ni** entre
+    las columnas). El cuarto **no**: ``unmet_requirement`` es una invariante interna del config que
+    el dataset no puede satisfacer —p. ej. un eje temporal activo sobre un archivo sin columna de
+    período—, así que ``declared`` no trae una columna (D-INV-1…D-INV-9).
     """
 
     message: str

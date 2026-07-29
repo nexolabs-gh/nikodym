@@ -4161,8 +4161,8 @@
         "properties": {
           "api_key_env": {
             "default": "ANTHROPIC_API_KEY",
-            "description": "Nombre de la variable de entorno que contiene la API key del proveedor.",
-            "title": "Variable de API key",
+            "description": "Nombre de la variable de entorno donde está la credencial del proveedor. La credencial nunca se escribe en el config.",
+            "title": "Variable de entorno con la credencial",
             "type": "string",
             "ui_group": "Narrativa IA",
             "ui_order": 4,
@@ -4170,7 +4170,7 @@
           },
           "enabled": {
             "default": false,
-            "description": "Activa el enriquecimiento opcional de texto mediante proveedor IA.",
+            "description": "Deja que un proveedor de IA redacte texto de apoyo. Los números NO los toca: el cálculo y las tablas son siempre del motor.",
             "title": "Activar narrativa IA",
             "type": "boolean",
             "ui_group": "Narrativa IA",
@@ -4179,7 +4179,7 @@
           },
           "label_ai_text": {
             "default": true,
-            "description": "True marca explícitamente los bloques enriquecidos por IA.",
+            "description": "Marca en el informe qué bloques los redactó la IA.",
             "title": "Etiquetar texto generado por IA",
             "type": "boolean",
             "ui_group": "Narrativa IA",
@@ -4188,9 +4188,9 @@
           },
           "max_input_tokens": {
             "default": 12000,
-            "description": "Techo de tokens del payload sanitizado enviado al proveedor IA.",
+            "description": "Tope de tamaño del texto que se le envía al proveedor, ya depurado de datos crudos.",
             "minimum": 1000,
-            "title": "Máximo tokens entrada",
+            "title": "Máximo de tokens de entrada",
             "type": "integer",
             "ui_group": "Narrativa IA",
             "ui_order": 6,
@@ -4206,7 +4206,7 @@
               }
             ],
             "default": null,
-            "description": "Nombre del modelo IA opcional; None usa el default del narrador.",
+            "description": "Modelo a usar. Si se deja vacío, se usa el que el proveedor traiga por defecto.",
             "title": "Modelo IA",
             "ui_group": "Narrativa IA",
             "ui_order": 3,
@@ -4214,7 +4214,7 @@
           },
           "provider": {
             "default": "none",
-            "description": "Proveedor de narrativa IA; 'none' preserva la ruta básica sin red.",
+            "description": "Quién redacta el texto de apoyo. Con «none» el informe se escribe sin salir a la red.",
             "enum": [
               "anthropic",
               "none"
@@ -4228,7 +4228,7 @@
           "send_raw_data": {
             "const": false,
             "default": false,
-            "description": "Bloqueado: la narrativa IA nunca recibe datos crudos; solo admite False.",
+            "description": "Bloqueado: la narrativa IA nunca recibe datos crudos.",
             "title": "Enviar datos crudos",
             "type": "boolean",
             "ui_group": "Narrativa IA",
@@ -4237,10 +4237,10 @@
           },
           "timeout_seconds": {
             "default": 20.0,
-            "description": "Tiempo máximo en segundos para una llamada de narrativa IA.",
+            "description": "Cuánto se espera una respuesta del proveedor antes de seguir sin ella.",
             "maximum": 120.0,
             "minimum": 1.0,
-            "title": "Timeout IA",
+            "title": "Espera máxima por respuesta (segundos)",
             "type": "number",
             "ui_group": "Narrativa IA",
             "ui_order": 5,
@@ -4283,7 +4283,7 @@
           },
           "placeholders": {
             "default": "show",
-            "description": "'show' publica los bloques POR COMPLETAR con su guía de redacción; 'hide' los oculta para la versión final del entregable.",
+            "description": "Los bloques que firma quien valida: «show» los publica con su guía de redacción, «hide» los oculta para la versión final del entregable.",
             "enum": [
               "show",
               "hide"
@@ -4322,8 +4322,8 @@
         "properties": {
           "fail_if_unavailable": {
             "default": false,
-            "description": "True convierte la ausencia de python-docx en error; False emite un aviso y omite el .docx sin tumbar la corrida.",
-            "title": "Fallar si python-docx no está disponible",
+            "description": "Si falta la librería que escribe el .docx: activado detiene la corrida; apagado deja un aviso y entrega el informe en los demás formatos.",
+            "title": "Detener la corrida si el Word no se puede generar",
             "type": "boolean",
             "ui_group": "Word",
             "ui_order": 1,
@@ -4339,8 +4339,8 @@
         "properties": {
           "deterministic_ids": {
             "default": true,
-            "description": "True deriva IDs de secciones y figuras sin azar ni timestamps de pared.",
-            "title": "IDs determinísticos",
+            "description": "Nombra las secciones y las figuras a partir de su contenido, sin azar ni la hora del reloj: dos corridas iguales producen un archivo idéntico.",
+            "title": "Identificadores reproducibles",
             "type": "boolean",
             "ui_group": "HTML",
             "ui_order": 5,
@@ -4348,8 +4348,8 @@
           },
           "embed_assets": {
             "default": true,
-            "description": "True embebe CSS, figuras y assets necesarios para un HTML standalone.",
-            "title": "Embeder assets",
+            "description": "Guarda los estilos y las figuras DENTRO del archivo HTML, para que se pueda abrir o enviar por correo sin carpetas adjuntas.",
+            "title": "Incrustar estilos e imágenes",
             "type": "boolean",
             "ui_group": "HTML",
             "ui_order": 3,
@@ -4357,7 +4357,7 @@
           },
           "include_interactive_charts": {
             "default": false,
-            "description": "Activa gráficos interactivos opcionales si el backend está disponible.",
+            "description": "Añade gráficos interactivos cuando la librería que los dibuja está instalada. Si no está, el informe sale igual con los gráficos fijos.",
             "title": "Gráficos interactivos",
             "type": "boolean",
             "ui_group": "HTML",
@@ -4366,7 +4366,7 @@
           },
           "render_charts": {
             "default": true,
-            "description": "True embebe los gráficos SVG deterministas del informe en cada sección.",
+            "description": "Dibuja los gráficos del informe dentro de cada sección.",
             "title": "Renderizar gráficos",
             "type": "boolean",
             "ui_group": "HTML",
@@ -4405,17 +4405,17 @@
         "properties": {
           "enabled": {
             "default": false,
-            "description": "Solo aplica al uso directo del renderizador PDF. En una corrida, el PDF se activa incluyendo 'pdf' en `formats`.",
+            "description": "Solo aplica al uso directo del renderizador PDF. En una corrida, el PDF se activa marcándolo en «Formatos del informe».",
             "title": "Activar PDF",
             "type": "boolean",
             "ui_group": "PDF",
             "ui_order": 1,
-            "ui_widget": "checkbox"
+            "ui_widget": "hidden"
           },
           "fail_if_unavailable": {
             "default": false,
-            "description": "True convierte la ausencia de WeasyPrint en error en vez de fallback a HTML.",
-            "title": "Fallar si WeasyPrint no está disponible",
+            "description": "Si el motor de PDF no está instalado en el sistema: activado detiene la corrida; apagado deja un aviso y entrega el informe en los demás formatos.",
+            "title": "Detener la corrida si el PDF no se puede generar",
             "type": "boolean",
             "ui_group": "PDF",
             "ui_order": 2,
@@ -4450,7 +4450,7 @@
           },
           "missing_policy": {
             "default": "error",
-            "description": "Acción ante secciones ausentes: error, warning o salto explícito.",
+            "description": "Qué hacer si el informe no encuentra una de esas secciones: «error» detiene la corrida, «warn» deja un aviso y sigue, «skip» la omite en silencio.",
             "enum": [
               "error",
               "warn",
@@ -8978,8 +8978,8 @@
             "properties": {
               "ai": {
                 "$ref": "#/$defs/report__AiNarrationConfig",
-                "description": "Config de enriquecimiento narrativo opcional mediante IA.",
-                "title": "Narrativa IA",
+                "description": "Redacción opcional asistida. Nunca toca los números ni las tablas.",
+                "title": "Texto de apoyo con IA",
                 "ui_group": "Narrativa IA",
                 "ui_order": 1,
                 "ui_widget": "section"
@@ -8995,16 +8995,16 @@
               },
               "document": {
                 "$ref": "#/$defs/report__DocumentStructureConfig",
-                "description": "Metadatos de portada y política de bloques por completar del informe.",
-                "title": "Documento",
+                "description": "De qué entidad y de qué cartera es el modelo, quién lo desarrolló y con qué versión: los datos que el motor no puede inferir y que imprime en la primera página.",
+                "title": "Portada y bloques por completar",
                 "ui_group": "Documento",
                 "ui_order": 1,
                 "ui_widget": "section"
               },
               "docx": {
                 "$ref": "#/$defs/report__DocxRenderConfig",
-                "description": "Config del export .docx opcional del informe mediante python-docx.",
-                "title": "Word",
+                "description": "Qué hacer si falta la librería que escribe el .docx.",
+                "title": "Opciones del Word",
                 "ui_group": "Word",
                 "ui_order": 1,
                 "ui_widget": "section"
@@ -9013,7 +9013,7 @@
                 "default": [
                   "html"
                 ],
-                "description": "Formatos generados por el informe. Documentos: 'html' (siempre), 'pdf' (extra `pdf`, WeasyPrint + nativas) y las fuentes editables 'md' (Quarto/Markdown, sin extras) y 'docx' (Word, extra `docx`). Exports de datos: 'csv' y 'xlsx' (extra `excel`) entregan COMPLETAS las tablas por observación, que no viven en el documento. Todo formato ofrecido aquí tiene motor detrás: el enum no publica opciones que la corrida no pueda cumplir. Default: solo 'html'.",
+                "description": "Qué se genera. Documentos del informe: «html» (siempre disponible), «pdf» (exige el motor de PDF instalado en el sistema) y las fuentes editables «md» (Quarto) y «docx» (Word). Y dos exports de datos, «csv» y «xlsx», que entregan COMPLETAS las tablas por observación que no caben en el documento: **quedan como archivos en el directorio de salida**, no entre los botones de descarga. Por defecto sale solo «html».",
                 "items": {
                   "enum": [
                     "html",
@@ -9033,8 +9033,8 @@
               },
               "html": {
                 "$ref": "#/$defs/report__HtmlRenderConfig",
-                "description": "Config del render HTML básico standalone.",
-                "title": "HTML",
+                "description": "Cómo se arma el HTML, que es el formato que sale siempre.",
+                "title": "Opciones del HTML",
                 "ui_group": "HTML",
                 "ui_order": 1,
                 "ui_widget": "section"
@@ -9060,8 +9060,8 @@
               },
               "pdf": {
                 "$ref": "#/$defs/report__PdfRenderConfig",
-                "description": "Config del PDF opcional del informe mediante WeasyPrint.",
-                "title": "PDF",
+                "description": "Qué hacer si el motor de PDF no está instalado en el sistema.",
+                "title": "Opciones del PDF",
                 "ui_group": "PDF",
                 "ui_order": 1,
                 "ui_widget": "section"
@@ -9077,8 +9077,8 @@
               },
               "sections": {
                 "$ref": "#/$defs/report__SectionPolicyConfig",
-                "description": "Config de secciones obligatorias, faltantes y límites de tablas.",
-                "title": "Secciones",
+                "description": "Qué capítulos espera encontrar el informe y qué hacer si falta alguno.",
+                "title": "Capítulos exigidos",
                 "ui_group": "Secciones",
                 "ui_order": 1,
                 "ui_widget": "section"

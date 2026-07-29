@@ -42,14 +42,19 @@ export function reportErrorMessage(err: unknown): string {
 }
 
 /**
- * Igual que `reportErrorMessage`, pero para la descarga del PDF. El PDF es opt-in (se pide vía
- * `formats`), así que un `ApiError` 404 significa que la corrida existe pero NO generó PDF →
- * mensaje claro y específico. El resto del mapeo es idéntico. PURO: no toca red ni DOM.
+ * Igual que `reportErrorMessage`, pero para la descarga de un entregable binario. Los tres son
+ * opt-in (se piden marcándolos en `report.formats`), así que un `ApiError` 404 significa que la
+ * corrida existe pero NO generó ESE formato. PURO: no toca red ni DOM.
+ *
+ * ⚠️ `entregable` NO es opcional a propósito. Antes el mensaje decía «no generó un PDF» fijo y los
+ * tres botones lo compartían, así que pulsar «Word (.docx)» sobre una corrida sin `docx` acusaba al
+ * PDF. No se veía porque `report.formats` sólo se editaba por YAML; desde que el formulario lo
+ * ofrece, está a dos clicks. Un default aquí reintroduciría el defecto en silencio.
  */
-export function reportPdfErrorMessage(err: unknown): string {
+export function reportDownloadErrorMessage(err: unknown, entregable: string): string {
   if (err instanceof ApiError) {
     if (err.status === 404) {
-      return "Esta corrida no generó un PDF."
+      return `Esta corrida no generó el ${entregable}.`
     }
     return describeApiError(err.body, err.message)
   }
