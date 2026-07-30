@@ -9,7 +9,40 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-30, cierre)
+## Estado del proyecto (2026-07-30 mediodía, cierre)
+
+**`main` = `423e1a6`, sin un solo cambio de código en la sesión del material de cámara.** No se tocó
+`src/`, `web/` ni `pyproject.toml`, así que los gates del repo siguen siendo los del cierre anterior.
+**PyPI publica `1.10.0`.**
+
+🔴 **El material del webinar está terminado y verificado ejecutándolo**: dos notebooks, el guion, una
+presentación de 12 láminas en HTML y dos YAML de respaldo, en `~/Downloads/webinar-nikodym-hmeq/` y
+versionados en `privado/webinar-material/` **con sus generadores** (los `.ipynb` y los YAML se
+regeneran, no se editan a mano). Números: `done` en 10–15 s, AUC **0,9175 / 0,8872 / 0,9133**,
+PSI ≤ 0,0113, 9 finales con signo correcto, 0 avisos, PDF 310 KB, `config_hash e5868bd6…` ·
+`data_hash b6c9f33a…` por los tres caminos.
+
+🔴 **La validación formal de HMEQ cierra en `fail`** (Hosmer-Lemeshow rechaza en dos de tres
+particiones) y el informe lo publica en su resumen ejecutivo. No es un defecto: HL castiga el tamaño
+de muestra, la calibración en nivel es exacta y la discriminación no está en duda. Es material de
+guion, no de código.
+
+🔴 **Defecto real del motor, medido y sin corregir: `feature_columns="*"` no excluye las columnas del
+`bad_rule`.** `_structural_columns` (`binning/step.py`) excluye `target_col`, que es la columna
+**derivada**, no los insumos de la regla. Con una regla «más de 90 días de mora», la columna de mora
+entra como predictor: fuga con AUC inflado. Va por SDD (cambia comportamiento y mueve hashes).
+
+⚠️ **Dos kernels de Jupyter se llaman «nikodym»** y hasta hoy sólo uno declaraba
+`DYLD_FALLBACK_LIBRARY_PATH`: con el otro la corrida termina `done` **sin PDF**. Ya corregido en
+`.venv/share/jupyter/kernels/python3/kernel.json`; se pierde si se recrea el venv. Y Jupyter vive
+fuera de `pyproject.toml` (`uv pip install jupyterlab`), así que **un `uv sync` lo borra**.
+
+⚠️ **La identidad de marca es canónica y vive en `web/src/styles/tokens.css`** (navy `#051528`,
+acento `#2e6ff2`, cyan `#4fc3e8`, Avenir Next + Inter). Todo material visual nuevo sale de ahí.
+
+---
+
+### Lo de la sesión anterior (2026-07-30 madrugada, `3f646ae`)
 
 **`main` = `3f646ae`, CI 16/16 confirmado con `gh`, todo pusheado.** **PyPI publica `1.10.0`** (tag
 `v1.10.0` sobre `9a85a53`) — ⚠️ **los arreglos del 2026-07-30 no están publicados**; publicar

@@ -5,7 +5,62 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-30, `3f646ae`, **CI 16/16 confirmado con `gh`**, todo pusheado)
+> ## Lo último (2026-07-30 mediodía, `423e1a6`, **sin un solo cambio de código en la sesión**)
+>
+> 🔴 **El material de cámara del webinar está TERMINADO y verificado ejecutándolo**: dos notebooks,
+> el guion minuto a minuto, una presentación de 12 láminas en HTML y dos YAML de respaldo. Vive en
+> `~/Downloads/webinar-nikodym-hmeq/` y versionado en `privado/webinar-material/` **con sus tres
+> generadores**, que son la fuente: los `.ipynb` y los YAML se regeneran, no se editan a mano.
+>
+> 🔴 **La validación formal de HMEQ cierra en `fail`, y el informe lo publica en su resumen
+> ejecutivo** («2 de 3 tests fallidos · Falla técnica»). Hosmer-Lemeshow rechaza en desarrollo
+> (p = 0,0017) y holdout (p = 0,0029) y pasa en OOT (p = 0,168). **No es un defecto**: HL castiga el
+> tamaño de muestra, la calibración en nivel es exacta (19,7142 % contra 19,7142 %, Brier 0,081) y la
+> discriminación no está en duda. Hay que **decirlo antes de abrir el informe en cámara**; bien
+> contado es el mejor argumento de credibilidad que tiene la demo.
+>
+> ✅ **El config mínimo funciona: se declara el target y el resto se infiere.**
+> `binning.feature_columns = "*"` (el **default** del motor) + `exclude_columns=["BAD"]` +
+> `categorical_columns=[]` dan **exactamente el mismo resultado** que enumerar las doce variables
+> —mismas 9 finales, mismos AUC— y `REASON`/`JOB` se reconocen categóricas por su tipo. En la
+> interfaz es el interruptor «Todas las variables disponibles», que baja **Optimal Binning de 21
+> clicks a 3** y el recorrido completo de ~50 interacciones a ~20. `config_hash` pasó a
+> **`e5868bd6…`** (el `data_hash b6c9f33a…` no se movió).
+>
+> 🔴 **Y ahí un defecto REAL del motor, medido y sin corregir: con `feature_columns="*"`, las
+> columnas que alimentan el `bad_rule` NO se excluyen.** `BAD` entró al binning como variable; aquí
+> quedó neutralizada por casualidad (IV 0,0000, un bin), pero con una regla «más de 90 días de mora»
+> la columna de mora entraría como predictor: **fuga con AUC inflado**. Causa localizada:
+> `_structural_columns` (`binning/step.py`) excluye `target_col`, que es la columna **derivada**
+> (`target`), no los insumos de la regla — que son inferibles del propio config. Va por SDD: cambia
+> comportamiento y mueve hashes.
+>
+> ⚠️ **Hay DOS kernels de Jupyter llamados «nikodym» y hasta hoy sólo uno generaba PDF.** JupyterLab
+> autodetecta el del venv y lo bautiza con el nombre del entorno (`display_name` «nikodym
+> (3.12.13.final.0)», `name: python3`), así que el menú ofrecía dos entradas indistinguibles y una no
+> llevaba `DYLD_FALLBACK_LIBRARY_PATH`: con ésa **la corrida termina `done` y sólo falta el PDF**. Se
+> le añadió el bloque `env` a `.venv/share/jupyter/kernels/python3/kernel.json`; **si se recrea el
+> venv hay que reponerlo**. Y ojo: Jupyter se instaló con `uv pip install jupyterlab` fuera de
+> `pyproject.toml`, así que **un `uv sync` lo borra**.
+>
+> ⚠️ **Dos lecciones de método que costaron una ejecución fallida:** (a) **quitar una defensa por
+> limpiar el copy** convirtió un fallo menor en desastre — la celda del informe hacía
+> `Path(rep.pdf_path)` sin comprobar `None`, y sin el `assert` del estado de la corrida un fallo en
+> `run` encadenaba quince errores que escondían la causa; (b) **`Mismatch` expone `path`/`message`,
+> no `field`/`reason`**, y los `.py` del plan B traían esa línea mal desde siempre sin que se notara,
+> porque **sólo se ejecuta cuando hay desajustes**, o sea justo cuando importa.
+>
+> ⚠️ **`check_dataset` da 18 desajustes por código y 19 por interfaz, y ambas son correctas:** el
+> 19.º es `index_col`, que sólo se emite pasando `index_columns=[]`. Omitirlo significa «no lo sé».
+>
+> ⚠️ **Nikodym tiene identidad de marca canónica en `web/src/styles/tokens.css`** (navy `#051528`,
+> acento `#2e6ff2`, cyan `#4fc3e8` de detalle, Avenir Next + Inter, sombra de la casa), portada 1:1
+> desde la web en producción. Cualquier material visual nuevo sale de ahí: la primera versión de la
+> presentación se inventó una paleta y no se parecía ni al producto ni a la landing.
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-07-30 madrugada, `3f646ae`, **CI 16/16 confirmado con `gh`**)
 >
 > 🔴 **EL WEBINAR ES HOY, 2026-07-30, POR LA TARDE. El ensayo está HECHO y lo único que queda es el
 > GUION y la PPT** — Cami los puso explícitamente al final, «con los tiempos ya medidos». Están
