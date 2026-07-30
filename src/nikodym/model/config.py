@@ -452,7 +452,10 @@ class ModelConfig(NikodymBaseConfig):
     fail_if_no_features: bool = Field(
         default=True,
         title="Fallar si no queda ninguna variable",
-        description="Si True, una selección final vacía aborta en vez de aceptar solo intercepto.",
+        description=(
+            "Si está activado, una selección final vacía detiene la corrida en vez de aceptar un "
+            "modelo con sólo intercepto."
+        ),
         json_schema_extra={
             "ui_widget": "checkbox",
             "ui_group": "Salida",

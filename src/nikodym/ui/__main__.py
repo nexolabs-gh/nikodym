@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from nikodym.ui.exceptions import UiDependencyError, UiError
+from nikodym.ui.runs import asegurar_workdir
 from nikodym.ui.runtime import LOOPBACK_HOST, RuntimeContext, build_runtime
 from nikodym.ui.settings import UiConfig
 
@@ -147,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
         # REST que parezca una UI sana, y el navegador no se abre.
         runtime = build_runtime(port=args.port, workdir=workdir, static_dir=None)
         reservado = _reservar_socket(args.port)
-        workdir.mkdir(parents=True, exist_ok=True)
+        asegurar_workdir(workdir)
         # Uvicorn omite su mensaje de arranque cuando se le pasan `sockets`: sin este print, con
         # --no-open el usuario se queda sin saber dónde entrar.
         print(f"Nikodym UI en {runtime.url}  (Ctrl-C para salir)")

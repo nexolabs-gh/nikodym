@@ -29,6 +29,10 @@ import {
   type PresetSummary,
   type RunStatus,
 } from "@/lib/api"
+import {
+  configEditadoRespectoDelPreset,
+  configFingerprint,
+} from "@/lib/bootstrap"
 import { presetDisplay } from "@/lib/presentation"
 import { runHint } from "@/lib/preflight"
 import { canRun, describeApiError } from "@/lib/validation"
@@ -67,7 +71,14 @@ export async function applyPreset(
   deps.setConfig(structuredClone(preset.config))
   deps.setDatasetId(preset.dataset_id)
   deps.setSelectedDataset(null)
-  deps.setSeed({ kind: "preset", name: preset.name, datasetId: preset.dataset_id })
+  deps.setSeed({
+    kind: "preset",
+    name: preset.name,
+    datasetId: preset.dataset_id,
+    // La huella de lo recién sembrado: a partir de aquí, cualquier diferencia es edición del
+    // usuario, y el selector deja de poder afirmar que el config «es» este preset.
+    fingerprint: configFingerprint(preset.config),
+  })
   // Corte con la corrida previa: su dominio ya no aplica al preset recién sembrado.
   deps.setResults(null)
   deps.setLastRun(null)
@@ -124,6 +135,8 @@ export function RunTab({ onNavigate }: RunTabProps) {
   // el selector mientras se resiembra el config/dataset del preset elegido.
   const [presets, setPresets] = useState<PresetSummary[]>([])
   const [switching, setSwitching] = useState(false)
+  // Preset al que se quiere cambiar teniendo el config editado: espera confirmación (ver §M5).
+  const [confirmar, setConfirmar] = useState<PresetSummary | null>(null)
 
   const gate = canRun(validation, datasetId)
   // Aviso del preflight (D-PRE-5): cambia el ASPECTO del botón y pone la advertencia al lado, pero
@@ -157,6 +170,24 @@ export function RunTab({ onNavigate }: RunTabProps) {
     seed?.kind === "preset"
       ? (presets.find((p) => p.name === seed.name) ?? null)
       : null
+
+  // ¿El config sigue siendo el que sembró ese preset, o el usuario lo trabajó? Decide dos cosas:
+  // que el selector no afirme algo falso, y que cambiar de preset pida confirmación en vez de
+  // borrar el trabajo de un click (medido en el ensayo del webinar: tras corregir 19 desajustes a
+  // mano, el selector seguía diciendo `f1-estandar-consumo` y tocarlo resembraba sin avisar).
+  const editado = configEditadoRespectoDelPreset(seed, config)
+
+  /** Puerta del selector: con el config editado no se cambia de preset sin confirmar. */
+  async function pedirCambioDePreset(presetId: string) {
+    if (switching || running) return
+    if (presetId === activePreset?.id) return
+    const destino = presets.find((p) => p.id === presetId) ?? null
+    if (editado && destino !== null) {
+      setConfirmar(destino)
+      return
+    }
+    await handlePreset(presetId)
+  }
 
   // Cambia de preset: pide su detalle (`GET /api/config/preset/{id}`), RESIEMBRA el config y su
   // dataset recomendado (el provider revalida solo al cambiar el config), reinicia el preview del
@@ -231,7 +262,7 @@ export function RunTab({ onNavigate }: RunTabProps) {
                 <Select
                   value={activePreset?.id ?? undefined}
                   onValueChange={(v) => {
-                    if (v) void handlePreset(v)
+                    if (v) void pedirCambioDePreset(v)
                   }}
                   disabled={switching || running}
                 >
@@ -247,6 +278,11 @@ export function RunTab({ onNavigate }: RunTabProps) {
                   </SelectContent>
                 </Select>
               </div>
+              {editado ? (
+                <span className="rounded-md border border-eyebrow/40 bg-eyebrow/10 px-2 py-0.5 text-xs text-eyebrow">
+                  con tus cambios
+                </span>
+              ) : null}
               {switching ? (
                 <Loader2
                   className="size-4 animate-spin text-muted-foreground"
@@ -254,10 +290,50 @@ export function RunTab({ onNavigate }: RunTabProps) {
                 />
               ) : null}
             </div>
-            {activePreset ? (
+            {/* El selector no puede afirmar «f1-estandar-consumo» a secas sobre un config que el
+                usuario ya editó campo por campo: lo que se va a correr es SU config, no el del
+                preset. Y como cambiar de preset lo descarta, se avisa antes, no después. */}
+            {editado ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Partiste de este preset y lo ajustaste: la corrida usará{" "}
+                <strong className="text-foreground/90">tu configuración</strong>, no
+                la de fábrica. Elegir un preset aquí descarta esos cambios.
+              </p>
+            ) : activePreset ? (
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {presetDisplay(activePreset).blurb}
               </p>
+            ) : null}
+            {/* Confirmación: resembrar borra el trabajo del formulario y no hay deshacer. */}
+            {confirmar ? (
+              <div className="space-y-2 rounded-lg border border-eyebrow/40 bg-eyebrow/5 p-3">
+                <p className="text-xs leading-relaxed text-foreground/90">
+                  Cambiar a{" "}
+                  <strong>{presetDisplay(confirmar).title}</strong> descarta la
+                  configuración que editaste y siembra la de fábrica, junto con su
+                  dataset recomendado. No se puede deshacer.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const destino = confirmar.id
+                      setConfirmar(null)
+                      void handlePreset(destino)
+                    }}
+                  >
+                    Descartar mis cambios y cambiar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setConfirmar(null)}
+                  >
+                    Seguir con mi configuración
+                  </Button>
+                </div>
+              </div>
             ) : null}
             {/* De dónde viene el config cuando NO es un preset. El selector vacío ya no miente,
                 pero por sí solo tampoco explica nada; y elegir un preset aquí reemplaza lo que el

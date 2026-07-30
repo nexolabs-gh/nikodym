@@ -351,6 +351,23 @@ export function groupedFields(objectSchema: JsonSchema): FieldGroup[] {
   }))
 }
 
+/**
+ * ¿El título del grupo dice ya lo mismo que su único campo? Entonces el campo no debe repetirlo.
+ *
+ * Ocurre cuando un sub-modelo declara su `ui_group` con el mismo nombre que su `title` —
+ * «Documento», «HTML», «PDF», «Word», «Secciones» en la sección Informe—: el accordion pinta el
+ * título del grupo y el `fieldset` de dentro volvía a pintarlo, así que se leía «Documento /
+ * Documento». Sólo aplica con UN campo en el grupo: con dos o más, el título del grupo es un
+ * paraguas legítimo y cada campo necesita el suyo.
+ *
+ * Vive aquí y no en el JSX porque vitest corre sin DOM: en el componente no tendría test.
+ */
+export function grupoTitulaASuUnicoCampo(group: FieldGroup): boolean {
+  if (group.group === null || group.fields.length !== 1) return false
+  const [name, schema] = group.fields[0]
+  return fieldLabel(name, schema) === group.group
+}
+
 // ---------------------------------------------------------------------------
 // resolveWidget — el corazón del mapeo §5
 // ---------------------------------------------------------------------------

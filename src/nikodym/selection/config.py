@@ -131,7 +131,10 @@ class VifSelectionConfig(NikodymBaseConfig):
     add_intercept: bool = Field(
         default=True,
         title="Agregar intercepto en regresiones auxiliares",
-        description="Si True, agrega constante explícita antes de calcular VIF por feature.",
+        description=(
+            "Si está activado, agrega una constante explícita antes de calcular el VIF de cada "
+            "variable."
+        ),
         json_schema_extra={
             "ui_widget": "checkbox",
             "ui_group": "VIF",
@@ -147,7 +150,10 @@ class VifSelectionConfig(NikodymBaseConfig):
         default=None,
         ge=1,
         title="Máximo de iteraciones",
-        description="Límite opcional de rondas de eliminación por VIF; None itera hasta cumplir.",
+        description=(
+            "Límite opcional de rondas de eliminación por VIF; en blanco itera hasta cumplir el "
+            "umbral."
+        ),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "VIF",
@@ -340,7 +346,9 @@ class SelectionConfig(NikodymBaseConfig):
         default=0.50,
         ge=0.0,
         title="IV sospechoso",
-        description="Umbral de IV alto a flaggear o excluir; None desactiva esta regla.",
+        description=(
+            "Umbral de IV alto para marcar o excluir la variable; en blanco desactiva esta regla."
+        ),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "IV",
@@ -385,7 +393,7 @@ class SelectionConfig(NikodymBaseConfig):
         ge=0.5,
         le=1.0,
         title="AUC mínimo",
-        description="Filtro opcional por AUC univariado; None lo deja solo como diagnóstico.",
+        description="Filtro opcional por AUC univariado; en blanco lo deja sólo como diagnóstico.",
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Métricas univariadas",
@@ -401,7 +409,7 @@ class SelectionConfig(NikodymBaseConfig):
         ge=0.0,
         le=1.0,
         title="KS mínimo",
-        description="Filtro opcional por KS univariado; None lo deja solo como diagnóstico.",
+        description="Filtro opcional por KS univariado; en blanco lo deja sólo como diagnóstico.",
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Métricas univariadas",
@@ -417,7 +425,7 @@ class SelectionConfig(NikodymBaseConfig):
         ge=0.0,
         le=1.0,
         title="Gini mínimo",
-        description="Filtro opcional por Gini univariado; None lo deja solo como diagnóstico.",
+        description="Filtro opcional por Gini univariado; en blanco lo deja sólo como diagnóstico.",
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Métricas univariadas",
@@ -503,7 +511,10 @@ class SelectionConfig(NikodymBaseConfig):
     fail_if_no_features: bool = Field(
         default=True,
         title="Fallar si no queda ninguna variable",
-        description="Si True, una selección vacía aborta en vez de publicar solo diagnóstico.",
+        description=(
+            "Si está activado, una selección vacía detiene la corrida en vez de publicar sólo el "
+            "diagnóstico."
+        ),
         json_schema_extra={
             "ui_widget": "checkbox",
             "ui_group": "Salida",

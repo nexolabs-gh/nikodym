@@ -21,6 +21,8 @@ import type { PresetResponse } from "@/lib/api"
 import {
   bootstrapOnce,
   bootstrapWorkspace,
+  configEditadoRespectoDelPreset,
+  configFingerprint,
   resetBootstrapForTests,
   seedDatasetId,
   type BootstrapDeps,
@@ -67,6 +69,9 @@ describe("bootstrapWorkspace (siembra del preset al entrar)", () => {
       kind: "preset",
       name: "Scorecard de comportamiento",
       datasetId: "consumo_comportamiento",
+      // La huella del config sembrado: con ella el selector de Ejecutar sabe después si lo que
+      // hay es el preset o el trabajo del usuario.
+      fingerprint: configFingerprint(PRESET.config),
     })
     expect(outcome.schema).toBe(SCHEMA)
   })
@@ -166,5 +171,47 @@ describe("ConfigTab es un editor PURO (guardrail de la regresión UX1)", () => {
     // La siembra automática solo puede reaparecer por un efecto de montaje. `getPreset` sigue
     // permitido: es el botón "Configuración estándar" (acción explícita del usuario).
     expect(configTabSource).not.toMatch(/useEffect/)
+  })
+})
+
+describe("configEditadoRespectoDelPreset (M5: el selector no puede mentir)", () => {
+  const seed = {
+    kind: "preset" as const,
+    name: "Scorecard de comportamiento",
+    datasetId: "consumo_comportamiento",
+    fingerprint: configFingerprint(PRESET.config),
+  }
+
+  it("el config recién sembrado NO cuenta como editado", () => {
+    expect(configEditadoRespectoDelPreset(seed, PRESET.config)).toBe(false)
+  })
+
+  it("una sola edición del formulario ya cuenta", () => {
+    const editado = structuredClone(PRESET.config) as Record<string, unknown>
+    ;(editado.model as Record<string, unknown>).type = "xgboost"
+    expect(configEditadoRespectoDelPreset(seed, editado)).toBe(true)
+  })
+
+  it("reordenar las claves NO es editar: la huella es canónica", () => {
+    const alReves = Object.fromEntries(
+      Object.entries(PRESET.config as Record<string, unknown>).reverse(),
+    )
+    expect(configEditadoRespectoDelPreset(seed, alReves)).toBe(false)
+  })
+
+  it("sin preset sembrado (YAML cargado, defaults) no se acusa de editado", () => {
+    expect(
+      configEditadoRespectoDelPreset({ kind: "yaml", fileName: "mi.yaml" }, PRESET.config),
+    ).toBe(false)
+    expect(configEditadoRespectoDelPreset(null, PRESET.config)).toBe(false)
+  })
+
+  it("un seed sin huella (sesión anterior) tampoco acusa: ante la duda, no se afirma", () => {
+    const viejo = {
+      kind: "preset" as const,
+      name: "Scorecard de comportamiento",
+      datasetId: "consumo_comportamiento",
+    }
+    expect(configEditadoRespectoDelPreset(viejo, { otra: "cosa" })).toBe(false)
   })
 })

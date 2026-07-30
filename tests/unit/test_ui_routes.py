@@ -130,6 +130,54 @@ def test_validate_config_invariante_de_dominio_no_revienta_el_endpoint() -> None
     assert "temporal_column" in error["msg"]
 
 
+def test_los_mensajes_de_validacion_van_en_espanol() -> None:
+    """La interfaz está en español y estos mensajes se pintan junto al campo: son copy público.
+
+    «Field required» aparecía tal cual al añadir una fila al esquema del dataset —el paso más
+    frecuente del recorrido por formulario—, junto con «Input should be a valid integer» y
+    compañía. Se traduce por ``type``, que es contrato estable de Pydantic v2, y no por ``msg``,
+    que es prosa y cambia entre versiones.
+    """
+    resultado = routes.validate_config({"data": {"schema": {"columns": [{}]}}})
+    faltantes = [e for e in resultado["errors"] if e["type"] == "missing"]
+    assert faltantes, "una fila de columna sin nombre ni dtype tiene campos obligatorios vacíos"
+    assert all(e["msg"] == "Este campo es obligatorio." for e in faltantes)
+    # El `type` NO se traduce: es la llave que consume un cliente programático.
+    assert faltantes[0]["type"] == "missing"
+
+
+def test_ningun_mensaje_de_validacion_queda_en_ingles_en_los_casos_frecuentes() -> None:
+    """Barrido de los errores que produce editar el formulario, no de un caso suelto."""
+    casos: list[dict[str, object]] = [
+        {"data": {"schema": {"columns": [{}]}}},  # missing
+        {"data": {"schema": {"columns": [{"name": 3, "dtype": "int"}]}}},  # string_type
+        {"data": {"schema": {"strict": "quizas"}}},  # literal_error
+        {"data": {"inventado": 1}},  # extra_forbidden
+        {"binning": {"min_bin_size": 5.0}},  # less_than_equal
+        {"repro": {"seed": -1}},  # greater_than_equal
+    ]
+    delatores = ("Field required", "Input should", "Value error, ", "Assertion failed, ")
+    for caso in casos:
+        for error in routes.validate_config(caso)["errors"]:
+            assert not error["msg"].startswith(delatores), (
+                f"mensaje sin traducir en {error['loc']}: {error['msg']}"
+            )
+
+
+def test_un_error_de_rango_conserva_su_cota() -> None:
+    """Traducir no puede costar el dato: «mayor o igual que» sin el número no sirve."""
+    resultado = routes.validate_config({"binning": {"min_bin_size": 5.0}})
+    error = next(e for e in resultado["errors"] if e["loc"] == ["binning", "min_bin_size"])
+    assert "0.5" in error["msg"], error["msg"]
+
+
+def test_un_tipo_sin_traduccion_conserva_el_mensaje_original() -> None:
+    """Nunca inventar: lo que no está mapeado viaja tal cual, no como texto genérico."""
+    assert routes._mensaje_en_espanol({"type": "tipo_inexistente", "msg": "algo raro"}) == (
+        "algo raro"
+    )
+
+
 def test_validate_config_campo_desconocido() -> None:
     """``extra='forbid'``: un campo desconocido es inválido (no se descarta en silencio)."""
     resultado = routes.validate_config({"campo_que_no_existe": 1})

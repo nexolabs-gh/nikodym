@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from nikodym.ui.runs import asegurar_workdir
+
 _RAIZ = Path(__file__).resolve().parents[2]
 
 #: Extensiones que traen los datasets externos reales. La lista nació de bajar datos de verdad: el
@@ -170,3 +172,46 @@ def test_el_paquete_del_ui_sigue_versionandose() -> None:
     """El error simétrico: el veto es del workdir generado, no del código que lo crea."""
     assert not _ignorado("src/nikodym/ui/__main__.py")
     assert not _ignorado("src/nikodym/ui/static/index.html")
+
+
+def _ignorado_en(repo: Path, ruta: str) -> bool:
+    """Igual que :func:`_ignorado`, pero sobre otro repositorio (uno temporal de test)."""
+    return (
+        subprocess.run(
+            ["git", "check-ignore", "-q", ruta],
+            cwd=repo,
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+    )
+
+
+def test_un_workdir_con_otro_nombre_se_veta_a_si_mismo(tmp_path: Path) -> None:
+    """El `.gitignore` del repo cubre el nombre por DEFECTO; el workdir cubre el suyo, sea cual sea.
+
+    `--workdir ui_work` deja los artefactos en un directorio que ningún patrón del repo nombra. No
+    se arregla listando nombres —el usuario elige cualquiera—: la interfaz escribe el veto DENTRO de
+    su propio workdir al crearlo, como hace toda herramienta que genera caché local.
+    """
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    a_mano = tmp_path / "ui_work_a_mano"
+    (a_mano / "runs").mkdir(parents=True)
+    (a_mano / "runs" / "results.json").write_text("{}", encoding="utf-8")
+    # El sentido contrario, que es lo que hace válido al gate: sin el veto, esto SÍ se commitearía.
+    assert not _ignorado_en(tmp_path, "ui_work_a_mano/runs/results.json")
+
+    workdir = asegurar_workdir(tmp_path / "ui_work")
+    (workdir / "runs").mkdir()
+    (workdir / "runs" / "results.json").write_text("{}", encoding="utf-8")
+    assert _ignorado_en(tmp_path, "ui_work/runs/results.json")
+    assert _ignorado_en(tmp_path, "ui_work/datasets/subido.parquet")
+
+
+def test_el_veto_del_workdir_no_pisa_el_del_usuario(tmp_path: Path) -> None:
+    """Si el `.gitignore` del workdir ya existe es del usuario: se respeta tal cual."""
+    workdir = tmp_path / "wd"
+    workdir.mkdir()
+    (workdir / ".gitignore").write_text("# mío\n", encoding="utf-8")
+    asegurar_workdir(workdir)
+    assert (workdir / ".gitignore").read_text(encoding="utf-8") == "# mío\n"

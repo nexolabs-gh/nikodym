@@ -267,7 +267,10 @@ class ScorecardConfig(NikodymBaseConfig):
     clip: bool = Field(
         default=False,
         title="Recortar scores fuera de rango",
-        description="Si True, recorta el score total a los límites configurados y lo audita.",
+        description=(
+            "Si está activado, recorta el puntaje total a los límites configurados y lo deja "
+            "auditado."
+        ),
         json_schema_extra={
             "ui_widget": "checkbox",
             "ui_group": "Rango",

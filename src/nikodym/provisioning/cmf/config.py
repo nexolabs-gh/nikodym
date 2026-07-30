@@ -69,19 +69,27 @@ class CmfMatrixConfig(NikodymBaseConfig):
     require_verified_rows: bool = Field(
         default=True,
         title="Exigir filas verificadas",
-        description="Si es True, rechaza filas de matriz con estado pending o no verificado.",
+        description=(
+            "Si está activado, rechaza las filas de matriz cuyo estado sea pendiente o no "
+            "verificado."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Matrices", "ui_order": 2},
     )
     fail_on_unmapped_contingent_type: bool = Field(
         default=True,
         title="Fallar ante tipo contingente no mapeado",
-        description="Si es True, un tipo contingente sin fila B-3 verificada falla en runtime.",
+        description=(
+            "Si está activado, un tipo contingente sin fila B-3 verificada detiene la corrida."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Matrices", "ui_order": 3},
     )
     fail_on_source_mismatch: bool = Field(
         default=True,
         title="Fallar ante hash/fuente inconsistente",
-        description="Si es True, inconsistencias de hash, manifest o fuente normativa fallan.",
+        description=(
+            "Si está activado, una inconsistencia de hash, manifiesto o fuente normativa detiene "
+            "la corrida."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Matrices", "ui_order": 4},
     )
 
@@ -201,7 +209,7 @@ class CmfExposureConfig(NikodymBaseConfig):
         default=False,
         title="Permitir exposición negativa",
         description=(
-            "Si es False, el runtime rechaza exposiciones directas o contingentes negativas."
+            "Si está desactivado, una exposición directa o contingente negativa detiene la corrida."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Exposición", "ui_order": 5},
     )
@@ -251,7 +259,9 @@ class CmfGuaranteeConfig(NikodymBaseConfig):
     require_recoverable_for_default: bool = Field(
         default=True,
         title="Exigir R para C1-C6",
-        description="Si es True, el runtime exige recupero para encasillar incumplimientos C1-C6.",
+        description=(
+            "Si está activado, se exige recupero para encasillar los incumplimientos C1-C6."
+        ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Garantías", "ui_order": 4},
     )
 

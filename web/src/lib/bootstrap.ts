@@ -29,10 +29,56 @@ import { loadSchema, type LoadedSchema } from "@/lib/schema"
  * aquí.
  */
 export type SeedState =
-  | { kind: "preset"; name: string; datasetId: string }
+  | {
+      kind: "preset"
+      name: string
+      datasetId: string
+      /**
+       * Huella del config TAL COMO LO SEMBRÓ el preset. Sirve para una sola pregunta: ¿el config
+       * que hay ahora sigue siendo el del preset, o el usuario lo editó? Sin ella, el selector de
+       * la pestaña Ejecutar afirma «f1-estandar-consumo» sobre un config que ya no lo es, y
+       * cambiar de preset descarta el trabajo sin avisar.
+       */
+      fingerprint?: string
+    }
   | { kind: "defaults" }
   | { kind: "fallback" }
   | { kind: "yaml"; fileName: string }
+
+/**
+ * Huella estable de un config para comparar «¿cambió?», no para identificarlo.
+ *
+ * NO es el `config_hash`: ése lo calcula el backend con su canonicalización (y es lo que va al
+ * lineage). Éste es local, barato y sólo se compara consigo mismo. Las claves se ordenan para que
+ * reordenar el objeto no cuente como edición.
+ */
+export function configFingerprint(config: unknown): string {
+  const canonico = (valor: unknown): unknown => {
+    if (Array.isArray(valor)) return valor.map(canonico)
+    if (valor && typeof valor === "object") {
+      return Object.fromEntries(
+        Object.entries(valor as Record<string, unknown>)
+          .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+          .map(([k, v]) => [k, canonico(v)]),
+      )
+    }
+    return valor
+  }
+  return JSON.stringify(canonico(config))
+}
+
+/**
+ * ¿El config actual dejó de ser el que sembró el preset? `false` si no hay preset sembrado o si la
+ * siembra no dejó huella (una sesión que venga de un `seed` viejo): ante la duda **no se acusa** de
+ * editado, que es el error que se lee como un aviso falso.
+ */
+export function configEditadoRespectoDelPreset(
+  seed: SeedState | null,
+  config: unknown,
+): boolean {
+  if (seed?.kind !== "preset" || seed.fingerprint === undefined) return false
+  return configFingerprint(config) !== seed.fingerprint
+}
 
 /** Puertas al backend que necesita el arranque; se inyectan para poder testearlo sin red. */
 export interface BootstrapDeps {
@@ -68,7 +114,12 @@ export async function bootstrapWorkspace(
       config: preset.config,
       // El preset trae el dataset recomendado: con él, entrar basta para poder ejecutar.
       datasetId: preset.dataset_id,
-      seed: { kind: "preset", name: preset.name, datasetId: preset.dataset_id },
+      seed: {
+        kind: "preset",
+        name: preset.name,
+        datasetId: preset.dataset_id,
+        fingerprint: configFingerprint(preset.config),
+      },
     }
   } catch {
     return {

@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from nikodym.governance import GovernanceConfig
 
 __all__ = [
+    "asegurar_workdir",
     "load_report",
     "load_report_docx",
     "load_report_md",
@@ -39,6 +40,16 @@ __all__ = [
     "load_results",
     "save",
 ]
+
+# Contenido del veto que el workdir escribe sobre sí mismo. `*` se lee relativo al directorio que
+# contiene el propio `.gitignore`, así que veta el workdir entero venga como venga su nombre.
+_GITIGNORE_DEL_WORKDIR = """\
+# Directorio de trabajo de la interfaz de Nikodym: datasets materializados y corridas.
+# Lo escribe la propia interfaz al crearlo, para que arrancarla dentro de un repositorio no deje
+# datos listos para commitear. El veto del `.gitignore` del repo cubre el nombre por defecto
+# (`.nikodym_ui/`); esto cubre cualquier otro que se pase por `--workdir`.
+*
+"""
 
 _RUN_ID_RE = re.compile(r"\A[0-9a-f]{32}\Z")  # forma canónica de ``uuid4().hex``
 _RESULTS_FILENAME = "results.json"
@@ -50,6 +61,23 @@ _REPORT_ARTIFACTS = (("report", "result"), ("report", "manifest"))
 # Sufijo del directorio hermano de figuras del ``.qmd`` (lo fija ``nikodym.report.markdown``). Se
 # replica aquí como convención de nombres —no como import— para no acoplar el backend al dominio.
 _FIGURES_SUFFIX = "_figuras"
+
+
+def asegurar_workdir(workdir: Path) -> Path:
+    """Crea el ``workdir`` y lo deja **auto-vetado** para git; devuelve la ruta.
+
+    El workdir nace donde se lance la interfaz, así que arrancarla dentro de un clon deja el parquet
+    del dataset y el ``results.json`` de cada corrida a un ``git add .`` de distancia. El
+    ``.gitignore`` del repo veta el nombre por defecto, pero no puede anticipar el que pase el
+    usuario en ``--workdir``: por eso el veto se escribe **dentro** del directorio, que es lo que
+    hacen las herramientas que generan caché local. No se sobrescribe si ya existe — el archivo pasa
+    a ser del usuario en cuanto lo toca.
+    """
+    workdir.mkdir(parents=True, exist_ok=True)
+    veto = workdir / ".gitignore"
+    if not veto.exists():
+        veto.write_text(_GITIGNORE_DEL_WORKDIR, encoding="utf-8")
+    return workdir
 
 
 def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) -> str:
@@ -66,6 +94,7 @@ def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) ->
         raise UiError(
             "no se puede persistir un Study sin run_id: ejecute run() antes de guardarlo."
         )
+    asegurar_workdir(workdir)  # el veto de git se escribe también en el uso programático
     run_dir = _run_dir(workdir, run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
     payload = serialize_study(study, governance=governance)

@@ -62,6 +62,13 @@ export interface FieldRendererProps {
   /** Oculta el label propio: lo pinta el contenedor (p.ej. el toggle activar/None). */
   hideLabel?: boolean
   /**
+   * El contenedor ya puso este mismo título encima (el accordion de un `ui_group` que se llama
+   * igual que su único campo): se omite el `legend` para no leer «Documento / Documento», pero el
+   * error del grupo se sigue pintando. Es distinto de `hideLabel`, donde el dueño del `path` es
+   * otro componente y ése pinta el error.
+   */
+  titledByParent?: boolean
+  /**
    * Lookup `pathKey→msg` de los errores del backend (SDD §3.3): cada campo pinta el
    * mensaje de su `path` si matchea. El front SOLO lo pinta; la verdad es Pydantic.
    */
@@ -324,6 +331,7 @@ function GroupField(props: FieldRendererProps) {
     onChange,
     depth = 0,
     hideLabel,
+    titledByParent,
     errors,
     datasetColumns,
   } = props
@@ -340,12 +348,14 @@ function GroupField(props: FieldRendererProps) {
         depth > 0 && "border-l-2 border-l-brand-accent/40",
       )}
     >
-      {hideLabel ? null : (
+      {hideLabel || titledByParent ? null : (
         <legend className="px-1 font-display text-sm font-medium text-foreground">
           {label}
         </legend>
       )}
-      {/* Error a nivel del grupo (raro; validador de modelo). Los hijos pintan el suyo. */}
+      {/* Error a nivel del grupo (raro; validador de modelo). Los hijos pintan el suyo. Con
+          `titledByParent` sólo se calla el título: el error sigue siendo de este `path` y nadie
+          más lo pintaría. */}
       {hideLabel ? null : <FieldError message={errorAtPath(errors, path)} />}
       <GroupFieldList
         fields={fields}
@@ -525,12 +535,18 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <Switch
-          id={id}
+          // ⚠️ El `id` del path NO va aquí: lo lleva el input del valor, y ponerlo también en el
+          // switch dejaba DOS elementos con el mismo `id` (el `<input type=checkbox aria-hidden>`
+          // interno del switch y el input visible), con `getElementById` devolviendo el invisible.
+          // El salto del preflight a un campo APAGADO —donde no existe el input del valor— sigue
+          // funcionando por `data-field-path`, que es explícito y no depende del `id`.
+          id={`${id}__activar`}
+          data-field-path={id}
           checked={active}
           onCheckedChange={handleToggle}
           aria-label={`Activar ${label}`}
         />
-        <Label htmlFor={id} className="text-foreground/90">
+        <Label htmlFor={`${id}__activar`} className="text-foreground/90">
           {label}
           {required ? <span className="text-eyebrow"> *</span> : null}
         </Label>
@@ -603,7 +619,8 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
  * «todas»: es el valor que traen los presets, y sin él no había forma de volver a ponerlo.
  */
 function MultiselectField(props: FieldRendererProps) {
-  const { schema, path, value, defs, onChange, datasetColumns } = props
+  const { name, schema, path, value, defs, onChange, datasetColumns } = props
+  const etiquetaLista = fieldLabel(name, schema)
   const [draft, setDraft] = useState("")
   const options = multiselectOptions(schema, { datasetColumns }, defs)
   const closed = hasClosedOptions(schema, defs)
@@ -727,6 +744,10 @@ function MultiselectField(props: FieldRendererProps) {
                 type="button"
                 onClick={addDraft}
                 disabled={draft.trim() === ""}
+                // Cinco botones «Añadir» idénticos conviven en la misma pantalla: sin esto, un
+                // lector de pantalla los anuncia todos igual y no hay forma de saber a qué lista
+                // pertenece cada uno.
+                aria-label={`Añadir el nombre escrito a ${etiquetaLista}`}
                 className="shrink-0 rounded-md border border-input px-2.5 py-1 text-xs text-foreground/90 transition-colors hover:bg-foreground/5 disabled:opacity-50"
               >
                 Añadir
@@ -760,8 +781,18 @@ function MultiselectField(props: FieldRendererProps) {
  * el orden declarado contra el del dataset.
  */
 function ListField(props: FieldRendererProps) {
-  const { schema, path, value, defs, onChange, depth = 0, errors, datasetColumns } =
-    props
+  const {
+    name,
+    schema,
+    path,
+    value,
+    defs,
+    onChange,
+    depth = 0,
+    errors,
+    datasetColumns,
+  } = props
+  const etiquetaLista = fieldLabel(name, schema)
   const item = itemSchema(schema, defs)
   const items = listItems(value)
 
@@ -838,6 +869,9 @@ function ListField(props: FieldRendererProps) {
       <button
         type="button"
         id={path.join(".")}
+        // Cinco botones «Añadir» idénticos en la misma pantalla; el texto visible se queda corto
+        // por espacio, así que la etiqueta accesible es la que dice a qué lista añade.
+        aria-label={`Añadir un elemento a ${etiquetaLista}`}
         onClick={() => onChange(path, appendListItem(value, item, defs))}
         className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1 text-xs text-foreground/90 transition-colors hover:bg-foreground/5"
       >
@@ -917,7 +951,7 @@ function JsonField(props: FieldRendererProps) {
         <p className="text-xs text-destructive">JSON inválido: {error}</p>
       ) : (
         <p className="text-xs text-muted-foreground">
-          Editor JSON (tipo no mapeado). Se valida en el backend al ejecutar.
+          Este valor se escribe en formato JSON. Se comprueba al ejecutar la corrida.
         </p>
       )}
     </div>

@@ -98,6 +98,7 @@ describe("applyPreset (corte de la corrida al cambiar de preset)", () => {
       kind: "preset",
       name: "IFRS 9 retail",
       datasetId: "ifrs9_retail",
+      fingerprint: expect.any(String),
     })
     // …y —lo que arregla el P0— la corrida anterior YA NO está en el store.
     expect(state.results).toBeNull()

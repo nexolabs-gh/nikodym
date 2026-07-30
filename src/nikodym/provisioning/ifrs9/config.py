@@ -137,7 +137,7 @@ class IfrsPdConfig(NikodymBaseConfig):
         ge=1,
         title="Tope de horizonte lifetime",
         description=(
-            "Tope opcional del horizonte lifetime; None usa todo el soporte de la term-structure."
+            "Tope opcional del horizonte lifetime; en blanco usa todo el soporte de la curva."
         ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "PD", "ui_order": 8},
     )
@@ -372,7 +372,7 @@ class IfrsStagingConfig(NikodymBaseConfig):
     )
     is_default_col: str | None = Field(
         default="is_default",
-        title="Flag de default",
+        title="Columna que marca el incumplimiento",
         description="Columna booleana de default que fuerza Stage 3 con independencia de la mora.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 6},
     )
@@ -420,7 +420,7 @@ class IfrsStagingConfig(NikodymBaseConfig):
     )
     low_credit_risk_col: str | None = Field(
         default=None,
-        title="Flag de bajo riesgo crediticio",
+        title="Columna de bajo riesgo crediticio",
         description="Columna con el flag de bajo riesgo crediticio para la exención de Stage 1.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 13},
     )
@@ -542,7 +542,8 @@ class IfrsEclConfig(NikodymBaseConfig):
         default=False,
         title="Stage 3 como EAD·LGD directo",
         description=(
-            "Si es True, Stage 3 calcula EAD·LGD descontado directo en vez de la ECL lifetime."
+            "Si está activado, Stage 3 calcula EAD·LGD descontado directo en vez de la ECL "
+            "lifetime."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "ECL", "ui_order": 3},
     )
@@ -649,7 +650,8 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante falta de dato",
         description=(
-            "Con True (default), un aviso declarado que el motor emita durante el cálculo detiene "
+            "Activado —que es como viene—, un aviso declarado que el motor emita durante el "
+            "cálculo detiene "
             "la corrida en vez de quedar registrado y seguir. No cubre las limitaciones que esta "
             "capa arrastra en toda corrida, como el perfil de exposición constante por período: "
             "ésas quedan siempre anotadas en el resultado, porque no dependen de los datos que "

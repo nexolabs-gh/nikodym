@@ -105,8 +105,8 @@
               }
             ],
             "default": null,
-            "description": "Frecuencia bajo la cual se agrupan niveles categóricos raros; None usa global.",
-            "title": "Umbral rare levels específico",
+            "description": "Frecuencia bajo la cual se agrupan las categorías raras; en blanco usa el valor general.",
+            "title": "Umbral de categorías raras (específico)",
             "ui_group": "Overrides por variable",
             "ui_help": "Umbral de categoría rara propio de esta variable; úsalo cuando su cardinalidad o distribución de niveles difiere del resto de las variables.",
             "ui_order": 6,
@@ -139,7 +139,7 @@
               }
             ],
             "default": null,
-            "description": "Número máximo de bins finales para esta variable; None usa el valor global.",
+            "description": "Número máximo de bins finales para esta variable; en blanco usa el valor general.",
             "title": "Máximo de bins específico",
             "ui_group": "Overrides por variable",
             "ui_help": "Tope de bins propio de esta variable, por si necesita más o menos granularidad que el máximo global (p. ej. una variable muy predictiva).",
@@ -158,7 +158,7 @@
               }
             ],
             "default": null,
-            "description": "Fracción mínima por bin final para esta variable; None usa el valor global.",
+            "description": "Fracción mínima por bin final para esta variable; en blanco usa el valor general.",
             "title": "Tamaño mínimo específico",
             "ui_group": "Overrides por variable",
             "ui_help": "Tamaño mínimo de bin propio de esta variable; úsalo cuando su distribución (p. ej. muy concentrada) necesita un piso distinto al global.",
@@ -188,7 +188,7 @@
               }
             ],
             "default": null,
-            "description": "Monotonía de event rate para esta variable; None usa el default global.",
+            "description": "Monotonía de la tasa de default para esta variable; en blanco usa la regla general.",
             "title": "Monotonía específica",
             "ui_group": "Overrides por variable",
             "ui_help": "Anula la monotonía global solo para esta variable cuando su relación con el riesgo es distinta al resto (p. ej. una forma en U que pide 'valley').",
@@ -335,14 +335,14 @@
           },
           "nullable": {
             "default": true,
-            "description": "Si False, un nulo viola la validación.",
+            "description": "Si está desactivado, un nulo hace fallar la validación.",
             "title": "Admite nulos",
             "type": "boolean",
             "ui_help": "Permite valores vacíos/nulos en esta columna. Desactívalo para columnas obligatorias donde un nulo indica un problema de calidad de datos."
           },
           "required": {
             "default": true,
-            "description": "Si False y ausente, se omite sin error ('strict' lo respeta).",
+            "description": "Si está desactivado y la columna no viene, se omite sin error.",
             "title": "Obligatoria",
             "type": "boolean",
             "ui_help": "Exige que la columna exista en el dataset. Si la desactivas y la columna falta, se omite sin error."
@@ -459,7 +459,7 @@
               }
             ],
             "default": null,
-            "description": "Ruta a CSV/Parquet/Excel; None si se inyecta un DataFrame en memoria por API.",
+            "description": "Ruta a un archivo CSV, Parquet o Excel; se deja vacía si los datos se entregan ya cargados desde Python.",
             "title": "Ruta del dataset",
             "ui_help": "Ruta al archivo CSV, Parquet o Excel (.xlsx) que se va a cargar. Déjala vacía si el dataset se entrega directamente por código/API en vez de apuntar a un archivo."
           }
@@ -476,7 +476,7 @@
             "description": "Las columnas por sobre el umbral se reportan como decisión en el audit-trail; ninguna etapa las elimina automáticamente por este umbral.",
             "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Tasa máxima de missing por columna",
+            "title": "Tasa máxima de nulos por columna",
             "type": "number",
             "ui_help": "Umbral de tasa de nulos por columna a partir del cual se reporta como decisión a revisar. No elimina la columna automáticamente; esa decisión la toma la selección de variables."
           },
@@ -485,7 +485,7 @@
             "items": {
               "$ref": "#/$defs/data__SpecialValueSpec"
             },
-            "title": "Catálogo de special values",
+            "title": "Catálogo de valores especiales",
             "type": "array",
             "ui_help": "Catálogo de valores centinela (p.ej. -999, 'N/A') a normalizar a nulo antes de seguir el pipeline, conservando su etiqueta original."
           }
@@ -597,7 +597,7 @@
             "ui_help": "Columna del dataset sobre la que se evalúa esta condición."
           },
           "op": {
-            "description": "Único conjunto permitido. 'isna'/'notna' ignoran 'value'.",
+            "description": "Sólo se admiten los del selector. isna y notna ignoran el valor de comparación.",
             "enum": [
               "==",
               "!=",
@@ -610,7 +610,7 @@
               "isna",
               "notna"
             ],
-            "title": "Operador (allowlist cerrada)",
+            "title": "Operador de la condición",
             "type": "string",
             "ui_help": "Comparación a aplicar sobre la columna: igual/distinto, mayor/menor, pertenece/no pertenece a una lista, o es nulo/no nulo. 'isna'/'notna' ignoran el campo 'Valor de comparación'."
           },
@@ -784,13 +784,13 @@
           },
           "strict": {
             "default": false,
-            "description": "True: solo las declaradas; 'filter': descarta extras; False: permite extras.",
+            "description": "true las prohíbe; filter las descarta; false las deja pasar.",
             "enum": [
               true,
               false,
               "filter"
             ],
-            "title": "Estrictez de columnas",
+            "title": "Columnas que el catálogo no declara",
             "ui_help": "Qué hacer con columnas del dataset que no están en el catálogo: exigir que no existan (True), descartarlas en silencio ('filter'), o dejarlas pasar sin tocarlas (False)."
           },
           "unique_keys": {
@@ -896,7 +896,7 @@
               }
             ],
             "default": null,
-            "description": "Si None: bueno = NOT bad AND NOT indeterminate AND NOT excluded.",
+            "description": "Si se deja sin definir: es bueno todo lo que no sea malo, indeterminado ni excluido.",
             "title": "Regla de 'bueno'",
             "ui_help": "Condición que define cuándo una observación es 'bueno'. Si la dejas vacía, se considera bueno todo lo que no sea malo, indeterminado ni excluido."
           },
@@ -3273,7 +3273,7 @@
         "properties": {
           "allow_negative_exposure": {
             "default": false,
-            "description": "Si es False, el runtime rechaza exposiciones directas o contingentes negativas.",
+            "description": "Si está desactivado, una exposición directa o contingente negativa detiene la corrida.",
             "title": "Permitir exposición negativa",
             "type": "boolean",
             "ui_group": "Exposición",
@@ -3379,7 +3379,7 @@
           },
           "require_recoverable_for_default": {
             "default": true,
-            "description": "Si es True, el runtime exige recupero para encasillar incumplimientos C1-C6.",
+            "description": "Si está activado, se exige recupero para encasillar los incumplimientos C1-C6.",
             "title": "Exigir R para C1-C6",
             "type": "boolean",
             "ui_group": "Garantías",
@@ -3405,7 +3405,7 @@
           },
           "fail_on_source_mismatch": {
             "default": true,
-            "description": "Si es True, inconsistencias de hash, manifest o fuente normativa fallan.",
+            "description": "Si está activado, una inconsistencia de hash, manifiesto o fuente normativa detiene la corrida.",
             "title": "Fallar ante hash/fuente inconsistente",
             "type": "boolean",
             "ui_group": "Matrices",
@@ -3414,7 +3414,7 @@
           },
           "fail_on_unmapped_contingent_type": {
             "default": true,
-            "description": "Si es True, un tipo contingente sin fila B-3 verificada falla en runtime.",
+            "description": "Si está activado, un tipo contingente sin fila B-3 verificada detiene la corrida.",
             "title": "Fallar ante tipo contingente no mapeado",
             "type": "boolean",
             "ui_group": "Matrices",
@@ -3423,7 +3423,7 @@
           },
           "require_verified_rows": {
             "default": true,
-            "description": "Si es True, rechaza filas de matriz con estado pending o no verificado.",
+            "description": "Si está activado, rechaza las filas de matriz cuyo estado sea pendiente o no verificado.",
             "title": "Exigir filas verificadas",
             "type": "boolean",
             "ui_group": "Matrices",
@@ -3650,7 +3650,7 @@
           },
           "stage3_direct": {
             "default": false,
-            "description": "Si es True, Stage 3 calcula EAD·LGD descontado directo en vez de la ECL lifetime.",
+            "description": "Si está activado, Stage 3 calcula EAD·LGD descontado directo en vez de la ECL lifetime.",
             "title": "Stage 3 como EAD·LGD directo",
             "type": "boolean",
             "ui_group": "ECL",
@@ -3794,7 +3794,7 @@
               }
             ],
             "default": null,
-            "description": "Tope opcional del horizonte lifetime; None usa todo el soporte de la term-structure.",
+            "description": "Tope opcional del horizonte lifetime; en blanco usa todo el soporte de la curva.",
             "title": "Tope de horizonte lifetime",
             "ui_group": "PD",
             "ui_order": 8,
@@ -3968,7 +3968,7 @@
             ],
             "default": "is_default",
             "description": "Columna booleana de default que fuerza Stage 3 con independencia de la mora.",
-            "title": "Flag de default",
+            "title": "Columna que marca el incumplimiento",
             "ui_group": "Staging",
             "ui_order": 6,
             "ui_widget": "text_input"
@@ -3984,7 +3984,7 @@
             ],
             "default": null,
             "description": "Columna con el flag de bajo riesgo crediticio para la exención de Stage 1.",
-            "title": "Flag de bajo riesgo crediticio",
+            "title": "Columna de bajo riesgo crediticio",
             "ui_group": "Staging",
             "ui_order": 13,
             "ui_widget": "text_input"
@@ -4675,7 +4675,7 @@
         "properties": {
           "add_intercept": {
             "default": true,
-            "description": "Si True, agrega constante explícita antes de calcular VIF por feature.",
+            "description": "Si está activado, agrega una constante explícita antes de calcular el VIF de cada variable.",
             "title": "Agregar intercepto en regresiones auxiliares",
             "type": "boolean",
             "ui_group": "VIF",
@@ -4704,7 +4704,7 @@
               }
             ],
             "default": null,
-            "description": "Límite opcional de rondas de eliminación por VIF; None itera hasta cumplir.",
+            "description": "Límite opcional de rondas de eliminación por VIF; en blanco itera hasta cumplir el umbral.",
             "title": "Máximo de iteraciones",
             "ui_group": "VIF",
             "ui_help": "Tope de rondas de eliminación por VIF; en blanco (None) el filtro sigue eliminando variables hasta que todas queden bajo el umbral.",
@@ -6518,7 +6518,7 @@
                 ],
                 "default": 0.01,
                 "description": "Frecuencia bajo la cual OptBinning agrupa niveles categóricos raros.",
-                "title": "Umbral de rare levels",
+                "title": "Umbral de categorías raras",
                 "ui_group": "Categóricas",
                 "ui_help": "Frecuencia mínima bajo la cual una categoría se considera rara y se agrupa con otras antes de optimizar; súbelo en variables con muchos niveles poco poblados.",
                 "ui_order": 1,
@@ -6537,7 +6537,7 @@
                   }
                 ],
                 "default": null,
-                "description": "None en OptBinning asigna WoE neutral 0 cuando metric='woe'.",
+                "description": "En blanco asigna WoE 0 (neutral) a las categorías nunca vistas.",
                 "title": "Valor para categoría no vista",
                 "ui_group": "Categóricas",
                 "ui_help": "WoE a usar cuando en producción aparece una categoría nunca vista en el ajuste. None asigna WoE neutral (0), tratándola como neutra respecto al riesgo.",
@@ -6572,7 +6572,7 @@
               },
               "fail_on_non_binnable": {
                 "default": false,
-                "description": "Si True, una variable constante, 100% missing o no soportada aborta el fit.",
+                "description": "Si está activado, una variable constante, sin datos o no soportada detiene el ajuste.",
                 "title": "Fallar ante variable no binneable",
                 "type": "boolean",
                 "ui_group": "Salida",
@@ -6656,7 +6656,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Restricción opcional de p-valor máximo; None desactiva esta restricción.",
+                "description": "Restricción opcional de p-valor máximo; en blanco la desactiva.",
                 "title": "p-valor máximo entre bins",
                 "ui_group": "Monotonía",
                 "ui_help": "Exige que la diferencia de riesgo entre bins sea estadísticamente significativa hasta este p-valor. Déjalo en None si no quieres esta restricción.",
@@ -6689,7 +6689,7 @@
                 ],
                 "default": "empirical",
                 "description": "'empirical' usa el WoE observado del bin missing; un float fuerza ese valor.",
-                "title": "WoE para missing",
+                "title": "WoE del bin de faltantes",
                 "ui_group": "Missing y special",
                 "ui_help": "WoE del bin de valores faltantes. 'empirical' usa el WoE calculado de los datos observados; un número lo fuerza manualmente.",
                 "ui_order": 3,
@@ -6707,7 +6707,7 @@
                 ],
                 "default": "empirical",
                 "description": "'empirical' usa el WoE observado del bin special; un float fuerza ese valor.",
-                "title": "WoE para special",
+                "title": "WoE del bin de valores especiales",
                 "ui_group": "Missing y special",
                 "ui_help": "WoE del bin de valores especiales. 'empirical' usa el WoE calculado de los datos observados; un número lo fuerza manualmente (p. ej. para neutralizarlo).",
                 "ui_order": 2,
@@ -6761,7 +6761,7 @@
                   }
                 ],
                 "default": 0.05,
-                "description": "Fracción mínima de observaciones por bin final; None usa el default del motor.",
+                "description": "Fracción mínima de observaciones por bin final; en blanco usa el valor del motor.",
                 "title": "Tamaño mínimo de bin",
                 "ui_group": "Restricciones",
                 "ui_help": "Fracción mínima de observaciones que debe tener cada bin final. Evita bins con pocos casos, donde el WoE queda inestable y poco confiable fuera de muestra.",
@@ -6773,7 +6773,7 @@
                 "description": "Separación mínima de tasa de evento entre bins consecutivos.",
                 "maximum": 1.0,
                 "minimum": 0.0,
-                "title": "Diferencia mínima de event rate",
+                "title": "Diferencia mínima de tasa de default",
                 "type": "number",
                 "ui_group": "Monotonía",
                 "ui_help": "Diferencia mínima de tasa de malos exigida entre bins vecinos. Subirlo evita bins casi idénticos en riesgo que no aportan poder discriminante real.",
@@ -6792,7 +6792,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Número mínimo de bins finales; None deja la decisión al solver.",
+                "description": "Número mínimo de bins finales; en blanco deja la decisión al motor de binning.",
                 "title": "Mínimo de bins",
                 "ui_group": "Restricciones",
                 "ui_help": "Piso de bins finales por variable; deja None si prefieres que el solver decida libremente cuántos bins usar según lo que aporten a separar el riesgo.",
@@ -6865,8 +6865,8 @@
                   }
                 ],
                 "default": null,
-                "description": "None = 1 core. Para reproducibilidad regulatoria se recomienda no usar -1.",
-                "title": "Paralelismo de BinningProcess",
+                "description": "Vacío = un solo núcleo. Para reproducibilidad regulatoria conviene no usar -1.",
+                "title": "Núcleos para binear en paralelo",
                 "ui_group": "Solver",
                 "ui_help": "Núcleos usados para binear variables en paralelo. Deja None (1 core) para reproducibilidad exacta entre corridas; -1 acelera pero puede variar resultados.",
                 "ui_order": 5,
@@ -6884,7 +6884,7 @@
               },
               "require_optimal": {
                 "default": true,
-                "description": "Si True, una solución no probada óptima falla ruidosamente.",
+                "description": "Si está activado, una solución que el motor no probó óptima detiene la corrida.",
                 "title": "Exigir status óptimo",
                 "type": "boolean",
                 "ui_group": "Solver",
@@ -6913,7 +6913,7 @@
                   "separate",
                   "as_missing"
                 ],
-                "title": "Tratamiento de special values",
+                "title": "Tratamiento de los valores especiales",
                 "type": "string",
                 "ui_group": "Missing y special",
                 "ui_help": "Cómo tratar los valores especiales (centinelas como 'sin información' o 'no aplica'): 'separate' les da bin propio con WoE propio; 'as_missing' los fusiona con los faltantes.",
@@ -6932,7 +6932,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Número de decimales para representar cortes; None conserva precisión del motor.",
+                "description": "Número de decimales de los puntos de corte; en blanco conserva la precisión del motor.",
                 "title": "Dígitos de cortes",
                 "ui_group": "Salida",
                 "ui_help": "Cantidad de decimales con que se redondean los puntos de corte numéricos. Deja None para conservar la precisión completa del solver.",
@@ -7065,7 +7065,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Guard opcional del desplazamiento de reanclaje a tasa central. Con None se audita el offset extremo sin fallar; si se informa, debe ser finito y mayor que 0.",
+                "description": "Tope opcional del desplazamiento de reanclaje a la tasa central. En blanco se audita el offset extremo sin fallar; si se informa, debe ser finito y mayor que 0.",
                 "title": "Máximo offset absoluto",
                 "ui_group": "Ajuste",
                 "ui_help": "Tope opcional al tamaño del desplazamiento usado para anclar la PD. Con un valor definido, un desplazamiento mayor hace fallar el ajuste; déjelo vacío para solo dejarlo registrado en auditoría sin bloquear.",
@@ -7175,7 +7175,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Tasa central de anclaje en (0, 1). Con anchor_source='development_observed' NO se usa (la tasa central TTC se estima como promedio de largo plazo observado en Desarrollo), por eso el default es None. Con anchor_source en {'business_input', 'historical_default_rate', 'external_regulatory'} es OBLIGATORIA y explícita: esas fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la configuración falla en vez de anclar a un número inventado.",
+                "description": "Tasa central de anclaje, entre 0 y 1. Con la fuente development_observed NO se usa (la tasa central TTC se estima como promedio de largo plazo observado en Desarrollo), por eso se deja vacía. Con las fuentes 'historical_default_rate', 'external_regulatory'} es OBLIGATORIA y explícita: esas fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la configuración falla en vez de anclar a un número inventado.",
                 "title": "PD objetivo",
                 "ui_group": "Ancla",
                 "ui_help": "Tasa central (PD promedio) a la que se ancla la calibración. Debe informarse si la fuente de la ancla no se deriva de Desarrollo; si se deja vacía con anchor_source='development_observed', se calcula sola como el promedio observado.",
@@ -7905,7 +7905,7 @@
               },
               "fail_if_no_features": {
                 "default": true,
-                "description": "Si True, una selección final vacía aborta en vez de aceptar solo intercepto.",
+                "description": "Si está activado, una selección final vacía detiene la corrida en vez de aceptar un modelo con sólo intercepto.",
                 "title": "Fallar si no queda ninguna variable",
                 "type": "boolean",
                 "ui_group": "Salida",
@@ -8262,7 +8262,7 @@
               },
               "consume_a": {
                 "default": true,
-                "description": "Si es True, el resultado de source_a entra en la comparación.",
+                "description": "Si está activado, el resultado de la primera fuente entra en la comparación.",
                 "title": "Consumir el resultado de la fuente A si está presente",
                 "type": "boolean",
                 "ui_group": "Fuentes",
@@ -8271,7 +8271,7 @@
               },
               "consume_b": {
                 "default": true,
-                "description": "Si es True, el resultado de source_b entra en la comparación.",
+                "description": "Si está activado, el resultado de la segunda fuente entra en la comparación.",
                 "title": "Consumir el resultado de la fuente B si está presente",
                 "type": "boolean",
                 "ui_group": "Fuentes",
@@ -8326,7 +8326,7 @@
               },
               "fail_on_falta_dato": {
                 "default": true,
-                "description": "Si es True, una brecha crítica de datos (p. ej. taxonomías de cartera sin equivalencia declarada en portfolio_crosswalk) detiene la corrida con error en vez de marcarla como falta de dato y seguir.",
+                "description": "Si está activado, una brecha crítica de datos (por ejemplo, taxonomías de cartera sin equivalencia declarada en la tabla de correspondencias) detiene la corrida con error en vez de marcarla como falta de dato y seguir.",
                 "title": "Fallar ante brechas críticas de dato",
                 "type": "boolean",
                 "ui_group": "General",
@@ -8377,7 +8377,7 @@
               },
               "require_both": {
                 "default": true,
-                "description": "La regla supone ambas fuentes; con False se reporta la única fuente disponible, marcada como comparación incompleta por falta de dato.",
+                "description": "La regla supone las dos fuentes; desactivado, se reporta la única disponible, marcada como comparación incompleta por falta de dato.",
                 "title": "Exigir ambas fuentes (si no, se reporta la disponible)",
                 "type": "boolean",
                 "ui_group": "Fuentes",
@@ -8401,7 +8401,7 @@
               "row_id_col": {
                 "default": "row_id",
                 "description": "Columna identificadora de operación para alinear el nivel más granular.",
-                "title": "Identificador de operación (comparison_level='operation')",
+                "title": "Identificador de operación (cuando el nivel de comparación es operation)",
                 "type": "string",
                 "ui_group": "Columnas",
                 "ui_order": 6,
@@ -8440,7 +8440,7 @@
                 ],
                 "default": null,
                 "description": "Columna de segmento provista por el usuario para comparar por segmento.",
-                "title": "Columna de segmento (comparison_level='segment')",
+                "title": "Columna de segmento (cuando el nivel de comparación es segment)",
                 "ui_group": "Columnas",
                 "ui_order": 5,
                 "ui_widget": "text_input"
@@ -8659,7 +8659,7 @@
               },
               "fail_on_falta_dato": {
                 "default": true,
-                "description": "Con True (default), un aviso declarado que el motor emita durante el cálculo detiene la corrida en vez de quedar registrado y seguir. No cubre las limitaciones que esta capa arrastra en toda corrida, como el perfil de exposición constante por período: ésas quedan siempre anotadas en el resultado, porque no dependen de los datos que usted entregue.",
+                "description": "Activado —que es como viene—, un aviso declarado que el motor emita durante el cálculo detiene la corrida en vez de quedar registrado y seguir. No cubre las limitaciones que esta capa arrastra en toda corrida, como el perfil de exposición constante por período: ésas quedan siempre anotadas en el resultado, porque no dependen de los datos que usted entregue.",
                 "title": "Fallar ante falta de dato",
                 "type": "boolean",
                 "ui_group": "General",
@@ -8794,7 +8794,7 @@
               },
               "fail_on_falta_dato": {
                 "default": true,
-                "description": "True: un nulo en exposición, PD, LGD o tasa de pérdida detiene la corrida con error. False: se imputa cero, la operación queda marcada como falta de dato y el resultado lo deja trazado.",
+                "description": "Activado: un nulo en exposición, PD, LGD o tasa de pérdida detiene la corrida con error. Desactivado: se imputa cero, la operación queda marcada como falta de dato y el resultado lo deja trazado.",
                 "title": "Fallar ante falta de dato",
                 "type": "boolean",
                 "ui_group": "Método",
@@ -9127,7 +9127,7 @@
             "properties": {
               "clip": {
                 "default": false,
-                "description": "Si True, recorta el score total a los límites configurados y lo audita.",
+                "description": "Si está activado, recorta el puntaje total a los límites configurados y lo deja auditado.",
                 "title": "Recortar scores fuera de rango",
                 "type": "boolean",
                 "ui_group": "Rango",
@@ -9338,7 +9338,7 @@
               },
               "fail_if_no_features": {
                 "default": true,
-                "description": "Si True, una selección vacía aborta en vez de publicar solo diagnóstico.",
+                "description": "Si está activado, una selección vacía detiene la corrida en vez de publicar sólo el diagnóstico.",
                 "title": "Fallar si no queda ninguna variable",
                 "type": "boolean",
                 "ui_group": "Salida",
@@ -9416,7 +9416,7 @@
                   }
                 ],
                 "default": 0.5,
-                "description": "Umbral de IV alto a flaggear o excluir; None desactiva esta regla.",
+                "description": "Umbral de IV alto para marcar o excluir la variable; en blanco desactiva esta regla.",
                 "title": "IV sospechoso",
                 "ui_group": "IV",
                 "ui_help": "IV a partir del cual una variable se considera sospechosamente alta (posible fuga de información); en blanco (None) desactiva esta alerta.",
@@ -9449,7 +9449,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Filtro opcional por AUC univariado; None lo deja solo como diagnóstico.",
+                "description": "Filtro opcional por AUC univariado; en blanco lo deja sólo como diagnóstico.",
                 "title": "AUC mínimo",
                 "ui_group": "Métricas univariadas",
                 "ui_help": "AUC individual mínimo para conservar una variable; en blanco (None) el AUC queda solo como referencia, sin filtrar.",
@@ -9468,7 +9468,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Filtro opcional por Gini univariado; None lo deja solo como diagnóstico.",
+                "description": "Filtro opcional por Gini univariado; en blanco lo deja sólo como diagnóstico.",
                 "title": "Gini mínimo",
                 "ui_group": "Métricas univariadas",
                 "ui_help": "Gini individual mínimo para conservar una variable; en blanco (None) el Gini queda solo como referencia, sin filtrar.",
@@ -9498,7 +9498,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Filtro opcional por KS univariado; None lo deja solo como diagnóstico.",
+                "description": "Filtro opcional por KS univariado; en blanco lo deja sólo como diagnóstico.",
                 "title": "KS mínimo",
                 "ui_group": "Métricas univariadas",
                 "ui_help": "KS individual mínimo para conservar una variable; en blanco (None) el KS queda solo como referencia, sin filtrar.",

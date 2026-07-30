@@ -33,6 +33,7 @@ import {
   type JsonSchema,
   defaultForSchema,
   groupedFields,
+  grupoTitulaASuUnicoCampo,
   resolveRef,
 } from "@/lib/form-engine"
 import { type SchemaSource, configSectionSchema } from "@/lib/schema"
@@ -199,7 +200,10 @@ function ConfigSectionForm(props: {
     props
   const groups = groupedFields(schema)
   const required = new Set(schema.required ?? [])
-  const renderField = ([name, fieldSchema]: [string, JsonSchema]) => (
+  const renderField = (
+    [name, fieldSchema]: [string, JsonSchema],
+    titledByParent = false,
+  ) => (
     <FieldRenderer
       key={name}
       name={name}
@@ -211,6 +215,7 @@ function ConfigSectionForm(props: {
       required={required.has(name)}
       errors={errors}
       datasetColumns={datasetColumns}
+      titledByParent={titledByParent}
     />
   )
 
@@ -224,7 +229,9 @@ function ConfigSectionForm(props: {
             Esta sección no tiene campos configurables.
           </p>
         ) : (
-          fields.map(renderField)
+          // `(f) => renderField(f)` y no `renderField` a secas: `map` pasaría el índice como
+          // segundo argumento y acabaría en `titledByParent`.
+          fields.map((field) => renderField(field))
         )}
       </div>
     )
@@ -243,7 +250,13 @@ function ConfigSectionForm(props: {
             {grp.group ?? "General"}
           </AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-5 pt-1 pb-2">{grp.fields.map(renderField)}</div>
+            {/* Si el accordion ya se llama igual que su único campo, ese campo va sin su propio
+                título: si no, se lee «Documento / Documento». */}
+            <div className="space-y-5 pt-1 pb-2">
+              {grp.fields.map((field) =>
+                renderField(field, grupoTitulaASuUnicoCampo(grp)),
+              )}
+            </div>
           </AccordionContent>
         </AccordionItem>
       ))}

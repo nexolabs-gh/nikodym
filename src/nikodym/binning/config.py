@@ -66,7 +66,9 @@ class VariableBinningConfig(NikodymBaseConfig):
     monotonic_trend: MonotonicTrend | None = Field(
         default=None,
         title="Monotonía específica",
-        description="Monotonía de event rate para esta variable; None usa el default global.",
+        description=(
+            "Monotonía de la tasa de default para esta variable; en blanco usa la regla general."
+        ),
         json_schema_extra={
             "ui_widget": "selectbox",
             "ui_group": "Overrides por variable",
@@ -80,7 +82,9 @@ class VariableBinningConfig(NikodymBaseConfig):
         ge=2,
         le=50,
         title="Máximo de bins específico",
-        description="Número máximo de bins finales para esta variable; None usa el valor global.",
+        description=(
+            "Número máximo de bins finales para esta variable; en blanco usa el valor general."
+        ),
         json_schema_extra={
             "ui_widget": "slider",
             "ui_group": "Overrides por variable",
@@ -94,7 +98,9 @@ class VariableBinningConfig(NikodymBaseConfig):
         ge=0.0,
         le=0.5,
         title="Tamaño mínimo específico",
-        description="Fracción mínima por bin final para esta variable; None usa el valor global.",
+        description=(
+            "Fracción mínima por bin final para esta variable; en blanco usa el valor general."
+        ),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Overrides por variable",
@@ -107,9 +113,10 @@ class VariableBinningConfig(NikodymBaseConfig):
         default=None,
         ge=0.0,
         le=0.5,
-        title="Umbral rare levels específico",
+        title="Umbral de categorías raras (específico)",
         description=(
-            "Frecuencia bajo la cual se agrupan niveles categóricos raros; None usa global."
+            "Frecuencia bajo la cual se agrupan las categorías raras; en blanco usa el valor "
+            "general."
         ),
         json_schema_extra={
             "ui_widget": "number_input",
@@ -222,7 +229,9 @@ class BinningConfig(NikodymBaseConfig):
         ge=2,
         le=50,
         title="Mínimo de bins",
-        description="Número mínimo de bins finales; None deja la decisión al solver.",
+        description=(
+            "Número mínimo de bins finales; en blanco deja la decisión al motor de binning."
+        ),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Restricciones",
@@ -251,7 +260,7 @@ class BinningConfig(NikodymBaseConfig):
         le=0.5,
         title="Tamaño mínimo de bin",
         description=(
-            "Fracción mínima de observaciones por bin final; None usa el default del motor."
+            "Fracción mínima de observaciones por bin final; en blanco usa el valor del motor."
         ),
         json_schema_extra={
             "ui_widget": "number_input",
@@ -304,7 +313,7 @@ class BinningConfig(NikodymBaseConfig):
         default=0.0,
         ge=0.0,
         le=1.0,
-        title="Diferencia mínima de event rate",
+        title="Diferencia mínima de tasa de default",
         description="Separación mínima de tasa de evento entre bins consecutivos.",
         json_schema_extra={
             "ui_widget": "number_input",
@@ -319,7 +328,7 @@ class BinningConfig(NikodymBaseConfig):
         ge=0.0,
         le=1.0,
         title="p-valor máximo entre bins",
-        description="Restricción opcional de p-valor máximo; None desactiva esta restricción.",
+        description="Restricción opcional de p-valor máximo; en blanco la desactiva.",
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Monotonía",
@@ -387,7 +396,9 @@ class BinningConfig(NikodymBaseConfig):
     require_optimal: bool = Field(
         default=True,
         title="Exigir status óptimo",
-        description="Si True, una solución no probada óptima falla ruidosamente.",
+        description=(
+            "Si está activado, una solución que el motor no probó óptima detiene la corrida."
+        ),
         json_schema_extra={
             "ui_widget": "checkbox",
             "ui_group": "Solver",
@@ -398,8 +409,10 @@ class BinningConfig(NikodymBaseConfig):
     )
     n_jobs: int | None = Field(
         default=None,
-        title="Paralelismo de BinningProcess",
-        description="None = 1 core. Para reproducibilidad regulatoria se recomienda no usar -1.",
+        title="Núcleos para binear en paralelo",
+        description=(
+            "Vacío = un solo núcleo. Para reproducibilidad regulatoria conviene no usar -1."
+        ),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Solver",
@@ -411,7 +424,7 @@ class BinningConfig(NikodymBaseConfig):
 
     special_handling: Literal["separate", "as_missing"] = Field(
         default="separate",
-        title="Tratamiento de special values",
+        title="Tratamiento de los valores especiales",
         description="'separate' usa special_codes; 'as_missing' los deja como missing.",
         json_schema_extra={
             "ui_widget": "selectbox",
@@ -424,7 +437,7 @@ class BinningConfig(NikodymBaseConfig):
     )
     metric_special: Literal["empirical"] | float = Field(
         default="empirical",
-        title="WoE para special",
+        title="WoE del bin de valores especiales",
         description="'empirical' usa el WoE observado del bin special; un float fuerza ese valor.",
         json_schema_extra={
             "ui_widget": "number_or_select",
@@ -436,7 +449,7 @@ class BinningConfig(NikodymBaseConfig):
     )
     metric_missing: Literal["empirical"] | float = Field(
         default="empirical",
-        title="WoE para missing",
+        title="WoE del bin de faltantes",
         description="'empirical' usa el WoE observado del bin missing; un float fuerza ese valor.",
         json_schema_extra={
             "ui_widget": "number_or_select",
@@ -450,7 +463,7 @@ class BinningConfig(NikodymBaseConfig):
         default=0.01,
         ge=0.0,
         le=0.5,
-        title="Umbral de rare levels",
+        title="Umbral de categorías raras",
         description="Frecuencia bajo la cual OptBinning agrupa niveles categóricos raros.",
         json_schema_extra={
             "ui_widget": "number_input",
@@ -464,7 +477,7 @@ class BinningConfig(NikodymBaseConfig):
     cat_unknown: float | str | None = Field(
         default=None,
         title="Valor para categoría no vista",
-        description="None en OptBinning asigna WoE neutral 0 cuando metric='woe'.",
+        description="En blanco asigna WoE 0 (neutral) a las categorías nunca vistas.",
         json_schema_extra={
             "ui_widget": "text_or_number",
             "ui_group": "Categóricas",
@@ -479,7 +492,7 @@ class BinningConfig(NikodymBaseConfig):
         le=10,
         title="Dígitos de cortes",
         description=(
-            "Número de decimales para representar cortes; None conserva precisión del motor."
+            "Número de decimales de los puntos de corte; en blanco conserva la precisión del motor."
         ),
         json_schema_extra={
             "ui_widget": "number_input",
@@ -517,7 +530,9 @@ class BinningConfig(NikodymBaseConfig):
     fail_on_non_binnable: bool = Field(
         default=False,
         title="Fallar ante variable no binneable",
-        description="Si True, una variable constante, 100% missing o no soportada aborta el fit.",
+        description=(
+            "Si está activado, una variable constante, sin datos o no soportada detiene el ajuste."
+        ),
         json_schema_extra={
             "ui_widget": "checkbox",
             "ui_group": "Salida",

@@ -90,7 +90,10 @@ class LoadingConfig(NikodymBaseConfig):
     source: str | None = Field(
         default=None,
         title="Ruta del dataset",
-        description="Ruta a CSV/Parquet/Excel; None si se inyecta un DataFrame en memoria por API.",
+        description=(
+            "Ruta a un archivo CSV, Parquet o Excel; se deja vacía si los datos se entregan ya "
+            "cargados desde Python."
+        ),
         json_schema_extra={
             "ui_help": "Ruta al archivo CSV, Parquet o Excel (.xlsx) que se va a cargar. Déjala "
             "vacía si el dataset se entrega directamente por código/API en vez de apuntar a un "
@@ -156,7 +159,7 @@ class ColumnSpec(NikodymBaseConfig):
     nullable: bool = Field(
         default=True,
         title="Admite nulos",
-        description="Si False, un nulo viola la validación.",
+        description="Si está desactivado, un nulo hace fallar la validación.",
         json_schema_extra={
             "ui_help": "Permite valores vacíos/nulos en esta columna. Desactívalo para columnas "
             "obligatorias donde un nulo indica un problema de calidad de datos.",
@@ -165,7 +168,7 @@ class ColumnSpec(NikodymBaseConfig):
     required: bool = Field(
         default=True,
         title="Obligatoria",
-        description="Si False y ausente, se omite sin error ('strict' lo respeta).",
+        description="Si está desactivado y la columna no viene, se omite sin error.",
         json_schema_extra={
             "ui_help": "Exige que la columna exista en el dataset. Si la desactivas y la "
             "columna falta, se omite sin error.",
@@ -234,8 +237,11 @@ class SchemaConfig(NikodymBaseConfig):
     )
     strict: Literal[True, False, "filter"] = Field(
         default=False,
-        title="Estrictez de columnas",
-        description="True: solo las declaradas; 'filter': descarta extras; False: permite extras.",
+        title="Columnas que el catálogo no declara",
+        # Las opciones del selector se pintan con su literal (`true`, `false`, `filter`), así que
+        # el copy tiene que nombrarlas exactamente así: escribir «True» manda a buscar algo que la
+        # pantalla no muestra.
+        description="true las prohíbe; filter las descarta; false las deja pasar.",
         json_schema_extra={
             "ui_help": "Qué hacer con columnas del dataset que no están en el catálogo: exigir "
             "que no existan (True), descartarlas en silencio ('filter'), o dejarlas pasar sin "
@@ -329,8 +335,10 @@ class Predicate(NikodymBaseConfig):
     )
     op: Literal["==", "!=", "<", "<=", ">", ">=", "in", "notin", "isna", "notna"] = Field(
         ...,
-        title="Operador (allowlist cerrada)",
-        description="Único conjunto permitido. 'isna'/'notna' ignoran 'value'.",
+        title="Operador de la condición",
+        description=(
+            "Sólo se admiten los del selector. isna y notna ignoran el valor de comparación."
+        ),
         json_schema_extra={
             "ui_help": "Comparación a aplicar sobre la columna: igual/distinto, mayor/menor, "
             "pertenece/no pertenece a una lista, o es nulo/no nulo. 'isna'/'notna' ignoran el "
@@ -433,7 +441,9 @@ class TargetConfig(NikodymBaseConfig):
     good_rule: Rule | None = Field(
         default=None,
         title="Regla de 'bueno'",
-        description="Si None: bueno = NOT bad AND NOT indeterminate AND NOT excluded.",
+        description=(
+            "Si se deja sin definir: es bueno todo lo que no sea malo, indeterminado ni excluido."
+        ),
         json_schema_extra={
             "ui_help": "Condición que define cuándo una observación es 'bueno'. Si la dejas "
             "vacía, se considera bueno todo lo que no sea malo, indeterminado ni excluido.",
@@ -530,7 +540,7 @@ class MissingConfig(NikodymBaseConfig):
 
     special_values: tuple[SpecialValueSpec, ...] = Field(
         default_factory=tuple,
-        title="Catálogo de special values",
+        title="Catálogo de valores especiales",
         description="Centinelas a normalizar a NaN conservando su etiqueta.",
         json_schema_extra={
             "ui_help": "Catálogo de valores centinela (p.ej. -999, 'N/A') a normalizar a nulo "
@@ -541,7 +551,7 @@ class MissingConfig(NikodymBaseConfig):
         default=0.99,
         ge=0.0,
         le=1.0,
-        title="Tasa máxima de missing por columna",
+        title="Tasa máxima de nulos por columna",
         description=(
             "Las columnas por sobre el umbral se reportan como decisión en el audit-trail; "
             "ninguna etapa las elimina automáticamente por este umbral."

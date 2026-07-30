@@ -147,15 +147,16 @@ const NAV: NavItem[] = [
 /**
  * Control **visible** que corresponde a `id`, o `null` si no hay ninguno en el DOM.
  *
- * ⚠️ No basta `getElementById`, y se midió en vivo: un campo opcional **apagado** se pinta como un
- * `<span role="switch">` («Activar …») y el `id` del path lo lleva un `<input type="checkbox">`
- * interno del componente, con `aria-hidden` y `position: fixed`. Enfocar ése no mueve la página a
- * ninguna parte y el salto falla en silencio — justo en los campos opcionales, que son la mayoría
- * de los que el preflight señala (`index_col`, `temporal_column`, `cohort_col`).
+ * ⚠️ No basta `getElementById`, y se midió en vivo: un campo opcional **apagado** no tiene input de
+ * valor —sólo su switch «Activar …»—, así que el `id` del path no existe en el DOM. Enfocar la nada
+ * hace fallar el salto en silencio, justo en los campos opcionales, que son la mayoría de los que
+ * el preflight señala (`index_col`, `temporal_column`, `cohort_col`).
  *
- * Por eso se descartan los `aria-hidden` y se prefiere el primer nodo enfocable; si sólo queda el
- * oculto, se cae al switch visible de su mismo grupo, que es el control que el usuario debe tocar
- * para poder escribir el nombre.
+ * Por eso el switch de un campo opcional declara `data-field-path` con el path de su campo: es el
+ * control que el usuario tiene que tocar para poder escribir el nombre. Antes esto se resolvía
+ * poniéndole al switch el mismo `id` que al input, lo que dejaba **dos elementos con el mismo `id`**
+ * en la página y obligaba a filtrar por `aria-hidden`; el atributo explícito dice lo mismo sin
+ * romper la unicidad del `id`.
  */
 function controlVisible(id: string): HTMLElement | null {
   const nodos = [
@@ -165,6 +166,10 @@ function controlVisible(id: string): HTMLElement | null {
     (el) => el.getAttribute("aria-hidden") !== "true" && el.tabIndex >= 0,
   )
   if (enfocable) return enfocable
+  const activador = document.querySelector<HTMLElement>(
+    `[data-field-path="${CSS.escape(id)}"]`,
+  )
+  if (activador) return activador
   const oculto = nodos[0]
   if (!oculto) return null
   return (

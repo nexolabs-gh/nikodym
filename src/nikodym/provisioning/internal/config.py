@@ -210,8 +210,9 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante falta de dato",
         description=(
-            "True: un nulo en exposición, PD, LGD o tasa de pérdida detiene la corrida con error. "
-            "False: se imputa cero, la operación queda marcada como falta de dato y el resultado "
+            "Activado: un nulo en exposición, PD, LGD o tasa de pérdida detiene la corrida con "
+            "error. Desactivado: se imputa cero, la operación queda marcada como falta de dato y "
+            "el resultado "
             "lo deja trazado."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Método", "ui_order": 4},

@@ -206,26 +206,26 @@ class ProvisioningConfig(NikodymBaseConfig):
     )
     segment_col: str | None = Field(
         default=None,
-        title="Columna de segmento (comparison_level='segment')",
+        title="Columna de segmento (cuando el nivel de comparación es segment)",
         description="Columna de segmento provista por el usuario para comparar por segmento.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 5},
     )
     row_id_col: str = Field(
         default="row_id",
-        title="Identificador de operación (comparison_level='operation')",
+        title="Identificador de operación (cuando el nivel de comparación es operation)",
         description="Columna identificadora de operación para alinear el nivel más granular.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 6},
     )
     consume_a: bool = Field(
         default=True,
         title="Consumir el resultado de la fuente A si está presente",
-        description="Si es True, el resultado de source_a entra en la comparación.",
+        description="Si está activado, el resultado de la primera fuente entra en la comparación.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Fuentes", "ui_order": 4},
     )
     consume_b: bool = Field(
         default=True,
         title="Consumir el resultado de la fuente B si está presente",
-        description="Si es True, el resultado de source_b entra en la comparación.",
+        description="Si está activado, el resultado de la segunda fuente entra en la comparación.",
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Fuentes", "ui_order": 5},
     )
     consume_cmf: bool | None = Field(
@@ -252,7 +252,7 @@ class ProvisioningConfig(NikodymBaseConfig):
         default=True,
         title="Exigir ambas fuentes (si no, se reporta la disponible)",
         description=(
-            "La regla supone ambas fuentes; con False se reporta la única fuente disponible, "
+            "La regla supone las dos fuentes; desactivado, se reporta la única disponible, "
             "marcada como comparación incompleta por falta de dato."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Fuentes", "ui_order": 8},
@@ -301,9 +301,9 @@ class ProvisioningConfig(NikodymBaseConfig):
         default=True,
         title="Fallar ante brechas críticas de dato",
         description=(
-            "Si es True, una brecha crítica de datos (p. ej. taxonomías de cartera sin "
-            "equivalencia declarada en portfolio_crosswalk) detiene la corrida con error en vez "
-            "de marcarla como falta de dato y seguir."
+            "Si está activado, una brecha crítica de datos (por ejemplo, taxonomías de cartera sin "
+            "equivalencia declarada en la tabla de correspondencias) detiene la corrida con "
+            "error en vez de marcarla como falta de dato y seguir."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "General", "ui_order": 2},
     )

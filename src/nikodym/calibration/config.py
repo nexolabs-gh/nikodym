@@ -87,9 +87,9 @@ class CalibrationConfig(NikodymBaseConfig):
         lt=1.0,
         title="PD objetivo",
         description=(
-            "Tasa central de anclaje en (0, 1). Con anchor_source='development_observed' NO se usa "
+            "Tasa central de anclaje, entre 0 y 1. Con la fuente development_observed NO se usa "
             "(la tasa central TTC se estima como promedio de largo plazo observado en Desarrollo), "
-            "por eso el default es None. Con anchor_source en {'business_input', "
+            "por eso se deja vacía. Con las fuentes "
             "'historical_default_rate', 'external_regulatory'} es OBLIGATORIA y explícita: esas "
             "fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la "
             "configuración falla en vez de anclar a un número inventado."
@@ -173,7 +173,7 @@ class CalibrationConfig(NikodymBaseConfig):
         default=None,
         title="Máximo offset absoluto",
         description=(
-            "Guard opcional del desplazamiento de reanclaje a tasa central. Con None se audita "
+            "Tope opcional del desplazamiento de reanclaje a la tasa central. En blanco se audita "
             "el offset extremo sin fallar; si se informa, debe ser finito y mayor que 0."
         ),
         json_schema_extra={

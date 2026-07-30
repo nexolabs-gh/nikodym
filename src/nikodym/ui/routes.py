@@ -438,14 +438,95 @@ def _wire_report_output_dir(config: dict[str, Any], *, workdir: Path) -> dict[st
     return edited
 
 
+#: Mensajes en español por ``type`` de error de Pydantic. El ``type`` es contrato estable de
+#: Pydantic v2 (a diferencia del ``msg``, que es prosa y cambia entre versiones), así que es la
+#: llave correcta para traducir. Lo que no esté aquí cae al ``msg`` original: un mensaje en inglés
+#: es peor que uno en español, pero mucho mejor que uno inventado que diga otra cosa.
+_MENSAJES: dict[str, str] = {
+    "missing": "Este campo es obligatorio.",
+    "extra_forbidden": "Este campo no existe en la configuración.",
+    "string_type": "Tiene que ser texto.",
+    "string_too_short": "El texto es demasiado corto.",
+    "string_too_long": "El texto es demasiado largo.",
+    "int_type": "Tiene que ser un número entero.",
+    "int_parsing": "Tiene que ser un número entero.",
+    "int_from_float": "Tiene que ser un número entero, sin decimales.",
+    "float_type": "Tiene que ser un número.",
+    "float_parsing": "Tiene que ser un número.",
+    "decimal_parsing": "Tiene que ser un número.",
+    "bool_type": "Tiene que estar activado o desactivado.",
+    "bool_parsing": "Tiene que estar activado o desactivado.",
+    "list_type": "Tiene que ser una lista.",
+    "tuple_type": "Tiene que ser una lista.",
+    "set_type": "Tiene que ser una lista sin repetidos.",
+    "dict_type": "Tiene que ser un objeto con pares clave-valor.",
+    "model_type": "Tiene que ser un objeto con sus campos.",
+    "model_attributes_type": "Tiene que ser un objeto con sus campos.",
+    "too_short": "Faltan elementos en la lista.",
+    "too_long": "Sobran elementos en la lista.",
+    "date_type": "Tiene que ser una fecha.",
+    "date_from_datetime_parsing": "Tiene que ser una fecha válida.",
+    "datetime_parsing": "Tiene que ser una fecha válida.",
+    "enum": "Elige uno de los valores del selector.",
+    "literal_error": "Elige uno de los valores del selector.",
+    "url_parsing": "Tiene que ser una dirección web válida.",
+    "json_invalid": "El texto no es JSON válido.",
+}
+
+#: Prefijo que Pydantic antepone al mensaje de un validador propio (`ValueError` en un
+#: `field_validator`). El mensaje de detrás ya está en español —lo escribe este repo—, pero el
+#: prefijo no, y se lee en pantalla.
+_PREFIJOS_PYDANTIC = ("Value error, ", "Assertion failed, ")
+
+
+def _mensaje_en_espanol(error: dict[str, Any]) -> str:
+    """Traduce un error de Pydantic al idioma de la interfaz, conservando su detalle numérico.
+
+    La UI está en español y estos mensajes se pintan junto al campo: dejar «Field required» o
+    «Input should be a valid integer» en una pantalla en español es copy público sin traducir. La
+    traducción es por ``type`` y **nunca inventa**: si el tipo no está mapeado se devuelve el
+    mensaje original de Pydantic.
+
+    Los errores de rango llevan su cota en ``ctx`` (``ge``, ``gt``, ``le``, ``lt``): se compone el
+    mensaje con el número, porque «tiene que ser mayor o igual que 0» sin el 0 no sirve de nada.
+    """
+    tipo = str(error.get("type", ""))
+    ctx = error.get("ctx") or {}
+    cotas = {
+        "greater_than": ("gt", "mayor que"),
+        "greater_than_equal": ("ge", "mayor o igual que"),
+        "less_than": ("lt", "menor que"),
+        "less_than_equal": ("le", "menor o igual que"),
+        "multiple_of": ("multiple_of", "múltiplo de"),
+    }
+    if tipo in cotas:
+        clave, texto = cotas[tipo]
+        limite = ctx.get(clave)
+        if limite is not None:
+            return f"Tiene que ser {texto} {limite}."
+    if tipo in _MENSAJES:
+        return _MENSAJES[tipo]
+    msg = str(error.get("msg", ""))
+    for prefijo in _PREFIJOS_PYDANTIC:
+        if msg.startswith(prefijo):
+            return msg[len(prefijo) :]
+    return msg
+
+
 def _format_errors(exc: ValidationError) -> list[dict[str, Any]]:
     """Proyecta ``exc.errors()`` a ``{loc, msg, type}`` JSON-serializable (sin ``ctx``/``input``).
 
     ``loc`` (tupla) se convierte a lista y se omiten ``ctx``/``input``/``url``: pueden traer objetos
-    no serializables y el contrato REST solo expone ``loc``/``msg``/``type`` (SDD-23 §4.2).
+    no serializables y el contrato REST solo expone ``loc``/``msg``/``type`` (SDD-23 §4.2). El
+    ``msg`` viaja **traducido** (:func:`_mensaje_en_espanol`); el ``type``, que es la llave estable
+    y la que consume cualquier cliente programático, se conserva intacto.
     """
     return [
-        {"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
+        {
+            "loc": list(error["loc"]),
+            "msg": _mensaje_en_espanol(dict(error)),
+            "type": error["type"],
+        }
         for error in exc.errors()
     ]
 

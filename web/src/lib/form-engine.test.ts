@@ -17,6 +17,7 @@ import {
   fieldLabel,
   fieldPlaceholder,
   groupedFields,
+  grupoTitulaASuUnicoCampo,
   hasBothBounds,
   hasClosedOptions,
   isHiddenField,
@@ -885,5 +886,46 @@ describe("fieldPlaceholder — ayuda en campos (examples > description)", () => 
 
   it("sin examples ni description → undefined (no inventa ejemplos)", () => {
     expect(fieldPlaceholder({ type: "string" })).toBeUndefined()
+  })
+})
+
+describe("grupoTitulaASuUnicoCampo (M10: «Documento / Documento»)", () => {
+  const documento: JsonSchema = { $ref: "#/$defs/Doc", title: "Documento", ui_group: "Documento" }
+
+  it("un grupo cuyo único campo se llama igual: el campo no debe repetir el título", () => {
+    expect(
+      grupoTitulaASuUnicoCampo({ group: "Documento", fields: [["document", documento]] }),
+    ).toBe(true)
+  })
+
+  it("con DOS campos el título del grupo es un paraguas: cada campo conserva el suyo", () => {
+    expect(
+      grupoTitulaASuUnicoCampo({
+        group: "Documento",
+        fields: [
+          ["document", documento],
+          ["otro", { type: "string", title: "Otro" }],
+        ],
+      }),
+    ).toBe(false)
+  })
+
+  it("títulos distintos: no se toca nada", () => {
+    expect(
+      grupoTitulaASuUnicoCampo({
+        group: "Salida",
+        fields: [["document", documento]],
+      }),
+    ).toBe(false)
+  })
+
+  it("grupo sin título (campos sin ui_group): no aplica", () => {
+    expect(grupoTitulaASuUnicoCampo({ group: null, fields: [["document", documento]] })).toBe(false)
+  })
+
+  it("cae al NOMBRE del campo cuando no hay title, igual que fieldLabel", () => {
+    expect(
+      grupoTitulaASuUnicoCampo({ group: "html", fields: [["html", { type: "object" }]] }),
+    ).toBe(true)
   })
 })
