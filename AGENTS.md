@@ -9,7 +9,49 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-29, cierre)
+## Estado del proyecto (2026-07-30, cierre)
+
+**`main` = `3f646ae`, CI 16/16 confirmado con `gh`, todo pusheado.** **PyPI publica `1.10.0`** (tag
+`v1.10.0` sobre `9a85a53`) — ⚠️ **los arreglos del 2026-07-30 no están publicados**; publicar
+`1.11.0` es decisión de Cami y exige su OK. Suite **4560 passed / 6 skipped**; vitest **369/369**;
+`mypy` 242; `ruff check` **y** `ruff format --check`; fixture del schema regenerado; bundle
+reconstruido.
+
+🔴 **El ensayo del webinar está HECHO y la demo se sostiene; lo que queda es el guion y la PPT.**
+19 → 0 desajustes sólo por formulario, `done` en 10,5 s por UI y 14,8 s por código, AUC
+**0,9175 / 0,8872 / 0,9133**, PSI ≤ 0,0113, 0 avisos, los cuatro formatos. Secuencia de cámara,
+comandos y trampas: [`HANDOFF.md`](../HANDOFF.md).
+
+🔴 **La paridad UI ↔ código es EXACTA, y esto corrige lo que decía el D2.** Con el mismo esquema
+declarado, los dos caminos dan `config_hash e3d75b27…` y `data_hash b6c9f33a…` **carácter por
+carácter**, aunque la UI lea un parquet y el script un CSV. La diferencia que el D2 atribuyó al orden
+de `binning.feature_columns` era **esquema mínimo contra esquema completo**: el `data_hash` depende
+del esquema, porque declarar un `dtype` coerciona la columna y el hash es del contenido lógico ya
+cargado. El script `privado/webinar-hmeq-codigo-minimo.py` es el espejo exacto de la UI y verifica la
+paridad él solo.
+
+✅ **Los diez menores del ensayo, resueltos y verificados en la pantalla** (no sólo con tests):
+mensajes de validación en español —traducidos por `type` de Pydantic, que es contrato estable—; cero
+`id` de DOM duplicados (el switch de un campo opcional usa `<path>__activar` + `data-field-path`);
+fuera la jerga «Editor JSON (tipo no mapeado)», «allowlist cerrada», «BinningProcess»; los cinco
+botones «Añadir» distinguibles; el selector de Preset marca «con tus cambios» y **pide confirmación
+antes de resembrar**; el workdir de la interfaz **se auto-veta escribiendo su propio `.gitignore`**;
+y se acabaron los títulos repetidos «Documento / Documento».
+
+⚠️ **El barrido de copy encontró 43 ofensores donde había 4 anotados** (26 descripciones con
+`None`/`True`/`False`, 15 en provisiones, 3 títulos con jerga y 9 en inglés). Importa porque
+**`fieldPlaceholder` cae en la `description`**: un `None` ahí es el placeholder del input y se lee sin
+hover. Lo cierra `tests/unit/test_copy_del_formulario.py`. ⚠️ **Su primera versión daba verde
+recorriendo cero campos**, así que ahora exige >300 campos y tres anclas: un gate que no recorre nada
+no prueba nada.
+
+⚠️ **Trampa de CI nueva:** el paso «Verify vendored license evidence against PyPI» consulta el índice
+por HTTP y puede caerse por red del runner (`SSL: UNEXPECTED_EOF_WHILE_READING`) sin que nada del repo
+haya cambiado. `gh run rerun --failed` → 16/16. Antes de diagnosticar, mirar si el rojo es ése.
+
+---
+
+### Lo de la sesión anterior (`9a85a53` + tag `v1.10.0`, 2026-07-29)
 
 **`main` = `9a85a53`, con tag `v1.10.0`, CI 16/16 confirmado con `gh`, todo pusheado.**
 **PyPI publica `1.10.0`.** Suite **4550 passed / 6 skipped**; vitest **359/359**; `mypy` 242;

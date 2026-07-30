@@ -5,7 +5,74 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-29, `9a85a53` + tag **`v1.10.0`**, **CI 16/16 confirmado con `gh`**, todo pusheado)
+> ## Lo último (2026-07-30, `3f646ae`, **CI 16/16 confirmado con `gh`**, todo pusheado)
+>
+> 🔴 **EL WEBINAR ES HOY, 2026-07-30, POR LA TARDE. El ensayo está HECHO y lo único que queda es el
+> GUION y la PPT** — Cami los puso explícitamente al final, «con los tiempos ya medidos». Están
+> medidos: la secuencia de cámara, los tres comandos y las cuatro trampas viven en
+> [`HANDOFF.md`](HANDOFF.md).
+>
+> ✅ **El ensayo D3 salió limpio por los dos caminos, con la máquina descargada** (load 1,31):
+> 19 → **0 desajustes** sólo con el formulario, `done` en **10,5 s** por UI y **14,8 s** por código,
+> los cuatro formatos, **0 avisos declarados** y **cero defectos nuevos de la aplicación**. AUC
+> **0,9175 / 0,8872 / 0,9133**, PSI ≤ 0,0113, los 9 coeficientes con signo correcto.
+>
+> 🔴 **El hallazgo que CORRIGE al D2: la paridad UI ↔ código es EXACTA.** El D2 dejó escrito que los
+> `config_hash` «no calzan y está bien, es el orden de `binning.feature_columns`». Medido: con el
+> **mismo esquema declarado**, los dos caminos dan `config_hash e3d75b27…` y `data_hash b6c9f33a…`
+> **carácter por carácter**, aunque la UI lea un parquet y el script un CSV. Lo que difería era
+> **esquema mínimo contra esquema completo**: el `data_hash` depende del esquema porque declarar un
+> `dtype` coerciona la columna, y el hash es del contenido lógico ya cargado. De ahí el script nuevo
+> `privado/webinar-hmeq-codigo-minimo.py`, espejo exacto de la versión corta por UI, que **verifica
+> la paridad él solo y la imprime**. ⚠️ **Si en cámara se enseñan los dos caminos, va ése**: con el
+> de 13 columnas los hashes no calzan (y es correcto que no calcen).
+>
+> ✅ **Los diez menores del ensayo: resueltos y verificados EN LA PANTALLA**, no sólo con tests
+> (§D3-bis del informe). **M1** los mensajes de validación dejan de salir en inglés —se traducen por
+> `type`, que es contrato estable de Pydantic, nunca por `msg`— · **M2** cero `id` de DOM duplicados:
+> el switch de un campo opcional pasa a `<path>__activar` y declara `data-field-path`, que es por
+> donde el salto del preflight alcanza un campo **apagado** · **M3/P6** fuera «Editor JSON (tipo no
+> mapeado)», «allowlist cerrada», «BinningProcess», «Estrictez de columnas» · **M4** los cinco
+> «Añadir» dicen a qué lista añaden · **M5** el selector de Preset marca «con tus cambios» y **pide
+> confirmación antes de resembrar** (antes borraba el trabajo de un click) · **M7** la interfaz
+> escribe un `.gitignore` con `*` **dentro de su propio workdir**, que es la clase entera: el nombre
+> lo elige quien lanza con `--workdir` · **M10** se acabaron los «Documento / Documento».
+>
+> 🔴 **Y el barrido de copy destapó 43 ofensores donde el D2 había anotado 4:** 26 descripciones con
+> `None`/`True`/`False` en las secciones del formulario, 15 más en las de provisiones, 3 títulos con
+> jerga interna y **9 en inglés** («Catálogo de special values», «WoE para missing», «Umbral de rare
+> levels»…). ⚠️ **`fieldPlaceholder` cae en la `description`, así que un `None` ahí ES el placeholder
+> del input** y se lee sin hover. **No** se tocaron `score`, `target`, `WoE`, `PSI` ni `holdout`: son
+> terminología del dominio, y cambiarlas sería reescribir el vocabulario de la interfaz y del informe.
+> Lo cierra el gate nuevo `tests/unit/test_copy_del_formulario.py`.
+>
+> ⚠️ **Tres lecciones que ese gate aprendió DE SÍ MISMO, y valen para cualquier gate del repo:**
+> (a) 🔴 su primera versión **daba verde recorriendo CERO campos** —asumí mal la forma de
+> `schema_payload()`, que devuelve `{json_schema, defaults, section_order}`—, y «0 ofensores» se lee
+> igual que «todo limpio»: por eso ahora exige **>300 campos y tres anclas concretas**; (b) heredar
+> sólo `title`/`description` al bajar por un `anyOf` dio **dos falsos positivos**, porque
+> `ui_widget: "hidden"` vive en el padre de un `bool | None`; (c) el **título de una lista** se perdía
+> al bajar a sus `items`, y ahí vivía «Catálogo de special values» — que sólo se vio leyendo un
+> `aria-label` en la pantalla.
+>
+> ⚠️ **PyPI publica `1.10.0` y los arreglos de esta sesión NO están publicados.** La demo corre del
+> árbol local, así que no bloquea nada; pero un tercero que instale hoy se lleva el copy viejo, el
+> `id` duplicado y el selector que resiembra sin avisar. **Publicar `1.11.0` es decisión de Cami**
+> (cambia comportamiento de UI ⇒ minor, no patch) y exige su OK explícito más la auditoría
+> adversarial previa.
+>
+> ⚠️ **Trampa de CI nueva: un rojo que no es del cambio.** El primer run dio 15 + 1, y el fallo fue
+> «Verify vendored license evidence against PyPI» por red del runner (`greenlet==3.5.2: fuente
+> inaccesible — SSL: UNEXPECTED_EOF_WHILE_READING`). Ese gate consulta PyPI por HTTP. `rerun --failed`
+> → 16/16. **Si falla ese paso y el mensaje habla de red, es reintento, no diagnóstico.**
+>
+> ✅ **Carpeta de exploración entregada** (pedido de Cami): `~/Downloads/webinar-nikodym-hmeq/` con el
+> dataset, los **dos** recorridos comentados paso a paso, un explorador con pandas (WoE e IV a mano) y
+> su README. No toca el repo; verificada corriéndola.
+>
+> ---
+>
+> ### Lo de la sesión anterior (`9a85a53` + tag **`v1.10.0`**, 2026-07-29): el D2 y el release
 >
 > 🔴 **EL WEBINAR EN VIVO ES MAÑANA POR LA MAÑANA, 2026-07-30. Y lo que queda NO es programar.**
 > Cami lo dijo al cerrar esta sesión: «parto una fresca haciendo **una corrida limpia con el
