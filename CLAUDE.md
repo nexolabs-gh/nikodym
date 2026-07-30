@@ -5,11 +5,82 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-29, `0ea4cba`, **CI 16/16 confirmado con `gh`**, todo pusheado)
+> ## Lo último (2026-07-29, `9a85a53` + tag **`v1.10.0`**, **CI 16/16 confirmado con `gh`**, todo pusheado)
 >
-> 🔴 **LO PRIMERO: el webinar EN VIVO es MAÑANA, el 2026-07-30.** Cami corrigió la fecha al cerrar
-> esta sesión —**no** es el 2026-08-02, como decía toda la documentación anterior—. Queda lo que
-> reste del 2026-07-29 y **la mañana del 2026-07-30**.
+> 🔴 **EL WEBINAR EN VIVO ES MAÑANA POR LA MAÑANA, 2026-07-30. Y lo que queda NO es programar.**
+> Cami lo dijo al cerrar esta sesión: «parto una fresca haciendo **una corrida limpia con el
+> dataset**… **no puedo fallar en vivo**». El objetivo de la próxima sesión es **ensayar la secuencia
+> exacta de la cámara**, con la máquina descargada, y cronometrarla. La secuencia paso a paso, los
+> comandos y las cuatro trampas están en [`HANDOFF.md`](HANDOFF.md).
+>
+> ✅ **`1.10.0` PUBLICADO en PyPI** (tag `v1.10.0` sobre `9a85a53`, OK explícito de Cami), y **era
+> necesario, no cosmético: la demo era irreproducible con lo publicado.** `1.9.0` (= `cd75aa9`) es
+> anterior a los seis commits que hacen posible el recorrido por UI, así que **en PyPI los multiselect
+> de binning seguían pintando «Sin opciones.»** — el bloqueo que el D1 documentó. Verificado desde
+> PyPI en venv limpio con `--no-cache-dir`: 0 desajustes, `done` en 14,5 s, los cuatro formatos con
+> `[ui,pdf]` y la portada con sus cinco campos.
+>
+> ✅ **El P0 del D2 está cumplido: el camino 100 % por UI llega al informe.** 19 desajustes → **0**
+> corrigiendo sólo desde el formulario, sin cargar ningún YAML, `done` y los cuatro formatos. AUC
+> **0,9175 / 0,8872 / 0,9133**, PSI ≤ 0,0113, los 9 coeficientes con signo correcto, **0 avisos
+> declarados**. El recorrido por código quedó escrito en `privado/webinar-hmeq-codigo.py` (11 pasos).
+> Informe con tiempos y fricción medida: `privado/WEBINAR-D2-ENSAYO-2026-07-29.md`.
+>
+> ✅ **El formulario ofrece 14 secciones: entra «Informe», y con ella la portada del entregable**
+> (decisión de Cami entre tres opciones con su costo medido). Antes esos cinco campos sólo se
+> escribían por YAML o por código, así que el informe del camino UI salía con la primera página en
+> blanco. ⚠️ **Llenar la portada NO mueve el `config_hash`**: `report` está en `INFRA_SECTIONS` a
+> propósito, porque el informe es presentación y no cálculo.
+>
+> 🔴 **La auditoría adversarial FRENÓ el release: dos de tres revisores dijeron parar, y tenían razón.
+> Tercer release consecutivo en que ocurre.** Lo que encontró estaba **en la pantalla que se abre en
+> la demo**, y nada de eso lo veían 4.550 tests verdes:
+>
+> 1. **Cinco etiquetas visibles SIN hover** en la sección nueva: «Embeder assets», «Timeout IA»,
+>    «Máximo tokens entrada», «Variable de API key» y «payload» **en un placeholder** —⚠️
+>    `fieldPlaceholder` cae en la `description`, así que **una `description` puede leerse sin
+>    hover**—. Más ocho descripciones que empezaban por «True …» sobre interruptores que dicen
+>    Activado/Desactivado.
+> 2. **Reincidencia EXACTA del defecto corregido horas antes:** el tooltip de `missing_policy` mandaba
+>    a elegir «warning» y el selector muestra `error`, `warn`, `skip`. Las opciones se pintan crudas
+>    (`String(option)`), así que **todo copy que nombre una opción tiene que usar su literal**.
+> 3. **Un mensaje compartido entre botones acusa al que no fue:** pulsar «Word (.docx)» decía «Esta
+>    corrida no generó un PDF». El arreglo hace **obligatorio** el parámetro del entregable, sin
+>    default, para que no se pueda reintroducir en silencio.
+> 4. **`pd.Timestamp("")` y `pd.Timestamp("nan")` devuelven `NaT` SIN levantar**, así que atrapar
+>    `ValueError` no bastaba y un `oot_from` en blanco se iba en silencio. Confirmado **corriendo el
+>    motor**: muere en `data` con las dos superficies en verde.
+> 5. **`[ui]` no declaraba matplotlib** y su formulario ofrece `render_charts` en `True`: funcionaba
+>    sólo porque `optbinning` y `lifelines` lo arrastran — **verde por accidente**.
+>
+> **Y lo que la auditoría REFUTÓ vale igual:** `config_hash` idéntico byte a byte en los tres presets
+> y en el YAML del webinar, medido **en caliente y en frío** contra un `git archive v1.9.0`; ningún
+> config de fábrica gana avisos; ninguna firma pública cambió; `manifest.path` no se movió.
+>
+> ✅ **Un defecto real del núcleo, que encontró el recorrido POR CÓDIGO:** `ReportResult.html_path`
+> devolvía `reports/reports/scorecard_report.html` —inexistente— cuando `report.output_dir` es
+> **relativo**, que es el default del preset F1 y el caso de quien usa la librería por código. La
+> interfaz pasa ruta absoluta, así que por ahí no se veía, y **ningún test cubría el caso relativo**.
+>
+> **Cuatro trampas operativas nuevas que conviene no re-aprender:**
+>
+> 1. **🔴 La máquina cargada multiplica la corrida por 10.** La misma corrida tarda **14,9 s libre y
+>    157,5 s con load average 20**; por UI, 20 s → **206 s**. No es regresión: el camino por código,
+>    que no cambió, se degrada igual. Antes de una demo en vivo, cerrar Chrome y las otras sesiones.
+> 2. **🔴 `nohup` también se come el `DYLD`.** macOS (SIP) lo borra al exec-utar `/usr/bin/nohup`,
+>    igual que con el `/bin/sh` del shebang. La regla buena es más general que «usa `python -m`»: **el
+>    primer proceso exec-utado tiene que ser el intérprete**, sin `sh` ni `nohup` en medio.
+> 3. **🔴 Tocar `pyproject.toml` sin correr `uv lock` pone 15 de 16 jobs en rojo** (`uv sync
+>    --locked`). No es un fallo de tests: ningún job llega a correr uno.
+> 4. **⚠️ El minificador emite template literals:** `grep 'key:"report"'` da **cero hits** sobre un
+>    bundle correcto. Hay que grepear con backticks — casi costó un P0 falso.
+>
+> ⚠️ **`[ui]` a secas NO produce PDF, y es diseño:** `[pdf]` (WeasyPrint) nunca entra por la
+> transitiva copyleft. A un tercero se le dice **`pip install "nikodym[ui,pdf]"`**.
+>
+> ---
+>
+> ### Lo de la sesión anterior (`0ea4cba`, 2026-07-29): las invariantes previas y la jerga de pandera
 >
 > 🔴 **Y lo que falta NO es código: es el ensayo de punta a punta.** Cami lo dijo así: «me interesa
 > sacar una scorecard del dataset y mostrar todos los pasos tanto como en código como en UI», «no nos

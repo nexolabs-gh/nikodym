@@ -9,7 +9,82 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-29)
+## Estado del proyecto (2026-07-29, cierre)
+
+**`main` = `9a85a53`, con tag `v1.10.0`, CI 16/16 confirmado con `gh`, todo pusheado.**
+**PyPI publica `1.10.0`.** Suite **4550 passed / 6 skipped**; vitest **359/359**; `mypy` 242;
+`ruff check` **y** `ruff format --check`; bundle sin drift; fixture del schema regenerado.
+
+🔴 **PRIORIDAD ABSOLUTA: el webinar EN VIVO es MAÑANA POR LA MAÑANA, 2026-07-30 — y lo que queda NO
+es programar.** Es sobre regresión logística y scorecard, con **demo real no precargada**, dataset
+**HMEQ**, en código **y** en UI, ante audiencia mixta con decisores. Cami lo dijo al cerrar: «parto
+una fresca haciendo **una corrida limpia con el dataset**… **no puedo fallar en vivo**». El objetivo
+de la próxima sesión es **ensayar la secuencia exacta de la cámara**, con la máquina descargada, y
+cronometrarla. Secuencia paso a paso, comandos y trampas: [`HANDOFF.md`](../HANDOFF.md).
+
+✅ **El P0 del D2 está CUMPLIDO: el camino 100 % por UI llega al informe.** 19 desajustes → **0**
+corrigiendo sólo desde el formulario, sin cargar ningún YAML; `done` y los cuatro formatos. AUC
+**0,9175 / 0,8872 / 0,9133**, PSI ≤ 0,0113, los 9 coeficientes con signo correcto, **0 avisos
+declarados**. Lo que el D1 declaró bloqueado quedó verificado de punta a punta, no por tramos. El
+recorrido por código está escrito en `privado/webinar-hmeq-codigo.py` (11 pasos, ~15 s).
+
+✅ **`1.10.0` PUBLICADO, y era necesario, no cosmético: la demo era irreproducible con lo publicado.**
+`1.9.0` (= `cd75aa9`) es anterior a los seis commits que hacen posible el recorrido por UI, así que
+**en PyPI los multiselect de binning seguían pintando «Sin opciones.»**. Verificado desde PyPI en venv
+limpio con `--no-cache-dir`, con `[ui]` y con `[ui,pdf]`. ⚠️ **`[ui]` a secas no produce PDF y es
+diseño** (`[pdf]` nunca entra, por la transitiva copyleft): a un tercero se le dice
+**`pip install "nikodym[ui,pdf]"`**.
+
+✅ **El formulario ofrece 14 secciones: entra «Informe», con la portada del entregable** (modelo,
+entidad, cartera, responsable, versión). Antes esos cinco campos sólo se escribían por YAML o por
+código, así que el informe del camino UI salía con la primera página en blanco. ⚠️ **Llenar la portada
+NO mueve el `config_hash`**: `report` está en `INFRA_SECTIONS` a propósito — el informe es
+presentación, no cálculo.
+
+🔴 **La auditoría adversarial FRENÓ el release: dos de tres revisores dijeron parar, y tenían razón.
+Tercer release consecutivo en que ocurre**, y esta vez lo que encontró estaba **en la pantalla de la
+demo**: cinco etiquetas en inglés o calcadas visibles sin hover («Embeder assets», «Timeout IA»,
+«Máximo tokens entrada», «Variable de API key», «payload» en un placeholder); ocho descripciones que
+empezaban por «True …» sobre interruptores que dicen Activado/Desactivado; **la reincidencia exacta**
+del defecto corregido horas antes (un tooltip mandando a elegir «warning» cuando el selector muestra
+`error`/`warn`/`skip`); y el botón «Word (.docx)» diciendo «Esta corrida no generó un PDF».
+
+- ⚠️ **Una `description` de Pydantic puede leerse SIN hover**: `fieldPlaceholder` cae en ella, así que
+  también es el `placeholder` del input. No es sólo el tooltip.
+- ⚠️ **Las opciones de un selector se pintan crudas** (`String(option)`): todo copy que nombre una
+  opción tiene que usar su literal exacto.
+- ⚠️ **`pd.Timestamp("")` y `pd.Timestamp("nan")` devuelven `NaT` SIN levantar**: atrapar `ValueError`
+  no basta. Un `oot_from` en blanco se iba en silencio y la corrida muere en `data`.
+- ⚠️ **`[ui]` no declaraba matplotlib** aunque su formulario ofrece `render_charts` en `True`:
+  funcionaba sólo porque `optbinning` y `lifelines` lo arrastran — verde por accidente.
+- ⚠️ **Lo que la auditoría REFUTÓ vale igual:** `config_hash` idéntico byte a byte en los tres presets
+  y en el YAML del webinar, medido **en caliente y en frío** contra un `git archive v1.9.0`; ningún
+  config de fábrica gana avisos; ninguna firma pública cambió; `manifest.path` no se movió.
+
+🔴 **Y el recorrido por código destapó un defecto real del núcleo:** `ReportResult.html_path` devolvía
+`reports/reports/scorecard_report.html` —inexistente— cuando `report.output_dir` es **relativo**, o sea
+el default del preset F1 y el caso de cualquiera que use la librería por código. La interfaz pasa ruta
+absoluta, así que por ahí no se veía, y **ningún test cubría el caso relativo**.
+
+**Cuatro trampas operativas nuevas:**
+
+1. **🔴 La máquina cargada multiplica la corrida por 10**: 14,9 s libre vs **157,5 s con load average
+   20** (por UI, 20 s → 206 s). No es regresión — el camino por código, que no cambió, se degrada
+   igual. Antes de una demo en vivo, cerrar Chrome y las otras sesiones.
+2. **🔴 `nohup` también se come el `DYLD`** (SIP), igual que el `/bin/sh` del shebang. La regla buena:
+   **el primer proceso exec-utado tiene que ser el intérprete**, sin `sh` ni `nohup` en medio. Sin la
+   variable no hay PDF y la corrida termina `done` igual: el fallo es silencioso.
+3. **🔴 Tocar `pyproject.toml` sin correr `uv lock` pone 15 de 16 jobs en rojo** (`uv sync --locked`).
+   Ningún job llega a correr un test.
+4. **⚠️ El minificador emite template literals**: `grep 'key:"report"'` da cero hits sobre un bundle
+   correcto. Grepear con backticks.
+
+**Congelados hasta después del webinar**: B2.4, la recaptura de la demo, vitest→jsdom, la pata de
+release de B2.5 y las 6 invariantes del censo que no entraron.
+
+---
+
+### Lo de la sesión del 2026-07-29 (mañana/tarde): las invariantes previas
 
 **`main` = `0ea4cba`, CI 16/16 confirmado con `gh`, todo pusheado.** PyPI sigue en `1.9.0` (tag
 `v1.9.0` sobre `cd75aa9`). Suite **4545 passed / 6 skipped**; vitest **357/357**; `mypy` 242;
@@ -206,8 +281,8 @@ rastro → HTTP 500), cerrado con
 [`_ENMIENDA-RUN-ERROR-RESOLUCION.md`](design/_ENMIENDA-RUN-ERROR-RESOLUCION.md) (D-ERR-8…D-ERR-11).
 Detalle operativo y las cuatro reglas para tocar el formulario: `CLAUDE.md` §«Lo último».
 
-## Estado publicado (2026-07-28)
-PyPI publica **`1.9.0`** (tag `v1.9.0` sobre `cd75aa9`, 2026-07-28, con OK explícito de Cami); el
+## Estado publicado (2026-07-29)
+PyPI publica **`1.10.0`** (tag `v1.10.0` sobre `9a85a53`, 2026-07-29, con OK explícito de Cami); el
 tag `v1.5.0` apunta al cierre del bloque B1 (el SHA vigente de `main` queda en `HANDOFF.md`). El
 paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es estable bajo SemVer
 1.x, pero las provisiones siguen experimentales, así que «Production/Stable» sería sobrepromesa.
@@ -215,6 +290,13 @@ paquete se anuncia como **`Development Status :: 4 - Beta`**: el pipeline F1 es 
 ⚠️ **Al verificar un release recién subido, `pip install` SIN `--no-cache-dir` puede traerte el
 release ANTERIOR** con el nuevo ya en el índice, y parecer verde. Pasó con `1.9.0`: la primera
 instalación limpia trajo `1.8.0` mientras `pip index versions` decía `LATEST: 1.9.0`.
+
+**Regla de release que `1.10.0` dejó explícita: el tag va sobre un commit con CI VERDE, nunca sobre
+el commit del bump recién pusheado.** `release.yml` **no corre ningún gate** —sólo verifica que el tag
+coincida con `__version__`, hace `uv build` y publica—, así que tagear a ciegas publica sin red. La
+secuencia buena es: commit del bump → push → esperar el conteo `gh` de los 16 jobs → tag. Y ojo con la
+trampa que costó 15 jobs rojos en este mismo release: **tocar `pyproject.toml` obliga a `uv lock`**,
+porque casi todos los jobs hacen `uv sync --locked`.
 
 **Regla de release que `1.8.0` dejó explícita: un cambio de `config_hash` va en MINOR, nunca en
 patch.** Se propuso publicarlo como `1.7.1` y estaba mal fundamentado: el precedente del repo es
