@@ -244,6 +244,17 @@ def test_log_decision_emite_evento_decision() -> None:
     }
 
 
+def test_log_decision_admite_atribuir_el_paso() -> None:
+    """Un paso orquestable puede publicar su nombre sin alterar el payload de la decisión."""
+    est = NikodymClassifier()
+    sink = InMemoryAuditSink()
+    est._audit = sink
+
+    est.log_decision(regla="r", umbral=1, valor=0, accion="a", step="binning")
+
+    assert sink.events[0].step == "binning"
+
+
 def test_log_decision_exige_kwargs() -> None:
     """``log_decision`` sólo admite argumentos por palabra clave."""
     with pytest.raises(TypeError):

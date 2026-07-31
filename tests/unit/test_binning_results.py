@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import pickle
 
 import pandas as pd
 import pytest
@@ -150,6 +151,23 @@ def test_binning_card_section_from_result_no_muta_resultado() -> None:
     assert result.variable_summaries == original_variable_summaries
     assert result.woe_column_map == original_column_map
     assert result.skipped_variables == original_skipped
+
+
+def test_binning_card_historica_carga_con_el_campo_aditivo() -> None:
+    """Una card pickled por 1.10 carga con el default nuevo y lo vuelve a serializar."""
+    legacy_shape = BinningCardSection.from_result(
+        _binning_result(),
+        special_handling="separate",
+        missing_handling="empirical",
+        optbinning_version="0.20.0",
+    )
+    legacy_shape.__dict__.pop("excluded_by_target_rule")
+    legacy_shape.__pydantic_fields_set__.discard("excluded_by_target_rule")
+
+    loaded = pickle.loads(pickle.dumps(legacy_shape))
+
+    assert loaded.excluded_by_target_rule == ()
+    assert loaded.model_dump(mode="json")["excluded_by_target_rule"] == []
 
 
 def test_binning_lazy_exports_publicos_cargan_results_bajo_demanda() -> None:

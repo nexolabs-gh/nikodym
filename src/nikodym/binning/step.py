@@ -123,7 +123,9 @@ class BinningStep(AuditableMixin):
             data_config=getattr(study.config, "data", None),
             pd=pd,
         )
+        self._log_target_rule_decisions(feature_resolution)
         feature_columns = feature_resolution.columns
+        _validate_feature_columns_not_empty(feature_columns)
         train_mask = _training_mask(frame, target_col, partition_col)
         y_train = cast(Series, frame.loc[train_mask, target_col].copy(deep=True))
         _validate_training_target(y_train)
@@ -157,7 +159,6 @@ class BinningStep(AuditableMixin):
             config=self.config,
             excluded_by_target_rule=feature_resolution.excluded_by_target_rule,
         )
-        self._log_target_rule_decisions(feature_resolution)
         self._log_binning_decisions(
             binner=binner,
             summary=summary,
@@ -175,6 +176,7 @@ class BinningStep(AuditableMixin):
                 umbral=_audit_rule_path(resolution.target_rule_paths[column]),
                 valor=column,
                 accion="excluir_de_candidatas",
+                step=self.name,
             )
         for column in resolution.explicit_target_rule_columns:
             self.log_decision(
@@ -182,6 +184,7 @@ class BinningStep(AuditableMixin):
                 umbral=_audit_rule_path(resolution.target_rule_paths[column]),
                 valor=column,
                 accion="conservar_por_lista_explicita",
+                step=self.name,
             )
 
     def _log_special_policy(
@@ -467,11 +470,6 @@ def _resolve_feature_columns(
             column for column in columns if column in target_rule_paths
         )
 
-    if not columns:
-        raise BinningFitError(
-            "No hay columnas candidatas para binning tras excluir estructurales, fechas/cohortes "
-            "y exclude_columns."
-        )
     return _FeatureColumnResolution(
         columns=columns,
         excluded_by_target_rule=excluded_by_target_rule,
@@ -535,7 +533,7 @@ def _target_rule_paths_by_column(data_config: object) -> dict[str, tuple[str, ..
 def _single_unique_key(data_config: object) -> set[str]:
     """Devuelve la llave que identifica por sí sola; una combinación no se descompone."""
     if isinstance(data_config, dict):
-        schema = data_config.get("schema")
+        schema = data_config.get("schema", data_config.get("schema_"))
     else:
         # ``SchemaConfig`` usa ``schema_`` porque ``BaseModel.schema`` ya existe; el alias público
         # y el blob opaco usan ``schema``.
@@ -544,6 +542,16 @@ def _single_unique_key(data_config: object) -> set[str]:
     if isinstance(unique_keys, list | tuple) and len(unique_keys) == 1:
         return _present_strings(unique_keys[0])
     return set()
+
+
+def _validate_feature_columns_not_empty(columns: tuple[str, ...]) -> None:
+    """Falla con todas las causas que pueden vaciar las candidatas resueltas."""
+    if columns:
+        return
+    raise BinningFitError(
+        "No hay columnas candidatas para binning tras excluir estructurales, fechas/cohortes, "
+        "exclude_columns, reglas bad/good del target y llaves de unicidad simples."
+    )
 
 
 def _predicate_columns(rule: object) -> tuple[str, ...]:

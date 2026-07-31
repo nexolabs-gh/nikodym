@@ -35,16 +35,24 @@ class AuditableMixin:
 
     _audit: AuditSink = NullAuditSink()
 
-    def log_decision(self, *, regla: str, umbral: Any, valor: Any, accion: str) -> None:
+    def log_decision(
+        self,
+        *,
+        regla: str,
+        umbral: Any,
+        valor: Any,
+        accion: str,
+        step: str | None = None,
+    ) -> None:
         """Registra una decisión: construye y emite un :class:`AuditEvent` ``"decision"``.
 
         Sólo admite argumentos por palabra clave (1:1 con el ``DecisionRecord`` de SDD-03, en
-        español por contrato de auditoría). El ``step`` lo rellena el orquestador si aplica; aquí va
-        ``None``.
+        español por contrato de auditoría). ``step`` permite atribuir la decisión al paso que la
+        tomó; queda en ``None`` para estimadores sin contexto de orquestación.
         """
         event = AuditEvent(
             kind="decision",
-            step=None,
+            step=step,
             payload={"regla": regla, "umbral": umbral, "valor": valor, "accion": accion},
             ts=datetime.now(UTC),
         )

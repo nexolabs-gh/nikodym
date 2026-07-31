@@ -13,10 +13,11 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   `feature_columns="*"`, las columnas nombradas por `data.target.bad_rule` y `good_rule` quedan
   fuera de las candidatas; `indeterminate_rule` y `exclusion_rules` conservan sus columnas porque
   seleccionan la muestra, no la etiqueta. Una lista explícita sigue respetándose y la decisión
-  queda en el audit-trail y en la card de binning. El cambio funciona igual con la sección `data`
-  tipada u opaca. **Si el AUC baja al actualizar, ésa es la corrección de una fuga previa, no una
-  regresión.** No cambian `config_hash` ni `data_hash`; sí pueden cambiar variables finales,
-  coeficientes, métricas e informe.
+  queda en el audit-trail y en el model card de gobernanza; la card de binning publica las columnas
+  que el comodín excluyó automáticamente. El cambio funciona igual con la sección `data` tipada u
+  opaca. **Si el AUC baja al actualizar, ésa es la corrección de una fuga previa, no una regresión.**
+  No cambian `config_hash` ni `data_hash`; sí pueden cambiar variables finales, coeficientes,
+  métricas e informe.
 
 - **Una llave de unicidad simple ya no entra al binning por el comodín.** Si
   `data.schema.unique_keys` declara una sola columna, `feature_columns="*"` la excluye como ruido

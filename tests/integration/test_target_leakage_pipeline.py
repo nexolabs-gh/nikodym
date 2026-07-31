@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
+from nikodym.audit import JsonlAuditSink
 from nikodym.binning.config import BinningConfig
 from nikodym.calibration.config import CalibrationConfig
 from nikodym.core.config import NikodymConfig, ReproConfig
@@ -19,6 +22,7 @@ from nikodym.data.config import (
     TargetConfig,
 )
 from nikodym.data.step import INPUT_FRAME_KEY
+from nikodym.governance import GovernanceConfig, ModelCardBuilder
 from nikodym.model.config import (
     IvContributionConfig,
     ModelConfig,
@@ -67,7 +71,11 @@ def _leakage_frame() -> pd.DataFrame:
     )
 
 
-def _run_pipeline(feature_columns: tuple[str, ...] | str) -> Study:
+def _run_pipeline(
+    feature_columns: tuple[str, ...] | str,
+    *,
+    trail_path: Path | None = None,
+) -> Study:
     """Corre el F1 completo desde datos crudos hasta métricas discriminantes."""
     config = NikodymConfig(
         repro=ReproConfig(seed=42),
@@ -123,7 +131,12 @@ def _run_pipeline(feature_columns: tuple[str, ...] | str) -> Study:
     )
     study = Study(config)
     study.artifacts.set("data", INPUT_FRAME_KEY, _leakage_frame())
-    study.run()
+    if trail_path is None:
+        study.run()
+    else:
+        with JsonlAuditSink(trail_path) as sink:
+            study.set_audit_sink(sink)
+            study.run()
     assert study.run_context.status == "done"
     return study
 
@@ -134,13 +147,24 @@ def _development_auc(study: Study) -> float:
     return float(metrics.loc[metrics["partition"].eq("desarrollo"), "auc"].iloc[0])
 
 
-def test_auc_baja_al_excluir_del_wildcard_la_columna_que_define_el_target() -> None:
+def test_auc_baja_al_excluir_del_wildcard_la_columna_que_define_el_target(
+    tmp_path: Path,
+) -> None:
     """D-FUGA-8: el arreglo cambia el número que importa, no sólo una lista interna."""
     with_leak = _run_pipeline(("dpd", "signal"))
-    corrected = _run_pipeline("*")
+    trail_path = tmp_path / "audit-target-leakage.jsonl"
+    corrected = _run_pipeline("*", trail_path=trail_path)
 
     assert with_leak.artifacts.get("binning", "process").feature_columns_ == ("dpd", "signal")
     assert corrected.artifacts.get("binning", "process").feature_columns_ == ("signal",)
     assert _development_auc(with_leak) == pytest.approx(0.832)
     assert _development_auc(corrected) == pytest.approx(0.600)
     assert _development_auc(corrected) < _development_auc(with_leak)
+
+    card = ModelCardBuilder(GovernanceConfig(purpose="Gate de fuga del target")).build(
+        corrected, trail_path=trail_path
+    )
+    decision = next(item for item in card.decisions if item.regla == "columna_del_target")
+    assert decision.step == "binning"
+    assert decision.valor == "dpd"
+    assert decision.accion == "excluir_de_candidatas"

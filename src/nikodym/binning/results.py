@@ -16,7 +16,7 @@ Decisiones para revisión de Cami:
 from __future__ import annotations
 
 import math
-from typing import Literal, TypeAlias
+from typing import Any, Literal, TypeAlias
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict
@@ -98,6 +98,13 @@ class BinningCardSection(BaseModel):
     missing_handling: str
     optbinning_version: str
     excluded_by_target_rule: tuple[str, ...] = ()
+
+    def __setstate__(self, state: dict[Any, Any]) -> None:
+        """Migra cards serializadas antes de que existiera la evidencia anti-fuga."""
+        values = state.get("__dict__", {})
+        if "excluded_by_target_rule" not in values:
+            state = {**state, "__dict__": {**values, "excluded_by_target_rule": ()}}
+        super().__setstate__(state)
 
     @classmethod
     def from_result(

@@ -264,11 +264,12 @@ def test_wildcard_excluye_bad_y_good_sin_falsos_positivos_y_lo_publica() -> None
     assert isinstance(card, BinningCardSection)
     assert card.excluded_by_target_rule == ("dpd_12m", "al_dia")
     target_decisions = [
-        event.payload
+        event
         for event in sink.events
         if event.kind == "decision" and event.payload.get("regla") == "columna_del_target"
     ]
-    assert target_decisions == [
+    assert [event.step for event in target_decisions] == ["binning", "binning"]
+    assert [event.payload for event in target_decisions] == [
         {
             "regla": "columna_del_target",
             "umbral": "data.target.bad_rule",
@@ -282,6 +283,64 @@ def test_wildcard_excluye_bad_y_good_sin_falsos_positivos_y_lo_publica() -> None
             "accion": "excluir_de_candidatas",
         },
     ]
+
+
+def test_decision_anti_fuga_sobrevive_a_un_fallo_posterior_del_binning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D-FUGA-5: resolver la exclusión deja trail aunque el ajuste falle después."""
+    cfg = BinningConfig(
+        feature_columns="*",
+        exclude_columns=("drop_me", "constant", "all_missing"),
+        categorical_columns=("segment",),
+    )
+    study = _study_with_data(
+        frame=_target_rule_frame(),
+        config=cfg,
+        data_config=_target_rules_data_config(),
+    )
+    sink = InMemoryAuditSink()
+    step = BinningStep.from_config(cfg)
+    step._audit = sink
+
+    def fail_build(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise RuntimeError("fallo posterior inyectado")
+
+    monkeypatch.setattr(step_module, "_build_binner", fail_build)
+
+    with pytest.raises(RuntimeError, match="fallo posterior inyectado"):
+        step.execute(study, np.random.default_rng(1))
+
+    assert [
+        (event.step, event.payload["valor"])
+        for event in sink.events
+        if event.kind == "decision" and event.payload.get("regla") == "columna_del_target"
+    ] == [("binning", "dpd_12m"), ("binning", "al_dia")]
+
+
+def test_wildcard_sin_candidatas_explica_causas_nuevas_y_deja_trail() -> None:
+    """La exclusión que vacía el universo sigue siendo diagnosticable y auditable."""
+    frame = _target_rule_frame()[["dpd_12m", "target", "label_status", PARTITION_COL, TTD_COL]]
+    cfg = BinningConfig(feature_columns="*")
+    study = _study_with_data(
+        frame=frame,
+        config=cfg,
+        data_config=_target_rules_data_config(),
+    )
+    sink = InMemoryAuditSink()
+    step = BinningStep.from_config(cfg)
+    step._audit = sink
+
+    with pytest.raises(BinningFitError, match=r"reglas bad/good.*unicidad simples"):
+        step.execute(study, np.random.default_rng(1))
+
+    assert any(
+        event.step == "binning"
+        and event.payload.get("regla") == "columna_del_target"
+        and event.payload.get("valor") == "dpd_12m"
+        for event in sink.events
+    )
 
 
 def test_reglas_del_target_tienen_paridad_con_data_tipado_y_opaco() -> None:
@@ -351,8 +410,10 @@ def test_lista_explicita_conserva_columna_del_target_y_declara_la_decision() -> 
     }
 
 
-@pytest.mark.parametrize("opaque", [False, True])
-def test_unique_key_simple_sale_del_wildcard_y_la_compuesta_no(opaque: bool) -> None:
+@pytest.mark.parametrize("opaque_dump", [None, "alias", "python"])
+def test_unique_key_simple_sale_del_wildcard_y_la_compuesta_no(
+    opaque_dump: str | None,
+) -> None:
     """D-FUGA-10: sólo una llave que identifica por sí sola es exclusión automática."""
     frame = _target_rule_frame()
     frame["id_operacion"] = [f"id-{index}" for index in range(len(frame))]
@@ -363,8 +424,8 @@ def test_unique_key_simple_sale_del_wildcard_y_la_compuesta_no(opaque: bool) -> 
 
     def resolve(data_config: DataConfig) -> tuple[str, ...]:
         config: DataConfig | dict[str, Any] = data_config
-        if opaque:
-            config = data_config.model_dump(mode="json", by_alias=True)
+        if opaque_dump is not None:
+            config = data_config.model_dump(mode="json", by_alias=opaque_dump == "alias")
         return step_module._resolve_feature_columns(
             frame=frame,
             target_col="target",
@@ -691,17 +752,19 @@ def test_resolucion_features_sin_columnas_y_data_config_dict() -> None:
         "split_date",
         "cohort",
     }
-    with pytest.raises(BinningFitError, match="No hay columnas candidatas"):
-        step_module._resolve_feature_columns(
-            frame=frame,
-            target_col="target",
-            status_col="label_status",
-            partition_col=PARTITION_COL,
-            ttd_col=TTD_COL,
-            config=BinningConfig(feature_columns=("score",), exclude_columns=("score",)),
-            data_config=None,
-            pd=pd_mod,
-        )
+    resolution = step_module._resolve_feature_columns(
+        frame=frame,
+        target_col="target",
+        status_col="label_status",
+        partition_col=PARTITION_COL,
+        ttd_col=TTD_COL,
+        config=BinningConfig(feature_columns=("score",), exclude_columns=("score",)),
+        data_config=None,
+        pd=pd_mod,
+    )
+    assert resolution.columns == ()
+    with pytest.raises(BinningFitError, match=r"reglas bad/good.*unicidad simples"):
+        step_module._validate_feature_columns_not_empty(resolution.columns)
 
 
 def test_helpers_de_auditoria_cubren_solver_monotonia_iv_bajo_y_unknown_cero() -> None:

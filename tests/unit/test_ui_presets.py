@@ -10,6 +10,7 @@ el motor OR-Tools/mip y ver el scorecard) NO vive aquí: es lento y se hace fuer
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from typing import Any
 
@@ -317,10 +318,21 @@ def test_correccion_anti_fuga_no_mueve_bytes_hashes_ni_candidatas_de_presets() -
         PROVISIONES_PRESET_ID: _EXPECTED_F3_CONFIG_HASH,
         F4_IFRS9_PRESET_ID: _EXPECTED_F4_CONFIG_HASH,
     }
+    expected_payload_digests = {
+        STANDARD_PRESET_ID: "319e1b36261d922734586a5a3316d06fb0c77be4ccf8cb6270236a44ed459a29",
+        PROVISIONES_PRESET_ID: "5c367e22eb760867f24bfc39040c8bcf0b8a967c97535953d52d114d3517590d",
+        F4_IFRS9_PRESET_ID: "9da92edc7dfb0d0de50be39e0b78abf4ccf47a940084eb3f487f77d7d328dadc",
+    }
     for preset_id, expected_hash in expected_hashes.items():
         preset = get_preset(preset_id)
         config = preset["config"]
-        before = json.dumps(config, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        payload_bytes = json.dumps(
+            preset,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        assert hashlib.sha256(payload_bytes).hexdigest() == expected_payload_digests[preset_id]
         assert config_hash(NikodymConfig.model_validate(config)) == expected_hash
 
         binning = config.get("binning")
@@ -345,9 +357,6 @@ def test_correccion_anti_fuga_no_mueve_bytes_hashes_ni_candidatas_de_presets() -
             )
             assert resolution.columns == feature_columns
             assert resolution.excluded_by_target_rule == ()
-
-        after = json.dumps(config, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        assert after == before
 
 
 def test_ifrs9_preset_activa_el_report_con_secciones_reducidas() -> None:
