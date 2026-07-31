@@ -5,7 +5,57 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-30 mediodía, `423e1a6`, **sin un solo cambio de código en la sesión**)
+> ## Lo último (2026-07-31 noche, público `f501147` · privado `76f4dd9`, **CI 16/16 sobre `45bfe7b`**)
+>
+> ✅ **Paquete D cerrado: la interfaz ya muestra el config que se va a ejecutar.** D1 filtra
+> `ReportStep.requires` por los dominios ACTIVOS de la invocación —vía un hook genérico del resolver,
+> `from_config_with_context`, sin un solo `if name == "report"` en el núcleo— y D2 publica
+> `effective_defaults` en `GET /api/schema` para que el formulario pinte el valor efectivo **sin
+> materializarlo**. Verificado en vivo con Playwright, no sólo con tests. Gates: 4.670 passed,
+> vitest 408/408, mypy 243, cobertura regulatoria 100 %, bundle reproducible.
+>
+> 🔴 **La lección técnica que hay que llevarse: el valor efectivo de un campo NO siempre sale de su
+> `FieldInfo`.** `MLConfig.hyperparameters` declara `None` y un `model_validator(mode="before")` lo
+> rellena con siete hiperparámetros, así que el catálogo publicaba `null` donde el motor corre con el
+> dict. Para toda clase construible la fuente es `Cls().model_dump(mode="json", by_alias=True)`. Lo
+> encontró la **revisión adversarial**, no la suite — cuarto paquete seguido en que ocurre.
+>
+> ⚠️ **Y el gate que debía cazarlo no podía: las 22 clases raíz de sección NO están en `$defs`** (el
+> schema compuesto las empotra inline), así que un barrido sobre `$defs` dejaba fuera 224
+> descriptores. Todo gate que recorra el schema compuesto tiene que mirar las **dos** coordenadas.
+>
+> 🔴 **EL EJE DEL PROYECTO CAMBIÓ: de corrección a producto.** Cami señaló cinco cosas de la interfaz
+> que son **un solo problema** —la aplicación asume que vienes a ver una demostración— y añadió el
+> requisito de LATAM. El orden vigente ya NO es el del plan anterior: vive en
+> **`privado/ROADMAP-CONSOLIDADO-2026-07-31.md`**.
+>
+> 1. **P1 · UI por trabajos y datos propios primero.** El sidebar mapea las 14 secciones sin filtro
+>    (`web/src/App.tsx:138`) y la sesión arranca sembrando el preset **con su dataset sintético**
+>    (`web/src/lib/bootstrap.ts:116-120`). Diseñado en `docs/design/_SDD-UI-POR-TRABAJOS.md`,
+>    D-JOB-1…D-JOB-14, **borrador con sus cuatro decisiones ya tomadas**.
+> 2. **P2 · Validar un modelo existente**, decidido por delante de E/G/H1: la puerta de entrada más
+>    barata para un banco. Hoy la ruta no existe.
+> 3. **P3 · Un estándar, y cada país se adapta encima.** Reuniones en Bolivia, Chile, Perú, Colombia
+>    y Ecuador. Perseguir cada circular y cada RAN es insostenible: el núcleo expone el motor
+>    estándar y **la jurisdicción es DATO**, no código. CMF pasa a ser el primer ejemplo del
+>    mecanismo, no el mecanismo.
+> 4. **P4 · LGD modelada: medido, es conectar y no construir.** `LgdEngine`
+>    (`provisioning/ifrs9/lgd.py`) ya ofrece `beta_regression`, `fractional_response` y `workout`, y
+>    admite `covariate_cols` arbitrarias —o sea columnas WoE— sin tocarlo. Falta que
+>    `provisioning_internal` pueda delegar en él. ⚠️ El árbol de regresión sigue sin existir y hay
+>    razón escrita para no añadirlo a la ligera: la LGD es **bimodal**, «nunca OLS plano».
+>
+> ⚠️ **No falta capacidad: falta exponerla.** El motor YA corre trabajos aislados (`data →
+> provisioning_internal` es ejecutable con la PD inyectada por la puerta del paquete B) y YA ofrece
+> **50+ puntos de elección metodológica implementados**. La puerta HTTP/UI quedó fuera del paquete B
+> a propósito, y es lo que desbloquea los trabajos por área.
+>
+> ⚠️ **`git checkout -- <archivo>` restaura desde el ÍNDICE**: con un cambio ya `git add`-eado
+> descarta en silencio las ediciones posteriores. Costó reaplicar el arreglo de un bloqueante.
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-07-30 mediodía, `423e1a6`, **sin un solo cambio de código en la sesión**)
 >
 > 🔴 **El material de cámara del webinar está TERMINADO y verificado ejecutándolo**: dos notebooks,
 > el guion minuto a minuto, una presentación de 12 láminas en HTML y dos YAML de respaldo. Vive en
