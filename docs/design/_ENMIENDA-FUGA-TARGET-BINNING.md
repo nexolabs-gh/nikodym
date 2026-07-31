@@ -1,7 +1,8 @@
 # Enmienda SDD — la columna que define el target entra como predictor
 
-> **Estado:** **APROBADA en sus decisiones de fondo** (OK explícito de Cami, 2026-07-30). Ninguna
-> línea de motor escrita, y **sin commitear hasta después del webinar** (esa misma noche).
+> **Estado:** **IMPLEMENTADA Y VERIFICADA** (2026-07-31). C1 entró en `905b26f`, C2 en su commit
+> propio `008b217` y la corrección de los hallazgos adversariales en `56f53a3`. No hay release
+> autorizado ni en curso; PyPI sigue en `1.10.0`.
 > **Enmienda a:** SDD-06 §4/§7 (`binning`, resolución de variables candidatas) y SDD-02 §4
 > (`data.target`, las reglas del target como fuente de verdad de qué columna es insumo del target).
 > **Decisiones:** D-FUGA-1 … D-FUGA-10.

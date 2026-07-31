@@ -11,10 +11,11 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-07-31, pavimentación)
 
-**PyPI publica `1.10.0`; no hay release autorizado ni en curso.** La base pública de esta
-pavimentación es `60a739b`: contiene los SDD aprobados de la puerta de artefactos y de la fuga del
-target, pero todavía no sus implementaciones. El plan ejecutable de la próxima oleada vive en
-`privado/PLAN-IMPLEMENTACION-2026-07-31.md`; no reabrir sus censos salvo evidencia nueva.
+**PyPI publica `1.10.0`; no hay release autorizado ni en curso.** Los paquetes B (puerta pública de
+artefactos) y C (fuga del target en binning + `unique_keys`) ya están implementados, revisados y
+cerrados en `main`; C vive en `905b26f`, `008b217` y `56f53a3`. El plan ejecutable de la próxima
+oleada vive en `privado/PLAN-IMPLEMENTACION-2026-07-31.md`; no reabrir sus censos ni los SDD cerrados
+salvo evidencia nueva.
 
 El benchmark de escala heredado se detuvo porque su `rss_pico_gb` medía sólo antes/después y el
 corte de 5 GB no actuaba durante el cálculo. El arnés privado ya supervisa cada escalón en un worker,
@@ -30,9 +31,10 @@ target/unique keys → defaults efectivos de UI → defectos runtime → publica
 resultados → gates débiles → posicionamiento/documentación. Cada cambio contractual nuevo se detiene
 en su SDD.
 
-Los gates verdes de referencia siguen siendo los heredados sobre `60a739b`: 4.560 passed / 6 skipped,
-mypy 242, ruff check/format, vitest 369/369 y builds reproducibles. No presentarlos como recién
-ejecutados. La evidencia, riesgos y siguiente comando exacto se actualizan siempre en `HANDOFF.md`.
+Los gates recién ejecutados del cierre C son 4.593 passed / 6 skipped, mypy 242, ruff check/format,
+vitest 370/370, cobertura regulatoria 682 statements / 166 branches al 100 % y builds
+reproducibles. La evidencia completa, riesgos y siguiente acción se actualizan siempre en
+`HANDOFF.md`.
 
 ---
 
