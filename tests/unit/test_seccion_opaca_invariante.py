@@ -153,7 +153,10 @@ def test_check_pipeline_no_depende_de_la_opacidad(
     """Si un config es ejecutable, lo es con la capa importada y sin ella."""
     tipado, opaco = par_tipado_y_opaco
 
-    assert nikodym.check_pipeline(opaco).executable == nikodym.check_pipeline(tipado).executable
+    artifacts = [("data", "frame")]
+    assert nikodym.check_pipeline(opaco, artifacts=artifacts) == nikodym.check_pipeline(
+        tipado, artifacts=artifacts
+    )
 
 
 def test_el_yaml_que_exporta_la_ui_no_depende_de_la_opacidad() -> None:

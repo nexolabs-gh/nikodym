@@ -57,6 +57,53 @@ def test_config_vacio_es_ejecutable_con_pipeline_vacio() -> None:
     assert check.steps == ()
 
 
+def test_artefactos_habilitan_un_pipeline_parcial_y_mapping_ignora_valores() -> None:
+    """La firma gemela acepta claves o mapping y habilita un ``requires`` externo."""
+    config = _sin_survival()
+    key = ("survival", "term_structure")
+
+    by_keys = check_pipeline(config, artifacts=[key])
+    by_mapping = check_pipeline(config, artifacts={key: object()})
+
+    assert by_keys.executable is True
+    assert by_keys.steps == ("data", "provisioning_ifrs9", "report")
+    assert by_mapping == by_keys
+    assert by_keys.inert_artifacts == ()
+
+
+def test_artefacto_inerte_se_declara_sin_bloquear() -> None:
+    """Una clave de dominio válido que ningún paso consume avisa en el veredicto."""
+    check = check_pipeline(NikodymConfig.model_validate({}), artifacts=[("data", "frame")])
+
+    assert check.executable is True
+    assert check.steps == ()
+    assert check.inert_artifacts == (("data", "frame"),)
+
+
+def test_artefacto_inerte_sobrevive_a_otro_error_del_pipeline() -> None:
+    """El aviso no desaparece sólo porque otro ``requires`` vuelva inejecutable el config."""
+    check = check_pipeline(_sin_survival(), artifacts=[("data", "clave_typo")])
+
+    assert check.executable is False
+    assert check.inert_artifacts == (("data", "clave_typo"),)
+
+
+def test_dominio_desconocido_y_colision_bloquean_antes_de_ejecutar() -> None:
+    """Typos de dominio y salidas que un paso activo produciría son errores estructurales."""
+    unknown = check_pipeline(NikodymConfig.model_validate({}), artifacts=[("dtaa", "frame")])
+    collision = check_pipeline(
+        NikodymConfig.model_validate(_config("f4-ifrs9-retail")),
+        artifacts=[("data", "frame")],
+    )
+
+    assert unknown.executable is False
+    assert unknown.error_type == "ConfigError"
+    assert unknown.message is not None and "Dominios válidos" in unknown.message
+    assert collision.executable is False
+    assert collision.error_type == "ConfigError"
+    assert collision.message is not None and "colisiona" in collision.message
+
+
 def test_seccion_apagada_aguas_arriba_no_es_ejecutable_y_dice_por_que() -> None:
     """El caso del usuario: IFRS 9 encendido sin la sección que produce su term-structure.
 

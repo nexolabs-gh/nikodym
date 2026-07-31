@@ -240,6 +240,9 @@ class ReportBuilder:
         payload: dict[str, Any] = {}
         if spec.id == APPENDIX_LINEAGE_ID:
             payload = _copy_mapping(cast(Mapping[Any, Any], bundle.lineage.model_dump(mode="json")))
+            if not payload.get("injected_artifacts"):
+                # D-ART-12: sin puerta, el Anexo A conserva sus bytes y su forma previos.
+                payload.pop("injected_artifacts", None)
         elif spec.id == "limitations":
             payload = {
                 "determinism_caveats": tuple(bundle.lineage.determinism_caveats),

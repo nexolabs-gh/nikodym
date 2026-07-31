@@ -256,6 +256,9 @@ class Study:
         # Llenarlo es contrato (qué claves, qué DTOs) y por tanto trabajo de SDD, no un parche aquí.
         self.results: dict[str, Any] = {}
         self.run_context = RunContext()
+        self._injected_artifacts: set[ArtifactKey] = set()
+        self._inert_injected_artifacts: tuple[ArtifactKey, ...] = ()
+        self._resolved_step_names: frozenset[str] = frozenset()
 
     # --- Gobernanza (hooks hacia SDD-03; core recibe el sink ya compuesto, CT-4) --------------
 
@@ -276,6 +279,20 @@ class Study:
                 "llame run() antes de pedirlo."
             )
         return self.run_context.lineage
+
+    def _register_injected_artifact(self, domain: str, key: str) -> None:
+        """Registra procedencia externa antes de escribir el valor en el ``ArtifactStore``.
+
+        Es un hook interno de la puerta pública ``nikodym.run(..., artifacts=...)``. No valida el
+        tipo del valor: esa responsabilidad permanece en el paso consumidor para que ``core`` no
+        importe DTOs de dominio.
+        """
+        self._injected_artifacts.add((domain, key))
+
+    @property
+    def inert_injected_artifacts(self) -> tuple[ArtifactKey, ...]:
+        """Expone a la API las claves externas que ningún paso activo consume."""
+        return self._inert_injected_artifacts
 
     # --- Orquestación (motor v1: orden de declaración + validación de prerequisitos, CT-1) -----
 
@@ -314,6 +331,7 @@ class Study:
         # —sin `run_id` no hay qué guardar— así que respondía un HTTP 500 opaco.
         try:
             pasos = self._resolve_steps(nombres)
+            self._validate_injected_artifacts(pasos, emit_warnings=True)
             self._validate_pipeline(pasos)
         except Exception as exc:
             # step=None a propósito (D-ERR-11): no hay paso en curso porque el config es
@@ -383,6 +401,7 @@ class Study:
         """
         nombres = steps if steps is not None else self.config.run.steps
         pasos = self._resolve_steps(nombres)
+        self._validate_injected_artifacts(pasos, emit_warnings=False)
         self._validate_pipeline(pasos)
         return [paso.name for paso in pasos]
 
@@ -522,6 +541,64 @@ class Study:
                     )
             disponibles.update(paso.provides)
 
+    def _validate_injected_artifacts(
+        self,
+        pasos: list[Step],
+        *,
+        emit_warnings: bool,
+    ) -> None:
+        """Valida dominio/colisiones y declara las claves externas inertes (D-ART-4/5)."""
+        if not self._injected_artifacts:
+            self._inert_injected_artifacts = ()
+            return
+
+        invalid_domains = sorted(
+            {domain for domain, _key in self._injected_artifacts if domain not in _DOMAIN_MODULES}
+        )
+        if invalid_domains:
+            valid_domains = ", ".join(sorted(_DOMAIN_MODULES))
+            raise ConfigError(
+                "Dominio(s) de artefacto inyectado desconocido(s): "
+                f"{', '.join(invalid_domains)}. Dominios válidos: {valid_domains}."
+            )
+
+        providers: dict[ArtifactKey, str] = {}
+        required: set[ArtifactKey] = set()
+        self._resolved_step_names = frozenset(paso.name for paso in pasos)
+        for paso in pasos:
+            required.update(paso.requires)
+            required.update(getattr(paso, "optional_requires", ()))
+            for artifact_key in paso.provides:
+                providers.setdefault(artifact_key, paso.name)
+
+        # No lo consume un Step: lo adopta el cierre transversal del lineage (D-ART-8).
+        required.add(("data", "data_hash"))
+
+        collisions = sorted(self._injected_artifacts & providers.keys())
+        if collisions:
+            artifact_key = collisions[0]
+            domain, key = artifact_key
+            producer = providers[artifact_key]
+            raise ConfigError(
+                f"El artefacto inyectado ('{domain}', '{key}') colisiona con la salida del paso "
+                f"activo '{producer}': apague la sección '{producer}' para usar el valor externo."
+            )
+
+        inert = tuple(sorted(self._injected_artifacts - required))
+        self._inert_injected_artifacts = inert
+        if emit_warnings:
+            for domain, key in inert:
+                self._emit(
+                    "decision",
+                    domain,
+                    {
+                        "regla": "artefacto_inyectado_inerte",
+                        "umbral": "requerido por un paso activo",
+                        "valor": key,
+                        "accion": "advertir",
+                    },
+                )
+
     def _check_prerequisites(self, paso: Step) -> None:
         """Validación por paso (CT-1): cada ``requires`` presente antes de ejecutar el paso."""
         for dominio, clave in paso.requires:
@@ -557,10 +634,29 @@ class Study:
             caveats.append("working tree git sucio: cambios sin commitear no reconstruibles")
         if git_sha is None:
             caveats.append("git no disponible: la corrida no tiene SHA de origen")
+        injected_artifacts = tuple(
+            f"{domain}.{key}" for domain, key in sorted(self._injected_artifacts)
+        )
+        if injected_artifacts:
+            caveats.append(
+                "artefactos inyectados desde fuera de la corrida: "
+                f"{len(injected_artifacts)} clave(s) no reconstruibles desde config+datos"
+            )
+        stored_data_hash = (
+            self.artifacts.get("data", "data_hash")
+            if self.artifacts.has("data", "data_hash")
+            else None
+        )
+        if (
+            injected_artifacts
+            and "data" not in self._resolved_step_names
+            and stored_data_hash is None
+        ):
+            caveats.append("data_hash ausente: la corrida no ejecutó el paso de datos")
         return LineageBundle(
             git_sha=git_sha,
             git_dirty=git_dirty,
-            data_hash=None,  # F0: sin paso de datos; lo completa el step de datos en B2+
+            data_hash=stored_data_hash,
             config_hash=config_hash(self.config),
             root_seed=self.config.repro.seed,
             uv_lock_hash=None,  # F0: la localización robusta del uv.lock se difiere
@@ -568,6 +664,7 @@ class Study:
             determinism_caveats=caveats,
             created_at=datetime.now(UTC),
             schema_version=self.config.schema_version,
+            injected_artifacts=injected_artifacts,
         )
 
     # --- Persistencia (directorio atómico; el azar NO se serializa) ----------------------------

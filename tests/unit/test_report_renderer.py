@@ -139,6 +139,26 @@ def test_html_golden_deterministico_y_orden_canonico() -> None:
     assert column_positions == sorted(column_positions)
 
 
+def test_html_publica_claves_inyectadas_solo_cuando_existen() -> None:
+    """El Anexo A renderizado muestra la procedencia externa sin mover el caso vacío."""
+    baseline = _bundle()
+    appendix_sections = tuple(
+        section.model_copy(
+            update={"payload": {**section.payload, "injected_artifacts": ["data.frame"]}}
+        )
+        if section.id == "appendix_lineage"
+        else section
+        for section in baseline.sections
+    )
+
+    baseline_html = _renderer().render(baseline)
+    injected_html = _renderer().render(baseline.model_copy(update={"sections": appendix_sections}))
+
+    assert "injected_artifacts" not in baseline_html
+    assert "injected_artifacts" in injected_html
+    assert "data.frame" in injected_html
+
+
 def test_document_view_renderiza_validacion_formal_y_control_negativo() -> None:
     """La proyección compartida lleva métrica/tablas sólo cuando validation está presente."""
     base = _bundle()
@@ -932,7 +952,7 @@ def _bundle(
             kind="appendix",
             number="A",
             domain="report",
-            payload=lineage.model_dump(mode="json"),
+            payload=lineage.model_dump(mode="json", exclude_defaults=True),
         ),
         _section(
             "appendix_tables",

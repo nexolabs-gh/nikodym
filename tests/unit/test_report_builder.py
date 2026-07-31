@@ -139,8 +139,9 @@ def test_collect_arma_el_documento_y_manifest_pre_render_golden() -> None:
     # ...y el cuerpo no lo repite.
     assert by_id["results.model"].payload == {}
 
-    # El lineage completo queda en el Anexo A.
+    # El lineage completo, incluida la procedencia externa, queda en el Anexo A.
     assert by_id["appendix_lineage"].payload["config_hash"] == "cfg123456789abcdef"
+    assert by_id["appendix_lineage"].payload["injected_artifacts"] == ["data.frame"]
 
     assert tuple(bundle.tables) == (
         "eda.default_rate.by_period",
@@ -165,6 +166,17 @@ def test_collect_arma_el_documento_y_manifest_pre_render_golden() -> None:
         "ai_used": False,
         "sections": [section.model_dump(mode="json") for section in bundle.sections],
     }
+
+
+def test_anexo_lineage_omite_injected_artifacts_cuando_no_se_uso_la_puerta() -> None:
+    """Sin artefactos externos, el Anexo A conserva la forma previa (D-ART-12)."""
+    study = _study_completo()
+    study.run_context.lineage = _lineage().model_copy(update={"injected_artifacts": ()})
+
+    bundle = ReportBuilder.from_config(ReportConfig()).collect(study)
+    appendix = next(section for section in bundle.sections if section.id == "appendix_lineage")
+
+    assert "injected_artifacts" not in appendix.payload
 
 
 def test_toda_tabla_del_cuerpo_tiene_titulo_editorial() -> None:
@@ -475,6 +487,7 @@ def _lineage() -> LineageBundle:
         determinism_caveats=["working tree controlado"],
         created_at=datetime(2026, 6, 24, 9, 30, tzinfo=UTC),
         schema_version="1.0.0",
+        injected_artifacts=("data.frame",),
     )
 
 

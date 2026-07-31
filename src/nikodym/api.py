@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ from nikodym.core.audit import AuditSink, FanOutSink, NullAuditSink
 from nikodym.core.config import NikodymConfig
 from nikodym.core.dataset_check import DatasetCheck, check_dataset
 from nikodym.core.exceptions import NikodymError
+from nikodym.core.steps import ArtifactKey
 from nikodym.core.study import Study
 from nikodym.governance import (
     GovernanceConfig,
@@ -51,6 +53,10 @@ class PipelineCheck:
     excepción inesperada, cuyo texto puede ser detalle interno sin valor para quien usa el
     formulario (mismo criterio que D-ERR-5).
 
+    ``inert_artifacts`` enumera, en orden canónico, las claves externas que ningún paso activo ni
+    el cierre transversal del lineage consumirá. No vuelven el config inejecutable: son un aviso
+    contra typos o material preparado para una sección todavía apagada.
+
     Cubre dos familias, y el ``ValidationError`` no es un añadido cosmético: las secciones de
     dominio son ``Any`` en el schema raíz, así que un valor fuera de rango dentro de ellas **no lo
     caza** ``NikodymConfig.model_validate`` — lo caza la coacción que hace la resolución, y llega
@@ -64,9 +70,14 @@ class PipelineCheck:
     error_type: str | None = None
     message: str | None = None
     is_domain_error: bool = False
+    inert_artifacts: tuple[ArtifactKey, ...] = ()
 
 
-def check_pipeline(config: NikodymConfig) -> PipelineCheck:
+def check_pipeline(
+    config: NikodymConfig,
+    *,
+    artifacts: Iterable[ArtifactKey] | Mapping[ArtifactKey, Any] | None = None,
+) -> PipelineCheck:
     """Responde si ``config`` es ejecutable, **sin ejecutarlo**, y con qué pasos.
 
     Envoltorio de producto de :meth:`~nikodym.core.study.Study.check_pipeline`: donde el primitivo
@@ -89,23 +100,31 @@ def check_pipeline(config: NikodymConfig) -> PipelineCheck:
     config : NikodymConfig
         Config ya reconstruido. Que reconstruya es precondición, no resultado: la validez del
         modelo Pydantic y la ejecutabilidad del pipeline son dos preguntas distintas (D-PIPE-1).
+    artifacts : Iterable[ArtifactKey] | Mapping[ArtifactKey, Any] | None
+        Claves de artefactos que estarán disponibles al correr. Si se entrega un mapping, sus
+        valores se ignoran: comprobar sólo necesita las claves. Una clave válida que ningún paso
+        activo consume se publica en ``PipelineCheck.inert_artifacts`` en vez de bloquear.
 
     Returns
     -------
     PipelineCheck
         ``executable=True`` + ``steps`` en orden, o ``executable=False`` + el diagnóstico del motor.
     """
+    study: Study | None = None
     try:
         # `apply_global_seed=False`: comprobar no puede sembrar los RNG del proceso. El formulario
         # llama aquí en cada tecleo, y sembrar dejaba el hint `PYTHONHASHSEED` —que se fija una sola
         # vez por proceso— anclado a la semilla del config que se editaba, no a la de la corrida.
-        pasos = Study(config, apply_global_seed=False).check_pipeline()
+        study = Study(config, apply_global_seed=False)
+        _inject_artifacts(study, _artifact_values_for_check(artifacts))
+        pasos = study.check_pipeline()
     except ValidationError as exc:
         return PipelineCheck(
             executable=False,
             error_type=type(exc).__name__,
             message=_mensaje_de_validacion(exc),
             is_domain_error=True,
+            inert_artifacts=study.inert_injected_artifacts if study is not None else (),
         )
     # Captura amplia a propósito (ver docstring): informar nunca debe tumbar al llamante.
     except Exception as exc:
@@ -114,8 +133,13 @@ def check_pipeline(config: NikodymConfig) -> PipelineCheck:
             error_type=type(exc).__name__,
             message=str(exc),
             is_domain_error=isinstance(exc, NikodymError),
+            inert_artifacts=study.inert_injected_artifacts if study is not None else (),
         )
-    return PipelineCheck(executable=True, steps=tuple(pasos))
+    return PipelineCheck(
+        executable=True,
+        steps=tuple(pasos),
+        inert_artifacts=study.inert_injected_artifacts,
+    )
 
 
 # Tope de errores citados en el mensaje: un config recién editado puede violar decenas de
@@ -142,7 +166,11 @@ def _mensaje_de_validacion(exc: ValidationError) -> str:
     return " · ".join(lineas)
 
 
-def run(config: NikodymConfig) -> Study:
+def run(
+    config: NikodymConfig,
+    *,
+    artifacts: Mapping[ArtifactKey, Any] | None = None,
+) -> Study:
     """Ejecuta una corrida completa de extremo a extremo y devuelve el ``Study``.
 
     Superficie pública única de ejecución (CT-4): ensambla el ``AuditSink`` y el
@@ -167,6 +195,13 @@ def run(config: NikodymConfig) -> Study:
     ⚠️ **No en** ``study.results``, que este docstring mandaba usar y **siempre está vacío**: es un
     canal de publicación que ningún paso llena hoy (ver :class:`~nikodym.core.study.Study`).
 
+    **Entrar por la mitad.** ``artifacts=`` permite traer resultados ya calculados. Las claves son
+    las parejas ``(dominio, clave)`` declaradas en ``Step.requires``/``Step.provides``; hay que
+    apagar en el config la sección que produciría cualquiera de las claves inyectadas. El tipo lo
+    valida el paso consumidor, no esta puerta. Toda corrida que recibe artefactos externos los
+    enumera en ``lineage.injected_artifacts`` y declara que no es reconstruible sólo desde config
+    y datos. Esta puerta es de código: la UI/HTTP no deserializa artefactos externos.
+
     **Dónde queda el diagnóstico.** En ``study.run_context.error``
     (:class:`~nikodym.core.lineage.RunError`): tipo de la excepción, mensaje del motor y paso que
     falló, sin que haya que configurar nada. El audit-trail lo repite en el evento ``run_end``, pero
@@ -174,25 +209,47 @@ def run(config: NikodymConfig) -> Study:
     él; y el lineage no guarda el error nunca (enmienda RUN-ERROR).
     """
     sink, inventory = assemble_run(config)
-    governance_cfg = _governance_config(config.governance)
-
-    study = Study(config)
-    study.set_audit_sink(sink)
     try:
-        study.run()
-    except NikodymError:
-        # Fallo esperado de dominio: el Study queda con status="failed" + lineage conservado
-        # (SDD-01 §7.3). No se propaga: se devuelve para inspección (D-UI-2).
+        governance_cfg = _governance_config(config.governance)
+        study = Study(config)
+        study.set_audit_sink(sink)
+        _inject_artifacts(study, artifacts or {})
+        try:
+            study.run()
+        except NikodymError:
+            # Fallo esperado de dominio: el Study queda con status="failed" + lineage conservado
+            # (SDD-01 §7.3). No se propaga: se devuelve para inspección (D-UI-2).
+            return study
+    finally:
+        # El sink pertenece a ``run`` desde que ``assemble_run`` lo entrega. Se cierra ante éxito,
+        # error de dominio y cualquier excepción inesperada, incluidos fallos al inyectar o al
+        # construir el Study. Además se cierra ANTES de leer el trail para la ModelCard.
         _close_audit_sink(sink)
-        return study
 
-    # Cierra el sink (flush + close del trail) ANTES de leer el trail para la ModelCard: evita
-    # fuga de descriptor y lecturas del JSONL mientras sigue abierto en modo append (Windows).
-    _close_audit_sink(sink)
     if governance_cfg is not None and governance_cfg.publish_to_inventory:
         entry = _build_inventory_entry(study, governance_cfg, config)
         inventory.register(entry)
     return study
+
+
+def _artifact_values_for_check(
+    artifacts: Iterable[ArtifactKey] | Mapping[ArtifactKey, Any] | None,
+) -> Mapping[ArtifactKey, object]:
+    """Convierte claves declaradas para el preflight en valores centinela que nunca se consumen."""
+    if artifacts is None:
+        return {}
+    keys = artifacts.keys() if isinstance(artifacts, Mapping) else artifacts
+    return dict.fromkeys(keys, _ARTIFACT_SENTINEL)
+
+
+_ARTIFACT_SENTINEL = object()
+
+
+def _inject_artifacts(study: Study, artifacts: Mapping[ArtifactKey, Any]) -> None:
+    """Siembra artefactos externos después de conectar el sink y conserva su procedencia."""
+    for (domain, key), value in artifacts.items():
+        study._register_injected_artifact(domain, key)
+        study.artifacts.set(domain, key, value)
 
 
 def _close_audit_sink(sink: AuditSink) -> None:
@@ -257,22 +314,29 @@ def assemble_run(config: NikodymConfig) -> tuple[AuditSink, ModelInventory]:
     tracking_cfg = _tracking_config(config.tracking)
 
     sinks: list[AuditSink] = []
-    if audit_cfg is not None and audit_cfg.enabled:
-        sinks.append(JsonlAuditSink(Path(audit_cfg.trail_filename), config=audit_cfg))
-    if tracking_cfg is not None and tracking_cfg.enabled:
-        sinks.append(TrackingSink(TrackingRecorder(tracking_cfg)))
+    try:
+        if audit_cfg is not None and audit_cfg.enabled:
+            sinks.append(JsonlAuditSink(Path(audit_cfg.trail_filename), config=audit_cfg))
+        if tracking_cfg is not None and tracking_cfg.enabled:
+            sinks.append(TrackingSink(TrackingRecorder(tracking_cfg)))
 
-    if governance_cfg is not None and governance_cfg.publish_to_inventory:
-        require_extra("tracking", "mlflow")
-        inventory: ModelInventory = MLflowInventory(tracking_cfg or TrackingConfig())
-    else:
-        inventory = NullInventory()
+        if governance_cfg is not None and governance_cfg.publish_to_inventory:
+            require_extra("tracking", "mlflow")
+            inventory: ModelInventory = MLflowInventory(tracking_cfg or TrackingConfig())
+        else:
+            inventory = NullInventory()
 
-    if not sinks:
-        return NullAuditSink(), inventory
-    if len(sinks) == 1:
-        return sinks[0], inventory
-    return FanOutSink(sinks), inventory
+        if not sinks:
+            return NullAuditSink(), inventory
+        if len(sinks) == 1:
+            return sinks[0], inventory
+        return FanOutSink(sinks), inventory
+    except BaseException:
+        # Si el ensamblado falla después de abrir un sink (p. ej. falta MLflow), ``run`` todavía
+        # no recibió nada que pueda cerrar en su ``finally``. Esta capa conserva esa propiedad.
+        for sink in sinks:
+            _close_audit_sink(sink)
+        raise
 
 
 def _audit_config(value: Any) -> AuditConfig | None:

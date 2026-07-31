@@ -767,6 +767,19 @@ def test_load_corrido_sin_drift_no_advierte(tmp_path: Path) -> None:
     assert recargado.run_context.status == "done"
 
 
+def test_load_acepta_lineage_anterior_sin_injected_artifacts(tmp_path: Path) -> None:
+    """El default aditivo recarga un snapshot escrito antes de D-ART-7."""
+    destino = Study(_config()).run().save(tmp_path / "estudio-viejo")
+    metadata_path = destino / "run_metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["lineage"].pop("injected_artifacts")
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    recargado = Study.load(destino)
+
+    assert recargado.lineage_bundle().injected_artifacts == ()
+
+
 def test_build_lineage_sin_git_es_none(monkeypatch: pytest.MonkeyPatch) -> None:
     """Si ``git`` no está disponible, el lineage registra ``git_sha=None``/``git_dirty=False``."""
 

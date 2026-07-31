@@ -31,6 +31,9 @@ class LineageBundle(BaseModel):
     ``data_hash`` es el hash del contenido lógico por bloques (no los bytes del Parquet, decisión
     D2); su cálculo vive en ``data/`` (SDD-02), aquí sólo se declara el campo. ``extra="forbid"``
     rechaza un campo intruso al revalidar el bundle desde disco (``Study.load``).
+
+    ``injected_artifacts`` enumera las claves que entraron desde fuera de la corrida. Su default
+    vacío mantiene compatibles los bundles escritos antes de la puerta D-ART-7.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -45,6 +48,7 @@ class LineageBundle(BaseModel):
     determinism_caveats: list[str]
     created_at: datetime
     schema_version: str
+    injected_artifacts: tuple[str, ...] = ()
 
 
 class RunError(BaseModel):

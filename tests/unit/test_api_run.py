@@ -8,6 +8,7 @@ Cubre: (a) contrato de ``run`` (éxito → ``status="done"``; fallo → ``Study`
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import textwrap
@@ -23,6 +24,7 @@ from nikodym.binning.config import BinningConfig
 from nikodym.calibration.config import CalibrationConfig
 from nikodym.core.audit import AuditSink, FanOutSink, InMemoryAuditSink, NullAuditSink
 from nikodym.core.config import NikodymConfig, ReproConfig
+from nikodym.core.study import Study
 from nikodym.data.config import (
     CohortSplitConfig,
     ColumnSpec,
@@ -360,6 +362,192 @@ def test_run_cierra_los_sinks_de_un_fanout(monkeypatch: pytest.MonkeyPatch, tmp_
 
     assert study.run_context.status == "failed"
     assert inner._handle is None  # el JsonlAuditSink hijo quedó cerrado (recursión de cierre)
+
+
+def test_run_cierra_sink_ante_excepcion_inesperada(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """El ``finally`` de la API cierra el sink incluso si el primitivo levanta fuera del dominio."""
+    trail = tmp_path / "trail.jsonl"
+    sink = JsonlAuditSink(trail)
+    _patch_assemble(monkeypatch, sink=sink, inventory=_SpyInventory())
+
+    def _boom(self: object) -> None:
+        del self
+        raise RuntimeError("fallo inesperado")
+
+    monkeypatch.setattr(Study, "run", _boom)
+
+    with pytest.raises(RuntimeError, match="fallo inesperado"):
+        api_module.run(NikodymConfig())
+
+    assert sink._handle is None
+
+
+def test_run_cierra_sink_si_falla_durante_la_inyeccion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La nueva fase previa a ``Study.run`` también queda dentro del ``finally``."""
+
+    class _ExplodingSink:
+        closed = False
+
+        def emit(self, event: object) -> None:
+            del event
+            raise RuntimeError("fallo al auditar la inyección")
+
+        def close(self) -> None:
+            self.closed = True
+
+    sink = _ExplodingSink()
+    _patch_assemble(monkeypatch, sink=sink, inventory=_SpyInventory())
+
+    with pytest.raises(RuntimeError, match="fallo al auditar"):
+        api_module.run(NikodymConfig(), artifacts={("data", "frame"): object()})
+
+    assert sink.closed is True
+
+
+def test_trail_jsonl_registra_inyeccion_y_aviso_de_clave_inerte(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """La procedencia y el aviso de inercia llegan a un ``JsonlAuditSink`` real."""
+    trail = tmp_path / "trail.jsonl"
+    sink = JsonlAuditSink(trail)
+    _patch_assemble(monkeypatch, sink=sink, inventory=_SpyInventory())
+
+    study = api_module.run(NikodymConfig(), artifacts={("data", "frame"): [1, 2, 3]})
+
+    assert study.run_context.status == "done"
+    events = [json.loads(line) for line in trail.read_text().splitlines()]
+    artifact = next(event for event in events if event["kind"] == "artifact")
+    assert artifact["payload"] == {"domain": "data", "key": "frame", "overwrite": False}
+    warning = next(
+        event
+        for event in events
+        if event["kind"] == "decision"
+        and event["payload"].get("regla") == "artefacto_inyectado_inerte"
+    )
+    assert warning["payload"]["accion"] == "advertir"
+
+
+def test_data_hash_inyectado_se_adopta_sin_caveat_de_ausencia() -> None:
+    """Sin ``data`` activo, el lineage adopta ``('data', 'data_hash')`` desde el store."""
+    digest = "a" * 64
+
+    study = api_module.run(NikodymConfig(), artifacts={("data", "data_hash"): digest})
+    lineage = study.lineage_bundle()
+
+    assert lineage.data_hash == digest
+    assert lineage.injected_artifacts == ("data.data_hash",)
+    assert not any("data_hash ausente" in caveat for caveat in lineage.determinism_caveats)
+
+
+def test_input_frame_opcional_se_consume_y_no_se_declara_inerte() -> None:
+    """El precedente en memoria de DataStep no puede producir un aviso falso de typo."""
+    config = NikodymConfig(data=_data_config(source=None))
+    artifacts = {("data", "input_frame"): _raw_frame()}
+
+    check = api_module.check_pipeline(config, artifacts=artifacts)
+    study = api_module.run(config, artifacts=artifacts)
+
+    assert check.executable is True
+    assert check.inert_artifacts == ()
+    assert study.run_context.status == "done"
+    assert study.artifacts.has("data", "data_hash")
+
+
+def test_artefactos_no_entran_al_config_hash() -> None:
+    """La puerta cambia el lineage, nunca la identidad del config (D-ART-7)."""
+    config = NikodymConfig()
+
+    baseline = api_module.run(config).lineage_bundle().config_hash
+    injected = api_module.run(config, artifacts={("data", "frame"): object()}).lineage_bundle()
+
+    assert injected.config_hash == baseline
+    assert injected.injected_artifacts == ("data.frame",)
+
+
+def test_f1_partido_conserva_coeficientes_lineage_y_save_load(tmp_path: Path) -> None:
+    """Data→artefactos→binning conserva betas y la procedencia sobrevive al round-trip."""
+    parquet = tmp_path / "cartera.parquet"
+    _write_parquet(parquet)
+    complete = api_module.run(_full_f1_config(str(parquet)))
+    assert complete.run_context.status == "done"
+
+    keys = ("frame", "labels", "splits", "special")
+    injected = {("data", key): complete.artifacts.get("data", key) for key in keys}
+    partial_config = complete.config.model_copy(
+        update={
+            "data": None,
+            "binning": complete.config.binning.model_dump(mode="python"),
+        }
+    )
+    assert isinstance(partial_config.binning, dict), "precondición: config opaco"
+
+    check = api_module.check_pipeline(partial_config, artifacts=injected)
+    partial = api_module.run(partial_config, artifacts=injected)
+
+    assert check.executable is True
+    assert check.steps[0] == "binning"
+    assert partial.run_context.status == "done"
+    pd.testing.assert_frame_equal(
+        partial.artifacts.get("model", "coefficients"),
+        complete.artifacts.get("model", "coefficients"),
+    )
+
+    lineage = partial.lineage_bundle()
+    assert lineage.injected_artifacts == (
+        "data.frame",
+        "data.labels",
+        "data.special",
+        "data.splits",
+    )
+    assert lineage.data_hash is None
+    assert any("4 clave(s)" in caveat for caveat in lineage.determinism_caveats)
+    assert any("data_hash ausente" in caveat for caveat in lineage.determinism_caveats)
+
+    restored = Study.load(partial.save(tmp_path / "partial-study"), trust=True)
+    assert restored.lineage_bundle().injected_artifacts == lineage.injected_artifacts
+    assert restored.lineage_bundle().determinism_caveats == lineage.determinism_caveats
+
+
+def test_paridad_run_check_pipeline_en_fallo_por_faltante_y_colision(tmp_path: Path) -> None:
+    """El preflight predice los dos fallos estructurales de la superficie de ejecución."""
+    parquet = tmp_path / "cartera.parquet"
+    _write_parquet(parquet)
+    complete = api_module.run(_full_f1_config(str(parquet)))
+    keys = ("frame", "labels", "splits", "special")
+    injected = {("data", key): complete.artifacts.get("data", key) for key in keys}
+    partial_config = complete.config.model_copy(update={"data": None})
+
+    missing = dict(injected)
+    missing.pop(("data", "special"))
+    missing_check = api_module.check_pipeline(partial_config, artifacts=missing)
+    missing_run = api_module.run(partial_config, artifacts=missing)
+
+    collision_artifacts = {("data", "frame"): complete.artifacts.get("data", "frame")}
+    collision_check = api_module.check_pipeline(complete.config, artifacts=collision_artifacts)
+    collision_run = api_module.run(complete.config, artifacts=collision_artifacts)
+
+    assert missing_check.executable is False
+    assert missing_run.run_context.status == "failed"
+    assert collision_check.executable is False
+    assert collision_run.run_context.status == "failed"
+    assert collision_run.run_context.error is not None
+    assert "colisiona" in collision_run.run_context.error.message
+
+
+def test_caveat_data_hash_mira_steps_resueltos_no_solo_seccion_activa() -> None:
+    """Un ``run.steps=[]`` no ejecuta data aunque su sección siga presente."""
+    config = NikodymConfig(data=_data_config(source=None)).model_copy(
+        update={"run": NikodymConfig().run.model_copy(update={"steps": []})}
+    )
+
+    study = api_module.run(config, artifacts={("data", "frame"): [1, 2, 3]})
+
+    assert study.run_context.status == "done"
+    assert any("data_hash ausente" in item for item in study.lineage_bundle().determinism_caveats)
 
 
 def test_nikodym_run_accesible_perezoso_desde_paquete_raiz() -> None:

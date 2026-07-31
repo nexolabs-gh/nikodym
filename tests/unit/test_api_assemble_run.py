@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+import nikodym.api as api_module
 from nikodym.api import assemble_run
 from nikodym.audit import AuditConfig, JsonlAuditSink
 from nikodym.core.audit import FanOutSink, NullAuditSink
@@ -80,6 +81,33 @@ def test_assemble_run_publish_true_sin_extra_falla_ruidoso(
 
     with pytest.raises(MissingDependencyError, match="falta mlflow"):
         assemble_run(cfg)
+
+
+def test_assemble_run_cierra_jsonl_si_falla_despues_de_abrirlo(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    """Un error de inventario no fuga el sink creado antes de resolver MLflow."""
+    sink = JsonlAuditSink(tmp_path / "audit.jsonl")
+
+    def _jsonl(*args: object, **kwargs: object) -> JsonlAuditSink:
+        del args, kwargs
+        return sink
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        del args, kwargs
+        raise RuntimeError("inventario inesperado")
+
+    monkeypatch.setattr(api_module, "JsonlAuditSink", _jsonl)
+    monkeypatch.setattr(api_module, "require_extra", _boom)
+    config = NikodymConfig(
+        audit=AuditConfig(trail_filename=str(tmp_path / "audit.jsonl")),
+        governance=GovernanceConfig(purpose="F1", publish_to_inventory=True),
+    )
+
+    with pytest.raises(RuntimeError, match="inventario inesperado"):
+        assemble_run(config)
+
+    assert sink._handle is None
 
 
 def test_assemble_run_publish_true_resuelve_mlflow_inventory(

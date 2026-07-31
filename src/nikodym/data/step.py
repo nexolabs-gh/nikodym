@@ -51,6 +51,10 @@ class DataStep(AuditableMixin):
 
     name: str = "data"
     requires: tuple[ArtifactKey, ...] = ()
+    # ``input_frame`` es una entrada OPCIONAL: sólo se consume si ``load.source`` es None. No puede
+    # vivir en ``requires`` —volvería obligatorio el artefacto incluso con archivo—, pero la puerta
+    # necesita saber que no es una clave inerte cuando se inyecta (D-ART-5/D-ART-6).
+    optional_requires: tuple[ArtifactKey, ...] = (("data", INPUT_FRAME_KEY),)
     provides: tuple[ArtifactKey, ...] = tuple(("data", key) for key in DATA_ARTIFACTS)
 
     def __init__(self, config: DataConfig) -> None:
