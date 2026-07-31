@@ -146,6 +146,47 @@ function isNullSchema(schema: JsonSchema): boolean {
   return schemaType(schema) === "null"
 }
 
+/**
+ * Clave del `$def` al que apunta un nodo, SIN resolverlo. `undefined` si no apunta a ninguno.
+ *
+ * Es lo que `resolveRef` descarta al devolver el objetivo, y lo que hace falta para indexar el
+ * catálogo de defaults efectivos: sus claves de `$defs` son literalmente las que referencia el
+ * `json_schema`. Baja por la rama no nula de una unión `[T, null]`, que es como viaja un submodelo
+ * opcional; una unión DISCRIMINADA (varias ramas no nulas) devuelve `undefined` a propósito —ahí la
+ * rama la elige el usuario, y la resuelve `discriminatedBranchRef`—.
+ */
+export function refName(schema: JsonSchema): string | undefined {
+  if (typeof schema.$ref === "string") {
+    return schema.$ref.replace(/^#\/\$defs\//, "")
+  }
+  const variants = schema.anyOf ?? schema.oneOf
+  if (!variants) return undefined
+  const nonNull = variants.filter((v) => !isNullSchema(v))
+  if (nonNull.length !== 1) return undefined
+  return refName(nonNull[0])
+}
+
+/** Clave del `$def` del ELEMENTO de una lista (`items`), sin resolverlo. */
+export function itemRefName(schema: JsonSchema, defs: Defs = {}): string | undefined {
+  const array = arrayBranch(schema, defs)
+  return array?.items ? refName(array.items) : undefined
+}
+
+/** Clave del `$def` de la rama `tag` de una unión discriminada, sin resolverla. */
+export function discriminatedBranchRef(
+  schema: JsonSchema,
+  tag: string,
+  defs: Defs = {},
+): string | undefined {
+  const propName = discriminatorProperty(schema)
+  for (const branch of schema.oneOf ?? schema.anyOf ?? []) {
+    if (resolveRef(branch, defs).properties?.[propName]?.const === tag) {
+      return refName(branch)
+    }
+  }
+  return undefined
+}
+
 /** Resuelve un `$ref` (`#/$defs/<Name>`) contra `defs`; conserva title/description. */
 export function resolveRef(schema: JsonSchema, defs: Defs = {}): JsonSchema {
   if (typeof schema.$ref !== "string") return schema

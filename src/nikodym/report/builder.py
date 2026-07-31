@@ -70,7 +70,7 @@ else:
     LineageBundle: TypeAlias = Any
     Study: TypeAlias = Any
 
-__all__ = ["CANONICAL_SECTION_ORDER", "ReportBuilder"]
+__all__ = ["CANONICAL_SECTION_ORDER", "OPTIONAL_REPORT_INPUTS", "ReportBuilder"]
 
 _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     # Población real (SDD-02). Opcional: no entra en ``ReportStep.requires``.
@@ -103,6 +103,18 @@ _CARD_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
 )
 _CARD_KEY_BY_DOMAIN: Final[dict[str, str]] = dict(_CARD_ARTIFACTS)
 _RESULT_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (("validation", "result"),)
+
+#: Las **cards** que el builder adopta si existen, más el ``result`` atómico de validación. Es el
+#: contrato de *consumo opcional* del dominio ``report`` (D-FX-3): ninguna de estas claves entra a
+#: ``ReportStep.requires`` —eso lo decide la doble intersección—, pero todas se declaran en
+#: ``ReportStep.optional_requires`` para que la puerta pública ``nikodym.run(..., artifacts=...)``
+#: no llame INERTE a una clave que el informe sí lee.
+#:
+#: ⚠️ **Son las cards, no todo lo que el builder recolecta.** ``_TABLE_ARTIFACTS`` y
+#: ``_FIGURE_ARTIFACTS`` también se adoptan si existen y **siguen declarándose inertes** al
+#: inyectarlas. Es el alcance que fija D-FX-3, que habla de cards; ampliarlo movería el veredicto de
+#: la puerta de artefactos y es decisión de producto, no un olvido de esta línea.
+OPTIONAL_REPORT_INPUTS: Final[tuple[tuple[str, str], ...]] = _CARD_ARTIFACTS + _RESULT_ARTIFACTS
 _TABLE_ARTIFACTS: Final[tuple[tuple[str, str], ...]] = (
     ("eda", "default_rate"),
     ("eda", "stability"),

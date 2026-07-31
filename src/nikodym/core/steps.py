@@ -51,6 +51,23 @@ class Step(Protocol):
     # v1. El motor v1 ejecuta en orden de declaración (§7) y sólo VALIDA prerequisitos; el scheduler
     # topológico (orden derivado del grafo, fan-in/fan-out de forward/stress F5) se difiere a F5 sin
     # tocar esta firma.
+    #
+    # DOS ATRIBUTOS OPCIONALES que el motor consulta con `getattr` y que por eso NO entran al
+    # Protocol (declararlos aquí obligaría a todo Step a tenerlos):
+    #
+    #   optional_requires: tuple[ArtifactKey, ...]
+    #       Claves que el paso ADOPTA si existen y de las que no depende. No entran a la validación
+    #       de prerequisitos (`_validate_pipeline`/`_check_prerequisites`): sólo evitan que la
+    #       puerta pública `nikodym.run(..., artifacts=...)` declare INERTE una clave que el paso sí
+    #       consume (D-ART-5).
+    #
+    #   from_config_with_context(cls, sub_cfg, *, active_domains: frozenset[str]) -> Step
+    #       Fábrica alternativa a `from_config` (D-FX-2). `Study._resolve_step` la usa **si el
+    #       componente la expone**; si no, usa `from_config` sin cambio alguno. Es la vía genérica
+    #       —sin casos especiales por dominio en el núcleo— para un paso cuyo contrato depende de
+    #       QUÉ OTROS DOMINIOS corren en esta invocación. `active_domains` es el conjunto de nombres
+    #       de paso ya resueltos (precedencia `steps=` → `config.run.steps` → secciones no nulas),
+    #       no la lista de secciones no nulas del config.
 
 
 class StepAdapter:

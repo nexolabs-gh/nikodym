@@ -7,6 +7,7 @@
  * dominio; la verdad vive en el backend (Pydantic). Este módulo solo transporta.
  */
 
+import type { EffectiveDefaults } from "@/lib/effective-defaults"
 import type { ResultsResponse } from "@/lib/results-types"
 import {
   DEMO_MODE,
@@ -74,6 +75,8 @@ export interface SchemaResponse {
   json_schema: Record<string, unknown>
   defaults: Record<string, unknown>
   section_order: string[]
+  /** Catálogo de defaults efectivos (D-FX-5); aditivo, opcional para un backend anterior. */
+  effective_defaults?: EffectiveDefaults
 }
 
 /** Un error de validación estructurado (forma de `ValidationError.errors()`). */

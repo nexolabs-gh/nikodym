@@ -26,6 +26,7 @@ from pydantic import ValidationError
 
 import nikodym
 from nikodym.core.config import NikodymConfig, config_hash, dump_config, loads_config
+from nikodym.core.config.effective_defaults import build_effective_defaults
 from nikodym.core.config.schema import build_full_json_schema, cargar_configs_de_dominio
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.ui import datasets, presets, runs
@@ -59,10 +60,11 @@ def schema_payload() -> dict[str, Any]:
     Returns
     -------
     dict
-        ``{json_schema, defaults, section_order}``: el JSON-Schema **completo** de ``NikodymConfig``
-        (secciones de dominio instaladas con sus ``properties``, vía
+        ``{json_schema, defaults, section_order, effective_defaults}``: el JSON-Schema **completo**
+        de ``NikodymConfig`` (secciones de dominio instaladas con sus ``properties``, vía
         :func:`~nikodym.core.config.schema.build_full_json_schema`), los defaults resueltos del
-        config vacío y el orden de declaración de las secciones para el form.
+        config vacío, el orden de declaración de las secciones para el form y el catálogo de
+        **defaults efectivos** por campo.
     """
     # El schema completo lo compone el CORE (``build_full_json_schema``): materializa los dominios
     # instalados y empotra sus sub-schemas, degradando por extra ausente. ``nikodym.ui`` sigue
@@ -70,10 +72,17 @@ def schema_payload() -> dict[str, Any]:
     # ``model_validate({})`` construye el config por defecto (todas las secciones opcionales) sin
     # enumerar argumentos: equivale a ``NikodymConfig()`` en runtime y satisface a mypy (la vista
     # TYPE_CHECKING del schema marca varias secciones como requeridas).
+    #
+    # ``effective_defaults`` es ADITIVO (D-FX-5/D-FX-10): los tres campos previos conservan su
+    # significado exacto —``defaults`` sigue siendo el config vacío con sus secciones en ``null``—
+    # y un cliente viejo lo ignora. Responde la pregunta que ``json_schema`` **no puede** responder:
+    # qué valor usaría el motor en un campo que el config no trae. Sin él, el formulario pintaba
+    # apagado un interruptor que corre activado.
     return {
         "json_schema": build_full_json_schema(),
         "defaults": NikodymConfig.model_validate({}).model_dump(mode="json", by_alias=True),
         "section_order": list(NikodymConfig.model_fields),
+        "effective_defaults": build_effective_defaults(),
     }
 
 
@@ -287,11 +296,22 @@ def config_from_yaml(text: Any) -> dict[str, Any]:
     text : Any
         Contenido YAML del config; se exige un ``str`` (``loads_config`` requiere texto).
 
+    El config se devuelve con ``exclude_unset=True`` (D-FX-8): la **proyección validada** de lo que
+    el archivo traía, no su expansión completa. Un YAML parcial vuelve al formulario con la misma
+    presencia de claves con que se escribió, y los campos que no trae se pintan como valor
+    predeterminado —virtual— en vez de materializarse en el documento del usuario. Expandirlos aquí
+    convertía un config de veinte líneas en uno de trescientas sin que nadie hubiera editado nada, y
+    dejaba escrito como explícito un valor que el usuario nunca eligió.
+
+    El ``config_hash`` se calcula sobre el modelo **completo**, no sobre la proyección: la identidad
+    es la del config que se ejecutaría, y ausente frente a default explícito tienen el mismo digest
+    (D-FX-9). Es el mismo criterio con que ``config_to_yaml`` volcaba ya con ``exclude_unset``.
+
     Returns
     -------
     dict
-        ``{config, config_hash}``: el config reconstruido (``model_dump`` JSON con alias) y su
-        ``config_hash`` (identidad estable, SDD-05 §5.5).
+        ``{config, config_hash}``: el config reconstruido (``model_dump`` JSON con alias, sólo los
+        campos provistos) y su ``config_hash`` (identidad estable, SDD-05 §5.5).
 
     Raises
     ------
@@ -303,7 +323,7 @@ def config_from_yaml(text: Any) -> dict[str, Any]:
         raise ConfigError(f"el YAML del config debe ser un string, no {type(text).__name__}.")
     model = loads_config(text)
     return {
-        "config": model.model_dump(mode="json", by_alias=True),
+        "config": model.model_dump(mode="json", by_alias=True, exclude_unset=True),
         "config_hash": config_hash(model),
     }
 

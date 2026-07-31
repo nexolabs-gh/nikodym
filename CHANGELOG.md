@@ -7,7 +7,55 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ## [Sin publicar]
 
+### Añadido
+
+- **La interfaz ya muestra el valor que el motor usará en un campo que no has llenado.** `GET
+  /api/schema` publica un catálogo nuevo, `effective_defaults`, con el valor predeterminado real de
+  cada campo del config: el mismo que ejecutan las clases del motor, no una copia escrita a mano.
+  El formulario lo usa **sólo para pintar**, marcando esos valores como «Predeterminado; se usará
+  mientras no elijas otro». Es aditivo: los tres campos anteriores del payload (`json_schema`,
+  `defaults`, `section_order`) conservan su significado exacto y un cliente que no lo conozca lo
+  ignora. Un dominio cuyo extra no esté instalado no se expande: su sección viaja sin valores
+  debajo, igual que ya no aparecía expandida en el esquema, así que el formulario no ofrece ni un
+  valor para ella.
+
 ### Corregido
+
+- **El formulario dejó de mostrar un config distinto del que la corrida iba a ejecutar.** Un campo
+  que el archivo no traía se pintaba vacío, apagado o en cero aunque el motor fuera a usar otro
+  valor: la interfaz leía el `default` del JSON Schema, que no existe para los bloques que el motor
+  construye solo (`report.sections`, `report.html`, `model.stepwise`, `selection.correlation` y
+  otros ~80 campos al activar una sección). Dos casos vivían en la configuración estándar F1:
+  «Renderizar gráficos» se veía **desactivado** corriendo activado, y «Bloques por completar» se
+  veía **en blanco** corriendo con `show`.
+
+  Ahora esos valores se ven, marcados como predeterminados, **sin escribirse** en tu config:
+  montar la aplicación, cambiar de sección, abrir un YAML o descargarlo sin editar no añade ni una
+  clave y no mueve el `config_hash`. El primer gesto sobre un control materializa **sólo ese
+  campo**; activar una sección o cambiar de variante escribe su bloque completo, que es lo que ese
+  gesto significa. Un valor que escribiste tú se respeta literalmente aunque sea `null`, `false`,
+  `0`, `""` o una lista vacía: ya no se confunde «no lo decidí» con «lo dejé vacío a propósito».
+
+- **Un YAML parcial vuelve al formulario tal como lo escribiste.** `POST /api/config/from-yaml`
+  devuelve la proyección de lo que el archivo traía y ya no su expansión completa, así que un
+  config de veinte líneas deja de convertirse en uno de trescientas. El `config_hash` sigue
+  calculándose sobre el config completo y no cambia.
+
+- **Inyectar una ficha que el informe sí lee ya no se anuncia como «no la usa nadie».** Al pasar
+  una card por `nikodym.run(..., artifacts=...)` —o cualquiera de las que el informe adopta si
+  existen—, el registro de la corrida la declaraba inerte aunque el documento la fuera a leer. Las
+  tablas y figuras que el informe también adopta siguen declarándose inertes: el contrato cubre las
+  fichas, y ampliarlo cambiaría ese veredicto para otros casos.
+
+- **Un informe ya no exige la ficha de una sección que nadie va a correr.** Si `report` declara una
+  sección obligatoria cuyo dominio está apagado en esa corrida, la comprobación previa
+  (`nikodym.check_pipeline`) la daba por **inejecutable** con un error del grafo de pasos, en vez de
+  dejar que decidiera `report.sections.missing_policy`. Ahora el config es ejecutable y la política
+  hace su trabajo: `error` detiene la corrida en el paso `report` diciendo qué falta, `warn` termina
+  publicando la sección ausente y `skip` la omite dejando la limitación declarada en el informe.
+  **Es un cambio observable**: un config que antes se rechazaba ahora corre —o falla más tarde y con
+  mejor diagnóstico—. Un paso que sí corre y no publica la ficha que prometió sigue deteniendo la
+  corrida antes del informe: la política no oculta un productor roto.
 
 - **El comodín de binning ya no usa como predictor una columna que define el target.** Con
   `feature_columns="*"`, las columnas nombradas por `data.target.bad_rule` y `good_rule` quedan

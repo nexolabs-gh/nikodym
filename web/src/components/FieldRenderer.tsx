@@ -18,6 +18,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { type Path, parseJsonInput } from "@/lib/config-store"
+import {
+  type DefaultsMap,
+  type DefaultsNode,
+  type EffectiveDefaults,
+  type Provenance,
+  canonicalProjection,
+  childMap,
+  defMap,
+  resolveValue,
+} from "@/lib/effective-defaults"
 import { errorAtPath } from "@/lib/validation"
 import {
   type Defs,
@@ -25,6 +35,7 @@ import {
   WILDCARD,
   acceptsWildcard,
   defaultForSchema,
+  discriminatedBranchRef,
   discriminatedBranches,
   discriminatorProperty,
   enumOptions,
@@ -33,6 +44,7 @@ import {
   appendListItem,
   fieldPlaceholder,
   hasClosedOptions,
+  itemRefName,
   itemSchema,
   listItemLabel,
   listItems,
@@ -41,6 +53,7 @@ import {
   numericBounds,
   optionsFromDataset,
   orderedFields,
+  refName,
   removeListItem,
   resolveRef,
   resolveWidget,
@@ -79,12 +92,68 @@ export interface FieldRendererProps {
    * columna no tiene opciones que ofrecer. `undefined` = aún no hay dataset cargado.
    */
   datasetColumns?: string[]
+  /**
+   * Mapa de defaults efectivos del MODELO que contiene a este campo; se indexa por `name`
+   * (D-FX-5). Baja con el mismo recorrido que `schema`, salvo en los dos sitios donde la
+   * coordenada `sections` no llega —una fila de lista y la rama elegida de una unión
+   * discriminada—, que lo toman de `$defs`. `undefined` = sin catálogo ⇒ nada que ofrecer, y el
+   * campo se pinta vacío en vez de con un default inventado.
+   */
+  defaultsBase?: DefaultsMap
+  /** Catálogo completo, sólo para resolver `$defs` en listas y variantes. */
+  effectiveDefaults?: EffectiveDefaults
 }
 
 /** Error de validación del backend para un campo (SDD §3.3): el front SOLO lo pinta. */
 function FieldError({ message }: { message: string | undefined }) {
   if (!message) return null
   return <p className="text-xs text-destructive">{message}</p>
+}
+
+/** Copy público del valor virtual. Una sola frase, en el idioma del lector (D-FX-7). */
+const AVISO_PREDETERMINADO = "Predeterminado; se usará mientras no elijas otro."
+
+/**
+ * Marca de que lo que se ve es el valor que usaría el motor, y no algo que el usuario escribió.
+ *
+ * Es la mitad visible de D-FX-7: el formulario ya no puede pintar un default sin decir que lo es,
+ * porque el config **no lo contiene** y el usuario tiene derecho a saber qué está mirando. No
+ * nombra `unset`, `default_factory`, Pydantic ni JSON Schema: eso es fontanería, no información.
+ */
+function DefaultBadge({ provenance }: { provenance: Provenance }) {
+  if (provenance !== "default") return null
+  return (
+    <span
+      role="note"
+      aria-label={AVISO_PREDETERMINADO}
+      title={AVISO_PREDETERMINADO}
+      className="rounded-full border border-border px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground"
+    >
+      Predeterminado
+    </span>
+  )
+}
+
+/** El nodo del catálogo que corresponde a ESTE campo, o `undefined` si no hay catálogo. */
+function nodeFor(props: FieldRendererProps): DefaultsNode | undefined {
+  return props.defaultsBase?.[props.name]
+}
+
+/**
+ * Qué pinta el campo y de dónde sale (D-FX-7).
+ *
+ * ⚠️ Reemplaza al viejo `props.value ?? props.schema.default`, que tenía los dos defectos que la
+ * enmienda prohíbe: `??` trata un `null` explícito como ausencia, y `schema.default` no existe
+ * para lo que Pydantic crea con `default_factory`.
+ */
+function resolved(props: FieldRendererProps) {
+  return resolveValue(props.value, nodeFor(props))
+}
+
+/** Los defaults de los HIJOS de este campo: por `$ref` si lo hay, si no por el mapa del nodo. */
+function childDefaults(props: FieldRendererProps): DefaultsMap | undefined {
+  const porRef = defMap(props.effectiveDefaults, refName(props.schema))
+  return porRef ?? childMap(nodeFor(props))
 }
 
 /**
@@ -128,6 +197,7 @@ function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
   const id = path.join(".")
   const label = fieldLabel(name, schema)
   const help = fieldHelp(schema)
+  const { provenance } = resolved(props)
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
@@ -135,6 +205,7 @@ function FieldShell(props: FieldRendererProps & { children: React.ReactNode }) {
           {label}
           {required ? <span className="text-eyebrow"> *</span> : null}
         </Label>
+        <DefaultBadge provenance={provenance} />
         {help ? (
           <Tooltip>
             <TooltipTrigger
@@ -185,14 +256,27 @@ function WidgetSwitch(
 // Widgets base
 // ---------------------------------------------------------------------------
 
+/**
+ * Lo que el widget MUESTRA (D-FX-7). Lo consumen `select`, `switch`, `slider`, `number`, `text`,
+ * `textarea`, `multiselect` y `list`, o sea todo widget que pinte un VALOR: así la regla de
+ * presencia no puede quedarse a medio aplicar en uno de ellos, que es como el multiselect ignoraba
+ * el default por completo.
+ *
+ * Quedan fuera dos a propósito. `discriminated` no pinta un valor sino un TAG, y lo lee del objeto
+ * almacenado (`current?.[propName]`); sus campos sí resuelven, cada uno por su cuenta, con el mapa
+ * de la rama elegida. `json` es el editor de último recurso para subárboles sin widget, y su
+ * `useState` inicial se siembra una sola vez: sembrarlo con un default sería escribirlo en cuanto
+ * el textarea emitiera su primer `onChange`, que es justo lo que D-FX-8 prohíbe. Hoy ninguno de los
+ * dos tiene un campo con default efectivo detrás; el día que lo tenga, entra aquí.
+ */
 function currentValue(props: FieldRendererProps): unknown {
-  return props.value ?? props.schema.default
+  return resolved(props).displayed
 }
 
 function SelectField(props: FieldRendererProps) {
   const { schema, path, defs, onChange } = props
-  const resolved = resolveRef(unwrapNullable(schema).schema, defs)
-  const options = enumOptions(resolved)
+  const target = resolveRef(unwrapNullable(schema).schema, defs)
+  const options = enumOptions(target)
   const value = currentValue(props)
   const selectValue = value === undefined || value === null ? null : String(value)
   const disabled = options.length <= 1
@@ -235,11 +319,11 @@ function SwitchField(props: FieldRendererProps) {
 
 function SliderField(props: FieldRendererProps) {
   const { schema, path, defs, onChange } = props
-  const resolved = resolveRef(unwrapNullable(schema).schema, defs)
-  const { min = 0, max = 1 } = numericBounds(resolved)
+  const target = resolveRef(unwrapNullable(schema).schema, defs)
+  const { min = 0, max = 1 } = numericBounds(target)
   const range = max - min
   const step =
-    numericBounds(resolved).step ??
+    numericBounds(target).step ??
     (range <= 1 ? 0.01 : range <= 10 ? 0.1 : 1)
   const raw = currentValue(props)
   const num = typeof raw === "number" ? raw : min
@@ -265,8 +349,8 @@ function SliderField(props: FieldRendererProps) {
 
 function NumberField(props: FieldRendererProps) {
   const { schema, path, defs, onChange } = props
-  const resolved = resolveRef(unwrapNullable(schema).schema, defs)
-  const { min, max, step } = numericBounds(resolved)
+  const target = resolveRef(unwrapNullable(schema).schema, defs)
+  const { min, max, step } = numericBounds(target)
   const raw = currentValue(props)
   const value = typeof raw === "number" ? raw : ""
   return (
@@ -277,7 +361,7 @@ function NumberField(props: FieldRendererProps) {
       min={min}
       max={max}
       step={step}
-      placeholder={fieldPlaceholder(resolved)}
+      placeholder={fieldPlaceholder(target)}
       onChange={(event) => {
         const text = event.target.value
         onChange(path, text === "" ? undefined : Number(text))
@@ -288,7 +372,7 @@ function NumberField(props: FieldRendererProps) {
 
 function TextField(props: FieldRendererProps) {
   const { schema, path, defs, onChange } = props
-  const resolved = resolveRef(unwrapNullable(schema).schema, defs)
+  const target = resolveRef(unwrapNullable(schema).schema, defs)
   const raw = currentValue(props)
   const value = typeof raw === "string" ? raw : raw == null ? "" : String(raw)
   return (
@@ -296,7 +380,7 @@ function TextField(props: FieldRendererProps) {
       id={path.join(".")}
       type="text"
       value={value}
-      placeholder={fieldPlaceholder(resolved)}
+      placeholder={fieldPlaceholder(target)}
       onChange={(event) => onChange(path, event.target.value)}
     />
   )
@@ -335,10 +419,10 @@ function GroupField(props: FieldRendererProps) {
     errors,
     datasetColumns,
   } = props
-  const resolved = resolveRef(unwrapNullable(schema).schema, defs)
-  const fields = orderedFields(resolved)
+  const target = resolveRef(unwrapNullable(schema).schema, defs)
+  const fields = orderedFields(target)
   const label = fieldLabel(name, schema)
-  const required = new Set(resolved.required ?? [])
+  const required = new Set(target.required ?? [])
   const groupValue = asRecord(value)
 
   return (
@@ -367,6 +451,8 @@ function GroupField(props: FieldRendererProps) {
         depth={depth}
         errors={errors}
         datasetColumns={datasetColumns}
+        defaultsBase={childDefaults(props)}
+        effectiveDefaults={props.effectiveDefaults}
       />
     </fieldset>
   )
@@ -393,6 +479,8 @@ function GroupFieldList(props: {
   depth: number
   errors?: Map<string, string>
   datasetColumns?: string[]
+  defaultsBase?: DefaultsMap
+  effectiveDefaults?: EffectiveDefaults
 }) {
   const {
     fields,
@@ -404,6 +492,8 @@ function GroupFieldList(props: {
     depth,
     errors,
     datasetColumns,
+    defaultsBase,
+    effectiveDefaults,
   } = props
   if (fields.length === 0) {
     return <p className="text-xs text-muted-foreground">Sin campos.</p>
@@ -416,6 +506,9 @@ function GroupFieldList(props: {
           name={childName}
           schema={childSchema}
           path={[...path, childName]}
+          // `groupValue?.[childName] === undefined` ⟺ la clave NO está en el config. Es la señal de
+          // presencia que consume el resolver; el config es JSON, así que no hay otra forma de
+          // producir `undefined` y por eso no hace falta pasar un flag aparte.
           value={groupValue?.[childName]}
           defs={defs}
           onChange={onChange}
@@ -423,6 +516,8 @@ function GroupFieldList(props: {
           depth={depth + 1}
           errors={errors}
           datasetColumns={datasetColumns}
+          defaultsBase={defaultsBase}
+          effectiveDefaults={effectiveDefaults}
         />
       ))}
     </>
@@ -448,11 +543,29 @@ function DiscriminatedField(props: FieldRendererProps) {
   const tag = current?.[propName]
   const selectValue = typeof tag === "string" ? tag : null
   const active = branches.find((branch) => branch.tag === selectValue)
+  // Los defaults de la rama ELEGIDA: la coordenada `sections` sólo conoce la variante por defecto,
+  // así que aquí se resuelve por `$defs` con la misma clave que referencia el `json_schema`.
+  const branchDefaults = defMap(
+    props.effectiveDefaults,
+    selectValue ? discriminatedBranchRef(schema, selectValue, defs) : undefined,
+  )
 
   const handleTagChange = (next: string | null) => {
     if (next === null) return
     const branch = branches.find((b) => b.tag === next)
-    onChange(path, branch ? variantDefaults(branch.schema) : { [propName]: next })
+    // Cambiar de variante es un gesto de ESTRUCTURA (D-FX-8): se escriben el tag y las hojas con
+    // default de la variante nueva, desde la proyección canónica del catálogo. `variantDefaults`
+    // queda de respaldo sin catálogo: sólo ve los `default` que el JSON Schema declara, que es
+    // justo lo que no existe para un submodelo con `default_factory`.
+    const canonica = canonicalProjection(
+      defMap(props.effectiveDefaults, discriminatedBranchRef(schema, next, defs)),
+    )
+    const semilla = Object.keys(canonica).length
+      ? { ...canonica, [propName]: next }
+      : branch
+        ? variantDefaults(branch.schema)
+        : { [propName]: next }
+    onChange(path, semilla)
   }
 
   const subFields = active
@@ -491,6 +604,8 @@ function DiscriminatedField(props: FieldRendererProps) {
             depth={depth}
             errors={errors}
             datasetColumns={datasetColumns}
+            defaultsBase={branchDefaults}
+            effectiveDefaults={props.effectiveDefaults}
           />
         </fieldset>
       ) : null}
@@ -524,11 +639,28 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
   const depth = props.depth ?? 0
   const label = fieldLabel(name, schema)
   const help = fieldHelp(schema)
-  const active = value !== null && value !== undefined
+  // El estado del interruptor se resuelve con la MISMA regla que un valor (D-FX-7): si la clave no
+  // está, manda el default efectivo. Antes se leía `value` a secas, así que un submodelo cuyo
+  // default es un objeto —`report.sections`, `model.stepwise`— aparecía apagado mientras el motor
+  // corría con él encendido.
+  const { displayed, provenance } = resolved(props)
+  const active = displayed !== null && displayed !== undefined
   const id = path.join(".")
 
   const handleToggle = (next: boolean) => {
-    onChange(path, next ? defaultForSchema(baseSchema, defs) : null)
+    if (!next) {
+      onChange(path, null)
+      return
+    }
+    // Activar es un gesto de ESTRUCTURA (D-FX-8): se escriben todas las hojas con default de la
+    // proyección canónica y se omiten las obligatorias sin default. `defaultForSchema` queda de
+    // respaldo sin catálogo: sólo ve `default` del JSON Schema, que no existe para un submodelo
+    // con `default_factory` — de ahí que sembrara objetos a medias.
+    const canonica = childDefaults(props)
+    const semilla = canonica
+      ? canonicalProjection(canonica)
+      : defaultForSchema(baseSchema, defs)
+    onChange(path, semilla)
   }
 
   return (
@@ -550,6 +682,7 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
           {label}
           {required ? <span className="text-eyebrow"> *</span> : null}
         </Label>
+        <DefaultBadge provenance={provenance} />
         {help ? (
           <Tooltip>
             <TooltipTrigger
@@ -584,6 +717,14 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
             hideLabel
             errors={errors}
             datasetColumns={datasetColumns}
+            // ⚠️ El hijo comparte `name` y `path` con este toggle, así que necesita EL MISMO
+            // `defaultsBase`: sin él, `nodeFor` devuelve `undefined` y todo campo `X | None` pierde
+            // su default en el control. Medido: `binning.max_n_bins` pintaba el slider en 2 —su
+            // cota inferior— mientras el motor usaba 8, y con la insignia «Predeterminado» al lado,
+            // o sea afirmando un valor falso. Es la única rama del árbol donde el renderer se llama
+            // a sí mismo sin pasar por `GroupFieldList`, que es por donde baja el mapa.
+            defaultsBase={props.defaultsBase}
+            effectiveDefaults={props.effectiveDefaults}
           />
         </div>
       ) : null}
@@ -619,12 +760,17 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
  * «todas»: es el valor que traen los presets, y sin él no había forma de volver a ponerlo.
  */
 function MultiselectField(props: FieldRendererProps) {
-  const { name, schema, path, value, defs, onChange, datasetColumns } = props
+  const { name, schema, path, defs, onChange, datasetColumns } = props
   const etiquetaLista = fieldLabel(name, schema)
   const [draft, setDraft] = useState("")
   const options = multiselectOptions(schema, { datasetColumns }, defs)
   const closed = hasClosedOptions(schema, defs)
   const wildcard = acceptsWildcard(schema, defs)
+  // ⚠️ Este widget NO leía el default en absoluto: con la clave ausente pintaba CERO chips aunque
+  // el motor fuera a usar ocho (`report.sections.required_sections`). Ahora consume el mismo
+  // resolver que los demás, y por eso hay que operar sobre `value` (lo mostrado), no sobre
+  // `props.value` (lo almacenado) — o quitar un chip de una lista virtual escribiría `[]`.
+  const value = currentValue(props)
   const isWildcard = value === WILDCARD
   const current = Array.isArray(value) ? value : []
   const selected = new Set(current)
@@ -702,8 +848,11 @@ function MultiselectField(props: FieldRendererProps) {
                       checked={selected.has(option)}
                       onChange={(event) =>
                         setList(
+                          // `current` y no `props.value`: quitar un chip de una lista VIRTUAL
+                          // escribe la lista completa restante (D-FX-8), no un `[]` que borraría
+                          // en silencio los siete que el usuario seguía viendo.
                           toggleMultiselect(
-                            value,
+                            current,
                             option,
                             event.target.checked,
                             visible,
@@ -781,20 +930,16 @@ function MultiselectField(props: FieldRendererProps) {
  * el orden declarado contra el del dataset.
  */
 function ListField(props: FieldRendererProps) {
-  const {
-    name,
-    schema,
-    path,
-    value,
-    defs,
-    onChange,
-    depth = 0,
-    errors,
-    datasetColumns,
-  } = props
+  const { name, schema, path, defs, onChange, depth = 0, errors, datasetColumns } = props
   const etiquetaLista = fieldLabel(name, schema)
   const item = itemSchema(schema, defs)
+  // Una lista ausente con default no vacío muestra sus filas antes de existir en el config; el
+  // primer gesto (añadir, borrar, reordenar) es el que las escribe.
+  const value = currentValue(props)
   const items = listItems(value)
+  // Los defaults de las FILAS viven en el `$def` del elemento: `sections` no puede indexar por
+  // índice, así que ésta es la segunda —y última— puerta al catálogo por `$ref`.
+  const rowDefaults = defMap(props.effectiveDefaults, itemRefName(schema, defs))
 
   if (!item) return <JsonField {...props} />
 
@@ -860,6 +1005,8 @@ function ListField(props: FieldRendererProps) {
                   depth={depth + 1}
                   errors={errors}
                   datasetColumns={datasetColumns}
+                  defaultsBase={rowDefaults}
+                  effectiveDefaults={props.effectiveDefaults}
                 />
               </li>
             )
@@ -872,7 +1019,17 @@ function ListField(props: FieldRendererProps) {
         // Cinco botones «Añadir» idénticos en la misma pantalla; el texto visible se queda corto
         // por espacio, así que la etiqueta accesible es la que dice a qué lista añade.
         aria-label={`Añadir un elemento a ${etiquetaLista}`}
-        onClick={() => onChange(path, appendListItem(value, item, defs))}
+        // Añadir una fila es un gesto de ESTRUCTURA (D-FX-8): la fila nace con la proyección
+        // canónica del catálogo —todas sus hojas con default, ninguna obligatoria inventada—.
+        // `appendListItem` queda de respaldo sin catálogo.
+        onClick={() =>
+          onChange(
+            path,
+            rowDefaults
+              ? [...listItems(value), canonicalProjection(rowDefaults)]
+              : appendListItem(value, item, defs),
+          )
+        }
         className="inline-flex items-center gap-1.5 rounded-md border border-input px-2.5 py-1 text-xs text-foreground/90 transition-colors hover:bg-foreground/5"
       >
         <Plus className="size-3.5" aria-hidden="true" />

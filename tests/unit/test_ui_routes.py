@@ -36,14 +36,33 @@ from nikodym.ui.exceptions import UiDatasetError
 
 
 def test_schema_payload_shape() -> None:
-    """``/schema`` entrega el JSON-Schema, los defaults y el orden de secciones declarado."""
+    """``/schema`` entrega JSON-Schema, defaults, orden de secciones y defaults efectivos.
+
+    ``effective_defaults`` entró con D-FX-5 y es **aditivo**: los tres campos previos conservan su
+    significado exacto. Esta igualdad se mantiene EXACTA a propósito —no ``<=``—: el payload es
+    contrato, y una clave que aparezca sin que nadie la haya decidido debe ponerse roja aquí.
+    """
     payload = routes.schema_payload()
-    assert set(payload) == {"json_schema", "defaults", "section_order"}
+    assert set(payload) == {
+        "json_schema",
+        "defaults",
+        "section_order",
+        "effective_defaults",
+    }
     assert payload["section_order"] == list(NikodymConfig.model_fields)
     assert payload["section_order"][0] == "schema_version"
     assert {"repro", "data", "report"} <= set(payload["section_order"])
     assert "properties" in payload["json_schema"]
     assert payload["defaults"]["repro"]["seed"] == 42  # defaults resueltos del config vacío
+    # `defaults` NO cambia de significado: sigue siendo el config vacío con sus secciones nulas.
+    assert payload["defaults"]["report"] is None
+    # …y el catálogo sí sabe lo que ese config vacío ejecutaría si se activara la sección.
+    catalogo = payload["effective_defaults"]
+    assert set(catalogo) == {"version", "sections", "$defs"}
+    assert catalogo["sections"]["report"]["html"]["render_charts"] == {
+        "has_default": True,
+        "value": True,
+    }
 
 
 def test_schema_payload_expande_dominios_f1() -> None:
@@ -353,6 +372,62 @@ def test_config_from_yaml_valido_devuelve_config_y_hash() -> None:
     assert set(resultado) == {"config", "config_hash"}
     assert resultado["config"] == cfg.model_dump(mode="json", by_alias=True)
     assert resultado["config_hash"] == config_hash(cfg)
+
+
+def test_config_from_yaml_conserva_el_config_sparse() -> None:
+    """D-FX-8: un YAML parcial vuelve con la MISMA presencia de claves con que se escribió.
+
+    Antes se devolvía la expansión completa (``model_dump`` sin ``exclude_unset``), de modo que
+    abrir un archivo de veinte líneas dejaba en el formulario un documento de trescientas: cada
+    default se materializaba como si el usuario lo hubiera elegido, sin que hubiera tocado nada.
+    """
+    yaml_parcial = 'name: parcial\nrepro:\n  seed: 7\nreport:\n  output_dir: "informes"\n'
+    resultado = routes.config_from_yaml(yaml_parcial)
+    config = resultado["config"]
+
+    assert set(config) == {"name", "repro", "report"}
+    assert config["repro"] == {"seed": 7}
+    assert config["report"] == {"output_dir": "informes"}
+    # Lo que el YAML no traía NO aparece: ni las secciones nulas ni los sub-modelos con factory.
+    assert "data" not in config
+    assert "sections" not in config["report"]
+    assert "html" not in config["report"]
+
+
+def test_config_from_yaml_conserva_null_explicito() -> None:
+    """Ausente y ``null`` explícito son estados distintos, y el round-trip los distingue.
+
+    ``exclude_unset`` conserva un ``null`` que el archivo escribió —apagar una sección es una
+    decisión— y omite el que nadie escribió. Confundirlos es el defecto que D-FX-7 prohíbe en el
+    formulario; el backend no puede reintroducirlo por la puerta de atrás.
+    """
+    con_nulo = routes.config_from_yaml("name: apagada\ndata: null\n")["config"]
+    assert "data" in con_nulo and con_nulo["data"] is None
+
+    sin_nada = routes.config_from_yaml("name: apagada\n")["config"]
+    assert "data" not in sin_nada
+
+
+def test_config_from_yaml_no_mueve_la_identidad() -> None:
+    """D-FX-9: el ``config_hash`` es el del config **completo**, no el de la proyección.
+
+    Ausente y default explícito tienen el mismo digest porque el hash identifica el config *que se
+    ejecutaría*. Devolver menos claves no puede cambiar la identidad de la corrida.
+    """
+    parcial = routes.config_from_yaml("name: parcial\nrepro:\n  seed: 7\n")
+    completo = NikodymConfig.model_validate({"name": "parcial", "repro": {"seed": 7}})
+    assert parcial["config_hash"] == config_hash(completo)
+    # Y el round-trip cerrado conserva el hash: cargar la proyección da la misma identidad.
+    assert config_hash(NikodymConfig.model_validate(parcial["config"])) == parcial["config_hash"]
+
+
+def test_config_to_yaml_conserva_la_misma_frontera() -> None:
+    """``to-yaml`` no expande lo que ``from-yaml`` no materializó: la frontera es la misma."""
+    yaml_parcial = "name: parcial\nrepro:\n  seed: 7\n"
+    config = routes.config_from_yaml(yaml_parcial)["config"]
+    devuelto = routes.config_to_yaml(config)["yaml"]
+    assert "sections:" not in devuelto
+    assert routes.config_from_yaml(devuelto)["config"] == config
 
 
 def test_config_from_yaml_malformado_levanta_config_error() -> None:

@@ -556,7 +556,13 @@ def test_load_reconstruye_seed_manager_equivalente(tmp_path: Path) -> None:
 
 
 def test_run_step_ejecuta_via_seam(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``run_step`` ejecuta el paso y devuelve su resultado sin alterar ``status``."""
+    """``run_step`` ejecuta el paso y devuelve su resultado sin alterar ``status``.
+
+    El seam es ``_resolve_step`` (singular) y no ``_resolve_steps``: desde D-FX-1, el plural es el
+    único sitio que resuelve el contexto de dominios activos de una **corrida**, y ``run_step`` es
+    un atajo sobre un store ya poblado que debe conservar su comprobación CT-1 completa. Lo que
+    este test asevera —ejecuta, devuelve el resultado, no toca ``status``— no cambió.
+    """
     study = Study(_config())
 
     class _Paso:
@@ -567,7 +573,7 @@ def test_run_step_ejecuta_via_seam(monkeypatch: pytest.MonkeyPatch) -> None:
         def execute(self, study: Study, rng: object) -> str:
             return "ok"
 
-    monkeypatch.setattr(study, "_resolve_steps", lambda nombres: [_Paso()])
+    monkeypatch.setattr(study, "_resolve_step", lambda nombre: _Paso())
     assert study.run_step("x") == "ok"
     assert study.run_context.status == "created"
 

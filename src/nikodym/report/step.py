@@ -16,6 +16,7 @@ liviano y para que ``nikodym.report`` pueda registrar el step sin activar depend
 from __future__ import annotations
 
 import os
+from collections.abc import Collection
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, TypeAlias
 
@@ -24,7 +25,7 @@ from nikodym.core.exceptions import ArtifactNotFoundError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
-from nikodym.report.builder import ReportBuilder
+from nikodym.report.builder import OPTIONAL_REPORT_INPUTS, ReportBuilder
 from nikodym.report.config import ReportConfig
 from nikodym.report.document import PER_OBSERVATION_TABLES
 from nikodym.report.exceptions import ReportExportError
@@ -64,28 +65,68 @@ class ReportStep(AuditableMixin):
     name: str = "report"
     requires: tuple[ArtifactKey, ...] = REPORT_REQUIRED_CARDS
     provides: tuple[ArtifactKey, ...] = tuple(("report", key) for key in REPORT_ARTIFACTS)
+    #: Lo que el builder **adopta si existe** y de lo que no depende (D-FX-3). No participa en la
+    #: validación de prerequisitos; sólo evita que una clave que el informe sí lee se declare
+    #: INERTE al inyectarla por ``nikodym.run(..., artifacts=...)`` (D-ART-5). Incluye las ocho
+    #: cards canónicas: una card **filtrada** de ``requires`` sigue siendo un consumo legítimo.
+    optional_requires: tuple[ArtifactKey, ...] = OPTIONAL_REPORT_INPUTS
 
-    def __init__(self, config: ReportConfig) -> None:
+    def __init__(
+        self,
+        config: ReportConfig,
+        *,
+        active_domains: Collection[str] | None = None,
+    ) -> None:
         """Construye el paso desde la sección ``ReportConfig`` ya validada.
 
-        ``requires`` se **deriva** del config: se filtra :data:`REPORT_REQUIRED_CARDS` a las cards
-        cuyo dominio esté en ``config.sections.required_sections``. Así un pipeline que no corre
-        todas las secciones canónicas F1 (p. ej. el preset sin ``eda``) declara sólo las cards que
-        realmente exige, y el motor (``_validate_pipeline``/``_check_prerequisites``, CT-1) no
-        rechaza el config por un prerequisito inalcanzable. Con el default de ocho secciones el
-        comportamiento no cambia: se siguen requiriendo las ocho cards. ``REPORT_REQUIRED_CARDS`` es
-        el mapeo canónico dominio→card y no se altera; sólo se filtra.
+        ``requires`` se **deriva** del config, y desde D-FX-3 es una **doble intersección**: una
+        card se exige si su dominio está en ``config.sections.required_sections`` **y** entre los
+        dominios que corren en esta invocación (``active_domains``).
+
+        Las dos condiciones responden preguntas distintas y por eso hacen falta las dos. La primera
+        es *«¿el informe espera esta sección?»*; la segunda, *«¿alguien va a producirla?»*. Sin la
+        segunda, el preset F1 con ``eda`` apagado hacía inejecutable el config entero
+        (``_validate_pipeline`` rechaza un prerequisito que ningún paso aguas arriba produce), y el
+        usuario recibía un ``ConfigError`` del DAG en vez de la decisión que ``missing_policy``
+        existe para tomar. El filtro vale para **cualquier** dominio, no sólo ``eda``: sacar
+        ``eda`` del default habría parcheado un preset dejando viva la clase entera.
+
+        ``active_domains=None`` significa *«no se sabe»*, no *«ninguno»*: conserva el
+        comportamiento histórico (filtrar sólo por ``required_sections``) para el uso standalone
+        —``ReportStep.from_config(ReportConfig())`` sigue exigiendo las ocho cards—. El contexto
+        real lo entrega el resolver por :meth:`from_config_with_context`.
+
+        ``required_sections`` **no se muta**: el builder necesita la lista original para saber qué
+        falta y aplicar ``missing_policy``. ``REPORT_REQUIRED_CARDS`` es el mapeo canónico
+        dominio→card y tampoco se altera; sólo se filtra.
         """
         self.config = config
         required_domains = set(config.sections.required_sections)
         self.requires = tuple(
-            (domain, key) for domain, key in REPORT_REQUIRED_CARDS if domain in required_domains
+            (domain, key)
+            for domain, key in REPORT_REQUIRED_CARDS
+            if domain in required_domains and (active_domains is None or domain in active_domains)
         )
 
     @classmethod
     def from_config(cls, cfg: ReportConfig) -> ReportStep:
-        """Construye ``ReportStep`` desde ``NikodymConfig.report``."""
+        """Construye ``ReportStep`` desde ``NikodymConfig.report`` (firma histórica, standalone)."""
         return cls(cfg)
+
+    @classmethod
+    def from_config_with_context(
+        cls,
+        cfg: ReportConfig,
+        *,
+        active_domains: Collection[str],
+    ) -> ReportStep:
+        """Fábrica contextual del resolver (D-FX-2): recibe los dominios de ESTA invocación.
+
+        ``Study._resolve_step`` la prefiere sobre :meth:`from_config` cuando existe. Es la extensión
+        genérica del resolver, no un caso especial de ``report``: cualquier dominio cuyo contrato
+        dependa de qué otros pasos corren puede exponerla, y el que no la exponga no cambia.
+        """
+        return cls(cfg, active_domains=active_domains)
 
     def emit(self, event: AuditEvent) -> None:
         """Permite pasar el step como ``AuditSink`` si un motor futuro lo requiere."""

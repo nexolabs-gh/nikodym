@@ -36,6 +36,4720 @@
     "tuning": null,
     "validation": null
   },
+  "effective_defaults": {
+    "$defs": {
+      "ReproConfig": {
+        "seed": {
+          "has_default": true,
+          "value": 42
+        },
+        "strict_determinism": {
+          "has_default": true,
+          "value": false
+        }
+      },
+      "RunConfig": {
+        "fail_fast": {
+          "has_default": true,
+          "value": true
+        },
+        "steps": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "binning__VariableBinningConfig": {
+        "cat_cutoff": {
+          "has_default": true,
+          "value": null
+        },
+        "dtype": {
+          "has_default": true,
+          "value": "auto"
+        },
+        "max_n_bins": {
+          "has_default": true,
+          "value": null
+        },
+        "min_bin_size": {
+          "has_default": true,
+          "value": null
+        },
+        "monotonic_trend": {
+          "has_default": true,
+          "value": null
+        },
+        "name": {
+          "has_default": false
+        }
+      },
+      "data__CohortSplitConfig": {
+        "cohort_col": {
+          "has_default": false
+        },
+        "holdout_fraction": {
+          "has_default": true,
+          "value": 0.2
+        },
+        "oot_cohorts": {
+          "has_default": false
+        },
+        "type": {
+          "has_default": true,
+          "value": "cohort"
+        }
+      },
+      "data__ColumnSpec": {
+        "coerce": {
+          "has_default": true,
+          "value": false
+        },
+        "dtype": {
+          "has_default": false
+        },
+        "ge": {
+          "has_default": true,
+          "value": null
+        },
+        "isin": {
+          "has_default": true,
+          "value": null
+        },
+        "le": {
+          "has_default": true,
+          "value": null
+        },
+        "name": {
+          "has_default": false
+        },
+        "nullable": {
+          "has_default": true,
+          "value": true
+        },
+        "required": {
+          "has_default": true,
+          "value": true
+        },
+        "unique": {
+          "has_default": true,
+          "value": false
+        }
+      },
+      "data__CsvOptions": {
+        "decimal": {
+          "has_default": true,
+          "value": "."
+        },
+        "encoding": {
+          "has_default": true,
+          "value": "utf-8"
+        },
+        "sep": {
+          "has_default": true,
+          "value": ","
+        }
+      },
+      "data__ExclusionRule": {
+        "name": {
+          "has_default": false
+        },
+        "rule": {
+          "all_of": {
+            "has_default": true,
+            "value": []
+          },
+          "any_of": {
+            "has_default": true,
+            "value": []
+          }
+        }
+      },
+      "data__LoadingConfig": {
+        "backend": {
+          "has_default": true,
+          "value": "pandas"
+        },
+        "csv_options": {
+          "decimal": {
+            "has_default": true,
+            "value": "."
+          },
+          "encoding": {
+            "has_default": true,
+            "value": "utf-8"
+          },
+          "sep": {
+            "has_default": true,
+            "value": ","
+          }
+        },
+        "file_format": {
+          "has_default": true,
+          "value": "auto"
+        },
+        "source": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "data__MissingConfig": {
+        "max_missing_rate": {
+          "has_default": true,
+          "value": 0.99
+        },
+        "special_values": {
+          "has_default": true,
+          "value": []
+        }
+      },
+      "data__PartitionConfig": {
+        "min_bads_per_partition": {
+          "has_default": true,
+          "value": 30
+        },
+        "strategy": {
+          "has_default": false
+        },
+        "ttd_includes_excluded": {
+          "has_default": true,
+          "value": true
+        }
+      },
+      "data__PerformanceWindow": {
+        "data_cutoff_col": {
+          "has_default": true,
+          "value": null
+        },
+        "months": {
+          "has_default": true,
+          "value": 12
+        },
+        "observation_date_col": {
+          "has_default": false
+        }
+      },
+      "data__Predicate": {
+        "col": {
+          "has_default": false
+        },
+        "op": {
+          "has_default": false
+        },
+        "value": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "data__RandomSplitConfig": {
+        "dev_fraction": {
+          "has_default": true,
+          "value": 0.7
+        },
+        "holdout_fraction": {
+          "has_default": true,
+          "value": 0.15
+        },
+        "oot_fraction": {
+          "has_default": true,
+          "value": 0.15
+        },
+        "stratify_by": {
+          "has_default": true,
+          "value": null
+        },
+        "type": {
+          "has_default": true,
+          "value": "random"
+        }
+      },
+      "data__Rule": {
+        "all_of": {
+          "has_default": true,
+          "value": []
+        },
+        "any_of": {
+          "has_default": true,
+          "value": []
+        }
+      },
+      "data__SchemaConfig": {
+        "columns": {
+          "has_default": true,
+          "value": []
+        },
+        "index_col": {
+          "has_default": true,
+          "value": null
+        },
+        "ordered": {
+          "has_default": true,
+          "value": false
+        },
+        "strict": {
+          "has_default": true,
+          "value": false
+        },
+        "unique_keys": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "data__SpecialValueSpec": {
+        "columns": {
+          "has_default": true,
+          "value": "*"
+        },
+        "label": {
+          "has_default": false
+        },
+        "sentinels": {
+          "has_default": false
+        }
+      },
+      "data__TargetConfig": {
+        "bad_rule": {
+          "all_of": {
+            "has_default": true,
+            "value": []
+          },
+          "any_of": {
+            "has_default": true,
+            "value": []
+          }
+        },
+        "exclusion_rules": {
+          "has_default": true,
+          "value": []
+        },
+        "good_rule": {
+          "has_default": true,
+          "value": null
+        },
+        "indeterminate_rule": {
+          "has_default": true,
+          "value": null
+        },
+        "target_col": {
+          "has_default": true,
+          "value": "target"
+        },
+        "window": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "data__TemporalSplitConfig": {
+        "date_col": {
+          "has_default": false
+        },
+        "holdout_fraction": {
+          "has_default": true,
+          "value": 0.2
+        },
+        "oot_from": {
+          "has_default": false
+        },
+        "type": {
+          "has_default": true,
+          "value": "temporal"
+        }
+      },
+      "eda__DefaultRateConfig": {
+        "axis": {
+          "has_default": true,
+          "value": "period"
+        },
+        "cohort_col": {
+          "has_default": true,
+          "value": null
+        },
+        "date_col": {
+          "has_default": true,
+          "value": null
+        },
+        "min_obs_per_period": {
+          "has_default": true,
+          "value": 50
+        },
+        "period_freq": {
+          "has_default": true,
+          "value": "M"
+        }
+      },
+      "eda__QualityConfig": {
+        "high_cardinality_threshold": {
+          "has_default": true,
+          "value": 50
+        },
+        "near_constant_threshold": {
+          "has_default": true,
+          "value": 0.99
+        }
+      },
+      "eda__SamplingConfig": {
+        "enabled": {
+          "has_default": true,
+          "value": false
+        },
+        "max_rows": {
+          "has_default": true,
+          "value": 500000
+        }
+      },
+      "eda__TemporalStabilityConfig": {
+        "metric": {
+          "has_default": true,
+          "value": "cv"
+        },
+        "threshold": {
+          "has_default": true,
+          "value": 0.25
+        }
+      },
+      "eda__UnivariateConfig": {
+        "columns": {
+          "has_default": true,
+          "value": null
+        },
+        "compute_descriptive_iv": {
+          "has_default": true,
+          "value": false
+        },
+        "n_quantile_bins": {
+          "has_default": true,
+          "value": 10
+        },
+        "rare_level_threshold": {
+          "has_default": true,
+          "value": 0.01
+        }
+      },
+      "explain__ExplainOutputConfig": {
+        "emit_figures": {
+          "has_default": true,
+          "value": true
+        },
+        "publish_local": {
+          "has_default": true,
+          "value": true
+        },
+        "top_k_comparison": {
+          "has_default": true,
+          "value": 15
+        },
+        "top_k_global": {
+          "has_default": true,
+          "value": 30
+        }
+      },
+      "explain__LocalScopeConfig": {
+        "partition": {
+          "has_default": true,
+          "value": "holdout"
+        },
+        "sample_size": {
+          "has_default": true,
+          "value": 200
+        },
+        "strategy": {
+          "has_default": true,
+          "value": "sample"
+        },
+        "top_by_pd": {
+          "has_default": true,
+          "value": false
+        }
+      },
+      "explain__MLExplainerConfig": {
+        "background_partition": {
+          "has_default": true,
+          "value": "desarrollo"
+        },
+        "background_size": {
+          "has_default": true,
+          "value": 100
+        },
+        "check_additivity": {
+          "has_default": true,
+          "value": true
+        },
+        "feature_perturbation": {
+          "has_default": true,
+          "value": "tree_path_dependent"
+        },
+        "ml_explainer": {
+          "has_default": true,
+          "value": "auto"
+        },
+        "nsamples": {
+          "has_default": true,
+          "value": "auto"
+        }
+      },
+      "explain__ReasonCodesConfig": {
+        "adverse_direction": {
+          "has_default": true,
+          "value": "increases_pd"
+        },
+        "include_protective": {
+          "has_default": true,
+          "value": false
+        },
+        "min_abs_contribution": {
+          "has_default": true,
+          "value": 0.0
+        },
+        "top_n": {
+          "has_default": true,
+          "value": 5
+        }
+      },
+      "explain__ScorecardExplainConfig": {
+        "baseline": {
+          "has_default": true,
+          "value": "population_mean"
+        },
+        "baseline_partition": {
+          "has_default": true,
+          "value": "desarrollo"
+        }
+      },
+      "forward__ForwardInputConfig": {
+        "macro_source": {
+          "artifact_domain": {
+            "has_default": true,
+            "value": null
+          },
+          "artifact_key": {
+            "has_default": true,
+            "value": null
+          },
+          "exogenous_cols": {
+            "has_default": true,
+            "value": []
+          },
+          "frequency": {
+            "has_default": true,
+            "value": null
+          },
+          "path": {
+            "has_default": true,
+            "value": null
+          },
+          "time_col": {
+            "has_default": true,
+            "value": "period"
+          },
+          "type": {
+            "has_default": true,
+            "value": "path"
+          },
+          "variable_cols": {
+            "has_default": false
+          }
+        },
+        "pd_basis_assumption": {
+          "has_default": true,
+          "value": null
+        },
+        "require_pit_consistency": {
+          "has_default": true,
+          "value": true
+        },
+        "term_structure_sources": {
+          "has_default": true,
+          "value": [
+            "survival",
+            "markov"
+          ]
+        }
+      },
+      "forward__ForwardValidationConfig": {
+        "fail_on_missing_scenario_paths": {
+          "has_default": true,
+          "value": true
+        },
+        "monotonic_tol": {
+          "has_default": true,
+          "value": 1e-10
+        },
+        "probability_tol": {
+          "has_default": true,
+          "value": 1e-10
+        },
+        "weight_sum_tol": {
+          "has_default": true,
+          "value": 1e-12
+        }
+      },
+      "forward__MacroModelConfig": {
+        "arima_order": {
+          "has_default": true,
+          "value": [
+            1,
+            0,
+            0
+          ]
+        },
+        "auto_arima_random": {
+          "has_default": true,
+          "value": false
+        },
+        "fail_on_ljung_box": {
+          "has_default": true,
+          "value": false
+        },
+        "horizon_periods": {
+          "has_default": true,
+          "value": 12
+        },
+        "kind": {
+          "has_default": true,
+          "value": "arima"
+        },
+        "ljung_box_lags": {
+          "has_default": true,
+          "value": [
+            6,
+            12
+          ]
+        },
+        "random_state": {
+          "has_default": true,
+          "value": null
+        },
+        "seasonal_order": {
+          "has_default": true,
+          "value": null
+        },
+        "use_pmdarima_auto_order": {
+          "has_default": true,
+          "value": false
+        },
+        "var_lags": {
+          "has_default": true,
+          "value": null
+        },
+        "vecm_rank": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "forward__MacroSourceConfig": {
+        "artifact_domain": {
+          "has_default": true,
+          "value": null
+        },
+        "artifact_key": {
+          "has_default": true,
+          "value": null
+        },
+        "exogenous_cols": {
+          "has_default": true,
+          "value": []
+        },
+        "frequency": {
+          "has_default": true,
+          "value": null
+        },
+        "path": {
+          "has_default": true,
+          "value": null
+        },
+        "time_col": {
+          "has_default": true,
+          "value": "period"
+        },
+        "type": {
+          "has_default": true,
+          "value": "path"
+        },
+        "variable_cols": {
+          "has_default": false
+        }
+      },
+      "forward__SatelliteConfig": {
+        "coefficient_table_path": {
+          "has_default": true,
+          "value": null
+        },
+        "factor_cols": {
+          "has_default": false
+        },
+        "min_history_periods": {
+          "has_default": true,
+          "value": 12
+        },
+        "mode": {
+          "has_default": true,
+          "value": "fit"
+        },
+        "reference_scenario": {
+          "has_default": true,
+          "value": "base"
+        },
+        "segment_col": {
+          "has_default": true,
+          "value": null
+        },
+        "target_components": {
+          "has_default": true,
+          "value": [
+            "pd"
+          ]
+        }
+      },
+      "forward__ScenarioConfig": {
+        "forbid_mean_scenario": {
+          "has_default": true,
+          "value": true
+        },
+        "require_at_least_three": {
+          "has_default": true,
+          "value": true
+        },
+        "scenarios": {
+          "has_default": true,
+          "value": [
+            {
+              "description": null,
+              "macro_path_path": null,
+              "name": "base",
+              "shocks": {},
+              "weight": 0.6
+            },
+            {
+              "description": null,
+              "macro_path_path": null,
+              "name": "adverse",
+              "shocks": {},
+              "weight": 0.3
+            },
+            {
+              "description": null,
+              "macro_path_path": null,
+              "name": "severe",
+              "shocks": {},
+              "weight": 0.1
+            }
+          ]
+        }
+      },
+      "forward__ScenarioDefinitionConfig": {
+        "description": {
+          "has_default": true,
+          "value": null
+        },
+        "macro_path_path": {
+          "has_default": true,
+          "value": null
+        },
+        "name": {
+          "has_default": false
+        },
+        "shocks": {
+          "has_default": true,
+          "value": {}
+        },
+        "weight": {
+          "has_default": false
+        }
+      },
+      "forward__TtcReversionConfig": {
+        "enabled": {
+          "has_default": true,
+          "value": true
+        },
+        "method": {
+          "has_default": true,
+          "value": "linear_logit"
+        },
+        "reasonable_supportable_periods": {
+          "has_default": true,
+          "value": 12
+        },
+        "reversion_periods": {
+          "has_default": true,
+          "value": 24
+        },
+        "ttc_anchor": {
+          "has_default": true,
+          "value": "input_term_structure"
+        }
+      },
+      "markov__MarkovDynamicsConfig": {
+        "embedding_policy": {
+          "has_default": true,
+          "value": "diagnose"
+        },
+        "evaluation_times": {
+          "has_default": true,
+          "value": []
+        },
+        "horizon_periods": {
+          "has_default": true,
+          "value": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        "projection_mode": {
+          "has_default": true,
+          "value": "homogeneous"
+        },
+        "time_unit": {
+          "has_default": true,
+          "value": "period"
+        }
+      },
+      "markov__MarkovEstimationConfig": {
+        "interval": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "method": {
+          "has_default": true,
+          "value": "cohort"
+        },
+        "min_origin_count": {
+          "has_default": true,
+          "value": 1
+        },
+        "use_weights": {
+          "has_default": true,
+          "value": false
+        }
+      },
+      "markov__MarkovInputConfig": {
+        "exposure_time_col": {
+          "has_default": true,
+          "value": null
+        },
+        "id_col": {
+          "has_default": false
+        },
+        "partition_col": {
+          "has_default": true,
+          "value": "partition"
+        },
+        "segment_col": {
+          "has_default": true,
+          "value": null
+        },
+        "state_col": {
+          "has_default": false
+        },
+        "time_col": {
+          "has_default": false
+        },
+        "transition_time_col": {
+          "has_default": true,
+          "value": null
+        },
+        "weight_col": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "markov__MarkovStateConfig": {
+        "absorbing_states": {
+          "has_default": true,
+          "value": [
+            "default"
+          ]
+        },
+        "allow_unknown_states": {
+          "has_default": true,
+          "value": false
+        },
+        "default_state": {
+          "has_default": true,
+          "value": "default"
+        },
+        "states": {
+          "has_default": false
+        }
+      },
+      "markov__MarkovValidationConfig": {
+        "generator_tol": {
+          "has_default": true,
+          "value": 1e-10
+        },
+        "imaginary_tol": {
+          "has_default": true,
+          "value": 1e-10
+        },
+        "normalize_within_tolerance": {
+          "has_default": true,
+          "value": true
+        },
+        "stochastic_tol": {
+          "has_default": true,
+          "value": 1e-10
+        }
+      },
+      "ml__CatBoostParams": {
+        "depth": {
+          "has_default": true,
+          "value": 4
+        },
+        "iterations": {
+          "has_default": true,
+          "value": 500
+        },
+        "l2_leaf_reg": {
+          "has_default": true,
+          "value": 3.0
+        },
+        "learning_rate": {
+          "has_default": true,
+          "value": 0.05
+        }
+      },
+      "ml__LightGBMParams": {
+        "colsample_bytree": {
+          "has_default": true,
+          "value": 0.8
+        },
+        "learning_rate": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "min_child_samples": {
+          "has_default": true,
+          "value": 50
+        },
+        "n_estimators": {
+          "has_default": true,
+          "value": 500
+        },
+        "num_leaves": {
+          "has_default": true,
+          "value": 31
+        },
+        "reg_lambda": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "subsample": {
+          "has_default": true,
+          "value": 0.8
+        }
+      },
+      "ml__MLComparisonConfig": {
+        "metrics": {
+          "has_default": true,
+          "value": [
+            "auc",
+            "gini",
+            "ks",
+            "psi"
+          ]
+        },
+        "partitions": {
+          "has_default": true,
+          "value": [
+            "desarrollo",
+            "holdout",
+            "oot"
+          ]
+        },
+        "tie_tolerance": {
+          "has_default": true,
+          "value": 1e-06
+        }
+      },
+      "ml__MLOutputConfig": {
+        "publish_calibrated_pd": {
+          "has_default": true,
+          "value": true
+        },
+        "publish_feature_importances": {
+          "has_default": true,
+          "value": true
+        },
+        "top_k_importances": {
+          "has_default": true,
+          "value": 30
+        }
+      },
+      "ml__MLTrainConfig": {
+        "class_weight": {
+          "has_default": true,
+          "value": "none"
+        },
+        "early_stopping_rounds": {
+          "has_default": true,
+          "value": 50
+        },
+        "fit_partition": {
+          "has_default": true,
+          "value": "desarrollo"
+        },
+        "predict_partitions": {
+          "has_default": true,
+          "value": [
+            "desarrollo",
+            "holdout",
+            "oot"
+          ]
+        },
+        "require_both_classes": {
+          "has_default": true,
+          "value": true
+        },
+        "validation_fraction": {
+          "has_default": true,
+          "value": 0.2
+        }
+      },
+      "ml__MonotonicConfig": {
+        "explicit": {
+          "has_default": true,
+          "value": {}
+        },
+        "mode": {
+          "has_default": true,
+          "value": "from_binning"
+        },
+        "on_unsupported": {
+          "has_default": true,
+          "value": "warn"
+        }
+      },
+      "ml__RandomForestParams": {
+        "max_depth": {
+          "has_default": true,
+          "value": null
+        },
+        "max_features": {
+          "has_default": true,
+          "value": "sqrt"
+        },
+        "min_samples_leaf": {
+          "has_default": true,
+          "value": 50
+        },
+        "n_estimators": {
+          "has_default": true,
+          "value": 300
+        }
+      },
+      "ml__SvmParams": {
+        "C": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "gamma": {
+          "has_default": true,
+          "value": "scale"
+        },
+        "kernel": {
+          "has_default": true,
+          "value": "rbf"
+        }
+      },
+      "ml__XGBoostParams": {
+        "colsample_bytree": {
+          "has_default": true,
+          "value": 0.8
+        },
+        "learning_rate": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "max_depth": {
+          "has_default": true,
+          "value": 3
+        },
+        "min_child_weight": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "n_estimators": {
+          "has_default": true,
+          "value": 500
+        },
+        "reg_lambda": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "subsample": {
+          "has_default": true,
+          "value": 0.8
+        }
+      },
+      "model__IvContributionConfig": {
+        "action": {
+          "has_default": true,
+          "value": "exclude"
+        },
+        "threshold": {
+          "has_default": true,
+          "value": 0.9
+        }
+      },
+      "model__SignPolicyConfig": {
+        "action": {
+          "has_default": true,
+          "value": "exclude"
+        },
+        "expected_beta_sign": {
+          "has_default": true,
+          "value": "negative"
+        },
+        "fail_on_forced_inverted": {
+          "has_default": true,
+          "value": true
+        }
+      },
+      "model__StepwiseConfig": {
+        "criterion": {
+          "has_default": true,
+          "value": "wald_pvalue"
+        },
+        "direction": {
+          "has_default": true,
+          "value": "bidirectional"
+        },
+        "enabled": {
+          "has_default": true,
+          "value": true
+        },
+        "entry_p_value": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "exit_p_value": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "max_iter": {
+          "has_default": true,
+          "value": 100
+        },
+        "min_features": {
+          "has_default": true,
+          "value": 1
+        }
+      },
+      "provisioning_cmf__CmfExposureConfig": {
+        "allow_negative_exposure": {
+          "has_default": true,
+          "value": false
+        },
+        "contingent_amount_col": {
+          "has_default": true,
+          "value": "contingent_amount"
+        },
+        "contingent_type_col": {
+          "has_default": true,
+          "value": "contingent_type"
+        },
+        "direct_exposure_col": {
+          "has_default": true,
+          "value": "exposure_amount"
+        },
+        "is_default_col": {
+          "has_default": true,
+          "value": "is_default"
+        },
+        "rounding": {
+          "has_default": true,
+          "value": "none"
+        }
+      },
+      "provisioning_cmf__CmfGuaranteeConfig": {
+        "enable_aval_substitution": {
+          "has_default": true,
+          "value": true
+        },
+        "financial_guarantee_policy": {
+          "has_default": true,
+          "value": "fail"
+        },
+        "recoverable_amount_col": {
+          "has_default": true,
+          "value": null
+        },
+        "require_recoverable_for_default": {
+          "has_default": true,
+          "value": true
+        }
+      },
+      "provisioning_cmf__CmfMatrixConfig": {
+        "active_version": {
+          "has_default": true,
+          "value": "cmf_b1_b3_2025_01"
+        },
+        "fail_on_source_mismatch": {
+          "has_default": true,
+          "value": true
+        },
+        "fail_on_unmapped_contingent_type": {
+          "has_default": true,
+          "value": true
+        },
+        "require_verified_rows": {
+          "has_default": true,
+          "value": true
+        }
+      },
+      "provisioning_cmf__CmfPdMappingConfig": {
+        "categories": {
+          "has_default": true,
+          "value": []
+        },
+        "method": {
+          "has_default": true,
+          "value": "provided_cmf_category"
+        },
+        "pd_breaks": {
+          "has_default": true,
+          "value": []
+        },
+        "pd_column": {
+          "has_default": true,
+          "value": "pd_raw"
+        },
+        "pd_source_domain": {
+          "has_default": true,
+          "value": "model"
+        },
+        "pd_source_key": {
+          "has_default": true,
+          "value": "raw_pd_frame"
+        }
+      },
+      "provisioning_ifrs9__IfrsEadConfig": {
+        "ccf_col": {
+          "has_default": true,
+          "value": null
+        },
+        "ccf_value": {
+          "has_default": true,
+          "value": null
+        },
+        "drawn_col": {
+          "has_default": true,
+          "value": "drawn"
+        },
+        "ead_col": {
+          "has_default": true,
+          "value": "ead"
+        },
+        "exposure_profile_col": {
+          "has_default": true,
+          "value": null
+        },
+        "limit_col": {
+          "has_default": true,
+          "value": "credit_limit"
+        },
+        "method": {
+          "has_default": true,
+          "value": "ccf"
+        }
+      },
+      "provisioning_ifrs9__IfrsEclConfig": {
+        "discount_convention": {
+          "has_default": true,
+          "value": "annual_eir_year_fraction"
+        },
+        "eir_col": {
+          "has_default": true,
+          "value": "eir"
+        },
+        "rounding": {
+          "has_default": true,
+          "value": "none"
+        },
+        "stage3_direct": {
+          "has_default": true,
+          "value": false
+        }
+      },
+      "provisioning_ifrs9__IfrsLgdConfig": {
+        "covariate_cols": {
+          "has_default": true,
+          "value": []
+        },
+        "lgd_cap": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "lgd_col": {
+          "has_default": true,
+          "value": "lgd"
+        },
+        "lgd_floor": {
+          "has_default": true,
+          "value": 0.0
+        },
+        "method": {
+          "has_default": true,
+          "value": "provided"
+        },
+        "recovery_col": {
+          "has_default": true,
+          "value": null
+        },
+        "workout_discount": {
+          "has_default": true,
+          "value": "eir"
+        }
+      },
+      "provisioning_ifrs9__IfrsPdConfig": {
+        "base_pd_source": {
+          "has_default": true,
+          "value": "term_structure"
+        },
+        "horizon_12m_periods": {
+          "has_default": true,
+          "value": 12
+        },
+        "max_lifetime_periods": {
+          "has_default": true,
+          "value": null
+        },
+        "pit_mode": {
+          "has_default": true,
+          "value": "consume_pit"
+        },
+        "rho": {
+          "has_default": true,
+          "value": null
+        },
+        "rho_col": {
+          "has_default": true,
+          "value": null
+        },
+        "systemic_factor_col": {
+          "has_default": true,
+          "value": null
+        },
+        "term_structure_source": {
+          "has_default": true,
+          "value": "survival"
+        }
+      },
+      "provisioning_ifrs9__IfrsScenarioConfig": {
+        "forbid_mean_scenario": {
+          "has_default": true,
+          "value": true
+        },
+        "source": {
+          "has_default": true,
+          "value": "forward"
+        },
+        "weights": {
+          "has_default": true,
+          "value": {}
+        }
+      },
+      "provisioning_ifrs9__IfrsStagingConfig": {
+        "days_past_due_col": {
+          "has_default": true,
+          "value": "days_past_due"
+        },
+        "dpd_default_backstop": {
+          "has_default": true,
+          "value": 90
+        },
+        "dpd_sicr_backstop": {
+          "has_default": true,
+          "value": 30
+        },
+        "is_default_col": {
+          "has_default": true,
+          "value": "is_default"
+        },
+        "low_credit_risk_col": {
+          "has_default": true,
+          "value": null
+        },
+        "low_credit_risk_exemption": {
+          "has_default": true,
+          "value": false
+        },
+        "notch_downgrade_threshold": {
+          "has_default": true,
+          "value": null
+        },
+        "origination_pd_life_col": {
+          "has_default": true,
+          "value": null
+        },
+        "origination_rating_col": {
+          "has_default": true,
+          "value": null
+        },
+        "rating_col": {
+          "has_default": true,
+          "value": null
+        },
+        "sicr_pd_pit_backstop_multiple": {
+          "has_default": true,
+          "value": 3.0
+        },
+        "sicr_pd_ratio_threshold": {
+          "has_default": true,
+          "value": 2.0
+        },
+        "stage_override_col": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "provisioning_internal__InternalLgdConfig": {
+        "lgd_cap": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "lgd_col": {
+          "has_default": true,
+          "value": "lgd"
+        },
+        "lgd_floor": {
+          "has_default": true,
+          "value": 0.0
+        },
+        "method": {
+          "has_default": true,
+          "value": "provided"
+        }
+      },
+      "report__AiNarrationConfig": {
+        "api_key_env": {
+          "has_default": true,
+          "value": "ANTHROPIC_API_KEY"
+        },
+        "enabled": {
+          "has_default": true,
+          "value": false
+        },
+        "label_ai_text": {
+          "has_default": true,
+          "value": true
+        },
+        "max_input_tokens": {
+          "has_default": true,
+          "value": 12000
+        },
+        "model": {
+          "has_default": true,
+          "value": null
+        },
+        "provider": {
+          "has_default": true,
+          "value": "none"
+        },
+        "send_raw_data": {
+          "has_default": true,
+          "value": false
+        },
+        "timeout_seconds": {
+          "has_default": true,
+          "value": 20.0
+        }
+      },
+      "report__DocumentStructureConfig": {
+        "author": {
+          "has_default": true,
+          "value": ""
+        },
+        "entity": {
+          "has_default": true,
+          "value": ""
+        },
+        "model_name": {
+          "has_default": true,
+          "value": ""
+        },
+        "placeholders": {
+          "has_default": true,
+          "value": "show"
+        },
+        "portfolio": {
+          "has_default": true,
+          "value": ""
+        },
+        "version": {
+          "has_default": true,
+          "value": ""
+        }
+      },
+      "report__DocxRenderConfig": {
+        "fail_if_unavailable": {
+          "has_default": true,
+          "value": false
+        }
+      },
+      "report__HtmlRenderConfig": {
+        "deterministic_ids": {
+          "has_default": true,
+          "value": true
+        },
+        "embed_assets": {
+          "has_default": true,
+          "value": true
+        },
+        "include_interactive_charts": {
+          "has_default": true,
+          "value": false
+        },
+        "render_charts": {
+          "has_default": true,
+          "value": true
+        },
+        "template_id": {
+          "has_default": true,
+          "value": "scorecard_basic_v1"
+        },
+        "theme": {
+          "has_default": true,
+          "value": "nikodym"
+        }
+      },
+      "report__PdfRenderConfig": {
+        "enabled": {
+          "has_default": true,
+          "value": false
+        },
+        "fail_if_unavailable": {
+          "has_default": true,
+          "value": false
+        }
+      },
+      "report__SectionPolicyConfig": {
+        "include_raw_tables": {
+          "has_default": true,
+          "value": false
+        },
+        "max_table_rows": {
+          "has_default": true,
+          "value": 200
+        },
+        "missing_policy": {
+          "has_default": true,
+          "value": "error"
+        },
+        "required_sections": {
+          "has_default": true,
+          "value": [
+            "eda",
+            "binning",
+            "selection",
+            "model",
+            "scorecard",
+            "calibration",
+            "performance",
+            "stability"
+          ]
+        }
+      },
+      "scorecard__PointOverrideConfig": {
+        "bin_label": {
+          "has_default": false
+        },
+        "feature": {
+          "has_default": false
+        },
+        "points": {
+          "has_default": false
+        },
+        "reason": {
+          "has_default": false
+        }
+      },
+      "selection__CorrelationSelectionConfig": {
+        "clustering_method": {
+          "has_default": true,
+          "value": "none"
+        },
+        "enabled": {
+          "has_default": true,
+          "value": true
+        },
+        "method": {
+          "has_default": true,
+          "value": "pearson"
+        },
+        "threshold": {
+          "has_default": true,
+          "value": 0.75
+        }
+      },
+      "selection__StabilitySelectionConfig": {
+        "action": {
+          "has_default": true,
+          "value": "report_only"
+        },
+        "enabled": {
+          "has_default": true,
+          "value": true
+        },
+        "review_threshold": {
+          "has_default": true,
+          "value": 0.25
+        },
+        "smoothing": {
+          "has_default": true,
+          "value": 1e-06
+        },
+        "stable_threshold": {
+          "has_default": true,
+          "value": 0.1
+        }
+      },
+      "selection__VifSelectionConfig": {
+        "add_intercept": {
+          "has_default": true,
+          "value": true
+        },
+        "enabled": {
+          "has_default": true,
+          "value": true
+        },
+        "max_iterations": {
+          "has_default": true,
+          "value": null
+        },
+        "threshold": {
+          "has_default": true,
+          "value": 5.0
+        }
+      },
+      "stress__ReverseStressConfig": {
+        "bracket": {
+          "has_default": true,
+          "value": [
+            0.0,
+            5.0
+          ]
+        },
+        "enabled": {
+          "has_default": true,
+          "value": false
+        },
+        "factor": {
+          "has_default": false
+        },
+        "max_iterations": {
+          "has_default": true,
+          "value": 64
+        },
+        "metric_tol": {
+          "has_default": true,
+          "value": 1e-08
+        },
+        "monotonicity_check_points": {
+          "has_default": true,
+          "value": [
+            0.0,
+            0.5,
+            1.0,
+            2.0,
+            5.0
+          ]
+        },
+        "operation": {
+          "has_default": true,
+          "value": "additive"
+        },
+        "severity_tol": {
+          "has_default": true,
+          "value": 1e-06
+        },
+        "shock_value": {
+          "has_default": false
+        },
+        "target": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "stress__SensitivitySweepConfig": {
+        "base_forward_scenario": {
+          "has_default": true,
+          "value": "severe"
+        },
+        "factor": {
+          "has_default": false
+        },
+        "group_cols": {
+          "has_default": true,
+          "value": [
+            "scenario"
+          ]
+        },
+        "metric": {
+          "has_default": true,
+          "value": "ecl"
+        },
+        "name": {
+          "has_default": false
+        },
+        "operation": {
+          "has_default": true,
+          "value": "additive"
+        },
+        "require_monotonic": {
+          "has_default": true,
+          "value": false
+        },
+        "severity_grid": {
+          "has_default": true,
+          "value": [
+            0.0,
+            0.5,
+            1.0,
+            1.5,
+            2.0
+          ]
+        },
+        "shock_value": {
+          "has_default": false
+        }
+      },
+      "stress__StressInputConfig": {
+        "ecl_engine_artifact": {
+          "has_default": true,
+          "value": null
+        },
+        "ecl_input_key": {
+          "has_default": true,
+          "value": "ecl_input"
+        },
+        "forward_domain": {
+          "has_default": true,
+          "value": "forward"
+        },
+        "macro_projection_key": {
+          "has_default": true,
+          "value": "macro_projection"
+        },
+        "provision_engine_artifact": {
+          "has_default": true,
+          "value": null
+        },
+        "satellite_model_key": {
+          "has_default": true,
+          "value": "satellite_model"
+        },
+        "scenario_weighting_key": {
+          "has_default": true,
+          "value": "scenario_weighting"
+        },
+        "term_structure_key": {
+          "has_default": true,
+          "value": "term_structure"
+        }
+      },
+      "stress__StressOutputConfig": {
+        "include_baseline_rows": {
+          "has_default": true,
+          "value": true
+        },
+        "metrics": {
+          "has_default": true,
+          "value": [
+            "pd_marginal",
+            "pd_cumulative",
+            "ecl"
+          ]
+        },
+        "publish_reverse_path": {
+          "has_default": true,
+          "value": true
+        },
+        "publish_stressed_macro": {
+          "has_default": true,
+          "value": true
+        },
+        "publish_stressed_term_structure": {
+          "has_default": true,
+          "value": true
+        }
+      },
+      "stress__StressScenarioConfig": {
+        "base_forward_scenario": {
+          "has_default": true,
+          "value": "severe"
+        },
+        "description": {
+          "has_default": true,
+          "value": null
+        },
+        "kind": {
+          "has_default": true,
+          "value": "severe"
+        },
+        "name": {
+          "has_default": false
+        },
+        "require_dominates_forward_adverse": {
+          "has_default": true,
+          "value": true
+        },
+        "severity": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "shocks": {
+          "has_default": false
+        },
+        "weight": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "stress__StressShockConfig": {
+        "description": {
+          "has_default": true,
+          "value": null
+        },
+        "factor": {
+          "has_default": false
+        },
+        "operation": {
+          "has_default": true,
+          "value": "additive"
+        },
+        "periods": {
+          "has_default": true,
+          "value": "all"
+        },
+        "source": {
+          "has_default": true,
+          "value": "user"
+        },
+        "unit": {
+          "has_default": true,
+          "value": null
+        },
+        "value": {
+          "has_default": false
+        }
+      },
+      "stress__StressTargetConfig": {
+        "direction": {
+          "has_default": true,
+          "value": "at_least"
+        },
+        "group_filter": {
+          "has_default": true,
+          "value": {}
+        },
+        "metric": {
+          "has_default": false
+        },
+        "name": {
+          "has_default": false
+        },
+        "requires_economic_engine": {
+          "has_default": true,
+          "value": true
+        },
+        "scenario_name": {
+          "has_default": false
+        },
+        "threshold": {
+          "has_default": false
+        }
+      },
+      "stress__StressValidationConfig": {
+        "fail_on_falta_dato": {
+          "has_default": true,
+          "value": true
+        },
+        "fail_on_missing_ecl_engine": {
+          "has_default": true,
+          "value": true
+        },
+        "metric_tol": {
+          "has_default": true,
+          "value": 1e-08
+        },
+        "probability_tol": {
+          "has_default": true,
+          "value": 1e-10
+        },
+        "require_dominates_forward_adverse": {
+          "has_default": true,
+          "value": true
+        },
+        "require_forward_severe": {
+          "has_default": true,
+          "value": true
+        },
+        "weight_sum_tol": {
+          "has_default": true,
+          "value": 1e-12
+        }
+      },
+      "survival__CoxAftConfig": {
+        "aft_family": {
+          "has_default": true,
+          "value": null
+        },
+        "ph_p_value_threshold": {
+          "has_default": true,
+          "value": null
+        },
+        "ph_test_enabled": {
+          "has_default": true,
+          "value": true
+        }
+      },
+      "survival__DiscreteHazardConfig": {
+        "include_period_dummies": {
+          "has_default": true,
+          "value": true
+        },
+        "link": {
+          "has_default": true,
+          "value": "logit"
+        },
+        "min_events_per_period": {
+          "has_default": true,
+          "value": null
+        },
+        "pd_role": {
+          "has_default": true,
+          "value": "covariate"
+        }
+      },
+      "survival__KaplanMeierConfig": {
+        "confidence_level": {
+          "has_default": true,
+          "value": null
+        },
+        "confidence_transform": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "survival__SurvivalInputConfig": {
+        "covariate_cols": {
+          "has_default": true,
+          "value": []
+        },
+        "duration_col": {
+          "has_default": false
+        },
+        "event_col": {
+          "has_default": false
+        },
+        "id_col": {
+          "has_default": true,
+          "value": null
+        },
+        "linear_predictor_column": {
+          "has_default": true,
+          "value": "linear_predictor"
+        },
+        "pd_column": {
+          "has_default": true,
+          "value": "pd_raw"
+        },
+        "pd_source": {
+          "has_default": true,
+          "value": "model_raw"
+        },
+        "segment_col": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "survival__SurvivalTimeGridConfig": {
+        "evaluation_times": {
+          "has_default": true,
+          "value": []
+        },
+        "horizon_periods": {
+          "has_default": true,
+          "value": null
+        },
+        "time_unit": {
+          "has_default": true,
+          "value": "period"
+        }
+      },
+      "tuning__CategoricalSpec": {
+        "choices": {
+          "has_default": false
+        },
+        "kind": {
+          "has_default": true,
+          "value": "categorical"
+        }
+      },
+      "tuning__FloatSpec": {
+        "high": {
+          "has_default": false
+        },
+        "kind": {
+          "has_default": true,
+          "value": "float"
+        },
+        "log": {
+          "has_default": true,
+          "value": false
+        },
+        "low": {
+          "has_default": false
+        }
+      },
+      "tuning__IntSpec": {
+        "high": {
+          "has_default": false
+        },
+        "kind": {
+          "has_default": true,
+          "value": "int"
+        },
+        "log": {
+          "has_default": true,
+          "value": false
+        },
+        "low": {
+          "has_default": false
+        },
+        "step": {
+          "has_default": true,
+          "value": 1
+        }
+      },
+      "tuning__SearchSpaceConfig": {
+        "params": {
+          "has_default": true,
+          "value": {}
+        }
+      },
+      "tuning__TuningObjectiveConfig": {
+        "direction": {
+          "has_default": true,
+          "value": "maximize"
+        },
+        "metric": {
+          "has_default": true,
+          "value": "auc"
+        }
+      },
+      "tuning__TuningSamplerConfig": {
+        "n_trials": {
+          "has_default": true,
+          "value": 50
+        },
+        "pruner": {
+          "has_default": true,
+          "value": "none"
+        },
+        "sampler": {
+          "has_default": true,
+          "value": "tpe"
+        },
+        "timeout_seconds": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "tuning__TuningValidationConfig": {
+        "fit_partition": {
+          "has_default": true,
+          "value": "desarrollo"
+        },
+        "holdout_fraction": {
+          "has_default": true,
+          "value": 0.2
+        },
+        "n_folds": {
+          "has_default": true,
+          "value": 5
+        },
+        "strategy": {
+          "has_default": true,
+          "value": "cv"
+        }
+      },
+      "validation__BacktestingValidationConfig": {
+        "alpha": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "enabled": {
+          "has_default": true,
+          "value": false
+        },
+        "one_sided": {
+          "has_default": true,
+          "value": true
+        },
+        "parameters": {
+          "has_default": true,
+          "value": [
+            "pd",
+            "lgd",
+            "ead"
+          ]
+        },
+        "pd_test": {
+          "has_default": true,
+          "value": "jeffreys"
+        },
+        "realised_ead_col": {
+          "has_default": true,
+          "value": "realised_ead"
+        },
+        "realised_lgd_col": {
+          "has_default": true,
+          "value": "realised_lgd"
+        },
+        "realised_pd_col": {
+          "has_default": true,
+          "value": "realised_default"
+        },
+        "segment_col": {
+          "has_default": true,
+          "value": "portfolio"
+        }
+      },
+      "validation__CalibrationValidationConfig": {
+        "alpha": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "binomial_by_grade": {
+          "has_default": true,
+          "value": true
+        },
+        "brier": {
+          "has_default": true,
+          "value": true
+        },
+        "grade_col": {
+          "has_default": true,
+          "value": "grade"
+        },
+        "hl_grouping": {
+          "has_default": true,
+          "value": "deciles"
+        },
+        "hl_n_groups": {
+          "has_default": true,
+          "value": 10
+        },
+        "hosmer_lemeshow": {
+          "has_default": true,
+          "value": true
+        },
+        "min_rows_per_group": {
+          "has_default": true,
+          "value": 30
+        },
+        "partition_column": {
+          "has_default": true,
+          "value": "partition"
+        },
+        "pd_column": {
+          "has_default": true,
+          "value": "pd_calibrated"
+        },
+        "pd_test": {
+          "has_default": true,
+          "value": "jeffreys"
+        },
+        "target_column": {
+          "has_default": true,
+          "value": "target"
+        },
+        "traffic_light_green_alpha": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "traffic_light_red_alpha": {
+          "has_default": true,
+          "value": 0.01
+        }
+      },
+      "validation__DiscriminationValidationConfig": {
+        "consume_performance": {
+          "has_default": true,
+          "value": true
+        },
+        "partitions": {
+          "has_default": true,
+          "value": [
+            "desarrollo",
+            "holdout",
+            "oot"
+          ]
+        }
+      },
+      "validation__StabilityValidationConfig": {
+        "consume_stability": {
+          "has_default": true,
+          "value": true
+        },
+        "psi_review_threshold": {
+          "has_default": true,
+          "value": 0.25
+        },
+        "psi_stable_threshold": {
+          "has_default": true,
+          "value": 0.1
+        }
+      }
+    },
+    "sections": {
+      "audit": {
+        "has_default": true,
+        "value": null
+      },
+      "binning": {
+        "cat_cutoff": {
+          "has_default": true,
+          "value": 0.01
+        },
+        "cat_unknown": {
+          "has_default": true,
+          "value": null
+        },
+        "categorical_columns": {
+          "has_default": true,
+          "value": []
+        },
+        "exclude_columns": {
+          "has_default": true,
+          "value": []
+        },
+        "fail_on_non_binnable": {
+          "has_default": true,
+          "value": false
+        },
+        "feature_columns": {
+          "has_default": true,
+          "value": "*"
+        },
+        "keep_structural_columns": {
+          "has_default": true,
+          "value": true
+        },
+        "max_n_bins": {
+          "has_default": true,
+          "value": 8
+        },
+        "max_n_prebins": {
+          "has_default": true,
+          "value": 20
+        },
+        "max_pvalue": {
+          "has_default": true,
+          "value": null
+        },
+        "max_pvalue_policy": {
+          "has_default": true,
+          "value": "consecutive"
+        },
+        "metric_missing": {
+          "has_default": true,
+          "value": "empirical"
+        },
+        "metric_special": {
+          "has_default": true,
+          "value": "empirical"
+        },
+        "min_bin_n_event": {
+          "has_default": true,
+          "value": 1
+        },
+        "min_bin_n_nonevent": {
+          "has_default": true,
+          "value": 1
+        },
+        "min_bin_size": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "min_event_rate_diff": {
+          "has_default": true,
+          "value": 0.0
+        },
+        "min_n_bins": {
+          "has_default": true,
+          "value": null
+        },
+        "min_prebin_size": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "mip_solver": {
+          "has_default": true,
+          "value": "bop"
+        },
+        "monotonic_trend": {
+          "has_default": true,
+          "value": "auto_asc_desc"
+        },
+        "n_jobs": {
+          "has_default": true,
+          "value": null
+        },
+        "output_suffix": {
+          "has_default": true,
+          "value": "__woe"
+        },
+        "require_optimal": {
+          "has_default": true,
+          "value": true
+        },
+        "solver": {
+          "has_default": true,
+          "value": "mip"
+        },
+        "special_handling": {
+          "has_default": true,
+          "value": "separate"
+        },
+        "split_digits": {
+          "has_default": true,
+          "value": null
+        },
+        "time_limit": {
+          "has_default": true,
+          "value": 100
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        },
+        "variable_overrides": {
+          "has_default": true,
+          "value": []
+        }
+      },
+      "calibration": {
+        "anchor_kind": {
+          "has_default": true,
+          "value": "through_the_cycle"
+        },
+        "anchor_source": {
+          "has_default": true,
+          "value": "development_observed"
+        },
+        "fit_partition": {
+          "has_default": true,
+          "value": "desarrollo"
+        },
+        "linear_predictor_calibrated_column": {
+          "has_default": true,
+          "value": "linear_predictor_calibrated"
+        },
+        "linear_predictor_column": {
+          "has_default": true,
+          "value": "linear_predictor"
+        },
+        "max_abs_offset": {
+          "has_default": true,
+          "value": null
+        },
+        "max_iter": {
+          "has_default": true,
+          "value": 100
+        },
+        "method": {
+          "has_default": true,
+          "value": "intercept_offset"
+        },
+        "min_fit_rows": {
+          "has_default": true,
+          "value": 30
+        },
+        "partition_column": {
+          "has_default": true,
+          "value": "partition"
+        },
+        "pd_calibrated_column": {
+          "has_default": true,
+          "value": "pd_calibrated"
+        },
+        "pd_raw_column": {
+          "has_default": true,
+          "value": "pd_raw"
+        },
+        "require_both_classes_for_supervised": {
+          "has_default": true,
+          "value": true
+        },
+        "target_column": {
+          "has_default": true,
+          "value": "target"
+        },
+        "target_pd": {
+          "has_default": true,
+          "value": null
+        },
+        "target_tolerance": {
+          "has_default": true,
+          "value": 1e-12
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "data": {
+        "load": {
+          "backend": {
+            "has_default": true,
+            "value": "pandas"
+          },
+          "csv_options": {
+            "decimal": {
+              "has_default": true,
+              "value": "."
+            },
+            "encoding": {
+              "has_default": true,
+              "value": "utf-8"
+            },
+            "sep": {
+              "has_default": true,
+              "value": ","
+            }
+          },
+          "file_format": {
+            "has_default": true,
+            "value": "auto"
+          },
+          "source": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "missing": {
+          "max_missing_rate": {
+            "has_default": true,
+            "value": 0.99
+          },
+          "special_values": {
+            "has_default": true,
+            "value": []
+          }
+        },
+        "partition": {
+          "min_bads_per_partition": {
+            "has_default": true,
+            "value": 30
+          },
+          "strategy": {
+            "has_default": false
+          },
+          "ttd_includes_excluded": {
+            "has_default": true,
+            "value": true
+          }
+        },
+        "schema": {
+          "columns": {
+            "has_default": true,
+            "value": []
+          },
+          "index_col": {
+            "has_default": true,
+            "value": null
+          },
+          "ordered": {
+            "has_default": true,
+            "value": false
+          },
+          "strict": {
+            "has_default": true,
+            "value": false
+          },
+          "unique_keys": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "target": {
+          "bad_rule": {
+            "all_of": {
+              "has_default": true,
+              "value": []
+            },
+            "any_of": {
+              "has_default": true,
+              "value": []
+            }
+          },
+          "exclusion_rules": {
+            "has_default": true,
+            "value": []
+          },
+          "good_rule": {
+            "has_default": true,
+            "value": null
+          },
+          "indeterminate_rule": {
+            "has_default": true,
+            "value": null
+          },
+          "target_col": {
+            "has_default": true,
+            "value": "target"
+          },
+          "window": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "eda": {
+        "analysis_partition": {
+          "has_default": true,
+          "value": "desarrollo"
+        },
+        "default_rate": {
+          "axis": {
+            "has_default": true,
+            "value": "period"
+          },
+          "cohort_col": {
+            "has_default": true,
+            "value": null
+          },
+          "date_col": {
+            "has_default": true,
+            "value": null
+          },
+          "min_obs_per_period": {
+            "has_default": true,
+            "value": 50
+          },
+          "period_freq": {
+            "has_default": true,
+            "value": "M"
+          }
+        },
+        "quality": {
+          "high_cardinality_threshold": {
+            "has_default": true,
+            "value": 50
+          },
+          "near_constant_threshold": {
+            "has_default": true,
+            "value": 0.99
+          }
+        },
+        "sampling": {
+          "enabled": {
+            "has_default": true,
+            "value": false
+          },
+          "max_rows": {
+            "has_default": true,
+            "value": 500000
+          }
+        },
+        "stability": {
+          "metric": {
+            "has_default": true,
+            "value": "cv"
+          },
+          "threshold": {
+            "has_default": true,
+            "value": 0.25
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        },
+        "univariate": {
+          "columns": {
+            "has_default": true,
+            "value": null
+          },
+          "compute_descriptive_iv": {
+            "has_default": true,
+            "value": false
+          },
+          "n_quantile_bins": {
+            "has_default": true,
+            "value": 10
+          },
+          "rare_level_threshold": {
+            "has_default": true,
+            "value": 0.01
+          }
+        }
+      },
+      "explain": {
+        "contribution_space": {
+          "has_default": true,
+          "value": "log_odds"
+        },
+        "deterministic": {
+          "has_default": true,
+          "value": true
+        },
+        "explainer": {
+          "background_partition": {
+            "has_default": true,
+            "value": "desarrollo"
+          },
+          "background_size": {
+            "has_default": true,
+            "value": 100
+          },
+          "check_additivity": {
+            "has_default": true,
+            "value": true
+          },
+          "feature_perturbation": {
+            "has_default": true,
+            "value": "tree_path_dependent"
+          },
+          "ml_explainer": {
+            "has_default": true,
+            "value": "auto"
+          },
+          "nsamples": {
+            "has_default": true,
+            "value": "auto"
+          }
+        },
+        "local_scope": {
+          "partition": {
+            "has_default": true,
+            "value": "holdout"
+          },
+          "sample_size": {
+            "has_default": true,
+            "value": 200
+          },
+          "strategy": {
+            "has_default": true,
+            "value": "sample"
+          },
+          "top_by_pd": {
+            "has_default": true,
+            "value": false
+          }
+        },
+        "n_threads": {
+          "has_default": true,
+          "value": 1
+        },
+        "output": {
+          "emit_figures": {
+            "has_default": true,
+            "value": true
+          },
+          "publish_local": {
+            "has_default": true,
+            "value": true
+          },
+          "top_k_comparison": {
+            "has_default": true,
+            "value": 15
+          },
+          "top_k_global": {
+            "has_default": true,
+            "value": 30
+          }
+        },
+        "partition_column": {
+          "has_default": true,
+          "value": "partition"
+        },
+        "pd_hat_column": {
+          "has_default": true,
+          "value": "pd_hat"
+        },
+        "reason_codes": {
+          "adverse_direction": {
+            "has_default": true,
+            "value": "increases_pd"
+          },
+          "include_protective": {
+            "has_default": true,
+            "value": false
+          },
+          "min_abs_contribution": {
+            "has_default": true,
+            "value": 0.0
+          },
+          "top_n": {
+            "has_default": true,
+            "value": 5
+          }
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "scorecard": {
+          "baseline": {
+            "has_default": true,
+            "value": "population_mean"
+          },
+          "baseline_partition": {
+            "has_default": true,
+            "value": "desarrollo"
+          }
+        },
+        "target_column": {
+          "has_default": true,
+          "value": "target"
+        },
+        "targets": {
+          "has_default": true,
+          "value": "both"
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "forward": {
+        "fail_on_falta_dato": {
+          "has_default": true,
+          "value": true
+        },
+        "input": {
+          "macro_source": {
+            "artifact_domain": {
+              "has_default": true,
+              "value": null
+            },
+            "artifact_key": {
+              "has_default": true,
+              "value": null
+            },
+            "exogenous_cols": {
+              "has_default": true,
+              "value": []
+            },
+            "frequency": {
+              "has_default": true,
+              "value": null
+            },
+            "path": {
+              "has_default": true,
+              "value": null
+            },
+            "time_col": {
+              "has_default": true,
+              "value": "period"
+            },
+            "type": {
+              "has_default": true,
+              "value": "path"
+            },
+            "variable_cols": {
+              "has_default": false
+            }
+          },
+          "pd_basis_assumption": {
+            "has_default": true,
+            "value": null
+          },
+          "require_pit_consistency": {
+            "has_default": true,
+            "value": true
+          },
+          "term_structure_sources": {
+            "has_default": true,
+            "value": [
+              "survival",
+              "markov"
+            ]
+          }
+        },
+        "macro": {
+          "arima_order": {
+            "has_default": true,
+            "value": [
+              1,
+              0,
+              0
+            ]
+          },
+          "auto_arima_random": {
+            "has_default": true,
+            "value": false
+          },
+          "fail_on_ljung_box": {
+            "has_default": true,
+            "value": false
+          },
+          "horizon_periods": {
+            "has_default": true,
+            "value": 12
+          },
+          "kind": {
+            "has_default": true,
+            "value": "arima"
+          },
+          "ljung_box_lags": {
+            "has_default": true,
+            "value": [
+              6,
+              12
+            ]
+          },
+          "random_state": {
+            "has_default": true,
+            "value": null
+          },
+          "seasonal_order": {
+            "has_default": true,
+            "value": null
+          },
+          "use_pmdarima_auto_order": {
+            "has_default": true,
+            "value": false
+          },
+          "var_lags": {
+            "has_default": true,
+            "value": null
+          },
+          "vecm_rank": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "satellite": {
+          "coefficient_table_path": {
+            "has_default": true,
+            "value": null
+          },
+          "factor_cols": {
+            "has_default": false
+          },
+          "min_history_periods": {
+            "has_default": true,
+            "value": 12
+          },
+          "mode": {
+            "has_default": true,
+            "value": "fit"
+          },
+          "reference_scenario": {
+            "has_default": true,
+            "value": "base"
+          },
+          "segment_col": {
+            "has_default": true,
+            "value": null
+          },
+          "target_components": {
+            "has_default": true,
+            "value": [
+              "pd"
+            ]
+          }
+        },
+        "scenarios": {
+          "forbid_mean_scenario": {
+            "has_default": true,
+            "value": true
+          },
+          "require_at_least_three": {
+            "has_default": true,
+            "value": true
+          },
+          "scenarios": {
+            "has_default": true,
+            "value": [
+              {
+                "description": null,
+                "macro_path_path": null,
+                "name": "base",
+                "shocks": {},
+                "weight": 0.6
+              },
+              {
+                "description": null,
+                "macro_path_path": null,
+                "name": "adverse",
+                "shocks": {},
+                "weight": 0.3
+              },
+              {
+                "description": null,
+                "macro_path_path": null,
+                "name": "severe",
+                "shocks": {},
+                "weight": 0.1
+              }
+            ]
+          }
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "ttc_reversion": {
+          "enabled": {
+            "has_default": true,
+            "value": true
+          },
+          "method": {
+            "has_default": true,
+            "value": "linear_logit"
+          },
+          "reasonable_supportable_periods": {
+            "has_default": true,
+            "value": 12
+          },
+          "reversion_periods": {
+            "has_default": true,
+            "value": 24
+          },
+          "ttc_anchor": {
+            "has_default": true,
+            "value": "input_term_structure"
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        },
+        "validation": {
+          "fail_on_missing_scenario_paths": {
+            "has_default": true,
+            "value": true
+          },
+          "monotonic_tol": {
+            "has_default": true,
+            "value": 1e-10
+          },
+          "probability_tol": {
+            "has_default": true,
+            "value": 1e-10
+          },
+          "weight_sum_tol": {
+            "has_default": true,
+            "value": 1e-12
+          }
+        }
+      },
+      "governance": {
+        "has_default": true,
+        "value": null
+      },
+      "markov": {
+        "dynamics": {
+          "embedding_policy": {
+            "has_default": true,
+            "value": "diagnose"
+          },
+          "evaluation_times": {
+            "has_default": true,
+            "value": []
+          },
+          "horizon_periods": {
+            "has_default": true,
+            "value": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          "projection_mode": {
+            "has_default": true,
+            "value": "homogeneous"
+          },
+          "time_unit": {
+            "has_default": true,
+            "value": "period"
+          }
+        },
+        "estimation": {
+          "interval": {
+            "has_default": true,
+            "value": 1.0
+          },
+          "method": {
+            "has_default": true,
+            "value": "cohort"
+          },
+          "min_origin_count": {
+            "has_default": true,
+            "value": 1
+          },
+          "use_weights": {
+            "has_default": true,
+            "value": false
+          }
+        },
+        "input": {
+          "exposure_time_col": {
+            "has_default": true,
+            "value": null
+          },
+          "id_col": {
+            "has_default": false
+          },
+          "partition_col": {
+            "has_default": true,
+            "value": "partition"
+          },
+          "segment_col": {
+            "has_default": true,
+            "value": null
+          },
+          "state_col": {
+            "has_default": false
+          },
+          "time_col": {
+            "has_default": false
+          },
+          "transition_time_col": {
+            "has_default": true,
+            "value": null
+          },
+          "weight_col": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "states": {
+          "absorbing_states": {
+            "has_default": true,
+            "value": [
+              "default"
+            ]
+          },
+          "allow_unknown_states": {
+            "has_default": true,
+            "value": false
+          },
+          "default_state": {
+            "has_default": true,
+            "value": "default"
+          },
+          "states": {
+            "has_default": false
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        },
+        "validation": {
+          "generator_tol": {
+            "has_default": true,
+            "value": 1e-10
+          },
+          "imaginary_tol": {
+            "has_default": true,
+            "value": 1e-10
+          },
+          "normalize_within_tolerance": {
+            "has_default": true,
+            "value": true
+          },
+          "stochastic_tol": {
+            "has_default": true,
+            "value": 1e-10
+          }
+        }
+      },
+      "ml": {
+        "backend": {
+          "has_default": true,
+          "value": "xgboost"
+        },
+        "calibrate_challenger": {
+          "has_default": true,
+          "value": false
+        },
+        "comparison": {
+          "metrics": {
+            "has_default": true,
+            "value": [
+              "auc",
+              "gini",
+              "ks",
+              "psi"
+            ]
+          },
+          "partitions": {
+            "has_default": true,
+            "value": [
+              "desarrollo",
+              "holdout",
+              "oot"
+            ]
+          },
+          "tie_tolerance": {
+            "has_default": true,
+            "value": 1e-06
+          }
+        },
+        "deterministic": {
+          "has_default": true,
+          "value": true
+        },
+        "feature_source": {
+          "has_default": true,
+          "value": "binning_woe"
+        },
+        "hyperparameters": {
+          "has_default": true,
+          "value": {
+            "colsample_bytree": 0.8,
+            "learning_rate": 0.05,
+            "max_depth": 3,
+            "min_child_weight": 1.0,
+            "n_estimators": 500,
+            "reg_lambda": 1.0,
+            "subsample": 0.8
+          }
+        },
+        "monotonic": {
+          "explicit": {
+            "has_default": true,
+            "value": {}
+          },
+          "mode": {
+            "has_default": true,
+            "value": "from_binning"
+          },
+          "on_unsupported": {
+            "has_default": true,
+            "value": "warn"
+          }
+        },
+        "n_threads": {
+          "has_default": true,
+          "value": 1
+        },
+        "output": {
+          "publish_calibrated_pd": {
+            "has_default": true,
+            "value": true
+          },
+          "publish_feature_importances": {
+            "has_default": true,
+            "value": true
+          },
+          "top_k_importances": {
+            "has_default": true,
+            "value": 30
+          }
+        },
+        "partition_column": {
+          "has_default": true,
+          "value": "partition"
+        },
+        "pd_hat_column": {
+          "has_default": true,
+          "value": "pd_hat"
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "target_column": {
+          "has_default": true,
+          "value": "target"
+        },
+        "train": {
+          "class_weight": {
+            "has_default": true,
+            "value": "none"
+          },
+          "early_stopping_rounds": {
+            "has_default": true,
+            "value": 50
+          },
+          "fit_partition": {
+            "has_default": true,
+            "value": "desarrollo"
+          },
+          "predict_partitions": {
+            "has_default": true,
+            "value": [
+              "desarrollo",
+              "holdout",
+              "oot"
+            ]
+          },
+          "require_both_classes": {
+            "has_default": true,
+            "value": true
+          },
+          "validation_fraction": {
+            "has_default": true,
+            "value": 0.2
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "model": {
+        "alpha": {
+          "has_default": true,
+          "value": 0.05
+        },
+        "engine": {
+          "has_default": true,
+          "value": "logit"
+        },
+        "fail_if_no_features": {
+          "has_default": true,
+          "value": true
+        },
+        "fit_intercept": {
+          "has_default": true,
+          "value": true
+        },
+        "fit_maxiter": {
+          "has_default": true,
+          "value": 100
+        },
+        "force_exclude": {
+          "has_default": true,
+          "value": []
+        },
+        "force_include": {
+          "has_default": true,
+          "value": []
+        },
+        "iv_contribution": {
+          "action": {
+            "has_default": true,
+            "value": "exclude"
+          },
+          "threshold": {
+            "has_default": true,
+            "value": 0.9
+          }
+        },
+        "optimizer": {
+          "has_default": true,
+          "value": "newton"
+        },
+        "sign_policy": {
+          "action": {
+            "has_default": true,
+            "value": "exclude"
+          },
+          "expected_beta_sign": {
+            "has_default": true,
+            "value": "negative"
+          },
+          "fail_on_forced_inverted": {
+            "has_default": true,
+            "value": true
+          }
+        },
+        "stepwise": {
+          "criterion": {
+            "has_default": true,
+            "value": "wald_pvalue"
+          },
+          "direction": {
+            "has_default": true,
+            "value": "bidirectional"
+          },
+          "enabled": {
+            "has_default": true,
+            "value": true
+          },
+          "entry_p_value": {
+            "has_default": true,
+            "value": 0.05
+          },
+          "exit_p_value": {
+            "has_default": true,
+            "value": 0.05
+          },
+          "max_iter": {
+            "has_default": true,
+            "value": 100
+          },
+          "min_features": {
+            "has_default": true,
+            "value": 1
+          }
+        },
+        "tol": {
+          "has_default": true,
+          "value": 1e-08
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "name": {
+        "has_default": true,
+        "value": "nikodym-study"
+      },
+      "performance": {
+        "evaluation_source": {
+          "has_default": true,
+          "value": "pd_calibrated"
+        },
+        "min_events_per_partition": {
+          "has_default": true,
+          "value": 1
+        },
+        "min_rows_per_partition": {
+          "has_default": true,
+          "value": 30
+        },
+        "n_deciles": {
+          "has_default": true,
+          "value": 10
+        },
+        "optional_thresholds": {
+          "has_default": true,
+          "value": {}
+        },
+        "partition_column": {
+          "has_default": true,
+          "value": "partition"
+        },
+        "partitions": {
+          "has_default": true,
+          "value": [
+            "desarrollo",
+            "holdout",
+            "oot"
+          ]
+        },
+        "pd_column": {
+          "has_default": true,
+          "value": "pd_calibrated"
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "score_column": {
+          "has_default": true,
+          "value": "score"
+        },
+        "score_direction": {
+          "has_default": true,
+          "value": "higher_is_lower_risk"
+        },
+        "target_column": {
+          "has_default": true,
+          "value": "target"
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "provisioning": {
+        "as_of_date_col": {
+          "has_default": true,
+          "value": "as_of_date"
+        },
+        "cmf_portfolio_col": {
+          "has_default": true,
+          "value": "portfolio"
+        },
+        "comparison_level": {
+          "has_default": true,
+          "value": "total"
+        },
+        "consume_a": {
+          "has_default": true,
+          "value": true
+        },
+        "consume_b": {
+          "has_default": true,
+          "value": true
+        },
+        "consume_cmf": {
+          "has_default": true,
+          "value": null
+        },
+        "consume_ifrs9": {
+          "has_default": true,
+          "value": null
+        },
+        "coverage_policy": {
+          "has_default": true,
+          "value": "use_available"
+        },
+        "fail_on_falta_dato": {
+          "has_default": true,
+          "value": true
+        },
+        "ifrs9_portfolio_col": {
+          "has_default": true,
+          "value": "portfolio"
+        },
+        "internal_portfolio_col": {
+          "has_default": true,
+          "value": "portfolio"
+        },
+        "numeric_reconciliation": {
+          "has_default": true,
+          "value": "decimal_quantize"
+        },
+        "portfolio_crosswalk": {
+          "has_default": true,
+          "value": {}
+        },
+        "require_both": {
+          "has_default": true,
+          "value": true
+        },
+        "rounding": {
+          "has_default": true,
+          "value": "none"
+        },
+        "row_id_col": {
+          "has_default": true,
+          "value": "row_id"
+        },
+        "rule": {
+          "has_default": true,
+          "value": "max"
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "segment_col": {
+          "has_default": true,
+          "value": null
+        },
+        "source_a": {
+          "has_default": true,
+          "value": "provisioning_cmf"
+        },
+        "source_b": {
+          "has_default": true,
+          "value": "provisioning_ifrs9"
+        },
+        "tie_tolerance": {
+          "has_default": true,
+          "value": 1e-09
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "provisioning_cmf": {
+        "as_of_date_col": {
+          "has_default": true,
+          "value": "as_of_date"
+        },
+        "category_col": {
+          "has_default": true,
+          "value": "cmf_category"
+        },
+        "days_past_due_col": {
+          "has_default": true,
+          "value": "days_past_due"
+        },
+        "debtor_id_col": {
+          "has_default": true,
+          "value": "debtor_id"
+        },
+        "exposure": {
+          "allow_negative_exposure": {
+            "has_default": true,
+            "value": false
+          },
+          "contingent_amount_col": {
+            "has_default": true,
+            "value": "contingent_amount"
+          },
+          "contingent_type_col": {
+            "has_default": true,
+            "value": "contingent_type"
+          },
+          "direct_exposure_col": {
+            "has_default": true,
+            "value": "exposure_amount"
+          },
+          "is_default_col": {
+            "has_default": true,
+            "value": "is_default"
+          },
+          "rounding": {
+            "has_default": true,
+            "value": "none"
+          }
+        },
+        "guarantees": {
+          "enable_aval_substitution": {
+            "has_default": true,
+            "value": true
+          },
+          "financial_guarantee_policy": {
+            "has_default": true,
+            "value": "fail"
+          },
+          "recoverable_amount_col": {
+            "has_default": true,
+            "value": null
+          },
+          "require_recoverable_for_default": {
+            "has_default": true,
+            "value": true
+          }
+        },
+        "matrices": {
+          "active_version": {
+            "has_default": true,
+            "value": "cmf_b1_b3_2025_01"
+          },
+          "fail_on_source_mismatch": {
+            "has_default": true,
+            "value": true
+          },
+          "fail_on_unmapped_contingent_type": {
+            "has_default": true,
+            "value": true
+          },
+          "require_verified_rows": {
+            "has_default": true,
+            "value": true
+          }
+        },
+        "pd_mapping": {
+          "categories": {
+            "has_default": true,
+            "value": []
+          },
+          "method": {
+            "has_default": true,
+            "value": "provided_cmf_category"
+          },
+          "pd_breaks": {
+            "has_default": true,
+            "value": []
+          },
+          "pd_column": {
+            "has_default": true,
+            "value": "pd_raw"
+          },
+          "pd_source_domain": {
+            "has_default": true,
+            "value": "model"
+          },
+          "pd_source_key": {
+            "has_default": true,
+            "value": "raw_pd_frame"
+          }
+        },
+        "portfolio_col": {
+          "has_default": true,
+          "value": "cmf_portfolio"
+        },
+        "product_type_col": {
+          "has_default": true,
+          "value": "cmf_product_type"
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "provisioning_ifrs9": {
+        "as_of_date_col": {
+          "has_default": true,
+          "value": "as_of_date"
+        },
+        "ead": {
+          "ccf_col": {
+            "has_default": true,
+            "value": null
+          },
+          "ccf_value": {
+            "has_default": true,
+            "value": null
+          },
+          "drawn_col": {
+            "has_default": true,
+            "value": "drawn"
+          },
+          "ead_col": {
+            "has_default": true,
+            "value": "ead"
+          },
+          "exposure_profile_col": {
+            "has_default": true,
+            "value": null
+          },
+          "limit_col": {
+            "has_default": true,
+            "value": "credit_limit"
+          },
+          "method": {
+            "has_default": true,
+            "value": "ccf"
+          }
+        },
+        "ecl": {
+          "discount_convention": {
+            "has_default": true,
+            "value": "annual_eir_year_fraction"
+          },
+          "eir_col": {
+            "has_default": true,
+            "value": "eir"
+          },
+          "rounding": {
+            "has_default": true,
+            "value": "none"
+          },
+          "stage3_direct": {
+            "has_default": true,
+            "value": false
+          }
+        },
+        "fail_on_falta_dato": {
+          "has_default": true,
+          "value": true
+        },
+        "lgd": {
+          "covariate_cols": {
+            "has_default": true,
+            "value": []
+          },
+          "lgd_cap": {
+            "has_default": true,
+            "value": 1.0
+          },
+          "lgd_col": {
+            "has_default": true,
+            "value": "lgd"
+          },
+          "lgd_floor": {
+            "has_default": true,
+            "value": 0.0
+          },
+          "method": {
+            "has_default": true,
+            "value": "provided"
+          },
+          "recovery_col": {
+            "has_default": true,
+            "value": null
+          },
+          "workout_discount": {
+            "has_default": true,
+            "value": "eir"
+          }
+        },
+        "pd": {
+          "base_pd_source": {
+            "has_default": true,
+            "value": "term_structure"
+          },
+          "horizon_12m_periods": {
+            "has_default": true,
+            "value": 12
+          },
+          "max_lifetime_periods": {
+            "has_default": true,
+            "value": null
+          },
+          "pit_mode": {
+            "has_default": true,
+            "value": "consume_pit"
+          },
+          "rho": {
+            "has_default": true,
+            "value": null
+          },
+          "rho_col": {
+            "has_default": true,
+            "value": null
+          },
+          "systemic_factor_col": {
+            "has_default": true,
+            "value": null
+          },
+          "term_structure_source": {
+            "has_default": true,
+            "value": "survival"
+          }
+        },
+        "portfolio_col": {
+          "has_default": true,
+          "value": "portfolio"
+        },
+        "portfolio_scheme": {
+          "has_default": true,
+          "value": null
+        },
+        "row_id_col": {
+          "has_default": true,
+          "value": null
+        },
+        "scenarios": {
+          "forbid_mean_scenario": {
+            "has_default": true,
+            "value": true
+          },
+          "source": {
+            "has_default": true,
+            "value": "forward"
+          },
+          "weights": {
+            "has_default": true,
+            "value": {}
+          }
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "staging": {
+          "days_past_due_col": {
+            "has_default": true,
+            "value": "days_past_due"
+          },
+          "dpd_default_backstop": {
+            "has_default": true,
+            "value": 90
+          },
+          "dpd_sicr_backstop": {
+            "has_default": true,
+            "value": 30
+          },
+          "is_default_col": {
+            "has_default": true,
+            "value": "is_default"
+          },
+          "low_credit_risk_col": {
+            "has_default": true,
+            "value": null
+          },
+          "low_credit_risk_exemption": {
+            "has_default": true,
+            "value": false
+          },
+          "notch_downgrade_threshold": {
+            "has_default": true,
+            "value": null
+          },
+          "origination_pd_life_col": {
+            "has_default": true,
+            "value": null
+          },
+          "origination_rating_col": {
+            "has_default": true,
+            "value": null
+          },
+          "rating_col": {
+            "has_default": true,
+            "value": null
+          },
+          "sicr_pd_pit_backstop_multiple": {
+            "has_default": true,
+            "value": 3.0
+          },
+          "sicr_pd_ratio_threshold": {
+            "has_default": true,
+            "value": 2.0
+          },
+          "stage_override_col": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "provisioning_internal": {
+        "as_of_date_col": {
+          "has_default": true,
+          "value": "as_of_date"
+        },
+        "exposure_col": {
+          "has_default": true,
+          "value": "exposure_amount"
+        },
+        "fail_on_falta_dato": {
+          "has_default": true,
+          "value": true
+        },
+        "group_col": {
+          "has_default": true,
+          "value": null
+        },
+        "grouping": {
+          "has_default": true,
+          "value": "score_band"
+        },
+        "lgd": {
+          "lgd_cap": {
+            "has_default": true,
+            "value": 1.0
+          },
+          "lgd_col": {
+            "has_default": true,
+            "value": "lgd"
+          },
+          "lgd_floor": {
+            "has_default": true,
+            "value": 0.0
+          },
+          "method": {
+            "has_default": true,
+            "value": "provided"
+          }
+        },
+        "loss_rate_col": {
+          "has_default": true,
+          "value": null
+        },
+        "method": {
+          "has_default": true,
+          "value": "pd_lgd"
+        },
+        "n_score_bands": {
+          "has_default": true,
+          "value": 10
+        },
+        "pd_column": {
+          "has_default": true,
+          "value": "pd_calibrated"
+        },
+        "pd_source": {
+          "has_default": true,
+          "value": "calibration"
+        },
+        "portfolio_col": {
+          "has_default": true,
+          "value": "cmf_portfolio"
+        },
+        "portfolio_scheme": {
+          "has_default": true,
+          "value": null
+        },
+        "rounding": {
+          "has_default": true,
+          "value": "currency_2dp"
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "report": {
+        "ai": {
+          "api_key_env": {
+            "has_default": true,
+            "value": "ANTHROPIC_API_KEY"
+          },
+          "enabled": {
+            "has_default": true,
+            "value": false
+          },
+          "label_ai_text": {
+            "has_default": true,
+            "value": true
+          },
+          "max_input_tokens": {
+            "has_default": true,
+            "value": 12000
+          },
+          "model": {
+            "has_default": true,
+            "value": null
+          },
+          "provider": {
+            "has_default": true,
+            "value": "none"
+          },
+          "send_raw_data": {
+            "has_default": true,
+            "value": false
+          },
+          "timeout_seconds": {
+            "has_default": true,
+            "value": 20.0
+          }
+        },
+        "basename": {
+          "has_default": true,
+          "value": "scorecard_report"
+        },
+        "document": {
+          "author": {
+            "has_default": true,
+            "value": ""
+          },
+          "entity": {
+            "has_default": true,
+            "value": ""
+          },
+          "model_name": {
+            "has_default": true,
+            "value": ""
+          },
+          "placeholders": {
+            "has_default": true,
+            "value": "show"
+          },
+          "portfolio": {
+            "has_default": true,
+            "value": ""
+          },
+          "version": {
+            "has_default": true,
+            "value": ""
+          }
+        },
+        "docx": {
+          "fail_if_unavailable": {
+            "has_default": true,
+            "value": false
+          }
+        },
+        "formats": {
+          "has_default": true,
+          "value": [
+            "html"
+          ]
+        },
+        "html": {
+          "deterministic_ids": {
+            "has_default": true,
+            "value": true
+          },
+          "embed_assets": {
+            "has_default": true,
+            "value": true
+          },
+          "include_interactive_charts": {
+            "has_default": true,
+            "value": false
+          },
+          "render_charts": {
+            "has_default": true,
+            "value": true
+          },
+          "template_id": {
+            "has_default": true,
+            "value": "scorecard_basic_v1"
+          },
+          "theme": {
+            "has_default": true,
+            "value": "nikodym"
+          }
+        },
+        "language": {
+          "has_default": true,
+          "value": "es"
+        },
+        "output_dir": {
+          "has_default": true,
+          "value": "reports"
+        },
+        "pdf": {
+          "enabled": {
+            "has_default": true,
+            "value": false
+          },
+          "fail_if_unavailable": {
+            "has_default": true,
+            "value": false
+          }
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "sections": {
+          "include_raw_tables": {
+            "has_default": true,
+            "value": false
+          },
+          "max_table_rows": {
+            "has_default": true,
+            "value": 200
+          },
+          "missing_policy": {
+            "has_default": true,
+            "value": "error"
+          },
+          "required_sections": {
+            "has_default": true,
+            "value": [
+              "eda",
+              "binning",
+              "selection",
+              "model",
+              "scorecard",
+              "calibration",
+              "performance",
+              "stability"
+            ]
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "repro": {
+        "seed": {
+          "has_default": true,
+          "value": 42
+        },
+        "strict_determinism": {
+          "has_default": true,
+          "value": false
+        }
+      },
+      "run": {
+        "fail_fast": {
+          "has_default": true,
+          "value": true
+        },
+        "steps": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "schema_version": {
+        "has_default": true,
+        "value": "1.0.0"
+      },
+      "scorecard": {
+        "clip": {
+          "has_default": true,
+          "value": false
+        },
+        "intercept_allocation": {
+          "has_default": true,
+          "value": "uniform"
+        },
+        "max_score": {
+          "has_default": true,
+          "value": null
+        },
+        "min_score": {
+          "has_default": true,
+          "value": null
+        },
+        "output_suffix": {
+          "has_default": true,
+          "value": "__points"
+        },
+        "pdo": {
+          "has_default": true,
+          "value": 20.0
+        },
+        "point_overrides": {
+          "has_default": true,
+          "value": []
+        },
+        "rounding_method": {
+          "has_default": true,
+          "value": "nearest_integer"
+        },
+        "score_column": {
+          "has_default": true,
+          "value": "score"
+        },
+        "score_direction": {
+          "has_default": true,
+          "value": "higher_is_lower_risk"
+        },
+        "target_odds": {
+          "has_default": true,
+          "value": 50.0
+        },
+        "target_score": {
+          "has_default": true,
+          "value": 600.0
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "selection": {
+        "compute_univariate_metrics": {
+          "has_default": true,
+          "value": true
+        },
+        "correlation": {
+          "clustering_method": {
+            "has_default": true,
+            "value": "none"
+          },
+          "enabled": {
+            "has_default": true,
+            "value": true
+          },
+          "method": {
+            "has_default": true,
+            "value": "pearson"
+          },
+          "threshold": {
+            "has_default": true,
+            "value": 0.75
+          }
+        },
+        "exclude_columns": {
+          "has_default": true,
+          "value": []
+        },
+        "fail_if_no_features": {
+          "has_default": true,
+          "value": true
+        },
+        "feature_columns": {
+          "has_default": true,
+          "value": "*"
+        },
+        "force_exclude": {
+          "has_default": true,
+          "value": []
+        },
+        "force_include": {
+          "has_default": true,
+          "value": []
+        },
+        "keep_structural_columns": {
+          "has_default": true,
+          "value": true
+        },
+        "max_iv": {
+          "has_default": true,
+          "value": 0.5
+        },
+        "max_iv_action": {
+          "has_default": true,
+          "value": "flag"
+        },
+        "min_auc": {
+          "has_default": true,
+          "value": null
+        },
+        "min_gini": {
+          "has_default": true,
+          "value": null
+        },
+        "min_iv": {
+          "has_default": true,
+          "value": 0.02
+        },
+        "min_ks": {
+          "has_default": true,
+          "value": null
+        },
+        "priority_order": {
+          "has_default": true,
+          "value": [
+            "iv",
+            "auc",
+            "ks",
+            "name"
+          ]
+        },
+        "stability": {
+          "action": {
+            "has_default": true,
+            "value": "report_only"
+          },
+          "enabled": {
+            "has_default": true,
+            "value": true
+          },
+          "review_threshold": {
+            "has_default": true,
+            "value": 0.25
+          },
+          "smoothing": {
+            "has_default": true,
+            "value": 1e-06
+          },
+          "stable_threshold": {
+            "has_default": true,
+            "value": 0.1
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        },
+        "vif": {
+          "add_intercept": {
+            "has_default": true,
+            "value": true
+          },
+          "enabled": {
+            "has_default": true,
+            "value": true
+          },
+          "max_iterations": {
+            "has_default": true,
+            "value": null
+          },
+          "threshold": {
+            "has_default": true,
+            "value": 5.0
+          }
+        }
+      },
+      "stability": {
+        "comparisons": {
+          "has_default": true,
+          "value": [
+            "dev_vs_holdout",
+            "dev_vs_oot"
+          ]
+        },
+        "csi_bins": {
+          "has_default": true,
+          "value": 10
+        },
+        "csi_source": {
+          "has_default": true,
+          "value": "score_points"
+        },
+        "include_pd_stability": {
+          "has_default": true,
+          "value": true
+        },
+        "partition_column": {
+          "has_default": true,
+          "value": "partition"
+        },
+        "pd_column": {
+          "has_default": true,
+          "value": "pd_calibrated"
+        },
+        "psi_bins": {
+          "has_default": true,
+          "value": 10
+        },
+        "psi_review_threshold": {
+          "has_default": true,
+          "value": 0.25
+        },
+        "psi_stable_threshold": {
+          "has_default": true,
+          "value": 0.1
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "score_column": {
+          "has_default": true,
+          "value": "score"
+        },
+        "score_direction": {
+          "has_default": true,
+          "value": "higher_is_lower_risk"
+        },
+        "smoothing": {
+          "has_default": true,
+          "value": 1e-06
+        },
+        "temporal_axis": {
+          "has_default": true,
+          "value": "period"
+        },
+        "temporal_column": {
+          "has_default": true,
+          "value": null
+        },
+        "temporal_freq": {
+          "has_default": true,
+          "value": "M"
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "stress": {
+        "input": {
+          "ecl_engine_artifact": {
+            "has_default": true,
+            "value": null
+          },
+          "ecl_input_key": {
+            "has_default": true,
+            "value": "ecl_input"
+          },
+          "forward_domain": {
+            "has_default": true,
+            "value": "forward"
+          },
+          "macro_projection_key": {
+            "has_default": true,
+            "value": "macro_projection"
+          },
+          "provision_engine_artifact": {
+            "has_default": true,
+            "value": null
+          },
+          "satellite_model_key": {
+            "has_default": true,
+            "value": "satellite_model"
+          },
+          "scenario_weighting_key": {
+            "has_default": true,
+            "value": "scenario_weighting"
+          },
+          "term_structure_key": {
+            "has_default": true,
+            "value": "term_structure"
+          }
+        },
+        "output": {
+          "include_baseline_rows": {
+            "has_default": true,
+            "value": true
+          },
+          "metrics": {
+            "has_default": true,
+            "value": [
+              "pd_marginal",
+              "pd_cumulative",
+              "ecl"
+            ]
+          },
+          "publish_reverse_path": {
+            "has_default": true,
+            "value": true
+          },
+          "publish_stressed_macro": {
+            "has_default": true,
+            "value": true
+          },
+          "publish_stressed_term_structure": {
+            "has_default": true,
+            "value": true
+          }
+        },
+        "reverse": {
+          "has_default": true,
+          "value": []
+        },
+        "scenarios": {
+          "has_default": true,
+          "value": []
+        },
+        "sensitivities": {
+          "has_default": true,
+          "value": []
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        },
+        "validation": {
+          "fail_on_falta_dato": {
+            "has_default": true,
+            "value": true
+          },
+          "fail_on_missing_ecl_engine": {
+            "has_default": true,
+            "value": true
+          },
+          "metric_tol": {
+            "has_default": true,
+            "value": 1e-08
+          },
+          "probability_tol": {
+            "has_default": true,
+            "value": 1e-10
+          },
+          "require_dominates_forward_adverse": {
+            "has_default": true,
+            "value": true
+          },
+          "require_forward_severe": {
+            "has_default": true,
+            "value": true
+          },
+          "weight_sum_tol": {
+            "has_default": true,
+            "value": 1e-12
+          }
+        }
+      },
+      "survival": {
+        "cox_aft": {
+          "aft_family": {
+            "has_default": true,
+            "value": null
+          },
+          "ph_p_value_threshold": {
+            "has_default": true,
+            "value": null
+          },
+          "ph_test_enabled": {
+            "has_default": true,
+            "value": true
+          }
+        },
+        "discrete_hazard": {
+          "include_period_dummies": {
+            "has_default": true,
+            "value": true
+          },
+          "link": {
+            "has_default": true,
+            "value": "logit"
+          },
+          "min_events_per_period": {
+            "has_default": true,
+            "value": null
+          },
+          "pd_role": {
+            "has_default": true,
+            "value": "covariate"
+          }
+        },
+        "fail_on_falta_dato": {
+          "has_default": true,
+          "value": true
+        },
+        "input": {
+          "covariate_cols": {
+            "has_default": true,
+            "value": []
+          },
+          "duration_col": {
+            "has_default": false
+          },
+          "event_col": {
+            "has_default": false
+          },
+          "id_col": {
+            "has_default": true,
+            "value": null
+          },
+          "linear_predictor_column": {
+            "has_default": true,
+            "value": "linear_predictor"
+          },
+          "pd_column": {
+            "has_default": true,
+            "value": "pd_raw"
+          },
+          "pd_source": {
+            "has_default": true,
+            "value": "model_raw"
+          },
+          "segment_col": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "kaplan_meier": {
+          "confidence_level": {
+            "has_default": true,
+            "value": null
+          },
+          "confidence_transform": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "method": {
+          "has_default": true,
+          "value": "discrete_hazard"
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "time_grid": {
+          "evaluation_times": {
+            "has_default": true,
+            "value": []
+          },
+          "horizon_periods": {
+            "has_default": true,
+            "value": null
+          },
+          "time_unit": {
+            "has_default": true,
+            "value": "period"
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      },
+      "tracking": {
+        "has_default": true,
+        "value": null
+      },
+      "tuning": {
+        "deterministic": {
+          "has_default": true,
+          "value": true
+        },
+        "n_jobs": {
+          "has_default": true,
+          "value": 1
+        },
+        "objective": {
+          "direction": {
+            "has_default": true,
+            "value": "maximize"
+          },
+          "metric": {
+            "has_default": true,
+            "value": "auc"
+          }
+        },
+        "optimizer": {
+          "n_trials": {
+            "has_default": true,
+            "value": 50
+          },
+          "pruner": {
+            "has_default": true,
+            "value": "none"
+          },
+          "sampler": {
+            "has_default": true,
+            "value": "tpe"
+          },
+          "timeout_seconds": {
+            "has_default": true,
+            "value": null
+          }
+        },
+        "refit_best": {
+          "has_default": true,
+          "value": true
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "search_space": {
+          "params": {
+            "has_default": true,
+            "value": {}
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        },
+        "validation": {
+          "fit_partition": {
+            "has_default": true,
+            "value": "desarrollo"
+          },
+          "holdout_fraction": {
+            "has_default": true,
+            "value": 0.2
+          },
+          "n_folds": {
+            "has_default": true,
+            "value": 5
+          },
+          "strategy": {
+            "has_default": true,
+            "value": "cv"
+          }
+        }
+      },
+      "validation": {
+        "backtesting": {
+          "alpha": {
+            "has_default": true,
+            "value": 0.05
+          },
+          "enabled": {
+            "has_default": true,
+            "value": false
+          },
+          "one_sided": {
+            "has_default": true,
+            "value": true
+          },
+          "parameters": {
+            "has_default": true,
+            "value": [
+              "pd",
+              "lgd",
+              "ead"
+            ]
+          },
+          "pd_test": {
+            "has_default": true,
+            "value": "jeffreys"
+          },
+          "realised_ead_col": {
+            "has_default": true,
+            "value": "realised_ead"
+          },
+          "realised_lgd_col": {
+            "has_default": true,
+            "value": "realised_lgd"
+          },
+          "realised_pd_col": {
+            "has_default": true,
+            "value": "realised_default"
+          },
+          "segment_col": {
+            "has_default": true,
+            "value": "portfolio"
+          }
+        },
+        "calibration": {
+          "alpha": {
+            "has_default": true,
+            "value": 0.05
+          },
+          "binomial_by_grade": {
+            "has_default": true,
+            "value": true
+          },
+          "brier": {
+            "has_default": true,
+            "value": true
+          },
+          "grade_col": {
+            "has_default": true,
+            "value": "grade"
+          },
+          "hl_grouping": {
+            "has_default": true,
+            "value": "deciles"
+          },
+          "hl_n_groups": {
+            "has_default": true,
+            "value": 10
+          },
+          "hosmer_lemeshow": {
+            "has_default": true,
+            "value": true
+          },
+          "min_rows_per_group": {
+            "has_default": true,
+            "value": 30
+          },
+          "partition_column": {
+            "has_default": true,
+            "value": "partition"
+          },
+          "pd_column": {
+            "has_default": true,
+            "value": "pd_calibrated"
+          },
+          "pd_test": {
+            "has_default": true,
+            "value": "jeffreys"
+          },
+          "target_column": {
+            "has_default": true,
+            "value": "target"
+          },
+          "traffic_light_green_alpha": {
+            "has_default": true,
+            "value": 0.05
+          },
+          "traffic_light_red_alpha": {
+            "has_default": true,
+            "value": 0.01
+          }
+        },
+        "discrimination": {
+          "consume_performance": {
+            "has_default": true,
+            "value": true
+          },
+          "partitions": {
+            "has_default": true,
+            "value": [
+              "desarrollo",
+              "holdout",
+              "oot"
+            ]
+          }
+        },
+        "fail_on_falta_dato": {
+          "has_default": true,
+          "value": true
+        },
+        "families": {
+          "has_default": true,
+          "value": [
+            "discrimination",
+            "calibration",
+            "stability"
+          ]
+        },
+        "schema_version": {
+          "has_default": true,
+          "value": "1.0.0"
+        },
+        "stability": {
+          "consume_stability": {
+            "has_default": true,
+            "value": true
+          },
+          "psi_review_threshold": {
+            "has_default": true,
+            "value": 0.25
+          },
+          "psi_stable_threshold": {
+            "has_default": true,
+            "value": 0.1
+          }
+        },
+        "type": {
+          "has_default": true,
+          "value": "standard"
+        }
+      }
+    },
+    "version": 1
+  },
   "json_schema": {
     "$defs": {
       "ReproConfig": {

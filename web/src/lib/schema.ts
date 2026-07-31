@@ -11,6 +11,7 @@
 
 import { API_BASE } from "@/lib/api"
 import { DEMO_MODE } from "@/lib/demo-runtime"
+import type { EffectiveDefaults } from "@/lib/effective-defaults"
 import type { JsonSchema } from "@/lib/form-engine"
 import fixtureSchema from "@/fixtures/schema.json"
 
@@ -19,6 +20,13 @@ export interface SchemaPayload {
   json_schema: JsonSchema
   defaults: Record<string, unknown>
   section_order: string[]
+  /**
+   * Catálogo de defaults EFECTIVOS por campo (D-FX-5). Opcional en el tipo porque el campo es
+   * aditivo: un backend anterior no lo manda, y el formulario degrada a «sin default que ofrecer»
+   * en vez de inventarlo. `defaults` (arriba) sigue siendo otra cosa: el config vacío con sus
+   * secciones en `null`, no lo que el motor usaría campo a campo.
+   */
+  effective_defaults?: EffectiveDefaults
 }
 
 /** Snapshot local bundleado (schema compuesto con secciones F1 expandidas). */

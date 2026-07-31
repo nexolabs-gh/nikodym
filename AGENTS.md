@@ -9,13 +9,38 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-07-31, pavimentación)
+## Estado vigente (2026-07-31, cierre del paquete D)
 
 **PyPI publica `1.10.0`; no hay release autorizado ni en curso.** Los paquetes B (puerta pública de
-artefactos) y C (fuga del target en binning + `unique_keys`) ya están implementados, revisados y
-cerrados en `main`; C vive en `905b26f`, `008b217` y `56f53a3`. El plan ejecutable de la próxima
-oleada vive en `privado/PLAN-IMPLEMENTACION-2026-07-31.md`; no reabrir sus censos ni los SDD cerrados
-salvo evidencia nueva.
+artefactos), C (fuga del target en binning + `unique_keys`) y **D (la UI fabrica un config distinto
+del que muestra)** están implementados, revisados y cerrados en `main`; C vive en `905b26f`,
+`008b217` y `56f53a3`. El plan ejecutable de la próxima oleada vive en
+`privado/PLAN-IMPLEMENTACION-2026-07-31.md`; no reabrir sus censos ni los SDD cerrados salvo
+evidencia nueva.
+
+🔴 **D cerró con una lección que vale para cualquier catálogo derivado de Pydantic: el valor efectivo
+de un campo NO siempre sale de su `FieldInfo`.** `MLConfig.hyperparameters` declara `None` y un
+`model_validator(mode="before")` lo rellena con siete hiperparámetros, así que
+`FieldInfo.get_default(call_default_factory=True)` —que era la única fuente— publicaba `null` donde
+el motor corre con el dict. Ahora, para toda clase construible, la fuente es
+`Cls().model_dump(mode="json", by_alias=True)`, que es donde ya corrieron los validadores. Lo
+encontró la revisión adversarial, no la suite.
+
+⚠️ **Y el gate que debía cazarlo no podía: las 22 clases raíz de sección NO están en `$defs`** —el
+schema compuesto las empotra *inline*—, así que un barrido sobre `$defs` dejaba fuera 224
+descriptores, el 32 % del catálogo. Todo gate que recorra el schema compuesto tiene que mirar las
+**dos** coordenadas.
+
+⚠️ **Un render recursivo que no propaga su contexto es una clase de defecto, no un olvido.**
+`NullableField` llamaba a `FieldRenderer` sin pasarle el catálogo, y los ~60 campos `X | None`
+perdían su default: `binning.max_n_bins` pintaba el slider en **2** (su cota inferior) mientras el
+motor usaba **8**, con la insignia «Predeterminado» al lado afirmando un valor falso. Es la única
+rama del árbol que no pasa por `GroupFieldList`. Lo vigila ahora un guardrail estático sobre el
+fuente del componente, porque **vitest corre sin DOM y no puede cazarlo renderizando**.
+
+⚠️ **`git checkout -- <archivo>` restaura desde el ÍNDICE.** Con un cambio ya `git add`-eado, ese
+comando descarta en silencio las ediciones posteriores del working tree. Pasó al revertir un control
+negativo: se perdió el arreglo del bloqueante y hubo que reaplicarlo.
 
 El benchmark de escala heredado se detuvo porque su `rss_pico_gb` medía sólo antes/después y el
 corte de 5 GB no actuaba durante el cálculo. El arnés privado ya supervisa cada escalón en un worker,
@@ -31,10 +56,11 @@ target/unique keys → defaults efectivos de UI → defectos runtime → publica
 resultados → gates débiles → posicionamiento/documentación. Cada cambio contractual nuevo se detiene
 en su SDD.
 
-Los gates recién ejecutados del cierre C son 4.593 passed / 6 skipped, mypy 242, ruff check/format,
-vitest 370/370, cobertura regulatoria 682 statements / 166 branches al 100 % y builds
-reproducibles. La evidencia completa, riesgos y siguiente acción se actualizan siempre en
-`HANDOFF.md`.
+Los gates del cierre D son **4.670 passed / 6 skipped**, mypy 243, ruff check/format, vitest
+**408/408**, cobertura regulatoria 682 statements / 166 branches al 100 %, bundle reconstruido dos
+veces con hash idéntico, fixture sin drift y supply-chain 29/29. El recorrido real por la interfaz
+—preset F1, YAML parcial y el caso causal de `eda`— quedó verificado en vivo. La evidencia completa,
+riesgos y siguiente acción se actualizan siempre en `HANDOFF.md`.
 
 ---
 

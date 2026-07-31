@@ -26,7 +26,14 @@ import { Switch } from "@/components/ui/switch"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ApiError, configFromYaml, configToYaml, getPreset } from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
-import { type Path, getAtPath, setAtPath } from "@/lib/config-store"
+import { type Path, getAtPath, removeAtPath, setAtPath } from "@/lib/config-store"
+import {
+  type EffectiveDefaults,
+  canonicalProjection,
+  childMap,
+  nodeAtPath,
+  usableCatalog,
+} from "@/lib/effective-defaults"
 import { DEMO_MODE } from "@/lib/demo-runtime"
 import {
   type Defs,
@@ -174,7 +181,7 @@ function SectionToggle(props: {
       <span className="text-xs text-muted-foreground">
         {active
           ? "Se incluye en el config y se ejecuta."
-          : "Queda fuera del config; el motor no la corre."}
+          : "El motor no la corre."}
       </span>
     </div>
   )
@@ -195,9 +202,21 @@ function ConfigSectionForm(props: {
   setField: (path: Path, value: unknown) => void
   errors?: Map<string, string>
   datasetColumns?: string[]
+  effectiveDefaults?: EffectiveDefaults
 }) {
-  const { sectionKey, schema, defs, config, setField, errors, datasetColumns } =
-    props
+  const {
+    sectionKey,
+    schema,
+    defs,
+    config,
+    setField,
+    errors,
+    datasetColumns,
+    effectiveDefaults,
+  } = props
+  // El mapa de defaults de ESTA sección. Baja con el formulario campo a campo; los dos sitios que
+  // `sections` no alcanza —filas de lista y variantes— lo resuelven por `$defs` (FieldRenderer).
+  const sectionDefaults = childMap(nodeAtPath(effectiveDefaults, [sectionKey]))
   const groups = groupedFields(schema)
   const required = new Set(schema.required ?? [])
   const renderField = (
@@ -216,6 +235,8 @@ function ConfigSectionForm(props: {
       errors={errors}
       datasetColumns={datasetColumns}
       titledByParent={titledByParent}
+      defaultsBase={sectionDefaults}
+      effectiveDefaults={effectiveDefaults}
     />
   )
 
@@ -359,7 +380,16 @@ export function ConfigTab({ section }: { section: string }) {
 
   const setField = useCallback(
     (path: Path, value: unknown) => {
-      setConfig((current) => setAtPath(current, path, value))
+      // `undefined` = «vaciar este control» ⇒ se BORRA la clave y el campo vuelve a pintar su
+      // valor predeterminado (D-FX-7/D-FX-8). Escribir `undefined` dejaba la clave en el objeto
+      // con un valor que `JSON.stringify` descarta: el config se veía sparse por fuera y sucio por
+      // dentro, y la comparación estructural de «renderizar no escribe» dejaba de ser decidible.
+      // `null` NO borra: apagar algo a propósito es una decisión explícita del usuario.
+      setConfig((current) =>
+        value === undefined
+          ? removeAtPath(current, path)
+          : setAtPath(current, path, value),
+      )
     },
     [setConfig],
   )
@@ -418,6 +448,9 @@ export function ConfigTab({ section }: { section: string }) {
 
   const { payload, source, error } = schema
   const defs = payload.json_schema.$defs ?? {}
+  // Catálogo de defaults efectivos (D-FX-5). `usableCatalog` descarta una versión que este front no
+  // sabe interpretar: pintar defaults inventados es peor que no pintar ninguno.
+  const catalogo = usableCatalog(payload.effective_defaults)
   // Columnas del dataset activo: son las OPCIONES de todo campo que declare `column_role: "input"`
   // (`binning.feature_columns`, `categorical_columns`, `data.schema.unique_keys`…). El schema no
   // puede traerlas —dependen del archivo del usuario—, así que viajan como contexto de datos.
@@ -443,9 +476,18 @@ export function ConfigTab({ section }: { section: string }) {
   const sectionActive = sectionValue !== null && sectionValue !== undefined
   const toggleSection = (next: boolean) => {
     if (next) {
+      // Activar una sección es un gesto de ESTRUCTURA (D-FX-8): se escriben todas las hojas con
+      // default de su proyección canónica. `defaultForSchema` queda de respaldo sin catálogo —sólo
+      // ve los `default` del JSON Schema, que no existen para los submodelos con `default_factory`,
+      // y por eso sembraba secciones a medias—.
+      const canonica = childMap(nodeAtPath(catalogo, [section]))
       const restaurado =
         lastSectionValue.current[section] ??
-        (resolvedSection ? defaultForSchema(resolvedSection, defs) : {})
+        (canonica
+          ? canonicalProjection(canonica)
+          : resolvedSection
+            ? defaultForSchema(resolvedSection, defs)
+            : {})
       setField([section], restaurado)
     } else {
       if (sectionValue !== undefined) lastSectionValue.current[section] = sectionValue
@@ -628,11 +670,12 @@ export function ConfigTab({ section }: { section: string }) {
                 setField={setField}
                 errors={errorLookup}
                 datasetColumns={datasetColumns}
+                effectiveDefaults={catalogo}
               />
             ) : (
               <p className="rounded-xl border border-dashed border-border bg-card/50 p-5 text-sm text-muted-foreground">
-                Sección desactivada: no se incluye en el config ni se ejecuta. Al reactivarla vuelve
-                con los valores que tenía.
+                Sección desactivada: el motor no la ejecuta. Al reactivarla vuelve con los valores
+                que tenía.
               </p>
             )}
           </div>

@@ -26,6 +26,7 @@ from _ui_f1 import failing_config, full_f1_config, write_behavior_parquet
 from fastapi.testclient import TestClient
 
 from nikodym.core.config import NikodymConfig, ReproConfig, config_hash, dump_config, loads_config
+from nikodym.core.config.effective_defaults import EFFECTIVE_DEFAULTS_VERSION
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui.server import create_app
 from nikodym.ui.settings import UiConfig
@@ -120,12 +121,26 @@ def _f1_config() -> NikodymConfig:
 
 
 def test_endpoint_schema(client: TestClient) -> None:
-    """``GET /api/schema`` devuelve el JSON-Schema, defaults y orden de secciones."""
+    """``GET /api/schema`` devuelve JSON-Schema, defaults, orden de secciones y defaults efectivos.
+
+    El catálogo tiene que sobrevivir al viaje por HTTP: se serializa a JSON como cualquier otro
+    campo del payload, y su forma es la que el formulario consume (D-FX-5).
+    """
     respuesta = client.get("/api/schema")
     assert respuesta.status_code == 200
     cuerpo = respuesta.json()
-    assert set(cuerpo) == {"json_schema", "defaults", "section_order"}
+    assert set(cuerpo) == {
+        "json_schema",
+        "defaults",
+        "section_order",
+        "effective_defaults",
+    }
     assert cuerpo["section_order"] == list(NikodymConfig.model_fields)
+    assert cuerpo["effective_defaults"]["version"] == EFFECTIVE_DEFAULTS_VERSION
+    assert cuerpo["effective_defaults"]["sections"]["report"]["document"]["placeholders"] == {
+        "has_default": True,
+        "value": "show",
+    }
 
 
 def test_endpoint_validate_valido(client: TestClient) -> None:

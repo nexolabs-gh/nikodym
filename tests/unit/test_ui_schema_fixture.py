@@ -122,6 +122,58 @@ def test_cada_dominio_expandido_coincide_con_el_fixture() -> None:
     )
 
 
+def test_el_catalogo_de_defaults_efectivos_coincide_con_el_fixture() -> None:
+    """La otra mitad del payload también tiene que estar fresca (D-FX-5/D-FX-10).
+
+    Sin este test, ``effective_defaults`` colgaba de la RAÍZ del payload y las tres comparaciones
+    anteriores no lo miraban: ni ``defaults``/``section_order`` (explícitas) ni ``_diferencias``
+    (que sólo recorre ``json_schema``). El fixture podía quedarse viejo en silencio — exactamente el
+    defecto que este archivo existe para prevenir.
+
+    Se compara por dominio disponible, con el mismo criterio que el gate de arriba: en un job sin
+    todos los extras el catálogo vivo trae menos secciones, y eso es correcto, no deriva.
+    """
+    vivo = schema_payload()["effective_defaults"]
+    fixture = _fixture().get("effective_defaults")
+    assert fixture is not None, (
+        "el fixture no trae `effective_defaults`: regenéralo con "
+        "`./.venv/bin/python scripts/gen_schema_fixture.py`"
+    )
+    assert vivo["version"] == fixture["version"]
+
+    dominios = _dominios_disponibles()
+    distintos = [d for d in dominios if vivo["sections"].get(d) != fixture["sections"].get(d)]
+    # Los campos raíz que no son secciones de dominio (`name`, `run`, `repro`…) no dependen de los
+    # extras: se comparan siempre.
+    no_dominios = sorted(set(vivo["sections"]) - set(_DOMAIN_CONFIG_CLASSES))
+    distintos += [n for n in no_dominios if vivo["sections"][n] != fixture["sections"].get(n)]
+    # Y los `$defs` del dominio, con el prefijo que usa el schema compuesto.
+    prefijos = tuple(f"{d}__" for d in dominios)
+    distintos += [
+        clave
+        for clave, nodo in vivo["$defs"].items()
+        if (clave.startswith(prefijos) or "__" not in clave) and fixture["$defs"].get(clave) != nodo
+    ]
+    assert not distintos, (
+        f"el catálogo de defaults efectivos del fixture está viejo en {len(distintos)} nodo(s): "
+        f"{distintos[:8]}. Corre `./.venv/bin/python scripts/gen_schema_fixture.py` y commitea el "
+        "resultado junto con el bundle (`pnpm build:package` desde `web/`)."
+    )
+
+
+def test_la_comparacion_del_catalogo_no_es_tautologica() -> None:
+    """Que el comparador del catálogo DETECTE una diferencia real (misma lección que abajo)."""
+    fixture = _fixture()
+    dopado = copy.deepcopy(fixture)
+    dominio = _dominios_disponibles()[0]
+    hoja = next(iter(dopado["effective_defaults"]["sections"][dominio]))
+    dopado["effective_defaults"]["sections"][dominio][hoja] = {"has_default": "mentira"}
+    assert (
+        dopado["effective_defaults"]["sections"][dominio]
+        != fixture["effective_defaults"]["sections"][dominio]
+    )
+
+
 def test_la_comparacion_no_es_tautologica() -> None:
     """Que el comparador DETECTE una diferencia real, no que devuelva siempre lista vacía.
 

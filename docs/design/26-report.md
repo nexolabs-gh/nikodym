@@ -113,6 +113,30 @@ Sus prerequisitos se derivan de `sections.required_sections` usando el mapeo can
 Las cards de `data`, provisiones, IFRS 9, supervivencia y validación se recolectan cuando existen,
 pero no se vuelven prerequisitos implícitos de una corrida F1.
 
+> **Enmendado (DEFAULTS-EFECTIVOS-UI, D-FX-3):** el filtro es una **doble intersección**. Una card
+> se exige si su dominio está en `sections.required_sections` **y** entre los pasos activos de esa
+> invocación (`steps=` → `config.run.steps` → secciones no nulas). El contexto llega por
+> `ReportStep.from_config_with_context(cfg, *, active_domains)`, la extensión genérica y opcional
+> del resolver; `from_config` conserva la firma histórica para el uso standalone.
+>
+> Una sección requerida cuyo dominio está **apagado** deja de ser prerequisito duro, así que
+> `check_pipeline` resulta ejecutable y la decisión vuelve a `missing_policy`, que es de quien es:
+> `error` falla en el paso `report` con `ReportInputError`, `warn` termina publicando la ausencia y
+> `skip` la omite conservando la limitación. `required_sections` **no se muta**: el builder necesita
+> la lista original para saber qué falta.
+>
+> Un paso **activo** que declaró la card en `provides` y no la publicó sigue incumpliendo CT-1
+> (`ArtifactNotFoundError` antes del builder, para las tres políticas): `missing_policy` no es
+> permiso para ocultar un productor roto.
+>
+> Las **cards** que el builder adopta si existen, más el `result` atómico de validación, se declaran
+> en `ReportStep.optional_requires` (= `OPTIONAL_REPORT_INPUTS`). No participan en la validación de
+> prerequisitos: sólo evitan que la puerta `nikodym.run(..., artifacts=...)` llame inerte a una
+> clave que el informe sí lee. ⚠️ **Son las cards, no todo lo que el builder recolecta**:
+> `_TABLE_ARTIFACTS` y `_FIGURE_ARTIFACTS` también se adoptan si existen y siguen declarándose
+> inertes al inyectarlas. Es el alcance que fija D-FX-3; ampliarlo movería el veredicto de la puerta
+> de artefactos y es decisión de producto.
+
 ## 4. Configuración
 
 `ReportConfig` hereda de `NikodymBaseConfig`: es frozen, rechaza campos extra y tiene schema local

@@ -447,9 +447,15 @@ class Study:
         Emite sólo los eventos del paso (no ``run_start``/``run_end``) y exige sus prerequisitos
         presentes. En F0 ``NikodymConfig`` no expone secciones de dominio, así que la resolución
         levanta ``ConfigError`` (la orquestación de dominios llega en T2).
+
+        **Se resuelve SIN contexto de dominios activos, a propósito** (D-FX-1). ``[name]`` no es
+        «el pipeline de esta invocación»: es *un paso suelto sobre artefactos que ya deben estar en
+        el store*. Pasar ``{name}`` como conjunto activo convertiría la comprobación CT-1 de este
+        método en vacua para cualquier paso cuyo ``requires`` se derive del contexto —``run_step
+        ('report')`` dejaría de exigir sus cards—, y la precedencia que D-FX-1 fija (``steps=`` →
+        ``config.run.steps`` → secciones no nulas) describe una **corrida**, no este atajo.
         """
-        pasos = self._resolve_steps([name])
-        return self._run_one(pasos[0])
+        return self._run_one(self._resolve_step(name))
 
     def _resolve_steps(self, nombres: list[str] | None) -> list[Step]:
         """Resuelve los nombres de paso a objetos :class:`Step` (config → REGISTRY → StepAdapter).
@@ -457,10 +463,17 @@ class Study:
         Los dominios orquestables se registran al importar su paquete. El import es perezoso para
         que ``import nikodym.core`` no arrastre pandas/pandera/pyarrow ni dominios aguas abajo. El
         pipeline por defecto sigue siendo vacío si no hay secciones activas.
+
+        La lista resuelta es además el **contexto** que se ofrece a cada componente (D-FX-1): un
+        paso puede necesitar saber qué otros dominios corren en ESTA invocación para declarar
+        honestamente su ``requires``. «Activo» es *estar en la lista efectiva*, no *tener sección no
+        nula*: con ``steps=['data','binning']`` el resto está apagado para esta corrida, y usar
+        ``section is not None`` describiría un DAG distinto del que se va a ejecutar.
         """
         if nombres is None:
             nombres = self._default_step_names()
-        return [self._resolve_step(nombre) for nombre in nombres]
+        active_domains = frozenset(nombres)
+        return [self._resolve_step(nombre, active_domains=active_domains) for nombre in nombres]
 
     def _default_step_names(self) -> list[str]:
         """Deriva el pipeline v1 desde secciones activas del config raíz."""
@@ -470,8 +483,26 @@ class Study:
             if getattr(self.config, domain, None) is not None
         ]
 
-    def _resolve_step(self, name: str) -> Step:
-        """Resuelve un paso por nombre de sección usando el ``REGISTRY`` global."""
+    def _resolve_step(
+        self,
+        name: str,
+        *,
+        active_domains: frozenset[str] | None = None,
+    ) -> Step:
+        """Resuelve un paso por nombre de sección usando el ``REGISTRY`` global.
+
+        ``active_domains`` es el contexto de la invocación (D-FX-1). Se entrega por una **extensión
+        genérica y opcional** del resolver (D-FX-2): si el componente expone
+        ``from_config_with_context(sub_cfg, *, active_domains)`` se usa esa fábrica; si no, se usa
+        el ``from_config(sub_cfg)`` de siempre. No hay ``if name == "report"`` ni introspección de
+        firmas: el núcleo no conoce ningún dominio, y un dominio que no necesite el contexto no
+        cambia una línea.
+
+        ``active_domains=None`` significa **«no se sabe»**, no «ninguno»: se usa la fábrica
+        histórica y el paso conserva el contrato que declararía por sí solo. Es lo que reciben
+        :meth:`run_step` y cualquier resolución suelta; el contexto real lo calcula
+        :meth:`_resolve_steps`, que es el único sitio donde la precedencia de D-FX-1 se resuelve.
+        """
         sub_cfg = getattr(self.config, name, None)
         if sub_cfg is None:
             raise ConfigError(
@@ -486,12 +517,27 @@ class Study:
 
         component_type = _component_type(sub_cfg)
         component_cls = REGISTRY.resolve(name, component_type)
+        contextual = getattr(component_cls, "from_config_with_context", None)
         factory = getattr(component_cls, "from_config", None)
-        if not callable(factory):
+        if active_domains is not None and callable(contextual):
+            try:
+                component = contextual(sub_cfg, active_domains=active_domains)
+            except TypeError as exc:
+                # El hook es un punto de extensión declarado (`core/steps.py`), así que su firma la
+                # escribe un dominio y puede estar mal. Un `TypeError` crudo de Python escaparía en
+                # inglés hasta el aviso del formulario, que es copy público; se traduce nombrando el
+                # dominio y la firma esperada, que es lo que permite arreglarlo.
+                raise ConfigError(
+                    f"El componente '{component_type}' del dominio '{name}' expone "
+                    "from_config_with_context() con una firma incompatible: se espera "
+                    f"from_config_with_context(config, *, active_domains). Detalle: {exc}"
+                ) from exc
+        elif callable(factory):
+            component = factory(sub_cfg)
+        else:
             raise ConfigError(
                 f"El componente '{component_type}' del dominio '{name}' no expone from_config()."
             )
-        component = factory(sub_cfg)
         if isinstance(component, Step):
             return component
         if isinstance(component, BaseNikodymEstimator):
