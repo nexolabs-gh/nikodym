@@ -7,8 +7,9 @@
 | **Fecha** | 2026-07-31 |
 | **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.10 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
-PyPI publica `1.10.0`; `main` se encuentra en mejora continua y ya contiene los SDD aprobados de la
-puerta de artefactos y de la fuga del target. `1.11.0` es sólo un corte candidato: cualquier tag o
+PyPI publica `1.10.0`; `main` se encuentra en mejora continua. La puerta de artefactos y la fuga del
+target están cerradas; el contrato conjunto de defaults efectivos de UI y prerequisitos del report
+está aprobado, aún sin implementación. `1.11.0` es sólo un corte candidato: cualquier tag o
 publicación requiere el OK específico de Cami.
 Las fases F0–F8 que siguen conservan el diseño y los DoD históricos; **no son una cola automática**.
 El estado y el plan de esta sección son la fuente vigente.
@@ -30,9 +31,9 @@ El estado y el plan de esta sección son la fuente vigente.
 El orden actual es: **F0 comprobar con datos reales y escala → F1 cerrar la figura y los defectos de
 correctitud → F2 optimizar sólo según el benchmark → F3 rediseñar la UI por trabajos → F4 completar
 los trabajos alcanzables → F5 abrir capacidades sólo con demanda que las justifique**. En paralelo
-se corrigen los P1 ya medidos: fuga del target, defaults efectivos de la UI, puerta de artefactos,
-publicación de métricas y defectos de los arneses reales. La fase F0 bloquea inferencias de escala,
-no los arreglos de correctitud cuyo contrato ya está decidido.
+se corrigen los P1 ya medidos: defaults efectivos de la UI, publicación de métricas y defectos de
+los arneses reales; fuga del target y puerta de artefactos ya cerraron. La fase F0 bloquea
+inferencias de escala, no los arreglos de correctitud cuyo contrato ya está decidido.
 
 Los bloques B1–B8 que siguen preservan decisiones y evidencia histórica. **Ya no son la cola
 operativa** y no deben desplazar el orden F0–F5 anterior.

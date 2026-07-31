@@ -206,17 +206,17 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > positivos, y `required_sections` es una invariante **entre** secciones, que el protocolo por
 > sección no puede expresar sin el acoplamiento que D-INV-1 evita.
 >
-> **…y se puede entrar por la mitad: la puerta de artefactos (2026-07-30, APROBADA en sus decisiones
-> de fondo; sin implementar).**
+> **…y se puede entrar por la mitad: la puerta de artefactos (2026-07-30, APROBADA; implementada y
+> cerrada el 2026-07-31 en `1a7eb43`).**
 > [`_ENMIENDA-PUERTA-ARTEFACTOS.md`](_ENMIENDA-PUERTA-ARTEFACTOS.md), D-ART-1…D-ART-12, enmienda a
 > SDD-01 §4/§6/§7 y SDD-05, y amplía el alcance de `_ENMIENDA-VALIDACION-PIPELINE.md`. Es el nodo
 > **F1.1** del roadmap y el de mayor apalancamiento: desbloquea T7 (validar un modelo que ya
-> existe), T3 (LGD) y T4 (EAD). **La capacidad ya existe y está medida**: sembrar el
+> existe), T3 (LGD) y T4 (EAD). **La capacidad quedó entregada y medida**: sembrar el
 > `ArtifactStore` con los cuatro artefactos de `data` deja el pipeline F1 ejecutable en 9 pasos sin
 > la sección `data`, porque `_validate_pipeline` siembra `disponibles` con el store
-> (`core/study.py:510`) y `ArtifactStore.set` es público. Lo que falta es la **superficie**:
-> `nikodym.run(config)` construye el `Study` dentro de sí (`api.py:179`) y no deja hueco, y el
-> precedente `('data','input_frame')` no está documentado fuera de `docs/design/`. Tres decisiones
+> (`core/study.py:510`) y `ArtifactStore.set` es público. La implementación añadió la **superficie**
+> `artifacts=` a `nikodym.run`/`check_pipeline`, el lineage y la guía pública, sin abrir
+> deserialización por UI/HTTP. Tres decisiones
 > sostienen el diseño: la inyección va **después** de `set_audit_sink` para que el evento
 > `"artifact"` que el store ya emite sirva de registro de procedencia (D-ART-3); el `LineageBundle`
 > gana `injected_artifacts` **aditivo** más un caveat de determinismo, y el `config_hash` **no se
@@ -227,8 +227,8 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > artefactos que `validation` exige, `('data','labels')` **no** es un DataFrame plano sino un
 > `LabeledFrame`, así que T7 necesita además un adaptador (D-ART-11).
 >
-> **…y la columna que define el target deja de entrar como predictor (2026-07-30, APROBADA en sus
-> decisiones de fondo; sin implementar).**
+> **…y la columna que define el target deja de entrar como predictor (2026-07-30, APROBADA;
+> implementada y cerrada el 2026-07-31).**
 > [`_ENMIENDA-FUGA-TARGET-BINNING.md`](_ENMIENDA-FUGA-TARGET-BINNING.md), D-FUGA-1…D-FUGA-10,
 > enmienda a SDD-06 §4/§7 y SDD-02 §4. Con `binning.feature_columns="*"` —**el default del
 > campo**— el motor excluye `target_col`, que es la columna **derivada**, no los insumos de la regla
@@ -251,6 +251,19 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > llave **compuesta** que identifica la fila («cliente + fecha», dice su propio `ui_help`), así que
 > con dos o más columnas ninguna es identificador por sí sola y excluirlas repetiría el falso
 > positivo. Va en commit y CHANGELOG aparte: es **ruido de identificador**, no fuga de target.
+>
+> **La UI debe mostrar el mismo config efectivo que ejecuta (2026-07-31, APROBADA; sin
+> implementar).**
+> [`_ENMIENDA-DEFAULTS-EFECTIVOS-UI.md`](_ENMIENDA-DEFAULTS-EFECTIVOS-UI.md), D-FX-1…D-FX-10,
+> enmienda conjunta a SDD-01/05/23/26. Cierra el diseño de D1 y D2: el report exige como
+> prerequisitos duros sólo las cards de los pasos activos de la invocación y deja que
+> `missing_policy` resuelva en runtime una sección requerida pero apagada, sin retirar `eda` del
+> default ni ocultar incumplimientos CT-1 de productores activos. La UI obtiene los defaults
+> efectivos desde las clases Pydantic registradas mediante un catálogo versionado y probado contra
+> la coacción real; JSON Schema conserva forma y validación, pero no se usa como segunda fuente de
+> defaults anidados. Ausencia y `null|false|0|""|[]` explícitos son estados distintos: renderizar,
+> abrir o guardar no escribe ni mueve `config_hash`, y el primer gesto materializa el valor. La
+> implementación futura es atómica con copy, fixture, Vitest y bundle.
 >
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
