@@ -10,8 +10,13 @@ el motor OR-Tools/mip y ver el scorecard) NO vive aquí: es lento y se hace fuer
 from __future__ import annotations
 
 import copy
+import json
 from typing import Any
 
+import pandas as pd
+
+import nikodym.binning.step as binning_step_module
+from nikodym.binning.config import BinningConfig
 from nikodym.core.config import NikodymConfig, config_hash
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui import routes
@@ -303,6 +308,46 @@ def test_ifrs9_preset_config_valida_y_hash_estable() -> None:
     assert config_hash(
         NikodymConfig.model_validate(get_preset(F4_IFRS9_PRESET_ID)["config"])
     ) == config_hash(model)
+
+
+def test_correccion_anti_fuga_no_mueve_bytes_hashes_ni_candidatas_de_presets() -> None:
+    """D-FUGA-8: los tres presets quedan byte a byte cuando la nueva rama no aplica."""
+    expected_hashes = {
+        STANDARD_PRESET_ID: _EXPECTED_CONFIG_HASH,
+        PROVISIONES_PRESET_ID: _EXPECTED_F3_CONFIG_HASH,
+        F4_IFRS9_PRESET_ID: _EXPECTED_F4_CONFIG_HASH,
+    }
+    for preset_id, expected_hash in expected_hashes.items():
+        preset = get_preset(preset_id)
+        config = preset["config"]
+        before = json.dumps(config, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        assert config_hash(NikodymConfig.model_validate(config)) == expected_hash
+
+        binning = config.get("binning")
+        if binning is None:
+            assert preset_id == F4_IFRS9_PRESET_ID
+        else:
+            feature_columns = tuple(binning["feature_columns"])
+            data = config["data"]
+            raw_columns = [column["name"] for column in data["schema"]["columns"]]
+            frame = pd.DataFrame(
+                columns=[*raw_columns, "target", "label_status", "partition", "ttd"]
+            )
+            resolution = binning_step_module._resolve_feature_columns(
+                frame=frame,
+                target_col="target",
+                status_col="label_status",
+                partition_col="partition",
+                ttd_col="ttd",
+                config=BinningConfig.model_validate(binning),
+                data_config=data,
+                pd=pd,
+            )
+            assert resolution.columns == feature_columns
+            assert resolution.excluded_by_target_rule == ()
+
+        after = json.dumps(config, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        assert after == before
 
 
 def test_ifrs9_preset_activa_el_report_con_secciones_reducidas() -> None:

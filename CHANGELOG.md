@@ -5,6 +5,19 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [Sin publicar]
+
+### Corregido
+
+- **El comodín de binning ya no usa como predictor una columna que define el target.** Con
+  `feature_columns="*"`, las columnas nombradas por `data.target.bad_rule` y `good_rule` quedan
+  fuera de las candidatas; `indeterminate_rule` y `exclusion_rules` conservan sus columnas porque
+  seleccionan la muestra, no la etiqueta. Una lista explícita sigue respetándose y la decisión
+  queda en el audit-trail y en la card de binning. El cambio funciona igual con la sección `data`
+  tipada u opaca. **Si el AUC baja al actualizar, ésa es la corrección de una fuga previa, no una
+  regresión.** No cambian `config_hash` ni `data_hash`; sí pueden cambiar variables finales,
+  coeficientes, métricas e informe.
+
 ## [1.10.0] — 2026-07-29
 
 **El formulario de la interfaz deja de ser una vitrina: ya se puede llevar un dataset propio del

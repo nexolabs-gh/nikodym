@@ -97,6 +97,7 @@ class BinningCardSection(BaseModel):
     special_handling: str
     missing_handling: str
     optbinning_version: str
+    excluded_by_target_rule: tuple[str, ...] = ()
 
     @classmethod
     def from_result(
@@ -106,6 +107,7 @@ class BinningCardSection(BaseModel):
         special_handling: str,
         missing_handling: str,
         optbinning_version: str,
+        excluded_by_target_rule: tuple[str, ...] = (),
     ) -> BinningCardSection:
         """Deriva una sección de model card sin recalcular ni mutar el resultado."""
         n_variables_binned = len(result.variable_summaries)
@@ -121,4 +123,5 @@ class BinningCardSection(BaseModel):
             special_handling=special_handling,
             missing_handling=missing_handling,
             optbinning_version=optbinning_version,
+            excluded_by_target_rule=excluded_by_target_rule,
         )

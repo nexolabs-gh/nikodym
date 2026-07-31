@@ -198,6 +198,29 @@ def test_model_card_builder_compone_card_golden(tmp_path: Path) -> None:
     assert card.to_markdown() == _GOLDEN_MARKDOWN
 
 
+def test_model_card_publica_la_decision_anti_fuga_del_trail(tmp_path: Path) -> None:
+    """D-FUGA-5: la exclusión automática llega del audit-trail al model card."""
+    trail = _trail(
+        tmp_path / "audit-target-rule.jsonl",
+        payload={
+            "regla": "columna_del_target",
+            "umbral": "data.target.bad_rule",
+            "valor": "dpd_12m",
+            "accion": "excluir_de_candidatas",
+        },
+    )
+
+    card = _builder().build(_study(), trail_path=trail)
+
+    assert card.decisions[0].model_dump(mode="json", exclude={"ts"}) == {
+        "step": "binning",
+        "regla": "columna_del_target",
+        "umbral": "data.target.bad_rule",
+        "valor": "dpd_12m",
+        "accion": "excluir_de_candidatas",
+    }
+
+
 def test_model_card_builder_run_fallido_sin_trail_ni_lineage_completo_advierte() -> None:
     """Un run fallido también produce card, marcando faltantes y sin decisiones."""
     study = Study(NikodymConfig())

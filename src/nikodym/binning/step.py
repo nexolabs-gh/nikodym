@@ -16,6 +16,7 @@ contaminar el núcleo liviano; las dependencias tabulares y de scoring se cargan
 from __future__ import annotations
 
 import importlib
+from dataclasses import dataclass
 from importlib import metadata
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
@@ -60,6 +61,16 @@ _NUMERICAL_DTYPES: Final[frozenset[str]] = frozenset({"numerical", "categorical"
 _OPTIMAL_STATUS: Final = "OPTIMAL"
 
 
+@dataclass(frozen=True, slots=True)
+class _FeatureColumnResolution:
+    """Candidatas resueltas y decisiones anti-fuga derivadas del config de ``data``."""
+
+    columns: tuple[str, ...]
+    excluded_by_target_rule: tuple[str, ...]
+    explicit_target_rule_columns: tuple[str, ...]
+    target_rule_paths: dict[str, tuple[str, ...]]
+
+
 @register("standard", domain="binning")
 class BinningStep(AuditableMixin):
     """Orquesta binning supervisado WoE/IV y publica artefactos ``domain='binning'``."""
@@ -102,7 +113,7 @@ class BinningStep(AuditableMixin):
         ttd_col = splits.ttd_col
         _validate_required_columns(frame, (target_col, status_col, partition_col, ttd_col))
 
-        feature_columns = _resolve_feature_columns(
+        feature_resolution = _resolve_feature_columns(
             frame=frame,
             target_col=target_col,
             status_col=status_col,
@@ -112,6 +123,7 @@ class BinningStep(AuditableMixin):
             data_config=getattr(study.config, "data", None),
             pd=pd,
         )
+        feature_columns = feature_resolution.columns
         train_mask = _training_mask(frame, target_col, partition_col)
         y_train = cast(Series, frame.loc[train_mask, target_col].copy(deep=True))
         _validate_training_target(y_train)
@@ -143,7 +155,9 @@ class BinningStep(AuditableMixin):
             variable_summaries=variable_summaries,
             binner=binner,
             config=self.config,
+            excluded_by_target_rule=feature_resolution.excluded_by_target_rule,
         )
+        self._log_target_rule_decisions(feature_resolution)
         self._log_binning_decisions(
             binner=binner,
             summary=summary,
@@ -152,6 +166,23 @@ class BinningStep(AuditableMixin):
         )
         self._publish_artifacts(study, binner, tables, summary, woe_frame, result, binning_card)
         return result
+
+    def _log_target_rule_decisions(self, resolution: _FeatureColumnResolution) -> None:
+        """Declara exclusiones automáticas y contradicciones de una lista explícita."""
+        for column in resolution.excluded_by_target_rule:
+            self.log_decision(
+                regla="columna_del_target",
+                umbral=_audit_rule_path(resolution.target_rule_paths[column]),
+                valor=column,
+                accion="excluir_de_candidatas",
+            )
+        for column in resolution.explicit_target_rule_columns:
+            self.log_decision(
+                regla="columna_del_target",
+                umbral=_audit_rule_path(resolution.target_rule_paths[column]),
+                valor=column,
+                accion="conservar_por_lista_explicita",
+            )
 
     def _log_special_policy(
         self,
@@ -404,15 +435,25 @@ def _resolve_feature_columns(
     config: BinningConfig,
     data_config: object,
     pd: Any,
-) -> tuple[str, ...]:
-    """Resuelve variables candidatas de binning preservando el orden del frame."""
+) -> _FeatureColumnResolution:
+    """Resuelve candidatas y evidencia anti-fuga preservando el orden declarado."""
     exclusions = _structural_columns(target_col, status_col, partition_col, ttd_col)
     exclusions.update(_data_temporal_columns(data_config))
     exclusions.update(_datetime_columns(frame, pd))
     exclusions.update(config.exclude_columns)
+    target_rule_paths = _target_rule_paths_by_column(data_config)
 
     if config.feature_columns == "*":
-        columns = tuple(str(column) for column in frame.columns if str(column) not in exclusions)
+        excluded_by_target_rule = tuple(
+            str(column)
+            for column in frame.columns
+            if str(column) in target_rule_paths and str(column) not in exclusions
+        )
+        wildcard_exclusions = exclusions | set(target_rule_paths)
+        columns = tuple(
+            str(column) for column in frame.columns if str(column) not in wildcard_exclusions
+        )
+        explicit_target_rule_columns: tuple[str, ...] = ()
     else:
         missing = [column for column in config.feature_columns if column not in frame.columns]
         if missing:
@@ -421,13 +462,22 @@ def _resolve_feature_columns(
                 f"BinningConfig.feature_columns declara columna(s) inexistente(s): {joined}."
             )
         columns = tuple(column for column in config.feature_columns if column not in exclusions)
+        excluded_by_target_rule = ()
+        explicit_target_rule_columns = tuple(
+            column for column in columns if column in target_rule_paths
+        )
 
     if not columns:
         raise BinningFitError(
             "No hay columnas candidatas para binning tras excluir estructurales, fechas/cohortes "
             "y exclude_columns."
         )
-    return columns
+    return _FeatureColumnResolution(
+        columns=columns,
+        excluded_by_target_rule=excluded_by_target_rule,
+        explicit_target_rule_columns=explicit_target_rule_columns,
+        target_rule_paths=target_rule_paths,
+    )
 
 
 def _structural_columns(
@@ -462,6 +512,43 @@ def _data_temporal_columns(data_config: object) -> set[str]:
     columns.update(_present_strings(_get_config_attr(strategy, "date_col")))
     columns.update(_present_strings(_get_config_attr(strategy, "cohort_col")))
     return columns
+
+
+def _target_rule_paths_by_column(data_config: object) -> dict[str, tuple[str, ...]]:
+    """Indexa las columnas que definen etiqueta en ``bad_rule``/``good_rule``.
+
+    ``indeterminate_rule`` y ``exclusion_rules`` seleccionan la muestra, no determinan la
+    etiqueta de las filas que permanecen; excluir sus columnas produciría falsos positivos.
+    """
+    target = _get_config_attr(data_config, "target")
+    paths_by_column: dict[str, list[str]] = {}
+    for rule_name in ("bad_rule", "good_rule"):
+        rule = _get_config_attr(target, rule_name)
+        path = f"data.target.{rule_name}"
+        for column in _predicate_columns(rule):
+            paths = paths_by_column.setdefault(column, [])
+            if path not in paths:
+                paths.append(path)
+    return {column: tuple(paths) for column, paths in paths_by_column.items()}
+
+
+def _predicate_columns(rule: object) -> tuple[str, ...]:
+    """Extrae ``Predicate.col`` de ``all_of``/``any_of`` en modelos o blobs opacos."""
+    columns: list[str] = []
+    for group_name in ("all_of", "any_of"):
+        predicates = _get_config_attr(rule, group_name)
+        if not isinstance(predicates, list | tuple):
+            continue
+        for predicate in predicates:
+            column = _get_config_attr(predicate, "col")
+            if isinstance(column, str) and column and column not in columns:
+                columns.append(column)
+    return tuple(columns)
+
+
+def _audit_rule_path(paths: tuple[str, ...]) -> str | tuple[str, ...]:
+    """Conserva el path simple legible y no pierde reglas si una columna aparece en ambas."""
+    return paths[0] if len(paths) == 1 else paths
 
 
 def _get_config_attr(obj: object, name: str) -> object:
@@ -618,6 +705,7 @@ def _build_results(
     variable_summaries: tuple[Any, ...],
     binner: WoEBinner,
     config: BinningConfig,
+    excluded_by_target_rule: tuple[str, ...],
 ) -> tuple[BinningResult, BinningCardSection]:
     """Construye ``BinningResult`` y ``BinningCardSection`` sin recalcular OptBinning."""
     from nikodym.binning.results import BinningCardSection, BinningResult, BinningVariableSummary
@@ -636,6 +724,7 @@ def _build_results(
         special_handling=config.special_handling,
         missing_handling=str(config.metric_missing),
         optbinning_version=_optbinning_version(),
+        excluded_by_target_rule=excluded_by_target_rule,
     )
     return result, card
 

@@ -838,6 +838,13 @@ describe("las tres listas de binning contra el SCHEMA REAL del backend", () => {
   it("feature_columns admite el comodín `*` (el valor que traen los presets)", () => {
     expect(acceptsWildcard(seccion!.properties!.feature_columns, defs)).toBe(true)
   })
+
+  it("feature_columns explica la exclusión automática y la salida explícita", () => {
+    const campo = seccion!.properties!.feature_columns
+    expect(campo.description).toContain("definen el target")
+    expect(campo.ui_help).toContain("lista explícita")
+    expect(campo.ui_help).toContain("queda auditada")
+  })
 })
 
 describe("fieldPlaceholder — ayuda en campos (examples > description)", () => {

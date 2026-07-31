@@ -21,6 +21,7 @@ from nikodym.core.study import Study
 from nikodym.data.config import (
     CohortSplitConfig,
     DataConfig,
+    ExclusionRule,
     PartitionConfig,
     PerformanceWindow,
     Predicate,
@@ -101,6 +102,7 @@ def _study_with_data(
     *,
     frame: pd.DataFrame | None = None,
     config: BinningConfig | None = None,
+    data_config: DataConfig | dict[str, Any] | None = None,
     special_catalog: dict[str, list[Any]] | None = None,
 ) -> Study:
     """Construye un ``Study`` con artefactos ``data`` ya publicados."""
@@ -114,7 +116,10 @@ def _study_with_data(
         time_limit=5,
         monotonic_trend=None,
     )
-    study = Study(NikodymConfig(data=_data_config(), binning=cfg))
+    root_config = NikodymConfig(data=_data_config(), binning=cfg)
+    if data_config is not None:
+        root_config = root_config.model_copy(update={"data": data_config})
+    study = Study(root_config)
     labels = LabeledFrame(
         frame=data_frame.copy(deep=True),
         target_col="target",
@@ -140,6 +145,47 @@ def _study_with_data(
     study.artifacts.set("data", "splits", splits)
     study.artifacts.set("data", "special", special)
     return study
+
+
+def _target_rule_frame() -> pd.DataFrame:
+    """Añade cuatro señales para distinguir etiqueta de selección de muestra."""
+    frame = _base_frame()
+    # Estas pruebas aíslan la resolución de columnas: las señales varían, pero el frame ya viene
+    # etiquetado y no necesita reproducir la regla. El caso end-to-end sí usa una regla consistente.
+    frame["dpd_12m"] = [0, 100] * 6
+    frame["al_dia"] = [1, 0, 0, 1] * 3
+    frame["producto"] = [0, 1, 2, 3] * 3
+    frame["zona_gris"] = [3, 2, 1, 0] * 3
+    return frame
+
+
+def _target_rules_data_config() -> DataConfig:
+    """Config con las cuatro clases de regla del target para gates anti-falsos-positivos."""
+    base = _data_config()
+    return base.model_copy(
+        update={
+            "target": TargetConfig(
+                bad_rule=Rule(
+                    all_of=(Predicate(col="dpd_12m", op=">=", value=90),),
+                ),
+                good_rule=Rule(
+                    any_of=(Predicate(col="al_dia", op="==", value=1),),
+                ),
+                indeterminate_rule=Rule(
+                    all_of=(Predicate(col="zona_gris", op="==", value=99),),
+                ),
+                exclusion_rules=(
+                    ExclusionRule(
+                        name="producto_retirado",
+                        rule=Rule(
+                            all_of=(Predicate(col="producto", op="==", value=99),),
+                        ),
+                    ),
+                ),
+                window=PerformanceWindow(observation_date_col="obs_date"),
+            )
+        }
+    )
 
 
 def test_from_config_y_contrato_step_exacto() -> None:
@@ -179,6 +225,124 @@ def test_feature_columns_star_excluye_estructurales_fechas_cohortes_y_exclude_co
     assert set(result.woe_column_map) == {"score", "segment"}
     assert "obs_date" not in process.feature_columns_
     assert "cohort" not in process.feature_columns_
+
+
+def test_wildcard_excluye_bad_y_good_sin_falsos_positivos_y_lo_publica() -> None:
+    """D-FUGA-1/2/5: etiqueta fuera; reglas que sólo seleccionan muestra permanecen."""
+    cfg = BinningConfig(
+        feature_columns="*",
+        exclude_columns=("drop_me", "constant", "all_missing"),
+        categorical_columns=("segment",),
+        solver="mip",
+        max_n_prebins=4,
+        max_n_bins=4,
+        min_bin_size=0.1,
+        time_limit=5,
+        monotonic_trend=None,
+    )
+    study = _study_with_data(
+        frame=_target_rule_frame(),
+        config=cfg,
+        data_config=_target_rules_data_config(),
+    )
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+    step = BinningStep.from_config(cfg)
+    step._audit = sink
+
+    step.execute(study, np.random.default_rng(1))
+
+    process = study.artifacts.get("binning", "process")
+    card = study.artifacts.get("binning", "binning_card")
+    assert process.feature_columns_ == ("score", "segment", "producto", "zona_gris")
+    assert isinstance(card, BinningCardSection)
+    assert card.excluded_by_target_rule == ("dpd_12m", "al_dia")
+    target_decisions = [
+        event.payload
+        for event in sink.events
+        if event.kind == "decision" and event.payload.get("regla") == "columna_del_target"
+    ]
+    assert target_decisions == [
+        {
+            "regla": "columna_del_target",
+            "umbral": "data.target.bad_rule",
+            "valor": "dpd_12m",
+            "accion": "excluir_de_candidatas",
+        },
+        {
+            "regla": "columna_del_target",
+            "umbral": "data.target.good_rule",
+            "valor": "al_dia",
+            "accion": "excluir_de_candidatas",
+        },
+    ]
+
+
+def test_reglas_del_target_tienen_paridad_con_data_tipado_y_opaco() -> None:
+    """D-FUGA-4: bajar por dict/list o Pydantic produce candidatas y card idénticas."""
+    cfg = BinningConfig(
+        feature_columns="*",
+        exclude_columns=("drop_me", "constant", "all_missing"),
+        categorical_columns=("segment",),
+        solver="mip",
+        monotonic_trend=None,
+    )
+    typed = _target_rules_data_config()
+    studies = [
+        _study_with_data(frame=_target_rule_frame(), config=cfg, data_config=typed),
+        _study_with_data(
+            frame=_target_rule_frame(),
+            config=cfg,
+            data_config=typed.model_dump(mode="json"),
+        ),
+    ]
+
+    for study in studies:
+        BinningStep.from_config(cfg).execute(study, np.random.default_rng(1))
+
+    assert [study.artifacts.get("binning", "process").feature_columns_ for study in studies] == [
+        ("score", "segment", "producto", "zona_gris"),
+        ("score", "segment", "producto", "zona_gris"),
+    ]
+    assert [
+        study.artifacts.get("binning", "binning_card").excluded_by_target_rule for study in studies
+    ] == [("dpd_12m", "al_dia"), ("dpd_12m", "al_dia")]
+
+
+def test_lista_explicita_conserva_columna_del_target_y_declara_la_decision() -> None:
+    """D-FUGA-3: una elección explícita no se borra, pero tampoco queda silenciosa."""
+    cfg = BinningConfig(
+        feature_columns=("dpd_12m", "score"),
+        solver="mip",
+        monotonic_trend=None,
+    )
+    study = _study_with_data(
+        frame=_target_rule_frame(),
+        config=cfg,
+        data_config=_target_rules_data_config(),
+    )
+    sink = InMemoryAuditSink()
+    study.set_audit_sink(sink)
+    step = BinningStep.from_config(cfg)
+    step._audit = sink
+
+    step.execute(study, np.random.default_rng(1))
+
+    process = study.artifacts.get("binning", "process")
+    card = study.artifacts.get("binning", "binning_card")
+    assert process.feature_columns_ == ("dpd_12m", "score")
+    assert card.excluded_by_target_rule == ()
+    decision = next(
+        event.payload
+        for event in sink.events
+        if event.kind == "decision" and event.payload.get("regla") == "columna_del_target"
+    )
+    assert decision == {
+        "regla": "columna_del_target",
+        "umbral": "data.target.bad_rule",
+        "valor": "dpd_12m",
+        "accion": "conservar_por_lista_explicita",
+    }
 
 
 def test_feature_columns_inexistentes_fallan_con_lista_completa() -> None:

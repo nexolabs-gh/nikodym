@@ -124,6 +124,7 @@ export interface BinningResult {
   special_handling?: string
   missing_handling?: string
   optbinning_version?: string
+  excluded_by_target_rule?: string[]
   tables_by_variable?: Record<string, BinRow[]>
 }
 

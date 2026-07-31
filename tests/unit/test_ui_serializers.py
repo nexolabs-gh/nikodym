@@ -93,6 +93,7 @@ def test_serialize_study_done_shape_y_cards(f1_study: Study) -> None:
     for domain, golden_key in _CARD_GOLDEN_KEYS.items():
         assert isinstance(payload[domain], dict), domain
         assert golden_key in payload[domain], (domain, golden_key)
+    assert payload["binning"]["excluded_by_target_rule"] == []
 
 
 def test_serialize_study_expone_artefactos_ricos(f1_study: Study) -> None:
