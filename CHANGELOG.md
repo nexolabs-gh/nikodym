@@ -18,6 +18,13 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   regresión.** No cambian `config_hash` ni `data_hash`; sí pueden cambiar variables finales,
   coeficientes, métricas e informe.
 
+- **Una llave de unicidad simple ya no entra al binning por el comodín.** Si
+  `data.schema.unique_keys` declara una sola columna, `feature_columns="*"` la excluye como ruido
+  de identificador. Si declara una combinación de dos o más columnas, ninguna se elimina por
+  separado: cada una puede conservar señal predictiva legítima. Las listas explícitas siguen
+  respetándose. Esta corrección es distinta de la fuga del target y queda separada para que un
+  cambio de AUC tenga una causa auditable.
+
 ## [1.10.0] — 2026-07-29
 
 **El formulario de la interfaz deja de ser una vitrina: ya se puede llevar un dataset propio del

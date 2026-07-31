@@ -145,15 +145,18 @@ class BinningConfig(NikodymBaseConfig):
     feature_columns: tuple[str, ...] | Literal["*"] = Field(
         default="*",
         title="Variables candidatas",
-        description=("'*' = todas las columnas no estructurales, salvo las que definen el target."),
+        description=(
+            "'*' = columnas no estructurales, salvo las que definen el target y una llave única."
+        ),
         json_schema_extra={
             "column_role": "input",
             "ui_widget": "multiselect",
             "ui_group": "Variables",
             "ui_order": 1,
             "ui_help": "Variables a binear. Deja '*' para incluir las columnas no estructurales "
-            "salvo las que definen el target, o elige una lista explícita —que se respeta y "
-            "queda auditada— para acotar el universo.",
+            "salvo las que definen el target y una llave de unicidad de una sola columna. Una "
+            "llave compuesta conserva sus columnas; una lista explícita se respeta y queda "
+            "auditada.",
         },
     )
     exclude_columns: tuple[str, ...] = Field(

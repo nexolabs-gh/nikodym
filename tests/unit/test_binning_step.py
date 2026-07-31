@@ -26,6 +26,7 @@ from nikodym.data.config import (
     PerformanceWindow,
     Predicate,
     Rule,
+    SchemaConfig,
     TargetConfig,
 )
 from nikodym.data.partition import PARTITION_COL, TTD_COL, PartitionResult
@@ -188,6 +189,11 @@ def _target_rules_data_config() -> DataConfig:
     )
 
 
+def _data_config_with_unique_keys(unique_keys: tuple[str, ...]) -> DataConfig:
+    """Añade una llave simple o compuesta sin alterar target/partición del fixture."""
+    return _data_config().model_copy(update={"schema_": SchemaConfig(unique_keys=unique_keys)})
+
+
 def test_from_config_y_contrato_step_exacto() -> None:
     cfg = BinningConfig(feature_columns=("score",))
     step = BinningStep.from_config(cfg)
@@ -343,6 +349,58 @@ def test_lista_explicita_conserva_columna_del_target_y_declara_la_decision() -> 
         "valor": "dpd_12m",
         "accion": "conservar_por_lista_explicita",
     }
+
+
+@pytest.mark.parametrize("opaque", [False, True])
+def test_unique_key_simple_sale_del_wildcard_y_la_compuesta_no(opaque: bool) -> None:
+    """D-FUGA-10: sólo una llave que identifica por sí sola es exclusión automática."""
+    frame = _target_rule_frame()
+    frame["id_operacion"] = [f"id-{index}" for index in range(len(frame))]
+    cfg = BinningConfig(
+        feature_columns="*",
+        exclude_columns=("drop_me", "constant", "all_missing"),
+    )
+
+    def resolve(data_config: DataConfig) -> tuple[str, ...]:
+        config: DataConfig | dict[str, Any] = data_config
+        if opaque:
+            config = data_config.model_dump(mode="json", by_alias=True)
+        return step_module._resolve_feature_columns(
+            frame=frame,
+            target_col="target",
+            status_col="label_status",
+            partition_col=PARTITION_COL,
+            ttd_col=TTD_COL,
+            config=cfg,
+            data_config=config,
+            pd=pd,
+        ).columns
+
+    simple = resolve(_data_config_with_unique_keys(("id_operacion",)))
+    composite = resolve(_data_config_with_unique_keys(("producto", "zona_gris")))
+
+    assert "id_operacion" not in simple
+    assert "producto" in composite
+    assert "zona_gris" in composite
+
+
+def test_unique_key_simple_se_conserva_en_lista_explicita() -> None:
+    """La corrección del wildcard no borra una columna enumerada por el usuario."""
+    frame = _target_rule_frame()
+    frame["id_operacion"] = [f"id-{index}" for index in range(len(frame))]
+
+    resolution = step_module._resolve_feature_columns(
+        frame=frame,
+        target_col="target",
+        status_col="label_status",
+        partition_col=PARTITION_COL,
+        ttd_col=TTD_COL,
+        config=BinningConfig(feature_columns=("id_operacion", "score")),
+        data_config=_data_config_with_unique_keys(("id_operacion",)),
+        pd=pd,
+    )
+
+    assert resolution.columns == ("id_operacion", "score")
 
 
 def test_feature_columns_inexistentes_fallan_con_lista_completa() -> None:

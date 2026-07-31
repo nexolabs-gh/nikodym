@@ -449,7 +449,7 @@ def _resolve_feature_columns(
             for column in frame.columns
             if str(column) in target_rule_paths and str(column) not in exclusions
         )
-        wildcard_exclusions = exclusions | set(target_rule_paths)
+        wildcard_exclusions = exclusions | set(target_rule_paths) | _single_unique_key(data_config)
         columns = tuple(
             str(column) for column in frame.columns if str(column) not in wildcard_exclusions
         )
@@ -530,6 +530,20 @@ def _target_rule_paths_by_column(data_config: object) -> dict[str, tuple[str, ..
             if path not in paths:
                 paths.append(path)
     return {column: tuple(paths) for column, paths in paths_by_column.items()}
+
+
+def _single_unique_key(data_config: object) -> set[str]:
+    """Devuelve la llave que identifica por sí sola; una combinación no se descompone."""
+    if isinstance(data_config, dict):
+        schema = data_config.get("schema")
+    else:
+        # ``SchemaConfig`` usa ``schema_`` porque ``BaseModel.schema`` ya existe; el alias público
+        # y el blob opaco usan ``schema``.
+        schema = getattr(data_config, "schema_", None)
+    unique_keys = _get_config_attr(schema, "unique_keys")
+    if isinstance(unique_keys, list | tuple) and len(unique_keys) == 1:
+        return _present_strings(unique_keys[0])
+    return set()
 
 
 def _predicate_columns(rule: object) -> tuple[str, ...]:

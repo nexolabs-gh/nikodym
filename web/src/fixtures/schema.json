@@ -6595,10 +6595,10 @@
                 ],
                 "column_role": "input",
                 "default": "*",
-                "description": "'*' = todas las columnas no estructurales, salvo las que definen el target.",
+                "description": "'*' = columnas no estructurales, salvo las que definen el target y una llave única.",
                 "title": "Variables candidatas",
                 "ui_group": "Variables",
-                "ui_help": "Variables a binear. Deja '*' para incluir las columnas no estructurales salvo las que definen el target, o elige una lista explícita —que se respeta y queda auditada— para acotar el universo.",
+                "ui_help": "Variables a binear. Deja '*' para incluir las columnas no estructurales salvo las que definen el target y una llave de unicidad de una sola columna. Una llave compuesta conserva sus columnas; una lista explícita se respeta y queda auditada.",
                 "ui_order": 1,
                 "ui_widget": "multiselect"
               },
