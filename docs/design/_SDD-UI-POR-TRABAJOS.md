@@ -129,7 +129,7 @@ hace todo.
 | Comparar provisiones (CMF vs interna) | data, provisioning_cmf, provisioning_internal, provisioning, report | — | Chile | **disponible** |
 | Stress testing | data, stress, report | curvas o ECL según el escenario | neutral | **a medir** (`stress` no está en el formulario) |
 | Validar un modelo existente | data, performance, stability, validation, report | scorecard y PD del cliente | neutral | **NO disponible** (F4.1) |
-| LGD por regresión (WoE + árbol) | data, binning, + regresor | — | neutral | **NO disponible** — no hay objetivo continuo |
+| LGD modelada (WoE + regresión) | data, binning, provisioning_internal, report | PD calibrada | neutral | **a un paquete de distancia** — `LgdEngine` existe y admite covariables WoE; falta conectarlo (D-JOB-11) |
 
 Las dos últimas filas son trabajo pendiente que este SDD **no** resuelve: se declaran para que la
 landing diga la verdad y el roadmap sepa qué falta. Un objetivo continuo en el motor es capacidad
@@ -157,12 +157,35 @@ dentro de un trabajo ya elegido; entran después y no bloquean esto.
   menos a un trabajo, o declare por qué no.
 - La puerta por HTTP conserva las guardas de `/api/upload` y suma su negativo de seguridad.
 
-## 7. Preguntas abiertas para Cami
+## 7. Decisiones de alcance (Cami, 2026-07-31)
 
-1. **Regresión sobre target continuo** (LGD/EAD modeladas): ¿entra al roadmap como capacidad nueva?
-   Es lo que falta para el caso «LGD con WoE y árbol de regresión» y para EAD.
-2. **Validar un modelo existente**: hubo interés real en el webinar y hoy no existe la ruta. ¿Va
-   antes que E/G/H1?
-3. **`stress` no está en el formulario** (es Python-only). ¿Entra como trabajo ahora o después?
-4. **Nombres de los trabajos**: los de la tabla son de negocio. ¿Suenan a lo que diría un área de
-   banco, o hay que ajustarlos antes de que lleguen a la pantalla?
+**D-JOB-11 — LGD modelada NO es capacidad nueva: es conectar la que ya existe.** Medido tras la
+decisión de «medir primero»: `LgdEngine` (`src/nikodym/provisioning/ifrs9/lgd.py`) es un motor
+autocontenido que recibe un `frame` y `covariate_cols` —nombres de columna cualesquiera, así que
+**admite columnas WoE sin modificarlo**— y ofrece `beta_regression` (statsmodels `BetaModel`) y
+`fractional_response` (GLM binomial logit, Papke-Wooldridge), además de `workout`. No muta el frame
+y acota su salida con floor/cap auditados.
+
+Lo que falta es acotado y no es un motor: **(a)** que `provisioning_internal.lgd.method` pueda
+delegar en `LgdEngine` en vez de quedarse en `provided`/`group_historical`, y **(b)** que las
+columnas WoE que publica *binning* estén disponibles como covariables. Va como paquete propio con su
+enmienda, no como «capacidad nueva» de roadmap largo.
+
+⚠️ **El árbol de regresión sigue sin existir, y hay una razón técnica escrita para no añadirlo a la
+ligera:** `lgd.py` documenta que la LGD es **bimodal** y que por eso el motor «nunca OLS plano». Beta
+y fraccional son los dos enfoques estadísticamente correctos para un objetivo en `[0,1]`. Un árbol
+sería una tercera opción legítima, pero exige justificar cómo respeta esa distribución.
+
+**D-JOB-12 — «Validar un modelo existente» va ANTES que E, G y H1.** Es la puerta de entrada más
+barata para un banco —no tiene que confiar en nuestro motor de modelado, sólo en nuestro informe— y
+hubo interés explícito en el webinar. E son defectos acotados, G gates internos y H1 copy: ninguno
+acerca una venta como esto.
+
+**D-JOB-13 — `stress` se declara NO disponible por ahora.** Es Python-only, nunca se midió de punta
+a punta, y el catálogo de datos externos ya documentó que no lee archivos y rechaza
+`source="official"`. Aparece en la landing con su estado real y no se puede iniciar; medirlo es un
+trabajo propio.
+
+**D-JOB-14 — Los nombres de los trabajos van en lenguaje de negocio.** «Scorecard de comportamiento
+(PD)», «Provisión interna / LGD», «Provisiones IFRS 9 / ECL», «PD lifetime». Es como se llaman los
+equipos y los entregables dentro de un banco, y funciona igual en Chile, Perú o Colombia.
