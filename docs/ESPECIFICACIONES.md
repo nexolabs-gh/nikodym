@@ -3,12 +3,12 @@
 | | |
 |---|---|
 | **Documento** | Especificación maestra |
-| **Versión** | 1.1 (producto publicado) |
-| **Fecha** | 2026-07-18 |
+| **Versión** | 1.10 (producto publicado) |
+| **Fecha** | 2026-07-31 |
 | **Marca / nombre completo** | Nikodym RiskLib |
 | **Paquete Python** | `nikodym` (`pip install nikodym`, `import nikodym`) |
 | **Licencia** | **Apache-2.0** (open-source) |
-| **Estado** | Nikodym `1.3.0` publicado; pipeline F1 estable y dominios CMF/IFRS 9/forward/stress experimentales. Parámetros CMF con validación humana pendiente pre-producción. |
+| **Estado** | Nikodym `1.10.0` publicado; pipeline F1 estable y dominios CMF/IFRS 9/forward/stress experimentales. Parámetros CMF con validación humana pendiente pre-producción. |
 
 > El nombre **Nikodym** viene de la derivada de **Radon–Nikodym** (cambio de medida), el corazón matemático del riesgo cuantitativo. Es marca compartida con la consultora **Nikodym**.
 
@@ -303,7 +303,7 @@ Tres pilares: desarrollo sólido · **effective challenge** (validación indepen
 El único plan vivo es [`ROADMAP.md`](ROADMAP.md). Este documento define el contrato del producto y
 no mantiene una segunda cola de implementación.
 
-Estado resumido a `1.3.0`:
+Estado resumido a `1.10.0`:
 
 | Capacidad | Estado de producto |
 |---|---|

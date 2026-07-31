@@ -9,7 +9,34 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado del proyecto (2026-07-30 mediodía, cierre)
+## Estado vigente (2026-07-31, pavimentación)
+
+**PyPI publica `1.10.0`; no hay release autorizado ni en curso.** La base pública de esta
+pavimentación es `60a739b`: contiene los SDD aprobados de la puerta de artefactos y de la fuga del
+target, pero todavía no sus implementaciones. El plan ejecutable de la próxima oleada vive en
+`privado/PLAN-IMPLEMENTACION-2026-07-31.md`; no reabrir sus censos salvo evidencia nueva.
+
+El benchmark de escala heredado se detuvo porque su `rss_pico_gb` medía sólo antes/después y el
+corte de 5 GB no actuaba durante el cálculo. El arnés privado ya supervisa cada escalón en un worker,
+muestrea RSS real y termina/limpia al alcanzar el techo. Un smoke de `50.000 x 25` midió 56,78 s,
+RSS pico 0,438 GB y `tracemalloc` 0,286 GB. **F0.1 sigue abierto**: la corrida completa debe hacerse
+en una tarea standalone y con la máquina descargada.
+
+Los censos del 2026-07-31 dejan cuatro correcciones de premisa: hay 58 candidatos históricos a campo
+inerte y sólo 2 confirmados; `Study.results` está vacío y tiene dos consumidores, pero no debe
+llenarse como segunda fuente; CMF no puede separarse con un extra vacío; y la moneda es un contrato
+transversal de presentación. Orden vigente: evidencia segura → puerta de artefactos → fuga del
+target/unique keys → defaults efectivos de UI → defectos runtime → publicación canónica de
+resultados → gates débiles → posicionamiento/documentación. Cada cambio contractual nuevo se detiene
+en su SDD.
+
+Los gates verdes de referencia siguen siendo los heredados sobre `60a739b`: 4.560 passed / 6 skipped,
+mypy 242, ruff check/format, vitest 369/369 y builds reproducibles. No presentarlos como recién
+ejecutados. La evidencia, riesgos y siguiente comando exacto se actualizan siempre en `HANDOFF.md`.
+
+---
+
+## Historial reciente (2026-07-30 mediodía, cierre)
 
 **`main` = `423e1a6`, sin un solo cambio de código en la sesión del material de cámara.** No se tocó
 `src/`, `web/` ni `pyproject.toml`, así que los gates del repo siguen siendo los del cierre anterior.
@@ -398,14 +425,16 @@ exigiendo **OK específico de Cami**. La librería ya **no** está en fase de co
   monotónico, selección IV/VIF, logística sobre WoE, calibración, informe HTML/PDF/Word).
 - **Provisiones CMF (Chile, B-1) e IFRS 9/ECL**: implementadas, testeadas y con preset/UI/informe, pero
   marcadas **experimentales** (madurez, no certificación).
-- **Stress, markov, forward, survival**: implementados y cubiertos por tests, pero hoy se usan
-  escribiendo el config en Python (sin preset/UI propios) → **experimentales**.
+- **Stress, markov y forward**: implementados y cubiertos por tests, pero hoy se usan escribiendo el
+  config en Python (sin preset/UI propios) → **experimentales**. Survival ya tiene UI, preset e
+  informe y sigue experimental.
 - **UI React** en `web/` + **demo multi-dominio** (F1 scorecard · F3 CMF · F4 IFRS 9) deployada en
   **demo.nikodym.cl** (fixtures de corridas reales, sin cálculo en el navegador).
 - **Informe** HTML/PDF/Word con estilo editorial, contexto poblacional, validación formal y config
   efectiva por dominio; F3 fue recapturado desde una corrida real durante esta consolidación.
-- Suite: **>4.500 tests** (4.515 al 2026-07-28), `mypy --strict`, cobertura 100 % en código regulatorio, CI matriz verde
-  (macOS/Windows/Linux × Python 3.11–3.13).
+- Suite: **>4.500 tests** (4.515 al 2026-07-28), `mypy --strict` y un gate al 100 % sobre las 11 rutas
+  explícitas de `REGULATORY_COVERAGE_PATHS`; ese gate no cubre todo el código regulatorio ni los
+  engines CMF/IFRS 9 completos. CI matriz verde (macOS/Windows/Linux × Python 3.11–3.13).
 
 **Track pre-Interbank COMPLETO:** la cola [`privado/COLA-CODEX-INTERBANK.md`](privado/COLA-CODEX-INTERBANK.md)
 (IBK-01…IBK-05) está **toda cerrada** al 2026-07-17. **No hay bloque IBK siguiente.** El release
@@ -524,7 +553,10 @@ ya se completaron; sus decisiones siguen vigentes en `docs/design/`.
 - **Evolución por SDD:** toda capacidad nueva o cambio contractual se diseña antes de programarse,
   usando `docs/design/_PLANTILLA-SDD.md`, revisión independiente e integración coordinada. Los SDD
   históricos conservan las decisiones ya implementadas; no constituyen por sí solos una cola activa.
-- **Calidad del código (cuando se programe)**: `mypy --strict`, ruff, tests canónicos numéricos con golden values, 100% de cobertura en código regulatorio (`core/exceptions`, `core/seeding`, `provisioning/cmf`, `provisioning/ifrs9`), `filterwarnings=["error"]`. SDD-24/25 los especifican.
+- **Calidad del código (cuando se programe)**: `mypy --strict`, ruff, tests canónicos numéricos con
+  golden values y 100 % de cobertura sobre la lista literal
+  `nikodym.testing.regulatory.REGULATORY_COVERAGE_PATHS` (11 rutas; no equivale a todo el código
+  regulatorio), `filterwarnings=["error"]`. SDD-24/25 los especifican.
 - Decisiones de fondo: una recomendación, no menú. Conciso y ejecutivo.
 
 ## Decisiones de diseño fijadas

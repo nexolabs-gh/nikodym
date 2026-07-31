@@ -51,10 +51,10 @@ los declarados en `[project.optional-dependencies]` del `pyproject.toml`.
 | `forecasting` | `nikodym[forecasting]` | Forward-looking / proyección macro (F5). | `statsmodels`, `pmdarima` |
 | `survival` | `nikodym[survival]` | Modelos de supervivencia (Cox / AFT). | `lifelines` |
 | `tracking` | `nikodym[tracking]` | Registro de corridas / *registry*. | `mlflow` |
-| `ui` | `nikodym[ui]` | **Interfaz gráfica local**, lista para correr: instala el comando `nikodym-ui` y **todo lo que su formulario puede ejecutar**. | `fastapi`, `uvicorn`, `python-multipart` + los extras `scoring`, `survival`, `excel` y `docx` |
+| `ui` | `nikodym[ui]` | **Interfaz gráfica local**, lista para correr: instala el comando `nikodym-ui` y **todo lo que su formulario puede ejecutar**. | `fastapi`, `uvicorn`, `python-multipart` + los extras `scoring`, `survival`, `excel`, `docx` y `report` |
 | `polars` | `nikodym[polars]` | Backend de carga de datos con Polars. | `polars` |
 | `excel` | `nikodym[excel]` | Lectura de `.xlsx` en el `DataLoader`. | `openpyxl` |
-| `report` | `nikodym[report]` | Figuras opcionales del reporte. | `matplotlib`, `plotly` |
+| `report` | `nikodym[report]` | Figuras opcionales del reporte. | `matplotlib` |
 | `ai` | `nikodym[ai]` | Narrativa asistida por IA (opcional). | `anthropic` |
 | `all` | `nikodym[all]` | **Meta-extra**: todo lo redistribuible de la tabla anterior. | (agrega todos los de arriba) |
 
@@ -87,7 +87,7 @@ Comprueba que el núcleo importa y reporta versión:
 python -c "import nikodym; print(nikodym.__version__)"
 ```
 
-Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.9.x**). Que este
+Debe imprimir la versión instalada (esta documentación corresponde a la serie **1.10.x**). Que este
 comando funcione confirma que el **núcleo base** está sano; no dice nada sobre los extras, porque
 sus imports son perezosos. Para verificar que el extra `scoring` quedó disponible, la prueba real es
 correr una corrida F1 (siguiente sección): si falta el extra, el motor fallará al importar
@@ -164,8 +164,9 @@ nikodym-ui
 sidebar: elegir datos → configurar → ejecutar → resultados → informe.
 
 !!! note "`[ui]` trae lo que el formulario puede ejecutar"
-    No es sólo el servidor: compone `scoring` y `survival`, así que los tres presets —F1 scorecard,
-    F3 provisiones CMF y F4 IFRS 9— corren hasta el informe con esa única instalación. Son unos
+    No es sólo el servidor: compone `scoring`, `survival`, `excel`, `docx` y `report`, así que los
+    tres presets —F1 scorecard, F3 provisiones CMF y F4 IFRS 9— corren hasta el informe con esa
+    única instalación. Son unos
     700 MB en disco. Un extra llamado `ui` que instalara la interfaz pero no el motor que ésta
     dispara prometería algo que no cumple. Quedan fuera el **PDF** (`nikodym[pdf]`), por la licencia
     de WeasyPrint, y el backend de lectura **`polars`** (`nikodym[polars]`), que sólo acelera la

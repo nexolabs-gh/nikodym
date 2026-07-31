@@ -3,12 +3,13 @@
 | | |
 |---|---|
 | **Documento** | Estado por capacidad y plan de evolución |
-| **Versión** | 1.5 |
-| **Fecha** | 2026-07-23 |
-| **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.1 · [`design/00-INDICE.md`](design/00-INDICE.md) |
+| **Versión** | 1.10 |
+| **Fecha** | 2026-07-31 |
+| **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.10 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
-El código, el tag `v1.5.0` y PyPI están en `1.5.0`. `main` se encuentra en mejora continua; el próximo
-release será un bump `1.6.0` con OK específico de Cami.
+PyPI publica `1.10.0`; `main` se encuentra en mejora continua y ya contiene los SDD aprobados de la
+puerta de artefactos y de la fuga del target. `1.11.0` es sólo un corte candidato: cualquier tag o
+publicación requiere el OK específico de Cami.
 Las fases F0–F8 que siguen conservan el diseño y los DoD históricos; **no son una cola automática**.
 El estado y el plan de esta sección son la fuente vigente.
 
@@ -20,11 +21,23 @@ El estado y el plan de esta sección son la fuente vigente.
 | F2 · ML/tuning/explain | Implementado, **experimental** | No sustituye la scorecard ni amplía SemVer F1 |
 | F3/F8 · CMF, método interno y orquestación | Implementado, **experimental** | Validación humana de matrices/haircuts pendiente |
 | F4 · IFRS 9/ECL | Implementado, **experimental** | Independiente del máximo B-1 chileno |
-| F5/F6 · forward, survival, Markov, stress y validación | Implementado, **experimental** | Uso por config Python; sin preset/UI propios |
-| F7 · UI React/FastAPI e informe | **No entregada como producto** | B2.0–B2.3 cerrados en `main` (assets, supply-chain, licencias; launcher, runtime y seguridad; extra `[ui]`, uploads y presets) y la documentación de B2.5. Abiertos: B2.4, la pata de release de B2.5 y el tercero sin checkout |
+| F5/F6 · forward, survival, Markov, stress y validación | Implementado, **experimental** | Survival tiene UI, preset e informe; forward, Markov y stress se usan por config Python |
+| F7 · UI React/FastAPI e informe | **Publicada en 1.10.0; cierre B2 abierto** | B2.0–B2.3 y la documentación de B2.5 están entregados. Faltan el clean-room automatizado de B2.4, el release gateado y un recorrido por un tercero sin checkout |
 | Originación/reject inference | Futuro | Requiere caso de uso, priorización y SDD |
 
-## Plan operativo vigente (desde 2026-07-21)
+## Plan operativo vigente (desde 2026-07-30)
+
+El orden actual es: **F0 comprobar con datos reales y escala → F1 cerrar la figura y los defectos de
+correctitud → F2 optimizar sólo según el benchmark → F3 rediseñar la UI por trabajos → F4 completar
+los trabajos alcanzables → F5 abrir capacidades sólo con demanda que las justifique**. En paralelo
+se corrigen los P1 ya medidos: fuga del target, defaults efectivos de la UI, puerta de artefactos,
+publicación de métricas y defectos de los arneses reales. La fase F0 bloquea inferencias de escala,
+no los arreglos de correctitud cuyo contrato ya está decidido.
+
+Los bloques B1–B8 que siguen preservan decisiones y evidencia histórica. **Ya no son la cola
+operativa** y no deben desplazar el orden F0–F5 anterior.
+
+## Plan histórico B1–B8 (desde 2026-07-21)
 
 El track pre-reunión quedó cerrado con el release `1.4.1`. Lo que sigue es el plan de mejora continua
 fijado el 2026-07-21, ordenado por prioridad de ejecución. **Ningún bloque se inicia por estar en esta
@@ -87,9 +100,9 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 **Estado: B2 total ABIERTO; B2.0, B2.1 y B2.2 CERRADOS (2026-07-24); B2.3 CERRADO (medido el
 2026-07-28); B2.5 PARCIAL (documentación hecha el 2026-07-28; falta la pata de release).**
 
-> ⏸️ **CONGELADO hasta el 2026-08-03 por decisión de Cami (2026-07-28).** Hay un webinar en vivo el
-> ~2026-08-02 sobre regresión logística y scorecard, con demo real no precargada, y ningún nodo de
-> B2 lo acerca. Se retoma el lunes 2026-08-03. Detalle del plan en `HANDOFF.md`.
+> ✅ **El freeze terminó.** El webinar ocurrió el 2026-07-30 y su material quedó terminado y
+> verificado. B2.4, la pata de release de B2.5 y el recorrido de un tercero vuelven al backlog bajo el
+> plan F0–F5 vigente; no conservan una fecha futura artificial.
 >
 > **B2.4 quedó diseñado en dos piezas** (2026-07-28), porque su DoD mezcla dos problemas de coste muy
 > distinto y **sólo uno necesita navegador**:
@@ -242,11 +255,11 @@ retroactivamente el producto `1.5.0` publicado.
    256 bits, no log/URL, inyectado en memoria en el index; la SPA lo envía por header. Toda request
    valida `Host` exacto; upload/run exigen `Origin` same-origin + token y CORS externo está apagado.
    El index inyectado responde `Cache-Control: no-store` y no se persiste.
-   SPA `/`, API relativa `/api`, assets `/assets`, same-origin y
-   sin subpath en `1.6.0`; API registrada antes del fallback. Falta del index o de **cualquier**
+   SPA `/`, API relativa `/api`, assets `/assets`, same-origin y sin subpath; API registrada antes
+   del fallback. Falta del index o de **cualquier**
    `src`/`href` local —favicon incluido— falla antes de bind; exposición a red queda diferida como R0.
 3. **B2.3 · `[ui]`, uploads y presets.** Como delta, `[ui]` compone
-   `nikodym[scoring,excel,docx]` + FastAPI/Uvicorn/multipart y preserva
+   `nikodym[scoring,survival,excel,docx]` + FastAPI/Uvicorn/multipart y preserva
    `scikit-learn>=1.6,<1.8`. `allow_live_execution=false` devuelve 403
    en upload/run pero conserva lectura/validación. `upload_max_mb` tiene default único de 100 MiB y
    lectura por chunks. Upload guarda los bytes originales en `uploaded_<sha256><suffix>` sin parsear
@@ -266,7 +279,8 @@ retroactivamente el producto `1.5.0` publicado.
    `index.html` y, por separado, un recurso local obligatorio en una instalación descartable y exige
    fallo antes de bind.
 5. **B2.5 · documentación y release.** README/docs explican instalación y arranque en dos comandos.
-   Release publica exactamente el wheel/sdist gateados, sin rebuild. Tag/PyPI `1.6.0` conservan el
+   El contrato pendiente exige publicar exactamente el wheel/sdist gateados, sin rebuild. Todo tag
+   y publicación conservan el
    OK específico de Cami.
    **Documentación HECHA el 2026-07-28:** el README suma «La misma corrida, sin escribir código» y
    `docs_site` documenta `nikodym-ui` con sus tres opciones, el bind sólo-loopback y la paridad
@@ -452,10 +466,11 @@ gris o «próximamente» es exactamente la insinuación que esta regla prohíbe.
 
 ### B4 · Rutas de uso para F5/F6
 
-F5 (forward, survival, Markov, stress) y F6 (validación avanzada) están implementados y cubiertos por
-tests, pero sólo se usan escribiendo el config en Python. Se mantienen en la oferta, así que necesitan
-al menos **un preset documentado y un ejemplo ejecutable por capacidad** — no una UI completa. Sin
-eso, ofrecerlos es ofrecer algo que el usuario no puede ejecutar.
+Forward, Markov y stress están implementados y cubiertos por tests, pero sólo se usan escribiendo el
+config en Python. Survival ya tiene preset, UI e informe; validación ya participa en el flujo F1.
+Las tres capacidades que siguen Python-only necesitan al menos **un preset documentado y un ejemplo
+ejecutable por capacidad** —no necesariamente una UI completa—. Sin eso, ofrecerlas es ofrecer algo
+que el usuario no puede ejecutar.
 
 ### B5 · Validación humana de las matrices CMF (gate G0)
 
@@ -691,18 +706,18 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 outputs contractuales, regulatorios ni de modelado; `reliability.py` es la única derivación
 determinista de presentación (read-only, trazada y fuera de modelo/ModelCard/informe).
 **Dos modos de despliegue.**
-- **Local (analista):** `pip install nikodym[ui]` debe traer el React buildeado y levantar FastAPI
-  en loopback; los datos no salen de su máquina. 🔴 **PROMESA INCUMPLIDA EN `1.5.0`** — lo publicado
-  no trae launcher/assets y el extra no cierra los presets visibles. **En `main` ya está cumplida**
-  (2026-07-28): B2.1 versiona y gatea los assets, B2.2 añade el launcher `nikodym-ui` con su runtime
-  y seguridad, y B2.3 cierra el extra `[ui]` —que desde `d842ccd` compone `scoring` y `survival`, así
-  que `pip install nikodym[ui]` corre los tres presets—. Hasta **publicarlo** y repetir el recorrido
-  desde PyPI con un tercero sin checkout, F7 no está entregado.
+- **Local (analista):** `pip install nikodym[ui]` trae el React buildeado y levanta FastAPI en
+  loopback; los datos no salen de su máquina. La capacidad está publicada desde `1.9.0` y verificada
+  nuevamente en `1.10.0`: B2.1 gatea los assets, B2.2 añade el launcher `nikodym-ui` con su runtime
+  y seguridad, y B2.3 cierra el extra `[ui]`, que compone `scoring`, `survival`, `excel`, `docx` y
+  `report` para ejecutar los tres presets. El cierre amplio de B2 sigue pendiente del clean-room
+  automatizado, del release sin rebuild y de un recorrido por un tercero sin checkout.
 - **Hosteada (comercial):** `nikodym.cl/demo`, dataset **sintético** precargado, flujo guiado "arma tu modelito en pocos pasos" + CTA de lead comercial.
 **DoD.** Un modelo F1 completo construible 100 % desde la UI: igualdad estructural +
 `config_hash` antes de ejecutar y, sobre el mismo contenido, `data_hash` + resultados canónicos
-después; informe HTML y look&feel premium aprobados. El cierre de producto exige el recorrido desde
-el artefacto publicado en PyPI.
+después; informe HTML y look&feel premium aprobados. El artefacto ya está publicado en PyPI; el
+cierre amplio de B2 exige además el clean-room automatizado, publicar sin rebuild el artefacto
+gateado y el recorrido de un tercero sin checkout.
 **Dependencias.** Todo el core (motor V1 ✅ completo 2026-07-04).
 
 ## F+ — Originación & reject inference (insertable)
@@ -713,12 +728,12 @@ el artefacto publicado en PyPI.
 ---
 
 ## Estrategia de release (open-source)
-- `1.5.0` es la versión del código/tag y la publicada en PyPI; el próximo release será `1.6.0` (bump
-  con OK específico de Cami). El pipeline F1 conserva la garantía SemVer 1.x.
-- **`1.5.0` = cierre de B1** (rótulo ECL + deuda cosmética) — **publicado el 2026-07-22**.
-  **`1.6.0` = cierre de B2** (UI instalable).
-  Se publican por separado: atar el release de higiene a la distribución de la UI retrasa correcciones
-  ya listas sin beneficio para nadie.
+- `1.10.0` es la versión publicada en PyPI. `1.11.0` es un corte candidato para los arreglos
+  compatibles ya diagnosticados; no es un compromiso de fecha ni de alcance. El pipeline F1 conserva
+  la garantía SemVer 1.x.
+- El tag sólo se crea sobre un SHA cuyo CI completo ya terminó verde. `release.yml` todavía
+  reconstruye en vez de publicar el artefacto gateado; cerrar esa brecha es trabajo pendiente, no
+  una propiedad del release actual.
 - La librería se publica **completa y gratuita** bajo Apache-2.0. Ninguna capacidad se retiene del
   paquete público por motivos comerciales.
 - Releases incrementales con changelog, docs MkDocs, dataset/tutorial reproducible y smoke clean-room.
