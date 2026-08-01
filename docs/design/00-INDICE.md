@@ -286,7 +286,7 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > estática sigue arrancando sembrada**, porque no tiene backend ni acepta datos propios.
 >
 > **Lo que sólo la institución puede decidir se pregunta, no se inventa (2026-08-01, APROBADA).**
-> [`_ENMIENDA-DECISIONES-OBLIGATORIAS.md`](_ENMIENDA-DECISIONES-OBLIGATORIAS.md), D-OBL-1…D-OBL-10,
+> [`_ENMIENDA-DECISIONES-OBLIGATORIAS.md`](_ENMIENDA-DECISIONES-OBLIGATORIAS.md), D-OBL-1…D-OBL-11,
 > enmienda a `_ENMIENDA-DEFAULTS-EFECTIVOS-UI.md` (D-FX-5 y D-FX-8) y a
 > `_SDD-UI-POR-TRABAJOS.md` (D-JOB-3 y D-JOB-4). Activar una sección escribía un submodelo
 > obligatorio con valores inventados que el motor rechaza —`target.bad_rule = {all_of: [], any_of:

@@ -21,7 +21,7 @@ import {
   sectionsOfJob,
   type Job,
 } from "@/lib/jobs"
-import { CONFIG_SECTIONS } from "@/lib/schema"
+import { CONFIG_SECTIONS, FIXTURE_SCHEMA } from "@/lib/schema"
 
 const JOBS = FIXTURE_JOBS.jobs
 const porId = (id: string): Job => {
@@ -296,5 +296,40 @@ describe("guardrail: las decisiones se pintan al principio de Configuración (D-
     expect(cuerpo.indexOf("<RequiredDecisions")).toBeGreaterThan(-1)
     expect(cuerpo.indexOf("<RequiredDecisions")).toBeLessThan(cuerpo.indexOf("<PreflightNotice"))
     expect(cuerpo.indexOf("<RequiredDecisions")).toBeLessThan(cuerpo.indexOf("<ConfigSectionForm"))
+  })
+})
+
+describe("el esqueleto recorta los capítulos del informe (D-OBL-11)", () => {
+  const CATALOGO_REAL = (FIXTURE_SCHEMA as { effective_defaults?: unknown })
+    .effective_defaults as Parameters<typeof jobSkeleton>[2]
+
+  it("un scorecard no exige el capítulo de una sección que no tiene", () => {
+    // El default del motor son OCHO capítulos, entre ellos `eda`, que el trabajo no declara y el
+    // formulario no ofrece. Sin el recorte, el paso `report` moría con `missing_policy: error` y
+    // NINGÚN trabajo llegaba a `done`. Se descubrió corriendo el gate de aceptación, no en la suite.
+    const job = porId("scorecard_pd")
+    const skeleton = jobSkeleton({}, job, CATALOGO_REAL)
+    const report = skeleton.report as { sections: { required_sections: string[] } }
+    expect(report.sections.required_sections).not.toContain("eda")
+    // Y lo que el trabajo SÍ produce se conserva: recortar no es vaciar.
+    expect(report.sections.required_sections).toContain("binning")
+    expect(report.sections.required_sections).toContain("scorecard")
+    for (const capitulo of report.sections.required_sections) {
+      expect(job.sections).toContain(capitulo)
+    }
+  })
+
+  it("no AÑADE un capítulo que el default no pedía", () => {
+    // El error simétrico: exigir un capítulo que el usuario nunca eligió.
+    const job = porId("scorecard_pd")
+    const skeleton = jobSkeleton({}, job, CATALOGO_REAL)
+    const report = skeleton.report as { sections: { required_sections: string[] } }
+    expect(report.sections.required_sections).not.toContain("data")
+    expect(report.sections.required_sections).not.toContain("report")
+  })
+
+  it("un trabajo sin `report` no revienta", () => {
+    const job: Job = { ...porId("scorecard_pd"), sections: ["data", "binning"] }
+    expect(() => jobSkeleton({}, job, CATALOGO_REAL)).not.toThrow()
   })
 })

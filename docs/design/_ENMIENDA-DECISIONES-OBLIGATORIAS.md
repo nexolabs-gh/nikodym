@@ -205,6 +205,21 @@ usuario lee «Falta definir qué es un cliente malo en tu cartera», no `data.ta
 es la coordenada interna; el copy público va en el idioma del lector, como exige la regla de copy del
 repo.
 
+**D-OBL-11 — El esqueleto de un trabajo exige del informe sólo los capítulos que ese trabajo
+produce.** Añadida el 2026-08-01 al verificar el gate de aceptación: **ningún trabajo llegaba a
+`done`**, y no se veía en la suite. El default del motor son ocho capítulos obligatorios, entre ellos
+`eda`; un scorecard declara nueve secciones y `eda` no está entre ellas —el formulario ni siquiera la
+ofrece—, así que el informe exigía una card que la corrida no iba a producir y el paso `report` moría
+con `missing_policy: error`. El preset F1 no lo sufre porque declara sus siete capítulos a mano.
+
+Al sembrar, `required_sections` se recorta a la intersección con las secciones del trabajo. El
+criterio no es nuevo: es el de **D-FX-3** —el informe exige sólo lo de los dominios activos de la
+invocación— aplicado al sitio que faltaba, la siembra. **No se toca el default del motor**, que sigue
+siendo correcto para quien corre el pipeline completo por código.
+
+⚠️ Se recorta, **nunca se añade**: meter un capítulo que el default no pedía sería la mentira
+simétrica, exigir del informe algo que el usuario no eligió.
+
 **D-OBL-10 — Esto no toca `config_hash` ni el catálogo de secciones.** Las decisiones son
 navegación y copy, igual que el trabajo (D-JOB-9). Responder una decisión escribe el mismo path que
 escribiría el control de su sección, así que dos usuarios que llegan al mismo config por caminos

@@ -122,7 +122,41 @@ export function jobSkeleton(
     if (canonica === undefined) continue
     skeleton[section] = canonicalProjection(canonica)
   }
+  recortarCapitulosDelInforme(skeleton, job)
   return skeleton
+}
+
+/**
+ * Deja en `report.sections.required_sections` sólo los capítulos que este trabajo produce (D-OBL-11).
+ *
+ * 🔴 **Sin esto ningún trabajo llega a `done`, y se descubría sólo corriendo.** El default del motor
+ * son ocho capítulos obligatorios, entre ellos `eda`; un scorecard declara nueve secciones y `eda`
+ * no está entre ellas —el formulario ni siquiera la ofrece—, así que el informe exigía una card que
+ * la corrida no iba a producir y el paso `report` moría con `missing_policy: error`. El preset F1 no
+ * lo sufría porque declara sus siete capítulos a mano.
+ *
+ * El criterio no es nuevo: es el de D-FX-3 —el informe exige sólo lo de los dominios activos de la
+ * invocación— aplicado al sitio que faltaba, la siembra. Y no toca el default del motor, que sigue
+ * siendo el correcto para quien usa la librería por código con el pipeline completo.
+ *
+ * ⚠️ Se recorta, nunca se añade: si un capítulo del default no está en el trabajo se quita, pero no
+ * se mete uno que el default no pedía. Sembrar un capítulo que el usuario no eligió sería la mentira
+ * simétrica.
+ */
+function recortarCapitulosDelInforme(
+  skeleton: Record<string, unknown>,
+  job: Job,
+): void {
+  const report = skeleton.report
+  if (typeof report !== "object" || report === null) return
+  const sections = (report as Record<string, unknown>).sections
+  if (typeof sections !== "object" || sections === null) return
+  const exigidos = (sections as Record<string, unknown>).required_sections
+  if (!Array.isArray(exigidos)) return
+  const suyas = new Set(job.sections)
+  ;(sections as Record<string, unknown>).required_sections = exigidos.filter(
+    (capitulo) => typeof capitulo === "string" && suyas.has(capitulo),
+  )
 }
 
 /**
