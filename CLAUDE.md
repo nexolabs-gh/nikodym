@@ -5,7 +5,7 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-01 tarde, público `4958b9c`, **CI en curso al cerrar — verificar con `gh`**)
+> ## Lo último (2026-08-01 tarde, público `bc2a914`, **CI 16/16 confirmado con `gh` sobre `4958b9c`**)
 >
 > 🔴 **EL HISTORIAL PÚBLICO SE REESCRIBIÓ.** Con OK explícito de Cami se purgaron con `filter-branch`
 > + force push dos `.playwright-mcp/console-*.log` commiteados por error el 2026-07-31 —traían

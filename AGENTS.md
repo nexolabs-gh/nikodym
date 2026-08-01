@@ -11,7 +11,7 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-01 tarde, P1 CERRADO)
 
-**`main` = `4958b9c`; CI en curso al cerrar — verificar con `gh`. PyPI sigue en `1.10.0` y no hay
+**`main` = `bc2a914`; CI **16/16 confirmado con `gh` sobre `4958b9c`** (el commit con código). PyPI sigue en `1.10.0` y no hay
 release autorizado.** Gates: **4713 passed / 6 skipped**, mypy 244, ruff check + format, vitest
 **443/443**, bundle reconstruido, fixtures de schema y de trabajos regenerados, mkdocs `--strict`.
 
