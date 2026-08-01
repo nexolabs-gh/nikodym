@@ -83,6 +83,14 @@ coverage.xml
 # a propósito: el workdir sigue al cwd del usuario, no a la raíz del repo.
 .nikodym_ui/
 
+# === Volcados del MCP de Playwright ===
+# Mismo modo de fallo que el workdir de arriba, y ya ocurrido: verificar la interfaz en vivo desde
+# la raíz del repo dejó aquí dos volcados de consola que se commitearon el 2026-07-31. No son sólo
+# ruido — el volcado recoge TODA la consola de la sesión del navegador, incluidas las URL de lo que
+# se estuviera navegando, así que en un repo público publica por dónde anduvo quien lo generó.
+# Sin ancla `/` a propósito: el MCP escribe en el cwd de quien lanza, no en la raíz del repo.
+.playwright-mcp/
+
 # === MLflow / artefactos de modelos ===
 mlruns/
 mlartifacts/

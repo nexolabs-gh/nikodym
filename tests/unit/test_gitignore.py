@@ -174,6 +174,30 @@ def test_el_paquete_del_ui_sigue_versionandose() -> None:
     assert not _ignorado("src/nikodym/ui/static/index.html")
 
 
+def test_los_volcados_del_mcp_de_playwright_estan_vetados() -> None:
+    """Verificar la interfaz en vivo no puede dejar la consola del navegador lista para commitear.
+
+    Ocurrió: el 2026-07-31 se commitearon dos `.playwright-mcp/console-*.log` desde la raíz del
+    repo. El volcado recoge **toda** la consola de la sesión, con las URL de lo que se estuviera
+    navegando, así que en un repo público publica por dónde anduvo quien lo generó. Es el mismo modo
+    de fallo que el workdir del UI, y por eso el veto va igual: sin ancla `/`, porque el MCP escribe
+    en el cwd de quien lanza.
+    """
+    assert _ignorado(".playwright-mcp/console-2026-07-31T23-18-33-454Z.log")
+    assert _ignorado("notebooks/.playwright-mcp/console-2026-08-01T10-00-00-000Z.log")
+
+
+def test_el_veto_de_playwright_no_alcanza_a_su_configuracion() -> None:
+    """El error simétrico: el veto es del volcado generado, no de todo lo que diga «playwright».
+
+    Un veto por nombre de herramienta —o peor, un `*.log` global— se llevaría por delante la
+    configuración o los specs de un recorrido automatizado el día que se versionen (B2.4 los
+    contempla), y git no avisa de lo que ignora.
+    """
+    assert not _ignorado("web/playwright.config.ts")
+    assert not _ignorado("tests/e2e/recorrido-f1.spec.ts")
+
+
 def _ignorado_en(repo: Path, ruta: str) -> bool:
     """Igual que :func:`_ignorado`, pero sobre otro repositorio (uno temporal de test)."""
     return (
