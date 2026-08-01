@@ -18,10 +18,18 @@
  * Lógica PURA (sin React), testeable con vitest.
  */
 
-/** Hoja del catálogo: `has_default=false` OMITE `value`; `true` lo trae aunque sea `null`. */
+/**
+ * Hoja del catálogo: `has_default=false` OMITE `value`; `true` lo trae aunque sea `null`.
+ *
+ * `children` sólo lo trae el descriptor de un submodelo **obligatorio** (D-OBL-2), que tiene que
+ * decir dos cosas a la vez: que no hay valor que ofrecer para el objeto entero —y por tanto la
+ * proyección canónica debe omitirlo— y cuáles son los defaults de dentro, que el formulario sigue
+ * necesitando para pintar sus controles.
+ */
 export interface DefaultDescriptor {
   has_default: boolean
   value?: unknown
+  children?: DefaultsMap
 }
 
 /** Nodo del catálogo: un descriptor (hoja) o el mapa de campos de un submodelo. */
@@ -92,9 +100,16 @@ export function resolveValue(stored: unknown, node: DefaultsNode | undefined): R
   return { displayed: undefined, provenance: "missing" }
 }
 
-/** El mapa de campos de los HIJOS de este nodo, o `undefined` si el nodo es una hoja. */
+/**
+ * El mapa de campos de los HIJOS de este nodo, o `undefined` si el nodo es una hoja.
+ *
+ * Un descriptor normalmente NO tiene hijos —es una hoja—, salvo el de un submodelo obligatorio, que
+ * los cuelga de `children` (D-OBL-2). Sin este caso el formulario perdería los defaults de dentro de
+ * `data.target` y pintaría vacío un `target_col` que el motor resuelve como `"target"`.
+ */
 export function childMap(node: DefaultsNode | undefined): DefaultsMap | undefined {
-  if (node === undefined || isDescriptor(node)) return undefined
+  if (node === undefined) return undefined
+  if (isDescriptor(node)) return node.children
   return node
 }
 
@@ -104,6 +119,12 @@ export function childMap(node: DefaultsNode | undefined): DefaultsMap | undefine
  * Escribe recursivamente **todas** las hojas con default y **omite las obligatorias sin default**
  * (D-FX-8): sembrar un obligatorio con un valor inventado es lo que hacía el activador anterior, y
  * dejaba en el config un valor que el usuario nunca eligió y que el backend igual iba a rechazar.
+ *
+ * ⚠️ Esta función NO cambió con D-OBL-2, y ahí está la gracia: ya hacía lo correcto: lo que fallaba
+ * era que un submodelo obligatorio llegaba como mapa desnudo, y la rama `else` no tiene forma de
+ * omitir un mapa. Ahora llega como descriptor `has_default: false` y cae por la rama de arriba, que
+ * ya sabía omitirlo. De ahí salía `data.target.bad_rule = {all_of: [], any_of: []}`, que el motor
+ * rechaza con «una Rule debe declarar al menos un predicado».
  */
 export function canonicalProjection(map: DefaultsMap | undefined): Record<string, unknown> {
   const out: Record<string, unknown> = {}

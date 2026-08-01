@@ -245,6 +245,49 @@ describe("nodeAtPath sobre el catálogo REAL del backend", () => {
     expect(defMap(CATALOGO, "data__Rule")).toBeDefined()
   })
 
+  it("un submodelo OBLIGATORIO publica descriptor y conserva sus hijos (D-OBL-2)", () => {
+    // `data.target` es obligatorio: sin descriptor, la proyección canónica lo escribía entero y
+    // producía un `bad_rule` vacío que el motor rechaza.
+    const target = nodeAtPath(CATALOGO, ["data", "target"])
+    expect(isDescriptor(target)).toBe(true)
+    expect((target as { has_default: boolean }).has_default).toBe(false)
+    expect(resolveValue(undefined, target).provenance).toBe("missing")
+
+    // Pero sus hijos siguen alcanzables, o el formulario perdería sus defaults.
+    expect(childMap(target)).toBeDefined()
+    expect(nodeAtPath(CATALOGO, ["data", "target", "target_col"])).toEqual({
+      has_default: true,
+      value: "target",
+    })
+    // Y el mismo caso una vuelta más adentro.
+    expect(nodeAtPath(CATALOGO, ["data", "target", "bad_rule", "all_of"])).toEqual({
+      has_default: true,
+      value: [],
+    })
+    // No era un defecto de `data`: `survival.input` es idéntico.
+    expect(nodeAtPath(CATALOGO, ["survival", "input", "duration_col"])).toEqual({
+      has_default: false,
+    })
+  })
+
+  it("activar `data` ya no inventa un `bad_rule` que el motor rechaza", () => {
+    const proyectado = canonicalProjection(childMap(nodeAtPath(CATALOGO, ["data"])))
+    // Lo que sólo el usuario puede decidir NO se escribe (D-FX-8, ahora cumplible).
+    expect(proyectado).not.toHaveProperty("target")
+    expect(proyectado).not.toHaveProperty("partition")
+    // Lo que sí tiene default se sigue escribiendo: la enmienda no vacía la proyección.
+    expect(proyectado.schema).toMatchObject({ strict: false })
+    expect(proyectado.missing).toMatchObject({ max_missing_rate: 0.99 })
+  })
+
+  it("añadir una fila de exclusión tampoco nace con una regla vacía", () => {
+    // El mismo defecto vivía en otro gesto de estructura, y por eso el arreglo es del catálogo y no
+    // del interruptor de sección.
+    const fila = canonicalProjection(defMap(CATALOGO, "data__ExclusionRule"))
+    expect(fila).not.toHaveProperty("rule")
+    expect(fila).not.toHaveProperty("name")
+  })
+
   it("se detiene en un tramo numérico: una fila de lista vive en `$defs`", () => {
     expect(nodeAtPath(CATALOGO, ["data", "schema", "columns", 0, "name"])).toBeUndefined()
     expect(defMap(CATALOGO, "data__ColumnSpec")?.name).toEqual({ has_default: false })

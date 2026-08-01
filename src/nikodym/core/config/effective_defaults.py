@@ -38,8 +38,13 @@ Dos coordenadas, porque el formulario alcanza los campos por dos caminos:
 **Cada hoja es un descriptor, no el valor desnudo** (D-FX-5): ``{"has_default": false}`` es *no hay
 default* y ``{"has_default": true, "value": null}`` es *el default es ``null``*. Confundirlos es
 exactamente el error que D-FX-7 prohíbe en el front, así que el contrato no permite expresarlo mal.
-Un campo cuyo tipo es **un** submodelo no lleva descriptor: lleva el mapa de sus hijos, porque su
-valor efectivo lo determinan ellos y el formulario nunca pinta un control para el objeto entero.
+Un campo cuyo tipo es **un** submodelo OPCIONAL no lleva descriptor: lleva el mapa de sus hijos,
+porque su valor efectivo lo determinan ellos y el formulario nunca pinta un control para el objeto
+entero. Si el submodelo es **obligatorio**, en cambio, lleva descriptor **y** hijos —
+``{"has_default": false, "children": {…}}`` (D-OBL-2)—, porque tiene que decir las dos cosas: que no
+hay valor que ofrecer para el objeto, y cuáles son los defaults de dentro. Sin esa distinción la
+proyección canónica escribía el objeto entero y producía configs que el motor rechaza, que es el
+defecto que la enmienda DECISIONES-OBLIGATORIAS vino a cerrar.
 
 Un dominio cuyo extra no esté instalado **no se expande**: su sección viaja como un descriptor
 (``{"has_default": true, "value": null}``, que es su default real de campo apagable) y sin mapa de
@@ -76,8 +81,11 @@ __all__ = [
 #: negarse a interpretar un catálogo que no entiende, en vez de leerlo mal en silencio.
 EFFECTIVE_DEFAULTS_VERSION: Final[int] = 1
 
-#: Las únicas claves de un descriptor.
-DESCRIPTOR_KEYS: Final[tuple[str, ...]] = ("has_default", "value")
+#: Las únicas claves de un descriptor. ``children`` sólo aparece en el descriptor de un submodelo
+#: OBLIGATORIO (D-OBL-2): ahí el nodo tiene que decir dos cosas a la vez —que no hay valor que
+#: ofrecer para el objeto entero, y cuáles son los defaults de sus hijos—, y un mapa desnudo sólo
+#: puede decir la segunda.
+DESCRIPTOR_KEYS: Final[tuple[str, ...]] = ("has_default", "value", "children")
 
 #: La clave que **discrimina** un descriptor de un mapa de hijos: un nodo es descriptor si y sólo si
 #: tiene ``has_default`` **booleano**. Exigir el tipo, y no la mera presencia, es lo que mantiene la
@@ -239,6 +247,14 @@ def _mapa_de_modelo(cls: type[BaseModel], pila: tuple[str, ...]) -> dict[str, An
 
     El volcado de la instancia se calcula **una vez por clase** y se pasa a cada hoja: es la fuente
     preferente del valor efectivo (ver :func:`_volcado_canonico`).
+
+    **Un submodelo OBLIGATORIO va como descriptor con hijos** (D-OBL-2), no como mapa desnudo. Un
+    mapa no puede decir «este objeto no tiene default», así que la proyección canónica lo escribía
+    entero con los defaults de sus hojas y producía un objeto que el motor rechaza: de ahí salía
+    ``data.target.bad_rule = {all_of: [], any_of: []}``, que muere con «una Rule debe declarar al
+    menos un predicado». El criterio es la OBLIGATORIEDAD del campo y no la construibilidad de su
+    clase —esa decide de dónde sale el valor de las hojas, que es otra pregunta—: medido,
+    ``DataConfig.load`` es construible y también salía como mapa.
     """
     salida: dict[str, Any] = {}
     volcado = _volcado_canonico(cls)
@@ -247,6 +263,16 @@ def _mapa_de_modelo(cls: type[BaseModel], pila: tuple[str, ...]) -> dict[str, An
         submodelo = _submodelo_directo(campo.annotation)
         if submodelo is None or _submodelo_apagable(campo):
             salida[clave] = _descriptor(campo, volcado, clave)
+        elif campo.is_required():
+            # Los hijos viajan igual —el formulario sigue necesitando sus defaults— pero colgando
+            # de un descriptor que declara el hueco. Si la recursión ya pasó por esta clase, los
+            # hijos van vacíos y el front baja por `$defs`, igual que en la rama de abajo.
+            hijos = (
+                {}
+                if submodelo.__name__ in pila
+                else _mapa_de_modelo(submodelo, (*pila, submodelo.__name__))
+            )
+            salida[clave] = {"has_default": False, "children": hijos}
         elif submodelo.__name__ in pila:
             salida[clave] = {}
         else:

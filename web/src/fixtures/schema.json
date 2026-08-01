@@ -154,14 +154,17 @@
           "has_default": false
         },
         "rule": {
-          "all_of": {
-            "has_default": true,
-            "value": []
+          "children": {
+            "all_of": {
+              "has_default": true,
+              "value": []
+            },
+            "any_of": {
+              "has_default": true,
+              "value": []
+            }
           },
-          "any_of": {
-            "has_default": true,
-            "value": []
-          }
+          "has_default": false
         }
       },
       "data__LoadingConfig": {
@@ -308,14 +311,17 @@
       },
       "data__TargetConfig": {
         "bad_rule": {
-          "all_of": {
-            "has_default": true,
-            "value": []
+          "children": {
+            "all_of": {
+              "has_default": true,
+              "value": []
+            },
+            "any_of": {
+              "has_default": true,
+              "value": []
+            }
           },
-          "any_of": {
-            "has_default": true,
-            "value": []
-          }
+          "has_default": false
         },
         "exclusion_rules": {
           "has_default": true,
@@ -516,37 +522,40 @@
       },
       "forward__ForwardInputConfig": {
         "macro_source": {
-          "artifact_domain": {
-            "has_default": true,
-            "value": null
+          "children": {
+            "artifact_domain": {
+              "has_default": true,
+              "value": null
+            },
+            "artifact_key": {
+              "has_default": true,
+              "value": null
+            },
+            "exogenous_cols": {
+              "has_default": true,
+              "value": []
+            },
+            "frequency": {
+              "has_default": true,
+              "value": null
+            },
+            "path": {
+              "has_default": true,
+              "value": null
+            },
+            "time_col": {
+              "has_default": true,
+              "value": "period"
+            },
+            "type": {
+              "has_default": true,
+              "value": "path"
+            },
+            "variable_cols": {
+              "has_default": false
+            }
           },
-          "artifact_key": {
-            "has_default": true,
-            "value": null
-          },
-          "exogenous_cols": {
-            "has_default": true,
-            "value": []
-          },
-          "frequency": {
-            "has_default": true,
-            "value": null
-          },
-          "path": {
-            "has_default": true,
-            "value": null
-          },
-          "time_col": {
-            "has_default": true,
-            "value": "period"
-          },
-          "type": {
-            "has_default": true,
-            "value": "path"
-          },
-          "variable_cols": {
-            "has_default": false
-          }
+          "has_default": false
         },
         "pd_basis_assumption": {
           "has_default": true,
@@ -2442,17 +2451,20 @@
           }
         },
         "partition": {
-          "min_bads_per_partition": {
-            "has_default": true,
-            "value": 30
+          "children": {
+            "min_bads_per_partition": {
+              "has_default": true,
+              "value": 30
+            },
+            "strategy": {
+              "has_default": false
+            },
+            "ttd_includes_excluded": {
+              "has_default": true,
+              "value": true
+            }
           },
-          "strategy": {
-            "has_default": false
-          },
-          "ttd_includes_excluded": {
-            "has_default": true,
-            "value": true
-          }
+          "has_default": false
         },
         "schema": {
           "columns": {
@@ -2477,36 +2489,42 @@
           }
         },
         "target": {
-          "bad_rule": {
-            "all_of": {
+          "children": {
+            "bad_rule": {
+              "children": {
+                "all_of": {
+                  "has_default": true,
+                  "value": []
+                },
+                "any_of": {
+                  "has_default": true,
+                  "value": []
+                }
+              },
+              "has_default": false
+            },
+            "exclusion_rules": {
               "has_default": true,
               "value": []
             },
-            "any_of": {
+            "good_rule": {
               "has_default": true,
-              "value": []
+              "value": null
+            },
+            "indeterminate_rule": {
+              "has_default": true,
+              "value": null
+            },
+            "target_col": {
+              "has_default": true,
+              "value": "target"
+            },
+            "window": {
+              "has_default": true,
+              "value": null
             }
           },
-          "exclusion_rules": {
-            "has_default": true,
-            "value": []
-          },
-          "good_rule": {
-            "has_default": true,
-            "value": null
-          },
-          "indeterminate_rule": {
-            "has_default": true,
-            "value": null
-          },
-          "target_col": {
-            "has_default": true,
-            "value": "target"
-          },
-          "window": {
-            "has_default": true,
-            "value": null
-          }
+          "has_default": false
         },
         "type": {
           "has_default": true,
@@ -2727,54 +2745,60 @@
           "value": true
         },
         "input": {
-          "macro_source": {
-            "artifact_domain": {
-              "has_default": true,
-              "value": null
-            },
-            "artifact_key": {
-              "has_default": true,
-              "value": null
-            },
-            "exogenous_cols": {
-              "has_default": true,
-              "value": []
-            },
-            "frequency": {
-              "has_default": true,
-              "value": null
-            },
-            "path": {
-              "has_default": true,
-              "value": null
-            },
-            "time_col": {
-              "has_default": true,
-              "value": "period"
-            },
-            "type": {
-              "has_default": true,
-              "value": "path"
-            },
-            "variable_cols": {
+          "children": {
+            "macro_source": {
+              "children": {
+                "artifact_domain": {
+                  "has_default": true,
+                  "value": null
+                },
+                "artifact_key": {
+                  "has_default": true,
+                  "value": null
+                },
+                "exogenous_cols": {
+                  "has_default": true,
+                  "value": []
+                },
+                "frequency": {
+                  "has_default": true,
+                  "value": null
+                },
+                "path": {
+                  "has_default": true,
+                  "value": null
+                },
+                "time_col": {
+                  "has_default": true,
+                  "value": "period"
+                },
+                "type": {
+                  "has_default": true,
+                  "value": "path"
+                },
+                "variable_cols": {
+                  "has_default": false
+                }
+              },
               "has_default": false
+            },
+            "pd_basis_assumption": {
+              "has_default": true,
+              "value": null
+            },
+            "require_pit_consistency": {
+              "has_default": true,
+              "value": true
+            },
+            "term_structure_sources": {
+              "has_default": true,
+              "value": [
+                "survival",
+                "markov"
+              ]
             }
           },
-          "pd_basis_assumption": {
-            "has_default": true,
-            "value": null
-          },
-          "require_pit_consistency": {
-            "has_default": true,
-            "value": true
-          },
-          "term_structure_sources": {
-            "has_default": true,
-            "value": [
-              "survival",
-              "markov"
-            ]
-          }
+          "has_default": false
         },
         "macro": {
           "arima_order": {
@@ -2830,35 +2854,38 @@
           }
         },
         "satellite": {
-          "coefficient_table_path": {
-            "has_default": true,
-            "value": null
+          "children": {
+            "coefficient_table_path": {
+              "has_default": true,
+              "value": null
+            },
+            "factor_cols": {
+              "has_default": false
+            },
+            "min_history_periods": {
+              "has_default": true,
+              "value": 12
+            },
+            "mode": {
+              "has_default": true,
+              "value": "fit"
+            },
+            "reference_scenario": {
+              "has_default": true,
+              "value": "base"
+            },
+            "segment_col": {
+              "has_default": true,
+              "value": null
+            },
+            "target_components": {
+              "has_default": true,
+              "value": [
+                "pd"
+              ]
+            }
           },
-          "factor_cols": {
-            "has_default": false
-          },
-          "min_history_periods": {
-            "has_default": true,
-            "value": 12
-          },
-          "mode": {
-            "has_default": true,
-            "value": "fit"
-          },
-          "reference_scenario": {
-            "has_default": true,
-            "value": "base"
-          },
-          "segment_col": {
-            "has_default": true,
-            "value": null
-          },
-          "target_components": {
-            "has_default": true,
-            "value": [
-              "pd"
-            ]
-          }
+          "has_default": false
         },
         "scenarios": {
           "forbid_mean_scenario": {
@@ -4451,36 +4478,39 @@
           "value": true
         },
         "input": {
-          "covariate_cols": {
-            "has_default": true,
-            "value": []
+          "children": {
+            "covariate_cols": {
+              "has_default": true,
+              "value": []
+            },
+            "duration_col": {
+              "has_default": false
+            },
+            "event_col": {
+              "has_default": false
+            },
+            "id_col": {
+              "has_default": true,
+              "value": null
+            },
+            "linear_predictor_column": {
+              "has_default": true,
+              "value": "linear_predictor"
+            },
+            "pd_column": {
+              "has_default": true,
+              "value": "pd_raw"
+            },
+            "pd_source": {
+              "has_default": true,
+              "value": "model_raw"
+            },
+            "segment_col": {
+              "has_default": true,
+              "value": null
+            }
           },
-          "duration_col": {
-            "has_default": false
-          },
-          "event_col": {
-            "has_default": false
-          },
-          "id_col": {
-            "has_default": true,
-            "value": null
-          },
-          "linear_predictor_column": {
-            "has_default": true,
-            "value": "linear_predictor"
-          },
-          "pd_column": {
-            "has_default": true,
-            "value": "pd_raw"
-          },
-          "pd_source": {
-            "has_default": true,
-            "value": "model_raw"
-          },
-          "segment_col": {
-            "has_default": true,
-            "value": null
-          }
+          "has_default": false
         },
         "kaplan_meier": {
           "confidence_level": {

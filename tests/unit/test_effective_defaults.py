@@ -23,7 +23,7 @@ import json
 from typing import Any
 
 import pytest
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from nikodym.core.config import NikodymConfig
 from nikodym.core.config.effective_defaults import (
@@ -34,6 +34,7 @@ from nikodym.core.config.effective_defaults import (
     modelos_de_anotacion,
 )
 from nikodym.core.config.schema import build_full_json_schema, cargar_configs_de_dominio
+from nikodym.core.exceptions import NikodymError
 from nikodym.ml.config import MLConfig
 from nikodym.ui.routes import schema_payload
 
@@ -45,7 +46,17 @@ HOJAS_DEL_FORMULARIO = 394
 #: Descriptores de hoja que el barrido de paridad compara, en las DOS coordenadas (`$defs` y
 #: `sections`). Segundo golden, por la misma razón que el de 394: un barrido que recorra menos
 #: campos de los que hay no está midiendo el config entero — y eso ya dejó pasar una divergencia.
-DESCRIPTORES_TOTALES = 1024
+#:
+#: 1024 → 1034 el 2026-08-01 con D-OBL-2: los **10** submodelos obligatorios pasaron de mapa desnudo
+#: a descriptor con hijos, y un descriptor sí se cuenta. Son `data.target`, `data.partition`,
+#: `data.target.bad_rule`, `survival.input`, los tres de `forward` y sus tres copias en `$defs`;
+#: están enumerados uno a uno en `test_los_submodelos_obligatorios_son_exactamente_estos`, para que
+#: el golden no pueda absorber en silencio un onceavo que nadie decidió.
+#:
+#: ⚠️ Al implementar la enmienda este número bajó primero a **996**, y ahí estuvo el riesgo: no era
+#: que hubiera menos descriptores, era que el emparejador cortaba al ver uno y dejaba de bajar por
+#: los hijos de los obligatorios. Mover el golden a 996 habría enterrado 28 campos sin comparar.
+DESCRIPTORES_TOTALES = 1034
 
 
 #: Las 14 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de
@@ -160,6 +171,12 @@ def test_un_descriptor_se_distingue_de_un_mapa_de_hijos() -> None:
         if isinstance(nodo.get(DISCRIMINADOR), bool):
             assert set(nodo) <= set(DESCRIPTOR_KEYS), f"descriptor con claves extra en {ruta}"
             descriptores += 1
+            # Un submodelo obligatorio es descriptor Y tiene hijos (D-OBL-2): el recorrido sigue
+            # dentro, o la comprobación de forma no alcanzaría a las hojas de `data.target`.
+            nietos = nodo.get("children")
+            if isinstance(nietos, dict):
+                for clave, nieto in nietos.items():
+                    recorrer(nieto, f"{ruta}.children.{clave}")
             return
         for clave, hijo in nodo.items():
             recorrer(hijo, f"{ruta}.{clave}")
@@ -184,14 +201,176 @@ def test_un_submodelo_apagado_publica_su_default_nulo() -> None:
     que el usuario lo active.
     """
     catalogo = build_effective_defaults()
-    objetivo = catalogo["sections"]["data"]["target"]
+    objetivo = _hijos_de(catalogo["sections"]["data"]["target"])
     assert objetivo["good_rule"] == {"has_default": True, "value": None}
     assert objetivo["window"] == {"has_default": True, "value": None}
-    # `bad_rule` es OBLIGATORIO: sigue siendo mapa de hijos, con sus propios descriptores dentro.
-    assert "has_default" not in objetivo["bad_rule"]
-    assert objetivo["bad_rule"]["all_of"]["has_default"] is True
     # Y la proyección para activarlo vive en `$defs`.
     assert "all_of" in catalogo["$defs"]["data__Rule"]
+
+
+def test_un_submodelo_obligatorio_es_descriptor_con_hijos() -> None:
+    """D-OBL-2: un submodelo OBLIGATORIO declara su hueco **y** conserva sus hijos.
+
+    Este test aseveraba lo contrario hasta el 2026-08-01 —``"has_default" not in bad_rule``—, o sea
+    que **codificaba el defecto**: sin descriptor, la proyección canónica no podía omitir el campo y
+    escribía ``bad_rule = {all_of: [], any_of: []}``, que el motor rechaza con «una Rule debe
+    declarar al menos un predicado». Los diez trabajos del catálogo nacían con config inválido.
+
+    Las dos mitades importan. El descriptor es lo que permite OMITIRLO (D-FX-8); los hijos son
+    lo que permite al formulario seguir pintando que ``target_col`` vale ``"target"``. Un
+    descriptor pelado habría arreglado el config y degradado D-FX-5.
+    """
+    catalogo = build_effective_defaults()
+    objetivo = _hijos_de(catalogo["sections"]["data"]["target"])
+
+    # `data.target` es obligatorio dentro de `DataConfig`.
+    nodo_target = catalogo["sections"]["data"]["target"]
+    assert nodo_target["has_default"] is False
+    assert "value" not in nodo_target
+    assert isinstance(nodo_target["children"], dict) and nodo_target["children"]
+
+    # `bad_rule` es obligatorio dentro de `TargetConfig`, y conserva los defaults de sus hijos.
+    assert objetivo["bad_rule"]["has_default"] is False
+    assert "value" not in objetivo["bad_rule"]
+    assert objetivo["bad_rule"]["children"]["all_of"] == {"has_default": True, "value": []}
+
+    # `survival.input` es el mismo caso en otra sección: no era un defecto de `data`.
+    if "survival" in cargar_configs_de_dominio():
+        entrada = catalogo["sections"]["survival"]["input"]
+        assert entrada["has_default"] is False
+        assert entrada["children"]["duration_col"] == {"has_default": False}
+
+
+def _hijos_de(nodo: dict[str, Any]) -> dict[str, Any]:
+    """Los hijos de un nodo, sea mapa desnudo o descriptor con ``children``.
+
+    Espejo de ``childMap`` de ``web/src/lib/effective-defaults.ts``: el front resuelve esta misma
+    ambigüedad, y tenerla escrita dos veces con criterios distintos es como se separan las dos
+    superficies.
+    """
+    if isinstance(nodo.get(DISCRIMINADOR), bool):
+        hijos = nodo.get("children")
+        return hijos if isinstance(hijos, dict) else {}
+    return nodo
+
+
+#: Los submodelos obligatorios del config, uno a uno. Escrita a MANO y no derivada del catálogo: si
+#: saliera del propio recorrido sería una tautología, y este repo ya pagó ese error una vez.
+SUBMODELOS_OBLIGATORIOS: tuple[str, ...] = (
+    "$defs.data__ExclusionRule.rule",
+    "$defs.data__TargetConfig.bad_rule",
+    "$defs.forward__ForwardInputConfig.macro_source",
+    "sections.data.partition",
+    "sections.data.target",
+    "sections.data.target.bad_rule",
+    "sections.forward.input",
+    "sections.forward.input.macro_source",
+    "sections.forward.satellite",
+    "sections.survival.input",
+)
+
+
+def _descriptores_con_hijos(catalogo: dict[str, Any]) -> list[str]:
+    """Rutas de todo nodo que es descriptor **y** trae ``children`` (D-OBL-2)."""
+    encontrados: list[str] = []
+
+    def recorrer(nodo: Any, ruta: str) -> None:
+        if not isinstance(nodo, dict):
+            return
+        if isinstance(nodo.get(DISCRIMINADOR), bool):
+            if "children" in nodo:
+                encontrados.append(ruta)
+                for clave, nieto in nodo["children"].items():
+                    recorrer(nieto, f"{ruta}.{clave}")
+            return
+        for clave, hijo in nodo.items():
+            recorrer(hijo, f"{ruta}.{clave}")
+
+    for coordenada in ("sections", "$defs"):
+        for nombre, nodo in catalogo[coordenada].items():
+            recorrer(nodo, f"{coordenada}.{nombre}")
+    return sorted(encontrados)
+
+
+def test_los_submodelos_obligatorios_son_exactamente_estos() -> None:
+    """Ancla nominal del golden 1034: qué campos ganaron descriptor, no sólo cuántos.
+
+    Un golden numérico dice que el total cuadra; no dice **cuáles**. Con sólo la cifra, convertir un
+    campo opcional en obligatorio y otro obligatorio en opcional se compensaría y pasaría el gate.
+    """
+    if not _formulario_completo():
+        pytest.skip("instalación parcial: el catálogo no publica todas las secciones")
+    assert _descriptores_con_hijos(build_effective_defaults()) == list(SUBMODELOS_OBLIGATORIOS)
+
+
+def test_markov_y_stress_quedan_fuera_con_su_razon() -> None:
+    """D-OBL-4: la exclusión es medida, no un olvido — y por eso se asevera.
+
+    Una lista corta sin explicación se lee como cobertura total. Estos dos siguen produciendo una
+    proyección que el motor rechaza **después** de esta enmienda, y por razones distintas entre sí:
+
+    - ``markov.input`` es un campo **no obligatorio** cuya clase no es construible. D-OBL-1 no lo
+      alcanza, y no debe: el campo tiene default, así que el catálogo ya dice la verdad sobre él.
+    - ``stress`` falla en el ``model_validator`` de su clase **raíz** («exige al menos un escenario,
+      una sensibilidad o un reverse stress»), que ninguna proyección satisface, ni siquiera ``{}``.
+
+    Si algún día dejan de fallar, este test se pone rojo y obliga a decidir explícitamente si entran
+    al criterio, en vez de que el cambio pase inadvertido.
+    """
+    disponibles = cargar_configs_de_dominio()
+    catalogo = build_effective_defaults()
+    for seccion in ("markov", "stress"):
+        if seccion not in disponibles:
+            continue
+        nodo = catalogo["sections"][seccion]
+        assert not isinstance(nodo.get(DISCRIMINADOR), bool), (
+            f"{seccion} es una sección apagable, no un submodelo obligatorio"
+        )
+        proyectado = _proyeccion_canonica(_hijos_de(nodo))
+        # Las dos medidas son `NikodymError` (`MarkovConfigError` y `StressConfigError`); se deja
+        # `ValidationError` por si la causa cambia de capa sin dejar de ser un rechazo.
+        with pytest.raises((ValidationError, NikodymError)):
+            disponibles[seccion].model_validate(proyectado)
+
+
+def _proyeccion_canonica(mapa: dict[str, Any]) -> dict[str, Any]:
+    """Réplica de ``canonicalProjection`` (``web/src/lib/effective-defaults.ts``).
+
+    Escribe las hojas con default y **omite** las obligatorias sin default, que es lo que D-FX-8
+    exige y lo que D-OBL-2 hace por fin posible para un submodelo.
+    """
+    salida: dict[str, Any] = {}
+    for clave, nodo in mapa.items():
+        if isinstance(nodo.get(DISCRIMINADOR), bool):
+            if nodo[DISCRIMINADOR]:
+                salida[clave] = nodo["value"]
+        else:
+            salida[clave] = _proyeccion_canonica(nodo)
+    return salida
+
+
+def test_la_proyeccion_canonica_ya_no_inventa_un_submodelo_obligatorio() -> None:
+    """El gate del defecto, medido donde dolía: activar `data` y activar `survival`.
+
+    Antes de D-OBL-2 esto escribía ``target.bad_rule = {all_of: [], any_of: []}`` y el motor lo
+    rechazaba con «una Rule debe declarar al menos un predicado». Ahora el campo se OMITE y lo que
+    ve el usuario es «este campo es obligatorio», que es la verdad: ``bad_rule`` es qué define un
+    moroso en su cartera, y eso no lo puede inventar el motor.
+    """
+    disponibles = cargar_configs_de_dominio()
+    catalogo = build_effective_defaults()
+
+    proyectado = _proyeccion_canonica(_hijos_de(catalogo["sections"]["data"]))
+    assert "target" not in proyectado, "un obligatorio sin default no se escribe (D-FX-8)"
+    assert "partition" not in proyectado
+    # Lo que sí tiene default sigue escribiéndose: la enmienda no vacía la proyección.
+    assert proyectado["schema"]["strict"] is False
+    assert proyectado["missing"]["max_missing_rate"] == 0.99
+
+    if "survival" in disponibles:
+        entrada = _proyeccion_canonica(_hijos_de(catalogo["sections"]["survival"]))
+        assert "input" not in entrada
+        assert entrada["method"] is not None
 
 
 def test_has_default_false_no_trae_value() -> None:
@@ -269,7 +448,15 @@ def _pares_modelo_mapa(
             if sub is None or sub.__name__ in pila or not isinstance(hijo, dict):
                 continue
             if isinstance(hijo.get(DISCRIMINADOR), bool):
-                continue  # submodelo apagable: es un descriptor, no un mapa
+                # Descriptor. Un submodelo APAGABLE se acaba aquí —su estado es el nodo—, pero uno
+                # OBLIGATORIO cuelga sus hijos de `children` (D-OBL-2) y hay que seguir bajando: si
+                # no, sus hojas dejan de compararse contra la coacción real. Medido al implementar
+                # la enmienda: cortar aquí bajaba el barrido de 1024 a 996 descriptores, y el golden
+                # habría absorbido la pérdida sin que nadie la viera.
+                nietos = hijo.get("children")
+                if isinstance(nietos, dict) and nietos:
+                    bajar(sub, nietos, f"{etiqueta}.{clave}", (*pila, sub.__name__))
+                continue
             bajar(sub, hijo, f"{etiqueta}.{clave}", (*pila, sub.__name__))
 
     for seccion, cls in dominios.items():
