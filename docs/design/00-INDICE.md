@@ -285,6 +285,26 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > añadiendo un aviso—; `validation` sale del catálogo porque el formulario no la ofrece; y **la demo
 > estática sigue arrancando sembrada**, porque no tiene backend ni acepta datos propios.
 >
+> **Lo que sólo la institución puede decidir se pregunta, no se inventa (2026-08-01, APROBADA).**
+> [`_ENMIENDA-DECISIONES-OBLIGATORIAS.md`](_ENMIENDA-DECISIONES-OBLIGATORIAS.md), D-OBL-1…D-OBL-10,
+> enmienda a `_ENMIENDA-DEFAULTS-EFECTIVOS-UI.md` (D-FX-5 y D-FX-8) y a
+> `_SDD-UI-POR-TRABAJOS.md` (D-JOB-3 y D-JOB-4). Activar una sección escribía un submodelo
+> obligatorio con valores inventados que el motor rechaza —`target.bad_rule = {all_of: [], any_of:
+> []}`—, y los **diez** trabajos nacían con config inválido. ⚠️ **La causa que la nota heredada
+> atribuía era falsa**: no es que `Rule` y `TargetConfig` no sean construibles, es que
+> `_mapa_de_modelo` decide mapa-vs-descriptor **mirando sólo la anotación** y nunca consulta
+> `is_required()` —`DataConfig.load` sí es construible y también sale como mapa—. El criterio pasa a
+> ser la obligatoriedad, y el nodo obligatorio se publica como descriptor **que conserva sus hijos**
+> (`{has_default: false, children: {…}}`), forma elegida porque no obliga a tocar `isDescriptor` ni
+> `canonicalProjection`. Alcance medido: no es `data`, es una clase — `survival` tiene el defecto
+> idéntico y el mismo mecanismo rompe **cuatro** gestos de estructura, incluido *añadir una fila* de
+> exclusión. 🔴 **Y el arreglo NO deja el config válido, a propósito**: `bad_rule` y
+> `partition.strategy` son `DATO-INSTITUCIONAL`, así que el hueco pasa de un valor inventado a un
+> hueco honesto. De ahí la segunda parte: un trabajo **declara sus decisiones obligatorias en idioma
+> de negocio** —medido, son sólo **cuatro** en las 14 secciones del formulario—, derivadas del schema
+> con gate bidireccional y mostradas al principio de Configuración. `markov` y `stress` quedan fuera
+> **con su razón medida**, no por falta de tiempo.
+>
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
 > D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su
