@@ -9,7 +9,50 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-07-31, cierre del paquete D)
+## Estado vigente (2026-08-01, P1 · UI por trabajos)
+
+**`main` = `2868490`, CI 16/16 confirmado con `gh` (run `30704363686`); privado `88edb46`. PyPI sigue
+en `1.10.0` y no hay release autorizado.** Gates del cierre: **4682 passed / 6 skipped**, mypy 244,
+ruff check + format (453 archivos), vitest **432/432**, bundle reconstruido dos veces con hash
+idéntico, fixture del schema sin drift, supply-chain 29/29, licencias 42 paquetes, mkdocs `--strict`.
+
+✅ **El SDD de la UI por trabajos está APROBADO como contrato** (D-JOB-1…D-JOB-19) y sus dos primeras
+decisiones están implementadas y verificadas **en vivo con Playwright**, no sólo con tests: la sesión
+arranca vacía y pidiendo tus datos (D-JOB-2), y el trabajo elegido decide qué secciones existen
+(D-JOB-1). El sidebar de «Scorecard» pinta 9 secciones y ninguna de IFRS 9, survival o CMF; el camino
+del ejemplo llega a `done` con el `config_hash` golden del preset F1, así que la identidad no se
+movió.
+
+🔴 **Revisar el SDD antes de programar cambió el trabajo, y esa es la lección transferible.** Cinco
+huecos que ninguna lectura superficial mostraba: el catálogo de trabajos tiene que vivir en el
+**backend** porque el preflight que debe consumirlo es Python; elegir un trabajo siembra **su
+esqueleto** y no un config vacío; la **demo estática** no puede arrancar vacía porque no tiene backend
+ni acepta datos propios; `validation` no podía declararse en un trabajo porque el formulario no la
+ofrece; y el caso «un YAML con secciones ajenas» se cierra **seleccionando el trabajo que le
+corresponde**, no añadiendo un aviso a la vista.
+
+⚠️ **`CONFIG_SECTIONS` no se tocó**: es «qué sabe pintar el formulario», con sus cuatro gates de
+paridad intactos, y el catálogo de trabajos es «qué te muestro según a qué viniste».
+
+🔴 **Bloqueante heredado que esto destapa y NO introduce: activar la sección `data` deja el config
+inválido.** `Rule` y `TargetConfig` no son construibles, así que el catálogo de defaults efectivos no
+distingue un submodelo obligatorio de uno opcional con defaults y la proyección canónica escribe un
+`bad_rule` vacío que el motor rechaza. Ya estaba en el interruptor de sección desde el paquete D. Es
+contrato del catálogo ⇒ enmienda propia; hasta entonces ningún trabajo llega a `done` sin que el
+usuario complete `data.target` y `data.partition` a mano.
+
+⚠️ **Dos trampas nuevas del árbol.** (a) `test_ui_no_reimplementa_formulas_de_dominio` veta cierto
+término de dominio en **todo** el fuente de `nikodym/ui/`, comentarios incluidos: es más amplio que su
+nombre. (b) **`HANDOFF.md` de la raíz es un symlink a `privado/HANDOFF.md`** y está gitignored en el
+público: escribirlo con una herramienta que reemplaza el archivo rompe el symlink y deja el HANDOFF
+versionado sin actualizar, en silencio.
+
+**Siguiente:** D-JOB-7 (abrir la puerta de artefactos por HTTP/UI, con su enmienda de seguridad), que
+desbloquea los dos trabajos hoy declarados no disponibles por esa razón — uno de ellos es P2.
+
+---
+
+## Lo de la sesión anterior (2026-07-31, cierre del paquete D)
 
 **PyPI publica `1.10.0`; no hay release autorizado ni en curso.** Los paquetes B (puerta pública de
 artefactos), C (fuga del target en binning + `unique_keys`) y **D (la UI fabrica un config distinto

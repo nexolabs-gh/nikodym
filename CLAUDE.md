@@ -5,7 +5,57 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-07-31 noche, público `f501147` · privado `76f4dd9`, **CI 16/16 sobre `45bfe7b`**)
+> ## Lo último (2026-08-01, público `2868490` · privado `88edb46`, **CI 16/16 confirmado con `gh`**)
+>
+> ✅ **P1 arrancó: el SDD de la UI por trabajos quedó APROBADO como contrato y sus dos primeras
+> decisiones están implementadas.** `docs/design/_SDD-UI-POR-TRABAJOS.md`, D-JOB-1…D-JOB-19.
+> **D-JOB-2**: la sesión arranca vacía y pidiendo tus datos; los presets pasan a «ver un ejemplo con
+> datos de muestra», camino explícito y secundario. **D-JOB-1**: el trabajo elegido decide qué
+> secciones existen — el sidebar de «Scorecard» pinta 9 y **ninguna** de IFRS 9, survival o CMF.
+> Verificado en vivo con Playwright: el camino del ejemplo llega a `done` con `config_hash
+> ec10eb43…`, el golden del preset F1, o sea que **la identidad no se movió** (D-JOB-9).
+>
+> 🔴 **La revisión del SDD ANTES de programar encontró cinco huecos, y cerrarlos cambió el trabajo.**
+> Los tres que más pesaron: el catálogo de trabajos vive en el **backend** (`ui/jobs.py` +
+> `GET /api/jobs`, aditivo) porque D-JOB-3 exige que lo consuma también el preflight, **que es
+> Python**; elegir un trabajo siembra **su esqueleto** y no un config vacío —si no, un scorecard
+> exige activar nueve secciones a mano antes de poder correr—; y **la demo estática sigue sembrada**
+> (D-JOB-19), porque no tiene backend ni acepta datos propios y arrancarla vacía la dejaría sin poder
+> hacer lo único que pediría.
+>
+> ⚠️ **`CONFIG_SECTIONS` NO se tocó, y ése es el diseño**: sigue siendo «qué sabe pintar el
+> formulario» —con sus cuatro gates de paridad intactos— y el catálogo de trabajos es «qué te muestro
+> según a qué viniste». El sidebar filtra el primero por el segundo. Medido antes de programar: si
+> sólo cambia el render dejando el catálogo intacto, **no se rompe ni un test**.
+>
+> 🔴 **Cinco copys que MENTÍAN con el arranque vacío, y ninguno lo veía un test** —nadie asevera el
+> texto de una tarjeta—: «la configuración estándar ya viene cargada y validada» con un botón
+> «Ejecutar el preset» que llevaba a un Ejecutar bloqueado; «el config estándar ya está cargado» en el
+> vacío de Ejecutar; «el config activo no viene de un preset» sobre una sesión sin nada; el
+> placeholder «Elige un preset…»; y el stepper rotulando Configuración «OPCIONAL» **siempre**. Ese
+> último se corrigió **dos veces**: con un trabajo elegido las secciones existen pero falta lo que
+> sólo decide el usuario, así que sólo es opcional con un ejemplo cargado.
+>
+> 🔴 **Un bloqueante heredado que P1 DESTAPA pero no introduce: activar la sección `data` deja el
+> config inválido.** La proyección canónica escribe `target.bad_rule = {all_of: [], any_of: []}` y el
+> motor lo rechaza. Causa medida: **`Rule` y `TargetConfig` no son construibles**, así que el catálogo
+> de defaults efectivos las representa como un mapa de hijos en vez de un descriptor
+> `has_default: false`, y `canonicalProjection` no puede cumplir el «omite las obligatorias sin
+> default» de D-FX-8. **Ya estaba en el interruptor de sección desde el paquete D** y no se veía
+> porque la sesión arrancaba sembrada. Corregirlo es contractual ⇒ enmienda propia.
+>
+> ⚠️ **`test_ui_no_reimplementa_formulas_de_dominio` es MÁS AMPLIO que su nombre**: veta cierto
+> término de dominio en **todo** el fuente de `nikodym/ui/`, comentarios incluidos. Costó renombrar un
+> trabajo del catálogo (se cambió el nombre, no se ablandó el gate). Saberlo antes de escribir copy
+> nuevo en esa capa.
+>
+> ⚠️ **`HANDOFF.md` de la raíz es un SYMLINK a `privado/HANDOFF.md` y está gitignored en el público.**
+> Escribirlo con una herramienta que reemplaza el archivo **rompe el symlink** y deja el HANDOFF
+> versionado sin actualizar, en silencio. Editar `privado/HANDOFF.md`, o reponer el symlink después.
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-07-31 noche, público `f501147` · privado `76f4dd9`, **CI 16/16 sobre `45bfe7b`**)
 >
 > ✅ **Paquete D cerrado: la interfaz ya muestra el config que se va a ejecutar.** D1 filtra
 > `ReportStep.requires` por los dominios ACTIVOS de la invocación —vía un hook genérico del resolver,
