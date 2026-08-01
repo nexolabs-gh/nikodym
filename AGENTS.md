@@ -11,8 +11,7 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-01 tarde, P1 CERRADO)
 
-**`main` = `bc2a914`, con CI 16/16 confirmado por `gh` sobre `4958b9c`** —el commit que trae todo el
-código; `bc2a914` es sólo documentación—. **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates: **4713 passed / 6 skipped**, mypy 244, ruff check + format, vitest
+**`main` = `d1627e7`, con CI 16/16 confirmado por `gh`** —los cuatro runs de la sesión, verdes—. **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates: **4713 passed / 6 skipped**, mypy 244, ruff check + format, vitest
 **443/443**, bundle reconstruido, fixtures de schema y de trabajos regenerados, mkdocs `--strict`.
 
 🔴 **EL HISTORIAL PÚBLICO SE REESCRIBIÓ** (OK explícito de Cami): se purgaron dos volcados de consola
