@@ -18,6 +18,13 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import COMODIN, PerfilDataset, Requisito
+
+#: Fracción de filas sobre la que una columna de texto se lee como identificador (D-PERF-5).
+#:
+#: 95 % y no 100 % porque un identificador real puede traer nulos o algún duplicado y no deja de
+#: serlo. Es un umbral declarado, no derivado: mejor decirlo aquí que esconderlo en una condición.
+_UMBRAL_IDENTIFICADOR = 0.95
 
 MonotonicTrend = Literal[
     "auto",
@@ -558,3 +565,55 @@ class BinningConfig(NikodymBaseConfig):
         ):
             raise ValueError("min_n_bins no puede ser mayor que max_n_bins.")
         return self
+
+    def requisitos_incumplidos_por_perfil(self, perfil: PerfilDataset) -> tuple[Requisito, ...]:
+        """Invariantes que exigen mirar los DATOS, no sólo los nombres (D-PERF-3/4).
+
+        La invariante la declara aquí el dominio que la impone, igual que las de D-INV-1: es
+        *binning* quien sabe que una columna de texto con casi un valor por fila no es un predictor.
+
+        **El caso real que la motiva**, medido con un CSV de cartera corriente: una columna
+        ``id_operacion`` con un valor por fila entra por el comodín, OptBinning manda todas sus
+        categorías al bin «otros», se queda sin ninguna y **mata la corrida** con un mensaje suyo,
+        en inglés, que no nombra la columna. El paquete C ya dejó la salida —declararla en la llave
+        de unicidad—; lo que faltaba era señalarla antes de pagar la corrida.
+        """
+        # Con una lista explícita, el usuario ya eligió: nombrar una columna es decir que la quiere.
+        # El aviso apunta al descuido del comodín, que es donde la columna entra sin que nadie la
+        # pida.
+        if self.feature_columns != COMODIN:
+            return ()
+        if perfil.n_filas <= 0:
+            return ()
+
+        excluidas = {*self.exclude_columns, *self.categorical_columns}
+        sospechosas = [
+            columna.nombre
+            for columna in perfil.columnas
+            if columna.nombre not in excluidas
+            # Sólo NO numéricas: una continua tiene tantos valores distintos como filas y se
+            # discretiza sin problema. Medido: `carga_financiera` corrió bien en el mismo dataset.
+            and not columna.es_numerica
+            and columna.n_unicos >= _UMBRAL_IDENTIFICADOR * perfil.n_filas
+        ]
+        if not sospechosas:
+            return ()
+
+        nombradas = ", ".join(f"«{c}»" for c in sorted(sospechosas))
+        plural = len(sospechosas) > 1
+        return (
+            Requisito(
+                path="feature_columns",
+                declared=COMODIN,
+                message=(
+                    f"{'Las columnas' if plural else 'La columna'} {nombradas} "
+                    f"{'tienen' if plural else 'tiene'} un valor distinto en casi cada fila, así "
+                    f"que {'parecen identificadores' if plural else 'parece un identificador'} de "
+                    f"la operación y no {'variables' if plural else 'una variable'} con la que "
+                    f"predecir. Al estar tomando todas las variables disponibles, "
+                    f"{'entran' if plural else 'entra'} igual y la corrida se detendrá al agrupar "
+                    f"en tramos. Decláral{'as' if plural else 'a'} en la llave de unicidad "
+                    f"de fila, o añádel{'as' if plural else 'a'} a las variables excluidas."
+                ),
+            ),
+        )

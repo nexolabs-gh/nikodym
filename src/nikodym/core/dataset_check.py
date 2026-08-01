@@ -62,6 +62,50 @@ COMODIN = "*"
 #: propósito: las configs de dominio no deben heredar del núcleo para poder declarar algo suyo.
 METODO_REQUISITOS = "requisitos_incumplidos"
 
+#: Igual que el anterior, pero para las invariantes que necesitan **estadísticas** del dataset y no
+#: sólo sus nombres de columna (enmienda PERFIL-DE-COLUMNAS, D-PERF-4). Va por un método propio y no
+#: ampliando el de arriba: aquel lo implementan cuatro secciones, y añadirle un parámetro obligaría
+#: a tocar las cuatro para que lo use una. Quien no lo declare sigue funcionando igual.
+METODO_REQUISITOS_PERFIL = "requisitos_incumplidos_por_perfil"
+
+
+@dataclass(frozen=True, slots=True)
+class PerfilColumna:
+    """Lo que se sabe de una columna **mirando sus datos**, no su nombre (D-PERF-1).
+
+    Lo aporta quien ya cargó el dataset —la ingesta de un upload lo tiene gratis, porque construye
+    el ``DataFrame`` de todos modos—. :func:`check_dataset` no sale a buscarlo: eso rompería su
+    contrato de no leer los datos (D-PRE-1).
+    """
+
+    nombre: str
+    n_unicos: int
+    """Valores distintos de la columna."""
+
+    es_numerica: bool
+    """Si el tipo es numérico.
+
+    Importa tanto como la cardinalidad: una columna numérica continua tiene tantos valores distintos
+    como filas y el binning la discretiza sin problema. Lo que revienta es una de **texto** con casi
+    un valor por fila, porque todas sus categorías caen al bin «otros» y no queda ninguna.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class PerfilDataset:
+    """Perfil de un dataset ya cargado: sus filas y lo medido por columna (D-PERF-1)."""
+
+    n_filas: int
+    columnas: tuple[PerfilColumna, ...]
+
+    def de(self, nombre: str) -> PerfilColumna | None:
+        """El perfil de una columna por su nombre, o ``None`` si no se midió."""
+        for perfil in self.columnas:
+            if perfil.nombre == nombre:
+                return perfil
+        return None
+
+
 TipoDesajuste = Literal[
     "missing_column", "index_not_a_column", "missing_index", "unmet_requirement"
 ]
@@ -187,7 +231,10 @@ def _declaraciones(config: Any, prefijo: str = "") -> Iterator[tuple[str, str, s
 
 
 def _requisitos(
-    config: Any, columnas: frozenset[str] | None, prefijo: str = ""
+    config: Any,
+    columnas: frozenset[str] | None,
+    prefijo: str = "",
+    perfil: PerfilDataset | None = None,
 ) -> Iterator[tuple[str, Requisito]]:
     """Recorre el config y emite ``(ruta absoluta, requisito)`` por cada invariante incumplida.
 
@@ -200,7 +247,7 @@ def _requisitos(
     if not isinstance(config, BaseModel):
         if isinstance(config, (list, tuple)):
             for i, elemento in enumerate(config):
-                yield from _requisitos(elemento, columnas, f"{prefijo.rstrip('.')}[{i}].")
+                yield from _requisitos(elemento, columnas, f"{prefijo.rstrip('.')}[{i}].", perfil)
         return
 
     metodo = getattr(config, METODO_REQUISITOS, None)
@@ -208,10 +255,21 @@ def _requisitos(
         for requisito in metodo(columnas):
             yield f"{prefijo}{requisito.path}", requisito
 
+    # Invariantes que necesitan estadísticas del dataset (D-PERF-4). Sin perfil no se pregunta:
+    # `None` significa «no se sabe», y afirmar sin el dato es el falso positivo que D-PERF-2 evita.
+    if perfil is not None:
+        metodo_perfil = getattr(config, METODO_REQUISITOS_PERFIL, None)
+        if callable(metodo_perfil):
+            for requisito in metodo_perfil(perfil):
+                yield f"{prefijo}{requisito.path}", requisito
+
     modelo = type(config)
     for nombre in modelo.model_fields:
         yield from _requisitos(
-            getattr(config, nombre, None), columnas, f"{prefijo}{_alias(modelo, nombre)}."
+            getattr(config, nombre, None),
+            columnas,
+            f"{prefijo}{_alias(modelo, nombre)}.",
+            perfil,
         )
 
 
@@ -258,6 +316,7 @@ def check_dataset(
     columns: Sequence[str],
     *,
     index_columns: Sequence[str] | None = None,
+    column_profile: PerfilDataset | None = None,
 ) -> DatasetCheck:
     """Compara ``config`` con los nombres de columna de un dataset, sin ejecutarlo ni leerlo.
 
@@ -279,6 +338,12 @@ def check_dataset(
         indistinguible de uno correcto —el índice, por definición, no está entre las columnas—, y
         afirmar que falta sería el falso positivo más caro posible (el dataset del catálogo contra
         su propio preset). Sólo cuando se declaran los índices se puede emitir ``missing_index``.
+    column_profile : PerfilDataset | None, optional
+        Lo medido sobre los datos ya cargados: filas y, por columna, cardinalidad y si es numérica
+        (D-PERF-1). Igual que ``index_columns``, su ausencia significa «no se sabe» y **no** «no
+        hay»: sin perfil no se emite ni un aviso que dependa de él, y el resultado es idéntico al
+        de antes de la enmienda. No se sale a buscarlo aquí porque esta función no lee los datos
+        (D-PRE-1); lo aporta quien ya cargó el dataset.
 
     Returns
     -------
@@ -331,7 +396,7 @@ def check_dataset(
     # impone y no este recorrido. Aquí las columnas SIEMPRE se conocen (son parámetro obligatorio),
     # así que van completas; el `None` del protocolo es para un consumidor que no las tenga, y
     # significa «no se sabe», no «no hay» (D-INV-4).
-    for ruta, requisito in _requisitos(config, frozenset(presentes)):
+    for ruta, requisito in _requisitos(config, frozenset(presentes), perfil=column_profile):
         desajustes.append(
             Mismatch(ruta, requisito.declared, "unmet_requirement", requisito.message)
         )

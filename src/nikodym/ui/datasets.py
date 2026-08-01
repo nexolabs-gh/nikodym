@@ -13,6 +13,7 @@ capa es *domain-agnostic*: no importa módulos de dominio ni reimplementa fórmu
 
 from __future__ import annotations
 
+import json
 import tempfile
 from hashlib import sha256
 from pathlib import Path
@@ -21,6 +22,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from nikodym.core.dataset_check import PerfilColumna, PerfilDataset
 from nikodym.ui.exceptions import UiDatasetError
 
 __all__ = ["ingest_upload", "list_datasets", "materialize"]
@@ -296,12 +298,73 @@ def ingest_upload(content: bytes, filename: str, *, workdir: Path) -> dict[str, 
     if not path.exists():  # cache por contenido: el mismo archivo no se re-materializa
         path.parent.mkdir(parents=True, exist_ok=True)
         frame.to_parquet(path)
+    _guardar_perfil(workdir, dataset_id, frame)
     return {
         "dataset_id": dataset_id,
         "name": filename,
         "n_rows": len(frame),
         "columns": [{"name": str(col), "dtype": str(frame[col].dtype)} for col in frame.columns],
     }
+
+
+def _ruta_perfil(workdir: Path, dataset_id: str) -> Path:
+    """Ruta del perfil junto al parquet, validada contra traversal igual que él."""
+    return _validated_dataset_path(workdir, f"{dataset_id}.perfil.json", uploaded=True)
+
+
+def _guardar_perfil(workdir: Path, dataset_id: str, frame: pd.DataFrame) -> None:
+    """Guarda lo medido sobre los datos, al lado del parquet (D-PERF-1).
+
+    Se escribe **aquí** porque la ingesta ya tiene el ``DataFrame`` cargado: medir la cardinalidad
+    no cuesta una lectura extra. Y se persiste en vez de recalcularse porque quien lo consume es el
+    preflight, cuyo contrato es no leer los datos (D-PRE-1); leer este JSON no lo rompe.
+    """
+    perfil = {
+        "n_filas": len(frame),
+        "columnas": [
+            {
+                "nombre": str(col),
+                "n_unicos": int(frame[col].nunique(dropna=True)),
+                "es_numerica": bool(pd.api.types.is_numeric_dtype(frame[col])),
+            }
+            for col in frame.columns
+        ],
+    }
+    ruta = _ruta_perfil(workdir, dataset_id)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(json.dumps(perfil, ensure_ascii=False), encoding="utf-8")
+
+
+def load_profile(dataset_id: str, *, workdir: Path) -> PerfilDataset | None:
+    """El perfil de un dataset ya ingerido, o ``None`` si no se midió (D-PERF-2).
+
+    ``None`` significa «no se sabe» y **no** «no hay»: un dataset del catálogo sintético o uno
+    ingerido antes de esta enmienda no tiene perfil, y ahí el preflight debe comportarse
+    exactamente como antes en vez de afirmar sobre datos que nadie midió.
+    """
+    try:
+        ruta = _ruta_perfil(workdir, dataset_id)
+    except UiDatasetError:
+        return None
+    if not ruta.exists():
+        return None
+    try:
+        crudo = json.loads(ruta.read_text(encoding="utf-8"))
+        return PerfilDataset(
+            n_filas=int(crudo["n_filas"]),
+            columnas=tuple(
+                PerfilColumna(
+                    nombre=str(c["nombre"]),
+                    n_unicos=int(c["n_unicos"]),
+                    es_numerica=bool(c["es_numerica"]),
+                )
+                for c in crudo["columnas"]
+            ),
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        # Un perfil ilegible se trata como ausente: degradar a «no se sabe» es correcto, y hacer
+        # fallar el preflight por su caché sería peor que no tener el aviso.
+        return None
 
 
 def materialize(dataset_id: str, *, workdir: Path) -> Path:

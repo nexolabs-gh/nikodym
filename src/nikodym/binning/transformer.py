@@ -254,7 +254,7 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
                     check_input=True,
                 )
         except Exception as exc:
-            raise BinningFitError(f"No se pudo ajustar OptBinning: {exc}") from exc
+            raise BinningFitError(_mensaje_de_fallo(exc, working.loc[:, process_columns])) from exc
 
         tables, fitted_summary, binned_columns, fitted_dtypes = _collect_fitted_outputs(
             process=process,
@@ -732,6 +732,52 @@ def _build_binning_fit_params(
                 column_params["cat_cutoff"] = _none_if_zero(override.cat_cutoff)
         params[column] = {key: value for key, value in column_params.items() if value is not None}
     return params
+
+
+#: Fracción de filas sobre la que una columna de texto se lee como identificador (D-PERF-5).
+#: Mismo umbral que declara `BinningConfig.requisitos_incumplidos_por_perfil`, y por la misma razón.
+_UMBRAL_IDENTIFICADOR = 0.95
+
+
+def _mensaje_de_fallo(exc: Exception, frame: DataFrame) -> str:
+    """Traduce el fallo del ajuste a algo accionable, nombrando la columna culpable (D-PERF-8).
+
+    El mensaje crudo de OptBinning —«All categories moved to others' bin»— está en inglés, no dice
+    **qué** columna falló y no sugiere salida alguna. La causa real, medida con un CSV de cartera
+    corriente, es casi siempre la misma: una columna identificador entró por el comodín, todas sus
+    categorías cayeron al bin «otros» y no quedó ninguna.
+
+    El aviso previo del preflight (D-PERF-1…D-PERF-7) evita llegar hasta aquí, pero no lo sustituye:
+    quien usa la librería **por código** no pasa por el preflight, y quien ignora el aviso aterriza
+    igual en este error.
+    """
+    crudo = str(exc)
+    if "others" not in crudo.lower():
+        return f"No se pudo ajustar el binning: {crudo}"
+
+    pd = _import_pandas()  # el módulo importa pandas de forma diferida; aquí también
+    filas = len(frame)
+    sospechosas = sorted(
+        str(columna)
+        for columna in frame.columns
+        if not pd.api.types.is_numeric_dtype(frame[columna])
+        and frame[columna].nunique(dropna=True) >= _UMBRAL_IDENTIFICADOR * filas
+    )
+    if not sospechosas:
+        return (
+            f"No se pudo ajustar el binning: alguna variable de texto se quedó sin categorías "
+            f"con las que agrupar. Revisa las variables candidatas. Detalle: {crudo}"
+        )
+    nombradas = ", ".join(f"«{c}»" for c in sospechosas)
+    plural = len(sospechosas) > 1
+    return (
+        f"No se pudo ajustar el binning: {nombradas} "
+        f"{'tienen' if plural else 'tiene'} un valor distinto en casi cada fila, así que "
+        f"{'parecen identificadores' if plural else 'parece un identificador'} de la operación y "
+        f"no se {'pueden' if plural else 'puede'} agrupar en tramos. "
+        f"Decláral{'as' if plural else 'a'} en la llave de unicidad de fila, o añádel"
+        f"{'as' if plural else 'a'} a las variables excluidas del binning."
+    )
 
 
 def _none_if_zero(value: float | int | None) -> float | int | None:

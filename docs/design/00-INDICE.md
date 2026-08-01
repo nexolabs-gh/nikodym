@@ -305,6 +305,22 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > con gate bidireccional y mostradas al principio de Configuración. `markov` y `stress` quedan fuera
 > **con su razón medida**, no por falta de tiempo.
 >
+> **Una columna identificador se avisa antes de correr (2026-08-01, APROBADA e implementada).**
+> [`_ENMIENDA-PERFIL-DE-COLUMNAS.md`](_ENMIENDA-PERFIL-DE-COLUMNAS.md), D-PERF-1…D-PERF-8, enmienda a
+> `_ENMIENDA-PREFLIGHT-DATASET.md` (firma de `check_dataset`) y a `_ENMIENDA-INVARIANTES-PREVIAS.md`
+> (protocolo por sección). Salió de correr el gate de aceptación de P1 con un CSV de cartera
+> corriente: una columna de id entra al binning por el comodín, todas sus categorías caen al bin
+> «otros» y la corrida muere con un mensaje de OptBinning **en inglés que no nombra la columna**.
+> ⚠️ **La forma primero propuesta —que el preflight mirara la cardinalidad— NO es posible**: su
+> contrato es no leer los datos (D-PRE-1) y el parquet no trae `distinct_count`, medido. El perfil
+> pasa a ser un **dato que se aporta**: lo mide la ingesta, que ya carga el `DataFrame`, y se
+> persiste junto al parquet. `None` sigue significando «no se sabe», igual que `index_columns`. La
+> invariante la declara **binning** por un método propio —ampliar el de D-INV-1 obligaría a tocar
+> sus cuatro implementaciones para que la use una—, y el criterio no es «cardinalidad alta» sino
+> **texto con casi un valor por fila**: una numérica continua se discretiza sin problema, y por eso
+> tiene control negativo. El mensaje del motor se arregla igual (D-PERF-8): quien usa la librería
+> por código no pasa por el preflight.
+>
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
 > D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su

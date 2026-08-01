@@ -213,7 +213,10 @@ def preflight_dataset(config: Any, dataset_id: Any, *, workdir: Path) -> dict[st
     source = datasets.materialize(dataset_id, workdir=workdir)  # UiDatasetError → 404
 
     columnas, indices = _columnas_del_parquet(source)
-    veredicto = nikodym.check_dataset(model, columnas, index_columns=indices)
+    # Lo medido en la ingesta (D-PERF-1). `None` para un dataset del catálogo o uno ingerido antes
+    # de la enmienda: ahí el veredicto es idéntico al de siempre, que es lo que D-PERF-2 exige.
+    perfil = datasets.load_profile(dataset_id, workdir=workdir)
+    veredicto = nikodym.check_dataset(model, columnas, index_columns=indices, column_profile=perfil)
     return {
         "compatible": veredicto.compatible,
         "mismatches": [
