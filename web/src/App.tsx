@@ -87,8 +87,9 @@ const SECTIONS: SectionDef[] = [
     label: "Cargar datos",
     icon: Database,
     title: "Cargar datos",
+    // El orden del subtítulo sigue al de la pantalla (D-JOB-2): primero el tuyo.
     cardDescription:
-      "Elige un dataset de ejemplo o sube el tuyo (CSV, Excel o Parquet).",
+      "Sube tu dataset (CSV, Excel o Parquet), o elige uno de ejemplo.",
     empty:
       "El selector de datasets sintéticos (id, columnas, roles) se cableará a data.load.source, sin duplicar lógica de dominio.",
   },
@@ -186,21 +187,30 @@ function configKeyOf(active: string): string | null {
 
 /**
  * Los 5 pasos del flujo, tal como los ve el usuario (el sidebar los desglosa; el stepper los
- * resume). Configuración es OPCIONAL: el config estándar se siembra y valida solo al entrar
- * (`lib/bootstrap.ts`), así que se puede ir de Datos a Ejecutar sin pasar por ahí.
+ * resume).
+ *
+ * ⚠️ **Configuración es opcional sólo si hay algo sembrado**, y el matiz lo trajo D-JOB-2: con un
+ * ejemplo cargado se puede ir de Datos a Ejecutar sin pasar por ahí, pero en una sesión vacía todas
+ * las secciones llegan apagadas y no hay pipeline que correr hasta activarlas. Rotularlo «OPCIONAL»
+ * en ese estado le diría al usuario que puede saltarse el único paso que le falta.
  */
-const FLOW_STEPS: (FlowStep & { value: string })[] = [
-  { value: DATA_SECTION.value, label: "Datos" },
-  { value: "config", label: "Configuración", optional: true },
-  { value: "ejecutar", label: "Ejecutar" },
-  { value: "resultados", label: "Resultados" },
-  { value: "reporte", label: "Reporte" },
-]
+function flowSteps(configOpcional: boolean): (FlowStep & { value: string })[] {
+  return [
+    { value: DATA_SECTION.value, label: "Datos" },
+    { value: "config", label: "Configuración", optional: configOpcional },
+    { value: "ejecutar", label: "Ejecutar" },
+    { value: "resultados", label: "Resultados" },
+    { value: "reporte", label: "Reporte" },
+  ]
+}
+
+/** Orden de los pasos; el rótulo `optional` no lo cambia, así que la búsqueda vive aparte. */
+const FLOW_ORDER = ["datos", "config", "ejecutar", "resultados", "reporte"]
 
 /** Paso del stepper que corresponde a la sección abierta (cualquier `config:*` es el paso 2). */
 function stepIndexOf(active: string): number {
   const value = configKeyOf(active) === null ? active : "config"
-  const index = FLOW_STEPS.findIndex((step) => step.value === value)
+  const index = FLOW_ORDER.indexOf(value)
   return index === -1 ? 0 : index
 }
 
@@ -210,6 +220,7 @@ function App() {
   // Entra por "Cargar datos": el flujo mental es traer el dataset antes de configurar cómo leerlo.
   const [active, setActive] = useState<string>(DATA_SECTION.value)
   const {
+    seed,
     setConfig,
     setDatasetId,
     setSelectedDataset,
@@ -316,7 +327,10 @@ function App() {
 
       <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-4xl px-6 py-10 lg:px-10">
-          <FlowStepper steps={FLOW_STEPS} current={stepIndexOf(active)} />
+          <FlowStepper
+            steps={flowSteps(seed !== null && seed.kind !== "empty")}
+            current={stepIndexOf(active)}
+          />
 
           <header className="mb-8">
             <p className="mb-2 font-mono text-xs uppercase tracking-[0.18em] text-eyebrow">

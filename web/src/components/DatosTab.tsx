@@ -70,6 +70,7 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
     welcomeDismissed,
     setWelcomeDismissed,
     preflight,
+    seed,
   } = useAppState()
 
   const [datasets, setDatasets] = useState<DatasetInfo[]>([])
@@ -145,17 +146,8 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
     }
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Get-started del primer paso: qué es el flujo y que se puede correr sin configurar nada. */}
-      {welcomeDismissed ? null : (
-        <WelcomeCard
-          onRun={() => onNavigate("ejecutar")}
-          onDismiss={() => setWelcomeDismissed(true)}
-        />
-      )}
-
-      {/* Sección A — Datasets de ejemplo (catálogo sintético). */}
+  // Sección A — Datasets de ejemplo (catálogo sintético).
+  const seccionEjemplos = (
       <Card className="shadow-card">
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
@@ -204,8 +196,10 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
           )}
         </CardContent>
       </Card>
+  )
 
-      {/* Sección B — Tu dataset (subida propia). */}
+  // Sección B — Tu dataset (subida propia).
+  const seccionTuDataset = (
       <Card className="shadow-card">
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
@@ -255,6 +249,36 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
           ) : null}
         </CardContent>
       </Card>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Get-started del primer paso: qué es el flujo y con qué se empieza. */}
+      {welcomeDismissed ? null : (
+        <WelcomeCard
+          sembrado={seed?.kind === "preset"}
+          onRun={() => onNavigate("ejecutar")}
+          onDismiss={() => setWelcomeDismissed(true)}
+        />
+      )}
+
+      {/* D-JOB-2: en el instalable TU dataset va primero y los de ejemplo detrás. El orden de esta
+          pantalla es el argumento entero del cambio —lo primero que se ofrece es lo que la
+          herramienta cree que viniste a hacer—, así que invertirlo no es maquetación. En la demo
+          estática se conserva el orden viejo: ahí el catálogo está fijado al preset activo y no hay
+          backend al que subir nada, de modo que poner la subida arriba ofrecería primero lo único
+          que esa build no puede hacer. */}
+      {DEMO_MODE ? (
+        <>
+          {seccionEjemplos}
+          {seccionTuDataset}
+        </>
+      ) : (
+        <>
+          {seccionTuDataset}
+          {seccionEjemplos}
+        </>
+      )}
 
       {/* Preview del dataset activo (persistido en el store). */}
       {selectedDataset ? (
@@ -307,17 +331,24 @@ function LockedExampleDataset({ dataset }: LockedExampleDatasetProps) {
 }
 
 interface WelcomeCardProps {
+  /** ¿La sesión llegó con un config y su dataset ya cargados? (demo estática, o un ejemplo). */
+  sembrado: boolean
   onRun: () => void
   onDismiss: () => void
 }
 
 /**
- * Tarjeta de bienvenida del primer paso (get-started, UX1): explica el scoring de punta a punta
- * en cuatro líneas y deja explícito que el preset ya viene cargado y validado, así que se puede
- * ejecutar sin configurar nada. Descartable (se cierra por sesión, vía el store). Tono de marca:
- * sobrio, sin marketing. No calcula ni decide nada: es texto + dos CTA.
+ * Tarjeta de bienvenida del primer paso (get-started): explica el scoring de punta a punta en
+ * cuatro líneas. Descartable (se cierra por sesión, vía el store). Tono de marca: sobrio, sin
+ * marketing. No calcula ni decide nada: es texto + CTA.
+ *
+ * 🔴 **El texto depende de si hay algo sembrado, y NO es cosmética** (D-JOB-2). Su versión anterior
+ * afirmaba siempre «la configuración estándar ya viene cargada y validada, así que puedes ejecutar
+ * el preset tal cual», con un botón «Ejecutar el preset». Con el arranque vacío eso es literalmente
+ * falso: no hay preset, ni dataset, y el botón lleva a un Ejecutar bloqueado. Lo encontró abrir la
+ * pantalla, no la suite —el copy de una tarjeta no lo asevera ningún test—.
  */
-function WelcomeCard({ onRun, onDismiss }: WelcomeCardProps) {
+function WelcomeCard({ sembrado, onRun, onDismiss }: WelcomeCardProps) {
   return (
     <Card className="shadow-card">
       <CardContent className="space-y-4">
@@ -328,10 +359,10 @@ function WelcomeCard({ onRun, onDismiss }: WelcomeCardProps) {
             </p>
             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
               El pipeline va del dataset al scorecard en un paso: binning, selección de
-              variables, modelo, escalado a puntaje y calibración de PD. Eliges un dataset,
-              ejecutas la corrida y revisas los resultados y el reporte. La configuración
-              estándar ya viene cargada y validada, así que puedes ejecutar el preset tal cual,
-              sin configurar nada. Ajustar la configuración es opcional.
+              variables, modelo, escalado a puntaje y calibración de PD.{" "}
+              {sembrado
+                ? "Eliges un dataset, ejecutas la corrida y revisas los resultados y el reporte. La configuración de este ejemplo ya viene cargada y validada, así que puedes ejecutarlo tal cual, sin configurar nada. Ajustar la configuración es opcional."
+                : "Empieza trayendo tu archivo —CSV, Excel o Parquet—: el backend lee sus columnas y la configuración te va diciendo qué falta ajustar antes de correr. Si prefieres ver el motor funcionando primero, más abajo hay datasets de ejemplo."}
             </p>
           </div>
           <Button
@@ -344,11 +375,16 @@ function WelcomeCard({ onRun, onDismiss }: WelcomeCardProps) {
             <X aria-hidden="true" />
           </Button>
         </div>
-        <Button onClick={onRun}>
-          <Play aria-hidden="true" />
-          Ejecutar el preset
-          <ArrowRight aria-hidden="true" />
-        </Button>
+        {/* Sin config ni dataset, «Ejecutar» sólo lleva a un botón bloqueado: el gesto que sigue es
+            traer el archivo, y ése es el control de la tarjeta de abajo. Un CTA que no puede
+            cumplir es peor que ningún CTA. */}
+        {sembrado ? (
+          <Button onClick={onRun}>
+            <Play aria-hidden="true" />
+            Ejecutar el ejemplo
+            <ArrowRight aria-hidden="true" />
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   )

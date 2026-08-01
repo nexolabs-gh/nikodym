@@ -251,10 +251,10 @@ export function RunTab({ onNavigate }: RunTabProps) {
         <Card className="shadow-card">
           <CardContent className="space-y-3">
             <div className="space-y-1">
-              <p className="text-sm font-medium text-eyebrow">Preset</p>
+              <p className="text-sm font-medium text-eyebrow">Ejemplos</p>
               <p className="text-xs text-muted-foreground">
-                Elige el pipeline a correr. Al cambiarlo se resiembra el config
-                y su dataset recomendado.
+                Pipelines completos con datos de muestra. Elegir uno reemplaza tu
+                config y tu dataset por los suyos.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -266,8 +266,8 @@ export function RunTab({ onNavigate }: RunTabProps) {
                   }}
                   disabled={switching || running}
                 >
-                  <SelectTrigger className="w-full" aria-label="Preset a correr">
-                    <SelectValue placeholder="Elige un preset…" />
+                  <SelectTrigger className="w-full" aria-label="Ejemplo a cargar">
+                    <SelectValue placeholder="Elige un ejemplo…" />
                   </SelectTrigger>
                   <SelectContent>
                     {presets.map((p) => (
@@ -341,8 +341,13 @@ export function RunTab({ onNavigate }: RunTabProps) {
             {seed !== null && seed.kind !== "preset" ? (
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {seed.kind === "yaml"
-                  ? `El config activo viene de «${seed.fileName}», no de un preset. Elegir uno aquí lo reemplaza.`
-                  : "El config activo no viene de un preset. Elegir uno aquí lo reemplaza."}
+                  ? `El config activo viene de «${seed.fileName}», no de un ejemplo. Elegir uno aquí lo reemplaza.`
+                  : seed.kind === "empty"
+                    ? // `empty` NO es «no viene de un preset»: es que todavía no hay nada. Reusar el
+                      // texto genérico dejaba la primera pantalla de Ejecutar explicando un config
+                      // que el usuario nunca cargó.
+                      "Todavía no has cargado ninguna configuración. Elegir un ejemplo aquí carga uno completo con su dataset de muestra."
+                    : "El config activo no viene de un ejemplo. Elegir uno aquí lo reemplaza."}
               </p>
             ) : null}
           </CardContent>
@@ -403,17 +408,23 @@ export function RunTab({ onNavigate }: RunTabProps) {
             <EmptyState
               icon={Play}
               title="Sin corridas todavía"
+              // ⚠️ Las tres ramas existen porque las dos anteriores AFIRMABAN «el config estándar ya
+              // está cargado y validado» — cierto mientras la sesión arrancaba sembrada, falso desde
+              // D-JOB-2 y visible en la primera pantalla de Ejecutar. Ningún test lo habría cazado:
+              // el copy de un `EmptyState` no lo asevera nadie.
               description={
-                datasetId === null
-                  ? "El config estándar ya está cargado y validado. Solo falta elegir el dataset con el que quieres correr el pipeline."
-                  : "La configuración estándar ya está lista: dispara la corrida para ver aquí su estado y su lineage."
+                seed?.kind === "empty"
+                  ? "Todavía no hay nada que correr: trae tu dataset y activa en Configuración las secciones del pipeline que necesitas."
+                  : datasetId === null
+                    ? "El config ya está cargado y validado. Solo falta elegir el dataset con el que quieres correr el pipeline."
+                    : "La configuración ya está lista: dispara la corrida para ver aquí su estado y su lineage."
               }
               tag="Ejecutar"
               // Sin dataset el botón de arriba no abre: el CTA lleva al paso que falta.
               action={
                 datasetId === null
                   ? {
-                      label: "Elegir dataset",
+                      label: seed?.kind === "empty" ? "Traer mi dataset" : "Elegir dataset",
                       onClick: () => onNavigate("datos"),
                       icon: Database,
                     }

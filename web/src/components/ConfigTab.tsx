@@ -75,11 +75,19 @@ const SOURCE_BANNER: Record<
   },
 }
 
-/** Aviso sobrio de qué config se cargó (o `null` mientras aún no se resuelve la siembra). */
+/**
+ * Aviso sobrio de qué config se cargó (o `null` mientras aún no se resuelve el arranque).
+ *
+ * `empty` y `defaults` cargan el mismo config y dicen cosas distintas a propósito (D-JOB-2): uno es
+ * el estado inicial de la sesión y el otro una acción que el usuario ejecutó desde esta pantalla.
+ * Darles el mismo texto explicaría la primera pantalla con el copy de un botón que nadie pulsó.
+ */
 function seedNotice(seed: SeedState | null): string | null {
   switch (seed?.kind) {
+    case "empty":
+      return "Sesión nueva, sin configuración. Trae tus datos en «Cargar datos» y ajusta aquí lo que necesites; «Ver un ejemplo» carga uno con datos de muestra."
     case "preset":
-      return `Cargada la configuración estándar: ${seed.name} · dataset ${seed.datasetId}`
+      return `Cargado el ejemplo: ${seed.name} · dataset de muestra ${seed.datasetId}`
     case "fallback":
       return "Config vacío del schema (backend no disponible)."
     case "defaults":
@@ -543,10 +551,14 @@ export function ConfigTab({ section }: { section: string }) {
               size="sm"
               onClick={handleLoadPreset}
               disabled={presetBusy || backendDown}
+              // El botón dice «ejemplo» y no «configuración estándar» desde D-JOB-2: cargar un
+              // preset trae también SU dataset de muestra, así que llamarlo «estándar» invitaba a
+              // leerlo como el punto de partida normal del trabajo propio, que es justo el énfasis
+              // que este cambio retira.
               title={
                 backendDown
                   ? "Requiere el backend"
-                  : "Recargar la configuración estándar (lista para correr)"
+                  : "Cargar un ejemplo listo para correr, con su dataset de muestra"
               }
             >
               {presetBusy ? (
@@ -554,7 +566,7 @@ export function ConfigTab({ section }: { section: string }) {
               ) : (
                 <Sparkles aria-hidden="true" />
               )}
-              Configuración estándar
+              Ver un ejemplo
             </Button>
             <Button
               variant="outline"

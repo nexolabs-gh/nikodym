@@ -18,8 +18,9 @@ interface FlowStepperProps {
  * propio: el paso activo lo deriva `App` de la sección abierta en el sidebar (que sigue siendo el
  * navegador real; el stepper no navega).
  *
- * Los pasos `optional` se rotulan como tales: desde UX1 el config estándar se siembra y valida
- * solo al entrar, así que Configuración es un ajuste opcional, no un requisito para ejecutar.
+ * Los pasos `optional` se rotulan como tales. Quién es opcional lo decide `App`, no este
+ * componente: desde D-JOB-2 depende del estado de la sesión —con un ejemplo cargado, Configuración
+ * es un ajuste; en una sesión vacía es el paso que falta—.
  */
 export function FlowStepper({ steps, current }: FlowStepperProps) {
   return (

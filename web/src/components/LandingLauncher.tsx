@@ -297,14 +297,28 @@ function CurvaGains() {
 }
 
 /**
- * Selector de demos (SOLO en `demo.nikodym.cl`): una card por preset empaquetado (`listPresets()`),
- * para ELEGIR qué área ver sin enterrarla en el selector de Ejecutar. Al elegir una, entra al
- * workspace en Ejecutar con ese pipeline ya cargado. Data-driven: si mañana hay más presets en la
- * demo, aparecen aquí solos. Falla en silencio (sin catálogo no se muestra; el hero conserva el
- * comando `pip`). Título, garantía y blurb salen de la capa de presentación (`presetDisplay`), no
- * del nombre/descripción crudos del fixture: así landing y workspace muestran el mismo copy limpio.
+ * Selector de presets: una card por preset empaquetado (`listPresets()`), para ELEGIR qué área ver
+ * sin enterrarla en el selector de Ejecutar. Al elegir una, entra al workspace en Ejecutar con ese
+ * pipeline ya cargado. Data-driven: si mañana hay más presets, aparecen aquí solos. Falla en
+ * silencio (sin catálogo no se muestra; el hero conserva el comando `pip`). Título, garantía y blurb
+ * salen de la capa de presentación (`presetDisplay`), no del nombre/descripción crudos del fixture:
+ * así landing y workspace muestran el mismo copy limpio.
+ *
+ * ⚠️ **El copy lo pone quien lo usa, y no es cosmética** (D-JOB-2). En `demo.nikodym.cl` esto ES la
+ * entrada: «Elige una demo». En el build instalable es el camino SECUNDARIO —«ver un ejemplo con
+ * datos de muestra»— detrás de traer datos propios. Un solo texto para los dos sitios volvería a
+ * poner la demostración al frente en la aplicación que se instala, que es justo lo que D-JOB-2
+ * retira.
  */
-function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
+function PresetSelector({
+  onPick,
+  titulo,
+  cta,
+}: {
+  onPick: (presetId: string) => void
+  titulo: string
+  cta: string
+}) {
   const [presets, setPresets] = useState<PresetSummary[]>([])
 
   useEffect(() => {
@@ -325,7 +339,7 @@ function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold tracking-wide text-eyebrow">Elige una demo</p>
+      <p className="text-xs font-semibold tracking-wide text-eyebrow">{titulo}</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {presets.map((p) => {
           const { title, garantia, blurb } = presetDisplay(p)
@@ -362,7 +376,7 @@ function DemoSelector({ onPick }: { onPick: (presetId: string) => void }) {
                 {garantia}
               </span>
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-accent-dark">
-                Ver esta demo
+                {cta}
                 <ArrowRight
                   className="size-3.5 transition-transform group-hover:translate-x-0.5"
                   aria-hidden="true"
@@ -438,27 +452,42 @@ export function LandingLauncher({
 
               {DEMO_MODE ? (
                 <div className="mt-9 space-y-5">
-                  <DemoSelector onPick={onEnter} />
+                  <PresetSelector
+                    onPick={onEnter}
+                    titulo="Elige una demo"
+                    cta="Ver esta demo"
+                  />
                   <ComandoCopiable />
                 </div>
               ) : (
-                <div className="mt-9 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => onEnter()}
-                    className={cn(
-                      "group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3",
-                      "font-medium text-primary-foreground shadow-card transition-all",
-                      "hover:-translate-y-0.5 hover:bg-brand-accent-dark",
-                    )}
-                  >
-                    Construir un scorecard
-                    <ArrowRight
-                      className="size-4 transition-transform group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    />
-                  </button>
-                  <ComandoCopiable />
+                // D-JOB-2: el gesto primario es TRAER TUS DATOS, y los ejemplos quedan detrás como
+                // camino explícito. Antes el único botón era «Construir un scorecard» y la sesión ya
+                // venía sembrada con un preset y su dataset sintético, así que la primera pantalla
+                // del producto instalado era, de hecho, una demostración.
+                <div className="mt-9 space-y-7">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => onEnter()}
+                      className={cn(
+                        "group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3",
+                        "font-medium text-primary-foreground shadow-card transition-all",
+                        "hover:-translate-y-0.5 hover:bg-brand-accent-dark",
+                      )}
+                    >
+                      Empezar con mis datos
+                      <ArrowRight
+                        className="size-4 transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
+                    </button>
+                    <ComandoCopiable />
+                  </div>
+                  <PresetSelector
+                    onPick={onEnter}
+                    titulo="¿Prefieres ver un ejemplo primero? Estos corren con datos de muestra"
+                    cta="Ver este ejemplo"
+                  />
                 </div>
               )}
 
