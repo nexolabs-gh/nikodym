@@ -9,46 +9,83 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-01, P1 · UI por trabajos)
+## Estado vigente (2026-08-01 tarde, P1 CERRADO)
 
-**`main` = `2868490`, CI 16/16 confirmado con `gh` (run `30704363686`); privado `88edb46`. PyPI sigue
-en `1.10.0` y no hay release autorizado.** Gates del cierre: **4682 passed / 6 skipped**, mypy 244,
-ruff check + format (453 archivos), vitest **432/432**, bundle reconstruido dos veces con hash
-idéntico, fixture del schema sin drift, supply-chain 29/29, licencias 42 paquetes, mkdocs `--strict`.
+**`main` = `4958b9c`; CI en curso al cerrar — verificar con `gh`. PyPI sigue en `1.10.0` y no hay
+release autorizado.** Gates: **4713 passed / 6 skipped**, mypy 244, ruff check + format, vitest
+**443/443**, bundle reconstruido, fixtures de schema y de trabajos regenerados, mkdocs `--strict`.
 
-✅ **El SDD de la UI por trabajos está APROBADO como contrato** (D-JOB-1…D-JOB-19) y sus dos primeras
-decisiones están implementadas y verificadas **en vivo con Playwright**, no sólo con tests: la sesión
-arranca vacía y pidiendo tus datos (D-JOB-2), y el trabajo elegido decide qué secciones existen
-(D-JOB-1). El sidebar de «Scorecard» pinta 9 secciones y ninguna de IFRS 9, survival o CMF; el camino
-del ejemplo llega a `done` con el `config_hash` golden del preset F1, así que la identidad no se
-movió.
+🔴 **EL HISTORIAL PÚBLICO SE REESCRIBIÓ** (OK explícito de Cami): se purgaron dos volcados de consola
+de Playwright commiteados por error el 2026-07-31, que traían la navegación de quien los generó. **Los
+SHA anteriores al 2026-08-01 17:00 que aparezcan en documentos viejos ya no existen** — `2868490` es
+hoy `a1d40d6`, `f7d4877` es `4af4ecc`. Ningún tag se movió y PyPI no se tocó. ⚠️ GitHub sigue
+sirviendo los blobs por su SHA tras un force push, y hay 1 fork: purga dura es un ticket a Support.
 
-🔴 **Revisar el SDD antes de programar cambió el trabajo, y esa es la lección transferible.** Cinco
-huecos que ninguna lectura superficial mostraba: el catálogo de trabajos tiene que vivir en el
-**backend** porque el preflight que debe consumirlo es Python; elegir un trabajo siembra **su
-esqueleto** y no un config vacío; la **demo estática** no puede arrancar vacía porque no tiene backend
-ni acepta datos propios; `validation` no podía declararse en un trabajo porque el formulario no la
-ofrece; y el caso «un YAML con secciones ajenas» se cierra **seleccionando el trabajo que le
-corresponde**, no añadiendo un aviso a la vista.
+✅ **P1 CERRADO.** El gate de aceptación se verificó de punta a punta **en vivo**: entrar por
+«Scorecard de comportamiento (PD)», contestar sus dos decisiones, subir un CSV propio de 6.000 filas
+y llegar a «Corrida completada» con su informe en disco. **D-JOB-7 no se empezó**: se cambió por la
+enmienda del perfil de columnas, decisión de Cami tras medir lo que el gate destapó.
+
+🔴 **Tres premisas heredadas salieron FALSAS al medirlas, y la primera estaba escrita en `CLAUDE.md`.**
+Es la lección transferible: (1) la causa del `bad_rule` inválido **no era la construibilidad** —
+`_mapa_de_modelo` decide mirando **sólo la anotación** y nunca consulta `is_required()`; (2) **no era
+`data`**: `survival` tiene el defecto idéntico, rompe **cuatro** gestos de estructura y **los diez
+trabajos nacían inválidos**; (3) **arreglarlo no deja el config válido, y a propósito** — `bad_rule` y
+`partition.strategy` son `DATO-INSTITUCIONAL`, así que el arreglo cambia un valor inventado por un
+hueco honesto. De ahí salió la segunda mitad del trabajo.
+
+✅ **Dos enmiendas aprobadas e implementadas.**
+[`_ENMIENDA-DECISIONES-OBLIGATORIAS.md`](docs/design/_ENMIENDA-DECISIONES-OBLIGATORIAS.md)
+(D-OBL-1…D-OBL-11): el catálogo publica un submodelo obligatorio como **descriptor que conserva sus
+hijos**, forma elegida porque **no obliga a tocar `canonicalProjection` ni `isDescriptor`**; y el
+trabajo **pregunta en idioma de negocio** lo que sólo el usuario decide —medido, **cuatro**
+decisiones en las 14 secciones, con gate bidireccional contra `model_fields`—.
+[`_ENMIENDA-PERFIL-DE-COLUMNAS.md`](docs/design/_ENMIENDA-PERFIL-DE-COLUMNAS.md) (D-PERF-1…D-PERF-8):
+una columna identificador se avisa **antes** de correr.
+
+🔴 **El gate destapó que NINGÚN trabajo llegaba a `done`**, y la suite no lo veía: el esqueleto
+sembraba los ocho capítulos obligatorios del informe —entre ellos `eda`—, que ningún trabajo declara
+y el formulario no ofrece. Lo cierra D-OBL-11 recortando a la intersección, que es el criterio de
+D-FX-3 aplicado a la siembra.
+
+⚠️ **Un golden estuvo a punto de enterrar 28 campos sin comparar**: el conteo de descriptores bajó a
+996 porque el emparejador cortaba al ver un descriptor y dejaba de bajar por sus hijos. Va a **1034**,
+con los 10 submodelos obligatorios enumerados uno a uno para que el número no trague un onceavo.
+
+⚠️ **La forma pensada para el aviso del identificador NO era posible**: el preflight no lee los datos
+(D-PRE-1) y el parquet no trae `distinct_count` —medido, pandas no lo escribe—. El perfil pasó a ser
+**un dato que aporta la ingesta**. Y el criterio no es «cardinalidad alta» sino **texto con casi un
+valor por fila**: una numérica continua se discretiza sin problema, y por eso lleva control negativo.
+
+**Siguiente: D-JOB-7, con su terreno ya medido** (no re-medirlo): los dos trabajos bloqueados sólo
+necesitan DataFrames planos, el hueco son **4 piezas** y `ui/runs.py` **no participa**. 🔴
+`_pipeline_payload` llama `check_pipeline` sin artefactos, y **no hay gate estructural** que obligue a
+un endpoint nuevo a entrar en las listas de seguridad. Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-01 mañana, `a1d40d6` — era `2868490` antes de la reescritura)
+
+✅ **El SDD de la UI por trabajos quedó APROBADO como contrato** (D-JOB-1…D-JOB-19) y sus dos primeras
+decisiones se implementaron y verificaron **en vivo**: la sesión arranca vacía y pidiendo tus datos
+(D-JOB-2), y el trabajo elegido decide qué secciones existen (D-JOB-1). El sidebar de «Scorecard»
+pinta 9 secciones y ninguna de IFRS 9, survival o CMF.
+
+🔴 **Revisar el SDD antes de programar cambió el trabajo**, y ésa es la lección transferible: el
+catálogo de trabajos tiene que vivir en el **backend** porque el preflight que debe consumirlo es
+Python; elegir un trabajo siembra **su esqueleto** y no un config vacío; la **demo estática** no puede
+arrancar vacía porque no tiene backend ni acepta datos propios; `validation` no podía declararse
+porque el formulario no la ofrece; y el caso «un YAML con secciones ajenas» se cierra **seleccionando
+el trabajo que le corresponde**, no añadiendo un aviso.
 
 ⚠️ **`CONFIG_SECTIONS` no se tocó**: es «qué sabe pintar el formulario», con sus cuatro gates de
 paridad intactos, y el catálogo de trabajos es «qué te muestro según a qué viniste».
 
-🔴 **Bloqueante heredado que esto destapa y NO introduce: activar la sección `data` deja el config
-inválido.** `Rule` y `TargetConfig` no son construibles, así que el catálogo de defaults efectivos no
-distingue un submodelo obligatorio de uno opcional con defaults y la proyección canónica escribe un
-`bad_rule` vacío que el motor rechaza. Ya estaba en el interruptor de sección desde el paquete D. Es
-contrato del catálogo ⇒ enmienda propia; hasta entonces ningún trabajo llega a `done` sin que el
-usuario complete `data.target` y `data.partition` a mano.
-
-⚠️ **Dos trampas nuevas del árbol.** (a) `test_ui_no_reimplementa_formulas_de_dominio` veta cierto
-término de dominio en **todo** el fuente de `nikodym/ui/`, comentarios incluidos: es más amplio que su
-nombre. (b) **`HANDOFF.md` de la raíz es un symlink a `privado/HANDOFF.md`** y está gitignored en el
-público: escribirlo con una herramienta que reemplaza el archivo rompe el symlink y deja el HANDOFF
-versionado sin actualizar, en silencio.
-
-**Siguiente:** D-JOB-7 (abrir la puerta de artefactos por HTTP/UI, con su enmienda de seguridad), que
-desbloquea los dos trabajos hoy declarados no disponibles por esa razón — uno de ellos es P2.
+⚠️ **Dos trampas del árbol.** (a) `test_ui_no_reimplementa_formulas_de_dominio` veta cierto término de
+dominio en **todo** el fuente de `nikodym/ui/`, comentarios incluidos: es más amplio que su nombre.
+(b) **`HANDOFF.md` de la raíz es un symlink a `privado/HANDOFF.md`** y está gitignored en el público:
+escribirlo con una herramienta que reemplaza el archivo rompe el enlace y deja el HANDOFF versionado
+sin actualizar, en silencio.
 
 ---
 

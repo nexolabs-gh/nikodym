@@ -5,49 +5,114 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-01, público `2868490` · privado `88edb46`, **CI 16/16 confirmado con `gh`**)
+> ## Lo último (2026-08-01 tarde, público `4958b9c`, **CI en curso al cerrar — verificar con `gh`**)
 >
-> ✅ **P1 arrancó: el SDD de la UI por trabajos quedó APROBADO como contrato y sus dos primeras
-> decisiones están implementadas.** `docs/design/_SDD-UI-POR-TRABAJOS.md`, D-JOB-1…D-JOB-19.
+> 🔴 **EL HISTORIAL PÚBLICO SE REESCRIBIÓ.** Con OK explícito de Cami se purgaron con `filter-branch`
+> + force push dos `.playwright-mcp/console-*.log` commiteados por error el 2026-07-31 —traían
+> navegación de Google y de `cmfchile.cl`, o sea por dónde anduvo quien los generó—. **Los SHA
+> anteriores al 2026-08-01 17:00 que aparezcan en documentos viejos ya no existen**: `2868490` es hoy
+> `a1d40d6` y `f7d4877` es `4af4ecc`. Ningún tag se movió (el último, `v1.10.0`, es del 2026-07-29) y
+> PyPI no se tocó. ⚠️ **GitHub sigue sirviendo los blobs por su SHA** tras el force push —su
+> recolector no corre al instante, y hay 1 fork—: purga dura es un ticket a Support.
+>
+> ✅ **P1 CERRADO: el gate de aceptación se verificó de punta a punta con un dataset propio.** Entrar
+> por «Scorecard de comportamiento (PD)», contestar sus dos decisiones, subir un CSV de 6.000 filas y
+> llegar a **«Corrida completada»** con `report.html` en disco. **D-JOB-7 no se empezó**: se cambió
+> por la enmienda del perfil de columnas, decisión de Cami tras medir lo que el gate destapó.
+>
+> 🔴 **TRES premisas heredadas salieron FALSAS al medirlas, y ninguna se veía leyendo el código.**
+> Es la lección de la sesión, y la primera estaba escrita **en este mismo archivo**:
+>
+> 1. **«`Rule` y `TargetConfig` no son construibles, y por eso el catálogo las publica como mapa».**
+>    Falso. `_mapa_de_modelo` (`effective_defaults.py:245`) decide mapa-vs-descriptor mirando **sólo
+>    la anotación** y **jamás** consulta `is_required()`. `DataConfig.load` **sí** es construible y
+>    también salía como mapa. Aunque `Rule` lo fuera, `bad_rule` seguiría roto.
+> 2. **«Es la sección `data`».** Falso: `survival` tiene el defecto idéntico, el mismo mecanismo
+>    rompe **cuatro** gestos de estructura —incluido *añadir fila*, que nacía con su regla vacía— y
+>    **los diez trabajos nacían con config inválido**, no sólo quien activaba `data` a mano.
+> 3. **«Arreglar el catálogo deja el config válido».** Falso, **y a propósito**: `bad_rule` (qué es
+>    un moroso en esta cartera) y `partition.strategy` son `DATO-INSTITUCIONAL`. El arreglo cambia un
+>    valor inventado que el motor rechaza con jerga por un hueco honesto. De ahí salió la Parte B.
+>
+> ✅ **Lo que se implementó, en dos enmiendas aprobadas.**
+> [`_ENMIENDA-DECISIONES-OBLIGATORIAS.md`](docs/design/_ENMIENDA-DECISIONES-OBLIGATORIAS.md)
+> (D-OBL-1…D-OBL-11): el catálogo publica un submodelo obligatorio como **descriptor que conserva sus
+> hijos** —`{has_default: false, children: {…}}`—, forma elegida porque **no obliga a tocar
+> `canonicalProjection` ni `isDescriptor`**: el nodo nuevo cae por la rama que ya sabía omitir. Y el
+> trabajo **pregunta en idioma de negocio** lo que sólo el usuario decide: medido, son **cuatro**
+> decisiones en las 14 secciones, derivadas del schema con gate bidireccional.
+> [`_ENMIENDA-PERFIL-DE-COLUMNAS.md`](docs/design/_ENMIENDA-PERFIL-DE-COLUMNAS.md) (D-PERF-1…8): una
+> columna identificador se avisa **antes** de correr.
+>
+> 🔴 **El gate de aceptación destapó que NINGÚN trabajo llegaba a `done`, y la suite no lo veía.** El
+> esqueleto sembraba `report.sections.required_sections` con el default del motor —ocho capítulos,
+> entre ellos `eda`—, pero ningún trabajo declara `eda` y **el formulario ni la ofrece**. El preset F1
+> no lo sufría porque declara sus siete a mano. Lo cierra D-OBL-11 recortando a la intersección con
+> las secciones del trabajo: el criterio de D-FX-3 aplicado al sitio que faltaba, la siembra.
+>
+> ⚠️ **Y un golden estuvo a punto de enterrar 28 campos sin comparar.** Al implementar D-OBL-2 el
+> conteo de descriptores bajó de 1024 a **996**. No había menos descriptores: el emparejador cortaba
+> al ver uno y dejaba de bajar por los hijos de los obligatorios. Moverlo a 996 habría absorbido la
+> pérdida en silencio. Va a **1034**, y los 10 submodelos obligatorios quedan **enumerados uno a uno**
+> en un test, para que el número no pueda tragarse un onceavo.
+>
+> ⚠️ **La forma que se pensó para el aviso del identificador NO era posible.** «Que el preflight mire
+> la cardinalidad» choca con D-PRE-1 —no lee los datos— y el parquet tampoco la trae:
+> **`distinct_count` viene `None`** en todas las columnas, medido; pandas no lo escribe. El perfil
+> pasó a ser **un dato que aporta la ingesta** (que ya carga el DataFrame, o sea gratis), persistido
+> junto al parquet. `None` sigue siendo «no se sabe», igual que `index_columns`.
+>
+> ⚠️ **El criterio del aviso no es «cardinalidad alta» sino «TEXTO con casi un valor por fila»**: una
+> numérica continua tiene tantos valores distintos como filas y se discretiza sin problema —medido:
+> `carga_financiera`, 3.423 valores, corrió bien—. Los dos falsos positivos plausibles tienen control
+> negativo, porque un aviso que se dispara de más se aprende a ignorar.
+>
+> ⚠️ **Ajustar el binning real sobre un frame con columna identificador TUMBA el solver dentro de
+> pytest** —crash duro del runner, no un fallo—, así que su test ancla la traducción del mensaje
+> contra el literal de OptBinning y no el ajuste. No se investigó.
+>
+> **Deuda anotada con su medición:** `UiConfig.upload_max_mb` es un campo **muerto** (declara 200 MB,
+> nadie lo lee, el tope real son 100 MiB *hardcoded*); `data.schema.unique_keys` se edita como
+> **textarea JSON crudo** y no como multiselect de columnas; `injected_artifacts` **no llega al
+> informe** pese a la §6.3 de su enmienda; y el perfil de columnas **sólo lo tienen los datasets
+> subidos**, no los del catálogo.
+>
+> **Siguiente: D-JOB-7, con su terreno YA MEDIDO en esta sesión** —no re-medirlo—. Los dos trabajos
+> bloqueados sólo necesitan **DataFrames planos** (`calibration.calibrated_pd_frame`, y para validar
+> un modelo además `scorecard.score`); el hueco son **4 piezas** y no un parámetro, y ⚠️ **`ui/runs.py`
+> NO participa** (es sólo persistencia). 🔴 `_pipeline_payload` llama `check_pipeline` **sin
+> artefactos**, así que `/api/validate` mentiría justo en el caso que D-JOB-7 habilita; y **no existe
+> gate estructural** que obligue a un endpoint nuevo a entrar en `MUTATING_PATHS`/`CREDENTIALED_PATHS`
+> — el defecto del preflight se puede repetir con la suite verde. Detalle en `HANDOFF.md`.
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-01 mañana, público `a1d40d6` — era `2868490` antes de la reescritura)
+>
+> ✅ **P1 arrancó: el SDD de la UI por trabajos quedó APROBADO como contrato** y sus dos primeras
+> decisiones se implementaron. `docs/design/_SDD-UI-POR-TRABAJOS.md`, D-JOB-1…D-JOB-19.
 > **D-JOB-2**: la sesión arranca vacía y pidiendo tus datos; los presets pasan a «ver un ejemplo con
-> datos de muestra», camino explícito y secundario. **D-JOB-1**: el trabajo elegido decide qué
-> secciones existen — el sidebar de «Scorecard» pinta 9 y **ninguna** de IFRS 9, survival o CMF.
-> Verificado en vivo con Playwright: el camino del ejemplo llega a `done` con `config_hash
-> ec10eb43…`, el golden del preset F1, o sea que **la identidad no se movió** (D-JOB-9).
+> datos de muestra». **D-JOB-1**: el trabajo elegido decide qué secciones existen — el sidebar de
+> «Scorecard» pinta 9 y **ninguna** de IFRS 9, survival o CMF.
 >
-> 🔴 **La revisión del SDD ANTES de programar encontró cinco huecos, y cerrarlos cambió el trabajo.**
-> Los tres que más pesaron: el catálogo de trabajos vive en el **backend** (`ui/jobs.py` +
-> `GET /api/jobs`, aditivo) porque D-JOB-3 exige que lo consuma también el preflight, **que es
-> Python**; elegir un trabajo siembra **su esqueleto** y no un config vacío —si no, un scorecard
-> exige activar nueve secciones a mano antes de poder correr—; y **la demo estática sigue sembrada**
-> (D-JOB-19), porque no tiene backend ni acepta datos propios y arrancarla vacía la dejaría sin poder
-> hacer lo único que pediría.
+> 🔴 **Revisar el SDD ANTES de programar encontró cinco huecos, y cerrarlos cambió el trabajo.** Los
+> tres que más pesaron: el catálogo de trabajos vive en el **backend** (`ui/jobs.py` + `GET
+> /api/jobs`) porque D-JOB-3 exige que lo consuma también el preflight, **que es Python**; elegir un
+> trabajo siembra **su esqueleto** y no un config vacío; y **la demo estática sigue sembrada**
+> (D-JOB-19), porque no tiene backend ni acepta datos propios.
 >
 > ⚠️ **`CONFIG_SECTIONS` NO se tocó, y ése es el diseño**: sigue siendo «qué sabe pintar el
 > formulario» —con sus cuatro gates de paridad intactos— y el catálogo de trabajos es «qué te muestro
-> según a qué viniste». El sidebar filtra el primero por el segundo. Medido antes de programar: si
-> sólo cambia el render dejando el catálogo intacto, **no se rompe ni un test**.
+> según a qué viniste». El sidebar filtra el primero por el segundo.
 >
 > 🔴 **Cinco copys que MENTÍAN con el arranque vacío, y ninguno lo veía un test** —nadie asevera el
-> texto de una tarjeta—: «la configuración estándar ya viene cargada y validada» con un botón
-> «Ejecutar el preset» que llevaba a un Ejecutar bloqueado; «el config estándar ya está cargado» en el
-> vacío de Ejecutar; «el config activo no viene de un preset» sobre una sesión sin nada; el
-> placeholder «Elige un preset…»; y el stepper rotulando Configuración «OPCIONAL» **siempre**. Ese
-> último se corrigió **dos veces**: con un trabajo elegido las secciones existen pero falta lo que
-> sólo decide el usuario, así que sólo es opcional con un ejemplo cargado.
->
-> 🔴 **Un bloqueante heredado que P1 DESTAPA pero no introduce: activar la sección `data` deja el
-> config inválido.** La proyección canónica escribe `target.bad_rule = {all_of: [], any_of: []}` y el
-> motor lo rechaza. Causa medida: **`Rule` y `TargetConfig` no son construibles**, así que el catálogo
-> de defaults efectivos las representa como un mapa de hijos en vez de un descriptor
-> `has_default: false`, y `canonicalProjection` no puede cumplir el «omite las obligatorias sin
-> default» de D-FX-8. **Ya estaba en el interruptor de sección desde el paquete D** y no se veía
-> porque la sesión arrancaba sembrada. Corregirlo es contractual ⇒ enmienda propia.
+> texto de una tarjeta—. El del stepper se corrigió **dos veces**: con un trabajo elegido las
+> secciones existen pero falta lo que sólo decide el usuario, así que sólo es opcional con un ejemplo
+> cargado.
 >
 > ⚠️ **`test_ui_no_reimplementa_formulas_de_dominio` es MÁS AMPLIO que su nombre**: veta cierto
 > término de dominio en **todo** el fuente de `nikodym/ui/`, comentarios incluidos. Costó renombrar un
-> trabajo del catálogo (se cambió el nombre, no se ablandó el gate). Saberlo antes de escribir copy
-> nuevo en esa capa.
+> trabajo del catálogo. Saberlo antes de escribir copy nuevo en esa capa.
 >
 > ⚠️ **`HANDOFF.md` de la raíz es un SYMLINK a `privado/HANDOFF.md` y está gitignored en el público.**
 > Escribirlo con una herramienta que reemplaza el archivo **rompe el symlink** y deja el HANDOFF
