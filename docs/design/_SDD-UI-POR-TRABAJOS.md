@@ -137,7 +137,7 @@ por D-JOB-18, con su pendiente escrito.
 | Comparar provisiones (CMF vs interna) | data, provisioning_cmf, provisioning_internal, provisioning, report | — | Chile | **disponible** |
 | Stress testing | data, stress, report | curvas o ECL según el escenario | neutral | **a medir** (`stress` no está en el formulario) |
 | Validar un modelo existente | data, performance, stability, report | scorecard y PD del cliente | neutral | **NO disponible** (F4.1) |
-| LGD modelada (WoE + regresión) | data, binning, provisioning_internal, report | PD calibrada | neutral | **a un paquete de distancia** — `LgdEngine` existe y admite covariables WoE; falta conectarlo (D-JOB-11) |
+| LGD modelada por regresión | data, binning, provisioning_internal, report | PD calibrada | neutral | **a un paquete de distancia** — `LgdEngine` existe y admite covariables WoE; falta conectarlo (D-JOB-11) |
 
 Las dos últimas filas son trabajo pendiente que este SDD **no** resuelve: se declaran para que la
 landing diga la verdad y el roadmap sepa qué falta. Un objetivo continuo en el motor es capacidad
@@ -275,3 +275,47 @@ real del config y produce el veredicto formal del informe, pero **el formulario 
 meterla es alcance propio (copy, fixture, bundle y gates). Declararla en un trabajo sin que exista la
 pestaña haría fallar el gate «cada trabajo muestra exactamente sus secciones». Entra cuando se decida
 ampliar el formulario; hasta entonces el catálogo dice la verdad de lo que hay.
+
+## 9. Lo que la implementación de D-JOB-1/2 enseñó (2026-08-01)
+
+Se escribe aquí porque son decisiones y hallazgos que el diseño no traía, y que la próxima persona
+que toque esto necesita para no re-medirlos.
+
+**`sections` y `missing_sections` son listas separadas, y sin esa separación el gate no podía ser
+total.** «Stress testing» necesita una sección que el formulario no ofrece. Meterla en `sections`
+habría hecho fallar el gate «toda sección declarada existe en el formulario»; omitirla a secas habría
+dejado al catálogo sin poder decir **por qué** ese trabajo no está disponible. Con las dos listas, el
+gate no tiene escapatoria —hay un test que impide esconder en `missing_sections` una sección que sí
+existe— y el catálogo dice la verdad completa.
+
+**Un nombre del §4 cambió al programarlo: «LGD modelada (WoE + regresión)» → «LGD modelada por
+regresión».** `test_ui_no_reimplementa_formulas_de_dominio` veta esa palabra en **toda** la capa
+`ui`, y el gate es un grep que no distingue una fórmula reimplementada de un rótulo. Se cambió el
+nombre en vez de ablandar el gate, y de paso queda más cerca de D-JOB-14: la técnica se explica en la
+descripción, que es donde corresponde. ⚠️ Ese gate es **más amplio que su nombre** —veta el término
+en copy, no sólo en código—; conviene saberlo antes de escribir copy nuevo en `nikodym/ui/`.
+
+**Un `seed` propio para el trabajo, y no reusar `preset`.** Elegir un trabajo siembra un config, así
+que la tentación es marcarlo como sembrado. Pero `preset` significa «parámetros curados y su
+dataset», y el selector de Ejecutar afirma sobre eso; reusarlo habría hecho que la interfaz dijera
+que el config «es» un preset que nadie cargó — la mentira exacta que la variante `yaml` tuvo que
+venir a corregir en su día.
+
+**El rótulo «OPCIONAL» de Configuración sólo es cierto con un ejemplo cargado.** Se corrigió dos
+veces en la misma sesión, y la segunda vez lo destapó mirar la pantalla: con un trabajo recién
+elegido las secciones existen, pero **falta lo que sólo decide el usuario sobre sus datos**, así que
+rotular ese paso como saltable señala como opcional justo lo que falta.
+
+🔴 **Hallazgo del catálogo de defaults efectivos que este trabajo NO introduce pero sí destapa:
+activar `data` deja el config inválido.** La proyección canónica escribe
+`target.bad_rule = {all_of: [], any_of: []}`, y el motor la rechaza —«una Rule debe declarar al menos
+un predicado»—. Causa medida: `Rule` y `TargetConfig` **no son construibles**, así que el catálogo
+las representa como un mapa de hijos en vez de un descriptor `has_default: false`, y
+`canonicalProjection` no puede distinguir un submodelo obligatorio de uno opcional con defaults.
+D-FX-8 dice «omite las obligatorias sin default» y aquí no puede cumplirlo.
+
+⚠️ **El esqueleto de D-JOB-16 no empeora nada: reproduce exactamente lo que hace el interruptor de
+sección**, que tenía el mismo defecto desde el paquete D. No se veía porque la sesión arrancaba con
+el preset sembrado y nadie activaba `data` desde cero. Corregirlo es cambio de contrato del catálogo
+⇒ enmienda propia, y por eso **el gate de aceptación «cada trabajo disponible llega a `done` desde su
+landing» queda pendiente de ese arreglo**, no de este paquete.

@@ -5,6 +5,8 @@ de secciones), ``POST /api/validate`` (validación **por reconstrucción**, siem
 ``GET /api/datasets`` (catálogo sintético), ``POST /api/upload`` (subir un dataset propio
 ``.csv``/``.xlsx``/``.parquet``, materializado a parquet como ``uploaded_<hash>``),
 ``GET /api/config/preset`` (preset estándar F1 listo para correr, SDD-23 §3.2/§5),
+``GET /api/jobs`` (catálogo de trabajos: qué se puede hacer y qué secciones muestra cada uno,
+D-JOB-1/15),
 ``POST /api/run`` (ejecución síncrona), ``GET /api/results/{run_id}`` / ``GET /api/report/{run_id}``
 (lectura de una corrida persistida) y el round-trip YAML ``POST /api/config/to-yaml`` /
 ``POST /api/config/from-yaml`` (reúso de SDD-05, §3.4). La lógica de cada endpoint vive en funciones
@@ -29,7 +31,7 @@ from nikodym.core.config import NikodymConfig, config_hash, dump_config, loads_c
 from nikodym.core.config.effective_defaults import build_effective_defaults
 from nikodym.core.config.schema import build_full_json_schema, cargar_configs_de_dominio
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
-from nikodym.ui import datasets, presets, runs
+from nikodym.ui import datasets, jobs, presets, runs
 from nikodym.ui.exceptions import UiDatasetError, UiRunNotFoundError
 from nikodym.ui.serializers import public_engine_message
 
@@ -45,6 +47,7 @@ __all__ = [
     "config_from_yaml",
     "config_to_yaml",
     "datasets_payload",
+    "jobs_payload",
     "preset_payload",
     "presets_index_payload",
     "run_pipeline",
@@ -400,6 +403,17 @@ def preset_payload(preset_id: str | None = None) -> dict[str, Any]:
     }
 
 
+def jobs_payload() -> dict[str, Any]:
+    """Compone la respuesta de ``GET /api/jobs``: el catálogo de trabajos (D-JOB-1/3/15).
+
+    Aditivo: ningún endpoint existente cambia de forma y el ``config_hash`` no se mueve (D-JOB-9).
+    Lo consumen la landing (qué se puede hacer), el sidebar (qué secciones existen esta sesión) y,
+    más adelante, la puerta de artefactos por HTTP (D-JOB-7) — de ahí que la fuente viva en el
+    backend y no en el front.
+    """
+    return {"jobs": jobs.list_jobs()}
+
+
 def presets_index_payload() -> dict[str, Any]:
     """Compone la respuesta de ``GET /api/config/presets``: catálogo de presets SIN ``config``.
 
@@ -624,6 +638,11 @@ def build_router() -> APIRouter:
             return upload_dataset(content, file.filename, workdir=workdir)
         except UiDatasetError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @router.get("/jobs")
+    async def jobs_endpoint() -> dict[str, Any]:
+        """Cataloga los trabajos: qué se puede hacer y qué secciones muestra cada uno."""
+        return jobs_payload()
 
     @router.get("/config/presets")
     async def config_presets_index_endpoint() -> dict[str, Any]:

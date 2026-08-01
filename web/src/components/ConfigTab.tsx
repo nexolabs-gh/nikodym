@@ -86,6 +86,11 @@ function seedNotice(seed: SeedState | null): string | null {
   switch (seed?.kind) {
     case "empty":
       return "Sesión nueva, sin configuración. Trae tus datos en «Cargar datos» y ajusta aquí lo que necesites; «Ver un ejemplo» carga uno con datos de muestra."
+    case "job":
+      // Nombra el trabajo y dice qué falta. Sin esto el aviso seguía diciendo «sesión nueva, sin
+      // configuración» sobre un formulario que YA trae las secciones sembradas: el copy más
+      // desorientador posible, porque contradice lo que el usuario está viendo.
+      return `Trabajo: ${seed.label}. El formulario muestra sólo sus secciones, con los valores del motor; falta lo que sólo puedes decidir tú sobre tus datos.`
     case "preset":
       return `Cargado el ejemplo: ${seed.name} · dataset de muestra ${seed.datasetId}`
     case "fallback":

@@ -342,7 +342,9 @@ export function RunTab({ onNavigate }: RunTabProps) {
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {seed.kind === "yaml"
                   ? `El config activo viene de «${seed.fileName}», no de un ejemplo. Elegir uno aquí lo reemplaza.`
-                  : seed.kind === "empty"
+                  : seed.kind === "job"
+                    ? `Estás en «${seed.label}», con tu propio config. Elegir un ejemplo aquí lo reemplaza por el suyo.`
+                    : seed.kind === "empty"
                     ? // `empty` NO es «no viene de un preset»: es que todavía no hay nada. Reusar el
                       // texto genérico dejaba la primera pantalla de Ejecutar explicando un config
                       // que el usuario nunca cargó.
@@ -413,9 +415,11 @@ export function RunTab({ onNavigate }: RunTabProps) {
               // D-JOB-2 y visible en la primera pantalla de Ejecutar. Ningún test lo habría cazado:
               // el copy de un `EmptyState` no lo asevera nadie.
               description={
-                seed?.kind === "empty"
-                  ? "Todavía no hay nada que correr: trae tu dataset y activa en Configuración las secciones del pipeline que necesitas."
-                  : datasetId === null
+                seed?.kind === "job"
+                  ? "Este trabajo ya tiene sus secciones cargadas: trae tu dataset y completa en Configuración lo que sólo puedes decidir tú."
+                  : seed?.kind === "empty"
+                    ? "Todavía no hay nada que correr: trae tu dataset y activa en Configuración las secciones del pipeline que necesitas."
+                    : datasetId === null
                     ? "El config ya está cargado y validado. Solo falta elegir el dataset con el que quieres correr el pipeline."
                     : "La configuración ya está lista: dispara la corrida para ver aquí su estado y su lineage."
               }

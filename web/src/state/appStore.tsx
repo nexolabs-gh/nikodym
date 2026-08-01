@@ -23,6 +23,7 @@ import {
 } from "@/lib/bootstrap"
 import type { SelectedDataset } from "@/lib/datasets"
 import { DEMO_MODE } from "@/lib/demo-runtime"
+import type { Job } from "@/lib/jobs"
 import type { PreflightState } from "@/lib/preflight"
 import type { LoadedSchema } from "@/lib/schema"
 import { buildErrorLookup, type ValidationState } from "@/lib/validation"
@@ -49,6 +50,16 @@ const VALIDATE_DEBOUNCE_MS = 350
 export interface AppState {
   /** Schema del formulario (SDD-23 §3.2); `null` mientras arranca la sesión. */
   schema: LoadedSchema | null
+  /**
+   * Trabajo elegido esta sesión (D-JOB-1): decide qué secciones existen en el sidebar. `null` =
+   * ninguno, y entonces se ven todas — es el estado de la demo estática y el de quien trajo un
+   * config que no calza con ningún trabajo del catálogo (D-JOB-17).
+   *
+   * NO entra al `config_hash` (D-JOB-9): es navegación. Dos usuarios que llegan al mismo config
+   * por trabajos distintos producen la misma identidad, y un gate lo vigila.
+   */
+  job: Job | null
+  setJob: Dispatch<SetStateAction<Job | null>>
   config: Record<string, unknown>
   setConfig: Dispatch<SetStateAction<Record<string, unknown>>>
   /** Qué config está sembrado (preset / defaults / fallback); `null` mientras arranca. */
@@ -86,6 +97,7 @@ const AppStateContext = createContext<AppState | null>(null)
 /** Provider del estado compartido. Envuelve <App/> en main.tsx. */
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [schema, setSchema] = useState<LoadedSchema | null>(null)
+  const [job, setJob] = useState<Job | null>(null)
   const [config, setConfig] = useState<Record<string, unknown>>({})
   const [seed, setSeed] = useState<SeedState | null>(null)
   const [datasetId, setDatasetId] = useState<string | null>(null)
@@ -211,6 +223,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppState>(
     () => ({
       schema,
+      job,
+      setJob,
       config,
       setConfig,
       seed,
@@ -233,6 +247,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }),
     [
       schema,
+      job,
       config,
       seed,
       datasetId,

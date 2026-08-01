@@ -16,6 +16,7 @@ import {
   TESTS_SUITE,
 } from "@/components/landing-evidence"
 import { DEMO_MODE } from "@/lib/demo-runtime"
+import { loadJobs, type Job } from "@/lib/jobs"
 import { presetDisplay } from "@/lib/presentation"
 import { cn } from "@/lib/utils"
 
@@ -391,14 +392,104 @@ function PresetSelector({
 }
 
 /**
+ * Selector de TRABAJOS (D-JOB-1/14): la entrada primaria del build instalable. Una card por trabajo
+ * del catálogo del backend (`GET /api/jobs`, con fixture de respaldo), con su nombre de negocio, su
+ * jurisdicción cuando la tiene (D-JOB-8) y su insumo externo.
+ *
+ * Un trabajo NO disponible aparece igual, con su motivo y sin poder iniciarse (D-JOB-6): ocultarlo
+ * dejaría al usuario creyendo que la librería no lo tiene, que es la mentira contraria a prometerlo.
+ */
+function JobSelector({ onPick }: { onPick: (job: Job) => void }) {
+  const [jobs, setJobs] = useState<Job[]>([])
+
+  useEffect(() => {
+    let alive = true
+    void loadJobs().then((res) => {
+      if (alive) setJobs(res)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  if (jobs.length === 0) return null
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold tracking-wide text-eyebrow">
+        ¿A qué viniste? Elige tu trabajo y trae tus datos
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {jobs.map((job) => {
+          const disponible = job.status === "available"
+          return (
+            <button
+              key={job.id}
+              type="button"
+              disabled={!disponible}
+              onClick={() => onPick(job)}
+              // El no disponible no se atenúa hasta ser ilegible: se lee entero, con su motivo.
+              // Lo que se apaga es el gesto, no la información.
+              className={cn(
+                "group flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left",
+                "shadow-card outline-none transition-all",
+                disponible
+                  ? "hover:-translate-y-0.5 hover:border-brand-accent-dark/50 focus-visible:border-brand-accent-dark focus-visible:ring-3 focus-visible:ring-brand-accent-dark/40"
+                  : "cursor-not-allowed opacity-80",
+              )}
+            >
+              <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="font-display font-bold leading-snug text-foreground">
+                  {job.label}
+                </span>
+                {job.jurisdiction_label ? (
+                  <span className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-muted-foreground">
+                    {job.jurisdiction_label}
+                  </span>
+                ) : null}
+              </span>
+              <span className="text-xs leading-relaxed text-muted-foreground">
+                {job.description}
+              </span>
+              {job.external_input ? (
+                <span className="text-xs leading-relaxed text-muted-foreground/80">
+                  Necesitas traer: {job.external_input}
+                </span>
+              ) : null}
+              <span className="mt-auto pt-2">
+                {disponible ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-accent-dark">
+                    Empezar
+                    <ArrowRight
+                      className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                      aria-hidden="true"
+                    />
+                  </span>
+                ) : (
+                  <span className="text-xs leading-relaxed text-muted-foreground">
+                    Todavía no: {job.unavailable_reason}
+                  </span>
+                )}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Pantalla de nivel-0: `onEnter` entra al workspace. Sin argumento → flujo completo (arranca en
- * Datos, build normal). Con `presetId` (selector de demos) → entra a Ejecutar con ese preset ya
- * cargado.
+ * Datos, build normal). Con `presetId` (selector de ejemplos) → entra a Ejecutar con ese preset ya
+ * cargado. `onPickJob` entra por un TRABAJO, que fija qué secciones existen esa sesión (D-JOB-1).
  */
 export function LandingLauncher({
   onEnter,
+  onPickJob,
 }: {
   onEnter: (presetId?: string) => void
+  onPickJob: (job: Job) => void
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -465,17 +556,18 @@ export function LandingLauncher({
                 // venía sembrada con un preset y su dataset sintético, así que la primera pantalla
                 // del producto instalado era, de hecho, una demostración.
                 <div className="mt-9 space-y-7">
+                  <JobSelector onPick={onPickJob} />
                   <div className="flex flex-wrap items-center gap-3">
                     <button
                       type="button"
                       onClick={() => onEnter()}
                       className={cn(
-                        "group inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3",
-                        "font-medium text-primary-foreground shadow-card transition-all",
-                        "hover:-translate-y-0.5 hover:bg-brand-accent-dark",
+                        "group inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-3",
+                        "font-medium text-foreground shadow-card transition-all",
+                        "hover:-translate-y-0.5 hover:border-brand-accent-dark/50",
                       )}
                     >
-                      Empezar con mis datos
+                      Prefiero armarlo yo, sin elegir trabajo
                       <ArrowRight
                         className="size-4 transition-transform group-hover:translate-x-0.5"
                         aria-hidden="true"

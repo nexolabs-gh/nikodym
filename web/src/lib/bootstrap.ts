@@ -33,7 +33,8 @@ import { loadSchema, type LoadedSchema } from "@/lib/schema"
  * (D-JOB-2: el estado inicial del build instalable); `preset` = configuración de ejemplo pedida
  * explícitamente, o la siembra de la demo estática; `defaults` = "empezar de cero" desde
  * Configuración (elección explícita, ya dentro del workspace); `fallback` = la demo no pudo traer
- * su preset (backend caído); `yaml` = el usuario trajo su propio config con «Cargar YAML».
+ * su preset (backend caído); `job` = el usuario eligió un trabajo y se sembró su esqueleto
+ * (D-JOB-16); `yaml` = el usuario trajo su propio config con «Cargar YAML».
  *
  * ⚠️ `empty` y `defaults` llevan el MISMO config y son estados distintos a propósito: uno es «aún
  * no has dicho a qué viniste» y el otro «dijiste que partes de cero». Colapsarlos haría que la
@@ -48,6 +49,18 @@ import { loadSchema, type LoadedSchema } from "@/lib/schema"
  */
 export type SeedState =
   | { kind: "empty" }
+  | {
+      /**
+       * El usuario eligió un TRABAJO y se sembró su esqueleto (D-JOB-16). No es `preset`: no hay
+       * dataset ni parámetros curados detrás, sólo las secciones de ese trabajo con los defaults
+       * del motor. Reusar `preset` aquí haría que el selector de Ejecutar afirmara que el config
+       * «es» un preset que nadie cargó, que es exactamente la mentira que la variante `yaml` tuvo
+       * que venir a corregir.
+       */
+      kind: "job"
+      jobId: string
+      label: string
+    }
   | {
       kind: "preset"
       name: string

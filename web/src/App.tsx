@@ -40,7 +40,8 @@ import {
   sectionIsEditable,
   sectionOfPath,
 } from "@/lib/preflight"
-import { CONFIG_SECTIONS } from "@/lib/schema"
+import { jobSkeleton, sectionsOfJob, type Job } from "@/lib/jobs"
+import { CONFIG_SECTIONS, type ConfigSectionDef } from "@/lib/schema"
 import { useAppState } from "@/state/appStore"
 
 interface SectionDef {
@@ -125,25 +126,34 @@ const SECTIONS: SectionDef[] = [
 
 /**
  * Árbol de navegación del sidebar, en el orden del flujo real:
- * 1) Cargar datos (upload) → 2) Configuración (las sub-secciones de `CONFIG_SECTIONS`; la 1ª es la
+ * 1) Cargar datos (upload) → 2) Configuración (las sub-secciones del trabajo elegido; la 1ª es la
  * lectura/esquema) → 3) Ejecutar → 4) Resultados → 5) Reporte. Cargar-datos va ARRIBA de la config
  * porque primero se trae el dataset y luego se configura cómo leerlo.
+ *
+ * 🔴 **Las sub-secciones las decide el TRABAJO** (D-JOB-1). Hasta ahora esto mapeaba
+ * `CONFIG_SECTIONS` entera, sin un solo filtro: quien venía a un scorecard veía IFRS 9, survival y
+ * CMF, y un área que sólo hace LGD veía binning ajeno. El trabajo manda y se ve lo necesario, sin
+ * grupo de «otras secciones» ni avisos (D-JOB-17). Sin trabajo se ven todas, que es lo que
+ * corresponde a la demo estática y a quien trajo un config que no calza con ninguno.
  */
 const [DATA_SECTION, ...FLOW_SECTIONS] = SECTIONS
-const NAV: NavItem[] = [
-  { value: DATA_SECTION.value, label: DATA_SECTION.label, icon: DATA_SECTION.icon },
-  {
-    value: "config",
-    label: "Configuración",
-    icon: SlidersHorizontal,
-    children: CONFIG_SECTIONS.map((s) => ({
-      value: configValue(s.key),
-      label: s.label,
-      icon: SECTION_ICONS[s.key] ?? SlidersHorizontal,
-    })),
-  },
-  ...FLOW_SECTIONS.map((s) => ({ value: s.value, label: s.label, icon: s.icon })),
-]
+
+function navItems(secciones: ConfigSectionDef[]): NavItem[] {
+  return [
+    { value: DATA_SECTION.value, label: DATA_SECTION.label, icon: DATA_SECTION.icon },
+    {
+      value: "config",
+      label: "Configuración",
+      icon: SlidersHorizontal,
+      children: secciones.map((s) => ({
+        value: configValue(s.key),
+        label: s.label,
+        icon: SECTION_ICONS[s.key] ?? SlidersHorizontal,
+      })),
+    },
+    ...FLOW_SECTIONS.map((s) => ({ value: s.value, label: s.label, icon: s.icon })),
+  ]
+}
 
 /**
  * Control **visible** que corresponde a `id`, o `null` si no hay ninguno en el DOM.
@@ -189,10 +199,12 @@ function configKeyOf(active: string): string | null {
  * Los 5 pasos del flujo, tal como los ve el usuario (el sidebar los desglosa; el stepper los
  * resume).
  *
- * ⚠️ **Configuración es opcional sólo si hay algo sembrado**, y el matiz lo trajo D-JOB-2: con un
- * ejemplo cargado se puede ir de Datos a Ejecutar sin pasar por ahí, pero en una sesión vacía todas
- * las secciones llegan apagadas y no hay pipeline que correr hasta activarlas. Rotularlo «OPCIONAL»
- * en ese estado le diría al usuario que puede saltarse el único paso que le falta.
+ * ⚠️ **Configuración es opcional SÓLO con un ejemplo cargado**, y el matiz lo trajo D-JOB-2. Un
+ * preset trae parámetros curados y su dataset, así que de Datos se puede ir a Ejecutar sin pasar por
+ * ahí. En una sesión vacía todas las secciones llegan apagadas; y con un trabajo recién elegido
+ * (D-JOB-16) las secciones existen pero falta lo que sólo decide el usuario sobre sus datos —qué es
+ * un incumplimiento, cómo particionar—. En esos dos estados el rótulo «OPCIONAL» señalaría como
+ * saltable justo el paso que falta.
  */
 function flowSteps(configOpcional: boolean): (FlowStep & { value: string })[] {
   return [
@@ -221,6 +233,8 @@ function App() {
   const [active, setActive] = useState<string>(DATA_SECTION.value)
   const {
     seed,
+    job,
+    setJob,
     setConfig,
     setDatasetId,
     setSelectedDataset,
@@ -230,6 +244,9 @@ function App() {
     focusField,
     setFocusField,
   } = useAppState()
+
+  // Las secciones que existen esta sesión (D-JOB-1). Sin trabajo elegido son todas.
+  const configSections = sectionsOfJob(job)
 
   // Atiende el foco que pidió un aviso del preflight (D-PRE-8). Vive AQUÍ y no en `ConfigTab` por
   // dos razones: esa pestaña es un editor puro sin efectos —gate de `bootstrap.test.ts`, que
@@ -251,9 +268,26 @@ function App() {
     setFocusField(null)
   }, [focusField, setFocusField])
 
-  // "config" a secas (p.ej. una navegación programática) cae en la primera sub-sección.
+  // Si la sección abierta deja de pertenecer al trabajo activo, se cae a la primera del trabajo.
+  // Es una guarda, no una rama esperada —`enterJob` vuelve a Datos al elegir—, pero sin ella un
+  // camino futuro que cambie de trabajo con Configuración abierta dejaría al usuario en una
+  // pestaña que el sidebar ya no ofrece: ni encabezado ni forma de salir salvo el sidebar.
+  useEffect(() => {
+    const abierta = configKeyOf(active)
+    if (abierta === null || configSections.length === 0) return
+    if (!configSections.some((s) => s.key === abierta)) {
+      setActive(configValue(configSections[0].key))
+    }
+  }, [active, configSections])
+
+  // "config" a secas (p.ej. una navegación programática) cae en la primera sub-sección DEL TRABAJO:
+  // con el catálogo entero caería siempre en `data`, que puede no ser la primera del trabajo activo.
   const navigate = (value: string) =>
-    setActive(value === "config" ? configValue(CONFIG_SECTIONS[0].key) : value)
+    setActive(
+      value === "config"
+        ? configValue((configSections[0] ?? CONFIG_SECTIONS[0]).key)
+        : value,
+    )
 
   // Salto desde un aviso del preflight al campo que lo causa (D-PRE-8): abre la sección de config
   // que le corresponde y deja pedido el foco, que atiende `ConfigTab` cuando ya montó su
@@ -302,13 +336,44 @@ function App() {
     window.scrollTo(0, 0)
   }
 
+  /**
+   * Entrada por un TRABAJO (D-JOB-1/16): fija qué secciones existen esta sesión y siembra el
+   * esqueleto de ese trabajo —sus secciones con los defaults del motor y NINGÚN dataset—.
+   *
+   * El esqueleto es lo que conserva «no hace falta pasar por Configuración» sin sembrar la demo: el
+   * primer gesto sigue siendo traer tu archivo, y el preflight dice qué corregir. Con el config del
+   * todo vacío, un scorecard exigiría activar nueve secciones a mano antes de poder correr.
+   */
+  const enterJob = async (elegido: Job) => {
+    const { schema: cargado } = await bootstrapOnce()
+    setJob(elegido)
+    setConfig((actual) =>
+      jobSkeleton(actual, elegido, cargado.payload.effective_defaults),
+    )
+    setSeed({ kind: "job", jobId: elegido.id, label: elegido.label })
+    // El trabajo cambia el dominio: la corrida anterior ya no le corresponde (mismo corte que
+    // `applyPreset`, y por el mismo P0 de lineage mixto en Resultados y Reporte).
+    setResults(null)
+    setLastRun(null)
+    setActive(DATA_SECTION.value)
+    setView("workspace")
+    // El landing y el workspace comparten el scroll de la ventana, así que entrar desde una CTA
+    // que está a mitad de página deja la app abierta por su mitad (medido: `scrollY = 215`, la
+    // barra de pasos fuera de cuadro). Cambiar de vista no es navegar, así que el navegador no
+    // lo resetea por su cuenta.
+    window.scrollTo(0, 0)
+  }
+
   if (view === "landing") {
-    return <LandingLauncher onEnter={enterDemo} />
+    return <LandingLauncher onEnter={enterDemo} onPickJob={enterJob} />
   }
 
   const configKey = configKeyOf(active)
+  // Se busca en las secciones DEL TRABAJO: si la activa ya no pertenece —porque el usuario cambió
+  // de trabajo con esa pestaña abierta— no hay encabezado que pintar y cae al `EmptyState`, en vez
+  // de mostrar el título de una sección que el sidebar ya no ofrece.
   const configSection = configKey
-    ? CONFIG_SECTIONS.find((s) => s.key === configKey)
+    ? configSections.find((s) => s.key === configKey)
     : undefined
   const section = SECTIONS.find((s) => s.value === active)
 
@@ -319,7 +384,7 @@ function App() {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <AppSidebar
-        items={NAV}
+        items={navItems(configSections)}
         active={active}
         onSelect={setActive}
         onHome={() => setView("landing")}
@@ -328,7 +393,7 @@ function App() {
       <main className="min-w-0 flex-1">
         <div className="mx-auto max-w-4xl px-6 py-10 lg:px-10">
           <FlowStepper
-            steps={flowSteps(seed !== null && seed.kind !== "empty")}
+            steps={flowSteps(seed?.kind === "preset")}
             current={stepIndexOf(active)}
           />
 
