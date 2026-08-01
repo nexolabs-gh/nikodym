@@ -265,8 +265,8 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > abrir o guardar no escribe ni mueve `config_hash`, y el primer gesto materializa el valor. La
 > implementación futura es atómica con copy, fixture, Vitest y bundle.
 >
-> **La interfaz se organiza por TRABAJO, con tus datos y tu metodología (2026-07-31, BORRADOR; sin
-> implementar).** [`_SDD-UI-POR-TRABAJOS.md`](_SDD-UI-POR-TRABAJOS.md), D-JOB-1…D-JOB-14, enmienda a
+> **La interfaz se organiza por TRABAJO, con tus datos y tu metodología (2026-08-01, APROBADA).**
+> [`_SDD-UI-POR-TRABAJOS.md`](_SDD-UI-POR-TRABAJOS.md), D-JOB-1…D-JOB-19, enmienda a
 > SDD-23 §3/§4.2. Adelanta y amplía el nodo F3 del plan. Cinco síntomas con una causa medida: la
 > aplicación asume que vienes a ver una demostración —el sidebar mapea las 14 secciones sin filtro,
 > la sesión arranca sembrando el preset con su dataset sintético, y el abanico de metodologías viaja
@@ -276,7 +276,14 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > no se oculta ni se promete. **Lo medido que más importa: no falta capacidad, falta exponerla** — el
 > motor ya corre trabajos aislados y ya ofrece más de 50 puntos de elección metodológica
 > implementados. Incluye las cuatro decisiones de alcance de Cami (D-JOB-11…D-JOB-14), entre ellas
-> que la LGD modelada es **conectar `LgdEngine`, no construir un motor**.
+> que la LGD modelada es **conectar `LgdEngine`, no construir un motor**. La aprobación del
+> 2026-08-01 cerró cinco huecos que la revisión previa a programar encontró (D-JOB-15…D-JOB-19): el
+> catálogo vive en el **backend** con fixture de respaldo, porque el preflight que debe consumirlo es
+> Python; elegir un trabajo siembra **su esqueleto** y ningún dataset, que es lo que conserva «entrar
+> basta para ejecutar» sin sembrar la demo; el trabajo **manda sobre la navegación sin parches** —y el
+> config que trae secciones ajenas se resuelve seleccionando el trabajo que le corresponde, no
+> añadiendo un aviso—; `validation` sale del catálogo porque el formulario no la ofrece; y **la demo
+> estática sigue arrancando sembrada**, porque no tiene backend ni acepta datos propios.
 >
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),

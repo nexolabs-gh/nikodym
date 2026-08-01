@@ -1,10 +1,12 @@
 # SDD — Tu trabajo, tus datos, tu metodología
 
-> **Estado: BORRADOR — pendiente de aprobación de Cami.** Adelanta y **amplía** el nodo F3 «UI por
-> trabajos» del plan (`privado/PLAN-IMPLEMENTACION-2026-07-31.md` §J.3), que estaba aparcado tras
-> `1.11.0`.
+> **Estado: APROBADO como contrato (Cami, 2026-08-01).** La aprobación cerró cuatro huecos que la
+> revisión previa a programar encontró; viven en la §8 como **D-JOB-15…D-JOB-18** y son parte del
+> contrato igual que el resto. Adelanta y **amplía** el nodo F3 «UI por trabajos» del plan
+> (`privado/PLAN-IMPLEMENTACION-2026-07-31.md` §J.3), que estaba aparcado tras `1.11.0`.
 >
 > **Base:** `main` = `45bfe7b` (cierre del paquete D). **Autor / Fecha:** DanIA / 2026-07-31.
+> **Aprobación:** Cami / 2026-08-01, sobre `b4e798e` (CI 16/16).
 
 | Campo | Valor |
 |---|---|
@@ -118,9 +120,15 @@ hace todo.
 
 ## 4. Catálogo inicial de trabajos
 
+⚠️ **La columna «Secciones» nombra sólo secciones que el formulario OFRECE hoy** (las 14 de
+`CONFIG_SECTIONS`). El borrador listaba además `validation` en dos trabajos: es una sección real de
+`NikodymConfig` —de las 24 de dominio— pero **no está en el formulario**, así que declararla habría
+hecho fallar el gate «cada trabajo muestra exactamente sus secciones» el día uno. Sale del catálogo
+por D-JOB-18, con su pendiente escrito.
+
 | Trabajo | Secciones | Insumo externo | Jurisdicción | Estado |
 |---|---|---|---|---|
-| Scorecard de comportamiento (PD) | data, binning, selection, model, scorecard, calibration, performance, stability, validation, report | — | neutral | **disponible** |
+| Scorecard de comportamiento (PD) | data, binning, selection, model, scorecard, calibration, performance, stability, report | — | neutral | **disponible** |
 | PD lifetime (curvas de supervivencia) | data, survival, report | PD del modelo | neutral | **disponible** |
 | Provisiones CMF | data, provisioning_cmf, report | — | **Chile** | **disponible** |
 | Provisiones IFRS 9 / ECL | data, survival, provisioning_ifrs9, report | — | neutral | **disponible** (compuesto) |
@@ -128,7 +136,7 @@ hace todo.
 | PD + LGD en una corrida | scorecard completo + provisioning_internal | — | neutral | **disponible** (compuesto) |
 | Comparar provisiones (CMF vs interna) | data, provisioning_cmf, provisioning_internal, provisioning, report | — | Chile | **disponible** |
 | Stress testing | data, stress, report | curvas o ECL según el escenario | neutral | **a medir** (`stress` no está en el formulario) |
-| Validar un modelo existente | data, performance, stability, validation, report | scorecard y PD del cliente | neutral | **NO disponible** (F4.1) |
+| Validar un modelo existente | data, performance, stability, report | scorecard y PD del cliente | neutral | **NO disponible** (F4.1) |
 | LGD modelada (WoE + regresión) | data, binning, provisioning_internal, report | PD calibrada | neutral | **a un paquete de distancia** — `LgdEngine` existe y admite covariables WoE; falta conectarlo (D-JOB-11) |
 
 Las dos últimas filas son trabajo pendiente que este SDD **no** resuelve: se declaran para que la
@@ -156,6 +164,20 @@ dentro de un trabajo ya elegido; entran después y no bloquean esto.
 - Una sola fuente del catálogo, y un gate que exige que toda sección del formulario pertenezca al
   menos a un trabajo, o declare por qué no.
 - La puerta por HTTP conserva las guardas de `/api/upload` y suma su negativo de seguridad.
+
+Y los que añaden las decisiones de la §8:
+
+- **Bidireccional sobre el catálogo (D-JOB-15/18):** toda sección que un trabajo declara existe en el
+  formulario, **y** toda sección del formulario pertenece al menos a un trabajo o declara su razón.
+  Un gate que sólo mire una dirección deja pasar `validation`.
+- **El catálogo del backend y el fixture del front no derivan uno del otro** al comprobarse: el gate
+  compara el fixture bundleado contra `GET /api/jobs` real, como el de `schema.json`.
+- **Elegir un trabajo escribe exactamente sus secciones** (D-JOB-16): las del trabajo activas con su
+  proyección canónica, el resto en `null`, y **ningún** `dataset_id`.
+- **El sidebar de un trabajo no contiene ninguna sección fuera de él** (D-JOB-17), verificado en la
+  pantalla y no comparando arrays: es lo que vitest sin DOM no puede probar.
+- **Cargar un YAML selecciona el trabajo que le corresponde**, y un YAML que no calza con ninguno
+  deja la sesión sin trabajo con el formulario completo.
 
 ## 7. Decisiones de alcance (Cami, 2026-07-31)
 
@@ -189,3 +211,67 @@ trabajo propio.
 **D-JOB-14 — Los nombres de los trabajos van en lenguaje de negocio.** «Scorecard de comportamiento
 (PD)», «Provisión interna / LGD», «Provisiones IFRS 9 / ECL», «PD lifetime». Es como se llaman los
 equipos y los entregables dentro de un banco, y funciona igual en Chile, Perú o Colombia.
+
+## 8. Decisiones de la aprobación (Cami, 2026-08-01)
+
+La revisión previa a programar encontró cuatro huecos en el borrador. Ninguno invalidaba la tesis;
+los cuatro habrían obligado a improvisar durante la implementación, que es justo lo que este repo ya
+pagó caro. Se cierran aquí y son contrato.
+
+**D-JOB-15 — El catálogo de trabajos vive en el BACKEND, con fixture bundleado de respaldo.** La
+fuente es `nikodym/ui/jobs.py`, publicada por un `GET /api/jobs` **aditivo**, y el front la consume
+con un fixture local como fallback offline — exactamente el patrón que ya usa `schema.json`.
+
+*Por qué no en TypeScript, que era más barato:* D-JOB-3 exige que la misma fuente la consuman
+**landing, sidebar y preflight**, y el preflight es Python (`nikodym.check_dataset`,
+`POST /api/preflight`). Un catálogo en el front lo deja fuera por construcción, y además la
+declaración de qué secciones e insumos define un trabajo es dominio, que SDD-23 §1 prohíbe alojar en
+el front. La puerta de artefactos por HTTP (D-JOB-7) tiene la misma necesidad.
+
+⚠️ `nikodym.ui` es *domain-agnostic* y un test AST lo veta (`test_ui_no_importa_modulos_de_dominio`):
+el catálogo declara **claves de sección como literales**, igual que los presets, y no importa ningún
+módulo de dominio para componerlas.
+
+**D-JOB-16 — Elegir un trabajo siembra el ESQUELETO de ese trabajo: sus secciones con los defaults
+del motor, y ningún dataset.** La sesión sigue arrancando vacía (D-JOB-2); lo que se retira es la
+siembra **automática** del preset y su dataset sintético, no la posibilidad de empezar con algo
+utilizable una vez que dijiste a qué viniste.
+
+*Qué contrato preserva:* la sesión anterior fijó a propósito que «entrar al workspace basta para
+poder ejecutar, sin tocar Configuración» (`state/appStore.tsx`, `lib/bootstrap.ts`; lo protege el
+gate de la regresión UX1, que además prohíbe `useEffect` en `ConfigTab`). Con el config totalmente
+vacío ese contrato se cae y un scorecard exige activar diez secciones a mano antes de poder correr:
+el primer uso se convierte en una tarea de configuración. Con el esqueleto, el primer gesto sigue
+siendo *trae tu archivo* y el preflight dice qué corregir.
+
+**D-JOB-17 — El trabajo manda sobre la navegación: se ve lo necesario y nada más. Sin grupo de
+«otras secciones», sin aviso de sección ajena.** Decisión textual de Cami: *«cuando el usuario
+aprieta lo que quiere hacer, si es IFRS 9 o un modelo de scoring, la interfaz que lo lleva tiene que
+mostrar sólo lo necesario, no seguir parchando»*.
+
+*El caso que esto deja abierto —un config con secciones fuera del trabajo— se cierra con la misma
+regla, no con un parche en la vista:* **cargar un YAML selecciona el trabajo que corresponde a lo que
+el YAML trae.** Si no calza con ningún trabajo del catálogo, la sesión queda **sin trabajo** y el
+formulario muestra el config completo: es el config del usuario, no el nuestro, y ocultarle parte de
+lo que él mismo trajo sería la mentira contraria.
+
+⚠️ Esto **no** contradice el «no se derivan de las secciones no nulas» de D-JOB-1. Ahí la regla veta
+derivar el trabajo del config **como mecanismo general** —con «Empezar de cero» dejaría el sidebar
+vacío—. Cargar un YAML es un gesto explícito con señal explícita: el usuario está diciendo qué trae.
+
+**D-JOB-19 — D-JOB-2 aplica al build INSTALABLE, no a la demo estática.** `demo.nikodym.cl`
+(`DEMO_MODE`) sigue arrancando sembrada. No es una excepción de conveniencia: esa build **no tiene
+backend, no recalcula y no acepta datasets propios** —lo dice su propio copy en pantalla—, así que
+«arranca vacía y pide tus datos» ahí no significa nada: dejaría una aplicación que no puede hacer lo
+único que pide. Quien entra a `demo.nikodym.cl` **sí** viene a ver una demostración; el reproche que
+origina este SDD es que el instalable se comporte igual.
+
+Medido: la siembra de la demo va por otra vía (`demoGetPreset`, que siembra F3) y su catálogo de
+datasets queda `locked` al del preset activo. Las dos ramas se separan en el arranque, no con un `if`
+esparcido por los componentes.
+
+**D-JOB-18 — `validation` sale del catálogo de trabajos, con su pendiente escrito.** Es una sección
+real del config y produce el veredicto formal del informe, pero **el formulario no la ofrece** y
+meterla es alcance propio (copy, fixture, bundle y gates). Declararla en un trabajo sin que exista la
+pestaña haría fallar el gate «cada trabajo muestra exactamente sus secciones». Entra cuando se decida
+ampliar el formulario; hasta entonces el catálogo dice la verdad de lo que hay.
