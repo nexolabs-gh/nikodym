@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ApiError, configFromYaml, configToYaml, getPreset } from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
+import { type DecisionStatus, decisionStatuses } from "@/lib/jobs"
 import { type Path, getAtPath, removeAtPath, setAtPath } from "@/lib/config-store"
 import {
   type EffectiveDefaults,
@@ -100,6 +101,96 @@ function seedNotice(seed: SeedState | null): string | null {
     default:
       return null
   }
+}
+
+/**
+ * Lo que sólo el usuario puede decidir sobre SUS datos (D-OBL-6/8).
+ *
+ * Va al principio de Configuración y **antes** de los parámetros de detalle, porque son las
+ * decisiones que definen el trabajo: qué es un cliente malo en esta cartera, cómo se separa la
+ * muestra. El motor no las puede rellenar —son criterio de la institución— y hasta hace poco el
+ * usuario sólo se enteraba de que faltaban cuando la corrida moría.
+ *
+ * No bloquea ni es un asistente: se puede responder aquí o en la sección, que es donde ya viven los
+ * controles. Por eso cada tarjeta lleva un botón que enfoca el campo exacto, reusando el mismo
+ * mecanismo del preflight (`setFocusField` + `data-field-path`).
+ */
+function RequiredDecisions({
+  decisions,
+  section,
+  onFocus,
+}: {
+  decisions: DecisionStatus[]
+  section: string
+  onFocus: (path: string) => void
+}) {
+  // Se pintan las de ESTA sección, igual que `PreflightNotice` y por la misma razón: el botón
+  // enfoca un control del DOM, y el de otra sección no está montado. Ocho de los diez trabajos
+  // tienen todas sus decisiones en `data`, que además es la primera sección del sidebar, así que en
+  // la práctica se ven al entrar — que es lo que D-OBL-8 pide.
+  const aqui = decisions.filter((d) => d.path.split(".")[0] === section)
+  const fuera = decisions.filter(
+    (d) => d.path.split(".")[0] !== section && !d.answered,
+  ).length
+  if (aqui.length === 0) return null
+  const pendientes = aqui.filter((d) => !d.answered).length
+  return (
+    <section
+      aria-labelledby="decisiones-obligatorias"
+      className="rounded-lg border border-brand-cyan/25 bg-brand-cyan/[0.04] px-4 py-3"
+    >
+      <h3
+        id="decisiones-obligatorias"
+        className="text-xs font-medium uppercase tracking-wide text-eyebrow"
+      >
+        {pendientes > 0 ? "Esto lo decides tú" : "Tus decisiones"}
+      </h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {pendientes > 0
+          ? "Depende de tu cartera y de tu política, así que no traemos un valor por defecto."
+          : "Ya están todas respondidas; puedes cambiarlas cuando quieras."}
+      </p>
+      <ul className="mt-3 space-y-2.5">
+        {aqui.map((decision) => (
+          <li key={decision.path} className="flex items-start gap-2.5">
+            {decision.answered ? (
+              <CircleCheck
+                className="mt-0.5 size-3.5 shrink-0 text-brand-cyan"
+                aria-label="Respondida"
+              />
+            ) : (
+              <CircleAlert
+                className="mt-0.5 size-3.5 shrink-0 text-amber-300/80"
+                aria-label="Sin responder"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-foreground">{decision.question}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{decision.help}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-xs"
+              onClick={() => onFocus(decision.path)}
+            >
+              {decision.answered ? "Revisar" : "Responder"}
+            </Button>
+          </li>
+        ))}
+      </ul>
+      {/* Sin esto, quien está en la primera sección no sabe que le falta algo más adelante y sólo
+          se entera cuando el botón Ejecutar sigue en rojo. No se nombra la sección para no repetir
+          aquí el rótulo del sidebar, que es donde se navega. */}
+      {fuera > 0 ? (
+        <p className="mt-3 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+          {fuera === 1
+            ? "Queda otra decisión en una sección siguiente."
+            : `Quedan otras ${fuera} decisiones en las secciones siguientes.`}
+        </p>
+      ) : null}
+    </section>
+  )
 }
 
 /** Descarga `text` como archivo `filename` vía Blob + anchor (efecto DOM, no puro). */
@@ -323,6 +414,7 @@ export function ConfigTab({ section }: { section: string }) {
     schema,
     config,
     setConfig,
+    job,
     seed,
     setSeed,
     setDatasetId,
@@ -544,6 +636,13 @@ export function ConfigTab({ section }: { section: string }) {
             {seedNotice(seed)}
           </p>
         ) : null}
+
+        {/* Lo que sólo el usuario puede decidir, ANTES de los parámetros de detalle (D-OBL-8). */}
+        <RequiredDecisions
+          decisions={decisionStatuses(job, config as Record<string, unknown> | null)}
+          section={section}
+          onFocus={setFocusField}
+        />
 
         {/* Barra de estado + acciones (SDD §3.2 preset · §3.3 hash en vivo · §3.4 round-trip YAML). */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-foreground/[0.02] px-3 py-2">

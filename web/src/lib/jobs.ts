@@ -21,6 +21,18 @@ import {
 import { CONFIG_SECTIONS, type ConfigSectionDef } from "@/lib/schema"
 import fixtureJobs from "@/fixtures/jobs.json"
 
+/**
+ * Una decisión que el motor NO puede tomar por nadie (D-OBL-6).
+ *
+ * `path` es la coordenada interna —la misma que indexa el config— y no se enseña nunca: lo que el
+ * usuario lee es `question` (D-OBL-9).
+ */
+export interface RequiredDecision {
+  path: string
+  question: string
+  help: string
+}
+
 /** Un trabajo del catálogo, tal como lo publica `GET /api/jobs`. */
 export interface Job {
   id: string
@@ -39,6 +51,8 @@ export interface Job {
   status: "available" | "unavailable"
   /** Por qué no se puede iniciar, sin jerga (D-JOB-6); `null` si está disponible. */
   unavailable_reason: string | null
+  /** Lo que sólo el usuario puede decidir sobre SUS datos, en idioma de negocio (D-OBL-6). */
+  required_decisions: RequiredDecision[]
 }
 
 export interface JobsPayload {
@@ -109,6 +123,47 @@ export function jobSkeleton(
     skeleton[section] = canonicalProjection(canonica)
   }
   return skeleton
+}
+
+/**
+ * Estado de una decisión obligatoria frente al config actual (D-OBL-6).
+ *
+ * `answered` se decide por **presencia de la clave**, nunca por truthiness ni por `??`: es el mismo
+ * criterio de D-FX-7, y por la misma razón. Un `bad_rule` que el usuario dejó explícitamente vacío,
+ * un `0` o un `false` son respuestas suyas; sólo la ausencia significa «esto sigue sin decidirse».
+ */
+export interface DecisionStatus extends RequiredDecision {
+  answered: boolean
+}
+
+/** Baja por un path con puntos y dice si la clave EXISTE, sin mirar su valor. */
+function hasAtPath(config: Record<string, unknown>, path: string): boolean {
+  let node: unknown = config
+  for (const segment of path.split(".")) {
+    if (typeof node !== "object" || node === null) return false
+    if (!(segment in (node as Record<string, unknown>))) return false
+    node = (node as Record<string, unknown>)[segment]
+  }
+  return node !== undefined
+}
+
+/**
+ * Las decisiones del trabajo con su estado frente al config actual.
+ *
+ * Devuelve **todas**, no sólo las pendientes: la lista completa es lo que convierte la tarjeta en un
+ * resumen de «a qué viniste y qué te falta» en vez de en una lista de errores que desaparece. Ver
+ * una decisión ya respondida, con su marca, es información — y hace que la tarjeta no parpadee
+ * entrando y saliendo mientras se trabaja.
+ */
+export function decisionStatuses(
+  job: Job | null,
+  config: Record<string, unknown> | null,
+): DecisionStatus[] {
+  if (job === null || config === null) return []
+  return job.required_decisions.map((decision) => ({
+    ...decision,
+    answered: hasAtPath(config, decision.path),
+  }))
 }
 
 /**

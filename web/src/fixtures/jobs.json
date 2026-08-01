@@ -8,6 +8,18 @@
       "jurisdiction_label": null,
       "label": "Scorecard de comportamiento (PD)",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        }
+      ],
       "sections": [
         "data",
         "binning",
@@ -30,6 +42,28 @@
       "jurisdiction_label": null,
       "label": "PD lifetime (curvas de supervivencia)",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "help": "Cuánto duró cada operación bajo observación: meses desde el desembolso hasta el incumplimiento, o hasta que dejaste de observarla.",
+          "path": "survival.input.duration_col",
+          "question": "¿Qué columna mide el tiempo hasta el evento?"
+        },
+        {
+          "help": "Distingue a quien incumplió de quien seguía sano cuando terminó la observación. Sin ella las dos situaciones se confunden y las curvas salen sesgadas.",
+          "path": "survival.input.event_col",
+          "question": "¿Qué columna dice si el evento llegó a ocurrir?"
+        }
+      ],
       "sections": [
         "data",
         "survival",
@@ -46,6 +80,18 @@
       "jurisdiction_label": "Chile",
       "label": "Provisiones CMF",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        }
+      ],
       "sections": [
         "data",
         "provisioning_cmf",
@@ -62,6 +108,28 @@
       "jurisdiction_label": null,
       "label": "Provisiones IFRS 9 / ECL",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "help": "Cuánto duró cada operación bajo observación: meses desde el desembolso hasta el incumplimiento, o hasta que dejaste de observarla.",
+          "path": "survival.input.duration_col",
+          "question": "¿Qué columna mide el tiempo hasta el evento?"
+        },
+        {
+          "help": "Distingue a quien incumplió de quien seguía sano cuando terminó la observación. Sin ella las dos situaciones se confunden y las curvas salen sesgadas.",
+          "path": "survival.input.event_col",
+          "question": "¿Qué columna dice si el evento llegó a ocurrir?"
+        }
+      ],
       "sections": [
         "data",
         "survival",
@@ -79,6 +147,18 @@
       "jurisdiction_label": null,
       "label": "Provisión interna / LGD",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        }
+      ],
       "sections": [
         "data",
         "provisioning_internal",
@@ -95,6 +175,18 @@
       "jurisdiction_label": null,
       "label": "PD + LGD en una corrida",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        }
+      ],
       "sections": [
         "data",
         "binning",
@@ -118,6 +210,18 @@
       "jurisdiction_label": "Chile",
       "label": "Comparar provisiones (CMF vs. interna)",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        }
+      ],
       "sections": [
         "data",
         "provisioning_cmf",
@@ -136,6 +240,18 @@
       "jurisdiction_label": null,
       "label": "Validar un modelo existente",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        }
+      ],
       "sections": [
         "data",
         "performance",
@@ -153,6 +269,18 @@
       "jurisdiction_label": null,
       "label": "LGD modelada por regresión",
       "missing_sections": [],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        }
+      ],
       "sections": [
         "data",
         "binning",
@@ -171,6 +299,18 @@
       "label": "Stress testing",
       "missing_sections": [
         "stress"
+      ],
+      "required_decisions": [
+        {
+          "help": "La condición con la que tu área marca el incumplimiento. Suele ser un corte de mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor estándar: depende de tu política, y por eso lo eliges tú.",
+          "path": "data.target.bad_rule",
+          "question": "¿Qué define a un cliente malo en tu cartera?"
+        },
+        {
+          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "path": "data.partition.strategy",
+          "question": "¿Cómo separas la muestra para validar?"
+        }
       ],
       "sections": [
         "data",

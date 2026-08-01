@@ -24,9 +24,10 @@ dos usuarios que llegan al mismo config por trabajos distintos producen la misma
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
-__all__ = ["JOB_IDS", "list_jobs"]
+__all__ = ["JOB_IDS", "decisiones_de", "list_jobs"]
 
 # Estados de un trabajo. `available` se puede iniciar; `unavailable` aparece con su motivo y NO se
 # puede iniciar (D-JOB-6): un trabajo que no corre hoy se DECLARA, no se promete ni se esconde.
@@ -266,6 +267,75 @@ _JOBS: tuple[dict[str, Any], ...] = (
 JOB_IDS: tuple[str, ...] = tuple(job["id"] for job in _JOBS)
 
 
+# Las DECISIONES OBLIGATORIAS que impone cada sección (D-OBL-6): lo que el motor no puede rellenar
+# por nadie porque es criterio de la institución, no un default.
+#
+# ⚠️ Se declaran POR SECCIÓN y no por trabajo a propósito. Ocho de los diez trabajos incluyen `data`,
+# así que repetirlas trabajo a trabajo sería copiar el mismo par ocho veces y dejar que se
+# desincronicen: la primera vez que alguien afinara el copy, siete quedarían atrás en silencio.
+#
+# El `path` es la coordenada interna —la misma que indexa el config, el schema y el catálogo de
+# defaults— y NUNCA se enseña: lo que el usuario lee es `question` (D-OBL-9). Los paths están atados
+# a `model_fields` por el gate bidireccional de `test_jobs_decisiones.py`, de modo que un campo
+# obligatorio nuevo en el motor no puede quedarse sin su pregunta.
+_DECISIONES_POR_SECCION: dict[str, tuple[dict[str, str], ...]] = {
+    "data": (
+        {
+            "path": "data.target.bad_rule",
+            "question": "¿Qué define a un cliente malo en tu cartera?",
+            "help": (
+                "La condición con la que tu área marca el incumplimiento. Suele ser un corte de "
+                "mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor "
+                "estándar: depende de tu política, y por eso lo eliges tú."
+            ),
+        },
+        {
+            "path": "data.partition.strategy",
+            "question": "¿Cómo separas la muestra para validar?",
+            "help": (
+                "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por "
+                "fecha mide mejor lo que pasará en producción, porque valida contra un período que "
+                "el modelo no vio."
+            ),
+        },
+    ),
+    "survival": (
+        {
+            "path": "survival.input.duration_col",
+            "question": "¿Qué columna mide el tiempo hasta el evento?",
+            "help": (
+                "Cuánto duró cada operación bajo observación: meses desde el desembolso hasta el "
+                "incumplimiento, o hasta que dejaste de observarla."
+            ),
+        },
+        {
+            "path": "survival.input.event_col",
+            "question": "¿Qué columna dice si el evento llegó a ocurrir?",
+            "help": (
+                "Distingue a quien incumplió de quien seguía sano cuando terminó la observación. "
+                "Sin ella las dos situaciones se confunden y las curvas salen sesgadas."
+            ),
+        },
+    ),
+}
+
+
+def decisiones_de(secciones: Iterable[str]) -> list[dict[str, str]]:
+    """Decisiones obligatorias de un conjunto de secciones, sin repetir y en orden estable.
+
+    El orden es el de ``_DECISIONES_POR_SECCION``, no el de ``secciones``: dos trabajos con las
+    mismas secciones en distinto orden tienen que preguntar lo mismo en el mismo orden, o la
+    interfaz dependería de cómo se escribió el catálogo.
+    """
+    presentes = set(secciones)
+    return [
+        dict(decision)
+        for seccion, decisiones in _DECISIONES_POR_SECCION.items()
+        if seccion in presentes
+        for decision in decisiones
+    ]
+
+
 def list_jobs() -> list[dict[str, Any]]:
     """Cataloga los trabajos disponibles para la landing y el sidebar.
 
@@ -277,6 +347,7 @@ def list_jobs() -> list[dict[str, Any]]:
             **job,
             "sections": list(job["sections"]),
             "missing_sections": list(job["missing_sections"]),
+            "required_decisions": decisiones_de(job["sections"]),
         }
         for job in _JOBS
     ]

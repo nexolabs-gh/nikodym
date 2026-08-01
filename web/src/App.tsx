@@ -182,9 +182,22 @@ function controlVisible(id: string): HTMLElement | null {
   )
   if (activador) return activador
   const oculto = nodos[0]
-  if (!oculto) return null
-  return (
-    oculto.parentElement?.querySelector<HTMLElement>('[role="switch"]') ?? oculto
+  if (oculto) {
+    return (
+      oculto.parentElement?.querySelector<HTMLElement>('[role="switch"]') ??
+      oculto
+    )
+  }
+  // Degradación HACIA ABAJO: el path nombra un objeto que no tiene control propio, sino varios
+  // hijos. Medido con las decisiones obligatorias (D-OBL-8): `data.target.bad_rule` no existe en el
+  // DOM —existen `…bad_rule.all_of` y `…bad_rule.any_of`—, así que el salto caía al botón que lo
+  // disparó. `candidateFieldIds` sólo degrada hacia arriba (recorta listas), que es el caso
+  // simétrico y no cubre éste. Se enfoca el primer control de dentro, que es donde el usuario
+  // empieza a contestar de todos modos.
+  return document.querySelector<HTMLElement>(
+    `[id^="${CSS.escape(id)}."][tabindex]:not([aria-hidden="true"]), ` +
+      `input[id^="${CSS.escape(id)}."]:not([aria-hidden="true"]), ` +
+      `button[id^="${CSS.escape(id)}."]:not([aria-hidden="true"])`,
   )
 }
 

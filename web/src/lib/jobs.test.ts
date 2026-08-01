@@ -11,9 +11,11 @@
 import { describe, expect, it } from "vitest"
 
 import appSource from "@/App.tsx?raw"
+import configTabSource from "@/components/ConfigTab.tsx?raw"
 import { configEditadoRespectoDelPreset } from "@/lib/bootstrap"
 import {
   FIXTURE_JOBS,
+  decisionStatuses,
   jobForConfig,
   jobSkeleton,
   sectionsOfJob,
@@ -220,5 +222,79 @@ describe("guardrail: el sidebar no puede volver a mapear el catálogo entero", (
     expect(appSource).toMatch(/navItems\(configSections\)/)
     expect(appSource).toMatch(/sectionsOfJob\(job\)/)
     expect(appSource).not.toMatch(/children:\s*CONFIG_SECTIONS\.map/)
+  })
+})
+
+describe("decisiones obligatorias del trabajo (D-OBL-6)", () => {
+  it("el catálogo bundleado las trae, y son las medidas", () => {
+    // Si el fixture se quedara viejo, la tarjeta desaparecería sin que ningún test lo notara.
+    expect(porId("scorecard_pd").required_decisions.map((d) => d.path)).toEqual([
+      "data.target.bad_rule",
+      "data.partition.strategy",
+    ])
+    // Los dos trabajos con survival preguntan cuatro cosas, no dos.
+    expect(porId("pd_lifetime").required_decisions.map((d) => d.path)).toEqual([
+      "data.target.bad_rule",
+      "data.partition.strategy",
+      "survival.input.duration_col",
+      "survival.input.event_col",
+    ])
+  })
+
+  it("una pregunta se lee como pregunta y nunca enseña el path (D-OBL-9)", () => {
+    for (const job of JOBS) {
+      for (const decision of job.required_decisions) {
+        expect(decision.question).toMatch(/\?$/)
+        expect(decision.question).not.toContain(decision.path)
+        expect(decision.help).not.toContain(decision.path)
+        expect(decision.help.length).toBeGreaterThan(40)
+      }
+    }
+  })
+
+  it("responder se decide por PRESENCIA de la clave, no por truthiness", () => {
+    const job = porId("scorecard_pd")
+    // Sin config no se afirma nada.
+    expect(decisionStatuses(job, null)).toEqual([])
+    expect(decisionStatuses(null, {})).toEqual([])
+
+    // Config vacío: las dos pendientes.
+    expect(decisionStatuses(job, {}).map((d) => d.answered)).toEqual([false, false])
+
+    // Una respondida con un valor FALSY explícito sigue siendo una respuesta del usuario: es el
+    // mismo criterio de D-FX-7, y usar truthiness aquí volvería a confundir «vacío» con «ausente».
+    const conFalsy = {
+      data: { target: { bad_rule: null }, partition: { strategy: "" } },
+    }
+    expect(decisionStatuses(job, conFalsy).map((d) => d.answered)).toEqual([true, true])
+
+    // Y una rama a medias no cuenta como respondida.
+    expect(
+      decisionStatuses(job, { data: { target: {} } }).map((d) => d.answered),
+    ).toEqual([false, false])
+  })
+
+  it("un trabajo sin decisiones no fabrica ninguna", () => {
+    const sinDecisiones: Job = { ...porId("scorecard_pd"), required_decisions: [] }
+    expect(decisionStatuses(sinDecisiones, {})).toEqual([])
+  })
+})
+
+describe("guardrail: las decisiones se pintan al principio de Configuración (D-OBL-8)", () => {
+  it("`ConfigTab` monta la tarjeta y la acota a su sección", () => {
+    // Vitest corre sin DOM y no puede comprobar el ORDEN renderizando, así que se vigila el fuente:
+    // misma forma y mismo motivo que el guardrail del sidebar de aquí arriba.
+    expect(configTabSource).toMatch(/<RequiredDecisions/)
+    expect(configTabSource).toMatch(/decisions=\{decisionStatuses\(job, /)
+    expect(configTabSource).toMatch(/section=\{section\}/)
+    // Y va ANTES del formulario. Se mide DENTRO del return de `ConfigTab`: el archivo tiene un
+    // helper que renderiza grupos y monta su propio `<Accordion>` mucho antes, así que buscar el
+    // primer acordeón del fichero comparaba contra otro componente y daba un rojo falso.
+    const cuerpo = configTabSource.slice(
+      configTabSource.indexOf("export function ConfigTab"),
+    )
+    expect(cuerpo.indexOf("<RequiredDecisions")).toBeGreaterThan(-1)
+    expect(cuerpo.indexOf("<RequiredDecisions")).toBeLessThan(cuerpo.indexOf("<PreflightNotice"))
+    expect(cuerpo.indexOf("<RequiredDecisions")).toBeLessThan(cuerpo.indexOf("<ConfigSectionForm"))
   })
 })
