@@ -28,6 +28,7 @@ from nikodym.report.config import (
 from nikodym.report.exceptions import ReportInputError
 from nikodym.report.prose import (
     _results_provisioning,
+    context_body,
     executive_view,
     limitations_body,
     provisions_intro,
@@ -1180,3 +1181,131 @@ def test_prosa_interpreta_falta_dato_de_comparacion_incompleta() -> None:
     assert "advertencias" in body
     assert "cobertura parcial" in body
     assert "cmf_only" not in body
+
+
+# ── la partición del motor sólo se declara si alguna etapa se apoyó en ella ──────────────────
+
+
+def _context_bundle(
+    cards: dict[str, Any], *, strategy: dict[str, Any] | None = None
+) -> ReportInputBundle:
+    """Bundle mínimo del capítulo de Contexto: card de población + config de datos real."""
+    return ReportInputBundle(
+        lineage=_lineage(),
+        cards=cards,
+        results={},
+        tables={},
+        figures={},
+        sections=(),
+        missing_sections=(),
+        pipeline_params={
+            "data": {
+                "target": {"target_col": "target"},
+                "partition": {
+                    "strategy": strategy
+                    or {
+                        "type": "random",
+                        "dev_fraction": 0.70,
+                        "holdout_fraction": 0.15,
+                        "oot_fraction": 0.15,
+                    }
+                },
+            }
+        },
+    )
+
+
+def test_particion_del_motor_se_declara_cuando_una_etapa_construye_sobre_ella() -> None:
+    """Control positivo: en la cadena F1 la frase de partición sigue saliendo intacta."""
+    bundle = _context_bundle({"data": _data_card().model_dump(mode="python"), "model": {}})
+
+    body = " ".join(context_body(bundle))
+
+    assert "La población se particionó de forma aleatoria" in body
+    assert "ninguna etapa de esta corrida se apoyó en esa división" not in body
+
+
+def test_particion_del_motor_no_se_declara_si_ninguna_etapa_la_usa() -> None:
+    """«Validar un modelo existente»: el informe no puede presentar la división de la cartera
+    como la del ejercicio cuando las métricas salen de la muestra del modelo evaluado.
+
+    Reproducido en vivo: la tabla del motor daba desarrollo/holdout/oot = 415/84/101 y la de
+    desempeño 300/150/150 en el MISMO documento, con las mismas etiquetas y sin un solo aviso.
+    Es el mismo criterio —consumo real— que ya gatea la frase del target tres líneas más arriba.
+    """
+    bundle = _context_bundle({"data": _data_card().model_dump(mode="python"), "performance": {}})
+
+    body = " ".join(context_body(bundle))
+
+    assert "La población se particionó" not in body
+    assert "ninguna etapa de esta corrida se apoyó en esa división" in body
+    assert "Desarrollo, Holdout y OOT" in body
+    assert "no puede verificar que coincidan" in body
+
+
+def test_particion_sin_consumo_y_sin_resultados_no_invita_a_comparar_nada() -> None:
+    """Control negativo del aviso: sin tablas por partición no hay dos poblaciones que confundir.
+
+    Una cadena standalone (p. ej. IFRS 9) parte igual la cartera y nadie la usa, pero ahí el
+    documento no publica ninguna otra tabla con las mismas etiquetas. Mandar a comparar dos tablas
+    cuando sólo hay una es el aviso que se dispara de más y se aprende a ignorar.
+    """
+    bundle = _context_bundle({"data": _data_card().model_dump(mode="python")})
+
+    body = " ".join(context_body(bundle))
+
+    assert "ninguna etapa de esta corrida se apoyó en esa división" in body
+    assert "comparar los totales de las dos tablas" not in body
+
+
+def test_las_etapas_de_construccion_son_las_que_se_apoyan_en_la_particion() -> None:
+    """El criterio se mide contra el footprint real de los pasos, no contra una lista escrita al
+    lado (misma lección que ``test_column_roles.py`` y D-INV-9).
+
+    Y la última aserción es la que sostiene toda la prosa nueva: ``performance`` y ``stability``
+    no declaran **ningún** artefacto de ``data``, así que sus etiquetas de partición no pueden
+    venir del paso de datos de esta corrida. El día que eso cambie, este gate se pone rojo y la
+    redacción del capítulo de Contexto hay que revisarla.
+    """
+    from nikodym.binning.step import BinningStep
+    from nikodym.calibration.step import CalibrationStep
+    from nikodym.model.step import ModelStep
+    from nikodym.performance.step import PerformanceStep
+    from nikodym.report.prose import CONSTRUCTION_DOMAINS
+    from nikodym.scorecard.step import ScorecardStep
+    from nikodym.selection.step import SelectionStep
+    from nikodym.stability.step import StabilityStep
+
+    directos = (BinningStep, SelectionStep, ModelStep)
+    for step in directos:
+        assert ("data", "splits") in step.requires, step.name
+        assert step.name in CONSTRUCTION_DOMAINS
+
+    # `scorecard` y `calibration` no leen la partición: cuelgan de `model`, que sí.
+    derivadas = (ScorecardStep, CalibrationStep)
+    for step in derivadas:
+        assert ("data", "splits") not in step.requires, step.name
+        assert any(domain == "model" for domain, _ in step.requires), step.name
+        assert step.name in CONSTRUCTION_DOMAINS
+
+    assert set(CONSTRUCTION_DOMAINS) == {step.name for step in (*directos, *derivadas)}
+
+    for step in (PerformanceStep, StabilityStep):
+        assert not any(domain == "data" for domain, _ in step.requires), step.name
+        assert step.name not in CONSTRUCTION_DOMAINS
+
+
+def test_una_estrategia_que_el_motor_no_deriva_no_afirma_que_haya_dos_fuentes() -> None:
+    """Forward-compat de D-COL-2: con una estrategia que LEYERA la división del archivo del
+    usuario, la de la cartera y la del modelo evaluado podrían salir del mismo sitio, y decir «no
+    tienen por qué coincidir» sería un falso positivo. Ante una estrategia desconocida se calla.
+    """
+    bundle = _context_bundle(
+        {"data": _data_card().model_dump(mode="python"), "performance": {}},
+        strategy={"type": "columna", "partition_col": "muestra"},
+    )
+
+    body = " ".join(context_body(bundle))
+
+    assert "ninguna etapa de esta corrida se apoyó en esa división" in body
+    assert "comparar los totales de las dos tablas" not in body
