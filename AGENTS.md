@@ -11,8 +11,8 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-01 noche, **D-JOB-7 CERRADO**)
 
-**`main` = `867477b`** (+ el commit de documentación del cierre). **PyPI sigue en `1.10.0` y no hay
-release autorizado.** Gates: **4761 passed / 6 skipped**, vitest **459/459**, mypy 244, ruff check +
+**`main` = `09b4a2d`, con CI 16/16 confirmado por `gh`.** **PyPI sigue en `1.10.0` y no hay release
+autorizado.** Gates: **4761 passed / 6 skipped**, vitest **459/459**, mypy 244, ruff check +
 format, typecheck y lint del front, bundle reconstruido, fixture de trabajos regenerado, mkdocs
 `--strict`.
 
