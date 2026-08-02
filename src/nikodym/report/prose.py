@@ -143,6 +143,41 @@ _DISCRIMINANT_METRIC_LABELS: Final[tuple[tuple[str, str], ...]] = (
 )
 _NOT_AVAILABLE: Final = "No disponible"
 
+#: Las etapas de **construcción** del scorecard, en su orden de ejecución.
+#:
+#: El paso ``data`` arma su target y su partición en toda corrida, las consuma alguien o no. Estas
+#: cinco son las que se apoyan en ellos: medido, ``binning``, ``selection`` y ``model`` declaran
+#: ``("data", "splits")`` en sus ``requires``, y ``scorecard``/``calibration`` cuelgan de ``model``.
+#: Fuera quedan a propósito dos lectores **condicionales** —``eda`` sólo lee la partición si
+#: ``analysis_partition`` no es «todas», y ``provisioning_cmf`` sólo para los tramos de PD—: ninguno
+#: construye sobre ella, y equivocarse por callar es más barato que afirmar de más.
+#:
+#: La lista estaba escrita dos veces —el gate de la frase del target y el encuadre de Metodología—
+#: y ahora la usa una tercera; tres copias de la lista que define el criterio son la garantía de que
+#: algún día digan cosas distintas (misma lección que D-INV-9).
+CONSTRUCTION_DOMAINS: Final[tuple[str, ...]] = (
+    "binning",
+    "selection",
+    "model",
+    "scorecard",
+    "calibration",
+)
+
+#: Dominios cuyas tablas del informe van **por partición**: si alguno corrió sin que corriera
+#: ninguna etapa de construcción, sus etiquetas de muestra las trajo el modelo evaluado, no el paso
+#: de datos de esta corrida.
+_PARTITIONED_RESULT_DOMAINS: Final[tuple[str, ...]] = ("performance", "stability")
+
+#: Las estrategias con que el paso de datos **deriva** la división de la cartera él mismo
+#: (``data/config.py``: ``temporal``, ``random``, ``cohort``).
+#:
+#: Se enumeran para poder **callarse** ante una que no esté: el día que exista una estrategia que
+#: LEA la división de una columna del usuario (D-COL-2, en diseño), la división de la cartera y la
+#: del modelo evaluado podrían salir del mismo sitio, y avisar de que «no tienen por qué coincidir»
+#: pasaría a ser un falso positivo. Callar de más cuesta un párrafo; afirmar de más entrena al
+#: lector a ignorar el aviso.
+_DERIVED_PARTITION_STRATEGIES: Final[frozenset[str]] = frozenset({"temporal", "random", "cohort"})
+
 
 class ExecutiveMetric:
     """Fila del semáforo del resumen ejecutivo: una métrica, su alcance y su banda."""
@@ -400,10 +435,7 @@ def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     # El target es "la variable objetivo del ejercicio" solo si alguna etapa de construcción lo
     # consume: en una cadena standalone (p. ej. IFRS 9) el data step lo construye igual, pero
     # declararlo objetivo del ejercicio sería falso.
-    construccion = any(
-        domain in bundle.cards
-        for domain in ("binning", "selection", "model", "scorecard", "calibration")
-    )
+    construccion = any(domain in bundle.cards for domain in CONSTRUCTION_DOMAINS)
     if target_col is not None and construccion:
         paragraphs.append(
             f"La variable objetivo del ejercicio es «{target_col}», construida por las reglas de "
@@ -416,7 +448,16 @@ def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     strategy = _mapping(partition.get("strategy"))
     strategy_type = _text(strategy.get("type"))
     if strategy_type is not None:
-        paragraphs.append(_partition_sentence(strategy_type, strategy))
+        # Mismo criterio que la frase del target, tres líneas más arriba, y por la misma razón: la
+        # partición es "la partición del ejercicio" sólo si alguna etapa de construcción se apoyó
+        # en ella. Sin ninguna, el paso de datos la arma igual, pero decir «la población se
+        # particionó así» invita a leer los resultados de este informe sobre esa división — y
+        # cuando el modelo evaluado trae la suya, las dos usan las MISMAS etiquetas
+        # (desarrollo/holdout/oot) sobre poblaciones distintas.
+        if construccion:
+            paragraphs.append(_partition_sentence(strategy_type, strategy))
+        else:
+            paragraphs.append(_partition_no_consumida(bundle, strategy_type))
 
     if not paragraphs:
         paragraphs.append(
@@ -425,6 +466,38 @@ def context_body(bundle: ReportInputBundle) -> tuple[str, ...]:
             "capítulo debe completarse íntegramente a mano."
         )
     return tuple(paragraphs)
+
+
+def _partition_no_consumida(bundle: ReportInputBundle, strategy_type: str) -> str:
+    """Declara que la división de la cartera existe pero no la usó ninguna etapa de la corrida.
+
+    El capítulo sigue mostrando la tabla de particiones —es un hecho de la cartera y borrarla sería
+    esconder evidencia—, así que hay que decir qué es. Y cuando además hay resultados por partición,
+    hay que decir que **no** son de esa división: las dos usan las mismas etiquetas y el informe no
+    puede dejar que se lean como la misma población.
+
+    No afirma que difieran. Que coincidan o no es una propiedad de los datos, y esto se redacta
+    desde las cards y el config: igual que ``index_columns`` en el preflight, «no se sabe» no es
+    «no hay». Por eso el aviso de las dos tablas sólo sale con una estrategia que el motor
+    **derive** (:data:`_DERIVED_PARTITION_STRATEGIES`): con una que leyera la división del archivo
+    del usuario, afirmar que son dos fuentes distintas sería falso.
+    """
+    hay_resultados = any(domain in bundle.cards for domain in _PARTITIONED_RESULT_DOMAINS)
+    dos_fuentes = hay_resultados and strategy_type in _DERIVED_PARTITION_STRATEGIES
+    base = (
+        "La cartera se dividió en muestras al preparar los datos, pero ninguna etapa de esta "
+        "corrida se apoyó en esa división: la tabla de particiones de este capítulo describe la "
+        "cartera, no una muestra de trabajo."
+    )
+    if not dos_fuentes:
+        return base
+    return (
+        f"{base} Las métricas del modelo se midieron sobre la muestra que declaran los propios "
+        "resultados del modelo evaluado. Ambas divisiones nombran igual sus muestras —Desarrollo, "
+        "Holdout y OOT— y no tienen por qué contener las mismas operaciones; este informe no puede "
+        "verificar que coincidan, así que conviene comparar los totales de las dos tablas antes de "
+        "leerlas juntas."
+    )
 
 
 def _partition_sentence(strategy_type: str, strategy: Mapping[str, Any]) -> str:
@@ -473,9 +546,7 @@ def _partition_sentence(strategy_type: str, strategy: Mapping[str, Any]) -> str:
 def methodology_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Encuadra la metodología: qué etapas se ejecutaron realmente y bajo qué trazabilidad."""
     etapas = tuple(
-        DOMAIN_TITLES[domain]
-        for domain in ("binning", "selection", "model", "scorecard", "calibration")
-        if domain in bundle.cards
+        DOMAIN_TITLES[domain] for domain in CONSTRUCTION_DOMAINS if domain in bundle.cards
     )
     if not etapas:
         return (
