@@ -5,7 +5,63 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-02 tarde): **el plan decidido NO era implementable, y medirlo cambió el diseño**
+> ## Lo último (2026-08-02 noche): **el motor aprende a LEER lo que tu archivo ya trae**
+>
+> **`main` = `17c4ff9`.** Los tres commits anteriores —`f470b9b`, `489e686`, `7ed2e03`— con **CI
+> 16/16 confirmado con `gh`**; el de `17c4ff9` quedó lanzado y hay que **verificarlo al arrancar**.
+> Gates locales: pytest **4870 passed / 6 skipped**, vitest **554/554**, mypy 245, `ruff check` y
+> `format`, typecheck y lint del front, bundle sin drift, `mkdocs --strict`. **PyPI sigue en
+> `1.10.0`.**
+>
+> ✅ **Fase 1 completa** (D-COL-2/3/4): `PartitionStrategy` gana una cuarta rama `columna`, y la
+> división de la muestra **se lee del archivo** en vez de derivarse. 🔴 **Nada se adivina**: ni por
+> parecido de nombre, ni por orden, ni por frecuencia; un valor declarado que no aparezca es un
+> error **nombrado** que publica los observados, y las particiones exigidas son **exactamente las
+> que el usuario mapeó** (D-COL-4). Hash-neutralidad medida con la rama registrada de verdad —los
+> tres presets byte a byte— con dos controles negativos ejecutados. ⚠️ `columna` **no** entra en
+> `_DERIVED_PARTITION_STRATEGIES`, y la prosa gana una frase propia que **declara su alcance**: el
+> mapeo se aplica sólo a las filas utilizables, así que decir «se leyó tal cual» era falso.
+>
+> ✅ **D-COL-7**: el perfil publica los **valores más frecuentes** de cada columna y el formulario
+> los pinta como casillas. Se acabó escribir `["DEV"]` a mano en un textarea JSON.
+>
+> 🔴 **Codex encontró 5 defectos en dos pasadas, con todo verde — cuarta sesión seguida.** El más
+> caro: **`astype(str)` FABRICA los literales `"nan"`, `"None"`, `"<NA>"` y `"NaT"` a partir de los
+> nulos, y coincidían con el mapeo**: 60 filas nulas terminaban en `desarrollo=60` con **cero
+> errores** y los tres chequeos posteriores satisfechos. D-COL-3 burlado por la puerta de atrás.
+> ⚠️ **Y verificar el DATO y la CONCLUSIÓN por separado sirvió**: su hallazgo del `float 1.0` era
+> cierto y **más amplio** de lo que yo había arreglado, pero su conclusión —derivar los valores del
+> frame ya coaccionado— choca con D-PRE-1. Se aceptó el dato y se rechazó la conclusión.
+>
+> 🔴 **Una premisa mía de coste, no medida, dejó media feature inalcanzable.** Descarté generar los
+> frames del catálogo por «caros»; medido, **32 ms los cinco** y con caché se pagan una vez. Entre
+> tanto, para los datasets de ejemplo las casillas **no aparecían nunca**: el perfil sólo existe si
+> el dataset se materializa, y eso exige un config válido, que el esqueleto de un trabajo **no es a
+> propósito** (D-OBL-5). Sólo se vio **abriendo la pantalla**.
+>
+> ⚠️ **Dos veces un control negativo destapó que el propio arreglo no era falsable**: la guarda de
+> `addDraft` quedaba tapada por el dedup, y un test de D-JOB-17 arrancaba desde el trabajo esperado
+> y pasaba sin que nadie llamara a `setJob`. **Ejecutarlo, no describirlo.**
+>
+> ✅ **D-JOB-17 cerrado también para los presets** (decisión de Cami: «arreglémoslo, no seas flojo,
+> si hay que cambiar la demo se cambia»). Medido: la demo pasa de 14 a **9** secciones en F1 y a
+> **4** en F4; F3, el ejemplo por defecto, **no cambia**. Ningún caso deja el sidebar vacío.
+>
+> ⚠️ **Trampas nuevas:** la capa `ui/` **no puede importar dominio** —`texto_comparable` vive en
+> `core/dataset_check.py` por eso—; **la baseline de un golden se toma sobre un árbol COMPLETO**
+> (stashear un archivo dejó el dominio en blob opaco y el diff salió con 68 «nuevas» en vez de 4);
+> `nikodym.run` **no acepta `workdir`** y el estado se lee en **`study.run_context.status`**;
+> Playwright sólo lee archivos dentro del repo o de `.playwright-mcp/`, que hay que **borrar al
+> terminar**; y `/api/upload` **exige token**.
+>
+> **Siguiente: D-COL-6 y D-COL-8**, la segunda mitad de la Fase 2, y aparte la **Fase 3**
+> (D-JOB-4/5, el abanico), que exige SDD propio. ⚠️ Y la **recaptura de la demo quedó AUTORIZADA
+> por Cami** —levantó el congelamiento—, pero va en sesión fresca por su protocolo. Detalle en
+> [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-02 tarde): **el plan decidido NO era implementable, y medirlo cambió el diseño**
 >
 > **`main` = `a522812`, con CI 16/16 confirmado con `gh`** (y 16/16 también sobre `21f1aca`, el
 > commit que trae todo el código). Gates locales: **4847 passed / 6 skipped**, vitest **491/491**,

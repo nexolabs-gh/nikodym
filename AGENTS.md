@@ -9,7 +9,48 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-02 tarde, **oleada post-Fase 1: todo salvo el abanico**)
+## Estado vigente (2026-08-02 noche, **el motor aprende a LEER lo que tu archivo trae**)
+
+**`main` = `17c4ff9`.** Los tres anteriores —`f470b9b`, `489e686`, `7ed2e03`— con **CI 16/16
+confirmado con `gh`**; el de `17c4ff9` quedó lanzado, **verificarlo al arrancar**. **PyPI sigue en
+`1.10.0` y no hay release autorizado.** Gates locales: pytest **4870 passed / 6 skipped**, vitest
+**554/554**, mypy 245, `ruff check` y `format`, typecheck y lint del front, bundle sin drift,
+`mkdocs --strict`.
+
+✅ **Fase 1 completa (D-COL-2/3/4)**: la división de la muestra **se lee** de una columna del archivo
+en vez de derivarse. 🔴 **Nada se adivina** —ni por parecido de nombre, ni por orden, ni por
+frecuencia—: un valor declarado que no aparezca es error **nombrado** que publica los observados, y
+las particiones exigidas son **exactamente las que el usuario mapeó**. Hash-neutralidad medida con
+la rama registrada de verdad, con dos controles negativos ejecutados. ✅ **D-COL-7**: el perfil
+publica los valores frecuentes y el formulario los ofrece como casillas.
+
+🔴 **Codex encontró 5 defectos en dos pasadas sobre trabajo con todo verde — cuarta sesión
+seguida.** El más caro: **`astype(str)` fabrica los literales `"nan"`, `"None"`, `"<NA>"` y `"NaT"`
+a partir de los nulos y coincidían con el mapeo** — 60 filas nulas daban `desarrollo=60` con **cero
+errores**. Una asignación que nadie declaró, en silencio.
+
+⚠️ **Verificar el DATO y la CONCLUSIÓN por separado sirvió**: su hallazgo del `float 1.0` era cierto
+y más amplio de lo arreglado, pero su conclusión choca con D-PRE-1. Se aceptó el dato, se rechazó la
+conclusión, y el límite queda **declarado con su razón**.
+
+🔴 **Una premisa de coste no medida dejó media feature inalcanzable**: generar los frames del
+catálogo cuesta **32 ms los cinco**, no lo que supuse, y mientras tanto las casillas **no aparecían
+nunca** para los datasets de ejemplo. Sólo se vio **abriendo la pantalla**.
+
+✅ **D-JOB-17 cerrado también para los presets** (decisión de Cami, con la demo encogiendo a 9 y 4
+secciones en dos de sus tres ejemplos y el tercero intacto).
+
+⚠️ **Trampas nuevas:** la capa `ui/` **no puede importar dominio**; **la baseline de un golden se
+toma sobre un árbol COMPLETO**; `nikodym.run` no acepta `workdir` y el estado vive en
+`study.run_context.status`; Playwright sólo lee dentro del repo o de `.playwright-mcp/`, que hay que
+borrar al terminar.
+
+**Siguiente: D-COL-6/D-COL-8** y, aparte, la **Fase 3** (D-JOB-4/5, con SDD propio). La **recaptura
+de la demo quedó AUTORIZADA** pero va en sesión fresca. Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-02 tarde, **oleada post-Fase 1: todo salvo el abanico**)
 
 **`main` = `a522812`, con CI 16/16 confirmado con `gh`** (y también 16/16 sobre `21f1aca`, que es
 el commit con todo el código). **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates
