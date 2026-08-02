@@ -109,6 +109,51 @@ class PerfilColumna:
     """
 
 
+def texto_comparable(valores: Any) -> Any:
+    """Representación en texto con que se comparan los valores de la columna de división.
+
+    Un número se compara **como número**, y por eso una columna numérica pierde su cola decimal
+    vacía antes de convertirse a texto. No es adivinar nada —D-COL-3 prohíbe emparejar por parecido
+    de nombre, por orden o por frecuencia, y esto es ninguna de las tres—: es reconocer que ``1.0``
+    y ``1`` son el mismo valor, que es lo que cualquiera que mire su archivo daría por hecho.
+
+    🔴 **Sin esto, el motor se contradecía a sí mismo.** Medido: un CSV exportado de Excel trae la
+    columna como ``1.0``/``2.0``, la interfaz ofrece esos literales tomados del perfil, y si el
+    esquema declara ``dtype: int`` con ``coerce``, el frame que llega aquí ya tiene ``1``/``2``. El
+    usuario elegía un valor **de la lista que el propio motor le mostró** y la corrida le respondía
+    que su columna no lo contiene. Un fallo ruidoso, no una corrupción, pero de la peor clase para
+    quien lo sufre: el sistema desmintiendo lo que acaba de ofrecer.
+
+    Para texto no cambia nada: la comparación sigue siendo literal y exacta, así que «dev» sigue
+    sin ser «DEV».
+
+    ⚠️ **Límite conocido y declarado, no cerrado.** Esto empareja la cola decimal vacía, que es el
+    caso frecuente, pero **no cierra la clase**: el perfil se mide sobre el archivo tal como llega
+    y el motor compara **después** de que el esquema coaccione la columna. Con
+    ``dtype: bool, coerce: true`` sobre una columna ``0``/``1``, o con un ``dtype: date`` sobre
+    fechas escritas ``01/02/2024``, lo ofrecido y lo comparado siguen difiriendo. El modo de fallo
+    es **ruidoso y nombrado** —la corrida se detiene y el mensaje publica los valores que el motor
+    sí ve—, nunca una asignación silenciosa; y alcanzarlo exige declarar ``coerce`` a mano sobre esa
+    columna. Cerrarlo del todo pide que el perfil se mida sobre el frame ya coaccionado, lo que
+    choca con que el preflight no lee los datos (D-PRE-1): es alcance propio, no un olvido.
+    """
+    import pandas as pd  # import perezoso: el núcleo no arrastra pandas al importarse
+
+    if pd.api.types.is_bool_dtype(valores.dtype) or not pd.api.types.is_numeric_dtype(
+        valores.dtype
+    ):
+        return valores.astype(str)
+    # `object` conserva los enteros exactos de una columna entera; `%g` y `round` no.
+    return valores.astype("object").map(_numero_a_texto)
+
+
+def _numero_a_texto(valor: object) -> str:
+    """Texto de un número sin cola decimal vacía: ``1.0`` → ``«1»``, ``1.5`` → ``«1.5»``."""
+    if isinstance(valor, float) and valor.is_integer():
+        return str(int(valor))
+    return str(valor)
+
+
 @dataclass(frozen=True, slots=True)
 class PerfilDataset:
     """Perfil de un dataset ya cargado: sus filas y lo medido por columna (D-PERF-1)."""

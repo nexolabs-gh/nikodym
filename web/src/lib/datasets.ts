@@ -70,6 +70,59 @@ export function fromUpload(resp: UploadedDataset): SelectedDataset {
   }
 }
 
+/**
+ * Valores ofrecibles del dataset activo, indexados por NOMBRE de columna (D-COL-7).
+ *
+ * Es lo que consume `column_values_from` en el formulario. Una columna sin valores medidos **no
+ * entra en el mapa**: `[]` significaría «esta columna no tiene valores», y lo que el backend dice
+ * con la lista vacía es «no se midió» —demasiados valores distintos, o dataset del catálogo aún sin
+ * materializar—. La diferencia decide si el widget cae a entrada libre o pinta «Sin opciones.».
+ *
+ * Vive aquí y no en el componente porque es LÓGICA, no presentación: vitest corre sin DOM, así que
+ * dentro de `ConfigTab` no habría forma de probarla.
+ */
+export function columnValuesByName(
+  selected: SelectedDataset | null,
+): Record<string, string[]> | undefined {
+  if (selected === null) return undefined
+  return Object.fromEntries(
+    selected.columns
+      .filter((c) => c.values !== undefined && c.values.length > 0)
+      .map((c) => [c.name, c.values as string[]]),
+  )
+}
+
+/**
+ * Reconcilia la ficha ACTIVA con un catálogo recién pedido, aunque el dataset no haya cambiado.
+ *
+ * 🔴 El motivo es un defecto medido: en un workdir nuevo, `GET /api/datasets` describe los datasets
+ * del catálogo **sin materializar**, y por eso todas sus columnas llegan con `values: []`. Quien
+ * los materializa —y escribe el perfil— es el preflight, que corre DESPUÉS de que el usuario ya
+ * eligió. La ficha activa se quedaba con aquella instantánea pobre para toda la sesión, así que
+ * para los datasets del catálogo las casillas de valores **no aparecían nunca** y el usuario volvía
+ * a teclear a ciegas. (Las subidas no lo sufren: `POST /api/upload` mide el perfil en el acto.)
+ *
+ * Devuelve la MISMA referencia cuando no hay nada que aportar —dataset subido, catálogo todavía sin
+ * cargar, o valores ya presentes—, de modo que el efecto que la consume no entre en bucle.
+ */
+export function reconcileSelected(
+  selected: SelectedDataset | null,
+  catalog: DatasetInfo[],
+): SelectedDataset | null {
+  if (selected === null) return null
+  const info = catalog.find((d) => d.id === selected.id)
+  if (!info) return selected
+  return aportaValores(selected, info) ? fromCatalog(info) : selected
+}
+
+/** ¿El item del catálogo publica valores de alguna columna que la ficha activa todavía no tiene? */
+function aportaValores(selected: SelectedDataset, info: DatasetInfo): boolean {
+  const actuales = new Map(selected.columns.map((c) => [c.name, c.values ?? []]))
+  return info.columns.some(
+    (c) => (c.values?.length ?? 0) > 0 && (actuales.get(c.name)?.length ?? 0) === 0,
+  )
+}
+
 /** Etiqueta de una opción del selector de catálogo, p.ej. `Consumo · 10.000 filas`. */
 export function datasetOptionLabel(info: DatasetInfo): string {
   return `${info.name} · ${info.n_rows.toLocaleString("es-CL")} filas`

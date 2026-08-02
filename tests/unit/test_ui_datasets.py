@@ -340,8 +340,17 @@ def test_consumo_drift_en_catalogo() -> None:
     roles = {col["role"] for col in descriptor["columns"]}
     assert roles >= _ROLES_ESPERADOS
     # mismo esquema (nombres/orden) que los datasets estables — el config F1 corre sin editar.
+    # Se comparan nombre/dtype/role y NO el descriptor entero: desde D-COL-7 cada columna publica
+    # además sus valores ofrecibles, que por definición difieren entre dos datasets distintos —el
+    # drift deteriora la mora a propósito—. El test siempre quiso decir «mismo esquema», y sólo
+    # ahora que el descriptor lleva datos hay diferencia entre decirlo y comprobarlo.
+    esquema = lambda d: [  # noqa: E731
+        {clave: col[clave] for clave in ("name", "dtype", "role")} for col in d["columns"]
+    ]
     otro = next(d for d in list_datasets() if d["id"] == "consumo_comportamiento")
-    assert descriptor["columns"] == otro["columns"]
+    assert esquema(descriptor) == esquema(otro)
+    # Y los valores sí difieren: es la prueba de que se miden sobre cada dataset, no se copian.
+    assert descriptor["columns"] != otro["columns"]
 
 
 def test_consumo_drift_materializa_columnas_y_dtypes(tmp_path: Path) -> None:

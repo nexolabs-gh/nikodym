@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest"
 
 import type { DatasetInfo, UploadedDataset } from "./api"
 import {
+  columnValuesByName,
   datasetCatalogView,
   datasetOptionLabel,
   fromCatalog,
   fromUpload,
   isAllowedDataFile,
+  reconcileSelected,
 } from "./datasets"
 
 describe("isAllowedDataFile", () => {
@@ -217,5 +219,87 @@ describe("datasetCatalogView", () => {
       if (unknownView.kind !== "locked") throw new Error("esperaba locked")
       expect(unknownView.dataset).toBeNull()
     })
+  })
+})
+
+describe("reconcileSelected — el perfil que llega TARDE alcanza a la ficha activa", () => {
+  // 🔴 El defecto que cierra: `GET /api/datasets` describe los datasets del catálogo SIN
+  // materializar, así que en un workdir nuevo todas sus columnas llegan con `values: []`. Quien
+  // materializa —y escribe el perfil— es el preflight, o sea DESPUÉS de que el usuario ya eligió.
+  // Medido contra el backend: `list_datasets` da 0 columnas con valores antes de `materialize()` y
+  // 4 después, sobre `consumo_comportamiento`.
+  const SIN_PERFIL: DatasetInfo = {
+    id: "consumo_comportamiento",
+    name: "Consumo",
+    description: "",
+    n_rows: 10000,
+    columns: [
+      { name: "loan_id", dtype: "int64", role: "feature", values: [] },
+      { name: "cohorte", dtype: "object", role: "feature", values: [] },
+      { name: "bad_flag", dtype: "int64", role: "target", values: [] },
+    ],
+  }
+  const CON_PERFIL: DatasetInfo = {
+    ...SIN_PERFIL,
+    columns: [
+      { name: "loan_id", dtype: "int64", role: "feature", values: [] },
+      {
+        name: "cohorte",
+        dtype: "object",
+        role: "feature",
+        values: ["2023Q1", "2023Q2", "2024Q1"],
+      },
+      { name: "bad_flag", dtype: "int64", role: "target", values: ["0", "1"] },
+    ],
+  }
+
+  it("enriquece la ficha aunque el dataset NO haya cambiado", () => {
+    const elegida = fromCatalog(SIN_PERFIL) // lo que el usuario eligió, sin perfil todavía
+    expect(columnValuesByName(elegida)).toEqual({}) // el formulario no tiene nada que ofrecer
+
+    const reconciliada = reconcileSelected(elegida, [CON_PERFIL])
+    expect(reconciliada).not.toBe(elegida)
+    expect(columnValuesByName(reconciliada)).toEqual({
+      cohorte: ["2023Q1", "2023Q2", "2024Q1"],
+      bad_flag: ["0", "1"],
+    })
+    // Y una columna sin valores medidos sigue fuera del mapa: «no se sabe», no «no tiene».
+    expect(columnValuesByName(reconciliada)).not.toHaveProperty("loan_id")
+  })
+
+  it("devuelve la MISMA referencia cuando no hay nada que aportar (no hace bucle)", () => {
+    // Es lo que impide que el efecto que la consume se re-dispare a sí mismo indefinidamente.
+    const yaRica = fromCatalog(CON_PERFIL)
+    expect(reconcileSelected(yaRica, [CON_PERFIL])).toBe(yaRica)
+    // Catálogo aún sin cargar.
+    expect(reconcileSelected(yaRica, [])).toBe(yaRica)
+    // Y un catálogo que EMPOBRECE no puede pisar lo que ya se sabe.
+    expect(reconcileSelected(yaRica, [SIN_PERFIL])).toBe(yaRica)
+  })
+
+  it("converge en UNA pasada (el efecto que la consume no se re-dispara solo)", () => {
+    // El efecto de `DatosTab` hace `if (reconciliado !== selectedDataset) setSelectedDataset(...)`,
+    // así que una segunda pasada que devolviera un objeto nuevo sería un bucle de render infinito.
+    const primera = reconcileSelected(fromCatalog(SIN_PERFIL), [CON_PERFIL])
+    const segunda = reconcileSelected(primera, [CON_PERFIL])
+    expect(segunda).toBe(primera)
+  })
+
+  it("no toca un dataset SUBIDO (su id no está en el catálogo)", () => {
+    // Las subidas nunca sufrieron el defecto —`POST /api/upload` mide el perfil en el acto— y
+    // reconciliar no debe poder pisarlas.
+    const subida = fromUpload({
+      dataset_id: "upload-abc",
+      name: "mi_panel.csv",
+      n_rows: 10,
+      columns: [{ name: "muestra", dtype: "object", values: ["DEV", "OOT"] }],
+    })
+    expect(reconcileSelected(subida, [CON_PERFIL])).toBe(subida)
+    expect(columnValuesByName(subida)).toEqual({ muestra: ["DEV", "OOT"] })
+  })
+
+  it("sin ficha activa no inventa ninguna", () => {
+    expect(reconcileSelected(null, [CON_PERFIL])).toBeNull()
+    expect(columnValuesByName(null)).toBeUndefined()
   })
 })

@@ -930,5 +930,33 @@ export function toggleMultiselect(
   else selected.delete(option)
   const known = options.filter((o) => selected.has(o))
   const unknown = previous.filter((v) => selected.has(v) && !options.includes(v))
-  return [...known, ...unknown]
+  // Segunda línea de defensa: si `options` llega con un valor repetido, `filter` lo repite y el
+  // config gana un duplicado que la pantalla no muestra —un checkbox por opción— pero que viaja al
+  // YAML y **mueve el `config_hash`**. Ocurrió de verdad al añadir a mano un valor que ya se
+  // ofrecía. La causa se arregló en quien llama, y esto impide que la clase vuelva por otra vía.
+  return [...new Set([...known, ...unknown])]
+}
+
+/**
+ * Las opciones contra las que resolver un nombre ESCRITO A MANO en el multiselect: las conocidas,
+ * más el nombre nuevo sólo si no estaba ya.
+ *
+ * 🔴 Es la causa del defecto, no su síntoma. Antes se concatenaba el nombre SIEMPRE
+ * (`[...options, ...extra, name]`), y con una opción ya ofrecida pero sin marcar —el caso normal
+ * desde que las opciones salen de los valores del dataset (D-COL-7)— la lista llegaba con el
+ * nombre repetido y `toggleMultiselect` devolvía `["DEV","DEV"]`: un solo checkbox en pantalla, un
+ * duplicado en el YAML y el `config_hash` movido sin que nada lo delatara.
+ *
+ * Vive aquí, y no como una expresión dentro del widget, para que se pueda PROBAR: medido, el
+ * `dedup` de `toggleMultiselect` tapa este defecto en la salida final, así que un test sobre la
+ * lista resultante pasa igual con la causa puesta. El único sitio donde la guarda es falsable es
+ * su propia salida.
+ */
+export function optionsWithDraft(
+  options: unknown[],
+  extra: unknown[],
+  draft: unknown,
+): unknown[] {
+  const conocidas = [...options, ...extra]
+  return conocidas.includes(draft) ? conocidas : [...conocidas, draft]
 }

@@ -22,6 +22,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict
 
 from nikodym.core.audit import AuditEvent, AuditSink
+from nikodym.core.dataset_check import texto_comparable
 from nikodym.core.exceptions import ConfigError, DataValidationError
 from nikodym.data.config import (
     CohortSplitConfig,
@@ -324,7 +325,7 @@ def _split_from_column(
     # pertenecer a ninguna muestra: cae a `fuera_de_modelo` como cualquier valor no mapeado.
     columna = frame[strategy.partition_col]
     con_valor = columna.notna()
-    valores = columna[con_valor].astype(str)
+    valores = texto_comparable(columna[con_valor])
     declarado: dict[str, tuple[str, ...]] = {
         Partition.DESARROLLO.value: strategy.desarrollo,
         Partition.HOLDOUT.value: strategy.holdout,
@@ -368,8 +369,10 @@ def _raise_valores_ausentes(
     raise DataValidationError(
         f"La columna «{partition_col}» no contiene valor(es) declarado(s) en la división: "
         f"{detalle}. Entre las filas que el modelo puede usar (buenas o malas con objetivo "
-        f"definido) aparecen: {muestra}. Escriba los valores tal como están en el archivo; el "
-        "motor no los interpreta ni los empareja por parecido."
+        f"definido) aparecen: {muestra}. Use exactamente esos valores; el motor no los interpreta "
+        "ni los empareja por parecido. Si declaró un tipo de dato para esta columna en el esquema, "
+        "tenga en cuenta que la comparación ocurre después de convertirla: los valores de arriba "
+        "son los que el motor ve, y pueden escribirse distinto que en el archivo original."
     )
 
 

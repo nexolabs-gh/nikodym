@@ -560,13 +560,13 @@ def config_from_yaml(text: Any) -> dict[str, Any]:
     }
 
 
-def datasets_payload(*, workdir: Path | None = None) -> list[dict[str, Any]]:
+def datasets_payload() -> list[dict[str, Any]]:
     """Compone la respuesta de ``GET /api/datasets`` (catálogo sintético estable).
 
-    Con ``workdir`` adjunta además los valores ofrecibles de cada columna (D-COL-7) de los datasets
-    que ya se materializaron ahí; sin él, o sin perfil todavía, el listado es el de siempre.
+    Cada columna trae además sus valores ofrecibles (D-COL-7), que el catálogo conoce sin
+    depender de ningún ``workdir``.
     """
-    return datasets.list_datasets(workdir=workdir)
+    return datasets.list_datasets()
 
 
 def upload_dataset(
@@ -1049,9 +1049,9 @@ def build_router() -> APIRouter:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.get("/datasets")
-    async def datasets_endpoint(request: Request) -> list[dict[str, Any]]:
-        """Lista los datasets, con sus valores ofrecibles si ya se midieron (D-COL-7)."""
-        return datasets_payload(workdir=Path(request.app.state.settings.workdir))
+    async def datasets_endpoint() -> list[dict[str, Any]]:
+        """Lista los datasets sintéticos con sus valores ofrecibles (D-COL-7)."""
+        return datasets_payload()
 
     @router.post("/upload")
     async def upload_endpoint(file: UploadFile, request: Request) -> dict[str, Any]:

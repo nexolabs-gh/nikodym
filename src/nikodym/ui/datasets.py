@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import json
 import tempfile
+from functools import cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, Final
@@ -23,7 +24,12 @@ from typing import Any, Final
 import numpy as np
 import pandas as pd
 
-from nikodym.core.dataset_check import PerfilColumna, PerfilDataset
+# ``texto_comparable`` se importa del núcleo a propósito y no se reimplementa aquí: es el criterio
+# con que la corrida compara los valores de la columna, y ofrecerle al usuario un literal distinto
+# del que se va a buscar es el defecto que esta importación existe para impedir. Vive en ``core`` y
+# no en ``data`` porque esta capa tiene vetado importar dominio — el primer intento la puso ahí y
+# rompió `test_ui_no_importa_modulos_de_dominio`.
+from nikodym.core.dataset_check import PerfilColumna, PerfilDataset, texto_comparable
 from nikodym.ui.exceptions import UiArtifactError, UiDatasetError
 
 __all__ = ["ingest_upload", "list_datasets", "load_frame", "materialize", "row_count"]
@@ -238,7 +244,7 @@ _DATASETS: dict[str, dict[str, Any]] = {
 }
 
 
-def list_datasets(*, workdir: Path | None = None) -> list[dict[str, Any]]:
+def list_datasets() -> list[dict[str, Any]]:
     """Devuelve el catálogo estable de datasets sintéticos.
 
     Returns
@@ -246,12 +252,11 @@ def list_datasets(*, workdir: Path | None = None) -> list[dict[str, Any]]:
     list of dict
         Un descriptor por dataset con ``id``/``name``/``description``/``columns``/``n_rows``. Cada
         columna trae ``name``/``dtype``/``role`` y, desde D-COL-7, ``values`` con sus valores
-        ofrecibles —vacío mientras el dataset no se haya materializado en este ``workdir``—. El
-        orden es estable (orden de inserción del registro), de modo que el listado no cambia entre
-        corridas.
+        ofrecibles. El orden es estable (orden de inserción del registro), de modo que el listado
+        no cambia entre corridas.
 
-    ``workdir`` es opcional a propósito: sin él el catálogo sigue respondiendo lo de siempre, sin
-    valores. Así el listado nunca depende de que exista un directorio de trabajo.
+    No depende del ``workdir``: estos datasets son sintéticos deterministas, así que sus valores
+    son una propiedad del catálogo y no de una materialización concreta.
     """
     return [
         {
@@ -265,31 +270,31 @@ def list_datasets(*, workdir: Path | None = None) -> list[dict[str, Any]]:
             "n_rows": spec["n_rows"],
         }
         for dataset_id, spec in _DATASETS.items()
-        for valores_por_columna in (_valores_publicables(dataset_id, workdir),)
+        for valores_por_columna in (_valores_publicables(dataset_id),)
     ]
 
 
-def _valores_publicables(dataset_id: str, workdir: Path | None) -> dict[str, tuple[str, ...]]:
-    """Valores ofrecibles de un dataset del catálogo, **sin materializarlo** (D-COL-7).
+@cache
+def _valores_publicables(dataset_id: str) -> dict[str, tuple[str, ...]]:
+    """Valores ofrecibles de un dataset del catálogo (D-COL-7).
 
-    Devuelve vacío cuando todavía no hay perfil en este ``workdir``, y eso es lo correcto: el
-    catálogo se sirve para *elegir* un dataset, y materializar los cinco para adornar ese listado
-    convertiría un `GET` barato en cinco generaciones de `DataFrame`. En cuanto el dataset se usa
-    de verdad —la corrida o el preflight lo materializan— su perfil queda al lado y el listado
-    siguiente ya los trae.
+    🔴 **Se generan aquí, y no se leen del perfil en disco, porque por esa vía la capacidad no
+    existía.** La primera versión sólo publicaba los valores si el dataset ya se había
+    materializado en el ``workdir``, razonando que generar cinco ``DataFrame`` para adornar un
+    listado era caro. Verificado **en la pantalla**, con un workdir nuevo: el dataset del catálogo
+    **nunca se materializa** mientras el config no valide, y el config que siembra un trabajo es
+    inválido a propósito —sus decisiones obligatorias nacen como huecos honestos (D-OBL-5)—, así
+    que el preflight no llega a correr y el perfil no aparece jamás. Las casillas salían para un
+    archivo subido y **nunca** para un dataset de ejemplo: la clase «una capacidad que el usuario
+    no puede alcanzar cuenta como no entregada».
 
-    ⚠️ Vacío significa «no se sabe», nunca «esta columna no tiene valores»: el formulario cae a la
-    entrada libre, que es exactamente el comportamiento anterior a D-COL-7.
+    Y la premisa del coste, medida, era irrelevante: generar los cinco cuesta **32 ms en total**
+    (7,7 / 2,2 / 4,7 / 8,6 / 9,2 ms), y con la caché se paga **una vez por proceso**. Son datasets
+    sintéticos deterministas: su contenido no depende del ``workdir`` ni de la corrida, así que
+    cachear por ``dataset_id`` es exacto y no puede quedar stale.
     """
-    if workdir is None:
-        return {}
-    ruta = _ruta_perfil(workdir, dataset_id)
-    if not ruta.exists():
-        return {}  # no se materializó aún: no se fuerza una lectura para adornar un listado
-    perfil = load_profile(dataset_id, workdir=workdir)
-    if perfil is None:
-        return {}
-    return {columna.nombre: columna.valores_frecuentes for columna in perfil.columnas}
+    frame = _generate(dataset_id)
+    return {str(columna): tuple(_valores_frecuentes(frame[columna])) for columna in frame.columns}
 
 
 def _columns_for(dataset_id: str) -> tuple[dict[str, str], ...]:
@@ -393,16 +398,18 @@ def _valores_frecuentes(serie: pd.Series) -> list[str]:
     distintos, o vacía—, y eso significa «no se midió», nunca «no tiene valores». El consumidor cae
     entonces a la entrada libre, que es el comportamiento de siempre.
 
-    ⚠️ Se convierte a texto **aquí** y no en el consumidor, porque es la representación con la que
-    el motor compara —``_split_from_column`` hace ``astype(str)``— y con la que sus mensajes de
-    error publican lo observado. Elegir de esta lista tiene que escribir exactamente el literal que
-    la corrida va a buscar; si la conversión viviera en el front, un float ``1.0`` podría ofrecerse
-    como «1» y no encontrar nada.
+    🔴 **La conversión a texto es la MISMA función que usa el motor para comparar**
+    (:func:`nikodym.core.dataset_check.texto_comparable`), y eso es el punto entero: lo que el
+    usuario elige de esta lista tiene que ser, carácter por carácter, lo que la corrida va a buscar.
+    Reimplementarla aquí —aunque fuera con el mismo ``astype(str)``— dejaría dos verdades que se
+    pueden separar sin que nada enrojezca, y la primera versión de esto ya lo demostró: una columna
+    ``1.0``/``2.0`` se ofrecía tal cual y el motor, tras coaccionar el dtype, comparaba ``1``/``2``,
+    de modo que elegir un valor de la lista producía «esa columna no contiene ese valor».
     """
     sin_nulos = serie.dropna()
     if sin_nulos.empty or sin_nulos.nunique() > _MAX_VALORES_OFRECIBLES:
         return []
-    conteo = sin_nulos.astype(str).value_counts()
+    conteo = texto_comparable(sin_nulos).value_counts()
     return [str(valor) for valor in conteo.head(_TOPE_VALORES_FRECUENTES).index]
 
 

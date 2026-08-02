@@ -50,6 +50,7 @@ import {
   listItems,
   moveListItem,
   multiselectOptions,
+  optionsWithDraft,
   numericBounds,
   optionsFromDataset,
   orderedFields,
@@ -847,7 +848,14 @@ function MultiselectField(props: FieldRendererProps) {
       setDraft("")
       return
     }
-    setList(toggleMultiselect(current, name, true, [...options, ...extra, name]))
+    // 🔴 El nombre se añade a las opciones SÓLO si no estaba ya. Antes se concatenaba siempre, y
+    // con una opción ya ofrecida pero no marcada —el caso normal desde que las opciones salen de
+    // los valores del dataset (D-COL-7)— la lista de opciones llegaba con el nombre duplicado, así
+    // que `toggleMultiselect` devolvía `["DEV","DEV"]`. La pantalla seguía mostrando UN checkbox,
+    // pero el duplicado viajaba al YAML y **movía el `config_hash`** sin que nada lo delatara.
+    setList(
+      toggleMultiselect(current, name, true, optionsWithDraft(options, extra, name)),
+    )
     setDraft("")
   }
 

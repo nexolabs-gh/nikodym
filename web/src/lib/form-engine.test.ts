@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import fixtureSchema from "@/fixtures/schema.json"
+import type { DatasetInfo } from "@/lib/api"
+import {
+  columnValuesByName,
+  fromCatalog,
+  reconcileSelected,
+  type SelectedDataset,
+} from "@/lib/datasets"
 import type { SchemaPayload } from "@/lib/schema"
 
 import {
@@ -29,6 +36,7 @@ import {
   moveListItem,
   multiselectOptions,
   optionsFromDataset,
+  optionsWithDraft,
   numericBounds,
   orderedFields,
   removeListItem,
@@ -1257,5 +1265,172 @@ describe("la división ya marcada en el archivo, contra el SCHEMA REAL del backe
     }
     expect(columnValuesFrom(opcional, defs)).toBe("partition_col")
     expect(resolveWidget(opcional, { defs })).toBe("multiselect")
+  })
+})
+
+describe("añadir a mano un valor NUNCA duplica (el `config_hash` no se mueve solo)", () => {
+  // 🔴 Defecto real: `addDraft` concatenaba el nombre escrito a las opciones SIEMPRE. Con una
+  // opción ya ofrecida pero sin marcar —el caso normal desde que las opciones salen de los valores
+  // del dataset (D-COL-7)— la lista llegaba con el nombre repetido y salía `["DEV","DEV"]`: UN
+  // checkbox en pantalla, un duplicado en el YAML y el `config_hash` movido sin que nada lo
+  // delatara.
+  const OFRECIDAS = ["DEV", "VAL", "OOT"]
+
+  describe("toggleMultiselect — la segunda línea de defensa", () => {
+    it("no devuelve duplicados aunque `options` los traiga (el reproductor exacto)", () => {
+      expect(toggleMultiselect([], "DEV", true, ["DEV", "VAL", "OOT", "DEV"])).toEqual([
+        "DEV",
+      ])
+    })
+
+    it("tampoco con un valor ya elegido y repetido en las opciones", () => {
+      expect(
+        toggleMultiselect(["DEV"], "VAL", true, ["DEV", "VAL", "DEV", "VAL"]),
+      ).toEqual(["DEV", "VAL"])
+    })
+
+    it("ni cuando el repetido viene de un valor libre que además se ofrece", () => {
+      // `known` y `unknown` pueden reclamar el mismo valor si `options` lo trae dos veces.
+      expect(
+        toggleMultiselect(["MIO"], "DEV", true, ["DEV", "MIO", "MIO"]),
+      ).toEqual(["DEV", "MIO"])
+    })
+
+    it("y sigue conservando el orden estable y los valores libres al final", () => {
+      // El dedup no puede cambiar lo que esta función ya prometía: orden de `options`, y los
+      // valores que no están entre ellas conservados al final.
+      expect(
+        toggleMultiselect(["ESCRITO_A_MANO", "OOT"], "DEV", true, OFRECIDAS),
+      ).toEqual(["DEV", "OOT", "ESCRITO_A_MANO"])
+    })
+  })
+
+  describe("optionsWithDraft — la causa, en el único sitio donde es falsable", () => {
+    // ⚠️ Medido: con el dedup de `toggleMultiselect` puesto, la lista FINAL sale bien con o sin
+    // esta guarda, así que un test sobre el resultado del flujo pasa igual con la causa dentro.
+    // Por eso la guarda vive en una función propia y se prueba en su propia salida.
+    it("no repite un nombre que ya se ofrecía", () => {
+      expect(optionsWithDraft(OFRECIDAS, [], "DEV")).toEqual(OFRECIDAS)
+    })
+
+    it("no repite un nombre que ya estaba entre los valores libres", () => {
+      expect(optionsWithDraft(OFRECIDAS, ["MIO"], "MIO")).toEqual([
+        ...OFRECIDAS,
+        "MIO",
+      ])
+    })
+
+    it("añade al final un nombre que de verdad es nuevo", () => {
+      expect(optionsWithDraft(OFRECIDAS, [], "ENTRENAMIENTO")).toEqual([
+        ...OFRECIDAS,
+        "ENTRENAMIENTO",
+      ])
+    })
+
+    it("su salida nunca tiene repetidos, sea cual sea el borrador", () => {
+      for (const borrador of ["DEV", "VAL", "OOT", "MIO", "NUEVO"]) {
+        const salida = optionsWithDraft(OFRECIDAS, ["MIO"], borrador)
+        expect(new Set(salida).size, `«${borrador}» duplicó una opción`).toBe(
+          salida.length,
+        )
+      }
+    })
+  })
+
+  it("el flujo completo de addDraft sobre una opción ya ofrecida y NO marcada", () => {
+    // La secuencia exacta que ejecuta el widget: se computan las candidatas y se alterna sobre
+    // ellas. Antes daba `["DEV","DEV"]`.
+    const current: unknown[] = []
+    const options = OFRECIDAS
+    const extra: unknown[] = []
+    const escrito = "DEV"
+
+    const resultado = toggleMultiselect(
+      current,
+      escrito,
+      true,
+      optionsWithDraft(options, extra, escrito),
+    )
+    expect(resultado).toEqual(["DEV"])
+    expect(new Set(resultado).size).toBe(resultado.length)
+  })
+
+  it("y sobre un valor que de verdad no se ofrecía (no se rompió el caso bueno)", () => {
+    const resultado = toggleMultiselect(
+      ["DEV"],
+      "ENTRENAMIENTO",
+      true,
+      optionsWithDraft(OFRECIDAS, [], "ENTRENAMIENTO"),
+    )
+    expect(resultado).toEqual(["DEV", "ENTRENAMIENTO"])
+  })
+})
+
+describe("la secuencia REAL: catálogo sin perfil → elegir → preflight → formulario", () => {
+  // 🔴 El defecto que cierra, de punta a punta y con las funciones de verdad (nada re-implementado
+  // en el test): en un workdir nuevo el catálogo describe los datasets SIN materializar, así que
+  // sus columnas llegan con `values: []`; quien las mide es el preflight, DESPUÉS de que el
+  // usuario ya eligió. La ficha activa se quedaba con la instantánea pobre y las casillas de
+  // valores no aparecían nunca para un dataset del catálogo.
+  //
+  // Medido contra el backend antes de escribir esto: `list_datasets` da 0 columnas con valores
+  // antes de `materialize()` y 4 después, sobre `consumo_comportamiento`.
+  const defs: Defs = (fixtureSchema as unknown as SchemaPayload).json_schema.$defs ?? {}
+  const desarrollo = defs["data__ColumnSplitConfig"]!.properties!.desarrollo
+  const hermanos = { type: "columna", partition_col: "cohorte" }
+
+  const GET_1: DatasetInfo = {
+    id: "consumo_comportamiento",
+    name: "Consumo",
+    description: "",
+    n_rows: 10000,
+    columns: [
+      { name: "loan_id", dtype: "int64", role: "feature", values: [] },
+      { name: "cohorte", dtype: "object", role: "feature", values: [] },
+    ],
+  }
+  const GET_2: DatasetInfo = {
+    ...GET_1,
+    columns: [
+      { name: "loan_id", dtype: "int64", role: "feature", values: [] },
+      {
+        name: "cohorte",
+        dtype: "object",
+        role: "feature",
+        values: ["2023Q1", "2023Q2", "2023Q3", "2024Q1"],
+      },
+    ],
+  }
+
+  /** Lo que el formulario ofrece con una ficha dada (la cadena entera, como en `ConfigTab`). */
+  const opcionesDelFormulario = (ficha: SelectedDataset | null): unknown[] =>
+    multiselectOptions(
+      desarrollo,
+      { datasetColumnValues: columnValuesByName(ficha), siblingValues: hermanos },
+      defs,
+    )
+
+  it("antes del preflight el formulario no puede ofrecer nada, y no miente", () => {
+    const elegida = fromCatalog(GET_1)
+    expect(opcionesDelFormulario(elegida)).toEqual([])
+    // Y eso NO puede degradar a «Sin opciones.»: la lista sigue abierta.
+    expect(hasClosedOptions(desarrollo, defs)).toBe(false)
+  })
+
+  it("después del preflight, las casillas aparecen SIN cambiar de dataset", () => {
+    const elegida = fromCatalog(GET_1) // paso 1-2: GET sin perfil + elección
+    const reconciliada = reconcileSelected(elegida, [GET_2]) // paso 3: preflight materializó
+
+    expect(reconciliada!.id).toBe(elegida.id) // el dataset es el MISMO
+    expect(opcionesDelFormulario(reconciliada)).toEqual([
+      "2023Q1",
+      "2023Q2",
+      "2023Q3",
+      "2024Q1",
+    ])
+  })
+
+  it("y el widget sigue siendo multiselect, no el editor JSON", () => {
+    expect(resolveWidget(desarrollo, { defs })).toBe("multiselect")
   })
 })

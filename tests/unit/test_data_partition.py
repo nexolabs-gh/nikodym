@@ -904,3 +904,50 @@ def test_columna_una_fila_sin_valor_queda_fuera_del_modelado() -> None:
 
     assert result.sizes["desarrollo"] == 35  # 40 menos las 5 sin valor
     assert result.sizes["fuera_de_modelo"] == 15  # 10 DESCARTE + 5 sin valor
+
+
+def test_columna_numerica_se_compara_como_numero_no_como_su_cola_decimal() -> None:
+    """🔴 Regresión: el motor se desmentía a sí mismo con una columna numérica.
+
+    Caso real: un CSV exportado de una planilla trae la muestra como ``1.0``/``2.0``/``3.0``. Si el
+    esquema declara ``dtype: int`` con coerción, el frame que llega al particionador ya tiene
+    ``1``/``2``/``3``, mientras la interfaz ofreció los literales con cola decimal. Elegir de la
+    lista que el propio motor mostró producía «esa columna no contiene ese valor».
+
+    ``1.0`` y ``1`` son el mismo número, y reconocerlo no ablanda D-COL-3: eso prohíbe emparejar
+    por parecido de NOMBRE, por orden o por frecuencia, y esto no es ninguna de las tres. El
+    control positivo del veto sigue abajo: para texto la comparación no cambia.
+    """
+    index = pd.Index([f"op-{i:03d}" for i in range(90)], name="loan_id")
+    targets = pd.Series(
+        ([0] * 30 + [1] * 10) + ([0] * 15 + [1] * 5) + ([0] * 24 + [1] * 6),
+        index=index,
+        dtype="Int8",
+    )
+    base = pd.DataFrame(
+        {
+            "target": targets,
+            "label_status": pd.Categorical(
+                ["malo" if value == 1 else "bueno" for value in targets],
+                categories=["bueno", "malo", "indeterminado", "excluido"],
+            ),
+        },
+        index=index,
+    )
+    mapeo = {"desarrollo": ("1",), "holdout": ("2",), "oot": ("3",)}
+    esperado = {"desarrollo": 40, "holdout": 20, "oot": 30, "fuera_de_modelo": 0}
+
+    for dtype in ("float64", "int64"):
+        frame = base.copy()
+        frame["muestra"] = pd.Series([1] * 40 + [2] * 20 + [3] * 30, index=index, dtype=dtype)
+        cfg = _columna_config(**mapeo)  # type: ignore[arg-type]
+
+        assert _split(cfg, frame).sizes == esperado, dtype
+
+
+def test_columna_de_texto_sigue_comparandose_literal(  # control negativo del test anterior
+) -> None:
+    """Reconocer números no relaja el texto: «dev» sigue sin ser «DEV» (D-COL-3)."""
+    cfg = _columna_config(desarrollo=("dev",), oot=("OOT",))
+    with pytest.raises(DataValidationError, match="«dev»"):
+        _split(cfg, _frame_con_muestra())

@@ -399,3 +399,39 @@ def test_el_sidecar_es_accesorio_tambien_en_la_primera_materializacion(
 
     assert path.exists(), "el parquet se materializó pese a que el perfil no se pudo escribir"
     assert datasets.load_profile("hipotecario_comportamiento", workdir=tmp_path) is None
+
+
+def test_los_valores_que_se_ofrecen_son_los_que_el_motor_compara() -> None:
+    """🔴 Una sola verdad para «cómo se escribe este valor», no dos copias que se separen.
+
+    Medido antes de compartirla: un CSV exportado de Excel trae la columna de división como
+    ``1.0``/``2.0``, el perfil ofrecía esos literales, y si el esquema declara ``dtype: int`` con
+    ``coerce`` el motor comparaba ``1``/``2``. El usuario elegía un valor **de la lista que el
+    propio motor le mostró** y la corrida le respondía que su columna no lo contiene.
+
+    Se asevera identidad de objeto y no igualdad de salidas: dos implementaciones que hoy coinciden
+    pueden separarse mañana sin que nada enrojezca, que es la lección que ya dejó
+    ``TEMPORAL_CANDIDATE_NAMES`` cuando estaba triplicada.
+    """
+    from nikodym.core import dataset_check as core_module
+    from nikodym.data import partition as partition_module
+    from nikodym.ui import datasets as datasets_module
+
+    # Vive en el núcleo, que es lo único que las dos capas pueden importar: la capa `ui` tiene
+    # vetado importar dominio (`test_ui_no_importa_modulos_de_dominio`), y ese veto es lo que
+    # descartó ponerla en `data/partition.py` — donde el primer intento la puso y rompió el gate.
+    assert datasets_module.texto_comparable is core_module.texto_comparable
+    assert partition_module.texto_comparable is core_module.texto_comparable
+
+    # Y la paridad, medida sobre los dtypes que un archivo real trae.
+    for serie, esperado in (
+        (pd.Series([1.0] * 6 + [2.0] * 4), ["1", "2"]),
+        (pd.Series([1] * 6 + [2] * 4), ["1", "2"]),
+        (pd.Series([1.5] * 6 + [2.5] * 4), ["1.5", "2.5"]),
+        (pd.Series(["DEV"] * 6 + ["VAL"] * 4), ["DEV", "VAL"]),
+        (pd.Series([True] * 6 + [False] * 4), ["True", "False"]),
+    ):
+        ofrecidos = datasets_module._valores_frecuentes(serie)
+        comparados = partition_module.texto_comparable(serie.dropna())
+        assert ofrecidos == esperado
+        assert set(ofrecidos) == set(comparados), f"lo ofrecido no es lo comparado: {serie.dtype}"

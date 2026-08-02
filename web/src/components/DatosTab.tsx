@@ -34,6 +34,7 @@ import {
   fromCatalog,
   fromUpload,
   isAllowedDataFile,
+  reconcileSelected,
   type SelectedDataset,
 } from "@/lib/datasets"
 import { DEMO_MODE } from "@/lib/demo-runtime"
@@ -116,6 +117,48 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
     const info = datasets.find((d) => d.id === datasetId)
     if (info) setSelectedDataset(fromCatalog(info))
   }, [datasets, datasetId, selectedDataset, setSelectedDataset])
+
+  // 🔴 Y cuando SÍ hay ficha, hay que reconciliarla igual. El catálogo describe los datasets **sin
+  // materializar**, así que en un workdir nuevo sus columnas llegan con `values: []`; el perfil lo
+  // escribe el preflight, o sea después de que el usuario ya eligió. Sin esto, la ficha activa se
+  // quedaba con la instantánea pobre para toda la sesión y las casillas de valores (D-COL-7) no
+  // aparecían NUNCA para un dataset del catálogo — sólo funcionaban con archivos subidos.
+  //
+  // El efecto de arriba no lo cubre porque sólo rellena el hueco (`selectedDataset === null`), y
+  // ésa es exactamente la condición que deja de cumplirse en cuanto se elige. `reconcileSelected`
+  // devuelve la misma referencia cuando no hay nada que aportar, así que esto no entra en bucle ni
+  // pisa una subida (su id no está en el catálogo).
+  useEffect(() => {
+    const reconciliado = reconcileSelected(selectedDataset, datasets)
+    if (reconciliado !== selectedDataset) setSelectedDataset(reconciliado)
+  }, [datasets, selectedDataset, setSelectedDataset])
+
+  // Volver a pedir el catálogo en cuanto el preflight se asienta: es quien materializa el dataset,
+  // y hasta que lo hace no hay perfil que publicar. Sin esto la reconciliación de arriba sólo
+  // ocurriría al REMONTAR la pestaña (que es cuando se repite el GET), y quien se va a
+  // Configuración y no vuelve nunca vería las casillas.
+  //
+  // Una vez por dataset: el preflight se re-dispara con cada edición del config, y refrescar el
+  // catálogo en cada una sería un GET por tecleo asentado.
+  const catalogoRefrescadoPara = useRef<string | null>(null)
+  useEffect(() => {
+    if (preflight.kind !== "ok" && preflight.kind !== "issues") return
+    if (datasetId === null || catalogoRefrescadoPara.current === datasetId) return
+    catalogoRefrescadoPara.current = datasetId
+    let alive = true
+    void (async () => {
+      try {
+        const list = await listDatasets()
+        if (alive) setDatasets(list)
+      } catch {
+        // Degrada suave, igual que la carga inicial: sin catálogo nuevo el formulario sigue
+        // ofreciendo entrada libre, que es el comportamiento de siempre.
+      }
+    })()
+    return () => {
+      alive = false
+    }
+  }, [preflight.kind, datasetId])
 
   // Cómo presentar el catálogo: picker completo en el backend real; en la demo estática queda
   // BLOQUEADO al dataset del preset activo (los fixtures fijan Resultados/Informe por preset, no por
