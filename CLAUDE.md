@@ -81,8 +81,22 @@
 > partición **dentro** del archivo; corre igual contestándolas, pero es fricción real y acotarlas por
 > trabajo es alcance a decidir. Y `results.json` no publica procedencia alguna.
 >
-> **Siguiente: D-JOB-4/5**, el abanico metodológico en idioma de negocio. El patrón del `when` de
-> esta sesión —una condición sobre el config— es exactamente lo que un abanico necesita.
+> 🔴 **Decisión de Cami al cerrar: la fricción de «Validar un modelo existente» se arregla BIEN,
+> aunque tome mucho trabajo.** Ese trabajo pide el `bad_rule` y la partición aunque el usuario los
+> traiga **dentro** del archivo del modelo, y es el que es **P2**. Descartada la opción de dejarlo
+> anotado. ⚠️ Hay **dos salidas y no está medido cuál corresponde**: acotar las decisiones por
+> trabajo (enmienda a D-OBL-6, que hoy las reparte **por sección**) o quitar `data` del trabajo —lo
+> segundo es más simple y **probablemente falso**, porque `stability` usa `data.frame` para el eje
+> temporal—. **Medir antes de diseñar**; si `data` resulta prescindible ahí, la enmienda sobra.
+>
+> **Y las CUATRO deudas anotadas importan** (Cami las marcó todas): `results.json` sin procedencia
+> —la única con consecuencia de auditoría, y ahora pesa más porque ya existen corridas con artefactos
+> externos—, `upload_max_mb` muerto con su tope post-hoc, `unique_keys` como textarea JSON, y el
+> perfil de columnas sólo en los datasets subidos.
+>
+> **Siguiente: eso y D-JOB-4/5**, el abanico metodológico en idioma de negocio; el orden entre ambos
+> lo decide Cami al arrancar. El patrón del `when` de esta sesión —una condición sobre el config— es
+> exactamente lo que un abanico necesita.
 >
 > ---
 >
