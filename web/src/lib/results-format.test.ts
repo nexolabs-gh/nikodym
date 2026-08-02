@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import type { RunLineage } from "@/lib/results-types"
+
 import {
   EMPTY,
   MONEY,
@@ -10,6 +12,8 @@ import {
   comparisonLabel,
   csiBars,
   csiComparisonLabel,
+  gitStamp,
+  panelConfigHash,
   discriminantRows,
   featureDisplayLabel,
   formatBool,
@@ -2065,5 +2069,53 @@ describe("ifrs9SicrTriggers", () => {
 
   it("[] cuando falta la card", () => {
     expect(ifrs9SicrTriggers(null)).toEqual([])
+  })
+})
+
+describe("procedencia del panel (D-LIN-1)", () => {
+  const base: RunLineage = {
+    git_sha: "29b46d2",
+    git_dirty: false,
+    data_hash: "b6c9f33a",
+    config_hash: "e5868bd6",
+    root_seed: 42,
+    uv_lock_hash: "aa11",
+    library_versions: { nikodym: "1.10.0" },
+    determinism_caveats: [],
+    created_at: "2026-08-02T12:00:00Z",
+    schema_version: "1.0.0",
+    injected_artifacts: [],
+  }
+
+  it("un árbol limpio muestra el sello a secas", () => {
+    expect(gitStamp(base)).toBe("29b46d2")
+  })
+
+  it("un árbol SUCIO lo anota junto al sello, no como dato aparte", () => {
+    // Es lo que invalida la trazabilidad: ese sha ya no identifica lo que se ejecutó. Un `true`
+    // suelto en una lista de digests no se lee, y por eso el aviso viaja pegado al valor.
+    expect(gitStamp({ ...base, git_dirty: true })).toBe(
+      "29b46d2 (con cambios sin confirmar)",
+    )
+  })
+
+  it("sin repositorio no se afirma un origen limpio", () => {
+    expect(gitStamp({ ...base, git_sha: null })).toBeNull()
+    expect(gitStamp({ ...base, git_sha: null, git_dirty: true })).toBe(
+      "sin repositorio (con cambios sin confirmar)",
+    )
+  })
+
+  it("el hash de la CORRIDA gana al del formulario", () => {
+    // El panel documenta lo que se ejecutó. Con el orden inverso, teclear en cualquier campo tras
+    // la corrida repintaba aquí un hash que ninguna corrida produjo.
+    expect(panelConfigHash(base, "otro-hash-del-formulario")).toBe("e5868bd6")
+  })
+
+  it("sin procedencia cae al del formulario, y sin ninguno de los dos a ausente", () => {
+    // Guard por presencia: los payloads escritos antes de esta clave no la traen.
+    expect(panelConfigHash(null, "hash-del-formulario")).toBe("hash-del-formulario")
+    expect(panelConfigHash(undefined, "hash-del-formulario")).toBe("hash-del-formulario")
+    expect(panelConfigHash(null, null)).toBeNull()
   })
 })

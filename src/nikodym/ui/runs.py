@@ -8,9 +8,15 @@ versiones): se guarda solo lo que la UI necesita servir (decisión de implementa
 El ``run_id`` (``uuid4().hex`` que genera ``Study.run()``) es la clave de persistencia y compone
 rutas, así que se **valida** contra su forma canónica (32 hex) y se verifica que la ruta resuelta
 quede dentro de ``workdir/runs`` (mismo blindaje *path traversal* que ``datasets.materialize``): un
-``run_id`` con separadores o ``..`` no puede escapar del directorio de trabajo. El contenido
-persistido es determinista (nada de reloj); la única no-reproducibilidad es el ``run_id`` uuid, por
-diseño (§9).
+``run_id`` con separadores o ``..`` no puede escapar del directorio de trabajo.
+
+El contenido persistido es determinista **salvo dos campos declarados**: el ``run_id`` uuid que
+genera ``Study.run()`` (§9) y el ``created_at`` de la procedencia que ``results.json`` publica desde
+D-LIN-1. Los dos son marcas de identidad de *esta* corrida, no entradas del cálculo, y ninguno viaja
+a un hash. ⚠️ La lista es cerrada a propósito: cualquier otro campo que dependa del reloj o del
+entorno rompe la comparación entre dos corridas del mismo config, que es para lo que este
+directorio existe. El ``report.html`` del mismo directorio ya llevaba ``created_at`` dentro
+(``report/renderer.py``), así que el invariante describía a ``results.json``, no al directorio.
 """
 
 from __future__ import annotations

@@ -702,11 +702,37 @@ export interface Ifrs9ProvisioningResult {
  * trae el mensaje; por eso las secciones son opcionales. `model_card` viene null
  * en el preset estándar (forma aún no explotada por la UI → laxa).
  */
+/**
+ * Procedencia congelada de una corrida (D-LIN-1). Es el mismo bundle que el Anexo del informe
+ * publica; el panel lo enseña porque quien corre por la interfaz ve el panel **antes** que el
+ * informe, y hasta ahora esa pantalla no decía de dónde salió lo que muestra.
+ *
+ * `null` mientras la corrida no congeló su procedencia, y **ausente** en payloads escritos antes
+ * de esta clave —los tres fixtures de la demo, entre ellos—, así que se consume con
+ * guard-por-presencia y nunca con `!`.
+ */
+export interface RunLineage {
+  git_sha: string | null
+  git_dirty: boolean
+  data_hash: string | null
+  config_hash: string
+  root_seed: number
+  uv_lock_hash: string | null
+  library_versions: Record<string, string>
+  determinism_caveats: string[]
+  created_at: string
+  schema_version: string
+  /** Claves que entraron desde fuera de la corrida (puerta de artefactos). */
+  injected_artifacts: string[]
+}
+
 export interface ResultsResponse {
   status: ResultsStatus
   run_id: string
   error: string | null
   model_card: Record<string, unknown> | null
+  /** Procedencia de ESTA corrida. Ausente en payloads viejos; `null` si no llegó a congelarse. */
+  lineage?: RunLineage | null
   binning?: BinningResult
   selection?: SelectionResult
   model?: ModelResult

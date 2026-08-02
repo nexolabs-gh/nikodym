@@ -140,12 +140,13 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
     Returns
     -------
     dict
-        ``{status, run_id, error, model_card, <dominio>...}``. ``error`` es ``None`` salvo en fallo;
-        ``model_card`` es ``None`` si no hay gobernanza o la corrida no produjo card; cada clave de
-        dominio (binning/selection/model/scorecard/calibration/performance/stability y, cuando la
-        corrida las produce, provisioning_cmf/provisioning_internal/provisioning) trae su *card*
-        serializada, **fusionada** con los frames ricos graficables agregados de ese dominio (§6), o
-        ``None`` si el dominio no corrió (nunca se fabrica).
+        ``{status, run_id, error, model_card, lineage, <dominio>...}``. ``error`` es ``None`` salvo
+        en fallo; ``model_card`` es ``None`` si no hay gobernanza o la corrida no produjo card;
+        ``lineage`` es la procedencia de la corrida (``None`` mientras no se haya congelado); cada
+        clave de dominio (binning/selection/model/scorecard/calibration/performance/stability y,
+        cuando la corrida las produce, provisioning_cmf/provisioning_internal/provisioning) trae su
+        *card* serializada, **fusionada** con los frames ricos graficables agregados de ese dominio
+        (§6), o ``None`` si el dominio no corrió (nunca se fabrica).
     """
     status = study.run_context.status
     payload: dict[str, Any] = {
@@ -153,6 +154,7 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
         "run_id": study.run_context.run_id,
         "error": _failure_message(study) if status == "failed" else None,
         "model_card": _serialize_model_card(study, governance),
+        "lineage": _serialize_lineage(study),
     }
     for domain, key in _CARD_KEY_BY_DOMAIN.items():
         payload[domain] = (
@@ -581,6 +583,27 @@ def _sustituye_decimales(serializado: Any, tipado: Any) -> Any:
             for hijo_json, hijo_py in zip(serializado, tipado, strict=False)
         ]
     return serializado
+
+
+def _serialize_lineage(study: Study) -> dict[str, Any] | None:
+    """Procedencia de la corrida, o ``None`` si todavía no se congeló (D-LIN-1).
+
+    Publica el **bundle entero**, no una selección: el anexo del informe ya lo publica completo
+    (``report/builder.py``), y una lista corta escrita aquí se separaría de él en silencio la
+    primera vez que el bundle ganara un campo. Extensión aditiva bajo CT-3.
+
+    ⚠️ Incluye ``created_at``, que es el único campo de reloj del bundle, y eso **acota** el
+    invariante «el contenido persistido es determinista» de ``runs.py``: dos corridas idénticas
+    producen ahora dos ``results.json`` distintos en ese campo. Se decidió así porque (a) el mismo
+    directorio ya persiste ``report.html`` con esa marca de tiempo dentro, así que el invariante
+    describía sólo a ``results.json`` y no al directorio; (b) omitirlo dejaría el panel publicando
+    una procedencia **distinta** de la del informe que documenta la misma corrida, que es
+    exactamente la asimetría que esta clave existe para cerrar.
+    """
+    lineage = study.run_context.lineage
+    if lineage is None:
+        return None
+    return lineage.model_dump(mode="json")
 
 
 def _serialize_model_card(study: Study, governance: object) -> dict[str, Any] | None:

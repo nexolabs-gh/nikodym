@@ -15,6 +15,7 @@ import type {
   InternalProvisioningResult,
   PerformanceResult,
   ProvisioningResult,
+  RunLineage,
   StabilityBand,
   StabilityMetricRow,
 } from "@/lib/results-types"
@@ -1392,4 +1393,36 @@ export function ifrs9SicrTriggers(
       count,
     }))
     .sort((a, b) => b.count - a.count)
+}
+
+/**
+ * Sello del código con el que se corrió, para la procedencia del panel (D-LIN-1).
+ *
+ * ⚠️ `git_dirty` se anota **junto al sha** y no como fila aparte a propósito: un `true` suelto en
+ * una lista de digests no se lee, y lo que significa —que el árbol tenía cambios sin confirmar, o
+ * sea que ese sha NO identifica del todo lo que se ejecutó— es justo lo que invalida la
+ * trazabilidad. Sin sha no hay nada que matizar y el aviso viaja solo; sin ninguna de las dos
+ * cosas se devuelve `null`, que la fila pinta como ausente en vez de afirmar un origen limpio.
+ */
+export function gitStamp(lineage: RunLineage): string | null {
+  const sucio = lineage.git_dirty ? " (con cambios sin confirmar)" : ""
+  if (lineage.git_sha === null) {
+    return lineage.git_dirty ? "sin repositorio (con cambios sin confirmar)" : null
+  }
+  return `${lineage.git_sha}${sucio}`
+}
+
+/**
+ * El `config_hash` que el panel debe mostrar: el de la CORRIDA por delante del formulario.
+ *
+ * El panel documenta lo que se ejecutó, y el config de la pantalla puede haber cambiado desde
+ * entonces —basta teclear en cualquier campo—, así que preferir el del formulario repintaba aquí
+ * un hash que ninguna corrida produjo. El del formulario se conserva como reserva para los
+ * payloads que aún no traen procedencia.
+ */
+export function panelConfigHash(
+  lineage: RunLineage | null | undefined,
+  hashDelFormulario: string | null,
+): string | null {
+  return lineage?.config_hash ?? hashDelFormulario
 }

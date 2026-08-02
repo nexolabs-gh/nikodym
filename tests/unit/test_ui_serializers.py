@@ -25,7 +25,7 @@ from pydantic import BaseModel, ConfigDict
 
 import nikodym
 from nikodym.core.config import NikodymConfig
-from nikodym.core.lineage import RunError
+from nikodym.core.lineage import LineageBundle, RunError
 from nikodym.core.markers import DECLARED_MARKERS
 from nikodym.core.study import Study
 from nikodym.governance import GovernanceConfig
@@ -954,3 +954,62 @@ def test_decimal_de_provisiones_se_serializa_como_numero() -> None:
     assert volcado["etiqueta"] == "consumer"
     # y la celda suelta de un DataFrame (el camino de `_frame_records`) también:
     assert _to_json_native(Decimal("12.34")) == pytest.approx(12.34)
+
+
+# ─────────────────────── procedencia publicada en el panel (D-LIN-1) ───────────────────────
+
+
+def test_results_publica_la_procedencia_completa_del_bundle(f1_study: Study) -> None:
+    """El panel publica el bundle ENTERO, y el conjunto de campos se deriva del propio modelo.
+
+    Derivarlo de ``LineageBundle.model_fields`` y no de una lista escrita aquí es lo único que hace
+    útil a este gate: si el bundle gana un campo mañana, o el panel lo publica o esto se pone rojo.
+    Una lista a mano se habría separado del motor en silencio, que es el modo de fallo que el resto
+    de gates bidireccionales de este repo ya existen para cerrar.
+    """
+    payload = serialize_study(f1_study, governance=_GOVERNANCE)
+    lineage = payload["lineage"]
+    assert lineage is not None, "una corrida terminada tiene procedencia congelada"
+    assert set(lineage) == set(LineageBundle.model_fields), (
+        "el panel publica un subconjunto del bundle: falta un campo en `_serialize_lineage`"
+    )
+    bundle = f1_study.run_context.lineage
+    assert bundle is not None
+    assert lineage["config_hash"] == bundle.config_hash
+    assert lineage["data_hash"] == bundle.data_hash
+    assert lineage["git_dirty"] is bundle.git_dirty
+
+
+def test_la_procedencia_del_panel_es_la_misma_que_la_del_informe(f1_study: Study) -> None:
+    """Paridad panel ↔ Anexo del informe: dos superficies de la misma corrida no pueden discrepar.
+
+    El anexo se construye con ``bundle.lineage.model_dump(mode="json")`` (``report/builder.py``), y
+    esta clave con el mismo volcado. Aseverar la igualdad —y no que «ambas existen»— es lo que
+    impide que una de las dos gane un filtro y la otra no; era exactamente la asimetría que esta
+    clave existe para cerrar, y no tendría sentido reintroducirla dentro del propio arreglo.
+    """
+    payload = serialize_study(f1_study, governance=_GOVERNANCE)
+    bundle = f1_study.run_context.lineage
+    assert bundle is not None
+    assert payload["lineage"] == bundle.model_dump(mode="json")
+
+
+def test_la_procedencia_viaja_por_json_y_conserva_la_marca_de_tiempo(f1_study: Study) -> None:
+    """``created_at`` es el único campo de reloj, y se publica a propósito (ver `ui/runs.py`).
+
+    Omitirlo dejaría el panel con una procedencia distinta de la del informe de la misma corrida.
+    Aquí se ancla que sobrevive al viaje por JSON como ISO-8601, que es lo que el front consume.
+    """
+    payload = serialize_study(f1_study, governance=_GOVERNANCE)
+    reencarnado = json.loads(json.dumps(payload))["lineage"]
+    assert isinstance(reencarnado["created_at"], str)
+    assert datetime.fromisoformat(reencarnado["created_at"]).tzinfo is not None
+    assert isinstance(reencarnado["injected_artifacts"], list)
+    assert isinstance(reencarnado["determinism_caveats"], list)
+
+
+def test_una_corrida_sin_procedencia_no_la_fabrica() -> None:
+    """Misma regla que ``model_card``: ausente es ausente, nunca un objeto inventado."""
+    study = Study(NikodymConfig(), apply_global_seed=False)
+    assert study.run_context.lineage is None
+    assert serialize_study(study, governance=None)["lineage"] is None

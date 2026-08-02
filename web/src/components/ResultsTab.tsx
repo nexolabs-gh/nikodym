@@ -47,6 +47,7 @@ import {
   formatMoney,
   formatPValue,
   formatPercent,
+  gitStamp,
   gainsSeries,
   ifrs9DetailRows,
   ifrs9Headline,
@@ -60,6 +61,7 @@ import {
   internalGroupBars,
   liftByDecile,
   monotonicityLabel,
+  panelConfigHash,
   partitionLabel,
   primaryPartition,
   provisioningComparisonBars,
@@ -139,7 +141,16 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   }
 
   const failed = results.status === "failed"
-  const configHash = validation.kind === "valid" ? validation.hash : null
+  // Procedencia congelada de la corrida (D-LIN-1). Guard por presencia: los payloads escritos
+  // antes de esta clave —los fixtures de la demo entre ellos— no la traen.
+  const lineage = results.lineage ?? null
+  // El hash de la CORRIDA manda sobre el del formulario. Este panel documenta lo que se ejecutó,
+  // y el config de la pantalla puede haber cambiado desde entonces: hasta ahora una edición
+  // posterior repintaba aquí un hash que ninguna corrida produjo.
+  const configHash = panelConfigHash(
+    lineage,
+    validation.kind === "valid" ? validation.hash : null,
+  )
   const runId = results.run_id || lastRun?.runId || null
 
   // Solo derivación/selección de artefactos ya calculados (helpers puros).
@@ -249,7 +260,38 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           <dl className="grid gap-1.5 font-mono text-xs text-muted-foreground">
             <LineageRow label="run_id" value={runId} />
             <LineageRow label="config_hash" value={configHash} />
+            {lineage ? (
+              <>
+                <LineageRow label="data_hash" value={lineage.data_hash} />
+                <LineageRow
+                  label="versión"
+                  value={lineage.library_versions.nikodym ?? null}
+                />
+                <LineageRow label="código" value={gitStamp(lineage)} />
+                <LineageRow label="ejecutada" value={lineage.created_at} />
+                {lineage.injected_artifacts.length > 0 ? (
+                  <LineageRow
+                    label="traído de fuera"
+                    value={lineage.injected_artifacts.join(", ")}
+                  />
+                ) : null}
+              </>
+            ) : null}
           </dl>
+
+          {/* Los caveats van FUERA de la lista de hashes y en prosa: son la única parte de la
+              procedencia que cambia lo que el lector puede afirmar del resultado, y enterrarlos
+              entre digests los haría invisibles justo cuando importan. */}
+          {lineage && lineage.determinism_caveats.length > 0 ? (
+            <ul className="grid gap-1 text-xs text-amber-200/90">
+              {lineage.determinism_caveats.map((caveat) => (
+                <li key={caveat} className="flex gap-1.5">
+                  <CircleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                  <span>{caveat}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
           {failed && results.error ? (
             <div className="rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
