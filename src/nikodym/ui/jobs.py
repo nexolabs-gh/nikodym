@@ -27,7 +27,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-__all__ = ["JOB_IDS", "decisiones_de", "list_jobs"]
+__all__ = ["JOB_IDS", "artefactos_admitidos", "decisiones_de", "list_jobs"]
 
 # Estados de un trabajo. `available` se puede iniciar; `unavailable` aparece con su motivo y NO se
 # puede iniciar (D-JOB-6): un trabajo que no corre hoy se DECLARA, no se promete ni se esconde.
@@ -43,8 +43,32 @@ _UNAVAILABLE = "unavailable"
 #   sections      · claves de sección del FORMULARIO que este trabajo muestra, en orden de pipeline
 #   missing_sections · secciones que el trabajo necesitaría y que el formulario NO ofrece hoy
 #   external_input   · insumo que hay que traer de fuera, en lenguaje de negocio (`None` si ninguno)
+#   external_artifacts · el mismo insumo, en forma MÁQUINA-LEGIBLE (D-PUE-2); ver más abajo
 #   jurisdiction_*   · país cuya normativa impone el cálculo; `None` = neutral (D-JOB-8)
 #   status / unavailable_reason
+#
+# ⚠️ `external_input` y `external_artifacts` son campos distintos y no se pueden fusionar.
+# El primero es **copy** —lo lee un analista en la landing— y vive bajo el gate de jerga, que veta
+# nombrar claves internas; el segundo es **dato** y no tiene más remedio que nombrarlas. Meter la
+# clave en el copy habría puesto los dos gates en contradicción.
+#
+# Forma de cada entrada de `external_artifacts` (D-PUE-2):
+#
+#   artifact      · pareja ``(dominio, clave)`` del almacén de resultados del motor. **De aquí sale
+#                   la allowlist de la puerta por HTTP**: una clave que ningún trabajo disponible
+#                   declare se rechaza sin materializar nada. Por código la puerta sigue siendo
+#                   general; por la red es esta lista.
+#   label         · qué es, en idioma de negocio. Es copy y entra al gate de jerga.
+#   when          · condición del config que hace pertinente esta clave, o `None` si siempre.
+#                   ⚠️ Existe porque el método interno pide una clave **u otra** según de dónde
+#                   declares que sale la PD: fijar una sola dejaría el trabajo roto en silencio en
+#                   cuanto alguien cambiara ese campo.
+#   key_question  · cómo se pregunta cuál columna identifica cada fila. La llave **no es config**
+#                   —por código el artefacto llega ya indexado—, así que viaja en la petición,
+#                   igual que el identificador del dataset (D-PUE-5).
+#   columns       · qué hay que mapear del archivo. Cada rol se pregunta **una vez** y su respuesta
+#                   puede escribir **varios** campos del config: dos secciones que miran el mismo
+#                   archivo nombran la misma columna, y preguntarlo dos veces sería absurdo.
 #
 # ⚠️ `sections` y `missing_sections` son listas distintas a propósito. Meter `stress` en `sections`
 # habría hecho fallar el gate «toda sección declarada existe en el formulario»; omitirlo a secas
@@ -71,6 +95,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "missing_sections": (),
         "external_input": None,
+        "external_artifacts": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -86,6 +111,11 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "sections": ("data", "survival", "report"),
         "missing_sections": (),
         "external_input": "La PD del modelo, si quieres anclar las curvas a ella.",
+        # Vacío a propósito, y no es un olvido: `survival` no REQUIERE la PD —ninguno de sus pasos
+        # la pide—, así que no hay clave que traer por la puerta. El copy de arriba describe un
+        # insumo opcional del método, no un artefacto del motor. Los dos campos miden cosas
+        # distintas y por eso pueden no coincidir.
+        "external_artifacts": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -101,6 +131,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "sections": ("data", "provisioning_cmf", "report"),
         "missing_sections": (),
         "external_input": None,
+        "external_artifacts": (),
         "jurisdiction_code": "CL",
         "jurisdiction_label": "Chile",
         "status": _AVAILABLE,
@@ -118,6 +149,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "sections": ("data", "survival", "provisioning_ifrs9", "report"),
         "missing_sections": (),
         "external_input": None,
+        "external_artifacts": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -133,6 +165,32 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "sections": ("data", "provisioning_internal", "report"),
         "missing_sections": (),
         "external_input": "La PD calibrada de tu modelo.",
+        "external_artifacts": (
+            {
+                "artifact": ("calibration", "calibrated_pd_frame"),
+                "label": "La PD calibrada de tu modelo, por operación",
+                "when": {"path": "provisioning_internal.pd_source", "equals": "calibration"},
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        "config_paths": ("provisioning_internal.pd_column",),
+                    },
+                ),
+            },
+            {
+                "artifact": ("model", "raw_pd_frame"),
+                "label": "La PD sin calibrar de tu modelo, por operación",
+                "when": {"path": "provisioning_internal.pd_source", "equals": "model"},
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        "config_paths": ("provisioning_internal.pd_column",),
+                    },
+                ),
+            },
+        ),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _UNAVAILABLE,
@@ -166,6 +224,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "missing_sections": (),
         "external_input": None,
+        "external_artifacts": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -187,6 +246,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "missing_sections": (),
         "external_input": None,
+        "external_artifacts": (),
         "jurisdiction_code": "CL",
         "jurisdiction_label": "Chile",
         "status": _AVAILABLE,
@@ -202,6 +262,47 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "sections": ("data", "performance", "stability", "report"),
         "missing_sections": (),
         "external_input": "Tu scorecard y la PD que produce.",
+        # Las dos claves salen de UNA sola tabla del usuario si él quiere (D-PUE-4), y ésa es la
+        # forma que la interfaz propone: el motor exige que los dos artefactos compartan índice, y
+        # con un solo archivo eso se cumple por construcción en vez de fallar al octavo paso.
+        "external_artifacts": (
+            {
+                "artifact": ("calibration", "calibrated_pd_frame"),
+                "label": "La PD de tu modelo, con su muestra y el resultado observado",
+                "when": None,
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        # Un solo rol, dos campos: las dos secciones leen el mismo archivo.
+                        "config_paths": ("performance.pd_column", "stability.pd_column"),
+                    },
+                    {
+                        "question": "¿Qué columna dice a qué muestra pertenece cada operación?",
+                        "config_paths": (
+                            "performance.partition_column",
+                            "stability.partition_column",
+                        ),
+                    },
+                    {
+                        "question": "¿Qué columna dice si la operación terminó incumpliendo?",
+                        "config_paths": ("performance.target_column",),
+                    },
+                ),
+            },
+            {
+                "artifact": ("scorecard", "score"),
+                "label": "El puntaje que tu modelo asigna a cada operación",
+                "when": None,
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae el puntaje de tu modelo?",
+                        "config_paths": ("performance.score_column", "stability.score_column"),
+                    },
+                ),
+            },
+        ),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _UNAVAILABLE,
@@ -226,6 +327,23 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "sections": ("data", "binning", "provisioning_internal", "report"),
         "missing_sections": (),
         "external_input": "La PD calibrada de tu modelo.",
+        # Declara lo que aceptará, aunque hoy no se pueda iniciar: su bloqueo es otro (falta que el
+        # método interno pueda delegar en el motor de severidad), no la puerta. La allowlist sólo
+        # mira los trabajos disponibles, así que declararlo aquí no abre nada.
+        "external_artifacts": (
+            {
+                "artifact": ("calibration", "calibrated_pd_frame"),
+                "label": "La PD calibrada de tu modelo, por operación",
+                "when": {"path": "provisioning_internal.pd_source", "equals": "calibration"},
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        "config_paths": ("provisioning_internal.pd_column",),
+                    },
+                ),
+            },
+        ),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _UNAVAILABLE,
@@ -251,6 +369,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         # catálogo tenga que callarse la razón.
         "missing_sections": ("stress",),
         "external_input": None,
+        "external_artifacts": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _UNAVAILABLE,
@@ -336,6 +455,45 @@ def decisiones_de(secciones: Iterable[str]) -> list[dict[str, str]]:
     ]
 
 
+def _insumo_json(entrada: dict[str, Any]) -> dict[str, Any]:
+    """Copia JSON-able de una entrada de ``external_artifacts`` (tuplas → listas, en profundidad).
+
+    Se escribe campo a campo y no con un ``deepcopy`` genérico para que **añadir una clave al
+    literal sin decidir cómo viaja** rompa aquí, en vez de colarse al contrato REST con la forma
+    que tuviera.
+    """
+    condicion = entrada["when"]
+    return {
+        "artifact": list(entrada["artifact"]),
+        "label": entrada["label"],
+        "when": None if condicion is None else dict(condicion),
+        "key_question": entrada["key_question"],
+        "columns": [
+            {"question": columna["question"], "config_paths": list(columna["config_paths"])}
+            for columna in entrada["columns"]
+        ],
+    }
+
+
+def artefactos_admitidos() -> frozenset[tuple[str, str]]:
+    """Allowlist de la puerta por HTTP: lo que algún trabajo DISPONIBLE acepta de fuera (D-PUE-2).
+
+    Sólo cuentan los disponibles. Un trabajo que no se puede iniciar no puede prestar su clave para
+    que otro la inyecte, y declarar por adelantado lo que un trabajo aceptará el día que se
+    desbloquee es información útil que no tiene por qué abrir superficie hoy.
+
+    ⚠️ Esta restricción es **de la red**, no del motor: por código la puerta sigue siendo general
+    y admite cualquier clave válida del vocabulario de dominios. Acotarla aquí evita que un cliente
+    local siembre claves arbitrarias y desplace cálculos que el usuario cree que se están haciendo.
+    """
+    return frozenset(
+        (str(entrada["artifact"][0]), str(entrada["artifact"][1]))
+        for job in _JOBS
+        if job["status"] == _AVAILABLE
+        for entrada in job["external_artifacts"]
+    )
+
+
 def list_jobs() -> list[dict[str, Any]]:
     """Cataloga los trabajos disponibles para la landing y el sidebar.
 
@@ -347,6 +505,7 @@ def list_jobs() -> list[dict[str, Any]]:
             **job,
             "sections": list(job["sections"]),
             "missing_sections": list(job["missing_sections"]),
+            "external_artifacts": [_insumo_json(e) for e in job["external_artifacts"]],
             "required_decisions": decisiones_de(job["sections"]),
         }
         for job in _JOBS

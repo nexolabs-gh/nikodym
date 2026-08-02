@@ -33,6 +33,34 @@ export interface RequiredDecision {
   help: string
 }
 
+/**
+ * Un rol de columna del insumo externo: qué se pregunta y dónde se escribe la respuesta (D-PUE-5).
+ *
+ * `config_paths` es plural porque dos secciones que leen el MISMO archivo nombran la misma columna
+ * —`performance` y `stability` piden ambas la de la probabilidad—, y preguntarlo dos veces sería
+ * absurdo. Una respuesta, varios campos.
+ */
+export interface ExternalColumnRole {
+  question: string
+  config_paths: string[]
+}
+
+/**
+ * Lo que un trabajo acepta traer de fuera, en forma máquina-legible (D-PUE-2).
+ *
+ * `artifact` es la pareja `(dominio, clave)` del motor y **no se enseña nunca**: lo que el usuario
+ * lee es `label` y las preguntas. Es la misma separación que `path` vs `question` en una decisión
+ * obligatoria, y por la misma razón.
+ */
+export interface ExternalArtifact {
+  artifact: [string, string]
+  label: string
+  /** Condición del config que hace pertinente esta clave; `null` = siempre. */
+  when: { path: string; equals: string } | null
+  key_question: string
+  columns: ExternalColumnRole[]
+}
+
 /** Un trabajo del catálogo, tal como lo publica `GET /api/jobs`. */
 export interface Job {
   id: string
@@ -45,6 +73,14 @@ export interface Job {
   missing_sections: string[]
   /** Insumo que hay que traer de fuera, en lenguaje de negocio; `null` si ninguno. */
   external_input: string | null
+  /**
+   * El mismo insumo, en forma máquina-legible: qué claves acepta y qué hay que mapear (D-PUE-2).
+   *
+   * ⚠️ Puede estar vacío con `external_input` no nulo, y no es una incoherencia: «PD lifetime»
+   * describe un insumo **opcional del método** que ningún paso requiere, así que no hay clave que
+   * traer. Los dos campos miden cosas distintas.
+   */
+  external_artifacts: ExternalArtifact[]
   /** País cuya normativa impone el cálculo; `null` = neutral (D-JOB-8). */
   jurisdiction_code: string | null
   jurisdiction_label: string | null

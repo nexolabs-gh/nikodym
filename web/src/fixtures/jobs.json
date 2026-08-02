@@ -2,6 +2,7 @@
   "jobs": [
     {
       "description": "Del panel de comportamiento a una tarjeta de puntaje con su PD calibrada, sus métricas de discriminación y su informe de validación.",
+      "external_artifacts": [],
       "external_input": null,
       "id": "scorecard_pd",
       "jurisdiction_code": null,
@@ -36,6 +37,7 @@
     },
     {
       "description": "Cuándo ocurre el incumplimiento, no sólo con qué probabilidad: curvas de supervivencia sobre datos censurados y su estructura temporal de PD.",
+      "external_artifacts": [],
       "external_input": "La PD del modelo, si quieres anclar las curvas a ella.",
       "id": "pd_lifetime",
       "jurisdiction_code": null,
@@ -74,6 +76,7 @@
     },
     {
       "description": "Provisión por el método estándar del Capítulo B-1: matrices normativas por cartera, mapeo de PD, exposición y garantías.",
+      "external_artifacts": [],
       "external_input": null,
       "id": "provisiones_cmf",
       "jurisdiction_code": "CL",
@@ -102,6 +105,7 @@
     },
     {
       "description": "Pérdida esperada de tres etapas: PD lifetime, LGD, EAD, staging por SICR y descuento a la tasa efectiva.",
+      "external_artifacts": [],
       "external_input": null,
       "id": "provisiones_ifrs9",
       "jurisdiction_code": null,
@@ -141,6 +145,48 @@
     },
     {
       "description": "Provisión por el método interno del banco: grupos homogéneos, y la PD, la LGD y la exposición propias de la institución.",
+      "external_artifacts": [
+        {
+          "artifact": [
+            "calibration",
+            "calibrated_pd_frame"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "provisioning_internal.pd_column"
+              ],
+              "question": "¿Qué columna trae la probabilidad de incumplimiento?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "La PD calibrada de tu modelo, por operación",
+          "when": {
+            "equals": "calibration",
+            "path": "provisioning_internal.pd_source"
+          }
+        },
+        {
+          "artifact": [
+            "model",
+            "raw_pd_frame"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "provisioning_internal.pd_column"
+              ],
+              "question": "¿Qué columna trae la probabilidad de incumplimiento?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "La PD sin calibrar de tu modelo, por operación",
+          "when": {
+            "equals": "model",
+            "path": "provisioning_internal.pd_source"
+          }
+        }
+      ],
       "external_input": "La PD calibrada de tu modelo.",
       "id": "provision_interna",
       "jurisdiction_code": null,
@@ -169,6 +215,7 @@
     },
     {
       "description": "El scorecard completo y la provisión interna en una sola corrida y un solo informe, para el área que hace las dos cosas.",
+      "external_artifacts": [],
       "external_input": null,
       "id": "pd_y_lgd",
       "jurisdiction_code": null,
@@ -204,6 +251,7 @@
     },
     {
       "description": "La regla del máximo del Capítulo B-1: la provisión estándar de la CMF y la del método interno del banco, comparadas por institución.",
+      "external_artifacts": [],
       "external_input": null,
       "id": "comparar_provisiones",
       "jurisdiction_code": "CL",
@@ -234,6 +282,57 @@
     },
     {
       "description": "Tu scorecard y tu PD, medidos y documentados por nuestro informe: discriminación, calibración y estabilidad, sin volver a modelar.",
+      "external_artifacts": [
+        {
+          "artifact": [
+            "calibration",
+            "calibrated_pd_frame"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "performance.pd_column",
+                "stability.pd_column"
+              ],
+              "question": "¿Qué columna trae la probabilidad de incumplimiento?"
+            },
+            {
+              "config_paths": [
+                "performance.partition_column",
+                "stability.partition_column"
+              ],
+              "question": "¿Qué columna dice a qué muestra pertenece cada operación?"
+            },
+            {
+              "config_paths": [
+                "performance.target_column"
+              ],
+              "question": "¿Qué columna dice si la operación terminó incumpliendo?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "La PD de tu modelo, con su muestra y el resultado observado",
+          "when": null
+        },
+        {
+          "artifact": [
+            "scorecard",
+            "score"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "performance.score_column",
+                "stability.score_column"
+              ],
+              "question": "¿Qué columna trae el puntaje de tu modelo?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "El puntaje que tu modelo asigna a cada operación",
+          "when": null
+        }
+      ],
       "external_input": "Tu scorecard y la PD que produce.",
       "id": "validar_modelo",
       "jurisdiction_code": null,
@@ -263,6 +362,28 @@
     },
     {
       "description": "Modelar la severidad con las mismas variables discretizadas del scorecard, en vez de traerla dada o promediarla por grupo.",
+      "external_artifacts": [
+        {
+          "artifact": [
+            "calibration",
+            "calibrated_pd_frame"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "provisioning_internal.pd_column"
+              ],
+              "question": "¿Qué columna trae la probabilidad de incumplimiento?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "La PD calibrada de tu modelo, por operación",
+          "when": {
+            "equals": "calibration",
+            "path": "provisioning_internal.pd_source"
+          }
+        }
+      ],
       "external_input": "La PD calibrada de tu modelo.",
       "id": "lgd_modelada",
       "jurisdiction_code": null,
@@ -292,6 +413,7 @@
     },
     {
       "description": "Escenarios adversos y shocks macro propagados sobre la cartera, con reverse stress para encontrar la severidad que cruza tu umbral.",
+      "external_artifacts": [],
       "external_input": null,
       "id": "stress_testing",
       "jurisdiction_code": null,
