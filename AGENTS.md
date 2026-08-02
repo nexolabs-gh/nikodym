@@ -9,7 +9,56 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-01 tarde, P1 CERRADO)
+## Estado vigente (2026-08-01 noche, **D-JOB-7 CERRADO**)
+
+**`main` = `867477b`** (+ el commit de documentación del cierre). **PyPI sigue en `1.10.0` y no hay
+release autorizado.** Gates: **4761 passed / 6 skipped**, vitest **459/459**, mypy 244, ruff check +
+format, typecheck y lint del front, bundle reconstruido, fixture de trabajos regenerado, mkdocs
+`--strict`.
+
+✅ **La puerta de artefactos se abre por HTTP/UI y los dos trabajos bloqueados están vivos**:
+«Provisión interna / LGD» y «Validar un modelo existente» (**P2**) pasan a `available`. Enmienda
+escrita y aprobada **antes** de programar —
+[`_ENMIENDA-PUERTA-ARTEFACTOS-HTTP.md`](docs/design/_ENMIENDA-PUERTA-ARTEFACTOS-HTTP.md),
+D-PUE-1…D-PUE-13—, verificada **en vivo** con Playwright hasta «Corrida completada» con informe en
+disco y con un dataset propio.
+
+🔴 **Las tres decisiones de seguridad son el diseño, no un anexo.** (1) **No nace ningún endpoint**:
+el archivo sube por el `/api/upload` que ya existe y viaja como **referencia**, así que hereda las
+ocho guardas probadas y **ninguna ruta cambia de categoría** — ésa es la prueba de que no se amplía
+la superficie. (2) **Por HTTP sólo entran tablas, nunca objetos**, con gate estático que veta
+`pickle`/`joblib`/`Study.load` en toda la capa `ui/`: la puerta HTTP queda **estrictamente menos
+poderosa** que la de código, que es la respuesta a la pregunta que D-ART-9 dejó abierta. (3)
+**Allowlist derivada del catálogo**, y sólo de los trabajos disponibles.
+
+✅ **Se cerró una CLASE:** nace `PUBLIC_PATHS` y un gate estructural obliga a clasificar toda ruta
+nueva (D-PUE-9). Una ruta sin credenciales era indistinguible de un olvido, y ése fue el estado en
+que `/api/preflight` estuvo abierto sin token con la suite verde. ⚠️ Se mide por **AST** y no sólo
+contra el router: un gate que dependa del extra `[ui]` **se salta** donde falta, y un skip se lee
+igual que un verde.
+
+🔴 **Cuatro premisas falsas al medirlas, y una era deuda propia.** (1) Los consumidores **no** exigen
+las ocho columnas canónicas de SDD-10 —eso lo impone el DTO agregado—, así que basta una tabla de
+2-4 columnas y **una sola alimenta los dos artefactos**, con lo que el desalineamiento de índices
+deja de ser alcanzable. (2) **`injected_artifacts` SÍ llega al informe**, con dos gates ya escritos;
+lo que no lo trae es `results.json`, que nunca serializó lineage. (3) Indexar el catálogo por clave
+con un `dict` perdía entradas —tres trabajos declaran la PD calibrada con campos distintos— y el
+preflight no avisaba de nada. (4) El selector de la llave pintaba su valor centinela crudo, y **sólo
+se vio abriendo la pantalla**: vitest corre sin DOM.
+
+⚠️ **La alineación admite llave o ORDEN DE FILAS** (decisión de Cami, con el riesgo a la vista). El
+conteo de filas es error duro; el resto va con aviso y caveat. Contrapartida escrita: **un archivo
+reordenado con el mismo conteo da una corrida sin errores y con la PD cruzada**.
+
+⚠️ **Trampa nueva:** `pytest --timeout=900` sale con **exit code 0 sin correr un test** — ese flag no
+existe aquí. Exigir el `N passed`.
+
+**Siguiente: D-JOB-4/5**, el abanico metodológico en idioma de negocio. Detalle en
+[`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-01 tarde, P1 CERRADO)
 
 **`main` = `d1627e7`, con CI 16/16 confirmado por `gh`** —los cuatro runs de la sesión, verdes—. **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates: **4713 passed / 6 skipped**, mypy 244, ruff check + format, vitest
 **443/443**, bundle reconstruido, fixtures de schema y de trabajos regenerados, mkdocs `--strict`.

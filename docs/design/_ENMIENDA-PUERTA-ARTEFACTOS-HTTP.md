@@ -1,6 +1,7 @@
 # Enmienda SDD — la puerta de artefactos por HTTP/UI: traer tu PD y tu score desde la interfaz
 
-> **Estado:** **BORRADOR — pendiente de aprobación de Cami.** Ninguna línea de código escrita.
+> **Estado:** **APROBADA e IMPLEMENTADA** (OK explícito de Cami, 2026-08-01). Verificada en vivo con
+> Playwright de punta a punta, no sólo con tests. Ver §7 para lo que la implementación corrigió.
 > **Enmienda a:** [`_ENMIENDA-PUERTA-ARTEFACTOS.md`](_ENMIENDA-PUERTA-ARTEFACTOS.md) §D-ART-9 (que
 > dejó HTTP/UI fuera con su razón), [`_SDD-UI-POR-TRABAJOS.md`](_SDD-UI-POR-TRABAJOS.md) §D-JOB-7,
 > SDD-23 §7/§10 (contrato REST y seguridad local) y la enmienda B2.2 (E-B2.2-2, guardas locales).
@@ -420,3 +421,65 @@ catálogo + su gate bidireccional) → D-PUE-3/4/6 (materialización desde `data
 posicional) → D-PUE-7 (`/api/validate` deja de mentir + `inert_artifacts` por REST) → D-PUE-8
 (preflight del insumo externo) → D-PUE-5 (mapeo por clicks en el front) → D-PUE-10 (el informe) →
 D-PUE-11 (los dos trabajos a `available`) → los diez gates de §4.
+
+---
+
+## 7. Lo que la implementación corrigió del diseño
+
+Reabrir un SDD por feedback del código es barato; dejar que documento y código se separen en
+silencio, no. Cuatro correcciones, todas medidas.
+
+### 7.1 🔴 D-PUE-10 ya estaba cumplido, y la deuda que lo pedía era FALSA
+
+El HANDOFF traía anotado que «`injected_artifacts` no llega al informe pese a la §6.3 de su
+enmienda». **Medido sobre el HTML de una corrida real: llega.** El anexo de lineage lo publica
+(`report/builder.py:255-257`), aparece en el documento con las claves íntegras, y ya tenía **dos
+gates** que nadie miró antes de anotar la deuda: `test_report_builder.py:144` y
+`test_report_renderer.py:157-158`.
+
+Lo que **no** lo trae es `results.json` de la interfaz — que nunca serializó lineage, para ninguno
+de sus campos, así que tampoco publica `git_dirty` ni los caveats. Eso es otra carencia, más
+pequeña y de otra familia: el panel de resultados no muestra procedencia. Se deja anotada como
+deuda **con su medición**, en vez de ampliar esta enmienda para cubrirla de tapadillo.
+
+Quinta premisa heredada que sale falsa al medirla en dos sesiones seguidas. La regla ya escrita
+—«un ítem de roadmap es hipótesis de alcance hasta que se mide contra el código»— vale igual para
+una deuda anotada por uno mismo.
+
+### 7.2 🔴 Indexar el catálogo por clave con un `dict` perdía entradas
+
+`_preflight_insumos` construía `{clave: entrada}` recorriendo los trabajos. La PD calibrada la
+declaran **tres** trabajos, cada uno con un campo de config distinto —`provisioning_internal.
+pd_column` en uno, `performance.pd_column` en otro—, así que el dict se quedaba con la última y el
+preflight no avisaba de nada. Lo encontró su propio test, no una lectura.
+
+Se acumulan **todas** las entradas de cada clave. No produce falsos positivos, y la razón vale la
+pena dejarla escrita: el campo de un trabajo que no es el actual vive en una sección **apagada**, y
+ahí el lector del config devuelve `None`. El config activo filtra solo, sin que la capa de interfaz
+tenga que saber por qué trabajo entró el usuario.
+
+### 7.3 🔴 El selector de la llave pintaba su valor centinela crudo
+
+`__por_orden__` se leía tal cual en el control, donde debía leerse «No tengo esa columna: usa el
+mismo orden de filas». Es la trampa que el repo ya tenía documentada en otra forma —las opciones se
+pintan con `String(option)`—: `Select.Value` muestra el **valor**, no el texto del item. Va con
+render explícito.
+
+**Sólo se vio abriendo la pantalla.** Ningún test podía cazarlo: vitest corre sin DOM, y el string
+correcto estaba escrito en el `<SelectItem>` que el test habría inspeccionado.
+
+### 7.4 `onJump` del preflight recibe el path, no el desajuste
+
+Desde D-PUE-8 llegan por ese canal dos clases de aviso con vocabularios de `kind` distintos —el del
+motor, que es un `Literal` cerrado, y el de la interfaz—. Pasar el objeto entero obligaba a falsear
+el tipo de uno de los dos; pasar el path, que es lo único que los dos llamadores usaban, no.
+
+### 7.5 Lo que la verificación en vivo destapó, y que no es de esta enmienda
+
+- La primera corrida murió en `stability` por el eje temporal, y **el preflight ya lo había
+  avisado** con su salto al campo: el aviso funcionó exactamente como D-INV-2 lo diseñó.
+- **«Validar un modelo existente» hereda las decisiones obligatorias de `data`** —qué define a un
+  malo, cómo se separa la muestra— aunque el usuario traiga su target y su partición **dentro** del
+  archivo del modelo. Se contestan y la corrida llega a `done`, pero es fricción real. No se cambia
+  aquí: las decisiones se reparten por sección (D-OBL-6) y acotarlas por trabajo es una decisión de
+  alcance, no un arreglo.

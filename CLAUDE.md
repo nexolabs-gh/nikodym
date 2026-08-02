@@ -5,7 +5,88 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-01 tarde, público `d1627e7`, **CI 16/16 confirmado con `gh`**)
+> ## Lo último (2026-08-01 noche, público `867477b`+docs): **D-JOB-7 CERRADO**
+>
+> ✅ **La puerta de artefactos se abre por HTTP/UI, y los dos trabajos bloqueados están vivos.**
+> «Provisión interna / LGD» y «Validar un modelo existente» (que es **P2**) pasan a `available`.
+> Enmienda escrita y aprobada **antes** de programar:
+> [`_ENMIENDA-PUERTA-ARTEFACTOS-HTTP.md`](docs/design/_ENMIENDA-PUERTA-ARTEFACTOS-HTTP.md),
+> D-PUE-1…D-PUE-13. Verificado **en vivo** con Playwright: subir una cartera propia de 6.000 filas,
+> subir la tabla del modelo, mapear cuatro columnas por clicks y llegar a «Corrida completada» con
+> `report.html` en disco.
+>
+> 🔴 **Las tres decisiones de seguridad, y por qué son el corazón del diseño.**
+>
+> 1. **NO nace ningún endpoint** (D-PUE-3). El archivo sube por el `/api/upload` que ya existe y en
+>    el cuerpo de `/api/run` viaja una **referencia** (`dataset_id` + `key_column`), no un archivo.
+>    Hereda las ocho guardas ya probadas y **ninguna ruta cambia de categoría** — ésa *es* la prueba
+>    de que la puerta no amplía la superficie. Un endpoint nuevo habría duplicado el tope post-hoc y
+>    habría sido una ruta más que clasificar.
+> 2. **Por HTTP sólo entran TABLAS, nunca objetos** (D-PUE-1), con gate estático que veta
+>    `pickle`/`joblib`/`dill`/`marshal`/`Study.load` en toda la capa `ui/`. La puerta HTTP queda
+>    **estrictamente menos poderosa** que la de código: un artefacto no tabular no se puede traer por
+>    la interfaz, y el trabajo que lo necesite se seguirá declarando no disponible. Contesta la
+>    tercera pregunta que D-ART-9 dejó abierta en vez de rodearla. ⚠️ El gate va por **AST y no por
+>    `grep`**: el docstring de `ui/runs.py` *explica* por qué se evita el pickle, y un grep lo acusa.
+> 3. **Allowlist derivada del catálogo** (D-PUE-2) y sólo de los trabajos **disponibles**. Por código
+>    `artifacts=` sigue siendo general; por la red, no.
+>
+> ✅ **Y se cerró una CLASE, no sólo el caso: nace `PUBLIC_PATHS` y un gate estructural obliga a
+> clasificar toda ruta nueva** (D-PUE-9). Hasta hoy una ruta sin credenciales era indistinguible de
+> un olvido, y ése fue el estado exacto en que `/api/preflight` estuvo abierto sin token con 4.522
+> tests verdes. ⚠️ Se mide por **AST y no sólo contra el router construido**: el router exige el
+> extra `[ui]`, y un gate que dependa de él **se salta** donde el extra falta — un skip se lee igual
+> que un verde. Un segundo test compara el AST contra el router real para que no se desincronicen.
+>
+> 🔴 **Cuatro premisas salieron FALSAS al medirlas, y la segunda la había anotado yo mismo.**
+>
+> 1. **«El archivo del usuario tiene que ser un `calibrated_pd_frame` de ocho columnas».** Falso: ese
+>    contrato lo impone el **DTO agregado**, no el artefacto suelto. `performance`, `stability` y
+>    `provisioning_internal` piden columnas **configurables**. Por eso basta una tabla de 2-4
+>    columnas, **una sola alimenta los dos artefactos** de «validar un modelo» —y el desalineamiento
+>    de índices que el motor rechaza deja de ser alcanzable—. Es lo que abarató la enmienda entera.
+> 2. **«`injected_artifacts` no llega al informe».** Falso, y era **deuda anotada en el HANDOFF**:
+>    está en el anexo de lineage, aparece en el HTML medido, y ya tenía **dos gates**
+>    (`test_report_builder.py:144`, `test_report_renderer.py:157`). Lo que no lo trae es
+>    `results.json`, que **nunca serializó lineage** para ningún campo. La regla «un ítem de roadmap
+>    es hipótesis hasta medirlo» vale igual para una deuda que uno mismo anotó.
+> 3. **Indexar el catálogo por clave con un `dict` perdía entradas.** La PD calibrada la declaran
+>    **tres** trabajos con campos de config distintos, así que el dict se quedaba con la última y el
+>    preflight no avisaba de nada. Lo encontró su propio test, no una lectura. Se acumulan todas: los
+>    falsos positivos los descarta solo el config activo, porque el campo del otro trabajo vive en
+>    una sección **apagada**.
+> 4. **El selector de la llave pintaba `__por_orden__` crudo** donde debía leerse su etiqueta.
+>    `Select.Value` muestra el **valor**, no el texto del item — la misma trampa que `String(option)`.
+>    **Sólo se vio abriendo la pantalla**: vitest corre sin DOM y el string correcto estaba escrito
+>    en el `<SelectItem>` que un test habría inspeccionado.
+>
+> ⚠️ **La alineación admite llave o ORDEN DE FILAS, y es decisión de Cami tomada con el riesgo a la
+> vista** (D-PUE-6). Dentro de ella, el conteo de filas es **error duro** —único desalineamiento
+> detectable sin abrir los archivos, y el pie del Parquet ya trae el dato—, más aviso en pantalla y
+> caveat en lineage e informe. Contrapartida asumida y escrita: **un archivo reordenado con el mismo
+> conteo produce una corrida sin errores con la PD de cada cliente asignada a otro.**
+>
+> ⚠️ **El preflight comprueba el insumo SIN leer los datos** (D-PUE-8, respeta D-PRE-1): columnas por
+> el esquema, llave única por el perfil de la ingesta, conteo por los metadatos. **Lo que no puede
+> —que la llave CUBRA el índice de la cartera— se declara con su razón** en vez de callarse, igual
+> que D-PRE-4 con el alcance F1. Y `external_mismatches` va en lista **aparte** de `mismatches`: el
+> vocabulario de `kind` de `check_dataset` es un `Literal` cerrado del núcleo, y un artefacto traído
+> por la red es concepto de la capa de interfaz.
+>
+> ⚠️ **Trampa nueva de pytest:** `pytest -q --timeout=900` sale con **exit code 0 sin correr un solo
+> test** (ese flag no existe aquí). Exigir siempre el `N passed`.
+>
+> **Deuda que la sesión midió:** «Validar un modelo existente» **hereda las decisiones obligatorias
+> de `data`** —qué es un malo, cómo se separa la muestra— aunque el usuario traiga su target y su
+> partición **dentro** del archivo; corre igual contestándolas, pero es fricción real y acotarlas por
+> trabajo es alcance a decidir. Y `results.json` no publica procedencia alguna.
+>
+> **Siguiente: D-JOB-4/5**, el abanico metodológico en idioma de negocio. El patrón del `when` de
+> esta sesión —una condición sobre el config— es exactamente lo que un abanico necesita.
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-01 tarde, público `d1627e7`, **CI 16/16 confirmado con `gh`**)
 >
 > 🔴 **EL HISTORIAL PÚBLICO SE REESCRIBIÓ.** Con OK explícito de Cami se purgaron con `filter-branch`
 > + force push dos `.playwright-mcp/console-*.log` commiteados por error el 2026-07-31 —traían
