@@ -24,9 +24,22 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { ApiError, configFromYaml, configToYaml, getPreset } from "@/lib/api"
+import {
+  ApiError,
+  type ConfigFromYamlResponse,
+  configFromYaml,
+  configToYaml,
+  getPreset,
+} from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
-import { type DecisionStatus, decisionStatuses } from "@/lib/jobs"
+import {
+  type DecisionStatus,
+  type Job,
+  type JobSwitch,
+  decisionStatuses,
+  jobSwitchForConfig,
+  loadJobs,
+} from "@/lib/jobs"
 import { type Path, getAtPath, removeAtPath, setAtPath } from "@/lib/config-store"
 import {
   type EffectiveDefaults,
@@ -50,7 +63,7 @@ import {
   describeApiError,
   pipelineWarning,
 } from "@/lib/validation"
-import { useAppState } from "@/state/appStore"
+import { useAppState, type AppState } from "@/state/appStore"
 
 const SOURCE_BANNER: Record<
   SchemaSource,
@@ -101,6 +114,82 @@ function seedNotice(seed: SeedState | null): string | null {
     default:
       return null
   }
+}
+
+/**
+ * Dependencias de la carga de un YAML propio, inyectadas para poder ejercitar el flujo sin montar
+ * React (mismo patrón que `applyPreset` y `bootstrapWorkspace`): las dos puertas al backend y los
+ * setters del store que se escriben.
+ */
+export interface YamlIntakeDeps {
+  fromYaml: (text: string) => Promise<ConfigFromYamlResponse>
+  loadJobs: () => Promise<Job[]>
+  setConfig: AppState["setConfig"]
+  setJob: AppState["setJob"]
+  setSeed: AppState["setSeed"]
+}
+
+/**
+ * Carga el YAML del usuario y **deja la sesión en el trabajo que ese archivo trae** (D-JOB-17).
+ *
+ * Ésta es la conexión que faltaba: `jobForConfig` estaba escrita, documentada y probada desde que se
+ * aprobó el SDD, y no la llamaba nadie —o sea que la decisión existía en el repo y no en el
+ * producto—. Sin ella, cargar un YAML de IFRS 9 estando en «Scorecard» dejaba el sidebar del
+ * scorecard sobre un config de IFRS 9: las secciones que el propio usuario acababa de traer no
+ * tenían pestaña, y las que veía estaban apagadas en su archivo. Es exactamente el estado que
+ * D-JOB-17 decidió cerrar **con esta regla y no con un aviso de sección ajena**.
+ *
+ * Tres decisiones que van con esto:
+ *
+ * 1. **Manda el config del usuario, no el trabajo que había elegido.** El archivo es suyo y es la
+ *    señal más explícita que puede dar. Conservar el trabajo anterior sería preferir nuestra
+ *    navegación a sus datos.
+ * 2. **No se cambia en silencio: se cambia y se dice.** El cambio reescribe el sidebar entero, y una
+ *    navegación que se transforma sola sin explicación es la clase de sorpresa que este repo evita.
+ *    No se pide confirmación, en cambio, porque no hay decisión que ofrecer: decir «no» dejaría al
+ *    usuario justo en el estado roto de arriba, y el gesto destructivo —reemplazar el config— es el
+ *    que él ya pidió al elegir el archivo.
+ * 3. **Si el archivo no calza con ningún trabajo, la sesión queda SIN trabajo** y el formulario
+ *    muestra el config completo, tal como manda el criterio ya escrito en `jobForConfig`: esconderle
+ *    parte de lo que él mismo trajo sería la mentira contraria.
+ *
+ * Un fallo del backend se propaga **sin escribir nada** (igual que `applyPreset`): el config vigente
+ * y su trabajo siguen siendo coherentes entre sí. `loadJobs` nunca lanza —cae al fixture bundleado—,
+ * así que el trabajo se resuelve incluso con el catálogo caído.
+ */
+export async function applyYamlConfig(
+  text: string,
+  fileName: string,
+  jobActivo: Job | null,
+  deps: YamlIntakeDeps,
+): Promise<JobSwitch> {
+  const result = await deps.fromYaml(text)
+  const jobs = await deps.loadJobs()
+  // El backend devuelve la proyección de lo que el ARCHIVO traía (`exclude_unset`, D-FX-8), no su
+  // expansión completa: por eso «las secciones activas» son las que el usuario escribió y no las 14.
+  const cambio = jobSwitchForConfig(jobs, result.config, jobActivo)
+  deps.setConfig(result.config) // el backend es la fuente: puebla el form con el config migrado
+  // Sólo si cambia: el catálogo se vuelve a pedir en cada carga, así que reescribirlo siempre
+  // metería en el store un objeto nuevo equivalente al que ya había y forzaría un render de más.
+  if (cambio.cambia) deps.setJob(cambio.job)
+  // El config ya no es el del preset sembrado, y el `seed` es quien lo sabe: sin esta línea el
+  // selector de Ejecutar seguía anunciando `f1-estandar-consumo` sobre el YAML del usuario, y
+  // tocarlo resembraba el preset encima de su trabajo.
+  deps.setSeed({ kind: "yaml", fileName })
+  return cambio
+}
+
+/**
+ * Qué se le dice al usuario cuando su YAML cambió el trabajo de la sesión; `null` si no cambió.
+ *
+ * Nombra el trabajo por su etiqueta de negocio (D-JOB-14) y nunca su `id`, que es coordenada
+ * interna — la misma separación que `question` frente a `path` en una decisión obligatoria.
+ */
+export function yamlJobNotice(cambio: JobSwitch): string | null {
+  if (!cambio.cambia) return null
+  return cambio.job === null
+    ? "Este archivo no corresponde a ningún trabajo del catálogo: la sesión queda sin trabajo y el formulario muestra todas las secciones."
+    : `Este archivo corresponde a «${cambio.job.label}»: la sesión pasó a ese trabajo y el menú muestra sus secciones.`
 }
 
 /**
@@ -415,6 +504,7 @@ export function ConfigTab({ section }: { section: string }) {
     config,
     setConfig,
     job,
+    setJob,
     seed,
     setSeed,
     setDatasetId,
@@ -428,6 +518,10 @@ export function ConfigTab({ section }: { section: string }) {
   } = useAppState()
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
+  // Qué trabajo eligió el YAML que se acaba de cargar, cuando cambió el de la sesión (D-JOB-17).
+  // Es estado LOCAL y no del store porque nace y muere con esta pantalla —el sidebar ya cambió a la
+  // vista— y porque `ConfigTab` no puede tener efectos: escribirlo desde el handler no necesita uno.
+  const [jobNotice, setJobNotice] = useState<string | null>(null)
   const [presetBusy, setPresetBusy] = useState(false)
   const [presetError, setPresetError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -444,6 +538,7 @@ export function ConfigTab({ section }: { section: string }) {
   // outcome remonta idle solo al volver a Ejecutar) — el corte esencial es el de results/lastRun.
   const handleLoadPreset = useCallback(async () => {
     setPresetError(null)
+    setJobNotice(null) // el aviso hablaba del YAML anterior; este config ya no es ése
     setPresetBusy(true)
     try {
       await applyPreset("", {
@@ -475,6 +570,7 @@ export function ConfigTab({ section }: { section: string }) {
   // deben seguir mostrando la corrida anterior con lineage mixto (mismo P0 que el cambio de preset).
   const handleStartBlank = useCallback(() => {
     setPresetError(null)
+    setJobNotice(null) // el aviso hablaba del YAML anterior; este config ya no es ése
     setConfig(structuredClone(schema?.payload.defaults ?? {}))
     setDatasetId(null) // "de cero" no trae dataset → Ejecutar queda bloqueado hasta elegir uno
     setSeed({ kind: "defaults" })
@@ -524,15 +620,20 @@ export function ConfigTab({ section }: { section: string }) {
     event.target.value = "" // permite recargar el mismo archivo
     if (!file) return
     setYamlError(null)
+    setJobNotice(null)
     setYamlBusy(true)
     try {
       const text = await file.text()
-      const result = await configFromYaml(text)
-      setConfig(result.config) // el backend es la fuente: puebla el form con el config migrado
-      // El config ya no es el del preset sembrado, y el `seed` es quien lo sabe: sin esta línea el
-      // selector de Ejecutar seguía anunciando `f1-estandar-consumo` sobre el YAML del usuario, y
-      // tocarlo resembraba el preset encima de su trabajo.
-      setSeed({ kind: "yaml", fileName: file.name })
+      // El flujo completo —config, trabajo y seed— vive en `applyYamlConfig`, fuera del componente:
+      // es lógica sin React y así se puede ejercitar en vitest, que corre sin DOM.
+      const cambio = await applyYamlConfig(text, file.name, job, {
+        fromYaml: configFromYaml,
+        loadJobs,
+        setConfig,
+        setJob,
+        setSeed,
+      })
+      setJobNotice(yamlJobNotice(cambio))
     } catch (err) {
       setYamlError(yamlErrorMessage(err))
     } finally {
@@ -756,6 +857,21 @@ export function ConfigTab({ section }: { section: string }) {
           section={section}
           onJump={setFocusField}
         />
+
+        {/* El YAML cargado cambió el trabajo de la sesión (D-JOB-17). No es un error ni un aviso de
+            algo que corregir: es la explicación de por qué el menú de la izquierda acaba de cambiar,
+            y por eso se pinta en tono neutro y con `aria-live` — el sidebar cambia fuera de la vista
+            de quien usa lector de pantalla. */}
+        {jobNotice ? (
+          <p
+            role="status"
+            aria-live="polite"
+            className="flex items-start gap-2 rounded-lg border border-brand-cyan/25 bg-brand-cyan/5 px-3 py-2 text-xs text-muted-foreground"
+          >
+            <CircleCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span>{jobNotice}</span>
+          </p>
+        ) : null}
 
         {presetError ? (
           <p className="text-xs text-destructive">{presetError}</p>
