@@ -321,6 +321,28 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > tiene control negativo. El mensaje del motor se arregla igual (D-PERF-8): quien usa la librería
 > por código no pasa por el preflight.
 >
+> **…y la puerta de artefactos se abre por HTTP/UI (2026-08-01, APROBADA).**
+> [`_ENMIENDA-PUERTA-ARTEFACTOS-HTTP.md`](_ENMIENDA-PUERTA-ARTEFACTOS-HTTP.md), D-PUE-1…D-PUE-13,
+> enmienda a `_ENMIENDA-PUERTA-ARTEFACTOS.md` §D-ART-9 —que dejó HTTP fuera **con su razón**, y esta
+> contesta sus tres preguntas abiertas— y a `_SDD-UI-POR-TRABAJOS.md` §D-JOB-7. Es lo que desbloquea
+> «Provisión interna / LGD» y «Validar un modelo existente» (P2). Tres decisiones sostienen el
+> diseño, y las tres son de seguridad: **por HTTP sólo entran tablas, nunca objetos** —los mismos
+> tres lectores de pandas del upload, con gate estático que veta `pickle`/`joblib`/`Study.load`, de
+> modo que la puerta HTTP queda **estrictamente menos poderosa** que la de código (D-PUE-1)—; **no
+> nace ningún endpoint**, el artefacto sube por el `/api/upload` que ya existe y viaja como
+> `dataset_id`, heredando las ocho guardas ya probadas sin que **ninguna ruta cambie de categoría**
+> (D-PUE-3); y lo que se acepta es una **allowlist derivada del catálogo de trabajos**, no una clave
+> arbitraria (D-PUE-2). ⚠️ **Corrige la premisa de que el archivo debe imitar un artefacto del
+> motor**: medido, ningún consumidor valida las ocho columnas canónicas de SDD-10 —`performance`,
+> `stability` y `provisioning_internal` piden columnas *configurables*—, así que basta una tabla de
+> dos a cuatro columnas y **una sola alimenta los dos artefactos** de «validar un modelo», con lo
+> que el desalineamiento de índices que el motor rechaza deja de ser alcanzable (D-PUE-4). La
+> alineación admite llave declarada **o** orden de filas (decisión de Cami), y el modo posicional
+> lleva error duro si el conteo no cuadra, aviso en pantalla y caveat en lineage e informe (D-PUE-6).
+> Cierra además una **clase**: nace `PUBLIC_PATHS` y un gate estructural obliga a clasificar toda
+> ruta nueva, para que el defecto del preflight —un endpoint que se coló sin token— no se pueda
+> repetir con la suite verde (D-PUE-9).
+>
 > **La llave de segmentación gana dominio y régimen declarados (2026-07-25, APROBADA e
 > implementada — es B3.a-1).** [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md),
 > D-SEG-1…D-SEG-11, enmienda a SDD-15, SDD-16, SDD-17 y SDD-03. **Reformuló B3.a-1 porque su

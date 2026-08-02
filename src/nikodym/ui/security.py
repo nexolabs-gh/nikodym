@@ -11,6 +11,7 @@ afirma que ``import nikodym.ui.server`` no arrastra FastAPI/Starlette (núcleo l
 
 from __future__ import annotations
 
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 from nikodym.ui.runtime import TOKEN_HEADER, RuntimeContext
@@ -19,7 +20,7 @@ from nikodym.ui.settings import UiConfig
 if TYPE_CHECKING:
     from fastapi import FastAPI
 
-__all__ = ["CREDENTIALED_PATHS", "MUTATING_PATHS", "install_security"]
+__all__ = ["CREDENTIALED_PATHS", "MUTATING_PATHS", "PUBLIC_PATHS", "install_security"]
 
 #: Endpoints que escriben o ejecutan; exigen ``Origin`` same-origin y token además del ``Host``.
 MUTATING_PATHS = frozenset({"/api/upload", "/api/run"})
@@ -32,6 +33,41 @@ MUTATING_PATHS = frozenset({"/api/upload", "/api/run"})
 #: :data:`MUTATING_PATHS` lo habría apagado con ``allow_live_execution=false``, que es el modo en
 #: el que un aviso de config↔dataset más se agradece. De ahí la categoría propia.
 CREDENTIALED_PATHS = frozenset({"/api/preflight"})
+
+#: Endpoints que **a propósito** no exigen credenciales, cada uno con su razón (D-PUE-9).
+#:
+#: A diferencia de las otras dos listas, ésta **no la consume el middleware**: es una declaración
+#: que el gate ``test_ui_rutas_clasificadas.py`` hace obligatoria. Existe porque hasta el
+#: 2026-08-01 una ruta sin credenciales era indistinguible de un olvido — y ése fue exactamente el
+#: estado en que ``/api/preflight`` se coló sin token, con la suite entera en verde, hasta que una
+#: auditoría adversarial lo encontró. Obligar a escribir la razón convierte el olvido en un rojo.
+#:
+#: Las claves son el **template** de la ruta tal como el router lo expone
+#: (``/api/report/{run_id}``), no una URL concreta.
+PUBLIC_PATHS: MappingProxyType[str, str] = MappingProxyType(
+    {
+        "/api/schema": "Sirve el JSON-Schema del config, que es estructura pública del paquete.",
+        "/api/validate": (
+            "Valida un config recibido y no toca el disco: es la comprobación que el formulario "
+            "dispara en cada tecleo. Sigue así con la puerta de artefactos, porque consume sólo "
+            "las CLAVES declaradas y nunca el dataset que las respalda (D-PUE-7)."
+        ),
+        "/api/datasets": "Lista el catálogo sintético; no expone los datasets subidos.",
+        "/api/jobs": "Cataloga los trabajos: es lo que la landing necesita antes de tener token.",
+        "/api/config/presets": "Catálogo de presets de fábrica, sin datos de nadie.",
+        "/api/config/preset": "Preset de fábrica F1, contenido del propio paquete.",
+        "/api/config/preset/{preset_id}": "Preset de fábrica por id, contenido del propio paquete.",
+        "/api/config/to-yaml": "Convierte a YAML el config que el cliente ya tiene; no persiste.",
+        "/api/config/from-yaml": "Parsea el YAML que el cliente ya tiene; no persiste.",
+        "/api/results/{run_id}": (
+            "Lee una corrida ya hecha. El id lo devuelve quien la ejecutó, que sí llevaba token."
+        ),
+        "/api/report/{run_id}": "Igual que los resultados: lee un informe ya generado.",
+        "/api/report/{run_id}/pdf": "Igual que los resultados: descarga un informe ya generado.",
+        "/api/report/{run_id}/md": "Igual que los resultados: descarga un informe ya generado.",
+        "/api/report/{run_id}/docx": "Igual que los resultados: descarga un informe ya generado.",
+    }
+)
 
 
 def install_security(app: FastAPI, settings: UiConfig, runtime: RuntimeContext) -> None:
