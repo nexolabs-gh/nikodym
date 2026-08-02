@@ -18,7 +18,7 @@ import json
 import tempfile
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import numpy as np
 import pandas as pd
@@ -238,26 +238,58 @@ _DATASETS: dict[str, dict[str, Any]] = {
 }
 
 
-def list_datasets() -> list[dict[str, Any]]:
+def list_datasets(*, workdir: Path | None = None) -> list[dict[str, Any]]:
     """Devuelve el catálogo estable de datasets sintéticos.
 
     Returns
     -------
     list of dict
         Un descriptor por dataset con ``id``/``name``/``description``/``columns``/``n_rows``. Cada
-        columna trae ``name``/``dtype``/``role``. El orden es estable (orden de inserción del
-        registro), de modo que el listado no cambia entre corridas.
+        columna trae ``name``/``dtype``/``role`` y, desde D-COL-7, ``values`` con sus valores
+        ofrecibles —vacío mientras el dataset no se haya materializado en este ``workdir``—. El
+        orden es estable (orden de inserción del registro), de modo que el listado no cambia entre
+        corridas.
+
+    ``workdir`` es opcional a propósito: sin él el catálogo sigue respondiendo lo de siempre, sin
+    valores. Así el listado nunca depende de que exista un directorio de trabajo.
     """
     return [
         {
             "id": dataset_id,
             "name": spec["name"],
             "description": spec["description"],
-            "columns": [dict(column) for column in _columns_for(dataset_id)],
+            "columns": [
+                dict(column) | {"values": list(valores_por_columna.get(column["name"], ()))}
+                for column in _columns_for(dataset_id)
+            ],
             "n_rows": spec["n_rows"],
         }
         for dataset_id, spec in _DATASETS.items()
+        for valores_por_columna in (_valores_publicables(dataset_id, workdir),)
     ]
+
+
+def _valores_publicables(dataset_id: str, workdir: Path | None) -> dict[str, tuple[str, ...]]:
+    """Valores ofrecibles de un dataset del catálogo, **sin materializarlo** (D-COL-7).
+
+    Devuelve vacío cuando todavía no hay perfil en este ``workdir``, y eso es lo correcto: el
+    catálogo se sirve para *elegir* un dataset, y materializar los cinco para adornar ese listado
+    convertiría un `GET` barato en cinco generaciones de `DataFrame`. En cuanto el dataset se usa
+    de verdad —la corrida o el preflight lo materializan— su perfil queda al lado y el listado
+    siguiente ya los trae.
+
+    ⚠️ Vacío significa «no se sabe», nunca «esta columna no tiene valores»: el formulario cae a la
+    entrada libre, que es exactamente el comportamiento anterior a D-COL-7.
+    """
+    if workdir is None:
+        return {}
+    ruta = _ruta_perfil(workdir, dataset_id)
+    if not ruta.exists():
+        return {}  # no se materializó aún: no se fuerza una lectura para adornar un listado
+    perfil = load_profile(dataset_id, workdir=workdir)
+    if perfil is None:
+        return {}
+    return {columna.nombre: columna.valores_frecuentes for columna in perfil.columnas}
 
 
 def _columns_for(dataset_id: str) -> tuple[dict[str, str], ...]:
@@ -328,8 +360,50 @@ def ingest_upload(
         "dataset_id": dataset_id,
         "name": filename,
         "n_rows": len(frame),
-        "columns": [{"name": str(col), "dtype": str(frame[col].dtype)} for col in frame.columns],
+        "columns": [
+            {
+                "name": str(col),
+                "dtype": str(frame[col].dtype),
+                # D-COL-7: los valores viajan en el mismo payload que ya trae las columnas, y no
+                # por un endpoint propio — mismo criterio que D-PUE-3, que abrió la puerta de
+                # artefactos sin crear ninguna ruta. Aquí además son gratis: el frame está en la
+                # mano. Lista vacía = «no se ofrecen», y el formulario cae a la entrada libre.
+                "values": _valores_frecuentes(frame[col]),
+            }
+            for col in frame.columns
+        ],
     }
+
+
+#: Cuántos valores distintos puede tener una columna para que ofrecer una lista de ellos sirva
+#: (D-COL-7). Por encima, la lista deja de ser una ayuda y pasa a ser un muro: nadie elige entre
+#: doscientas opciones, y una columna así casi nunca es la que marca la muestra o el incumplimiento.
+#: El corte es del **producto**, no del dominio: se puede subir sin que ningún cálculo cambie.
+_MAX_VALORES_OFRECIBLES: Final = 40
+
+#: Cuántos se publican como mucho. Es más bajo que el corte de arriba a propósito: el catálogo lo
+#: sirve por HTTP en cada carga de la interfaz, y una columna de 40 categorías largas pesa.
+_TOPE_VALORES_FRECUENTES: Final = 20
+
+
+def _valores_frecuentes(serie: pd.Series) -> list[str]:
+    """Los valores más repetidos de una columna, en texto y de mayor a menor frecuencia.
+
+    Devuelve **lista vacía** cuando ofrecerlos no ayudaría —columna con demasiados valores
+    distintos, o vacía—, y eso significa «no se midió», nunca «no tiene valores». El consumidor cae
+    entonces a la entrada libre, que es el comportamiento de siempre.
+
+    ⚠️ Se convierte a texto **aquí** y no en el consumidor, porque es la representación con la que
+    el motor compara —``_split_from_column`` hace ``astype(str)``— y con la que sus mensajes de
+    error publican lo observado. Elegir de esta lista tiene que escribir exactamente el literal que
+    la corrida va a buscar; si la conversión viviera en el front, un float ``1.0`` podría ofrecerse
+    como «1» y no encontrar nada.
+    """
+    sin_nulos = serie.dropna()
+    if sin_nulos.empty or sin_nulos.nunique() > _MAX_VALORES_OFRECIBLES:
+        return []
+    conteo = sin_nulos.astype(str).value_counts()
+    return [str(valor) for valor in conteo.head(_TOPE_VALORES_FRECUENTES).index]
 
 
 def _ruta_perfil(workdir: Path, dataset_id: str) -> Path:
@@ -354,6 +428,7 @@ def _guardar_perfil(workdir: Path, dataset_id: str, frame: pd.DataFrame) -> None
                 "nombre": str(col),
                 "n_unicos": int(frame[col].nunique(dropna=True)),
                 "es_numerica": bool(pd.api.types.is_numeric_dtype(frame[col])),
+                "valores_frecuentes": _valores_frecuentes(frame[col]),
             }
             for col in frame.columns
         ],
@@ -398,6 +473,11 @@ def load_profile(dataset_id: str, *, workdir: Path) -> PerfilDataset | None:
                     nombre=str(c["nombre"]),
                     n_unicos=int(c["n_unicos"]),
                     es_numerica=bool(c["es_numerica"]),
+                    # `.get` y no `[...]`: un sidecar escrito antes de D-COL-7 no trae la clave, y
+                    # tratarlo como ilegible tiraría a la basura un perfil correcto —con él, el
+                    # aviso de columna identificador que ya funcionaba— por un campo que sólo
+                    # alimenta una ayuda. Sin valores se cae a la entrada libre de siempre.
+                    valores_frecuentes=tuple(str(v) for v in c.get("valores_frecuentes", ())),
                 )
                 for c in crudo["columnas"]
             ),

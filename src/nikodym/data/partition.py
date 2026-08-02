@@ -313,7 +313,18 @@ def _split_from_column(
     # Se compara como texto y tal cual está escrito: es lo único que no exige interpretar el dtype
     # del archivo. El error de más abajo publica los valores observados con esa misma
     # representación, de modo que la forma de escribirlos la enseña el motor y no se adivina.
-    valores = frame[strategy.partition_col].astype(str)
+    #
+    # 🔴 Los nulos se apartan ANTES de convertir, y no es una precaución teórica: `astype(str)`
+    # fabrica los literales «nan», «None», «<NA>» y «NaT» según el dtype, y esos literales
+    # sintetizados coincidían con un mapeo. Medido: 60 filas con la columna íntegramente nula y
+    # `desarrollo=("nan",)` terminaban con `desarrollo=60` y **cero errores** —el chequeo de valores
+    # ausentes, el de partición vacía y el piso de malos quedaban los tres satisfechos—, o sea una
+    # asignación que el usuario nunca declaró, en silencio. Es exactamente lo que D-COL-3 prohíbe,
+    # entrando por la puerta de atrás. Una fila sin valor no declara nada, así que no puede
+    # pertenecer a ninguna muestra: cae a `fuera_de_modelo` como cualquier valor no mapeado.
+    columna = frame[strategy.partition_col]
+    con_valor = columna.notna()
+    valores = columna[con_valor].astype(str)
     declarado: dict[str, tuple[str, ...]] = {
         Partition.DESARROLLO.value: strategy.desarrollo,
         Partition.HOLDOUT.value: strategy.holdout,
@@ -333,7 +344,9 @@ def _split_from_column(
     assignments = pd.Series(Partition.FUERA_DE_MODELO.value, index=frame.index, dtype="object")
     for particion, mapeados in declarado.items():
         if mapeados:
-            assignments.loc[valores.isin(mapeados)] = particion
+            # `.index` y no una máscara booleana sobre el frame entero: `valores` ya excluye las
+            # filas sin valor, así que alinear por etiqueta es lo que las deja fuera.
+            assignments.loc[valores[valores.isin(mapeados)].index] = particion
     return assignments
 
 

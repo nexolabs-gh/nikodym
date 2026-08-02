@@ -16,7 +16,16 @@ export interface SelectedDataset {
   id: string
   name: string
   nRows: number
-  columns: { name: string; dtype: string; role?: string }[]
+  columns: {
+    name: string
+    dtype: string
+    role?: string
+    /**
+     * Valores más frecuentes de la columna (D-COL-7). Las DOS rutas lo traen —el catálogo y una
+     * subida—, a diferencia de `role`, que sólo trae el catálogo. Ausente o vacío = «no se midió».
+     */
+    values?: string[]
+  }[]
 }
 
 /** Extensiones que acepta POST /api/upload (B36b): CSV, Excel y Parquet. */
@@ -41,6 +50,7 @@ export function fromCatalog(info: DatasetInfo): SelectedDataset {
       name: c.name,
       dtype: c.dtype,
       role: c.role,
+      values: c.values,
     })),
   }
 }
@@ -55,6 +65,7 @@ export function fromUpload(resp: UploadedDataset): SelectedDataset {
       name: c.name,
       dtype: c.dtype,
       role: undefined,
+      values: c.values,
     })),
   }
 }

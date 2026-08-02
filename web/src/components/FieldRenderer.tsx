@@ -93,6 +93,21 @@ export interface FieldRendererProps {
    */
   datasetColumns?: string[]
   /**
+   * Valores ofrecibles por columna del dataset activo (D-COL-7), para los campos que declaran
+   * `column_values_from`. Mismo carácter que `datasetColumns` —contexto de DATOS, no de schema— y
+   * baja por el mismo recorrido. `undefined` = aún no hay dataset cargado.
+   */
+  datasetColumnValues?: Record<string, string[]>
+  /**
+   * Valor actual de los campos HERMANOS de éste (el objeto que lo contiene). Lo pone quien
+   * renderiza el grupo, que es el único que lo tiene a mano.
+   *
+   * Existe sólo por `column_values_from`, la primera anotación del schema que apunta a OTRO campo:
+   * sin los hermanos no hay forma de saber qué columna nombró el usuario. Cualquier otro widget lo
+   * ignora.
+   */
+  siblingValues?: Record<string, unknown>
+  /**
    * Mapa de defaults efectivos del MODELO que contiene a este campo; se indexa por `name`
    * (D-FX-5). Baja con el mismo recorrido que `schema`, salvo en los dos sitios donde la
    * coordenada `sections` no llega —una fila de lista y la rama elegida de una unión
@@ -418,6 +433,7 @@ function GroupField(props: FieldRendererProps) {
     titledByParent,
     errors,
     datasetColumns,
+    datasetColumnValues,
   } = props
   const target = resolveRef(unwrapNullable(schema).schema, defs)
   const fields = orderedFields(target)
@@ -451,6 +467,7 @@ function GroupField(props: FieldRendererProps) {
         depth={depth}
         errors={errors}
         datasetColumns={datasetColumns}
+        datasetColumnValues={datasetColumnValues}
         defaultsBase={childDefaults(props)}
         effectiveDefaults={props.effectiveDefaults}
       />
@@ -479,6 +496,7 @@ function GroupFieldList(props: {
   depth: number
   errors?: Map<string, string>
   datasetColumns?: string[]
+  datasetColumnValues?: Record<string, string[]>
   defaultsBase?: DefaultsMap
   effectiveDefaults?: EffectiveDefaults
 }) {
@@ -492,6 +510,7 @@ function GroupFieldList(props: {
     depth,
     errors,
     datasetColumns,
+    datasetColumnValues,
     defaultsBase,
     effectiveDefaults,
   } = props
@@ -516,6 +535,11 @@ function GroupFieldList(props: {
           depth={depth + 1}
           errors={errors}
           datasetColumns={datasetColumns}
+          datasetColumnValues={datasetColumnValues}
+          // Los hermanos del hijo son las OTRAS claves de este mismo objeto, y éste es el único
+          // punto del árbol que las tiene. Lo consume `column_values_from` (`desarrollo` necesita
+          // saber qué escribió el usuario en `partition_col`); el resto de los widgets lo ignora.
+          siblingValues={groupValue}
           defaultsBase={defaultsBase}
           effectiveDefaults={effectiveDefaults}
         />
@@ -535,8 +559,17 @@ function GroupFieldList(props: {
  * que los campos de la anterior se descartan (SDD §5, ejemplo `model` logit↔xgboost).
  */
 function DiscriminatedField(props: FieldRendererProps) {
-  const { schema, path, value, defs, onChange, depth = 0, errors, datasetColumns } =
-    props
+  const {
+    schema,
+    path,
+    value,
+    defs,
+    onChange,
+    depth = 0,
+    errors,
+    datasetColumns,
+    datasetColumnValues,
+  } = props
   const propName = discriminatorProperty(schema)
   const branches = discriminatedBranches(schema, defs)
   const current = asRecord(value)
@@ -604,6 +637,7 @@ function DiscriminatedField(props: FieldRendererProps) {
             depth={depth}
             errors={errors}
             datasetColumns={datasetColumns}
+            datasetColumnValues={datasetColumnValues}
             defaultsBase={branchDefaults}
             effectiveDefaults={props.effectiveDefaults}
           />
@@ -635,6 +669,8 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
     required,
     errors,
     datasetColumns,
+    datasetColumnValues,
+    siblingValues,
   } = props
   const depth = props.depth ?? 0
   const label = fieldLabel(name, schema)
@@ -717,6 +753,12 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
             hideLabel
             errors={errors}
             datasetColumns={datasetColumns}
+            datasetColumnValues={datasetColumnValues}
+            // El hijo ocupa el MISMO lugar del objeto padre que este toggle, así que sus hermanos
+            // son los mismos: se reenvían tal cual. Es la única rama que se salta `GroupFieldList`,
+            // que es por donde bajan; olvidarlo aquí dejaría sin opciones a un campo opcional con
+            // `column_values_from`, igual que pasó con `defaultsBase`.
+            siblingValues={siblingValues}
             // ⚠️ El hijo comparte `name` y `path` con este toggle, así que necesita EL MISMO
             // `defaultsBase`: sin él, `nodeFor` devuelve `undefined` y todo campo `X | None` pierde
             // su default en el control. Medido: `binning.max_n_bins` pintaba el slider en 2 —su
@@ -760,10 +802,23 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
  * «todas»: es el valor que traen los presets, y sin él no había forma de volver a ponerlo.
  */
 function MultiselectField(props: FieldRendererProps) {
-  const { name, schema, path, defs, onChange, datasetColumns } = props
+  const {
+    name,
+    schema,
+    path,
+    defs,
+    onChange,
+    datasetColumns,
+    datasetColumnValues,
+    siblingValues,
+  } = props
   const etiquetaLista = fieldLabel(name, schema)
   const [draft, setDraft] = useState("")
-  const options = multiselectOptions(schema, { datasetColumns }, defs)
+  const options = multiselectOptions(
+    schema,
+    { datasetColumns, datasetColumnValues, siblingValues },
+    defs,
+  )
   const closed = hasClosedOptions(schema, defs)
   const wildcard = acceptsWildcard(schema, defs)
   // ⚠️ Este widget NO leía el default en absoluto: con la clave ausente pintaba CERO chips aunque
@@ -930,7 +985,17 @@ function MultiselectField(props: FieldRendererProps) {
  * el orden declarado contra el del dataset.
  */
 function ListField(props: FieldRendererProps) {
-  const { name, schema, path, defs, onChange, depth = 0, errors, datasetColumns } = props
+  const {
+    name,
+    schema,
+    path,
+    defs,
+    onChange,
+    depth = 0,
+    errors,
+    datasetColumns,
+    datasetColumnValues,
+  } = props
   const etiquetaLista = fieldLabel(name, schema)
   const item = itemSchema(schema, defs)
   // Una lista ausente con default no vacío muestra sus filas antes de existir en el config; el
@@ -1005,6 +1070,7 @@ function ListField(props: FieldRendererProps) {
                   depth={depth + 1}
                   errors={errors}
                   datasetColumns={datasetColumns}
+                  datasetColumnValues={datasetColumnValues}
                   defaultsBase={rowDefaults}
                   effectiveDefaults={props.effectiveDefaults}
                 />

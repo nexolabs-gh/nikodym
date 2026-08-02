@@ -844,3 +844,63 @@ def test_columna_rechaza_un_valor_en_dos_muestras() -> None:
     """Ambigüedad declarada: el motor no elige cuál de las dos vale (D-COL-3)."""
     with pytest.raises(ValueError, match="está declarado a la vez en Desarrollo y en OOT"):
         ColumnSplitConfig(partition_col="muestra", desarrollo=("DEV",), oot=("DEV",))
+
+
+@pytest.mark.parametrize(
+    ("nulo", "dtype", "literal"),
+    [
+        (np.nan, "object", "nan"),
+        (None, "object", "None"),
+        (pd.NA, "string", "<NA>"),
+        (pd.NaT, "datetime64[ns]", "NaT"),
+    ],
+)
+def test_columna_los_nulos_no_pueden_suplantar_un_valor_declarado(
+    nulo: object, dtype: str, literal: str
+) -> None:
+    """🔴 Regresión: `astype(str)` FABRICA literales a partir de los nulos, y coincidían.
+
+    Encontrado por revisión adversarial cruzada sobre trabajo con 4861 tests verdes. Medido antes
+    del arreglo: 60 filas con la columna íntegramente nula y ``desarrollo=("nan",)`` terminaban con
+    ``desarrollo=60`` y **cero errores** —los tres chequeos posteriores quedaban satisfechos—, o
+    sea una asignación que el usuario nunca declaró y que nada delataba. Es lo que D-COL-3 prohíbe,
+    entrando por la puerta de atrás.
+
+    El literal cambia con el dtype (`nan`, `None`, `<NA>`, `NaT`), y por eso se prueban los cuatro:
+    arreglar sólo el caso de `float` habría dejado vivos los otros tres.
+    """
+    index = pd.Index([f"op-{i:03d}" for i in range(60)], name="loan_id")
+    targets = pd.Series([0] * 30 + [1] * 30, index=index, dtype="Int8")
+    frame = pd.DataFrame(
+        {
+            "muestra": pd.Series([nulo] * 60, index=index, dtype=dtype),
+            "target": targets,
+            "label_status": pd.Categorical(
+                ["bueno"] * 30 + ["malo"] * 30,
+                categories=["bueno", "malo", "indeterminado", "excluido"],
+            ),
+        },
+        index=index,
+    )
+    cfg = _columna_config(desarrollo=(literal,), min_bads=30)
+
+    with pytest.raises(DataValidationError) as excinfo:
+        _split(cfg, frame)
+
+    # Falla porque el literal NO está —que es la verdad—, no porque la partición quedara vacía.
+    mensaje = str(excinfo.value)
+    assert f"«{literal}» (declarado como Desarrollo)" in mensaje
+    # Y el mensaje no puede ofrecer el literal sintetizado como si fuera un valor del archivo.
+    assert f"aparecen: «{literal}»" not in mensaje
+
+
+def test_columna_una_fila_sin_valor_queda_fuera_del_modelado() -> None:
+    """Una fila sin valor no declara nada, así que no pertenece a ninguna muestra."""
+    frame = _frame_con_muestra()
+    frame.loc[frame.index[:5], "muestra"] = np.nan
+    cfg = _columna_config(desarrollo=("DEV",), holdout=("VAL",), oot=("OOT",))
+
+    result = _split(cfg, frame)
+
+    assert result.sizes["desarrollo"] == 35  # 40 menos las 5 sin valor
+    assert result.sizes["fuera_de_modelo"] == 15  # 10 DESCARTE + 5 sin valor

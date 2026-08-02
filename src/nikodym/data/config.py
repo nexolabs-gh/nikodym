@@ -794,6 +794,7 @@ class ColumnSplitConfig(NikodymBaseConfig):
         title="Valores que corresponden a Desarrollo",
         description="Valores de la columna que forman el conjunto de Desarrollo.",
         json_schema_extra={
+            "column_values_from": "partition_col",
             "ui_help": "Valores de esa columna que corresponden al conjunto de Desarrollo (donde "
             "se ajusta el modelo). Se escriben tal como aparecen en el archivo.",
         },
@@ -803,6 +804,7 @@ class ColumnSplitConfig(NikodymBaseConfig):
         title="Valores que corresponden a Holdout",
         description="Valores de la columna que forman el conjunto de Holdout.",
         json_schema_extra={
+            "column_values_from": "partition_col",
             "ui_help": "Valores de esa columna que corresponden al conjunto de Holdout "
             "(validación fuera de muestra). Se escriben tal como aparecen en el archivo.",
         },
@@ -812,6 +814,7 @@ class ColumnSplitConfig(NikodymBaseConfig):
         title="Valores que corresponden a OOT",
         description="Valores de la columna que forman el conjunto fuera de tiempo (OOT).",
         json_schema_extra={
+            "column_values_from": "partition_col",
             "ui_help": "Valores de esa columna que corresponden al conjunto fuera de tiempo "
             "(OOT). Se escriben tal como aparecen en el archivo.",
         },

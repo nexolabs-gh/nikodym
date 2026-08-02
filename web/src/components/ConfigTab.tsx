@@ -395,6 +395,7 @@ function ConfigSectionForm(props: {
   setField: (path: Path, value: unknown) => void
   errors?: Map<string, string>
   datasetColumns?: string[]
+  datasetColumnValues?: Record<string, string[]>
   effectiveDefaults?: EffectiveDefaults
 }) {
   const {
@@ -405,6 +406,7 @@ function ConfigSectionForm(props: {
     setField,
     errors,
     datasetColumns,
+    datasetColumnValues,
     effectiveDefaults,
   } = props
   // El mapa de defaults de ESTA sección. Baja con el formulario campo a campo; los dos sitios que
@@ -427,6 +429,7 @@ function ConfigSectionForm(props: {
       required={required.has(name)}
       errors={errors}
       datasetColumns={datasetColumns}
+      datasetColumnValues={datasetColumnValues}
       titledByParent={titledByParent}
       defaultsBase={sectionDefaults}
       effectiveDefaults={effectiveDefaults}
@@ -665,6 +668,18 @@ export function ConfigTab({ section }: { section: string }) {
   const datasetColumns = selectedDataset
     ? selectedDataset.columns.map((c) => c.name)
     : undefined
+  // Y los VALORES observados de cada columna, que son las opciones de todo campo que declare
+  // `column_values_from` (los tres de la división ya marcada en el archivo). Se indexa por nombre
+  // de columna porque así lo pregunta el campo: la anotación nombra a un hermano, el hermano
+  // nombra la columna. Una columna sin valores medidos no entra en el mapa —«no se sabe», no «no
+  // tiene»—, y el widget cae a entrada libre en vez de a un «Sin opciones.» que mentiría.
+  const datasetColumnValues = selectedDataset
+    ? Object.fromEntries(
+        selectedDataset.columns
+          .filter((c) => c.values !== undefined && c.values.length > 0)
+          .map((c) => [c.name, c.values as string[]]),
+      )
+    : undefined
   // Solo la sección activa (elegida en el sidebar). La pregunta es «¿el schema cargado trae un
   // formulario para esta clave?», NO «¿está en una lista de siete?»: el filtro por whitelist es lo
   // que mantenía provisiones y survival fuera del formulario aunque el backend las mandara
@@ -902,6 +917,7 @@ export function ConfigTab({ section }: { section: string }) {
                 setField={setField}
                 errors={errorLookup}
                 datasetColumns={datasetColumns}
+                datasetColumnValues={datasetColumnValues}
                 effectiveDefaults={catalogo}
               />
             ) : (

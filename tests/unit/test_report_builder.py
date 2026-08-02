@@ -1336,3 +1336,30 @@ def test_la_division_leida_del_archivo_se_narra_como_leida_y_no_como_calculada()
     assert "Desarrollo «DEV»" in body and "Holdout «VAL»" in body and "OOT «OOT»" in body
     # No se cuela el fallback genérico, que nombraría el identificador interno de la estrategia.
     assert "con la estrategia «columna»" not in body
+
+
+def test_la_division_leida_declara_su_alcance_y_no_promete_una_transcripcion_literal() -> None:
+    """🔴 Regresión: la frase decía «se leyó tal cual» y eso es FALSO para parte de la población.
+
+    Encontrado por revisión adversarial cruzada. El mapeo se aplica sólo a las filas que el modelo
+    puede usar: una operación cuya columna diga «OOT» pero que esté excluida o indeterminada no
+    queda en OOT, y tampoco un valor que el usuario no mapeó. Medido: con una fila «OOT» excluida,
+    el resultado la pone en `fuera_de_modelo` mientras el informe afirmaba haber leído la división
+    tal cual. Un regulador sólo podía descubrirlo contrastando la frase con la tabla de al lado.
+    """
+    bundle = _context_bundle(
+        {"data": _data_card().model_dump(mode="python"), "model": {}},
+        strategy={
+            "type": "columna",
+            "partition_col": "muestra",
+            "desarrollo": ["DEV"],
+            "oot": ["OOT"],
+        },
+    )
+
+    body = " ".join(context_body(bundle))
+
+    assert "se leyó tal cual" not in body
+    assert "las observaciones utilizables para modelar" in body
+    assert "excluidas o indeterminadas" in body
+    assert "un valor no declarado aquí" in body

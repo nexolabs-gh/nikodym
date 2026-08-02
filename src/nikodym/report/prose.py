@@ -554,6 +554,13 @@ def _partition_sentence_columna(strategy: Mapping[str, Any]) -> str:
     constante enumera las estrategias que el motor deriva, para poder callar el aviso de las dos
     fuentes justo cuando la división de la cartera y la del modelo evaluado pueden salir del mismo
     sitio — que es precisamente este caso.
+
+    🔴 **Y la frase no puede decir «se leyó tal cual» a secas, aunque sea tentador.** El mapeo se
+    aplica sólo a las filas que el modelo puede usar: una operación cuya columna diga ``OOT`` pero
+    que esté excluida o indeterminada **no** queda en OOT, y lo mismo un valor que el usuario no
+    mapeó. Prometer una transcripción literal de toda la población sería falso, y sólo se
+    descubriría contrastando la frase contra las tablas del propio capítulo. Lo destapó una
+    revisión adversarial cruzada; el texto declara ahora su alcance en lugar de dejarlo implícito.
     """
     partition_col = _text(strategy.get("partition_col"))
     detalle = f"en la columna «{partition_col}» del archivo" if partition_col else "en el archivo"
@@ -566,13 +573,15 @@ def _partition_sentence_columna(strategy: Mapping[str, Any]) -> str:
         )
         if valores
     )
-    base = (
-        f"La división de la población no la calculó el motor: ya venía marcada {detalle} y se "
-        "leyó tal cual"
+    base = f"La división de la población no la calculó el motor: ya venía marcada {detalle}"
+    alcance = (
+        " El motor la aplicó a las observaciones utilizables para modelar; las que quedaron "
+        "excluidas o indeterminadas, y las que traen un valor no declarado aquí, están fuera del "
+        "modelado y se cuentan aparte en la tabla de particiones."
     )
     if not mapeos:
-        return f"{base}."
-    return f"{base}, con {_enumerar(mapeos)}."
+        return f"{base}.{alcance}"
+    return f"{base}, con {_enumerar(mapeos)}.{alcance}"
 
 
 # ────────────────────────────── metodología ──────────────────────────────

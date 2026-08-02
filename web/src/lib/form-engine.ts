@@ -53,6 +53,21 @@ export interface JsonSchema {
    * `data.schema.unique_keys` en el editor JSON.
    */
   column_role?: string
+  /**
+   * De qué columna salen las OPCIONES de este campo (D-COL-7): el nombre del campo HERMANO que
+   * nombra la columna, no el de la columna.
+   *
+   * `column_role` dice «mi valor ES un nombre de columna»; esto dice «mi valor es uno de los
+   * VALORES de la columna que nombra ese otro campo». Es la forma de `data.partition.strategy`
+   * cuando la división ya viene marcada en el archivo: `desarrollo`/`holdout`/`oot` declaran
+   * `column_values_from: "partition_col"`, así que sus opciones son los valores observados en la
+   * columna que el usuario haya escrito en `partition_col`.
+   *
+   * Viaja en la lista junto a los `ui_*` y a `column_role` por la misma razón que aquéllos: quien
+   * copie propiedades de un nodo a otro tiene que verlo. Omitirlo en `unwrapNullable` es
+   * exactamente el defecto que dejó a `data.schema.unique_keys` en el editor JSON.
+   */
+  column_values_from?: string
   [key: string]: unknown
 }
 
@@ -249,6 +264,7 @@ export function unwrapNullable(schema: JsonSchema): {
         ui_order: schema.ui_order ?? base.ui_order,
         ui_help: schema.ui_help ?? base.ui_help,
         column_role: schema.column_role ?? base.column_role,
+        column_values_from: schema.column_values_from ?? base.column_values_from,
       },
       nullable: true,
     }
@@ -515,6 +531,10 @@ export function resolveWidget(
     // dataset. Sin esta rama, `data.schema.unique_keys` (que declara el rol pero no `ui_widget`)
     // caía al editor JSON aunque el front tuviera las columnas a mano.
     if (columnRole(field, defs) !== undefined) return "multiselect"
+    // Una lista de VALORES DE UNA COLUMNA tampoco puede traer `enum`, y por el mismo motivo: sus
+    // opciones dependen del archivo. Sin esta rama, los tres campos de la división ya marcada
+    // (`desarrollo`/`holdout`/`oot`) caían al editor JSON y obligaban a teclear `["DEV"]` a mano.
+    if (columnValuesFrom(field, defs) !== undefined) return "multiselect"
     return "json"
   }
 
@@ -712,6 +732,24 @@ export type ColumnRole = "input" | "derived" | "index" | "not_a_column"
 export interface FieldDataContext {
   /** Columnas del dataset activo. `undefined` = todavía no hay dataset cargado. */
   datasetColumns?: string[]
+  /**
+   * Valores ofrecibles por columna del dataset activo (D-COL-7), indexado por NOMBRE de columna.
+   *
+   * Es lo que consume un campo con `column_values_from`. Una columna ausente del mapa, o presente
+   * con lista vacía, significa **«no se midió»** —demasiados valores distintos, o dataset del
+   * catálogo aún sin materializar—, nunca «esa columna no tiene valores»: el consumidor cae a
+   * entrada libre, que es el comportamiento de siempre.
+   */
+  datasetColumnValues?: Record<string, string[]>
+  /**
+   * Valor actual de los campos HERMANOS del que se está resolviendo (el objeto que lo contiene).
+   *
+   * Existe sólo por `column_values_from`, que es la primera anotación del schema que apunta a otro
+   * campo en vez de describirse a sí misma: sin los hermanos a mano no hay forma de saber QUÉ
+   * columna nombró el usuario. `undefined` = el llamador no lo aportó ⇒ sin opciones, entrada
+   * libre.
+   */
+  siblingValues?: Record<string, unknown>
 }
 
 /** Ramas no-`null` de un campo (`anyOf`/`oneOf`), resueltas; el propio campo si no es unión. */
@@ -746,6 +784,28 @@ export function columnRole(
   return undefined
 }
 
+/**
+ * `column_values_from` declarado por el campo (o por alguna de sus ramas): el NOMBRE DEL CAMPO
+ * hermano que nombra la columna de la que salen las opciones. `undefined` si no lo declara.
+ *
+ * Se mira también en las ramas por la misma razón que :func:`columnRole`: un campo opcional viaja
+ * como `anyOf: [T, null]` y la anotación puede estar en cualquiera de los dos lados.
+ *
+ * ⚠️ Devuelve el nombre del CAMPO, no el de la columna. Resolverlo a una columna exige el valor
+ * actual de ese hermano, que es dato del formulario y no del schema.
+ */
+export function columnValuesFrom(
+  schema: JsonSchema,
+  defs: Defs = {},
+): string | undefined {
+  const candidates = [schema, ...branchesOf(schema, defs)]
+  for (const candidate of candidates) {
+    const from = candidate.column_values_from
+    if (typeof from === "string" && from !== "") return from
+  }
+  return undefined
+}
+
 /** La rama `array` de un campo (o el campo mismo si ya lo es); `undefined` si no tiene ninguna. */
 export function arrayBranch(
   schema: JsonSchema,
@@ -771,15 +831,21 @@ export function acceptsWildcard(schema: JsonSchema, defs: Defs = {}): boolean {
 }
 
 /**
- * Opciones de un multiselect. Dos orígenes, en este orden:
+ * Opciones de un multiselect. Tres orígenes, en este orden:
  *
  *  1. El **schema**, cuando la lista es cerrada (`enum`/`const` de los `items`).
- *  2. El **dataset**, cuando el campo declara `column_role: "input"` — sus valores son nombres de
- *     columna, que ningún `enum` puede conocer porque dependen del archivo que cargue el usuario.
+ *  2. Las **columnas** del dataset, cuando el campo declara `column_role: "input"` — sus valores
+ *     son nombres de columna, que ningún `enum` puede conocer porque dependen del archivo que
+ *     cargue el usuario.
+ *  3. Los **valores de UNA columna**, cuando el campo declara `column_values_from` — la columna la
+ *     nombra el campo hermano que esa anotación apunta, así que hace falta su valor ACTUAL.
  *
  * Cualquier otro caso devuelve `[]`, que NO significa «no hay nada que elegir» sino «no hay lista
  * cerrada»: el widget cae entonces a entrada libre. Confundir ambos es lo que hacía que
  * `feature_columns` pintara «Sin opciones.» con doce variables dentro.
+ *
+ * En el caso 3 el `[]` es además el estado NORMAL de arranque —el hermano todavía en blanco, o un
+ * dataset del catálogo sin materializar—, y por eso no puede degradar a nada bloqueante.
  */
 export function multiselectOptions(
   schema: JsonSchema,
@@ -790,13 +856,27 @@ export function multiselectOptions(
   const fromSchema = array.items ? enumOptions(resolveRef(array.items, defs)) : []
   if (fromSchema.length > 0) return fromSchema
   if (columnRole(schema, defs) === "input") return context.datasetColumns ?? []
+  const from = columnValuesFrom(schema, defs)
+  if (from !== undefined) {
+    const columna = context.siblingValues?.[from]
+    // El hermano en blanco, ausente o mal tipado ⇒ no hay columna que consultar. No es un error:
+    // es el orden natural de llenado (primero se dice qué columna marca la muestra, después qué
+    // valores de esa columna forman cada conjunto).
+    if (typeof columna !== "string" || columna === "") return []
+    return context.datasetColumnValues?.[columna] ?? []
+  }
   return []
 }
 
 /**
- * ¿La lista de opciones es CERRADA (el schema las enumera) o abierta (nombres de columna, que el
- * usuario puede escribir aunque no estén en el dataset cargado)? Decide si el widget ofrece
- * además un campo para añadir un valor a mano.
+ * ¿La lista de opciones es CERRADA (el schema las enumera) o abierta (nombres de columna, o
+ * valores de una columna, que el usuario puede escribir aunque no salgan en la lista ofrecida)?
+ * Decide si el widget ofrece además un campo para añadir un valor a mano.
+ *
+ * ⚠️ Sólo un `enum` del schema cierra una lista, y por eso `column_values_from` NO la cierra: lo
+ * que el dataset publica son los valores **más frecuentes** de la columna (top-20, y vacío si la
+ * columna tiene demasiados distintos), no su dominio. Tratarlos como lista cerrada dejaría sin
+ * forma de declarar un valor real que no entró en el recorte.
  */
 export function hasClosedOptions(schema: JsonSchema, defs: Defs = {}): boolean {
   const array = arrayBranch(schema, defs) ?? schema
@@ -814,9 +894,16 @@ export function hasClosedOptions(schema: JsonSchema, defs: Defs = {}): boolean {
  *
  * Un `enum` manda sobre el rol (misma precedencia que :func:`multiselectOptions`): si el schema
  * enumera los valores, la lista es cerrada y el dataset no tiene nada que decir.
+ *
+ * ⚠️ Un campo con `column_values_from` responde que **no**, aunque sus opciones también salgan del
+ * dataset, y la diferencia es de VERDAD, no de origen: de las columnas se publican todas, así que
+ * una que falte falta de verdad; de los valores de una columna se publican sólo los más
+ * frecuentes, así que uno que falte puede estar perfectamente en el archivo. Marcarlo «no está en
+ * el dataset» sería exactamente la falsedad contra la que se escribió esta función.
  */
 export function optionsFromDataset(schema: JsonSchema, defs: Defs = {}): boolean {
   if (hasClosedOptions(schema, defs)) return false
+  if (columnValuesFrom(schema, defs) !== undefined) return false
   return columnRole(schema, defs) === "input"
 }
 

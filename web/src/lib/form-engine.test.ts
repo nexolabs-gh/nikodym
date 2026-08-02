@@ -10,6 +10,7 @@ import {
   appendListItem,
   arrayBranch,
   columnRole,
+  columnValuesFrom,
   defaultForSchema,
   discriminatedBranches,
   discriminatorProperty,
@@ -1046,5 +1047,215 @@ describe("todo campo con `column_role` conserva su rol al llegar al widget", () 
     const { schema: base } = unwrapNullable(resolveRef(uniqueKeys, defs))
     expect(multiselectOptions(base, { datasetColumns: COLUMNAS }, defs)).toEqual(COLUMNAS)
     expect(optionsFromDataset(base, defs)).toBe(true)
+  })
+})
+
+describe("la división ya marcada en el archivo, contra el SCHEMA REAL del backend", () => {
+  // `data.partition.strategy = {type: "columna"}` (D-COL-2/3/4): el usuario ya separó su muestra y
+  // sólo declara qué valor de su columna corresponde a cada conjunto. Sus tres campos son listas de
+  // strings SIN `enum` —los valores dependen del archivo—, así que sin `column_values_from` caían
+  // al editor JSON y obligaban a teclear `["DEV"]` a mano sobre un textarea.
+  //
+  // Ancla escrita a mano sobre el fixture que viaja en el paquete: si el motor deja de declarar la
+  // anotación, esto se pone rojo aunque todo lo demás siga compilando.
+  const defs: Defs = (fixtureSchema as unknown as SchemaPayload).json_schema.$defs ?? {}
+  const columnSplit = defs["data__ColumnSplitConfig"]
+  const CAMPOS = ["desarrollo", "holdout", "oot"] as const
+
+  // Una columna «muestra» con sus valores, como los publica el perfil del dataset (D-COL-7).
+  const VALORES = { muestra: ["DEV", "VAL", "OOT"], region: ["RM", "V", "VIII"] }
+
+  it("la rama `columna` existe en el schema y trae sus cuatro campos", () => {
+    expect(columnSplit, "`data__ColumnSplitConfig` no está en el schema").toBeDefined()
+    expect(Object.keys(columnSplit!.properties ?? {}).sort()).toEqual([
+      "desarrollo",
+      "holdout",
+      "oot",
+      "partition_col",
+      "type",
+    ])
+  })
+
+  it.each(CAMPOS)("%s declara de qué campo hermano salen sus opciones", (nombre) => {
+    const campo = columnSplit!.properties![nombre]
+    expect(campo, `${nombre} no está en el schema`).toBeDefined()
+    // El nombre del CAMPO hermano, no el de la columna: la columna la elige el usuario.
+    expect(columnValuesFrom(campo, defs)).toBe("partition_col")
+  })
+
+  it.each(CAMPOS)("%s se pinta como multiselect, no como editor JSON", (nombre) => {
+    expect(resolveWidget(columnSplit!.properties![nombre], { defs })).toBe(
+      "multiselect",
+    )
+  })
+
+  it.each(CAMPOS)(
+    "%s ofrece los valores de la columna que nombra `partition_col`",
+    (nombre) => {
+      const campo = columnSplit!.properties![nombre]
+      expect(
+        multiselectOptions(
+          campo,
+          {
+            datasetColumnValues: VALORES,
+            siblingValues: { type: "columna", partition_col: "muestra" },
+          },
+          defs,
+        ),
+      ).toEqual(["DEV", "VAL", "OOT"])
+    },
+  )
+
+  it("cambiar de columna cambia las opciones (se indexa por el hermano, no por el campo)", () => {
+    const campo = columnSplit!.properties!.desarrollo
+    expect(
+      multiselectOptions(
+        campo,
+        {
+          datasetColumnValues: VALORES,
+          siblingValues: { partition_col: "region" },
+        },
+        defs,
+      ),
+    ).toEqual(["RM", "V", "VIII"])
+  })
+
+  it("`partition_col` es una columna del dataset, y sigue siéndolo", () => {
+    // No es decorativo: es el campo que estos tres consultan. Si dejara de declarar su rol, el
+    // usuario perdería el selector de columna y con él las opciones de los otros tres.
+    expect(columnRole(columnSplit!.properties!.partition_col, defs)).toBe("input")
+  })
+
+  describe("controles negativos — nunca «Sin opciones.», siempre entrada libre", () => {
+    it.each(CAMPOS)("%s: sin `datasetColumnValues` no hay opciones", (nombre) => {
+      const campo = columnSplit!.properties![nombre]
+      expect(
+        multiselectOptions(campo, { siblingValues: { partition_col: "muestra" } }, defs),
+      ).toEqual([])
+    })
+
+    it.each(CAMPOS)("%s: con `partition_col` en blanco no hay opciones", (nombre) => {
+      const campo = columnSplit!.properties![nombre]
+      expect(
+        multiselectOptions(
+          campo,
+          { datasetColumnValues: VALORES, siblingValues: { partition_col: "" } },
+          defs,
+        ),
+      ).toEqual([])
+      // Y con el hermano AUSENTE, que es el estado de arranque del formulario.
+      expect(
+        multiselectOptions(campo, { datasetColumnValues: VALORES, siblingValues: {} }, defs),
+      ).toEqual([])
+      // Y sin contexto ninguno.
+      expect(multiselectOptions(campo, {}, defs)).toEqual([])
+    })
+
+    it("una columna sin valores medidos tampoco los inventa", () => {
+      // Perfil ausente (dataset del catálogo sin materializar) o columna con demasiados valores
+      // distintos: el backend publica `[]`, que significa «no se midió», no «no tiene valores».
+      const campo = columnSplit!.properties!.desarrollo
+      expect(
+        multiselectOptions(
+          campo,
+          {
+            datasetColumnValues: VALORES,
+            siblingValues: { partition_col: "cliente_id" },
+          },
+          defs,
+        ),
+      ).toEqual([])
+    })
+
+    it.each(CAMPOS)("%s: la lista NO es cerrada — se puede escribir a mano", (nombre) => {
+      // Lo decisivo del control negativo: sin opciones el widget tiene que ofrecer entrada libre.
+      // El perfil publica sólo los valores más FRECUENTES (top-20), así que incluso con la lista
+      // llena el usuario puede tener un valor que no salga.
+      expect(hasClosedOptions(columnSplit!.properties![nombre], defs)).toBe(false)
+    })
+
+    it.each(CAMPOS)("%s: no se acusa a un valor de «no estar en el dataset»", (nombre) => {
+      // `optionsFromDataset` es lo ÚNICO que autoriza esa etiqueta roja. Aquí sería falsa: que un
+      // valor no esté entre los veinte más frecuentes no significa que no esté en el archivo.
+      expect(optionsFromDataset(columnSplit!.properties![nombre], defs)).toBe(false)
+    })
+
+    it("y tampoco si el campo declarase ADEMÁS `column_role: input`", () => {
+      // ⚠️ Medido: los tres campos reales no declaran `column_role`, así que el `false` de arriba
+      // saldría igual sin la guarda de `column_values_from` — es un verde que no la mide. Este caso
+      // sí la ejerce, y es el que la guarda existe para atender: si mañana un campo declara las dos
+      // anotaciones, manda la que describe VALORES, porque de ellos sólo se publica un recorte.
+      const ambas: JsonSchema = {
+        type: "array",
+        items: { type: "string" },
+        column_role: "input",
+        column_values_from: "partition_col",
+      }
+      expect(columnRole(ambas, defs)).toBe("input")
+      expect(optionsFromDataset(ambas, defs)).toBe(false)
+    })
+
+    it("un valor escrito a mano se conserva aunque no esté entre las opciones", () => {
+      // Regresión histórica: `toggleMultiselect` descartaba los valores fuera de `options` y
+      // borraba en silencio el trabajo del usuario en cuanto las opciones venían de los datos.
+      const opciones = ["DEV", "VAL", "OOT"]
+      expect(toggleMultiselect(["ENTRENAMIENTO"], "DEV", true, opciones)).toEqual([
+        "DEV",
+        "ENTRENAMIENTO",
+      ])
+      // Y quitar otro tampoco se lo lleva por delante.
+      expect(
+        toggleMultiselect(["DEV", "ENTRENAMIENTO"], "DEV", false, opciones),
+      ).toEqual(["ENTRENAMIENTO"])
+    })
+  })
+
+  it.each(CAMPOS)("%s: `column_values_from` sobrevive a `unwrapNullable`", (nombre) => {
+    // El defecto exacto de la sesión anterior: `unwrapNullable` copia propiedades A MANO y omitir
+    // una deja al campo con el widget equivocado (fue lo que dejó `unique_keys` en el editor JSON).
+    //
+    // ⚠️ La anotación va en el nodo EXTERIOR, no dentro de la rama, y eso NO es una elección del
+    // test: es donde Pydantic la pone. Medido sobre el campo opcional real
+    // `data__SchemaConfig.unique_keys`, que publica `{anyOf: [<array>, <null>], column_role: …}`.
+    // Meterla dentro de la rama hace pasar el test con la propagación BORRADA —el `...base` de
+    // `unwrapNullable` ya la arrastraría—, o sea un verde que no mide nada.
+    const { column_values_from, ...forma } = columnSplit!.properties![nombre]
+    const opcional: JsonSchema = {
+      anyOf: [forma, { type: "null" }],
+      column_values_from,
+      default: null,
+    }
+    expect(
+      (opcional.anyOf![0] as JsonSchema).column_values_from,
+      "la rama no debe traer la anotación, o el test se mide a sí mismo",
+    ).toBeUndefined()
+
+    const { schema: base, nullable } = unwrapNullable(opcional)
+    expect(nullable).toBe(true)
+    expect(base.column_values_from).toBe("partition_col")
+    expect(resolveWidget(base, { defs })).toBe("multiselect")
+    expect(
+      multiselectOptions(
+        base,
+        {
+          datasetColumnValues: VALORES,
+          siblingValues: { partition_col: "muestra" },
+        },
+        defs,
+      ),
+    ).toEqual(["DEV", "VAL", "OOT"])
+  })
+
+  it("y el campo opcional entero resuelve a multiselect sin desempaquetar a mano", () => {
+    // El camino que recorre el renderer de verdad: `resolveWidget` desempaqueta él mismo. Si la
+    // propagación se pierde, aquí el campo cae al editor JSON.
+    const { column_values_from, ...forma } = columnSplit!.properties!.desarrollo
+    const opcional: JsonSchema = {
+      anyOf: [forma, { type: "null" }],
+      column_values_from,
+      default: null,
+    }
+    expect(columnValuesFrom(opcional, defs)).toBe("partition_col")
+    expect(resolveWidget(opcional, { defs })).toBe("multiselect")
   })
 })

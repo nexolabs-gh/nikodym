@@ -237,6 +237,15 @@ export interface DatasetColumn {
   name: string
   dtype: string
   role: string
+  /**
+   * Valores más frecuentes de la columna, ya en texto (D-COL-7). Son las OPCIONES de todo campo
+   * que declare `column_values_from` apuntando a esta columna.
+   *
+   * Ausente o vacío significa **«no se midió»** —columna con demasiados valores distintos, o
+   * dataset del catálogo aún sin materializar—, nunca «la columna no tiene valores»: el consumidor
+   * cae a entrada libre. Y es un recorte (top-20), no el dominio: por eso nunca cierra la lista.
+   */
+  values?: string[]
 }
 
 /** GET /api/datasets (un item) */
@@ -256,7 +265,7 @@ export interface UploadedDataset {
   dataset_id: string
   name: string
   n_rows: number
-  columns: { name: string; dtype: string }[]
+  columns: { name: string; dtype: string; values?: string[] }[]
 }
 
 /** Estado de una corrida. */

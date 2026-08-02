@@ -90,6 +90,24 @@ class PerfilColumna:
     un valor por fila, porque todas sus categorías caen al bin «otros» y no queda ninguna.
     """
 
+    valores_frecuentes: tuple[str, ...] = ()
+    """Los valores más repetidos de la columna, en texto y de mayor a menor frecuencia (D-COL-7).
+
+    Existen para poder **ofrecer** en vez de preguntar a ciegas: qué valor marca el incumplimiento,
+    o qué valor de la columna de división corresponde a cada muestra. Sin ellos, el usuario tiene
+    que escribir a mano un valor que el motor compara literalmente, y un error de tipeo sólo se
+    descubre cuando la corrida falla.
+
+    ⚠️ **Son un dato para elegir, nunca una respuesta.** Ofrecerlos no autoriza a contestar por el
+    usuario (D-COL-8): que el motor sepa que la columna trae «DEV», «VAL» y «OOT» no le dice cuál
+    de ellas es Desarrollo, y adivinarlo es justo lo que D-COL-3 prohíbe.
+
+    Van en **texto** porque es la representación con que el motor los compara y con que se
+    publican en los mensajes de error; así lo que el usuario elige es exactamente lo que se
+    escribe. Vacío significa «no se midió», no «la columna no tiene valores»: una columna con
+    demasiados valores distintos para que una lista sirva no publica ninguno.
+    """
+
 
 @dataclass(frozen=True, slots=True)
 class PerfilDataset:

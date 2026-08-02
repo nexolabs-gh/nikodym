@@ -77,6 +77,43 @@ describe("fromUpload", () => {
   })
 })
 
+describe("los valores por columna llegan por las DOS rutas (D-COL-7)", () => {
+  // A diferencia de `role` —que sólo trae el catálogo—, `values` lo traen las dos: es lo que
+  // alimenta las opciones de un campo con `column_values_from`. Perderlo en cualquiera de los dos
+  // normalizadores deja al usuario tecleando los valores a mano, que es justo lo que se arregló.
+  it("fromCatalog conserva los valores de cada columna", () => {
+    const info: DatasetInfo = {
+      id: "consumo",
+      name: "Consumo",
+      description: "",
+      n_rows: 10,
+      columns: [
+        { name: "muestra", dtype: "object", role: "feature", values: ["DEV", "OOT"] },
+        { name: "edad", dtype: "int64", role: "feature" },
+      ],
+    }
+    const columnas = fromCatalog(info).columns
+    expect(columnas[0].values).toEqual(["DEV", "OOT"])
+    // Sin valores medidos queda `undefined` = «no se sabe», nunca `[]` inventado.
+    expect(columnas[1].values).toBeUndefined()
+  })
+
+  it("fromUpload conserva los valores de cada columna", () => {
+    const resp: UploadedDataset = {
+      dataset_id: "upload-abc",
+      name: "mi_panel.csv",
+      n_rows: 10,
+      columns: [
+        { name: "muestra", dtype: "object", values: ["ENTRENAMIENTO", "VALIDACION"] },
+        { name: "score", dtype: "float64" },
+      ],
+    }
+    const columnas = fromUpload(resp).columns
+    expect(columnas[0].values).toEqual(["ENTRENAMIENTO", "VALIDACION"])
+    expect(columnas[1].values).toBeUndefined()
+  })
+})
+
 describe("datasetOptionLabel", () => {
   it("combina el nombre y el número de filas", () => {
     const info: DatasetInfo = {
