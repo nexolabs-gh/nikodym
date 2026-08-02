@@ -11,8 +11,8 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-02 tarde, **oleada post-Fase 1: todo salvo el abanico**)
 
-**`main` = `21f1aca`, pusheado.** ⚠️ Su CI quedó **lanzado y sin confirmar** al cerrar: comprobarlo
-con `gh run list --commit 21f1aca`. **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates
+**`main` = `a522812`, con CI 16/16 confirmado con `gh`** (y también 16/16 sobre `21f1aca`, que es
+el commit con todo el código). **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates
 locales: pytest **4847 passed / 6 skipped**, vitest **491/491**, mypy 245, `ruff check` y `format`,
 typecheck y lint del front, bundle sin drift, `mkdocs --strict`.
 

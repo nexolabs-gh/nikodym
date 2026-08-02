@@ -7,8 +7,8 @@
 >
 > ## Lo último (2026-08-02 tarde): **el plan decidido NO era implementable, y medirlo cambió el diseño**
 >
-> **`main` = `21f1aca`**, pusheado. ⚠️ Su CI quedó **lanzado y sin confirmar**: comprobarlo con
-> `gh run list --commit 21f1aca`. Gates locales: **4847 passed / 6 skipped**, vitest **491/491**,
+> **`main` = `a522812`, con CI 16/16 confirmado con `gh`** (y 16/16 también sobre `21f1aca`, el
+> commit que trae todo el código). Gates locales: **4847 passed / 6 skipped**, vitest **491/491**,
 > mypy 245, ruff check y format, bundle sin drift, `mkdocs --strict`.
 >
 > 🔴 **La lección, y vale más que el código: «acotar las decisiones por trabajo» venía DECIDIDO en el
