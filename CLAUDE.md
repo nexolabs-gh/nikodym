@@ -5,7 +5,78 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-02): **los SEIS defectos de D-JOB-7, cerrados**
+> ## Lo último (2026-08-02 tarde): **el plan decidido NO era implementable, y medirlo cambió el diseño**
+>
+> **`main` = `21f1aca`**, pusheado. ⚠️ Su CI quedó **lanzado y sin confirmar**: comprobarlo con
+> `gh run list --commit 21f1aca`. Gates locales: **4847 passed / 6 skipped**, vitest **491/491**,
+> mypy 245, ruff check y format, bundle sin drift, `mkdocs --strict`.
+>
+> 🔴 **La lección, y vale más que el código: «acotar las decisiones por trabajo» venía DECIDIDO en el
+> goal y se midió inviable por tres vías independientes.**
+>
+> 1. **3 de las 4 decisiones no admiten ningún relleno.** `bad_rule` con `{all_of:[],any_of:[]}`
+>    levanta `ValidationError`; `duration_col`/`event_col` vacíos, `SurvivalConfigError`. Si un
+>    trabajo las exime, el config **no reconstruye** y la corrida ni arranca.
+> 2. **La única que admite relleno es la peligrosa**: `{"type":"random"}` materializa 70/15/15 sin
+>    estratificar —**pseudo-OOT**, así lo declara `data/config.py:687-689`— justo en el trabajo cuyo
+>    entregable *es* la métrica OOT.
+> 3. 🔴 **Y publicaría una frase FALSA en el informe.** `report/prose.py:415` emitía **sin ninguna
+>    condición** «La población se particionó de forma aleatoria: Desarrollo 70 %…». Ya corregido
+>    (D-COL-9): se gatea por consumo real, con el criterio que la frase del target usaba doce líneas
+>    más arriba. El precedente estaba en el mismo archivo y no se le había aplicado.
+>
+> ⚠️ **Y la salida natural tampoco servía**: una variante de sección `data` que cargue sin etiquetar
+> **entrega MENOS que hoy** — la card de población queda vacía (7 de sus 11 campos dependen del
+> etiquetado) y el `data_hash` cambia, así que dos corridas del mismo archivo por variantes distintas
+> quedarían con identidades incomparables **en silencio**.
+>
+> ✅ **El diagnóstico real: el motor sólo sabe CONSTRUIR la etiqueta y la partición, nunca LEERLAS**
+> aunque la institución ya las traiga en su archivo.
+> [`_ENMIENDA-DECISIONES-COMO-DATO.md`](docs/design/_ENMIENDA-DECISIONES-COMO-DATO.md),
+> D-COL-1…D-COL-10 (borrador; camino elegido por Cami). **Dos hechos que NO hay que re-medir:**
+> `bad_rule` **ya sabe leer** una etiqueta existente —es literalmente lo que trae el preset F1— y
+> 🔴 **añadir una rama a una unión discriminada NO mueve ningún `config_hash`**, medido **añadiendo la
+> rama de verdad** y no simulando: los tres presets quedan byte a byte iguales. Añadir un **campo** a
+> una clase existente, en cambio, los mueve los tres. La misma sonda dejó gratis el coste —5 gates a
+> regenerar, ninguno de identidad— y un hallazgo: `test_column_roles` ya **obliga** por sí solo a
+> declarar el rol de la columna nueva.
+>
+> ✅ **Siete cosas cerradas**, todas con control negativo ejecutado: la **procedencia de la corrida en
+> el panel** (D-LIN-1 — quien corre por la interfaz ve el panel *antes* que el informe y esa pantalla
+> no decía de dónde salía nada); la llave de unicidad por casillas —la causa era que `unwrapNullable`
+> no propagaba `column_role`, y **cambia exactamente 1 campo de 122 nodos nullable**—; el perfil de
+> columnas para el catálogo; el silencio de survival (D-SUR-13); **D-JOB-17 conectado** —estaba
+> implementado, probado y **sin una sola llamada en la app**—; y el tope del cuerpo sobre el **stream
+> ASGI**, que de paso cubre los cinco POST de JSON que no tenían cota alguna.
+>
+> 🔴 **Codex pagó su corrida por TERCERA sesión seguida: 5 hallazgos con todo verde.** El más
+> transferible: **un gate de paridad que se compara CONSIGO MISMO no mide paridad**, mide que la
+> función es determinista — el mío decía comparar el panel con el Anexo del informe y comparaba
+> `payload["lineage"]` con `bundle.model_dump(...)`, o sea el serializador con el serializador. Ahora
+> construye el capítulo real y enumera la única diferencia admitida. ⚠️ **El invariante «nada de
+> reloj» de `ui/runs.py` era falso desde ANTES de esta sesión**: `ModelCardBuilder` fecha con
+> `datetime.now(UTC)`. Y ⚠️ **`row_count` promete «sin leer los datos»**, y reponer el perfil dentro
+> de `materialize` lo convertía en una lectura completa a memoria: la reposición pasa a ser perezosa.
+>
+> ⚠️ **A un revisor también se le verifica.** Codex declaró falsa la premisa del SDD porque «se puede
+> ejecutar sin `data`»: el **dato es cierto** —medido— pero su conclusión presuponía *quitar `data`*,
+> que Cami ya descartó. Lo que sí estaba mal era **mi redacción**: «los 10 trabajos requieren
+> `('data','frame')`» es falso (`performance` y `stability` no lo requieren); lo cierto es que los 10
+> **declaran la sección**. Corregido, con la refutación escrita en el propio SDD.
+>
+> ⚠️ **Trampas nuevas:** `browser_take_screenshot` con nombre relativo resuelve contra la **RAÍZ del
+> repo** aunque `browser_snapshot` sí use `.playwright-mcp/`; `nikodym-ui` no acepta `--no-browser`
+> (es `--no-open`) y su URL se pierde sin `python -u`; **no existe `/api/presets`** y la landing no
+> acepta `?run=<id>`; y **`TestClient` entrega el cuerpo en UN solo mensaje `http.request`**, así que
+> por esa vía *contar* y *acumular* bytes son indistinguibles.
+>
+> **Siguiente: implementar D-COL-2/3/4** (la rama `columna`) y la **Fase 3** (D-JOB-4/5, el abanico),
+> que no se empezó. ⚠️ Quien haga D-COL-2 debe revisar `_DERIVED_PARTITION_STRATEGIES` en
+> `report/prose.py`: la rama nueva **no** debe entrar ahí.
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-02): **los SEIS defectos de D-JOB-7, cerrados**
 >
 > ✅ **La Fase 1 del goal está completa e integrada**, con los seis defectos corregidos, sus
 > controles negativos ejecutados y una **segunda** revisión adversarial cruzada con Codex encima.

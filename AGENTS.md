@@ -9,7 +9,54 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-02, **los seis defectos de D-JOB-7 cerrados**)
+## Estado vigente (2026-08-02 tarde, **oleada post-Fase 1: todo salvo el abanico**)
+
+**`main` = `21f1aca`, pusheado.** ⚠️ Su CI quedó **lanzado y sin confirmar** al cerrar: comprobarlo
+con `gh run list --commit 21f1aca`. **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates
+locales: pytest **4847 passed / 6 skipped**, vitest **491/491**, mypy 245, `ruff check` y `format`,
+typecheck y lint del front, bundle sin drift, `mkdocs --strict`.
+
+🔴 **La lección de la sesión: el camino que el goal traía DECIDIDO no era implementable, y sólo se
+supo midiéndolo.** «Acotar las decisiones por trabajo» se cae por tres vías: **3 de las 4 decisiones
+no admiten ningún relleno** —el config no reconstruye y la corrida ni arranca—; la única que sí lo
+admite materializa un **pseudo-OOT** en el trabajo cuyo entregable *es* la métrica OOT; y haría que
+`report/prose.py` publicara «La población se particionó de forma aleatoria…» —frase que se emitía
+**sin ninguna condición**— en un documento que lee un regulador. ⚠️ La salida natural —una variante
+de `data` que cargue sin etiquetar— **entrega menos que hoy**: la card de población queda vacía y el
+`data_hash` cambia.
+
+✅ **El diagnóstico real: el motor sólo sabe CONSTRUIR la etiqueta y la partición, nunca LEERLAS.**
+Lo recoge [`_ENMIENDA-DECISIONES-COMO-DATO.md`](docs/design/_ENMIENDA-DECISIONES-COMO-DATO.md)
+(D-COL-1…D-COL-10, borrador). Dos hechos medidos que lo abaratan y que **no hay que re-medir**:
+`bad_rule` **ya sabe leer** una etiqueta existente —es lo que trae el preset F1— y **añadir una rama
+a una unión discriminada NO mueve ningún `config_hash`**, medido añadiéndola de verdad (los tres
+presets, byte a byte iguales). La misma sonda dejó el coste: 5 gates a regenerar, ninguno de
+identidad.
+
+✅ **Siete cosas cerradas**: la procedencia de la corrida en el panel (D-LIN-1), la llave de unicidad
+por casillas, el perfil de columnas para el catálogo, el silencio de survival al ajustar sin
+Desarrollo (D-SUR-13), D-JOB-17 conectado —estaba **implementado y muerto**, sin una sola llamada—,
+el tope del cuerpo contado sobre el **stream ASGI**, y la prosa de partición gateada por consumo
+real (D-COL-9).
+
+🔴 **Codex pagó su corrida por tercera sesión seguida: 5 hallazgos sobre trabajo con todo verde.** El
+más transferible: **un gate de paridad que se compara CONSIGO MISMO no mide paridad, mide que la
+función es determinista** — el mío decía comparar el panel con el Anexo del informe y comparaba el
+serializador con el serializador, así que habría dado verde con las dos superficies divergiendo. Y
+⚠️ **el invariante «nada de reloj» de `ui/runs.py` era falso desde antes**: `ModelCardBuilder` fecha
+con `datetime.now(UTC)`. Ahora lo determinista son los **resultados de cálculo**, no el archivo, y
+un test lo mide en vez de prometerlo.
+
+⚠️ **Y un hallazgo suyo hubo que refutarlo en parte**: el dato era cierto —se puede ejecutar sin
+`data`— pero su conclusión presuponía quitar `data`, que Cami ya descartó. Lo que sí estaba mal era
+la redacción del SDD. **Verificar al revisor también.**
+
+**Siguiente: implementar D-COL-2/3/4** (la rama `columna` de partición) y, aparte, la **Fase 3**
+(D-JOB-4/5, el abanico), que no se empezó. Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-02, **los seis defectos de D-JOB-7 cerrados**)
 
 **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates del cierre: pytest **4.787 passed /
 6 skipped**, vitest **462/462**, mypy 244, `ruff check` **y** `format`, typecheck y lint del front,
