@@ -425,8 +425,10 @@ def preflight_dataset(
     source = datasets.materialize(dataset_id, workdir=workdir)  # UiDatasetError → 404
 
     columnas, indices = _columnas_del_parquet(source)
-    # Lo medido en la ingesta (D-PERF-1). `None` para un dataset del catálogo o uno ingerido antes
-    # de la enmienda: ahí el veredicto es idéntico al de siempre, que es lo que D-PERF-2 exige.
+    # Lo medido al materializar (D-PERF-1), sea un archivo subido o uno del catálogo: la llamada de
+    # arriba acaba de dejarlo escrito, y lo repone también si el parquet ya estaba cacheado. `None`
+    # sigue siendo posible —un perfil ilegible, o un workdir donde no se pudo escribir—, y ahí el
+    # veredicto es idéntico al de siempre, que es lo que D-PERF-2 exige.
     perfil = datasets.load_profile(dataset_id, workdir=workdir)
     veredicto = nikodym.check_dataset(model, columnas, index_columns=indices, column_profile=perfil)
     return {

@@ -104,3 +104,24 @@ error. El fallo del binning pasa a nombrar la columna y a decir la salida, en es
 - `check_dataset` sin `column_profile` conserva su comportamiento byte a byte.
 - El aviso no bloquea el botón Ejecutar.
 - Verificado **en vivo**, con el mismo CSV que destapó el defecto.
+
+## 5. Nota de cierre — el perfil también lo tienen los datasets del catálogo (2026-08-02)
+
+La primera implementación dejó el perfil como **privilegio de quien sube su archivo**: sólo
+`ingest_upload` lo escribía, así que un dataset del catálogo corría sin él y el preflight se
+comportaba sobre él como antes de la enmienda. Quedó anotado como deuda y se cerró aquí.
+
+**No cambia ninguna decisión de arriba.** El §1.3 decía «quien sí la tiene, y gratis, es la
+ingesta»; medido, `materialize` está en la misma situación —el generador ya devuelve el
+``DataFrame``—, así que el productor pasa a ser **cualquiera que produzca un parquet**, con el
+cálculo en un solo sitio (`_guardar_perfil`). D-PERF-1 y D-PERF-2 se conservan íntegros: sigue
+siendo un dato que se **aporta**, y `None` sigue significando «no se sabe» para lo que nadie
+materializó.
+
+⚠️ **La rama de caché era la trampa, y es el caso normal, no el raro.** `materialize` retorna antes
+si el parquet existe, de modo que sin reponerlo ahí el perfil sólo lo tendría el primer
+materializado de cada `workdir` —y nunca lo tendría nada anterior a esta enmienda—. Se repone
+**leyendo el parquet**: medido sobre los cinco datasets del catálogo, leerlo cuesta 1,2-2,4 ms
+contra 1,9-8,9 ms de regenerarlo y 6,0-16,5 ms de rehacer la materialización; pero lo que decide no
+es el tiempo (se paga una vez) sino que leer el parquet perfila **los bytes que el motor va a
+consumir** y que invalidar sería destructivo para un upload, cuyo original ya no existe.
