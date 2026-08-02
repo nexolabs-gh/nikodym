@@ -272,3 +272,37 @@ export function jobForConfig(
     job.sections.length < mejor.sections.length ? job : mejor,
   )
 }
+
+/**
+ * Qué le hace al trabajo de la sesión un config traído de fuera.
+ *
+ * `job` es lo que hay que dejar en el store —`null` incluido, que significa «sin trabajo, formulario
+ * completo»— y `cambia` dice si eso difiere de lo que el usuario tenía. Los dos datos, y no sólo el
+ * primero, porque **el usuario tiene que enterarse**: cambiar de trabajo reescribe el sidebar
+ * entero, y hacerlo en silencio deja a alguien mirando una navegación que no pidió sin saber por
+ * qué. Cuando no cambia no hay nada que decir, y un aviso que sobra se aprende a ignorar.
+ */
+export interface JobSwitch {
+  job: Job | null
+  cambia: boolean
+}
+
+/**
+ * El trabajo que corresponde a un config traído de fuera, contrastado con el activo (D-JOB-17).
+ *
+ * Manda el config del usuario: si su archivo corresponde a otro trabajo, la sesión pasa a ése. No es
+ * una preferencia sobre la suya —el archivo *es* suya—, y la alternativa (conservar el trabajo
+ * elegido) es justo el estado que D-JOB-17 existe para evitar: un sidebar que esconde secciones que
+ * el propio usuario acaba de traer.
+ *
+ * Se compara por `id` y no por identidad de objeto: el catálogo se vuelve a pedir en cada carga, así
+ * que el mismo trabajo llega como un objeto distinto y comparar referencias daría «cambió» siempre.
+ */
+export function jobSwitchForConfig(
+  jobs: readonly Job[],
+  config: Record<string, unknown>,
+  activo: Job | null,
+): JobSwitch {
+  const job = jobForConfig(jobs, config)
+  return { job, cambia: (job?.id ?? null) !== (activo?.id ?? null) }
+}

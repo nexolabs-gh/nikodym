@@ -18,6 +18,7 @@ import {
   decisionStatuses,
   jobForConfig,
   jobSkeleton,
+  jobSwitchForConfig,
   sectionsOfJob,
   type Job,
 } from "@/lib/jobs"
@@ -177,6 +178,52 @@ describe("jobForConfig (un YAML selecciona su trabajo · D-JOB-17)", () => {
       provisioning_ifrs9: null,
     })
     expect(job?.id).toBe("pd_lifetime")
+  })
+
+  it("un trabajo NO disponible sí puede salir elegido, y es lo correcto (medido)", () => {
+    // Con `{data, report}` a secas, el más pequeño que los contiene es «Stress testing», que la
+    // landing declara no disponible (D-JOB-6). Descartar los no disponibles aquí PARECE la mejora
+    // obvia y empeora el resultado: los candidatos disponibles más pequeños tienen tres secciones,
+    // así que la sesión pasaría a un trabajo que pinta una sección que el config NO trae. El
+    // `status` gobierna si un trabajo se puede INICIAR desde la landing, no cómo se describe un
+    // config que el usuario ya tiene. Este test existe para que ese "arreglo" no se cuele.
+    const job = jobForConfig(JOBS, { data: {}, report: {} })
+    expect(job?.id).toBe("stress_testing")
+    expect(sectionsOfJob(job).map((s) => s.key)).toEqual(["data", "report"])
+  })
+})
+
+describe("jobSwitchForConfig (el config traído de fuera contra el trabajo activo · D-JOB-17)", () => {
+  it("dice qué trabajo dejar Y si eso cambia lo que el usuario tenía", () => {
+    const cambio = jobSwitchForConfig(
+      JOBS,
+      { data: {}, survival: {}, report: {} },
+      porId("scorecard_pd"),
+    )
+    expect(cambio).toEqual({ job: porId("pd_lifetime"), cambia: true })
+  })
+
+  it("compara por `id`, no por identidad de objeto", () => {
+    // El catálogo se vuelve a pedir en cada carga, así que el MISMO trabajo llega como un objeto
+    // distinto; comparar referencias diría «cambió» siempre y el aviso saltaría en cada YAML.
+    const clon = structuredClone(porId("pd_lifetime"))
+    const cambio = jobSwitchForConfig(
+      JOBS,
+      { data: {}, survival: {}, report: {} },
+      clon,
+    )
+    expect(clon).not.toBe(porId("pd_lifetime"))
+    expect(cambio.cambia).toBe(false)
+  })
+
+  it("sin trabajo activo y sin trabajo elegible no hay cambio que anunciar", () => {
+    expect(jobSwitchForConfig(JOBS, {}, null)).toEqual({ job: null, cambia: false })
+  })
+
+  it("perder el trabajo TAMBIÉN es un cambio: el sidebar pasa a mostrarlo todo", () => {
+    const cambio = jobSwitchForConfig(JOBS, {}, porId("scorecard_pd"))
+    expect(cambio).toEqual({ job: null, cambia: true })
+    expect(sectionsOfJob(cambio.job)).toEqual(CONFIG_SECTIONS)
   })
 })
 
