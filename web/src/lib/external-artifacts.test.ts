@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  CARTERA_KEY_PATH,
   artifactKey,
-  carteraKeyColumn,
   carteraKeyMismatch,
   externalRefs,
   missingExternalInputs,
@@ -142,41 +140,21 @@ describe("withColumnMapping", () => {
   })
 })
 
-describe("la llave tiene que estar en los dos lados (D-PUE-6-bis)", () => {
-  it("distingue los tres estados de la cartera, que no son dos", () => {
-    // `undefined` (no pide cartera) y `null` (la pide y no declara identificador) llevan a
-    // decisiones opuestas: en el primero una llave es válida, en el segundo cruza las filas.
-    expect(carteraKeyColumn({ performance: {} })).toBeUndefined()
-    expect(carteraKeyColumn({ data: { schema: {} } })).toBeNull()
-    expect(carteraKeyColumn({ data: { schema: { index_col: "" } } })).toBeNull()
-    expect(carteraKeyColumn({ data: { schema: { index_col: "id_op" } } })).toBe("id_op")
+describe("la llave tiene que estar en los dos archivos (D-PUE-6-bis)", () => {
+  it("acusa la llave que la cartera no tiene, que es lo que impide emparejar", () => {
+    expect(carteraKeyMismatch("id_op", ["otra", "saldo"])).toBe(true)
   })
 
-  it("acusa el desajuste que cruzaba las probabilidades en silencio", () => {
-    expect(carteraKeyMismatch({ data: { schema: {} } }, "id_op")).toBe(true)
-    expect(carteraKeyMismatch({ data: { schema: { index_col: "otra" } } }, "id_op")).toBe(true)
+  it("no acusa cuando la llave está en los dos, ni por orden de filas", () => {
+    // Un aviso que se dispara de más se aprende a ignorar, así que los negativos importan tanto.
+    expect(carteraKeyMismatch("id_op", ["id_op", "saldo"])).toBe(false)
+    expect(carteraKeyMismatch(null, ["saldo"])).toBe(false)
   })
 
-  it("no acusa cuando la llave coincide, ni sin cartera, ni por orden de filas", () => {
-    // Un aviso que se dispara de más se aprende a ignorar, así que los tres negativos importan.
-    expect(carteraKeyMismatch({ data: { schema: { index_col: "id_op" } } }, "id_op")).toBe(false)
-    expect(carteraKeyMismatch({ performance: {} }, "id_op")).toBe(false)
-    expect(carteraKeyMismatch({ data: { schema: {} } }, null)).toBe(false)
-  })
-
-  it("elegir la llave escribe el identificador de la cartera en el config, no en otro canal", () => {
-    const config = { data: { schema: { index_col: null } } }
-    const next = withColumnMapping(config, [CARTERA_KEY_PATH], "id_op")
-    expect(next).toEqual({ data: { schema: { index_col: "id_op" } } })
-    expect(config.data.schema.index_col).toBeNull()
-  })
-
-  it("no enciende una sección `data` que el trabajo dejó apagada", () => {
-    // Activar una sección es un gesto de estructura del usuario: escribirla aquí encendería
-    // `data` con sus decisiones obligatorias en un trabajo que no la pide.
-    expect(withColumnMapping({ performance: {} }, [CARTERA_KEY_PATH], "id_op")).toEqual({
-      performance: {},
-    })
+  it("con la cartera aún sin elegir no afirma nada", () => {
+    // `undefined` es «todavía no sé qué columnas tiene», no «no tiene ninguna»: es la misma
+    // distinción que el multiselect hace entre «no hay lista» y «la lista está vacía».
+    expect(carteraKeyMismatch("id_op", undefined)).toBe(false)
   })
 })
 

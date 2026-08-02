@@ -194,7 +194,12 @@ def _barrer_modulo(archivo: Path) -> tuple[set[tuple[str, str]], list[str]]:
             else:
                 registros.add((funcion.attr.upper(), f"{prefijo}{path}"))
 
-        elif funcion.attr in {"add_api_route", "add_route"}:
+        elif funcion.attr in {"add_api_route", "add_route", "api_route", "route"}:
+            # ⚠️ `api_route`/`route` son los DECORADORES genéricos —`@router.api_route("/x",
+            # methods=["POST"])`—, hermanos de `add_api_route` y tan válidos como `@router.post`.
+            # El barrido no los conocía y devolvía cero rutas para ellos: lo encontró una revisión
+            # adversarial cruzada, no la suite. Una API de registro que el gate no reconoce es un
+            # falso negativo con la forma exacta del defecto que el gate existe para cerrar.
             path = _ruta_constante(nodo.args[0]) if nodo.args else None
             metodos = _metodos_declarados(nodo)
             if path is None or metodos is None:

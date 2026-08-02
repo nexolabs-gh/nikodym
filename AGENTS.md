@@ -9,7 +9,44 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-01 noche, **D-JOB-7 CERRADO**)
+## Estado vigente (2026-08-02, **los seis defectos de D-JOB-7 cerrados**)
+
+**PyPI sigue en `1.10.0` y no hay release autorizado.** Gates del cierre: pytest **4.787 passed /
+6 skipped**, vitest **462/462**, mypy 244, `ruff check` **y** `format`, typecheck y lint del front,
+bundle reconstruido, `mkdocs --strict`.
+
+✅ **Fase 1 completa e integrada:** los seis defectos que Codex encontró el 2026-08-02, más dos que
+aparecieron al arreglarlos. Cada uno con su control negativo **ejecutado**.
+
+🔴 **La lección transferible: el arreglo del defecto grave estuvo MAL DOS VECES, y las dos se
+midieron.** (1) El diseño original de D-PUE-6 indexaba **un solo lado**, así que con llaves
+numéricas los índices coincidían por accidente y la PD de cada operación caía en otra **sin un solo
+error**. (2) La primera corrección —exigir `data.schema.index_col`— **tampoco servía**: ese campo
+comprueba el nombre de un índice **ya existente** y nunca hace `set_index` (`data/schema.py:36-39`),
+de modo que con una cartera `.csv` mataba la corrida en su primer paso. (3) Lo que quedó es
+**D-PUE-6-bis**: el backend **empareja** él mismo, verifica cobertura y devuelve el artefacto con el
+índice de la cartera — cero fricción, cero config, ningún hash movido.
+
+⚠️ **Y por qué la verificación en vivo no podía verlo:** `performance` **no consume
+`('data','frame')`**, sólo los dos artefactos externos, consistentes entre sí aunque ambos estén
+cruzados respecto de la cartera. **Un gate end-to-end puede pasar con el defecto puesto** si el paso
+que ejercita no cruza los datos que el defecto corrompe; se comprobó reintroduciéndolo.
+
+✅ **El gate de rutas mide ahora `(método, ruta)`**, veta las parametrizadas en categoría protegida y
+barre **toda** la capa `ui/` contrastando contra `create_app()`. ⚠️ `_IncludedRouter` no expone
+`routes` ni `router` en fastapi 0.138 — las rutas cuelgan de `original_router`, y asumir lo contrario
+daba verde vacío.
+
+✅ **`upload_max_mb` gobierna de verdad** y el tope se comprueba antes de traer el cuerpo a memoria.
+⚠️ Alcance declarado: no evita la transferencia ni el temporal, porque FastAPI parsea el multipart
+antes del handler. Cerrarlo exige un middleware sobre el stream ASGI, sin decidir.
+
+**Siguiente: Fase 2**, con camino decidido — mantener `data` y **acotar las decisiones por trabajo**,
+que exige enmienda a D-OBL-6 antes de programar. Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-01 noche, **D-JOB-7 CERRADO**)
 
 **`main` = `09b4a2d`, con CI 16/16 confirmado por `gh`.** **PyPI sigue en `1.10.0` y no hay release
 autorizado.** Gates: **4761 passed / 6 skipped**, vitest **459/459**, mypy 244, ruff check +

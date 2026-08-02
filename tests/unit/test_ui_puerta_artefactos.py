@@ -26,10 +26,6 @@ from nikodym.ui.exceptions import UiArtifactError
 _PD_CLAVE = ["calibration", "calibrated_pd_frame"]
 _SCORE_CLAVE = ["scorecard", "score"]
 
-#: Config de una cartera que declara su identificador, que es lo que D-PUE-6-bis exige para que la
-#: alineación por etiqueta sea genuina y no una coincidencia entre la llave y un `RangeIndex`.
-_CARTERA_CON_LLAVE: dict[str, object] = {"data": {"schema": {"index_col": "id_operacion"}}}
-
 
 def _subir(workdir: Path, frame: pd.DataFrame, nombre: str) -> str:
     """Ingesta un frame como si el usuario hubiera subido su CSV, y devuelve su identificador."""
@@ -116,18 +112,22 @@ def test_sin_insumo_declarado_el_camino_es_el_de_siempre(tmp_path: Path, cartera
 # ─────────────────────────────── índice y alineación (D-PUE-4/6) ───────────────────────────────
 
 
-def test_con_llave_declarada_el_frame_entra_indexado_por_ella(
+def test_con_llave_declarada_el_frame_adopta_el_indice_de_la_cartera(
     tmp_path: Path, cartera: str, modelo: str
 ) -> None:
-    """El motor alinea por etiqueta de índice, y `read_csv` no lo restituye: hay que fijarlo."""
+    """El motor alinea por etiqueta, y la etiqueta que vale es la de la CARTERA (D-PUE-6-bis).
+
+    ⚠️ Este test aseveraba antes que el índice quedaba en los valores de la llave, y ése era
+    exactamente el defecto: indexar un solo lado no alinea, cruza. La llave se usa para emparejar
+    y después el artefacto adopta el índice contra el que el motor va a alinear.
+    """
     externos = routes._materializar_externos(
         [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
         cartera,
         workdir=tmp_path,
-        config=_CARTERA_CON_LLAVE,
     )
     frame = externos[("calibration", "calibrated_pd_frame")]
-    assert list(frame.index) == [f"OP-{i}" for i in range(6)]
+    assert list(frame.index) == list(range(6)), "el índice es el de la cartera"
     assert "id_operacion" not in frame.columns, "la llave pasa al índice, no se duplica"
     assert {"muestra", "malo", "probabilidad", "puntaje"} <= set(frame.columns)
 
@@ -146,7 +146,6 @@ def test_una_llave_que_el_archivo_no_tiene_se_rechaza_nombrando_las_que_hay(
             [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_inventado"}],
             cartera,
             workdir=tmp_path,
-            config={"data": {"schema": {"index_col": "id_inventado"}}},
         )
     assert "probabilidad" in str(exc.value), "el error tiene que listar las columnas disponibles"
 
@@ -166,7 +165,6 @@ def test_un_mismo_archivo_alimenta_las_dos_claves_con_el_mismo_indice(
         ],
         cartera,
         workdir=tmp_path,
-        config=_CARTERA_CON_LLAVE,
     )
     assert set(externos) == {("calibration", "calibrated_pd_frame"), ("scorecard", "score")}
     pd_frame = externos[("calibration", "calibrated_pd_frame")]
@@ -224,75 +222,127 @@ def test_una_llave_mal_tipada_se_rechaza(tmp_path: Path, cartera: str, modelo: s
 # sólo con la llave declarada en los dos lados.
 
 
-def test_con_llaves_numericas_y_cartera_sin_identificador_ya_no_se_cruzan_las_filas(
-    tmp_path: Path,
-) -> None:
+def test_con_llaves_numericas_las_filas_ya_no_se_cruzan(tmp_path: Path) -> None:
     """El control negativo del defecto: es EXACTAMENTE el caso que cruzaba en silencio.
 
     Cartera `[1, 0]` y archivo `[0, 1]`: los dos índices se intersecan del todo con el `RangeIndex`,
-    así que nada falla y la operación 1 recibía la probabilidad de la 0. Ahora se detiene antes.
+    así que nada fallaba y la operación 1 recibía la probabilidad de la 0. Ahora el backend empareja
+    de verdad, y lo que se asevera es el VALOR que le toca a cada fila, no que se levante un error:
+    el arreglo bueno hace la corrida correcta, no imposible.
     """
     cartera = _subir(tmp_path, pd.DataFrame({"id_operacion": [1, 0], "saldo": [1.0, 2.0]}), "c.csv")
     modelo = _subir(
         tmp_path, pd.DataFrame({"id_operacion": [0, 1], "probabilidad": [0.1, 0.9]}), "m.csv"
     )
-    with pytest.raises(UiArtifactError, match="no declara ninguna columna como identificador"):
-        routes._materializar_externos(
-            [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
-            cartera,
-            workdir=tmp_path,
-            config={"data": {"schema": {}}},
-        )
+
+    externos = routes._materializar_externos(
+        [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
+        cartera,
+        workdir=tmp_path,
+    )
+
+    pd_frame = externos[("calibration", "calibrated_pd_frame")]
+    assert list(pd_frame.index) == [0, 1], "el artefacto adopta el índice de la cartera"
+    assert pd_frame["probabilidad"].iloc[0] == 0.9, (
+        "la fila 0 de la cartera es la operación 1, y su probabilidad es 0,9 — antes recibía 0,1"
+    )
+    assert pd_frame["probabilidad"].iloc[1] == 0.1
 
 
-def test_una_llave_distinta_del_identificador_de_la_cartera_se_rechaza(
+def test_el_emparejamiento_funciona_con_una_cartera_csv_normal(
     tmp_path: Path, cartera: str, modelo: str
 ) -> None:
-    """Dos llaves distintas no alinean nada, y el mensaje nombra la de la cartera."""
-    with pytest.raises(UiArtifactError, match="usa «saldo»"):
-        routes._materializar_externos(
-            [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
-            cartera,
-            workdir=tmp_path,
-            config={"data": {"schema": {"index_col": "saldo"}}},
-        )
+    """🔴 El primer intento de corregir esto NO funcionaba con `.csv`, que es el caso normal.
 
-
-def test_el_mensaje_ofrece_las_dos_salidas_y_no_solo_el_problema(
-    tmp_path: Path, cartera: str, modelo: str
-) -> None:
-    """Cami lo pidió explícitamente: la regla es dura, pero quien prueba algo rápido puede seguir.
-
-    Un mensaje que sólo dijera «falta el identificador» dejaría al usuario sin saber que puede
-    quitar la llave y correr por orden de filas, que es lo razonable mientras explora.
-    """
-    with pytest.raises(UiArtifactError) as exc:
-        routes._materializar_externos(
-            [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
-            cartera,
-            workdir=tmp_path,
-            config={"data": {"schema": {}}},
-        )
-    mensaje = str(exc.value)
-    assert "declara «id_operacion» también como identificador de tu cartera" in mensaje
-    assert "quítalo aquí" in mensaje and "por su orden" in mensaje
-
-
-def test_sin_cartera_en_el_config_la_llave_se_acepta_sin_mas(tmp_path: Path, modelo: str) -> None:
-    """Un trabajo que no pide cartera no tiene índice contra el que cruzar nada.
-
-    La coherencia entre los dos artefactos externos la sigue exigiendo el motor, que compara sus
-    índices en los dos sentidos; esta capa no tiene por qué duplicar esa comprobación.
+    Exigía declarar `data.schema.index_col`, y ese campo comprueba el nombre de un índice **ya
+    existente**: nunca hace `set_index` (`data/schema.py:36-39`). Una cartera CSV llega con
+    `RangeIndex`, así que declararlo mataba la corrida en su primer paso. Este test es el que
+    aquella versión no podía pasar.
     """
     externos = routes._materializar_externos(
         [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
-        modelo,
+        cartera,
         workdir=tmp_path,
-        config={"data": None},
     )
-    assert list(externos[("calibration", "calibrated_pd_frame")].index) == [
-        f"OP-{i}" for i in range(6)
-    ]
+
+    frame = externos[("calibration", "calibrated_pd_frame")]
+    assert list(frame.index) == list(range(6)), "el índice es el de la cartera, no el de la llave"
+    assert list(frame["probabilidad"]) == [0.1, 0.8, 0.2, 0.05, 0.7, 0.15]
+
+
+def test_una_llave_que_la_cartera_no_tiene_se_rechaza_con_las_dos_salidas(
+    tmp_path: Path, cartera: str, modelo: str
+) -> None:
+    """Emparejar exige la columna en los dos archivos, y el mensaje ofrece cómo seguir.
+
+    Cami lo pidió explícitamente: la regla es dura, pero quien prueba algo rápido tiene que poder
+    continuar. Un mensaje que sólo dijera «falta la columna» dejaría al usuario sin saber que puede
+    quitar la llave y emparejar por orden de filas.
+    """
+    sin_llave = _subir(tmp_path, pd.DataFrame({"probabilidad": [0.1] * 6}), "sin_llave.csv")
+
+    with pytest.raises(UiArtifactError) as exc:
+        routes._materializar_externos(
+            [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "muestra"}],
+            sin_llave,
+            workdir=tmp_path,
+        )
+
+    mensaje = str(exc.value)
+    assert "tu cartera no tiene esa columna" in mensaje
+    assert "orden de filas" in mensaje, "el mensaje tiene que decir cómo seguir, no sólo qué falla"
+
+
+def test_un_archivo_que_no_cubre_la_cartera_se_rechaza_nombrando_lo_que_falta(
+    tmp_path: Path, cartera: str
+) -> None:
+    """La cobertura es lo que el preflight declara no poder comprobar (D-PUE-8): aquí sí se puede.
+
+    Antes esto aparecía a mitad de la corrida con el mensaje del motor. Ahora se detiene en la
+    puerta, antes de calcular nada, y nombra las operaciones que faltan.
+    """
+    incompleto = _subir(
+        tmp_path,
+        pd.DataFrame({"id_operacion": [f"OP-{i}" for i in range(4)], "probabilidad": [0.1] * 4}),
+        "incompleto.csv",
+    )
+
+    with pytest.raises(UiArtifactError, match="OP-4") as exc:
+        routes._materializar_externos(
+            [{"artifact": _PD_CLAVE, "dataset_id": incompleto, "key_column": "id_operacion"}],
+            cartera,
+            workdir=tmp_path,
+        )
+    assert "2 de las operaciones" in str(exc.value)
+
+
+def test_el_modo_posicional_normaliza_el_indice_del_archivo(tmp_path: Path, cartera: str) -> None:
+    """⚠️ Un parquet subido con índice propio lo conservaba, y entonces cruzaba igual.
+
+    La pantalla promete «la fila 1 con la fila 1». Con el conteo cuadrando y un índice invertido
+    persistido en el parquet, el motor alineaba por esas etiquetas y el resultado salía cruzado sin
+    un solo error. Alinear por orden significa por orden.
+    """
+    con_indice = pd.DataFrame(
+        {"probabilidad": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]}, index=pd.Index(range(5, -1, -1))
+    )
+    ruta = tmp_path / "con_indice.parquet"
+    con_indice.to_parquet(ruta)
+    subido = str(
+        datasets_module.ingest_upload(ruta.read_bytes(), "con_indice.parquet", workdir=tmp_path)[
+            "dataset_id"
+        ]
+    )
+
+    externos = routes._materializar_externos(
+        [{"artifact": _PD_CLAVE, "dataset_id": subido, "key_column": None}],
+        cartera,
+        workdir=tmp_path,
+    )
+
+    frame = externos[("calibration", "calibrated_pd_frame")]
+    assert list(frame.index) == list(range(6)), "índice posicional, como el de la cartera"
+    assert frame["probabilidad"].iloc[0] == 0.1, "la primera fila del archivo va con la primera"
 
 
 def test_quitar_la_llave_es_la_salida_y_no_exige_un_campo_nuevo(
@@ -300,43 +350,45 @@ def test_quitar_la_llave_es_la_salida_y_no_exige_un_campo_nuevo(
 ) -> None:
     """«Continuar igual» es mandar `key_column: null`: el modo posicional que ya existía.
 
-    Se prueba que la salida funciona con el MISMO config que la regla dura rechaza, porque si
-    exigiera tocar el config no sería una salida sino otro trámite.
+    No añade ni un campo al contrato, que es la razón de haberlo preferido a inventar un
+    `align: "key" | "row_order"`.
     """
     externos = routes._materializar_externos(
         [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": None}],
         cartera,
         workdir=tmp_path,
-        config={"data": {"schema": {}}},
     )
     assert list(externos[("calibration", "calibrated_pd_frame")].index) == list(range(6))
 
 
-def test_el_preflight_avisa_del_desajuste_de_llave_antes_de_correr(
-    tmp_path: Path, cartera: str, modelo: str
+def test_el_preflight_avisa_de_la_llave_ausente_en_la_cartera_antes_de_correr(
+    tmp_path: Path, modelo: str
 ) -> None:
-    """§8.4: comparar dos campos declarados no lee un solo dato, así que respeta D-PRE-1 entero.
+    """§8.4: comparar dos listas de nombres de columna no lee un dato, así que respeta D-PRE-1.
 
     Y tiene que avisarlo aquí: es lo que convierte un 422 al apretar Ejecutar en un click.
     """
+    sin_llave = _subir(tmp_path, pd.DataFrame({"probabilidad": [0.1] * 6}), "sin_llave.csv")
+
     avisos = routes._preflight_insumos(
-        {"data": {"schema": {"index_col": "otra_columna"}}},
+        {},
         [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
-        cartera,
+        sin_llave,
         workdir=tmp_path,
     )
+
     desajuste = [a for a in avisos if a["kind"] == "external_key_mismatch"]
     clases = [a["kind"] for a in avisos]
     assert len(desajuste) == 1, f"se esperaba un aviso de llave; llegaron {clases}"
-    assert desajuste[0]["path"] == "data.schema.index_col", "el aviso salta al campo que se corrige"
+    assert "id_operacion" in desajuste[0]["message"]
 
 
-def test_el_preflight_no_avisa_cuando_la_llave_coincide(
+def test_el_preflight_no_avisa_cuando_la_llave_esta_en_los_dos(
     tmp_path: Path, cartera: str, modelo: str
 ) -> None:
     """Control negativo: un aviso que se dispara de más se aprende a ignorar."""
     avisos = routes._preflight_insumos(
-        _CARTERA_CON_LLAVE,
+        {},
         [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
         cartera,
         workdir=tmp_path,
@@ -691,3 +743,79 @@ def test_validar_con_insumo_externo_no_exige_credenciales_ni_escribe(tmp_path: P
     assert respuesta.status_code == 200
     assert respuesta.json()["pipeline"]["executable"] is True
     assert not (tmp_path / "datasets").exists(), "comprobar no puede materializar nada"
+
+
+def test_una_corrida_real_con_emparejamiento_llega_a_done(tmp_path: Path) -> None:
+    """La corrida completa funciona con la cartera y el archivo en ORDEN DISTINTO.
+
+    ⚠️ **Lo que este test NO prueba, y decirlo evita un falso verde:** que el emparejamiento sea
+    correcto. Se comprobó reintroduciendo el defecto —indexar sólo el archivo externo— y este test
+    **seguía pasando**. La razón está medida: `performance` no consume `('data', 'frame')`
+    (`performance/step.py:62-65`), sólo los dos artefactos externos, que salen del mismo archivo y
+    por tanto son consistentes **entre sí** aunque los dos estén cruzados respecto de la cartera.
+
+    🔴 Y eso explica por qué la verificación en vivo de la sesión anterior no vio el defecto: el
+    trabajo «validar un modelo existente» no cruza el artefacto con la cartera en ningún paso. Los
+    pasos que sí lo hacen son `provisioning_internal` —que exige cobertura del índice de la
+    cartera— y `stability` cuando toma el eje temporal de ahí.
+
+    El gate del cruce son los unitarios de arriba, que aseveran **qué valor** recibe cada fila y
+    que sí se ponen rojos con el defecto reintroducido. Éste cubre lo suyo: que la cadena entera
+    —subida, allowlist, emparejamiento, motor, informe— termina bien.
+    """
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx2")
+    from _ui_client import ui_client
+
+    from nikodym.ui.settings import UiConfig
+
+    n = 40
+    ids = [f"OP-{i:02d}" for i in range(n)]
+    malos = [1 if i % 2 else 0 for i in range(n)]
+    cartera_id = _subir(tmp_path, pd.DataFrame({"id_operacion": ids, "saldo": [1.0] * n}), "c.csv")
+    # El archivo del modelo va en ORDEN INVERSO, y su probabilidad separa perfecto a los malos.
+    modelo_id = _subir(
+        tmp_path,
+        pd.DataFrame(
+            {
+                "id_operacion": list(reversed(ids)),
+                "muestra": ["desarrollo"] * n,
+                "malo": list(reversed(malos)),
+                "probabilidad": [0.9 if m else 0.1 for m in reversed(malos)],
+                "puntaje": [100.0 if m else 900.0 for m in reversed(malos)],
+            }
+        ),
+        "m.csv",
+    )
+
+    config = _config_de_validar_un_modelo()
+    config["performance"] = {
+        "pd_column": "probabilidad",
+        "partition_column": "muestra",
+        "target_column": "malo",
+        "score_column": "puntaje",
+        "partitions": ["desarrollo"],
+    }
+    cliente = ui_client(UiConfig(workdir=str(tmp_path)))
+    respuesta = cliente.post(
+        "/api/run",
+        json={
+            "config": config,
+            "dataset_id": cartera_id,
+            "external_artifacts": [
+                {"artifact": _PD_CLAVE, "dataset_id": modelo_id, "key_column": "id_operacion"},
+                {"artifact": _SCORE_CLAVE, "dataset_id": modelo_id, "key_column": "id_operacion"},
+            ],
+        },
+    )
+
+    assert respuesta.status_code == 200, respuesta.json()
+    assert respuesta.json()["status"] == "done", respuesta.json()
+    resultados = cliente.get(f"/api/results/{respuesta.json()['run_id']}").json()
+    discriminante = resultados["performance"]["discriminant"]
+    assert discriminante, f"la corrida no publicó métricas: {list(resultados['performance'])}"
+    aucs = [fila["auc"] for fila in discriminante if "auc" in fila]
+    assert aucs and all(auc == pytest.approx(1.0) for auc in aucs), (
+        f"AUC {aucs}: el archivo separa perfecto a los malos, así que la cadena entera tiene que "
+        "conservar esa relación entre puntaje y resultado observado."
+    )

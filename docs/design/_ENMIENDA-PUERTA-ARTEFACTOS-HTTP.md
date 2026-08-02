@@ -534,58 +534,90 @@ filas (`routes.py:714`, el `if key_column is None`). Con llave genuina eso es co
 puede legítimamente tener más filas que la cartera y el motor comprueba cobertura—, pero combinado
 con lo anterior deja el modo sin ninguna guarda.
 
-### 8.2 D-PUE-6-bis · La alineación por etiqueta exige la llave en **los dos lados**
+### 8.2 🔴 Y el primer intento de corregirlo también era falso: `index_col` **no indexa**
 
-Decisión de Cami (2026-08-02), y su criterio explícito fue que el diseño tiene que servir a **dos
-usuarios a la vez**: el que está probando algo rápido para ver qué da, y el que hace el modelo en
-serio. De ahí que la regla sea dura pero la salida exista.
+Esto se descubrió con la corrección ya escrita e implementada, en una segunda revisión adversarial
+cruzada. Se conserva porque es la lección, no un tropiezo anecdótico.
 
-**La regla dura:** el motor alinea por etiqueta **sólo** cuando la cartera y el artefacto declaran la
-**misma** llave. Nunca implícitamente. En concreto, con `key_column` declarada:
+La primera versión de D-PUE-6-bis exigía que la cartera declarase `data.schema.index_col` con la
+misma columna, y la interfaz lo escribía por clicks. **No funciona**, y la razón está escrita en el
+propio núcleo (`data/schema.py:36-39`): *«`index_col` se interpreta como el nombre del índice pandas
+**ya existente**: el validador no ejecuta `set_index` ni consume una columna ordinaria con ese
+nombre»*. Nadie hace `set_index` en la carga —medido, `git grep set_index` en `nikodym/data/` sólo
+devuelve ese docstring—.
 
-1. Si `data.schema.index_col` **coincide** con `key_column` → alineación por etiqueta, genuina.
-   Es el modo correcto y el único que merece llamarse así. Medido: con los dos lados indexados, la
-   operación `1` recibe su `0.9`.
-2. Si **no coincide** (o `data` está activo sin `index_col`) → **422 antes de correr**, con un
-   mensaje que nombra las **dos** salidas y no sólo el problema.
-3. Si `data` está **apagado** —el trabajo que no pide cartera— la llave se acepta sin más: no hay
-   índice contra el que cruzar, y la coherencia entre los dos artefactos externos ya la exige el
-   motor (`performance/step.py:183-190`).
+Consecuencia medida: una cartera que llega por `.csv` o `.xlsx` se materializa con `RangeIndex`, así
+que declararle `index_col` hace que **la corrida muera en su primer paso** con
+`DataValidationError: el índice no se llama como el esquema espera`. El «modo seguro» quedaba
+inalcanzable justo para los dos formatos que más se usan, empujando a todo el mundo al modo
+posicional, que es el arriesgado. Segundo diseño consecutivo que **se lee bien y no sobrevive a la
+medición**.
 
-**La salida para quien está probando, y es la razón de que esto no sea un muro.** El usuario puede
-decir «no quiero declarar identificador, sigue igual», y entonces la corrida se hace **en modo
-posicional declarado**: con su aviso en pantalla, su error duro de conteo de filas y su caveat en el
-lineage y el informe. Nunca se degrada a la alineación por etiqueta contra un índice no vinculado,
-que es justamente la que cruza en silencio.
+### 8.3 D-PUE-6-bis · El backend **empareja** por la llave; no le pide nada al config
 
-⚠️ **Esa salida NO añade contrato:** «continuar igual» es, literalmente, mandar `key_column: null`,
-que es el modo posicional que D-PUE-6 ya definió. El cuerpo de la petición no gana ni un campo, y
-la interfaz gana un botón, no una forma nueva que aprender. Se prefirió a inventar un
-`align: "key" | "row_order"` por la misma razón que D-PUE-3 prefirió no abrir un endpoint: la
-superficie que no nace no hay que auditarla.
+Decisión de Cami (2026-08-02), tras medir lo anterior. Su criterio explícito, ya en la primera
+versión, era que el diseño sirviera a **dos usuarios a la vez**: el que prueba algo rápido para ver
+qué da, y el que hace el modelo en serio. Esta forma sirve a los dos sin pedirle nada a ninguno.
 
-### 8.3 Qué hace la interfaz, para que la regla dura no se note
+**Con `key_column` declarada, el backend hace el emparejamiento él mismo**, en la capa de interfaz y
+sin tocar el config:
 
-Al elegir la llave del artefacto (el selector que D-PUE-5 ya pinta), la interfaz escribe **también**
-`data.schema.index_col` con esa columna, si la cartera la tiene. El caso correcto pasa a ser el que
-ocurre sin pedir nada. Si la cartera **no** trae esa columna, se dice en pantalla y quedan las dos
-salidas honestas: elegir otra llave, o continuar por orden de filas con su aviso.
+1. Lee la columna llave **de los dos** archivos —la cartera ya está materializada; leerla en
+   `/api/run` es legítimo, porque ahí sí se leen los datos (D-PRE-1 vincula al **preflight**)—.
+2. Si la cartera **no tiene** esa columna → **422**, nombrando las dos salidas.
+3. Si las etiquetas del artefacto **no cubren** las de la cartera → **422**, nombrando las que
+   faltan. Es la comprobación que el preflight declara no poder hacer (D-PUE-8) y que hasta ahora
+   sólo aparecía a mitad de la corrida, con jerga del motor.
+4. Si cubren, el artefacto se **reordena según la cartera** y recibe **su mismo índice**. El motor
+   alinea entonces por etiqueta sobre índices que son el mismo objeto lógico, sea `RangeIndex` o
+   cualquier otro.
 
-⚠️ `data.schema.index_col` **sí entra en el `config_hash`** —sólo `data.load.source` está excluido
-(`hashing.py:38-46`)—, y por eso lo escribe **el formulario** y no el backend a espaldas del usuario.
-Cablearlo en la petición, como se cablea `data.load.source`, habría hecho que el config ejecutado
-dejara de ser el que el usuario ve y valida: exactamente la clase de defecto que el paquete D cerró.
+Medido: alinea correcto con cartera `.csv`, con `.xlsx` y con un parquet que traiga índice propio.
+
+**Por qué esta forma y no enseñar al motor a indexar.** `set_index` en la carga es cambio de
+contrato del núcleo —contradice lo que `SchemaValidator` documenta— y **movería el `data_hash`** de
+toda corrida que declare `index_col`. El emparejamiento, en cambio, es exactamente el mismo tipo de
+servicio que la interfaz ya presta al cablear `dataset_id` → `data.load.source`: resolver una
+referencia del usuario a algo que el motor entiende, sin inventar config. **Ningún `config_hash` se
+mueve, y el config que se ejecuta sigue siendo el que el usuario ve.**
+
+**La salida para quien está probando** sigue intacta: `key_column: null` alinea por orden de filas,
+con su aviso en pantalla, su error duro de conteo y su caveat en el lineage y el informe. No añade
+ni un campo al contrato — «continuar igual» es el modo que D-PUE-6 ya definía.
+
+⚠️ **En el modo posicional el índice se normaliza** (`reset_index(drop=True)`). No es un detalle: un
+parquet subido con índice propio lo conservaba, y entonces el motor alineaba por *esas* etiquetas
+mientras la pantalla prometía «la fila 1 con la fila 1». Con conteo igual e índices `[1,0]`, cruzaba
+sin error. Alinear por orden significa **por orden**, y para eso el índice tiene que ser posicional.
 
 ### 8.4 El preflight lo avisa antes, sin leer los datos
 
-D-PUE-8 se extiende: comparar `key_column` con `data.schema.index_col` es comparar **dos campos
-declarados**, así que no toca los datos y respeta D-PRE-1 íntegro. El aviso viaja por el canal de
-`external_mismatches` que D-PUE-8 ya abrió, con su salto al campo.
+D-PUE-8 se extiende con lo que **sí** se puede saber del esquema: que la `key_column` exista también
+en la cartera. Es comparar dos listas de nombres de columna, así que no toca los datos y respeta
+D-PRE-1 íntegro.
 
-### 8.5 Contrato
+⚠️ Lo que el preflight **sigue sin poder** comprobar es la **cobertura** de las etiquetas: eso exige
+comparar valores. Se declara aquí con su razón, igual que D-PUE-8 hizo con lo mismo — la diferencia
+es que ahora, cuando falla, lo dice la puerta antes de correr y en idioma de negocio, en vez del
+motor a mitad de camino.
+
+### 8.5 ⚠️ Por qué la verificación en vivo no podía ver el defecto
+
+Medido al escribir el gate de punta a punta, y explica algo que quedaba sin explicar: el recorrido
+completo por «validar un modelo existente» **no puede** exhibir el cruce, por mucho que se abra la
+pantalla. `performance` no consume `('data','frame')` (`performance/step.py:62-65`): sólo los dos
+artefactos externos, que salen del mismo archivo y por tanto son consistentes **entre sí** aunque
+los dos estén cruzados respecto de la cartera.
+
+Los pasos donde sí se cruza artefacto con cartera son `provisioning_internal` —que exige cobertura
+del índice de `data.frame`— y `stability` cuando toma de ahí el eje temporal. De modo que un gate
+end-to-end sobre este trabajo **pasa igual con el defecto puesto**: se comprobó reintroduciéndolo.
+Lo que discrimina son los tests que aseveran **qué valor** recibe cada fila. Queda escrito en el
+propio test para que nadie lo lea como cobertura que no da.
+
+### 8.6 Contrato
 
 Sigue siendo **MINOR** y **no rompe a nadie**: ninguna corrida que hoy funcione bien deja de
 funcionar. Lo que cambia es que una corrida que hoy produce un resultado **falso** pasa a detenerse
-con un mensaje, y una que hoy muere con jerga del motor se detiene antes y en idioma de negocio.
-Ningún `config_hash` se mueve por este cambio: `index_col` lo escribe el usuario, y un config que ya
-lo declaraba tiene el mismo hash que antes.
+con un mensaje. **Ningún `config_hash` ni `data_hash` se mueve**: el emparejamiento ocurre sobre el
+artefacto que viaja en la petición, no sobre el config ni sobre la cartera.

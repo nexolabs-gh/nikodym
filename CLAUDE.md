@@ -5,7 +5,69 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-01 noche, público `867477b`+docs): **D-JOB-7 CERRADO**
+> ## Lo último (2026-08-02): **los SEIS defectos de D-JOB-7, cerrados**
+>
+> ✅ **La Fase 1 del goal está completa e integrada**, con los seis defectos corregidos, sus
+> controles negativos ejecutados y una **segunda** revisión adversarial cruzada con Codex encima.
+>
+> 🔴 **La lección de la sesión: el arreglo del defecto 1 estuvo MAL DOS VECES, y las dos se
+> midieron.** Vale más que el código.
+>
+> 1. **El diseño original (D-PUE-6) era falso.** «Con `key_column`, esa columna pasa a ser el
+>    índice» indexa **un solo lado**: la cartera conserva su `RangeIndex`. Con llaves numéricas los
+>    dos índices coinciden **por accidente** y la PD de cada operación cae en otra **sin un solo
+>    error**; con llaves de texto no hay intersección y muere con jerga del motor.
+> 2. **La primera corrección TAMBIÉN era falsa, y ya estaba escrita e implementada.** Exigía que la
+>    cartera declarase `data.schema.index_col`. Medido: ese campo comprueba el nombre de un índice
+>    **ya existente** y **nunca hace `set_index`** (`data/schema.py:36-39`), así que con una cartera
+>    `.csv` o `.xlsx` —que llega con `RangeIndex`— **mata la corrida en su primer paso**. El «modo
+>    seguro» quedaba inalcanzable justo para los dos formatos normales. Lo encontró Codex sobre
+>    trabajo con 4.786 tests verdes, mypy limpio y verificación en vivo hecha.
+> 3. **Lo que quedó** (D-PUE-6-bis §8.3, decisión de Cami): **el backend empareja él mismo**. Lee la
+>    llave de los dos archivos, comprueba que las etiquetas del usuario **cubran** las de la cartera
+>    —422 nombrando las que faltan— y devuelve el artefacto reordenado **con el índice de la
+>    cartera**. Cero fricción, ningún campo de config, **ningún `config_hash` ni `data_hash`
+>    movido**, y funciona con CSV, Excel y parquet indexado.
+>
+> ⚠️ **Y por qué la verificación en vivo NO PODÍA verlo:** `performance` **no consume
+> `('data','frame')`** (`performance/step.py:62-65`), sólo los dos artefactos externos, que salen
+> del mismo archivo y son consistentes **entre sí** aunque los dos estén cruzados respecto de la
+> cartera. Un gate end-to-end sobre «validar un modelo» **pasa igual con el defecto puesto** —se
+> comprobó reintroduciéndolo—. Los pasos que sí cruzan son `provisioning_internal` y `stability`.
+> **Un test end-to-end puede dar verde sobre el defecto si el paso que ejercita no cruza los datos
+> que el defecto corrompe.**
+>
+> ✅ **Los otros cinco, y dos más que aparecieron.** `/api/validate` aceptaba claves fuera de la
+> allowlist (ahora se aplica al normalizar el cuerpo, así que la paridad vale en los **tres**
+> endpoints); una `key_column` inexistente daba 404 y ahora da 422 —⚠️ el comentario que decía que
+> lo decidía el orden de los `except` era **falso**: `UiArtifactError` y `UiDatasetError` son
+> **hermanas** bajo `UiError`—; y el gate de rutas pasa a medir **`(método, ruta)`**, veta las rutas
+> parametrizadas en categoría protegida y barre **toda** la capa `ui/` contrastando contra
+> `create_app()`. Aparecieron además un **500** de `/api/preflight` ante cuerpo malformado y un
+> falso negativo del barrido con `api_route`/`route`.
+>
+> ⚠️ **`_IncludedRouter` NO expone `routes` ni `router`** en fastapi 0.138: las rutas cuelgan de
+> **`original_router`**. Un test escrito sobre la forma supuesta habría recorrido cero rutas y dado
+> verde vacío.
+>
+> ✅ **Deuda 2 cerrada:** `UiConfig.upload_max_mb` gobierna de verdad y el tope se comprueba **antes**
+> de traer el cuerpo a memoria. ⚠️ **Alcance declarado, no supuesto:** no evita la transferencia ni
+> el archivo temporal —FastAPI parsea el multipart antes de llamar al handler, y los chunks tampoco
+> lo habrían evitado—. Cerrarlo exige un middleware sobre el stream ASGI, que está sin decidir.
+>
+> **Las tres mediciones que corrigieron premisas y que la próxima sesión NO debe re-medir:**
+> `unique_keys` **sí** declara `column_role` —el defecto es que `unwrapNullable` no lo propaga, y es
+> una línea de front—; `results.json` no trae lineage porque **nadie lo pide**, no por
+> serializabilidad, y es extensión aditiva de 4 archivos; y el perfil de columnas del catálogo es
+> **gratis** porque `materialize` ya tiene el DataFrame.
+>
+> **Siguiente: Fase 2**, con su camino ya decidido por Cami — mantener `data` y **acotar las
+> decisiones por trabajo**, lo que exige enmienda a D-OBL-6 escrita y aprobada antes de programar.
+> Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-01 noche, público `867477b`+docs): **D-JOB-7 CERRADO**
 >
 > ✅ **La puerta de artefactos se abre por HTTP/UI, y los dos trabajos bloqueados están vivos.**
 > «Provisión interna / LGD» y «Validar un modelo existente» (que es **P2**) pasan a `available`.

@@ -109,41 +109,24 @@ export function positionalInputs(
 }
 
 /**
- * Campo donde la cartera declara cuál de sus columnas identifica cada operación.
+ * ¿La llave elegida para el archivo existe también en la cartera? (D-PUE-6-bis).
  *
- * Es config normal —lo escribe igual quien trabaja por código— y **entra en el `config_hash`**, a
- * diferencia de `data.load.source`. Por eso lo escribe el formulario y no el backend a espaldas del
- * usuario: cablearlo en la petición haría que el config ejecutado dejara de ser el que él ve.
- */
-export const CARTERA_KEY_PATH = "data.schema.index_col"
-
-/**
- * Cómo identifica sus filas la cartera: el nombre de la columna, `null` si no declara ninguna, o
- * `undefined` si el trabajo directamente no pide cartera.
+ * 🔴 Existe porque emparejar exige la columna en los **dos** lados. Indexar sólo el archivo externo
+ * no alinea por etiqueta: cruza —la cartera conserva su índice posicional, así que con llaves
+ * numéricas los dos índices coinciden por accidente y la probabilidad de cada operación cae en
+ * otra sin que nada falle—. El backend hace el emparejamiento y rechaza con 422 si la columna no
+ * está; esto es para decirlo antes, en la misma pantalla donde se arregla.
  *
- * Los tres estados son distintos y hacen falta los tres: sin cartera no hay índice contra el que
- * cruzar nada, así que ahí una llave declarada es perfectamente válida.
+ * ⚠️ `undefined` en `carteraColumns` significa «todavía no sé qué columnas tiene», no «no tiene
+ * ninguna»: sin cartera elegida no se acusa nada, igual que el multiselect distingue «no hay lista»
+ * de «la lista está vacía».
  */
-export function carteraKeyColumn(config: ConfigDict): string | null | undefined {
-  const data = valueAtPath(config, "data")
-  if (typeof data !== "object" || data === null) return undefined
-  const declarada = valueAtPath(config, CARTERA_KEY_PATH)
-  return typeof declarada === "string" && declarada !== "" ? declarada : null
-}
-
-/**
- * ¿La llave elegida para el archivo NO es la que identifica la cartera? (D-PUE-6-bis).
- *
- * 🔴 Existe porque indexar sólo el archivo externo no alinea por etiqueta: **cruza**. La cartera
- * conserva su índice posicional salvo que alguien declare el suyo, de modo que con llaves numéricas
- * los dos índices coinciden por accidente y la probabilidad de cada operación cae en otra sin que
- * nada falle. El backend lo rechaza con 422; esto es para decirlo antes, en la misma pantalla donde
- * se arregla.
- */
-export function carteraKeyMismatch(config: ConfigDict, keyColumn: string | null): boolean {
-  if (keyColumn === null) return false
-  const cartera = carteraKeyColumn(config)
-  return cartera !== undefined && cartera !== keyColumn
+export function carteraKeyMismatch(
+  keyColumn: string | null,
+  carteraColumns: readonly string[] | undefined,
+): boolean {
+  if (keyColumn === null || carteraColumns === undefined) return false
+  return !carteraColumns.includes(keyColumn)
 }
 
 /**

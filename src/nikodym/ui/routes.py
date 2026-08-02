@@ -215,6 +215,22 @@ def _valor_en(config: Any, path: str) -> Any:
     return nodo
 
 
+def _columnas_de_la_cartera(dataset_id: Any, *, workdir: Path) -> set[str]:
+    """Nombres de columna de la cartera, leídos del **esquema** del parquet (D-PRE-1: sin datos).
+
+    Devuelve el conjunto vacío si el dataset aún no está: ahí no hay nada que comparar, y el
+    preflight no duplica el diagnóstico que la puerta ya da al ejecutar.
+    """
+    if not isinstance(dataset_id, str) or not dataset_id:
+        return set()
+    try:
+        source = datasets.materialize(dataset_id, workdir=workdir)
+    except UiDatasetError:
+        return set()
+    columnas, indices = _columnas_del_parquet(source)
+    return set(columnas) | set(indices)
+
+
 def _preflight_insumos(
     config: Any,
     external_artifacts: Any,
@@ -274,22 +290,20 @@ def _preflight_insumos(
 
         key_column = entrada.get("key_column")
         if isinstance(key_column, str) and key_column:
-            # D-PUE-6-bis (§8.4): comparar la llave con el identificador de la cartera es comparar
-            # dos campos DECLARADOS, así que se puede hacer aquí sin leer un solo dato (D-PRE-1).
-            # Y hay que hacerlo aquí: es el aviso que permite corregirlo con un click en vez de
-            # descubrirlo al apretar Ejecutar.
-            hay_cartera, index_col = _identificador_de_la_cartera(config)
-            if hay_cartera and index_col != key_column:
+            # D-PUE-6-bis (§8.4): que la llave exista TAMBIÉN en la cartera es comparar dos listas
+            # de nombres de columna, así que se sabe con el esquema y sin leer un dato (D-PRE-1).
+            # Lo que no se puede saber aquí es si las etiquetas cubren —eso exige valores—; lo
+            # comprueba la puerta al ejecutar, antes de correr y en idioma de negocio.
+            if key_column not in _columnas_de_la_cartera(dataset_id, workdir=workdir):
                 avisos.append(
                     {
-                        "path": "data.schema.index_col",
-                        "declared": index_col,
+                        "path": None,
+                        "declared": key_column,
                         "kind": "external_key_mismatch",
                         "message": (
-                            f"Elegiste «{key_column}» para identificar las filas de tu archivo, "
-                            f"pero tu cartera {_como_se_identifica(index_col)}. Declara "
-                            f"«{key_column}» también como identificador de tu cartera, o quítalo "
-                            "del archivo para emparejar por orden de filas."
+                            f"Tu cartera no tiene la columna «{key_column}» que elegiste para "
+                            "emparejar las filas. Elige una que esté en los dos archivos, o quita "
+                            "el identificador para emparejar por orden de filas."
                         ),
                     }
                 )
@@ -697,17 +711,44 @@ def _claves_externas(external_artifacts: Any) -> tuple[tuple[str, str], ...]:
     return tuple(entrada["artifact"] for entrada in _entradas_externas(external_artifacts))
 
 
-def _identificador_de_la_cartera(config: Any) -> tuple[bool, str | None]:
-    """Devuelve ``(la cartera participa, su columna identificadora)`` leyendo el config crudo.
+def _emparejar_con_la_cartera(frame: Any, cartera: Any, key_column: str) -> Any:
+    """Reordena ``frame`` para que cada fila caiga sobre la operación que le toca (D-PUE-6-bis).
 
-    Se lee del **dict** y no del modelo a propósito: una sección puede viajar opaca, y ahí el
-    modelo no la expande. ``data`` ausente o en ``None`` significa que el trabajo no pide cartera
-    —hay trabajos así— y entonces no hay índice contra el que cruzar nada.
+    🔴 **Ésta es la pieza que hace que el modo «con llave» signifique algo.** Indexar sólo el
+    archivo del usuario no alinea por etiqueta: cruza. La cartera conserva su ``RangeIndex`` —una
+    cartera ``.csv`` o ``.xlsx`` siempre—, así que con llaves numéricas los dos índices coinciden
+    **por accidente** y la probabilidad de cada operación se aplica a otra sin que nada falle; con
+    llaves de texto no hay intersección y la corrida muere con jerga del motor. Medido las dos
+    veces, y **la corrección de declarar ``data.schema.index_col`` tampoco servía**: ese campo
+    comprueba el nombre de un índice ya existente y nunca ejecuta ``set_index``
+    (`data/schema.py:36-39`), de modo que exigirlo rompía la corrida en su primer paso justo para
+    los dos formatos más usados.
+
+    Lo que sí funciona es emparejar aquí: se leen las etiquetas de los dos lados, se verifica que
+    las del archivo **cubran** las de la cartera y se devuelve el artefacto reordenado **con el
+    índice de la cartera**. El motor alinea entonces sobre el mismo objeto lógico, sea
+    ``RangeIndex`` o cualquier otro, y no hace falta pedirle nada al config — así ningún
+    ``config_hash`` ni ``data_hash`` se mueve, y el config que se ejecuta sigue siendo el que el
+    usuario ve.
     """
-    if not isinstance(config, dict) or not isinstance(config.get("data"), dict):
-        return False, None
-    index_col = _valor_en(config, "data.schema.index_col")
-    return True, index_col if isinstance(index_col, str) and index_col else None
+    if key_column not in cartera.columns:
+        disponibles = [str(c) for c in cartera.columns]
+        raise UiArtifactError(
+            f"elegiste «{key_column}» para emparejar las filas, pero tu cartera no tiene esa "
+            f"columna; las suyas son {disponibles}. Elige una columna que esté en los dos "
+            "archivos, o quita el identificador para emparejar por orden de filas."
+        )
+    etiquetas = cartera[key_column]
+    faltan = etiquetas[~etiquetas.isin(frame.index)]
+    if not faltan.empty:
+        muestra = [str(v) for v in faltan.unique()[:5]]
+        raise UiArtifactError(
+            f"el archivo que trajiste no tiene {len(faltan)} de las operaciones de tu cartera "
+            f"(por ejemplo {muestra}). Tiene que traer una fila por cada operación que vas a medir."
+        )
+    # `.set_axis` y no `.reindex(cartera.index)`: la etiqueta de la cartera puede repetirse o no ser
+    # posicional, y lo que hay que conservar es su ORDEN, no su valor.
+    return frame.reindex(etiquetas.to_numpy()).set_axis(cartera.index)
 
 
 def _materializar_externos(
@@ -723,24 +764,22 @@ def _materializar_externos(
 
     1. **Allowlist** (D-PUE-2): la aplica :func:`_entradas_externas`, antes de tocar el disco y para
        los tres endpoints por igual. Por código la puerta es general; por la red, no.
-    2. **Índice** (D-PUE-6-bis): con llave declarada, esa columna pasa a ser el índice **y la
-       cartera tiene que estar indexada por la misma columna**. Sin llave, el frame conserva su
-       índice posicional y alinea por orden de filas.
+    2. **Emparejamiento** (D-PUE-6-bis): con llave declarada, el backend alinea el archivo contra la
+       cartera él mismo — ver :func:`_emparejar_con_la_cartera`, que es donde vive el porqué.
     3. **Conteo de filas**, sólo en el modo posicional: es el único desalineamiento que se puede
        detectar sin abrir los archivos, y por eso es error duro y no aviso. ⚠️ Lo que **no** se
-       puede detectar aquí es un archivo con el mismo número de filas en otro orden: eso produce
-       una corrida sin errores con la probabilidad de cada cliente asignada a otro. De ahí que el
-       modo posicional lleve su caveat hasta el informe.
+       puede detectar ahí es un archivo con el mismo número de filas en otro orden: eso produce una
+       corrida sin errores con la probabilidad de cada cliente asignada a otro. De ahí que el modo
+       posicional lleve su caveat hasta el informe.
 
-    🔴 **Por qué el punto 2 exige la llave en los DOS lados** (§8 de la enmienda, D-PUE-6-bis).
-    Indexar sólo el frame externo no produce una alineación por etiqueta: produce un cruce. La
-    cartera conserva su ``RangeIndex`` salvo que el usuario declare ``data.schema.index_col``, así
-    que con llaves numéricas los dos índices coinciden **por accidente** y la probabilidad de cada
-    operación se aplica a otra sin que nada falle; con llaves de texto no hay intersección y muere
-    con jerga del motor. Medido las dos veces. Un modo silenciosamente incorrecto es peor que uno
-    declarado como aproximado, y por eso la salida no es degradar en silencio sino detenerse
-    nombrando las dos alternativas: declarar el identificador también en la cartera, o quitarlo de
-    aquí y aceptar el emparejamiento por orden, que sí lleva su aviso y su caveat.
+    ⚠️ **En el modo posicional el índice se normaliza**, y no es cosmético: un parquet subido con
+    índice propio lo conservaba, así que el motor alineaba por *esas* etiquetas mientras la pantalla
+    prometía «la fila 1 con la fila 1». Con el conteo cuadrando e índices ``[1, 0]``, cruzaba sin
+    error. Alinear por orden significa por orden, y para eso el índice tiene que ser posicional.
+
+    El ``config`` no se usa para decidir la alineación —eso fue un intento anterior que la medición
+    descartó (§8.2 de la enmienda)—: se conserva en la firma porque el preflight lo necesita para
+    avisar antes, y tenerlo aquí mantiene una sola forma de llamar a la puerta.
 
     Un mismo archivo puede alimentar **varias** claves (D-PUE-4), y es la forma que la interfaz
     propone: el motor exige que la PD y el puntaje compartan índice, y con una sola tabla eso se
@@ -750,9 +789,8 @@ def _materializar_externos(
     if not entradas:
         return {}
 
-    hay_cartera, index_col = _identificador_de_la_cartera(config)
     materializados: dict[tuple[str, str], Any] = {}
-    filas_de_la_cartera: int | None = None
+    cartera: Any = None
     for entrada in entradas:
         clave = entrada["artifact"]
         origen = entrada.get("dataset_id")
@@ -765,33 +803,21 @@ def _materializar_externos(
             raise UiArtifactError(
                 f"el identificador de fila debe ser el nombre de una columna; llegó {key_column!r}."
             )
-        if key_column is not None and hay_cartera and index_col != key_column:
-            raise UiArtifactError(
-                f"elegiste «{key_column}» para identificar las filas de tu archivo, pero tu "
-                f"cartera {_como_se_identifica(index_col)}. Para emparejar cada operación con la "
-                f"suya, declara «{key_column}» también como identificador de tu cartera. Si "
-                "prefieres seguir sin identificador, quítalo aquí: las filas se emparejarán por su "
-                "orden, con el aviso correspondiente."
-            )
         frame = datasets.load_frame(origen, workdir=workdir, key_column=key_column)
+        if cartera is None:  # una sola lectura, aunque el trabajo pida varios insumos
+            cartera = datasets.load_frame(dataset_id, workdir=workdir)
         if key_column is None:
-            if filas_de_la_cartera is None:
-                filas_de_la_cartera = datasets.row_count(dataset_id, workdir=workdir)
-            if len(frame) != filas_de_la_cartera:
+            if len(frame) != len(cartera):
                 raise UiArtifactError(
                     f"el archivo que trajiste tiene {len(frame)} filas y tu cartera tiene "
-                    f"{filas_de_la_cartera}. Sin una columna que identifique cada operación, las "
-                    "filas se emparejan por su orden, y para eso tienen que ser las mismas."
+                    f"{len(cartera)}. Sin una columna que identifique cada operación, las filas se "
+                    "emparejan por su orden, y para eso tienen que ser las mismas."
                 )
+            frame = frame.reset_index(drop=True)
+        else:
+            frame = _emparejar_con_la_cartera(frame, cartera, key_column)
         materializados[clave] = frame
     return materializados
-
-
-def _como_se_identifica(index_col: str | None) -> str:
-    """Fragmento del mensaje de D-PUE-6-bis: la cartera no declara identificador, o declara otro."""
-    if index_col is None:
-        return "no declara ninguna columna como identificador"
-    return f"usa «{index_col}»"
 
 
 def run_pipeline(
@@ -1034,6 +1060,17 @@ def build_router() -> APIRouter:
         entero ya en RAM: el límite existía y no limitaba nada. Starlette pone las partes grandes
         en un `SpooledTemporaryFile` y publica su tamaño, así que preguntarlo no materializa nada.
         Si el servidor no lo publicara, `upload_dataset` conserva la comprobación de siempre.
+
+        ⚠️ **Y lo que este tope NO cubre, dicho aquí en vez de dejarlo suponer:** FastAPI termina de
+        **recibir y parsear** el cuerpo multipart antes de llamar a este handler, así que el archivo
+        rechazado ya viajó por la red y ya se escribió al temporal en disco. Lo que se evita es la
+        copia final a memoria, no la transferencia — y la «lectura por chunks» que SDD-23 §11
+        prometía tampoco la habría evitado, porque el parseo es previo en las dos formas. Cerrarlo
+        de verdad exige un middleware que cuente bytes sobre el stream ASGI, que es superficie nueva
+        en la capa de seguridad y se decide aparte. El modelo de amenaza lo hace tolerable: la ruta
+        exige `Host`, `Origin` y token, o sea alguien que ya está dentro de la sesión local. Se
+        declara con su razón por la misma regla que D-PRE-4 y D-PUE-8: una guarda que no dice su
+        alcance se lee como cobertura total.
         """
         settings = request.app.state.settings
         workdir = Path(settings.workdir)
