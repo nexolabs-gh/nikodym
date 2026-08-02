@@ -10,13 +10,24 @@ rutas, así que se **valida** contra su forma canónica (32 hex) y se verifica q
 quede dentro de ``workdir/runs`` (mismo blindaje *path traversal* que ``datasets.materialize``): un
 ``run_id`` con separadores o ``..`` no puede escapar del directorio de trabajo.
 
-El contenido persistido es determinista **salvo dos campos declarados**: el ``run_id`` uuid que
-genera ``Study.run()`` (§9) y el ``created_at`` de la procedencia que ``results.json`` publica desde
-D-LIN-1. Los dos son marcas de identidad de *esta* corrida, no entradas del cálculo, y ninguno viaja
-a un hash. ⚠️ La lista es cerrada a propósito: cualquier otro campo que dependa del reloj o del
-entorno rompe la comparación entre dos corridas del mismo config, que es para lo que este
-directorio existe. El ``report.html`` del mismo directorio ya llevaba ``created_at`` dentro
-(``report/renderer.py``), así que el invariante describía a ``results.json``, no al directorio.
+**Qué es determinista aquí, dicho con precisión.** Lo son los **resultados de cálculo**: las cards
+de dominio y sus frames ricos. No lo es la **procedencia**, y decir «el contenido persistido es
+determinista (nada de reloj)» —como decía este docstring— era falso ya antes de D-LIN-1:
+
+- ``run_id`` es un uuid, por diseño (§9).
+- ``model_card.review_date`` y ``next_review_date`` salen de ``datetime.now(UTC)``
+  (``governance/model_card.py``), así que **con gobernanza este archivo ya traía reloj**;
+  ``environment`` describe la máquina que corrió.
+- ``lineage.created_at`` se publica desde D-LIN-1; y ``git_sha``, ``git_dirty``,
+  ``library_versions``, ``uv_lock_hash`` y ``determinism_caveats`` describen el árbol y el
+  entorno, no el cálculo, así que dos corridas del mismo config en dos máquinas difieren en
+  ellos legítimamente.
+
+⚠️ **Corolario para quien compare dos corridas**: la comparación se hace sobre los resultados de
+cálculo, **nunca** sobre el archivo entero. Un golden que congele todo `results.json` acusará
+diferencias que no son diferencias. Lo fija un test que serializa dos veces el mismo ``Study`` y
+exige que lo que varía esté dentro de esa lista — para que la lista no pueda quedarse corta en
+silencio, que es justo lo que le pasó a la frase anterior.
 """
 
 from __future__ import annotations

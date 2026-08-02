@@ -15,7 +15,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -959,6 +959,25 @@ def test_decimal_de_provisiones_se_serializa_como_numero() -> None:
 # ─────────────────────── procedencia publicada en el panel (D-LIN-1) ───────────────────────
 
 
+def _anexo_de_lineage(study: Study) -> dict[str, Any]:
+    """El payload REAL del Anexo de procedencia, construido por el propio ``ReportBuilder``.
+
+    Se construye en vez de replicarse: si se copiara aquí el ``model_dump`` del bundle, el test
+    volvería a ser autorreferencial y no mediría paridad con nada.
+    """
+    from nikodym.report.builder import ReportBuilder
+    from nikodym.report.config import ReportConfig
+    from nikodym.report.document import APPENDIX_LINEAGE_ID
+
+    # `missing_policy="skip"`: el fixture F1 no corre `eda`, y el default del motor exige su
+    # card. Es el mismo criterio de D-OBL-11 —el informe sólo exige lo que la corrida produce—
+    # aplicado aquí para poder construir el Anexo sin arrastrar capítulos ajenos.
+    cfg = ReportConfig(sections={"missing_policy": "skip"})
+    bundle = ReportBuilder.from_config(cfg).collect(study)
+    por_id = {seccion.id: seccion for seccion in bundle.sections}
+    return dict(por_id[APPENDIX_LINEAGE_ID].payload)
+
+
 def test_results_publica_la_procedencia_completa_del_bundle(f1_study: Study) -> None:
     """El panel publica el bundle ENTERO, y el conjunto de campos se deriva del propio modelo.
 
@@ -980,18 +999,28 @@ def test_results_publica_la_procedencia_completa_del_bundle(f1_study: Study) -> 
     assert lineage["git_dirty"] is bundle.git_dirty
 
 
-def test_la_procedencia_del_panel_es_la_misma_que_la_del_informe(f1_study: Study) -> None:
-    """Paridad panel ↔ Anexo del informe: dos superficies de la misma corrida no pueden discrepar.
+def test_la_procedencia_del_panel_es_la_misma_que_la_del_anexo_construido(f1_study: Study) -> None:
+    """Paridad panel ↔ Anexo del informe, contra el anexo REAL y no contra el mismo volcado.
 
-    El anexo se construye con ``bundle.lineage.model_dump(mode="json")`` (``report/builder.py``), y
-    esta clave con el mismo volcado. Aseverar la igualdad —y no que «ambas existen»— es lo que
-    impide que una de las dos gane un filtro y la otra no; era exactamente la asimetría que esta
-    clave existe para cerrar, y no tendría sentido reintroducirla dentro del propio arreglo.
+    🔴 La primera versión de este test comparaba ``payload["lineage"]`` con
+    ``bundle.model_dump(mode="json")`` — o sea el serializador **consigo mismo**—, y por eso habría
+    dado verde con las dos superficies divergiendo. Lo señaló la revisión adversarial cruzada, y es
+    la misma trampa que este repo ya pagó: un gate autorreferencial no mide paridad, mide que la
+    función es determinista.
+
+    Ahora se construye el capítulo de verdad y se compara con él. La **única** diferencia admitida
+    es ``injected_artifacts`` cuando va vacío: el anexo lo omite por D-ART-12, para conservar sus
+    bytes previos a la puerta de artefactos. Está enumerada aquí, así que cualquier OTRA divergencia
+    futura rompe.
     """
     payload = serialize_study(f1_study, governance=_GOVERNANCE)
-    bundle = f1_study.run_context.lineage
-    assert bundle is not None
-    assert payload["lineage"] == bundle.model_dump(mode="json")
+    anexo = _anexo_de_lineage(f1_study)
+    del_panel = dict(payload["lineage"])
+    if not del_panel.get("injected_artifacts"):
+        del_panel.pop("injected_artifacts", None)  # D-ART-12: el anexo tampoco lo trae
+    assert del_panel == anexo, (
+        "el panel y el Anexo publican procedencias distintas de la MISMA corrida"
+    )
 
 
 def test_la_procedencia_viaja_por_json_y_conserva_la_marca_de_tiempo(f1_study: Study) -> None:
@@ -1013,3 +1042,37 @@ def test_una_corrida_sin_procedencia_no_la_fabrica() -> None:
     study = Study(NikodymConfig(), apply_global_seed=False)
     assert study.run_context.lineage is None
     assert serialize_study(study, governance=None)["lineage"] is None
+
+
+def test_lo_que_varia_entre_dos_serializaciones_esta_declarado(f1_study: Study) -> None:
+    """El invariante de determinismo de ``ui/runs.py``, medido en vez de prometido.
+
+    🔴 El docstring de ``runs.py`` decía «el contenido persistido es determinista (nada de
+    reloj)», y era **falso ya antes de D-LIN-1**: con gobernanza ``ModelCardBuilder`` fecha con
+    ``datetime.now(UTC)``. Lo destapó la revisión adversarial cruzada, y la lección es la de siempre
+    en este repo: una invariante escrita en prosa y sin gate se separa del código en silencio.
+
+    Este test la ata. Si mañana otro campo pasa a depender del reloj o del entorno, o bien entra en
+    la lista con su razón, o esto se pone rojo.
+    """
+    primera = serialize_study(f1_study, governance=_GOVERNANCE)
+    segunda = serialize_study(f1_study, governance=_GOVERNANCE)
+
+    #: Lo que puede variar entre dos serializaciones del MISMO study, con su fuente.
+    no_deterministas = {
+        "model_card": ("review_date", "next_review_date", "environment"),
+    }
+    for clave, valores in primera.items():
+        otro = segunda[clave]
+        if clave in no_deterministas:
+            assert isinstance(valores, dict) and isinstance(otro, dict)
+            difieren = {k for k in valores if valores[k] != otro[k]}
+            assert difieren <= set(no_deterministas[clave]), (
+                f"«{clave}» varía en campos no declarados: "
+                f"{sorted(difieren - set(no_deterministas[clave]))}. Añádelos al docstring de "
+                "`ui/runs.py` con su razón, o hazlos deterministas."
+            )
+            continue
+        assert valores == otro, (
+            f"«{clave}» varía entre dos serializaciones del mismo Study y no está declarado"
+        )

@@ -254,20 +254,29 @@ def test_un_dataset_del_catalogo_recien_materializado_trae_perfil(tmp_path: Path
 def test_un_parquet_ya_materializado_sin_perfil_lo_gana(tmp_path: Path) -> None:
     """La trampa de la caché, que es el caso NORMAL y no el raro.
 
-    ``materialize`` retorna antes si el parquet existe. Sin reponer el perfil ahí, sólo lo tendría
-    el primer materializado de cada ``workdir``: todo lo cacheado —y todo lo materializado antes de
+    ``materialize`` retorna antes si el parquet existe. Sin reponer el perfil, sólo lo tendría el
+    primer materializado de cada ``workdir``: todo lo cacheado —y todo lo materializado antes de
     esta enmienda— se quedaría sin él para siempre, en silencio.
+
+    ⚠️ La reposición vive en ``load_profile`` y **no** en ``materialize``: ponerla ahí se la cobraba
+    a todo el que materializara, incluida ``row_count``, que promete resolver el conteo sin leer los
+    datos. Por eso el estado previo se comprueba mirando el **sidecar en disco** y no llamando a
+    ``load_profile``, que es justo la función que ahora lo repone.
     """
     path = datasets.materialize("hipotecario_comportamiento", workdir=tmp_path)
     esperado = datasets.load_profile("hipotecario_comportamiento", workdir=tmp_path)
     assert esperado is not None
 
     # Reproduce el estado real: parquet cacheado y perfil ausente.
-    datasets._ruta_perfil(tmp_path, "hipotecario_comportamiento").unlink()
-    assert datasets.load_profile("hipotecario_comportamiento", workdir=tmp_path) is None
+    ruta_perfil = datasets._ruta_perfil(tmp_path, "hipotecario_comportamiento")
+    ruta_perfil.unlink()
+    assert not ruta_perfil.exists()
     marca = path.stat().st_mtime_ns
 
-    datasets.materialize("hipotecario_comportamiento", workdir=tmp_path)
+    # Y `row_count` NO lo repone: su contrato es resolver el conteo por el pie del Parquet, sin
+    # leer los datos. Si reponer colgara de `materialize`, esta llamada leería el archivo entero.
+    datasets.row_count("hipotecario_comportamiento", workdir=tmp_path)
+    assert not ruta_perfil.exists(), "`row_count` no puede pagar la lectura del perfil"
 
     repuesto = datasets.load_profile("hipotecario_comportamiento", workdir=tmp_path)
     assert repuesto is not None
@@ -291,10 +300,12 @@ def test_un_upload_ya_materializado_sin_perfil_tambien_lo_gana(tmp_path: Path) -
         frame.to_csv(index=False).encode("utf-8"), "cartera.csv", workdir=tmp_path
     )
     dataset_id = ingerido["dataset_id"]
-    datasets._ruta_perfil(tmp_path, dataset_id).unlink()
-    assert datasets.load_profile(dataset_id, workdir=tmp_path) is None
+    ruta_perfil = datasets._ruta_perfil(tmp_path, dataset_id)
+    ruta_perfil.unlink()
+    assert not ruta_perfil.exists()
 
     datasets.materialize(dataset_id, workdir=tmp_path)
+    assert not ruta_perfil.exists(), "materializar no lee el parquet sólo por el perfil"
 
     perfil = datasets.load_profile(dataset_id, workdir=tmp_path)
     assert perfil is not None
@@ -367,3 +378,24 @@ def test_un_perfil_que_no_se_puede_escribir_no_tumba_la_materializacion(
 
     assert datasets.materialize("consumo_drift", workdir=tmp_path) == path
     assert datasets.load_profile("consumo_drift", workdir=tmp_path) is None
+
+
+def test_el_sidecar_es_accesorio_tambien_en_la_primera_materializacion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Un `workdir` que no deja escribir el perfil no puede tumbar la corrida (D-PERF-2).
+
+    🔴 La primera versión dejaba esta rama FUERA de la guarda: el parquet se escribía y, si el
+    sidecar fallaba, el error se propagaba **después** de haber materializado. El control negativo
+    que existía sólo inyectaba el fallo tras una materialización exitosa, o sea cubría la rama de
+    caché y no ésta. Lo destapó una revisión adversarial cruzada.
+    """
+
+    def _revienta(*args: object, **kwargs: object) -> None:
+        raise OSError("workdir de sólo lectura")
+
+    monkeypatch.setattr(datasets, "_guardar_perfil", _revienta)
+    path = datasets.materialize("hipotecario_comportamiento", workdir=tmp_path)
+
+    assert path.exists(), "el parquet se materializó pese a que el perfil no se pudo escribir"
+    assert datasets.load_profile("hipotecario_comportamiento", workdir=tmp_path) is None

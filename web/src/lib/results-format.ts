@@ -1413,6 +1413,50 @@ export function gitStamp(lineage: RunLineage): string | null {
 }
 
 /**
+ * Campos del bundle de procedencia que el panel **no pinta**, cada uno con su razón.
+ *
+ * 🔴 Existe porque el payload publica el bundle ENTERO y la pantalla enseña una proyección menor:
+ * sin declarar la diferencia, «el panel publica la procedencia» es una sobrepromesa, y el panel
+ * podía encogerse campo a campo sin que nada lo notara. Lo señaló la revisión adversarial cruzada.
+ * Un gate exige que toda clave del bundle esté **o pintada o listada aquí**.
+ */
+export const LINEAGE_NO_PINTADO: Record<string, string> = {
+  // El entorno completo son decenas de paquetes: es evidencia de auditoría, no algo que se lea en
+  // una tarjeta. Va íntegro en el payload y en el anexo del informe; aquí sólo la versión propia.
+  library_versions: "sólo se muestra la versión de la librería; el entorno entero va en el informe",
+  schema_version: "describe el formato del registro, no la corrida",
+  // Versión del FORMATO del bundle, no información sobre esta corrida.
+}
+
+/** Una fila de procedencia del panel: etiqueta y valor ya formateado. */
+export interface LineageRowData {
+  label: string
+  value: string | null
+}
+
+/**
+ * Las filas de procedencia que el panel pinta, en orden.
+ *
+ * Vive en `lib/` y no dentro del componente para que se pueda **probar de verdad**: vitest corre
+ * sin DOM, así que una proyección escrita en el JSX sólo se podría vigilar con un guardrail
+ * sintáctico sobre el fuente, que es más débil y más frágil.
+ */
+export function lineageRows(lineage: RunLineage): LineageRowData[] {
+  return [
+    { label: "data_hash", value: lineage.data_hash },
+    { label: "versión", value: lineage.library_versions.nikodym ?? null },
+    { label: "código", value: gitStamp(lineage) },
+    { label: "semilla", value: String(lineage.root_seed) },
+    { label: "entorno", value: lineage.uv_lock_hash },
+    { label: "ejecutada", value: lineage.created_at },
+    {
+      label: "traído de fuera",
+      value: lineage.injected_artifacts.length > 0 ? lineage.injected_artifacts.join(", ") : null,
+    },
+  ]
+}
+
+/**
  * El `config_hash` que el panel debe mostrar: el de la CORRIDA por delante del formulario.
  *
  * El panel documenta lo que se ejecutó, y el config de la pantalla puede haber cambiado desde

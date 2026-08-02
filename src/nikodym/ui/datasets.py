@@ -13,6 +13,7 @@ capa es *domain-agnostic*: no importa módulos de dominio ni reimplementa fórmu
 
 from __future__ import annotations
 
+import contextlib
 import json
 import tempfile
 from hashlib import sha256
@@ -369,14 +370,23 @@ def load_profile(dataset_id: str, *, workdir: Path) -> PerfilDataset | None:
     este ``workdir`` no tiene perfil, y ahí el preflight debe comportarse exactamente como antes en
     vez de afirmar sobre datos que nadie midió.
 
-    Lo tienen por igual los datasets subidos y los del catálogo: :func:`materialize` lo repone en su
-    rama de caché, así que un parquet materializado antes de que esto existiera tampoco se queda
-    sin el suyo.
+    Lo tienen por igual los datasets subidos y los del catálogo: si el parquet ya existe pero su
+    perfil no —el caso de todo lo materializado antes de esta enmienda—, se **repone aquí**,
+    leyéndolo.
+
+    🔴 La reposición vive en esta función y no en :func:`materialize` a propósito, y la primera
+    versión lo hizo mal. Puesta en `materialize`, la paga **todo** el que materialice, incluida
+    :func:`row_count`, que promete resolver el conteo *sin leer los datos* leyendo sólo el pie del
+    Parquet: un parquet legado sin sidecar la convertía en una lectura completa a memoria, que es
+    exactamente el contrato que esa función existe para dar. Aquí la paga sólo quien pide el perfil,
+    que es quien lo va a usar. Lo destapó una revisión adversarial cruzada.
     """
     try:
         ruta = _ruta_perfil(workdir, dataset_id)
     except UiDatasetError:
         return None
+    if not ruta.exists():
+        _reponer_perfil(workdir, dataset_id)
     if not ruta.exists():
         return None
     try:
@@ -398,13 +408,12 @@ def load_profile(dataset_id: str, *, workdir: Path) -> PerfilDataset | None:
         return None
 
 
-def _asegurar_perfil(workdir: Path, dataset_id: str, path: Path) -> None:
+def _reponer_perfil(workdir: Path, dataset_id: str) -> None:
     """Repone el perfil de un parquet que ya existe, leyéndolo (D-PERF-1).
 
-    Es la rama de caché de :func:`materialize`, y sin ella el perfil sería un privilegio del primer
-    materializado: un dataset cacheado —el caso **normal** desde la segunda corrida, y el único
-    posible para todo lo materializado antes de esta enmienda— retorna antes de tocar ningún
-    ``DataFrame`` y jamás ganaría el suyo.
+    Sin esto el perfil sería un privilegio del primer materializado: un dataset cacheado —el caso
+    **normal** desde la segunda corrida, y el único posible para todo lo materializado antes de esta
+    enmienda— retorna antes de tocar ningún ``DataFrame`` y jamás ganaría el suyo.
 
     Se repone **leyendo el parquet**, y no regenerando el dataset ni invalidando el archivo. Medido
     sobre los cinco datasets del catálogo (4.000-6.000 filas): leerlo cuesta 1,2-2,4 ms, regenerarlo
@@ -419,9 +428,16 @@ def _asegurar_perfil(workdir: Path, dataset_id: str, path: Path) -> None:
     :func:`materialize` está en el camino de ejecutar una corrida: romperlo por un sidecar
     —``workdir`` de sólo lectura, parquet corrupto— sería mucho peor que quedarse sin el aviso.
     """
-    ruta = _ruta_perfil(workdir, dataset_id)
-    if ruta.exists():
+    try:
+        path = (
+            _upload_path(workdir, dataset_id)
+            if dataset_id.startswith(_UPLOAD_PREFIX)
+            else _dataset_path(workdir, dataset_id)
+        )
+    except UiDatasetError:
         return
+    if not path.exists():
+        return  # todavía no se materializó: «no se sabe» sigue siendo la respuesta honesta
     try:
         _guardar_perfil(workdir, dataset_id, pd.read_parquet(path))
     except (OSError, ValueError):
@@ -459,7 +475,6 @@ def materialize(dataset_id: str, *, workdir: Path) -> Path:
     if dataset_id.startswith(_UPLOAD_PREFIX):
         path = _upload_path(workdir, dataset_id)
         if path.exists():
-            _asegurar_perfil(workdir, dataset_id, path)
             return path
         raise UiDatasetError(
             f"dataset subido '{dataset_id}' no encontrado; vuelva a subir el archivo."
@@ -471,7 +486,6 @@ def materialize(dataset_id: str, *, workdir: Path) -> Path:
         )
     path = _dataset_path(workdir, dataset_id)
     if path.exists():
-        _asegurar_perfil(workdir, dataset_id, path)
         return path
     path.parent.mkdir(parents=True, exist_ok=True)
     frame = _generate(dataset_id)
@@ -479,7 +493,11 @@ def materialize(dataset_id: str, *, workdir: Path) -> Path:
     # Se mide sobre el frame recién generado y no releyendo el parquet: es el mismo dato —el gate
     # `test_el_perfil_del_catalogo_equivale_al_de_la_ingesta` lo exige para los cinco datasets— y
     # aquí ya está en memoria, que es justo la razón por la que el perfil sale gratis.
-    _guardar_perfil(workdir, dataset_id, frame)
+    # Fail-soft igual que la reposición: el sidecar es accesorio y `materialize` está en el camino
+    # de ejecutar una corrida. Antes esta rama quedaba FUERA de la guarda, así que un `workdir` de
+    # sólo lectura tumbaba la primera materialización después de haber escrito ya el parquet.
+    with contextlib.suppress(OSError):
+        _guardar_perfil(workdir, dataset_id, frame)
     return path
 
 

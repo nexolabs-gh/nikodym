@@ -47,7 +47,6 @@ import {
   formatMoney,
   formatPValue,
   formatPercent,
-  gitStamp,
   gainsSeries,
   ifrs9DetailRows,
   ifrs9Headline,
@@ -58,6 +57,7 @@ import {
   ifrs9SummaryRows,
   ifrs9TermSourceLabel,
   ifrs9TermStructure,
+  lineageRows,
   internalGroupBars,
   liftByDecile,
   monotonicityLabel,
@@ -260,23 +260,11 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           <dl className="grid gap-1.5 font-mono text-xs text-muted-foreground">
             <LineageRow label="run_id" value={runId} />
             <LineageRow label="config_hash" value={configHash} />
-            {lineage ? (
-              <>
-                <LineageRow label="data_hash" value={lineage.data_hash} />
-                <LineageRow
-                  label="versión"
-                  value={lineage.library_versions.nikodym ?? null}
-                />
-                <LineageRow label="código" value={gitStamp(lineage)} />
-                <LineageRow label="ejecutada" value={lineage.created_at} />
-                {lineage.injected_artifacts.length > 0 ? (
-                  <LineageRow
-                    label="traído de fuera"
-                    value={lineage.injected_artifacts.join(", ")}
-                  />
-                ) : null}
-              </>
-            ) : null}
+            {lineage
+              ? lineageRows(lineage).map((fila) => (
+                  <LineageRow key={fila.label} label={fila.label} value={fila.value} />
+                ))
+              : null}
           </dl>
 
           {/* Los caveats van FUERA de la lista de hashes y en prosa: son la única parte de la

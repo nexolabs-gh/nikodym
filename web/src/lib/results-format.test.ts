@@ -11,8 +11,10 @@ import {
   cmfCategoryLabel,
   comparisonLabel,
   csiBars,
+  LINEAGE_NO_PINTADO,
   csiComparisonLabel,
   gitStamp,
+  lineageRows,
   panelConfigHash,
   discriminantRows,
   featureDisplayLabel,
@@ -2117,5 +2119,71 @@ describe("procedencia del panel (D-LIN-1)", () => {
     expect(panelConfigHash(null, "hash-del-formulario")).toBe("hash-del-formulario")
     expect(panelConfigHash(undefined, "hash-del-formulario")).toBe("hash-del-formulario")
     expect(panelConfigHash(null, null)).toBeNull()
+  })
+})
+
+describe("la proyección visible de la procedencia (D-LIN-1)", () => {
+  const base: RunLineage = {
+    git_sha: "29b46d2",
+    git_dirty: false,
+    data_hash: "b6c9f33a",
+    config_hash: "e5868bd6",
+    root_seed: 42,
+    uv_lock_hash: "aa11",
+    library_versions: { nikodym: "1.10.0", pandas: "2.2.0" },
+    determinism_caveats: ["una advertencia"],
+    created_at: "2026-08-02T12:00:00Z",
+    schema_version: "1.0.0",
+    injected_artifacts: ["calibration.calibrated_pd_frame"],
+  }
+
+  it("todo campo del bundle está PINTADO o declarado como no pintado, con su razón", () => {
+    // 🔴 El gate que faltaba: el payload publica el bundle entero y la pantalla enseña menos. Sin
+    // esto, «el panel publica la procedencia» es una sobrepromesa y el panel puede encogerse campo
+    // a campo sin que nada lo note. Lo pidió la revisión adversarial cruzada.
+    // El oráculo se deriva de las claves del propio bundle, nunca de una lista escrita al lado.
+    const delBundle = Object.keys(base)
+    const pintadoDirecto = ["data_hash", "root_seed", "uv_lock_hash", "created_at", "injected_artifacts"]
+    // `git_sha`+`git_dirty` viajan fundidos en una fila, y `library_versions` aporta la versión.
+    const pintadoCompuesto = ["git_sha", "git_dirty", "config_hash"]
+    const sinClasificar = delBundle.filter(
+      (campo) =>
+        !pintadoDirecto.includes(campo) &&
+        !pintadoCompuesto.includes(campo) &&
+        !(campo in LINEAGE_NO_PINTADO) &&
+        campo !== "determinism_caveats", // se pinta aparte, en prosa y no como digest
+    )
+    expect(sinClasificar).toEqual([])
+  })
+
+  it("cada razón de no-pintado explica algo, no es un hueco", () => {
+    for (const [campo, razon] of Object.entries(LINEAGE_NO_PINTADO)) {
+      expect(razon.length, campo).toBeGreaterThan(20)
+    }
+  })
+
+  it("las filas salen en orden y sin fabricar valores ausentes", () => {
+    const filas = lineageRows(base)
+    expect(filas.map((f) => f.label)).toEqual([
+      "data_hash",
+      "versión",
+      "código",
+      "semilla",
+      "entorno",
+      "ejecutada",
+      "traído de fuera",
+    ])
+    expect(filas.find((f) => f.label === "traído de fuera")?.value).toBe(
+      "calibration.calibrated_pd_frame",
+    )
+    // Sin artefactos externos la fila queda ausente, no en cero ni en cadena vacía.
+    const sinInyectar = lineageRows({ ...base, injected_artifacts: [] })
+    expect(sinInyectar.find((f) => f.label === "traído de fuera")?.value).toBeNull()
+  })
+
+  it("la semilla se pinta aunque valga 0", () => {
+    // `String(0)` es "0", pero un `||` la habría convertido en ausente: es un valor legítimo y su
+    // ausencia significaría otra cosa. Mismo criterio de presencia que el resto del panel.
+    expect(lineageRows({ ...base, root_seed: 0 }).find((f) => f.label === "semilla")?.value).toBe("0")
   })
 })

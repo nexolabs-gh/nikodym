@@ -139,10 +139,23 @@ mano.
 ## 2. Decisiones
 
 **D-COL-1 — Ninguna decisión obligatoria se esconde, en ningún trabajo.** Las cuatro se siguen
-preguntando siempre. §1.2 y §1.3 lo miden: omitirlas es imposible en tres casos, deshonesto en el
-cuarto, y una exención declarativa es **indemostrable** con el grafo actual —todos los trabajos
-requieren `("data","frame")` y ese frame lleva la decisión dentro—. Lo que cambia no es *cuántas*
+preguntando siempre. §1.2 y §1.3 lo miden: **mientras el trabajo declare la sección `data`**,
+omitirlas es imposible en tres casos y deshonesto en el cuarto. Lo que cambia no es *cuántas*
 preguntas hay, sino *en qué idioma* se pueden contestar.
+
+⚠️ **Precisión que corrige a una versión anterior de este documento, y que la revisión adversarial
+tuvo razón en exigir.** Aquí decía «todos los trabajos **requieren** `("data","frame")`», y es
+**falso**: `performance` y `stability` no lo requieren (`performance/step.py:62-65`,
+`stability/step.py:68-72`), y medido, un config con `data: None` + `performance` + `stability`
+(`temporal_axis: "none"`) + `report` da `check_pipeline → executable=True`. Lo cierto es lo otro:
+los 10 trabajos **declaran la sección `data`** en su catálogo, y mientras la declaren `DataStep`
+corre y exige las dos decisiones. La imposibilidad es de la exención **declarativa** —dejar la
+sección puesta y no preguntar—, no de la ejecución sin `data`.
+
+**Que se pueda correr sin `data` no reabre nada**: es la opción «quitar `data` del trabajo», medida
+en la sesión anterior y **descartada por Cami** con su coste a la vista —se pierden el `data_hash`
+y las tres tablas de población—. Esta enmienda existe *porque* esa opción se descartó. Se deja
+escrito para que la próxima revisión no vuelva a proponerlo como si fuera un hallazgo nuevo.
 
 **D-COL-2 — `PartitionStrategy` gana una CUARTA rama: la partición viene en una columna.**
 `{"type": "columna", "partition_col": …, "desarrollo": …, "holdout": …, "oot": …}`, con mapeo
