@@ -339,8 +339,11 @@ def _ruta_perfil(workdir: Path, dataset_id: str) -> Path:
 def _guardar_perfil(workdir: Path, dataset_id: str, frame: pd.DataFrame) -> None:
     """Guarda lo medido sobre los datos, al lado del parquet (D-PERF-1).
 
-    Se escribe **aquí** porque la ingesta ya tiene el ``DataFrame`` cargado: medir la cardinalidad
-    no cuesta una lectura extra. Y se persiste en vez de recalcularse porque quien lo consume es el
+    Es el **único** sitio donde se mide el perfil, y por eso lo llaman los dos productores de un
+    parquet: la ingesta de un upload y la materialización de un dataset del catálogo. Los dos
+    llegan aquí con el ``DataFrame`` ya en la mano —la ingesta porque lo leyó del archivo, el
+    catálogo porque lo acaba de generar—, así que medir la cardinalidad no cuesta una lectura extra
+    en ninguno de los dos. Se persiste en vez de recalcularse porque quien lo consume es el
     preflight, cuyo contrato es no leer los datos (D-PRE-1); leer este JSON no lo rompe.
     """
     perfil = {
@@ -360,11 +363,15 @@ def _guardar_perfil(workdir: Path, dataset_id: str, frame: pd.DataFrame) -> None
 
 
 def load_profile(dataset_id: str, *, workdir: Path) -> PerfilDataset | None:
-    """El perfil de un dataset ya ingerido, o ``None`` si no se midió (D-PERF-2).
+    """El perfil de un dataset ya materializado, o ``None`` si no se midió (D-PERF-2).
 
-    ``None`` significa «no se sabe» y **no** «no hay»: un dataset del catálogo sintético o uno
-    ingerido antes de esta enmienda no tiene perfil, y ahí el preflight debe comportarse
-    exactamente como antes en vez de afirmar sobre datos que nadie midió.
+    ``None`` significa «no se sabe» y **no** «no hay»: un dataset que todavía no se materializó en
+    este ``workdir`` no tiene perfil, y ahí el preflight debe comportarse exactamente como antes en
+    vez de afirmar sobre datos que nadie midió.
+
+    Lo tienen por igual los datasets subidos y los del catálogo: :func:`materialize` lo repone en su
+    rama de caché, así que un parquet materializado antes de que esto existiera tampoco se queda
+    sin el suyo.
     """
     try:
         ruta = _ruta_perfil(workdir, dataset_id)
@@ -391,8 +398,43 @@ def load_profile(dataset_id: str, *, workdir: Path) -> PerfilDataset | None:
         return None
 
 
+def _asegurar_perfil(workdir: Path, dataset_id: str, path: Path) -> None:
+    """Repone el perfil de un parquet que ya existe, leyéndolo (D-PERF-1).
+
+    Es la rama de caché de :func:`materialize`, y sin ella el perfil sería un privilegio del primer
+    materializado: un dataset cacheado —el caso **normal** desde la segunda corrida, y el único
+    posible para todo lo materializado antes de esta enmienda— retorna antes de tocar ningún
+    ``DataFrame`` y jamás ganaría el suyo.
+
+    Se repone **leyendo el parquet**, y no regenerando el dataset ni invalidando el archivo. Medido
+    sobre los cinco datasets del catálogo (4.000-6.000 filas): leerlo cuesta 1,2-2,4 ms, regenerarlo
+    1,9-8,9 ms y rehacer la materialización entera 6,0-16,5 ms. Pero el tiempo no es lo que decide,
+    porque se paga **una vez** por dataset y luego el sidecar está: deciden dos cosas que las otras
+    dos salidas no dan. Leer el parquet perfila **los bytes que el motor va a consumir**, así que el
+    perfil no puede desviarse del archivo aunque el generador cambie; e invalidar sería destructivo
+    para un upload, cuyo original ya no existe y habría que volver a pedirle al usuario.
+
+    Un fallo al reponerlo **no tumba la materialización**: se degrada a «no se sabe» (D-PERF-2),
+    igual que :func:`load_profile` con un perfil ilegible. El perfil sólo alimenta un aviso, y
+    :func:`materialize` está en el camino de ejecutar una corrida: romperlo por un sidecar
+    —``workdir`` de sólo lectura, parquet corrupto— sería mucho peor que quedarse sin el aviso.
+    """
+    ruta = _ruta_perfil(workdir, dataset_id)
+    if ruta.exists():
+        return
+    try:
+        _guardar_perfil(workdir, dataset_id, pd.read_parquet(path))
+    except (OSError, ValueError):
+        return
+
+
 def materialize(dataset_id: str, *, workdir: Path) -> Path:
     """Materializa un dataset a parquet determinista bajo ``workdir`` y lo cachea.
+
+    Deja además su **perfil de columnas** al lado (D-PERF-1), igual que :func:`ingest_upload` con un
+    archivo subido: los datasets del catálogo no tienen por qué ser los únicos sobre los que el
+    preflight no puede avisar de una columna identificador. Aquí también sale gratis —el generador
+    ya devuelve el ``DataFrame``—, y en la rama de caché lo repone :func:`_asegurar_perfil`.
 
     Parameters
     ----------
@@ -417,6 +459,7 @@ def materialize(dataset_id: str, *, workdir: Path) -> Path:
     if dataset_id.startswith(_UPLOAD_PREFIX):
         path = _upload_path(workdir, dataset_id)
         if path.exists():
+            _asegurar_perfil(workdir, dataset_id, path)
             return path
         raise UiDatasetError(
             f"dataset subido '{dataset_id}' no encontrado; vuelva a subir el archivo."
@@ -428,9 +471,15 @@ def materialize(dataset_id: str, *, workdir: Path) -> Path:
         )
     path = _dataset_path(workdir, dataset_id)
     if path.exists():
+        _asegurar_perfil(workdir, dataset_id, path)
         return path
     path.parent.mkdir(parents=True, exist_ok=True)
-    _generate(dataset_id).to_parquet(path)
+    frame = _generate(dataset_id)
+    frame.to_parquet(path)
+    # Se mide sobre el frame recién generado y no releyendo el parquet: es el mismo dato —el gate
+    # `test_el_perfil_del_catalogo_equivale_al_de_la_ingesta` lo exige para los cinco datasets— y
+    # aquí ya está en memoria, que es justo la razón por la que el perfil sale gratis.
+    _guardar_perfil(workdir, dataset_id, frame)
     return path
 
 
