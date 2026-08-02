@@ -3,14 +3,31 @@
 :func:`create_app` construye la aplicación con import **perezoso** de FastAPI (el núcleo liviano no
 arrastra el extra ``[ui]``) y registra, **en este orden**:
 
-1. las guardas de seguridad local (``Host`` siempre; ``Origin`` + token en los mutadores);
-2. el router ``/api``;
-3. ``/assets`` y **exactamente** los recursos de raíz que devolvió el preflight;
-4. ``/`` y el fallback de navegación de la SPA, ambos con el token inyectado en memoria.
+1. el tope del cuerpo de la petición, contado sobre el stream ASGI;
+2. las guardas de seguridad local (``Host`` siempre; ``Origin`` + token en los mutadores);
+3. el router ``/api``;
+4. ``/assets`` y **exactamente** los recursos de raíz que devolvió el preflight;
+5. ``/`` y el fallback de navegación de la SPA, ambos con el token inyectado en memoria.
 
 El orden importa: el fallback nunca puede capturar un ``/api/*`` desconocido ni un asset ausente. Un
 fallback que responde ``200 text/html`` a ``/assets/perdido.js`` convierte un asset faltante en una
 página en blanco sin error, que es el modo de fallo que este contrato prohíbe.
+
+⚠️ **El orden de los dos primeros es al revés de como se lee, y es a propósito.** ``add_middleware``
+apila de fuera hacia dentro en orden **inverso** al registro, así que registrar el tope primero lo
+deja **por dentro** de las credenciales. Ése es el orden que se quiere por dos razones, y la segunda
+salió al medirla:
+
+1. Una petición sin token se rechaza con 403 **sin leer un solo byte** del cuerpo, que es mejor que
+   contarlos.
+2. 🔴 Con el orden invertido el tope **deja de responder lo que dice responder**. Medido: el corte
+   del contador pasa de 422 a **400 «There was an error parsing the body»**, porque la
+   ``HTTPException`` que levanta el ``receive`` envuelto ya no sube por el camino que FastAPI
+   re-lanza a propósito — atraviesa antes el grupo de tareas de ``BaseHTTPMiddleware``, que es lo
+   que las guardas usan, y llega irreconocible al parseo del cuerpo.
+
+Invertir las dos líneas pone en rojo cuatro tests de ``test_ui_tope_de_cuerpo.py`` (comprobado
+haciéndolo), entre ellos el que fija el 403.
 
 A diferencia de B2.1, **no se monta ``/static``**: dos URLs para el mismo byte son superficie
 duplicada, y montar el directorio entero expondría el ``index.html`` crudo —con el placeholder sin
@@ -25,7 +42,7 @@ from typing import TYPE_CHECKING, Any
 from nikodym.ui.exceptions import UiDependencyError
 from nikodym.ui.routes import build_router
 from nikodym.ui.runtime import RuntimeContext
-from nikodym.ui.security import install_security
+from nikodym.ui.security import install_body_limit, install_security
 from nikodym.ui.settings import UiConfig
 
 if TYPE_CHECKING:
@@ -88,6 +105,8 @@ def create_app(settings: UiConfig, runtime: RuntimeContext) -> FastAPI:
     app.state.settings = settings
     app.state.runtime = runtime
 
+    # Registrar el tope ANTES lo deja por DENTRO de las credenciales (ver el docstring del módulo).
+    install_body_limit(app, settings)
     install_security(app, settings, runtime)
     app.include_router(build_router())
 
