@@ -8,6 +8,7 @@ import {
   type JsonSchema,
   acceptsWildcard,
   appendListItem,
+  arrayBranch,
   columnRole,
   defaultForSchema,
   discriminatedBranches,
@@ -934,5 +935,116 @@ describe("grupoTitulaASuUnicoCampo (M10: «Documento / Documento»)", () => {
     expect(
       grupoTitulaASuUnicoCampo({ group: "html", fields: [["html", { type: "object" }]] }),
     ).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Gate: rol ⇒ widget, sobre el SCHEMA REAL y atravesando el desempaquetado de nullables
+// ---------------------------------------------------------------------------
+
+/**
+ * Gate en la dirección que faltaba: **un campo que declara `column_role` tiene que llegar al
+ * formulario con ese rol**, sea cual sea la forma en que viaje.
+ *
+ * `tests/unit/test_column_roles.py` cubre la dirección contraria (todo multiselect de texto libre
+ * declara su rol) y por eso no podía ver este defecto: `data.schema.unique_keys` DECLARA
+ * `column_role: "input"` desde siempre (`data/config.py:271-281`), así que el gate de Python
+ * estaba legítimamente verde mientras el front pintaba un textarea de JSON crudo.
+ *
+ * La causa era el desempaquetado: `unwrapNullable` copiaba ocho propiedades del nodo externo y
+ * `column_role` no estaba entre ellas, de modo que un `X | None` perdía el rol al bajar a su rama.
+ * `resolveWidget` recurre sobre esa rama y `NullableField` se la pasa al renderer hijo, así que la
+ * pérdida se lleva por delante el widget **y** el origen de las opciones.
+ *
+ * ⚠️ El caso se escapó de la suite porque los tests de esta zona construyen schemas a mano y
+ * **no-nullables** (ver «un array de strings con rol resuelve a multiselect aunque no declare
+ * ui_widget»): sobre esa forma el rol nunca se pierde. De ahí que este gate recorra el schema REAL
+ * del backend, que es el único sitio donde existe la forma que falla.
+ */
+describe("todo campo con `column_role` conserva su rol al llegar al widget", () => {
+  const defs: Defs = (fixtureSchema as unknown as SchemaPayload).json_schema.$defs ?? {}
+
+  /**
+   * Todo nodo del schema compuesto que declare `column_role`, con su ruta.
+   *
+   * Recorre el JSON **crudo y entero**, sin asumir la forma de un campo: las 22 clases raíz de
+   * sección van *inline* en la raíz y sus sub-modelos en `$defs`, así que un barrido que mire una
+   * sola de las dos coordenadas deja fuera un tercio del catálogo (lección del paquete D).
+   */
+  function nodosConRol(): { ruta: string; schema: JsonSchema }[] {
+    const salida: { ruta: string; schema: JsonSchema }[] = []
+    const baja = (nodo: unknown, ruta: string): void => {
+      if (Array.isArray(nodo)) {
+        nodo.forEach((hijo, i) => baja(hijo, `${ruta}[${i}]`))
+        return
+      }
+      if (!nodo || typeof nodo !== "object") return
+      const objeto = nodo as JsonSchema
+      if (objeto.column_role !== undefined) salida.push({ ruta, schema: objeto })
+      for (const [clave, hijo] of Object.entries(objeto)) baja(hijo, `${ruta}/${clave}`)
+    }
+    baja((fixtureSchema as unknown as SchemaPayload).json_schema, "")
+    return salida
+  }
+
+  const CON_ROL = nodosConRol()
+
+  it("el barrido encuentra campos de verdad (si no, este gate estaría vacío)", () => {
+    // Un gate que recorre cero campos da verde sin comprobar nada, y «0 ofensores» se lee igual
+    // que «todo limpio». La cifra sale de la medición del 2026-08-02 sobre el fixture real.
+    expect(CON_ROL.length).toBeGreaterThanOrEqual(36)
+  })
+
+  it("el rol sobrevive al desempaquetado de `X | None`", () => {
+    const perdidos = CON_ROL.filter(({ schema }) => {
+      const declarado = columnRole(schema, defs)
+      const { schema: base } = unwrapNullable(resolveRef(schema, defs))
+      return columnRole(base, defs) !== declarado
+    }).map(({ ruta, schema }) => `${ruta} (${String(schema.column_role)})`)
+
+    expect(
+      perdidos,
+      "Campos que declaran `column_role` y lo PIERDEN al desempaquetar su rama no nula. " +
+        "El formulario les da entonces el widget equivocado (una lista de columnas cae al editor " +
+        "JSON) y el multiselect se queda sin opciones. Propaga la propiedad en `unwrapNullable`.",
+    ).toEqual([])
+  })
+
+  it("una lista de columnas `input` resuelve a multiselect, no al editor JSON", () => {
+    // La pregunta de producto, no la mecánica: si el valor del campo es una LISTA y sus elementos
+    // son nombres de columna del dataset, el usuario tiene que poder elegirlos con checkboxes.
+    const listas = CON_ROL.filter(
+      ({ schema }) =>
+        columnRole(schema, defs) === "input" &&
+        arrayBranch(schema, defs) !== undefined &&
+        !isObjectList(schema, defs),
+    )
+    expect(listas.length).toBeGreaterThanOrEqual(4)
+
+    const alEditorJson = listas
+      .filter(({ schema }) => resolveWidget(schema, { defs }) !== "multiselect")
+      .map(({ ruta }) => ruta)
+
+    expect(
+      alEditorJson,
+      "Listas de nombres de columna que NO llegan como multiselect: el usuario tendría que " +
+        "escribir JSON a mano teniendo el front las columnas del dataset cargadas.",
+    ).toEqual([])
+  })
+
+  it("`data.schema.unique_keys` es el caso concreto, con nombre y todo", () => {
+    // Ancla escrita a mano: si el barrido de arriba deja de encontrar este campo, el gate genérico
+    // podría quedarse verde sobre un conjunto vacío y nadie se enteraría.
+    const uniqueKeys = (defs["data__SchemaConfig"]?.properties ?? {})["unique_keys"]
+    expect(uniqueKeys, "`data__SchemaConfig.unique_keys` no está en el schema").toBeDefined()
+    expect(columnRole(uniqueKeys, defs)).toBe("input")
+    expect(resolveWidget(uniqueKeys, { defs })).toBe("multiselect")
+
+    // Y sus opciones son las columnas del dataset, también tras el desempaquetado: es lo que
+    // consume `NullableField`, que le pasa al renderer hijo la rama base y no el campo original.
+    const COLUMNAS = ["cliente_id", "fecha", "monto"]
+    const { schema: base } = unwrapNullable(resolveRef(uniqueKeys, defs))
+    expect(multiselectOptions(base, { datasetColumns: COLUMNAS }, defs)).toEqual(COLUMNAS)
+    expect(optionsFromDataset(base, defs)).toBe(true)
   })
 })

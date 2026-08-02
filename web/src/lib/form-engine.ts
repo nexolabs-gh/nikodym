@@ -44,6 +44,15 @@ export interface JsonSchema {
   ui_order?: number
   /** Texto de ayuda HUMANO por campo (tooltip ⓘ); si falta, el front cae en `description`. */
   ui_help?: string
+  /**
+   * Qué ES el valor de un campo que nombra columnas (D-PRE-3, vocabulario en :type:`ColumnRole`).
+   *
+   * Va declarado —y no sólo alcanzable por la firma de índice— porque es metadato que **viaja con
+   * el campo**, igual que los `ui_*`: quien copie propiedades de un nodo a otro tiene que verlo
+   * en la lista. Omitirlo en `unwrapNullable` es exactamente lo que dejaba a
+   * `data.schema.unique_keys` en el editor JSON.
+   */
+  column_role?: string
   [key: string]: unknown
 }
 
@@ -203,8 +212,20 @@ export function resolveRef(schema: JsonSchema, defs: Defs = {}): JsonSchema {
 
 /**
  * Desempaqueta `anyOf`/`oneOf` de la forma `[T, null]` (campo opcional) devolviendo
- * `T` con los metadatos externos (title/description/default/ui_*) preservados. Si no
- * es esa forma, devuelve el schema tal cual con `nullable=false`.
+ * `T` con los metadatos externos (title, description, default, los `ui_*` y `column_role`)
+ * preservados. Si no es esa forma, devuelve el schema tal cual con `nullable=false`.
+ *
+ * ⚠️ **Lo que esta función NO copia, el campo lo PIERDE**, y el desempaquetado está en el camino
+ * de todo campo opcional: `resolveWidget` recurre sobre la rama desempaquetada (§4) y
+ * `NullableField` le pasa `baseSchema` al renderer hijo, que es quien resuelve widget y opciones.
+ * `column_role` faltaba en la lista, así que `data.schema.unique_keys` —`tuple[str, ...] | None`
+ * con `column_role: "input"` declarado— llegaba al front sin rol y caía al **editor JSON crudo**
+ * en vez del multiselect de columnas del dataset. Medido sobre el schema real: son los 4 campos
+ * que declaran rol bajo un `X | None` (`unique_keys`, `index_col`, `data_cutoff_col`,
+ * `stability.temporal_column`); en los otros tres el rol aún no cambia el widget —son escalares—,
+ * pero se propaga igual porque el rol es del campo, no de su forma.
+ *
+ * El gate en la dirección rol ⇒ widget está en `form-engine.test.ts`, y recorre el schema real.
  */
 export function unwrapNullable(schema: JsonSchema): {
   schema: JsonSchema
@@ -227,6 +248,7 @@ export function unwrapNullable(schema: JsonSchema): {
         ui_group: schema.ui_group ?? base.ui_group,
         ui_order: schema.ui_order ?? base.ui_order,
         ui_help: schema.ui_help ?? base.ui_help,
+        column_role: schema.column_role ?? base.column_role,
       },
       nullable: true,
     }
