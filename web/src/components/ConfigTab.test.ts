@@ -16,15 +16,11 @@
 
 import { describe, expect, it, vi } from "vitest"
 
-import {
-  applyYamlConfig,
-  yamlJobNotice,
-  type YamlIntakeDeps,
-} from "@/components/ConfigTab"
+import { applyYamlConfig, type YamlIntakeDeps } from "@/components/ConfigTab"
 import configTabSource from "@/components/ConfigTab.tsx?raw"
 import type { ConfigDict, ConfigFromYamlResponse } from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
-import { FIXTURE_JOBS, type Job } from "@/lib/jobs"
+import { FIXTURE_JOBS, jobSwitchNotice, type Job } from "@/lib/jobs"
 
 const JOBS = FIXTURE_JOBS.jobs
 const porId = (id: string): Job => {
@@ -90,7 +86,7 @@ describe("applyYamlConfig (el YAML selecciona su trabajo · D-JOB-17)", () => {
     // repo evita. Y el `id` es coordenada interna, como el `path` de una decisión obligatoria.
     const { state, deps } = makeFakeStore()
     const cambio = await applyYamlConfig("yaml: crudo", "ecl.yaml", state.job, deps)
-    const aviso = yamlJobNotice(cambio)
+    const aviso = jobSwitchNotice(cambio, "archivo")
 
     expect(aviso).toContain("Provisiones IFRS 9 / ECL")
     expect(aviso).not.toContain("provisiones_ifrs9")
@@ -116,7 +112,7 @@ describe("applyYamlConfig (el YAML selecciona su trabajo · D-JOB-17)", () => {
 
     expect(cambio.cambia).toBe(false)
     expect(state.job).toBe(jobAntes) // la MISMA referencia: no se reescribió
-    expect(yamlJobNotice(cambio)).toBeNull()
+    expect(jobSwitchNotice(cambio, "archivo")).toBeNull()
   })
 
   it("un YAML que no calza con ningún trabajo deja la sesión SIN trabajo, y lo dice", async () => {
@@ -135,7 +131,7 @@ describe("applyYamlConfig (el YAML selecciona su trabajo · D-JOB-17)", () => {
 
     expect(state.job).toBeNull()
     expect(cambio).toEqual({ job: null, cambia: true })
-    expect(yamlJobNotice(cambio)).toContain("todas las secciones")
+    expect(jobSwitchNotice(cambio, "archivo")).toContain("todas las secciones")
   })
 
   it("si el backend rechaza el YAML no se escribe NADA: config y trabajo siguen siendo coherentes", async () => {
@@ -162,19 +158,6 @@ describe("applyYamlConfig (el YAML selecciona su trabajo · D-JOB-17)", () => {
   })
 })
 
-describe("yamlJobNotice (qué se le dice al usuario)", () => {
-  it("sin cambio de trabajo no hay aviso", () => {
-    expect(yamlJobNotice({ job: porId("scorecard_pd"), cambia: false })).toBeNull()
-    expect(yamlJobNotice({ job: null, cambia: false })).toBeNull()
-  })
-
-  it("el aviso explica qué pasó con el menú, no sólo qué trabajo es", () => {
-    const aviso = yamlJobNotice({ job: porId("pd_lifetime"), cambia: true })
-    expect(aviso).toContain("PD lifetime")
-    expect(aviso).toMatch(/menú|secciones/)
-  })
-})
-
 describe("guardrail: el handler de «Cargar YAML» enruta por applyYamlConfig", () => {
   it("`handleUploadYaml` delega en applyYamlConfig y le pasa `setJob`", () => {
     // Si alguien vuelve a resembrar inline (`setConfig(result.config)` a secas), la conexión de
@@ -187,7 +170,7 @@ describe("guardrail: el handler de «Cargar YAML» enruta por applyYamlConfig", 
     expect(body).not.toBe("")
     expect(body).toMatch(/await applyYamlConfig\(/)
     expect(body).toMatch(/setJob,/)
-    expect(body).toMatch(/setJobNotice\(yamlJobNotice\(/)
+    expect(body).toMatch(/setJobNotice\(jobSwitchNotice\(/)
     // Y no vuelve a escribir el config por su cuenta saltándose el flujo.
     expect(body).not.toMatch(/setConfig\(result\.config\)/)
   })

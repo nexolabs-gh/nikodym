@@ -38,6 +38,7 @@ import {
   type JobSwitch,
   decisionStatuses,
   jobSwitchForConfig,
+  jobSwitchNotice,
   loadJobs,
 } from "@/lib/jobs"
 import { type Path, getAtPath, removeAtPath, setAtPath } from "@/lib/config-store"
@@ -178,19 +179,6 @@ export async function applyYamlConfig(
   // tocarlo resembraba el preset encima de su trabajo.
   deps.setSeed({ kind: "yaml", fileName })
   return cambio
-}
-
-/**
- * Qué se le dice al usuario cuando su YAML cambió el trabajo de la sesión; `null` si no cambió.
- *
- * Nombra el trabajo por su etiqueta de negocio (D-JOB-14) y nunca su `id`, que es coordenada
- * interna — la misma separación que `question` frente a `path` en una decisión obligatoria.
- */
-export function yamlJobNotice(cambio: JobSwitch): string | null {
-  if (!cambio.cambia) return null
-  return cambio.job === null
-    ? "Este archivo no corresponde a ningún trabajo del catálogo: la sesión queda sin trabajo y el formulario muestra todas las secciones."
-    : `Este archivo corresponde a «${cambio.job.label}»: la sesión pasó a ese trabajo y el menú muestra sus secciones.`
 }
 
 /**
@@ -542,12 +530,17 @@ export function ConfigTab({ section }: { section: string }) {
   // outcome remonta idle solo al volver a Ejecutar) — el corte esencial es el de results/lastRun.
   const handleLoadPreset = useCallback(async () => {
     setPresetError(null)
-    setJobNotice(null) // el aviso hablaba del YAML anterior; este config ya no es ése
+    setJobNotice(null) // el aviso hablaba del config anterior; éste ya no es ése
     setPresetBusy(true)
     try {
-      await applyPreset("", {
+      // Un ejemplo es un config traído de fuera igual que un YAML, así que también selecciona su
+      // trabajo (D-JOB-17): sin esto, cargarlo desde IFRS 9 dejaba un config de scorecard bajo el
+      // sidebar de IFRS 9. El endpoint estándar devuelve el ejemplo de scorecard.
+      const cambio = await applyPreset("", job, {
         getPreset: () => getPreset(),
+        loadJobs,
         setConfig,
+        setJob,
         setDatasetId,
         setSelectedDataset,
         setSeed,
@@ -555,13 +548,16 @@ export function ConfigTab({ section }: { section: string }) {
         setLastRun,
         resetOutcome: () => {},
       })
+      setJobNotice(jobSwitchNotice(cambio, "ejemplo"))
     } catch (err) {
       setPresetError(yamlErrorMessage(err))
     } finally {
       setPresetBusy(false)
     }
   }, [
+    job,
     setConfig,
+    setJob,
     setDatasetId,
     setSelectedDataset,
     setSeed,
@@ -637,7 +633,7 @@ export function ConfigTab({ section }: { section: string }) {
         setJob,
         setSeed,
       })
-      setJobNotice(yamlJobNotice(cambio))
+      setJobNotice(jobSwitchNotice(cambio, "archivo"))
     } catch (err) {
       setYamlError(yamlErrorMessage(err))
     } finally {
@@ -868,10 +864,10 @@ export function ConfigTab({ section }: { section: string }) {
           onJump={setFocusField}
         />
 
-        {/* El YAML cargado cambió el trabajo de la sesión (D-JOB-17). No es un error ni un aviso de
-            algo que corregir: es la explicación de por qué el menú de la izquierda acaba de cambiar,
-            y por eso se pinta en tono neutro y con `aria-live` — el sidebar cambia fuera de la vista
-            de quien usa lector de pantalla. */}
+        {/* El config traído de fuera —YAML propio o ejemplo— cambió el trabajo de la sesión
+            (D-JOB-17). No es un error ni un aviso de algo que corregir: es la explicación de por qué
+            el menú de la izquierda acaba de cambiar, y por eso se pinta en tono neutro y con
+            `aria-live` — el sidebar cambia fuera de la vista de quien usa lector de pantalla. */}
         {jobNotice ? (
           <p
             role="status"

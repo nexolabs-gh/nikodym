@@ -12,6 +12,7 @@
  */
 
 import { API_BASE } from "@/lib/api"
+import { DEMO_MODE } from "@/lib/demo-runtime"
 import {
   canonicalProjection,
   childMap,
@@ -112,6 +113,11 @@ export async function fetchJobs(): Promise<JobsPayload> {
  * aplicación, y un catálogo levemente viejo es infinitamente mejor que una pantalla sin botones.
  */
 export async function loadJobs(): Promise<Job[]> {
+  // Modo demo: no hay backend al que preguntar, así que se sirve el snapshot bundleado sin salir a
+  // la red. Es la misma rama que tiene toda llamada de `api.ts` y `loadSchema`, y **no cambia el
+  // valor devuelto**: sin ella la petición muere en 404 y el `catch` de abajo devuelve este mismo
+  // fixture. Lo que evita es un error de consola en `demo.nikodym.cl` por una ruta que no existe.
+  if (DEMO_MODE) return FIXTURE_JOBS.jobs
   try {
     const live = await fetchJobs()
     if (live.jobs.length > 0) return live.jobs
@@ -124,7 +130,11 @@ export async function loadJobs(): Promise<Job[]> {
 /**
  * Secciones del formulario que muestra un trabajo, **en el orden canónico de `CONFIG_SECTIONS`**
  * (que es el del pipeline). Sin trabajo elegido se ven todas: es lo que corresponde a quien trajo
- * un config que no calza con ninguno (D-JOB-17), y también el estado de la demo estática.
+ * un config —archivo o ejemplo— que no calza con ninguno (D-JOB-17).
+ *
+ * ⚠️ Desde que el ejemplo también elige su trabajo, «sin trabajo» **ya no es el estado normal de la
+ * demo estática**: sólo lo es cuando el ejemplo que se está viendo no calza con ningún trabajo del
+ * catálogo (hoy, el de provisiones, que mezcla scorecard, CMF, método interno y la comparación).
  *
  * ⚠️ Filtra; no reordena. Si tomara el orden de `job.sections`, el sidebar dependería de cómo se
  * escribió el catálogo y dos trabajos podrían pintar las mismas secciones en orden distinto.
@@ -305,4 +315,29 @@ export function jobSwitchForConfig(
 ): JobSwitch {
   const job = jobForConfig(jobs, config)
   return { job, cambia: (job?.id ?? null) !== (activo?.id ?? null) }
+}
+
+/** De dónde vino el config que cambió el trabajo, en el idioma del usuario. */
+export type JobSwitchOrigin = "archivo" | "ejemplo"
+
+/**
+ * Qué se le dice al usuario cuando el config que acaba de traer cambió el trabajo de la sesión;
+ * `null` si no cambió (D-JOB-17).
+ *
+ * Nombra el trabajo por su etiqueta de negocio (D-JOB-14) y nunca su `id`, que es coordenada
+ * interna — la misma separación que `question` frente a `path` en una decisión obligatoria.
+ *
+ * El texto vive **aquí y una sola vez** para las dos puertas por las que entra un config ajeno
+ * —«Cargar YAML» y «Ver un ejemplo»—: lo único que cambia entre ellas es cómo llamar a lo que el
+ * usuario acaba de traer, y duplicar la frase habría dejado dos copys que se separan en silencio.
+ */
+export function jobSwitchNotice(
+  cambio: JobSwitch,
+  origen: JobSwitchOrigin,
+): string | null {
+  if (!cambio.cambia) return null
+  const sujeto = origen === "archivo" ? "Este archivo" : "Este ejemplo"
+  return cambio.job === null
+    ? `${sujeto} no corresponde a ningún trabajo del catálogo: la sesión queda sin trabajo y el formulario muestra todas las secciones.`
+    : `${sujeto} corresponde a «${cambio.job.label}»: la sesión pasó a ese trabajo y el menú muestra sus secciones.`
 }

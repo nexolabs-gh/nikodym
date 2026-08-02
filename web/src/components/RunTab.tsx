@@ -33,6 +33,13 @@ import {
   configEditadoRespectoDelPreset,
   configFingerprint,
 } from "@/lib/bootstrap"
+import {
+  jobSwitchForConfig,
+  jobSwitchNotice,
+  loadJobs,
+  type Job,
+  type JobSwitch,
+} from "@/lib/jobs"
 import { presetDisplay } from "@/lib/presentation"
 import { runHint } from "@/lib/preflight"
 import { canRun, describeApiError } from "@/lib/validation"
@@ -46,7 +53,13 @@ import { useAppState, type AppState } from "@/state/appStore"
  */
 export interface PresetSwitchDeps {
   getPreset: (presetId: string) => Promise<PresetResponse>
+  /**
+   * Catálogo con el que se resuelve a qué trabajo corresponde el ejemplo (D-JOB-17). Nunca lanza
+   * —cae al fixture bundleado—, así que un backend caído no deja el ejemplo sin trabajo.
+   */
+  loadJobs: () => Promise<Job[]>
   setConfig: AppState["setConfig"]
+  setJob: AppState["setJob"]
   setDatasetId: AppState["setDatasetId"]
   setSelectedDataset: AppState["setSelectedDataset"]
   setSeed: AppState["setSeed"]
@@ -56,19 +69,43 @@ export interface PresetSwitchDeps {
 }
 
 /**
- * Resiembra el config y el dataset recomendado del preset elegido y CORTA con la corrida anterior
- * (results / lastRun / outcome). Sin ese corte (bug P0): tras ejecutar un dominio y cambiar a otro
- * sin re-ejecutar, Resultados y Reporte seguían mostrando el dominio VIEJO con lineage mixto y la
- * tarjeta "Corrida completada" conservaba el outcome anterior. Lógica pura (sin React): los efectos
- * van por `deps`, así el flujo completo (incluido el corte) se prueba sin DOM. La usan tanto
- * `RunTab.handlePreset` (selector in-workspace) como `App.enterDemo` (selector del landing).
+ * Resiembra el config y el dataset recomendado del preset elegido, **deja la sesión en el trabajo
+ * que ese ejemplo trae** (D-JOB-17) y CORTA con la corrida anterior (results / lastRun / outcome).
+ *
+ * 🔴 **El trabajo se mueve por la misma regla que el YAML, y por el mismo motivo.** Entrar por «Ver
+ * un ejemplo» de scorecard estando en IFRS 9 dejaba un config de scorecard bajo el sidebar de
+ * IFRS 9: las secciones del ejemplo no tenían pestaña y las que se veían estaban apagadas en él —
+ * justo el estado que D-JOB-1 existe para impedir—. Un ejemplo es un config traído de fuera igual
+ * que un archivo, así que se resuelve con `jobSwitchForConfig` y no con un mecanismo paralelo.
+ *
+ * ⚠️ **La demo estática entra por aquí y también cambia de trabajo** (decisión explícita al cerrar
+ * este hueco, por encima del «`job === null` a propósito» de D-JOB-19). Medido sobre los tres
+ * ejemplos que publica el backend: el scorecard pasa a mostrar 9 secciones de 14 y el de IFRS 9, 4;
+ * el de provisiones no calza con ningún trabajo y **sigue mostrando las 14**. Las secciones que
+ * desaparecen son exactamente las que ese ejemplo trae apagadas, así que el escaparate no pierde
+ * nada que el usuario pudiera ver: pierde pestañas vacías.
+ *
+ * Sin ese corte de la corrida (bug P0): tras ejecutar un dominio y cambiar a otro sin re-ejecutar,
+ * Resultados y Reporte seguían mostrando el dominio VIEJO con lineage mixto y la tarjeta "Corrida
+ * completada" conservaba el outcome anterior. Lógica pura (sin React): los efectos van por `deps`,
+ * así el flujo completo se prueba sin DOM. La usan `RunTab.handlePreset` (selector in-workspace),
+ * `App.enterDemo` (selector del landing) y `ConfigTab.handleLoadPreset` («Ver un ejemplo»).
+ *
+ * Un fallo del backend se propaga **sin escribir nada**: el config vigente y su trabajo siguen
+ * siendo coherentes entre sí.
  */
 export async function applyPreset(
   presetId: string,
+  jobActivo: Job | null,
   deps: PresetSwitchDeps,
-): Promise<void> {
+): Promise<JobSwitch> {
   const preset = await deps.getPreset(presetId)
+  const jobs = await deps.loadJobs()
+  const cambio = jobSwitchForConfig(jobs, preset.config, jobActivo)
   deps.setConfig(structuredClone(preset.config))
+  // Sólo si cambia: el catálogo se vuelve a pedir en cada llamada, así que reescribirlo siempre
+  // metería en el store un objeto nuevo equivalente al que ya había y forzaría un render de más.
+  if (cambio.cambia) deps.setJob(cambio.job)
   deps.setDatasetId(preset.dataset_id)
   deps.setSelectedDataset(null)
   deps.setSeed({
@@ -83,6 +120,7 @@ export async function applyPreset(
   deps.setResults(null)
   deps.setLastRun(null)
   deps.resetOutcome()
+  return cambio
 }
 
 interface RunTabProps {
@@ -123,6 +161,8 @@ export function RunTab({ onNavigate }: RunTabProps) {
     validation,
     preflight,
     seed,
+    job,
+    setJob,
     setConfig,
     setDatasetId,
     setSelectedDataset,
@@ -136,6 +176,10 @@ export function RunTab({ onNavigate }: RunTabProps) {
   // el selector mientras se resiembra el config/dataset del preset elegido.
   const [presets, setPresets] = useState<PresetSummary[]>([])
   const [switching, setSwitching] = useState(false)
+  // Qué trabajo eligió el ejemplo recién cargado, cuando cambió el de la sesión (D-JOB-17). Estado
+  // LOCAL, igual que el gemelo de `ConfigTab`: nace y muere con esta pantalla, y el sidebar —que es
+  // lo que el aviso explica— ya cambió a la vista.
+  const [jobNotice, setJobNotice] = useState<string | null>(null)
   // Preset al que se quiere cambiar teniendo el config editado: espera confirmación (ver §M5).
   const [confirmar, setConfirmar] = useState<PresetSummary | null>(null)
 
@@ -198,10 +242,13 @@ export function RunTab({ onNavigate }: RunTabProps) {
   async function handlePreset(presetId: string) {
     if (switching || running) return
     setSwitching(true)
+    setJobNotice(null) // el aviso hablaba del ejemplo anterior
     try {
-      await applyPreset(presetId, {
+      const cambio = await applyPreset(presetId, job, {
         getPreset: getPresetById,
+        loadJobs,
         setConfig,
+        setJob,
         setDatasetId,
         setSelectedDataset,
         setSeed,
@@ -209,6 +256,9 @@ export function RunTab({ onNavigate }: RunTabProps) {
         setLastRun,
         resetOutcome: () => setOutcome({ kind: "idle" }),
       })
+      // El sidebar se acaba de reescribir y esta pestaña no es la que cambió: sin decirlo, el
+      // usuario vuelve a Configuración y encuentra otro menú sin saber por qué (D-JOB-17).
+      setJobNotice(jobSwitchNotice(cambio, "ejemplo"))
     } catch {
       /* no se pudo cambiar de preset: el actual sigue vigente; el usuario puede reintentar. */
     } finally {
@@ -306,6 +356,20 @@ export function RunTab({ onNavigate }: RunTabProps) {
             ) : activePreset ? (
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {presetDisplay(activePreset).blurb}
+              </p>
+            ) : null}
+            {/* El ejemplo cargado cambió el trabajo de la sesión (D-JOB-17). No es un error ni algo
+                que corregir: es la explicación de por qué el menú de la izquierda acaba de cambiar,
+                y por eso se pinta en tono neutro y con `aria-live` — el sidebar cambia fuera de la
+                vista de quien usa lector de pantalla, y encima desde OTRA pestaña. */}
+            {jobNotice ? (
+              <p
+                role="status"
+                aria-live="polite"
+                className="flex items-start gap-2 rounded-lg border border-brand-cyan/25 bg-brand-cyan/5 px-3 py-2 text-xs text-muted-foreground"
+              >
+                <CircleCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                <span>{jobNotice}</span>
               </p>
             ) : null}
             {/* Confirmación: resembrar borra el trabajo del formulario y no hay deshacer. */}

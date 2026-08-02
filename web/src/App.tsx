@@ -40,7 +40,7 @@ import {
   sectionIsEditable,
   sectionOfPath,
 } from "@/lib/preflight"
-import { jobSkeleton, sectionsOfJob, type Job } from "@/lib/jobs"
+import { jobSkeleton, loadJobs, sectionsOfJob, type Job } from "@/lib/jobs"
 import { CONFIG_SECTIONS, type ConfigSectionDef } from "@/lib/schema"
 import { useAppState } from "@/state/appStore"
 
@@ -134,7 +134,7 @@ const SECTIONS: SectionDef[] = [
  * `CONFIG_SECTIONS` entera, sin un solo filtro: quien venía a un scorecard veía IFRS 9, survival y
  * CMF, y un área que sólo hace LGD veía binning ajeno. El trabajo manda y se ve lo necesario, sin
  * grupo de «otras secciones» ni avisos (D-JOB-17). Sin trabajo se ven todas, que es lo que
- * corresponde a la demo estática y a quien trajo un config que no calza con ninguno.
+ * corresponde a quien trajo un config —archivo o ejemplo— que no calza con ninguno.
  */
 const [DATA_SECTION, ...FLOW_SECTIONS] = SECTIONS
 
@@ -316,17 +316,25 @@ function App() {
   // Entrada desde el landing. SIN preset (build normal / CTA genérico): flujo completo, arranca en
   // Datos. CON preset (selector de demos de `demo.nikodym.cl`): resiembra ESE pipeline y entra
   // directo a Ejecutar, ya cargado y listo para correr —así el dominio elegido (p. ej. IFRS 9) no
-  // queda enterrado tras el selector de Ejecutar—. `applyPreset` además CORTA con la corrida anterior
-  // (results/lastRun) para no mostrar el dominio previo; el outcome vive en RunTab, que monta en idle.
+  // queda enterrado tras el selector de Ejecutar—. `applyPreset` además deja la sesión en el trabajo
+  // del ejemplo (D-JOB-17) y CORTA con la corrida anterior (results/lastRun) para no mostrar el
+  // dominio previo; el outcome vive en RunTab, que monta en idle.
   // `await bootstrapOnce()` garantiza que la siembra estándar del provider ya ocurrió, para que su
   // resolución no pise la elección un instante después.
+  //
+  // ⚠️ Aquí el cambio de trabajo NO se avisa, y es la única de las tres puertas al ejemplo donde no
+  // se hace: `enterDemo` sólo se alcanza desde el landing, o sea que el usuario está ENTRANDO y no
+  // hay ningún sidebar previo al que su elección contradiga. El aviso de D-JOB-17 explica una
+  // navegación que cambia bajo los pies; en el arranque no habría nada que explicar y sería ruido.
   const enterDemo = async (presetId?: string) => {
     if (presetId) {
       await bootstrapOnce()
       try {
-        await applyPreset(presetId, {
+        await applyPreset(presetId, job, {
           getPreset: getPresetById,
+          loadJobs,
           setConfig,
+          setJob,
           setDatasetId,
           setSelectedDataset,
           setSeed,

@@ -19,6 +19,15 @@
  * el instalable se comportara igual. Las dos ramas se separan **aquí**, en el arranque, no con un
  * `if (DEMO_MODE)` esparcido por los componentes.
  *
+ * ⚠️ **Esa siembra NO fija trabajo, y hoy es coherente por medición, no por diseño.** El ejemplo que
+ * se siembra al arrancar la demo es el de provisiones, y es justo el que **no calza con ningún
+ * trabajo** del catálogo (`jobForConfig` → `null`), así que dejar el trabajo sin fijar produce el
+ * mismo estado que produciría `applyPreset` con ese config. Además nadie llega al workspace de la
+ * demo sin pasar por `applyPreset` —su landing sólo ofrece ejemplos—, así que esta siembra queda
+ * pisada antes de verse. Si algún día se cambia el ejemplo por defecto por uno que **sí** calce, hay
+ * que fijar aquí su trabajo: si no, el sidebar mostraría las 14 secciones sobre un config que el
+ * mismo ejemplo, elegido a mano, muestra recortado.
+ *
  * Lógica INYECTABLE y sin React ni DOM (deps explícitas) → testeable en el entorno `node` de
  * vitest. Cero lógica de dominio (SDD-23 §1): el preset lo compone y valida el backend; aquí
  * solo se transporta lo que devuelve.

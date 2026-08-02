@@ -19,6 +19,7 @@ import {
   jobForConfig,
   jobSkeleton,
   jobSwitchForConfig,
+  jobSwitchNotice,
   sectionsOfJob,
   type Job,
 } from "@/lib/jobs"
@@ -224,6 +225,52 @@ describe("jobSwitchForConfig (el config traído de fuera contra el trabajo activ
     const cambio = jobSwitchForConfig(JOBS, {}, porId("scorecard_pd"))
     expect(cambio).toEqual({ job: null, cambia: true })
     expect(sectionsOfJob(cambio.job)).toEqual(CONFIG_SECTIONS)
+  })
+})
+
+describe("jobSwitchNotice (qué se le dice al usuario · D-JOB-17)", () => {
+  it("sin cambio de trabajo no hay aviso", () => {
+    // Un aviso que se dispara de más se aprende a ignorar.
+    expect(jobSwitchNotice({ job: porId("scorecard_pd"), cambia: false }, "archivo")).toBeNull()
+    expect(jobSwitchNotice({ job: null, cambia: false }, "ejemplo")).toBeNull()
+  })
+
+  it("el aviso explica qué pasó con el menú, no sólo qué trabajo es", () => {
+    const aviso = jobSwitchNotice({ job: porId("pd_lifetime"), cambia: true }, "archivo")
+    expect(aviso).toContain("PD lifetime")
+    expect(aviso).toMatch(/menú|secciones/)
+  })
+
+  it("nombra el trabajo por su etiqueta de negocio, NUNCA por su id", () => {
+    // El `id` es coordenada interna, como el `path` de una decisión obligatoria (D-JOB-14).
+    for (const origen of ["archivo", "ejemplo"] as const) {
+      const aviso = jobSwitchNotice(
+        { job: porId("provisiones_ifrs9"), cambia: true },
+        origen,
+      )
+      expect(aviso).toContain("Provisiones IFRS 9 / ECL")
+      expect(aviso).not.toContain("provisiones_ifrs9")
+    }
+  })
+
+  it("las dos puertas nombran lo que el usuario acaba de traer, y sólo se diferencian en eso", () => {
+    // Es la razón de que el texto viva en UN sitio: llamarle «archivo» al ejemplo (o al revés)
+    // sería un aviso que describe un gesto que el usuario no hizo. El resto de la frase es la
+    // misma, y duplicarla habría dejado dos copys que se separan en silencio.
+    const cambio = { job: porId("pd_lifetime"), cambia: true }
+    const archivo = jobSwitchNotice(cambio, "archivo") ?? ""
+    const ejemplo = jobSwitchNotice(cambio, "ejemplo") ?? ""
+    expect(archivo).toMatch(/^Este archivo /)
+    expect(ejemplo).toMatch(/^Este ejemplo /)
+    expect(archivo.replace(/^Este archivo /, "")).toBe(
+      ejemplo.replace(/^Este ejemplo /, ""),
+    )
+  })
+
+  it("sin trabajo elegible dice que se ven todas las secciones (y no inventa un trabajo)", () => {
+    const aviso = jobSwitchNotice({ job: null, cambia: true }, "ejemplo")
+    expect(aviso).toContain("todas las secciones")
+    expect(aviso).toContain("sin trabajo")
   })
 })
 

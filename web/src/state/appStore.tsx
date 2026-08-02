@@ -58,8 +58,8 @@ export interface AppState {
   schema: LoadedSchema | null
   /**
    * Trabajo elegido esta sesión (D-JOB-1): decide qué secciones existen en el sidebar. `null` =
-   * ninguno, y entonces se ven todas — es el estado de la demo estática y el de quien trajo un
-   * config que no calza con ningún trabajo del catálogo (D-JOB-17).
+   * ninguno, y entonces se ven todas — es el estado de quien trajo un config que no calza con
+   * ningún trabajo del catálogo, sea un YAML propio o un ejemplo (D-JOB-17).
    *
    * NO entra al `config_hash` (D-JOB-9): es navegación. Dos usuarios que llegan al mismo config
    * por trabajos distintos producen la misma identidad, y un gate lo vigila.
