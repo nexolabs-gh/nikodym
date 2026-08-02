@@ -298,23 +298,25 @@ def test_input_pd_frame_partition_segment_y_no_mutacion() -> None:
         pd_frame=pd_frame,
     )
     term = model.term_structure(frame.iloc[:1], times=[10])
-    fallback = CoxPHSurvivalModel.from_config(
-        _cfg(
-            "cox_ph",
-            covariate_cols=("fin", "age", "pd_raw"),
-            ph_p_value_threshold=0.05,
-        )
+    # Sin columna de partición por ninguna de las dos vías: alcance = población completa. Este
+    # bloque pasaba antes `partition="holdout"` y aseveraba el mismo `n_fit_rows_`, o sea que
+    # defendía el fallback mudo; hoy ese caso levanta y tiene su propio test.
+    # Sin `pd_frame` no hay de dónde traer la columna: es la única vía por la que Cox llega al
+    # frame sin partición (con `pd_frame` presente, `partition` pasa a ser columna requerida).
+    sin_particion = CoxPHSurvivalModel.from_config(
+        _cfg("cox_ph", covariate_cols=("fin", "age"), ph_p_value_threshold=0.05)
     ).fit(
-        frame.assign(partition="holdout"),
+        frame,
         duration_col="week",
         event_col="arrest",
-        pd_frame=pd_frame.drop(columns=["partition"]),
     )
 
     assert model.n_fit_rows_ == 300
+    assert model.fit_scope_ == "desarrollo"
     assert term["segment"].tolist() == ["retail"]
     assert term["partition"].tolist() == ["desarrollo"]
-    assert fallback.n_fit_rows_ == len(frame)
+    assert sin_particion.n_fit_rows_ == len(frame)
+    assert sin_particion.fit_scope_ == "poblacion_completa"
     assert_frame_equal(frame, frame_original)
     assert_frame_equal(pd_frame, pd_original)
 

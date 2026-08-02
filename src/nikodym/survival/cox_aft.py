@@ -33,6 +33,9 @@ from nikodym.survival.exceptions import (
     SurvivalInputError,
     SurvivalTransformError,
 )
+from nikodym.survival.partition import PARTITION_COL as _PARTITION_COL
+from nikodym.survival.partition import FitScope as _FitScope
+from nikodym.survival.partition import fit_mask as _fit_mask
 from nikodym.survival.results import SurvivalCard, SurvivalDiagnostics
 
 if TYPE_CHECKING:
@@ -59,8 +62,6 @@ _AFT_METHOD: Literal["aft"] = "aft"
 _SURVIVAL_EXTRA_MESSAGE = "instale nikodym[survival]"
 _NO_TIME_GRID_WARNING = "DATO-INSTITUCIONAL-SUR-1"
 _NO_PH_THRESHOLD_WARNING = "D-SUR-7"
-_PARTITION_COL = "partition"
-_PARTITION_DESARROLLO = "desarrollo"
 _SCENARIO = None
 _TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "row_id",
@@ -131,6 +132,7 @@ class CoxPHSurvivalModel(AuditableMixin):
     observed_times_: tuple[float, ...]
     n_rows_: int
     n_fit_rows_: int
+    fit_scope_: _FitScope
     n_events_: int
     n_censored_: int
     warning_codes_: tuple[str, ...]
@@ -167,7 +169,12 @@ class CoxPHSurvivalModel(AuditableMixin):
         pd_frame: DataFrame | None = None,
         audit: AuditSink | None = None,
     ) -> Self:
-        """Ajusta Cox PH con lifelines sobre Desarrollo si existe ``partition``."""
+        """Ajusta Cox PH con lifelines sobre Desarrollo si existe ``partition``.
+
+        El alcance efectivo queda publicado en ``fit_scope_`` (ver
+        :func:`nikodym.survival.partition.fit_mask`): una columna ``partition`` presente sin
+        ninguna fila ``desarrollo`` levanta en vez de ajustar sobre todo en silencio.
+        """
         _fit_lifelines_model(
             self,
             frame,
@@ -240,6 +247,7 @@ class AFTSurvivalModel(AuditableMixin):
     observed_times_: tuple[float, ...]
     n_rows_: int
     n_fit_rows_: int
+    fit_scope_: _FitScope
     n_events_: int
     n_censored_: int
     warning_codes_: tuple[str, ...]
@@ -278,7 +286,12 @@ class AFTSurvivalModel(AuditableMixin):
         pd_frame: DataFrame | None = None,
         audit: AuditSink | None = None,
     ) -> Self:
-        """Ajusta la familia AFT configurada con lifelines."""
+        """Ajusta la familia AFT configurada con lifelines, sobre Desarrollo si hay ``partition``.
+
+        El alcance efectivo queda publicado en ``fit_scope_`` (ver
+        :func:`nikodym.survival.partition.fit_mask`): una columna ``partition`` presente sin
+        ninguna fila ``desarrollo`` levanta en vez de ajustar sobre todo en silencio.
+        """
         _fit_lifelines_model(
             self,
             frame,
@@ -369,7 +382,7 @@ def _fit_lifelines_model(
     )
     durations = _duration_array(prepared[duration_col], column=duration_col, np=np)
     events = _event_array(prepared[event_col], column=event_col, np=np)
-    fit_mask = _fit_mask(prepared, np=np)
+    fit_mask, fit_scope = _fit_mask(prepared, np=np)
     fit_frame = prepared.loc[fit_mask].copy(deep=True)
     fit_events = cast("NDArrayInt", events[fit_mask])
     if fit_frame.empty:
@@ -423,6 +436,7 @@ def _fit_lifelines_model(
         durations=durations,
         events=events,
         fit_frame=fit_frame,
+        fit_scope=fit_scope,
         warning_codes=warning_codes,
         schoenfeld_test=schoenfeld_test,
         method=method,
@@ -539,16 +553,6 @@ def _combined_covariates(
     return tuple(observed)
 
 
-def _fit_mask(frame: DataFrame, *, np: Any) -> NDArrayInt:
-    if _PARTITION_COL not in frame.columns:
-        return cast("NDArrayInt", np.ones(len(frame.index), dtype=bool))
-    values = frame[_PARTITION_COL].astype("string")
-    mask = (values == _PARTITION_DESARROLLO).to_numpy(dtype=bool, na_value=False)
-    if bool(mask.any()):
-        return cast("NDArrayInt", mask)
-    return cast("NDArrayInt", np.ones(len(frame.index), dtype=bool))
-
-
 def _lifelines_fit_frame(
     frame: DataFrame,
     *,
@@ -638,6 +642,7 @@ def _store_fit_state(
     durations: NDArrayFloat,
     events: NDArrayInt,
     fit_frame: DataFrame,
+    fit_scope: _FitScope,
     warning_codes: tuple[str, ...],
     schoenfeld_test: dict[str, Any] | None,
     method: Literal["cox_ph", "aft"],
@@ -651,6 +656,7 @@ def _store_fit_state(
     model.observed_times_ = tuple(sorted({_clean_float(float(value)) for value in durations}))
     model.n_rows_ = len(prepared.index)
     model.n_fit_rows_ = len(fit_frame.index)
+    model.fit_scope_ = fit_scope
     model.n_events_ = int(events.sum())
     model.n_censored_ = int(model.n_rows_ - model.n_events_)
     model.warning_codes_ = warning_codes
@@ -728,6 +734,7 @@ def _log_fit_decisions(
         regla="survival_input_quality",
         umbral={"partition_col": _PARTITION_COL},
         valor={
+            "fit_scope": model.fit_scope_,
             "n_rows": model.n_rows_,
             "n_fit_rows": model.n_fit_rows_,
             "n_events": model.n_events_,
