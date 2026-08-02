@@ -305,6 +305,24 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > con gate bidireccional y mostradas al principio de Configuración. `markov` y `stress` quedan fuera
 > **con su razón medida**, no por falta de tiempo.
 >
+> **Lo que ya traes en tu archivo se declara, no se vuelve a inventar (2026-08-02, BORRADOR).**
+> [`_ENMIENDA-DECISIONES-COMO-DATO.md`](_ENMIENDA-DECISIONES-COMO-DATO.md), D-COL-1…D-COL-10,
+> enmienda a `_ENMIENDA-DECISIONES-OBLIGATORIAS.md` (D-OBL-6/D-OBL-7) y a SDD-02, que gana una rama
+> pública de partición. Sale de la fricción de «Validar un modelo existente» —pide definir qué es un
+> malo y cómo se separa la muestra aunque el usuario traiga ambas cosas **dentro** del archivo del
+> modelo—. 🔴 **El plan heredado decía «acotar las decisiones por trabajo» y se midió INVIABLE**, y
+> saber por qué vale más que la enmienda: **3 de las 4 decisiones no admiten ningún relleno** (el
+> config no reconstruye), la única que sí lo admite materializa un **pseudo-OOT** y hace que
+> `report/prose.py` publique «La población se particionó de forma aleatoria…» —frase que emite **sin
+> ninguna condición**— en un documento que lee un regulador, y una exención declarativa es
+> **indemostrable**: los 10 trabajos requieren `("data","frame")` y ese frame lleva `partition`,
+> `ttd`, el target y `label_status` dentro. ⚠️ Tampoco sirve una variante de sección que cargue sin
+> etiquetar: **entrega menos que hoy** —la card de población queda vacía (7 de 11 campos dependen del
+> etiquetado) y el `data_hash` cambia—. El diagnóstico real es otro: **el motor sólo sabe CONSTRUIR
+> la etiqueta y la partición, nunca LEERLAS**. ✅ Y el arreglo es barato porque `bad_rule` **ya sabe
+> leer** —es lo que trae el preset F1— y porque **añadir una rama a una unión discriminada no mueve
+> ningún `config_hash`**: medido añadiéndola de verdad, los tres presets quedan byte a byte iguales.
+>
 > **Una columna identificador se avisa antes de correr (2026-08-01, APROBADA e implementada).**
 > [`_ENMIENDA-PERFIL-DE-COLUMNAS.md`](_ENMIENDA-PERFIL-DE-COLUMNAS.md), D-PERF-1…D-PERF-8, enmienda a
 > `_ENMIENDA-PREFLIGHT-DATASET.md` (firma de `check_dataset`) y a `_ENMIENDA-INVARIANTES-PREVIAS.md`
