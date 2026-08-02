@@ -129,6 +129,7 @@ export function RunTab({ onNavigate }: RunTabProps) {
     setSeed,
     setLastRun,
     setResults,
+    externalRefs,
   } = useAppState()
   const [outcome, setOutcome] = useState<RunOutcome>({ kind: "idle" })
   // Catálogo de presets (SDD-28): se puebla desde `GET /api/config/presets`. `switching` bloquea
@@ -219,7 +220,10 @@ export function RunTab({ onNavigate }: RunTabProps) {
     if (!gate.ok || datasetId === null) return // guard (el botón ya está deshabilitado)
     setOutcome({ kind: "running" })
     try {
-      const run = await runPipeline(config, datasetId)
+      // Los insumos externos van con la corrida (D-PUE-3): el archivo ya está subido, así que lo
+      // que viaja es su referencia. Se derivan de lo que el trabajo PIDE, no de lo que quedó
+      // subido, para no mandar un archivo que el backend declararía inerte.
+      const run = await runPipeline(config, datasetId, externalRefs)
       setLastRun({ runId: run.run_id, status: run.status })
       // Encadena los artefactos al store (los consume Resultados). Si `status:"failed"`,
       // el mensaje sale del campo `error` del results parcial (no es error de app).

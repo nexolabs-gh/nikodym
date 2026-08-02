@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react"
 
+import { ExternalInputCard } from "@/components/ExternalInputCard"
 import { PreflightNotice } from "@/components/PreflightNotice"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -36,6 +37,7 @@ import {
   type SelectedDataset,
 } from "@/lib/datasets"
 import { DEMO_MODE } from "@/lib/demo-runtime"
+import { artifactKey } from "@/lib/external-artifacts"
 import { describeApiError } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 
@@ -71,6 +73,11 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
     setWelcomeDismissed,
     preflight,
     seed,
+    config,
+    setConfig,
+    requiredExternals,
+    externalInputs,
+    setExternalInputs,
   } = useAppState()
 
   const [datasets, setDatasets] = useState<DatasetInfo[]>([])
@@ -280,6 +287,27 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
         </>
       )}
 
+      {/* Lo que este trabajo pide traer de fuera (D-PUE-5). Va DESPUÉS del dataset a propósito:
+          primero se elige la cartera, y sólo entonces tiene sentido pedir un archivo que se
+          empareja con ella. Un trabajo que no pide nada no pinta nada. */}
+      {requiredExternals.map((entry) => (
+        <ExternalInputCard
+          key={artifactKey(entry.artifact)}
+          artifact={entry}
+          input={externalInputs[artifactKey(entry.artifact)]}
+          config={config}
+          onInput={(key, input) =>
+            setExternalInputs((prev) => {
+              const next = { ...prev }
+              if (input === undefined) delete next[key]
+              else next[key] = input
+              return next
+            })
+          }
+          onConfig={setConfig}
+        />
+      ))}
+
       {/* Preview del dataset activo (persistido en el store). */}
       {selectedDataset ? (
         <DatasetPreview
@@ -293,7 +321,7 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
           de una vez. Va DESPUÉS del preview a propósito: el diagnóstico se entiende habiendo visto
           las columnas que el dataset sí trae. Cada desajuste salta a su campo en Configuración.
           Informa, NO bloquea (D-PRE-5). */}
-      <PreflightNotice state={preflight} onJump={(m) => onJumpToField(m.path)} />
+      <PreflightNotice state={preflight} onJump={onJumpToField} />
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
 import {
   preflightDataset,
   validateConfig,
+  type ExternalArtifactRef,
   type ResultsResponse,
   type RunStatus,
 } from "@/lib/api"
@@ -23,7 +24,12 @@ import {
 } from "@/lib/bootstrap"
 import type { SelectedDataset } from "@/lib/datasets"
 import { DEMO_MODE } from "@/lib/demo-runtime"
-import type { Job } from "@/lib/jobs"
+import {
+  externalRefs as buildExternalRefs,
+  requiredExternalArtifacts,
+  type ExternalInput,
+} from "@/lib/external-artifacts"
+import type { ExternalArtifact, Job } from "@/lib/jobs"
 import type { PreflightState } from "@/lib/preflight"
 import type { LoadedSchema } from "@/lib/schema"
 import { buildErrorLookup, type ValidationState } from "@/lib/validation"
@@ -67,6 +73,20 @@ export interface AppState {
   setSeed: Dispatch<SetStateAction<SeedState | null>>
   datasetId: string | null
   setDatasetId: Dispatch<SetStateAction<string | null>>
+  /**
+   * Archivos que el usuario trae de fuera, por clave de artefacto (D-PUE-3/5).
+   *
+   * Vive en el store y no en la pestaña de Datos porque lo consumen tres sitios en pestañas
+   * distintas: la validación en vivo y el preflight (que necesitan saber qué va a estar), y el
+   * botón de ejecutar. Guarda las columnas del archivo porque son las opciones de los selectores
+   * del mapeo: se elige de una lista real, no se teclea un nombre.
+   */
+  externalInputs: Record<string, ExternalInput>
+  setExternalInputs: Dispatch<SetStateAction<Record<string, ExternalInput>>>
+  /** Los insumos que el trabajo pide CON EL CONFIG ACTUAL, ya resueltas sus condiciones. */
+  requiredExternals: ExternalArtifact[]
+  /** El cuerpo que viaja al backend: una referencia por insumo pedido y ya cubierto. */
+  externalRefs: ExternalArtifactRef[]
   /** Dataset elegido, normalizado para el preview (catálogo o subida); persiste entre pestañas. */
   selectedDataset: SelectedDataset | null
   setSelectedDataset: Dispatch<SetStateAction<SelectedDataset | null>>
@@ -101,6 +121,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<Record<string, unknown>>({})
   const [seed, setSeed] = useState<SeedState | null>(null)
   const [datasetId, setDatasetId] = useState<string | null>(null)
+  const [externalInputs, setExternalInputs] = useState<
+    Record<string, ExternalInput>
+  >({})
   const [selectedDataset, setSelectedDataset] =
     useState<SelectedDataset | null>(null)
   const [validation, setValidation] = useState<ValidationState>({ kind: "idle" })
@@ -109,6 +132,20 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const [welcomeDismissed, setWelcomeDismissed] = useState(false)
   const [preflight, setPreflight] = useState<PreflightState>({ kind: "idle" })
   const [focusField, setFocusField] = useState<string | null>(null)
+  const requiredExternals = useMemo(
+    () => requiredExternalArtifacts(job, config),
+    [job, config],
+  )
+  const externalRefs = useMemo(
+    () => buildExternalRefs(requiredExternals, externalInputs),
+    [requiredExternals, externalInputs],
+  )
+  // Los efectos de abajo NO dependen de `externalRefs` por identidad de objeto —cambiaría en cada
+  // render— sino de su forma serializada: dos peticiones con los mismos insumos no tienen por qué
+  // volver a preguntar. Mismo criterio que el `configRef` de la validación.
+  const externalKey = JSON.stringify(externalRefs)
+  const externalRefsRef = useRef(externalRefs)
+  externalRefsRef.current = externalRefs
   const requestSeq = useRef(0)
   const preflightSeq = useRef(0)
   // Último config renderizado, para que el preflight NO dependa de `config` como disparador (ver
@@ -145,7 +182,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     const seq = ++requestSeq.current
     setValidation({ kind: "checking" })
     const timer = setTimeout(() => {
-      void validateConfig(config)
+      void validateConfig(config, externalRefsRef.current)
         .then((res) => {
           if (seq !== requestSeq.current) return // respuesta obsoleta
           if (res.valid && res.config_hash) {
@@ -193,16 +230,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     }
     const seq = ++preflightSeq.current
     setPreflight({ kind: "checking" })
-    void preflightDataset(configRef.current, datasetId)
+    void preflightDataset(configRef.current, datasetId, externalRefsRef.current)
       .then((res) => {
         if (seq !== preflightSeq.current) return // respuesta obsoleta
+        // Los desajustes del insumo externo llegan en su propia lista (D-PUE-8) y se muestran por
+        // el mismo canal: necesitan exactamente lo mismo —un mensaje que leer y, cuando anclan a
+        // un campo, una ruta a la que saltar—. Los que no anclan a ningún campo viajan con
+        // `path: null`, y el aviso los pinta sin botón de salto.
+        const externos = res.external_mismatches ?? []
         setPreflight(
-          res.compatible
+          res.compatible && externos.length === 0
             ? { kind: "ok" }
             : {
                 kind: "issues",
                 mismatches: res.mismatches,
                 uninspected: res.uninspected,
+                external: externos,
               },
         )
       })
@@ -217,7 +260,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     // el usuario sigue tecleando, la validación vuelve a `checking`, el hash desaparece y esto no
     // corre; cuando reaparece, `configRef.current` es exactamente el config que lo produjo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validHash, datasetId])
+  }, [validHash, datasetId, externalKey])
 
   // Los setters de useState son estables → el value solo cambia con el estado real.
   const value = useMemo<AppState>(
@@ -231,6 +274,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       setSeed,
       datasetId,
       setDatasetId,
+      externalInputs,
+      setExternalInputs,
+      requiredExternals,
+      externalRefs,
       selectedDataset,
       setSelectedDataset,
       validation,
@@ -251,6 +298,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       config,
       seed,
       datasetId,
+      externalInputs,
+      requiredExternals,
+      externalRefs,
       selectedDataset,
       validation,
       preflight,

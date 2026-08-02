@@ -754,7 +754,7 @@ export function ConfigTab({ section }: { section: string }) {
         <PreflightNotice
           state={preflight}
           section={section}
-          onJump={(m) => setFocusField(m.path)}
+          onJump={setFocusField}
         />
 
         {presetError ? (

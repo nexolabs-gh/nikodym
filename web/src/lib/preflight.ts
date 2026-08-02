@@ -7,7 +7,7 @@
  * Lógica pura, testeable con vitest sin React ni DOM.
  */
 
-import type { PreflightMismatch } from "@/lib/api"
+import type { ExternalMismatch, PreflightMismatch } from "@/lib/api"
 import { CONFIG_SECTIONS } from "@/lib/schema"
 
 /**
@@ -23,6 +23,12 @@ export type PreflightState =
       kind: "issues"
       mismatches: readonly PreflightMismatch[]
       uninspected: readonly string[]
+      /**
+       * Desajustes del archivo que el usuario trae de fuera (D-PUE-8). Viajan aparte porque su
+       * `path` puede ser `null` —un problema de la llave o del conteo de filas no pertenece a
+       * ningún campo del config— y el aviso los pinta sin botón de salto.
+       */
+      external?: readonly ExternalMismatch[]
     }
   | { kind: "unreachable" }
 

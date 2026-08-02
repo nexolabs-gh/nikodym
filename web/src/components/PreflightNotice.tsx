@@ -16,7 +16,12 @@ interface PreflightNoticeProps {
    */
   section?: string
   /** Salto al campo. Sin este callback los desajustes se listan como texto, sin navegar. */
-  onJump?: (mismatch: PreflightMismatch) => void
+  /**
+   * Enfoca el campo del desajuste. Recibe el **path** y no el desajuste entero porque es lo único
+   * que el llamador usa, y porque desde D-PUE-8 llegan por aquí dos clases de aviso con
+   * vocabularios de `kind` distintos: pasar el objeto obligaba a falsear el tipo de uno de los dos.
+   */
+  onJump?: (path: string) => void
 }
 
 /**
@@ -96,6 +101,32 @@ export function PreflightNotice({ state, section, onJump }: PreflightNoticeProps
         antes evita una corrida que probablemente falle.
       </p>
       <MismatchList mismatches={state.mismatches} onJump={onJump} />
+      {/* Desajustes del archivo que el usuario trae de fuera (D-PUE-8). Se listan aquí y no en
+          una tarjeta propia porque son la misma pregunta —«¿esto va a correr con mis datos?»— y
+          partirla en dos sitios obligaría a mirar dos veces antes de ejecutar. Los que anclan a
+          un campo saltan; los de la llave o el conteo no pertenecen a ninguno y van como texto. */}
+      {(state.external ?? []).length > 0 ? (
+        <ul className="mt-3 space-y-1.5" data-testid="preflight-externos">
+          {(state.external ?? []).map((m, i) => (
+            <li key={`${m.kind}-${m.path ?? i}`} className="flex items-start gap-1.5">
+              <span aria-hidden="true">·</span>
+              {m.path !== null && onJump ? (
+                <button
+                  type="button"
+                  className="text-left underline decoration-dotted underline-offset-2"
+                  onClick={() => {
+                    if (m.path !== null) onJump(m.path)
+                  }}
+                >
+                  {m.message}
+                </button>
+              ) : (
+                <span>{m.message}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {state.uninspected.length > 0 ? (
         <p className="mt-3 opacity-90">
           {state.uninspected.length === 1
@@ -117,7 +148,7 @@ function MismatchList({
   onJump,
 }: {
   mismatches: readonly PreflightMismatch[]
-  onJump?: (mismatch: PreflightMismatch) => void
+  onJump?: (path: string) => void
 }) {
   if (mismatches.length === 0) return null
   // La lista es TOTAL por diseño (D-PRE-2) y el caso real trae 15 desajustes, que empujaban el
@@ -129,7 +160,7 @@ function MismatchList({
           {onJump && canJumpTo(m) ? (
             <button
               type="button"
-              onClick={() => onJump(m)}
+              onClick={() => onJump(m.path)}
               className="w-full rounded-md px-2 py-1.5 text-left underline-offset-2 hover:bg-foreground/[0.06] hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               title="Ir al campo en Configuración"
             >
