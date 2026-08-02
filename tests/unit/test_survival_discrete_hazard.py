@@ -150,8 +150,7 @@ def test_constructor_mapping_config_default_y_partition_desde_pd_frame(
     )
     prediction_with_explicit = with_pd_partition.term_structure(explicit, times=[1])
 
-    def empty_fit_mask(_frame: pd.DataFrame, *, pd: Any, np: Any) -> Any:
-        del pd
+    def empty_fit_mask(_frame: pd.DataFrame, *, np: Any) -> Any:
         return np.zeros(len(_frame.index), dtype=bool)
 
     monkeypatch.setattr(dh_module, "_fit_mask", empty_fit_mask)
@@ -553,7 +552,7 @@ def test_helpers_defensivos_de_diseno_y_grilla() -> None:
             np=np,
         )
     with pytest.raises(SurvivalInputError, match="partition"):
-        dh_module._fit_mask(pd.DataFrame({"partition": [None]}), pd=pd_mod, np=np)
+        dh_module._fit_mask(pd.DataFrame({"partition": [None]}), np=np)
 
     assert term["period"].tolist() == [1, 2]
     assert term["warning_codes"].tolist() == [(), ()]

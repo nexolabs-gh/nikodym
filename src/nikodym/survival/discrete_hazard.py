@@ -32,6 +32,8 @@ from nikodym.survival.exceptions import (
     SurvivalInputError,
     SurvivalTransformError,
 )
+from nikodym.survival.partition import PARTITION_COL as _PARTITION_COL
+from nikodym.survival.partition import fit_mask as _fit_mask
 from nikodym.survival.results import SurvivalCard, SurvivalDiagnostics
 
 if TYPE_CHECKING:
@@ -58,8 +60,6 @@ __all__ = ["DiscreteTimeHazardModel"]
 _METHOD: Literal["discrete_hazard"] = "discrete_hazard"
 _SCORING_EXTRA_MESSAGE = "DiscreteTimeHazardModel requiere statsmodels; instale nikodym[scoring]."
 _NO_TIME_GRID_WARNING = "DATO-INSTITUCIONAL-SUR-1"
-_PARTITION_COL = "partition"
-_PARTITION_DESARROLLO = "desarrollo"
 _TARGET_COL = "__event_it"
 _PERIOD_COL = "period"
 _TIME_VALUE_COL = "time_value"
@@ -175,7 +175,7 @@ class DiscreteTimeHazardModel(AuditableMixin):
         )
         durations = _duration_period_array(prepared[duration_col], column=duration_col, np=np)
         events = _event_array(prepared[event_col], column=event_col, np=np)
-        fit_mask = _fit_mask(prepared, pd=pd, np=np)
+        fit_mask = _fit_mask(prepared, np=np)
         fit_frame = prepared.loc[fit_mask].copy(deep=True)
         fit_durations = cast("NDArrayInt", durations[fit_mask])
         fit_events = cast("NDArrayInt", events[fit_mask])
@@ -466,18 +466,6 @@ def _combined_covariates(
     for column in (*configured, *explicit):
         observed.setdefault(column, None)
     return tuple(observed)
-
-
-def _fit_mask(frame: DataFrame, *, pd: Any, np: Any) -> NDArrayInt:
-    if _PARTITION_COL not in frame.columns:
-        return cast("NDArrayInt", np.ones(len(frame.index), dtype=bool))
-    if bool(frame[_PARTITION_COL].isna().any()):
-        raise SurvivalInputError("La columna partition no puede contener missing.")
-    values = frame[_PARTITION_COL].astype("string")
-    mask = (values == _PARTITION_DESARROLLO).to_numpy(dtype=bool, na_value=False)
-    if bool(mask.any()):
-        return cast("NDArrayInt", mask)
-    return cast("NDArrayInt", np.ones(len(frame.index), dtype=bool))
 
 
 def _expand_person_period_from_arrays(

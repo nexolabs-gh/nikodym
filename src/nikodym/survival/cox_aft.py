@@ -33,6 +33,8 @@ from nikodym.survival.exceptions import (
     SurvivalInputError,
     SurvivalTransformError,
 )
+from nikodym.survival.partition import PARTITION_COL as _PARTITION_COL
+from nikodym.survival.partition import fit_mask as _fit_mask
 from nikodym.survival.results import SurvivalCard, SurvivalDiagnostics
 
 if TYPE_CHECKING:
@@ -59,8 +61,6 @@ _AFT_METHOD: Literal["aft"] = "aft"
 _SURVIVAL_EXTRA_MESSAGE = "instale nikodym[survival]"
 _NO_TIME_GRID_WARNING = "DATO-INSTITUCIONAL-SUR-1"
 _NO_PH_THRESHOLD_WARNING = "D-SUR-7"
-_PARTITION_COL = "partition"
-_PARTITION_DESARROLLO = "desarrollo"
 _SCENARIO = None
 _TERM_STRUCTURE_COLUMNS: tuple[str, ...] = (
     "row_id",
@@ -537,16 +537,6 @@ def _combined_covariates(
     for column in (*configured, *explicit):
         observed.setdefault(column, None)
     return tuple(observed)
-
-
-def _fit_mask(frame: DataFrame, *, np: Any) -> NDArrayInt:
-    if _PARTITION_COL not in frame.columns:
-        return cast("NDArrayInt", np.ones(len(frame.index), dtype=bool))
-    values = frame[_PARTITION_COL].astype("string")
-    mask = (values == _PARTITION_DESARROLLO).to_numpy(dtype=bool, na_value=False)
-    if bool(mask.any()):
-        return cast("NDArrayInt", mask)
-    return cast("NDArrayInt", np.ones(len(frame.index), dtype=bool))
 
 
 def _lifelines_fit_frame(

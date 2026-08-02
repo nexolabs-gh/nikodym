@@ -36,6 +36,7 @@ from nikodym.survival.exceptions import (
     SurvivalFaltaDatoError,
     SurvivalInputError,
 )
+from nikodym.survival.partition import PARTITION_COL as _PARTITION_COL
 from nikodym.survival.results import SurvivalCard, SurvivalDiagnostics, SurvivalResult
 
 if TYPE_CHECKING:
@@ -89,7 +90,6 @@ _SURVIVAL_EXTRA_MESSAGE: Final = (
     "instale nikodym[survival]."
 )
 _PANDAS_EXTRA_MESSAGE: Final = "SurvivalStep requiere pandas; instale las dependencias base."
-_PARTITION_COL: Final = "partition"
 _CALIBRATION_SOURCE: Final = "calibration"
 _MODEL_RAW_SOURCE: Final = "model_raw"
 _NO_PD_SOURCE: Final = "none"
