@@ -151,7 +151,7 @@ def test_constructor_mapping_config_default_y_partition_desde_pd_frame(
     prediction_with_explicit = with_pd_partition.term_structure(explicit, times=[1])
 
     def empty_fit_mask(_frame: pd.DataFrame, *, np: Any) -> Any:
-        return np.zeros(len(_frame.index), dtype=bool)
+        return np.zeros(len(_frame.index), dtype=bool), "desarrollo"
 
     monkeypatch.setattr(dh_module, "_fit_mask", empty_fit_mask)
     with pytest.raises(SurvivalFitError, match="No hay filas"):
@@ -295,13 +295,18 @@ def test_no_leakage_con_partition_y_no_mutacion_de_frames() -> None:
     assert_frame_equal(pd_frame, pd_original)
 
 
-def test_segment_col_id_col_partition_fallback_y_validaciones_texto() -> None:
-    """Segmento/id declarados se validan y una partición sin Desarrollo usa todo el frame."""
+def test_segment_col_id_col_sin_particion_y_validaciones_texto() -> None:
+    """Segmento/id declarados se validan; sin columna de partición se ajusta sobre todo el frame.
+
+    Este test aseveraba antes el fallback contrario —``partition="holdout"`` ajustando sobre el
+    frame entero— y por eso *defendía* el defecto. Hoy ese caso levanta y tiene su propio test;
+    aquí queda el alcance completo por la vía legítima: la columna simplemente no existe.
+    """
     frame = _golden_hazard_frame().assign(segment="retail", loan_code=lambda data: data.index)
     model = DiscreteTimeHazardModel.from_config(
         _cfg(segment_col="segment", id_col="loan_code")
     ).fit(
-        frame.assign(partition="holdout"),
+        frame,
         duration_col="duration",
         event_col="event",
     )
@@ -309,6 +314,7 @@ def test_segment_col_id_col_partition_fallback_y_validaciones_texto() -> None:
 
     assert term["segment"].tolist() == ["retail"]
     assert model.n_fit_rows_ == len(frame)
+    assert model.fit_scope_ == "poblacion_completa"
     with pytest.raises(SurvivalInputError, match="loan_code"):
         DiscreteTimeHazardModel.from_config(_cfg(id_col="loan_code")).fit(
             frame.drop(columns=["loan_code"]),

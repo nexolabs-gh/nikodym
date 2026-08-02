@@ -679,6 +679,7 @@ def _metric_sections(
         "schoenfeld": getattr(model, "schoenfeld_test_", None) or {},
         "km_greenwood": _km_greenwood_section(model, cfg=cfg),
         "person_period": _person_period_section(model),
+        "fit_scope": _fit_scope_section(model),
         "pd_source": pd_context,
         "time_grid": time_context,
     }
@@ -699,6 +700,27 @@ def _term_structure_summary(term_structure: DataFrame) -> dict[str, Any]:
         "n_periods": int(cast(Any, term_structure["period"]).nunique(dropna=True)),
         "max_pd_cumulative": _clean_float(float(cast(Any, term_structure["pd_cumulative"]).max())),
         "min_survival": _clean_float(float(cast(Any, term_structure["survival"]).min())),
+    }
+
+
+def _fit_scope_section(model: BaseSurvivalModel) -> dict[str, Any]:
+    """Publica en el card sobre qué población se ajustó, y no sólo cuántas filas entraron.
+
+    ``n_fit_rows == n_rows`` es ambiguo: ocurre igual cuando el frame no traía partición —el
+    standalone la descarta a propósito— y cuando la traía entera en Desarrollo. Sin esta sección,
+    quien lee el resultado no puede distinguir un ajuste sobre el libro completo de uno sobre la
+    muestra de Desarrollo, que es la diferencia que mueve los coeficientes.
+
+    Kaplan-Meier no filtra por partición y no publica el atributo: devuelve ``{}``, igual que las
+    demás secciones que no aplican a un método.
+    """
+    scope = getattr(model, "fit_scope_", None)
+    if scope is None:
+        return {}
+    return {
+        "scope": str(scope),
+        "n_rows": getattr(model, "n_rows_", None),
+        "n_fit_rows": getattr(model, "n_fit_rows_", None),
     }
 
 
