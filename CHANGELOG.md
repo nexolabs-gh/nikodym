@@ -9,6 +9,27 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Añadido
 
+- **El panel de resultados dice de dónde salió lo que muestra.** Quien corre por la interfaz ve el
+  panel **antes** que el informe, y hasta ahora esa pantalla no publicaba ninguna procedencia: ni el
+  hash de los datos, ni la versión con la que se corrió, ni si el árbol de código tenía cambios sin
+  confirmar, ni las advertencias de determinismo, ni qué artefactos entraron desde fuera. El informe
+  sí lo publica desde siempre, así que la deuda era la asimetría entre dos superficies de la misma
+  corrida. Ahora `results.json` trae esa procedencia entera —la misma que el anexo del informe— y el
+  panel la enseña. Es aditivo: un cliente que no conozca la clave la ignora, y los resultados
+  guardados antes de este cambio no la traen y se leen igual.
+
+  De paso, el panel deja de mostrar el hash de configuración **del formulario** y muestra el de la
+  corrida: bastaba teclear en cualquier campo después de ejecutar para que la pantalla afirmara un
+  hash que ninguna corrida había producido.
+
+- **Las columnas que identifican una fila se eligen del propio archivo**, con casillas, en vez de
+  escribirse como una lista en JSON a mano. Afectaba sólo a ese campo, y la causa era que al
+  desempaquetar un campo opcional se perdía la marca que dice «esto nombra columnas de tus datos».
+
+- **Los conjuntos de datos de ejemplo también traen su perfil de columnas**, así que el aviso de
+  «esta columna parece un identificador» —que hasta ahora sólo alcanzaba a los archivos que subías—
+  funciona igual con ellos, incluso si ya los habías usado antes de esta versión.
+
 - **La interfaz ya muestra el valor que el motor usará en un campo que no has llenado.** `GET
   /api/schema` publica un catálogo nuevo, `effective_defaults`, con el valor predeterminado real de
   cada campo del config: el mismo que ejecutan las clases del motor, no una copia escrita a mano.
