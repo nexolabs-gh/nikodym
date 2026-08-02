@@ -14,7 +14,10 @@ import {
 import { ApiError, uploadDataset, type ConfigDict } from "@/lib/api"
 import { ALLOWED_DATA_EXTENSIONS, isAllowedDataFile } from "@/lib/datasets"
 import {
+  CARTERA_KEY_PATH,
   artifactKey,
+  carteraKeyColumn,
+  carteraKeyMismatch,
   withColumnMapping,
   type ExternalInput,
 } from "@/lib/external-artifacts"
@@ -38,6 +41,8 @@ interface ExternalInputCardProps {
   artifact: ExternalArtifact
   input: ExternalInput | undefined
   config: ConfigDict
+  /** Columnas de la cartera; `undefined` mientras no haya ninguna elegida. */
+  carteraColumns?: string[]
   onInput: (key: string, input: ExternalInput | undefined) => void
   onConfig: (next: ConfigDict) => void
 }
@@ -59,6 +64,7 @@ export function ExternalInputCard({
   artifact,
   input,
   config,
+  carteraColumns,
   onInput,
   onConfig,
 }: ExternalInputCardProps) {
@@ -94,6 +100,24 @@ export function ExternalInputCard({
 
   const columnas = input?.columns ?? []
   const porOrden = input !== undefined && input.keyColumn === null
+  const llaveDesalineada = input !== undefined && carteraKeyMismatch(config, input.keyColumn)
+  const llaveDeLaCartera = carteraKeyColumn(config)
+
+  /**
+   * Elegir la llave del archivo declara **también** la de la cartera (D-PUE-6-bis, §8.3).
+   *
+   * 🔴 Sin esto, el modo «con llave» no alinea por etiqueta: cruza. Se indexaría un solo lado, y la
+   * cartera conservaría su índice posicional. Escribirlo aquí hace que el caso correcto sea el que
+   * ocurre sin pedir nada; si la cartera no trae esa columna, no se inventa un valor y el aviso de
+   * abajo ofrece las dos salidas honestas.
+   */
+  function elegirLlave(value: string) {
+    const keyColumn = value === POR_ORDEN ? null : value
+    if (input !== undefined) onInput(key, { ...input, keyColumn })
+    if (keyColumn !== null && (carteraColumns ?? []).includes(keyColumn)) {
+      onConfig(withColumnMapping(config, [CARTERA_KEY_PATH], keyColumn))
+    }
+  }
 
   return (
     <Card className="shadow-card">
@@ -154,10 +178,7 @@ export function ExternalInputCard({
                 value={input.keyColumn ?? POR_ORDEN}
                 onValueChange={(value) => {
                   if (typeof value !== "string" || value === "") return
-                  onInput(key, {
-                    ...input,
-                    keyColumn: value === POR_ORDEN ? null : value,
-                  })
+                  elegirLlave(value)
                 }}
               >
                 <SelectTrigger id={`llave-${key}`} className="w-full">
@@ -175,6 +196,26 @@ export function ExternalInputCard({
                 </SelectContent>
               </Select>
             </div>
+
+            {llaveDesalineada ? (
+              /* D-PUE-6-bis: la cartera no se identifica con esa columna, así que emparejar por
+                 etiqueta cruzaría las filas. El backend lo rechaza; aquí se dice antes y con las
+                 DOS salidas, porque quien está probando algo rápido tiene que poder seguir. */
+              <p
+                data-testid={`aviso-llave-cartera-${key}`}
+                className="flex items-start gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/5 p-2.5 text-xs leading-relaxed text-amber-200/90"
+              >
+                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                <span>
+                  Tu cartera{" "}
+                  {llaveDeLaCartera === null
+                    ? "no declara ninguna columna que identifique cada operación"
+                    : `identifica sus operaciones con «${llaveDeLaCartera}»`}
+                  , así que no se pueden emparejar por «{input.keyColumn}». Elige esa misma columna
+                  como identificador en tu cartera, o vuelve aquí y usa el orden de filas.
+                </span>
+              </p>
+            ) : null}
 
             {porOrden ? (
               /* D-PUE-6: el aviso es obligatorio, no cosmético. Si las filas están en otro orden y

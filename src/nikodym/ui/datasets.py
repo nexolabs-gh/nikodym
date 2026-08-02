@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from nikodym.core.dataset_check import PerfilColumna, PerfilDataset
-from nikodym.ui.exceptions import UiDatasetError
+from nikodym.ui.exceptions import UiArtifactError, UiDatasetError
 
 __all__ = ["ingest_upload", "list_datasets", "load_frame", "materialize", "row_count"]
 
@@ -33,8 +33,30 @@ __all__ = ["ingest_upload", "list_datasets", "load_frame", "materialize", "row_c
 # archivo produce el mismo ``dataset_id`` y reusa su parquet cacheado (SDD-23 §9). Esta capa es
 # *domain-agnostic*: lee con pandas directo (como :func:`_generate`), sin tocar ``nikodym.data``.
 _ALLOWED_UPLOAD_SUFFIXES: frozenset[str] = frozenset({".csv", ".xlsx", ".parquet"})
-_MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MiB
 _UPLOAD_PREFIX = "uploaded_"
+
+#: Tope por defecto de una subida, en bytes, para quien usa esta capa **por código**.
+#:
+#: ⚠️ No es «el» tope: por HTTP lo gobierna ``UiConfig.upload_max_mb``, que es la fuente única que
+#: SDD-23 §4.2 ya especificaba y que hasta el 2026-08-02 no leía nadie —declaraba 200 MB mientras
+#: el límite efectivo eran estos 100 MiB *hardcoded*—. Un campo de configuración que miente es peor
+#: que uno que no está, así que ahora el endpoint pasa el suyo y esta constante sólo cubre la
+#: llamada directa.
+_MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MiB
+
+
+def mensaje_de_tope(tamano: int, max_bytes: int) -> str:
+    """Copy único del tope superado, para que las dos comprobaciones digan lo mismo.
+
+    Hay dos porque el archivo se puede pesar **antes** de traerlo a memoria (lo normal) y también
+    después (cuando el servidor no publica el tamaño). Dos mensajes distintos para el mismo límite
+    le harían creer al usuario que son dos límites.
+    """
+    return (
+        f"el archivo subido pesa {tamano} bytes y supera el límite admitido de "
+        f"{max_bytes} bytes ({max_bytes // (1024 * 1024)} MiB)."
+    )
+
 
 # Esquema común de los datasets sintéticos: (nombre, dtype lógico, rol). El orden fija el orden de
 # columnas del parquet. Los dtype usan el mismo vocabulario que ``data.ColumnSpec`` y los roles son
@@ -247,7 +269,9 @@ def _columns_for(dataset_id: str) -> tuple[dict[str, str], ...]:
     return _COLUMNS
 
 
-def ingest_upload(content: bytes, filename: str, *, workdir: Path) -> dict[str, Any]:
+def ingest_upload(
+    content: bytes, filename: str, *, workdir: Path, max_bytes: int | None = None
+) -> dict[str, Any]:
     """Ingesta un dataset propio subido y lo materializa a parquet canónico bajo ``workdir``.
 
     Valida tamaño/formato, lee el archivo con pandas según su extensión (``.csv``/``.xlsx``/
@@ -274,16 +298,16 @@ def ingest_upload(content: bytes, filename: str, *, workdir: Path) -> dict[str, 
     Raises
     ------
     UiDatasetError
-        Si el archivo está vacío, supera ``_MAX_UPLOAD_BYTES``, su formato no está admitido, no se
+        Si el archivo está vacío, supera ``max_bytes``, su formato no está admitido, no se
         puede leer con pandas o no contiene filas/columnas de datos.
     """
     if not content:
         raise UiDatasetError("el archivo subido está vacío; suba un archivo con datos.")
-    if len(content) > _MAX_UPLOAD_BYTES:
-        raise UiDatasetError(
-            f"el archivo subido pesa {len(content)} bytes y supera el límite admitido de "
-            f"{_MAX_UPLOAD_BYTES} bytes (100 MiB)."
-        )
+    tope = _MAX_UPLOAD_BYTES if max_bytes is None else max_bytes
+    if len(content) > tope:
+        # Segunda línea de defensa: por HTTP el archivo ya se pesó **antes** de traerlo a memoria.
+        # Ésta cubre la llamada directa por código y el servidor que no publica el tamaño.
+        raise UiDatasetError(mensaje_de_tope(len(content), tope))
     suffix = Path(filename).suffix.lower()
     if suffix not in _ALLOWED_UPLOAD_SUFFIXES:
         raise UiDatasetError(
@@ -447,14 +471,24 @@ def load_frame(dataset_id: str, *, workdir: Path, key_column: str | None = None)
     Raises
     ------
     UiDatasetError
-        Si el dataset no existe o si ``key_column`` no es una columna del archivo.
+        Si el dataset no existe.
+    UiArtifactError
+        Si ``key_column`` no es una columna del archivo.
+
+    Notes
+    -----
+    ⚠️ Las dos excepciones son **hermanas** bajo ``UiError`` y se eligen por lo que significan, no
+    por su orden en un ``except``: un dataset ausente es «eso no existe» (404) y una llave que el
+    archivo no trae es entrada del usuario, corregible desde la pantalla (422). Hasta el 2026-08-02
+    las dos salían como ``UiDatasetError`` y una llave mal escrita respondía 404, que le dice al
+    usuario algo falso sobre su propio archivo.
     """
     source = materialize(dataset_id, workdir=workdir)
     frame = pd.read_parquet(source)
     if key_column is None:
         return frame
     if key_column not in frame.columns:
-        raise UiDatasetError(
+        raise UiArtifactError(
             f"el archivo '{dataset_id}' no tiene la columna '{key_column}' que declaraste como "
             f"identificador; columnas disponibles: {[str(c) for c in frame.columns]}."
         )

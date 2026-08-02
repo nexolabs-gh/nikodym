@@ -26,6 +26,10 @@ from nikodym.ui.exceptions import UiArtifactError
 _PD_CLAVE = ["calibration", "calibrated_pd_frame"]
 _SCORE_CLAVE = ["scorecard", "score"]
 
+#: Config de una cartera que declara su identificador, que es lo que D-PUE-6-bis exige para que la
+#: alineación por etiqueta sea genuina y no una coincidencia entre la llave y un `RangeIndex`.
+_CARTERA_CON_LLAVE: dict[str, object] = {"data": {"schema": {"index_col": "id_operacion"}}}
+
 
 def _subir(workdir: Path, frame: pd.DataFrame, nombre: str) -> str:
     """Ingesta un frame como si el usuario hubiera subido su CSV, y devuelve su identificador."""
@@ -120,6 +124,7 @@ def test_con_llave_declarada_el_frame_entra_indexado_por_ella(
         [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
         cartera,
         workdir=tmp_path,
+        config=_CARTERA_CON_LLAVE,
     )
     frame = externos[("calibration", "calibrated_pd_frame")]
     assert list(frame.index) == [f"OP-{i}" for i in range(6)]
@@ -130,12 +135,18 @@ def test_con_llave_declarada_el_frame_entra_indexado_por_ella(
 def test_una_llave_que_el_archivo_no_tiene_se_rechaza_nombrando_las_que_hay(
     tmp_path: Path, cartera: str, modelo: str
 ) -> None:
-    """Un mensaje que sólo dijera «no existe» obliga a adivinar; se listan las columnas reales."""
-    with pytest.raises(Exception, match="id_inventado") as exc:
+    """Un mensaje que sólo dijera «no existe» obliga a adivinar; se listan las columnas reales.
+
+    ⚠️ El tipo se asevera **explícitamente**, y no con `pytest.raises(Exception)` como hasta el
+    2026-08-02: es lo que decide el código HTTP, y con la excepción genérica el test daba verde
+    mientras el endpoint respondía 404 sobre entrada corregible del usuario.
+    """
+    with pytest.raises(UiArtifactError, match="id_inventado") as exc:
         routes._materializar_externos(
             [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_inventado"}],
             cartera,
             workdir=tmp_path,
+            config={"data": {"schema": {"index_col": "id_inventado"}}},
         )
     assert "probabilidad" in str(exc.value), "el error tiene que listar las columnas disponibles"
 
@@ -155,6 +166,7 @@ def test_un_mismo_archivo_alimenta_las_dos_claves_con_el_mismo_indice(
         ],
         cartera,
         workdir=tmp_path,
+        config=_CARTERA_CON_LLAVE,
     )
     assert set(externos) == {("calibration", "calibrated_pd_frame"), ("scorecard", "score")}
     pd_frame = externos[("calibration", "calibrated_pd_frame")]
@@ -199,6 +211,137 @@ def test_una_llave_mal_tipada_se_rechaza(tmp_path: Path, cartera: str, modelo: s
             cartera,
             workdir=tmp_path,
         )
+
+
+# ───────────────── la llave tiene que estar en los DOS lados (D-PUE-6-bis, §8) ─────────────────
+#
+# 🔴 D-PUE-6 llamaba «el modo correcto» a declarar la llave, y no lo era: indexaba SÓLO el frame
+# externo. La cartera conserva su `RangeIndex` salvo que el config declare `data.schema.index_col`,
+# así que con llaves numéricas los dos índices coinciden por accidente y la probabilidad de cada
+# operación cae en otra **sin que nada falle**. Con llaves de texto no coinciden y muere con jerga
+# del motor. Ninguno de los dos comportamientos es aceptable, y el primero es peor que el modo
+# posicional —que al menos avisa—, así que lo que se prueba aquí es la regla dura: por etiqueta
+# sólo con la llave declarada en los dos lados.
+
+
+def test_con_llaves_numericas_y_cartera_sin_identificador_ya_no_se_cruzan_las_filas(
+    tmp_path: Path,
+) -> None:
+    """El control negativo del defecto: es EXACTAMENTE el caso que cruzaba en silencio.
+
+    Cartera `[1, 0]` y archivo `[0, 1]`: los dos índices se intersecan del todo con el `RangeIndex`,
+    así que nada falla y la operación 1 recibía la probabilidad de la 0. Ahora se detiene antes.
+    """
+    cartera = _subir(tmp_path, pd.DataFrame({"id_operacion": [1, 0], "saldo": [1.0, 2.0]}), "c.csv")
+    modelo = _subir(
+        tmp_path, pd.DataFrame({"id_operacion": [0, 1], "probabilidad": [0.1, 0.9]}), "m.csv"
+    )
+    with pytest.raises(UiArtifactError, match="no declara ninguna columna como identificador"):
+        routes._materializar_externos(
+            [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
+            cartera,
+            workdir=tmp_path,
+            config={"data": {"schema": {}}},
+        )
+
+
+def test_una_llave_distinta_del_identificador_de_la_cartera_se_rechaza(
+    tmp_path: Path, cartera: str, modelo: str
+) -> None:
+    """Dos llaves distintas no alinean nada, y el mensaje nombra la de la cartera."""
+    with pytest.raises(UiArtifactError, match="usa «saldo»"):
+        routes._materializar_externos(
+            [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
+            cartera,
+            workdir=tmp_path,
+            config={"data": {"schema": {"index_col": "saldo"}}},
+        )
+
+
+def test_el_mensaje_ofrece_las_dos_salidas_y_no_solo_el_problema(
+    tmp_path: Path, cartera: str, modelo: str
+) -> None:
+    """Cami lo pidió explícitamente: la regla es dura, pero quien prueba algo rápido puede seguir.
+
+    Un mensaje que sólo dijera «falta el identificador» dejaría al usuario sin saber que puede
+    quitar la llave y correr por orden de filas, que es lo razonable mientras explora.
+    """
+    with pytest.raises(UiArtifactError) as exc:
+        routes._materializar_externos(
+            [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
+            cartera,
+            workdir=tmp_path,
+            config={"data": {"schema": {}}},
+        )
+    mensaje = str(exc.value)
+    assert "declara «id_operacion» también como identificador de tu cartera" in mensaje
+    assert "quítalo aquí" in mensaje and "por su orden" in mensaje
+
+
+def test_sin_cartera_en_el_config_la_llave_se_acepta_sin_mas(tmp_path: Path, modelo: str) -> None:
+    """Un trabajo que no pide cartera no tiene índice contra el que cruzar nada.
+
+    La coherencia entre los dos artefactos externos la sigue exigiendo el motor, que compara sus
+    índices en los dos sentidos; esta capa no tiene por qué duplicar esa comprobación.
+    """
+    externos = routes._materializar_externos(
+        [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
+        modelo,
+        workdir=tmp_path,
+        config={"data": None},
+    )
+    assert list(externos[("calibration", "calibrated_pd_frame")].index) == [
+        f"OP-{i}" for i in range(6)
+    ]
+
+
+def test_quitar_la_llave_es_la_salida_y_no_exige_un_campo_nuevo(
+    tmp_path: Path, cartera: str, modelo: str
+) -> None:
+    """«Continuar igual» es mandar `key_column: null`: el modo posicional que ya existía.
+
+    Se prueba que la salida funciona con el MISMO config que la regla dura rechaza, porque si
+    exigiera tocar el config no sería una salida sino otro trámite.
+    """
+    externos = routes._materializar_externos(
+        [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": None}],
+        cartera,
+        workdir=tmp_path,
+        config={"data": {"schema": {}}},
+    )
+    assert list(externos[("calibration", "calibrated_pd_frame")].index) == list(range(6))
+
+
+def test_el_preflight_avisa_del_desajuste_de_llave_antes_de_correr(
+    tmp_path: Path, cartera: str, modelo: str
+) -> None:
+    """§8.4: comparar dos campos declarados no lee un solo dato, así que respeta D-PRE-1 entero.
+
+    Y tiene que avisarlo aquí: es lo que convierte un 422 al apretar Ejecutar en un click.
+    """
+    avisos = routes._preflight_insumos(
+        {"data": {"schema": {"index_col": "otra_columna"}}},
+        [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
+        cartera,
+        workdir=tmp_path,
+    )
+    desajuste = [a for a in avisos if a["kind"] == "external_key_mismatch"]
+    clases = [a["kind"] for a in avisos]
+    assert len(desajuste) == 1, f"se esperaba un aviso de llave; llegaron {clases}"
+    assert desajuste[0]["path"] == "data.schema.index_col", "el aviso salta al campo que se corrige"
+
+
+def test_el_preflight_no_avisa_cuando_la_llave_coincide(
+    tmp_path: Path, cartera: str, modelo: str
+) -> None:
+    """Control negativo: un aviso que se dispara de más se aprende a ignorar."""
+    avisos = routes._preflight_insumos(
+        _CARTERA_CON_LLAVE,
+        [{"artifact": _PD_CLAVE, "dataset_id": modelo, "key_column": "id_operacion"}],
+        cartera,
+        workdir=tmp_path,
+    )
+    assert not [a for a in avisos if a["kind"] == "external_key_mismatch"]
 
 
 # ─────────────────────────────── el veredicto deja de mentir (D-PUE-7) ─────────────────────────
@@ -463,6 +606,76 @@ def test_una_clave_no_admitida_da_422_y_no_404(tmp_path: Path) -> None:
     respuesta = cliente.post("/api/run", json=cuerpo)
     assert respuesta.status_code == 422
     assert "no admite" in respuesta.json()["detail"]
+
+
+def test_validar_rechaza_las_mismas_claves_que_correr(tmp_path: Path) -> None:
+    """🔴 Paridad validate↔run (§4.4): el mismo cuerpo no puede dar dos veredictos opuestos.
+
+    Hasta el 2026-08-02 la allowlist se aplicaba **sólo** al materializar, así que `/api/validate`
+    respondía `executable=true` sobre claves que `/api/run` rechazaba con 422. El botón Ejecutar
+    prometía una corrida que el servidor no iba a aceptar, que es la peor forma de mentir de las
+    dos superficies: la que sí mira el config.
+    """
+    cliente = _cliente(tmp_path)
+    cuerpo = {
+        "config": _config_de_validar_un_modelo(),
+        "dataset_id": "consumo_comportamiento",
+        # Las cuatro claves de `data`: ninguna la declara ningún trabajo del catálogo.
+        "external_artifacts": [{"artifact": ["data", "frame"], "dataset_id": "uploaded_x"}],
+    }
+
+    validar = cliente.post("/api/validate", json=cuerpo)
+    correr = cliente.post("/api/run", json=cuerpo)
+
+    assert validar.status_code == 200, "el contrato «siempre 200» no cambia"
+    assert validar.json()["valid"] is False, "una clave inadmisible es cuerpo inválido"
+    assert correr.status_code == 422
+    assert validar.json()["pipeline"] is None
+
+
+def test_el_preflight_rechaza_una_clave_inadmisible_con_422_y_no_con_500(tmp_path: Path) -> None:
+    """El tercer endpoint del contrato único responde como los otros dos.
+
+    Sin su `except`, un cuerpo con una clave fuera de la allowlist —o simplemente malformado— hacía
+    escapar la excepción entera y el servidor respondía **500** sobre entrada del usuario, que es
+    exactamente lo que SDD-23 §8 prohíbe.
+    """
+    cliente = _cliente(tmp_path)
+    respuesta = cliente.post(
+        "/api/preflight",
+        json={
+            "config": _config_de_validar_un_modelo(),
+            "dataset_id": "consumo_comportamiento",
+            "external_artifacts": [{"artifact": ["data", "frame"], "dataset_id": "uploaded_x"}],
+        },
+    )
+    assert respuesta.status_code == 422
+    assert "no admite" in respuesta.json()["detail"]
+
+
+def test_una_llave_inexistente_da_422_y_no_404(tmp_path: Path) -> None:
+    """Una columna mal escrita es entrada corregible, no un recurso ausente.
+
+    ⚠️ Y el orden de los `except` del handler **no** es lo que lo decide: `UiArtifactError` y
+    `UiDatasetError` son hermanas bajo `UiError`, así que ninguna captura a la otra. Lo decide el
+    `raise` de origen, y por eso este test vale: si `load_frame` volviera a levantar la de dataset,
+    aquí saldría 404 aunque el handler no se toque.
+    """
+    cliente = _cliente(tmp_path)
+    frame = pd.DataFrame({"id_operacion": ["OP-0"], "probabilidad": [0.1]})
+    subido = _subir(tmp_path, frame, "modelo.csv")
+    respuesta = cliente.post(
+        "/api/run",
+        json={
+            "config": _config_de_validar_un_modelo(),
+            "dataset_id": "consumo_comportamiento",
+            "external_artifacts": [
+                {"artifact": _PD_CLAVE, "dataset_id": subido, "key_column": "id_inventado"}
+            ],
+        },
+    )
+    assert respuesta.status_code == 422, respuesta.json()
+    assert "id_inventado" in respuesta.json()["detail"]
 
 
 def test_validar_con_insumo_externo_no_exige_credenciales_ni_escribe(tmp_path: Path) -> None:

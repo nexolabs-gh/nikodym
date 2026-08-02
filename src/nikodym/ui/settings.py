@@ -27,7 +27,7 @@ class UiConfig(NikodymBaseConfig):
 
     deploy_mode: Literal["local", "demo"] = Field("local", title="Modo de despliegue")
     theme: Literal["light", "dark", "auto"] = Field("auto", title="Tema")
-    upload_max_mb: int = Field(200, ge=1, le=2048, title="Tamaño máx. de subida (MB)")
+    upload_max_mb: int = Field(100, ge=1, le=2048, title="Tamaño máx. de subida (MiB)")
     workdir: str = Field(".nikodym_ui", title="Directorio de trabajo local (runs/datasets)")
     exposed_sections: tuple[str, ...] = Field((), title="Secciones expuestas (vacío = todas)")
     allow_live_execution: bool = Field(

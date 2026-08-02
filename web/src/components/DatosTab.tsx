@@ -296,6 +296,7 @@ export function DatosTab({ onNavigate, onJumpToField }: DatosTabProps) {
           artifact={entry}
           input={externalInputs[artifactKey(entry.artifact)]}
           config={config}
+          carteraColumns={selectedDataset?.columns.map((c) => c.name)}
           onInput={(key, input) =>
             setExternalInputs((prev) => {
               const next = { ...prev }

@@ -5,9 +5,14 @@
 > **Enmienda a:** [`_ENMIENDA-PUERTA-ARTEFACTOS.md`](_ENMIENDA-PUERTA-ARTEFACTOS.md) §D-ART-9 (que
 > dejó HTTP/UI fuera con su razón), [`_SDD-UI-POR-TRABAJOS.md`](_SDD-UI-POR-TRABAJOS.md) §D-JOB-7,
 > SDD-23 §7/§10 (contrato REST y seguridad local) y la enmienda B2.2 (E-B2.2-2, guardas locales).
-> **Decisiones:** D-PUE-1 … D-PUE-13.
+> **Decisiones:** D-PUE-1 … D-PUE-13, **más D-PUE-6-bis** (§8, aprobada el 2026-08-02).
 > **Nodo de roadmap:** P1 · D-JOB-7, y con él P2 («validar un modelo existente»).
 > **Autor / Fecha:** DanIA · 2026-08-01 (medido contra `main` = `5ef2dff`, CI 16/16).
+>
+> 🔴 **D-PUE-6 quedó CORREGIDA por §8 el 2026-08-02**: el modo «con llave» que la decisión llamaba
+> *el correcto* indexaba **un solo lado** y cruzaba las filas en silencio. La decisión vigente sobre
+> alineación es **D-PUE-6-bis**; el texto original de D-PUE-6 se conserva porque es lo que se
+> implementó y explica el defecto.
 
 ---
 
@@ -237,6 +242,12 @@ llega ya indexado, así que el motor nunca necesitó ese campo. Va en el cuerpo 
 
 ### D-PUE-6 · La alineación: por llave si la hay, **por orden de filas si no**, y siempre declarada
 
+> 🔴 **CORREGIDA el 2026-08-02 — leer la §8 antes que esta sección.** Lo que sigue describe el
+> diseño tal como se aprobó, y su primer punto resultó **falso al medirlo**: indexar sólo el frame
+> externo no produce una alineación por etiqueta, produce un cruce silencioso. La decisión vigente
+> es **D-PUE-6-bis** (§8). Esta redacción se conserva sin editar porque es lo que se implementó y
+> explica los defectos que la corrección cierra.
+
 Decisión de Cami (2026-08-01), tomada con el riesgo a la vista.
 
 - **Con `key_column`:** esa columna pasa a ser el índice del frame sembrado. Es el modo correcto y el
@@ -348,7 +359,9 @@ clave se rompería en silencio al cambiar `pd_source`.
 - **LGD modelada por regresión** sigue no disponible: le falta que el método interno pueda delegar en
   `LgdEngine` (D-JOB-11), que es capacidad de motor con su propio SDD.
 - **`UiConfig.upload_max_mb`** se queda muerto o se conecta: es deuda anotada aparte y no se resuelve
-  aquí de tapadillo.
+  aquí de tapadillo. ✅ **Resuelto el 2026-08-02** (decisión de Cami): se conecta como fuente única
+  y el tope se comprueba **antes** de traer el cuerpo a memoria. El §1.3 de esta enmienda queda
+  cerrado.
 
 ### D-PUE-13 · Contrato SemVer: MINOR, y no rompe a nadie
 
@@ -374,6 +387,7 @@ clave se rompería en silencio al cambiar `pd_source`.
 | clave inerte | corre; se declara en `inert_artifacts` y en el trail | D-ART-5, ahora visible por REST (D-PUE-7) |
 | `dataset_id` del artefacto inexistente | **404**, igual que un dataset | misma vía, mismo error |
 | `key_column` que el archivo no tiene | aviso del preflight; **422** al correr | el motor no puede indexar por lo que no existe |
+| `key_column` que la cartera no declara como `index_col` | aviso del preflight; **422** al correr, nombrando las dos salidas | **D-PUE-6-bis** (§8): por etiqueta sólo con la llave en los dos lados |
 | `key_column` con valores repetidos | aviso del preflight (por el perfil); el motor lo rechaza | `engine.py:231-235` ya tiene su mensaje |
 | sin `key_column` y distinto nº de filas | **error duro**, antes de correr | D-PUE-6.1 |
 | sin `key_column` y mismo nº de filas | corre, con aviso en pantalla y caveat en lineage e informe | D-PUE-6.2/6.3 |
@@ -483,3 +497,95 @@ el tipo de uno de los dos; pasar el path, que es lo único que los dos llamadore
   archivo del modelo. Se contestan y la corrida llega a `done`, pero es fricción real. No se cambia
   aquí: las decisiones se reparten por sección (D-OBL-6) y acotarlas por trabajo es una decisión de
   alcance, no un arreglo.
+
+---
+
+## 8. Corrección de D-PUE-6 · el modo «con llave» estaba mal diseñado
+
+> **Estado:** **APROBADA** (OK explícito de Cami, 2026-08-02), tras una revisión adversarial cruzada
+> con Codex sobre `5ef2dff..cf79931`. **Decisión: D-PUE-6-bis**, que reemplaza el primer punto de
+> D-PUE-6 y deja el resto en pie.
+
+### 8.1 🔴 Lo que D-PUE-6 prometía y no era cierto
+
+D-PUE-6 dice: *«Con `key_column`: esa columna pasa a ser el índice del frame sembrado. **Es el modo
+correcto** y el que la interfaz propone primero.»* La implementación hace exactamente eso
+(`routes.py:713` → `datasets.load_frame(..., key_column=…)`), y aun así **el modo no es correcto**:
+indexa **sólo un lado**. La cartera conserva su `RangeIndex` salvo que el usuario haya declarado
+`data.schema.index_col`, que es un campo distinto que nada obliga a llenar.
+
+Medido, no razonado. Dos escenarios, y ninguno de los dos funciona:
+
+| llaves | qué ocurre | quién se entera |
+|---|---|---|
+| **numéricas** (`id_operacion = 0,1,2…`) | coinciden **por accidente** con el `RangeIndex` y alinean en el orden equivocado | **nadie**: la corrida termina sin un solo error |
+| **de texto** (`OP-0`, `OP-1`…) | no hay intersección; el motor rechaza | el usuario, con un mensaje del motor sobre filas faltantes |
+
+Reproducción del primero: cartera `id_operacion=[1,0]`, artefacto `id_operacion=[0,1]` con
+PD `[0.1,0.9]` → la operación `1` recibe `0.1` cuando le corresponde `0.9`. La verificación en vivo
+de la sesión anterior no lo vio porque su fixture usaba llaves de texto, o sea el escenario ruidoso.
+
+⚠️ **Y es peor que el modo posicional**, que D-PUE-6 presenta como el arriesgado: el posicional lleva
+aviso en pantalla y caveat en el informe, y el «seguro» no avisa nada. Un modo silenciosamente
+incorrecto es peor que uno correctamente declarado como aproximado.
+
+⚠️ **Segundo defecto de la misma decisión:** al declarar llave se **omite** el control de conteo de
+filas (`routes.py:714`, el `if key_column is None`). Con llave genuina eso es correcto —el artefacto
+puede legítimamente tener más filas que la cartera y el motor comprueba cobertura—, pero combinado
+con lo anterior deja el modo sin ninguna guarda.
+
+### 8.2 D-PUE-6-bis · La alineación por etiqueta exige la llave en **los dos lados**
+
+Decisión de Cami (2026-08-02), y su criterio explícito fue que el diseño tiene que servir a **dos
+usuarios a la vez**: el que está probando algo rápido para ver qué da, y el que hace el modelo en
+serio. De ahí que la regla sea dura pero la salida exista.
+
+**La regla dura:** el motor alinea por etiqueta **sólo** cuando la cartera y el artefacto declaran la
+**misma** llave. Nunca implícitamente. En concreto, con `key_column` declarada:
+
+1. Si `data.schema.index_col` **coincide** con `key_column` → alineación por etiqueta, genuina.
+   Es el modo correcto y el único que merece llamarse así. Medido: con los dos lados indexados, la
+   operación `1` recibe su `0.9`.
+2. Si **no coincide** (o `data` está activo sin `index_col`) → **422 antes de correr**, con un
+   mensaje que nombra las **dos** salidas y no sólo el problema.
+3. Si `data` está **apagado** —el trabajo que no pide cartera— la llave se acepta sin más: no hay
+   índice contra el que cruzar, y la coherencia entre los dos artefactos externos ya la exige el
+   motor (`performance/step.py:183-190`).
+
+**La salida para quien está probando, y es la razón de que esto no sea un muro.** El usuario puede
+decir «no quiero declarar identificador, sigue igual», y entonces la corrida se hace **en modo
+posicional declarado**: con su aviso en pantalla, su error duro de conteo de filas y su caveat en el
+lineage y el informe. Nunca se degrada a la alineación por etiqueta contra un índice no vinculado,
+que es justamente la que cruza en silencio.
+
+⚠️ **Esa salida NO añade contrato:** «continuar igual» es, literalmente, mandar `key_column: null`,
+que es el modo posicional que D-PUE-6 ya definió. El cuerpo de la petición no gana ni un campo, y
+la interfaz gana un botón, no una forma nueva que aprender. Se prefirió a inventar un
+`align: "key" | "row_order"` por la misma razón que D-PUE-3 prefirió no abrir un endpoint: la
+superficie que no nace no hay que auditarla.
+
+### 8.3 Qué hace la interfaz, para que la regla dura no se note
+
+Al elegir la llave del artefacto (el selector que D-PUE-5 ya pinta), la interfaz escribe **también**
+`data.schema.index_col` con esa columna, si la cartera la tiene. El caso correcto pasa a ser el que
+ocurre sin pedir nada. Si la cartera **no** trae esa columna, se dice en pantalla y quedan las dos
+salidas honestas: elegir otra llave, o continuar por orden de filas con su aviso.
+
+⚠️ `data.schema.index_col` **sí entra en el `config_hash`** —sólo `data.load.source` está excluido
+(`hashing.py:38-46`)—, y por eso lo escribe **el formulario** y no el backend a espaldas del usuario.
+Cablearlo en la petición, como se cablea `data.load.source`, habría hecho que el config ejecutado
+dejara de ser el que el usuario ve y valida: exactamente la clase de defecto que el paquete D cerró.
+
+### 8.4 El preflight lo avisa antes, sin leer los datos
+
+D-PUE-8 se extiende: comparar `key_column` con `data.schema.index_col` es comparar **dos campos
+declarados**, así que no toca los datos y respeta D-PRE-1 íntegro. El aviso viaja por el canal de
+`external_mismatches` que D-PUE-8 ya abrió, con su salto al campo.
+
+### 8.5 Contrato
+
+Sigue siendo **MINOR** y **no rompe a nadie**: ninguna corrida que hoy funcione bien deja de
+funcionar. Lo que cambia es que una corrida que hoy produce un resultado **falso** pasa a detenerse
+con un mensaje, y una que hoy muere con jerga del motor se detiene antes y en idioma de negocio.
+Ningún `config_hash` se mueve por este cambio: `index_col` lo escribe el usuario, y un config que ya
+lo declaraba tiene el mismo hash que antes.

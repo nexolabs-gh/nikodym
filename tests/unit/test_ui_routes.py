@@ -848,10 +848,69 @@ def test_ingest_upload_vacio(tmp_path: Path) -> None:
 
 
 def test_ingest_upload_excede_limite(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Un archivo por encima de ``_MAX_UPLOAD_BYTES`` levanta ``UiDatasetError`` con el tamaño."""
+    """Un archivo por encima del tope por defecto levanta ``UiDatasetError`` con el tamaño."""
     monkeypatch.setattr(datasets_module, "_MAX_UPLOAD_BYTES", 4)
     with pytest.raises(UiDatasetError, match="límite"):
         datasets_module.ingest_upload(b"12345", "x.csv", workdir=tmp_path)
+
+
+def test_ingest_upload_respeta_el_tope_que_le_pasan(tmp_path: Path) -> None:
+    """El tope es un parámetro, no una constante privada: por HTTP lo fija ``upload_max_mb``.
+
+    Hasta el 2026-08-02 ese campo declaraba 200 MB y **no lo leía nadie**, mientras el límite real
+    eran los 100 MiB de esta capa. Un campo de configuración que miente es peor que uno ausente.
+    """
+    with pytest.raises(UiDatasetError, match="límite"):
+        datasets_module.ingest_upload(b"12345", "x.csv", workdir=tmp_path, max_bytes=4)
+    # Y el default sigue siendo el de siempre para quien llama por código sin decir nada.
+    assert datasets_module.ingest_upload(_CSV_UPLOAD, "a.csv", workdir=tmp_path)["n_rows"] >= 1
+
+
+def test_upload_max_mb_gobierna_el_endpoint_de_verdad(tmp_path: Path) -> None:
+    """El campo de config decide el 422, que es lo que significa «conectarlo»."""
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx2")
+    from _ui_client import ui_client
+
+    from nikodym.ui.settings import UiConfig
+
+    cliente = ui_client(UiConfig(workdir=str(tmp_path), upload_max_mb=1))
+    grande = b"col\n" + b"x\n" * (2 * 1024 * 1024)
+    respuesta = cliente.post("/api/upload", files={"file": ("grande.csv", grande, "text/csv")})
+
+    assert respuesta.status_code == 422
+    assert "límite admitido" in respuesta.json()["detail"]
+    detalle = respuesta.json()["detail"]
+    assert "1048576 bytes (1 MiB)" in detalle, "el tope que se reporta es el suyo, no el interno"
+
+
+def test_el_tope_se_comprueba_antes_de_traer_el_cuerpo_a_memoria(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """🔴 El control negativo del defecto: el tope existía y no limitaba nada.
+
+    Se comprobaba **después** de ``await file.read()``, o sea con el archivo entero ya en RAM.
+    Aquí se hace fallar el `read()`: si el 422 sale igual, es que el tamaño se miró antes. Un test
+    que sólo asevere el 422 pasaría con las dos implementaciones y no probaría nada.
+    """
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx2")
+    from _ui_client import ui_client
+    from starlette.datastructures import UploadFile as StarletteUploadFile
+
+    from nikodym.ui.settings import UiConfig
+
+    async def _read_prohibido(self: object, size: int = -1) -> bytes:
+        raise AssertionError("el cuerpo se materializó antes de comprobar el tope")
+
+    monkeypatch.setattr(StarletteUploadFile, "read", _read_prohibido)
+    cliente = ui_client(UiConfig(workdir=str(tmp_path), upload_max_mb=1))
+    grande = b"col\n" + b"x\n" * (2 * 1024 * 1024)
+
+    respuesta = cliente.post("/api/upload", files={"file": ("grande.csv", grande, "text/csv")})
+
+    assert respuesta.status_code == 422
+    assert "límite admitido" in respuesta.json()["detail"]
 
 
 def test_ingest_upload_formato_no_admitido(tmp_path: Path) -> None:

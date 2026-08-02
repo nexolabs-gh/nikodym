@@ -14,11 +14,17 @@ from nikodym.ui.settings import UiConfig
 
 
 def test_uiconfig_defaults_y_cotas() -> None:
-    """Los defaults y cotas coinciden con §4.3."""
+    """Los defaults y cotas coinciden con §4.3.
+
+    ⚠️ ``upload_max_mb`` valía 200 y **no lo leía nadie**: el tope efectivo eran los 100 MiB
+    *hardcoded* de la capa de datasets. Al conectarlo (2026-08-02) el default baja a 100 para que
+    el campo describa lo que ya ocurría, que es lo que SDD-23 §4.3 especificaba desde el principio.
+    Nadie pierde capacidad: quien subía 150 MB no podía hacerlo tampoco antes.
+    """
     cfg = UiConfig()
     assert cfg.deploy_mode == "local"
     assert cfg.theme == "auto"
-    assert cfg.upload_max_mb == 200
+    assert cfg.upload_max_mb == 100
     assert cfg.workdir == ".nikodym_ui"
     assert cfg.exposed_sections == ()
     assert cfg.allow_live_execution is True

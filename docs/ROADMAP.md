@@ -263,7 +263,9 @@ retroactivamente el producto `1.5.0` publicado.
    `nikodym[scoring,survival,excel,docx]` + FastAPI/Uvicorn/multipart y preserva
    `scikit-learn>=1.6,<1.8`. `allow_live_execution=false` devuelve 403
    en upload/run pero conserva lectura/validación. `upload_max_mb` tiene default único de 100 MiB y
-   lectura por chunks. Upload guarda los bytes originales en `uploaded_<sha256><suffix>` sin parsear
+   gobierna el tope de verdad desde el 2026-08-02, comprobado antes de materializar el cuerpo
+   (hasta entonces declaraba 200 MB, no lo leía nadie y el límite real era una constante interna
+   evaluada después de `await file.read()`). Upload guarda los bytes originales en `uploaded_<sha256><suffix>` sin parsear
    ni convertir y devuelve solo metadata física. `/run` copia el config cambiando únicamente
    `source=None` y pasa el raw path a la extensión aditiva de `nikodym.run`; la API pública coacciona
    `DataConfig` perezosamente, carga path/DataFrame con `DataLoader`, resuelve `schema_.index_col`

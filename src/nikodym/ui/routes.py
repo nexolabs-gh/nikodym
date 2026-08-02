@@ -274,6 +274,25 @@ def _preflight_insumos(
 
         key_column = entrada.get("key_column")
         if isinstance(key_column, str) and key_column:
+            # D-PUE-6-bis (§8.4): comparar la llave con el identificador de la cartera es comparar
+            # dos campos DECLARADOS, así que se puede hacer aquí sin leer un solo dato (D-PRE-1).
+            # Y hay que hacerlo aquí: es el aviso que permite corregirlo con un click en vez de
+            # descubrirlo al apretar Ejecutar.
+            hay_cartera, index_col = _identificador_de_la_cartera(config)
+            if hay_cartera and index_col != key_column:
+                avisos.append(
+                    {
+                        "path": "data.schema.index_col",
+                        "declared": index_col,
+                        "kind": "external_key_mismatch",
+                        "message": (
+                            f"Elegiste «{key_column}» para identificar las filas de tu archivo, "
+                            f"pero tu cartera {_como_se_identifica(index_col)}. Declara "
+                            f"«{key_column}» también como identificador de tu cartera, o quítalo "
+                            "del archivo para emparejar por orden de filas."
+                        ),
+                    }
+                )
             if key_column not in presentes:
                 avisos.append(
                     {
@@ -530,7 +549,9 @@ def datasets_payload() -> list[dict[str, Any]]:
     return datasets.list_datasets()
 
 
-def upload_dataset(content: bytes, filename: Any, *, workdir: Path) -> dict[str, Any]:
+def upload_dataset(
+    content: bytes, filename: Any, *, workdir: Path, max_bytes: int | None = None
+) -> dict[str, Any]:
     """Ingesta un dataset propio subido y devuelve ``{dataset_id, name, n_rows, columns}``.
 
     Valida que ``filename`` sea un ``str`` (precondición del lector por sufijo) y delega la ingesta
@@ -561,7 +582,7 @@ def upload_dataset(content: bytes, filename: Any, *, workdir: Path) -> dict[str,
         raise UiDatasetError(
             f"el nombre del archivo subido debe ser un string, no {type(filename).__name__}."
         )
-    return datasets.ingest_upload(content, filename, workdir=workdir)
+    return datasets.ingest_upload(content, filename, workdir=workdir, max_bytes=max_bytes)
 
 
 def preset_payload(preset_id: str | None = None) -> dict[str, Any]:
@@ -619,12 +640,19 @@ def presets_index_payload() -> dict[str, Any]:
 
 
 def _entradas_externas(external_artifacts: Any) -> list[dict[str, Any]]:
-    """Normaliza y valida la FORMA de ``external_artifacts`` del cuerpo (D-PUE-2).
+    """Normaliza y valida el CUERPO de ``external_artifacts``: forma **y** allowlist (D-PUE-2).
 
     Contrato único para los tres endpoints que lo aceptan: ``/api/run`` lo consume entero,
     ``/api/validate`` y ``/api/preflight`` sólo miran ``artifact``. Una sola forma que aprender, y
     cada endpoint decide cuánto mira — es la misma semántica que D-ART-2 fijó para
     ``check_pipeline``, que acepta claves sueltas porque comprobar no necesita el valor.
+
+    🔴 **La allowlist se aplica AQUÍ y no en la materialización**, que es donde estuvo hasta el
+    2026-08-02, y la diferencia no es de estilo: con la comprobación sólo en ``/api/run``,
+    ``/api/validate`` respondía ``executable=true`` sobre claves que ``/api/run`` rechazaba con 422.
+    Eso rompe la paridad validate↔run que la §4.4 de la propia enmienda exige, que es la que hace
+    que el botón Ejecutar signifique algo. Comprobar la clave no toca el disco ni materializa nada,
+    así que ningún endpoint cambia de categoría de seguridad por hacerlo antes.
     """
     if external_artifacts is None:
         return []
@@ -633,6 +661,7 @@ def _entradas_externas(external_artifacts: Any) -> list[dict[str, Any]]:
             "el insumo externo debe venir como una lista; "
             f"llegó {type(external_artifacts).__name__}."
         )
+    admitidos = jobs.artefactos_admitidos()
     entradas: list[dict[str, Any]] = []
     for cruda in external_artifacts:
         if not isinstance(cruda, dict):
@@ -648,7 +677,13 @@ def _entradas_externas(external_artifacts: Any) -> list[dict[str, Any]]:
             raise UiArtifactError(
                 f"cada insumo externo declara a qué resultado corresponde; llegó {clave!r}."
             )
-        entradas.append({**cruda, "artifact": (str(clave[0]), str(clave[1]))})
+        normalizada = (str(clave[0]), str(clave[1]))
+        if normalizada not in admitidos:
+            raise UiArtifactError(
+                "este trabajo no admite traer ese resultado de fuera. Elige un trabajo que lo "
+                "pida, o quítalo de la petición."
+            )
+        entradas.append({**cruda, "artifact": normalizada})
     return entradas
 
 
@@ -662,25 +697,50 @@ def _claves_externas(external_artifacts: Any) -> tuple[tuple[str, str], ...]:
     return tuple(entrada["artifact"] for entrada in _entradas_externas(external_artifacts))
 
 
+def _identificador_de_la_cartera(config: Any) -> tuple[bool, str | None]:
+    """Devuelve ``(la cartera participa, su columna identificadora)`` leyendo el config crudo.
+
+    Se lee del **dict** y no del modelo a propósito: una sección puede viajar opaca, y ahí el
+    modelo no la expande. ``data`` ausente o en ``None`` significa que el trabajo no pide cartera
+    —hay trabajos así— y entonces no hay índice contra el que cruzar nada.
+    """
+    if not isinstance(config, dict) or not isinstance(config.get("data"), dict):
+        return False, None
+    index_col = _valor_en(config, "data.schema.index_col")
+    return True, index_col if isinstance(index_col, str) and index_col else None
+
+
 def _materializar_externos(
     external_artifacts: Any,
     dataset_id: Any,
     *,
     workdir: Path,
+    config: Any = None,
 ) -> dict[tuple[str, str], Any]:
-    """Convierte lo declarado en la petición en artefactos para el motor (D-PUE-3/4/6).
+    """Convierte lo declarado en la petición en artefactos para el motor (D-PUE-3/4/6-bis).
 
     Tres cosas, en este orden:
 
-    1. **Allowlist** (D-PUE-2): una clave que ningún trabajo disponible acepta se rechaza **antes**
-       de tocar el disco. Por código la puerta es general; por la red, no.
-    2. **Índice** (D-PUE-6): con llave declarada, esa columna pasa a ser el índice y el motor alinea
-       por etiqueta. Sin llave, el frame conserva su índice posicional.
+    1. **Allowlist** (D-PUE-2): la aplica :func:`_entradas_externas`, antes de tocar el disco y para
+       los tres endpoints por igual. Por código la puerta es general; por la red, no.
+    2. **Índice** (D-PUE-6-bis): con llave declarada, esa columna pasa a ser el índice **y la
+       cartera tiene que estar indexada por la misma columna**. Sin llave, el frame conserva su
+       índice posicional y alinea por orden de filas.
     3. **Conteo de filas**, sólo en el modo posicional: es el único desalineamiento que se puede
        detectar sin abrir los archivos, y por eso es error duro y no aviso. ⚠️ Lo que **no** se
        puede detectar aquí es un archivo con el mismo número de filas en otro orden: eso produce
        una corrida sin errores con la probabilidad de cada cliente asignada a otro. De ahí que el
        modo posicional lleve su caveat hasta el informe.
+
+    🔴 **Por qué el punto 2 exige la llave en los DOS lados** (§8 de la enmienda, D-PUE-6-bis).
+    Indexar sólo el frame externo no produce una alineación por etiqueta: produce un cruce. La
+    cartera conserva su ``RangeIndex`` salvo que el usuario declare ``data.schema.index_col``, así
+    que con llaves numéricas los dos índices coinciden **por accidente** y la probabilidad de cada
+    operación se aplica a otra sin que nada falle; con llaves de texto no hay intersección y muere
+    con jerga del motor. Medido las dos veces. Un modo silenciosamente incorrecto es peor que uno
+    declarado como aproximado, y por eso la salida no es degradar en silencio sino detenerse
+    nombrando las dos alternativas: declarar el identificador también en la cartera, o quitarlo de
+    aquí y aceptar el emparejamiento por orden, que sí lleva su aviso y su caveat.
 
     Un mismo archivo puede alimentar **varias** claves (D-PUE-4), y es la forma que la interfaz
     propone: el motor exige que la PD y el puntaje compartan índice, y con una sola tabla eso se
@@ -690,16 +750,11 @@ def _materializar_externos(
     if not entradas:
         return {}
 
-    admitidos = jobs.artefactos_admitidos()
+    hay_cartera, index_col = _identificador_de_la_cartera(config)
     materializados: dict[tuple[str, str], Any] = {}
     filas_de_la_cartera: int | None = None
     for entrada in entradas:
         clave = entrada["artifact"]
-        if clave not in admitidos:
-            raise UiArtifactError(
-                "este trabajo no admite traer ese resultado de fuera. Elige un trabajo que lo "
-                "pida, o quítalo de la petición."
-            )
         origen = entrada.get("dataset_id")
         if not isinstance(origen, str) or not origen:
             raise UiArtifactError(
@@ -709,6 +764,14 @@ def _materializar_externos(
         if key_column is not None and not isinstance(key_column, str):
             raise UiArtifactError(
                 f"el identificador de fila debe ser el nombre de una columna; llegó {key_column!r}."
+            )
+        if key_column is not None and hay_cartera and index_col != key_column:
+            raise UiArtifactError(
+                f"elegiste «{key_column}» para identificar las filas de tu archivo, pero tu "
+                f"cartera {_como_se_identifica(index_col)}. Para emparejar cada operación con la "
+                f"suya, declara «{key_column}» también como identificador de tu cartera. Si "
+                "prefieres seguir sin identificador, quítalo aquí: las filas se emparejarán por su "
+                "orden, con el aviso correspondiente."
             )
         frame = datasets.load_frame(origen, workdir=workdir, key_column=key_column)
         if key_column is None:
@@ -722,6 +785,13 @@ def _materializar_externos(
                 )
         materializados[clave] = frame
     return materializados
+
+
+def _como_se_identifica(index_col: str | None) -> str:
+    """Fragmento del mensaje de D-PUE-6-bis: la cartera no declara identificador, o declara otro."""
+    if index_col is None:
+        return "no declara ninguna columna como identificador"
+    return f"usa «{index_col}»"
 
 
 def run_pipeline(
@@ -750,7 +820,9 @@ def run_pipeline(
     source = datasets.materialize(dataset_id, workdir=workdir)  # (b) UiDatasetError → 404
     wired = _wire_report_output_dir(_wire_dataset_source(config, source), workdir=workdir)
     resolved = NikodymConfig.model_validate(wired)
-    externos = _materializar_externos(external_artifacts, dataset_id, workdir=workdir)  # (b-bis)
+    externos = _materializar_externos(  # (b-bis)
+        external_artifacts, dataset_id, workdir=workdir, config=config
+    )
     study = nikodym.run(resolved, artifacts=externos or None)  # (c) síncrono; D-UI-2
     run_id = runs.save(study, workdir=workdir, governance=resolved.governance)  # (d)
     return {"run_id": run_id, "status": study.run_context.status}
@@ -936,6 +1008,11 @@ def build_router() -> APIRouter:
             # Un invariante de dominio roto es entrada del usuario, no un fallo del servidor: 422
             # con el mensaje del motor, nunca un 500 opaco (SDD-23 §8, igual que `from-yaml`).
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except UiArtifactError as exc:
+            # Mismo criterio que `/api/run`, y hace falta aquí porque desde D-PUE-2 este endpoint
+            # también normaliza el insumo externo: un cuerpo malformado o una clave fuera de la
+            # allowlist escapaban enteras y el servidor respondía 500 sobre entrada del usuario.
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         except UiDatasetError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -951,11 +1028,22 @@ def build_router() -> APIRouter:
         Materializa el archivo a parquet ``uploaded_<hash>`` bajo el ``workdir`` y devuelve su
         ``dataset_id`` + preview de columnas. Un archivo inválido/ilegible/muy grande → 422 (es
         entrada del usuario, nunca un 500 opaco).
+
+        ⚠️ **El tamaño se comprueba ANTES de traer el cuerpo a memoria.** Hasta el 2026-08-02 el
+        `await file.read()` iba primero y el tope se evaluaba tres saltos después, con el archivo
+        entero ya en RAM: el límite existía y no limitaba nada. Starlette pone las partes grandes
+        en un `SpooledTemporaryFile` y publica su tamaño, así que preguntarlo no materializa nada.
+        Si el servidor no lo publicara, `upload_dataset` conserva la comprobación de siempre.
         """
-        workdir = Path(request.app.state.settings.workdir)
+        settings = request.app.state.settings
+        workdir = Path(settings.workdir)
+        max_bytes = settings.upload_max_mb * 1024 * 1024
+        tamano = getattr(file, "size", None)
+        if isinstance(tamano, int) and tamano > max_bytes:
+            raise HTTPException(status_code=422, detail=datasets.mensaje_de_tope(tamano, max_bytes))
         content = await file.read()
         try:
-            return upload_dataset(content, file.filename, workdir=workdir)
+            return upload_dataset(content, file.filename, workdir=workdir, max_bytes=max_bytes)
         except UiDatasetError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1002,9 +1090,13 @@ def build_router() -> APIRouter:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except UiArtifactError as exc:
             # 422 y no 404: el insumo externo es entrada del usuario. Una clave que este trabajo no
-            # admite, o un archivo que no cuadra con la cartera, son cosas que él puede corregir;
-            # responder «no existe» le diría otra cosa. Va ANTES de `UiDatasetError` porque ambas
-            # descienden de `UiError` y el orden de los `except` decide.
+            # admite, una llave que su archivo no trae o un conteo que no cuadra con la cartera son
+            # cosas que él puede corregir; responder «no existe» le diría otra cosa.
+            #
+            # ⚠️ El orden respecto de `UiDatasetError` es indiferente y decirlo importa: las dos son
+            # **hermanas** bajo `UiError`, no una subclase de la otra (verificado con el MRO), así
+            # que ninguna captura a la otra. Quien las discrimina es el `raise` de origen, y por eso
+            # `load_frame` levanta la de artefacto cuando el problema es la llave declarada.
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except UiDatasetError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
