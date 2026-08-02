@@ -28,6 +28,7 @@ __all__ = [
     "EXCLUSION_WINDOW_REASON",
     "CohortSplitConfig",
     "ColumnSpec",
+    "ColumnSplitConfig",
     "CsvOptions",
     "DataConfig",
     "ExclusionRule",
@@ -755,8 +756,98 @@ class CohortSplitConfig(NikodymBaseConfig):
     )
 
 
+class ColumnSplitConfig(NikodymBaseConfig):
+    """La división ya viene marcada en una columna del archivo; el motor la LEE (D-COL-2).
+
+    Las otras tres estrategias **derivan** la división —por fecha, por cohorte o por sorteo—. Ésta
+    no deriva nada: el usuario ya separó su muestra y sólo declara qué valor de su columna
+    corresponde a cada conjunto del motor.
+
+    🔴 **El mapeo es explícito y no se adivina** (D-COL-3): ni por parecido de nombre
+    (``dev`` ≈ ``desarrollo``), ni por orden de aparición, ni por frecuencia. Un valor declarado
+    aquí que no exista en la columna es un error **nombrado** (``data/partition.py``), y los valores
+    de la columna que el usuario no mapea caen a ``fuera_de_modelo``: quedan fuera del modelado y se
+    cuentan como tales, que es lo que el usuario declaró al no nombrarlos.
+    """
+
+    type: Literal["columna"] = Field(
+        default="columna",
+        title="Tipo de estrategia",
+        description="Identifica la estrategia como división ya marcada en una columna.",
+        json_schema_extra={
+            "ui_help": "Identifica esta estrategia como una división que ya viene marcada en el "
+            "archivo; normalmente lo fija el selector de la UI, no se edita a mano.",
+        },
+    )
+    partition_col: str = Field(
+        ...,
+        title="Columna que marca la división",
+        description="Columna del archivo cuyo valor indica a qué muestra pertenece cada fila.",
+        json_schema_extra={
+            "column_role": "input",
+            "ui_help": "Columna del archivo cuyo valor indica a qué muestra pertenece cada fila "
+            "(por ejemplo una columna «muestra» con valores DEV, VAL y OOT).",
+        },
+    )
+    desarrollo: tuple[str, ...] = Field(
+        default_factory=tuple,
+        title="Valores que corresponden a Desarrollo",
+        description="Valores de la columna que forman el conjunto de Desarrollo.",
+        json_schema_extra={
+            "ui_help": "Valores de esa columna que corresponden al conjunto de Desarrollo (donde "
+            "se ajusta el modelo). Se escriben tal como aparecen en el archivo.",
+        },
+    )
+    holdout: tuple[str, ...] = Field(
+        default_factory=tuple,
+        title="Valores que corresponden a Holdout",
+        description="Valores de la columna que forman el conjunto de Holdout.",
+        json_schema_extra={
+            "ui_help": "Valores de esa columna que corresponden al conjunto de Holdout "
+            "(validación fuera de muestra). Se escriben tal como aparecen en el archivo.",
+        },
+    )
+    oot: tuple[str, ...] = Field(
+        default_factory=tuple,
+        title="Valores que corresponden a OOT",
+        description="Valores de la columna que forman el conjunto fuera de tiempo (OOT).",
+        json_schema_extra={
+            "ui_help": "Valores de esa columna que corresponden al conjunto fuera de tiempo "
+            "(OOT). Se escriben tal como aparecen en el archivo.",
+        },
+    )
+
+    @model_validator(mode="after")
+    def _mapeo_declarado_y_sin_ambiguedad(self) -> ColumnSplitConfig:
+        """Exige que el mapeo diga algo y que ningún valor pertenezca a dos muestras.
+
+        No se comprueba aquí que los valores existan en la columna —esto es config y no ha visto
+        el archivo—: eso lo hace el particionador, que sí lo tiene delante.
+        """
+        if not (self.desarrollo or self.holdout or self.oot):
+            raise ValueError(
+                "La división marcada en una columna no declara ningún valor: indique al menos "
+                "qué valor de la columna corresponde a Desarrollo, Holdout u OOT."
+            )
+        vistos: dict[str, str] = {}
+        for muestra, valores in (
+            ("Desarrollo", self.desarrollo),
+            ("Holdout", self.holdout),
+            ("OOT", self.oot),
+        ):
+            for valor in valores:
+                anterior = vistos.get(valor)
+                if anterior is not None and anterior != muestra:
+                    raise ValueError(
+                        f"El valor «{valor}» está declarado a la vez en {anterior} y en "
+                        f"{muestra}; cada valor de la columna pertenece a una sola muestra."
+                    )
+                vistos[valor] = muestra
+        return self
+
+
 PartitionStrategy = Annotated[
-    TemporalSplitConfig | RandomSplitConfig | CohortSplitConfig,
+    TemporalSplitConfig | RandomSplitConfig | CohortSplitConfig | ColumnSplitConfig,
     Field(discriminator="type"),
 ]
 """Unión discriminada anidada de la estrategia de partición (resuelta por ``_SPLITTERS``)."""
@@ -768,10 +859,11 @@ class PartitionConfig(NikodymBaseConfig):
     strategy: PartitionStrategy = Field(
         ...,
         title="Estrategia de partición",
-        description="Una de temporal/random/cohort (por 'type').",
+        description="Una de temporal/random/cohort/columna (por 'type').",
         json_schema_extra={
             "ui_help": "Cómo se dividen los datos en Desarrollo/Holdout/OOT: por fecha de corte "
-            "(temporal), por cohorte/vintage, o por sorteo aleatorio.",
+            "(temporal), por cohorte/vintage, por sorteo aleatorio, o leyendo una división que ya "
+            "viene marcada en una columna del archivo.",
         },
     )
     ttd_includes_excluded: bool = Field(

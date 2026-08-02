@@ -56,7 +56,17 @@ HOJAS_DEL_FORMULARIO = 394
 #: ⚠️ Al implementar la enmienda este número bajó primero a **996**, y ahí estuvo el riesgo: no era
 #: que hubiera menos descriptores, era que el emparejador cortaba al ver uno y dejaba de bajar por
 #: los hijos de los obligatorios. Mover el golden a 996 habría enterrado 28 campos sin comparar.
-DESCRIPTORES_TOTALES = 1034
+#:
+#: 1034 → 1039 el 2026-08-02 con D-COL-2: la cuarta rama de ``PartitionStrategy``
+#: (``ColumnSplitConfig``) aporta sus 5 hojas. **Investigado antes de moverlo, no ajustado para que
+#: pasara**: el diff del catálogo contra el árbol limpio da exactamente 4 hojas nuevas con default
+#: —``type``/``desarrollo``/``holdout``/``oot``— más ``partition_col``, que es requerido y por eso
+#: viaja sin ``value``; **cero pérdidas y cero valores alterados** en los 1034 anteriores. Un
+#: primer intento de esa medición salió con 68 «nuevas» y era falso: stashear sólo ``config.py``
+#: dejaba a ``partition.py`` importando un símbolo inexistente, el dominio ``data`` caía a blob
+#: opaco y la baseline se capturaba mutilada. La baseline de un golden se toma sobre un árbol
+#: **completo**, no sobre uno a medio revertir.
+DESCRIPTORES_TOTALES = 1039
 
 
 #: Las 14 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de

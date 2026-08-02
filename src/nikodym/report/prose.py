@@ -537,7 +537,42 @@ def _partition_sentence(strategy_type: str, strategy: Mapping[str, Any]) -> str:
         if partes:
             return f"La población se particionó de forma aleatoria: {_enumerar(partes)}."
         return "La población se particionó de forma aleatoria."
+    if strategy_type == "columna":
+        return _partition_sentence_columna(strategy)
     return f"La población se particionó con la estrategia «{strategy_type}»."
+
+
+def _partition_sentence_columna(strategy: Mapping[str, Any]) -> str:
+    """Narra la única estrategia en que el motor NO dividió nada: la división venía en el archivo.
+
+    Decirlo importa para quien lee el informe: las otras tres frases describen un criterio que el
+    motor aplicó y que por tanto se puede auditar aquí; ésta describe un criterio de la institución
+    que el motor sólo transcribió. El mapeo se publica entero porque es la evidencia de que no se
+    interpretó nada (D-COL-3).
+
+    ⚠️ ``columna`` **no** entra en :data:`_DERIVED_PARTITION_STRATEGIES`, y no es un olvido: esa
+    constante enumera las estrategias que el motor deriva, para poder callar el aviso de las dos
+    fuentes justo cuando la división de la cartera y la del modelo evaluado pueden salir del mismo
+    sitio — que es precisamente este caso.
+    """
+    partition_col = _text(strategy.get("partition_col"))
+    detalle = f"en la columna «{partition_col}» del archivo" if partition_col else "en el archivo"
+    mapeos = tuple(
+        f"{etiqueta} {_enumerar(tuple(f'«{valor}»' for valor in valores))}"
+        for etiqueta, valores in (
+            ("Desarrollo", _sequence(strategy.get("desarrollo"))),
+            ("Holdout", _sequence(strategy.get("holdout"))),
+            ("OOT", _sequence(strategy.get("oot"))),
+        )
+        if valores
+    )
+    base = (
+        f"La división de la población no la calculó el motor: ya venía marcada {detalle} y se "
+        "leyó tal cual"
+    )
+    if not mapeos:
+        return f"{base}."
+    return f"{base}, con {_enumerar(mapeos)}."
 
 
 # ────────────────────────────── metodología ──────────────────────────────

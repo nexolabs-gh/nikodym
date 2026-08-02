@@ -1,11 +1,33 @@
 # Enmienda SDD — lo que ya traes en tu archivo se declara, no se vuelve a inventar
 
-> **Estado: BORRADOR, pendiente de aprobación de Cami.** El camino lo fijó él el 2026-08-02 tras
-> leer la medición de esta sesión: **el motor aprende a leer**. La opción que el plan traía escrita
+> **Estado: APROBADA por Cami (2026-08-02) — D-COL-2/D-COL-3/D-COL-4 IMPLEMENTADAS.** El camino lo
+> fijó él tras leer la medición: **el motor aprende a leer**. La opción que el plan traía escrita
 > —«acotar las decisiones por trabajo»— se midió y **no es implementable**; el porqué está en §1.3 y
 > es la mitad valiosa de este documento.
 >
 > **Base:** `main` = `3349245`. **Autor / Fecha:** DanIA / 2026-08-02.
+>
+> ## Lo que la implementación de D-COL-2/3/4 corrigió de este documento
+>
+> 1. ✅ **Hash-neutralidad re-verificada con la rama de verdad**: `ec10eb43…`, `857b06ee…`,
+>    `013e69dc…`, byte a byte. Control negativo **ejecutado**: un campo nuevo en `PartitionConfig`
+>    pone rojos los tres, y borrar la rama pone rojo el ancla estructural del propio gate.
+> 2. ⚠️ **Los gates que se mueven son TRES, no los cinco que anunciaba §1.5.** `test_column_roles`
+>    sale **verde** porque la implementación sí declara `column_role: "input"` en `partition_col`
+>    —la sonda de la sesión anterior no lo declaraba, y de ahí sus 2 rojos—. Los que se mueven son
+>    `test_ui_schema_fixture` (2) y `test_effective_defaults` (1, `1034 → 1039`).
+> 3. 🔴 **La rama destapa un defecto que ella misma habría creado, y que ningún test pedía:**
+>    `binning/step.py` excluía de las variables candidatas `date_col` y `cohort_col`, pero no
+>    `partition_col`. Con `feature_columns="*"` la columna que marca la muestra se habría ofrecido
+>    como **predictor**. Corregido y con control negativo ejecutado; de paso la función pasó a
+>    llamarse `_data_declared_structural_columns`, porque el nombre anterior nombraba dos de sus
+>    cuatro fuentes.
+> 4. **Dos decisiones de implementación que el documento no fijaba**, ambas escritas en el código:
+>    un valor **declarado** que no aparece entre las filas utilizables es error nombrado que
+>    publica los observados (es lo que caza el error de tipeo, y no puede decir «no existe en la
+>    columna» porque sería falso para un valor presente sólo en filas excluidas); y `partition_col`
+>    no puede llamarse `partition` ni `ttd`, con mensaje propio — con esta estrategia, que la
+>    columna del usuario se llame así deja de ser un caso raro.
 
 | Campo | Valor |
 |---|---|

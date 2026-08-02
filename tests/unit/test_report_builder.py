@@ -1296,16 +1296,43 @@ def test_las_etapas_de_construccion_son_las_que_se_apoyan_en_la_particion() -> N
 
 
 def test_una_estrategia_que_el_motor_no_deriva_no_afirma_que_haya_dos_fuentes() -> None:
-    """Forward-compat de D-COL-2: con una estrategia que LEYERA la división del archivo del
-    usuario, la de la cartera y la del modelo evaluado podrían salir del mismo sitio, y decir «no
-    tienen por qué coincidir» sería un falso positivo. Ante una estrategia desconocida se calla.
+    """D-COL-2: con la división leída del archivo del usuario, la de la cartera y la del modelo
+    evaluado pueden salir del mismo sitio, así que decir «no tienen por qué coincidir» sería un
+    falso positivo. Éste era el caso hipotético que motivó ``_DERIVED_PARTITION_STRATEGIES``; con
+    la rama implementada pasa a ser un caso real.
     """
     bundle = _context_bundle(
         {"data": _data_card().model_dump(mode="python"), "performance": {}},
-        strategy={"type": "columna", "partition_col": "muestra"},
+        strategy={"type": "columna", "partition_col": "muestra", "desarrollo": ["DEV"]},
     )
 
     body = " ".join(context_body(bundle))
 
     assert "ninguna etapa de esta corrida se apoyó en esa división" in body
     assert "comparar los totales de las dos tablas" not in body
+
+
+def test_la_division_leida_del_archivo_se_narra_como_leida_y_no_como_calculada() -> None:
+    """D-COL-2/D-COL-3: el informe no puede atribuirle al motor un criterio que fue del usuario.
+
+    Y publica el mapeo entero, que es la evidencia auditable de que no se interpretó nada: quien
+    lea el documento puede contrastar los valores contra el archivo original.
+    """
+    bundle = _context_bundle(
+        {"data": _data_card().model_dump(mode="python"), "model": {}},
+        strategy={
+            "type": "columna",
+            "partition_col": "muestra",
+            "desarrollo": ["DEV"],
+            "holdout": ["VAL"],
+            "oot": ["OOT"],
+        },
+    )
+
+    body = " ".join(context_body(bundle))
+
+    assert "La división de la población no la calculó el motor" in body
+    assert "«muestra»" in body
+    assert "Desarrollo «DEV»" in body and "Holdout «VAL»" in body and "OOT «OOT»" in body
+    # No se cuela el fallback genérico, que nombraría el identificador interno de la estrategia.
+    assert "con la estrategia «columna»" not in body

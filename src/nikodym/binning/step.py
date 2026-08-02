@@ -441,7 +441,7 @@ def _resolve_feature_columns(
 ) -> _FeatureColumnResolution:
     """Resuelve candidatas y evidencia anti-fuga preservando el orden declarado."""
     exclusions = _structural_columns(target_col, status_col, partition_col, ttd_col)
-    exclusions.update(_data_temporal_columns(data_config))
+    exclusions.update(_data_declared_structural_columns(data_config))
     exclusions.update(_datetime_columns(frame, pd))
     exclusions.update(config.exclude_columns)
     target_rule_paths = _target_rule_paths_by_column(data_config)
@@ -497,8 +497,22 @@ def _structural_columns(
     }
 
 
-def _data_temporal_columns(data_config: object) -> set[str]:
-    """Extrae columnas de fecha/cohorte declaradas en ``DataConfig`` si están disponibles."""
+def _data_declared_structural_columns(data_config: object) -> set[str]:
+    """Extrae las columnas que ``DataConfig`` usa para ARMAR la muestra, no para predecir.
+
+    Son las que el usuario declara como maquinaria del ejercicio —la fecha de observación, el
+    corte de datos, la fecha o la cohorte del split— y que por eso no pueden entrar como variables
+    candidatas cuando ``feature_columns`` es el comodín.
+
+    ⚠️ ``partition_col`` entra por el mismo motivo, y **es una columna del propio usuario**: con la
+    estrategia ``columna`` (D-COL-2) la división llega marcada en su archivo, así que sin esta
+    línea la columna que dice a qué muestra pertenece cada fila se ofrecería como predictor. Es el
+    mismo criterio con que ya se excluyen ``date_col`` y ``cohort_col``; lo que cambia con esa
+    estrategia es sólo que la columna existe siempre.
+
+    *(El nombre anterior —``_data_temporal_columns``— describía sólo dos de sus cuatro fuentes,
+    y con ``partition_col`` habría pasado a mentir del todo.)*
+    """
     columns: set[str] = set()
     target = _get_config_attr(data_config, "target")
     window = _get_config_attr(target, "window")
@@ -509,6 +523,7 @@ def _data_temporal_columns(data_config: object) -> set[str]:
     strategy = _get_config_attr(partition, "strategy")
     columns.update(_present_strings(_get_config_attr(strategy, "date_col")))
     columns.update(_present_strings(_get_config_attr(strategy, "cohort_col")))
+    columns.update(_present_strings(_get_config_attr(strategy, "partition_col")))
     return columns
 
 

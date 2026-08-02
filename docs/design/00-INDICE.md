@@ -305,7 +305,8 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > con gate bidireccional y mostradas al principio de Configuración. `markov` y `stress` quedan fuera
 > **con su razón medida**, no por falta de tiempo.
 >
-> **Lo que ya traes en tu archivo se declara, no se vuelve a inventar (2026-08-02, BORRADOR).**
+> **Lo que ya traes en tu archivo se declara, no se vuelve a inventar (2026-08-02, APROBADA;
+> D-COL-2/3/4 IMPLEMENTADAS).**
 > [`_ENMIENDA-DECISIONES-COMO-DATO.md`](_ENMIENDA-DECISIONES-COMO-DATO.md), D-COL-1…D-COL-10,
 > enmienda a `_ENMIENDA-DECISIONES-OBLIGATORIAS.md` (D-OBL-6/D-OBL-7) y a SDD-02, que gana una rama
 > pública de partición. Sale de la fricción de «Validar un modelo existente» —pide definir qué es un
@@ -315,8 +316,10 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > config no reconstruye), la única que sí lo admite materializa un **pseudo-OOT** y hace que
 > `report/prose.py` publique «La población se particionó de forma aleatoria…» —frase que emite **sin
 > ninguna condición**— en un documento que lee un regulador, y una exención declarativa es
-> **indemostrable**: los 10 trabajos requieren `("data","frame")` y ese frame lleva `partition`,
-> `ttd`, el target y `label_status` dentro. ⚠️ Tampoco sirve una variante de sección que cargue sin
+> **indemostrable**: los 10 trabajos **declaran la sección `data`** —⚠️ no que la *requieran*:
+> `performance` y `stability` no piden `("data","frame")`, y esa frase, que este índice traía mal,
+> la corrigió la revisión adversarial— y mientras la declaren, `DataStep` corre y publica un frame
+> que lleva `partition`, `ttd`, el target y `label_status` dentro. ⚠️ Tampoco sirve una variante de sección que cargue sin
 > etiquetar: **entrega menos que hoy** —la card de población queda vacía (7 de 11 campos dependen del
 > etiquetado) y el `data_hash` cambia—. El diagnóstico real es otro: **el motor sólo sabe CONSTRUIR
 > la etiqueta y la partición, nunca LEERLAS**. ✅ Y el arreglo es barato porque `bad_rule` **ya sabe

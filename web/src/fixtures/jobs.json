@@ -16,7 +16,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         }
@@ -51,7 +51,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         },
@@ -90,7 +90,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         }
@@ -119,7 +119,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         },
@@ -200,7 +200,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         }
@@ -229,7 +229,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         }
@@ -265,7 +265,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         }
@@ -346,7 +346,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         }
@@ -397,7 +397,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         }
@@ -429,7 +429,7 @@
           "question": "¿Qué define a un cliente malo en tu cartera?"
         },
         {
-          "help": "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
+          "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
         }

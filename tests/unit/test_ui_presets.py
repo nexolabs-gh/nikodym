@@ -19,6 +19,7 @@ import pandas as pd
 import nikodym.binning.step as binning_step_module
 from nikodym.binning.config import BinningConfig
 from nikodym.core.config import NikodymConfig, config_hash
+from nikodym.data.config import PartitionStrategy
 from nikodym.ui import datasets as datasets_module
 from nikodym.ui import routes
 from nikodym.ui.presets import (
@@ -525,3 +526,33 @@ def test_config_hash_ignora_la_ruta_del_dataset() -> None:
     ruta_b = _hash_con_source("/otro/disco/cartera_b.parquet")
     sin_ruta = _hash_con_source(None)
     assert ruta_a == ruta_b == sin_ruta == _EXPECTED_F3_CONFIG_HASH
+
+
+def test_la_rama_columna_no_mueve_la_identidad_de_ningun_preset() -> None:
+    """D-COL-10: añadir una rama a la unión discriminada es aditivo de verdad, no de palabra.
+
+    Es el gate que sostiene toda la enmienda ``_ENMIENDA-DECISIONES-COMO-DATO``: ``type`` ya viaja
+    dentro del payload hasheado, así que una rama **hermana** no cambia el JSON canónico de ningún
+    config que no la use. Añadir un **campo** a una clase existente, en cambio, mueve los tres
+    hashes — y ése es el control negativo que se ejecutó al escribir esto: añadir un campo con
+    default a ``PartitionConfig`` pone rojos los tres.
+
+    El ancla estructural de la primera línea no es decorativa: sin ella, borrar la rama dejaría
+    este test verde afirmando una hash-neutralidad que ya no estaría probando nada.
+    """
+    ramas = {
+        rama.model_fields["type"].default
+        for rama in PartitionStrategy.__origin__.__args__  # type: ignore[attr-defined]
+    }
+    assert ramas == {"temporal", "random", "cohort", "columna"}
+
+    esperados = {
+        STANDARD_PRESET_ID: _EXPECTED_CONFIG_HASH,
+        PROVISIONES_PRESET_ID: _EXPECTED_F3_CONFIG_HASH,
+        F4_IFRS9_PRESET_ID: _EXPECTED_F4_CONFIG_HASH,
+    }
+    for preset_id, esperado in esperados.items():
+        config = get_preset(preset_id)["config"]
+        assert config_hash(NikodymConfig.model_validate(config)) == esperado
+        # Y ninguno de los tres usa la rama nueva: la neutralidad es sobre configs ajenos a ella.
+        assert config["data"]["partition"]["strategy"]["type"] != "columna"

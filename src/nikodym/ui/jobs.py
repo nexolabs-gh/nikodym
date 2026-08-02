@@ -408,7 +408,8 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, str], ...]] = {
             "path": "data.partition.strategy",
             "question": "¿Cómo separas la muestra para validar?",
             "help": (
-                "Al azar, por fecha o por cohortes. Si tus datos tienen eje de tiempo, separar por "
+                "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya "
+                "trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por "
                 "fecha mide mejor lo que pasará en producción, porque valida contra un período que "
                 "el modelo no vio."
             ),

@@ -135,6 +135,27 @@
           "value": false
         }
       },
+      "data__ColumnSplitConfig": {
+        "desarrollo": {
+          "has_default": true,
+          "value": []
+        },
+        "holdout": {
+          "has_default": true,
+          "value": []
+        },
+        "oot": {
+          "has_default": true,
+          "value": []
+        },
+        "partition_col": {
+          "has_default": false
+        },
+        "type": {
+          "has_default": true,
+          "value": "columna"
+        }
+      },
       "data__CsvOptions": {
         "decimal": {
           "has_default": true,
@@ -5106,6 +5127,59 @@
         "title": "ColumnSpec",
         "type": "object"
       },
+      "data__ColumnSplitConfig": {
+        "additionalProperties": false,
+        "description": "La división ya viene marcada en una columna del archivo; el motor la LEE (D-COL-2).\n\nLas otras tres estrategias **derivan** la división —por fecha, por cohorte o por sorteo—. Ésta\nno deriva nada: el usuario ya separó su muestra y sólo declara qué valor de su columna\ncorresponde a cada conjunto del motor.\n\n🔴 **El mapeo es explícito y no se adivina** (D-COL-3): ni por parecido de nombre\n(``dev`` ≈ ``desarrollo``), ni por orden de aparición, ni por frecuencia. Un valor declarado\naquí que no exista en la columna es un error **nombrado** (``data/partition.py``), y los valores\nde la columna que el usuario no mapea caen a ``fuera_de_modelo``: quedan fuera del modelado y se\ncuentan como tales, que es lo que el usuario declaró al no nombrarlos.",
+        "properties": {
+          "desarrollo": {
+            "description": "Valores de la columna que forman el conjunto de Desarrollo.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Valores que corresponden a Desarrollo",
+            "type": "array",
+            "ui_help": "Valores de esa columna que corresponden al conjunto de Desarrollo (donde se ajusta el modelo). Se escriben tal como aparecen en el archivo."
+          },
+          "holdout": {
+            "description": "Valores de la columna que forman el conjunto de Holdout.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Valores que corresponden a Holdout",
+            "type": "array",
+            "ui_help": "Valores de esa columna que corresponden al conjunto de Holdout (validación fuera de muestra). Se escriben tal como aparecen en el archivo."
+          },
+          "oot": {
+            "description": "Valores de la columna que forman el conjunto fuera de tiempo (OOT).",
+            "items": {
+              "type": "string"
+            },
+            "title": "Valores que corresponden a OOT",
+            "type": "array",
+            "ui_help": "Valores de esa columna que corresponden al conjunto fuera de tiempo (OOT). Se escriben tal como aparecen en el archivo."
+          },
+          "partition_col": {
+            "column_role": "input",
+            "description": "Columna del archivo cuyo valor indica a qué muestra pertenece cada fila.",
+            "title": "Columna que marca la división",
+            "type": "string",
+            "ui_help": "Columna del archivo cuyo valor indica a qué muestra pertenece cada fila (por ejemplo una columna «muestra» con valores DEV, VAL y OOT)."
+          },
+          "type": {
+            "const": "columna",
+            "default": "columna",
+            "description": "Identifica la estrategia como división ya marcada en una columna.",
+            "title": "Tipo de estrategia",
+            "type": "string",
+            "ui_help": "Identifica esta estrategia como una división que ya viene marcada en el archivo; normalmente lo fija el selector de la UI, no se edita a mano."
+          }
+        },
+        "required": [
+          "partition_col"
+        ],
+        "title": "ColumnSplitConfig",
+        "type": "object"
+      },
       "data__CsvOptions": {
         "additionalProperties": false,
         "description": "Opciones de lectura de un CSV (separadores y codificación).",
@@ -5250,10 +5324,11 @@
             "ui_help": "Mínimo de casos malos que debe tener cada partición para considerarse evaluable. Si alguna partición queda por debajo, el motor detiene el proceso en vez de entregar un conjunto poco confiable."
           },
           "strategy": {
-            "description": "Una de temporal/random/cohort (por 'type').",
+            "description": "Una de temporal/random/cohort/columna (por 'type').",
             "discriminator": {
               "mapping": {
                 "cohort": "#/$defs/CohortSplitConfig",
+                "columna": "#/$defs/ColumnSplitConfig",
                 "random": "#/$defs/RandomSplitConfig",
                 "temporal": "#/$defs/TemporalSplitConfig"
               },
@@ -5268,10 +5343,13 @@
               },
               {
                 "$ref": "#/$defs/data__CohortSplitConfig"
+              },
+              {
+                "$ref": "#/$defs/data__ColumnSplitConfig"
               }
             ],
             "title": "Estrategia de partición",
-            "ui_help": "Cómo se dividen los datos en Desarrollo/Holdout/OOT: por fecha de corte (temporal), por cohorte/vintage, o por sorteo aleatorio."
+            "ui_help": "Cómo se dividen los datos en Desarrollo/Holdout/OOT: por fecha de corte (temporal), por cohorte/vintage, por sorteo aleatorio, o leyendo una división que ya viene marcada en una columna del archivo."
           },
           "ttd_includes_excluded": {
             "default": true,

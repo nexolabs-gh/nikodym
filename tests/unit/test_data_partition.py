@@ -15,6 +15,7 @@ from nikodym.core.audit import InMemoryAuditSink
 from nikodym.core.exceptions import ConfigError, DataValidationError
 from nikodym.data.config import (
     CohortSplitConfig,
+    ColumnSplitConfig,
     PartitionConfig,
     RandomSplitConfig,
     TemporalSplitConfig,
@@ -690,3 +691,156 @@ def test_property_estabilidad_por_observacion_al_insertar_filas(n_rows: int) -> 
     after_insert = _split(cfg, expanded).frame.loc[df.index, "partition"]
 
     assert_series_equal(base, after_insert)
+
+
+# ───────────── la división ya viene marcada en el archivo (D-COL-2/3/4) ─────────────
+
+
+def _frame_con_muestra() -> pd.DataFrame:
+    """Cartera de 90 filas con su propia columna de muestra y un valor que no se mapea."""
+    index = pd.Index([f"op-{i:03d}" for i in range(90)], name="loan_id")
+    muestra = ["DEV"] * 40 + ["VAL"] * 20 + ["OOT"] * 20 + ["DESCARTE"] * 10
+    targets = pd.Series(
+        ([0] * 30 + [1] * 10) + ([0] * 15 + [1] * 5) + ([0] * 15 + [1] * 5) + [0] * 10,
+        index=index,
+        dtype="Int8",
+    )
+    status = pd.Categorical(
+        ["malo" if value == 1 else "bueno" for value in targets],
+        categories=["bueno", "malo", "indeterminado", "excluido"],
+    )
+    return pd.DataFrame(
+        {"muestra": muestra, "target": targets, "label_status": status}, index=index
+    )
+
+
+def _columna_config(*, min_bads: int = 5, **kwargs: object) -> PartitionConfig:
+    campos: dict[str, object] = {"partition_col": "muestra"}
+    campos.update(kwargs)
+    return PartitionConfig(
+        strategy=ColumnSplitConfig(**campos),  # type: ignore[arg-type]
+        min_bads_per_partition=min_bads,
+    )
+
+
+def test_columna_lee_la_division_del_archivo() -> None:
+    """Cada fila cae en la muestra que declara su columna; lo no mapeado queda fuera."""
+    cfg = _columna_config(desarrollo=("DEV",), holdout=("VAL",), oot=("OOT",))
+    result = _split(cfg, _frame_con_muestra())
+
+    assert result.strategy_used == "columna"
+    assert result.sizes == {
+        "desarrollo": 40,
+        "holdout": 20,
+        "oot": 20,
+        "fuera_de_modelo": 10,
+    }
+    frame = result.frame
+    assert set(frame.loc[frame["muestra"] == "DEV", "partition"]) == {"desarrollo"}
+    assert set(frame.loc[frame["muestra"] == "DESCARTE", "partition"]) == {"fuera_de_modelo"}
+
+
+def test_columna_no_depende_de_la_semilla() -> None:
+    """Es la única estrategia sin sorteo: la asignación la trajo el usuario, no el motor."""
+    cfg = _columna_config(desarrollo=("DEV",), holdout=("VAL",), oot=("OOT",))
+    frame = _frame_con_muestra()
+    primera = Partitioner(cfg).split(_labeled(frame), root_seed=1, rng=np.random.default_rng(1))
+    segunda = Partitioner(cfg).split(
+        _labeled(frame), root_seed=999_983, rng=np.random.default_rng(42)
+    )
+
+    assert_series_equal(primera.frame["partition"], segunda.frame["partition"])
+
+
+def test_columna_no_empareja_por_parecido_de_nombre() -> None:
+    """D-COL-3, control positivo del veto: «dev» no es «DEV», y el motor no lo decide por él."""
+    cfg = _columna_config(desarrollo=("dev",), oot=("OOT",))
+    with pytest.raises(DataValidationError) as excinfo:
+        _split(cfg, _frame_con_muestra())
+
+    mensaje = str(excinfo.value)
+    assert "«dev»" in mensaje
+    assert "no los interpreta ni los empareja por parecido" in mensaje
+
+
+def test_columna_nombra_el_valor_ausente_y_ensena_los_observados() -> None:
+    """Un error de tipeo se dice con su nombre y con los valores que sí están en el archivo."""
+    cfg = _columna_config(desarrollo=("DEV",), oot=("OTT",))
+    with pytest.raises(DataValidationError) as excinfo:
+        _split(cfg, _frame_con_muestra())
+
+    mensaje = str(excinfo.value)
+    assert "«OTT» (declarado como OOT)" in mensaje
+    # Los observados salen de las filas utilizables, y el mensaje lo dice así en vez de afirmar
+    # que el valor «no existe en la columna», que sería falso para un valor sólo en filas excluidas.
+    assert "«OOT»" in mensaje and "«DESCARTE»" in mensaje
+    assert "buenas o malas con objetivo definido" in mensaje
+
+
+def test_columna_exige_solo_las_particiones_que_el_usuario_mapeo() -> None:
+    """D-COL-4: sin Holdout declarado, su ausencia no es un error — el archivo manda."""
+    cfg = _columna_config(desarrollo=("DEV",), oot=("OOT",))
+    result = _split(cfg, _frame_con_muestra())
+
+    assert result.sizes["holdout"] == 0
+    assert result.sizes["fuera_de_modelo"] == 30  # DESCARTE + los VAL que nadie mapeó
+
+
+def test_columna_conserva_el_veto_del_piso_de_malos() -> None:
+    """El veto no se desarma: pasa a medir las particiones del propio usuario (D-COL-4)."""
+    cfg = _columna_config(desarrollo=("DEV",), holdout=("VAL",), oot=("OOT",), min_bads=8)
+    with pytest.raises(DataValidationError) as excinfo:
+        _split(cfg, _frame_con_muestra())
+
+    mensaje = str(excinfo.value)
+    assert "Piso de malos por partición no alcanzado" in mensaje
+    assert "estrategia='columna'" in mensaje
+    assert "holdout=5" in mensaje
+
+
+def test_columna_detecta_una_particion_mapeada_que_quedo_vacia() -> None:
+    """Si el usuario mapea una muestra y ninguna fila utilizable cae en ella, se dice."""
+    frame = _frame_con_muestra()
+    frame.loc[frame["muestra"] == "VAL", "label_status"] = "excluido"
+    cfg = _columna_config(desarrollo=("DEV",), holdout=("VAL",), oot=("OOT",))
+    with pytest.raises(DataValidationError) as excinfo:
+        _split(cfg, frame)
+
+    # No llega a «partición vacía»: el error anterior es más preciso y nombra el valor.
+    assert "«VAL» (declarado como Holdout)" in str(excinfo.value)
+
+
+def test_columna_rechaza_llamarse_como_la_columna_que_el_motor_escribe() -> None:
+    """Con esta estrategia, llamar «partition» a la columna propia deja de ser un caso raro."""
+    frame = _frame_con_muestra().rename(columns={"muestra": "partition"})
+    cfg = PartitionConfig(
+        strategy=ColumnSplitConfig(partition_col="partition", desarrollo=("DEV",)),
+        min_bads_per_partition=0,
+    )
+    with pytest.raises(DataValidationError) as excinfo:
+        _split(cfg, frame)
+
+    mensaje = str(excinfo.value)
+    assert "no puede llamarse «partition»" in mensaje
+    assert "Renombre la columna del archivo" in mensaje
+
+
+def test_columna_inexistente_se_reporta_como_tal() -> None:
+    """La columna declarada tiene que estar en el archivo."""
+    cfg = _columna_config(partition_col="no_existe", desarrollo=("DEV",))
+    with pytest.raises(DataValidationError) as excinfo:
+        _split(cfg, _frame_con_muestra())
+
+    assert "columna='no_existe'" in str(excinfo.value)
+
+
+def test_columna_exige_que_el_mapeo_diga_algo() -> None:
+    """Un mapeo vacío mandaría toda la cartera a fuera_de_modelo en silencio."""
+    with pytest.raises(ValueError, match="no declara ningún valor"):
+        ColumnSplitConfig(partition_col="muestra")
+
+
+def test_columna_rechaza_un_valor_en_dos_muestras() -> None:
+    """Ambigüedad declarada: el motor no elige cuál de las dos vale (D-COL-3)."""
+    with pytest.raises(ValueError, match="está declarado a la vez en Desarrollo y en OOT"):
+        ColumnSplitConfig(partition_col="muestra", desarrollo=("DEV",), oot=("DEV",))

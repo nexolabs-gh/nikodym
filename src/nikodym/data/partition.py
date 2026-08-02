@@ -25,6 +25,7 @@ from nikodym.core.audit import AuditEvent, AuditSink
 from nikodym.core.exceptions import ConfigError, DataValidationError
 from nikodym.data.config import (
     CohortSplitConfig,
+    ColumnSplitConfig,
     PartitionConfig,
     RandomSplitConfig,
     TemporalSplitConfig,
@@ -41,7 +42,9 @@ STATUS_VALUES: Final = (*MODELABLE_STATUS, *NON_MODELABLE_STATUS)
 _HASH_PERSON: Final = b"nikodym"
 _UINT64_DENOMINATOR: Final = 2**64
 
-StrategyConfig: TypeAlias = TemporalSplitConfig | RandomSplitConfig | CohortSplitConfig
+StrategyConfig: TypeAlias = (
+    TemporalSplitConfig | RandomSplitConfig | CohortSplitConfig | ColumnSplitConfig
+)
 Splitter: TypeAlias = Callable[[pd.DataFrame, StrategyConfig, int, np.random.Generator], pd.Series]
 
 
@@ -113,6 +116,7 @@ class Partitioner:
             Si faltan columnas, hay particiones vacías o se viola el piso de malos.
         """
         _validate_labeled_frame(lf)
+        _validate_partition_col_no_colisiona(self.config.strategy)
         _validate_output_columns(lf.frame)
 
         frame = lf.frame.copy(deep=True)
@@ -280,6 +284,82 @@ def _split_cohort(
     return assignments
 
 
+def _split_from_column(
+    frame: pd.DataFrame,
+    strategy: StrategyConfig,
+    root_seed: int,
+    rng: np.random.Generator,
+) -> pd.Series:
+    """Lee la división que el archivo ya trae, sin derivar nada (D-COL-2/D-COL-3).
+
+    Ni ``root_seed`` ni ``rng`` participan: aquí no hay sorteo que estabilizar, porque la
+    asignación la trajo el usuario. Es la única estrategia cuyo resultado no depende de la semilla.
+
+    🔴 **Nada se adivina.** Un valor declarado en el mapeo que no aparezca entre las filas
+    utilizables es un error que lo **nombra** y muestra los valores realmente observados —así el
+    usuario ve de una vez si fue un error de tipeo o si esas filas quedaron todas fuera del
+    modelado—. Y los valores que el usuario no mapeó caen a ``fuera_de_modelo``: no nombrarlos *es*
+    la declaración de que no entran, y el motor no la reinterpreta.
+    """
+    del root_seed, rng
+    if not isinstance(strategy, ColumnSplitConfig):  # pragma: no cover - protegido por _SPLITTERS.
+        raise ConfigError("Factory de partición por columna recibió una config incompatible.")
+    if strategy.partition_col not in frame.columns:
+        raise DataValidationError(
+            "La división marcada en una columna referencia una columna inexistente: "
+            f"columna='{strategy.partition_col}'."
+        )
+
+    # Se compara como texto y tal cual está escrito: es lo único que no exige interpretar el dtype
+    # del archivo. El error de más abajo publica los valores observados con esa misma
+    # representación, de modo que la forma de escribirlos la enseña el motor y no se adivina.
+    valores = frame[strategy.partition_col].astype(str)
+    declarado: dict[str, tuple[str, ...]] = {
+        Partition.DESARROLLO.value: strategy.desarrollo,
+        Partition.HOLDOUT.value: strategy.holdout,
+        Partition.OOT.value: strategy.oot,
+    }
+
+    observados = set(valores.unique())
+    ausentes = tuple(
+        (particion, valor)
+        for particion, mapeados in declarado.items()
+        for valor in mapeados
+        if valor not in observados
+    )
+    if ausentes:
+        _raise_valores_ausentes(ausentes, strategy.partition_col, observados)
+
+    assignments = pd.Series(Partition.FUERA_DE_MODELO.value, index=frame.index, dtype="object")
+    for particion, mapeados in declarado.items():
+        if mapeados:
+            assignments.loc[valores.isin(mapeados)] = particion
+    return assignments
+
+
+def _raise_valores_ausentes(
+    ausentes: tuple[tuple[str, str], ...], partition_col: str, observados: set[str]
+) -> None:
+    """Nombra los valores mapeados que no aparecen, y enseña los que sí (D-COL-3)."""
+    etiquetas = {
+        Partition.DESARROLLO.value: "Desarrollo",
+        Partition.HOLDOUT.value: "Holdout",
+        Partition.OOT.value: "OOT",
+    }
+    detalle = ", ".join(
+        f"«{valor}» (declarado como {etiquetas[particion]})" for particion, valor in ausentes
+    )
+    muestra = ", ".join(f"«{valor}»" for valor in sorted(observados)[:10])
+    if len(observados) > 10:
+        muestra += ", …"
+    raise DataValidationError(
+        f"La columna «{partition_col}» no contiene valor(es) declarado(s) en la división: "
+        f"{detalle}. Entre las filas que el modelo puede usar (buenas o malas con objetivo "
+        f"definido) aparecen: {muestra}. Escriba los valores tal como están en el archivo; el "
+        "motor no los interpreta ni los empareja por parecido."
+    )
+
+
 def _split_random_stratified(
     frame: pd.DataFrame, strategy: RandomSplitConfig, root_seed: int
 ) -> pd.Series:
@@ -332,6 +412,27 @@ def _validate_labeled_frame(lf: LabeledFrame) -> None:
         raise DataValidationError(
             f"El LabeledFrame contiene label_status fuera del contrato de data: {joined}."
         )
+
+
+def _validate_partition_col_no_colisiona(strategy: StrategyConfig) -> None:
+    """Distingue «tu columna se llama como la mía» de «me pisas una columna» (D-COL-2).
+
+    Sin esto, quien traiga su división en una columna llamada ``partition`` —que es el nombre más
+    natural del mundo para ella, y con esta estrategia deja de ser un caso raro— se topa con
+    «la partición intentaría sobrescribir columna(s) existentes», que describe un accidente y no
+    lo que está pasando.
+    """
+    if not isinstance(strategy, ColumnSplitConfig):
+        return
+    reservadas = {PARTITION_COL: "la muestra asignada", TTD_COL: "el rol through-the-door"}
+    proposito = reservadas.get(strategy.partition_col)
+    if proposito is None:
+        return
+    raise DataValidationError(
+        f"La columna que marca la división no puede llamarse «{strategy.partition_col}»: el motor "
+        f"escribe una columna con ese nombre para publicar {proposito}. Renombre la columna del "
+        "archivo (por ejemplo a «muestra») y declárela con el nombre nuevo."
+    )
 
 
 def _validate_output_columns(df: pd.DataFrame) -> None:
@@ -479,7 +580,19 @@ def _validate_non_empty_partitions(sizes: Mapping[str, int], strategy: StrategyC
 
 
 def _required_model_partitions(strategy: StrategyConfig) -> tuple[Partition, ...]:
-    """Lista particiones que deben existir para la estrategia declarada."""
+    """Lista particiones que deben existir para la estrategia declarada.
+
+    Con ``columna`` el conjunto exigido son **exactamente las muestras que el usuario mapeó**
+    (D-COL-4): no se puede exigir ``oot`` como hace ``temporal`` ni mirar fracciones como hace
+    ``random``, porque aquí quien declara qué muestras existen es el archivo, no el motor.
+    """
+    if isinstance(strategy, ColumnSplitConfig):
+        mapeadas = (
+            (Partition.DESARROLLO, strategy.desarrollo),
+            (Partition.HOLDOUT, strategy.holdout),
+            (Partition.OOT, strategy.oot),
+        )
+        return tuple(partition for partition, valores in mapeadas if valores)
     if isinstance(strategy, RandomSplitConfig):
         pairs = (
             (Partition.DESARROLLO, strategy.dev_fraction),
@@ -619,4 +732,5 @@ _SPLITTERS: Final[dict[str, Splitter]] = {
     "temporal": _split_temporal,
     "random": _split_random,
     "cohort": _split_cohort,
+    "columna": _split_from_column,
 }

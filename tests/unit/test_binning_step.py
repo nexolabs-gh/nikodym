@@ -745,8 +745,8 @@ def test_resolucion_features_sin_columnas_y_data_config_dict() -> None:
         "partition": {"strategy": {"date_col": "split_date", "cohort_col": "cohort"}},
     }
 
-    assert step_module._data_temporal_columns(None) == set()
-    assert step_module._data_temporal_columns(dict_config) == {
+    assert step_module._data_declared_structural_columns(None) == set()
+    assert step_module._data_declared_structural_columns(dict_config) == {
         "obs_date",
         "cutoff_date",
         "split_date",
@@ -835,3 +835,37 @@ def test_helpers_de_summary_version_y_optional_string(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr(step_module.metadata, "version", _raise_missing)
     assert step_module._optbinning_version() == "no_instalado"
+
+
+def test_la_columna_que_marca_la_muestra_no_se_ofrece_como_variable() -> None:
+    """D-COL-2: con la división marcada en el archivo, esa columna es maquinaria, no predictor.
+
+    Es la única de las cuatro columnas estructurales declaradas que **existe siempre** en el
+    archivo del usuario, así que sin excluirla el comodín ``feature_columns="*"`` la ofrecería
+    como variable candidata. Mismo criterio con que ya se excluyen ``date_col`` y ``cohort_col``.
+
+    Control negativo ejecutado al escribirlo: quitando ``partition_col`` de
+    ``_data_declared_structural_columns`` la columna «muestra» aparece en ``resolution.columns``.
+    """
+    pd_mod = step_module._import_pandas()
+    frame = pd_mod.DataFrame(
+        columns=["ingreso", "muestra", "target", "label_status", PARTITION_COL, TTD_COL]
+    )
+    config = {
+        "partition": {"strategy": {"type": "columna", "partition_col": "muestra"}},
+    }
+
+    assert step_module._data_declared_structural_columns(config) == {"muestra"}
+
+    resolution = step_module._resolve_feature_columns(
+        frame=frame,
+        target_col="target",
+        status_col="label_status",
+        partition_col=PARTITION_COL,
+        ttd_col=TTD_COL,
+        config=BinningConfig(feature_columns="*"),
+        data_config=config,
+        pd=pd_mod,
+    )
+    assert "muestra" not in resolution.columns
+    assert resolution.columns == ("ingreso",)
