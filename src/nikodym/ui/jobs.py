@@ -193,15 +193,10 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
-        "status": _UNAVAILABLE,
-        # El motor SÍ sabe correrlo —`check_pipeline` lo declara ejecutable con la PD inyectada por
-        # la puerta de artefactos del paquete B—, pero esa puerta existe sólo por código: el paquete
-        # la dejó fuera de HTTP/UI a propósito. Es D-JOB-7, y hasta entonces el trabajo no se puede
-        # iniciar desde aquí.
-        "unavailable_reason": (
-            "Necesita que traigas la PD ya calibrada de tu modelo, y por ahora eso sólo se "
-            "puede hacer desde Python."
-        ),
+        # Disponible desde D-PUE-11: el motor siempre supo correrlo —`check_pipeline` lo declaraba
+        # ejecutable con la PD inyectada— y lo que faltaba era la puerta por HTTP, que es D-JOB-7.
+        "status": _AVAILABLE,
+        "unavailable_reason": None,
     },
     {
         "id": "pd_y_lgd",
@@ -305,11 +300,12 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
-        "status": _UNAVAILABLE,
-        "unavailable_reason": (
-            "La ruta todavía no existe: falta poder traer un scorecard y una PD de fuera. "
-            "Es el siguiente trabajo en construirse."
-        ),
+        # Disponible desde D-PUE-11. ⚠️ Alcance declarado: mide y documenta con `performance` y
+        # `stability`. La validación formal —la sección `validation`— necesita además un artefacto
+        # que NO es una tabla, y por HTTP sólo entran tablas (D-PUE-1/D-PUE-12): eso es trabajo
+        # aparte y aquí no se promete.
+        "status": _AVAILABLE,
+        "unavailable_reason": None,
     },
     {
         "id": "lgd_modelada",

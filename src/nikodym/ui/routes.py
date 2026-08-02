@@ -30,9 +30,9 @@ import nikodym
 from nikodym.core.config import NikodymConfig, config_hash, dump_config, loads_config
 from nikodym.core.config.effective_defaults import build_effective_defaults
 from nikodym.core.config.schema import build_full_json_schema, cargar_configs_de_dominio
-from nikodym.core.exceptions import ConfigError, MissingDependencyError
+from nikodym.core.exceptions import ConfigError, MissingDependencyError, NikodymError
 from nikodym.ui import datasets, jobs, presets, runs
-from nikodym.ui.exceptions import UiDatasetError, UiRunNotFoundError
+from nikodym.ui.exceptions import UiArtifactError, UiDatasetError, UiRunNotFoundError
 from nikodym.ui.serializers import public_engine_message
 
 if TYPE_CHECKING:
@@ -89,7 +89,7 @@ def schema_payload() -> dict[str, Any]:
     }
 
 
-def validate_config(config: Any) -> dict[str, Any]:
+def validate_config(config: Any, external_artifacts: Any = None) -> dict[str, Any]:
     """Valida un config por **reconstrucción** de ``NikodymConfig`` (SDD-23 §3.3).
 
     Responde además si el config es **ejecutable**, que es una pregunta distinta de si es válido
@@ -97,10 +97,20 @@ def validate_config(config: Any) -> dict[str, Any]:
     aun así no poder correr, porque un paso pide un artefacto que ningún paso aguas arriba produce.
     Saberlo mientras se edita es lo que evita que el usuario lo descubra al apretar Ejecutar.
 
+    🔴 **Y por eso ``external_artifacts`` tiene que llegar hasta aquí** (D-PUE-7): con las secciones
+    productoras apagadas —que es la forma del config de los trabajos que traen su PD de fuera— el
+    veredicto salía ``executable=false`` sobre un config que **sí corre**. Es la familia de D-PRE-9
+    y D-INV-1: una superficie que responde «no se puede» sobre lo que no miró.
+
+    ⚠️ Se consumen sólo las **claves**; el archivo y su llave se ignoran. Comprobar no necesita el
+    valor (D-ART-2), así que este endpoint no toca el disco y conserva su categoría de seguridad.
+
     Parameters
     ----------
     config : Any
         Dict del config editado (o cualquier valor a validar).
+    external_artifacts : Any
+        Lo que la petición declara traer de fuera; de cada entrada se lee sólo ``artifact``.
 
     Returns
     -------
@@ -123,6 +133,16 @@ def validate_config(config: Any) -> dict[str, Any]:
     # No cambia el SIGNIFICADO de `valid` (D-PIPE-1 sigue en pie): lo hace significar lo mismo
     # siempre. Cuesta ~0,3 s una única vez por proceso, y sólo si nadie pidió el schema antes.
     cargar_configs_de_dominio()
+    try:
+        claves_externas = _claves_externas(external_artifacts)
+    except UiArtifactError as exc:
+        # Contrato «siempre 200»: una petición malformada es config inválido, no un 500 ni un 422.
+        return {
+            "valid": False,
+            "config_hash": None,
+            "errors": _error_de_dominio(exc),
+            "pipeline": None,
+        }
     try:
         model = NikodymConfig.model_validate(config)
     except ValidationError as exc:
@@ -150,7 +170,7 @@ def validate_config(config: Any) -> dict[str, Any]:
         "valid": True,
         "config_hash": config_hash(model),
         "errors": [],
-        "pipeline": _pipeline_payload(model),
+        "pipeline": _pipeline_payload(model, claves_externas),
     }
 
 
@@ -185,7 +205,156 @@ def _columnas_del_parquet(source: Path) -> tuple[tuple[str, ...], tuple[str, ...
     return columnas, tuple(nombre for nombre in esquema.names if nombre in indices)
 
 
-def preflight_dataset(config: Any, dataset_id: Any, *, workdir: Path) -> dict[str, Any]:
+def _valor_en(config: Any, path: str) -> Any:
+    """Baja por un path con puntos sobre el config crudo; ``None`` si la clave no existe."""
+    nodo: Any = config
+    for parte in path.split("."):
+        if not isinstance(nodo, dict) or parte not in nodo:
+            return None
+        nodo = nodo[parte]
+    return nodo
+
+
+def _preflight_insumos(
+    config: Any,
+    external_artifacts: Any,
+    dataset_id: Any,
+    *,
+    workdir: Path,
+) -> list[dict[str, Any]]:
+    """Comprueba el insumo externo **sin leer los datos** y devuelve sus avisos (D-PUE-8).
+
+    Lo que se puede saber con el esquema del parquet y el perfil de la ingesta:
+
+    - que las columnas mapeadas **existan** en el archivo que el usuario trajo;
+    - que la llave sea **única** — el perfil ya mide los valores distintos por columna (D-PERF-1),
+      así que ``n_unicos == n_filas`` responde la pregunta sin abrir el archivo;
+    - que el **conteo de filas** cuadre, en el modo posicional.
+
+    ⚠️ **Lo que NO se puede comprobar aquí, y se declara en vez de callarse:** que las etiquetas de
+    la llave *cubran* el índice de la cartera. Eso exige comparar valores, o sea leer los datos, y
+    D-PRE-1 se lo prohíbe al preflight. Lo verifica el motor al correr, con mensajes que ya existen
+    y nombran las etiquetas que faltan. Mismo patrón que D-PRE-4 con el alcance F1: una lista corta
+    sin explicación se lee como cobertura total.
+
+    Sigue D-PRE-5: **avisa, no bloquea**. El único caso duro es el conteo de filas del modo
+    posicional, y ése lo rechaza :func:`_materializar_externos` al ejecutar, no aquí.
+    """
+    entradas = _entradas_externas(external_artifacts)
+    if not entradas:
+        return []
+
+    # ⚠️ Se ACUMULAN las entradas de todos los trabajos que declaran la misma clave, en vez de
+    # quedarse con una. La PD calibrada la piden tres trabajos y cada uno la mapea a un campo
+    # distinto —`provisioning_internal.pd_column` en uno, `performance.pd_column` en otro—, así que
+    # un dict de una entrada por clave se quedaba con la última y no avisaba de nada.
+    #
+    # Acumularlas no produce falsos positivos, y por una razón que vale la pena dejar escrita: el
+    # campo de un trabajo que no es el actual vive en una sección APAGADA, y ahí `_valor_en`
+    # devuelve `None`. El config activo filtra solo, sin que esta capa tenga que saber por qué
+    # trabajo entró el usuario.
+    columnas_por_clave: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for job in jobs.list_jobs():
+        for declarada in job["external_artifacts"]:
+            clave = (declarada["artifact"][0], declarada["artifact"][1])
+            columnas_por_clave.setdefault(clave, []).append(declarada)
+
+    avisos: list[dict[str, Any]] = []
+    for entrada in entradas:
+        declaradas = columnas_por_clave.get(entrada["artifact"], [])
+        origen = entrada.get("dataset_id")
+        if not declaradas or not isinstance(origen, str) or not origen:
+            continue  # lo rechaza la puerta al ejecutar; el preflight no duplica ese diagnóstico
+        try:
+            source = datasets.materialize(origen, workdir=workdir)
+        except UiDatasetError:
+            continue  # el archivo aún no está: no es un desajuste de columnas
+        columnas, indices = _columnas_del_parquet(source)
+        presentes = set(columnas) | set(indices)
+
+        key_column = entrada.get("key_column")
+        if isinstance(key_column, str) and key_column:
+            if key_column not in presentes:
+                avisos.append(
+                    {
+                        "path": None,
+                        "declared": key_column,
+                        "kind": "external_missing_key",
+                        "message": (
+                            f"El archivo que trajiste no tiene la columna «{key_column}» que "
+                            "elegiste como identificador."
+                        ),
+                    }
+                )
+            else:
+                perfil = datasets.load_profile(origen, workdir=workdir)
+                columna = next(
+                    (c for c in (perfil.columnas if perfil else ()) if c.nombre == key_column),
+                    None,
+                )
+                if perfil is not None and columna is not None and columna.n_unicos < perfil.n_filas:
+                    avisos.append(
+                        {
+                            "path": None,
+                            "declared": key_column,
+                            "kind": "external_duplicated_key",
+                            "message": (
+                                f"La columna «{key_column}» se repite en el archivo: no puede "
+                                "identificar cada operación."
+                            ),
+                        }
+                    )
+        elif key_column is None:
+            filas_externas = datasets.row_count(origen, workdir=workdir)
+            filas_cartera = datasets.row_count(dataset_id, workdir=workdir)
+            if filas_externas != filas_cartera:
+                avisos.append(
+                    {
+                        "path": None,
+                        "declared": None,
+                        "kind": "external_row_count",
+                        "message": (
+                            f"El archivo que trajiste tiene {filas_externas} filas y tu cartera "
+                            f"tiene {filas_cartera}. Sin una columna que identifique cada "
+                            "operación, las filas se emparejan por su orden."
+                        ),
+                    }
+                )
+
+        vistos: set[str] = set()
+        for declarada in declaradas:
+            for columna_declarada in declarada["columns"]:
+                for path in columna_declarada["config_paths"]:
+                    esperada = _valor_en(config, path)
+                    if not isinstance(esperada, str) or not esperada or esperada in presentes:
+                        continue
+                    if path in vistos:
+                        continue  # dos trabajos pueden mapear el mismo campo: se avisa una vez
+                    vistos.add(path)
+                    avisos.append(
+                        {
+                            # El path SÍ va, y es el mismo que indexa el formulario: es lo que
+                            # permite que un click salte al campo exacto, como ya hacen los
+                            # desajustes del dataset (D-PRE-2). Lo que nunca se enseña es la clave.
+                            "path": path,
+                            "declared": esperada,
+                            "kind": "external_missing_column",
+                            "message": (
+                                f"El archivo que trajiste no tiene la columna «{esperada}»; "
+                                f"tiene {sorted(presentes)[:8]}."
+                            ),
+                        }
+                    )
+    return avisos
+
+
+def preflight_dataset(
+    config: Any,
+    dataset_id: Any,
+    *,
+    workdir: Path,
+    external_artifacts: Any = None,
+) -> dict[str, Any]:
     """Compara ``config`` con las columnas de un dataset **antes** de correr (D-PRE-7).
 
     Espejo REST de :func:`nikodym.check_dataset`, que es la misma respuesta por código y por
@@ -201,12 +370,22 @@ def preflight_dataset(config: Any, dataset_id: Any, *, workdir: Path) -> dict[st
         Identificador del dataset ya conocido por la UI (del catálogo o subido).
     workdir : Path
         Directorio de trabajo donde viven los datasets materializados.
+    external_artifacts : Any
+        Lo que la petición declara traer de fuera; se comprueba con el esquema y el perfil, sin
+        leer los datos (D-PUE-8).
 
     Returns
     -------
     dict
-        ``{compatible, mismatches, uninspected}``. Los nombres de columna se leen del parquet ya
-        materializado **sin cargar los datos**: el esquema basta.
+        ``{compatible, mismatches, uninspected, external_mismatches}``. Los nombres de columna se
+        leen del parquet ya materializado **sin cargar los datos**: el esquema basta.
+
+        ⚠️ ``external_mismatches`` va en su **propia** lista y no dentro de ``mismatches``, aunque
+        comparta forma. Los de ``mismatches`` los produce :func:`nikodym.check_dataset`, cuyo
+        vocabulario de ``kind`` es un ``Literal`` cerrado del núcleo; un artefacto traído por HTTP
+        es un concepto de la capa de interfaz, y meterlo ahí obligaría a que el motor conociera una
+        puerta que sólo existe en la red. ``compatible`` sigue significando exactamente lo mismo
+        que antes —config contra dataset— por la misma razón.
     """
     cargar_configs_de_dominio()  # misma razón que en `validate_config`: D-HASH-5
     model = NikodymConfig.model_validate(config)
@@ -224,10 +403,16 @@ def preflight_dataset(config: Any, dataset_id: Any, *, workdir: Path) -> dict[st
             for m in veredicto.mismatches
         ],
         "uninspected": list(veredicto.uninspected),
+        "external_mismatches": _preflight_insumos(
+            config, external_artifacts, dataset_id, workdir=workdir
+        ),
     }
 
 
-def _pipeline_payload(model: NikodymConfig) -> dict[str, Any]:
+def _pipeline_payload(
+    model: NikodymConfig,
+    claves_externas: tuple[tuple[str, str], ...] = (),
+) -> dict[str, Any]:
     """Proyecta el veredicto de ``nikodym.check_pipeline`` al contrato REST (D-PIPE-2/D-PIPE-5).
 
     El backend **transporta** el diagnóstico del motor; no lo traduce ni mapea artefacto→sección.
@@ -237,8 +422,13 @@ def _pipeline_payload(model: NikodymConfig) -> dict[str, Any]:
     El mensaje se publica saneado de códigos de marca (:func:`public_engine_message`): esto es copy
     público, y ahí la limitación se explica en el idioma del lector. El mensaje íntegro sigue
     disponible por código en ``nikodym.check_pipeline(config).message``.
+
+    ``inert_artifacts`` se proyecta porque si no **no tiene por dónde salir a la red** (D-PUE-7): la
+    §6.1 de la enmienda de la puerta decidió que el aviso de clave inerte llegue a las dos
+    superficies —el trail y el veredicto—, precisamente porque el trail no existe con `audit: null`,
+    que es lo que traen los presets. Se calculaba y se tiraba.
     """
-    check = nikodym.check_pipeline(model)
+    check = nikodym.check_pipeline(model, artifacts=claves_externas or None)
     message = (
         None
         if check.message is None
@@ -252,6 +442,7 @@ def _pipeline_payload(model: NikodymConfig) -> dict[str, Any]:
         "executable": check.executable,
         "steps": list(check.steps),
         "message": message,
+        "inert_artifacts": [list(clave) for clave in check.inert_artifacts],
     }
 
 
@@ -427,22 +618,140 @@ def presets_index_payload() -> dict[str, Any]:
     return {"presets": presets.list_presets()}
 
 
-def run_pipeline(config: Any, dataset_id: Any, *, workdir: Path) -> dict[str, Any]:
+def _entradas_externas(external_artifacts: Any) -> list[dict[str, Any]]:
+    """Normaliza y valida la FORMA de ``external_artifacts`` del cuerpo (D-PUE-2).
+
+    Contrato único para los tres endpoints que lo aceptan: ``/api/run`` lo consume entero,
+    ``/api/validate`` y ``/api/preflight`` sólo miran ``artifact``. Una sola forma que aprender, y
+    cada endpoint decide cuánto mira — es la misma semántica que D-ART-2 fijó para
+    ``check_pipeline``, que acepta claves sueltas porque comprobar no necesita el valor.
+    """
+    if external_artifacts is None:
+        return []
+    if not isinstance(external_artifacts, list):
+        raise UiArtifactError(
+            "el insumo externo debe venir como una lista; "
+            f"llegó {type(external_artifacts).__name__}."
+        )
+    entradas: list[dict[str, Any]] = []
+    for cruda in external_artifacts:
+        if not isinstance(cruda, dict):
+            raise UiArtifactError(
+                f"cada insumo externo debe ser un objeto; llegó {type(cruda).__name__}."
+            )
+        clave = cruda.get("artifact")
+        if (
+            not isinstance(clave, list | tuple)
+            or len(clave) != 2
+            or not all(isinstance(parte, str) for parte in clave)
+        ):
+            raise UiArtifactError(
+                f"cada insumo externo declara a qué resultado corresponde; llegó {clave!r}."
+            )
+        entradas.append({**cruda, "artifact": (str(clave[0]), str(clave[1]))})
+    return entradas
+
+
+def _claves_externas(external_artifacts: Any) -> tuple[tuple[str, str], ...]:
+    """Sólo las claves declaradas, para las superficies que comprueban sin ejecutar (D-PUE-7).
+
+    ``dataset_id`` y la llave se **ignoran** aquí a propósito: comprobar si un pipeline es
+    ejecutable no necesita el valor del artefacto, sólo saber que va a estar. Así estas superficies
+    no tocan el disco y conservan su categoría de seguridad.
+    """
+    return tuple(entrada["artifact"] for entrada in _entradas_externas(external_artifacts))
+
+
+def _materializar_externos(
+    external_artifacts: Any,
+    dataset_id: Any,
+    *,
+    workdir: Path,
+) -> dict[tuple[str, str], Any]:
+    """Convierte lo declarado en la petición en artefactos para el motor (D-PUE-3/4/6).
+
+    Tres cosas, en este orden:
+
+    1. **Allowlist** (D-PUE-2): una clave que ningún trabajo disponible acepta se rechaza **antes**
+       de tocar el disco. Por código la puerta es general; por la red, no.
+    2. **Índice** (D-PUE-6): con llave declarada, esa columna pasa a ser el índice y el motor alinea
+       por etiqueta. Sin llave, el frame conserva su índice posicional.
+    3. **Conteo de filas**, sólo en el modo posicional: es el único desalineamiento que se puede
+       detectar sin abrir los archivos, y por eso es error duro y no aviso. ⚠️ Lo que **no** se
+       puede detectar aquí es un archivo con el mismo número de filas en otro orden: eso produce
+       una corrida sin errores con la probabilidad de cada cliente asignada a otro. De ahí que el
+       modo posicional lleve su caveat hasta el informe.
+
+    Un mismo archivo puede alimentar **varias** claves (D-PUE-4), y es la forma que la interfaz
+    propone: el motor exige que la PD y el puntaje compartan índice, y con una sola tabla eso se
+    cumple por construcción en vez de fallar a mitad de la corrida.
+    """
+    entradas = _entradas_externas(external_artifacts)
+    if not entradas:
+        return {}
+
+    admitidos = jobs.artefactos_admitidos()
+    materializados: dict[tuple[str, str], Any] = {}
+    filas_de_la_cartera: int | None = None
+    for entrada in entradas:
+        clave = entrada["artifact"]
+        if clave not in admitidos:
+            raise UiArtifactError(
+                "este trabajo no admite traer ese resultado de fuera. Elige un trabajo que lo "
+                "pida, o quítalo de la petición."
+            )
+        origen = entrada.get("dataset_id")
+        if not isinstance(origen, str) or not origen:
+            raise UiArtifactError(
+                "falta el archivo del que sale el insumo externo: súbelo antes de ejecutar."
+            )
+        key_column = entrada.get("key_column")
+        if key_column is not None and not isinstance(key_column, str):
+            raise UiArtifactError(
+                f"el identificador de fila debe ser el nombre de una columna; llegó {key_column!r}."
+            )
+        frame = datasets.load_frame(origen, workdir=workdir, key_column=key_column)
+        if key_column is None:
+            if filas_de_la_cartera is None:
+                filas_de_la_cartera = datasets.row_count(dataset_id, workdir=workdir)
+            if len(frame) != filas_de_la_cartera:
+                raise UiArtifactError(
+                    f"el archivo que trajiste tiene {len(frame)} filas y tu cartera tiene "
+                    f"{filas_de_la_cartera}. Sin una columna que identifique cada operación, las "
+                    "filas se emparejan por su orden, y para eso tienen que ser las mismas."
+                )
+        materializados[clave] = frame
+    return materializados
+
+
+def run_pipeline(
+    config: Any,
+    dataset_id: Any,
+    *,
+    workdir: Path,
+    external_artifacts: Any = None,
+) -> dict[str, Any]:
     """Ejecuta una corrida síncrona y la persiste; devuelve ``{run_id, status}`` (SDD-23 §7).
 
     Flujo: (a) valida ``config`` por reconstrucción —un ``ValidationError`` se propaga para que el
     endpoint responda **422**—; (b) resuelve ``dataset_id`` materializando su parquet determinista
     —un ``UiDatasetError`` se propaga para un **404**— y cablea su ruta a ``data.load.source``
     (más ``report.output_dir`` a un dir bajo el ``workdir``; edición de config declarativo, no
-    lógica de dominio); (c) corre ``nikodym.run`` **síncrono**
-    (que NO relanza en fallo, D-UI-2); (d) persiste la corrida por ``run_id``. Una corrida fallida
-    devuelve ``status="failed"`` (nunca un 500 opaco).
+    lógica de dominio); (b-bis) materializa el insumo externo declarado (D-PUE-3); (c) corre
+    ``nikodym.run`` **síncrono** (que NO relanza en fallo, D-UI-2); (d) persiste la corrida por
+    ``run_id``. Una corrida fallida devuelve ``status="failed"`` (nunca un 500 opaco).
+
+    ⚠️ Los artefactos van por el parámetro ``artifacts=`` de ``nikodym.run``, que es la puerta
+    pública del motor: aquí no se toca el ``ArtifactStore`` a mano. Así la colisión con un paso
+    activo, la clave inerte y el lineage siguen siendo responsabilidad del núcleo (D-ART-3/4/5/7) y
+    no se reimplementan en la capa de interfaz.
     """
     NikodymConfig.model_validate(config)  # (a) precondición: config válido (ValidationError → 422)
     source = datasets.materialize(dataset_id, workdir=workdir)  # (b) UiDatasetError → 404
     wired = _wire_report_output_dir(_wire_dataset_source(config, source), workdir=workdir)
     resolved = NikodymConfig.model_validate(wired)
-    study = nikodym.run(resolved)  # (c) síncrono; el fallo vive en run_context.status (D-UI-2)
+    externos = _materializar_externos(external_artifacts, dataset_id, workdir=workdir)  # (b-bis)
+    study = nikodym.run(resolved, artifacts=externos or None)  # (c) síncrono; D-UI-2
     run_id = runs.save(study, workdir=workdir, governance=resolved.governance)  # (d)
     return {"run_id": run_id, "status": study.run_context.status}
 
@@ -568,14 +877,19 @@ def _format_errors(exc: ValidationError) -> list[dict[str, Any]]:
     ]
 
 
-def _error_de_dominio(exc: ConfigError) -> list[dict[str, Any]]:
-    """Proyecta un ``ConfigError`` a la MISMA forma que un error de Pydantic.
+def _error_de_dominio(exc: NikodymError) -> list[dict[str, Any]]:
+    """Proyecta un error del motor a la MISMA forma que un error de Pydantic.
 
     Va con ``loc`` vacío porque un invariante de dominio no pertenece a un campo: nace de la
     relación entre varios (``_check_invariantes``). El front indexa por ``loc`` para pintar el
     error junto a su campo, así que éste no se anclará a ninguno — pero sí entra en el contador de
     «config inválido», que es lo que el usuario necesita para saber que no puede correr. Fabricar
     un ``loc`` a partir del texto del mensaje sería adivinar.
+
+    Acepta cualquier ``NikodymError`` y no sólo ``ConfigError`` porque un insumo externo mal
+    declarado tiene exactamente la misma naturaleza: no pertenece a ningún campo del config, y en
+    ``/api/validate`` —cuyo contrato es responder siempre 200— tiene que salir como config inválido
+    y no como un 500.
     """
     return [{"loc": [], "msg": str(exc), "type": "config_error"}]
 
@@ -602,16 +916,19 @@ def build_router() -> APIRouter:
 
     @router.post("/validate")
     async def validate(payload: dict[str, Any]) -> dict[str, Any]:
-        """Valida el config recibido en ``{config}`` por reconstrucción (siempre 200)."""
-        return validate_config(payload.get("config"))
+        """Valida ``{config, external_artifacts?}`` por reconstrucción (siempre 200)."""
+        return validate_config(payload.get("config"), payload.get("external_artifacts"))
 
     @router.post("/preflight")
     async def preflight_endpoint(payload: dict[str, Any], request: Request) -> dict[str, Any]:
-        """Compara ``{config, dataset_id}`` con las columnas del dataset, sin correr nada."""
+        """Compara ``{config, dataset_id, external_artifacts?}`` con el dataset, sin correr nada."""
         workdir = Path(request.app.state.settings.workdir)
         try:
             return preflight_dataset(
-                payload.get("config"), payload.get("dataset_id"), workdir=workdir
+                payload.get("config"),
+                payload.get("dataset_id"),
+                workdir=workdir,
+                external_artifacts=payload.get("external_artifacts"),
             )
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=_format_errors(exc)) from exc
@@ -669,14 +986,25 @@ def build_router() -> APIRouter:
 
     @router.post("/run")
     async def run_endpoint(payload: dict[str, Any], request: Request) -> dict[str, Any]:
-        """Ejecuta ``{config, dataset_id}``: 422 si es inválido, 404 si el dataset no existe."""
+        """Ejecuta ``{config, dataset_id, external_artifacts?}``: 422 inválido, 404 sin dataset."""
         workdir = Path(request.app.state.settings.workdir)
         try:
-            return run_pipeline(payload.get("config"), payload.get("dataset_id"), workdir=workdir)
+            return run_pipeline(
+                payload.get("config"),
+                payload.get("dataset_id"),
+                workdir=workdir,
+                external_artifacts=payload.get("external_artifacts"),
+            )
         except ValidationError as exc:
             raise HTTPException(status_code=422, detail=_format_errors(exc)) from exc
         except ConfigError as exc:
             # Mismo criterio que `/api/validate` y `from-yaml`: el config es entrada del usuario.
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except UiArtifactError as exc:
+            # 422 y no 404: el insumo externo es entrada del usuario. Una clave que este trabajo no
+            # admite, o un archivo que no cuadra con la cartera, son cosas que él puede corregir;
+            # responder «no existe» le diría otra cosa. Va ANTES de `UiDatasetError` porque ambas
+            # descienden de `UiError` y el orden de los `except` decide.
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         except UiDatasetError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

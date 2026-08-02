@@ -25,7 +25,7 @@ import pandas as pd
 from nikodym.core.dataset_check import PerfilColumna, PerfilDataset
 from nikodym.ui.exceptions import UiDatasetError
 
-__all__ = ["ingest_upload", "list_datasets", "materialize"]
+__all__ = ["ingest_upload", "list_datasets", "load_frame", "materialize", "row_count"]
 
 # Parámetros del *upload* de datasets propios (SDD-23 §4.2): formatos admitidos, techo de tamaño y
 # prefijo de id. La identidad de un dataset subido es ``uploaded_<sha256(content)[:32]>`` —hash del
@@ -408,6 +408,57 @@ def materialize(dataset_id: str, *, workdir: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     _generate(dataset_id).to_parquet(path)
     return path
+
+
+def row_count(dataset_id: str, *, workdir: Path) -> int:
+    """Filas del parquet de un dataset, **sin leer los datos** (metadatos de Parquet).
+
+    Lo consume la comprobación del modo posicional (D-PUE-6): cuando el usuario no declara llave,
+    lo único que se puede verificar sin abrir los archivos es que los dos tengan el mismo número de
+    filas. Barato a propósito — el pie de página de un Parquet trae el conteo.
+    """
+    # `pyarrow` no trae stubs; el conteo vive en el pie del Parquet, así que no se leen los datos.
+    import pyarrow.parquet as pq
+
+    source = materialize(dataset_id, workdir=workdir)
+    metadata = pq.read_metadata(source)  # type: ignore[no-untyped-call]
+    return int(metadata.num_rows)
+
+
+def load_frame(dataset_id: str, *, workdir: Path, key_column: str | None = None) -> pd.DataFrame:
+    """Lee a ``DataFrame`` el parquet de un dataset ya materializado (D-PUE-3).
+
+    Es la única vía por la que un archivo del usuario se convierte en un artefacto para el motor, y
+    por eso **no deserializa nada**: lee el parquet que la ingesta ya produjo con pandas. Un archivo
+    que no sea una tabla nunca llegó a materializarse (:func:`ingest_upload` lo habría rechazado en
+    su lector), así que aquí no hay ningún ``loads`` de objeto que proteger (D-PUE-1).
+
+    Parameters
+    ----------
+    dataset_id : str
+        Identificador del dataset subido (o del catálogo) ya materializado.
+    workdir : Path
+        Directorio de trabajo donde vive el parquet.
+    key_column : str | None
+        Columna que identifica cada fila; pasa a ser el índice. Con ``None`` el frame conserva su
+        índice posicional y la alineación queda por **orden de filas** (D-PUE-6), que es una
+        decisión del usuario y no un default silencioso: quien la toma recibe su aviso y su caveat.
+
+    Raises
+    ------
+    UiDatasetError
+        Si el dataset no existe o si ``key_column`` no es una columna del archivo.
+    """
+    source = materialize(dataset_id, workdir=workdir)
+    frame = pd.read_parquet(source)
+    if key_column is None:
+        return frame
+    if key_column not in frame.columns:
+        raise UiDatasetError(
+            f"el archivo '{dataset_id}' no tiene la columna '{key_column}' que declaraste como "
+            f"identificador; columnas disponibles: {[str(c) for c in frame.columns]}."
+        )
+    return frame.set_index(key_column)
 
 
 def _dataset_path(workdir: Path, dataset_id: str) -> Path:

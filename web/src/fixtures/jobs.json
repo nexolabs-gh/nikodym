@@ -210,8 +210,8 @@
         "provisioning_internal",
         "report"
       ],
-      "status": "unavailable",
-      "unavailable_reason": "Necesita que traigas la PD ya calibrada de tu modelo, y por ahora eso sólo se puede hacer desde Python."
+      "status": "available",
+      "unavailable_reason": null
     },
     {
       "description": "El scorecard completo y la provisión interna en una sola corrida y un solo informe, para el área que hace las dos cosas.",
@@ -357,8 +357,8 @@
         "stability",
         "report"
       ],
-      "status": "unavailable",
-      "unavailable_reason": "La ruta todavía no existe: falta poder traer un scorecard y una PD de fuera. Es el siguiente trabajo en construirse."
+      "status": "available",
+      "unavailable_reason": null
     },
     {
       "description": "Modelar la severidad con las mismas variables discretizadas del scorecard, en vez de traerla dada o promediarla por grupo.",

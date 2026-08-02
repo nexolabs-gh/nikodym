@@ -11,6 +11,7 @@ from __future__ import annotations
 from nikodym.core.exceptions import NikodymError
 
 __all__ = [
+    "UiArtifactError",
     "UiDatasetError",
     "UiDependencyError",
     "UiError",
@@ -27,6 +28,17 @@ class UiError(NikodymError):
 
 class UiDatasetError(UiError):
     """Dataset sintético desconocido, subida inválida o ruta fuera del ``workdir``."""
+
+
+class UiArtifactError(UiError):
+    """El insumo externo declarado en la petición no se puede aceptar (→ 422, D-PUE-2/D-PUE-6).
+
+    Es **entrada del usuario**, no un dataset ausente, y por eso no comparte código con
+    :class:`UiDatasetError`: una clave que ningún trabajo disponible admite, una petición
+    malformada o un archivo cuyo número de filas no cuadra con la cartera son cosas que el usuario
+    puede corregir, y responder 404 le diría que algo no existe cuando lo que pasa es que no se
+    admite.
+    """
 
 
 class UiRunNotFoundError(UiError):

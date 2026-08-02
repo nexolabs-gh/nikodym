@@ -100,6 +100,28 @@ export interface PipelineInfo {
   steps: string[]
   /** Por qué no es ejecutable, en palabras del motor; `null` si lo es. */
   message: string | null
+  /**
+   * Claves traídas de fuera que **ningún paso activo consume** (D-PUE-7, §6.1 de la puerta).
+   *
+   * No bloquean: pueden ser un error de elección o material para un paso que se activará después.
+   * Viajan por aquí porque el otro canal del motor —el audit trail— no existe con `audit: null`,
+   * que es lo que traen los presets; sin esta lista, el aviso no tendría por dónde salir.
+   */
+  inert_artifacts: [string, string][]
+}
+
+/**
+ * Un resultado ya calculado que el usuario trae de fuera (D-PUE-2/3).
+ *
+ * `artifact` es la pareja `(dominio, clave)` que el catálogo declara y **no se enseña nunca**.
+ * `dataset_id` es un archivo ya subido por `/api/upload`: por HTTP no viaja el archivo, viaja su
+ * referencia, y con ella se heredan todas las guardas de esa ruta. `key_column` a `null` significa
+ * alinear **por orden de filas** (D-PUE-6), que es una decisión con su aviso, no un default mudo.
+ */
+export interface ExternalArtifactRef {
+  artifact: [string, string]
+  dataset_id: string
+  key_column: string | null
 }
 
 /** POST /api/validate */
@@ -143,6 +165,27 @@ export interface PreflightResponse {
   compatible: boolean
   mismatches: PreflightMismatch[]
   uninspected: string[]
+  /**
+   * Desajustes del archivo que traes de fuera (D-PUE-8). Misma forma que `mismatches` —para que el
+   * salto al campo funcione igual—, pero **lista aparte**: los otros los produce el motor, cuyo
+   * vocabulario de `kind` es cerrado, y un artefacto traído por la red es concepto de la interfaz.
+   *
+   * ⚠️ `path` puede ser `null`: un problema de la llave o del número de filas no pertenece a
+   * ningún campo del config.
+   */
+  external_mismatches: ExternalMismatch[]
+}
+
+/** Un problema del insumo externo, detectado sin leer los datos (D-PUE-8). */
+export interface ExternalMismatch {
+  path: string | null
+  declared: string | null
+  kind:
+    | "external_missing_column"
+    | "external_missing_key"
+    | "external_duplicated_key"
+    | "external_row_count"
+  message: string
 }
 
 /** POST /api/config/to-yaml — YAML canónico del config (`dump_config`, SDD-05 §5.5). */
@@ -277,11 +320,14 @@ export function getSchema(): Promise<SchemaResponse> {
 }
 
 /** POST /api/validate — valida por reconstrucción en el backend (siempre 200). */
-export function validateConfig(config: ConfigDict): Promise<ValidateResponse> {
+export function validateConfig(
+  config: ConfigDict,
+  externalArtifacts: ExternalArtifactRef[] = [],
+): Promise<ValidateResponse> {
   if (DEMO_MODE) return demoValidateConfig()
   return request<ValidateResponse>("validate", {
     method: "POST",
-    body: JSON.stringify({ config }),
+    body: JSON.stringify({ config, external_artifacts: externalArtifacts }),
   })
 }
 
@@ -299,10 +345,15 @@ export function validateConfig(config: ConfigDict): Promise<ValidateResponse> {
 export function preflightDataset(
   config: ConfigDict,
   datasetId: string,
+  externalArtifacts: ExternalArtifactRef[] = [],
 ): Promise<PreflightResponse> {
   return request<PreflightResponse>("preflight", {
     method: "POST",
-    body: JSON.stringify({ config, dataset_id: datasetId }),
+    body: JSON.stringify({
+      config,
+      dataset_id: datasetId,
+      external_artifacts: externalArtifacts,
+    }),
   })
 }
 
@@ -409,11 +460,16 @@ export async function uploadDataset(file: File): Promise<UploadedDataset> {
 export function runPipeline(
   config: ConfigDict,
   datasetId: string,
+  externalArtifacts: ExternalArtifactRef[] = [],
 ): Promise<RunResponse> {
   if (DEMO_MODE) return demoRunPipeline()
   return request<RunResponse>("run", {
     method: "POST",
-    body: JSON.stringify({ config, dataset_id: datasetId }),
+    body: JSON.stringify({
+      config,
+      dataset_id: datasetId,
+      external_artifacts: externalArtifacts,
+    }),
   })
 }
 

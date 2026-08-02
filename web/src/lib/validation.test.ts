@@ -152,6 +152,7 @@ describe("pipelineWarning (aviso de config inejecutable, D-PIPE-2/D-PIPE-5)", ()
     steps: [],
     message:
       "El paso 'provisioning_ifrs9' requiere ('survival', 'term_structure'), que ningún paso aguas arriba produce: config inejecutable.",
+    inert_artifacts: [],
   }
 
   it("publica el mensaje del motor cuando el config no es ejecutable", () => {
@@ -165,7 +166,12 @@ describe("pipelineWarning (aviso de config inejecutable, D-PIPE-2/D-PIPE-5)", ()
       pipelineWarning({
         kind: "valid",
         hash: "abc",
-        pipeline: { executable: true, steps: ["data", "binning"], message: null },
+        pipeline: {
+          executable: true,
+          steps: ["data", "binning"],
+          message: null,
+          inert_artifacts: [],
+        },
       }),
     ).toBeNull()
   })

@@ -107,7 +107,12 @@ def test_validate_config_valido_devuelve_hash() -> None:
         "valid": True,
         "config_hash": config_hash(cfg),
         "errors": [],
-        "pipeline": {"executable": True, "steps": [], "message": None},
+        "pipeline": {
+            "executable": True,
+            "steps": [],
+            "message": None,
+            "inert_artifacts": [],
+        },
     }
 
 
@@ -258,6 +263,7 @@ def test_preset_ejecutable_anuncia_los_pasos_que_correria() -> None:
         "executable": True,
         "steps": ["data", "survival", "provisioning_ifrs9", "report"],
         "message": None,
+        "inert_artifacts": [],
     }
 
 
@@ -280,7 +286,7 @@ def test_el_aviso_no_publica_codigos_de_marca(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(
         routes.nikodym,
         "check_pipeline",
-        lambda _config: api_module.PipelineCheck(
+        lambda _config, *, artifacts=None: api_module.PipelineCheck(
             executable=False,
             message="FALTA-DATO-IFRS-4: la EAD comprometida no se modela todavía.",
             error_type="ConfigError",
@@ -302,7 +308,7 @@ def test_un_fallo_inesperado_no_publica_su_detalle_interno(monkeypatch: pytest.M
     monkeypatch.setattr(
         routes.nikodym,
         "check_pipeline",
-        lambda _config: api_module.PipelineCheck(
+        lambda _config, *, artifacts=None: api_module.PipelineCheck(
             executable=False,
             message="AttributeError: 'NoneType' object has no attribute '_frame'",
             error_type="AttributeError",
@@ -901,7 +907,7 @@ def test_run_endpoint_dependencia_faltante_422(
     def _materialize(dataset_id: str, *, workdir: Path) -> Path:
         return Path(workdir) / "datasets" / f"{dataset_id}.parquet"
 
-    def _raise_missing(config: object) -> object:
+    def _raise_missing(config: object, *, artifacts: object = None) -> object:
         raise MissingDependencyError("instale nikodym[tracking] para publicar al inventario.")
 
     monkeypatch.setattr(datasets_module, "materialize", _materialize)
