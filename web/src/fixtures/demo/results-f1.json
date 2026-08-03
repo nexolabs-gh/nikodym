@@ -1,8 +1,27 @@
 {
  "status": "done",
- "run_id": "26ecab4c1177454faeb2e812cf177887",
+ "run_id": "50316ddb75e54e039962b34b9cbb8501",
  "error": null,
  "model_card": null,
+ "lineage": {
+  "git_sha": "d2f2b87116f07917191b396533c2da855ba8ff6c",
+  "git_dirty": false,
+  "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
+  "config_hash": "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e",
+  "root_seed": 20240706,
+  "uv_lock_hash": null,
+  "library_versions": {
+   "nikodym": "1.10.0",
+   "numpy": "2.4.6",
+   "pandas": "2.3.3",
+   "pydantic": "2.13.4",
+   "PyYAML": "6.0.3"
+  },
+  "determinism_caveats": [],
+  "created_at": "2026-08-03T00:05:02.231202Z",
+  "schema_version": "1.0.0",
+  "injected_artifacts": []
+ },
  "binning": {
   "n_variables_requested": 6,
   "n_variables_binned": 6,
@@ -26,6 +45,7 @@
   "special_handling": "separate",
   "missing_handling": "empirical",
   "optbinning_version": "0.20.0",
+  "excluded_by_target_rule": [],
   "tables_by_variable": {
    "ingreso_mensual": [
     {

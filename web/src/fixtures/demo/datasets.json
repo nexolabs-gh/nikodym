@@ -7,47 +7,89 @@
    {
     "name": "loan_id",
     "dtype": "str",
-    "role": "id"
+    "role": "id",
+    "values": []
    },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "deuda_ingreso",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "utilizacion_linea",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "mora_max_12m",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": [
+     "6",
+     "5",
+     "7",
+     "4",
+     "8",
+     "3",
+     "9",
+     "10",
+     "2",
+     "11",
+     "1",
+     "12",
+     "13",
+     "0",
+     "14",
+     "15",
+     "16",
+     "17"
+    ]
    },
    {
     "name": "antiguedad_meses",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "segmento",
     "dtype": "str",
-    "role": "segment"
+    "role": "segment",
+    "values": [
+     "independiente",
+     "pensionado",
+     "asalariado"
+    ]
    },
    {
     "name": "cohorte",
     "dtype": "str",
-    "role": "cohort"
+    "role": "cohort",
+    "values": [
+     "2023Q3",
+     "2024Q2",
+     "2023Q1",
+     "2023Q2",
+     "2023Q4",
+     "2024Q1"
+    ]
    },
    {
     "name": "bad_flag",
     "dtype": "int",
-    "role": "target"
+    "role": "target",
+    "values": [
+     "0",
+     "1"
+    ]
    }
   ],
   "n_rows": 6000
@@ -60,47 +102,87 @@
    {
     "name": "loan_id",
     "dtype": "str",
-    "role": "id"
+    "role": "id",
+    "values": []
    },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "deuda_ingreso",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "utilizacion_linea",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "mora_max_12m",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": [
+     "6",
+     "5",
+     "4",
+     "7",
+     "8",
+     "3",
+     "9",
+     "2",
+     "10",
+     "11",
+     "1",
+     "12",
+     "13",
+     "14",
+     "0",
+     "15",
+     "16",
+     "20"
+    ]
    },
    {
     "name": "antiguedad_meses",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "segmento",
     "dtype": "str",
-    "role": "segment"
+    "role": "segment",
+    "values": [
+     "primera_vivienda",
+     "inversion"
+    ]
    },
    {
     "name": "cohorte",
     "dtype": "str",
-    "role": "cohort"
+    "role": "cohort",
+    "values": [
+     "2023Q3",
+     "2023Q1",
+     "2023Q2",
+     "2022Q4",
+     "2022Q3"
+    ]
    },
    {
     "name": "bad_flag",
     "dtype": "int",
-    "role": "target"
+    "role": "target",
+    "values": [
+     "0",
+     "1"
+    ]
    }
   ],
   "n_rows": 4000
@@ -113,47 +195,91 @@
    {
     "name": "loan_id",
     "dtype": "str",
-    "role": "id"
+    "role": "id",
+    "values": []
    },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "deuda_ingreso",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "utilizacion_linea",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "mora_max_12m",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": [
+     "6",
+     "7",
+     "9",
+     "8",
+     "11",
+     "10",
+     "5",
+     "4",
+     "12",
+     "13",
+     "3",
+     "14",
+     "15",
+     "16",
+     "2",
+     "17",
+     "18",
+     "1",
+     "20",
+     "19"
+    ]
    },
    {
     "name": "antiguedad_meses",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "segmento",
     "dtype": "str",
-    "role": "segment"
+    "role": "segment",
+    "values": [
+     "asalariado",
+     "pensionado",
+     "independiente"
+    ]
    },
    {
     "name": "cohorte",
     "dtype": "str",
-    "role": "cohort"
+    "role": "cohort",
+    "values": [
+     "2024Q2",
+     "2024Q1",
+     "2023Q3",
+     "2023Q4",
+     "2023Q2",
+     "2023Q1"
+    ]
    },
    {
     "name": "bad_flag",
     "dtype": "int",
-    "role": "target"
+    "role": "target",
+    "values": [
+     "0",
+     "1"
+    ]
    }
   ],
   "n_rows": 6000
@@ -166,92 +292,138 @@
    {
     "name": "loan_id",
     "dtype": "str",
-    "role": "id"
+    "role": "id",
+    "values": []
    },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "deuda_ingreso",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "utilizacion_linea",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "mora_max_12m",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "antiguedad_meses",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "segmento",
     "dtype": "str",
-    "role": "segment"
+    "role": "segment",
+    "values": [
+     "independiente",
+     "pensionado",
+     "asalariado"
+    ]
    },
    {
     "name": "cohorte",
     "dtype": "str",
-    "role": "cohort"
+    "role": "cohort",
+    "values": [
+     "2024Q2",
+     "2023Q3",
+     "2023Q2",
+     "2024Q1",
+     "2023Q1",
+     "2023Q4"
+    ]
    },
    {
     "name": "bad_flag",
     "dtype": "int",
-    "role": "target"
+    "role": "target",
+    "values": [
+     "0",
+     "1"
+    ]
    },
    {
     "name": "as_of_date",
     "dtype": "str",
-    "role": "economic"
+    "role": "economic",
+    "values": [
+     "2024-06-30"
+    ]
    },
    {
     "name": "debtor_id",
     "dtype": "str",
-    "role": "economic"
+    "role": "economic",
+    "values": []
    },
    {
     "name": "cmf_portfolio",
     "dtype": "str",
-    "role": "economic"
+    "role": "economic",
+    "values": [
+     "consumer"
+    ]
    },
    {
     "name": "cmf_product_type",
     "dtype": "str",
-    "role": "economic"
+    "role": "economic",
+    "values": [
+     "creditos_en_cuotas",
+     "tarjetas_lineas_otros",
+     "leasing_auto"
+    ]
    },
    {
     "name": "days_past_due",
     "dtype": "int",
-    "role": "economic"
+    "role": "economic",
+    "values": []
    },
    {
     "name": "has_housing_loan_system",
     "dtype": "bool",
-    "role": "economic"
+    "role": "economic",
+    "values": [
+     "False",
+     "True"
+    ]
    },
    {
     "name": "system_dpd30_last_3m",
     "dtype": "bool",
-    "role": "economic"
+    "role": "economic",
+    "values": [
+     "False",
+     "True"
+    ]
    },
    {
     "name": "exposure_amount",
     "dtype": "float",
-    "role": "economic"
+    "role": "economic",
+    "values": []
    },
    {
     "name": "lgd",
     "dtype": "float",
-    "role": "economic"
+    "role": "economic",
+    "values": []
    }
   ],
   "n_rows": 6000
@@ -264,92 +436,143 @@
    {
     "name": "loan_id",
     "dtype": "str",
-    "role": "id"
+    "role": "id",
+    "values": []
    },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "deuda_ingreso",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "utilizacion_linea",
     "dtype": "float",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "mora_max_12m",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "antiguedad_meses",
     "dtype": "int",
-    "role": "feature"
+    "role": "feature",
+    "values": []
    },
    {
     "name": "segmento",
     "dtype": "str",
-    "role": "segment"
+    "role": "segment",
+    "values": [
+     "independiente",
+     "pensionado",
+     "asalariado"
+    ]
    },
    {
     "name": "cohorte",
     "dtype": "str",
-    "role": "cohort"
+    "role": "cohort",
+    "values": [
+     "2023Q4",
+     "2024Q1",
+     "2023Q2",
+     "2023Q1",
+     "2023Q3",
+     "2024Q2"
+    ]
    },
    {
     "name": "bad_flag",
     "dtype": "int",
-    "role": "target"
+    "role": "target",
+    "values": [
+     "0",
+     "1"
+    ]
    },
    {
     "name": "duration",
     "dtype": "int",
-    "role": "survival"
+    "role": "survival",
+    "values": [
+     "5",
+     "1",
+     "2",
+     "3",
+     "4"
+    ]
    },
    {
     "name": "event",
     "dtype": "int",
-    "role": "survival"
+    "role": "survival",
+    "values": [
+     "0",
+     "1"
+    ]
    },
    {
     "name": "as_of_date",
     "dtype": "str",
-    "role": "economic"
+    "role": "economic",
+    "values": [
+     "2025-06-30"
+    ]
    },
    {
     "name": "portfolio",
     "dtype": "str",
-    "role": "economic"
+    "role": "economic",
+    "values": [
+     "Consumo",
+     "Tarjetas",
+     "Hipotecario",
+     "Comercial"
+    ]
    },
    {
     "name": "ead",
     "dtype": "float",
-    "role": "economic"
+    "role": "economic",
+    "values": []
    },
    {
     "name": "lgd",
     "dtype": "float",
-    "role": "economic"
+    "role": "economic",
+    "values": []
    },
    {
     "name": "eir",
     "dtype": "float",
-    "role": "economic"
+    "role": "economic",
+    "values": []
    },
    {
     "name": "days_past_due",
     "dtype": "int",
-    "role": "economic"
+    "role": "economic",
+    "values": []
    },
    {
     "name": "is_default",
     "dtype": "bool",
-    "role": "economic"
+    "role": "economic",
+    "values": [
+     "False",
+     "True"
+    ]
    }
   ],
   "n_rows": 6000
