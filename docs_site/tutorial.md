@@ -91,9 +91,9 @@ Vale la pena saber qué decide este preset, porque son las palancas que editarí
 | `selection` | `min_iv = 0.02`, corr `> 0.75`, VIF `> 5` | Descarta variables débiles o redundantes |
 | `model` | logit + stepwise, signo esperado **negativo** | Coeficientes con dirección de riesgo coherente |
 | `scorecard` | **PDO 20**, *target score* **600** a *odds* **50:1** | Escala de puntaje del negocio |
-| `calibration` | ancla `target_pd = 0.20`, *through-the-cycle* | PD promedio anclada a un nivel de política |
+| `calibration` | ancla *through-the-cycle* leída de los datos (`target_pd` sin fijar) | PD promedio anclada a la tasa observada en desarrollo |
 
-Cifras — fixture `web/src/fixtures/demo/preset.json`.
+Cifras — fixture `web/src/fixtures/demo/preset-f1.json`.
 
 ## Paso 3 — Correr y verificar el estado
 
@@ -241,9 +241,10 @@ cal = study.artifacts.get("calibration", "result")
 
 La scorecard ordena bien el riesgo, pero su PD promedio no tiene por qué coincidir con el nivel de
 política del banco. La calibración por `intercept_offset` corre el intercepto para anclar la PD media a
-un *target*. El preset ancla a **`target_pd = 0.20`** *through-the-cycle*. En desarrollo la PD media
-**cruda era 0.233** (igual a la tasa observada de default) y tras el offset de **-0.218** quedó en
-**0.200** exacto. Puntos clave de la corrida de ejemplo:
+un *target*. **El preset no fija ese target: lo lee de los datos** (`anchor_source =
+development_observed`), así que el ancla es la tasa de default observada en desarrollo, **0.2333**. La
+PD media cruda ya coincidía con ella, de modo que el offset resuelto es ~0 y la corrida de ejemplo
+**no desplaza** el nivel. Puntos clave:
 
 - `ranking_preserved = True` y `ties_created = 0`: el ajuste **desplaza** las PD sin alterar el orden
   ni crear empates. La discriminación (AUC/KS) no cambia con la calibración; solo cambia el nivel.
@@ -251,17 +252,24 @@ un *target*. El preset ancla a **`target_pd = 0.20`** *through-the-cycle*. En de
 
 | Partición | Brier | ECE |
 |---|---|---|
-| desarrollo | 0.161 | 0.034 |
-| holdout | 0.165 | 0.039 |
-| oot | 0.172 | 0.055 |
+| desarrollo | 0.160 | 0.011 |
+| holdout | 0.164 | 0.028 |
+| oot | 0.171 | 0.043 |
 
 !!! note "Cómo leer Brier y ECE"
     Ambos son *menor es mejor*. El **ECE** (*Expected Calibration Error*) mide la brecha media entre PD
-    predicha y default observado por decil: 0.034 en desarrollo indica una calibración muy ajustada. Que
-    suba a 0.055 en OOT es esperable (los datos futuros se apartan del entrenamiento) y es justo la señal
+    predicha y default observado por decil: 0.011 en desarrollo indica una calibración muy ajustada. Que
+    suba a 0.043 en OOT es esperable (los datos futuros se apartan del entrenamiento) y es justo la señal
     que la partición OOT existe para vigilar.
 
-Cifras — fixture `results.json` (`calibration`).
+!!! warning "Anclar a un nivel de política es otra decisión, y es tuya"
+    Este ejemplo ancla a lo observado porque un dataset sintético no tiene política de banco detrás.
+    Para anclar a un nivel propio —el ciclo largo de tu cartera, el presupuesto de riesgo— se declara
+    `anchor_source = "business_input"` **con** su `target_pd`. El motor no elige por ti: con
+    `development_observed` exige que `target_pd` venga sin fijar, y con una fuente explícita exige el
+    número. Ver [Calibración](guias/modelo-calibracion.md).
+
+Cifras — fixture `results-f1.json` (`calibration`).
 
 ### Desempeño (discriminación)
 

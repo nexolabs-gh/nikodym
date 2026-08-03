@@ -58,9 +58,11 @@ Dos regímenes para expresar la PD:
 - **TTC (through-the-cycle):** promedia el ciclo económico y es **estable** en el tiempo; es el
   régimen típico de un scorecard regulatorio y del ancla de provisiones.
 
-En Nikodym el paso de **calibración** ajusta la PD cruda a un ancla; en la *corrida de ejemplo* el
-ancla es **through-the-cycle** con `target_pd = 0,20`, distinto de la tasa de default observada en
-desarrollo (**0,233**), justamente para no arrastrar el punto del ciclo de la muestra.
+En Nikodym el paso de **calibración** ajusta la PD cruda a un ancla. En la *corrida de ejemplo* el
+régimen declarado es **through-the-cycle**, pero el ancla se **lee de los datos**
+(`anchor_source = development_observed`): es la tasa de default observada en desarrollo, **0,233**.
+Anclar a un nivel de política distinto del observado —lo que de verdad separa un TTC de un PIT— es
+una decisión del banco, y se declara aparte con su cifra.
 
 ---
 

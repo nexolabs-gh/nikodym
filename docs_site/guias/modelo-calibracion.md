@@ -242,20 +242,25 @@ Otros guards: `target_tolerance` (default `1e-12`, error máximo entre media cal
 
 ### Through-the-cycle en la práctica
 
-El preset ancla a una tasa **TTC de negocio** deliberadamente por **debajo** de la tasa observada
-en Desarrollo:
+El preset **no fija el ancla: la lee de la propia muestra de Desarrollo**.
 
-- `method = intercept_offset`, `anchor_source = business_input`, `anchor_kind = through_the_cycle`
-- `target_pd = 0.20`
-- tasa observada / media de PD cruda en Desarrollo ≈ **0.2333**
-- offset resuelto `δ ≈ **−0.2184**` (log-odds; negativo porque el ancla 0.20 está bajo el 0.233
-  observado)
-- media de PD calibrada = **0.2000** (iguala el objetivo dentro de tolerancia)
+- `method = intercept_offset`, `anchor_source = development_observed`, `anchor_kind = through_the_cycle`
+- `target_pd` **sin fijar** en el config; resuelto a **0.2333**, la tasa observada en Desarrollo
+- media de PD cruda en Desarrollo ≈ **0.2333** — ya coincide con el ancla
+- offset resuelto `δ ≈ **0**` (del orden de 1e-16): no hay nivel que corregir
+- media de PD calibrada = **0.2333** (iguala el objetivo dentro de tolerancia)
 - `ranking_preserved = True`, `ties_created = 0`, `n_fit = 3961`
 
-Esa brecha (0.233 observado → 0.20 anclado) es exactamente el punto de una calibración TTC: la
-muestra de Desarrollo refleja un momento del ciclo, y el banco reconoce una PD de largo plazo
-distinta. `intercept_offset` traslada el nivel sin tocar el orden de los deudores.
+⚠️ **Que el offset salga cero no es que la calibración sobre**: es el resultado honesto de anclar a
+lo observado sobre la misma muestra con que se ajustó el modelo. El paso sigue siendo el que
+**garantiza** esa coincidencia y el que la deja medida y auditable — y en cuanto el ancla deja de
+ser la propia muestra, el offset deja de ser cero.
+
+Un dataset sintético no tiene política de banco detrás, y por eso este ejemplo no ancla a una tasa
+de negocio. **Ahí es donde una calibración TTC se gana el nombre**: la muestra de Desarrollo refleja
+un momento del ciclo, y el banco reconoce una PD de largo plazo distinta. Para eso se declara
+`anchor_source = "business_input"` con su `target_pd`, y `intercept_offset` traslada el nivel sin
+tocar el orden de los deudores. El motor no elige por ti cuál de los dos corresponde.
 
 ```python
 # Parámetros de la calibración (método, ancla, offset, medias).
