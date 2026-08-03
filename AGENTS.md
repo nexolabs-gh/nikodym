@@ -9,7 +9,42 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-03 madrugada, **demo recapturada + las formas de respuesta**)
+## Estado vigente (2026-08-03 mediodía, **lo ya dicho se propone + «Respondida» lo dice el motor**)
+
+**`main` = `dc0f48c`.** CI 16/16 confirmado con `gh` sobre `5a9f3af`, `50e06e4`, `1f924d6` y
+`2a625b3`; el de `dc0f48c` quedó lanzado, **verificarlo al arrancar**. **PyPI sigue en `1.10.0` y no
+hay release autorizado.** Gates: pytest **4920 passed / 6 skipped**, vitest **611/611**, mypy 245,
+`ruff check` y `format`, typecheck y lint del front, fixtures regenerados, bundle reconstruido,
+`mkdocs --strict`.
+
+✅ **D-COL-8 completo**: la columna que el usuario ya nombró al mapear su archivo llega **propuesta**
+con su procedencia a la vista, y aceptarla deja la decisión en «Te falta un dato». Viaja por un campo
+propio de la forma, nunca por `config_paths`. 🔴 **Cuatro defectos, dos vistos ABRIENDO LA PANTALLA
+y dos por Codex**: el más transferible es que **«el campo no está en blanco» no prueba que el usuario
+contestara** —el esqueleto siembra el default del motor— y que la guarda obvia tampoco basta. La
+propuesta sale del **gesto** de mapeo, no del config.
+
+✅ **El contrato «siempre 200» de `/api/validate`, restaurado — TERCERA vez con este defecto**: doce
+clases `*ConfigError` de dominio no heredaban de `ConfigError` y el endpoint devolvía 500 sobre
+configs alcanzables desde el formulario.
+
+✅ **D-RES**: contestada exige **no faltar ningún hueco Y que el motor acepte**. 🔴 **No eran dos
+casos: eran 49 de 63**, y hay **3 falsos negativos**, así que ninguno de los dos criterios basta
+solo. Dos premisas del plan salieron falsas y **abarataron** el diseño: no nació ningún campo de
+contrato. ⚠️ El `loc` lleva el tag del discriminador: sirve para casar, **nunca** para enfocar.
+
+✅ **32 `column_role` en provisiones**, que cierran el `compatible=True` sobre columnas inexistentes.
+🔴 **14 campos quedan fuera A PROPÓSITO**: su consumo es condicional y `column_role` no lo expresa.
+
+🔴 **Trampa nueva, y costó 10 de 16 jobs en rojo con todo verde en local**: un test que usa el
+cliente de UI se gatea con `pytest.importorskip` **dentro de un helper**.
+
+**Siguiente: el SDD del abanico** (con sus dos decisiones de producto ya tomadas) y **ampliar el
+preflight a `survival`**. Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-03 madrugada, **demo recapturada + las formas de respuesta**)
 
 **`main` = `6c256ef`.** CI 16/16 confirmado con `gh` sobre `9ef495d` y `84578eb`; los de `1568193`
 y `6c256ef` quedaron lanzados, **verificarlos al arrancar**. **PyPI sigue en `1.10.0` y no hay

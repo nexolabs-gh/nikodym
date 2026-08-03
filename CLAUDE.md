@@ -5,7 +5,62 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-03 madrugada): **la demo recapturada, y una decisión se contesta de varias formas**
+> ## Lo último (2026-08-03 mediodía): **lo que ya dijiste se PROPONE, y «Respondida» lo dice el motor**
+>
+> **`main` = `dc0f48c`.** CI 16/16 confirmado con `gh` sobre `5a9f3af`, `50e06e4`, `1f924d6` y
+> `2a625b3`; el de `dc0f48c` quedó lanzado y hay que **verificarlo al arrancar**. Gates: pytest
+> **4920 passed / 6 skipped**, vitest **611/611**, mypy 245, ruff check y format, typecheck y lint,
+> fixtures regenerados, bundle reconstruido, `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **D-COL-8 completo: la columna que ya nombraste al mapear tu archivo llega PROPUESTA**, con su
+> procedencia a la vista, y aceptarla deja la decisión en «Te falta un dato» — el valor que marca al
+> malo sigue siendo tuyo. Viaja por un campo propio de la forma (`precargas`), **nunca** por
+> `config_paths`: un `config_path` escribe solo y una precarga propone y espera el gesto.
+>
+> 🔴 **Cuatro defectos, y ninguno lo veía un test: dos los vi ABRIENDO LA PANTALLA y dos Codex.** El
+> que más enseña: **«el campo de origen no está en blanco» NO prueba que el usuario contestara** —el
+> esqueleto siembra `performance.target_column = "target"`, el **default del motor**—, y mi primer
+> arreglo (*«el valor está entre las columnas del archivo»*) **tampoco bastaba**, porque un archivo
+> con una columna llamada así es plausible justamente por ser el default. **Arreglo de raíz: la
+> propuesta sale del GESTO de mapeo, que se registra aparte, no de leer el config.**
+>
+> ✅ **El contrato «siempre 200» de `/api/validate`, restaurado — TERCERA vez con este defecto.** No
+> era un `except` olvidado: **doce clases `*ConfigError` de dominio no heredaban de `ConfigError`**,
+> así que el endpoint devolvía **500** sobre configs alcanzables desde el formulario, que el front
+> muestra como «Backend no disponible». Reproducido con `provisioning_cmf.portfolio_col = ""`.
+>
+> ✅ **D-RES: una decisión está contestada si no le falta ningún hueco Y el motor la acepta.** 🔴 **Y
+> no eran los dos casos conocidos: eran 49 de 63** — el criterio ignora todo hueco **ausente**, no ve
+> tipos incorrectos, y la forma `random` **no declara ningún hueco**, así que cualquier valor con ese
+> discriminador salía contestado. ⚠️ Hay además **3 falsos negativos**, o sea que «válido para el
+> motor» tampoco basta: hacen falta los dos. 🔴 **Dos premisas del plan salieron falsas y abarataron
+> el diseño**: el front **sí** lee la forma elegida en `partition.strategy` (es unión discriminada) y
+> **no hace falta que el backend publique nada**, porque el `loc` de `/api/validate` casa por prefijo
+> en 46 de 49. ⚠️ **Ese `loc` lleva el tag del discriminador, que no existe en el config**: sirve
+> para casar, **nunca** para enfocar.
+>
+> ✅ **32 `column_role` en provisiones**: un config que apunta a columnas inexistentes ya no sale
+> `compatible=True`. 🔴 **Y lo que NO se declara vale igual**: **14 campos quedan fuera a propósito**
+> porque su consumo es condicional y `column_role` no expresa condiciones — el peor,
+> `ifrs9.ead.ead_col`, habría exigido con el config de fábrica una columna que el motor nunca abre.
+>
+> 🔴 **Codex pagó por SÉPTIMA sesión seguida**, y esta vez uno de sus hallazgos era algo que yo había
+> evaluado y **descartado como riesgo bajo**. Tenía razón él.
+>
+> 🔴 **Trampa nueva que costó CI rojo en 10 de 16 jobs con todo verde en local: un test que usa el
+> cliente de UI se gatea con `pytest.importorskip` DENTRO de un helper**, o `_ui_client` arrastra
+> starlette y revienta la recolección en los jobs mínimos. ⚠️ Y arreglarlo tiene una segunda mitad
+> que hay que **medir**: el gate que no necesita el extra debe seguir corriendo ahí, y su ancla
+> anti-vacua puede caerse porque `walk_packages` se salta lo que no importe. Simulado sin extras: ve
+> 13 clases, aguanta.
+>
+> **Siguiente: el SDD del abanico** —con sus dos preguntas de producto ya contestadas por Cami— y
+> **ampliar el preflight a `survival`**, que es lo que falta del alcance aprobado. Detalle en
+> [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-03 madrugada): **la demo recapturada, y una decisión se contesta de varias formas**
 >
 > **`main` = `6c256ef`.** CI 16/16 confirmado con `gh` sobre `9ef495d` y `84578eb`; los de `1568193`
 > y `6c256ef` quedaron lanzados y hay que **verificarlos al arrancar**. Gates: pytest **4906 passed
