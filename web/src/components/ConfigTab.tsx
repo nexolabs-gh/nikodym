@@ -46,6 +46,7 @@ import {
   type PrecargasDeForma,
   plantillaConPrecargas,
   precargasDeForma,
+  requiredExternalArtifacts,
 } from "@/lib/external-artifacts"
 import { type Path, getAtPath, removeAtPath, setAtPath } from "@/lib/config-store"
 import { columnValuesByName } from "@/lib/datasets"
@@ -823,12 +824,16 @@ export function ConfigTab({ section }: { section: string }) {
           }}
           // Lo que se puede PROPONER, calculado al pintar y sin tocar el config (D-COL-8). Es una
           // función y no un valor porque depende de la forma, y el config sólo cambia con el clic.
+          //
+          // ⚠️ Se pasan los insumos que el trabajo ACTUAL pide, no el mapa entero: los archivos
+          // subidos sobreviven al cambio de trabajo y las formas se heredan por sección, así que
+          // sin acotar aquí un artefacto de otro trabajo proponía sus columnas donde nadie lo pidió.
           precargas={(forma) =>
             precargasDeForma(
               forma,
-              (config ?? {}) as Record<string, unknown>,
-              datasetId,
+              requiredExternalArtifacts(job, (config ?? {}) as Record<string, unknown>),
               externalInputs,
+              datasetId,
             )
           }
         />

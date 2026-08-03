@@ -88,6 +88,8 @@ export function ExternalInputCard({
         fileName: file.name,
         columns: resp.columns.map((c) => c.name),
         keyColumn: null,
+        // Archivo nuevo, mapeo en blanco: lo que el usuario eligió era sobre el archivo anterior.
+        mapeo: {},
       })
     } catch (err) {
       setError(mensajeDeError(err))
@@ -230,6 +232,18 @@ export function ExternalInputCard({
                     onValueChange={(value) => {
                       if (typeof value !== "string" || value === "") return
                       onConfig(withColumnMapping(config, rol.config_paths, value))
+                      // Y se registra el GESTO, además de su efecto en el config: es lo único que
+                      // distingue una respuesta del usuario del default que el esqueleto sembró
+                      // en ese mismo campo (D-COL-8).
+                      if (input !== undefined) {
+                        onInput(key, {
+                          ...input,
+                          mapeo: Object.fromEntries([
+                            ...Object.entries(input.mapeo),
+                            ...rol.config_paths.map((path) => [path, value] as const),
+                          ]),
+                        })
+                      }
                     }}
                   >
                     <SelectTrigger id={id} className="w-full">

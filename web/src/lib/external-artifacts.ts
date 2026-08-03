@@ -23,6 +23,16 @@ export interface ExternalInput {
   columns: string[]
   /** `null` = alinear por orden de filas (D-PUE-6), que es una elección con su aviso. */
   keyColumn: string | null
+  /**
+   * Las columnas que el usuario ELIGIÓ en el mapeo, por el campo donde se escribieron.
+   *
+   * 🔴 Existe porque el config **no distingue** una respuesta suya del default del motor: el
+   * esqueleto del trabajo siembra `performance.target_column = "target"`, y un archivo con una
+   * columna llamada así —nombre plausible, precisamente porque es el default— hacía indistinguible
+   * «lo eligió» de «nadie lo tocó». Lo que se propone en una precarga (D-COL-8) sale de aquí, o
+   * sea del **gesto**, y nunca de leer el config.
+   */
+  mapeo: Record<string, string>
 }
 
 /** Clave estable de un artefacto para indexar el estado; nunca se enseña. */
@@ -208,31 +218,38 @@ const MOTIVO_OTRO_ARCHIVO =
  */
 export function precargasDeForma(
   forma: AnswerForm,
-  config: ConfigDict,
-  carteraDatasetId: string | null,
+  required: readonly ExternalArtifact[],
   inputs: Readonly<Record<string, ExternalInput>>,
+  carteraDatasetId: string | null,
 ): PrecargasDeForma {
   if (forma.precargas.length === 0) return SIN_PRECARGAS
+  const pedidos = new Set(required.map((entry) => artifactKey(entry.artifact)))
   const propuestas: PropuestaDePrecarga[] = []
   let motivo: string | null = null
   for (const precarga of forma.precargas) {
-    const input = inputs[artifactKey(precarga.insumo)]
+    const clave = artifactKey(precarga.insumo)
+    // 🔴 Sólo cuenta un archivo que el trabajo ACTUAL pide. Las formas se declaran por sección y
+    // las heredan los nueve trabajos, mientras el mapa de archivos subidos sobrevive al cambio de
+    // trabajo: sin esto, un artefacto que quedó de «Validar un modelo existente» proponía sus
+    // columnas en un trabajo que nunca lo pidió. Es el mismo criterio que `externalRefs`, que
+    // deriva de lo PEDIDO y no de lo subido, y por la misma razón.
+    if (!pedidos.has(clave)) continue
+    const input = inputs[clave]
     // Nada subido todavía: no hay propuesta y tampoco hay nada que explicar.
     if (input === undefined || carteraDatasetId === null) continue
-    const valor = valueAtPath(config, precarga.desde)
-    // 🔴 El valor se comprueba ANTES que el archivo, y el orden importa: si el usuario todavía no
-    // ha contestado esa pregunta, no había nada que proponerle, así que explicarle por qué no se lo
-    // proponemos es ruido sobre algo que no ha pasado. Se vio en pantalla —el aviso salía sobre la
-    // regla de malo con la columna del incumplimiento sin mapear—, no en los tests.
-    //
-    // 🔴 Y «no está en blanco» NO basta, que es el defecto que la pantalla destapó: el esqueleto
-    // del trabajo siembra estos campos con el DEFAULT DEL MOTOR (`target`, `partition`), así que
-    // sin esta guarda se proponía el default del motor con el rótulo «esto sale de lo que ya
-    // dijiste sobre tu archivo» — una mentira literal, y el motor contestando por el usuario justo
-    // donde D-OBL-5 lo prohíbe. Lo que prueba que la respuesta es SUYA es que nombre una columna
-    // que su archivo tiene; y como el archivo es el mismo que la cartera (guarda de abajo), es
-    // además la comprobación de que la columna propuesta existe donde el motor la va a buscar.
+    // 🔴 El valor sale del GESTO —lo que el usuario eligió en el mapeo—, nunca de leer el config.
+    // El config no distingue una respuesta suya del default del motor: el esqueleto siembra
+    // `performance.target_column = "target"`, y un archivo con una columna llamada así —nombre
+    // plausible, justamente porque es el default— hacía indistinguible «lo eligió» de «nadie lo
+    // tocó». Proponer eso con el rótulo «esto sale de lo que ya dijiste» es una mentira literal, y
+    // el motor contestando por el usuario justo donde D-OBL-5 lo prohíbe.
+    const valor = input.mapeo[precarga.desde]
+    // Cinturón sobre el gesto: la columna elegida tiene que seguir estando en el archivo. Cambiar
+    // de archivo conserva el mapeo viejo sólo si sus columnas siguen existiendo.
     if (typeof valor !== "string" || !input.columns.includes(valor)) continue
+    // El orden importa: si el usuario todavía no ha contestado esa pregunta, no había nada que
+    // proponerle, así que explicarle por qué no se lo proponemos es ruido sobre algo que no ha
+    // pasado. Se vio en pantalla, no en los tests.
     if (input.datasetId !== carteraDatasetId) {
       motivo = MOTIVO_OTRO_ARCHIVO
       continue

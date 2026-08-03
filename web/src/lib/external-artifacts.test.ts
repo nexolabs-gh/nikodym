@@ -36,6 +36,7 @@ function input(overrides: Partial<ExternalInput> = {}): ExternalInput {
     fileName: "mi_modelo.csv",
     columns: ["id_operacion", "muestra", "malo", "probabilidad", "puntaje"],
     keyColumn: "id_operacion",
+    mapeo: {},
     ...overrides,
   }
 }
@@ -200,13 +201,16 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
   const COLUMNA = formaDe("data.partition.strategy", "columna")
   const MARCADA = formaDe("data.target.bad_rule", "columna_marcada")
   const CARTERA = "uploaded_cartera"
+  /** Lo que «Validar un modelo existente» pide con su config: las dos claves, sin condición. */
+  const PEDIDOS = requiredExternalArtifacts(validar, {})
 
-  /** El config tal como queda tras mapear las columnas del archivo externo. */
-  const mapeado = {
-    performance: { partition_column: "muestra", target_column: "malo" },
-    stability: { partition_column: "muestra" },
+  /** El gesto de mapeo, tal como lo registra la tarjeta del insumo. */
+  const gesto = {
+    "performance.partition_column": "muestra",
+    "stability.partition_column": "muestra",
+    "performance.target_column": "malo",
   }
-  const mismoArchivo = { [artifactKey(PD)]: input({ datasetId: CARTERA }) }
+  const mismoArchivo = { [artifactKey(PD)]: input({ datasetId: CARTERA, mapeo: gesto }) }
 
   it("el catálogo declara las dos precargas, y ninguna otra forma trae ninguna", () => {
     // Ancla anti-tautología: si el fixture se quedara viejo, todo lo de abajo mediría el vacío.
@@ -221,107 +225,131 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
     ])
     expect(COLUMNA.precargas.map((p) => p.slot)).toEqual(["partition_col"])
     expect(MARCADA.precargas.map((p) => p.slot)).toEqual(["all_of.0.col"])
+    expect(PEDIDOS.map((e) => artifactKey(e.artifact))).toContain(artifactKey(PD))
   })
 
-  it("con el MISMO archivo que la cartera, propone la columna que el usuario ya nombró", () => {
-    const propuesto = precargasDeForma(COLUMNA, mapeado, CARTERA, mismoArchivo)
+  it("con el MISMO archivo que la cartera, propone la columna que el usuario ya eligió", () => {
+    const propuesto = precargasDeForma(COLUMNA, PEDIDOS, mismoArchivo, CARTERA)
     expect(propuesto.propuestas).toEqual([
       { slot: "partition_col", valor: "muestra", nota: COLUMNA.precargas[0].nota },
     ])
     expect(propuesto.motivo).toBeNull()
+    expect(precargasDeForma(MARCADA, PEDIDOS, mismoArchivo, CARTERA).propuestas).toEqual([
+      { slot: "all_of.0.col", valor: "malo", nota: MARCADA.precargas[0].nota },
+    ])
   })
 
   it("🔴 con OTRO archivo no propone nada, y dice por qué", () => {
     // La guarda que hace correcto todo esto: el motor lee esa columna de la CARTERA. Proponer una
     // del archivo externo cuando son archivos distintos es un error de categoría silencioso.
-    const propuesto = precargasDeForma(COLUMNA, mapeado, CARTERA, {
-      [artifactKey(PD)]: input({ datasetId: "uploaded_otro" }),
-    })
+    const propuesto = precargasDeForma(
+      COLUMNA,
+      PEDIDOS,
+      { [artifactKey(PD)]: input({ datasetId: "uploaded_otro", mapeo: gesto }) },
+      CARTERA,
+    )
     expect(propuesto.propuestas).toEqual([])
-    expect(propuesto.motivo).not.toBeNull()
     expect(propuesto.motivo).toMatch(/no es el mismo/)
   })
 
   it("sin archivo subido no propone nada y tampoco explica nada", () => {
     // Callar aquí es lo correcto: el usuario todavía no ha hecho el gesto del que saldría la
     // propuesta, así que un aviso sería ruido sobre algo que no ha pasado.
-    const propuesto = precargasDeForma(COLUMNA, mapeado, CARTERA, {})
-    expect(propuesto).toEqual({ propuestas: [], motivo: null })
+    expect(precargasDeForma(COLUMNA, PEDIDOS, {}, CARTERA)).toEqual({
+      propuestas: [],
+      motivo: null,
+    })
   })
 
   it("sin cartera elegida tampoco: no se sabe todavía si es el mismo archivo", () => {
-    expect(precargasDeForma(COLUMNA, mapeado, null, mismoArchivo)).toEqual({
+    expect(precargasDeForma(COLUMNA, PEDIDOS, mismoArchivo, null)).toEqual({
       propuestas: [],
       motivo: null,
     })
   })
 
-  it("si la columna todavía no está mapeada, no hay nada que proponer", () => {
-    expect(precargasDeForma(COLUMNA, {}, CARTERA, mismoArchivo).propuestas).toEqual([])
-    expect(
-      precargasDeForma(COLUMNA, { performance: { partition_column: "" } }, CARTERA, mismoArchivo)
-        .propuestas,
-    ).toEqual([])
-  })
-
-  it("🔴 el DEFAULT DEL MOTOR sembrado por el esqueleto no cuenta como respuesta del usuario", () => {
-    // El defecto que sólo se vio ABRIENDO LA PANTALLA. El esqueleto del trabajo siembra
-    // `performance.target_column = "target"` y `partition_column = "partition"` —los defaults del
-    // motor—, así que «el campo no está en blanco» daba por contestado algo que el usuario no ha
-    // tocado, y la propuesta salía con el rótulo «esto sale de lo que ya dijiste sobre tu archivo».
-    //
-    // El oráculo es el archivo del usuario, escrito a mano aquí: sus columnas NO incluyen `target`
-    // ni `partition`, que es precisamente lo que delata al default.
-    const esqueleto = {
-      performance: { target_column: "target", partition_column: "partition" },
-      stability: { partition_column: "partition" },
+  it("🔴 la propuesta sale del GESTO de mapeo, no de leer el config", () => {
+    // El defecto que encontró la revisión adversarial cruzada, y que la guarda anterior —«el valor
+    // está entre las columnas del archivo»— no cerraba: el esqueleto del trabajo siembra
+    // `performance.target_column = "target"` y `partition_column = "partition"`, los DEFAULTS DEL
+    // MOTOR. Un archivo que traiga columnas con esos nombres —plausible, justamente porque son los
+    // defaults— hacía indistinguible «el usuario lo eligió» de «nadie lo tocó», y la propuesta
+    // salía con el rótulo «esto sale de lo que ya dijiste sobre tu archivo».
+    const conNombresDeDefault = {
+      [artifactKey(PD)]: input({
+        datasetId: CARTERA,
+        columns: ["id_operacion", "target", "partition", "probabilidad"],
+        mapeo: {}, // el usuario NO tocó ningún selector
+      }),
     }
-    expect(input().columns).not.toContain("target")
-    expect(input().columns).not.toContain("partition")
-    expect(precargasDeForma(COLUMNA, esqueleto, CARTERA, mismoArchivo)).toEqual({
+    expect(precargasDeForma(COLUMNA, PEDIDOS, conNombresDeDefault, CARTERA)).toEqual({
       propuestas: [],
       motivo: null,
     })
-    expect(precargasDeForma(MARCADA, esqueleto, CARTERA, mismoArchivo)).toEqual({
+    expect(precargasDeForma(MARCADA, PEDIDOS, conNombresDeDefault, CARTERA)).toEqual({
+      propuestas: [],
+      motivo: null,
+    })
+    // Y en cuanto los elige de verdad, sí se proponen: la diferencia es el gesto, no el nombre.
+    const elegidos = {
+      [artifactKey(PD)]: input({
+        datasetId: CARTERA,
+        columns: ["id_operacion", "target", "partition", "probabilidad"],
+        mapeo: { "performance.partition_column": "partition" },
+      }),
+    }
+    expect(precargasDeForma(COLUMNA, PEDIDOS, elegidos, CARTERA).propuestas).toEqual([
+      { slot: "partition_col", valor: "partition", nota: COLUMNA.precargas[0].nota },
+    ])
+  })
+
+  it("🔴 un archivo que quedó de OTRO trabajo no propone nada", () => {
+    // Segundo hallazgo de la revisión adversarial: el mapa de archivos subidos sobrevive al cambio
+    // de trabajo, y las formas se heredan por sección. Sin acotar por lo que el trabajo ACTUAL
+    // pide, el artefacto de «Validar un modelo existente» proponía sus columnas en un trabajo que
+    // nunca lo declaró — con el mismo archivo, la guarda de identidad también pasaba.
+    const scorecard = byId("scorecard_pd")
+    expect(scorecard.external_artifacts).toEqual([])
+    const pedidosDeOtroTrabajo = requiredExternalArtifacts(scorecard, {})
+    expect(precargasDeForma(COLUMNA, pedidosDeOtroTrabajo, mismoArchivo, CARTERA)).toEqual({
       propuestas: [],
       motivo: null,
     })
   })
 
-  it("🔴 y con OTRO archivo tampoco se explica nada mientras la columna siga sin mapear", () => {
-    // Defecto encontrado EN LA PANTALLA, no en los tests: el aviso salía sobre la regla de malo
-    // con la columna del incumplimiento todavía sin elegir. Explicar por qué no se propone algo
-    // que aún no se podía proponer es ruido sobre algo que no ha pasado — y el docstring de
-    // `precargasDeForma` prometía justo lo contrario de lo que el código hacía.
-    const otro = { [artifactKey(PD)]: input({ datasetId: "uploaded_otro" }) }
-    expect(precargasDeForma(MARCADA, {}, CARTERA, otro)).toEqual({ propuestas: [], motivo: null })
-    // Y en cuanto la mapea, sí se le explica: ahí sí había de dónde proponer.
-    expect(
-      precargasDeForma(MARCADA, { performance: { target_column: "malo" } }, CARTERA, otro).motivo,
-    ).not.toBeNull()
+  it("si la columna elegida ya no está en el archivo, no se propone", () => {
+    // Cinturón sobre el gesto: cambiar de archivo conserva el mapeo sólo si sigue teniendo sentido.
+    const otroArchivo = {
+      [artifactKey(PD)]: input({
+        datasetId: CARTERA,
+        columns: ["id_operacion", "probabilidad"],
+        mapeo: gesto,
+      }),
+    }
+    expect(precargasDeForma(COLUMNA, PEDIDOS, otroArchivo, CARTERA).propuestas).toEqual([])
   })
 
   it("una forma sin precargas nunca propone, aunque haya archivo y coincida", () => {
     for (const id of ["temporal", "cohort", "random"]) {
       const forma = formaDe("data.partition.strategy", id)
-      expect(precargasDeForma(forma, mapeado, CARTERA, mismoArchivo)).toEqual({
+      expect(precargasDeForma(forma, PEDIDOS, mismoArchivo, CARTERA)).toEqual({
         propuestas: [],
         motivo: null,
       })
     }
   })
 
-  it("🔴 CALCULAR la propuesta no escribe NADA en el config", () => {
+  it("🔴 CALCULAR la propuesta no escribe NADA en el config ni en el estado", () => {
     // Control negativo del invariante central: sin gesto del usuario el config sigue igual, y por
     // eso el estado de la decisión no se mueve por tener una propuesta disponible (D-OBL-5).
-    const antes = structuredClone(mapeado)
-    precargasDeForma(COLUMNA, mapeado, CARTERA, mismoArchivo)
-    precargasDeForma(MARCADA, mapeado, CARTERA, mismoArchivo)
-    expect(mapeado).toEqual(antes)
-    expect(decisionStatuses(validar, mapeado as Record<string, unknown>)).toEqual(
-      decisionStatuses(validar, antes as Record<string, unknown>),
-    )
-    for (const estado of decisionStatuses(validar, mapeado as Record<string, unknown>)) {
+    const antesInputs = structuredClone(mismoArchivo)
+    const config = { data: {} }
+    const antesConfig = structuredClone(config)
+    precargasDeForma(COLUMNA, PEDIDOS, mismoArchivo, CARTERA)
+    precargasDeForma(MARCADA, PEDIDOS, mismoArchivo, CARTERA)
+    expect(mismoArchivo).toEqual(antesInputs)
+    expect(config).toEqual(antesConfig)
+    for (const estado of decisionStatuses(validar, config as Record<string, unknown>)) {
       expect([estado.answered, estado.inProgress]).toEqual([false, false])
     }
   })
@@ -356,18 +384,17 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
     // calcula `decisionStatuses`, no la lista de slots: se aplica la plantilla propuesta al config
     // y se mide lo que el usuario vería.
     const conPropuesta = {
-      ...mapeado,
       data: {
         partition: {
           strategy: plantillaConPrecargas(
             COLUMNA.template,
-            precargasDeForma(COLUMNA, mapeado, CARTERA, mismoArchivo).propuestas,
+            precargasDeForma(COLUMNA, PEDIDOS, mismoArchivo, CARTERA).propuestas,
           ),
         },
         target: {
           bad_rule: plantillaConPrecargas(
             MARCADA.template,
-            precargasDeForma(MARCADA, mapeado, CARTERA, mismoArchivo).propuestas,
+            precargasDeForma(MARCADA, PEDIDOS, mismoArchivo, CARTERA).propuestas,
           ),
         },
       },
