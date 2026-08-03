@@ -27,12 +27,13 @@ Por eso el script:
    CAPTURAR-LUEGO-CONGELAR): discriminación AUC/Gini/KS por partición con sentido (identidad
    ``gini = 2·auc - 1``, desarrollo el más fuerte) y las CONGELA byte-a-byte (corrida determinista
    con ``PYTHONHASHSEED=0``). El scorecard NO produce provisiones: las cuatro cards de provisiones
-   quedan nulas.
+   quedan nulas. Y verifica la **procedencia**: lineage completo, árbol limpio y la versión de
+   ``nikodym`` que firma la corrida (ver :func:`_verificar_lineage`).
 3. Solo si la verificación pasa, **escribe** los 8 archivos (atómico: o salen todos, o ninguno).
 4. Re-verifica el **artefacto ya escrito**: ``scorecard``/``performance`` NO nulas, las cuatro cards
    de provisiones nulas, el ``report-f1.html`` titulado «Informe de Validación de Scorecard»
-   (y NO el título IFRS 9), y el catálogo con ``ifrs9_retail_latam`` — se verifica lo que la demo
-   servirá, no el código que lo produjo.
+   (y NO el título IFRS 9), sin el caveat de working tree sucio, y el catálogo con
+   ``ifrs9_retail_latam`` — se verifica lo que la demo servirá, no el código que lo produjo.
 
     GET  /api/datasets                              -> datasets.json (catálogo compartido)
     GET  /api/config/preset/f1-estandar-consumo      -> preset-f1.json
@@ -59,6 +60,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import nikodym
 from nikodym.ui.runtime import TOKEN_HEADER, build_runtime
 from nikodym.ui.server import create_app
 from nikodym.ui.settings import UiConfig
@@ -117,6 +119,29 @@ _PROVISIONING_KEYS = (
     "provisioning_ifrs9",
 )
 
+# Procedencia de la corrida: lo que el Anexo A del informe publica y lo único que permite
+# reconstruirla. Va aparte de las cifras de negocio porque un lineage roto NO mueve un solo número:
+# la demo se ve idéntica y el resto del verificador pasa en verde.
+#
+# La versión esperada se lee del ATRIBUTO del árbol, nunca de un literal congelado: un freeze
+# escrito a mano caduca en el próximo bump y obligaría a editar los tres capturadores para publicar
+# una versión nueva.
+NIKODYM_VERSION = nikodym.__version__
+_LINEAGE_REQUIRED_FIELDS = (
+    "config_hash",
+    "data_hash",
+    "git_sha",
+    "git_dirty",
+    "created_at",
+    "library_versions",
+)
+
+# Caveat que ``Study`` inyecta cuando el working tree trae cambios sin commitear
+# (``core/study.py:680``). Llega al HTML por dos vías —el volcado del Anexo y la prosa «Caveats de
+# reproducibilidad declarados por la corrida: …»—, así que su presencia en el informe es la
+# evidencia visible de una captura hecha sobre un árbol sucio.
+_CAVEAT_GIT_SUCIO = "working tree git sucio"
+
 
 @contextmanager
 def _canonical_capture_workdir() -> Iterator[Path]:
@@ -159,6 +184,62 @@ def _post(client: TestClient, path: str, payload: dict[str, Any]) -> Any:
     if resp.status_code != 200:
         raise RuntimeError(f"POST {path} -> {resp.status_code}: {resp.text[:500]}")
     return resp
+
+
+def _lineage_vacio(valor: object) -> bool:
+    """Dice si un campo del lineage falta o viene sin contenido.
+
+    No se usa la falsedad genérica de Python porque ``git_dirty=False`` es la respuesta CORRECTA,
+    no un hueco: sólo cuentan ``None`` y las cadenas/contenedores vacíos.
+    """
+    if valor is None:
+        return True
+    return isinstance(valor, str | dict | list) and not valor
+
+
+def _verificar_lineage(results: dict[str, Any], fixture: str) -> None:
+    """Comprueba la PROCEDENCIA de la corrida: lineage completo, árbol limpio y versión vigente.
+
+    Por qué merece guarda propia: el editable install sirve la versión que ``importlib.metadata``
+    tenga cacheada, no la del árbol. Si el paquete no se reinstala antes de capturar, la corrida es
+    la nueva pero su lineage la firma con una versión vieja — así estuvieron publicados durante
+    semanas informes de la demo que decían ``nikodym 1.8.0`` (y 1.6.0 el F4) con la librería en
+    1.10.0. **Ninguna cifra de negocio se mueve por eso**, de modo que el resto del verificador pasa
+    en verde y el defecto sólo se ve leyendo el Anexo del informe ya publicado.
+
+    La versión esperada se lee de ``nikodym.__version__`` —el atributo del árbol— y NO de un literal
+    congelado: un freeze escrito a mano caduca en el próximo bump y obligaría a editar los tres
+    capturadores para publicar una versión nueva.
+    """
+    lineage = results.get("lineage")
+    assert isinstance(lineage, dict), (
+        f"{fixture} no trae bloque 'lineage': la demo publicaría la corrida sin procedencia "
+        "(config_hash, data_hash, git_sha). Recaptura contra un backend que lo serialice; si el "
+        "árbol se actualizó, corre antes `uv sync --reinstall-package nikodym`."
+    )
+    faltantes = [campo for campo in _LINEAGE_REQUIRED_FIELDS if _lineage_vacio(lineage.get(campo))]
+    assert not faltantes, (
+        f"{fixture}: el lineage no declara {faltantes}. Sin esos campos el Anexo A del informe no "
+        "reconstruye la corrida. Comprueba que la corrida terminó en 'done' y vuelve a capturar; "
+        "no completes el fixture a mano."
+    )
+    assert lineage["git_dirty"] is False, (
+        f"{fixture}: el lineage declara git_dirty=true, o sea que la captura corrió sobre cambios "
+        "sin commitear y la corrida NO es reconstruible desde su git_sha. Commitea (o descarta) lo "
+        "pendiente y vuelve a capturar."
+    )
+    versiones = lineage["library_versions"]
+    assert isinstance(versiones, dict), (
+        f"{fixture}: library_versions no es un objeto ({type(versiones).__name__})."
+    )
+    declarada = versiones.get("nikodym")
+    assert declarada == NIKODYM_VERSION, (
+        f"{fixture}: el lineage firma la corrida con nikodym {declarada!r} y el árbol va en "
+        f"{NIKODYM_VERSION!r}. `importlib.metadata` sirve la versión cacheada del editable "
+        "install: corre `uv sync --reinstall-package nikodym` ANTES de capturar y repite la "
+        "captura entera "
+        "(el fixture NO se edita a mano)."
+    )
 
 
 def capture(client: TestClient) -> dict[str, Any]:
@@ -231,7 +312,13 @@ def verify_business(results: dict[str, Any], datasets: list[dict[str, Any]]) -> 
     sobre la partición real, no de un config. Estos asserts son esa guardia, sobre el fixture que la
     demo sirve: sanity de negocio (identidad ``gini = 2·auc - 1``, desarrollo el más fuerte, rango
     creíble de comportamiento) + freeze byte-a-byte de las cifras.
+
+    Arranca por la PROCEDENCIA (:func:`_verificar_lineage`) a propósito: es lo que ningún número
+    delata, y comprobarla antes de escribir mantiene la atomicidad —una captura firmada con una
+    versión vieja no llega al disco—.
     """
+    _verificar_lineage(results, "results-f1.json")
+
     perf = results.get("performance")
     if not isinstance(perf, dict):
         raise RuntimeError(
@@ -332,7 +419,8 @@ def verify_artifacts() -> None:
       provisiones NULAS (el F1 es scorecard puro).
     - ``preset-f1.json`` activa validation con discriminación, calibración y estabilidad.
     - ``report-f1.html`` se titula «Informe de Validación de Scorecard», incorpora data y la
-      validación formal, y NO trae el título IFRS 9; los binarios no están vacíos.
+      validación formal, NO trae el título IFRS 9 y NO publica el caveat de working tree sucio;
+      los binarios no están vacíos.
     - ``datasets.json`` (catálogo compartido) lista ``ifrs9_retail_latam`` con ``n_rows`` 6.000.
     """
     raw = (_FIXTURES_DIR / "results-f1.json").read_text(encoding="utf-8")
@@ -365,6 +453,13 @@ def verify_artifacts() -> None:
     )
     assert _DATA_TITLE in html, "report-f1.html no proyecta el DataCardSection"
     assert _VALIDATION_TITLE in html, "report-f1.html no trae el ValidationResult ejecutado"
+    # La contraparte visible del `git_dirty` que ya se exigió sobre el lineage: aquí se mide sobre
+    # el documento que la demo sirve, que es donde un lector lo leería.
+    assert _CAVEAT_GIT_SUCIO not in html, (
+        f"report-f1.html publica el caveat «{_CAVEAT_GIT_SUCIO}»: el informe de la demo declara él "
+        "mismo que la corrida no es reconstruible. Commitea (o descarta) los cambios pendientes y "
+        "vuelve a capturar."
+    )
     for name in ("report-f1.pdf", "report-f1.docx", "report-quarto-f1.zip"):
         size = (_FIXTURES_DIR / name).stat().st_size
         assert size > 1_000, f"{name} quedó sospechosamente chico ({size} bytes)"
@@ -413,6 +508,10 @@ def main() -> None:
     print(
         f"[verify]  catálogo compartido con '{_EXPECTED_IFRS9_DATASET_ID}' "
         f"(n_rows {_EXPECTED_IFRS9_DATASET_ROWS}) ✅"
+    )
+    print(
+        f"[verify]  lineage completo · git_dirty=false · nikodym={NIKODYM_VERSION} "
+        "(= nikodym.__version__) · informe sin caveat de árbol sucio ✅"
     )
     print(f"✅ {len(written)} fixtures escritos en {_FIXTURES_DIR.relative_to(Path.cwd())}:")
     for name, size in written:

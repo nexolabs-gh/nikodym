@@ -17,12 +17,14 @@ Por eso el script:
 1. Captura los 7 fixtures **en memoria** desde una única corrida F4 (mismo ``run_id``).
 2. **Verifica el número de negocio** IFRS 9 sobre el ``results`` capturado: coverage creíble
    (1-15 %), staging ``S1 > S2 > S3`` no vacío, y que ``staging_distribution`` RECONCILIE con la
-   ``card`` (conteos y ECL reportada total).
+   ``card`` (conteos y ECL reportada total). Y verifica la **procedencia**: lineage completo, árbol
+   limpio y la versión de ``nikodym`` que firma la corrida (ver :func:`_verificar_lineage`).
 3. Solo si la verificación pasa, **escribe** los 7 archivos (atómico: o salen todos, o ninguno).
 4. Re-verifica el **artefacto ya escrito**: ``provisioning_ifrs9`` NO es null, aparece >0 veces,
    trae ``detail_sample`` con las tres etapas, y el ``report-ifrs9.html`` se titula «Informe de
-   Provisiones IFRS 9 / ECL», trae el capítulo y la ECL reportada — se verifica lo que la demo
-   servirá, no el código que lo produjo.
+   Provisiones IFRS 9 / ECL», trae el capítulo y la ECL reportada, declara que **ninguna etapa se
+   apoyó** en la división de la muestra (D-COL-9) y no publica el caveat de working tree sucio — se
+   verifica lo que la demo servirá, no el código que lo produjo.
 
     GET  /api/config/preset/f4-ifrs9-retail          -> preset-ifrs9.json
     POST /api/run (preset f4) -> run_id ; GET /api/results/{run_id} -> results-ifrs9.json
@@ -48,6 +50,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import nikodym
 from nikodym.ui.runtime import TOKEN_HEADER, build_runtime
 from nikodym.ui.server import create_app
 from nikodym.ui.settings import UiConfig
@@ -64,6 +67,43 @@ _EXPECTED_F4_STAGES = (5_235, 477, 288)
 _EXPECTED_F4_EAD = 114_325_315
 _EXPECTED_F4_ECL = 3_423_116
 _EXPECTED_F4_SURVIVAL = (6_000, 1_502)
+
+# Procedencia de la corrida: lo que el Anexo A del informe publica y lo único que permite
+# reconstruirla. Va aparte de las cifras de negocio porque un lineage roto NO mueve un solo número:
+# la demo se ve idéntica y el resto del verificador pasa en verde.
+#
+# La versión esperada se lee del ATRIBUTO del árbol, nunca de un literal congelado: un freeze
+# escrito a mano caduca en el próximo bump y obligaría a editar los tres capturadores para publicar
+# una versión nueva.
+NIKODYM_VERSION = nikodym.__version__
+_LINEAGE_REQUIRED_FIELDS = (
+    "config_hash",
+    "data_hash",
+    "git_sha",
+    "git_dirty",
+    "created_at",
+    "library_versions",
+)
+
+# Caveat que ``Study`` inyecta cuando el working tree trae cambios sin commitear
+# (``core/study.py:680``). Llega al HTML por dos vías —el volcado del Anexo y la prosa «Caveats de
+# reproducibilidad declarados por la corrida: …»—, así que su presencia en el informe es la
+# evidencia visible de una captura hecha sobre un árbol sucio.
+_CAVEAT_GIT_SUCIO = "working tree git sucio"
+
+# D-COL-9. La cadena F4 divide la muestra al preparar los datos, pero NINGUNA de sus etapas consume
+# esa división: la ECL se calcula sobre la cartera entera. Hasta el 2026-08-02 la prosa afirmaba
+# igual «La población se particionó por cohorte sobre «cohorte», reservando como OOT la cohorte
+# «2024Q2»…» —una frase falsa sobre una corrida que no usó ninguna de las dos muestras, en el
+# documento que lee un regulador—. El motor ya la gatea por consumo real; aquí se mide en el
+# artefacto, en los DOS sentidos: presencia de la frase honesta y AUSENCIA de la afirmativa.
+#
+# ⚠️ El control por ausencia vale SÓLO en este capturador: medido sobre los fixtures del árbol,
+# ``report.html`` (F3) y ``report-f1.html`` traen «La población se particionó» una vez cada uno, y
+# ahí es VERDADERA porque esas cadenas sí se apoyan en la partición. Copiarlo allá sería un rojo
+# permanente.
+_PARTICION_NO_CONSUMIDA = "ninguna etapa de esta corrida se apoyó en esa división"
+_PARTICION_AFIRMADA = "La población se particionó"
 
 
 @contextmanager
@@ -107,6 +147,62 @@ def _post(client: TestClient, path: str, payload: dict[str, Any]) -> Any:
     if resp.status_code != 200:
         raise RuntimeError(f"POST {path} -> {resp.status_code}: {resp.text[:500]}")
     return resp
+
+
+def _lineage_vacio(valor: object) -> bool:
+    """Dice si un campo del lineage falta o viene sin contenido.
+
+    No se usa la falsedad genérica de Python porque ``git_dirty=False`` es la respuesta CORRECTA,
+    no un hueco: sólo cuentan ``None`` y las cadenas/contenedores vacíos.
+    """
+    if valor is None:
+        return True
+    return isinstance(valor, str | dict | list) and not valor
+
+
+def _verificar_lineage(results: dict[str, Any], fixture: str) -> None:
+    """Comprueba la PROCEDENCIA de la corrida: lineage completo, árbol limpio y versión vigente.
+
+    Por qué merece guarda propia: el editable install sirve la versión que ``importlib.metadata``
+    tenga cacheada, no la del árbol. Si el paquete no se reinstala antes de capturar, la corrida es
+    la nueva pero su lineage la firma con una versión vieja — así estuvieron publicados durante
+    semanas informes de la demo que decían ``nikodym 1.8.0`` (y 1.6.0 este mismo F4) con la librería
+    en 1.10.0. **Ninguna cifra de negocio se mueve por eso**, de modo que el resto del verificador
+    pasa en verde y el defecto sólo se ve leyendo el Anexo del informe ya publicado.
+
+    La versión esperada se lee de ``nikodym.__version__`` —el atributo del árbol— y NO de un literal
+    congelado: un freeze escrito a mano caduca en el próximo bump y obligaría a editar los tres
+    capturadores para publicar una versión nueva.
+    """
+    lineage = results.get("lineage")
+    assert isinstance(lineage, dict), (
+        f"{fixture} no trae bloque 'lineage': la demo publicaría la corrida sin procedencia "
+        "(config_hash, data_hash, git_sha). Recaptura contra un backend que lo serialice; si el "
+        "árbol se actualizó, corre antes `uv sync --reinstall-package nikodym`."
+    )
+    faltantes = [campo for campo in _LINEAGE_REQUIRED_FIELDS if _lineage_vacio(lineage.get(campo))]
+    assert not faltantes, (
+        f"{fixture}: el lineage no declara {faltantes}. Sin esos campos el Anexo A del informe no "
+        "reconstruye la corrida. Comprueba que la corrida terminó en 'done' y vuelve a capturar; "
+        "no completes el fixture a mano."
+    )
+    assert lineage["git_dirty"] is False, (
+        f"{fixture}: el lineage declara git_dirty=true, o sea que la captura corrió sobre cambios "
+        "sin commitear y la corrida NO es reconstruible desde su git_sha. Commitea (o descarta) lo "
+        "pendiente y vuelve a capturar."
+    )
+    versiones = lineage["library_versions"]
+    assert isinstance(versiones, dict), (
+        f"{fixture}: library_versions no es un objeto ({type(versiones).__name__})."
+    )
+    declarada = versiones.get("nikodym")
+    assert declarada == NIKODYM_VERSION, (
+        f"{fixture}: el lineage firma la corrida con nikodym {declarada!r} y el árbol va en "
+        f"{NIKODYM_VERSION!r}. `importlib.metadata` sirve la versión cacheada del editable "
+        "install: corre `uv sync --reinstall-package nikodym` ANTES de capturar y repite la "
+        "captura entera "
+        "(el fixture NO se edita a mano)."
+    )
 
 
 def capture(client: TestClient) -> dict[str, Any]:
@@ -157,7 +253,13 @@ def verify_business(results: dict[str, Any]) -> dict[str, float]:
     Solo se ve corriendo la cadena entera: la ECL sale de la term-structure lifetime (survival) y el
     staging por los backstops de mora. Estos asserts son esa guardia, sobre el fixture que la demo
     sirve.
+
+    Arranca por la PROCEDENCIA (:func:`_verificar_lineage`) a propósito: es lo que ningún número
+    delata, y comprobarla antes de escribir mantiene la atomicidad —una captura firmada con una
+    versión vieja no llega al disco—.
     """
+    _verificar_lineage(results, "results-ifrs9.json")
+
     block = results.get("provisioning_ifrs9")
     if not isinstance(block, dict):
         raise RuntimeError(
@@ -249,6 +351,8 @@ def verify_artifacts() -> None:
     - ``detail_sample`` está y cubre las tres etapas.
     - ``report-ifrs9.html`` se titula «Informe de Provisiones IFRS 9 / ECL» (el título viejo de
       scorecard NO aparece como h1), trae el capítulo de ECL y los binarios no están vacíos.
+    - Ese mismo HTML declara que ninguna etapa se apoyó en la división de la muestra (D-COL-9) y NO
+      afirma lo contrario, y no publica el caveat de working tree sucio.
     """
     raw = (_FIXTURES_DIR / "results-ifrs9.json").read_text(encoding="utf-8")
     assert raw.count("provisioning_ifrs9") > 0, "results-ifrs9.json no menciona provisioning_ifrs9"
@@ -302,6 +406,30 @@ def verify_artifacts() -> None:
     assert ecl_esperada in html, (
         f"report-ifrs9.html no muestra la ECL reportada {ecl_esperada} (¿prosa desalineada?)"
     )
+
+    # D-COL-9 en los dos sentidos (ver la nota de :data:`_PARTICION_NO_CONSUMIDA`). El control por
+    # PRESENCIA comprueba que la frase honesta salió; el de AUSENCIA es el que caza la reaparición
+    # de la afirmativa, que es el defecto que estuvo publicado.
+    assert _PARTICION_NO_CONSUMIDA in html, (
+        f"report-ifrs9.html no declara que «{_PARTICION_NO_CONSUMIDA}»: la cadena F4 divide la "
+        "muestra pero ninguna de sus etapas la consume, así que el capítulo de datos debe decirlo. "
+        "Comprueba que la corrida se hizo con el motor que trae D-COL-9 (`report/prose.py` gatea "
+        "esa frase por consumo real) y recaptura."
+    )
+    assert _PARTICION_AFIRMADA not in html, (
+        f"report-ifrs9.html afirma «{_PARTICION_AFIRMADA}…» sobre una corrida donde NINGUNA etapa "
+        "usó esa división: es una frase falsa en el documento que lee un regulador (el defecto que "
+        "D-COL-9 corrigió). No edites el HTML: arregla el gateo por consumo real en "
+        "`report/prose.py` y vuelve a capturar."
+    )
+
+    # La contraparte visible del `git_dirty` que ya se exigió sobre el lineage: aquí se mide sobre
+    # el documento que la demo sirve, que es donde un lector lo leería.
+    assert _CAVEAT_GIT_SUCIO not in html, (
+        f"report-ifrs9.html publica el caveat «{_CAVEAT_GIT_SUCIO}»: el informe de la demo declara "
+        "él mismo que la corrida no es reconstruible. Commitea (o descarta) los cambios pendientes "
+        "y vuelve a capturar."
+    )
     for name in ("report-ifrs9.pdf", "report-ifrs9.docx", "report-quarto-ifrs9.zip"):
         size = (_FIXTURES_DIR / name).stat().st_size
         assert size > 1_000, f"{name} quedó sospechosamente chico ({size} bytes)"
@@ -343,6 +471,14 @@ def main() -> None:
         f"coverage={numeros['coverage']:.2%}"
     )
     print("[verify]  staging_distribution reconcilia con la card; detail_sample cubre S1/S2/S3 ✅")
+    print(
+        f"[verify]  lineage completo · git_dirty=false · nikodym={NIKODYM_VERSION} "
+        "(= nikodym.__version__) · informe sin caveat de árbol sucio ✅"
+    )
+    print(
+        "[verify]  el informe declara que ninguna etapa se apoyó en la división de la muestra "
+        "y no afirma lo contrario (D-COL-9) ✅"
+    )
     print(f"✅ {len(written)} fixtures escritos en {_FIXTURES_DIR.relative_to(Path.cwd())}:")
     for name, size in written:
         print(f"   {name:<22} {size / 1024:>8.1f} kB")
