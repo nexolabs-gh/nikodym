@@ -11,7 +11,7 @@ En B22.1 solo se materializa la jerarquía; las clases hoja se levantan desde lo
 step en bloques posteriores (B22.3+).
 """
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "BacktestError",
@@ -26,7 +26,7 @@ class ValidationError(NikodymError):
     """Error base de la validación avanzada (calibración, backtesting, semáforo)."""
 
 
-class ValidationConfigError(ValidationError):
+class ValidationConfigError(ValidationError, ConfigError):
     """Error en la configuración declarativa de la validación."""
 
 

@@ -8,7 +8,7 @@ cobertura bajo política estricta (:class:`ProvisioningCoverageError`). Los mens
 incluyen el nivel de comparación, la celda, el motor y el valor observado cuando aplique.
 """
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "ProvisioningAlignmentError",
@@ -23,7 +23,7 @@ class ProvisioningError(NikodymError):
     """Error base de la orquestación configurable de dos fuentes de provisión."""
 
 
-class ProvisioningConfigError(ProvisioningError):
+class ProvisioningConfigError(ProvisioningError, ConfigError):
     """Error en la configuración declarativa de la orquestación de provisiones."""
 
 

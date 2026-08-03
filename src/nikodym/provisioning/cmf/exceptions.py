@@ -1,6 +1,6 @@
 """Excepciones propias de la capa ``provisioning.cmf`` (SDD-15 §4/§8)."""
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "CmfCalculationError",
@@ -17,7 +17,7 @@ class CmfProvisioningError(NikodymError):
     """Error base del motor de provisiones regulatorias CMF B-1/B-3."""
 
 
-class CmfConfigError(CmfProvisioningError):
+class CmfConfigError(CmfProvisioningError, ConfigError):
     """Error en la configuración declarativa de provisiones CMF."""
 
 

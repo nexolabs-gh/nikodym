@@ -15,7 +15,7 @@ En B12.1 solo se materializa la jerarquía; las clases hoja se levantan desde lo
 estimador y el step en bloques posteriores (B12.2+).
 """
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "MLBackendError",
@@ -34,7 +34,7 @@ class MLError(NikodymError):
     """Error base del challenger de machine learning (SDD-12)."""
 
 
-class MLConfigError(MLError):
+class MLConfigError(MLError, ConfigError):
     """Error en la configuración declarativa del challenger (backend/hiperparámetros/monotonía)."""
 
 

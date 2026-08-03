@@ -15,7 +15,7 @@ En B13.1 solo se materializa la jerarquía; las clases hoja se levantan desde el
 el optimizador y el step en bloques posteriores (B13.2+).
 """
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "TuningConfigError",
@@ -31,7 +31,7 @@ class TuningError(NikodymError):
     """Error base de la búsqueda de hiperparámetros (SDD-13)."""
 
 
-class TuningConfigError(TuningError):
+class TuningConfigError(TuningError, ConfigError):
     """Error en la configuración declarativa del tuning (sampler/validación/determinismo)."""
 
 

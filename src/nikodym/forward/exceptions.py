@@ -1,6 +1,6 @@
 """Excepciones propias de la capa ``forward`` (SDD-20 §4/§8)."""
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "ForwardConfigError",
@@ -19,7 +19,7 @@ class ForwardError(NikodymError):
     """Error base de modelos forward-looking, escenarios macro y ajuste PIT/TTC."""
 
 
-class ForwardConfigError(ForwardError):
+class ForwardConfigError(ForwardError, ConfigError):
     """Error en la configuración declarativa de forward-looking."""
 
 

@@ -1,6 +1,6 @@
 """Excepciones propias de la capa ``markov`` (SDD-19 §4/§8)."""
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "InvalidGeneratorError",
@@ -18,7 +18,7 @@ class MarkovError(NikodymError):
     """Error base de modelos Markov para migración de estados y lifetime PD."""
 
 
-class MarkovConfigError(MarkovError):
+class MarkovConfigError(MarkovError, ConfigError):
     """Error en la configuración declarativa de Markov."""
 
 

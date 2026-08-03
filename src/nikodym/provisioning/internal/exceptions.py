@@ -1,6 +1,6 @@
 """Excepciones propias de la capa ``provisioning.internal`` (SDD-28 §4/§8)."""
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "InternalCalculationError",
@@ -14,7 +14,7 @@ class InternalProvisioningError(NikodymError):
     """Error base del motor de provisiones por método interno (CMF B-1 §3)."""
 
 
-class InternalConfigError(InternalProvisioningError):
+class InternalConfigError(InternalProvisioningError, ConfigError):
     """Error en la configuración declarativa del método interno."""
 
 

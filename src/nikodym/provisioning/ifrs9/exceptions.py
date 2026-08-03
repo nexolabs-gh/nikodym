@@ -8,7 +8,7 @@ motor ECL). Los mensajes van en español e incluyen cartera, fila, escenario/per
 observado cuando aplique.
 """
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "IfrsConfigError",
@@ -27,7 +27,7 @@ class IfrsProvisioningError(NikodymError):
     """Error base del motor de provisiones contables IFRS 9 / ECL."""
 
 
-class IfrsConfigError(IfrsProvisioningError):
+class IfrsConfigError(IfrsProvisioningError, ConfigError):
     """Error en la configuración declarativa de provisiones IFRS 9."""
 
 

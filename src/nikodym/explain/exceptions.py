@@ -17,7 +17,7 @@ En B14.1 solo se materializa la jerarquía y :class:`ExplainConfigError` se leva
 explainers, el motor y el step en bloques posteriores (B14.2+).
 """
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "ExplainBackendError",
@@ -34,7 +34,7 @@ class ExplainError(NikodymError):
     """Error base de la capa de explicabilidad unificada (SDD-14)."""
 
 
-class ExplainConfigError(ExplainError):
+class ExplainConfigError(ExplainError, ConfigError):
     """Error en la configuración declarativa de ``explain`` (explainer/targets/determinismo)."""
 
 

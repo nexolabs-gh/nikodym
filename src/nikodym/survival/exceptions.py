@@ -1,6 +1,6 @@
 """Excepciones propias de la capa ``survival`` (SDD-18 §4/§8)."""
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "SurvivalConfigError",
@@ -17,7 +17,7 @@ class SurvivalError(NikodymError):
     """Error base de los modelos de survival y lifetime PD."""
 
 
-class SurvivalConfigError(SurvivalError):
+class SurvivalConfigError(SurvivalError, ConfigError):
     """Error en la configuración declarativa de survival."""
 
 

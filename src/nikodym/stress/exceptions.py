@@ -1,6 +1,6 @@
 """Excepciones propias de la capa ``stress`` (SDD-21 §4/§8)."""
 
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 
 __all__ = [
     "NonMonotonicStressError",
@@ -20,7 +20,7 @@ class StressError(NikodymError):
     """Error base de stress testing, sensibilidad y reverse stress."""
 
 
-class StressConfigError(StressError):
+class StressConfigError(StressError, ConfigError):
     """Error en la configuración declarativa de stress testing."""
 
 
