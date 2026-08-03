@@ -326,6 +326,19 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > leer** —es lo que trae el preset F1— y porque **añadir una rama a una unión discriminada no mueve
 > ningún `config_hash`**: medido añadiéndola de verdad, los tres presets quedan byte a byte iguales.
 >
+> **Censo del abanico metodológico (2026-08-02, INSUMO — no es diseño).**
+> [`_CENSO-ABANICO-METODOLOGICO.md`](_CENSO-ABANICO-METODOLOGICO.md). El material medido sobre el
+> que se escribirá el SDD de D-JOB-4/5, levantado por tres barridos independientes contra el código.
+> 🔴 **Su conclusión: el mecanismo que D-JOB-5 necesita YA EXISTE** —`requisitos_incumplidos`, la
+> enmienda INVARIANTES-PREVIAS— **pero cubre 4 secciones de 14, y las exigencias del abanico se
+> reparten en CINCO clases de las que ese mecanismo expresa sólo una.** La que falta y pesa más es
+> *«esta opción exige que otra sección esté activa»*, que es exactamente el caso C2 que D-INV-8 dejó
+> fuera con su razón. ⚠️ Y el bloqueador de fondo no es el protocolo sino los **`column_role` que
+> faltan**: cero en `survival`, `markov`, `forward`, `stress`, `validation` y **todo
+> `provisioning/`** — de ahí que un config de provisiones que apunta a columnas inexistentes salga
+> hoy `compatible=True`. El censo deja además cuatro defectos accionables por sí solos y las cinco
+> preguntas que el SDD tiene que contestar.
+>
 > **Una columna identificador se avisa antes de correr (2026-08-01, APROBADA e implementada).**
 > [`_ENMIENDA-PERFIL-DE-COLUMNAS.md`](_ENMIENDA-PERFIL-DE-COLUMNAS.md), D-PERF-1…D-PERF-8, enmienda a
 > `_ENMIENDA-PREFLIGHT-DATASET.md` (firma de `check_dataset`) y a `_ENMIENDA-INVARIANTES-PREVIAS.md`

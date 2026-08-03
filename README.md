@@ -21,7 +21,8 @@ Los seis dominios **calculan** hoy: son motores deterministas, sin *stubs*, con 
 sobre los tres que no tienen interfaz (más de 4.500 en la suite completa). Lo que los separa no es
 "hecho / no hecho", sino **superficie** (¿tiene UI, preset y capítulo en el informe, o hay que
 escribir el config en Python?) y **garantía de API** (¿congelada bajo SemVer 1.x, o experimental?).
-No existe CLI.
+El único comando del paquete es `nikodym-ui`, que levanta la interfaz: no hay CLI que corra estos
+dominios.
 
 | Dominio | Superficie | Garantía |
 |---|---|---|
@@ -34,7 +35,8 @@ No existe CLI.
 
 - **Backends ML (F2)**: XGBoost, LightGBM, CatBoost y tuning (Optuna) como *extras* selectivos,
   con explicabilidad (SHAP) opcional.
-- **No hace** (por si lo estás buscando): *roll rates*, curvas de cosecha/*vintage*, ni CLI.
+- **No hace** (por si lo estás buscando): *roll rates*, curvas de cosecha/*vintage*, ni una CLI que
+  ejecute pipelines desde la terminal — el comando `nikodym-ui` levanta la interfaz, no corre nada.
 - **Informe de validación, no un log**: cada corrida produce un documento con portada, resumen
   ejecutivo, metodología (redactada con los parámetros que realmente se usaron), resultados,
   conclusiones y anexos técnicos. Sale en HTML y PDF, y también como **base editable** (`.qmd` de
@@ -219,8 +221,9 @@ aquí se dicen igual de claro.
 - **Las causales de incumplimiento que el motor no puede inferir, las declara el banco.** De las
   tres del numeral B-1 3.2, solo la mora ≥ 90 días sale de los datos; el refinanciamiento para
   dejar vigente una operación morosa y la reestructuración forzosa hay que **entregarlas en la
-  columna `is_default`**. Sin ella, un deudor reestructurado y al día se provisiona al 6,6 % en vez
-  del 100 % que exige la norma.
+  columna `is_default`**. Sin ella, un deudor reestructurado y al día entra a la matriz con una PI
+  de 6,6 % en vez del 100 % que exige la norma — y como la provisión es PI × PDI × exposición, la
+  cifra reportada queda en una fracción de la que corresponde.
 - **La EAD de IFRS 9 se despliega constante en el tiempo.** El panel longitudinal está diferido; el
   motor no lo aplana en silencio: cada fila afectada lo declara en sus avisos, y el config
   **rechaza** `exposure_profile_col` en vez de fingir que lo usa.

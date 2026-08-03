@@ -13,7 +13,8 @@ stress testing. Paquete: `nikodym`.
     tres que no tienen interfaz—, pero **solo el scorecard, las provisiones y survival tienen UI,
     preset y capítulo en el informe** (el scorecard bajo garantía SemVer 1.x; los otros dos, más
     nuevos, aún experimentales). Stress, Markov y forward-looking se usan escribiendo el config
-    en Python: no hay CLI. Lo que les falta es superficie, no aritmética.
+    en Python: el comando `nikodym-ui` levanta la interfaz y no los corre. Lo que les falta es
+    superficie, no aritmética.
 
 !!! warning "Antes de usarlo en producción"
     **Los parámetros normativos CMF no son oficiales**: se transcribieron del compendio con
