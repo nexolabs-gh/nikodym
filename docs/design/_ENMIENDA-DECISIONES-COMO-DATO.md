@@ -1,11 +1,61 @@
 # Enmienda SDD — lo que ya traes en tu archivo se declara, no se vuelve a inventar
 
-> **Estado: APROBADA por Cami (2026-08-02) — D-COL-2/D-COL-3/D-COL-4 IMPLEMENTADAS.** El camino lo
-> fijó él tras leer la medición: **el motor aprende a leer**. La opción que el plan traía escrita
+> **Estado: APROBADA por Cami (2026-08-02) — D-COL-2/3/4, D-COL-6, D-COL-7 y D-COL-9 IMPLEMENTADAS;
+> D-COL-8 implementada A MEDIAS y su otra mitad CERRADA con su medición (ver más abajo).** El camino
+> lo fijó él tras leer la medición: **el motor aprende a leer**. La opción que el plan traía escrita
 > —«acotar las decisiones por trabajo»— se midió y **no es implementable**; el porqué está en §1.3 y
 > es la mitad valiosa de este documento.
 >
 > **Base:** `main` = `3349245`. **Autor / Fecha:** DanIA / 2026-08-02.
+>
+> ## 🔴 D-COL-8: la mitad que se implementó, y la mitad que NO tiene caso — medido
+>
+> D-COL-8 dice dos cosas, y sólo una era implementable hoy.
+>
+> **Lo que SÍ se implementó, y resultó ser lo importante: «sin un gesto del usuario, el config sigue
+> incompleto y honesto».** Con formas de respuesta esto dejó de salir gratis. Elegir una forma
+> escribe la ESTRUCTURA del fragmento, así que la presencia de la clave —el criterio con que
+> `decisionStatuses` medía «respondida» desde D-OBL-6— pasaría a valer `true` sobre una regla **sin
+> columna y sin valor**. La tarjeta habría puesto su tilde verde y el error habría aparecido mucho
+> después, con jerga del motor: exactamente el falso «ya está» que D-OBL-5 existe para impedir. Lo
+> cierran los `slots` —los huecos que cada forma declara— y un **tercer estado** en la interfaz («Te
+> falta un dato»), verificado en vivo.
+>
+> **Lo que falta: el pre-relleno CRUZADO desde un insumo externo. Y su caso EXISTE — justo en el
+> trabajo que originó esta enmienda.**
+>
+> 🔴 Se estuvo a punto de cerrarlo declarando que no había caso. Medirlo antes de escribirlo lo
+> refutó, y el dato es éste: de los **tres** trabajos con insumo externo (no cinco), `validar_modelo`
+> mapea, entre sus cuatro columnas, exactamente las dos que las decisiones preguntan:
+>
+> | Lo que el trabajo YA le pregunta al usuario | Dónde lo escribe | La decisión que vuelve a preguntar lo mismo |
+> |---|---|---|
+> | «¿Qué columna dice **a qué muestra** pertenece cada operación?» | `performance.partition_column`, `stability.partition_column` | `data.partition.strategy` |
+> | «¿Qué columna dice si la operación **terminó incumpliendo**?» | `performance.target_column` | `data.target.bad_rule` |
+>
+> Eso **es** el Problema de la tabla de arriba, literalmente: «contesta dos veces lo mismo, y la
+> segunda inventando criterio». Y hoy es implementable, porque las dos piezas que faltaban ya
+> existen: D-COL-2 dio la rama `columna` —la partición se lee de una columna— y D-COL-6 dio las
+> formas con sus plantillas y sus huecos.
+>
+> **La forma que le corresponde**, para no re-derivarla la próxima sesión: la columna que el usuario
+> ya nombró **pre-carga el hueco de la columna** en la forma «ya viene marcada en una columna de mi
+> archivo» —`partition_col` en la partición, `col` en la regla de malo—, con su procedencia a la
+> vista («esto sale de lo que ya dijiste sobre tu archivo»). **Lo que NO se pre-carga es el mapeo de
+> valores ni el valor que marca al malo**: eso es el criterio institucional, sigue siendo hueco, y
+> por tanto la decisión sigue **sin contestar** hasta el gesto del usuario. D-OBL-5 intacto.
+>
+> ⚠️ **Y hay una tensión real dentro de esta misma enmienda, que conviene no re-litigar a ciegas.**
+> §4 exige un gate que **prohíbe** que un path de decisión aparezca en cualquier `config_paths` de
+> `external_artifacts` —está implementado y verde—, mientras D-COL-8 quiere que un insumo externo
+> pueda **pre-cargar** una decisión. No se contradicen, pero sólo porque *pre-rellenar* y *escribir*
+> son cosas distintas: un `config_path` escribe solo, y un pre-relleno propone y espera el gesto. Por
+> eso el pre-relleno tiene que viajar por un campo **propio** de la forma y **nunca** ampliando
+> `config_paths` — si se implementa por ahí, el gate lo impedirá, y hará bien.
+>
+> ⚠️ Y sigue en pie la condición del propio D-COL-8: **sólo procede si el insumo externo declara el
+> mismo `dataset_id` que la cartera**. Pegar una columna del archivo externo en un path que el motor
+> lee de la cartera es un error de categoría silencioso.
 >
 > ## Lo que la implementación de D-COL-2/3/4 corrigió de este documento
 >
