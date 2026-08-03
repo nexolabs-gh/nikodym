@@ -9,7 +9,40 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-03 mediodía, **lo ya dicho se propone + «Respondida» lo dice el motor**)
+## Estado vigente (2026-08-03 tarde, **el preflight deja de acusar lo que el motor nunca abre**)
+
+**`main` = `e7287a6`.** CI 16/16 confirmado con `gh` sobre `b555b62`; el de `e7287a6` quedó lanzado,
+**verificarlo al arrancar**. **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates: pytest
+**4948 passed / 6 skipped**, vitest **615/615**, mypy 245, `ruff check` y `format`, typecheck y lint
+del front, fixture regenerado, bundle reconstruido, `mkdocs --strict`.
+
+✅ **Las dos regresiones que Codex dejó abiertas, cerradas — y la primera generó una TERCERA que él
+mismo encontró.** Ésa es la lección: **un arreglo de copy puede romper su caso simétrico, y el mismo
+día.** D-RES-7 separó «el motor lo rechaza» de «te falta un dato», y de paso destapó que el motivo
+del motor **no se pintaba en ninguna superficie** (el `loc` lleva el tag del discriminador). Pero
+rompió el simétrico: una partición temporal recién elegida decía «Está contestada» faltándole dos
+campos. 🔴 **Y la premisa que lo causaba estaba refutada dentro de su propio SDD.**
+
+✅ **D-RAM-1…5: `columnas_inactivas()`**, método hermano por convención de nombre. 🔴 La causa no era
+un olvido: **`column_role` no puede expresar condiciones**, y «default vacío ⇒ seguro» era
+insuficiente — lo que decide es si la rama que consume el campo está activa. ⚠️ Es la **primera pieza
+del preflight que puede CALLAR un desajuste**: su gate va en los dos sentidos.
+
+🔴 **D-RAM-6: una segunda causa, y ya estaba viva en `main`.** Un campo `input` puede apuntar a una
+columna que **el pipeline produce** —`event_col = "target"` llega a `done`—, y
+`stability.temporal_column` sufría **tres** falsos positivos alcanzables sin un solo test que lo
+cubriera.
+
+✅ **El preflight cubre `survival`** (7 roles, `EXENTOS_MULTISELECT` vacío) y su
+`requisitos_incumplidos` es la invariante más cara medida: con la grilla en su default la corrida
+**aborta después** de ajustar el modelo, en los cuatro métodos.
+
+**Siguiente: el SDD del abanico**, lo único que queda del goal. **No se empezó a propósito: exige
+cabeza fresca.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-03 mediodía, **lo ya dicho se propone + «Respondida» lo dice el motor**)
 
 **`main` = `dc0f48c`.** CI 16/16 confirmado con `gh` sobre `5a9f3af`, `50e06e4`, `1f924d6` y
 `2a625b3`; el de `dc0f48c` quedó lanzado, **verificarlo al arrancar**. **PyPI sigue en `1.10.0` y no

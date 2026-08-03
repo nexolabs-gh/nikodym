@@ -5,7 +5,59 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-03 mediodía): **lo que ya dijiste se PROPONE, y «Respondida» lo dice el motor**
+> ## Lo último (2026-08-03 tarde): **el preflight deja de acusar lo que el motor nunca abre**
+>
+> **`main` = `e7287a6`.** CI 16/16 confirmado con `gh` sobre `b555b62`; el de `e7287a6` quedó
+> lanzado y hay que **verificarlo al arrancar**. Gates: pytest **4948 passed / 6 skipped**, vitest
+> **615/615**, mypy 245, ruff check y format, typecheck y lint, fixture regenerado, bundle
+> reconstruido, `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **Las dos regresiones de Codex, cerradas — y la primera generó una TERCERA que él mismo
+> encontró.** Ésa es la lección de la sesión: **un arreglo de copy puede romper su caso simétrico, y
+> el mismo día.** D-RES-7 separó «el motor lo rechaza» de «te falta un dato» —una partición
+> `0.9/0.9/0.9` no tiene ningún hueco, y la tarjeta mandaba a buscar un vacío inexistente— y de paso
+> 🔴 **descubrió que el motivo del motor no se pintaba en NINGUNA superficie**: el `loc` lleva el tag
+> del discriminador y `errorAtPath` casa por igualdad exacta. Pero **rompió el simétrico**: una
+> partición temporal recién elegida pasó a decir «Está contestada» faltándole dos campos.
+>
+> 🔴 **Y la premisa que lo causaba estaba refutada DENTRO de su propio SDD.** `huecosPendientes`
+> ignoraba los slots ausentes porque «no se puede leer qué forma eligió el usuario», mientras la §3
+> del mismo documento había medido que **sí** —es unión discriminada—. D-RES-8: con forma
+> reconocible sus slots cuentan aunque falten, y la clave discriminadora se **deriva del catálogo**.
+>
+> ✅ **D-RAM-1…5: `columnas_inactivas()`, método hermano por convención de nombre.** 🔴 La causa de
+> la regresión no era un olvido: **`column_role` no puede expresar condiciones**, y el criterio
+> «default vacío ⇒ seguro» con que se eligieron los 23 `input` de provisiones era **insuficiente** —
+> lo que decide es si la rama que consume el campo está activa—. Medidos uno a uno, son cinco.
+> ⚠️ **Es la primera pieza del preflight que puede CALLAR un desajuste**: su gate se mide en los dos
+> sentidos, porque el error caro aquí es el simétrico del que arregla.
+>
+> 🔴 **D-RAM-6: una SEGUNDA causa, de otra clase, y ya estaba viva en `main`.** Un campo `input`
+> puede apuntar legítimamente a una columna que **el pipeline produce**: `survival.input.event_col =
+> "target"` llega a `done` —el indicador de evento *es* el flag de malo—. Y no lo traía survival:
+> **`stability.temporal_column` sufría tres falsos positivos alcanzables**, sin un solo test que
+> cruzara ese campo con `check_dataset`. Ahora `data` declara las cuatro columnas que añade, con el
+> target salido del **config** y no de una constante.
+>
+> ✅ **Fase 1 completa: el preflight cubre `survival`** —7 roles, `EXENTOS_MULTISELECT` queda
+> **vacío**— y su `requisitos_incumplidos` es **la invariante más cara medida hasta ahora**: con la
+> grilla en su default el motor **aborta después** de cargar, ajustar y calcular la term-structure,
+> en los **cuatro** métodos. ⚠️ `fail_on_falta_dato` es **parte de la condición**: con el flag
+> apagado la corrida llega a `done`, así que avisar ahí sería falso positivo.
+>
+> ⚠️ **Trampas nuevas:** `_DOMAIN_CONFIG_CLASSES` mapea a **tuplas `(módulo, clase)`** —un gate nuevo
+> recorrió cero modelos y lo cazó su ancla anti-vacua—; un test que lee el parquet por su cuenta
+> **reintroduce el falso positivo más caro del repo** (el esquema Arrow lista el índice como
+> columna); y **`git push` exige `gh auth switch --user nexolabs-gh`** aunque `gh auth status` diga
+> que ya es la cuenta activa.
+>
+> **Siguiente: el SDD del abanico**, lo único que queda del goal —con censo hecho y sus dos
+> decisiones de producto tomadas—. **No se empezó a propósito: exige cabeza fresca.** Detalle en
+> [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-03 mediodía): **lo que ya dijiste se PROPONE, y «Respondida» lo dice el motor**
 >
 > **`main` = `dc0f48c`.** CI 16/16 confirmado con `gh` sobre `5a9f3af`, `50e06e4`, `1f924d6` y
 > `2a625b3`; el de `dc0f48c` quedó lanzado y hay que **verificarlo al arrancar**. Gates: pytest
