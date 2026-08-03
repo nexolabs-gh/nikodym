@@ -27,10 +27,24 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from _ui_client import ui_client
 
 from nikodym.core.exceptions import ConfigError
 from nikodym.ui.presets import get_preset
+
+
+def _cliente():  # type: ignore[no-untyped-def]
+    """Cliente de la UI, gateado por el extra `[ui]`.
+
+    ⚠️ El import va DENTRO y con `importorskip`, que es el patrón del repo: `_ui_client` arrastra
+    starlette, y un import incondicional en el módulo revienta la recolección entera en los jobs
+    mínimos —medido: 10 de 16 jobs del CI en rojo con los gates locales verdes—.
+    """
+    pytest.importorskip("fastapi")
+    pytest.importorskip("httpx2")
+    from _ui_client import ui_client
+
+    return ui_client()
+
 
 #: Mutaciones ALCANZABLES desde el formulario que dejan el config inválido, escritas a mano.
 #: Cada una nombra la excepción de dominio que provoca, para que el mapa no se lea como una lista
@@ -103,7 +117,7 @@ def test_un_config_invalido_responde_200_y_no_500(caso: str) -> None:
     preset_id, mutar = _INVALIDOS[caso]
     config = copy.deepcopy(get_preset(preset_id)["config"])
     mutar(config)
-    with ui_client() as cliente:
+    with _cliente() as cliente:
         respuesta = cliente.post("/api/validate", json={"config": config})
     assert respuesta.status_code == 200, (
         f"{caso}: HTTP {respuesta.status_code}. Un config que el usuario puede escribir desde el "
@@ -118,7 +132,7 @@ def test_un_config_invalido_responde_200_y_no_500(caso: str) -> None:
 
 def test_el_control_positivo_sigue_siendo_valido() -> None:
     """Sin esto, los casos de arriba pasarían con un endpoint que dijera `valid=false` siempre."""
-    with ui_client() as cliente:
+    with _cliente() as cliente:
         for preset_id in ("f1-estandar-consumo", "f3-provisiones-consumo", "f4-ifrs9-retail"):
             config = get_preset(preset_id)["config"]
             respuesta = cliente.post("/api/validate", json={"config": config})
