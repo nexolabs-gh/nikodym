@@ -50,13 +50,16 @@ los declarados en `[project.optional-dependencies]` del `pyproject.toml`.
 | `explain` | `nikodym[explain]` | Explicabilidad (SHAP) y figuras asociadas. | `shap`, `matplotlib`, `numba`, `llvmlite` |
 | `forecasting` | `nikodym[forecasting]` | Forward-looking / proyección macro (F5). | `statsmodels`, `pmdarima` |
 | `survival` | `nikodym[survival]` | Modelos de supervivencia (Cox / AFT). | `lifelines` |
+| `markov` | `nikodym[markov]` | Cadenas de Markov: term-structure de PD por matrices de transición. | `scipy` |
 | `tracking` | `nikodym[tracking]` | Registro de corridas / *registry*. | `mlflow` |
 | `ui` | `nikodym[ui]` | **Interfaz gráfica local**, lista para correr: instala el comando `nikodym-ui` y **todo lo que su formulario puede ejecutar**. | `fastapi`, `uvicorn`, `python-multipart` + los extras `scoring`, `survival`, `excel`, `docx` y `report` |
 | `polars` | `nikodym[polars]` | Backend de carga de datos con Polars. | `polars` |
 | `excel` | `nikodym[excel]` | Lectura de `.xlsx` en el `DataLoader`. | `openpyxl` |
 | `report` | `nikodym[report]` | Figuras opcionales del reporte. | `matplotlib` |
+| `docx` | `nikodym[docx]` | Export del informe a Word (`.docx`). | `python-docx` |
+| `pdf` | `nikodym[pdf]` | Export del informe a PDF. **No entra en `all`** (ver aviso abajo). | `weasyprint` |
 | `ai` | `nikodym[ai]` | Narrativa asistida por IA (opcional). | `anthropic` |
-| `all` | `nikodym[all]` | **Meta-extra**: todo lo redistribuible de la tabla anterior. | (agrega todos los de arriba) |
+| `all` | `nikodym[all]` | **Meta-extra**: todo lo redistribuible de la tabla anterior. | todos los de arriba **menos `pdf`** |
 
 Puedes combinar extras en una sola instalación:
 
@@ -68,10 +71,15 @@ pip install 'nikodym[scoring,xgboost,explain]'
     En zsh (el shell por defecto de macOS) los corchetes son *globbing*: escribe siempre el nombre
     entre comillas — `pip install 'nikodym[scoring]'` — o el shell fallará antes de llegar a pip.
 
-!!! warning "`all` excluye copyleft a propósito"
+!!! warning "`all` excluye copyleft a propósito, y por eso deja fuera `pdf`"
     `nikodym[all]` reúne todo lo **redistribuible**, no literalmente todo. Deja fuera dependencias
     copyleft (p. ej. `scikit-survival`, GPL-3.0); por eso el motor de supervivencia usa `lifelines`
     (MIT). El *wheel* de Nikodym no arrastra GPL/LGPL/AGPL.
+
+    **`pdf` es el único extra de la tabla que `all` no incluye**, por la misma razón: WeasyPrint
+    arrastra Pyphen, que es tri-licencia con GPL. Si quieres el informe en PDF, pídelo explícitamente
+    — `pip install 'nikodym[ui,pdf]'` — y ten en cuenta que además necesita las librerías nativas de
+    Pango/HarfBuzz en tu sistema.
 
 !!! note "Grupos de desarrollo (no son extras)"
     Los grupos `test` / `lint` / `docs` / `dev` del `pyproject.toml` son **grupos de dependencias de
