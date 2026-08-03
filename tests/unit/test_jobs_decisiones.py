@@ -188,10 +188,16 @@ def test_el_copy_de_una_decision_no_filtra_jerga_interna() -> None:
     assert ofensores == [], ofensores
 
 
-def test_una_decision_declara_las_tres_piezas_y_se_lee_como_pregunta() -> None:
-    """Forma mínima: sin `question` no hay nada que enseñar, y sin `help` la pregunta queda sola."""
+def test_una_decision_declara_sus_cuatro_piezas_y_se_lee_como_pregunta() -> None:
+    """Forma mínima: sin `question` no hay nada que enseñar, y sin `help` la pregunta queda sola.
+
+    `answer_forms` entró con D-COL-6 y va en la igualdad, no en un superset: la clave tiene que
+    estar SIEMPRE —vacía si la decisión no admite formas— para que una decisión nueva no pueda
+    olvidarse de declarar si las tiene. Lo que hay dentro lo gobierna
+    `test_jobs_formas_de_respuesta.py`.
+    """
     for path, decision in _decisiones_declaradas().items():
-        assert set(decision) == {"path", "question", "help"}, path
+        assert set(decision) == {"path", "question", "help", "answer_forms"}, path
         assert decision["question"].endswith("?"), f"{path}: la pregunta no pregunta"
         assert len(decision["help"]) > 40, f"{path}: la ayuda no ayuda"
 

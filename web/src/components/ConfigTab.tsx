@@ -197,10 +197,12 @@ function RequiredDecisions({
   decisions,
   section,
   onFocus,
+  onAnswerForm,
 }: {
   decisions: DecisionStatus[]
   section: string
   onFocus: (path: string) => void
+  onAnswerForm: (path: string, template: unknown) => void
 }) {
   // Se pintan las de ESTA sección, igual que `PreflightNotice` y por la misma razón: el botón
   // enfoca un control del DOM, y el de otra sección no está montado. Ocho de los diez trabajos
@@ -239,12 +241,40 @@ function RequiredDecisions({
             ) : (
               <CircleAlert
                 className="mt-0.5 size-3.5 shrink-0 text-amber-300/80"
-                aria-label="Sin responder"
+                aria-label={decision.inProgress ? "Te falta un dato" : "Sin responder"}
               />
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm text-foreground">{decision.question}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">{decision.help}</p>
+              {/* Las formas se ofrecen mientras la decisión esté SIN EMPEZAR. Una vez elegida, el
+                  usuario está rellenando sus huecos en los controles de abajo y volver a pintar
+                  las alternativas invitaría a pisar lo escrito de un clic. */}
+              {!decision.answered && !decision.inProgress && decision.answer_forms.length > 0 ? (
+                <ul className="mt-2 space-y-1.5">
+                  {decision.answer_forms.map((forma) => (
+                    <li key={forma.id}>
+                      <button
+                        type="button"
+                        className="w-full rounded-md border border-border/70 bg-background/40 px-2.5 py-1.5 text-left transition-colors hover:border-brand-cyan/50 hover:bg-brand-cyan/[0.06]"
+                        onClick={() => onAnswerForm(decision.path, forma.template)}
+                      >
+                        <span className="block text-xs font-medium text-foreground">
+                          {forma.label}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                          {forma.help}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {decision.inProgress ? (
+                <p className="mt-1 text-xs text-amber-300/80">
+                  Elegiste cómo contestarla; abajo te faltan los datos de tu cartera.
+                </p>
+              ) : null}
             </div>
             <Button
               variant="ghost"
@@ -252,7 +282,7 @@ function RequiredDecisions({
               className="shrink-0 text-xs"
               onClick={() => onFocus(decision.path)}
             >
-              {decision.answered ? "Revisar" : "Responder"}
+              {decision.answered ? "Revisar" : "Ir al campo"}
             </Button>
           </li>
         ))}
@@ -749,6 +779,13 @@ export function ConfigTab({ section }: { section: string }) {
           decisions={decisionStatuses(job, config as Record<string, unknown> | null)}
           section={section}
           onFocus={setFocusField}
+          onAnswerForm={(path, template) => {
+            // La plantilla viene del backend y se escribe TAL CUAL: el front no compone config de
+            // dominio (SDD-23 §11). Después se enfoca el campo, porque la forma deja huecos a
+            // propósito y el usuario tiene que ir a llenarlos — salvo la que no deja ninguno.
+            setField(path.split(".") as Path, template)
+            setFocusField(path)
+          }}
         />
 
         {/* Barra de estado + acciones (SDD §3.2 preset · §3.3 hash en vivo · §3.4 round-trip YAML). */}

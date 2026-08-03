@@ -393,7 +393,32 @@ JOB_IDS: tuple[str, ...] = tuple(job["id"] for job in _JOBS)
 # defaults— y NUNCA se enseña: lo que el usuario lee es `question` (D-OBL-9). Los paths están atados
 # a `model_fields` por el gate bidireccional de `test_jobs_decisiones.py`, de modo que un campo
 # obligatorio nuevo en el motor no puede quedarse sin su pregunta.
-_DECISIONES_POR_SECCION: dict[str, tuple[dict[str, str], ...]] = {
+#
+# Forma de cada entrada de `answer_forms` (D-COL-6):
+#
+#   id       · identificador estable de la forma. Para un path cuyo schema es una unión discriminada
+#              es EL discriminador, y un gate bidireccional exige que el conjunto de ids iguale
+#              al de ramas: una quinta estrategia sin su forma pone rojo, y una forma sin rama
+#              detrás, también.
+#   label    · la forma en idioma de negocio, que es lo único que el usuario lee. Es copy y entra al
+#              gate de jerga.
+#   help     · cuándo conviene, y a qué obliga. Copy.
+#   template · el fragmento de config que la forma produce, literal. Vive aquí y no en el front por
+#              el mismo motivo que `presets.py`: elegir forma no puede exigirle a la interfaz que
+#              reimplemente el dominio (SDD-23 §11). Un gate lo valida contra el modelo real del
+#              path, así que una plantilla que el motor rechazaría no llega a la pantalla.
+#   slots    · los huecos que la plantilla deja A PROPÓSITO, como rutas dentro del propio fragmento.
+#              🔴 Son la diferencia entre pre-rellenar y auto-contestar (D-COL-8): la forma escribe
+#              la ESTRUCTURA —que es lo que el usuario no tiene por qué saber construir— y deja el
+#              DATO institucional en blanco. Mientras un slot siga vacío la decisión NO está
+#              contestada, y el catálogo lo dice en vez de dejar que la interfaz lo adivine: sin
+#              esto, escribir la plantilla marcaría la pregunta como respondida con los huecos
+#              vacíos, que es exactamente el falso «ya está» que D-OBL-5 existe para impedir.
+#
+# ⚠️ Una decisión que se contesta con UN dato —una columna— declara `answer_forms: ()`. No es un
+# olvido: no hay nada que elegir, y fabricarle una forma única sería una pantalla de más para
+# preguntar lo mismo.
+_DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
     "data": (
         {
             "path": "data.target.bad_rule",
@@ -402,6 +427,32 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, str], ...]] = {
                 "La condición con la que tu área marca el incumplimiento. Suele ser un corte de "
                 "mora —«más de 90 días»—, a veces junto con otra condición. No hay un valor "
                 "estándar: depende de tu política, y por eso lo eliges tú."
+            ),
+            "answer_forms": (
+                {
+                    "id": "condiciones",
+                    "label": "La escribo como condiciones sobre mis columnas",
+                    "help": (
+                        "Para la política clásica: «más de 90 días de mora», sola o junto con otra "
+                        "condición. Eliges la columna, la comparación y el corte."
+                    ),
+                    "template": {"all_of": [{"col": "", "op": "", "value": None}], "any_of": []},
+                    "slots": ("all_of.0.col", "all_of.0.op", "all_of.0.value"),
+                },
+                {
+                    "id": "columna_marcada",
+                    "label": "Ya viene marcada en una columna de mi archivo",
+                    "help": (
+                        "Tu archivo trae la marca de incumplimiento ya calculada por tu área. "
+                        "Dices qué columna la lleva y qué valor marca al malo; el motor no supone "
+                        "que sea un 1."
+                    ),
+                    # `op` NO es un supuesto del motor: es lo que esta forma SIGNIFICA —«la columna
+                    # vale tal cosa»—, y es justo lo que el usuario compra al elegirla. Lo que sí
+                    # sería suponer es el valor, y por eso `value` es un hueco (D-COL-7).
+                    "template": {"all_of": [{"col": "", "op": "==", "value": ""}], "any_of": []},
+                    "slots": ("all_of.0.col", "all_of.0.value"),
+                },
             ),
         },
         {
@@ -413,6 +464,81 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, str], ...]] = {
                 "fecha mide mejor lo que pasará en producción, porque valida contra un período que "
                 "el modelo no vio."
             ),
+            "answer_forms": (
+                {
+                    "id": "temporal",
+                    "label": "Por fecha: lo más reciente queda fuera de tiempo",
+                    "help": (
+                        "La opción que mejor anticipa producción, porque valida contra un período "
+                        "que el modelo no vio. Necesita una columna de fecha y desde cuándo "
+                        "empieza el período reservado."
+                    ),
+                    "template": {
+                        "type": "temporal",
+                        "date_col": "",
+                        "oot_from": "",
+                        "holdout_fraction": 0.2,
+                    },
+                    "slots": ("date_col", "oot_from"),
+                },
+                {
+                    "id": "cohort",
+                    "label": "Por cohortes, reservando algunas enteras",
+                    "help": (
+                        "Cuando tu cartera se agrupa en camadas —trimestres de originación, "
+                        "campañas— y quieres reservar camadas completas en vez de cortar por una "
+                        "fecha."
+                    ),
+                    "template": {
+                        "type": "cohort",
+                        "cohort_col": "",
+                        "oot_cohorts": [],
+                        "holdout_fraction": 0.2,
+                    },
+                    "slots": ("cohort_col", "oot_cohorts"),
+                },
+                {
+                    "id": "columna",
+                    "label": "Ya viene marcada en una columna de mi archivo",
+                    "help": (
+                        "Tu archivo ya trae la división que usa tu área. Dices qué columna la "
+                        "lleva y qué valores corresponden a cada muestra; nada se adivina por "
+                        "parecido de nombre ni por orden."
+                    ),
+                    "template": {
+                        "type": "columna",
+                        "partition_col": "",
+                        "desarrollo": [],
+                        "holdout": [],
+                        "oot": [],
+                    },
+                    # `holdout` y `oot` quedan fuera de los huecos exigidos porque el motor admite
+                    # mapear sólo algunas (D-COL-4). `desarrollo` sí entra: sin ella no hay muestra
+                    # sobre la que ajustar, así que declararla no es suponer, es lo que el propio
+                    # motor exige para poder modelar.
+                    "slots": ("partition_col", "desarrollo"),
+                },
+                {
+                    "id": "random",
+                    "label": "Al azar, en tres trozos",
+                    "help": (
+                        "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es "
+                        "posterior en el tiempo: sale del mismo período que el resto, así que mide "
+                        "menos de lo que su nombre promete. Úsala sólo si tus datos no tienen "
+                        "ninguna columna de fecha ni de camada."
+                    ),
+                    # Única forma sin huecos: las tres fracciones son defaults del motor, no
+                    # criterio institucional, y elegir esta forma ya es la respuesta completa.
+                    "template": {
+                        "type": "random",
+                        "dev_fraction": 0.7,
+                        "holdout_fraction": 0.15,
+                        "oot_fraction": 0.15,
+                        "stratify_by": None,
+                    },
+                    "slots": (),
+                },
+            ),
         },
     ),
     "survival": (
@@ -423,6 +549,7 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, str], ...]] = {
                 "Cuánto duró cada operación bajo observación: meses desde el desembolso hasta el "
                 "incumplimiento, o hasta que dejaste de observarla."
             ),
+            "answer_forms": (),
         },
         {
             "path": "survival.input.event_col",
@@ -431,25 +558,87 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, str], ...]] = {
                 "Distingue a quien incumplió de quien seguía sano cuando terminó la observación. "
                 "Sin ella las dos situaciones se confunden y las curvas salen sesgadas."
             ),
+            "answer_forms": (),
         },
     ),
 }
 
 
-def decisiones_de(secciones: Iterable[str]) -> list[dict[str, str]]:
+def _exige_claves(entrada: dict[str, Any], esperadas: frozenset[str], que: str) -> None:
+    """Falla si el literal trae una clave que este serializador no sabe publicar.
+
+    🔴 Es el mecanismo que los serializadores de abajo decían tener y no tenían. Escribirlos campo
+    a campo hace que una clave nueva **no se cuele** al contrato REST con la forma que tuviera, pero
+    por sí solo NO avisa: la descarta en silencio. Medido — añadir una clave al literal de
+    ``external_artifacts`` dejaba los 31 gates del catálogo en verde y el dato desaparecía por el
+    camino. Eso convierte cualquier campo nuevo en una feature muerta y silenciosa, que es el modo
+    de fallo que este repo ya pagó con D-JOB-17 (implementado, probado y sin una sola llamada).
+    """
+    sobran = sorted(set(entrada) - esperadas)
+    faltan = sorted(esperadas - set(entrada))
+    if sobran or faltan:
+        raise ValueError(
+            f"{que}: el literal del catálogo no cuadra con lo que se publica"
+            + (f"; sobra(n) {sobran} —decide cómo viaja(n) al contrato REST" if sobran else "")
+            + (f"; falta(n) {faltan}" if faltan else "")
+        )
+
+
+_CLAVES_DE_FORMA = frozenset({"id", "label", "help", "template", "slots"})
+_CLAVES_DE_DECISION = frozenset({"path", "question", "help", "answer_forms"})
+
+
+def _forma_json(forma: dict[str, Any]) -> dict[str, Any]:
+    """Copia JSON-able de una forma de respuesta (D-COL-6), campo a campo."""
+    _exige_claves(forma, _CLAVES_DE_FORMA, f"forma de respuesta {forma.get('id')!r}")
+    return {
+        "id": forma["id"],
+        "label": forma["label"],
+        "help": forma["help"],
+        # La plantilla es dato arbitrario del schema del path: se copia en profundidad tal cual,
+        # convirtiendo las tuplas del literal en listas para que viaje por JSON.
+        "template": _json_profundo(forma["template"]),
+        "slots": list(forma["slots"]),
+    }
+
+
+def _json_profundo(valor: Any) -> Any:
+    """Vuelve JSON-able un fragmento de plantilla sin perder su forma (tuplas → listas)."""
+    if isinstance(valor, dict):
+        return {clave: _json_profundo(hijo) for clave, hijo in valor.items()}
+    if isinstance(valor, tuple | list):
+        return [_json_profundo(hijo) for hijo in valor]
+    return valor
+
+
+def decisiones_de(secciones: Iterable[str]) -> list[dict[str, Any]]:
     """Decisiones obligatorias de un conjunto de secciones, sin repetir y en orden estable.
 
     El orden es el de ``_DECISIONES_POR_SECCION``, no el de ``secciones``: dos trabajos con las
     mismas secciones en distinto orden tienen que preguntar lo mismo en el mismo orden, o la
     interfaz dependería de cómo se escribió el catálogo.
+
+    Devuelve copias **profundas**: con `answer_forms` la decisión dejó de ser plana, y un
+    ``dict(decision)`` habría entregado al llamador las mismas plantillas del literal del módulo.
     """
     presentes = set(secciones)
     return [
-        dict(decision)
+        _decision_json(decision)
         for seccion, decisiones in _DECISIONES_POR_SECCION.items()
         if seccion in presentes
         for decision in decisiones
     ]
+
+
+def _decision_json(decision: dict[str, Any]) -> dict[str, Any]:
+    """Copia JSON-able de una decisión obligatoria, campo a campo."""
+    _exige_claves(decision, _CLAVES_DE_DECISION, f"decisión {decision.get('path')!r}")
+    return {
+        "path": decision["path"],
+        "question": decision["question"],
+        "help": decision["help"],
+        "answer_forms": [_forma_json(f) for f in decision["answer_forms"]],
+    }
 
 
 def _insumo_json(entrada: dict[str, Any]) -> dict[str, Any]:
@@ -457,8 +646,14 @@ def _insumo_json(entrada: dict[str, Any]) -> dict[str, Any]:
 
     Se escribe campo a campo y no con un ``deepcopy`` genérico para que **añadir una clave al
     literal sin decidir cómo viaja** rompa aquí, en vez de colarse al contrato REST con la forma
-    que tuviera.
+    que tuviera. El `_exige_claves` es lo que hace verdadera esa frase: sin él la clave nueva se
+    descartaba en silencio y el docstring prometía una guarda que no existía.
     """
+    _exige_claves(
+        entrada,
+        frozenset({"artifact", "label", "when", "key_question", "columns"}),
+        f"insumo externo {entrada.get('label')!r}",
+    )
     condicion = entrada["when"]
     return {
         "artifact": list(entrada["artifact"]),

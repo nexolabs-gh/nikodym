@@ -374,6 +374,108 @@ describe("decisiones obligatorias del trabajo (D-OBL-6)", () => {
   })
 })
 
+describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
+  const scorecard = porId("scorecard_pd")
+  const formaDe = (path: string, id: string) => {
+    const forma = scorecard.required_decisions
+      .find((d) => d.path === path)!
+      .answer_forms.find((f) => f.id === id)
+    expect(forma, `no existe la forma ${id} de ${path}`).toBeDefined()
+    return forma!
+  }
+
+  it("el catálogo bundleado trae las formas, y ninguna se enseña por su id", () => {
+    // Si el fixture se quedara viejo el selector desaparecería sin que nada lo notara — es el
+    // mismo motivo por el que las decisiones se anclan aquí arriba.
+    //
+    // Que el label no SEA el id es la trampa de `Select.Value` escrita como aserción: ya se pagó
+    // dos veces pintando el valor crudo (`__por_orden__`, `f4-ifrs9-retail`) donde debía leerse su
+    // etiqueta. No basta con que exista una etiqueta: tiene que ser distinta del identificador.
+    for (const job of JOBS) {
+      for (const decision of job.required_decisions) {
+        for (const forma of decision.answer_forms) {
+          expect(forma.label).not.toBe(forma.id)
+          expect(forma.label).toMatch(/ /)
+          expect(forma.help.length).toBeGreaterThan(40)
+        }
+      }
+    }
+    expect(
+      scorecard.required_decisions
+        .find((d) => d.path === "data.partition.strategy")!
+        .answer_forms.map((f) => f.id),
+    ).toEqual(["temporal", "cohort", "columna", "random"])
+    expect(
+      scorecard.required_decisions
+        .find((d) => d.path === "data.target.bad_rule")!
+        .answer_forms.map((f) => f.id),
+    ).toEqual(["condiciones", "columna_marcada"])
+  })
+
+  it("🔴 elegir una forma NO da la decisión por contestada mientras queden sus huecos", () => {
+    // Es el corazón de D-COL-8. Sin el tercer estado, escribir la plantilla pondría el tilde de
+    // «respondida» sobre una regla sin columna ni valor, y el error saldría mucho después.
+    const conPlantilla = {
+      data: { target: { bad_rule: formaDe("data.target.bad_rule", "columna_marcada").template } },
+    }
+    const [badRule] = decisionStatuses(scorecard, conPlantilla)
+    expect(badRule.answered).toBe(false)
+    expect(badRule.inProgress).toBe(true)
+  })
+
+  it("rellenados los huecos, queda contestada", () => {
+    const conDatos = {
+      data: {
+        target: { bad_rule: { all_of: [{ col: "bad_flag", op: "==", value: 1 }], any_of: [] } },
+      },
+    }
+    const [badRule] = decisionStatuses(scorecard, conDatos)
+    expect(badRule.answered).toBe(true)
+    expect(badRule.inProgress).toBe(false)
+  })
+
+  it("una forma sin huecos queda contestada de un clic", () => {
+    // `random` no deja ninguno: sus tres fracciones son defaults del motor, no criterio de nadie.
+    const alAzar = {
+      data: { partition: { strategy: formaDe("data.partition.strategy", "random").template } },
+    }
+    const particion = decisionStatuses(scorecard, alAzar)[1]
+    expect(particion.answered).toBe(true)
+    expect(particion.inProgress).toBe(false)
+  })
+
+  it("los huecos de OTRA forma no cuentan: no hay que adivinar cuál eligió el usuario", () => {
+    // Una partición aleatoria no tiene `date_col` ni `cohort_col`; esos slots existen en el
+    // catálogo pero no en el valor, y comprobarlos por ausencia los daría por vacíos — dejando la
+    // decisión eternamente «a medias» por huecos de una forma que nadie eligió.
+    const porCohorte = {
+      data: {
+        partition: {
+          strategy: { type: "cohort", cohort_col: "cohorte", oot_cohorts: ["2024Q2"] },
+        },
+      },
+    }
+    expect(decisionStatuses(scorecard, porCohorte)[1].answered).toBe(true)
+  })
+
+  it("una decisión que se contesta con un dato no ofrece formas", () => {
+    for (const decision of porId("pd_lifetime").required_decisions) {
+      if (decision.path.startsWith("survival.")) expect(decision.answer_forms).toEqual([])
+    }
+  })
+})
+
+describe("guardrail: elegir una forma escribe la plantilla del backend, no una compuesta aquí", () => {
+  it("`ConfigTab` pasa `forma.template` tal cual a `setField`", () => {
+    // Vitest corre sin DOM: se vigila el fuente, igual que el guardrail de montaje de abajo. Lo
+    // que se protege es que el front NO componga el fragmento de dominio (SDD-23 §11) — si algún
+    // día alguien construyera aquí el `Rule`, la interfaz y el motor podrían separarse en silencio.
+    expect(configTabSource).toMatch(/onAnswerForm=\{\(path, template\) =>/)
+    expect(configTabSource).toMatch(/setField\(path\.split\("\."\) as Path, template\)/)
+    expect(configTabSource).toMatch(/onAnswerForm\(decision\.path, forma\.template\)/)
+  })
+})
+
 describe("guardrail: las decisiones se pintan al principio de Configuración (D-OBL-8)", () => {
   it("`ConfigTab` monta la tarjeta y la acota a su sección", () => {
     // Vitest corre sin DOM y no puede comprobar el ORDEN renderizando, así que se vigila el fuente:

@@ -32,6 +32,26 @@ export interface RequiredDecision {
   path: string
   question: string
   help: string
+  /** Las maneras de contestarla (D-COL-6). Vacío = se contesta con un dato y no hay qué elegir. */
+  answer_forms: AnswerForm[]
+}
+
+/**
+ * Una manera de contestar una decisión obligatoria (D-COL-6).
+ *
+ * `template` es el fragmento de config que la forma produce, y viene del **backend**: elegir «ya
+ * viene marcada en una columna de mi archivo» no puede exigirle al front que sepa construir la
+ * regla del motor (SDD-23 §11). `slots` son las rutas, dentro de ese fragmento, que la plantilla
+ * deja vacías a propósito — el dato institucional que sólo el usuario tiene.
+ *
+ * Lo que el usuario lee es `label` y `help`; `id` es la coordenada interna y no se enseña.
+ */
+export interface AnswerForm {
+  id: string
+  label: string
+  help: string
+  template: unknown
+  slots: string[]
 }
 
 /**
@@ -214,6 +234,15 @@ function recortarCapitulosDelInforme(
  */
 export interface DecisionStatus extends RequiredDecision {
   answered: boolean
+  /**
+   * Elegida una forma pero con huecos suyos todavía en blanco (D-COL-8).
+   *
+   * 🔴 Existe porque `answered` por presencia dejó de bastar en cuanto una forma puede escribir la
+   * ESTRUCTURA de la respuesta. Sin este tercer estado, un clic en «ya viene marcada en una
+   * columna» pondría el tilde de «respondida» sobre una regla sin columna ni valor: el falso «ya
+   * está» que D-OBL-5 existe para impedir, y encima con el error apareciendo mucho después.
+   */
+  inProgress: boolean
 }
 
 /** Baja por un path con puntos y dice si la clave EXISTE, sin mirar su valor. */
@@ -225,6 +254,43 @@ function hasAtPath(config: Record<string, unknown>, path: string): boolean {
     node = (node as Record<string, unknown>)[segment]
   }
   return node !== undefined
+}
+
+/** El valor en un path con puntos (índices numéricos incluidos), o `undefined` si no existe. */
+function valueAtPath(root: unknown, path: string): unknown {
+  let node: unknown = root
+  for (const segment of path.split(".")) {
+    if (typeof node !== "object" || node === null) return undefined
+    node = Array.isArray(node)
+      ? node[Number(segment)]
+      : (node as Record<string, unknown>)[segment]
+  }
+  return node
+}
+
+/** Un hueco sin rellenar: cadena vacía, nulo o colección vacía. */
+function estaVacio(valor: unknown): boolean {
+  if (valor === "" || valor === null || valor === undefined) return true
+  if (Array.isArray(valor)) return valor.length === 0
+  if (typeof valor === "object") return Object.keys(valor as object).length === 0
+  return false
+}
+
+/**
+ * Huecos que el valor actual de una decisión todavía tiene sin rellenar.
+ *
+ * Se comprueban los slots de TODAS las formas, no los de «la forma elegida»: qué forma eligió el
+ * usuario no se puede leer del config sin reimplementar el dominio aquí —`bad_rule` no lleva
+ * discriminador—, y no hace falta. Un slot de otra forma sencillamente no existe en el valor
+ * (`date_col` no está dentro de una partición aleatoria) y se ignora, así que el resultado es el
+ * mismo sin que el front tenga que adivinar nada.
+ */
+function huecosPendientes(decision: RequiredDecision, valor: unknown): string[] {
+  const slots = new Set(decision.answer_forms.flatMap((f) => f.slots))
+  return [...slots].filter((slot) => {
+    const actual = valueAtPath(valor, slot)
+    return actual !== undefined && estaVacio(actual)
+  })
 }
 
 /**
@@ -240,10 +306,17 @@ export function decisionStatuses(
   config: Record<string, unknown> | null,
 ): DecisionStatus[] {
   if (job === null || config === null) return []
-  return job.required_decisions.map((decision) => ({
-    ...decision,
-    answered: hasAtPath(config, decision.path),
-  }))
+  return job.required_decisions.map((decision) => {
+    const presente = hasAtPath(config, decision.path)
+    const pendientes = presente
+      ? huecosPendientes(decision, valueAtPath(config, decision.path))
+      : []
+    return {
+      ...decision,
+      answered: presente && pendientes.length === 0,
+      inProgress: presente && pendientes.length > 0,
+    }
+  })
 }
 
 /**
