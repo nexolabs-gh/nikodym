@@ -337,3 +337,47 @@ def _modelos_del_registro() -> set[type[BaseModel]]:
                 if isinstance(arg, type) and issubclass(arg, BaseModel):
                     pendientes.append(arg)
     return vistos
+
+
+@pytest.mark.parametrize("derivada", DERIVADAS)
+def test_una_seccion_NO_se_acredita_sus_propias_columnas(derivada: str) -> None:  # noqa: N802
+    """🔴 `data` escribe el target y la partición al FINAL de su paso (D-RAM-7).
+
+    Sus propios campos de entrada las necesitan **antes**: `data.schema.columns` se valida en el
+    primer chequeo del primer paso, mucho antes de que `Partitioner` exista, y la regla que
+    **construye** el target no puede leer el target.
+
+    Lo encontró la revisión adversarial cruzada sobre la primera versión de D-RAM-6, que usaba un
+    conjunto global: `schema.columns[0].name = "partition"` salía `compatible=True` sobre un config
+    que muere en `data.schema`. Es el falso negativo silencioso que el preflight existe para cerrar.
+    """
+    cargar_configs_de_dominio()
+    data = {
+        **_DATA_MINIMA,
+        "schema": {"columns": [{"name": derivada, "dtype": "str"}]},
+    }
+    config = NikodymConfig.model_validate({"data": data})
+    assert _acusa(config, derivada), (
+        f"«{derivada}» la escribe la propia sección `data` al final de su paso: su esquema, que se "
+        f"valida al principio, sigue necesitándola del archivo"
+    )
+
+
+def test_la_regla_del_target_no_puede_leer_el_target() -> None:
+    """El caso hermano, y el más claro de todos: lo que construye la etiqueta no la tiene aún."""
+    cargar_configs_de_dominio()
+    data = {
+        **_DATA_MINIMA,
+        "target": {"bad_rule": {"all_of": [{"col": "target", "op": "==", "value": 1}]}},
+    }
+    assert _acusa(NikodymConfig.model_validate({"data": data}), "target")
+
+
+def test_ancla_otra_seccion_SI_se_acredita_las_de_data() -> None:  # noqa: N802
+    """El control que impide arreglar D-RAM-7 rompiendo D-RAM-6.
+
+    Es la mitad que hace útil todo esto: `survival` y `stability` corren DESPUÉS de `data`, así que
+    para ellas la columna sí existe — y ése era el falso positivo que D-RAM-6 vino a cerrar.
+    """
+    cargar_configs_de_dominio()
+    assert not _acusa(_config_con_segmento("target"), "target")

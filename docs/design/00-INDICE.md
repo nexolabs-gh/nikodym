@@ -306,7 +306,7 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > **con su razón medida**, no por falta de tiempo.
 >
 > **El preflight acusa una columna que el motor nunca abre (2026-08-03, APROBADA e IMPLEMENTADA).**
-> [`_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md`](_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md), D-RAM-1…D-RAM-5,
+> [`_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md`](_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md), D-RAM-1…D-RAM-7,
 > enmienda a `_ENMIENDA-PREFLIGHT-DATASET.md` (D-PRE-3) y a `_ENMIENDA-INVARIANTES-PREVIAS.md`
 > (D-INV-1). Lo reprodujo la revisión adversarial cruzada horas después de declarar los 32
 > `column_role` de provisiones: con `ead.method='provided'` y `ccf_col` inventada, el preflight la

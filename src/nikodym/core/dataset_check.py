@@ -306,6 +306,22 @@ def _rol(modelo: type[BaseModel], nombre: str) -> str | None:
     return valor if isinstance(valor, str) else None
 
 
+def _producidas_por_seccion(config: NikodymConfig) -> dict[str, frozenset[str]]:
+    """Qué columnas añade **cada sección**, indexadas por su clave de primer nivel (D-RAM-7).
+
+    🔴 La procedencia importa tanto como el nombre: una sección **no se acredita a sí misma**.
+    `data` escribe el target y la partición al FINAL de su paso, así que sus propios campos de
+    entrada —``schema.columns[i].name``, la columna del ``bad_rule``— las necesitan del archivo. Con
+    un conjunto global, ``schema.columns[0].name = "partition"`` salía ``compatible=True`` sobre un
+    config que muere en `data.schema`, que es el primer chequeo del primer paso; y la regla que
+    **construye** el target podía apuntar al target. Lo encontró la revisión adversarial cruzada.
+    """
+    return {
+        nombre: _columnas_producidas(getattr(config, nombre, None))
+        for nombre in type(config).model_fields
+    }
+
+
 def _columnas_producidas(config: Any) -> frozenset[str]:
     """Columnas que el pipeline **añade** al frame con este config (D-RAM-6), o vacío.
 
@@ -498,7 +514,7 @@ def check_dataset(
     # Sólo entran en la comprobación de columna ausente, NO en la del índice (D-RAM-6): que el
     # pipeline vaya a escribir una columna «partition» no dice nada sobre si el índice del archivo
     # se llama así, y mezclarlo cambiaría el veredicto de una rama que no tiene este problema.
-    producidas = _columnas_producidas(config)
+    producidas_por = _producidas_por_seccion(config)
     indices = None if index_columns is None else set(index_columns)
     desajustes: list[Mismatch] = []
     opacas = tuple(
@@ -527,7 +543,13 @@ def check_dataset(
                     Mismatch(ruta, columna, "missing_index", _mensaje_indice_ausente(ruta, columna))
                 )
             continue
-        if columna not in presentes and columna not in producidas:
+        # Las columnas que produce la PROPIA sección no la acreditan a ella (D-RAM-7): las escribe
+        # al final de su paso, y sus campos de entrada las necesitan antes.
+        propia = ruta.split(".", 1)[0]
+        disponibles = frozenset().union(
+            *(cols for nombre, cols in producidas_por.items() if nombre != propia)
+        )
+        if columna not in presentes and columna not in disponibles:
             desajustes.append(
                 Mismatch(ruta, columna, "missing_column", _mensaje_falta(ruta, columna))
             )

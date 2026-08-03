@@ -4,7 +4,7 @@
 > **Enmienda a:** [`_ENMIENDA-PREFLIGHT-DATASET.md`](_ENMIENDA-PREFLIGHT-DATASET.md) (D-PRE-3, el
 > vocabulario `column_role`) y [`_ENMIENDA-INVARIANTES-PREVIAS.md`](_ENMIENDA-INVARIANTES-PREVIAS.md)
 > (D-INV-1, la invariante la declara el dominio que la impone).
-> **Decisiones:** D-RAM-1 … D-RAM-6.
+> **Decisiones:** D-RAM-1 … D-RAM-7.
 
 ## 0. El defecto que la origina
 
@@ -139,7 +139,26 @@ derivado. Se acota porque lo declara sólo la sección que de verdad las escribe
 no se suma nada, con test— y porque el ancla del gate exige que una columna inventada se siga
 acusando.
 
-## 4. Lo que esta enmienda NO resuelve
+## 4. D-RAM-7 — una sección no se acredita a sí misma
+
+La primera versión de D-RAM-6 usaba un conjunto **global** de columnas producidas, y la revisión
+adversarial cruzada lo reprodujo:
+
+```
+data.schema.columns[0].name = "partition"   →  check_dataset: compatible=True
+                                               corrida: muere en `data.schema`
+```
+
+`DataStep` valida el esquema en el **primer chequeo del primer paso**, mucho antes de que
+`Partitioner` escriba nada. Al medirlo apareció además el caso hermano y más claro: la regla que
+**construye** el target podía apuntar al target, y también salía compatible.
+
+**D-RAM-7.** Las columnas que produce una sección **no acreditan declaraciones de esa misma
+sección**. Las de `data` sirven a `survival`, `stability` y a cualquiera que corra después —que es
+todo el valor de D-RAM-6—, y no a los campos de entrada de la propia `data`. Con su ancla: un test
+comprueba que arreglar esto **no** reintroduce el falso positivo que D-RAM-6 cerró.
+
+## 5. Lo que esta enmienda NO resuelve
 
 **Los 14 campos condicionales de provisiones siguen sin rol.** El mecanismo que necesitan acaba de
 nacer, pero declararlos exige medir la condición de cada uno contra el motor —que es el trabajo que
