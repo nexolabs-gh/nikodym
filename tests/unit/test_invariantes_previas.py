@@ -20,6 +20,7 @@ from nikodym.core.dataset_check import METODO_REQUISITOS, check_dataset
 from nikodym.data.config import TemporalSplitConfig
 from nikodym.performance.config import PerformanceConfig
 from nikodym.stability.config import TEMPORAL_CANDIDATE_NAMES, StabilityConfig
+from nikodym.survival.config import SurvivalConfig
 from nikodym.validation.config import ValidationConfig
 
 #: Columnas de un dataset corriente **sin** ninguna candidata a período.
@@ -197,7 +198,11 @@ EXENTAS: dict[str, str] = {
     "report": "su invariante (`required_sections`) es ENTRE secciones, no de una: D-INV-8",
     "eda": "no impone invariantes propias sobre el dataset; su config es de presentación",
     # --- fuera del alcance F1 del preflight (D-PRE-4): ampliarlo lo decide producto ---
-    "survival": "fuera del alcance F1 del preflight (D-PRE-4)",
+    #
+    # ⚠️ `survival` YA NO está aquí: el 2026-08-03 el alcance pasó a DERIVARSE del catálogo
+    # —cubre lo que algún trabajo *disponible* declara— y dos lo declaran. Su invariante es la
+    # grilla temporal, que con `fail_on_falta_dato` en su default aborta la corrida **después** de
+    # ajustar el modelo.
     "provisioning": "fuera del alcance F1 del preflight (D-PRE-4)",
     "provisioning_cmf": "fuera del alcance F1 del preflight (D-PRE-4)",
     "provisioning_ifrs9": "fuera del alcance F1 del preflight (D-PRE-4)",
@@ -286,3 +291,104 @@ def test_el_protocolo_acepta_columnas_desconocidas(config: BaseModel) -> None:
     requisitos = config.requisitos_incumplidos(None)  # type: ignore[attr-defined]
 
     assert isinstance(requisitos, tuple)
+
+
+# ── `survival`: grilla temporal e intervalos de KM (D-INV-1, ampliación del 2026-08-03) ──────
+#
+# 🔴 Es la invariante más cara medida hasta ahora, y era invisible: con los dos campos de la
+# grilla en su default, la corrida **aborta después** de cargar el archivo, ajustar el modelo y
+# calcular la term-structure. Se midió con corridas reales sobre el preset F4 —los cuatro métodos
+# abortan—, no leyendo el código: el fallback lo resuelve el paso, no cada motor.
+
+_SURVIVAL_MINIMO: dict[str, object] = {"input": {"duration_col": "t", "event_col": "e"}}
+
+
+def _survival(**extra: object) -> SurvivalConfig:
+    return SurvivalConfig.model_validate({**_SURVIVAL_MINIMO, **extra})
+
+
+def _rutas(config: BaseModel) -> list[str]:
+    return [r.path for r in config.requisitos_incumplidos(None)]  # type: ignore[attr-defined]
+
+
+def test_survival_sin_grilla_avisa_antes_de_pagar_la_corrida() -> None:
+    """Los dos campos en su default: el motor cae a los tiempos observados y aborta al final."""
+    assert _rutas(_survival()) == ["time_grid.horizon_periods"]
+
+
+@pytest.mark.parametrize(
+    "grilla",
+    [{"horizon_periods": 12}, {"evaluation_times": [1.0, 2.0]}],
+    ids=["horizonte", "tiempos"],
+)
+def test_declarar_CUALQUIERA_de_los_dos_basta(grilla: dict[str, object]) -> None:  # noqa: N802
+    """Control positivo: el `elif` del step los toma en orden, así que uno de los dos alcanza.
+
+    Sin esto, una condición con `and` invertido —o un `or`— exigiría los dos y avisaría sobre
+    configs que corren perfectamente, que es el falso positivo que este protocolo no puede darse.
+    """
+    assert _rutas(_survival(time_grid=grilla)) == []
+
+
+def test_con_el_flag_apagado_NO_se_avisa_de_nada() -> None:  # noqa: N802
+    """🔴 `fail_on_falta_dato` es parte de la condición, no un detalle.
+
+    Medido: con el flag en `False` la corrida llega a `done` y registra el aviso. Avisar ahí sería
+    un falso positivo, y el mensaje —que dice que la corrida se detendrá— sería literalmente falso.
+    """
+    assert _rutas(_survival(fail_on_falta_dato=False)) == []
+
+
+def test_kaplan_meier_sin_intervalos_avisa_y_los_otros_metodos_no() -> None:
+    """`confidence_level=None` es el DEFAULT, así que un KM de fábrica aborta con la grilla puesta.
+
+    ⚠️ La condición es el `or` completo: `level=None` con `transform="loglog"` **es construible**
+    —el validador sólo prohíbe el inverso— y emite el aviso igual. Y va acotada a `kaplan_meier`:
+    `_global_warnings` sólo lo emite ese motor.
+    """
+    con_grilla = {"horizon_periods": 12}
+    assert _rutas(_survival(method="kaplan_meier", time_grid=con_grilla)) == [
+        "kaplan_meier.confidence_level"
+    ]
+    assert _rutas(
+        _survival(
+            method="kaplan_meier",
+            time_grid=con_grilla,
+            kaplan_meier={"confidence_level": None, "confidence_transform": "loglog"},
+        )
+    ) == ["kaplan_meier.confidence_level"]
+    # Control: declarados los dos, no hay aviso; y ningún otro método lo emite.
+    assert (
+        _rutas(
+            _survival(
+                method="kaplan_meier",
+                time_grid=con_grilla,
+                kaplan_meier={"confidence_level": 0.95, "confidence_transform": "loglog"},
+            )
+        )
+        == []
+    )
+    for metodo in ("discrete_hazard", "cox_ph"):
+        assert _rutas(_survival(method=metodo, time_grid=con_grilla)) == [], metodo
+
+
+def test_los_dos_avisos_pueden_concurrir() -> None:
+    """El motor los nombra a los dos en su mensaje de aborto; aquí salen los dos requisitos."""
+    assert _rutas(_survival(method="kaplan_meier")) == [
+        "time_grid.horizon_periods",
+        "kaplan_meier.confidence_level",
+    ]
+
+
+def test_el_preset_de_fabrica_que_usa_survival_no_gana_ningun_aviso() -> None:
+    """🔴 Control negativo del conjunto: el F4 declara su grilla y sus intervalos a propósito.
+
+    Si esta invariante tuviera un falso positivo, el ejemplo que la aplicación ofrece aparecería
+    avisado nada más abrirlo — que es exactamente cómo se aprende a ignorar un aviso.
+    """
+    from nikodym.ui.presets import get_preset
+
+    cargar_configs_de_dominio()
+    config = NikodymConfig.model_validate(get_preset("f4-ifrs9-retail")["config"])
+    assert config.survival is not None
+    assert _rutas(config.survival) == []

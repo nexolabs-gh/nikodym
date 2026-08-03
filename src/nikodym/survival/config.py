@@ -18,6 +18,7 @@ from typing import Any, Literal, Self
 from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import Requisito
 from nikodym.survival.exceptions import SurvivalConfigError
 
 SurvivalMethod = Literal["discrete_hazard", "kaplan_meier", "cox_ph", "aft"]
@@ -367,6 +368,62 @@ class SurvivalConfig(NikodymBaseConfig):
         if self.method == "aft" and self.cox_aft.aft_family is None:
             raise SurvivalConfigError("method='aft' exige cox_aft.aft_family.")
         return self
+
+    def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
+        """Lo que esta sección se exige a sí misma y detiene la corrida al final (D-INV-1).
+
+        🔴 **El caso es caro y era invisible**: con los dos campos de la grilla en su default, el
+        motor cae a los tiempos observados, emite ``DATO-INSTITUCIONAL-SUR-1`` y —como
+        ``fail_on_falta_dato`` viene en ``True``— **aborta** en `step.py:637-643`, después de cargar
+        el archivo, ajustar el modelo y calcular la term-structure. Medido con corridas reales: los
+        **cuatro** métodos abortan, porque el fallback lo resuelve el paso y no cada motor.
+
+        Va en esta clase y no en las sub-secciones porque la condición necesita
+        ``fail_on_falta_dato`` y ``method``, que viven aquí. Es el mismo criterio por el que el
+        gate del motor está en ``_card_from_model`` y no dentro de un motor.
+
+        ⚠️ **``fail_on_falta_dato`` es parte de la condición, no un detalle**: con él apagado la
+        corrida llega a ``done`` y registra el aviso, así que avisar ahí sería un falso positivo —y
+        el mensaje, que dice que la corrida se detendrá, sería literalmente falso—.
+
+        ``SUR-2`` queda fuera **con su razón medida**: depende del CONTENIDO (todos censurados), no
+        del config, y este protocolo sólo recibe nombres de columna.
+        """
+        del columnas  # no depende del dataset; precedente: `performance.partitions`
+        if not self.fail_on_falta_dato:
+            return ()
+        requisitos: list[Requisito] = []
+        if not self.time_grid.evaluation_times and self.time_grid.horizon_periods is None:
+            requisitos.append(
+                Requisito(
+                    path="time_grid.horizon_periods",
+                    declared="(ninguno)",
+                    message=(
+                        "No dijiste hasta cuándo proyectar las curvas, y el motor no lo inventa: "
+                        "sin horizonte usaría los tiempos que traen tus datos, que es una decisión "
+                        "tuya y no suya. Declara el horizonte en períodos o los tiempos de "
+                        "evaluación, o desactiva «Fallar ante falta de dato» para correr igual con "
+                        "el aviso registrado."
+                    ),
+                )
+            )
+        if self.method == "kaplan_meier" and (
+            self.kaplan_meier.confidence_level is None
+            or self.kaplan_meier.confidence_transform is None
+        ):
+            requisitos.append(
+                Requisito(
+                    path="kaplan_meier.confidence_level",
+                    declared="(ninguno)",
+                    message=(
+                        "Kaplan-Meier va a estimar sin intervalos de confianza porque falta "
+                        "declarar el nivel o su transformación. Declara los dos, elige otro "
+                        "método, o desactiva «Fallar ante falta de dato» para correr igual con el "
+                        "aviso registrado."
+                    ),
+                )
+            )
+        return tuple(requisitos)
 
 
 def _column_values(cfg: object, fields: tuple[str, ...]) -> dict[str, str]:
