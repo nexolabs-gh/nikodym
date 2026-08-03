@@ -114,7 +114,12 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         default="as_of_date",
         title="Fecha de cálculo",
         description="Columna con la fecha de cierre contable; debe traer un valor único.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+        },
     )
     portfolio_col: str = Field(
         # Ver D-SEG-9 en cmf/config.py: se mantiene alineado con el método estándar, y "portfolio"
@@ -125,7 +130,12 @@ class InternalProvisioningConfig(NikodymBaseConfig):
             "Columna con la cartera de cada exposición, en la taxonomía que use su institución. "
             "Debe ser la misma que consuma el método estándar con el que se compare."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+        },
     )
     portfolio_scheme: str | None = Field(
         default=None,
@@ -141,7 +151,12 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         default="exposure_amount",
         title="Exposición",
         description="Columna con el monto de colocaciones; la misma exposición que ve el estándar.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 3,
+        },
     )
     pd_source: InternalPdSourceDomain = Field(
         default="calibration",
@@ -151,11 +166,17 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "PD", "ui_order": 1},
     )
+    # Vive en el frame de PD que produce otro paso, no en el archivo del usuario.
     pd_column: str = Field(
         default="pd_calibrated",
         title="Columna PD",
         description="Columna de PD dentro del artefacto de la fuente declarada en pd_source.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "PD", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "PD",
+            "ui_order": 2,
+        },
     )
     grouping: InternalGroupingMethod = Field(
         default="score_band",
@@ -170,7 +191,12 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         default=None,
         title="Columna de grupo",
         description="Columna con el grupo homogéneo; obligatoria con grouping segment o provided.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Grupos", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Grupos",
+            "ui_order": 2,
+        },
     )
     n_score_bands: int = Field(
         default=10,
@@ -198,7 +224,12 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         default=None,
         title="Columna de tasa de pérdida",
         description="Columna con la pérdida esperada por peso expuesto; exige direct_loss_rate.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Método", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Método",
+            "ui_order": 2,
+        },
     )
     rounding: InternalRoundingPolicy = Field(
         default="currency_2dp",

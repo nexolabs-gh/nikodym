@@ -115,13 +115,19 @@ class IfrsPdConfig(NikodymBaseConfig):
         ),
         json_schema_extra={"ui_widget": "text_input", "ui_group": "PD", "ui_order": 5},
     )
+    # Se busca en la term-structure, no en el archivo del usuario.
     systemic_factor_col: str | None = Field(
         default=None,
         title="Columna del factor sistémico Z",
         description=(
             "Columna con el factor sistémico Z por escenario/período (orientación Z>0 = expansión)."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "PD", "ui_order": 6},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "PD",
+            "ui_order": 6,
+        },
     )
     horizon_12m_periods: int = Field(
         default=12,
@@ -188,7 +194,12 @@ class IfrsLgdConfig(NikodymBaseConfig):
         description=(
             "Columna de recuperación para la identidad LGD=1-recovery y el enfoque workout."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "LGD", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 3,
+        },
     )
     lgd_floor: float = Field(
         default=0.0,
@@ -210,7 +221,17 @@ class IfrsLgdConfig(NikodymBaseConfig):
         default=(),
         title="Covariables para beta/fractional",
         description="Covariables del modelo LGD beta_regression/fractional_response.",
-        json_schema_extra={"ui_widget": "text_list", "ui_group": "LGD", "ui_order": 6},
+        json_schema_extra={
+            "column_role": "input",
+            # Pasa a `multiselect` con el rol: son columnas CRUDAS del archivo del usuario —no
+            # variables WoE, pese a llamarse igual que las de survival—, así que ahora que el
+            # front sabe de dónde sacar las opciones, ofrecerlas es mejor que pedirlas a ciegas.
+            # Lo exige además el gate de `form-engine`: una lista `input` que se pinta como texto
+            # obliga a escribir a mano lo que el front tiene delante.
+            "ui_widget": "multiselect",
+            "ui_group": "LGD",
+            "ui_order": 6,
+        },
     )
     workout_discount: Literal["eir", "contractual"] = Field(
         default="eir",
@@ -273,7 +294,12 @@ class IfrsEadConfig(NikodymBaseConfig):
         default=None,
         title="Columna CCF por fila",
         description="Columna con el factor de conversión (CCF) por fila; excluyente con ccf_value.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "EAD", "ui_order": 5},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "EAD",
+            "ui_order": 5,
+        },
     )
     ccf_value: float | None = Field(
         default=None,
@@ -368,31 +394,56 @@ class IfrsStagingConfig(NikodymBaseConfig):
         default="days_past_due",
         title="Días de mora",
         description="Columna con los días de mora usados por los backstops 30/90 dpd.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 5},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Staging",
+            "ui_order": 5,
+        },
     )
     is_default_col: str | None = Field(
         default="is_default",
         title="Columna que marca el incumplimiento",
         description="Columna booleana de default que fuerza Stage 3 con independencia de la mora.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 6},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Staging",
+            "ui_order": 6,
+        },
     )
     origination_pd_life_col: str | None = Field(
         default=None,
         title="PD lifetime en origen",
         description="Columna con la PD lifetime en origen para el gatillo cuantitativo de SICR.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 7},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Staging",
+            "ui_order": 7,
+        },
     )
     rating_col: str | None = Field(
         default=None,
         title="Rating actual",
         description="Columna con el rating actual para el gatillo de downgrade por notches.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 8},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Staging",
+            "ui_order": 8,
+        },
     )
     origination_rating_col: str | None = Field(
         default=None,
         title="Rating en origen",
         description="Columna con el rating en origen para el gatillo de downgrade por notches.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 9},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Staging",
+            "ui_order": 9,
+        },
     )
     notch_downgrade_threshold: int | None = Field(
         default=None,
@@ -407,7 +458,12 @@ class IfrsStagingConfig(NikodymBaseConfig):
         description=(
             "Columna con override cualitativo (watchlist, forbearance) que fuerza Stage 2/3."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 11},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Staging",
+            "ui_order": 11,
+        },
     )
     low_credit_risk_exemption: bool = Field(
         default=False,
@@ -422,7 +478,12 @@ class IfrsStagingConfig(NikodymBaseConfig):
         default=None,
         title="Columna de bajo riesgo crediticio",
         description="Columna con el flag de bajo riesgo crediticio para la exención de Stage 1.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Staging", "ui_order": 13},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Staging",
+            "ui_order": 13,
+        },
     )
 
     @model_validator(mode="after")
@@ -527,7 +588,12 @@ class IfrsEclConfig(NikodymBaseConfig):
         description=(
             "Columna con la tasa efectiva (EIR) por instrumento para el descuento de la ECL."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "ECL", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "ECL",
+            "ui_order": 1,
+        },
     )
     discount_convention: Literal["annual_eir_year_fraction", "period_eir"] = Field(
         default="annual_eir_year_fraction",
@@ -586,19 +652,34 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
         default="as_of_date",
         title="Fecha de cálculo",
         description="Columna con la fecha de cálculo o cierre contable de la provisión.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+        },
     )
     row_id_col: str | None = Field(
         default=None,
         title="Identificador de operación",
         description="Columna con el identificador de operación para trazar staging/ECL por fila.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+        },
     )
     portfolio_col: str = Field(
         default="portfolio",
         title="Cartera",
         description="Columna con la cartera para agregar y parametrizar umbrales SICR por cartera.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 3,
+        },
     )
     portfolio_scheme: str | None = Field(
         default=None,

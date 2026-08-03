@@ -109,11 +109,17 @@ class CmfPdMappingConfig(NikodymBaseConfig):
         description="Artefacto fuente PD; solo se lee con method='pd_breaks'.",
         json_schema_extra={"ui_widget": "text_input", "ui_group": "PD a PI", "ui_order": 2},
     )
+    # Vive en el frame de PD que produce otro paso, no en el archivo del usuario.
     pd_column: str = Field(
         default="pd_raw",
         title="Columna PD",
         description="Columna PD; solo se lee con method='pd_breaks'.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "PD a PI", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "PD a PI",
+            "ui_order": 3,
+        },
     )
     method: CmfPdMappingMethod = Field(
         default="provided_cmf_category",
@@ -181,7 +187,12 @@ class CmfExposureConfig(NikodymBaseConfig):
         default="exposure_amount",
         title="Exposición directa",
         description="Columna con el saldo o exposición directa antes de contingentes.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Exposición", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Exposición",
+            "ui_order": 1,
+        },
     )
     contingent_amount_col: str = Field(
         default="contingent_amount",
@@ -254,7 +265,12 @@ class CmfGuaranteeConfig(NikodymBaseConfig):
             "Columna con recoverable_amount validado por el usuario; obligatoria si "
             "financial_guarantee_policy='use_recoverable_amount'."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Garantías", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Garantías",
+            "ui_order": 3,
+        },
     )
     require_recoverable_for_default: bool = Field(
         default=True,
@@ -304,7 +320,12 @@ class CmfProvisioningConfig(NikodymBaseConfig):
         default="as_of_date",
         title="Fecha de cálculo",
         description="Columna con la fecha de cálculo o cierre contable de la provisión.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+        },
     )
     portfolio_col: str = Field(
         # El default se mantiene alineado con el del método interno (D-SEG-9): la regla del máximo
@@ -315,7 +336,12 @@ class CmfProvisioningConfig(NikodymBaseConfig):
         default="cmf_portfolio",
         title="Cartera CMF",
         description="Columna con la cartera regulatoria CMF aplicable a cada exposición.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+        },
     )
     debtor_id_col: str = Field(
         default="debtor_id",

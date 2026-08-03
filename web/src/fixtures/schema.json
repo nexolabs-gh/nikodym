@@ -8124,6 +8124,7 @@
             "ui_widget": "text_input"
           },
           "direct_exposure_col": {
+            "column_role": "input",
             "default": "exposure_amount",
             "description": "Columna con el saldo o exposición directa antes de contingentes.",
             "title": "Exposición directa",
@@ -8195,6 +8196,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna con recoverable_amount validado por el usuario; obligatoria si financial_guarantee_policy='use_recoverable_amount'.",
             "title": "Columna monto recuperable",
@@ -8301,6 +8303,7 @@
             "ui_widget": "number_list"
           },
           "pd_column": {
+            "column_role": "derived",
             "default": "pd_raw",
             "description": "Columna PD; solo se lee con method='pd_breaks'.",
             "title": "Columna PD",
@@ -8348,6 +8351,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna con el factor de conversión (CCF) por fila; excluyente con ccf_value.",
             "title": "Columna CCF por fila",
@@ -8451,6 +8455,7 @@
             "ui_widget": "selectbox"
           },
           "eir_col": {
+            "column_role": "input",
             "default": "eir",
             "description": "Columna con la tasa efectiva (EIR) por instrumento para el descuento de la ECL.",
             "title": "Tasa efectiva por instrumento",
@@ -8491,6 +8496,7 @@
         "description": "Configuración de la LGD por los enfoques provided/beta/fractional/workout.",
         "properties": {
           "covariate_cols": {
+            "column_role": "input",
             "default": [],
             "description": "Covariables del modelo LGD beta_regression/fractional_response.",
             "items": {
@@ -8500,7 +8506,7 @@
             "type": "array",
             "ui_group": "LGD",
             "ui_order": 6,
-            "ui_widget": "text_list"
+            "ui_widget": "multiselect"
           },
           "lgd_cap": {
             "default": 1.0,
@@ -8557,6 +8563,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna de recuperación para la identidad LGD=1-recovery y el enfoque workout.",
             "title": "Columna recovery",
@@ -8682,6 +8689,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "derived",
             "default": null,
             "description": "Columna con el factor sistémico Z por escenario/período (orientación Z>0 = expansión).",
             "title": "Columna del factor sistémico Z",
@@ -8754,6 +8762,7 @@
         "description": "Configuración del staging IFRS 9 (SICR, backstops 30/90 dpd, exención de bajo riesgo).",
         "properties": {
           "days_past_due_col": {
+            "column_role": "input",
             "default": "days_past_due",
             "description": "Columna con los días de mora usados por los backstops 30/90 dpd.",
             "title": "Días de mora",
@@ -8791,6 +8800,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": "is_default",
             "description": "Columna booleana de default que fuerza Stage 3 con independencia de la mora.",
             "title": "Columna que marca el incumplimiento",
@@ -8807,6 +8817,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna con el flag de bajo riesgo crediticio para la exención de Stage 1.",
             "title": "Columna de bajo riesgo crediticio",
@@ -8849,6 +8860,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna con la PD lifetime en origen para el gatillo cuantitativo de SICR.",
             "title": "PD lifetime en origen",
@@ -8865,6 +8877,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna con el rating en origen para el gatillo de downgrade por notches.",
             "title": "Rating en origen",
@@ -8881,6 +8894,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna con el rating actual para el gatillo de downgrade por notches.",
             "title": "Rating actual",
@@ -8917,6 +8931,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna con override cualitativo (watchlist, forbearance) que fuerza Stage 2/3.",
             "title": "Override cualitativo de stage",
@@ -13053,6 +13068,7 @@
             "description": "Compara dos fuentes de provisión configurables y aplica la regla declarada.\n\nLa regla del máximo del Cap. B-1 (Circular N° 2.346) es entre el método estándar de la CMF y\nel método interno del banco, por institución; comparar contra IFRS 9 es un contraste entre\nmarcos contables, no la exigencia local.",
             "properties": {
               "as_of_date_col": {
+                "column_role": "not_a_column",
                 "default": "as_of_date",
                 "description": "Columna con la fecha de cálculo/cierre contable, heredada de las fuentes.",
                 "title": "Fecha de cálculo (heredada de las fuentes)",
@@ -13062,6 +13078,7 @@
                 "ui_widget": "text_input"
               },
               "cmf_portfolio_col": {
+                "column_role": "derived",
                 "default": "portfolio",
                 "description": "Columna de cartera del resultado CMF para agrupar la comparación.",
                 "title": "Columna de cartera en el resultado del motor CMF",
@@ -13159,6 +13176,7 @@
                 "ui_widget": "checkbox"
               },
               "ifrs9_portfolio_col": {
+                "column_role": "derived",
                 "default": "portfolio",
                 "description": "Columna de cartera del resultado IFRS 9 para agrupar la comparación.",
                 "title": "Columna de cartera en el resultado del motor IFRS 9",
@@ -13168,6 +13186,7 @@
                 "ui_widget": "text_input"
               },
               "internal_portfolio_col": {
+                "column_role": "derived",
                 "default": "portfolio",
                 "description": "Columna de cartera del resultado del método interno para agrupar.",
                 "title": "Columna de cartera en el resultado del método interno",
@@ -13224,6 +13243,7 @@
                 "ui_widget": "selectbox"
               },
               "row_id_col": {
+                "column_role": "not_a_column",
                 "default": "row_id",
                 "description": "Columna identificadora de operación para alinear el nivel más granular.",
                 "title": "Identificador de operación (cuando el nivel de comparación es operation)",
@@ -13263,6 +13283,7 @@
                     "type": "null"
                   }
                 ],
+                "column_role": "derived",
                 "default": null,
                 "description": "Columna de segmento provista por el usuario para comparar por segmento.",
                 "title": "Columna de segmento (cuando el nivel de comparación es segment)",
@@ -13337,6 +13358,7 @@
             "description": "Calcula la provisión regulatoria CMF (Cap. B-1 y B-3) con el bundle de matrices versionado.\n\nEl bundle activo se elige en ``matrices.active_version``.\n\nMotor experimental: fuera de la garantía SemVer 1.x.",
             "properties": {
               "as_of_date_col": {
+                "column_role": "input",
                 "default": "as_of_date",
                 "description": "Columna con la fecha de cálculo o cierre contable de la provisión.",
                 "title": "Fecha de cálculo",
@@ -13405,6 +13427,7 @@
                 "ui_widget": "section"
               },
               "portfolio_col": {
+                "column_role": "input",
                 "default": "cmf_portfolio",
                 "description": "Columna con la cartera regulatoria CMF aplicable a cada exposición.",
                 "title": "Cartera CMF",
@@ -13460,6 +13483,7 @@
             "description": "Calcula las provisiones contables IFRS 9: staging y pérdida esperada (ECL).\n\nMotor experimental: fuera de la garantía SemVer 1.x.",
             "properties": {
               "as_of_date_col": {
+                "column_role": "input",
                 "default": "as_of_date",
                 "description": "Columna con la fecha de cálculo o cierre contable de la provisión.",
                 "title": "Fecha de cálculo",
@@ -13507,6 +13531,7 @@
                 "ui_widget": "section"
               },
               "portfolio_col": {
+                "column_role": "input",
                 "default": "portfolio",
                 "description": "Columna con la cartera para agregar y parametrizar umbrales SICR por cartera.",
                 "title": "Cartera",
@@ -13540,6 +13565,7 @@
                     "type": "null"
                   }
                 ],
+                "column_role": "input",
                 "default": null,
                 "description": "Columna con el identificador de operación para trazar staging/ECL por fila.",
                 "title": "Identificador de operación",
@@ -13600,6 +13626,7 @@
             "description": "Calcula las provisiones del método interno del banco (Cap. B-1 §3) por grupo homogéneo.\n\nMotor experimental: fuera de la garantía SemVer 1.x.",
             "properties": {
               "as_of_date_col": {
+                "column_role": "input",
                 "default": "as_of_date",
                 "description": "Columna con la fecha de cierre contable; debe traer un valor único.",
                 "title": "Fecha de cálculo",
@@ -13609,6 +13636,7 @@
                 "ui_widget": "text_input"
               },
               "exposure_col": {
+                "column_role": "input",
                 "default": "exposure_amount",
                 "description": "Columna con el monto de colocaciones; la misma exposición que ve el estándar.",
                 "title": "Exposición",
@@ -13635,6 +13663,7 @@
                     "type": "null"
                   }
                 ],
+                "column_role": "input",
                 "default": null,
                 "description": "Columna con el grupo homogéneo; obligatoria con grouping segment o provided.",
                 "title": "Columna de grupo",
@@ -13673,6 +13702,7 @@
                     "type": "null"
                   }
                 ],
+                "column_role": "input",
                 "default": null,
                 "description": "Columna con la pérdida esperada por peso expuesto; exige direct_loss_rate.",
                 "title": "Columna de tasa de pérdida",
@@ -13704,6 +13734,7 @@
                 "ui_widget": "number_input"
               },
               "pd_column": {
+                "column_role": "derived",
                 "default": "pd_calibrated",
                 "description": "Columna de PD dentro del artefacto de la fuente declarada en pd_source.",
                 "title": "Columna PD",
@@ -13726,6 +13757,7 @@
                 "ui_widget": "selectbox"
               },
               "portfolio_col": {
+                "column_role": "input",
                 "default": "cmf_portfolio",
                 "description": "Columna con la cartera de cada exposición, en la taxonomía que use su institución. Debe ser la misma que consuma el método estándar con el que se compare.",
                 "title": "Cartera",

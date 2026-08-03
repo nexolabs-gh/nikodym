@@ -156,11 +156,17 @@ class ProvisioningConfig(NikodymBaseConfig):
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Fuentes", "ui_order": 3},
     )
+    # La orquestación no lee nunca esta columna: la fecha se hereda del DTO de cada fuente.
     as_of_date_col: str = Field(
         default="as_of_date",
         title="Fecha de cálculo (heredada de las fuentes)",
         description="Columna con la fecha de cálculo/cierre contable, heredada de las fuentes.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "not_a_column",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 1,
+        },
     )
     comparison_level: ProvisioningComparisonLevel = Field(
         default="total",
@@ -177,23 +183,41 @@ class ProvisioningConfig(NikodymBaseConfig):
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Comparación", "ui_order": 1},
     )
+    # La columna sale del detail que produce el motor CMF, no del archivo del usuario.
     cmf_portfolio_col: str = Field(
         default="portfolio",
         title="Columna de cartera en el resultado del motor CMF",
         description="Columna de cartera del resultado CMF para agrupar la comparación.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 2,
+        },
     )
+    # La columna sale del detail que produce el motor IFRS 9, no del archivo del usuario.
     ifrs9_portfolio_col: str = Field(
         default="portfolio",
         title="Columna de cartera en el resultado del motor IFRS 9",
         description="Columna de cartera del resultado IFRS 9 para agrupar la comparación.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 3,
+        },
     )
+    # La columna sale del detail que produce el método interno, no del archivo del usuario.
     internal_portfolio_col: str = Field(
         default="portfolio",
         title="Columna de cartera en el resultado del método interno",
         description="Columna de cartera del resultado del método interno para agrupar.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 4},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 4,
+        },
     )
     portfolio_crosswalk: dict[str, str] = Field(
         default_factory=dict,
@@ -204,17 +228,29 @@ class ProvisioningConfig(NikodymBaseConfig):
         ),
         json_schema_extra={"ui_widget": "kv_text", "ui_group": "Comparación", "ui_order": 2},
     )
+    # La columna sale del detail que producen los motores, no del archivo del usuario.
     segment_col: str | None = Field(
         default=None,
         title="Columna de segmento (cuando el nivel de comparación es segment)",
         description="Columna de segmento provista por el usuario para comparar por segmento.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 5},
+        json_schema_extra={
+            "column_role": "derived",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 5,
+        },
     )
+    # La orquestación no lee nunca esta columna: el nivel de operación alinea por atributo.
     row_id_col: str = Field(
         default="row_id",
         title="Identificador de operación (cuando el nivel de comparación es operation)",
         description="Columna identificadora de operación para alinear el nivel más granular.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 6},
+        json_schema_extra={
+            "column_role": "not_a_column",
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 6,
+        },
     )
     consume_a: bool = Field(
         default=True,

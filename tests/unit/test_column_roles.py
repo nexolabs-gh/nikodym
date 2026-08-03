@@ -75,14 +75,19 @@ ROLES_INSPECCIONABLES = frozenset({ROL_ENTRADA, ROL_INDICE})
 
 #: Multiselects de texto libre que HOY no declaran rol, con la razón de por qué no.
 #:
-#: Los dos nombran columnas del dataset —su rol sería `input`—, pero declararlo **ampliaría el
-#: preflight** a `survival` y `provisioning_ifrs9`, que D-PRE-4 deja fuera de su alcance a
-#: propósito. Es una decisión de alcance, no un olvido, y por eso queda escrita aquí con nombre
-#: en vez de silenciada: el día que se amplíe el preflight, se borran estas dos líneas.
-#: Efecto hoy: sus multiselects ofrecen entrada libre (sin lista sugerida), no un control vacío.
+#: Nombra columnas del dataset —su rol sería `input`—, pero declararlo **ampliaría el preflight**
+#: a `survival`, que D-PRE-4 deja fuera de su alcance a propósito. Es una decisión de alcance, no
+#: un olvido, y por eso queda escrita aquí con nombre en vez de silenciada: el día que se amplíe
+#: el preflight a survival, se borra esta línea.
+#: Efecto hoy: su multiselect ofrece entrada libre (sin lista sugerida), no un control vacío.
+#:
+#: 🔴 Aquí había una SEGUNDA entrada, `"LgdConfig.covariate_cols"`, y era **letra muerta**: esa
+#: clase no existe —la real es `IfrsLgdConfig`—, así que la clave no podía casar con nada y la
+#: exención llevaba tiempo sin proteger lo que decía proteger. Se retira en vez de corregirse,
+#: porque su razón escrita («ampliaría el preflight a provisioning_ifrs9») describe exactamente lo
+#: que el 2026-08-03 se hizo A PROPÓSITO: ese campo declara ahora `input`.
 EXENTOS_MULTISELECT = {
     "SurvivalInputConfig.covariate_cols": "declarar 'input' ampliaría el preflight a survival",
-    "LgdConfig.covariate_cols": "declarar 'input' ampliaría el preflight a provisioning_ifrs9",
 }
 
 #: Catálogo de secciones navegables del formulario (front). Vive UNA vez, en `lib/schema.ts`.
@@ -242,7 +247,23 @@ def test_el_footprint_inspeccionable_es_el_que_la_medicion_conto() -> None:
     derivarlas del propio recorrido haría el test tautológico —el defecto que P5 le imputaba al
     gate anterior—. Si mañana el preflight amplía su alcance, esta lista cambia **a conciencia**.
     """
-    assert set(_secciones_con_rol_inspeccionable()) == {"data", "binning", "stability"}
+    assert set(_secciones_con_rol_inspeccionable()) == {
+        "data",
+        "binning",
+        "stability",
+        # 🔴 Ampliación DELIBERADA (2026-08-03, decisión de Cami): el preflight sale del camino F1
+        # hacia las provisiones. La consecuencia que la motivó estaba medida y era grave por sí
+        # sola: un config de provisiones que apunta a columnas inexistentes salía `compatible=True`,
+        # sin un solo aviso sobre ninguna de sus columnas.
+        #
+        # ⚠️ `provisioning` (el orquestador) NO aparece, y es correcto: sus seis campos son
+        # `derived` o `not_a_column` —sus columnas salen del `detail` que producen los motores, no
+        # del archivo del usuario—, y el preflight los salta con `continue`. Que la sección tenga
+        # roles declarados no la mete en esta lista; sólo la meten `input` e `index`.
+        "provisioning_cmf",
+        "provisioning_internal",
+        "provisioning_ifrs9",
+    }
 
 
 def test_todo_multiselect_de_texto_libre_declara_su_rol() -> None:
