@@ -458,6 +458,50 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
     expect(decisionStatuses(scorecard, porCohorte)[1].answered).toBe(true)
   })
 
+  it("🔴 un hueco que la forma NO exige no deja la decisión colgada", () => {
+    // Los dos casos que la revisión adversarial midió, y que la primera versión de esto declaraba
+    // incompletos sobre configs que el motor ACEPTA. Un falso «te falta un dato» es tan dañino
+    // como el falso tilde verde: manda a buscar un dato que nadie pidió.
+    //
+    // (a) `isna` pregunta por la AUSENCIA de dato: no lleva valor con qué comparar.
+    const porAusencia = {
+      data: { target: { bad_rule: { all_of: [{ col: "marca", op: "isna", value: null }] } } },
+    }
+    const [reglaIsna] = decisionStatuses(scorecard, porAusencia)
+    expect([reglaIsna.answered, reglaIsna.inProgress]).toEqual([true, false])
+
+    // (b) D-COL-4: las particiones exigidas son EXACTAMENTE las que el usuario mapeó. Una
+    // institución que sólo separa validación tiene una respuesta completa.
+    const soloHoldout = {
+      data: {
+        partition: {
+          strategy: { type: "columna", partition_col: "m", desarrollo: [], holdout: ["V"], oot: [] },
+        },
+      },
+    }
+    expect(decisionStatuses(scorecard, soloHoldout)[1].answered).toBe(true)
+  })
+
+  it("pero sin NINGUNA muestra mapeada sigue incompleta", () => {
+    // El control que impide que el arreglo de arriba se pase de largo: el motor exige al menos una.
+    const sinMapeo = {
+      data: {
+        partition: {
+          strategy: { type: "columna", partition_col: "m", desarrollo: [], holdout: [], oot: [] },
+        },
+      },
+    }
+    const particion = decisionStatuses(scorecard, sinMapeo)[1]
+    expect([particion.answered, particion.inProgress]).toEqual([false, true])
+  })
+
+  it("y una comparación normal sí exige su valor", () => {
+    const sinValor = {
+      data: { target: { bad_rule: { all_of: [{ col: "m", op: "==", value: "" }] } } },
+    }
+    expect(decisionStatuses(scorecard, sinValor)[0].inProgress).toBe(true)
+  })
+
   it("una decisión que se contesta con un dato no ofrece formas", () => {
     for (const decision of porId("pd_lifetime").required_decisions) {
       if (decision.path.startsWith("survival.")) expect(decision.answer_forms).toEqual([])

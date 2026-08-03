@@ -51,8 +51,22 @@ export interface AnswerForm {
   label: string
   help: string
   template: unknown
-  slots: string[]
+  slots: Slot[]
 }
+
+/**
+ * Un hueco de una plantilla, en las tres formas que el catálogo publica.
+ *
+ * Las dos condicionales existen porque una lista plana de rutas declaraba **incompletas respuestas
+ * que el motor acepta**: una regla `isna` no lleva valor con qué comparar, y una división leída de
+ * una columna puede mapear sólo la muestra que la institución separa (D-COL-4). La condición viaja
+ * como DATO y se evalúa aquí **sin saber qué significa** — mismo mecanismo que el `when` de un
+ * insumo externo, y por la misma razón: el front no reimplementa la regla del dominio.
+ */
+export type Slot =
+  | string
+  | { path: string; salvo_si: { path: string; vale: unknown[] } }
+  | { alguno_de: string[] }
 
 /**
  * Un rol de columna del insumo externo: qué se pregunta y dónde se escribe la respuesta (D-PUE-5).
@@ -286,11 +300,30 @@ function estaVacio(valor: unknown): boolean {
  * mismo sin que el front tenga que adivinar nada.
  */
 function huecosPendientes(decision: RequiredDecision, valor: unknown): string[] {
-  const slots = new Set(decision.answer_forms.flatMap((f) => f.slots))
-  return [...slots].filter((slot) => {
-    const actual = valueAtPath(valor, slot)
-    return actual !== undefined && estaVacio(actual)
-  })
+  const pendientes: string[] = []
+  for (const slot of decision.answer_forms.flatMap((f) => f.slots)) {
+    if (typeof slot === "string") {
+      const actual = valueAtPath(valor, slot)
+      if (actual !== undefined && estaVacio(actual)) pendientes.push(slot)
+      continue
+    }
+    if ("alguno_de" in slot) {
+      // Basta con que uno se llene. Si NINGUNO existe en el valor, la forma no es la elegida y el
+      // grupo entero no aplica — igual que un slot suelto ausente.
+      const presentes = slot.alguno_de.filter((p) => valueAtPath(valor, p) !== undefined)
+      if (presentes.length > 0 && presentes.every((p) => estaVacio(valueAtPath(valor, p)))) {
+        pendientes.push(slot.alguno_de.join("|"))
+      }
+      continue
+    }
+    const actual = valueAtPath(valor, slot.path)
+    if (actual === undefined || !estaVacio(actual)) continue
+    const gobernante = valueAtPath(valor, slot.salvo_si.path)
+    // La comparación es de igualdad estricta contra los valores que el backend publicó: aquí no se
+    // sabe qué significan, sólo si el campo que gobierna toma uno de ellos.
+    if (!slot.salvo_si.vale.includes(gobernante)) pendientes.push(slot.path)
+  }
+  return pendientes
 }
 
 /**

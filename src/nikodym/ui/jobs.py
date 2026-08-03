@@ -407,7 +407,16 @@ JOB_IDS: tuple[str, ...] = tuple(job["id"] for job in _JOBS)
 #              el mismo motivo que `presets.py`: elegir forma no puede exigirle a la interfaz que
 #              reimplemente el dominio (SDD-23 §11). Un gate lo valida contra el modelo real del
 #              path, así que una plantilla que el motor rechazaría no llega a la pantalla.
-#   slots    · los huecos que la plantilla deja A PROPÓSITO, como rutas dentro del propio fragmento.
+#   slots    · los huecos que la plantilla deja A PROPÓSITO, dentro del propio fragmento. Tres
+#              formas, y las dos condicionales existen porque la lista plana declaraba incompletas
+#              respuestas que el motor acepta:
+#                "ruta"                                    · hueco simple, siempre exigido
+#                {"path": …, "salvo_si": {"path", "vale"}} · exigido salvo que otro campo del
+#                                                            fragmento tome uno de esos valores
+#                {"alguno_de": (…)}                        · basta con que UNO de ellos se llene
+#              ⚠️ La condición viaja como DATO y la evalúa el front sin saber qué significa: es el
+#              mismo mecanismo que el `when` de `external_artifacts`, y por la misma razón —que la
+#              interfaz no puede reimplementar la regla del dominio (SDD-23 §11)—.
 #              🔴 Son la diferencia entre pre-rellenar y auto-contestar (D-COL-8): la forma escribe
 #              la ESTRUCTURA —que es lo que el usuario no tiene por qué saber construir— y deja el
 #              DATO institucional en blanco. Mientras un slot siga vacío la decisión NO está
@@ -437,7 +446,17 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "condición. Eliges la columna, la comparación y el corte."
                     ),
                     "template": {"all_of": [{"col": "", "op": "", "value": None}], "any_of": []},
-                    "slots": ("all_of.0.col", "all_of.0.op", "all_of.0.value"),
+                    "slots": (
+                        "all_of.0.col",
+                        "all_of.0.op",
+                        # 🔴 `isna`/`notna` preguntan por la AUSENCIA de dato: no llevan valor con
+                        # qué comparar, y exigirlo dejaba una regla perfectamente válida marcada
+                        # como incompleta para siempre. Lo destapó la revisión adversarial.
+                        {
+                            "path": "all_of.0.value",
+                            "salvo_si": {"path": "all_of.0.op", "vale": ("isna", "notna")},
+                        },
+                    ),
                 },
                 {
                     "id": "columna_marcada",
@@ -451,7 +470,13 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     # vale tal cosa»—, y es justo lo que el usuario compra al elegirla. Lo que sí
                     # sería suponer es el valor, y por eso `value` es un hueco (D-COL-7).
                     "template": {"all_of": [{"col": "", "op": "==", "value": ""}], "any_of": []},
-                    "slots": ("all_of.0.col", "all_of.0.value"),
+                    "slots": (
+                        "all_of.0.col",
+                        {
+                            "path": "all_of.0.value",
+                            "salvo_si": {"path": "all_of.0.op", "vale": ("isna", "notna")},
+                        },
+                    ),
                 },
             ),
         },
@@ -516,7 +541,16 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     # mapear sólo algunas (D-COL-4). `desarrollo` sí entra: sin ella no hay muestra
                     # sobre la que ajustar, así que declararla no es suponer, es lo que el propio
                     # motor exige para poder modelar.
-                    "slots": ("partition_col", "desarrollo"),
+                    "slots": (
+                        "partition_col",
+                        # 🔴 D-COL-4 al pie de la letra: las particiones exigidas son EXACTAMENTE
+                        # las que el usuario mapeó, así que no se puede reclamar `desarrollo` — una
+                        # institución que sólo separa validación tiene una respuesta completa. Lo
+                        # que el motor sí exige es que haya AL MENOS UNA, y eso es lo que se pide.
+                        # La versión anterior exigía `desarrollo` y marcaba incompleta una decisión
+                        # que el motor acepta: era el motor reclamando una muestra que nadie separa.
+                        {"alguno_de": ("desarrollo", "holdout", "oot")},
+                    ),
                 },
                 {
                     "id": "random",
@@ -598,7 +632,23 @@ def _forma_json(forma: dict[str, Any]) -> dict[str, Any]:
         # La plantilla es dato arbitrario del schema del path: se copia en profundidad tal cual,
         # convirtiendo las tuplas del literal en listas para que viaje por JSON.
         "template": _json_profundo(forma["template"]),
-        "slots": list(forma["slots"]),
+        "slots": [_slot_json(s) for s in forma["slots"]],
+    }
+
+
+def _slot_json(slot: Any) -> Any:
+    """Copia JSON-able de un hueco, campo a campo y exigiendo su forma exacta."""
+    if isinstance(slot, str):
+        return slot
+    if "alguno_de" in slot:
+        _exige_claves(slot, frozenset({"alguno_de"}), "hueco «alguno de»")
+        return {"alguno_de": list(slot["alguno_de"])}
+    _exige_claves(slot, frozenset({"path", "salvo_si"}), f"hueco {slot.get('path')!r}")
+    condicion = slot["salvo_si"]
+    _exige_claves(condicion, frozenset({"path", "vale"}), f"condición de {slot['path']!r}")
+    return {
+        "path": slot["path"],
+        "salvo_si": {"path": condicion["path"], "vale": list(condicion["vale"])},
     }
 
 
@@ -654,7 +704,18 @@ def _insumo_json(entrada: dict[str, Any]) -> dict[str, Any]:
         frozenset({"artifact", "label", "when", "key_question", "columns"}),
         f"insumo externo {entrada.get('label')!r}",
     )
+    # 🔴 También en cada columna, y no sólo en la entrada de arriba: la revisión adversarial midió
+    # que el mismo modo de fallo seguía vivo un nivel más abajo — una clave nueva dentro de
+    # `columns` se reconstruía sin ella y sin protestar.
+    for columna in entrada["columns"]:
+        _exige_claves(
+            columna,
+            frozenset({"question", "config_paths"}),
+            f"columna {columna.get('question')!r}",
+        )
     condicion = entrada["when"]
+    if condicion is not None:
+        _exige_claves(condicion, frozenset({"path", "equals"}), "condición de un insumo externo")
     return {
         "artifact": list(entrada["artifact"]),
         "label": entrada["label"],

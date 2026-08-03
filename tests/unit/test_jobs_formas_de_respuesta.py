@@ -36,7 +36,38 @@ from nikodym.ui import jobs
 from nikodym.ui.jobs import decisiones_de, list_jobs
 from nikodym.ui.presets import standard_preset
 
-#: Valor de relleno por tipo de hueco. Escrito a mano y no derivado del schema: si se dedujera del
+#: 🔴 **Oráculo INDEPENDIENTE**: por forma, los paths de la plantilla que son criterio de la
+#: institución y que por tanto tienen que llegar VACÍOS al usuario. Se escribe a mano y **no** se
+#: deriva de `slots`, que es justo lo que se está comprobando.
+#:
+#: Sin él, el gate era autorreferencial y la revisión adversarial lo demostró: rellenar
+#: `columna_marcada.value` con un valor inventado y quitar ese path de `slots` dejaba los 22 casos
+#: en verde. La lista de huecos se comparaba con la lista de huecos.
+_INSTITUCIONALES: dict[tuple[str, str], frozenset[str]] = {
+    ("data.target.bad_rule", "condiciones"): frozenset(
+        {"all_of.0.col", "all_of.0.op", "all_of.0.value"}
+    ),
+    # `op` NO entra: en esta forma lo fija la elección del usuario («la columna VALE tal cosa»), y
+    # es lo que compra al elegirla. El valor sí, y es el que D-COL-7 prohíbe suponer.
+    ("data.target.bad_rule", "columna_marcada"): frozenset({"all_of.0.col", "all_of.0.value"}),
+    ("data.partition.strategy", "temporal"): frozenset({"date_col", "oot_from"}),
+    ("data.partition.strategy", "cohort"): frozenset({"cohort_col", "oot_cohorts"}),
+    ("data.partition.strategy", "columna"): frozenset(
+        {"partition_col", "desarrollo", "holdout", "oot"}
+    ),
+    # Sin huecos: las tres fracciones son defaults del motor, no criterio de nadie.
+    ("data.partition.strategy", "random"): frozenset(),
+}
+
+#: Los valores FIJOS que cada plantilla puede traer, con su razón. Todo lo demás que no sea hueco
+#: tiene que ser el default del motor: si una plantilla escribe un valor que el motor no habría
+#: puesto y nadie lo justificó aquí, es el motor decidiendo por la institución.
+_FIJOS_JUSTIFICADOS: dict[tuple[str, str], dict[str, Any]] = {
+    # El operador ES lo que la forma significa; cambiarlo invierte la semántica del label.
+    ("data.target.bad_rule", "columna_marcada"): {"all_of.0.op": "=="},
+}
+
+#: Valor de relleno por hueco. Escrito a mano y no derivado del schema: si se dedujera del
 #: mismo sitio que se está comprobando, el gate mediría que la deducción es consistente consigo
 #: misma en vez de que la plantilla es válida.
 _RELLENO: dict[str, Any] = {
@@ -52,6 +83,8 @@ _RELLENO: dict[str, Any] = {
         "oot_cohorts": ["2024Q2"],
         "partition_col": "muestra",
         "desarrollo": ["DEV"],
+        "holdout": ["HOLD"],
+        "oot": ["OOT"],
     },
 }
 
@@ -111,11 +144,42 @@ def _rellena(plantilla: Any, slot: str, valor: Any) -> None:
 
 
 def _completada(path: str, forma: dict[str, Any]) -> Any:
-    """La plantilla de una forma con todos sus huecos rellenos."""
+    """La plantilla con sus huecos institucionales rellenos, según el oráculo independiente.
+
+    Se rellena desde `_INSTITUCIONALES` y NO desde `forma["slots"]`: rellenar desde lo que se está
+    comprobando haría que el gate midiera su propia consistencia.
+    """
     plantilla = copy.deepcopy(forma["template"])
-    for slot in forma["slots"]:
-        _rellena(plantilla, slot, _RELLENO[path][slot])
+    for hueco in sorted(_INSTITUCIONALES[path, forma["id"]]):
+        _rellena(plantilla, hueco, _RELLENO[path][hueco])
     return plantilla
+
+
+def _rutas_de(nodo: Any, prefijo: str = "") -> dict[str, Any]:
+    """Todas las hojas de un fragmento, por su ruta."""
+    if isinstance(nodo, dict):
+        hijos: Any = nodo.items()
+    elif isinstance(nodo, list):
+        hijos = [(str(i), v) for i, v in enumerate(nodo)]
+    else:
+        return {prefijo[:-1]: nodo}
+    salida: dict[str, Any] = {}
+    for clave, valor in hijos:
+        salida |= _rutas_de(valor, f"{prefijo}{clave}.")
+    return salida or {prefijo[:-1]: nodo}
+
+
+def _paths_de_slots(forma: dict[str, Any]) -> set[str]:
+    """Los paths que los `slots` de una forma exigen, sea cual sea su forma sintáctica."""
+    paths: set[str] = set()
+    for slot in forma["slots"]:
+        if isinstance(slot, str):
+            paths.add(slot)
+        elif "alguno_de" in slot:
+            paths |= set(slot["alguno_de"])
+        else:
+            paths.add(slot["path"])
+    return paths
 
 
 def test_el_barrido_no_es_vacuo() -> None:
@@ -153,65 +217,72 @@ def test_todo_slot_apunta_a_un_hueco_real_de_su_plantilla() -> None:
     """Un slot inventado deja la decisión eternamente «sin contestar» y nadie sabría por qué."""
     for path, decision in _decisiones().items():
         for forma in decision["answer_forms"]:
-            for slot in forma["slots"]:
-                valor = _en_plantilla(forma["template"], slot)
+            for ruta in _paths_de_slots(forma):
+                valor = _en_plantilla(forma["template"], ruta)
                 assert valor in ("", None, [], {}), (
-                    f"{path}/{forma['id']}: el slot «{slot}» no está vacío en la plantilla "
+                    f"{path}/{forma['id']}: el slot «{ruta}» no está vacío en la plantilla "
                     f"(vale {valor!r}). Un slot es un hueco que el usuario rellena; si la "
                     "plantilla ya trae el valor, o sobra el slot o el motor está suponiendo."
                 )
 
 
-def test_todo_hueco_de_la_plantilla_esta_declarado_como_slot() -> None:
-    """La otra dirección: un hueco sin slot se daría por contestado estando vacío.
+def test_toda_decision_institucional_llega_en_blanco_al_usuario() -> None:
+    """🔴 Nadie contesta por el usuario — medido contra un oráculo INDEPENDIENTE de `slots`.
 
-    Es el falso «ya está» que D-OBL-5 existe para impedir: la tarjeta pondría el tilde verde con el
-    dato institucional sin escribir, y la corrida moriría después con jerga del motor.
+    La versión anterior de este gate comparaba los huecos de la plantilla con los `slots` que la
+    propia plantilla declaraba: fijar un valor inventado y quitarlo de `slots` dejaba todo verde.
+    Ahora la lista de lo institucional se escribe a mano, y la plantilla tiene que respetarla.
     """
     for path, decision in _decisiones().items():
         for forma in decision["answer_forms"]:
-            huecos = sorted(_huecos(forma["template"]))
-            exceptuados = _HUECOS_NO_EXIGIDOS.get((path, forma["id"]), frozenset())
-            assert huecos == sorted(set(forma["slots"]) | exceptuados), (
-                f"{path}/{forma['id']}: huecos {huecos} contra slots {sorted(forma['slots'])}. "
-                "Si un hueco no debe exigirse, decláralo en `_HUECOS_NO_EXIGIDOS` con su motivo."
-            )
+            esperados = _INSTITUCIONALES[path, forma["id"]]
+            for ruta in sorted(esperados):
+                valor = _en_plantilla(forma["template"], ruta)
+                assert valor in ("", None, [], {}), (
+                    f"{path}/{forma['id']}: «{ruta}» es criterio de la institución y la plantilla "
+                    f"lo trae con valor {valor!r}. Eso es el motor contestando por el usuario."
+                )
 
 
-#: Huecos que la plantilla deja vacíos y que NO se exigen para dar la decisión por contestada, con
-#: su motivo. Se enumeran uno a uno —y no por regla— para que añadir uno obligue a justificarlo.
-_HUECOS_NO_EXIGIDOS: dict[tuple[str, str], frozenset[str]] = {
-    # D-COL-4: con la división leída de una columna, las particiones exigidas son EXACTAMENTE las
-    # que el usuario mapeó. Reclamar `holdout` y `oot` sería el motor exigiendo muestras que la
-    # institución quizá no separa. `desarrollo` sí se exige: sin ella no hay sobre qué ajustar.
-    ("data.partition.strategy", "columna"): frozenset({"holdout", "oot"}),
-    # `any_of` vacío es la regla «sólo condiciones unidas por AND», que es la forma normal de una
-    # política de mora. Exigirlo obligaría a escribir un OR que nadie necesita.
-    ("data.target.bad_rule", "condiciones"): frozenset({"any_of"}),
-    ("data.target.bad_rule", "columna_marcada"): frozenset({"any_of"}),
-    # `stratify_by` es opcional en el motor y su default ES `None`: no estratificar. Vacío aquí
-    # significa «el default», no «falta el dato». Lo cazó este gate en su primera corrida, que es
-    # exactamente para lo que sirve distinguir un hueco de un default que resulta ser nulo.
-    ("data.partition.strategy", "random"): frozenset({"stratify_by"}),
-}
+def test_ningun_valor_fijo_de_una_plantilla_se_cuela_sin_justificar() -> None:
+    """La otra dirección: todo lo que la plantilla escribe y NO es hueco, o es default o se declara.
+
+    Cierra el agujero que la revisión adversarial midió cambiando el operador fijo de `==` a `!=`:
+    los trece casos pasaban mientras la ejecución real invertía la regla que el label promete.
+    """
+    for path, decision in _decisiones().items():
+        cls, nombre = _modelo_del_path(path)
+        for forma in decision["answer_forms"]:
+            institucionales = _INSTITUCIONALES[path, forma["id"]]
+            justificados = _FIJOS_JUSTIFICADOS.get((path, forma["id"]), {})
+            defaults = _rutas_de(_defaults_de_la_rama(cls, nombre, path, forma))
+            for ruta, valor in _rutas_de(forma["template"]).items():
+                if ruta in institucionales or valor in ("", None, [], {}):
+                    continue
+                if ruta in justificados:
+                    assert justificados[ruta] == valor, (
+                        f"{path}/{forma['id']}: «{ruta}» vale {valor!r} y su justificación dice "
+                        f"{justificados[ruta]!r}. Cambiar un valor fijo cambia lo que el "
+                        "label promete."
+                    )
+                    continue
+                assert ruta in defaults and defaults[ruta] == valor, (
+                    f"{path}/{forma['id']}: la plantilla escribe «{ruta}» = {valor!r}, que no es "
+                    "hueco, ni default del motor, ni está justificado en `_FIJOS_JUSTIFICADOS`."
+                )
 
 
-def _huecos(nodo: Any, prefijo: str = "") -> set[str]:
-    """Rutas de la plantilla cuyo valor está vacío (`""`, `None`, `[]`, `{}`)."""
-    encontrados: set[str] = set()
-    if isinstance(nodo, dict):
-        hijos = nodo.items()
-    elif isinstance(nodo, list):
-        hijos = [(str(i), v) for i, v in enumerate(nodo)]  # type: ignore[assignment]
-    else:
-        return encontrados
-    for clave, valor in hijos:
-        ruta = f"{prefijo}{clave}"
-        if valor in ("", None, [], {}):
-            encontrados.add(ruta)
-        else:
-            encontrados |= _huecos(valor, f"{ruta}.")
-    return encontrados
+def _defaults_de_la_rama(
+    cls: type[BaseModel], nombre: str, path: str, forma: dict[str, Any]
+) -> Any:
+    """El fragmento que el MOTOR produce para esa forma con sus huecos institucionales rellenos.
+
+    Es el contraste independiente: se construye el modelo real y se le pregunta qué valores toma,
+    en vez de creerle a la plantilla. Lo que el motor devuelva y la plantilla no traiga es un
+    default suyo; lo que la plantilla traiga y el motor no habría puesto, una decisión de más.
+    """
+    completa = cls.model_validate({nombre: _completada(path, forma)})
+    return getattr(completa, nombre).model_dump(mode="json")
 
 
 def test_las_formas_cubren_exactamente_las_ramas_que_el_motor_declara() -> None:
