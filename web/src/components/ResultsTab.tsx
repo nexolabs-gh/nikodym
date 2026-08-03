@@ -981,7 +981,18 @@ function ReliabilityDetail({
           }}
         >
           <SelectTrigger className="w-full" aria-label="Partición a detallar">
-            <SelectValue placeholder="Elige partición…" />
+            {/*
+             * Misma trampa que en RunTab: `Select.Value` pinta el valor crudo, así que el control
+             * leía `holdout`/`oot` en minúscula mientras la lista de abajo decía «Holdout»/«OOT».
+             * ⚠️ Con `children` función el `placeholder` se IGNORA: el caso vacío va aquí dentro.
+             */}
+            <SelectValue>
+              {(value) =>
+                typeof value === "string" && value !== ""
+                  ? partitionLabel(value)
+                  : "Elige partición…"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {view.partitions.map((p) => (

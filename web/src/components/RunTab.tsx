@@ -45,6 +45,9 @@ import { runHint } from "@/lib/preflight"
 import { canRun, describeApiError } from "@/lib/validation"
 import { useAppState, type AppState } from "@/state/appStore"
 
+/** Lo que se lee en el selector de ejemplos mientras no hay ninguno cargado. */
+const PLACEHOLDER_EJEMPLO = "Elige un ejemplo…"
+
 /**
  * Dependencias del cambio de preset (SDD-28), inyectadas para poder ejercitar el flujo sin montar
  * React (mismo patrón que `bootstrapWorkspace`): la API que trae el preset y los setters del store
@@ -321,7 +324,20 @@ export function RunTab({ onNavigate }: RunTabProps) {
                   disabled={switching || running}
                 >
                   <SelectTrigger className="w-full" aria-label="Ejemplo a cargar">
-                    <SelectValue placeholder="Elige un ejemplo…" />
+                    {/*
+                     * `Select.Value` pinta el VALOR crudo, no el texto del `<SelectItem>`: sin esta
+                     * función el control leía `f3-provisiones-consumo`. Es la tercera vez que este
+                     * repo paga la misma trampa (`__por_orden__` en ExternalInputCard, y el
+                     * selector de partición de ResultsTab), y por eso ahora hay un gate.
+                     * ⚠️ Con `children` función el `placeholder` se IGNORA —medido en el fuente de
+                     * @base-ui/react—, así que el caso sin selección lo cubre la propia función.
+                     */}
+                    <SelectValue>
+                      {(value) => {
+                        const elegido = presets.find((p) => p.id === value)
+                        return elegido ? presetDisplay(elegido).title : PLACEHOLDER_EJEMPLO
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {presets.map((p) => (

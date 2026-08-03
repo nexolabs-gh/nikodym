@@ -205,8 +205,8 @@ export const CODIGO: readonly (readonly { t: string; c: string }[])[] = [
 
 /**
  * Conteos de tests, medidos con `pytest --collect-only -q`:
- *   - suite completa .................. 4.482 (1.7.0; eran 3.755 en la 1.1.0)
- *   - los TRES dominios sin interfaz .. 566 (test_{markov,stress,forward}_*.py, medido 2026-07-27)
+ *   - suite completa .................. 4.971 (medido 2026-08-03; eran 3.755 en la 1.1.0)
+ *   - los TRES dominios sin interfaz .. 566 (test_{markov,stress,forward}_*.py, remedido 2026-08-03)
  *
  * ⚠️ `TESTS_DOMINIOS` bajó de "600" a "500" y no es un ajuste cosmético: **survival salió del
  * grupo** al ganar pantalla en el formulario (1.7.0), y sus 89 tests se iban con él. Los tres que
@@ -215,9 +215,16 @@ export const CODIGO: readonly (readonly { t: string; c: string }[])[] = [
  *
  * Se publican DEBAJO de lo medido ("más de"): un número exacto se pudre con cada commit, y la
  * página entera se sostiene sobre que sus cifras cuadren cuando alguien las corre.
+ *
+ * 🔴 Y la política de «publicar debajo» tiene un modo de fallo propio, que es el que costó esta
+ * corrección: una cota inferior **nunca deja de ser verdadera**, así que envejece sin que nada la
+ * delate. `TESTS_SUITE` se quedó en "4.400" con una procedencia anotada de 4.482 mientras la suite
+ * llegaba a 4.971 — seguía siendo cierta y subestimaba el producto en casi 600 tests, en la página
+ * cuya tesis es que todo está verificado. Por eso `test_landing_cifras_de_tests.py` compara ahora
+ * contra la recolección real y exige que la cota no se quede corta.
  */
 export const TESTS_DOMINIOS = "500"
-export const TESTS_SUITE = "4.400"
+export const TESTS_SUITE = "4.900"
 
 /**
  * Los seis dominios del motor, con su estado real en DOS ejes —y ninguno es "hecho / no hecho":

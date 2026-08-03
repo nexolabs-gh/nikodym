@@ -18,7 +18,7 @@ y stress testing. Todo en un motor **reproducible por construcción** y con gobe
 ## Qué hace
 
 Los seis dominios **calculan** hoy: son motores deterministas, sin *stubs*, con más de 500 tests
-sobre los tres que no tienen interfaz (más de 4.500 en la suite completa). Lo que los separa no es
+sobre los tres que no tienen interfaz (más de 4.900 en la suite completa). Lo que los separa no es
 "hecho / no hecho", sino **superficie** (¿tiene UI, preset y capítulo en el informe, o hay que
 escribir el config en Python?) y **garantía de API** (¿congelada bajo SemVer 1.x, o experimental?).
 El único comando del paquete es `nikodym-ui`, que levanta la interfaz: no hay CLI que corra estos
