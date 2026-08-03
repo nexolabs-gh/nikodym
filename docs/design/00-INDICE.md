@@ -305,8 +305,23 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > con gate bidireccional y mostradas al principio de Configuración. `markov` y `stress` quedan fuera
 > **con su razón medida**, no por falta de tiempo.
 >
+> **«Respondida» lo dice el motor, no la forma del hueco (2026-08-03, BORRADOR — pendiente de
+> aprobación).** [`_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md`](_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md),
+> D-RES-1…D-RES-6, enmienda a `_ENMIENDA-DECISIONES-OBLIGATORIAS.md` (D-OBL-5) y a
+> `_ENMIENDA-DECISIONES-COMO-DATO.md` (D-COL-6). La interfaz pone el tilde verde sobre decisiones que
+> el motor **rechaza**. 🔴 **Y no son los dos casos conocidos: son 49 de 63 valores probados** —el
+> criterio ignora todo hueco ausente, acepta cualquier tipo incorrecto, y la forma `random` no
+> declara ningún hueco, así que **cualquier** valor con ese `type` sale contestado—. ⚠️ Hay además
+> **3 falsos negativos**, así que «válido para el motor» tampoco equivale a «respondida»: el criterio
+> son **los dos**, conjuntos. 🔴 **Dos premisas del plan salieron falsas y abarataron la enmienda**:
+> el front **sí** puede leer qué forma eligió el usuario en `partition.strategy` —es unión
+> discriminada y sus tags igualan los `id` de forma, con gate vigente— y **no hace falta que el
+> backend publique nada**, porque el `loc` de `/api/validate` casa por prefijo en **46 de 49**. ⚠️ El
+> `loc` lleva el tag del discriminador, que **no existe en el config**: sirve para casar, nunca para
+> enfocar. Los 3 restantes (`loc = []`) quedan **declarados** en vez de adivinados por el copy.
+>
 > **Lo que ya traes en tu archivo se declara, no se vuelve a inventar (2026-08-02, APROBADA;
-> D-COL-2/3/4 IMPLEMENTADAS).**
+> D-COL-2/3/4, D-COL-6…D-COL-9 IMPLEMENTADAS).**
 > [`_ENMIENDA-DECISIONES-COMO-DATO.md`](_ENMIENDA-DECISIONES-COMO-DATO.md), D-COL-1…D-COL-10,
 > enmienda a `_ENMIENDA-DECISIONES-OBLIGATORIAS.md` (D-OBL-6/D-OBL-7) y a SDD-02, que gana una rama
 > pública de partición. Sale de la fricción de «Validar un modelo existente» —pide definir qué es un
