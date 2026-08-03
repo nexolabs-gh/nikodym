@@ -10568,6 +10568,7 @@
         "description": "Configuración de columnas de entrada para survival.",
         "properties": {
           "covariate_cols": {
+            "column_role": "input",
             "default": [],
             "description": "Columnas adicionales ya preprocesadas que entran al ajuste survival.",
             "items": {
@@ -10580,6 +10581,7 @@
             "ui_widget": "multiselect"
           },
           "duration_col": {
+            "column_role": "input",
             "description": "Columna con el tiempo hasta evento observado o censura derecha.",
             "title": "Columna de duración",
             "type": "string",
@@ -10588,6 +10590,7 @@
             "ui_widget": "text_input"
           },
           "event_col": {
+            "column_role": "input",
             "description": "Columna indicadora de evento/default observado; 1=evento y 0=censura.",
             "title": "Columna de evento",
             "type": "string",
@@ -10604,6 +10607,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna opcional con identificador estable de fila, cuenta o cliente.",
             "title": "Columna de identificador",
@@ -10612,6 +10616,7 @@
             "ui_widget": "text_input"
           },
           "linear_predictor_column": {
+            "column_role": "derived",
             "default": "linear_predictor",
             "description": "Columna con el logit o predictor lineal del scorecard, usada como covariable u offset.",
             "title": "Columna predictor lineal",
@@ -10621,6 +10626,7 @@
             "ui_widget": "text_input"
           },
           "pd_column": {
+            "column_role": "derived",
             "default": "pd_raw",
             "description": "Columna con PD cruda o calibrada según la fuente configurada.",
             "title": "Columna PD cruda",
@@ -10652,6 +10658,7 @@
                 "type": "null"
               }
             ],
+            "column_role": "input",
             "default": null,
             "description": "Columna opcional de segmento o pool para agregación y diagnósticos.",
             "title": "Columna de segmento",

@@ -4,7 +4,7 @@
 > **Enmienda a:** [`_ENMIENDA-PREFLIGHT-DATASET.md`](_ENMIENDA-PREFLIGHT-DATASET.md) (D-PRE-3, el
 > vocabulario `column_role`) y [`_ENMIENDA-INVARIANTES-PREVIAS.md`](_ENMIENDA-INVARIANTES-PREVIAS.md)
 > (D-INV-1, la invariante la declara el dominio que la impone).
-> **Decisiones:** D-RAM-1 … D-RAM-5.
+> **Decisiones:** D-RAM-1 … D-RAM-6.
 
 ## 0. El defecto que la origina
 
@@ -95,7 +95,51 @@ se acusa y con la rama encendida **sí**.
 sigue siendo invisible para el preflight, y eximir en `columnas_inactivas` un campo que nunca
 declaró rol no suprime nada: sólo hace creer que se cerró algo. El gate lo rechaza.
 
-## 3. Lo que esta enmienda NO resuelve
+## 3. D-RAM-6 — la segunda causa, que apareció al ampliar el preflight a `survival`
+
+Al medir la ampliación a `survival` salió un falso positivo de **otra clase**, y la distinción
+importa porque el remedio de arriba no le sirve:
+
+```
+survival.input.event_col = "target"     →  la corrida llega a done (medido, preset F4 real)
+                                           el preflight lo acusaría de columna faltante
+```
+
+No es una rama apagada: la rama corre y la columna **se lee**. Lo que pasa es que `survival` no
+consume el archivo del usuario, sino la **salida de `data`**, que trae el target y la partición ya
+construidos. Y el caso no es rebuscado: el indicador de evento *es* el flag de malo.
+
+🔴 **Y el defecto no lo traía survival: ya estaba vivo en `main`.** `stability.temporal_column`
+declara `input` desde hace semanas y se consume sobre el mismo frame; medido sobre el preset F1,
+tres de sus valores alcanzables —`target`, `label_status`, `ttd`— corren a `done` y el preflight los
+acusa. **Ningún test cruzaba ese campo con `check_dataset`.** La única guarda que existía
+(`partition`) es un efecto colateral del anticolisión de `StabilityConfig`, no del preflight.
+
+**D-RAM-6.** Una sección declara, por convención de nombre, las columnas que **añade** al frame:
+
+```python
+def columnas_que_produce(self) -> frozenset[str]: ...
+```
+
+`check_dataset` las cuenta como presentes. Hoy sólo la implementa `DataConfig`, y devuelve las
+cuatro que `DataStep` escribe **sin condición** (`data/step.py:77-80`): el `target_col` **del
+config** —no una constante: renombrarlo mueve la derivada, y hay test— más `label_status`,
+`partition` y `ttd`, importadas de sus módulos y no redeclaradas.
+
+Es la cara simétrica de `ROL_DERIVADA`: aquel dice *«este CAMPO nombra algo que produce el pipeline,
+no lo exijas»*; éste dice *«esta COLUMNA la produce el pipeline, cuéntala como presente»*. El
+primero mira el campo, el segundo el nombre, y hacen falta los dos.
+
+⚠️ **Sólo entra en la comprobación de columna ausente, no en la del índice.** Que el pipeline vaya a
+escribir una columna «partition» no dice nada sobre cómo se llama el índice del archivo, y mezclarlo
+cambiaría el veredicto de una rama que no tiene este problema.
+
+⚠️ **Riesgo declarado:** silenciar un error de tipeo que coincida por casualidad con un nombre
+derivado. Se acota porque lo declara sólo la sección que de verdad las escribe —con `data` apagada
+no se suma nada, con test— y porque el ancla del gate exige que una columna inventada se siga
+acusando.
+
+## 4. Lo que esta enmienda NO resuelve
 
 **Los 14 campos condicionales de provisiones siguen sin rol.** El mecanismo que necesitan acaba de
 nacer, pero declararlos exige medir la condición de cada uno contra el motor —que es el trabajo que

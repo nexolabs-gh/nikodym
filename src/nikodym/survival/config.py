@@ -56,25 +56,45 @@ class SurvivalInputConfig(NikodymBaseConfig):
         default=...,
         title="Columna de duración",
         description="Columna con el tiempo hasta evento observado o censura derecha.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Entrada",
+            "ui_order": 1,
+        },
     )
     event_col: str = Field(
         default=...,
         title="Columna de evento",
         description="Columna indicadora de evento/default observado; 1=evento y 0=censura.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Entrada",
+            "ui_order": 2,
+        },
     )
     id_col: str | None = Field(
         default=None,
         title="Columna de identificador",
         description="Columna opcional con identificador estable de fila, cuenta o cliente.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Entrada",
+            "ui_order": 3,
+        },
     )
     segment_col: str | None = Field(
         default=None,
         title="Columna de segmento",
         description="Columna opcional de segmento o pool para agregación y diagnósticos.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Entrada", "ui_order": 4},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "Entrada",
+            "ui_order": 4,
+        },
     )
     pd_source: PdSource = Field(
         default="model_raw",
@@ -91,6 +111,7 @@ class SurvivalInputConfig(NikodymBaseConfig):
         title="Columna PD cruda",
         description="Columna con PD cruda o calibrada según la fuente configurada.",
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "PD del scorecard",
             "ui_order": 2,
@@ -103,6 +124,7 @@ class SurvivalInputConfig(NikodymBaseConfig):
             "Columna con el logit o predictor lineal del scorecard, usada como covariable u offset."
         ),
         json_schema_extra={
+            "column_role": "derived",
             "ui_widget": "text_input",
             "ui_group": "PD del scorecard",
             "ui_order": 3,
@@ -112,7 +134,12 @@ class SurvivalInputConfig(NikodymBaseConfig):
         default=(),
         title="Covariables adicionales",
         description="Columnas adicionales ya preprocesadas que entran al ajuste survival.",
-        json_schema_extra={"ui_widget": "multiselect", "ui_group": "Covariables", "ui_order": 1},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "multiselect",
+            "ui_group": "Covariables",
+            "ui_order": 1,
+        },
     )
 
     @model_validator(mode="after")

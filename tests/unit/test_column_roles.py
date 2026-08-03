@@ -12,13 +12,16 @@ que importan se miden contra la realidad:
 
 1. *¿Qué secciones puede señalar el preflight?* → el footprint real de `column_role` sobre el
    registro de dominio, filtrado a los roles que el motor **inspecciona** (`input`/`index`; sobre
-   `derived`/`not_a_column` hace `continue`). Hoy son tres: `data`, `binning`, `stability`.
+   `derived`/`not_a_column` hace `continue`). Hoy son **siete**: las tres del camino F1 (`data`,
+   `binning`, `stability`), las tres de provisiones y `survival`.
 2. *¿Qué multiselect se quedaría sin opciones?* → los de secciones que el formulario OFRECE cuyos
    items no traen `enum` y no declaran rol. Es la clase de defecto que se vio en cámara con HMEQ:
    «Sin opciones.» con doce variables dentro del config.
 
-La tupla se conserva para el criterio por sufijo, que sigue siendo el que exige clasificar todo
-campo `*_col*` del camino F1.
+La tupla se conserva para el criterio por sufijo, que exige clasificar todo campo `*_col*` de las
+secciones en alcance. **Ese alcance ya no es «el camino F1»**: desde el 2026-08-03 se DERIVA del
+catálogo de trabajos —cubre lo que algún trabajo *disponible* declara—, que es el criterio con que
+Cami lo fijó para que no se desincronice cuando un trabajo se desbloquee.
 """
 
 from __future__ import annotations
@@ -44,8 +47,19 @@ from nikodym.performance.config import PerformanceConfig
 from nikodym.scorecard.config import ScorecardConfig
 from nikodym.selection.config import SelectionConfig
 from nikodym.stability.config import StabilityConfig
+from nikodym.survival.config import SurvivalConfig
 
-#: Las siete secciones del camino F1. Ampliar el alcance es sumar aquí, no reescribir el gate.
+#: Secciones cuyo campo `*_col*` está OBLIGADO a declarar rol, por el criterio de sufijo.
+#:
+#: Las siete del camino F1, más `survival` desde el 2026-08-03: sus dos columnas de entrada son
+#: decisiones obligatorias del catálogo y dos trabajos disponibles la declaran, así que entra al
+#: alcance derivado igual que las provisiones. Ampliar el alcance es sumar aquí, no reescribir
+#: el gate.
+#:
+#: ⚠️ Las cuatro secciones de `provisioning` NO están, y es deliberado: entrarían arrastrando los 14
+#: campos cuyo consumo es **condicional**, que es justo lo que un rol estático no puede expresar.
+#: Ahora existe `columnas_inactivas` (D-RAM-1) y por ahí se cierran, uno a uno y midiendo su rama;
+#: meterlas aquí antes de eso obligaría a declarar en bloque lo que todavía no está medido.
 SECCIONES_EN_ALCANCE = (
     DataConfig,
     BinningConfig,
@@ -54,19 +68,8 @@ SECCIONES_EN_ALCANCE = (
     CalibrationConfig,
     PerformanceConfig,
     StabilityConfig,
+    SurvivalConfig,
 )
-
-#: Clave de config de cada sección en alcance: la que abre el `path` de un desajuste
-#: (``data.partition.strategy.cohort_col``) y la que el sidebar usa para navegar.
-CLAVES_EN_ALCANCE = {
-    DataConfig: "data",
-    BinningConfig: "binning",
-    SelectionConfig: "selection",
-    ScorecardConfig: "scorecard",
-    CalibrationConfig: "calibration",
-    PerformanceConfig: "performance",
-    StabilityConfig: "stability",
-}
 
 #: Roles que el preflight INSPECCIONA. `derived` y `not_a_column` los salta
 #: (`dataset_check.py` hace `continue`), así que declararlos no amplía su alcance ni puede
@@ -75,20 +78,20 @@ ROLES_INSPECCIONABLES = frozenset({ROL_ENTRADA, ROL_INDICE})
 
 #: Multiselects de texto libre que HOY no declaran rol, con la razón de por qué no.
 #:
-#: Nombra columnas del dataset —su rol sería `input`—, pero declararlo **ampliaría el preflight**
-#: a `survival`, que D-PRE-4 deja fuera de su alcance a propósito. Es una decisión de alcance, no
-#: un olvido, y por eso queda escrita aquí con nombre en vez de silenciada: el día que se amplíe
-#: el preflight a survival, se borra esta línea.
-#: Efecto hoy: su multiselect ofrece entrada libre (sin lista sugerida), no un control vacío.
+#: 🔴 **Está vacío, y llegar a vacío era el objetivo.** Tuvo dos entradas y las dos se retiraron
+#: cumpliendo lo que su propia razón escrita anunciaba:
 #:
-#: 🔴 Aquí había una SEGUNDA entrada, `"LgdConfig.covariate_cols"`, y era **letra muerta**: esa
-#: clase no existe —la real es `IfrsLgdConfig`—, así que la clave no podía casar con nada y la
-#: exención llevaba tiempo sin proteger lo que decía proteger. Se retira en vez de corregirse,
-#: porque su razón escrita («ampliaría el preflight a provisioning_ifrs9») describe exactamente lo
-#: que el 2026-08-03 se hizo A PROPÓSITO: ese campo declara ahora `input`.
-EXENTOS_MULTISELECT = {
-    "SurvivalInputConfig.covariate_cols": "declarar 'input' ampliaría el preflight a survival",
-}
+#: * `"LgdConfig.covariate_cols"` era **letra muerta** —esa clase no existe, la real es
+#:   `IfrsLgdConfig`—, así que la clave nunca pudo casar con nada; su razón («ampliaría el preflight
+#:   a provisioning_ifrs9») describe justo lo que el 2026-08-03 se hizo a propósito.
+#: * `"SurvivalInputConfig.covariate_cols"` decía «el día que se amplíe el preflight a survival, se
+#:   borra esta línea». Ese día fue el 2026-08-03: la ampliación es decisión de Cami y el alcance
+#:   ahora se **deriva del catálogo** —las secciones que algún trabajo *disponible* declara—, y dos
+#:   trabajos disponibles declaran `survival`.
+#:
+#: Se conserva la estructura, no por simetría, sino porque el gate de abajo la necesita para el día
+#: que aparezca un multiselect nuevo cuya declaración haya que posponer con su razón a la vista.
+EXENTOS_MULTISELECT: dict[str, str] = {}
 
 #: Catálogo de secciones navegables del formulario (front). Vive UNA vez, en `lib/schema.ts`.
 _SCHEMA_TS = Path(__file__).resolve().parents[2] / "web" / "src" / "lib" / "schema.ts"
@@ -263,6 +266,15 @@ def test_el_footprint_inspeccionable_es_el_que_la_medicion_conto() -> None:
         "provisioning_cmf",
         "provisioning_internal",
         "provisioning_ifrs9",
+        # Segunda mitad de la misma ampliación (2026-08-03): el alcance se DERIVA del catálogo
+        # —cubre lo que algún trabajo *disponible* declara—, y `survival` la declaran dos:
+        # «PD lifetime» y «Provisiones IFRS 9». Sus dos columnas son además decisiones obligatorias
+        # del catálogo, o sea que la interfaz ya le pedía al usuario elegirlas de su archivo
+        # mientras nadie las comprobaba contra él.
+        #
+        # ⚠️ `markov`, `forward` y `stress` siguen fuera, y por el mismo criterio derivado: ningún
+        # trabajo disponible las usa. No es una lista corta por olvido.
+        "survival",
     }
 
 

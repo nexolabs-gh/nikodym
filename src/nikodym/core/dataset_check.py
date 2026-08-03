@@ -89,6 +89,24 @@ METODO_REQUISITOS_PERFIL = "requisitos_incumplidos_por_perfil"
 #: Por eso su gate se mide en los dos sentidos (D-RAM-4).
 METODO_COLUMNAS_INACTIVAS = "columnas_inactivas"
 
+#: Nombre del método con que una sección declara las columnas que **añade al frame** (D-RAM-6).
+#:
+#: 🔴 El preflight compara contra el archivo del usuario, pero las secciones aguas abajo no consumen
+#: el archivo: consumen la **salida** de ``data``, que trae el target y la partición ya construidos.
+#: Así que un campo de entrada puede apuntar legítimamente a una columna que el pipeline produce
+#: —``survival.input.event_col = "target"`` corre a ``done``, medido— y exigirla del archivo crudo
+#: es un falso positivo. Ya lo sufría ``stability.temporal_column`` en tres valores alcanzables, sin
+#: un solo test que lo cubriera.
+#:
+#: Es la cara simétrica de :data:`ROL_DERIVADA`: aquel dice «este CAMPO nombra algo que produce el
+#: pipeline, no lo exijas»; éste dice «esta COLUMNA la produce el pipeline, cuéntala como presente».
+#: El primero mira el campo, el segundo el nombre, y hacen falta los dos.
+#:
+#: ⚠️ Suprime, como :data:`METODO_COLUMNAS_INACTIVAS`, y su riesgo propio es silenciar un error de
+#: tipeo que coincida por casualidad con un nombre derivado. Se acota declarándolo **sólo** la
+#: sección que de verdad las escribe: con ``data`` apagada no se suma nada.
+METODO_COLUMNAS_PRODUCIDAS = "columnas_que_produce"
+
 
 @dataclass(frozen=True, slots=True)
 class PerfilColumna:
@@ -288,6 +306,24 @@ def _rol(modelo: type[BaseModel], nombre: str) -> str | None:
     return valor if isinstance(valor, str) else None
 
 
+def _columnas_producidas(config: Any) -> frozenset[str]:
+    """Columnas que el pipeline **añade** al frame con este config (D-RAM-6), o vacío.
+
+    Recorre igual que :func:`_requisitos` —modelos anidados incluidos— y una sección apagada
+    (``None``) o que viaje como ``dict`` opaco no aporta nada, que es lo correcto: si no corre, no
+    produce.
+    """
+    if not isinstance(config, BaseModel):
+        return frozenset()
+    producidas: set[str] = set()
+    metodo = getattr(config, METODO_COLUMNAS_PRODUCIDAS, None)
+    if callable(metodo):
+        producidas.update(metodo())
+    for nombre in type(config).model_fields:
+        producidas |= _columnas_producidas(getattr(config, nombre, None))
+    return frozenset(producidas)
+
+
 def _columnas_inactivas(config: BaseModel) -> frozenset[str]:
     """Campos del modelo cuya rama no corre con esta configuración (D-RAM-1), o vacío.
 
@@ -459,6 +495,10 @@ def check_dataset(
     config = _coaccionar_secciones_opacas(config)
 
     presentes = set(columns)
+    # Sólo entran en la comprobación de columna ausente, NO en la del índice (D-RAM-6): que el
+    # pipeline vaya a escribir una columna «partition» no dice nada sobre si el índice del archivo
+    # se llama así, y mezclarlo cambiaría el veredicto de una rama que no tiene este problema.
+    producidas = _columnas_producidas(config)
     indices = None if index_columns is None else set(index_columns)
     desajustes: list[Mismatch] = []
     opacas = tuple(
@@ -487,7 +527,7 @@ def check_dataset(
                     Mismatch(ruta, columna, "missing_index", _mensaje_indice_ausente(ruta, columna))
                 )
             continue
-        if columna not in presentes:
+        if columna not in presentes and columna not in producidas:
             desajustes.append(
                 Mismatch(ruta, columna, "missing_column", _mensaje_falta(ruta, columna))
             )

@@ -1,14 +1,19 @@
-"""Gate del método `columnas_inactivas` (`_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md`, D-RAM-1…D-RAM-5).
+"""Gate de los dos supresores del preflight (`_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md`, D-RAM-1…6).
 
-🔴 **Es la primera pieza del preflight que puede CALLAR un desajuste**, y por eso se mide en los dos
-sentidos. Un rol `column_role` mal declarado produce un aviso de más —molesto, visible—; una
-`columnas_inactivas` mal declarada produce un aviso de MENOS, que es exactamente el falso negativo
-silencioso contra el que existe el preflight entero (D-PRE-9). El error caro aquí es el simétrico
-del que arregla.
+🔴 **Son las primeras piezas del preflight que pueden CALLAR un desajuste**, y por eso se miden en
+los dos sentidos. Un rol `column_role` mal declarado produce un aviso de más —molesto, visible—; un
+supresor mal declarado produce un aviso de MENOS, que es exactamente el falso negativo silencioso
+contra el que existe el preflight entero (D-PRE-9). El error caro aquí es el simétrico del que
+arreglan.
 
-El caso que originó la enmienda lo reprodujo la revisión adversarial cruzada el 2026-08-03: con
-``ifrs9.ead.method = "provided"`` y ``ccf_col = "columna_fantasma"``, el preflight acusaba la
-columna y el motor **nunca la abre** — `_estimate_ccf`, su único lector, ni se llama.
+Son **dos y distintos**, y confundirlos sería aplicar el remedio equivocado:
+
+* `columnas_inactivas` (D-RAM-1) suprime por **rama de config**: el campo nombra una columna que
+  esta configuración no va a leer. Lo reprodujo la revisión adversarial cruzada el 2026-08-03 —con
+  ``ead.method='provided'`` y ``ccf_col`` inventada, `_estimate_ccf` ni se llama—.
+* `columnas_que_produce` (D-RAM-6) suprime por **procedencia**: la columna existirá, pero la escribe
+  el pipeline y no el archivo. Es la cara simétrica de `ROL_DERIVADA`, que mira el campo en vez del
+  nombre.
 
 ⚠️ La tabla de abajo se escribe **a mano**, campo por campo, con la condición leída del motor y no
 de `columnas_inactivas()`. Derivarla de lo que se comprueba haría el gate autorreferencial: mediría
@@ -37,6 +42,12 @@ FANTASMA = "columna_que_no_existe_en_ningun_archivo"
 
 #: Columnas mínimas de un dataset cualquiera. Ninguna es :data:`FANTASMA`, que es el punto.
 COLUMNAS = ("id", "fecha", "cartera", "exposicion", "mora", "pd", "lgd", "tasa")
+
+#: Sección `data` mínima que construye: sus dos decisiones institucionales son obligatorias.
+_DATA_MINIMA: dict[str, object] = {
+    "target": {"bad_rule": {"all_of": [{"col": "mora", "op": ">", "value": 90}]}},
+    "partition": {"strategy": {"type": "random"}},
+}
 
 #: 🔴 El oráculo, ESCRITO A MANO desde el código del motor (`archivo:línea` en cada fila).
 #:
@@ -180,6 +191,87 @@ def test_el_mecanismo_es_generico_y_no_un_caso_especial_de_ifrs9() -> None:
     encendido = {c for _, _, c in _declaraciones(Ejemplo(modo="encendido"))}
     assert apagado == {"otra"}, "la columna de la rama apagada no debería declararse"
     assert encendido == {FANTASMA, "otra"}, "encendida, la columna vuelve a declararse"
+
+
+#: 🔴 Las cuatro columnas que `data` AÑADE al frame, escritas a mano desde el motor: `target.py:36`
+#: (`label_status`), `partition.py:38-39` (`partition`, `ttd`) y `data.target.target_col` para la
+#: cuarta. Derivarlas de `columnas_que_produce()` haría el gate autorreferencial.
+DERIVADAS = ("target", "label_status", "partition", "ttd")
+
+
+@pytest.mark.parametrize("derivada", DERIVADAS)
+def test_una_columna_que_el_pipeline_produce_no_se_exige_del_archivo(derivada: str) -> None:
+    """Las secciones de abajo consumen la SALIDA de `data`, no el archivo del usuario (D-RAM-6).
+
+    Medido con corridas reales: `survival.input.event_col = "target"` llega a `done` —el indicador
+    de evento *es* el flag de malo, que es lo natural—, y `stability.temporal_column` sufría lo
+    mismo en tres valores alcanzables **hoy en `main`**, sin un solo test que lo cubriera.
+    """
+    cargar_configs_de_dominio()
+    assert not _acusa(_config_con_segmento(derivada), derivada), (
+        f"«{derivada}» la produce el propio pipeline: exigirla del archivo es un falso positivo"
+    )
+
+
+def _config_con_segmento(columna: str) -> NikodymConfig:
+    """Config con `data` activa y `survival.input.segment_col` apuntando a `columna`.
+
+    Se usa `survival` y no `stability` porque `StabilityConfig` tiene un anticolisión propio
+    (`config.py:213`) que rechaza `temporal_column="partition"` antes de construir — o sea que ahí
+    el caso es inalcanzable por otra razón, y probarlo mediría el validador, no el preflight.
+    """
+    return NikodymConfig.model_validate(
+        {
+            "data": _DATA_MINIMA,
+            "survival": {
+                "input": {"duration_col": "mora", "event_col": "pd", "segment_col": columna}
+            },
+        }
+    )
+
+
+def test_ancla_una_columna_inventada_si_se_sigue_acusando() -> None:
+    """🔴 El control que impide que lo de arriba se cierre de más.
+
+    Sin esto, sumar cualquier cosa a las columnas presentes —o devolver un conjunto demasiado
+    ancho— pasaría los cuatro casos y dejaría el preflight mudo, que es el falso negativo que
+    justifica su existencia.
+    """
+    cargar_configs_de_dominio()
+    assert _acusa(_config_con_segmento(FANTASMA), FANTASMA)
+
+
+def test_sin_la_seccion_data_no_se_produce_nada() -> None:
+    """Si el paso que las escribe no corre, sus columnas no existen: se vuelven a exigir."""
+    cargar_configs_de_dominio()
+    config = NikodymConfig.model_validate(
+        {
+            "survival": {
+                "input": {"duration_col": "mora", "event_col": "pd", "segment_col": "target"}
+            }
+        }
+    )
+    assert _acusa(config, "target"), "sin `data` nadie escribe «target», así que tiene que faltar"
+
+
+def test_la_columna_de_target_sale_del_CONFIG_y_no_de_una_constante() -> None:  # noqa: N802
+    """Renombrar el target mueve la derivada: no está escrita a fuego en el núcleo.
+
+    Es la diferencia entre declarar lo que el motor hace y copiar una lista de nombres, que se
+    desincroniza en cuanto alguien usa el campo para lo que existe.
+    """
+    cargar_configs_de_dominio()
+    target = {**_DATA_MINIMA["target"], "target_col": "mi_target"}  # type: ignore[dict-item]
+    data = {**_DATA_MINIMA, "target": target}
+    survival = {"input": {"duration_col": "mora", "event_col": "pd"}}
+    nuevo = NikodymConfig.model_validate(
+        {"data": data, "survival": {"input": {**survival["input"], "segment_col": "mi_target"}}}
+    )
+    assert not _acusa(nuevo, "mi_target")
+    viejo = NikodymConfig.model_validate(
+        {"data": data, "survival": {"input": {**survival["input"], "segment_col": "target"}}}
+    )
+    assert _acusa(viejo, "target"), "con el target renombrado, «target» ya no lo produce nadie"
 
 
 def test_un_modelo_sin_el_metodo_se_comporta_igual_que_antes() -> None:

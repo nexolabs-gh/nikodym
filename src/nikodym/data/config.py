@@ -961,3 +961,26 @@ class DataConfig(NikodymBaseConfig):
             "entrenar y validar el modelo.",
         },
     )
+
+    def columnas_que_produce(self) -> frozenset[str]:
+        """Columnas que este paso **añade** al frame, y que las secciones de abajo pueden nombrar.
+
+        Las cuatro se escriben **sin condición** —``DataStep.execute`` llama a
+        ``TargetDefinition.apply`` y a ``Partitioner.split`` siempre (`data/step.py:77-80`)—, o sea
+        que no hay rama que consultar: si esta sección corre, están.
+
+        🔴 Existen aquí porque el preflight compara contra el ARCHIVO y las secciones de abajo
+        consumen la SALIDA de este paso. Medido: ``survival.input.event_col = "target"`` llega a
+        ``done`` —el indicador de evento *es* el flag de malo, que es lo natural— y sin esta
+        declaración el preflight lo acusaría de columna faltante. ``stability.temporal_column`` ya
+        sufría lo mismo con tres valores alcanzables (D-RAM-6).
+
+        El import es perezoso por el ciclo: ``data/target.py`` y ``data/partition.py`` importan este
+        módulo. Las constantes se toman de ellos y **no se redeclaran**: una constante duplicada que
+        se mueva por un lado deja el preflight mintiendo por el otro, y este repo ya pagó una
+        triplicada.
+        """
+        from nikodym.data.partition import PARTITION_COL, TTD_COL
+        from nikodym.data.target import STATUS_COL
+
+        return frozenset({self.target.target_col, STATUS_COL, PARTITION_COL, TTD_COL})
