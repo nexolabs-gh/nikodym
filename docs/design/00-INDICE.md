@@ -364,6 +364,40 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > leer** —es lo que trae el preset F1— y porque **añadir una rama a una unión discriminada no mueve
 > ningún `config_hash`**: medido añadiéndola de verdad, los tres presets quedan byte a byte iguales.
 >
+> **El formulario no sabe de dónde sale una columna (2026-08-03, BORRADOR).**
+> [`_ENMIENDA-PROCEDENCIA-DE-COLUMNAS.md`](_ENMIENDA-PROCEDENCIA-DE-COLUMNAS.md), D-PRO-1…D-PRO-9,
+> enmienda a `_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md` (D-RAM-6/7) y a SDD-23 §4.2. 🔴 **Dos
+> superficies del mismo producto se contradicen en pantalla**: con `survival.input.event_col =
+> "target"` el campo se pinta en rojo diciendo que la columna no está, mientras `check_dataset` dice
+> `compatible=True` y la corrida llega a `done`. Nació de una mejora —D-RAM-6 enseñó al backend que
+> `data` escribe cuatro columnas, y el front no se enteró—, y **no son dos campos: son 32 de las 47
+> rutas con rol `input`**. Su cara gemela: **el catálogo publica el ÍNDICE `loan_id` dentro de
+> `columns`**, así que la interfaz lo ofrece como columna elegible en los cinco datasets — y ⚠️ **el
+> gate que debería vigilarlo CODIFICA la conflación**, sumando el índice a mano para que cuadre. La
+> causa común es que `GET /api/datasets` publica una sola lista y un nombre de columna puede referirse
+> a **tres** cosas distintas. 🔴 La decisión de peso es que la lista viaje **ya resuelta por sección**:
+> una plana haría que el front pintara en verde lo que D-RAM-7 acaba de cerrar en el backend, y
+> resolverlo en el front sería reimplementar dominio (SDD-23 §11). ⚠️ Al separar los tres conjuntos se
+> prueban **los seis** casos, no sólo el que se arregla.
+>
+> **El abanico metodológico: elegir el método sabiendo qué cuesta (2026-08-03, BORRADOR).**
+> [`_SDD-ABANICO-METODOLOGICO.md`](_SDD-ABANICO-METODOLOGICO.md), D-ABA-1…D-ABA-12, implementa
+> D-JOB-4/5 sobre el censo de abajo y enmienda `_ENMIENDA-INVARIANTES-PREVIAS.md` (D-INV-1) y
+> `_ENMIENDA-PREFLIGHT-DATASET.md` (D-PRE-4). Contesta las tres preguntas que el censo dejó abiertas.
+> **El abanico se declara a mano con gate bidireccional** —del schema no sale ni el idioma de negocio
+> ni qué exige cada opción, que es el 100 % de D-JOB-4/5, y sí saldrían las opciones que el motor
+> rechaza—. 🔴 **La «tercera categoría» que el censo intuía son DOS**: «el motor no la tiene» y «el
+> motor la acepta y no cambia nada» no son el mismo caso ni se cierran igual — la primera obliga a
+> las dos superficies (catálogo **y** validador, porque quien usa esto como librería no ve el
+> catálogo), la segunda exige citar el `archivo:línea` que la prueba. Y hay un **cuarto estado que no
+> se declara: se computa**, porque «no puedes usar esto con TUS datos» es una afirmación sobre datos
+> que el catálogo no ha visto. ✅ **La clase D se parte en dos y su mitad barata no necesita
+> mecanismo**: un extra de pip se comprueba con `find_spec` desde el protocolo que ya existe, porque
+> el preflight corre en el mismo proceso que el motor. La otra mitad entra por un método hermano con
+> **contexto cerrado** —un DTO de un campo, no el config raíz—, hermano de
+> `requisitos_incumplidos_por_perfil` y **no** de los dos supresores: la clase D *añade* avisos, y
+> sólo quien *quita* hereda la obligación de medirse en los dos sentidos (D-RAM-4).
+>
 > **Censo del abanico metodológico (2026-08-02, INSUMO — no es diseño).**
 > [`_CENSO-ABANICO-METODOLOGICO.md`](_CENSO-ABANICO-METODOLOGICO.md). El material medido sobre el
 > que se escribirá el SDD de D-JOB-4/5, levantado por tres barridos independientes contra el código.
