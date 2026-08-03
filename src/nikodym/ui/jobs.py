@@ -423,6 +423,27 @@ JOB_IDS: tuple[str, ...] = tuple(job["id"] for job in _JOBS)
 #              contestada, y el catálogo lo dice en vez de dejar que la interfaz lo adivine: sin
 #              esto, escribir la plantilla marcaría la pregunta como respondida con los huecos
 #              vacíos, que es exactamente el falso «ya está» que D-OBL-5 existe para impedir.
+#   precargas· los huecos que pueden llegar PROPUESTOS desde una columna que el trabajo ya preguntó
+#              (D-COL-8). Cada entrada declara:
+#                slot   · el hueco de ESTA plantilla que se propone, mismo vocabulario que `slots`
+#                desde  · dónde el trabajo ya preguntó por esa misma columna. El VALOR no está aquí
+#                         —lo escribió el usuario— y sale del config en tiempo de render
+#                insumo · el artefacto externo del que salió esa respuesta. La propuesta sólo
+#                         procede si ese archivo declara el MISMO `dataset_id` que la cartera:
+#                         el motor lee esta columna de la cartera, así que pegar ahí una columna de
+#                         otro archivo sería un error de categoría SILENCIOSO
+#                nota   · la procedencia, en idioma de negocio. Copy: entra al gate de jerga
+#              🔴 Va aquí y NO en los `config_paths` del insumo externo, y la diferencia no es
+#              cosmética: un `config_path` ESCRIBE SOLO, y una precarga PROPONE y espera el gesto.
+#              El gate de §4 de la enmienda prohíbe lo primero sobre un path de decisión, y hace
+#              bien — es la misma frontera que D-OBL-5. Como el config no se toca hasta que el
+#              usuario elige la forma, el estado de la decisión no se mueve por tener una propuesta
+#              disponible, y un clic escribe exactamente lo que él habría escrito a mano: mismo
+#              `config_hash` por los dos caminos (D-OBL-10 / D-JOB-9 intactos).
+#              ⚠️ Es autolimitante a propósito: un trabajo que no declara ese insumo no tiene de
+#              dónde proponer, así que la misma forma —que se declara por SECCIÓN y la heredan los
+#              nueve trabajos— no ofrece nada donde no corresponde, sin necesidad de condicionarla
+#              por trabajo.
 #
 # ⚠️ Una decisión que se contesta con UN dato —una columna— declara `answer_forms: ()`. No es un
 # olvido: no hay nada que elegir, y fabricarle una forma única sería una pantalla de más para
@@ -457,6 +478,10 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                             "salvo_si": {"path": "all_of.0.op", "vale": ("isna", "notna")},
                         },
                     ),
+                    # Esta forma construye la política —«más de 90 días de mora»—, así que su
+                    # columna es la de MORA, no la que ya trae el resultado observado. Proponer
+                    # aquí la del incumplimiento empujaría a contestar una cosa con la otra.
+                    "precargas": (),
                 },
                 {
                     "id": "columna_marcada",
@@ -475,6 +500,22 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         {
                             "path": "all_of.0.value",
                             "salvo_si": {"path": "all_of.0.op", "vale": ("isna", "notna")},
+                        },
+                    ),
+                    # 🔴 El caso de D-COL-8, medido: «Validar un modelo existente» ya le preguntó al
+                    # usuario qué columna dice si la operación terminó incumpliendo, y acto seguido
+                    # esta decisión le vuelve a preguntar lo mismo. Se propone la columna; el VALOR
+                    # que marca al malo sigue siendo hueco, porque eso es criterio institucional y
+                    # nadie lo puede suponer (D-COL-7).
+                    "precargas": (
+                        {
+                            "slot": "all_of.0.col",
+                            "desde": "performance.target_column",
+                            "insumo": ("calibration", "calibrated_pd_frame"),
+                            "nota": (
+                                "es la columna que ya dijiste que marca si la operación terminó "
+                                "incumpliendo"
+                            ),
                         },
                     ),
                 },
@@ -505,6 +546,9 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "holdout_fraction": 0.2,
                     },
                     "slots": ("date_col", "oot_from"),
+                    # La columna que el trabajo ya preguntó dice a qué MUESTRA pertenece cada
+                    # operación, no en qué fecha ocurrió: no hay nada que proponer aquí.
+                    "precargas": (),
                 },
                 {
                     "id": "cohort",
@@ -521,6 +565,9 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "holdout_fraction": 0.2,
                     },
                     "slots": ("cohort_col", "oot_cohorts"),
+                    # Idem: una camada de originación no es la muestra a la que se asignó cada
+                    # operación, aunque en algunas carteras coincidan.
+                    "precargas": (),
                 },
                 {
                     "id": "columna",
@@ -551,6 +598,21 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         # que el motor acepta: era el motor reclamando una muestra que nadie separa.
                         {"alguno_de": ("desarrollo", "holdout", "oot")},
                     ),
+                    # 🔴 La otra mitad del caso de D-COL-8: la misma columna que el trabajo ya
+                    # preguntó —«¿cuál dice a qué muestra pertenece cada operación?»— es exactamente
+                    # lo que esta forma necesita. El MAPEO de valores a las tres muestras no se
+                    # propone: qué vale «DEV» en esta institución no lo sabe el motor (D-COL-3).
+                    "precargas": (
+                        {
+                            "slot": "partition_col",
+                            "desde": "performance.partition_column",
+                            "insumo": ("calibration", "calibrated_pd_frame"),
+                            "nota": (
+                                "es la columna que ya dijiste que marca a qué muestra pertenece "
+                                "cada operación"
+                            ),
+                        },
+                    ),
                 },
                 {
                     "id": "random",
@@ -571,6 +633,8 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "stratify_by": None,
                     },
                     "slots": (),
+                    # Sortear las filas no usa ninguna columna del usuario.
+                    "precargas": (),
                 },
             ),
         },
@@ -618,8 +682,9 @@ def _exige_claves(entrada: dict[str, Any], esperadas: frozenset[str], que: str) 
         )
 
 
-_CLAVES_DE_FORMA = frozenset({"id", "label", "help", "template", "slots"})
+_CLAVES_DE_FORMA = frozenset({"id", "label", "help", "template", "slots", "precargas"})
 _CLAVES_DE_DECISION = frozenset({"path", "question", "help", "answer_forms"})
+_CLAVES_DE_PRECARGA = frozenset({"slot", "desde", "insumo", "nota"})
 
 
 def _forma_json(forma: dict[str, Any]) -> dict[str, Any]:
@@ -633,6 +698,18 @@ def _forma_json(forma: dict[str, Any]) -> dict[str, Any]:
         # convirtiendo las tuplas del literal en listas para que viaje por JSON.
         "template": _json_profundo(forma["template"]),
         "slots": [_slot_json(s) for s in forma["slots"]],
+        "precargas": [_precarga_json(p) for p in forma["precargas"]],
+    }
+
+
+def _precarga_json(precarga: dict[str, Any]) -> dict[str, Any]:
+    """Copia JSON-able de una precarga (D-COL-8), campo a campo y exigiendo su forma exacta."""
+    _exige_claves(precarga, _CLAVES_DE_PRECARGA, f"precarga de {precarga.get('slot')!r}")
+    return {
+        "slot": precarga["slot"],
+        "desde": precarga["desde"],
+        "insumo": list(precarga["insumo"]),
+        "nota": precarga["nota"],
     }
 
 

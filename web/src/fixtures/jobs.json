@@ -16,6 +16,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -45,6 +46,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -80,6 +92,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -95,6 +108,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -110,6 +124,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -132,6 +157,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -177,6 +203,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -206,6 +233,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -241,6 +279,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -256,6 +295,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -271,6 +311,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -293,6 +344,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -344,6 +396,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -373,6 +426,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -408,6 +472,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -423,6 +488,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -438,6 +504,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -460,6 +537,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -499,6 +577,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -528,6 +607,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -563,6 +653,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -578,6 +669,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -593,6 +685,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -615,6 +718,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -708,6 +812,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -737,6 +842,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -772,6 +888,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -787,6 +904,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -802,6 +920,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -824,6 +953,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -863,6 +993,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -892,6 +1023,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -927,6 +1069,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -942,6 +1085,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -957,6 +1101,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -979,6 +1134,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -1025,6 +1181,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -1054,6 +1211,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -1089,6 +1257,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -1104,6 +1273,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -1119,6 +1289,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -1141,6 +1322,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -1232,6 +1414,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -1261,6 +1444,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -1296,6 +1490,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -1311,6 +1506,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -1326,6 +1522,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -1348,6 +1555,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -1409,6 +1617,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -1438,6 +1647,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -1473,6 +1693,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -1488,6 +1709,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -1503,6 +1725,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -1525,6 +1758,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,
@@ -1567,6 +1801,7 @@
               "help": "Para la política clásica: «más de 90 días de mora», sola o junto con otra condición. Eliges la columna, la comparación y el corte.",
               "id": "condiciones",
               "label": "La escribo como condiciones sobre mis columnas",
+              "precargas": [],
               "slots": [
                 "all_of.0.col",
                 "all_of.0.op",
@@ -1596,6 +1831,17 @@
               "help": "Tu archivo trae la marca de incumplimiento ya calculada por tu área. Dices qué columna la lleva y qué valor marca al malo; el motor no supone que sea un 1.",
               "id": "columna_marcada",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.target_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca si la operación terminó incumpliendo",
+                  "slot": "all_of.0.col"
+                }
+              ],
               "slots": [
                 "all_of.0.col",
                 {
@@ -1631,6 +1877,7 @@
               "help": "La opción que mejor anticipa producción, porque valida contra un período que el modelo no vio. Necesita una columna de fecha y desde cuándo empieza el período reservado.",
               "id": "temporal",
               "label": "Por fecha: lo más reciente queda fuera de tiempo",
+              "precargas": [],
               "slots": [
                 "date_col",
                 "oot_from"
@@ -1646,6 +1893,7 @@
               "help": "Cuando tu cartera se agrupa en camadas —trimestres de originación, campañas— y quieres reservar camadas completas en vez de cortar por una fecha.",
               "id": "cohort",
               "label": "Por cohortes, reservando algunas enteras",
+              "precargas": [],
               "slots": [
                 "cohort_col",
                 "oot_cohorts"
@@ -1661,6 +1909,17 @@
               "help": "Tu archivo ya trae la división que usa tu área. Dices qué columna la lleva y qué valores corresponden a cada muestra; nada se adivina por parecido de nombre ni por orden.",
               "id": "columna",
               "label": "Ya viene marcada en una columna de mi archivo",
+              "precargas": [
+                {
+                  "desde": "performance.partition_column",
+                  "insumo": [
+                    "calibration",
+                    "calibrated_pd_frame"
+                  ],
+                  "nota": "es la columna que ya dijiste que marca a qué muestra pertenece cada operación",
+                  "slot": "partition_col"
+                }
+              ],
               "slots": [
                 "partition_col",
                 {
@@ -1683,6 +1942,7 @@
               "help": "Reparte las filas al azar. ⚠️ El trozo «fuera de tiempo» que produce NO es posterior en el tiempo: sale del mismo período que el resto, así que mide menos de lo que su nombre promete. Úsala sólo si tus datos no tienen ninguna columna de fecha ni de camada.",
               "id": "random",
               "label": "Al azar, en tres trozos",
+              "precargas": [],
               "slots": [],
               "template": {
                 "dev_fraction": 0.7,

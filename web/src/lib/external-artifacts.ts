@@ -9,7 +9,7 @@
  */
 
 import type { ConfigDict, ExternalArtifactRef } from "@/lib/api"
-import type { ExternalArtifact, Job } from "@/lib/jobs"
+import type { AnswerForm, ExternalArtifact, Job } from "@/lib/jobs"
 
 /**
  * Un archivo que el usuario ya subió para cubrir un insumo externo.
@@ -159,6 +159,116 @@ export function withColumnMapping(
       node = child as Record<string, unknown>
     }
     if (reachable) node[leaf] = column
+  }
+  return next
+}
+
+/** Una propuesta lista para pintar: qué hueco se rellenaría, con qué y de dónde salió (D-COL-8). */
+export interface PropuestaDePrecarga {
+  /** El hueco de la plantilla, en el vocabulario que publica el catálogo. */
+  slot: string
+  /** El nombre de columna que el usuario ya dio. Sale del config, nunca de aquí. */
+  valor: string
+  /** La procedencia, en idioma de negocio. La escribe el backend. */
+  nota: string
+}
+
+/**
+ * Lo que una forma de respuesta puede PROPONER con el estado actual (D-COL-8).
+ *
+ * `motivo` sólo se llena cuando había de dónde proponer y **no procede**: se dice por qué (D-JOB-5)
+ * en vez de callarlo. Que un archivo no dé para proponer nada es información útil —el usuario acaba
+ * de mapear esa misma columna y esperaría verla—, mientras que no haber subido nada todavía no lo
+ * es.
+ */
+export interface PrecargasDeForma {
+  propuestas: PropuestaDePrecarga[]
+  motivo: string | null
+}
+
+/** Sin propuestas ni motivo: el caso normal de una forma que no declara ninguna precarga. */
+const SIN_PRECARGAS: PrecargasDeForma = { propuestas: [], motivo: null }
+
+/**
+ * 🔴 **La guarda que hace correcto todo esto**: el motor lee la columna de la CARTERA, así que
+ * proponer una del archivo externo sólo vale si son el mismo archivo. Sin esta comprobación sería un
+ * error de categoría **silencioso** — la corrida moriría mucho después nombrando una columna que el
+ * usuario sí ve, pero en el otro archivo.
+ */
+const MOTIVO_OTRO_ARCHIVO =
+  "No te la proponemos aquí: el archivo que subiste no es el mismo que tu cartera, " +
+  "así que sus columnas no son las de esta pregunta."
+
+/**
+ * Las propuestas que esta forma puede ofrecer, sin tocar el config.
+ *
+ * ⚠️ **No escribe nada**: devuelve lo que se PODRÍA escribir. El config no cambia hasta que el
+ * usuario elige la forma, y por eso el estado de la decisión no se mueve por tener una propuesta
+ * disponible (D-OBL-5 intacto).
+ */
+export function precargasDeForma(
+  forma: AnswerForm,
+  config: ConfigDict,
+  carteraDatasetId: string | null,
+  inputs: Readonly<Record<string, ExternalInput>>,
+): PrecargasDeForma {
+  if (forma.precargas.length === 0) return SIN_PRECARGAS
+  const propuestas: PropuestaDePrecarga[] = []
+  let motivo: string | null = null
+  for (const precarga of forma.precargas) {
+    const input = inputs[artifactKey(precarga.insumo)]
+    // Nada subido todavía: no hay propuesta y tampoco hay nada que explicar.
+    if (input === undefined || carteraDatasetId === null) continue
+    const valor = valueAtPath(config, precarga.desde)
+    // 🔴 El valor se comprueba ANTES que el archivo, y el orden importa: si el usuario todavía no
+    // ha contestado esa pregunta, no había nada que proponerle, así que explicarle por qué no se lo
+    // proponemos es ruido sobre algo que no ha pasado. Se vio en pantalla —el aviso salía sobre la
+    // regla de malo con la columna del incumplimiento sin mapear—, no en los tests.
+    //
+    // 🔴 Y «no está en blanco» NO basta, que es el defecto que la pantalla destapó: el esqueleto
+    // del trabajo siembra estos campos con el DEFAULT DEL MOTOR (`target`, `partition`), así que
+    // sin esta guarda se proponía el default del motor con el rótulo «esto sale de lo que ya
+    // dijiste sobre tu archivo» — una mentira literal, y el motor contestando por el usuario justo
+    // donde D-OBL-5 lo prohíbe. Lo que prueba que la respuesta es SUYA es que nombre una columna
+    // que su archivo tiene; y como el archivo es el mismo que la cartera (guarda de abajo), es
+    // además la comprobación de que la columna propuesta existe donde el motor la va a buscar.
+    if (typeof valor !== "string" || !input.columns.includes(valor)) continue
+    if (input.datasetId !== carteraDatasetId) {
+      motivo = MOTIVO_OTRO_ARCHIVO
+      continue
+    }
+    propuestas.push({ slot: precarga.slot, valor, nota: precarga.nota })
+  }
+  return { propuestas, motivo: propuestas.length > 0 ? null : motivo }
+}
+
+/**
+ * La plantilla de la forma con sus huecos propuestos ya puestos (D-COL-8).
+ *
+ * Copia valores a las rutas que **el backend declaró**; no compone dominio ni conoce el significado
+ * de un solo campo, igual que la evaluación del `when` de un insumo o de la condición de un hueco
+ * (SDD-23 §11). Con la lista vacía devuelve la plantilla tal cual, que es el camino de siempre.
+ */
+export function plantillaConPrecargas(
+  template: unknown,
+  propuestas: readonly PropuestaDePrecarga[],
+): unknown {
+  if (propuestas.length === 0) return template
+  const next = structuredClone(template)
+  for (const { slot, valor } of propuestas) {
+    const segments = slot.split(".")
+    const leaf = segments.pop()
+    if (leaf === undefined) continue
+    let node: unknown = next
+    for (const segment of segments) {
+      if (typeof node !== "object" || node === null) break
+      node = Array.isArray(node)
+        ? node[Number(segment)]
+        : (node as Record<string, unknown>)[segment]
+    }
+    if (typeof node !== "object" || node === null) continue
+    if (Array.isArray(node)) node[Number(leaf)] = valor
+    else (node as Record<string, unknown>)[leaf] = valor
   }
   return next
 }

@@ -52,6 +52,29 @@ export interface AnswerForm {
   help: string
   template: unknown
   slots: Slot[]
+  /** Huecos que pueden llegar PROPUESTOS desde algo que el usuario ya contestó (D-COL-8). */
+  precargas: Precarga[]
+}
+
+/**
+ * Un hueco que se puede proponer desde una columna que el trabajo ya preguntó (D-COL-8).
+ *
+ * El VALOR no viaja aquí —lo escribió el usuario y vive en el config, bajo `desde`—: lo que el
+ * backend declara es de dónde sacarlo y bajo qué condición vale. `insumo` es el archivo externo del
+ * que salió esa respuesta, y la propuesta sólo procede si ese archivo es **el mismo** que la
+ * cartera: el motor lee esta columna de la cartera, así que pegar ahí una columna de otro archivo
+ * sería un error de categoría silencioso.
+ *
+ * 🔴 Proponer no es contestar. El config no se toca hasta el gesto del usuario, y la propuesta
+ * nunca cubre todos los huecos de su forma: el criterio institucional —qué valor marca al malo, qué
+ * valores corresponden a cada muestra— sigue siendo suyo (D-OBL-5).
+ */
+export interface Precarga {
+  slot: string
+  desde: string
+  insumo: [string, string]
+  /** La procedencia, en idioma de negocio: lo único de esto que el usuario lee. */
+  nota: string
 }
 
 /**

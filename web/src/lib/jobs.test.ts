@@ -510,13 +510,20 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
 })
 
 describe("guardrail: elegir una forma escribe la plantilla del backend, no una compuesta aquí", () => {
-  it("`ConfigTab` pasa `forma.template` tal cual a `setField`", () => {
+  it("`ConfigTab` pasa la plantilla del catálogo a `setField`", () => {
     // Vitest corre sin DOM: se vigila el fuente, igual que el guardrail de montaje de abajo. Lo
     // que se protege es que el front NO componga el fragmento de dominio (SDD-23 §11) — si algún
     // día alguien construyera aquí el `Rule`, la interfaz y el motor podrían separarse en silencio.
     expect(configTabSource).toMatch(/onAnswerForm=\{\(path, template\) =>/)
     expect(configTabSource).toMatch(/setField\(path\.split\("\."\) as Path, template\)/)
-    expect(configTabSource).toMatch(/onAnswerForm\(decision\.path, forma\.template\)/)
+    // ⚠️ Con D-COL-8 la plantilla puede llegar con sus huecos PROPUESTOS, y por eso ya no se pasa
+    // `forma.template` crudo. El guardrail conserva su fuerza porque `plantillaConPrecargas` sólo
+    // copia valores a rutas que el backend declaró: sigue sin haber dominio compuesto aquí, y la
+    // única vía admitida está nombrada, así que componer a mano seguiría poniendo esto en rojo.
+    expect(configTabSource).toMatch(
+      /onAnswerForm\(\s*decision\.path,\s*plantillaConPrecargas\(forma\.template, propuesto\.propuestas\),\s*\)/,
+    )
+    expect(configTabSource).not.toMatch(/all_of|any_of|"columna"|"temporal"/)
   })
 })
 

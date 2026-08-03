@@ -310,7 +310,7 @@ def test_una_decision_sin_ramas_ni_alternativas_no_inventa_formas() -> None:
 
 
 def test_el_copy_de_una_forma_no_habla_en_jerga_interna() -> None:
-    """Lo único que el usuario lee de una forma es `label` y `help` (D-OBL-9)."""
+    """Lo único que el usuario lee de una forma es `label`, `help` y la `nota` (D-OBL-9)."""
     prohibido = ("bad_rule", "all_of", "any_of", "partition", "strategy", "config", "path", "slot")
     ofensores = []
     for path, decision in _decisiones().items():
@@ -319,6 +319,15 @@ def test_el_copy_de_una_forma_no_habla_en_jerga_interna() -> None:
                 texto = forma[campo].lower()
                 ofensores += [
                     f"{path}/{forma['id']}.{campo}: «{t}»" for t in prohibido if t in texto
+                ]
+            # La procedencia también se lee en pantalla, y es la que más riesgo tiene de nombrar el
+            # campo interno del que sale («viene de performance.target_column»).
+            for precarga in forma["precargas"]:
+                texto = precarga["nota"].lower()
+                ofensores += [
+                    f"{path}/{forma['id']}.precargas[{precarga['slot']}].nota: «{t}»"
+                    for t in prohibido
+                    if t in texto
                 ]
     assert ofensores == [], ofensores
 
@@ -359,6 +368,164 @@ def test_ningun_insumo_externo_escribe_en_un_path_de_decision() -> None:
     }
     assert escritos, "el barrido no encontró ni un `config_path`: el oráculo está roto"
     assert escritos & decisiones == set(), sorted(escritos & decisiones)
+
+
+#: 🔴 **Oráculo INDEPENDIENTE de las precargas** (D-COL-8): qué pregunta del trabajo origina cada
+#: propuesta. Se escribe a mano; el catálogo tiene que coincidir **en las dos direcciones**.
+#:
+#: La clave es `(path de la decisión, id de la forma, hueco propuesto)` y el valor, la pregunta
+#: LITERAL que el trabajo ya le hizo al usuario sobre su archivo externo. Si el catálogo propusiera
+#: un hueco desde una columna que nadie preguntó, o desde una pregunta que significa otra cosa, esta
+#: tabla no cuadraría — y ése es exactamente el error de categoría que D-COL-8 puede cometer.
+_PRECARGAS_ESPERADAS: dict[tuple[str, str, str], str] = {
+    (
+        "data.target.bad_rule",
+        "columna_marcada",
+        "all_of.0.col",
+    ): "¿Qué columna dice si la operación terminó incumpliendo?",
+    (
+        "data.partition.strategy",
+        "columna",
+        "partition_col",
+    ): "¿Qué columna dice a qué muestra pertenece cada operación?",
+}
+
+
+def _precargas_del_catalogo() -> dict[tuple[str, str, str], dict[str, Any]]:
+    """``{(path, forma, slot): precarga}`` tal como el catálogo la publica."""
+    return {
+        (path, forma["id"], precarga["slot"]): precarga
+        for path, decision in _decisiones().items()
+        for forma in decision["answer_forms"]
+        for precarga in forma["precargas"]
+    }
+
+
+def test_las_precargas_publicadas_son_exactamente_las_esperadas() -> None:
+    """Bidireccional contra el oráculo a mano: ni una de más, ni una de menos (D-COL-8).
+
+    Una precarga de más propone una columna que el usuario no autorizó a reutilizar; una de menos
+    devuelve al usuario a escribir a ciegas lo que ya dijo. Las dos son silenciosas.
+    """
+    assert sorted(_precargas_del_catalogo()) == sorted(_PRECARGAS_ESPERADAS)
+
+
+def test_toda_precarga_sale_de_una_pregunta_ya_hecha_al_usuario() -> None:
+    """El `desde` de una precarga es el campo donde el trabajo escribió una respuesta ya dada.
+
+    Se verifica contra `external_artifacts`, que es **otra** estructura del catálogo, y contra la
+    pregunta literal del oráculo de arriba. Así, cambiar el `desde` a un campo que significa otra
+    cosa —la PD en vez del resultado observado— pone rojo aunque el path exista.
+    """
+    insumos = {
+        (tuple(entrada["artifact"]), ruta): entrada
+        for job in list_jobs()
+        for entrada in job["external_artifacts"]
+        for columna in entrada["columns"]
+        for ruta in columna["config_paths"]
+    }
+    preguntas = {
+        (tuple(entrada["artifact"]), ruta): columna["question"]
+        for job in list_jobs()
+        for entrada in job["external_artifacts"]
+        for columna in entrada["columns"]
+        for ruta in columna["config_paths"]
+    }
+    assert preguntas, "el barrido no encontró ni una columna de insumo externo: oráculo roto"
+    for clave, precarga in _precargas_del_catalogo().items():
+        coordenada = (tuple(precarga["insumo"]), precarga["desde"])
+        assert coordenada in insumos, (
+            f"{clave}: propone desde «{precarga['desde']}», que ningún trabajo mapea para el "
+            f"insumo {precarga['insumo']}. Estaría proponiendo un dato que nadie pidió."
+        )
+        assert preguntas[coordenada] == _PRECARGAS_ESPERADAS[clave], (
+            f"{clave}: el catálogo lo propone desde «{preguntas[coordenada]}» y el oráculo dice "
+            f"«{_PRECARGAS_ESPERADAS[clave]}». Dos columnas distintas del mismo archivo."
+        )
+
+
+def test_ninguna_precarga_toca_un_hueco_que_no_sea_de_su_forma() -> None:
+    """El hueco propuesto es uno de los que la forma declara institucionales, no otro cualquiera.
+
+    Se mide contra `_INSTITUCIONALES` —el oráculo escrito a mano— y no contra `slots`: comparar las
+    precargas con los slots sería comparar dos declaraciones del mismo literal.
+    """
+    for (path, forma_id, slot), _ in _precargas_del_catalogo().items():
+        assert slot in _INSTITUCIONALES[path, forma_id], (
+            f"{path}/{forma_id}: propone «{slot}», que no es uno de los huecos institucionales de "
+            f"esa forma {sorted(_INSTITUCIONALES[path, forma_id])}."
+        )
+
+
+def test_ninguna_precarga_deja_una_decision_contestada_sin_gesto_del_usuario() -> None:
+    """🔴 El corazón de D-COL-8: pre-rellenar, JAMÁS auto-contestar.
+
+    Si las precargas de una forma cubrieran todos sus huecos, un solo clic dejaría la decisión con
+    su tilde verde sin que el usuario haya aportado ningún criterio institucional — el falso «ya
+    está» que D-OBL-5 existe para impedir, ahora por la puerta de atrás del pre-relleno.
+
+    El oráculo es `_INSTITUCIONALES`, a mano. Lo que se comprueba es que, quitando lo propuesto,
+    **queda al menos un hueco** que sólo la institución puede llenar.
+    """
+    comprobadas = 0
+    for path, decision in _decisiones().items():
+        for forma in decision["answer_forms"]:
+            propuestos = {p["slot"] for p in forma["precargas"]}
+            if not propuestos:
+                continue
+            quedan = _INSTITUCIONALES[path, forma["id"]] - propuestos
+            assert quedan, (
+                f"{path}/{forma['id']}: las precargas cubren TODOS los huecos institucionales. "
+                "Un clic dejaría la decisión contestada sin que el usuario decidiera nada."
+            )
+            comprobadas += 1
+    assert comprobadas == 2, comprobadas
+
+
+def test_ninguna_precarga_encadena_una_decision_con_otra() -> None:
+    """El `desde` es una respuesta sobre el ARCHIVO, nunca otra decisión institucional.
+
+    Precargar una decisión desde otra propagaría el criterio de la institución de un sitio a otro
+    sin que ella lo dijera dos veces, que es justo lo que D-OBL-1 no permite.
+    """
+    decisiones = set(_decisiones())
+    for clave, precarga in _precargas_del_catalogo().items():
+        assert precarga["desde"] not in decisiones, f"{clave}: {precarga['desde']}"
+
+
+def test_un_config_precargado_y_aceptado_tiene_la_misma_identidad_que_el_escrito_a_mano() -> None:
+    """El pre-relleno no deja rastro alguno en el config (D-COL-8, D-OBL-10).
+
+    Es la propiedad que hace que la procedencia sea información de PANTALLA y no un metadato que
+    viaje: dos corridas iguales tienen que ser la misma corrida, viniera la columna propuesta o
+    escrita a mano.
+    """
+    preset = standard_preset()["config"]
+    forma = next(
+        f for f in _decisiones()["data.partition.strategy"]["answer_forms"] if f["id"] == "columna"
+    )
+    assert [p["slot"] for p in forma["precargas"]] == ["partition_col"]
+
+    # El camino con propuesta: la plantilla con el hueco propuesto ya puesto, más el mapeo que el
+    # usuario sí tiene que decidir.
+    precargado = copy.deepcopy(forma["template"])
+    _rellena(precargado, "partition_col", "muestra")
+    _rellena(precargado, "desarrollo", ["DEV"])
+
+    por_propuesta = copy.deepcopy(preset)
+    por_propuesta["data"]["partition"]["strategy"] = precargado
+
+    a_mano = copy.deepcopy(preset)
+    a_mano["data"]["partition"]["strategy"] = {
+        "type": "columna",
+        "partition_col": "muestra",
+        "desarrollo": ["DEV"],
+        "holdout": [],
+        "oot": [],
+    }
+    assert config_hash(NikodymConfig.model_validate(por_propuesta)) == config_hash(
+        NikodymConfig.model_validate(a_mano)
+    )
 
 
 def test_completar_por_una_forma_da_la_misma_identidad_que_escribirlo_a_mano() -> None:
@@ -403,9 +570,13 @@ def test_el_catalogo_devuelve_copias_hasta_el_fondo() -> None:
     primero = decisiones_de(["data"])
     primero[0]["answer_forms"][0]["template"]["all_of"][0]["col"] = "MUTADO"
     primero[0]["answer_forms"][0]["slots"].append("MUTADO")
+    # Y las precargas, que son el nivel que D-COL-8 añadió: sin esta línea el gate volvería a medir
+    # sólo lo que existía cuando se escribió.
+    primero[0]["answer_forms"][1]["precargas"][0]["desde"] = "MUTADO"
     limpio = decisiones_de(["data"])
     assert limpio[0]["answer_forms"][0]["template"]["all_of"][0]["col"] == ""
     assert "MUTADO" not in limpio[0]["answer_forms"][0]["slots"]
+    assert limpio[0]["answer_forms"][1]["precargas"][0]["desde"] == "performance.target_column"
 
 
 @pytest.mark.parametrize(
@@ -413,9 +584,14 @@ def test_el_catalogo_devuelve_copias_hasta_el_fondo() -> None:
     [
         ({"path": "x", "question": "¿?", "help": "h", "answer_forms": ()}, "_decision_json", "x"),
         (
-            {"id": "i", "label": "l", "help": "h", "template": {}, "slots": ()},
+            {"id": "i", "label": "l", "help": "h", "template": {}, "slots": (), "precargas": ()},
             "_forma_json",
             "y",
+        ),
+        (
+            {"slot": "s", "desde": "a.b", "insumo": ("d", "k"), "nota": "n"},
+            "_precarga_json",
+            "z",
         ),
     ],
 )

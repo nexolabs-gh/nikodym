@@ -1,16 +1,45 @@
 # Enmienda SDD — lo que ya traes en tu archivo se declara, no se vuelve a inventar
 
-> **Estado: APROBADA por Cami (2026-08-02) — D-COL-2/3/4, D-COL-6, D-COL-7 y D-COL-9 IMPLEMENTADAS;
-> D-COL-8 implementada A MEDIAS y su otra mitad CERRADA con su medición (ver más abajo).** El camino
-> lo fijó él tras leer la medición: **el motor aprende a leer**. La opción que el plan traía escrita
-> —«acotar las decisiones por trabajo»— se midió y **no es implementable**; el porqué está en §1.3 y
-> es la mitad valiosa de este documento.
+> **Estado: APROBADA por Cami (2026-08-02) — D-COL-2/3/4 y D-COL-6…D-COL-9 IMPLEMENTADAS.**
+> D-COL-8 quedó **completa el 2026-08-03**: ver «Lo que la implementación de D-COL-8 corrigió» más
+> abajo. El camino lo fijó Cami tras leer la medición: **el motor aprende a leer**. La opción que el
+> plan traía escrita —«acotar las decisiones por trabajo»— se midió y **no es implementable**; el
+> porqué está en §1.3 y es la mitad valiosa de este documento.
 >
 > **Base:** `main` = `3349245`. **Autor / Fecha:** DanIA / 2026-08-02.
 >
-> ## 🔴 D-COL-8: la mitad que se implementó, y la mitad que NO tiene caso — medido
+> ## 🔴 Lo que la implementación de D-COL-8 corrigió de este documento (2026-08-03)
 >
-> D-COL-8 dice dos cosas, y sólo una era implementable hoy.
+> El pre-relleno cruzado viaja por un campo **propio de la forma**, `precargas`, y **nunca** por
+> `config_paths` — el gate de §4 lo prohíbe y hace bien—. Cada entrada declara el hueco que propone,
+> el path donde el trabajo ya preguntó por esa columna, el insumo externo del que salió y su nota de
+> procedencia. Es **autolimitante**: las formas se declaran por SECCIÓN y las heredan los nueve
+> trabajos, pero uno que no declare ese insumo no tiene de dónde proponer.
+>
+> 🔴 **Y el diseño escrito aquí no bastaba. La verificación en vivo destapó un defecto que ningún
+> test veía, y es la lección de este cierre:** «el campo de origen no está en blanco» **no** prueba
+> que el usuario haya contestado. El esqueleto del trabajo (D-OBL-11) siembra
+> `performance.target_column = "target"` y `performance.partition_column = "partition"` —los
+> **defaults del motor**—, así que la primera implementación proponía el default del motor con el
+> rótulo «esto sale de lo que ya dijiste sobre tu archivo». Mentira literal, y el motor contestando
+> por el usuario justo donde D-OBL-5 lo prohíbe. **La guarda que quedó: el valor tiene que ser una
+> columna que el archivo del usuario realmente tiene** —lo que además comprueba que la columna existe
+> donde el motor la va a buscar—. Con la guarda de `dataset_id` encima, las dos condiciones se
+> refuerzan.
+>
+> ⚠️ Segundo ajuste de la misma verificación: el motivo de «no procede» se calcula **después** de
+> comprobar que había algo que proponer. Explicar por qué no se propone algo que el usuario todavía
+> no podía recibir es ruido sobre algo que no ha pasado.
+>
+> **Verificado en vivo de punta a punta** con el trabajo «Validar un modelo existente»: subir el
+> mismo archivo como cartera y como insumo, mapear sus columnas, ver las dos propuestas con su
+> procedencia, aceptarlas —las dos decisiones quedan en **«Te falta un dato»**, no «Respondida»—,
+> rellenar el criterio institucional y llegar a **«Corrida completada»**. Con un archivo **distinto**
+> no se propone nada y se explica por qué.
+>
+> ## 🔴 D-COL-8: la mitad que se implementó primero, y el caso de la otra — medido
+>
+> D-COL-8 dice dos cosas, y en la sesión del 2026-08-02 sólo una era implementable.
 >
 > **Lo que SÍ se implementó, y resultó ser lo importante: «sin un gesto del usuario, el config sigue
 > incompleto y honesto».** Con formas de respuesta esto dejó de salir gratis. Elegir una forma
@@ -21,7 +50,7 @@
 > cierran los `slots` —los huecos que cada forma declara— y un **tercer estado** en la interfaz («Te
 > falta un dato»), verificado en vivo.
 >
-> **Lo que falta: el pre-relleno CRUZADO desde un insumo externo. Y su caso EXISTE — justo en el
+> **Lo que faltaba: el pre-relleno CRUZADO desde un insumo externo. Y su caso EXISTE — justo en el
 > trabajo que originó esta enmienda.**
 >
 > 🔴 Se estuvo a punto de cerrarlo declarando que no había caso. Medirlo antes de escribirlo lo

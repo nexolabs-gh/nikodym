@@ -33,6 +33,7 @@ import {
 } from "@/lib/api"
 import type { SeedState } from "@/lib/bootstrap"
 import {
+  type AnswerForm,
   type DecisionStatus,
   type Job,
   type JobSwitch,
@@ -41,6 +42,11 @@ import {
   jobSwitchNotice,
   loadJobs,
 } from "@/lib/jobs"
+import {
+  type PrecargasDeForma,
+  plantillaConPrecargas,
+  precargasDeForma,
+} from "@/lib/external-artifacts"
 import { type Path, getAtPath, removeAtPath, setAtPath } from "@/lib/config-store"
 import { columnValuesByName } from "@/lib/datasets"
 import {
@@ -198,11 +204,14 @@ function RequiredDecisions({
   section,
   onFocus,
   onAnswerForm,
+  precargas,
 }: {
   decisions: DecisionStatus[]
   section: string
   onFocus: (path: string) => void
   onAnswerForm: (path: string, template: unknown) => void
+  /** Lo que cada forma puede proponer con el estado actual (D-COL-8); no escribe nada. */
+  precargas: (forma: AnswerForm) => PrecargasDeForma
 }) {
   // Se pintan las de ESTA sección, igual que `PreflightNotice` y por la misma razón: el botón
   // enfoca un control del DOM, y el de otra sección no está montado. Ocho de los diez trabajos
@@ -252,22 +261,46 @@ function RequiredDecisions({
                   las alternativas invitaría a pisar lo escrito de un clic. */}
               {!decision.answered && !decision.inProgress && decision.answer_forms.length > 0 ? (
                 <ul className="mt-2 space-y-1.5">
-                  {decision.answer_forms.map((forma) => (
-                    <li key={forma.id}>
-                      <button
-                        type="button"
-                        className="w-full rounded-md border border-border/70 bg-background/40 px-2.5 py-1.5 text-left transition-colors hover:border-brand-cyan/50 hover:bg-brand-cyan/[0.06]"
-                        onClick={() => onAnswerForm(decision.path, forma.template)}
-                      >
-                        <span className="block text-xs font-medium text-foreground">
-                          {forma.label}
-                        </span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                          {forma.help}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
+                  {decision.answer_forms.map((forma) => {
+                    const propuesto = precargas(forma)
+                    return (
+                      <li key={forma.id}>
+                        <button
+                          type="button"
+                          className="w-full rounded-md border border-border/70 bg-background/40 px-2.5 py-1.5 text-left transition-colors hover:border-brand-cyan/50 hover:bg-brand-cyan/[0.06]"
+                          onClick={() =>
+                            onAnswerForm(
+                              decision.path,
+                              plantillaConPrecargas(forma.template, propuesto.propuestas),
+                            )
+                          }
+                        >
+                          <span className="block text-xs font-medium text-foreground">
+                            {forma.label}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                            {forma.help}
+                          </span>
+                          {/* La procedencia va DENTRO del botón y con el nombre a la vista: lo que
+                              se propone tiene que verse antes del clic, no descubrirse después en
+                              un campo que uno no recuerda haber llenado (D-COL-8). */}
+                          {propuesto.propuestas.map((p) => (
+                            <span
+                              key={p.slot}
+                              className="mt-1 block text-[11px] leading-snug text-brand-cyan/90"
+                            >
+                              Te proponemos «{p.valor}»: {p.nota}.
+                            </span>
+                          ))}
+                          {propuesto.motivo !== null ? (
+                            <span className="mt-1 block text-[11px] leading-snug text-amber-300/80">
+                              {propuesto.motivo}
+                            </span>
+                          ) : null}
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               ) : null}
               {decision.inProgress ? (
@@ -537,6 +570,8 @@ export function ConfigTab({ section }: { section: string }) {
     preflight,
     setFocusField,
     selectedDataset,
+    datasetId,
+    externalInputs,
   } = useAppState()
   const [yamlError, setYamlError] = useState<string | null>(null)
   const [yamlBusy, setYamlBusy] = useState(false)
@@ -786,6 +821,16 @@ export function ConfigTab({ section }: { section: string }) {
             setField(path.split(".") as Path, template)
             setFocusField(path)
           }}
+          // Lo que se puede PROPONER, calculado al pintar y sin tocar el config (D-COL-8). Es una
+          // función y no un valor porque depende de la forma, y el config sólo cambia con el clic.
+          precargas={(forma) =>
+            precargasDeForma(
+              forma,
+              (config ?? {}) as Record<string, unknown>,
+              datasetId,
+              externalInputs,
+            )
+          }
         />
 
         {/* Barra de estado + acciones (SDD §3.2 preset · §3.3 hash en vivo · §3.4 round-trip YAML). */}
