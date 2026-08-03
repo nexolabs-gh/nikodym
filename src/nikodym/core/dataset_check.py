@@ -68,6 +68,27 @@ METODO_REQUISITOS = "requisitos_incumplidos"
 #: a tocar las cuatro para que lo use una. Quien no lo declare sigue funcionando igual.
 METODO_REQUISITOS_PERFIL = "requisitos_incumplidos_por_perfil"
 
+#: Nombre del método con que una config declara cuáles de SUS campos de columna no se leen con la
+#: configuración actual (enmienda COLUMNA-EN-RAMA-INACTIVA, D-RAM-1).
+#:
+#: 🔴 Existe porque :data:`CLAVE_ROL` **no puede expresar condiciones**: el rol se declara en el
+#: ``Field``, y :func:`_declaraciones` lo lee sin mirar el valor de ningún hermano. Eso basta
+#: mientras el campo se consuma siempre, y deja de bastar en cuanto una rama lo apaga —
+#: ``ifrs9.ead.ccf_col`` sólo se lee con ``method='ccf'``, así que con ``method='provided'`` el
+#: preflight acusaba una columna que el motor **nunca abre**. Es el falso positivo que D-INV-8
+#: documentó con ``stratify_by``, y la regla del repo es que un aviso que se dispara de más se
+#: aprende a ignorar.
+#:
+#: Va por método propio y no ampliando el vocabulario de roles por la misma razón que
+#: :data:`METODO_REQUISITOS_PERFIL` nació aparte: quien no lo declare sigue funcionando igual, y la
+#: condición la escribe **la sección que la impone** (D-INV-1), que es la única que sabe qué rama
+#: consume qué.
+#:
+#: ⚠️ Suprime, no añade: es la primera pieza de este protocolo que puede **callar** un desajuste, así
+#: que un error suyo reintroduce el falso negativo silencioso que el preflight existe para cerrar.
+#: Por eso su gate se mide en los dos sentidos (D-RAM-4).
+METODO_COLUMNAS_INACTIVAS = "columnas_inactivas"
+
 
 @dataclass(frozen=True, slots=True)
 class PerfilColumna:
@@ -267,6 +288,18 @@ def _rol(modelo: type[BaseModel], nombre: str) -> str | None:
     return valor if isinstance(valor, str) else None
 
 
+def _columnas_inactivas(config: BaseModel) -> frozenset[str]:
+    """Campos del modelo cuya rama no corre con esta configuración (D-RAM-1), o vacío.
+
+    Duck-typing por convención de nombre, igual que :data:`METODO_REQUISITOS`: la config de dominio
+    no hereda del núcleo. Los nombres son los del **propio modelo** —no rutas anidadas— porque la
+    condición y el campo condicionado viven juntos: quien decide si ``ccf_col`` se lee es el
+    ``method`` que tiene al lado.
+    """
+    metodo = getattr(config, METODO_COLUMNAS_INACTIVAS, None)
+    return frozenset(metodo()) if callable(metodo) else frozenset()
+
+
 def _declaraciones(config: Any, prefijo: str = "") -> Iterator[tuple[str, str, str]]:
     """Recorre el config y emite ``(ruta, rol, columna)`` por cada columna declarada.
 
@@ -274,14 +307,19 @@ def _declaraciones(config: Any, prefijo: str = "") -> Iterator[tuple[str, str, s
     *blob* opaco del núcleo liviano, SDD-23 §4.1— **se salta**: sin su modelo no hay `Field` que
     consultar, y adivinar el rol por el nombre del campo sería exactamente el criterio disperso que
     D-PRE-3 evita. Quien necesite inspeccionarla la coacciona antes (como hace `/api/preflight`).
+
+    Un campo que el modelo declare **inactivo** (:data:`METODO_COLUMNAS_INACTIVAS`) no emite nada:
+    su rama no corre, así que exigir su columna sería un falso positivo (D-RAM-1). Sólo se pregunta
+    por los campos del propio modelo, que es donde vive la condición.
     """
     if isinstance(config, BaseModel):
         modelo = type(config)
+        inactivas = _columnas_inactivas(config)
         for nombre in type(config).model_fields:
             valor = getattr(config, nombre, None)
             ruta = f"{prefijo}{_alias(modelo, nombre)}"
             rol = _rol(modelo, nombre)
-            if rol in ROLES:
+            if rol in ROLES and nombre not in inactivas:
                 for columna in _columnas_de(valor):
                     yield ruta, rol, columna
             yield from _declaraciones(valor, f"{ruta}.")

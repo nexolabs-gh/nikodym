@@ -262,6 +262,18 @@ class IfrsLgdConfig(NikodymBaseConfig):
             )
         return self
 
+    def columnas_inactivas(self) -> frozenset[str]:
+        """Columnas que este enfoque de LGD no abre (D-RAM-1).
+
+        Sólo la regresión lee covariables: ``_estimate_regression`` es la rama ``else`` del
+        dispatch (`lgd.py:117-122`), así que con el default ``provided`` —y con ``workout``— la
+        lista está ahí pero el motor nunca la mira. ``recovery_col`` NO entra: las tres ramas la
+        leen si viene.
+        """
+        if self.method in ("beta_regression", "fractional_response"):
+            return frozenset()
+        return frozenset({"covariate_cols"})
+
 
 class IfrsEadConfig(NikodymBaseConfig):
     """Configuración de la EAD/CCF y el perfil de exposición por período."""
@@ -348,6 +360,16 @@ class IfrsEadConfig(NikodymBaseConfig):
         if self.method == "ccf" and self.ccf_col is not None and self.ccf_value is not None:
             raise IfrsConfigError("ead.method='ccf' admite ccf_col o ccf_value, no ambos a la vez.")
         return self
+
+    def columnas_inactivas(self) -> frozenset[str]:
+        """La columna de CCF sólo la abre el enfoque que estima la EAD desde el CCF (D-RAM-1).
+
+        Es el caso con que se reprodujo el falso positivo: ``method='provided'`` toma la EAD tal
+        cual y `_estimate_ccf` —el único lector de ``ccf_col``— ni se llama (`ead.py:131-135`).
+        ⚠️ Y el validador de arriba no lo impide: sólo veta ``ccf_col`` **y** ``ccf_value`` juntos, y
+        únicamente bajo ``method='ccf'``, así que el estado es perfectamente alcanzable.
+        """
+        return frozenset() if self.method == "ccf" else frozenset({"ccf_col"})
 
 
 class IfrsStagingConfig(NikodymBaseConfig):
@@ -512,6 +534,25 @@ class IfrsStagingConfig(NikodymBaseConfig):
                 "staging.notch_downgrade_threshold exige rating_col y origination_rating_col."
             )
         return self
+
+    def columnas_inactivas(self) -> frozenset[str]:
+        """Columnas de staging que el SICR no consulta con esta política (D-RAM-1).
+
+        Dos gatillos opcionales, y los dos se apagan por un campo hermano:
+
+        - Los ratings sólo los lee ``_fired_notch``, que **devuelve ceros sin mirarlos** cuando no
+          hay umbral de bajada de escalones (`staging.py:189-190`). El validador de arriba cierra la
+          implicación en un solo sentido —umbral ⇒ ratings—, así que declarar los ratings *sin*
+          umbral construye sin problema y no se lee nada.
+        - ``low_credit_risk_col`` sólo entra si la exención de bajo riesgo está encendida
+          (`staging.py:221-228`), y su default es ``False``.
+        """
+        inactivas = set()
+        if self.notch_downgrade_threshold is None:
+            inactivas.update({"rating_col", "origination_rating_col"})
+        if not self.low_credit_risk_exemption:
+            inactivas.add("low_credit_risk_col")
+        return frozenset(inactivas)
 
 
 class IfrsScenarioConfig(NikodymBaseConfig):

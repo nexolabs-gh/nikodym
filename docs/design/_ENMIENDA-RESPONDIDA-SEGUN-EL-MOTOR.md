@@ -159,3 +159,36 @@ ya viajan.
    la corrida; eso es alcance de `requisitos_incumplidos` (D-INV), no de aquí.
 4. **No toca el criterio de presencia** con que se decide si la decisión fue siquiera empezada: un
    `0`, un `false` o un `""` siguen siendo respuestas del usuario (D-FX-7).
+
+## 6. D-RES-7 — «no acepta lo que dice» no es «te falta un dato» (2026-08-03, tarde)
+
+> Enmienda a la propia §2 de este documento, tras la reproducción de la revisión adversarial
+> cruzada. **Aprobada e implementada.**
+
+**El defecto.** Este documento fundió el rechazo del motor con el estado `inProgress`, que ya
+existía para «elegiste una forma y le faltan huecos». El punto 2 de la §5 de arriba lo daba por
+inocuo —*«el usuario verá que la decisión sigue pendiente, con el error del motor donde ya
+aparece»*— y **las dos mitades de esa frase eran falsas**:
+
+1. El copy de `inProgress` dice literalmente *«Elegiste cómo contestarla; abajo te faltan los datos
+   de tu cartera»*. Con fracciones de partición `0.9/0.9/0.9` **no falta ningún dato**: los tres
+   están escritos y son inconsistentes entre sí. El mensaje manda a buscar un vacío que no existe.
+2. **El error del motor NO «aparece donde ya aparecía».** `errorAtPath` casa por igualdad exacta, y
+   el `loc` de ese caso es `data.partition.strategy.random` —con el tag del discriminador que la §3
+   de este mismo documento declara inexistente en el config—, así que **ningún control lo pinta**.
+   La tarjeta mandaba «abajo» a una pantalla sin una sola marca roja.
+
+**D-RES-7.** El estado de una decisión tiene **tres** valores excluyentes además de «sin empezar»:
+contestada, con huecos (`inProgress`) y **rechazada** (`rejected`). El hueco **gana** al veredicto:
+es más específico, más accionable y casi siempre la causa del rechazo — decir «revisa lo que
+escribiste» sobre una plantilla recién elegida sería la mentira simétrica.
+
+Y `rejected` **transporta el motivo tal como lo dio el motor**, que se cita sin reescribir: una
+segunda redacción del mismo mensaje en el front es como las dos se separan en silencio. Medido, el
+motivo es útil y ya viene en español —*«dev+holdout+oot debe sumar 1.0; suma observada = 2.1300»*—
+porque la traducción por `type` de Pydantic ya estaba resuelta.
+
+**Gate.** Los cinco casos de la tabla escrita a mano **no** pueden decir `inProgress` (el ancla
+anti-vacua ya demuestra que a ninguno le falta un hueco: sin veredicto salían «Respondida»), más un
+caso nuevo con hueco **y** rechazo que comprueba la prioridad, más un guardrail de fuente sobre
+`ConfigTab`. Control negativo ejecutado: refundir los dos estados pone dos tests en rojo.
