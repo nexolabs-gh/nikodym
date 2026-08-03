@@ -9,7 +9,54 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-02 noche, **el motor aprende a LEER lo que tu archivo trae**)
+## Estado vigente (2026-08-03 madrugada, **demo recapturada + las formas de respuesta**)
+
+**`main` = `6c256ef`.** CI 16/16 confirmado con `gh` sobre `9ef495d` y `84578eb`; los de `1568193`
+y `6c256ef` quedaron lanzados, **verificarlos al arrancar**. **PyPI sigue en `1.10.0` y no hay
+release autorizado.** Gates: pytest **4906 passed / 6 skipped**, vitest **591/591**, mypy 245,
+`ruff check` y `format`, typecheck y lint del front, bundle reconstruido, fixture regenerado,
+`mkdocs --strict`.
+
+✅ **La demo recapturada con el patrón C-D, sin reincidencia.** 🔴 Destapó que el lineage decía
+`nikodym 1.8.0` —el F4, **1.6.0**— con la librería en `1.10.0`: `importlib.metadata` sirve la
+versión **cacheada** del editable install. ⚠️ Reponerla con `uv sync --reinstall-package nikodym`
+**borra jupyterlab**. Y 🔴 el informe IFRS 9 **afirmaba una partición que ninguna etapa de su
+corrida consume**; ahora publica la frase honesta. **Nada lo comparaba.** Los capturadores ya no lo
+permiten.
+
+✅ **D-COL-6**: una decisión institucional se contesta **eligiendo una forma**, no escribiendo dos
+listas vacías rotuladas «Predicados unidos por AND». 🔴 Su pieza importante es el **tercer estado**:
+elegir una forma escribe la ESTRUCTURA, y medir «respondida» por presencia habría puesto el tilde
+verde sobre una regla sin columna ni valor. Verificado en vivo hasta «Corrida completada». ✅ Y el
+nombre de una columna **se elige** en los 8 campos escalares con rol `input`.
+
+🔴 **Codex pagó su corrida por sexta sesión seguida: 7 hallazgos.** El más caro no era de esta
+sesión: **`docs_site/` publicaba doce días cifras de calibración de una corrida que el motor ya no
+reproduce**, y ningún test ataba la documentación a los fixtures. Ahora sí. 🔴 **Dos gates míos
+resultaron autorreferenciales** —el de la landing leía menos de lo que la landing pinta; el de las
+formas rellenaba la plantilla desde los mismos `slots` que comprobaba— y se cerraron con oráculo
+independiente.
+
+⚠️ **Dos premisas mías salieron falsas al medirlas**, y las dos mejoraron el resultado:
+`_insumo_json` **descartaba en silencio** una clave nueva en vez de romper, y **el caso de D-COL-8
+SÍ existe** —«Validar un modelo existente» mapea las dos columnas que las decisiones preguntan y
+acto seguido las vuelve a preguntar—.
+
+⚠️ **Quedan dos falsos «Respondida» PREEXISTENTES**, medidos y con su camino escrito: cerrarlos
+exige que el backend publique qué forma aplica ⇒ SDD.
+
+✅ **Fase 3: el CENSO del abanico**, no el SDD.
+[`_CENSO-ABANICO-METODOLOGICO.md`](design/_CENSO-ABANICO-METODOLOGICO.md). 🔴 El mecanismo que
+D-JOB-5 necesita **ya existe** pero cubre 4 secciones de 14, y ⚠️ el bloqueador de fondo son los
+**`column_role` que faltan**: cero en todo `provisioning/`, así que **un config de provisiones que
+apunta a columnas inexistentes sale hoy `compatible=True`**.
+
+**Siguiente: D-COL-8, los dos falsos «Respondida», y el SDD del abanico.** Detalle en
+[`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-02 noche, **el motor aprende a LEER lo que tu archivo trae**)
 
 **`main` = `17c4ff9`.** Los tres anteriores —`f470b9b`, `489e686`, `7ed2e03`— con **CI 16/16
 confirmado con `gh`**; el de `17c4ff9` quedó lanzado, **verificarlo al arrancar**. **PyPI sigue en

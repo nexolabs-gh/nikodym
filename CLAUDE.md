@@ -5,7 +5,70 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-02 noche): **el motor aprende a LEER lo que tu archivo ya trae**
+> ## Lo último (2026-08-03 madrugada): **la demo recapturada, y una decisión se contesta de varias formas**
+>
+> **`main` = `6c256ef`.** CI 16/16 confirmado con `gh` sobre `9ef495d` y `84578eb`; los de `1568193`
+> y `6c256ef` quedaron lanzados y hay que **verificarlos al arrancar**. Gates: pytest **4906 passed
+> / 6 skipped**, vitest **591/591**, mypy 245, ruff check y format, typecheck y lint, bundle
+> reconstruido, fixture regenerado, `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **La demo recapturada con el patrón C-D, sin reincidencia** — árbol limpio, commit entre
+> capturas y `git_dirty=false` verificado en el informe recién escrito. 🔴 **Destapó que el lineage
+> decía `nikodym 1.8.0`** —el F4, **1.6.0**— con la librería en `1.10.0`: `importlib.metadata` sirve
+> la versión **cacheada** del editable install. ⚠️ Reponerla con `uv sync --reinstall-package
+> nikodym` **borra jupyterlab**, que vive fuera de `pyproject.toml`. Y 🔴 **el informe IFRS 9
+> afirmaba una partición que ninguna etapa de su corrida consume**: D-COL-9 lo gateó y ahora publica
+> la frase honesta. **Nada lo comparaba, así que ningún test lo veía.** Los capturadores ya no lo
+> permiten: exigen lineage completo, árbol limpio y la versión del árbol **antes de escribir nada**.
+>
+> ✅ **D-COL-6: una decisión institucional se contesta ELIGIENDO una forma.** Se acabó escribir a
+> mano dos listas rotuladas «Predicados unidos por AND» —vacías y con una insignia «Predeterminado;
+> se usará mientras no elijas otro» que era **falsa**—. 🔴 **Su pieza importante es el tercer
+> estado**: elegir una forma escribe la ESTRUCTURA, así que medir «respondida» por presencia habría
+> puesto el tilde verde sobre una regla sin columna ni valor. Verificado en vivo hasta «Corrida
+> completada». ✅ **Y el nombre de una columna se ELIGE** en los 8 campos escalares con rol `input`
+> —⚠️ `index_col` y `target_col` quedan fuera **con test**: a una columna DERIVADA no se le ofrecen
+> las del archivo—.
+>
+> 🔴 **Codex pagó su corrida por SEXTA sesión seguida: 7 hallazgos en dos pasadas.** El más caro no
+> era de esta sesión — **`docs_site/` publicaba desde hacía DOCE DÍAS** que el preset F1 ancla la PD
+> a `target_pd = 0.20` desde `business_input` con offset −0.218: son las cifras reales de la corrida
+> del 2026-07-10, y dejaron de valer cuando el preset pasó a leer el ancla de los datos. La página
+> que enseña a anclar una PD describía una decisión que el ejemplo no toma. **Ningún test ataba
+> `docs_site/` a los fixtures**; ahora sí, y restaurar el tutorial viejo pone **nueve** en rojo.
+>
+> 🔴 **Y dos gates MÍOS resultaron autorreferenciales**, la clase que este repo ya tiene documentada:
+> el de la landing leía menos de lo que la landing pinta (`Object.fromEntries` se queda con la última
+> de dos claves iguales), y el de las formas rellenaba la plantilla **desde los mismos `slots` que
+> comprobaba** — auto-contestar el valor del incumplimiento y quitarlo de `slots` dejaba 22 casos en
+> verde. Los dos cerrados con oráculo independiente.
+>
+> ⚠️ **Dos premisas MÍAS salieron falsas al medirlas, y las dos mejoraron el resultado.**
+> `_insumo_json` no rompía ante una clave nueva: la **descartaba en silencio** (y el goal me lo daba
+> por medido). Y 🔴 **iba a cerrar D-COL-8 escribiendo que su caso no existe: medirlo lo refutó** —
+> «Validar un modelo existente» mapea exactamente las dos columnas que las decisiones preguntan y
+> acto seguido las vuelve a preguntar, que es el Problema con que se abrió la enmienda, palabra por
+> palabra.
+>
+> ⚠️ **Quedan DOS falsos «Respondida» preexistentes**, medidos: una regla con las dos listas vacías
+> y una partición temporal sin su columna de fecha. Vienen de que un hueco **ausente** se ignora —lo
+> que permite no adivinar qué forma eligió el usuario—, y cerrarlo exige que el backend publique qué
+> forma aplica: **es contrato, va por SDD**.
+>
+> ✅ **Fase 3: el CENSO del abanico**, no el SDD.
+> [`_CENSO-ABANICO-METODOLOGICO.md`](docs/design/_CENSO-ABANICO-METODOLOGICO.md), tres barridos
+> independientes. 🔴 **El mecanismo que D-JOB-5 necesita YA EXISTE** —`requisitos_incumplidos`— pero
+> cubre 4 secciones de 14, y las exigencias se reparten en **cinco clases** de las que expresa
+> **una**. ⚠️ El bloqueador de fondo son los **`column_role` que faltan**: cero en todo
+> `provisioning/`, de ahí que **un config de provisiones que apunta a columnas inexistentes salga
+> hoy `compatible=True`**.
+>
+> **Siguiente: D-COL-8 con su diseño ya escrito**, los dos falsos «Respondida», y el SDD del abanico
+> sobre el censo. Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-02 noche): **el motor aprende a LEER lo que tu archivo ya trae**
 >
 > **`main` = `17c4ff9`.** Los tres commits anteriores —`f470b9b`, `489e686`, `7ed2e03`— con **CI
 > 16/16 confirmado con `gh`**; el de `17c4ff9` quedó lanzado y hay que **verificarlo al arrancar**.
