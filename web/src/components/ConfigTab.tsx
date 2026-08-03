@@ -812,7 +812,10 @@ export function ConfigTab({ section }: { section: string }) {
 
         {/* Lo que sólo el usuario puede decidir, ANTES de los parámetros de detalle (D-OBL-8). */}
         <RequiredDecisions
-          decisions={decisionStatuses(job, config as Record<string, unknown> | null)}
+          // El veredicto del motor es la mitad del criterio de «contestada» (D-RES-1): sin él, un
+          // config que el motor rechaza salía con el tilde verde. Ya está en el store, así que esto
+          // no añade una sola llamada a la red.
+          decisions={decisionStatuses(job, config as Record<string, unknown> | null, validation)}
           section={section}
           onFocus={setFocusField}
           onAnswerForm={(path, template) => {

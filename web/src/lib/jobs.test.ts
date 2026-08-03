@@ -24,6 +24,10 @@ import {
   type Job,
 } from "@/lib/jobs"
 import { CONFIG_SECTIONS, FIXTURE_SCHEMA } from "@/lib/schema"
+import type { ValidationState } from "@/lib/validation"
+
+/** Sin veredicto del motor: manda el criterio de huecos, que es el de siempre (D-RES-4). */
+const SIN_VEREDICTO: ValidationState = { kind: "idle" }
 
 const JOBS = FIXTURE_JOBS.jobs
 const porId = (id: string): Job => {
@@ -349,28 +353,28 @@ describe("decisiones obligatorias del trabajo (D-OBL-6)", () => {
   it("responder se decide por PRESENCIA de la clave, no por truthiness", () => {
     const job = porId("scorecard_pd")
     // Sin config no se afirma nada.
-    expect(decisionStatuses(job, null)).toEqual([])
-    expect(decisionStatuses(null, {})).toEqual([])
+    expect(decisionStatuses(job, null, SIN_VEREDICTO)).toEqual([])
+    expect(decisionStatuses(null, {}, SIN_VEREDICTO)).toEqual([])
 
     // Config vacío: las dos pendientes.
-    expect(decisionStatuses(job, {}).map((d) => d.answered)).toEqual([false, false])
+    expect(decisionStatuses(job, {}, SIN_VEREDICTO).map((d) => d.answered)).toEqual([false, false])
 
     // Una respondida con un valor FALSY explícito sigue siendo una respuesta del usuario: es el
     // mismo criterio de D-FX-7, y usar truthiness aquí volvería a confundir «vacío» con «ausente».
     const conFalsy = {
       data: { target: { bad_rule: null }, partition: { strategy: "" } },
     }
-    expect(decisionStatuses(job, conFalsy).map((d) => d.answered)).toEqual([true, true])
+    expect(decisionStatuses(job, conFalsy, SIN_VEREDICTO).map((d) => d.answered)).toEqual([true, true])
 
     // Y una rama a medias no cuenta como respondida.
     expect(
-      decisionStatuses(job, { data: { target: {} } }).map((d) => d.answered),
+      decisionStatuses(job, { data: { target: {} } }, SIN_VEREDICTO).map((d) => d.answered),
     ).toEqual([false, false])
   })
 
   it("un trabajo sin decisiones no fabrica ninguna", () => {
     const sinDecisiones: Job = { ...porId("scorecard_pd"), required_decisions: [] }
-    expect(decisionStatuses(sinDecisiones, {})).toEqual([])
+    expect(decisionStatuses(sinDecisiones, {}, SIN_VEREDICTO)).toEqual([])
   })
 })
 
@@ -418,7 +422,7 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
     const conPlantilla = {
       data: { target: { bad_rule: formaDe("data.target.bad_rule", "columna_marcada").template } },
     }
-    const [badRule] = decisionStatuses(scorecard, conPlantilla)
+    const [badRule] = decisionStatuses(scorecard, conPlantilla, SIN_VEREDICTO)
     expect(badRule.answered).toBe(false)
     expect(badRule.inProgress).toBe(true)
   })
@@ -429,7 +433,7 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
         target: { bad_rule: { all_of: [{ col: "bad_flag", op: "==", value: 1 }], any_of: [] } },
       },
     }
-    const [badRule] = decisionStatuses(scorecard, conDatos)
+    const [badRule] = decisionStatuses(scorecard, conDatos, SIN_VEREDICTO)
     expect(badRule.answered).toBe(true)
     expect(badRule.inProgress).toBe(false)
   })
@@ -439,7 +443,7 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
     const alAzar = {
       data: { partition: { strategy: formaDe("data.partition.strategy", "random").template } },
     }
-    const particion = decisionStatuses(scorecard, alAzar)[1]
+    const particion = decisionStatuses(scorecard, alAzar, SIN_VEREDICTO)[1]
     expect(particion.answered).toBe(true)
     expect(particion.inProgress).toBe(false)
   })
@@ -455,7 +459,7 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
         },
       },
     }
-    expect(decisionStatuses(scorecard, porCohorte)[1].answered).toBe(true)
+    expect(decisionStatuses(scorecard, porCohorte, SIN_VEREDICTO)[1].answered).toBe(true)
   })
 
   it("🔴 un hueco que la forma NO exige no deja la decisión colgada", () => {
@@ -467,7 +471,7 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
     const porAusencia = {
       data: { target: { bad_rule: { all_of: [{ col: "marca", op: "isna", value: null }] } } },
     }
-    const [reglaIsna] = decisionStatuses(scorecard, porAusencia)
+    const [reglaIsna] = decisionStatuses(scorecard, porAusencia, SIN_VEREDICTO)
     expect([reglaIsna.answered, reglaIsna.inProgress]).toEqual([true, false])
 
     // (b) D-COL-4: las particiones exigidas son EXACTAMENTE las que el usuario mapeó. Una
@@ -479,7 +483,7 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
         },
       },
     }
-    expect(decisionStatuses(scorecard, soloHoldout)[1].answered).toBe(true)
+    expect(decisionStatuses(scorecard, soloHoldout, SIN_VEREDICTO)[1].answered).toBe(true)
   })
 
   it("pero sin NINGUNA muestra mapeada sigue incompleta", () => {
@@ -491,7 +495,7 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
         },
       },
     }
-    const particion = decisionStatuses(scorecard, sinMapeo)[1]
+    const particion = decisionStatuses(scorecard, sinMapeo, SIN_VEREDICTO)[1]
     expect([particion.answered, particion.inProgress]).toEqual([false, true])
   })
 
@@ -499,7 +503,7 @@ describe("formas de respuesta de una decisión (D-COL-6/8)", () => {
     const sinValor = {
       data: { target: { bad_rule: { all_of: [{ col: "m", op: "==", value: "" }] } } },
     }
-    expect(decisionStatuses(scorecard, sinValor)[0].inProgress).toBe(true)
+    expect(decisionStatuses(scorecard, sinValor, SIN_VEREDICTO)[0].inProgress).toBe(true)
   })
 
   it("una decisión que se contesta con un dato no ofrece formas", () => {
@@ -580,3 +584,146 @@ describe("el esqueleto recorta los capítulos del informe (D-OBL-11)", () => {
     expect(() => jobSkeleton({}, job, CATALOGO_REAL)).not.toThrow()
   })
 })
+
+describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/2)", () => {
+  const scorecard = porId("scorecard_pd")
+  /** El veredicto tal como lo deja `buildErrorLookup` a partir de los `errors` de /api/validate. */
+  const rechaza = (...locs: string[]): ValidationState => ({
+    kind: "invalid",
+    count: locs.length,
+    lookup: new Map(locs.map((l) => [l, "mensaje del motor"])),
+  })
+
+  //: 🔴 Los casos se escriben A MANO, con su `loc` REAL medido contra el motor. Derivarlos del
+  //: mismo criterio que se comprueba habría hecho el gate autorreferencial — la clase que este repo
+  //: ya pagó dos veces. Cada fila es: qué valor, qué `loc` devuelve Pydantic, y qué se espera.
+  const CASOS: {
+    nombre: string
+    path: string
+    valor: unknown
+    loc: string
+    indice: number
+  }[] = [
+    {
+      nombre: "una regla con las dos listas vacías",
+      path: "data.target.bad_rule",
+      valor: { all_of: [], any_of: [] },
+      loc: "data.target.bad_rule",
+      indice: 0,
+    },
+    {
+      nombre: "una partición temporal sin sus campos",
+      path: "data.partition.strategy",
+      valor: { type: "temporal" },
+      // ⚠️ Pydantic INSERTA el tag del discriminador: este `loc` no es un path del config.
+      loc: "data.partition.strategy.temporal.date_col",
+      indice: 1,
+    },
+    {
+      // Sus huecos están AUSENTES, y un hueco ausente se ignora a propósito: es lo que permite no
+      // adivinar qué forma eligió el usuario. Por eso el criterio de huecos no puede verlo.
+      nombre: "una partición por cohortes sin ninguno de sus campos",
+      path: "data.partition.strategy",
+      valor: { type: "cohort" },
+      loc: "data.partition.strategy.cohort.cohort_col",
+      indice: 1,
+    },
+    {
+      nombre: "🔴 al azar con fracciones que no suman 1 — la forma no declara NINGÚN hueco",
+      path: "data.partition.strategy",
+      valor: { type: "random", dev_fraction: 0.9, holdout_fraction: 0.9, oot_fraction: 0.9 },
+      loc: "data.partition.strategy.random",
+      indice: 1,
+    },
+    {
+      nombre: "🔴 un tipo incorrecto en la raíz de la decisión",
+      path: "data.target.bad_rule",
+      valor: "una cadena donde va un objeto",
+      loc: "data.target.bad_rule",
+      indice: 0,
+    },
+  ]
+
+  it("el barrido no es vacuo: sin el veredicto, TODOS estos casos decían «Respondida»", () => {
+    // Ancla que da sentido a lo de abajo. Es el estado ANTERIOR, medido: son los falsos positivos
+    // que el criterio de huecos no puede ver, y sin esta aserción el gate no probaría nada nuevo.
+    for (const caso of CASOS) {
+      const config = configCon(caso.path, caso.valor)
+      const antes = decisionStatuses(scorecard, config, SIN_VEREDICTO)[caso.indice]
+      expect(antes.answered, `${caso.nombre}: el criterio de huecos ya lo cazaba`).toBe(true)
+    }
+    expect(CASOS.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it("con el veredicto del motor, ninguno queda contestado", () => {
+    for (const caso of CASOS) {
+      const config = configCon(caso.path, caso.valor)
+      const estado = decisionStatuses(scorecard, config, rechaza(caso.loc))[caso.indice]
+      expect([estado.answered, estado.inProgress], caso.nombre).toEqual([false, true])
+    }
+  })
+
+  it("🔴 CONTROL POSITIVO: un config bueno sigue contestado, y con el motor conforme", () => {
+    // Sin esto, un criterio que dijera «nunca contestada» pasaría todos los casos de arriba.
+    const bueno = {
+      data: {
+        target: { bad_rule: { all_of: [{ col: "bad", op: "==", value: 1 }], any_of: [] } },
+        partition: { strategy: { type: "random", dev_fraction: 0.7 } },
+      },
+    }
+    for (const estado of decisionStatuses(scorecard, bueno, { kind: "valid", hash: "h", pipeline: null })) {
+      expect([estado.answered, estado.inProgress], estado.path).toEqual([true, false])
+    }
+  })
+
+  it("un error de OTRA decisión no contamina a la vecina", () => {
+    // Casar por prefijo tiene que ser estricto: `data.target` no es prefijo de `data.partition`.
+    const bueno = {
+      data: {
+        target: { bad_rule: { all_of: [{ col: "bad", op: "==", value: 1 }], any_of: [] } },
+        partition: { strategy: { type: "random", dev_fraction: 0.7 } },
+      },
+    }
+    const estados = decisionStatuses(scorecard, bueno, rechaza("data.target.bad_rule.all_of.0.op"))
+    expect(estados[0].answered).toBe(false)
+    expect(estados[1].answered).toBe(true)
+  })
+
+  it("un error en un ANCESTRO no es de esta decisión", () => {
+    // `data.target` puede fallar por un campo hermano; atribuírselo a `bad_rule` sería adivinar.
+    const bueno = {
+      data: { target: { bad_rule: { all_of: [{ col: "bad", op: "==", value: 1 }], any_of: [] } } },
+    }
+    expect(decisionStatuses(scorecard, bueno, rechaza("data.target"))[0].answered).toBe(true)
+  })
+
+  it("🔴 sin veredicto el estado NO se inventa (D-RES-4)", () => {
+    // Marcar «no contestada» por no tener respuesta todavía haría parpadear la tarjeta en cada
+    // tecleo, que es justo lo que el debounce de la validación existe para evitar.
+    const bueno = {
+      data: { target: { bad_rule: { all_of: [{ col: "bad", op: "==", value: 1 }], any_of: [] } } },
+    }
+    for (const estado of [{ kind: "idle" }, { kind: "checking" }, { kind: "unreachable" }] as const) {
+      expect(decisionStatuses(scorecard, bueno, estado)[0].answered, estado.kind).toBe(true)
+    }
+  })
+
+  it("una decisión sin empezar sigue «sin responder», no «te falta un dato»", () => {
+    // El veredicto sólo entra cuando la clave existe: si no, el usuario ni ha empezado.
+    const estados = decisionStatuses(scorecard, { data: {} }, rechaza("data.target.bad_rule"))
+    expect([estados[0].answered, estados[0].inProgress]).toEqual([false, false])
+  })
+})
+
+/** Config mínimo con `valor` escrito en `path`, para los casos de arriba. */
+function configCon(path: string, valor: unknown): Record<string, unknown> {
+  const segmentos = path.split(".")
+  const raiz: Record<string, unknown> = {}
+  let nodo = raiz
+  for (const segmento of segmentos.slice(0, -1)) {
+    nodo[segmento] = {}
+    nodo = nodo[segmento] as Record<string, unknown>
+  }
+  nodo[segmentos[segmentos.length - 1]] = valor
+  return raiz
+}

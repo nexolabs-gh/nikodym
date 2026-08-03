@@ -19,6 +19,10 @@ import {
   type ExternalArtifact,
   type Job,
 } from "@/lib/jobs"
+import type { ValidationState } from "@/lib/validation"
+
+/** Sin veredicto del motor: manda el criterio de huecos (D-RES-4). */
+const SIN_VEREDICTO: ValidationState = { kind: "idle" }
 
 const jobs = FIXTURE_JOBS.jobs
 const byId = (id: string): Job => {
@@ -349,7 +353,7 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
     precargasDeForma(MARCADA, PEDIDOS, mismoArchivo, CARTERA)
     expect(mismoArchivo).toEqual(antesInputs)
     expect(config).toEqual(antesConfig)
-    for (const estado of decisionStatuses(validar, config as Record<string, unknown>)) {
+    for (const estado of decisionStatuses(validar, config as Record<string, unknown>, SIN_VEREDICTO)) {
       expect([estado.answered, estado.inProgress]).toEqual([false, false])
     }
   })
@@ -399,7 +403,7 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
         },
       },
     }
-    for (const estado of decisionStatuses(validar, conPropuesta as Record<string, unknown>)) {
+    for (const estado of decisionStatuses(validar, conPropuesta as Record<string, unknown>, SIN_VEREDICTO)) {
       expect(
         [estado.answered, estado.inProgress],
         `${estado.path} quedó contestada sin gesto institucional`,
@@ -421,7 +425,7 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
         target: { bad_rule: { all_of: [{ col: "malo", op: "==", value: 1 }], any_of: [] } },
       },
     }
-    for (const estado of decisionStatuses(validar, completo)) {
+    for (const estado of decisionStatuses(validar, completo, SIN_VEREDICTO)) {
       expect([estado.answered, estado.inProgress]).toEqual([true, false])
     }
   })

@@ -20,6 +20,7 @@ import {
   type EffectiveDefaults,
 } from "@/lib/effective-defaults"
 import { CONFIG_SECTIONS, type ConfigSectionDef } from "@/lib/schema"
+import type { ValidationState } from "@/lib/validation"
 import fixtureJobs from "@/fixtures/jobs.json"
 
 /**
@@ -350,16 +351,52 @@ function huecosPendientes(decision: RequiredDecision, valor: unknown): string[] 
 }
 
 /**
+ * ¿El motor rechaza algo DENTRO de esta decisión? (D-RES-2).
+ *
+ * Casa el `loc` de los errores de `/api/validate` **por prefijo**: el path exacto de la decisión, o
+ * cualquier descendiente suyo. Un error en un ancestro no cuenta — puede ser de otro campo hermano.
+ *
+ * 🔴 Es la mitad del criterio que los huecos no pueden ver, y medido son **muchos** casos: un hueco
+ * AUSENTE se ignora a propósito (no se puede saber qué forma eligió el usuario), `estaVacio` sólo
+ * reconoce vacíos y no tipos incorrectos, y la forma «al azar» no declara ningún hueco, así que
+ * cualquier valor con ese discriminador salía contestado. 49 de 63 valores probados decían
+ * «Respondida» sobre configs que el motor rechaza.
+ *
+ * ⚠️ Sirve para CASAR, nunca para enfocar: Pydantic **inserta el tag del discriminador** en el
+ * `loc` —`data.partition.strategy.temporal.date_col`—, y ese segmento no existe en el config. El
+ * salto al campo sigue siendo cosa del mecanismo del preflight, que degrada de lo específico a lo
+ * general.
+ */
+function rechazadaPorElMotor(path: string, validation: ValidationState): boolean {
+  // Sin veredicto no se inventa nada (D-RES-4): mandan los huecos, que es el criterio de siempre.
+  // Marcar «no contestada» por no tener respuesta todavía haría parpadear la tarjeta al teclear.
+  if (validation.kind !== "invalid") return false
+  for (const clave of validation.lookup.keys()) {
+    if (clave === path || clave.startsWith(`${path}.`)) return true
+  }
+  return false
+}
+
+/**
  * Las decisiones del trabajo con su estado frente al config actual.
  *
  * Devuelve **todas**, no sólo las pendientes: la lista completa es lo que convierte la tarjeta en un
  * resumen de «a qué viniste y qué te falta» en vez de en una lista de errores que desaparece. Ver
  * una decisión ya respondida, con su marca, es información — y hace que la tarjeta no parpadee
  * entrando y saliendo mientras se trabaja.
+ *
+ * Contestada exige **las dos cosas** (D-RES-1): que no falte ningún hueco de su forma **y** que el
+ * motor la acepte. Ninguno de los dos basta solo, y se midió en las dos direcciones — hay tres
+ * valores que el motor ACEPTA y que están incompletos de verdad (`date_col: ""` valida y muere al
+ * ejecutar), y decenas que el motor rechaza sin que ningún hueco lo delate.
+ *
+ * `validation` es obligatorio a propósito: con un parámetro opcional, un llamador nuevo perdería la
+ * mitad del criterio sin que nada se lo dijera.
  */
 export function decisionStatuses(
   job: Job | null,
   config: Record<string, unknown> | null,
+  validation: ValidationState,
 ): DecisionStatus[] {
   if (job === null || config === null) return []
   return job.required_decisions.map((decision) => {
@@ -367,10 +404,11 @@ export function decisionStatuses(
     const pendientes = presente
       ? huecosPendientes(decision, valueAtPath(config, decision.path))
       : []
+    const rechazada = presente && rechazadaPorElMotor(decision.path, validation)
     return {
       ...decision,
-      answered: presente && pendientes.length === 0,
-      inProgress: presente && pendientes.length > 0,
+      answered: presente && pendientes.length === 0 && !rechazada,
+      inProgress: presente && (pendientes.length > 0 || rechazada),
     }
   })
 }

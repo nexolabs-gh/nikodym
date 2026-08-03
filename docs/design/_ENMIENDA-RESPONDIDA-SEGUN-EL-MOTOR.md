@@ -1,6 +1,7 @@
 # Enmienda SDD — «Respondida» lo dice el motor, no la forma del hueco
 
-> **Estado: BORRADOR — pendiente de aprobación de Cami.** No autoriza programar nada todavía.
+> **Estado: APROBADA por Cami (2026-08-03) e IMPLEMENTADA.** Aprobó el camino tras leer la medición
+> que lo cambió: no son dos casos sino 49 de 63, y no hace falta ningún campo de contrato nuevo.
 >
 > **Base:** `main` = `58a3940`. **Autor / Fecha:** DanIA / 2026-08-03.
 >
