@@ -365,6 +365,33 @@ def columnas_producidas_por_seccion(config: NikodymConfig) -> dict[str, tuple[st
     }
 
 
+def _secciones_que_corren(config: NikodymConfig) -> frozenset[str] | None:
+    """Qué secciones ejecutará la corrida, o ``None`` si no hay nada que acotar.
+
+    🔴 El defecto que cierra: un requisito avisaba sobre un paso que **no va a correr**. Medido con
+    ``run.steps=[]`` sobre un config con `performance` y `survival` activas: salían dos
+    ``unmet_requirement`` mientras ``check_pipeline`` declaraba ``steps=()`` — cero pasos. La salida
+    era bit a bit idéntica con ``None``, ``[]`` y ``['data']``, o sea que este módulo **no miraba
+    ``run.steps`` en ninguna línea**.
+
+    ``None`` significa «no hay declaración explícita, corren las secciones activas», que es
+    exactamente lo que este recorrido ya visita —una sección apagada es ``None`` y no aporta
+    campos—, así que no hay nada que filtrar y el comportamiento no cambia. Sólo se acota cuando el
+    usuario **declara** ``run.steps``, que es alcanzable por YAML y por código pero **no desde el
+    formulario** (``run`` no está en ``CONFIG_SECTIONS``).
+
+    El filtro vive en el recorrido y **no** en las secciones que implementan el protocolo, por el
+    mismo criterio con que se añadieron los dos supresores: qué pasos corren es propiedad de la
+    invocación, no de la sección, y preguntárselo a cada una las acoplaría al config raíz — que es
+    justo lo que D-INV-1 evita.
+
+    ⚠️ «Activo» es *estar en la lista efectiva*, no *tener sección no nula*: es el mismo criterio
+    que ``Study._resolve_steps`` ya tenía escrito, aplicado aquí.
+    """
+    declarados = getattr(getattr(config, "run", None), "steps", None)
+    return None if declarados is None else frozenset(declarados)
+
+
 def _columnas_producidas(config: Any) -> frozenset[str]:
     """Columnas que el pipeline **añade** al frame con este config (D-RAM-6), o vacío.
 
@@ -554,6 +581,9 @@ def check_dataset(
     config = _coaccionar_secciones_opacas(config)
 
     presentes = set(columns)
+    # Qué secciones va a EJECUTAR esta corrida. Avisar sobre un paso que no va a correr es la misma
+    # familia de falso positivo que D-RAM-1: el usuario ve un problema que no existe.
+    corren = _secciones_que_corren(config)
     # Sólo entran en la comprobación de columna ausente, NO en la del índice (D-RAM-6): que el
     # pipeline vaya a escribir una columna «partition» no dice nada sobre si el índice del archivo
     # se llama así, y mezclarlo cambiaría el veredicto de una rama que no tiene este problema.
@@ -567,6 +597,8 @@ def check_dataset(
     )
 
     for ruta, rol, columna in _declaraciones(config):
+        if corren is not None and ruta.split(".", 1)[0] not in corren:
+            continue  # ese paso no va a correr: su columna no se abre, y exigirla es un aviso falso
         if rol in (ROL_DERIVADA, ROL_NO_COLUMNA):
             continue  # la produce el pipeline (o no es columna): exigirla sería un falso positivo
         if rol == ROL_INDICE:
@@ -603,6 +635,8 @@ def check_dataset(
     # así que van completas; el `None` del protocolo es para un consumidor que no las tenga, y
     # significa «no se sabe», no «no hay» (D-INV-4).
     for ruta, requisito in _requisitos(config, frozenset(presentes), perfil=column_profile):
+        if corren is not None and ruta.split(".", 1)[0] not in corren:
+            continue
         desajustes.append(
             Mismatch(ruta, requisito.declared, "unmet_requirement", requisito.message)
         )
