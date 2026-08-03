@@ -149,3 +149,35 @@ def test_el_indice_no_entra_en_lo_que_ofrece_un_campo_de_columna() -> None:
         index_columns=(),
     )
     assert [m.kind for m in veredicto_malo.mismatches] == ["index_not_a_column"]
+
+
+def test_unique_keys_no_acepta_el_indice_y_las_dos_superficies_lo_dicen_igual() -> None:
+    """El caso simétrico que la enmienda alineó de rebote, y que nadie vigilaba.
+
+    ``SchemaValidator`` lo declara excluyente en su docstring (``data/schema.py:36-39``): *si el
+    identificador vive como columna, va en ``ColumnSpec`` o en ``unique_keys``; si vive en el
+    índice, va en ``index_col``*. El motor **no** lee ``unique_keys`` del índice.
+
+    El backend siempre lo acusó. Lo que estaba mal era el front: como el catálogo publicaba
+    ``loan_id`` dentro de ``columns``, el formulario lo **ofrecía** en ``unique_keys`` mientras el
+    preflight lo acusaba — la misma contradicción de D-PRO-1, en la dirección contraria. Al separar
+    las dos listas las dos superficies pasaron a decir lo mismo, y este test lo fija para que no se
+    vuelva a juntar por comodidad.
+    """
+    cfg = _config()
+    datos = cfg.model_dump(mode="json", by_alias=True)["data"]
+    datos["schema"] = {"index_col": "loan_id", "unique_keys": ["loan_id"]}
+    veredicto = nikodym.check_dataset(
+        NikodymConfig.model_validate({"data": datos}),
+        _COLUMNAS_ARCHIVO,
+        index_columns=("loan_id",),
+    )
+    acusados = [(m.path, m.declared) for m in veredicto.mismatches]
+    assert acusados == [("data.schema.unique_keys", "loan_id")], acusados
+
+    # Y el ancla del otro lado: con el identificador como COLUMNA de verdad, no se acusa nada.
+    ok = nikodym.check_dataset(
+        NikodymConfig.model_validate({"data": {**datos, "schema": {"unique_keys": ["loan_id"]}}}),
+        (*_COLUMNAS_ARCHIVO, "loan_id"),
+    )
+    assert ok.mismatches == ()
