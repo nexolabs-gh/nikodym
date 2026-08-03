@@ -81,7 +81,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export type ValidationState =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "valid"; hash: string; pipeline: PipelineInfo | null }
+  | {
+      kind: "valid"
+      hash: string
+      pipeline: PipelineInfo | null
+      /**
+       * D-PRO-2, ya resuelto por sección. Opcional a propósito: un backend anterior a la enmienda
+       * no lo manda, y `undefined` significa «no se sabe» —el consumidor cae a las columnas del
+       * archivo, que es lo que hacía antes—, nunca «ninguna sección produce nada».
+       */
+      producedColumns?: Record<string, string[]>
+    }
   | { kind: "invalid"; count: number; lookup: Map<string, string> }
   | { kind: "unreachable" }
 

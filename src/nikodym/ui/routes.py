@@ -30,6 +30,7 @@ import nikodym
 from nikodym.core.config import NikodymConfig, config_hash, dump_config, loads_config
 from nikodym.core.config.effective_defaults import build_effective_defaults
 from nikodym.core.config.schema import build_full_json_schema, cargar_configs_de_dominio
+from nikodym.core.dataset_check import columnas_producidas_por_seccion
 from nikodym.core.exceptions import ConfigError, MissingDependencyError, NikodymError
 from nikodym.ui import datasets, jobs, presets, runs
 from nikodym.ui.exceptions import UiArtifactError, UiDatasetError, UiRunNotFoundError
@@ -142,6 +143,7 @@ def validate_config(config: Any, external_artifacts: Any = None) -> dict[str, An
             "config_hash": None,
             "errors": _error_de_dominio(exc),
             "pipeline": None,
+            "produced_columns_by_section": {},
         }
     try:
         model = NikodymConfig.model_validate(config)
@@ -151,6 +153,7 @@ def validate_config(config: Any, external_artifacts: Any = None) -> dict[str, An
             "config_hash": None,
             "errors": _format_errors(exc),
             "pipeline": None,
+            "produced_columns_by_section": {},
         }
     except ConfigError as exc:
         # Un invariante de dominio que se rompe **también** es «este config no reconstruye», y por
@@ -165,12 +168,24 @@ def validate_config(config: Any, external_artifacts: Any = None) -> dict[str, An
             "config_hash": None,
             "errors": _error_de_dominio(exc),
             "pipeline": None,
+            "produced_columns_by_section": {},
         }
     return {
         "valid": True,
         "config_hash": config_hash(model),
         "errors": [],
         "pipeline": _pipeline_payload(model, claves_externas),
+        # D-PRO-2/3: qué columnas puede nombrar cada sección sin traerlas del archivo, ya resueltas
+        # por sección. Va aquí y no en `/api/schema` porque DEPENDE del config:
+        # `columnas_que_produce` devuelve el `target_col` del config, no una constante (hay test
+        # que lo exige), y el schema es estático. Este endpoint ya recibe el config.
+        # Se publica el mapa COMPLETO, incluidas las secciones que no aportan nada: es lo que la
+        # función del núcleo promete, y filtrar aquí obligaría al front a distinguir «esta sección
+        # no viene» de «no aporta nada» — que son la misma cosa y no deberían parecer dos.
+        "produced_columns_by_section": {
+            seccion: list(columnas)
+            for seccion, columnas in columnas_producidas_por_seccion(model).items()
+        },
     }
 
 

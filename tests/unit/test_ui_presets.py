@@ -160,11 +160,16 @@ def test_preset_coherente_con_columnas_del_dataset() -> None:
     preset = standard_preset()
     config = preset["config"]
     role_by_name = {column["name"]: column["role"] for column in datasets_module._COLUMNS}
+    role_by_index = {column["name"]: column["role"] for column in datasets_module._INDEX_COLUMNS}
     data = config["data"]
 
-    # Índice = columna de rol 'id'.
-    assert role_by_name.get(data["schema"]["index_col"]) == "id"
-    # Toda columna declarada en el esquema existe en el dataset.
+    # El ÍNDICE es de rol 'id' y vive en su propia lista (D-PRO-1). Este test lo buscaba entre las
+    # columnas, que era la conflación misma: el índice no es una columna del frame, y publicarlo
+    # como tal hacía que la interfaz lo ofreciera donde el motor no puede leerlo.
+    assert role_by_index.get(data["schema"]["index_col"]) == "id"
+    # …y el simétrico, que es lo que impide que la conflación vuelva por la puerta de atrás.
+    assert data["schema"]["index_col"] not in role_by_name
+    # Toda columna declarada en el esquema existe en el dataset — y ninguna es el índice.
     for column in data["schema"]["columns"]:
         assert column["name"] in role_by_name, column["name"]
     # El target se define por una regla sobre una columna de rol 'target'.

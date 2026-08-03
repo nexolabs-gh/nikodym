@@ -26,6 +26,12 @@ export interface SelectedDataset {
      */
     values?: string[]
   }[]
+  /**
+   * El ÍNDICE del archivo (D-PRO-1). No es una columna: sólo lo puede nombrar un campo con
+   * `column_role: "index"`. Lista vacía = el archivo no trae índice nombrado, que es lo normal en
+   * un CSV o un Excel.
+   */
+  indexColumns: { name: string; dtype: string }[]
 }
 
 /** Extensiones que acepta POST /api/upload (B36b): CSV, Excel y Parquet. */
@@ -52,6 +58,7 @@ export function fromCatalog(info: DatasetInfo): SelectedDataset {
       role: c.role,
       values: c.values,
     })),
+    indexColumns: info.index_columns.map((c) => ({ name: c.name, dtype: c.dtype })),
   }
 }
 
@@ -67,6 +74,9 @@ export function fromUpload(resp: UploadedDataset): SelectedDataset {
       role: undefined,
       values: c.values,
     })),
+    // Opcional en el payload: un backend anterior a D-PRO-1 no lo trae, y «sin índice» es
+    // exactamente lo que ocurría antes de que existiera este campo.
+    indexColumns: (resp.index_columns ?? []).map((c) => ({ name: c.name, dtype: c.dtype })),
   }
 }
 
@@ -172,4 +182,40 @@ export function datasetCatalogView(
     items: datasets.map((d) => ({ label: datasetOptionLabel(d), value: d.id })),
     value,
   }
+}
+
+/**
+ * Qué nombres de columna puede ofrecer (y aceptar sin marcar en rojo) un campo de ESTA sección.
+ *
+ * Es la unión de dos procedencias que hasta D-PRO-2 el front no sabía distinguir: las columnas que
+ * trae el archivo, y las que **escribe el pipeline aguas arriba** —el target, la partición—. Con
+ * sólo las primeras, el formulario pintaba en rojo `survival.input.event_col = "target"` con
+ * «Esa columna no está en el dataset cargado» mientras `check_dataset` la daba por buena y la
+ * corrida llegaba a `done`: dos superficies del mismo producto contradiciéndose en la misma
+ * pantalla, sobre 32 de las 47 rutas con rol `input`.
+ *
+ * 🔴 `producidas` llega YA RESUELTO por sección desde el backend y **aquí no se recompone**: cada
+ * entrada excluye lo que produce la propia sección (D-RAM-7). Por eso un campo de `data` no ve
+ * `partition` —y sigue marcándose en rojo, que es lo correcto: `DataStep` valida su esquema antes
+ * de escribir nada— mientras uno de `survival` sí la ve. Unir las listas aquí, o buscar por otra
+ * clave, reintroduciría en la interfaz el defecto que D-RAM-7 cerró en el motor.
+ *
+ * Devuelve `undefined` sin dataset, igual que antes: es «no hay lista que ofrecer» —el widget cae a
+ * entrada libre— y no «la lista está vacía». Ofrecer sólo las producidas sin archivo cargado sería
+ * un menú de dos nombres que el usuario no reconoce.
+ */
+export function columnasOfrecibles(
+  dataset: SelectedDataset | null,
+  producidas: Record<string, string[]>,
+  section: string,
+): string[] | undefined {
+  if (dataset === null) return undefined
+  const delArchivo = dataset.columns.map((c) => c.name)
+  const vistas = new Set(delArchivo)
+  return [...delArchivo, ...(producidas[section] ?? []).filter((c) => !vistas.has(c))]
+}
+
+/** Los nombres del ÍNDICE del dataset activo (D-PRO-5); `undefined` sin dataset. */
+export function columnasDeIndice(dataset: SelectedDataset | null): string[] | undefined {
+  return dataset === null ? undefined : dataset.indexColumns.map((c) => c.name)
 }

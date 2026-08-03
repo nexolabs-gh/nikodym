@@ -35,6 +35,7 @@ import {
   WILDCARD,
   acceptsWildcard,
   columnOptions,
+  columnRole,
   defaultForSchema,
   discriminatedBranchRef,
   discriminatedBranches,
@@ -94,6 +95,15 @@ export interface FieldRendererProps {
    * columna no tiene opciones que ofrecer. `undefined` = aún no hay dataset cargado.
    */
   datasetColumns?: string[]
+  /** Nombres del ÍNDICE del archivo (D-PRO-5). Lista distinta, y a propósito: ver `columnOptions`. */
+  datasetIndexColumns?: string[]
+  /**
+   * Cuáles de las opciones NO vienen del archivo sino que las ESCRIBE el pipeline (D-PRO-4). Es
+   * presentación pura: no decide qué se ofrece ni qué se marca en rojo —eso lo resuelve
+   * `columnasOfrecibles`—, sólo evita que el desplegable las rotule «del archivo», que sería
+   * falso, y le diga al usuario de dónde salen.
+   */
+  producedColumns?: string[]
   /**
    * Valores ofrecibles por columna del dataset activo (D-COL-7), para los campos que declaran
    * `column_values_from`. Mismo carácter que `datasetColumns` —contexto de DATOS, no de schema— y
@@ -430,13 +440,22 @@ const PLACEHOLDER_COLUMNA = "Elige una columna del archivo o escribe su nombre"
  * documento, o sea imposible de verificar en pantalla.
  */
 function ColumnField(props: FieldRendererProps) {
-  const { schema, path, defs, onChange, datasetColumns } = props
+  const { schema, path, defs, onChange, datasetColumns, datasetIndexColumns, producedColumns } = props
   const target = resolveRef(unwrapNullable(schema).schema, defs)
   const raw = currentValue(props)
   const value = typeof raw === "string" ? raw : raw == null ? "" : String(raw)
-  const options = columnOptions(schema, { datasetColumns }, defs)
+  const options = columnOptions(schema, { datasetColumns, datasetIndexColumns }, defs)
   const id = path.join(".")
   const listaId = `${id}__columnas`
+  // 🔴 El rótulo tiene que decir la verdad sobre lo que lista. Decía «Columnas del archivo» sobre
+  // una lista que desde D-PRO-2 incluye las que ESCRIBE el pipeline —21 donde el archivo trae 17—,
+  // y sobre un campo de índice listaría el índice. Se vio abriendo la pantalla, no en un test.
+  const rotuloDeLista =
+    columnRole(schema, defs) === "index"
+      ? "Índice del archivo"
+      : options.some((c) => (producedColumns ?? []).includes(c))
+        ? "Columnas disponibles"
+        : "Columnas del archivo"
   // Desplegado mientras no haya columna elegida —que es justo el momento en que antes se tecleaba
   // a ciegas— y plegado en cuanto la hay: `data.schema.columns` son trece filas, y trece listas
   // abiertas serían un muro. Estado local: el usuario manda a partir del primer click.
@@ -481,17 +500,21 @@ function ColumnField(props: FieldRendererProps) {
             ) : (
               <ChevronDown className="size-3.5" aria-hidden="true" />
             )}
-            Columnas del archivo ({options.length})
+            {rotuloDeLista} ({options.length})
           </button>
           {abierto ? (
             <div id={listaId} className="mt-2 flex flex-wrap gap-1.5">
               {options.map((columna) => {
                 const elegida = columna === value
+                // D-PRO-4: se ofrece, y se dice de dónde sale. Sin esto el usuario ve un nombre
+                // que no está en su archivo y no tiene forma de saber por qué se le ofrece.
+                const derivada = (producedColumns ?? []).includes(columna)
                 return (
                   <button
                     key={columna}
                     type="button"
                     aria-pressed={elegida}
+                    title={derivada ? "La calcula un paso anterior de la corrida" : undefined}
                     onClick={() => onChange(path, columna)}
                     className={cn(
                       "rounded-md border px-2 py-0.5 font-mono text-xs transition-colors",
@@ -501,6 +524,9 @@ function ColumnField(props: FieldRendererProps) {
                     )}
                   >
                     {columna}
+                    {derivada ? (
+                      <span className="ml-1 text-[0.65rem] text-muted-foreground">· calculada</span>
+                    ) : null}
                   </button>
                 )
               })}
@@ -544,6 +570,8 @@ function GroupField(props: FieldRendererProps) {
     titledByParent,
     errors,
     datasetColumns,
+    datasetIndexColumns,
+    producedColumns,
     datasetColumnValues,
   } = props
   const target = resolveRef(unwrapNullable(schema).schema, defs)
@@ -578,6 +606,8 @@ function GroupField(props: FieldRendererProps) {
         depth={depth}
         errors={errors}
         datasetColumns={datasetColumns}
+        datasetIndexColumns={datasetIndexColumns}
+        producedColumns={producedColumns}
         datasetColumnValues={datasetColumnValues}
         defaultsBase={childDefaults(props)}
         effectiveDefaults={props.effectiveDefaults}
@@ -607,6 +637,9 @@ function GroupFieldList(props: {
   depth: number
   errors?: Map<string, string>
   datasetColumns?: string[]
+  /** Nombres del ÍNDICE del archivo (D-PRO-5). Lista distinta, y a propósito: ver `columnOptions`. */
+  datasetIndexColumns?: string[]
+  producedColumns?: string[]
   datasetColumnValues?: Record<string, string[]>
   defaultsBase?: DefaultsMap
   effectiveDefaults?: EffectiveDefaults
@@ -621,6 +654,8 @@ function GroupFieldList(props: {
     depth,
     errors,
     datasetColumns,
+    datasetIndexColumns,
+    producedColumns,
     datasetColumnValues,
     defaultsBase,
     effectiveDefaults,
@@ -646,6 +681,8 @@ function GroupFieldList(props: {
           depth={depth + 1}
           errors={errors}
           datasetColumns={datasetColumns}
+          datasetIndexColumns={datasetIndexColumns}
+          producedColumns={producedColumns}
           datasetColumnValues={datasetColumnValues}
           // Los hermanos del hijo son las OTRAS claves de este mismo objeto, y éste es el único
           // punto del árbol que las tiene. Lo consume `column_values_from` (`desarrollo` necesita
@@ -679,6 +716,8 @@ function DiscriminatedField(props: FieldRendererProps) {
     depth = 0,
     errors,
     datasetColumns,
+    datasetIndexColumns,
+    producedColumns,
     datasetColumnValues,
   } = props
   const propName = discriminatorProperty(schema)
@@ -748,6 +787,8 @@ function DiscriminatedField(props: FieldRendererProps) {
             depth={depth}
             errors={errors}
             datasetColumns={datasetColumns}
+            datasetIndexColumns={datasetIndexColumns}
+            producedColumns={producedColumns}
             datasetColumnValues={datasetColumnValues}
             defaultsBase={branchDefaults}
             effectiveDefaults={props.effectiveDefaults}
@@ -780,6 +821,8 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
     required,
     errors,
     datasetColumns,
+    datasetIndexColumns,
+    producedColumns,
     datasetColumnValues,
     siblingValues,
   } = props
@@ -864,6 +907,8 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
             hideLabel
             errors={errors}
             datasetColumns={datasetColumns}
+            datasetIndexColumns={datasetIndexColumns}
+            producedColumns={producedColumns}
             datasetColumnValues={datasetColumnValues}
             // El hijo ocupa el MISMO lugar del objeto padre que este toggle, así que sus hermanos
             // son los mismos: se reenvían tal cual. Es la única rama que se salta `GroupFieldList`,
@@ -920,6 +965,7 @@ function MultiselectField(props: FieldRendererProps) {
     defs,
     onChange,
     datasetColumns,
+    datasetIndexColumns,
     datasetColumnValues,
     siblingValues,
   } = props
@@ -927,7 +973,7 @@ function MultiselectField(props: FieldRendererProps) {
   const [draft, setDraft] = useState("")
   const options = multiselectOptions(
     schema,
-    { datasetColumns, datasetColumnValues, siblingValues },
+    { datasetColumns, datasetIndexColumns, datasetColumnValues, siblingValues },
     defs,
   )
   const closed = hasClosedOptions(schema, defs)
@@ -1112,6 +1158,8 @@ function ListField(props: FieldRendererProps) {
     depth = 0,
     errors,
     datasetColumns,
+    datasetIndexColumns,
+    producedColumns,
     datasetColumnValues,
   } = props
   const etiquetaLista = fieldLabel(name, schema)
@@ -1188,6 +1236,8 @@ function ListField(props: FieldRendererProps) {
                   depth={depth + 1}
                   errors={errors}
                   datasetColumns={datasetColumns}
+                  datasetIndexColumns={datasetIndexColumns}
+                  producedColumns={producedColumns}
                   datasetColumnValues={datasetColumnValues}
                   defaultsBase={rowDefaults}
                   effectiveDefaults={props.effectiveDefaults}

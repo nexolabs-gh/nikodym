@@ -754,6 +754,12 @@ export interface FieldDataContext {
   /** Columnas del dataset activo. `undefined` = todavía no hay dataset cargado. */
   datasetColumns?: string[]
   /**
+   * Nombres del ÍNDICE del dataset activo (D-PRO-5). Van APARTE de `datasetColumns` porque un
+   * índice no es una columna: sólo lo puede nombrar un campo con `column_role: "index"`, y
+   * mezclarlos hacía que la interfaz ofreciera `loan_id` como feature del binning.
+   */
+  datasetIndexColumns?: string[]
+  /**
    * Valores ofrecibles por columna del dataset activo (D-COL-7), indexado por NOMBRE de columna.
    *
    * Es lo que consume un campo con `column_values_from`. Una columna ausente del mapa, o presente
@@ -846,7 +852,10 @@ export function columnValuesFrom(
  * cajas de texto donde el usuario teclea a ciegas el nombre de una columna que la app ya conoce.
  */
 export function isColumnField(schema: JsonSchema, defs: Defs = {}): boolean {
-  if (columnRole(schema, defs) !== "input") return false
+  // `index` entra por D-PRO-5: también nombra algo del archivo y también se puede elegir en vez de
+  // teclear a ciegas. Lo que NO se comparte es la lista — ver `columnOptions`.
+  const rol = columnRole(schema, defs)
+  if (rol !== "input" && rol !== "index") return false
   const base = resolveRef(unwrapNullable(resolveRef(schema, defs)).schema, defs)
   if (Array.isArray(base.enum) || base.const !== undefined) return false
   return schemaType(base) === "string"
@@ -869,7 +878,13 @@ export function columnOptions(
   defs: Defs = {},
 ): string[] {
   if (!isColumnField(schema, defs)) return []
-  return (context.datasetColumns ?? []).filter((c) => typeof c === "string")
+  // 🔴 Cada rol lee SU lista, y no la unión: ofrecer el índice donde va una columna es lo que
+  // hacía el catálogo antes de D-PRO-1, y ofrecer columnas donde va el índice sería el mismo
+  // error en espejo. `index_col` comprueba el nombre de un índice ya existente y nunca hace
+  // `set_index`, así que una columna corriente ahí mata la corrida en el primer paso.
+  const fuente =
+    columnRole(schema, defs) === "index" ? context.datasetIndexColumns : context.datasetColumns
+  return (fuente ?? []).filter((c) => typeof c === "string")
 }
 
 /** La rama `array` de un campo (o el campo mismo si ya lo es); `undefined` si no tiene ninguna. */
@@ -970,7 +985,8 @@ export function hasClosedOptions(schema: JsonSchema, defs: Defs = {}): boolean {
 export function optionsFromDataset(schema: JsonSchema, defs: Defs = {}): boolean {
   if (hasClosedOptions(schema, defs)) return false
   if (columnValuesFrom(schema, defs) !== undefined) return false
-  return columnRole(schema, defs) === "input"
+  const rol = columnRole(schema, defs)
+  return rol === "input" || rol === "index"
 }
 
 /**

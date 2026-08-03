@@ -9,6 +9,9 @@ import {
   fromUpload,
   isAllowedDataFile,
   reconcileSelected,
+  type SelectedDataset,
+  columnasDeIndice,
+  columnasOfrecibles,
 } from "./datasets"
 
 describe("isAllowedDataFile", () => {
@@ -38,9 +41,10 @@ describe("fromCatalog", () => {
       { name: "edad", dtype: "int64", role: "feature" },
       { name: "default", dtype: "int64", role: "target" },
     ],
+    index_columns: [{ name: "loan_id", dtype: "int64", role: "id" }],
   }
 
-  it("mapea id/n_rows y conserva el role de cada columna", () => {
+  it("mapea id/n_rows, conserva el role y separa el ÍNDICE de las columnas", () => {
     expect(fromCatalog(info)).toEqual({
       id: "consumo",
       name: "Consumo",
@@ -49,6 +53,9 @@ describe("fromCatalog", () => {
         { name: "edad", dtype: "int64", role: "feature" },
         { name: "default", dtype: "int64", role: "target" },
       ],
+      // D-PRO-1: el índice viaja aparte y NO se cuela entre las columnas — que es lo que hacía el
+      // catálogo, y por eso la interfaz ofrecía `loan_id` como feature del binning.
+      indexColumns: [{ name: "loan_id", dtype: "int64" }],
     })
   })
 })
@@ -74,6 +81,9 @@ describe("fromUpload", () => {
         { name: "score", dtype: "float64", role: undefined },
         { name: "y", dtype: "int64", role: undefined },
       ],
+      // Un CSV llega con `RangeIndex` sin nombre: no hay índice que nombrar, y decirlo con una
+      // lista vacía es distinto de omitir el campo.
+      indexColumns: [],
     })
     expect(result.columns.every((c) => c.role === undefined)).toBe(true)
   })
@@ -93,6 +103,7 @@ describe("los valores por columna llegan por las DOS rutas (D-COL-7)", () => {
         { name: "muestra", dtype: "object", role: "feature", values: ["DEV", "OOT"] },
         { name: "edad", dtype: "int64", role: "feature" },
       ],
+      index_columns: [],
     }
     const columnas = fromCatalog(info).columns
     expect(columnas[0].values).toEqual(["DEV", "OOT"])
@@ -124,6 +135,7 @@ describe("datasetOptionLabel", () => {
       description: "",
       n_rows: 10000,
       columns: [],
+      index_columns: [],
     }
     const label = datasetOptionLabel(info)
     expect(label).toContain("Consumo")
@@ -140,6 +152,7 @@ describe("datasetCatalogView", () => {
     description: "Panel sintético de consumo.",
     n_rows: 10000,
     columns: [{ name: "default", dtype: "int64", role: "target" }],
+    index_columns: [],
   }
   const HIPOTECARIO: DatasetInfo = {
     id: "hipotecario_4000",
@@ -147,6 +160,7 @@ describe("datasetCatalogView", () => {
     description: "Panel sintético hipotecario.",
     n_rows: 4000,
     columns: [{ name: "default", dtype: "int64", role: "target" }],
+    index_columns: [],
   }
   const CATALOG: DatasetInfo[] = [CONSUMO, HIPOTECARIO]
 
@@ -238,6 +252,7 @@ describe("reconcileSelected — el perfil que llega TARDE alcanza a la ficha act
       { name: "cohorte", dtype: "object", role: "feature", values: [] },
       { name: "bad_flag", dtype: "int64", role: "target", values: [] },
     ],
+    index_columns: [],
   }
   const CON_PERFIL: DatasetInfo = {
     ...SIN_PERFIL,
@@ -251,6 +266,7 @@ describe("reconcileSelected — el perfil que llega TARDE alcanza a la ficha act
       },
       { name: "bad_flag", dtype: "int64", role: "target", values: ["0", "1"] },
     ],
+    index_columns: [],
   }
 
   it("enriquece la ficha aunque el dataset NO haya cambiado", () => {
@@ -301,5 +317,80 @@ describe("reconcileSelected — el perfil que llega TARDE alcanza a la ficha act
   it("sin ficha activa no inventa ninguna", () => {
     expect(reconcileSelected(null, [CON_PERFIL])).toBeNull()
     expect(columnValuesByName(null)).toBeUndefined()
+  })
+})
+
+describe("columnasOfrecibles — los TRES conjuntos, medidos por separado (D-PRO-6)", () => {
+  // 🔴 Al separar dos estados que estaban fundidos hay que probar LOS DOS, y aquí son tres. El
+  // arreglo (que una columna producida deje de pintarse en rojo) tiene un simétrico que NO puede
+  // perderse: dentro de `data` esa misma columna SÍ debe seguir acusándose, porque `DataStep`
+  // valida su esquema antes de escribir nada (D-RAM-7). Un gate que sólo midiera el primero daría
+  // verde habiendo roto el segundo.
+  const DATASET: SelectedDataset = {
+    id: "consumo",
+    name: "Consumo",
+    nRows: 10,
+    columns: [
+      { name: "ingreso", dtype: "float64" },
+      { name: "mora", dtype: "int64" },
+    ],
+    indexColumns: [{ name: "loan_id", dtype: "int64" }],
+  }
+  // Oráculo escrito A MANO, no derivado de la función que se comprueba: es exactamente lo que el
+  // backend publica para este config (`data` produce las cuatro y no se acredita a sí misma).
+  const PRODUCIDAS = {
+    data: [],
+    survival: ["label_status", "partition", "target", "ttd"],
+    stability: ["label_status", "partition", "target", "ttd"],
+  }
+
+  it("una columna del archivo se ofrece en cualquier sección", () => {
+    expect(columnasOfrecibles(DATASET, PRODUCIDAS, "survival")).toContain("ingreso")
+    expect(columnasOfrecibles(DATASET, PRODUCIDAS, "data")).toContain("ingreso")
+  })
+
+  it("una columna que produce el pipeline se ofrece FUERA de la sección que la escribe", () => {
+    // El caso medido en pantalla: `survival.input.event_col = "target"` salía en rojo mientras el
+    // backend decía compatible y la corrida llegaba a `done`.
+    expect(columnasOfrecibles(DATASET, PRODUCIDAS, "survival")).toContain("target")
+    expect(columnasOfrecibles(DATASET, PRODUCIDAS, "stability")).toContain("partition")
+  })
+
+  it("🔴 y NO se ofrece dentro de la sección que la escribe (D-RAM-7 no se pierde)", () => {
+    const enData = columnasOfrecibles(DATASET, PRODUCIDAS, "data")
+    expect(enData).not.toContain("target")
+    expect(enData).not.toContain("partition")
+  })
+
+  it("el ÍNDICE no es una columna, y no se cuela en ninguna sección", () => {
+    for (const seccion of ["data", "survival", "stability"]) {
+      expect(columnasOfrecibles(DATASET, PRODUCIDAS, seccion)).not.toContain("loan_id")
+    }
+    expect(columnasDeIndice(DATASET)).toEqual(["loan_id"])
+  })
+
+  it("lo inventado sigue sin ofrecerse — el control negativo de siempre", () => {
+    expect(columnasOfrecibles(DATASET, PRODUCIDAS, "survival")).not.toContain("columna_fantasma")
+  })
+
+  it("sin dataset no hay lista, y eso NO es una lista vacía", () => {
+    // `undefined` = entrada libre; `[]` haría que el widget pintara «Sin opciones.» sobre un campo
+    // perfectamente utilizable. La distinción ya costó un defecto con `feature_columns`.
+    expect(columnasOfrecibles(null, PRODUCIDAS, "survival")).toBeUndefined()
+    expect(columnasDeIndice(null)).toBeUndefined()
+  })
+
+  it("una sección sin entrada en el mapa no rompe: se queda con las del archivo", () => {
+    expect(columnasOfrecibles(DATASET, PRODUCIDAS, "binning")).toEqual(["ingreso", "mora"])
+    expect(columnasOfrecibles(DATASET, {}, "survival")).toEqual(["ingreso", "mora"])
+  })
+
+  it("no duplica una columna que el archivo ya trae y el pipeline también escribiría", () => {
+    const conTarget: SelectedDataset = {
+      ...DATASET,
+      columns: [...DATASET.columns, { name: "target", dtype: "int64" }],
+    }
+    const ofrecidas = columnasOfrecibles(conTarget, PRODUCIDAS, "survival") ?? []
+    expect(ofrecidas.filter((c) => c === "target")).toHaveLength(1)
   })
 })

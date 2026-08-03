@@ -131,6 +131,19 @@ export interface ValidateResponse {
   errors: ValidationErrorItem[]
   /** `null` cuando el config no reconstruye: sin modelo no hay pipeline que resolver. */
   pipeline: PipelineInfo | null
+  /**
+   * Qué columnas puede nombrar cada sección SIN traerlas del archivo, indexado por clave de
+   * sección (D-PRO-2). Son las que el pipeline escribe aguas arriba —el target, la partición— y
+   * que `check_dataset` da por presentes.
+   *
+   * 🔴 Llega YA RESUELTO por sección y el front no debe recomponerlo: cada entrada excluye lo que
+   * produce la propia sección (D-RAM-7), así que basta buscar la clave. Una lista plana haría que
+   * el formulario pintara en verde `data.schema.columns[0].name = "partition"`, que el backend sí
+   * acusa y cuya corrida muere en el primer paso.
+   *
+   * Ausente = backend anterior a D-PRO-2: se trata como «no se sabe» y todo sigue como antes.
+   */
+  produced_columns_by_section?: Record<string, string[]>
 }
 
 /**
@@ -254,6 +267,12 @@ export interface DatasetInfo {
   name: string
   description: string
   columns: DatasetColumn[]
+  /**
+   * El ÍNDICE del archivo, que NO es una columna (D-PRO-1). Vivía dentro de `columns`, así que la
+   * interfaz ofrecía `loan_id` como columna elegible donde el motor no puede leerla — sólo
+   * funciona en un campo con `column_role: "index"`.
+   */
+  index_columns: DatasetColumn[]
   n_rows: number
 }
 
@@ -266,6 +285,8 @@ export interface UploadedDataset {
   name: string
   n_rows: number
   columns: { name: string; dtype: string; values?: string[] }[]
+  /** Igual que en el catálogo (D-PRO-1). Un CSV o un Excel llegan sin índice nombrado: lista vacía. */
+  index_columns?: DatasetColumn[]
 }
 
 /** Estado de una corrida. */

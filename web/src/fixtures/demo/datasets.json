@@ -5,12 +5,6 @@
   "description": "Cartera de consumo con historial de comportamiento (ingreso, DTI, utilización de línea, mora máxima 12m y antigüedad) y default binario correlacionado. Segmentada por tipo de deudor y cohortada por trimestre para partición Dev/HO/OOT.",
   "columns": [
    {
-    "name": "loan_id",
-    "dtype": "str",
-    "role": "id",
-    "values": []
-   },
-   {
     "name": "ingreso_mensual",
     "dtype": "float",
     "role": "feature",
@@ -92,6 +86,14 @@
     ]
    }
   ],
+  "index_columns": [
+   {
+    "name": "loan_id",
+    "dtype": "str",
+    "role": "id",
+    "values": []
+   }
+  ],
   "n_rows": 6000
  },
  {
@@ -99,12 +101,6 @@
   "name": "Hipotecario — comportamiento",
   "description": "Cartera hipotecaria de menor riesgo (default más bajo) y mayor antigüedad media; mismas features de comportamiento, segmentada por destino del crédito y cohortada por trimestre.",
   "columns": [
-   {
-    "name": "loan_id",
-    "dtype": "str",
-    "role": "id",
-    "values": []
-   },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
@@ -185,6 +181,14 @@
     ]
    }
   ],
+  "index_columns": [
+   {
+    "name": "loan_id",
+    "dtype": "str",
+    "role": "id",
+    "values": []
+   }
+  ],
   "n_rows": 4000
  },
  {
@@ -192,12 +196,6 @@
   "name": "Consumo — con drift (deterioro)",
   "description": "Cartera de consumo con MISMAS features y cohortes que 'consumo_comportamiento' pero con DRIFT TEMPORAL: la cartera se DETERIORA en cohortes recientes (más mora, más utilización, más DTI, menos ingreso y antigüedad), así la tasa de default sube y un modelo entrenado en cohortes viejas se degrada en OOT. Útil para demostrar PSI/CSI y estabilidad (drift claro entre Dev y OOT=2024Q2).",
   "columns": [
-   {
-    "name": "loan_id",
-    "dtype": "str",
-    "role": "id",
-    "values": []
-   },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
@@ -282,6 +280,14 @@
     ]
    }
   ],
+  "index_columns": [
+   {
+    "name": "loan_id",
+    "dtype": "str",
+    "role": "id",
+    "values": []
+   }
+  ],
   "n_rows": 6000
  },
  {
@@ -289,12 +295,6 @@
   "name": "Consumo — provisiones (CMF + método interno)",
   "description": "Cartera de consumo con las columnas económico-regulatorias que exigen los motores de provisiones: exposición, mora en días, deudor (varias operaciones por RUT, para que la consolidación del Cap. B-1 se ejercite), tipo de producto, los dos flags de sistema (hipotecario vigente y mora de 30d o más en los últimos 3 meses) y la LGD interna. Superconjunto del dataset de scorecard: el pipeline F1 corre igual, y encima se calculan el método estándar de la CMF y el método interno (PD·LGD·Exposición por grupo homogéneo). Tasa de default de un dígito y mora truncada a 180 días (Cap. B-2: más allá se castiga).",
   "columns": [
-   {
-    "name": "loan_id",
-    "dtype": "str",
-    "role": "id",
-    "values": []
-   },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
@@ -426,6 +426,14 @@
     "values": []
    }
   ],
+  "index_columns": [
+   {
+    "name": "loan_id",
+    "dtype": "str",
+    "role": "id",
+    "values": []
+   }
+  ],
   "n_rows": 6000
  },
  {
@@ -433,12 +441,6 @@
   "name": "Retail LatAm — IFRS 9 / ECL (multi-cartera)",
   "description": "Cartera retail multi-producto (Consumo, Tarjetas, Comercial, Hipotecario) con las columnas que exige la pérdida esperada IFRS 9 (ECL): historia de supervivencia (duración/evento) para ajustar la curva lifetime PD, más EAD, LGD, tasa efectiva (EIR), mora en días y flag de default. Superconjunto del dataset de scorecard: el pipeline F1 corre igual y encima se calcula la ECL de tres etapas (Stage 1/2/3), con staging por los backstops de mora 30/90 días (presunciones IFRS 9 5.5.11 / B5.5.37). Montos de escala retail y AGNÓSTICOS de moneda (sin símbolo; la moneda se rotula en la vista). Genérico LatAm, sin país ni institución. IFRS 9 es EXPERIMENTAL (fuera de la garantía SemVer 1.x) y la EAD se despliega CONSTANTE por período: no se modela la amortización del crédito, y el motor lo declara en cada fila del resultado.",
   "columns": [
-   {
-    "name": "loan_id",
-    "dtype": "str",
-    "role": "id",
-    "values": []
-   },
    {
     "name": "ingreso_mensual",
     "dtype": "float",
@@ -573,6 +575,14 @@
      "False",
      "True"
     ]
+   }
+  ],
+  "index_columns": [
+   {
+    "name": "loan_id",
+    "dtype": "str",
+    "role": "id",
+    "values": []
    }
   ],
   "n_rows": 6000

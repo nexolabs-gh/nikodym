@@ -1391,6 +1391,7 @@ describe("la secuencia REAL: catálogo sin perfil → elegir → preflight → f
       { name: "loan_id", dtype: "int64", role: "feature", values: [] },
       { name: "cohorte", dtype: "object", role: "feature", values: [] },
     ],
+    index_columns: [],
   }
   const GET_2: DatasetInfo = {
     ...GET_1,
@@ -1403,6 +1404,7 @@ describe("la secuencia REAL: catálogo sin perfil → elegir → preflight → f
         values: ["2023Q1", "2023Q2", "2023Q3", "2024Q1"],
       },
     ],
+    index_columns: [],
   }
 
   /** Lo que el formulario ofrece con una ficha dada (la cadena entera, como en `ConfigTab`). */
@@ -1571,11 +1573,20 @@ describe("una columna suelta se ELIGE, no se escribe a ciegas", () => {
       expect(columnOptions(campo, { datasetColumns: COLUMNAS }, defs)).toEqual([])
     })
 
-    it("el ÍNDICE tampoco: por definición no está entre las columnas", () => {
+    it("el ÍNDICE se elige de SU lista, y jamás de las columnas (D-PRO-5)", () => {
+      // Hasta D-PRO-5 este campo no ofrecía nada y se tecleaba a ciegas, con el razonamiento de
+      // que «el índice por definición no está entre las columnas» — cierto, y por eso la salida no
+      // era dejarlo sin lista sino darle la suya. Se mide en los DOS sentidos porque al separar
+      // dos conjuntos que estaban fundidos el error caro es el simétrico: ofrecer columnas aquí
+      // mata la corrida en el primer paso (`index_col` comprueba el nombre de un índice YA
+      // existente y nunca hace `set_index`).
       const campo = (defs["data__SchemaConfig"]?.properties ?? {})["index_col"]
       expect(columnRole(campo, defs)).toBe("index")
-      expect(resolveWidget(campo, { defs })).not.toBe("column")
+      expect(resolveWidget(campo, { defs })).toBe("column")
       expect(columnOptions(campo, { datasetColumns: COLUMNAS }, defs)).toEqual([])
+      expect(
+        columnOptions(campo, { datasetIndexColumns: ["loan_id"] }, defs),
+      ).toEqual(["loan_id"])
     })
 
     it("un `enum` manda sobre el rol: si el schema cierra el dominio, se elige de él", () => {

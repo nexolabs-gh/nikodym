@@ -194,6 +194,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
               kind: "valid",
               hash: res.config_hash,
               pipeline: res.pipeline ?? null,
+              producedColumns: res.produced_columns_by_section ?? {},
             })
           } else {
             setValidation({

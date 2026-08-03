@@ -1,6 +1,39 @@
 # Enmienda SDD — el formulario no sabe de dónde sale una columna
 
-> **Estado:** BORRADOR, pendiente de aprobación de Cami (2026-08-03).
+> **Estado: APROBADA por Cami e IMPLEMENTADA (2026-08-03).** Verificada en vivo con Playwright, los
+> seis casos de D-PRO-6 en la pantalla.
+>
+> ## 🔴 Lo que la implementación corrigió de este documento
+>
+> 1. **El campo se llama `produced_columns_by_section`, no `available_columns_by_section`**, y
+>    publica sólo las columnas **producidas** por sección — no la unión con las del archivo. Razón
+>    medida: `/api/validate` **no recibe el `dataset_id`**, así que no puede conocer las columnas del
+>    archivo; el front ya las tiene y hace la unión. Lo que importaba de D-PRO-3 se conserva intacto:
+>    la regla de D-RAM-7 la aplica el backend, y el front sólo busca su clave.
+> 2. **El mapa viaja COMPLETO, con todas las claves del config**, incluidas las que no aportan nada.
+>    Filtrar las vacías obligaría al consumidor a distinguir «esta sección no viene» de «no aporta
+>    nada», que son la misma cosa y no deberían parecer dos.
+> 3. ⚠️ **`columnas_producidas_por_seccion` tiene que COACCIONAR las secciones opacas**, y no estaba
+>    en el diseño. Lo cazó `test_seccion_opaca_invariante` al escribirla: una sección que viaja como
+>    `dict` —el estado por defecto— no implementa `columnas_que_produce`, así que sin la coacción la
+>    misma pregunta tendría dos respuestas según los imports y el formulario acusaría en rojo lo que
+>    el motor da por bueno. El gate obligó a declarar su política, y la respuesta es «comprobado».
+> 4. 🔴 **Abrir la pantalla destapó copy falso que el diseño no anticipaba**: el desplegable rotulaba
+>    «Columnas del archivo (21)» sobre una lista donde 4 no venían del archivo. Se arregló con lo que
+>    D-PRO-4 ya pedía —procedencia a la vista—: el rótulo pasa a «Columnas disponibles» cuando hay
+>    producidas, «Índice del archivo» en un campo de índice, y cada chip derivado se marca
+>    «· calculada» con su tooltip.
+> 5. ⚠️ **Límite medido y declarado: las columnas producidas sólo se conocen si el config VALIDA.**
+>    Con las decisiones obligatorias en blanco (D-OBL-5) `/api/validate` no devuelve el mapa, así que
+>    el formulario vuelve a ofrecer sólo las del archivo. No es un defecto nuevo —es el estado que
+>    había siempre— y degrada del lado seguro, pero conviene saberlo: el aviso aparece **después** de
+>    contestar las decisiones, no antes.
+> 6. **`data.schema.index_col` pasa de caja de texto a widget `column`.** Es cambio de UI observable,
+>    consecuencia directa de D-PRO-5: antes no ofrecía nada y se tecleaba a ciegas.
+>
+> ---
+>
+> **Estado original:** BORRADOR, pendiente de aprobación de Cami (2026-08-03).
 > **Enmienda a:** [`_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md`](_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md)
 > (D-RAM-6/7, que enseñaron esto al backend y dejaron al front atrás) y a SDD-23 §4.2 (contrato REST).
 > **Decisiones:** D-PRO-1 … D-PRO-9.

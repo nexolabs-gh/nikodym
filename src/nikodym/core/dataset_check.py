@@ -322,6 +322,49 @@ def _producidas_por_seccion(config: NikodymConfig) -> dict[str, frozenset[str]]:
     }
 
 
+def columnas_producidas_por_seccion(config: NikodymConfig) -> dict[str, tuple[str, ...]]:
+    """Qué columnas puede nombrar cada sección **sin traerlas del archivo** (D-PRO-2/3).
+
+    Es lo mismo que :func:`check_dataset` usa para no acusar una columna que el pipeline escribe,
+    publicado para que la interfaz pueda decir lo mismo que el motor. Hasta que existió, el
+    formulario pintaba en rojo ``survival.input.event_col = "target"`` —«esa columna no está en el
+    dataset»— mientras ``check_dataset`` la daba por buena y la corrida llegaba a ``done``: dos
+    superficies del mismo producto contradiciéndose en la misma pantalla.
+
+    🔴 **Viaja YA RESUELTA por sección, y ésa es la decisión.** Cada entrada excluye lo que produce
+    la propia sección (D-RAM-7), así que el consumidor sólo tiene que buscar su clave. Con una lista
+    plana, el front pintaría en verde ``data.schema.columns[0].name = "partition"``, que este mismo
+    módulo **sí** acusa y cuya corrida muere en el primer paso — o sea, reintroduciría en la
+    interfaz el defecto que D-RAM-7 cerró aquí. Y resolverlo del otro lado sería reimplementar
+    front, que SDD-23 §11 prohíbe: la regla viaja como dato y se evalúa sin saber qué significa.
+
+    ⚠️ **Coacciona las secciones opacas antes de mirar, igual que :func:`check_dataset`.** Una
+    sección que viaja como ``dict`` —porque el proceso no importó su capa, que es el estado por
+    defecto— no implementa ``columnas_que_produce`` y no aportaría nada, así que sin esto la misma
+    pregunta tendría dos respuestas según los imports y el formulario acusaría en rojo columnas que
+    el motor da por buenas. Es la familia de defectos que ``test_seccion_opaca_invariante`` existe
+    para impedir, y el gate lo cazó al escribir esta función.
+
+    Returns
+    -------
+    dict
+        ``{clave de sección: columnas}``, con **todas** las claves de primer nivel del config —
+        también las que no producen nada, con tupla vacía—. Devolver el mapa completo evita que el
+        consumidor tenga que distinguir «esta sección no está» de «no aporta nada».
+    """
+    from nikodym.core.config.hashing import _coaccionar_secciones_opacas
+
+    producidas = _producidas_por_seccion(_coaccionar_secciones_opacas(config))
+    return {
+        seccion: tuple(
+            sorted(
+                frozenset().union(*(cols for otra, cols in producidas.items() if otra != seccion))
+            )
+        )
+        for seccion in producidas
+    }
+
+
 def _columnas_producidas(config: Any) -> frozenset[str]:
     """Columnas que el pipeline **añade** al frame con este config (D-RAM-6), o vacío.
 

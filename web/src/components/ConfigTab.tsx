@@ -49,7 +49,7 @@ import {
   requiredExternalArtifacts,
 } from "@/lib/external-artifacts"
 import { type Path, getAtPath, removeAtPath, setAtPath } from "@/lib/config-store"
-import { columnValuesByName } from "@/lib/datasets"
+import { columnValuesByName, columnasDeIndice, columnasOfrecibles } from "@/lib/datasets"
 import {
   type EffectiveDefaults,
   canonicalProjection,
@@ -469,6 +469,9 @@ function ConfigSectionForm(props: {
   setField: (path: Path, value: unknown) => void
   errors?: Map<string, string>
   datasetColumns?: string[]
+  /** Los nombres del ÍNDICE del archivo (D-PRO-5); nunca se mezclan con `datasetColumns`. */
+  datasetIndexColumns?: string[]
+  producedColumns?: string[]
   datasetColumnValues?: Record<string, string[]>
   effectiveDefaults?: EffectiveDefaults
 }) {
@@ -480,6 +483,8 @@ function ConfigSectionForm(props: {
     setField,
     errors,
     datasetColumns,
+    datasetIndexColumns,
+    producedColumns,
     datasetColumnValues,
     effectiveDefaults,
   } = props
@@ -503,6 +508,8 @@ function ConfigSectionForm(props: {
       required={required.has(name)}
       errors={errors}
       datasetColumns={datasetColumns}
+      datasetIndexColumns={datasetIndexColumns}
+      producedColumns={producedColumns}
       datasetColumnValues={datasetColumnValues}
       titledByParent={titledByParent}
       defaultsBase={sectionDefaults}
@@ -749,9 +756,19 @@ export function ConfigTab({ section }: { section: string }) {
   // puede traerlas —dependen del archivo del usuario—, así que viajan como contexto de datos.
   // `undefined` (no `[]`) cuando aún no hay dataset: el widget distingue «no hay lista» de
   // «la lista está vacía» y ofrece entrada libre en vez de un «Sin opciones.» que miente.
-  const datasetColumns = selectedDataset
-    ? selectedDataset.columns.map((c) => c.name)
-    : undefined
+  // D-PRO-2: además de las del archivo, las que el pipeline ESCRIBE aguas arriba y que esta
+  // sección puede nombrar. El backend las manda ya resueltas por sección (D-RAM-7 aplicado allí),
+  // así que aquí sólo se busca la clave: recomponerlas reintroduciría el defecto en el front.
+  const producidas =
+    validation.kind === "valid" ? (validation.producedColumns ?? {}) : {}
+  const datasetColumns = columnasOfrecibles(selectedDataset, producidas, section)
+  // Sólo para la PRESENTACIÓN (D-PRO-4): qué opciones no vienen del archivo, para que el
+  // desplegable no las rotule «del archivo» —que sería falso— y diga de dónde salen.
+  const producedColumns = producidas[section] ?? []
+  // Y el ÍNDICE aparte (D-PRO-1/5): no es una columna, y sólo lo puede nombrar un campo con
+  // `column_role: "index"`. Publicarlo dentro de `columns` hacía que la interfaz lo ofreciera
+  // donde el motor no puede leerlo.
+  const datasetIndexColumns = columnasDeIndice(selectedDataset)
   // Y los VALORES observados de cada columna, que son las opciones de todo campo que declare
   // `column_values_from` (los tres de la división ya marcada en el archivo). Se indexa por nombre
   // de columna porque así lo pregunta el campo: la anotación nombra a un hermano, el hermano
@@ -1019,6 +1036,8 @@ export function ConfigTab({ section }: { section: string }) {
                 setField={setField}
                 errors={errorLookup}
                 datasetColumns={datasetColumns}
+                datasetIndexColumns={datasetIndexColumns}
+                producedColumns={producedColumns}
                 datasetColumnValues={datasetColumnValues}
                 effectiveDefaults={catalogo}
               />

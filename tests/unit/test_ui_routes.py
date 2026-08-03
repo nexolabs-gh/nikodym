@@ -113,6 +113,10 @@ def test_validate_config_valido_devuelve_hash() -> None:
             "message": None,
             "inert_artifacts": [],
         },
+        # D-PRO-2, aditivo. Con `data` apagada nadie produce nada, así que el mapa trae todas las
+        # claves del config con listas vacías — se publica completo a propósito, para que el front
+        # no tenga que distinguir «esta sección no viene» de «no aporta nada».
+        "produced_columns_by_section": {seccion: [] for seccion in NikodymConfig.model_fields},
     }
 
 

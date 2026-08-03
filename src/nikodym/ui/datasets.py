@@ -65,11 +65,24 @@ def mensaje_de_tope(tamano: int, max_bytes: int) -> str:
     )
 
 
+# 🔴 El ÍNDICE del parquet, declarado APARTE de las columnas (D-PRO-1).
+#
+# Vivía dentro de ``_COLUMNS`` y se heredaba por splat a los cinco datasets, así que el catálogo
+# publicaba ``loan_id`` como si fuera una columna más y la interfaz la ofrecía como columna elegible
+# en todo campo de columna — features del binning, target, segmento—. En el parquet no hay tal
+# columna: sólo funciona como ``data.schema.index_col``, que es lo que el preset F1 hace bien.
+#
+# El backend ya sabía la verdad y se contradecía consigo mismo: ``_columnas_del_parquet``
+# (``ui/routes.py``) separa índice de columnas para el preflight —tiene que hacerlo, es el falso
+# positivo más caro del repo— y ``_valores_publicables`` itera ``frame.columns``, de modo que
+# ``loan_id`` salía siempre con ``values: []`` mientras sus hermanas traían valores.
+_INDEX_COLUMNS: tuple[dict[str, str], ...] = ({"name": "loan_id", "dtype": "str", "role": "id"},)
+
 # Esquema común de los datasets sintéticos: (nombre, dtype lógico, rol). El orden fija el orden de
 # columnas del parquet. Los dtype usan el mismo vocabulario que ``data.ColumnSpec`` y los roles son
-# consistentes con lo que ``config.data`` espera para F1 (id/feature/segment/cohort/target).
+# consistentes con lo que ``config.data`` espera para F1 (feature/segment/cohort/target). El
+# identificador NO está aquí: es el índice, y va en ``_INDEX_COLUMNS``.
 _COLUMNS: tuple[dict[str, str], ...] = (
-    {"name": "loan_id", "dtype": "str", "role": "id"},
     {"name": "ingreso_mensual", "dtype": "float", "role": "feature"},
     {"name": "deuda_ingreso", "dtype": "float", "role": "feature"},
     {"name": "utilizacion_linea", "dtype": "float", "role": "feature"},
@@ -250,10 +263,14 @@ def list_datasets() -> list[dict[str, Any]]:
     Returns
     -------
     list of dict
-        Un descriptor por dataset con ``id``/``name``/``description``/``columns``/``n_rows``. Cada
-        columna trae ``name``/``dtype``/``role`` y, desde D-COL-7, ``values`` con sus valores
-        ofrecibles. El orden es estable (orden de inserción del registro), de modo que el listado
-        no cambia entre corridas.
+        Un descriptor por dataset con ``id``/``name``/``description``/``columns``/
+        ``index_columns``/``n_rows``. Cada entrada de las dos listas trae ``name``/``dtype``/
+        ``role`` y, desde D-COL-7, ``values`` con sus valores ofrecibles. El orden es estable
+        (orden de inserción del registro), de modo que el listado no cambia entre corridas.
+
+    ``index_columns`` va **aparte** desde D-PRO-1: el índice no es una columna, y publicarlo dentro
+    de ``columns`` hacía que la interfaz lo ofreciera donde el motor no puede leerlo. Un campo con
+    ``column_role: "index"`` ofrece esta lista; uno con ``"input"``, la otra.
 
     No depende del ``workdir``: estos datasets son sintéticos deterministas, así que sus valores
     son una propiedad del catálogo y no de una materialización concreta.
@@ -267,6 +284,10 @@ def list_datasets() -> list[dict[str, Any]]:
                 dict(column) | {"values": list(valores_por_columna.get(column["name"], ()))}
                 for column in _columns_for(dataset_id)
             ],
+            # El índice nunca trae `values`: `_valores_publicables` itera `frame.columns`, así que
+            # el índice no está ahí. Se declara vacío en vez de omitirse para que las dos listas
+            # tengan la misma forma y el front no necesite dos ramas.
+            "index_columns": [dict(column) | {"values": []} for column in _INDEX_COLUMNS],
             "n_rows": spec["n_rows"],
         }
         for dataset_id, spec in _DATASETS.items()
@@ -376,6 +397,16 @@ def ingest_upload(
                 "values": _valores_frecuentes(frame[col]),
             }
             for col in frame.columns
+        ],
+        # D-PRO-1: misma forma que el catálogo. Un archivo subido en CSV o Excel llega con
+        # `RangeIndex` sin nombre y esta lista queda vacía —lo correcto: no hay índice que
+        # nombrar—; un parquet indexado sí lo trae. Ya era así de hecho, porque `columns` se deriva
+        # de `frame.columns`, que nunca incluye el índice: lo que faltaba era DECIRLO, y esa
+        # asimetría con el catálogo es justo el defecto que D-PRO-1 cierra.
+        "index_columns": [
+            {"name": str(nombre), "dtype": str(frame.index.dtype), "role": "id", "values": []}
+            for nombre in frame.index.names
+            if nombre is not None
         ],
     }
 

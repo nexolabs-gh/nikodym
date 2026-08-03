@@ -46,6 +46,7 @@ POLITICA: dict[str, str] = {
     "config_hash": "comprobado",
     "check_dataset": "comprobado",
     "check_pipeline": "comprobado",
+    "columnas_producidas_por_seccion": "comprobado",
     "dump_config": (
         "exento: produce YAML distinto según la opacidad, pero sin consecuencia — sus dos "
         "consumidores la neutralizan (`config_to_yaml` con exclude_unset, `Study.save` volcando "
@@ -145,6 +146,28 @@ def test_check_dataset_no_depende_de_la_opacidad(
     assert obtenido.compatible == esperado.compatible
     assert obtenido.uninspected == esperado.uninspected
     assert [m.path for m in obtenido.mismatches] == [m.path for m in esperado.mismatches]
+
+
+def test_columnas_producidas_no_depende_de_la_opacidad() -> None:
+    """D-PRO-2: si el formulario y el motor discrepan, uno de los dos miente en pantalla.
+
+    ⚠️ Fixture propio y no ``par_tipado_y_opaco``: el único productor de columnas es ``data``, así
+    que hacer opaca ``binning`` dejaría las dos respuestas idénticas **por vacuidad** y el test
+    daría verde sin tocar el defecto. El ancla de abajo es lo que lo impide.
+    """
+    from nikodym.core.dataset_check import columnas_producidas_por_seccion
+
+    crudo = get_preset("f1-estandar-consumo")["config"]
+    tipado = NikodymConfig.model_validate(crudo)
+    opaco = tipado.model_copy(update={"data": dict(crudo["data"])})
+    assert isinstance(opaco.data, dict), "precondición: la sección debe quedar opaca"
+
+    esperado = columnas_producidas_por_seccion(tipado)
+    obtenido = columnas_producidas_por_seccion(opaco)
+
+    # Ancla: sin esto, «vacío == vacío» pasaría con el defecto puesto.
+    assert esperado["survival"], "el preset F1 debe producir columnas para las demás secciones"
+    assert obtenido == esperado
 
 
 def test_check_pipeline_no_depende_de_la_opacidad(

@@ -32,9 +32,20 @@ def test_list_datasets_estable_y_con_roles_f1() -> None:
     ]
 
     for descriptor in primero:
-        assert set(descriptor) == {"id", "name", "description", "columns", "n_rows"}
-        roles = {col["role"] for col in descriptor["columns"]}
+        assert set(descriptor) == {
+            "id",
+            "name",
+            "description",
+            "columns",
+            "index_columns",
+            "n_rows",
+        }
+        # D-PRO-1: el rol `id` vive en el ÍNDICE, no entre las columnas. Los roles se comprueban
+        # sobre la unión porque el pipeline F1 los necesita todos, pero cada uno en su sitio.
+        roles = {col["role"] for col in (*descriptor["columns"], *descriptor["index_columns"])}
         assert roles >= _ROLES_ESPERADOS  # target/feature/segment/cohort/id presentes
+        assert {col["role"] for col in descriptor["index_columns"]} == {"id"}
+        assert "id" not in {col["role"] for col in descriptor["columns"]}
         # exactamente un target, un segment y un cohort (consistente con la partición F1).
         assert sum(col["role"] == "target" for col in descriptor["columns"]) == 1
         assert sum(col["role"] == "segment" for col in descriptor["columns"]) == 1
@@ -240,14 +251,24 @@ def test_materialize_determinista_byte_logico(tmp_path: Path) -> None:
     assert frame_a.index.name == "loan_id"
 
 
-def test_materialize_columnas_coinciden_con_el_descriptor(tmp_path: Path) -> None:
-    """Las columnas materializadas (índice + datos) calzan con los ``columns`` del catálogo."""
-    ruta = materialize("hipotecario_comportamiento", workdir=tmp_path)
-    frame = pd.read_parquet(ruta)
-    descriptor = next(d for d in list_datasets() if d["id"] == "hipotecario_comportamiento")
-    nombres_descriptor = [col["name"] for col in descriptor["columns"]]
-    nombres_frame = [frame.index.name, *frame.columns]
-    assert nombres_frame == nombres_descriptor
+@pytest.mark.parametrize("dataset_id", sorted(d["id"] for d in list_datasets()))
+def test_materialize_columnas_coinciden_con_el_descriptor(dataset_id: str, tmp_path: Path) -> None:
+    """Las columnas y el índice del parquet calzan con el descriptor, **cada uno con el suyo**.
+
+    🔴 Este gate CODIFICABA el defecto que D-PRO-1 cierra: sumaba el índice a mano
+    (``[frame.index.name, *frame.columns]``) para que cuadrara contra ``columns``. No era un gate
+    que se hubiera olvidado del caso — era un gate que lo afirmaba, y por eso el catálogo pudo
+    publicar el índice como columna sin que nada se pusiera rojo.
+
+    Y corre sobre los CINCO datasets, no sobre uno: ``_INDEX_COLUMNS`` se hereda por splat, así que
+    un defecto ahí alcanza a todos y probar uno solo no lo demuestra.
+    """
+    frame = pd.read_parquet(materialize(dataset_id, workdir=tmp_path))
+    descriptor = next(d for d in list_datasets() if d["id"] == dataset_id)
+    assert [col["name"] for col in descriptor["columns"]] == [str(c) for c in frame.columns]
+    assert [col["name"] for col in descriptor["index_columns"]] == [
+        nombre for nombre in frame.index.names if nombre is not None
+    ]
 
 
 def test_materialize_cachea_sin_regenerar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -336,8 +357,9 @@ def test_consumo_drift_en_catalogo() -> None:
     descriptor = next(d for d in list_datasets() if d["id"] == "consumo_drift")
     assert descriptor["name"] == "Consumo — con drift (deterioro)"
     assert descriptor["n_rows"] == 6000
-    assert len(descriptor["columns"]) == 9  # mismas 9 columnas del esquema común
-    roles = {col["role"] for col in descriptor["columns"]}
+    assert len(descriptor["columns"]) == 8  # las 8 del esquema común; el id es el ÍNDICE (D-PRO-1)
+    assert [col["name"] for col in descriptor["index_columns"]] == ["loan_id"]
+    roles = {col["role"] for col in (*descriptor["columns"], *descriptor["index_columns"])}
     assert roles >= _ROLES_ESPERADOS
     # mismo esquema (nombres/orden) que los datasets estables — el config F1 corre sin editar.
     # Se comparan nombre/dtype/role y NO el descriptor entero: desde D-COL-7 cada columna publica

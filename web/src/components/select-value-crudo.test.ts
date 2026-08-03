@@ -63,12 +63,17 @@ function clasificar(cuerpo: string): BloqueSelect["resuelvePor"] {
   const aperturaSelect = cuerpo.slice(0, cuerpo.indexOf(">") + 1)
   if (/\bitems=/.test(aperturaSelect)) return "items"
 
-  // (c) todo `<SelectItem value={X}>` muestra `{X}` (con o sin un `<span>` de estilo en medio).
-  const items = [...cuerpo.matchAll(/<SelectItem\b[^>]*?value=\{([^}]+)\}[^>]*>([\s\S]*?)<\/SelectItem>/g)]
+  // (c) todo `<SelectItem value={X}>` muestra EXACTAMENTE `{X}` (con o sin un `<span>` de estilo
+  // en medio). Se compara el contenido COMPLETO normalizado y no la primera expresión que
+  // aparezca: con `{d.id} — {d.name}` la primera casa con el value y el trigger pintaría sólo la
+  // mitad de lo que dice la lista. Es el falso negativo que la revisión adversarial preguntó.
+  const items = [
+    ...cuerpo.matchAll(/<SelectItem\b[^>]*?value=\{([^}]+)\}[^>]*>([\s\S]*?)<\/SelectItem>/g),
+  ]
   if (items.length === 0) return null
   const todosIguales = items.every(([, valorItem, contenido]) => {
-    const pintado = contenido.match(/\{([^}]+)\}/)
-    return pintado !== null && pintado[1].trim() === valorItem.trim()
+    const desnudo = contenido.replace(/<[^>]*>/g, "").trim()
+    return desnudo === `{${valorItem.trim()}}`
   })
   return todosIguales ? "label-igual-a-value" : null
 }
