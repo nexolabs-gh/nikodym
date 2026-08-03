@@ -251,7 +251,13 @@ function RequiredDecisions({
             ) : (
               <CircleAlert
                 className="mt-0.5 size-3.5 shrink-0 text-amber-300/80"
-                aria-label={decision.inProgress ? "Te falta un dato" : "Sin responder"}
+                aria-label={
+                  decision.inProgress
+                    ? "Te falta un dato"
+                    : decision.rejected
+                      ? "Revisa lo que escribiste"
+                      : "Sin responder"
+                }
               />
             )}
             <div className="min-w-0 flex-1">
@@ -260,7 +266,10 @@ function RequiredDecisions({
               {/* Las formas se ofrecen mientras la decisión esté SIN EMPEZAR. Una vez elegida, el
                   usuario está rellenando sus huecos en los controles de abajo y volver a pintar
                   las alternativas invitaría a pisar lo escrito de un clic. */}
-              {!decision.answered && !decision.inProgress && decision.answer_forms.length > 0 ? (
+              {!decision.answered &&
+              !decision.inProgress &&
+              !decision.rejected &&
+              decision.answer_forms.length > 0 ? (
                 <ul className="mt-2 space-y-1.5">
                   {decision.answer_forms.map((forma) => {
                     const propuesto = precargas(forma)
@@ -309,6 +318,17 @@ function RequiredDecisions({
                   Elegiste cómo contestarla; abajo te faltan los datos de tu cartera.
                 </p>
               ) : null}
+              {/* Rechazada: no falta ningún dato, así que mandar «abajo» sería falso. Y el motivo
+                  puede no estar marcado en ningún campo —el `loc` del motor lleva el tag del
+                  discriminador, que ningún control tiene—, de modo que éste es el único sitio donde
+                  el usuario puede leerlo. Se cita tal cual lo dijo el motor: reescribirlo aquí sería
+                  una segunda versión del mismo mensaje, que es como se desincronizan. */}
+              {decision.rejected ? (
+                <p className="mt-1 text-xs text-amber-300/80">
+                  Está contestada, pero el motor no acepta lo que dice:{" "}
+                  {decision.rejectionReason}
+                </p>
+              ) : null}
             </div>
             <Button
               variant="ghost"
@@ -316,7 +336,7 @@ function RequiredDecisions({
               className="shrink-0 text-xs"
               onClick={() => onFocus(decision.path)}
             >
-              {decision.answered ? "Revisar" : "Ir al campo"}
+              {decision.answered ? "Revisar" : decision.rejected ? "Corregir" : "Ir al campo"}
             </Button>
           </li>
         ))}

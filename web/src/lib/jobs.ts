@@ -281,6 +281,27 @@ export interface DecisionStatus extends RequiredDecision {
    * está» que D-OBL-5 existe para impedir, y encima con el error apareciendo mucho después.
    */
   inProgress: boolean
+  /**
+   * Contestada del todo —ningún hueco suyo en blanco— y **rechazada por el motor** (D-RES-7).
+   *
+   * 🔴 Es un estado distinto de `inProgress`, y confundirlos producía copy falso: una partición
+   * `0.9/0.9/0.9` no tiene ningún hueco, así que decirle al usuario «abajo te faltan los datos de
+   * tu cartera» le manda a buscar un vacío que no existe. Lo que le falta no es un dato: es que los
+   * que ya escribió son inconsistentes entre sí.
+   *
+   * Los tres estados son **excluyentes**, y el hueco gana: es más específico y más accionable que
+   * el veredicto del motor, que suele ser consecuencia suya.
+   */
+  rejected: boolean
+  /**
+   * El motivo **tal como lo dio el motor**, o `null` si no está rechazada.
+   *
+   * ⚠️ Viaja hasta la tarjeta porque el error de una decisión rechazada puede no pintarse en ningún
+   * campo: Pydantic inserta el tag del discriminador en el `loc` (`strategy.random`), y `errorAtPath`
+   * casa por igualdad exacta contra el path del control, que no lo lleva. Sin esto, la tarjeta diría
+   * «corrige abajo» apuntando a una pantalla sin una sola marca roja.
+   */
+  rejectionReason: string | null
 }
 
 /** Baja por un path con puntos y dice si la clave EXISTE, sin mirar su valor. */
@@ -351,7 +372,7 @@ function huecosPendientes(decision: RequiredDecision, valor: unknown): string[] 
 }
 
 /**
- * ¿El motor rechaza algo DENTRO de esta decisión? (D-RES-2).
+ * El motivo con que el motor rechaza algo DENTRO de esta decisión, o `null` (D-RES-2).
  *
  * Casa el `loc` de los errores de `/api/validate` **por prefijo**: el path exacto de la decisión, o
  * cualquier descendiente suyo. Un error en un ancestro no cuenta — puede ser de otro campo hermano.
@@ -366,15 +387,20 @@ function huecosPendientes(decision: RequiredDecision, valor: unknown): string[] 
  * `loc` —`data.partition.strategy.temporal.date_col`—, y ese segmento no existe en el config. El
  * salto al campo sigue siendo cosa del mecanismo del preflight, que degrada de lo específico a lo
  * general.
+ *
+ * Por eso mismo devuelve el **mensaje** y no un booleano: si el `loc` no es un path real, ningún
+ * control lo pinta abajo, y el motivo sólo puede llegar al usuario por aquí. Se toma el primero que
+ * case —el orden es el del motor— en vez de acumularlos: la tarjeta es un resumen, y la lista
+ * completa ya vive en los campos que sí casan.
  */
-function rechazadaPorElMotor(path: string, validation: ValidationState): boolean {
+function motivoDelRechazo(path: string, validation: ValidationState): string | null {
   // Sin veredicto no se inventa nada (D-RES-4): mandan los huecos, que es el criterio de siempre.
   // Marcar «no contestada» por no tener respuesta todavía haría parpadear la tarjeta al teclear.
-  if (validation.kind !== "invalid") return false
-  for (const clave of validation.lookup.keys()) {
-    if (clave === path || clave.startsWith(`${path}.`)) return true
+  if (validation.kind !== "invalid") return null
+  for (const [clave, mensaje] of validation.lookup) {
+    if (clave === path || clave.startsWith(`${path}.`)) return mensaje
   }
-  return false
+  return null
 }
 
 /**
@@ -390,6 +416,10 @@ function rechazadaPorElMotor(path: string, validation: ValidationState): boolean
  * valores que el motor ACEPTA y que están incompletos de verdad (`date_col: ""` valida y muere al
  * ejecutar), y decenas que el motor rechaza sin que ningún hueco lo delate.
  *
+ * Pero «no contestada» tiene **dos causas distintas y no se pueden fundir** (D-RES-7): falta un
+ * hueco (`inProgress`) o los valores que ya están son inconsistentes (`rejected`). Fundirlas costó
+ * copy falso en pantalla: mandaba a buscar un vacío inexistente.
+ *
  * `validation` es obligatorio a propósito: con un parámetro opcional, un llamador nuevo perdería la
  * mitad del criterio sin que nada se lo dijera.
  */
@@ -404,11 +434,18 @@ export function decisionStatuses(
     const pendientes = presente
       ? huecosPendientes(decision, valueAtPath(config, decision.path))
       : []
-    const rechazada = presente && rechazadaPorElMotor(decision.path, validation)
+    const faltanHuecos = pendientes.length > 0
+    // El hueco gana al veredicto (D-RES-7): «te falta un dato» es más específico y más accionable
+    // que «el motor lo rechaza», que casi siempre es su consecuencia. Sólo se pregunta por el motivo
+    // cuando no falta ningún hueco, que es exactamente el caso que el copy de arriba no describe.
+    const motivo =
+      presente && !faltanHuecos ? motivoDelRechazo(decision.path, validation) : null
     return {
       ...decision,
-      answered: presente && pendientes.length === 0 && !rechazada,
-      inProgress: presente && (pendientes.length > 0 || rechazada),
+      answered: presente && !faltanHuecos && motivo === null,
+      inProgress: presente && faltanHuecos,
+      rejected: presente && !faltanHuecos && motivo !== null,
+      rejectionReason: motivo,
     }
   })
 }

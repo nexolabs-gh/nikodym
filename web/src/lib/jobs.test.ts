@@ -531,6 +531,23 @@ describe("guardrail: elegir una forma escribe la plantilla del backend, no una c
   })
 })
 
+describe("guardrail: una decisión rechazada NO dice «te falta un dato» (D-RES-7)", () => {
+  it("`ConfigTab` ramifica los tres estados y cita el motivo del motor", () => {
+    // Vitest corre sin DOM, así que el copy se vigila en el fuente — mismo motivo y misma forma que
+    // los dos guardrails vecinos. Lo que se protege es que el mensaje de hueco quede atado a
+    // `inProgress` y NO se pueda volver a colgar de «no contestada», que es como nació la regresión.
+    expect(configTabSource).toMatch(
+      /\{decision\.inProgress \? \(\s*<p[^>]*>\s*Elegiste cómo contestarla; abajo te faltan los datos de tu cartera\./,
+    )
+    // El motivo se pinta TAL CUAL lo dio el motor. Si algún día alguien lo reescribe aquí, habrá
+    // dos versiones del mismo mensaje y se separarán en silencio.
+    expect(configTabSource).toMatch(/\{decision\.rejected \? \(/)
+    expect(configTabSource).toMatch(/\{decision\.rejectionReason\}/)
+    // Y el aria-label del icono distingue los tres, que es lo único que un lector de pantalla oye.
+    expect(configTabSource).toMatch(/decision\.rejected\s*\?\s*"Revisa lo que escribiste"/)
+  })
+})
+
 describe("guardrail: las decisiones se pintan al principio de Configuración (D-OBL-8)", () => {
   it("`ConfigTab` monta la tarjeta y la acota a su sección", () => {
     // Vitest corre sin DOM y no puede comprobar el ORDEN renderizando, así que se vigila el fuente:
@@ -659,8 +676,37 @@ describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/
     for (const caso of CASOS) {
       const config = configCon(caso.path, caso.valor)
       const estado = decisionStatuses(scorecard, config, rechaza(caso.loc))[caso.indice]
-      expect([estado.answered, estado.inProgress], caso.nombre).toEqual([false, true])
+      expect([estado.answered, estado.inProgress], caso.nombre).toEqual([false, false])
+      expect(estado.rejected, caso.nombre).toBe(true)
     }
+  })
+
+  it("🔴 RECHAZADA no es «te falta un dato»: a ninguno de estos le falta un hueco (D-RES-7)", () => {
+    // La regresión que esto cierra: los cinco casos de arriba tienen la respuesta COMPLETA —el
+    // ancla anti-vacua lo demuestra, sin veredicto salían «Respondida»— y aun así el copy decía
+    // «abajo te faltan los datos de tu cartera», mandando al usuario a buscar un vacío inexistente.
+    for (const caso of CASOS) {
+      const config = configCon(caso.path, caso.valor)
+      const estado = decisionStatuses(scorecard, config, rechaza(caso.loc))[caso.indice]
+      expect(estado.inProgress, `${caso.nombre}: no le falta ningún hueco`).toBe(false)
+      // Y el motivo llega a la tarjeta: para 4 de los 5 el `loc` lleva el tag del discriminador o
+      // es un ancestro, así que ningún control de abajo lo pinta y éste es el único sitio.
+      expect(estado.rejectionReason, caso.nombre).toBe("mensaje del motor")
+    }
+  })
+
+  it("🔴 el HUECO gana al veredicto: es más específico y suele ser su causa", () => {
+    // Los dos estados son excluyentes, y el orden importa. Una plantilla recién elegida tiene sus
+    // huecos en blanco Y el motor la rechaza por eso mismo; decir «revisa lo que escribiste» sobre
+    // algo que el usuario todavía no ha escrito sería la mentira simétrica de la que se corrigió.
+    const forma = scorecard.required_decisions
+      .find((d) => d.path === "data.target.bad_rule")!
+      .answer_forms.find((f) => f.id === "columna_marcada")
+    expect(forma, "el catálogo ya no trae la forma «columna_marcada»").toBeDefined()
+    const conPlantilla = { data: { target: { bad_rule: forma!.template } } }
+    const [badRule] = decisionStatuses(scorecard, conPlantilla, rechaza("data.target.bad_rule"))
+    expect([badRule.answered, badRule.inProgress, badRule.rejected]).toEqual([false, true, false])
+    expect(badRule.rejectionReason).toBeNull()
   })
 
   it("🔴 CONTROL POSITIVO: un config bueno sigue contestado, y con el motor conforme", () => {
@@ -672,7 +718,12 @@ describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/
       },
     }
     for (const estado of decisionStatuses(scorecard, bueno, { kind: "valid", hash: "h", pipeline: null })) {
-      expect([estado.answered, estado.inProgress], estado.path).toEqual([true, false])
+      expect([estado.answered, estado.inProgress, estado.rejected], estado.path).toEqual([
+        true,
+        false,
+        false,
+      ])
+      expect(estado.rejectionReason, estado.path).toBeNull()
     }
   })
 
@@ -711,7 +762,11 @@ describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/
   it("una decisión sin empezar sigue «sin responder», no «te falta un dato»", () => {
     // El veredicto sólo entra cuando la clave existe: si no, el usuario ni ha empezado.
     const estados = decisionStatuses(scorecard, { data: {} }, rechaza("data.target.bad_rule"))
-    expect([estados[0].answered, estados[0].inProgress]).toEqual([false, false])
+    expect([estados[0].answered, estados[0].inProgress, estados[0].rejected]).toEqual([
+      false,
+      false,
+      false,
+    ])
   })
 })
 
