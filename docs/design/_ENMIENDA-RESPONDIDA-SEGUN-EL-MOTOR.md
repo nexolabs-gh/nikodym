@@ -188,7 +188,38 @@ segunda redacción del mismo mensaje en el front es como las dos se separan en s
 motivo es útil y ya viene en español —*«dev+holdout+oot debe sumar 1.0; suma observada = 2.1300»*—
 porque la traducción por `type` de Pydantic ya estaba resuelta.
 
-**Gate.** Los cinco casos de la tabla escrita a mano **no** pueden decir `inProgress` (el ancla
-anti-vacua ya demuestra que a ninguno le falta un hueco: sin veredicto salían «Respondida»), más un
-caso nuevo con hueco **y** rechazo que comprueba la prioridad, más un guardrail de fuente sobre
-`ConfigTab`. Control negativo ejecutado: refundir los dos estados pone dos tests en rojo.
+**Gate.** Cada caso de la tabla escrita a mano cae en **su** estado, más un caso con hueco **y**
+rechazo que comprueba la prioridad, más un guardrail de fuente sobre `ConfigTab`. Control negativo
+ejecutado: refundir los dos estados pone tests en rojo.
+
+## 7. D-RES-8 — la mitad que el primer arreglo rompió, y el `loc` con tag deja de ser excusa
+
+> Enmienda a la §2 y a D-RES-7, tras la **segunda** pasada de la revisión adversarial cruzada sobre
+> el arreglo anterior. **Aprobada e implementada.**
+
+🔴 **D-RES-7 mejoró un caso y empeoró otro, y sólo se vio revisándolo de nuevo.** Una estrategia
+`{type: "temporal"}` recién escrita —sin `date_col` ni `oot_from`— no registraba ningún hueco, así
+que el arreglo la clasificaba `rejected` y la tarjeta decía **«Está contestada»** sobre algo a lo que
+le faltan dos campos. Es la mentira **simétrica** de la que D-RES-7 vino a cerrar, y en `b555b62`
+ese caso salía bien.
+
+**La causa:** `huecosPendientes` ignora todo slot **ausente**, y su razón escrita era *«qué forma
+eligió el usuario no se puede leer del config sin reimplementar el dominio aquí»*. Eso es cierto para
+`bad_rule` —sus dos formas escriben la misma estructura— y **falso** para una unión discriminada. La
+propia §3 de este documento ya lo había medido: los tags igualan los `id` de forma, con gate vigente.
+La premisa se había quedado vieja dentro del mismo documento que la refutó.
+
+**D-RES-8.** Cuando la decisión deja leer la forma elegida, sus slots cuentan **aunque estén
+ausentes**, y los de las otras formas no cuentan en absoluto. La clave discriminadora se **deriva del
+catálogo** —es aquella cuyo valor en la plantilla es el `id` de la forma—, nunca se escribe `type` en
+el front: eso acoplaría la interfaz a un detalle del dominio que el backend puede cambiar. Sin
+discriminador se conserva el criterio anterior.
+
+**Y los motivos se muestran TODOS**, deduplicados, no el primero que case. Quedarse con uno oculta
+diagnóstico justo en el caso que motiva la función: cuando ningún `loc` casa con un control, los
+demás no aparecen en ninguna superficie.
+
+⚠️ **El ancla anti-vacua volvió a corregir al autor.** Con `huecosPendientes` leyendo la forma, dos
+de los cinco casos de la tabla pasaron a cazarse **solos**, sin veredicto del motor. Mantenerlos en
+el ancla habría afirmado que el veredicto aporta donde ya no aporta. La tabla gana una columna con el
+estado esperado de cada fila y el ancla se aplica sólo a los que siguen dependiendo del motor.

@@ -321,7 +321,7 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 >
 > **«Respondida» lo dice el motor, no la forma del hueco (2026-08-03, APROBADA e IMPLEMENTADA).**
 > [`_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md`](_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md),
-> D-RES-1…D-RES-7, enmienda a `_ENMIENDA-DECISIONES-OBLIGATORIAS.md` (D-OBL-5) y a
+> D-RES-1…D-RES-8, enmienda a `_ENMIENDA-DECISIONES-OBLIGATORIAS.md` (D-OBL-5) y a
 > `_ENMIENDA-DECISIONES-COMO-DATO.md` (D-COL-6). La interfaz pone el tilde verde sobre decisiones que
 > el motor **rechaza**. 🔴 **Y no son los dos casos conocidos: son 49 de 63 valores probados** —el
 > criterio ignora todo hueco ausente, acepta cualquier tipo incorrecto, y la forma `random` no
@@ -337,7 +337,11 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > falso —una partición cuyas fracciones no suman 1 no tiene ningún hueco, y la tarjeta mandaba a
 > buscar un vacío inexistente—. Son **tres estados excluyentes** y el hueco gana. Y el motivo del
 > motor viaja a la tarjeta porque, con el tag del discriminador en el `loc`, **ningún campo lo
-> pinta**: sin eso, «corrige abajo» apunta a una pantalla sin una sola marca roja.
+> pinta**: sin eso, «corrige abajo» apunta a una pantalla sin una sola marca roja. 🔴 **Y D-RES-8
+> corrige a D-RES-7**: su primer arreglo rotulaba «Está contestada» una partición temporal recién
+> elegida a la que faltan dos campos —la mentira simétrica—, porque el criterio ignoraba los slots
+> AUSENTES por una premisa que el propio documento ya había refutado: en una unión discriminada la
+> forma elegida SÍ se puede leer.
 >
 > **Lo que ya traes en tu archivo se declara, no se vuelve a inventar (2026-08-02, APROBADA;
 > D-COL-2/3/4, D-COL-6…D-COL-9 IMPLEMENTADAS).**

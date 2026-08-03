@@ -323,12 +323,13 @@ function RequiredDecisions({
                   discriminador, que ningún control tiene—, de modo que éste es el único sitio donde
                   el usuario puede leerlo. Se cita tal cual lo dijo el motor: reescribirlo aquí sería
                   una segunda versión del mismo mensaje, que es como se desincronizan. */}
-              {decision.rejected ? (
-                <p className="mt-1 text-xs text-amber-300/80">
-                  Está contestada, pero el motor no acepta lo que dice:{" "}
-                  {decision.rejectionReason}
-                </p>
-              ) : null}
+              {decision.rejected
+                ? decision.rejectionReasons.map((motivo) => (
+                    <p key={motivo} className="mt-1 text-xs text-amber-300/80">
+                      Está contestada, pero el motor no acepta lo que dice: {motivo}
+                    </p>
+                  ))
+                : null}
             </div>
             <Button
               variant="ghost"

@@ -541,8 +541,8 @@ describe("guardrail: una decisión rechazada NO dice «te falta un dato» (D-RES
     )
     // El motivo se pinta TAL CUAL lo dio el motor. Si algún día alguien lo reescribe aquí, habrá
     // dos versiones del mismo mensaje y se separarán en silencio.
-    expect(configTabSource).toMatch(/\{decision\.rejected \? \(/)
-    expect(configTabSource).toMatch(/\{decision\.rejectionReason\}/)
+    expect(configTabSource).toMatch(/\{decision\.rejected/)
+    expect(configTabSource).toMatch(/decision\.rejectionReasons\.map/)
     // Y el aria-label del icono distingue los tres, que es lo único que un lector de pantalla oye.
     expect(configTabSource).toMatch(/decision\.rejected\s*\?\s*"Revisa lo que escribiste"/)
   })
@@ -620,30 +620,38 @@ describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/
     valor: unknown
     loc: string
     indice: number
+    /** Qué estado le corresponde: le falta un hueco suyo, o está completa y el motor la rechaza. */
+    estado: "inProgress" | "rejected"
   }[] = [
     {
+      // Sin discriminador —las dos formas de `bad_rule` escriben la misma estructura—, así que los
+      // slots ausentes no se pueden atribuir a ninguna: manda el criterio de siempre.
       nombre: "una regla con las dos listas vacías",
       path: "data.target.bad_rule",
       valor: { all_of: [], any_of: [] },
       loc: "data.target.bad_rule",
       indice: 0,
+      estado: "rejected",
     },
     {
+      // 🔴 Éste es el caso que la revisión adversarial cruzada destapó: le faltan `date_col` y
+      // `oot_from` de verdad, y llamarlo «contestada pero rechazada» sería tan falso como el copy
+      // que D-RES-7 vino a arreglar. Es unión discriminada, así que la forma SÍ se puede leer.
       nombre: "una partición temporal sin sus campos",
       path: "data.partition.strategy",
       valor: { type: "temporal" },
       // ⚠️ Pydantic INSERTA el tag del discriminador: este `loc` no es un path del config.
       loc: "data.partition.strategy.temporal.date_col",
       indice: 1,
+      estado: "inProgress",
     },
     {
-      // Sus huecos están AUSENTES, y un hueco ausente se ignora a propósito: es lo que permite no
-      // adivinar qué forma eligió el usuario. Por eso el criterio de huecos no puede verlo.
       nombre: "una partición por cohortes sin ninguno de sus campos",
       path: "data.partition.strategy",
       valor: { type: "cohort" },
       loc: "data.partition.strategy.cohort.cohort_col",
       indice: 1,
+      estado: "inProgress",
     },
     {
       nombre: "🔴 al azar con fracciones que no suman 1 — la forma no declara NINGÚN hueco",
@@ -651,48 +659,91 @@ describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/
       valor: { type: "random", dev_fraction: 0.9, holdout_fraction: 0.9, oot_fraction: 0.9 },
       loc: "data.partition.strategy.random",
       indice: 1,
+      estado: "rejected",
     },
     {
+      // Una cadena donde va un objeto no lleva discriminador que leer, así que tampoco hay forma
+      // elegida: cae al criterio de siempre y ningún hueco lo delata.
       nombre: "🔴 un tipo incorrecto en la raíz de la decisión",
       path: "data.target.bad_rule",
       valor: "una cadena donde va un objeto",
       loc: "data.target.bad_rule",
       indice: 0,
+      estado: "rejected",
     },
   ]
 
-  it("el barrido no es vacuo: sin el veredicto, TODOS estos casos decían «Respondida»", () => {
-    // Ancla que da sentido a lo de abajo. Es el estado ANTERIOR, medido: son los falsos positivos
-    // que el criterio de huecos no puede ver, y sin esta aserción el gate no probaría nada nuevo.
-    for (const caso of CASOS) {
+  it("🔴 el barrido no es vacuo: sin el veredicto, los rechazados decían «Respondida»", () => {
+    // Ancla que da sentido a lo de abajo: son los falsos positivos que el criterio de huecos NO
+    // puede ver, y sin esta aserción el gate no probaría nada nuevo.
+    //
+    // 🔴 Y el ancla volvió a corregirme: cuando `huecosPendientes` aprendió a leer la forma elegida
+    // de una unión discriminada, dos de los cinco casos pasaron a cazarse solos. Contarlos aquí
+    // habría afirmado que el veredicto del motor aporta donde ya no aportaba.
+    const soloVeredicto = CASOS.filter((c) => c.estado === "rejected")
+    for (const caso of soloVeredicto) {
       const config = configCon(caso.path, caso.valor)
       const antes = decisionStatuses(scorecard, config, SIN_VEREDICTO)[caso.indice]
       expect(antes.answered, `${caso.nombre}: el criterio de huecos ya lo cazaba`).toBe(true)
     }
-    expect(CASOS.length).toBeGreaterThanOrEqual(5)
+    expect(soloVeredicto.length).toBeGreaterThanOrEqual(3)
   })
 
   it("con el veredicto del motor, ninguno queda contestado", () => {
     for (const caso of CASOS) {
       const config = configCon(caso.path, caso.valor)
       const estado = decisionStatuses(scorecard, config, rechaza(caso.loc))[caso.indice]
-      expect([estado.answered, estado.inProgress], caso.nombre).toEqual([false, false])
-      expect(estado.rejected, caso.nombre).toBe(true)
+      expect(estado.answered, caso.nombre).toBe(false)
     }
   })
 
-  it("🔴 RECHAZADA no es «te falta un dato»: a ninguno de estos le falta un hueco (D-RES-7)", () => {
-    // La regresión que esto cierra: los cinco casos de arriba tienen la respuesta COMPLETA —el
-    // ancla anti-vacua lo demuestra, sin veredicto salían «Respondida»— y aun así el copy decía
-    // «abajo te faltan los datos de tu cartera», mandando al usuario a buscar un vacío inexistente.
+  it("🔴 cada uno cae en SU estado: «te falta un dato» sólo con huecos de verdad (D-RES-7/8)", () => {
+    // Las dos mitades de la regresión, juntas y en la misma tabla porque son la misma pregunta:
+    //
+    // * `random` con fracciones que no suman 1 NO tiene ningún hueco, y el copy decía «abajo te
+    //   faltan los datos de tu cartera» — mandaba a buscar un vacío inexistente.
+    // * `{type: "temporal"}` recién escrita SÍ tiene dos, y llamarla «Está contestada» es la
+    //   mentira simétrica. Lo destapó la revisión adversarial cruzada sobre el primer arreglo.
     for (const caso of CASOS) {
       const config = configCon(caso.path, caso.valor)
       const estado = decisionStatuses(scorecard, config, rechaza(caso.loc))[caso.indice]
-      expect(estado.inProgress, `${caso.nombre}: no le falta ningún hueco`).toBe(false)
-      // Y el motivo llega a la tarjeta: para 4 de los 5 el `loc` lleva el tag del discriminador o
-      // es un ancestro, así que ningún control de abajo lo pinta y éste es el único sitio.
-      expect(estado.rejectionReason, caso.nombre).toBe("mensaje del motor")
+      expect(
+        { inProgress: estado.inProgress, rejected: estado.rejected },
+        caso.nombre,
+      ).toEqual({
+        inProgress: caso.estado === "inProgress",
+        rejected: caso.estado === "rejected",
+      })
+      // El motivo llega a la tarjeta SÓLO cuando de verdad no falta nada: el `loc` lleva el tag del
+      // discriminador o es un ancestro, así que ningún control de abajo lo pinta.
+      expect(estado.rejectionReasons, caso.nombre).toEqual(
+        caso.estado === "rejected" ? ["mensaje del motor"] : [],
+      )
     }
+  })
+
+  it("🔴 los motivos se muestran TODOS, no sólo el primero", () => {
+    // Quedarse con uno oculta diagnóstico justo en el caso que motiva la función: cuando ninguno
+    // casa con un control, los demás no aparecen en ninguna parte. Lo señaló la revisión
+    // adversarial cruzada sobre la primera versión, que devolvía `string | null`.
+    const config = configCon("data.partition.strategy", {
+      type: "random",
+      dev_fraction: 0.9,
+      holdout_fraction: 0.9,
+      oot_fraction: 0.9,
+    })
+    const dos: ValidationState = {
+      kind: "invalid",
+      count: 2,
+      lookup: new Map([
+        ["data.partition.strategy.random", "las fracciones no suman 1"],
+        ["data.partition.strategy.random.dev_fraction", "tiene que ser menor que 1"],
+      ]),
+    }
+    expect(decisionStatuses(scorecard, config, dos)[1].rejectionReasons).toEqual([
+      "las fracciones no suman 1",
+      "tiene que ser menor que 1",
+    ])
   })
 
   it("🔴 el HUECO gana al veredicto: es más específico y suele ser su causa", () => {
@@ -706,7 +757,7 @@ describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/
     const conPlantilla = { data: { target: { bad_rule: forma!.template } } }
     const [badRule] = decisionStatuses(scorecard, conPlantilla, rechaza("data.target.bad_rule"))
     expect([badRule.answered, badRule.inProgress, badRule.rejected]).toEqual([false, true, false])
-    expect(badRule.rejectionReason).toBeNull()
+    expect(badRule.rejectionReasons).toEqual([])
   })
 
   it("🔴 CONTROL POSITIVO: un config bueno sigue contestado, y con el motor conforme", () => {
@@ -723,7 +774,7 @@ describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/
         false,
         false,
       ])
-      expect(estado.rejectionReason, estado.path).toBeNull()
+      expect(estado.rejectionReasons, estado.path).toEqual([])
     }
   })
 

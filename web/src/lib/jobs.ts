@@ -294,14 +294,15 @@ export interface DecisionStatus extends RequiredDecision {
    */
   rejected: boolean
   /**
-   * El motivo **tal como lo dio el motor**, o `null` si no está rechazada.
+   * Los motivos **tal como los dio el motor**, o vacío si no está rechazada.
    *
-   * ⚠️ Viaja hasta la tarjeta porque el error de una decisión rechazada puede no pintarse en ningún
+   * ⚠️ Viajan hasta la tarjeta porque el error de una decisión rechazada puede no pintarse en ningún
    * campo: Pydantic inserta el tag del discriminador en el `loc` (`strategy.random`), y `errorAtPath`
    * casa por igualdad exacta contra el path del control, que no lo lleva. Sin esto, la tarjeta diría
-   * «corrige abajo» apuntando a una pantalla sin una sola marca roja.
+   * «corrige abajo» apuntando a una pantalla sin una sola marca roja — y quedarse con el primero
+   * dejaría los demás sin ninguna superficie donde leerse.
    */
-  rejectionReason: string | null
+  rejectionReasons: string[]
 }
 
 /** Baja por un path con puntos y dice si la clave EXISTE, sin mirar su valor. */
@@ -336,33 +337,64 @@ function estaVacio(valor: unknown): boolean {
 }
 
 /**
+ * La forma que el usuario eligió, si el catálogo la deja leer del propio valor (D-RES-8).
+ *
+ * Sólo se puede cuando la decisión viaja como **unión discriminada**: entonces la plantilla de cada
+ * forma trae una clave cuyo valor es el `id` de esa forma —`{type: "temporal"}` para la forma
+ * `temporal`—, y basta comprobar que el valor actual lleve la misma. La clave discriminadora se
+ * **deriva del catálogo**, no se escribe aquí: dar por hecho que se llama `type` acoplaría el front
+ * a un detalle del dominio que el backend puede cambiar.
+ *
+ * Devuelve `null` cuando no hay discriminador —`bad_rule` no lo tiene, sus dos formas escriben la
+ * misma estructura— y ahí no se adivina nada.
+ */
+function formaElegida(decision: RequiredDecision, valor: unknown): AnswerForm | null {
+  if (typeof valor !== "object" || valor === null || Array.isArray(valor)) return null
+  const actual = valor as Record<string, unknown>
+  for (const forma of decision.answer_forms) {
+    const plantilla = forma.template
+    if (typeof plantilla !== "object" || plantilla === null) continue
+    for (const [clave, marca] of Object.entries(plantilla as Record<string, unknown>)) {
+      if (marca === forma.id && actual[clave] === forma.id) return forma
+    }
+  }
+  return null
+}
+
+/**
  * Huecos que el valor actual de una decisión todavía tiene sin rellenar.
  *
- * Se comprueban los slots de TODAS las formas, no los de «la forma elegida»: qué forma eligió el
- * usuario no se puede leer del config sin reimplementar el dominio aquí —`bad_rule` no lleva
- * discriminador—, y no hace falta. Un slot de otra forma sencillamente no existe en el valor
- * (`date_col` no está dentro de una partición aleatoria) y se ignora, así que el resultado es el
- * mismo sin que el front tenga que adivinar nada.
+ * 🔴 **Un slot AUSENTE cuenta como hueco si su forma es la elegida.** No siempre fue así, y el
+ * matiz costó una regresión: el criterio original ignoraba todo ausente porque «qué forma eligió el
+ * usuario no se puede leer del config sin reimplementar el dominio aquí». Eso es cierto para
+ * `bad_rule` y **falso** para una unión discriminada — y ahí el precio era alto: una estrategia
+ * `{type: "temporal"}` recién escrita, sin `date_col` ni `oot_from`, no registraba ningún pendiente
+ * y la tarjeta acababa diciendo «Está contestada». Lo encontró la revisión adversarial cruzada.
+ *
+ * Sin forma reconocible se conserva el criterio de siempre: un slot que no existe en el valor es de
+ * otra forma (`date_col` no está dentro de una partición aleatoria) y se ignora.
  */
 function huecosPendientes(decision: RequiredDecision, valor: unknown): string[] {
   const pendientes: string[] = []
-  for (const slot of decision.answer_forms.flatMap((f) => f.slots)) {
+  const elegida = formaElegida(decision, valor)
+  const formas = elegida === null ? decision.answer_forms : [elegida]
+  for (const slot of formas.flatMap((f) => f.slots)) {
     if (typeof slot === "string") {
       const actual = valueAtPath(valor, slot)
-      if (actual !== undefined && estaVacio(actual)) pendientes.push(slot)
+      if (actual === undefined ? elegida !== null : estaVacio(actual)) pendientes.push(slot)
       continue
     }
     if ("alguno_de" in slot) {
-      // Basta con que uno se llene. Si NINGUNO existe en el valor, la forma no es la elegida y el
-      // grupo entero no aplica — igual que un slot suelto ausente.
+      // Basta con que uno se llene. Si NINGUNO existe en el valor, el grupo cuenta como pendiente
+      // sólo cuando sabemos que ésta es la forma elegida; si no, es de otra forma y no aplica.
       const presentes = slot.alguno_de.filter((p) => valueAtPath(valor, p) !== undefined)
-      if (presentes.length > 0 && presentes.every((p) => estaVacio(valueAtPath(valor, p)))) {
+      if (presentes.length === 0 ? elegida !== null : presentes.every((p) => estaVacio(valueAtPath(valor, p)))) {
         pendientes.push(slot.alguno_de.join("|"))
       }
       continue
     }
     const actual = valueAtPath(valor, slot.path)
-    if (actual === undefined || !estaVacio(actual)) continue
+    if (actual === undefined ? elegida === null : !estaVacio(actual)) continue
     const gobernante = valueAtPath(valor, slot.salvo_si.path)
     // La comparación es de igualdad estricta contra los valores que el backend publicó: aquí no se
     // sabe qué significan, sólo si el campo que gobierna toma uno de ellos.
@@ -388,19 +420,23 @@ function huecosPendientes(decision: RequiredDecision, valor: unknown): string[] 
  * salto al campo sigue siendo cosa del mecanismo del preflight, que degrada de lo específico a lo
  * general.
  *
- * Por eso mismo devuelve el **mensaje** y no un booleano: si el `loc` no es un path real, ningún
- * control lo pinta abajo, y el motivo sólo puede llegar al usuario por aquí. Se toma el primero que
- * case —el orden es el del motor— en vez de acumularlos: la tarjeta es un resumen, y la lista
- * completa ya vive en los campos que sí casan.
+ * Por eso mismo devuelve los **mensajes** y no un booleano: si el `loc` no es un path real, ningún
+ * control los pinta abajo, y sólo pueden llegar al usuario por aquí.
+ *
+ * ⚠️ Se devuelven **todos**, deduplicados, y no el primero: quedarse con uno oculta diagnóstico
+ * justo en el caso que motiva la función —cuando ninguno casa con un control, los demás no aparecen
+ * en ninguna parte—. Lo señaló la revisión adversarial cruzada sobre la primera versión.
  */
-function motivoDelRechazo(path: string, validation: ValidationState): string | null {
+function motivosDelRechazo(path: string, validation: ValidationState): string[] {
   // Sin veredicto no se inventa nada (D-RES-4): mandan los huecos, que es el criterio de siempre.
   // Marcar «no contestada» por no tener respuesta todavía haría parpadear la tarjeta al teclear.
-  if (validation.kind !== "invalid") return null
+  if (validation.kind !== "invalid") return []
+  const motivos: string[] = []
   for (const [clave, mensaje] of validation.lookup) {
-    if (clave === path || clave.startsWith(`${path}.`)) return mensaje
+    if (clave !== path && !clave.startsWith(`${path}.`)) continue
+    if (!motivos.includes(mensaje)) motivos.push(mensaje)
   }
-  return null
+  return motivos
 }
 
 /**
@@ -438,14 +474,14 @@ export function decisionStatuses(
     // El hueco gana al veredicto (D-RES-7): «te falta un dato» es más específico y más accionable
     // que «el motor lo rechaza», que casi siempre es su consecuencia. Sólo se pregunta por el motivo
     // cuando no falta ningún hueco, que es exactamente el caso que el copy de arriba no describe.
-    const motivo =
-      presente && !faltanHuecos ? motivoDelRechazo(decision.path, validation) : null
+    const motivos =
+      presente && !faltanHuecos ? motivosDelRechazo(decision.path, validation) : []
     return {
       ...decision,
-      answered: presente && !faltanHuecos && motivo === null,
+      answered: presente && !faltanHuecos && motivos.length === 0,
       inProgress: presente && faltanHuecos,
-      rejected: presente && !faltanHuecos && motivo !== null,
-      rejectionReason: motivo,
+      rejected: presente && !faltanHuecos && motivos.length > 0,
+      rejectionReasons: motivos,
     }
   })
 }
