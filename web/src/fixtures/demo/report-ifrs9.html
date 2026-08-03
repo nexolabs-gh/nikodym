@@ -1100,7 +1100,7 @@ figcaption {
     </div>
     <div class="cover-field">
       <dt>Fecha de emisión</dt>
-      <dd>2026-07-27</dd>
+      <dd>2026-08-03</dd>
     </div>
   </dl>
 
@@ -1108,7 +1108,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6</code></div>
     <div class="lineage-line"><code>data_hash=d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</code></div>
-    <div class="lineage-line"><code>git_sha=52103fcd695abed351db36d41c97418955cbf0a0</code></div>
+    <div class="lineage-line"><code>git_sha=25896302ed89f951453e305436b614347ea15e30</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1289,7 +1289,7 @@ figcaption {
 
   <p>La población procesada contiene 6.000 observaciones, 17 variables de entrada y una tasa de incumplimiento de 9,63 %. Los conteos por estado, partición y motivo de exclusión se reproducen literalmente en las tablas de esta sección.</p>
   <p>La columna objetivo de esta corrida es «target».</p>
-  <p>La población se particionó por cohorte sobre «cohorte», reservando como OOT la cohorte «2024Q2», y un Holdout de 20,00 % del resto.</p>
+  <p>La cartera se dividió en muestras al preparar los datos, pero ninguna etapa de esta corrida se apoyó en esa división: la tabla de particiones de este capítulo describe la cartera, no una muestra de trabajo.</p>
 
 <div class="placeholder">
   <p class="placeholder-title">POR COMPLETAR — Contexto del modelo</p>
@@ -1452,14 +1452,14 @@ figcaption {
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6</dd>
-    <dt>created_at</dt><dd>2026-07-27T14:06:26.129376Z</dd>
+    <dt>created_at</dt><dd>2026-08-03T00:06:07.754792Z</dd>
     <dt>data_hash</dt><dd>d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>52103fcd695abed351db36d41c97418955cbf0a0</dd>
+    <dt>git_sha</dt><dd>25896302ed89f951453e305436b614347ea15e30</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.6.0&#34;,
+  &#34;nikodym&#34;: &#34;1.10.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
@@ -1791,6 +1791,11 @@ figcaption {
 
   <h4>Métricas estructuradas</h4>
   <dl>
+    <dt>fit_scope</dt><dd><pre>{
+  &#34;n_fit_rows&#34;: 6000,
+  &#34;n_rows&#34;: 6000,
+  &#34;scope&#34;: &#34;poblacion_completa&#34;
+}</pre></dd>
     <dt>km_greenwood</dt><dd>{}</dd>
     <dt>pd_source</dt><dd><pre>{
   &#34;coverage_column&#34;: null,

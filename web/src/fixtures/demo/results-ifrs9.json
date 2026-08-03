@@ -1,8 +1,27 @@
 {
  "status": "done",
- "run_id": "c031408ee2b84cfcb8639b721c330bc8",
+ "run_id": "247534ed918045de8bc4631918449ad9",
  "error": null,
  "model_card": null,
+ "lineage": {
+  "git_sha": "25896302ed89f951453e305436b614347ea15e30",
+  "git_dirty": false,
+  "data_hash": "d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e",
+  "config_hash": "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6",
+  "root_seed": 20240706,
+  "uv_lock_hash": null,
+  "library_versions": {
+   "nikodym": "1.10.0",
+   "numpy": "2.4.6",
+   "pandas": "2.3.3",
+   "pydantic": "2.13.4",
+   "PyYAML": "6.0.3"
+  },
+  "determinism_caveats": [],
+  "created_at": "2026-08-03T00:06:07.754792Z",
+  "schema_version": "1.0.0",
+  "injected_artifacts": []
+ },
  "binning": null,
  "selection": null,
  "model": null,
@@ -80,6 +99,11 @@
      "4": 270,
      "5": 233
     }
+   },
+   "fit_scope": {
+    "scope": "poblacion_completa",
+    "n_rows": 6000,
+    "n_fit_rows": 6000
    },
    "pd_source": {
     "pd_source": "none",
