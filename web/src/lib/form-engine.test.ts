@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import fieldRendererSource from "@/components/FieldRenderer.tsx?raw"
 import fixtureSchema from "@/fixtures/schema.json"
 import type { DatasetInfo } from "@/lib/api"
 import {
@@ -16,6 +17,7 @@ import {
   acceptsWildcard,
   appendListItem,
   arrayBranch,
+  columnOptions,
   columnRole,
   columnValuesFrom,
   defaultForSchema,
@@ -29,6 +31,7 @@ import {
   grupoTitulaASuUnicoCampo,
   hasBothBounds,
   hasClosedOptions,
+  isColumnField,
   isHiddenField,
   isObjectList,
   itemSchema,
@@ -1432,5 +1435,236 @@ describe("la secuencia REAL: catálogo sin perfil → elegir → preflight → f
 
   it("y el widget sigue siendo multiselect, no el editor JSON", () => {
     expect(resolveWidget(desarrollo, { defs })).toBe("multiselect")
+  })
+})
+
+/**
+ * El hueco ESCALAR que D-COL-7 dejó abierto: los VALORES de una columna ya se eligen con casillas,
+ * pero el NOMBRE de la columna se tecleaba a ciegas en una caja de texto, con el archivo cargado y
+ * sus columnas conocidas por la aplicación. Ocho campos del schema real, el más visible de ellos el
+ * `col` de cada predicado de `bad_rule` («¿qué define a un cliente malo?»).
+ *
+ * Se mide contra el schema REAL del backend y no contra formas escritas a mano, por el mismo motivo
+ * que el gate de `column_role` de aquí arriba: la forma que falla —la anotación en el nodo exterior
+ * de un `X | None`, o conviviendo con un `ui_widget`— sólo existe en el schema del motor.
+ */
+describe("una columna suelta se ELIGE, no se escribe a ciegas", () => {
+  const defs: Defs = (fixtureSchema as unknown as SchemaPayload).json_schema.$defs ?? {}
+  const COLUMNAS = ["cliente_id", "muestra", "monto", "mora_dias"]
+
+  /**
+   * Todo campo ESCALAR de texto que declara `column_role: "input"`, con su ruta.
+   *
+   * El criterio de «escalar» se escribe A MANO —tipo `string`, o `X | None` con una sola rama no
+   * nula de tipo `string`— y no llamando a `isColumnField`: un barrido derivado de la función que
+   * vigila encuentra exactamente lo que ella dice y no mide nada.
+   */
+  function columnasSueltas(): { ruta: string; schema: JsonSchema }[] {
+    const escalarDeTexto = (s: JsonSchema): boolean => {
+      if (s.type === "string") return true
+      const ramas = (s.anyOf ?? s.oneOf ?? []).filter((r) => r.type !== "null")
+      return ramas.length === 1 && ramas[0].type === "string"
+    }
+    const salida: { ruta: string; schema: JsonSchema }[] = []
+    const baja = (nodo: unknown, ruta: string): void => {
+      if (Array.isArray(nodo)) {
+        nodo.forEach((hijo, i) => baja(hijo, `${ruta}[${i}]`))
+        return
+      }
+      if (!nodo || typeof nodo !== "object") return
+      const objeto = nodo as JsonSchema
+      if (objeto.column_role === "input" && escalarDeTexto(objeto)) {
+        salida.push({ ruta, schema: objeto })
+      }
+      for (const [clave, hijo] of Object.entries(objeto)) baja(hijo, `${ruta}/${clave}`)
+    }
+    baja((fixtureSchema as unknown as SchemaPayload).json_schema, "")
+    return salida
+  }
+
+  const SUELTAS = columnasSueltas()
+
+  it("el barrido encuentra los ocho campos (si no, el gate estaría vacío)", () => {
+    // Medido sobre el fixture real el 2026-08-02: `col` del predicado, `partition_col`, `date_col`,
+    // `cohort_col`, `observation_date_col`, `data_cutoff_col`, `columns[].name` y
+    // `stability.temporal_column`. Un gate que recorre cero campos da verde sin comprobar nada.
+    expect(SUELTAS.length).toBeGreaterThanOrEqual(8)
+  })
+
+  it("ninguno se queda en caja de texto", () => {
+    const aCiegas = SUELTAS.filter(
+      ({ schema }) => resolveWidget(schema, { defs }) !== "column",
+    ).map(({ ruta }) => ruta)
+    expect(
+      aCiegas,
+      "Campos que nombran UNA columna del dataset y llegan al formulario como caja de texto: el " +
+        "usuario tiene que escribir el nombre a ciegas y sin errata posible, teniendo el front las " +
+        "columnas cargadas.",
+    ).toEqual([])
+  })
+
+  it("todos ofrecen las columnas del dataset activo", () => {
+    const sinOpciones = SUELTAS.filter(
+      ({ schema }) =>
+        columnOptions(schema, { datasetColumns: COLUMNAS }, defs).join() !== COLUMNAS.join(),
+    ).map(({ ruta }) => ruta)
+    expect(sinOpciones).toEqual([])
+  })
+
+  it("y sin dataset cargado no inventan ninguna", () => {
+    // `[]` = «no hay lista que ofrecer» ⇒ entrada libre, que es el comportamiento de siempre. No
+    // puede degradar a nada bloqueante: es el estado de arranque de toda sesión (D-JOB-2).
+    for (const { ruta, schema } of SUELTAS) {
+      expect(columnOptions(schema, {}, defs), ruta).toEqual([])
+      expect(columnOptions(schema, { datasetColumns: [] }, defs), ruta).toEqual([])
+    }
+  })
+
+  describe("anclas escritas a mano — el barrido no puede quedarse vacío en silencio", () => {
+    it("`col` del predicado: el campo que motivó todo esto", () => {
+      const col = (defs["data__Predicate"]?.properties ?? {})["col"]
+      expect(col, "`data__Predicate.col` no está en el schema").toBeDefined()
+      expect(columnRole(col, defs)).toBe("input")
+      expect(resolveWidget(col, { defs })).toBe("column")
+      expect(columnOptions(col, { datasetColumns: COLUMNAS }, defs)).toEqual(COLUMNAS)
+    })
+
+    it("`partition_col`, del que cuelgan las opciones de los otros tres campos", () => {
+      const campo = (defs["data__ColumnSplitConfig"]?.properties ?? {})["partition_col"]
+      expect(resolveWidget(campo, { defs })).toBe("column")
+    })
+
+    it("`data.schema.columns[].name`, la lista de columnas esperadas", () => {
+      const campo = (defs["data__ColumnSpec"]?.properties ?? {})["name"]
+      expect(resolveWidget(campo, { defs })).toBe("column")
+    })
+
+    it("`data_cutoff_col`, que es opcional y declara el rol POR FUERA del `anyOf`", () => {
+      // La forma que se escapa de los tests escritos a mano: `{anyOf: [string, null],
+      // column_role: …}`. Si `unwrapNullable` dejara de propagar el rol, aquí se cae.
+      const campo = (defs["data__PerformanceWindow"]?.properties ?? {})["data_cutoff_col"]
+      expect(campo?.anyOf, "el campo dejó de ser `X | None`").toBeDefined()
+      expect(resolveWidget(campo, { defs })).toBe("column")
+      expect(columnOptions(campo, { datasetColumns: COLUMNAS }, defs)).toEqual(COLUMNAS)
+    })
+
+    it("`stability.temporal_column`, el único que declara `ui_widget: text_input`", () => {
+      // 🔴 El caso que obliga a que la regla gane sobre el alias. Sin esa precedencia este campo se
+      // quedaba en caja de texto y los otros siete no, sin que nada lo delatara.
+      const stability = (fixtureSchema as unknown as SchemaPayload).json_schema.properties
+        ?.stability as JsonSchema
+      const campo = ((stability.anyOf?.[0] as JsonSchema)?.properties ?? {})["temporal_column"]
+      expect(campo?.ui_widget, "el campo dejó de declarar `ui_widget`").toBe("text_input")
+      expect(resolveWidget(campo, { defs })).toBe("column")
+    })
+  })
+
+  describe("controles negativos — a quién NO se le ofrecen columnas", () => {
+    it("una variable DERIVADA no la ofrece: no existe antes de correr", () => {
+      // `calibration.pd_raw_column` nombra una columna que PRODUCE un paso anterior, no una del
+      // archivo. Ofrecerle las columnas del dataset sería ofrecer la lista equivocada.
+      const calibration = (fixtureSchema as unknown as SchemaPayload).json_schema.properties
+        ?.calibration as JsonSchema
+      const campo = ((calibration.anyOf?.[0] as JsonSchema)?.properties ?? {})["pd_raw_column"]
+      expect(columnRole(campo, defs)).toBe("derived")
+      expect(resolveWidget(campo, { defs })).toBe("text")
+      expect(columnOptions(campo, { datasetColumns: COLUMNAS }, defs)).toEqual([])
+    })
+
+    it("el ÍNDICE tampoco: por definición no está entre las columnas", () => {
+      const campo = (defs["data__SchemaConfig"]?.properties ?? {})["index_col"]
+      expect(columnRole(campo, defs)).toBe("index")
+      expect(resolveWidget(campo, { defs })).not.toBe("column")
+      expect(columnOptions(campo, { datasetColumns: COLUMNAS }, defs)).toEqual([])
+    })
+
+    it("un `enum` manda sobre el rol: si el schema cierra el dominio, se elige de él", () => {
+      const cerrado: JsonSchema = {
+        type: "string",
+        column_role: "input",
+        enum: ["a", "b"],
+      }
+      expect(isColumnField(cerrado, defs)).toBe(false)
+      expect(resolveWidget(cerrado, { defs })).toBe("select")
+    })
+
+    it("un `ui_widget` que NO es caja de texto sigue mandando", () => {
+      // La precedencia es estrecha a propósito: sólo se corrige el «esto se escribe». Un alias que
+      // pida otro control pidió algo que no es una caja de texto, y se respeta.
+      expect(
+        resolveWidget({ type: "string", column_role: "input", ui_widget: "selectbox" }, { defs }),
+      ).toBe("select")
+      // …y `hidden` gana a todo, que es la única decisión que dice «no pintes esto».
+      expect(
+        resolveWidget({ type: "string", column_role: "input", ui_widget: "hidden" }, { defs }),
+      ).toBe("hidden")
+    })
+
+    it("una LISTA de columnas sigue siendo multiselect, no `column`", () => {
+      // El caso plural ya estaba resuelto; la rama nueva no puede robárselo.
+      const uniqueKeys = (defs["data__SchemaConfig"]?.properties ?? {})["unique_keys"]
+      expect(resolveWidget(uniqueKeys, { defs })).toBe("multiselect")
+      expect(isColumnField(uniqueKeys, defs)).toBe(false)
+    })
+
+    it("la lista NO es cerrada: siempre se puede escribir un nombre que no salga", () => {
+      // Es la mitad que importa del contrato: el dataset puede no estar cargado, o el usuario puede
+      // estar describiendo un archivo que todavía no ha subido.
+      for (const { ruta, schema } of SUELTAS) {
+        expect(hasClosedOptions(schema, defs), ruta).toBe(false)
+      }
+    })
+
+    it("y un valor fuera de la lista SÍ se puede acusar, porque las columnas se publican todas", () => {
+      // La diferencia con `column_values_from`, donde acusar sería falso: de los valores de una
+      // columna sólo se publica el top-20, pero de las columnas se publican todas.
+      const col = (defs["data__Predicate"]?.properties ?? {})["col"]
+      expect(optionsFromDataset(col, defs)).toBe(true)
+    })
+  })
+})
+
+describe("guardrail estático: el campo de columna no pierde el `id` ni borra lo escrito", () => {
+  // Vitest corre sin DOM, así que el render no se puede probar; se vigila el FUENTE, igual que el
+  // guardrail de propagación del catálogo. Lo que se protege son las dos propiedades que ningún
+  // test de lógica alcanza: que el control siga siendo el `<input>` con el `id` del path —al que
+  // salta el aviso del preflight (`controlVisible`)— y que elegir una columna ESCRIBA la columna,
+  // nunca vacíe el campo.
+  const codigo = fieldRendererSource
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((l) => !l.trimStart().startsWith("//"))
+    .join("\n")
+  const cuerpo = codigo.slice(
+    codigo.indexOf("function ColumnField"),
+    codigo.indexOf("function TextareaField"),
+  )
+
+  it("el widget existe y está enrutado", () => {
+    expect(cuerpo.length, "`ColumnField` no está en el fuente").toBeGreaterThan(0)
+    expect(codigo).toMatch(/case "column":\s*\n?\s*return <ColumnField \{\.\.\.props\} \/>/)
+  })
+
+  it("el control del path sigue siendo un `<input>` con el `id` del campo", () => {
+    // Si esto se convirtiera en un `Select`, el `id` pasaría a un `button` y el salto del preflight
+    // dejaría de enfocar el campo — que es el defecto que `candidateFieldIds` existe para evitar.
+    expect(cuerpo).toMatch(/<Input\b[\s\S]*?id=\{id\}/)
+    expect(cuerpo).toMatch(/const id = path\.join\("\."\)/)
+  })
+
+  it("elegir una columna la escribe, y nada la borra", () => {
+    expect(cuerpo).toMatch(/onClick=\{\(\) => onChange\(path, columna\)\}/)
+    // Ningún camino escribe vacío ni descarta el valor por no estar entre las opciones: es el
+    // defecto que ya se pagó con `toggleMultiselect`.
+    expect(cuerpo).not.toMatch(/onChange\(path, ""\)/)
+    expect(cuerpo).not.toMatch(/onChange\(path, undefined\)/)
+  })
+
+  it("el gate caza lo que promete", () => {
+    // Anclas del detector contra el texto exacto de los defectos que vigila.
+    const conSelect = `<SelectTrigger id={id} className="w-full">`
+    expect(/<Input\b[\s\S]*?id=\{id\}/.test(conSelect)).toBe(false)
+    const queBorra = `onChange(path, "")`
+    expect(/onChange\(path, ""\)/.test(queBorra)).toBe(true)
   })
 })

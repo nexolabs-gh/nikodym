@@ -84,6 +84,11 @@ export type WidgetKind =
   | "group"
   | "discriminated"
   | "multiselect"
+  /**
+   * Campo escalar que nombra UNA columna del dataset (`column_role: "input"`): se elige de las
+   * columnas cargadas, conservando la entrada libre. Es el hermano escalar de `multiselect`.
+   */
+  | "column"
   /** Lista de sub-objetos: una fila editable por elemento (`data.schema.columns`, reglas…). */
   | "list"
   | "json"
@@ -484,6 +489,22 @@ export function resolveWidget(
   // `properties` y pintaba un fieldset con «Sin campos.»—. `hidden` sí sigue mandando: es la
   // única decisión que dice "no pintes esto", y un widget no puede sobreescribirla.
   if (isObjectList(field, defs)) return "list"
+  // (1-ter) Un campo escalar que nombra UNA columna del dataset se ELIGE, no se teclea a ciegas —
+  // el mismo criterio que ya aplica a las LISTAS de columnas en (6), traído al caso escalar.
+  //
+  // Gana sobre el alias declarado, y sólo cuando ése es una caja de texto: `text_input` dice
+  // «esto se escribe», que es exactamente lo que aquí se corrige, y no describe conocimiento que
+  // el alias no tiene (las columnas dependen del archivo del usuario). Medido: sin esta
+  // precedencia, `stability.temporal_column` —el único de los ocho campos escalares con rol
+  // `input` que declara `ui_widget`— se quedaba con el textbox sin que nada lo delatara. Un alias
+  // que pida OTRO widget (un `selectbox`, digamos) sigue mandando: pidió algo que no es una caja
+  // de texto, y `hidden` ya salió arriba.
+  if (
+    (override === undefined || override === "text" || override === "textarea") &&
+    isColumnField(field, defs)
+  ) {
+    return "column"
+  }
   if (override) return override
 
   // (2) Resolver $ref para inspeccionar el destino.
@@ -804,6 +825,51 @@ export function columnValuesFrom(
     if (typeof from === "string" && from !== "") return from
   }
   return undefined
+}
+
+/**
+ * ¿El campo nombra UNA columna del dataset (escalar), y no una lista de ellas?
+ *
+ * Es la condición del widget `column`. Tres requisitos, y los tres importan:
+ *
+ *  - `column_role: "input"` — sólo las columnas del ARCHIVO del usuario tienen lista conocida.
+ *    `derived` nombra variables que produce un paso anterior (las WoE de binning), y ésas no
+ *    existen antes de correr; `index` no está entre las columnas por definición.
+ *  - tipo `string` tras resolver `$ref` y desempaquetar `X | None` — una lista de columnas ya se
+ *    resuelve a `multiselect`, que es el caso plural del mismo criterio.
+ *  - sin `enum`/`const` — si el schema cierra el dominio, manda el schema, igual que en
+ *    :func:`multiselectOptions`.
+ *
+ * Medido sobre el schema real: son ocho campos —`data.target.bad_rule` (el `col` de cada
+ * predicado), `partition_col`, `date_col`, `cohort_col`, `observation_date_col`,
+ * `data_cutoff_col`, `data.schema.columns[].name` y `stability.temporal_column`—, todos hoy
+ * cajas de texto donde el usuario teclea a ciegas el nombre de una columna que la app ya conoce.
+ */
+export function isColumnField(schema: JsonSchema, defs: Defs = {}): boolean {
+  if (columnRole(schema, defs) !== "input") return false
+  const base = resolveRef(unwrapNullable(resolveRef(schema, defs)).schema, defs)
+  if (Array.isArray(base.enum) || base.const !== undefined) return false
+  return schemaType(base) === "string"
+}
+
+/**
+ * Opciones de un campo `column`: las columnas del dataset activo, o `[]` si no hay dataset.
+ *
+ * ⚠️ `[]` significa **«no hay lista que ofrecer»**, nunca «no elijas nada»: el widget cae a
+ * entrada libre, que es lo que ya hacía antes de existir esta rama. Confundir los dos es lo que
+ * hacía que `feature_columns` pintara «Sin opciones.» con doce variables dentro.
+ *
+ * Es deliberadamente el mismo origen que consume :func:`multiselectOptions` para el caso plural,
+ * y por eso no hay una segunda fuente de verdad: el contexto de datos lo aporta `ConfigTab` una
+ * sola vez para todo el formulario.
+ */
+export function columnOptions(
+  schema: JsonSchema,
+  context: FieldDataContext = {},
+  defs: Defs = {},
+): string[] {
+  if (!isColumnField(schema, defs)) return []
+  return (context.datasetColumns ?? []).filter((c) => typeof c === "string")
 }
 
 /** La rama `array` de un campo (o el campo mismo si ya lo es); `undefined` si no tiene ninguna. */

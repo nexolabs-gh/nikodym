@@ -34,6 +34,7 @@ import {
   type JsonSchema,
   WILDCARD,
   acceptsWildcard,
+  columnOptions,
   defaultForSchema,
   discriminatedBranchRef,
   discriminatedBranches,
@@ -255,6 +256,8 @@ function WidgetSwitch(
       return <NumberField {...props} />
     case "text":
       return <TextField {...props} />
+    case "column":
+      return <ColumnField {...props} />
     case "textarea":
       return <TextareaField {...props} />
     case "discriminated":
@@ -399,6 +402,113 @@ function TextField(props: FieldRendererProps) {
       placeholder={fieldPlaceholder(target)}
       onChange={(event) => onChange(path, event.target.value)}
     />
+  )
+}
+
+/**
+ * Placeholder de un campo de columna CON dataset cargado. Es copy público —el placeholder se lee
+ * sin hover— y dice el gesto que ahora existe: elegir. Sin dataset se conserva el del schema.
+ */
+const PLACEHOLDER_COLUMNA = "Elige una columna del archivo o escribe su nombre"
+
+/**
+ * Campo escalar que nombra UNA columna del dataset (`column_role: "input"`).
+ *
+ * 🔴 Es el hueco que dejaba D-COL-7 a medio cerrar: los VALORES de una columna ya se eligen con
+ * casillas, pero el nombre de la columna se tecleaba a ciegas y sin errata posible, teniendo la
+ * aplicación el archivo cargado y sus columnas conocidas. Son ocho campos, y el más visible es el
+ * `col` del predicado que contesta «¿qué define a un cliente malo?».
+ *
+ * ⚠️ La entrada libre se CONSERVA, y no es un detalle de UX: el dataset puede no estar cargado
+ * todavía, o el usuario puede estar describiendo un archivo que aún no ha subido. Un valor escrito
+ * no se borra nunca —ni al cambiar de dataset— porque eso es exactamente el defecto que ya se pagó
+ * con `toggleMultiselect`; que una columna no calce es lo que el preflight existe para señalar.
+ *
+ * Las columnas se ofrecen en un desplegable propio y no en un `Select`: el control tiene que
+ * seguir siendo un `<input>` con el `id` del path, que es al que salta el aviso del preflight
+ * (`controlVisible` en `App.tsx`), y un `datalist` nativo abre un popup del NAVEGADOR, fuera del
+ * documento, o sea imposible de verificar en pantalla.
+ */
+function ColumnField(props: FieldRendererProps) {
+  const { schema, path, defs, onChange, datasetColumns } = props
+  const target = resolveRef(unwrapNullable(schema).schema, defs)
+  const raw = currentValue(props)
+  const value = typeof raw === "string" ? raw : raw == null ? "" : String(raw)
+  const options = columnOptions(schema, { datasetColumns }, defs)
+  const id = path.join(".")
+  const listaId = `${id}__columnas`
+  // Desplegado mientras no haya columna elegida —que es justo el momento en que antes se tecleaba
+  // a ciegas— y plegado en cuanto la hay: `data.schema.columns` son trece filas, y trece listas
+  // abiertas serían un muro. Estado local: el usuario manda a partir del primer click.
+  const [abierto, setAbierto] = useState(value === "")
+  // Acusar a un valor de no estar en el dataset sólo es cierto si las opciones SALEN del dataset
+  // (la misma regla, y la misma función, que gobierna la etiqueta roja del multiselect). Con la
+  // lista vacía no se afirma nada: no hay dataset cargado, no que la columna falte.
+  const ausente =
+    optionsFromDataset(schema, defs) &&
+    options.length > 0 &&
+    value !== "" &&
+    !options.includes(value)
+
+  return (
+    <div className="space-y-1.5">
+      <Input
+        id={id}
+        type="text"
+        value={value}
+        aria-invalid={ausente}
+        placeholder={
+          options.length > 0 ? PLACEHOLDER_COLUMNA : fieldPlaceholder(target)
+        }
+        onChange={(event) => onChange(path, event.target.value)}
+      />
+      {ausente ? (
+        <p className="text-xs text-destructive">
+          Esa columna no está en el dataset cargado.
+        </p>
+      ) : null}
+      {options.length > 0 ? (
+        <div className="rounded-lg border border-border bg-foreground/[0.02] p-2">
+          <button
+            type="button"
+            onClick={() => setAbierto((previo) => !previo)}
+            aria-expanded={abierto}
+            aria-controls={listaId}
+            className="flex w-full items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {abierto ? (
+              <ChevronUp className="size-3.5" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="size-3.5" aria-hidden="true" />
+            )}
+            Columnas del archivo ({options.length})
+          </button>
+          {abierto ? (
+            <div id={listaId} className="mt-2 flex flex-wrap gap-1.5">
+              {options.map((columna) => {
+                const elegida = columna === value
+                return (
+                  <button
+                    key={columna}
+                    type="button"
+                    aria-pressed={elegida}
+                    onClick={() => onChange(path, columna)}
+                    className={cn(
+                      "rounded-md border px-2 py-0.5 font-mono text-xs transition-colors",
+                      elegida
+                        ? "border-brand-accent bg-brand-accent/10 text-foreground"
+                        : "border-input text-foreground/90 hover:bg-foreground/5",
+                    )}
+                  >
+                    {columna}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
