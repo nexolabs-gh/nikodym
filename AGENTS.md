@@ -4,12 +4,54 @@
 > Detalle completo en [`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md), [`docs/ROADMAP.md`](docs/ROADMAP.md) y [`docs/design/00-INDICE.md`](docs/design/00-INDICE.md).
 
 ## Qué es
-Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**: scoring/scorecards, ML, provisiones **CMF (Chile)** e **IFRS 9/ECL**, forward-looking y stress testing. Paquete: `nikodym`. Marca compartida con la **consultora Nikodym** (la librería es su escaparate de reputación → calidad ejemplar es requisito, no extra).
+Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**: **PD** (scorecards, ML, survival), **LGD y EAD**, **validación de modelos**, provisiones **IFRS 9/ECL**, forward-looking y stress testing, con **informe reproducible** y su lineage. Paquete: `nikodym`. Marca compartida con la **consultora Nikodym** (la librería es su escaparate de reputación → calidad ejemplar es requisito, no extra).
+
+🔴 **La normativa local NO va en la propuesta de valor.** El motor implementa estándares comunes (Basilea, IFRS 9) y la norma de cada jurisdicción se aterriza encima; hay **un caso de referencia implementado y congelado** —Chile, CMF Cap. B-1— que vive en la **evidencia**, nunca en el titular ([`docs_site/norma-local.md`](docs_site/norma-local.md)). Lo hace cumplir `tests/unit/test_portada_sin_jurisdiccion.py`.
 
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-05, **el censo del abanico cerrado y la normativa local fuera de alcance**)
+## Estado vigente (2026-08-04, **CMF sale de la promesa y pasa a ser evidencia**)
+
+**`main` = `aab4926`**, el commit con todo el código. ⚠️ **Su CI quedó lanzado: verificarlo al
+arrancar** (run `30961130782`). Los dos que la sesión anterior dejó pendientes están **verificados
+job a job: `0417ce9` 16/16 y `d399897` 16/16**. **PyPI sigue en `1.10.0` y no hay release
+autorizado.** Gates: pytest **5148 passed / 8 skipped** (base 5139), vitest **640/640**, mypy 245,
+`ruff check` y `format`, typecheck y lint del front, fixture de schema regenerado, bundle
+reconstruido, `mkdocs --strict`, `uv lock --check`.
+
+✅ **El reposicionamiento está hecho y verificado EN PANTALLA**: la portada no nombra ningún país en
+sus **seis** superficies —dos no estaban en el alcance escrito: la `description` de PyPI y la **meta
+description de `web/index.html`**, que contradecía al H1 de su propia página—; nace
+[`docs_site/norma-local.md`](docs_site/norma-local.md) con el encuadre invertido; los trabajos con
+jurisdicción salen a un bloque propio **sin inventar contrato** (`jurisdiction_code` ya lo declara);
+la fecha del bundle normativo se lee por fin —no llegaba a **ninguna** de las siete superficies
+visibles—; y **cero código borrado**.
+
+🔴 **Tres premisas del goal salieron falsas al medirlas**: los trabajos CMF son **dos**, no tres
+(`pd_y_lgd` es neutro); las fuentes del manifiesto son **cinco** —3 verificadas, 1 referenciada, 1
+pendiente—, no «las tres verified»; y `effective_date 2025-01-31` es sólo el de consumo, con la
+matriz más antigua en **2014-12-30**.
+
+🔴 **Y la revisión adversarial encontró una afirmación FALSA en el copy nuevo**: se llamaba «cotejo
+cerrado el 2026-06-23» a lo que el manifiesto declara como `extraction_date`, existiendo un cotejo
+**posterior y más fuerte** —consumo, celda por celda, **2026-07-14**—. Estaba en cinco superficies,
+incluida la que se empaqueta en el wheel, y **la refutaba su propia fuente enlazada**. ⚠️ Nada ata
+`docs/normativa_cmf_parametros.md` al manifiesto: deuda medida y abierta.
+
+🔴 **Dos lecciones de gates, ambas demostradas ejecutando.** (1) Cortar un gate de copy «en el
+primer bloque destacado» le **regala al copy el banner más visible**: `>` y `!!!` son los marcadores
+con que Markdown destaca, y un banner Chile-only bajo el titular pasaba en verde. (2) **Un `slice`
+de N caracteres como delimitador tenía 30 de margen** sobre un cuerpo de 2.370: con 266 caracteres
+de JSX plausible, la regresión que el gate dice impedir pasa en verde. Y su invariante estaba mal
+elegido — `[...estandar, ...porJurisdiccion].map(...)` lo evadía.
+
+**Siguiente: verificar el CI, y el gate que ate el `.md` normativo al manifiesto.** Detalle en
+[`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-05, el censo del abanico cerrado y la normativa local fuera de alcance)
 
 **`main` = `70ff2fe`.** **CI 16/16 confirmado job a job con `gh` sobre `70ff2fe`** (run
 `30955671822`), el commit con todo el código; no queda ningún run por verificar. ⚠️ El CI se puso

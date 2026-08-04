@@ -5,7 +5,75 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-05): **el censo del abanico cerrado, y la normativa local FUERA de alcance**
+> ## Lo último (2026-08-04): **CMF sale de la promesa y pasa a ser EVIDENCIA**
+>
+> **`main` = `aab4926`**, el commit con todo el código. ⚠️ **Su CI quedó lanzado y hay que
+> verificarlo al arrancar** (run `30961130782`). Los dos runs que la sesión anterior dejó pendientes
+> quedaron **verificados job a job: `0417ce9` 16/16 y `d399897` 16/16** — de ésos no queda ninguno.
+> Gates: pytest **5148 passed / 8 skipped** (base 5139), vitest **640/640**, mypy 245, `ruff check`
+> y `format`, typecheck y lint, fixture de schema regenerado, bundle reconstruido,
+> `mkdocs --strict`, `uv lock --check`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **Los cinco pasos, hechos y verificados EN PANTALLA** —no sólo con tests—: hero y meta sin país,
+> el bloque «Normativa local · casos de referencia» con sus dos tarjetas, **las diez del catálogo
+> presentes** y el tooltip de la versión normativa mostrando la fecha. **Cero código borrado**:
+> `git diff` no toca un solo `.py` del motor CMF salvo la `description` de un campo.
+>
+> 🔴 **Dos superficies de portada NO estaban en el alcance escrito, y son las que más pesan.**
+> `pyproject.toml` —la descripción que pypi.org muestra bajo el nombre del paquete, y que decía
+> «provisiones regulatorias **de Chile (CMF)**»— y **`web/index.html`**, la meta description que
+> viaja en cada previsualización de enlace: decía «Scorecards e IFRS 9 **sin supuestos de país**,
+> provisiones regulatorias de Chile (CMF)» y **contradecía al H1 de su propia página**, reescrito en
+> esta misma sesión. La segunda la encontró la revisión adversarial, no el censo. ⚠️ `keywords`
+> conserva `cmf` y `chile` a propósito (decisión de Cami): son descubrimiento, no promesa.
+>
+> 🔴 **Tres premisas del goal salieron falsas al medirlas.** (1) Los trabajos CMF son **DOS**, no
+> tres: `pd_y_lgd` usa `provisioning_internal` y su `jurisdiction_code` es `None`. (2) Las fuentes
+> del manifiesto son **CINCO**, no «las tres verified»: 3 verificadas, 1 **referenciada** —con el rol
+> textual «revalidación pendiente antes de uso productivo»— y 1 **pendiente**. (3) El
+> `effective_date 2025-01-31` es sólo el de la matriz de consumo: **la más antigua en uso es de
+> 2014-12-30**, así que publicar «2025» a secas invita a leer todo el bundle como reciente.
+>
+> 🔴 **Y la revisión adversarial encontró una afirmación FALSA en el copy nuevo, que era mía.** El
+> texto llamaba «cotejo cerrado el 2026-06-23» a lo que el manifiesto declara como
+> **`extraction_date`**, existiendo un cotejo **posterior y más fuerte**: la matriz de consumo, celda
+> por celda contra el compendio consolidado, **2026-07-14**. Estaba en **cinco superficies**
+> —incluida la `description` que se empaqueta en el wheel— y **la refutaba su propia fuente, que el
+> mismo párrafo enlazaba**. ⚠️ **Nada ata `docs/normativa_cmf_parametros.md` al manifiesto**: las
+> fechas se escriben a mano en sitios distintos. Deuda medida y abierta.
+>
+> 🔴 **Dos lecciones de gates, las dos demostradas ejecutando.**
+>
+> 1. **Cortar un gate de copy «en el primer bloque destacado» le REGALA al copy el sitio más
+>    visible.** `>` y `!!!` son justamente los marcadores con que Markdown **destaca**: un
+>    `> ## Nikodym es el motor de la CMF para la banca chilena` bajo el titular pasaba **en verde**.
+>    El corte correcto es hasta el primer `## ` o la primera **salvedad** (`!!! warning`), porque una
+>    salvedad **sí debe** nombrar el país — ocultarlo ahí sería la mentira contraria.
+> 2. **Un `slice` de N caracteres como delimitador es una bomba con el fuse medido: 30 caracteres.**
+>    El guardrail de la landing miraba `indexOf(...) + 2400` sobre un cuerpo de **2.370**; con **266
+>    caracteres** de JSX plausible la regresión que dice impedir pasa en verde. Y su invariante
+>    estaba mal elegido: vetaba `jobs.map(`, pero `[...estandar, ...porJurisdiccion].map(...)` lo
+>    evade conservando la llamada a la partición. Lo correcto es medir **quiénes son los receptores
+>    de `.map`**.
+>
+> ⚠️ **A un revisor también se le verifica, y esta vez el dato era cierto y la conclusión no.** Marcó
+> `provisioning.internal` como «no neutro» por su `default="cmf_portfolio"`; el dato es correcto,
+> pero el *cálculo* no conoce ninguna tabla de supervisor. Se aceptó el dato y la tabla pasó a
+> distinguir **cálculo** (neutro) de **estado de fábrica** (chileno) — más honesto y más persuasivo.
+>
+> ⚠️ **Trampas nuevas:** `ruff` marca `RUF001`/`RUF003` sobre guiones tipográficos literales, justo
+> en el gate que existe para detectarlos (van como `\uXXXX`); un `\b` de cierre tras un grupo
+> alternativo **mata las ramas que terminan en dígito** —`(...|RAN\s*\d)\b` no matchea `RAN 21-10`—;
+> `JobSelector` es la **última `function` suelta** del archivo y un delimitador `"\nfunction "` da
+> `-1`; un `assert "x.md" in mkdocs.yml` **no** mide que esté en el nav; y **`mkdocs --strict` pasa
+> con un ancla rota**, porque `links.not_found` sale como `INFO`.
+>
+> **Siguiente: verificar el CI, y el gate que ate el `.md` normativo al manifiesto.** Detalle en
+> [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-05): **el censo del abanico cerrado, y la normativa local FUERA de alcance**
 >
 > **`main` = `70ff2fe`.** **CI 16/16 confirmado job a job con `gh` sobre `70ff2fe`** (run
 > `30955671822`), el HEAD y el commit que lleva todo el código; **no queda ningún run por
