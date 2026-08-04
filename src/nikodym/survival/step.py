@@ -86,9 +86,19 @@ _SCORING_EXTRA_MESSAGE: Final = (
     "SurvivalStep requiere statsmodels para method='discrete_hazard'; instale nikodym[scoring]."
 )
 _SURVIVAL_EXTRA_MESSAGE: Final = (
-    "SurvivalStep requiere lifelines para method='kaplan_meier', 'cox_ph' o 'aft'; "
-    "instale nikodym[survival]."
+    "SurvivalStep requiere lifelines para method='cox_ph' o 'aft'; instale nikodym[survival]."
 )
+
+#: Métodos que NO necesitan ningún extra: los resuelve el núcleo con numpy y pandas.
+#:
+#: 🔴 `kaplan_meier` estaba aquí por error, y el gate era **más estricto que el motor**: su
+#: estimador declara en su propio docstring que «no usa lifelines en la ruta core», y no hay un solo
+#: `import lifelines` en `survival/kaplan_meier.py` —la curva y la varianza de Greenwood se calculan
+#: a mano con numpy, y las bandas con `statistics.NormalDist`—. El gate corre ANTES de instanciar el
+#: motor, así que un usuario sin el extra no podía correr Kaplan-Meier aunque el código no lo
+#: necesitara: una capacidad instalada y declarada inalcanzable, que es la definición de «feature
+#: gateada» de este repo, al revés.
+_METODOS_SIN_EXTRA: Final = frozenset({"kaplan_meier"})
 _PANDAS_EXTRA_MESSAGE: Final = "SurvivalStep requiere pandas; instale las dependencias base."
 _CALIBRATION_SOURCE: Final = "calibration"
 _MODEL_RAW_SOURCE: Final = "model_raw"
@@ -365,6 +375,8 @@ def _import_pandas() -> Any:
 
 def _require_method_dependency(method: SurvivalMethod) -> None:
     """Valida dependencias estadísticas condicionales con mensajes de extras."""
+    if method in _METODOS_SIN_EXTRA:
+        return
     if method == "discrete_hazard":
         try:
             importlib.import_module("statsmodels.genmod.generalized_linear_model")
@@ -788,7 +800,9 @@ def _dependency_versions_for_method(method: SurvivalMethod) -> dict[str, str]:
     packages = ["pandas", "numpy"]
     if method == "discrete_hazard":
         packages.append("statsmodels")
-    else:
+    elif method not in _METODOS_SIN_EXTRA:
+        # Cometía el mismo error que el gate: reportaba la versión de lifelines para un método que
+        # no la usa, o sea publicaba en el lineage una dependencia que la corrida nunca importó.
         packages.append("lifelines")
     versions: dict[str, str] = {}
     for package in packages:

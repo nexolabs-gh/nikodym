@@ -75,11 +75,18 @@ class CmfMatrixConfig(NikodymBaseConfig):
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Matrices", "ui_order": 2},
     )
+    # ⚠️ Las DOS ramas levantan, medido: `cmf/engine.py:714-724` construye el error y lo lanza sin
+    # condición, y este flag sólo elige la CLASE de excepción (`CmfMissingRegulatoryDataError` o
+    # `CmfMappingError`) con el mismo mensaje. Desactivarlo no deja pasar nada, así que el copy
+    # anterior —«si está activado… detiene la corrida»— prometía una elección cuyo desenlace no
+    # cambia.
     fail_on_unmapped_contingent_type: bool = Field(
         default=True,
         title="Fallar ante tipo contingente no mapeado",
         description=(
-            "Si está activado, un tipo contingente sin fila B-3 verificada detiene la corrida."
+            "Un tipo contingente sin fila B-3 verificada detiene la corrida en los dos casos: "
+            "este interruptor sólo cambia cómo se clasifica el error, no si ocurre. Desactivarlo "
+            "no permite continuar sin la fila normativa."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Matrices", "ui_order": 3},
     )
@@ -272,11 +279,19 @@ class CmfGuaranteeConfig(NikodymBaseConfig):
             "ui_order": 3,
         },
     )
+    # 🔴 SIN EFECTO HOY, medido: cero lecturas en `cmf/engine.py` y `cmf/step.py` — sus únicos usos
+    # en todo el árbol son esta declaración, un preset que lo fija y un test que comprueba que el
+    # preset lo trae. El copy prometía una elección que nada consume, y un interruptor que no hace
+    # nada enseña a desconfiar de los que sí lo hacen. Se dice en la descripción, que es copy
+    # público y se lee sin hover, en vez de retirar el campo —lo que movería el `config_hash` de
+    # todo config existente— o de callarlo.
     require_recoverable_for_default: bool = Field(
         default=True,
         title="Exigir R para C1-C6",
         description=(
-            "Si está activado, se exige recupero para encasillar los incumplimientos C1-C6."
+            "Sin efecto por ahora: el motor no lo consulta, así que activarlo o desactivarlo no "
+            "cambia el resultado de la corrida. Se conserva porque la regla que expresa —exigir "
+            "recupero para encasillar los incumplimientos C1-C6— sigue siendo la intención."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Garantías", "ui_order": 4},
     )

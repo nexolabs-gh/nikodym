@@ -186,7 +186,12 @@ class IfrsLgdConfig(NikodymBaseConfig):
         default="lgd",
         title="Columna LGD (provided)",
         description="Columna con la LGD entregada por la institución cuando method='provided'.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "LGD", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 2,
+        },
     )
     recovery_col: str | None = Field(
         default=None,
@@ -270,9 +275,17 @@ class IfrsLgdConfig(NikodymBaseConfig):
         lista está ahí pero el motor nunca la mira. ``recovery_col`` NO entra: las tres ramas la
         leen si viene.
         """
-        if self.method in ("beta_regression", "fractional_response"):
-            return frozenset()
-        return frozenset({"covariate_cols"})
+        inactivas = set()
+        if self.method not in ("beta_regression", "fractional_response"):
+            inactivas.add("covariate_cols")
+        if self.recovery_col is not None:
+            # 🔴 La condición de `lgd_col` NO es el `method`: dos de las tres ramas
+            # (`_estimate_provided` en `lgd.py:128-132` y `_regression_target` en `:193-197`) lo
+            # leen **sólo si `recovery_col is None`**, y la tercera (`workout`) no lo toca nunca —
+            # y su validador ya exige `recovery_col`, así que `recovery_col is None` implica
+            # `method != "workout"` y la condición se cierra en un solo predicado sobre un hermano.
+            inactivas.add("lgd_col")
+        return frozenset(inactivas)
 
 
 class IfrsEadConfig(NikodymBaseConfig):
@@ -288,19 +301,34 @@ class IfrsEadConfig(NikodymBaseConfig):
         default="ead",
         title="Columna EAD (provided)",
         description="Columna con la EAD entregada por la institución cuando method='provided'.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "EAD", "ui_order": 2},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "EAD",
+            "ui_order": 2,
+        },
     )
     drawn_col: str = Field(
         default="drawn",
         title="Saldo dispuesto",
         description="Columna con el saldo dispuesto (drawn) para el enfoque CCF.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "EAD", "ui_order": 3},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "EAD",
+            "ui_order": 3,
+        },
     )
     limit_col: str = Field(
         default="credit_limit",
         title="Límite de crédito",
         description="Columna con el límite de crédito para el enfoque CCF.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "EAD", "ui_order": 4},
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "EAD",
+            "ui_order": 4,
+        },
     )
     ccf_col: str | None = Field(
         default=None,
@@ -369,7 +397,17 @@ class IfrsEadConfig(NikodymBaseConfig):
         ⚠️ Y el validador de arriba no lo impide: sólo veta ``ccf_col`` **y** ``ccf_value`` juntos, y
         únicamente bajo ``method='ccf'``, así que el estado es perfectamente alcanzable.
         """
-        return frozenset() if self.method == "ccf" else frozenset({"ccf_col"})
+        inactivas = set()
+        if self.method != "ccf":
+            # `_estimate_ccf` es la rama `else` del dispatch: con `provided` ni se llama.
+            inactivas |= {"ccf_col", "drawn_col", "limit_col"}
+        if self.method != "provided":
+            # Y el simétrico: `ead_col` sólo lo lee la rama `provided` (`ead.py:133`), mientras su
+            # default es `"ead"` y el de `method` es `ccf`. Es el peor de los catorce, y el motivo
+            # de que no se pudiera declarar el rol hasta que existió este mecanismo: con el config
+            # de fábrica habría exigido una columna que el motor nunca abre.
+            inactivas.add("ead_col")
+        return frozenset(inactivas)
 
 
 class IfrsStagingConfig(NikodymBaseConfig):

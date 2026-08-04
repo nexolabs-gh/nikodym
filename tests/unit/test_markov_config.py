@@ -211,16 +211,35 @@ def test_config_hash_cambia_al_variar_method() -> None:
 
 
 def test_config_hash_cambia_al_variar_projection_mode() -> None:
-    """``markov.dynamics.projection_mode`` es computacional y cambia identidad."""
+    """``markov.dynamics.projection_mode`` es computacional y cambia identidad.
+
+    ⚠️ Se varía con ``aalen_johansen`` y no con ``period_matrices``: desde que el validador cierra
+    esa opción —el motor la rechazaba al proyectar y el config la aceptaba, D-ABA-5— construirla
+    aquí mediría el rechazo en vez de la identidad.
+    """
     base = config_hash(NikodymConfig(markov=_markov_config_minimo()))
     variado = config_hash(
         NikodymConfig(
             markov=_markov_config_minimo(
-                dynamics=MarkovDynamicsConfig(projection_mode="period_matrices")
+                input=MarkovInputConfig(
+                    id_col="id", state_col="estado", time_col="fecha", transition_time_col="t"
+                ),
+                dynamics=MarkovDynamicsConfig(projection_mode="aalen_johansen"),
             )
         )
     )
     assert variado != base
+
+
+def test_el_config_rechaza_la_opcion_que_el_motor_no_implementa() -> None:
+    """D-ABA-5: una opción no implementada la impide el VALIDADOR, no sólo el paso.
+
+    El config la aceptaba y el motor la rechazaba al proyectar (`markov/step.py`), así que la
+    corrida moría a mitad con la estimación ya pagada. Quien usa esto como librería —por YAML o por
+    código— no ve ningún catálogo que se lo advierta antes.
+    """
+    with pytest.raises(MarkovConfigError, match=r"period_matrices.*no soportado"):
+        _markov_config_minimo(dynamics=MarkovDynamicsConfig(projection_mode="period_matrices"))
 
 
 def test_config_hash_cambia_al_variar_embedding_policy() -> None:

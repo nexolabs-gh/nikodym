@@ -616,7 +616,11 @@ def test_transform_errors_not_fitted_horizons_y_term_structure() -> None:
 
 
 def test_projection_mode_no_homogeneo_falla_explicito() -> None:
-    cfg = _cfg(dynamics=MarkovDynamicsConfig(projection_mode="period_matrices"))
+    # Sin validar, por la misma razón que en `test_markov_step`: aquí se mide el guard del
+    # estimador, no el del config (que ahora lo rechaza antes).
+    cfg = _cfg().model_copy(
+        update={"dynamics": MarkovDynamicsConfig.model_construct(projection_mode="period_matrices")}
+    )
     with pytest.raises(MarkovFitError, match="homogeneous"):
         TransitionMatrixEstimator.from_config(cfg).fit(_cohort_frame())
 

@@ -158,14 +158,51 @@ sección**. Las de `data` sirven a `survival`, `stability` y a cualquiera que co
 todo el valor de D-RAM-6—, y no a los campos de entrada de la propia `data`. Con su ancla: un test
 comprueba que arreglar esto **no** reintroduce el falso positivo que D-RAM-6 cerró.
 
-## 5. Lo que esta enmienda NO resuelve
+## 5. Los 14 campos condicionales, medidos (2026-08-03)
 
-**Los 14 campos condicionales de provisiones siguen sin rol.** El mecanismo que necesitan acaba de
-nacer, pero declararlos exige medir la condición de cada uno contra el motor —que es el trabajo que
-esta enmienda hizo para cinco— y no se hace a ojo. Queda como trabajo siguiente, con su lista en el
-HANDOFF. El peor sigue siendo `ifrs9.ead.ead_col`: trae default `"ead"` y sólo se lee con
-`method='provided'`, cuyo default es `ccf`, así que declararlo hoy exigiría con el config de fábrica
-una columna que el motor nunca abre.
+Esta sección los dejó como «trabajo siguiente, exige medir la condición de cada uno contra el
+motor». Medidos uno a uno: 🔴 **no son un caso con el mecanismo listo, son CINCO patrones distintos,
+y `columnas_inactivas` sólo resuelve uno de ellos.** Verificado ejecutando los motores, no leyendo.
+
+| patrón | nº | campos | qué se hizo |
+|---|---:|---|---|
+| **A** · condición limpia sobre un campo **hermano** | **4** | `ifrs9.ead.ead_col`, `.drawn_col`, `.limit_col`, `ifrs9.lgd.lgd_col` | ✅ **cerrados**: rol declarado + su condición, con gate en los dos sentidos |
+| **B** · la condición vive en el **padre** | 1 | `internal.lgd.lgd_col` (lo decide `InternalProvisioningConfig.method`) | ⛔ D-RAM-3 fija que los nombres son del propio modelo. Ampliarlo a rutas relativas es cambio de contrato por un solo caso |
+| **C** · condición sobre el **DATO**, no sobre el config | 3 | `cmf.days_past_due_col`, `.debtor_id_col`, `.product_type_col` | ⛔ dependen de qué carteras trae el archivo. `columnas_inactivas` no ve el frame — es más cerca de `requisitos_incumplidos_por_perfil` |
+| **D** · el motor **tolera la ausencia** | 4 | `cmf.category_col`, `.contingent_amount_col`, `.contingent_type_col`, `exposure.is_default_col` | ⛔ ni condición que apagar ni exigencia que declarar: columna legítimamente opcional. Pide vocabulario nuevo |
+| **E** · estado no-`None` **inalcanzable** | 2 | `ifrs9.pd.rho_col`, `ifrs9.ead.exposure_profile_col` | ⛔ ver §6 |
+
+**Lo que cerró el patrón A**, con su condición exacta:
+
+- `ead_col` — inactiva salvo `method == "provided"`. **Era el peor de los catorce**: default `"ead"`
+  contra un `method` que arranca en `ccf`, así que declararle el rol sin este mecanismo habría
+  exigido **con el config de fábrica** una columna que el motor nunca abre.
+- `drawn_col` / `limit_col` — inactivas salvo `method == "ccf"`. El simétrico exacto del anterior.
+- `lgd_col` — 🔴 **su condición NO es el `method`**, y ahí estaba la trampa: dos de las tres ramas lo
+  leen **sólo si `recovery_col is None`** (`lgd.py:128-132`, `:193-197`) y la tercera no lo toca
+  nunca —su validador ya exige `recovery_col`—, de modo que la condición se cierra en un solo
+  predicado sobre un hermano.
+
+⚠️ **Los tres del patrón C tienen una salida conocida y su precio medido**: declararlos `input` sin
+condición cierra un falso negativo real en cartera consumo y produce **tres falsos positivos** en una
+cartera sólo comercial —que el motor soporta y ningún preset cubre—. Descartado por Cami el
+2026-08-03: el gate de presets no distinguiría «es incondicional» de «este dataset casualmente los
+trae», que es exactamente el falso verde que el repo persigue.
+
+## 6. Los dos reservados, y por qué no llevan rol
+
+`ifrs9.pd.rho_col` y `ifrs9.ead.exposure_profile_col` tienen **un único estado alcanzable: `None`**.
+Cualquier valor informado levanta `IfrsConfigError` en un validador **incondicional**
+(`ifrs9/config.py:164-169` y `:352-358`), y ninguna combinación de otros campos lo permite —medido
+ejecutando ocho construcciones—. Cero lectores en el motor: sus únicos consumidores copian el valor
+al `log_decision` de auditoría.
+
+Declararles `column_role` no puede producir ni falso positivo ni falso negativo —`_columnas_de`
+descarta los no-`str`, y `None` nunca emite declaración— **pero tampoco cierra nada**. Se dejan sin
+rol con esta razón escrita (decisión de Cami, 2026-08-03): el campo sigue reservado para el consumo
+diferido que su docstring documenta, que es para lo que existe.
+
+## 7. Lo que esta enmienda NO resuelve
 
 **Tampoco resuelve la mentira del config.** Con este mecanismo, declarar `ccf_col` bajo
 `method='provided'` deja de avisarse, pero sigue siendo un config que nombra una columna que nadie

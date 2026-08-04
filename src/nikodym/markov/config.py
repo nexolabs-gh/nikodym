@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from itertools import pairwise
 from math import isfinite
-from typing import Any, Literal, Self
+from typing import Any, Final, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
@@ -309,6 +309,17 @@ class MarkovValidationConfig(NikodymBaseConfig):
     )
 
 
+#: El límite que `period_matrices` declara, en UN solo sitio. Lo levantan las dos superficies —el
+#: validador del config (para quien llega por YAML o por código) y el paso (defensa en profundidad,
+#: por si alguien construye el config sin validar)—, y dos redacciones del mismo límite le harían
+#: creer al usuario que son dos cosas distintas.
+_PERIOD_MATRICES_UNSUPPORTED: Final = (
+    "projection_mode='period_matrices' no soportado aún: requiere estimación de matrices por "
+    "período no homogéneas, no disponible en B19.x; use projection_mode='homogeneous' o "
+    "projection_mode='aalen_johansen'."
+)
+
+
 class MarkovConfig(NikodymBaseConfig):
     """Estima matrices de transición y la curva de PD lifetime desde un panel de migraciones."""
 
@@ -369,6 +380,14 @@ class MarkovConfig(NikodymBaseConfig):
             )
         if self.estimation.use_weights and self.input.weight_col is None:
             raise MarkovConfigError("use_weights=True exige input.weight_col.")
+        # 🔴 El config ACEPTABA una opción que el motor rechaza al proyectar (`markov/step.py`), así
+        # que la corrida moría a mitad con el trabajo de estimación ya pagado. Es el caso más claro
+        # de D-ABA-5: una opción no implementada se declara en el catálogo **y** la impide el
+        # validador, porque quien usa esto como librería —por YAML o por código— nunca ve el
+        # catálogo. El texto es el MISMO literal del motor: dos redacciones del mismo límite le
+        # harían creer al usuario que son dos cosas distintas.
+        if self.dynamics.projection_mode == "period_matrices":
+            raise MarkovConfigError(_PERIOD_MATRICES_UNSUPPORTED)
         return self
 
 

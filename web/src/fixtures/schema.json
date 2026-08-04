@@ -8206,7 +8206,7 @@
           },
           "require_recoverable_for_default": {
             "default": true,
-            "description": "Si está activado, se exige recupero para encasillar los incumplimientos C1-C6.",
+            "description": "Sin efecto por ahora: el motor no lo consulta, así que activarlo o desactivarlo no cambia el resultado de la corrida. Se conserva porque la regla que expresa —exigir recupero para encasillar los incumplimientos C1-C6— sigue siendo la intención.",
             "title": "Exigir R para C1-C6",
             "type": "boolean",
             "ui_group": "Garantías",
@@ -8241,7 +8241,7 @@
           },
           "fail_on_unmapped_contingent_type": {
             "default": true,
-            "description": "Si está activado, un tipo contingente sin fila B-3 verificada detiene la corrida.",
+            "description": "Un tipo contingente sin fila B-3 verificada detiene la corrida en los dos casos: este interruptor sólo cambia cómo se clasifica el error, no si ocurre. Desactivarlo no permite continuar sin la fila normativa.",
             "title": "Fallar ante tipo contingente no mapeado",
             "type": "boolean",
             "ui_group": "Matrices",
@@ -8378,6 +8378,7 @@
             "ui_widget": "number_input"
           },
           "drawn_col": {
+            "column_role": "input",
             "default": "drawn",
             "description": "Columna con el saldo dispuesto (drawn) para el enfoque CCF.",
             "title": "Saldo dispuesto",
@@ -8387,6 +8388,7 @@
             "ui_widget": "text_input"
           },
           "ead_col": {
+            "column_role": "input",
             "default": "ead",
             "description": "Columna con la EAD entregada por la institución cuando method='provided'.",
             "title": "Columna EAD (provided)",
@@ -8412,6 +8414,7 @@
             "ui_widget": "text_input"
           },
           "limit_col": {
+            "column_role": "input",
             "default": "credit_limit",
             "description": "Columna con el límite de crédito para el enfoque CCF.",
             "title": "Límite de crédito",
@@ -8520,6 +8523,7 @@
             "ui_widget": "number_input"
           },
           "lgd_col": {
+            "column_role": "input",
             "default": "lgd",
             "description": "Columna con la LGD entregada por la institución cuando method='provided'.",
             "title": "Columna LGD (provided)",

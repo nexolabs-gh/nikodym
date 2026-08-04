@@ -25,7 +25,7 @@ from nikodym.core.markers import is_declared_warning
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
-from nikodym.markov.config import MarkovConfig
+from nikodym.markov.config import _PERIOD_MATRICES_UNSUPPORTED, MarkovConfig
 from nikodym.markov.exceptions import MarkovInputError, MarkovTransformError
 from nikodym.markov.results import EmbeddingDiagnostics, MarkovCard, MarkovDiagnostics, MarkovResult
 
@@ -77,11 +77,6 @@ _TERM_STRUCTURE_COLUMNS: Final[tuple[str, ...]] = (
 )
 _MARKOV_PANDAS_MESSAGE: Final = "MarkovStep requiere pandas; instale las dependencias base."
 _MARKOV_NUMPY_MESSAGE: Final = "MarkovStep requiere numpy; instale las dependencias base."
-_PERIOD_MATRICES_UNSUPPORTED: Final = (
-    "projection_mode='period_matrices' no soportado aún: requiere estimación de matrices por "
-    "período no homogéneas, no disponible en B19.x; use projection_mode='homogeneous' o "
-    "projection_mode='aalen_johansen'."
-)
 
 
 @register("standard", domain="markov")

@@ -372,14 +372,17 @@ def test_period_matrices_rechaza_cohort_y_duration_sin_mislabel(
     frame_factory: Any,
 ) -> None:
     """``period_matrices`` no cae a homogéneo etiquetado como no homogéneo."""
-    cfg = _cfg(
-        method=method,
-        states=states,
-        dynamics=MarkovDynamicsConfig(
-            projection_mode="period_matrices",
-            horizon_periods=(1, 2),
-            embedding_policy="diagnose",
-        ),
+    # El config se construye SIN validar: desde D-ABA-5 el validador rechaza esta opción, y lo que
+    # este test mide es la otra mitad —la defensa del paso, que sigue viva por si alguien llega con
+    # un config no validado—. Sin `model_construct` mediría el validador, que ya tiene su test.
+    cfg = _cfg(method=method, states=states).model_copy(
+        update={
+            "dynamics": MarkovDynamicsConfig.model_construct(
+                projection_mode="period_matrices",
+                horizon_periods=(1, 2),
+                embedding_policy="diagnose",
+            )
+        }
     )
 
     with pytest.raises(MarkovTransformError, match=r"period_matrices.*no soportado"):

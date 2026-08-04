@@ -97,6 +97,40 @@ CASOS: tuple[tuple[str, str, dict[str, object], dict[str, object]], ...] = (
         {"low_credit_risk_col": FANTASMA},
         {"low_credit_risk_col": FANTASMA, "low_credit_risk_exemption": True},
     ),
+    # ── Los cuatro que la enmienda dejó pendientes, medidos uno a uno contra el motor ──
+    (
+        # 🔴 El peor de los catorce: default `"ead"` y sólo lo lee la rama `provided`
+        # (`ead.py:133`), cuyo `method` arranca en `ccf`. Declararle el rol antes de que existiera
+        # `columnas_inactivas` habría exigido con el config DE FÁBRICA una columna que el motor
+        # nunca abre.
+        "ead.ead_col",
+        "ead",
+        {"method": "ccf", "ead_col": FANTASMA, "ccf_value": 0.4},
+        {"method": "provided", "ead_col": FANTASMA},
+    ),
+    (
+        # `_estimate_ccf` lee dispuesto y límite (`ead.py:148-149`); `provided` no los toca.
+        "ead.drawn_col",
+        "ead",
+        {"method": "provided", "drawn_col": FANTASMA},
+        {"method": "ccf", "drawn_col": FANTASMA, "ccf_value": 0.4},
+    ),
+    (
+        "ead.limit_col",
+        "ead",
+        {"method": "provided", "limit_col": FANTASMA},
+        {"method": "ccf", "limit_col": FANTASMA, "ccf_value": 0.4},
+    ),
+    (
+        # 🔴 Su condición NO es el `method`, y ahí estaba la trampa: dos de las tres ramas leen
+        # `lgd_col` **sólo si `recovery_col is None`** (`lgd.py:128-132` y `:193-197`), y la tercera
+        # (`workout`) no lo toca — con su validador exigiendo `recovery_col`, de modo que la
+        # condición se cierra en un solo predicado sobre un campo hermano.
+        "lgd.lgd_col",
+        "lgd",
+        {"method": "provided", "lgd_col": FANTASMA, "recovery_col": "cartera"},
+        {"method": "provided", "lgd_col": FANTASMA},
+    ),
 )
 
 
@@ -173,7 +207,35 @@ def test_todo_campo_declarado_inactivo_existe_y_tiene_rol() -> None:
         "IfrsStagingConfig.rating_col",
         "IfrsStagingConfig.origination_rating_col",
         "IfrsStagingConfig.low_credit_risk_col",
+        # `ead_col` sí entra: con el default (`method='ccf'`) su rama está apagada, que es
+        # justamente lo que lo hacía el peor de los catorce. `drawn_col`, `limit_col` y `lgd_col`
+        # NO entran aquí porque su rama SÍ corre por defecto —el barrido instancia con defaults—;
+        # su forma la comprueba `test_todo_campo_del_oraculo_existe_y_declara_su_rol`, que recorre
+        # las configuraciones alternativas que este barrido no puede alcanzar.
+        "IfrsEadConfig.ead_col",
     } <= vistos, f"el barrido no alcanzó las declaraciones conocidas; vio {sorted(vistos)}"
+
+
+@pytest.mark.parametrize(("campo", "subseccion", "apagada", "encendida"), CASOS)
+def test_todo_campo_del_oraculo_existe_y_declara_su_rol(
+    campo: str, subseccion: str, apagada: dict[str, object], encendida: dict[str, object]
+) -> None:
+    """La misma comprobación de forma del barrido, para las ramas que el barrido no alcanza.
+
+    `test_todo_campo_declarado_inactivo_existe_y_tiene_rol` instancia cada modelo con sus defaults,
+    así que sólo ve una rama. Cuatro de los nueve casos apagan su columna en una rama **no** por
+    defecto, y sin esto su nombre podría tener un typo —el `frozenset` no casaría nunca y el falso
+    positivo seguiría vivo— sin que nada se pusiera rojo.
+    """
+    del apagada, encendida
+    modelo = type(getattr(_config_ifrs9(subseccion, {}).provisioning_ifrs9, subseccion))
+    nombre = campo.split(".", 1)[1]
+    assert nombre in modelo.model_fields, (
+        f"{modelo.__name__}.{nombre} no es un campo suyo: el oráculo nombra algo que no existe"
+    )
+    assert _rol(modelo, nombre) == ROL_ENTRADA, (
+        f"{modelo.__name__}.{nombre} no declara column_role='input': eximirlo no suprime nada"
+    )
 
 
 def test_el_mecanismo_es_generico_y_no_un_caso_especial_de_ifrs9() -> None:

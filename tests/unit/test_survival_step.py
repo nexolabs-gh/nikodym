@@ -398,8 +398,15 @@ def test_dependencias_ramas_modelo_publicacion_y_versiones(monkeypatch: pytest.M
     monkeypatch.setattr(step_module.importlib, "import_module", blocked_import)
     with pytest.raises(MissingDependencyError, match=r"nikodym\[scoring\]"):
         step_module._require_method_dependency("discrete_hazard")
-    with pytest.raises(MissingDependencyError, match=r"nikodym\[survival\]"):
-        step_module._require_method_dependency("kaplan_meier")
+    # 🔴 `kaplan_meier` ya NO exige lifelines, y este test lo aseveraba: el gate era más estricto
+    # que el motor —su estimador calcula la curva y Greenwood con numpy, y lo dice en su docstring—,
+    # así que un usuario sin el extra no podía correrlo aunque el código no lo necesitara. Se
+    # comprueba en los dos sentidos: el que no lo necesita corre sin extra, y los que sí lo siguen
+    # exigiendo.
+    step_module._require_method_dependency("kaplan_meier")
+    for metodo in ("cox_ph", "aft"):
+        with pytest.raises(MissingDependencyError, match=r"nikodym\[survival\]"):
+            step_module._require_method_dependency(metodo)
     with pytest.raises(MissingDependencyError, match="pandas"):
         step_module._import_pandas()
     monkeypatch.setattr(step_module.importlib, "import_module", real_import)

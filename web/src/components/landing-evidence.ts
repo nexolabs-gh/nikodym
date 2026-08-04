@@ -205,8 +205,8 @@ export const CODIGO: readonly (readonly { t: string; c: string }[])[] = [
 
 /**
  * Conteos de tests, medidos con `pytest --collect-only -q`:
- *   - suite completa .................. 4.971 (medido 2026-08-03; eran 3.755 en la 1.1.0)
- *   - los TRES dominios sin interfaz .. 566 (test_{markov,stress,forward}_*.py, remedido 2026-08-03)
+ *   - suite completa .................. 5.017 (medido 2026-08-03; eran 3.755 en la 1.1.0)
+ *   - los TRES dominios sin interfaz .. 567 (test_{markov,stress,forward}_*.py, remedido 2026-08-03)
  *
  * ⚠️ `TESTS_DOMINIOS` bajó de "600" a "500" y no es un ajuste cosmético: **survival salió del
  * grupo** al ganar pantalla en el formulario (1.7.0), y sus 89 tests se iban con él. Los tres que
