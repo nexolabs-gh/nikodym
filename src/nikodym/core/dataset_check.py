@@ -360,6 +360,22 @@ class DatasetCheck:
     peor respuesta posible para quien está a punto de lanzar una corrida.
     """
 
+    uninspection_reasons: tuple[tuple[str, str], ...] = field(default=())
+    """Por qué cada sección quedó sin inspeccionar, como pares ``(sección, motivo)`` (D-ANC-11).
+
+    Decir *qué* no se pudo mirar sin decir *por qué* deja al usuario sin nada que corregir: la
+    pantalla mostraba «calibration no se pudo inspeccionar» sobre un config que el motor rechaza por
+    una razón concreta y ya redactada. Es extensión **aditiva** — ``uninspected`` no cambia—, y sólo
+    lleva las secciones cuyo motivo se pudo averiguar.
+
+    ⚠️ **No toda sección opaca tiene motivo propio, y esa diferencia es el dato útil.** La coacción
+    la hace ``model_validate`` del config **raíz**, así que UNA sección inválida deja opacas a
+    **todas** las demás. Las arrastradas coaccionan bien por separado y por eso no aparecen aquí:
+    quien sale nombrado es el culpable, no el vecindario. Una sección cuya capa no está instalada
+    tampoco aparece —no se puede saber más sin el extra—, que es el mismo criterio de «``None``
+    significa *no se sabe*» de D-PRE-9.
+    """
+
 
 def _alias(modelo: type[BaseModel], nombre: str) -> str:
     """Alias serializado del campo, que es el que ve el formulario (``schema_`` → ``schema``)."""
@@ -791,4 +807,39 @@ def check_dataset(
         compatible=not desajustes and not opacas,
         mismatches=tuple(desajustes),
         uninspected=opacas,
+        uninspection_reasons=_motivos_de_opacidad(config, opacas),
     )
+
+
+def _motivos_de_opacidad(
+    config: NikodymConfig, opacas: tuple[str, ...]
+) -> tuple[tuple[str, str], ...]:
+    """Por qué cada sección opaca no se pudo mirar, coaccionándola **por separado** (D-ANC-11).
+
+    Reintentar sección a sección es lo que distingue a la culpable de las arrastradas: la coacción
+    del config raíz es todo-o-nada, así que un solo dominio inválido deja opacas también a las que
+    estaban perfectas. Aquí cada una responde por sí misma, y sólo entra la que falla.
+
+    Una sección cuya capa no está instalada se **omite en silencio**, sin inventar un motivo: el
+    contrato de ``uninspected`` ya dice que no se pudo mirar, y un mensaje de import sería ruido
+    para quien no eligió ese extra.
+    """
+    import importlib
+
+    from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
+
+    motivos: list[tuple[str, str]] = []
+    for nombre in opacas:
+        destino = _DOMAIN_CONFIG_CLASSES.get(nombre)
+        if destino is None:
+            continue
+        modulo, clase = destino  # ⚠️ el mapa va a TUPLAS, no a la clase
+        try:
+            cls = getattr(importlib.import_module(modulo), clase)
+        except Exception:
+            continue
+        try:
+            cls.model_validate(getattr(config, nombre))
+        except Exception as exc:
+            motivos.append((nombre, str(exc)))
+    return tuple(motivos)

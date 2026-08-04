@@ -6,6 +6,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from nikodym.core.config import INFRA_SECTIONS, NikodymConfig, ReproConfig, config_hash
 
 
@@ -164,6 +166,63 @@ from nikodym.core.config import NikodymConfig, config_hash
 cfg = NikodymConfig.model_validate({"binning": {"campo_que_no_existe": 1}})
 assert isinstance(cfg.binning, dict), "precondición: la sección llega opaca"
 assert "nikodym.binning" not in sys.modules, "precondición: la capa no está importada"
+digest = config_hash(cfg)   # no debe levantar
+assert len(digest) == 64
+"""
+    subprocess.run([sys.executable, "-c", codigo], check=True)
+
+
+@pytest.mark.parametrize(
+    ("seccion", "payload", "excepcion"),
+    [
+        # Desciende de ``ConfigError``. El `raise` se escribió el 2026-08-04 (D-ABA-5): cerrar un
+        # defecto en el validador de un dominio CREABA un escape nuevo en la identidad.
+        ("binning", {"solver": "cp"}, "ConfigError"),
+        # 🔴 NO desciende de ``ConfigError``, sólo de ``NikodymError``. Este caso es el que hace
+        # falsable el gate: con ``except (ValidationError, ConfigError)`` —el arreglo insuficiente
+        # que parece bastar— el de arriba pasa y ÉSTE se pone rojo. Son cuatro clases así, en
+        # ``stress`` y ``forward``.
+        (
+            "stress",
+            {"scenarios": [{"name": "", "shocks": [{"factor": "pib", "value": 1.0}]}]},
+            "StressScenarioError",
+        ),
+    ],
+)
+def test_un_error_de_dominio_tampoco_vuelve_fallable_el_hash(
+    seccion: str, payload: dict[str, object], excepcion: str
+) -> None:
+    """D-ANC-10: la coacción falla de DOS formas, y atrapar sólo una dejó el defecto vivo.
+
+    Hermano de :func:`test_una_seccion_opaca_invalida_no_vuelve_fallable_el_hash`, que prueba la
+    única rama que funcionaba: un campo desconocido, o sea ``extra_forbidden`` de pydantic, que
+    **sí** es ``ValidationError``. La otra familia es un ``raise`` del propio validador de dominio,
+    y pydantic sólo lo envuelve si hereda de ``ValueError`` — cosa que ``NikodymError`` no hace.
+    Eran **123 `raise` en 18 de las 22 secciones de dominio**, 72 de ellos alcanzables desde el
+    formulario, y bastaba un ``Select`` para que ``config_hash`` dejara de ser total.
+
+    Se mide **totalidad**, que es otra propiedad que la coherencia: los tres tests que debían cazar
+    esto comparan ``f(opaco) == f(tipado)`` y son estructuralmente incapaces de verlo, porque con
+    una sección inválida el lado ``tipado`` revienta al construirse.
+    """
+    codigo = f"""
+import sys
+from nikodym.core.config import NikodymConfig, config_hash
+cfg = NikodymConfig.model_validate({{{seccion!r}: {payload!r}}})
+assert isinstance(cfg.{seccion}, dict), "precondición: la sección llega opaca"
+assert "nikodym.{seccion}" not in sys.modules, "precondición: la capa no está importada"
+
+# Control positivo: la coacción falla de verdad, y con la excepción que este caso dice medir.
+# Sin esto el test pasaría aunque el payload fuese válido — daría verde sin ejercitar nada.
+from nikodym.core.config.schema import cargar_configs_de_dominio
+cargar_configs_de_dominio()
+try:
+    NikodymConfig.model_validate(cfg.model_dump(mode="json", by_alias=True))
+except Exception as exc:
+    assert type(exc).__name__ == {excepcion!r}, f"esperaba {excepcion}, no {{type(exc).__name__}}"
+else:
+    raise AssertionError("el payload NO dispara el validador: el caso no prueba nada")
+
 digest = config_hash(cfg)   # no debe levantar
 assert len(digest) == 64
 """

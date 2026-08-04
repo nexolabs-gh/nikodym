@@ -2739,9 +2739,9 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "label": "Se lee de la muestra de Desarrollo",
                     "help": (
                         "Calcula la tasa sola, como el promedio observado en la muestra con que se "
-                        "ajustó el modelo, y es la respuesta de fábrica. Ojo: si además escribes "
-                        "una tasa objetivo a mano, ese número se descarta en silencio y manda el "
-                        "promedio observado."
+                        "ajustó el modelo, y es la respuesta de fábrica. Por eso la tasa objetivo "
+                        "se deja vacía: si además escribes un número a mano, la configuración se "
+                        "rechaza en vez de descartarlo, porque la corrida anclaría a otro valor."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,

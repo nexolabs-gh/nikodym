@@ -453,6 +453,12 @@ def preflight_dataset(
             for m in veredicto.mismatches
         ],
         "uninspected": list(veredicto.uninspected),
+        # D-ANC-11: qué sección no se pudo mirar Y por qué. Se transporta tal cual, igual que el
+        # resto del veredicto: el motivo lo redacta el validador del dominio, que es quien sabe.
+        "uninspection_reasons": [
+            {"section": seccion, "message": motivo}
+            for seccion, motivo in veredicto.uninspection_reasons
+        ],
         "external_mismatches": _preflight_insumos(
             config, external_artifacts, dataset_id, workdir=workdir
         ),

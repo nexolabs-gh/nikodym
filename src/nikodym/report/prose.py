@@ -960,7 +960,16 @@ def _methodology_calibration(bundle: ReportInputBundle) -> tuple[str, ...]:
         if anchor_source is not None:
             frase += f" contra {_ANCHOR_SOURCES.get(anchor_source, anchor_source)}"
         if target_pd is not None:
-            frase += f", con una PD objetivo de {_pct(target_pd)}"
+            # D-ANC-4: el rótulo se DERIVA de la fuente, no se cablea — mismo criterio que D-MAX-2
+            # con el título del capítulo de provisiones. La ficha publica siempre el ancla ya
+            # resuelta, así que con `development_observed` esa cifra es una tasa que el motor
+            # MIDIÓ, no un objetivo que alguien fijó; llamarla «PD objetivo» tomaba prestado el
+            # nombre del campo de config para nombrar un número que el usuario no eligió.
+            frase += (
+                f", que resultó ser {_pct(target_pd)}"
+                if anchor_source == "development_observed"
+                else f", con una PD objetivo de {_pct(target_pd)}"
+            )
         if anchor_kind is not None:
             frase += f". El ancla es {_ANCHOR_KINDS.get(anchor_kind, anchor_kind)}"
         paragraphs.append(f"{frase}.")

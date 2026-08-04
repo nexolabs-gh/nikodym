@@ -423,6 +423,28 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > código recién escrito**: un override dentro de un submodelo obligatorio se perdía en silencio,
 > porque la proyección canónica omite esos bloques enteros y el nodo no existía.
 >
+> **El ancla que se pidió y el ancla que se usó (2026-08-04, APROBADA).**
+> [`_ENMIENDA-ANCLA-DESCARTADA.md`](_ENMIENDA-ANCLA-DESCARTADA.md), D-ANC-1…D-ANC-11, cierra **M-7**
+> del censo y enmienda SDD-10 §5/§8 y sus dos líneas stale (D-CAL-2 describía un `target_pd=0.05`
+> retirado en `60013ac`). `anchor_source='development_observed'` —el default— **descartaba en
+> silencio** el `target_pd` escrito: medido sobre el preset F3, la provisión salía **308.644.057,91
+> en vez de 878.006.307,71**, con `done` y cero avisos. 🔴 **El informe no callaba: se contradecía**
+> —el Anexo C.6 publicaba el descartado rotulado «config efectiva» a diez líneas del que gobernó— y
+> el `config_hash` **se movía** por un campo inerte, o sea dos identidades para resultados idénticos.
+> 🔴 **Y `docs_site` ya afirmaba la regla que el motor no aplicaba**, así que cerrarlo alineó el
+> motor con lo publicado. Se implementan las tres salidas por decisión de Cami; ⚠️ **la del
+> preflight se midió INALCANZABLE** una vez puesto el validador —los dos únicos caminos mueren
+> antes— y se sustituyó por D-ANC-11.
+>
+> 🔴 **Y preparar esta enmienda destapó un defecto GRAVE preexistente** (D-ANC-10):
+> `_coaccionar_secciones_opacas` atrapaba **sólo `ValidationError`**, y `NikodymError` no hereda de
+> `ValueError`, así que **123 `raise` en 18 de las 22 secciones de dominio** escapaban —72 de ellos
+> alcanzables desde el formulario— y con **un solo `Select`** (`binning.solver='cp'`) `config_hash`
+> dejaba de ser total, contra lo que su propio docstring promete (D-HASH-8). ⚠️ **Los tres tests que
+> debían cazarlo estaban verdes y ninguno podía fallar**: miden `f(opaco) == f(tipado)`, o sea
+> *coherencia*, y D-HASH-8 exige *totalidad* — con una sección inválida el lado tipado revienta al
+> construirse, así que el par ni se puede montar.
+>
 > **El default de `provisioning` no era la regla del B-1 (2026-08-04, APROBADA).**
 > [`_ENMIENDA-REGLA-DEL-MAXIMO.md`](_ENMIENDA-REGLA-DEL-MAXIMO.md), D-MAX-1…D-MAX-6, cierra GRAVE-3
 > del censo. `ProvisioningConfig()` traía `max(CMF, IFRS 9)` «por retrocompatibilidad», y la regla

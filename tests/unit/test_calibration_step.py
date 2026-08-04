@@ -569,7 +569,12 @@ def test_validadores_y_fallback_config_cubren_ramas_defensivas() -> None:
         step_module._as_model_estimator(object())
     assert (
         step_module._calibration_config_from_study(
-            SimpleNamespace(config=SimpleNamespace(calibration={"target_pd": 0.19})),
+            SimpleNamespace(
+                config=SimpleNamespace(
+                    # D-ANC-1: la fuente que sí usa el target_pd
+                    calibration={"target_pd": 0.19, "anchor_source": "business_input"}
+                )
+            ),
             fallback=fallback,
         ).target_pd
         == 0.19

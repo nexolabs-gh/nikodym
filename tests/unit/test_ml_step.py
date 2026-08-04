@@ -566,7 +566,11 @@ def test_calibration_config_from_study_resuelve_fuente() -> None:
     assert _calibration_config_from_study(typed_study) is typed
 
     dict_study = types.SimpleNamespace(
-        config=types.SimpleNamespace(calibration={"target_pd": 0.03})
+        config=types.SimpleNamespace(
+            # D-ANC-1: la fuente que sí usa el target_pd (con `development_observed`, el default,
+            # el par se rechaza porque el número no se usaría).
+            calibration={"target_pd": 0.03, "anchor_source": "business_input"}
+        )
     )
     resolved = _calibration_config_from_study(dict_study)
     assert isinstance(resolved, CalibrationConfig)

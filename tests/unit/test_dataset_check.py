@@ -243,6 +243,65 @@ def test_una_seccion_que_no_coacciona_impide_declarar_compatible(
     assert veredicto.compatible is False
 
 
+def test_un_error_de_dominio_tampoco_vuelve_fallable_el_preflight(
+    config_f1: NikodymConfig,
+) -> None:
+    """D-ANC-10: `check_dataset` no puede reventar porque la coacción falle por la OTRA vía.
+
+    Hermano del de arriba, que elige como sección inválida un **campo desconocido** — o sea la única
+    familia que ``_coaccionar_secciones_opacas`` atrapaba, porque ``extra_forbidden`` sí es
+    ``ValidationError``. Aquí la sección es estructuralmente válida y la rechaza el **validador del
+    dominio**, que levanta ``ConfigError``; pydantic no lo envuelve, porque ``NikodymError`` no
+    hereda de ``ValueError``. El preflight debe seguir contestando: declarar la sección
+    ``uninspected`` es lo honesto, propagar la excepción a quien sólo preguntó es romperle la
+    pantalla.
+
+    ``binning.solver='cp'`` se elige a propósito: es **un solo `Select`** del formulario, y su
+    ``raise`` se escribió el 2026-08-04 cerrando otro defecto.
+    """
+    invalido = config_f1.model_copy(update={"binning": {"type": "standard", "solver": "cp"}})
+
+    assert isinstance(invalido.binning, dict)
+
+    veredicto = check_dataset(invalido, COLUMNAS_CATALOGO)  # no debe levantar
+
+    assert "binning" in veredicto.uninspected
+    assert veredicto.compatible is False
+
+
+def test_la_seccion_sin_inspeccionar_dice_por_que(config_f1: NikodymConfig) -> None:
+    """D-ANC-11: publicar QUÉ no se pudo mirar sin decir POR QUÉ no deja nada que corregir.
+
+    Y el matiz que hace útil el dato: la coacción la hace ``model_validate`` del config **raíz**, o
+    sea todo-o-nada, así que UNA sección inválida deja opacas también a las que estaban bien. El
+    motivo se averigua coaccionando cada una **por separado**, de modo que sale nombrada la
+    culpable y no el vecindario.
+
+    Sin esta distinción el aviso de la pantalla atribuía las dos causas a la instalación —«esta
+    instalación no sabe leerla»—, que es falso cuando el motor rechaza el config por una razón
+    concreta que él mismo ya redactó.
+    """
+    invalido = config_f1.model_copy(
+        update={
+            # La culpable: un solo `Select` del formulario.
+            "binning": {"type": "standard", "solver": "cp"},
+            # La arrastrada: es válida, y sólo queda opaca porque la coacción es del raíz.
+            "selection": {"type": "standard"},
+        }
+    )
+
+    veredicto = check_dataset(invalido, COLUMNAS_CATALOGO)
+
+    assert {"binning", "selection"} <= set(veredicto.uninspected), "las dos quedan opacas"
+
+    motivos = dict(veredicto.uninspection_reasons)
+    assert "binning" in motivos, "la culpable sale nombrada con su motivo"
+    assert "selection" not in motivos, "la arrastrada NO se acusa: coacciona bien por su cuenta"
+    assert "cp" in motivos["binning"] or "restricciones" in motivos["binning"], (
+        f"el motivo es el del validador del dominio, no uno inventado: {motivos['binning']!r}"
+    )
+
+
 def test_el_vocabulario_de_roles_es_cerrado() -> None:
     """Un rol nuevo sin entrada en :data:`ROLES` degradaría en silencio a «no clasificado»."""
     assert set(ROLES) == {"input", "derived", "index", "not_a_column"}

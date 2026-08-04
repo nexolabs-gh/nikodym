@@ -45,6 +45,23 @@ export function errorAtPath(
 }
 
 /**
+ * Error que **no pertenece a ningún campo**, o `undefined` si no hay (D-ANC-12).
+ *
+ * 🔴 Un `ConfigError` levantado por el `model_validator` de una sección llega con `loc: []` —no lo
+ * emite pydantic sobre un campo, sino el dominio sobre la sección entera—, así que su clave de
+ * lookup es la cadena vacía y **ningún `FieldRenderer` la reclama**. El resultado, medido abriendo
+ * la pantalla: el formulario decía «Config inválido · 1 error» y el mensaje no aparecía por ningún
+ * lado, dejando al usuario con un contador y nada que corregir.
+ *
+ * No es de un caso: el motor tiene **123 `raise` en validadores de 18 secciones de dominio**, todos
+ * con `loc: []`, y varios se arman con dos clics (`binning.solver='cp'`, el par del ancla). El
+ * mensaje ya viaja en el `lookup`; lo único que faltaba era mirarlo.
+ */
+export function unanchoredError(state: ValidationState): string | undefined {
+  return state.kind === "invalid" ? state.lookup.get("") : undefined
+}
+
+/**
  * Extrae un mensaje legible del cuerpo de un `ApiError` (422 de los endpoints YAML): FastAPI
  * envuelve el detalle en `{detail}`, que puede ser un string (mensaje del motor, p.ej. en
  * `config/from-yaml`) o la lista `[{loc,msg,type}]` de validación (p.ej. `config/to-yaml`). El

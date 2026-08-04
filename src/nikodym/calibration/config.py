@@ -87,10 +87,11 @@ class CalibrationConfig(NikodymBaseConfig):
         lt=1.0,
         title="PD objetivo",
         description=(
-            "Tasa central de anclaje, entre 0 y 1. Con la fuente development_observed NO se usa "
-            "(la tasa central TTC se estima como promedio de largo plazo observado en Desarrollo), "
-            "por eso se deja vacía. Con las fuentes "
-            "'historical_default_rate', 'external_regulatory'} es OBLIGATORIA y explícita: esas "
+            "Tasa central de anclaje, entre 0 y 1. Con la fuente development_observed se deja "
+            "vacía: esa fuente estima la tasa central TTC como el promedio de largo plazo "
+            "observado en Desarrollo, así que fijar aquí un número es un error y la configuración "
+            "lo rechaza en vez de descartarlo en silencio. Con las fuentes 'business_input', "
+            "'historical_default_rate' y 'external_regulatory' es OBLIGATORIA y explícita: esas "
             "fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la "
             "configuración falla en vez de anclar a un número inventado."
         ),
@@ -390,6 +391,19 @@ class CalibrationConfig(NikodymBaseConfig):
                 f"anchor_source='{self.anchor_source}' exige fijar target_pd explícito en (0, 1): "
                 "esta fuente no deriva la tasa central de los datos y no existe un placeholder "
                 "válido; sin target_pd no hay ancla (no se ancla al antiguo 0.05 por defecto)."
+            )
+        # D-ANC-1: el caso SIMÉTRICO del de arriba, y por el mismo criterio. La fuente que se lee de
+        # los datos no admite un número que la contradiga: `fit` lo descartaba en silencio y el
+        # informe publicaba la tasa observada bajo el rótulo del valor pedido. `target_pd` tiene
+        # default `None`, así que un número aquí sólo puede haberlo escrito alguien a propósito
+        # (D-ANC-3) — no hace falta `model_fields_set`.
+        if self.anchor_source == "development_observed" and self.target_pd is not None:
+            raise ConfigError(
+                "anchor_source='development_observed' calcula la tasa central como el promedio "
+                f"observado en Desarrollo, así que el target_pd={self.target_pd!r} que fijó no se "
+                "usaría: la corrida anclaría a otro número sin avisar. Deje target_pd sin fijar, o "
+                "elija la fuente que corresponda a ese número: 'business_input', "
+                "'historical_default_rate' o 'external_regulatory'."
             )
 
         columns = _column_values(self)

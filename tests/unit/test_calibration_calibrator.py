@@ -576,7 +576,12 @@ def test_estado_fiteado_invalido_falla_en_transformacion() -> None:
 
 
 def test_clone_safe_from_config_set_params_y_runtime_config() -> None:
-    cfg = CalibrationConfig(target_pd=0.08, min_fit_rows=1, method="intercept_offset")
+    cfg = CalibrationConfig(
+        anchor_source="business_input",  # D-ANC-1: la fuente que sí usa el target_pd
+        target_pd=0.08,
+        min_fit_rows=1,
+        method="intercept_offset",
+    )
     calibrator = PDCalibrator.from_config(cfg)
     from_dict = PDCalibrator.from_config(cfg.model_dump())  # type: ignore[arg-type]
     cloned = clone(calibrator)

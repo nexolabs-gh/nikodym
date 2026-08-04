@@ -157,3 +157,57 @@ def test_el_gate_caza_lo_que_promete() -> None:
     # Y no acusa a lo que sólo se le parece: «Ninguno» en español, o `none` como literal de opción.
     assert not _LITERALES_PYTHON.search("Ninguno de los bins queda vacío.")
     assert not _LITERALES_PYTHON.search("Pon el eje temporal en none.")
+
+
+#: Pares de delimitadores que, desbalanceados, delatan una frase editada a medias.
+_PARES_DELIMITADORES: tuple[tuple[str, str], ...] = (("{", "}"), ("(", ")"), ("[", "]"))
+
+
+def _desbalance(texto: str) -> list[str]:
+    """Pares cuyos delimitadores no cuadran en el texto, con su conteo."""
+    return [
+        f"{abre}{cierra}: {texto.count(abre)} abre / {texto.count(cierra)} cierra"
+        for abre, cierra in _PARES_DELIMITADORES
+        if texto.count(abre) != texto.count(cierra)
+    ]
+
+
+@pytest.mark.parametrize("campo", ["title", "description", "ui_help"])
+def test_ningun_campo_visible_tiene_delimitadores_sueltos(campo: str) -> None:
+    """D-ANC-9: una llave huérfana delata una frase editada a medias, y se lee en la pantalla.
+
+    El caso que lo motivó: la ayuda de `calibration.target_pd` decía «Con las fuentes
+    'historical_default_rate', 'external_regulatory'} es OBLIGATORIA» — con una `}` sin abrir **y**
+    omitiendo `business_input`, una de las tres fuentes que sí la exigen. La enumeración se había
+    recortado sin cerrar la frase, y el `}` sobreviviente era la única huella.
+
+    Importa porque **`fieldPlaceholder` cae en la `description`**: ese texto se lee **sin hover**,
+    dentro del input. Y se cierra la CLASE y no el caso: medido sobre el formulario completo, hoy
+    había exactamente **un** ofensor, así que el gate no arrastra falsos positivos.
+    """
+    ofensores = [
+        f"{ruta} [{campo}] — {'; '.join(_desbalance(nodo[campo]))}\n    {nodo[campo]!r}"
+        for ruta, nodo in _campos_visibles()
+        if isinstance(nodo.get(campo), str) and _desbalance(nodo[campo])
+    ]
+    assert ofensores == [], "\n".join(ofensores)
+
+
+def test_el_gate_de_delimitadores_caza_lo_que_promete() -> None:
+    """El detector, anclado al texto real que se corrigió — y a lo que NO debe acusar.
+
+    Sin esto el gate podría estar midiendo la nada: «cero ofensores» y «no recorrí nada» se leen
+    igual. El oráculo se escribe **a mano**, no se deriva de lo que el gate vigila.
+    """
+    roto = (
+        "Con las fuentes 'historical_default_rate', 'external_regulatory'} es OBLIGATORIA "
+        "y explícita."
+    )
+    assert _desbalance(roto), "la llave huérfana del caso real tiene que salir acusada"
+    assert _desbalance("Un paréntesis (que no cierra")
+    assert _desbalance("Una lista [a, b")
+
+    # Y no acusa a la puntuación legítima, que es mayoría en este formulario.
+    assert not _desbalance("La tasa central (TTC) se estima de Desarrollo.")
+    assert not _desbalance("Columnas [a, b] y su rango (0, 1).")
+    assert not _desbalance("Sin ningún delimitador.")

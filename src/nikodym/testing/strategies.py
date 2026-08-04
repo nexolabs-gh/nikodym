@@ -420,7 +420,11 @@ def _calibration_config_strategy(st: Any) -> Any:
 
     # Pares (anchor_kind, anchor_source) coherentes con los guards de SDD-10 §5: point_in_time sólo
     # con fuentes PIT-capaces (no development_observed, TTC intrínseco; external_regulatory ya queda
-    # fuera del muestreo). target_pd siempre explícito, así que las fuentes no-Dev son válidas.
+    # fuera del muestreo).
+    # 🔴 D-ANC-1: `target_pd` NO puede ir siempre explícito. La fuente `development_observed`
+    # —que es el default y por eso se sigue muestreando— lo exige VACÍO, porque calcula la tasa
+    # sola; un número ahí es el par que el validador rechaza. Se deriva del par, no se sortea
+    # aparte: si no, la estrategia genera configs que el motor no acepta.
     anchor = st.sampled_from(
         [
             ("through_the_cycle", "business_input"),
@@ -434,7 +438,11 @@ def _calibration_config_strategy(st: Any) -> Any:
         lambda pair: st.builds(
             CalibrationConfig,
             method=st.sampled_from(["intercept_offset", "platt_scaling", "isotonic"]),
-            target_pd=st.floats(min_value=1e-6, max_value=0.5, allow_nan=False),
+            target_pd=(
+                st.none()
+                if pair[1] == "development_observed"
+                else st.floats(min_value=1e-6, max_value=0.5, allow_nan=False)
+            ),
             anchor_kind=st.just(pair[0]),
             anchor_source=st.just(pair[1]),
             target_tolerance=st.floats(min_value=1e-12, max_value=1e-4, allow_nan=False),

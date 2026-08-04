@@ -64,11 +64,23 @@ def _coaccionar_secciones_opacas(cfg: NikodymConfig) -> NikodymConfig:
 
     **``config_hash`` sigue siendo total** (D-HASH-8): si la coacción falla —una sección opaca con
     un campo inexistente o fuera de rango, que el blob aceptaba por no conocer su schema— se
-    devuelve el config sin coaccionar en lugar de propagar el ``ValidationError``. Hacer fallable
-    una función de identidad rompería llamadores que hoy funcionan (``/api/validate`` responde 200
-    siempre; ``Study`` la usa al ensamblar el lineage). Y no se pierde nada: un config que no
-    coacciona no se puede ejecutar, así que su identidad no ancla ninguna corrida — el mismo
-    argumento de D-HASH-3. Quien reporta el error es el validador, no el hash.
+    devuelve el config sin coaccionar en lugar de propagar el error. Hacer fallable una función de
+    identidad rompería llamadores que hoy funcionan (``/api/validate`` responde 200 siempre;
+    ``Study`` la usa al ensamblar el lineage). Y no se pierde nada: un config que no coacciona no se
+    puede ejecutar, así que su identidad no ancla ninguna corrida — el mismo argumento de D-HASH-3.
+    Quien reporta el error es el validador, no el hash.
+
+    🔴 **Una coacción puede fallar de DOS formas, y atrapar sólo una dejó el defecto vivo**
+    (D-ANC-10). Pydantic envuelve en ``ValidationError`` lo que levanta un validador **sólo** si
+    hereda de ``ValueError``; toda la jerarquía ``NikodymError`` —``ConfigError`` y las doce
+    ``*ConfigError`` de dominio— **no hereda de él**, así que escapaba entera. Medido: **123
+    ``raise`` en validadores de 18 de las 22 secciones de dominio**, de los que 72 viven en
+    secciones que el formulario ofrece; ``data`` y ``report`` eran las dos únicas seguras, y por
+    accidente de estilo. Con un solo ``Select`` —``binning.solver='cp'``— ``config_hash`` dejaba de
+    ser total. Se atrapa ``NikodymError`` y no ``ConfigError`` porque cuatro clases de ``forward`` y
+    ``stress`` cuelgan directamente de ``NikodymError``; y es el ancho correcto, no uno de más: la
+    promesa es *«si la coacción falla, devuelve el config sin coaccionar»*, y un
+    ``MissingDependencyError`` durante la coacción es exactamente ese caso.
     """
     # Import perezoso por la misma razón que en ``build_full_json_schema``: ``core.config`` no
     # arrastra dominios (núcleo liviano, SDD-23 §4.1/§9).
@@ -76,6 +88,7 @@ def _coaccionar_secciones_opacas(cfg: NikodymConfig) -> NikodymConfig:
 
     from nikodym.core.config.schema import NikodymConfig as _NikodymConfig
     from nikodym.core.config.schema import cargar_configs_de_dominio
+    from nikodym.core.exceptions import NikodymError
     from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
 
     if not any(isinstance(getattr(cfg, nombre, None), dict) for nombre in _DOMAIN_CONFIG_CLASSES):
@@ -84,7 +97,7 @@ def _coaccionar_secciones_opacas(cfg: NikodymConfig) -> NikodymConfig:
     cargar_configs_de_dominio()
     try:
         return _NikodymConfig.model_validate(cfg.model_dump(mode="json", by_alias=True))
-    except ValidationError:
+    except (ValidationError, NikodymError):
         return cfg
 
 

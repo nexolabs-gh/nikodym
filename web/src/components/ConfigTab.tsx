@@ -73,6 +73,7 @@ import {
   type ValidationState,
   describeApiError,
   pipelineWarning,
+  unanchoredError,
 } from "@/lib/validation"
 import { useAppState, type AppState } from "@/state/appStore"
 
@@ -508,14 +509,22 @@ function HashStatus({ state }: { state: ValidationState }) {
           {state.hash.slice(0, 12)}…
         </span>
       )
-    case "invalid":
+    case "invalid": {
+      // D-ANC-12: un error de sección llega SIN campo al que anclarse (`loc: []`), así que no lo
+      // pinta ningún `FieldRenderer` y el usuario se quedaba con el contador y nada más. Se muestra
+      // aquí, que es el único sitio que ve el estado entero.
+      const suelto = unanchoredError(state)
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs text-destructive">
-          <CircleAlert className="size-3.5" aria-hidden="true" />
-          Config inválido · {state.count}{" "}
-          {state.count === 1 ? "error" : "errores"}
+        <span className="inline-flex flex-col gap-0.5 text-xs text-destructive">
+          <span className="inline-flex items-center gap-1.5">
+            <CircleAlert className="size-3.5" aria-hidden="true" />
+            Config inválido · {state.count}{" "}
+            {state.count === 1 ? "error" : "errores"}
+          </span>
+          {suelto ? <span className="opacity-90">{suelto}</span> : null}
         </span>
       )
+    }
     case "checking":
       return (
         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">

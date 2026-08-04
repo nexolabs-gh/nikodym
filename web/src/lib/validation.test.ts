@@ -7,6 +7,7 @@ import {
   errorAtPath,
   pathKey,
   pipelineWarning,
+  unanchoredError,
 } from "./validation"
 
 describe("pathKey", () => {
@@ -46,6 +47,44 @@ describe("buildErrorLookup", () => {
 
   it("lista vacía ⇒ lookup vacío", () => {
     expect(buildErrorLookup([]).size).toBe(0)
+  })
+})
+
+describe("unanchoredError", () => {
+  // 🔴 Medido abriendo la pantalla: escribir la tasa objetivo con la fuente que la calcula sola
+  // dejaba «Config inválido · 1 error» y NINGÚN mensaje visible. El `ConfigError` de una sección
+  // lo levanta el `model_validator` sobre la sección entera, así que llega con `loc: []` y su
+  // clave de lookup es la cadena vacía, que ningún campo del formulario reclama.
+  const errorDeSeccion = {
+    loc: [] as (string | number)[],
+    msg: "anchor_source='development_observed' … el target_pd que fijó no se usaría.",
+    type: "value_error",
+  }
+
+  it("recupera el error de sección, que no pertenece a ningún campo", () => {
+    const state = {
+      kind: "invalid" as const,
+      count: 1,
+      lookup: buildErrorLookup([errorDeSeccion]),
+    }
+    expect(unanchoredError(state)).toContain("no se usaría")
+  })
+
+  it("no inventa nada cuando todos los errores SÍ tienen campo", () => {
+    const state = {
+      kind: "invalid" as const,
+      count: 1,
+      lookup: buildErrorLookup([
+        { loc: ["binning", "min_iv"], msg: "debe ser ≥ 0", type: "greater_than" },
+      ]),
+    }
+    expect(unanchoredError(state)).toBeUndefined()
+  })
+
+  it("los estados que no son inválidos no tienen error suelto", () => {
+    expect(unanchoredError({ kind: "idle" })).toBeUndefined()
+    expect(unanchoredError({ kind: "checking" })).toBeUndefined()
+    expect(unanchoredError({ kind: "unreachable" })).toBeUndefined()
   })
 })
 

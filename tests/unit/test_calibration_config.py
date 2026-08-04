@@ -131,7 +131,13 @@ def test_nikodymconfig_calibration_instancia() -> None:
 
 def test_nikodymconfig_calibration_dict_coacciona() -> None:
     """Un dict en ``calibration`` se coacciona a ``CalibrationConfig`` por el hook cargado."""
-    cfg = NikodymConfig(calibration={"target_pd": 0.04, "method": "platt_scaling"})
+    cfg = NikodymConfig(
+        calibration={
+            "target_pd": 0.04,
+            "method": "platt_scaling",
+            "anchor_source": "business_input",  # D-ANC-1: la fuente que sí usa el número
+        }
+    )
     assert isinstance(cfg.calibration, CalibrationConfig)
     assert cfg.calibration.target_pd == 0.04
     assert cfg.calibration.method == "platt_scaling"
@@ -166,7 +172,10 @@ def test_nikodymconfig_calibration_core_only_rechaza_json_no_canonico(
     "calibration",
     [
         CalibrationConfig(method="platt_scaling"),
-        CalibrationConfig(target_pd=0.04),
+        # D-ANC-1: `target_pd` viaja con una fuente que lo USA. Con `development_observed` —el
+        # default— el par se rechaza, y este `parametrize` se evalúa AL IMPORTAR: dejarlo así
+        # tumbaba la recolección de las 60 pruebas del módulo, no sólo este caso.
+        CalibrationConfig(anchor_source="historical_default_rate", target_pd=0.04),
         CalibrationConfig(
             anchor_kind="point_in_time", anchor_source="business_input", target_pd=0.03
         ),
@@ -283,6 +292,41 @@ def test_development_observed_no_exige_target_pd() -> None:
     assert cfg.target_pd is None
 
 
+def test_development_observed_con_target_pd_levanta_configerror() -> None:
+    """D-ANC-1 (M-7): el caso SIMÉTRICO — la fuente que se lee de los datos rechaza el número.
+
+    Antes se aceptaba y `_resolve_target_pd` lo **descartaba en silencio**: la corrida llegaba a
+    `done` anclando a la tasa observada, y el informe la publicaba bajo el rótulo «PD objetivo», que
+    es el nombre del campo que el usuario había rellenado. Medido sobre el preset F3, la provisión
+    salía 308.644.057,91 en vez de 878.006.307,71 — **569 millones de diferencia y cero avisos**.
+
+    Es el mismo criterio de SDD-10 §5 que ya rechaza `point_in_time` + `development_observed`: o se
+    ancla de verdad, o falla. Y lo que ya afirmaba `docs_site/tutorial.md`.
+    """
+    with pytest.raises(ConfigError, match="no se usaría"):
+        CalibrationConfig(anchor_source="development_observed", target_pd=0.20)
+
+    # Y por el default, que es la vía real: basta escribir el número sin tocar el selector.
+    with pytest.raises(ConfigError, match="no se usaría"):
+        CalibrationConfig(target_pd=0.20)
+
+
+def test_el_error_del_ancla_descartada_enseña_las_dos_salidas() -> None:
+    """D-ANC-2: negar no basta; el mensaje nombra las salidas con su literal exacto.
+
+    Las opciones de un selector se pintan **crudas** en el formulario, así que un copy que nombre
+    una opción y no use su literal manda al usuario a buscar algo que no existe — defecto que este
+    repo ya pagó dos veces.
+    """
+    with pytest.raises(ConfigError) as exc:
+        CalibrationConfig(target_pd=0.20)
+
+    mensaje = str(exc.value)
+    assert "sin fijar" in mensaje, "dice cómo dejar la fuente que eligió"
+    for literal in ("business_input", "historical_default_rate", "external_regulatory"):
+        assert literal in mensaje, f"falta el literal exacto {literal}"
+
+
 def test_point_in_time_con_development_observed_levanta_configerror() -> None:
     """BAJO: point_in_time + development_observed (TTC intrínseco) es etiqueta falsa → raise."""
     with pytest.raises(ConfigError, match="point_in_time"):
@@ -308,6 +352,7 @@ def test_calibration_finitud_after_validator_defensiva() -> None:
 def test_calibration_strings_numericos_convertibles_pasan_por_pydantic() -> None:
     """Los validadores custom dejan a Pydantic coaccionar strings numéricos válidos."""
     cfg = CalibrationConfig(
+        anchor_source="business_input",  # D-ANC-1: la fuente que sí usa el número
         target_pd="0.04",  # type: ignore[arg-type]
         target_tolerance="1e-10",  # type: ignore[arg-type]
     )
@@ -366,7 +411,11 @@ def test_import_calibration_liviano_y_registra_hook_en_proceso_fresco() -> None:
         "from nikodym.calibration.config import CalibrationConfig;"
         "bloqueados=[m for m in ('pandas','scipy','sklearn') if m in sys.modules];"
         "assert not bloqueados, bloqueados;"
-        "cfg=NikodymConfig(calibration={'target_pd': 0.04});"
+        # D-ANC-1: con el hook registrado el dict SÍ se coacciona, así que el par tiene que ser
+        # válido — la fuente que usa el número. (El test hermano de abajo lo deja sin
+        # `anchor_source` a propósito: ahí la sección queda blob opaco y nadie la valida.)
+        "cfg=NikodymConfig(calibration="
+        "{'target_pd': 0.04, 'anchor_source': 'business_input'});"
         "assert isinstance(cfg.calibration, CalibrationConfig)"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
