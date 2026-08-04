@@ -38,7 +38,8 @@ secciones no nulas. Una sección configurada pero omitida por `steps=` está apa
 usar sólo `section is not None` daría un DAG distinto del que se ejecutará.
 
 **D-FX-2 — El contexto llega por una extensión genérica y opcional del resolver.** Un componente
-puede exponer `from_config_with_context(sub_cfg, *, active_domains)`; si ese hook no es callable,
+puede exponer `from_config_with_context(sub_cfg, *, contexto)` —era `*, active_domains` hasta
+D-REQ-2, que lo envolvió en un DTO sin cambiar su criterio—; si ese hook no es callable,
 `Study` usa el `from_config(sub_cfg)` vigente. No habrá `if name == "report"`, introspección de
 firmas ni escritura del contexto dentro de Pydantic. Una construcción directa de
 `ReportStep.from_config(ReportConfig())` mantiene la firma histórica para no romper uso standalone.

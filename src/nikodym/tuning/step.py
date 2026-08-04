@@ -34,12 +34,13 @@ dentro de ``execute``. El motor v1 es determinista y ``tuning`` **descarta** el 
 from __future__ import annotations
 
 import importlib
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
 from nikodym.core.exceptions import ArtifactNotFoundError, MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, ContextoDeResolucion
 from nikodym.tuning.config import TuningConfig
 from nikodym.tuning.exceptions import TuningConfigError, TuningDataError, TuningOptimizeError
 
@@ -80,8 +81,14 @@ _TUNING_EXTRA_MESSAGE: Final = "TuningStep requiere pandas/numpy; instale nikody
 _DATA_DOMAIN: Final = "data"
 _BINNING_DOMAIN: Final = "binning"
 _SELECTION_DOMAIN: Final = "selection"
-# Defaults heredados de ``MLConfig`` (SDD-12 §5): ``from_config`` no recibe la ``MLConfig``, así que
-# declara los ``requires`` con estos defaults; ``execute`` los re-deriva desde la ``ml`` real.
+# Defaults heredados de ``MLConfig`` (SDD-12 §5), para cuando el contexto no dice nada: es lo que
+# recibe una resolución suelta (``run_step``) o una corrida sin sección ``ml`` legible (D-REQ-4).
+#
+# ⚠️ Se copian a mano **porque `ml` se importa perezosamente** (extra `[ml]`, ver
+# `_ml_config_from_study`), y leerlos aquí arrastraría el dominio al importar `tuning`. Eran una
+# duplicación MUDA —si `ml` cambiaba su default, estos dos no se enteraban y ningún test lo cazaba—
+# y desde D-REQ-6 los ata un gate bidireccional (`test_tuning_step.py`), que es lo que convierte la
+# copia en una réplica vigilada.
 _DEFAULT_FEATURE_SOURCE: Final = "binning_woe"
 _DEFAULT_MONOTONIC_MODE: Final = "from_binning"
 # Constraint por variable en espacio WoE cuando la tendencia del binning es monótona (SDD-13 §7.7).
@@ -99,20 +106,45 @@ class TuningStep(AuditableMixin):
     requires: tuple[ArtifactKey, ...] = ()
     provides: tuple[ArtifactKey, ...] = tuple(("tuning", key) for key in TUNING_ARTIFACTS)
 
-    def __init__(self, config: TuningConfig) -> None:
-        """Construye el paso desde ``TuningConfig`` y declara ``requires`` con defaults de ``ml``.
+    def __init__(self, config: TuningConfig, *, contrato: Mapping[str, str] | None = None) -> None:
+        """Construye el paso y declara los ``requires`` que va a leer de verdad (D-REQ-1).
 
-        ``from_config`` no recibe la ``MLConfig``, así que los ``requires`` estáticos usan los
-        defaults de ``ml`` (``binning_woe`` + ``from_binning``); :meth:`execute` los re-deriva y
-        re-valida contra la ``NikodymConfig.ml`` real antes de la búsqueda (CT-1).
+        ``contrato`` es lo que la sección ``ml`` declaró de sí misma en esta invocación; ``None``
+        significa **«no se sabe»** —resolución suelta, o sección ``ml`` ausente o ilegible— y
+        entonces se usan los defaults de ``ml``, que es el comportamiento histórico (D-REQ-4).
+
+        🔴 **Antes se usaban los defaults SIEMPRE**, y eso rompía CT-1 en las dos direcciones: con
+        ``ml.feature_source='selection_woe'`` la comprobación previa exigía ``binning.woe_frame``
+        —falso rojo sobre un pipeline que corre— y no exigía los dos artefactos de ``selection``
+        —falso verde sobre uno que muere—. :meth:`execute` los re-deriva igual, que es la red que
+        impidió que el defecto corrompiera resultados.
         """
         self.config = config
-        self.requires = _requires_for(_DEFAULT_FEATURE_SOURCE, _DEFAULT_MONOTONIC_MODE)
+        contrato = contrato or {}
+        self.requires = _requires_for(
+            contrato.get("origen_de_variables", _DEFAULT_FEATURE_SOURCE),
+            contrato.get("monotonia", _DEFAULT_MONOTONIC_MODE),
+        )
 
     @classmethod
     def from_config(cls, cfg: TuningConfig) -> TuningStep:
-        """Construye ``TuningStep`` desde ``NikodymConfig.tuning``."""
+        """Construye ``TuningStep`` desde ``NikodymConfig.tuning`` (firma histórica, standalone)."""
         return cls(cfg)
+
+    @classmethod
+    def from_config_with_context(
+        cls,
+        cfg: TuningConfig,
+        *,
+        contexto: ContextoDeResolucion,
+    ) -> TuningStep:
+        """Fábrica contextual del resolver (D-FX-2): declara el ``requires`` de ESTA invocación.
+
+        Segundo implementador del hook, y la razón de que su contexto dejara de ser un
+        ``frozenset[str]``: saber que ``selection`` corre no basta —lo que decide qué artefactos lee
+        este paso es **qué eligió `ml`**, no qué secciones existen— (D-REQ-2).
+        """
+        return cls(cfg, contrato=contexto.contrato_de_variables)
 
     def emit(self, event: AuditEvent) -> None:
         """Permite pasar el step como ``AuditSink`` si un motor futuro lo requiere."""

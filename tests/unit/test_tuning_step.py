@@ -29,6 +29,7 @@ from nikodym.core.audit import InMemoryAuditSink  # noqa: E402
 from nikodym.core.config import NikodymConfig  # noqa: E402
 from nikodym.core.exceptions import ArtifactNotFoundError  # noqa: E402
 from nikodym.core.registry import REGISTRY  # noqa: E402
+from nikodym.core.steps import ContextoDeResolucion  # noqa: E402
 from nikodym.core.study import Study  # noqa: E402
 from nikodym.ml.config import (  # noqa: E402
     MLConfig,
@@ -374,7 +375,13 @@ def test_desarrollo_vacio_levanta_data_error() -> None:
 
 # ═══════════════════════════ requires dinámicos (CT-1) ═══════════════════════════
 def test_from_config_declara_requires_por_defecto_de_ml() -> None:
-    """``from_config`` declara los ``requires`` con los defaults de ``ml`` (binning_woe)."""
+    """``from_config`` —SIN contexto— declara los ``requires`` con los defaults de ``ml``.
+
+    ⚠️ Es el caso «no se sabe» de D-REQ-4, no la regla general: una resolución suelta (``run_step``)
+    o una corrida sin sección ``ml`` legible conservan el contrato histórico. Lo que el paso declara
+    **en una corrida** lo mide ``test_requires_con_contexto_*``, y hasta D-REQ-1 no existía: los
+    defaults se usaban SIEMPRE, con la comprobación previa mintiendo en las dos direcciones.
+    """
     step = TuningStep.from_config(_tuning_config())
     assert step.name == "tuning"
     assert step.provides == tuple(("tuning", key) for key in tuning_step.TUNING_ARTIFACTS)
@@ -662,3 +669,76 @@ class _FakeStore:
 
     def get(self, domain: str, key: str) -> Any:
         return self._data[(domain, key)]
+
+
+# ═══════════ D-REQ-1: el `requires` declarado es el que el paso va a leer ═══════════
+#
+# Antes de esta enmienda, `tuning` declaraba SIEMPRE los `requires` del default de fábrica de `ml`.
+# Con `ml.feature_source='selection_woe'` eso rompía CT-1 en las dos direcciones a la vez: exigía
+# `binning.woe_frame`, que el paso no lee (falso rojo sobre un pipeline que corre),
+# y callaba los dos artefactos de `selection` que sí lee (falso verde sobre uno que muere).
+
+
+def test_requires_con_contexto_sigue_a_la_ml_del_usuario() -> None:
+    """Con contexto, el paso declara lo que leerá de verdad — no lo que leería de fábrica."""
+    contexto = ContextoDeResolucion(
+        dominios_activos=frozenset({"data", "binning", "selection", "ml", "tuning"}),
+        contrato_de_variables={"origen_de_variables": "selection_woe", "monotonia": "off"},
+    )
+
+    paso = TuningStep.from_config_with_context(_tuning_config(), contexto=contexto)
+
+    assert paso.requires == _requires_for("selection_woe", "off")
+    # Control positivo: el caso elegido DIFIERE del default, o el test no probaría nada.
+    assert paso.requires != _requires_for(
+        tuning_step._DEFAULT_FEATURE_SOURCE, tuning_step._DEFAULT_MONOTONIC_MODE
+    )
+    # Y las dos direcciones del defecto, nombradas:
+    assert ("binning", "woe_frame") not in paso.requires  # ya no exige lo que no lee
+    assert ("selection", "selected_woe_frame") in paso.requires  # ya no calla lo que sí lee
+
+
+def test_requires_con_contexto_sigue_a_la_monotonia() -> None:
+    """El contrato son DOS campos de ``ml``, no uno: ``monotonic.mode`` también decide (D-REQ-3)."""
+    tablas = ("binning", "tables")
+    con_binning = TuningStep.from_config_with_context(
+        _tuning_config(),
+        contexto=ContextoDeResolucion(
+            frozenset({"tuning"}),
+            {"origen_de_variables": "binning_woe", "monotonia": "from_binning"},
+        ),
+    )
+    sin_binning = TuningStep.from_config_with_context(
+        _tuning_config(),
+        contexto=ContextoDeResolucion(
+            frozenset({"tuning"}), {"origen_de_variables": "binning_woe", "monotonia": "off"}
+        ),
+    )
+
+    assert tablas in con_binning.requires
+    assert tablas not in sin_binning.requires
+
+
+def test_contexto_vacio_conserva_el_contrato_historico() -> None:
+    """``{}`` es «no se sabe», no «ninguno»: se conserva el default de ``ml`` (D-REQ-4).
+
+    Es lo que recibe una corrida cuya sección ``ml`` está ausente o no se pudo coaccionar. Degradar
+    al comportamiento histórico es correcto; romper la resolución por no poder mirar una sección
+    ajena no lo sería.
+    """
+    paso = TuningStep.from_config_with_context(
+        _tuning_config(), contexto=ContextoDeResolucion(frozenset({"tuning"}))
+    )
+
+    assert paso.requires == TuningStep.from_config(_tuning_config()).requires
+
+
+def test_los_defaults_copiados_siguen_siendo_los_de_ml() -> None:
+    """D-REQ-6: la copia a mano de los defaults de ``ml`` queda ATADA a su fuente.
+
+    ``tuning`` no puede leerlos en import time —``ml`` se importa perezosamente, por su extra—, así
+    que los replica. Sin este gate la réplica es **muda**: si ``ml`` cambia su default, ``tuning``
+    declara requisitos de un mundo que ya no existe y ningún test se entera.
+    """
+    assert MLConfig.model_fields["feature_source"].default == tuning_step._DEFAULT_FEATURE_SOURCE
+    assert MonotonicConfig.model_fields["mode"].default == tuning_step._DEFAULT_MONOTONIC_MODE

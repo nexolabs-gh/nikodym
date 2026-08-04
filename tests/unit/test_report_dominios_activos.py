@@ -27,6 +27,7 @@ import pytest
 
 from nikodym.core.config import NikodymConfig
 from nikodym.core.exceptions import ArtifactNotFoundError, ConfigError
+from nikodym.core.steps import ContextoDeResolucion
 from nikodym.core.study import Study
 from nikodym.eda.config import EdaConfig
 from nikodym.eda.step import EdaStep
@@ -322,14 +323,14 @@ def test_dominio_ni_requerido_ni_activo_no_figura_como_faltante(
 
 
 def test_requires_es_la_doble_interseccion() -> None:
-    """``requires`` = ``REPORT_REQUIRED_CARDS`` ∩ ``required_sections`` ∩ ``active_domains``."""
+    """``requires`` = ``REPORT_REQUIRED_CARDS`` ∩ ``required_sections`` ∩ dominios activos."""
     cfg = ReportConfig()
     # Sin contexto: firma histórica intacta (uso standalone).
     assert ReportStep.from_config(cfg).requires == REPORT_REQUIRED_CARDS
 
     # Con contexto: sólo las cards de dominios que corren.
     paso = ReportStep.from_config_with_context(
-        cfg, active_domains=frozenset({"model", "performance", "report"})
+        cfg, contexto=ContextoDeResolucion(frozenset({"model", "performance", "report"}))
     )
     assert paso.requires == (("model", "model_card"), ("performance", "card"))
 
@@ -338,12 +339,13 @@ def test_requires_es_la_doble_interseccion() -> None:
         sections=SectionPolicyConfig(required_sections=("performance",)),
     )
     paso = ReportStep.from_config_with_context(
-        sin_modelo, active_domains=frozenset({"model", "performance", "report"})
+        sin_modelo, contexto=ContextoDeResolucion(frozenset({"model", "performance", "report"}))
     )
     assert paso.requires == (("performance", "card"),)
 
     # Y el contexto vacío no es «no se sabe»: es «no corre nadie».
-    assert ReportStep.from_config_with_context(cfg, active_domains=frozenset()).requires == ()
+    vacio = ContextoDeResolucion(frozenset())
+    assert ReportStep.from_config_with_context(cfg, contexto=vacio).requires == ()
 
 
 def test_las_cards_adoptables_son_consumos_opcionales() -> None:
@@ -352,7 +354,9 @@ def test_las_cards_adoptables_son_consumos_opcionales() -> None:
     Sin esto, filtrar ``requires`` convertía en **inerte** —con su aviso— una card que el informe sí
     lee, en cuanto se inyectara por ``nikodym.run(..., artifacts=...)``.
     """
-    paso = ReportStep.from_config_with_context(ReportConfig(), active_domains=frozenset({"report"}))
+    paso = ReportStep.from_config_with_context(
+        ReportConfig(), contexto=ContextoDeResolucion(frozenset({"report"}))
+    )
     assert paso.requires == ()
     assert paso.optional_requires == OPTIONAL_REPORT_INPUTS
     # Las ocho canónicas están dentro aunque hayan salido de `requires`…
@@ -401,8 +405,8 @@ def test_el_resolver_no_conoce_report(
             raise AssertionError("con contexto disponible debe preferirse la fábrica contextual")
 
         @classmethod
-        def from_config_with_context(cls, cfg: Any, *, active_domains: frozenset[str]) -> _Falso:
-            visto["active_domains"] = active_domains
+        def from_config_with_context(cls, cfg: Any, *, contexto: ContextoDeResolucion) -> _Falso:
+            visto["active_domains"] = contexto.dominios_activos
             return cls()
 
         def execute(self, study: Study, rng: np.random.Generator) -> None:  # pragma: no cover
@@ -443,7 +447,7 @@ def test_un_hook_con_firma_incompatible_habla_en_español(
 
         @classmethod
         def from_config_with_context(
-            cls, cfg: Any, active_domains: frozenset[str], /
+            cls, cfg: Any, contexto: ContextoDeResolucion, /
         ) -> _FirmaMala:
             return cls()
 
@@ -474,7 +478,7 @@ def test_sin_hook_contextual_el_resolver_usa_from_config(tmp_path: Path) -> None
         apply_global_seed=False,
     )
     assert not hasattr(StabilityStep, "from_config_with_context")
-    paso = study._resolve_step("stability", active_domains=frozenset({"stability"}))
+    paso = study._resolve_step("stability", contexto=ContextoDeResolucion(frozenset({"stability"})))
     assert isinstance(paso, StabilityStep)
 
 

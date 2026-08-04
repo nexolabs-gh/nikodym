@@ -116,8 +116,13 @@ pero no se vuelven prerequisitos implícitos de una corrida F1.
 > **Enmendado (DEFAULTS-EFECTIVOS-UI, D-FX-3):** el filtro es una **doble intersección**. Una card
 > se exige si su dominio está en `sections.required_sections` **y** entre los pasos activos de esa
 > invocación (`steps=` → `config.run.steps` → secciones no nulas). El contexto llega por
-> `ReportStep.from_config_with_context(cfg, *, active_domains)`, la extensión genérica y opcional
-> del resolver; `from_config` conserva la firma histórica para el uso standalone.
+> `ReportStep.from_config_with_context(cfg, *, contexto)`, la extensión genérica y opcional del
+> resolver; `from_config` conserva la firma histórica para el uso standalone.
+>
+> ⚠️ **El kwarg era `active_domains: frozenset[str]` hasta D-REQ-2** (enmienda
+> REQUISITOS-DECLARADOS, 2026-08-05). Sigue estando —es `contexto.dominios_activos`, con el mismo
+> criterio— pero viaja dentro de un DTO, para que ampliar el contexto no obligue a tocar a cada
+> implementador. `report` sólo lee ese campo y su lógica no cambió.
 >
 > Una sección requerida cuyo dominio está **apagado** deja de ser prerequisito duro, así que
 > `check_pipeline` resulta ejecutable y la decisión vuelve a `missing_policy`, que es de quien es:

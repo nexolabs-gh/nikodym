@@ -445,6 +445,36 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > *coherencia*, y D-HASH-8 exige *totalidad* — con una sección inválida el lado tipado revienta al
 > construirse, así que el par ni se puede montar.
 >
+> **Un paso declara los requisitos que va a usar, no los de fábrica (2026-08-05, APROBADA).**
+> [`_ENMIENDA-REQUISITOS-DECLARADOS.md`](_ENMIENDA-REQUISITOS-DECLARADOS.md), D-REQ-1…D-REQ-8,
+> cierra **M-2** del censo y enmienda CT-1 en su punto de `Step.requires`. `tuning` y `explain`
+> declaraban los requisitos del **default de fábrica** de `ml` —dos constantes copiadas a mano, sin
+> ninguna `MLConfig` de por medio—, así que con `feature_source='selection_woe'` la comprobación
+> previa mentía en las **dos** direcciones: exigía `binning.woe_frame` que el paso no abre (falso
+> rojo) y callaba los dos artefactos de `selection` que sí lee (falso verde). 🔴 **Y había una
+> TERCERA mentira que ningún censo traía**: `inert_artifacts` declaraba inertes justo los artefactos
+> que el paso consume, así que el usuario leía a la vez «te falta binning» y «lo de selection no lo
+> usa nadie», ambas falsas. El contexto del hook `from_config_with_context` deja de ser un
+> `frozenset[str]` y pasa a ser `ContextoDeResolucion`, un DTO cerrado —precedente `ContextoConfig`,
+> que ya se amplió una vez sin tocar implementadores—, y lo que transporta de `ml` lo **produce
+> `MLConfig`** por método-protocolo, para que el núcleo no interprete (D-INV-1).
+> 🔴 **M-2 y M-3 resultaron el MISMO defecto con dos disfraces**, con la misma tercera mentira
+> medida por separado en cada uno: de ahí D-REQ-8, el gate de clase que barre todos los pasos.
+> ⚠️ **El primer arreglo pasaba sus tests y dejaba el defecto vivo por la puerta pública** —miraba
+> las secciones activas, y con `run.steps=['tuning']` la sección `ml` existe y no corre—; ⚠️ **y el
+> gate acusó a tres inocentes** (`ml`, `provisioning`, `validation`) hasta afinar su criterio de
+> «re-deriva» a «re-deriva **con datos ajenos**». Las dos correcciones salieron **midiendo**.
+>
+> **El `requires` de CMF (2026-08-05, NO SE IMPLEMENTA).**
+> [`_ENMIENDA-REQUISITOS-CMF.md`](_ENMIENDA-REQUISITOS-CMF.md), D-CMF-1…D-CMF-6, diagnostica **M-3**
+> y queda **escrita sin implementación** por decisión de producto de Cami: la normativa local de
+> cada país sale del alcance de la librería —«no podemos estar detrás de cada actualización de cada
+> país»—, así que el motor CMF no recibe inversión. Precedente D-MAX-3 y D-SEG-11. 🔴 Su diagnóstico
+> sigue siendo cierto y **no era un descuido**: SDD-15 manda el `requires` estático por escrito en
+> cinco puntos, y el defecto real es que SDD-16/17/28 mandan lo contrario. ⚠️ De aquí sobreviven dos
+> cosas que no son de CMF: la mentira de `inert_artifacts` (cerrada por D-REQ-7) y que la cobertura
+> regulatoria al 100 % incluye `provisioning/internal/step.py` y **no** su gemelo de CMF.
+>
 > **El default de `provisioning` no era la regla del B-1 (2026-08-04, APROBADA).**
 > [`_ENMIENDA-REGLA-DEL-MAXIMO.md`](_ENMIENDA-REGLA-DEL-MAXIMO.md), D-MAX-1…D-MAX-6, cierra GRAVE-3
 > del censo. `ProvisioningConfig()` traía `max(CMF, IFRS 9)` «por retrocompatibilidad», y la regla

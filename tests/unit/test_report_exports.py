@@ -307,6 +307,7 @@ def test_sin_openpyxl_y_fail_if_unavailable_la_corrida_se_detiene(
         write_data_exports(_tables(), config=config, output_dir=str(tmp_path))
 
 
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="mide el extra PRESENTE pero roto: exige tenerlo")
 def test_openpyxl_presente_pero_roto_tambien_degrada(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -315,6 +316,11 @@ def test_openpyxl_presente_pero_roto_tambien_degrada(
     Es la razón por la que la captura de ``ReportDependencyError`` alrededor de ``_write_xlsx`` NO
     es código muerto tras añadir la comprobación previa: una instalación a medias o una versión
     incompatible con el ``ExcelWriter`` de pandas siguen levantando al importar de verdad.
+
+    ⚠️ Gateado por el extra, y **el CI lo cazó donde el local no podía**: su control positivo
+    afirma que ``openpyxl`` SÍ se localiza —es lo que distingue este caso del anterior— y en
+    los jobs que instalan sin extras eso es falso. Un test que mide «presente pero roto»
+    necesita que esté presente.
     """
     _openpyxl_presente_pero_roto(monkeypatch)
     # Control positivo: este caso NO es el anterior — el paquete se sigue localizando.
@@ -328,6 +334,7 @@ def test_openpyxl_presente_pero_roto_tambien_degrada(
     assert not list(tmp_path.glob("*.xlsx"))
 
 
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="mide el extra PRESENTE pero roto: exige tenerlo")
 def test_openpyxl_presente_pero_roto_con_fail_if_unavailable_relanza(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

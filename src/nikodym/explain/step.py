@@ -34,12 +34,13 @@ nunca ``hash()`` builtin).
 from __future__ import annotations
 
 import importlib
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
 from nikodym.core.exceptions import ArtifactNotFoundError, MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, ContextoDeResolucion
 from nikodym.explain.config import ExplainConfig
 from nikodym.explain.engine import UnifiedExplainer
 from nikodym.explain.exceptions import ExplainConfigError, ExplainDataError
@@ -99,20 +100,38 @@ class ExplainStep(AuditableMixin):
     requires: tuple[ArtifactKey, ...] = ()
     provides: tuple[ArtifactKey, ...] = tuple(("explain", key) for key in EXPLAIN_ARTIFACTS)
 
-    def __init__(self, config: ExplainConfig) -> None:
-        """Construye el paso desde ``ExplainConfig`` y declara ``requires`` (CT-1).
+    def __init__(self, config: ExplainConfig, *, contrato: Mapping[str, str] | None = None) -> None:
+        """Construye el paso y declara los ``requires`` que va a leer de verdad (D-REQ-1).
 
-        ``from_config`` no recibe la ``MLConfig``, así que los ``requires`` estáticos usan la fuente
-        de features por defecto (``binning_woe``); :meth:`execute` los **re-deriva** desde la
-        ``NikodymConfig.ml`` real (``feature_source``) y **re-valida** su presencia (CT-1).
+        ``targets`` es campo propio de esta sección; la **fuente de las variables** no: la decide
+        ``ml``, y llega por ``contrato`` (D-REQ-3). ``None`` significa «no se sabe» —resolución
+        suelta, o sin sección ``ml`` legible— y entonces se usa el default, que es el comportamiento
+        histórico (D-REQ-4) y además el correcto con ``targets='scorecard'``, donde no hay ``ml``.
+
+        🔴 Antes se usaba el default SIEMPRE, y por eso la comprobación previa exigía
+        ``binning.woe_frame`` con ``ml.feature_source='selection_woe'`` —falso rojo— y callaba
+        los dos artefactos de ``selection`` que el paso sí iba a leer —falso verde—.
         """
         self.config = config
-        self.requires = _requires_for(config.targets, _DEFAULT_FEATURE_SOURCE)
+        contrato = contrato or {}
+        self.requires = _requires_for(
+            config.targets, contrato.get("origen_de_variables", _DEFAULT_FEATURE_SOURCE)
+        )
 
     @classmethod
     def from_config(cls, cfg: ExplainConfig) -> ExplainStep:
-        """Construye ``ExplainStep`` desde ``NikodymConfig.explain``."""
+        """Construye ``ExplainStep`` desde ``NikodymConfig.explain`` (histórica, standalone)."""
         return cls(cfg)
+
+    @classmethod
+    def from_config_with_context(
+        cls,
+        cfg: ExplainConfig,
+        *,
+        contexto: ContextoDeResolucion,
+    ) -> ExplainStep:
+        """Fábrica contextual del resolver (D-FX-2): declara el ``requires`` de ESTA invocación."""
+        return cls(cfg, contrato=contexto.contrato_de_variables)
 
     def emit(self, event: AuditEvent) -> None:
         """Permite pasar el step como ``AuditSink`` si un motor futuro lo requiere."""

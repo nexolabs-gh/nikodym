@@ -610,3 +610,36 @@ class MLConfig(NikodymBaseConfig):
                 "early_stopping_rounds=None."
             )
         return self
+
+    def contrato_de_variables_declarado(self) -> dict[str, str]:
+        """Publica de dónde salen las variables del challenger en ESTA corrida (D-REQ-3).
+
+        Lo consume el resolver del núcleo por convención de nombre
+        (``core.steps.METODO_CONTRATO_VARIABLES``) para armar el contexto con que ``tuning`` y
+        ``explain`` calculan su ``requires``. Los dos pasos ajustan el mismo modelo que esta sección
+        describe, así que leen artefactos distintos según lo que aquí se decida: con
+        ``feature_source='selection_woe'`` el WoE lo publica ``selection``, no ``binning``.
+
+        🔴 **Existe para que el núcleo no tenga que conocer estos dos campos.** Podría leer
+        ``config.ml.feature_source`` en dos líneas, y sería el acoplamiento que D-INV-1 rechazó: con
+        la sección opaca —el estado por DEFECTO— eso es una clave de ``dict`` y el núcleo pasaría a
+        depender del vocabulario de este dominio. Aquí el núcleo transporta un mapa de ``str`` cuyas
+        claves no interpreta; quien las lee es quien las necesita.
+
+        ⚠️ Son **dos** campos y no uno: hasta D-REQ-3, ``tuning`` declaraba
+        ``binning.tables``/``binning.result``, que sólo consume con ``monotonic.mode``
+        ``'from_binning'``: con ``'off'`` exigía dos artefactos que nunca lee.
+
+        🔴 **``data_raw`` NO se publica, y salió al implementar.** Es una fuente **diferida**: el
+        motor la rechaza siempre con ``FALTA-DATO-ML-1``, nombrando la carencia y las dos salidas.
+        Publicarla hacía que el paso declarase ``('data','frame')`` como prerequisito duro, y
+        entonces el DAG cortaba **antes** con «necesita 'frame', que produce 'data'» — un
+        mensaje
+        cierto y mucho peor, sobre un config que el motor iba a rechazar de todos modos. Omitirla no
+        es declarar de menos: un paso con ``data_raw`` **no llega a correr nunca**, así que sus
+        requisitos son irrelevantes y lo único que importa es cuál de los dos errores se lee.
+        """
+        contrato: dict[str, str] = {"monotonia": self.monotonic.mode}
+        if self.feature_source != "data_raw":
+            contrato["origen_de_variables"] = self.feature_source
+        return contrato

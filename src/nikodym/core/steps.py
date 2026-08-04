@@ -18,7 +18,9 @@ no conoce la API de cada dominio (D-CORE-1).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from collections.abc import Mapping
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     import numpy
@@ -26,9 +28,65 @@ if TYPE_CHECKING:
     from nikodym.core.base import BaseNikodymEstimator
     from nikodym.core.study import Study
 
-__all__ = ["ArtifactKey", "Step", "StepAdapter"]
+__all__ = [
+    "METODO_CONTRATO_VARIABLES",
+    "ArtifactKey",
+    "ContextoDeResolucion",
+    "Step",
+    "StepAdapter",
+]
 
 ArtifactKey = tuple[str, str]  # (domain, key) — la misma clave namespaced del ArtifactStore (§6)
+
+#: Nombre del método con que una config de sección declara **de dónde salen las variables** con que
+#: se ajusta un modelo en esta corrida (enmienda REQUISITOS-DECLARADOS, D-REQ-3).
+#:
+#: 🔴 Existe para que el núcleo **no tenga que conocer** los campos. Podría leerse
+#: ``config.ml.feature_source`` en dos líneas, y sería el acoplamiento que D-INV-1 rechazó: con la
+#: sección opaca —que es el estado por DEFECTO— eso es una clave de ``dict`` y el núcleo pasaría a
+#: depender del vocabulario de un dominio. Con el protocolo, el núcleo transporta un mapa cuyas
+#: claves **no interpreta**, y la sección decide qué significan. Mismo criterio que
+#: ``METODO_CONVENCION_SCORE`` en ``core/dataset_check.py``.
+METODO_CONTRATO_VARIABLES: Final = "contrato_de_variables_declarado"
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoDeResolucion:
+    """Lo que un paso puede saber de la INVOCACIÓN al construirse, y nada más (D-REQ-2).
+
+    Es lo que recibe ``from_config_with_context``. Nació como un ``frozenset[str]`` de nombres de
+    paso, y esa forma alcanzaba para el único implementador que tuvo durante meses —``report``, que
+    sólo pregunta *«¿corre este dominio?»*—; dejó de alcanzar en cuanto un paso necesitó saber algo
+    que **otra sección decidió**, y no sólo que existe.
+
+    ⚠️ **Es un DTO cerrado, y su tamaño ES la garantía**, igual que en
+    :class:`~nikodym.core.dataset_check.ContextoConfig`: D-INV-1 rechazó darle el config raíz a cada
+    dominio para no acoplarlos entre sí, y un objeto de dos campos conserva esa restricción por
+    construcción — un paso **no puede** leer un campo ajeno aunque quiera, porque no está aquí—. Lo
+    que se amplía es el contexto mínimo, no la puerta.
+    """
+
+    dominios_activos: frozenset[str]
+    """Los pasos que ESTA invocación va a ejecutar (D-FX-1).
+
+    «Activo» es *estar en la lista efectiva de pasos*, no *tener sección no nula*: con
+    ``run.steps=['data','binning']`` el resto está apagado para esta corrida aunque su sección
+    exista. Es literalmente el criterio de :meth:`Study._resolve_steps`, que es quien lo construye.
+    """
+
+    contrato_de_variables: Mapping[str, str] = field(default_factory=dict)
+    """Lo que la sección de modelado declara sobre el origen de sus variables, o ``{}``.
+
+    Segundo campo del DTO, y la razón de que el DTO exista (D-REQ-3). ``tuning`` y ``explain``
+    calculan qué artefactos leerán a partir de decisiones que se toman en la sección ``ml``; sin
+    esto sólo podían **replicar su default de fábrica a mano**, y entonces la comprobación previa
+    afirmaba una cosa y el paso hacía otra.
+
+    ⚠️ **El núcleo lo transporta y no lo interpreta**: las claves las escribe quien lo declara, vía
+    :data:`METODO_CONTRATO_VARIABLES`. ``{}`` significa **«no se sabe»** —nadie activo lo declara, o
+    su sección no se pudo coaccionar— y entonces el paso conserva el contrato que declararía por sí
+    solo, que es el comportamiento histórico (D-REQ-4).
+    """
 
 
 @runtime_checkable
@@ -61,13 +119,16 @@ class Step(Protocol):
     #       puerta pública `nikodym.run(..., artifacts=...)` declare INERTE una clave que el paso sí
     #       consume (D-ART-5).
     #
-    #   from_config_with_context(cls, sub_cfg, *, active_domains: frozenset[str]) -> Step
+    #   from_config_with_context(cls, sub_cfg, *, contexto: ContextoDeResolucion) -> Step
     #       Fábrica alternativa a `from_config` (D-FX-2). `Study._resolve_step` la usa **si el
     #       componente la expone**; si no, usa `from_config` sin cambio alguno. Es la vía genérica
     #       —sin casos especiales por dominio en el núcleo— para un paso cuyo contrato depende de
-    #       QUÉ OTROS DOMINIOS corren en esta invocación. `active_domains` es el conjunto de nombres
-    #       de paso ya resueltos (precedencia `steps=` → `config.run.steps` → secciones no nulas),
-    #       no la lista de secciones no nulas del config.
+    #       la INVOCACIÓN: qué otros dominios corren, y qué decidieron los que sí.
+    #
+    #       ⚠️ Hasta D-REQ-2 el kwarg era `active_domains: frozenset[str]`. Sigue estando —es
+    #       `contexto.dominios_activos`, con el mismo criterio de D-FX-1—, pero viaja dentro del
+    #       DTO para que ampliar el contexto no obligue a tocar a cada implementador. Un dominio de
+    #       tercero con la firma vieja recibe un `ConfigError` que nombra la esperada.
 
 
 class StepAdapter:

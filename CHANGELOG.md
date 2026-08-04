@@ -71,6 +71,18 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Corregido
 
+- 🔴 **La comprobación previa dejó de mentir sobre lo que un paso necesita.** Con
+  `ml.feature_source='selection_woe'`, `nikodym.check_pipeline` rechazaba pipelines que corren
+  —exigía el WoE de `binning`, que en ese modo el paso no abre nunca— y aceptaba pipelines que
+  mueren —callaba los dos artefactos de `selection` que sí lee—. La causa: `tuning` y `explain`
+  declaraban sus requisitos con el **valor de fábrica** de `ml`, copiado a mano en dos constantes,
+  en vez de con el que la corrida iba a usar. De paso, quien traía esos artefactos por
+  `nikodym.run(..., artifacts=…)` leía que **no los usaba nadie**, sobre las dos claves que el paso
+  iba a consumir. Los resultados nunca estuvieron en riesgo —el paso revalida antes de calcular—;
+  lo que fallaba era lo que se prometía antes de correr. Un gate nuevo recorre ahora **todos** los
+  pasos del motor y exige que quien componga sus requisitos con decisiones de otra sección las
+  reciba de verdad, para que el próximo caso no nazca en silencio.
+
 - 🔴 **Pedir la planilla sin tener su librería ya no deja sin informe.** `xlsx` era el único formato
   que no degradaba: si `openpyxl` no estaba instalado, la corrida moría al escribir el adjunto y se
   llevaba por delante el informe **entero**, incluido el HTML, que no depende de ningún extra —y

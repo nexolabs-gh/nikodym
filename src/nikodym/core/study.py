@@ -46,7 +46,7 @@ from nikodym.core.mixins import AuditableMixin
 from nikodym.core.seeding import SeedManager
 
 if TYPE_CHECKING:
-    from nikodym.core.steps import ArtifactKey, Step
+    from nikodym.core.steps import ArtifactKey, ContextoDeResolucion, Step
 
 __all__ = ["Study"]
 
@@ -472,8 +472,55 @@ class Study:
         """
         if nombres is None:
             nombres = self._default_step_names()
-        active_domains = frozenset(nombres)
-        return [self._resolve_step(nombre, active_domains=active_domains) for nombre in nombres]
+        contexto = self._contexto_de_resolucion(frozenset(nombres))
+        return [self._resolve_step(nombre, contexto=contexto) for nombre in nombres]
+
+    def _contexto_de_resolucion(self, activos: frozenset[str]) -> ContextoDeResolucion:
+        """Arma el DTO que reciben las fábricas contextuales (D-REQ-2).
+
+        Pregunta por :data:`METODO_CONTRATO_VARIABLES`, que es una convención de nombre y no una
+        clase base: el núcleo no conoce qué sección lo declara ni qué significan sus claves, sólo
+        las transporta.
+
+        🔴 **Recorre las secciones DECLARADAS, no las activas, y la diferencia no es un detalle: el
+        primer arreglo la ignoró y dejó el defecto vivo por la puerta pública.** Con
+        ``run.steps=['tuning']`` la sección ``ml`` existe y **no corre**, pero ``tuning.execute``
+        lee ``study.config.ml`` igual —no mira si ``ml`` está entre los pasos—, así que sus
+        requisitos siguen dependiendo de ella. Mirar sólo lo activo describía un config distinto del
+        que el paso va a leer, que es exactamente el defecto que esta enmienda cierra.
+
+        ⚠️ ``dominios_activos`` **sí** es el conjunto activo: son dos preguntas distintas —«¿quién
+        corre?» y «¿qué se decidió?»— y por eso viven en dos campos del DTO en vez de en uno.
+
+        ⚠️ **Coacciona para preguntar, y si la coacción falla lo trata como «no se sabe».** Una
+        sección viaja opaca por defecto —``model_validate`` no la tipa salvo que alguien haya
+        importado su capa— y ahí no hay método que llamar; y coaccionar puede levantar (D-ANC-10),
+        porque un config inválido es alcanzable desde el formulario. En los dos casos el contrato
+        queda vacío y el paso conserva el que declararía por sí solo (D-REQ-4): degradar al
+        comportamiento histórico es correcto, romper la resolución del pipeline por no poder mirar
+        una sección ajena no lo sería.
+        """
+        from types import MappingProxyType
+
+        from pydantic import ValidationError
+
+        from nikodym.core.steps import METODO_CONTRATO_VARIABLES, ContextoDeResolucion
+
+        contrato: dict[str, str] = {}
+        for nombre in sorted(_DEFAULT_DOMAIN_ORDER):
+            seccion = getattr(self.config, nombre, None)
+            if seccion is None:
+                continue
+            try:
+                tipada = self._coerce_domain_config(nombre, seccion)
+            except (ValidationError, NikodymError):
+                continue
+            declarado = getattr(tipada, METODO_CONTRATO_VARIABLES, None)
+            if callable(declarado):
+                contrato.update(declarado())
+        return ContextoDeResolucion(
+            dominios_activos=activos, contrato_de_variables=MappingProxyType(contrato)
+        )
 
     def _default_step_names(self) -> list[str]:
         """Deriva el pipeline v1 desde secciones activas del config raíz."""
@@ -487,21 +534,21 @@ class Study:
         self,
         name: str,
         *,
-        active_domains: frozenset[str] | None = None,
+        contexto: ContextoDeResolucion | None = None,
     ) -> Step:
         """Resuelve un paso por nombre de sección usando el ``REGISTRY`` global.
 
-        ``active_domains`` es el contexto de la invocación (D-FX-1). Se entrega por una **extensión
-        genérica y opcional** del resolver (D-FX-2): si el componente expone
-        ``from_config_with_context(sub_cfg, *, active_domains)`` se usa esa fábrica; si no, se usa
-        el ``from_config(sub_cfg)`` de siempre. No hay ``if name == "report"`` ni introspección de
+        ``contexto`` es lo que el paso puede saber de la invocación (D-FX-1, D-REQ-2). Se entrega
+        por una **extensión genérica y opcional** del resolver (D-FX-2): si el componente expone
+        ``from_config_with_context(sub_cfg, *, contexto)`` se usa esa fábrica; si no, se usa el
+        ``from_config(sub_cfg)`` de siempre. No hay ``if name == "report"`` ni introspección de
         firmas: el núcleo no conoce ningún dominio, y un dominio que no necesite el contexto no
         cambia una línea.
 
-        ``active_domains=None`` significa **«no se sabe»**, no «ninguno»: se usa la fábrica
-        histórica y el paso conserva el contrato que declararía por sí solo. Es lo que reciben
-        :meth:`run_step` y cualquier resolución suelta; el contexto real lo calcula
-        :meth:`_resolve_steps`, que es el único sitio donde la precedencia de D-FX-1 se resuelve.
+        ``contexto=None`` significa **«no se sabe»**, no «ninguno»: se usa la fábrica histórica y el
+        paso conserva el contrato que declararía por sí solo. Es lo que reciben :meth:`run_step` y
+        cualquier resolución suelta; el contexto real lo calcula :meth:`_resolve_steps`, que es el
+        único sitio donde la precedencia de D-FX-1 se resuelve.
         """
         sub_cfg = getattr(self.config, name, None)
         if sub_cfg is None:
@@ -519,9 +566,9 @@ class Study:
         component_cls = REGISTRY.resolve(name, component_type)
         contextual = getattr(component_cls, "from_config_with_context", None)
         factory = getattr(component_cls, "from_config", None)
-        if active_domains is not None and callable(contextual):
+        if contexto is not None and callable(contextual):
             try:
-                component = contextual(sub_cfg, active_domains=active_domains)
+                component = contextual(sub_cfg, contexto=contexto)
             except TypeError as exc:
                 # El hook es un punto de extensión declarado (`core/steps.py`), así que su firma la
                 # escribe un dominio y puede estar mal. Un `TypeError` crudo de Python escaparía en
@@ -530,7 +577,7 @@ class Study:
                 raise ConfigError(
                     f"El componente '{component_type}' del dominio '{name}' expone "
                     "from_config_with_context() con una firma incompatible: se espera "
-                    f"from_config_with_context(config, *, active_domains). Detalle: {exc}"
+                    f"from_config_with_context(config, *, contexto). Detalle: {exc}"
                 ) from exc
         elif callable(factory):
             component = factory(sub_cfg)

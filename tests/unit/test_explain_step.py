@@ -32,6 +32,7 @@ from nikodym.core.audit import InMemoryAuditSink
 from nikodym.core.config import NikodymConfig, config_hash
 from nikodym.core.exceptions import ArtifactNotFoundError, MissingDependencyError
 from nikodym.core.registry import REGISTRY
+from nikodym.core.steps import ContextoDeResolucion
 from nikodym.core.study import Study
 from nikodym.explain.config import ExplainConfig, LocalScopeConfig, MLExplainerConfig
 from nikodym.explain.exceptions import ExplainConfigError, ExplainDataError
@@ -780,8 +781,10 @@ def test_require_present_por_feature_source_re_derivada(monkeypatch: pytest.Monk
     """``execute`` re-deriva a la fuente real (selection) ausente ⇒ ``ArtifactNotFoundError``."""
     _install_fake_shap(monkeypatch)
     woe = _woe_frame()
-    # ml.feature_source=selection_woe pero sólo hay binning.woe_frame (requires estático): el static
-    # check pasa y execute re-deriva a selection.* (ausente) y falla ruidoso en _require_present.
+    # `run_step` resuelve SIN contexto —es un atajo, no una corrida (D-FX-1)—, así que el paso
+    # declara los `requires` del default de `ml` y el static check pasa; `execute` re-deriva a
+    # selection.* (ausente) y falla ruidoso en `_require_present`. Esa red es lo que impidió que
+    # D-REQ-1 llegara a corromper un resultado, y por eso sigue medida aquí.
     study = Study(
         NikodymConfig(
             explain=ExplainConfig(targets="ml"), ml=MLConfig(feature_source="selection_woe")
@@ -874,3 +877,42 @@ def test_estatica_no_reimplementa_shapley_ni_optuna_ni_hash() -> None:
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "hash"
     ]
     assert not hash_calls
+
+
+# ═══════════ D-REQ-1: el `requires` declarado es el que el paso va a leer ═══════════
+
+
+def test_requires_con_contexto_sigue_a_la_ml_del_usuario() -> None:
+    """Con contexto, ``explain`` declara la fuente de variables que ``ml`` eligió (D-REQ-3).
+
+    ``targets`` es campo propio de esta sección y sigue mandando sobre las claves de ``ml``; lo que
+    llega por el contexto es sólo de dónde salen las variables, que ``explain`` no decide.
+    """
+    contexto = ContextoDeResolucion(
+        dominios_activos=frozenset({"data", "selection", "ml", "explain"}),
+        contrato_de_variables={"origen_de_variables": "selection_woe", "monotonia": "off"},
+    )
+
+    paso = ExplainStep.from_config_with_context(ExplainConfig(targets="ml"), contexto=contexto)
+
+    assert paso.requires == step_module._requires_for("ml", "selection_woe")
+    # Control positivo: el caso difiere del default, o el test no mediría nada.
+    assert paso.requires != step_module._requires_for("ml", step_module._DEFAULT_FEATURE_SOURCE)
+    assert ("binning", "woe_frame") not in paso.requires
+    assert ("selection", "selected_woe_frame") in paso.requires
+    # `targets` no se toca: las claves de `ml` siguen exigidas.
+    assert ("ml", "estimator") in paso.requires
+
+
+def test_contexto_vacio_conserva_el_contrato_historico() -> None:
+    """``{}`` es «no se sabe» (D-REQ-4). Y es además el caso correcto de ``targets='scorecard'``.
+
+    Un informe que sólo explica el scorecard no tiene sección ``ml`` de la que heredar nada, así que
+    la fuente por defecto no es un parche: es la respuesta.
+    """
+    cfg = ExplainConfig(targets="ml")
+    paso = ExplainStep.from_config_with_context(
+        cfg, contexto=ContextoDeResolucion(frozenset({"explain"}))
+    )
+
+    assert paso.requires == ExplainStep.from_config(cfg).requires

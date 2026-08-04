@@ -24,7 +24,7 @@ from nikodym.core.audit import AuditEvent
 from nikodym.core.exceptions import ArtifactNotFoundError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, ContextoDeResolucion
 from nikodym.report.builder import OPTIONAL_REPORT_INPUTS, ReportBuilder
 from nikodym.report.config import ReportConfig
 from nikodym.report.document import PER_OBSERVATION_TABLES
@@ -118,15 +118,19 @@ class ReportStep(AuditableMixin):
         cls,
         cfg: ReportConfig,
         *,
-        active_domains: Collection[str],
+        contexto: ContextoDeResolucion,
     ) -> ReportStep:
-        """Fábrica contextual del resolver (D-FX-2): recibe los dominios de ESTA invocación.
+        """Fábrica contextual del resolver (D-FX-2): recibe el contexto de ESTA invocación.
 
         ``Study._resolve_step`` la prefiere sobre :meth:`from_config` cuando existe. Es la extensión
         genérica del resolver, no un caso especial de ``report``: cualquier dominio cuyo contrato
-        dependa de qué otros pasos corren puede exponerla, y el que no la exponga no cambia.
+        dependa de la invocación puede exponerla, y el que no la exponga no cambia.
+
+        ⚠️ ``report`` sólo usa ``dominios_activos``, que es lo que el contexto ya traía cuando era un
+        ``frozenset`` a secas (D-REQ-2). Lo que cambió es la **forma**: el DTO permitió que otro
+        paso necesitara más sin obligar a éste a enterarse.
         """
-        return cls(cfg, active_domains=active_domains)
+        return cls(cfg, active_domains=contexto.dominios_activos)
 
     def emit(self, event: AuditEvent) -> None:
         """Permite pasar el step como ``AuditSink`` si un motor futuro lo requiere."""
