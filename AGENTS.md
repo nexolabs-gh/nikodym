@@ -9,7 +9,39 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-03 tarde, **el preflight deja de acusar lo que el motor nunca abre**)
+## Estado vigente (2026-08-03 noche, **el SDD del abanico y los once defectos cerrados**)
+
+**`main` = `6eeaf1d`.** CI **16/16 confirmado job a job con `gh`** sobre `aa88ac2`, `8f0f5ce`,
+`428b91b` y `26c821b`; el de `6eeaf1d` quedó en curso, **verificarlo al arrancar**. **PyPI sigue en
+`1.10.0` y no hay release autorizado.** Gates: pytest **5011 passed / 6 skipped**, vitest
+**626/626**, mypy 245, `ruff check` y `format`, typecheck y lint del front, fixture de schema y de
+demo regenerados, bundle reconstruido, `mkdocs --strict`.
+
+✅ **El SDD del abanico (D-JOB-4/5) está escrito y APROBADO como contrato**: D-ABA-1…12. Se declara
+**a mano con gate bidireccional**; la «tercera categoría» del censo **son dos estados declarados más
+uno computado**; y la clase D se parte en dos, con la mitad de los extras de pip resuelta **sin
+mecanismo nuevo** (`find_spec` desde el protocolo que ya existe). ⚠️ Eso obliga a declarar que
+`check_dataset` **deja de ser función pura** de `(config, columnas)`.
+
+🔴 **D-ABA-9 trae un coste medido que el censo no anticipaba**: derivar el alcance del preflight del
+catálogo deja a **las cuatro secciones de provisiones sin exención** — su «fuera del alcance F1»
+dejó de ser cierto cuando sus tres trabajos pasaron a `available`, y la lista escrita a mano no
+podía notarlo.
+
+✅ **Los once defectos, cerrados o decididos.** El más grave **eran 32 rutas, no dos**, y su cara
+gemela era que el catálogo publicaba el ÍNDICE como columna. 🔴 **Dos gates existentes CODIFICABAN
+el defecto** en vez de vigilarlo. 🔴 **Y los 14 campos de provisiones resultaron CINCO patrones
+distintos**, de los que el mecanismo actual resuelve uno: se cierran 4 y los diez restantes quedan
+declarados con su patrón, no como deuda sino como límite medido.
+
+🔴 **Codex dio veredicto vacío en las cuatro pasadas** y rompe una racha de ocho sesiones — pero
+**verificar sus preguntas a mano sí encontró**, incluido un falso negativo del gate nuevo.
+
+**Siguiente: implementar el SDD del abanico.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-03 tarde, **el preflight deja de acusar lo que el motor nunca abre**)
 
 **`main` = `e7287a6`.** CI 16/16 confirmado con `gh` sobre `b555b62`; el de `e7287a6` quedó lanzado,
 **verificarlo al arrancar**. **PyPI sigue en `1.10.0` y no hay release autorizado.** Gates: pytest

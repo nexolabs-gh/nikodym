@@ -5,7 +5,59 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-03 tarde): **el preflight deja de acusar lo que el motor nunca abre**
+> ## Lo último (2026-08-03 noche): **el SDD del abanico, y los ONCE defectos cerrados**
+>
+> **`main` = `6eeaf1d`.** CI **16/16 confirmado job a job con `gh`** sobre `aa88ac2`, `8f0f5ce`,
+> `428b91b` y `26c821b`; el de `6eeaf1d` quedó en curso y hay que **verificarlo al arrancar**.
+> Gates: pytest **5011 passed / 6 skipped**, vitest **626/626**, mypy 245, ruff check y format,
+> typecheck y lint, fixture de schema y de demo regenerados, bundle reconstruido, `mkdocs --strict`.
+> **PyPI sigue en `1.10.0`.**
+>
+> ✅ **El SDD del abanico, escrito y APROBADO como contrato** (D-ABA-1…12). Se declara **a mano con
+> gate bidireccional**: del schema no sale ni el idioma de negocio ni qué exige cada opción —que es
+> el 100 % de D-JOB-4/5— y sí saldrían las opciones que el motor rechaza. 🔴 **La «tercera
+> categoría» que el censo intuía son DOS** —«el motor no la tiene» y «el motor la acepta y no cambia
+> nada» no se cierran igual— **más un cuarto estado que no se declara: se computa**, porque «no
+> puedes usar esto con TUS datos» es una afirmación sobre datos que el catálogo no ha visto. ✅ **La
+> clase D se parte en dos y su mitad barata no necesita mecanismo**: un extra de pip se comprueba con
+> `find_spec` desde el protocolo que ya existe. ⚠️ Eso obliga a declarar que **`check_dataset` deja
+> de ser función pura de `(config, columnas)`**.
+>
+> 🔴 **D-ABA-9 tiene un coste que el censo no traía, y salió al medirlo**: derivar el alcance del
+> preflight del catálogo deja a **las cuatro secciones de provisiones SIN exención**. Hoy alegan
+> «fuera del alcance F1», y esa frase **dejó de ser cierta** el día que sus tres trabajos pasaron a
+> `available`: la exención llevaba tiempo siendo falsa y una lista escrita a mano no podía notarlo.
+>
+> ✅ **Los ONCE defectos cerrados o decididos.** El más grave (A) **no eran dos campos: eran 32 de
+> las 47 rutas con rol `input`** — toda ruta fuera de `data.*` se pintaba en rojo mientras el backend
+> callaba. Lo cierra la enmienda PROCEDENCIA-DE-COLUMNAS (D-PRO-1…9), con su cara gemela: **el
+> catálogo publicaba el ÍNDICE `loan_id` dentro de `columns`**. 🔴 **Y DOS gates existentes
+> CODIFICABAN el defecto**: `test_ui_datasets.py:243` sumaba el índice a mano para que cuadrara, y
+> `test_ui_presets.py` lo buscaba entre las columnas. No se habían olvidado del caso: lo afirmaban.
+>
+> 🔴 **Los 14 campos condicionales de provisiones NO eran «un caso con el mecanismo listo»: son
+> CINCO patrones distintos y `columnas_inactivas` sólo resuelve uno.** Se cierran los **4** con
+> condición limpia sobre campo hermano; los otros diez quedan declarados con su patrón medido (§5 de
+> la enmienda COLUMNA-EN-RAMA-INACTIVA). ⚠️ **La condición de `ifrs9.lgd.lgd_col` NO es su
+> `method`** —dos de las tres ramas lo leen sólo si `recovery_col is None`—, verificado ejecutando
+> las siete combinaciones alcanzables.
+>
+> ⚠️ **Trampas nuevas:** `Select.Value` con `children` función **ignora el `placeholder`**;
+> `subprocess.run` con lista **no expande globs** (lo cazó el ancla anti-vacuidad); los gates
+> estáticos del front leen el fuente con **`?raw` de Vite** y barren con `import.meta.glob`;
+> `gh run list --commit` devuelve `[]` o 404 y hay que mapear por `headSha`.
+>
+> 🔴 **Codex dio veredicto VACÍO en las cuatro pasadas** —`approve` con su plan como resumen—, y
+> rompe una racha de ocho sesiones. Pero **usar sus preguntas como guion propio sí funcionó**: dos
+> destaparon algo real, incluido un falso negativo del gate de `Select.Value` que no cazaba un
+> `<SelectItem>` con contenido compuesto.
+>
+> **Siguiente: implementar el SDD del abanico**, con su orden en la §8. Detalle en
+> [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-03 tarde): **el preflight deja de acusar lo que el motor nunca abre**
 >
 > **`main` = `e7287a6`.** CI 16/16 confirmado con `gh` sobre `b555b62`; el de `e7287a6` quedó
 > lanzado y hay que **verificarlo al arrancar**. Gates: pytest **4948 passed / 6 skipped**, vitest
