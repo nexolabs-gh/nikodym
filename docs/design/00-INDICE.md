@@ -398,6 +398,18 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `requisitos_incumplidos_por_perfil` y **no** de los dos supresores: la clase D *añade* avisos, y
 > sólo quien *quita* hereda la obligación de medirse en los dos sentidos (D-RAM-4).
 >
+> **D-ABA-9 implementado (2026-08-04): el alcance del preflight se DERIVA del catálogo.** La razón
+> «fuera del alcance F1» la daban **diez** filas escritas a mano de `EXENTAS`, y para varias había
+> **dejado de ser cierta** el día que sus trabajos pasaron a disponibles: la exención llevaba tiempo
+> siendo falsa y una lista escrita a mano no tenía forma de notarlo. Ahora una sección que ningún
+> trabajo **disponible** declara está exenta por derivación —7 filas salen solas—, y las que sí
+> declara necesitan **razón técnica propia**. Con dos candados, ambos con control negativo
+> ejecutado: ninguna exención puede sobrar, y **ninguna puede alegar «fuera de alcance»** — esa
+> razón la da el catálogo o no la da nadie. ✅ Las dos secciones que la perdieron —`provisioning` y
+> `provisioning_internal`— tienen razón propia **medida el mismo día** al cerrar D-MAX-3: lo que se
+> exigen a sí mismas lo levanta su `model_validator`, y lo que exigen de otra sección lo ve el DAG
+> con mejor mensaje.
+>
 > **El esqueleto que siembra un trabajo tiene que CORRER (2026-08-04, APROBADA).**
 > [`_ENMIENDA-TRABAJO-EJECUTABLE.md`](_ENMIENDA-TRABAJO-EJECUTABLE.md), D-EJE-1…D-EJE-7, cierra
 > GRAVE-2 del censo. 🔴 **El censo había visto dos trabajos rotos y son TRES**: el tercero

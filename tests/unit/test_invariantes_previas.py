@@ -183,11 +183,18 @@ def test_un_requisito_incumplido_no_es_una_columna_que_falte() -> None:
     assert "missing_column" not in tipos
 
 
-# ── cobertura declarada (D-INV-7) ─────────────────────────────────────────────────────────────
-#: Secciones del formulario SIN invariantes previas declaradas, cada una con su razón.
+# ── cobertura declarada (D-INV-7), con el alcance DERIVADO del catálogo (D-ABA-9) ────────────
+#: Secciones del formulario SIN invariantes previas declaradas, cada una con su razón TÉCNICA.
 #:
 #: Una lista corta y sin explicación se lee como cobertura total (D-PRE-4). Lo que dice esta tabla
 #: es que se miró cada sección y se decidió, no que se olvidaron.
+#:
+#: 🔴 **Aquí ya no cabe «fuera del alcance F1», y ése es el cambio de D-ABA-9.** Esa razón la da
+#: ahora el catálogo de trabajos o no la da nadie: una sección que ningún trabajo **disponible**
+#: declara está exenta por derivación, y nadie tiene que acordarse de escribirlo. Hasta el
+#: 2026-08-04 diez filas alegaban esa frase, y para cuatro de ellas **había dejado de ser cierta**
+#: el día que sus trabajos pasaron a disponibles — la exención llevaba tiempo siendo falsa y una
+#: lista escrita a mano no tenía forma de notarlo. Ése *es* el defecto que esto cierra.
 EXENTAS: dict[str, str] = {
     # --- camino F1: miradas una por una en el censo del 2026-07-29 ---
     "selection": "sus 4 campos son `derived`: la candidatura la produce binning al correr",
@@ -195,22 +202,50 @@ EXENTAS: dict[str, str] = {
     "scorecard": "sin invariantes medidas: el censo del 2026-07-29 no encontró ninguna",
     "calibration": "sus invariantes YA están en su `model_validator`, que es el sitio correcto",
     "report": "su invariante (`required_sections`) es ENTRE secciones, no de una: D-INV-8",
-    "eda": "no impone invariantes propias sobre el dataset; su config es de presentación",
-    # --- fuera del alcance F1 del preflight (D-PRE-4): ampliarlo lo decide producto ---
+    # --- provisiones: entraron al alcance al derivarlo, y tienen razón propia MEDIDA ---
     #
-    # ⚠️ `survival` YA NO está aquí: el 2026-08-03 el alcance pasó a DERIVARSE del catálogo
-    # —cubre lo que algún trabajo *disponible* declara— y dos lo declaran. Su invariante es la
-    # grilla temporal, que con `fail_on_falta_dato` en su default aborta la corrida **después** de
-    # ajustar el modelo.
-    "provisioning": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "provisioning_internal": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "markov": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "forward": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "stress": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "ml": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "tuning": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "explain": "fuera del alcance F1 del preflight (D-PRE-4)",
+    # Las dos alegaban «fuera del alcance F1» y lo perdieron con D-ABA-9. Su razón real es la misma
+    # que la de `calibration`, y se midió el 2026-08-04 al cerrar D-MAX-3: lo que estas secciones
+    # se exigen a sí mismas lo levanta su `model_validator` —o sea, el config ni siquiera se
+    # construye—, y lo que exigen de OTRA sección lo ve el DAG, que además lo dice mejor porque
+    # conoce el orden de los pasos. Declararlo aquí duplicaría un diagnóstico existente, que es la
+    # misma razón por la que `survival` no declara `model_raw`.
+    "provisioning": (
+        "sus invariantes las levanta su `model_validator` (fuentes iguales, regla sin su fuente) "
+        "y las que cruzan secciones las ve el DAG por su `requires` dinámico: medido en D-MAX-3"
+    ),
+    "provisioning_internal": (
+        "igual que su hermana: el `model_validator` rechaza las columnas de ramas apagadas y su "
+        "`requires` declara la fuente de PD, así que el DAG avisa antes de correr"
+    ),
 }
+
+
+def _secciones_del_catalogo() -> frozenset[str]:
+    """Las secciones que algún trabajo DISPONIBLE declara — el alcance del preflight (D-ABA-9).
+
+    🔴 **Se deriva, no se escribe.** El alcance era una frase repetida en diez filas de `EXENTAS`, y
+    cuatro de ellas habían dejado de ser ciertas sin que nada lo notara: sus trabajos pasaron a
+    disponibles y la lista escrita a mano siguió eximiéndolas. Derivarlo del catálogo hace que una
+    sección entre al alcance **el mismo día** en que su trabajo se habilita.
+
+    ⚠️ Sólo cuentan los trabajos **disponibles**: uno que no se puede iniciar no le exige nada a
+    nadie. Medido, los dos no disponibles no aportan ninguna sección que no esté ya en uno
+    disponible, así que la derivación no depende de cuál se habilite después.
+
+    ⚠️ **Y esto dice qué se EXIGE, no qué se permite.** `validation` está fuera del catálogo —el
+    formulario no la ofrece (D-JOB-18)— y sin embargo implementa el protocolo: implementar de más
+    es gratis y correcto. Por eso el candado «ninguna exención sobra» se aplica sólo a la lista
+    escrita, nunca a este conjunto, que no es una lista donde algo pueda sobrar.
+    """
+    from nikodym.ui.jobs import list_jobs
+
+    return frozenset(
+        seccion
+        for job in list_jobs()
+        if job["status"] == "available"
+        for seccion in job["sections"]
+    )
 
 
 #: Los TRES métodos con que una sección puede declarar lo que se exige a sí misma.
@@ -257,10 +292,11 @@ def test_cada_seccion_declara_su_politica_de_invariantes() -> None:
     que una sección nueva entra aquí sola y obliga a decidir.
     """
     secciones = cargar_configs_de_dominio()
+    en_catalogo = _secciones_del_catalogo()
     sin_politica = [
         nombre
         for nombre, modelo in sorted(secciones.items())
-        if not _secciones_con_protocolo(modelo) and nombre not in EXENTAS
+        if nombre in en_catalogo and not _secciones_con_protocolo(modelo) and nombre not in EXENTAS
     ]
 
     assert not sin_politica, (
@@ -274,19 +310,59 @@ def test_cada_seccion_declara_su_politica_de_invariantes() -> None:
 def test_ninguna_exencion_sobra() -> None:
     """Una exención que ya no aplica es una mentira que envejece sola.
 
-    Si una sección exenta implementa el protocolo, o deja de existir, la fila debe salir.
+    Si una sección exenta implementa el protocolo, deja de existir, **o sale del catálogo**, la fila
+    debe salir. El tercer caso es el candado de D-ABA-9: una sección fuera del alcance ya está
+    exenta por derivación, y escribirla además sería mantener a mano lo que el catálogo decide.
     """
     secciones = cargar_configs_de_dominio()
+    en_catalogo = _secciones_del_catalogo()
     sobrantes = [
         nombre
         for nombre in EXENTAS
-        if nombre not in secciones or _secciones_con_protocolo(secciones[nombre])
+        if nombre not in secciones
+        or _secciones_con_protocolo(secciones[nombre])
+        or nombre not in en_catalogo
     ]
 
     assert not sobrantes, (
         f"Exenciones que ya no corresponden: {sobrantes}. O la sección desapareció, o ya declara "
-        f"sus invariantes: en ambos casos, saca su fila de `EXENTAS`."
+        f"sus invariantes, o ningún trabajo disponible la usa —y entonces su exención se DERIVA "
+        f"del catálogo (D-ABA-9)—: en los tres casos, saca su fila de `EXENTAS`."
     )
+
+
+def test_ninguna_exencion_escrita_alega_estar_fuera_del_alcance() -> None:
+    """🔴 El segundo candado de D-ABA-9, y sin él lo demás no sirve de nada.
+
+    «Fuera del alcance» la dice el catálogo o no la dice nadie. Sin este gate, la lista escrita
+    seguiría pudiendo eximir a mano lo que el catálogo ya incluye — que es exactamente el agujero
+    por el que cuatro secciones de provisiones estuvieron exentas por una frase que había dejado de
+    ser cierta, sin que ningún test pudiera notarlo.
+    """
+    culpables = {
+        nombre: razon
+        for nombre, razon in EXENTAS.items()
+        if "fuera del alcance" in razon.lower() or "fuera de alcance" in razon.lower()
+    }
+
+    assert not culpables, (
+        f"Estas exenciones alegan estar fuera del alcance: {sorted(culpables)}. Esa razón la da "
+        "el catálogo de trabajos, no esta lista: si ningún trabajo disponible usa la sección, "
+        "quita su fila y la exención se deriva sola. Si alguno la usa, la razón tiene que ser "
+        "TÉCNICA."
+    )
+
+
+def test_el_alcance_derivado_no_es_vacuo() -> None:
+    """Un alcance vacío eximiría a todo el mundo y dejaría los dos gates de arriba en verde."""
+    en_catalogo = _secciones_del_catalogo()
+
+    assert len(en_catalogo) >= 10, f"sólo {len(en_catalogo)} secciones en el alcance: {en_catalogo}"
+    for ancla in ("data", "binning", "survival", "provisioning_cmf"):
+        assert ancla in en_catalogo, f"«{ancla}» debería estar en el alcance del preflight"
+    # Y algo tiene que quedar FUERA: si el alcance fuera todo, la derivación no distinguiría nada.
+    secciones = set(cargar_configs_de_dominio())
+    assert secciones - en_catalogo, "ninguna sección queda fuera del alcance: la derivación no mide"
 
 
 @pytest.mark.parametrize(
