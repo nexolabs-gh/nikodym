@@ -398,6 +398,21 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `requisitos_incumplidos_por_perfil` y **no** de los dos supresores: la clase D *añade* avisos, y
 > sólo quien *quita* hereda la obligación de medirse en los dos sentidos (D-RAM-4).
 >
+> **Censo de los DEFECTOS que destapó medir el abanico (2026-08-04, INSUMO — no es diseño).**
+> [`_CENSO-DEFECTOS-DEL-ABANICO.md`](_CENSO-DEFECTOS-DEL-ABANICO.md). Escribir el catálogo obligó a
+> contestar, opción por opción, *qué hace* y *qué exige* — 69 puntos y 172 opciones, medidos por
+> seis barridos en paralelo—, y eso sacó **diez defectos que ninguno es del abanico**: estaban ahí.
+> 🔴 **El más caro: `score_direction` está en tres secciones, se lee por separado y nada comprueba
+> coherencia** — medido, una corrida llega a `done` publicando **Gini −0,424** con las cuatro
+> superficies en verde y cero avisos, o sea un modelo con la discriminación invertida y ninguna
+> señal. 🔴 **Dos trabajos del catálogo nacen inejecutables** con los defaults del motor, que es la
+> misma clase que D-OBL-11 cerró para los capítulos del informe. 🔴 **Y el default de
+> `provisioning` es `max(CMF, IFRS 9)`, que NO es la regla del B-1** —la norma compara estándar
+> contra método interno—: el motor lo declara honestamente en su lineage pero publica la cifra
+> igual. Los tres exigen contrato y por eso el censo se detiene en el diagnóstico, con los caminos
+> escritos y su coste medido. **Decisión de Cami al cerrar la sesión: los tres graves son la
+> prioridad de la siguiente.**
+>
 > **Censo del abanico metodológico (2026-08-02, INSUMO — no es diseño).**
 > [`_CENSO-ABANICO-METODOLOGICO.md`](_CENSO-ABANICO-METODOLOGICO.md). El material medido sobre el
 > que se escribirá el SDD de D-JOB-4/5, levantado por tres barridos independientes contra el código.

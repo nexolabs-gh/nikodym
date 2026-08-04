@@ -5,7 +5,62 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-03 noche): **el SDD del abanico, y los ONCE defectos cerrados**
+> ## Lo último (2026-08-04): **el abanico implementado, y los DIEZ defectos que destapó**
+>
+> **`main` = `969a2cd`.** CI **16/16 confirmado job a job con `gh`** (run `30921131688`); los tres
+> commits se pushearon juntos, así que no queda ninguno por verificar. Gates: pytest **5056 passed
+> / 6 skipped**, vitest **626/626**, mypy 245, ruff check y format, typecheck y lint, fixture de
+> trabajos regenerado, bundle reconstruido, `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **El abanico metodológico está en `main`: 69 puntos de elección y 172 opciones**, cada una con
+> lo que hace y **qué exige**, en idioma de negocio. Se declara a mano con **gate bidireccional de
+> DOS caras** —por path contra los literales del motor, y por cobertura para que el catálogo no
+> pueda quedarse a medias en silencio—. 🔴 **El alcance son los 69 y no los 38 del censo**
+> (decisión de Cami tras medirlo): las otras 7 secciones tenían 31 puntos más, entre ellos **cómo
+> se calibra la PD** y **la regla del máximo del B-1**, fuera por un corte del censo y no por un
+> criterio. ✅ **Cuatro opciones salen medidas como muertas y ahora lo dicen** con su cita.
+>
+> 🔴 **El gate escrito por la mañana cazó un defecto la misma tarde**: `binning.solver='cp'`: el
+> config lo aceptaba —y con él `check_pipeline` y `check_dataset`— sobre una elección que muere en
+> el paso 2, **después** de cargar y validar el archivo entero. Cerrado en el validador con el
+> literal intacto, para que el catálogo pueda enseñar la opción con su motivo en vez de esconderla.
+> ⚠️ **Y eso dejó la guarda del transformer inalcanzable por la ruta real**: se conserva como
+> defensa en profundidad —igual que los tres niveles de markov— y su test pasa a **ejercitarla
+> directamente**, en vez de quedar como código muerto con la cobertura fingida.
+>
+> ✅ **`ContextoConfig` en el núcleo** (D-ABA-8), tercer método hermano del preflight: un DTO de **un
+> solo campo** y nunca el config raíz, que es lo que mantiene D-INV-1 en pie. «Activo» reutiliza el
+> criterio del motor y el gate lo contrasta contra el pipeline que `Study` resuelve de verdad.
+> Entran sus tres primeros implementadores, y uno cierra que **el config DE FÁBRICA de IFRS 9 no
+> corre**: pide una curva «a condiciones actuales» y pesos de escenario que **sólo `forward`
+> publica** —60 apariciones en `forward/`, cero en `survival/` y `markov/`—.
+>
+> 🔴 **Y medir el abanico destapó DIEZ defectos, ninguno del abanico**, en
+> [`_CENSO-DEFECTOS-DEL-ABANICO.md`](docs/design/_CENSO-DEFECTOS-DEL-ABANICO.md). El peor:
+> **`score_direction` está en tres secciones, se lee por separado y nada comprueba coherencia** —
+> medido, una corrida llega a `done` publicando **Gini −0,424** con las cuatro superficies en verde
+> y **cero avisos**, o sea un modelo con la discriminación invertida y ninguna señal. Más **dos
+> trabajos del catálogo que nacen inejecutables** con los defaults del motor, y **el default de
+> `provisioning`, que es `max(CMF, IFRS 9)` y NO es la regla del B-1**. 🔴 **Decisión de Cami: los
+> tres graves son la prioridad de la sesión siguiente**, por delante de terminar el abanico.
+>
+> ⚠️ **El «inventario de 38 puntos» que el goal daba por medido NO estaba en ningún archivo**:
+> vivía en el contexto de la sesión anterior. Reconstruirlo del motor salió gratis y el número
+> cuadró exacto — pero **un hecho medido que no se escribe, se pierde**.
+>
+> ⚠️ **Trampas nuevas:** `"survival"` y `"report"` son clave en **dos** literales de `ui/jobs.py`, y
+> anclar una inserción por su nombre cae en el equivocado; un `raise` en un `model_validator` de
+> dominio debe usar **`ConfigError` del núcleo** o rompe el contrato «siempre 200» de
+> `/api/validate`; `WoEBinner._validate_config` **reconstruye el config**, así que un validador
+> nuevo corta antes que cualquier guarda de `fit`; y tocar un `question`/`help` de `ui/jobs.py`
+> obliga a regenerar el fixture de trabajos **y** el bundle (`jobs.json`: 75 kB → **376 kB**).
+>
+> **Siguiente: los tres defectos graves, con enmienda antes de programar**; después, el front del
+> abanico (D-ABA-10), su verificación en vivo y D-ABA-9. Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-03 noche): **el SDD del abanico, y los ONCE defectos cerrados**
 >
 > **`main` = `b91855b`.** CI **16/16 confirmado job a job con `gh`** sobre **los seis commits de la
 > sesión**; no queda ningún run por verificar.

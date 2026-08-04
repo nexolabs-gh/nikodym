@@ -9,7 +9,41 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-03 noche, **el SDD del abanico y los once defectos cerrados**)
+## Estado vigente (2026-08-04, **el abanico implementado y los diez defectos que destapó**)
+
+**`main` = `969a2cd`.** CI **16/16 confirmado job a job con `gh`** (run `30921131688`); los tres
+commits de la sesión se pushearon juntos y no queda ninguno por verificar. **PyPI sigue en `1.10.0`
+y no hay release autorizado.** Gates: pytest **5056 passed / 6 skipped**, vitest **626/626**, mypy
+245, `ruff check` y `format`, typecheck y lint del front, fixture de trabajos regenerado, bundle
+reconstruido, `mkdocs --strict`.
+
+✅ **El abanico metodológico está implementado: 69 puntos de elección y 172 opciones**, cada una con
+qué hace y **qué exige**, en idioma de negocio. Declarado a mano con **gate bidireccional de dos
+caras** (por path contra los literales del motor, y por cobertura). 🔴 **El alcance son los 69 y no
+los 38 del censo** —decisión de Cami tras medirlo—: quedaban fuera, por un corte del censo y no por
+un criterio, **cómo se calibra la PD** y **la regla del máximo del B-1**.
+
+✅ **`ContextoConfig` en el núcleo** (D-ABA-8): DTO de un campo, nunca el config raíz. Sus tres
+primeros implementadores cierran, entre otros, que **el config de fábrica de IFRS 9 no corre**.
+
+🔴 **El gate cazó `binning.solver='cp'` el mismo día que se escribió**: el config lo aceptaba y las
+tres superficies previas daban verde sobre una elección que muere en el paso 2. ⚠️ Cerrarlo dejó la
+guarda del transformer inalcanzable: se conserva como defensa en profundidad y su test la ejercita
+directamente, para que no quede como código muerto con cobertura fingida.
+
+🔴 **Medir el abanico destapó DIEZ defectos, ninguno del abanico**
+([`_CENSO-DEFECTOS-DEL-ABANICO.md`](design/_CENSO-DEFECTOS-DEL-ABANICO.md)). El peor:
+**`score_direction` está triplicado y nada comprueba coherencia** — una corrida llega a `done` con
+**Gini −0,424** y las cuatro superficies en verde. Más **dos trabajos que nacen inejecutables** y
+**el default de `provisioning`, que no es la regla del B-1**. **Decisión de Cami: los tres graves
+son la prioridad de la sesión siguiente.**
+
+**Siguiente: los tres graves, con enmienda antes de programar.** Detalle en
+[`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-03 noche, **el SDD del abanico y los once defectos cerrados**)
 
 **`main` = `b91855b`.** CI **16/16 confirmado job a job con `gh`** sobre **los seis commits de la
 sesión**; no queda ningún run por verificar. **PyPI sigue en
