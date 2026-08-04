@@ -1,8 +1,12 @@
 # Nikodym RiskLib
 
-Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**:
-scoring/scorecards, ML, provisiones **CMF (Chile)** e **IFRS 9/ECL**, forward-looking y
-stress testing. Paquete: `nikodym`.
+Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**: **PD** (scorecards,
+ML, survival), **LGD y EAD**, **validación de modelos**, provisiones **IFRS 9/ECL**, forward-looking
+y stress testing, con **informe reproducible** y su lineage. Paquete: `nikodym`.
+
+Los estándares comunes —Basilea, IFRS 9— van en el motor. La **normativa local de cada
+jurisdicción se aterriza encima**, y hay un caso de referencia implementado que muestra cómo:
+[Aterrizar una norma local](norma-local.md).
 
 !!! note "Estado: 1.10.0 — release estable"
     Disponible en PyPI: `pip install nikodym`. El pipeline de scorecard (F1) es **API estable
@@ -17,12 +21,16 @@ stress testing. Paquete: `nikodym`.
     superficie, no aritmética.
 
 !!! warning "Antes de usarlo en producción"
-    **Los parámetros normativos CMF no son oficiales**: se transcribieron del compendio con
-    asistencia de IA y verificación visual, no provienen de la CMF ni están validados por ella, y
+    **Los parámetros del caso de referencia no son oficiales, y el caso está congelado**: el motor
+    que aterriza la norma chilena (CMF, Cap. B-1) existe como ejemplo de método, no como compromiso
+    de mantenimiento. Sus tablas se extrajeron del compendio con asistencia de IA y verificación
+    visual el **2026-06-23** —la de consumo, cotejada celda por celda el **2026-07-14**—, no
+    provienen de la CMF ni están validadas por ella, y
     **requieren validación humana contra la norma vigente antes de cualquier uso productivo**.
     Faltan además dos tablas: los aforos y *haircuts* de garantías financieras, y las del RAN 21-10
     — el manifiesto de parámetros las declara faltantes en vez de rellenarlas con un valor
-    inventado. Y **la curva lifetime de IFRS 9 asume exposición constante por período**: no modela
+    inventado. El alcance completo está en [Aterrizar una norma local](norma-local.md).
+    Y **la curva lifetime de IFRS 9 asume exposición constante por período**: no modela
     la amortización del crédito en el tiempo. El resultado lo deja anotado en cada fila, para que
     nadie lo descubra tarde.
 
@@ -36,10 +44,12 @@ stress testing. Paquete: `nikodym`.
 - **Config declarativo** (Pydantic v2): *el config ES el experimento*.
 - **Núcleo liviano**: `import nikodym` no arrastra el stack ML; los backends pesados van tras
   *extras* opcionales con import perezoso.
-- **CMF ≠ IFRS 9**: dos motores separados, nunca uno solo. La **regla del máximo** del Capítulo B-1
-  (Circular N° 2.346) se aplica entre el **método estándar y el método interno** del banco — *no*
-  entre CMF e IFRS 9: el Compendio (Cap. A-2, num. 5) **excluye** el modelo de deterioro de NIIF 9
-  sobre las colocaciones y los créditos contingentes.
+- **Una norma local nunca se funde con un estándar contable**: son motores separados, nunca uno
+  solo, y la regla que los compara la declara quien la usa. El caso de referencia lo ilustra: la
+  **regla del máximo** del Capítulo B-1 (Circular N° 2.346) se aplica entre el **método estándar y
+  el método interno** del banco — *no* entre ese estándar e IFRS 9, porque el Compendio (Cap. A-2,
+  num. 5) **excluye** el modelo de deterioro de NIIF 9 sobre las colocaciones y los créditos
+  contingentes.
 
 ## Instalación
 

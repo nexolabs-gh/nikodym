@@ -59,11 +59,23 @@ _EXPOSURE_COLUMN_FIELDS: tuple[str, ...] = (
 class CmfMatrixConfig(NikodymBaseConfig):
     """Configuración de matrices regulatorias CMF versionadas."""
 
+    # La fecha de cotejo vive en `data/manifest.json` y hasta ahora no llegaba a NINGUNA superficie
+    # que lea un humano: se emitía como decisión de auditoría, y el sink por defecto de los presets
+    # es nulo, así que con la config de fábrica se perdía entera. Este campo es el único de la
+    # sección que el formulario muestra y habla de la versión normativa, así que es donde la fecha
+    # se lee sin buscarla. Ojo: el identificador dice `2025_01` por la última circular incorporada,
+    # no porque todas las matrices sean de esa fecha — la más antigua en uso es de 2014, y decir
+    # sólo «2025» invitaría a leer todo el bundle como reciente.
     active_version: str = Field(
         default="cmf_b1_b3_2025_01",
         title="Versión normativa activa",
         description=(
-            "Identificador del bundle B-1/B-3 empaquetado que se usará para el cálculo CMF."
+            "Identificador del bundle B-1/B-3 empaquetado que se usará para el cálculo CMF. Es un "
+            "caso de referencia congelado: sus tablas se extrajeron del texto oficial el "
+            "2026-06-23 y no se actualizan con cada circular, así que exigen validación humana "
+            "contra la norma vigente antes de cualquier uso productivo. Cada matriz tiene además "
+            "su propia fecha de vigencia y la más antigua en uso es de 2014; el identificador "
+            "nombra la última circular incorporada, no la antigüedad del conjunto."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Matrices", "ui_order": 1},
     )

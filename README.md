@@ -5,14 +5,19 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/nexolabs-gh/nikodym/blob/main/LICENSE)
 [![CI](https://github.com/nexolabs-gh/nikodym/actions/workflows/ci.yml/badge.svg)](https://github.com/nexolabs-gh/nikodym/actions/workflows/ci.yml)
 
-Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**:
-scoring/scorecards, backends ML, provisiones **CMF (Chile)** e **IFRS 9/ECL**, forward-looking
-y stress testing. Todo en un motor **reproducible por construcción** y con gobernanza
-(model card + audit-trail) automática. Paquete: `nikodym`.
+Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**: **PD** (scorecards,
+backends ML, survival), **LGD y EAD**, **validación de modelos**, provisiones **IFRS 9/ECL**,
+forward-looking y stress testing, con **informe reproducible** y su lineage. Todo en un motor
+**reproducible por construcción** y con gobernanza (model card + audit-trail) automática.
+Paquete: `nikodym`.
+
+Los estándares comunes —Basilea, IFRS 9— van en el motor. La **normativa local de cada
+jurisdicción se aterriza encima**, y hay un caso de referencia implementado que muestra cómo:
+[Aterrizar una norma local](https://docs.nikodym.cl/norma-local/).
 
 > **Estado: 1.x (estable).** El pipeline de validación de scorecard (F1) es **API estable
-> (SemVer 1.x)**: no rompe hasta un 2.0. Las superficies que aún crecen —modelado ML, provisiones
-> CMF/IFRS 9, forward-looking, y los contratos transversales de resultados/métricas/orquestación—
+> (SemVer 1.x)**: no rompe hasta un 2.0. Las superficies que aún crecen —modelado ML, provisiones,
+> forward-looking, y los contratos transversales de resultados/métricas/orquestación—
 > siguen marcadas como **experimentales** (fuera de la garantía SemVer 1.x).
 
 ## Qué hace
@@ -27,7 +32,7 @@ dominios.
 | Dominio | Superficie | Garantía |
 |---|---|---|
 | **Scorecard (F1)** — binning/WoE monotónico (optbinning), selección (IV/VIF), regresión logística, scorecard escalado (PDO/offset), calibración, desempeño (AUC/KS/Gini) y estabilidad (PSI/CSI) | UI, preset e informe | **estable** (SemVer 1.x) |
-| **Provisiones** — motores **CMF (Chile)** e **IFRS 9/ECL** separados; la orquestación B-1 compara método estándar CMF e interno y aplica la regla declarada | UI, preset e informe | experimental |
+| **Provisiones** — **IFRS 9/ECL** y **método interno** (PD · LGD · exposición por grupo homogéneo, jurisdiccionalmente neutro); la orquestación compara dos fuentes y aplica la regla declarada. La norma local se monta encima: [caso de referencia](https://docs.nikodym.cl/norma-local/) | UI, preset e informe | experimental |
 | **Stress testing** — escenarios adversos, shocks macro en escala logit, sensibilidad y *reverse stress* por bisección | Python | experimental |
 | **Markov** — matrices de transición (cohorte/duración), Chapman-Kolmogorov, Aalen-Johansen, *term-structure* de PD | Python | experimental |
 | **Forward-looking** — ARIMA/auto-ARIMA, VAR/VECM, Ljung-Box y modelos satélite macro → PD/LGD | Python | experimental |
@@ -209,15 +214,18 @@ aquí se dicen igual de claro.
 > cada código y qué hacer con él— está en
 > [Avisos declarados](https://docs.nikodym.cl/avisos-declarados/).
 
-- **Los parámetros normativos CMF no son oficiales.** Se transcribieron del compendio y **no
-  provienen de la CMF ni están validados por ella** —la Comisión no certifica implementaciones de
-  terceros—, así que **requieren validación humana contra la norma vigente antes de cualquier uso
-  productivo**. Lo que sí está hecho: la **matriz de consumo** (numeral B-1 3.1.3, Circular
-  2.346/2024) se **cotejó celda por celda contra el texto del compendio** —sus 16 valores de PI,
-  sus 6 de PDI y el PI de incumplimiento coinciden exactamente— y el cotejo queda registrado en
+- **Los parámetros del caso de referencia no son oficiales, y el caso está congelado.** El motor
+  que aterriza la norma chilena (CMF, Cap. B-1) existe como **ejemplo de método**, no como
+  compromiso de mantenimiento: sus tablas se transcribieron del compendio y **no provienen de la
+  CMF ni están validadas por ella** —la Comisión no certifica implementaciones de terceros—, así
+  que **requieren validación humana contra la norma vigente antes de cualquier uso productivo**.
+  Lo que sí está hecho: las tablas se extrajeron del texto oficial el **2026-06-23** y la **matriz
+  de consumo** (numeral B-1 3.1.3, Circular 2.346/2024) se cotejó celda por celda el **2026-07-14**
+  —sus 16 valores de PI, sus 6 de PDI y el PI de incumplimiento coinciden exactamente—, registrado en
   [`docs/normativa_cmf_parametros.md`](docs/normativa_cmf_parametros.md) §3. Quedan dos brechas
   abiertas, y el motor las declara: aforos y *haircuts* de garantías financieras, y las tablas
-  del RAN 21-10.
+  del RAN 21-10. El alcance, las fechas por matriz y el estado de cada fuente están en
+  [Aterrizar una norma local](https://docs.nikodym.cl/norma-local/).
 - **Las causales de incumplimiento que el motor no puede inferir, las declara el banco.** De las
   tres del numeral B-1 3.2, solo la mora ≥ 90 días sale de los datos; el refinanciamiento para
   dejar vigente una operación morosa y la reestructuración forzosa hay que **entregarlas en la
@@ -236,9 +244,11 @@ aquí se dicen igual de claro.
 - **Gobernanza por construcción** (SR 11-7): *model card* y *audit-trail* automáticos.
 - **Config declarativo** (Pydantic v2): *el config ES el experimento*.
 - **Núcleo liviano**: los backends pesados van tras *extras* con import perezoso.
-- **CMF ≠ IFRS 9**: dos motores separados, nunca uno solo. La **regla del máximo** del Capítulo B-1
-  (Circular N° 2.346) es entre el **método estándar y el método interno** del banco — *no* entre CMF
-  e IFRS 9: el Compendio (Cap. A-2, num. 5) **excluye** el deterioro de NIIF 9 sobre colocaciones.
+- **Una norma local nunca se funde con un estándar contable**: son motores separados, nunca uno
+  solo, y la regla que los compara la declara quien la usa. El caso de referencia lo ilustra: la
+  **regla del máximo** del Capítulo B-1 (Circular N° 2.346) es entre el **método estándar y el
+  método interno** del banco — *no* entre ese estándar e IFRS 9, porque el Compendio (Cap. A-2,
+  num. 5) **excluye** el deterioro de NIIF 9 sobre colocaciones.
 - **Lo que falta se declara, no se disimula**: un dato ausente sale marcado en el resultado, y la
   marca dice de quién es —una brecha nuestra, o un parámetro que sólo tu institución puede fijar—;
   una opción sin motor detrás se rechaza al validar el config, no al final de la corrida.
@@ -269,7 +279,8 @@ nosotros.
 
 Una librería calcula; no decide. El binning, la calibración y las métricas los corre el motor —pero
 a qué tasa central anclas (TTC o PIT), dónde pones el corte y qué supuestos sostienes ante
-Validación o ante la CMF sigue siendo juicio de modelo, y eso no lo entrega ningún paquete de pip.
+Validación o ante tu regulador sigue siendo juicio de modelo, y eso no lo entrega ningún paquete
+de pip.
 Si ese es el problema, puedes [proponer un caso](https://www.nikodym.cl/?ref=readme#contact). Cada
 caso se evalúa antes de aceptarse; si no hay caso, también te lo decimos, en menos de 48 horas
 hábiles.

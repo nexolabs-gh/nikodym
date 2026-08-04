@@ -255,6 +255,29 @@ export function sectionsOfJob(job: Job | null): ConfigSectionDef[] {
 }
 
 /**
+ * Parte el catálogo en lo que la librería hace para cualquiera y lo que está atado a una
+ * jurisdicción. La primera pantalla del producto describe el motor estándar; una norma local ahí
+ * se lee como «esto es para ese país», y la jurisdicción pertenece a la evidencia, no a la
+ * propuesta de valor.
+ *
+ * ⚠️ **Es una PARTICIÓN, y por eso se escribe con un predicado y su negación**, nunca con dos
+ * filtros que se crean opuestos. `jurisdiction_code` está tipado `string | null`, pero el catálogo
+ * llega por HTTP: si algún día faltara la clave, `=== null` y `!== null` serían ambos falsos para
+ * `undefined` y el trabajo desaparecería de los DOS bloques —de la pantalla entera— sin que nada
+ * fallara. La invariante que importa no es cómo se agrupa, es que no se pierda ninguno.
+ */
+export function particionarPorJurisdiccion(jobs: Job[]): {
+  estandar: Job[]
+  porJurisdiccion: Job[]
+} {
+  const tieneJurisdiccion = (job: Job) => job.jurisdiction_code != null
+  return {
+    estandar: jobs.filter((job) => !tieneJurisdiccion(job)),
+    porJurisdiccion: jobs.filter(tieneJurisdiccion),
+  }
+}
+
+/**
  * Config con el que empieza un trabajo (D-JOB-16): sus secciones activas con la proyección
  * canónica de sus defaults, el resto en `null`, y **ningún dataset**.
  *

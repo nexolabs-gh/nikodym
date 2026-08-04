@@ -16,7 +16,7 @@ import {
   TESTS_SUITE,
 } from "@/components/landing-evidence"
 import { DEMO_MODE } from "@/lib/demo-runtime"
-import { loadJobs, type Job } from "@/lib/jobs"
+import { loadJobs, particionarPorJurisdiccion, type Job } from "@/lib/jobs"
 import { presetDisplay } from "@/lib/presentation"
 import { cn } from "@/lib/utils"
 
@@ -36,8 +36,9 @@ import { cn } from "@/lib/utils"
  * Dos reglas duras, ambas aprendidas de un verificador que intentó refutar este copy:
  *
  * 1. **El H1 no se recorta jamás a una línea** (ni en OG-image, ni en meta description, ni en
- *    mobile). "IFRS 9, CMF y stress ya los calcula el motor" sin su segunda línea deja de ser
- *    honesto: la confesión y la promesa viajan juntas o no viajan.
+ *    mobile): la confesión y la promesa viajan juntas o no viajan. El H1 histórico que motivó la
+ *    regla —"IFRS 9, CMF y stress ya los calcula el motor"— ya no existe; hoy ninguna superficie de
+ *    portada nombra una jurisdicción, y `test_portada_sin_jurisdiccion.py` lo hace cumplir.
  * 2. **El CTA depende de DEMO_MODE.** En `demo.nikodym.cl` la app NO calcula: sirve los fixtures
  *    verbatim de una corrida real (ver `lib/demo.ts`). Ofrecer ahí "Construir un scorecard" sería
  *    prometer lo que esa pantalla no puede entregar.
@@ -399,6 +400,56 @@ function PresetSelector({
  * Un trabajo NO disponible aparece igual, con su motivo y sin poder iniciarse (D-JOB-6): ocultarlo
  * dejaría al usuario creyendo que la librería no lo tiene, que es la mentira contraria a prometerlo.
  */
+function JobCard({ job, onPick }: { job: Job; onPick: (job: Job) => void }) {
+  const disponible = job.status === "available"
+  return (
+    <button
+      type="button"
+      disabled={!disponible}
+      onClick={() => onPick(job)}
+      // El no disponible no se atenúa hasta ser ilegible: se lee entero, con su motivo.
+      // Lo que se apaga es el gesto, no la información.
+      className={cn(
+        "group flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left",
+        "shadow-card outline-none transition-all",
+        disponible
+          ? "hover:-translate-y-0.5 hover:border-brand-accent-dark/50 focus-visible:border-brand-accent-dark focus-visible:ring-3 focus-visible:ring-brand-accent-dark/40"
+          : "cursor-not-allowed opacity-80",
+      )}
+    >
+      <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="font-display font-bold leading-snug text-foreground">{job.label}</span>
+        {job.jurisdiction_label ? (
+          <span className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-muted-foreground">
+            {job.jurisdiction_label}
+          </span>
+        ) : null}
+      </span>
+      <span className="text-xs leading-relaxed text-muted-foreground">{job.description}</span>
+      {job.external_input ? (
+        <span className="text-xs leading-relaxed text-muted-foreground/80">
+          Necesitas traer: {job.external_input}
+        </span>
+      ) : null}
+      <span className="mt-auto pt-2">
+        {disponible ? (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-accent-dark">
+            Empezar
+            <ArrowRight
+              className="size-3.5 transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          </span>
+        ) : (
+          <span className="text-xs leading-relaxed text-muted-foreground">
+            Todavía no: {job.unavailable_reason}
+          </span>
+        )}
+      </span>
+    </button>
+  )
+}
+
 function JobSelector({ onPick }: { onPick: (job: Job) => void }) {
   const [jobs, setJobs] = useState<Job[]>([])
 
@@ -414,67 +465,47 @@ function JobSelector({ onPick }: { onPick: (job: Job) => void }) {
 
   if (jobs.length === 0) return null
 
+  // Un trabajo atado a una jurisdicción NO va en el listado principal. La partición NO inventa
+  // contrato: `jurisdiction_code` ya declara exactamente esta propiedad (D-JOB-8), y el orden
+  // dentro de cada bloque es el del catálogo, porque `filter` lo preserva. Vive en `lib/` y no
+  // aquí porque su invariante —que ningún trabajo se pierda— hay que poder medirla sin DOM.
+  const { estandar, porJurisdiccion } = particionarPorJurisdiccion(jobs)
+
   return (
-    <div className="space-y-3">
-      <p className="text-xs font-semibold tracking-wide text-eyebrow">
-        ¿A qué viniste? Elige tu trabajo y trae tus datos
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {jobs.map((job) => {
-          const disponible = job.status === "available"
-          return (
-            <button
-              key={job.id}
-              type="button"
-              disabled={!disponible}
-              onClick={() => onPick(job)}
-              // El no disponible no se atenúa hasta ser ilegible: se lee entero, con su motivo.
-              // Lo que se apaga es el gesto, no la información.
-              className={cn(
-                "group flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left",
-                "shadow-card outline-none transition-all",
-                disponible
-                  ? "hover:-translate-y-0.5 hover:border-brand-accent-dark/50 focus-visible:border-brand-accent-dark focus-visible:ring-3 focus-visible:ring-brand-accent-dark/40"
-                  : "cursor-not-allowed opacity-80",
-              )}
-            >
-              <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="font-display font-bold leading-snug text-foreground">
-                  {job.label}
-                </span>
-                {job.jurisdiction_label ? (
-                  <span className="font-mono text-[0.62rem] uppercase tracking-[0.12em] text-muted-foreground">
-                    {job.jurisdiction_label}
-                  </span>
-                ) : null}
-              </span>
-              <span className="text-xs leading-relaxed text-muted-foreground">
-                {job.description}
-              </span>
-              {job.external_input ? (
-                <span className="text-xs leading-relaxed text-muted-foreground/80">
-                  Necesitas traer: {job.external_input}
-                </span>
-              ) : null}
-              <span className="mt-auto pt-2">
-                {disponible ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-accent-dark">
-                    Empezar
-                    <ArrowRight
-                      className="size-3.5 transition-transform group-hover:translate-x-0.5"
-                      aria-hidden="true"
-                    />
-                  </span>
-                ) : (
-                  <span className="text-xs leading-relaxed text-muted-foreground">
-                    Todavía no: {job.unavailable_reason}
-                  </span>
-                )}
-              </span>
-            </button>
-          )
-        })}
+    <div className="space-y-7">
+      <div className="space-y-3">
+        <p className="text-xs font-semibold tracking-wide text-eyebrow">
+          ¿A qué viniste? Elige tu trabajo y trae tus datos
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {estandar.map((job) => (
+            <JobCard key={job.id} job={job} onPick={onPick} />
+          ))}
+        </div>
       </div>
+
+      {porJurisdiccion.length > 0 ? (
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold tracking-wide text-eyebrow">
+              Normativa local · casos de referencia
+            </p>
+            {/* El encuadre es el de la página «Aterrizar una norma local»: la jurisdicción no es
+                una promesa de mantenimiento, es la demostración de que el método funciona. Sin
+                esta línea, el bloque se leería como «también soportamos estos países». */}
+            <p className="max-w-xl text-xs leading-relaxed text-muted-foreground">
+              Una norma concreta, implementada sobre el mismo motor estándar para mostrar cómo se
+              aterriza. Están congelados en la versión que se cotejó y no siguen cada circular: tu
+              norma se monta igual, y el ajuste final lo hace el modelador.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {porJurisdiccion.map((job) => (
+              <JobCard key={job.id} job={job} onPick={onPick} />
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -535,10 +566,13 @@ export function LandingLauncher({
                 <br />
                 en una corrida.
               </h1>
+              {/* El subtítulo NO nombra ninguna jurisdicción, y es una decisión: una norma local
+                  en la propuesta de valor lee como «esto es para ese país». La jurisdicción vive en
+                  la evidencia — §1 la publica como caso de referencia, con su fecha. */}
               <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground">
-                Scorecard, IFRS 9 y provisiones CMF de Chile. El informe de validación sale con los
-                parámetros que la corrida usó de verdad y el lineage para reproducirla en otra
-                máquina.
+                PD, LGD y EAD, validación de modelos e IFRS 9. El informe sale con los parámetros
+                que la corrida usó de verdad y el lineage para reproducirla en otra máquina. La
+                normativa local se aterriza encima.
               </p>
 
               {DEMO_MODE ? (
@@ -831,7 +865,8 @@ export function LandingLauncher({
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
                 Una librería calcula; no decide. El binning, la calibración y las métricas los corre
                 el motor —pero a qué tasa central anclas (TTC o PIT), dónde pones el corte y qué
-                supuestos sostienes ante Validación o ante la CMF sigue siendo juicio de modelo.{" "}
+                supuestos sostienes ante Validación o ante tu regulador sigue siendo juicio de
+                modelo.{" "}
                 <span className="text-foreground">Si ese es el problema, hay un caso que proponer.</span>
               </p>
 

@@ -21,9 +21,11 @@ import {
   jobSwitchForConfig,
   jobSwitchNotice,
   methodologyStatuses,
+  particionarPorJurisdiccion,
   sectionsOfJob,
   type Job,
 } from "@/lib/jobs"
+import landingSource from "@/components/LandingLauncher.tsx?raw"
 import { CONFIG_SECTIONS, FIXTURE_SCHEMA } from "@/lib/schema"
 import type { ValidationState } from "@/lib/validation"
 
@@ -912,5 +914,70 @@ describe("el abanico metodológico en la pantalla (D-ABA-10)", () => {
     // que enfoca el campo; lo que no puede es RENDERIZARSE como texto que el usuario lea.
     expect(bloque).not.toContain("{choice.path}<")
     expect(bloque).not.toContain(">{choice.path}")
+  })
+})
+
+describe("la jurisdicción sale del listado principal, sin perder ningún trabajo", () => {
+  it("la partición es EXHAUSTIVA: la unión es el catálogo entero, sin duplicados", () => {
+    // La invariante que importa no es cómo se agrupa: es que agrupar no pueda desaparecer un
+    // trabajo de la pantalla. Un trabajo que no cae en ningún bloque no se ve, y nada falla.
+    const { estandar, porJurisdiccion } = particionarPorJurisdiccion(JOBS)
+    const ids = [...estandar, ...porJurisdiccion].map((j) => j.id).sort()
+    expect(ids).toEqual(JOBS.map((j) => j.id).sort())
+    expect(new Set(ids).size).toBe(JOBS.length)
+  })
+
+  it("🔴 CONTROL NEGATIVO: una clave ausente no desaparece el trabajo", () => {
+    // El catálogo llega por HTTP y el tipo no lo garantiza en runtime. Con dos filtros que se
+    // creen opuestos (`=== null` / `!== null`), `undefined` cae fuera de los DOS y el trabajo se
+    // esfuma. Este caso es la razón de que la partición use un predicado y su negación.
+    const roto = { ...porId("scorecard_pd") } as Record<string, unknown>
+    delete roto.jurisdiction_code
+    const { estandar, porJurisdiccion } = particionarPorJurisdiccion([roto as unknown as Job])
+    expect(estandar.length + porJurisdiccion.length).toBe(1)
+    // Sin jurisdicción declarada, el sitio correcto es el listado principal.
+    expect(estandar).toHaveLength(1)
+  })
+
+  it("separa exactamente los trabajos con jurisdicción, y hoy son los dos de CMF", () => {
+    const { estandar, porJurisdiccion } = particionarPorJurisdiccion(JOBS)
+    expect(porJurisdiccion.map((j) => j.id)).toEqual(["provisiones_cmf", "comparar_provisiones"])
+    // `pd_y_lgd` usa el método interno, que es neutro: NO es un trabajo de jurisdicción.
+    expect(estandar.map((j) => j.id)).toContain("pd_y_lgd")
+    // Anti-vacuidad: si el catálogo perdiera su jurisdicción, los dos asserts de arriba pasarían
+    // con listas vacías y este test dejaría de medir nada.
+    expect(porJurisdiccion.length).toBeGreaterThan(0)
+    expect(estandar.length).toBeGreaterThan(5)
+  })
+
+  it("🔴 la landing pinta DOS listas separadas, cada una de su propia partición", () => {
+    // vitest corre sin DOM: que la pantalla pinte dos bloques se verificó con Playwright. Lo que
+    // este guardrail impide es la regresión silenciosa —devolver la jurisdicción al listado
+    // principal— con la suite en verde.
+    //
+    // 🔴 El bloque se delimita por el CIERRE REAL de la función, nunca por un `slice` de N
+    // caracteres: medido, el cuerpo ocupa ~2.370 y una ventana de 2.400 deja 30 de margen. Con
+    // 266 caracteres de JSX perfectamente plausible, el final de la función queda fuera de la
+    // ventana y la regresión que este test dice impedir pasa en verde — el peor de los gates, el
+    // que se cree presente.
+    const inicio = landingSource.indexOf("function JobSelector")
+    expect(inicio).toBeGreaterThan(-1)
+    const resto = landingSource.slice(inicio + "function JobSelector".length)
+    // La siguiente declaración de nivel de módulo, en cualquiera de sus formas: `JobSelector` es
+    // hoy la última `function` suelta del archivo y la que sigue es `export default function`.
+    const siguiente = resto.search(/\n(?:export\s+)?(?:default\s+)?(?:function|const|class)\s/)
+    expect(siguiente).toBeGreaterThan(-1) // sin delimitador, el corte mentiría en silencio
+    const bloque = resto.slice(0, siguiente)
+    // El corte tiene que abarcar el cuerpo entero: si se quedara corto, el gate volvería a mirar
+    // sólo el principio de la función, que es exactamente el defecto que este test corrige.
+    expect(bloque).toContain("porJurisdiccion.length > 0")
+
+    expect(bloque).toContain("particionarPorJurisdiccion(jobs)")
+
+    // Y el invariante NO es «no digas `jobs.map`»: `[...estandar, ...porJurisdiccion].map(...)`
+    // conserva la llamada a la partición, no contiene `jobs.map(` y devuelve la jurisdicción al
+    // listado principal. Lo que se exige es que haya DOS renders y que sean los de cada mitad.
+    const receptores = [...bloque.matchAll(/([A-Za-z_$\]][\w$\]]*)\s*\.map\(/g)].map((m) => m[1])
+    expect(receptores.sort()).toEqual(["estandar", "porJurisdiccion"])
   })
 })

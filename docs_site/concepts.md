@@ -31,8 +31,10 @@ gobernado por su sección del config:
 5. **calibración** — ajusta la PD a un ancla de negocio (*through-the-cycle*).
 6. **desempeño / estabilidad** — métricas de discriminación (AUC/KS/Gini) y PSI/CSI por partición.
 
-Fases posteriores añaden ML (GBDT), survival, forward-looking, provisiones **CMF** e **IFRS 9/ECL**
-y stress testing, cada una como secciones adicionales del mismo config.
+Fases posteriores añaden ML (GBDT), survival, forward-looking, provisiones (**IFRS 9/ECL** y método
+interno) y stress testing, cada una como secciones adicionales del mismo config. La normativa local
+se monta encima del motor estándar; hay un caso de referencia implementado en
+[Aterrizar una norma local](norma-local.md).
 
 ## Reproducibilidad y gobernanza
 

@@ -258,22 +258,22 @@ export const DOMINIOS = [
   },
   {
     key: "provisioning",
-    label: "Provisiones · CMF vs. método interno",
+    label: "Provisiones · IFRS 9 y método interno",
     superficie: "UI",
     garantia: "experimental",
     tagline:
-      "Dos marcos regulatorios, motores separados. CMF: 10 matrices normativas B-1/B-3 en " +
-      "aritmética Decimal (entre ellas comercial, leasing, estudiantil, factoring, consumo v2025, " +
-      "vivienda PVG, avales y contingentes con CCF), con el archivo de parámetros sellado por " +
-      "SHA-256. IFRS 9: ECL = PD marginal × LGD × EAD descontada a la EIR, staging por SICR con " +
-      "gatillos auditables por fila (ratio de PD, backstops de mora, override cualitativo), " +
-      "presunciones rebatibles de mora que la exención de bajo riesgo no puede anular, y PD " +
-      "configurable " +
-      "point-in-time (Vasicek) o through-the-cycle. La regla del máximo vive DENTRO de CMF: el " +
-      "Capítulo B-1 (Circular 2.346) obliga a reportar, por institución, el mayor entre el método " +
-      "estándar de la CMF y el método interno del banco — nunca un máximo entre CMF e IFRS 9, que " +
-      "son marcos separados. El Compendio (A-2, num. 5) excluye el deterioro de NIIF 9 sobre las " +
-      "colocaciones.",
+      "Marcos separados, motores separados. IFRS 9: ECL = PD marginal × LGD × EAD descontada a la " +
+      "EIR, staging por SICR con gatillos auditables por fila (ratio de PD, backstops de mora, " +
+      "override cualitativo), presunciones rebatibles de mora que la exención de bajo riesgo no " +
+      "puede anular, y PD configurable point-in-time (Vasicek) o through-the-cycle. Método " +
+      "interno: PD · LGD · exposición por grupo homogéneo, sin ningún supuesto de jurisdicción. " +
+      "Encima de esa base se aterriza la norma local, y hay un caso de referencia implementado " +
+      "—Chile, CMF Cap. B-1/B-3: 10 matrices normativas en aritmética Decimal, con el archivo de " +
+      "parámetros sellado por SHA-256 y extraído del texto oficial el 2026-06-23— que " +
+      "muestra el método completo: la regla del máximo vive DENTRO de esa norma, que obliga a " +
+      "reportar por institución el mayor entre su método estándar y el método interno del banco — " +
+      "nunca un máximo contra IFRS 9, porque el Compendio (A-2, num. 5) excluye el deterioro de " +
+      "NIIF 9 sobre las colocaciones.",
     modulo: "nikodym.provisioning",
   },
   {
@@ -341,14 +341,17 @@ export const SALVEDADES = [
       "nadie lo descubra tarde.",
   },
   {
-    clave: "Parámetros CMF",
+    clave: "Caso de referencia congelado",
     texto:
-      "Los parámetros normativos se transcribieron del compendio con asistencia de IA y " +
-      "verificación visual. No son parámetros oficiales de la CMF ni están validados por ella: " +
-      "requieren validación humana contra la norma vigente antes de cualquier uso productivo. " +
-      "Además, dos tablas no están: los aforos y haircuts de garantías financieras, y las del " +
-      "RAN 21-10. El manifiesto de parámetros las declara faltantes en vez de rellenarlas con un " +
-      "valor inventado.",
+      "El motor que aterriza la norma chilena (CMF, Cap. B-1) existe como ejemplo de método, no " +
+      "como compromiso de mantenimiento: se congela en la versión cotejada y no se persigue cada " +
+      "circular. Sus parámetros se transcribieron del compendio con asistencia de IA y " +
+      "verificación visual el 2026-06-23, y la de consumo se cotejó celda por celda el " +
+      "2026-07-14. No son parámetros oficiales de la " +
+      "CMF ni están validados por ella: requieren validación humana contra la norma vigente antes " +
+      "de cualquier uso productivo. Además, dos tablas no están: los aforos y haircuts de " +
+      "garantías financieras, y las del RAN 21-10. El manifiesto de parámetros las declara " +
+      "faltantes en vez de rellenarlas con un valor inventado.",
   },
   {
     clave: "Extras",

@@ -1,7 +1,8 @@
 site_name: Nikodym RiskLib
 site_description: >-
-  Librería Python de riesgo de crédito: scoring/scorecards, ML, provisiones CMF (Chile)
-  e IFRS 9/ECL, forward-looking y stress testing.
+  Librería Python de riesgo de crédito: PD (scorecards, ML, survival), LGD y EAD, validación
+  de modelos, provisiones IFRS 9/ECL, forward-looking y stress testing, con informe
+  reproducible y su lineage.
 site_author: Nikodym
 repo_url: https://github.com/nexolabs-gh/nikodym
 repo_name: nexolabs-gh/nikodym
@@ -61,6 +62,7 @@ nav:
       - Modelo y calibración: guias/modelo-calibracion.md
       - Desempeño y estabilidad: guias/desempeno-estabilidad.md
       - Reanudar con artefactos: guias/puerta-artefactos.md
+  - Aterrizar una norma local: norma-local.md
   - Glosario: glosario.md
   - Avisos declarados: avisos-declarados.md
   - Referencia de la API: api.md

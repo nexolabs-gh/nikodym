@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 # ─────────────────────────── metadata (PEP 621) ──────────────────────
 [project]
 name = "nikodym"
-description = "Librería de riesgo de crédito: scoring, ML, IFRS 9/ECL, provisiones regulatorias de Chile (CMF), forward-looking y stress testing."
+description = "Librería de riesgo de crédito: PD (scorecards, ML, survival), LGD y EAD, validación de modelos, provisiones IFRS 9/ECL, forward-looking y stress testing, con informe reproducible y su lineage."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"                      # SPDX (PEP 639); LICENSE en la raíz
@@ -17,7 +17,7 @@ keywords = ["credit-risk", "ifrs9", "ecl", "cmf", "chile", "scorecard", "provisi
 classifiers = [
   # 4 - Beta, no 3 - Alpha: el pipeline de scorecard (F1) es API estable bajo garantía SemVer 1.x
   # desde 1.0 y el README lo declara así, de modo que "Alpha" contradecía en pypi.org lo que dice el
-  # propio proyecto. Tampoco es "5 - Production/Stable": las provisiones CMF e IFRS 9 siguen
+  # propio proyecto. Tampoco es "5 - Production/Stable": las provisiones siguen
   # marcadas experimentales por madurez, y prometer estabilidad de toda la superficie sería
   # sobrepromesa en un paquete que usarán instituciones financieras.
   "Development Status :: 4 - Beta",

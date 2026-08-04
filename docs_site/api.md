@@ -434,8 +434,11 @@ Escenarios de *shock*, barridos de sensibilidad y *reverse stress* sobre las mé
 
 ## Provisiones
 
-Dos motores separados —**CMF (Chile)** e **IFRS 9/ECL**— más una capa fina de orquestación que
-compara dos metodologías y reporta el **máximo**.
+Dos marcos de provisión —**IFRS 9/ECL** y **método interno** (PD · LGD · exposición por grupo
+homogéneo, jurisdiccionalmente neutro)— más una capa fina de orquestación que compara dos
+metodologías y aplica la regla declarada. El motor **CMF (Chile)** documentado más abajo es el
+**caso de referencia** de cómo se aterriza una norma local sobre esa base; su alcance y su fecha de
+verificación están en [Aterrizar una norma local](norma-local.md).
 
 !!! warning "Sobre la regla del máximo"
     La regla del máximo del **Capítulo B-1** (Circular N° 2.346 / 06.03.2024) es entre el **método
