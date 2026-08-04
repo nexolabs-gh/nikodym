@@ -19,7 +19,7 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
-from nikodym.core.dataset_check import Requisito
+from nikodym.core.dataset_check import ContextoConfig, Requisito
 from nikodym.core.exceptions import ConfigError
 
 #: Nombres que el evaluador acepta como columna de período/cohorte cuando ``temporal_column`` va
@@ -290,6 +290,33 @@ class StabilityConfig(NikodymBaseConfig):
             )
 
         return tuple(requisitos)
+
+    def requisitos_incumplidos_por_contexto(
+        self, contexto: ContextoConfig
+    ) -> tuple[Requisito, ...]:
+        """Avisa si esta sección describe el puntaje al revés de como se construyó (D-DIR-5).
+
+        ⚠️ **Aquí la consecuencia no es un número invertido: es un documento que se contradice.**
+        Medido, el motor de estabilidad no lee este campo en ningún cálculo —PSI y CSI comparan
+        distribuciones binadas y son invariantes al signo—; el valor viaja del config a la ficha y
+        de ahí al informe. Con la respuesta contraria a la de la tarjeta, el mismo documento afirma
+        dos orientaciones distintas del mismo puntaje, y el lector no tiene cómo saber cuál rige.
+        """
+        declarada = contexto.direccion_del_score
+        if declarada is None or declarada == self.score_direction:
+            return ()
+        return (
+            Requisito(
+                path="score_direction",
+                declared=self.score_direction,
+                message=(
+                    "Estás describiendo el puntaje con la convención contraria a la que usaste "
+                    "para construir la tarjeta. El informe publicaría las dos, y quien lo lea no "
+                    "sabría cuál vale. Deja las dos con la misma respuesta a «un puntaje más alto, "
+                    "¿es mejor o peor cliente?»."
+                ),
+            ),
+        )
 
 
 def _column_values(cfg: StabilityConfig) -> dict[str, str]:

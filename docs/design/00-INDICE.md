@@ -398,6 +398,23 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `requisitos_incumplidos_por_perfil` y **no** de los dos supresores: la clase D *añade* avisos, y
 > sólo quien *quita* hereda la obligación de medirse en los dos sentidos (D-RAM-4).
 >
+> **La dirección del score se pregunta tres veces y nadie la cruza (2026-08-04, APROBADA).**
+> [`_ENMIENDA-DIRECCION-DEL-SCORE.md`](_ENMIENDA-DIRECCION-DEL-SCORE.md), D-DIR-1…D-DIR-9, cierra
+> GRAVE-1 del censo. 🔴 **El defecto no fallaba: publicaba** — con la tarjeta construida en un
+> sentido y el desempeño midiendo en el otro, la corrida llegaba a `done` con **Gini -0,424** y las
+> cuatro superficies en verde. 🔴 **Las dos salidas que el censo recomendaba salieron REFUTADAS al
+> medirlas**: `from_config_with_context` entrega un `frozenset` de nombres y **no puede transportar
+> la orientación**, y `_check_cross_section` es del núcleo, que con sección opaca —el estado por
+> defecto— leería un `dict` crudo, o sea el acoplamiento que D-INV-1 rechazó. Lo que queda es que
+> **la orientación es propiedad del puntaje**: viaja por el DAG en la ficha de la tarjeta
+> (`optional_requires`, nunca `requires`, para no romper «Validar un modelo existente») y una
+> contradicción **detiene** en vez de heredarse en silencio, que sería el mecanismo de MENOR-7 visto
+> del otro lado. El aviso llega antes por un **segundo campo de `ContextoConfig`**, el que su propio
+> docstring anticipaba. ⚠️ **La reproducción del censo omitía un tercer factor** —hace falta
+> `evaluation_source='score'`— y con el default el campo de `performance` es **inerte**; se detiene
+> igual, porque la contradicción se publica en la ficha aunque no mueva una cifra. Hash-neutralidad
+> **medida**: los tres presets y el golden, intactos.
+>
 > **Censo de los DEFECTOS que destapó medir el abanico (2026-08-04, INSUMO — no es diseño).**
 > [`_CENSO-DEFECTOS-DEL-ABANICO.md`](_CENSO-DEFECTOS-DEL-ABANICO.md). Escribir el catálogo obligó a
 > contestar, opción por opción, *qué hace* y *qué exige* — 69 puntos y 172 opciones, medidos por

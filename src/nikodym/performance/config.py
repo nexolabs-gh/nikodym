@@ -20,7 +20,7 @@ from typing import Any, Literal, Self
 from pydantic import Field, field_validator, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
-from nikodym.core.dataset_check import Requisito
+from nikodym.core.dataset_check import ContextoConfig, Requisito
 from nikodym.core.exceptions import ConfigError
 
 ScoreDirection = Literal["higher_is_lower_risk", "higher_is_higher_risk"]
@@ -311,6 +311,39 @@ class PerformanceConfig(NikodymBaseConfig):
                 message=(
                     "Hay particiones repetidas en la lista a evaluar. Deja una sola vez cada "
                     "partición: repetirla no calcula nada nuevo y detiene la corrida."
+                ),
+            ),
+        )
+
+    def requisitos_incumplidos_por_contexto(
+        self, contexto: ContextoConfig
+    ) -> tuple[Requisito, ...]:
+        """Avisa si esta sección mide el puntaje al revés de como se construyó (D-DIR-5).
+
+        🔴 **Es el defecto más caro que este repo ha medido, y no fallaba: publicaba.** Con la
+        tarjeta construida en un sentido y el desempeño midiendo en el otro, la corrida llega a
+        ``done`` y el informe publica Gini -0,424 —un modelo con la discriminación invertida— con el
+        validador, ``check_pipeline``, ``check_dataset`` y la corrida los cuatro en verde y cero
+        avisos.
+
+        Se avisa **aunque hoy el valor sea inerte**. Medido: la orientación sólo entra al cálculo
+        con ``evaluation_source='score'``; con la fuente por defecto no cambia ningún número. Callar
+        en ese caso dejaría la contradicción escrita, publicada en la ficha del informe y lista para
+        volverse mortal en cuanto alguien cambie la fuente con dos clicks — que es exactamente el
+        camino por el que se llegó al Gini invertido.
+        """
+        declarada = contexto.direccion_del_score
+        if declarada is None or declarada == self.score_direction:
+            return ()
+        return (
+            Requisito(
+                path="score_direction",
+                declared=self.score_direction,
+                message=(
+                    "Estás midiendo el desempeño con la convención contraria a la que usaste para "
+                    "construir la tarjeta de puntaje. Con las dos al revés, los indicadores de "
+                    "discriminación salen invertidos y el informe los publica sin avisar. Deja las "
+                    "dos con la misma respuesta a «un puntaje más alto, ¿es mejor o peor cliente?»."
                 ),
             ),
         )

@@ -76,6 +76,17 @@ METODO_REQUISITOS = "requisitos_incumplidos"
 #: porque pueden **callar** un desajuste, y un método que sólo añade no puede hacer eso.
 METODO_REQUISITOS_CONTEXTO = "requisitos_incumplidos_por_contexto"
 
+#: Nombre del método con que la sección que **construye el puntaje** declara con qué orientación lo
+#: construyó (enmienda DIRECCIÓN-DEL-SCORE, D-DIR-5). Lo consume :func:`_direccion_del_score` para
+#: llenar :attr:`ContextoConfig.direccion_del_score`.
+#:
+#: 🔴 Existe para que el núcleo **no tenga que conocer** el campo. Podría leerse
+#: ``config.scorecard.score_direction`` en tres líneas, y sería el acoplamiento que D-INV-1 rechazó:
+#: con la sección opaca —que es el estado por DEFECTO— ese atributo es una clave de ``dict``, y el
+#: núcleo pasaría a depender del vocabulario de un dominio. Con el protocolo, el núcleo transporta
+#: un valor que no interpreta y la sección decide qué significa, igual que con :data:`CLAVE_ROL`.
+METODO_CONVENCION_SCORE = "direccion_del_score_declarada"
+
 #: Igual que el anterior, pero para las invariantes que necesitan **estadísticas** del dataset y no
 #: sólo sus nombres de columna (enmienda PERFIL-DE-COLUMNAS, D-PERF-4). Va por un método propio y no
 #: ampliando el de arriba: aquel lo implementan cuatro secciones, y añadirle un parámetro obligaría
@@ -250,6 +261,21 @@ class ContextoConfig:
     exista, y usar ``is not None`` describiría un pipeline distinto del que se va a ejecutar. Es
     literalmente el criterio de :meth:`Study._resolve_steps`, y :func:`_secciones_activas` lo
     reutiliza en vez de reimplementarlo.
+    """
+
+    direccion_del_score: str | None = None
+    """La orientación con que se construye el puntaje en esta corrida, o ``None`` si nadie la fija.
+
+    Segundo campo del DTO, y el que su docstring anticipaba (D-DIR-5). Existe porque «un puntaje
+    alto, ¿es mejor o peor cliente?» es **una** propiedad del puntaje y se declara en **tres**
+    secciones: medido, con las tres respuestas cruzadas el informe publica Gini -0,424 con las
+    cuatro superficies en verde y cero avisos.
+
+    ⚠️ **El núcleo lo transporta y no lo interpreta.** El valor lo produce la sección que construye
+    el puntaje, vía :data:`METODO_CONVENCION_SCORE`; aquí es un ``str`` opaco. ``None`` significa
+    «ninguna sección activa lo declara» —el caso de quien trae un puntaje ya construido por la
+    puerta de artefactos externos, donde la orientación sólo la sabe el usuario—, y entonces cada
+    sección manda sobre la suya.
     """
 
 
@@ -460,6 +486,33 @@ def _secciones_activas(config: NikodymConfig) -> frozenset[str]:
     return frozenset(
         nombre for nombre in _DEFAULT_DOMAIN_ORDER if getattr(config, nombre, None) is not None
     )
+
+
+def _direccion_del_score(config: NikodymConfig, activas: frozenset[str]) -> str | None:
+    """La orientación que declara la sección ACTIVA que construye el puntaje, o ``None`` (D-DIR-5).
+
+    Pregunta por :data:`METODO_CONVENCION_SCORE` **sólo a las secciones raíz que van a correr**: una
+    sección apagada no construye nada, y su valor describiría un puntaje que esta corrida no
+    produce. Una sección opaca (``dict``) no tiene método al que preguntar y se salta, por la misma
+    razón de siempre.
+
+    Si dos secciones activas lo declarasen, gana la primera en orden de campo y se ignora el resto.
+    Hoy sólo lo declara ``scorecard`` y un gate lo fija; el desempate está escrito para que un
+    segundo declarante sea una decisión y no una sorpresa.
+    """
+    for nombre in type(config).model_fields:
+        if nombre not in activas:
+            continue
+        seccion = getattr(config, nombre, None)
+        if not isinstance(seccion, BaseModel):
+            continue
+        metodo = getattr(seccion, METODO_CONVENCION_SCORE, None)
+        if not callable(metodo):
+            continue
+        declarada = metodo()
+        if declarada is not None:
+            return str(declarada)
+    return None
 
 
 def _columnas_producidas(config: Any) -> frozenset[str]:
@@ -720,7 +773,11 @@ def check_dataset(
     # El contexto (D-ABA-8) se deriva del propio config, así que —a diferencia del perfil— siempre
     # se conoce y no tiene modo «no se sabe». Se computa UNA vez y se propaga: preguntárselo a cada
     # modelo anidado daría la misma respuesta y recorrería el config raíz una vez por nodo.
-    contexto = ContextoConfig(secciones_activas=_secciones_activas(config))
+    activas = _secciones_activas(config)
+    contexto = ContextoConfig(
+        secciones_activas=activas,
+        direccion_del_score=_direccion_del_score(config, activas),
+    )
     for ruta, requisito in _requisitos(
         config, frozenset(presentes), perfil=column_profile, contexto=contexto
     ):

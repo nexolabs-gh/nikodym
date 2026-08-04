@@ -342,6 +342,21 @@ class ScorecardConfig(NikodymBaseConfig):
             vistos.add(clave)
         return self
 
+    def direccion_del_score_declarada(self) -> str:
+        """Declara con qué orientación esta sección construye el puntaje (D-DIR-5).
+
+        Es el protocolo ``METODO_CONVENCION_SCORE`` del preflight, por convención de nombre y no por
+        herencia, igual que ``requisitos_incumplidos``. Existe para que el núcleo **no** tenga que
+        leer ``config.scorecard.score_direction``: con la sección opaca —el estado por defecto— ese
+        atributo sería una clave de ``dict``, y el núcleo pasaría a conocer el vocabulario de un
+        dominio, que es justo lo que D-INV-1 rechazó.
+
+        Quien la construye es quien la declara: `scorecard` es la única sección que **fabrica** el
+        puntaje (`scaler.py:536-553` decide el signo de cada punto con este valor). `performance` y
+        `stability` sólo lo miden, y por eso preguntan en vez de declarar.
+        """
+        return self.score_direction
+
 
 def _require_finite(nombre: str, valor: float) -> None:
     """Valida finitud para campos float que participan del ``config_hash``."""

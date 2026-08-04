@@ -67,9 +67,14 @@ def test_el_contexto_expone_exactamente_los_campos_declarados() -> None:
     D-ABA-8 amplía el contexto mínimo **sin** abrir esa puerta, y lo único que sostiene la
     diferencia es que el DTO no tenga más campos que los declarados: un dominio no puede leer lo
     que no está aquí. Este gate es la parte del diseño que se puede perder en silencio.
+
+    ⚠️ **El segundo campo se añadió por D-DIR-5**, y este gate hizo su trabajo: se puso rojo y
+    obligó a que la ampliación pasara por una enmienda aprobada. `direccion_del_score` lo llena la
+    sección que construye el puntaje, vía el protocolo `direccion_del_score_declarada`, y el núcleo
+    lo transporta sin interpretarlo — que es lo que mantiene cerrada la puerta que este gate vigila.
     """
     campos = {campo.name for campo in dataclasses.fields(ContextoConfig)}
-    assert campos == {"secciones_activas"}, (
+    assert campos == {"secciones_activas", "direccion_del_score"}, (
         f"ContextoConfig expone {sorted(campos)}. Un campo nuevo amplía lo que CADA sección puede "
         "saber del resto del config: se decide en el SDD (D-ABA-8), no al programar."
     )
@@ -235,19 +240,29 @@ def test_el_requisito_de_contexto_avisa_y_no_revienta(monkeypatch: pytest.Monkey
     assert any(m.message == "Aviso, no error." for m in veredicto.mismatches)
 
 
-def test_sin_el_protocolo_el_veredicto_de_los_presets_no_se_mueve() -> None:
-    """Control negativo de la integración entera: hoy nadie declara el método, y nada cambió.
+def test_los_declarantes_del_protocolo_estan_inventariados() -> None:
+    """Quién declara el método es una decisión, no un accidente: aparecer aquí es explícito.
 
-    Es el ancla que separa «el mecanismo está conectado» de «el mecanismo cambió algo sin que
-    nadie lo pidiera». Cuando una sección real lo declare, este test seguirá midiendo lo mismo
-    para las que no.
+    Nació como control negativo de la integración —«hoy nadie lo declara, así que nada cambió sin
+    que nadie lo pidiera»—, y su propio docstring anticipaba el día en que una sección real lo
+    declarase. Ese día llegó con D-DIR-5: `performance` y `stability` lo implementan para avisar de
+    que están midiendo el puntaje al revés de como se construyó.
+
+    Sigue midiendo lo mismo que medía, con el inventario explícito en vez del conjunto vacío: una
+    sección raíz que empiece a declararlo sin pasar por aquí pone el gate en rojo.
     """
+    esperados = {"performance", "stability"}
     for preset_id in _PRESETS:
         config = _config_de(preset_id)
-        assert not any(
-            callable(getattr(getattr(config, seccion, None), METODO_REQUISITOS_CONTEXTO, None))
+        declarantes = {
+            seccion
             for seccion in type(config).model_fields
-        ), f"{preset_id}: alguna sección ya declara el método; actualiza este control"
+            if callable(getattr(getattr(config, seccion, None), METODO_REQUISITOS_CONTEXTO, None))
+        }
+        assert declarantes <= esperados, (
+            f"{preset_id}: {sorted(declarantes - esperados)} declara el método sin estar "
+            "inventariado aquí; decídelo en el SDD antes de conectarlo."
+        )
 
 
 def test_el_barrido_no_es_vacuo() -> None:

@@ -19,7 +19,7 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
-from nikodym.core.exceptions import MissingDependencyError
+from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
@@ -63,6 +63,11 @@ class PerformanceStep(AuditableMixin):
         ("scorecard", "score"),
         ("calibration", "calibrated_pd_frame"),
     )
+    #: La ficha de la tarjeta lleva la orientación con que el puntaje fue construido (D-DIR-2). Va
+    #: en ``optional_requires`` y no en ``requires`` a propósito: exigirla rompería «Validar un
+    #: modelo existente», que inyecta ``('scorecard','score')`` por la puerta de artefactos externos
+    #: y no publica ninguna ficha. Es la diferencia entre «lo consumo si está» y «lo exijo».
+    optional_requires: tuple[ArtifactKey, ...] = (("scorecard", "card"),)
     provides: tuple[ArtifactKey, ...] = tuple(("performance", key) for key in PERFORMANCE_ARTIFACTS)
 
     def __init__(self, config: PerformanceConfig) -> None:
@@ -95,6 +100,7 @@ class PerformanceStep(AuditableMixin):
         ).copy(deep=True)
 
         cfg = _performance_config_from_study(study, fallback=self.config)
+        _require_direccion_coherente(study, cfg.score_direction)
         frame = _assemble_performance_frame(
             score=score,
             calibrated_pd_frame=calibrated_pd_frame,
@@ -144,6 +150,35 @@ def _as_dataframe(value: object, pd: Any, artifact: str) -> DataFrame:
     raise PerformanceDataError(
         f"El artefacto '{artifact}' debe ser un pandas.DataFrame; "
         f"tipo observado={type(value).__name__}."
+    )
+
+
+def _require_direccion_coherente(study: Study, declarada: str) -> None:
+    """Detiene la corrida si esta sección mide el puntaje al revés de como se construyó (D-DIR-4).
+
+    La orientación es propiedad **del puntaje**, no de quien lo mide, y quien lo construye la
+    publica en su ficha. Si la sección declara la contraria, el resultado no es un fallo ruidoso: es
+    un Gini invertido publicado en un informe con las cuatro superficies en verde. Medido sobre el
+    preset F1: AUC 0,288 y Gini -0,424 en desarrollo.
+
+    🔴 **Se detiene en vez de heredar en silencio, y ésa es la mitad importante.** Tomar la del
+    artefacto y descartar lo que el usuario escribió sería el mecanismo de ``anchor_source`` visto
+    desde el otro lado: el motor usando un valor y el config diciendo otro, sin que nadie lo sepa.
+
+    Sin ficha —el puntaje entró por la puerta de artefactos externos— no hay con qué comparar y la
+    sección manda sobre la suya, que es el caso de «Validar un modelo existente».
+    """
+    if not study.artifacts.has("scorecard", "card"):
+        return
+    card = study.artifacts.get("scorecard", "card")
+    construida = getattr(card, "score_direction", None)
+    if construida is None or construida == declarada:
+        return
+    raise ConfigError(
+        "La tarjeta de puntaje se construyó con una convención y el desempeño se está midiendo "
+        f"con la contraria (la tarjeta declara '{construida}' y esta sección '{declarada}'). "
+        "Con las dos al revés los indicadores de discriminación salen invertidos. Deja "
+        "scorecard.score_direction y performance.score_direction con el mismo valor."
     )
 
 

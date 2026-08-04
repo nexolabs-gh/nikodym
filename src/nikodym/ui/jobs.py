@@ -859,8 +859,11 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
             "path": "stability.score_direction",
             "question": "En tu escala, ¿un puntaje más alto significa mejor o peor cliente?",
             "help": (
-                "No hay una convención universal y el motor no la adivina: se usa para ordenar los "
-                "tramos del informe y para leer los desplazamientos en el sentido correcto."
+                "Describe el puntaje que se está midiendo, y queda escrito en la ficha del "
+                "informe. Los indicadores de estabilidad no cambian con la respuesta —comparan "
+                "cómo se reparte la población, y eso no depende de hacia dónde crece el puntaje—, "
+                "pero tiene que decir lo mismo que la escala con que se construyó la tarjeta: si "
+                "se contradicen, la corrida se detiene antes de publicar dos respuestas distintas."
             ),
             "multiple": False,
             "options": (
@@ -3248,8 +3251,10 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
             ),
             "help": (
                 "No hay una convención universal y el motor no la adivina. Define el signo con que "
-                "se arman los puntos de cada tramo, así que invierte la tarjeta completa; los "
-                "indicadores de desempeño y de estabilidad la vuelven a preguntar por su cuenta."
+                "se arman los puntos de cada tramo, así que invierte la tarjeta completa. Es la "
+                "respuesta que manda: los indicadores de desempeño y de estabilidad la vuelven a "
+                "preguntar para el caso en que traigas un puntaje ya construido, y si contestan "
+                "distinto que aquí, se avisa antes de correr y la corrida se detiene."
             ),
             "multiple": False,
             "options": (
@@ -3365,7 +3370,9 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
             "help": (
                 "Sólo se aplica si ordenas la cartera por el puntaje de la tarjeta; ordenando por "
                 "la probabilidad calibrada no cambia ninguna cifra. Tiene que decir lo mismo que "
-                "la escala con que construiste la tarjeta, porque nadie lo comprueba por ti."
+                "la escala con que construiste la tarjeta: si se contradicen, se avisa antes de "
+                "correr y la corrida se detiene, porque medir al revés invierte el signo de los "
+                "indicadores de discriminación sin que el número parezca raro."
             ),
             "multiple": False,
             "options": (
