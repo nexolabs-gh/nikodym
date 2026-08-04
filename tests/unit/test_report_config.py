@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import subprocess
 import sys
-from typing import Any, get_args
+from typing import Any, Final, get_args
 
 import pytest
 import yaml
@@ -26,10 +26,12 @@ from nikodym.report.config import (
     AiNarrationConfig,
     BasicReportFormat,
     DocumentStructureConfig,
+    DocxRenderConfig,
     HtmlRenderConfig,
     PdfRenderConfig,
     ReportConfig,
     SectionPolicyConfig,
+    XlsxExportConfig,
 )
 from nikodym.report.exceptions import (
     ReportAIError,
@@ -79,6 +81,9 @@ def _report_defaults() -> dict[str, Any]:
             "fail_if_unavailable": False,
         },
         "docx": {
+            "fail_if_unavailable": False,
+        },
+        "xlsx": {
             "fail_if_unavailable": False,
         },
         "ai": {
@@ -337,10 +342,17 @@ def test_formatos_implementados_declarados_explicitamente() -> None:
 
 
 def test_campos_report_tienen_metadatos_ui() -> None:
-    """Todos los campos de config report declaran metadata de UI para SDD-23."""
+    """Todos los campos de config report declaran metadata de UI para SDD-23.
+
+    ⚠️ La tupla se escribe a mano y **omitía ``DocxRenderConfig``**: sus campos llevaban años sin
+    gatear aquí, y con ellos los de cualquier sub-config nueva que copiara su forma. Entran las dos
+    que faltaban (la del Word y la de la planilla) junto con las que ya estaban.
+    """
     for config_cls in (
         HtmlRenderConfig,
         PdfRenderConfig,
+        DocxRenderConfig,
+        XlsxExportConfig,
         AiNarrationConfig,
         DocumentStructureConfig,
         SectionPolicyConfig,
@@ -352,6 +364,39 @@ def test_campos_report_tienen_metadatos_ui() -> None:
             assert campo.description is not None, f"{config_cls.__name__}.{nombre} sin description"
             assert isinstance(extra, dict), f"{config_cls.__name__}.{nombre} sin ui_*"
             assert {"ui_widget", "ui_group", "ui_order"} <= set(extra)
+
+
+#: Formatos de ``report.formats`` que dependen de un extra de pip, con el submodelo de config donde
+#: vive su interruptor de degradación. Escrito a mano **a propósito**: es el oráculo del gate de
+#: abajo, y derivarlo del propio config lo volvería tautológico.
+FORMATOS_CON_EXTRA: Final = (("pdf", "pdf"), ("docx", "docx"), ("xlsx", "xlsx"))
+
+
+def test_todo_formato_que_depende_de_un_extra_declara_su_interruptor() -> None:
+    """Un formato tras un extra opcional degrada, y quien lo pide puede exigir lo contrario.
+
+    Es la clase que M-5 cerró, no sólo su caso: ``xlsx`` era el único de los tres **sin**
+    interruptor, así que la falta de un extra opcional no dejaba sin planilla — dejaba sin informe,
+    incluido el HTML, que no depende de nada. Sin este gate, un cuarto formato con extra puede
+    volver a nacer sin degradación y con la suite entera en verde.
+
+    ⚠️ Y el copy paga la asimetría antes que el código: mientras faltó el interruptor, el catálogo
+    del abanico (``ui/jobs.py``) publicaba de ``xlsx`` que «no degrada: si falta, la corrida se
+    detiene». Era cierto, y era el defecto.
+    """
+    for formato, seccion in FORMATOS_CON_EXTRA:
+        assert formato in IMPLEMENTED_FORMATS, f"{formato} ya no es un formato del motor"
+        campo = ReportConfig.model_fields.get(seccion)
+        assert campo is not None, f"report.{seccion} no existe: {formato} no tiene dónde degradar"
+        submodelo = campo.annotation
+        assert submodelo is not None and "fail_if_unavailable" in submodelo.model_fields, (
+            f"report.{seccion} no declara `fail_if_unavailable`: el formato '{formato}' depende de "
+            "un extra y no puede quedarse sin interruptor de degradación"
+        )
+        assert submodelo.model_fields["fail_if_unavailable"].default is False, (
+            f"report.{seccion}.fail_if_unavailable debe venir APAGADO: el default de los tres "
+            "formatos con extra es entregar el informe con un aviso, no detener la corrida"
+        )
 
 
 def test_report_public_api_minimo() -> None:

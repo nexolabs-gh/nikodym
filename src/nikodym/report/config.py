@@ -47,6 +47,7 @@ __all__ = [
     "PdfRenderConfig",
     "ReportConfig",
     "SectionPolicyConfig",
+    "XlsxExportConfig",
 ]
 
 
@@ -141,6 +142,26 @@ class DocxRenderConfig(NikodymBaseConfig):
             "un aviso y entrega el informe en los demás formatos."
         ),
         json_schema_extra={"ui_widget": "checkbox", "ui_group": "Word", "ui_order": 1},
+    )
+
+
+class XlsxExportConfig(NikodymBaseConfig):
+    """Config del export ``.xlsx`` opcional (planilla) vía ``openpyxl``.
+
+    Gemelo de :class:`DocxRenderConfig`: el export se activa incluyendo ``xlsx`` en ``formats``, y
+    aquí sólo se decide qué hacer cuando la dependencia opcional no está instalada. Hasta que este
+    interruptor existió, ``xlsx`` era el único formato **sin** degradación: la falta de ``openpyxl``
+    no dejaba sin planilla, dejaba sin informe.
+    """
+
+    fail_if_unavailable: bool = Field(
+        default=False,
+        title="Detener la corrida si la planilla no se puede generar",
+        description=(
+            "Si falta la librería que escribe el .xlsx: activado detiene la corrida; apagado deja "
+            "un aviso y entrega el informe en los demás formatos."
+        ),
+        json_schema_extra={"ui_widget": "checkbox", "ui_group": "Planilla", "ui_order": 1},
     )
 
 
@@ -394,6 +415,12 @@ class ReportConfig(NikodymBaseConfig):
         title="Opciones del Word",
         description="Qué hacer si falta la librería que escribe el .docx.",
         json_schema_extra={"ui_widget": "section", "ui_group": "Word", "ui_order": 1},
+    )
+    xlsx: XlsxExportConfig = Field(
+        default_factory=XlsxExportConfig,
+        title="Opciones de la planilla",
+        description="Qué hacer si falta la librería que escribe el .xlsx.",
+        json_schema_extra={"ui_widget": "section", "ui_group": "Planilla", "ui_order": 1},
     )
     ai: AiNarrationConfig = Field(
         default_factory=AiNarrationConfig,

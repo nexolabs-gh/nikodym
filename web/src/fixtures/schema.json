@@ -1581,6 +1581,12 @@
           ]
         }
       },
+      "report__XlsxExportConfig": {
+        "fail_if_unavailable": {
+          "has_default": true,
+          "value": false
+        }
+      },
       "scorecard__PointOverrideConfig": {
         "bin_label": {
           "has_default": false
@@ -4075,6 +4081,12 @@
         "type": {
           "has_default": true,
           "value": "standard"
+        },
+        "xlsx": {
+          "fail_if_unavailable": {
+            "has_default": true,
+            "value": false
+          }
         }
       },
       "repro": {
@@ -9332,6 +9344,23 @@
         "title": "SectionPolicyConfig",
         "type": "object"
       },
+      "report__XlsxExportConfig": {
+        "additionalProperties": false,
+        "description": "Config del export ``.xlsx`` opcional (planilla) vía ``openpyxl``.\n\nGemelo de :class:`DocxRenderConfig`: el export se activa incluyendo ``xlsx`` en ``formats``, y\naquí sólo se decide qué hacer cuando la dependencia opcional no está instalada. Hasta que este\ninterruptor existió, ``xlsx`` era el único formato **sin** degradación: la falta de ``openpyxl``\nno dejaba sin planilla, dejaba sin informe.",
+        "properties": {
+          "fail_if_unavailable": {
+            "default": false,
+            "description": "Si falta la librería que escribe el .xlsx: activado detiene la corrida; apagado deja un aviso y entrega el informe en los demás formatos.",
+            "title": "Detener la corrida si la planilla no se puede generar",
+            "type": "boolean",
+            "ui_group": "Planilla",
+            "ui_order": 1,
+            "ui_widget": "checkbox"
+          }
+        },
+        "title": "XlsxExportConfig",
+        "type": "object"
+      },
       "scorecard__PointOverrideConfig": {
         "additionalProperties": false,
         "description": "Override manual auditado para una pareja ``feature``/``bin_label``.",
@@ -13961,6 +13990,14 @@
                 "ui_group": "General",
                 "ui_order": 1,
                 "ui_widget": "hidden"
+              },
+              "xlsx": {
+                "$ref": "#/$defs/report__XlsxExportConfig",
+                "description": "Qué hacer si falta la librería que escribe el .xlsx.",
+                "title": "Opciones de la planilla",
+                "ui_group": "Planilla",
+                "ui_order": 1,
+                "ui_widget": "section"
               }
             },
             "title": "ReportConfig",

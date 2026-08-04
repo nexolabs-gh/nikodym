@@ -3579,9 +3579,10 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "value": "xlsx",
                     "label": "Tablas por operación en un libro de Excel",
                     "help": (
-                        "Las mismas tablas completas, una hoja por tabla. Se instala aparte y, a "
-                        "diferencia del documento, no degrada: si falta, la corrida se detiene. La "
-                        "opción «csv» entrega lo mismo sin instalar nada."
+                        "Las mismas tablas completas, una hoja por tabla. Se instala aparte; si "
+                        "falta, el informe sale igual con un aviso y sin el libro, salvo que "
+                        "pidas lo contrario en «Opciones de la planilla». La opción «csv» entrega "
+                        "lo mismo sin instalar nada."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,

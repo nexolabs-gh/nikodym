@@ -41,7 +41,11 @@ from nikodym.ui.routes import schema_payload
 #: Hojas visibles del formulario hoy. Medido con el mismo recorrido de
 #: ``test_copy_del_formulario.py``: el nodo de una lista cuenta (tiene título propio en pantalla) y
 #: sus ``items`` bajan a la fila editable. Subirlo o bajarlo es legítimo; hacerlo en silencio, no.
-HOJAS_DEL_FORMULARIO = 394
+#:
+#: 394 → 395 el 2026-08-05 con M-5: nace ``report.xlsx.fail_if_unavailable``, el interruptor que le
+#: faltaba a la planilla para degradar como sus dos hermanos (``pdf``, ``docx``). Una sola hoja
+#: visible; el submodelo que la contiene es un descriptor y por eso el otro golden sube **dos**.
+HOJAS_DEL_FORMULARIO = 395
 
 #: Descriptores de hoja que el barrido de paridad compara, en las DOS coordenadas (`$defs` y
 #: `sections`). Segundo golden, por la misma razón que el de 394: un barrido que recorra menos
@@ -66,7 +70,14 @@ HOJAS_DEL_FORMULARIO = 394
 #: dejaba a ``partition.py`` importando un símbolo inexistente, el dominio ``data`` caía a blob
 #: opaco y la baseline se capturaba mutilada. La baseline de un golden se toma sobre un árbol
 #: **completo**, no sobre uno a medio revertir.
-DESCRIPTORES_TOTALES = 1039
+#:
+#: 1039 → 1041 el 2026-08-05 con M-5 (``report.xlsx.fail_if_unavailable``). **Medido antes de
+#: moverlo**, con la baseline tomada sobre un árbol completo —`git archive HEAD` a un directorio
+#: aparte, sin tocar el working tree—: el diff del catálogo da exactamente **dos** nodos nuevos, el
+#: mismo campo en sus dos coordenadas (`$defs.report__XlsxExportConfig.fail_if_unavailable` y
+#: `sections.report.xlsx.fail_if_unavailable`), con **cero pérdidas y cero valores alterados** en
+#: los 1039 anteriores.
+DESCRIPTORES_TOTALES = 1041
 
 
 #: Las 14 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de

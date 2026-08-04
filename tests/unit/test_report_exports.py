@@ -8,17 +8,24 @@ identificador de la operación intacto y abrible por quien lo reciba. Los tests 
 
 from __future__ import annotations
 
+import builtins
 import importlib.util
+import re
+import sys
+import tomllib
+import warnings
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from nikodym.report.config import ReportConfig, SectionPolicyConfig
+from nikodym.report.config import ReportConfig, SectionPolicyConfig, XlsxExportConfig
 from nikodym.report.document import PER_OBSERVATION_TABLES
-from nikodym.report.exceptions import ReportExportError
+from nikodym.report.exceptions import ReportDependencyError, ReportExportError
 from nikodym.report.exports import (
+    _XLSX_MISSING_MSG,
     DATA_EXPORT_FORMATS,
+    _openpyxl_disponible,
     data_export_refs,
     per_observation_tables,
     write_data_exports,
@@ -177,8 +184,14 @@ def test_csv_y_xlsx_conviven_como_adjuntos_distintos(tmp_path: Path) -> None:
     assert all(Path(path).is_file() for path in exports.values())
 
 
+@pytest.mark.skipif(not _HAS_OPENPYXL, reason="requiere el extra excel (openpyxl)")
 def test_nombre_de_hoja_excel_respeta_el_limite_de_31_caracteres() -> None:
-    """Excel rechaza hojas de más de 31 caracteres: el nombre se recorta, no revienta al abrir."""
+    """Excel rechaza hojas de más de 31 caracteres: el nombre se recorta, no revienta al abrir.
+
+    ⚠️ Gateado por el extra aunque no escriba nada: desde la degradación de M-5,
+    ``data_export_refs`` **omite** las referencias del libro cuando ``openpyxl`` no está, así que
+    sin el extra este test mediría el vacío en vez de los nombres de hoja.
+    """
     config = ReportConfig(formats=("xlsx",))
     tables = {key: _score_frame(rows=2) for key in PER_OBSERVATION_TABLES}
 
@@ -188,3 +201,184 @@ def test_nombre_de_hoja_excel_respeta_el_limite_de_31_caracteres() -> None:
     hojas = [ref.sheet for ref in refs]
     assert all(len(hoja) <= 31 for hoja in hojas)
     assert len(set(hojas)) == len(hojas)  # sin colisiones tras el recorte
+
+
+# ─────────────────────── M-5: la planilla degrada, no mata el informe ───────────────────────
+#
+# Hasta esta enmienda, `xlsx` era el único formato SIN degradación: `_write_xlsx` levantaba
+# `ReportDependencyError` y nadie lo capturaba, así que la falta de un extra opcional no dejaba sin
+# planilla — dejaba sin informe, incluido el HTML, que no depende de nada. Sus dos hermanos (`pdf`,
+# `docx`) degradan en su renderer y tienen interruptor propio; aquí se cierra la asimetría.
+
+
+class _SinOpenpyxl:
+    """Finder que borra ``openpyxl`` del sistema de imports: ni ``find_spec`` ni ``import``.
+
+    Simula la instalación **sin el extra** ``excel`` de forma determinista y por la ruta real, no
+    parcheando la función que se quiere medir. Levantar ``ModuleNotFoundError`` (en vez de devolver
+    ``None``) es lo que hace que ``importlib.util.find_spec`` también lo vea ausente.
+    """
+
+    def find_spec(self, name: str, path: object = None, target: object = None) -> None:
+        if name == "openpyxl" or name.startswith("openpyxl."):
+            raise ModuleNotFoundError(f"No module named {name!r}")
+        return None
+
+
+def _sin_extra_excel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deja el proceso como una instalación sin ``nikodym[excel]`` (ausencia real, no simulada)."""
+    for modulo in [
+        name for name in sys.modules if name == "openpyxl" or name.startswith("openpyxl.")
+    ]:
+        monkeypatch.delitem(sys.modules, modulo, raising=False)
+    monkeypatch.setattr(sys, "meta_path", [_SinOpenpyxl(), *sys.meta_path])
+
+
+def _openpyxl_presente_pero_roto(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deja el paquete localizable pero su import roto: el caso de la SEGUNDA capa de defensa."""
+    real_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals_: dict[str, object] | None = None,
+        locals_: dict[str, object] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "openpyxl":
+            raise ImportError("openpyxl instalado a medias")
+        return real_import(name, globals_, locals_, fromlist, level)
+
+    for modulo in [
+        name for name in sys.modules if name == "openpyxl" or name.startswith("openpyxl.")
+    ]:
+        monkeypatch.delitem(sys.modules, modulo, raising=False)
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+
+def test_sin_openpyxl_la_planilla_se_omite_y_el_resto_del_informe_sale(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """CONTROL NEGATIVO de M-5: sin el extra, `xlsx` avisa y NO tumba el resto de los exports.
+
+    Se piden los dos formatos de datos. Antes de la enmienda, el ``ReportDependencyError`` del libro
+    propagaba desde ``write_data_exports`` y se llevaba por delante hasta el ``.csv`` ya escrito en
+    disco, que quedaba fuera del resultado. Ahora el ``.csv`` sale y se devuelve.
+    """
+    _sin_extra_excel(monkeypatch)
+    # Control positivo: el payload deja el extra realmente ausente, o sea lo que el caso mide.
+    assert not _openpyxl_disponible()
+    config = ReportConfig(formats=("csv", "xlsx"))
+
+    with pytest.warns(RuntimeWarning, match=r"No se pudo generar el export \.xlsx"):
+        exports = write_data_exports(_tables(), config=config, output_dir=str(tmp_path))
+
+    assert set(exports) == {"scorecard_report__scorecard_score.csv"}
+    assert Path(exports["scorecard_report__scorecard_score.csv"]).is_file()
+    assert not list(tmp_path.glob("*.xlsx"))
+
+
+def test_sin_openpyxl_el_documento_no_referencia_una_planilla_inexistente(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """La referencia del libro se omite: el documento no puede nombrar un adjunto que no saldrá.
+
+    ``data_export_refs`` es la fuente ÚNICA de nombres —la consultan el documento y el writer—, así
+    que omitir ahí es lo que impide que las dos superficies divergan. El criterio ya estaba escrito
+    en el docstring de la función: *«en vez de referenciar un archivo inexistente»*.
+    """
+    _sin_extra_excel(monkeypatch)
+    config = ReportConfig(formats=("csv", "xlsx"))
+
+    refs = data_export_refs(_tables(), config=config)
+
+    assert [ref.filename for ref in refs] == ["scorecard_report__scorecard_score.csv"]
+    assert all(ref.sheet == "" for ref in refs)
+
+
+def test_sin_openpyxl_y_fail_if_unavailable_la_corrida_se_detiene(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """El interruptor gemelo del ``.docx``: activado, la falta del extra detiene con diagnóstico."""
+    _sin_extra_excel(monkeypatch)
+    config = ReportConfig(formats=("csv", "xlsx"), xlsx=XlsxExportConfig(fail_if_unavailable=True))
+
+    with pytest.raises(ReportDependencyError, match="nikodym\\[excel\\]"):
+        write_data_exports(_tables(), config=config, output_dir=str(tmp_path))
+
+
+def test_openpyxl_presente_pero_roto_tambien_degrada(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """SEGUNDA capa: ``find_spec`` lo ve, el import falla, y el informe sigue saliendo.
+
+    Es la razón por la que la captura de ``ReportDependencyError`` alrededor de ``_write_xlsx`` NO
+    es código muerto tras añadir la comprobación previa: una instalación a medias o una versión
+    incompatible con el ``ExcelWriter`` de pandas siguen levantando al importar de verdad.
+    """
+    _openpyxl_presente_pero_roto(monkeypatch)
+    # Control positivo: este caso NO es el anterior — el paquete se sigue localizando.
+    assert _openpyxl_disponible()
+    config = ReportConfig(formats=("csv", "xlsx"))
+
+    with pytest.warns(RuntimeWarning, match=r"No se pudo generar el export \.xlsx"):
+        exports = write_data_exports(_tables(), config=config, output_dir=str(tmp_path))
+
+    assert set(exports) == {"scorecard_report__scorecard_score.csv"}
+    assert not list(tmp_path.glob("*.xlsx"))
+
+
+def test_openpyxl_presente_pero_roto_con_fail_if_unavailable_relanza(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """El interruptor gobierna las DOS capas, no sólo la comprobación previa."""
+    _openpyxl_presente_pero_roto(monkeypatch)
+    config = ReportConfig(formats=("xlsx",), xlsx=XlsxExportConfig(fail_if_unavailable=True))
+
+    with pytest.raises(ReportDependencyError, match="nikodym\\[excel\\]"):
+        write_data_exports(_tables(), config=config, output_dir=str(tmp_path))
+
+
+def test_sin_tablas_por_observacion_la_planilla_ausente_no_genera_ruido(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Sin nada que exportar no hay aviso: un aviso que se dispara de más se aprende a ignorar."""
+    _sin_extra_excel(monkeypatch)
+    config = ReportConfig(formats=("xlsx",))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # cualquier aviso aquí falla el test
+        exports = write_data_exports(
+            {"model.coefficients": pd.DataFrame({"beta": [1.0]})},
+            config=config,
+            output_dir=str(tmp_path),
+        )
+
+    assert exports == {}
+
+
+def test_el_filtro_de_pyproject_ancla_el_mensaje_real_de_la_dependencia() -> None:
+    """El ``filterwarnings`` del repo tiene que casar con el mensaje que el motor emite HOY.
+
+    Sin este gate, cambiar el texto de ``_XLSX_MISSING_MSG`` deja el ``ignore`` sin aplicar **en
+    silencio** y los jobs sin el extra caen con ``filterwarnings=["error"]``, lejos de la causa. El
+    propio comentario del ``pyproject`` promete «cambiar ambos a la vez»; esto lo hace cumplir.
+    """
+    # Parseado con `tomllib`, no leído como texto: es la MISMA cadena que recibe pytest, ya sin los
+    # escapes del TOML. Comparar contra el fuente crudo mediría el archivo, no el filtro efectivo.
+    raiz = Path(__file__).resolve().parents[2]
+    with (raiz / "pyproject.toml").open("rb") as archivo:
+        filtros = tomllib.load(archivo)["tool"]["pytest"]["ini_options"]["filterwarnings"]
+    patrones = [
+        filtro.split(":")[1]
+        for filtro in filtros
+        if filtro.startswith("ignore:") and filtro.endswith(":RuntimeWarning")
+    ]
+
+    assert patrones, "no se encontró ningún filtro de RuntimeWarning en pyproject.toml"
+    xlsx = [patron for patron in patrones if "xlsx" in patron]
+    assert len(xlsx) == 1, f"se esperaba un único filtro de la planilla, hay {len(xlsx)}: {xlsx}"
+    # `filterwarnings` casa el patrón contra el INICIO del mensaje (re.match), no contra todo.
+    assert re.match(xlsx[0], _XLSX_MISSING_MSG), (
+        f"el filtro {xlsx[0]!r} ya no casa con el mensaje real {_XLSX_MISSING_MSG!r}"
+    )

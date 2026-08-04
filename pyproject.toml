@@ -284,6 +284,10 @@ filterwarnings = [
   # aplicar en silencio y los jobs sin extras fallan: cambiar ambos a la vez.
   "ignore:No se pudo generar el PDF:RuntimeWarning",
   "ignore:No se pudo generar el \\.docx:RuntimeWarning",
+  # Tercer hermano, por la misma razón y con el mismo contrato: el prefijo ancla
+  # `nikodym.report.exports._XLSX_MISSING_MSG`, y si ese mensaje cambia el filtro deja de aplicar
+  # en silencio. La degradación sigue verificada con `pytest.warns` en tests/unit/test_report_exports.py.
+  "ignore:No se pudo generar el export \\.xlsx:RuntimeWarning",
 ]
 
 [tool.coverage.run]

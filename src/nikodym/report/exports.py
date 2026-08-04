@@ -13,6 +13,8 @@ Dos formatos, ambos opt-in vía ``report.formats``:
 - ``xlsx``: un único libro (``{basename}__por_observacion.xlsx``) con una hoja por tabla, vía
   ``openpyxl`` (extra ``excel``, import perezoso). El ``.xlsx`` es un ZIP y **no** es
   byte-determinista (guarda marcas de tiempo); su verificación es estructural, como la del PDF.
+  Sin el extra **degrada con gracia**, igual que el PDF y el ``.docx``: avisa y entrega el resto
+  del informe, o detiene la corrida si ``report.xlsx.fail_if_unavailable`` lo pide.
 
 El índice del frame se exporta **siempre**: en estas tablas es el identificador de la operación
 (``loan_id``), y perderlo dejaría un dataset anónimo e inservible para conciliar contra el origen.
@@ -22,7 +24,9 @@ El índice del frame se exporta **siempre**: en estas tablas es el identificador
 
 from __future__ import annotations
 
+import importlib.util
 import re
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, TypeAlias
@@ -52,6 +56,18 @@ __all__ = [
 DATA_EXPORT_FORMATS: Final[frozenset[str]] = frozenset({"csv", "xlsx"})
 
 _WORKBOOK_SUFFIX: Final = "__por_observacion.xlsx"
+_XLSX_MISSING_MSG: Final = (
+    "No se pudo generar el export .xlsx: falta openpyxl. Instale `nikodym[excel]` y reintente, o "
+    "pida el formato 'csv', que no requiere extras."
+)
+"""Diagnóstico único de la dependencia ausente: lo comparten la degradación y el fallo estricto.
+
+⚠️ Su PREFIJO está anclado en el ``filterwarnings`` de ``pyproject.toml``
+(``ignore:No se pudo generar el export \\.xlsx:RuntimeWarning``), que existe porque el aviso de una
+degradación esperada tumbaría, bajo ``filterwarnings=["error"]``, cualquier test que corra un preset
+con ``xlsx`` en un job sin el extra. Si este mensaje cambia, el filtro deja de aplicar **en
+silencio**: cambiar ambos a la vez. Mismo contrato que los dos filtros del PDF y del ``.docx``.
+"""
 _INDEX_FALLBACK_NAME: Final = "id"
 _EXCEL_SHEET_MAX: Final = 31  # límite duro de Excel para el nombre de una hoja.
 _EXCEL_FORBIDDEN: Final = re.compile(r"[\[\]:*?/\\]")
@@ -90,8 +106,18 @@ def data_export_refs(
     (el documento referencia el adjunto) y por :func:`write_data_exports` (que lo escribe). Si no se
     pidió ``csv`` ni ``xlsx``, devuelve ``()`` y el documento lo declara explícitamente en vez de
     referenciar un archivo inexistente.
+
+    ⚠️ **No es función pura de** ``(tables, config)``: cuando se pidió ``xlsx`` y ``openpyxl`` no
+    está instalado, las referencias del libro se omiten. Es lo que mantiene en pie el criterio de la
+    frase anterior —*«en vez de referenciar un archivo que no existe»*—, y sólo se sostiene porque
+    ésta es la fuente **única**: el documento y el writer consultan la misma disponibilidad, así que
+    no pueden divergir. La alternativa (que el writer degrade y el documento no se entere) publica
+    un adjunto inexistente, que es peor que no ofrecerlo. Mismo precedente que D-ABA: comprobar un
+    extra de pip con ``find_spec`` es la forma barata de saberlo sin importar nada.
     """
     formats = set(config.formats)
+    if "xlsx" in formats and not _openpyxl_disponible():
+        formats.discard("xlsx")
     refs: list[DataExportRef] = []
     for key in per_observation_tables(tables):
         rows = len(tables[key].index)
@@ -128,8 +154,17 @@ def write_data_exports(
     Es lo que puebla :attr:`~nikodym.report.results.ReportResult.data_exports`. Las tablas se
     escriben **completas**: ``sections.max_table_rows`` acota lo que se *muestra* en el documento,
     nunca lo que se *entrega* como dato.
+
+    **Degrada con gracia**, como el PDF y el ``.docx``: si se pidió ``xlsx`` y ``openpyxl`` no está,
+    avisa con ``RuntimeWarning`` y devuelve **los formatos que sí se escribieron** —o re-lanza, con
+    ``report.xlsx.fail_if_unavailable=True``—. Hasta que esto existió, la falta de un extra
+    opcional mataba el informe entero, incluido el HTML, que no depende de nada.
     """
+    faltante = "xlsx" in set(config.formats) and not _openpyxl_disponible()
+    if faltante and config.xlsx.fail_if_unavailable:
+        raise ReportDependencyError(_XLSX_MISSING_MSG)
     refs = data_export_refs(tables, config=config)
+    _avisa_xlsx_omitido(faltante, tables=tables)
     if not refs:
         return {}
     directory = _prepare_output_dir(output_dir)
@@ -141,9 +176,49 @@ def write_data_exports(
     workbook = tuple(ref for ref in refs if ref.sheet)
     if workbook:
         sheets = {ref.sheet: tables[ref.table_key] for ref in workbook}
-        path = _write_xlsx(sheets, directory / workbook[0].filename)
+        try:
+            path = _write_xlsx(sheets, directory / workbook[0].filename)
+        except ReportDependencyError as exc:
+            # Segunda capa, y NO es código muerto: ``find_spec`` dice que el paquete está, pero un
+            # ``openpyxl`` presente y roto (instalación a medias, versión incompatible con el
+            # ``ExcelWriter`` de pandas) sigue levantando al importarlo de verdad. Sin esta captura,
+            # ese caso conserva el defecto que la enmienda cierra: mata el informe entero.
+            if config.xlsx.fail_if_unavailable:
+                raise
+            warnings.warn(
+                f"{exc} — El reporte se generó sin el export .xlsx.", RuntimeWarning, stacklevel=2
+            )
+            return exports
         exports[workbook[0].filename] = str(path)
     return exports
+
+
+def _avisa_xlsx_omitido(faltante: bool, *, tables: Mapping[str, DataFrameLike]) -> None:
+    """Avisa de la planilla omitida cuando ``xlsx`` era el único formato de datos pedido.
+
+    Sale también cuando se pidió ``csv`` a la vez —el usuario recibe sus adjuntos, pero lo que pidió
+    no salió entero—. Lo que **no** se avisa es la corrida sin tablas por observación: ahí no había
+    nada que exportar y el ``xlsx`` no habría cambiado nada, así que el aviso sería ruido.
+    """
+    if faltante and per_observation_tables(tables):
+        warnings.warn(
+            f"{_XLSX_MISSING_MSG} — El reporte se generó sin el export .xlsx.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+
+def _openpyxl_disponible() -> bool:
+    """Indica si ``openpyxl`` (extra ``excel``) se puede importar en esta instalación.
+
+    Sin importarlo: ``find_spec`` sólo localiza el módulo. Atrapa ``ModuleNotFoundError`` porque un
+    finder puede levantarlo en vez de devolver ``None`` —es como se simula la ausencia de un extra
+    de forma determinista, y es también lo que ocurre con un paquete padre ausente—.
+    """
+    try:
+        return importlib.util.find_spec("openpyxl") is not None
+    except (ImportError, ValueError):
+        return False
 
 
 def _prepare_output_dir(output_dir: str) -> Path:
@@ -191,10 +266,7 @@ def _write_xlsx(sheets: Mapping[str, DataFrameLike], path: Path) -> Path:
         temp_path.replace(path)
     except ImportError as exc:
         temp_path.unlink(missing_ok=True)
-        raise ReportDependencyError(
-            "No se pudo generar el export .xlsx: falta openpyxl. Instale `nikodym[excel]` y "
-            "reintente, o pida el formato 'csv', que no requiere extras."
-        ) from exc
+        raise ReportDependencyError(_XLSX_MISSING_MSG) from exc
     except OSError as exc:
         temp_path.unlink(missing_ok=True)
         raise ReportExportError(

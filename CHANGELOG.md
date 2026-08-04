@@ -71,6 +71,14 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Corregido
 
+- 🔴 **Pedir la planilla sin tener su librería ya no deja sin informe.** `xlsx` era el único formato
+  que no degradaba: si `openpyxl` no estaba instalado, la corrida moría al escribir el adjunto y se
+  llevaba por delante el informe **entero**, incluido el HTML, que no depende de ningún extra —y
+  hasta el `.csv` que ya se había escrito en disco quedaba fuera del resultado—. Ahora hace lo mismo
+  que el PDF y el Word: avisa, entrega todo lo demás, y el documento no nombra un adjunto que no
+  existe. Quien prefiera lo contrario tiene su interruptor, `report.xlsx.fail_if_unavailable`, con el
+  mismo default apagado que sus dos hermanos.
+
 - 🔴 **Un puntaje ya no puede medirse al revés de como se construyó.** La dirección del puntaje
   —«un puntaje más alto, ¿es mejor o peor cliente?»— se pregunta en tres sitios, y hasta ahora cada
   uno se leía por su cuenta: con la tarjeta construida en un sentido y el desempeño midiendo en el

@@ -53,6 +53,7 @@ from nikodym.report.config import (
     PdfRenderConfig,
     ReportConfig,
     SectionPolicyConfig,
+    XlsxExportConfig,
 )
 from nikodym.report.document import CHAPTER_SPECS
 from nikodym.report.exceptions import ReportDependencyError, ReportExportError
@@ -653,6 +654,77 @@ def test_execute_csv_en_formats_puebla_data_exports_con_las_tablas_completas(
 
     rules = [event.payload["regla"] for event in sink.events if event.kind == "decision"]
     assert "report_export_datos" in rules
+
+
+def _sin_extra_excel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Deja el proceso como una instalación sin ``nikodym[excel]``, por la ruta real del import.
+
+    Gemelo del ``_block_weasyprint`` de más arriba, pero sobre ``sys.meta_path``: la degradación de
+    la planilla se decide con ``find_spec``, que **no** pasa por ``builtins.__import__``. Levantar
+    ``ModuleNotFoundError`` desde el finder es lo que la hace ausente para los dos caminos.
+    """
+
+    class _SinOpenpyxl:
+        def find_spec(self, name: str, path: object = None, target: object = None) -> None:
+            if name == "openpyxl" or name.startswith("openpyxl."):
+                raise ModuleNotFoundError(f"No module named {name!r}")
+            return None
+
+    for modulo in [
+        name for name in sys.modules if name == "openpyxl" or name.startswith("openpyxl.")
+    ]:
+        monkeypatch.delitem(sys.modules, modulo, raising=False)
+    monkeypatch.setattr(sys, "meta_path", [_SinOpenpyxl(), *sys.meta_path])
+
+
+def test_execute_xlsx_sin_el_extra_degrada_y_el_informe_sale_igual(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """CONTROL NEGATIVO de M-5, end-to-end: sin ``openpyxl``, el informe HTML sale igual.
+
+    Es el defecto entero: ``_write_xlsx`` levantaba ``ReportDependencyError``, ``execute`` lo dejaba
+    propagar y **el informe no se producía**, incluido el HTML, que no depende de ningún extra. Sus
+    dos hermanos (``pdf``, ``docx``) ya degradaban aquí; ``xlsx`` era el único que la mataba.
+    """
+    _sin_extra_excel(monkeypatch)
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html", "xlsx"),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+    study.artifacts.set("scorecard", "score", _score_frame())
+
+    with pytest.warns(RuntimeWarning, match=r"No se pudo generar el export \.xlsx"):
+        result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
+
+    assert result.data_exports == {}
+    assert result.html_path is not None
+    assert Path(result.html_path).is_file()
+    assert not list(tmp_path.glob("*.xlsx"))
+    # Y el documento no promete un adjunto que no existe (misma fuente de nombres que el writer).
+    html = (tmp_path / "scorecard_report.html").read_text(encoding="utf-8")
+    assert "__por_observacion.xlsx" not in html
+
+
+def test_execute_xlsx_sin_el_extra_y_fail_if_unavailable_detiene(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Con el interruptor activado la corrida se detiene, igual que ``pdf``/``docx`` estrictos."""
+    _sin_extra_excel(monkeypatch)
+    cfg = ReportConfig(
+        output_dir=str(tmp_path),
+        formats=("html", "xlsx"),
+        xlsx=XlsxExportConfig(fail_if_unavailable=True),
+        sections=SectionPolicyConfig(max_table_rows=10),
+    )
+    study = _study_with_report_artifacts(config=cfg)
+    study.artifacts.set("scorecard", "score", _score_frame())
+
+    with pytest.raises(ReportDependencyError, match="nikodym\\[excel\\]"):
+        ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
 
 
 def test_sin_formato_de_datos_no_hay_exports(tmp_path: Path) -> None:
