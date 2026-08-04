@@ -11,8 +11,8 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-04 noche, **M-7 cerrado y los tres defectos que destapó prepararlo**)
 
-**`main` = `a425ca2`.** ⚠️ **Su CI quedó lanzado: verificarlo al arrancar** (run `30948817669`); los
-cinco commits anteriores tienen 16/16 confirmado job a job. **PyPI sigue en `1.10.0` y no hay release
+**`main` = `6dd5c0f`.** **CI 16/16 confirmado job a job con `gh` sobre `a425ca2`**, el commit con
+todo el código; ⚠️ el de `6dd5c0f` (solo-docs) quedó lanzado y hay que verificarlo al arrancar. **PyPI sigue en `1.10.0` y no hay release
 autorizado.** Gates: pytest **5114 passed / 8 skipped**, vitest **636/636**, mypy 245, `ruff check` y
 `format`, typecheck y lint del front, fixtures regenerados, bundle reconstruido, `mkdocs --strict`.
 

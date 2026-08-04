@@ -7,8 +7,8 @@
 >
 > ## Lo último (2026-08-04 noche): **M-7 cerrado, y los TRES defectos que destapó prepararlo**
 >
-> **`main` = `a425ca2`.** ⚠️ **Su CI quedó lanzado y hay que verificarlo al arrancar** (run
-> `30948817669`); los cinco commits anteriores tienen **16/16 confirmado job a job**. Gates: pytest
+> **`main` = `6dd5c0f`.** **CI 16/16 confirmado job a job con `gh` sobre `a425ca2`**, el commit con
+> todo el código; ⚠️ el de `6dd5c0f` quedó lanzado (solo-docs) y hay que **verificarlo al arrancar**. Gates: pytest
 > **5114 passed / 8 skipped** (base 5104), vitest **636/636** (base 633), mypy 245, ruff check y
 > format, typecheck y lint, fixtures de schema y trabajos regenerados, bundle reconstruido,
 > `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
