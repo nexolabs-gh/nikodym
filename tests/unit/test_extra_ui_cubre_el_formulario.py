@@ -38,7 +38,7 @@ EXTRA_POR_SECCION = {
     "calibration": "scoring",
     "performance": "scoring",
     "stability": "scoring",
-    "survival": "survival",  # además de `scoring`: `kaplan_meier`/`cox_aft` exigen lifelines
+    "survival": "survival",  # además de `scoring`: `cox_ph`/`aft` exigen lifelines (KM no)
     "provisioning_cmf": "scoring",
     "provisioning_internal": "scoring",
     "provisioning_ifrs9": "scoring",

@@ -138,7 +138,8 @@ Cerró los defectos conocidos que sólo vivían en el HANDOFF. Todos acotados y 
 >
 > El criterio quedó escrito y gateado: **`[ui]` trae lo que su formulario puede ejecutar.**
 > `survival` entra porque su sección está en el formulario y `method` es editable —el preset usa
-> `discrete_hazard`, pero elegir `kaplan_meier`/`cox_aft` exige lifelines—; `ml`, `tuning`,
+> `discrete_hazard`, pero elegir `cox_ph`/`aft` exige lifelines; `kaplan_meier` **no**, y por eso
+> dejó de exigirlo el 2026-08-03—; `ml`, `tuning`,
 > `explain`, `markov` y `forward` **no** entran porque el formulario no los ofrece, y `[pdf]` nunca
 > entra por copyleft. Lo vigila `tests/unit/test_extra_ui_cubre_el_formulario.py`, que además exige
 > declarar el extra de toda sección nueva del formulario.

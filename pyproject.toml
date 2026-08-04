@@ -116,7 +116,9 @@ tracking = ["mlflow>=2.10"]                # Apache-2.0 (runs/registry, SDD-04)
 # y el criterio de cierre de B2 se apoya en que un tercero escriba el comando obvio y funcione.
 # `survival` (lifelines, MIT) entra porque su sección SÍ está en el formulario y `method` es
 # editable: el preset usa `discrete_hazard` (statsmodels, viene con scoring), pero elegir
-# `kaplan_meier`/`cox_aft` desde la UI exige lifelines. Lo que NO entra es lo que el formulario no
+# `cox_ph`/`aft` desde la UI exige lifelines — `kaplan_meier` NO, que estima con numpy y stdlib
+# (`survival/kaplan_meier.py`, y `_METODOS_SIN_EXTRA` en `survival/step.py` lo declara). Medido el
+# 2026-08-03. Lo que NO entra es lo que el formulario no
 # ofrece (`ml`, `tuning`, `explain`, `markov`, `forward`) ni `[pdf]`, que arrastra copyleft y por eso
 # tampoco está en `all`. El gate `tests/unit/test_extra_ui_cubre_el_formulario.py` lo hace cumplir.
 ui       = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9", "nikodym[scoring]", "nikodym[survival]", "nikodym[excel]", "nikodym[docx]", "nikodym[report]"]   # MIT / BSD-3 / Apache-2.0 / PSF (interfaz local completa, SDD-23); multipart = uploads UploadFile; `report` = matplotlib, porque el formulario ofrece `report.html.render_charts` y viene en True

@@ -358,7 +358,7 @@ class SurvivalStep(AuditableMixin):
 **Dependencias condicionales.**
 - `("model", "raw_pd_frame")` es prerequisito solo cuando la config declara una fuente PD de F1 (`pd_source ∈ {model_raw, calibration}`): la ruta estándar lifetime reusa scoring y de ahí también se arrastra `partition`. Con `pd_source="none"` el prerequisito desaparece (`requires` dinámico): el hazard se ajusta standalone sobre `covariate_cols` propias del dataset **sobre el libro COMPLETO** — el ajuste es de provisión, no un ejercicio de validación. Como el `DataStep` siempre particiona, el step excluye explícitamente la columna `partition` del frame de fit en modo standalone (si la columna llegara al motor, este recortaría el fit a Desarrollo); las predicciones y la term structure sí conservan la etiqueta por fila. Si alguien necesita un fit standalone solo-Desarrollo, eso es config nueva, no un default.
 - `("calibration", "calibrated_pd_frame")` no es prerequisito duro del Step: se exige dentro de `execute` solo si `cfg.input.pd_source == "calibration"`.
-- Cox/AFT/KM requieren lifelines; discrete hazard requiere statsmodels. Si falta el extra correspondiente, se levanta `MissingDependencyError` con mensaje en español.
+- Cox/AFT requieren lifelines; discrete hazard requiere statsmodels. Si falta el extra correspondiente, se levanta `MissingDependencyError` con mensaje en español. **KM no exige ningún extra**: estima con `numpy` y `statistics.NormalDist` de la stdlib, y exigírselo era un gate más estricto que el motor (corregido el 2026-08-03; el conjunto lo declara `_METODOS_SIN_EXTRA` en `survival/step.py`).
 
 **Artefactos que `SurvivalStep.execute` escribe en `study.artifacts`.**
 
@@ -518,7 +518,7 @@ class SurvivalConfig(NikodymBaseConfig):
 1. **Descartar azar.** `del rng`; survival v1 es determinista.
 2. **Leer config.** Resolver `study.config.survival`; si falta en invocación programática, exigir `SurvivalConfig` explícito.
 3. **Validar prerequisitos CT-1.** Exigir `data.frame` y `model.raw_pd_frame`.
-4. **Validar prerequisitos condicionales.** Si `pd_source="calibration"`, exigir `calibration.calibrated_pd_frame`; si `method ∈ {"kaplan_meier","cox_ph","aft"}`, exigir lifelines; si `method="discrete_hazard"`, exigir statsmodels.
+4. **Validar prerequisitos condicionales.** Si `pd_source="calibration"`, exigir `calibration.calibrated_pd_frame`; si `method ∈ {"cox_ph","aft"}`, exigir lifelines; si `method="discrete_hazard"`, exigir statsmodels. `kaplan_meier` no exige ninguno.
 5. **Copias defensivas.** Copiar frames y validar índice único/alineación.
 6. **Validar tiempo/evento.** Chequear duración positiva, evento binario, censura derecha y particiones.
 7. **Unir PD F1.** Alinear `pd_raw`/`linear_predictor` por índice; registrar fuente y cobertura.
