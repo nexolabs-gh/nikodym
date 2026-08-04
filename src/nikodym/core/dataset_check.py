@@ -62,6 +62,20 @@ COMODIN = "*"
 #: propósito: las configs de dominio no deben heredar del núcleo para poder declarar algo suyo.
 METODO_REQUISITOS = "requisitos_incumplidos"
 
+#: Igual que el anterior, pero para lo que una opción exige **del resto del config** y no del
+#: dataset: «elegiste consumir la curva que produce otra sección, y esa sección está apagada»
+#: (SDD del abanico, D-ABA-8).
+#:
+#: 🔴 Es la clase que el censo del abanico midió sin mecanismo, y donde cae medio abanico
+#: metodológico. Ninguna de sus exigencias es una columna ni un valor: son **el config mirándose a
+#: sí mismo**, y por eso no las puede expresar :data:`METODO_REQUISITOS`, que recibe columnas.
+#:
+#: ⚠️ **AÑADE avisos, no los quita**, así que es hermano de :data:`METODO_REQUISITOS_PERFIL` y no de
+#: los dos supresores. La distinción no es estética: :data:`METODO_COLUMNAS_INACTIVAS` y
+#: :data:`METODO_COLUMNAS_PRODUCIDAS` heredan la obligación de medirse en los dos sentidos (D-RAM-4)
+#: porque pueden **callar** un desajuste, y un método que sólo añade no puede hacer eso.
+METODO_REQUISITOS_CONTEXTO = "requisitos_incumplidos_por_contexto"
+
 #: Igual que el anterior, pero para las invariantes que necesitan **estadísticas** del dataset y no
 #: sólo sus nombres de columna (enmienda PERFIL-DE-COLUMNAS, D-PERF-4). Va por un método propio y no
 #: ampliando el de arriba: aquel lo implementan cuatro secciones, y añadirle un parámetro obligaría
@@ -206,6 +220,37 @@ class PerfilDataset:
             if perfil.nombre == nombre:
                 return perfil
         return None
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoConfig:
+    """Lo que una sección puede saber **del resto del config**, y nada más (D-ABA-8).
+
+    Existe porque media docena de opciones del abanico metodológico no exigen una columna ni un
+    valor, sino **que otra sección esté activa**: elegir que la curva de PD venga de `survival`
+    obliga a que `survival` corra. `requisitos_incumplidos` recibe columnas y no puede expresarlo.
+
+    ⚠️ **Es un DTO cerrado, y su tamaño ES la garantía.** D-INV-1 rechazó darle el config raíz a cada
+    dominio para no acoplarlos entre sí; un objeto con un solo campo conserva esa restricción por
+    construcción — la sección **no puede** leer un campo ajeno aunque quiera, porque no está aquí—.
+    Lo que se amplía es el contexto mínimo, no la puerta.
+
+    Y es el punto de extensión: el censo del abanico (§6) aisló una situación que este DTO todavía
+    no cubre —una propiedad del CONTENIDO de un artefacto que produce otra sección, donde vive
+    ``pit_mode='consume_pit'``—. El día que se conecte, se añade un campo y **quien no lo lea sigue
+    funcionando igual**; con un ``frozenset`` a secas habría que cambiar la firma de todos los
+    implementadores.
+    """
+
+    secciones_activas: frozenset[str]
+    """Las secciones que ESTA invocación va a ejecutar (D-FX-1).
+
+    «Activo» es *estar en la lista efectiva de pasos*, no *tener sección no nula*: con
+    ``run.steps=['data','binning']`` el resto está apagado para esta corrida aunque su sección
+    exista, y usar ``is not None`` describiría un pipeline distinto del que se va a ejecutar. Es
+    literalmente el criterio de :meth:`Study._resolve_steps`, y :func:`_secciones_activas` lo
+    reutiliza en vez de reimplementarlo.
+    """
 
 
 TipoDesajuste = Literal[
@@ -392,6 +437,31 @@ def _secciones_que_corren(config: NikodymConfig) -> frozenset[str] | None:
     return None if declarados is None else frozenset(declarados)
 
 
+def _secciones_activas(config: NikodymConfig) -> frozenset[str]:
+    """Las secciones que esta invocación va a ejecutar, para el contexto de D-ABA-8.
+
+    Reutiliza el criterio del motor en vez de reimplementarlo: los pasos declarados en ``run.steps``
+    si los hay, y si no, los dominios orquestables con sección no nula — que es exactamente
+    :meth:`Study._default_step_names`. Un gate lo compara contra el pipeline que el motor resuelve
+    de verdad, porque un criterio *parecido* al del motor es peor que ninguno: avisaría de que una
+    sección está apagada cuando el motor la va a correr.
+
+    ⚠️ **No sustituye a :func:`_secciones_que_corren`, y son preguntas distintas.** Aquélla contesta
+    «¿acota el usuario los pasos?» y su ``None`` significa «no acota nada, no filtres»; ésta
+    contesta «¿qué corre?» y siempre tiene respuesta. Fundirlas cambiaría el filtro del recorrido:
+    ``_DEFAULT_DOMAIN_ORDER`` no contiene *todas* las claves del config, así que filtrar por él
+    haría desaparecer del preflight cualquier sección de fuera de esa lista con un rol de columna.
+    """
+    from nikodym.core.study import _DEFAULT_DOMAIN_ORDER
+
+    declarados = _secciones_que_corren(config)
+    if declarados is not None:
+        return declarados
+    return frozenset(
+        nombre for nombre in _DEFAULT_DOMAIN_ORDER if getattr(config, nombre, None) is not None
+    )
+
+
 def _columnas_producidas(config: Any) -> frozenset[str]:
     """Columnas que el pipeline **añade** al frame con este config (D-RAM-6), o vacío.
 
@@ -458,6 +528,7 @@ def _requisitos(
     columnas: frozenset[str] | None,
     prefijo: str = "",
     perfil: PerfilDataset | None = None,
+    contexto: ContextoConfig | None = None,
 ) -> Iterator[tuple[str, Requisito]]:
     """Recorre el config y emite ``(ruta absoluta, requisito)`` por cada invariante incumplida.
 
@@ -470,7 +541,9 @@ def _requisitos(
     if not isinstance(config, BaseModel):
         if isinstance(config, (list, tuple)):
             for i, elemento in enumerate(config):
-                yield from _requisitos(elemento, columnas, f"{prefijo.rstrip('.')}[{i}].", perfil)
+                yield from _requisitos(
+                    elemento, columnas, f"{prefijo.rstrip('.')}[{i}].", perfil, contexto
+                )
         return
 
     metodo = getattr(config, METODO_REQUISITOS, None)
@@ -486,6 +559,15 @@ def _requisitos(
             for requisito in metodo_perfil(perfil):
                 yield f"{prefijo}{requisito.path}", requisito
 
+    # Lo que una opción exige del RESTO del config (D-ABA-8). A diferencia del perfil, el contexto
+    # se deriva del propio config y por tanto SIEMPRE se conoce: su `None` no es «no se sabe» sino
+    # «este llamador no lo computó», y sólo existe para que la recursión no tenga que repetirlo.
+    if contexto is not None:
+        metodo_contexto = getattr(config, METODO_REQUISITOS_CONTEXTO, None)
+        if callable(metodo_contexto):
+            for requisito in metodo_contexto(contexto):
+                yield f"{prefijo}{requisito.path}", requisito
+
     modelo = type(config)
     for nombre in modelo.model_fields:
         yield from _requisitos(
@@ -493,6 +575,7 @@ def _requisitos(
             columnas,
             f"{prefijo}{_alias(modelo, nombre)}.",
             perfil,
+            contexto,
         )
 
 
@@ -634,7 +717,13 @@ def check_dataset(
     # impone y no este recorrido. Aquí las columnas SIEMPRE se conocen (son parámetro obligatorio),
     # así que van completas; el `None` del protocolo es para un consumidor que no las tenga, y
     # significa «no se sabe», no «no hay» (D-INV-4).
-    for ruta, requisito in _requisitos(config, frozenset(presentes), perfil=column_profile):
+    # El contexto (D-ABA-8) se deriva del propio config, así que —a diferencia del perfil— siempre
+    # se conoce y no tiene modo «no se sabe». Se computa UNA vez y se propaga: preguntárselo a cada
+    # modelo anidado daría la misma respuesta y recorrería el config raíz una vez por nodo.
+    contexto = ContextoConfig(secciones_activas=_secciones_activas(config))
+    for ruta, requisito in _requisitos(
+        config, frozenset(presentes), perfil=column_profile, contexto=contexto
+    ):
         if corren is not None and ruta.split(".", 1)[0] not in corren:
             continue
         desajustes.append(
