@@ -70,7 +70,10 @@ def _modulos_de_paso() -> dict[str, ast.Module]:
     """Todos los ``step.py`` de dominio, parseados. Es el universo que el gate barre."""
     modulos: dict[str, ast.Module] = {}
     for ruta in sorted(_RAIZ.glob("*/**/step.py")):
-        nombre = str(ruta.relative_to(_RAIZ).parent).replace("/", ".")
+        # `parts`, no `str(...).replace("/", ".")`: en Windows el separador es `\` y el nombre salía
+        # como `provisioning\cmf`, así que el ancla anti-vacuidad fallaba **sólo allí**. Lo cazó el
+        # CI, que es donde tenía que cazarse — y prueba de paso que el ancla no es decorativa.
+        nombre = ".".join(ruta.relative_to(_RAIZ).parent.parts)
         modulos[nombre] = ast.parse(ruta.read_text(encoding="utf-8"))
     return modulos
 
