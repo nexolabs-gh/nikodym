@@ -11,8 +11,10 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-05, **el censo del abanico cerrado y la normativa local fuera de alcance**)
 
-**`main` = `d688872`.** CI 16/16 confirmado job a job con `gh` sobre `e6d7009` y `6dd5c0f`; ⚠️ los de
-`87819c5` y `d688872` hay que verificarlos al arrancar. **PyPI sigue en `1.10.0` y no hay release
+**`main` = `70ff2fe`.** **CI 16/16 confirmado job a job con `gh` sobre `70ff2fe`** (run
+`30955671822`), el commit con todo el código; no queda ningún run por verificar. ⚠️ El CI se puso
+rojo **dos veces** con la suite local verde: dos tests que exigen un extra **presente** y un `\` de
+Windows en el gate nuevo. **PyPI sigue en `1.10.0` y no hay release
 autorizado.** Gates: pytest **5139 passed / 8 skipped**, vitest **636/636**, mypy 245, `ruff check` y
 `format`, typecheck y lint del front, fixtures regenerados, bundle reconstruido, `mkdocs --strict`.
 

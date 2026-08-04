@@ -7,8 +7,11 @@
 >
 > ## Lo último (2026-08-05): **el censo del abanico cerrado, y la normativa local FUERA de alcance**
 >
-> **`main` = `d688872`.** CI 16/16 confirmado job a job con `gh` sobre `e6d7009` y `6dd5c0f`; ⚠️ los
-> de `87819c5` y `d688872` hay que **verificarlos al arrancar**. Gates: pytest **5139 passed /
+> **`main` = `70ff2fe`.** **CI 16/16 confirmado job a job con `gh` sobre `70ff2fe`** (run
+> `30955671822`), el HEAD y el commit que lleva todo el código; **no queda ningún run por
+> verificar**. ⚠️ El CI se puso **rojo dos veces** con la suite local verde —dos tests que exigen un
+> extra **presente**, y un `\` de Windows en el gate nuevo—, y las dos causas están en el HANDOFF.
+> Gates: pytest **5139 passed /
 > 8 skipped** (base 5114), vitest **636/636**, mypy 245, ruff check y format, typecheck y lint,
 > fixtures regenerados, bundle reconstruido, `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
 >
