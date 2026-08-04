@@ -5,7 +5,75 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-04): **el abanico implementado, y los DIEZ defectos que destapó**
+> ## Lo último (2026-08-04 tarde): **los tres graves cerrados, y el censo corregido CUATRO veces**
+>
+> **`main` = `bc47a14`.** CI **16/16 confirmado job a job con `gh`** sobre los **cuatro commits que
+> llevan código**; no queda ninguno por verificar. Gates: pytest **5104 passed / 8 skipped** (base
+> 5056), vitest **633/633**, mypy 245, ruff check y format, typecheck y lint, fixtures de trabajos y
+> de schema regenerados, bundle reconstruido, `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **El goal completo: los TRES graves, tres menores, el front del abanico verificado en vivo y
+> D-ABA-9.** Cinco commits.
+>
+> 🔴 **Y la lección de la sesión: el censo se equivocó en CUATRO puntos, y ninguno se veía
+> leyéndolo.** No es una crítica —midió mucho y bien—: es que **un censo describe lo que su autor
+> pudo ver**, y todas las correcciones salieron **ejecutando**.
+>
+> 1. **Las dos salidas que recomendaba para GRAVE-1 eran imposibles.** `from_config_with_context`
+>    entrega un **`frozenset[str]` de nombres de paso**, así que no puede transportar la
+>    orientación; y `_check_cross_section` **no es «el sitio natural»** — su docstring excluye las
+>    reglas de dominio, y con sección opaca (**el estado por defecto**) leer `score_direction` desde
+>    el núcleo es el acoplamiento que D-INV-1 rechazó.
+> 2. **Su reproducción del Gini invertido omitía un tercer factor**: hace falta
+>    `performance.evaluation_source='score'`. Con el default el campo es **inerte**.
+> 3. **Los trabajos inejecutables eran TRES, no dos** — «Provisiones IFRS 9» cayó por la misma causa
+>    que «PD lifetime», y salió **al construir el gate**.
+> 4. **El coste de GRAVE-3 en tests era 40 y no 5**: la diferencia entera eran **helpers
+>    compartidos**, que un grep por nombre de campo no ve.
+>
+> ✅ **GRAVE-1** ([`_ENMIENDA-DIRECCION-DEL-SCORE.md`](docs/design/_ENMIENDA-DIRECCION-DEL-SCORE.md),
+> D-DIR-1…9): **la orientación es propiedad del puntaje**, viaja por el DAG en la ficha de la tarjeta
+> —`optional_requires`, nunca `requires`, para no romper «Validar un modelo existente»— y una
+> contradicción **detiene** con error nombrado. Detener y no heredar en silencio es la mitad
+> importante: heredar sería MENOR-7 visto del otro lado. ⚠️ **`stability.score_direction` no lo lee
+> ningún cálculo** y su ayuda afirmaba lo contrario. ⚠️ **Cerrar GRAVE-1 NO cierra MENOR-6**, como el
+> censo daba por hecho.
+>
+> ✅ **GRAVE-3** ([`_ENMIENDA-REGLA-DEL-MAXIMO.md`](docs/design/_ENMIENDA-REGLA-DEL-MAXIMO.md)): el
+> default pasa a ser la comparación del B-1 y **el título del capítulo deja de rotular «Chile»** sobre
+> una comparación que la norma no pide. **Coste de identidad: cero**, medido. ⚠️ **D-MAX-3 quedó SIN
+> OBJETO**: el DAG ya avisaba con mejor mensaje; se conserva escrita sin implementación, precedente
+> D-SEG-11.
+>
+> ✅ **GRAVE-2** ([`_ENMIENDA-TRABAJO-EJECUTABLE.md`](docs/design/_ENMIENDA-TRABAJO-EJECUTABLE.md)):
+> nace `overrides` en el catálogo y un gate que recorre **los diez** trabajos preguntándole al motor.
+>
+> 🔴 **Un gate bien escrito te corrige a ti, y dos veces esta sesión.** El de trabajos ejecutables
+> cazó que **el override se perdía en silencio** —la proyección canónica omite los submodelos
+> obligatorios enteros, así que el nodo no existía— **el mismo día en que se escribió**; y el de la
+> regla del máximo destapó que **su propio criterio era falso**: ataba título y lineage con
+> `"B-1" in etiqueta`, y **tres de las cuatro etiquetas mencionan el B-1**, incluidas las dos que
+> existen para decir que NO vincula.
+>
+> ✅ **El abanico se ve en la pantalla** (D-ABA-10), verificado **en vivo**: `binning.solver='cp'`
+> sale bloqueada con su motivo legible sin hover, y `survival.input.pd_source=none` sale **elegida**
+> —el override de GRAVE-2 llegando a la pantalla, no sólo al gate—. ✅ **D-ABA-9**: el alcance del
+> preflight se **deriva** del catálogo, con el candado que impide volver a alegar «fuera de alcance».
+>
+> 🔴 **M-7 NO es trivial, y el censo lo daba por «bajo».** Se intentó, se midió y se revirtió:
+> rechazar el ancla descartada rompe configs que **hoy corren**. **Decisión de Cami: enmienda antes
+> de programar, en la sesión siguiente**, junto con M-2, M-3 y M-5.
+>
+> ⚠️ **Trampas nuevas:** ajustar el binning real **dentro de pytest tumba el runner** con un segfault
+> al importar el solver; `cp a/step.py b/step.py destino/` deja **uno solo**; `pnpm test run` corre
+> **un archivo** y el gate real es `pnpm vitest run`; y un `assert` con el mensaje partido sin
+> paréntesis deja la segunda línea como **string suelto**.
+>
+> **Siguiente: M-7 con su enmienda**, y después M-5 y M-3. Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-04 mañana): **el abanico implementado, y los DIEZ defectos que destapó**
 >
 > **`main` = `969a2cd`.** CI **16/16 confirmado job a job con `gh`** (run `30921131688`); los tres
 > commits se pushearon juntos, así que no queda ninguno por verificar. Gates: pytest **5056 passed

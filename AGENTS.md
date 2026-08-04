@@ -9,7 +9,42 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-04, **el abanico implementado y los diez defectos que destapó**)
+## Estado vigente (2026-08-04 tarde, **los tres graves cerrados y el censo corregido cuatro veces**)
+
+**`main` = `bc47a14`.** CI **16/16 confirmado job a job con `gh`** sobre los cuatro commits con
+código; no queda ninguno por verificar. **PyPI sigue en `1.10.0` y no hay release autorizado.**
+Gates: pytest **5104 passed / 8 skipped**, vitest **633/633**, mypy 245, `ruff check` y `format`,
+typecheck y lint del front, fixtures de trabajos y de schema regenerados, bundle reconstruido,
+`mkdocs --strict`.
+
+✅ **El goal completo en cinco commits**: los tres defectos graves, tres menores, el front del abanico
+verificado en vivo (D-ABA-10) y D-ABA-9.
+
+🔴 **La lección: el censo se equivocó en CUATRO puntos y ninguno se veía leyéndolo.** Las dos salidas
+que recomendaba para el defecto más caro eran **imposibles** —`from_config_with_context` entrega un
+`frozenset` de nombres, y `_check_cross_section` es del núcleo, que con sección opaca leería un dict
+crudo—; su reproducción **omitía un tercer factor**; los trabajos rotos eran **tres y no dos**; y el
+coste en tests era **40 y no 5**, por helpers compartidos que un grep no ve. Todas salieron
+**ejecutando**.
+
+✅ **GRAVE-1**: la orientación del puntaje es propiedad **del puntaje**, viaja por el DAG en la ficha
+de la tarjeta y una contradicción **detiene** — heredar en silencio sería MENOR-7 del otro lado.
+✅ **GRAVE-3**: el default es la regla del B-1 y el título deja de rotular «Chile» sobre una
+comparación que la norma no pide; **coste de identidad cero**, medido. ✅ **GRAVE-2**: nace
+`overrides` en el catálogo y un gate que recorre **los diez** trabajos preguntándole al motor.
+
+🔴 **Un gate bien escrito te corrige a ti**, dos veces esta sesión: uno cazó que el override se
+perdía en silencio el mismo día en que se escribió, y el otro destapó que **su propio criterio era
+falso**.
+
+🔴 **M-7 no es trivial**, contra lo que el censo decía: rechazarlo rompe configs que hoy corren.
+**Decisión de Cami: enmienda antes de programar, en la sesión siguiente.**
+
+**Siguiente: M-7 con su enmienda; después M-5 y M-3.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-04 mañana, **el abanico implementado y los diez defectos que destapó**)
 
 **`main` = `969a2cd`.** CI **16/16 confirmado job a job con `gh`** (run `30921131688`); los tres
 commits de la sesión se pushearon juntos y no queda ninguno por verificar. **PyPI sigue en `1.10.0`
