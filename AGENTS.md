@@ -9,7 +9,37 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-04 tarde, **los tres graves cerrados y el censo corregido cuatro veces**)
+## Estado vigente (2026-08-04 noche, **M-7 cerrado y los tres defectos que destapó prepararlo**)
+
+**`main` = `a425ca2`.** ⚠️ **Su CI quedó lanzado: verificarlo al arrancar** (run `30948817669`); los
+cinco commits anteriores tienen 16/16 confirmado job a job. **PyPI sigue en `1.10.0` y no hay release
+autorizado.** Gates: pytest **5114 passed / 8 skipped**, vitest **636/636**, mypy 245, `ruff check` y
+`format`, typecheck y lint del front, fixtures regenerados, bundle reconstruido, `mkdocs --strict`.
+
+✅ **M-7 cerrado** ([`_ENMIENDA-ANCLA-DESCARTADA.md`](design/_ENMIENDA-ANCLA-DESCARTADA.md),
+D-ANC-1…12, las tres salidas por decisión de Cami). El ancla que el usuario escribía se **descartaba
+en silencio**: sobre el preset F3, **569 millones de diferencia** en la provisión, con `done` y cero
+avisos, y los dos campos **contiguos en la pantalla**.
+
+🔴 **El censo volvió a equivocarse en cuatro puntos, todos al ejecutar**: el default de `target_pd`
+es `None` y no `0.05`; ninguna ruta de producción arma el par; los sitios que rompían eran 6 con la
+clasificación **invertida** (un `@parametrize` se evalúa al importar y abortaba la suite entera); y
+el informe **se contradecía** en vez de callar.
+
+🔴 **Preparar la enmienda destapó TRES defectos ajenos**, uno grave y preexistente: un `ConfigError`
+de dominio **escapaba** de la coacción —123 `raise` en 18 secciones, y `config_hash` dejaba de ser
+total con un solo `Select`—, `uninspected` nunca decía **por qué**, y el error llegaba a la pantalla
+**mudo** (`loc: []`). ⚠️ **Los tres tests que debían cazar el primero estaban verdes y ninguno podía
+fallar: miden coherencia, y el contrato exige totalidad.**
+
+⚠️ **La salida (b) se midió INALCANZABLE** una vez puesto el validador, y se sustituyó en vez de
+añadir código muerto.
+
+**Siguiente: M-5** (ya diagnosticado), después M-3 y M-2. Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-04 tarde, **los tres graves cerrados y el censo corregido cuatro veces**)
 
 **`main` = `bc47a14`.** CI **16/16 confirmado job a job con `gh`** sobre los cuatro commits con
 código; no queda ninguno por verificar. **PyPI sigue en `1.10.0` y no hay release autorizado.**

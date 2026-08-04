@@ -5,7 +5,71 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-04 tarde): **los tres graves cerrados, y el censo corregido CUATRO veces**
+> ## Lo último (2026-08-04 noche): **M-7 cerrado, y los TRES defectos que destapó prepararlo**
+>
+> **`main` = `a425ca2`.** ⚠️ **Su CI quedó lanzado y hay que verificarlo al arrancar** (run
+> `30948817669`); los cinco commits anteriores tienen **16/16 confirmado job a job**. Gates: pytest
+> **5114 passed / 8 skipped** (base 5104), vitest **636/636** (base 633), mypy 245, ruff check y
+> format, typecheck y lint, fixtures de schema y trabajos regenerados, bundle reconstruido,
+> `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **M-7 cerrado con enmienda aprobada antes de programar**
+> ([`_ENMIENDA-ANCLA-DESCARTADA.md`](docs/design/_ENMIENDA-ANCLA-DESCARTADA.md), D-ANC-1…12; Cami
+> eligió **las tres salidas**). `anchor_source='development_observed'` —el default— aceptaba un
+> `target_pd` y lo **descartaba en silencio**: medido sobre el preset F3, la provisión sale
+> **308.644.057,91 en vez de 878.006.307,71** —569 millones— con `done` y **cero avisos**. Y los dos
+> campos son **contiguos en la pantalla**.
+>
+> 🔴 **El censo se equivocó OTRA VEZ, en cuatro puntos y todos al ejecutar.** `target_pd` tiene
+> default **`None`, no `0.05`** —el SDD-10 describía un placeholder retirado en `60013ac`—, así que
+> el estado de fábrica **no** cae en el par; **ninguna ruta de producción** lo construye (el
+> `target_pd=0.03` que el barrido situó en `ml/step.py` vive en un test); los sitios que rompían eran
+> **6 en 4 archivos con la clasificación INVERTIDA** —un `@parametrize` se evalúa **al importar**, así
+> que tumbaba 60 tests y **abortaba la suite entera**—; y el informe **no callaba: se contradecía**,
+> publicando el descartado rotulado «config efectiva» a diez líneas del que gobernó.
+>
+> ✅ **Lo que decidió la salida: el criterio ya estaba escrito DOS LÍNEAS más arriba** del mismo
+> validador (`point_in_time` + `development_observed`, «sería una etiqueta falsa»), y
+> **`docs_site/tutorial.md:269` YA afirmaba la regla que el motor no aplicaba** — cerrarlo alinea el
+> motor con lo publicado.
+>
+> 🔴 **Y preparar la enmienda destapó TRES defectos ajenos a M-7, uno grave y preexistente.**
+>
+> 1. **D-ANC-10.** `_coaccionar_secciones_opacas` atrapaba **sólo `ValidationError`**, y
+>    `NikodymError` **no hereda de `ValueError`**: escapaban **123 `raise` en 18 de las 22 secciones
+>    de dominio** —72 alcanzables desde el formulario— y con **un solo `Select`** `config_hash`
+>    dejaba de ser total, **contra lo que su propio docstring promete**. ⚠️ **`ConfigError` NO
+>    basta**: cuatro clases de `stress`/`forward` cuelgan directas de `NikodymError`.
+>    🔴 **Los tres tests que debían cazarlo estaban verdes y ninguno PODÍA fallar**: dos eligen como
+>    sección inválida un campo desconocido —la única familia que el `except` cubría— y el gate de
+>    clase mide `f(opaco)==f(tipado)`, o sea **coherencia**, mientras D-HASH-8 exige **totalidad**.
+>    Con una sección inválida el lado tipado revienta al construirse, así que el par ni se monta:
+>    **un gate de coherencia es estructuralmente incapaz de medir totalidad.**
+> 2. **D-ANC-11.** `uninspected` decía **qué** sección no se pudo mirar y nunca **por qué**. ⚠️ Su
+>    alcance es la API por código, **no la pantalla**: `/api/preflight` devuelve **422** antes de
+>    producir veredicto, así que el cambio del front **se revirtió** en vez de dejar código muerto.
+> 3. **D-ANC-12, y sólo se vio ABRIENDO LA PANTALLA.** El error llegaba **mudo**: un `ConfigError` de
+>    sección viaja con `loc: []`, ningún `FieldRenderer` reclama esa clave, y el formulario mostraba
+>    «Config inválido · 1 error» **sin el mensaje**. ⚠️ **Ningún test podía verlo** —vitest corre sin
+>    DOM y el endpoint devolvía el texto correcto—: vivía **en la juntura que ninguna de las dos
+>    suites cubre**.
+>
+> ⚠️ **Dos correcciones a mí mismo, ambas medidas.** No era la cuarta reincidencia del «siempre 200»
+> (los endpoints dan **200/422/422**). Y **la salida (b) resultó INALCANZABLE** con (a) puesta —los
+> dos únicos caminos mueren antes—, así que se sustituyó por D-ANC-11.
+>
+> ⚠️ **Trampas nuevas:** **dos subagentes sobre el mismo árbol chocan** —uno metió una sonda mientras
+> otro corría el motor— y hay que secuenciarlos; **un control positivo dentro del gate te caza a ti**
+> (mi payload de `forward` disparaba `ValidationError` y no probaba lo que decía); `ConfigError` vive
+> en **`nikodym.core.exceptions`**; `_ui_client` exporta **`ui_client`**; y Playwright volvió a dejar
+> la captura en la **raíz** del repo.
+>
+> **Siguiente: M-5** (`xlsx` mata el informe entero, **ya diagnosticado**), después M-3 y M-2.
+> Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-04 tarde): **los tres graves cerrados, y el censo corregido CUATRO veces**
 >
 > **`main` = `bc47a14`.** CI **16/16 confirmado job a job con `gh`** sobre los **cuatro commits que
 > llevan código**; no queda ninguno por verificar. Gates: pytest **5104 passed / 8 skipped** (base
