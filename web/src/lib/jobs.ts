@@ -676,3 +676,31 @@ export function jobSwitchNotice(
     ? `${sujeto} no corresponde a ningún trabajo del catálogo: la sesión queda sin trabajo y el formulario muestra todas las secciones.`
     : `${sujeto} corresponde a «${cambio.job.label}»: la sesión pasó a ese trabajo y el menú muestra sus secciones.`
 }
+
+/**
+ * Un punto del abanico junto con lo que el config dice hoy (D-ABA-10).
+ *
+ * El estado de cada opción lo declara el catálogo y no se recalcula aquí: lo único que este front
+ * añade es **cuál está elegida**, que sale de leer el config en el `path`. El cuarto estado del
+ * censo —«no puedes usarla con TUS datos»— no vive aquí: lo computa el preflight contra el archivo
+ * del usuario y llega como un aviso más (D-ABA-4).
+ */
+export interface MethodologyStatus extends MethodologyChoice {
+  /** El valor que el config trae hoy en `path`, o `null` si la sección no está activa. */
+  elegida: string | null
+}
+
+/** Cruza el abanico del trabajo con el config actual, sin decidir nada de dominio (D-ABA-10). */
+export function methodologyStatuses(
+  job: Job | null,
+  config: Record<string, unknown> | null,
+): MethodologyStatus[] {
+  if (job === null || config === null) return []
+  return job.methodology_choices.map((choice) => {
+    const valor = valueAtPath(config, choice.path)
+    return {
+      ...choice,
+      elegida: typeof valor === "string" ? valor : null,
+    }
+  })
+}

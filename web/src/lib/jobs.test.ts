@@ -20,6 +20,7 @@ import {
   jobSkeleton,
   jobSwitchForConfig,
   jobSwitchNotice,
+  methodologyStatuses,
   sectionsOfJob,
   type Job,
 } from "@/lib/jobs"
@@ -833,3 +834,83 @@ function configCon(path: string, valor: unknown): Record<string, unknown> {
   nodo[segmentos[segmentos.length - 1]] = valor
   return raiz
 }
+
+describe("el abanico metodológico en la pantalla (D-ABA-10)", () => {
+  const punto = {
+    path: "binning.method",
+    question: "¿Cómo quieres agrupar los valores de cada variable?",
+    help: "…",
+    multiple: false,
+    options: [
+      { value: "optimal", label: "Óptimo", help: "…", estado: "disponible" as const, motivo: null },
+      {
+        value: "cp",
+        label: "Programación por restricciones",
+        help: "…",
+        estado: "no_implementada" as const,
+        motivo: "El motor la rechaza antes de empezar.",
+      },
+    ],
+  }
+  const trabajo = { ...FIXTURE_JOBS.jobs[0], methodology_choices: [punto] }
+
+  it("marca como elegida la opción que el config trae hoy", () => {
+    const estados = methodologyStatuses(trabajo, { binning: { method: "optimal" } })
+    expect(estados).toHaveLength(1)
+    expect(estados[0].elegida).toBe("optimal")
+  })
+
+  it("no marca ninguna cuando la sección no está activa", () => {
+    // `null` no es «ninguna elegida por el usuario»: es «aquí no hay config que leer». Inventar una
+    // elegida pintaría un tilde sobre algo que el motor no va a usar.
+    expect(methodologyStatuses(trabajo, { binning: null })[0].elegida).toBeNull()
+    expect(methodologyStatuses(trabajo, {})[0].elegida).toBeNull()
+  })
+
+  it("conserva el estado y el motivo que declara el catálogo, sin recalcularlos", () => {
+    // El front no decide qué se puede usar: eso es dominio y lo mide el backend (D-ABA-5).
+    const [estado] = methodologyStatuses(trabajo, { binning: { method: "optimal" } })
+    expect(estado.options.map((o) => o.estado)).toEqual(["disponible", "no_implementada"])
+    expect(estado.options[1].motivo).toContain("rechaza")
+  })
+
+  it("sin trabajo elegido no hay abanico que pintar", () => {
+    expect(methodologyStatuses(null, { binning: { method: "optimal" } })).toEqual([])
+  })
+
+  it("🔴 se pinta DESPUÉS de las decisiones obligatorias, no antes", () => {
+    // D-ABA-10: las obligatorias impiden correr y el abanico no. Ponerlo delante colocaría lo
+    // opcional por delante de lo que bloquea, y eso no se puede comprobar renderizando —vitest
+    // corre sin DOM—, así que se mide sobre el fuente.
+    const obligatorias = configTabSource.indexOf("<RequiredDecisions")
+    const abanico = configTabSource.indexOf("<MethodologyChoices")
+    expect(obligatorias).toBeGreaterThan(-1)
+    expect(abanico).toBeGreaterThan(-1)
+    expect(abanico).toBeGreaterThan(obligatorias)
+  })
+
+  it("🔴 una opción no implementada no se puede pulsar, y su motivo se lee sin hover", () => {
+    // D-JOB-5: se muestra, no se oculta —esconderla deja al usuario creyendo que la librería no la
+    // contempla—. Pero mostrarla sin bloquearla sería peor: un clic que el motor rechaza después.
+    const bloque = configTabSource.slice(
+      configTabSource.indexOf("function MethodologyChoices"),
+      configTabSource.indexOf("/** Descarga `text` como archivo"),
+    )
+    expect(bloque).toContain("disabled={bloqueada}")
+    expect(bloque).toContain('opcion.estado === "no_implementada"')
+    // El motivo va dentro del botón, no en un `title`: un tooltip no es leer.
+    expect(bloque).toContain("{opcion.motivo}")
+    expect(bloque).not.toContain("title={opcion.motivo}")
+  })
+
+  it("no enseña nunca el `path` (D-ABA-11)", () => {
+    const bloque = configTabSource.slice(
+      configTabSource.indexOf("function MethodologyChoices"),
+      configTabSource.indexOf("/** Descarga `text` como archivo"),
+    )
+    // El `path` viaja en un atributo de datos para que Playwright pueda anclarse, y en la llamada
+    // que enfoca el campo; lo que no puede es RENDERIZARSE como texto que el usuario lea.
+    expect(bloque).not.toContain("{choice.path}<")
+    expect(bloque).not.toContain(">{choice.path}")
+  })
+})

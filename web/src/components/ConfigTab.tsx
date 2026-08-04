@@ -37,10 +37,12 @@ import {
   type DecisionStatus,
   type Job,
   type JobSwitch,
+  type MethodologyStatus,
   decisionStatuses,
   jobSwitchForConfig,
   jobSwitchNotice,
   loadJobs,
+  methodologyStatuses,
 } from "@/lib/jobs"
 import {
   type PrecargasDeForma,
@@ -352,6 +354,121 @@ function RequiredDecisions({
             : `Quedan otras ${fuera} decisiones en las secciones siguientes.`}
         </p>
       ) : null}
+    </section>
+  )
+}
+
+/**
+ * El abanico metodológico: qué se puede elegir aquí, y qué cuesta cada opción (D-ABA-10).
+ *
+ * Va en el MISMO paso que las decisiones obligatorias y **después** de ellas: aquéllas impiden
+ * correr y ésta no, así que ponerla delante colocaría lo opcional por delante de lo que bloquea.
+ * D-JOB-4 pide que el método se elija al principio, antes de los parámetros de detalle; esto es ese
+ * principio.
+ *
+ * 🔴 **Una opción que no se puede usar se muestra, no se oculta** (D-JOB-5). Esconderla deja al
+ * usuario creyendo que la librería no la contempla, que es la mentira contraria — y en un producto
+ * cuyo argumento es tener abanico serio, la peor forma posible de contarlo. Va en gris, con su
+ * motivo, y no se puede pulsar.
+ *
+ * El `path` no se enseña nunca (D-ABA-11): lo que el usuario lee es la pregunta, la etiqueta de la
+ * opción y su ayuda.
+ */
+function MethodologyChoices({
+  choices,
+  section,
+  onChoose,
+  onFocus,
+}: {
+  choices: MethodologyStatus[]
+  section: string
+  onChoose: (path: string, value: string) => void
+  onFocus: (path: string) => void
+}) {
+  // Los de ESTA sección, por la misma razón que `RequiredDecisions`: el botón enfoca un control del
+  // DOM, y el de otra sección no está montado.
+  const aqui = choices.filter((c) => c.path.split(".")[0] === section)
+  if (aqui.length === 0) return null
+  return (
+    <section
+      aria-labelledby="abanico-metodologico"
+      className="rounded-lg border border-border/70 bg-background/30 px-4 py-3"
+    >
+      <h3
+        id="abanico-metodologico"
+        className="text-xs font-medium uppercase tracking-wide text-eyebrow"
+      >
+        Cómo quieres hacerlo
+      </h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Todas traen una opción puesta y la corrida funciona sin tocar nada. Cámbialas si tu
+        metodología pide otra cosa: aquí dice qué necesita cada una.
+      </p>
+      <ul className="mt-3 space-y-3">
+        {aqui.map((choice) => (
+          <li key={choice.path}>
+            <p className="text-sm text-foreground">{choice.question}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{choice.help}</p>
+            <ul className="mt-1.5 space-y-1">
+              {choice.options.map((opcion) => {
+                const elegida = opcion.value === choice.elegida
+                const bloqueada = opcion.estado === "no_implementada"
+                return (
+                  <li key={opcion.value}>
+                    <button
+                      type="button"
+                      disabled={bloqueada}
+                      aria-pressed={elegida}
+                      data-methodology-path={choice.path}
+                      data-methodology-value={opcion.value}
+                      className={
+                        bloqueada
+                          ? "w-full cursor-not-allowed rounded-md border border-border/40 bg-background/20 px-2.5 py-1.5 text-left opacity-60"
+                          : elegida
+                            ? "w-full rounded-md border border-brand-cyan/50 bg-brand-cyan/[0.08] px-2.5 py-1.5 text-left"
+                            : "w-full rounded-md border border-border/70 bg-background/40 px-2.5 py-1.5 text-left transition-colors hover:border-brand-cyan/50 hover:bg-brand-cyan/[0.06]"
+                      }
+                      onClick={() => {
+                        if (bloqueada) return
+                        onChoose(choice.path, opcion.value)
+                      }}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {elegida ? (
+                          <CircleCheck
+                            className="size-3.5 shrink-0 text-brand-cyan"
+                            aria-label="Elegida"
+                          />
+                        ) : null}
+                        <span className="text-xs font-medium text-foreground">{opcion.label}</span>
+                      </span>
+                      <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                        {opcion.help}
+                      </span>
+                      {/* El motivo va DENTRO del botón: si el usuario tiene que descubrir por qué
+                          no puede usarla pasando el ratón, para él la opción sigue sin explicación
+                          (D-JOB-5). Vale igual para la que se puede elegir y no cambia nada. */}
+                      {opcion.motivo !== null ? (
+                        <span className="mt-1 block text-[11px] leading-snug text-amber-300/80">
+                          {opcion.motivo}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-1 text-xs"
+              onClick={() => onFocus(choice.path)}
+            >
+              Ir al campo
+            </Button>
+          </li>
+        ))}
+      </ul>
     </section>
   )
 }
@@ -877,6 +994,21 @@ export function ConfigTab({ section }: { section: string }) {
               datasetId,
             )
           }
+        />
+
+        {/* El abanico va DESPUÉS de las obligatorias, en el mismo paso (D-ABA-10): aquéllas
+            impiden correr y éste no. */}
+        <MethodologyChoices
+          choices={methodologyStatuses(job, config as Record<string, unknown> | null)}
+          section={section}
+          onChoose={(path, value) => {
+            // Escribe exactamente el mismo valor que escribirlo a mano en el formulario, así que
+            // dos usuarios que llegan al mismo config por caminos distintos producen la misma
+            // identidad (D-ABA-12). El front no compone config de dominio: el valor lo declara el
+            // catálogo y aquí sólo se copia.
+            setField(path.split(".") as Path, value)
+          }}
+          onFocus={setFocusField}
         />
 
         {/* Barra de estado + acciones (SDD §3.2 preset · §3.3 hash en vivo · §3.4 round-trip YAML). */}
