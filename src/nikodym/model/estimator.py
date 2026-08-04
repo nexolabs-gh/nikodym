@@ -1181,12 +1181,25 @@ def _fit_statsmodels(
         with _statsmodels_warnings_as_errors(perfect_warning, convergence_warning):
             if estimator.engine == "logit":
                 model = logit_cls(y, exog, check_rank=True)
-                result = model.fit(
-                    method=estimator.optimizer,
-                    maxiter=estimator.fit_maxiter,
-                    tol=estimator.tol,
-                    disp=False,
-                )
+                # 🔴 `tol` sólo lo acepta Newton-Raphson. statsmodels valida los kwargs por método
+                # (`base/optimizer.py::check_kwargs`) y con `bfgs`/`lbfgs` emite un `FutureWarning`
+                # —«no effect […] After release 0.14, this will raise»— que bajo el
+                # `filterwarnings=["error"]` del repo **mata la corrida**, y que fuera de los tests
+                # deja al usuario con un aviso críptico sobre un campo que él no eligió tocar.
+                # Pasarlo igual no lo volvía efectivo: era letra muerta en dos de las tres rutas.
+                #
+                # ⚠️ No se traduce a `gtol`/`pgtol`, que serían sus análogos: aquélla es la
+                # tolerancia del cambio en los parámetros y éstas la norma del gradiente. Mapearlas
+                # sería inventar una equivalencia metodológica que nadie pidió; el campo declara su
+                # alcance en el copy, igual que ya lo hacía para el motor GLM.
+                fit_logit: dict[str, object] = {
+                    "method": estimator.optimizer,
+                    "maxiter": estimator.fit_maxiter,
+                    "disp": False,
+                }
+                if estimator.optimizer == "newton":
+                    fit_logit["tol"] = estimator.tol
+                result = model.fit(**fit_logit)
             else:
                 fit_kwargs: dict[str, object] = {
                     "maxiter": estimator.fit_maxiter,

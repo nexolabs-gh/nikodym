@@ -533,7 +533,13 @@ def _thresholds_from_config(config: ModelConfig) -> dict[str, float | str | None
         "engine": config.engine,
         "fit_intercept": "true" if config.fit_intercept else "false",
         "fit_maxiter": float(config.fit_maxiter),
-        "optimizer": config.optimizer,
+        # 🔴 El optimizador que se USÓ, no el que se eligió. El motor GLM ajusta siempre por IRLS y
+        # descarta el campo, así que con `engine='glm_binomial'` la ficha publicaba **dos
+        # optimizadores contradictorios** en el mismo documento: aquí el elegido y en las
+        # estadísticas de ajuste el ejecutado. El criterio es el de `_fit_statistics`, no uno
+        # parecido: dos respuestas a la misma pregunta es exactamente lo que un informe no puede
+        # tener.
+        "optimizer": config.optimizer if config.engine == "logit" else "irls",
         "stepwise.direction": direction,
         "stepwise.criterion": config.stepwise.criterion,
         "entry_p_value": config.stepwise.entry_p_value,

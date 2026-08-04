@@ -166,6 +166,11 @@ class PerformanceConfig(NikodymBaseConfig):
     )
     partitions: tuple[PerformancePartition, ...] = Field(
         default=("desarrollo", "holdout", "oot"),
+        # 🔴 Sin la cota, desmarcar las tres casillas —alcanzable desde la pantalla— construye sin
+        # una queja y muere mucho después, dentro del DTO de la ficha y con un mensaje interno:
+        # «partitions debe contener al menos una partición». Declararla aquí lo impide en el
+        # formulario, que es donde el usuario puede corregirlo.
+        min_length=1,
         title="Particiones a evaluar",
         description="Particiones sobre las que se reportan métricas de desempeño.",
         json_schema_extra={

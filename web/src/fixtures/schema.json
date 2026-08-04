@@ -12860,7 +12860,7 @@
                 "title": "Tolerancia de convergencia",
                 "type": "number",
                 "ui_group": "Ajuste",
-                "ui_help": "Tolerancia numérica de convergencia del ajuste: el algoritmo se detiene cuando el cambio entre iteraciones cae por debajo de este valor. Rara vez hace falta tocarlo.",
+                "ui_help": "Tolerancia numérica de convergencia del ajuste: el algoritmo se detiene cuando el cambio entre iteraciones cae por debajo de este valor. Rara vez hace falta tocarlo. Sólo aplica con el método Newton-Raphson: los otros dos deciden cuándo parar mirando el gradiente, con su propio criterio.",
                 "ui_order": 5,
                 "ui_widget": "number_input"
               },
@@ -12985,6 +12985,7 @@
                   ],
                   "type": "string"
                 },
+                "minItems": 1,
                 "title": "Particiones a evaluar",
                 "type": "array",
                 "ui_group": "Población",

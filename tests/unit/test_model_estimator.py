@@ -1357,3 +1357,37 @@ def _iv_frame_target() -> tuple[pd.DataFrame, pd.Series]:
         -0.4,
     ]
     return frame, y
+
+
+@pytest.mark.parametrize("optimizer", ["newton", "bfgs", "lbfgs"])
+def test_los_tres_optimizadores_ajustan_de_verdad(optimizer: str) -> None:
+    """🔴 Los tres se ofrecen en el formulario, y DOS mataban la corrida.
+
+    `tol` sólo lo acepta Newton-Raphson: statsmodels valida los kwargs por método y con
+    `bfgs`/`lbfgs` emitía un `FutureWarning` —«no effect […] After release 0.14, this will
+    raise»— que bajo el `filterwarnings=["error"]` de este repo **convierte el aviso en
+    excepción**. El campo era además letra muerta en esas dos rutas: se pasaba y no hacía nada.
+
+    ⚠️ **Ningún test lo ejercitaba.** El único que nombraba el campo (`test_model_config.py`)
+    lo construía para un round-trip YAML, y encima con el motor GLM, donde el optimizador
+    tampoco se usa. Un `Literal` alcanzable desde la pantalla sin una sola corrida detrás.
+
+    Este test **ajusta de verdad** con los tres, que es lo único que reproduce el defecto: sin
+    el arreglo, dos de sus tres casos fallan con el `FutureWarning` elevado a error.
+    """
+    frame, y = _two_feature_frame_target()
+
+    model = LogisticPDModel(
+        optimizer=cast(Any, optimizer),
+        stepwise_direction="none",
+        iv_contribution_policy="flag",
+    ).fit(
+        frame,
+        y,
+        feature_names=("saldo", "mora"),
+        woe_columns=("saldo__woe", "mora__woe"),
+        iv_by_feature={"saldo": 0.12, "mora": 0.08},
+    )
+
+    assert model.fit_statistics_.converged
+    assert set(model.params_.index) >= {"saldo__woe", "mora__woe"}

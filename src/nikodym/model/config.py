@@ -352,7 +352,8 @@ class ModelConfig(NikodymBaseConfig):
             "ui_help": (
                 "Tolerancia numérica de convergencia del ajuste: el algoritmo se detiene "
                 "cuando el cambio entre iteraciones cae por debajo de este valor. Rara vez "
-                "hace falta tocarlo."
+                "hace falta tocarlo. Sólo aplica con el método Newton-Raphson: los otros dos "
+                "deciden cuándo parar mirando el gradiente, con su propio criterio."
             ),
         },
     )
