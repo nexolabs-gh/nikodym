@@ -21,10 +21,14 @@ autorizado.** Gates: pytest **5139 passed / 8 skipped**, vitest **636/636**, myp
 🔴 **La normativa local de cada país sale del alcance de la librería** (decisión de Cami,
 2026-08-05): CMF, SBS peruana, boliviana. *«No podemos estar detrás de cada actualización de cada
 país»*; sólo estándares comunes —Basilea, IFRS 9—, y el ajuste a la norma local lo hace el modelador
-o Nikodym Advisory. **M-3 se detuvo** y su enmienda queda escrita sin implementación. ⚠️ **Lo que no
-se hizo y hay que decidir**: el producto sigue publicando CMF en la landing, el README, la demo F3 y
-3 de los 10 trabajos, y sus matrices normativas viajan **dentro del paquete** — un motor publicado y
-no mantenido envejece hacia **incorrecto**, no hacia incompleto.
+o Nikodym Advisory. **M-3 se detuvo** y su enmienda queda escrita sin implementación.
+
+✅ **Y la salida quedó decidida: CMF se MUEVE, no se borra.** Regla acordada: **una jurisdicción
+nunca va en la propuesta de valor; va en la evidencia** — portada sin país, CMF como **caso de
+referencia** con el encuadre invertido, los 3 trabajos CMF fuera del listado principal, motor
+congelado con su fecha a la vista, **cero código borrado**. 🔴 Borrar CMF **no añadiría un solo
+usuario** (F1 e IFRS 9 ya son estándar y `provisioning/internal/` es neutro): el cuello es
+distribución, y lo que daña el alcance es el titular. Cinco pasos en `privado/GOAL-SESION-SIGUIENTE.md`.
 
 ✅ **El censo del abanico queda cerrado entero salvo M-3**, verificado contra el código. Hoy caen
 **M-5** —`xlsx` era el único formato sin degradación: sin `openpyxl` no faltaba la planilla, faltaba

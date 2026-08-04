@@ -23,10 +23,15 @@
 > el modelador —o la misma Nikodym Advisory— hace los ajustes para llevarlo a la normativa local.»*
 > **M-3 se detuvo**: su enmienda queda escrita **sin implementación**
 > ([`_ENMIENDA-REQUISITOS-CMF.md`](docs/design/_ENMIENDA-REQUISITOS-CMF.md)), precedente D-MAX-3.
-> ⚠️ **Lo que NO se hizo y es alcance a decidir**: el producto sigue prometiendo CMF en la landing,
-> el README, la demo F3 y **3 de los 10 trabajos**; y las matrices del B-1 viajan **dentro del
-> paquete** con su fecha de verificación, así que un motor publicado y no mantenido no envejece
-> hacia «incompleto» sino hacia **incorrecto**. Tres salidas con su coste en `HANDOFF.md`.
+> ✅ **Y la salida quedó DECIDIDA al cerrar: CMF se MUEVE, no se borra.** Cami propuso limpiarlo
+> entero —*«siento que al enunciar CMF nos baja a Chile Only»*—, y se acordó la regla **una
+> jurisdicción nunca va en la propuesta de valor; va en la evidencia**: portada sin país, CMF a
+> página propia de **caso de referencia** con el encuadre invertido, los 3 trabajos CMF fuera del
+> listado principal, motor congelado con su fecha a la vista, **cero código borrado**. 🔴 El
+> argumento que la cerró: **borrar CMF no añade un solo usuario** —F1 e IFRS 9 ya son estándar y
+> `provisioning/internal/` es neutro—, el cuello es **distribución**; lo que hace daño es el
+> titular. ⚠️ Y las matrices **no están viejas**: `extraction_date 2026-06-23`, las tres fuentes
+> `verified`. Los cinco pasos y sus trampas, en `privado/GOAL-SESION-SIGUIENTE.md`.
 >
 > ✅ **El censo del abanico queda cerrado ENTERO salvo M-3** —verificado contra el código, no dado
 > por hecho—: M-1, M-4 y M-6 ya lo estaban; hoy caen **M-5** y **M-2**.
