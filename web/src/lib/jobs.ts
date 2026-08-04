@@ -148,6 +148,48 @@ export interface Job {
   unavailable_reason: string | null
   /** Lo que sólo el usuario puede decidir sobre SUS datos, en idioma de negocio (D-OBL-6). */
   required_decisions: RequiredDecision[]
+  /** Los puntos de elección de MÉTODO, con lo que cuesta cada opción (D-ABA-1…12). */
+  methodology_choices: MethodologyChoice[]
+}
+
+/**
+ * Un punto de elección metodológica: qué se puede elegir aquí, y qué exige cada opción.
+ *
+ * Es una estructura HERMANA de `RequiredDecision`, no la misma (D-ABA-3): una decisión obligatoria
+ * no tiene default y el config no construye sin ella; un punto del abanico sí lo tiene y el motor
+ * corre. Fundirlas haría que la tarjeta de decisiones se llenara de cosas que el motor sí sabe
+ * rellenar — y si todo es una decisión, ninguna lo es.
+ *
+ * `path` es la coordenada interna: indexa el config y **no se enseña nunca** (D-ABA-11).
+ */
+export interface MethodologyChoice {
+  path: string
+  question: string
+  help: string
+  /** Si el motor admite varias opciones a la vez: casillas en vez de un selector. */
+  multiple: boolean
+  options: MethodologyOption[]
+}
+
+/**
+ * Una opción del abanico, con su estado.
+ *
+ * Los tres estados vienen del catálogo. Hay un cuarto —«no puedes usarla con TUS datos»— que **no
+ * viaja aquí**: lo computa el preflight y llega como un aviso más, porque depende del archivo del
+ * usuario y no de la opción (D-ABA-4).
+ */
+export interface MethodologyOption {
+  value: string
+  label: string
+  help: string
+  /**
+   * `disponible` se puede elegir. `no_implementada` se muestra en gris con su `motivo`: ocultarla
+   * dejaría al usuario creyendo que la librería no la contempla, que es la mentira contraria
+   * (D-JOB-5). `sin_efecto` es elegible, con la advertencia de que hoy no cambia el resultado.
+   */
+  estado: "disponible" | "no_implementada" | "sin_efecto"
+  /** Por qué no se puede usar, o por qué no cambia nada; `null` cuando está disponible. */
+  motivo: string | null
 }
 
 export interface JobsPayload {

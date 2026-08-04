@@ -19,6 +19,7 @@ from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
 from nikodym.core.dataset_check import COMODIN, PerfilDataset, Requisito
+from nikodym.core.exceptions import ConfigError
 
 #: Fracción de filas sobre la que una columna de texto se lee como identificador (D-PERF-5).
 #:
@@ -564,6 +565,34 @@ class BinningConfig(NikodymBaseConfig):
             and self.min_n_bins > self.max_n_bins
         ):
             raise ValueError("min_n_bins no puede ser mayor que max_n_bins.")
+        return self
+
+    @model_validator(mode="after")
+    def _check_solver_implementado(self) -> Self:
+        """``solver='cp'`` se rechaza aquí y no sólo al ajustar (D-ABA-5).
+
+        🔴 **La otra mitad de un defecto que estaba cerrado a medias.** El motor ya abortaba
+        —``binning/transformer.py``, primera línea de ``fit``— pero el config lo aceptaba, y con él
+        ``check_pipeline`` y ``check_dataset``: las tres superficies previas daban verde sobre una
+        elección que muere en el paso 2, **después** de cargar y validar todo el archivo del
+        usuario. Y quien llega por YAML o por código —el 100 % de quien usa esto como librería— no
+        tenía ninguna superficie que lo parara antes.
+
+        El abanico lo declara ``no_implementada`` y el gate de D-ABA-5 exige que además sea
+        imposible de construir: rotularlo sólo en el catálogo dejaría el defecto vivo justo para
+        quien no ve el catálogo. Mismo criterio con que ``stability.csi_source='woe_bins'`` y
+        ``validation.calibration.hl_grouping='fixed_bands'`` ya se rechazan en su config.
+
+        ⚠️ **El literal NO se estrecha, y es deliberado**: sacar ``cp`` de la anotación cambiaría el
+        schema publicado, y el catálogo dejaría de poder enseñar la opción con su motivo — que es
+        justo lo que D-JOB-5 pide en vez de esconderla. El veto vive en el validador.
+        """
+        if self.solver == "cp":
+            raise ConfigError(
+                "El agrupamiento en tramos por programación por restricciones no está disponible: "
+                "sobre variables continuas se queda sin término y sin respetar el límite de "
+                "tiempo. Usa programación entera mixta, que es la opción por omisión."
+            )
         return self
 
     def requisitos_incumplidos_por_perfil(self, perfil: PerfilDataset) -> tuple[Requisito, ...]:

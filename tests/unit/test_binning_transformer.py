@@ -22,7 +22,7 @@ import nikodym.binning.transformer as transformer_module
 from nikodym.binning.config import BinningConfig, VariableBinningConfig
 from nikodym.binning.exceptions import BinningFitError, BinningTransformError
 from nikodym.binning.transformer import WoEBinner
-from nikodym.core.exceptions import MissingDependencyError
+from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.data.special import MaskedFrame
 
 
@@ -1024,10 +1024,21 @@ def test_ramas_de_error_y_helpers_internos(monkeypatch: pytest.MonkeyPatch) -> N
 
     with pytest.raises(BinningFitError, match="split_digits"):
         _binner(feature_columns=("score",), split_digits=9).fit(x, y)
-    with pytest.raises(BinningFitError, match=r"solver='cp' está deshabilitado"):
-        # Fail-fast: seleccionar el solver 'cp' (colgado en optbinning 0.20/numpy 2.4) aborta en
-        # la primera línea de fit, antes de invocar el solver; nunca cuelga el gate.
+    # `solver='cp'` está cerrado en DOS superficies desde D-ABA-5, y las dos se miden:
+    #
+    # 1. La que gana por la ruta real. `_validate_runtime_config` reconstruye el `BinningConfig`
+    #    en su primera línea, así que el `model_validator` del config corta antes — que es
+    #    justamente lo que se buscaba: el config deja de ser construible, y con él `check_pipeline`
+    #    y `check_dataset` dejan de dar verde sobre una elección que muere en el paso 2.
+    with pytest.raises(ConfigError, match="programación por restricciones"):
         _binner(feature_columns=("score",), solver="cp").fit(x, y)
+    # 2. La guarda del transformer, que NO es código muerto: protege a quien construya el
+    #    estimador saltándose el config —igual que los tres niveles de `markov`—. Se ejercita
+    #    directamente porque por `fit` ya no se alcanza, y sin esto quedaría sin cubrir.
+    with pytest.raises(BinningFitError, match=r"solver='cp' está deshabilitado"):
+        binner_crudo = _binner(feature_columns=("score",), solver="cp")
+        object.__setattr__(binner_crudo, "_validate_config", lambda: None)
+        transformer_module._validate_runtime_config(binner_crudo)
     with pytest.raises(BinningFitError, match=r"pandas\.DataFrame"):
         _binner(feature_columns=("score",)).fit([1, 2, 3], y)
     with pytest.raises(BinningFitError, match="DataFrame vacío"):

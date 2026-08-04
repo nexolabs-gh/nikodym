@@ -210,7 +210,11 @@ def _binning_config_strategy(st: Any) -> Any:
         min_event_rate_diff=st.floats(min_value=0.0, max_value=1.0, allow_nan=False),
         max_pvalue=st.one_of(st.none(), st.floats(min_value=0.0, max_value=1.0, allow_nan=False)),
         max_pvalue_policy=st.sampled_from(["consecutive", "all"]),
-        solver=st.sampled_from(["cp", "mip"]),
+        # `cp` NO entra: el config lo rechaza desde D-ABA-5 (`binning/config.py`), así que
+        # samplearlo haría que esta estrategia generara configs inválidos — lo contrario de su
+        # contrato. El literal sigue existiendo en el motor para que el abanico pueda enseñar
+        # la opción con su motivo en vez de esconderla.
+        solver=st.just("mip"),
         mip_solver=st.sampled_from(["bop", "cbc"]),
         time_limit=st.integers(min_value=1, max_value=3600),
         require_optimal=st.booleans(),

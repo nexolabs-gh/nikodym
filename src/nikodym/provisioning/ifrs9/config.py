@@ -28,6 +28,7 @@ from typing import Literal, Self
 from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import Requisito
 from nikodym.provisioning.ifrs9.exceptions import IfrsConfigError
 
 __all__ = [
@@ -848,3 +849,56 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
                     "doble ajuste macro)."
                 )
         return self
+
+    def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
+        """Lo que esta sección se exige a sí misma y la corrida rechazará (D-INV-1).
+
+        🔴 **El caso es el config DE FÁBRICA, y por eso importa tanto.** Medido: los tres defaults
+        —curva de `survival`, modo «ya viene a condiciones actuales» y escenarios de `forward`—
+        **construyen sin un solo error** y revientan al calcular, porque las dos columnas que esas
+        dos elecciones exigen —la marca de curva ajustada al momento y el peso de escenario— las
+        publica **únicamente** `forward`: cero apariciones en `survival/` y en `markov/`. Quien
+        entra por el trabajo «Provisiones IFRS 9» recibe ese esqueleto; el preset F4 no lo sufre
+        porque fija los tres a mano, o sea que el árbol ya sabía que los defaults no corren.
+
+        Va aquí y no en cada sub-sección porque la condición cruza dos de ellas: `scenarios.source`
+        no puede juzgarse sin mirar `pd.term_structure_source`, que vive en su hermana. Es el mismo
+        criterio con que la invariante de `survival` vive en la clase que ve `method` y el flag.
+
+        ⚠️ **No es un `model_validator`, y es deliberado.** Las tres combinaciones son alcanzables y
+        legítimas para quien **inyecta su propia curva por código** con esas columnas puestas;
+        cerrarlas al construir mataría ese uso. Aquí se avisa (D-PRE-5, D-INV-3) y el motor sigue
+        siendo la autoridad sobre sí mismo.
+
+        ``columnas`` no se usa: la exigencia es entre campos del config, no sobre el dataset.
+        """
+        del columnas  # no depende del dataset; precedente: `performance.partitions`
+        requisitos: list[Requisito] = []
+        desde_forward = self.pd.term_structure_source == "forward"
+        if self.pd.pit_mode == "consume_pit" and not desde_forward:
+            requisitos.append(
+                Requisito(
+                    path="pd.pit_mode",
+                    declared=self.pd.pit_mode,
+                    message=(
+                        "Pediste usar las curvas tal cual, dando por hecho que ya vienen ajustadas "
+                        "a las condiciones de hoy, pero el análisis del que las tomas no las marca "
+                        "así: sólo el análisis prospectivo lo hace. Toma las curvas de ahí, o "
+                        "elige dejarlas sin ajuste de ciclo."
+                    ),
+                )
+            )
+        if self.scenarios.source == "forward" and not desde_forward:
+            requisitos.append(
+                Requisito(
+                    path="scenarios.source",
+                    declared=self.scenarios.source,
+                    message=(
+                        "Pediste que los pesos de cada escenario vengan con las curvas, y el "
+                        "análisis del que las tomas no los publica: sólo el prospectivo los trae. "
+                        "Toma las curvas de ahí, pondera tú los escenarios, o calcula sobre uno "
+                        "solo."
+                    ),
+                )
+            )
+        return tuple(requisitos)

@@ -19,6 +19,7 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, field_validator, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import ContextoConfig, Requisito
 from nikodym.provisioning.cmf.exceptions import CmfConfigError
 
 CmfPdSourceDomain = Literal["model", "calibration"]
@@ -185,6 +186,37 @@ class CmfPdMappingConfig(NikodymBaseConfig):
                 "pd_mapping.method='pd_breaks' exige len(categories) == len(pd_breaks) + 1."
             )
         return self
+
+    def requisitos_incumplidos_por_contexto(
+        self, contexto: ContextoConfig
+    ) -> tuple[Requisito, ...]:
+        """Lo que derivar la categoría desde la PD exige del resto del config (D-ABA-8).
+
+        🔴 **Aquí el DAG no puede ayudar, y ésa es la diferencia con sus tres hermanas de
+        provisiones.** ``CmfProvisioningStep.requires`` es **estático** —medido: con
+        ``method='pd_breaks'`` sigue declarando sólo el frame de datos— mientras el paso exige en
+        ejecución el artefacto de PD del dominio elegido. Las otras tres secciones de provisiones
+        reconstruyen su ``requires`` desde el config; ésta no, así que ni el orden de los pasos ni
+        ``check_pipeline`` pueden avisar, y el fallo llega con la carga ya pagada.
+
+        Con ``method='provided_cmf_category'`` no se exige nada: la categoría viene del archivo y
+        ``pd_source_domain`` **no se lee** — declararlo igual sería el falso positivo que D-RAM-1
+        documentó, un aviso sobre una rama que el motor nunca abre.
+        """
+        if self.method != "pd_breaks" or self.pd_source_domain in contexto.secciones_activas:
+            return ()
+        return (
+            Requisito(
+                path="pd_source_domain",
+                declared=self.pd_source_domain,
+                message=(
+                    "Pediste derivar la categoría de riesgo desde la probabilidad de incumplir, y "
+                    "la etapa que la produce no está activa en esta corrida. Actívala, elige la "
+                    "otra procedencia de esa probabilidad, o trae la categoría ya clasificada en "
+                    "tu archivo."
+                ),
+            ),
+        )
 
 
 class CmfExposureConfig(NikodymBaseConfig):

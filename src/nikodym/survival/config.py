@@ -18,7 +18,7 @@ from typing import Any, Literal, Self
 from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
-from nikodym.core.dataset_check import Requisito
+from nikodym.core.dataset_check import ContextoConfig, Requisito
 from nikodym.survival.exceptions import SurvivalConfigError
 
 SurvivalMethod = Literal["discrete_hazard", "kaplan_meier", "cox_ph", "aft"]
@@ -157,6 +157,36 @@ class SurvivalInputConfig(NikodymBaseConfig):
         if self.duration_col.strip() == self.event_col.strip():
             raise SurvivalConfigError("duration_col y event_col deben ser columnas distintas.")
         return self
+
+    def requisitos_incumplidos_por_contexto(
+        self, contexto: ContextoConfig
+    ) -> tuple[Requisito, ...]:
+        """Lo que esta elección exige del RESTO del config, no del dataset (D-ABA-8).
+
+        🔴 **El caso que lo motiva es un falso verde medido.** Con ``pd_source='calibration'`` el
+        motor exige el artefacto de la calibración, pero ``_requires_for`` (``survival/step.py``)
+        devuelve lo mismo que para ``'model_raw'`` y **no declara ese paso**, así que el DAG no lo
+        ve: ``check_pipeline`` da ``executable=True`` y la corrida muere al llegar a las curvas,
+        después de cargar el archivo y ajustar. Su hermano ``provisioning_internal`` sí lo declara
+        en su ``requires`` — el mismo problema, resuelto de la otra forma, en el mismo repo.
+
+        Sólo se comprueba ``'calibration'``: ``'model_raw'`` **sí** viaja en el ``requires``, así
+        que avisar de él aquí duplicaría un diagnóstico que el DAG ya da mejor —con el orden de los
+        pasos— y produciría dos mensajes para un solo problema.
+        """
+        if self.pd_source != "calibration" or "calibration" in contexto.secciones_activas:
+            return ()
+        return (
+            Requisito(
+                path="pd_source",
+                declared=self.pd_source,
+                message=(
+                    "Elegiste enganchar las curvas a la probabilidad ya calibrada, y la etapa que "
+                    "la calibra no está activa en esta corrida. Actívala, o engancha las curvas a "
+                    "la probabilidad sin calibrar, o ajústalas sólo con lo que trae tu archivo."
+                ),
+            ),
+        )
 
 
 class SurvivalTimeGridConfig(NikodymBaseConfig):

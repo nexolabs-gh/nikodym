@@ -190,7 +190,6 @@ def test_un_requisito_incumplido_no_es_una_columna_que_falte() -> None:
 #: es que se miró cada sección y se decidió, no que se olvidaron.
 EXENTAS: dict[str, str] = {
     # --- camino F1: miradas una por una en el censo del 2026-07-29 ---
-    "binning": "su invariante ('no queda candidata') depende de los dtypes, no sólo de los nombres",
     "selection": "sus 4 campos son `derived`: la candidatura la produce binning al correr",
     "model": "sus overrides se contrastan contra lo que sobrevivió a selection, que aún no existe",
     "scorecard": "sin invariantes medidas: el censo del 2026-07-29 no encontró ninguna",
@@ -204,8 +203,6 @@ EXENTAS: dict[str, str] = {
     # grilla temporal, que con `fail_on_falta_dato` en su default aborta la corrida **después** de
     # ajustar el modelo.
     "provisioning": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "provisioning_cmf": "fuera del alcance F1 del preflight (D-PRE-4)",
-    "provisioning_ifrs9": "fuera del alcance F1 del preflight (D-PRE-4)",
     "provisioning_internal": "fuera del alcance F1 del preflight (D-PRE-4)",
     "markov": "fuera del alcance F1 del preflight (D-PRE-4)",
     "forward": "fuera del alcance F1 del preflight (D-PRE-4)",
@@ -216,8 +213,24 @@ EXENTAS: dict[str, str] = {
 }
 
 
+#: Los TRES métodos con que una sección puede declarar lo que se exige a sí misma.
+#:
+#: ⚠️ Son los que **AÑADEN** avisos. Los dos supresores —`columnas_inactivas` y
+#: `columnas_que_produce`— quedan fuera a propósito: declarar que una columna no se lee no es
+#: declarar una invariante, y contarlos aquí daría por cubierta una sección que no comprueba nada.
+#:
+#: El de contexto entró con D-ABA-8. Antes el criterio miraba sólo el primero, y por eso una
+#: sección que declarase su invariante por uno de los hermanos seguía contando como incumplidora
+#: —el caso de `binning`, que lleva desde D-PERF-4 declarando la suya por el perfil—.
+_METODOS_QUE_DECLARAN: tuple[str, ...] = (
+    METODO_REQUISITOS,
+    "requisitos_incumplidos_por_perfil",
+    "requisitos_incumplidos_por_contexto",
+)
+
+
 def _secciones_con_protocolo(seccion: type[BaseModel]) -> bool:
-    """¿La sección —o alguno de sus sub-modelos— declara el protocolo?"""
+    """¿La sección —o un sub-modelo suyo— declara el protocolo, por cualquiera de sus vías?"""
     vistos: set[type[BaseModel]] = set()
     pendientes: list[type[BaseModel]] = [seccion]
     while pendientes:
@@ -225,7 +238,7 @@ def _secciones_con_protocolo(seccion: type[BaseModel]) -> bool:
         if modelo in vistos:
             continue
         vistos.add(modelo)
-        if callable(getattr(modelo, METODO_REQUISITOS, None)):
+        if any(callable(getattr(modelo, metodo, None)) for metodo in _METODOS_QUE_DECLARAN):
             return True
         for info in modelo.model_fields.values():
             for arg in (info.annotation, *getattr(info.annotation, "__args__", ())):
