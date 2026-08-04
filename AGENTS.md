@@ -11,8 +11,8 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-03 noche, **el SDD del abanico y los once defectos cerrados**)
 
-**`main` = `6eeaf1d`.** CI **16/16 confirmado job a job con `gh`** sobre `aa88ac2`, `8f0f5ce`,
-`428b91b` y `26c821b`; el de `6eeaf1d` quedó en curso, **verificarlo al arrancar**. **PyPI sigue en
+**`main` = `b91855b`.** CI **16/16 confirmado job a job con `gh`** sobre **los seis commits de la
+sesión**; no queda ningún run por verificar. **PyPI sigue en
 `1.10.0` y no hay release autorizado.** Gates: pytest **5011 passed / 6 skipped**, vitest
 **626/626**, mypy 245, `ruff check` y `format`, typecheck y lint del front, fixture de schema y de
 demo regenerados, bundle reconstruido, `mkdocs --strict`.
