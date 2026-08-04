@@ -5,7 +5,65 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-04 noche): **M-7 cerrado, y los TRES defectos que destapó prepararlo**
+> ## Lo último (2026-08-05): **el censo del abanico cerrado, y la normativa local FUERA de alcance**
+>
+> **`main` = `d688872`.** CI 16/16 confirmado job a job con `gh` sobre `e6d7009` y `6dd5c0f`; ⚠️ los
+> de `87819c5` y `d688872` hay que **verificarlos al arrancar**. Gates: pytest **5139 passed /
+> 8 skipped** (base 5114), vitest **636/636**, mypy 245, ruff check y format, typecheck y lint,
+> fixtures regenerados, bundle reconstruido, `mkdocs --strict`. **PyPI sigue en `1.10.0`.**
+>
+> 🔴 **LO MÁS IMPORTANTE NO ES CÓDIGO: la normativa local de cada país sale del alcance de la
+> librería.** Decisión de Cami al preguntarle por M-3 —que es puro motor CMF—: *«descartamos
+> normativa local de países hace tiempo atrás: CMF, norma peruana, boliviana, etc. No podemos estar
+> detrás de cada actualización de cada país […] Sólo podemos seguir estándares comunes como Basilea
+> o IFRS 9 […] Lo que sí hay que dejar es todo bien para, por ejemplo, un modelo PD y LGD, y luego
+> el modelador —o la misma Nikodym Advisory— hace los ajustes para llevarlo a la normativa local.»*
+> **M-3 se detuvo**: su enmienda queda escrita **sin implementación**
+> ([`_ENMIENDA-REQUISITOS-CMF.md`](docs/design/_ENMIENDA-REQUISITOS-CMF.md)), precedente D-MAX-3.
+> ⚠️ **Lo que NO se hizo y es alcance a decidir**: el producto sigue prometiendo CMF en la landing,
+> el README, la demo F3 y **3 de los 10 trabajos**; y las matrices del B-1 viajan **dentro del
+> paquete** con su fecha de verificación, así que un motor publicado y no mantenido no envejece
+> hacia «incompleto» sino hacia **incorrecto**. Tres salidas con su coste en `HANDOFF.md`.
+>
+> ✅ **El censo del abanico queda cerrado ENTERO salvo M-3** —verificado contra el código, no dado
+> por hecho—: M-1, M-4 y M-6 ya lo estaban; hoy caen **M-5** y **M-2**.
+>
+> ✅ **M-5**: `xlsx` era el único formato **sin degradación** —la falta de `openpyxl` no dejaba sin
+> planilla, dejaba **sin informe**, incluido el HTML, que no depende de nada—. Se cierra en **dos
+> capas**: `find_spec` antes de renderizar, para que el documento no nombre un adjunto que no saldrá
+> (la fuente de nombres es **única**, así que documento y writer no pueden divergir), y la captura al
+> escribir, para el caso «presente pero roto». ⚠️ Eso hace que `data_export_refs` **deje de ser pura**
+> y se declara. 🔴 **Y el copy pagaba la asimetría antes que el código**: el abanico publicaba que
+> `xlsx` «no degrada: si falta, la corrida se detiene» — era cierto, y era el defecto.
+>
+> ✅ **M-2** ([`_ENMIENDA-REQUISITOS-DECLARADOS.md`](docs/design/_ENMIENDA-REQUISITOS-DECLARADOS.md),
+> D-REQ-1…8, aprobada por Cami antes de programar): `tuning`/`explain` declaraban los requisitos del
+> **default de fábrica** de `ml`, así que `check_pipeline` daba **falso rojo y falso verde a la vez**
+> — y una **tercera mentira** que ningún censo traía: `inert_artifacts` marcaba inertes justo las
+> claves que el paso consume. El contexto del hook pasa de `frozenset[str]` a un DTO, y lo que
+> transporta de `ml` lo **produce `MLConfig`** por método-protocolo (D-INV-1).
+>
+> 🔴 **Cuatro lecciones, todas medidas.** (1) **Un test que CONSTRUYE el contexto a mano no puede
+> ver que el contexto se construye mal**: el primer arreglo de M-2 pasaba sus tests y dejaba el
+> defecto **vivo por la puerta pública** —miraba las secciones *activas*, y con `run.steps=['tuning']`
+> la sección `ml` existe y no corre, pero `execute` la lee igual—. (2) **El gate de clase acusó a
+> TRES inocentes** (`ml`, `provisioning`, `validation`) hasta afinar «re-deriva» a «re-deriva **con
+> datos ajenos**»: los tres releen lo suyo. (3) **Declarar los requisitos CORRECTOS empeoró un
+> mensaje** —con `data_raw` el DAG cortaba antes y se perdía el `FALTA-DATO-ML-1`—, y lo cazó un test
+> que existía y no habla de `requires`. (4) **El CI caza lo que el local no puede**: dos tests de M-5
+> exigen el extra **presente** (es su control positivo) y aquí está instalado → 10 de 16 jobs rojos.
+>
+> ⚠️ **Trampas nuevas:** simular la ausencia de un extra exige la **misma semántica** que la ausencia
+> real —`find_spec` devuelve `None`, **no levanta**—; `tuning` importa `MLConfig` **perezosamente**,
+> así que sus defaults copiados se atan con un **gate**, no con una lectura; y `DESCRIPTORES_TOTALES`
+> sube **dos** por campo nuevo (`$defs` + `sections`) mientras `HOJAS_DEL_FORMULARIO` sube una.
+>
+> **Siguiente: la decisión sobre CMF**, y después lo que Cami elija del roadmap. Detalle en
+> [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-04 noche): **M-7 cerrado, y los TRES defectos que destapó prepararlo**
 >
 > **`main` = `6dd5c0f`.** **CI 16/16 confirmado job a job con `gh` sobre `a425ca2`**, el commit con
 > todo el código; ⚠️ el de `6dd5c0f` quedó lanzado (solo-docs) y hay que **verificarlo al arrancar**. Gates: pytest

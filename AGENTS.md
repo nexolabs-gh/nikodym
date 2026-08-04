@@ -9,7 +9,38 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-04 noche, **M-7 cerrado y los tres defectos que destapó prepararlo**)
+## Estado vigente (2026-08-05, **el censo del abanico cerrado y la normativa local fuera de alcance**)
+
+**`main` = `d688872`.** CI 16/16 confirmado job a job con `gh` sobre `e6d7009` y `6dd5c0f`; ⚠️ los de
+`87819c5` y `d688872` hay que verificarlos al arrancar. **PyPI sigue en `1.10.0` y no hay release
+autorizado.** Gates: pytest **5139 passed / 8 skipped**, vitest **636/636**, mypy 245, `ruff check` y
+`format`, typecheck y lint del front, fixtures regenerados, bundle reconstruido, `mkdocs --strict`.
+
+🔴 **La normativa local de cada país sale del alcance de la librería** (decisión de Cami,
+2026-08-05): CMF, SBS peruana, boliviana. *«No podemos estar detrás de cada actualización de cada
+país»*; sólo estándares comunes —Basilea, IFRS 9—, y el ajuste a la norma local lo hace el modelador
+o Nikodym Advisory. **M-3 se detuvo** y su enmienda queda escrita sin implementación. ⚠️ **Lo que no
+se hizo y hay que decidir**: el producto sigue publicando CMF en la landing, el README, la demo F3 y
+3 de los 10 trabajos, y sus matrices normativas viajan **dentro del paquete** — un motor publicado y
+no mantenido envejece hacia **incorrecto**, no hacia incompleto.
+
+✅ **El censo del abanico queda cerrado entero salvo M-3**, verificado contra el código. Hoy caen
+**M-5** —`xlsx` era el único formato sin degradación: sin `openpyxl` no faltaba la planilla, faltaba
+**el informe entero**— y **M-2** —`tuning`/`explain` declaraban los requisitos del default de
+fábrica de `ml`, con falso rojo, falso verde y una **tercera mentira** en `inert_artifacts` que
+ningún censo traía—.
+
+🔴 **Cuatro lecciones medidas.** Un test que **construye** el contexto a mano no ve que el contexto
+se construya mal —el primer arreglo de M-2 pasaba sus tests y el defecto seguía vivo por la puerta
+pública—; un **gate nuevo acusó a tres inocentes** hasta afinar su criterio; declarar los requisitos
+**correctos** empeoró un mensaje de error; y el **CI cazó** lo que el local no podía, porque dos
+tests exigen un extra que aquí está instalado.
+
+**Siguiente: la decisión sobre CMF.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-04 noche, **M-7 cerrado y los tres defectos que destapó prepararlo**)
 
 **`main` = `6dd5c0f`.** **CI 16/16 confirmado job a job con `gh` sobre `a425ca2`**, el commit con
 todo el código; ⚠️ el de `6dd5c0f` (solo-docs) quedó lanzado y hay que verificarlo al arrancar. **PyPI sigue en `1.10.0` y no hay release
