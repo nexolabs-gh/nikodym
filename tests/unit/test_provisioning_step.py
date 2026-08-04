@@ -115,11 +115,20 @@ def test_contrato_step_y_registro() -> None:
 
 
 def test_requires_require_both_exige_ambos() -> None:
-    """``require_both=True`` (default) exige los dos ``result`` de los motores."""
+    """``require_both=True`` (default) exige los dos ``result`` de las fuentes DE FÁBRICA.
+
+    Y las de fábrica son el método estándar de la CMF y el método interno del banco, porque ésa es
+    la comparación que exige el Cap. B-1 (Circular N° 2.346, hoja 10-11): *"considerando el mayor
+    valor obtenido entre el respectivo método estándar y el método interno"*. Hasta el 2026-08-04
+    el default de ``source_b`` fue ``provisioning_ifrs9`` «por retrocompatibilidad», y eso publicaba
+    una comparación entre marcos contables que ninguna norma chilena pide —el Cap. A-2 num. 5
+    excluye el deterioro de NIIF 9 sobre las colocaciones—. Comparar contra IFRS 9 sigue soportado,
+    pero se declara: ver ``test_requires_derivan_de_las_fuentes_declaradas``.
+    """
     step = ProvisioningStep.from_config(ProvisioningConfig())
     assert step.requires == (
         ("provisioning_cmf", "result"),
-        ("provisioning_ifrs9", "result"),
+        ("provisioning_internal", "result"),
     )
 
 
@@ -136,9 +145,12 @@ def test_requires_solo_fuente_a_cuando_b_desactivada() -> None:
 
 
 def test_requires_solo_fuente_b_cuando_a_desactivada() -> None:
-    """``require_both=False`` con ``consume_a=False`` exige solo el ``result`` de la fuente B."""
+    """``require_both=False`` con ``consume_a=False`` exige solo el ``result`` de la fuente B.
+
+    Simétrico del anterior: la fuente B de fábrica es el método interno (la regla del B-1).
+    """
     step = ProvisioningStep.from_config(ProvisioningConfig(require_both=False, consume_a=False))
-    assert step.requires == (("provisioning_ifrs9", "result"),)
+    assert step.requires == (("provisioning_internal", "result"),)
 
 
 def test_requires_derivan_de_las_fuentes_declaradas() -> None:
@@ -160,9 +172,20 @@ def test_requires_derivan_de_las_fuentes_declaradas() -> None:
 
 
 def test_requires_legacy_consume_ifrs9_sigue_funcionando() -> None:
-    """El flag deprecado ``consume_ifrs9`` sigue recortando los ``requires`` (retrocompatible)."""
+    """El flag deprecado ``consume_ifrs9`` sigue recortando los ``requires`` (retrocompatible).
+
+    Sigue vivo, pero **sólo sobre una fuente declarada**: ``consume_ifrs9`` manda sobre el
+    ``consume_*`` de la ranura que ocupa ``provisioning_ifrs9``, y desde el 2026-08-04 IFRS 9 ya no
+    ocupa ninguna por defecto (la fuente B de fábrica es el método interno, la comparación del
+    B-1). Por eso el test declara ``source_b='provisioning_ifrs9'``: sin esa declaración el config
+    ya no ignora el flag en silencio, lo **rechaza** con ``ProvisioningConfigError`` —«solo aplica
+    si 'provisioning_ifrs9' es una de las fuentes»—, que es un caso distinto y no el que este test
+    mide. Lo que se mide aquí es que el campo legacy no murió con el cambio de default.
+    """
     with pytest.warns(DeprecationWarning):
-        cfg = ProvisioningConfig(require_both=False, consume_ifrs9=False)
+        cfg = ProvisioningConfig(
+            source_b="provisioning_ifrs9", require_both=False, consume_ifrs9=False
+        )
     assert ProvisioningStep.from_config(cfg).requires == (("provisioning_cmf", "result"),)
 
 
@@ -189,12 +212,16 @@ def test_core_study_cablea_provisioning() -> None:
 
 
 def test_execute_publica_cuatro_artefactos_y_audita() -> None:
-    """Con ambos motores presentes, publica las 4 claves y emite el audit trail §9 completo."""
+    """Con ambos motores presentes, publica las 4 claves y emite el audit trail §9 completo.
+
+    La fuente B se declara ``provisioning_ifrs9``: el comparativo entre marcos contables sigue
+    soportado, pero ya no es el default (que es el método interno, por el Cap. B-1).
+    """
     cmf = _cmf_result(
         [{"row_id": "op1", "portfolio": "commercial", "provision": Decimal("100.00")}]
     )
     ifrs9 = _ifrs9_result([{"row_id": "op1", "portfolio": "commercial", "ecl": 60.165289}])
-    cfg = ProvisioningConfig(comparison_level="portfolio")
+    cfg = ProvisioningConfig(source_b="provisioning_ifrs9", comparison_level="portfolio")
     study = _study_with_results(cfg, cmf=cmf, ifrs9=ifrs9)
     sink = InMemoryAuditSink()
     study.set_audit_sink(sink)
@@ -242,7 +269,7 @@ def test_execute_no_muta_artefacto_publicado() -> None:
         [{"row_id": "op1", "portfolio": "commercial", "provision": Decimal("100.00")}]
     )
     ifrs9 = _ifrs9_result([{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}])
-    cfg = ProvisioningConfig(comparison_level="portfolio")
+    cfg = ProvisioningConfig(source_b="provisioning_ifrs9", comparison_level="portfolio")
     study = _study_with_results(cfg, cmf=cmf, ifrs9=ifrs9)
     result = ProvisioningStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
 
@@ -272,10 +299,16 @@ def test_passthrough_solo_cmf_step() -> None:
 
 
 def test_ct1_falta_result_cmf() -> None:
-    """``require_both=True`` sin el ``result`` CMF -> ``ArtifactNotFoundError`` (CT-1)."""
+    """``require_both=True`` sin el ``result`` CMF -> ``ArtifactNotFoundError`` (CT-1).
+
+    El par CT-1 se mide sobre las dos fuentes DECLARADAS, aquí CMF vs IFRS 9: si IFRS 9 no se
+    declara no es fuente —el default es el método interno—, y el ``result`` sembrado sería un
+    artefacto que el step nunca pide.
+    """
     ifrs9 = _ifrs9_result([{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}])
-    study = _study_with_results(ProvisioningConfig(), cmf=None, ifrs9=ifrs9)
-    step = ProvisioningStep.from_config(ProvisioningConfig())
+    cfg = ProvisioningConfig(source_b="provisioning_ifrs9")
+    study = _study_with_results(cfg, cmf=None, ifrs9=ifrs9)
+    step = ProvisioningStep.from_config(cfg)
     with pytest.raises(ArtifactNotFoundError, match=r"\('provisioning_cmf', 'result'\)"):
         step.execute(study, np.random.default_rng(ROOT_SEED))
 
@@ -283,8 +316,9 @@ def test_ct1_falta_result_cmf() -> None:
 def test_ct1_falta_result_ifrs9() -> None:
     """``require_both=True`` sin el ``result`` IFRS 9 -> ``ArtifactNotFoundError`` (CT-1)."""
     cmf = _cmf_result([{"row_id": "op1", "portfolio": "commercial", "provision": Decimal("10")}])
-    study = _study_with_results(ProvisioningConfig(), cmf=cmf, ifrs9=None)
-    step = ProvisioningStep.from_config(ProvisioningConfig())
+    cfg = ProvisioningConfig(source_b="provisioning_ifrs9")
+    study = _study_with_results(cfg, cmf=cmf, ifrs9=None)
+    step = ProvisioningStep.from_config(cfg)
     with pytest.raises(ArtifactNotFoundError, match=r"\('provisioning_ifrs9', 'result'\)"):
         step.execute(study, np.random.default_rng(ROOT_SEED))
 
@@ -338,7 +372,7 @@ def test_determinismo_dos_ejecuciones() -> None:
         ],
         total=110.0,
     )
-    cfg = ProvisioningConfig(comparison_level="portfolio")
+    cfg = ProvisioningConfig(source_b="provisioning_ifrs9", comparison_level="portfolio")
 
     primera = ProvisioningStep.from_config(cfg).execute(
         _study_with_results(cfg, cmf=cmf, ifrs9=ifrs9), np.random.default_rng(ROOT_SEED)
@@ -573,7 +607,9 @@ def _study_tres_motores() -> Study:
     config = NikodymConfig(
         provisioning_cmf=CmfProvisioningConfig(),
         provisioning_ifrs9=_ifrs9_step_config(),
-        provisioning=ProvisioningConfig(),
+        # Comparativo ENTRE MARCOS CONTABLES: se declara, porque la fuente B de fábrica es el
+        # método interno (la comparación estándar-vs-interno que exige el Cap. B-1).
+        provisioning=ProvisioningConfig(source_b="provisioning_ifrs9"),
     )
     study = Study(config)
     study.artifacts.set("data", "frame", frame)

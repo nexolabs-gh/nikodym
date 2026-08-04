@@ -27,10 +27,14 @@ mismo config.
 
    Por tanto ``max(CMF, IFRS 9)`` **no es "el piso prudencial de la CMF"** y no debe presentarse
    como tal. Comparar ambos marcos sigue siendo útil (p. ej. una filial que reporta ECL a su matriz
-   extranjera), pero es un comparativo **entre marcos contables**, no una exigencia local. Por
-   retrocompatibilidad los defaults siguen siendo ``source_a='provisioning_cmf'`` y
-   ``source_b='provisioning_ifrs9'``; la comparación que **sí** exige la norma chilena se declara
-   con ``source_b='provisioning_internal'`` (SDD-28).
+   extranjera), pero es un comparativo **entre marcos contables**, no una exigencia local.
+
+   🔴 **Por eso el default es ``source_b='provisioning_internal'``** (D-MAX-1): el de fábrica es la
+   comparación que la norma exige, no la histórica. Hasta el 2026-08-04 el default fue
+   ``'provisioning_ifrs9'`` por retrocompatibilidad, y eso significaba que **había que saber que
+   estaba mal para arreglarlo**: quien no tocara el campo obtenía una comparación sin destinatario
+   normativo bajo un capítulo titulado «la regla del máximo (Chile)». El comparativo entre marcos
+   sigue disponible declarándolo, que es donde debe estar una elección que la norma no pide.
 
 La sección es **computacional, no infraestructura** (``provisioning`` ∉ ``INFRA_SECTIONS``): cambiar
 las fuentes, la regla, el nivel de comparación, la clave/crosswalk de cartera, la política de
@@ -136,12 +140,14 @@ class ProvisioningConfig(NikodymBaseConfig):
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Fuentes", "ui_order": 1},
     )
     source_b: ProvisioningSource = Field(
-        default=IFRS9_SOURCE,
+        default=INTERNAL_SOURCE,
         title="Fuente B de la comparación",
         description=(
-            "Dominio del segundo resultado a comparar. El default (provisioning_ifrs9) preserva el "
-            "comportamiento histórico; la comparación que EXIGE la norma chilena (Cap. B-1, hoja "
-            "10-11) es contra provisioning_internal (método interno del banco)."
+            "Dominio del segundo resultado a comparar. El default (provisioning_internal, el "
+            "método interno del banco) es la comparación que EXIGE la norma chilena (Cap. B-1, "
+            "hoja 10-11). Con provisioning_ifrs9 se obtiene un comparativo entre marcos "
+            "contables, útil para reportar a una matriz extranjera pero que ninguna norma local "
+            "pide: el Cap. A-2 num. 5 excluye el deterioro de NIIF 9 sobre las colocaciones."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Fuentes", "ui_order": 2},
     )

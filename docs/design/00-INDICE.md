@@ -398,6 +398,33 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `requisitos_incumplidos_por_perfil` y **no** de los dos supresores: la clase D *añade* avisos, y
 > sólo quien *quita* hereda la obligación de medirse en los dos sentidos (D-RAM-4).
 >
+> **El esqueleto que siembra un trabajo tiene que CORRER (2026-08-04, APROBADA).**
+> [`_ENMIENDA-TRABAJO-EJECUTABLE.md`](_ENMIENDA-TRABAJO-EJECUTABLE.md), D-EJE-1…D-EJE-7, cierra
+> GRAVE-2 del censo. 🔴 **El censo había visto dos trabajos rotos y son TRES**: el tercero
+> —«Provisiones IFRS 9»— salió al construir el gate, con la misma causa que «PD lifetime». Un
+> trabajo `available` promete en la pantalla que se puede hacer, y **nadie lo comprobaba**: es la
+> misma clase que D-OBL-11 cerró para los capítulos del informe, descubierta entonces corriendo el
+> gate de aceptación a mano. Nace el campo `overrides` en el catálogo —lo que un trabajo siembra por
+> encima del default del motor— y un gate que recorre **los diez** exigiendo `executable=True`.
+> ⚠️ Los overrides viven en el **backend** aunque la siembra sea del front, porque el gate es Python
+> y tiene que aplicarlos desde la misma fuente que la pantalla. 🔴 **Y el gate cazó un defecto en el
+> código recién escrito**: un override dentro de un submodelo obligatorio se perdía en silencio,
+> porque la proyección canónica omite esos bloques enteros y el nodo no existía.
+>
+> **El default de `provisioning` no era la regla del B-1 (2026-08-04, APROBADA).**
+> [`_ENMIENDA-REGLA-DEL-MAXIMO.md`](_ENMIENDA-REGLA-DEL-MAXIMO.md), D-MAX-1…D-MAX-6, cierra GRAVE-3
+> del censo. `ProvisioningConfig()` traía `max(CMF, IFRS 9)` «por retrocompatibilidad», y la regla
+> del Cap. B-1 compara el método estándar contra el **interno** —el Cap. A-2 num. 5 excluye el
+> deterioro de NIIF 9 sobre colocaciones—. 🔴 **El motor declaraba honestamente la procedencia en su
+> lineage y publicaba la cifra igual**, bajo un capítulo titulado «la regla del máximo (Chile)» que
+> lo decía **siempre**. Ahora el default es la comparación que la norma exige y el título se deriva
+> del config, con el criterio que el orquestador ya usaba. ✅ **Coste de identidad medido: cero** —
+> los tres presets escriben sus fuentes explícitas y el golden por defecto trae `provisioning: null`;
+> el cambio va en minor por quien omita el campo. ⚠️ **D-MAX-3 quedó SIN OBJETO al medirlo**: el DAG
+> ya avisa de las dos secciones apagadas con mejor mensaje, y declararlo habría duplicado el
+> diagnóstico. ⚠️ **Y el coste en tests era 40, no 5**: un censo que cuenta los que *nombran* el campo
+> no ve los que lo heredan por un helper compartido.
+>
 > **La dirección del score se pregunta tres veces y nadie la cruza (2026-08-04, APROBADA).**
 > [`_ENMIENDA-DIRECCION-DEL-SCORE.md`](_ENMIENDA-DIRECCION-DEL-SCORE.md), D-DIR-1…D-DIR-9, cierra
 > GRAVE-1 del censo. 🔴 **El defecto no fallaba: publicaba** — con la tarjeta construida en un

@@ -38,7 +38,6 @@ from nikodym.report.document import (
     CANONICAL_SECTION_ORDER,
     CHAPTER_SPECS,
     CONTEXT_DOMAINS,
-    DOMAIN_TITLES,
     IFRS9_DOMAINS,
     METHODOLOGY_STEPS,
     PIPELINE_DOMAINS,
@@ -47,6 +46,7 @@ from nikodym.report.document import (
     VALIDATION_FAMILIES,
     ChapterSpec,
     domain_section_id,
+    domain_title,
 )
 from nikodym.report.exceptions import ReportInputError
 from nikodym.report.results import (
@@ -467,7 +467,7 @@ class ReportBuilder:
                 payload["effective_config"] = _copy_mapping(effective_config)
         return ReportSection(
             id=domain_section_id(parent_id, domain),
-            title=DOMAIN_TITLES[domain],
+            title=domain_title(domain, _titulo_card(bundle, domain)),
             status=status,
             source_domain=domain,
             source_key=card_key or "effective_config",
@@ -728,6 +728,18 @@ def _lineage_from_study(study: Study) -> LineageBundle:
                 "o inyecte run_context.lineage antes de construir el bundle."
             ) from exc
     return cast(LineageBundle, _copy_value(lineage))
+
+
+def _titulo_card(bundle: ReportInputBundle, domain: str) -> Mapping[str, Any] | None:
+    """La card del dominio, si está, para que el título pueda depender de lo configurado (D-MAX-2).
+
+    Devuelve ``None`` cuando el dominio no publicó card —sección ausente o pipeline parcial—, y eso
+    es lo correcto: sin el dato, el título no afirma nada que no pueda sostener.
+    """
+    card = bundle.cards.get(domain)
+    if card is None:
+        return None
+    return _card_to_mapping(card, f"{domain}.card")
 
 
 def _card_to_mapping(value: Any, artifact: str) -> dict[str, Any]:

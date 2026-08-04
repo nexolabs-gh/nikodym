@@ -140,6 +140,15 @@ export interface Job {
    * traer. Los dos campos miden cosas distintas.
    */
   external_artifacts: ExternalArtifact[]
+  /**
+   * Valores que este trabajo siembra POR ENCIMA del default del motor (D-EJE-2).
+   *
+   * Parejas `[ruta, valor]` en el orden en que se aplican. Existe porque un default puede ser
+   * correcto para la librería y dejar **inejecutable** a un trabajo concreto: medido, tres de los
+   * diez nacían así. Los declara el catálogo del backend, para que el gate de ejecutabilidad
+   * —que es Python— los aplique desde la misma fuente que esta pantalla.
+   */
+  overrides: [string, unknown][]
   /** País cuya normativa impone el cálculo; `null` = neutral (D-JOB-8). */
   jurisdiction_code: string | null
   jurisdiction_label: string | null
@@ -268,8 +277,52 @@ export function jobSkeleton(
     if (canonica === undefined) continue
     skeleton[section] = canonicalProjection(canonica)
   }
+  aplicarOverridesDelTrabajo(skeleton, job)
   recortarCapitulosDelInforme(skeleton, job)
   return skeleton
+}
+
+/**
+ * Escribe los valores que este trabajo siembra por encima del default del motor (D-EJE-2).
+ *
+ * 🔴 **Sin esto, tres de los diez trabajos nacían inejecutables**, y así estuvieron hasta el
+ * 2026-08-04: un default puede ser correcto para la librería y dejar roto a un trabajo concreto —el
+ * de la fuente de PD de `survival` exige un artefacto que produce la sección `model`, que dos
+ * trabajos no ofrecen ni admiten subir—. Es la misma clase que `recortarCapitulosDelInforme` cerró
+ * para los capítulos del informe, y por eso van uno al lado del otro.
+ *
+ * ⚠️ Los overrides los declara el **catálogo del backend**, no este archivo, aunque la siembra viva
+ * aquí: el gate que comprueba que un trabajo disponible produce un config ejecutable es Python, y
+ * necesita aplicarlos desde la misma fuente que esta pantalla consume. Una lista paralela en el
+ * front podría divergir de la del gate sin que nada lo notara.
+ *
+ * Se aplican **después** de la proyección canónica —pisan el default, que es su razón de ser— y
+ * **antes** del recorte de capítulos, que no depende de ellos. Una ruta cuya sección el trabajo no
+ * declara se ignora: no es un caso alcanzable —un gate lo impide en el catálogo— y sembrar una
+ * sección que el trabajo no muestra sería peor que no hacer nada.
+ *
+ * 🔴 **Los tramos intermedios que falten se CREAN, y ésa es la mitad que costó descubrir.** La
+ * proyección canónica omite los submodelos obligatorios enteros (D-OBL-2), así que `survival.input`
+ * no existe en el esqueleto — y el único override que hay hoy escribe justamente ahí. Sin crear el
+ * tramo, el valor se perdía **en silencio** y el trabajo seguía naciendo roto con el catálogo ya
+ * corregido. Lo cazó su gate el mismo día. El bloque queda incompleto a propósito: es el estado en
+ * que la decisión obligatoria espera al usuario, exactamente igual que sin override.
+ */
+function aplicarOverridesDelTrabajo(
+  skeleton: Record<string, unknown>,
+  job: Job,
+): void {
+  for (const [ruta, valor] of job.overrides ?? []) {
+    const tramos = ruta.split(".")
+    let nodo: Record<string, unknown> | undefined = skeleton
+    if (!(tramos[0] in skeleton)) continue
+    for (const tramo of tramos.slice(0, -1)) {
+      const siguiente: unknown = nodo[tramo]
+      if (typeof siguiente !== "object" || siguiente === null) nodo[tramo] = {}
+      nodo = nodo[tramo] as Record<string, unknown>
+    }
+    nodo[tramos[tramos.length - 1]] = valor
+  }
 }
 
 /**

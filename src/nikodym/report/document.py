@@ -17,8 +17,8 @@ entregan completas como archivos adjuntos y el anexo dice dónde están.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Final, Literal, Protocol, TypeAlias, TypeVar
+from collections.abc import Iterable, Mapping
+from typing import Any, Final, Literal, Protocol, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 
@@ -57,6 +57,7 @@ __all__ = [
     "VALIDATION_FAMILIES",
     "ChapterSpec",
     "domain_section_id",
+    "domain_title",
     "ordered_sections",
     "section_sort_key",
     "table_title",
@@ -91,11 +92,49 @@ DOMAIN_TITLES: Final[dict[str, str]] = {
     # El título nombra el país: el informe circula fuera de Chile y «la CMF» no es un referente
     # universal. Sin el rótulo, un lector de otra jurisdicción recibe un documento formalmente
     # impecable del que no puede deducir qué norma se aplicó.
-    "provisioning": "La provisión a constituir — la regla del máximo (Chile)",
+    #
+    # ⚠️ El de `provisioning` es el título NEUTRO, y el rótulo del país lo pone `domain_title()`
+    # cuando la comparación configurada es de verdad la del B-1 (D-MAX-2). Hasta el 2026-08-04 este
+    # literal decía «la regla del máximo (Chile)» **siempre**, incluso comparando contra IFRS 9 —una
+    # comparación que ninguna norma chilena pide—, con el matiz enterrado en el cuerpo del capítulo.
+    "provisioning": "La provisión a reportar — comparación entre dos métodos",
     "provisioning_cmf": "Método estándar de la CMF de Chile (Cap. B-1)",
     "provisioning_internal": "Método interno del banco",
     "provisioning_ifrs9": "Pérdida crediticia esperada (ECL) por etapas",
 }
+
+#: Título del capítulo de orquestación cuando la comparación **sí** es la que exige el Cap. B-1.
+_TITULO_PROVISIONING_B1: Final = "La provisión a constituir — la regla del máximo (Chile)"
+
+#: Nombres cortos con que la card publica cada fuente (``SOURCE_NAMES`` de ``provisioning/config``).
+_FUENTES_DEL_B1: Final[frozenset[str]] = frozenset({"cmf", "internal"})
+
+
+def domain_title(domain: str, card: Mapping[str, Any] | None = None) -> str:
+    """Título del capítulo de un dominio, rotulando el país sólo cuando corresponde (D-MAX-2).
+
+    🔴 **Un título es lo primero que se lee, y hasta el 2026-08-04 éste afirmaba «(Chile)» sobre
+    cualquier comparación**, incluida `max(CMF, IFRS 9)` — que no es la regla del B-1 y que el
+    propio motor etiqueta en su lineage como *«comparativo entre marcos contables SIN norma
+    chilena que lo exija»*. El lector veía el titular con la bandera y la cifra; el matiz vivía
+    enterrado en el cuerpo del capítulo.
+
+    El criterio es **el mismo que la prosa ya calcula** (`prose.py:1512-1513`) y el mismo que el
+    orquestador usa para su etiqueta regulatoria (`orchestrator.py:767-768`): las dos fuentes son
+    el método estándar y el interno, **y** la comparación es a nivel de institución. Se reutiliza
+    en vez de reimplementarse: un criterio *parecido* rotularía «Chile» donde el lineage dice que
+    no.
+
+    Sin card no se rotula: afirmar el país sin el dato es exactamente lo que esta función arregla.
+    """
+    if domain != "provisioning" or card is None:
+        return DOMAIN_TITLES[domain]
+    fuentes = {str(card.get("source_a") or ""), str(card.get("source_b") or "")}
+    nivel = str(card.get("comparison_level") or "")
+    if fuentes == _FUENTES_DEL_B1 and nivel == "total":
+        return _TITULO_PROVISIONING_B1
+    return DOMAIN_TITLES[domain]
+
 
 # Dominios que alimentan el capítulo de Contexto (población) y los de Resultados (el cuerpo).
 CONTEXT_DOMAINS: Final[tuple[str, ...]] = ("data", "eda")

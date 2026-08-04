@@ -3497,7 +3497,7 @@
         },
         "source_b": {
           "has_default": true,
-          "value": "provisioning_ifrs9"
+          "value": "provisioning_internal"
         },
         "tie_tolerance": {
           "has_default": true,
@@ -13317,8 +13317,8 @@
                 "ui_widget": "selectbox"
               },
               "source_b": {
-                "default": "provisioning_ifrs9",
-                "description": "Dominio del segundo resultado a comparar. El default (provisioning_ifrs9) preserva el comportamiento histórico; la comparación que EXIGE la norma chilena (Cap. B-1, hoja 10-11) es contra provisioning_internal (método interno del banco).",
+                "default": "provisioning_internal",
+                "description": "Dominio del segundo resultado a comparar. El default (provisioning_internal, el método interno del banco) es la comparación que EXIGE la norma chilena (Cap. B-1, hoja 10-11). Con provisioning_ifrs9 se obtiene un comparativo entre marcos contables, útil para reportar a una matriz extranjera pero que ninguna norma local pide: el Cap. A-2 num. 5 excluye el deterioro de NIIF 9 sobre las colocaciones.",
                 "enum": [
                   "provisioning_cmf",
                   "provisioning_internal",

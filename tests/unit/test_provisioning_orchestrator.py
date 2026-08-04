@@ -411,6 +411,7 @@ def test_portfolio_col_ausente_en_detalle() -> None:
     ifrs9 = _ifrs9_result([{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}])
     orquestador = ProvisioningOrchestrator(
         ProvisioningConfig(
+            source_b="provisioning_ifrs9",
             comparison_level="portfolio",
             cmf_portfolio_col="ghost",
             ifrs9_portfolio_col="ghost",
@@ -421,11 +422,15 @@ def test_portfolio_col_ausente_en_detalle() -> None:
 
 
 def test_portfolio_crosswalk_remapea_carteras() -> None:
-    """El crosswalk mapea la cartera CMF a la taxonomía IFRS 9 antes de comparar (D-PROV-3)."""
+    """El crosswalk mapea la cartera CMF a la taxonomía IFRS 9 antes de comparar (D-PROV-3).
+
+    La comparación entre marcos contables se declara: el default del motor es el método interno.
+    """
     cmf = _cmf_result([{"row_id": "op1", "portfolio": "comercial", "provision": Decimal("90")}])
     ifrs9 = _ifrs9_result([{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}])
     orquestador = ProvisioningOrchestrator(
         ProvisioningConfig(
+            source_b="provisioning_ifrs9",
             comparison_level="portfolio",
             portfolio_crosswalk={"comercial": "commercial"},
         )
@@ -448,6 +453,7 @@ def test_portfolio_crosswalk_colapsa_dos_carteras_en_una() -> None:
     ifrs9 = _ifrs9_result([{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}])
     orquestador = ProvisioningOrchestrator(
         ProvisioningConfig(
+            source_b="provisioning_ifrs9",
             comparison_level="portfolio",
             portfolio_crosswalk={"comercial": "commercial", "empresas": "commercial"},
         )
@@ -882,8 +888,19 @@ class _MatrixConfig:
 _BUNDLE: CmfMatrixBundle = load_cmf_matrices(_MatrixConfig())
 
 
-def _orchestrator(level: str, **overrides: Any) -> ProvisioningOrchestrator:
-    payload: dict[str, Any] = {"comparison_level": level}
+def _orchestrator(
+    level: str, *, source_b: str = "provisioning_ifrs9", **overrides: Any
+) -> ProvisioningOrchestrator:
+    """Orquestador del nivel pedido, con la fuente B DECLARADA y no heredada del default.
+
+    El default del motor es ``source_b='provisioning_internal'``: la comparación
+    estándar-vs-interno que exige el Cap. B-1 (Circular N° 2.346). La mayoría de los goldens de
+    este archivo miden el contraste ENTRE MARCOS CONTABLES (CMF vs IFRS 9), que sigue soportado
+    pero ninguna norma chilena pide —el Cap. A-2 num. 5 excluye el deterioro de NIIF 9 sobre las
+    colocaciones—, así que aquí es una elección explícita. Los goldens del par estándar/interno
+    pasan ``source_b='provisioning_internal'`` y no dependen de este valor.
+    """
+    payload: dict[str, Any] = {"comparison_level": level, "source_b": source_b}
     payload.update(overrides)
     return ProvisioningOrchestrator(ProvisioningConfig(**payload))
 
@@ -1170,12 +1187,17 @@ def test_cartera_fuera_de_la_taxonomia_de_destino_aborta_con_marca_declarada() -
     abajo como «celda sin contraparte» (PROV-1), que es el síntoma y no la causa. Con
     ``fail_on_falta_dato=True`` —el default— la corrida se detiene, que es exactamente lo que el
     copy público de ese campo promete desde siempre.
+
+    La taxonomía de destino la publica la card IFRS 9, así que la fuente B se declara: comparar
+    marcos contables dejó de ser el default el 2026-08-04.
     """
     cmf = _cmf_result([{"row_id": "op1", "portfolio": "empresas", "provision": Decimal("90")}])
     ifrs9 = _ifrs9_result(
         [{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}], scheme=_esquema_destino()
     )
-    orquestador = ProvisioningOrchestrator(ProvisioningConfig(comparison_level="portfolio"))
+    orquestador = ProvisioningOrchestrator(
+        ProvisioningConfig(source_b="provisioning_ifrs9", comparison_level="portfolio")
+    )
 
     with pytest.raises(ProvisioningCoverageError, match="empresas"):
         orquestador.compare(result_a=cmf, result_b=ifrs9, as_of_date="2026-01-31")
@@ -1188,7 +1210,11 @@ def test_cartera_fuera_de_taxonomia_se_registra_si_no_se_exige_fallar() -> None:
         [{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}], scheme=_esquema_destino()
     )
     orquestador = ProvisioningOrchestrator(
-        ProvisioningConfig(comparison_level="portfolio", fail_on_falta_dato=False)
+        ProvisioningConfig(
+            source_b="provisioning_ifrs9",
+            comparison_level="portfolio",
+            fail_on_falta_dato=False,
+        )
     )
 
     result = orquestador.compare(result_a=cmf, result_b=ifrs9, as_of_date="2026-01-31")
@@ -1202,7 +1228,9 @@ def test_la_identidad_legitima_del_crosswalk_no_se_marca() -> None:
     ifrs9 = _ifrs9_result(
         [{"row_id": "op1", "portfolio": "commercial", "ecl": 40.0}], scheme=_esquema_destino()
     )
-    orquestador = ProvisioningOrchestrator(ProvisioningConfig(comparison_level="portfolio"))
+    orquestador = ProvisioningOrchestrator(
+        ProvisioningConfig(source_b="provisioning_ifrs9", comparison_level="portfolio")
+    )
 
     result = orquestador.compare(result_a=cmf, result_b=ifrs9, as_of_date="2026-01-31")
 

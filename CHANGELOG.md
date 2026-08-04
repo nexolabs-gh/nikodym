@@ -40,7 +40,46 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   debajo, igual que ya no aparecía expandida en el esquema, así que el formulario no ofrece ni un
   valor para ella.
 
+### Cambiado
+
+- 🔴 **La provisión que se compara de fábrica es ahora la que exige la norma chilena.** El valor por
+  defecto de la segunda fuente de `provisioning` pasa de la pérdida esperada bajo NIIF 9 al **método
+  interno del banco**. La regla del Capítulo B-1 de la CMF (Circular N° 2.346, hoja 10-11) es el
+  mayor valor entre el **método estándar** y el **método interno**, por institución; el Capítulo A-2
+  num. 5 **excluye** el deterioro de NIIF 9 sobre las colocaciones y los créditos contingentes. El
+  default anterior existía por retrocompatibilidad y publicaba un comparativo entre marcos contables
+  que ninguna norma local pide — útil para una filial que reporta a su matriz extranjera, pero que
+  había que **saber que estaba mal** para corregirlo.
+
+  **A quién afecta:** a quien active la sección `provisioning` **sin declarar la segunda fuente**.
+  Su corrida seguirá corriendo, pero comparará contra otra cosa y su `config_hash` cambiará —y con
+  él la clave de idempotencia de su inventario en MLflow—. Por eso va en *minor* y no en *patch*,
+  igual que en `1.4.0`. Para conservar el comportamiento anterior basta declararlo:
+
+  ```yaml
+  provisioning:
+    source_b: provisioning_ifrs9
+  ```
+
+  Ningún preset ni ejemplo del proyecto se mueve: los tres escriben sus fuentes explícitas.
+
+- **El capítulo del informe deja de rotular «Chile» sobre una comparación que la norma no pide.** Su
+  título decía «la regla del máximo (Chile)» **siempre**, aunque se estuviera comparando contra NIIF
+  9 o por cartera en vez de por institución; el matiz estaba en el cuerpo y la etiqueta honesta,
+  enterrada en el anexo. Ahora el título se deriva de la comparación configurada, con el mismo
+  criterio que el motor ya usaba para elegir su referencia normativa.
+
 ### Corregido
+
+- 🔴 **Un puntaje ya no puede medirse al revés de como se construyó.** La dirección del puntaje
+  —«un puntaje más alto, ¿es mejor o peor cliente?»— se pregunta en tres sitios, y hasta ahora cada
+  uno se leía por su cuenta: con la tarjeta construida en un sentido y el desempeño midiendo en el
+  otro, la corrida terminaba bien y el informe publicaba un modelo con **la discriminación
+  invertida** —Gini negativo— sin un solo aviso, con todas las comprobaciones previas en verde. Ahora
+  la dirección viaja con el puntaje: si la respuesta de una sección contradice la escala con que se
+  construyó la tarjeta, se avisa **antes** de correr y la corrida se detiene diciendo cuál cambiar.
+  Quien trae un puntaje ya construido desde fuera —el caso de «validar un modelo existente»— sigue
+  declarando la suya, porque ahí sólo él la sabe.
 
 - **El formulario dejó de mostrar un config distinto del que la corrida iba a ejecutar.** Un campo
   que el archivo no traía se pintaba vacío, apagado o en cero aunque el motor fuera a usar otro

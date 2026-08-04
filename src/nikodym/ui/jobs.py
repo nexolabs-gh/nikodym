@@ -44,8 +44,24 @@ _UNAVAILABLE = "unavailable"
 #   missing_sections · secciones que el trabajo necesitaría y que el formulario NO ofrece hoy
 #   external_input   · insumo que hay que traer de fuera, en lenguaje de negocio (`None` si ninguno)
 #   external_artifacts · el mismo insumo, en forma MÁQUINA-LEGIBLE (D-PUE-2); ver más abajo
+#   overrides     · valores que este trabajo siembra POR ENCIMA del default del motor (D-EJE-2)
 #   jurisdiction_*   · país cuya normativa impone el cálculo; `None` = neutral (D-JOB-8)
 #   status / unavailable_reason
+#
+# 🔴 `overrides` existe porque un default del motor puede ser correcto para la librería y dejar
+# INEJECUTABLE a un trabajo concreto. Medido: tres de los diez nacían así —dos porque el default de
+# la fuente de PD de `survival` exige un artefacto que produce una sección que esos trabajos no
+# ofrecen—. Es la misma clase que D-OBL-11 cerró para los capítulos del informe, y hasta ahora el
+# único ajuste post-siembra estaba **cableado a mano a un solo path** en el front.
+#
+# ⚠️ Vive en el CATÁLOGO y no en el front, aunque la siembra sea del front, por la misma razón que
+# D-JOB-3 puso aquí el catálogo entero: **el gate que comprueba ejecutabilidad es Python**. Con los
+# overrides aquí, ese gate los aplica desde la misma fuente que la pantalla consume, en vez de
+# reimplementar una lista paralela que podría divergir en silencio.
+#
+# ⚠️ Y NO absorbe el recorte de capítulos del informe (D-EJE-3): aquél es una **intersección
+# calculada** con las secciones del trabajo, no un valor fijo, y meterlo aquí obligaría a convertir
+# este campo en un lenguaje. Son dos piezas contiguas y distintas.
 #
 # ⚠️ `external_input` y `external_artifacts` son campos distintos y no se pueden fusionar.
 # El primero es **copy** —lo lee un analista en la landing— y vive bajo el gate de jerga, que veta
@@ -96,6 +112,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "missing_sections": (),
         "external_input": None,
         "external_artifacts": (),
+        "overrides": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -111,11 +128,18 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "sections": ("data", "survival", "report"),
         "missing_sections": (),
         "external_input": "La PD del modelo, si quieres anclar las curvas a ella.",
-        # Vacío a propósito, y no es un olvido: `survival` no REQUIERE la PD —ninguno de sus pasos
-        # la pide—, así que no hay clave que traer por la puerta. El copy de arriba describe un
-        # insumo opcional del método, no un artefacto del motor. Los dos campos miden cosas
-        # distintas y por eso pueden no coincidir.
+        # Vacío a propósito, y no es un olvido: con la fuente de PD que este trabajo siembra
+        # —ver `overrides`— `survival` no requiere ninguna clave, así que no hay nada que traer por
+        # la puerta. El copy de arriba describe un insumo **opcional del método**, no un artefacto
+        # del motor. Los dos campos miden cosas distintas y por eso pueden no coincidir.
         "external_artifacts": (),
+        # 🔴 Sin esto el trabajo NACE INEJECUTABLE, y así estuvo hasta el 2026-08-04. El default del
+        # motor para la fuente de PD de `survival` es la del modelo sin calibrar, que exige un
+        # artefacto que produce la sección `model` — y este trabajo no la ofrece ni admite subir esa
+        # tabla. Medido: `check_pipeline` daba `executable=False`, y el comentario que decía que
+        # «survival no REQUIERE la PD» era cierto **sólo** para el valor que ahora se siembra.
+        # El preset F4 ya lo escribía a mano por la misma razón (`ui/presets.py`).
+        "overrides": (("survival.input.pd_source", "none"),),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -130,8 +154,41 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "sections": ("data", "provisioning_cmf", "report"),
         "missing_sections": (),
-        "external_input": None,
-        "external_artifacts": (),
+        "external_input": "La PD calibrada de tu modelo, por operación.",
+        # 🔴 Sin esta puerta el trabajo NACE INEJECUTABLE: el método interno exige la PD calibrada
+        # y este trabajo no activa la sección que la produce. Su hermano «Provisión interna / LGD»
+        # la declaraba desde el principio con el mismo `when` — el mismo problema, resuelto en el
+        # trabajo de al lado y no en éste.
+        "external_artifacts": (
+            {
+                "artifact": ("calibration", "calibrated_pd_frame"),
+                "label": "La PD calibrada de tu modelo, por operación",
+                "when": {
+                    "path": "provisioning_internal.pd_source",
+                    "equals": "calibration",
+                },
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        "config_paths": ("provisioning_internal.pd_column",),
+                    },
+                ),
+            },
+            {
+                "artifact": ("model", "raw_pd_frame"),
+                "label": "La PD sin calibrar de tu modelo, por operación",
+                "when": {"path": "provisioning_internal.pd_source", "equals": "model"},
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        "config_paths": ("provisioning_internal.pd_column",),
+                    },
+                ),
+            },
+        ),
+        "overrides": (),
         "jurisdiction_code": "CL",
         "jurisdiction_label": "Chile",
         "status": _AVAILABLE,
@@ -150,6 +207,10 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "missing_sections": (),
         "external_input": None,
         "external_artifacts": (),
+        # Misma causa que en «PD lifetime», y el censo de defectos no la había visto: el default de
+        # la fuente de PD de `survival` exige la sección `model`, que este trabajo tampoco ofrece.
+        # Aquí la curva alimenta la ECL lifetime, así que se ajusta con lo que trae el archivo.
+        "overrides": (("survival.input.pd_source", "none"),),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -191,6 +252,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
                 ),
             },
         ),
+        "overrides": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         # Disponible desde D-PUE-11: el motor siempre supo correrlo —`check_pipeline` lo declaraba
@@ -220,6 +282,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "missing_sections": (),
         "external_input": None,
         "external_artifacts": (),
+        "overrides": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _AVAILABLE,
@@ -240,8 +303,41 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "report",
         ),
         "missing_sections": (),
-        "external_input": None,
-        "external_artifacts": (),
+        "external_input": "La PD calibrada de tu modelo, por operación.",
+        # 🔴 Sin esta puerta el trabajo NACE INEJECUTABLE: el método interno exige la PD calibrada
+        # y este trabajo no activa la sección que la produce. Su hermano «Provisión interna / LGD»
+        # la declaraba desde el principio con el mismo `when` — el mismo problema, resuelto en el
+        # trabajo de al lado y no en éste.
+        "external_artifacts": (
+            {
+                "artifact": ("calibration", "calibrated_pd_frame"),
+                "label": "La PD calibrada de tu modelo, por operación",
+                "when": {
+                    "path": "provisioning_internal.pd_source",
+                    "equals": "calibration",
+                },
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        "config_paths": ("provisioning_internal.pd_column",),
+                    },
+                ),
+            },
+            {
+                "artifact": ("model", "raw_pd_frame"),
+                "label": "La PD sin calibrar de tu modelo, por operación",
+                "when": {"path": "provisioning_internal.pd_source", "equals": "model"},
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        "config_paths": ("provisioning_internal.pd_column",),
+                    },
+                ),
+            },
+        ),
+        "overrides": (),
         "jurisdiction_code": "CL",
         "jurisdiction_label": "Chile",
         "status": _AVAILABLE,
@@ -298,6 +394,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
                 ),
             },
         ),
+        "overrides": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         # Disponible desde D-PUE-11. ⚠️ Alcance declarado: mide y documenta con `performance` y
@@ -340,6 +437,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
                 ),
             },
         ),
+        "overrides": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _UNAVAILABLE,
@@ -366,6 +464,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "missing_sections": ("stress",),
         "external_input": None,
         "external_artifacts": (),
+        "overrides": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
         "status": _UNAVAILABLE,
@@ -4177,6 +4276,10 @@ def list_jobs() -> list[dict[str, Any]]:
             "sections": list(job["sections"]),
             "missing_sections": list(job["missing_sections"]),
             "external_artifacts": [_insumo_json(e) for e in job["external_artifacts"]],
+            # Lista de parejas y no un objeto: el orden de aplicación es parte del dato —dos
+            # overrides sobre rutas anidadas del mismo bloque tienen que aplicarse como se
+            # escribieron— y un objeto JSON no lo garantiza en todos los clientes.
+            "overrides": [[ruta, valor] for ruta, valor in job["overrides"]],
             "required_decisions": decisiones_de(job["sections"]),
             "methodology_choices": abanico_de(job["sections"]),
         }

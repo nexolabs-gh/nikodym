@@ -1158,8 +1158,28 @@ def test_la_prosa_de_ifrs9_declara_la_moneda_de_los_montos() -> None:
 
 
 def test_los_titulos_de_los_capitulos_de_provisiones_rotulan_el_pais() -> None:
-    """Los títulos son lo primero que se lee en el índice y en la portada del capítulo."""
-    from nikodym.report.document import DOMAIN_TITLES
+    """Los títulos son lo primero que se lee en el índice y en la portada del capítulo.
 
-    assert "Chile" in DOMAIN_TITLES["provisioning"]
+    🔴 **El del orquestador rotula el país sólo cuando la comparación ES la del B-1** (D-MAX-2), y
+    se mide en los dos sentidos: con las fuentes y el nivel que la norma pide, lleva «Chile»; con
+    cualquier otra combinación —comparar contra IFRS 9, o comparar por cartera en vez de por
+    institución— **no puede llevarlo**, porque entonces no hay norma chilena que exija esa
+    comparación y el propio lineage del motor lo dice así.
+
+    Un gate que sólo comprobara el literal del diccionario volvería a dejar pasar el defecto que
+    esto cierra: hasta el 2026-08-04 el título decía «la regla del máximo (Chile)» **siempre**.
+    """
+    from nikodym.report.document import DOMAIN_TITLES, domain_title
+
     assert "Chile" in DOMAIN_TITLES["provisioning_cmf"]
+
+    b1 = {"source_a": "cmf", "source_b": "internal", "comparison_level": "total"}
+    assert "Chile" in domain_title("provisioning", b1)
+
+    for card, motivo in (
+        ({**b1, "source_b": "ifrs9"}, "comparar contra IFRS 9 no es la regla del B-1"),
+        ({**b1, "comparison_level": "portfolio"}, "el B-1 compara por institución, no por cartera"),
+        (None, "sin card no hay dato con que sostener el rótulo"),
+    ):
+        titulo = domain_title("provisioning", card)
+        assert "Chile" not in titulo, f"{motivo}; el título dice: {titulo!r}"

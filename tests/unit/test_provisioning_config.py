@@ -43,15 +43,19 @@ def _capa_provisioning_cargada(monkeypatch: pytest.MonkeyPatch) -> None:
 def _provisioning_defaults() -> dict[str, Any]:
     """Snapshot de defaults defendibles de SDD-17 §5.
 
-    Los defaults de fuentes/regla son **retrocompatibles**: ``source_a='provisioning_cmf'`` y
-    ``source_b='provisioning_ifrs9'`` reproducen el comportamiento histórico. Los ``consume_*`` de
-    motor quedan DEPRECADOS y su default es ``None`` ("no informado"), no ``True``.
+    🔴 **Los defaults de fuentes y regla son la REGLA DEL B-1, no la retrocompatible** (D-MAX-1):
+    ``max(source_a='provisioning_cmf', source_b='provisioning_internal')`` es la comparación que
+    exige el Cap. B-1 hoja 10-11. Hasta el 2026-08-04 el default de la fuente B fue
+    ``'provisioning_ifrs9'`` «por retrocompatibilidad», y eso significaba que el config de fábrica
+    publicaba un comparativo entre marcos contables que **ninguna norma chilena pide** —el Cap. A-2
+    num. 5 excluye el deterioro de NIIF 9 sobre las colocaciones—. Los ``consume_*`` de motor quedan
+    DEPRECADOS y su default es ``None`` ("no informado"), no ``True``.
     """
     return {
         "schema_version": "1.0.0",
         "type": "standard",
         "source_a": "provisioning_cmf",
-        "source_b": "provisioning_ifrs9",
+        "source_b": "provisioning_internal",
         "rule": "max",
         "as_of_date_col": "as_of_date",
         "comparison_level": "total",
@@ -340,9 +344,14 @@ def test_require_both_false_con_una_sola_fuente_construye(consume_a: bool, consu
 def test_consume_legacy_se_respeta_y_avisa(
     legacy: dict[str, bool], esperado_a: bool, esperado_b: bool
 ) -> None:
-    """``consume_cmf``/``consume_ifrs9`` siguen funcionando, pero emiten ``DeprecationWarning``."""
+    """``consume_cmf``/``consume_ifrs9`` siguen funcionando, pero emiten ``DeprecationWarning``.
+
+    ⚠️ La fuente B va **explícita** desde D-MAX-1: el flag deprecado de un dominio sólo aplica si
+    ese dominio es fuente, y el default de fábrica ya no es IFRS 9. Sin declararlo, este test
+    mediría el error de «ese dominio no participa» en vez de la retrocompatibilidad del flag.
+    """
     with pytest.warns(DeprecationWarning, match="DEPRECADO"):
-        cfg = ProvisioningConfig(require_both=False, **legacy)
+        cfg = ProvisioningConfig(source_b="provisioning_ifrs9", require_both=False, **legacy)
     assert cfg.consume_source_a is esperado_a
     assert cfg.consume_source_b is esperado_b
 
@@ -360,13 +369,22 @@ def test_consume_legacy_ambos_false_levanta() -> None:
         pytest.warns(DeprecationWarning),
         pytest.raises(ProvisioningConfigError, match="nada que orquestar"),
     ):
-        ProvisioningConfig(consume_cmf=False, consume_ifrs9=False, require_both=False)
+        ProvisioningConfig(
+            source_b="provisioning_ifrs9",
+            consume_cmf=False,
+            consume_ifrs9=False,
+            require_both=False,
+        )
 
 
 def test_consume_legacy_de_dominio_que_no_es_fuente_levanta() -> None:
-    """``consume_ifrs9`` con IFRS 9 fuera de las fuentes es un error de config, no un no-op."""
+    """``consume_ifrs9`` con IFRS 9 fuera de las fuentes es un error de config, no un no-op.
+
+    Desde D-MAX-1 basta el config de fábrica para producir el caso: IFRS 9 dejó de ser fuente por
+    defecto, así que el flag deprecado apunta a un dominio que esta comparación no usa.
+    """
     with pytest.raises(ProvisioningConfigError, match="consume_ifrs9 solo aplica"):
-        ProvisioningConfig(source_b="provisioning_internal", consume_ifrs9=False)
+        ProvisioningConfig(consume_ifrs9=False)
 
 
 def test_consume_legacy_sobrevive_al_round_trip() -> None:
@@ -429,8 +447,11 @@ def test_config_hash_se_movio_por_seccion_provisioning() -> None:
         ProvisioningConfig(rounding="currency_2dp"),
         ProvisioningConfig(tie_tolerance=1e-6),
         ProvisioningConfig(portfolio_crosswalk={"comercial": "wholesale"}),
-        ProvisioningConfig(source_b="provisioning_internal"),
-        ProvisioningConfig(source_b="provisioning_internal", rule="use_internal"),
+        # ⚠️ La fuente B que mueve el hash es la que YA NO es el default: desde D-MAX-1 el de
+        # fábrica es `provisioning_internal`, así que declararlo no cambia nada. El comparativo
+        # entre marcos contables sí, y es el que debe medirse aquí.
+        ProvisioningConfig(source_b="provisioning_ifrs9"),
+        ProvisioningConfig(rule="use_internal"),
     ],
 )
 def test_config_hash_cambia_al_variar_provisioning(provisioning: ProvisioningConfig) -> None:

@@ -1155,6 +1155,7 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [],
       "required_decisions": [
         {
           "answer_forms": [
@@ -1721,6 +1722,12 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [
+        [
+          "survival.input.pd_source",
+          "none"
+        ]
+      ],
       "required_decisions": [
         {
           "answer_forms": [
@@ -1907,8 +1914,49 @@
     },
     {
       "description": "Provisión por el método estándar del Capítulo B-1: matrices normativas por cartera, mapeo de PD, exposición y garantías.",
-      "external_artifacts": [],
-      "external_input": null,
+      "external_artifacts": [
+        {
+          "artifact": [
+            "calibration",
+            "calibrated_pd_frame"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "provisioning_internal.pd_column"
+              ],
+              "question": "¿Qué columna trae la probabilidad de incumplimiento?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "La PD calibrada de tu modelo, por operación",
+          "when": {
+            "equals": "calibration",
+            "path": "provisioning_internal.pd_source"
+          }
+        },
+        {
+          "artifact": [
+            "model",
+            "raw_pd_frame"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "provisioning_internal.pd_column"
+              ],
+              "question": "¿Qué columna trae la probabilidad de incumplimiento?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "La PD sin calibrar de tu modelo, por operación",
+          "when": {
+            "equals": "model",
+            "path": "provisioning_internal.pd_source"
+          }
+        }
+      ],
+      "external_input": "La PD calibrada de tu modelo, por operación.",
       "id": "provisiones_cmf",
       "jurisdiction_code": "CL",
       "jurisdiction_label": "Chile",
@@ -2221,6 +2269,7 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [],
       "required_decisions": [
         {
           "answer_forms": [
@@ -3021,6 +3070,12 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [
+        [
+          "survival.input.pd_source",
+          "none"
+        ]
+      ],
       "required_decisions": [
         {
           "answer_forms": [
@@ -3585,6 +3640,7 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [],
       "required_decisions": [
         {
           "answer_forms": [
@@ -5036,6 +5092,7 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [],
       "required_decisions": [
         {
           "answer_forms": [
@@ -5217,8 +5274,49 @@
     },
     {
       "description": "La regla del máximo del Capítulo B-1: la provisión estándar de la CMF y la del método interno del banco, comparadas por institución.",
-      "external_artifacts": [],
-      "external_input": null,
+      "external_artifacts": [
+        {
+          "artifact": [
+            "calibration",
+            "calibrated_pd_frame"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "provisioning_internal.pd_column"
+              ],
+              "question": "¿Qué columna trae la probabilidad de incumplimiento?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "La PD calibrada de tu modelo, por operación",
+          "when": {
+            "equals": "calibration",
+            "path": "provisioning_internal.pd_source"
+          }
+        },
+        {
+          "artifact": [
+            "model",
+            "raw_pd_frame"
+          ],
+          "columns": [
+            {
+              "config_paths": [
+                "provisioning_internal.pd_column"
+              ],
+              "question": "¿Qué columna trae la probabilidad de incumplimiento?"
+            }
+          ],
+          "key_question": "¿Qué columna identifica cada operación?",
+          "label": "La PD sin calibrar de tu modelo, por operación",
+          "when": {
+            "equals": "model",
+            "path": "provisioning_internal.pd_source"
+          }
+        }
+      ],
+      "external_input": "La PD calibrada de tu modelo, por operación.",
       "id": "comparar_provisiones",
       "jurisdiction_code": "CL",
       "jurisdiction_label": "Chile",
@@ -5851,6 +5949,7 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [],
       "required_decisions": [
         {
           "answer_forms": [
@@ -6486,6 +6585,7 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [],
       "required_decisions": [
         {
           "answer_forms": [
@@ -7305,6 +7405,7 @@
         }
       ],
       "missing_sections": [],
+      "overrides": [],
       "required_decisions": [
         {
           "answer_forms": [
@@ -7694,6 +7795,7 @@
       "missing_sections": [
         "stress"
       ],
+      "overrides": [],
       "required_decisions": [
         {
           "answer_forms": [
