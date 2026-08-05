@@ -5,7 +5,78 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-05): **el gate normativo, y el roadmap después de la decisión**
+> ## Lo último (2026-08-05 noche): **D-JUR-8 — la capacidad neutra ya se puede enseñar**
+>
+> **`main` = `6df5e5c`.** ⚠️ **CI lanzado y SIN VERIFICAR: confirmarlo job a job con `gh` al
+> arrancar.** El anterior (`3986b8c`) cerró **15/16** por causa real. Gates: pytest **5287 passed /
+> 8 skipped** (base 5246), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint,
+> fixture y bundle regenerados, **firmas de fixtures de demo** regeneradas, `mkdocs --strict` sin
+> anclas ni enlaces rotos, `uv lock --check`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **Las tres piezas de D-JUR-8, con el motor CMF intacto** —cero código borrado, medido sobre el
+> diff: las 8 líneas retiradas son 7 de comentario y el default autorizado—. Y **verificado en
+> pantalla**: «Corrida completada», informe de **260.814 bytes CON su capítulo** y **cero** menciones
+> de CMF, Chile, B-1, Compendio, pesos chilenos, CLP o `cmf_portfolio`.
+>
+> 🔴 **Tres premisas heredadas cayeron al medirlas, y las tres abarataron o cambiaron el trabajo.**
+> (1) «Mueve el `config_hash`» —que decían este archivo y el veredicto— es cierto pero **mucho más
+> estrecho**: los **tres presets no se mueven byte a byte** y un config que **declara** la clave
+> tampoco; sólo cambia quien la **omite**, así que **no hay que recapturar ninguna demo**. (2) Existía
+> un **default GEMELO** en `cmf/config.py` con un comentario D-SEG-9 que declara la alineación
+> **a propósito** y que **ningún test hacía cumplir**; decisión de Cami: mover **sólo** `internal`, y
+> la fricción la paga el caso chileno. (3) La cadena neutra **ya corría a `done`** y su informe **no
+> traía el capítulo** —gateado por el orquestador, que prohíbe `source_a == source_b`—; pero el
+> mecanismo *any-of* **YA EXISTÍA** con precedente vivo, así que el gate fue **una línea** y lo caro
+> resultó ser el **titular**, que sin él salía **mudo**.
+>
+> ✅ **Se cierra una CLASE, no un caso.** El gate de portada barría `title` y `description` de las 29
+> secciones, y **por eso era estructuralmente incapaz de ver esto**: el título y la ayuda de
+> `portfolio_col` ya eran neutros y lo chileno era el **VALOR**, que es lo que se ejecuta. Ahora
+> barre los **301 defaults**, con `provisioning_cmf` exenta con su razón y control positivo — y
+> **nació ROJO acusando exactamente `provisioning_internal`, y sólo ése**.
+>
+> 🔴 **Al revisor se le verifica el DATO y la CONCLUSIÓN por separado, y esta vez el dato era cierto
+> y la conclusión falsa.** Un censo afirmó que `_PARAM_DOMAINS` y `APPENDIX_PARAMETER_DOMAINS` «no
+> las ata ningún gate»: son tuplas separadas (cierto), pero `test_report_builder` **sí** las ata
+> —exige que todo config recolectado tenga sección en el Anexo C—, y el canal barato para la moneda
+> rompía esa invariante, que es correcta. La moneda viaja en un campo propio del bundle.
+>
+> 🔴 **Y dos defectos más que sólo se vieron ABRIENDO LA PANTALLA o con un golden.** El preset nuevo
+> se rotulaba **«estable»** sobre un motor experimental, porque el fallback del front promete
+> estabilidad salvo que la descripción diga «experimental» —cerrado exigiendo que **todo** preset
+> publicado esté curado—; y usar el **código** de moneda como **prefijo** daba `CLP697.376.974`: el
+> repo ya había decidido bien —`$` marca «esto es dinero» y la moneda se rotula **en prosa**—.
+>
+> ⚠️ **Dos oráculos de golden ignoraban `requires_any_domain`**, el tercer gate de capítulo, y
+> empezaron a exigir un capítulo que el builder correctamente omite. Se **enumeran** en vez de
+> derivarse: un oráculo que reimplementa lo que vigila mide determinismo, no corrección.
+>
+> 🔴 **Preparar B5 destapó TRES desajustes de alcance**, todos de la familia del error del
+> 2026-08-04 y **ninguno cazable por el gate de ayer**, que cruza fechas, URLs y circulares pero
+> **no alcances**: el **PDF del cotejo más fuerte del bundle no estaba entre las `official_sources`**
+> —clase exacta de la Circular 2.257/2020, en dirección inversa—, dos `scope` sobreestimaban 8
+> celdas frente a sus `matrix_ids`, y el documento daba por verificada una tabla que el manifiesto no
+> respalda. Los tres corregidos, más `verified_by` (D-VER-1…3).
+>
+> ✅ **B5 lista para Cami**: `privado/B5-COTEJO-MATRICES-CMF.md`, **derivado del YAML sellado** y no
+> transcrito. **208 celdas totales; 30 son PE derivadas que la máquina ya comprueba y 23 ya están
+> cotejadas** ⇒ carga real **178**, de las que **75 nunca se miraron**. 🔴 Y la pregunta de fondo va
+> antes que la primera celda: **8 de las 10 matrices salieron de un PDF «vigente hasta 31-12-2021»**,
+> con su sucesor declarado *«revalidacion pendiente»* — cotejar contra el antiguo valida la
+> transcripción pero **no la vigencia**.
+>
+> ⚠️ **Trampas nuevas:** las **firmas de los fixtures de demo** (`scripts/generate_frontend_demo_fixture_signatures.mjs`)
+> **sólo se comprueban en CI** y fueron el único rojo de `3986b8c`; un enlace del `CHANGELOG.md` es
+> relativo a **`docs_site/`** y ahí `mkdocs --strict` **sí** aborta; `materialize()` exige `workdir`
+> keyword-only; un gate que ejecuta un ejemplo necesita `monkeypatch.chdir(tmp_path)` o ensucia el
+> repo; y `DESCRIPTORES_TOTALES` sube **UNA** por campo de clase raíz de sección, no dos.
+>
+> **Siguiente: verificar el CI, B5 la hace Cami, y P4** (que **no es «conectar»**: exige enmienda y
+> cambio de DAG). Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-05): **el gate normativo, y el roadmap después de la decisión**
 >
 > Los dos candidatos que Cami eligió al abrir, **completos**: el gate que ata
 > `docs/normativa_cmf_parametros.md` al manifiesto del bundle, y el veredicto de los nodos que la

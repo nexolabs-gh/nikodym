@@ -11,7 +11,46 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-05, **el gate normativo y el veredicto del roadmap**)
+## Estado vigente (2026-08-05 noche, **D-JUR-8: la capacidad neutra se puede enseñar**)
+
+**`main` = `6df5e5c`.** ⚠️ **CI lanzado y sin verificar**: confirmarlo job a job con `gh` al
+arrancar. El anterior (`3986b8c`) cerró **15/16** por un fallo real —las firmas de los fixtures de
+demo, que sólo se comprueban en CI—, ya corregido. Gates: pytest **5287 passed / 8 skipped** (base
+5246), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint, fixture y bundle
+regenerados, firmas de fixtures regeneradas, `mkdocs --strict` sin anclas ni enlaces rotos,
+`uv lock --check`. **PyPI sigue en `1.10.0` y no hay release autorizado.**
+
+✅ **Las tres piezas, y el motor CMF intacto** (cero código borrado, medido sobre el diff).
+**(1)** `provisioning_internal.portfolio_col` pasa de `"cmf_portfolio"` a `"portfolio"`: un motor
+neutro pedía de fábrica la columna de un supervisor. **(2)** El informe **declara** su moneda en vez
+de suponerla (`report.currency`, default `None` = no declarada). **(3)** Entra la demostración:
+dataset, preset **F5** y guía con gate ejecutable, **verificada en pantalla** —«Corrida completada»,
+informe de 260.814 bytes **con** su capítulo y **cero** menciones de CMF, Chile, B-1, Compendio,
+pesos chilenos, CLP o `cmf_portfolio`—.
+
+🔴 **Tres premisas heredadas se corrigieron al medirlas.** (a) «Mueve el `config_hash`» es cierto
+pero **mucho más estrecho**: los tres presets **no se mueven** y un config que declara la clave
+tampoco; sólo cambia quien la omite ⇒ **no hay que recapturar ninguna demo**. (b) Había un **default
+gemelo** en `cmf/config.py` con un D-SEG-9 que nadie hacía cumplir: se mueve **sólo** `internal` y la
+fricción la paga el caso chileno. (c) La cadena neutra **ya corría** y su informe **no traía el
+capítulo** —gateado por el orquestador, que exige dos fuentes—; el mecanismo *any-of* **ya existía**,
+así que el gate fue una línea y lo caro fue el **titular**, que sin él salía **mudo**.
+
+✅ **Se cierra una CLASE**: el gate de portada barría `title` y `description` de las 29 secciones y
+**por eso no podía ver este defecto** —lo neutro era el copy y lo chileno el **valor**—. Ahora barre
+los **301 defaults** del formulario, y **nació rojo acusando exactamente `provisioning_internal`**.
+
+🔴 **Y preparar B5 destapó TRES desajustes de alcance**, todos de la familia del error del
+2026-08-04 y **ninguno cazable por el gate de ayer**, que cruza fechas y URLs pero no alcances: el
+**PDF del cotejo más fuerte del bundle no estaba en `official_sources`**, dos `scope` sobreestimaban
+8 celdas, y el documento daba por verificada una tabla sin respaldo. Corregidos, más `verified_by`
+([`_ENMIENDA-COTEJO-VERIFICADOR.md`](docs/design/_ENMIENDA-COTEJO-VERIFICADOR.md)).
+
+**Siguiente: verificar el CI, B5 la hace Cami, y P4.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-05, **el gate normativo y el veredicto del roadmap**)
 
 Los dos candidatos que Cami eligió al abrir, completos. Gates: pytest **5246 passed / 8 skipped**
 (base 5148), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint del front,
