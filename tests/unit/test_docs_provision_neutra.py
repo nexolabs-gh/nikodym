@@ -15,8 +15,12 @@ import pytest
 
 _RAIZ = Path(__file__).resolve().parents[2]
 _GUIA = _RAIZ / "docs_site/guias/provision-sin-norma-local.md"
-_INICIO = "<!-- provision-neutra-example:start -->\n```python\n"
-_FIN = "\n```\n<!-- provision-neutra-example:end -->"
+
+#: Bloques ejecutables de la guía, **en orden de lectura**. Son varios a propósito: el segundo
+#: continúa al primero —usa el ``config`` que el primero dejó en pantalla— y la auditoría previa a
+#: 1.11.0 encontró ahí el defecto exacto que un solo bloque delimitado no podía ver: el snippet de
+#: la moneda trataba como modelo Pydantic un ``config`` que la guía había dejado como ``dict``.
+_BLOQUES = ("provision-neutra-example", "provision-neutra-moneda")
 
 #: Términos que delatan una jurisdicción. Espejo acotado del detector de
 #: ``test_portada_sin_jurisdiccion``; aquí basta con los que el motor CMF usaría.
@@ -29,17 +33,33 @@ _JURISDICCION = re.compile(
 
 
 def _codigo_publicado() -> str:
+    """Concatena los bloques ejecutables en orden de lectura, tal como los teclearía un usuario."""
     texto = _GUIA.read_text(encoding="utf-8")
-    assert texto.count(_INICIO) == 1 and texto.count(_FIN) == 1, (
-        "el bloque ejecutable de la guía perdió sus delimitadores"
+    partes: list[str] = []
+    for nombre in _BLOQUES:
+        inicio = f"<!-- {nombre}:start -->\n```python\n"
+        fin = f"\n```\n<!-- {nombre}:end -->"
+        assert texto.count(inicio) == 1 and texto.count(fin) == 1, (
+            f"el bloque ejecutable {nombre!r} de la guía perdió sus delimitadores"
+        )
+        partes.append(texto.split(inicio, maxsplit=1)[1].split(fin, maxsplit=1)[0])
+    codigo = "\n".join(partes)
+    # Ancla anti-vacuidad: unos delimitadores que envuelvan la nada se leen igual que un ejemplo
+    # correcto, y este gate es lo único que ata la guía al motor.
+    assert "nikodym.run(" in codigo and '"currency"' in codigo, (
+        "el código extraído perdió la corrida o la declaración de moneda: el gate quedaría vacuo"
     )
-    return texto.split(_INICIO, maxsplit=1)[1].split(_FIN, maxsplit=1)[0]
+    return codigo
 
 
 def test_el_ejemplo_publicado_es_ejecutable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Extrae y ejecuta el bloque exacto que lee un usuario.
+    """Extrae y ejecuta **todos** los bloques que lee un usuario, en un solo espacio de nombres.
+
+    Que sean varios bloques no los hace independientes: la guía cuenta un relato continuo y el
+    segundo trabaja sobre el ``config`` que dejó el primero. Ejecutarlos juntos es lo que hace
+    caer un snippet que no case con la forma real de ese ``config``.
 
     Se ejecuta con el cwd en un temporal: el ejemplo escribe rutas **relativas** a propósito —es lo
     que un usuario teclea— y un gate que las materializara dentro del repo dejaría basura sin

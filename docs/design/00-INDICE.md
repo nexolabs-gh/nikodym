@@ -524,6 +524,22 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > cuesta es el **titular** (D-CAP-2): sin orquestador la prosa devolvía `()`, y un capítulo mudo
 > sería el mismo defecto con otro disfraz. **No toca la regla del máximo ni el `Literal`.**
 >
+> **La columna de cartera ambigua no se elige en silencio (2026-08-05, APROBADA).**
+> [`_ENMIENDA-COLUMNA-CARTERA-AMBIGUA.md`](_ENMIENDA-COLUMNA-CARTERA-AMBIGUA.md), D-AMB-1…D-AMB-6.
+> Corrige lo que **D-JUR-8 dejó escrito y era falso a medias**: el `CHANGELOG` y el `HANDOFF`
+> afirmaban que la comprobación previa señalaba la fricción del cambio de default, y **sólo la
+> señala cuando la columna nueva no existe**. 🔴 Con **las dos** columnas presentes la corrida cambia
+> de agrupación en silencio —medido, 20 grupos y 840.182,29 pasan a 10 y 839.451,51, con `ok`, cero
+> errores y cero avisos— y `check_dataset` da `compatible=True` **correctamente**: la columna que el
+> config nombra existe. No fallaba; contestaba bien a otra pregunta. ⚠️ El caso no es de
+> laboratorio: `"portfolio"` es también el default de `provisioning_ifrs9`, así que quien corre los
+> dos motores sobre un panel tiene ambas por construcción. **Cero contrato nuevo**: la ambigüedad es
+> propiedad del par (config, dataset), que es la definición de `requisitos_incumplidos` (D-INV-1), y
+> los presets no mueven un byte de `config_hash`. Dos capas por decisión de Cami: el preflight, y un
+> aviso **no gobernable** en la card para la ruta por código — no gobernable a propósito, porque con
+> `fail_on_falta_dato=True` detendría corridas que hoy funcionan, dentro de un *minor*. Salió de la
+> auditoría adversarial previa a `1.11.0`.
+>
 > **El `requires` de CMF (2026-08-05, NO SE IMPLEMENTA).**
 > [`_ENMIENDA-REQUISITOS-CMF.md`](_ENMIENDA-REQUISITOS-CMF.md), D-CMF-1…D-CMF-6, diagnostica **M-3**
 > y queda **escrita sin implementación** por decisión de producto de Cami: la normativa local de

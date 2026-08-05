@@ -13906,6 +13906,11 @@
                 ],
                 "default": null,
                 "description": "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares. El informe la declara una vez por capítulo; los montos se escriben con el signo $ en cualquier caso. Si lo dejas en blanco, el informe no afirma ninguna moneda.",
+                "examples": [
+                  "CLP",
+                  "PEN",
+                  "USD"
+                ],
                 "title": "Moneda de los montos",
                 "ui_group": "General",
                 "ui_order": 5,

@@ -174,3 +174,23 @@ def test_no_reaparece_una_cifra_de_la_corrida_vieja(archivo: str, proscrita: str
         f"{archivo} vuelve a publicar «{proscrita}», que es de la corrida del 2026-07-10. "
         "El preset dejó de anclar a mano: hoy lee el ancla de los datos."
     )
+
+
+def test_la_portada_publica_la_version_que_el_paquete_declara() -> None:
+    """La versión de la portada se queda stale en cada release, y nada la ataba.
+
+    🔴 Medido en la auditoría previa a `1.11.0`: `docs_site/index.md` afirmaba «Estado: 1.10.0»
+    mientras el paquete iba a publicar otra, y el único gate que tocaba esa línea comprobaba la
+    frase «release estable», no el número. Es la misma clase que las cifras de calibración que este
+    archivo existe para cazar: una afirmación verdadera que dejó de serlo y que ningún test seguía.
+
+    ⚠️ La afirmación se ata a ``__version__`` y no al tag: el tag va después del CI, y para
+    entonces la documentación ya está escrita.
+    """
+    import nikodym
+
+    esperado = f"Estado: {nikodym.__version__} — release estable"
+    assert esperado in _texto("index.md"), (
+        f"la portada no dice «{esperado}»: el bump de versión no llegó a docs_site/index.md, "
+        "así que la página de entrada anuncia una versión que no es la publicada"
+    )

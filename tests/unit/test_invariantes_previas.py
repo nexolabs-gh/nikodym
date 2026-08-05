@@ -214,10 +214,9 @@ EXENTAS: dict[str, str] = {
         "sus invariantes las levanta su `model_validator` (fuentes iguales, regla sin su fuente) "
         "y las que cruzan secciones las ve el DAG por su `requires` dinámico: medido en D-MAX-3"
     ),
-    "provisioning_internal": (
-        "igual que su hermana: el `model_validator` rechaza las columnas de ramas apagadas y su "
-        "`requires` declara la fuente de PD, así que el DAG avisa antes de correr"
-    ),
+    # `provisioning_internal` SALIÓ de esta tabla en 1.11.0: desde D-AMB-2 declara su propia
+    # invariante —dos columnas candidatas a cartera y ninguna elegida—, que es justo lo que su
+    # exención decía que no tenía. El gate lo cazó el día del cambio.
 }
 
 

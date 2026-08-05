@@ -3484,7 +3484,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Redondea a moneda entera, que es lo que corresponde donde no existe la fracción, como el peso chileno.",
+              "help": "Redondea a moneda entera, que es lo que corresponde en monedas sin fracción decimal.",
               "label": "A la unidad de moneda",
               "motivo": null,
               "value": "integer_currency"
@@ -4406,7 +4406,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Redondea a moneda entera, que es lo que corresponde donde no existe la fracción, como el peso chileno.",
+              "help": "Redondea a moneda entera, que es lo que corresponde en monedas sin fracción decimal.",
               "label": "A la unidad de moneda",
               "motivo": null,
               "value": "integer_currency"
@@ -5495,7 +5495,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Redondea a moneda entera, que es lo que corresponde donde no existe la fracción, como el peso chileno.",
+              "help": "Redondea a moneda entera, que es lo que corresponde en monedas sin fracción decimal.",
               "label": "A la unidad de moneda",
               "motivo": null,
               "value": "integer_currency"
@@ -5938,7 +5938,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Redondea a entero, hacia arriba en el medio punto. Es lo que corresponde en monedas sin decimales, como el peso chileno.",
+              "help": "Redondea a entero, hacia arriba en el medio punto. Es lo que corresponde en monedas sin fracción decimal.",
               "label": "A la unidad de moneda",
               "motivo": null,
               "value": "integer_currency"
@@ -7249,7 +7249,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Redondea a moneda entera, que es lo que corresponde donde no existe la fracción, como el peso chileno.",
+              "help": "Redondea a moneda entera, que es lo que corresponde en monedas sin fracción decimal.",
               "label": "A la unidad de moneda",
               "motivo": null,
               "value": "integer_currency"

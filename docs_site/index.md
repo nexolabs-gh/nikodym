@@ -8,7 +8,7 @@ Los estándares comunes —Basilea, IFRS 9— van en el motor. La **normativa lo
 jurisdicción se aterriza encima**, y hay un caso de referencia implementado que muestra cómo:
 [Aterrizar una norma local](norma-local.md).
 
-!!! note "Estado: 1.10.0 — release estable"
+!!! note "Estado: 1.11.0 — release estable"
     Disponible en PyPI: `pip install nikodym`. El pipeline de scorecard (F1) es **API estable
     (SemVer 1.x)**; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
     resultados/métricas/orquestación) siguen experimentales, fuera de la garantía SemVer 1.x.

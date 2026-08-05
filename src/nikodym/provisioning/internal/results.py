@@ -118,6 +118,22 @@ class InternalProvisionCard(BaseModel):
     total_exposure: Decimal
     total_internal_provision: Decimal
     falta_dato: tuple[str, ...] = ()
+    avisos: tuple[str, ...] = ()
+    """Avisos **no gobernables** de la corrida: se registran y nunca detienen (D-AMB-5).
+
+    🔴 Deliberadamente separado de ``falta_dato``. Ése alimenta ``fail_on_falta_dato``, cuyo default
+    es ``True``, así que meter aquí la ambigüedad de la columna de cartera convertiría un cambio
+    silencioso de cifra en una **rotura** para quien hoy corre bien — dentro de un release *minor*.
+    El criterio de gobernabilidad vive en ``core/markers.py`` y no se reimplementa con un ``if``.
+
+    ⚠️ Tampoco lleva un código del catálogo (``FALTA-DATO-*``/``DATO-INSTITUCIONAL-*``): esa
+    numeración es contrato (SDD-16 §6) y sus dos familias significan «lo debe el motor» y «lo debe
+    la institución». Aquí el motor no difirió ninguna capacidad y la institución ya tiene dónde
+    escribir el dato; lo que faltaba era decirle que hay dos columnas candidatas.
+
+    Aditivo con default vacío, igual que ``segmentation``: una card guardada antes de la enmienda
+    recarga sin tocarla.
+    """
     # Ver D-SEG-3 en cmf/results.py: el esquema viaja en el resultado, con default None para que
     # una card anterior a la enmienda siga recargando.
     segmentation: SegmentationScheme | None = None

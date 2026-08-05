@@ -1550,6 +1550,31 @@ def _provisions_intro_motor_unico(bundle: ReportInputBundle) -> tuple[str, ...]:
             )
         detalle += _rotulo_moneda(bundle)
         return (detalle,)
+    if interno is not None and cmf is not None:
+        # 🔴 La combinación que D-CAP-2 no enumeró, y la única que quedaba MUDA: los dos motores
+        # corrieron y el comparador está apagado (`provisioning: null`, un interruptor del
+        # formulario). El capítulo se emitía —`requires_any_domain` se satisface de sobra— con el
+        # titular vacío, así que el lector saltaba del título a la primera subsección y el total
+        # nunca aparecía. Medido: 26 caracteres de cuerpo contra 742 con el comparador encendido.
+        #
+        # ⚠️ Aquí NO se invoca la regla del máximo ni se nombra la Circular 2.346: no se comparó
+        # nada. Afirmar la regla sobre dos cifras que nadie confrontó es justo el defecto gemelo
+        # que se cierra unas líneas más abajo, en la rama del orquestador en passthrough.
+        estandar = _float(cmf.get("total_provision_amount"))
+        propio = _float(interno.get("total_internal_provision"))
+        detalle = (
+            "Este capítulo reporta dos cálculos de provisión sobre la cartera de la corrida, "
+            "obtenidos por separado: el método estándar de la CMF de Chile (Cap. B-1) y el método "
+            "interno. La corrida no configuró ninguna comparación entre ambos, de modo que este "
+            "informe no selecciona uno sobre el otro ni aplica ninguna regla de constitución."
+        )
+        if estandar is not None and propio is not None:
+            detalle += (
+                f" El método estándar calcula {_money(estandar, symbol=simbolo)} y el método "
+                f"interno {_money(propio, symbol=simbolo)}; cada uno se detalla en su subsección."
+            )
+        detalle += _rotulo_moneda(bundle)
+        return (detalle,)
     return ()
 
 
@@ -1575,9 +1600,26 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
     interno_total = amounts.get("internal")
     is_standard_internal = {source_a, source_b} == {"cmf", "internal"}
     is_b1_binding = is_standard_internal and level == "total"
+    # 🔴 Que las fuentes estén DECLARADAS no significa que se hayan comparado. Con
+    # `require_both=False` el orquestador degrada a *passthrough* de la fuente disponible y emite
+    # `DATO-INSTITUCIONAL-PROV-3` («comparación incompleta»), pero `source_a`/`source_b` siguen
+    # diciendo cmf/internal, así que `is_b1_binding` se satisface igual: el capítulo abría
+    # invocando la Circular N° 2.346 sobre una comparación que la corrida NO hizo, y sin una sola
+    # cifra debajo —el bloque de montos exige las dos—. Prosa normativa sin respaldo en su propia
+    # corrida, en un documento auditable. La comparación es efectiva sólo si hay ambos montos.
+    comparacion_efectiva = amount_a is not None and amount_b is not None
 
-    if is_b1_binding and rule == "max":
+    if not comparacion_efectiva:
+        presente = "el método estándar de la CMF" if binding == "cmf_only" else "una sola fuente"
+        if binding == "internal_only":
+            presente = "el método interno"
         paragraphs: list[str] = [
+            f"La corrida tenía configurada una comparación entre dos fuentes, pero sólo se calculó "
+            f"{presente}, de modo que la comparación no se realizó. Este capítulo reporta esa "
+            "única fuente y no aplica ninguna regla de constitución entre métodos."
+        ]
+    elif is_b1_binding and rule == "max":
+        paragraphs = [
             "El Compendio de Normas Contables para Bancos de la Comisión para el Mercado "
             "Financiero (CMF) de Chile —Cap. B-1, hoja 10-11, Circular N° 2.346— exige considerar "
             "el mayor valor entre el método estándar de la CMF y el método interno, por "
@@ -1646,7 +1688,10 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
             f"resultado de la regla: {_money(reportado, symbol=simbolo)}."
         )
 
-    if is_b1_binding:
+    if is_b1_binding and comparacion_efectiva:
+        # La salvedad sobre el perímetro sólo tiene sentido si hubo comparación: sin ella no hay
+        # ninguna cifra «por institución» que acotar, y la frase invitaría a leer el capítulo como
+        # si la regla B-1 se hubiera aplicado.
         paragraphs.append(
             "El nivel total sólo representa «por institución» bajo el precontrato de una "
             "institución por corrida; Nikodym no valida ese perímetro."
@@ -1807,6 +1852,12 @@ def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]
             else f", en {n_groups} grupos"
         )
     paragraphs.append(detalle_pd + ".")
+    # D-AMB-5: los avisos NO gobernables de la corrida se publican aquí, no en el anexo. Un aviso
+    # que sólo vive en el volcado de auditoría no lo lee quien recibe el documento, y el caso que
+    # abre esta lista —dos columnas candidatas a cartera— cambia la AGRUPACIÓN, o sea la cifra que
+    # este mismo párrafo acaba de publicar.
+    for aviso in card.get("avisos") or ():
+        paragraphs.append(str(aviso))
     return tuple(paragraphs)
 
 

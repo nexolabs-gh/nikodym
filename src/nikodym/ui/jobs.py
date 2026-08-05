@@ -2010,8 +2010,8 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "value": "integer_currency",
                     "label": "A la unidad de moneda",
                     "help": (
-                        "Redondea a moneda entera, que es lo que corresponde donde no existe la "
-                        "fracción, como el peso chileno."
+                        "Redondea a moneda entera, que es lo que corresponde en monedas sin "
+                        "fracción decimal."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,
@@ -4038,7 +4038,7 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "label": "A la unidad de moneda",
                     "help": (
                         "Redondea a entero, hacia arriba en el medio punto. Es lo que corresponde "
-                        "en monedas sin decimales, como el peso chileno."
+                        "en monedas sin fracción decimal."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,

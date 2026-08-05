@@ -191,7 +191,13 @@ def _calculate(
     detail = _detail_frame(records, index=data.index, pandas=pandas)
     groups = _groups_frame(aggregates, cfg=cfg, pandas=pandas)
     summary = _summary_frame(aggregates, pandas=pandas)
-    card = _card(rows, aggregates=aggregates, cfg=cfg, as_of_date=as_of_date)
+    card = _card(
+        rows,
+        aggregates=aggregates,
+        cfg=cfg,
+        as_of_date=as_of_date,
+        columnas=frozenset(str(col) for col in data.columns),
+    )
     return InternalProvisionResult(
         detail=detail,
         groups=groups,
@@ -753,12 +759,26 @@ def _summary_frame(aggregates: list[_GroupAggregate], *, pandas: Any) -> DataFra
     return cast(DataFrame, frame)
 
 
+def _avisos_no_gobernables(
+    cfg: InternalProvisioningConfig, *, columnas: frozenset[str]
+) -> tuple[str, ...]:
+    """Traduce a la card los requisitos que la sección ya sabe declarar (D-AMB-5).
+
+    Reutiliza ``cfg.requisitos_incumplidos`` en vez de reimplementar el criterio: si la condición
+    de ambigüedad viviera en dos sitios, el preflight y el informe podrían decir cosas distintas
+    sobre la misma corrida — que es exactamente la clase de defecto que este release cerró en la
+    moneda.
+    """
+    return tuple(requisito.message for requisito in cfg.requisitos_incumplidos(columnas))
+
+
 def _card(
     rows: list[_RowInput],
     *,
     aggregates: list[_GroupAggregate],
     cfg: InternalProvisioningConfig,
     as_of_date: str,
+    columnas: frozenset[str] = frozenset(),
 ) -> InternalProvisionCard:
     """Construye la card del método interno para governance, orquestador y report."""
     total_exposure = sum((row.exposure for row in rows), _ZERO)
@@ -775,6 +795,10 @@ def _card(
         )
     return InternalProvisionCard(
         as_of_date=as_of_date,
+        # D-AMB-5: la ruta por código no pasa por `check_dataset`, así que sin esto la ambigüedad
+        # de la columna de cartera no dejaría rastro en ninguna parte para quien usa la librería
+        # como librería. Va como aviso NO gobernable: registrar, nunca detener.
+        avisos=_avisos_no_gobernables(cfg, columnas=columnas),
         # El esquema viaja en el resultado (D-SEG-3). Con grouping='score_band' la llave de GRUPO
         # se deriva en la corrida, pero lo que se compara contra otro motor es la CARTERA: es su
         # taxonomía la que se declara aquí, y `None` significa «no declarada», no «no existe».

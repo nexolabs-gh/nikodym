@@ -47,6 +47,81 @@ _MANIFIESTO = _RAIZ / "src" / "nikodym" / "provisioning" / "cmf" / "data" / "man
 _NUMERO_CIRCULAR = re.compile(r"(?<!\d)\d\.\d{3}(?!\d)")
 _FECHA_ISO = re.compile(r"(?<!\d)(20\d\d-\d\d-\d\d)(?!\d)")
 
+# Un identificador del manifiesto es ``snake_case`` en minúsculas: ``compendio_portal_consolidado``,
+# ``consumer_standard_v2025``, ``ran_garantias_21_10``. Se usa para encontrar **citas** de un id
+# dentro de la prosa de ``scope``/``method``, y por eso se detecta **por forma y no por
+# pertenencia**: un cruce que sólo buscara los ids que el manifiesto declara pasaría en verde justo
+# cuando la fuente citada desaparece de ``official_sources``, que es el defecto que este bloque
+# cierra.
+_ID_SNAKE_CASE = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)+")
+
+# --------------------------------------------------------------------------------------------
+# Oráculo escrito a mano: qué tiene que seguir declarando el manifiesto.
+#
+# 🔴 Antes esto era ``len(official_sources) >= 5`` con **seis** fuentes declaradas, o sea un ancla
+# que se satisfacía con holgura: borrar del manifiesto ``compendio_portal_consolidado`` —el PDF del
+# cotejo más fuerte del bundle, añadido el 2026-08-05 justo porque faltaba— dejaba este archivo
+# entero en verde, 70 passed. Un ancla anti-vacuidad que sobra por conteo no ancla nada: lo que hay
+# que exigir son **los ids concretos**, para que quitar cualquiera de ellos ponga el gate rojo.
+#
+# Se enumeran a mano y no se derivan del propio manifiesto: un oráculo derivado de lo que vigila
+# mide determinismo, no corrección. Son conjuntos **mínimos** (⊆), así que añadir una fuente, una
+# matriz o un ancla no exige tocar el gate; sólo perderlas.
+# --------------------------------------------------------------------------------------------
+
+_FUENTES_ESPERADAS = frozenset(
+    {
+        "cnc_consolidado_b1_b3",
+        "circular_consumo_2024",
+        "compendio_portal_consolidado",
+        "pdf_semilla_b1",
+        "cnc_version_2022",
+        "ran_garantias_21_10",
+    }
+)
+
+_MATRICES_ESPERADAS = frozenset(
+    {
+        "commercial_individual_performing_v2014",
+        "commercial_individual_default_v2014",
+        "commercial_group_leasing_v2018",
+        "commercial_group_student_v2018",
+        "commercial_group_generic_factoring_v2020",
+        "commercial_group_guarantee_substitution_v2018",
+        "consumer_standard_v2025",
+        "housing_pvg_v2018",
+        "guarantee_aval_quality_v2018",
+        "contingent_b3_v2016",
+    }
+)
+
+_ANCLAS_ESPERADAS = frozenset(
+    {
+        "§1.1",
+        "§1.3",
+        "§2.a",
+        "§2.b",
+        "§2.c",
+        "§2.d",
+        "§3",
+        "§4",
+        "§4.1",
+        "§5.2",
+        "§5.3",
+        "§6",
+        "§7",
+    }
+)
+
+_BRECHAS_ESPERADAS = frozenset({"financial_guarantee_haircuts", "ran_21_10_numeric_tables"})
+
+# Qué cotejo cita qué fuente, escrito a mano. Es la cara «hacia adelante» del cruce de más abajo:
+# aquel comprueba que lo citado exista, y éste que la cita **siga estando**, de modo que vaciar el
+# ``scope`` tampoco sirva para esquivar el gate.
+_COTEJOS_QUE_CITAN_FUENTE: dict[str, tuple[str, ...]] = {
+    "2026-07-14": ("compendio_portal_consolidado",),
+}
+
 
 def _documento() -> str:
     return _DOC.read_text(encoding="utf-8")
@@ -94,11 +169,29 @@ def test_las_dos_superficies_existen_y_tienen_cuerpo() -> None:
 
 
 def test_el_manifiesto_declara_el_conjunto_completo() -> None:
+    """Ancla anti-vacuidad **por identidad**, no por conteo (ver ``_FUENTES_ESPERADAS``)."""
     manifiesto = _manifiesto()
-    assert len(manifiesto["matrices"]) >= 10, "El manifiesto perdió matrices."
-    assert len(manifiesto["official_sources"]) >= 5, "El manifiesto perdió fuentes oficiales."
-    assert len(manifiesto["normativa_refs"]) >= 13, "El manifiesto perdió anclas de sección."
-    assert len(manifiesto["pending_items"]) >= 2, "El manifiesto perdió sus brechas declaradas."
+    faltan_fuentes = sorted(
+        _FUENTES_ESPERADAS - {fuente["id"] for fuente in manifiesto["official_sources"]}
+    )
+    assert not faltan_fuentes, (
+        f"El manifiesto dejó de declarar estas fuentes oficiales: {faltan_fuentes}. Cada una es un "
+        "documento contra el que se cotejó una tabla que un banco usa para provisionar; quitarla "
+        "deja al auditor sin de dónde bajarla, y el conteo por sí solo no lo notaba."
+    )
+    faltan_matrices = sorted(
+        _MATRICES_ESPERADAS - {entrada["matrix_id"] for entrada in manifiesto["matrices"]}
+    )
+    assert not faltan_matrices, f"El manifiesto perdió matrices: {faltan_matrices}."
+    faltan_anclas = sorted(_ANCLAS_ESPERADAS - set(manifiesto["normativa_refs"]))
+    assert not faltan_anclas, f"El manifiesto perdió anclas de sección: {faltan_anclas}."
+    faltan_brechas = sorted(
+        _BRECHAS_ESPERADAS - {pendiente["id"] for pendiente in manifiesto["pending_items"]}
+    )
+    assert not faltan_brechas, (
+        f"El manifiesto perdió brechas declaradas: {faltan_brechas}. Una carencia que deja de "
+        "declararse se lee como cobertura."
+    )
 
 
 def test_el_manifiesto_apunta_al_documento_por_su_ruta_real() -> None:
@@ -244,6 +337,101 @@ def test_cada_cotejo_declara_un_alcance_verificable(cotejo: dict) -> None:
     assert cotejo["date"] in _documento(), (
         f"El manifiesto declara un cotejo el {cotejo['date']} y el documento normativo no lo "
         "registra: la evidencia del cotejo tiene que estar escrita en su fuente."
+    )
+
+
+def _claves_del_manifiesto(nodo: object) -> set[str]:
+    """Todas las claves del JSON, a cualquier profundidad.
+
+    Sirve de allowlist del cruce de abajo: ``matrix_ids`` aparece en un ``scope`` como vocabulario
+    del propio esquema, no como cita de una fuente. Se **deriva del artefacto** en vez de escribirse
+    a mano a propósito: un id de fuente vive siempre en un *valor*, nunca en una clave, así que esta
+    allowlist no puede crecer para tapar una fuente borrada.
+    """
+    if isinstance(nodo, dict):
+        claves = set(nodo.keys())
+        for valor in nodo.values():
+            claves |= _claves_del_manifiesto(valor)
+        return claves
+    if isinstance(nodo, list):
+        return {clave for elemento in nodo for clave in _claves_del_manifiesto(elemento)}
+    return set()
+
+
+def _ids_citados(cotejo: dict, manifiesto: dict) -> tuple[str, ...]:
+    """Identificadores que la prosa de un cotejo cita, sin mirar si existen."""
+    texto = f"{cotejo['scope']} {cotejo['method']}"
+    vocabulario = _claves_del_manifiesto(manifiesto)
+    return tuple(sorted(set(_ID_SNAKE_CASE.findall(texto)) - vocabulario))
+
+
+@pytest.mark.parametrize("cotejo", _manifiesto()["verifications"], ids=lambda c: c["date"])
+def test_cada_cotejo_solo_cita_identificadores_que_el_manifiesto_declara(cotejo: dict) -> None:
+    """🔴 El cruce que faltaba: ``verifications`` → ``official_sources``.
+
+    El 2026-08-05 se añadió ``compendio_portal_consolidado`` a las fuentes porque **el cotejo más
+    fuerte del bundle citaba en su ``scope`` un PDF que el manifiesto no declaraba** (D-VER-2). Nada
+    ataba las dos cosas: el único cruce interno que existía va de matrices a circulares, y el
+    ``scope`` nombra su fuente **en texto libre**. Medido: borrar esa fuente dejaba el archivo
+    entero en verde.
+
+    ⚠️ Alcance declarado, no supuesto: esto comprueba que **lo citado exista**, no que todo cotejo
+    cite algo — el cotejo del 2026-06-23 dice «el render del PDF oficial» sin nombrar cuál, y
+    exigirlo hoy pondría el gate rojo sobre un dato que sólo se puede corregir en el manifiesto. La
+    salida de raíz es un campo de contrato (``source_ids``), que exige enmienda aprobada.
+    """
+    manifiesto = _manifiesto()
+    conocidos = {fuente["id"] for fuente in manifiesto["official_sources"]}
+    conocidos |= {entrada["matrix_id"] for entrada in manifiesto["matrices"]}
+    conocidos |= {pendiente["id"] for pendiente in manifiesto["pending_items"]}
+
+    huerfanos = [cita for cita in _ids_citados(cotejo, manifiesto) if cita not in conocidos]
+    assert not huerfanos, (
+        f"El cotejo del {cotejo['date']} cita {huerfanos}, que el manifiesto no declara ni como "
+        "fuente oficial, ni como matriz, ni como brecha. La evidencia del cotejo apunta al vacío: "
+        "quien audite la tabla no puede llegar al documento contra el que se verificó."
+    )
+
+
+@pytest.mark.parametrize("fecha, esperadas", sorted(_COTEJOS_QUE_CITAN_FUENTE.items()))
+def test_el_cotejo_conserva_la_fuente_que_lo_sostiene(
+    fecha: str, esperadas: tuple[str, ...]
+) -> None:
+    """Cara «hacia adelante» del cruce: la cita no puede desaparecer del ``scope``.
+
+    Sin esto, vaciar la mención dejaría el cruce anterior satisfecho por no tener nada que cruzar
+    — la misma vacuidad que el conteo de fuentes.
+    """
+    manifiesto = _manifiesto()
+    cotejos = {entrada["date"]: entrada for entrada in manifiesto["verifications"]}
+    assert fecha in cotejos, (
+        f"El manifiesto ya no registra el cotejo del {fecha}, que este gate da por existente."
+    )
+    declaradas = {fuente["id"] for fuente in manifiesto["official_sources"]}
+    citadas = _ids_citados(cotejos[fecha], manifiesto)
+    for fuente_id in esperadas:
+        assert fuente_id in citadas, (
+            f"El cotejo del {fecha} dejó de citar la fuente {fuente_id!r} en su alcance: su "
+            "evidencia queda sin documento al que apuntar."
+        )
+        assert fuente_id in declaradas, (
+            f"El cotejo del {fecha} se sostiene en {fuente_id!r} y esa fuente ya no está entre las "
+            "official_sources del manifiesto — exactamente el desajuste que D-VER-2 corrigió."
+        )
+
+
+def test_al_menos_un_cotejo_ata_su_alcance_a_una_fuente_declarada() -> None:
+    """Ancla anti-vacuidad del cruce: si ningún ``scope`` citara un id, el cruce no mediría nada."""
+    manifiesto = _manifiesto()
+    declaradas = {fuente["id"] for fuente in manifiesto["official_sources"]}
+    con_fuente = [
+        cotejo["date"]
+        for cotejo in manifiesto["verifications"]
+        if declaradas & set(_ids_citados(cotejo, manifiesto))
+    ]
+    assert con_fuente, (
+        "Ningún cotejo del manifiesto cita una fuente declarada en su alcance: el cruce "
+        "verifications → official_sources quedó recorriendo cero citas, que se lee igual que verde."
     )
 
 

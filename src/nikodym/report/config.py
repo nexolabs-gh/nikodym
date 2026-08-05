@@ -381,6 +381,10 @@ class ReportConfig(NikodymBaseConfig):
         # Sin moneda declarada la prosa no rotula ninguna: los montos siguen legibles.
         default=None,
         title="Moneda de los montos",
+        # ⚠️ `examples` no es decorativo: sin él, `fieldPlaceholder` cae en la `description`, así
+        # que esta frase entera se leería DENTRO del input, sin hover. Con ejemplos el placeholder
+        # queda corto y la frase larga se queda en el tooltip, que es su sitio.
+        examples=["CLP", "PEN", "USD"],
         description=(
             "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares. El informe la declara "
             "una vez por capítulo; los montos se escriben con el signo $ en cualquier caso. Si lo "

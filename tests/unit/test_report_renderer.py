@@ -1175,6 +1175,83 @@ def test_el_titular_de_un_solo_motor_cmf_si_nombra_su_norma() -> None:
     assert "CMF" in texto and "Chile" in texto
 
 
+def test_los_dos_motores_sin_comparador_no_dejan_el_capitulo_mudo() -> None:
+    """🔴 La combinación que D-CAP-2 no enumeró, y la única que seguía saliendo MUDA.
+
+    `_provisions_intro_motor_unico` cubría `interno and not cmf` y `cmf and not interno`; con las
+    **dos** cards caía al `return ()` final. Y el capítulo se emite igual, porque
+    `requires_any_domain` se satisface de sobra.
+
+    **Es alcanzable con un solo interruptor**: el preset F3 con `provisioning: None` —apagar el
+    comparador en el formulario— corre a `done` y su capítulo salía con 26 caracteres de cuerpo
+    («5 Provisiones regulatorias») contra los 742 del mismo preset con el comparador encendido: el
+    lector saltaba del título a la primera subsección y el total nunca aparecía.
+    """
+    prose = importlib.import_module("nikodym.report.prose")
+    cards = {
+        **_CARD_SOLO_INTERNO,
+        "provisioning_cmf": {"total_provision_amount": 1000.0, "total_exposure_amount": 50000.0},
+    }
+
+    parrafos = prose.provisions_intro(_bundle_provisiones(cards))
+
+    assert parrafos, (
+        "con los dos motores y sin comparador el capítulo volvió a quedar mudo: se emite el "
+        "título y el titular desaparece"
+    )
+    texto = " ".join(parrafos)
+    assert "238.689.868" in texto or "238.689.869" in texto, (
+        "el titular debe publicar la cifra del método interno"
+    )
+    assert "1.000" in texto, "el titular debe publicar la cifra del método estándar"
+    # 🔴 La mitad importante: NO se comparó nada, así que no puede invocarse la regla del máximo.
+    # Afirmar la Circular sobre dos cifras que nadie confrontó es el defecto gemelo del passthrough.
+    for invocacion in ("2.346", "mayor valor", "hoja 10-11"):
+        assert invocacion not in texto, (
+            f"el titular invoca {invocacion!r} sobre una comparación que la corrida NO hizo: el "
+            "comparador estaba apagado"
+        )
+
+
+def test_el_passthrough_no_afirma_la_regla_del_maximo_que_no_aplico() -> None:
+    """El orquestador degradado a *passthrough* afirmaba la Circular sin una sola cifra debajo.
+
+    Con `require_both=False` el orquestador reporta la fuente disponible y emite
+    `DATO-INSTITUCIONAL-PROV-3` («comparación incompleta»), pero `source_a`/`source_b` siguen
+    diciendo cmf/internal, así que el titular entraba por la rama B-1 y abría con «exige considerar
+    el mayor valor entre el método estándar y el método interno». El bloque de montos exige los dos
+    importes, de modo que el lector recibía la afirmación normativa **y ninguna cifra**.
+
+    Preexistente: no lo introduce 1.11.0, pero D-CAP-2 pasó por esta función y no lo vio.
+    """
+    prose = importlib.import_module("nikodym.report.prose")
+    cards = {
+        "provisioning": {
+            "source_a": "cmf",
+            "source_b": "internal",
+            "rule": "max",
+            "comparison_level": "total",
+            "total_provision_a": 1000.0,
+            "total_provision_b": None,
+            "total_reported_provision": 1000.0,
+            "binding": "cmf_only",
+        },
+        "provisioning_cmf": {"total_provision_amount": 1000.0, "total_exposure_amount": 50000.0},
+    }
+
+    texto = " ".join(prose.provisions_intro(_bundle_provisiones(cards)))
+
+    assert texto, "el passthrough dejó el capítulo mudo"
+    for invocacion in ("2.346", "mayor valor", "hoja 10-11", "por institución"):
+        assert invocacion not in texto, (
+            f"el titular invoca {invocacion!r} sobre una comparación que no se realizó: sólo "
+            "corrió una de las dos fuentes"
+        )
+    assert "no se realizó" in texto or "no se realizo" in texto, (
+        "el titular debe decir que la comparación no ocurrió, no callarlo"
+    )
+
+
 _CARDS_COMPARACION: Final = {
     "provisioning": {
         "source_a": "cmf",

@@ -23,6 +23,7 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
+from nikodym.core.dataset_check import Requisito
 from nikodym.provisioning.internal.exceptions import InternalConfigError
 
 InternalPdSourceDomain = Literal["calibration", "model"]
@@ -43,6 +44,11 @@ __all__ = [
 ]
 
 _GROUP_COL_GROUPINGS: tuple[str, ...] = ("segment", "provided")
+# Las dos columnas entre las que un archivo puede volverse ambiguo (D-AMB-2): el default de
+# fábrica de este motor tras D-JUR-8 y el que traía antes, que sigue siendo el del método estándar
+# (`cmf/config.py`, D-SEG-9 enmendado). Un archivo con ambas no distingue una elección de un
+# default, y son justo los dos nombres que conviven en un panel que corre los dos motores.
+_COLUMNAS_CARTERA_AMBIGUAS: frozenset[str] = frozenset({"portfolio", "cmf_portfolio"})
 _ROOT_COLUMN_FIELDS: tuple[str, ...] = (
     "as_of_date_col",
     "portfolio_col",
@@ -296,6 +302,50 @@ class InternalProvisioningConfig(NikodymBaseConfig):
                 "elimine loss_rate_col o cambie method a 'direct_loss_rate'."
             )
         return self
+
+    def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
+        """Avisa cuando el dataset trae DOS columnas de cartera y nadie eligió una (D-AMB-2).
+
+        🔴 D-JUR-8 movió el default de ``portfolio_col`` de ``"cmf_portfolio"`` a ``"portfolio"``
+        porque un motor neutro no puede pedir de fábrica la columna de un supervisor. Si el
+        archivo trae **sólo** el nombre antiguo, la corrida muere con un error legible y todo
+        bien. El caso que nadie veía es el otro: un archivo con **las dos** columnas cambia de
+        agrupación en silencio —medido, 20 grupos y 840.182,29 pasan a 10 grupos y 839.451,51, con
+        ``ok``, cero errores y cero avisos—, y ``check_dataset`` da ``compatible=True`` porque la
+        columna que el config nombra existe de verdad. No estaba fallando: contestaba bien a otra
+        pregunta.
+
+        ⚠️ El caso no es de laboratorio: ``"portfolio"`` es también el default de
+        ``provisioning_ifrs9.portfolio_col``, así que quien corre IFRS 9 **y** provisión interna
+        sobre un mismo panel tiene las dos columnas por construcción.
+
+        La ambigüedad es propiedad del **par** (config, dataset), no del config, y por eso vive
+        aquí y no en ``_check_invariantes``. Avisa, no bloquea (D-AMB-4, sigue D-INV-3/D-PRE-5):
+        elegir ``portfolio`` puede ser exactamente lo que el usuario quiere; lo que no puede es que
+        nadie se lo haya dicho.
+        """
+        # Quien DECLARÓ la columna ya tomó la decisión: avisarle sería el aviso que se aprende a
+        # ignorar (D-AMB-2, condición 1). Y sin los nombres no se afirma nada (D-INV-4).
+        if "portfolio_col" in self.model_fields_set or columnas is None:
+            return ()
+        if not columnas >= _COLUMNAS_CARTERA_AMBIGUAS:
+            return ()
+        otra = next(iter(_COLUMNAS_CARTERA_AMBIGUAS - {self.portfolio_col}), "")
+        return (
+            Requisito(
+                path="portfolio_col",
+                declared=self.portfolio_col,
+                # Copy público: sin código interno y sin nombrar ninguna norma. `cmf_portfolio`
+                # aparece aquí como el nombre de una columna del archivo del usuario, nada más.
+                message=(
+                    f"Su archivo trae dos columnas que podrían ser la cartera: "
+                    f"«{self.portfolio_col}» y «{otra}». La corrida usará "
+                    f"«{self.portfolio_col}», que es el valor de fábrica y no una elección suya. "
+                    f"Si la cartera es «{otra}», declárela en este campo: la agrupación de los "
+                    "grupos homogéneos —y con ella la provisión— depende de cuál se use."
+                ),
+            ),
+        )
 
 
 def _require_non_empty_strings(values: dict[str, str], *, context: str) -> None:

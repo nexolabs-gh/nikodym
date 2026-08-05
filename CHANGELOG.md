@@ -5,7 +5,7 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
-## [Sin publicar]
+## [1.11.0] — 2026-08-05
 
 ### Añadido
 
@@ -40,8 +40,6 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   debajo, igual que ya no aparecía expandida en el esquema, así que el formulario no ofrece ni un
   valor para ella.
 
-### Añadido
-
 - **Un ejemplo completo de provisiones sin ninguna normativa local.** Entran un conjunto de datos
   (`provision_interna_generica`), un preset listo para correr (`f5-provision-interna-generica`) y una
   guía, [Provisiones sin normativa local](guias/provision-sin-norma-local.md). La cartera
@@ -55,7 +53,62 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   dependía del comparador, que por definición exige dos fuentes distintas. Es aditivo: ningún
   informe pierde nada y los que corren un solo motor ganan su capítulo.
 
+- **La interfaz se organiza por TRABAJOS, y la sesión ya no arranca sembrada con un ejemplo.** Al
+  entrar eliges a qué viniste —«Scorecard de comportamiento (PD)», «Validar un modelo existente»,
+  «PD + LGD en una corrida»…— y ese trabajo decide qué secciones existen: la pantalla deja de
+  ofrecer las catorce a todo el mundo. `GET /api/jobs` publica el catálogo, y con él el **abanico
+  metodológico**: 69 puntos de elección con sus 172 opciones, cada una con qué hace, qué exige y
+  por qué está disponible o bloqueada, en idioma de negocio. Los ejemplos precargados siguen ahí,
+  ahora como lo que son: «ver un ejemplo con datos de muestra».
+
+- **`nikodym.run()` y `nikodym.check_pipeline()` aceptan artefactos externos.** Un parámetro
+  `artifacts=` permite inyectar tablas que la corrida no calcula —una PD ya calibrada, el puntaje de
+  un modelo existente— para arrancar el pipeline por la mitad. Es lo que hace ejecutables los
+  trabajos «Validar un modelo existente» y «Provisión interna / LGD». Aditivo y *keyword-only*: la
+  firma anterior sigue valiendo. Por HTTP la puerta es **estrictamente menos poderosa** que por
+  código: sólo entran tablas, nunca objetos serializados, y sólo las de los trabajos disponibles.
+
+- **La división de la muestra se puede LEER del archivo en vez de derivarla.** `partition.strategy`
+  gana una cuarta forma, `columna`: si su panel ya trae la marca de desarrollo/validación/OOT, se
+  declara qué columna es y qué valor corresponde a cada partición. Nada se adivina —ni por parecido
+  de nombre, ni por orden, ni por frecuencia—: un valor declarado que no aparezca en los datos es un
+  error que nombra los que sí aparecen.
+
+- **`kaplan_meier` deja de exigir el extra `lifelines`.** Ese método no lo usaba; ahora un config
+  que lo elija corre con la instalación base, donde antes fallaba pidiendo una dependencia que no
+  iba a utilizar.
+
 ### Cambiado
+
+- 🔴 **Un `target_pd` escrito junto al ancla por defecto ya no se descarta en silencio: detiene la
+  corrida.** `anchor_source='development_observed'` —el valor de fábrica— calcula la tasa central
+  como el promedio observado en Desarrollo, así que el `target_pd` que el usuario escribía **no se
+  usaba** y la corrida terminaba `done` sin decirlo. Medido sobre el preset F3, la diferencia era de
+  **569 millones** en la provisión, con los dos campos contiguos en la pantalla. Ahora esa
+  combinación se rechaza al validar, nombrando la salida.
+
+  ⚠️ **Es un cambio de comportamiento que puede romper un pipeline que hoy corre.** Si su config
+  tiene ese par, hasta `1.10.0` se ejecutaba (con una cifra que no era la que usted pidió) y desde
+  `1.11.0` no arranca. La salida es una línea: elija `anchor_source='business_input'` si quiere que
+  su `target_pd` gobierne, o quite el `target_pd` si quiere el ancla observada.
+
+- **Survival deja de ajustar en silencio sobre toda la población.** Cuando existe una columna de
+  partición y no hay filas de desarrollo, el motor **se detiene** en vez de ajustar sobre todo:
+  medido, un coeficiente pasaba de `+1,92` a `−0,02` sin que nada lo señalara.
+
+- **Tres opciones que el config aceptaba y morían a mitad de corrida ahora se rechazan al
+  validar**: `binning.solver='cp'`, el modo de proyección `period_matrices` de markov, y
+  `performance.partitions` con una sola partición. Ninguna funcionaba en `1.10.0`; lo que cambia es
+  **cuándo** se entera usted — antes de cargar el archivo, no en el paso 8 de 10.
+
+- **`GET /api/datasets` separa el índice de las columnas.** La columna identificador (`loan_id` en
+  los conjuntos del catálogo) sale de `columns` y aparece en la clave nueva `index_columns`. Un
+  cliente que la leyera dentro de `columns` deja de encontrarla ahí.
+
+- **`UiConfig.upload_max_mb` gobierna de verdad.** Era un campo muerto: declaraba 200 MB y el tope
+  real eran 100 MiB fijos. Ahora el valor declarado manda y se comprueba **antes** de traer el
+  cuerpo a memoria, también en los cinco POST de JSON, que no tenían ninguna cota. Un despliegue que
+  lo hubiera fijado en 10 corría de hecho con 100 MiB y ahora corre con 10.
 
 - 🔴 **El informe ya no afirma que los montos van en pesos chilenos.** Hasta ahora los rotulaba
   «pesos chilenos (CLP)» en tres capítulos —incluido el de **IFRS 9**, que es un marco contable
@@ -82,15 +135,25 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   ⚠️ **Nota de contrato SemVer.** Este cambio **recalcula el `config_hash`** de un config que
   **omite** esa clave y se apoya en el default, y con él su clave de idempotencia en el inventario
   de MLflow. Por eso sale como *minor* y no como *patch* — mismo criterio que `1.4.0` y `1.8.0`.
-  Medido, el alcance es más estrecho de lo que sugiere: los **tres presets de fábrica no se mueven**
-  (declaran el campo explícitamente o no activan la sección) y un config que **declara**
-  `portfolio_col` tampoco, sea cual sea su valor. Sólo cambia quien lo omitía.
+  Medido, el alcance es más estrecho de lo que sugiere: los presets de fábrica **no se mueven**
+  —`f1`, `f3` y `f4` conservan byte a byte el `config_hash` que tenían en `1.10.0`— y un config que
+  **declara** `portfolio_col` tampoco, sea cual sea su valor. Sólo cambia quien lo omitía.
 
   ⚠️ **El método estándar de la CMF conserva `"cmf_portfolio"`**, que ahí sí nombra su contenido: la
   cartera regulatoria chilena. La consecuencia es que los dos defaults **dejan de estar alineados**,
   así que una institución que compare estándar contra interno **con los defaults de fábrica** debe
   declarar `portfolio_col` en una de las dos secciones si tiene una sola columna de cartera. La
-  comprobación previa del dataset lo señala antes de ejecutar nada.
+  comprobación previa del dataset lo señala antes de ejecutar nada **cuando la columna nueva no
+  existe en su archivo**.
+
+  🔴 **El caso que hay que mirar es el otro, y hasta esta versión no avisaba nadie.** Si el archivo
+  trae **las dos** columnas —lo que ocurre por construcción en quien corre IFRS 9 y provisión
+  interna sobre un mismo panel, porque `provisioning_ifrs9.portfolio_col` también vale
+  `"portfolio"`—, la comprobación previa daba verde: la columna que el config nombra existe de
+  verdad. La corrida terminaba bien y **la agrupación cambiaba en silencio**. Ahora esa ambigüedad
+  se avisa en la comprobación previa **y** queda registrada en el resultado de la corrida, que es lo
+  que la lleva al informe para quien usa la librería por código. El aviso **no detiene** nada: si
+  `"portfolio"` es la columna correcta, no hay que hacer nada.
 
 - 🔴 **La provisión que se compara de fábrica es ahora la que exige la norma chilena.** El valor por
   defecto de la segunda fuente de `provisioning` pasa de la pérdida esperada bajo NIIF 9 al **método
@@ -111,7 +174,9 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
     source_b: provisioning_ifrs9
   ```
 
-  Ningún preset ni ejemplo del proyecto se mueve: los tres escriben sus fuentes explícitas.
+  Ningún preset ni ejemplo del proyecto se mueve, y conviene decir la razón exacta: **sólo `f3`
+  activa la sección `provisioning`, y escribe sus dos fuentes explícitamente**; los demás la dejan
+  apagada, así que no tienen dónde heredar el default.
 
 - **El capítulo del informe deja de rotular «Chile» sobre una comparación que la norma no pide.** Su
   título decía «la regla del máximo (Chile)» **siempre**, aunque se estuviera comparando contra NIIF
@@ -120,6 +185,25 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   criterio que el motor ya usaba para elegir su referencia normativa.
 
 ### Corregido
+
+- 🔴 **El capítulo de provisiones ya no sale mudo cuando corren los dos motores sin comparador.**
+  Al emitirse el capítulo por «se calcularon provisiones» y no por «se compararon dos métodos», la
+  combinación de método estándar **y** método interno con el comparador apagado quedaba con el
+  título puesto y el titular vacío: el lector saltaba directo a la primera subsección y el total
+  nunca aparecía. Ahora publica las dos cifras y dice explícitamente que no se aplicó ninguna regla
+  de selección entre ellas, porque no se comparó nada.
+
+- 🔴 **El informe ya no invoca la regla del máximo del Capítulo B-1 sobre una comparación que no se
+  hizo.** Cuando el comparador queda configurado pero sólo una de las dos fuentes llega a
+  calcularse, el capítulo abría citando la Circular N° 2.346 —«el mayor valor entre el método
+  estándar y el método interno»— **y no publicaba ni una cifra**, porque los montos exigen las dos.
+  Era una afirmación normativa sin respaldo en su propia corrida, dentro de un documento auditable.
+  Ahora dice que la comparación no se realizó y reporta la única fuente que sí corrió.
+
+- **La guía de provisiones sin normativa local publicaba un fragmento de código que no se podía
+  ejecutar**: el ejemplo para declarar la moneda usaba una forma que no corresponde al objeto que la
+  propia guía deja en pantalla. El fragmento quedó corregido y ahora lo **ejecuta un test** junto
+  con el resto del ejemplo, que es lo que impedía verlo.
 
 - 🔴 **La comprobación previa dejó de mentir sobre lo que un paso necesita.** Con
   `ml.feature_source='selection_woe'`, `nikodym.check_pipeline` rechazaba pipelines que corren
