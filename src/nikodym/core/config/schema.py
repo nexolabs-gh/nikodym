@@ -399,8 +399,8 @@ class NikodymConfig(NikodymBaseConfig):
             default=None,
             title="Provisiones método interno",
             description=(
-                "Calcula las provisiones por el método interno del banco (Cap. B-1 §3): grupos "
-                "homogéneos de deudores con Exposición · PD · LGD."
+                "Calcula las provisiones por el método interno del banco: grupos homogéneos de "
+                "deudores con Exposición · PD · LGD."
             ),
         )
     if TYPE_CHECKING:

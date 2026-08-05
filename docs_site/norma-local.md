@@ -84,9 +84,10 @@ Por eso el estado de verificación viaja con los datos y se publica aquí:
 | Última modificación normativa incorporada | 2025-01-31 (Circular 2.346/2024, consumo) |
 | Archivo de parámetros | sellado por SHA-256, verificado en cada corrida |
 
-⚠️ **Las dos fechas no son la misma cosa, y la diferencia importa.** La primera es la que declara el
-manifiesto que viaja en el paquete: cuándo se extrajeron las tablas. La segunda es un cotejo
-posterior y más fuerte —una a una contra el texto— y **sólo cubre la matriz de consumo**. El resto
+⚠️ **Las dos fechas no son la misma cosa, y la diferencia importa.** La primera es cuándo se
+extrajeron las tablas del texto oficial. La segunda es un cotejo posterior y más fuerte —una a una
+contra el texto— y **sólo cubre la matriz de consumo**. Las dos, con su alcance, viajan declaradas
+en el manifiesto del paquete, de modo que no hay que fiarse de esta página para saberlo. El resto
 de las tablas está verificado, pero no con ese nivel de detalle; el registro dice exactamente cuál
 tiene cuál.
 

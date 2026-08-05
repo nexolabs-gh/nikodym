@@ -1,8 +1,10 @@
 """Config declarativo de la capa ``provisioning.internal`` (SDD-28 §5.1).
 
 :class:`InternalProvisioningConfig` es la sección ``provisioning_internal`` de
-:class:`~nikodym.core.config.NikodymConfig`: el **método interno** que el Capítulo B-1 de la CMF
-obliga a todo banco a mantener junto al método estándar (B-1 §3, Circular N° 2.346). El motor
+:class:`~nikodym.core.config.NikodymConfig`: el **método interno** del banco, o sea su propio
+cálculo de provisiones, independiente del método estándar de su supervisor (en Chile, el Cap. B-1
+§3 de la CMF lo exige explícitamente). El motor no conoce ninguna tabla de supervisor: es
+jurisdiccionalmente neutro, y por eso su copy visible no cita ninguna norma. El motor
 agrupa a los deudores en **grupos homogéneos** y aplica, por grupo,
 ``provisión = Exposición · PD · LGD`` (o directamente la tasa de pérdida esperada del grupo).
 
@@ -50,7 +52,7 @@ _ROOT_COLUMN_FIELDS: tuple[str, ...] = (
 
 
 class InternalLgdConfig(NikodymBaseConfig):
-    """Configuración de la LGD (``porcentaje de pérdida dado el incumplimiento``, B-1 §3)."""
+    """Configuración de la LGD (``porcentaje de pérdida dado el incumplimiento``)."""
 
     method: InternalLgdMethod = Field(
         default="provided",
@@ -93,7 +95,7 @@ class InternalLgdConfig(NikodymBaseConfig):
 
 
 class InternalProvisioningConfig(NikodymBaseConfig):
-    """Calcula las provisiones del método interno del banco (Cap. B-1 §3) por grupo homogéneo.
+    """Calcula las provisiones del método interno del banco por grupo homogéneo.
 
     Motor experimental: fuera de la garantía SemVer 1.x.
     """
@@ -162,7 +164,8 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         default="calibration",
         title="Fuente de PD",
         description=(
-            "Dominio del artefacto de PD: calibration (PD calibrada, la que exige el B-1) o model."
+            "Dominio del artefacto de PD: calibration (PD calibrada, que es la que pide un "
+            "cálculo de provisiones) o model (PD cruda del modelo)."
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "PD", "ui_order": 1},
     )

@@ -195,15 +195,105 @@ def test_la_pagina_del_caso_de_referencia_existe_y_esta_en_el_nav() -> None:
     # La fecha de verificación tiene que estar A LA VISTA: es lo que convierte «congelado» en una
     # afirmación comprobable en vez de una excusa.
     manifest = _RAIZ / "src" / "nikodym" / "provisioning" / "cmf" / "data" / "manifest.json"
-    extraccion = json.loads(manifest.read_text(encoding="utf-8"))["extraction_date"]
+    manifiesto = json.loads(manifest.read_text(encoding="utf-8"))
+    extraccion = manifiesto["extraction_date"]
     assert extraccion in texto, (
         f"la página no publica la fecha de EXTRACCIÓN que declara el manifiesto ({extraccion}), "
-        "así que «congelado» no es verificable. Ojo: el manifiesto sólo trae esa fecha; el cotejo "
-        "celda por celda de la matriz de consumo es posterior y vive en "
-        "docs/normativa_cmf_parametros.md — no son la misma cosa y el copy no puede fundirlas"
+        "así que «congelado» no es verificable"
     )
+    # Y TODOS los cotejos, no sólo la extracción. Publicar la fecha más débil teniendo una más
+    # fuerte fue exactamente el defecto del 2026-08-04: el copy llamó «cotejo» a la extracción.
+    for cotejo in manifiesto["verifications"]:
+        assert cotejo["date"] in texto, (
+            f"el manifiesto declara un cotejo el {cotejo['date']} ({cotejo['scope'][:60]}…) y la "
+            "página del caso de referencia no lo publica: se estaría afirmando menos de lo que el "
+            "trabajo sostiene, que es el error simétrico del que se corrigió"
+        )
     # En el NAV, no en el archivo: `# pendiente: norma-local.md` en un comentario satisfaría un
     # `in` y la página quedaría invisible con el gate en verde.
     assert re.search(
         r"^\s+-\s+.+:\s*norma-local\.md\s*$", _MKDOCS.read_text(encoding="utf-8"), re.M
     ), "la página existe pero no tiene entrada de nav: quedaría invisible"
+
+
+# --------------------------------------------------------------------------------------------
+# El formulario es portada también, y esta parte no existía.
+# --------------------------------------------------------------------------------------------
+
+_FIXTURE_SCHEMA = _RAIZ / "web" / "src" / "fixtures" / "schema.json"
+
+# Las dos únicas secciones donde nombrar la norma ES el contenido, no un residuo:
+#   · `provisioning_cmf` implementa el modelo estándar chileno — callarlo sería la mentira opuesta.
+#   · `provisioning` orquesta la comparación, y la regla del máximo que aplica por defecto es
+#     literalmente la del Cap. B-1; describirla sin nombrarla la haría incomprensible.
+_SECCIONES_CON_JURISDICCION = frozenset({"provisioning", "provisioning_cmf"})
+
+
+def _frases_del_schema() -> dict[str, list[str]]:
+    """Títulos y descripciones publicados, agrupados por la sección a la que pertenecen.
+
+    Se mide sobre el **fixture** y no sobre ``schema_payload()`` a propósito: el payload vive en
+    ``nikodym.ui`` y arrastra el extra ``[ui]``, así que un gate montado sobre él **se salta** en
+    los jobs mínimos del CI — y un skip se lee igual que un verde. El gate G7 ya obliga a que el
+    fixture sea idéntico al payload, así que medir aquí no pierde nada.
+    """
+
+    def textos(nodo: object) -> list[str]:
+        salida: list[str] = []
+        if isinstance(nodo, dict):
+            for clave, valor in nodo.items():
+                if clave in ("title", "description") and isinstance(valor, str):
+                    salida.append(valor)
+                elif clave != "$defs":
+                    salida.extend(textos(valor))
+        elif isinstance(nodo, list):
+            for hijo in nodo:
+                salida.extend(textos(hijo))
+        return salida
+
+    documento = json.loads(_FIXTURE_SCHEMA.read_text(encoding="utf-8"))
+    esquema = documento["json_schema"]
+    definiciones = esquema["$defs"]
+    por_seccion: dict[str, list[str]] = {}
+    for seccion, nodo in esquema["properties"].items():
+        frases = textos(nodo)
+        for nombre, cuerpo in definiciones.items():
+            if nombre.startswith(f"{seccion}__"):
+                frases.extend(textos(cuerpo))
+        por_seccion[seccion] = frases
+    return por_seccion
+
+
+def test_el_barrido_del_formulario_no_es_vacuo() -> None:
+    """Anclas: un barrido que recorre cero frases o cero secciones se lee igual que uno limpio."""
+    por_seccion = _frases_del_schema()
+    assert len(por_seccion) >= 25, f"el barrido sólo ve {len(por_seccion)} secciones"
+    assert sum(len(f) for f in por_seccion.values()) >= 1500, "el barrido recorrió muy poco texto"
+    assert set(por_seccion) >= _SECCIONES_CON_JURISDICCION, "cambió el nombre de una sección exenta"
+
+    # Control positivo: las secciones exentas TIENEN que dar ofensores. Si dejan de darlos, o el
+    # detector se rompió o la evidencia se borró — y las dos convertirían este gate en un adorno
+    # que pasa siempre.
+    for seccion in _SECCIONES_CON_JURISDICCION:
+        assert _ofensores("\n".join(por_seccion[seccion])), (
+            f"la sección {seccion!r} dejó de nombrar su jurisdicción: o se borró la evidencia, "
+            "o el detector dejó de detectar"
+        )
+
+
+@pytest.mark.parametrize("seccion", sorted(set(_frases_del_schema()) - _SECCIONES_CON_JURISDICCION))
+def test_una_seccion_neutra_del_formulario_no_se_rotula_con_una_jurisdiccion(seccion: str) -> None:
+    """El tooltip del formulario es copy público, y el título de una sección se lee sin hover.
+
+    🔴 Esto no lo cubría nada, y por eso sobrevivió a la limpieza de las seis superficies: la
+    sección de provisión interna —el motor **jurisdiccionalmente neutro**, el que un banco de
+    cualquier país usaría— se titulaba «Calcula las provisiones por el método interno del banco
+    (Cap. B-1 §3)», y esa frase viaja al JSON Schema, al fixture y al bundle compilado del front.
+    Además de reducir el alcance percibido era **falsa**: ese motor no calcula el B-1.
+    """
+    ofensores = _ofensores("\n".join(_frases_del_schema()[seccion]))
+    assert not ofensores, (
+        f"la sección {seccion!r} del formulario nombra una jurisdicción en su copy visible: "
+        f"{ofensores}. Si la mención es imprescindible para entender el campo, la sección va a "
+        "_SECCIONES_CON_JURISDICCION con su razón escrita; si no, se reformula sin el país."
+    )

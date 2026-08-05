@@ -332,14 +332,20 @@ Se ejecuta en dos etapas con condiciones distintas:
      orquestador nunca ve el config de los motores— y el régimen se garantiza con un **registro
      régimen→motor** con test de cobertura, no con el sistema de tipos. **Implementado**
      (D-SEG-1…D-SEG-10); ver §«Pendiente de B3.a-1» abajo.
-   - **B3.a-2 · el contenido normativo del motor CMF.** Matrices y su versionado, tramos de mora B-1,
-     `is_default = dpd >= 90` (`cmf/engine.py:540`), buckets PVB/PVG, rangos C1-C6, títulos del
-     informe. **No bloquea, y que sea chileno es correcto**: ese motor *es* el método estándar
-     chileno. Se abstrae cuando exista un segundo motor que exija el molde común — es decir, con
-     B3.b.
+   - **B3.a-2 · el contenido normativo del motor CMF.** 🔴 **SIN OBJETO desde el 2026-08-05**
+     (D-JUR-2, [`_VEREDICTO-NORMATIVA-LOCAL.md`](design/_VEREDICTO-NORMATIVA-LOCAL.md)): su
+     condición de arranque —escrita abajo— era B3.b, y la normativa local salió del alcance de la
+     librería, así que esa condición no se cumple nunca. **El diagnóstico no se rechaza y el texto
+     se conserva**, con el precedente de D-MAX-3 y D-SEG-11: no la busques en `src/`, no es un
+     olvido. Reactivación: que llegue a existir un segundo motor de jurisdicción.
+
+     Matrices y su versionado, tramos de mora B-1, `is_default = dpd >= 90` (`cmf/engine.py:540`),
+     buckets PVB/PVG, rangos C1-C6, títulos del informe. **No bloquea, y que sea chileno es
+     correcto**: ese motor *es* el método estándar chileno. Se abstrae cuando exista un segundo
+     motor que exija el molde común — es decir, con B3.b.
 
    Orden resultante: **B3.a-1 → contrato de resolución de parámetros → B3.a-2 con la jurisdicción
-   nueva.**
+   nueva.** ⚠️ Vigente hasta B3.a-1 y el contrato; su tercer tramo quedó sin objeto (D-JUR-2).
 
    **Estado del contrato al 2026-07-26.** Su §2 se re-midió con lectores frescos y quedó enmendado
    ([`_ENMIENDA-CRP-IFRS9.md`](design/_ENMIENDA-CRP-IFRS9.md), aprobada): cayó P3 —la procedencia no
@@ -455,16 +461,31 @@ Se ejecuta en dos etapas con condiciones distintas:
    (`cmf/engine.py:446-462`) la rechaza al entrar, con el `raise` del despachador conservado como
    defensa en profundidad (`fc651dc`). Es además el **patrón de referencia de CRP-5**: el gate de
    entrada de IFRS 9 lo replica (`afa3403`).
-2. **B3.b — Implementación de una jurisdicción concreta.** No se inicia de forma especulativa;
-   requiere un compromiso comercial firmado. Sin él, el trabajo es una apuesta sobre normativa
-   extranjera que además puede cambiar antes de tener usuario.
+2. **B3.b — Implementación de una jurisdicción concreta.** 🔴 **CERRADO POR ALCANCE el 2026-08-05**
+   (D-JUR-3): ya no es «no se inicia de forma especulativa», es **no se inicia**. La normativa local
+   de cada país sale del alcance de la librería; un compromiso comercial por una jurisdicción nueva
+   lo atiende **Nikodym Advisory** como trabajo de integración, que es el modelo de negocio vigente.
+   Texto original: *no se inicia de forma especulativa; requiere un compromiso comercial firmado.
+   Sin él, el trabajo es una apuesta sobre normativa extranjera que además puede cambiar antes de
+   tener usuario.*
 
 > **Regla de honestidad**: mientras B3.b no exista, la librería **no** tiene motor SBS ni de ninguna
 > otra jurisdicción, y no se insinúa lo contrario. El módulo `internal/` sí es utilizable hoy fuera de
 > Chile, y ése es el alcance real que se comunica.
+>
+> ⚠️ **Esta regla NO se retira con B3.b: se refuerza** (D-JUR-3). Deja de ser una restricción
+> temporal —«hasta que exista el motor»— y pasa a ser permanente. Y el alcance de `internal/` que se
+> comunica tiene su límite medido en D-JUR-1: el **cálculo** es neutro, pero la clasificación, la
+> mora, las garantías y los mínimos regulatorios no se expresan en él.
 
 **Requisito de producto añadido (Cami, 2026-07-24): la jurisdicción debe ser una elección visible,
-no un supuesto.** Hoy «provisiones» significa Chile sin decirlo, y el proyecto es LATAM. B3.a debe
+no un supuesto.** 🔴 **SIN OBJETO desde el 2026-08-05** (D-JUR-4): su razón de diferimiento era que
+«un desplegable con una sola opción no es una elección», y esa razón pasó de temporal a
+**permanente**. Lo que el requisito buscaba —que «provisiones» no signifique Chile sin decirlo— se
+consiguió por otra vía el 2026-08-04: la portada no nombra ningún país y el caso chileno vive en
+[`norma-local.md`](../docs_site/norma-local.md). Texto original a continuación.
+
+Hoy «provisiones» significa Chile sin decirlo, y el proyecto es LATAM. B3.a debe
 entregar la jurisdicción como **selector explícito** en preset y UI —`Provisiones · Chile (CMF)`—
 de modo que el usuario vea que está eligiendo un régimen y no «el» régimen. Condición dura, derivada
 de la regla de honestidad de arriba: el selector **nace con una sola opción real**; una jurisdicción
@@ -481,9 +502,16 @@ que el usuario no puede ejecutar.
 
 ### B5 · Validación humana de las matrices CMF (gate G0)
 
-Sigue siendo el DoD incumplido de F3 y **no lo puede hacer un agente**. Se ejecuta sí o sí, pero no
-encabeza la cola: CMF es Chile y el alcance del proyecto es LATAM. Hasta que ocurra, F3 se comunica
-como experimental sin excepción. Detonante natural: el primer compromiso concreto en Chile.
+Sigue siendo el DoD incumplido de F3 y **no lo puede hacer un agente**. Se ejecuta sí o sí. Hasta
+que ocurra, F3 se comunica como experimental sin excepción.
+
+🔴 **El detonante cambió el 2026-08-05, y la deuda se REFUERZA** (D-JUR-5, decisión de Cami). Decía
+«no encabeza la cola: CMF es Chile y el alcance es LATAM; detonante natural, el primer compromiso
+concreto en Chile» — con la normativa local fuera del alcance de la librería, ese compromiso podría
+no llegar nunca, y entretanto el motor sigue **en producción** y desde el 2026-08-04 hay además una
+página pública que presenta sus matrices como caso de referencia trabajado. **Publicar un caso de
+referencia sin validación humana es la misma sobrepromesa que se acaba de quitar del titular.** El
+detonante es ahora que la página ya está publicada: la deuda es exigible, no futura.
 
 **Precisión (Cami, 2026-07-24): lo que molesta es que la procedencia pública se apoye en «asistencia
 de IA».** Es lo primero que lee un gerente de riesgo, y en un producto regulatorio una transcripción
@@ -528,6 +556,11 @@ asíncronos, cancelación cooperativa y reanudación se implementan sólo cuando
 de forma durable; nunca se simulan sobre HTTP.
 
 ### B7 · Mapa regulatorio LATAM
+
+🔴 **SIN OBJETO como nodo de la librería desde el 2026-08-05** (D-JUR-6): investigar las circulares
+de cada supervisor es literalmente el trabajo que la decisión declara insostenible —*«no podemos
+estar detrás de cada actualización de cada país»*—. Si hace falta para una conversación comercial es
+**material de distribución**, no plan de producto, y vive en `privado/`. Texto original:
 
 Investigación de reguladores de la región, hoy incompleta y con errores detectados por el verificador.
 **Queda en plan, sin prioridad.** Material de conversación, nunca de publicación ni de cotización, sin
@@ -644,8 +677,14 @@ Esfuerzo relativo: S < M < L < XL.
 **DoD.** Mismo pipeline de datos que F1; tuning reproducible (seed); SHAP integrado al reporte; tests de determinismo.
 **Dependencias.** F1 (pipeline, binning, model).
 
-## F3 — Provisiones CMF (norma local)
+## F3 — Provisiones CMF (caso de referencia)
 **Objetivo.** Motor de pérdida esperada estandarizada `PE = PI·PDI·Exposición` del Capítulo B-1.
+
+> ⚠️ **Encuadre corregido el 2026-08-05** (D-JUR-7): se titulaba «norma local», como si fuera una
+> familia con más miembros por venir. Con la normativa local fuera del alcance de la librería es
+> **el** caso de referencia, en singular y congelado. El estado técnico no cambia: implementado y
+> experimental. Ver [`_VEREDICTO-NORMATIVA-LOCAL.md`](design/_VEREDICTO-NORMATIVA-LOCAL.md) y
+> [`norma-local.md`](../docs_site/norma-local.md).
 **SDDs.** 15 provisioning-cmf.
 **Entregables.**
 - Matrices por cartera (comercial individual A1–C6, grupal, consumo 2025, vivienda PVG) como **datos versionados** ([`normativa_cmf_parametros.md`](normativa_cmf_parametros.md)).
@@ -656,6 +695,11 @@ Esfuerzo relativo: S < M < L < XL.
 > 🔴 **DoD INCUMPLIDO: la validación humana de las matrices SIGUE PENDIENTE.** Los parámetros se transcribieron del compendio **con asistencia de IA y verificación visual**; no son oficiales de la CMF ni están validados por ella (así está confesado en el README y en la landing). **Un gerente de riesgo pregunta por su procedencia en los primeros cinco minutos.** Para cartera de consumo se usa **una sola** matriz (`consumer_standard_v2025`): validarla a mano, celda por celda, **no lo puede hacer un agente**.
 >
 > **Prioridad fijada el 2026-07-21 (bloque B5):** se hace sí o sí, pero no encabeza la cola — CMF es Chile y el alcance del proyecto es LATAM. Detonante natural: el primer compromiso concreto en el mercado chileno. Mientras tanto F3 se comunica como experimental **sin excepción**.
+>
+> 🔴 **El detonante cambió el 2026-08-05** (D-JUR-5): con la normativa local fuera de alcance, «el
+> primer compromiso en Chile» podría no llegar nunca, y entretanto las matrices están en producción
+> y hay una página pública que las presenta como caso trabajado. **La deuda es exigible ahora**, no
+> futura. Ver B5.
 
 ## F4 — IFRS 9 / ECL
 **Objetivo.** ECL de 3 etapas como motor independiente; la orquestación configurable vive en una

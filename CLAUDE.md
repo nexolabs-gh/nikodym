@@ -5,7 +5,76 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-04): **CMF sale de la promesa y pasa a ser EVIDENCIA**
+> ## Lo último (2026-08-05): **el gate normativo, y el roadmap después de la decisión**
+>
+> Los dos candidatos que Cami eligió al abrir, **completos**: el gate que ata
+> `docs/normativa_cmf_parametros.md` al manifiesto del bundle, y el veredicto de los nodos que la
+> decisión del 2026-08-05 dejó sin objeto. Gates: pytest **5246 passed / 8 skipped** (base 5148),
+> vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint, fixture de schema
+> regenerado, bundle reconstruido y **verificado por contenido**, `mkdocs --strict` sin anclas rotas,
+> `uv lock --check`. **PyPI sigue en `1.10.0`.**
+>
+> ✅ **El gate normativo existe y destapó DOS desajustes reales el día que se escribió**
+> (`tests/unit/test_normativa_cmf_documento.py`, 70 tests, ocho cruces). (1) La matriz
+> `commercial_group_generic_factoring_v2020` se rige por la **Circular 2.257/2020, que no estaba
+> entre las `official_sources`** — bien citada en el documento, en `norma-local.md` y en el SDD-15, y
+> ausente justo del único sitio que un auditor lee por programa. (2) La fecha del **cotejo fuerte
+> (2026-07-14) vivía sólo en el documento**, y cerrarlo exigía contrato.
+>
+> ✅ **Enmienda del cotejo aprobada e implementada**
+> ([`_ENMIENDA-COTEJO-NORMATIVO.md`](docs/design/_ENMIENDA-COTEJO-NORMATIVO.md), D-COT-1…4): nace
+> `verifications[]` con `date`, `method`, **`scope`** y `matrix_ids`. 🔴 **Se descartó la forma barata
+> (lista de fechas) porque reintroduce la clase**: el error del 2026-08-04 fue de **alcance**, no de
+> fecha —se publicó como cobertura general un cotejo que cubría **una** matriz—. Aditivo: cero
+> cálculo, cero matrices, cero hashes.
+>
+> 🔴 **El gate nació con el criterio equivocado, tercera sesión seguida.** De sus 10 fallos
+> iniciales, **8 eran míos**: un `(?![\w.])` como corte tras el número de sección rechaza
+> `## 3. Cartera consumo` —el punto de la numeración cae dentro de la clase—. Lo que separa `§3` de
+> `§3.1` **no es el punto sino si tras el punto viene un dígito**. Siete controles negativos
+> ejecutados, cada uno pone en rojo su test y sólo el suyo.
+>
+> 🔴 **Apareció una SÉPTIMA superficie con jurisdicción, y no era una frase: eran CUATRO** más una en
+> `explain`. La sección `provisioning_internal` —el motor **neutro**— se titulaba «Calcula las
+> provisiones por el método interno del banco **(Cap. B-1 §3)**», frase que viaja al JSON Schema, al
+> fixture y al **bundle compilado**; además de bajar el alcance percibido **era falsa**. ✅ Y se
+> cerró la **CLASE**: `test_portada_sin_jurisdiccion.py` cubría cinco superficies de texto y **no el
+> formulario** — ahora barre las 29 secciones del schema, con dos exentas con su razón y un control
+> positivo. ⚠️ Mide sobre el **fixture** y no sobre `schema_payload()`: el payload arrastra el extra
+> `[ui]` y el gate **se saltaría** en los jobs mínimos, que es la trampa que ya costó CI rojo.
+>
+> ✅ **El veredicto** ([`_VEREDICTO-NORMATIVA-LOCAL.md`](docs/design/_VEREDICTO-NORMATIVA-LOCAL.md),
+> D-JUR-1…8). 🔴 **Eran CINCO nodos, no dos**: B3.a-2 y el selector de jurisdicción **sin objeto**,
+> B3.b **cerrado por alcance**, B7 **sin objeto** como nodo de la librería, F3 cambia de encuadre — y
+> **B5 se REFUERZA** (decisión de Cami): publicar un caso de referencia sin validación humana es la
+> sobrepromesa que se acaba de quitar del titular, así que el detonante deja de ser «el primer
+> compromiso en Chile» y pasa a ser que **la página ya está publicada**.
+>
+> 🔴 **P3 y la decisión NO decían lo mismo.** P3 no proponía renunciar a la normativa local: proponía
+> hacerla **como dato** —«el banco peruano usa sus tablas SBS sin que Nikodym publique una versión»—.
+> Gana la decisión. ⚠️ **Pero se midió su premisa antes de cerrarlo y salió PARCIAL** (D-JUR-1): el
+> **cálculo** de `provisioning/internal` es neutro de verdad —cero tablas de supervisor, cero tramos
+> de mora—, pero staging, mora, garantías, mínimos y contracíclicas **no se pueden expresar**; lo
+> precalculado **desaparece del `config_hash` y del audit trail**; la **regla del máximo está cerrada
+> a Chile** por un `Literal` que además prohíbe `source_a == source_b`; y el informe imprime en
+> **formato de peso chileno**.
+>
+> ✅ **D-JUR-8 es lo único que el veredicto ABRE**: la capacidad neutra existe y **no se comunica**.
+> Hoy la respuesta a «¿y para Perú?» depende de que quien conteste conozca `provisioning_internal` de
+> memoria. ⚠️ Su primera pieza —el default `portfolio_col="cmf_portfolio"`— **mueve el `config_hash`**
+> ⇒ minor con nota SemVer, y es decisión de release de Cami.
+>
+> ⚠️ **P4 tiene la premisa central corregida al medirla**: `provided`/`group_historical` **no es «de
+> dónde viene la LGD»** —siempre entra como columna del frame— sino **cómo se agrega**. Más: el motor
+> interno es todo `Decimal` y `LgdEngine` `float64`; el step **no pide el artefacto de binning**, así
+> que las columnas WoE no llegan (cambio de **DAG**); y el acoplamiento entre los dos paquetes es
+> **cero**. No es «conectar»: exige enmienda.
+>
+> **Siguiente: D-JUR-8 o P4.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-04): **CMF sale de la promesa y pasa a ser EVIDENCIA**
 >
 > **`main` = `aab4926`**, el commit con todo el código, **con CI 16/16 confirmado job a job con
 > `gh`** (run `30961130782`). Los dos runs que la sesión anterior dejó pendientes también quedaron

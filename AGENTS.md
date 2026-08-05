@@ -11,7 +11,47 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-04, **CMF sale de la promesa y pasa a ser evidencia**)
+## Estado vigente (2026-08-05, **el gate normativo y el veredicto del roadmap**)
+
+Los dos candidatos que Cami eligió al abrir, completos. Gates: pytest **5246 passed / 8 skipped**
+(base 5148), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint del front,
+fixture de schema regenerado, bundle reconstruido y verificado por contenido, `mkdocs --strict` sin
+anclas rotas, `uv lock --check`. **PyPI sigue en `1.10.0` y no hay release autorizado.**
+
+✅ **El gate que ata `docs/normativa_cmf_parametros.md` al manifiesto existe**
+(`tests/unit/test_normativa_cmf_documento.py`, 70 tests, ocho cruces) y **destapó dos desajustes
+reales el día que se escribió**: la Circular **2.257/2020** gobierna una matriz y no estaba entre las
+`official_sources`, y la fecha del **cotejo fuerte (2026-07-14) vivía sólo en el documento**. El
+segundo exigía contrato ⇒ [`_ENMIENDA-COTEJO-NORMATIVO.md`](docs/design/_ENMIENDA-COTEJO-NORMATIVO.md)
+(D-COT-1…4): nace `verifications[]` **con alcance**, porque el error de ayer fue de alcance y no de
+fecha. Aditivo: cero cálculo, cero matrices, cero hashes.
+
+🔴 **El gate nació con el criterio equivocado —tercera sesión seguida—: 8 de sus 10 fallos iniciales
+eran míos.** Un `(?![\w.])` tras el número de sección rechaza `## 3. Cartera consumo`. Siete
+controles negativos ejecutados.
+
+🔴 **Séptima superficie con jurisdicción, y eran cuatro frases**: la sección **neutra**
+`provisioning_internal` se titulaba «(Cap. B-1 §3)» — falso, además de reductor — y viajaba al bundle
+compilado. ✅ Se cerró la **clase**: el gate de portada barre ahora las 29 secciones del formulario,
+con dos exentas con su razón y control positivo. ⚠️ Mide sobre el **fixture**, no sobre
+`schema_payload()`, para no depender del extra `[ui]` en los jobs mínimos.
+
+✅ **El veredicto** ([`_VEREDICTO-NORMATIVA-LOCAL.md`](docs/design/_VEREDICTO-NORMATIVA-LOCAL.md),
+D-JUR-1…8): **cinco nodos, no dos**. B3.a-2 y el selector **sin objeto**, B3.b **cerrado por
+alcance**, B7 **sin objeto** como nodo de la librería, F3 cambia de encuadre, y **B5 se refuerza** —
+el detonante pasa a ser que la página del caso de referencia **ya está publicada**.
+
+🔴 **P3 proponía la normativa local COMO DATO, no renunciar a ella**; gana la decisión del
+2026-08-05. ⚠️ Su premisa se midió antes de cerrar y salió **PARCIAL**: el cálculo de `internal` es
+neutro, pero staging, mora, garantías y mínimos **no se expresan**, la regla del máximo está cerrada
+a Chile por un `Literal`, y el informe imprime en CLP. De ahí **D-JUR-8**, lo único que el veredicto
+abre: la capacidad neutra existe y **no se comunica**.
+
+**Siguiente: D-JUR-8 o P4.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-04, **CMF sale de la promesa y pasa a ser evidencia**)
 
 **`main` = `aab4926`**, el commit con todo el código, **con CI 16/16 confirmado job a job con
 `gh`** (run `30961130782`). Los dos que la sesión anterior dejó pendientes también: `0417ce9` 16/16
@@ -1079,6 +1119,10 @@ opcional:
    Colombia.** **Brasil queda fuera** por ahora (mundo aparte). Ojo con el orden: implementar una
    jurisdicción nueva va al final, pero *dejar de asumir Chile* (B3.a) va antes de construir la
    matriz de flexibilidad encima de una taxonomía chilena hardcodeada.
+   ⚠️ **Superado el 2026-08-05**: implementar una jurisdicción nueva ya no «va al final», **no va**
+   (D-JUR-3). Lo que sobrevive de este punto es *dejar de asumir Chile*, que es B3.a-1 —cerrado— más
+   el reposicionamiento del 2026-08-04. Detalle en
+   [`_VEREDICTO-NORMATIVA-LOCAL.md`](docs/design/_VEREDICTO-NORMATIVA-LOCAL.md).
 
 **Criterio de método, dicho por Cami:** camino largo pero seguro, no «puras zancadillas». Un arreglo
 puntual que no acerca a estos cuatro puntos compite contra ellos por el tiempo, y hay que decirlo
@@ -1196,7 +1240,10 @@ ya se completaron; sus decisiones siguen vigentes en `docs/design/`.
   [[feature-gateada-por-config-es-feature-inexistente]] y el bloque B2 del ROADMAP.
 - **No se anuncia un motor de una jurisdicción que no exista.** Hoy sólo hay CMF (Chile);
   `provisioning/internal/` es el único componente jurisdiccionalmente reutilizable. Implementar una
-  jurisdicción nueva exige compromiso comercial firmado (B3.b).
+  jurisdicción nueva **no se implementa**: la normativa local salió del alcance de la librería el
+  2026-08-05 y B3.b quedó cerrado por alcance (D-JUR-3,
+  [`_VEREDICTO-NORMATIVA-LOCAL.md`](docs/design/_VEREDICTO-NORMATIVA-LOCAL.md)). Un compromiso
+  comercial por una jurisdicción lo atiende **Nikodym Advisory** como integración, no el paquete.
 - **CMF ≠ IFRS 9**: dos motores separados (`provisioning/cmf` con PE=PI·PDI·Exposición, B-1; `provisioning/ifrs9` con ECL). ⚠️ **La regla del máximo del B-1 (Circular 2.346) es `max(método estándar, método interno del banco)`, por institución — NO `max(CMF, IFRS 9)`**: el Cap. A-2 num. 5 del Compendio excluye el deterioro de NIIF 9 sobre colocaciones. Ver ESPECIFICACIONES §5.4 (corregido 2026-07-13).
 - **MVP Fase 1**: scorecard de **comportamiento** (sin reject inference; originación es sub-fase posterior).
 - **Stack**: pandas (+ **pandera/pyarrow** deps base de `data`), **OptBinning** (binning), **statsmodels** (inferencia), **lifelines** (survival), Optuna, SHAP, MLflow, **Jinja2 + WeasyPrint** (informe HTML y PDF; Quarto se retiró en 1.0) y **python-docx** (export Word), capa IA opcional inyectable (documenta/narra, nunca calcula; la prosa del informe es determinista y NO la escribe la IA). Empaquetado **uv + hatchling** (≥1.27), `src/` layout. Config **Pydantic v2** (núcleo config-driven → la UI es editor del mismo config). Gobernanza **SR 11-7** en el núcleo.

@@ -27,6 +27,7 @@ __all__ = [
     "CmfMatrixError",
     "CmfMatrixManifest",
     "CmfMatrixRow",
+    "CmfVerification",
     "load_cmf_matrices",
     "validate_cmf_matrix_bundle",
 ]
@@ -104,6 +105,27 @@ class CmfPendingItem(BaseModel):
     description: str
 
 
+class CmfVerification(BaseModel):
+    """Cotejo del bundle contra el texto oficial, con su alcance (D-COT-1).
+
+    ⚠️ ``extraction_date`` dice cuándo se extrajeron las tablas del PDF; **no** es un cotejo. Que
+    el manifiesto no distinguiera las dos cosas costó una afirmación falsa publicada en cinco
+    superficies el 2026-08-04: se llamó «cotejo cerrado» a la fecha de extracción, existiendo uno
+    posterior y más fuerte que sólo constaba en ``docs/normativa_cmf_parametros.md``.
+
+    🔴 ``scope`` y ``matrix_ids`` no son adorno: el error fue de **alcance**, no de fecha —se
+    publicó como cobertura general un cotejo que cubría una sola matriz—, y una fecha sin alcance
+    permite repetirlo igual.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    date: str
+    method: str
+    scope: str
+    matrix_ids: tuple[str, ...] = Field(default_factory=tuple)
+
+
 class CmfMatrixManifest(BaseModel):
     """Manifest auditable del bundle de matrices CMF."""
 
@@ -113,6 +135,7 @@ class CmfMatrixManifest(BaseModel):
     effective_date: str
     extraction_date: str
     official_sources: tuple[CmfOfficialSource, ...]
+    verifications: tuple[CmfVerification, ...] = Field(default_factory=tuple)
     normativa_refs: tuple[str, ...]
     yaml_sha256: str
     author: str

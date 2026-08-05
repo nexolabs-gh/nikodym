@@ -465,6 +465,28 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > gate acusó a tres inocentes** (`ml`, `provisioning`, `validation`) hasta afinar su criterio de
 > «re-deriva» a «re-deriva **con datos ajenos**». Las dos correcciones salieron **midiendo**.
 >
+> **Qué queda del roadmap tras sacar la normativa local del alcance (2026-08-05, APROBADO).**
+> [`_VEREDICTO-NORMATIVA-LOCAL.md`](_VEREDICTO-NORMATIVA-LOCAL.md), D-JUR-1…D-JUR-8. No añade ni
+> retira capacidad: decide el estado de los nodos que la decisión dejó sin sustento. **B3.a-2** y el
+> **selector de jurisdicción** quedan sin objeto —su condición de arranque no se cumple nunca—,
+> **B3.b** cerrado por alcance, **B7** sin objeto como nodo de la librería, **F3** cambia de
+> encuadre a caso de referencia, y 🔴 **B5 se REFUERZA**: publicar un caso de referencia sin
+> validación humana es la sobrepromesa que se acaba de quitar del titular. 🔴 **P3 y la decisión no
+> decían lo mismo** —P3 proponía la normativa local **como dato**, no renunciar a ella— y se midió
+> su premisa antes de cerrarlo: **PARCIAL** (D-JUR-1). El cálculo de `internal` es neutro de verdad,
+> pero staging, mora, garantías, mínimos y contracíclicas **no se expresan**, la regla del máximo
+> está **cerrada a Chile** por un `Literal`, y no existe ninguna demostración sin CMF. De ahí sale
+> **D-JUR-8**, que es lo único que el veredicto abre en vez de cerrar.
+>
+> **El manifiesto normativo registra sus cotejos (2026-08-05, APROBADA).**
+> [`_ENMIENDA-COTEJO-NORMATIVO.md`](_ENMIENDA-COTEJO-NORMATIVO.md), D-COT-1…D-COT-4. `extraction_date`
+> era la única fecha publicable del bundle, así que el copy del 2026-08-04 llamó «cotejo» a una
+> **extracción** y la afirmación salió falsa en cinco superficies, refutada por su propia fuente
+> enlazada. Nace `verifications[]` con **alcance**, no una lista de fechas: 🔴 el error fue de
+> alcance —se publicó como cobertura general un cotejo que cubría **una** matriz—, y una fecha
+> pelada permite repetirlo igual. Aditivo: cero cálculo, cero matrices, cero hashes. Lo destapó
+> `tests/unit/test_normativa_cmf_documento.py` al ejecutarse por primera vez.
+>
 > **El `requires` de CMF (2026-08-05, NO SE IMPLEMENTA).**
 > [`_ENMIENDA-REQUISITOS-CMF.md`](_ENMIENDA-REQUISITOS-CMF.md), D-CMF-1…D-CMF-6, diagnostica **M-3**
 > y queda **escrita sin implementación** por decisión de producto de Cami: la normativa local de

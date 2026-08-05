@@ -221,6 +221,12 @@ así que el contrato no puede montarse sobre un segmento que es un enum chileno.
 | `internal/config.py:119` | `portfolio_col` es un `str` **libre** — sólo el *default* se llama `cmf_portfolio`. Es el punto más barato de los cuatro |
 | `provisioning/config.py:178-195` | el crosswalk de carteras entre motores hereda el mismo default |
 
+**B3.a-2 — 🔴 SIN OBJETO desde el 2026-08-05** (D-JUR-2,
+[`_VEREDICTO-NORMATIVA-LOCAL.md`](_VEREDICTO-NORMATIVA-LOCAL.md)): la normativa local salió del
+alcance de la librería, así que la condición de arranque que este párrafo declara —«cuando exista un
+segundo motor de jurisdicción»— no se cumple nunca. El diagnóstico **sigue siendo cierto** y por eso
+se conserva escrito, con el precedente de D-MAX-3 y D-SEG-11. Texto original:
+
 **B3.a-2 — el contenido normativo del motor CMF (no bloquea; va con la jurisdicción nueva).** Las
 matrices y su versionado, los tramos de mora B-1, el `is_default = dpd >= 90` cableado
 (`cmf/engine.py:540`), los buckets PVB/PVG, los rangos C1-C6 y los títulos del informe. **Que esto
