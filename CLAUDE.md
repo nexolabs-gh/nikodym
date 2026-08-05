@@ -7,9 +7,11 @@
 >
 > ## Lo último (2026-08-04): **CMF sale de la promesa y pasa a ser EVIDENCIA**
 >
-> **`main` = `aab4926`**, el commit con todo el código. ⚠️ **Su CI quedó lanzado y hay que
-> verificarlo al arrancar** (run `30961130782`). Los dos runs que la sesión anterior dejó pendientes
-> quedaron **verificados job a job: `0417ce9` 16/16 y `d399897` 16/16** — de ésos no queda ninguno.
+> **`main` = `aab4926`**, el commit con todo el código, **con CI 16/16 confirmado job a job con
+> `gh`** (run `30961130782`). Los dos runs que la sesión anterior dejó pendientes también quedaron
+> verificados: `0417ce9` 16/16 y `d399897` 16/16. **No queda ningún run por verificar.** 🟢 Windows
+> verde y jobs mínimos verdes: el gate nuevo no depende de ningún extra, que era su riesgo
+> declarado.
 > Gates: pytest **5148 passed / 8 skipped** (base 5139), vitest **640/640**, mypy 245, `ruff check`
 > y `format`, typecheck y lint, fixture de schema regenerado, bundle reconstruido,
 > `mkdocs --strict`, `uv lock --check`. **PyPI sigue en `1.10.0`.**
@@ -68,7 +70,7 @@
 > `-1`; un `assert "x.md" in mkdocs.yml` **no** mide que esté en el nav; y **`mkdocs --strict` pasa
 > con un ancla rota**, porque `links.not_found` sale como `INFO`.
 >
-> **Siguiente: verificar el CI, y el gate que ate el `.md` normativo al manifiesto.** Detalle en
+> **Siguiente: el gate que ate el `.md` normativo al manifiesto.** Detalle en
 > [`HANDOFF.md`](HANDOFF.md).
 >
 > ---

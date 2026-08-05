@@ -13,9 +13,9 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-04, **CMF sale de la promesa y pasa a ser evidencia**)
 
-**`main` = `aab4926`**, el commit con todo el código. ⚠️ **Su CI quedó lanzado: verificarlo al
-arrancar** (run `30961130782`). Los dos que la sesión anterior dejó pendientes están **verificados
-job a job: `0417ce9` 16/16 y `d399897` 16/16**. **PyPI sigue en `1.10.0` y no hay release
+**`main` = `aab4926`**, el commit con todo el código, **con CI 16/16 confirmado job a job con
+`gh`** (run `30961130782`). Los dos que la sesión anterior dejó pendientes también: `0417ce9` 16/16
+y `d399897` 16/16. **No queda ningún run por verificar.** **PyPI sigue en `1.10.0` y no hay release
 autorizado.** Gates: pytest **5148 passed / 8 skipped** (base 5139), vitest **640/640**, mypy 245,
 `ruff check` y `format`, typecheck y lint del front, fixture de schema regenerado, bundle
 reconstruido, `mkdocs --strict`, `uv lock --check`.
@@ -46,7 +46,7 @@ de N caracteres como delimitador tenía 30 de margen** sobre un cuerpo de 2.370:
 de JSX plausible, la regresión que el gate dice impedir pasa en verde. Y su invariante estaba mal
 elegido — `[...estandar, ...porJurisdiccion].map(...)` lo evadía.
 
-**Siguiente: verificar el CI, y el gate que ate el `.md` normativo al manifiesto.** Detalle en
+**Siguiente: el gate que ate el `.md` normativo al manifiesto.** Detalle en
 [`HANDOFF.md`](HANDOFF.md).
 
 ---
