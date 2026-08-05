@@ -7,8 +7,9 @@
 >
 > ## Lo último (2026-08-05 noche): **D-JUR-8 — la capacidad neutra ya se puede enseñar**
 >
-> **`main` = `6df5e5c`.** ⚠️ **CI lanzado y SIN VERIFICAR: confirmarlo job a job con `gh` al
-> arrancar.** El anterior (`3986b8c`) cerró **15/16** por causa real. Gates: pytest **5287 passed /
+> **`main` = `bad36cd`**; el commit con **todo el código** es **`6df5e5c`**. ✅ **CI 16/16
+> confirmado job a job con `gh` sobre LOS DOS** — no queda ningún run por verificar. ⚠️ `3986b8c`
+> cerró **15/16** por causa real: las firmas de los fixtures de demo. Gates: pytest **5287 passed /
 > 8 skipped** (base 5246), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint,
 > fixture y bundle regenerados, **firmas de fixtures de demo** regeneradas, `mkdocs --strict` sin
 > anclas ni enlaces rotos, `uv lock --check`. **PyPI sigue en `1.10.0`.**
@@ -71,7 +72,7 @@
 > keyword-only; un gate que ejecuta un ejemplo necesita `monkeypatch.chdir(tmp_path)` o ensucia el
 > repo; y `DESCRIPTORES_TOTALES` sube **UNA** por campo de clase raíz de sección, no dos.
 >
-> **Siguiente: verificar el CI, B5 la hace Cami, y P4** (que **no es «conectar»**: exige enmienda y
+> **Siguiente: B5 la hace Cami, y P4** (que **no es «conectar»**: exige enmienda y
 > cambio de DAG). Detalle en [`HANDOFF.md`](HANDOFF.md).
 >
 > ---

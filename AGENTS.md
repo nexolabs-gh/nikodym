@@ -13,9 +13,9 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-05 noche, **D-JUR-8: la capacidad neutra se puede enseñar**)
 
-**`main` = `6df5e5c`.** ⚠️ **CI lanzado y sin verificar**: confirmarlo job a job con `gh` al
-arrancar. El anterior (`3986b8c`) cerró **15/16** por un fallo real —las firmas de los fixtures de
-demo, que sólo se comprueban en CI—, ya corregido. Gates: pytest **5287 passed / 8 skipped** (base
+**`main` = `bad36cd`**; el commit con todo el código es **`6df5e5c`**. ✅ **CI 16/16 confirmado
+job a job con `gh` sobre los dos**; no queda ningún run por verificar. ⚠️ `3986b8c` cerró **15/16**
+por un fallo real —las firmas de los fixtures de demo, que **sólo se comprueban en CI**—, corregido. Gates: pytest **5287 passed / 8 skipped** (base
 5246), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint, fixture y bundle
 regenerados, firmas de fixtures regeneradas, `mkdocs --strict` sin anclas ni enlaces rotos,
 `uv lock --check`. **PyPI sigue en `1.10.0` y no hay release autorizado.**
@@ -46,7 +46,7 @@ los **301 defaults** del formulario, y **nació rojo acusando exactamente `provi
 8 celdas, y el documento daba por verificada una tabla sin respaldo. Corregidos, más `verified_by`
 ([`_ENMIENDA-COTEJO-VERIFICADOR.md`](docs/design/_ENMIENDA-COTEJO-VERIFICADOR.md)).
 
-**Siguiente: verificar el CI, B5 la hace Cami, y P4.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+**Siguiente: B5 la hace Cami, y P4.** Detalle en [`HANDOFF.md`](HANDOFF.md).
 
 ---
 
