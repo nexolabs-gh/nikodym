@@ -72,7 +72,13 @@
 > keyword-only; un gate que ejecuta un ejemplo necesita `monkeypatch.chdir(tmp_path)` o ensucia el
 > repo; y `DESCRIPTORES_TOTALES` sube **UNA** por campo de clase raíz de sección, no dos.
 >
-> **Siguiente: B5 la hace Cami, y P4** (que **no es «conectar»**: exige enmienda y
+> 🔴 **RELEASE `1.11.0` AUTORIZADO POR CAMI Y NO EJECUTADO.** El OK está dado; lo que falta es la
+> **auditoría adversarial previa**, que el repo exige además del OK y que ha frenado los TRES
+> últimos releases. Se lanzó y se detuvo al cerrar **sin veredicto**: hay que relanzarla, no darla
+> por hecha. ✅ Y una trampa que NO aplica aquí, medida: el bump **no toca `pyproject.toml`** —la
+> versión es dinámica desde `__init__.py`— así que **no hace falta `uv lock`**.
+>
+> **Siguiente: el release con su auditoría, B5 la hace Cami, y P4** (que **no es «conectar»**: exige enmienda y
 > cambio de DAG). Detalle en [`HANDOFF.md`](HANDOFF.md).
 >
 > ---

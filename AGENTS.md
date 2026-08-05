@@ -46,7 +46,12 @@ los **301 defaults** del formulario, y **nació rojo acusando exactamente `provi
 8 celdas, y el documento daba por verificada una tabla sin respaldo. Corregidos, más `verified_by`
 ([`_ENMIENDA-COTEJO-VERIFICADOR.md`](docs/design/_ENMIENDA-COTEJO-VERIFICADOR.md)).
 
-**Siguiente: B5 la hace Cami, y P4.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+🔴 **Release `1.11.0`: AUTORIZADO por Cami y NO ejecutado.** Falta la **auditoría adversarial
+previa** —regla del repo que va además del OK, y que frenó los tres últimos releases—: se lanzó y se
+detuvo al cerrar **sin veredicto**. ✅ Medido: el bump **no toca `pyproject.toml`** (versión dinámica
+desde `__init__.py`) ⇒ **`uv lock` no aplica**.
+
+**Siguiente: el release con su auditoría, B5 la hace Cami, y P4.** Detalle en [`HANDOFF.md`](HANDOFF.md).
 
 ---
 
