@@ -124,6 +124,14 @@ class CmfVerification(BaseModel):
     method: str
     scope: str
     matrix_ids: tuple[str, ...] = Field(default_factory=tuple)
+    verified_by: str = ""
+    """Quién hizo el cotejo (D-VER-1). Vacío = **no consta**, nunca «anónimo aceptable».
+
+    Existe porque conviven cotejos de naturaleza distinta —extracción asistida, verificación visual,
+    y la validación humana experta de B5— y la diferencia entre ellos es justo lo que un auditor
+    viene a leer. ``manifest.verifier`` no sirve para esto: es texto libre del manifiesto
+    **entero**, y con dos naturalezas conviviendo atribuirlas todas al mismo autor sería falso.
+    """
 
 
 class CmfMatrixManifest(BaseModel):

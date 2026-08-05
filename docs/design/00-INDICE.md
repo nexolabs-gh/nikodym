@@ -487,6 +487,19 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > pelada permite repetirlo igual. Aditivo: cero cálculo, cero matrices, cero hashes. Lo destapó
 > `tests/unit/test_normativa_cmf_documento.py` al ejecutarse por primera vez.
 >
+> **Un cotejo dice también QUIÉN lo hizo (2026-08-05, APROBADA).**
+> [`_ENMIENDA-COTEJO-VERIFICADOR.md`](_ENMIENDA-COTEJO-VERIFICADOR.md), D-VER-1…3. Extiende D-COT:
+> `verifications[]` registraba cuándo, cómo y con qué alcance, pero **no quién**. Con **B5** —la
+> validación humana experta— la entrada quedaría indistinguible del cotejo asistido que ya está ahí,
+> y esa diferencia es justo lo que un auditor viene a leer. `manifest.verifier` no sirve: es texto
+> libre del manifiesto entero. Aditiva: default vacío = **no consta**, cero hashes (el sello cubre
+> el YAML, no el manifiesto). 🔴 Se escribió al destapar **tres desajustes de alcance** preparando
+> el material de B5, todos de la familia del error del 2026-08-04 y ninguno cazable por el gate
+> nuevo, que cruza fechas y URLs pero no alcances: dos `scope` que decían menos de lo que sus
+> `matrix_ids` sugerían, una tabla que el documento daba por verificada sin respaldo del manifiesto,
+> y —el grave— **el PDF del cotejo más fuerte del bundle ausente de `official_sources`**, la misma
+> clase que la Circular 2.257/2020, en dirección inversa. Los tres corregidos.
+>
 > **El informe declara su moneda en vez de suponerla (2026-08-05, APROBADA).**
 > [`_ENMIENDA-MONEDA-DEL-INFORME.md`](_ENMIENDA-MONEDA-DEL-INFORME.md), D-MON-1…D-MON-6. Pieza 2 de
 > **D-JUR-8**. `_clp` cableaba el símbolo y la prosa afirmaba «pesos chilenos (CLP)» en tres

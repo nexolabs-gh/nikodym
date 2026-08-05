@@ -18,6 +18,13 @@
       "status": "verified"
     },
     {
+      "id": "compendio_portal_consolidado",
+      "circular": "2.346/2024",
+      "url": "https://www.cmfchile.cl/portal/normativa/624/articles-29177_doc_pdf.pdf",
+      "role": "Compendio consolidado del portal CMF; es el documento contra el que se hizo el cotejo celda por celda de consumo del 2026-07-14 (hojas 16-18). Faltaba de esta lista: el cotejo mas fuerte del bundle citaba una fuente no declarada.",
+      "status": "verified"
+    },
+    {
       "id": "pdf_semilla_b1",
       "circular": "3.584/2015",
       "url": "https://sbif.cl/sbifweb/internet/archivos/norma_10821_3.pdf",
@@ -43,7 +50,8 @@
     {
       "date": "2026-06-23",
       "method": "Verificación visual sobre el render del PDF oficial.",
-      "scope": "Las tablas más críticas: comercial individual A1-B4 (hoja 3), hipotecaria vivienda PVG (hoja 12), PDI de consumo y avales (hoja 18). Comercial individual, vivienda y consumo coinciden 100 %; en avales se detectó y corrigió un error de la columna Escala Internacional.",
+      "scope": "Alcance PARCIAL dentro de cada matriz, no la matriz entera: comercial individual A1-B4 completa (hoja 3); de hipotecaria vivienda sólo la tabla PI/PDI/PE de la hoja 12, NO el factor MP de la hoja 13; de consumo sólo la tabla de PDI; y avales completa (hoja 18). Comercial individual, vivienda y consumo coinciden 100 %; en avales se detectó y corrigió un error de la columna Escala Internacional. Leer matrix_ids como cobertura total de esas matrices sobreestima lo verificado.",
+      "verified_by": "",
       "matrix_ids": [
         "commercial_individual_performing_v2014",
         "housing_pvg_v2018",
@@ -54,7 +62,8 @@
     {
       "date": "2026-07-14",
       "method": "Cotejo literal celda por celda contra el compendio consolidado vigente.",
-      "scope": "Sólo la matriz de consumo: las 16 celdas de PI, las 6 de PDI y el PI = 100 % de la cartera en incumplimiento, contrastadas una a una. Coinciden exactamente. No es una validación de la CMF: la Comisión no certifica implementaciones de terceros.",
+      "scope": "Sólo la matriz de consumo, y en ella toda su superficie numérica: las 16 celdas de PI, las 6 de PDI y el PI = 100 % de la cartera en incumplimiento, contrastadas una a una contra el compendio consolidado del portal (fuente compendio_portal_consolidado, hojas 16-18). Coinciden exactamente. No es una validación de la CMF: la Comisión no certifica implementaciones de terceros.",
+      "verified_by": "",
       "matrix_ids": [
         "consumer_standard_v2025"
       ]

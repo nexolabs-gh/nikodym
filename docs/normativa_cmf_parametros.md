@@ -244,7 +244,7 @@ Para créditos hipotecarios de programas habitacionales/subsidio del Estado con 
 | 80 % < PVG ≤ 90 % | 95 % | 96 % |
 | PVG > 90 % | 84 % | 89 % |
 
-> **Estado: VERIFICADO.** **Fuente:** CNC, Capítulo B-1, numeral 3.1.1, hoja 13. Circular N° **3.638 / 06.07.2018** (circular que rotula la hoja vigente del consolidado). **Verificado visualmente 2026-06-23** (render hoja 13). (En el PDF el "100 %" aparece como una celda fusionada que cubre los tramos PVG ≤ 40 % y 40 % < PVG ≤ 80 % para ambas columnas de V.)
+> **Estado: EXTRAÍDO, SIN COTEJO POSTERIOR.** **Fuente:** CNC, Capítulo B-1, numeral 3.1.1, hoja 13. Circular N° **3.638 / 06.07.2018** (circular que rotula la hoja vigente del consolidado). ⚠️ **Esta tabla NO entró en la verificación visual del 2026-06-23**, cuyo alcance declarado es la hoja **12** (PI/PDI/PE); decía lo contrario y el manifiesto no lo respaldaba. Queda **pendiente de cotejo humano** (B5). (En el PDF el "100 %" aparece como una celda fusionada que cubre los tramos PVG ≤ 40 % y 40 % < PVG ≤ 80 % para ambas columnas de V — la misma clase de celda fusionada que produjo el único error encontrado en este bundle, así que es candidata prioritaria.)
 
 ---
 
