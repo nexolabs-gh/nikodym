@@ -5,7 +5,84 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-05 noche): **D-JUR-8 — la capacidad neutra ya se puede enseñar**
+> ## Lo último (2026-08-05 noche): **`1.11.0` PUBLICADO, y la auditoría que lo frenó por cuarta vez**
+>
+> **`main` = `9f30f75`**, el commit con todo el código. ✅ **CI 16/16 confirmado job a job con `gh`**
+> (run `31054363987`); no queda ningún run por verificar. 🔴 **PyPI publica `1.11.0`** (tag
+> `v1.11.0`, Trusted Publishing), **verificado desde PyPI** en venv limpio con `--no-cache-dir`.
+> Gates: pytest **5316 passed / 8 skipped** —⚠️ la base real era **5288**, no 5287 como decían estos
+> archivos—, vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint, fixtures y
+> bundle regenerados, firmas de demo, `mkdocs --strict` leyendo la salida, `uv lock --check`.
+>
+> 🔴 **La auditoría adversarial previa frenó el tag por CUARTA vez seguida, y ninguno de los tres
+> veredictos fue «PUBLICAR» a secas.** Se auditó **todo el rango `v1.10.0..HEAD`, 134 commits** —no
+> sólo la sesión anterior—, y ése fue el primer ajuste: la mitad de lo que faltaba en el CHANGELOG
+> venía de las sesiones intermedias.
+>
+> 🔴 **El capítulo de provisiones salía MUDO en la única combinación que D-CAP-2 no enumeró.** Las 8
+> combinaciones medidas **ejecutando el builder**: con método estándar **e** interno y el comparador
+> apagado —`provisioning: None`, un interruptor del formulario— el capítulo se emite con **26
+> caracteres de cuerpo** contra **742**. `_provisions_intro_motor_unico` tenía dos ramas escritas y
+> la tercera caía al `return ()`. ⚠️ `provisioning_ifrs9` **no entra** en `PROVISION_DOMAINS`: tiene
+> su propio `ChapterSpec`, así que son 3 fuentes y 8 combinaciones, no 16.
+>
+> 🔴 **Y su gemelo, PREEXISTENTE, que nadie pidió buscar**: con el orquestador en *passthrough* el
+> informe abría citando la **Circular N° 2.346** —«el mayor valor entre estándar e interno»— **sin
+> una sola cifra**, porque los montos exigen las dos fuentes. El orquestador **sí sabía** que la
+> comparación fue incompleta (emite `DATO-INSTITUCIONAL-PROV-3`); la prosa afirmaba la regla igual
+> porque `source_a`/`source_b` siguen declarados. Cerrado por decisión de Cami.
+>
+> 🔴 **El gate normativo de la sesión anterior NO PODÍA FALLAR.** Borrar `compendio_portal_consolidado`
+> del manifiesto dejaba sus tests verdes: el ancla era `len(...) >= 5` con **6** declaradas y nadie
+> cruzaba `verifications` contra `official_sources`. ⚠️ Y el conteo mentía: **70 passed con el
+> defecto, 71 sin él** —un caso parametrizado desaparecía en silencio—. **La clase se había cerrado
+> editando el DATO, no poniendo un gate.**
+>
+> 🔴 **La guía insignia publicaba código que revienta** (`config.model_copy` sobre un dict ⇒
+> `AttributeError`), y **el gate ejecutable cerraba justo antes de ese bloque**. Más: prometía
+> adjuntos que el preset no produce, mandaba al trabajo equivocado de la interfaz, era la única guía
+> sobre un dominio experimental sin nota de madurez, y omitía lo único que **no** se puede aterrizar
+> —la regla del máximo estándar-local vs. interno, cerrada por el `Literal`—.
+>
+> 🔴 **El CHANGELOG no decía la verdad del rango**: `run(..., artifacts=…)` es **API pública nueva** y
+> el changelog **corregía dos defectos suyos dando por hecho que ya existía**. Faltaban la rama
+> `partition.strategy: "columna"`, las paradas de survival, el `target_pd` que **ahora detiene** una
+> corrida que llegaba a `done`, tres opciones ahora rechazadas, `kaplan_meier` sin `lifelines` y la
+> interfaz por trabajos entera.
+>
+> ✅ **D-AMB, enmienda nacida de la auditoría y aprobada por Cami**
+> ([`_ENMIENDA-COLUMNA-CARTERA-AMBIGUA.md`](docs/design/_ENMIENDA-COLUMNA-CARTERA-AMBIGUA.md)).
+> 🔴 Corrige una premisa **escrita en este mismo archivo**: que `check_dataset` señalaba la fricción
+> del cambio de `portfolio_col`. **Sólo la señala si la columna nueva no existe.** Con **ambas**
+> presentes la corrida pasa de 20 grupos y 840.182,29 a **10 y 839.451,51**, con `ok` y cero avisos, y
+> `check_dataset` da `compatible=True` **correctamente**: la columna que el config nombra existe. No
+> fallaba, contestaba bien a **otra pregunta**. ⚠️ No es de laboratorio: `provisioning_ifrs9` usa el
+> mismo default, así que quien corre los dos motores sobre un panel tiene ambas por construcción.
+> **Cero contrato nuevo** (`requisitos_incumplidos` ya existía) y dos capas: preflight + aviso **NO
+> gobernable** en la card, no gobernable a propósito porque con `fail_on_falta_dato=True` detendría
+> corridas que hoy funcionan, dentro de un *minor*.
+>
+> ⚠️ **Trampas nuevas:** `nikodym.check_dataset` **no expone `requisitos`** —viajan como `Mismatch`
+> con `kind="unmet_requirement"`—; una sección **opaca se salta el protocolo en silencio** y el
+> estado opaco es el DEFAULT, así que un test por la puerta pública necesita
+> `cargar_configs_de_dominio()` (vive en `core.config.schema`, **no** en `core.config`); anotar
+> `paragraphs: list[str]` en dos ramas del mismo `if/elif` da `no-redef`; `ruff` marca `SIM300` sobre
+> `frozenset <= columnas`; y el enlace del `CHANGELOG.md` a la guía es relativo a `docs_site/` **a
+> propósito** —«arreglarlo» aborta `mkdocs --strict`—.
+>
+> ⚠️ **Dos deudas medidas y abiertas:** (1) `CmfVerification` debería ganar `source_ids` —hoy la
+> fuente viaja **en prosa** dentro de `scope`, y el cotejo del 2026-06-23 **no nombra ninguna**, así
+> que la regla total pondría el gate rojo sobre un dato que sólo se corrige en el manifiesto: es
+> `src/` y **exige enmienda**—; (2) el gate de portada **no barre `ui/jobs.py`**, que son **7.971
+> líneas de copy público**, y ése es el hueco que dejó pasar «como el peso chileno» en la sección
+> neutra.
+>
+> **Siguiente: B5 la hace Cami, y P4** (LGD modelada), que **no es «conectar»**: exige enmienda y
+> cambio de DAG. Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-05 noche): **D-JUR-8 — la capacidad neutra ya se puede enseñar**
 >
 > **`main` = `bad36cd`**; el commit con **todo el código** es **`6df5e5c`**. ✅ **CI 16/16
 > confirmado job a job con `gh` sobre LOS DOS** — no queda ningún run por verificar. ⚠️ `3986b8c`

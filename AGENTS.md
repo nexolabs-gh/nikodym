@@ -11,7 +11,46 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-05 noche, **D-JUR-8: la capacidad neutra se puede enseñar**)
+## Estado vigente (2026-08-05 noche, **`1.11.0` PUBLICADO tras su auditoría adversarial**)
+
+**`main` = `9f30f75`**, el commit con todo el código. ✅ **CI 16/16 confirmado job a job con `gh`**
+(run `31054363987`); no queda ningún run por verificar. 🔴 **PyPI publica `1.11.0`** (tag `v1.11.0`
+sobre `9f30f75`), verificado **desde PyPI** en venv limpio con `--no-cache-dir`. Gates: pytest
+**5316 passed / 8 skipped** (⚠️ la base real era **5288**, no 5287), vitest **640/640**, mypy 245,
+`ruff check` y `format`, typecheck y lint, fixtures y bundle regenerados, firmas de demo,
+`mkdocs --strict` leyendo la salida, `uv lock --check`.
+
+🔴 **La auditoría adversarial previa frenó el tag por CUARTA vez consecutiva**, y ninguno de sus tres
+veredictos fue «PUBLICAR» a secas. Se auditó **todo el rango `v1.10.0..HEAD`, 134 commits**, no sólo
+la última sesión — y la mitad de lo que faltaba en el CHANGELOG venía de las intermedias.
+
+✅ **Cinco hallazgos cerrados, cada uno con su control negativo ejecutado.** (1) El **capítulo de
+provisiones salía MUDO** con método estándar **e** interno y el comparador apagado: 26 caracteres de
+cuerpo contra 742, alcanzable con un interruptor del formulario, y era la única de las 8
+combinaciones que `_provisions_intro_motor_unico` no enumeraba. (2) Su **gemelo preexistente**: el
+orquestador en *passthrough* invocaba la **Circular N° 2.346** sin publicar una sola cifra. (3) El
+**gate normativo de ayer no podía fallar** —ancla por conteo con holgura y ningún cruce
+`verifications → official_sources`—, y su conteo mentía: **70 verde con el defecto, 71 sin él**. (4)
+La **guía insignia publicaba código que revienta**, fuera del bloque que el gate ejecuta. (5) El
+**CHANGELOG omitía media release**, incluida `run(..., artifacts=…)`, que es API pública nueva.
+
+✅ **D-AMB** ([`_ENMIENDA-COLUMNA-CARTERA-AMBIGUA.md`](docs/design/_ENMIENDA-COLUMNA-CARTERA-AMBIGUA.md),
+aprobada por Cami): un archivo con **dos** columnas candidatas a cartera cambiaba la agrupación en
+silencio —20 grupos y 840.182,29 pasaban a 10 y 839.451,51 con `ok` y cero avisos— y `check_dataset`
+daba `compatible=True` **correctamente**, porque la columna que el config nombra existe. Cero
+contrato nuevo; dos capas, con el aviso de la card **no gobernable** a propósito.
+
+🔴 **La lección: cerrar una clase editando el DATO no la cierra.** El desajuste de `official_sources`
+se «cerró» ayer añadiendo la fuente al manifiesto, y la clase siguió abierta porque ningún test la
+ataba. Un gate se prueba **inyectando su defecto**, y un conteo de tests que baja en silencio tampoco
+avisa.
+
+**Siguiente: B5 la hace Cami, y P4** (LGD modelada), que exige enmienda y cambio de DAG. Detalle en
+[`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-05 noche, **D-JUR-8: la capacidad neutra se puede enseñar**)
 
 **`main` = `bad36cd`**; el commit con todo el código es **`6df5e5c`**. ✅ **CI 16/16 confirmado
 job a job con `gh` sobre los dos**; no queda ningún run por verificar. ⚠️ `3986b8c` cerró **15/16**
