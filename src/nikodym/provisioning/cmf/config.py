@@ -387,11 +387,15 @@ class CmfProvisioningConfig(NikodymBaseConfig):
         },
     )
     portfolio_col: str = Field(
-        # El default se mantiene alineado con el del método interno (D-SEG-9): la regla del máximo
-        # compara ambos motores sobre las MISMAS carteras, así que un default distinto en cada uno
-        # los desalinearía en toda config que no fije los dos. Y no se renombra a "portfolio":
-        # ése es el nombre de la columna de SALIDA que publican los tres motores en su `detail`,
-        # y reusarlo para la de entrada haría ambiguo cuál es cuál.
+        # 🔴 D-SEG-9 ENMENDADO por D-JUR-8: los dos defaults YA NO están alineados, y es deliberado.
+        # Su razón original —la regla del máximo compara ambos motores sobre las MISMAS carteras,
+        # así que un default distinto los desalinea en toda config que no fije los dos— sigue
+        # siendo CIERTA, y su consecuencia se asume: al comparar con los defaults de fábrica hay
+        # que declarar `portfolio_col` en una de las dos secciones. La fricción la paga el caso
+        # chileno, que es el que tiene una norma detrás, y no el neutro, que es el caso general.
+        # `check_dataset` la señala antes de correr, así que no se descubre a mitad de una corrida.
+        # Este default sí es legítimamente chileno: nombra la cartera regulatoria de la CMF, que es
+        # el contenido de este motor. El que dejó de serlo es el del método interno.
         default="cmf_portfolio",
         title="Cartera CMF",
         description="Columna con la cartera regulatoria CMF aplicable a cada exposición.",

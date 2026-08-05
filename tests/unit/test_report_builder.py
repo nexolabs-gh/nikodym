@@ -109,11 +109,27 @@ def test_collect_arma_el_documento_y_manifest_pre_render_golden() -> None:
     assert set(emitidos) <= set(CANONICAL_SECTION_ORDER)
     posiciones = [CANONICAL_SECTION_ORDER.index(seccion) for seccion in emitidos]
     assert posiciones == sorted(posiciones), "los capítulos no respetan el orden canónico"
-    # Este bundle no activa ningún capítulo condicional ⇒ están todos los incondicionales.
-    assert emitidos == tuple(
-        spec.id
-        for spec in document.CHAPTER_SPECS
-        if not spec.requires_domain and not spec.requires_result
+    # Este bundle corre el pipeline F1 y ninguna provisión, así que emite los incondicionales más
+    # `results` (su *any-of* sí se cumple) y ninguno de los de provisiones.
+    #
+    # 🔴 El esperado va ENUMERADO y no derivado de los `ChapterSpec`. Derivarlo obligaba a
+    # reimplementar aquí las condiciones que el builder evalúa —o sea a comprobar que la función es
+    # determinista, no que emite lo correcto—, y además ya se rompió una vez: filtraba por
+    # `requires_domain`/`requires_result` ignorando `requires_any_domain`, el tercer gate, así que
+    # al pasar `provisions` a *any-of* (D-CAP-1) el esperado empezó a exigir un capítulo que el
+    # builder correctamente omite. Una lista escrita a mano falla ruidosamente cuando el documento
+    # cambie, que es exactamente lo que se quiere de un golden.
+    assert emitidos == (
+        "toc",
+        "introduction",
+        "context",
+        "methodology",
+        "results",
+        "conclusions",
+        "limitations",
+        "appendix_lineage",
+        "appendix_tables",
+        "appendix_parameters",
     )
     assert bundle.missing_sections == ()
     assert bundle.cards["performance"] == {

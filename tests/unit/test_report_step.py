@@ -55,7 +55,6 @@ from nikodym.report.config import (
     SectionPolicyConfig,
     XlsxExportConfig,
 )
-from nikodym.report.document import CHAPTER_SPECS
 from nikodym.report.exceptions import ReportDependencyError, ReportExportError
 from nikodym.report.renderer import HtmlReportRenderer
 from nikodym.report.results import AiNarrationBlock, ReportInputBundle, ReportResult
@@ -201,10 +200,20 @@ def test_execute_publica_result_manifest_goldens_audit_y_no_consume_rng(tmp_path
     # El documento: capítulos de primer nivel en el orden canónico único (report.document). Esta
     # corrida no calcula provisiones, así que emite exactamente los capítulos INCONDICIONALES; el
     # condicional (`provisions`) está en CANONICAL_SECTION_ORDER pero no se emite (SDD-28 D5).
-    assert tuple(
-        section.id for section in result.input_bundle.sections if section.level == 1
-    ) == tuple(
-        spec.id for spec in CHAPTER_SPECS if not spec.requires_domain and not spec.requires_result
+    assert tuple(section.id for section in result.input_bundle.sections if section.level == 1) == (
+        # 🔴 Enumerado, no derivado de `CHAPTER_SPECS`: derivarlo obliga a reimplementar aquí las
+        # condiciones que el builder evalúa, y ya se rompió una vez por ignorar el tercer gate
+        # (`requires_any_domain`) al pasar `provisions` a *any-of* en D-CAP-1.
+        "toc",
+        "introduction",
+        "context",
+        "methodology",
+        "results",
+        "conclusions",
+        "limitations",
+        "appendix_lineage",
+        "appendix_tables",
+        "appendix_parameters",
     )
     # Los ocho dominios del pipeline son ahora subsecciones, no secciones de primer nivel.
     ids = {section.id for section in result.input_bundle.sections}
@@ -331,8 +340,20 @@ def test_manifest_en_memoria_y_exportado_tienen_identidad_canonica(tmp_path: Pat
         assert memory_manifest.sha256 == GOLDEN_STEP_HTML_SHA256
     # El manifest reordena al orden canónico del documento aunque el bundle llegue invertido. Sin
     # provisiones, se emiten los capítulos incondicionales (el condicional no aparece; SDD-28 D5).
-    assert tuple(section.id for section in memory_manifest.sections if section.level == 1) == tuple(
-        spec.id for spec in CHAPTER_SPECS if not spec.requires_domain and not spec.requires_result
+    assert tuple(section.id for section in memory_manifest.sections if section.level == 1) == (
+        # 🔴 Enumerado, no derivado de `CHAPTER_SPECS`: derivarlo obliga a reimplementar aquí las
+        # condiciones que el builder evalúa, y ya se rompió una vez por ignorar el tercer gate
+        # (`requires_any_domain`) al pasar `provisions` a *any-of* en D-CAP-1.
+        "toc",
+        "introduction",
+        "context",
+        "methodology",
+        "results",
+        "conclusions",
+        "limitations",
+        "appendix_lineage",
+        "appendix_tables",
+        "appendix_parameters",
     )
     assert tuple(section.id for section in written_manifest.sections) == tuple(
         section.id for section in memory_manifest.sections

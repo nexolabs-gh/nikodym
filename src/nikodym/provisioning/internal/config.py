@@ -124,9 +124,18 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         },
     )
     portfolio_col: str = Field(
-        # Ver D-SEG-9 en cmf/config.py: se mantiene alineado con el método estándar, y "portfolio"
-        # está tomado por la columna de salida de los tres motores.
-        default="cmf_portfolio",
+        # D-JUR-8: el default deja de ser chileno. Este motor es jurisdiccionalmente neutro y su
+        # estado de fábrica no puede pedir una columna con el nombre de un supervisor: el default
+        # anterior ("cmf_portfolio") obligaba a un banco de cualquier otro país a renombrar su
+        # columna para correr un cálculo que no conoce ninguna norma.
+        # Se elige "portfolio" y no un nombre nuevo porque es el único candidato con precedente en
+        # el repo: `ifrs9/config.py` ya lo usa como default de su propio `portfolio_col`, también
+        # con `column_role: "input"`. La objeción escrita en D-SEG-9 —que "portfolio" es el nombre
+        # de la columna de SALIDA del `detail`— ya está tolerada ahí, y alinear los dos motores
+        # neutros pesa más que evitar una homonimia que el crosswalk resuelve por otro eje.
+        # ⚠️ Ya NO coincide con el default del método estándar (cmf/config.py), y eso es
+        # deliberado: ver la nota de D-SEG-9 allí.
+        default="portfolio",
         title="Cartera",
         description=(
             "Columna con la cartera de cada exposición, en la taxonomía que use su institución. "

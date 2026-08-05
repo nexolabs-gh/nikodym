@@ -3907,7 +3907,7 @@
         },
         "portfolio_col": {
           "has_default": true,
-          "value": "cmf_portfolio"
+          "value": "portfolio"
         },
         "portfolio_scheme": {
           "has_default": true,
@@ -3964,6 +3964,10 @@
         "basename": {
           "has_default": true,
           "value": "scorecard_report"
+        },
+        "currency": {
+          "has_default": true,
+          "value": null
         },
         "document": {
           "author": {
@@ -13799,7 +13803,7 @@
               },
               "portfolio_col": {
                 "column_role": "input",
-                "default": "cmf_portfolio",
+                "default": "portfolio",
                 "description": "Columna con la cartera de cada exposición, en la taxonomía que use su institución. Debe ser la misma que consuma el método estándar con el que se compare.",
                 "title": "Cartera",
                 "type": "string",
@@ -13889,6 +13893,22 @@
                 "type": "string",
                 "ui_group": "General",
                 "ui_order": 3,
+                "ui_widget": "text_input"
+              },
+              "currency": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares. El informe la declara una vez por capítulo; los montos se escriben con el signo $ en cualquier caso. Si lo dejas en blanco, el informe no afirma ninguna moneda.",
+                "title": "Moneda de los montos",
+                "ui_group": "General",
+                "ui_order": 5,
                 "ui_widget": "text_input"
               },
               "document": {

@@ -124,7 +124,7 @@ def _g0_frame() -> pd.DataFrame:
         [
             {
                 "as_of_date": AS_OF,
-                "cmf_portfolio": "consumer",
+                "portfolio": "consumer",
                 "grupo": group,
                 "exposure_amount": exposure,
                 "lgd": float(lgd),
@@ -352,7 +352,7 @@ def test_grouping_segment_usa_la_columna_declarada() -> None:
 
 def test_bandas_por_cartera_y_no_globales() -> None:
     """Los grupos homogéneos viven DENTRO de una cartera: la llave es (portfolio, group_id)."""
-    frame = _g0_frame().assign(cmf_portfolio=["consumer"] * 6 + ["housing"] * 4)
+    frame = _g0_frame().assign(portfolio=["consumer"] * 6 + ["housing"] * 4)
     result = _calculate(InternalProvisioningConfig(n_score_bands=2), frame=frame)
 
     keys = {(row["portfolio"], row["group_id"]) for _, row in result.groups.iterrows()}
@@ -545,8 +545,8 @@ def test_cartera_o_grupo_nulo_levanta_porque_no_se_puede_imputar() -> None:
         _calculate(_cfg(fail_on_falta_dato=False), frame=frame)
 
     frame = _g0_frame()
-    frame.loc["op01", "cmf_portfolio"] = "  "
-    with pytest.raises(InternalInputError, match="'cmf_portfolio' no puede estar vacía"):
+    frame.loc["op01", "portfolio"] = "  "
+    with pytest.raises(InternalInputError, match="'portfolio' no puede estar vacía"):
         _calculate(_cfg(), frame=frame)
 
 
@@ -570,8 +570,8 @@ def test_valor_no_numerico_o_booleano_levanta() -> None:
 
 def test_valor_tabular_en_columna_de_texto_no_rompe_la_deteccion_de_nulos() -> None:
     """``pandas.isna`` sobre un contenedor devuelve un arreglo: ``bool()`` de eso levantaría."""
-    frame = _g0_frame().astype({"cmf_portfolio": object})
-    frame.at["op01", "cmf_portfolio"] = ["consumer", "housing"]
+    frame = _g0_frame().astype({"portfolio": object})
+    frame.at["op01", "portfolio"] = ["consumer", "housing"]
 
     result = _calculate(_cfg(), frame=frame)
 
@@ -690,7 +690,7 @@ def test_prorrateo_por_resto_mayor_cierra_al_centavo() -> None:
         [
             {
                 "as_of_date": AS_OF,
-                "cmf_portfolio": "consumer",
+                "portfolio": "consumer",
                 "grupo": "A",
                 "exposure_amount": exposure,
                 "lgd": 0.5,

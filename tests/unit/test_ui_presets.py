@@ -24,6 +24,7 @@ from nikodym.ui import datasets as datasets_module
 from nikodym.ui import routes
 from nikodym.ui.presets import (
     F4_IFRS9_PRESET_ID,
+    F5_INTERNA_PRESET_ID,
     PROVISIONES_DATASET_ID,
     PROVISIONES_PRESET_ID,
     STANDARD_DATASET_ID,
@@ -324,10 +325,17 @@ def test_correccion_anti_fuga_no_mueve_bytes_hashes_ni_candidatas_de_presets() -
         PROVISIONES_PRESET_ID: _EXPECTED_F3_CONFIG_HASH,
         F4_IFRS9_PRESET_ID: _EXPECTED_F4_CONFIG_HASH,
     }
+    # Actualizados el 2026-08-05 por D-MON-1/2: nace `report.currency`, explícito en `None` en los
+    # tres presets (regla del archivo: todo campo con default `None` va escrito) y con `"CLP"` en el
+    # delta de F3, que es el caso chileno y sí sabe su moneda.
+    # 🔴 Los `expected_hashes` de arriba NO se movieron, y esa asimetría es justo lo que este test
+    # existe para exhibir: los BYTES del preset cambian —trae un campo más— y su IDENTIDAD no,
+    # porque `report` está en `INFRA_SECTIONS` y el informe es presentación, no cálculo. Medido en
+    # los tres presets antes y después.
     expected_payload_digests = {
-        STANDARD_PRESET_ID: "319e1b36261d922734586a5a3316d06fb0c77be4ccf8cb6270236a44ed459a29",
-        PROVISIONES_PRESET_ID: "5c367e22eb760867f24bfc39040c8bcf0b8a967c97535953d52d114d3517590d",
-        F4_IFRS9_PRESET_ID: "9da92edc7dfb0d0de50be39e0b78abf4ccf47a940084eb3f487f77d7d328dadc",
+        STANDARD_PRESET_ID: "c628f4fffa976ef401768635cf74ad7d9eef9edd95fe49ce87ef165739d4674e",
+        PROVISIONES_PRESET_ID: "73399ca31610ad88a89b670f988850dc9da1e299669002b4026fedc3ae9ac103",
+        F4_IFRS9_PRESET_ID: "b1aeb73cb6a7a856a77c85ff994fdfac5f0fe5aec4b4db25a26da0c21d29dafc",
     }
     for preset_id, expected_hash in expected_hashes.items():
         preset = get_preset(preset_id)
@@ -459,12 +467,14 @@ def test_provisiones_preset_columnas_regulatorias_existen_en_el_dataset() -> Non
 
 
 def test_list_presets_cataloga_ambos_sin_config() -> None:
-    """``list_presets`` devuelve los descriptores (sin ``config``) de F1, F3 y F4, en orden."""
+    """``list_presets`` devuelve los descriptores (sin ``config``) de F1, F3, F4 y F5, en orden."""
     catalogo = list_presets()
     assert [p["id"] for p in catalogo] == [
         STANDARD_PRESET_ID,
         PROVISIONES_PRESET_ID,
         F4_IFRS9_PRESET_ID,
+        # D-JUR-8: el mismo motor de provisiones sin una sola línea de norma local.
+        F5_INTERNA_PRESET_ID,
     ]
     for descriptor in catalogo:
         assert set(descriptor) == {"id", "name", "description", "dataset_id"}
@@ -501,6 +511,8 @@ def test_endpoint_presets_index_y_preset_por_id() -> None:
         STANDARD_PRESET_ID,
         PROVISIONES_PRESET_ID,
         F4_IFRS9_PRESET_ID,
+        # D-JUR-8: el mismo motor de provisiones sin una sola línea de norma local.
+        F5_INTERNA_PRESET_ID,
     ]
 
     detalle = client.get(f"/api/config/preset/{PROVISIONES_PRESET_ID}")

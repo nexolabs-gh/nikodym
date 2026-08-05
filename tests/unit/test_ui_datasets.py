@@ -28,6 +28,10 @@ def test_list_datasets_estable_y_con_roles_f1() -> None:
         "hipotecario_comportamiento",
         "consumo_drift",
         "provisiones_consumo",
+        # D-JUR-8: la variante NEUTRA del de provisiones. Mismas mecánicas económicas, proyectada a
+        # las cuatro columnas que el método interno necesita — sin las cinco que sólo existen
+        # porque el Cap. B-1 las exige.
+        "provision_interna_generica",
         "ifrs9_retail_latam",
     ]
 

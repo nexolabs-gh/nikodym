@@ -59,6 +59,9 @@ def _report_defaults() -> dict[str, Any]:
         "output_dir": "reports",
         "basename": "scorecard_report",
         "language": "es",
+        # D-MON-2: `None` significa «no declarada», nunca «CLP». Sin moneda declarada el informe no
+        # afirma ninguna; el motor no inventa un dato que sólo la institución conoce.
+        "currency": None,
         "formats": ["html"],
         "document": {
             "model_name": "",

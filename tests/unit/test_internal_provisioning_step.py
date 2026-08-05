@@ -59,14 +59,14 @@ def _frame() -> pd.DataFrame:
         [
             {
                 "as_of_date": AS_OF,
-                "cmf_portfolio": "consumer",
+                "portfolio": "consumer",
                 "grupo": "banda_alta",
                 "exposure_amount": 1_000_000,
                 "lgd": 0.50,
             },
             {
                 "as_of_date": AS_OF,
-                "cmf_portfolio": "consumer",
+                "portfolio": "consumer",
                 "grupo": "banda_alta",
                 "exposure_amount": 3_000_000,
                 "lgd": 0.60,

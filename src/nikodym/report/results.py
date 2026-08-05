@@ -135,6 +135,17 @@ class ReportInputBundle(_ReportBaseModel):
     binning, umbrales de selección, escala del scorecard) en vez de frases fijas. Un dominio
     ausente simplemente no aparece: la prosa omite lo que no puede afirmar.
     """
+    currency: str = Field(default="")
+    """Moneda con que la prosa rotula los montos; cadena vacía = el config no declaró ninguna.
+
+    🔴 Va en un campo propio y **no** dentro de ``pipeline_params`` (D-MON-3, corregido al medirlo).
+    Meter ``report`` entre los dominios de params parecía gratis —el canal ya existía— y rompía una
+    invariante de auditoría que sí importa: ``test_report_builder`` exige que **todo** config
+    recolectado en ``pipeline_params`` tenga su sección en el Anexo C. Cumplirla habría metido la
+    config de *presentación* en el anexo de *parámetros del pipeline*, que es justo la distinción
+    que ``INFRA_SECTIONS`` mantiene (el informe no entra al ``config_hash`` porque no es cálculo).
+    Un campo propio dice lo que es y no toca el anexo.
+    """
 
     @field_validator("cards", "results", "tables", "figures", "pipeline_params", mode="before")
     @classmethod

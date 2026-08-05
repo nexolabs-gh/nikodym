@@ -12,7 +12,7 @@ import sys
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import pandas as pd
 import pytest
@@ -1112,49 +1112,151 @@ def _bundle_provisiones(cards: dict[str, Any]) -> ReportInputBundle:
     return ReportInputBundle(lineage=_lineage(), cards=cards, tables={}, figures={}, sections=())
 
 
-def test_la_prosa_de_provisiones_nombra_el_pais_y_la_moneda() -> None:
-    """El informe circula fuera de Chile: «CMF» y «$» no identifican norma ni moneda.
+_CARD_SOLO_INTERNO: Final = {
+    "provisioning_internal": {
+        "total_internal_provision": 238689868.51,
+        "n_groups": 10,
+        "pd_source": "calibration",
+        "grouping": "score_band",
+    }
+}
 
-    Un lector de otra jurisdicción recibía un documento formalmente impecable del que no podía
-    deducir de qué país era el Compendio citado, ni en qué moneda estaban los montos —el HTML no
-    tenía una sola ocurrencia de «CLP» ni de «pesos»—.
+
+def test_el_capitulo_de_provisiones_se_emite_con_un_solo_motor() -> None:
+    """La cadena neutra `data → provisioning_internal → report` debe traer su capítulo.
+
+    🔴 No lo traía, y se descubrió **corriendo** la cadena, no leyéndola: llegaba a `done` con
+    informe y la provisión salía sólo en el Anexo C, entre parámetros de configuración. El capítulo
+    se gateaba por el **orquestador**, que no puede existir con un motor solo porque prohíbe
+    `source_a == source_b` (D-CAP-1).
+    """
+    document = importlib.import_module("nikodym.report.document")
+    spec = next(s for s in document.CHAPTER_SPECS if s.id == "provisions")
+
+    assert spec.requires_domain == "", (
+        "el capítulo volvió a gatearse por un dominio único; con el orquestador ahí, una corrida "
+        "de un solo motor pierde su capítulo entero"
+    )
+    assert set(spec.requires_any_domain) == set(document.PROVISION_DOMAINS)
+    assert "provisioning_internal" in spec.requires_any_domain
+
+
+def test_el_titular_de_un_solo_motor_interno_no_cita_ninguna_norma() -> None:
+    """El motor interno es neutro: su titular no puede suponerle una jurisdicción a quien lo corre.
+
+    Es la mitad cara de D-CAP-2. Sin ella el capítulo se emitía **mudo** —la prosa devolvía `()` al
+    no hallar el orquestador—, y un capítulo mudo es el mismo defecto con otro disfraz.
     """
     prose = importlib.import_module("nikodym.report.prose")
-    bundle = _bundle_provisiones(
-        {
-            "provisioning": {
-                "source_a": "cmf",
-                "source_b": "internal",
-                "rule": "max",
-                "comparison_level": "total",
-                "total_provision_a": 1000.0,
-                "total_provision_b": 800.0,
-                "total_reported_provision": 1000.0,
-                "binding": "cmf",
-            },
-            "provisioning_cmf": {
-                "total_exposure_amount": 50000.0,
-                "total_provision_amount": 1000.0,
-            },
-        }
-    )
+
+    parrafos = prose.provisions_intro(_bundle_provisiones(_CARD_SOLO_INTERNO))
+
+    assert parrafos, "el capítulo de un solo motor salió sin titular: quedó mudo"
+    texto = " ".join(parrafos)
+    for jerga in ("CMF", "Chile", "B-1", "Compendio", "Circular"):
+        assert jerga not in texto, (
+            f"el titular del motor NEUTRO nombra {jerga!r}: quien corre este motor puede no tener "
+            "ningún supervisor detrás"
+        )
+    assert "238.689.869" in texto, "el titular debe publicar el total constituido"
+    assert "10 grupos" in texto
+
+
+def test_el_titular_de_un_solo_motor_cmf_si_nombra_su_norma() -> None:
+    """Control simétrico: callar la norma en el motor CMF sería la mentira contraria."""
+    prose = importlib.import_module("nikodym.report.prose")
+    cards = {
+        "provisioning_cmf": {"total_provision_amount": 1000.0, "total_exposure_amount": 50000.0}
+    }
+
+    texto = " ".join(prose.provisions_intro(_bundle_provisiones(cards)))
+
+    assert texto, "el capítulo de un solo motor CMF también salió mudo"
+    assert "CMF" in texto and "Chile" in texto
+
+
+_CARDS_COMPARACION: Final = {
+    "provisioning": {
+        "source_a": "cmf",
+        "source_b": "internal",
+        "rule": "max",
+        "comparison_level": "total",
+        "total_provision_a": 1000.0,
+        "total_provision_b": 800.0,
+        "total_reported_provision": 1000.0,
+        "binding": "cmf",
+    },
+    "provisioning_cmf": {
+        "total_exposure_amount": 50000.0,
+        "total_provision_amount": 1000.0,
+    },
+}
+
+# Monedas de tres jurisdicciones distintas. Ninguna es «CLP» a propósito: un gate que sólo probara
+# con pesos chilenos pasaría en verde sobre un formateador que siguiera cableándolos.
+_MONEDAS_AJENAS: Final = ("S/", "US$", "Bs")
+
+
+def test_la_prosa_de_provisiones_nombra_el_pais_y_declara_la_moneda_que_se_le_dio() -> None:
+    """El Compendio citado dice de qué país es; la moneda es la que declaró el config, no CLP.
+
+    🔴 Este test aseveraba literalmente ``"CLP" in texto``, y con ello **defendía el defecto**: el
+    informe rotulaba «pesos chilenos» sobre cualquier corrida, incluida la del motor
+    jurisdiccionalmente neutro y la de IFRS 9, que es un marco internacional (D-MON-1…6). La
+    jurisdicción de la NORMA y la moneda de los MONTOS son cosas distintas: un banco chileno puede
+    reportar en UF o en dólares, y el Cap. B-1 se sigue llamando igual.
+    """
+    prose = importlib.import_module("nikodym.report.prose")
+    for moneda in _MONEDAS_AJENAS:
+        bundle = _bundle_provisiones(_CARDS_COMPARACION).model_copy(update={"currency": moneda})
+
+        texto = " ".join(prose.provisions_intro(bundle)) + " ".join(
+            prose._results_provisioning(bundle)
+        )
+
+        assert "Chile" in texto, "el Compendio citado debe decir de qué país es"
+        assert moneda in texto, f"los montos deben declarar la moneda configurada ({moneda!r})"
+        assert "pesos chilenos" not in texto, (
+            f"con la moneda declarada como {moneda!r} el informe siguió afirmando pesos chilenos"
+        )
+
+
+def test_la_prosa_de_provisiones_calla_la_moneda_cuando_nadie_la_declaro() -> None:
+    """Sin moneda declarada el informe no afirma ninguna: callar es correcto, suponer no.
+
+    Es la mitad del contrato que evita cambiar un default chileno por otro: el motor no inventa un
+    dato institucional, y la moneda de una cartera la sabe la institución (D-MON-2).
+    """
+    prose = importlib.import_module("nikodym.report.prose")
+    bundle = _bundle_provisiones(_CARDS_COMPARACION)
+    assert bundle.currency == "", "el bundle de fábrica no debe traer moneda"
 
     texto = " ".join(prose.provisions_intro(bundle)) + " ".join(prose._results_provisioning(bundle))
 
-    assert "Chile" in texto, "el Compendio citado debe decir de qué país es"
-    assert "CLP" in texto, "los montos deben declarar su moneda"
+    assert "CLP" not in texto and "pesos chilenos" not in texto, (
+        "sin moneda declarada el informe afirmó una: es la reincidencia que D-MON-2 cierra"
+    )
+    assert "$" in texto, "los montos deben seguir siendo legibles como dinero"
 
 
 def test_la_prosa_de_ifrs9_declara_la_moneda_de_los_montos() -> None:
-    """IFRS 9 es un marco internacional: la moneda se dice, no se supone por el símbolo «$»."""
+    """IFRS 9 es un marco internacional: la moneda se dice, no se supone por el símbolo «$».
+
+    🔴 Y hasta el 2026-08-05 se suponía: este capítulo afirmaba «pesos chilenos (CLP)» siempre,
+    incluso sobre el dataset de la demo publicada, cuya descripción declara sus montos agnósticos
+    de moneda.
+    """
     prose = importlib.import_module("nikodym.report.prose")
-    bundle = _bundle_provisiones(
-        {"provisioning_ifrs9": {"total_ecl_reported": 3423116.0, "total_ead": 114325315.0}}
-    )
+    cards = {"provisioning_ifrs9": {"total_ecl_reported": 3423116.0, "total_ead": 114325315.0}}
 
-    texto = " ".join(prose.ifrs9_intro(bundle))
+    sin_declarar = " ".join(prose.ifrs9_intro(_bundle_provisiones(cards)))
+    assert "CLP" not in sin_declarar and "pesos chilenos" not in sin_declarar
 
-    assert "CLP" in texto
+    for moneda in _MONEDAS_AJENAS:
+        bundle = _bundle_provisiones(cards).model_copy(update={"currency": moneda})
+        texto = " ".join(prose.ifrs9_intro(bundle))
+        assert moneda in texto, f"IFRS 9 debe declarar la moneda configurada ({moneda!r})"
+        assert "pesos chilenos" not in texto
 
 
 def test_los_titulos_de_los_capitulos_de_provisiones_rotulan_el_pais() -> None:

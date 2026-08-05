@@ -25,7 +25,7 @@ def test_defaults_del_metodo_interno() -> None:
     assert cfg.schema_version == "1.0.0"
     assert cfg.type == "standard"
     assert cfg.as_of_date_col == "as_of_date"
-    assert cfg.portfolio_col == "cmf_portfolio"
+    assert cfg.portfolio_col == "portfolio"
     assert cfg.exposure_col == "exposure_amount"
     assert cfg.pd_source == "calibration"
     assert cfg.pd_column == "pd_calibrated"

@@ -40,7 +40,57 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   debajo, igual que ya no aparecía expandida en el esquema, así que el formulario no ofrece ni un
   valor para ella.
 
+### Añadido
+
+- **Un ejemplo completo de provisiones sin ninguna normativa local.** Entran un conjunto de datos
+  (`provision_interna_generica`), un preset listo para correr (`f5-provision-interna-generica`) y una
+  guía, [Provisiones sin normativa local](guias/provision-sin-norma-local.md). La cartera
+  se llama como la nombra la institución —`nomina`, `microempresa`, `consumo_senior`—, no hay
+  ninguna categoría de supervisor, y la corrida produce su informe con el capítulo de provisiones
+  sin nombrar ningún país. Existía el motor y no existía forma de enseñarlo.
+
+- **El capítulo «Provisiones regulatorias» se emite cuando se calcularon provisiones**, y no sólo
+  cuando se compararon dos métodos. Una corrida con un único motor —el interno, o sólo el estándar—
+  llegaba a su informe con la provisión escondida en el anexo de configuración, porque el capítulo
+  dependía del comparador, que por definición exige dos fuentes distintas. Es aditivo: ningún
+  informe pierde nada y los que corren un solo motor ganan su capítulo.
+
 ### Cambiado
+
+- 🔴 **El informe ya no afirma que los montos van en pesos chilenos.** Hasta ahora los rotulaba
+  «pesos chilenos (CLP)» en tres capítulos —incluido el de **IFRS 9**, que es un marco contable
+  internacional— sin que nadie lo hubiera declarado en ninguna parte. Nace `report.currency`: si
+  declaras una moneda, el informe la publica; si la dejas en blanco, **no afirma ninguna** y los
+  montos siguen legibles con el símbolo genérico `$`. El motor no inventa un dato que sólo la
+  institución conoce, y afirmar la moneda equivocada en un documento auditable es peor que no
+  afirmar ninguna.
+
+  ⚠️ **No mueve el `config_hash`**: `report` es una sección de presentación y está excluida de la
+  identidad de la corrida, igual que la portada del entregable. Un informe existente que quiera
+  seguir diciendo «CLP» sólo tiene que declararlo.
+
+  ⚠️ La convención numérica del informe (coma decimal, punto de miles) **no cambia**: es la del
+  idioma en que está escrito —hoy sólo español—, no la de una moneda.
+
+- 🔴 **El método interno de provisiones ya no pide de fábrica una columna con nombre chileno.** El
+  valor por defecto de `provisioning_internal.portfolio_col` pasa de `"cmf_portfolio"` a
+  `"portfolio"`. Ese motor es jurisdiccionalmente neutro —no conoce ninguna tabla de supervisor, y
+  su cálculo es `PE = PI · PDI · Exposición` sobre los grupos que tú formas—, pero su estado de
+  fábrica exigía la taxonomía de un supervisor concreto: un banco de cualquier otro país tenía que
+  renombrar su columna para correr un cálculo que no interpreta ninguna norma.
+
+  ⚠️ **Nota de contrato SemVer.** Este cambio **recalcula el `config_hash`** de un config que
+  **omite** esa clave y se apoya en el default, y con él su clave de idempotencia en el inventario
+  de MLflow. Por eso sale como *minor* y no como *patch* — mismo criterio que `1.4.0` y `1.8.0`.
+  Medido, el alcance es más estrecho de lo que sugiere: los **tres presets de fábrica no se mueven**
+  (declaran el campo explícitamente o no activan la sección) y un config que **declara**
+  `portfolio_col` tampoco, sea cual sea su valor. Sólo cambia quien lo omitía.
+
+  ⚠️ **El método estándar de la CMF conserva `"cmf_portfolio"`**, que ahí sí nombra su contenido: la
+  cartera regulatoria chilena. La consecuencia es que los dos defaults **dejan de estar alineados**,
+  así que una institución que compare estándar contra interno **con los defaults de fábrica** debe
+  declarar `portfolio_col` en una de las dos secciones si tiene una sola columna de cartera. La
+  comprobación previa del dataset lo señala antes de ejecutar nada.
 
 - 🔴 **La provisión que se compara de fábrica es ahora la que exige la norma chilena.** El valor por
   defecto de la segunda fuente de `provisioning` pasa de la pérdida esperada bajo NIIF 9 al **método

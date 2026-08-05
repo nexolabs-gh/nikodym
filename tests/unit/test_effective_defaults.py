@@ -45,7 +45,13 @@ from nikodym.ui.routes import schema_payload
 #: 394 → 395 el 2026-08-05 con M-5: nace ``report.xlsx.fail_if_unavailable``, el interruptor que le
 #: faltaba a la planilla para degradar como sus dos hermanos (``pdf``, ``docx``). Una sola hoja
 #: visible; el submodelo que la contiene es un descriptor y por eso el otro golden sube **dos**.
-HOJAS_DEL_FORMULARIO = 395
+#:
+#: 395 → 396 el 2026-08-05 con D-MON-1: nace ``report.currency``, la moneda con que el informe
+#: rotula los montos. Aquí el otro golden sube **UNA sola**, no dos, y no es una anomalía: el campo
+#: cuelga de la clase raíz de la sección ``report``, y las clases raíz de sección se empotran
+#: *inline* en el schema compuesto en vez de vivir en ``$defs`` — así que sólo tiene la coordenada
+#: ``sections``. Los que suben dos son los que cuelgan de un submodelo.
+HOJAS_DEL_FORMULARIO = 396
 
 #: Descriptores de hoja que el barrido de paridad compara, en las DOS coordenadas (`$defs` y
 #: `sections`). Segundo golden, por la misma razón que el de 394: un barrido que recorra menos
@@ -76,8 +82,9 @@ HOJAS_DEL_FORMULARIO = 395
 #: aparte, sin tocar el working tree—: el diff del catálogo da exactamente **dos** nodos nuevos, el
 #: mismo campo en sus dos coordenadas (`$defs.report__XlsxExportConfig.fail_if_unavailable` y
 #: `sections.report.xlsx.fail_if_unavailable`), con **cero pérdidas y cero valores alterados** en
-#: los 1039 anteriores.
-DESCRIPTORES_TOTALES = 1041
+#: los 1039 anteriores. 1041 → 1042 el 2026-08-05 con ``report.currency`` (D-MON-1): **un** nodo
+#: nuevo, ``sections.report.currency``, sin gemelo en ``$defs`` porque ``report`` es clase raíz.
+DESCRIPTORES_TOTALES = 1042
 
 
 #: Las 14 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de

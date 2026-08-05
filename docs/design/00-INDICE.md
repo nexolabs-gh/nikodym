@@ -487,6 +487,30 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > pelada permite repetirlo igual. Aditivo: cero cálculo, cero matrices, cero hashes. Lo destapó
 > `tests/unit/test_normativa_cmf_documento.py` al ejecutarse por primera vez.
 >
+> **El informe declara su moneda en vez de suponerla (2026-08-05, APROBADA).**
+> [`_ENMIENDA-MONEDA-DEL-INFORME.md`](_ENMIENDA-MONEDA-DEL-INFORME.md), D-MON-1…D-MON-6. Pieza 2 de
+> **D-JUR-8**. `_clp` cableaba el símbolo y la prosa afirmaba «pesos chilenos (CLP)» en tres
+> capítulos —incluido el de **IFRS 9**, que es un marco internacional—, así que era la única fuga de
+> jurisdicción que le quedaba al motor neutro en el informe. 🔴 **Y ya había una afirmación falsa
+> publicada**: el fixture de la demo lo decía sobre un dataset cuya propia descripción declara sus
+> montos **agnósticos de moneda**, y el front ya había resuelto lo contrario por escrito. Nace
+> `report.currency` con default **`None` = no declarada** (decisión de Cami): sin moneda el informe
+> **calla**, no supone. Va en `report`, que está en `INFRA_SECTIONS` ⇒ **no mueve el `config_hash`**.
+> ⚠️ Enmienda SDD-28 §6.3.10, que declaraba «CLP» como parte del entregable. ⚠️ **El diseño barato
+> se corrigió al medirlo**: llevar la moneda por `pipeline_params` rompía la invariante que exige
+> que todo config recolectado tenga sección en el Anexo C —un gate que un censo dio por inexistente
+> y que sí existe—, así que viaja en un campo propio del bundle.
+>
+> **El capítulo de provisiones se emite si hay provisiones (2026-08-05).**
+> [`_ENMIENDA-CAPITULO-DE-PROVISIONES.md`](_ENMIENDA-CAPITULO-DE-PROVISIONES.md), D-CAP-1…D-CAP-3.
+> Pieza 3 de **D-JUR-8**, y el defecto se destapó **corriendo** la cadena neutra, no leyéndola: llega
+> a `done` con informe, y ese informe **no trae el capítulo** —la provisión sale sólo en el Anexo C—
+> porque el capítulo se gatea por el **orquestador**, que no puede existir con un solo motor
+> (`source_a == source_b` está prohibido). 🔴 **El mecanismo *any-of* ya existía** y eso abarató la
+> enmienda entera: `requires_any_domain`, con precedente vivo en el capítulo «Resultados». Lo que sí
+> cuesta es el **titular** (D-CAP-2): sin orquestador la prosa devolvía `()`, y un capítulo mudo
+> sería el mismo defecto con otro disfraz. **No toca la regla del máximo ni el `Literal`.**
+>
 > **El `requires` de CMF (2026-08-05, NO SE IMPLEMENTA).**
 > [`_ENMIENDA-REQUISITOS-CMF.md`](_ENMIENDA-REQUISITOS-CMF.md), D-CMF-1…D-CMF-6, diagnostica **M-3**
 > y queda **escrita sin implementación** por decisión de producto de Cami: la normativa local de

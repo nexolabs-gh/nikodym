@@ -297,3 +297,94 @@ def test_una_seccion_neutra_del_formulario_no_se_rotula_con_una_jurisdiccion(sec
         f"{ofensores}. Si la mención es imprescindible para entender el campo, la sección va a "
         "_SECCIONES_CON_JURISDICCION con su razón escrita; si no, se reformula sin el país."
     )
+
+
+# --------------------------------------------------------------------------------------------
+# El ESTADO DE FÁBRICA también es portada, y esto tampoco existía.
+# --------------------------------------------------------------------------------------------
+
+# La única sección donde un default puede nombrar la jurisdicción: `provisioning_cmf` implementa el
+# modelo estándar chileno y sus columnas de fábrica (`cmf_portfolio`, `cmf_category`,
+# `cmf_product_type`) nombran la taxonomía regulatoria que ES su contenido.
+#
+# ⚠️ La lista NO es `_SECCIONES_CON_JURISDICCION`, y la diferencia está medida: el orquestador
+# `provisioning` puede nombrar el Cap. B-1 en su copy —describir la regla del máximo sin nombrarla
+# la haría incomprensible— pero **ninguno de sus defaults nombra un país**. Reusar allí la lista de
+# copy habría eximido a una sección que no lo necesita, y con ella habría caído el control positivo.
+_SECCIONES_CON_DEFAULT_JURISDICCIONAL = frozenset({"provisioning_cmf"})
+
+
+def _defaults_del_schema() -> dict[str, list[str]]:
+    """Valores por defecto de tipo texto publicados, agrupados por sección.
+
+    Mismo criterio de fuente que ``_frases_del_schema``: el **fixture**, nunca ``schema_payload()``.
+    """
+
+    def valores(nodo: object) -> list[str]:
+        salida: list[str] = []
+        if isinstance(nodo, dict):
+            for clave, valor in nodo.items():
+                if clave == "default":
+                    if isinstance(valor, str):
+                        salida.append(valor)
+                    elif isinstance(valor, list):
+                        salida.extend(x for x in valor if isinstance(x, str))
+                elif clave != "$defs":
+                    salida.extend(valores(valor))
+        elif isinstance(nodo, list):
+            for hijo in nodo:
+                salida.extend(valores(hijo))
+        return salida
+
+    documento = json.loads(_FIXTURE_SCHEMA.read_text(encoding="utf-8"))
+    esquema = documento["json_schema"]
+    definiciones = esquema["$defs"]
+    por_seccion: dict[str, list[str]] = {}
+    for seccion, nodo in esquema["properties"].items():
+        encontrados = valores(nodo)
+        for nombre, cuerpo in definiciones.items():
+            if nombre.startswith(f"{seccion}__"):
+                encontrados.extend(valores(cuerpo))
+        por_seccion[seccion] = encontrados
+    return por_seccion
+
+
+def test_el_barrido_de_defaults_no_es_vacuo() -> None:
+    """Anclas y control positivo: un barrido que recorre cero defaults se lee como uno limpio."""
+    por_seccion = _defaults_del_schema()
+    assert len(por_seccion) >= 25, f"el barrido sólo ve {len(por_seccion)} secciones"
+    total = sum(len(v) for v in por_seccion.values())
+    assert total >= 250, f"el barrido sólo recorrió {total} defaults de texto"
+    assert set(por_seccion) >= _SECCIONES_CON_DEFAULT_JURISDICCIONAL, "cambió una sección exenta"
+
+    # Control positivo: la sección exenta TIENE que dar ofensores. Si deja de darlos, o el detector
+    # se rompió o la evidencia se borró — y las dos vuelven este gate un adorno que pasa siempre.
+    for seccion in _SECCIONES_CON_DEFAULT_JURISDICCIONAL:
+        assert _ofensores("\n".join(por_seccion[seccion])), (
+            f"la sección {seccion!r} dejó de traer defaults con su taxonomía normativa: o se borró "
+            "la evidencia, o el detector dejó de detectar"
+        )
+
+
+@pytest.mark.parametrize(
+    "seccion", sorted(set(_defaults_del_schema()) - _SECCIONES_CON_DEFAULT_JURISDICCIONAL)
+)
+def test_el_default_de_una_seccion_neutra_no_nombra_una_jurisdiccion(seccion: str) -> None:
+    """El valor de fábrica es una afirmación tan pública como el título, y no lo miraba nadie.
+
+    🔴 El gate hermano de arriba barre ``title`` y ``description`` de las 29 secciones — y por eso
+    **no podía** cazar este defecto: el título y la ayuda de ``provisioning_internal.portfolio_col``
+    ya eran neutros, y lo chileno era el **valor**, ``default="cmf_portfolio"``. Un motor que se
+    presenta como jurisdiccionalmente neutro pedía de fábrica una columna con el nombre de un
+    supervisor, así que un banco de cualquier otro país tenía que renombrar su columna para correr
+    un cálculo que no conoce ninguna norma (D-JUR-8).
+
+    Un default no se lee con hover: se ejecuta. Es la afirmación más fuerte que hace el formulario.
+    """
+    ofensores = _ofensores("\n".join(_defaults_del_schema()[seccion]))
+    assert not ofensores, (
+        f"la sección {seccion!r} trae un valor de fábrica que nombra una jurisdicción: "
+        f"{ofensores}. El estado de fábrica de una sección neutra no puede exigir la taxonomía de "
+        "un supervisor; si la sección implementa una norma local, va a "
+        "_SECCIONES_CON_DEFAULT_JURISDICCIONAL con su razón escrita."
+    )

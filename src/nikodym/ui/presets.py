@@ -443,6 +443,11 @@ _STANDARD_CONFIG: dict[str, Any] = {
         "output_dir": "reports",
         "basename": "scorecard_report",
         "language": "es",
+        # Explícito y en `None`, como todo campo con default `None` en este archivo: omitirlo haría
+        # que el `config_hash` dependiese de qué capas estén importadas. `None` = el informe no
+        # afirma ninguna moneda (D-MON-2). F1 no publica montos —no corre provisiones—, así que no
+        # tiene ninguna que declarar; F3, que sí los publica y es chileno, la declara en su delta.
+        "currency": None,
         "formats": ["html", "pdf", "md", "docx"],
         "html": {
             "template_id": "scorecard_basic_v1",
@@ -647,9 +652,77 @@ def _provisiones_config() -> dict[str, Any]:
     cfg["provisioning_internal"] = deepcopy(_PROVISIONES_SECTIONS["provisioning_internal"])
     cfg["provisioning"] = deepcopy(_PROVISIONES_SECTIONS["provisioning"])
     cfg["provisioning_ifrs9"] = None
+    # F3 es el caso de referencia CHILENO y sus montos son pesos chilenos: aquí la moneda sí se
+    # sabe, así que se declara (D-MON-2). No es cosmética — es lo que hace que el informe pueda
+    # seguir diciéndolo ahora que el motor dejó de suponerlo. ⚠️ No mueve el `config_hash`:
+    # `report` está en `INFRA_SECTIONS`.
+    cfg["report"] = {**cfg["report"], "currency": "CLP"}
     # La activación pedida es propia del fixture F1; F3 conserva su alcance regulatorio previo.
     cfg["validation"] = None
     return cfg
+
+
+#: Preset F5: el mismo motor de provisiones, **sin una sola línea de norma local**.
+F5_INTERNA_PRESET_ID = "f5-provision-interna-generica"
+F5_INTERNA_DATASET_ID = "provision_interna_generica"
+
+
+def _provision_interna_config() -> dict[str, Any]:
+    """Compone el config F5 = F1 base + método interno, con las tres secciones de norma APAGADAS.
+
+    🔴 Es la demostración de D-JUR-8, y su contenido está tanto en lo que activa como en lo que
+    deja en ``None``: ``provisioning_cmf`` (el motor chileno), ``provisioning_ifrs9`` y
+    ``provisioning`` (el orquestador de la regla del máximo, que exige **dos** fuentes distintas y
+    por tanto no puede existir con un motor solo). Lo que queda corre igual y publica su capítulo.
+    """
+    cfg = deepcopy(_STANDARD_CONFIG)
+    cfg["name"] = "preset-provision-interna-generica"
+    cfg["calibration"] = {**cfg["calibration"], **_PROVISIONES_CALIBRATION_OVERRIDE}
+    interna = deepcopy(_PROVISIONES_SECTIONS["provisioning_internal"])
+    # La única diferencia con el método interno del preset chileno: la columna de cartera se llama
+    # como la nombró la institución. Explícita aunque coincida con el default de fábrica, por la
+    # regla del archivo — un preset que se apoya en un default deja su `config_hash` a merced de él.
+    interna["portfolio_col"] = "portfolio"
+    cfg["provisioning_internal"] = interna
+    cfg["provisioning_cmf"] = None
+    cfg["provisioning_ifrs9"] = None
+    cfg["provisioning"] = None
+    cfg["report"] = {**cfg["report"], "basename": "provision_interna_report"}
+    # ⚠️ La partición se ajusta al calendario del dataset neutro (cohortes 2025Q1-2026Q2), no se
+    # hereda: el `oot_cohorts=["2024Q2"]` del config base es del dataset chileno, y con él la
+    # partición OOT sale **vacía** y la corrida muere en el primer paso. Medido ejecutando.
+    cfg["data"] = deepcopy(cfg["data"])
+    cfg["data"]["partition"] = {
+        **cfg["data"]["partition"],
+        "strategy": {**cfg["data"]["partition"]["strategy"], "oot_cohorts": ["2026Q2"]},
+    }
+    return cfg
+
+
+def provision_interna_preset() -> dict[str, Any]:
+    """Devuelve el descriptor del preset F5 (scorecard F1 + método interno, sin normativa local).
+
+    Returns
+    -------
+    dict
+        ``{id, name, description, config, dataset_id}``. Corre end-to-end sobre
+        ``provision_interna_generica`` produciendo scorecard + provisión por PD·LGD·Exposición,
+        **sin** cargar el motor CMF ni ninguna tabla de supervisor.
+    """
+    return {
+        "id": F5_INTERNA_PRESET_ID,
+        "name": "Preset F5 — provisión interna sobre cartera genérica",
+        "description": (
+            "Config completo listo para correr sin tocar nada: el scorecard y, encima, la "
+            "provisión por probabilidad de incumplimiento, severidad y exposición sobre los "
+            "grupos que define la institución. No carga ninguna tabla de supervisor ni ninguna "
+            "categoría regulatoria: sirve para ver el motor de provisiones funcionando en una "
+            "cartera de cualquier país. Lo que la norma de cada jurisdicción exige encima —"
+            "clasificación, mora, garantías y mínimos— lo aterriza el modelador."
+        ),
+        "config": _provision_interna_config(),
+        "dataset_id": F5_INTERNA_DATASET_ID,
+    }
 
 
 def provisiones_preset() -> dict[str, Any]:
@@ -872,6 +945,7 @@ _PRESETS: dict[str, Callable[[], dict[str, Any]]] = {
     STANDARD_PRESET_ID: standard_preset,
     PROVISIONES_PRESET_ID: provisiones_preset,
     F4_IFRS9_PRESET_ID: ifrs9_preset,
+    F5_INTERNA_PRESET_ID: provision_interna_preset,
 }
 
 

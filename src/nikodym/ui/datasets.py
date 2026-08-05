@@ -110,6 +110,20 @@ _COLUMNS: tuple[dict[str, str], ...] = (
 #     movería el índice de riesgo que quedó calibrado contra el sistema (8,63 % vs 8,30 % real).
 #   * ``guarantee_*`` / ``financial_guarantee_*`` / ``aval_*`` / ``contingent_*`` — el motor CMF
 #     OLFATEA estos nombres y con la política por defecto (`fail`) ABORTA la corrida.
+# Columnas del método interno **sin una sola de norma local**: exactamente las cuatro que el motor
+# neutro lee (fecha de corte, cartera, exposición y severidad), sobre el mismo panel de scorecard.
+# 🔴 La lista corta es el contenido de la demostración, no una simplificación: el superconjunto de
+# provisiones trae cinco columnas que sólo existen porque el Cap. B-1 las exige —`debtor_id` para
+# consolidar por deudor, `days_past_due` para el bucket de mora, el tipo de producto y los dos flags
+# de sistema—, y enseñarlas aquí sugeriría que el motor neutro las necesita. No las necesita.
+_INTERNAL_PROVISIONING_COLUMNS: tuple[dict[str, str], ...] = (
+    *_COLUMNS,
+    {"name": "as_of_date", "dtype": "str", "role": "economic"},
+    {"name": "portfolio", "dtype": "str", "role": "economic"},
+    {"name": "exposure_amount", "dtype": "float", "role": "economic"},
+    {"name": "lgd", "dtype": "float", "role": "economic"},
+)
+
 _PROVISIONING_COLUMNS: tuple[dict[str, str], ...] = (
     *_COLUMNS,
     {"name": "as_of_date", "dtype": "str", "role": "economic"},
@@ -223,6 +237,32 @@ _DATASETS: dict[str, dict[str, Any]] = {
         "antiguedad_high": 121,
         "provisioning": True,
     },
+    "provision_interna_generica": {
+        "name": "Cartera genérica — provisión interna (sin normativa local)",
+        "description": (
+            "Cartera minorista con las cuatro columnas que necesita el método interno: fecha de "
+            "corte, la cartera a la que pertenece cada operación, la exposición y la severidad "
+            "(LGD). Las carteras las nombra la institución —aquí «nomina», «microempresa» y "
+            "«consumo_senior»—: no son categorías de ningún supervisor y el motor no las "
+            "interpreta, sólo agrupa por ellas. Superconjunto del dataset de scorecard, así que el "
+            "pipeline completo corre igual y encima calcula la provisión por PD·LGD·Exposición. "
+            "Sirve para ver el motor de provisiones funcionando sin una sola línea de norma local."
+        ),
+        "n_rows": 6000,
+        "n_debtors": 4444,
+        # Seed propia: este dataset no comparte realización con el de provisiones CMF aunque
+        # comparta generador, y su determinismo es independiente.
+        "seed": 20_260_805,
+        "as_of_date": "2026-06-30",
+        "segments": ("asalariado", "independiente", "pensionado"),
+        "cohorts": ("2025Q1", "2025Q2", "2025Q3", "2025Q4", "2026Q1", "2026Q2"),
+        "intercept": -4.15,
+        "antiguedad_low": 1,
+        "antiguedad_high": 121,
+        "provisioning": True,
+        # Marca de variante: mismas mecánicas económicas, proyectadas a las columnas neutras.
+        "internal_only": True,
+    },
     "ifrs9_retail_latam": {
         "name": "Retail LatAm — IFRS 9 / ECL (multi-cartera)",
         "description": (
@@ -323,6 +363,8 @@ def _columns_for(dataset_id: str) -> tuple[dict[str, str], ...]:
     spec = _DATASETS[dataset_id]
     if spec.get("ifrs9"):
         return _IFRS9_COLUMNS
+    if spec.get("internal_only"):
+        return _INTERNAL_PROVISIONING_COLUMNS
     if spec.get("provisioning"):
         return _PROVISIONING_COLUMNS
     return _COLUMNS
@@ -750,6 +792,8 @@ def _generate(dataset_id: str) -> pd.DataFrame:
         return _generate_drift(dataset_id)
     if spec.get("ifrs9"):  # superconjunto: survival (duration/event) + economicas IFRS 9 / ECL
         return _generate_ifrs9_retail(dataset_id)
+    if spec.get("internal_only"):  # mismas mecánicas, proyectado a las columnas SIN norma local
+        return _generate_provision_interna(dataset_id)
     if spec.get("provisioning"):  # superconjunto de columnas: motor CMF + método interno
         return _generate_provisiones(dataset_id)
     rng = np.random.default_rng(spec["seed"])
@@ -789,6 +833,32 @@ def _generate(dataset_id: str) -> pd.DataFrame:
         },
         index=loan_id,
     )
+
+
+#: Cartera de negocio con que se nombra cada segmento en el dataset neutro. Son nombres que
+#: **elige la institución**: ningún supervisor los define y el motor no los interpreta.
+_CARTERAS_GENERICAS: Final[dict[str, str]] = {
+    "asalariado": "nomina",
+    "independiente": "microempresa",
+    "pensionado": "consumo_senior",
+}
+
+
+def _generate_provision_interna(dataset_id: str) -> pd.DataFrame:
+    """Proyecta el frame de provisiones a las columnas que el método interno **sí** necesita.
+
+    Reusa el generador de provisiones en vez de duplicar sus nueve invariantes económicas: la
+    diferencia entre los dos datasets no es cómo se simula la cartera, es **qué columnas se
+    publican**. Duplicar el generador habría hecho que las dos realizaciones divergieran en
+    silencio en el primer ajuste que se le hiciera a una de las dos.
+
+    La cartera se deriva del segmento con un mapeo fijo, sin tocar el ``rng``: así el determinismo
+    del generador base se conserva intacto y esta variante no consume aleatoriedad propia.
+    """
+    frame = _generate_provisiones(dataset_id)
+    frame = frame.assign(portfolio=frame["segmento"].map(_CARTERAS_GENERICAS))
+    columnas = [col["name"] for col in _INTERNAL_PROVISIONING_COLUMNS]
+    return frame.loc[:, columnas]
 
 
 def _generate_provisiones(dataset_id: str) -> pd.DataFrame:

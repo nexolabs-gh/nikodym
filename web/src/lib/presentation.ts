@@ -16,6 +16,7 @@
 const F1_ID = "f1-estandar-consumo"
 const F3_ID = "f3-provisiones-consumo"
 const F4_ID = "f4-ifrs9-retail"
+const F5_ID = "f5-provision-interna-generica"
 
 import { esAvisoDeclarado } from "@/lib/markers"
 
@@ -57,6 +58,18 @@ const CURATED: Record<string, PresetDisplay> = {
     blurb:
       "Pérdida esperada IFRS 9 de tres etapas sobre cartera retail LatAm: staging por mora y ECL " +
       "a 12 meses o lifetime. Marco separado de la CMF.",
+  },
+  [F5_ID]: {
+    title: "Provisión interna, sin norma local",
+    // 🔴 Curado, y la garantía es la razón de fondo: el fallback de `presetDisplay` rotula
+    // «estable» todo preset cuya descripción no contenga la palabra «experimental», así que éste
+    // —que corre el MISMO motor de provisiones que F3 y F4, ambos experimentales— nacía
+    // prometiendo una madurez que el paquete no da. Se vio ABRIENDO LA PANTALLA: ninguna suite
+    // compara esta píldora con la madurez declarada del dominio.
+    garantia: "experimental",
+    blurb:
+      "Provisión por PD, severidad y exposición sobre los grupos que define la institución, sin " +
+      "ninguna tabla de supervisor. El motor de provisiones en una cartera de cualquier país.",
   },
 }
 

@@ -373,6 +373,21 @@ class ReportConfig(NikodymBaseConfig):
         description="Idioma del informe; hoy solo está disponible el español.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "General", "ui_order": 4},
     )
+    currency: str | None = Field(
+        # D-MON-2: el default es `None` y significa «no declarada», nunca «pesos chilenos». El
+        # motor no inventa un dato institucional, y la moneda de una cartera la sabe la institución.
+        # Un default "CLP" habría sido más barato en tests y habría reintroducido justo el defecto
+        # que esta enmienda cierra: el informe afirmando una moneda que nadie declaró.
+        # Sin moneda declarada la prosa no rotula ninguna: los montos siguen legibles.
+        default=None,
+        title="Moneda de los montos",
+        description=(
+            "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares. El informe la declara "
+            "una vez por capítulo; los montos se escriben con el signo $ en cualquier caso. Si lo "
+            "dejas en blanco, el informe no afirma ninguna moneda."
+        ),
+        json_schema_extra={"ui_widget": "text_input", "ui_group": "General", "ui_order": 5},
+    )
     formats: tuple[BasicReportFormat, ...] = Field(
         default=("html",),
         title="Formatos del informe",

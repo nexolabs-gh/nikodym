@@ -296,15 +296,19 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
     if ifrs9 is not None:
         ecl = _float(ifrs9.get("total_ecl_reported"))
         ead = _float(ifrs9.get("total_ead"))
+        simbolo = _simbolo_monetario(bundle)
+        moneda = _moneda_declarada(bundle)
+        # El `scope` rotula la moneda porque estas cifras abren el documento: el «$» no identifica
+        # la unidad, y un lector de otro país la leería en la suya. Va en el scope y no en el valor
+        # para no repetir la unidad en cada fila. Sin moneda declarada el scope calla el rótulo
+        # (D-MON-2): decir «Cartera total» sin unidad es honesto; decir la unidad equivocada, no.
+        alcance = f"Cartera total · {moneda}" if moneda else "Cartera total"
         if ecl is not None:
             metrics.append(
                 ExecutiveMetric(
                     label="ECL reportada (IFRS 9)",
-                    # El `scope` rotula la moneda porque estas cifras abren el documento: el «$» de
-                    # `_clp` no identifica la unidad, y un lector fuera de Chile la leería en la
-                    # suya. Va en el scope y no en el valor para no repetir la unidad en cada fila.
-                    scope="Cartera total · CLP",
-                    value=_clp(ecl),
+                    scope=alcance,
+                    value=_money(ecl, symbol=simbolo),
                     band="Cifra contable",
                 )
             )
@@ -312,8 +316,8 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
             metrics.append(
                 ExecutiveMetric(
                     label="Exposición al incumplimiento (EAD)",
-                    scope="Cartera total · CLP",
-                    value=_clp(ead),
+                    scope=alcance,
+                    value=_money(ead, symbol=simbolo),
                     band="Cifra contable",
                 )
             )
@@ -1500,12 +1504,63 @@ def _provision_warning_descriptions(warnings: tuple[str, ...]) -> tuple[str, ...
     return tuple(descriptions)
 
 
+def _provisions_intro_motor_unico(bundle: ReportInputBundle) -> tuple[str, ...]:
+    """Titular cuando corrió UN solo motor de provisiones y no hay comparación que narrar.
+
+    🔴 Sin esto el capítulo salía **mudo** (D-CAP-2): ``provisions_intro`` devolvía ``()`` al no
+    encontrar la card del orquestador, así que la corrida de un solo motor —el caso de la cadena
+    neutra— habría producido un título seguido directamente de la subsección técnica. Un capítulo
+    mudo es el mismo defecto que no tener capítulo, con otro disfraz.
+
+    ⚠️ Cuando el motor que corrió es el **interno**, esta prosa no puede citar ninguna norma: es el
+    motor jurisdiccionalmente neutro y quien lo usa puede no tener ningún supervisor detrás. La
+    restricción es la misma que ya declara ``provisioning/internal/engine.py`` sobre su propio copy.
+    """
+    interno = _card(bundle, "provisioning_internal")
+    cmf = _card(bundle, "provisioning_cmf")
+    simbolo = _simbolo_monetario(bundle)
+    if interno is not None and cmf is None:
+        total = _float(interno.get("total_internal_provision"))
+        n_groups = _int(interno.get("n_groups"))
+        detalle = (
+            "Este capítulo reporta la provisión calculada por el método interno sobre la cartera "
+            "de la corrida: pérdida esperada por grupo homogéneo, sin aplicar ninguna tabla de "
+            "supervisor."
+        )
+        if total is not None:
+            detalle += f" El total constituido asciende a {_money(total, symbol=simbolo)}"
+            detalle += (
+                f", repartido en {_miles(n_groups)} {_plural(n_groups, 'grupo', 'grupos')}."
+                if n_groups is not None
+                else "."
+            )
+        detalle += _rotulo_moneda(bundle)
+        return (detalle,)
+    if cmf is not None and interno is None:
+        provision = _float(cmf.get("total_provision_amount"))
+        exposicion = _float(cmf.get("total_exposure_amount"))
+        detalle = (
+            "Este capítulo reporta la provisión calculada por el método estándar de la CMF de "
+            "Chile (Cap. B-1) sobre la cartera de la corrida."
+        )
+        if provision is not None and exposicion is not None:
+            detalle += (
+                f" Sobre colocaciones por {_money(exposicion, symbol=simbolo)} se constituyen "
+                f"{_money(provision, symbol=simbolo)}."
+            )
+        detalle += _rotulo_moneda(bundle)
+        return (detalle,)
+    return ()
+
+
 def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
     """Titular del capítulo según fuentes, nivel y regla efectivamente configurados."""
     orq = _card(bundle, "provisioning")
     if orq is None:
-        return ()
+        # D-CAP-2: sin orquestador no hay comparación que narrar, pero sí puede haber provisiones.
+        return _provisions_intro_motor_unico(bundle)
     cmf = _card(bundle, "provisioning_cmf")
+    simbolo = _simbolo_monetario(bundle)
     source_a = str(orq.get("source_a") or "")
     source_b = str(orq.get("source_b") or "")
     rule = str(orq.get("rule") or "")
@@ -1545,12 +1600,16 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
         and interno_total is not None
         and reportado is not None
     ):
-        alcance = f"Sobre colocaciones por {_clp(exposicion)}, " if exposicion is not None else ""
+        alcance = (
+            f"Sobre colocaciones por {_money(exposicion, symbol=simbolo)}, "
+            if exposicion is not None
+            else ""
+        )
         base = (
             f"{alcance}el método estándar de la CMF calcula "
-            f"{_clp(estandar)} y el método interno {_clp(interno_total)}. La provisión a "
-            f"reportar según la regla configurada es {_clp(reportado)}. Las cifras van en pesos "
-            "chilenos (CLP)."
+            f"{_money(estandar, symbol=simbolo)} y el método interno "
+            f"{_money(interno_total, symbol=simbolo)}. La provisión a reportar según la regla "
+            f"configurada es {_money(reportado, symbol=simbolo)}.{_rotulo_moneda(bundle)}"
         )
         if rule == "use_internal":
             relacion = "por debajo" if interno_total < estandar else "por encima"
@@ -1562,7 +1621,8 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
             sobrecosto = reportado - interno_total
             extra_pct = (sobrecosto / interno_total * 100.0) if interno_total else None
             titular = (
-                f" Manda el estándar: cuesta {_clp(sobrecosto)} por encima de lo que el propio "
+                f" Manda el estándar: cuesta {_money(sobrecosto, symbol=simbolo)} por encima de lo "
+                "que el propio "
                 "modelo interno del banco pediría"
             )
             titular += f" (un {extra_pct:.0f} % más)." if extra_pct is not None else "."
@@ -1581,9 +1641,9 @@ def provisions_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
             "ifrs9": "ECL IFRS 9",
         }
         paragraphs.append(
-            f"{labels.get(source_a, source_a)}: {_clp(amount_a)}; "
-            f"{labels.get(source_b, source_b)}: {_clp(amount_b)}; resultado de la regla: "
-            f"{_clp(reportado)}."
+            f"{labels.get(source_a, source_a)}: {_money(amount_a, symbol=simbolo)}; "
+            f"{labels.get(source_b, source_b)}: {_money(amount_b, symbol=simbolo)}; "
+            f"resultado de la regla: {_money(reportado, symbol=simbolo)}."
         )
 
     if is_b1_binding:
@@ -1687,15 +1747,18 @@ def _results_provisioning_cmf(bundle: ReportInputBundle) -> tuple[str, ...]:
     paragraphs: list[str] = []
     if exposicion is not None and provision is not None:
         indice = provision / exposicion if exposicion else None
+        simbolo = _simbolo_monetario(bundle)
         detalle = (
-            f"El método estándar de la CMF provisiona {_clp(provision)} sobre {_clp(exposicion)} "
-            "de colocaciones"
+            f"El método estándar de la CMF provisiona {_money(provision, symbol=simbolo)} sobre "
+            f"{_money(exposicion, symbol=simbolo)} de colocaciones"
         )
         detalle += f", un índice de riesgo del {_pct(indice)}." if indice is not None else "."
         # El símbolo «$» no identifica la moneda: el informe se lee fuera de Chile y una cifra sin
         # unidad es ilegible o, peor, se lee en la moneda del lector. Se rotula en la primera
         # mención de montos del capítulo, no en cada celda, para no volver ruidosa la tabla.
-        detalle += " Cifras en pesos chilenos (CLP)."
+        # ⚠️ Y sólo si el config la declaró: este motor es chileno, pero la moneda no se deduce de
+        # la jurisdicción de la norma —un banco puede reportar en UF o en dólares— (D-MON-2).
+        detalle += _rotulo_moneda(bundle)
         paragraphs.append(detalle)
     paragraphs.append(
         "En cartera de consumo el factor de provisión es PI por PDI; la categoría no es un input: "
@@ -1716,11 +1779,15 @@ def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]
     pd_source = str(card.get("pd_source") or "")
     grouping = str(card.get("grouping") or "")
     paragraphs: list[str] = []
-    detalle = "El método interno es el que la norma también exige: pérdida esperada por grupo "
-    detalle += "homogéneo, como probabilidad de incumplimiento por pérdida dado el incumplimiento "
-    detalle += "por exposición del grupo."
+    # ⚠️ Esta subsección describe el motor jurisdiccionalmente NEUTRO, así que no puede dar por
+    # supuesta ninguna norma: decía «el método interno es el que la norma también exige», frase
+    # cierta en Chile y falsa para quien corre este motor sin ninguna norma detrás. Misma clase que
+    # el título «(Cap. B-1 §3)» que llevaba esta misma sección hasta el 2026-08-05.
+    detalle = "El método interno estima la pérdida esperada por grupo homogéneo, como probabilidad "
+    detalle += "de incumplimiento por pérdida dado el incumplimiento por exposición del grupo."
     if provision is not None:
-        detalle += f" Sobre esta cartera suma {_clp(provision)}."
+        simbolo = _simbolo_monetario(bundle)
+        detalle += f" Sobre esta cartera suma {_money(provision, symbol=simbolo)}."
     paragraphs.append(detalle)
     fuente_pd = {
         "calibration": "la PD calibrada del scorecard —el modelo del banco entra por aquí en el "
@@ -1816,15 +1883,19 @@ def ifrs9_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
     ]
 
     if ecl is not None and ead is not None:
+        simbolo = _simbolo_monetario(bundle)
         titular = (
-            f"Sobre una exposición al incumplimiento (EAD) de {_clp(ead)}, la pérdida crediticia "
-            f"esperada a constituir es {_clp(ecl)}"
+            f"Sobre una exposición al incumplimiento (EAD) de {_money(ead, symbol=simbolo)}, la "
+            f"pérdida crediticia esperada a constituir es {_money(ecl, symbol=simbolo)}"
         )
         cobertura = (ecl / ead) if ead else None
         titular += f", una cobertura del {_pct(cobertura)}." if cobertura is not None else "."
         # IFRS 9 es un marco internacional: el informe puede emitirse en cualquier país, así que la
         # moneda de los montos se dice, no se supone por el símbolo «$».
-        titular += " Los montos van en pesos chilenos (CLP)."
+        # 🔴 Y hasta el 2026-08-05 este capítulo afirmaba «pesos chilenos (CLP)» SIEMPRE, incluso
+        # sobre el dataset `ifrs9_retail_latam`, cuya propia descripción declara sus montos
+        # agnósticos de moneda. Afirmar la moneda equivocada es peor que no afirmar ninguna.
+        titular += _rotulo_moneda(bundle)
         if as_of is not None:
             titular += f" Fecha de corte: {as_of}."
         paragraphs.append(titular)
@@ -2201,17 +2272,59 @@ def _pct(value: Any, *, decimals: int = 2) -> str:
     return f"{numeric * 100:.{decimals}f} %".replace(".", ",")
 
 
-def _clp(value: Any) -> str:
-    """Formatea una cifra en pesos chilenos con separador de miles (``$697.376.974``).
+def _money(value: Any, *, symbol: str) -> str:
+    """Formatea un monto con separador de miles (``$697.376.974``), rotulado con ``symbol``.
 
-    Una provisión sin unidad es ilegible para quien la lee en millones (SDD-28 §6.3.10). Se redondea
-    al peso —la política ``rounding`` del motor ya cuantizó la cifra— y se usa el punto como
-    separador de miles, convención chilena.
+    Un monto sin unidad es ilegible para quien lo lee en millones (SDD-28 §6.3.10, enmendado por
+    D-MON-6). Se redondea a la unidad —la política ``rounding`` del motor ya cuantizó la cifra— y se
+    usa el punto como separador de miles, que es la convención del **idioma** del informe y no la de
+    una moneda concreta (D-MON-5).
+
+    🔴 ``symbol`` es obligatorio y **sin default a propósito** (D-MON-4). Con un default, un call
+    site nuevo heredaría el peso chileno sin que nadie lo notara; sin él, no compila. Es el mismo
+    criterio con que se hizo obligatorio el parámetro del entregable en los botones de descarga,
+    tras el «esta corrida no generó un PDF» que acusaba al botón equivocado.
     """
     numeric = _float(value)
     if numeric is None:
         return _NOT_AVAILABLE
-    return "$" + f"{round(numeric):,}".replace(",", ".")
+    return symbol + f"{round(numeric):,}".replace(",", ".")
+
+
+def _simbolo_monetario(bundle: ReportInputBundle) -> str:
+    """Prefijo con que se escriben los montos. Es ``$`` **siempre**, y eso es deliberado.
+
+    🔴 La primera versión devolvía aquí la moneda declarada, y estaba mal: ``currency`` admite
+    códigos ISO —``CLP``, ``PEN``— y usarlos como prefijo produce ``CLP697.376.974``, que no se lee.
+    Símbolo y código de moneda son cosas distintas.
+
+    ``$`` no identifica ninguna moneda —lo usan Chile, México, Perú, Estados Unidos y media docena
+    más—, y por eso es el prefijo honesto: marca que la cifra es **dinero** sin afirmar de qué país.
+    Cuál es la moneda lo dice ``_rotulo_moneda`` en prosa, una vez por capítulo, que es la decisión
+    que este informe ya había tomado antes de parametrizarla: rotular en la primera mención y no en
+    cada celda, para no volver ruidosa la tabla.
+
+    Se conserva como función —en vez de cablear ``"$"`` en los 15 call sites— porque es el único
+    punto donde cambiar esa política, y porque ``_money`` exige el símbolo explícito a propósito.
+    """
+    return "$"
+
+
+def _moneda_declarada(bundle: ReportInputBundle) -> str:
+    """La moneda que el config del informe declara, o cadena vacía si no declaró ninguna."""
+    return str(getattr(bundle, "currency", "") or "").strip()
+
+
+def _rotulo_moneda(bundle: ReportInputBundle) -> str:
+    """Frase que declara la moneda de los montos, o vacía si el config no la declaró.
+
+    🔴 Vacía significa **callar**, no suponer. El informe decía «Las cifras van en pesos chilenos
+    (CLP)» en tres capítulos, incluido el de IFRS 9 —un marco internacional—, y lo publicaba incluso
+    sobre datasets cuya propia descripción los declara agnósticos de moneda. Afirmar la moneda
+    equivocada es peor que no afirmar ninguna.
+    """
+    moneda = _moneda_declarada(bundle)
+    return f" Los montos van en {moneda}." if moneda else ""
 
 
 def _miles(value: int) -> str:

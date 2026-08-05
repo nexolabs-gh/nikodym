@@ -177,6 +177,9 @@ def test_endpoint_datasets(client: TestClient) -> None:
         "hipotecario_comportamiento",
         "consumo_drift",
         "provisiones_consumo",
+        # D-JUR-8: la variante neutra, con las cuatro columnas que el método interno necesita y
+        # ninguna de las cinco que sólo existen porque el Cap. B-1 las exige.
+        "provision_interna_generica",
         "ifrs9_retail_latam",
     ]
     # El de provisiones expone un superconjunto de columnas (las económico-regulatorias que

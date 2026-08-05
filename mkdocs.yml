@@ -62,6 +62,7 @@ nav:
       - Modelo y calibración: guias/modelo-calibracion.md
       - Desempeño y estabilidad: guias/desempeno-estabilidad.md
       - Reanudar con artefactos: guias/puerta-artefactos.md
+      - Provisiones sin normativa local: guias/provision-sin-norma-local.md
   - Aterrizar una norma local: norma-local.md
   - Glosario: glosario.md
   - Avisos declarados: avisos-declarados.md

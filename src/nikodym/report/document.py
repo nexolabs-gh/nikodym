@@ -148,8 +148,11 @@ RESULT_DOMAINS: Final[tuple[str, ...]] = (
     "stability",
 )
 # Subsecciones del capítulo CONDICIONAL de provisiones (SDD-28 D5). El orquestador primero (es el
-# titular: la provisión a constituir y el sobrecosto del estándar en CLP), luego el desglose de cada
-# método. Solo se emite el capítulo si ``provisioning`` corrió (``ChapterSpec.requires_domain``).
+# titular: la provisión a constituir y el sobrecosto del estándar), luego el desglose de cada
+# método; las que no publicaron card se omiten solas.
+# ⚠️ Esta tupla es TAMBIÉN el gate del capítulo desde D-CAP-1: se emite si corrió **cualquiera** de
+# los tres (``requires_any_domain``), no si corrió el orquestador. Decir lo segundo dejaba sin
+# capítulo a toda corrida de un solo motor, porque el orquestador exige dos fuentes distintas.
 PROVISION_DOMAINS: Final[tuple[str, ...]] = (
     "provisioning",
     "provisioning_cmf",
@@ -366,11 +369,18 @@ CHAPTER_SPECS: Final[tuple[ChapterSpec, ...]] = (
     # Resultados —es un resultado de negocio, no una validación del scorecard— y antes de
     # Conclusiones, que pueden referirlo. En una corrida de scorecard no aparece y la numeración se
     # reajusta sola (``build_sections`` deriva los números de los capítulos emitidos).
+    # D-CAP-1: se gatea por *any-of* sobre los tres dominios de provisiones, no por el orquestador.
+    # 🔴 Con `requires_domain="provisioning"` una corrida de UN SOLO motor —la cadena neutra
+    # `data → provisioning_internal → report`, que llega a `done` con informe— no traía este
+    # capítulo, y su provisión salía sólo en el Anexo C, entre parámetros de configuración. La causa
+    # era que el orquestador no puede existir con un motor solo: prohíbe `source_a == source_b`.
+    # Gatear por el hecho («se calcularon provisiones») en vez de por la forma («se compararon dos
+    # fuentes») cubre además el caso «sólo CMF», que tampoco tenía capítulo (D-CAP-3).
     ChapterSpec(
         id="provisions",
         title="Provisiones regulatorias",
         kind="prose",
-        requires_domain="provisioning",
+        requires_any_domain=PROVISION_DOMAINS,
     ),
     # Capítulo CONDICIONAL de IFRS 9 (SDD-16): solo se emite si la corrida calculó la pérdida
     # crediticia esperada. Misma lógica que ``provisions``: es un resultado de negocio, va tras

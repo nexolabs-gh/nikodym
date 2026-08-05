@@ -649,7 +649,14 @@ def _study_estandar_e_interno(*, pd_frame: pd.DataFrame | None = None, rule: str
     )
     config = NikodymConfig(
         provisioning_cmf=CmfProvisioningConfig(),
-        provisioning_internal=InternalProvisioningConfig(grouping="provided", group_col="grupo"),
+        # `portfolio_col` va EXPLÍCITO y no por default: desde D-JUR-8 los dos motores traen
+        # defaults distintos (`cmf_portfolio` el estándar, `portfolio` el interno), así que una
+        # institución con UNA sola columna de cartera tiene que declararla en uno de los dos.
+        # Este helper reproduce ese caso a propósito: es la fricción asumida al neutralizar el
+        # default del método interno, y `check_dataset` la señala antes de correr.
+        provisioning_internal=InternalProvisioningConfig(
+            grouping="provided", group_col="grupo", portfolio_col="cmf_portfolio"
+        ),
         provisioning=ProvisioningConfig(
             source_a="provisioning_cmf",
             source_b="provisioning_internal",

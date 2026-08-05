@@ -204,6 +204,8 @@ class ReportBuilder:
             sections=(),
             missing_sections=missing_sections,
             pipeline_params=pipeline_params,
+            # D-MON-3: la moneda sale del config del propio informe, no de un dominio del pipeline.
+            currency=(self.config.currency or ""),
         )
         return bundle.model_copy(update={"sections": self.build_sections(bundle)})
 
