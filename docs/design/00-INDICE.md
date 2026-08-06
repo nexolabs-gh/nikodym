@@ -540,6 +540,21 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `fail_on_falta_dato=True` detendría corridas que hoy funcionan, dentro de un *minor*. Salió de la
 > auditoría adversarial previa a `1.11.0`.
 >
+> **La severidad del método interno se puede MODELAR (2026-08-06, BORRADOR).**
+> [`_ENMIENDA-LGD-MODELADA.md`](_ENMIENDA-LGD-MODELADA.md), D-LGD-1…D-LGD-13. Es **P4**, y su premisa
+> heredada se corrigió al medirla: 🔴 **no hay cambio de DAG** —`LgdEngine` se llama hoy con
+> `("data","frame")`, que es el artefacto que `provisioning_internal` ya exige, y `covariate_cols`
+> está documentado en el propio código como columnas **crudas**, no WoE—; y el puente `float64` →
+> `Decimal` **ya existe y está en producción**, porque la PD lo cruza por `_decimal_or_none`. 🔴 Lo
+> caro que nadie había medido es la **identidad**: añadir campos a `InternalLgdConfig` mueve F3 y F5,
+> y `857b06ee` está impreso dentro de la demo publicada sin ningún gate que los cruce. Por eso la LGD
+> pasa a ser una **unión discriminada** —medido con la rama añadida de verdad: los cuatro presets
+> byte a byte iguales—, que además cierra estructuralmente la clase «campo en rama inactiva» para el
+> eje del método. Alcance decidido por Cami: las dos regresiones **y** `workout`, **sin covariables
+> WoE** (el WoE es supervisado contra el target de incumplimiento), y `LgdEngine` **se eleva** a
+> `provisioning/lgd.py` porque el motor neutro no puede depender del paquete de una norma contable.
+> Cierra de paso un defecto preexistente: el informe **no dice qué método de LGD se usó**.
+>
 > **El `requires` de CMF (2026-08-05, NO SE IMPLEMENTA).**
 > [`_ENMIENDA-REQUISITOS-CMF.md`](_ENMIENDA-REQUISITOS-CMF.md), D-CMF-1…D-CMF-6, diagnostica **M-3**
 > y queda **escrita sin implementación** por decisión de producto de Cami: la normativa local de

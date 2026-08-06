@@ -4,7 +4,7 @@
 o cartera: transforma la PD a base point-in-time (PIT), deriva los horizontes 12m/lifetime, estima
 LGD y EAD, asigna el Stage IFRS 9 por SICR y evalúa la ECL marginal descontada a la EIR, ponderando
 outputs por escenario. Reutiliza los motores puros de bloques previos —``vasicek_pit`` /
-``marginal_to_horizon`` (``pd_pit``), :class:`~nikodym.provisioning.ifrs9.lgd.LgdEngine`,
+``marginal_to_horizon`` (``pd_pit``), :class:`~nikodym.provisioning.lgd.LgdEngine`,
 :class:`~nikodym.provisioning.ifrs9.ead.EadEngine`,
 :class:`~nikodym.provisioning.ifrs9.staging.StagingEngine` y
 :class:`~nikodym.provisioning.ifrs9.ecl.EclEngine`— y ensambla el
@@ -43,7 +43,6 @@ from nikodym.provisioning.ifrs9.exceptions import (
     IfrsInputError,
     IfrsTermStructureError,
 )
-from nikodym.provisioning.ifrs9.lgd import LgdEngine
 from nikodym.provisioning.ifrs9.pd_pit import marginal_to_horizon, vasicek_pit
 from nikodym.provisioning.ifrs9.results import (
     IfrsEclRecord,
@@ -52,6 +51,7 @@ from nikodym.provisioning.ifrs9.results import (
     IfrsStageRecord,
 )
 from nikodym.provisioning.ifrs9.staging import StagingEngine
+from nikodym.provisioning.lgd import LgdEngine
 from nikodym.provisioning.segmentation import scheme_by_id
 
 if TYPE_CHECKING:

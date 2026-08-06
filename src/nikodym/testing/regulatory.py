@@ -28,6 +28,12 @@ REGULATORY_COVERAGE_PATHS: Final[tuple[str, ...]] = (
     "src/nikodym/core/time_units.py",
     "src/nikodym/provisioning/cmf/__init__.py",
     "src/nikodym/provisioning/ifrs9/__init__.py",
+    # D-LGD-14: el motor de LGD dejó de vivir dentro de `ifrs9` y pasó al nivel compartido, porque
+    # lo consume también el método interno. Ese movimiento no le quita cobertura —nunca estuvo en
+    # esta lista— pero le crea una obligación nueva: pasa a producir la severidad de una cifra
+    # contable cuyo paquete está entero al 100 % por la razón escrita tres líneas más abajo. Una
+    # rama del estimador sin cubrir es una provisión sin verificar, viva donde viva el archivo.
+    "src/nikodym/provisioning/lgd.py",
     # SDD-28: el método interno del B-1 entra COMPLETO al gate (no sólo su `__init__`). Es la cifra
     # contable que se compara con la del método estándar: una rama sin cubrir es una provisión sin
     # verificar.

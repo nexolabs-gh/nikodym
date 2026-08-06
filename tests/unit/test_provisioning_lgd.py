@@ -1,8 +1,8 @@
-"""Tests de ``provisioning.ifrs9.lgd``: motor LGD provided/beta/fractional/workout.
+"""Tests de ``provisioning.lgd``: motor LGD provided/beta/fractional/workout.
 
 Goldens verificables a mano (SDD-16 §11): identidad ``LGD = 1 - recovery`` (``recovery=0.6`` →
 ``LGD=0.40``), enfoque ``workout`` reproduciendo ``1 - PV/EAD`` con descuento a EIR/contractual,
-clip explícito floor/cap, y errores controlados (``IfrsLgdError``) ante columnas faltantes, valores
+clip explícito floor/cap, y errores controlados (``LgdError``) ante columnas faltantes, valores
 fuera de rango o no convergencia del ajuste de regresión. Cobertura de los guards de dependencia
 perezosa (``MissingDependencyError``).
 """
@@ -10,18 +10,20 @@ perezosa (``MissingDependencyError``).
 from __future__ import annotations
 
 import importlib
+import inspect
 import warnings
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
 
-import nikodym.provisioning.ifrs9.lgd as lgd_module
+import nikodym.provisioning.lgd as lgd_module
 from nikodym.core.exceptions import MissingDependencyError
-from nikodym.provisioning.ifrs9 import LgdEngine
+from nikodym.provisioning.exceptions import LgdError
 from nikodym.provisioning.ifrs9.config import IfrsLgdConfig
-from nikodym.provisioning.ifrs9.exceptions import IfrsLgdError
+from nikodym.provisioning.lgd import LgdEngine
 
 
 def _regression_frame() -> pd.DataFrame:
@@ -154,7 +156,7 @@ def test_workout_sin_columna_de_costo_levanta() -> None:
         }
     )
 
-    with pytest.raises(IfrsLgdError, match="recovery_cost"):
+    with pytest.raises(LgdError, match="recovery_cost"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
@@ -187,28 +189,28 @@ def test_fractional_response_con_recovery_identidad() -> None:
 def test_lgd_fuera_de_rango_levanta() -> None:
     cfg = IfrsLgdConfig(method="provided", recovery_col="recovery")
     frame = pd.DataFrame({"recovery": [1.5]})  # LGD = 1 - 1.5 = -0.5
-    with pytest.raises(IfrsLgdError, match="finita y estar en"):
+    with pytest.raises(LgdError, match="finita y estar en"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
 def test_workout_sin_columna_recovery() -> None:
     cfg = IfrsLgdConfig(method="workout", recovery_col="recovery")
     frame = pd.DataFrame({"ead": [1000.0], "recovery_time_years": [1.0]})
-    with pytest.raises(IfrsLgdError, match="La columna 'recovery'"):
+    with pytest.raises(LgdError, match="La columna 'recovery'"):
         LgdEngine.from_config(cfg).estimate(frame, eir=pd.Series([0.1]))
 
 
 def test_workout_sin_columna_ead() -> None:
     cfg = IfrsLgdConfig(method="workout", recovery_col="recovery")
     frame = pd.DataFrame({"recovery": [600.0], "recovery_time_years": [1.0]})
-    with pytest.raises(IfrsLgdError, match="La columna 'ead'"):
+    with pytest.raises(LgdError, match="La columna 'ead'"):
         LgdEngine.from_config(cfg).estimate(frame, eir=pd.Series([0.1]))
 
 
 def test_workout_sin_columna_tiempo() -> None:
     cfg = IfrsLgdConfig(method="workout", recovery_col="recovery")
     frame = pd.DataFrame({"recovery": [600.0], "ead": [1000.0]})
-    with pytest.raises(IfrsLgdError, match="recovery_time_years"):
+    with pytest.raises(LgdError, match="recovery_time_years"):
         LgdEngine.from_config(cfg).estimate(frame, eir=pd.Series([0.1]))
 
 
@@ -222,7 +224,7 @@ def test_workout_eir_ausente() -> None:
             "recovery_time_years": [1.0],
         }
     )
-    with pytest.raises(IfrsLgdError, match="requiere la serie eir"):
+    with pytest.raises(LgdError, match="requiere la serie eir"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
@@ -236,7 +238,7 @@ def test_workout_eir_longitud_no_alinea() -> None:
             "recovery_time_years": [1.0, 1.0],
         }
     )
-    with pytest.raises(IfrsLgdError, match="alinear su longitud"):
+    with pytest.raises(LgdError, match="alinear su longitud"):
         LgdEngine.from_config(cfg).estimate(frame, eir=pd.Series([0.1]))
 
 
@@ -251,7 +253,7 @@ def test_workout_ead_no_positiva() -> None:
             "contractual_rate": [0.05],
         }
     )
-    with pytest.raises(IfrsLgdError, match="EAD estrictamente positiva"):
+    with pytest.raises(LgdError, match="EAD estrictamente positiva"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
@@ -266,7 +268,7 @@ def test_workout_tiempo_negativo() -> None:
             "contractual_rate": [0.05],
         }
     )
-    with pytest.raises(IfrsLgdError, match="tiempo de recupero no negativo"):
+    with pytest.raises(LgdError, match="tiempo de recupero no negativo"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
@@ -281,21 +283,21 @@ def test_workout_tasa_menor_o_igual_menos_uno() -> None:
             "contractual_rate": [-1.5],
         }
     )
-    with pytest.raises(IfrsLgdError, match="mayor que -1"):
+    with pytest.raises(LgdError, match="mayor que -1"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
 def test_columna_no_numerica() -> None:
     cfg = IfrsLgdConfig(method="provided")
     frame = pd.DataFrame({"lgd": ["a", "b"]})
-    with pytest.raises(IfrsLgdError, match="debe ser numérico"):
+    with pytest.raises(LgdError, match="debe ser numérico"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
 def test_columna_no_finita() -> None:
     cfg = IfrsLgdConfig(method="provided")
     frame = pd.DataFrame({"lgd": [0.3, np.inf]})
-    with pytest.raises(IfrsLgdError, match="valores finitos"):
+    with pytest.raises(LgdError, match="valores finitos"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
@@ -305,14 +307,14 @@ def test_columna_no_finita() -> None:
 def test_beta_target_fuera_de_0_1() -> None:
     cfg = IfrsLgdConfig(method="beta_regression", covariate_cols=("x",))
     frame = pd.DataFrame({"x": [0.1, 0.2, 0.3], "lgd": [0.0, 0.5, 0.9]})  # 0.0 ∉ (0,1)
-    with pytest.raises(IfrsLgdError, match=r"\(0, 1\)"):
+    with pytest.raises(LgdError, match=r"\(0, 1\)"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
 def test_fractional_target_fuera_de_0_1() -> None:
     cfg = IfrsLgdConfig(method="fractional_response", covariate_cols=("x",))
     frame = pd.DataFrame({"x": [0.1, 0.2, 0.3], "lgd": [0.3, 0.5, 1.5]})  # 1.5 > 1
-    with pytest.raises(IfrsLgdError, match=r"\[0, 1\]"):
+    with pytest.raises(LgdError, match=r"\[0, 1\]"):
         LgdEngine.from_config(cfg).estimate(frame)
 
 
@@ -328,7 +330,7 @@ def test_beta_ajuste_falla_error_controlado(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(lgd_module, "_import_beta_model", lambda: _FakeBetaFail)
     cfg = IfrsLgdConfig(method="beta_regression", covariate_cols=("x",))
-    with pytest.raises(IfrsLgdError, match="no convergió o falló"):
+    with pytest.raises(LgdError, match="no convergió o falló"):
         LgdEngine.from_config(cfg).estimate(_regression_frame())
 
 
@@ -357,7 +359,7 @@ def test_fractional_ajuste_no_converge_error_controlado(
 
     monkeypatch.setattr(lgd_module, "_import_statsmodels", lambda: _FakeSm())
     cfg = IfrsLgdConfig(method="fractional_response", covariate_cols=("x",))
-    with pytest.raises(IfrsLgdError, match="no convergió o falló"):
+    with pytest.raises(LgdError, match="no convergió o falló"):
         LgdEngine.from_config(cfg).estimate(_regression_frame())
 
 
@@ -402,3 +404,41 @@ def test_estimate_beta_model_ausente(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = IfrsLgdConfig(method="beta_regression", covariate_cols=("x",))
     with pytest.raises(MissingDependencyError, match="statsmodels"):
         LgdEngine.from_config(cfg).estimate(_regression_frame())
+
+
+# ─────────────────── D-LGD-2: el motor vive en el nivel compartido ───────────────────
+
+
+def test_el_motor_no_vive_dentro_de_ifrs9() -> None:
+    """El motor de LGD no puede colgar del paquete de una norma contable concreta.
+
+    Lo consumen los dos motores de provisiones, y uno de ellos —el método interno— es
+    jurisdiccional y contablemente **neutro**: hacerle importar ``provisioning.ifrs9`` para estimar
+    una severidad sería el acoplamiento equivocado, y el que ``internal/config.py`` descarta por
+    escrito en su propio docstring.
+    """
+    assert LgdEngine.__module__ == "nikodym.provisioning.lgd"
+    assert LgdError.__module__ == "nikodym.provisioning.exceptions"
+    # El motor movido no puede arrastrar de vuelta el paquete que acaba de dejar.
+    fuente = Path(inspect.getfile(lgd_module)).read_text(encoding="utf-8")
+    runtime = [
+        linea
+        for linea in fuente.splitlines()
+        if linea.startswith(("import ", "from ")) and "ifrs9" in linea
+    ]
+    assert runtime == [], f"imports de ifrs9 en top-level del motor compartido: {runtime}"
+
+
+def test_el_reexport_de_ifrs9_es_el_mismo_objeto() -> None:
+    """``from nikodym.provisioning.ifrs9 import LgdEngine`` seguía existiendo: no se rompe.
+
+    Un re-export que devolviera otra clase pasaría un ``import`` y fallaría en el primer
+    ``isinstance``; y un ``IfrsLgdError`` que no fuera el mismo objeto dejaría en verde un
+    ``pytest.raises`` que ya no atrapa lo que el motor levanta.
+    """
+    import nikodym.provisioning.ifrs9 as ifrs9_pkg
+    from nikodym.provisioning.ifrs9.exceptions import IfrsLgdError
+
+    assert ifrs9_pkg.LgdEngine is LgdEngine
+    assert IfrsLgdError is LgdError
+    assert "LgdEngine" in ifrs9_pkg.__all__

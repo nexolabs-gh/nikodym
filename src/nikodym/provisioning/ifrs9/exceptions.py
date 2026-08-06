@@ -9,6 +9,7 @@ observado cuando aplique.
 """
 
 from nikodym.core.exceptions import ConfigError, NikodymError
+from nikodym.provisioning.exceptions import LgdError
 
 __all__ = [
     "IfrsConfigError",
@@ -43,8 +44,18 @@ class IfrsPdError(IfrsProvisioningError):
     """Error al transformar la PD a base PIT/lifetime (Vasicek, horizontes 12m/lifetime)."""
 
 
-class IfrsLgdError(IfrsProvisioningError):
-    """Error al estimar la LGD por cualquiera de los enfoques soportados."""
+#: Alias de :class:`~nikodym.provisioning.exceptions.LgdError` (D-LGD-2).
+#:
+#: El motor de LGD se elevó al nivel compartido de ``provisioning`` porque lo consumen los dos
+#: motores de provisiones, así que su excepción también subió y ``IfrsLgdError`` pasa a ser el
+#: mismo objeto. Se conserva el nombre para no romper los imports existentes.
+#:
+#: ⚠️ Cambio de contrato, y va con su nota en el CHANGELOG: **deja de descender de
+#: ``IfrsProvisioningError``**. Medido antes de decidirlo: ningún ``except`` de ``src/`` captura esa
+#: base, y la única invariante aseverada sobre ella —``issubclass(..., NikodymError)``,
+#: ``test_ifrs9_config.py:627``— se sigue cumpliendo. El motor IFRS 9 es experimental, fuera de la
+#: garantía SemVer 1.x.
+IfrsLgdError = LgdError
 
 
 class IfrsEadError(IfrsProvisioningError):

@@ -52,6 +52,8 @@ _EXPECTED_REGULATORY_PATHS = (
     "src/nikodym/core/time_units.py",
     "src/nikodym/provisioning/cmf/__init__.py",
     "src/nikodym/provisioning/ifrs9/__init__.py",
+    # D-LGD-14: el motor de LGD compartido produce la severidad de una cifra contable.
+    "src/nikodym/provisioning/lgd.py",
     # SDD-28: el método interno del B-1 entra COMPLETO al gate (no sólo su `__init__`).
     "src/nikodym/provisioning/internal/__init__.py",
     "src/nikodym/provisioning/internal/config.py",
@@ -66,6 +68,7 @@ _EXPECTED_REGULATORY_INCLUDE_ARG = (
     "*/nikodym/core/time_units.py,"
     "*/nikodym/provisioning/cmf/__init__.py,"
     "*/nikodym/provisioning/ifrs9/__init__.py,"
+    "*/nikodym/provisioning/lgd.py,"
     "*/nikodym/provisioning/internal/__init__.py,"
     "*/nikodym/provisioning/internal/config.py,"
     "*/nikodym/provisioning/internal/engine.py,"

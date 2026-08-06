@@ -37,7 +37,6 @@ from nikodym.provisioning.ifrs9.exceptions import (
     IfrsStagingError,
     IfrsTermStructureError,
 )
-from nikodym.provisioning.ifrs9.lgd import LgdEngine
 from nikodym.provisioning.ifrs9.pd_pit import marginal_to_horizon, vasicek_pit
 from nikodym.provisioning.ifrs9.results import (
     IfrsEclRecord,
@@ -51,6 +50,10 @@ from nikodym.provisioning.ifrs9.step import (
     IFRS9_PROVISIONING_ARTIFACTS,
     IfrsProvisioningStep,
 )
+
+# D-LGD-2: el motor de LGD vive en el nivel compartido; se re-exporta aquí para no romper los
+# imports que ya existían (`from nikodym.provisioning.ifrs9 import LgdEngine`).
+from nikodym.provisioning.lgd import LgdEngine
 
 # Registra la clase real del sub-config provisioning_ifrs9 en el hook de `core`.
 _schema._PROVISIONING_IFRS9_CONFIG_CLS = IfrsProvisioningConfig

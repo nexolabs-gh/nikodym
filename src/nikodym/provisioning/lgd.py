@@ -15,13 +15,18 @@ respetando la distribución bimodal de la LGD (ESPEC §5.5): **nunca OLS plano**
 
 Contrato transversal (SDD-16 §6/§8): la salida se acota con ``lgd_floor``/``lgd_cap`` (clip
 explícito y auditado, dentro de ``[0, 1]``); si un valor estimado cae fuera de ``[0, 1]`` (o no es
-finito) se levanta :class:`~nikodym.provisioning.ifrs9.exceptions.IfrsLgdError` en vez de clipar en
+finito) se levanta :class:`~nikodym.provisioning.exceptions.LgdError` en vez de clipar en
 silencio, y ``-0.0`` se normaliza a ``0.0``. El motor no muta el ``frame`` (solo lee columnas y
 construye una salida nueva alineada por índice).
 
 ``pandas``/``numpy``/``statsmodels`` se importan de forma perezosa dentro de los métodos (extra
-``scoring``): ni ``import nikodym.core`` ni ``import nikodym.provisioning.ifrs9`` deben arrastrar
-esas dependencias pesadas en top-level.
+``scoring``): ni ``import nikodym.core`` ni ``import nikodym.provisioning`` deben arrastrar esas
+dependencias pesadas en top-level.
+
+**Vive en el nivel compartido de ``provisioning`` (D-LGD-2)**, no dentro de ``ifrs9``: lo usan el
+motor contable IFRS 9 y el método interno, que es jurisdiccionalmente neutro y no puede depender
+del paquete de una norma contable concreta. ``nikodym.provisioning.ifrs9`` lo re-exporta para no
+romper los imports que ya existían.
 
 **Columnas convencionales del enfoque workout.** ``IfrsLgdConfig`` (fijado en B16.1) parametriza
 solo ``recovery_col`` y ``workout_discount``; el resto de insumos workout se leen del ``frame`` por
@@ -40,7 +45,7 @@ import warnings
 from typing import TYPE_CHECKING, Any, Self, TypeAlias, cast
 
 from nikodym.core.exceptions import MissingDependencyError
-from nikodym.provisioning.ifrs9.exceptions import IfrsLgdError
+from nikodym.provisioning.exceptions import LgdError
 
 if TYPE_CHECKING:
     import numpy as np
@@ -105,7 +110,7 @@ class LgdEngine:
 
         Raises
         ------
-        IfrsLgdError
+        LgdError
             Si falta una columna requerida, un insumo no es finito/numérico, el enfoque workout no
             recibe la EIR o la LGD estimada cae fuera de ``[0, 1]``.
         MissingDependencyError
@@ -143,7 +148,7 @@ class LgdEngine:
             # CRP-5: asumir cero aquí subestimaba la LGD sin avisar —con EAD 100 y recuperación 50,
             # 0.50 en vez de 0.70— y era asimétrico con `recovery_time_years`, que sí levanta. Un
             # insumo ausente del enfoque no se inventa: se rechaza en la entrada.
-            raise IfrsLgdError(
+            raise LgdError(
                 f"El enfoque LGD 'workout' exige la columna '{_WORKOUT_COST_COLUMN}' en el frame. "
                 "Si la institución no incurre en costos de recuperación, declárela con ceros "
                 "explícitos; el motor no asume el valor."
@@ -151,15 +156,15 @@ class LgdEngine:
         cost = _column(frame, _WORKOUT_COST_COLUMN, numpy)
         rate = self._workout_rate(frame, eir, numpy)
         if bool(numpy.any(rate <= -1.0)):
-            raise IfrsLgdError(
+            raise LgdError(
                 "El enfoque LGD 'workout' exige una tasa de descuento mayor que -1 por fila."
             )
         if bool(numpy.any(ead <= 0.0)):
-            raise IfrsLgdError(
+            raise LgdError(
                 "El enfoque LGD 'workout' exige una EAD estrictamente positiva por fila."
             )
         if bool(numpy.any(time_years < 0.0)):
-            raise IfrsLgdError(
+            raise LgdError(
                 "El enfoque LGD 'workout' exige un tiempo de recupero no negativo por fila."
             )
         discount = numpy.power(1.0 + rate, time_years)
@@ -170,7 +175,7 @@ class LgdEngine:
         """Resuelve la tasa de descuento workout: EIR de la serie o columna contractual."""
         if self._config.workout_discount == "eir":
             if eir is None:
-                raise IfrsLgdError(
+                raise LgdError(
                     "El enfoque LGD 'workout' con descuento 'eir' requiere la serie eir."
                 )
             return _series_to_array(eir, frame, numpy, name="eir")
@@ -197,9 +202,9 @@ class LgdEngine:
             target = _column(frame, config.lgd_col, numpy)
         if config.method == "beta_regression":
             if bool(numpy.any((target <= 0.0) | (target >= 1.0))):
-                raise IfrsLgdError("beta_regression exige el objetivo LGD estrictamente en (0, 1).")
+                raise LgdError("beta_regression exige el objetivo LGD estrictamente en (0, 1).")
         elif bool(numpy.any((target < 0.0) | (target > 1.0))):
-            raise IfrsLgdError("fractional_response exige el objetivo LGD en [0, 1].")
+            raise LgdError("fractional_response exige el objetivo LGD en [0, 1].")
         return cast("NDArrayFloat", target)
 
     def _finalize(self, frame: DataFrame, raw: NDArrayFloat, numpy: Any, pandas: Any) -> DataFrame:
@@ -207,7 +212,7 @@ class LgdEngine:
         values = numpy.asarray(raw, dtype=numpy.float64)
         valid = numpy.isfinite(values) & (values >= 0.0) & (values <= 1.0)
         if not bool(numpy.all(valid)):
-            raise IfrsLgdError(
+            raise LgdError(
                 "La LGD estimada debe ser finita y estar en [0, 1]; no se clipa en silencio."
             )
         config = self._config
@@ -217,9 +222,9 @@ class LgdEngine:
 
 
 def _column(frame: DataFrame, name: str, numpy: Any) -> NDArrayFloat:
-    """Extrae una columna del ``frame`` como arreglo float64 finito, o levanta ``IfrsLgdError``."""
+    """Extrae una columna del ``frame`` como arreglo float64 finito, o levanta ``LgdError``."""
     if name not in frame.columns:
-        raise IfrsLgdError(f"La columna '{name}' requerida por el enfoque LGD no está en el frame.")
+        raise LgdError(f"La columna '{name}' requerida por el enfoque LGD no está en el frame.")
     return _to_float_array(frame[name].to_numpy(), name, numpy)
 
 
@@ -227,20 +232,20 @@ def _series_to_array(series: Series, frame: DataFrame, numpy: Any, *, name: str)
     """Convierte una serie a float64 finito y valida que alinee su longitud con el ``frame``."""
     array = _to_float_array(series.to_numpy(), name, numpy)
     if array.shape[0] != frame.shape[0]:
-        raise IfrsLgdError(
+        raise LgdError(
             f"La serie '{name}' debe alinear su longitud con el frame ({frame.shape[0]} filas)."
         )
     return array
 
 
 def _to_float_array(values: Any, name: str, numpy: Any) -> NDArrayFloat:
-    """Castea a float64 y exige valores finitos, mapeando fallos a ``IfrsLgdError``."""
+    """Castea a float64 y exige valores finitos, mapeando fallos a ``LgdError``."""
     try:
         array = numpy.asarray(values, dtype=numpy.float64)
     except (ValueError, TypeError) as exc:
-        raise IfrsLgdError(f"El campo '{name}' debe ser numérico.") from exc
+        raise LgdError(f"El campo '{name}' debe ser numérico.") from exc
     if not bool(numpy.all(numpy.isfinite(array))):
-        raise IfrsLgdError(f"El campo '{name}' debe contener sólo valores finitos.")
+        raise LgdError(f"El campo '{name}' debe contener sólo valores finitos.")
     return cast("NDArrayFloat", array)
 
 
@@ -262,7 +267,7 @@ def _fit_predict(
             warnings.simplefilter("error")
             predicted = model.fit(**fit_kwargs).predict(exog)
     except Exception as exc:
-        raise IfrsLgdError(f"El ajuste LGD '{method}' no convergió o falló: {exc}") from exc
+        raise LgdError(f"El ajuste LGD '{method}' no convergió o falló: {exc}") from exc
     return _to_float_array(numpy.asarray(predicted), "lgd_predicha", numpy)
 
 
