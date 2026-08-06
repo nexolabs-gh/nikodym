@@ -11,7 +11,50 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-05 noche, **`1.11.0` PUBLICADO tras su auditoría adversarial**)
+## Estado vigente (2026-08-06, **P4: la infraestructura de la LGD modelada, hash-neutral**)
+
+**`main` = `e63c4c7`.** ⚠️ **Los tres commits de la sesión quedaron pusheados y su CI SIN verificar**:
+confirmarlo job a job con `gh` al arrancar. Gates locales: pytest **5323 passed / 8 skipped** (base
+5316), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint del front, fixture de
+schema y bundle regenerados, **cobertura regulatoria 100 %** con la ruta nueva dentro. **PyPI sigue
+en `1.11.0` y no hay release autorizado.**
+
+✅ **La enmienda LGD MODELADA está aprobada e implementada hasta su paso 3 de 6**
+([`_ENMIENDA-LGD-MODELADA.md`](design/_ENMIENDA-LGD-MODELADA.md), D-LGD-1…15). Lo entregado es la
+**infraestructura**: el motor de LGD sale de IFRS 9 al nivel compartido con su excepción y su
+protocolo estructural, los nombres de las columnas de workout los declara el config, y la LGD del
+método interno pasa a ser una **unión discriminada**. 🔴 **Falta la capacidad**: las tres ramas
+modeladas, el informe y el copy (pasos 4-6).
+
+🔴 **Dos premisas del roadmap cayeron al medirlas, y las dos abarataron el trabajo.** (1) «Es cambio
+de DAG» **no se sostiene**: `LgdEngine` tampoco consume binning hoy —se le llama con el `frame` crudo
+de `("data","frame")`—, que es el artefacto que `provisioning_internal` **ya exige**. El DAG sólo
+haría falta para covariables WoE, y ésas **Cami las descartó**: el WoE es supervisado contra el
+target de incumplimiento, y usarlo como covariable de la severidad es un defecto de método. (2)
+«`Decimal` contra `float64`» no es un problema sino un **precedente**: la PD ya cruza esa frontera
+por `_decimal_or_none`.
+
+🔴 **Lo caro era la identidad, y la unión discriminada es lo único que la preserva.** Con clase
+plana, un campo nuevo mueve el `config_hash` de F3 y F5; `857b06ee` está impreso dentro de la demo
+publicada y **ningún gate cruza la demo con el preset vivo**. Con la unión, los cuatro presets quedan
+byte a byte. ⚠️ Corrección propia: escribí que «el CI seguiría verde» y es falso —el ancla se pone
+roja al instante—; el riesgo real es que re-anclarla es correcto y deja la demo stale en silencio.
+
+🔴 **La revisión adversarial encontró cuatro bloqueantes; los cuatro se verificaron a mano.** El más
+caro sólo se ve en pantalla: `ui_widget: "section"` sobre una unión pinta **«Sin campos.»**, porque
+en `form-engine.ts` el alias gana antes del bloque de unión discriminada. Cerrado como **regla** —un
+campo de unión no puede declarar `ui_widget`—, no como exención.
+
+🔴 **Y dos correcciones a mí mismo**: el abanico **no** debía migrar a `answer_forms` (sería
+convertir una elección metodológica en decisión obligatoria); lo que rompía era el **oráculo**, que
+se quedaba con la primera rama. Y el `find_spec` que invoqué **no existe** en `ui/jobs.py`: lo que
+resuelve el caso es que `[ui]` compone `scoring`.
+
+**Siguiente: los pasos 4-6 del §7 de la enmienda.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-05 noche, **`1.11.0` publicado tras su auditoría adversarial**)
 
 **`main` = `9f30f75`**, el commit con todo el código. ✅ **CI 16/16 confirmado job a job con `gh`**
 (run `31054363987`); no queda ningún run por verificar. 🔴 **PyPI publica `1.11.0`** (tag `v1.11.0`

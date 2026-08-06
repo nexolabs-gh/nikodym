@@ -5,7 +5,91 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-05 noche): **`1.11.0` PUBLICADO, y la auditoría que lo frenó por cuarta vez**
+> ## Lo último (2026-08-06): **P4 — la LGD del método interno se contesta ELIGIENDO UNA FORMA**
+>
+> **`main` = `e63c4c7`.** ⚠️ **Los TRES commits de la sesión quedaron pusheados y su CI SIN
+> verificar**: hay que confirmarlo job a job con `gh` al arrancar. Gates locales: pytest **5323
+> passed / 8 skipped** (base 5316), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck
+> y lint, fixture de schema y bundle regenerados, **cobertura regulatoria 100 %** ya con la ruta
+> nueva dentro. **PyPI sigue en `1.11.0` y no hay release autorizado.**
+>
+> ✅ **La enmienda LGD MODELADA está APROBADA por Cami y sus tres primeros pasos implementados**
+> ([`_ENMIENDA-LGD-MODELADA.md`](docs/design/_ENMIENDA-LGD-MODELADA.md), D-LGD-1…15). 🔴 **Falta la
+> mitad que da capacidad**: los pasos 4-6 del §7 (las tres ramas modeladas, el informe y el copy).
+> Lo entregado es la **infraestructura, hash-neutral y verificada en pantalla**.
+>
+> 🔴 **La premisa del roadmap era falsa en su parte más cara: «es cambio de DAG» NO se sostiene.**
+> El dato es cierto —el step no pide el artefacto de binning— pero la conclusión no se sigue:
+> `LgdEngine` **tampoco lo consume hoy en IFRS 9**, se le llama con el `frame` crudo de
+> `("data","frame")` (`ifrs9/engine.py:409` ← `:259` ← `ifrs9/step.py:101-105`), y
+> `provisioning_internal` **ya exige ese mismo artefacto** (`internal/step.py:199-201`). ⇒ **cero
+> cambio de DAG.** El DAG sólo haría falta para covariables WoE, que **Cami descartó**: el WoE es
+> una codificación supervisada contra el target de INCUMPLIMIENTO, y usarla como covariable de la
+> severidad —otro target, condicional a haber incumplido— es un defecto de método.
+>
+> 🔴 **Y «`Decimal` contra `float64`» tampoco era un problema: es un precedente.** La PD **ya cruza
+> esa frontera** —`_pd_by_row` sólo hace `.to_dict()` y la conversión ocurre en `_parse_rows` vía
+> `_decimal_or_none` (`internal/engine.py:288`)—. Sonda: `np.float64(0.3) → Decimal('0.3')`.
+>
+> 🔴 **Lo caro resultó ser la IDENTIDAD, y ahí mi propia alarma estaba mal calibrada.** Medido
+> añadiendo un campo de verdad: con la clase plana, el `config_hash` de F3 pasa de `857b06ee` a
+> `31980950` y el de F5 también. Escribí «el CI seguiría verde» y es **falso**:
+> `test_ui_presets.py:262` se pone rojo al instante. El riesgo real es de **segundo orden y por eso
+> peor**: re-anclar ese test es el gesto correcto cuando un default cambia, y hecho eso **nada
+> vuelve a mirar la demo** —`857b06ee` está impreso dentro de `web/src/fixtures/demo/` y ningún gate
+> cruza la demo con el preset vivo—. La unión discriminada es hash-neutral: los cuatro presets, byte
+> a byte.
+>
+> ✅ **Lo implementado, tres commits.** (1) `LgdEngine` sale de `ifrs9/lgd.py` a
+> **`provisioning/lgd.py`**: el método interno es contable y jurisdiccionalmente **neutro** y no
+> puede importar del paquete de una norma para estimar una severidad. Nace `LgdError` —hermana de
+> `ProvisioningError`, no hija— y **`IfrsLgdError` pasa a ser un ALIAS**, así que todo import previo
+> sigue vivo. ⚠️ Deja de descender de `IfrsProvisioningError`; medido antes de decidirlo: ningún
+> `except` de `src/` captura esa base. (2) Los **cuatro nombres de columna de workout** los declara
+> el config vía protocolo estructural `LgdSpec`, e `IfrsLgdConfig` los publica como **`@property`**
+> —un campo entraría al `model_dump` y movería `013e69dc`—. (3) **`InternalLgdConfig` es una unión
+> discriminada** con dos ramas idénticas a hoy.
+>
+> ✅ **D-LGD-14: `provisioning/lgd.py` entra al gate de cobertura regulatoria**, en sus **dos** sitios
+> (`testing/regulatory.py` y el espejo `test_hito0_contracts.py`). No repara una regresión —nunca
+> estuvo— sino que crea una obligación: pasa a producir la severidad de una cifra contable. Medido:
+> ya estaba al 100 %, así que entrar salió gratis.
+>
+> 🔴 **La revisión adversarial encontró CUATRO bloqueantes y los cuatro se verificaron a mano.** El
+> más caro sólo se ve en pantalla: el campo `lgd` declaraba **`ui_widget: "section"`**, y en
+> `form-engine.ts` el alias gana en `:507` **antes** del bloque de unión discriminada de `:515`, así
+> que `section → group` sobre una unión no encuentra `properties` y pinta **«Sin campos.»**. El
+> precedente vivo, `PartitionConfig.strategy`, declara `ui_help` y **ningún** `ui_widget`. Cerrado
+> como **REGLA** en `test_ui_metadata_en_cada_campo` —un campo de unión no puede declarar
+> `ui_widget`—, no como exención: la próxima unión queda cubierta sola.
+>
+> 🔴 **Y DOS correcciones a mí mismo que la ejecución impuso.** (a) Escribí que el abanico debía
+> migrar a `answer_forms`: **falso**, eso convertiría una elección metodológica en decisión
+> obligatoria, justo lo que `abanico_de` advierte por escrito. El front lee `valueAtPath` y no se
+> entera; lo único que rompía era **el oráculo del gate**, que se quedaba con **la primera rama**.
+> (b) Inventé un mecanismo: dije que el estado de la opción se computa con `find_spec`. `find_spec`
+> aparece **una vez en todo `src/nikodym`** y **cero** en `ui/jobs.py`. Lo que resuelve el caso sin
+> mecanismo nuevo es la **composición de extras**: `[ui]` compone `scoring`, que trae statsmodels.
+>
+> 🔴 **Un gate bien escrito te corrige a ti, otra vez.** Generalizar el oráculo a uniones destapó que
+> **`data.partition.strategy.type` era invisible para ese gate POR CONSTRUCCIÓN**, no por criterio.
+> Va exento con su razón: es decisión obligatoria, fuera del abanico por D-ABA-3.
+>
+> ⚠️ **`DESCRIPTORES_TOTALES` 1042 → 1043, y el +1 esconde un intercambio de 8 por 9**: van
+> **enumeradas** en el golden, no ajustadas. `sections.provisioning_internal.lgd` pasa a descriptor
+> sin hijos y las hojas viven en `$defs`, igual que la partición. Un número que sólo sube puede
+> tragarse una pérdida.
+>
+> ⚠️ **Trampa reincidente, vuelta a pagar:** `git checkout -- <archivo>` restaura desde el **ÍNDICE**,
+> y un `git mv` deja ahí el contenido **pre-edición** — revertir un control negativo así borró en
+> silencio el renombrado de una excepción. Y **la UI local rechaza `localhost` a propósito** (puede
+> resolver a ::1): se entra por `127.0.0.1`, o son 403 en todo.
+>
+> **Siguiente: los pasos 4-6 del §7 de la enmienda.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-05 noche): **`1.11.0` PUBLICADO, y la auditoría que lo frenó por cuarta vez**
 >
 > **`main` = `9f30f75`**, el commit con todo el código. ✅ **CI 16/16 confirmado job a job con `gh`**
 > (run `31054363987`); no queda ningún run por verificar. 🔴 **PyPI publica `1.11.0`** (tag
