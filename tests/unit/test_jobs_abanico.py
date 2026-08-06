@@ -68,19 +68,50 @@ def _es_multiple(anotacion: Any) -> bool:
     return False
 
 
-def _campo_del_path(path: str) -> Any:
-    """El ``FieldInfo`` que el motor declara en ese path, bajando por los submodelos."""
+def _submodelos(anotacion: Any) -> list[type[BaseModel]]:
+    """Todos los submodelos que un campo puede tomar, no sólo el primero.
+
+    🔴 La versión anterior se quedaba con **la primera** rama (`next(...)`), y eso la volvía ciega
+    a cualquier punto de elección con forma de unión discriminada: el oráculo veía un único
+    `Literal` de un solo valor donde el motor acepta varios, así que el gate ponía en rojo un
+    catálogo correcto — y, peor, `_puntos_del_motor` dejaba de ver el path entero, porque exige
+    `len(valores) > 1`. Un oráculo que sólo mira una rama no mide el motor: mide una de sus formas.
+    """
+    return [
+        c
+        for c in (anotacion, *get_args(anotacion))
+        if isinstance(c, type) and issubclass(c, BaseModel)
+    ]
+
+
+def _campos_del_path(path: str) -> list[Any]:
+    """Los ``FieldInfo`` que el motor declara en ese path: uno por rama cuando hay unión."""
     seccion, *resto = path.split(".")
-    cls = cargar_configs_de_dominio()[seccion]
+    clases: list[type[BaseModel]] = [cargar_configs_de_dominio()[seccion]]
     for nombre in resto[:-1]:
-        anotacion = cls.model_fields[nombre].annotation
-        candidatas = [anotacion, *get_args(anotacion)]
-        siguiente = next(
-            (c for c in candidatas if isinstance(c, type) and issubclass(c, BaseModel)), None
-        )
-        assert siguiente is not None, f"{path}: {nombre} no baja a un submodelo"
-        cls = siguiente
-    return cls.model_fields[resto[-1]]
+        siguientes: list[type[BaseModel]] = []
+        for cls in clases:
+            siguientes.extend(_submodelos(cls.model_fields[nombre].annotation))
+        assert siguientes, f"{path}: {nombre} no baja a un submodelo"
+        clases = siguientes
+    campos = [cls.model_fields[resto[-1]] for cls in clases if resto[-1] in cls.model_fields]
+    assert campos, f"{path}: ninguna rama declara {resto[-1]!r}"
+    return campos
+
+
+def _campo_del_path(path: str) -> Any:
+    """El ``FieldInfo`` de la primera rama; sirve para leer forma (``_es_multiple``), no dominio."""
+    return _campos_del_path(path)[0]
+
+
+def _valores_del_motor(path: str) -> set[str]:
+    """Todos los valores que el motor acepta en ese path, UNIENDO las ramas de una unión.
+
+    Con `provisioning_internal.lgd.method` la unión tiene una rama por método y cada una declara un
+    `Literal` de UN valor: el dominio real es la unión de todos, que es exactamente lo que el
+    usuario puede elegir y lo que el catálogo debe ofrecer.
+    """
+    return {valor for campo in _campos_del_path(path) for valor in _literales(campo.annotation)}
 
 
 def _puntos_del_motor() -> dict[str, list[str]]:
@@ -92,25 +123,32 @@ def _puntos_del_motor() -> dict[str, list[str]]:
     clases = cargar_configs_de_dominio()
     encontrados: dict[str, list[str]] = {}
 
-    def recorre(cls: type[BaseModel], prefijo: str, profundidad: int = 0) -> None:
+    def recorre(grupo: list[type[BaseModel]], prefijo: str, profundidad: int = 0) -> None:
+        # 🔴 Recorre un GRUPO de clases y no una sola: cuando un campo es una unión discriminada,
+        # cada rama declara su `method` como un `Literal` de UN valor, y mirándolas por separado el
+        # dominio real —la unión— no aparece nunca. El path se perdía entero de este oráculo,
+        # justo el que existe para que el catálogo no pueda quedarse a medias en silencio.
         if profundidad > 4:
             return
-        for nombre, info in cls.model_fields.items():
-            ruta = f"{prefijo}{info.alias or nombre}"
-            valores = _literales(info.annotation)
+        nombres = {nombre for cls in grupo for nombre in cls.model_fields}
+        for nombre in nombres:
+            infos = [cls.model_fields[nombre] for cls in grupo if nombre in cls.model_fields]
+            ruta = f"{prefijo}{infos[0].alias or nombre}"
+            valores = sorted({v for info in infos for v in _literales(info.annotation)})
             if len(valores) > 1:
                 encontrados[ruta] = valores
-            for candidata in (info.annotation, *get_args(info.annotation)):
-                if (
-                    isinstance(candidata, type)
-                    and issubclass(candidata, BaseModel)
-                    and candidata is not cls
-                ):
-                    recorre(candidata, f"{ruta}.", profundidad + 1)
+            hijas = [
+                candidata
+                for info in infos
+                for candidata in _submodelos(info.annotation)
+                if candidata not in grupo
+            ]
+            if hijas:
+                recorre(hijas, f"{ruta}.", profundidad + 1)
 
     for seccion in _SECCIONES_DEL_CATALOGO:
         if seccion in clases:
-            recorre(clases[seccion], f"{seccion}.")
+            recorre([clases[seccion]], f"{seccion}.")
     return encontrados
 
 
@@ -123,6 +161,14 @@ _SECCIONES_DEL_CATALOGO: frozenset[str] = frozenset(
 #: Mismo patrón que las exenciones del preflight, y por la misma razón: una lista corta sin
 #: explicación se lee como cobertura total. El gate exige además que ninguna exención sobre.
 _EXENTOS: dict[str, str] = {
+    "data.partition.strategy.type": (
+        "no es abanico sino DECISIÓN OBLIGATORIA, y la separación es deliberada (D-ABA-3): no "
+        "tiene default, el config no construye sin ella, y ya tiene su superficie propia con "
+        "formas de respuesta en `_DECISIONES_POR_SECCION`. Duplicarla aquí llenaría la tarjeta "
+        "de decisiones de cosas que el motor sí sabe rellenar, y si todo es una decisión "
+        "ninguna lo es. ⚠️ Apareció al enseñarle uniones a este oráculo (D-LGD-1-bis): antes "
+        "era invisible por construcción, no por criterio"
+    ),
     "data.schema.columns.dtype": (
         "declara de qué tipo es una columna DEL ARCHIVO del usuario, no cómo se calcula nada"
     ),
@@ -157,7 +203,7 @@ def _abanico() -> dict[str, dict[str, Any]]:
 def test_las_opciones_declaradas_son_exactamente_las_del_motor() -> None:
     """Una opción que el motor no acepta escribiría un config que rechaza al validar."""
     for path, eleccion in _abanico().items():
-        del_motor = set(_literales(_campo_del_path(path).annotation))
+        del_motor = _valores_del_motor(path)
         del_catalogo = {opcion["value"] for opcion in eleccion["options"]}
 
         assert del_motor, f"{path}: el motor no declara opciones ahí; ¿cambió el campo?"

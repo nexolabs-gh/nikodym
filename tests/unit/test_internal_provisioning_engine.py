@@ -19,7 +19,11 @@ import pytest
 import nikodym.provisioning.internal.engine as engine_module
 from nikodym.core.audit import InMemoryAuditSink
 from nikodym.core.exceptions import MissingDependencyError
-from nikodym.provisioning.internal.config import InternalLgdConfig, InternalProvisioningConfig
+from nikodym.provisioning.internal.config import (
+    InternalLgdGroupHistorical,
+    InternalLgdProvided,
+    InternalProvisioningConfig,
+)
 from nikodym.provisioning.internal.engine import InternalProvisioningEngine
 from nikodym.provisioning.internal.exceptions import (
     InternalCalculationError,
@@ -406,7 +410,7 @@ def test_lgd_group_historical_usa_la_media_simple_del_grupo() -> None:
     Grupo A: LGD 0,50 / 0,50 / 0,40 / 0,60 → media simple = 2,00/4 = 0,50 (la ponderada era 0,525).
       Provisión(A) = 8.000.000 · 0,0225 · 0,50 = 90.000,00  (vs 94.500,00 con la ponderada).
     """
-    result = _calculate(_cfg(lgd=InternalLgdConfig(method="group_historical")))
+    result = _calculate(_cfg(lgd=InternalLgdGroupHistorical()))
     groups = _groups_by_id(result)
 
     assert groups["A"]["lgd_group"] == Decimal("0.50")
@@ -419,7 +423,7 @@ def test_lgd_group_historical_usa_la_media_simple_del_grupo() -> None:
 
 def test_piso_y_techo_de_lgd_se_aplican_tras_validar() -> None:
     """El piso/techo explícito se aplica sobre una LGD ya validada; nunca rescata un valor fuera."""
-    result = _calculate(_cfg(lgd=InternalLgdConfig(lgd_floor=0.55, lgd_cap=0.58)))
+    result = _calculate(_cfg(lgd=InternalLgdProvided(lgd_floor=0.55, lgd_cap=0.58)))
 
     assert result.detail.loc["op01", "lgd"] == Decimal("0.55")  # 0,50 → piso
     assert result.detail.loc["op04", "lgd"] == Decimal("0.58")  # 0,60 → techo

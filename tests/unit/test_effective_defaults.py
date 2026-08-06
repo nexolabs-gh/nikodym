@@ -84,7 +84,25 @@ HOJAS_DEL_FORMULARIO = 396
 #: `sections.report.xlsx.fail_if_unavailable`), con **cero pérdidas y cero valores alterados** en
 #: los 1039 anteriores. 1041 → 1042 el 2026-08-05 con ``report.currency`` (D-MON-1): **un** nodo
 #: nuevo, ``sections.report.currency``, sin gemelo en ``$defs`` porque ``report`` es clase raíz.
-DESCRIPTORES_TOTALES = 1042
+#:
+#: 1042 → 1043 el 2026-08-06 con D-LGD-1, la unión discriminada de ``provisioning_internal.lgd``.
+#: 🔴 **El neto es +1 y esconde un intercambio de 8 por 9**, así que aquí van enumeradas: un golden
+#: que sólo suba de número puede tragarse una pérdida en silencio, y este cambio no añade campos
+#: —reorganiza los mismos cuatro—. Medido con la baseline tomada del árbol en ``HEAD``:
+#:
+#: DESAPARECEN (8): ``$defs.provisioning_internal__InternalLgdConfig.{method,lgd_col,lgd_floor,
+#: lgd_cap}`` y ``sections.provisioning_internal.lgd.{method,lgd_col,lgd_floor,lgd_cap}``.
+#: APARECEN (9): los mismos cuatro campos **por rama**, en
+#: ``$defs.provisioning_internal__InternalLgdProvided.*`` y
+#: ``$defs.provisioning_internal__InternalLgdGroupHistorical.*``, más
+#: ``sections.provisioning_internal.lgd``, que pasa a ser **descriptor sin hijos**.
+#:
+#: ⚠️ Ese último es el cambio con consecuencia: la coordenada ``sections`` deja de publicar las
+#: cuatro hojas y ahora viven sólo en ``$defs``. Es exactamente lo que ya hace
+#: ``data.partition.strategy``, el precedente vivo, porque ``_submodelo_directo`` devuelve ``None``
+#: ante una unión multi-rama y ``_mapa_de_modelo`` la publica entonces como descriptor. Cero
+#: pérdidas de campo y cero valores alterados en los 1042 anteriores.
+DESCRIPTORES_TOTALES = 1043
 
 
 #: Las 14 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de

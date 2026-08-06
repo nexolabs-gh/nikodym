@@ -6,14 +6,17 @@ es una mentira del config: ambas cosas se validan aquí (SDD-28 §5.1).
 
 from __future__ import annotations
 
+from typing import Annotated, get_args, get_origin
+
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from nikodym.core.config import NikodymConfig
 from nikodym.core.config.hashing import INFRA_SECTIONS
 from nikodym.provisioning.internal import (
     InternalConfigError,
-    InternalLgdConfig,
+    InternalLgdGroupHistorical,
+    InternalLgdProvided,
     InternalProvisioningConfig,
 )
 
@@ -36,9 +39,7 @@ def test_defaults_del_metodo_interno() -> None:
     assert cfg.loss_rate_col is None
     assert cfg.rounding == "currency_2dp"
     assert cfg.fail_on_falta_dato is True
-    assert cfg.lgd == InternalLgdConfig(
-        method="provided", lgd_col="lgd", lgd_floor=0.0, lgd_cap=1.0
-    )
+    assert cfg.lgd == InternalLgdProvided(lgd_col="lgd", lgd_floor=0.0, lgd_cap=1.0)
 
 
 def test_config_es_cerrado_y_frozen() -> None:
@@ -99,18 +100,36 @@ def test_n_score_bands_minimo_dos() -> None:
 
 
 def test_lgd_config_valida_columna_y_piso_techo() -> None:
-    """La LGD exige columna no vacía y ``lgd_floor <= lgd_cap``."""
-    with pytest.raises(InternalConfigError, match="lgd_col no puede estar vacío"):
-        InternalLgdConfig(lgd_col=" ")
-    with pytest.raises(InternalConfigError, match="no puede superar"):
-        InternalLgdConfig(lgd_floor=0.6, lgd_cap=0.5)
-    with pytest.raises(ValidationError):
-        InternalLgdConfig(lgd_cap=1.5)
-    with pytest.raises(ValidationError):
-        InternalLgdConfig(lgd_floor=-0.1)
+    """La LGD exige columna no vacía y ``lgd_floor <= lgd_cap``, en TODA rama de la unión.
 
-    cfg = InternalLgdConfig(method="group_historical", lgd_floor=0.1, lgd_cap=0.9)
+    Las validaciones viven en la base común (D-LGD-1), así que se comprueban sobre las dos ramas:
+    un validador que sólo cubriera la rama por defecto dejaría la otra sin red, y la forma de la
+    unión existe precisamente para que las ramas crezcan.
+    """
+    for rama in (InternalLgdProvided, InternalLgdGroupHistorical):
+        with pytest.raises(InternalConfigError, match="lgd_col no puede estar vacío"):
+            rama(lgd_col=" ")
+        with pytest.raises(InternalConfigError, match="no puede superar"):
+            rama(lgd_floor=0.6, lgd_cap=0.5)
+        with pytest.raises(ValidationError):
+            rama(lgd_cap=1.5)
+        with pytest.raises(ValidationError):
+            rama(lgd_floor=-0.1)
+
+    cfg = InternalLgdGroupHistorical(lgd_floor=0.1, lgd_cap=0.9)
     assert cfg.method == "group_historical"
+
+
+def test_la_lgd_se_contesta_eligiendo_una_forma_y_el_discriminador_manda() -> None:
+    """La sección se coacciona a la RAMA que nombra `method`, no a una clase plana (D-LGD-1)."""
+    cfg = InternalProvisioningConfig.model_validate(
+        {"lgd": {"method": "group_historical", "lgd_col": "severidad"}}
+    )
+    assert isinstance(cfg.lgd, InternalLgdGroupHistorical)
+    assert cfg.lgd.lgd_col == "severidad"
+    # Un `method` que no es rama no cae en una rama por defecto: la unión lo rechaza.
+    with pytest.raises(ValidationError):
+        InternalProvisioningConfig.model_validate({"lgd": {"method": "inexistente"}})
 
 
 def test_seccion_es_computacional_y_se_coacciona_desde_dict() -> None:
@@ -127,11 +146,44 @@ def test_seccion_es_computacional_y_se_coacciona_desde_dict() -> None:
     assert NikodymConfig(provisioning_internal=ya_validado).provisioning_internal is ya_validado
 
 
+def _es_union_de_submodelos(anotacion: object) -> bool:
+    """``True`` si el campo es una unión discriminada de submodelos (y no un simple escalar)."""
+    if get_origin(anotacion) is Annotated:
+        anotacion = get_args(anotacion)[0]
+    ramas = [
+        rama
+        for rama in get_args(anotacion)
+        if isinstance(rama, type) and issubclass(rama, BaseModel)
+    ]
+    return len(ramas) > 1
+
+
 def test_ui_metadata_en_cada_campo() -> None:
-    """Cada campo declara ``title`` y metadatos ``ui_*``: la UI es un editor del mismo config."""
+    """Cada campo declara ``title`` y metadatos ``ui_*``: la UI es un editor del mismo config.
+
+    🔴 Con UNA excepción, que este gate convierte en regla en vez de en agujero: **un campo cuyo
+    schema es una unión discriminada NO puede declarar `ui_widget`**. En `form-engine.ts` el alias
+    del campo se resuelve ANTES de mirar el discriminador, así que cualquier widget declarado gana
+    sobre el renderizador de uniones; con `section` —el que este campo traía— el mapeo cae en
+    `group`, que sobre una unión no encuentra `properties` y pinta el fieldset «Sin campos.». Es el
+    defecto que `form-engine.ts` ya documenta para `binning.variable_overrides`, y el precedente
+    vivo —`PartitionConfig.strategy`— declara `ui_help` y ningún widget.
+
+    Escrito como regla y no como lista de exentos: el día que nazca otra unión, el gate la cubre
+    sola. Y se comprueba en los DOS sentidos, para que «no declara widget» no se confunda con «no
+    declara nada».
+    """
     for name, field in InternalProvisioningConfig.model_fields.items():
         assert field.title, name
         assert field.description, name
         extra = field.json_schema_extra
         assert isinstance(extra, dict), name
-        assert {"ui_widget", "ui_group", "ui_order"} <= set(extra), name
+        assert {"ui_group", "ui_order"} <= set(extra), name
+        if _es_union_de_submodelos(field.annotation):
+            assert "ui_widget" not in extra, (
+                f"{name}: una unión discriminada no puede declarar ui_widget — el alias gana sobre "
+                "el renderizador de uniones y el formulario sale con «Sin campos.»"
+            )
+            assert extra.get("ui_help"), f"{name}: sin widget, la ayuda es lo único que orienta"
+        else:
+            assert "ui_widget" in extra, name

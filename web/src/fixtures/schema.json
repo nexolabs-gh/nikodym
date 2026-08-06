@@ -1434,7 +1434,25 @@
           "value": null
         }
       },
-      "provisioning_internal__InternalLgdConfig": {
+      "provisioning_internal__InternalLgdGroupHistorical": {
+        "lgd_cap": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "lgd_col": {
+          "has_default": true,
+          "value": "lgd"
+        },
+        "lgd_floor": {
+          "has_default": true,
+          "value": 0.0
+        },
+        "method": {
+          "has_default": true,
+          "value": "group_historical"
+        }
+      },
+      "provisioning_internal__InternalLgdProvided": {
         "lgd_cap": {
           "has_default": true,
           "value": 1.0
@@ -3868,21 +3886,12 @@
           "value": "score_band"
         },
         "lgd": {
-          "lgd_cap": {
-            "has_default": true,
-            "value": 1.0
-          },
-          "lgd_col": {
-            "has_default": true,
-            "value": "lgd"
-          },
-          "lgd_floor": {
-            "has_default": true,
-            "value": 0.0
-          },
-          "method": {
-            "has_default": true,
-            "value": "provided"
+          "has_default": true,
+          "value": {
+            "lgd_cap": 1.0,
+            "lgd_col": "lgd",
+            "lgd_floor": 0.0,
+            "method": "provided"
           }
         },
         "loss_rate_col": {
@@ -8963,9 +8972,9 @@
         "title": "IfrsStagingConfig",
         "type": "object"
       },
-      "provisioning_internal__InternalLgdConfig": {
+      "provisioning_internal__InternalLgdGroupHistorical": {
         "additionalProperties": false,
-        "description": "Configuración de la LGD (``porcentaje de pérdida dado el incumplimiento``).",
+        "description": "La severidad la trae el archivo y el grupo la resume con una media simple.",
         "properties": {
           "lgd_cap": {
             "default": 1.0,
@@ -8999,12 +9008,9 @@
             "ui_widget": "number_input"
           },
           "method": {
-            "default": "provided",
-            "description": "provided: la LGD del grupo es la media de la columna PONDERADA POR EXPOSICIÓN. group_historical: es la media SIMPLE (histórica) del grupo, aplicada a todo el grupo.",
-            "enum": [
-              "provided",
-              "group_historical"
-            ],
+            "const": "group_historical",
+            "default": "group_historical",
+            "description": "La LGD del grupo es la media SIMPLE (histórica) de la columna, y después se aplica igual a todas las operaciones del grupo.",
             "title": "Método LGD",
             "type": "string",
             "ui_group": "LGD",
@@ -9012,7 +9018,56 @@
             "ui_widget": "selectbox"
           }
         },
-        "title": "InternalLgdConfig",
+        "title": "InternalLgdGroupHistorical",
+        "type": "object"
+      },
+      "provisioning_internal__InternalLgdProvided": {
+        "additionalProperties": false,
+        "description": "La severidad la trae el archivo y el grupo la resume ponderando por exposición.",
+        "properties": {
+          "lgd_cap": {
+            "default": 1.0,
+            "description": "Techo explícito aplicado tras validar la LGD; nunca clipa un valor inválido.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Techo de LGD",
+            "type": "number",
+            "ui_group": "LGD",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "lgd_col": {
+            "default": "lgd",
+            "description": "Columna con la pérdida dado el incumplimiento observada por operación.",
+            "title": "Columna LGD",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "lgd_floor": {
+            "default": 0.0,
+            "description": "Piso explícito aplicado tras validar la LGD; nunca clipa un valor inválido.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Piso de LGD",
+            "type": "number",
+            "ui_group": "LGD",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "method": {
+            "const": "provided",
+            "default": "provided",
+            "description": "La LGD del grupo es la media de la columna PONDERADA POR EXPOSICIÓN, y en el detalle cada operación conserva la suya.",
+            "title": "Método LGD",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          }
+        },
+        "title": "InternalLgdProvided",
         "type": "object"
       },
       "report__AiNarrationConfig": {
@@ -13731,12 +13786,26 @@
                 "ui_widget": "selectbox"
               },
               "lgd": {
-                "$ref": "#/$defs/provisioning_internal__InternalLgdConfig",
                 "description": "Configuración de la pérdida dado el incumplimiento del grupo homogéneo.",
-                "title": "LGD",
+                "discriminator": {
+                  "mapping": {
+                    "group_historical": "#/$defs/InternalLgdGroupHistorical",
+                    "provided": "#/$defs/InternalLgdProvided"
+                  },
+                  "propertyName": "method"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/provisioning_internal__InternalLgdProvided"
+                  },
+                  {
+                    "$ref": "#/$defs/provisioning_internal__InternalLgdGroupHistorical"
+                  }
+                ],
+                "title": "Cómo se obtiene la LGD",
                 "ui_group": "LGD",
-                "ui_order": 1,
-                "ui_widget": "section"
+                "ui_help": "Cómo se obtiene la severidad de cada grupo homogéneo: resumiendo la que trae tu archivo, o modelándola.",
+                "ui_order": 1
               },
               "loss_rate_col": {
                 "anyOf": [

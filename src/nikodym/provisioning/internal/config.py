@@ -36,7 +36,9 @@ UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
 __all__ = [
     "InternalGroupingMethod",
     "InternalLgdConfig",
+    "InternalLgdGroupHistorical",
     "InternalLgdMethod",
+    "InternalLgdProvided",
     "InternalPdSourceDomain",
     "InternalProvisioningConfig",
     "InternalProvisioningMethod",
@@ -57,18 +59,16 @@ _ROOT_COLUMN_FIELDS: tuple[str, ...] = (
 )
 
 
-class InternalLgdConfig(NikodymBaseConfig):
-    """Configuración de la LGD (``porcentaje de pérdida dado el incumplimiento``)."""
+class _InternalLgdComun(NikodymBaseConfig):
+    """Lo que toda forma de resolver la LGD comparte: objetivo, piso y techo.
 
-    method: InternalLgdMethod = Field(
-        default="provided",
-        title="Método LGD",
-        description=(
-            "provided: la LGD del grupo es la media de la columna PONDERADA POR EXPOSICIÓN. "
-            "group_historical: es la media SIMPLE (histórica) del grupo, aplicada a todo el grupo."
-        ),
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "LGD", "ui_order": 1},
-    )
+    No es una rama: es la base de la unión discriminada (D-LGD-1). Los tres campos viven aquí y no
+    en cada rama porque ``_parse_rows`` los lee **incondicionalmente**
+    (``internal/engine.py:261,266-267``), y con ``strict = true`` mypy sólo acepta ese acceso sobre
+    una unión si **todas** sus ramas los declaran. No es una concesión al type checker: toda forma
+    de obtener una severidad tiene objetivo, piso y techo.
+    """
+
     lgd_col: str = Field(
         default="lgd",
         title="Columna LGD",
@@ -98,6 +98,55 @@ class InternalLgdConfig(NikodymBaseConfig):
                 f"lgd.lgd_floor ({self.lgd_floor}) no puede superar lgd.lgd_cap ({self.lgd_cap})."
             )
         return self
+
+
+class InternalLgdProvided(_InternalLgdComun):
+    """La severidad la trae el archivo y el grupo la resume ponderando por exposición."""
+
+    method: Literal["provided"] = Field(
+        default="provided",
+        title="Método LGD",
+        description=(
+            "La LGD del grupo es la media de la columna PONDERADA POR EXPOSICIÓN, y en el detalle "
+            "cada operación conserva la suya."
+        ),
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "LGD", "ui_order": 1},
+    )
+
+
+class InternalLgdGroupHistorical(_InternalLgdComun):
+    """La severidad la trae el archivo y el grupo la resume con una media simple."""
+
+    method: Literal["group_historical"] = Field(
+        default="group_historical",
+        title="Método LGD",
+        description=(
+            "La LGD del grupo es la media SIMPLE (histórica) de la columna, y después se aplica "
+            "igual a todas las operaciones del grupo."
+        ),
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "LGD", "ui_order": 1},
+    )
+
+
+#: La LGD del método interno se contesta ELIGIENDO UNA FORMA, no rellenando un campo (D-LGD-1).
+#:
+#: 🔴 La forma no es estética: es lo único que permite añadir formas nuevas —una severidad
+#: MODELADA, con sus covariables— **sin mover la identidad**. Medido añadiendo una rama de verdad:
+#: con una clase plana, un campo nuevo mueve el `config_hash` de F3 (857b06ee→31980950) y de F5, y
+#: el de F3 está impreso dentro de la demo publicada, sin ningún gate que cruce las dos cosas. Con
+#: la unión, los cuatro presets quedan byte a byte iguales. Mismo hecho que D-COL midió en su día
+#: para `PartitionStrategy`.
+#:
+#: ⚠️ Efecto lateral que vale por sí solo: cierra ESTRUCTURALMENTE la clase «campo declarado en una
+#: rama inactiva». Con una clase plana, las covariables de una regresión existirían —vacías y
+#: mudas— para quien eligió `provided`; aquí no existen en ese config.
+#:
+#: ⚠️ El campo que la contiene NO declara `ui_widget`, y es a propósito: ver la nota en
+#: `InternalProvisioningConfig.lgd`.
+InternalLgdConfig = Annotated[
+    InternalLgdProvided | InternalLgdGroupHistorical,
+    Field(discriminator="method"),
+]
 
 
 class InternalProvisioningConfig(NikodymBaseConfig):
@@ -224,10 +273,26 @@ class InternalProvisioningConfig(NikodymBaseConfig):
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Grupos", "ui_order": 3},
     )
     lgd: InternalLgdConfig = Field(
-        default_factory=InternalLgdConfig,
-        title="LGD",
+        default_factory=InternalLgdProvided,
+        # El título ya no rotula un grupo sino el SELECTOR de la forma, que es lo que el
+        # usuario lee: repetir «LGD» debajo del grupo «LGD» era el «Documento / Documento» que
+        # este repo ya corrigió una vez.
+        title="Cómo se obtiene la LGD",
         description="Configuración de la pérdida dado el incumplimiento del grupo homogéneo.",
-        json_schema_extra={"ui_widget": "section", "ui_group": "LGD", "ui_order": 1},
+        # 🔴 SIN `ui_widget`, y no es un olvido (D-LGD-1-bis). En `form-engine.ts` el alias
+        # del campo gana ANTES de que se mire el discriminador, y `section` mapea a `group`,
+        # que sobre una unión no encuentra `properties` y pinta el fieldset «Sin campos.» — el
+        # defecto exacto que ese archivo ya documenta para `binning.variable_overrides`. El
+        # precedente vivo de una unión en el formulario, `PartitionConfig.strategy`, declara
+        # `ui_help` y ningún widget.
+        json_schema_extra={
+            "ui_help": (
+                "Cómo se obtiene la severidad de cada grupo homogéneo: resumiendo la que trae tu "
+                "archivo, o modelándola."
+            ),
+            "ui_group": "LGD",
+            "ui_order": 1,
+        },
     )
     method: InternalProvisioningMethod = Field(
         default="pd_lgd",
