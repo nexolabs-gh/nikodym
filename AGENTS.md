@@ -13,8 +13,9 @@ Todo en **español** (docs, comentarios, comunicación). Términos técnicos en 
 
 ## Estado vigente (2026-08-06, **P4: la infraestructura de la LGD modelada, hash-neutral**)
 
-**`main` = `e63c4c7`.** ⚠️ **Los tres commits de la sesión quedaron pusheados y su CI SIN verificar**:
-confirmarlo job a job con `gh` al arrancar. Gates locales: pytest **5323 passed / 8 skipped** (base
+**`main` = `d9fe4c5`**; el código vive en `e620b30`, `43fde5f` y `e63c4c7`. ⚠️ **Los cuatro se
+pushearon juntos, así que hay UN solo run —el de `d9fe4c5`— y está SIN verificar**: confirmarlo job
+a job con `gh` al arrancar. Gates locales: pytest **5323 passed / 8 skipped** (base
 5316), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint del front, fixture de
 schema y bundle regenerados, **cobertura regulatoria 100 %** con la ruta nueva dentro. **PyPI sigue
 en `1.11.0` y no hay release autorizado.**

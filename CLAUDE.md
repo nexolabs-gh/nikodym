@@ -7,8 +7,9 @@
 >
 > ## Lo último (2026-08-06): **P4 — la LGD del método interno se contesta ELIGIENDO UNA FORMA**
 >
-> **`main` = `e63c4c7`.** ⚠️ **Los TRES commits de la sesión quedaron pusheados y su CI SIN
-> verificar**: hay que confirmarlo job a job con `gh` al arrancar. Gates locales: pytest **5323
+> **`main` = `d9fe4c5`**; el código vive en `e620b30`, `43fde5f` y `e63c4c7`. ⚠️ **Se pushearon los
+> cuatro juntos, así que hay UN solo run —el de `d9fe4c5`— y está SIN verificar**: confirmarlo job a
+> job con `gh` al arrancar. Gates locales: pytest **5323
 > passed / 8 skipped** (base 5316), vitest **640/640**, mypy 245, `ruff check` y `format`, typecheck
 > y lint, fixture de schema y bundle regenerados, **cobertura regulatoria 100 %** ya con la ruta
 > nueva dentro. **PyPI sigue en `1.11.0` y no hay release autorizado.**
