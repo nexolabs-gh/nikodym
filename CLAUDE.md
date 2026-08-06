@@ -86,7 +86,16 @@
 > silencio el renombrado de una excepción. Y **la UI local rechaza `localhost` a propósito** (puede
 > resolver a ::1): se entra por `127.0.0.1`, o son 403 en todo.
 >
-> **Siguiente: los pasos 4-6 del §7 de la enmienda.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+> 🔴 **Y un hallazgo del cierre, medido contra los sitios publicados: docs y demo llevan semanas de
+> atraso.** `docs.nikodym.cl` publica **`1.2.0`** (nueve releases atrás) y sin cuatro páginas que
+> existen en el repo —incluida `avisos-declarados.md`—; `demo.nikodym.cl` es **anterior al
+> 2026-08-01** y su subtítulo sigue diciendo **«provisiones CMF de Chile»**. O sea: **el
+> reposicionamiento está implementado y NO publicado**, y el titular que se decidió quitar sigue
+> vivo en producción. **No hay deploy automático** —sólo `ci.yml` y `release.yml`—, por eso derivó
+> sin que nada avisara. ⚠️ La doc publicada además corta antes de `1.6.0`, que trae dos cambios cuyo
+> default **detiene la corrida**.
+>
+> **Siguiente: desplegar docs (y decidir la demo), y los pasos 4-6 del §7.** Detalle en [`HANDOFF.md`](HANDOFF.md).
 >
 > ---
 >

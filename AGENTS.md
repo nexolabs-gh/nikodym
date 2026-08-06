@@ -51,7 +51,15 @@ convertir una elección metodológica en decisión obligatoria); lo que rompía 
 se quedaba con la primera rama. Y el `find_spec` que invoqué **no existe** en `ui/jobs.py`: lo que
 resuelve el caso es que `[ui]` compone `scoring`.
 
-**Siguiente: los pasos 4-6 del §7 de la enmienda.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+🔴 **Hallazgo del cierre: docs y demo llevan semanas de atraso, y no hay deploy automático.**
+`docs.nikodym.cl` publica **`1.2.0`** contra `1.11.0` en PyPI —nueve releases— y sin cuatro páginas
+del repo, incluida `avisos-declarados.md`. `demo.nikodym.cl` es **anterior al 2026-08-01** y su
+subtítulo sigue diciendo **«provisiones CMF de Chile»**: el reposicionamiento está implementado y
+**no publicado**. ⚠️ La doc publicada corta antes de `1.6.0`, que trae dos cambios cuyo default
+**detiene la corrida**.
+
+**Siguiente: desplegar docs (y decidir la demo), y los pasos 4-6 del §7 de la enmienda.** Detalle en
+[`HANDOFF.md`](HANDOFF.md).
 
 ---
 
