@@ -30,6 +30,12 @@ from pydantic import Field, model_validator
 from nikodym.core.config import NikodymBaseConfig
 from nikodym.core.dataset_check import Requisito
 from nikodym.provisioning.ifrs9.exceptions import IfrsConfigError
+from nikodym.provisioning.lgd import (
+    WORKOUT_COST_COLUMN,
+    WORKOUT_EAD_COLUMN,
+    WORKOUT_RATE_COLUMN,
+    WORKOUT_TIME_COLUMN,
+)
 
 __all__ = [
     "IfrsEadConfig",
@@ -247,6 +253,42 @@ class IfrsLgdConfig(NikodymBaseConfig):
         ),
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "LGD", "ui_order": 7},
     )
+
+    # ── Columnas del enfoque workout: PROPIEDADES, no campos (D-LGD-3) ──────────────────────────
+    #
+    # El motor dejó de leerlas por nombre fijo y ahora se las pide a su config, para que el método
+    # interno —cuya exposición es configurable— pueda declarar las suyas. IFRS 9 conserva los
+    # nombres convencionales de siempre, así que **su comportamiento no cambia en un solo caso**.
+    #
+    # 🔴 Van como `@property` y NO como campos a propósito: un campo entraría al `model_dump`, y con
+    # él al `config_hash` — medido, cuatro campos nuevos aquí moverían la identidad del preset F4
+    # (`013e69dc`), que está impresa dentro de la demo publicada. Una propiedad no serializa.
+    #
+    # ⚠️ Límite declarado y medido: `_declaraciones` (`core/dataset_check.py:576-587`) recorre
+    # `model_fields`, y una propiedad no es un campo. O sea que estas cuatro columnas **siguen sin
+    # cobertura de preflight en IFRS 9, exactamente igual que hoy**: la mejora vale sólo para la
+    # rama del método interno, que sí las declara como campos con su `column_role`. Cerrarlo aquí
+    # también exigiría convertirlas en campos, y eso movería `013e69dc`: queda fuera de alcance.
+
+    @property
+    def workout_ead_col(self) -> str:
+        """Columna de exposición del enfoque workout (convención fija en IFRS 9)."""
+        return WORKOUT_EAD_COLUMN
+
+    @property
+    def workout_cost_col(self) -> str:
+        """Columna de costos de recuperación del enfoque workout (convención fija en IFRS 9)."""
+        return WORKOUT_COST_COLUMN
+
+    @property
+    def workout_time_col(self) -> str:
+        """Columna de tiempo de recupero en años del enfoque workout (convención fija)."""
+        return WORKOUT_TIME_COLUMN
+
+    @property
+    def workout_rate_col(self) -> str:
+        """Columna de tasa contractual del enfoque workout (convención fija en IFRS 9)."""
+        return WORKOUT_RATE_COLUMN
 
     @model_validator(mode="after")
     def _check_lgd(self) -> Self:

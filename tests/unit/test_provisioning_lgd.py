@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,13 @@ import nikodym.provisioning.lgd as lgd_module
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.provisioning.exceptions import LgdError
 from nikodym.provisioning.ifrs9.config import IfrsLgdConfig
-from nikodym.provisioning.lgd import LgdEngine
+from nikodym.provisioning.lgd import (
+    WORKOUT_COST_COLUMN,
+    WORKOUT_EAD_COLUMN,
+    WORKOUT_RATE_COLUMN,
+    WORKOUT_TIME_COLUMN,
+    LgdEngine,
+)
 
 
 def _regression_frame() -> pd.DataFrame:
@@ -442,3 +449,85 @@ def test_el_reexport_de_ifrs9_es_el_mismo_objeto() -> None:
     assert ifrs9_pkg.LgdEngine is LgdEngine
     assert IfrsLgdError is LgdError
     assert "LgdEngine" in ifrs9_pkg.__all__
+
+
+# ────────── D-LGD-3: los nombres de las columnas workout los declara el config ──────────
+
+
+@dataclass(frozen=True)
+class _SpecWorkoutRenombrado:
+    """Un config que satisface ``LgdSpec`` con OTROS nombres para las cuatro columnas workout.
+
+    No es un mock de conveniencia: es el control negativo del propio D-LGD-3. Mientras el motor
+    leyera los nombres de una constante de módulo, este frame —que no tiene ni una sola columna
+    llamada ``ead``, ``recovery_cost``, ``recovery_time_years`` ni ``contractual_rate``— fallaba con
+    «La columna 'ead' … no está en el frame».
+    """
+
+    method: str = "workout"
+    lgd_col: str = "lgd"
+    recovery_col: str | None = "recupero"
+    covariate_cols: tuple[str, ...] = ()
+    workout_discount: str = "contractual"
+    lgd_floor: float = 0.0
+    lgd_cap: float = 1.0
+    workout_ead_col: str = "exposure_amount"
+    workout_cost_col: str = "costos_recupero"
+    workout_time_col: str = "anios_recupero"
+    workout_rate_col: str = "tasa_contractual"
+
+
+def test_workout_lee_los_nombres_que_declara_el_config() -> None:
+    """Con nombres propios, el motor los usa: ninguno de los cuatro convencionales existe aquí."""
+    frame = pd.DataFrame(
+        {
+            "recupero": [60.0, 80.0],
+            "exposure_amount": [100.0, 100.0],
+            "costos_recupero": [0.0, 0.0],
+            "anios_recupero": [0.0, 0.0],
+            "tasa_contractual": [0.10, 0.10],
+        }
+    )
+    spec = _SpecWorkoutRenombrado()
+    assert not {WORKOUT_EAD_COLUMN, WORKOUT_COST_COLUMN, WORKOUT_TIME_COLUMN} & set(frame.columns)
+    out = LgdEngine.from_config(spec).estimate(frame)
+    # LGD = 1 - (recupero - costos) / EAD, sin descuento porque el tiempo es cero.
+    assert out["lgd"].tolist() == [pytest.approx(0.40), pytest.approx(0.20)]
+
+
+def test_el_error_de_costos_nombra_la_columna_declarada_y_no_la_convencional() -> None:
+    """Nombrar `recovery_cost` mandaría a crear una columna que este config no pide."""
+    frame = pd.DataFrame(
+        {
+            "recupero": [60.0],
+            "exposure_amount": [100.0],
+            "anios_recupero": [0.0],
+            "tasa_contractual": [0.10],
+        }
+    )
+    with pytest.raises(LgdError, match="costos_recupero"):
+        LgdEngine.from_config(_SpecWorkoutRenombrado()).estimate(frame)
+
+
+def test_ifrs9_publica_los_nombres_convencionales_y_no_cambia_de_comportamiento() -> None:
+    """IFRS 9 conserva los cuatro nombres de siempre: D-LGD-3 no le cambia una sola corrida."""
+    cfg = IfrsLgdConfig()
+    assert cfg.workout_ead_col == WORKOUT_EAD_COLUMN == "ead"
+    assert cfg.workout_cost_col == WORKOUT_COST_COLUMN == "recovery_cost"
+    assert cfg.workout_time_col == WORKOUT_TIME_COLUMN == "recovery_time_years"
+    assert cfg.workout_rate_col == WORKOUT_RATE_COLUMN == "contractual_rate"
+
+
+def test_los_nombres_workout_de_ifrs9_no_entran_al_config_ni_a_su_identidad() -> None:
+    """Van como propiedades, no como campos, y por eso no mueven el `config_hash` del preset F4.
+
+    De ese digest cuelgan el lineage, la ficha del modelo y el ancla de idempotencia del
+    inventario — y el de F4 está impreso dentro de la demo publicada, que no se recaptura. Un campo
+    entra al `model_dump`; una propiedad no. El gate mide las dos caras.
+    """
+    campos = set(IfrsLgdConfig.model_fields)
+    propiedades = {"workout_ead_col", "workout_cost_col", "workout_time_col", "workout_rate_col"}
+    assert propiedades & campos == set(), "columnas workout como campos moverían el hash"
+    assert propiedades & set(IfrsLgdConfig().model_dump(mode="json", by_alias=True)) == set()
+    # Y siguen siendo alcanzables por el protocolo, que es de lo que vive el motor.
+    assert propiedades <= set(dir(IfrsLgdConfig()))

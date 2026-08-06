@@ -28,10 +28,11 @@ motor contable IFRS 9 y el método interno, que es jurisdiccionalmente neutro y 
 del paquete de una norma contable concreta. ``nikodym.provisioning.ifrs9`` lo re-exporta para no
 romper los imports que ya existían.
 
-**Columnas convencionales del enfoque workout.** ``IfrsLgdConfig`` (fijado en B16.1) parametriza
-solo ``recovery_col`` y ``workout_discount``; el resto de insumos workout se leen del ``frame`` por
-nombre fijo (``ead``, ``recovery_cost`` opcional, ``recovery_time_years`` y ``contractual_rate``
-cuando el descuento es contractual). El panel longitudinal económico completo se difiere por CT-3.
+**Columnas del enfoque workout (D-LGD-3).** Los cuatro nombres —exposición, costos de
+recuperación, tiempo de recupero y tasa contractual— **los declara el config**, no el motor.
+``IfrsLgdConfig`` los publica como propiedades constantes con los nombres de siempre, así que
+IFRS 9 se comporta exactamente igual; el método interno los declara como campos configurables de
+su rama workout. El panel longitudinal económico completo se difiere por CT-3.
 
 Nomenclatura IFRS 9 (regla dura D-CONV-1): ``pd``/``lgd``/``ead``.
 
@@ -42,7 +43,7 @@ from __future__ import annotations
 
 import importlib
 import warnings
-from typing import TYPE_CHECKING, Any, Self, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Protocol, Self, TypeAlias, cast
 
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.provisioning.exceptions import LgdError
@@ -50,8 +51,6 @@ from nikodym.provisioning.exceptions import LgdError
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
-
-    from nikodym.provisioning.ifrs9.config import IfrsLgdConfig
 
     NDArrayFloat: TypeAlias = np.ndarray[Any, np.dtype[np.float64]]
     DataFrame: TypeAlias = pd.DataFrame
@@ -61,14 +60,30 @@ else:
     DataFrame: TypeAlias = Any
     Series: TypeAlias = Any
 
-__all__ = ["LgdEngine"]
+__all__ = [
+    "WORKOUT_COST_COLUMN",
+    "WORKOUT_EAD_COLUMN",
+    "WORKOUT_RATE_COLUMN",
+    "WORKOUT_TIME_COLUMN",
+    "LgdEngine",
+    "LgdSpec",
+]
 
-# Columnas convencionales del enfoque workout (no parametrizadas en IfrsLgdConfig en B16.4; el panel
-# longitudinal económico se difiere por CT-3). El motor las lee del frame por nombre fijo.
-_WORKOUT_EAD_COLUMN: str = "ead"
-_WORKOUT_COST_COLUMN: str = "recovery_cost"
-_WORKOUT_TIME_COLUMN: str = "recovery_time_years"
-_WORKOUT_CONTRACTUAL_RATE_COLUMN: str = "contractual_rate"
+#: Nombres convencionales de las cuatro columnas del enfoque ``workout``.
+#:
+#: Hasta D-LGD-3 el motor las leía del frame por nombre FIJO, hardcodeado aquí. Eso dejó de servir
+#: cuando el método interno pasó a poder delegar en este motor: su exposición es configurable
+#: (``exposure_col``, default ``exposure_amount``), así que exigirle además una columna llamada
+#: literalmente ``ead`` obligaría a traer el mismo dato dos veces bajo dos nombres, que es una
+#: mentira del config esperando a ocurrir.
+#:
+#: Ahora los nombres se los pide el motor a su config (:class:`LgdSpec`). Estas constantes siguen
+#: siendo la convención —``IfrsLgdConfig`` las publica tal cual, de modo que IFRS 9 se comporta
+#: exactamente igual que antes— pero ya no son una decisión del motor.
+WORKOUT_EAD_COLUMN: str = "ead"
+WORKOUT_COST_COLUMN: str = "recovery_cost"
+WORKOUT_TIME_COLUMN: str = "recovery_time_years"
+WORKOUT_RATE_COLUMN: str = "contractual_rate"
 
 _NUMPY_MESSAGE: str = "LgdEngine requiere numpy; instale nikodym[scoring]."
 _PANDAS_MESSAGE: str = "LgdEngine requiere pandas; instale nikodym[scoring]."
@@ -78,16 +93,74 @@ _STATSMODELS_MESSAGE: str = (
 )
 
 
-class LgdEngine:
-    """Motor de estimación de la LGD IFRS 9 por los cuatro enfoques soportados (SDD-16 §3)."""
+class LgdSpec(Protocol):
+    """Lo que el motor de LGD necesita saber de su config, sin conocer de qué sección viene.
 
-    def __init__(self, config: IfrsLgdConfig) -> None:
-        """Inicializa el motor con su sub-config ``IfrsLgdConfig`` ya validado."""
+    Es un protocolo **estructural** y de sólo lectura (D-LGD-3): el motor lee estos once atributos
+    y no escribe ninguno. Lo satisfacen hoy ``IfrsLgdConfig`` —que publica los cuatro nombres de
+    workout como propiedades constantes, para comportarse exactamente igual que antes— y las ramas
+    modeladas del método interno, que los declaran como campos configurables suyos.
+
+    El motor **no** importa ninguna de las dos clases, ni siquiera bajo ``TYPE_CHECKING``: ése es
+    justamente el acoplamiento que D-LGD-2 deshizo, y un import de tipos lo reintroduciría en la
+    lectura aunque no en el runtime.
+    """
+
+    @property
+    def method(self) -> str:
+        """Enfoque: ``provided``, ``beta_regression``, ``fractional_response`` o ``workout``."""
+
+    @property
+    def lgd_col(self) -> str:
+        """Columna con la LGD observada, objetivo del ajuste en los enfoques de regresión."""
+
+    @property
+    def recovery_col(self) -> str | None:
+        """Columna con la tasa de recuperación; si viene, manda sobre ``lgd_col``."""
+
+    @property
+    def covariate_cols(self) -> tuple[str, ...]:
+        """Covariables de los enfoques de regresión: columnas del archivo, nunca variables WoE."""
+
+    @property
+    def workout_discount(self) -> str:
+        """Origen de la tasa de descuento del enfoque workout: ``eir`` o ``contractual``."""
+
+    @property
+    def lgd_floor(self) -> float:
+        """Piso explícito aplicado tras validar la LGD."""
+
+    @property
+    def lgd_cap(self) -> float:
+        """Techo explícito aplicado tras validar la LGD."""
+
+    @property
+    def workout_ead_col(self) -> str:
+        """Columna con la exposición al incumplimiento que divide el valor presente."""
+
+    @property
+    def workout_cost_col(self) -> str:
+        """Columna con los costos de recuperación; ausente NO se asume cero (CRP-5)."""
+
+    @property
+    def workout_time_col(self) -> str:
+        """Columna con el tiempo de recupero en años, exponente del descuento."""
+
+    @property
+    def workout_rate_col(self) -> str:
+        """Columna con la tasa contractual, usada cuando el descuento no es a la EIR."""
+
+
+class LgdEngine:
+    """Motor de estimación de la LGD por los cuatro enfoques soportados (SDD-16 §3)."""
+
+    def __init__(self, config: LgdSpec) -> None:
+        """Inicializa el motor con un config que satisfaga :class:`LgdSpec`, ya validado."""
         self._config = config
 
     @classmethod
-    def from_config(cls, cfg: IfrsLgdConfig) -> Self:
-        """Construye el motor LGD desde ``IfrsLgdConfig`` (molde hermano ``from_config``)."""
+    def from_config(cls, cfg: LgdSpec) -> Self:
+        """Construye el motor LGD desde su spec (molde hermano ``from_config``)."""
         return cls(cfg)
 
     def estimate(self, frame: DataFrame, *, eir: Series | None = None) -> DataFrame:
@@ -142,18 +215,19 @@ class LgdEngine:
         # IfrsLgdConfig garantiza recovery_col no-None cuando method='workout' (SDD-16 §5).
         recovery_col = cast("str", config.recovery_col)
         recovery = _column(frame, recovery_col, numpy)
-        ead = _column(frame, _WORKOUT_EAD_COLUMN, numpy)
-        time_years = _column(frame, _WORKOUT_TIME_COLUMN, numpy)
-        if _WORKOUT_COST_COLUMN not in frame.columns:
+        ead = _column(frame, config.workout_ead_col, numpy)
+        time_years = _column(frame, config.workout_time_col, numpy)
+        if config.workout_cost_col not in frame.columns:
             # CRP-5: asumir cero aquí subestimaba la LGD sin avisar —con EAD 100 y recuperación 50,
             # 0.50 en vez de 0.70— y era asimétrico con `recovery_time_years`, que sí levanta. Un
             # insumo ausente del enfoque no se inventa: se rechaza en la entrada.
             raise LgdError(
-                f"El enfoque LGD 'workout' exige la columna '{_WORKOUT_COST_COLUMN}' en el frame. "
+                f"El enfoque LGD 'workout' exige la columna "
+                f"'{config.workout_cost_col}' en el frame. "
                 "Si la institución no incurre en costos de recuperación, declárela con ceros "
                 "explícitos; el motor no asume el valor."
             )
-        cost = _column(frame, _WORKOUT_COST_COLUMN, numpy)
+        cost = _column(frame, config.workout_cost_col, numpy)
         rate = self._workout_rate(frame, eir, numpy)
         if bool(numpy.any(rate <= -1.0)):
             raise LgdError(
@@ -179,7 +253,7 @@ class LgdEngine:
                     "El enfoque LGD 'workout' con descuento 'eir' requiere la serie eir."
                 )
             return _series_to_array(eir, frame, numpy, name="eir")
-        return _column(frame, _WORKOUT_CONTRACTUAL_RATE_COLUMN, numpy)
+        return _column(frame, self._config.workout_rate_col, numpy)
 
     def _estimate_regression(self, frame: DataFrame, numpy: Any) -> NDArrayFloat:
         """Ajusta la LGD con regresión Beta o GLM fraccional y devuelve el ajuste por fila."""
