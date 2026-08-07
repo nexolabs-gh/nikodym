@@ -52,7 +52,10 @@ from nikodym.core.audit import AuditEvent
 from nikodym.core.config import NikodymBaseConfig
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.markers import INSTITUTIONAL_MARKER, is_declared_warning
-from nikodym.provisioning.internal.config import InternalProvisioningConfig
+from nikodym.provisioning.internal.config import (
+    InternalLgdModelada,
+    InternalProvisioningConfig,
+)
 from nikodym.provisioning.internal.exceptions import (
     InternalCalculationError,
     InternalInputError,
@@ -65,6 +68,7 @@ from nikodym.provisioning.internal.results import (
     InternalProvisionRecord,
     InternalProvisionResult,
 )
+from nikodym.provisioning.lgd import LgdEngine, LgdSpec
 from nikodym.provisioning.segmentation import scheme_by_id
 
 if TYPE_CHECKING:
@@ -94,6 +98,12 @@ _GRUPO_SIN_EXPOSICION = "GRUPO-SIN-EXPOSICION"
 _PD_LGD = "pd_lgd"
 _GROUP_HISTORICAL = "group_historical"
 _SCORE_BAND = "score_band"
+#: Nombre de la columna que devuelve ``LgdEngine.estimate`` (contrato de `provisioning/lgd.py`).
+_LGD_COLUMN = "lgd"
+#: Rótulo del origen de la severidad cuando la produce el modelo y no una columna del archivo.
+#: Va a los mensajes de error en el sitio donde iría un nombre de columna, para que nadie salga a
+#: buscar en su archivo una columna que el config no le pidió.
+_SEVERIDAD_MODELADA = "lgd (severidad modelada)"
 _QUANTUM_BY_POLICY: dict[str, Decimal | None] = {
     "none": None,
     "currency_2dp": Decimal("0.01"),
@@ -183,7 +193,14 @@ def _calculate(
             "El método interno exige al menos una operación: el frame de entrada está vacío."
         )
     pd_by_row = _pd_by_row(pd_frame, cfg=cfg, index=data.index, pandas=pandas)
-    rows = _parse_rows(data, cfg=cfg, pd_by_row=pd_by_row, pandas=pandas)
+    severity_by_row = _severity_by_row(data, cfg=cfg)
+    rows = _parse_rows(
+        data,
+        cfg=cfg,
+        pd_by_row=pd_by_row,
+        severity_by_row=severity_by_row,
+        pandas=pandas,
+    )
     group_ids, group_warnings = _assign_groups(rows, cfg=cfg, pandas=pandas)
     aggregates = _aggregate_groups(rows, group_ids=group_ids, cfg=cfg, warnings=group_warnings)
     records = _records(rows, aggregates=aggregates, cfg=cfg)
@@ -249,16 +266,64 @@ def _pd_by_row(
     return cast(dict[Any, Any], values)
 
 
+def _lgd_modelada(cfg: InternalProvisioningConfig) -> LgdSpec | None:
+    """Devuelve la rama de LGD si su severidad la ESTIMA el motor, y ``None`` si la lee del archivo.
+
+    El estrechamiento va por ``isinstance`` contra las tres clases concretas y no por un ``in``
+    sobre ``method``, porque es lo único que hace que mypy compruebe —rama por rama— que cada una
+    satisface :class:`~nikodym.provisioning.lgd.LgdSpec` entero. Un ``in`` sobre strings no estrecha
+    nada y dejaría el contrato sin vigilar.
+    """
+    if cfg.method != _PD_LGD:
+        # Con `direct_loss_rate` la severidad sale de `loss_rate_col` y la rama de LGD no gobierna
+        # nada: modelar aquí sería calcular un número que después nadie lee.
+        return None
+    lgd = cfg.lgd
+    if isinstance(lgd, InternalLgdModelada):
+        return lgd
+    return None
+
+
+def _severity_by_row(data: DataFrame, *, cfg: InternalProvisioningConfig) -> dict[Any, Any] | None:
+    """Estima la severidad por operación delegando en el motor compartido de LGD (D-LGD-4).
+
+    Entra por la MISMA puerta que la PD —un mapa por etiqueta de índice, hermano de ``pd_by_row``—
+    y **no muta el frame**, que es el contrato del motor de LGD.
+
+    ⚠️ La llamada va **sin ``eir=``** a propósito: el método interno no tiene concepto de tasa
+    efectiva por instrumento. Por eso ``InternalLgdWorkout.workout_discount`` es una propiedad fija
+    en ``contractual`` y no un campo: la combinación que necesitaría la EIR no se puede construir.
+
+    🔴 ``fail_on_falta_dato`` **no gobierna esto** (D-LGD-8): un hueco en el objetivo o en una
+    covariable detiene siempre, porque el motor levanta ``LgdError`` al encontrarlo. Imputar cero
+    aquí no dañaría una fila: sesgaría el ajuste y contaminaría a TODAS.
+    """
+    spec = _lgd_modelada(cfg)
+    if spec is None:
+        return None
+    estimada = LgdEngine.from_config(spec).estimate(data)
+    return cast(dict[Any, Any], cast(Any, estimada[_LGD_COLUMN]).to_dict())
+
+
 def _parse_rows(
     data: DataFrame,
     *,
     cfg: InternalProvisioningConfig,
     pd_by_row: dict[Any, Any],
+    severity_by_row: dict[Any, Any] | None,
     pandas: Any,
 ) -> list[_RowInput]:
     """Convierte cada operación a ``Decimal`` validando rangos y aplicando piso/techo de LGD."""
+    modelada = severity_by_row is not None
+    # El rótulo de la severidad sirve para dos cosas distintas: exigir la columna al archivo, y
+    # nombrar el origen en un mensaje de error. Con severidad modelada no hay columna que exigir
+    # —el objetivo del ajuste ya lo validó el motor de LGD—, así que el rótulo deja de ser un
+    # nombre de columna y pasa a decir de dónde salió el número.
     severity_col = cfg.lgd.lgd_col if cfg.method == _PD_LGD else cast(str, cfg.loss_rate_col)
-    required = [cfg.portfolio_col, cfg.exposure_col, severity_col]
+    severity_label = _SEVERIDAD_MODELADA if modelada else severity_col
+    required = [cfg.portfolio_col, cfg.exposure_col]
+    if not modelada:
+        required.append(severity_col)
     if cfg.grouping != _SCORE_BAND:
         required.append(cast(str, cfg.group_col))
     _require_columns(data, tuple(required))
@@ -296,19 +361,33 @@ def _parse_rows(
             column=cfg.pd_column,
             row_id=row_id,
         )
-        severity = _unit_interval(
-            _required_decimal(
-                _decimal_or_none(
-                    row[severity_col], column=severity_col, row_id=row_id, pandas=pandas
-                ),
-                column=severity_col,
+        severity_raw = _decimal_or_none(
+            severity_by_row[label] if severity_by_row is not None else row[severity_col],
+            column=severity_label,
+            row_id=row_id,
+            pandas=pandas,
+        )
+        if modelada:
+            # 🔴 La severidad modelada NO pasa por `_required_decimal`, y no es un atajo: esa
+            # función implementa `fail_on_falta_dato`, o sea «imputa cero y traza». Un hueco aquí
+            # no sería un dato que la institución no tiene —el motor ya habría abortado en ese
+            # caso— sino un valor que el ajuste no produjo, y cero es una severidad perfectamente
+            # plausible que entraría a la provisión sin que nada la distinga (D-LGD-8).
+            if severity_raw is None:
+                raise InternalInputError(
+                    f"El motor de LGD no produjo severidad para la fila {row_id!r}. No se imputa: "
+                    "una severidad ausente no es un dato faltante de la institución."
+                )
+            severity_value = severity_raw
+        else:
+            severity_value = _required_decimal(
+                severity_raw,
+                column=severity_label,
                 row_id=row_id,
                 cfg=cfg,
                 warnings=warnings,
-            ),
-            column=severity_col,
-            row_id=row_id,
-        )
+            )
+        severity = _unit_interval(severity_value, column=severity_label, row_id=row_id)
         if cfg.method == _PD_LGD:
             severity = min(max(severity, floor), cap)
         rows.append(

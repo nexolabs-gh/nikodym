@@ -102,7 +102,29 @@ HOJAS_DEL_FORMULARIO = 396
 #: ``data.partition.strategy``, el precedente vivo, porque ``_submodelo_directo`` devuelve ``None``
 #: ante una unión multi-rama y ``_mapa_de_modelo`` la publica entonces como descriptor. Cero
 #: pérdidas de campo y cero valores alterados en los 1042 anteriores.
-DESCRIPTORES_TOTALES = 1043
+#:
+#: 1043 → 1064 el 2026-08-07 con D-LGD-4: entran a la unión las **tres ramas modeladas**. Medido con
+#: la baseline tomada por ``git archive HEAD`` a un directorio aparte (no stasheando: esa trampa ya
+#: se pagó y dio 68 «nuevas» falsas). Resultado: **0 desapariciones, 21 apariciones, 0 valores
+#: alterados**. Van enumeradas por rama:
+#:
+#: * ``$defs.provisioning_internal__InternalLgdBetaRegression.*`` (6): ``method``, ``lgd_col``,
+#:   ``lgd_floor``, ``lgd_cap``, ``recovery_col``, ``covariate_cols``.
+#: * ``$defs.provisioning_internal__InternalLgdFractionalResponse.*`` (6): los mismos seis.
+#: * ``$defs.provisioning_internal__InternalLgdWorkout.*`` (9): los cuatro comunes, ``recovery_col``
+#:   y las **cuatro columnas de recuperos**, que aquí sí son campos configurables (D-LGD-3).
+#:
+#: ⚠️ Y lo que NO aparece vale tanto como lo que aparece, porque es la decisión del paso 4 medida:
+#: ``covariate_cols`` **no** figura bajo ``InternalLgdWorkout``, ni ``workout_discount`` bajo
+#: ninguna de las tres. Son las propiedades INERTES con que cada rama satisface ``LgdSpec`` sin
+#: publicar un control que el motor no lee — una propiedad no entra al ``model_dump`` ni al
+#: catálogo. Si algún día aparecen aquí, alguien las convirtió en campos y hay que preguntarse por
+#: qué.
+#:
+#: ⚠️ Ninguna de las tres suma en ``sections``: ``provisioning_internal.lgd`` ya es descriptor sin
+#: hijos desde D-LGD-1, así que las hojas de una rama viven **sólo** en ``$defs``. Por eso el neto
+#: (+21) coincide con la suma por rama (6+6+9) sin duplicar.
+DESCRIPTORES_TOTALES = 1064
 
 
 #: Las 14 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de

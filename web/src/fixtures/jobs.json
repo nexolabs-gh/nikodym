@@ -3443,7 +3443,7 @@
           "question": "¿Cómo quieres formar los grupos homogéneos de deudores?"
         },
         {
-          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos necesitan la severidad observada por operación.",
+          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo; las tres siguientes la CALCULAN, y por eso no te piden esa columna sino los insumos con que estimarla.",
           "multiple": false,
           "options": [
             {
@@ -3459,10 +3459,31 @@
               "label": "Promedio simple del grupo, aplicado a todas sus operaciones",
               "motivo": null,
               "value": "group_historical"
+            },
+            {
+              "estado": "disponible",
+              "help": "Ajusta un modelo de la severidad sobre las variables que elijas de tu archivo y usa el valor ajustado de cada operación. Admite operaciones con recupero total y con pérdida total, que es lo normal en una cartera real. El ajuste se hace sobre la MISMA cartera que se provisiona, así que mide el desempeño dentro de la muestra: el informe lo dice.",
+              "label": "Modelarla con una regresión sobre tus variables",
+              "motivo": null,
+              "value": "fractional_response"
+            },
+            {
+              "estado": "disponible",
+              "help": "Como la anterior, pero con una distribución beta. Exige que la severidad observada esté ESTRICTAMENTE entre 0 y 1: basta una operación con recupero total o con pérdida total para que la corrida se detenga, y esas dos son frecuentes en una cartera real. Si no sabes cuál de las dos elegir, la fraccional es la que corresponde a este dato.",
+              "label": "Modelarla con una regresión beta sobre tus variables",
+              "motivo": null,
+              "value": "beta_regression"
+            },
+            {
+              "estado": "disponible",
+              "help": "No ajusta ningún modelo: toma lo recuperado de cada operación, le resta los costos de recuperarlo, lo trae a valor presente con tu tasa y lo divide por la exposición. Exige cuatro columnas de tu archivo y los tres montos van en la misma moneda, no en fracciones.",
+              "label": "Calcularla descontando lo que ya recuperaste",
+              "motivo": null,
+              "value": "workout"
             }
           ],
           "path": "provisioning_internal.lgd.method",
-          "question": "¿Cómo quieres resumir la severidad de cada grupo?"
+          "question": "¿De dónde sale la severidad de cada operación?"
         },
         {
           "help": "Se aplica al monto de cada grupo y a su reparto entre operaciones, que siempre cuadra exacto con el total. Ojo: aquí se parte redondeando al centavo, y los otros motores de provisión parten sin redondear, así que compararlos exige igualar esta elección.",
@@ -4365,7 +4386,7 @@
           "question": "¿Cómo quieres formar los grupos homogéneos de deudores?"
         },
         {
-          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos necesitan la severidad observada por operación.",
+          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo; las tres siguientes la CALCULAN, y por eso no te piden esa columna sino los insumos con que estimarla.",
           "multiple": false,
           "options": [
             {
@@ -4381,10 +4402,31 @@
               "label": "Promedio simple del grupo, aplicado a todas sus operaciones",
               "motivo": null,
               "value": "group_historical"
+            },
+            {
+              "estado": "disponible",
+              "help": "Ajusta un modelo de la severidad sobre las variables que elijas de tu archivo y usa el valor ajustado de cada operación. Admite operaciones con recupero total y con pérdida total, que es lo normal en una cartera real. El ajuste se hace sobre la MISMA cartera que se provisiona, así que mide el desempeño dentro de la muestra: el informe lo dice.",
+              "label": "Modelarla con una regresión sobre tus variables",
+              "motivo": null,
+              "value": "fractional_response"
+            },
+            {
+              "estado": "disponible",
+              "help": "Como la anterior, pero con una distribución beta. Exige que la severidad observada esté ESTRICTAMENTE entre 0 y 1: basta una operación con recupero total o con pérdida total para que la corrida se detenga, y esas dos son frecuentes en una cartera real. Si no sabes cuál de las dos elegir, la fraccional es la que corresponde a este dato.",
+              "label": "Modelarla con una regresión beta sobre tus variables",
+              "motivo": null,
+              "value": "beta_regression"
+            },
+            {
+              "estado": "disponible",
+              "help": "No ajusta ningún modelo: toma lo recuperado de cada operación, le resta los costos de recuperarlo, lo trae a valor presente con tu tasa y lo divide por la exposición. Exige cuatro columnas de tu archivo y los tres montos van en la misma moneda, no en fracciones.",
+              "label": "Calcularla descontando lo que ya recuperaste",
+              "motivo": null,
+              "value": "workout"
             }
           ],
           "path": "provisioning_internal.lgd.method",
-          "question": "¿Cómo quieres resumir la severidad de cada grupo?"
+          "question": "¿De dónde sale la severidad de cada operación?"
         },
         {
           "help": "Se aplica al monto de cada grupo y a su reparto entre operaciones, que siempre cuadra exacto con el total. Ojo: aquí se parte redondeando al centavo, y los otros motores de provisión parten sin redondear, así que compararlos exige igualar esta elección.",
@@ -5454,7 +5496,7 @@
           "question": "¿Cómo quieres formar los grupos homogéneos de deudores?"
         },
         {
-          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos necesitan la severidad observada por operación.",
+          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo; las tres siguientes la CALCULAN, y por eso no te piden esa columna sino los insumos con que estimarla.",
           "multiple": false,
           "options": [
             {
@@ -5470,10 +5512,31 @@
               "label": "Promedio simple del grupo, aplicado a todas sus operaciones",
               "motivo": null,
               "value": "group_historical"
+            },
+            {
+              "estado": "disponible",
+              "help": "Ajusta un modelo de la severidad sobre las variables que elijas de tu archivo y usa el valor ajustado de cada operación. Admite operaciones con recupero total y con pérdida total, que es lo normal en una cartera real. El ajuste se hace sobre la MISMA cartera que se provisiona, así que mide el desempeño dentro de la muestra: el informe lo dice.",
+              "label": "Modelarla con una regresión sobre tus variables",
+              "motivo": null,
+              "value": "fractional_response"
+            },
+            {
+              "estado": "disponible",
+              "help": "Como la anterior, pero con una distribución beta. Exige que la severidad observada esté ESTRICTAMENTE entre 0 y 1: basta una operación con recupero total o con pérdida total para que la corrida se detenga, y esas dos son frecuentes en una cartera real. Si no sabes cuál de las dos elegir, la fraccional es la que corresponde a este dato.",
+              "label": "Modelarla con una regresión beta sobre tus variables",
+              "motivo": null,
+              "value": "beta_regression"
+            },
+            {
+              "estado": "disponible",
+              "help": "No ajusta ningún modelo: toma lo recuperado de cada operación, le resta los costos de recuperarlo, lo trae a valor presente con tu tasa y lo divide por la exposición. Exige cuatro columnas de tu archivo y los tres montos van en la misma moneda, no en fracciones.",
+              "label": "Calcularla descontando lo que ya recuperaste",
+              "motivo": null,
+              "value": "workout"
             }
           ],
           "path": "provisioning_internal.lgd.method",
-          "question": "¿Cómo quieres resumir la severidad de cada grupo?"
+          "question": "¿De dónde sale la severidad de cada operación?"
         },
         {
           "help": "Se aplica al monto de cada grupo y a su reparto entre operaciones, que siempre cuadra exacto con el total. Ojo: aquí se parte redondeando al centavo, y los otros motores de provisión parten sin redondear, así que compararlos exige igualar esta elección.",
@@ -6760,7 +6823,7 @@
       "unavailable_reason": null
     },
     {
-      "description": "Modelar la severidad con las mismas variables discretizadas del scorecard, en vez de traerla dada o promediarla por grupo.",
+      "description": "Modelar la severidad con las variables de tu archivo, o calcularla descontando lo que ya recuperaste, en vez de traerla dada o promediarla por grupo.",
       "external_artifacts": [
         {
           "artifact": [
@@ -6848,293 +6911,6 @@
           "question": "¿En qué formato viene tu archivo?"
         },
         {
-          "help": "Sólo interviene si además fijaste un p-valor máximo entre tramos: si lo dejaste sin fijar, el motor no aplica esa prueba y esta elección no cambia tu resultado.",
-          "multiple": false,
-          "options": [
-            {
-              "estado": "disponible",
-              "help": "Exige que cada tramo se distinga del que tiene al lado. Es la lectura habitual: basta con que la escalera de riesgo no tenga peldaños repetidos.",
-              "label": "Sólo entre tramos vecinos",
-              "motivo": null,
-              "value": "consecutive"
-            },
-            {
-              "estado": "disponible",
-              "help": "Exige que cualquier par de tramos, vecinos o no, se distinga entre sí. Es más estricto y suele terminar en menos tramos y mejor separados.",
-              "label": "Entre todos los pares de tramos",
-              "motivo": null,
-              "value": "all"
-            }
-          ],
-          "path": "binning.max_pvalue_policy",
-          "question": "¿Entre qué tramos exiges que la diferencia de riesgo sea significativa?"
-        },
-        {
-          "help": "Cambia la implementación que busca los cortes, no el criterio con que se eligen: los dos resuelven el mismo problema y llegan al mismo conjunto de tramos.",
-          "multiple": false,
-          "options": [
-            {
-              "estado": "disponible",
-              "help": "Es el que viene puesto y el que se usa en los ejemplos; funciona para cualquier cartera de tamaño habitual.",
-              "label": "El motor de optimización binaria",
-              "motivo": null,
-              "value": "bop"
-            },
-            {
-              "estado": "disponible",
-              "help": "Alternativa equivalente, ya incluida en tu entorno. Cámbiala sólo por un motivo técnico puntual: entrega los mismos tramos.",
-              "label": "El motor de optimización mixta",
-              "motivo": null,
-              "value": "cbc"
-            }
-          ],
-          "path": "binning.mip_solver",
-          "question": "¿Con qué motor de optimización quieres resolver el corte de los tramos?"
-        },
-        {
-          "help": "Es la regla que ordena los tramos y evita que la tarjeta contradiga el criterio experto. Sobre una variable de texto no se aplica: ahí el motor siempre ordena los tramos de menor a mayor riesgo, elijas la forma que elijas.",
-          "multiple": false,
-          "options": [
-            {
-              "estado": "disponible",
-              "help": "Prueba las formas disponibles variable por variable y se queda con la que más poder predictivo conserva. Es la más lenta de las automáticas.",
-              "label": "Que el motor la deduzca, explorando todas las formas",
-              "motivo": null,
-              "value": "auto"
-            },
-            {
-              "estado": "disponible",
-              "help": "Igual que la anterior, pero ubica el punto de quiebre con una regla aproximada. Notoriamente más rápida cuando exploras muchos cortes.",
-              "label": "Que el motor la deduzca, por la vía rápida",
-              "motivo": null,
-              "value": "auto_heuristic"
-            },
-            {
-              "estado": "disponible",
-              "help": "Deja que el motor decida el sentido, pero le prohíbe formas con quiebre. Es la opción por defecto y la más defendible ante un validador.",
-              "label": "Que el motor elija entre creciente y decreciente",
-              "motivo": null,
-              "value": "auto_asc_desc"
-            },
-            {
-              "estado": "disponible",
-              "help": "Fuerza el sentido. Úsala cuando conoces de antemano el comportamiento esperado, por ejemplo en días de mora o en nivel de endeudamiento.",
-              "label": "Creciente: a mayor valor, mayor riesgo",
-              "motivo": null,
-              "value": "ascending"
-            },
-            {
-              "estado": "disponible",
-              "help": "El sentido inverso, para variables donde más es mejor: antigüedad del cliente, renta o puntaje de un buró externo.",
-              "label": "Decreciente: a mayor valor, menor riesgo",
-              "motivo": null,
-              "value": "descending"
-            },
-            {
-              "estado": "disponible",
-              "help": "El riesgo se mueve en un sentido con efecto que se va agotando, sin quiebres bruscos. Sirve cuando el efecto se satura en el tramo alto.",
-              "label": "Cambia cada vez menos",
-              "motivo": null,
-              "value": "concave"
-            },
-            {
-              "estado": "disponible",
-              "help": "El riesgo se mueve en un sentido con efecto que se acelera. Sirve cuando el deterioro se dispara recién en los valores extremos.",
-              "label": "Cambia cada vez más",
-              "motivo": null,
-              "value": "convex"
-            },
-            {
-              "estado": "disponible",
-              "help": "Admite un máximo de riesgo en la mitad del rango. El punto de quiebre se busca de forma exacta, lo que cuesta más tiempo.",
-              "label": "Sube y después baja",
-              "motivo": null,
-              "value": "peak"
-            },
-            {
-              "estado": "disponible",
-              "help": "La misma forma, ubicando el máximo con una regla aproximada. La alternativa razonable si la búsqueda exacta se demora demasiado.",
-              "label": "Sube y después baja, con el quiebre aproximado",
-              "motivo": null,
-              "value": "peak_heuristic"
-            },
-            {
-              "estado": "disponible",
-              "help": "Admite un mínimo de riesgo en la mitad del rango, la forma típica de la edad o del monto. El punto de quiebre se busca de forma exacta.",
-              "label": "Baja y después sube",
-              "motivo": null,
-              "value": "valley"
-            },
-            {
-              "estado": "disponible",
-              "help": "La misma forma, ubicando el mínimo con una regla aproximada, para cuando la búsqueda exacta se hace cara.",
-              "label": "Baja y después sube, con el quiebre aproximado",
-              "motivo": null,
-              "value": "valley_heuristic"
-            }
-          ],
-          "path": "binning.monotonic_trend",
-          "question": "¿Qué forma debe tener la relación entre cada variable y el riesgo?"
-        },
-        {
-          "help": "Es la familia de optimización que arma los tramos. Hoy sólo una de las dos está operativa, y es la que viene puesta.",
-          "multiple": false,
-          "options": [
-            {
-              "estado": "no_implementada",
-              "help": "Resolvería el mismo problema con otra familia de técnicas, pensada para restricciones combinatorias.",
-              "label": "Programación por restricciones",
-              "motivo": "Hoy no se puede usar: sobre variables continuas se queda pegada sin término y sin respetar el límite de tiempo, que es la peor forma de fallar. Por eso elegirla detiene la corrida al llegar al agrupamiento en tramos, después de haber cargado tus datos.",
-              "value": "cp"
-            },
-            {
-              "estado": "disponible",
-              "help": "La técnica en uso: encuentra el corte óptimo y respeta el límite de tiempo que le fijes por variable.",
-              "label": "Programación entera mixta",
-              "motivo": null,
-              "value": "mip"
-            }
-          ],
-          "path": "binning.solver",
-          "question": "¿Con qué técnica quieres que se busquen los cortes de los tramos?"
-        },
-        {
-          "help": "Son los códigos centinela del tipo «sin información» o «no aplica». Si no declaraste ninguno al describir tus datos, esta elección no cambia tu resultado.",
-          "multiple": false,
-          "options": [
-            {
-              "estado": "disponible",
-              "help": "Los deja aparte, con su propio nivel de riesgo medido. Es lo indicado cuando «sin información» dice algo del cliente, que suele ser el caso.",
-              "label": "Darles un tramo propio",
-              "motivo": null,
-              "value": "separate"
-            },
-            {
-              "estado": "disponible",
-              "help": "Los fusiona con los datos ausentes en un solo tramo. Elígelo si el centinela significa exactamente lo mismo que un dato que no llegó.",
-              "label": "Juntarlos con los faltantes",
-              "motivo": null,
-              "value": "as_missing"
-            }
-          ],
-          "path": "binning.special_handling",
-          "question": "¿Qué hacemos con los valores especiales que declaraste en tus datos?"
-        },
-        {
-          "help": "Sirve para corregir a mano el tipo de una variable puntual cuando la lectura automática se equivoca; el resto de las variables no se ve afectado.",
-          "multiple": false,
-          "options": [
-            {
-              "estado": "disponible",
-              "help": "Corta la variable en rangos ordenados. Necesita que la columna sea numérica de verdad: sobre texto, la corrida se detiene al agrupar.",
-              "label": "Como una cantidad, en rangos",
-              "motivo": null,
-              "value": "numerical"
-            },
-            {
-              "estado": "disponible",
-              "help": "Agrupa por valores distintos en vez de por rangos. Es lo correcto para un código guardado como número: región, sucursal o tipo de producto.",
-              "label": "Como una categoría, nivel por nivel",
-              "motivo": null,
-              "value": "categorical"
-            },
-            {
-              "estado": "disponible",
-              "help": "Deja que el tipo del dato mande: los textos se agrupan por categoría y los números se cortan en rangos. Es lo que ocurre si no intervienes.",
-              "label": "Como venga en el archivo",
-              "motivo": null,
-              "value": "auto"
-            }
-          ],
-          "path": "binning.variable_overrides.dtype",
-          "question": "Para una variable en particular, ¿cómo debe leerse su contenido?"
-        },
-        {
-          "help": "Anula la regla general sólo para esa variable, cuando sabes que se comporta distinto al resto. Déjala en blanco para que siga la regla general.",
-          "multiple": false,
-          "options": [
-            {
-              "estado": "disponible",
-              "help": "Prueba las formas disponibles y se queda con la que más poder predictivo conserva en esta variable. Es la más lenta de las automáticas.",
-              "label": "Que el motor la deduzca, explorando todas las formas",
-              "motivo": null,
-              "value": "auto"
-            },
-            {
-              "estado": "disponible",
-              "help": "Igual que la anterior, pero ubica el punto de quiebre con una regla aproximada. Notoriamente más rápida cuando exploras muchos cortes.",
-              "label": "Que el motor la deduzca, por la vía rápida",
-              "motivo": null,
-              "value": "auto_heuristic"
-            },
-            {
-              "estado": "disponible",
-              "help": "Deja que el motor decida el sentido para esta variable, pero le prohíbe formas con quiebre.",
-              "label": "Que el motor elija entre creciente y decreciente",
-              "motivo": null,
-              "value": "auto_asc_desc"
-            },
-            {
-              "estado": "disponible",
-              "help": "Fuerza el sentido sólo en esta variable, por ejemplo en días de mora o en nivel de endeudamiento.",
-              "label": "Creciente: a mayor valor, mayor riesgo",
-              "motivo": null,
-              "value": "ascending"
-            },
-            {
-              "estado": "disponible",
-              "help": "El sentido inverso, para variables donde más es mejor: antigüedad del cliente, renta o puntaje de un buró externo.",
-              "label": "Decreciente: a mayor valor, menor riesgo",
-              "motivo": null,
-              "value": "descending"
-            },
-            {
-              "estado": "disponible",
-              "help": "El riesgo se mueve en un sentido con efecto que se va agotando, sin quiebres bruscos, sólo en esta variable.",
-              "label": "Cambia cada vez menos",
-              "motivo": null,
-              "value": "concave"
-            },
-            {
-              "estado": "disponible",
-              "help": "El riesgo se mueve en un sentido con efecto que se acelera, sólo en esta variable; el deterioro se dispara en los valores extremos.",
-              "label": "Cambia cada vez más",
-              "motivo": null,
-              "value": "convex"
-            },
-            {
-              "estado": "disponible",
-              "help": "Admite un máximo de riesgo en la mitad del rango de esta variable. El punto de quiebre se busca de forma exacta.",
-              "label": "Sube y después baja",
-              "motivo": null,
-              "value": "peak"
-            },
-            {
-              "estado": "disponible",
-              "help": "La misma forma, ubicando el máximo con una regla aproximada, para cuando la búsqueda exacta se hace cara.",
-              "label": "Sube y después baja, con el quiebre aproximado",
-              "motivo": null,
-              "value": "peak_heuristic"
-            },
-            {
-              "estado": "disponible",
-              "help": "Admite un mínimo de riesgo en la mitad del rango, la forma típica de la edad o del monto. El punto de quiebre se busca de forma exacta.",
-              "label": "Baja y después sube",
-              "motivo": null,
-              "value": "valley"
-            },
-            {
-              "estado": "disponible",
-              "help": "La misma forma, ubicando el mínimo con una regla aproximada, para cuando la búsqueda exacta se hace cara.",
-              "label": "Baja y después sube, con el quiebre aproximado",
-              "motivo": null,
-              "value": "valley_heuristic"
-            }
-          ],
-          "path": "binning.variable_overrides.monotonic_trend",
-          "question": "Para una variable en particular, ¿qué forma tiene su relación con el riesgo?"
-        },
-        {
           "help": "Las dos rutas están admitidas por la norma. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada.",
           "multiple": false,
           "options": [
@@ -7208,7 +6984,7 @@
           "question": "¿Cómo quieres formar los grupos homogéneos de deudores?"
         },
         {
-          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos necesitan la severidad observada por operación.",
+          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo; las tres siguientes la CALCULAN, y por eso no te piden esa columna sino los insumos con que estimarla.",
           "multiple": false,
           "options": [
             {
@@ -7224,10 +7000,31 @@
               "label": "Promedio simple del grupo, aplicado a todas sus operaciones",
               "motivo": null,
               "value": "group_historical"
+            },
+            {
+              "estado": "disponible",
+              "help": "Ajusta un modelo de la severidad sobre las variables que elijas de tu archivo y usa el valor ajustado de cada operación. Admite operaciones con recupero total y con pérdida total, que es lo normal en una cartera real. El ajuste se hace sobre la MISMA cartera que se provisiona, así que mide el desempeño dentro de la muestra: el informe lo dice.",
+              "label": "Modelarla con una regresión sobre tus variables",
+              "motivo": null,
+              "value": "fractional_response"
+            },
+            {
+              "estado": "disponible",
+              "help": "Como la anterior, pero con una distribución beta. Exige que la severidad observada esté ESTRICTAMENTE entre 0 y 1: basta una operación con recupero total o con pérdida total para que la corrida se detenga, y esas dos son frecuentes en una cartera real. Si no sabes cuál de las dos elegir, la fraccional es la que corresponde a este dato.",
+              "label": "Modelarla con una regresión beta sobre tus variables",
+              "motivo": null,
+              "value": "beta_regression"
+            },
+            {
+              "estado": "disponible",
+              "help": "No ajusta ningún modelo: toma lo recuperado de cada operación, le resta los costos de recuperarlo, lo trae a valor presente con tu tasa y lo divide por la exposición. Exige cuatro columnas de tu archivo y los tres montos van en la misma moneda, no en fracciones.",
+              "label": "Calcularla descontando lo que ya recuperaste",
+              "motivo": null,
+              "value": "workout"
             }
           ],
           "path": "provisioning_internal.lgd.method",
-          "question": "¿Cómo quieres resumir la severidad de cada grupo?"
+          "question": "¿De dónde sale la severidad de cada operación?"
         },
         {
           "help": "Se aplica al monto de cada grupo y a su reparto entre operaciones, que siempre cuadra exacto con el total. Ojo: aquí se parte redondeando al centavo, y los otros motores de provisión parten sin redondear, así que compararlos exige igualar esta elección.",
@@ -7572,12 +7369,11 @@
       ],
       "sections": [
         "data",
-        "binning",
         "provisioning_internal",
         "report"
       ],
-      "status": "unavailable",
-      "unavailable_reason": "El motor de LGD ya modela por regresión, pero el método interno todavía no puede delegar en él: sólo admite la LGD dada o el promedio por grupo."
+      "status": "available",
+      "unavailable_reason": null
     },
     {
       "description": "Escenarios adversos y shocks macro propagados sobre la cartera, con reverse stress para encontrar la severidad que cruza tu umbral.",

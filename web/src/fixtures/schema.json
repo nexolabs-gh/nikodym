@@ -1434,6 +1434,58 @@
           "value": null
         }
       },
+      "provisioning_internal__InternalLgdBetaRegression": {
+        "covariate_cols": {
+          "has_default": true,
+          "value": []
+        },
+        "lgd_cap": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "lgd_col": {
+          "has_default": true,
+          "value": "lgd"
+        },
+        "lgd_floor": {
+          "has_default": true,
+          "value": 0.0
+        },
+        "method": {
+          "has_default": true,
+          "value": "beta_regression"
+        },
+        "recovery_col": {
+          "has_default": true,
+          "value": null
+        }
+      },
+      "provisioning_internal__InternalLgdFractionalResponse": {
+        "covariate_cols": {
+          "has_default": true,
+          "value": []
+        },
+        "lgd_cap": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "lgd_col": {
+          "has_default": true,
+          "value": "lgd"
+        },
+        "lgd_floor": {
+          "has_default": true,
+          "value": 0.0
+        },
+        "method": {
+          "has_default": true,
+          "value": "fractional_response"
+        },
+        "recovery_col": {
+          "has_default": true,
+          "value": null
+        }
+      },
       "provisioning_internal__InternalLgdGroupHistorical": {
         "lgd_cap": {
           "has_default": true,
@@ -1468,6 +1520,44 @@
         "method": {
           "has_default": true,
           "value": "provided"
+        }
+      },
+      "provisioning_internal__InternalLgdWorkout": {
+        "lgd_cap": {
+          "has_default": true,
+          "value": 1.0
+        },
+        "lgd_col": {
+          "has_default": true,
+          "value": "lgd"
+        },
+        "lgd_floor": {
+          "has_default": true,
+          "value": 0.0
+        },
+        "method": {
+          "has_default": true,
+          "value": "workout"
+        },
+        "recovery_col": {
+          "has_default": true,
+          "value": null
+        },
+        "workout_cost_col": {
+          "has_default": true,
+          "value": "recovery_cost"
+        },
+        "workout_ead_col": {
+          "has_default": true,
+          "value": "ead"
+        },
+        "workout_rate_col": {
+          "has_default": true,
+          "value": "contractual_rate"
+        },
+        "workout_time_col": {
+          "has_default": true,
+          "value": "recovery_time_years"
         }
       },
       "report__AiNarrationConfig": {
@@ -8972,6 +9062,166 @@
         "title": "IfrsStagingConfig",
         "type": "object"
       },
+      "provisioning_internal__InternalLgdBetaRegression": {
+        "additionalProperties": false,
+        "description": "La severidad se modela con una regresión beta sobre las variables que elijas.",
+        "properties": {
+          "covariate_cols": {
+            "column_role": "input",
+            "default": [],
+            "description": "Columnas CRUDAS de tu archivo que explican la severidad. Nunca variables discretizadas del scorecard: ésas están codificadas contra el incumplimiento, que es otro objetivo.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variables explicativas de la severidad",
+            "type": "array",
+            "ui_group": "LGD",
+            "ui_order": 6,
+            "ui_widget": "multiselect"
+          },
+          "lgd_cap": {
+            "default": 1.0,
+            "description": "Techo explícito aplicado tras validar la LGD; nunca clipa un valor inválido.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Techo de LGD",
+            "type": "number",
+            "ui_group": "LGD",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "lgd_col": {
+            "column_role": "input",
+            "default": "lgd",
+            "description": "Columna con la pérdida dado el incumplimiento observada por operación.",
+            "title": "Columna LGD",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "lgd_floor": {
+            "default": 0.0,
+            "description": "Piso explícito aplicado tras validar la LGD; nunca clipa un valor inválido.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Piso de LGD",
+            "type": "number",
+            "ui_group": "LGD",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "method": {
+            "const": "beta_regression",
+            "default": "beta_regression",
+            "description": "Ajusta una regresión BETA de la severidad sobre tus variables. Exige que la severidad observada esté ESTRICTAMENTE entre 0 y 1: una sola operación con recupero total o pérdida total detiene la corrida.",
+            "title": "Método LGD",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "recovery_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "column_role": "input",
+            "default": null,
+            "description": "Columna con la FRACCIÓN recuperada de cada operación, entre 0 y 1. Si viene, el objetivo del ajuste es 1 menos ese valor y manda sobre la columna de LGD.",
+            "title": "Columna de tasa recuperada",
+            "ui_group": "LGD",
+            "ui_order": 5,
+            "ui_widget": "text_input"
+          }
+        },
+        "title": "InternalLgdBetaRegression",
+        "type": "object"
+      },
+      "provisioning_internal__InternalLgdFractionalResponse": {
+        "additionalProperties": false,
+        "description": "La severidad se modela con una regresión fraccional, que admite los extremos 0 y 1.",
+        "properties": {
+          "covariate_cols": {
+            "column_role": "input",
+            "default": [],
+            "description": "Columnas CRUDAS de tu archivo que explican la severidad. Nunca variables discretizadas del scorecard: ésas están codificadas contra el incumplimiento, que es otro objetivo.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Variables explicativas de la severidad",
+            "type": "array",
+            "ui_group": "LGD",
+            "ui_order": 6,
+            "ui_widget": "multiselect"
+          },
+          "lgd_cap": {
+            "default": 1.0,
+            "description": "Techo explícito aplicado tras validar la LGD; nunca clipa un valor inválido.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Techo de LGD",
+            "type": "number",
+            "ui_group": "LGD",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "lgd_col": {
+            "column_role": "input",
+            "default": "lgd",
+            "description": "Columna con la pérdida dado el incumplimiento observada por operación.",
+            "title": "Columna LGD",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "lgd_floor": {
+            "default": 0.0,
+            "description": "Piso explícito aplicado tras validar la LGD; nunca clipa un valor inválido.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Piso de LGD",
+            "type": "number",
+            "ui_group": "LGD",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "method": {
+            "const": "fractional_response",
+            "default": "fractional_response",
+            "description": "Ajusta una regresión FRACCIONAL de la severidad sobre tus variables. Admite operaciones con recupero total (0) y con pérdida total (1), que es lo normal en una cartera real.",
+            "title": "Método LGD",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "recovery_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "column_role": "input",
+            "default": null,
+            "description": "Columna con la FRACCIÓN recuperada de cada operación, entre 0 y 1. Si viene, el objetivo del ajuste es 1 menos ese valor y manda sobre la columna de LGD.",
+            "title": "Columna de tasa recuperada",
+            "ui_group": "LGD",
+            "ui_order": 5,
+            "ui_widget": "text_input"
+          }
+        },
+        "title": "InternalLgdFractionalResponse",
+        "type": "object"
+      },
       "provisioning_internal__InternalLgdGroupHistorical": {
         "additionalProperties": false,
         "description": "La severidad la trae el archivo y el grupo la resume con una media simple.",
@@ -8988,6 +9238,7 @@
             "ui_widget": "number_input"
           },
           "lgd_col": {
+            "column_role": "input",
             "default": "lgd",
             "description": "Columna con la pérdida dado el incumplimiento observada por operación.",
             "title": "Columna LGD",
@@ -9037,6 +9288,7 @@
             "ui_widget": "number_input"
           },
           "lgd_col": {
+            "column_role": "input",
             "default": "lgd",
             "description": "Columna con la pérdida dado el incumplimiento observada por operación.",
             "title": "Columna LGD",
@@ -9068,6 +9320,113 @@
           }
         },
         "title": "InternalLgdProvided",
+        "type": "object"
+      },
+      "provisioning_internal__InternalLgdWorkout": {
+        "additionalProperties": false,
+        "description": "La severidad se calcula descontando los recuperos y costos observados de cada operación.\n\n⚠️ Sus tres insumos monetarios —lo recuperado, lo que costó recuperarlo y la exposición— van en\nla MISMA moneda y en montos, no en fracciones: el motor calcula\n``1 - PV(recuperos - costos) / exposición`` (`lgd.py:245-246`). Es la diferencia con las ramas\nde regresión, donde la columna de recuperación es una tasa.",
+        "properties": {
+          "lgd_cap": {
+            "default": 1.0,
+            "description": "Techo explícito aplicado tras validar la LGD; nunca clipa un valor inválido.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Techo de LGD",
+            "type": "number",
+            "ui_group": "LGD",
+            "ui_order": 4,
+            "ui_widget": "number_input"
+          },
+          "lgd_col": {
+            "column_role": "input",
+            "default": "lgd",
+            "description": "Columna con la pérdida dado el incumplimiento observada por operación.",
+            "title": "Columna LGD",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 2,
+            "ui_widget": "text_input"
+          },
+          "lgd_floor": {
+            "default": 0.0,
+            "description": "Piso explícito aplicado tras validar la LGD; nunca clipa un valor inválido.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Piso de LGD",
+            "type": "number",
+            "ui_group": "LGD",
+            "ui_order": 3,
+            "ui_widget": "number_input"
+          },
+          "method": {
+            "const": "workout",
+            "default": "workout",
+            "description": "Calcula la severidad como 1 menos el valor presente de lo recuperado neto de costos, dividido por la exposición. No ajusta ningún modelo: descuenta flujos observados.",
+            "title": "Método LGD",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 1,
+            "ui_widget": "selectbox"
+          },
+          "recovery_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "column_role": "input",
+            "default": null,
+            "description": "Columna con el MONTO recuperado de cada operación, en la misma moneda que la exposición. No es una fracción: entra al valor presente que se divide por la exposición.",
+            "title": "Columna de monto recuperado",
+            "ui_group": "LGD",
+            "ui_order": 5,
+            "ui_widget": "text_input"
+          },
+          "workout_cost_col": {
+            "column_role": "input",
+            "default": "recovery_cost",
+            "description": "Columna con lo que costó recuperar. Si falta, la corrida se detiene: no se asume cero.",
+            "title": "Columna de costos de recuperación",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 7,
+            "ui_widget": "text_input"
+          },
+          "workout_ead_col": {
+            "column_role": "input",
+            "default": "ead",
+            "description": "Columna por la que se divide el valor presente de lo recuperado.",
+            "title": "Columna de exposición al incumplimiento",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 6,
+            "ui_widget": "text_input"
+          },
+          "workout_rate_col": {
+            "column_role": "input",
+            "default": "contractual_rate",
+            "description": "Columna con la tasa contractual a la que se descuentan los recuperos.",
+            "title": "Columna de tasa de descuento",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 9,
+            "ui_widget": "text_input"
+          },
+          "workout_time_col": {
+            "column_role": "input",
+            "default": "recovery_time_years",
+            "description": "Columna con los años que tardó el recupero; es el exponente del descuento.",
+            "title": "Columna de tiempo de recupero (años)",
+            "type": "string",
+            "ui_group": "LGD",
+            "ui_order": 8,
+            "ui_widget": "text_input"
+          }
+        },
+        "title": "InternalLgdWorkout",
         "type": "object"
       },
       "report__AiNarrationConfig": {
@@ -13789,8 +14148,11 @@
                 "description": "Configuración de la pérdida dado el incumplimiento del grupo homogéneo.",
                 "discriminator": {
                   "mapping": {
+                    "beta_regression": "#/$defs/InternalLgdBetaRegression",
+                    "fractional_response": "#/$defs/InternalLgdFractionalResponse",
                     "group_historical": "#/$defs/InternalLgdGroupHistorical",
-                    "provided": "#/$defs/InternalLgdProvided"
+                    "provided": "#/$defs/InternalLgdProvided",
+                    "workout": "#/$defs/InternalLgdWorkout"
                   },
                   "propertyName": "method"
                 },
@@ -13800,6 +14162,15 @@
                   },
                   {
                     "$ref": "#/$defs/provisioning_internal__InternalLgdGroupHistorical"
+                  },
+                  {
+                    "$ref": "#/$defs/provisioning_internal__InternalLgdBetaRegression"
+                  },
+                  {
+                    "$ref": "#/$defs/provisioning_internal__InternalLgdFractionalResponse"
+                  },
+                  {
+                    "$ref": "#/$defs/provisioning_internal__InternalLgdWorkout"
                   }
                 ],
                 "title": "Cómo se obtiene la LGD",

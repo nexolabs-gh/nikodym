@@ -413,16 +413,21 @@ _JOBS: tuple[dict[str, Any], ...] = (
         # fórmula reimplementada de un rótulo—, y D-JOB-14 pide nombres de negocio. La técnica se
         # explica en la descripción, que es donde corresponde.
         "label": "LGD modelada por regresión",
+        # 🔴 La descripción anterior prometía modelar «con las mismas variables discretizadas del
+        # scorecard» y el trabajo declaraba `binning` entre sus secciones. Las dos cosas se
+        # retiraron juntas al implementar D-LGD-7, y no por alcance sino por MÉTODO: esa
+        # codificación es supervisada contra el target de INCUMPLIMIENTO, y usarla como variable
+        # explicativa de la SEVERIDAD —otro objetivo, condicional a haber incumplido— importa esa
+        # supervisión dentro del modelo de LGD. Dejar la frase habría sido prometer una capacidad
+        # que se descartó a propósito; dejar `binning` habría sido prometerla por la puerta de
+        # atrás, porque la sección sólo está ahí para producir esas variables.
         "description": (
-            "Modelar la severidad con las mismas variables discretizadas del scorecard, en "
-            "vez de traerla dada o promediarla por grupo."
+            "Modelar la severidad con las variables de tu archivo, o calcularla descontando lo "
+            "que ya recuperaste, en vez de traerla dada o promediarla por grupo."
         ),
-        "sections": ("data", "binning", "provisioning_internal", "report"),
+        "sections": ("data", "provisioning_internal", "report"),
         "missing_sections": (),
         "external_input": "La PD calibrada de tu modelo.",
-        # Declara lo que aceptará, aunque hoy no se pueda iniciar: su bloqueo es otro (falta que el
-        # método interno pueda delegar en el motor de severidad), no la puerta. La allowlist sólo
-        # mira los trabajos disponibles, así que declararlo aquí no abre nada.
         "external_artifacts": (
             {
                 "artifact": ("calibration", "calibrated_pd_frame"),
@@ -437,18 +442,19 @@ _JOBS: tuple[dict[str, Any], ...] = (
                 ),
             },
         ),
+        # Sin override, y es deliberado (D-LGD-12). El esqueleto arranca en la forma OBSERVADA
+        # porque es la única que se construye sin un dato que sólo el usuario tiene: modelar exige
+        # decir qué variables suyas explican la severidad, y calcular por recuperos exige la columna
+        # de lo recuperado. Forzar aquí una rama modelada dejaría el esqueleto inconstruible.
+        # ⚠️ Por eso mismo el gate de aceptación de este trabajo NO es que aparezca disponible —eso
+        # sólo mide que el pipeline resuelva, con `method="provided"`—: es una corrida end-to-end a
+        # `done` con la rama modelada puesta, que vive en
+        # `test_internal_provisioning_lgd_modelada.py`.
         "overrides": (),
         "jurisdiction_code": None,
         "jurisdiction_label": None,
-        "status": _UNAVAILABLE,
-        # Medido (D-JOB-11): el motor de LGD ya existe y ya admite como covariables las columnas
-        # transformadas que publica el binning; lo que falta es que el método interno pueda delegar
-        # en él. Es un paquete acotado, no una capacidad nueva — y por eso el motivo no dice «no lo
-        # tenemos».
-        "unavailable_reason": (
-            "El motor de LGD ya modela por regresión, pero el método interno todavía no puede "
-            "delegar en él: sólo admite la LGD dada o el promedio por grupo."
-        ),
+        "status": _AVAILABLE,
+        "unavailable_reason": None,
     },
     {
         "id": "stress_testing",
@@ -1937,11 +1943,13 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
         },
         {
             "path": "provisioning_internal.lgd.method",
-            "question": "¿Cómo quieres resumir la severidad de cada grupo?",
+            "question": "¿De dónde sale la severidad de cada operación?",
             "help": (
                 "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa "
                 "de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos "
-                "necesitan la severidad observada por operación."
+                "primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la "
+                "resumen por grupo; las tres siguientes la CALCULAN, y por eso no te piden esa "
+                "columna sino los insumos con que estimarla."
             ),
             "multiple": False,
             "options": (
@@ -1965,6 +1973,47 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "se aplica igual a cada una de sus operaciones. Es lo que corresponde "
                         "cuando la severidad viene de una experiencia histórica: esa experiencia "
                         "no se pondera por los montos de hoy."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "fractional_response",
+                    "label": "Modelarla con una regresión sobre tus variables",
+                    "help": (
+                        "Ajusta un modelo de la severidad sobre las variables que elijas de tu "
+                        "archivo y usa el valor ajustado de cada operación. Admite operaciones con "
+                        "recupero total y con pérdida total, que es lo normal en una cartera real. "
+                        "El ajuste se hace sobre la MISMA cartera que se provisiona, así que mide "
+                        "el desempeño dentro de la muestra: el informe lo dice."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "beta_regression",
+                    "label": "Modelarla con una regresión beta sobre tus variables",
+                    "help": (
+                        "Como la anterior, pero con una distribución beta. Exige que la severidad "
+                        "observada esté ESTRICTAMENTE entre 0 y 1: basta una operación con "
+                        "recupero total o con pérdida total para que la corrida se detenga, y esas "
+                        "dos son frecuentes en una cartera real. Si no sabes cuál de las dos "
+                        "elegir, la fraccional es la que corresponde a este dato."
+                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
+                },
+                {
+                    "value": "workout",
+                    "label": "Calcularla descontando lo que ya recuperaste",
+                    "help": (
+                        "No ajusta ningún modelo: toma lo recuperado de cada operación, le resta "
+                        "los costos de recuperarlo, lo trae a valor presente con tu tasa y lo "
+                        "divide por la exposición. Exige cuatro columnas de tu archivo y los tres "
+                        "montos van en la misma moneda, no en fracciones."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,

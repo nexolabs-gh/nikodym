@@ -1852,12 +1852,80 @@ def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]
             else f", en {n_groups} grupos"
         )
     paragraphs.append(detalle_pd + ".")
+    paragraphs.extend(_internal_lgd_paragraphs(card))
     # D-AMB-5: los avisos NO gobernables de la corrida se publican aquí, no en el anexo. Un aviso
     # que sólo vive en el volcado de auditoría no lo lee quien recibe el documento, y el caso que
     # abre esta lista —dos columnas candidatas a cartera— cambia la AGRUPACIÓN, o sea la cifra que
     # este mismo párrafo acaba de publicar.
     for aviso in card.get("avisos") or ():
         paragraphs.append(str(aviso))
+    return tuple(paragraphs)
+
+
+#: De dónde salió la severidad, en el idioma del lector (D-LGD-10).
+#:
+#: 🔴 Cierra un defecto PREEXISTENTE, no una consecuencia de las ramas modeladas: hasta el
+#: 2026-08-07 este archivo no mencionaba la LGD en ninguna parte —``grep -n "lgd"`` daba **cero**
+#: coincidencias— aunque la card publicara ``lgd_method`` desde siempre. El daño era menor mientras
+#: las dos ramas leían la misma columna; con la severidad MODELADA, el documento que lee un
+#: regulador no diría que la LGD salió de una regresión ajustada sobre esa misma cartera.
+_INTERNAL_LGD_LABELS: Final[dict[str, str]] = {
+    "provided": (
+        "La severidad la aporta la institución, columna por operación, y la del grupo es el "
+        "promedio ponderado por el monto colocado"
+    ),
+    "group_historical": (
+        "La severidad la aporta la institución y la del grupo es el promedio simple de su "
+        "experiencia observada, que después se aplica igual a todas sus operaciones"
+    ),
+    "fractional_response": (
+        "La severidad no se tomó de una columna: se MODELÓ con una regresión fraccional sobre las "
+        "variables declaradas"
+    ),
+    "beta_regression": (
+        "La severidad no se tomó de una columna: se MODELÓ con una regresión beta sobre las "
+        "variables declaradas"
+    ),
+    "workout": (
+        "La severidad no se tomó de una columna: se CALCULÓ trayendo a valor presente lo "
+        "recuperado neto de costos y dividiéndolo por la exposición de cada operación"
+    ),
+}
+
+#: Las dos formas cuya severidad sale de un ajuste, y por eso arrastran la salvedad de D-LGD-9.
+#: ``workout`` no entra: descuenta flujos observados, no ajusta ningún parámetro.
+_INTERNAL_LGD_AJUSTADAS: Final[frozenset[str]] = frozenset(
+    {"beta_regression", "fractional_response"}
+)
+
+
+def _internal_lgd_paragraphs(card: Mapping[str, Any]) -> tuple[str, ...]:
+    """Publica de dónde salió la severidad y, si se ajustó, que el ajuste es in-sample.
+
+    ⚠️ ``lgd_method`` viaja en ``metric_sections`` y no en la raíz de la card, así que se lee con el
+    mismo patrón que ya usa ``stability`` en este archivo. Viene ``None`` cuando el motor corre con
+    la tasa de pérdida esperada directa: ahí la severidad no se descompone y afirmar un método de
+    LGD sería falso.
+    """
+    seccion = _mapping(_mapping(card.get("metric_sections")).get("provisioning_internal"))
+    metodo = seccion.get("lgd_method")
+    if not metodo:
+        return ()
+    etiqueta = _INTERNAL_LGD_LABELS.get(str(metodo))
+    if etiqueta is None:
+        # Un método que el motor acepta y esta tabla no conoce: se nombra en crudo antes que
+        # callarlo. Un capítulo mudo sobre el origen de la severidad es peor que uno con jerga.
+        etiqueta = f"La severidad se obtuvo por el método «{metodo}»"
+    paragraphs = [etiqueta + "."]
+    if str(metodo) in _INTERNAL_LGD_AJUSTADAS:
+        # D-LGD-9: propiedad preexistente del motor de severidad, que vivía donde nadie la leía. Al
+        # producir la cifra de provisión pasa a ser una salvedad del documento.
+        paragraphs.append(
+            "El modelo de severidad se ajustó sobre las mismas operaciones que se provisionan, así "
+            "que su bondad de ajuste no es evidencia de desempeño fuera de la muestra: para "
+            "sostener la cifra ante un tercero hace falta validarla contra una muestra que el "
+            "ajuste no haya visto."
+        )
     return tuple(paragraphs)
 
 

@@ -49,6 +49,23 @@ _DATA_MINIMA: dict[str, object] = {
     "partition": {"strategy": {"type": "random"}},
 }
 
+#: Argumentos mínimos de los modelos que NO se construyen con defaults.
+#:
+#: Las tres ramas modeladas de la LGD del método interno son las primeras del repo en esa situación,
+#: y no es un descuido del diseño sino su consecuencia: en la clase plana de IFRS 9 el `method` es
+#: un campo, así que «una regresión exige covariables» es una regla CONDICIONAL que el default
+#: (`provided`) no dispara. En una unión discriminada la rama **es** el método, de modo que la misma
+#: regla pasa a ser incondicional y el constructor la impone. Elegir una forma escribe la estructura
+#: y deja el hueco honesto — el patrón de `bad_rule` y `partition.strategy`.
+#:
+#: Los valores son deliberadamente triviales: este gate mide la FORMA de los nombres que devuelve
+#: `columnas_inactivas()`, no el cálculo.
+_ARGUMENTOS_MINIMOS: dict[str, dict[str, object]] = {
+    "InternalLgdBetaRegression": {"covariate_cols": ("mora",)},
+    "InternalLgdFractionalResponse": {"covariate_cols": ("mora",)},
+    "InternalLgdWorkout": {"recovery_col": "tasa"},
+}
+
 #: 🔴 El oráculo, ESCRITO A MANO desde el código del motor (`archivo:línea` en cada fila).
 #:
 #: Cada entrada es: qué campo, dónde vive, qué config APAGA su rama y qué config la ENCIENDE. Las
@@ -188,7 +205,22 @@ def test_todo_campo_declarado_inactivo_existe_y_tiene_rol() -> None:
         # Se instancia con defaults, así que sólo se ve la rama por defecto de cada modelo: es
         # suficiente para lo que aquí se comprueba —la FORMA de los nombres—, y qué devuelve en cada
         # rama lo miden los dos tests de arriba contra el motor.
-        for nombre in modelo().columnas_inactivas():
+        #
+        # ⚠️ Con la unión discriminada de LGD (D-LGD-4) aparecieron los primeros modelos que NO se
+        # construyen con defaults: la rama ES el método, así que la exigencia que en la clase plana
+        # de IFRS 9 era condicional —una regresión necesita covariables, los recuperos necesitan lo
+        # recuperado— aquí es incondicional y el constructor la impone. Se les pasan sus argumentos
+        # mínimos desde `_ARGUMENTOS_MINIMOS` en vez de saltárselos: un `except` que continuara
+        # dejaría el hueco exacto que este gate existe para cerrar, y encima en silencio.
+        try:
+            instancia = modelo(**_ARGUMENTOS_MINIMOS.get(modelo.__name__, {}))
+        except Exception as exc:
+            raise AssertionError(
+                f"{modelo.__name__} declara columnas_inactivas() y no se construye con "
+                f"{_ARGUMENTOS_MINIMOS.get(modelo.__name__, {})!r}: añádelo a _ARGUMENTOS_MINIMOS "
+                f"con sus argumentos mínimos. Saltárselo dejaría sus nombres sin comprobar. {exc}"
+            ) from exc
+        for nombre in instancia.columnas_inactivas():
             vistos.add(f"{modelo.__name__}.{nombre}")
             assert nombre in modelo.model_fields, (
                 f"{modelo.__name__}.columnas_inactivas() nombra «{nombre}», que no es un campo "
@@ -213,6 +245,12 @@ def test_todo_campo_declarado_inactivo_existe_y_tiene_rol() -> None:
         # su forma la comprueba `test_todo_campo_del_oraculo_existe_y_declara_su_rol`, que recorre
         # las configuraciones alternativas que este barrido no puede alcanzar.
         "IfrsEadConfig.ead_col",
+        # D-LGD-4: las tres ramas modeladas del método interno. `lgd_col` es inerte en los
+        # recuperos SIEMPRE (el motor no la toca en esa rama) y en una regresión sólo cuando la
+        # tasa de recuperación viene informada — por eso las dos regresiones entran aquí con sus
+        # argumentos mínimos, que no informan `recovery_col`, y su caso encendido lo cubre
+        # `test_lgd_modelada_*` contra el motor.
+        "InternalLgdWorkout.lgd_col",
     } <= vistos, f"el barrido no alcanzó las declaraciones conocidas; vio {sorted(vistos)}"
 
 

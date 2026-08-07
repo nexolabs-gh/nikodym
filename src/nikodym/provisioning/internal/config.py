@@ -25,20 +25,42 @@ from pydantic import Field, model_validator
 from nikodym.core.config import NikodymBaseConfig
 from nikodym.core.dataset_check import Requisito
 from nikodym.provisioning.internal.exceptions import InternalConfigError
+from nikodym.provisioning.lgd import (
+    WORKOUT_COST_COLUMN,
+    WORKOUT_EAD_COLUMN,
+    WORKOUT_RATE_COLUMN,
+    WORKOUT_TIME_COLUMN,
+)
 
 InternalPdSourceDomain = Literal["calibration", "model"]
 InternalGroupingMethod = Literal["score_band", "segment", "provided"]
-InternalLgdMethod = Literal["provided", "group_historical"]
+#: Dominio de valores del discriminador de :data:`InternalLgdConfig`.
+#:
+#: ⚠️ Se amplía con las tres formas MODELADAS (D-LGD-4). Dejarlo en las dos observadas convertiría
+#: un alias público llamado «el método de LGD del motor interno» en una afirmación falsa sobre tres
+#: quintos de su dominio. No lo consume ninguna anotación del paquete —sólo se re-exporta
+#: (`internal/__init__.py:31`)—, así que ampliarlo no estrecha ningún tipo existente.
+InternalLgdMethod = Literal[
+    "provided",
+    "group_historical",
+    "beta_regression",
+    "fractional_response",
+    "workout",
+]
 InternalProvisioningMethod = Literal["pd_lgd", "direct_loss_rate"]
 InternalRoundingPolicy = Literal["none", "currency_2dp", "integer_currency"]
 UnitInterval = Annotated[float, Field(ge=0.0, le=1.0)]
 
 __all__ = [
     "InternalGroupingMethod",
+    "InternalLgdBetaRegression",
     "InternalLgdConfig",
+    "InternalLgdFractionalResponse",
     "InternalLgdGroupHistorical",
     "InternalLgdMethod",
+    "InternalLgdModelada",
     "InternalLgdProvided",
+    "InternalLgdWorkout",
     "InternalPdSourceDomain",
     "InternalProvisioningConfig",
     "InternalProvisioningMethod",
@@ -73,7 +95,17 @@ class _InternalLgdComun(NikodymBaseConfig):
         default="lgd",
         title="Columna LGD",
         description="Columna con la pérdida dado el incumplimiento observada por operación.",
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "LGD", "ui_order": 2},
+        # `column_role` entra con las ramas modeladas (D-LGD-13) y no antes: hasta hoy TODA rama
+        # leía esta columna, así que declararla inerte no era posible y el rol no habilitaba nada.
+        # Ahora hay dos ramas que no la abren —recuperos nunca, y una regresión con la tasa de
+        # recuperación informada—, y `columnas_inactivas()` sólo puede suprimir un campo que el
+        # preflight inspeccione: sin rol, la supresión no suprimiría nada y la línea mentiría.
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 2,
+        },
     )
     lgd_floor: UnitInterval = Field(
         default=0.0,
@@ -128,6 +160,297 @@ class InternalLgdGroupHistorical(_InternalLgdComun):
     )
 
 
+# ── Las tres formas MODELADAS: la severidad la ESTIMA el motor, no la trae el archivo ───────────
+#
+# Las dos ramas observadas de arriba resuelven la severidad DENTRO de `_parse_rows`, leyendo una
+# celda. Estas tres delegan en `LgdEngine`, el mismo motor que usa IFRS 9, así que tienen que
+# satisfacer su protocolo `LgdSpec` ENTERO — los once atributos, incluidos los que su propio
+# enfoque no lee nunca.
+#
+# 🔴 **Cómo se satisface lo que la rama no usa: con `@property` inerte, no con un campo** (decisión
+# del paso 4; las dos salidas evaluadas están en el §7 de la enmienda). Tres razones, ninguna de
+# gusto:
+#
+# 1. **Es el precedente vivo.** `IfrsLgdConfig` —una clase plana— ya satisface el protocolo
+#    publicando las cuatro columnas de recuperos como propiedades (`ifrs9/config.py:273-291`).
+#    Partir el protocolo en dos obligaría a cambiar IFRS 9 sin ganar nada allí.
+# 2. **Partir el protocolo metería en el sistema de tipos una decisión de RUNTIME.**
+#    `LgdEngine.estimate` es una entrada ÚNICA que despacha sobre el *valor* de `method`
+#    (`lgd.py:194-201`); con dos protocolos, `strict` exigiría estrechar un tipo *estático* dentro
+#    de esa entrada, que es justo el acoplamiento que el protocolo estructural existe para evitar
+#    («el motor no importa ninguna de las dos clases»).
+# 3. **Una propiedad no entra al `model_dump`.** Un campo inerte sí: sería un control visible en el
+#    formulario y escribible SIN EFECTO alguno — o sea exactamente la clase «campo declarado en una
+#    rama inactiva» que esta unión acaba de cerrar de forma estructural. Hacerlo campo desharía el
+#    motivo por el que se eligió la unión.
+#
+# 🔴 Y `recovery_col` NO vive en una base compartida, que fue el primer intento: es que SIGNIFICA
+# COSAS DISTINTAS en cada rama. En las regresiones el motor calcula `LGD = 1 - recovery`, o sea una
+# TASA en [0,1] (`lgd.py:203-210`, `:269-282`); en el enfoque de recuperos entra a
+# `PV(recovery - cost)/EAD`, o sea un MONTO en la misma moneda que la exposición (`lgd.py:245-246`).
+# Una descripción compartida sería falsa para una de las dos, y quien la creyera obtendría una
+# severidad de 1,0 en toda su cartera SIN UN SOLO ERROR. Salió corriendo las cinco ramas de verdad;
+# leyendo el código no se veía.
+
+
+class _InternalLgdRegresion(_InternalLgdComun):
+    """Base de las dos formas que AJUSTAN un modelo de severidad sobre la propia cartera.
+
+    ⚠️ El ajuste es **in-sample** (D-LGD-9): el motor ajusta y predice sobre las mismas filas
+    (`lgd.py:258-267`). Es propiedad preexistente del motor —IFRS 9 la tiene hoy—, pero al ofrecerla
+    en el motor que produce la cifra de provisión pasa a publicarse en la prosa del informe y en la
+    traza de auditoría, en vez de vivir donde nadie la lee.
+    """
+
+    recovery_col: str | None = Field(
+        default=None,
+        title="Columna de tasa recuperada",
+        description=(
+            "Columna con la FRACCIÓN recuperada de cada operación, entre 0 y 1. Si viene, el "
+            "objetivo del ajuste es 1 menos ese valor y manda sobre la columna de LGD."
+        ),
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 5,
+        },
+    )
+    covariate_cols: tuple[str, ...] = Field(
+        default=(),
+        title="Variables explicativas de la severidad",
+        description=(
+            "Columnas CRUDAS de tu archivo que explican la severidad. Nunca variables "
+            "discretizadas del scorecard: ésas están codificadas contra el incumplimiento, que es "
+            "otro objetivo."
+        ),
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "multiselect",
+            "ui_group": "LGD",
+            "ui_order": 6,
+        },
+    )
+
+    # ── Lo que una regresión NO lee: propiedades inertes que satisfacen el protocolo ────────────
+    #
+    # El motor sólo mira estos cinco atributos dentro de `_estimate_workout`/`_workout_rate`
+    # (`lgd.py:212-256`), rama a la que una regresión no entra nunca. Van como propiedades por la
+    # razón 3 del docstring de `_InternalLgdModelada`: un campo aquí sería un control que el
+    # usuario puede mover sin que cambie una sola cifra.
+
+    @property
+    def workout_discount(self) -> str:
+        """Inerte en las regresiones: el descuento sólo lo lee el enfoque de recuperos."""
+        return "contractual"
+
+    @property
+    def workout_ead_col(self) -> str:
+        """Inerte en las regresiones: sólo la lee el enfoque de recuperos."""
+        return WORKOUT_EAD_COLUMN
+
+    @property
+    def workout_cost_col(self) -> str:
+        """Inerte en las regresiones: sólo la lee el enfoque de recuperos."""
+        return WORKOUT_COST_COLUMN
+
+    @property
+    def workout_time_col(self) -> str:
+        """Inerte en las regresiones: sólo la lee el enfoque de recuperos."""
+        return WORKOUT_TIME_COLUMN
+
+    @property
+    def workout_rate_col(self) -> str:
+        """Inerte en las regresiones: sólo la lee el enfoque de recuperos."""
+        return WORKOUT_RATE_COLUMN
+
+    @model_validator(mode="after")
+    def _check_regresion(self) -> Self:
+        """Exige covariables no vacías: un ajuste sin variables explicativas no es un ajuste."""
+        vacias = [idx for idx, col in enumerate(self.covariate_cols) if not col.strip()]
+        if vacias:
+            raise InternalConfigError(
+                f"lgd.covariate_cols no puede contener nombres vacíos: posiciones {vacias}."
+            )
+        if not self.covariate_cols:
+            raise InternalConfigError(
+                "Modelar la severidad exige al menos una variable explicativa en "
+                "lgd.covariate_cols."
+            )
+        return self
+
+    def columnas_inactivas(self) -> frozenset[str]:
+        """La columna de LGD queda inerte cuando la recuperación viene informada (D-LGD-13).
+
+        Mismo predicado que ``IfrsLgdConfig`` y por la misma razón medida: ``_regression_target``
+        lee ``lgd_col`` **sólo si ``recovery_col is None``** (`lgd.py:269-282`). Dentro de una rama
+        el ``method`` es constante, así que del condicional de IFRS 9 sólo sobrevive el predicado
+        sobre el campo hermano.
+        """
+        return frozenset({"lgd_col"} if self.recovery_col is not None else set())
+
+
+class InternalLgdBetaRegression(_InternalLgdRegresion):
+    """La severidad se modela con una regresión beta sobre las variables que elijas."""
+
+    method: Literal["beta_regression"] = Field(
+        default="beta_regression",
+        title="Método LGD",
+        description=(
+            "Ajusta una regresión BETA de la severidad sobre tus variables. Exige que la severidad "
+            "observada esté ESTRICTAMENTE entre 0 y 1: una sola operación con recupero total o "
+            "pérdida total detiene la corrida."
+        ),
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "LGD", "ui_order": 1},
+    )
+
+
+class InternalLgdFractionalResponse(_InternalLgdRegresion):
+    """La severidad se modela con una regresión fraccional, que admite los extremos 0 y 1."""
+
+    method: Literal["fractional_response"] = Field(
+        default="fractional_response",
+        title="Método LGD",
+        description=(
+            "Ajusta una regresión FRACCIONAL de la severidad sobre tus variables. Admite "
+            "operaciones con recupero total (0) y con pérdida total (1), que es lo normal en una "
+            "cartera real."
+        ),
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "LGD", "ui_order": 1},
+    )
+
+
+class InternalLgdWorkout(_InternalLgdComun):
+    """La severidad se calcula descontando los recuperos y costos observados de cada operación.
+
+    ⚠️ Sus tres insumos monetarios —lo recuperado, lo que costó recuperarlo y la exposición— van en
+    la MISMA moneda y en montos, no en fracciones: el motor calcula
+    ``1 - PV(recuperos - costos) / exposición`` (`lgd.py:245-246`). Es la diferencia con las ramas
+    de regresión, donde la columna de recuperación es una tasa.
+    """
+
+    recovery_col: str | None = Field(
+        default=None,
+        title="Columna de monto recuperado",
+        description=(
+            "Columna con el MONTO recuperado de cada operación, en la misma moneda que la "
+            "exposición. No es una fracción: entra al valor presente que se divide por la "
+            "exposición."
+        ),
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 5,
+        },
+    )
+    method: Literal["workout"] = Field(
+        default="workout",
+        title="Método LGD",
+        description=(
+            "Calcula la severidad como 1 menos el valor presente de lo recuperado neto de costos, "
+            "dividido por la exposición. No ajusta ningún modelo: descuenta flujos observados."
+        ),
+        json_schema_extra={"ui_widget": "selectbox", "ui_group": "LGD", "ui_order": 1},
+    )
+    workout_ead_col: str = Field(
+        default=WORKOUT_EAD_COLUMN,
+        title="Columna de exposición al incumplimiento",
+        description="Columna por la que se divide el valor presente de lo recuperado.",
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 6,
+        },
+    )
+    workout_cost_col: str = Field(
+        default=WORKOUT_COST_COLUMN,
+        title="Columna de costos de recuperación",
+        description=(
+            "Columna con lo que costó recuperar. Si falta, la corrida se detiene: no se asume cero."
+        ),
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 7,
+        },
+    )
+    workout_time_col: str = Field(
+        default=WORKOUT_TIME_COLUMN,
+        title="Columna de tiempo de recupero (años)",
+        description="Columna con los años que tardó el recupero; es el exponente del descuento.",
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 8,
+        },
+    )
+    workout_rate_col: str = Field(
+        default=WORKOUT_RATE_COLUMN,
+        title="Columna de tasa de descuento",
+        description="Columna con la tasa contractual a la que se descuentan los recuperos.",
+        json_schema_extra={
+            "column_role": "input",
+            "ui_widget": "text_input",
+            "ui_group": "LGD",
+            "ui_order": 9,
+        },
+    )
+
+    # ── Lo que el enfoque de recuperos NO lee ───────────────────────────────────────────────────
+
+    @property
+    def covariate_cols(self) -> tuple[str, ...]:
+        """Inerte aquí: sólo las regresiones ajustan sobre covariables (`lgd.py:258-267`)."""
+        return ()
+
+    @property
+    def workout_discount(self) -> str:
+        """Fijo en `contractual`, y NO es un campo: el método interno no tiene concepto de EIR.
+
+        🔴 Ofrecer `eir` sería publicar una opción que el motor rechaza al ejecutarse: el descuento
+        a la tasa efectiva exige una serie de EIR por instrumento que sólo IFRS 9 produce y que
+        `_severity_by_row` no puede pasar (`internal/engine.py`, la llamada va sin `eir=`). Es la
+        clase de defecto que el abanico existe para impedir, la misma que `binning.solver='cp'`.
+        Como propiedad, la opción **no existe** en vez de existir y morir.
+        """
+        return "contractual"
+
+    @model_validator(mode="after")
+    def _check_workout(self) -> Self:
+        """Exige la columna de recuperación y nombres no vacíos en las cuatro de recuperos."""
+        if self.recovery_col is None:
+            raise InternalConfigError(
+                "lgd.method='workout' exige recovery_col: sin lo recuperado no hay severidad que "
+                "calcular."
+            )
+        vacias = sorted(
+            nombre
+            for nombre in (
+                "workout_ead_col",
+                "workout_cost_col",
+                "workout_time_col",
+                "workout_rate_col",
+            )
+            if not str(getattr(self, nombre)).strip()
+        )
+        if vacias:
+            raise InternalConfigError(f"lgd: estas columnas no pueden estar vacías: {vacias}.")
+        return self
+
+    def columnas_inactivas(self) -> frozenset[str]:
+        """``lgd_col`` es SIEMPRE inerte aquí (D-LGD-13).
+
+        El enfoque de recuperos no la lee en ninguna rama del motor —``_estimate_workout``
+        (`lgd.py:212-247`) no la toca— y su validador ya exige ``recovery_col``, así que el
+        predicado no depende de ningún hermano: es incondicional.
+        """
+        return frozenset({"lgd_col"})
+
+
 #: La LGD del método interno se contesta ELIGIENDO UNA FORMA, no rellenando un campo (D-LGD-1).
 #:
 #: 🔴 La forma no es estética: es lo único que permite añadir formas nuevas —una severidad
@@ -143,10 +466,25 @@ class InternalLgdGroupHistorical(_InternalLgdComun):
 #:
 #: ⚠️ El campo que la contiene NO declara `ui_widget`, y es a propósito: ver la nota en
 #: `InternalProvisioningConfig.lgd`.
+#: ⚠️ Las tres formas MODELADAS entran aquí y NO mueven la identidad de ningún preset: una rama
+#: nueva de una unión discriminada no toca el `model_dump` de las ramas existentes, que es lo que
+#: D-COL midió en su día para `PartitionStrategy` y lo que se volvió a medir aquí con los cuatro
+#: `config_hash` como control negativo.
 InternalLgdConfig = Annotated[
-    InternalLgdProvided | InternalLgdGroupHistorical,
+    InternalLgdProvided
+    | InternalLgdGroupHistorical
+    | InternalLgdBetaRegression
+    | InternalLgdFractionalResponse
+    | InternalLgdWorkout,
     Field(discriminator="method"),
 ]
+
+#: Las tres ramas cuya severidad la produce :class:`~nikodym.provisioning.lgd.LgdEngine`.
+#:
+#: Es unión de clases CONCRETAS y no de la base común, porque el ``isinstance`` que la consume
+#: (`internal/engine.py::_lgd_modelada`) tiene que estrechar a algo que mypy pueda comprobar contra
+#: ``LgdSpec``: una base sin ``method`` ni atributos de recuperos no lo satisface por sí sola.
+InternalLgdModelada = InternalLgdBetaRegression | InternalLgdFractionalResponse | InternalLgdWorkout
 
 
 class InternalProvisioningConfig(NikodymBaseConfig):
