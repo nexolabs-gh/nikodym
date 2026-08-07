@@ -572,15 +572,25 @@ def _declaraciones(config: Any, prefijo: str = "") -> Iterator[tuple[str, str, s
     Un campo que el modelo declare **inactivo** (:data:`METODO_COLUMNAS_INACTIVAS`) no emite nada:
     su rama no corre, así que exigir su columna sería un falso positivo (D-RAM-1). Sólo se pregunta
     por los campos del propio modelo, que es donde vive la condición.
+
+    🔴 **Y «inactivo» poda el campo Y SU SUBÁRBOL** (D-SUB-1). Hasta el 2026-08-07 la recursión
+    quedaba fuera de la guarda, así que un modelo podía declarar inerte una columna suya pero no una
+    SUBSECCIÓN entera — y hay una que lo es: con ``provisioning_internal.method='direct_loss_rate'``
+    la subsección ``lgd`` no se abre nunca, y el preflight exigía hasta cinco de sus columnas sobre
+    una corrida que termina bien. La condición vivía un nivel arriba y ningún hijo podía verla.
+    ⚠️ Medido antes de cambiarlo: los seis implementadores de ``columnas_inactivas`` nombran **sólo
+    campos de columna**, nunca submodelos, así que la poda no altera una sola declaración existente.
     """
     if isinstance(config, BaseModel):
         modelo = type(config)
         inactivas = _columnas_inactivas(config)
         for nombre in type(config).model_fields:
+            if nombre in inactivas:
+                continue
             valor = getattr(config, nombre, None)
             ruta = f"{prefijo}{_alias(modelo, nombre)}"
             rol = _rol(modelo, nombre)
-            if rol in ROLES and nombre not in inactivas:
+            if rol in ROLES:
                 for columna in _columnas_de(valor):
                     yield ruta, rol, columna
             yield from _declaraciones(valor, f"{ruta}.")

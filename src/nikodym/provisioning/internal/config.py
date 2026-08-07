@@ -724,6 +724,20 @@ class InternalProvisioningConfig(NikodymBaseConfig):
             )
         return self
 
+    def columnas_inactivas(self) -> frozenset[str]:
+        """Con la tasa de pérdida directa, la subsección de LGD entera queda inerte (D-SUB-2).
+
+        🔴 Vive aquí y no en las ramas de LGD porque **aquí está la condición**: el que decide si la
+        severidad se descompone es ``method``, un campo de esta clase, y una rama no ve a su padre —
+        ni debe—. Con ``direct_loss_rate`` el motor toma la tasa de ``loss_rate_col`` y no abre una
+        sola columna de ``lgd`` (`internal/engine.py:279-281` y `:322`), así que exigirlas era rojo
+        en pantalla sobre un config que corre bien: hasta **cinco** columnas con el enfoque de
+        recuperos.
+
+        Es lo que D-SUB-1 hizo expresable: al podar el subárbol, nombrar el submodelo basta.
+        """
+        return frozenset() if self.method == "pd_lgd" else frozenset({"lgd"})
+
     def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
         """Avisa cuando el dataset trae DOS columnas de cartera y nadie eligió una (D-AMB-2).
 

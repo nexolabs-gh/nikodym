@@ -151,6 +151,18 @@ CASOS: tuple[tuple[str, str, dict[str, object], dict[str, object]], ...] = (
 )
 
 
+def _columnas_declaradas_bajo(valor: object) -> tuple[str, ...]:
+    """Columnas que `_declaraciones` emitiría dentro de un submodelo, si nada lo podara.
+
+    Se construye con el propio recorrido del núcleo y no con una lista escrita al lado, porque lo
+    que hay que comprobar es exactamente lo que el preflight habría mirado. Se le pasa el submodelo
+    como raíz, así que su propia poda no interviene: la pregunta es «¿había algo que suprimir?».
+    """
+    if not isinstance(valor, BaseModel):
+        return ()
+    return tuple(ruta for ruta, _rol_, _col in _declaraciones(valor))
+
+
 def _config_ifrs9(subseccion: str, valores: dict[str, object]) -> NikodymConfig:
     """Un config con `provisioning_ifrs9` y `valores` escritos en una de sus sub-secciones."""
     cargar_configs_de_dominio()
@@ -161,6 +173,62 @@ def _acusa(config: NikodymConfig, columna: str) -> bool:
     """¿El preflight señala `columna` como ausente?"""
     resultado = check_dataset(config, COLUMNAS)
     return any(m.declared == columna for m in resultado.mismatches)
+
+
+#: 🔴 La primera fila de `provisioning_internal`, y la que estrena la poda de SUBÁRBOL (D-SUB-4).
+#:
+#: Las nueve de arriba son todas de `provisioning_ifrs9` y todas de una columna suelta — por eso
+#: este caso no lo veía nadie. Aquí lo inerte no es un campo sino una SUBSECCIÓN entera: con
+#: `method='direct_loss_rate'` el motor toma la tasa de `loss_rate_col` y no abre una sola columna
+#: de `lgd` (`internal/engine.py:279-281`, `:322`). Se mide con el enfoque de recuperos porque es
+#: el que más cuesta: cinco columnas de una vez.
+_CASO_SUBSECCION_INERTE: tuple[dict[str, object], dict[str, object]] = (
+    {
+        "method": "direct_loss_rate",
+        "loss_rate_col": "tasa",
+        "lgd": {"method": "workout", "recovery_col": FANTASMA},
+    },
+    {"method": "pd_lgd", "lgd": {"method": "workout", "recovery_col": FANTASMA}},
+)
+
+
+def _config_interno(valores: dict[str, object]) -> NikodymConfig:
+    """Un config con `provisioning_internal` agrupando por una columna que el dataset sí trae."""
+    cargar_configs_de_dominio()
+    return NikodymConfig.model_validate(
+        {
+            "provisioning_internal": {
+                "portfolio_col": "cartera",
+                "exposure_col": "exposicion",
+                "grouping": "segment",
+                "group_col": "cartera",
+                **valores,
+            }
+        }
+    )
+
+
+def test_una_subseccion_entera_inerte_no_se_acusa() -> None:
+    """Con la tasa de pérdida directa, ninguna columna de la subsección de LGD se exige."""
+    apagada, _ = _CASO_SUBSECCION_INERTE
+    assert not _acusa(_config_interno(apagada), FANTASMA), (
+        "el preflight acusa una columna de una subsección que el motor no abre con esa "
+        "configuración: es el falso positivo que D-SUB-2 cierra"
+    )
+
+
+def test_ancla_con_la_subseccion_encendida_la_misma_columna_si_se_acusa() -> None:
+    """🔴 El control que da sentido al de arriba: sin esto, «no acusa nunca» pasaría igual.
+
+    Es el modo de fallo caro de la poda por subárbol, y es peor que el de una columna suelta:
+    silencia CINCO de una vez. Un `columnas_inactivas` que devolviera `{"lgd"}` sin condición
+    dejaría el preflight mudo sobre toda la subsección justo cuando el motor sí la lee.
+    """
+    _, encendida = _CASO_SUBSECCION_INERTE
+    assert _acusa(_config_interno(encendida), FANTASMA), (
+        "con `method='pd_lgd'` el motor SÍ abre la columna de recuperación: si el preflight calla "
+        "aquí, la poda de subárbol está suprimiendo de más"
+    )
 
 
 @pytest.mark.parametrize(("campo", "subseccion", "apagada", "encendida"), CASOS)
@@ -226,9 +294,17 @@ def test_todo_campo_declarado_inactivo_existe_y_tiene_rol() -> None:
                 f"{modelo.__name__}.columnas_inactivas() nombra «{nombre}», que no es un campo "
                 f"suyo: el frozenset nunca casaría y el falso positivo seguiría vivo"
             )
-            assert _rol(modelo, nombre) == ROL_ENTRADA, (
-                f"{modelo.__name__}.{nombre} no declara column_role='input', así que el "
-                f"preflight nunca lo inspeccionó: eximirlo no suprime nada y confunde"
+            # D-SUB-3: un nombre inactivo puede ser una COLUMNA o una SUBSECCIÓN entera, y las dos
+            # se exigen igual de fuerte. Aflojar aquí sería regalar el uso vacuo que este gate
+            # existe para cerrar: declarar inerte algo que el preflight nunca miró no suprime nada
+            # y hace creer al autor que cerró un falso positivo.
+            if _rol(modelo, nombre) == ROL_ENTRADA:
+                continue
+            columnas_aguas_abajo = _columnas_declaradas_bajo(getattr(instancia, nombre, None))
+            assert columnas_aguas_abajo, (
+                f"{modelo.__name__}.{nombre} ni declara column_role='input' ni es un submodelo con "
+                f"columnas declaradas aguas abajo: el preflight nunca lo inspeccionó, así que "
+                f"eximirlo no suprime nada y confunde"
             )
     # 🔴 Ancla anti-vacua, y no es teórica: la primera versión de este test recorrió CERO modelos
     # —`_DOMAIN_CONFIG_CLASSES` mapea a tuplas `(módulo, clase)`, no a clases— y «0 problemas» se

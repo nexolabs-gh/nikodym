@@ -540,6 +540,19 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `fail_on_falta_dato=True` detendría corridas que hoy funcionan, dentro de un *minor*. Salió de la
 > auditoría adversarial previa a `1.11.0`.
 >
+> **Una SUBSECCIÓN entera puede ser inerte (2026-08-07, IMPLEMENTADA).**
+> [`_ENMIENDA-SUBSECCION-INERTE.md`](_ENMIENDA-SUBSECCION-INERTE.md), D-SUB-1…D-SUB-4. Enmienda a
+> **D-RAM-1**. Con `provisioning_internal.method='direct_loss_rate'` el motor toma la tasa de pérdida
+> de una columna y **la subsección `lgd` entera queda inerte**, pero el preflight exigía sus columnas
+> igual: hasta **cinco** desajustes en rojo sobre una corrida que termina bien. 🔴 El mecanismo no
+> podía verlo por construcción — `columnas_inactivas()` sólo pregunta al **propio** modelo y aquí la
+> condición vive un nivel arriba, y además la recursión al submodelo quedaba **fuera** de la guarda.
+> «Inactivo» pasa a podar el campo **y su subárbol**; ⚠️ medido antes de cambiarlo: **no-op para los
+> seis implementadores existentes**, que nombran sólo columnas y nunca submodelos. El gate aprende
+> que un nombre inactivo puede ser un submodelo, y lo exige igual de fuerte: tiene que contener
+> columnas declaradas aguas abajo, o declararlo inerte no suprimiría nada. Salió de la revisión
+> adversarial de P4.
+>
 > **La severidad del método interno se puede MODELAR (2026-08-06, IMPLEMENTADA el 2026-08-07).**
 > [`_ENMIENDA-LGD-MODELADA.md`](_ENMIENDA-LGD-MODELADA.md), D-LGD-1…D-LGD-15. Es **P4**, y su premisa
 > heredada se corrigió al medirla: 🔴 **no hay cambio de DAG** —`LgdEngine` se llama hoy con
