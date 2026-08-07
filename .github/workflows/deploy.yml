@@ -1,0 +1,154 @@
+name: Deploy
+
+# Publica `docs.nikodym.cl` y `demo.nikodym.cl` cuando `main` pasa TODOS los gates.
+#
+# 🔴 Por qué existe. Hasta el 2026-08-07 los dos sitios se publicaban A MANO por Vercel, y el paso
+# se olvidó: `docs.nikodym.cl` sirvió `1.2.0` durante **nueve releases** —sin cuatro páginas que
+# llevaban hasta 12 días en el repo, incluida `avisos-declarados.md`— y `demo.nikodym.cl` quedó
+# **171 commits y 4 releases atrás**, publicando el titular «provisiones CMF de Chile» que la
+# decisión del 2026-08-05 había retirado del repo. Nada avisó en ningún momento.
+#
+# ⚠️ Y la lección de método: **no faltaba un gate, faltaba el paso de publicar.** El contenido ya
+# estaba vigilado —`test_docs_site_cifras.py:192` ata el titular de versión de la portada a
+# `__version__`, y las firmas de los fixtures atan la demo a sus corridas—, así que un gate nuevo
+# habría repetido lo que el repo ya sabía. Lo que no existía era el mecanismo que lleva eso a
+# producción. Por eso esto es un deploy y no un test.
+#
+# Se despliegan LOS DOS SIEMPRE, sin filtro por rutas. Un filtro reintroduce la forma de
+# equivocarse que este workflow existe para cerrar: basta que alguien toque una ruta que el filtro
+# no contempla —`src/` alimenta la referencia de API por mkdocstrings, por ejemplo— para que la
+# deriva vuelva en silencio. Construir de más es barato; publicar de menos es lo que costó 12 días.
+
+"on":
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Publicar docs y demo
+    runs-on: ubuntu-latest
+    # 🔴 La condición es lo que impide publicar basura: sólo corre si el run de CI que lo disparó
+    # terminó en `success`, o sea con los 16 jobs verdes. `workflow_run` se dispara igual cuando el
+    # CI falla, así que sin este `if` un commit rojo se publicaría.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    environment: production
+    steps:
+      - name: Comprobar que las credenciales están configuradas
+        # Falla PRIMERO y con un mensaje que dice qué hacer, en vez de dejar que el CLI de Vercel
+        # reviente doce pasos más abajo con «Error: No existing credentials found». Y falla en vez
+        # de saltarse el deploy: un `skip` se lee igual que un verde, que es exactamente cómo este
+        # sitio derivó nueve releases sin que nadie lo notara.
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          faltan=()
+          [ -n "${VERCEL_TOKEN:-}" ] || faltan+=("secret VERCEL_TOKEN")
+          [ -n "${{ vars.VERCEL_ORG_ID }}" ] || faltan+=("variable VERCEL_ORG_ID")
+          [ -n "${{ vars.VERCEL_DOCS_PROJECT_ID }}" ] || faltan+=("variable VERCEL_DOCS_PROJECT_ID")
+          [ -n "${{ vars.VERCEL_DEMO_PROJECT_ID }}" ] || faltan+=("variable VERCEL_DEMO_PROJECT_ID")
+          if [ ${#faltan[@]} -gt 0 ]; then
+            echo "::error::Falta configurar: ${faltan[*]}"
+            echo "El token se crea en https://vercel.com/account/tokens (scope: NexoLabs Projects)"
+            echo "y se instala con:  gh secret set VERCEL_TOKEN"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # `workflow_run` da por defecto la punta de la rama, que puede haber avanzado mientras el
+          # CI corría. Se publica EXACTAMENTE el commit que pasó los gates.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Instalar dependencias de documentación
+        run: uv sync --locked --python 3.12 --group docs
+
+      - name: Construir el sitio de documentación
+        # `--strict` es el mismo gate que corre en local: un enlace roto aborta antes de publicar.
+        run: uv run --no-sync mkdocs build --strict
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Activar Corepack
+        run: corepack enable
+
+      - name: Instalar con lock congelado
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Construir la demo estática
+        working-directory: web
+        run: pnpm build:demo
+
+      - name: Instalar Vercel CLI
+        run: npm install --global vercel@56
+
+      - name: Publicar docs.nikodym.cl
+        working-directory: site
+        env:
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_DOCS_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN"
+
+      - name: Publicar demo.nikodym.cl
+        working-directory: web/dist
+        env:
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_DEMO_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN"
+
+      - name: Verificar EN VIVO lo publicado
+        # 🔴 Un deploy que devuelve `READY` no prueba que el dominio sirva lo nuevo. Se comprueba
+        # contra el dominio real y por CONTENIDO, no por código de estado: la versión que la portada
+        # de la doc afirma tiene que ser la que el paquete declara, y el titular que se retiró del
+        # repo no puede seguir vivo en la demo. Es el par de afirmaciones que estuvieron falsas.
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(grep -oE '__version__ = "[^"]+"' src/nikodym/__init__.py | cut -d'"' -f2)"
+          sleep 10
+
+          docs="$(curl -fsSL https://docs.nikodym.cl/)"
+          if ! grep -qF "Estado: ${version}" <<<"$docs"; then
+            echo "::error::docs.nikodym.cl no publica la versión ${version} en su portada"
+            exit 1
+          fi
+          for pagina in norma-local avisos-declarados guias/puerta-artefactos \
+                        guias/provision-sin-norma-local; do
+            code="$(curl -s -o /dev/null -w '%{http_code}' "https://docs.nikodym.cl/${pagina}/")"
+            test "$code" = "200" || { echo "::error::${pagina} devuelve ${code}"; exit 1; }
+          done
+
+          bundle="$(curl -fsSL https://demo.nikodym.cl/ | grep -oE '/assets/index-[^"]*\.js' | head -1)"
+          test -n "$bundle" || { echo "::error::demo.nikodym.cl no sirve ningún bundle"; exit 1; }
+          cuerpo="$(curl -fsSL "https://demo.nikodym.cl${bundle}")"
+          if grep -qF "provisiones CMF de Chile" <<<"$cuerpo"; then
+            echo "::error::la demo publica el titular con jurisdicción que se retiró del repo"
+            exit 1
+          fi
+          grep -qF "La normativa local se aterriza encima" <<<"$cuerpo" || {
+            echo "::error::la demo no publica el subtítulo vigente"; exit 1; }
+
+          echo "docs y demo verificados en vivo contra ${version}"

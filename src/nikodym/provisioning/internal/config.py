@@ -193,6 +193,22 @@ class InternalLgdGroupHistorical(_InternalLgdComun):
 # leyendo el código no se veía.
 
 
+def _exigir_recovery_col_no_vacia(recovery_col: str | None) -> None:
+    """Una cadena vacía no es «no la declaré»: es un config que el motor rechaza al ejecutarse.
+
+    🔴 Y hace daño DOS veces, no una. Es la clase «opción que el config acepta y el motor rechaza»
+    —el motor levanta ``LgdError`` buscando una columna llamada ``''``—, y además ``columnas_
+    inactivas()`` decide por ``recovery_col is not None``, así que con ``''`` **suprime** el
+    requisito de ``lgd_col`` en el preflight: le calla al usuario la única columna con la que su
+    corrida podría haber funcionado.
+    """
+    if recovery_col is not None and not recovery_col.strip():
+        raise InternalConfigError(
+            "lgd.recovery_col no puede estar vacío: si no traes la recuperación, omite el campo "
+            "en vez de dejarlo en blanco."
+        )
+
+
 class _InternalLgdRegresion(_InternalLgdComun):
     """Base de las dos formas que AJUSTAN un modelo de severidad sobre la propia cartera.
 
@@ -267,6 +283,7 @@ class _InternalLgdRegresion(_InternalLgdComun):
     @model_validator(mode="after")
     def _check_regresion(self) -> Self:
         """Exige covariables no vacías: un ajuste sin variables explicativas no es un ajuste."""
+        _exigir_recovery_col_no_vacia(self.recovery_col)
         vacias = [idx for idx, col in enumerate(self.covariate_cols) if not col.strip()]
         if vacias:
             raise InternalConfigError(
@@ -421,12 +438,13 @@ class InternalLgdWorkout(_InternalLgdComun):
 
     @model_validator(mode="after")
     def _check_workout(self) -> Self:
-        """Exige la columna de recuperación y nombres no vacíos en las cuatro de recuperos."""
+        """Exige la columna de recuperación y nombres no vacíos en las cinco columnas que lee."""
         if self.recovery_col is None:
             raise InternalConfigError(
                 "lgd.method='workout' exige recovery_col: sin lo recuperado no hay severidad que "
                 "calcular."
             )
+        _exigir_recovery_col_no_vacia(self.recovery_col)
         vacias = sorted(
             nombre
             for nombre in (

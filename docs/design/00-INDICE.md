@@ -540,8 +540,8 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `fail_on_falta_dato=True` detendría corridas que hoy funcionan, dentro de un *minor*. Salió de la
 > auditoría adversarial previa a `1.11.0`.
 >
-> **La severidad del método interno se puede MODELAR (2026-08-06, BORRADOR).**
-> [`_ENMIENDA-LGD-MODELADA.md`](_ENMIENDA-LGD-MODELADA.md), D-LGD-1…D-LGD-13. Es **P4**, y su premisa
+> **La severidad del método interno se puede MODELAR (2026-08-06, IMPLEMENTADA el 2026-08-07).**
+> [`_ENMIENDA-LGD-MODELADA.md`](_ENMIENDA-LGD-MODELADA.md), D-LGD-1…D-LGD-15. Es **P4**, y su premisa
 > heredada se corrigió al medirla: 🔴 **no hay cambio de DAG** —`LgdEngine` se llama hoy con
 > `("data","frame")`, que es el artefacto que `provisioning_internal` ya exige, y `covariate_cols`
 > está documentado en el propio código como columnas **crudas**, no WoE—; y el puente `float64` →

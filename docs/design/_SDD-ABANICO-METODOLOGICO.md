@@ -237,8 +237,8 @@ cierta el día que «Provisiones CMF», «Provisiones IFRS 9 / ECL» y «Provisi
 **disponibles**. La exención llevaba tiempo siendo falsa y la lista escrita a mano no tenía forma de
 notarlo: ése *es* el defecto que D-ABA-9 cierra, y el catálogo derivado lo hace visible el primer día.
 
-⚠️ **Ninguna sección queda huérfana**: medido, los dos trabajos no disponibles (`lgd_modelada`,
-`stress_testing`) no aportan **ninguna** sección que no esté ya en un trabajo disponible, así que la
+⚠️ **Ninguna sección queda huérfana**: medido, los dos trabajos no disponibles de entonces
+(`lgd_modelada` —disponible desde el 2026-08-07— y `stress_testing`) no aportan **ninguna** sección que no esté ya en un trabajo disponible, así que la
 derivación no depende de qué trabajo se habilite después.
 
 ⚠️ **El alcance dice qué se EXIGE, no qué se permite.** `validation` está fuera del catálogo por

@@ -38,13 +38,15 @@ from nikodym.provisioning.internal.config import (
 from nikodym.provisioning.internal.engine import (
     InternalProvisioningEngine,
     _lgd_modelada,
+    _parse_rows,
     _severity_by_row,
 )
 from nikodym.provisioning.internal.exceptions import (
     InternalConfigError,
     InternalInputError,
 )
-from nikodym.provisioning.lgd import LgdSpec
+from nikodym.provisioning.internal.step import _procedencia_de_la_lgd
+from nikodym.provisioning.lgd import LgdEngine, LgdSpec
 from nikodym.report.prose import (
     _INTERNAL_LGD_AJUSTADAS,
     _INTERNAL_LGD_LABELS,
@@ -586,6 +588,115 @@ def test_aceptacion_una_corrida_completa_con_la_rama_modelada(
     reporte = modelada.artifacts.get("report", "result")
     html = Path(reporte.html_path).read_text(encoding="utf-8")
     assert "severidad" in html.lower(), "el informe no dice nada del origen de la severidad"
+
+
+# ───────── lo que la revisión adversarial destapó, cada uno con su control ─────────
+
+
+def test_la_frase_del_informe_sobre_recuperos_no_esta_invertida() -> None:
+    """🔴 El copy decía `PV/exposición`, que es la TASA DE RECUPERACIÓN, no la severidad.
+
+    El motor calcula ``1 - PV/EAD`` (`lgd.py:245-246`), o sea el complemento exacto. La frase
+    publicaba la cifra invertida en el documento que lee un tercero, sobre toda la cartera y sin
+    ningún error. Aquí se ata la frase a la aritmética con un caso calculado a mano.
+
+    Con recuperado=50, costo=1, exposición=100, tasa=0,05 y un año:
+        PV = (50 - 1) / 1,05 = 46,666…   →   LGD = 1 - 46,666…/100 = 0,5333…
+    La lectura literal de la frase vieja daba 0,4667, que es su complemento.
+    """
+    frame = pd.DataFrame(
+        {
+            "rec": [50.0],
+            "ead": [100.0],
+            "recovery_cost": [1.0],
+            "recovery_time_years": [1.0],
+            "contractual_rate": [0.05],
+        }
+    )
+    rama = InternalLgdWorkout(recovery_col="rec")
+    lgd = float(LgdEngine.from_config(rama).estimate(frame)["lgd"].iloc[0])
+    assert abs(lgd - 0.5333333333333333) < 1e-12, lgd
+
+    etiqueta = _INTERNAL_LGD_LABELS["workout"]
+    assert "uno menos" in etiqueta, (
+        f"la frase del informe no dice que se toma el complemento y por tanto describe la tasa de "
+        f"recuperación, no la severidad: {etiqueta!r}"
+    )
+
+
+def test_la_traza_de_auditoria_declara_la_procedencia_real_de_la_severidad() -> None:
+    """La traza es lo que un validador lee para reconstruir la corrida (D-LGD-4).
+
+    Registraba ``lgd_col`` sin condición, así que con la severidad modelada afirmaba una
+    procedencia falsa —y una que la propia rama declara inerte— contradiciendo al capítulo del
+    informe. Se comprueban las cuatro formas de procedencia.
+    """
+    observada = _procedencia_de_la_lgd(_cfg(InternalLgdProvided()))
+    assert observada == {"aplicada": True, "origen": "columna", "lgd_col": "lgd"}
+
+    regresion = _procedencia_de_la_lgd(
+        _cfg(InternalLgdFractionalResponse(covariate_cols=("ltv", "plazo")))
+    )
+    assert regresion["origen"] == "modelada"
+    assert regresion["covariate_cols"] == ["ltv", "plazo"], regresion
+    assert "lgd_col" not in regresion, (
+        "la traza sigue nombrando una columna como origen de una severidad modelada"
+    )
+
+    recuperos = _procedencia_de_la_lgd(_cfg(InternalLgdWorkout(recovery_col="monto_recuperado")))
+    assert recuperos["origen"] == "modelada"
+    assert "monto_recuperado" in recuperos["columnas"], recuperos
+
+    directa = _procedencia_de_la_lgd(
+        _cfg(InternalLgdProvided(), method="direct_loss_rate", loss_rate_col="lgd")
+    )
+    assert directa == {"aplicada": False, "origen": "no_aplica"}
+
+
+@pytest.mark.parametrize(
+    "rama",
+    [InternalLgdFractionalResponse, InternalLgdWorkout],
+    ids=["regresion", "workout"],
+)
+def test_una_columna_de_recuperacion_en_blanco_se_rechaza_en_el_config(rama: Any) -> None:
+    """Una cadena vacía no es «no la declaré»: el motor la busca y aborta (misma clase que 'cp').
+
+    🔴 Y hace daño dos veces: ``columnas_inactivas()`` decide por ``is not None``, así que con
+    ``''`` suprimía el requisito de ``lgd_col`` en el preflight — le callaba al usuario la única
+    columna con la que su corrida podía funcionar. El control negativo es que un nombre real sí
+    construye.
+    """
+    extra = {"covariate_cols": ("ltv",)} if rama is InternalLgdFractionalResponse else {}
+    with pytest.raises(InternalConfigError, match="recovery_col"):
+        rama(recovery_col="   ", **extra)
+    assert rama(recovery_col="tasa_recuperada", **extra).recovery_col == "tasa_recuperada"
+
+
+def test_una_columna_de_recuperos_en_blanco_se_rechaza_en_el_config() -> None:
+    """Las cuatro columnas del proceso de recuperación tampoco admiten un nombre vacío."""
+    with pytest.raises(InternalConfigError, match="workout_ead_col"):
+        InternalLgdWorkout(recovery_col="rec", workout_ead_col="  ")
+
+
+def test_la_guarda_de_severidad_ausente_se_ejercita_directamente() -> None:
+    """La guarda es defensa en profundidad, y su test la llama a mano en vez de fingir cobertura.
+
+    ⚠️ Medido: por la ruta real es **inalcanzable**. ``LgdEngine._finalize`` exige
+    ``numpy.isfinite`` antes de devolver, y ``_decimal_or_none`` sólo da ``None`` ante nulo o
+    cadena vacía, así que ningún float finito produce ninguno de los dos. Se conserva —el mapa de
+    severidad viene de fuera de esta función y su contrato no lo impone el tipo— pero se ejercita
+    de verdad, que es el precedente del repo con la guarda del transformer de binning: código que
+    no se puede alcanzar por la puerta normal no se deja con la cobertura fingida.
+    """
+    frame = _cartera(n=3)
+    with pytest.raises(InternalInputError, match="no produjo severidad"):
+        _parse_rows(
+            frame,
+            cfg=_cfg(InternalLgdFractionalResponse(covariate_cols=("ltv",))),
+            pd_by_row=dict.fromkeys(frame.index, 0.05),
+            severity_by_row=dict.fromkeys(frame.index),
+            pandas=pd,
+        )
 
 
 def test_la_union_sigue_discriminando_por_method() -> None:

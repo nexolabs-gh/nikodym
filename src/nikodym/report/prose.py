@@ -1870,9 +1870,12 @@ def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]
 #: las dos ramas leían la misma columna; con la severidad MODELADA, el documento que lee un
 #: regulador no diría que la LGD salió de una regresión ajustada sobre esa misma cartera.
 _INTERNAL_LGD_LABELS: Final[dict[str, str]] = {
+    # ⚠️ Dice «exposición» y no «monto colocado»: es el mismo `exposure_col` que este capítulo nombra
+    # así dos líneas antes y dieciséis después. Dos nombres para la misma magnitud, en el mismo
+    # párrafo, se leen como dos magnitudes distintas.
     "provided": (
         "La severidad la aporta la institución, columna por operación, y la del grupo es el "
-        "promedio ponderado por el monto colocado"
+        "promedio ponderado por la exposición"
     ),
     "group_historical": (
         "La severidad la aporta la institución y la del grupo es el promedio simple de su "
@@ -1886,9 +1889,13 @@ _INTERNAL_LGD_LABELS: Final[dict[str, str]] = {
         "La severidad no se tomó de una columna: se MODELÓ con una regresión beta sobre las "
         "variables declaradas"
     ),
+    # 🔴 La frase dice «uno menos», y no es un matiz de redacción. La versión anterior terminaba en
+    # «…dividiéndolo por la exposición», que es la TASA DE RECUPERACIÓN — el complemento exacto de
+    # lo que el motor calcula (`lgd.py:245-246`: `1.0 - present_value / ead`). Publicaba la cifra
+    # invertida en el documento que lee un tercero, sobre toda la cartera y sin ningún error.
     "workout": (
-        "La severidad no se tomó de una columna: se CALCULÓ trayendo a valor presente lo "
-        "recuperado neto de costos y dividiéndolo por la exposición de cada operación"
+        "La severidad no se tomó de una columna: se CALCULÓ como uno menos el valor presente de lo "
+        "recuperado neto de costos, dividido por la exposición de cada operación"
     ),
 }
 

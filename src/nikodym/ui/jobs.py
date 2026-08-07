@@ -412,7 +412,10 @@ _JOBS: tuple[dict[str, Any], ...] = (
         # gate es un grep sobre el fuente completo, comentarios incluidos, y no distingue una
         # fórmula reimplementada de un rótulo—, y D-JOB-14 pide nombres de negocio. La técnica se
         # explica en la descripción, que es donde corresponde.
-        "label": "LGD modelada por regresión",
+        # El rótulo decía «por regresión» y dejó de ser cierto al entrar el proceso de recuperación,
+        # que explícitamente NO ajusta ningún modelo. Es el nombre que se lee en la portada y en el
+        # sidebar, o sea la superficie más visible del trabajo.
+        "label": "Severidad modelada o calculada",
         # 🔴 La descripción anterior prometía modelar «con las mismas variables discretizadas del
         # scorecard» y el trabajo declaraba `binning` entre sus secciones. Las dos cosas se
         # retiraron juntas al implementar D-LGD-7, y no por alcance sino por MÉTODO: esa
@@ -427,12 +430,29 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         "sections": ("data", "provisioning_internal", "report"),
         "missing_sections": (),
-        "external_input": "La PD calibrada de tu modelo.",
+        "external_input": "La PD de tu modelo, calibrada o sin calibrar.",
+        # 🔴 Las DOS puertas, como sus hermanos `provision_interna` y `comparar_provisiones`. Con el
+        # trabajo no disponible bastaba una: `artefactos_admitidos()` sólo mira los trabajos
+        # DISPONIBLES, y un comentario lo declaraba inocuo. Al pasar a disponible esa condición dejó
+        # de cumplirse, y su abanico ofrece `pd_source='model'` — o sea que quien eligiera «la
+        # probabilidad sin calibrar» se quedaba sin dónde subirla.
         "external_artifacts": (
             {
                 "artifact": ("calibration", "calibrated_pd_frame"),
                 "label": "La PD calibrada de tu modelo, por operación",
                 "when": {"path": "provisioning_internal.pd_source", "equals": "calibration"},
+                "key_question": "¿Qué columna identifica cada operación?",
+                "columns": (
+                    {
+                        "question": "¿Qué columna trae la probabilidad de incumplimiento?",
+                        "config_paths": ("provisioning_internal.pd_column",),
+                    },
+                ),
+            },
+            {
+                "artifact": ("model", "raw_pd_frame"),
+                "label": "La PD sin calibrar de tu modelo, por operación",
+                "when": {"path": "provisioning_internal.pd_source", "equals": "model"},
                 "key_question": "¿Qué columna identifica cada operación?",
                 "columns": (
                     {
@@ -1946,10 +1966,11 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
             "question": "¿De dónde sale la severidad de cada operación?",
             "help": (
                 "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa "
-                "de pérdida ya estimada, esta elección no cambia absolutamente nada. Las dos "
-                "primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la "
-                "resumen por grupo; las tres siguientes la CALCULAN, y por eso no te piden esa "
-                "columna sino los insumos con que estimarla."
+                "de pérdida ya estimada, esta elección no cambia el resultado. Las dos primeras "
+                "leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen "
+                "por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada "
+                "como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el "
+                "proceso de recuperación prescinde de ella: la calcula desde tus flujos."
             ),
             "multiple": False,
             "options": (
@@ -1978,15 +1999,22 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "motivo": None,
                     "prueba": None,
                 },
+                # ⚠️ Los tres rótulos siguen el vocabulario que la sección hermana de IFRS 9 ya
+                # había fijado para EL MISMO motor y LAS MISMAS tres ramas: describen el
+                # comportamiento y **evitan el nombre de la distribución**, que a quien decide no
+                # le dice nada. Un primer intento rotulaba «regresión beta» frente a «una regresión
+                # sobre tus variables», o sea una opción específica contra otra genérica: en el
+                # desplegable no había con qué elegir, que es justo lo que D-LGD-15 quiere resolver.
                 {
                     "value": "fractional_response",
-                    "label": "Modelarla con una regresión sobre tus variables",
+                    "label": "Modelarla admitiendo recuperos totales y pérdidas totales",
                     "help": (
                         "Ajusta un modelo de la severidad sobre las variables que elijas de tu "
-                        "archivo y usa el valor ajustado de cada operación. Admite operaciones con "
-                        "recupero total y con pérdida total, que es lo normal en una cartera real. "
-                        "El ajuste se hace sobre la MISMA cartera que se provisiona, así que mide "
-                        "el desempeño dentro de la muestra: el informe lo dice."
+                        "archivo y usa el valor ajustado de cada operación. Admite operaciones que "
+                        "se recuperaron por completo y otras que se perdieron por completo, que es "
+                        "lo normal en una cartera real. El ajuste se hace sobre la MISMA cartera "
+                        "que se provisiona, así que mide el desempeño dentro de la muestra: el "
+                        "informe lo dice."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,
@@ -1994,13 +2022,14 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                 },
                 {
                     "value": "beta_regression",
-                    "label": "Modelarla con una regresión beta sobre tus variables",
+                    "label": "Modelarla acotada estrictamente entre cero y uno",
                     "help": (
-                        "Como la anterior, pero con una distribución beta. Exige que la severidad "
-                        "observada esté ESTRICTAMENTE entre 0 y 1: basta una operación con "
-                        "recupero total o con pérdida total para que la corrida se detenga, y esas "
-                        "dos son frecuentes en una cartera real. Si no sabes cuál de las dos "
-                        "elegir, la fraccional es la que corresponde a este dato."
+                        "Como la anterior, pero exige que la severidad observada esté "
+                        "ESTRICTAMENTE entre 0 y 1: basta una operación recuperada por completo o "
+                        "perdida por completo para que la corrida se detenga, y esas dos son "
+                        "frecuentes en una cartera real. También puede detenerse si el ajuste no "
+                        "converge. Si no sabes cuál de las dos elegir, la anterior es la que "
+                        "corresponde a este dato."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,
@@ -2008,12 +2037,14 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                 },
                 {
                     "value": "workout",
-                    "label": "Calcularla descontando lo que ya recuperaste",
+                    "label": "Calcularla desde el proceso de recuperación real",
                     "help": (
                         "No ajusta ningún modelo: toma lo recuperado de cada operación, le resta "
-                        "los costos de recuperarlo, lo trae a valor presente con tu tasa y lo "
-                        "divide por la exposición. Exige cuatro columnas de tu archivo y los tres "
-                        "montos van en la misma moneda, no en fracciones."
+                        "los costos de recuperarlo, lo trae a valor presente con tu tasa, lo "
+                        "divide por la exposición y se queda con LO QUE NO SE RECUPERÓ. Exige "
+                        "cinco columnas de tu archivo —lo recuperado, los costos, la exposición, "
+                        "los años que tardó y la tasa a la que descuentas— y los tres montos van "
+                        "en la misma moneda, no en fracciones."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,

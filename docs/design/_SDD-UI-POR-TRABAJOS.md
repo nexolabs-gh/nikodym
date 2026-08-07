@@ -67,8 +67,10 @@ exacta de «feature gateada por config es feature inexistente» del propio repo.
 | `ml` | 4 | `svm, random_forest, xgboost, lightgbm, catboost` |
 | `markov`, `binning`, `selection`, `model`, `provisioning*` | 15+ | — |
 
-⚠️ **Un matiz que corrige una lectura precipitada:** `provisioning_internal.lgd.method` sólo admite
-`provided` y `group_historical` —ahí no hay LGD modelada—, pero `provisioning_ifrs9.lgd.method` sí
+⚠️ **Un matiz que corrige una lectura precipitada** —🔴 **SUPERADO el 2026-08-07 por D-LGD-4**, que
+añadió las tres ramas modeladas a `provisioning_internal.lgd.method`; se conserva porque describe el
+estado en que se tomó la decisión—**:** `provisioning_internal.lgd.method` sólo admitía
+`provided` y `group_historical` —ahí no había LGD modelada—, pero `provisioning_ifrs9.lgd.method` sí
 ofrece `beta_regression`, `fractional_response` y `workout`. El abanico está, repartido de forma
 desigual entre motores. Lo que **no** existe en ninguno es un regresor genérico sobre variables
 WoE-izadas: un árbol de regresión para LGD, caso observado en banca, no tiene dónde encajar.

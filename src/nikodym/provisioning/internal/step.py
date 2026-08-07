@@ -28,7 +28,11 @@ from nikodym.core.exceptions import ArtifactNotFoundError, MissingDependencyErro
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
 from nikodym.core.steps import ArtifactKey
-from nikodym.provisioning.internal.config import InternalProvisioningConfig
+from nikodym.provisioning.internal.config import (
+    InternalLgdModelada,
+    InternalLgdWorkout,
+    InternalProvisioningConfig,
+)
 from nikodym.provisioning.internal.exceptions import InternalConfigError, InternalInputError
 
 if TYPE_CHECKING:
@@ -165,7 +169,12 @@ class InternalProvisioningStep(AuditableMixin):
                 "lgd_floor": config.lgd.lgd_floor,
                 "lgd_cap": config.lgd.lgd_cap,
             },
-            valor={"lgd_col": config.lgd.lgd_col, "aplicada": config.method == "pd_lgd"},
+            # 🔴 La procedencia se declara por RAMA, no siempre como una columna. Esto registraba
+            # `lgd_col` sin condición, así que con la severidad modelada la traza de auditoría
+            # afirmaba que la LGD salió de una columna que la propia rama declara inerte, y
+            # contradecía al capítulo del informe dos artefactos más allá. Un validador que
+            # reconstruya la corrida desde la traza necesita los insumos REALES del ajuste.
+            valor=_procedencia_de_la_lgd(config),
             accion="resolver_lgd_del_grupo",
         )
         self.log_decision(
@@ -194,6 +203,38 @@ class InternalProvisioningStep(AuditableMixin):
             },
             accion="trazar_faltantes_y_avisos",
         )
+
+
+def _procedencia_de_la_lgd(config: InternalProvisioningConfig) -> dict[str, Any]:
+    """Declara en la traza de auditoría de DÓNDE salió la severidad, según la rama (D-LGD-4).
+
+    No es cosmético: la traza es lo que un validador lee para reconstruir la corrida. Nombrar
+    ``lgd_col`` cuando la severidad se modeló es afirmar una procedencia falsa, y además contradice
+    el capítulo del informe, que sí distingue las cinco formas.
+
+    Cuando el motor no descompone la pérdida (``direct_loss_rate``) la sección de LGD no gobierna
+    nada, así que la traza lo dice en vez de nombrar una columna que nadie abrió.
+    """
+    lgd = config.lgd
+    if config.method != "pd_lgd":
+        return {"aplicada": False, "origen": "no_aplica"}
+    if isinstance(lgd, InternalLgdModelada):
+        insumos: dict[str, Any] = {"aplicada": True, "origen": "modelada"}
+        if isinstance(lgd, InternalLgdWorkout):
+            insumos["columnas"] = sorted(
+                {
+                    cast(str, lgd.recovery_col),
+                    lgd.workout_ead_col,
+                    lgd.workout_cost_col,
+                    lgd.workout_time_col,
+                    lgd.workout_rate_col,
+                }
+            )
+        else:
+            insumos["covariate_cols"] = list(lgd.covariate_cols)
+            insumos["objetivo"] = lgd.recovery_col or lgd.lgd_col
+        return insumos
+    return {"aplicada": True, "origen": "columna", "lgd_col": lgd.lgd_col}
 
 
 def _requires_for(config: InternalProvisioningConfig) -> tuple[ArtifactKey, ...]:
