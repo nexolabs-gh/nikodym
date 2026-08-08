@@ -11,7 +11,51 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-07, **P4 terminado y el deploy deja de ser manual**)
+## Estado vigente (2026-08-08, **cuatro premisas escritas cayeron al medirlas**)
+
+**`main` = `acd8f7d`.** ⚠️ **CI 16/16 confirmado job a job sobre `c147f00`, `b2d9a43` y `a238732`, con
+su `Deploy` verde; el de `acd8f7d` queda por verificar al arrancar.** Gates: pytest **5440 passed / 7
+skipped** (base 5362), vitest **652/652**, mypy 245, `ruff check` y `format`, typecheck y lint del
+front, fixtures y bundle regenerados, `mkdocs --strict`, `uv lock --check`, **los cuatro `config_hash`
+sin mover**, **23 controles negativos ejecutados**. **PyPI sigue en `1.11.0` y no hay release
+autorizado.**
+
+✅ **La ruta automática del deploy quedó probada** (cuatro disparos `workflow_run` correctos). 🔴 La
+causa de los dos rojos que había: `VERCEL_TOKEN` se creó siete horas **después** de esos runs. No había
+defecto en el workflow.
+
+🔴 **Lo que gobierna esta sesión: cuatro premisas escritas cayeron al medirlas**, dos de ellas deudas
+del HANDOFF anterior y una la recomendación de un revisor. El gate de portada ampliado **nace verde**
+(es prevención, no reparación, y la deuda mezclaba dos clases); **`ui/jobs.py` no depende del extra
+`[ui]`**; la deuda de la rama modelada tenía una premisa **falsa** —el mensaje sí se lee, D-ANC-12 ya lo
+cerró— que hacía su prescripción inejecutable; y la deuda de los placeholders estaba **mal atribuida**
+(mediana 67, ninguna de LGD sobre 200, la peor 551 y preexistente).
+
+🔴 **El defecto más caro estaba en la pantalla de resultados**: texto **fijo** afirmando «La norma
+chilena obliga … Montos en pesos (CLP)» y «(B-1 §3)» sobre un orquestador que admite dos fuentes **sin
+CMF**. La prosa del informe dejó de hacerlo el 2026-08-05 y **la corrección no se propagó al front**.
+Se arregla derivando el copy de datos que el front ya tenía.
+
+🔴 **Y «inspecciona la primera rama de la unión» apareció TRES veces**: el oráculo del abanico, el
+recolector del gate de copy (que no veía ningún campo de las otras cuatro formas; la cobertura pasa de
+192 a **424 rutas**) y un resolvedor propio. ⚠️ El criterio se afinó **contra el revisor**: «medir
+constructibilidad de cada rama» acusa 9 y **6 son inocentes**.
+
+✅ **Tres enmiendas aprobadas e implementadas** ([`_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md`](design/_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md),
+[`_ENMIENDA-COTEJO-FUENTES.md`](design/_ENMIENDA-COTEJO-FUENTES.md)): el abanico gana un cuarto estado
+con la ruta del campo que exige; el error de dominio declara su `loc` —forma de una clase de 123
+`raise`—; y la fuente de un cotejo pasa de prosa a **dato**, con la del 2026-06-23 **vacía** y su
+ausencia **publicada**, porque inferirla sería fabricar evidencia de auditoría.
+
+🔴 **D-EXI-6 se implementó de otra forma que la escrita, por decisión de Cami con el coste medido
+delante**: relajar el validador obligaba a que dos clases públicas dejaran de fallar y contradecía
+D-LGD. Se cierra en la **superficie**, con un `when` que ya existía para `external_artifacts`.
+
+**Siguiente: lo elige Cami.** Sin defectos abiertos. Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-07, **P4 terminado y el deploy deja de ser manual**)
 
 **`main` = `9bdf68a`.** ✅ **CI 16/16 confirmado job a job con `gh` sobre `de7043f` y `9bdf68a`**; no
 queda ningún run por verificar. Gates: pytest **5362 passed / 8 skipped** (base 5323), vitest

@@ -4,11 +4,23 @@
 > HANDOFF del 2026-08-07, medida por tres agentes y atacada por dos lentes adversariales.
 > Decisiones `D-EXI-1…D-EXI-7`.
 >
-> 🔴 **Alcance aprobado: D-EXI-2 y D-EXI-3** (el cuarto estado declarado y el oráculo por rama), más
-> D-EXI-1 y D-EXI-7, que son las dos decisiones de *no hacer*. **D-EXI-5** (el ancla del `loc` del
-> error de dominio, que cierra una clase de 123 `raise`) y **D-EXI-6** (la rama modelada bajo
-> subsección inerte, el único que cambia comportamiento) quedan **escritas y sin implementar**,
-> disponibles cuando Cami las elija — precedente D-SEG-11 / D-MAX-3.
+> ✅ **APROBADA E IMPLEMENTADA ENTERA** (Cami, en dos tandas el 2026-08-08): primero D-EXI-1/2/3/7 y
+> después D-EXI-5 y D-EXI-6.
+>
+> 🔴 **D-EXI-6 se implementó de OTRA FORMA que la escrita, y la decisión la tomó Cami con el coste
+> medido delante.** Esta enmienda decía «el validador deja de aplicar cuando el método no abre la
+> subsección»; al implementarlo se midió que los validadores viven en las **ramas**, que Pydantic
+> valida **antes de que el padre exista**, así que hacerlo obligaría a (a) que `InternalLgdWorkout()`
+> dejara de fallar —dos clases del `__all__` público—, (b) invertir dos tests que expresan D-LGD
+> textual («la rama ES el método, así que la regla deja de ser condicional») y (c) divergir de
+> `provisioning_ifrs9`, que seguiría exigiéndolo en la misma regla. Nada de eso estaba evaluado aquí.
+> **La salida elegida cierra el defecto en la SUPERFICIE**: el punto de elección gana `when` —el
+> mecanismo ya existía para `external_artifacts`— y con `method='direct_loss_rate'` no se ofrece.
+> Ver §2 de D-EXI-6, reescrito.
+>
+> ✅ **D-EXI-5 se implementó como la forma más los dos `raise` de LGD.** Los otros 121 quedan
+> migrables uno a uno sin tocar contrato, que es lo que esta enmienda propone: decide la forma, no
+> hace el barrido.
 >
 > ⚠️ **Y el criterio de D-EXI-3 se afinó al implementarlo, contra la recomendación del revisor.**
 > «Medir constructibilidad de CADA rama» acusa **9** ramas y **6 son inocentes** (las tres de
@@ -147,13 +159,33 @@ comentario actual prohíbe con razón—: lo declara el emisor.
 Alcance: son **123 `raise` en 18 de las 22 secciones de dominio** (censo de D-ANC-10), así que esto es
 mecanismo, no parche. La enmienda decide **la forma**; migrar los 123 es incremental y no bloquea.
 
-### D-EXI-6 — Con la subsección inerte, la rama de LGD no puede rechazar el config
+### D-EXI-6 — Con la subsección inerte, el punto de la severidad NO SE OFRECE
 
-El validador de las ramas modeladas deja de aplicar cuando `provisioning_internal.method` no abre la
-subsección. ⚠️ Esto es lo único de la enmienda que puede **cambiar el comportamiento de un config que
-hoy no corre a uno que sí**, y por eso va con su control negativo medido: hay que comprobar que
-ninguna de las cuatro identidades se mueve y que no se admite un config que el motor luego rechace
-aguas abajo.
+🔴 **Reescrita al implementarla, con decisión de Cami.** La redacción original —«el validador de las
+ramas modeladas deja de aplicar cuando `provisioning_internal.method` no abre la subsección»— **no es
+implementable sin cambiar contrato público**, y eso se midió al programarla:
+
+1. Los validadores viven en las **ramas** (`_check_regresion`, `_check_workout`), y Pydantic las
+   valida **antes de que el padre exista**. No hay forma de que el padre las suprima.
+2. Moverlos al padre obliga a que `InternalLgdWorkout()` y `InternalLgdBetaRegression()` **dejen de
+   fallar**. Las dos están en el `__all__` de `provisioning.internal`: es cambio de API pública.
+3. Y contradice **D-LGD**, aprobado el día anterior y escrito en dos tests: *«se rechaza en el
+   config, no en la corrida; con la unión la regla deja de ser condicional porque la rama ES el
+   método»*. `IfrsLgdConfig` seguiría exigiéndolo, así que los dos motores divergirían en la misma
+   regla.
+
+✅ **Lo que se hizo: cerrarlo en la SUPERFICIE.** El punto de elección del abanico gana `when`, y con
+`provisioning_internal.method='direct_loss_rate'` **no se ofrece** — no se pinta en gris, se filtra:
+no es una elección bloqueada que el usuario podría desbloquear, es una pregunta que con ese método no
+tiene sentido hacer. Y el `help` deja de prometer que «esta elección no cambia el resultado», que era
+falso en el peor sentido: no daba igual, **rechazaba el config entero**.
+
+⚠️ **El mecanismo no es nuevo**: es el mismo `when` (`{"path": …, "equals": …}`) que
+`external_artifacts` ya declara y que el front evalúa con `valueAtPath`. Reutilizarlo evita meter un
+segundo lenguaje de condiciones en el front, y por eso el coste fue una clave opcional y un filtro.
+
+⚠️ **Coste: cero identidad, cero API pública, cero validador.** Ningún `config_hash` se mueve, ninguna
+clase se relaja y ningún config que hoy corre cambia de resultado. Lo que cambia es qué se ofrece.
 
 ### D-EXI-7 — D-OBL queda FUERA, con su razón medida
 

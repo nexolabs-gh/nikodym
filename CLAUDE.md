@@ -5,7 +5,83 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-07): **P4 TERMINADO, y docs y demo dejan de publicarse a mano**
+> ## Lo último (2026-08-08): **cuatro veces la medición refutó lo escrito, y el peor defecto vivía en la PANTALLA DE RESULTADOS**
+>
+> **`main` = `acd8f7d`.** ⚠️ **CI 16/16 confirmado job a job sobre `c147f00`, `b2d9a43` y `a238732`,
+> con su `Deploy` verde; el de `acd8f7d` queda por verificar al arrancar.** Gates: pytest **5440
+> passed / 7 skipped** (base 5362), vitest **652/652** (base 640), mypy 245, `ruff check` y `format`,
+> typecheck y lint, fixtures y bundle regenerados, `mkdocs --strict`, `uv lock --check`, **los cuatro
+> `config_hash` sin mover**, **23 controles negativos ejecutados**. **PyPI sigue en `1.11.0`.**
+>
+> ✅ **La ruta automática del deploy quedó PROBADA** —cuatro disparos `workflow_run` correctos—, que era
+> la duda con que se abrió la sesión. 🔴 Y la causa de los dos rojos: `VERCEL_TOKEN` se creó
+> **2026-08-08T00:03:55Z** y esos runs fueron **siete horas antes**. **No había defecto en el workflow.**
+>
+> 🔴 **LO QUE MÁS VALE: cuatro premisas escritas cayeron al medirlas**, dos de ellas deudas del HANDOFF
+> anterior y una la recomendación de un revisor. (1) El gate de portada ampliado **nace VERDE** —ningún
+> trabajo neutro ni función de prosa neutra nombra hoy una jurisdicción— así que es prevención, no
+> reparación; y la deuda **mezclaba dos clases**: la fórmula invertida del 07-08 **no** la caza un
+> detector de términos. (2) **`ui/jobs.py` NO depende del extra `[ui]`**, verificado bloqueando
+> `starlette`/`fastapi`/`uvicorn`, así que el gate mide la fuente y no un espejo. (3) La deuda 2 tenía
+> una premisa **FALSA** —«no está trasladada a ninguna superficie»: sí lo está, y es el hueco que
+> **D-ANC-12 ya cerró**— y con ella se cae su prescripción: relajar la guarda **viola CRP-5 y degrada**
+> el diagnóstico. (4) La deuda 6 estaba **mal atribuida**: la mediana de los 354 placeholders es **67**,
+> ninguna de LGD llegaba a 200, y la peor tiene **551** y es preexistente.
+>
+> 🔴 **El defecto más caro estaba en la PANTALLA DE RESULTADOS y era alcanzable.** `ResultsTab.tsx`
+> rotulaba «Provisiones — la regla del máximo (CMF Cap. B-1)» con «La norma **chilena** obliga …
+> (Circular N° 2.346). **Montos en pesos (CLP)**.» y «por grupo homogéneo **(B-1 §3)**», texto **fijo**
+> — y `ProvisioningSource` admite `provisioning_ifrs9` + `provisioning_internal` **sin CMF**. La prosa
+> del informe dejó de hacerlo el 2026-08-05 y **la corrección no se propagó a la pantalla**, que es la
+> que ve quien corre por la interfaz. ✅ Se arregla **derivando**: `provisioningSectionCopy` replica el
+> criterio de `prose.py` sobre datos que el front **ya tenía** ⇒ cero contrato nuevo.
+>
+> 🔴 **Verificar el ARTEFACTO FINAL cazó lo que la lectura no**: tras corregir `jobs.py:2456` el bundle
+> seguía sirviendo «al peso entero» desde un **segundo** sitio que nadie vio. De ahí un barrido que
+> destapó **«Las dos rutas están admitidas por la norma»** en el abanico de `provisioning_internal`, el
+> motor **sin norma detrás**, viajando a tres trabajos neutros. ⚠️ Y lo que un detector **no puede**
+> vigilar, declarado: «peso» es homónimo (moneda y ponderación, ~10 falsos positivos) y «la norma exige»
+> es legítimo donde la norma es un estándar internacional.
+>
+> 🔴 **«Inspecciona la primera rama de la unión»: TRES veces en la misma sesión** — el oráculo del
+> abanico, el recolector del gate de copy (que **no veía ningún campo de las otras cuatro formas**;
+> arreglarlo lleva la cobertura de **192 a 424 rutas**) y mi propio resolvedor de rutas. ⚠️ Y el criterio
+> se afinó **contra la recomendación del revisor**: «constructibilidad de cada rama» acusa **9** y **6
+> son inocentes**; el criterio correcto es unión **discriminada** + campo **no requerido** + rama que no
+> construye.
+>
+> ✅ **Tres enmiendas aprobadas por Cami e implementadas.** **D-EXI-2/3**: el abanico gana un cuarto
+> estado declarado con la clave `exige` —la exigencia ya estaba escrita, pero como **prosa** dentro de
+> `help`, donde ninguna máquina la lee—. **D-EXI-5**: el error de dominio declara su `loc`, y eso deja
+> la **forma** de una clase de 123 `raise` en 18 secciones. **D-FTE**: la fuente de un cotejo pasa de
+> prosa a **dato**; la del 2026-06-23 va **vacía** porque Cami no la recuerda, y **la ausencia se
+> publica** — no se infiere `pdf_semilla_b1` aunque sea plausible, porque declarar una procedencia que
+> nadie registró es fabricar evidencia de auditoría.
+>
+> 🔴 **D-EXI-6 se implementó de OTRA FORMA, y la decisión fue de Cami con el coste delante.** La
+> enmienda decía «el validador deja de aplicar»; al programarlo se midió que los validadores viven en
+> las **ramas** —Pydantic las valida antes de que el padre exista—, así que obligaría a que
+> `InternalLgdWorkout()` **dejara de fallar** (dos clases del `__all__`), a invertir dos tests que
+> expresan **D-LGD** textual y a divergir de `provisioning_ifrs9`. Se cierra en la **superficie**: el
+> punto gana `when` y con `direct_loss_rate` **no se ofrece**. ⚠️ El mecanismo **ya existía** (el `when`
+> de `external_artifacts`): coste cero en identidad, API y validador.
+>
+> ✅ **Deuda 6 cerrada entera**: de **16 sobre 160 caracteres a 0**, con el patrón que no pierde nada —
+> `description` corta para el input, detalle a `ui_help` para el tooltip.
+>
+> ⚠️ **Trampas nuevas:** un script que re-envuelve comentarios **por indentación colapsa el CÓDIGO** y
+> deja los tests rotos (restaurar fue seguro sólo porque el índice seguía en HEAD);
+> **`NikodymConfig.<sección>` está anotado `typing.Any`**, así que una ruta se resuelve por el
+> **registro** y no por la anotación; un gate que busca una **frase en todo un documento** queda
+> satisfecho por el párrafo genérico; el Browser pane oculto da **screenshots vacíos** y ahí
+> `innerHeight` vale **0** (un cero de no haber medido); y un **golden compartido entre dos barridos**
+> puede ser coincidencia y no invariante.
+>
+> **Siguiente: lo elige Cami.** Sin defectos abiertos. Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-07): **P4 TERMINADO, y docs y demo dejan de publicarse a mano**
 >
 > **`main` = `9bdf68a`.** ✅ **CI 16/16 confirmado job a job con `gh` sobre `de7043f` Y `9bdf68a`**;
 > no queda ningún run por verificar. Gates: pytest **5362 passed / 8 skipped** (base 5323), vitest
