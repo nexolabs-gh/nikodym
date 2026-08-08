@@ -537,6 +537,28 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > es la única pregunta abierta y es de Cami. Coste medido: cero en `config_hash`, cero en
 > `yaml_sha256` (sella el YAML, no el manifiesto) y cero en la card.
 >
+> **Un error de validación no puede quedarse SIN SUPERFICIE (2026-08-08, APROBADA).**
+> [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md), D-VIS-1…D-VIS-7. Nace de
+> verificar en pantalla la deuda 4 del HANDOFF («el front no salta al `loc` todavía»), que se leía
+> como media hora de comprobación. 🔴 **Medida, la deuda escondía una regresión**: anclar un error lo
+> vuelve **invisible fuera de su sección** —`unanchoredError` sólo miraba `lookup.get("")`, así que un
+> `loc` no vacío deja de caer ahí y depende de que su `FieldRenderer` esté montado—. Verificado con su
+> control: el mismo trabajo, el mismo gesto, y el error **sin** migrar sigue leyéndose mientras el
+> migrado desaparece de la pantalla entera, con el sidebar sin marcar nada. ⚠️ **La clase es
+> PREEXISTENTE y mayor**: los errores de Pydantic siempre trajeron `loc`, así que con tres secciones
+> rotas dos de los tres mensajes eran invisibles desde siempre; D-EXI-5 no la creó, **metió dentro** a
+> los de dominio, que estaban a salvo por accidente. ⇒ Es **prerequisito de migrar los 133 `raise`**:
+> hacerlo antes empeora la interfaz en los **58 (43 %)** que caen en las **8 secciones de dominio sin
+> pestaña** (`forward`, `markov`, `tuning`, `stress`, `ml`, `validation`, `explain`, `eda` — 267 de las
+> 700 hojas del config). ✅ **No inventa mecanismo**: `sectionOfPath`, `sectionIsEditable` y
+> `jumpToField` ya existen para el preflight, con el criterio escrito de *«ofrecer un salto a una
+> pestaña que no existe sería peor que no ofrecerlo»*. 🔴 **D-VIS-7 se añadió después del OK** porque
+> el flanco del **tag del discriminador** (58 hojas bajo 3 uniones) deja falsa la invariante D-VIS-1
+> que sí estaba aprobada: el `loc` se normaliza elidiendo el tag —por POSICIÓN en el schema y
+> recorriendo **todas** las ramas, no la primera—, con lo que esas 58 hojas pasan a anclarse de
+> verdad. ⚠️ **Y dos afirmaciones del borrador las refutó la medición**: ni el `loc` en un ancestro ni
+> el `loc` con índice de lista son flancos; los dos se pintan hoy, y quedan escritos como refutados.
+>
 > **El informe declara su moneda en vez de suponerla (2026-08-05, APROBADA).**
 > [`_ENMIENDA-MONEDA-DEL-INFORME.md`](_ENMIENDA-MONEDA-DEL-INFORME.md), D-MON-1…D-MON-6. Pieza 2 de
 > **D-JUR-8**. `_clp` cableaba el símbolo y la prosa afirmaba «pesos chilenos (CLP)» en tres

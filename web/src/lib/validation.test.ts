@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest"
 
+import fixtureSchema from "@/fixtures/schema.json"
+import type { JsonSchema } from "@/lib/form-engine"
+
 import {
   buildErrorLookup,
   canRun,
   describeApiError,
   errorAtPath,
   pathKey,
+  erroresSinSuperficie,
+  normalizarLoc,
   pipelineWarning,
-  unanchoredError,
+  seccionesConError,
 } from "./validation"
 
 describe("pathKey", () => {
@@ -50,41 +55,179 @@ describe("buildErrorLookup", () => {
   })
 })
 
-describe("unanchoredError", () => {
-  // 🔴 Medido abriendo la pantalla: escribir la tasa objetivo con la fuente que la calcula sola
-  // dejaba «Config inválido · 1 error» y NINGÚN mensaje visible. El `ConfigError` de una sección
-  // lo levanta el `model_validator` sobre la sección entera, así que llega con `loc: []` y su
-  // clave de lookup es la cadena vacía, que ningún campo del formulario reclama.
+describe("normalizarLoc (D-VIS-7): el tag del discriminador se elide", () => {
+  // El fixture es el PAYLOAD de `/api/schema` (`{json_schema, defaults, …}`), no el schema: la raíz
+  // del config es `json_schema`. Pasar el payload entero hace que `properties.data` no exista y el
+  // recorrido se pierda en el primer segmento — lo cazó el ancla anti-vacuidad de este bloque.
+  const raiz = (fixtureSchema as unknown as { json_schema: JsonSchema }).json_schema
+  const defs = raiz.$defs ?? {}
+
+  // 🔴 Medido contra la API viva: el motor devuelve el `loc` CON el tag de la variante, y
+  // `DiscriminatedField` monta los controles SIN él. Son 58 hojas bajo las 3 uniones del config.
+  it.each([
+    [
+      ["data", "partition", "strategy", "cohort", "holdout_fraction"],
+      "data.partition.strategy.holdout_fraction",
+    ],
+    [
+      ["data", "partition", "strategy", "temporal", "date_col"],
+      "data.partition.strategy.date_col",
+    ],
+    [
+      ["provisioning_internal", "lgd", "workout", "lgd_floor"],
+      "provisioning_internal.lgd.lgd_floor",
+    ],
+  ])("%j ⇒ %s", (loc, esperado) => {
+    expect(pathKey(normalizarLoc(loc, raiz, defs))).toBe(esperado)
+  })
+
+  // 🔴 Todas las ramas, no la primera. `workout` es la ÚLTIMA de las cinco de `lgd` y `columna` la
+  // última de las cuatro de `partition.strategy`: un recolector que se quede con la primera rama
+  // —el patrón que este repo pagó tres veces en una sesión— falla justo aquí.
+  it("elide el tag de la ÚLTIMA rama, no sólo el de la primera", () => {
+    expect(
+      pathKey(normalizarLoc(["provisioning_internal", "lgd", "workout", "recovery_col"], raiz, defs)),
+    ).toBe("provisioning_internal.lgd.recovery_col")
+    expect(
+      pathKey(normalizarLoc(["data", "partition", "strategy", "columna", "partition_col"], raiz, defs)),
+    ).toBe("data.partition.strategy.partition_col")
+  })
+
+  it("un loc sin tag no se toca, y el índice de lista se conserva", () => {
+    expect(pathKey(normalizarLoc(["binning", "min_iv"], raiz, defs))).toBe("binning.min_iv")
+    expect(pathKey(normalizarLoc(["data", "schema", "columns", 3, "name"], raiz, defs))).toBe(
+      "data.schema.columns.3.name",
+    )
+    expect(pathKey(normalizarLoc([], raiz, defs))).toBe("")
+  })
+
+  it("sin schema devuelve el loc tal cual: no se adivina", () => {
+    expect(
+      pathKey(normalizarLoc(["data", "partition", "strategy", "cohort", "holdout_fraction"], undefined)),
+    ).toBe("data.partition.strategy.cohort.holdout_fraction")
+  })
+
+  // El tag se elide por POSICIÓN, no por nombre: un campo que se llame como un tag sobrevive.
+  it("no borra un segmento que se llama como un tag pero NO está en la unión", () => {
+    expect(pathKey(normalizarLoc(["data", "schema", "columns"], raiz, defs))).toBe(
+      "data.schema.columns",
+    )
+    const inventado = ["provisioning_internal", "workout"]
+    expect(pathKey(normalizarLoc(inventado, raiz, defs))).toBe("provisioning_internal.workout")
+  })
+
+  // Ancla anti-vacuidad: si el fixture dejara de traer las uniones, los `it.each` de arriba
+  // pasarían por la rama «no se toca» y este bloque mediría nada.
+  it("el fixture trae de verdad las tres uniones discriminadas", () => {
+    const conTag = ["data", "partition", "strategy", "cohort", "holdout_fraction"]
+    expect(normalizarLoc(conTag, raiz, defs)).toHaveLength(conTag.length - 1)
+  })
+})
+
+describe("erroresSinSuperficie (D-VIS-1/2)", () => {
+  // 🔴 Medido abriendo la pantalla, dos veces. (a) Un `ConfigError` de sección llega con `loc: []`
+  // y ningún campo lo reclama —el caso de D-ANC-12—. (b) Y con D-EXI-5, un error que SÍ declara su
+  // campo desaparece de la pantalla entera al mirar otra sección: quedaba «Config inválido · 1
+  // error» y nada más, con el sidebar sin marcar. Anclar no puede costar la visibilidad.
   const errorDeSeccion = {
     loc: [] as (string | number)[],
     msg: "anchor_source='development_observed' … el target_pd que fijó no se usaría.",
     type: "value_error",
   }
-
-  it("recupera el error de sección, que no pertenece a ningún campo", () => {
-    const state = {
-      kind: "invalid" as const,
-      count: 1,
-      lookup: buildErrorLookup([errorDeSeccion]),
-    }
-    expect(unanchoredError(state)).toContain("no se usaría")
+  const errorDeCampo = {
+    loc: ["binning", "min_iv"] as (string | number)[],
+    msg: "debe ser ≥ 0",
+    type: "greater_than",
+  }
+  const invalido = (errores: typeof errorDeCampo[]) => ({
+    kind: "invalid" as const,
+    count: errores.length,
+    lookup: buildErrorLookup(errores),
   })
 
-  it("no inventa nada cuando todos los errores SÍ tienen campo", () => {
+  it("publica el error de sección, que no pertenece a ningún campo", () => {
+    const fuera = erroresSinSuperficie(invalido([errorDeSeccion]), "binning")
+    expect(fuera).toHaveLength(1)
+    expect(fuera[0].msg).toContain("no se usaría")
+    expect(fuera[0].seccion).toBeNull()
+    expect(fuera[0].alcanzable).toBe(false)
+  })
+
+  it("calla el error del campo cuando su sección es la ABIERTA: lo pinta el campo", () => {
+    expect(erroresSinSuperficie(invalido([errorDeCampo]), "binning")).toEqual([])
+  })
+
+  it("🔴 publica el error del campo cuando el usuario mira OTRA sección", () => {
+    const fuera = erroresSinSuperficie(invalido([errorDeCampo]), "data")
+    expect(fuera).toHaveLength(1)
+    expect(fuera[0].msg).toBe("debe ser ≥ 0")
+    expect(fuera[0].seccion).toBe("binning")
+    expect(fuera[0].seccionLabel).toBe("Optimal Binning")
+    expect(fuera[0].alcanzable).toBe(true) // hay pestaña a la que saltar
+  })
+
+  it("una sección de dominio SIN pestaña se nombra, pero no se ofrece salto", () => {
+    // `forward` es una de las 8 secciones que el formulario nunca pinta (19 `raise` viven ahí).
+    // Ofrecer «ir al campo» sería mandar a una pestaña que no existe (criterio de preflight.ts:84).
+    const fuera = erroresSinSuperficie(
+      invalido([{ loc: ["forward", "scenarios"], msg: "faltan escenarios", type: "missing" }]),
+      "binning",
+    )
+    expect(fuera[0].seccion).toBe("forward")
+    expect(fuera[0].seccionLabel).toBeNull()
+    expect(fuera[0].alcanzable).toBe(false)
+  })
+
+  it("los estados que no son inválidos no publican nada", () => {
+    expect(erroresSinSuperficie({ kind: "idle" }, "data")).toEqual([])
+    expect(erroresSinSuperficie({ kind: "checking" }, "data")).toEqual([])
+    expect(erroresSinSuperficie({ kind: "unreachable" }, "data")).toEqual([])
+  })
+
+  // D-VIS-5: la invariante, con oráculo ESCRITO A MANO. No se deriva de `erroresSinSuperficie`,
+  // que es justo lo que se está midiendo: un gate que rellena su esperado desde lo que comprueba
+  // mide que la función es igual a sí misma.
+  it("D-VIS-1: ningún error se queda fuera de las dos listas, mire donde mire el usuario", () => {
+    const errores = [
+      errorDeSeccion,
+      errorDeCampo,
+      { loc: ["data", "target", "bad_rule"], msg: "regla vacía", type: "value_error" },
+      { loc: ["forward", "scenarios"], msg: "faltan escenarios", type: "missing" },
+    ]
+    const state = invalido(errores)
+    const todas = ["data", "binning", "forward", "provisioning_internal", null]
+    for (const seccionActiva of todas) {
+      const publicados = new Set(erroresSinSuperficie(state, seccionActiva).map((e) => e.path))
+      // Oráculo a mano: lo que el formulario ancla es exactamente lo de la sección abierta.
+      const anclados = new Set(
+        ["", "binning.min_iv", "data.target.bad_rule", "forward.scenarios"].filter(
+          (clave) => clave !== "" && clave.split(".")[0] === seccionActiva,
+        ),
+      )
+      const cubiertos = new Set([...publicados, ...anclados])
+      expect(cubiertos.size).toBe(state.lookup.size)
+      for (const clave of state.lookup.keys()) expect(cubiertos.has(clave)).toBe(true)
+    }
+  })
+})
+
+describe("seccionesConError (D-VIS-4)", () => {
+  it("nombra las secciones con error y omite el error sin sección", () => {
     const state = {
       kind: "invalid" as const,
-      count: 1,
+      count: 3,
       lookup: buildErrorLookup([
-        { loc: ["binning", "min_iv"], msg: "debe ser ≥ 0", type: "greater_than" },
+        { loc: ["binning", "min_iv"], msg: "a", type: "x" },
+        { loc: ["binning", "max_n_bins"], msg: "b", type: "x" },
+        { loc: ["forward", "scenarios"], msg: "c", type: "x" },
+        { loc: [], msg: "de sección", type: "x" },
       ]),
     }
-    expect(unanchoredError(state)).toBeUndefined()
+    expect(seccionesConError(state)).toEqual(new Set(["binning", "forward"]))
   })
 
-  it("los estados que no son inválidos no tienen error suelto", () => {
-    expect(unanchoredError({ kind: "idle" })).toBeUndefined()
-    expect(unanchoredError({ kind: "checking" })).toBeUndefined()
-    expect(unanchoredError({ kind: "unreachable" })).toBeUndefined()
+  it("sin errores no marca nada", () => {
+    expect(seccionesConError({ kind: "idle" }).size).toBe(0)
   })
 })
 

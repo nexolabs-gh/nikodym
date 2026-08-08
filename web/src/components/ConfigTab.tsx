@@ -72,8 +72,8 @@ import { type SchemaSource, configSectionSchema } from "@/lib/schema"
 import {
   type ValidationState,
   describeApiError,
+  erroresSinSuperficie,
   pipelineWarning,
-  unanchoredError,
 } from "@/lib/validation"
 import { useAppState, type AppState } from "@/state/appStore"
 
@@ -515,8 +515,23 @@ function yamlErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-/** Indicador sobrio del estado de validación en vivo (config_hash / errores / backend). */
-function HashStatus({ state }: { state: ValidationState }) {
+/**
+ * Indicador sobrio del estado de validación en vivo (config_hash / errores / backend).
+ *
+ * Con `invalid` publica, bajo el contador, **todo error que esta vista no ancle a ningún campo**
+ * (D-VIS-1/3): su mensaje tal cual, la sección donde vive y —si esa sección tiene pestaña— un botón
+ * que lleva ahí. Es el único sitio que ve el estado entero, así que es donde la invariante «un error
+ * siempre tiene superficie» se puede sostener.
+ */
+function HashStatus({
+  state,
+  seccionActiva,
+  onJumpToField,
+}: {
+  state: ValidationState
+  seccionActiva: string | null
+  onJumpToField?: (path: string) => void
+}) {
   switch (state.kind) {
     case "valid":
       return (
@@ -530,18 +545,42 @@ function HashStatus({ state }: { state: ValidationState }) {
         </span>
       )
     case "invalid": {
-      // D-ANC-12: un error de sección llega SIN campo al que anclarse (`loc: []`), así que no lo
-      // pinta ningún `FieldRenderer` y el usuario se quedaba con el contador y nada más. Se muestra
-      // aquí, que es el único sitio que ve el estado entero.
-      const suelto = unanchoredError(state)
+      // D-VIS-1/3, que generaliza D-ANC-12: un error sólo se pinta junto a su campo si ese campo
+      // está montado, así que basta estar en otra sección para que el mensaje desaparezca de la
+      // pantalla entera y quede el contador solo. Aquí se publica todo lo que esta vista no ancla.
+      const sinSuperficie = erroresSinSuperficie(state, seccionActiva)
       return (
-        <span className="inline-flex flex-col gap-0.5 text-xs text-destructive">
+        <span className="inline-flex flex-col gap-1 text-xs text-destructive">
           <span className="inline-flex items-center gap-1.5">
             <CircleAlert className="size-3.5" aria-hidden="true" />
             Config inválido · {state.count}{" "}
             {state.count === 1 ? "error" : "errores"}
           </span>
-          {suelto ? <span className="opacity-90">{suelto}</span> : null}
+          {sinSuperficie.map((error) => (
+            <span key={error.path} className="inline-flex flex-wrap items-baseline gap-x-1.5">
+              <span className="opacity-90">{error.msg}</span>
+              {error.seccionLabel !== null ? (
+                error.alcanzable && onJumpToField ? (
+                  <button
+                    type="button"
+                    onClick={() => onJumpToField(error.path)}
+                    className="underline underline-offset-2 opacity-80 hover:opacity-100"
+                  >
+                    Ir a {error.seccionLabel}
+                  </button>
+                ) : (
+                  <span className="opacity-70">En {error.seccionLabel}.</span>
+                )
+              ) : error.seccion !== null ? (
+                // Sección de dominio sin pestaña (8 de 22: `forward`, `markov`, `stress`…). Se dice
+                // dónde vive en vez de fingir un salto a una pestaña que no existe, que es el
+                // criterio que `preflight.ts:84-91` ya declara para sus desajustes.
+                <span className="opacity-70">
+                  En la sección «{error.seccion}», que se edita por YAML o por código.
+                </span>
+              ) : null}
+            </span>
+          ))}
         </span>
       )
     }
@@ -726,7 +765,14 @@ function ConfigSectionForm(props: {
  * aquí: son acciones EXPLÍCITAS del usuario, no siembra automática. El round-trip YAML (§3.4)
  * va **vía el backend** (no se parsea YAML en el front).
  */
-export function ConfigTab({ section }: { section: string }) {
+export function ConfigTab({
+  section,
+  onJumpToField,
+}: {
+  section: string
+  /** Salto a un campo de OTRA sección (D-VIS-3). Lo dueña `App`, que es quien navega. */
+  onJumpToField?: (path: string) => void
+}) {
   // El schema, el config, su validación, la siembra y el dataset elegido viven en el store
   // compartido (useAppState); solo las acciones YAML y sus estados son locales a esta pestaña.
   const {
@@ -1043,7 +1089,11 @@ export function ConfigTab({ section }: { section: string }) {
         {/* Barra de estado + acciones (SDD §3.2 preset · §3.3 hash en vivo · §3.4 round-trip YAML). */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-foreground/[0.02] px-3 py-2">
           <div role="status" aria-live="polite" className="min-h-5">
-            <HashStatus state={validation} />
+            <HashStatus
+              state={validation}
+              seccionActiva={section}
+              onJumpToField={onJumpToField}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button

@@ -42,6 +42,7 @@ import {
 } from "@/lib/preflight"
 import { jobSkeleton, loadJobs, sectionsOfJob, type Job } from "@/lib/jobs"
 import { CONFIG_SECTIONS, type ConfigSectionDef } from "@/lib/schema"
+import { seccionesConError } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
 
 interface SectionDef {
@@ -138,17 +139,24 @@ const SECTIONS: SectionDef[] = [
  */
 const [DATA_SECTION, ...FLOW_SECTIONS] = SECTIONS
 
-function navItems(secciones: ConfigSectionDef[]): NavItem[] {
+function navItems(
+  secciones: ConfigSectionDef[],
+  conError: ReadonlySet<string> = new Set(),
+): NavItem[] {
   return [
     { value: DATA_SECTION.value, label: DATA_SECTION.label, icon: DATA_SECTION.icon },
     {
       value: "config",
       label: "Configuración",
       icon: SlidersHorizontal,
+      // D-VIS-4: el grupo se marca si CUALQUIERA de sus sub-secciones tiene errores, para que la
+      // marca se vea también con el grupo plegado y en el rail de iconos.
+      alerta: secciones.some((s) => conError.has(s.key)),
       children: secciones.map((s) => ({
         value: configValue(s.key),
         label: s.label,
         icon: SECTION_ICONS[s.key] ?? SlidersHorizontal,
+        alerta: conError.has(s.key),
       })),
     },
     ...FLOW_SECTIONS.map((s) => ({ value: s.value, label: s.label, icon: s.icon })),
@@ -256,10 +264,14 @@ function App() {
     setLastRun,
     focusField,
     setFocusField,
+    validation,
   } = useAppState()
 
   // Las secciones que existen esta sesión (D-JOB-1). Sin trabajo elegido son todas.
   const configSections = sectionsOfJob(job)
+  // Qué secciones marcar en el sidebar (D-VIS-4). Se deriva del mismo `lookup` que pinta los
+  // errores: una sola fuente, así que la marca no puede desincronizarse del mensaje.
+  const seccionesRotas = seccionesConError(validation)
 
   // Atiende el foco que pidió un aviso del preflight (D-PRE-8). Vive AQUÍ y no en `ConfigTab` por
   // dos razones: esa pestaña es un editor puro sin efectos —gate de `bootstrap.test.ts`, que
@@ -405,7 +417,7 @@ function App() {
   return (
     <div className="flex min-h-screen bg-background text-foreground">
       <AppSidebar
-        items={navItems(configSections)}
+        items={navItems(configSections, seccionesRotas)}
         active={active}
         onSelect={setActive}
         onHome={() => setView("landing")}
@@ -431,7 +443,7 @@ function App() {
           </header>
 
           {configKey ? (
-            <ConfigTab section={configKey} />
+            <ConfigTab section={configKey} onJumpToField={jumpToField} />
           ) : active === "ejecutar" ? (
             <RunTab onNavigate={navigate} />
           ) : active === "resultados" ? (

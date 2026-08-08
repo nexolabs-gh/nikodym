@@ -320,7 +320,10 @@ describe("guardrail: el sidebar no puede volver a mapear el catálogo entero", (
     // El defecto que D-JOB-1 corrige era literalmente `CONFIG_SECTIONS.map(...)` dentro del NAV.
     // Vitest corre sin DOM y no puede cazarlo renderizando, así que se vigila el fuente — mismo
     // motivo y misma forma que el guardrail de propagación del catálogo del paquete D.
-    expect(appSource).toMatch(/navItems\(configSections\)/)
+    // El primer argumento tiene que seguir siendo `configSections`; los que vengan detrás son
+    // ortogonales a esta invariante (D-VIS-4 añadió las secciones con error para marcarlas), y
+    // atarse al número de argumentos convertiría este gate en un golden de la firma.
+    expect(appSource).toMatch(/navItems\(configSections[,)]/)
     expect(appSource).toMatch(/sectionsOfJob\(job\)/)
     expect(appSource).not.toMatch(/children:\s*CONFIG_SECTIONS\.map/)
   })

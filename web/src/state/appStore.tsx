@@ -197,10 +197,18 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
               producedColumns: res.produced_columns_by_section ?? {},
             })
           } else {
+            // El schema se pasa para elidir el tag de las uniones discriminadas (D-VIS-7): sin él,
+            // las 58 hojas bajo una rama no casan con ningún control. Aquí nunca es `null` —el
+            // efecto arranca con `if (schema === null) return`—, pero el parámetro es opcional y
+            // omitirlo sólo devuelve el comportamiento anterior.
             setValidation({
               kind: "invalid",
               count: res.errors.length,
-              lookup: buildErrorLookup(res.errors),
+              lookup: buildErrorLookup(
+                res.errors,
+                schema.payload.json_schema,
+                schema.payload.json_schema.$defs ?? {},
+              ),
             })
           }
         })

@@ -191,6 +191,67 @@ def test_un_error_de_dominio_que_pertenece_a_un_campo_llega_anclado(rama: str, c
     assert campo in error["msg"]
 
 
+def _rutas_declaradas_por_los_raise() -> tuple[list[tuple[tuple[str, ...], str]], list[str]]:
+    """Barre `src/nikodym` y devuelve `(rutas, inevaluables)` de todo `raise X(..., loc=…)`.
+
+    Evalúa **estáticamente**, sin importar el módulo: un `loc` es una tupla de literales, con un
+    posible `*_LOC_SECCION` al principio, que se resuelve leyendo la constante de nivel de módulo
+    del propio archivo. Cualquier otra forma entra en `inevaluables` en vez de saltarse: un `loc`
+    que el barrido no entiende es una ruta sin vigilar, y el gate tiene que decirlo en voz alta.
+    """
+    import ast
+    from pathlib import Path
+
+    raiz = Path(__file__).resolve().parents[2] / "src" / "nikodym"
+    rutas: list[tuple[tuple[str, ...], str]] = []
+    inevaluables: list[str] = []
+
+    for archivo in sorted(raiz.rglob("*.py")):
+        arbol = ast.parse(archivo.read_text(encoding="utf-8"))
+        # Constantes de nivel de módulo que puedan usarse como prefijo (`_LOC_SECCION = ("x",)`).
+        prefijos: dict[str, tuple[str, ...]] = {}
+        for nodo in arbol.body:
+            destinos = (
+                [nodo.target] if isinstance(nodo, ast.AnnAssign) else getattr(nodo, "targets", [])
+            )
+            valor = getattr(nodo, "value", None)
+            for destino in destinos:
+                if isinstance(destino, ast.Name) and isinstance(valor, ast.Tuple):
+                    literales = [e.value for e in valor.elts if isinstance(e, ast.Constant)]
+                    if len(literales) == len(valor.elts):
+                        prefijos[destino.id] = tuple(str(v) for v in literales)
+
+        for nodo in ast.walk(arbol):
+            if not isinstance(nodo, ast.Raise) or not isinstance(nodo.exc, ast.Call):
+                continue
+            kw = next((k for k in nodo.exc.keywords if k.arg == "loc"), None)
+            if kw is None:
+                continue
+            origen = f"{archivo.relative_to(raiz)}:{nodo.lineno}"
+            if not isinstance(kw.value, ast.Tuple):
+                inevaluables.append(f"{origen} (el `loc` no es una tupla literal)")
+                continue
+            ruta: list[str] = []
+            roto = False
+            for elemento in kw.value.elts:
+                if isinstance(elemento, ast.Constant) and isinstance(elemento.value, str | int):
+                    ruta.append(str(elemento.value))
+                elif isinstance(elemento, ast.Starred) and isinstance(elemento.value, ast.Name):
+                    prefijo = prefijos.get(elemento.value.id)
+                    if prefijo is None:
+                        inevaluables.append(f"{origen} (no encuentro {elemento.value.id})")
+                        roto = True
+                        break
+                    ruta.extend(prefijo)
+                else:
+                    inevaluables.append(f"{origen} (segmento que no sé evaluar)")
+                    roto = True
+                    break
+            if not roto:
+                rutas.append((tuple(ruta), origen))
+    return rutas, inevaluables
+
+
 def test_toda_ruta_declarada_por_un_error_resuelve_contra_el_config() -> None:
     """El precio de que la ruta sea ABSOLUTA: sin vigilarla, un renombrado la deja en el vacío.
 
@@ -239,14 +300,27 @@ def test_toda_ruta_declarada_por_un_error_resuelve_contra_el_config() -> None:
             modelos = siguientes
         return False
 
-    # Las rutas que hoy se declaran, enumeradas: el universo es pequeño y enumerarlo es más fuerte
-    # que barrer los `raise` con AST, que no ve una ruta construida por concatenación.
-    rutas = [
-        ["provisioning_internal", "lgd", "covariate_cols"],
-        ["provisioning_internal", "lgd", "recovery_col"],
-    ]
-    for ruta in rutas:
-        assert resuelve(ruta), f"la ruta {ruta} que un error declara no existe en el config"
+    # 🔴 Las rutas se BARREN, no se enumeran. Enumerarlas era lo correcto con dos; con la migración
+    # de los 133 `raise` de D-VIS-6 una lista a mano se desincroniza en silencio, que es el modo de
+    # fallo que este gate existe para impedir. El barrido resuelve el patrón canónico
+    # `loc=(*_LOC_SECCION, "a", "b")` y **falla ruidosamente** ante un `loc` que no sepa evaluar:
+    # saltárselo dejaría rutas sin vigilar con el gate en verde, que es un cero de no haber medido.
+    rutas, inevaluables = _rutas_declaradas_por_los_raise()
+
+    assert not inevaluables, (
+        "hay `loc=` que este gate no sabe evaluar estáticamente, así que quedarían SIN vigilar: "
+        + "; ".join(inevaluables)
+        + '. Usa el patrón `loc=(*_LOC_SECCION, "campo")` o amplía el evaluador.'
+    )
+    # Ancla anti-vacuidad: si el barrido dejara de encontrar los `raise` (un renombrado del patrón,
+    # un `walk` mal escrito), «0 rutas» se leería igual que «todas correctas».
+    assert len(rutas) >= 2, (
+        f"el barrido encontró {len(rutas)} rutas: no puede ser que no haya ninguna"
+    )
+    for ruta, origen in rutas:
+        assert resuelve(list(ruta)), (
+            f"la ruta {list(ruta)} que declara el error de {origen} no existe en el config"
+        )
 
     # Control negativo del propio resolvedor: una ruta inventada NO puede resolver, o este test
     # daría verde sobre cualquier cosa.

@@ -10,6 +10,14 @@ export interface NavChild {
   value: string
   label: string
   icon: LucideIcon
+  /**
+   * La sección tiene al menos un error de validación (D-VIS-4).
+   *
+   * Orienta en el único caso que la lista de `HashStatus` no puede ver —un error de la sección
+   * ABIERTA que aun así no case con ningún control—: el usuario sabe dónde mirar aunque el mensaje
+   * no encuentre su campo. Es información que el contador ya tenía y no publicaba.
+   */
+  alerta?: boolean
 }
 
 /** Un item de nivel superior: hoja suelta o grupo con `children` anidados. */
@@ -64,6 +72,19 @@ function NavButton({
       />
       <Icon className="size-4 shrink-0" aria-hidden="true" />
       <span className="hidden lg:inline">{item.label}</span>
+      {item.alerta ? (
+        // Punto, no icono: en el rail de iconos (< lg) el label no se ve, así que la marca tiene que
+        // sostenerse sola. El `title` lo dice en palabras para quien no distinga el color.
+        <span
+          title="Esta sección tiene errores de configuración"
+          className={cn(
+            "ml-auto size-1.5 shrink-0 rounded-full bg-destructive",
+            isActive && "bg-primary-foreground",
+          )}
+        >
+          <span className="sr-only">con errores</span>
+        </span>
+      ) : null}
     </button>
   )
 }
