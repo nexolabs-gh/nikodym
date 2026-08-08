@@ -1,8 +1,20 @@
 # Enmienda — una opción del abanico puede exigir OTRO campo, y hoy se ofrece como si no
 
-> Estado: **BORRADOR — pendiente de decisión de Cami**. Escrita el 2026-08-08 sobre la deuda 2 del
+> Estado: **APROBADA PARCIALMENTE E IMPLEMENTADA — Cami, 2026-08-08**. Escrita sobre la deuda 2 del
 > HANDOFF del 2026-08-07, medida por tres agentes y atacada por dos lentes adversariales.
 > Decisiones `D-EXI-1…D-EXI-7`.
+>
+> 🔴 **Alcance aprobado: D-EXI-2 y D-EXI-3** (el cuarto estado declarado y el oráculo por rama), más
+> D-EXI-1 y D-EXI-7, que son las dos decisiones de *no hacer*. **D-EXI-5** (el ancla del `loc` del
+> error de dominio, que cierra una clase de 123 `raise`) y **D-EXI-6** (la rama modelada bajo
+> subsección inerte, el único que cambia comportamiento) quedan **escritas y sin implementar**,
+> disponibles cuando Cami las elija — precedente D-SEG-11 / D-MAX-3.
+>
+> ⚠️ **Y el criterio de D-EXI-3 se afinó al implementarlo, contra la recomendación del revisor.**
+> «Medir constructibilidad de CADA rama» acusa **9** ramas y **6 son inocentes** (las tres de
+> `data.partition.strategy`, cuyo campo es `is_required()` ⇒ D-OBL las pregunta, y los tres
+> `X | None`, que no son uniones de método). El criterio que acusa exactamente 3: unión
+> **discriminada** + campo **no requerido** + rama que no construye.
 >
 > Enmienda a **D-ABA-3/D-ABA-5** (`_SDD-ABANICO-METODOLOGICO`) y a **D-ANC-11/12**
 > (`_ENMIENDA-ANCLA-DESCARTADA.md`). Toca **D-OBL-6** sólo para declarar que **no** aplica.
@@ -95,8 +107,18 @@ D-ABA-5 exige exactamente lo contrario.
 ### D-EXI-3 — El criterio y el oráculo de D-ABA-3 se reescriben para medir CONSTRUCTIBILIDAD por rama
 
 El gate pasa a intentar construir **cada** rama de una unión discriminada, no la primera, y a exigir
-que una rama que no construye con sus defaults no se publique como `disponible`. Nace **rojo**
-acusando las tres ramas modeladas, que es la prueba de que mide algo.
+que una rama inelegible no se publique como `disponible`. Nace **rojo** acusando las tres ramas
+modeladas, que es la prueba de que mide algo.
+
+🔴 **Y el criterio no es «la rama no construye»: eso acusa a seis inocentes.** Medido al
+implementarlo, ese criterio a secas señala **9** ramas, y las otras seis están correctamente
+cubiertas: las tres de `data.partition.strategy` viven bajo un campo `is_required()`, así que
+**D-OBL las declara** y el trabajo las pregunta en idioma de negocio con sus huecos a la vista; y
+`good_rule`/`indeterminate_rule`/`window` son `X | None` —submodelos **opcionales**, no uniones de
+método—, cuyos campos se abren en el formulario al activarlos. El criterio que acusa exactamente las
+tres culpables: unión **discriminada** + campo **no requerido** + rama que no construye. Esa
+conjunción es lo que significa «nadie le pregunta al usuario por lo que falta», y va con control
+negativo que exige que las seis inocentes **no** entren.
 
 ### D-EXI-4 — El requisito se emite desde el PADRE, nunca desde la rama
 

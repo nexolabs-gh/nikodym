@@ -360,6 +360,186 @@ def test_una_opcion_sin_efecto_cita_la_medicion_que_lo_prueba() -> None:
             assert opcion["motivo"] and len(opcion["motivo"]) > 40, f"{path}/{opcion['value']}"
 
 
+# ------------------------------------------------------------------------------------------
+# D-EXI-2/3: la opción que exige otro campo, y el oráculo que la descubre
+# ------------------------------------------------------------------------------------------
+
+
+def test_una_opcion_que_exige_otro_campo_declara_cual_y_por_que() -> None:
+    """La bicondicional que sostiene que ``exige`` sea una clave OPCIONAL.
+
+    ``_CLAVES_DE_OPCION`` no la incluye —obligar a las 207 opciones a declarar ``exige: ()``
+    sería ruido que esconde la señal— y el precio de eso es que podría faltar sin que nadie lo
+    note. Este test es ese precio pagado: se exige en los **dos** sentidos.
+    """
+    cita = re.compile(r"[\w/]+\.py:\d+")
+    con_exige = 0
+    for path, opcion in _opciones():
+        exige = opcion.get("exige", ())
+        if opcion["estado"] == jobs._EXIGE_OTRO_CAMPO:
+            con_exige += 1
+            assert exige, (
+                f"{path}/{opcion['value']}: se declara «exige otro campo» y no dice cuál. Sin "
+                "la ruta el front no puede llevar al usuario al control, y el estado es un adorno."
+            )
+            assert opcion["motivo"] and len(opcion["motivo"]) > 40, (
+                f"{path}/{opcion['value']}: no explica en idioma de negocio qué falta"
+            )
+            assert opcion["prueba"] and cita.search(opcion["prueba"]), (
+                f"{path}/{opcion['value']}: se declara sin citar el validador que lo impone. "
+                "Misma disciplina que `sin_efecto` (D-ABA-6): afirma algo sobre el motor."
+            )
+        else:
+            # El otro sentido: `exige` sólo tiene sentido en ese estado. Declararlo en otro sería
+            # prometer un hueco que el motor no pide.
+            assert not exige, (
+                f"{path}/{opcion['value']} declara `exige` en estado {opcion['estado']!r}: o el "
+                "estado está mal, o el campo no hace falta."
+            )
+    assert con_exige >= 3, (
+        f"sólo {con_exige} opciones usan `exige_otro_campo`; si baja de 3, o se corrigió el "
+        "motor o alguien reetiquetó las ramas modeladas de LGD"
+    )
+
+
+def test_lo_que_exige_una_opcion_es_un_campo_que_el_motor_tiene() -> None:
+    """La ruta declarada no puede apuntar al vacío: se resuelve contra ``model_fields``.
+
+    ⚠️ Se resuelve por el mismo camino que el resto de este gate (``_campo_del_path``), que ya
+    sabe bajar por submodelos y por las ramas de una unión discriminada. Una ruta escrita a mano
+    que ya no exista dejaría el estado en pie apuntando a un control que no está.
+    """
+    for path, opcion in _opciones():
+        for exigido in opcion.get("exige", ()):
+            campo = _campo_del_path(exigido)
+            assert campo is not None, (
+                f"{path}/{opcion['value']} exige {exigido!r}, que el motor no declara como campo"
+            )
+
+
+def _ramas_de_union(anotacion: Any) -> list[type[BaseModel]]:
+    if isinstance(anotacion, types.UnionType) or get_origin(anotacion) is Union:
+        return [a for a in get_args(anotacion) if isinstance(a, type) and issubclass(a, BaseModel)]
+    return []
+
+
+def _discriminador(info: Any) -> str | None:
+    """El discriminador de una unión viaja en los METADATOS del campo, no en la anotación.
+
+    ⚠️ Pydantic **desenvuelve el ``Annotated``**: ``model_fields[x].annotation`` de una unión
+    discriminada es ya la unión desnuda y el ``Field(discriminator=...)`` va aparte. Buscarlo en
+    la anotación devuelve el conjunto vacío — trampa ya pagada en este repo.
+    """
+    for meta in getattr(info, "metadata", None) or []:
+        if getattr(meta, "discriminator", None):
+            return str(meta.discriminator)
+    disc = getattr(info, "discriminator", None)
+    return str(disc) if disc else None
+
+
+def _ramas_que_no_construyen() -> list[tuple[str, str]]:
+    """``(path del campo, rama)`` de toda rama que el usuario no puede elegir sola.
+
+    🔴 El criterio es más fino que «la rama no construye», y la diferencia está medida: ese
+    criterio a secas acusa **9** ramas y **6 son inocentes**. Lo que separa a las culpables es si
+    alguien le pregunta al usuario por lo que falta:
+
+    · ``data.partition.strategy`` es una unión discriminada cuyo campo es ``is_required()`` ⇒
+      **D-OBL la declara** y el trabajo la pregunta en idioma de negocio, con sus huecos a la
+      vista. Sus tres ramas no construyen con defaults y eso está bien: ya se le interroga.
+    · ``good_rule``/``indeterminate_rule``/``window`` son ``X | None``, o sea submodelos
+      **opcionales** y no uniones de método: activarlos abre sus campos en el formulario.
+    · ``provisioning_internal.lgd`` es unión discriminada con ``default_factory`` ⇒ el campo
+      **no** es requerido, así que D-OBL **no puede** declararla —su gate lo prohíbe, control
+      negativo ejecutado: 3 tests rojos— y nadie pregunta nada. Ése es el hueco.
+
+    De ahí el criterio: unión **discriminada** + campo **no requerido** + rama que no construye.
+    """
+    clases = cargar_configs_de_dominio()
+    culpables: list[tuple[str, str]] = []
+    for seccion, cls in sorted(clases.items()):
+        pila: list[tuple[str, type[BaseModel]]] = [(seccion, cls)]
+        vistos: set[type[BaseModel]] = set()
+        while pila:
+            prefijo, modelo = pila.pop()
+            if modelo in vistos:
+                continue
+            vistos.add(modelo)
+            for campo, info in modelo.model_fields.items():
+                ramas = _ramas_de_union(info.annotation)
+                sospechoso = bool(_discriminador(info)) and not info.is_required()
+                for rama in ramas:
+                    if sospechoso:
+                        try:
+                            rama.model_validate({})
+                        except Exception:
+                            culpables.append((f"{prefijo}.{campo}", rama.__name__))
+                    pila.append((f"{prefijo}.{campo}", rama))
+                anotacion = info.annotation
+                if isinstance(anotacion, type) and issubclass(anotacion, BaseModel):
+                    pila.append((f"{prefijo}.{campo}", anotacion))
+    return culpables
+
+
+def test_el_oraculo_de_las_ramas_no_es_vacuo() -> None:
+    """Ancla: si el barrido dejara de encontrar ramas, el test de abajo pasaría sin medir nada."""
+    culpables = _ramas_que_no_construyen()
+    assert len(culpables) >= 3, f"el oráculo sólo ve {len(culpables)} ramas inelegibles"
+    # Y tiene que estar mirando la unión que motivó el criterio, por nombre.
+    assert {r for _, r in culpables} >= {
+        "InternalLgdBetaRegression",
+        "InternalLgdFractionalResponse",
+        "InternalLgdWorkout",
+    }, f"el oráculo dejó de ver las ramas modeladas de LGD: {culpables}"
+    # Control negativo del CRITERIO: las ramas de partición NO pueden entrar. Si entran, el
+    # criterio volvió a ser «no construye» y acusa a seis inocentes que D-OBL ya cubre.
+    assert not {r for _, r in culpables} & {
+        "TemporalSplitConfig",
+        "CohortSplitConfig",
+        "ColumnSplitConfig",
+        "Rule",
+        "PerformanceWindow",
+    }, f"el criterio se relajó y acusa ramas que el formulario sí pregunta: {culpables}"
+
+
+def test_toda_rama_inelegible_esta_declarada_en_el_abanico() -> None:
+    """D-EXI-3: si el motor rechaza una rama elegida sola, el catálogo tiene que decirlo.
+
+    🔴 Este gate nació ROJO acusando exactamente las tres ramas modeladas de LGD, que se
+    publicaban `disponible` con `motivo=None` sobre una elección que el motor rechaza al
+    instante — o sea D-ABA-3 violado en producción. Y el gate anterior **no podía verlo** por dos
+    razones medidas: no comprobaba constructibilidad, y sobre una unión inspeccionaba **la
+    primera rama**, no las cinco.
+    """
+    declarados = {
+        (path.rsplit(".", 1)[0], opcion["value"])
+        for path, opcion in _opciones()
+        if opcion["estado"] == jobs._EXIGE_OTRO_CAMPO
+    }
+    clases = cargar_configs_de_dominio()
+    sin_declarar: list[str] = []
+    for campo, rama in _ramas_que_no_construyen():
+        seccion, *resto = campo.split(".")
+        modelo: Any = clases[seccion]
+        for nombre in resto:
+            modelo = modelo.model_fields[nombre].annotation
+        tag = next(
+            (
+                r.model_fields["method"].default
+                for r in _ramas_de_union(modelo)
+                if r.__name__ == rama and "method" in r.model_fields
+            ),
+            None,
+        )
+        if tag is None or (campo, tag) not in declarados:
+            sin_declarar.append(f"{campo} → {rama} (tag {tag!r})")
+    assert not sin_declarar, (
+        "hay ramas que el motor rechaza si se eligen solas y el abanico las ofrece como si no: "
+        f"{sin_declarar}. Van con `estado=_EXIGE_OTRO_CAMPO` y su clave `exige`, nunca como "
+        "`no_implementada` —eso publicaría que la librería no las tiene, que es falso."
+    )
+
+
 # --------------------------------------------------------------------------------------------
 # Copy: lo que el usuario lee
 # --------------------------------------------------------------------------------------------

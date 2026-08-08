@@ -551,6 +551,39 @@ describe("guardrail: una decisión rechazada NO dice «te falta un dato» (D-RES
   })
 })
 
+describe("D-EXI-2: la opción que exige otro campo ofrece el salto a ese campo", () => {
+  it("el catálogo declara el estado y su ruta, y no la deja en prosa", () => {
+    // El dato, no el texto: la exigencia de estas tres ramas YA estaba escrita dentro de `help`, y
+    // ahí no la puede leer ninguna máquina. Esto comprueba que ahora viaja como ruta.
+    const punto = FIXTURE_JOBS.jobs
+      .flatMap((job) => job.methodology_choices)
+      .find((choice) => choice.path === "provisioning_internal.lgd.method")
+    expect(punto).toBeDefined()
+    const exigentes = punto!.options.filter((o) => o.estado === "exige_otro_campo")
+    expect(exigentes).toHaveLength(3)
+    for (const opcion of exigentes) {
+      expect(opcion.exige.length).toBeGreaterThan(0)
+      expect(opcion.exige[0]).toMatch(/^provisioning_internal\.lgd\./)
+      // Y el motivo se lee en idioma de negocio, sin nombrar el campo del config.
+      expect(opcion.motivo).toBeTruthy()
+      expect(opcion.motivo).not.toMatch(/covariate_cols|recovery_col/)
+    }
+    // Control positivo del otro lado: las dos ramas observadas NO exigen nada.
+    const observadas = punto!.options.filter((o) => o.estado === "disponible")
+    expect(observadas).toHaveLength(2)
+    for (const opcion of observadas) expect(opcion.exige).toEqual([])
+  })
+
+  it("`ConfigTab` pinta el salto SÓLO para la opción elegida y usa la ruta, no el path del punto", () => {
+    // Vitest corre sin DOM, así que se vigila el fuente — misma forma y mismo motivo que los
+    // guardrails vecinos. Lo que se protege son las dos mitades que hacen accionable el dato: que el
+    // botón se pinte por `exige` y que salte a ESA ruta, no al campo del propio punto de elección.
+    expect(configTabSource).toMatch(/opcion\.value === choice\.elegida && opcion\.exige\.length > 0/)
+    expect(configTabSource).toMatch(/onFocus\(ruta\)/)
+    expect(configTabSource).toMatch(/data-methodology-requires=\{ruta\}/)
+  })
+})
+
 describe("guardrail: las decisiones se pintan al principio de Configuración (D-OBL-8)", () => {
   it("`ConfigTab` monta la tarjeta y la acota a su sección", () => {
     // Vitest corre sin DOM y no puede comprobar el ORDEN renderizando, así que se vigila el fuente:
@@ -844,13 +877,21 @@ describe("el abanico metodológico en la pantalla (D-ABA-10)", () => {
     help: "…",
     multiple: false,
     options: [
-      { value: "optimal", label: "Óptimo", help: "…", estado: "disponible" as const, motivo: null },
+      {
+        value: "optimal",
+        label: "Óptimo",
+        help: "…",
+        estado: "disponible" as const,
+        motivo: null,
+        exige: [],
+      },
       {
         value: "cp",
         label: "Programación por restricciones",
         help: "…",
         estado: "no_implementada" as const,
         motivo: "El motor la rechaza antes de empezar.",
+        exige: [],
       },
     ],
   }

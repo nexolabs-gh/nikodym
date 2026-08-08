@@ -132,6 +132,32 @@ class CmfVerification(BaseModel):
     viene a leer. ``manifest.verifier`` no sirve para esto: es texto libre del manifiesto
     **entero**, y con dos naturalezas conviviendo atribuirlas todas al mismo autor sería falso.
     """
+    source_ids: tuple[str, ...] = Field(default_factory=tuple)
+    """Contra QUÉ documento se cotejó: ids de ``official_sources`` (D-FTE-1).
+
+    🔴 Antes de esto la fuente viajaba **en la prosa de ``scope``**, y el gate normativo tenía que
+    parsearla del texto libre. Medido sobre el manifiesto: el cotejo del 2026-07-14 nombraba la suya
+    dentro de una frase y el del 2026-06-23 **no nombraba ninguna de las seis**, así que el cruce
+    ``verifications → official_sources`` sólo podía comprobar que *lo citado existiera*, nunca que
+    *todo cotejo citara algo*. Un dato que sólo consta en prosa no lo puede vigilar nada, y la prosa
+    se degrada al reescribirse — la fórmula de recuperos del 2026-08-07 se degradó exactamente así.
+
+    ⚠️ ``matrix_ids`` no sirve para esto y la asimetría era el defecto: ese campo ata el cotejo a
+    **lo cotejado**, no a la **evidencia**, mientras :class:`CmfManifestMatrixEntry` ya declaraba
+    su procedencia con ``source_ref``. Los cotejos eran la única entidad del manifiesto sin ella.
+
+    Vacío significa **NO CONSTA**, nunca «sin fuente» (D-FTE-2, criterio literal de D-VER-2 para
+    ``verified_by``; y el mismo de ``index_columns``/``distinct_count`` en el preflight, donde
+    ``None`` es «no se sabe»). 🔴 Y la ausencia **se publica** en el documento normativo: si no,
+    «no consta» y «nadie miró» vuelven a leerse igual — la trampa que esta sesión ya pagó con un
+    ``grep`` sobre un archivo que no se había descargado.
+
+    ⚠️ La fuente del cotejo del 2026-06-23 va **vacía a propósito**: Cami, que hizo la extracción,
+    no la recuerda (2026-08-08). ``pdf_semilla_b1`` era la inferencia plausible por su ``method``
+    y **no se hace**: declarar una procedencia que nadie registró es fabricar evidencia de
+    auditoría, que es el defecto exacto que la revisión adversarial del 2026-08-07 encontró en la
+    traza (D-FTE-3).
+    """
 
 
 class CmfMatrixManifest(BaseModel):

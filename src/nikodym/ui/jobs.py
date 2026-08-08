@@ -789,10 +789,16 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
 
 #: Estados en que una opción del abanico puede llegar al usuario (D-ABA-4).
 #:
-#: Son TRES declarados aquí, más un cuarto que **no se declara: se computa**. «No puedes usar esto
+#: Son CUATRO declarados aquí, más un quinto que **no se declara: se computa**. «No puedes usar esto
 #: porque tu archivo no trae la pérdida observada» depende del archivo, no de la opción, y
 #: afirmarlo desde el catálogo sería hablar de datos que el catálogo no ha visto — el error de
 #: categoría que D-PRE-1 existe para impedir. Ése lo emite el preflight.
+#:
+#: ⚠️ Hasta el 2026-08-08 eran TRES, y el cuarto de esta lista se creía cubierto por el que se
+#: computa. **Medido, no lo estaba**: para que el preflight opine el config tiene que construir, y
+#: las tres ramas modeladas de LGD **no construyen** (D-EXI-1). El preflight ni se llama —va
+#: encadenado detrás de la validación, y con el config inválido queda en `idle`—, así que el
+#: estado que debía contestar esto estaba apagado justo para las opciones que lo necesitaban.
 _DISPONIBLE = "disponible"
 
 #: El motor NO la tiene. Se muestra igual, en gris y con su motivo: ocultarla dejaría al usuario
@@ -811,7 +817,22 @@ _NO_IMPLEMENTADA = "no_implementada"
 #: cita el estado se convierte en un vertedero de dudas. La cita vive en ``prueba``.
 _SIN_EFECTO = "sin_efecto"
 
-_ESTADOS_DE_OPCION = frozenset({_DISPONIBLE, _NO_IMPLEMENTADA, _SIN_EFECTO})
+#: El motor la tiene, pero **elegirla sola no basta**: exige que declares otro campo del config, y
+#: hasta que lo declares el config no se construye (D-EXI-2).
+#:
+#: 🔴 No es «no implementada» y vetarlo importa: rotular así las tres ramas modeladas de LGD
+#: cerraría la deuda **con todos los gates verdes publicando una falsedad** —que la librería no
+#: tiene LGD modelada— el día después de implementarla, y el gate de D-ABA-5 exige justamente lo
+#: contrario. Y tampoco es ``disponible``: D-ABA-3 prohíbe ofrecer como elegible algo que el
+#: motor rechaza.
+#:
+#: ⚠️ **Exige la clave ``exige``** con la ruta del campo que hay que declarar, y ahí está la
+#: diferencia con lo que ya existía: la exigencia SÍ estaba escrita antes, pero como **prosa dentro
+#: de ``help``**, donde no la puede leer ninguna máquina ni pintar el front distinto. Con la ruta
+#: declarada, el mismo dato sirve para el rótulo, para el salto al control y para el gate.
+_EXIGE_OTRO_CAMPO = "exige_otro_campo"
+
+_ESTADOS_DE_OPCION = frozenset({_DISPONIBLE, _NO_IMPLEMENTADA, _SIN_EFECTO, _EXIGE_OTRO_CAMPO})
 
 
 #: El abanico metodológico, por SECCIÓN y no por trabajo (D-ABA-1/2/3).
@@ -2019,9 +2040,14 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "que se provisiona, así que mide el desempeño dentro de la muestra: el "
                         "informe lo dice."
                     ),
-                    "estado": _DISPONIBLE,
-                    "motivo": None,
-                    "prueba": None,
+                    "estado": _EXIGE_OTRO_CAMPO,
+                    "motivo": (
+                        "Elegirla sola no basta: hay que decirle con qué variables de tu archivo "
+                        "modelar la severidad, y hasta entonces la configuración no se puede "
+                        "ejecutar."
+                    ),
+                    "prueba": "provisioning/internal/config.py:293",
+                    "exige": ("provisioning_internal.lgd.covariate_cols",),
                 },
                 {
                     "value": "beta_regression",
@@ -2034,9 +2060,14 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "converge. Si no sabes cuál de las dos elegir, la anterior es la que "
                         "corresponde a este dato."
                     ),
-                    "estado": _DISPONIBLE,
-                    "motivo": None,
-                    "prueba": None,
+                    "estado": _EXIGE_OTRO_CAMPO,
+                    "motivo": (
+                        "Elegirla sola no basta: hay que decirle con qué variables de tu archivo "
+                        "modelar la severidad, y hasta entonces la configuración no se puede "
+                        "ejecutar."
+                    ),
+                    "prueba": "provisioning/internal/config.py:293",
+                    "exige": ("provisioning_internal.lgd.covariate_cols",),
                 },
                 {
                     "value": "workout",
@@ -2049,9 +2080,13 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "los años que tardó y la tasa a la que descuentas— y los tres montos van "
                         "en la misma moneda, no en fracciones."
                     ),
-                    "estado": _DISPONIBLE,
-                    "motivo": None,
-                    "prueba": None,
+                    "estado": _EXIGE_OTRO_CAMPO,
+                    "motivo": (
+                        "Elegirla sola no basta: hay que decirle qué columna de tu archivo trae "
+                        "lo recuperado, y hasta entonces la configuración no se puede ejecutar."
+                    ),
+                    "prueba": "provisioning/internal/config.py:443",
+                    "exige": ("provisioning_internal.lgd.recovery_col",),
                 },
             ),
         },
@@ -4134,7 +4169,13 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
 }
 
 
-def _exige_claves(entrada: dict[str, Any], esperadas: frozenset[str], que: str) -> None:
+def _exige_claves(
+    entrada: dict[str, Any],
+    esperadas: frozenset[str],
+    que: str,
+    *,
+    opcionales: frozenset[str] = frozenset(),
+) -> None:
     """Falla si el literal trae una clave que este serializador no sabe publicar.
 
     🔴 Es el mecanismo que los serializadores de abajo decían tener y no tenían. Escribirlos campo
@@ -4143,8 +4184,15 @@ def _exige_claves(entrada: dict[str, Any], esperadas: frozenset[str], que: str) 
     ``external_artifacts`` dejaba los 31 gates del catálogo en verde y el dato desaparecía por el
     camino. Eso convierte cualquier campo nuevo en una feature muerta y silenciosa, que es el modo
     de fallo que este repo ya pagó con D-JOB-17 (implementado, probado y sin una sola llamada).
+
+    ⚠️ ``opcionales`` existe para una clave que **sólo tiene sentido en un estado**, y su uso es
+    estrecho a propósito: obligar a las 207 opciones del abanico a declarar ``exige: ()`` para las
+    tres que lo usan sería ruido que esconde la señal. La contrapartida —que una clave opcional
+    puede faltar sin que nadie lo note— la paga un gate que exige la **bicondicional**: ``exige``
+    no vacío si y sólo si el estado es ``exige_otro_campo``. Sin ella, «opcional» degeneraría en
+    «olvidable», que es la trampa que este mismo mecanismo existe para cerrar.
     """
-    sobran = sorted(set(entrada) - esperadas)
+    sobran = sorted(set(entrada) - esperadas - opcionales)
     faltan = sorted(esperadas - set(entrada))
     if sobran or faltan:
         raise ValueError(
@@ -4159,6 +4207,9 @@ _CLAVES_DE_DECISION = frozenset({"path", "question", "help", "answer_forms"})
 _CLAVES_DE_PRECARGA = frozenset({"slot", "desde", "insumo", "nota"})
 _CLAVES_DE_ELECCION = frozenset({"path", "question", "help", "multiple", "options"})
 _CLAVES_DE_OPCION = frozenset({"value", "label", "help", "estado", "motivo", "prueba"})
+#: Sólo la declaran las opciones en estado ``exige_otro_campo`` (D-EXI-2), y un gate exige la
+#: bicondicional en los dos sentidos.
+_CLAVES_OPCIONALES_DE_OPCION = frozenset({"exige"})
 
 
 def _opcion_json(opcion: dict[str, Any]) -> dict[str, Any]:
@@ -4168,14 +4219,24 @@ def _opcion_json(opcion: dict[str, Any]) -> dict[str, Any]:
     sea evidencia interna para quien mantiene el catálogo, no algo que el usuario deba leer. Lo que
     él lee es ``motivo``, en su idioma. Es el mismo criterio con que el `path` viaja pero nunca se
     enseña (D-ABA-11), y con que los códigos de aviso declarado no van al copy público.
+
+    ⚠️ ``exige`` SÍ se publica, y la asimetría con ``prueba`` es el punto: no es evidencia para el
+    mantenedor sino la **ruta del control que el usuario tiene que llenar**, o sea exactamente lo
+    que el front necesita para llevarlo ahí en vez de dejarlo leyendo una frase (D-EXI-2).
     """
-    _exige_claves(opcion, _CLAVES_DE_OPCION, f"opción {opcion.get('value')!r} del abanico")
+    _exige_claves(
+        opcion,
+        _CLAVES_DE_OPCION,
+        f"opción {opcion.get('value')!r} del abanico",
+        opcionales=_CLAVES_OPCIONALES_DE_OPCION,
+    )
     return {
         "value": opcion["value"],
         "label": opcion["label"],
         "help": opcion["help"],
         "estado": opcion["estado"],
         "motivo": opcion["motivo"],
+        "exige": list(opcion.get("exige", ())),
     }
 
 

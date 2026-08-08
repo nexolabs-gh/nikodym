@@ -183,7 +183,7 @@ export interface MethodologyChoice {
 /**
  * Una opción del abanico, con su estado.
  *
- * Los tres estados vienen del catálogo. Hay un cuarto —«no puedes usarla con TUS datos»— que **no
+ * Los cuatro estados vienen del catálogo. Hay un quinto —«no puedes usarla con TUS datos»— que **no
  * viaja aquí**: lo computa el preflight y llega como un aviso más, porque depende del archivo del
  * usuario y no de la opción (D-ABA-4).
  */
@@ -195,10 +195,21 @@ export interface MethodologyOption {
    * `disponible` se puede elegir. `no_implementada` se muestra en gris con su `motivo`: ocultarla
    * dejaría al usuario creyendo que la librería no la contempla, que es la mentira contraria
    * (D-JOB-5). `sin_efecto` es elegible, con la advertencia de que hoy no cambia el resultado.
+   * `exige_otro_campo` es elegible **y no basta**: hasta que se declare el campo de `exige`, el
+   * config no se construye (D-EXI-2).
    */
-  estado: "disponible" | "no_implementada" | "sin_efecto"
+  estado: "disponible" | "no_implementada" | "sin_efecto" | "exige_otro_campo"
   /** Por qué no se puede usar, o por qué no cambia nada; `null` cuando está disponible. */
   motivo: string | null
+  /**
+   * Rutas del config que hay que declarar para que esta opción se pueda ejecutar. Vacío salvo en
+   * `exige_otro_campo`, y el backend hace cumplir la bicondicional en los dos sentidos.
+   *
+   * 🔴 Existe porque la exigencia YA estaba escrita —dentro de `help`, en prosa— y ahí no la puede
+   * leer ninguna máquina: no se podía pintar distinto ni ofrecer un salto al control. Con la ruta
+   * como dato, el mismo hecho sirve para el rótulo, para el salto y para el gate.
+   */
+  exige: string[]
 }
 
 export interface JobsPayload {

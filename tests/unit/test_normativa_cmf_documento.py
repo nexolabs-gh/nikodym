@@ -115,12 +115,11 @@ _ANCLAS_ESPERADAS = frozenset(
 
 _BRECHAS_ESPERADAS = frozenset({"financial_guarantee_haircuts", "ran_21_10_numeric_tables"})
 
-# Qué cotejo cita qué fuente, escrito a mano. Es la cara «hacia adelante» del cruce de más abajo:
-# aquel comprueba que lo citado exista, y éste que la cita **siga estando**, de modo que vaciar el
-# ``scope`` tampoco sirva para esquivar el gate.
-_COTEJOS_QUE_CITAN_FUENTE: dict[str, tuple[str, ...]] = {
-    "2026-07-14": ("compendio_portal_consolidado",),
-}
+# La fecha del último cotejo registrado al escribir la regla. Todo cotejo POSTERIOR nace obligado a
+# declarar su fuente y su verificador (D-FTE-5) — o sea B5, que es el próximo y lo hace Cami. Los
+# dos actuales quedan exentos **enumerados**, nunca por una holgura de conteo: `len(...) >= 5` con
+# 6 declaradas fue justo lo que dejó inerte el gate normativo del 2026-08-05.
+_COTEJOS_ANTERIORES_A_LA_REGLA = frozenset({"2026-06-23", "2026-07-14"})
 
 
 def _documento() -> str:
@@ -393,31 +392,121 @@ def test_cada_cotejo_solo_cita_identificadores_que_el_manifiesto_declara(cotejo:
     )
 
 
-@pytest.mark.parametrize("fecha, esperadas", sorted(_COTEJOS_QUE_CITAN_FUENTE.items()))
-def test_el_cotejo_conserva_la_fuente_que_lo_sostiene(
-    fecha: str, esperadas: tuple[str, ...]
-) -> None:
-    """Cara «hacia adelante» del cruce: la cita no puede desaparecer del ``scope``.
+@pytest.mark.parametrize("cotejo", _manifiesto()["verifications"], ids=lambda c: c["date"])
+def test_la_fuente_declarada_de_un_cotejo_existe(cotejo: dict) -> None:
+    """Cara «hacia adelante» del cruce, ahora sobre el DATO y no sobre la prosa (D-FTE-4).
 
-    Sin esto, vaciar la mención dejaría el cruce anterior satisfecho por no tener nada que cruzar
-    — la misma vacuidad que el conteo de fuentes.
+    Hasta D-FTE esta cara necesitaba una tabla escrita a mano, porque la fuente sólo constaba
+    dentro del ``scope``. Con ``source_ids`` el oráculo es el propio campo, y eso es estrictamente
+    mejor: una tabla que repite lo que vigila mide determinismo, no corrección.
+    """
+    declaradas = {fuente["id"] for fuente in _manifiesto()["official_sources"]}
+    huerfanas = sorted(set(cotejo["source_ids"]) - declaradas)
+    assert not huerfanas, (
+        f"El cotejo del {cotejo['date']} se sostiene en {huerfanas} y esas fuentes no están entre "
+        "las official_sources del manifiesto — exactamente el desajuste que D-VER-2 corrigió."
+    )
+
+
+def test_al_menos_un_cotejo_declara_su_fuente() -> None:
+    """Ancla anti-vacuidad del cruce nuevo: sin ninguna fuente declarada no mediría nada."""
+    con_fuente = [c["date"] for c in _manifiesto()["verifications"] if c["source_ids"]]
+    assert con_fuente, (
+        "Ningún cotejo declara `source_ids`: el cruce verifications → official_sources quedó "
+        "recorriendo cero fuentes, que se lee igual que verde."
+    )
+
+
+@pytest.mark.parametrize("cotejo", _manifiesto()["verifications"], ids=lambda c: c["date"])
+def test_la_fuente_declarada_y_la_prosa_no_se_contradicen(cotejo: dict) -> None:
+    """El parseo de prosa NO se borra: cambia de papel (D-FTE-4).
+
+    Hasta D-FTE era la única vía para saber contra qué se cotejó. Ahora que la fuente es un
+    **dato**, lo que aporta la prosa es el contraste: nadie puede declarar ``source_ids: [x]``
+    mientras el ``scope`` afirma haberse cotejado contra ``y``. Es el mismo patrón con que el
+    2026-08-07 se ató la frase de recuperos del informe a su aritmética.
+
+    ⚠️ En un solo sentido a propósito: la prosa puede nombrar una fuente que ``source_ids`` no
+    declare —un ``scope`` puede mencionar un documento de contexto sin que sea la evidencia—. Lo
+    que **no** puede pasar es que ``source_ids`` declare algo y la prosa cite sólo otra cosa.
     """
     manifiesto = _manifiesto()
-    cotejos = {entrada["date"]: entrada for entrada in manifiesto["verifications"]}
-    assert fecha in cotejos, (
-        f"El manifiesto ya no registra el cotejo del {fecha}, que este gate da por existente."
+    declarados = set(cotejo["source_ids"])
+    if not declarados:
+        return
+    conocidas = {fuente["id"] for fuente in manifiesto["official_sources"]}
+    citados = {cita for cita in _ids_citados(cotejo, manifiesto) if cita in conocidas}
+    if not citados:
+        return
+    assert declarados & citados, (
+        f"El cotejo del {cotejo['date']} declara {sorted(declarados)} en `source_ids` mientras su "
+        f"prosa cita {sorted(citados)}: el campo y el texto se contradicen, y un auditor no puede "
+        "saber cuál de los dos es la evidencia."
     )
-    declaradas = {fuente["id"] for fuente in manifiesto["official_sources"]}
-    citadas = _ids_citados(cotejos[fecha], manifiesto)
-    for fuente_id in esperadas:
-        assert fuente_id in citadas, (
-            f"El cotejo del {fecha} dejó de citar la fuente {fuente_id!r} en su alcance: su "
-            "evidencia queda sin documento al que apuntar."
+
+
+_AUSENCIA_DECLARADA = re.compile(r"no (?:consta|quedó registrad|se registró)", re.IGNORECASE)
+
+
+def test_la_ausencia_de_fuente_de_un_cotejo_esta_publicada() -> None:
+    """🔴 La mitad del valor de D-FTE-2: «no consta» sólo sirve si se LEE.
+
+    Un ``source_ids`` vacío e invisible deja «no consta» y «nadie miró» indistinguibles, que es la
+    trampa que esta sesión ya pagó con un ``grep`` sobre un archivo no descargado. Si un cotejo no
+    registra su fuente, el documento tiene que decirlo — igual que el bundle declara sus
+    ``pending_items`` en vez de callarlos.
+
+    🔴 La declaración se exige **en la línea de ese cotejo**, no en cualquier parte del documento, y
+    esto lo cazó su propio control negativo: la primera versión buscaba la frase en todo el
+    ``.md`` y quedaba **satisfecha por el párrafo genérico** que explica qué significa «no consta»,
+    así que
+    borrar la declaración de la fila concreta pasaba en verde. Es la misma clase que el ancla por
+    conteo con holgura del 2026-08-05: un gate que busca una frase suelta mide que la frase exista,
+    no que diga algo del dato.
+    """
+    lineas = _documento().splitlines()
+    for cotejo in _manifiesto()["verifications"]:
+        if cotejo["source_ids"]:
+            continue
+        portadoras = [linea for linea in lineas if cotejo["date"] in linea]
+        assert portadoras, f"falta el cotejo del {cotejo['date']} en el documento"
+        assert any(_AUSENCIA_DECLARADA.search(linea) for linea in portadoras), (
+            f"El cotejo del {cotejo['date']} no declara su fuente, y ninguna línea del documento "
+            "que lo nombre dice que no consta: la ausencia se lee igual que un olvido, y ésa es la "
+            "clase que D-FTE-2 cierra. La declaración va JUNTO al cotejo, no en un párrafo aparte."
         )
-        assert fuente_id in declaradas, (
-            f"El cotejo del {fecha} se sostiene en {fuente_id!r} y esa fuente ya no está entre las "
-            "official_sources del manifiesto — exactamente el desajuste que D-VER-2 corrigió."
-        )
+
+
+@pytest.mark.parametrize("cotejo", _manifiesto()["verifications"], ids=lambda c: c["date"])
+def test_un_cotejo_nuevo_declara_su_fuente_y_su_verificador(cotejo: dict) -> None:
+    """D-FTE-5: la regla se aplica hacia adelante, con los dos existentes exentos ENUMERADOS.
+
+    Exigirlo a los dos actuales pondría el gate rojo sobre un dato que no se puede corregir sin
+    inventarlo, y un gate que sólo se apaga editando el dato es el antipatrón que este repo ya
+    pagó. Pero la exención va **enumerada** y no como holgura: así el próximo cotejo —B5— nace
+    obligado sin que nadie tenga que acordarse.
+    """
+    if cotejo["date"] in _COTEJOS_ANTERIORES_A_LA_REGLA:
+        return
+    assert cotejo["source_ids"], (
+        f"El cotejo del {cotejo['date']} es posterior a D-FTE-5 y no declara `source_ids`: sin la "
+        "fuente, quien audite la tabla no puede llegar al documento contra el que se cotejó."
+    )
+    assert cotejo["verified_by"].strip(), (
+        f"El cotejo del {cotejo['date']} no declara `verified_by`. Con cotejos de naturaleza "
+        "distinta conviviendo —extracción asistida frente a validación humana experta—, quién lo "
+        "hizo es justo lo que un auditor viene a leer (D-VER-1)."
+    )
+
+
+def test_las_exenciones_de_la_regla_de_cotejos_no_sobran() -> None:
+    """Una exención que apunta a un cotejo que ya no existe relaja el gate en silencio."""
+    fechas = {c["date"] for c in _manifiesto()["verifications"]}
+    huerfanas = sorted(_COTEJOS_ANTERIORES_A_LA_REGLA - fechas)
+    assert not huerfanas, (
+        "_COTEJOS_ANTERIORES_A_LA_REGLA exime cotejos que el manifiesto ya no registra: "
+        f"{huerfanas}"
+    )
 
 
 def test_al_menos_un_cotejo_ata_su_alcance_a_una_fuente_declarada() -> None:

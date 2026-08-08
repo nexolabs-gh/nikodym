@@ -1,7 +1,10 @@
 # Enmienda — la fuente de un cotejo viaja EN PROSA, y por eso el gate no puede exigirla
 
-> Estado: **BORRADOR — pendiente de decisión de Cami**. Escrita el 2026-08-08. Decisiones
-> `D-FTE-1…D-FTE-5`.
+> Estado: **APROBADA E IMPLEMENTADA — Cami, 2026-08-08**. Decisiones `D-FTE-1…D-FTE-5`.
+>
+> ✅ **La pregunta abierta del §3 quedó contestada: «no lo recuerdo»** (Cami, 2026-08-08) ⇒ salida
+> (b): `source_ids: []` para el cotejo del 2026-06-23 y la ausencia **publicada** en
+> `docs/normativa_cmf_parametros.md` §3-bis. No se infiere `pdf_semilla_b1` aunque sea plausible.
 >
 > Enmienda a **D-COT-1** (`_ENMIENDA-COTEJO-NORMATIVO.md`) y a **D-VER-1…3**
 > (`_ENMIENDA-COTEJO-VERIFICADOR.md`). Deuda 3 del HANDOFF del 2026-08-07, heredada del 2026-08-05.

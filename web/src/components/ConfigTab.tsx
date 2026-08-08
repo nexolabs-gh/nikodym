@@ -467,6 +467,26 @@ function MethodologyChoices({
             >
               Ir al campo
             </Button>
+            {/* 🔴 El salto al campo que la opción ELEGIDA exige (D-EXI-2). Sin esto el usuario lee
+                «hay que decirle con qué variables modelar la severidad» y no tiene dónde ponerlas:
+                el error de dominio llega con `loc: []`, así que el preflight no puede enfocarlo y el
+                gesto simétrico —elegir una partición temporal— sí marca su campo. Es la diferencia
+                entre declarar el hueco y hacerlo accionable. */}
+            {choice.options
+              .filter((opcion) => opcion.value === choice.elegida && opcion.exige.length > 0)
+              .flatMap((opcion) => opcion.exige)
+              .map((ruta) => (
+                <Button
+                  key={ruta}
+                  variant="ghost"
+                  size="sm"
+                  className="mt-1 ml-1 text-xs text-amber-300/90"
+                  data-methodology-requires={ruta}
+                  onClick={() => onFocus(ruta)}
+                >
+                  Ir a lo que falta
+                </Button>
+              ))}
           </li>
         ))}
       </ul>

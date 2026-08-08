@@ -52,6 +52,7 @@
       "method": "Verificación visual sobre el render del PDF oficial.",
       "scope": "Alcance PARCIAL dentro de cada matriz, no la matriz entera: comercial individual A1-B4 completa (hoja 3); de hipotecaria vivienda sólo la tabla PI/PDI/PE de la hoja 12, NO el factor MP de la hoja 13; de consumo sólo la tabla de PDI; y avales completa (hoja 18). Comercial individual, vivienda y consumo coinciden 100 %; en avales se detectó y corrigió un error de la columna Escala Internacional. Leer matrix_ids como cobertura total de esas matrices sobreestima lo verificado.",
       "verified_by": "",
+      "source_ids": [],
       "matrix_ids": [
         "commercial_individual_performing_v2014",
         "housing_pvg_v2018",
@@ -64,6 +65,9 @@
       "method": "Cotejo literal celda por celda contra el compendio consolidado vigente.",
       "scope": "Sólo la matriz de consumo, y en ella toda su superficie numérica: las 16 celdas de PI, las 6 de PDI y el PI = 100 % de la cartera en incumplimiento, contrastadas una a una contra el compendio consolidado del portal (fuente compendio_portal_consolidado, hojas 16-18). Coinciden exactamente. No es una validación de la CMF: la Comisión no certifica implementaciones de terceros.",
       "verified_by": "",
+      "source_ids": [
+        "compendio_portal_consolidado"
+      ],
       "matrix_ids": [
         "consumer_standard_v2025"
       ]

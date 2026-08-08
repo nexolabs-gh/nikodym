@@ -19,6 +19,15 @@
 
 3. **Procedencia de los valores.** Las tablas marcadas **VERIFICADO** fueron extraídas del **texto oficial CMF/SBIF** con `pdftotext -layout`. Además, el **2026-06-23 se verificaron VISUALMENTE** (render del PDF oficial) las tablas más críticas: comercial individual A1–B4 (hoja 3), hipotecaria vivienda PVG (hoja 12), PDI de consumo (Circular 2.346) y avales (hoja 18). Resultado: comercial individual, vivienda y consumo **coinciden 100 %**; en avales se **detectó y corrigió** un error de la columna *Escala Internacional* (ver §5.2). Las circulares fuente se citan bajo cada tabla.
 
+3-bis. **Contra qué documento se cotejó, cotejo por cotejo.** Cada cotejo del manifiesto declara su fuente como **dato** (`source_ids`) y no dentro de su prosa, para que un auditor pueda llegar al documento por programa y no leyendo una frase (D-FTE-1). ⚠️ Sin fecha a propósito: en este documento una fecha con formato ISO **es** la de un cotejo, y `test_toda_fecha_de_verificacion_del_documento_la_conoce_el_manifiesto` lo hace cumplir — fechar aquí un cambio de contrato lo haría indistinguible de una verificación, que es la confusión que ese gate existe para impedir. La fecha de la enmienda vive en `docs/design/`. Estado hoy:
+
+   | cotejo | fuente declarada |
+   |---|---|
+   | **2026-07-14** (cotejo literal celda por celda, consumo) | `compendio_portal_consolidado` — el PDF consolidado del portal CMF citado en §3.2 |
+   | **2026-06-23** (verificación visual) | ⚠️ **NO CONSTA.** Su método dice «el render del PDF oficial» y no registró **cuál** de las fuentes declaradas. |
+
+   ⚠️ Que no conste **no significa que no hubiera fuente**: significa que no quedó registrada, y esa diferencia es justo lo que un auditor viene a leer, así que se publica en vez de callarse (D-FTE-2). `pdf_semilla_b1` es la candidata plausible por el método descrito y **deliberadamente no se declara**: rellenar una procedencia que nadie anotó sería fabricar evidencia de auditoría, que es exactamente lo que este documento se prohíbe en el punto 5. Cuando **B5** ejecute el cotejo humano de las tablas pendientes, su entrada nace obligada a declarar fuente y verificador (D-FTE-5), así que esta fila deja de crecer.
+
 4. **Versión del PDF fuente de las matrices.** El PDF consolidado usado (`norma_6545_1.pdf`) se rotula "vigente hasta 31-12-2021". Sin embargo, las **tablas comercial individual, comercial grupal, hipotecaria, incumplimiento y B-3 NO fueron modificadas** por la reforma 2022 ni por la Circular 2.346/2024 (que **solo** introdujo el numeral 3.1.3 de consumo). Por lo tanto **siguen vigentes a 2026**. La matriz de **consumo** sí proviene del texto vigente 2025 (Circular 2.346). Antes de pasar a producción conviene revalidar contra el PDF del CNC versión 2022 publicado en cmfchile.cl (ver §7).
 
 5. **No inventar.** Donde no se pudo confirmar un valor con texto oficial, está marcado **PENDIENTE / NOTA**, nunca rellenado a ojo.
