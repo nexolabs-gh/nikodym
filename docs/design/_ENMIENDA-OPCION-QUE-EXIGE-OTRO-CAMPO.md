@@ -1,11 +1,8 @@
 # Enmienda — una opción del abanico puede exigir OTRO campo, y hoy se ofrece como si no
 
-> Estado: **APROBADA PARCIALMENTE E IMPLEMENTADA — Cami, 2026-08-08**. Escrita sobre la deuda 2 del
-> HANDOFF del 2026-08-07, medida por tres agentes y atacada por dos lentes adversariales.
-> Decisiones `D-EXI-1…D-EXI-7`.
->
-> ✅ **APROBADA E IMPLEMENTADA ENTERA** (Cami, en dos tandas el 2026-08-08): primero D-EXI-1/2/3/7 y
-> después D-EXI-5 y D-EXI-6.
+> Estado: **APROBADA E IMPLEMENTADA ENTERA — Cami, 2026-08-08**, en dos tandas: primero
+> D-EXI-1/2/3/7 y después D-EXI-5 y D-EXI-6. Escrita sobre la deuda 2 del HANDOFF del 2026-08-07,
+> medida por tres agentes y atacada por dos lentes adversariales. Decisiones `D-EXI-1…D-EXI-7`.
 >
 > 🔴 **D-EXI-6 se implementó de OTRA FORMA que la escrita, y la decisión la tomó Cami con el coste
 > medido delante.** Esta enmienda decía «el validador deja de aplicar cuando el método no abre la
