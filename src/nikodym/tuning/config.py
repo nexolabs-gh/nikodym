@@ -52,6 +52,13 @@ __all__ = [
     "ValidationStrategy",
 ]
 
+#: Prefijo del ``loc`` de los errores de esta sección (D-EXI-5). Vive en UN solo sitio para que un
+#: renombrado de la sección no haya que perseguirlo por cada ``raise``: la ruta que el error declara
+#: es **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y
+#: atrapa la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la
+#: emitió—, y eso ata al dominio con el nombre de su campo en la raíz.
+_LOC_SECCION: tuple[str, ...] = ("tuning",)
+
 
 class TuningObjectiveConfig(NikodymBaseConfig):
     """Métrica objetivo que maximiza la búsqueda de hiperparámetros."""
@@ -228,21 +235,28 @@ class TuningConfig(NikodymBaseConfig):
         :meth:`resolve_search_space` porque necesita la sección ``ml`` (el backend no se duplica
         aquí).
         """
+        # D-EXI-5: en «X exige Y» el ancla es Y —lo que hay que corregir—, no X. En los tres casos
+        # X es el estado de FÁBRICA (`deterministic=True`, `pruner='none'`) e Y es lo que el usuario
+        # acaba de mover, así que el ancla cae además sobre el campo que él tocó. La ruta va
+        # absoluta desde la raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
         if self.deterministic and self.n_jobs > 1:
             raise TuningConfigError(
                 "deterministic=True exige n_jobs=1 (el paralelismo de trials rompe el orden "
                 f"reproducible; n_jobs={self.n_jobs}). Use deterministic=False para el modo "
-                "performance."
+                "performance.",
+                loc=(*_LOC_SECCION, "n_jobs"),
             )
         if self.deterministic and self.optimizer.timeout_seconds is not None:
             raise TuningConfigError(
                 "deterministic=True exige timeout_seconds=None (el corte por reloj de pared no es "
-                f"byte-reproducible; timeout_seconds={self.optimizer.timeout_seconds})."
+                f"byte-reproducible; timeout_seconds={self.optimizer.timeout_seconds}).",
+                loc=(*_LOC_SECCION, "optimizer", "timeout_seconds"),
             )
         if self.optimizer.pruner != "none" and self.validation.strategy == "holdout":
             raise TuningConfigError(
                 f"pruner='{self.optimizer.pruner}' exige strategy='cv' (el holdout interno no "
-                "reporta valores intermedios por fold que podar)."
+                "reporta valores intermedios por fold que podar).",
+                loc=(*_LOC_SECCION, "validation", "strategy"),
             )
         return self
 
@@ -256,6 +270,10 @@ class TuningConfig(NikodymBaseConfig):
         (:class:`~nikodym.tuning.exceptions.TuningSearchSpaceError`).
         """
         if ml_config is None:
+            # Sin `loc` a propósito (D-EXI-5): la incoherencia es ENTRE dos secciones y el propio
+            # mensaje ofrece las dos salidas —declarar `ml` o retirar `tuning`—, así que no hay un
+            # campo culpable. Anclar en `("ml",)` mandaría además a la sección que justamente no
+            # está en el config.
             raise TuningConfigError(
                 "tuning requiere una sección 'ml' activa (no hay challenger que tunear): declare "
                 "'ml' en el config o retire 'tuning'."
@@ -270,16 +288,24 @@ class TuningConfig(NikodymBaseConfig):
             campo = campos.get(nombre)
             if campo is None:
                 validos = ", ".join(sorted(campos))
+                # D-EXI-5: el ancla es el campo que el usuario edita, y ése es el mapa entero.
+                # ⚠️ NO se baja hasta la clave ofensora (`search_space.params.<nombre>`) por dos
+                # razones medidas: `nombre` es variable y el gate de rutas sólo evalúa literales, y
+                # el formulario pinta `search_space` como un ÚNICO control (su `ui_widget: "table"`
+                # cae al editor JSON), así que una ruta más profunda no casa con ningún control
+                # —`errorAtPath` compara la clave completa, no por prefijo— y perdería el salto.
                 raise TuningSearchSpaceError(
                     f"el hiperparámetro '{nombre}' no existe en el backend '{backend}'; "
-                    f"campos válidos: {validos}."
+                    f"campos válidos: {validos}.",
+                    loc=(*_LOC_SECCION, "search_space"),
                 )
             kinds = _kinds_admitidos(campo.annotation)
             if spec.kind not in kinds and spec.kind != "categorical":
                 admitidos = ", ".join(sorted(kinds)) or "categorical"
                 raise TuningSearchSpaceError(
                     f"la distribución '{spec.kind}' es incompatible con el hiperparámetro "
-                    f"'{nombre}' del backend '{backend}' (kinds admitidos: {admitidos})."
+                    f"'{nombre}' del backend '{backend}' (kinds admitidos: {admitidos}).",
+                    loc=(*_LOC_SECCION, "search_space"),  # D-EXI-5
                 )
         return self.search_space
 

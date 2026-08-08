@@ -42,6 +42,20 @@ __all__ = [
 ]
 
 
+# 🔴 Ningún `raise` de este módulo declara `loc` (D-EXI-5), y **no es un olvido: no hay ruta que
+# declarar**. Las tres specs no cuelgan de un campo con nombre fijo, sino de
+# `tuning.search_space.params[<clave>]`, donde la clave es el nombre del hiperparámetro que escribió
+# el usuario. Eso lo cierra por dos lados, los dos medidos:
+#
+#   1. La ruta llevaría un segmento **variable**, y el gate que vigila las rutas las evalúa de forma
+#      estática: un segmento no literal entra en «inevaluables» y lo pone rojo. Un `loc` que el gate
+#      no puede leer es una ruta sin vigilar, que es justo lo que ese gate existe para impedir.
+#   2. Aunque fuera literal, el resolvedor del gate **no baja por un `dict`**: `params` está anotado
+#      `dict[str, ParamSpec]`, así que `("tuning","search_space","params","low")` NO resuelve
+#      —comprobado ejecutándolo—. La ruta más profunda que existe es el mapa entero.
+#
+# El error queda igualmente legible: `resolve_search_space` (`tuning/config.py`) sí ancla en
+# `tuning.search_space`, que es el único control que el formulario pinta para todo el mapa.
 class IntSpec(NikodymBaseConfig):
     """Distribución entera ``low..high`` (opcionalmente logarítmica) para un hiperparámetro."""
 
@@ -193,6 +207,10 @@ def default_search_space(backend: MLBackendName) -> SearchSpaceConfig:
             "l2_leaf_reg": FloatSpec(low=1.0, high=1e1, log=True),
         }
     else:
+        # Sin `loc` a propósito (D-EXI-5), y por una razón distinta a la del resto del módulo: el
+        # campo que habría que corregir es `ml.backend`, que vive en OTRA sección y ya tiene su
+        # dominio cerrado por el `Literal` `MLBackendName` —esta rama es defensa en profundidad, no
+        # un estado alcanzable desde el config—. Anclar ahí mandaría a un campo que no está mal.
         raise TuningSearchSpaceError(
             f"no hay espacio de búsqueda por defecto para el backend '{backend}'; "
             "backends soportados: catboost, lightgbm, random_forest, svm, xgboost."

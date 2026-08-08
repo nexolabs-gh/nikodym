@@ -60,6 +60,13 @@ __all__ = [
     "XGBoostParams",
 ]
 
+#: Prefijo del ``loc`` de los errores de esta sección (D-EXI-5). Vive en un solo sitio para que un
+#: renombrado de la sección no haya que perseguirlo por cada ``raise``: la ruta que el error declara
+#: es **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y
+#: atrapa la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la
+#: emitió—.
+_LOC_SECCION: tuple[str, ...] = ("ml",)
+
 # Backends GBDT: soportan early stopping y monotonic constraints, no son byte-deterministas
 # multihilo (ESPECIFICACIONES.md:L77 → default single-thread).
 _GBDT_BACKENDS: Final[frozenset[str]] = frozenset({"xgboost", "lightgbm", "catboost"})
@@ -573,27 +580,44 @@ class MLConfig(NikodymBaseConfig):
             recibido = type(self.hyperparameters).__name__
             raise MLConfigError(
                 f"hyperparameters debe ser {esperado.__name__} para backend='{self.backend}', "
-                f"pero se recibió {recibido}."
+                f"pero se recibió {recibido}.",
+                # D-EXI-5: el valor inválido es el de ESTE campo —el backend está bien y es lo que
+                # fija el sub-schema esperado—, así que el formulario puede llevar ahí al usuario.
+                loc=(*_LOC_SECCION, "hyperparameters"),
             )
         if self.deterministic and self.n_threads > 1:
+            # SIN `loc` a propósito (D-EXI-5): es una INCOMPATIBILIDAD entre dos campos con dos
+            # salidas simétricas, y el propio mensaje nombra la segunda («use deterministic=False»).
+            # Anclar en `n_threads` contradiría el consejo que el mensaje da; anclar en
+            # `deterministic` ignoraría que subir los hilos fue el gesto deliberado.
             raise MLConfigError(
                 "deterministic=True exige n_threads=1 (los GBDT multihilo no son deterministas; "
                 f"n_threads={self.n_threads}). Use deterministic=False para el modo performance."
             )
         if self.monotonic.mode == "explicit" and not self.monotonic.explicit:
+            # El ancla va en lo que FALTA (el mapa), no en el modo que lo exige: mismo criterio que
+            # «lgd.method='workout' exige recovery_col» (D-EXI-5).
             raise MLConfigError(
-                "monotonic.mode='explicit' exige un mapa 'explicit' no vacío de feature→dirección."
+                "monotonic.mode='explicit' exige un mapa 'explicit' no vacío de feature→dirección.",
+                loc=(*_LOC_SECCION, "monotonic", "explicit"),
             )
         if (
             self.monotonic.mode != "off"
             and self.backend in _MONOTONE_UNSUPPORTED
             and self.monotonic.on_unsupported == "error"
         ):
+            # SIN `loc` a propósito (D-EXI-5): concurren TRES campos —`monotonic.mode`, `backend` y
+            # `monotonic.on_unsupported`— y el mensaje ofrece dos salidas igual de válidas. No hay
+            # un campo que sea «el que hay que corregir», así que anclar elegiría por el usuario.
             raise MLMonotonicError(
                 f"el backend '{self.backend}' no soporta monotonic constraints y "
                 f"monotonic.on_unsupported='error' (use 'warn' o backend GBDT)."
             )
         if self.feature_source == "data_raw" and self.backend in _NAN_INTOLERANT:
+            # SIN `loc` a propósito (D-EXI-5): es un «X exige Y» cuyo Y **no es un campo de este
+            # config**. Lo que falta es una política de imputación, capacidad DIFERIDA del motor
+            # (FALTA-DATO-ML-1), y las dos salidas disponibles tocan campos distintos
+            # (`feature_source` o `backend`). No hay dónde llevar al usuario sin inventarlo.
             raise MLConfigError(
                 f"feature_source='data_raw' con backend '{self.backend}' exige una política de "
                 "imputación declarada (el backend no tolera NaN): FALTA-DATO-ML-1."
@@ -603,6 +627,9 @@ class MLConfig(NikodymBaseConfig):
             and self.train.validation_fraction == 0.0
             and self.train.early_stopping_rounds is not None
         ):
+            # SIN `loc` a propósito (D-EXI-5): el propio mensaje la llama «contradicción» y cierra
+            # ofreciendo las dos salidas —subir `validation_fraction` o poner
+            # `early_stopping_rounds=None`—. Es una invariante entre campos sin culpable único.
             raise MLConfigError(
                 "train.validation_fraction=0.0 desactiva el early stopping, pero "
                 f"train.early_stopping_rounds={self.train.early_stopping_rounds} lo pide con un "

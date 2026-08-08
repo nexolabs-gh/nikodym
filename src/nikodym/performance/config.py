@@ -34,6 +34,12 @@ __all__ = [
     "ScoreDirection",
 ]
 
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+#: Vive en UN solo sitio y no repetido en cada ``raise``: la ruta que el error declara es
+#: **absoluta desde la raíz del config**, así que ata al dominio con el nombre de su campo en la
+#: raíz, y concentrarla aquí deja un único lugar donde ese acoplamiento puede quedarse stale.
+_LOC_SECCION: tuple[str, ...] = ("performance",)
+
 _COLUMN_FIELDS: tuple[str, ...] = (
     "score_column",
     "pd_column",
@@ -263,12 +269,22 @@ class PerformanceConfig(NikodymBaseConfig):
             if clave not in _OPTIONAL_THRESHOLD_KEYS:
                 raise ConfigError(
                     "optional_thresholds solo admite claves documentadas: "
-                    f"{sorted(_OPTIONAL_THRESHOLD_KEYS)}."
+                    f"{sorted(_OPTIONAL_THRESHOLD_KEYS)}.",
+                    # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar
+                    # ahí al usuario en vez de dejarle un mensaje sin control. La ruta va absoluta
+                    # desde la raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
+                    loc=(*_LOC_SECCION, "optional_thresholds"),
                 )
             if isinstance(umbral, bool):
-                raise ConfigError("optional_thresholds debe contener valores numéricos finitos.")
+                raise ConfigError(
+                    "optional_thresholds debe contener valores numéricos finitos.",
+                    loc=(*_LOC_SECCION, "optional_thresholds"),
+                )
             if isinstance(umbral, (int, float)) and not math.isfinite(float(umbral)):
-                raise ConfigError("optional_thresholds debe contener valores numéricos finitos.")
+                raise ConfigError(
+                    "optional_thresholds debe contener valores numéricos finitos.",
+                    loc=(*_LOC_SECCION, "optional_thresholds"),
+                )
         return valor
 
     @model_validator(mode="after")
@@ -277,6 +293,9 @@ class PerformanceConfig(NikodymBaseConfig):
         columns = _column_values(self)
         vacias = [nombre for nombre, columna in columns.items() if not columna.strip()]
         if vacias:
+            # D-EXI-5: SIN `loc` a propósito. El ofensor es cualquiera de los cuatro campos de
+            # `_COLUMN_FIELDS` y el mensaje los enumera **todos**, así que no hay un campo único al
+            # que llevar al usuario; anclar en uno elegido a dedo lo mandaría al que no era.
             raise ConfigError(f"Las columnas de performance no pueden estar vacías: {vacias}.")
 
         normalizadas: dict[str, str] = {}
@@ -288,13 +307,17 @@ class PerformanceConfig(NikodymBaseConfig):
                 duplicadas.append((previo, nombre, clave))
             normalizadas[clave] = nombre
         if duplicadas:
+            # D-EXI-5: SIN `loc` a propósito. Es un invariante ENTRE campos —dos columnas con el
+            # mismo nombre— y no hay culpable único: cualquiera de las dos sirve para deshacer la
+            # colisión, así que la ruta vacía dice la verdad.
             raise ConfigError(f"Las columnas de performance no pueden colisionar: {duplicadas}.")
 
         for clave, umbral in self.optional_thresholds.items():
             if clave not in _OPTIONAL_THRESHOLD_KEYS:
                 raise ConfigError(
                     "optional_thresholds solo admite claves documentadas: "
-                    f"{sorted(_OPTIONAL_THRESHOLD_KEYS)}."
+                    f"{sorted(_OPTIONAL_THRESHOLD_KEYS)}.",
+                    loc=(*_LOC_SECCION, "optional_thresholds"),
                 )
             _require_finite(f"optional_thresholds.{clave}", umbral)
 
@@ -360,6 +383,13 @@ def _column_values(cfg: PerformanceConfig) -> dict[str, str]:
 
 
 def _require_finite(nombre: str, valor: float) -> None:
-    """Valida finitud para campos float que participan del ``config_hash``."""
+    """Valida finitud para campos float que participan del ``config_hash``.
+
+    D-EXI-5: su ``raise`` va **sin** ``loc``. Hoy su único llamador le pasa
+    ``optional_thresholds.<clave>``, pero el helper es genérico —recibe el nombre del campo como
+    dato— y hardcodear aquí el ancla de ese campo la volvería falsa en silencio en cuanto alguien
+    lo llame con otro. Y pasarla desde el llamador tampoco sirve: el gate que vigila estas rutas
+    las evalúa **estáticamente** y sólo admite una tupla literal en el propio ``raise``.
+    """
     if not math.isfinite(valor):
         raise ConfigError(f"{nombre} debe ser un número finito.")

@@ -191,6 +191,83 @@ def test_un_error_de_dominio_que_pertenece_a_un_campo_llega_anclado(rama: str, c
     assert campo in error["msg"]
 
 
+def test_ninguna_excepcion_de_un_config_py_escapa_del_endpoint() -> None:
+    """El contrato «siempre 200» de ``/api/validate``, cerrado como CLASE a la CUARTA reincidencia.
+
+    🔴 Las tres veces anteriores se parcheó el caso: primero un ``except`` que faltaba, luego doce
+    ``*ConfigError`` de dominio que no heredaban de ``ConfigError``… y seguía habiendo **18 `raise`
+    en 6 clases** que cuelgan directas de ``NikodymError`` y salían como **500** sobre configs
+    alcanzables desde el formulario (bastan dos escenarios de stress homónimos).
+
+    El repo ya había medido estas clases en **D-ANC-10** y amplió la captura de
+    ``_coaccionar_secciones_opacas``; el endpoint se quedó atrás. Este gate mide la INVARIANTE —
+    «lo que se levanta al validar un config llega como veredicto, no como excepción»— en vez de
+    enumerar las clases de hoy, que es lo que dejó pasar las tres reincidencias.
+
+    Se barre ``config.py`` entero y no sólo los validadores: el ``raise`` que reprodujo el 500 vive
+    en un auxiliar llamado *desde* un validador, así que un barrido de decoradores no lo ve.
+    """
+    import ast
+    import importlib
+    import pkgutil
+    from pathlib import Path
+
+    import nikodym
+    from nikodym.core.config.schema import cargar_configs_de_dominio
+    from nikodym.core.exceptions import NikodymError
+
+    cargar_configs_de_dominio()
+    clases: dict[str, type[BaseException]] = {}
+    for modulo in pkgutil.walk_packages(nikodym.__path__, "nikodym."):
+        try:
+            importado = importlib.import_module(modulo.name)
+        except Exception:  # un extra ausente no debe tumbar el barrido
+            continue
+        for nombre, valor in vars(importado).items():
+            if isinstance(valor, type) and issubclass(valor, BaseException):
+                clases.setdefault(nombre, valor)
+
+    raiz = Path(__file__).resolve().parents[2] / "src" / "nikodym"
+    fugas: list[str] = []
+    vistos = 0
+    for archivo in sorted(raiz.rglob("config.py")):
+        for nodo in ast.walk(ast.parse(archivo.read_text(encoding="utf-8"))):
+            if not isinstance(nodo, ast.Raise) or not isinstance(nodo.exc, ast.Call):
+                continue
+            funcion = nodo.exc.func
+            nombre = funcion.id if isinstance(funcion, ast.Name) else getattr(funcion, "attr", None)
+            clase = clases.get(nombre) if nombre else None
+            if clase is None:
+                continue
+            vistos += 1
+            # Lo que el endpoint atrapa: `ValidationError` (vía `ValueError`, que Pydantic envuelve)
+            # o `NikodymError`. Cualquier otra cosa sale como 500.
+            if not issubclass(clase, NikodymError | ValueError):
+                fugas.append(f"{archivo.relative_to(raiz)}:{nodo.lineno} ({nombre})")
+
+    assert vistos > 100, f"el barrido sólo vio {vistos} `raise`: no está recorriendo los config.py"
+    assert not fugas, (
+        "estas excepciones de un `config.py` no las atrapa `/api/validate`, así que saldrían como "
+        "HTTP 500: " + "; ".join(fugas)
+    )
+
+
+def test_una_excepcion_que_no_es_config_error_llega_como_veredicto_y_no_como_500() -> None:
+    """El control POSITIVO del gate de arriba, por la puerta pública y con un caso REAL.
+
+    ``StressScenarioError`` cuelga directa de ``NikodymError`` —no de ``ConfigError``— y este
+    config se arma con dos clics en el formulario. Antes de ampliar la captura, esta llamada
+    levantaba la excepción entera y el endpoint devolvía 500.
+    """
+    escenario = {"name": "a", "shocks": [{"factor": "pd", "value": 0.1}]}
+    resultado = routes.validate_config({"stress": {"scenarios": [escenario, dict(escenario)]}})
+
+    assert resultado["valid"] is False, "un config que no reconstruye no puede salir válido"
+    assert resultado["config_hash"] is None
+    assert resultado["errors"], "y tiene que decir POR QUÉ, no sólo que no vale"
+    assert "duplicados" in resultado["errors"][0]["msg"]
+
+
 def _rutas_declaradas_por_los_raise() -> tuple[list[tuple[tuple[str, ...], str]], list[str]]:
     """Barre `src/nikodym` y devuelve `(rutas, inevaluables)` de todo `raise X(..., loc=…)`.
 

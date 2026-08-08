@@ -198,6 +198,32 @@ Con D-VIS-1…4 puestas, declarar un `loc` sólo **añade** (el anclaje al campo
 visibilidad en la barra). Esta enmienda es, por tanto, **prerequisito de la deuda 1**: migrarlos
 antes empeora la interfaz en **58 de los 133** sitios (§1.4).
 
+#### Lo que la migración destapó: la CUARTA reincidencia del contrato «siempre 200»
+
+Migrar los 133 sacó a la luz un defecto **preexistente y grave**, ajeno a esta enmienda:
+`POST /api/validate` devolvía **HTTP 500** sobre configs alcanzables desde el formulario. Bastan
+**dos escenarios de stress con el mismo nombre**; reproducido.
+
+Causa: el endpoint atrapaba `ConfigError`, y hay **18 `raise` en 6 clases** dentro de los `config.py`
+que cuelgan **directas de `NikodymError`** — las siete de `ForwardScenarioError`, las siete de
+`StressScenarioError`, más `PitConsistencyError`, `SatelliteModelError`, `StressDependencyError` y
+`StressFaltaDatoError`.
+
+🔴 **Es la cuarta vez que este contrato se rompe, y las tres anteriores se parchearon como caso.** Lo
+peor: **el repo ya había medido exactamente estas clases** en D-ANC-10 —*«`ConfigError` NO basta:
+cuatro clases de `stress`/`forward` cuelgan directas de `NikodymError`»*— y amplió la captura de
+`_coaccionar_secciones_opacas`. **El endpoint se quedó atrás**: la misma clase, cerrada en un sitio y
+no en el otro.
+
+⚠️ **Se amplía la CAPTURA (`except NikodymError`), no la jerarquía.** Hacer que esas 6 clases hereden
+de `ConfigError` tocaría **109 `raise` de runtime** y convertiría un fallo de cálculo en un error de
+config. En ese punto del endpoint no hay cálculo: lo único que corrió es `model_validate`, así que
+todo `NikodymError` que salga de ahí es, por definición, «este config no reconstruye».
+
+Y se cierra como **clase**: un gate barre **todo `config.py`** —no sólo los validadores, porque el
+`raise` que reprodujo el 500 vive en un auxiliar llamado *desde* uno— y exige que lo que se levanta
+al validar sea atrapable. Con su control positivo por la puerta pública.
+
 ### D-VIS-7 — El `loc` se NORMALIZA a la convención del formulario antes de indexarlo
 
 El segmento del **tag** que Pydantic inserta en una unión discriminada se elide antes de construir la

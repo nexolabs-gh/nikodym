@@ -21,6 +21,10 @@ from nikodym.core.config import NikodymBaseConfig
 from nikodym.core.dataset_check import COMODIN, PerfilDataset, Requisito
 from nikodym.core.exceptions import ConfigError
 
+#: Prefijo del `loc` de los errores de esta sección (D-EXI-5). Vive en un solo sitio para que un
+#: renombrado de la sección no haya que perseguirlo por cada `raise`.
+_LOC_SECCION: tuple[str, ...] = ("binning",)
+
 #: Fracción de filas sobre la que una columna de texto se lee como identificador (D-PERF-5).
 #:
 #: 95 % y no 100 % porque un identificador real puede traer nulos o algún duplicado y no deja de
@@ -591,7 +595,11 @@ class BinningConfig(NikodymBaseConfig):
             raise ConfigError(
                 "El agrupamiento en tramos por programación por restricciones no está disponible: "
                 "sobre variables continuas se queda sin término y sin respetar el límite de "
-                "tiempo. Usa programación entera mixta, que es la opción por omisión."
+                "tiempo. Usa programación entera mixta, que es la opción por omisión.",
+                # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar ahí al
+                # usuario en vez de dejarle un mensaje sin control. La ruta va absoluta desde la
+                # raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
+                loc=(*_LOC_SECCION, "solver"),
             )
         return self
 

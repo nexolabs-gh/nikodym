@@ -40,6 +40,13 @@ __all__ = [
     "CmfRoundingPolicy",
 ]
 
+#: Prefijo del ``loc`` de los errores de esta sección (D-EXI-5). Vive en un solo sitio para que un
+#: renombrado de la sección no haya que perseguirlo por cada ``raise``: la ruta que el error declara
+#: es **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y
+#: atrapa la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la
+#: emitió—. ⚠️ Es ``provisioning_cmf`` y no ``cmf``: el nombre del paquete no es el de la sección.
+_LOC_SECCION: tuple[str, ...] = ("provisioning_cmf",)
+
 _ROOT_COLUMN_FIELDS: tuple[str, ...] = (
     "as_of_date_col",
     "portfolio_col",
@@ -175,7 +182,12 @@ class CmfPdMappingConfig(NikodymBaseConfig):
         normalized: list[float] = []
         for item in value:
             if not math.isfinite(item):
-                raise CmfConfigError("pd_breaks debe contener números finitos en [0, 1].")
+                raise CmfConfigError(
+                    "pd_breaks debe contener números finitos en [0, 1].",
+                    # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar
+                    # ahí al usuario en vez de dejarle un mensaje sin control.
+                    loc=(*_LOC_SECCION, "pd_mapping", "pd_breaks"),
+                )
             normalized.append(0.0 if item == 0.0 else float(item))
         return tuple(normalized)
 
@@ -194,14 +206,22 @@ class CmfPdMappingConfig(NikodymBaseConfig):
         ]
         if categorias_vacias:
             raise CmfConfigError(
-                f"Las categorías CMF de pd_mapping no pueden estar vacías: {categorias_vacias}."
+                f"Las categorías CMF de pd_mapping no pueden estar vacías: {categorias_vacias}.",
+                loc=(*_LOC_SECCION, "pd_mapping", "categories"),  # D-EXI-5
             )
         if any(
             next_break <= current
             for current, next_break in zip(self.pd_breaks, self.pd_breaks[1:], strict=False)
         ):
-            raise CmfConfigError("pd_breaks debe ser estrictamente creciente.")
+            raise CmfConfigError(
+                "pd_breaks debe ser estrictamente creciente.",
+                loc=(*_LOC_SECCION, "pd_mapping", "pd_breaks"),  # D-EXI-5
+            )
         if self.method == "pd_breaks" and len(self.categories) != len(self.pd_breaks) + 1:
+            # SIN `loc` a propósito (D-EXI-5): es una invariante de CARDINALIDAD entre dos campos
+            # —`categories` y `pd_breaks`— y ninguno es el culpable. Añadir un corte y añadir una
+            # categoría la satisfacen por igual, así que anclar en uno mandaría al usuario al campo
+            # que no era en la mitad de los casos. Vacío significa «no pertenece a un campo».
             raise CmfConfigError(
                 "pd_mapping.method='pd_breaks' exige len(categories) == len(pd_breaks) + 1."
             )
@@ -358,13 +378,19 @@ class CmfGuaranteeConfig(NikodymBaseConfig):
     def _check_recoverable_amount(self) -> Self:
         """Valida la política ``use_recoverable_amount`` de SDD-15 §5."""
         if self.recoverable_amount_col is not None and not self.recoverable_amount_col.strip():
-            raise CmfConfigError("recoverable_amount_col no puede estar vacío si se informa.")
+            raise CmfConfigError(
+                "recoverable_amount_col no puede estar vacío si se informa.",
+                loc=(*_LOC_SECCION, "guarantees", "recoverable_amount_col"),  # D-EXI-5
+            )
         if (
             self.financial_guarantee_policy == "use_recoverable_amount"
             and self.recoverable_amount_col is None
         ):
+            # El ancla va en lo que FALTA (`recoverable_amount_col`), no en la opción que lo exige:
+            # mismo criterio que «lgd.method='workout' exige recovery_col» (D-EXI-5).
             raise CmfConfigError(
-                "financial_guarantee_policy='use_recoverable_amount' exige recoverable_amount_col."
+                "financial_guarantee_policy='use_recoverable_amount' exige recoverable_amount_col.",
+                loc=(*_LOC_SECCION, "guarantees", "recoverable_amount_col"),
             )
         return self
 
@@ -478,8 +504,11 @@ class CmfProvisioningConfig(NikodymBaseConfig):
     def _check_invariantes(self) -> Self:
         """Valida columnas y modo standalone de SDD-15 §5."""
         if self.pd_mapping.method == "provided_cmf_category" and not self.category_col.strip():
+            # El ancla va en lo que falta —`category_col`, en la RAÍZ de la sección—, no en el
+            # método que lo exige, que vive un nivel más abajo en `pd_mapping` (D-EXI-5).
             raise CmfConfigError(
-                "pd_mapping.method='provided_cmf_category' exige category_col no vacío."
+                "pd_mapping.method='provided_cmf_category' exige category_col no vacío.",
+                loc=(*_LOC_SECCION, "category_col"),
             )
         _require_non_empty_strings(
             _column_values(self, _ROOT_COLUMN_FIELDS),
@@ -494,7 +523,13 @@ def _column_values(cfg: object, fields: tuple[str, ...]) -> dict[str, str]:
 
 
 def _require_non_empty_strings(values: dict[str, str], *, context: str) -> None:
-    """Valida que los nombres de campos/columnas declarativos no sean vacíos."""
+    """Valida que los nombres de campos/columnas declarativos no sean vacíos.
+
+    SIN ``loc`` a propósito (D-EXI-5). Dos razones, y basta cualquiera de las dos: el error acusa a
+    un CONJUNTO de campos —``empty`` puede traer varios, y el mensaje los enumera—, así que no hay
+    un campo único al que llevar al usuario; y la ruta tendría que componerse en runtime a partir
+    del nombre recibido, forma que el gate de rutas no sabe evaluar estáticamente y por eso rechaza.
+    """
     empty = [name for name, value in values.items() if not value.strip()]
     if empty:
         raise CmfConfigError(f"Los campos de {context} no pueden estar vacíos: {empty}.")

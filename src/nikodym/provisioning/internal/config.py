@@ -134,7 +134,13 @@ class _InternalLgdComun(NikodymBaseConfig):
     def _check_lgd(self) -> Self:
         """Valida columna no vacía y ``lgd_floor <= lgd_cap`` (SDD-28 §5.1)."""
         if not self.lgd_col.strip():
-            raise InternalConfigError("lgd.lgd_col no puede estar vacío.")
+            raise InternalConfigError(
+                "lgd.lgd_col no puede estar vacío.",
+                loc=(*_LOC_SECCION, "lgd", "lgd_col"),  # D-EXI-5
+            )
+        # SIN `loc` a propósito (D-EXI-5): el piso y el techo se contradicen ENTRE SÍ y ninguno de
+        # los dos es el equivocado, así que anclar en uno mandaría al usuario a un campo que
+        # perfectamente puede ser el correcto.
         if self.lgd_floor > self.lgd_cap:
             raise InternalConfigError(
                 f"lgd.lgd_floor ({self.lgd_floor}) no puede superar lgd.lgd_cap ({self.lgd_cap})."
@@ -215,7 +221,8 @@ def _exigir_recovery_col_no_vacia(recovery_col: str | None) -> None:
     if recovery_col is not None and not recovery_col.strip():
         raise InternalConfigError(
             "lgd.recovery_col no puede estar vacío: si no traes la recuperación, omite el campo "
-            "en vez de dejarlo en blanco."
+            "en vez de dejarlo en blanco.",
+            loc=(*_LOC_SECCION, "lgd", "recovery_col"),  # D-EXI-5
         )
 
 
@@ -301,7 +308,8 @@ class _InternalLgdRegresion(_InternalLgdComun):
         vacias = [idx for idx, col in enumerate(self.covariate_cols) if not col.strip()]
         if vacias:
             raise InternalConfigError(
-                f"lgd.covariate_cols no puede contener nombres vacíos: posiciones {vacias}."
+                f"lgd.covariate_cols no puede contener nombres vacíos: posiciones {vacias}.",
+                loc=(*_LOC_SECCION, "lgd", "covariate_cols"),  # D-EXI-5
             )
         if not self.covariate_cols:
             raise InternalConfigError(
@@ -477,6 +485,9 @@ class InternalLgdWorkout(_InternalLgdComun):
             )
             if not str(getattr(self, nombre)).strip()
         )
+        # SIN `loc` a propósito (D-EXI-5): el fallo acusa a UN CONJUNTO de columnas que sólo se
+        # conoce en runtime, y el `loc` tiene que ser una ruta estática —el gate lo evalúa por AST—.
+        # Anclar en la primera de la lista escondería las otras tres detrás de un solo campo.
         if vacias:
             raise InternalConfigError(f"lgd: estas columnas no pueden estar vacías: {vacias}.")
         return self
@@ -730,27 +741,35 @@ class InternalProvisioningConfig(NikodymBaseConfig):
             {field: getattr(self, field) for field in _ROOT_COLUMN_FIELDS},
             context="provisioning_internal",
         )
+        # Los cuatro `raise` de aquí anclan en la COLUMNA y no en el modo (D-EXI-5), igual que el
+        # precedente «lgd.method='workout' exige recovery_col»: en los dos primeros la columna es lo
+        # que falta, y en los dos segundos es lo que sobra —el modo elegido nunca la abre, así que
+        # una columna declarada ahí es una mentira del config y ES el campo que hay que vaciar—.
         if self.grouping in _GROUP_COL_GROUPINGS:
             if self.group_col is None or not self.group_col.strip():
                 raise InternalConfigError(
                     f"grouping='{self.grouping}' exige group_col con el nombre de la columna "
-                    "que trae el grupo homogéneo."
+                    "que trae el grupo homogéneo.",
+                    loc=(*_LOC_SECCION, "group_col"),
                 )
         elif self.group_col is not None:
             raise InternalConfigError(
                 "grouping='score_band' forma los grupos desde la PD y nunca lee group_col: "
-                "elimine group_col o cambie grouping a 'segment'/'provided'."
+                "elimine group_col o cambie grouping a 'segment'/'provided'.",
+                loc=(*_LOC_SECCION, "group_col"),
             )
         if self.method == "direct_loss_rate":
             if self.loss_rate_col is None or not self.loss_rate_col.strip():
                 raise InternalConfigError(
                     "method='direct_loss_rate' exige loss_rate_col con la tasa de pérdida "
-                    "esperada por operación."
+                    "esperada por operación.",
+                    loc=(*_LOC_SECCION, "loss_rate_col"),
                 )
         elif self.loss_rate_col is not None:
             raise InternalConfigError(
                 "method='pd_lgd' descompone la pérdida en PD y LGD y nunca lee loss_rate_col: "
-                "elimine loss_rate_col o cambie method a 'direct_loss_rate'."
+                "elimine loss_rate_col o cambie method a 'direct_loss_rate'.",
+                loc=(*_LOC_SECCION, "loss_rate_col"),
             )
         return self
 
@@ -814,7 +833,12 @@ class InternalProvisioningConfig(NikodymBaseConfig):
 
 
 def _require_non_empty_strings(values: dict[str, str], *, context: str) -> None:
-    """Valida que los nombres de columnas declarativos no sean vacíos."""
+    """Valida que los nombres de columnas declarativos no sean vacíos.
+
+    SIN ``loc`` a propósito (D-EXI-5): acusa a un CONJUNTO de campos que sólo se conoce en runtime
+    —hasta los cuatro de ``_ROOT_COLUMN_FIELDS``—, y el ``loc`` tiene que ser una ruta estática
+    porque el gate lo evalúa por AST. Anclar en el primero escondería a los demás.
+    """
     empty = [name for name, value in values.items() if not value.strip()]
     if empty:
         raise InternalConfigError(f"Los campos de {context} no pueden estar vacíos: {empty}.")

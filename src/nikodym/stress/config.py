@@ -57,6 +57,21 @@ __all__ = [
     "StressValidationConfig",
 ]
 
+#: Prefijo del ``loc`` de los errores de esta sección (D-EXI-5). Vive en un solo sitio para que un
+#: renombrado de la sección no haya que perseguirlo por cada ``raise``: la ruta que el error declara
+#: es **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y
+#: atrapa la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la
+#: emitió—.
+#:
+#: ⚠️ **Aquí la mayoría de los ``raise`` NO puede anclarse, y no es un olvido: es la FORMA de esta
+#: sección.** ``scenarios``, ``sensitivities`` y ``reverse`` son **tuplas de submodelos**, así que
+#: los validadores de ``StressScenarioConfig``, ``StressShockConfig``, ``SensitivitySweepConfig``,
+#: ``ReverseStressConfig`` y ``StressTargetConfig`` viven bajo un índice que la clase no conoce.
+#: Medido contra el resolvedor del gate: ``("stress", "reverse", "target")`` **no resuelve**, porque
+#: bajar por una tupla no lleva a ningún ``model_fields``. Anclar ahí sería mandar al usuario a una
+#: ruta que no existe, que es justo lo que el gate impide.
+_LOC_SECCION: tuple[str, ...] = ("stress",)
+
 _RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weighted_mean_input"})
 _ECONOMIC_METRICS: frozenset[str] = frozenset({"ecl", "provision", "loss", "ratio"})
 _ECL_ENGINE_METRICS: frozenset[str] = frozenset({"ecl", "loss", "ratio"})
@@ -551,6 +566,10 @@ class ReverseStressConfig(NikodymBaseConfig):
         _check_bracket(self.bracket)
         _check_monotonicity_points(self.monotonicity_check_points)
         if self.enabled and self.target is None:
+            # SIN `loc` pese a ser un «X exige Y» de manual (D-EXI-5): `stress.reverse` es una
+            # TUPLA de estas configs, así que la ruta del campo que falta lleva un índice que esta
+            # clase no conoce, y `("stress", "reverse", "target")` **no resuelve** —medido contra el
+            # resolvedor del gate—. Una ruta que no existe es peor que no anclar.
             raise StressConfigError("reverse.target es obligatorio cuando reverse.enabled=True.")
         return self
 
@@ -597,13 +616,19 @@ class StressOutputConfig(NikodymBaseConfig):
     def _check_metrics(self) -> Self:
         """Valida que la lista de métricas no esté vacía ni duplicada."""
         if not self.metrics:
-            raise StressConfigError("output.metrics no puede estar vacío.")
+            raise StressConfigError(
+                "output.metrics no puede estar vacío.",
+                # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar ahí al
+                # usuario en vez de dejarle un mensaje sin control.
+                loc=(*_LOC_SECCION, "output", "metrics"),
+            )
         duplicated = tuple(
             metric for metric in dict.fromkeys(self.metrics) if self.metrics.count(metric) > 1
         )
         if duplicated:
             raise StressConfigError(
-                f"output.metrics no puede contener métricas duplicadas: {duplicated}."
+                f"output.metrics no puede contener métricas duplicadas: {duplicated}.",
+                loc=(*_LOC_SECCION, "output", "metrics"),  # D-EXI-5
             )
         return self
 
@@ -727,6 +752,10 @@ class StressConfig(NikodymBaseConfig):
             self.scenarios or self.sensitivities or any(reverse.enabled for reverse in self.reverse)
         )
         if not has_executable_work:
+            # SIN `loc` a propósito (D-EXI-5): la exigencia es una DISYUNCIÓN sobre tres campos
+            # —`scenarios`, `sensitivities` y `reverse`— que se satisface llenando cualquiera de los
+            # tres. Anclar en uno elegiría por el usuario y lo llevaría dos de cada tres veces al
+            # campo que no era. Vacío significa «no pertenece a un campo».
             raise StressConfigError(
                 "stress exige al menos un escenario, una sensibilidad o un reverse stress."
             )
@@ -870,10 +899,19 @@ def _check_forward_scenario_name(name: str, *, field: str) -> None:
 
 
 def _check_unique_scenario_names(scenarios: tuple[StressScenarioConfig, ...]) -> None:
-    """Valida unicidad de nombres de escenarios de stress."""
+    """Valida unicidad de nombres de escenarios de stress.
+
+    Único helper de este módulo que puede anclar (D-EXI-5): lo llama un solo sitio —el validador
+    raíz de :class:`StressConfig`— y la duplicación es una propiedad de la LISTA entera, así que el
+    campo al que pertenece el error es ``stress.scenarios`` y no un escenario suelto, cuyo índice
+    esta función no conoce.
+    """
     names = [scenario.name.strip() for scenario in scenarios]
     if len(set(names)) != len(names):
-        raise StressScenarioError("stress.scenarios no puede contener nombres duplicados.")
+        raise StressScenarioError(
+            "stress.scenarios no puede contener nombres duplicados.",
+            loc=(*_LOC_SECCION, "scenarios"),  # D-EXI-5
+        )
 
 
 def _check_group_filter(group_filter: dict[str, str | int | float | bool]) -> None:
@@ -928,6 +966,10 @@ def _check_missing_economic_engine(cfg: StressConfig) -> None:
         if target.metric == "provision" and not has_provision:
             missing_provision.append(target.name)
     if missing_ecl or missing_provision:
+        # SIN `loc` a propósito (D-EXI-5), y aquí la causa NO es la tupla: los dos campos que
+        # faltarían —`input.ecl_engine_artifact` e `input.provision_engine_artifact`— sí tienen ruta
+        # que resuelve. Lo que impide anclar es que CUÁL de los dos falta se decide en runtime, y
+        # una ruta calculada no es una tupla literal: el gate la rechazaría por inevaluable.
         raise StressDependencyError(
             "Targets económicos requieren engines consistentes: "
             f"ecl_engine_artifact faltante={missing_ecl}; "

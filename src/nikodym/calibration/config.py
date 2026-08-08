@@ -37,6 +37,10 @@ __all__ = [
     "CalibrationMethod",
 ]
 
+#: Prefijo del `loc` de los errores de esta sección (D-EXI-5). Vive en un solo sitio para que un
+#: renombrado de la sección no haya que perseguirlo por cada `raise`.
+_LOC_SECCION: tuple[str, ...] = ("calibration",)
+
 _SUPERVISED_METHODS: frozenset[str] = frozenset({"platt_scaling", "isotonic"})
 _EXPLICIT_ANCHOR_SOURCES: frozenset[str] = frozenset(
     {"business_input", "historical_default_rate", "external_regulatory"}
@@ -316,11 +320,20 @@ class CalibrationConfig(NikodymBaseConfig):
     def _check_target_pd(cls, valor: Any) -> Any:
         """Falla con ``ConfigError`` si ``target_pd`` no está estrictamente en ``(0, 1)``."""
         if isinstance(valor, bool):
-            raise ConfigError("target_pd debe ser un número finito estrictamente entre 0 y 1.")
+            raise ConfigError(
+                "target_pd debe ser un número finito estrictamente entre 0 y 1.",
+                # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar ahí al
+                # usuario en vez de dejarle un mensaje sin control. La ruta va absoluta desde la
+                # raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
+                loc=(*_LOC_SECCION, "target_pd"),
+            )
         if isinstance(valor, (int, float)):
             observado = float(valor)
             if not math.isfinite(observado) or observado <= 0.0 or observado >= 1.0:
-                raise ConfigError("target_pd debe ser un número finito estrictamente entre 0 y 1.")
+                raise ConfigError(
+                    "target_pd debe ser un número finito estrictamente entre 0 y 1.",
+                    loc=(*_LOC_SECCION, "target_pd"),
+                )
         return valor
 
     @field_validator("target_tolerance", mode="before")
@@ -328,11 +341,17 @@ class CalibrationConfig(NikodymBaseConfig):
     def _check_target_tolerance(cls, valor: Any) -> Any:
         """Falla con ``ConfigError`` si ``target_tolerance`` no es positivo y finito."""
         if isinstance(valor, bool):
-            raise ConfigError("target_tolerance debe ser un número finito mayor que 0.")
+            raise ConfigError(
+                "target_tolerance debe ser un número finito mayor que 0.",
+                loc=(*_LOC_SECCION, "target_tolerance"),
+            )
         if isinstance(valor, (int, float)):
             observado = float(valor)
             if not math.isfinite(observado) or observado <= 0.0:
-                raise ConfigError("target_tolerance debe ser un número finito mayor que 0.")
+                raise ConfigError(
+                    "target_tolerance debe ser un número finito mayor que 0.",
+                    loc=(*_LOC_SECCION, "target_tolerance"),
+                )
         return valor
 
     @field_validator("max_abs_offset", mode="before")
@@ -342,11 +361,17 @@ class CalibrationConfig(NikodymBaseConfig):
         if valor is None:
             return None
         if isinstance(valor, bool):
-            raise ConfigError("max_abs_offset debe ser None o un número finito mayor que 0.")
+            raise ConfigError(
+                "max_abs_offset debe ser None o un número finito mayor que 0.",
+                loc=(*_LOC_SECCION, "max_abs_offset"),
+            )
         if isinstance(valor, (int, float)):
             observado = float(valor)
             if not math.isfinite(observado) or observado <= 0.0:
-                raise ConfigError("max_abs_offset debe ser None o un número finito mayor que 0.")
+                raise ConfigError(
+                    "max_abs_offset debe ser None o un número finito mayor que 0.",
+                    loc=(*_LOC_SECCION, "max_abs_offset"),
+                )
         return valor
 
     @field_validator("max_iter", "min_fit_rows", mode="before")
@@ -362,11 +387,20 @@ class CalibrationConfig(NikodymBaseConfig):
     @model_validator(mode="after")
     def _check_invariantes(self) -> Self:
         """Valida finitud, ancla y nombres de columnas definidos por SDD-10 §5/§8."""
-        if self.target_pd is not None:
-            _require_finite("target_pd", self.target_pd)
-        _require_finite("target_tolerance", self.target_tolerance)
-        if self.max_abs_offset is not None:
-            _require_positive_finite("max_abs_offset", self.max_abs_offset)
+        # D-EXI-5: el `raise` va AQUÍ y no dentro del helper, para que el `loc` sea una tupla
+        # literal. El gate que vigila estas rutas las evalúa **estáticamente** y rechaza un último
+        # tramo variable —con razón: una ruta que el gate no puede leer es una ruta sin vigilar—.
+        # Por eso el helper devuelve el mensaje en vez de levantarlo.
+        if self.target_pd is not None and (
+            msg := _mensaje_si_no_finito("target_pd", self.target_pd)
+        ):
+            raise ConfigError(msg, loc=(*_LOC_SECCION, "target_pd"))
+        if msg := _mensaje_si_no_finito("target_tolerance", self.target_tolerance):
+            raise ConfigError(msg, loc=(*_LOC_SECCION, "target_tolerance"))
+        if self.max_abs_offset is not None and (
+            msg := _mensaje_si_no_positivo_finito("max_abs_offset", self.max_abs_offset)
+        ):
+            raise ConfigError(msg, loc=(*_LOC_SECCION, "max_abs_offset"))
 
         # ── Coherencia del ancla (SDD-10 §5): nunca etiquetar una salida con una fuente/visión que
         # no se corresponde con el número realmente usado (criterio: o se ancla de verdad, o falla).
@@ -375,8 +409,17 @@ class CalibrationConfig(NikodymBaseConfig):
                 "anchor_kind='point_in_time' es incoherente con "
                 "anchor_source='development_observed': la media observada de Desarrollo es una "
                 "tasa de largo plazo (TTC) por definición; etiquetar esa salida como point_in_time "
-                "sería una etiqueta falsa. Use anchor_kind='through_the_cycle' o una fuente PIT."
+                "sería una etiqueta falsa. Use anchor_kind='through_the_cycle' o una fuente PIT.",
+                # D-EXI-5 con el criterio de D-ANC-3, el mismo de los dos `raise` de abajo: de los
+                # dos campos que se contradicen sólo UNO puede haberlo escrito el usuario a
+                # propósito. `anchor_source='development_observed'` es el DEFAULT de fábrica —puede
+                # no haberlo tocado nunca— y `anchor_kind` viene en 'through_the_cycle', así que
+                # 'point_in_time' es necesariamente un desvío suyo. Ahí es donde hay que llevarlo.
+                loc=(*_LOC_SECCION, "anchor_kind"),
             )
+        # SIN `loc` a propósito, y es el contraste que fija el criterio: aquí los DOS valores son
+        # desvíos del usuario ('external_regulatory' tampoco es el default), así que ninguno es «el
+        # equivocado» y el arreglo pasa por cualquiera de los dos. Anclar sería elegir por él.
         if self.anchor_kind == "point_in_time" and self.anchor_source == "external_regulatory":
             raise ConfigError(
                 "anchor_kind='point_in_time' no es compatible con "
@@ -386,7 +429,9 @@ class CalibrationConfig(NikodymBaseConfig):
             raise ConfigError(
                 f"anchor_source='{self.anchor_source}' exige fijar target_pd explícito en (0, 1): "
                 "esta fuente no deriva la tasa central de los datos y no existe un placeholder "
-                "válido; sin target_pd no hay ancla (no se ancla al antiguo 0.05 por defecto)."
+                "válido; sin target_pd no hay ancla (no se ancla al antiguo 0.05 por defecto).",
+                # D-EXI-5: «X exige Y» ancla en Y —lo que falta—, no en la fuente que lo exige.
+                loc=(*_LOC_SECCION, "target_pd"),
             )
         # D-ANC-1: el caso SIMÉTRICO del de arriba, y por el mismo criterio. La fuente que se lee de
         # los datos no admite un número que la contradiga: `fit` lo descartaba en silencio y el
@@ -399,7 +444,12 @@ class CalibrationConfig(NikodymBaseConfig):
                 f"observado en Desarrollo, así que el target_pd={self.target_pd!r} que fijó no se "
                 "usaría: la corrida anclaría a otro número sin avisar. Deje target_pd sin fijar, o "
                 "elija la fuente que corresponda a ese número: 'business_input', "
-                "'historical_default_rate' o 'external_regulatory'."
+                "'historical_default_rate' o 'external_regulatory'.",
+                # D-EXI-5: ancla en `target_pd` y no en la fuente por la misma razón que el caso
+                # simétrico de arriba —es el campo cuyo valor se está rechazando—, y porque su
+                # default es `None`: un número ahí sólo puede haberlo escrito alguien a propósito
+                # (D-ANC-3), mientras que la fuente puede seguir estando en su default de fábrica.
+                loc=(*_LOC_SECCION, "target_pd"),
             )
 
         columns = _column_values(self)
@@ -420,7 +470,11 @@ class CalibrationConfig(NikodymBaseConfig):
 
         if self.method in _SUPERVISED_METHODS and not self.require_both_classes_for_supervised:
             raise ConfigError(
-                "platt_scaling e isotonic requieren require_both_classes_for_supervised=True en v1."
+                "platt_scaling e isotonic requieren require_both_classes_for_supervised=True en "
+                "v1.",
+                # D-EXI-5: «X exige Y» ancla en Y —el interruptor que hay que activar—, no en el
+                # método, que es una elección legítima.
+                loc=(*_LOC_SECCION, "require_both_classes_for_supervised"),
             )
 
         return self
@@ -431,13 +485,19 @@ def _column_values(cfg: CalibrationConfig) -> dict[str, str]:
     return {nombre: getattr(cfg, nombre) for nombre in _COLUMN_FIELDS}
 
 
-def _require_finite(nombre: str, valor: float) -> None:
-    """Valida finitud para campos float que participan del ``config_hash``."""
-    if not math.isfinite(valor):
-        raise ConfigError(f"{nombre} debe ser un número finito.")
+def _mensaje_si_no_finito(nombre: str, valor: float) -> str | None:
+    """Mensaje de error si ``valor`` no es finito, o ``None`` si lo es.
+
+    D-EXI-5: **devuelve** el mensaje en vez de levantarlo para que el ``raise`` —y con él su ``loc``
+    literal— viva en el llamador. Un ``loc`` armado con el parámetro ``nombre`` sería correcto en
+    runtime y **no verificable estáticamente**, que es justo lo que el gate de rutas rechaza para
+    que ninguna quede sin vigilar. Los campos son float y participan del ``config_hash``.
+    """
+    return None if math.isfinite(valor) else f"{nombre} debe ser un número finito."
 
 
-def _require_positive_finite(nombre: str, valor: float) -> None:
-    """Valida positividad y finitud para guards numéricos opcionales."""
-    if not math.isfinite(valor) or valor <= 0.0:
-        raise ConfigError(f"{nombre} debe ser None o un número finito mayor que 0.")
+def _mensaje_si_no_positivo_finito(nombre: str, valor: float) -> str | None:
+    """Mensaje de error si ``valor`` no es finito y > 0, o ``None`` si lo es (ver el gemelo)."""
+    if math.isfinite(valor) and valor > 0.0:
+        return None
+    return f"{nombre} debe ser None o un número finito mayor que 0."

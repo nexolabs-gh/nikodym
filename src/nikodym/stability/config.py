@@ -45,6 +45,12 @@ __all__ = [
     "TemporalFrequency",
 ]
 
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+#: Vive en UN solo sitio y no repetido en cada ``raise``: la ruta que el error declara es
+#: **absoluta desde la raíz del config**, así que ata al dominio con el nombre de su campo en la
+#: raíz, y concentrarla aquí deja un único lugar donde ese acoplamiento puede quedarse stale.
+_LOC_SECCION: tuple[str, ...] = ("stability",)
+
 _COLUMN_FIELDS: tuple[str, ...] = (
     "score_column",
     "pd_column",
@@ -203,6 +209,10 @@ class StabilityConfig(NikodymBaseConfig):
         columns = _column_values(self)
         vacias = [nombre for nombre, columna in columns.items() if not columna.strip()]
         if vacias:
+            # D-EXI-5: SIN `loc` a propósito. El ofensor es cualquiera de las columnas que
+            # `_column_values` reúne y el mensaje las enumera **todas**, así que no hay un campo
+            # único al que llevar al usuario; anclar en uno elegido a dedo lo mandaría al que no
+            # era.
             raise ConfigError(f"Las columnas de stability no pueden estar vacías: {vacias}.")
 
         normalizadas: dict[str, str] = {}
@@ -214,6 +224,9 @@ class StabilityConfig(NikodymBaseConfig):
                 duplicadas.append((previo, nombre, clave))
             normalizadas[clave] = nombre
         if duplicadas:
+            # D-EXI-5: SIN `loc` a propósito. Es un invariante ENTRE campos —dos columnas con el
+            # mismo nombre— y no hay culpable único: cualquiera de las dos sirve para deshacer la
+            # colisión, así que la ruta vacía dice la verdad.
             raise ConfigError(f"Las columnas de stability no pueden colisionar: {duplicadas}.")
 
         _require_finite("psi_stable_threshold", self.psi_stable_threshold)
@@ -221,13 +234,19 @@ class StabilityConfig(NikodymBaseConfig):
         _require_finite("smoothing", self.smoothing)
 
         if self.psi_stable_threshold >= self.psi_review_threshold:
+            # D-EXI-5: SIN `loc` a propósito. Es un invariante ENTRE dos umbrales: se arregla
+            # bajando uno o subiendo el otro, y cuál de los dos está mal lo sabe el usuario y no
+            # el motor. Anclar en uno le escondería la mitad de la decisión.
             raise ConfigError(
                 "psi_stable_threshold debe ser estrictamente menor que psi_review_threshold."
             )
         if self.csi_source == "woe_bins":
             raise ConfigError(
                 "csi_source='woe_bins' aún no está soportado: falta ratificar el contrato de "
-                "binning con los artefactos WoE requeridos por SDD-11 D-STAB-5."
+                "binning con los artefactos WoE requeridos por SDD-11 D-STAB-5.",
+                # D-EXI-5: el valor inválido es el de ESTE campo, así que el formulario puede
+                # llevar al usuario justo al selector donde lo eligió.
+                loc=(*_LOC_SECCION, "csi_source"),
             )
 
         return self
@@ -332,6 +351,13 @@ def _column_values(cfg: StabilityConfig) -> dict[str, str]:
 
 
 def _require_finite(nombre: str, valor: float) -> None:
-    """Valida finitud para campos float que participan del ``config_hash``."""
+    """Valida finitud para campos float que participan del ``config_hash``.
+
+    D-EXI-5: su ``raise`` va **sin** ``loc``. Lo llaman tres campos distintos
+    (``psi_stable_threshold``, ``psi_review_threshold`` y ``smoothing``) y el nombre del ofensor
+    llega como **dato**, así que un ancla literal aquí sería la correcta para uno y falsa para los
+    otros dos. Pasarla desde el llamador tampoco sirve: el gate que vigila estas rutas las evalúa
+    **estáticamente** y sólo admite una tupla literal en el propio ``raise``.
+    """
     if not math.isfinite(valor):
         raise ConfigError(f"{nombre} debe ser un número finito.")

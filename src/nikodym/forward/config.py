@@ -56,6 +56,15 @@ __all__ = [
     "TtcReversionMethod",
 ]
 
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+#:
+#: ⚠️ En UN solo sitio y no repetido en cada ``raise``: la ruta que el error declara tiene que ser
+#: **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y atrapa
+#: la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la emitió—, y
+#: eso ata al dominio con el nombre de su campo en la raíz. Concentrado aquí, lo vigila un gate que
+#: exige que toda ruta declarada resuelva contra ``NikodymConfig``.
+_LOC_SECCION: tuple[str, ...] = ("forward",)
+
 _AUTO_ORDER_KINDS: frozenset[str] = frozenset({"arima", "sarima", "arimax"})
 _REQUIRES_MULTIVARIATE: frozenset[str] = frozenset({"var", "vecm"})
 _RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weighted_mean_input"})
@@ -133,23 +142,44 @@ class MacroSourceConfig(NikodymBaseConfig):
             return data
         raw = data["variable_cols"]
         if raw is None:
-            raise ForwardConfigError("macro_source.variable_cols no puede estar vacío.")
+            raise ForwardConfigError(
+                "macro_source.variable_cols no puede estar vacío.",
+                # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar ahí al
+                # usuario en vez de dejarle un mensaje sin control. La ruta va absoluta desde la
+                # raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
+                loc=(*_LOC_SECCION, "input", "macro_source", "variable_cols"),
+            )
         try:
             values = tuple(raw)
         except TypeError:
             return data
         if values == ():
-            raise ForwardConfigError("macro_source.variable_cols no puede estar vacío.")
+            raise ForwardConfigError(
+                "macro_source.variable_cols no puede estar vacío.",
+                loc=(*_LOC_SECCION, "input", "macro_source", "variable_cols"),
+            )
         return data
 
     @model_validator(mode="after")
     def _check_fuente_y_columnas(self) -> Self:
         """Valida fuente macro, columnas proyectadas y colisión con ``time_col``."""
         if self.time_col in self.variable_cols:
-            raise ForwardConfigError("macro_source.variable_cols no puede contener time_col.")
+            raise ForwardConfigError(
+                "macro_source.variable_cols no puede contener time_col.",
+                # El campo que hay que corregir es la lista: `time_col` describe un hecho del
+                # archivo macro (cuál es su eje temporal), y lo que sobra es haberlo incluido
+                # además entre las variables proyectadas.
+                loc=(*_LOC_SECCION, "input", "macro_source", "variable_cols"),
+            )
         if self.type == "path" and not self.path:
-            raise ForwardConfigError("macro_source.type='path' exige macro_source.path.")
+            raise ForwardConfigError(
+                "macro_source.type='path' exige macro_source.path.",
+                loc=(*_LOC_SECCION, "input", "macro_source", "path"),
+            )
         if self.type == "artifact" and (not self.artifact_domain or not self.artifact_key):
+            # Sin `loc` a propósito (D-EXI-5): la condición es una disyunción sobre DOS campos y el
+            # mensaje nombra los dos, así que anclar en uno mandaría al usuario al campo que sí
+            # estaba escrito cada vez que el ausente fuera el otro. Vacío significa exactamente eso.
             raise ForwardConfigError(
                 "macro_source.type='artifact' exige artifact_domain y artifact_key."
             )
@@ -233,7 +263,10 @@ class MacroModelConfig(NikodymBaseConfig):
     def _check_azar_auto_arima(self) -> Self:
         """Exige semilla explícita si ``auto_arima_random`` queda activo."""
         if self.auto_arima_random and self.random_state is None:
-            raise ForwardConfigError("auto_arima_random=True exige random_state explícito.")
+            raise ForwardConfigError(
+                "auto_arima_random=True exige random_state explícito.",
+                loc=(*_LOC_SECCION, "macro", "random_state"),  # D-EXI-5
+            )
         return self
 
     @model_validator(mode="after")
@@ -250,18 +283,21 @@ class MacroModelConfig(NikodymBaseConfig):
         if self.seasonal_order is None:
             raise ForwardConfigError(
                 "kind='sarima' exige seasonal_order (P,D,Q,s) explícito; sin él correría "
-                "como ARIMA plano etiquetado SARIMA."
+                "como ARIMA plano etiquetado SARIMA.",
+                loc=(*_LOC_SECCION, "macro", "seasonal_order"),  # D-EXI-5
             )
         seasonal_p, seasonal_d, seasonal_q, seasonal_periods = self.seasonal_order
         if seasonal_periods < 2:
             raise ForwardConfigError(
                 "kind='sarima' exige un período estacional s>=2 en seasonal_order; "
-                f"recibido s={seasonal_periods}."
+                f"recibido s={seasonal_periods}.",
+                loc=(*_LOC_SECCION, "macro", "seasonal_order"),
             )
         if (seasonal_p, seasonal_d, seasonal_q) == (0, 0, 0):
             raise ForwardConfigError(
                 "kind='sarima' exige al menos un término estacional (P, D o Q) no nulo; "
-                "seasonal_order=(0,0,0,s) equivale a ARIMA sin estacionalidad."
+                "seasonal_order=(0,0,0,s) equivale a ARIMA sin estacionalidad.",
+                loc=(*_LOC_SECCION, "macro", "seasonal_order"),
             )
         return self
 
@@ -322,13 +358,19 @@ class SatelliteConfig(NikodymBaseConfig):
             return data
         raw = data["factor_cols"]
         if raw is None:
-            raise ForwardConfigError("satellite.factor_cols no puede estar vacío.")
+            raise ForwardConfigError(
+                "satellite.factor_cols no puede estar vacío.",
+                loc=(*_LOC_SECCION, "satellite", "factor_cols"),  # D-EXI-5
+            )
         try:
             values = tuple(raw)
         except TypeError:
             return data
         if values == ():
-            raise ForwardConfigError("satellite.factor_cols no puede estar vacío.")
+            raise ForwardConfigError(
+                "satellite.factor_cols no puede estar vacío.",
+                loc=(*_LOC_SECCION, "satellite", "factor_cols"),
+            )
         return data
 
 
@@ -371,7 +413,14 @@ class ScenarioDefinitionConfig(NikodymBaseConfig):
     @field_validator("weight", mode="before")
     @classmethod
     def _check_weight_finito(cls, value: Any) -> Any:
-        """Normaliza ``-0.0`` y rechaza pesos no finitos."""
+        """Normaliza ``-0.0`` y rechaza pesos no finitos.
+
+        ⚠️ Sin ``loc`` (D-EXI-5) y no por olvido: este campo vive dentro de una FILA de
+        ``forward.scenarios.scenarios``, así que su ruta necesita el índice de la fila —y un
+        ``field_validator`` no lo conoce: Pydantic le pasa el valor y el nombre del campo, nunca su
+        posición en la secuencia del padre—. Una ruta sin índice no enfoca ningún control, y
+        adivinar uno mandaría al usuario a otro escenario.
+        """
         if _is_non_finite_number(value):
             raise ForwardScenarioError("scenario.weight debe ser un número finito.")
         return 0.0 if value == 0.0 else float(value)
@@ -379,7 +428,11 @@ class ScenarioDefinitionConfig(NikodymBaseConfig):
     @field_validator("shocks", mode="after")
     @classmethod
     def _check_shocks_finitos(cls, value: dict[str, float]) -> dict[str, float]:
-        """Normaliza ``-0.0`` y rechaza shocks no finitos."""
+        """Normaliza ``-0.0`` y rechaza shocks no finitos.
+
+        Sin ``loc`` por la misma razón medida que ``_check_weight_finito``: el campo vive en una
+        fila de ``forward.scenarios.scenarios`` cuyo índice el validador no conoce.
+        """
         normalized: dict[str, float] = {}
         for name, shock in value.items():
             if not isfinite(shock):
@@ -485,7 +538,8 @@ class ForwardInputConfig(NikodymBaseConfig):
         """Exige supuesto PIT/TTC si el contrato no trae ``pd_basis`` resuelto."""
         if self.require_pit_consistency and self.pd_basis_assumption is None:
             raise PitConsistencyError(
-                "pd_basis_assumption es requerido cuando la term-structure no trae pd_basis."
+                "pd_basis_assumption es requerido cuando la term-structure no trae pd_basis.",
+                loc=(*_LOC_SECCION, "input", "pd_basis_assumption"),  # D-EXI-5: lo que falta
             )
         return self
 
@@ -615,20 +669,34 @@ class ForwardConfig(NikodymBaseConfig):
         """Valida invariantes cruzados de SDD-20 §5."""
         macro_cols = set(self.input.macro_source.variable_cols)
         if self.macro.kind in _REQUIRES_MULTIVARIATE and len(macro_cols) < 2:
-            raise ForwardConfigError("kind='var'/'vecm' exige al menos dos variable_cols.")
+            raise ForwardConfigError(
+                "kind='var'/'vecm' exige al menos dos variable_cols.",
+                # D-EXI-5: «X exige Y» ancla en Y, que es lo que falta.
+                loc=(*_LOC_SECCION, "input", "macro_source", "variable_cols"),
+            )
         if self.macro.kind == "arimax" and not self.input.macro_source.exogenous_cols:
-            raise ForwardConfigError("kind='arimax' exige macro_source.exogenous_cols no vacío.")
+            raise ForwardConfigError(
+                "kind='arimax' exige macro_source.exogenous_cols no vacío.",
+                loc=(*_LOC_SECCION, "input", "macro_source", "exogenous_cols"),
+            )
         if self.macro.use_pmdarima_auto_order and (
             self.macro.kind not in _AUTO_ORDER_KINDS or len(macro_cols) != 1
         ):
             raise ForwardConfigError(
-                "use_pmdarima_auto_order=True solo aplica a ARIMA/SARIMA/ARIMAX univariado."
+                "use_pmdarima_auto_order=True solo aplica a ARIMA/SARIMA/ARIMAX univariado.",
+                # El interruptor ES el campo a corregir aunque la condición mire tres: apagarlo
+                # resuelve el conflicto SIEMPRE, mientras que cambiar `kind` sólo lo resuelve si
+                # además hay una única variable macro, y viceversa.
+                loc=(*_LOC_SECCION, "macro", "use_pmdarima_auto_order"),
             )
         if (
             self.ttc_reversion.enabled
             and self.ttc_reversion.method != "none"
             and self.macro.horizon_periods < self.ttc_reversion.reasonable_supportable_periods
         ):
+            # Sin `loc` a propósito (D-EXI-5): es una desigualdad entre dos horizontes que el
+            # usuario elige por separado, en subsecciones distintas, y ninguno falta ni es inválido
+            # por sí solo. No hay un campo que corregir sino una relación entre dos que corregir.
             raise ForwardConfigError(
                 "macro.horizon_periods debe ser >= "
                 "ttc_reversion.reasonable_supportable_periods para reversión TTC."
@@ -639,7 +707,10 @@ class ForwardConfig(NikodymBaseConfig):
         if missing_factors:
             raise SatelliteModelError(
                 f"satellite.factor_cols debe ser subconjunto de variables macro proyectadas: "
-                f"{missing_factors}."
+                f"{missing_factors}.",
+                # Los valores rechazados VIVEN en `factor_cols`: `variable_cols` es lo que el
+                # modelo macro proyecta de verdad, o sea la fuente contra la que se coteja.
+                loc=(*_LOC_SECCION, "satellite", "factor_cols"),
             )
         return self
 
@@ -648,23 +719,37 @@ def _check_scenarios(scenarios: ScenarioConfig, weight_sum_tol: float) -> None:
     """Valida unicidad, escenarios requeridos, nombres reservados y suma de pesos."""
     names = [scenario.name for scenario in scenarios.scenarios]
     if len(set(names)) != len(names):
-        raise ForwardScenarioError("scenario.scenarios no puede contener nombres duplicados.")
+        raise ForwardScenarioError(
+            "scenario.scenarios no puede contener nombres duplicados.",
+            # D-EXI-5: la lista es el control que el usuario edita, y ahí viven los nombres
+            # repetidos. Se ancla en la lista y no en una fila porque el conflicto es de al menos
+            # dos filas a la vez, así que un índice sería elegir arbitrariamente una de ellas.
+            loc=(*_LOC_SECCION, "scenarios", "scenarios"),
+        )
 
     name_set = set(names)
     if scenarios.require_at_least_three:
         missing = sorted(_REQUIRED_SCENARIOS - name_set)
         if missing:
             raise ForwardScenarioError(
-                f"scenario.scenarios debe incluir base, adverse y severe: faltan {missing}."
+                f"scenario.scenarios debe incluir base, adverse y severe: faltan {missing}.",
+                loc=(*_LOC_SECCION, "scenarios", "scenarios"),
             )
     if scenarios.forbid_mean_scenario:
         reserved = sorted(name_set & _RESERVED_SCENARIO_NAMES)
         if reserved:
             raise ForwardScenarioError(
-                f"forbid_mean_scenario=True veta escenarios medios reservados: {reserved}."
+                f"forbid_mean_scenario=True veta escenarios medios reservados: {reserved}.",
+                # Se ancla en la lista y no en el interruptor: `forbid_mean_scenario` es la guarda
+                # metodológica —un escenario medio no es la media de los escenarios— y apagarla es
+                # la salida que existe para no tomar; lo que hay que corregir son los nombres.
+                loc=(*_LOC_SECCION, "scenarios", "scenarios"),
             )
     total_weight = sum(scenario.weight for scenario in scenarios.scenarios)
     if not isclose(total_weight, 1.0, rel_tol=0.0, abs_tol=weight_sum_tol):
+        # Sin `loc` a propósito (D-EXI-5): que una suma no dé 1 no es defecto de ningún peso en
+        # particular, y la tolerancia con que se juzga vive además en otra subsección
+        # (`validation.weight_sum_tol`). Es el caso canónico de invariante entre campos.
         raise ForwardScenarioError(
             f"Los pesos de escenarios deben sumar 1; suma observada={total_weight!r}."
         )
@@ -687,5 +772,9 @@ def _check_missing_stress_scenarios(cfg: ForwardConfig) -> None:
     if missing:
         raise ForwardScenarioError(
             "DATO-INSTITUCIONAL-FWD-1: adverse/severe deben declarar macro_path_path o shocks; "
-            f"faltan {missing}."
+            f"faltan {missing}.",
+            # D-EXI-5: lo que falta son datos de las filas de esta lista, que es el control donde
+            # se escriben. No baja a `macro_path_path` ni a `shocks` porque son alternativas —basta
+            # cualquiera de las dos— y porque pueden faltar en varios escenarios a la vez.
+            loc=(*_LOC_SECCION, "scenarios", "scenarios"),
         )

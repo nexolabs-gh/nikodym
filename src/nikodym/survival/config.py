@@ -40,6 +40,12 @@ __all__ = [
     "SurvivalTimeGridConfig",
 ]
 
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+#: Vive en UN solo sitio y no repetido en cada ``raise``: la ruta que el error declara es
+#: **absoluta desde la raíz del config**, así que ata al dominio con el nombre de su campo en la
+#: raíz, y concentrarla aquí deja un único lugar donde ese acoplamiento puede quedarse stale.
+_LOC_SECCION: tuple[str, ...] = ("survival",)
+
 _INPUT_COLUMN_FIELDS: tuple[str, ...] = (
     "duration_col",
     "event_col",
@@ -152,9 +158,16 @@ class SurvivalInputConfig(NikodymBaseConfig):
         ]
         if empty_covariates:
             raise SurvivalConfigError(
-                f"Las covariables de input no pueden estar vacías: {empty_covariates}."
+                f"Las covariables de input no pueden estar vacías: {empty_covariates}.",
+                # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar ahí
+                # al usuario en vez de dejarle un mensaje sin control. La ruta va absoluta desde la
+                # raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
+                loc=(*_LOC_SECCION, "input", "covariate_cols"),
             )
         if self.duration_col.strip() == self.event_col.strip():
+            # D-EXI-5: SIN `loc` a propósito. Es un invariante ENTRE dos campos y no hay culpable
+            # único —renombrar cualquiera de los dos deshace la colisión—, así que anclar en uno
+            # mandaría al usuario a un campo que puede ser el correcto de los dos.
             raise SurvivalConfigError("duration_col y event_col deben ser columnas distintas.")
         return self
 
@@ -228,7 +241,10 @@ class SurvivalTimeGridConfig(NikodymBaseConfig):
     def _check_time_unit(self) -> Self:
         """Valida que la unidad temporal declarativa no esté vacía."""
         if not self.time_unit.strip():
-            raise SurvivalConfigError("time_unit no puede estar vacío.")
+            raise SurvivalConfigError(
+                "time_unit no puede estar vacío.",
+                loc=(*_LOC_SECCION, "time_grid", "time_unit"),  # D-EXI-5
+            )
         return self
 
 
@@ -254,7 +270,12 @@ class KaplanMeierConfig(NikodymBaseConfig):
     def _check_confidence_interval(self) -> Self:
         """Exige transformación cuando se declara nivel de confianza."""
         if self.confidence_level is not None and self.confidence_transform is None:
-            raise SurvivalConfigError("kaplan_meier.confidence_level exige confidence_transform.")
+            raise SurvivalConfigError(
+                "kaplan_meier.confidence_level exige confidence_transform.",
+                # D-EXI-5: «X exige Y» ancla en Y, que es lo que FALTA y lo que el usuario tiene
+                # que contestar. Mismo criterio que «lgd.method='workout' exige recovery_col».
+                loc=(*_LOC_SECCION, "kaplan_meier", "confidence_transform"),
+            )
         return self
 
 
@@ -394,7 +415,10 @@ class SurvivalConfig(NikodymBaseConfig):
         linear_predictor = input_raw.get("linear_predictor_column", "linear_predictor")
         if not isinstance(linear_predictor, str) or not linear_predictor.strip():
             raise SurvivalConfigError(
-                "discrete_hazard.pd_role='offset' exige linear_predictor_column no vacío."
+                "discrete_hazard.pd_role='offset' exige linear_predictor_column no vacío.",
+                # D-EXI-5: ancla en lo que FALTA (el campo de `input`), no en la opción que lo
+                # exige. La ruta es la del formulario, absoluta desde la raíz del config.
+                loc=(*_LOC_SECCION, "input", "linear_predictor_column"),
             )
         return data
 
@@ -402,7 +426,10 @@ class SurvivalConfig(NikodymBaseConfig):
     def _check_invariantes(self) -> Self:
         """Valida invariantes cruzados de SDD-18 §5."""
         if self.method == "aft" and self.cox_aft.aft_family is None:
-            raise SurvivalConfigError("method='aft' exige cox_aft.aft_family.")
+            raise SurvivalConfigError(
+                "method='aft' exige cox_aft.aft_family.",
+                loc=(*_LOC_SECCION, "cox_aft", "aft_family"),  # D-EXI-5: ancla en lo que falta
+            )
         return self
 
     def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:
@@ -473,7 +500,13 @@ def _column_values(cfg: object, fields: tuple[str, ...]) -> dict[str, str]:
 
 
 def _require_non_empty_strings(values: dict[str, str], *, context: str) -> None:
-    """Valida que los nombres de columnas declarativos no sean vacíos."""
+    """Valida que los nombres de columnas declarativos no sean vacíos.
+
+    D-EXI-5: su ``raise`` va **sin** ``loc``. El ofensor es cualquiera de los seis campos de
+    ``_INPUT_COLUMN_FIELDS`` y el mensaje los enumera **todos**, así que no hay un campo único al
+    que llevar al usuario. Tampoco se puede pasar la ruta desde el llamador: el gate que las
+    vigila las evalúa **estáticamente** y sólo admite una tupla literal en el propio ``raise``.
+    """
     empty = [name for name, value in values.items() if not value.strip()]
     if empty:
         raise SurvivalConfigError(f"Los campos de {context} no pueden estar vacíos: {empty}.")

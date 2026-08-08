@@ -38,6 +38,13 @@ __all__ = [
     "ProjectionMode",
 ]
 
+#: Prefijo del ``loc`` de los errores de esta sección (D-EXI-5). Vive en UN solo sitio para que un
+#: renombrado de la sección no haya que perseguirlo por cada ``raise``: la ruta que el error declara
+#: es **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y
+#: atrapa la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la
+#: emitió—, y eso ata al dominio con el nombre de su campo en la raíz.
+_LOC_SECCION: tuple[str, ...] = ("markov",)
+
 _INPUT_COLUMN_FIELDS: tuple[str, ...] = (
     "id_col",
     "time_col",
@@ -111,6 +118,9 @@ class MarkovInputConfig(NikodymBaseConfig):
             return data
         missing = [field for field in _REQUIRED_INPUT_COLUMNS if field not in data]
         if missing:
+            # Sin `loc` a propósito (D-EXI-5): `missing` es un CONJUNTO —las tres columnas pueden
+            # faltar a la vez— y no hay un campo único que corregir. Vacío significa eso, no un
+            # olvido; anclar en el primero mandaría al usuario a uno de los tres huecos.
             raise MarkovConfigError(f"Las columnas requeridas de input faltan: {missing}.")
         return data
 
@@ -120,6 +130,8 @@ class MarkovInputConfig(NikodymBaseConfig):
         _require_non_empty_strings(_column_values(self, _INPUT_COLUMN_FIELDS), context="input")
         required_values = [self.id_col.strip(), self.time_col.strip(), self.state_col.strip()]
         if len(set(required_values)) != len(required_values):
+            # Sin `loc` a propósito (D-EXI-5): es una invariante ENTRE tres campos y cualquiera de
+            # los dos que colisionan sirve para deshacerla, así que no hay culpable único.
             raise MarkovConfigError("id_col, time_col y state_col deben ser columnas distintas.")
         return self
 
@@ -168,17 +180,36 @@ class MarkovStateConfig(NikodymBaseConfig):
             context="absorbing_states",
         )
         if len(set(self.states)) != len(self.states):
-            raise MarkovConfigError("states no puede contener duplicados.")
+            raise MarkovConfigError(
+                "states no puede contener duplicados.",
+                # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar ahí al
+                # usuario en vez de dejarle un mensaje sin control. La ruta va absoluta desde la
+                # raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
+                loc=(*_LOC_SECCION, "states", "states"),
+            )
         if self.default_state not in self.states:
-            raise MarkovConfigError("states debe contener default_state.")
+            # El catálogo `states` es la autoridad —es el campo requerido, sin default de fábrica— y
+            # `default_state` lo REFERENCIA con un placeholder ('default') que un panel real casi
+            # siempre tiene que reapuntar. Por eso el ancla es el que referencia, no el catálogo.
+            raise MarkovConfigError(
+                "states debe contener default_state.",
+                loc=(*_LOC_SECCION, "states", "default_state"),  # D-EXI-5
+            )
         absorbing = set(self.absorbing_states)
         unknown_absorbing = sorted(absorbing - set(self.states))
         if unknown_absorbing:
             raise MarkovConfigError(
-                f"absorbing_states debe ser subconjunto de states: {unknown_absorbing}."
+                f"absorbing_states debe ser subconjunto de states: {unknown_absorbing}.",
+                loc=(*_LOC_SECCION, "states", "absorbing_states"),  # D-EXI-5
             )
         if self.default_state not in absorbing:
-            raise MarkovConfigError("absorbing_states debe contener default_state.")
+            # Aquí las dos comprobaciones anteriores ya pasaron: `default_state` está en `states` y
+            # `absorbing_states` es subconjunto suyo. Lo único inconsistente que queda es que la
+            # lista de absorbentes omita el estado default, así que el campo a corregir es ésa.
+            raise MarkovConfigError(
+                "absorbing_states debe contener default_state.",
+                loc=(*_LOC_SECCION, "states", "absorbing_states"),  # D-EXI-5
+            )
         return self
 
 
@@ -217,7 +248,10 @@ class MarkovEstimationConfig(NikodymBaseConfig):
     def _check_interval_finito(cls, value: Any) -> Any:
         """Rechaza intervalos no finitos antes de aplicar rangos Pydantic."""
         if _is_non_finite_number(value):
-            raise MarkovConfigError("estimation.interval debe ser un número finito.")
+            raise MarkovConfigError(
+                "estimation.interval debe ser un número finito.",
+                loc=(*_LOC_SECCION, "estimation", "interval"),  # D-EXI-5
+            )
         return value
 
 
@@ -377,17 +411,26 @@ class MarkovConfig(NikodymBaseConfig):
     @model_validator(mode="after")
     def _check_invariantes(self) -> Self:
         """Valida invariantes cruzados de SDD-19 §5."""
+        # D-EXI-5: en «X exige Y» el ancla es Y —lo que falta y hay que escribir—, no X. Mismo
+        # criterio que el precedente «lgd.method='workout' exige recovery_col».
         if self.estimation.method == "duration" and self.input.exposure_time_col is None:
-            raise MarkovConfigError("method='duration' exige input.exposure_time_col.")
+            raise MarkovConfigError(
+                "method='duration' exige input.exposure_time_col.",
+                loc=(*_LOC_SECCION, "input", "exposure_time_col"),
+            )
         if (
             self.dynamics.projection_mode == "aalen_johansen"
             and self.input.transition_time_col is None
         ):
             raise MarkovConfigError(
-                "projection_mode='aalen_johansen' exige input.transition_time_col."
+                "projection_mode='aalen_johansen' exige input.transition_time_col.",
+                loc=(*_LOC_SECCION, "input", "transition_time_col"),
             )
         if self.estimation.use_weights and self.input.weight_col is None:
-            raise MarkovConfigError("use_weights=True exige input.weight_col.")
+            raise MarkovConfigError(
+                "use_weights=True exige input.weight_col.",
+                loc=(*_LOC_SECCION, "input", "weight_col"),
+            )
         # 🔴 El config ACEPTABA una opción que el motor rechaza al proyectar (`markov/step.py`), así
         # que la corrida moría a mitad con el trabajo de estimación ya pagado. Es el caso más claro
         # de D-ABA-5: una opción no implementada se declara en el catálogo **y** la impide el
@@ -395,7 +438,10 @@ class MarkovConfig(NikodymBaseConfig):
         # catálogo. El texto es el MISMO literal del motor: dos redacciones del mismo límite le
         # harían creer al usuario que son dos cosas distintas.
         if self.dynamics.projection_mode == "period_matrices":
-            raise MarkovConfigError(_PERIOD_MATRICES_UNSUPPORTED)
+            raise MarkovConfigError(
+                _PERIOD_MATRICES_UNSUPPORTED,
+                loc=(*_LOC_SECCION, "dynamics", "projection_mode"),  # D-EXI-5
+            )
         return self
 
 
@@ -410,14 +456,27 @@ def _column_values(cfg: object, fields: tuple[str, ...]) -> dict[str, str]:
 
 
 def _require_non_empty_strings(values: dict[str, str], *, context: str) -> None:
-    """Valida que los nombres declarativos no sean vacíos."""
+    """Valida que los nombres declarativos no sean vacíos.
+
+    Sus ``raise`` van sin ``loc`` (D-EXI-5) por dos razones que se acumulan: ``empty`` es una
+    LISTA —varios campos pueden estar vacíos a la vez—, y el helper lo comparten cuatro contextos
+    (``input``, ``states``, ``absorbing_states``, ``dynamics``) que cuelgan de subsecciones
+    distintas, así que la ruta no es una constante de este módulo. Anclarlo exige cambiar la firma,
+    que es más que añadir el kwarg.
+    """
     empty = [name for name, value in values.items() if not value.strip()]
     if empty:
         raise MarkovConfigError(f"Los campos de {context} no pueden estar vacíos: {empty}.")
 
 
 def _require_strictly_increasing(values: tuple[int, ...] | tuple[float, ...], *, name: str) -> None:
-    """Valida que una secuencia numérica sea positiva y estrictamente creciente."""
+    """Valida que una secuencia numérica sea positiva y estrictamente creciente.
+
+    Sus tres ``raise`` van sin ``loc`` (D-EXI-5): la ruta sería ``dynamics.<name>`` con ``name``
+    **variable**, y el gate que vigila las rutas las evalúa de forma estática —un segmento que no
+    sea literal entra en «inevaluables» y lo pone rojo—. Un ``loc`` que el gate no puede leer es
+    una ruta sin vigilar, que es justo lo que ese gate existe para impedir.
+    """
     non_finite = [idx for idx, value in enumerate(values) if not isfinite(value)]
     if non_finite:
         raise MarkovConfigError(f"{name} debe contener valores finitos: {non_finite}.")

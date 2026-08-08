@@ -51,15 +51,34 @@ __all__ = [
 ]
 
 
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+#: Vive en UN solo sitio y no repetido en cada ``raise``: la ruta que el error declara es
+#: **absoluta desde la raíz del config**, así que ata al dominio con el nombre de su campo en la
+#: raíz, y concentrarla aquí deja un único lugar donde ese acoplamiento puede quedarse stale.
+_LOC_SECCION: tuple[str, ...] = ("validation",)
+
+
 def _require_non_empty(values: dict[str, str], *, context: str) -> None:
-    """Valida que los nombres de columnas declarativos no queden vacíos."""
+    """Valida que los nombres de columnas declarativos no queden vacíos.
+
+    D-EXI-5: su ``raise`` va **sin** ``loc``. El ofensor es cualquiera de las columnas que le pasa
+    el llamador —y son dos subsecciones distintas, ``calibration`` y ``backtesting``— y el mensaje
+    las enumera **todas**, así que no hay un campo único al que llevar al usuario. Pasar la ruta
+    desde el llamador tampoco sirve: el gate que las vigila las evalúa **estáticamente** y sólo
+    admite una tupla literal en el propio ``raise``.
+    """
     empty = [name for name, value in values.items() if not value.strip()]
     if empty:
         raise ValidationConfigError(f"Las columnas de {context} no pueden estar vacías: {empty}.")
 
 
 def _require_no_collision(values: dict[str, str], *, context: str) -> None:
-    """Valida que los nombres de columnas declarativos no colisionen entre sí."""
+    """Valida que los nombres de columnas declarativos no colisionen entre sí.
+
+    D-EXI-5: su ``raise`` va **sin** ``loc``, por partida doble. Es un invariante ENTRE campos
+    —dos columnas con el mismo nombre, y cualquiera de las dos deshace la colisión— y además el
+    helper lo comparten dos subsecciones, así que ni siquiera el prefijo sería único.
+    """
     normalizadas: dict[str, str] = {}
     duplicadas: list[tuple[str, str, str]] = []
     for nombre, columna in values.items():
@@ -217,6 +236,9 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         _require_non_empty(columns, context="calibration")
         _require_no_collision(columns, context="calibration")
         if self.traffic_light_red_alpha >= self.traffic_light_green_alpha:
+            # D-EXI-5: SIN `loc` a propósito. Es un invariante ENTRE los dos cortes del semáforo:
+            # se arregla bajando uno o subiendo el otro, y cuál de los dos está mal es política de
+            # validación del usuario, no algo que el motor pueda decidir por él.
             raise ValidationConfigError(
                 "traffic_light_red_alpha debe ser estrictamente menor que "
                 "traffic_light_green_alpha (rojo más estricto que ámbar)."
@@ -224,7 +246,10 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         if self.hl_grouping == "fixed_bands":
             raise ValidationConfigError(
                 "hl_grouping='fixed_bands' aún no está soportado: exige bandas declaradas "
-                "(reservado; use el default 'deciles')."
+                "(reservado; use el default 'deciles').",
+                # D-EXI-5: el valor inválido es el de ESTE campo, así que el formulario puede
+                # llevar al usuario justo al selector donde lo eligió.
+                loc=(*_LOC_SECCION, "calibration", "hl_grouping"),
             )
         return self
 
@@ -260,6 +285,9 @@ class StabilityValidationConfig(NikodymBaseConfig):
     def _check_stability(self) -> Self:
         """Valida el orden de las bandas PSI de SDD-22 §5."""
         if self.psi_stable_threshold >= self.psi_review_threshold:
+            # D-EXI-5: SIN `loc` a propósito. Es un invariante ENTRE dos umbrales: se arregla
+            # bajando uno o subiendo el otro, y cuál de los dos está mal lo sabe el usuario y no
+            # el motor. Anclar en uno le escondería la mitad de la decisión.
             raise ValidationConfigError(
                 "psi_stable_threshold debe ser estrictamente menor que psi_review_threshold."
             )
@@ -429,7 +457,11 @@ class ValidationConfig(NikodymBaseConfig):
                 "DATO-INSTITUCIONAL-VAL-4: families incluye 'backtesting' pero "
                 "backtesting.enabled=False; el backtesting IFRS 9 exige enabled=True y las "
                 "columnas realizadas declaradas (o fail_on_falta_dato=False para registrarlo "
-                "como brecha de datos en vez de detener la corrida)."
+                "como brecha de datos en vez de detener la corrida).",
+                # D-EXI-5: «X exige Y» ancla en Y —lo que FALTA—, no en la opción que lo exige.
+                # El mensaje ofrece tres salidas, pero la exigencia que nombra es `enabled=True`;
+                # mismo criterio que «lgd.method='workout' exige recovery_col».
+                loc=(*_LOC_SECCION, "backtesting", "enabled"),
             )
         return self
 

@@ -155,7 +155,7 @@ def validate_config(config: Any, external_artifacts: Any = None) -> dict[str, An
             "pipeline": None,
             "produced_columns_by_section": {},
         }
-    except ConfigError as exc:
+    except NikodymError as exc:
         # Un invariante de dominio que se rompe **también** es «este config no reconstruye», y por
         # tanto `valid=False` — no un 500. `ConfigError` no hereda de `ValueError`, así que Pydantic
         # no lo envuelve en `ValidationError` y escapaba entero: bastaba activar un campo opcional
@@ -163,6 +163,23 @@ def validate_config(config: Any, external_artifacts: Any = None) -> dict[str, An
         # contrato es responder SIEMPRE 200— devolviera 500 y el front lo leyera como «backend no
         # disponible», que es falso. Seis `config.py` levantan `ConfigError` al validar, así que el
         # arreglo va aquí y no sección por sección. Mismo criterio que `/api/config/from-yaml`.
+        #
+        # 🔴 **Y `ConfigError` NO BASTA: es la CUARTA reincidencia de este mismo defecto.** Medido
+        # barriendo los `config.py`: **18 `raise` en 6 clases** cuelgan directas de `NikodymError`
+        # —las siete de `ForwardScenarioError`, las siete de `StressScenarioError`,
+        # `PitConsistencyError`, `SatelliteModelError`, `StressDependencyError` y
+        # `StressFaltaDatoError`— y seguían saliendo como 500 sobre configs **alcanzables desde el
+        # formulario**: bastan dos escenarios de stress con el mismo nombre. Reproducido.
+        #
+        # El repo YA había medido exactamente estas clases en **D-ANC-10** («`ConfigError` no basta:
+        # cuatro clases de `stress`/`forward` cuelgan directas de `NikodymError`») y amplió allí la
+        # captura de `_coaccionar_secciones_opacas`. Este endpoint se quedó atrás: la misma clase,
+        # cerrada en un sitio y no en el otro.
+        #
+        # ⚠️ Se amplía la CAPTURA y no la jerarquía, a propósito: hacer que esas 6 clases hereden
+        # de `ConfigError` tocaría **109 `raise` de runtime** y convertiría un fallo de cálculo en
+        # un error de config. Aquí no hay cálculo: lo único que corrió es `model_validate`, así que
+        # todo `NikodymError` que salga de ahí es, por definición, «este config no reconstruye».
         return {
             "valid": False,
             "config_hash": None,

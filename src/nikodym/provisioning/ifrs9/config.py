@@ -47,6 +47,15 @@ __all__ = [
     "IfrsStagingConfig",
 ]
 
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+#:
+#: ⚠️ En UN solo sitio y no repetido en cada ``raise``: la ruta que el error declara tiene que ser
+#: **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y atrapa
+#: la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la emitió—, y
+#: eso ata al dominio con el nombre de su campo en la raíz. ⚠️ Ese nombre es ``provisioning_ifrs9``
+#: y **no** se deduce del paquete (``ifrs9``): sale del registro de dominio.
+_LOC_SECCION: tuple[str, ...] = ("provisioning_ifrs9",)
+
 # Tolerancia absoluta para exigir que los pesos de escenario sumen 1 (SDD-16 §5).
 _WEIGHT_SUM_TOL: float = 1e-9
 # Nombres de escenario vetados por el guard anti escenario medio (espejo de SDD-20/forward:
@@ -55,14 +64,23 @@ _RESERVED_SCENARIO_NAMES: frozenset[str] = frozenset({"mean", "average", "weight
 
 
 def _require_non_empty_strings(values: dict[str, str], *, context: str) -> None:
-    """Valida que los nombres de columnas/campos declarativos no sean vacíos."""
+    """Valida que los nombres de columnas/campos declarativos no sean vacíos.
+
+    Sus errores van SIN ``loc`` (D-EXI-5), y no por olvido: el mensaje publica la **lista** de
+    campos en blanco —seis de sus diez sitios de llamada le pasan más de un campo—, así que no hay
+    un culpable único al que anclar. Y el ayudante recibe un ``context`` de prosa, no la ruta de
+    quien lo llama, de modo que ni siquiera podría construirla sin cambiarle la firma.
+    """
     empty = [name for name, value in values.items() if not value.strip()]
     if empty:
         raise IfrsConfigError(f"Los campos de {context} no pueden estar vacíos: {empty}.")
 
 
 def _require_non_empty_if_set(values: dict[str, str | None], *, context: str) -> None:
-    """Valida que las columnas opcionales, si se informan, no queden en blanco."""
+    """Valida que las columnas opcionales, si se informan, no queden en blanco.
+
+    Sin ``loc`` por la misma razón que su hermano de arriba: acusa una lista, no un campo.
+    """
     empty = [name for name, value in values.items() if value is not None and not value.strip()]
     if empty:
         raise IfrsConfigError(
@@ -177,7 +195,11 @@ class IfrsPdConfig(NikodymBaseConfig):
             raise IfrsConfigError(
                 "pd.rho_col (correlación heterogénea por fila) no está consumida por el "
                 "motor v1 y queda diferida: use pd.rho escalar por cartera. Honrar rho_col "
-                "en silencio con el escalar sería una degradación con etiqueta falsa."
+                "en silencio con el escalar sería una degradación con etiqueta falsa.",
+                # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar ahí al
+                # usuario en vez de dejarle un mensaje sin control. La ruta va absoluta desde la
+                # raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
+                loc=(*_LOC_SECCION, "pd", "rho_col"),
             )
         return self
 
@@ -302,16 +324,26 @@ class IfrsLgdConfig(NikodymBaseConfig):
         _require_non_empty_if_set({"recovery_col": self.recovery_col}, context="lgd")
         vacias = [idx for idx, col in enumerate(self.covariate_cols) if not col.strip()]
         if vacias:
-            raise IfrsConfigError(f"lgd.covariate_cols no puede contener nombres vacíos: {vacias}.")
+            raise IfrsConfigError(
+                f"lgd.covariate_cols no puede contener nombres vacíos: {vacias}.",
+                loc=(*_LOC_SECCION, "lgd", "covariate_cols"),  # D-EXI-5
+            )
+        # Sin `loc` a propósito: el piso y el techo son DOS campos y el error nace de su relación,
+        # así que no hay culpable único —se arregla bajando uno o subiendo el otro— y anclar en uno
+        # mandaría al usuario al que no era.
         if self.lgd_floor > self.lgd_cap:
             raise IfrsConfigError("lgd.lgd_floor no puede exceder lgd.lgd_cap.")
         if self.method in ("beta_regression", "fractional_response") and not self.covariate_cols:
             raise IfrsConfigError(
-                "lgd.method beta_regression/fractional_response exige covariate_cols no vacías."
+                "lgd.method beta_regression/fractional_response exige covariate_cols no vacías.",
+                # «X exige Y» ancla en Y: lo que falta y hay que escribir, no la elección que lo
+                # exige. Mismo criterio que el precedente de `provisioning_internal`.
+                loc=(*_LOC_SECCION, "lgd", "covariate_cols"),
             )
         if self.method == "workout" and self.recovery_col is None:
             raise IfrsConfigError(
-                "lgd.method='workout' exige recovery_col para la identidad LGD=1-recovery."
+                "lgd.method='workout' exige recovery_col para la identidad LGD=1-recovery.",
+                loc=(*_LOC_SECCION, "lgd", "recovery_col"),
             )
         return self
 
@@ -438,9 +470,12 @@ class IfrsEadConfig(NikodymBaseConfig):
                 "exposure_profile_col (perfil EAD(t) longitudinal por período) está "
                 "diferido a CT-3 y no se soporta en v1: una columna escalar no "
                 "representa EAD(t) por período. Use method='provided'/'ccf' (EAD "
-                "desplegada constante con aviso FALTA-DATO-IFRS-4) o espere CT-3."
+                "desplegada constante con aviso FALTA-DATO-IFRS-4) o espere CT-3.",
+                loc=(*_LOC_SECCION, "ead", "exposure_profile_col"),  # D-EXI-5
             )
         _require_non_empty_if_set({"ccf_col": self.ccf_col}, context="ead")
+        # Sin `loc`: informar las DOS fuentes de CCF es una incompatibilidad entre campos, y se
+        # arregla borrando cualquiera de las dos. No hay un campo que sea *el* equivocado.
         if self.method == "ccf" and self.ccf_col is not None and self.ccf_value is not None:
             raise IfrsConfigError("ead.method='ccf' admite ccf_col o ccf_value, no ambos a la vez.")
         return self
@@ -622,10 +657,16 @@ class IfrsStagingConfig(NikodymBaseConfig):
             },
             context="staging",
         )
+        # Sin `loc`: es el orden entre DOS umbrales, y se arregla subiendo uno o bajando el otro.
         if self.dpd_default_backstop < self.dpd_sicr_backstop:
             raise IfrsConfigError(
                 "staging.dpd_default_backstop debe ser >= staging.dpd_sicr_backstop."
             )
+        # Sin `loc` aunque sea un «X exige Y», y ésta es la excepción que conviene tener escrita:
+        # aquí las **Y son dos** y la condición es un `or`, así que cuál falta depende del estado y
+        # el `raise` no lo distingue. Anclar fijo en una acertaría la mitad de las veces, y el `loc`
+        # tiene que ser una tupla de literales para que el gate pueda resolverlo estáticamente —o
+        # sea que tampoco cabe calcularlo aquí—. Vacío significa «no pertenece a un solo campo».
         if self.notch_downgrade_threshold is not None and (
             self.rating_col is None or self.origination_rating_col is None
         ):
@@ -689,11 +730,15 @@ class IfrsScenarioConfig(NikodymBaseConfig):
         if self.source != "config":
             return self
         if not self.weights:
-            raise IfrsConfigError("scenarios.source='config' exige weights no vacíos.")
+            raise IfrsConfigError(
+                "scenarios.source='config' exige weights no vacíos.",
+                loc=(*_LOC_SECCION, "scenarios", "weights"),  # D-EXI-5: «X exige Y» ancla en Y
+            )
         vacias = [name for name in self.weights if not name.strip()]
         if vacias:
             raise IfrsConfigError(
-                f"scenarios.weights no puede tener nombres de escenario vacíos: {vacias}."
+                f"scenarios.weights no puede tener nombres de escenario vacíos: {vacias}.",
+                loc=(*_LOC_SECCION, "scenarios", "weights"),
             )
         if self.forbid_mean_scenario:
             reservados = sorted(
@@ -703,19 +748,32 @@ class IfrsScenarioConfig(NikodymBaseConfig):
                 raise IfrsConfigError(
                     "scenarios.forbid_mean_scenario=True veta escenarios medios reservados "
                     f"en weights: {reservados} (se ponderan outputs por escenario, nunca "
-                    "inputs macro promediados)."
+                    "inputs macro promediados).",
+                    # El mensaje nombra dos campos y el ancla va en `weights`: apagar el guard es
+                    # renunciar a la regla de método que lo justifica, no corregir el config. Lo
+                    # que hay que arreglar es el escenario reservado que está en la lista.
+                    loc=(*_LOC_SECCION, "scenarios", "weights"),
                 )
         no_finitos = [name for name, value in self.weights.items() if not math.isfinite(value)]
         if no_finitos:
-            raise IfrsConfigError(f"scenarios.weights debe contener pesos finitos: {no_finitos}.")
+            raise IfrsConfigError(
+                f"scenarios.weights debe contener pesos finitos: {no_finitos}.",
+                loc=(*_LOC_SECCION, "scenarios", "weights"),
+            )
         no_positivos = [name for name, value in self.weights.items() if value <= 0.0]
         if no_positivos:
             raise IfrsConfigError(
-                f"scenarios.weights exige pesos estrictamente positivos: {no_positivos}."
+                f"scenarios.weights exige pesos estrictamente positivos: {no_positivos}.",
+                loc=(*_LOC_SECCION, "scenarios", "weights"),
             )
         total = math.fsum(self.weights.values())
         if not math.isclose(total, 1.0, rel_tol=0.0, abs_tol=_WEIGHT_SUM_TOL):
-            raise IfrsConfigError(f"scenarios.weights debe sumar 1; suma observada={total!r}.")
+            # SÍ lleva ancla, y no es la «suma de fracciones» que se deja sin `loc`: los pesos no
+            # son campos hermanos que haya que conciliar entre sí, son el contenido de UN campo.
+            raise IfrsConfigError(
+                f"scenarios.weights debe sumar 1; suma observada={total!r}.",
+                loc=(*_LOC_SECCION, "scenarios", "weights"),
+            )
         return self
 
 
@@ -903,7 +961,10 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
             if self.pd.rho is None:
                 raise IfrsConfigError(
                     "pd.pit_mode='apply_vasicek' exige rho (escalar, por cartera) para la "
-                    "transformación Vasicek."
+                    "transformación Vasicek.",
+                    # El validador vive en la clase raíz, pero el campo que falta cuelga de la
+                    # subsección: la ruta es la del formulario, no la del `raise`.
+                    loc=(*_LOC_SECCION, "pd", "rho"),
                 )
             if self.pd.systemic_factor_col is None:
                 # Sin exención por scenarios.source='forward': forward no publica un factor
@@ -912,7 +973,8 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
                     "pd.pit_mode='apply_vasicek' exige systemic_factor_col con el factor "
                     "sistémico Z explícito en la term-structure; forward no publica Z y "
                     "sus curvas ya son PIT (use pit_mode='consume_pit' para evitar el "
-                    "doble ajuste macro)."
+                    "doble ajuste macro).",
+                    loc=(*_LOC_SECCION, "pd", "systemic_factor_col"),
                 )
         return self
 

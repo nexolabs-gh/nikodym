@@ -33,6 +33,14 @@ __all__ = [
     "ScorecardConfig",
 ]
 
+#: Prefijo del ``loc`` de los errores de esta sección (D-EXI-5). Vive en un solo sitio para que un
+#: renombrado de la sección no haya que perseguirlo por cada ``raise``: la ruta que el error declara
+#: es **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y
+#: atrapa la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la
+#: emitió—, y eso ata el dominio con el nombre de su campo en la raíz. Un gate exige que toda ruta
+#: declarada resuelva contra ``NikodymConfig``.
+_LOC_SECCION: tuple[str, ...] = ("scorecard",)
+
 
 class PointOverrideConfig(NikodymBaseConfig):
     """Override manual auditado para una pareja ``feature``/``bin_label``."""
@@ -96,7 +104,16 @@ class PointOverrideConfig(NikodymBaseConfig):
 
     @model_validator(mode="after")
     def _check_override_valido(self) -> Self:
-        """Valida que el override sea auditable y numéricamente finito."""
+        """Valida que el override sea auditable y numéricamente finito.
+
+        D-EXI-5: sus dos ``raise`` van **SIN** ``loc``, y no es un olvido. Esta clase es un ELEMENTO
+        de ``scorecard.point_overrides``, que es una tupla: la ruta del campo que el usuario tiene
+        que corregir lleva el índice de la fila, que esta clase no conoce, y
+        ``("scorecard", "point_overrides", "reason")`` **no resuelve** —medido contra el resolvedor
+        del gate—. Una ruta que no existe es peor que no anclar. Anclar la lista entera tampoco
+        sirve: mandaría al campo equivocado —el contenedor, no la celda— y además metería la ruta
+        del padre dentro de una clase pública que el padre podría dejar de usar en silencio.
+        """
         if not self.reason.strip():
             raise ConfigError("point_overrides.reason no puede estar vacío.")
         if isinstance(self.points, float) and not math.isfinite(self.points):
@@ -301,7 +318,14 @@ class ScorecardConfig(NikodymBaseConfig):
     @field_validator("pdo", "target_odds", mode="before")
     @classmethod
     def _check_positivo(cls, valor: Any) -> Any:
-        """Falla con ``ConfigError`` para los positivos estrictos del SDD-09 §5."""
+        """Falla con ``ConfigError`` para los positivos estrictos del SDD-09 §5.
+
+        D-EXI-5: **SIN** ``loc``. El validador lo comparten DOS campos y su mensaje nombra a los
+        dos; cuál de ellos trae el valor inválido sólo se sabe en runtime, así que un ancla literal
+        aquí sería la correcta para uno y falsa para el otro —y el gate que vigila estas rutas las
+        evalúa estáticamente, de modo que una ruta calculada tampoco es una opción—. Mismo trato que
+        ``_check_enteros_positivos`` de ``calibration/config.py``.
+        """
         if isinstance(valor, (int, float)) and not isinstance(valor, bool):
             observado = float(valor)
             if not math.isfinite(observado) or observado <= 0.0:
@@ -311,24 +335,50 @@ class ScorecardConfig(NikodymBaseConfig):
     @model_validator(mode="after")
     def _check_invariantes(self) -> Self:
         """Valida invariantes de nombres, rango y overrides definidos por SDD-09 §5."""
-        _require_finite("target_score", self.target_score)
-        if self.min_score is not None:
-            _require_finite("min_score", self.min_score)
-        if self.max_score is not None:
-            _require_finite("max_score", self.max_score)
+        # D-EXI-5: el `raise` va AQUÍ y no dentro del helper, para que el `loc` sea una tupla
+        # literal. El gate que vigila estas rutas las evalúa **estáticamente** y rechaza un último
+        # tramo variable —con razón: una ruta que el gate no puede leer es una ruta sin vigilar—.
+        # Por eso el helper devuelve el mensaje en vez de levantarlo.
+        if msg := _mensaje_si_no_finito("target_score", self.target_score):
+            raise ConfigError(msg, loc=(*_LOC_SECCION, "target_score"))
+        if self.min_score is not None and (
+            msg := _mensaje_si_no_finito("min_score", self.min_score)
+        ):
+            raise ConfigError(msg, loc=(*_LOC_SECCION, "min_score"))
+        if self.max_score is not None and (
+            msg := _mensaje_si_no_finito("max_score", self.max_score)
+        ):
+            raise ConfigError(msg, loc=(*_LOC_SECCION, "max_score"))
         if not self.output_suffix.strip():
-            raise ConfigError("output_suffix no puede estar vacío.")
+            raise ConfigError(
+                "output_suffix no puede estar vacío.",
+                # D-EXI-5: el valor inválido es el de ESTE campo, así que el formulario puede
+                # llevar al usuario justo al input donde lo escribió.
+                loc=(*_LOC_SECCION, "output_suffix"),
+            )
         if not self.score_column.strip():
-            raise ConfigError("score_column no puede estar vacío.")
+            raise ConfigError(
+                "score_column no puede estar vacío.",
+                loc=(*_LOC_SECCION, "score_column"),  # D-EXI-5
+            )
         if self.score_column.endswith(self.output_suffix):
+            # D-EXI-5: SIN `loc` a propósito. Es un invariante ENTRE dos campos —el nombre de la
+            # columna total y el sufijo con que se nombran las columnas por variable— y se deshace
+            # editando cualquiera de los dos: quien puso el sufijo corto puede tener razón y quien
+            # nombró la columna también. Anclar en uno elegiría por el usuario.
             raise ConfigError("score_column no puede terminar con output_suffix.")
         if (
             self.min_score is not None
             and self.max_score is not None
             and self.min_score >= self.max_score
         ):
+            # D-EXI-5: SIN `loc`, misma razón: los dos extremos se contradicen entre sí y se arregla
+            # bajando uno o subiendo el otro; cuál está mal lo sabe el usuario, no el motor.
             raise ConfigError("min_score debe ser menor que max_score.")
         if self.clip and self.min_score is None and self.max_score is None:
+            # D-EXI-5: SIN `loc`. Es un «X exige Y» cuya Y es una DISYUNCIÓN —basta `min_score` o
+            # `max_score`—, y encima se satisface también apagando `clip`. Anclar en uno de los tres
+            # llevaría al campo que no era dos de cada tres veces.
             raise ConfigError("clip=True exige configurar min_score o max_score.")
 
         vistos: set[tuple[str, str]] = set()
@@ -337,7 +387,11 @@ class ScorecardConfig(NikodymBaseConfig):
             if clave in vistos:
                 raise ConfigError(
                     "point_overrides no puede repetir la misma pareja "
-                    f"(feature, bin_label): {clave!r}."
+                    f"(feature, bin_label): {clave!r}.",
+                    # D-EXI-5: la repetición es una propiedad de la LISTA entera, así que el campo
+                    # al que pertenece el error es `point_overrides` y no una fila suelta —cuya
+                    # ruta con índice, medida, no resuelve—.
+                    loc=(*_LOC_SECCION, "point_overrides"),
                 )
             vistos.add(clave)
         return self
@@ -358,7 +412,12 @@ class ScorecardConfig(NikodymBaseConfig):
         return self.score_direction
 
 
-def _require_finite(nombre: str, valor: float) -> None:
-    """Valida finitud para campos float que participan del ``config_hash``."""
-    if not math.isfinite(valor):
-        raise ConfigError(f"{nombre} debe ser un número finito.")
+def _mensaje_si_no_finito(nombre: str, valor: float) -> str | None:
+    """Mensaje de error si ``valor`` no es finito, o ``None`` si lo es.
+
+    D-EXI-5: **devuelve** el mensaje en vez de levantarlo para que el ``raise`` —y con él su ``loc``
+    literal— viva en el llamador. Un ``loc`` armado con el parámetro ``nombre`` sería correcto en
+    runtime y **no verificable estáticamente**, que es justo lo que el gate de rutas rechaza para
+    que ninguna quede sin vigilar. Los campos son float y participan del ``config_hash``.
+    """
+    return None if math.isfinite(valor) else f"{nombre} debe ser un número finito."
