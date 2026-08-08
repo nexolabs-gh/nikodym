@@ -1,10 +1,19 @@
-"""Método **interno** de provisiones del Cap. B-1 de la CMF: ``Exposición · PD · LGD`` por grupo.
+"""Método **interno** de provisiones: ``Exposición · PD · LGD`` por grupo homogéneo.
 
-El B-1 §3 obliga a todo banco a mantener metodologías propias junto al método estándar (*"debiendo
-por tanto disponer de ambos métodos"*) y describe el interno de forma literal: segmentar a los
-deudores en **grupos homogéneos** y multiplicar el monto total de colocaciones de cada grupo por su
-probabilidad de incumplimiento y su pérdida dado el incumplimiento. Esta capa es ese motor; la PD
-sale del scorecard calibrado que Nikodym ya construye.
+El cálculo es **jurisdiccionalmente neutro** y es el único componente de ``provisioning`` que lo es:
+segmenta a los deudores en grupos homogéneos y multiplica la exposición de cada grupo por su
+probabilidad de incumplimiento y su pérdida dado el incumplimiento. No conoce ninguna cartera
+normativa ni ninguna tabla de supervisor, y su estado de fábrica tampoco los nombra. La PD sale del
+scorecard calibrado que Nikodym ya construye.
+
+Como **evidencia** de que ese motor encaja donde se lo exige —y no como su definición—: el Cap. B-1
+§3 del Compendio de la CMF de Chile obliga a todo banco a mantener metodologías propias junto al
+método estándar (*"debiendo por tanto disponer de ambos métodos"*) y describe el interno en esos
+mismos términos. El encuadre importa y ya costó una corrección: hasta el 2026-08-05 la sección de
+este motor se titulaba «(Cap. B-1 §3)» en el formulario, frase que además de reducir el alcance
+percibido era **falsa** —este motor no calcula el B-1—, y este docstring la repetía. La regla es la
+del 2026-08-04: una jurisdicción nunca va en la propuesta de valor; va en la evidencia
+(``docs_site/norma-local.md``, ``tests/unit/test_portada_sin_jurisdiccion.py``).
 
 Al importarse, registra :class:`InternalProvisioningConfig` en el hook diferido de
 :mod:`nikodym.core.config.schema`. Así ``NikodymConfig.provisioning_internal`` se valida como

@@ -25,6 +25,7 @@ cierra es la regresión mecánica, que es la que ocurre sola al editar copy mese
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import tomllib
@@ -32,6 +33,8 @@ from pathlib import Path
 
 import pytest
 import yaml
+
+from nikodym.ui.jobs import list_jobs
 
 _RAIZ = Path(__file__).resolve().parents[2]
 _README = _RAIZ / "README.md"
@@ -387,4 +390,305 @@ def test_el_default_de_una_seccion_neutra_no_nombra_una_jurisdiccion(seccion: st
         f"{ofensores}. El estado de fábrica de una sección neutra no puede exigir la taxonomía de "
         "un supervisor; si la sección implementa una norma local, va a "
         "_SECCIONES_CON_DEFAULT_JURISDICCIONAL con su razón escrita."
+    )
+
+
+# --------------------------------------------------------------------------------------------
+# Prosa y catálogo: las dos superficies grandes que este gate NO barría.
+# --------------------------------------------------------------------------------------------
+#
+# El barrido del formulario mide `title` y `description` del **schema**, así que dos superficies de
+# copy público quedaban enteras fuera y son las de más volumen del repo: el catálogo de trabajos
+# (`ui/jobs.py`, que es la primera pantalla y publica los 69 puntos de elección del abanico con sus
+# 172 opciones) y la **prosa del informe** (`report/prose.py`).
+#
+# 🔴 La prosa es la de más consecuencia de las dos: es lo que se imprime en el HTML/PDF/Word y se
+# entrega a un tercero, y el 2026-08-07 se midió que puede publicar una frase falsa sobre toda la
+# cartera sin que ningún gate se ponga rojo.
+#
+# ⚠️ Alcance declarado, para que nadie lea de más: esto cierra la clase «una jurisdicción se cuela en
+# una superficie neutra», que es la de este archivo. **No** cierra «la prosa afirma algo falso sobre
+# el cálculo», que es otra clase y se vigila atando cada frase a su aritmética.
+#
+# ⚠️ Y los dos módulos se pueden medir sin el extra ``[ui]``, verificado bloqueando
+# ``starlette``/``fastapi``/``uvicorn`` en el importador: ``nikodym/ui/__init__.py`` es liviano a
+# propósito y lo declara en su docstring, y ``report/prose.py`` sólo importa ``decimal`` y
+# ``nikodym``. Por eso aquí sí se mide la **fuente** y no un fixture, al contrario que el barrido
+# del formulario de arriba — y no es incoherencia: allí el payload arrastraba el extra, aquí no.
+
+_PROSE = _RAIZ / "src" / "nikodym" / "report" / "prose.py"
+_JOBS = _RAIZ / "src" / "nikodym" / "ui" / "jobs.py"
+
+# Un identificador en snake_case es una clave de dict o un literal de enum del motor, nunca copy.
+# Sin este corte, `"cmf"` y `"cmf_only"` —el valor con que el orquestador nombra su propia rama—
+# entran como ofensores: seis falsos positivos medidos, y el detector es `IGNORECASE`.
+_ES_IDENTIFICADOR = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def _prosa_por_funcion(ruta: Path) -> dict[str, list[tuple[int, str]]]:
+    """Literales de texto que un humano lee, agrupados por la función que los emite.
+
+    Se mide por **AST del fuente** y no ejecutando el informe, y la razón es de cobertura: un
+    barrido sobre documentos renderizados sólo ve las ramas que sus fixtures ejercitan, y el
+    defecto del capítulo mudo del 2026-08-05 vivía justamente en la única combinación que nadie
+    enumeró. El AST ve las ramas que ningún fixture alcanza.
+
+    Quedan fuera, con su razón: los **docstrings** (documentación de implementación, no copy), los
+    **comentarios** —que el AST ni ve, y en este archivo son la mitad de las menciones: explican por
+    qué una frase NO puede nombrar un país— y las **claves** de los dicts de labels, que el repo ya
+    tiene excluidas del copy público.
+    """
+    arbol = ast.parse(ruta.read_text(encoding="utf-8"))
+    dueno: dict[int, str] = {}
+    docstrings: set[int] = set()
+    claves: set[tuple[int, int]] = set()
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.FunctionDef | ast.AsyncFunctionDef):
+            for linea in range(nodo.lineno, (nodo.end_lineno or nodo.lineno) + 1):
+                dueno[linea] = nodo.name
+        if isinstance(nodo, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            primero = nodo.body[0] if nodo.body else None
+            if (
+                isinstance(primero, ast.Expr)
+                and isinstance(primero.value, ast.Constant)
+                and isinstance(primero.value.value, str)
+            ):
+                fin = primero.end_lineno or primero.lineno
+                docstrings.update(range(primero.lineno, fin + 1))
+        if isinstance(nodo, ast.Dict):
+            claves.update(
+                (clave.lineno, clave.col_offset)
+                for clave in nodo.keys
+                if isinstance(clave, ast.Constant) and isinstance(clave.value, str)
+            )
+
+    salida: dict[str, list[tuple[int, str]]] = {}
+    for nodo in ast.walk(arbol):
+        if not (isinstance(nodo, ast.Constant) and isinstance(nodo.value, str)):
+            continue
+        if nodo.lineno in docstrings or (nodo.lineno, nodo.col_offset) in claves:
+            continue
+        if _ES_IDENTIFICADOR.match(nodo.value):
+            continue
+        salida.setdefault(dueno.get(nodo.lineno, "<módulo>"), []).append((nodo.lineno, nodo.value))
+    return salida
+
+
+# Las funciones de prosa donde nombrar la norma ES el contenido. La lista se escribe a mano —el
+# nombre de una función no dice a qué dominio pertenece de forma fiable— pero **no queda sin
+# ancla**:
+# `test_las_funciones_de_prosa_exentas_son_coherentes` exige que cada nombre exista de verdad, que
+# emita prosa y que su dominio sea uno de los dos ya exentos en el formulario. Los cuatro nombres
+# cubren exactamente esos dos dominios:
+#   · `provisioning` (el orquestador de la comparación) → `provisions_intro`,
+#     `_provisions_intro_motor_unico`, `_results_provisioning`. La regla del máximo que aplica por
+#     defecto es literalmente la del Cap. B-1: describirla sin nombrarla la haría incomprensible, y
+#     el informe que la invoca tiene que poder citar su circular.
+#   · `provisioning_cmf` (el modelo estándar chileno) → `_results_provisioning_cmf`.
+#
+# 🔴 Lo que NO entra, y es el punto entero de este gate: `_results_provisioning_internal` y
+# `_results_provisioning_ifrs9`. El primero describe el motor **jurisdiccionalmente neutro**, y
+# hasta el 2026-08-05 publicaba «el método interno es el que la norma también exige» —cierta en
+# Chile y falsa para quien corre ese motor sin norma detrás—. Corregido; esto impide que vuelva.
+_FUNCIONES_DE_PROSA_CON_JURISDICCION = frozenset(
+    {
+        "provisions_intro",
+        "_provisions_intro_motor_unico",
+        "_results_provisioning",
+        "_results_provisioning_cmf",
+    }
+)
+
+
+def test_el_barrido_de_la_prosa_del_informe_no_es_vacuo() -> None:
+    """Anclas: una prosa que recorre cero funciones o cero frases se lee igual que una limpia."""
+    por_funcion = _prosa_por_funcion(_PROSE)
+    assert len(por_funcion) >= 40, f"el barrido sólo ve {len(por_funcion)} funciones de prosa"
+    total = sum(len(v) for v in por_funcion.values())
+    assert total >= 500, f"el barrido sólo recorrió {total} literales de prosa"
+
+    # Y que esté mirando la prosa DEL INFORME, no cualquier string: tres frases que se imprimen.
+    todo = "\n".join(t for frases in por_funcion.values() for _, t in frases)
+    for ancla in ("provisión", "cartera", "incumplimiento"):
+        assert ancla in todo, f"el barrido no encuentra {ancla!r}: no está leyendo la prosa"
+
+    # Control positivo: las funciones exentas TIENEN que dar ofensores. Si dejan de darlos, o el
+    # detector se rompió o la evidencia se borró — y las dos vuelven este gate un adorno.
+    for funcion in _FUNCIONES_DE_PROSA_CON_JURISDICCION:
+        assert _ofensores("\n".join(t for _, t in por_funcion[funcion])), (
+            f"la función de prosa {funcion!r} dejó de nombrar la norma que aplica: o se borró la "
+            "evidencia del informe, o el detector dejó de detectar"
+        )
+
+
+def test_las_funciones_de_prosa_exentas_son_coherentes() -> None:
+    """La exención escrita a mano no puede quedar sin ancla: se cotejan sus tres condiciones.
+
+    Sin esto, un nombre mal escrito eximiría a nadie (y pasaría en verde), y un nombre nuevo podría
+    eximir un dominio que el formulario no exime — que sería decidir por la puerta de atrás lo que
+    ``_SECCIONES_CON_JURISDICCION`` ya decidió.
+    """
+    por_funcion = _prosa_por_funcion(_PROSE)
+    for funcion in _FUNCIONES_DE_PROSA_CON_JURISDICCION:
+        assert funcion in por_funcion, (
+            f"{funcion!r} está exenta y no emite prosa en {_PROSE.name}: o se renombró, o la "
+            "exención sobra. Una exención que no apunta a nada se lee como cobertura."
+        )
+    # El dominio de las cuatro tiene que ser uno de los dos que el formulario ya exime. `provisions`
+    # es el prefijo con que este archivo nombra al orquestador `provisioning`.
+    for funcion in _FUNCIONES_DE_PROSA_CON_JURISDICCION:
+        assert any(
+            dominio.removeprefix("provisioning") in funcion.replace("provisions", "provisioning")
+            for dominio in _SECCIONES_CON_JURISDICCION
+        ), (
+            f"{funcion!r} no pertenece a ninguno de los dominios exentos "
+            f"{sorted(_SECCIONES_CON_JURISDICCION)}"
+        )
+
+
+@pytest.mark.parametrize(
+    "funcion", sorted(set(_prosa_por_funcion(_PROSE)) - _FUNCIONES_DE_PROSA_CON_JURISDICCION)
+)
+def test_la_prosa_neutra_del_informe_no_nombra_ninguna_jurisdiccion(funcion: str) -> None:
+    """El informe se entrega a un tercero, y esta superficie no la miraba ningún gate.
+
+    Un capítulo que no implementa una norma local no puede invocarla: quien corre este motor en otro
+    país recibiría un documento que afirma una regla que no le rige.
+    """
+    frases = _prosa_por_funcion(_PROSE)[funcion]
+    ofensores = sorted({o for _, texto in frases for o in _ofensores(texto)})
+    culpables = [f"{_PROSE.name}:{ln}" for ln, texto in frases if _ofensores(texto)]
+    assert not ofensores, (
+        f"la prosa de {funcion!r} nombra una jurisdicción ({', '.join(ofensores)}) en "
+        f"{', '.join(culpables)}. El informe lo lee un tercero: si esa función implementa una "
+        "norma local, va a _FUNCIONES_DE_PROSA_CON_JURISDICCION con su razón escrita; si no, se "
+        "reformula sin la norma."
+    )
+
+
+def _copy_de_los_trabajos() -> dict[str, list[str]]:
+    """Todo el texto que el catálogo de trabajos publica, por trabajo.
+
+    Se recorren los **valores** del catálogo construido, nunca sus claves, y se barre en
+    profundidad: así entran las preguntas de las decisiones obligatorias, los motivos de no
+    disponibilidad y —lo
+    que más pesa— los rótulos y las ayudas de las opciones del abanico metodológico, que son la
+    superficie de copy más grande que publica el backend.
+    """
+
+    def textos(nodo: object) -> list[str]:
+        if isinstance(nodo, str):
+            return [] if _ES_IDENTIFICADOR.match(nodo) else [nodo]
+        if isinstance(nodo, dict):
+            return [t for valor in nodo.values() for t in textos(valor)]
+        if isinstance(nodo, list | tuple):
+            return [t for hijo in nodo for t in textos(hijo)]
+        return []
+
+    return {str(trabajo["id"]): textos(trabajo) for trabajo in list_jobs()}
+
+
+def _trabajos_con_jurisdiccion() -> frozenset[str]:
+    """Los trabajos exentos se **derivan** del catálogo, no de una lista escrita al lado.
+
+    El discriminador es ``jurisdiction_code``, que el catálogo ya declaraba antes de este gate y que
+    el front usa para sacar esos trabajos del listado principal (decisión del 2026-08-04). Derivarlo
+    tiene dos consecuencias buenas: un caso de referencia nuevo hereda la exención **declarando su
+    jurisdicción**, que es exactamente lo que debe hacer; y silenciar un rojo declarando `CL` en un
+    trabajo neutro no es gratis — lo saca del listado principal, que es un costo visible.
+    """
+    return frozenset(
+        str(t["id"]) for t in list_jobs() if t.get("jurisdiction_code") not in (None, "")
+    )
+
+
+def test_el_barrido_del_catalogo_de_trabajos_no_es_vacuo() -> None:
+    """Anclas y control positivo del catálogo."""
+    por_trabajo = _copy_de_los_trabajos()
+    assert len(por_trabajo) >= 10, f"el barrido sólo ve {len(por_trabajo)} trabajos"
+    total = sum(len(v) for v in por_trabajo.values())
+    assert total >= 600, f"el barrido sólo recorrió {total} textos del catálogo"
+
+    exentos = _trabajos_con_jurisdiccion()
+    assert exentos, (
+        "ningún trabajo declara jurisdicción: el caso de referencia se borró del catálogo"
+    )
+    assert set(por_trabajo) >= exentos, "un trabajo exento no aparece en el barrido"
+
+    # Control positivo: un trabajo que declara jurisdicción TIENE que nombrarla en su copy. Si no la
+    # nombra, `jurisdiction_code` se está usando para silenciar este gate y no para declarar un caso
+    # de referencia — que es el único abuso que la derivación automática dejaría abierto.
+    for trabajo in exentos:
+        assert _ofensores("\n".join(por_trabajo[trabajo])), (
+            f"el trabajo {trabajo!r} declara jurisdicción y no la nombra en su copy: o se borró la "
+            "evidencia, o `jurisdiction_code` se está usando para eximirse de este gate"
+        )
+
+
+def test_el_catalogo_publica_todo_el_copy_con_jurisdiccion_del_fuente() -> None:
+    """Que medir el catálogo construido no deje texto del fuente sin mirar.
+
+    🔴 El riesgo es el simétrico del que este archivo ya paga en el formulario: allí se mide un
+    fixture porque el payload arrastra un extra, y un gate G7 aparte garantiza que el fixture no
+    derive. Aquí se mide el objeto construido, así que hace falta la garantía inversa — que ningún
+    literal de jurisdicción viva en el fuente **sin llegar** al catálogo, donde este gate no lo
+    vería. Medido hoy: 21 literales sólo existen en el fuente y **ninguno** nombra jurisdicción (son
+    citas ``archivo:línea`` de comentarios y trozos de mensajes de error de otro gate).
+    """
+    arbol = ast.parse(_JOBS.read_text(encoding="utf-8"))
+    docstrings: set[int] = set()
+    claves: set[tuple[int, int]] = set()
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
+            primero = nodo.body[0] if nodo.body else None
+            if (
+                isinstance(primero, ast.Expr)
+                and isinstance(primero.value, ast.Constant)
+                and isinstance(primero.value.value, str)
+            ):
+                docstrings.update(range(primero.lineno, (primero.end_lineno or primero.lineno) + 1))
+        if isinstance(nodo, ast.Dict):
+            claves.update(
+                (clave.lineno, clave.col_offset)
+                for clave in nodo.keys
+                if isinstance(clave, ast.Constant) and isinstance(clave.value, str)
+            )
+
+    publicado = {t for textos in _copy_de_los_trabajos().values() for t in textos}
+    assert len(publicado) >= 500, f"el catálogo sólo publica {len(publicado)} textos distintos"
+
+    huerfanos: list[str] = []
+    for nodo in ast.walk(arbol):
+        if not (isinstance(nodo, ast.Constant) and isinstance(nodo.value, str)):
+            continue
+        if nodo.lineno in docstrings or (nodo.lineno, nodo.col_offset) in claves:
+            continue
+        if _ES_IDENTIFICADOR.match(nodo.value) or nodo.value in publicado:
+            continue
+        if _ofensores(nodo.value):
+            huerfanos.append(f"{_JOBS.name}:{nodo.lineno} {nodo.value[:70]!r}")
+    assert not huerfanos, (
+        "hay copy con jurisdicción en el fuente del catálogo que `list_jobs()` no publica, así que "
+        f"este gate no lo estaría mirando: {huerfanos}"
+    )
+
+
+@pytest.mark.parametrize(
+    "trabajo", sorted(set(_copy_de_los_trabajos()) - _trabajos_con_jurisdiccion())
+)
+def test_un_trabajo_neutro_no_nombra_ninguna_jurisdiccion(trabajo: str) -> None:
+    """El catálogo es la PRIMERA pantalla: es la propuesta de valor de la aplicación.
+
+    Y es la superficie de copy más grande del backend, porque cada trabajo publica además su abanico
+    metodológico con lo que hace y lo que exige cada opción. Un trabajo que no declara jurisdicción
+    no puede nombrar una: o la declara —y sale del listado principal, como el caso de referencia—, o
+    su copy es neutro.
+    """
+    textos = _copy_de_los_trabajos()[trabajo]
+    ofensores = sorted({o for texto in textos for o in _ofensores(texto)})
+    assert not ofensores, (
+        f"el trabajo {trabajo!r} no declara `jurisdiction_code` y su copy nombra "
+        f"{', '.join(ofensores)}. Si el trabajo implementa una norma local, declara su "
+        "jurisdicción en el catálogo —eso lo mueve al bloque de casos de referencia—; si no, "
+        "reformula el copy."
     )

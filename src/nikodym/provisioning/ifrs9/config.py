@@ -314,16 +314,17 @@ class IfrsLgdConfig(NikodymBaseConfig):
         """Columnas que este enfoque de LGD no abre (D-RAM-1).
 
         Sólo la regresión lee covariables: ``_estimate_regression`` es la rama ``else`` del
-        dispatch (`lgd.py:117-122`), así que con el default ``provided`` —y con ``workout``— la
-        lista está ahí pero el motor nunca la mira. ``recovery_col`` NO entra: las tres ramas la
-        leen si viene.
+        dispatch (`provisioning/lgd.py:195-201`), así que con el default ``provided`` —y con
+        ``workout``— la lista está ahí pero el motor nunca la mira. ``recovery_col`` NO entra: las
+        tres ramas la leen si viene.
         """
         inactivas = set()
         if self.method not in ("beta_regression", "fractional_response"):
             inactivas.add("covariate_cols")
         if self.recovery_col is not None:
             # 🔴 La condición de `lgd_col` NO es el `method`: dos de las tres ramas
-            # (`_estimate_provided` en `lgd.py:128-132` y `_regression_target` en `:193-197`) lo
+            # (`_estimate_provided` en `provisioning/lgd.py:203-210` y `_regression_target` en
+            # `:269-274`) lo
             # leen **sólo si `recovery_col is None`**, y la tercera (`workout`) no lo toca nunca —
             # y su validador ya exige `recovery_col`, así que `recovery_col is None` implica
             # `method != "workout"` y la condición se cierra en un solo predicado sobre un hermano.
