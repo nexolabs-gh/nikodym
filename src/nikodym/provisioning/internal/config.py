@@ -662,7 +662,9 @@ class InternalProvisioningConfig(NikodymBaseConfig):
     loss_rate_col: str | None = Field(
         default=None,
         title="Columna de tasa de pérdida",
-        description="Columna con la pérdida esperada por peso expuesto; exige direct_loss_rate.",
+        description=(
+            "Columna con la pérdida esperada por unidad de exposición; exige direct_loss_rate."
+        ),
         json_schema_extra={
             "column_role": "input",
             "ui_widget": "text_input",

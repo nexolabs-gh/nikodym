@@ -500,6 +500,43 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > y —el grave— **el PDF del cotejo más fuerte del bundle ausente de `official_sources`**, la misma
 > clase que la Circular 2.257/2020, en dirección inversa. Los tres corregidos.
 >
+> **Una opción del abanico puede exigir OTRO campo, y se ofrece como si no (2026-08-08, BORRADOR —
+> pendiente de decisión de Cami).**
+> [`_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md`](_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md),
+> D-EXI-1…D-EXI-7. Nace de la deuda 2 del HANDOFF, y 🔴 **medirla la reformuló**: de sus seis
+> afirmaciones una es **FALSA** —«no está trasladada a ninguna superficie que el usuario lea»: sí lo
+> está, `/api/validate` da 200 con el mensaje y el front lo pinta, que es el hueco que **D-ANC-12 ya
+> cerró**— y otra PARCIAL, y con la falsa se cae la prescripción. ⇒ **«que avise en vez de reventar»
+> es inejecutable**: para que el preflight avise el config tiene que construir, y quitar la guarda
+> viola CRP-5 y **degrada** el diagnóstico (medido ejecutando con la guarda saltada). **El error se
+> conserva.** Lo que falla son tres cosas: (1) 🔴 **D-ABA-3 está violado en producción** —las cinco
+> ramas de LGD se publican `disponible` y tres no construyen— y su oráculo **no puede verlo**, porque
+> no mide constructibilidad y sobre una unión inspecciona **la primera rama**; (2) el error llega
+> **sin ancla** (`loc: []`) mientras el gesto simétrico —la partición temporal— sí marca el campo, y
+> el preflight tampoco rescata el caso porque va encadenado detrás de la validación y queda **mudo en
+> idle**; (3) con la subsección **inerte** por `direct_loss_rate`, una rama modelada rechaza el config
+> entero — el simétrico del defecto que D-SUB acaba de cerrar. ⚠️ D-OBL queda fuera **porque su gate
+> lo PROHÍBE** (control negativo: 3 tests rojos) y porque `_hojas_obligatorias` no desciende por una
+> unión. ✅ Y el canal correcto **ya tiene precedente vivo en una rama de unión**:
+> `TemporalSplitConfig` implementa `requisitos_incumplidos` e ignora `columnas`. ⚠️ Con la trampa
+> medida: `_requisitos` **no** consulta `columnas_inactivas`, así que el requisito va en el **padre**,
+> nunca en la rama.
+>
+> **Y dice CONTRA QUÉ se cotejó (2026-08-08, BORRADOR — pendiente de decisión de Cami).**
+> [`_ENMIENDA-COTEJO-FUENTES.md`](_ENMIENDA-COTEJO-FUENTES.md), D-FTE-1…D-FTE-5. Cierra la deuda 3 del
+> HANDOFF, tercera pieza de D-COT/D-VER: `verifications[]` declara qué, cómo, con qué alcance y quién,
+> pero la **fuente viaja en la prosa de `scope`** y el gate normativo tiene que parsearla del texto
+> libre. 🔴 Medido: el cotejo del 2026-07-14 nombra su fuente dentro de una frase y el del 2026-06-23
+> **no nombra ninguna de las seis**, así que el cruce `verifications → official_sources` sólo puede
+> comprobar que lo citado exista —**no** que todo cotejo cite algo—, y su propio docstring lo declara.
+> ⚠️ `matrix_ids` no sirve: ata el cotejo a *lo cotejado*, no a la *evidencia*; y la asimetría es el
+> defecto, porque `CmfManifestMatrixEntry` **ya declara su fuente** con `source_ref`. Vacío significa
+> «no consta» (D-VER-2 literal) **y se publica**: si no, «no consta» y «nadie miró» vuelven a leerse
+> igual. 🔴 La fuente del cotejo antiguo **no se infiere** aunque `pdf_semilla_b1` sea plausible —
+> fabricar procedencia de auditoría es el defecto que la revisión del 2026-08-07 encontró en la traza—:
+> es la única pregunta abierta y es de Cami. Coste medido: cero en `config_hash`, cero en
+> `yaml_sha256` (sella el YAML, no el manifiesto) y cero en la card.
+>
 > **El informe declara su moneda en vez de suponerla (2026-08-05, APROBADA).**
 > [`_ENMIENDA-MONEDA-DEL-INFORME.md`](_ENMIENDA-MONEDA-DEL-INFORME.md), D-MON-1…D-MON-6. Pieza 2 de
 > **D-JUR-8**. `_clp` cableaba el símbolo y la prosa afirmaba «pesos chilenos (CLP)» en tres

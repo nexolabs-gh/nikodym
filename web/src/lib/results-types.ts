@@ -406,7 +406,7 @@ export interface ProvisioningComparisonRow {
  * el método estándar (source_a, normalmente `"cmf"`), `total_provision_b` el método interno
  * (source_b, `"internal"`), y `total_reported_provision` el MAYOR de los dos: la provisión que
  * la norma chilena obliga a constituir (Cap. B-1, hoja 10-11). El titular del producto es el
- * SOBRECOSTO = reportada − interna (SDD-28 §3.5), en CLP. `binding` dice qué método mandó.
+ * SOBRECOSTO = reportada − interna (SDD-28 §3.5), en la moneda de la corrida. `binding` dice qué método mandó.
  * `falta_dato`/`metric_sections` se tipan laxos (no explotados en detalle por la UI).
  */
 export interface ProvisioningResult {
@@ -423,11 +423,11 @@ export interface ProvisioningResult {
   n_binding_a: number
   n_binding_b: number
   n_binding_tie: number
-  /** Provisión del método estándar (source_a), en CLP. */
+  /** Provisión del método estándar (source_a), en la moneda de la corrida. */
   total_provision_a: number
-  /** Provisión del método interno (source_b), en CLP. */
+  /** Provisión del método interno (source_b), en la moneda de la corrida. */
   total_provision_b: number
-  /** Provisión reportada = mayor(estándar, interno), en CLP. */
+  /** Provisión reportada = mayor(estándar, interno), en la moneda de la corrida. */
   total_reported_provision: number
   cmf_matrix_version: string
   ifrs9_term_structure_source: string | null

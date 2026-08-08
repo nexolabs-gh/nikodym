@@ -1844,8 +1844,9 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
             "path": "provisioning_internal.method",
             "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?",
             "help": (
-                "Las dos rutas están admitidas por la norma. La diferencia es si descompones la "
-                "pérdida en sus dos factores o si la traes ya estimada."
+                "Las dos rutas son metodológicamente válidas y este motor admite ambas. La "
+                "diferencia es si descompones la pérdida en sus dos factores o si la traes ya "
+                "estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges."
             ),
             "multiple": False,
             "options": (
@@ -1866,8 +1867,9 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "value": "direct_loss_rate",
                     "label": "Traer la tasa de pérdida ya estimada",
                     "help": (
-                        "Usa la pérdida esperada por peso expuesto que tú ya calculaste, sin "
-                        "descomponerla; la severidad deja de leerse. Necesita esa columna en tu "
+                        "Usa la pérdida esperada por unidad de exposición que tú ya "
+                        "calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa "
+                        "columna en tu "
                         "archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se "
                         "publica en el detalle, aunque no entre en el monto."
                     ),
@@ -1917,8 +1919,9 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
             "path": "provisioning_internal.grouping",
             "question": "¿Cómo quieres formar los grupos homogéneos de deudores?",
             "help": (
-                "La norma exige agrupar antes de provisionar: la provisión es una cifra del "
-                "grupo, que después se reparte entre sus operaciones al peso."
+                "Este método provisiona por grupo, no por operación: la provisión es una cifra "
+                "del grupo, que después se reparte entre sus operaciones a prorrata de la "
+                "exposición."
             ),
             "multiple": False,
             "options": (
@@ -2453,8 +2456,8 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "value": "integer_currency",
                     "label": "A la unidad de moneda entera",
                     "help": (
-                        "Redondearía la pérdida al peso entero antes de publicarla, para carteras "
-                        "que reportan sin decimales."
+                        "Redondearía la pérdida a la unidad de moneda entera antes de publicarla, "
+                        "para carteras que reportan sin decimales."
                     ),
                     "estado": _SIN_EFECTO,
                     "motivo": (
@@ -2670,7 +2673,7 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "label": "A dos decimales de la moneda",
                     "help": (
                         "Redondea al centavo, hacia arriba en el empate, antes de publicar la "
-                        "cifra. Es lo que cuadra con un asiento contable en pesos con decimales."
+                        "cifra. Es lo que cuadra con un asiento contable que lleva decimales."
                     ),
                     "estado": _DISPONIBLE,
                     "motivo": None,
@@ -2680,7 +2683,8 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "value": "integer_currency",
                     "label": "A la unidad de moneda entera",
                     "help": (
-                        "Redondea al peso entero, hacia arriba en el empate. Para carteras que "
+                        "Redondea a la unidad de moneda entera, hacia arriba en el empate. Para "
+                        "carteras que "
                         "reportan sin decimales; sobre muchas filas la suma se aparta un poco del "
                         "valor exacto."
                     ),

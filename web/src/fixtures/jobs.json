@@ -2106,14 +2106,14 @@
             },
             {
               "estado": "disponible",
-              "help": "Redondea al centavo, hacia arriba en el empate, antes de publicar la cifra. Es lo que cuadra con un asiento contable en pesos con decimales.",
+              "help": "Redondea al centavo, hacia arriba en el empate, antes de publicar la cifra. Es lo que cuadra con un asiento contable que lleva decimales.",
               "label": "A dos decimales de la moneda",
               "motivo": null,
               "value": "currency_2dp"
             },
             {
               "estado": "disponible",
-              "help": "Redondea al peso entero, hacia arriba en el empate. Para carteras que reportan sin decimales; sobre muchas filas la suma se aparta un poco del valor exacto.",
+              "help": "Redondea a la unidad de moneda entera, hacia arriba en el empate. Para carteras que reportan sin decimales; sobre muchas filas la suma se aparta un poco del valor exacto.",
               "label": "A la unidad de moneda entera",
               "motivo": null,
               "value": "integer_currency"
@@ -2885,7 +2885,7 @@
             },
             {
               "estado": "sin_efecto",
-              "help": "Redondearía la pérdida al peso entero antes de publicarla, para carteras que reportan sin decimales.",
+              "help": "Redondearía la pérdida a la unidad de moneda entera antes de publicarla, para carteras que reportan sin decimales.",
               "label": "A la unidad de moneda entera",
               "motivo": "El cálculo de pérdida esperada todavía no aplica el redondeo: elegirlo no cambia ni una cifra del informe. Se ofrece porque el redondeo sí funciona en las provisiones normativas y en el método interno, y esconderlo aquí haría creer que el motor no lo contempla.",
               "value": "integer_currency"
@@ -3370,7 +3370,7 @@
           "question": "¿En qué formato viene tu archivo?"
         },
         {
-          "help": "Las dos rutas están admitidas por la norma. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada.",
+          "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
           "multiple": false,
           "options": [
             {
@@ -3382,7 +3382,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Usa la pérdida esperada por peso expuesto que tú ya calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa columna en tu archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se publica en el detalle, aunque no entre en el monto.",
+              "help": "Usa la pérdida esperada por unidad de exposición que tú ya calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa columna en tu archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se publica en el detalle, aunque no entre en el monto.",
               "label": "Traer la tasa de pérdida ya estimada",
               "motivo": null,
               "value": "direct_loss_rate"
@@ -3414,7 +3414,7 @@
           "question": "¿De dónde sale la probabilidad de incumplir de cada operación?"
         },
         {
-          "help": "La norma exige agrupar antes de provisionar: la provisión es una cifra del grupo, que después se reparte entre sus operaciones al peso.",
+          "help": "Este método provisiona por grupo, no por operación: la provisión es una cifra del grupo, que después se reparte entre sus operaciones a prorrata de la exposición.",
           "multiple": false,
           "options": [
             {
@@ -4313,7 +4313,7 @@
           "question": "Para una variable en particular, ¿qué forma tiene su relación con el riesgo?"
         },
         {
-          "help": "Las dos rutas están admitidas por la norma. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada.",
+          "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
           "multiple": false,
           "options": [
             {
@@ -4325,7 +4325,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Usa la pérdida esperada por peso expuesto que tú ya calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa columna en tu archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se publica en el detalle, aunque no entre en el monto.",
+              "help": "Usa la pérdida esperada por unidad de exposición que tú ya calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa columna en tu archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se publica en el detalle, aunque no entre en el monto.",
               "label": "Traer la tasa de pérdida ya estimada",
               "motivo": null,
               "value": "direct_loss_rate"
@@ -4357,7 +4357,7 @@
           "question": "¿De dónde sale la probabilidad de incumplir de cada operación?"
         },
         {
-          "help": "La norma exige agrupar antes de provisionar: la provisión es una cifra del grupo, que después se reparte entre sus operaciones al peso.",
+          "help": "Este método provisiona por grupo, no por operación: la provisión es una cifra del grupo, que después se reparte entre sus operaciones a prorrata de la exposición.",
           "multiple": false,
           "options": [
             {
@@ -5423,7 +5423,7 @@
           "question": "¿En qué formato viene tu archivo?"
         },
         {
-          "help": "Las dos rutas están admitidas por la norma. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada.",
+          "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
           "multiple": false,
           "options": [
             {
@@ -5435,7 +5435,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Usa la pérdida esperada por peso expuesto que tú ya calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa columna en tu archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se publica en el detalle, aunque no entre en el monto.",
+              "help": "Usa la pérdida esperada por unidad de exposición que tú ya calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa columna en tu archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se publica en el detalle, aunque no entre en el monto.",
               "label": "Traer la tasa de pérdida ya estimada",
               "motivo": null,
               "value": "direct_loss_rate"
@@ -5467,7 +5467,7 @@
           "question": "¿De dónde sale la probabilidad de incumplir de cada operación?"
         },
         {
-          "help": "La norma exige agrupar antes de provisionar: la provisión es una cifra del grupo, que después se reparte entre sus operaciones al peso.",
+          "help": "Este método provisiona por grupo, no por operación: la provisión es una cifra del grupo, que después se reparte entre sus operaciones a prorrata de la exposición.",
           "multiple": false,
           "options": [
             {
@@ -5653,14 +5653,14 @@
             },
             {
               "estado": "disponible",
-              "help": "Redondea al centavo, hacia arriba en el empate, antes de publicar la cifra. Es lo que cuadra con un asiento contable en pesos con decimales.",
+              "help": "Redondea al centavo, hacia arriba en el empate, antes de publicar la cifra. Es lo que cuadra con un asiento contable que lleva decimales.",
               "label": "A dos decimales de la moneda",
               "motivo": null,
               "value": "currency_2dp"
             },
             {
               "estado": "disponible",
-              "help": "Redondea al peso entero, hacia arriba en el empate. Para carteras que reportan sin decimales; sobre muchas filas la suma se aparta un poco del valor exacto.",
+              "help": "Redondea a la unidad de moneda entera, hacia arriba en el empate. Para carteras que reportan sin decimales; sobre muchas filas la suma se aparta un poco del valor exacto.",
               "label": "A la unidad de moneda entera",
               "motivo": null,
               "value": "integer_currency"
@@ -6931,7 +6931,7 @@
           "question": "¿En qué formato viene tu archivo?"
         },
         {
-          "help": "Las dos rutas están admitidas por la norma. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada.",
+          "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
           "multiple": false,
           "options": [
             {
@@ -6943,7 +6943,7 @@
             },
             {
               "estado": "disponible",
-              "help": "Usa la pérdida esperada por peso expuesto que tú ya calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa columna en tu archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se publica en el detalle, aunque no entre en el monto.",
+              "help": "Usa la pérdida esperada por unidad de exposición que tú ya calculaste, sin descomponerla; la severidad deja de leerse. Necesita esa columna en tu archivo, y ojo: la probabilidad de incumplir se sigue exigiendo y se publica en el detalle, aunque no entre en el monto.",
               "label": "Traer la tasa de pérdida ya estimada",
               "motivo": null,
               "value": "direct_loss_rate"
@@ -6975,7 +6975,7 @@
           "question": "¿De dónde sale la probabilidad de incumplir de cada operación?"
         },
         {
-          "help": "La norma exige agrupar antes de provisionar: la provisión es una cifra del grupo, que después se reparte entre sus operaciones al peso.",
+          "help": "Este método provisiona por grupo, no por operación: la provisión es una cifra del grupo, que después se reparte entre sus operaciones a prorrata de la exposición.",
           "multiple": false,
           "options": [
             {

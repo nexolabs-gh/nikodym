@@ -44,6 +44,7 @@ import {
   primaryPartition,
   provisioningComparisonBars,
   provisioningHeadline,
+  provisioningSectionCopy,
   provisioningSourceLabel,
   psiBars,
   reliabilityCurve,
@@ -1604,6 +1605,74 @@ describe("provisioningHeadline", () => {
         total_reported_provision: Number.NaN,
       }),
     ).toBeNull()
+  })
+})
+
+describe("provisioningSectionCopy", () => {
+  // 🔴 El panel llevaba este copy FIJO: «Provisiones — la regla del máximo (CMF Cap. B-1)» con la
+  // bajada «La norma chilena obliga … (Circular N° 2.346). Montos en pesos (CLP).». Y
+  // `ProvisioningSource` admite `provisioning_ifrs9` + `provisioning_internal` **sin CMF**: sobre
+  // esa corrida el panel afirmaba una norma chilena que no la rige, y una moneda que este contrato
+  // no transporta. El informe dejó de hacerlo el 2026-08-05 y la corrección no llegó a la pantalla.
+  //
+  // Este test mide COMPORTAMIENTO y no texto: es lo que un detector de términos sobre el fuente no
+  // puede hacer, porque el copy correcto pasó de literal a expresión.
+
+  it("nombra el Cap. B-1 sólo si compara estándar CMF contra interno a nivel de entidad", () => {
+    const copy = provisioningSectionCopy(provisioningResults.provisioning)
+    expect(copy.title).toContain("Cap. B-1")
+    expect(copy.description).toContain("Circular N° 2.346")
+    // El orden de las fuentes no puede cambiar el veredicto.
+    const alReves = provisioningSectionCopy({
+      ...provisioningSample,
+      source_a: "internal",
+      source_b: "cmf",
+    })
+    expect(alReves.title).toBe(copy.title)
+  })
+
+  it.each([
+    ["ifrs9 vs interno (ninguna norma local detrás)", { source_a: "ifrs9", source_b: "internal" }],
+    ["cmf vs ifrs9 (dos marcos, ninguna regla del B-1)", { source_a: "cmf", source_b: "ifrs9" }],
+    ["comparación por cartera, no por entidad", { comparison_level: "portfolio" }],
+    ["comparación por operación", { comparison_level: "operation" }],
+  ])("NO invoca ninguna jurisdicción cuando %s", (_caso, parche) => {
+    const copy = provisioningSectionCopy({ ...provisioningSample, ...parche })
+    const texto = `${copy.title} ${copy.description}`
+    for (const marca of ["CMF", "Chile", "chilena", "B-1", "Circular", "Compendio"]) {
+      expect(texto).not.toContain(marca)
+    }
+    // Y sigue diciendo algo: callar no es una salida.
+    expect(copy.title.length).toBeGreaterThan(10)
+    expect(copy.description.length).toBeGreaterThan(60)
+  })
+
+  it("no afirma ninguna moneda en ninguna de sus tres ramas (D-MON-1: callar, no suponer)", () => {
+    const ramas = [
+      provisioningResults.provisioning,
+      { ...provisioningSample, rule: "use_internal" },
+      { ...provisioningSample, source_a: "ifrs9" },
+    ]
+    for (const prov of ramas) {
+      const copy = provisioningSectionCopy(prov)
+      const texto = `${copy.title} ${copy.description}`
+      for (const marca of ["CLP", "peso", "Peso", "$"]) {
+        expect(texto).not.toContain(marca)
+      }
+    }
+  })
+
+  it("la rama use_internal no promete que el método esté autorizado", () => {
+    const copy = provisioningSectionCopy({ ...provisioningSample, rule: "use_internal" })
+    expect(copy.description).toContain("no verifica")
+  })
+
+  it("sin resultado devuelve la rama neutra en vez de reventar", () => {
+    for (const vacio of [null, undefined]) {
+      const copy = provisioningSectionCopy(vacio)
+      expect(copy.description).not.toContain("CMF")
+      expect(copy.title.length).toBeGreaterThan(10)
+    }
   })
 })
 

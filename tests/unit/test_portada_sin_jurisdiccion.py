@@ -692,3 +692,145 @@ def test_un_trabajo_neutro_no_nombra_ninguna_jurisdiccion(trabajo: str) -> None:
         "jurisdicción en el catálogo —eso lo mueve al bloque de casos de referencia—; si no, "
         "reformula el copy."
     )
+
+
+# --------------------------------------------------------------------------------------------
+# Dos superficies más que el censo destapó, y las dos eran ofensores REALES.
+# --------------------------------------------------------------------------------------------
+#
+# 🔴 Este bloque nació de una revisión adversarial del gate de arriba, y su lección es que **el
+# alcance de un gate de copy se mide, no se supone**. Los dos barridos anteriores nacieron verdes
+# —ni el catálogo ni la prosa tenían un solo ofensor— y aun así quedaban vivos éstos:
+#
+# 1. **El docstring del paquete raíz** decía «librería de riesgo de crédito (scoring, ML,
+#    provisiones **CMF** e IFRS 9)». Es la portada del paquete **por código**: medido ejecutando,
+#    `nikodym.__doc__` y `help(nikodym)` la publican como primera línea. Es hermana exacta de
+#    `project.description` —que ya estaba en este gate desde el 2026-08-04— y se escapó por no
+#    estar en la lista de superficies.
+# 2. **El panel de resultados de la aplicación** rotulaba «Provisiones — la regla del máximo (CMF
+#    Cap. B-1)» con la bajada «La norma **chilena** obliga … (Circular N° 2.346). **Montos en pesos
+#    (CLP)**.», y más abajo «por grupo homogéneo **(B-1 §3)**» sobre el motor neutro. Texto
+#    **fijo**, visible sin hover, sobre un orquestador que admite `provisioning_ifrs9` +
+#    `provisioning_internal` **sin CMF**. La prosa del informe dejó de hacerlo el 2026-08-05
+#    (`prose.py:1601-1637` gatea la cita del B-1); **la corrección no se propagó a la
+#    pantalla**, que es la que ve quien corre por la interfaz. Y «(B-1 §3)» era la reincidencia
+#    literal del título que esta misma sección llevaba en el formulario hasta D-JUR-8.
+#
+# ⚠️ Lo que este gate NO puede vigilar, medido y declarado en vez de callado: el censo confirmó tres
+# ofensores más —«al peso entero», «por peso expuesto» y «la norma exige agrupar»— que este detector
+# **no caza y no debe cazar**. «Peso» es homónimo en español (unidad monetaria y ponderación) y
+# añadirlo produce ~10 falsos positivos sobre los «pesos de escenario» de IFRS 9 y forward; y «la
+# norma exige» es legítimo donde la norma **es** un estándar internacional (NIIF 9). Los tres se
+# corrigieron a mano; la clase «afirmación normativa sin norma detrás» necesita otro mecanismo, y un
+# vocabulario inflado con falsos positivos se aprende a ignorar, que es peor que no tenerlo.
+
+_INIT_PAQUETE = _RAIZ / "src" / "nikodym" / "__init__.py"
+
+# Atributos de un componente cuyo valor literal se pinta como texto. `title` y `description` son los
+# de `ResultsSection`; los otros tres entran porque son copy visible de la misma clase.
+_ATRIBUTO_DE_COPY = re.compile(
+    r'\b(title|description|label|placeholder|helpText)=\{?"((?:[^"\\]|\\.)*)"\}?'
+)
+
+# El copy del front donde nombrar la norma ES el contenido: son los dos rótulos del bloque que
+# publica el **método estándar CMF por categoría**, gateado por la presencia de la card de ese
+# motor.
+# Va por su literal exacto y no por archivo, a propósito: si alguien reescribe una de estas dos
+# frases el gate se pone rojo y hay que volver a declararla — y revisar ese copy es justo lo que se
+# quiere que ocurra. La razón de fondo es la misma que exime a `provisioning_cmf` en el formulario:
+# ese bloque implementa el modelo estándar chileno, y callarlo sería la mentira opuesta.
+_COPY_DEL_FRONT_CON_JURISDICCION = frozenset(
+    {
+        "Método estándar CMF por categoría",
+        (
+            "Provisión estándar por categoría del Cap. B-1, ordenada de mayor a menor. La "
+            "categoría se deriva de (días de mora · crédito hipotecario en el sistema · mora en "
+            "el sistema)."
+        ),
+    }
+)
+
+
+def _copy_literal_del_front() -> list[tuple[str, str, str]]:
+    """``(archivo, atributo, texto)`` de todo copy literal de los componentes.
+
+    Se leen los **atributos** y no el archivo entero, y no es una comodidad: los comentarios de
+    estos mismos componentes nombran el Cap. B-1 legítimamente —explican por qué el copy ya no puede
+    nombrarlo—, así que un barrido del texto crudo se acusaría a sí mismo. Un atributo con valor
+    literal es exactamente la superficie del defecto: texto fijo que se pinta sin condición.
+
+    ⚠️ Alcance declarado: el copy que llega por **expresión** (``title={algo}``) no se ve desde aquí,
+    y es a propósito — ahí el texto lo decide una función, que es lo que este gate quiere que pase.
+    El caso corregido pasó justamente de literal a expresión (`provisioningSectionCopy`), y su
+    corrección la vigila un test de comportamiento en vitest, no un detector de términos.
+    """
+    salida: list[tuple[str, str, str]] = []
+    for archivo in sorted((_RAIZ / "web" / "src").rglob("*.tsx")):
+        contenido = archivo.read_text(encoding="utf-8")
+        for atributo, valor in _ATRIBUTO_DE_COPY.findall(contenido):
+            salida.append((archivo.name, atributo, valor))
+    return salida
+
+
+def test_el_barrido_del_copy_del_front_no_es_vacuo() -> None:
+    """Anclas y control positivo: 96 atributos en 14 componentes al escribir esto."""
+    copy = _copy_literal_del_front()
+    assert len(copy) >= 70, f"el barrido sólo ve {len(copy)} atributos de copy"
+    assert len({archivo for archivo, _, _ in copy}) >= 10, "el barrido ve muy pocos componentes"
+    assert any(atributo == "description" for _, atributo, _ in copy), (
+        "el barrido no encuentra un solo `description`: la regex dejó de casar"
+    )
+
+    # Control positivo: los literales exentos tienen que SEGUIR existiendo y seguir dando
+    # ofensores. Si uno desaparece, la exención quedó apuntando al vacío y este gate se relajó sin
+    # que nadie lo decida.
+    presentes = {texto for _, _, texto in copy}
+    for texto in _COPY_DEL_FRONT_CON_JURISDICCION:
+        assert texto in presentes, (
+            f"el copy exento {texto[:50]!r} ya no está en ningún componente: la exención sobra, o "
+            "se borró la evidencia del caso de referencia"
+        )
+        assert _ofensores(texto), (
+            f"el copy exento {texto[:50]!r} dejó de nombrar una jurisdicción: o el detector se "
+            "rompió, o esa exención no hacía falta"
+        )
+
+
+def test_el_copy_literal_del_front_no_nombra_ninguna_jurisdiccion() -> None:
+    """La pantalla de resultados es lo que ve quien corre por la interfaz, y no la miraba nadie."""
+    ofensores = [
+        (archivo, atributo, _ofensores(texto), texto)
+        for archivo, atributo, texto in _copy_literal_del_front()
+        if _ofensores(texto) and texto not in _COPY_DEL_FRONT_CON_JURISDICCION
+    ]
+    assert not ofensores, (
+        "hay copy fijo del front que nombra una jurisdicción: "
+        + "; ".join(
+            f"{archivo} [{atributo}] {sorted(marcas)} → {texto[:70]!r}"
+            for archivo, atributo, marcas, texto in ofensores
+        )
+        + ". Si el bloque implementa una norma local, su literal va a "
+        "_COPY_DEL_FRONT_CON_JURISDICCION con su razón; si el texto depende de lo que la corrida "
+        "comparó, se DERIVA de los resultados como hace la prosa del informe."
+    )
+
+
+def test_la_portada_del_paquete_por_codigo_no_nombra_ninguna_jurisdiccion() -> None:
+    """El docstring de ``nikodym`` es lo que imprime ``help(nikodym)``: portada, no implementación.
+
+    Hermana exacta de ``project.description`` —que este gate ya vigila— y se escapó de la limpieza
+    del 2026-08-04 por no estar en la lista de superficies. Se lee por AST y no importando el
+    paquete, para no depender de que el import funcione en un job sin extras.
+    """
+    arbol = ast.parse(_INIT_PAQUETE.read_text(encoding="utf-8"))
+    docstring = ast.get_docstring(arbol)
+    assert docstring, "el paquete `nikodym` perdió su docstring: `help(nikodym)` saldría vacío"
+    titular = docstring.splitlines()[0]
+    assert "riesgo de crédito" in titular, (
+        "la primera línea del docstring dejó de describir el producto: este gate no está mirando "
+        "la portada"
+    )
+    assert not _ofensores(titular), (
+        f"el docstring del paquete nombra {', '.join(_ofensores(titular))} en su primera línea, "
+        "que es lo que imprime `help(nikodym)`. Una jurisdicción no va en la propuesta de valor."
+    )

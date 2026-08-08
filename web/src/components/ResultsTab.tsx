@@ -66,6 +66,7 @@ import {
   primaryPartition,
   provisioningComparisonBars,
   provisioningHeadline,
+  provisioningSectionCopy,
   provisioningSourceLabel,
   psiBars,
   reliabilityCurve,
@@ -213,13 +214,15 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
       temporal !== null)
 
   // Provisiones (SDD-28): las tres cards del preset F3. `null` en una corrida F1 (guard por
-  // presencia → el bloque entero no se renderiza). El TITULAR es el sobrecosto en CLP
+  // presencia → el bloque entero no se renderiza). El TITULAR es el sobrecosto en la moneda de
+  // la corrida —que este contrato NO transporta, así que no se rotula—
   // (reportada − interna), NO un ratio (§3.5). `exposure` (colocaciones) es común a ambos
   // motores; se toma de la card CMF y cae a la interna.
   const prov = results.provisioning ?? null
   const cmf = results.provisioning_cmf ?? null
   const internal = results.provisioning_internal ?? null
   const headline = provisioningHeadline(prov)
+  const provisioningCopy = provisioningSectionCopy(prov)
   const comparisonBars = provisioningComparisonBars(prov)
   const groupBars = internalGroupBars(internal)
   const categoryBars = cmfCategoryBars(cmf)
@@ -298,10 +301,13 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
             exposure={provExposure}
           />
 
-          {/* La regla del máximo en tres barras + los totales exactos. */}
+          {/* La regla configurada en tres barras + los totales exactos. El rótulo lo DERIVA
+              `provisioningSectionCopy` de las fuentes comparadas, con el criterio de la prosa del
+              informe: era texto fijo citando la norma chilena, y el orquestador admite dos fuentes
+              sin CMF. */}
           <ResultsSection
-            title="Provisiones — la regla del máximo (CMF Cap. B-1)"
-            description="La norma chilena obliga a constituir el MAYOR entre el método estándar de la CMF y el método interno del banco, a nivel de entidad (Circular N° 2.346). Montos en pesos (CLP)."
+            title={provisioningCopy.title}
+            description={provisioningCopy.description}
           >
             <ProvisioningComparisonChart bars={comparisonBars} />
             <ProvisioningTotalsTable headline={headline} rule={prov?.rule} />
@@ -310,8 +316,12 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           {/* Método interno: PD·LGD·Exposición por grupo homogéneo (10 bandas de score). */}
           {groupBars.length > 0 ? (
             <ResultsSection
+              // 🔴 Decía «por grupo homogéneo (B-1 §3)» sobre el motor jurisdiccionalmente
+              // NEUTRO: la reincidencia literal del título «(Cap. B-1 §3)» que esta misma sección
+              // llevaba en el formulario hasta el 2026-08-05 (D-JUR-8), y que además era falso —
+              // este motor no calcula el B-1.
               title="Método interno por grupo homogéneo"
-              description="Provisión interna = Exposición · PD · LGD por grupo homogéneo (B-1 §3). La PD calibrada del scorecard forma las 10 bandas de score, de menor a mayor riesgo. La provisión se concentra donde la PD es alta."
+              description="Provisión interna = Exposición · PD · LGD por grupo homogéneo. La PD calibrada del scorecard forma las 10 bandas de score, de menor a mayor riesgo. La provisión se concentra donde la PD es alta."
             >
               <InternalGroupsChart rows={groupBars} />
               <InternalGroupsDetail

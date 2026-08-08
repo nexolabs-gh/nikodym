@@ -988,6 +988,59 @@ export function provisioningHeadline(
   }
 }
 
+/** Rótulo y bajada del panel de provisiones, con el MISMO criterio que la prosa del informe.
+ *
+ * 🔴 Existe porque el panel llevaba el copy **fijo** «Provisiones — la regla del máximo (CMF Cap.
+ * B-1)» / «La norma chilena obliga a constituir el MAYOR entre el método estándar de la CMF y el
+ * método interno del banco, a nivel de entidad (Circular N° 2.346). Montos en pesos (CLP).», y
+ * `ProvisioningSource` admite `provisioning_ifrs9` + `provisioning_internal` **sin CMF**: sobre esa
+ * corrida el panel afirmaba una norma chilena que no la rige. El informe ya no lo hace —`prose.py`
+ * gatea la cita del B-1 desde el 2026-08-05— y la corrección **no se había propagado a esta
+ * pantalla**, que es la que ve quien corre por la interfaz.
+ *
+ * El criterio es el de `prose.py:1601-1637`, replicado y no reinventado: se nombra el Cap. B-1 sólo
+ * si la comparación es estándar-CMF contra interno **y** a nivel de entidad, porque la regla del
+ * máximo del B-1 es por institución. Los valores (`cmf`, `internal`, `total`, `max`) son los que el
+ * backend publica.
+ *
+ * ⚠️ Y no se afirma ninguna moneda, en ningún caso: `report.currency` **no llega a este contrato**
+ * (medido), así que declararla sería suponerla — y D-MON-1 decidió que vacío significa **callar**.
+ */
+export function provisioningSectionCopy(
+  prov: ProvisioningResult | null | undefined,
+): { title: string; description: string } {
+  const isStandardInternal =
+    prov != null &&
+    ((prov.source_a === "cmf" && prov.source_b === "internal") ||
+      (prov.source_a === "internal" && prov.source_b === "cmf"))
+  const isB1Binding = isStandardInternal && prov?.comparison_level === "total"
+
+  if (isB1Binding && prov?.rule === "max") {
+    return {
+      title: "Provisiones — la regla del máximo (CMF Cap. B-1)",
+      description:
+        "El Compendio de Normas Contables para Bancos de la CMF de Chile —Cap. B-1, Circular " +
+        "N° 2.346— exige considerar el mayor valor entre el método estándar de la CMF y el método " +
+        "interno del banco, por institución.",
+    }
+  }
+  if (isB1Binding && prov?.rule === "use_internal") {
+    return {
+      title: "Provisiones — se reporta el método interno",
+      description:
+        "La corrida usa directamente el método interno. El Cap. B-1 permite esa ruta sólo cuando " +
+        "el método fue evaluado y no objetado; Nikodym no verifica esa condición.",
+    }
+  }
+  return {
+    title: "Provisiones — comparación entre dos fuentes",
+    description:
+      "La corrida compara las dos fuentes que configuraste y reporta la que manda según la regla " +
+      "elegida. El resultado es diagnóstico: no constituye por sí solo ninguna regla de " +
+      "constitución por institución.",
+  }
+}
+
 /** Barra de la comparación estándar-vs-interno-vs-reportado (chart del titular). */
 export interface ProvisioningBar {
   key: "standard" | "internal" | "reported"
