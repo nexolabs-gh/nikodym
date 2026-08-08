@@ -350,12 +350,12 @@ class Predicate(NikodymBaseConfig):
         default=None,
         title="Valor de comparación",
         description=(
-            "Escalar para los comparadores; lista de valores para 'in'/'notin'; vacío para "
-            "'isna'/'notna'. El valor conserva su tipo original (un `true` no se convierte en 1)."
+            "Escalar para los comparadores; lista para 'in'/'notin'; vacío para 'isna'/'notna'."
         ),
         json_schema_extra={
             "ui_help": "Valor contra el que se compara la columna. Para 'pertenece'/'no "
-            "pertenece' ingresa una lista de valores; para 'es nulo'/'no es nulo' déjalo vacío.",
+            "pertenece' ingresa una lista de valores; para 'es nulo'/'no es nulo' déjalo vacío. "
+            "El valor conserva su tipo original: un booleano no se convierte en 1.",
         },
     )
 

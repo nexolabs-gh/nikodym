@@ -158,6 +158,102 @@ def test_validate_config_invariante_de_dominio_no_revienta_el_endpoint() -> None
     assert "temporal_column" in error["msg"]
 
 
+@pytest.mark.parametrize(
+    "rama, campo",
+    [
+        ("beta_regression", "covariate_cols"),
+        ("fractional_response", "covariate_cols"),
+        ("workout", "recovery_col"),
+    ],
+)
+def test_un_error_de_dominio_que_pertenece_a_un_campo_llega_anclado(rama: str, campo: str) -> None:
+    """D-EXI-5: el ``loc`` lo declara el emisor, así que el formulario puede llevar al usuario ahí.
+
+    🔴 El defecto que cierra, medido en pantalla: elegir una rama modelada de LGD dejaba «Config
+    inválido · 1 error» **sin campo al que saltar**, mientras el gesto simétrico —elegir una
+    partición temporal sin su columna de fecha— sí marca el suyo. El traductor ponía ``loc: []``
+    siempre, con la razón correcta escrita: fabricarlo del texto del mensaje sería adivinar. La
+    salida no fue adivinarlo, fue que el ``raise`` lo declare.
+
+    ⚠️ La ruta va **absoluta desde la raíz**: el ``except`` que traduce vive en el endpoint y atrapa
+    la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe de qué sección viene.
+    """
+    resultado = routes.validate_config({"provisioning_internal": {"lgd": {"method": rama}}})
+
+    assert resultado["valid"] is False
+    error = resultado["errors"][0]
+    assert error["type"] == "config_error"
+    assert error["loc"] == ["provisioning_internal", "lgd", campo], (
+        f"el error de la rama {rama!r} no se ancló a su campo: sin `loc` el usuario lee qué le "
+        "falta y no tiene dónde ponerlo"
+    )
+    # Y el mensaje sigue siendo el del motor, sin reescribir: el `loc` se añade, no sustituye.
+    assert campo in error["msg"]
+
+
+def test_toda_ruta_declarada_por_un_error_resuelve_contra_el_config() -> None:
+    """El precio de que la ruta sea ABSOLUTA: sin vigilarla, un renombrado la deja en el vacío.
+
+    Mismo trato que la clave ``exige`` del abanico (D-EXI-2): una ruta escrita a mano que ya no
+    exista es peor que no anclar, porque manda al usuario a un campo que no está. Se resuelve contra
+    ``model_fields``, bajando por submodelos y por las ramas de una unión discriminada.
+    """
+    import types
+    import typing
+
+    from nikodym.core.config.schema import cargar_configs_de_dominio
+
+    secciones = cargar_configs_de_dominio()
+
+    def resuelve(ruta: list[str]) -> bool:
+        # 🔴 El primer tramo se resuelve contra el REGISTRO de dominio, no contra la anotación:
+        # medido, `NikodymConfig.model_fields["provisioning_internal"].annotation` es `typing.Any`
+        # —el blob opaco del núcleo liviano, que es diseño (SDD-23 §4.1)— así que bajar por la
+        # anotación devuelve nada. La clase real vive en `cargar_configs_de_dominio()`, que es
+        # exactamente cómo el motor la resuelve al coaccionar.
+        if not ruta or ruta[0] not in secciones:
+            return False
+        if len(ruta) == 1:
+            return True
+        modelos: list[Any] = [secciones[ruta[0]]]
+        for indice, nombre in enumerate(ruta[1:], start=1):
+            # En cada tramo basta que ALGÚN modelo del nivel declare el campo: con una unión
+            # discriminada, cada rama declara sólo los suyos.
+            candidatos = [m for m in modelos if nombre in getattr(m, "model_fields", {})]
+            if not candidatos:
+                return False
+            if indice == len(ruta) - 1:
+                return True
+            siguientes: list[Any] = []
+            for modelo in candidatos:
+                anotacion = modelo.model_fields[nombre].annotation
+                ramas = (
+                    typing.get_args(anotacion)
+                    if isinstance(anotacion, types.UnionType)
+                    or typing.get_origin(anotacion) is typing.Union
+                    else (anotacion,)
+                )
+                siguientes.extend(r for r in ramas if hasattr(r, "model_fields"))
+            if not siguientes:
+                return False  # quedan tramos y este campo no baja a ningún submodelo
+            modelos = siguientes
+        return False
+
+    # Las rutas que hoy se declaran, enumeradas: el universo es pequeño y enumerarlo es más fuerte
+    # que barrer los `raise` con AST, que no ve una ruta construida por concatenación.
+    rutas = [
+        ["provisioning_internal", "lgd", "covariate_cols"],
+        ["provisioning_internal", "lgd", "recovery_col"],
+    ]
+    for ruta in rutas:
+        assert resuelve(ruta), f"la ruta {ruta} que un error declara no existe en el config"
+
+    # Control negativo del propio resolvedor: una ruta inventada NO puede resolver, o este test
+    # daría verde sobre cualquier cosa.
+    assert not resuelve(["provisioning_internal", "lgd", "columna_que_no_existe"])
+    assert not resuelve(["seccion_inventada", "campo"])
+
+
 def test_los_mensajes_de_validacion_van_en_espanol() -> None:
     """La interfaz está en español y estos mensajes se pintan junto al campo: son copy público.
 

@@ -67,6 +67,16 @@ __all__ = [
     "InternalRoundingPolicy",
 ]
 
+#: Prefijo de la ruta de este dominio en ``NikodymConfig``, para anclar sus errores (D-EXI-5).
+#:
+#: ⚠️ En UN solo sitio y no repetido en cada ``raise``: la ruta que el error declara tiene que ser
+#: **absoluta desde la raíz del config** —el ``except`` que la traduce vive en el endpoint y
+#: atrapa la validación del ``NikodymConfig`` entero, así que ahí ya no se sabe qué sección la
+#: emitió—, y eso ata al dominio con el nombre de su campo en la raíz. Repetirlo por `raise`
+#: multiplicaría el sitio donde ese acoplamiento puede quedarse stale; concentrado aquí, lo
+#: vigila un gate que exige que toda ruta declarada resuelva contra ``NikodymConfig``.
+_LOC_SECCION: tuple[str, ...] = ("provisioning_internal",)
+
 _GROUP_COL_GROUPINGS: tuple[str, ...] = ("segment", "provided")
 # Las dos columnas entre las que un archivo puede volverse ambiguo (D-AMB-2): el default de
 # fábrica de este motor tras D-JUR-8 y el que traía antes, que sigue siendo el del método estándar
@@ -222,10 +232,14 @@ class _InternalLgdRegresion(_InternalLgdComun):
         default=None,
         title="Columna de tasa recuperada",
         description=(
-            "Columna con la FRACCIÓN recuperada de cada operación, entre 0 y 1. Si viene, el "
-            "objetivo del ajuste es 1 menos ese valor y manda sobre la columna de LGD."
+            "Columna con el MONTO recuperado de cada operación, en la moneda de la exposición."
         ),
         json_schema_extra={
+            "ui_help": (
+                "Columna con el MONTO recuperado de cada operación, en la misma moneda que "
+                "la exposición. No es una fracción: entra al valor presente que se divide "
+                "por la exposición."
+            ),
             "column_role": "input",
             "ui_widget": "text_input",
             "ui_group": "LGD",
@@ -292,7 +306,11 @@ class _InternalLgdRegresion(_InternalLgdComun):
         if not self.covariate_cols:
             raise InternalConfigError(
                 "Modelar la severidad exige al menos una variable explicativa en "
-                "lgd.covariate_cols."
+                "lgd.covariate_cols.",
+                # D-EXI-5: el error se ANCLA a su campo, para que el formulario pueda llevar ahí
+                # al usuario en vez de dejarle un mensaje sin control. La ruta va absoluta desde la
+                # raíz del config, y un gate exige que resuelva contra `NikodymConfig`.
+                loc=(*_LOC_SECCION, "lgd", "covariate_cols"),
             )
         return self
 
@@ -350,11 +368,14 @@ class InternalLgdWorkout(_InternalLgdComun):
         default=None,
         title="Columna de monto recuperado",
         description=(
-            "Columna con el MONTO recuperado de cada operación, en la misma moneda que la "
-            "exposición. No es una fracción: entra al valor presente que se divide por la "
-            "exposición."
+            "Columna con el MONTO recuperado de cada operación, en la moneda de la exposición."
         ),
         json_schema_extra={
+            "ui_help": (
+                "Columna con el MONTO recuperado de cada operación, en la misma moneda que la "
+                "exposición. No es una fracción: entra al valor presente que se divide por la "
+                "exposición."
+            ),
             "column_role": "input",
             "ui_widget": "text_input",
             "ui_group": "LGD",
@@ -442,7 +463,8 @@ class InternalLgdWorkout(_InternalLgdComun):
         if self.recovery_col is None:
             raise InternalConfigError(
                 "lgd.method='workout' exige recovery_col: sin lo recuperado no hay severidad que "
-                "calcular."
+                "calcular.",
+                loc=(*_LOC_SECCION, "lgd", "recovery_col"),  # D-EXI-5
             )
         _exigir_recovery_col_no_vacia(self.recovery_col)
         vacias = sorted(
@@ -562,12 +584,18 @@ class InternalProvisioningConfig(NikodymBaseConfig):
     portfolio_scheme: str | None = Field(
         default=None,
         title="Esquema de carteras",
-        description=(
-            "Identificador de la taxonomía de carteras que usa la columna anterior. Declararlo "
-            "permite comparar contra otro motor sin mapeo cuando ambos usan la misma taxonomía; "
-            "si se omite, la comparación exige un mapeo explícito entre taxonomías."
-        ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 21},
+        description=("Identificador de la taxonomía de carteras que usa la columna anterior."),
+        json_schema_extra={
+            "ui_help": (
+                "Identificador de la taxonomía de carteras que usa la columna anterior. "
+                "Declararlo permite comparar contra otro motor sin mapeo cuando ambos usan la "
+                "misma taxonomía; si se omite, la comparación exige un mapeo explícito entre "
+                "taxonomías."
+            ),
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 21,
+        },
     )
     exposure_col: str = Field(
         default="exposure_amount",

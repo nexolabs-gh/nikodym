@@ -51,7 +51,33 @@ from nikodym.ui.routes import schema_payload
 #: cuelga de la clase raíz de la sección ``report``, y las clases raíz de sección se empotran
 #: *inline* en el schema compuesto en vez de vivir en ``$defs`` — así que sólo tiene la coordenada
 #: ``sections``. Los que suben dos son los que cuelgan de un submodelo.
-HOJAS_DEL_FORMULARIO = 396
+#:
+#: 396 → 513 el 2026-08-08: el barrido de `_campos_visibles` pasa a bajar por **todas** las ramas
+#: de una unión discriminada y no sólo por la primera. 🔴 No hay hojas nuevas en el config: son las
+#: que el barrido no veía. Es el mismo defecto que el oráculo del abanico tuvo hasta ese día
+#: —«inspecciona la primera rama»— y la tercera vez que aparece en este repo.
+#:
+#: ⚠️ Verificado ENUMERADO y no ajustando el número, con baseline por `git archive HEAD` a un
+#: directorio aparte: **0 desapariciones** y **28 rutas nuevas** —las cuatro ramas de
+#: `data.partition.strategy` (temporal, cohort, random, columna) y los `value[]` de los predicados
+#: de regla—. El total sube más que las rutas porque una misma ruta aparece una vez por rama, con
+#: nodos
+#: distintos. Un golden que sólo sube puede tragarse una pérdida: aquí se comprobó que no la hay.
+HOJAS_DEL_FORMULARIO = 513
+
+#: Hojas que el barrido de PARIDAD contra el catálogo de defaults efectivos resuelve.
+#:
+#: 🔴 Es un golden distinto del de arriba **a propósito**, y hasta el 2026-08-08 compartían número
+#: por coincidencia, no por invariante. Los dos barridos miden cosas distintas: el de copy recorre
+#: **todas** las ramas de una unión discriminada, porque el formulario pinta las cinco formas y su
+#: texto se lee en todas; este otro compara contra `effective_defaults`, que proyecta la rama **por
+#: defecto** —es el valor que la corrida usaría—, así que bajar por las demás produciría «sin
+#: resolver» sobre nodos que el catálogo no publica y no tiene por qué publicar.
+#:
+#: ⚠️ Que sean dos no relaja nada: cada uno ancla su propio barrido, y la diferencia (117) es
+#: exactamente lo que aportan las ramas no primeras. Fundirlos otra vez volvería a atar dos medidas
+#: que no miden lo mismo.
+HOJAS_CON_DEFAULT_EFECTIVO = 396
 
 #: Descriptores de hoja que el barrido de paridad compara, en las DOS coordenadas (`$defs` y
 #: `sections`). Segundo golden, por la misma razón que el de 394: un barrido que recorra menos
@@ -862,8 +888,8 @@ def test_toda_hoja_visible_resuelve_como_lo_hace_el_formulario() -> None:
 
     assert sin_resolver == [], "\n".join(sin_resolver)
     if _formulario_completo():
-        assert resueltos == HOJAS_DEL_FORMULARIO, (
-            f"resueltos {resueltos} de {HOJAS_DEL_FORMULARIO} nodos visibles"
+        assert resueltos == HOJAS_CON_DEFAULT_EFECTIVO, (
+            f"resueltos {resueltos} de {HOJAS_CON_DEFAULT_EFECTIVO} nodos con default efectivo"
         )
     else:
         assert resueltos > 200

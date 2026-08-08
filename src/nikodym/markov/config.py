@@ -237,14 +237,22 @@ class MarkovDynamicsConfig(NikodymBaseConfig):
         default="period",
         title="Unidad temporal declarada",
         description=(
-            "Unidad en que están expresados los intervalos, horizontes y tiempos de evaluación: "
-            "'year', 'month', 'quarter', 'semester', 'week' o 'day' (también en español). Viaja "
-            "con la curva y el motor IFRS 9 la usa para descontar la pérdida esperada, así que "
-            "declararla mal —o dejarla en el valor por defecto 'period', que nombra un índice y no "
-            "una duración— cambia la provisión. Si no la declara, IFRS 9 asume años y lo deja "
-            "anotado en el resultado."
+            "Unidad de los intervalos, horizontes y tiempos de evaluación; por ejemplo "
+            "'month' o 'year'."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Dinámica", "ui_order": 2},
+        json_schema_extra={
+            "ui_help": (
+                "Unidad en que están expresados los intervalos, horizontes y tiempos de "
+                "evaluación: 'year', 'month', 'quarter', 'semester', 'week' o 'day' (también "
+                "en español). Viaja con la curva y el motor IFRS 9 la usa para descontar la "
+                "pérdida esperada, así que declararla mal —o dejarla en el valor por defecto "
+                "'period', que nombra un índice y no una duración— cambia la provisión. Si no "
+                "la declara, IFRS 9 asume años y lo deja anotado en el resultado."
+            ),
+            "ui_widget": "text_input",
+            "ui_group": "Dinámica",
+            "ui_order": 2,
+        },
     )
     horizon_periods: tuple[int, ...] = Field(
         default=(1, 2, 3, 4, 5),

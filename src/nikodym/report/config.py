@@ -385,12 +385,17 @@ class ReportConfig(NikodymBaseConfig):
         # que esta frase entera se leería DENTRO del input, sin hover. Con ejemplos el placeholder
         # queda corto y la frase larga se queda en el tooltip, que es su sitio.
         examples=["CLP", "PEN", "USD"],
-        description=(
-            "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares. El informe la declara "
-            "una vez por capítulo; los montos se escriben con el signo $ en cualquier caso. Si lo "
-            "dejas en blanco, el informe no afirma ninguna moneda."
-        ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "General", "ui_order": 5},
+        description=("Moneda en que están las cifras, por ejemplo CLP, PEN o dólares."),
+        json_schema_extra={
+            "ui_help": (
+                "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares. El informe "
+                "la declara una vez por capítulo; los montos se escriben con el signo $ en "
+                "cualquier caso. Si lo dejas en blanco, el informe no afirma ninguna moneda."
+            ),
+            "ui_widget": "text_input",
+            "ui_group": "General",
+            "ui_order": 5,
+        },
     )
     formats: tuple[BasicReportFormat, ...] = Field(
         default=("html",),

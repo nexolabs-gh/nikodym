@@ -417,6 +417,55 @@ def test_lo_que_exige_una_opcion_es_un_campo_que_el_motor_tiene() -> None:
             )
 
 
+def test_un_punto_que_no_aplica_siempre_declara_su_condicion() -> None:
+    """D-EXI-6: un punto de elección inerte se FILTRA, y su condición viaja como dato.
+
+    🔴 El defecto: con ``provisioning_internal.method='direct_loss_rate'`` la subsección ``lgd``
+    entera es inerte —``columnas_inactivas`` lo declara (D-SUB-2) y el motor no abre una sola
+    columna suya— y el formulario seguía ofreciendo el punto de la severidad. Elegir ahí una rama
+    modelada **rechazaba el config completo**, y el propio ``help`` prometía lo contrario.
+
+    ⚠️ Se cierra en la SUPERFICIE y no relajando el validador: mover la regla al padre obligaría
+    a que ``InternalLgdWorkout()`` dejara de fallar —dos clases públicas— y contradiría D-LGD, que
+    decidió que en una unión **la rama ES el método** y por eso la regla es incondicional. Medido al
+    implementarlo; no estaba en la enmienda.
+    """
+    condicion = None
+    for path, eleccion in _abanico().items():
+        cuando = eleccion.get("when")
+        if cuando is None:
+            continue
+        assert set(cuando) == {"path", "equals"}, (
+            f"{path}: la condición no tiene la forma del `when` de `external_artifacts`, que es el "
+            "precedente vivo. Un segundo lenguaje de condiciones en el front es lo que se evita."
+        )
+        # La ruta de la condición tiene que existir en el motor, o el punto se ocultaría siempre.
+        assert _valores_del_motor(cuando["path"]), f"{path}: `when.path` no ofrece valores"
+        assert cuando["equals"] in _valores_del_motor(cuando["path"]), (
+            f"{path}: `when.equals={cuando['equals']!r}` no es un valor que el motor acepte en "
+            f"{cuando['path']!r}, así que este punto no se mostraría nunca"
+        )
+        if path == "provisioning_internal.lgd.method":
+            condicion = cuando
+
+    assert condicion == {"path": "provisioning_internal.method", "equals": "pd_lgd"}, (
+        "el punto de la severidad dejó de declarar su condición: volvería a ofrecerse con la "
+        "subsección inerte, que es el defecto que D-EXI-6 cierra"
+    )
+
+
+def test_el_help_de_la_severidad_no_promete_que_da_igual() -> None:
+    """La frase que el defecto hacía falsa, atada a que no vuelva.
+
+    Decía que con la tasa de pérdida directa «esta elección no cambia el resultado». Era falso en el
+    peor sentido: no es que dé igual, es que **rechaza el config entero**. Ahora el punto no se
+    ofrece en ese caso, así que la frase no sólo era falsa: sobraba.
+    """
+    eleccion = _abanico()["provisioning_internal.lgd.method"]
+    assert "no cambia el resultado" not in eleccion["help"]
+    assert "Sólo se aplica si" not in eleccion["help"]
+
+
 def _ramas_de_union(anotacion: Any) -> list[type[BaseModel]]:
     if isinstance(anotacion, types.UnionType) or get_origin(anotacion) is Union:
         return [a for a in get_args(anotacion) if isinstance(a, type) and issubclass(a, BaseModel)]
@@ -576,7 +625,14 @@ def test_el_copy_no_enseña_el_path_ni_el_nombre_del_campo() -> None:
 
 def test_cada_punto_se_lee_como_una_pregunta_con_su_ayuda() -> None:
     for path, eleccion in _abanico().items():
-        assert set(eleccion) == {"path", "question", "help", "multiple", "options"}, path
+        # Este gate mide el LITERAL del catálogo, no el payload: ahí `when` es opcional (sólo la
+        # declara un punto que no aplica siempre, D-EXI-6). Se exige por los dos lados igual —las
+        # obligatorias presentes y nada ajeno—, que es lo que impide que una clave nueva se cuele
+        # sin decisión detrás; su publicación al contrato REST la vigila `_exige_claves`.
+        assert set(eleccion) >= jobs._CLAVES_DE_ELECCION, path
+        assert not set(eleccion) - jobs._CLAVES_DE_ELECCION - jobs._CLAVES_OPCIONALES_DE_ELECCION, (
+            f"{path}: clave del abanico que nadie decidió cómo publicar"
+        )
         assert eleccion["question"].endswith("?"), f"{path}: la pregunta no pregunta"
         assert len(eleccion["help"]) > 40, f"{path}: la ayuda no ayuda"
         assert len(eleccion["options"]) > 1, f"{path}: un abanico de una sola opción no es abanico"

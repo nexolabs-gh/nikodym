@@ -154,11 +154,17 @@ class CalibrationValidationConfig(NikodymBaseConfig):
         gt=0.0,
         lt=1.0,
         title="Corte verde/ámbar (p-valor)",
-        description=(
-            "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un default "
-            "institucional, no un umbral fijado por norma: fíjelo según su política de validación."
-        ),
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Semáforo", "ui_order": 1},
+        description=("Corte del semáforo verde/ámbar sobre el p-valor del test por grado."),
+        json_schema_extra={
+            "ui_help": (
+                "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un "
+                "default institucional, no un umbral fijado por norma: fíjelo según su "
+                "política de validación."
+            ),
+            "ui_widget": "number_input",
+            "ui_group": "Semáforo",
+            "ui_order": 1,
+        },
     )
     traffic_light_red_alpha: float = Field(
         default=0.01,

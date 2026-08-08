@@ -120,12 +120,17 @@ class ReasonCodesConfig(NikodymBaseConfig):
         ge=1,
         le=50,
         title="N de reason codes",
-        description=(
-            "Nº de drivers principales por observación; el default 5 sigue los 'key factors' de "
-            "ECOA/FCRA y NO responde a la norma de ningún supervisor: el número lo fija su "
-            "institución."
-        ),
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Reason codes", "ui_order": 1},
+        description=("Nº de drivers principales por observación."),
+        json_schema_extra={
+            "ui_help": (
+                "Nº de drivers principales por observación; el default 5 sigue los 'key "
+                "factors' de ECOA/FCRA y NO responde a la norma de ningún supervisor: el "
+                "número lo fija su institución."
+            ),
+            "ui_widget": "number_input",
+            "ui_group": "Reason codes",
+            "ui_order": 1,
+        },
     )
     include_protective: bool = Field(
         default=False,

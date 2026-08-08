@@ -5592,9 +5592,9 @@
               }
             ],
             "default": null,
-            "description": "Escalar para los comparadores; lista de valores para 'in'/'notin'; vacío para 'isna'/'notna'. El valor conserva su tipo original (un `true` no se convierte en 1).",
+            "description": "Escalar para los comparadores; lista para 'in'/'notin'; vacío para 'isna'/'notna'.",
             "title": "Valor de comparación",
-            "ui_help": "Valor contra el que se compara la columna. Para 'pertenece'/'no pertenece' ingresa una lista de valores; para 'es nulo'/'no es nulo' déjalo vacío."
+            "ui_help": "Valor contra el que se compara la columna. Para 'pertenece'/'no pertenece' ingresa una lista de valores; para 'es nulo'/'no es nulo' déjalo vacío. El valor conserva su tipo original: un booleano no se convierte en 1."
           }
         },
         "required": [
@@ -6363,12 +6363,13 @@
           },
           "top_n": {
             "default": 5,
-            "description": "Nº de drivers principales por observación; el default 5 sigue los 'key factors' de ECOA/FCRA y NO responde a la norma de ningún supervisor: el número lo fija su institución.",
+            "description": "Nº de drivers principales por observación.",
             "maximum": 50,
             "minimum": 1,
             "title": "N de reason codes",
             "type": "integer",
             "ui_group": "Reason codes",
+            "ui_help": "Nº de drivers principales por observación; el default 5 sigue los 'key factors' de ECOA/FCRA y NO responde a la norma de ningún supervisor: el número lo fija su institución.",
             "ui_order": 1,
             "ui_widget": "number_input"
           }
@@ -7195,10 +7196,11 @@
           },
           "time_unit": {
             "default": "period",
-            "description": "Unidad en que están expresados los intervalos, horizontes y tiempos de evaluación: 'year', 'month', 'quarter', 'semester', 'week' o 'day' (también en español). Viaja con la curva y el motor IFRS 9 la usa para descontar la pérdida esperada, así que declararla mal —o dejarla en el valor por defecto 'period', que nombra un índice y no una duración— cambia la provisión. Si no la declara, IFRS 9 asume años y lo deja anotado en el resultado.",
+            "description": "Unidad de los intervalos, horizontes y tiempos de evaluación; por ejemplo 'month' o 'year'.",
             "title": "Unidad temporal declarada",
             "type": "string",
             "ui_group": "Dinámica",
+            "ui_help": "Unidad en que están expresados los intervalos, horizontes y tiempos de evaluación: 'year', 'month', 'quarter', 'semester', 'week' o 'day' (también en español). Viaja con la curva y el motor IFRS 9 la usa para descontar la pérdida esperada, así que declararla mal —o dejarla en el valor por defecto 'period', que nombra un índice y no una duración— cambia la provisión. Si no la declara, IFRS 9 asume años y lo deja anotado en el resultado.",
             "ui_order": 2,
             "ui_widget": "text_input"
           }
@@ -8250,10 +8252,11 @@
           },
           "is_default_col": {
             "default": "is_default",
-            "description": "Columna booleana con el incumplimiento declarado por el banco: fuerza el factor de conversión B-3 a 100 % en contingentes y, en cartera consumo, clasifica al deudor en incumplimiento (PI 100 %) aunque su mora sea menor a 90 días.",
+            "description": "Columna booleana con el incumplimiento declarado por el banco.",
             "title": "Indicador incumplimiento",
             "type": "string",
             "ui_group": "Exposición",
+            "ui_help": "Columna booleana con el incumplimiento declarado por el banco: fuerza el factor de conversión B-3 a 100 % en contingentes y, en cartera consumo, clasifica al deudor en incumplimiento (PI 100 %) aunque su mora sea menor a 90 días.",
             "ui_order": 4,
             "ui_widget": "text_input"
           },
@@ -8338,10 +8341,11 @@
         "properties": {
           "active_version": {
             "default": "cmf_b1_b3_2025_01",
-            "description": "Identificador del bundle B-1/B-3 empaquetado que se usará para el cálculo CMF. Es un caso de referencia congelado: sus tablas se extrajeron del texto oficial el 2026-06-23 y no se actualizan con cada circular, así que exigen validación humana contra la norma vigente antes de cualquier uso productivo. Cada matriz tiene además su propia fecha de vigencia y la más antigua en uso es de 2014; el identificador nombra la última circular incorporada, no la antigüedad del conjunto.",
+            "description": "Identificador del bundle B-1/B-3 empaquetado que se usará para el cálculo CMF.",
             "title": "Versión normativa activa",
             "type": "string",
             "ui_group": "Matrices",
+            "ui_help": "Identificador del bundle B-1/B-3 empaquetado que se usará para el cálculo CMF. Es un caso de referencia congelado: sus tablas se extrajeron del texto oficial el 2026-06-23 y no se actualizan con cada circular, así que exigen validación humana contra la norma vigente antes de cualquier uso productivo. Cada matriz tiene además su propia fecha de vigencia y la más antigua en uso es de 2014; el identificador nombra la última circular incorporada, no la antigüedad del conjunto.",
             "ui_order": 1,
             "ui_widget": "selectbox"
           },
@@ -8522,9 +8526,10 @@
               }
             ],
             "default": null,
-            "description": "Reservada: el perfil de exposición EAD(t) por período aún no está implementado. Informar esta columna detiene la corrida con error, porque una columna escalar no puede representar la EAD período a período.",
+            "description": "Reservada: el perfil de exposición EAD(t) por período aún no está implementado.",
             "title": "Perfil EAD(t) longitudinal (reservado)",
             "ui_group": "EAD",
+            "ui_help": "Reservada: el perfil de exposición EAD(t) por período aún no está implementado. Informar esta columna detiene la corrida con error, porque una columna escalar no puede representar la EAD período a período.",
             "ui_order": 7,
             "ui_widget": "text_input"
           },
@@ -8793,9 +8798,10 @@
               }
             ],
             "default": null,
-            "description": "Reservada: la correlación por fila aún no está implementada. El motor usa el escalar «rho» de PD por cartera y, si se informa esta columna, detiene la corrida con error en vez de aplicar el escalar en silencio.",
+            "description": "Reservada: la correlación por fila aún no está implementada.",
             "title": "Columna de rho por fila (reservada)",
             "ui_group": "PD",
+            "ui_help": "Reservada: la correlación por fila aún no está implementada. El motor usa el escalar «rho» de PD por cartera y, si se informa esta columna, detiene la corrida con error en vez de aplicar el escalar en silencio.",
             "ui_order": 5,
             "ui_widget": "text_input"
           },
@@ -9033,11 +9039,12 @@
           },
           "sicr_pd_ratio_threshold": {
             "default": 2.0,
-            "description": "Umbral del ratio PD lifetime actual/origen que dispara el paso a Stage 2. El default 2,0 es el disparador de referencia; el motor admite cualquier valor mayor que 1, y moverlo cambia la población clasificada en Stage 2.",
+            "description": "Umbral del ratio PD lifetime actual/origen que dispara el paso a Stage 2.",
             "exclusiveMinimum": 1.0,
             "title": "Ratio PD lifetime actual/origen",
             "type": "number",
             "ui_group": "Staging",
+            "ui_help": "Umbral del ratio PD lifetime actual/origen que dispara el paso a Stage 2. El default 2,0 es el disparador de referencia; el motor admite cualquier valor mayor que 1, y moverlo cambia la población clasificada en Stage 2.",
             "ui_order": 1,
             "ui_widget": "number_input"
           },
@@ -9132,9 +9139,10 @@
             ],
             "column_role": "input",
             "default": null,
-            "description": "Columna con la FRACCIÓN recuperada de cada operación, entre 0 y 1. Si viene, el objetivo del ajuste es 1 menos ese valor y manda sobre la columna de LGD.",
+            "description": "Columna con el MONTO recuperado de cada operación, en la moneda de la exposición.",
             "title": "Columna de tasa recuperada",
             "ui_group": "LGD",
+            "ui_help": "Columna con el MONTO recuperado de cada operación, en la misma moneda que la exposición. No es una fracción: entra al valor presente que se divide por la exposición.",
             "ui_order": 5,
             "ui_widget": "text_input"
           }
@@ -9212,9 +9220,10 @@
             ],
             "column_role": "input",
             "default": null,
-            "description": "Columna con la FRACCIÓN recuperada de cada operación, entre 0 y 1. Si viene, el objetivo del ajuste es 1 menos ese valor y manda sobre la columna de LGD.",
+            "description": "Columna con el MONTO recuperado de cada operación, en la moneda de la exposición.",
             "title": "Columna de tasa recuperada",
             "ui_group": "LGD",
+            "ui_help": "Columna con el MONTO recuperado de cada operación, en la misma moneda que la exposición. No es una fracción: entra al valor presente que se divide por la exposición.",
             "ui_order": 5,
             "ui_widget": "text_input"
           }
@@ -9379,9 +9388,10 @@
             ],
             "column_role": "input",
             "default": null,
-            "description": "Columna con el MONTO recuperado de cada operación, en la misma moneda que la exposición. No es una fracción: entra al valor presente que se divide por la exposición.",
+            "description": "Columna con el MONTO recuperado de cada operación, en la moneda de la exposición.",
             "title": "Columna de monto recuperado",
             "ui_group": "LGD",
+            "ui_help": "Columna con el MONTO recuperado de cada operación, en la misma moneda que la exposición. No es una fracción: entra al valor presente que se divide por la exposición.",
             "ui_order": 5,
             "ui_widget": "text_input"
           },
@@ -11160,10 +11170,11 @@
           },
           "time_unit": {
             "default": "period",
-            "description": "Unidad en que están expresados los tiempos de la curva: 'year', 'month', 'quarter', 'semester', 'week' o 'day' (también en español). Viaja con la curva y el motor IFRS 9 la usa para descontar la pérdida esperada, así que declararla mal —o dejarla en el valor por defecto 'period', que nombra un índice y no una duración— cambia la provisión. Si no la declara, IFRS 9 asume años y lo deja anotado en el resultado.",
+            "description": "Unidad de los tiempos de la curva; por ejemplo 'month' o 'year'.",
             "title": "Unidad temporal",
             "type": "string",
             "ui_group": "Horizonte",
+            "ui_help": "Unidad en que están expresados los tiempos de la curva: 'year', 'month', 'quarter', 'semester', 'week' o 'day' (también en español). Viaja con la curva y el motor IFRS 9 la usa para descontar la pérdida esperada, así que declararla mal —o dejarla en el valor por defecto 'period', que nombra un índice y no una duración— cambia la provisión. Si no la declara, IFRS 9 asume años y lo deja anotado en el resultado.",
             "ui_order": 1,
             "ui_widget": "text_input"
           }
@@ -11689,12 +11700,13 @@
           },
           "traffic_light_green_alpha": {
             "default": 0.05,
-            "description": "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un default institucional, no un umbral fijado por norma: fíjelo según su política de validación.",
+            "description": "Corte del semáforo verde/ámbar sobre el p-valor del test por grado.",
             "exclusiveMaximum": 1.0,
             "exclusiveMinimum": 0.0,
             "title": "Corte verde/ámbar (p-valor)",
             "type": "number",
             "ui_group": "Semáforo",
+            "ui_help": "Corte del semáforo verde/ámbar sobre el p-valor del test por grado. Es un default institucional, no un umbral fijado por norma: fíjelo según su política de validación.",
             "ui_order": 1,
             "ui_widget": "number_input"
           },
@@ -12473,10 +12485,10 @@
                   }
                 ],
                 "default": null,
-                "description": "Tasa central de anclaje, entre 0 y 1. Con la fuente development_observed se deja vacía: esa fuente estima la tasa central TTC como el promedio de largo plazo observado en Desarrollo, así que fijar aquí un número es un error y la configuración lo rechaza en vez de descartarlo en silencio. Con las fuentes 'business_input', 'historical_default_rate' y 'external_regulatory' es OBLIGATORIA y explícita: esas fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la configuración falla en vez de anclar a un número inventado.",
+                "description": "Tasa central de anclaje, entre 0 y 1.",
                 "title": "PD objetivo",
                 "ui_group": "Ancla",
-                "ui_help": "Tasa central (PD promedio) a la que se ancla la calibración. Debe informarse si la fuente de la ancla no se deriva de Desarrollo; si se deja vacía con anchor_source='development_observed', se calcula sola como el promedio observado.",
+                "ui_help": "Tasa central (PD promedio) a la que se ancla la calibración, entre 0 y 1. Con la fuente development_observed se deja VACÍA: esa fuente la estima como el promedio de largo plazo observado en Desarrollo, así que fijar aquí un número es un error y la configuración lo rechaza en vez de descartarlo en silencio. Con 'business_input', 'historical_default_rate' y 'external_regulatory' es OBLIGATORIA y explícita: esas fuentes no derivan la tasa de los datos, así que sin ella la configuración falla en vez de anclar a un número inventado.",
                 "ui_order": 1,
                 "ui_widget": "number_input"
               },
@@ -13223,12 +13235,12 @@
               },
               "fit_maxiter": {
                 "default": 100,
-                "description": "Iteraciones máximas del ajuste estadístico; Nikodym eleva a propósito el límite por defecto de statsmodels. No controla las rondas del stepwise, que se fijan en `model.stepwise.max_iter`.",
+                "description": "Iteraciones máximas del ajuste estadístico.",
                 "minimum": 1,
                 "title": "Iteraciones máximas del ajuste",
                 "type": "integer",
                 "ui_group": "Ajuste",
-                "ui_help": "Número máximo de iteraciones que puede dar el ajuste estadístico antes de declarar que no convergió. Subirlo puede ayudar en modelos con varias variables que convergen lento.",
+                "ui_help": "Número máximo de iteraciones que puede dar el ajuste estadístico antes de declarar que no convergió. Subirlo puede ayudar en modelos con varias variables que convergen lento; Nikodym eleva a propósito el límite por defecto de statsmodels. No controla las rondas del stepwise, que se fijan en model.stepwise.max_iter.",
                 "ui_order": 4,
                 "ui_widget": "number_input"
               },
@@ -14009,9 +14021,10 @@
                   }
                 ],
                 "default": null,
-                "description": "Identificador de la taxonomía de carteras que usa la columna anterior. Declararlo permite comparar contra otro motor sin mapeo cuando ambos usan la misma taxonomía; si se omite, la comparación exige un mapeo explícito entre taxonomías.",
+                "description": "Identificador de la taxonomía de carteras que usa la columna anterior.",
                 "title": "Esquema de carteras",
                 "ui_group": "Columnas",
+                "ui_help": "Identificador de la taxonomía de carteras que usa la columna anterior. Declararlo permite comparar contra otro motor sin mapeo cuando ambos usan la misma taxonomía; si se omite, la comparación exige un mapeo explícito entre taxonomías.",
                 "ui_order": 22,
                 "ui_widget": "text_input"
               },
@@ -14261,9 +14274,10 @@
                   }
                 ],
                 "default": null,
-                "description": "Identificador de la taxonomía de carteras que usa la columna anterior. Declararlo permite comparar contra otro motor sin mapeo cuando ambos usan la misma taxonomía; si se omite, la comparación exige un mapeo explícito entre taxonomías.",
+                "description": "Identificador de la taxonomía de carteras que usa la columna anterior.",
                 "title": "Esquema de carteras",
                 "ui_group": "Columnas",
+                "ui_help": "Identificador de la taxonomía de carteras que usa la columna anterior. Declararlo permite comparar contra otro motor sin mapeo cuando ambos usan la misma taxonomía; si se omite, la comparación exige un mapeo explícito entre taxonomías.",
                 "ui_order": 21,
                 "ui_widget": "text_input"
               },
@@ -14345,7 +14359,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares. El informe la declara una vez por capítulo; los montos se escriben con el signo $ en cualquier caso. Si lo dejas en blanco, el informe no afirma ninguna moneda.",
+                "description": "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares.",
                 "examples": [
                   "CLP",
                   "PEN",
@@ -14353,6 +14367,7 @@
                 ],
                 "title": "Moneda de los montos",
                 "ui_group": "General",
+                "ui_help": "Moneda en que están las cifras, por ejemplo CLP, PEN o dólares. El informe la declara una vez por capítulo; los montos se escriben con el signo $ en cualquier caso. Si lo dejas en blanco, el informe no afirma ninguna moneda.",
                 "ui_order": 5,
                 "ui_widget": "text_input"
               },
@@ -15118,9 +15133,10 @@
                 ],
                 "column_role": "input",
                 "default": null,
-                "description": "Si se deja vacía y el eje temporal no es 'none', se infiere de los datos cuando hay una sola columna candidata; si hay varias o ninguna, la corrida se detiene con error.",
+                "description": "Columna del eje temporal; vacía la infiere de los datos si hay una sola candidata.",
                 "title": "Columna de período/cohorte",
                 "ui_group": "Temporal",
+                "ui_help": "Si se deja vacía y el eje temporal no es 'none', se infiere de los datos cuando hay una sola columna candidata; si hay varias o ninguna, la corrida se detiene con error.",
                 "ui_order": 2,
                 "ui_widget": "text_input"
               },

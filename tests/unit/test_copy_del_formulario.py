@@ -87,9 +87,36 @@ def _campos_visibles() -> list[tuple[str, dict[str, Any]]]:
                     return {**heredado, **hijo}
         return nodo
 
+    def ramas_de(nodo: dict[str, Any]) -> list[dict[str, Any]]:
+        """Las ramas no-nulas de una unión, TODAS.
+
+        🔴 ``resolver`` se queda con la **primera**, y eso dejaba fuera del gate cualquier campo que
+        sólo exista en otra rama: con la unión discriminada de la LGD del método interno, el
+        formulario pinta cinco formas y este barrido veía una. Es el mismo defecto que el oráculo
+        del abanico tuvo hasta el 2026-08-08 —«inspecciona la primera rama»— y la tercera vez que
+        aparece en este repo. Medido al cerrarlo: la cobertura pasa de 192 a **424 rutas**, y los
+        otros dos gates de este archivo siguen en cero ofensores.
+        """
+        ramas = [
+            r
+            for r in (nodo.get("anyOf") or nodo.get("oneOf") or [])
+            if isinstance(r, dict) and r.get("type") != "null"
+        ]
+        if len(ramas) < 2:
+            return []
+        heredado = {k: v for k, v in nodo.items() if k not in ("anyOf", "oneOf")}
+        return [{**heredado, **resolver(r, visto_vacio)} for r in ramas]
+
+    visto_vacio: tuple[str, ...] = ()
+
     campos: list[tuple[str, dict[str, Any]]] = []
 
     def recorrer(nodo: Any, ruta: str, visto: tuple[str, ...] = ()) -> None:
+        if ramas := ramas_de(nodo if isinstance(nodo, dict) else {}):
+            # Una unión de VARIAS ramas se recorre entera: cada forma pinta campos distintos.
+            for rama in ramas:
+                recorrer(rama, ruta, visto)
+            return
         resuelto = resolver(nodo, visto)
         if resuelto.get("ui_widget") == "hidden":
             return  # fontanería del config: no se pinta, así que no es copy
@@ -211,3 +238,83 @@ def test_el_gate_de_delimitadores_caza_lo_que_promete() -> None:
     assert not _desbalance("La tasa central (TTC) se estima de Desarrollo.")
     assert not _desbalance("Columnas [a, b] y su rango (0, 1).")
     assert not _desbalance("Sin ningún delimitador.")
+
+
+# --------------------------------------------------------------------------------------------
+# Y la LONGITUD, porque una `description` no es sólo el tooltip: es el placeholder del input.
+# --------------------------------------------------------------------------------------------
+
+#: Tope de la `description` de un campo que se pinta como placeholder.
+#:
+#: 🔴 No es una preferencia de estilo: `fieldPlaceholder` (`form-engine.ts:348`) devuelve la
+#: `description` cuando el campo no declara `examples`, y el front la pasa como `placeholder` de los
+#: inputs de número y de texto libre. Un párrafo de 551 caracteres **dentro de un input** no se lee:
+#: se ve como un borrón que tapa el control.
+#:
+#: ⚠️ Y el tope no obliga a perder información, que era el riesgo de acortar: el detalle baja a
+#: `ui_help`, que es el tooltip ⓘ y admite el texto largo (`fieldHelp` lo prefiere sobre la
+#: `description`). Medido al cerrarlo: 16 campos pasaban de 160 caracteres, el peor con 551, y
+#: **ninguno era de las descripciones nuevas de LGD** —la deuda del HANDOFF lo atribuía a eso y la
+#: medición lo refutó: la mediana de los 354 placeholders es 67 y los peores eran preexistentes.
+_TOPE_PLACEHOLDER = 160
+
+#: Los tipos cuyo control recibe el placeholder. Un `enum` se pinta como selector y un `const` es el
+#: tag de una unión discriminada: ninguno de los dos muestra placeholder, así que su `description`
+#: sólo viaja al tooltip y el tope no le aplica.
+_TIPOS_CON_PLACEHOLDER = frozenset({"number", "integer", "string"})
+
+
+def _recibe_placeholder(nodo: dict[str, Any]) -> bool:
+    return (
+        nodo.get("type") in _TIPOS_CON_PLACEHOLDER and not nodo.get("enum") and "const" not in nodo
+    )
+
+
+def test_ninguna_description_que_se_pinta_como_placeholder_es_un_parrafo() -> None:
+    """Cierra la clase: el texto que se lee DENTRO del input tiene que caber en el input."""
+    ofensores = [
+        f"{ruta} — {len(nodo['description'])} caracteres: {nodo['description'][:60]!r}…"
+        for ruta, nodo in _campos_visibles()
+        if isinstance(nodo.get("description"), str)
+        and _recibe_placeholder(nodo)
+        and len(nodo["description"]) > _TOPE_PLACEHOLDER
+    ]
+    assert ofensores == [], (
+        "hay descriptions que se pintan dentro del input y no caben:\n"
+        + "\n".join(ofensores)
+        + f"\n\nEl tope son {_TOPE_PLACEHOLDER} caracteres. NO se resuelve borrando información: "
+        "el detalle baja a `ui_help`, que es el tooltip y no tiene tope."
+    )
+
+
+def test_el_gate_del_placeholder_no_es_vacuo() -> None:
+    """Anclas: si el barrido no viera campos con placeholder, el de arriba pasaría midiendo nada.
+
+    Y un control positivo del criterio: los campos que NO reciben placeholder —selectores y tags de
+    unión— tienen que quedar fuera, o el gate acusaría descripciones que sólo se leen en el tooltip.
+    """
+    campos = _campos_visibles()
+    con_placeholder = [
+        ruta
+        for ruta, nodo in campos
+        if isinstance(nodo.get("description"), str) and _recibe_placeholder(nodo)
+    ]
+    assert len(con_placeholder) > 220, f"sólo {len(con_placeholder)} campos reciben placeholder"
+    # Un campo concreto de cada tipo, para que el filtro no pueda degenerar a «ninguno».
+    assert "report.document.model_name" in con_placeholder  # texto libre
+    assert any(r.endswith("max_n_bins") for r in con_placeholder)  # número
+    # 🔴 Y un campo que sólo existe en una rama NO PRIMERA de una unión discriminada: es lo que
+    # el barrido no veía, y ahí vivía uno de los 16 que se acortaron al cerrar esta deuda.
+    assert "provisioning_internal.lgd.recovery_col" in con_placeholder
+
+    # Control positivo del criterio: un selector NO entra, aunque su description sea larga.
+    selectores = [
+        ruta
+        for ruta, nodo in campos
+        if nodo.get("enum") and isinstance(nodo.get("description"), str)
+    ]
+    assert selectores, "el formulario tiene selectores: si no se ven, el filtro está mal"
+    assert not set(selectores) & set(con_placeholder), (
+        "un campo con `enum` se pinta como selector y no muestra placeholder: no puede estar en "
+        "los dos conjuntos"
+    )

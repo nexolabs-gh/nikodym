@@ -86,24 +86,20 @@ class CalibrationConfig(NikodymBaseConfig):
         gt=0.0,
         lt=1.0,
         title="PD objetivo",
-        description=(
-            "Tasa central de anclaje, entre 0 y 1. Con la fuente development_observed se deja "
-            "vacía: esa fuente estima la tasa central TTC como el promedio de largo plazo "
-            "observado en Desarrollo, así que fijar aquí un número es un error y la configuración "
-            "lo rechaza en vez de descartarlo en silencio. Con las fuentes 'business_input', "
-            "'historical_default_rate' y 'external_regulatory' es OBLIGATORIA y explícita: esas "
-            "fuentes no derivan la tasa de los datos y no hay placeholder válido; sin target_pd la "
-            "configuración falla en vez de anclar a un número inventado."
-        ),
+        description=("Tasa central de anclaje, entre 0 y 1."),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Ancla",
             "ui_order": 1,
             "ui_help": (
-                "Tasa central (PD promedio) a la que se ancla la calibración. Debe informarse "
-                "si la fuente de la ancla no se deriva de Desarrollo; si se deja vacía con "
-                "anchor_source='development_observed', se calcula sola como el promedio "
-                "observado."
+                "Tasa central (PD promedio) a la que se ancla la calibración, entre 0 y 1. Con la "
+                "fuente development_observed se deja VACÍA: esa fuente la estima como el promedio "
+                "de largo plazo observado en Desarrollo, así que fijar aquí un número es un "
+                "error y la configuración lo rechaza en vez de descartarlo en silencio. Con "
+                "'business_input', 'historical_default_rate' y 'external_regulatory' es "
+                "OBLIGATORIA y explícita: esas fuentes no derivan la tasa de los datos, así que "
+                "sin ella la "
+                "configuración falla en vez de anclar a un número inventado."
             ),
         },
     )

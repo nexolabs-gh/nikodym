@@ -178,6 +178,19 @@ export interface MethodologyChoice {
   /** Si el motor admite varias opciones a la vez: casillas en vez de un selector. */
   multiple: boolean
   options: MethodologyOption[]
+  /**
+   * Condición del config bajo la que este punto APLICA; `null` cuando aplica siempre (D-EXI-6).
+   *
+   * 🔴 Existe porque un punto que no aplica y se ofrece igual es un callejón: con
+   * `provisioning_internal.method='direct_loss_rate'` la subsección `lgd` entera es inerte —el
+   * motor no abre una sola columna suya— y elegir ahí una rama modelada rechazaba el config
+   * ENTERO. Se cierra aquí y no relajando el validador, que obligaría a que dos clases públicas
+   * dejaran de fallar y contradiría D-LGD («la rama ES el método»).
+   *
+   * ⚠️ Misma forma que el `when` de `external_artifacts`, que es el precedente vivo: reutilizarla
+   * evita un segundo lenguaje de condiciones en el front.
+   */
+  when: { path: string; equals: string } | null
 }
 
 /**
@@ -730,11 +743,19 @@ export function methodologyStatuses(
   config: Record<string, unknown> | null,
 ): MethodologyStatus[] {
   if (job === null || config === null) return []
-  return job.methodology_choices.map((choice) => {
-    const valor = valueAtPath(config, choice.path)
-    return {
-      ...choice,
-      elegida: typeof valor === "string" ? valor : null,
-    }
-  })
+  return job.methodology_choices
+    // Un punto con `when` sólo aplica si el config cumple su condición (D-EXI-6). Se FILTRA en vez
+    // de pintarse en gris: no es una elección bloqueada —el usuario podría desbloquearla— sino una
+    // pregunta que con este método no tiene sentido hacer.
+    .filter(
+      (choice) =>
+        choice.when === null || valueAtPath(config, choice.when.path) === choice.when.equals,
+    )
+    .map((choice) => {
+      const valor = valueAtPath(config, choice.path)
+      return {
+        ...choice,
+        elegida: typeof valor === "string" ? valor : null,
+      }
+    })
 }

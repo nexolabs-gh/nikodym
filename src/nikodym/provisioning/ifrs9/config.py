@@ -115,12 +115,17 @@ class IfrsPdConfig(NikodymBaseConfig):
         default=None,
         title="Columna de rho por fila (reservada)",
         # Sin backticks: el tooltip se pinta como texto plano y se veían literales en pantalla.
-        description=(
-            "Reservada: la correlación por fila aún no está implementada. El motor usa el "
-            "escalar «rho» de PD por cartera y, si se informa esta columna, detiene la corrida "
-            "con error en vez de aplicar el escalar en silencio."
-        ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "PD", "ui_order": 5},
+        description=("Reservada: la correlación por fila aún no está implementada."),
+        json_schema_extra={
+            "ui_help": (
+                "Reservada: la correlación por fila aún no está implementada. El motor usa el "
+                "escalar «rho» de PD por cartera y, si se informa esta columna, detiene la "
+                "corrida con error en vez de aplicar el escalar en silencio."
+            ),
+            "ui_widget": "text_input",
+            "ui_group": "PD",
+            "ui_order": 5,
+        },
     )
     # Se busca en la term-structure, no en el archivo del usuario.
     systemic_factor_col: str | None = Field(
@@ -397,11 +402,18 @@ class IfrsEadConfig(NikodymBaseConfig):
         default=None,
         title="Perfil EAD(t) longitudinal (reservado)",
         description=(
-            "Reservada: el perfil de exposición EAD(t) por período aún no está implementado. "
-            "Informar esta columna detiene la corrida con error, porque una columna escalar no "
-            "puede representar la EAD período a período."
+            "Reservada: el perfil de exposición EAD(t) por período aún no está implementado."
         ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "EAD", "ui_order": 7},
+        json_schema_extra={
+            "ui_help": (
+                "Reservada: el perfil de exposición EAD(t) por período aún no está "
+                "implementado. Informar esta columna detiene la corrida con error, porque una "
+                "columna escalar no puede representar la EAD período a período."
+            ),
+            "ui_widget": "text_input",
+            "ui_group": "EAD",
+            "ui_order": 7,
+        },
     )
 
     @model_validator(mode="after")
@@ -461,12 +473,17 @@ class IfrsStagingConfig(NikodymBaseConfig):
         default=2.0,
         gt=1.0,
         title="Ratio PD lifetime actual/origen",
-        description=(
-            "Umbral del ratio PD lifetime actual/origen que dispara el paso a Stage 2. El "
-            "default 2,0 es el disparador de referencia; el motor admite cualquier valor mayor "
-            "que 1, y moverlo cambia la población clasificada en Stage 2."
-        ),
-        json_schema_extra={"ui_widget": "number_input", "ui_group": "Staging", "ui_order": 1},
+        description=("Umbral del ratio PD lifetime actual/origen que dispara el paso a Stage 2."),
+        json_schema_extra={
+            "ui_help": (
+                "Umbral del ratio PD lifetime actual/origen que dispara el paso a Stage 2. "
+                "El default 2,0 es el disparador de referencia; el motor admite cualquier "
+                "valor mayor que 1, y moverlo cambia la población clasificada en Stage 2."
+            ),
+            "ui_widget": "number_input",
+            "ui_group": "Staging",
+            "ui_order": 1,
+        },
     )
     sicr_pd_pit_backstop_multiple: float = Field(
         default=3.0,
@@ -807,12 +824,18 @@ class IfrsProvisioningConfig(NikodymBaseConfig):
     portfolio_scheme: str | None = Field(
         default=None,
         title="Esquema de carteras",
-        description=(
-            "Identificador de la taxonomía de carteras que usa la columna anterior. Declararlo "
-            "permite comparar contra otro motor sin mapeo cuando ambos usan la misma taxonomía; "
-            "si se omite, la comparación exige un mapeo explícito entre taxonomías."
-        ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Columnas", "ui_order": 22},
+        description=("Identificador de la taxonomía de carteras que usa la columna anterior."),
+        json_schema_extra={
+            "ui_help": (
+                "Identificador de la taxonomía de carteras que usa la columna anterior. "
+                "Declararlo permite comparar contra otro motor sin mapeo cuando ambos usan la "
+                "misma taxonomía; si se omite, la comparación exige un mapeo explícito entre "
+                "taxonomías."
+            ),
+            "ui_widget": "text_input",
+            "ui_group": "Columnas",
+            "ui_order": 22,
+        },
     )
     pd: IfrsPdConfig = Field(
         default_factory=IfrsPdConfig,

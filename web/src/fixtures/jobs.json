@@ -31,7 +31,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -71,7 +72,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "La estabilidad se mide comparando cada muestra contra Desarrollo, que hace de población esperada. Puedes pedir una comparación o las dos.",
@@ -95,7 +97,8 @@
             }
           ],
           "path": "stability.comparisons",
-          "question": "¿Contra qué muestras quieres comparar la de Desarrollo?"
+          "question": "¿Contra qué muestras quieres comparar la de Desarrollo?",
+          "when": null
         },
         {
           "help": "El indicador compara cómo se reparten los clientes entre tramos en una muestra y en otra. Lo que cambia aquí es qué tramos se usan para ese reparto.",
@@ -119,7 +122,8 @@
             }
           ],
           "path": "stability.csi_source",
-          "question": "¿Sobre qué se mide el desplazamiento de las características?"
+          "question": "¿Sobre qué se mide el desplazamiento de las características?",
+          "when": null
         },
         {
           "help": "Describe el puntaje que se está midiendo, y queda escrito en la ficha del informe. Los indicadores de estabilidad no cambian con la respuesta —comparan cómo se reparte la población, y eso no depende de hacia dónde crece el puntaje—, pero tiene que decir lo mismo que la escala con que se construyó la tarjeta: si se contradicen, la corrida se detiene antes de publicar dos respuestas distintas.",
@@ -143,7 +147,8 @@
             }
           ],
           "path": "stability.score_direction",
-          "question": "En tu escala, ¿un puntaje más alto significa mejor o peor cliente?"
+          "question": "En tu escala, ¿un puntaje más alto significa mejor o peor cliente?",
+          "when": null
         },
         {
           "help": "Decide si el informe muestra la evolución período a período, por camada de clientes, o si no muestra evolución temporal.",
@@ -175,7 +180,8 @@
             }
           ],
           "path": "stability.temporal_axis",
-          "question": "¿Cómo quieres seguir el comportamiento del modelo en el tiempo?"
+          "question": "¿Cómo quieres seguir el comportamiento del modelo en el tiempo?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si eliges seguir el comportamiento en el tiempo, y sólo si la columna que lo marca es una fecha: sobre un período ya escrito como texto, el motor respeta la agrupación que traiga tu archivo.",
@@ -207,7 +213,8 @@
             }
           ],
           "path": "stability.temporal_freq",
-          "question": "¿Cada cuánto quieres agrupar el seguimiento en el tiempo?"
+          "question": "¿Cada cuánto quieres agrupar el seguimiento en el tiempo?",
+          "when": null
         },
         {
           "help": "Sólo interviene si además fijaste un p-valor máximo entre tramos: si lo dejaste sin fijar, el motor no aplica esa prueba y esta elección no cambia tu resultado.",
@@ -231,7 +238,8 @@
             }
           ],
           "path": "binning.max_pvalue_policy",
-          "question": "¿Entre qué tramos exiges que la diferencia de riesgo sea significativa?"
+          "question": "¿Entre qué tramos exiges que la diferencia de riesgo sea significativa?",
+          "when": null
         },
         {
           "help": "Cambia la implementación que busca los cortes, no el criterio con que se eligen: los dos resuelven el mismo problema y llegan al mismo conjunto de tramos.",
@@ -255,7 +263,8 @@
             }
           ],
           "path": "binning.mip_solver",
-          "question": "¿Con qué motor de optimización quieres resolver el corte de los tramos?"
+          "question": "¿Con qué motor de optimización quieres resolver el corte de los tramos?",
+          "when": null
         },
         {
           "help": "Es la regla que ordena los tramos y evita que la tarjeta contradiga el criterio experto. Sobre una variable de texto no se aplica: ahí el motor siempre ordena los tramos de menor a mayor riesgo, elijas la forma que elijas.",
@@ -351,7 +360,8 @@
             }
           ],
           "path": "binning.monotonic_trend",
-          "question": "¿Qué forma debe tener la relación entre cada variable y el riesgo?"
+          "question": "¿Qué forma debe tener la relación entre cada variable y el riesgo?",
+          "when": null
         },
         {
           "help": "Es la familia de optimización que arma los tramos. Hoy sólo una de las dos está operativa, y es la que viene puesta.",
@@ -375,7 +385,8 @@
             }
           ],
           "path": "binning.solver",
-          "question": "¿Con qué técnica quieres que se busquen los cortes de los tramos?"
+          "question": "¿Con qué técnica quieres que se busquen los cortes de los tramos?",
+          "when": null
         },
         {
           "help": "Son los códigos centinela del tipo «sin información» o «no aplica». Si no declaraste ninguno al describir tus datos, esta elección no cambia tu resultado.",
@@ -399,7 +410,8 @@
             }
           ],
           "path": "binning.special_handling",
-          "question": "¿Qué hacemos con los valores especiales que declaraste en tus datos?"
+          "question": "¿Qué hacemos con los valores especiales que declaraste en tus datos?",
+          "when": null
         },
         {
           "help": "Sirve para corregir a mano el tipo de una variable puntual cuando la lectura automática se equivoca; el resto de las variables no se ve afectado.",
@@ -431,7 +443,8 @@
             }
           ],
           "path": "binning.variable_overrides.dtype",
-          "question": "Para una variable en particular, ¿cómo debe leerse su contenido?"
+          "question": "Para una variable en particular, ¿cómo debe leerse su contenido?",
+          "when": null
         },
         {
           "help": "Anula la regla general sólo para esa variable, cuando sabes que se comporta distinto al resto. Déjala en blanco para que siga la regla general.",
@@ -527,7 +540,8 @@
             }
           ],
           "path": "binning.variable_overrides.monotonic_trend",
-          "question": "Para una variable en particular, ¿qué forma tiene su relación con el riesgo?"
+          "question": "Para una variable en particular, ¿qué forma tiene su relación con el riesgo?",
+          "when": null
         },
         {
           "help": "El modelo ordena bien a los clientes, pero su nivel promedio no tiene por qué coincidir con la tasa de incumplimiento que tu institución reconoce. Esto decide con qué transformación se corrige ese nivel.",
@@ -559,7 +573,8 @@
             }
           ],
           "path": "calibration.method",
-          "question": "¿Cómo quieres llevar la probabilidad del modelo al nivel de tu cartera?"
+          "question": "¿Cómo quieres llevar la probabilidad del modelo al nivel de tu cartera?",
+          "when": null
         },
         {
           "help": "Es una etiqueta de gobierno que no mueve ni una cifra: viaja con el resultado y queda escrita en el informe, para que quien lo lea sepa qué representa el nivel al que se ancló. Tiene que ser coherente con el origen que elijas para la tasa, o la corrida no arranca.",
@@ -583,7 +598,8 @@
             }
           ],
           "path": "calibration.anchor_kind",
-          "question": "¿Ese nivel representa el promedio del ciclo o el momento actual?"
+          "question": "¿Ese nivel representa el promedio del ciclo o el momento actual?",
+          "when": null
         },
         {
           "help": "Es el dato institucional del que cuelga todo el nivel de la probabilidad que se publica, y el informe declara su origen. Tres de las cuatro respuestas exigen que escribas el número; la cuarta lo calcula sola.",
@@ -623,7 +639,8 @@
             }
           ],
           "path": "calibration.anchor_source",
-          "question": "¿De dónde sale la tasa de incumplimiento a la que se ancla?"
+          "question": "¿De dónde sale la tasa de incumplimiento a la que se ancla?",
+          "when": null
         },
         {
           "help": "Las dos resuelven exactamente la misma regresión logística y llegan al mismo resultado. Lo único que las separa es que una admite ponderar cada operación con un peso propio, y este proceso no entrega esos pesos.",
@@ -647,7 +664,8 @@
             }
           ],
           "path": "model.engine",
-          "question": "¿Con qué rutina estadística quieres resolver la regresión?"
+          "question": "¿Con qué rutina estadística quieres resolver la regresión?",
+          "when": null
         },
         {
           "help": "No cambia el modelo, sólo el camino para llegar a él: los tres terminan en el mismo ajuste, y esto se toca únicamente cuando la corrida no converge. Se aplica sólo a la regresión logística clásica; la otra rutina usa siempre la suya y descarta lo que elijas aquí.",
@@ -679,7 +697,8 @@
             }
           ],
           "path": "model.optimizer",
-          "question": "¿Qué método numérico quieres que use el ajuste para converger?"
+          "question": "¿Qué método numérico quieres que use el ajuste para converger?",
+          "when": null
         },
         {
           "help": "Decide si el proceso construye el modelo incorporando variables de a una, retirándolas de a una, haciendo las dos cosas en cada ronda, o si no selecciona nada y se queda con todas las que le llegaron.",
@@ -719,7 +738,8 @@
             }
           ],
           "path": "model.stepwise.direction",
-          "question": "¿Cómo quieres que se arme la lista final de variables?"
+          "question": "¿Cómo quieres que se arme la lista final de variables?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si dejaste que el proceso seleccione las variables: si le pediste usar todas las que le llegaron, lo que elijas aquí no cambia una sola cifra del resultado. Cuando sí selecciona, esto gobierna cada entrada y cada salida.",
@@ -751,7 +771,8 @@
             }
           ],
           "path": "model.stepwise.criterion",
-          "question": "¿Con qué prueba estadística se decide si una variable entra o sale?"
+          "question": "¿Con qué prueba estadística se decide si una variable entra o sale?",
+          "when": null
         },
         {
           "help": "Un coeficiente con el signo contrario dice que, según el ajuste, más riesgo en esa variable significa menos incumplimiento. Casi siempre es solape entre variables y no un hallazgo, y publicarlo así es indefendible ante un validador.",
@@ -783,7 +804,8 @@
             }
           ],
           "path": "model.sign_policy.action",
-          "question": "¿Qué hacer si una variable queda apuntando al revés de lo esperado?"
+          "question": "¿Qué hacer si una variable queda apuntando al revés de lo esperado?",
+          "when": null
         },
         {
           "help": "Un modelo que descansa en una única variable es frágil: si esa fuente se degrada o deja de llegar, se cae entero. El umbral que fijes define desde qué proporción del total se considera excesiva esa concentración.",
@@ -815,7 +837,8 @@
             }
           ],
           "path": "model.iv_contribution.action",
-          "question": "¿Qué hacer si una sola variable concentra casi todo el poder predictivo?"
+          "question": "¿Qué hacer si una sola variable concentra casi todo el poder predictivo?",
+          "when": null
         },
         {
           "help": "Cuando dos variables miden casi lo mismo, sólo sobrevive una. Aquí eliges con qué se comparan y en qué orden: el primero manda y los siguientes sólo resuelven los empates. Los que no marques no desaparecen — quedan al final de la fila.",
@@ -863,7 +886,8 @@
             }
           ],
           "path": "selection.priority_order",
-          "question": "¿Con qué criterios se decide cuál de dos variables parecidas se queda?"
+          "question": "¿Con qué criterios se decide cuál de dos variables parecidas se queda?",
+          "when": null
         },
         {
           "help": "El motor descarta variables que miden casi lo mismo. Éste es el estadístico con que se calcula ese parecido sobre la muestra de Desarrollo, y cambiarlo cambia qué variables llegan al modelo.",
@@ -895,7 +919,8 @@
             }
           ],
           "path": "selection.correlation.method",
-          "question": "¿Cómo quieres medir el parecido entre dos variables?"
+          "question": "¿Cómo quieres medir el parecido entre dos variables?",
+          "when": null
         },
         {
           "help": "Las dos formas descartan, y ninguna de las dos apaga el filtro: eso se hace con su propio interruptor. Lo que cambia es el alcance cuando el parecido forma una cadena, donde la primera y la última ya casi no se parecen.",
@@ -919,7 +944,8 @@
             }
           ],
           "path": "selection.correlation.clustering_method",
-          "question": "¿Hasta dónde llega el descarte cuando varias variables se parecen entre sí?"
+          "question": "¿Hasta dónde llega el descarte cuando varias variables se parecen entre sí?",
+          "when": null
         },
         {
           "help": "Un poder predictivo altísimo suele delatar que la variable ya contiene la respuesta —por ejemplo, la mora que define al moroso—. El umbral que lo dispara se fija aparte; aquí decides qué pasa cuando se supera.",
@@ -943,7 +969,8 @@
             }
           ],
           "path": "selection.max_iv_action",
-          "question": "¿Qué hacer con una variable cuyo poder predictivo es sospechosamente alto?"
+          "question": "¿Qué hacer con una variable cuyo poder predictivo es sospechosamente alto?",
+          "when": null
         },
         {
           "help": "Antes de modelar, el motor compara variable a variable cómo se reparten los clientes en Desarrollo y en cada muestra de validación. Aquí decides si ese diagnóstico sólo se informa o además saca variables del modelo.",
@@ -967,7 +994,8 @@
             }
           ],
           "path": "selection.stability.action",
-          "question": "¿Qué hacer con una variable que se reparte distinto en las muestras de validación?"
+          "question": "¿Qué hacer con una variable que se reparte distinto en las muestras de validación?",
+          "when": null
         },
         {
           "help": "Los puntos salen de la fórmula con decimales y hay que publicarlos de alguna forma. No es presentación: el puntaje que recibe cada cliente es el publicado.",
@@ -1007,7 +1035,8 @@
             }
           ],
           "path": "scorecard.rounding_method",
-          "question": "¿Cómo quieres redondear los puntos de la tarjeta?"
+          "question": "¿Cómo quieres redondear los puntos de la tarjeta?",
+          "when": null
         },
         {
           "help": "No hay una convención universal y el motor no la adivina. Define el signo con que se arman los puntos de cada tramo, así que invierte la tarjeta completa. Es la respuesta que manda: los indicadores de desempeño y de estabilidad la vuelven a preguntar para el caso en que traigas un puntaje ya construido, y si contestan distinto que aquí, se avisa antes de correr y la corrida se detiene.",
@@ -1031,7 +1060,8 @@
             }
           ],
           "path": "scorecard.score_direction",
-          "question": "En la tarjeta que vas a construir, ¿un puntaje más alto es mejor o peor cliente?"
+          "question": "En la tarjeta que vas a construir, ¿un puntaje más alto es mejor o peor cliente?",
+          "when": null
         },
         {
           "help": "Cada muestra que marques recibe su fila de indicadores y su tabla por deciles en el informe. Si marcas una que tu archivo no trae, se publica como no evaluable en vez de detener la corrida.",
@@ -1063,7 +1093,8 @@
             }
           ],
           "path": "performance.partitions",
-          "question": "¿Sobre qué muestras quieres medir el desempeño del modelo?"
+          "question": "¿Sobre qué muestras quieres medir el desempeño del modelo?",
+          "when": null
         },
         {
           "help": "Los indicadores de discriminación y la tabla por deciles necesitan ordenar la cartera. Las dos formas exigen que la calibración se haya ejecutado: el motor pide la probabilidad calibrada aunque elijas la otra.",
@@ -1087,7 +1118,8 @@
             }
           ],
           "path": "performance.evaluation_source",
-          "question": "¿Con qué cifra se ordena a los clientes de más a menos riesgo al medir?"
+          "question": "¿Con qué cifra se ordena a los clientes de más a menos riesgo al medir?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si ordenas la cartera por el puntaje de la tarjeta; ordenando por la probabilidad calibrada no cambia ninguna cifra. Tiene que decir lo mismo que la escala con que construiste la tarjeta: si se contradicen, se avisa antes de correr y la corrida se detiene, porque medir al revés invierte el signo de los indicadores de discriminación sin que el número parezca raro.",
@@ -1111,7 +1143,8 @@
             }
           ],
           "path": "performance.score_direction",
-          "question": "Al medir el desempeño, ¿un puntaje más alto es mejor o peor cliente?"
+          "question": "Al medir el desempeño, ¿un puntaje más alto es mejor o peor cliente?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -1167,7 +1200,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -1199,7 +1233,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -1223,7 +1258,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -1247,7 +1283,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -1271,7 +1308,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -1485,7 +1523,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -1525,7 +1564,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "Los cuatro entregan lo mismo —curvas de supervivencia y su estructura temporal de PD—, pero se diferencian en qué le exigen a tu archivo y a tu entorno.",
@@ -1565,7 +1605,8 @@
             }
           ],
           "path": "survival.method",
-          "question": "¿Con qué método quieres estimar cuándo ocurre el incumplimiento?"
+          "question": "¿Con qué método quieres estimar cuándo ocurre el incumplimiento?",
+          "when": null
         },
         {
           "help": "Decide si el modelo se alimenta del scorecard o se ajusta solo. Cambia además sobre qué población se ajusta: con enganche, sólo sobre la muestra de Desarrollo; sin él, sobre el libro completo.",
@@ -1597,7 +1638,8 @@
             }
           ],
           "path": "survival.input.pd_source",
-          "question": "¿Quieres enganchar estas curvas a la probabilidad que ya estima tu scorecard?"
+          "question": "¿Quieres enganchar estas curvas a la probabilidad que ya estima tu scorecard?",
+          "when": null
         },
         {
           "help": "Sólo se aplica al riesgo período a período. Cambia la forma de la curva y el valor de los coeficientes, nunca los datos que hay que traer.",
@@ -1621,7 +1663,8 @@
             }
           ],
           "path": "survival.discrete_hazard.link",
-          "question": "¿Qué forma quieres que tenga la relación entre el riesgo del período y tus variables?"
+          "question": "¿Qué forma quieres que tenga la relación entre el riesgo del período y tus variables?",
+          "when": null
         },
         {
           "help": "Sólo se aplica al riesgo período a período, y sólo si lo enganchaste al scorecard: sin ese enganche las cuatro respuestas dan exactamente el mismo resultado.",
@@ -1661,7 +1704,8 @@
             }
           ],
           "path": "survival.discrete_hazard.pd_role",
-          "question": "¿Qué papel quieres que juegue la probabilidad del scorecard dentro del modelo?"
+          "question": "¿Qué papel quieres que juegue la probabilidad del scorecard dentro del modelo?",
+          "when": null
         },
         {
           "help": "Sólo se aplica al tiempo de vida acelerado, y ahí es obligatoria: sin ella la corrida ni siquiera arranca. Las tres cambian la cola de la curva, que es lo que decide la PD a largo plazo.",
@@ -1693,7 +1737,8 @@
             }
           ],
           "path": "survival.cox_aft.aft_family",
-          "question": "¿Qué forma quieres suponer para el tiempo hasta el incumplimiento?"
+          "question": "¿Qué forma quieres suponer para el tiempo hasta el incumplimiento?",
+          "when": null
         },
         {
           "help": "Sólo se aplica a la curva observada, y sólo si además declaras el nivel de confianza: elegir la forma sola no publica ninguna banda y, con el corte activado, detiene la corrida.",
@@ -1717,7 +1762,8 @@
             }
           ],
           "path": "survival.kaplan_meier.confidence_transform",
-          "question": "¿Cómo quieres construir la banda de confianza de la curva observada?"
+          "question": "¿Cómo quieres construir la banda de confianza de la curva observada?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -1773,7 +1819,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -1805,7 +1852,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -1829,7 +1877,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -1853,7 +1902,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -1877,7 +1927,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -2143,7 +2194,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -2183,7 +2235,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "La provisión estándar se lee de una tabla normativa cuya entrada, en cartera comercial individual, es la categoría del deudor. Aquí decides si esa categoría la traes clasificada o la deriva el motor desde tu probabilidad de incumplir.",
@@ -2207,7 +2260,8 @@
             }
           ],
           "path": "provisioning_cmf.pd_mapping.method",
-          "question": "¿De dónde sale la categoría de riesgo con que entras a la matriz normativa?"
+          "question": "¿De dónde sale la categoría de riesgo con que entras a la matriz normativa?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si dejas que el motor derive la categoría desde cortes de probabilidad; si la traes clasificada, esta elección queda anotada y no se lee. Decide si entra la cifra cruda del modelo o la ya calibrada.",
@@ -2231,7 +2285,8 @@
             }
           ],
           "path": "provisioning_cmf.pd_mapping.pd_source_domain",
-          "question": "¿Qué probabilidad de incumplir usas para derivar la categoría?"
+          "question": "¿Qué probabilidad de incumplir usas para derivar la categoría?",
+          "when": null
         },
         {
           "help": "Hay garantías financieras cuyos porcentajes de descuento no están en la normativa que el motor tiene recopilada y verificada. Aquí decides si eso detiene la corrida o si se sigue, y con qué costo.",
@@ -2263,7 +2318,8 @@
             }
           ],
           "path": "provisioning_cmf.guarantees.financial_guarantee_policy",
-          "question": "¿Qué hace el motor con una garantía financiera cuyo aforo no está verificado?"
+          "question": "¿Qué hace el motor con una garantía financiera cuyo aforo no está verificado?",
+          "when": null
         },
         {
           "help": "Es una decisión de presentación contable, no de cálculo: el redondeo se aplica al final, sobre la provisión publicable, y nunca sobre los porcentajes normativos intermedios.",
@@ -2295,7 +2351,8 @@
             }
           ],
           "path": "provisioning_cmf.exposure.rounding",
-          "question": "¿Con cuántos decimales quieres publicar la provisión?"
+          "question": "¿Con cuántos decimales quieres publicar la provisión?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -2351,7 +2408,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -2383,7 +2441,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -2407,7 +2466,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -2431,7 +2491,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -2455,7 +2516,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -2663,7 +2725,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -2703,7 +2766,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "Los cuatro entregan lo mismo —curvas de supervivencia y su estructura temporal de PD—, pero se diferencian en qué le exigen a tu archivo y a tu entorno.",
@@ -2743,7 +2807,8 @@
             }
           ],
           "path": "survival.method",
-          "question": "¿Con qué método quieres estimar cuándo ocurre el incumplimiento?"
+          "question": "¿Con qué método quieres estimar cuándo ocurre el incumplimiento?",
+          "when": null
         },
         {
           "help": "Decide si el modelo se alimenta del scorecard o se ajusta solo. Cambia además sobre qué población se ajusta: con enganche, sólo sobre la muestra de Desarrollo; sin él, sobre el libro completo.",
@@ -2775,7 +2840,8 @@
             }
           ],
           "path": "survival.input.pd_source",
-          "question": "¿Quieres enganchar estas curvas a la probabilidad que ya estima tu scorecard?"
+          "question": "¿Quieres enganchar estas curvas a la probabilidad que ya estima tu scorecard?",
+          "when": null
         },
         {
           "help": "Sólo se aplica al riesgo período a período. Cambia la forma de la curva y el valor de los coeficientes, nunca los datos que hay que traer.",
@@ -2799,7 +2865,8 @@
             }
           ],
           "path": "survival.discrete_hazard.link",
-          "question": "¿Qué forma quieres que tenga la relación entre el riesgo del período y tus variables?"
+          "question": "¿Qué forma quieres que tenga la relación entre el riesgo del período y tus variables?",
+          "when": null
         },
         {
           "help": "Sólo se aplica al riesgo período a período, y sólo si lo enganchaste al scorecard: sin ese enganche las cuatro respuestas dan exactamente el mismo resultado.",
@@ -2839,7 +2906,8 @@
             }
           ],
           "path": "survival.discrete_hazard.pd_role",
-          "question": "¿Qué papel quieres que juegue la probabilidad del scorecard dentro del modelo?"
+          "question": "¿Qué papel quieres que juegue la probabilidad del scorecard dentro del modelo?",
+          "when": null
         },
         {
           "help": "Sólo se aplica al tiempo de vida acelerado, y ahí es obligatoria: sin ella la corrida ni siquiera arranca. Las tres cambian la cola de la curva, que es lo que decide la PD a largo plazo.",
@@ -2871,7 +2939,8 @@
             }
           ],
           "path": "survival.cox_aft.aft_family",
-          "question": "¿Qué forma quieres suponer para el tiempo hasta el incumplimiento?"
+          "question": "¿Qué forma quieres suponer para el tiempo hasta el incumplimiento?",
+          "when": null
         },
         {
           "help": "Sólo se aplica a la curva observada, y sólo si además declaras el nivel de confianza: elegir la forma sola no publica ninguna banda y, con el corte activado, detiene la corrida.",
@@ -2895,7 +2964,8 @@
             }
           ],
           "path": "survival.kaplan_meier.confidence_transform",
-          "question": "¿Cómo quieres construir la banda de confianza de la curva observada?"
+          "question": "¿Cómo quieres construir la banda de confianza de la curva observada?",
+          "when": null
         },
         {
           "help": "La pérdida esperada se calcula sobre una curva que dice cuánto riesgo hay en cada período futuro. Aquí eliges qué análisis la produce, y de esa elección dependen las demás: cada uno publica cosas distintas junto a la curva.",
@@ -2927,7 +2997,8 @@
             }
           ],
           "path": "provisioning_ifrs9.pd.term_structure_source",
-          "question": "¿De qué análisis salen las curvas de pérdida a lo largo de la vida?"
+          "question": "¿De qué análisis salen las curvas de pérdida a lo largo de la vida?",
+          "when": null
         },
         {
           "help": "Esta cifra no cambia los flujos de la pérdida —ésos salen siempre de la curva—, pero sí decide en qué etapa queda cada operación, y la etapa manda si se provisionan doce meses o toda la vida del crédito.",
@@ -2951,7 +3022,8 @@
             }
           ],
           "path": "provisioning_ifrs9.pd.base_pd_source",
-          "question": "¿De dónde sale la probabilidad de incumplir a doce meses?"
+          "question": "¿De dónde sale la probabilidad de incumplir a doce meses?",
+          "when": null
         },
         {
           "help": "La norma pide medir con la información actual, y una curva histórica describe el promedio del ciclo. Lo que elijas aquí tiene que calzar con el análisis que produce tus curvas: el valor de fábrica NO calza con el de fábrica de arriba.",
@@ -2983,7 +3055,8 @@
             }
           ],
           "path": "provisioning_ifrs9.pd.pit_mode",
-          "question": "¿Cómo llevas el riesgo de la curva a las condiciones económicas de hoy?"
+          "question": "¿Cómo llevas el riesgo de la curva a las condiciones económicas de hoy?",
+          "when": null
         },
         {
           "help": "La severidad de la pérdida se reparte en dos modas —se recupera casi todo o casi nada—, así que el motor nunca la promedia con una regresión lineal simple. Cada camino te pide datos distintos en tu archivo.",
@@ -3023,7 +3096,8 @@
             }
           ],
           "path": "provisioning_ifrs9.lgd.method",
-          "question": "¿Cómo obtienes cuánto se pierde cuando una operación incumple?"
+          "question": "¿Cómo obtienes cuánto se pierde cuando una operación incumple?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si calculas la severidad desde el proceso de recuperación real; con cualquier otro camino el motor ni lo mira. Decide con qué tasa se descuenta el dinero que entra después del incumplimiento.",
@@ -3047,7 +3121,8 @@
             }
           ],
           "path": "provisioning_ifrs9.lgd.workout_discount",
-          "question": "¿A qué tasa traes a valor presente lo que recuperaste?"
+          "question": "¿A qué tasa traes a valor presente lo que recuperaste?",
+          "when": null
         },
         {
           "help": "Es el monto sobre el que se aplica la pérdida. Puedes entregarlo ya calculado o dejar que el motor lo estime sumando al saldo dispuesto una parte de la línea todavía sin usar.",
@@ -3071,7 +3146,8 @@
             }
           ],
           "path": "provisioning_ifrs9.ead.method",
-          "question": "¿Cómo determinas cuánto estará expuesto el crédito al incumplir?"
+          "question": "¿Cómo determinas cuánto estará expuesto el crédito al incumplir?",
+          "when": null
         },
         {
           "help": "La pérdida de cada período se trae a hoy con la tasa efectiva del crédito. Lo que cambia aquí es el exponente de ese descuento, y sobre una curva mensual las dos convenciones dan cifras muy distintas.",
@@ -3095,7 +3171,8 @@
             }
           ],
           "path": "provisioning_ifrs9.ecl.discount_convention",
-          "question": "¿Cómo aplicas la tasa efectiva al descontar la pérdida futura?"
+          "question": "¿Cómo aplicas la tasa efectiva al descontar la pérdida futura?",
+          "when": null
         },
         {
           "help": "Es una decisión de presentación contable, no de cálculo. En esta capa el motor todavía no la aplica: la cifra sale con toda su precisión elijas lo que elijas.",
@@ -3127,7 +3204,8 @@
             }
           ],
           "path": "provisioning_ifrs9.ecl.rounding",
-          "question": "¿Con cuántos decimales quieres publicar la pérdida esperada?"
+          "question": "¿Con cuántos decimales quieres publicar la pérdida esperada?",
+          "when": null
         },
         {
           "help": "La norma pide ponderar varios escenarios en vez de calcular sobre un promedio. Aquí decides quién aporta esos pesos, y el valor de fábrica exige un análisis que esta interfaz todavía no arma.",
@@ -3159,7 +3237,8 @@
             }
           ],
           "path": "provisioning_ifrs9.scenarios.source",
-          "question": "¿De dónde salen los escenarios macro y cuánto pesa cada uno?"
+          "question": "¿De dónde salen los escenarios macro y cuánto pesa cada uno?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -3215,7 +3294,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -3247,7 +3327,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -3271,7 +3352,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -3295,7 +3377,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -3319,7 +3402,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -3586,7 +3670,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -3626,7 +3711,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
@@ -3650,7 +3736,8 @@
             }
           ],
           "path": "provisioning_internal.method",
-          "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?"
+          "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?",
+          "when": null
         },
         {
           "help": "El monto de la provisión se apoya en esta probabilidad, así que su procedencia queda declarada en el informe y en el rastro de auditoría.",
@@ -3674,7 +3761,8 @@
             }
           ],
           "path": "provisioning_internal.pd_source",
-          "question": "¿De dónde sale la probabilidad de incumplir de cada operación?"
+          "question": "¿De dónde sale la probabilidad de incumplir de cada operación?",
+          "when": null
         },
         {
           "help": "Este método provisiona por grupo, no por operación: la provisión es una cifra del grupo, que después se reparte entre sus operaciones a prorrata de la exposición.",
@@ -3706,10 +3794,11 @@
             }
           ],
           "path": "provisioning_internal.grouping",
-          "question": "¿Cómo quieres formar los grupos homogéneos de deudores?"
+          "question": "¿Cómo quieres formar los grupos homogéneos de deudores?",
+          "when": null
         },
         {
-          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia el resultado. Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el proceso de recuperación prescinde de ella: la calcula desde tus flujos.",
+          "help": "Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el proceso de recuperación prescinde de ella: la calcula desde tus flujos.",
           "multiple": false,
           "options": [
             {
@@ -3760,7 +3849,11 @@
             }
           ],
           "path": "provisioning_internal.lgd.method",
-          "question": "¿De dónde sale la severidad de cada operación?"
+          "question": "¿De dónde sale la severidad de cada operación?",
+          "when": {
+            "equals": "pd_lgd",
+            "path": "provisioning_internal.method"
+          }
         },
         {
           "help": "Se aplica al monto de cada grupo y a su reparto entre operaciones, que siempre cuadra exacto con el total. Ojo: aquí se parte redondeando al centavo, y los otros motores de provisión parten sin redondear, así que compararlos exige igualar esta elección.",
@@ -3792,7 +3885,8 @@
             }
           ],
           "path": "provisioning_internal.rounding",
-          "question": "¿Con qué precisión quieres publicar el monto de la provisión?"
+          "question": "¿Con qué precisión quieres publicar el monto de la provisión?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -3848,7 +3942,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -3880,7 +3975,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -3904,7 +4000,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -3928,7 +4025,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -3952,7 +4050,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -4160,7 +4259,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -4200,7 +4300,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "La estabilidad se mide comparando cada muestra contra Desarrollo, que hace de población esperada. Puedes pedir una comparación o las dos.",
@@ -4224,7 +4325,8 @@
             }
           ],
           "path": "stability.comparisons",
-          "question": "¿Contra qué muestras quieres comparar la de Desarrollo?"
+          "question": "¿Contra qué muestras quieres comparar la de Desarrollo?",
+          "when": null
         },
         {
           "help": "El indicador compara cómo se reparten los clientes entre tramos en una muestra y en otra. Lo que cambia aquí es qué tramos se usan para ese reparto.",
@@ -4248,7 +4350,8 @@
             }
           ],
           "path": "stability.csi_source",
-          "question": "¿Sobre qué se mide el desplazamiento de las características?"
+          "question": "¿Sobre qué se mide el desplazamiento de las características?",
+          "when": null
         },
         {
           "help": "Describe el puntaje que se está midiendo, y queda escrito en la ficha del informe. Los indicadores de estabilidad no cambian con la respuesta —comparan cómo se reparte la población, y eso no depende de hacia dónde crece el puntaje—, pero tiene que decir lo mismo que la escala con que se construyó la tarjeta: si se contradicen, la corrida se detiene antes de publicar dos respuestas distintas.",
@@ -4272,7 +4375,8 @@
             }
           ],
           "path": "stability.score_direction",
-          "question": "En tu escala, ¿un puntaje más alto significa mejor o peor cliente?"
+          "question": "En tu escala, ¿un puntaje más alto significa mejor o peor cliente?",
+          "when": null
         },
         {
           "help": "Decide si el informe muestra la evolución período a período, por camada de clientes, o si no muestra evolución temporal.",
@@ -4304,7 +4408,8 @@
             }
           ],
           "path": "stability.temporal_axis",
-          "question": "¿Cómo quieres seguir el comportamiento del modelo en el tiempo?"
+          "question": "¿Cómo quieres seguir el comportamiento del modelo en el tiempo?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si eliges seguir el comportamiento en el tiempo, y sólo si la columna que lo marca es una fecha: sobre un período ya escrito como texto, el motor respeta la agrupación que traiga tu archivo.",
@@ -4336,7 +4441,8 @@
             }
           ],
           "path": "stability.temporal_freq",
-          "question": "¿Cada cuánto quieres agrupar el seguimiento en el tiempo?"
+          "question": "¿Cada cuánto quieres agrupar el seguimiento en el tiempo?",
+          "when": null
         },
         {
           "help": "Sólo interviene si además fijaste un p-valor máximo entre tramos: si lo dejaste sin fijar, el motor no aplica esa prueba y esta elección no cambia tu resultado.",
@@ -4360,7 +4466,8 @@
             }
           ],
           "path": "binning.max_pvalue_policy",
-          "question": "¿Entre qué tramos exiges que la diferencia de riesgo sea significativa?"
+          "question": "¿Entre qué tramos exiges que la diferencia de riesgo sea significativa?",
+          "when": null
         },
         {
           "help": "Cambia la implementación que busca los cortes, no el criterio con que se eligen: los dos resuelven el mismo problema y llegan al mismo conjunto de tramos.",
@@ -4384,7 +4491,8 @@
             }
           ],
           "path": "binning.mip_solver",
-          "question": "¿Con qué motor de optimización quieres resolver el corte de los tramos?"
+          "question": "¿Con qué motor de optimización quieres resolver el corte de los tramos?",
+          "when": null
         },
         {
           "help": "Es la regla que ordena los tramos y evita que la tarjeta contradiga el criterio experto. Sobre una variable de texto no se aplica: ahí el motor siempre ordena los tramos de menor a mayor riesgo, elijas la forma que elijas.",
@@ -4480,7 +4588,8 @@
             }
           ],
           "path": "binning.monotonic_trend",
-          "question": "¿Qué forma debe tener la relación entre cada variable y el riesgo?"
+          "question": "¿Qué forma debe tener la relación entre cada variable y el riesgo?",
+          "when": null
         },
         {
           "help": "Es la familia de optimización que arma los tramos. Hoy sólo una de las dos está operativa, y es la que viene puesta.",
@@ -4504,7 +4613,8 @@
             }
           ],
           "path": "binning.solver",
-          "question": "¿Con qué técnica quieres que se busquen los cortes de los tramos?"
+          "question": "¿Con qué técnica quieres que se busquen los cortes de los tramos?",
+          "when": null
         },
         {
           "help": "Son los códigos centinela del tipo «sin información» o «no aplica». Si no declaraste ninguno al describir tus datos, esta elección no cambia tu resultado.",
@@ -4528,7 +4638,8 @@
             }
           ],
           "path": "binning.special_handling",
-          "question": "¿Qué hacemos con los valores especiales que declaraste en tus datos?"
+          "question": "¿Qué hacemos con los valores especiales que declaraste en tus datos?",
+          "when": null
         },
         {
           "help": "Sirve para corregir a mano el tipo de una variable puntual cuando la lectura automática se equivoca; el resto de las variables no se ve afectado.",
@@ -4560,7 +4671,8 @@
             }
           ],
           "path": "binning.variable_overrides.dtype",
-          "question": "Para una variable en particular, ¿cómo debe leerse su contenido?"
+          "question": "Para una variable en particular, ¿cómo debe leerse su contenido?",
+          "when": null
         },
         {
           "help": "Anula la regla general sólo para esa variable, cuando sabes que se comporta distinto al resto. Déjala en blanco para que siga la regla general.",
@@ -4656,7 +4768,8 @@
             }
           ],
           "path": "binning.variable_overrides.monotonic_trend",
-          "question": "Para una variable en particular, ¿qué forma tiene su relación con el riesgo?"
+          "question": "Para una variable en particular, ¿qué forma tiene su relación con el riesgo?",
+          "when": null
         },
         {
           "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
@@ -4680,7 +4793,8 @@
             }
           ],
           "path": "provisioning_internal.method",
-          "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?"
+          "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?",
+          "when": null
         },
         {
           "help": "El monto de la provisión se apoya en esta probabilidad, así que su procedencia queda declarada en el informe y en el rastro de auditoría.",
@@ -4704,7 +4818,8 @@
             }
           ],
           "path": "provisioning_internal.pd_source",
-          "question": "¿De dónde sale la probabilidad de incumplir de cada operación?"
+          "question": "¿De dónde sale la probabilidad de incumplir de cada operación?",
+          "when": null
         },
         {
           "help": "Este método provisiona por grupo, no por operación: la provisión es una cifra del grupo, que después se reparte entre sus operaciones a prorrata de la exposición.",
@@ -4736,10 +4851,11 @@
             }
           ],
           "path": "provisioning_internal.grouping",
-          "question": "¿Cómo quieres formar los grupos homogéneos de deudores?"
+          "question": "¿Cómo quieres formar los grupos homogéneos de deudores?",
+          "when": null
         },
         {
-          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia el resultado. Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el proceso de recuperación prescinde de ella: la calcula desde tus flujos.",
+          "help": "Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el proceso de recuperación prescinde de ella: la calcula desde tus flujos.",
           "multiple": false,
           "options": [
             {
@@ -4790,7 +4906,11 @@
             }
           ],
           "path": "provisioning_internal.lgd.method",
-          "question": "¿De dónde sale la severidad de cada operación?"
+          "question": "¿De dónde sale la severidad de cada operación?",
+          "when": {
+            "equals": "pd_lgd",
+            "path": "provisioning_internal.method"
+          }
         },
         {
           "help": "Se aplica al monto de cada grupo y a su reparto entre operaciones, que siempre cuadra exacto con el total. Ojo: aquí se parte redondeando al centavo, y los otros motores de provisión parten sin redondear, así que compararlos exige igualar esta elección.",
@@ -4822,7 +4942,8 @@
             }
           ],
           "path": "provisioning_internal.rounding",
-          "question": "¿Con qué precisión quieres publicar el monto de la provisión?"
+          "question": "¿Con qué precisión quieres publicar el monto de la provisión?",
+          "when": null
         },
         {
           "help": "El modelo ordena bien a los clientes, pero su nivel promedio no tiene por qué coincidir con la tasa de incumplimiento que tu institución reconoce. Esto decide con qué transformación se corrige ese nivel.",
@@ -4854,7 +4975,8 @@
             }
           ],
           "path": "calibration.method",
-          "question": "¿Cómo quieres llevar la probabilidad del modelo al nivel de tu cartera?"
+          "question": "¿Cómo quieres llevar la probabilidad del modelo al nivel de tu cartera?",
+          "when": null
         },
         {
           "help": "Es una etiqueta de gobierno que no mueve ni una cifra: viaja con el resultado y queda escrita en el informe, para que quien lo lea sepa qué representa el nivel al que se ancló. Tiene que ser coherente con el origen que elijas para la tasa, o la corrida no arranca.",
@@ -4878,7 +5000,8 @@
             }
           ],
           "path": "calibration.anchor_kind",
-          "question": "¿Ese nivel representa el promedio del ciclo o el momento actual?"
+          "question": "¿Ese nivel representa el promedio del ciclo o el momento actual?",
+          "when": null
         },
         {
           "help": "Es el dato institucional del que cuelga todo el nivel de la probabilidad que se publica, y el informe declara su origen. Tres de las cuatro respuestas exigen que escribas el número; la cuarta lo calcula sola.",
@@ -4918,7 +5041,8 @@
             }
           ],
           "path": "calibration.anchor_source",
-          "question": "¿De dónde sale la tasa de incumplimiento a la que se ancla?"
+          "question": "¿De dónde sale la tasa de incumplimiento a la que se ancla?",
+          "when": null
         },
         {
           "help": "Las dos resuelven exactamente la misma regresión logística y llegan al mismo resultado. Lo único que las separa es que una admite ponderar cada operación con un peso propio, y este proceso no entrega esos pesos.",
@@ -4942,7 +5066,8 @@
             }
           ],
           "path": "model.engine",
-          "question": "¿Con qué rutina estadística quieres resolver la regresión?"
+          "question": "¿Con qué rutina estadística quieres resolver la regresión?",
+          "when": null
         },
         {
           "help": "No cambia el modelo, sólo el camino para llegar a él: los tres terminan en el mismo ajuste, y esto se toca únicamente cuando la corrida no converge. Se aplica sólo a la regresión logística clásica; la otra rutina usa siempre la suya y descarta lo que elijas aquí.",
@@ -4974,7 +5099,8 @@
             }
           ],
           "path": "model.optimizer",
-          "question": "¿Qué método numérico quieres que use el ajuste para converger?"
+          "question": "¿Qué método numérico quieres que use el ajuste para converger?",
+          "when": null
         },
         {
           "help": "Decide si el proceso construye el modelo incorporando variables de a una, retirándolas de a una, haciendo las dos cosas en cada ronda, o si no selecciona nada y se queda con todas las que le llegaron.",
@@ -5014,7 +5140,8 @@
             }
           ],
           "path": "model.stepwise.direction",
-          "question": "¿Cómo quieres que se arme la lista final de variables?"
+          "question": "¿Cómo quieres que se arme la lista final de variables?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si dejaste que el proceso seleccione las variables: si le pediste usar todas las que le llegaron, lo que elijas aquí no cambia una sola cifra del resultado. Cuando sí selecciona, esto gobierna cada entrada y cada salida.",
@@ -5046,7 +5173,8 @@
             }
           ],
           "path": "model.stepwise.criterion",
-          "question": "¿Con qué prueba estadística se decide si una variable entra o sale?"
+          "question": "¿Con qué prueba estadística se decide si una variable entra o sale?",
+          "when": null
         },
         {
           "help": "Un coeficiente con el signo contrario dice que, según el ajuste, más riesgo en esa variable significa menos incumplimiento. Casi siempre es solape entre variables y no un hallazgo, y publicarlo así es indefendible ante un validador.",
@@ -5078,7 +5206,8 @@
             }
           ],
           "path": "model.sign_policy.action",
-          "question": "¿Qué hacer si una variable queda apuntando al revés de lo esperado?"
+          "question": "¿Qué hacer si una variable queda apuntando al revés de lo esperado?",
+          "when": null
         },
         {
           "help": "Un modelo que descansa en una única variable es frágil: si esa fuente se degrada o deja de llegar, se cae entero. El umbral que fijes define desde qué proporción del total se considera excesiva esa concentración.",
@@ -5110,7 +5239,8 @@
             }
           ],
           "path": "model.iv_contribution.action",
-          "question": "¿Qué hacer si una sola variable concentra casi todo el poder predictivo?"
+          "question": "¿Qué hacer si una sola variable concentra casi todo el poder predictivo?",
+          "when": null
         },
         {
           "help": "Cuando dos variables miden casi lo mismo, sólo sobrevive una. Aquí eliges con qué se comparan y en qué orden: el primero manda y los siguientes sólo resuelven los empates. Los que no marques no desaparecen — quedan al final de la fila.",
@@ -5158,7 +5288,8 @@
             }
           ],
           "path": "selection.priority_order",
-          "question": "¿Con qué criterios se decide cuál de dos variables parecidas se queda?"
+          "question": "¿Con qué criterios se decide cuál de dos variables parecidas se queda?",
+          "when": null
         },
         {
           "help": "El motor descarta variables que miden casi lo mismo. Éste es el estadístico con que se calcula ese parecido sobre la muestra de Desarrollo, y cambiarlo cambia qué variables llegan al modelo.",
@@ -5190,7 +5321,8 @@
             }
           ],
           "path": "selection.correlation.method",
-          "question": "¿Cómo quieres medir el parecido entre dos variables?"
+          "question": "¿Cómo quieres medir el parecido entre dos variables?",
+          "when": null
         },
         {
           "help": "Las dos formas descartan, y ninguna de las dos apaga el filtro: eso se hace con su propio interruptor. Lo que cambia es el alcance cuando el parecido forma una cadena, donde la primera y la última ya casi no se parecen.",
@@ -5214,7 +5346,8 @@
             }
           ],
           "path": "selection.correlation.clustering_method",
-          "question": "¿Hasta dónde llega el descarte cuando varias variables se parecen entre sí?"
+          "question": "¿Hasta dónde llega el descarte cuando varias variables se parecen entre sí?",
+          "when": null
         },
         {
           "help": "Un poder predictivo altísimo suele delatar que la variable ya contiene la respuesta —por ejemplo, la mora que define al moroso—. El umbral que lo dispara se fija aparte; aquí decides qué pasa cuando se supera.",
@@ -5238,7 +5371,8 @@
             }
           ],
           "path": "selection.max_iv_action",
-          "question": "¿Qué hacer con una variable cuyo poder predictivo es sospechosamente alto?"
+          "question": "¿Qué hacer con una variable cuyo poder predictivo es sospechosamente alto?",
+          "when": null
         },
         {
           "help": "Antes de modelar, el motor compara variable a variable cómo se reparten los clientes en Desarrollo y en cada muestra de validación. Aquí decides si ese diagnóstico sólo se informa o además saca variables del modelo.",
@@ -5262,7 +5396,8 @@
             }
           ],
           "path": "selection.stability.action",
-          "question": "¿Qué hacer con una variable que se reparte distinto en las muestras de validación?"
+          "question": "¿Qué hacer con una variable que se reparte distinto en las muestras de validación?",
+          "when": null
         },
         {
           "help": "Los puntos salen de la fórmula con decimales y hay que publicarlos de alguna forma. No es presentación: el puntaje que recibe cada cliente es el publicado.",
@@ -5302,7 +5437,8 @@
             }
           ],
           "path": "scorecard.rounding_method",
-          "question": "¿Cómo quieres redondear los puntos de la tarjeta?"
+          "question": "¿Cómo quieres redondear los puntos de la tarjeta?",
+          "when": null
         },
         {
           "help": "No hay una convención universal y el motor no la adivina. Define el signo con que se arman los puntos de cada tramo, así que invierte la tarjeta completa. Es la respuesta que manda: los indicadores de desempeño y de estabilidad la vuelven a preguntar para el caso en que traigas un puntaje ya construido, y si contestan distinto que aquí, se avisa antes de correr y la corrida se detiene.",
@@ -5326,7 +5462,8 @@
             }
           ],
           "path": "scorecard.score_direction",
-          "question": "En la tarjeta que vas a construir, ¿un puntaje más alto es mejor o peor cliente?"
+          "question": "En la tarjeta que vas a construir, ¿un puntaje más alto es mejor o peor cliente?",
+          "when": null
         },
         {
           "help": "Cada muestra que marques recibe su fila de indicadores y su tabla por deciles en el informe. Si marcas una que tu archivo no trae, se publica como no evaluable en vez de detener la corrida.",
@@ -5358,7 +5495,8 @@
             }
           ],
           "path": "performance.partitions",
-          "question": "¿Sobre qué muestras quieres medir el desempeño del modelo?"
+          "question": "¿Sobre qué muestras quieres medir el desempeño del modelo?",
+          "when": null
         },
         {
           "help": "Los indicadores de discriminación y la tabla por deciles necesitan ordenar la cartera. Las dos formas exigen que la calibración se haya ejecutado: el motor pide la probabilidad calibrada aunque elijas la otra.",
@@ -5382,7 +5520,8 @@
             }
           ],
           "path": "performance.evaluation_source",
-          "question": "¿Con qué cifra se ordena a los clientes de más a menos riesgo al medir?"
+          "question": "¿Con qué cifra se ordena a los clientes de más a menos riesgo al medir?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si ordenas la cartera por el puntaje de la tarjeta; ordenando por la probabilidad calibrada no cambia ninguna cifra. Tiene que decir lo mismo que la escala con que construiste la tarjeta: si se contradicen, se avisa antes de correr y la corrida se detiene, porque medir al revés invierte el signo de los indicadores de discriminación sin que el número parezca raro.",
@@ -5406,7 +5545,8 @@
             }
           ],
           "path": "performance.score_direction",
-          "question": "Al medir el desempeño, ¿un puntaje más alto es mejor o peor cliente?"
+          "question": "Al medir el desempeño, ¿un puntaje más alto es mejor o peor cliente?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -5462,7 +5602,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -5494,7 +5635,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -5518,7 +5660,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -5542,7 +5685,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -5566,7 +5710,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -5822,7 +5967,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -5862,7 +6008,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
@@ -5886,7 +6033,8 @@
             }
           ],
           "path": "provisioning_internal.method",
-          "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?"
+          "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?",
+          "when": null
         },
         {
           "help": "El monto de la provisión se apoya en esta probabilidad, así que su procedencia queda declarada en el informe y en el rastro de auditoría.",
@@ -5910,7 +6058,8 @@
             }
           ],
           "path": "provisioning_internal.pd_source",
-          "question": "¿De dónde sale la probabilidad de incumplir de cada operación?"
+          "question": "¿De dónde sale la probabilidad de incumplir de cada operación?",
+          "when": null
         },
         {
           "help": "Este método provisiona por grupo, no por operación: la provisión es una cifra del grupo, que después se reparte entre sus operaciones a prorrata de la exposición.",
@@ -5942,10 +6091,11 @@
             }
           ],
           "path": "provisioning_internal.grouping",
-          "question": "¿Cómo quieres formar los grupos homogéneos de deudores?"
+          "question": "¿Cómo quieres formar los grupos homogéneos de deudores?",
+          "when": null
         },
         {
-          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia el resultado. Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el proceso de recuperación prescinde de ella: la calcula desde tus flujos.",
+          "help": "Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el proceso de recuperación prescinde de ella: la calcula desde tus flujos.",
           "multiple": false,
           "options": [
             {
@@ -5996,7 +6146,11 @@
             }
           ],
           "path": "provisioning_internal.lgd.method",
-          "question": "¿De dónde sale la severidad de cada operación?"
+          "question": "¿De dónde sale la severidad de cada operación?",
+          "when": {
+            "equals": "pd_lgd",
+            "path": "provisioning_internal.method"
+          }
         },
         {
           "help": "Se aplica al monto de cada grupo y a su reparto entre operaciones, que siempre cuadra exacto con el total. Ojo: aquí se parte redondeando al centavo, y los otros motores de provisión parten sin redondear, así que compararlos exige igualar esta elección.",
@@ -6028,7 +6182,8 @@
             }
           ],
           "path": "provisioning_internal.rounding",
-          "question": "¿Con qué precisión quieres publicar el monto de la provisión?"
+          "question": "¿Con qué precisión quieres publicar el monto de la provisión?",
+          "when": null
         },
         {
           "help": "La provisión estándar se lee de una tabla normativa cuya entrada, en cartera comercial individual, es la categoría del deudor. Aquí decides si esa categoría la traes clasificada o la deriva el motor desde tu probabilidad de incumplir.",
@@ -6052,7 +6207,8 @@
             }
           ],
           "path": "provisioning_cmf.pd_mapping.method",
-          "question": "¿De dónde sale la categoría de riesgo con que entras a la matriz normativa?"
+          "question": "¿De dónde sale la categoría de riesgo con que entras a la matriz normativa?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si dejas que el motor derive la categoría desde cortes de probabilidad; si la traes clasificada, esta elección queda anotada y no se lee. Decide si entra la cifra cruda del modelo o la ya calibrada.",
@@ -6076,7 +6232,8 @@
             }
           ],
           "path": "provisioning_cmf.pd_mapping.pd_source_domain",
-          "question": "¿Qué probabilidad de incumplir usas para derivar la categoría?"
+          "question": "¿Qué probabilidad de incumplir usas para derivar la categoría?",
+          "when": null
         },
         {
           "help": "Hay garantías financieras cuyos porcentajes de descuento no están en la normativa que el motor tiene recopilada y verificada. Aquí decides si eso detiene la corrida o si se sigue, y con qué costo.",
@@ -6108,7 +6265,8 @@
             }
           ],
           "path": "provisioning_cmf.guarantees.financial_guarantee_policy",
-          "question": "¿Qué hace el motor con una garantía financiera cuyo aforo no está verificado?"
+          "question": "¿Qué hace el motor con una garantía financiera cuyo aforo no está verificado?",
+          "when": null
         },
         {
           "help": "Es una decisión de presentación contable, no de cálculo: el redondeo se aplica al final, sobre la provisión publicable, y nunca sobre los porcentajes normativos intermedios.",
@@ -6140,7 +6298,8 @@
             }
           ],
           "path": "provisioning_cmf.exposure.rounding",
-          "question": "¿Con cuántos decimales quieres publicar la provisión?"
+          "question": "¿Con cuántos decimales quieres publicar la provisión?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -6196,7 +6355,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -6228,7 +6388,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -6252,7 +6413,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -6276,7 +6438,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -6300,7 +6463,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         },
         {
           "help": "Con dos cálculos sobre la misma cartera hay que declarar cuál manda. La respuesta depende de qué dos comparas y de si la Comisión evaluó tu método interno.",
@@ -6324,7 +6488,8 @@
             }
           ],
           "path": "provisioning.rule",
-          "question": "¿Cómo se constituye la provisión que vas a reportar?"
+          "question": "¿Cómo se constituye la provisión que vas a reportar?",
+          "when": null
         },
         {
           "help": "No se recalcula nada aquí: se toma el resultado que ese cálculo ya publicó en la misma corrida, así que su sección tiene que estar activa o la corrida no arranca.",
@@ -6356,7 +6521,8 @@
             }
           ],
           "path": "provisioning.source_a",
-          "question": "¿Cuál es el primer cálculo de provisión que quieres comparar?"
+          "question": "¿Cuál es el primer cálculo de provisión que quieres comparar?",
+          "when": null
         },
         {
           "help": "Tiene que ser distinto del primero: comparar un resultado consigo mismo no es una comparación. La que exige la norma chilena es contra el método interno del banco.",
@@ -6388,7 +6554,8 @@
             }
           ],
           "path": "provisioning.source_b",
-          "question": "¿Contra qué segundo cálculo lo quieres comparar?"
+          "question": "¿Contra qué segundo cálculo lo quieres comparar?",
+          "when": null
         },
         {
           "help": "La norma chilena la fija por entidad. Los niveles más finos sirven para ver dónde muerde cada cálculo, pero sumar el mayor de cada celda sobre-reporta frente al mayor de la entidad, así que no son la provisión a constituir.",
@@ -6428,7 +6595,8 @@
             }
           ],
           "path": "provisioning.comparison_level",
-          "question": "¿A qué nivel de agregación quieres que se aplique la regla?"
+          "question": "¿A qué nivel de agregación quieres que se aplique la regla?",
+          "when": null
         },
         {
           "help": "Sólo interviene si comparas a un nivel más fino que la institución: con una sola cifra para toda la cartera, los dos cálculos la cubren siempre.",
@@ -6460,7 +6628,8 @@
             }
           ],
           "path": "provisioning.coverage_policy",
-          "question": "¿Qué hacer con una celda que sólo cubre uno de los dos cálculos?"
+          "question": "¿Qué hacer con una celda que sólo cubre uno de los dos cálculos?",
+          "when": null
         },
         {
           "help": "El método estándar y el interno publican montos contables exactos; la pérdida esperada bajo IFRS 9 los publica con coma flotante, así que hay que llevarlos a un terreno común. No interviene si decides reportar el método interno.",
@@ -6484,7 +6653,8 @@
             }
           ],
           "path": "provisioning.numeric_reconciliation",
-          "question": "¿Con qué exactitud quieres que se comparen los dos montos?"
+          "question": "¿Con qué exactitud quieres que se comparen los dos montos?",
+          "when": null
         },
         {
           "help": "Se aplica a cada celda antes de sumarlas, así que el total reportado es la suma de las celdas ya redondeadas y no el redondeo de la suma.",
@@ -6516,7 +6686,8 @@
             }
           ],
           "path": "provisioning.rounding",
-          "question": "¿Con cuántos decimales quieres la provisión reportada?"
+          "question": "¿Con cuántos decimales quieres la provisión reportada?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -6776,7 +6947,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -6816,7 +6988,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "La estabilidad se mide comparando cada muestra contra Desarrollo, que hace de población esperada. Puedes pedir una comparación o las dos.",
@@ -6840,7 +7013,8 @@
             }
           ],
           "path": "stability.comparisons",
-          "question": "¿Contra qué muestras quieres comparar la de Desarrollo?"
+          "question": "¿Contra qué muestras quieres comparar la de Desarrollo?",
+          "when": null
         },
         {
           "help": "El indicador compara cómo se reparten los clientes entre tramos en una muestra y en otra. Lo que cambia aquí es qué tramos se usan para ese reparto.",
@@ -6864,7 +7038,8 @@
             }
           ],
           "path": "stability.csi_source",
-          "question": "¿Sobre qué se mide el desplazamiento de las características?"
+          "question": "¿Sobre qué se mide el desplazamiento de las características?",
+          "when": null
         },
         {
           "help": "Describe el puntaje que se está midiendo, y queda escrito en la ficha del informe. Los indicadores de estabilidad no cambian con la respuesta —comparan cómo se reparte la población, y eso no depende de hacia dónde crece el puntaje—, pero tiene que decir lo mismo que la escala con que se construyó la tarjeta: si se contradicen, la corrida se detiene antes de publicar dos respuestas distintas.",
@@ -6888,7 +7063,8 @@
             }
           ],
           "path": "stability.score_direction",
-          "question": "En tu escala, ¿un puntaje más alto significa mejor o peor cliente?"
+          "question": "En tu escala, ¿un puntaje más alto significa mejor o peor cliente?",
+          "when": null
         },
         {
           "help": "Decide si el informe muestra la evolución período a período, por camada de clientes, o si no muestra evolución temporal.",
@@ -6920,7 +7096,8 @@
             }
           ],
           "path": "stability.temporal_axis",
-          "question": "¿Cómo quieres seguir el comportamiento del modelo en el tiempo?"
+          "question": "¿Cómo quieres seguir el comportamiento del modelo en el tiempo?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si eliges seguir el comportamiento en el tiempo, y sólo si la columna que lo marca es una fecha: sobre un período ya escrito como texto, el motor respeta la agrupación que traiga tu archivo.",
@@ -6952,7 +7129,8 @@
             }
           ],
           "path": "stability.temporal_freq",
-          "question": "¿Cada cuánto quieres agrupar el seguimiento en el tiempo?"
+          "question": "¿Cada cuánto quieres agrupar el seguimiento en el tiempo?",
+          "when": null
         },
         {
           "help": "Cada muestra que marques recibe su fila de indicadores y su tabla por deciles en el informe. Si marcas una que tu archivo no trae, se publica como no evaluable en vez de detener la corrida.",
@@ -6984,7 +7162,8 @@
             }
           ],
           "path": "performance.partitions",
-          "question": "¿Sobre qué muestras quieres medir el desempeño del modelo?"
+          "question": "¿Sobre qué muestras quieres medir el desempeño del modelo?",
+          "when": null
         },
         {
           "help": "Los indicadores de discriminación y la tabla por deciles necesitan ordenar la cartera. Las dos formas exigen que la calibración se haya ejecutado: el motor pide la probabilidad calibrada aunque elijas la otra.",
@@ -7008,7 +7187,8 @@
             }
           ],
           "path": "performance.evaluation_source",
-          "question": "¿Con qué cifra se ordena a los clientes de más a menos riesgo al medir?"
+          "question": "¿Con qué cifra se ordena a los clientes de más a menos riesgo al medir?",
+          "when": null
         },
         {
           "help": "Sólo se aplica si ordenas la cartera por el puntaje de la tarjeta; ordenando por la probabilidad calibrada no cambia ninguna cifra. Tiene que decir lo mismo que la escala con que construiste la tarjeta: si se contradicen, se avisa antes de correr y la corrida se detiene, porque medir al revés invierte el signo de los indicadores de discriminación sin que el número parezca raro.",
@@ -7032,7 +7212,8 @@
             }
           ],
           "path": "performance.score_direction",
-          "question": "Al medir el desempeño, ¿un puntaje más alto es mejor o peor cliente?"
+          "question": "Al medir el desempeño, ¿un puntaje más alto es mejor o peor cliente?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -7088,7 +7269,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -7120,7 +7302,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -7144,7 +7327,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -7168,7 +7352,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -7192,7 +7377,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -7442,7 +7628,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -7482,7 +7669,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "Las dos rutas son metodológicamente válidas y este motor admite ambas. La diferencia es si descompones la pérdida en sus dos factores o si la traes ya estimada. Si una norma local te obliga a una de las dos, ésa es la que eliges.",
@@ -7506,7 +7694,8 @@
             }
           ],
           "path": "provisioning_internal.method",
-          "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?"
+          "question": "¿Cómo quieres calcular la pérdida esperada de cada grupo?",
+          "when": null
         },
         {
           "help": "El monto de la provisión se apoya en esta probabilidad, así que su procedencia queda declarada en el informe y en el rastro de auditoría.",
@@ -7530,7 +7719,8 @@
             }
           ],
           "path": "provisioning_internal.pd_source",
-          "question": "¿De dónde sale la probabilidad de incumplir de cada operación?"
+          "question": "¿De dónde sale la probabilidad de incumplir de cada operación?",
+          "when": null
         },
         {
           "help": "Este método provisiona por grupo, no por operación: la provisión es una cifra del grupo, que después se reparte entre sus operaciones a prorrata de la exposición.",
@@ -7562,10 +7752,11 @@
             }
           ],
           "path": "provisioning_internal.grouping",
-          "question": "¿Cómo quieres formar los grupos homogéneos de deudores?"
+          "question": "¿Cómo quieres formar los grupos homogéneos de deudores?",
+          "when": null
         },
         {
-          "help": "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa de pérdida ya estimada, esta elección no cambia el resultado. Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el proceso de recuperación prescinde de ella: la calcula desde tus flujos.",
+          "help": "Las dos primeras leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el proceso de recuperación prescinde de ella: la calcula desde tus flujos.",
           "multiple": false,
           "options": [
             {
@@ -7616,7 +7807,11 @@
             }
           ],
           "path": "provisioning_internal.lgd.method",
-          "question": "¿De dónde sale la severidad de cada operación?"
+          "question": "¿De dónde sale la severidad de cada operación?",
+          "when": {
+            "equals": "pd_lgd",
+            "path": "provisioning_internal.method"
+          }
         },
         {
           "help": "Se aplica al monto de cada grupo y a su reparto entre operaciones, que siempre cuadra exacto con el total. Ojo: aquí se parte redondeando al centavo, y los otros motores de provisión parten sin redondear, así que compararlos exige igualar esta elección.",
@@ -7648,7 +7843,8 @@
             }
           ],
           "path": "provisioning_internal.rounding",
-          "question": "¿Con qué precisión quieres publicar el monto de la provisión?"
+          "question": "¿Con qué precisión quieres publicar el monto de la provisión?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -7704,7 +7900,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -7736,7 +7933,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -7760,7 +7958,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -7784,7 +7983,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -7808,7 +8008,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [],
@@ -8016,7 +8217,8 @@
             }
           ],
           "path": "data.load.backend",
-          "question": "¿Con qué motor quieres leer tu archivo?"
+          "question": "¿Con qué motor quieres leer tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes dejar que se reconozca por la extensión, o decirlo tú si el archivo no la trae o la trae equivocada.",
@@ -8056,7 +8258,8 @@
             }
           ],
           "path": "data.load.file_format",
-          "question": "¿En qué formato viene tu archivo?"
+          "question": "¿En qué formato viene tu archivo?",
+          "when": null
         },
         {
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
@@ -8112,7 +8315,8 @@
             }
           ],
           "path": "report.formats",
-          "question": "¿En qué formatos quieres el entregable?"
+          "question": "¿En qué formatos quieres el entregable?",
+          "when": null
         },
         {
           "help": "Un capítulo falta cuando el paso que lo produce no dejó su resultado en la corrida. La decisión se toma al armar el informe, con todo lo demás ya calculado.",
@@ -8144,7 +8348,8 @@
             }
           ],
           "path": "report.sections.missing_policy",
-          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?"
+          "question": "¿Qué hacer si al informe le falta uno de los capítulos que exigiste?",
+          "when": null
         },
         {
           "help": "Cambia sólo el aspecto de ese documento y del que sale paginado a partir de él; los números, las tablas y el texto son exactamente los mismos.",
@@ -8168,7 +8373,8 @@
             }
           ],
           "path": "report.html.theme",
-          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?"
+          "question": "¿Con qué presentación quieres el informe que se abre en el navegador?",
+          "when": null
         },
         {
           "help": "Son los espacios en blanco con su guía de redacción —opinión de Validación, conclusiones, visto bueno— que el motor no llena porque los escribe una persona.",
@@ -8192,7 +8398,8 @@
             }
           ],
           "path": "report.document.placeholders",
-          "question": "¿El informe debe traer los bloques que firma quien valida?"
+          "question": "¿El informe debe traer los bloques que firma quien valida?",
+          "when": null
         },
         {
           "help": "Elijas lo que elijas, los números, las tablas y la prosa técnica los escribe el motor y son reproducibles. Esto sólo aplica si además activas esa ayuda.",
@@ -8216,7 +8423,8 @@
             }
           ],
           "path": "report.ai.provider",
-          "question": "¿Quién redacta el texto de acompañamiento del informe?"
+          "question": "¿Quién redacta el texto de acompañamiento del informe?",
+          "when": null
         }
       ],
       "missing_sections": [

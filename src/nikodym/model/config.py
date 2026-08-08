@@ -324,19 +324,17 @@ class ModelConfig(NikodymBaseConfig):
         default=100,
         ge=1,
         title="Iteraciones máximas del ajuste",
-        description=(
-            "Iteraciones máximas del ajuste estadístico; Nikodym eleva a propósito el límite por "
-            "defecto de statsmodels. No controla las rondas del stepwise, que se fijan en "
-            "`model.stepwise.max_iter`."
-        ),
+        description=("Iteraciones máximas del ajuste estadístico."),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Ajuste",
             "ui_order": 4,
             "ui_help": (
                 "Número máximo de iteraciones que puede dar el ajuste estadístico antes de "
-                "declarar que no convergió. Subirlo puede ayudar en modelos con varias "
-                "variables que convergen lento."
+                "declarar que no convergió. Subirlo puede ayudar en modelos con varias variables "
+                "que convergen lento; Nikodym eleva a propósito el límite por defecto de "
+                "statsmodels. No controla las rondas del stepwise, que se fijan en "
+                "model.stepwise.max_iter."
             ),
         },
     )

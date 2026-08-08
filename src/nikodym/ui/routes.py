@@ -1005,18 +1005,23 @@ def _format_errors(exc: ValidationError) -> list[dict[str, Any]]:
 def _error_de_dominio(exc: NikodymError) -> list[dict[str, Any]]:
     """Proyecta un error del motor a la MISMA forma que un error de Pydantic.
 
-    Va con ``loc`` vacío porque un invariante de dominio no pertenece a un campo: nace de la
-    relación entre varios (``_check_invariantes``). El front indexa por ``loc`` para pintar el
-    error junto a su campo, así que éste no se anclará a ninguno — pero sí entra en el contador de
-    «config inválido», que es lo que el usuario necesita para saber que no puede correr. Fabricar
-    un ``loc`` a partir del texto del mensaje sería adivinar.
+    Va con el ``loc`` que el ERROR declara, y vacío si no declara ninguno (D-EXI-5). Vacío sigue
+    siendo la respuesta correcta para un invariante que nace de la relación entre varios campos
+    (``_check_invariantes``): ése no pertenece a ninguno, y entra igual en el contador de «config
+    inválido», que es lo que el usuario necesita para saber que no puede correr.
+
+    🔴 Lo que NO se hace, y por eso el dato lo pone el emisor: **fabricar un ``loc`` a partir del
+    texto del mensaje sería adivinar.** Hasta el 2026-08-08 no había alternativa y el ``loc`` iba
+    vacío siempre, así que un error que sí pertenece a un campo —elegir una rama modelada de LGD sin
+    su columna— llegaba a la pantalla sin nada que enfocar, mientras el gesto simétrico de la
+    partición temporal sí marcaba el suyo.
 
     Acepta cualquier ``NikodymError`` y no sólo ``ConfigError`` porque un insumo externo mal
     declarado tiene exactamente la misma naturaleza: no pertenece a ningún campo del config, y en
     ``/api/validate`` —cuyo contrato es responder siempre 200— tiene que salir como config inválido
     y no como un 500.
     """
-    return [{"loc": [], "msg": str(exc), "type": "config_error"}]
+    return [{"loc": list(exc.loc), "msg": str(exc), "type": "config_error"}]
 
 
 def build_router() -> APIRouter:

@@ -159,10 +159,14 @@ class StabilityConfig(NikodymBaseConfig):
         default=None,
         title="Columna de período/cohorte",
         description=(
-            "Si se deja vacía y el eje temporal no es 'none', se infiere de los datos cuando hay "
-            "una sola columna candidata; si hay varias o ninguna, la corrida se detiene con error."
+            "Columna del eje temporal; vacía la infiere de los datos si hay una sola candidata."
         ),
         json_schema_extra={
+            "ui_help": (
+                "Si se deja vacía y el eje temporal no es 'none', se infiere de los datos "
+                "cuando hay una sola columna candidata; si hay varias o ninguna, la corrida "
+                "se detiene con error."
+            ),
             "column_role": "input",
             "ui_widget": "text_input",
             "ui_group": "Temporal",

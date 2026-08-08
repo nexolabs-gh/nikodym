@@ -1988,9 +1988,15 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
         {
             "path": "provisioning_internal.lgd.method",
             "question": "¿De dónde sale la severidad de cada operación?",
+            # 🔴 D-EXI-6: este punto **no aplica siempre**, y hasta el 2026-08-08 su `help` decía
+            # que con la tasa de pérdida directa «esta elección no cambia el resultado» — falso:
+            # elegir aquí una rama modelada rechazaba el config ENTERO, aunque el motor no abra una
+            # sola columna de `lgd` (D-SUB-2 lo declara inerte). Se cierra en la SUPERFICIE y no en
+            # el validador: relajar la rama obligaría a que `InternalLgdWorkout()` dejara de fallar
+            # —dos clases públicas— y contradiría D-LGD, que decidió que la rama ES el método.
+            "when": {"path": "provisioning_internal.method", "equals": "pd_lgd"},
             "help": (
-                "Sólo se aplica si descompones la pérdida en sus dos factores; si traes la tasa "
-                "de pérdida ya estimada, esta elección no cambia el resultado. Las dos primeras "
+                "Las dos primeras "
                 "leen la severidad que trae tu archivo y sólo se diferencian en cómo la resumen "
                 "por grupo. Las dos regresiones la MODELAN, pero siguen necesitando la observada "
                 "como objetivo del ajuste —o la fracción recuperada, si la nombras—. Sólo el "
@@ -4206,6 +4212,10 @@ _CLAVES_DE_FORMA = frozenset({"id", "label", "help", "template", "slots", "preca
 _CLAVES_DE_DECISION = frozenset({"path", "question", "help", "answer_forms"})
 _CLAVES_DE_PRECARGA = frozenset({"slot", "desde", "insumo", "nota"})
 _CLAVES_DE_ELECCION = frozenset({"path", "question", "help", "multiple", "options"})
+#: Sólo la declara un punto que **no aplica siempre** (D-EXI-6). Misma forma que el `when` de
+#: `external_artifacts`, que es el precedente vivo: `{"path": ..., "equals": ...}` evaluado por el
+#: front con `valueAtPath`. Reutilizarlo evita inventar un segundo lenguaje de condiciones.
+_CLAVES_OPCIONALES_DE_ELECCION = frozenset({"when"})
 _CLAVES_DE_OPCION = frozenset({"value", "label", "help", "estado", "motivo", "prueba"})
 #: Sólo la declaran las opciones en estado ``exige_otro_campo`` (D-EXI-2), y un gate exige la
 #: bicondicional en los dos sentidos.
@@ -4242,13 +4252,19 @@ def _opcion_json(opcion: dict[str, Any]) -> dict[str, Any]:
 
 def _eleccion_json(eleccion: dict[str, Any]) -> dict[str, Any]:
     """Copia JSON-able de un punto de elección del abanico, campo a campo."""
-    _exige_claves(eleccion, _CLAVES_DE_ELECCION, f"elección {eleccion.get('path')!r} del abanico")
+    _exige_claves(
+        eleccion,
+        _CLAVES_DE_ELECCION,
+        f"elección {eleccion.get('path')!r} del abanico",
+        opcionales=_CLAVES_OPCIONALES_DE_ELECCION,
+    )
     return {
         "path": eleccion["path"],
         "question": eleccion["question"],
         "help": eleccion["help"],
         "multiple": eleccion["multiple"],
         "options": [_opcion_json(o) for o in eleccion["options"]],
+        "when": dict(eleccion["when"]) if eleccion.get("when") else None,
     }
 
 

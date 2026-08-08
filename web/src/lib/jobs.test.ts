@@ -894,6 +894,7 @@ describe("el abanico metodológico en la pantalla (D-ABA-10)", () => {
         exige: [],
       },
     ],
+    when: null,
   }
   const trabajo = { ...FIXTURE_JOBS.jobs[0], methodology_choices: [punto] }
 
@@ -908,6 +909,46 @@ describe("el abanico metodológico en la pantalla (D-ABA-10)", () => {
     // elegida pintaría un tilde sobre algo que el motor no va a usar.
     expect(methodologyStatuses(trabajo, { binning: null })[0].elegida).toBeNull()
     expect(methodologyStatuses(trabajo, {})[0].elegida).toBeNull()
+  })
+
+  it("🔴 un punto con `when` desaparece cuando su condición no se cumple (D-EXI-6)", () => {
+    // El defecto que cierra: con `provisioning_internal.method='direct_loss_rate'` la subsección
+    // `lgd` es INERTE —el motor no abre una sola columna suya— y el formulario seguía ofreciendo el
+    // punto de la severidad; elegir ahí una rama modelada rechazaba el config ENTERO.
+    const condicionado = {
+      ...punto,
+      path: "provisioning_internal.lgd.method",
+      when: { path: "provisioning_internal.method", equals: "pd_lgd" },
+    }
+    const conCondicion = { ...FIXTURE_JOBS.jobs[0], methodology_choices: [condicionado] }
+
+    // No aplica: el punto NO se ofrece.
+    expect(
+      methodologyStatuses(conCondicion, {
+        provisioning_internal: { method: "direct_loss_rate" },
+      }),
+    ).toEqual([])
+    // Aplica: el punto se ofrece igual que siempre.
+    const aplica = methodologyStatuses(conCondicion, {
+      provisioning_internal: { method: "pd_lgd" },
+    })
+    expect(aplica).toHaveLength(1)
+    expect(aplica[0].path).toBe("provisioning_internal.lgd.method")
+    // Y un punto SIN condición no se filtra nunca: el `when` no puede esconder lo que aplica siempre.
+    expect(methodologyStatuses(trabajo, { binning: { method: "optimal" } })).toHaveLength(1)
+  })
+
+  it("una sección ausente NO hace desaparecer un punto condicionado por error", () => {
+    // Control del caso frontera: sin `provisioning_internal` en el config, `valueAtPath` da
+    // `undefined` y la condición no se cumple, así que el punto no se ofrece. Es lo correcto —no hay
+    // método elegido todavía— pero conviene fijarlo: el criterio es «se cumple», no «no contradice».
+    const condicionado = {
+      ...punto,
+      path: "provisioning_internal.lgd.method",
+      when: { path: "provisioning_internal.method", equals: "pd_lgd" },
+    }
+    const job = { ...FIXTURE_JOBS.jobs[0], methodology_choices: [condicionado] }
+    expect(methodologyStatuses(job, {})).toEqual([])
   })
 
   it("conserva el estado y el motivo que declara el catálogo, sin recalcularlos", () => {

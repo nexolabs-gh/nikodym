@@ -8,6 +8,8 @@ corresponda) en su propio módulo. Los mensajes van en **español** e incluyen, 
 la regla, el umbral gatillante y el valor observado (auditabilidad, §4 principio 2).
 """
 
+from collections.abc import Sequence
+
 __all__ = [
     "ArtifactExistsError",
     "ArtifactNotFoundError",
@@ -28,7 +30,39 @@ __all__ = [
 
 
 class NikodymError(Exception):
-    """Raíz de toda excepción de la librería Nikodym."""
+    """Raíz de toda excepción de la librería Nikodym.
+
+    Puede declarar ``loc``: la ruta del campo del config al que pertenece el fallo (D-EXI-5).
+
+    🔴 **Por qué existe y por qué la declara el EMISOR.** Un error de dominio viaja a
+    ``/api/validate`` con la misma forma que uno de Pydantic, y el front indexa por ``loc`` para
+    pintarlo junto a su campo y ofrecer el salto. Hasta el 2026-08-08 salía siempre con ``loc: []``,
+    con la razón correcta escrita en el traductor: **fabricarlo a partir del texto del mensaje sería
+    adivinar**. La consecuencia, medida: elegir `provisioning_internal.lgd.method='beta_regression'`
+    dejaba «Config inválido · 1 error» **sin campo al que saltar**, mientras el gesto simétrico
+    —elegir una partición temporal sin su columna de fecha— sí marca el suyo. La salida no es
+    adivinar: es que quien levanta el error diga a qué campo pertenece.
+
+    ⚠️ La ruta es **absoluta desde la raíz del config** (``("provisioning_internal", "lgd",
+    "covariate_cols")``), porque el ``except`` que la traduce vive en el endpoint y atrapa la
+    validación del ``NikodymConfig`` entero: ahí ya no se sabe qué sección la emitió. Que eso ate al
+    emisor con el nombre de su sección es el precio, y lo cubre un gate que exige que **toda ruta
+    declarada resuelva contra ``NikodymConfig``** — así, renombrar una sección se pone rojo en vez
+    de dejar el error apuntando al vacío. Mismo trato que la clave ``exige`` del abanico (D-EXI-2).
+
+    ⚠️ Y es **atributo de clase con default vacío**, no un parámetro obligatorio: las 131 subclases
+    existentes lo heredan sin tocar una línea, y la única que define su propio ``__init__``
+    (``CalibrationOffsetExceededError``) sigue funcionando igual. Un error sin ``loc`` significa «no
+    pertenece a un campo», que es la verdad de un invariante entre varios —el caso para el que el
+    ``loc: []`` se escribió— y no un olvido.
+    """
+
+    loc: tuple[str | int, ...] = ()
+
+    def __init__(self, *args: object, loc: Sequence[str | int] = ()) -> None:
+        super().__init__(*args)
+        if loc:
+            self.loc = tuple(loc)
 
 
 class ConfigError(NikodymError):

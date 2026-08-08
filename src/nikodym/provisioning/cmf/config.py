@@ -70,14 +70,22 @@ class CmfMatrixConfig(NikodymBaseConfig):
         default="cmf_b1_b3_2025_01",
         title="Versión normativa activa",
         description=(
-            "Identificador del bundle B-1/B-3 empaquetado que se usará para el cálculo CMF. Es un "
-            "caso de referencia congelado: sus tablas se extrajeron del texto oficial el "
-            "2026-06-23 y no se actualizan con cada circular, así que exigen validación humana "
-            "contra la norma vigente antes de cualquier uso productivo. Cada matriz tiene además "
-            "su propia fecha de vigencia y la más antigua en uso es de 2014; el identificador "
-            "nombra la última circular incorporada, no la antigüedad del conjunto."
+            "Identificador del bundle B-1/B-3 empaquetado que se usará para el cálculo CMF."
         ),
-        json_schema_extra={"ui_widget": "selectbox", "ui_group": "Matrices", "ui_order": 1},
+        json_schema_extra={
+            "ui_help": (
+                "Identificador del bundle B-1/B-3 empaquetado que se usará para el cálculo "
+                "CMF. Es un caso de referencia congelado: sus tablas se extrajeron del texto "
+                "oficial el 2026-06-23 y no se actualizan con cada circular, así que exigen "
+                "validación humana contra la norma vigente antes de cualquier uso productivo. "
+                "Cada matriz tiene además su propia fecha de vigencia y la más antigua en uso "
+                "es de 2014; el identificador nombra la última circular incorporada, no la "
+                "antigüedad del conjunto."
+            ),
+            "ui_widget": "selectbox",
+            "ui_group": "Matrices",
+            "ui_order": 1,
+        },
     )
     require_verified_rows: bool = Field(
         default=True,
@@ -260,12 +268,18 @@ class CmfExposureConfig(NikodymBaseConfig):
     is_default_col: str = Field(
         default="is_default",
         title="Indicador incumplimiento",
-        description=(
-            "Columna booleana con el incumplimiento declarado por el banco: fuerza el factor de "
-            "conversión B-3 a 100 % en contingentes y, en cartera consumo, clasifica al deudor en "
-            "incumplimiento (PI 100 %) aunque su mora sea menor a 90 días."
-        ),
-        json_schema_extra={"ui_widget": "text_input", "ui_group": "Exposición", "ui_order": 4},
+        description=("Columna booleana con el incumplimiento declarado por el banco."),
+        json_schema_extra={
+            "ui_help": (
+                "Columna booleana con el incumplimiento declarado por el banco: fuerza el "
+                "factor de conversión B-3 a 100 % en contingentes y, en cartera consumo, "
+                "clasifica al deudor en incumplimiento (PI 100 %) aunque su mora sea menor a "
+                "90 días."
+            ),
+            "ui_widget": "text_input",
+            "ui_group": "Exposición",
+            "ui_order": 4,
+        },
     )
     allow_negative_exposure: bool = Field(
         default=False,
