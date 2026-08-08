@@ -5,7 +5,44 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-08): **cuatro veces la medición refutó lo escrito, y el peor defecto vivía en la PANTALLA DE RESULTADOS**
+> ## 🔴 LO SIGUIENTE ES EL TRASPASO A CODEX (decidido por Cami el 2026-08-08)
+>
+> La sesión siguiente se dedica **entera** a eso, no al roadmap. El prompt de arranque está listo en
+> `privado/PROMPT-TRASPASO-CODEX.md`. No empezar trabajo nuevo de producto.
+>
+> ## Lo último (2026-08-08 tarde): **un error de validación no puede quedarse SIN SUPERFICIE**
+>
+> **`main` = `fb73694`.** ⚠️ **CI de `7976f1e` y `fb73694` SIN VERIFICAR: confirmarlo al arrancar.**
+> Gates: pytest **5442 passed / 7 skipped**, vitest **665/665**, mypy 245, `ruff check` y `format`,
+> typecheck y lint, bundle reconstruido. **PyPI sigue en `1.11.0`.**
+>
+> 🔴 **La deuda 4 —«verificar el salto del `loc`», dada por media hora— era una REGRESIÓN, y su
+> medición refutó la premisa de la deuda 1.** Anclar un error lo volvía **invisible fuera de su
+> sección**: con `loc: []` se leía en la barra, con `loc` desaparecía de la pantalla entera, sin
+> marca en el sidebar ni salto. ⇒ «migrar los 121 es seguro, cada uno convierte un mensaje mudo en
+> un salto» era **falso en sus dos mitades**. ⚠️ Y la clase es **preexistente y mayor**: los errores
+> de Pydantic siempre trajeron `loc`, así que con tres secciones rotas dos de los tres mensajes eran
+> invisibles desde siempre. D-EXI-5 no creó el agujero: **metió dentro** a los de dominio.
+>
+> ✅ **D-VIS-1…7** ([`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](docs/design/_ENMIENDA-ERROR-SIN-SUPERFICIE.md),
+> aprobada por Cami). Front puro, cero contrato de backend, cero `config_hash`. Lo no anclado se
+> publica con su sección y su salto; el sidebar marca; y **D-VIS-7 —añadida después del OK y
+> declarada— normaliza el `loc` elidiendo el tag del discriminador**, que dejaba **58 hojas** sin
+> poder anclarse nunca. ✅ **98 `raise` migrados**; el resto sin `loc` a propósito, con su razón.
+>
+> 🔴 **Y el contrato «siempre 200» se rompió por CUARTA vez**: `/api/validate` daba **500** con dos
+> escenarios de stress homónimos (reproducido), por **18 `raise` en 6 clases** directas de
+> `NikodymError`. Lo caro: **D-ANC-10 ya había medido esas clases** y amplió la captura en la
+> coacción del hash — **el endpoint se quedó atrás**. Cerrado como clase, con un gate que barre todo
+> `config.py` (no sólo los validadores: el `raise` culpable vive en un auxiliar).
+>
+> ⚠️ **Abierto:** las dos lentes adversariales sobre las 98 anclas se detuvieron **sin veredicto**, y
+> hay **seis defectos de prosa medidos y sin corregir** —tres falsos y publicados, incluido el PSI
+> que publica una magnitud bajo el nombre de otra—. Detalle en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-08): **cuatro veces la medición refutó lo escrito, y el peor defecto vivía en la PANTALLA DE RESULTADOS**
 >
 > **`main` = `acd8f7d`.** ⚠️ **CI 16/16 confirmado job a job sobre `c147f00`, `b2d9a43` y `a238732`,
 > con su `Deploy` verde; el de `acd8f7d` queda por verificar al arrancar.** Gates: pytest **5440

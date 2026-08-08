@@ -11,7 +11,37 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-08, **cuatro premisas escritas cayeron al medirlas**)
+## 🔴 LO SIGUIENTE ES EL TRASPASO A CODEX (Cami, 2026-08-08)
+
+La sesión siguiente se dedica **entera** al traspaso a Codex, no al roadmap. Prompt de arranque
+listo en `privado/PROMPT-TRASPASO-CODEX.md`. ⚠️ Parte de ese trabajo es auditar **este mismo
+archivo**: `AGENTS.md` se declara fuente común de Claude Code y Codex, y hay que medir si eso se
+sostiene o se quedó atrás respecto de `CLAUDE.md`.
+
+## Estado vigente (2026-08-08 tarde, **un error de validación no puede quedarse sin superficie**)
+
+**`main` = `fb73694`.** ⚠️ **CI de `7976f1e` y `fb73694` SIN VERIFICAR.** Gates: pytest **5442 passed
+/ 7 skipped**, vitest **665/665**, mypy 245, `ruff check` y `format`, typecheck y lint del front,
+bundle reconstruido. **PyPI sigue en `1.11.0`.**
+
+🔴 Verificar en pantalla una deuda dada por «media hora» destapó una **regresión**: anclar un error
+al campo lo volvía **invisible fuera de su sección**, y con ello la premisa «migrar los 121 es
+seguro» era falsa. La clase resultó **preexistente**: los errores de Pydantic siempre trajeron `loc`.
+
+✅ **D-VIS-1…7** ([`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](design/_ENMIENDA-ERROR-SIN-SUPERFICIE.md)):
+lo no anclado se publica con su sección y su salto, el sidebar marca, y el `loc` se normaliza
+elidiendo el tag del discriminador (**58 hojas** que no podían anclarse). ✅ **98 `raise` migrados**.
+
+🔴 **Cuarta reincidencia del contrato «siempre 200»**: 500 con dos escenarios de stress homónimos,
+por 18 `raise` en 6 clases directas de `NikodymError`. **D-ANC-10 ya lo había medido** y el endpoint
+se quedó atrás. Cerrado como clase.
+
+⚠️ Abierto: dos lentes adversariales **sin veredicto** y **seis defectos de prosa** medidos y sin
+corregir (tres publicados). Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-08, **cuatro premisas escritas cayeron al medirlas**)
 
 **`main` = `acd8f7d`.** ⚠️ **CI 16/16 confirmado job a job sobre `c147f00`, `b2d9a43` y `a238732`, con
 su `Deploy` verde; el de `acd8f7d` queda por verificar al arrancar.** Gates: pytest **5440 passed / 7
