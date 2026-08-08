@@ -11,7 +11,46 @@ Librería Python **open-source (Apache-2.0)** de riesgo de crédito **integral**
 ## Idioma
 Todo en **español** (docs, comentarios, comunicación). Términos técnicos en su forma original.
 
-## Estado vigente (2026-08-06, **P4: la infraestructura de la LGD modelada, hash-neutral**)
+## Estado vigente (2026-08-07, **P4 terminado y el deploy deja de ser manual**)
+
+**`main` = `9bdf68a`.** ✅ **CI 16/16 confirmado job a job con `gh` sobre `de7043f` y `9bdf68a`**; no
+queda ningún run por verificar. Gates: pytest **5362 passed / 8 skipped** (base 5323), vitest
+**640/640**, mypy 245, `ruff check` y `format`, typecheck y lint del front, **cobertura regulatoria
+100 %**, fixtures y bundle regenerados, `mkdocs --strict`, `uv lock --check`. **PyPI sigue en
+`1.11.0` y no hay release autorizado.**
+
+✅ **Docs y demo PUBLICADAS y verificadas en vivo por contenido.** `docs.nikodym.cl` servía `1.2.0`
+—nueve releases atrás— y sin cuatro páginas del repo, una desde hacía 12 días; `demo.nikodym.cl`
+estaba **171 commits y 4 releases atrás**. 🔴 **El titular «provisiones CMF de Chile» está muerto en
+producción.**
+
+✅ **Nace `.github/workflows/deploy.yml`** (decisión de Cami): publica los dos sitios cuando `main`
+pasa los 16 jobs y verifica en vivo el resultado. Probado: dos runs `success`. 🔴 **No faltaba un
+gate, faltaba PUBLICAR** — el contenido ya estaba vigilado y aun así derivó nueve releases.
+
+✅ **P4 completo** (pasos 4-6 de [`_ENMIENDA-LGD-MODELADA.md`](design/_ENMIENDA-LGD-MODELADA.md)). La
+decisión abierta se resolvió: las ramas modeladas satisfacen `LgdSpec` con **`@property` inerte**, no
+partiendo el protocolo — una propiedad no entra al `model_dump`, y un campo inerte sería la clase
+«campo en rama inactiva» que la unión cerró. **Los cuatro `config_hash` sin mover.**
+
+🔴 **La revisión adversarial encontró SIETE defectos con todo verde, y el peor era de copy: la
+fórmula de recuperos estaba descrita AL REVÉS** —el texto decía `PV/exposición`, que es la tasa de
+recuperación, y el motor calcula `1 - PV/EAD`—, publicando la cifra invertida en el documento que
+lee un regulador. ⚠️ La `description` del config sí estaba bien: se degradó al pasar a prosa.
+
+✅ **D-SUB-1…4** ([`_ENMIENDA-SUBSECCION-INERTE.md`](design/_ENMIENDA-SUBSECCION-INERTE.md), aprobada
+por Cami): una subsección entera puede ser inerte y el preflight no podía saberlo — hasta 5
+desajustes falsos. «Inactivo» pasa a podar el campo **y su subárbol**; medido: no-op para los seis
+implementadores existentes.
+
+⚠️ **Deuda que creció al medirla:** el gate de portada no barre `ui/jobs.py` **ni `report/prose.py`**.
+La prosa del informe es la de más riesgo: es lo que se imprime y se entrega.
+
+**Siguiente: lo elige Cami.** Detalle en [`HANDOFF.md`](HANDOFF.md).
+
+---
+
+## Lo de la sesión anterior (2026-08-06, **P4: la infraestructura de la LGD modelada, hash-neutral**)
 
 **`main` = `d9fe4c5`**; el código vive en `e620b30`, `43fde5f` y `e63c4c7`. ⚠️ **Los cuatro se
 pushearon juntos, así que hay UN solo run —el de `d9fe4c5`— y está SIN verificar**: confirmarlo job

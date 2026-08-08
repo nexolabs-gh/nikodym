@@ -5,7 +5,92 @@
 > `AGENTS.md` es la fuente de verdad del contexto de trabajo (común a Claude Code y Codex). Mantener ambos coherentes.
 > Para arrancar una sesión, leer primero [`HANDOFF.md`](HANDOFF.md).
 >
-> ## Lo último (2026-08-06): **P4 — la LGD del método interno se contesta ELIGIENDO UNA FORMA**
+> ## Lo último (2026-08-07): **P4 TERMINADO, y docs y demo dejan de publicarse a mano**
+>
+> **`main` = `9bdf68a`.** ✅ **CI 16/16 confirmado job a job con `gh` sobre `de7043f` Y `9bdf68a`**;
+> no queda ningún run por verificar. Gates: pytest **5362 passed / 8 skipped** (base 5323), vitest
+> **640/640**, mypy 245, `ruff check` y `format`, typecheck y lint, **cobertura regulatoria 100 %**,
+> fixtures y bundle regenerados, `mkdocs --strict`, `uv lock --check`. **PyPI sigue en `1.11.0` y no
+> hay release autorizado.**
+>
+> ✅ **`docs.nikodym.cl` y `demo.nikodym.cl` PUBLICADAS y verificadas EN VIVO por contenido**, dos
+> veces: por el workflow y aparte por mí. La doc servía **`1.2.0`** —nueve releases atrás— y sin
+> cuatro páginas del repo, una desde hacía **12 días**; la demo estaba **171 commits y 4 releases
+> atrás** (último deploy 2026-07-27). 🔴 **El titular «provisiones CMF de Chile» está muerto en
+> producción**: la decisión del 2026-08-05 por fin se ve.
+>
+> ✅ **Nace `.github/workflows/deploy.yml`** (decisión de Cami): publica los dos sitios cuando `main`
+> pasa los 16 jobs y **verifica en vivo** el resultado. Probado de verdad — dos runs `success`, 19
+> pasos verdes. 🔴 **El diagnóstico que decidió la forma: NO faltaba un gate, faltaba PUBLICAR.** El
+> contenido ya estaba vigilado —`test_docs_site_cifras.py:192` ata el titular de versión a
+> `__version__`— y aun así derivó nueve releases. ⚠️ Se despliegan los dos **siempre, sin filtro por
+> rutas**: un filtro reintroduce la forma de equivocarse que esto cierra. Y si falta el token falla
+> en su **primer** paso imprimiendo el comando — un `skip` se lee igual que un verde.
+>
+> ✅ **P4 completo** (pasos 4-6 del §7 de [`_ENMIENDA-LGD-MODELADA.md`](docs/design/_ENMIENDA-LGD-MODELADA.md)).
+> **La decisión que estaba abierta, resuelta:** las ramas modeladas satisfacen `LgdSpec` entero con
+> **`@property` inerte**, no partiendo el protocolo. Es el precedente vivo (`IfrsLgdConfig`); partir
+> el protocolo metería en el sistema de tipos una decisión de **runtime**; y una propiedad **no entra
+> al `model_dump`**, mientras un campo inerte sería un control visible y escribible sin efecto — la
+> clase que la unión acaba de cerrar. **Los cuatro `config_hash` sin mover**, medidos antes y después.
+>
+> ⚠️ **El golden va ENUMERADO**: baseline por `git archive HEAD` (nunca stasheando), 1043 → **1064**
+> con **0 desapariciones, 21 apariciones, 0 valores alterados**. Y lo que **no** aparece vale igual:
+> `covariate_cols` no figura bajo recuperos ni `workout_discount` bajo ninguna — son las propiedades
+> inertes, y si aparecen ahí, alguien las volvió campos.
+>
+> 🔴 **La revisión adversarial encontró SIETE defectos con todos los gates verdes, y el peor era de
+> copy y mío: la fórmula de recuperos estaba descrita AL REVÉS.** El texto decía `PV/exposición`
+> —que es la **tasa de recuperación**— y el motor calcula `1 - PV/EAD` (`lgd.py:245-246`). Publicaba
+> la cifra **invertida** sobre toda la cartera, en el documento que recibe un regulador y en el
+> desplegable que decide la elección. ⚠️ **La `description` del config SÍ estaba bien**: se supo
+> escribir y se degradó al pasar a prosa. Los otros seis: «cuatro columnas» cuando el motor exige
+> **cinco**; «no te piden esa columna» falso en 2 de 3; la **traza de auditoría** declarando una
+> procedencia falsa; el **API público** del paquete diciendo aún que sólo hay dos ramas; la **puerta
+> de artefactos a medias** —su comentario decía por qué era inocuo y se borró en vez de actuar sobre
+> lo que documentaba—; y `recovery_col=""` aceptado por el config y muerto en runtime.
+>
+> 🔴 **Y el CI cazó lo que el local no**: `Regulatory coverage` rojo por la guarda de severidad
+> ausente, que el revisor había marcado **inalcanzable**. Se conserva como defensa en profundidad
+> pero **su test la ejercita directamente** — precedente del transformer de binning: código
+> inalcanzable no se deja con la cobertura fingida.
+>
+> ✅ **D-SUB-1…4, enmienda nacida de la revisión y aprobada por Cami**
+> ([`_ENMIENDA-SUBSECCION-INERTE.md`](docs/design/_ENMIENDA-SUBSECCION-INERTE.md)). Con
+> `method='direct_loss_rate'` la subsección `lgd` **entera** es inerte y el preflight exigía sus
+> columnas igual: **hasta 5 desajustes falsos** sobre una corrida que termina bien. 🔴 **El mecanismo
+> no podía verlo POR CONSTRUCCIÓN** —`columnas_inactivas()` sólo pregunta al **propio** modelo y la
+> condición vive un nivel arriba, y la recursión al submodelo quedaba **fuera** de la guarda—.
+> «Inactivo» pasa a podar el campo **y su subárbol**; ⚠️ medido antes: **no-op para los seis
+> implementadores existentes**.
+>
+> 🔴 **Tres cosas que salieron EJECUTANDO.** (1) `recovery_col` no puede vivir en una base
+> compartida: es **tasa** en las regresiones y **monto** en recuperos, y con la descripción común el
+> usuario obtenía severidad **1,0 en toda su cartera sin un solo error**. (2) Una rama modelada **no
+> se construye con defaults** —la rama ES el método, así que una regla condicional en la clase plana
+> se vuelve incondicional—, y el gate se arregló con tabla explícita, **no** saltándose los modelos.
+> (3) `workout` con costo y tiempo cero **reproduce la columna al centavo**: identidad algebraica,
+> no fallo.
+>
+> ⚠️ **Trampas nuevas:** un **cero que viene de no haber medido** se lee igual que un cero medido (un
+> `grep` sobre un archivo no descargado casi pasa por verificación); `grep` con `.` sin escapar es un
+> **comodín** (`1.11.0` dio 6 falsos positivos, con `-F` cero); **`Mismatch.declared` es la COLUMNA,
+> no la ruta** (filtrar por ahí me dio un falso «arreglado»); **Pydantic desenvuelve el `Annotated`**
+> de una unión discriminada y bajar un nivel de más devuelve el conjunto **vacío**; `ruff` exige
+> nombres de test en minúscula; y los dos rojos de CI del 2026-08-06 fueron una **caída de GitHub
+> Actions**, no del código.
+>
+> ⚠️ **Deuda que creció al medirla: el gate de portada no barre `ui/jobs.py` NI `report/prose.py`**
+> —el HANDOFF anterior sólo nombraba el primero—. La prosa del informe es la de más riesgo: es lo que
+> se imprime y se entrega, y esta sesión demostró que puede publicar una frase falsa sin que nada se
+> ponga rojo.
+>
+> **Siguiente: lo elige Cami.** P4 quedó completo y la sesión cierra sin defectos abiertos. Detalle
+> en [`HANDOFF.md`](HANDOFF.md).
+>
+> ---
+>
+> ## Lo de la sesión anterior (2026-08-06): **P4 — la LGD del método interno se contesta ELIGIENDO UNA FORMA**
 >
 > **`main` = `d9fe4c5`**; el código vive en `e620b30`, `43fde5f` y `e63c4c7`. ⚠️ **Se pushearon los
 > cuatro juntos, así que hay UN solo run —el de `d9fe4c5`— y está SIN verificar**: confirmarlo job a
