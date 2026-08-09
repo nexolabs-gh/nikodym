@@ -142,8 +142,12 @@ def _ui_settings(workdir: Path) -> Any:
 
 
 def _probe_contract_census() -> dict[str, Any]:
+    import inspect
+
     import nikodym
     from nikodym.ui import jobs
+    from nikodym.ui.routes import run_pipeline
+    from nikodym.ui.serializers import serialize_study
 
     options = [
         option
@@ -152,6 +156,8 @@ def _probe_contract_census() -> dict[str, Any]:
         for option in point["options"]
     ]
     counts = Counter(option["estado"] for option in options)
+    serializer_parameters = inspect.signature(serialize_study).parameters
+    run_source = inspect.getsource(run_pipeline)
     return {
         "kind": "census",
         "status": "measured",
@@ -159,8 +165,11 @@ def _probe_contract_census() -> dict[str, Any]:
         "option_states": dict(sorted(counts.items())),
         "public_apply_exported": hasattr(nikodym, "apply"),
         "ui_upload_max_mib": _ui_settings(Path(".nikodym_ui")).upload_max_mb,
-        "ui_run_mode": "sync",
-        "ui_results_pagination": False,
+        "ui_run_calls_nikodym_directly": "nikodym.run(" in run_source,
+        "ui_run_is_coroutine": inspect.iscoroutinefunction(run_pipeline),
+        "ui_results_pagination": bool(
+            {"page", "page_size", "cursor"} & serializer_parameters.keys()
+        ),
     }
 
 
@@ -252,9 +261,11 @@ def _run_preset(preset_id: str) -> dict[str, Any]:
             results.raise_for_status()
             report.raise_for_status()
             result_payload = results.json()
+            lineage = result_payload.get("lineage") or {}
             source = datasets.materialize(descriptor["dataset_id"], workdir=workdir)
             frame = datasets.load_frame(descriptor["dataset_id"], workdir=workdir)
             files = [path for path in workdir.rglob("*") if path.is_file()]
+            suffix_counts = Counter(path.suffix or "<sin_sufijo>" for path in files)
             return {
                 "kind": "current_surface_proxy",
                 "status": "proxy",
@@ -268,7 +279,12 @@ def _run_preset(preset_id: str) -> dict[str, Any]:
                 "report_html_bytes": len(report.content),
                 "workdir_file_count": len(files),
                 "workdir_bytes": sum(path.stat().st_size for path in files),
-                "lineage_uv_lock_hash": (result_payload.get("lineage") or {}).get("uv_lock_hash"),
+                "workdir_suffix_counts": dict(sorted(suffix_counts.items())),
+                "lineage_git_sha": lineage.get("git_sha"),
+                "lineage_git_dirty": lineage.get("git_dirty"),
+                "lineage_data_hash": lineage.get("data_hash"),
+                "lineage_config_hash": lineage.get("config_hash"),
+                "lineage_uv_lock_hash": lineage.get("uv_lock_hash"),
                 "limitation": "preset real bajo S0; no sustituye una medición del perfil",
             }
 
@@ -356,7 +372,9 @@ def _probe_score_train_s0() -> dict[str, Any]:
             results.raise_for_status()
             report.raise_for_status()
             result_payload = results.json()
+            lineage = result_payload.get("lineage") or {}
             files = [path for path in workdir.rglob("*") if path.is_file()]
+            suffix_counts = Counter(path.suffix or "<sin_sufijo>" for path in files)
             return {
                 "kind": "current_surface",
                 "status": "measured",
@@ -373,7 +391,12 @@ def _probe_score_train_s0() -> dict[str, Any]:
                 "report_html_bytes": len(report.content),
                 "workdir_file_count": len(files),
                 "workdir_bytes": sum(path.stat().st_size for path in files),
-                "lineage_uv_lock_hash": (result_payload.get("lineage") or {}).get("uv_lock_hash"),
+                "workdir_suffix_counts": dict(sorted(suffix_counts.items())),
+                "lineage_git_sha": lineage.get("git_sha"),
+                "lineage_git_dirty": lineage.get("git_dirty"),
+                "lineage_data_hash": lineage.get("data_hash"),
+                "lineage_config_hash": lineage.get("config_hash"),
+                "lineage_uv_lock_hash": lineage.get("uv_lock_hash"),
                 "limitation": (
                     "mide la superficie F1/UI actual; no existe bundle apply y los resultados "
                     "siguen serializándose completos"
