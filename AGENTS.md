@@ -99,6 +99,20 @@ producto, no un extra.
   cuando el layout importe, verificar también el documento renderizado.
 - Dar una recomendación ejecutiva, no un menú interminable. Corregir primero premisas falsas y dejar
   explícita toda incertidumbre restante.
+- Priorizar causa raíz, coherencia y una implementación limpia, mantenible y escalable. No cerrar con
+  atajos, deuda escondida, migraciones parciales ni trabajo pateado por comodidad; lo que no pueda
+  resolverse dentro del alcance se mide, se deja reproducible y se eleva sin declararlo cerrado.
+
+## Comunicación y decisiones con Cami
+
+- Toda respuesta de trabajo sustantiva y todo cierre empieza con un **TL;DR**.
+- Actuar con autonomía dentro del alcance: agotar primero medición, reproducción y alternativas
+  seguras; preguntar sólo cuando falte una decisión que realmente corresponda a Cami.
+- Cada pregunta debe ser explícita: explicar qué se decide y por qué importa, ofrecer 2–3 opciones
+  mutuamente excluyentes con su impacto y señalar una recomendación concreta.
+- Cada cierre entrega un **prompt completo y listo para copiar** en una sesión fresca, además del
+  modelo y nivel de razonamiento GPT-5.6 recomendado para esa sesión, su motivo y la condición que
+  justificaría escalarlo. No inventar un objetivo de producto que Cami no haya elegido.
 
 ## Qué puede hacer sin preguntar
 
