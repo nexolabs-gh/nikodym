@@ -1,10 +1,10 @@
 {
  "status": "done",
- "run_id": "372129570bdd4f8bb8243ed1b50ccf1f",
+ "run_id": "83da42c4c0154f798b638f50fe00b26f",
  "error": null,
  "model_card": null,
  "lineage": {
-  "git_sha": "6f1936374b2e6e6fe33e3d4a9ed1c5aea2a0e9bc",
+  "git_sha": "8f8b7fd1291df0c3c509b77b84d84c72c37ba7a2",
   "git_dirty": false,
   "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
   "config_hash": "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e",
@@ -18,7 +18,7 @@
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-08-09T18:45:47.344618Z",
+  "created_at": "2026-08-09T19:38:28.341722Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
