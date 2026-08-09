@@ -5,9 +5,9 @@
 > H10=A y H11=A. La aprobación habilita las oleadas en el orden de §7.5; no autoriza por sí sola
 > publicar PyPI ni recapturar la demo, que conservan sus OK específicos.
 >
-> **W0 EN REVISIÓN.** El baseline candidato y su censo `no_medible` viven en
-> [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md). W1 no está iniciada y W0 no se declara
-> cerrada hasta obtener una segunda revisión independiente aprobable.
+> **W0 CERRADA/PASS.** El baseline congelado y su censo `no_medible` viven en
+> [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md). La segunda revisión independiente fue
+> `APROBABLE`; W1 no está iniciada.
 >
 > **Identificación.** El índice conserva numeración estable y SDD-28 reservó el número 29 para el
 > CLI. Por eso el siguiente identificador disponible es **SDD-30**; el 29 no se reutiliza.
@@ -441,7 +441,7 @@ con proceso aislado y límite de recursos para que un baseline rojo no agote el 
 ## 6. Contratos de datos y matriz flujo × estado × DoD × evidencia
 
 La matriz nació del censo sobre `bb3141b47106cc6e316856bc8c933c02f1568475`. W0 volvió a medir
-superficies y proxies sobre `fbe1bddbfca01ffdabdaccef1f638374373f615e`; su evidencia operativa
+superficies y proxies sobre `8c610e3cf00ba74de1e3b401d62c1ea01525ab35`; su evidencia operativa
 manda para cifras, perfiles y `no_medible` y vive en
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md).
 Los IDs son estables. `M` exige estado `gateado` para readiness global; `T` es gate transversal que
@@ -497,15 +497,20 @@ futuros de la cuarta columna:
 | Informe/producto | Proyección tabular sin metadata en `src/nikodym/report/renderer.py:732-761`; DOCX genérico en `src/nikodym/report/docx.py:308-316,392-407`; módulos pares en `web/src/components/landing-evidence.ts:229-329`. |
 | Distribución | Candidato CI en `.github/workflows/ci.yml:259-377,439-467`; smoke dependiente del checkout en `scripts/smoke_instalacion_pip.py:1-186`; rebuild de release en `.github/workflows/release.yml:40-41`. |
 
-### 6.2 Baseline W0 en revisión
+### 6.2 Baseline W0 cerrado
 
 W0 no cambió ninguno de los estados de readiness de la matriz. Congeló:
 
 - una medición de superficie F1/UI exacta para S0;
 - proxies `data_hash` exactos para las geometrías tabulares S0/S1/S2;
 - tres presets reales bajo S0 para F1, provisiones e IFRS 9;
+- la geometría temporal real de F4: 6.000 operaciones × 5 períodos × 1 escenario = 30.000 filas
+  expandidas, reconciliadas contra el payload;
 - diez celdas perfil×canal `no_medible`, con su razón reproducible;
-- el censo actual de opciones y la ausencia de apply, paginación y `uv_lock_hash` en lineage.
+- el censo actual de 207/207 pares únicos y la ausencia de apply, paginación y `uv_lock_hash` en
+  lineage;
+- un arnés fail-closed: no sobrescribe evidencia, exige árbol limpio tracked/untracked y no convierte
+  fallos o timeouts en celdas medidas.
 
 La evidencia cruda y su SHA-256 están en
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md). Un proxy no promueve un flujo a
@@ -604,7 +609,7 @@ permite cross-links secundarios sin duplicar su familia primaria.
 
 | Oleada | Alcance | Depende de | Gate de salida |
 |---|---|---|---|
-| **W0 — contrato y baseline** | **EN REVISIÓN.** SDD/H1–H11 aprobados; superficies/proxies actuales medidos con guardas; `no_medible` explícito. | Este SDD aprobado y envelope H9=B elegido. | Pendiente segunda revisión independiente aprobable del baseline congelado. |
+| **W0 — contrato y baseline** | **CERRADA/PASS.** SDD/H1–H11 aprobados; superficies/proxies actuales medidos con guardas; `no_medible` explícito. | Este SDD aprobado y envelope H9=B elegido. | Baseline inmutable, control negativo rojo→verde y segunda revisión independiente `APROBABLE`. |
 | **W1 — fundamento productivo** | Bundle scoring/apply, tratamientos, `-99999`, D-ABA, `uv_lock_hash`, batch/UI básica. | W0. | Cartera nueva targetless, fila a fila, clean-room y cero opciones no-op seleccionables. |
 | **W2 — LGD/EAD/pérdida** | LGD OOS persistible; provided/recovery/workout; EAD(t) según H4; reconciliación. | W1 para contratos de artefacto/lineage. | PD×LGD×EAD por operación/período y controles cruzados EIR/EAD. |
 | **W3 — PD temporal** | Markov segmentado, projection real, survival común y H7. | W1. | Term structures intercambiables y ambos flujos PD temporal gateados. |

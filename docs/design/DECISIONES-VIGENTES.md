@@ -29,7 +29,7 @@
 | D-EXI-1…7 | Aprobada e implementada | [`_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md`](_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md) |
 | D-FTE-1…5 | Aprobada e implementada | [`_ENMIENDA-COTEJO-FUENTES.md`](_ENMIENDA-COTEJO-FUENTES.md) |
 | D-VIS-1…7 | Aprobada; D-VIS-1…5/7 implementadas; completitud D-VIS-6 abierta | [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md) |
-| D-RDY-ABA-1…6 | Aprobada; W0 en revisión independiente; W1–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
+| D-RDY-ABA-1…6 | Aprobada; W0 cerrada/PASS; W1–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 
 ## D-RDY — readiness integral
 
@@ -60,7 +60,7 @@ Reglas vigentes:
 
 Fuente contractual y matriz de flujos:
 [`30-readiness-integral.md`](30-readiness-integral.md).
-Baseline W0 en revisión:
+Baseline W0 cerrado, con segunda revisión independiente `APROBABLE`:
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md).
 
 ## D-JUR — normativa local como evidencia

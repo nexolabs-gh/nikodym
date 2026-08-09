@@ -1,0 +1,401 @@
+{
+  "guardrails": {
+    "full_flow_hardware_ram_matches": {
+      "S0-smoke": true,
+      "S1-local": false,
+      "S2-equipo": false
+    },
+    "isolated_process_per_probe": true,
+    "no_w1_capabilities_added": true,
+    "pythonhashseed": 0,
+    "s1_s2_full_flows_executed": false,
+    "timeouts_seconds": {
+      "contract-census": 60,
+      "frame-hash-s0": 120,
+      "frame-hash-s1": 180,
+      "frame-hash-s2": 300,
+      "preset-f1": 300,
+      "preset-f3": 300,
+      "preset-f4": 300,
+      "score-train-s0": 300
+    }
+  },
+  "measurements": [
+    {
+      "cpu_seconds": 0.323285,
+      "kind": "census",
+      "option_pairs": 207,
+      "option_pairs_unique": 207,
+      "option_states": {
+        "disponible": 197,
+        "exige_otro_campo": 3,
+        "no_implementada": 2,
+        "sin_efecto": 5
+      },
+      "peak_rss_bytes": 110673920,
+      "probe": "contract-census",
+      "public_apply_exported": false,
+      "returncode": 0,
+      "status": "measured",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ui_results_pagination": false,
+      "ui_run_calls_nikodym_directly": true,
+      "ui_run_is_coroutine": false,
+      "ui_upload_max_mib": 100,
+      "wall_seconds": 0.32629
+    },
+    {
+      "cpu_seconds": 0.376973,
+      "digest": "b734e32511fb7f24893677a6fda903c1bbfc7c80657437dfdd4b0e553106c7be",
+      "first_hash_seconds": 0.004453,
+      "input_bytes_deep": 1000132,
+      "kind": "current_component_proxy",
+      "limitation": "proxy tabular int32; no ejecuta un flujo M ni demuestra su envelope",
+      "observed_cardinality": 100,
+      "peak_rss_bytes": 121290752,
+      "probe": "frame-hash-s0",
+      "profile": "S0-smoke",
+      "repeat_digest_equal": true,
+      "repeat_hash_seconds": 0.003297,
+      "returncode": 0,
+      "rows": 10000,
+      "status": "proxy",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "surface": "nikodym.data.hashing.data_hash",
+      "variables": 25,
+      "wall_seconds": 0.39217
+    },
+    {
+      "cpu_seconds": 0.461822,
+      "digest": "e29ba01b5551933e7ab43353fa3035dc29c2bf174dd12caaf641f788715cbfe9",
+      "first_hash_seconds": 0.056547,
+      "input_bytes_deep": 20000132,
+      "kind": "current_component_proxy",
+      "limitation": "proxy tabular int32; no ejecuta un flujo M ni demuestra su envelope",
+      "observed_cardinality": 10000,
+      "peak_rss_bytes": 218218496,
+      "probe": "frame-hash-s1",
+      "profile": "S1-local",
+      "repeat_digest_equal": true,
+      "repeat_hash_seconds": 0.040089,
+      "returncode": 0,
+      "rows": 100000,
+      "status": "proxy",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "surface": "nikodym.data.hashing.data_hash",
+      "variables": 50,
+      "wall_seconds": 0.465569
+    },
+    {
+      "cpu_seconds": 3.313308,
+      "digest": "4f93b222dbc5096fd56d33940b2dc3608848ad9272ea50e8a8f20b5feb06a8d8",
+      "first_hash_seconds": 1.756624,
+      "input_bytes_deep": 400000132,
+      "kind": "current_component_proxy",
+      "limitation": "proxy tabular int32; no ejecuta un flujo M ni demuestra su envelope",
+      "observed_cardinality": 100000,
+      "peak_rss_bytes": 1843167232,
+      "probe": "frame-hash-s2",
+      "profile": "S2-equipo",
+      "repeat_digest_equal": true,
+      "repeat_hash_seconds": 1.510216,
+      "returncode": 0,
+      "rows": 1000000,
+      "status": "proxy",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "surface": "nikodym.data.hashing.data_hash",
+      "variables": 100,
+      "wall_seconds": 3.792868
+    },
+    {
+      "cpu_seconds": 4.678459,
+      "dataset_id": "consumo_comportamiento",
+      "input_columns": 8,
+      "input_file_bytes": 169126,
+      "input_rows": 6000,
+      "kind": "current_surface_proxy",
+      "limitation": "preset real bajo S0; no sustituye una medición del perfil",
+      "lineage_config_hash": "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e",
+      "lineage_data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
+      "lineage_git_dirty": false,
+      "lineage_git_sha": "8c610e3cf00ba74de1e3b401d62c1ea01525ab35",
+      "lineage_uv_lock_hash": null,
+      "peak_rss_bytes": 389234688,
+      "preset_id": "f1-estandar-consumo",
+      "probe": "preset-f1",
+      "report_html_bytes": 250225,
+      "results_bytes": 120190,
+      "returncode": 0,
+      "run_seconds": 18.767526,
+      "status": "proxy",
+      "stderr_sha256": "8bafe54a1033e203a0e22576ce066e7e5810557c2261b76de9e487d8b48274a6",
+      "stdout_sha256": "fc6f37d2c6a815edc30f636b3645b8d2505a431605724fff561d823f9106aab1",
+      "wall_seconds": 19.467722,
+      "workdir_bytes": 1719821,
+      "workdir_file_count": 20,
+      "workdir_suffix_counts": {
+        ".docx": 2,
+        ".html": 2,
+        ".json": 1,
+        ".parquet": 2,
+        ".qmd": 2,
+        ".svg": 10,
+        "<sin_sufijo>": 1
+      }
+    },
+    {
+      "cpu_seconds": 5.337729,
+      "dataset_id": "provisiones_consumo",
+      "input_columns": 17,
+      "input_file_bytes": 289961,
+      "input_rows": 6000,
+      "kind": "current_surface_proxy",
+      "limitation": "preset real bajo S0; no sustituye una medición del perfil",
+      "lineage_config_hash": "857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d",
+      "lineage_data_hash": "7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3",
+      "lineage_git_dirty": false,
+      "lineage_git_sha": "8c610e3cf00ba74de1e3b401d62c1ea01525ab35",
+      "lineage_uv_lock_hash": null,
+      "peak_rss_bytes": 434814976,
+      "preset_id": "f3-provisiones-consumo",
+      "probe": "preset-f3",
+      "report_html_bytes": 258502,
+      "results_bytes": 132343,
+      "returncode": 0,
+      "run_seconds": 4.720769,
+      "status": "proxy",
+      "stderr_sha256": "4bc0e1461208f6447225308f4c4327829cf3be3e4ab88d6bcd9d6fa561aa6e60",
+      "stdout_sha256": "fc6f37d2c6a815edc30f636b3645b8d2505a431605724fff561d823f9106aab1",
+      "wall_seconds": 5.371752,
+      "workdir_bytes": 1872752,
+      "workdir_file_count": 20,
+      "workdir_suffix_counts": {
+        ".docx": 2,
+        ".html": 2,
+        ".json": 1,
+        ".parquet": 2,
+        ".qmd": 2,
+        ".svg": 10,
+        "<sin_sufijo>": 1
+      }
+    },
+    {
+      "cpu_seconds": 3.445496,
+      "dataset_id": "ifrs9_retail_latam",
+      "input_columns": 17,
+      "input_file_bytes": 277709,
+      "input_rows": 6000,
+      "kind": "current_surface_proxy",
+      "limitation": "preset real bajo S0; no sustituye una medición del perfil",
+      "lineage_config_hash": "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6",
+      "lineage_data_hash": "d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e",
+      "lineage_git_dirty": false,
+      "lineage_git_sha": "8c610e3cf00ba74de1e3b401d62c1ea01525ab35",
+      "lineage_uv_lock_hash": null,
+      "peak_rss_bytes": 358711296,
+      "preset_id": "f4-ifrs9-retail",
+      "probe": "preset-f4",
+      "report_html_bytes": 63270,
+      "results_bytes": 18781,
+      "returncode": 0,
+      "run_seconds": 2.829198,
+      "status": "proxy",
+      "stderr_sha256": "4bc0e1461208f6447225308f4c4327829cf3be3e4ab88d6bcd9d6fa561aa6e60",
+      "stdout_sha256": "fc6f37d2c6a815edc30f636b3645b8d2505a431605724fff561d823f9106aab1",
+      "temporal_expanded_rows": 30000,
+      "temporal_geometry_reconciles": true,
+      "temporal_input_operations": 6000,
+      "temporal_periods": 5,
+      "temporal_scenarios": 1,
+      "wall_seconds": 3.462275,
+      "workdir_bytes": 571106,
+      "workdir_file_count": 10,
+      "workdir_suffix_counts": {
+        ".docx": 2,
+        ".html": 2,
+        ".json": 1,
+        ".parquet": 2,
+        ".qmd": 2,
+        "<sin_sufijo>": 1
+      }
+    },
+    {
+      "cpu_seconds": 5.201431,
+      "feature_variables": 25,
+      "input_columns_total": 27,
+      "input_parquet_bytes": 1985999,
+      "input_rows": 10000,
+      "kind": "current_surface",
+      "limitation": "mide la superficie F1/UI actual; no existe bundle apply y los resultados siguen serializándose completos",
+      "lineage_config_hash": "9f2e3aade514fe587ac9ccb5a55873d4214d57f0c2906bbe8e62b4ff55622b96",
+      "lineage_data_hash": "ebafbca975495c17d5ecc52a77c23dae1a7ebfe67ccd2737473857e65d72739a",
+      "lineage_git_dirty": false,
+      "lineage_git_sha": "8c610e3cf00ba74de1e3b401d62c1ea01525ab35",
+      "lineage_uv_lock_hash": null,
+      "observed_categorical_cardinality": 100,
+      "peak_rss_bytes": 431226880,
+      "probe": "score-train-s0",
+      "profile": "S0-smoke",
+      "report_html_bytes": 311092,
+      "results_bytes": 187043,
+      "returncode": 0,
+      "run_seconds": 4.657686,
+      "status": "measured",
+      "stderr_sha256": "4bc0e1461208f6447225308f4c4327829cf3be3e4ab88d6bcd9d6fa561aa6e60",
+      "stdout_sha256": "fc6f37d2c6a815edc30f636b3645b8d2505a431605724fff561d823f9106aab1",
+      "surface": "upload→nikodym.run(F1)→results+HTML",
+      "wall_seconds": 5.223073,
+      "within_s0_time_budget": true,
+      "workdir_bytes": 4068447,
+      "workdir_file_count": 22,
+      "workdir_suffix_counts": {
+        ".docx": 2,
+        ".html": 2,
+        ".json": 1,
+        ".parquet": 4,
+        ".qmd": 2,
+        ".svg": 10,
+        "<sin_sufijo>": 1
+      }
+    }
+  ],
+  "profile_cells": [
+    {
+      "channel": "score_train",
+      "evidence_probe": "score-train-s0",
+      "profile": "S0-smoke",
+      "status": "measured"
+    },
+    {
+      "channel": "ui",
+      "evidence_probe": "score-train-s0",
+      "limitation": "sin paginación ni lifecycle de job",
+      "profile": "S0-smoke",
+      "status": "measured"
+    },
+    {
+      "channel": "score_train",
+      "profile": "S1-local",
+      "reason": "host de 8.0 GiB no cumple RAM de referencia 16 GiB; W0 no fuerza OOM ni extrapola S0",
+      "status": "no_medible"
+    },
+    {
+      "channel": "score_train",
+      "profile": "S2-equipo",
+      "reason": "host de 8.0 GiB no cumple RAM de referencia 32 GiB; W0 no fuerza OOM ni extrapola S0",
+      "status": "no_medible"
+    },
+    {
+      "channel": "score_apply_batch",
+      "profile": "S0-smoke",
+      "reason": "F-SCORE-APPLY/F-SCORE-BATCH no tienen bundle/API targetless actual",
+      "status": "no_medible"
+    },
+    {
+      "channel": "temporal_forward_stress",
+      "profile": "S0-smoke",
+      "reason": "no existe flujo integrado forward real→IFRS 9 real→stress; el preset F4 es sólo proxy bajo S0",
+      "status": "no_medible"
+    },
+    {
+      "channel": "score_apply_batch",
+      "profile": "S1-local",
+      "reason": "F-SCORE-APPLY/F-SCORE-BATCH no tienen bundle/API targetless actual",
+      "status": "no_medible"
+    },
+    {
+      "channel": "temporal_forward_stress",
+      "profile": "S1-local",
+      "reason": "no existe flujo integrado forward real→IFRS 9 real→stress; el preset F4 es sólo proxy bajo S0",
+      "status": "no_medible"
+    },
+    {
+      "channel": "score_apply_batch",
+      "profile": "S2-equipo",
+      "reason": "F-SCORE-APPLY/F-SCORE-BATCH no tienen bundle/API targetless actual",
+      "status": "no_medible"
+    },
+    {
+      "channel": "temporal_forward_stress",
+      "profile": "S2-equipo",
+      "reason": "no existe flujo integrado forward real→IFRS 9 real→stress; el preset F4 es sólo proxy bajo S0",
+      "status": "no_medible"
+    },
+    {
+      "channel": "ui",
+      "profile": "S1-local",
+      "reason": "la UI actual parsea/spool multipart antes del handler, serializa resultados completos y no pagina; medir sólo el tamaño aceptado no demostraría el perfil",
+      "status": "no_medible"
+    },
+    {
+      "channel": "ui",
+      "profile": "S2-equipo",
+      "reason": "la UI actual parsea/spool multipart antes del handler, serializa resultados completos y no pagina; medir sólo el tamaño aceptado no demostraría el perfil",
+      "status": "no_medible"
+    }
+  ],
+  "profiles": {
+    "S0-smoke": {
+      "cardinality": 100,
+      "horizon": 12,
+      "rows": 10000,
+      "scenarios": 1,
+      "target_ram_gib": 4,
+      "variables": 25
+    },
+    "S1-local": {
+      "cardinality": 10000,
+      "horizon": 60,
+      "rows": 100000,
+      "scenarios": 3,
+      "target_ram_gib": 16,
+      "variables": 50
+    },
+    "S2-equipo": {
+      "batch_rows": 5000000,
+      "cardinality": 100000,
+      "horizon": 120,
+      "rows": 1000000,
+      "scenarios": 5,
+      "target_ram_gib": 32,
+      "temporal_operations": 100000,
+      "variables": 100
+    }
+  },
+  "runtime": {
+    "cpu_count_logical": 8,
+    "machine": "arm64",
+    "memory_bytes": 8589934592,
+    "package_versions": {
+      "nikodym": "1.11.0",
+      "numpy": "2.4.6",
+      "pandas": "2.3.3",
+      "pyarrow": "24.0.0",
+      "pydantic": "2.13.4",
+      "scikit-learn": "1.7.2"
+    },
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "python": "3.12.13"
+  },
+  "schema_version": "nikodym.readiness.w0.v1",
+  "scope": "W0_only",
+  "source": {
+    "git_branch": "main",
+    "git_dirty": false,
+    "git_sha": "8c610e3cf00ba74de1e3b401d62c1ea01525ab35",
+    "measurement_script": "scripts/measure_readiness_w0.py",
+    "measurement_script_sha256": "d309efbd5b4ec073fd778aa3619d15262774f8168efac6c338dceea1af7cf8e0",
+    "uv_lock_sha256": "13534883b272fdd9a0c502a91cbe7ab63f0de43a73b6233b6a5f4dcab694b10a"
+  },
+  "summary": {
+    "measurement_statuses": {
+      "measured": 2,
+      "proxy": 6
+    },
+    "profile_cells_no_medible": 10
+  }
+}
