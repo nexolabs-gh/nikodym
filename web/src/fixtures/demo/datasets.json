@@ -437,6 +437,114 @@
   "n_rows": 6000
  },
  {
+  "id": "provision_interna_generica",
+  "name": "Cartera genérica — provisión interna (sin normativa local)",
+  "description": "Cartera minorista con las cuatro columnas que necesita el método interno: fecha de corte, la cartera a la que pertenece cada operación, la exposición y la severidad (LGD). Las carteras las nombra la institución —aquí «nomina», «microempresa» y «consumo_senior»—: no son categorías de ningún supervisor y el motor no las interpreta, sólo agrupa por ellas. Superconjunto del dataset de scorecard, así que el pipeline completo corre igual y encima calcula la provisión por PD·LGD·Exposición. Sirve para ver el motor de provisiones funcionando sin una sola línea de norma local.",
+  "columns": [
+   {
+    "name": "ingreso_mensual",
+    "dtype": "float",
+    "role": "feature",
+    "values": []
+   },
+   {
+    "name": "deuda_ingreso",
+    "dtype": "float",
+    "role": "feature",
+    "values": []
+   },
+   {
+    "name": "utilizacion_linea",
+    "dtype": "float",
+    "role": "feature",
+    "values": []
+   },
+   {
+    "name": "mora_max_12m",
+    "dtype": "int",
+    "role": "feature",
+    "values": []
+   },
+   {
+    "name": "antiguedad_meses",
+    "dtype": "int",
+    "role": "feature",
+    "values": []
+   },
+   {
+    "name": "segmento",
+    "dtype": "str",
+    "role": "segment",
+    "values": [
+     "asalariado",
+     "independiente",
+     "pensionado"
+    ]
+   },
+   {
+    "name": "cohorte",
+    "dtype": "str",
+    "role": "cohort",
+    "values": [
+     "2025Q4",
+     "2025Q3",
+     "2025Q1",
+     "2025Q2",
+     "2026Q2",
+     "2026Q1"
+    ]
+   },
+   {
+    "name": "bad_flag",
+    "dtype": "int",
+    "role": "target",
+    "values": [
+     "0",
+     "1"
+    ]
+   },
+   {
+    "name": "as_of_date",
+    "dtype": "str",
+    "role": "economic",
+    "values": [
+     "2026-06-30"
+    ]
+   },
+   {
+    "name": "portfolio",
+    "dtype": "str",
+    "role": "economic",
+    "values": [
+     "nomina",
+     "microempresa",
+     "consumo_senior"
+    ]
+   },
+   {
+    "name": "exposure_amount",
+    "dtype": "float",
+    "role": "economic",
+    "values": []
+   },
+   {
+    "name": "lgd",
+    "dtype": "float",
+    "role": "economic",
+    "values": []
+   }
+  ],
+  "index_columns": [
+   {
+    "name": "loan_id",
+    "dtype": "str",
+    "role": "id",
+    "values": []
+   }
+  ],
+  "n_rows": 6000
+ },
+ {
   "id": "ifrs9_retail_latam",
   "name": "Retail LatAm — IFRS 9 / ECL (multi-cartera)",
   "description": "Cartera retail multi-producto (Consumo, Tarjetas, Comercial, Hipotecario) con las columnas que exige la pérdida esperada IFRS 9 (ECL): historia de supervivencia (duración/evento) para ajustar la curva lifetime PD, más EAD, LGD, tasa efectiva (EIR), mora en días y flag de default. Superconjunto del dataset de scorecard: el pipeline F1 corre igual y encima se calcula la ECL de tres etapas (Stage 1/2/3), con staging por los backstops de mora 30/90 días (presunciones IFRS 9 5.5.11 / B5.5.37). Montos de escala retail y AGNÓSTICOS de moneda (sin símbolo; la moneda se rotula en la vista). Genérico LatAm, sin país ni institución. IFRS 9 es EXPERIMENTAL (fuera de la garantía SemVer 1.x) y la EAD se despliega CONSTANTE por período: no se modela la amortización del crédito, y el motor lo declara en cada fila del resultado.",

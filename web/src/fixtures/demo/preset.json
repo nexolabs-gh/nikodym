@@ -419,6 +419,7 @@
    "output_dir": "reports",
    "basename": "scorecard_report",
    "language": "es",
+   "currency": "CLP",
    "formats": [
     "html",
     "pdf",

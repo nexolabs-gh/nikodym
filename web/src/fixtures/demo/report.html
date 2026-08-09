@@ -1122,7 +1122,7 @@ figcaption {
     </div>
     <div class="cover-field">
       <dt>Fecha de emisión</dt>
-      <dd>2026-08-03</dd>
+      <dd>2026-08-09</dd>
     </div>
   </dl>
 
@@ -1130,7 +1130,7 @@ figcaption {
     <p class="lineage-caption">Trazabilidad de la corrida (lineage)</p>
     <div class="lineage-line"><code>config_hash=857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d</code></div>
     <div class="lineage-line"><code>data_hash=7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</code></div>
-    <div class="lineage-line"><code>git_sha=21ef63d54ebf19dc4a64ab87b0246419aa7d855f</code></div>
+    <div class="lineage-line"><code>git_sha=a4e24831187244ca147f92d3ea3c6bef5ad3e503</code></div>
     <div class="lineage-line"><code>root_seed=20240706</code></div>
   </div>
 
@@ -1225,13 +1225,13 @@ figcaption {
           <td><span class="band band-ok">Sin alertas</span></td>
         </tr>
         <tr>
-          <td>PSI del score</td>
+          <td>Peor PSI entre score y PD · score</td>
           <td>Desarrollo vs. Holdout</td>
           <td class="num">0,0122</td>
           <td><span class="band band-ok">Estable</span></td>
         </tr>
         <tr>
-          <td>PSI del score</td>
+          <td>Peor PSI entre score y PD · PD calibrada</td>
           <td>Desarrollo vs. OOT</td>
           <td class="num">0,0147</td>
           <td><span class="band band-ok">Estable</span></td>
@@ -1241,7 +1241,7 @@ figcaption {
   </div>
 
   <p class="muted">No se configuraron umbrales de discriminación, de modo que el motor no puede levantar alertas sobre AUC, Gini ni KS: «sin alertas» significa que no había umbral contra el cual comparar, no que la métrica sea satisfactoria.</p>
-  <p class="muted">Las bandas de PSI usan los umbrales configurados: estable por debajo de 0,10 y redesarrollo por sobre 0,25.</p>
+  <p class="muted">Las bandas de PSI usan los umbrales configurados: estable por debajo de 0,10, revisión desde 0,10 y redesarrollo desde 0,25.</p>
 
   <p class="scope-note">Alcance: construcción y evaluación del scorecard. Esta corrida no ejecutó la capa de validación formal; el informe no infiere sus resultados. Todos los valores provienen de la corrida trazada en la portada: no se completan con supuestos.</p>
 </section>
@@ -1528,7 +1528,7 @@ figcaption {
 
 
   <p>El dataset se validó contra un esquema declarado de 8 columnas, con tipos y nulabilidad explícitos; una desviación del esquema detiene la corrida en vez de propagarse.</p>
-  <p>En el tratamiento de faltantes se rechaza toda variable con más de 99,00 % de valores faltantes.</p>
+  <p>En el tratamiento de faltantes se reporta para revisión toda variable con más de 99,00 % de valores faltantes, sin eliminarla automáticamente.</p>
 
 
 </section>
@@ -1547,7 +1547,7 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">3.3</span>Selección de variables</h3>
 
 
-  <p>Se descartaron las variables con IV inferior a 0,02; las de IV superior a 0,50 se marcaron para revisión, porque un poder predictivo tan alto suele indicar fuga de información más que señal legítima.</p>
+  <p>Se descartaron las variables con IV inferior a 0,02; las de IV igual o superior a 0,50 se marcaron para revisión, porque un poder predictivo tan alto suele indicar fuga de información más que señal legítima.</p>
   <p>Se eliminó la redundancia entre pares de variables con correlación (pearson) sobre 0,75 y se acotó la multicolinealidad exigiendo un VIF bajo 5,0.</p>
   <p>El filtro dejó 5 de 6 variables candidatas; el motivo de exclusión de cada variable descartada consta en la tabla de selección.</p>
 
@@ -1578,7 +1578,7 @@ figcaption {
   <h3 class="subsection-title"><span class="section-number">3.6</span>Calibración de la PD</h3>
 
 
-  <p>La PD se calibró por desplazamiento del intercepto (intercept offset), ajustando sobre la partición de Desarrollo contra la tasa de incumplimiento observada en Desarrollo, con una PD objetivo de 6,63 %. El ancla es a través del ciclo (TTC).</p>
+  <p>La PD se calibró por desplazamiento del intercepto (intercept offset), ajustando sobre la partición de Desarrollo contra la tasa de incumplimiento observada en Desarrollo, que resultó ser 6,63 %. El ancla es a través del ciclo (TTC).</p>
   <p>El desplazamiento aplicado al intercepto es 0,0000, lo que preserva el ordenamiento del score: la calibración corrige el nivel de la PD, no su ranking.</p>
   <p>El ajuste se realizó sobre 3939 observaciones de Desarrollo.</p>
 
@@ -2588,7 +2588,7 @@ L 77.642344 73.680625
   <p>En Desarrollo el modelo alcanza AUC 0,8347, Gini 0,6694 y KS 0,5236.</p>
   <p>En Holdout el modelo alcanza AUC 0,7956, Gini 0,5913 y KS 0,4932.</p>
   <p>En Fuera de tiempo (OOT) el modelo alcanza AUC 0,7895, Gini 0,5791 y KS 0,4723.</p>
-  <p>La tabla de desempeño reparte la población en 10 tramos de riesgo ordenados por score, y permite verificar que la tasa de incumplimiento observada sea monótona entre tramos.</p>
+  <p>La tabla de desempeño usa hasta 10 tramos de riesgo configurados, ordenados por la PD calibrada. Los tramos efectivos por partición fueron Desarrollo: 10, Holdout: 10 y Fuera de tiempo (OOT): 10, y permiten verificar la evolución de la tasa de incumplimiento observada entre tramos.</p>
 
   <figure class="chart-slot" id="chart-performance-gains"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="432pt" height="324pt" viewBox="0 0 432 324" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" style="max-width:100%;height:auto"><title>Curva de ganancia acumulada por partición</title>
  <metadata>
@@ -3386,10 +3386,10 @@ z
   <h3 class="subsection-title"><span class="section-number">4.7</span>Estabilidad</h3>
 
 
-  <p>El PSI del score en Desarrollo vs. Holdout es 0,0122 (banda «Estable»). La distribución del score se mantiene, de modo que no hay evidencia de desplazamiento poblacional.</p>
-  <p>El PSI del score en Desarrollo vs. OOT es 0,0147 (banda «Estable»). La distribución del score se mantiene, de modo que no hay evidencia de desplazamiento poblacional.</p>
+  <p>El peor PSI entre score y PD en Desarrollo vs. Holdout es 0,0122 (banda «Estable»); corresponde al score. La distribución de la magnitud ganadora se mantiene, de modo que no hay desplazamiento poblacional.</p>
+  <p>El peor PSI entre score y PD en Desarrollo vs. OOT es 0,0147 (banda «Estable»); corresponde a la PD calibrada. La distribución de la magnitud ganadora se mantiene, de modo que no hay desplazamiento poblacional.</p>
   <p>A nivel de variable, el mayor CSI corresponde a «ingreso_mensual__points» con 0,0093.</p>
-  <p>El PSI se calculó sobre 10 tramos del score, definidos en Desarrollo.</p>
+  <p>Se configuraron hasta 10 tramos por magnitud para el PSI, definidos en Desarrollo.</p>
 
   <figure class="chart-slot" id="chart-stability-stability"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="504pt" height="540pt" viewBox="0 0 504 540" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" style="max-width:100%;height:auto"><title>Estabilidad PSI/CSI por comparación</title>
  <metadata>
@@ -3833,22 +3833,22 @@ L 493.2 26.88
    </g>
    <g id="legend_1">
     <g id="line2d_30">
-     <path d="M 404.51375 474.2775 
-L 412.51375 474.2775 
-L 420.51375 474.2775 
+     <path d="M 384.30875 474.2775 
+L 392.30875 474.2775 
+L 400.30875 474.2775 
 " style="fill: none; stroke-dasharray: 3.7,1.6; stroke-dashoffset: 0; stroke: #2e8b57"/>
     </g>
     <g id="text_24">
-     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="426.91375" y="477.0775" transform="rotate(-0 426.91375 477.0775)">Estable ≤ 0.10</text>
+     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="406.70875" y="477.0775" transform="rotate(-0 406.70875 477.0775)">Revisión ≥ 0.10</text>
     </g>
     <g id="line2d_31">
-     <path d="M 404.51375 486.278125 
-L 412.51375 486.278125 
-L 420.51375 486.278125 
+     <path d="M 384.30875 486.278125 
+L 392.30875 486.278125 
+L 400.30875 486.278125 
 " style="fill: none; stroke-dasharray: 3.7,1.6; stroke-dashoffset: 0; stroke: #c1440e"/>
     </g>
     <g id="text_25">
-     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="426.91375" y="489.078125" transform="rotate(-0 426.91375 489.078125)">Revisar ≤ 0.25</text>
+     <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="406.70875" y="489.078125" transform="rotate(-0 406.70875 489.078125)">Redesarrollo ≥ 0.25</text>
     </g>
    </g>
   </g>
@@ -4063,8 +4063,9 @@ L 420.51375 486.278125
   <h3 class="subsection-title"><span class="section-number">5.3</span>Método interno del banco</h3>
 
 
-  <p>El método interno es el que la norma también exige: pérdida esperada por grupo homogéneo, como probabilidad de incumplimiento por pérdida dado el incumplimiento por exposición del grupo. Sobre esta cartera suma $308.644.058.</p>
+  <p>El método interno estima la pérdida esperada por grupo homogéneo como provisión = exposición del grupo · PD estimada · pérdida dado el incumplimiento. Sobre esta cartera suma $308.644.058.</p>
   <p>La PD proviene de la PD calibrada del scorecard —el modelo del banco entra por aquí en el número reportado—, agrupada en 10 grupos por banda de score.</p>
+  <p>La severidad la aporta la institución, columna por operación, y la del grupo es el promedio ponderado por la exposición.</p>
 
 
 <figure class="table-block">
@@ -4092,7 +4093,7 @@ L 420.51375 486.278125
 
 
   <p>Discriminación (AUC): Desarrollo 0,8347, Holdout 0,7956 y Fuera de tiempo (OOT) 0,7895.</p>
-  <p>Estabilidad (PSI del score): Desarrollo vs. Holdout 0,0122 («Estable») y Desarrollo vs. OOT 0,0147 («Estable»).</p>
+  <p>Estabilidad (peor PSI entre score y PD): Desarrollo vs. Holdout 0,0122 («Estable»; score) y Desarrollo vs. OOT 0,0147 («Estable»; PD calibrada).</p>
   <p>Calibración: la PD media calibrada en Desarrollo (6,63 %) se contrasta con la tasa observada (6,63 %).</p>
   <p>Estos hallazgos son los que el motor puede sostener con los números de la corrida. La recomendación —aprobar, aprobar con observaciones o rechazar— es un juicio humano y no se deriva automáticamente de ellos.</p>
 
@@ -4121,14 +4122,14 @@ L 420.51375 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>config_hash</dt><dd>857b06eef5aff267c36076641ffbdbf2fb17836511c206ea04fc5c160983886d</dd>
-    <dt>created_at</dt><dd>2026-08-03T00:05:34.797396Z</dd>
+    <dt>created_at</dt><dd>2026-08-09T18:45:16.806536Z</dd>
     <dt>data_hash</dt><dd>7dcaf3d3cb708e97ff04697d5dc4c784057890291a2497e934f37a53854138b3</dd>
     <dt>determinism_caveats</dt><dd>[]</dd>
     <dt>git_dirty</dt><dd>false</dd>
-    <dt>git_sha</dt><dd>21ef63d54ebf19dc4a64ab87b0246419aa7d855f</dd>
+    <dt>git_sha</dt><dd>a4e24831187244ca147f92d3ea3c6bef5ad3e503</dd>
     <dt>library_versions</dt><dd><pre>{
   &#34;PyYAML&#34;: &#34;6.0.3&#34;,
-  &#34;nikodym&#34;: &#34;1.10.0&#34;,
+  &#34;nikodym&#34;: &#34;1.11.0&#34;,
   &#34;numpy&#34;: &#34;2.4.6&#34;,
   &#34;pandas&#34;: &#34;2.3.3&#34;,
   &#34;pydantic&#34;: &#34;2.13.4&#34;
@@ -5021,6 +5022,10 @@ L 420.51375 486.278125
   &#34;dev_vs_oot&#34;: &#34;0.014715&#34;
 }</pre></dd>
     <dt>psi_bins</dt><dd>10</dd>
+    <dt>psi_metric_by_comparison</dt><dd><pre>{
+  &#34;dev_vs_holdout&#34;: &#34;score_psi&#34;,
+  &#34;dev_vs_oot&#34;: &#34;pd_psi&#34;
+}</pre></dd>
     <dt>review_threshold</dt><dd>0.250000</dd>
     <dt>score_direction</dt><dd>higher_is_lower_risk</dd>
     <dt>stable_threshold</dt><dd>0.100000</dd>
@@ -5236,6 +5241,7 @@ L 420.51375 486.278125
   <h4>Parámetros y payload</h4>
   <dl>
     <dt>as_of_date</dt><dd>2024-06-30</dd>
+    <dt>avisos</dt><dd>[]</dd>
     <dt>effective_config</dt><dd><pre>{
   &#34;as_of_date_col&#34;: &#34;as_of_date&#34;,
   &#34;exposure_col&#34;: &#34;exposure_amount&#34;,
