@@ -27,7 +27,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
 
 from nikodym.methodology import build_ifrs9_methodology_card, methodology_paragraphs
-from nikodym.report.document import DOMAIN_TITLES
+from nikodym.report.document import DOMAIN_TITLES, internal_grouping_label
 
 if TYPE_CHECKING:
     from nikodym.report.results import ReportInputBundle
@@ -1785,12 +1785,14 @@ def _results_provisioning(bundle: ReportInputBundle) -> tuple[str, ...]:
 
     # La asimetría de consolidación es real y normativa: sin declararla, parece un bug (SDD-28 §8).
     if is_standard_internal:
+        internal_card = _card(bundle, "provisioning_internal")
+        grouping = str(internal_card.get("grouping") or "") if internal_card is not None else ""
         paragraphs.append(
             "Los dos métodos agrupan la cartera de forma distinta, y es deliberado: el método "
             "estándar consolida a nivel de deudor —sube a incumplimiento todas sus operaciones si "
             "alguna supera 90 días de mora—, mientras que el método interno agrupa por "
-            "banda de score. La asimetría responde a sus contratos respectivos, no es un error de "
-            "cálculo."
+            f"{internal_grouping_label(grouping)}. La asimetría responde a sus contratos "
+            "respectivos, no es un error de cálculo."
         )
 
     orchestration_metrics = _mapping(
@@ -1888,11 +1890,6 @@ def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]
         "número reportado—",
         "model": "la PD del modelo",
     }.get(pd_source, "la PD configurada")
-    agrupacion = {
-        "score_band": "banda de score",
-        "segment": "segmento",
-        "provided": "grupo provisto",
-    }
     if method == "direct_loss_rate":
         pd_label = {
             "calibration": "La PD calibrada",
@@ -1914,7 +1911,7 @@ def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]
         detalle_pd = f"La PD proviene de {fuente_pd}"
         if n_groups is not None:
             detalle_pd += (
-                f", agrupada en {n_groups} grupos por {agrupacion.get(grouping, grouping)}"
+                f", agrupada en {n_groups} grupos por {internal_grouping_label(grouping)}"
                 if grouping
                 else f", en {n_groups} grupos"
             )

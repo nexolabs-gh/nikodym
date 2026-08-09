@@ -339,6 +339,13 @@ def test_stability_card_section_valida_shape_y_defaults() -> None:
     assert _card(metric_sections=None).metric_sections == {}
     assert _card(psi_metric_by_comparison=None).psi_metric_by_comparison is None
     assert _card(worst_csi_feature=None, worst_csi_value=None).worst_csi_feature is None
+    legacy = _card(
+        psi_metric_by_comparison=None,
+        max_psi_by_comparison={"dev_vs_holdout": 0.12, "dev_vs_oot": 0.19},
+        bands_by_comparison={"dev_vs_holdout": "stable", "dev_vs_oot": "review"},
+    )
+    assert legacy.psi_metric_by_comparison is None
+    assert legacy.bands_by_comparison["dev_vs_holdout"] == "stable"
     assert _card(
         max_psi_by_comparison={"dev_vs_holdout": True, "dev_vs_oot": 0.19},
         psi_metric_by_comparison={"dev_vs_holdout": None, "dev_vs_oot": "score_psi"},
@@ -476,6 +483,39 @@ def test_stability_result_valida_dataframes_y_consistencia_card() -> None:
         _result(psi_records=(_psi_record(comparison="dev_vs_unknown"),))
     with pytest.raises(ValidationError, match="comparaciones no resumidas"):
         _result(csi_records=(_csi_record(comparison="dev_vs_unknown"),))
+
+
+def test_stability_result_acepta_resumen_legacy_divergente_sin_identidad() -> None:
+    """Un resultado 1.x persistido no adquiere retroactivamente la invariante A1."""
+    records = (
+        _metric_record(value=0.05),
+        _metric_record(
+            metric="pd_psi",
+            feature="pd_calibrated",
+            value=0.12,
+            band="review",
+            action="vigilar",
+        ),
+        _metric_record(comparison="dev_vs_oot", value=0.19, band="review", action="vigilar"),
+        _metric_record(
+            metric="csi",
+            comparison="dev_vs_oot",
+            feature="ingreso_mensual",
+            value=0.142,
+            band="review",
+            action="vigilar",
+        ),
+    )
+    card = _card(
+        psi_metric_by_comparison=None,
+        max_psi_by_comparison={"dev_vs_holdout": 0.12, "dev_vs_oot": 0.19},
+        bands_by_comparison={"dev_vs_holdout": "stable", "dev_vs_oot": "review"},
+    )
+
+    result = _result(metric_records=records, card=card)
+
+    assert result.card.psi_metric_by_comparison is None
+    assert result.card.bands_by_comparison["dev_vs_holdout"] == "stable"
 
 
 def test_helpers_resumen_cubren_maximos_y_peor_csi() -> None:

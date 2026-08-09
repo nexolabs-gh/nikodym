@@ -354,31 +354,31 @@ class StabilityCardSection(BaseModel):
             )
         if self.stable_threshold >= self.review_threshold:
             raise ValueError("stable_threshold debe ser estrictamente menor que review_threshold.")
-        for comparison in self.comparisons:
-            value = self.max_psi_by_comparison[comparison]
-            metric = (
-                self.psi_metric_by_comparison.get(comparison)
-                if self.psi_metric_by_comparison is not None
-                else None
-            )
-            band = self.bands_by_comparison[comparison]
-            if value is None:
-                if (
-                    self.psi_metric_by_comparison is not None and metric is not None
-                ) or band != "not_evaluable":
+        if self.psi_metric_by_comparison is not None:
+            # Card 1.x legacy: el motor antiguo publicaba el máximo entre score/PD, pero la banda
+            # sólo desde score. Sin el mapa aditivo de identidad no hay forma de reconstruir una
+            # tripleta nueva sin romper la deserialización de resultados ya persistidos.
+            for comparison in self.comparisons:
+                value = self.max_psi_by_comparison[comparison]
+                metric = self.psi_metric_by_comparison.get(comparison)
+                band = self.bands_by_comparison[comparison]
+                if value is None:
+                    if metric is not None or band != "not_evaluable":
+                        raise ValueError(
+                            "Un resumen PSI no evaluable debe publicar valor e identidad nulos y "
+                            "banda not_evaluable."
+                        )
+                    continue
+                if metric is None:
                     raise ValueError(
-                        "Un resumen PSI no evaluable debe publicar valor e identidad nulos y "
-                        "banda not_evaluable."
+                        "Un resumen PSI evaluable debe identificar score_psi o pd_psi."
                     )
-                continue
-            if self.psi_metric_by_comparison is not None and metric is None:
-                raise ValueError("Un resumen PSI evaluable debe identificar score_psi o pd_psi.")
-            expected_band = _psi_band(value, self.stable_threshold, self.review_threshold)
-            if band != expected_band:
-                raise ValueError(
-                    "bands_by_comparison debe derivarse del mismo valor publicado en "
-                    "max_psi_by_comparison."
-                )
+                expected_band = _psi_band(value, self.stable_threshold, self.review_threshold)
+                if band != expected_band:
+                    raise ValueError(
+                        "bands_by_comparison debe derivarse del mismo valor publicado en "
+                        "max_psi_by_comparison."
+                    )
         if (self.worst_csi_feature is None) != (self.worst_csi_value is None):
             raise ValueError("worst_csi_feature y worst_csi_value deben definirse juntos.")
         return self
@@ -441,16 +441,14 @@ class StabilityResult(BaseModel):
                 "card.comparisons debe coincidir con las comparaciones score_psi de metric_records."
             )
 
-        max_psi, metrics, bands = _psi_summary_maps(self.metric_records)
-        if max_psi != self.card.max_psi_by_comparison:
-            raise ValueError("max_psi_by_comparison debe coincidir con metric_records.")
-        if bands != self.card.bands_by_comparison:
-            raise ValueError("bands_by_comparison debe coincidir con metric_records.")
-        if (
-            self.card.psi_metric_by_comparison is not None
-            and metrics != self.card.psi_metric_by_comparison
-        ):
-            raise ValueError("psi_metric_by_comparison debe coincidir con metric_records.")
+        if self.card.psi_metric_by_comparison is not None:
+            max_psi, metrics, bands = _psi_summary_maps(self.metric_records)
+            if max_psi != self.card.max_psi_by_comparison:
+                raise ValueError("max_psi_by_comparison debe coincidir con metric_records.")
+            if bands != self.card.bands_by_comparison:
+                raise ValueError("bands_by_comparison debe coincidir con metric_records.")
+            if metrics != self.card.psi_metric_by_comparison:
+                raise ValueError("psi_metric_by_comparison debe coincidir con metric_records.")
 
         worst_feature, worst_value = _worst_csi(self.metric_records)
         if worst_feature != self.card.worst_csi_feature or worst_value != self.card.worst_csi_value:

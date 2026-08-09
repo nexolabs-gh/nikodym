@@ -160,7 +160,7 @@ monótona al subir el ingreso, y el WoE sube en consecuencia:
 WoE negativo = bin **peor** que la media (más riesgo); positivo = **mejor** que la media. La monotonía
 limpia (sin zig-zag) es señal de un binning sano.
 
-Cifras — fixture `web/src/fixtures/demo/results.json` (`binning`).
+Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`binning`).
 
 ### Selección de variables
 
@@ -178,7 +178,7 @@ el umbral del preset era 5).
     Un VIF alto (> 5) o una correlación alta (> 0.75) indican features redundantes que inflan los
     errores estándar y vuelven inestables los coeficientes. Aquí el conjunto quedó limpio.
 
-Cifras — fixture `results.json` (`selection`).
+Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`selection`).
 
 ### Modelo (regresión logística)
 
@@ -211,7 +211,7 @@ globalmente significativo).
     valores de 0.2–0.4 ya indican muy buen ajuste; 0.097 es modesto pero típico de un *behavior
     scorecard*, donde la métrica operativa es la **discriminación** (AUC/KS), no el pseudo-R².
 
-Cifras — fixture `results.json` (`model`).
+Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`model`).
 
 ### Scorecard
 
@@ -231,7 +231,7 @@ caen en el rango **446–622**.
     esas odds (100:1 a 620), cada 20 por debajo las parten a la mitad (25:1 a 580). Es la escala que el
     área comercial usa para fijar puntos de corte.
 
-Cifras — fixture `results.json` (`scorecard`).
+Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`scorecard`).
 
 ### Calibración
 
@@ -269,7 +269,7 @@ PD media cruda ya coincidía con ella, de modo que el offset resuelto es ~0 y la
     `development_observed` exige que `target_pd` venga sin fijar, y con una fuente explícita exige el
     número. Ver [Calibración](guias/modelo-calibracion.md).
 
-Cifras — fixture `results-f1.json` (`calibration`).
+Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`calibration`).
 
 ### Desempeño (discriminación)
 
@@ -298,7 +298,7 @@ La discriminación mide cuán bien el modelo separa *goods* de *bads*, evaluada 
     normal; una caída grande delataría *overfitting* o cambio de población. **Nunca reportes el modelo
     por su número de desarrollo**: el OOT es el que estima el desempeño en producción.
 
-Cifras — fixture `results.json` (`performance`).
+Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`performance`).
 
 ### Estabilidad (PSI / CSI)
 
@@ -326,7 +326,7 @@ El peor CSI por variable fue `mora_max_12m` con 0.010, también en zona estable.
     Repite la corrida con el dataset `consumo_drift` en el Paso 1: introduce deterioro temporal y verás
     el PSI dispararse a zona de revisión — el caso de uso para el que existe la métrica.
 
-Cifras — fixture `results.json` (`stability`).
+Cifras — fixture `web/src/fixtures/demo/results-f1.json` (`stability`).
 
 ---
 

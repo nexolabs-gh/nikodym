@@ -17,26 +17,28 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from docx import Document
-from pypdf import PdfReader
-
 FamilyName = Literal["f1", "f3", "ifrs9"]
 
 _ROOT = Path(__file__).resolve().parent.parent
 _FIXTURES = _ROOT / "web" / "src" / "fixtures" / "demo"
-_COMMON_REQUIRED = ("se reporta para revisión toda variable con más de",)
-_COMMON_FORBIDDEN = ("se rechaza toda variable",)
+_COMMON_REQUIRED = (
+    "se reporta para revisión toda variable con más de",
+    "sin eliminarla automáticamente",
+)
+_COMMON_FORBIDDEN = ("se rechaza toda variable", "se elimina automáticamente por este umbral")
 _SCORECARD_REQUIRED = (
     "El peor PSI entre score y PD en",
     "IV igual o superior a",
     "Los tramos efectivos por partición fueron",
     "ordenados por la PD calibrada",
+    "Desempeño por tramo de riesgo",
 )
 _SCORECARD_FORBIDDEN = (
     "El PSI del score en Desarrollo vs.",
     "IV superior a",
     "reparte la población en 10 tramos",
     "ordenados por score",
+    "Desempeño por decil de score",
     "Estable ≤",
     "Revisar ≤",
 )
@@ -145,10 +147,14 @@ def _html_text(path: Path) -> str:
 
 
 def _pdf_text(path: Path) -> str:
+    from pypdf import PdfReader
+
     return _normalize("\n".join(page.extract_text() or "" for page in PdfReader(path).pages))
 
 
 def _docx_text(path: Path) -> str:
+    from docx import Document
+
     document = Document(str(path))
     parts = [paragraph.text for paragraph in document.paragraphs]
     for table in document.tables:

@@ -27,13 +27,13 @@ interface LiftTooltipProps {
   payload?: ReadonlyArray<{ payload?: LiftRow }>
 }
 
-/** Tooltip dedicado: decil + lift (2 dec) + tasa de malos del decil + N. */
+/** Tooltip dedicado: tramo + lift (2 dec) + tasa de malos del tramo + N. */
 function LiftTooltip({ active, payload }: LiftTooltipProps) {
   const d = active && payload && payload.length > 0 ? payload[0]?.payload : null
   if (!d) return null
   return (
     <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
-      <p className="mb-1 font-medium text-foreground">Decil {d.decile}</p>
+      <p className="mb-1 font-medium text-foreground">Tramo {d.decile}</p>
       <p className="text-muted-foreground">
         Lift{" "}
         <span className="ml-1 font-mono tabular-nums text-foreground">
@@ -59,7 +59,7 @@ function liftLabelFmt(v: string | number | boolean | null | undefined) {
 }
 
 /**
- * Lift por decil de una partición: barras del `lift` por decil (X, 1 = 10% más riesgoso),
+ * Lift por tramo de una partición: barras del `lift` por tramo efectivo de riesgo,
  * con la línea de referencia lift = 1 (azar) siempre visible para leer "cuántas veces más
  * concentra malos que la media". Solo grafica `performance.deciles`; CERO cálculo.
  */

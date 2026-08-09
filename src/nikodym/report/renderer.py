@@ -648,8 +648,20 @@ def _tables_for_section(
         )
     else:
         keys = ()
+    internal_card = bundle.cards.get("provisioning_internal")
+    internal_grouping = (
+        str(internal_card.get("grouping") or "") if isinstance(internal_card, Mapping) else ""
+    )
     max_rows = config.sections.max_table_rows
-    return [_table_view(key, bundle.tables[key], max_rows=max_rows) for key in keys]
+    return [
+        _table_view(
+            key,
+            bundle.tables[key],
+            max_rows=max_rows,
+            internal_grouping=internal_grouping,
+        )
+        for key in keys
+    ]
 
 
 def _data_exports_view(
@@ -717,7 +729,13 @@ informe promete.
 """
 
 
-def _table_view(key: str, table: Any, *, max_rows: int) -> dict[str, Any]:
+def _table_view(
+    key: str,
+    table: Any,
+    *,
+    max_rows: int,
+    internal_grouping: str = "",
+) -> dict[str, Any]:
     if not _is_dataframe_like(table):
         raise ReportRenderError(
             f"Tabla no renderizable en report: clave='{key}', acción='publique un DataFrame'."
@@ -733,7 +751,7 @@ def _table_view(key: str, table: Any, *, max_rows: int) -> dict[str, Any]:
     visible_rows = rows[:max_rows]
     return {
         "key": key,
-        "title": table_title(key),
+        "title": table_title(key, internal_grouping=internal_grouping),
         "html_id": _element_id("table", key),
         "columns": [str(column) for column in columns],
         "rows": visible_rows,
@@ -1075,6 +1093,7 @@ def _css_for_theme(theme: Literal["nikodym", "plain"]) -> str:
 
 def _normalize_newlines(text: str) -> str:
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = "\n".join(line.rstrip() for line in normalized.split("\n"))
     if not normalized.endswith("\n"):
         return f"{normalized}\n"
     return normalized

@@ -145,7 +145,7 @@ Pipeline:
 >
 > **Consecuencias de diseño:**
 > - `provisioning/cmf` = el **método estándar**. Correcto tal cual.
-> - El **método interno** es `PD × LGD × EAD` por grupo homogéneo — el propio B-1 lo describe así (*"asociando a cada grupo una determinada probabilidad de incumplimiento y un porcentaje de recuperación (…) multiplicando el monto total de colocaciones del grupo respectivo por los porcentajes de incumplimiento estimado y de pérdida dado el incumplimiento"*). Nikodym lo implementa en `provisioning/internal` y lo compara con el estándar mediante el orquestador, conforme al SDD-28.
+> - El **método interno** aplica `Exposición × tasa de pérdida` por grupo homogéneo. Nikodym admite la tasa descompuesta como `PD × LGD` —forma que el propio B-1 describe— o provista directamente; lo implementa en `provisioning/internal` y lo compara con el estándar mediante el orquestador, conforme al SDD-28.
 > - `provisioning/ifrs9` (ECL) **sigue siendo válido**, pero cambia de destinatario: entidades que sí aplican NIIF 9 completa (reporting a una matriz extranjera, entidades no bancarias, instrumentos distintos de colocaciones). **No es el piso prudencial chileno.**
 > - `provisioning` (orquestación) aplica una regla del máximo entre dos fuentes. **El encuadre normativo citable es estándar-vs-interno**; el comparativo CMF-vs-IFRS 9 se mantiene como comparativo entre marcos, **sin presentarlo como exigencia de la CMF**.
 
@@ -221,7 +221,7 @@ src/nikodym/
 ├── provisioning/ # orquesta y aplica la regla del máximo (ver §5.4: la regla del B-1 es
 │              # max(estándar, interno), NO max(CMF, IFRS 9))
 │   ├── cmf/      # motor estándar B-1 (PE=PI·PDI·Exposición, matrices, B-3, garantías)
-│   ├── internal/ # método interno B-1 (PD·LGD·EAD por grupo homogéneo)
+│   ├── internal/ # exposición × tasa de pérdida descompuesta o directa por grupo
 │   └── ifrs9/    # PD/LGD/EAD, staging (SICR), motor ECL (12m/lifetime)
 ├── forward/      # macro ARIMA/VAR, escenarios, satellite models (Wilson logit)
 ├── survival/     # KM, Cox, AFT, discrete-time hazard → lifetime PD [lifelines+statsmodels]

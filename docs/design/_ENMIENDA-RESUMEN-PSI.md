@@ -1,6 +1,6 @@
 # Enmienda SDD — resumen PSI coherente y fronteras exactas
 
-> **Estado: APROBADA por Cami (2026-08-09); A1 + B1. Implementación autorizada.**
+> **Estado: APROBADA E IMPLEMENTADA (2026-08-09); A1 + B1.**
 >
 > **Base medida:** `main` = `932cc9dbe146d374974f66e9f6d309daaf360909`.
 > **Autor / Fecha:** Codex / 2026-08-09.
@@ -142,3 +142,10 @@ fabrica un valor. Los umbrales forman `[−∞, stable)`, `[stable, review)` y `
 Cami aprobó en la misma decisión A1, B1 y **una única recaptura canónica de la demo** después de
 implementar y validar el cambio. No se autoriza publicar PyPI, iniciar D-VIS-6 ni avanzar ningún
 nodo del roadmap.
+
+## 8. Evidencia de implementación
+
+- Implementación de motor, prosa, frontend, contratos y gates: `a4e2483`.
+- Recapturas canónicas autorizadas: F3 `6f19363`, F1 `ec5fbf7`, IFRS 9 `968f71a`.
+- El cierre verifica la tripleta valor/identidad/banda, las fronteras exactas y los artefactos
+  finales HTML, PDF, Word, QMD, JSON y pantalla; no publica una nueva versión en PyPI.

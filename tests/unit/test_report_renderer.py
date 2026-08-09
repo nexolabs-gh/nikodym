@@ -59,7 +59,7 @@ from nikodym.report.results import (
 # Recalculado (tabla ancha en el PDF): el `figure.table-block` de una tabla de 10+ columnas suma la
 # clase `table-block--wide`, que en @media print manda esa tabla a una hoja apaisada. Sólo cambia
 # ese atributo de clase; el resto del markup (ids, thead/tbody, orden, literales) es idéntico.
-GOLDEN_HTML_SHA256 = "359871b24ddd47f265176a4904f3f9af5ffa0fbfcf008aaf09cd8a1ef0a5188b"
+GOLDEN_HTML_SHA256 = "a6092e41845da36eb782596c6feee7df25f02896814664c54bbc29956c1fb710"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -663,7 +663,7 @@ def test_constructores_helpers_y_reexports_livianos_por_subprocess() -> None:
     assert renderer_module._canonical_value(float("nan")) == {"non_finite_float": "nan"}
     assert renderer_module._canonical_value(float("inf")) == {"non_finite_float": "inf"}
     assert renderer_module._canonical_value(float("-inf")) == {"non_finite_float": "-inf"}
-    assert renderer_module._normalize_newlines("a\r\nb") == "a\nb\n"
+    assert renderer_module._normalize_newlines("a  \r\nb\t") == "a\nb\n"
     assert renderer_module._element_id("section", "  !!!  ") == "section-sin-id"
     assert (
         renderer_module._section_views(
@@ -756,6 +756,25 @@ def test_charts_degradan_con_gracia_sin_crashear() -> None:
     )
     assert 'id="chart-' not in incompleto
     assert "report-section" in incompleto
+
+
+def test_renderer_propaga_el_agrupamiento_interno_al_titulo_de_tabla() -> None:
+    """La vista canónica, no sólo el helper, recibe la card efectiva del motor interno."""
+    section = _section(
+        "results.provisioning_internal",
+        "Método interno",
+        level=2,
+        number="4.8",
+    )
+    bundle = _bundle(
+        tables={"provisioning_internal.groups": pd.DataFrame({"group_id": ["pensionado"]})},
+        figures={},
+        sections_override=(section,),
+    ).model_copy(update={"cards": {"provisioning_internal": {"grouping": "segment"}}})
+
+    view = renderer_module._section_views(bundle, (), ReportConfig())[0]
+
+    assert view["tables"][0]["title"] == ("Provisión interna por grupo homogéneo (segmento)")
 
 
 def _section_fragment(html: str, section_id: str) -> str:

@@ -1880,6 +1880,35 @@ export function assertNoEmbeddedBackendOrigin(files, staticDirectory = STATIC) {
   }
 }
 
+/**
+ * El bundle instalable debe conservar el copy factual medido en la fuente React.
+ *
+ * Son literales estrechos de las regresiones cerradas: no se veta ``Provisión (CLP)`` globalmente
+ * porque la comparación regulatoria CMF sí declara esa moneda. La sección interna autónoma, en
+ * cambio, no recibe moneda y nunca puede publicar ``Exposición (CLP)``. Gains/Lift trabaja con la
+ * cantidad efectiva configurada y no puede volver a nombrar universalmente deciles.
+ */
+export function assertMeasuredProseReachedBundle(files, staticDirectory = STATIC) {
+  const javascript = files
+    .filter((file) => /\.js$/i.test(file))
+    .map((file) => [file, readFileSync(file, "utf8")])
+  const forbidden = ["Exposición (CLP)", "Lift por decil"]
+  const findings = []
+  for (const [file, text] of javascript) {
+    for (const phrase of forbidden) {
+      if (text.includes(phrase)) {
+        findings.push(`${path.relative(staticDirectory, file)}: ${phrase}`)
+      }
+    }
+  }
+  if (findings.length > 0) {
+    throw new Error(`Copy factual obsoleto en el bundle:\n  - ${findings.join("\n  - ")}`)
+  }
+  if (!javascript.some(([, text]) => text.includes("tramos efectivos"))) {
+    throw new Error("El bundle no contiene el copy factual de tramos efectivos.")
+  }
+}
+
 export function main() {
   if (!existsSync(path.join(STATIC, "index.html"))) {
     throw new Error("Falta src/nikodym/ui/static/index.html")
@@ -1893,6 +1922,7 @@ export function main() {
   assertNoFixtureMaterial(outputs, manifest)
   assertNoExternalRequestsInOutputs(outputs)
   assertNoEmbeddedBackendOrigin(outputs)
+  assertMeasuredProseReachedBundle(outputs)
   const report = {
     schema_version: 2,
     files_checked: outputs.length,

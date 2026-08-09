@@ -552,7 +552,7 @@ class MissingConfig(NikodymBaseConfig):
         default=0.99,
         ge=0.0,
         le=1.0,
-        title="Tasa máxima de nulos por columna",
+        title="Umbral de revisión por tasa de nulos",
         description=(
             "Las columnas por sobre el umbral se reportan como decisión en el audit-trail; "
             "ninguna etapa las elimina automáticamente por este umbral."

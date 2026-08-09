@@ -66,7 +66,7 @@ RiskLib. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) y cubre un mód
 **28 SDD · 8 tandas (T0–T7; T0 = verificación, sin SDD nuevo).** La madurez pública y la garantía
 SemVer se declaran únicamente en `ROADMAP.md`.
 
-> **SDD-28** (post-1.0) hace dos cosas. **(1)** Construye el motor que faltaba: el **método interno** (`PD × LGD × EAD` por grupo homogéneo), que es el que el Capítulo B-1 §3 describe textualmente y que el pipeline de scorecard ya alimenta. **(2)** Le abre la ruta hasta el usuario —dataset, preset, pantalla, capítulo— porque *una feature sin preset, sin pantalla y sin capítulo no existe*, y este proyecto ya lo pagó dos veces.
+> **SDD-28** (post-1.0) hace dos cosas. **(1)** Construye el motor que faltaba: el **método interno** (exposición por tasa de pérdida del grupo, descompuesta en `PD × LGD` o provista directamente), que el pipeline de scorecard ya alimenta cuando corresponde. **(2)** Le abre la ruta hasta el usuario —dataset, preset, pantalla, capítulo— porque *una feature sin preset, sin pantalla y sin capítulo no existe*, y este proyecto ya lo pagó dos veces.
 >
 > Su **v1 fue descartada**: diseñaba la demo alrededor de `max(CMF, IFRS 9)` presentado como "el piso prudencial de la CMF", una regla que **no existe** (ver la corrección en SDD-17 §3 y ESPEC §5.4). La regla real del B-1 es `max(estándar, interno)`, a nivel de entidad — y es mejor noticia, porque es citable **y** porque hace que el scorecard entre en el número final.
 
@@ -792,8 +792,13 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > [`_ENMIENDA-RESUMEN-PSI.md`](_ENMIENDA-RESUMEN-PSI.md), A1+B1, enmienda SDD-11, SDD-07 y
 > SDD-22: el valor agregado, la identidad score/PD y la banda provienen de una única observación
 > ganadora; los empates favorecen score; y las bandas son `< stable_threshold`,
-> `[stable_threshold, review_threshold)` y `≥ review_threshold`. D1 autoriza la recaptura canónica
-> de las tres familias de demo para propagar el copy.
+> `[stable_threshold, review_threshold)` y `≥ review_threshold`. La autorización de §7 cubre la
+> recaptura canónica de las tres familias de demo para propagar el copy.
+
+> **Frontera del diagnóstico IV — PROPUESTA, sin OK todavía (2026-08-09).**
+> [`_ENMIENDA-AUDIT-IV-FRONTERA.md`](_ENMIENDA-AUDIT-IV-FRONTERA.md) mide que IV=0,50 ya es
+> `suspicious` y activa selección, pero el audit de binning sólo registra valores estrictamente
+> mayores. No cambia el motor mientras Cami no elija IV-A1 o IV-A2.
 
 ## Tandas de producción
 

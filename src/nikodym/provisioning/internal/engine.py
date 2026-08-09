@@ -598,7 +598,7 @@ def _aggregate_groups(
     cfg: InternalProvisioningConfig,
     warnings: dict[tuple[str, str], tuple[str, ...]],
 ) -> list[_GroupAggregate]:
-    """Aplica ``provisión(g) = Exposición(g) · PD(g) · LGD(g)`` sobre cada grupo homogéneo."""
+    """Aplica exposición por tasa de pérdida descompuesta o directa en cada grupo."""
     buckets: dict[tuple[str, str], list[int]] = {}
     for position, group_id in enumerate(group_ids):
         buckets.setdefault((rows[position].portfolio, group_id), []).append(position)

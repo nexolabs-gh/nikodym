@@ -25,6 +25,7 @@ import {
   assertNoEmbeddedBackendOrigin,
   assertNoExternalRequestsInOutputs,
   assertNoFixtureMaterial,
+  assertMeasuredProseReachedBundle,
   validateFixtureManifest,
   verifyFinalOutputs,
 } from "../../scripts/check_frontend_bundle.mjs"
@@ -1013,4 +1014,27 @@ test("assertNoEmbeddedBackendOrigin acepta el bundle same-origin", (t) => {
   // Rutas relativas y un enlace externo en texto (documentación, no un backend) no son hallazgo.
   writeFileSync(archivo, 'const API_BASE="";fetch(`${API_BASE}/api/schema`);const doc="https://docs.nikodym.cl"')
   assert.doesNotThrow(() => assertNoEmbeddedBackendOrigin([archivo], dir))
+})
+
+test("assertMeasuredProseReachedBundle caza copy fijo y exige el copy efectivo", (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "nikodym-prose-bundle-"))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const archivo = path.join(dir, "index-abc.js")
+
+  writeFileSync(archivo, 'const copy="tramos efectivos";export{}')
+  assert.doesNotThrow(() => assertMeasuredProseReachedBundle([archivo], dir))
+
+  for (const regresion of ["Exposición (CLP)", "Lift por decil"]) {
+    writeFileSync(archivo, `const copy="tramos efectivos · ${regresion}";export{}`)
+    assert.throws(
+      () => assertMeasuredProseReachedBundle([archivo], dir),
+      /Copy factual obsoleto/,
+    )
+  }
+
+  writeFileSync(archivo, 'const copy="tramos configurados";export{}')
+  assert.throws(
+    () => assertMeasuredProseReachedBundle([archivo], dir),
+    /no contiene el copy factual de tramos efectivos/,
+  )
 })

@@ -146,6 +146,14 @@ function groupThousands(intDigits: string): string {
   return intDigits.replace(/\B(?=(\d{3})+(?!\d))/g, MONEY.thousands)
 }
 
+/** Formatea un monto cuyo payload no declara moneda, sin inventar símbolo ni jurisdicción. */
+export function formatAmount(x: number | null | undefined): string {
+  if (x === null || x === undefined || !Number.isFinite(x)) return EMPTY
+  const rounded = Math.round(x)
+  const sign = rounded < 0 ? "-" : ""
+  return `${sign}${groupThousands(Math.abs(rounded).toString())}`
+}
+
 /**
  * Formatea un monto de moneda AGNÓSTICA (símbolo `MONEY.symbol`) con separador de miles y SIN
  * decimales — `$3,514,282`. Redondea al entero (los montos ya vienen cuantizados por el motor;
@@ -293,8 +301,8 @@ export interface PsiBarRow {
 /** Rótulos de las dos fronteras semiabiertas ejecutadas por stability/selection/validation. */
 export function stabilityThresholdLabels(stable: number, review: number) {
   return {
-    review: `revisión ≥${stable.toFixed(2)}`,
-    redevelop: `redesarrollo ≥${review.toFixed(2)}`,
+    review: `revisión ${stable.toFixed(2)} ≤ índice < ${review.toFixed(2)}`,
+    redevelop: `redesarrollo índice ≥ ${review.toFixed(2)}`,
   } as const
 }
 
@@ -1136,9 +1144,12 @@ export function internalProvisioningSectionCopy(
 
 /** Barra por grupo homogéneo del método interno, con tasas y exposición publicadas por el motor. */
 export interface InternalGroupBar {
+  key: string
   group: string
+  portfolio: string
   label: string
-  /** Provisión del grupo, en CLP. */
+  chartLabel: string
+  /** Provisión del grupo; el contrato no declara moneda. */
   provision: number
   /** PD del grupo (proporción [0,1]). */
   pd: number
@@ -1146,7 +1157,7 @@ export interface InternalGroupBar {
   lgd: number | null
   /** Tasa de pérdida esperada del grupo (proporción [0,1]). */
   expectedLossRate: number
-  /** Exposición del grupo, en CLP. */
+  /** Exposición del grupo; el contrato no declara moneda. */
   exposure: number
   /** Nº de operaciones del grupo. */
   n: number
@@ -1161,16 +1172,22 @@ export function internalGroupBars(
 ): InternalGroupBar[] {
   const groups = internal?.groups
   if (!groups) return []
-  return groups.map((g) => ({
-    group: g.group_id,
-    label: scoreBandLabel(g.group_id),
-    provision: g.provision_amount,
-    pd: g.pd_group,
-    lgd: g.lgd_group,
-    expectedLossRate: g.expected_loss_rate,
-    exposure: g.total_exposure,
-    n: g.n_operations,
-  }))
+  return groups.map((g) => {
+    const label = scoreBandLabel(g.group_id)
+    return {
+      key: `${g.portfolio}\u0000${g.group_id}`,
+      group: g.group_id,
+      portfolio: g.portfolio,
+      label,
+      chartLabel: `${g.portfolio} · ${label}`,
+      provision: g.provision_amount,
+      pd: g.pd_group,
+      lgd: g.lgd_group,
+      expectedLossRate: g.expected_loss_rate,
+      exposure: g.total_exposure,
+      n: g.n_operations,
+    }
+  })
 }
 
 /** Barra por categoría CMF del método estándar (provisión + exposición + PE ponderada). */

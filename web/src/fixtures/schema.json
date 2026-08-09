@@ -5412,7 +5412,7 @@
             "description": "Las columnas por sobre el umbral se reportan como decisión en el audit-trail; ninguna etapa las elimina automáticamente por este umbral.",
             "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Tasa máxima de nulos por columna",
+            "title": "Umbral de revisión por tasa de nulos",
             "type": "number",
             "ui_help": "Umbral de tasa de nulos por columna por sobre el cual se reporta como decisión a revisar. No elimina la columna automáticamente; esa decisión la toma la selección de variables."
           },

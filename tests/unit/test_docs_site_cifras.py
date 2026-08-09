@@ -137,6 +137,15 @@ def test_el_barrido_no_es_vacuo() -> None:
     assert _fixture("results-f1.json")["calibration"], "el fixture no trae calibración"
 
 
+def test_tutorial_atribuye_todas_sus_cifras_al_fixture_f1_real() -> None:
+    tutorial = _texto("tutorial.md")
+    fuente = "`web/src/fixtures/demo/results-f1.json`"
+
+    assert tutorial.count(fuente) == 7
+    assert "`results.json`" not in tutorial
+    assert "`results-f1.json`" not in tutorial
+
+
 @pytest.mark.parametrize(("archivo", "publicado", "real", "decimales"), _ANCLAS)
 def test_toda_cifra_anclada_es_la_del_fixture(
     archivo: str, publicado: str, real: float, decimales: int

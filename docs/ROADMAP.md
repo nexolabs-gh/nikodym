@@ -727,7 +727,7 @@ capa separada y sólo representa la regla B-1 al comparar estándar CMF con mét
 **Objetivo.** Que un gerente de riesgo pueda **ver** la provisión que la norma le obliga a constituir.
 **SDD.** 28 provisiones-end-to-end.
 **Entregables.**
-- ✅ `provisioning/internal`: el **método interno** del B-1 (`Exposición · PD · LGD` por grupo homogéneo). La PD sale del scorecard → **el modelo del banco entra en la provisión reportada**.
+- ✅ `provisioning/internal`: `Exposición · tasa de pérdida` por grupo homogéneo, con tasa descompuesta en `PD · LGD` o provista directamente. La PD del scorecard entra en la provisión sólo en la forma descompuesta; en la directa puede formar o caracterizar grupos sin multiplicar el monto.
 - ✅ Orquestador con fuentes configurables + `rule="use_internal"`.
 - ✅ Dataset `provisiones_consumo` y capítulos condicionales del informe.
 - ✅ **La ruta hasta el usuario**: preset, serializer, pantalla y capítulo del informe F3, integrada y

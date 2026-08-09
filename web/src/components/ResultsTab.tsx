@@ -40,6 +40,7 @@ import {
   csiBars,
   csiComparisonLabel,
   discriminantRows,
+  formatAmount,
   formatBool,
   formatClp,
   formatCount,
@@ -294,8 +295,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
         </CardContent>
       </Card>
 
-      {/* PROVISIONES (SDD-28): solo con el preset F3 (guard por presencia). Va PRIMERO porque es
-          el producto — el titular es el sobrecosto en CLP, no un ratio (§3.5). */}
+      {/* COMPARACIÓN DE PROVISIONES (SDD-28): sólo cuando corrió el orquestador del máximo. */}
       {headline ? (
         <>
           <ProvisioningHeadlineCard
@@ -315,25 +315,6 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
             <ProvisioningTotalsTable headline={headline} rule={prov?.rule} />
           </ResultsSection>
 
-          {/* Método interno: copy derivado de método, fuente de PD y agrupación efectivas. */}
-          {groupBars.length > 0 ? (
-            <ResultsSection
-              // 🔴 Decía «por grupo homogéneo (B-1 §3)» sobre el motor jurisdiccionalmente
-              // NEUTRO: la reincidencia literal del título «(Cap. B-1 §3)» que esta misma sección
-              // llevaba en el formulario hasta el 2026-08-05 (D-JUR-8), y que además era falso —
-              // este motor no calcula el B-1.
-              title="Método interno por grupo homogéneo"
-              description={internalCopy.description}
-            >
-              <InternalGroupsChart rows={groupBars} method={internal?.method ?? "pd_lgd"} />
-              <InternalGroupsDetail
-                rows={groupBars}
-                totalInternal={internal?.total_internal_provision ?? null}
-                method={internal?.method ?? "pd_lgd"}
-              />
-            </ResultsSection>
-          ) : null}
-
           {/* Método estándar CMF: desglose por categoría del Cap. B-1. */}
           {categoryBars.length > 0 ? (
             <ResultsSection
@@ -344,6 +325,24 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
             </ResultsSection>
           ) : null}
         </>
+      ) : null}
+
+      {/* El motor interno también es un producto autónomo: no depende de que el orquestador del
+          máximo haya corrido. El guard se deriva de SU card y de SUS grupos efectivos. */}
+      {groupBars.length > 0 ? (
+        <ResultsSection
+          // 🔴 Decía «por grupo homogéneo (B-1 §3)» sobre el motor jurisdiccionalmente NEUTRO:
+          // este motor no calcula el B-1 y puede correr sin ninguna norma local.
+          title="Método interno por grupo homogéneo"
+          description={internalCopy.description}
+        >
+          <InternalGroupsChart rows={groupBars} method={internal?.method ?? "pd_lgd"} />
+          <InternalGroupsDetail
+            rows={groupBars}
+            totalInternal={internal?.total_internal_provision ?? null}
+            method={internal?.method ?? "pd_lgd"}
+          />
+        </ResultsSection>
       ) : null}
 
       {/* PROVISIONES IFRS 9 / ECL (SDD-16, experimental): solo con el preset F4 (guard por presencia).
@@ -461,11 +460,11 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
       ) : null}
 
       {/* a.1 Discriminación acumulada (gains/lift): la curva de ganancias vs. el azar y el
-          lift por decil. Guard por presencia: sin tabla de deciles, no se renderiza. */}
+          lift por tramo. Guard por presencia: sin tabla de tramos, no se renderiza. */}
       {gains.data.length > 0 || lift.length > 0 ? (
         <ResultsSection
           title="Discriminación acumulada — Gains y Lift"
-          description="Curva de ganancias: % de malos capturados (eje Y) al recorrer los deciles del más al menos riesgoso (eje X); la diagonal punteada es el modelo aleatorio. El lift por decil mide cuántas veces más concentra malos que la media (1× = azar)."
+          description="Curva de ganancias: % de malos capturados (eje Y) al recorrer los tramos efectivos del más al menos riesgoso (eje X); la diagonal punteada es el modelo aleatorio. El lift por tramo mide cuántas veces más concentra malos que la media (1× = azar)."
         >
           {gains.data.length > 0 ? (
             <Subchart title="Curva de ganancias (captura acumulada de malos)">
@@ -473,7 +472,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
             </Subchart>
           ) : null}
           {lift.length > 0 && liftPartition ? (
-            <Subchart title={`Lift por decil — ${partitionLabel(liftPartition)}`}>
+            <Subchart title={`Lift por tramo — ${partitionLabel(liftPartition)}`}>
               <LiftChart rows={lift} partition={liftPartition} />
             </Subchart>
           ) : null}
@@ -1220,24 +1219,26 @@ function InternalGroupsDetail({
           <thead>
             <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
               <th className="py-2 pr-3 font-medium">Grupo</th>
+              <th className="py-2 pr-3 font-medium">Cartera</th>
               <NumHead>Operaciones</NumHead>
-              <NumHead>Exposición (CLP)</NumHead>
+              <NumHead>Exposición</NumHead>
               {direct ? <NumHead>Tasa de pérdida</NumHead> : <NumHead>PD</NumHead>}
               {direct ? null : <NumHead>LGD</NumHead>}
-              <NumHead>Provisión (CLP)</NumHead>
+              <NumHead>Provisión</NumHead>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.group} className="border-b border-border">
+              <tr key={r.key} className="border-b border-border">
                 <td className="py-2 pr-3 text-foreground">{r.label}</td>
+                <td className="py-2 pr-3 text-foreground">{r.portfolio}</td>
                 <NumCell>{formatCount(r.n)}</NumCell>
-                <NumCell>{formatClp(r.exposure)}</NumCell>
+                <NumCell>{formatAmount(r.exposure)}</NumCell>
                 <NumCell>
                   {formatPercent(direct ? r.expectedLossRate : r.pd, 2)}
                 </NumCell>
                 {direct ? null : <NumCell>{formatPercent(r.lgd, 1)}</NumCell>}
-                <NumCell>{formatClp(r.provision)}</NumCell>
+                <NumCell>{formatAmount(r.provision)}</NumCell>
               </tr>
             ))}
           </tbody>
@@ -1245,11 +1246,12 @@ function InternalGroupsDetail({
             <tfoot>
               <tr className="border-t border-border text-foreground">
                 <td className="py-2 pr-3 font-medium">Total interno</td>
+                <td className="py-2 pr-3 text-muted-foreground">{EMPTY}</td>
+                <NumCell>{EMPTY}</NumCell>
+                <NumCell>{EMPTY}</NumCell>
+                <NumCell>{EMPTY}</NumCell>
                 {direct ? null : <NumCell>{EMPTY}</NumCell>}
-                <NumCell>{EMPTY}</NumCell>
-                <NumCell>{EMPTY}</NumCell>
-                <NumCell>{EMPTY}</NumCell>
-                <NumCell>{formatClp(totalInternal)}</NumCell>
+                <NumCell>{formatAmount(totalInternal)}</NumCell>
               </tr>
             </tfoot>
           ) : null}

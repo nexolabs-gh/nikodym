@@ -406,8 +406,8 @@ def test_stability_not_evaluable_se_omite() -> None:
 def test_stability_chart_publica_operadores_reales_de_las_bandas() -> None:
     svg = charts.render_stability_chart(_stability_frame(), title="Estabilidad")
 
-    assert "Revisión ≥ 0.10" in svg
-    assert "Redesarrollo ≥ 0.25" in svg
+    assert "Revisión: 0.10 ≤ índice &lt; 0.25" in svg
+    assert "Redesarrollo: índice ≥ 0.25" in svg
     assert "Estable ≤" not in svg
     assert "Revisar ≤" not in svg
 

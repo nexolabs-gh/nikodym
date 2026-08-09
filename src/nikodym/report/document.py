@@ -58,6 +58,7 @@ __all__ = [
     "ChapterSpec",
     "domain_section_id",
     "domain_title",
+    "internal_grouping_label",
     "ordered_sections",
     "section_sort_key",
     "table_title",
@@ -265,7 +266,7 @@ _TABLE_TITLES: Final[dict[str, str]] = {
     "scorecard.score": "Puntaje por observación",
     "calibration.parameters": "Parámetros de la calibración",
     "calibration.calibrated_pd_frame": "PD calibrada por observación",
-    "performance.performance_table": "Desempeño por decil de score",
+    "performance.performance_table": "Desempeño por tramo de riesgo",
     "performance.discriminant_metrics": "Métricas de discriminación por partición",
     "stability.psi_table": "PSI por tramo de score",
     "stability.stability_metrics": "Métricas de estabilidad (PSI/CSI)",
@@ -275,7 +276,7 @@ _TABLE_TITLES: Final[dict[str, str]] = {
     "validation.backtesting": "Validación formal — backtesting",
     "provisioning.comparison": "Comparación estándar vs. interno y regla del máximo",
     "provisioning_cmf.summary": "Provisión estándar por categoría CMF",
-    "provisioning_internal.groups": "Provisión interna por grupo homogéneo (banda de score)",
+    "provisioning_internal.groups": "Provisión interna por grupo homogéneo",
     "provisioning_ifrs9.summary": "Pérdida crediticia esperada (ECL) por etapa",
 }
 _BINNING_TABLE_PREFIX: Final = "binning.tables."
@@ -479,13 +480,25 @@ def ordered_sections(sections: Iterable[_SectionT]) -> tuple[_SectionT, ...]:
     return tuple(sorted(sections, key=lambda section: (*section_sort_key(section.id), section.id)))
 
 
-def table_title(key: str) -> str:
+def internal_grouping_label(grouping: str) -> str:
+    """Rotula el agrupamiento interno efectivo sin asumir la configuración por defecto."""
+    return {
+        "score_band": "banda de score",
+        "segment": "segmento",
+        "provided": "grupo provisto",
+    }.get(grouping, "grupo homogéneo")
+
+
+def table_title(key: str, *, internal_grouping: str | None = None) -> str:
     """Traduce la clave interna de una tabla a un título legible por un humano.
 
     Las claves dinámicas (``binning.tables.<variable>``) nombran una variable del cliente: se
     muestra tal cual, entre comillas, sin inventarle acentos ni traducirla. Una clave desconocida
     degrada a su propio nombre en vez de romper el render.
     """
+    if key == "provisioning_internal.groups" and internal_grouping:
+        grouping_label = internal_grouping_label(internal_grouping)
+        return f"{_TABLE_TITLES[key]} ({grouping_label})"
     if key in _TABLE_TITLES:
         return _TABLE_TITLES[key]
     if key.startswith(_BINNING_TABLE_PREFIX):

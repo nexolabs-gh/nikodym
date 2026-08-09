@@ -10,7 +10,7 @@ import {
 } from "recharts"
 
 import {
-  formatClp,
+  formatAmount,
   formatCount,
   formatPercent,
 } from "@/lib/results-format"
@@ -39,12 +39,14 @@ function GroupTooltip({ active, payload, method }: GroupTooltipProps) {
   const direct = method === "direct_loss_rate"
   return (
     <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
-      <p className="mb-1 font-medium text-foreground">{d.label}</p>
+      <p className="mb-1 font-medium text-foreground">
+        {d.portfolio} · {d.label}
+      </p>
       <ul className="space-y-0.5">
         <li className="flex items-center gap-3 text-muted-foreground">
           <span>Provisión</span>
           <span className="ml-auto font-mono tabular-nums text-foreground">
-            {formatClp(d.provision)}
+            {formatAmount(d.provision)}
           </span>
         </li>
         <li className="flex items-center gap-3 text-muted-foreground">
@@ -64,7 +66,7 @@ function GroupTooltip({ active, payload, method }: GroupTooltipProps) {
         <li className="flex items-center gap-3 text-muted-foreground">
           <span>Exposición</span>
           <span className="ml-auto font-mono tabular-nums text-foreground">
-            {formatClp(d.exposure)}
+            {formatAmount(d.exposure)}
           </span>
         </li>
         <li className="flex items-center gap-3 text-[0.7rem] text-muted-foreground">
@@ -80,9 +82,10 @@ function GroupTooltip({ active, payload, method }: GroupTooltipProps) {
 
 /**
  * Método interno por grupo homogéneo (SDD-28 §3.3): barras = provisión del grupo (eje izquierdo,
- * CLP), y encima la PD del grupo como línea sobre un eje Y secundario en % (ComposedChart), para
- * contrastar provisión con la tasa que la forma ejecutada publica: PD con `pd_lgd`, o tasa de pérdida
- * esperada con `direct_loss_rate`. Sólo grafica grupos ya normalizados; sin grupos no renderiza.
+ * sin moneda declarada), y encima la tasa del grupo como línea sobre un eje Y secundario en %, para
+ * contrastar provisión con la tasa que la forma ejecutada publica: PD con `pd_lgd`, o tasa de
+ * pérdida esperada con `direct_loss_rate`. Sólo grafica grupos ya normalizados; sin grupos no
+ * renderiza.
  */
 export function InternalGroupsChart({
   rows,
@@ -98,64 +101,69 @@ export function InternalGroupsChart({
 
   return (
     <div className="space-y-2">
-      <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart
-            data={rows}
-            margin={{ top: 8, right: 8, bottom: 4, left: 8 }}
-            barCategoryGap="24%"
-          >
-            <CartesianGrid vertical={false} stroke={GRID_STROKE} />
-            <XAxis
-              dataKey="label"
-              interval={0}
-              tickLine={false}
-              axisLine={AXIS_LINE}
-              tick={{ ...AXIS_TICK, fontSize: 9 }}
-              angle={-30}
-              textAnchor="end"
-              height={48}
-            />
-            <YAxis
-              yAxisId="clp"
-              width={52}
-              tickLine={false}
-              axisLine={false}
-              tick={AXIS_TICK}
-              tickFormatter={(v: number) => `${Math.round(v / 1e6)}`}
-            />
-            <YAxis
-              yAxisId="pd"
-              orientation="right"
-              domain={[0, "auto"]}
-              width={40}
-              tickLine={false}
-              axisLine={false}
-              tick={AXIS_TICK}
-              tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
-            />
-            <Tooltip cursor={CURSOR_FILL} content={<GroupTooltip method={method} />} />
-            <Bar
-              yAxisId="clp"
-              dataKey="provision"
-              name="Provisión"
-              fill={PROVISIONING_COLORS.internal}
-              radius={[3, 3, 0, 0]}
-              maxBarSize={40}
-              isAnimationActive={false}
-            />
-            <Line
-              yAxisId="pd"
-              type="monotone"
-              dataKey={rateKey}
-              name={rateLabel}
-              stroke={BRAND.amber}
-              strokeWidth={2}
-              dot={{ r: 2.5, fill: BRAND.amber, strokeWidth: 0 }}
-              isAnimationActive={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+      <div className="w-full overflow-x-auto">
+        <div
+          className="h-72"
+          style={{ minWidth: `${Math.max(720, rows.length * 52)}px` }}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart
+              data={rows}
+              margin={{ top: 8, right: 8, bottom: 4, left: 8 }}
+              barCategoryGap="24%"
+            >
+              <CartesianGrid vertical={false} stroke={GRID_STROKE} />
+              <XAxis
+                dataKey="chartLabel"
+                interval={0}
+                tickLine={false}
+                axisLine={AXIS_LINE}
+                tick={{ ...AXIS_TICK, fontSize: 9 }}
+                angle={-30}
+                textAnchor="end"
+                height={48}
+              />
+              <YAxis
+                yAxisId="amount"
+                width={52}
+                tickLine={false}
+                axisLine={false}
+                tick={AXIS_TICK}
+                tickFormatter={(v: number) => `${Math.round(v / 1e6)}`}
+              />
+              <YAxis
+                yAxisId="pd"
+                orientation="right"
+                domain={[0, "auto"]}
+                width={40}
+                tickLine={false}
+                axisLine={false}
+                tick={AXIS_TICK}
+                tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
+              />
+              <Tooltip cursor={CURSOR_FILL} content={<GroupTooltip method={method} />} />
+              <Bar
+                yAxisId="amount"
+                dataKey="provision"
+                name="Provisión"
+                fill={PROVISIONING_COLORS.internal}
+                radius={[3, 3, 0, 0]}
+                maxBarSize={40}
+                isAnimationActive={false}
+              />
+              <Line
+                yAxisId="pd"
+                type="monotone"
+                dataKey={rateKey}
+                name={rateLabel}
+                stroke={BRAND.amber}
+                strokeWidth={2}
+                dot={{ r: 2.5, fill: BRAND.amber, strokeWidth: 0 }}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Leyenda (accesibilidad: el significado no queda solo en el color). */}
@@ -166,7 +174,7 @@ export function InternalGroupsChart({
             style={{ backgroundColor: PROVISIONING_COLORS.internal }}
             aria-hidden="true"
           />
-          provisión del grupo · millones CLP (eje izq.)
+          provisión del grupo · millones (eje izq.)
         </span>
         <span className="flex items-center gap-1.5">
           <span

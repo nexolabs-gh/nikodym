@@ -46,7 +46,10 @@ def test_max_missing_rate_publica_auditoria_y_no_rechazo() -> None:
 
     assert "se reporta para revisión toda variable con más de 30,00 %" in texto
     assert "rechaza" not in texto
+    assert "sin eliminarla automáticamente" in texto
     field = MissingConfig.model_fields["max_missing_rate"]
+    assert field.title == "Umbral de revisión por tasa de nulos"
+    assert "ninguna etapa las elimina automáticamente" in (field.description or "")
     assert "por sobre el cual" in str((field.json_schema_extra or {}).get("ui_help", ""))
 
 

@@ -215,6 +215,31 @@ def test_toda_tabla_del_cuerpo_tiene_titulo_editorial() -> None:
     assert sin_titulo == [], f"tablas del cuerpo sin título editorial: {sin_titulo}"
 
 
+@pytest.mark.parametrize(
+    ("grouping", "label"),
+    (("score_band", "banda de score"), ("segment", "segmento"), ("provided", "grupo provisto")),
+)
+def test_titulo_de_tabla_interna_refleja_el_agrupamiento_efectivo(
+    grouping: str, label: str
+) -> None:
+    """El informe no presenta todo grupo homogéneo como una banda de score."""
+    title = document.table_title("provisioning_internal.groups", internal_grouping=grouping)
+
+    assert title == f"Provisión interna por grupo homogéneo ({label})"
+
+
+def test_titulo_de_tabla_interna_sin_configuracion_no_inventa_agrupamiento() -> None:
+    assert document.table_title("provisioning_internal.groups") == (
+        "Provisión interna por grupo homogéneo"
+    )
+
+
+def test_titulo_de_desempeno_no_inventa_deciles_ni_fuente_score() -> None:
+    assert document.table_title("performance.performance_table") == (
+        "Desempeño por tramo de riesgo"
+    )
+
+
 def test_metodologia_redacta_los_parametros_reales_del_config() -> None:
     """La Metodología describe lo que se ejecutó, con los parámetros REALES del config.
 
@@ -1173,6 +1198,37 @@ def test_prosa_comparativo_cmf_ifrs9_es_diagnostica() -> None:
     assert "comparativo diagnóstico" in body
     assert "no constituye por sí solo la regla B-1" in body
     assert "obliga a constituir" not in body
+
+
+def test_prosa_comparativa_refleja_el_agrupamiento_interno_efectivo() -> None:
+    """La asimetría CMF/interno usa el mismo rótulo canónico que la tabla del informe."""
+    bundle = _provision_bundle(
+        {
+            "rule": "max",
+            "comparison_level": "total",
+            "source_a": "cmf",
+            "source_b": "internal",
+            "binding": "cmf",
+        }
+    ).model_copy(
+        update={
+            "cards": {
+                "provisioning": {
+                    "rule": "max",
+                    "comparison_level": "total",
+                    "source_a": "cmf",
+                    "source_b": "internal",
+                    "binding": "cmf",
+                },
+                "provisioning_internal": {"grouping": "segment"},
+            }
+        }
+    )
+
+    body = " ".join(_results_provisioning(bundle))
+
+    assert "método interno agrupa por segmento" in body
+    assert "método interno agrupa por banda de score" not in body
 
 
 def test_prosa_interpreta_falta_dato_de_comparacion_incompleta() -> None:

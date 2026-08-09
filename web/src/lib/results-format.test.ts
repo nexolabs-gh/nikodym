@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest"
 
 import psiChartSource from "@/components/charts/PsiByComparisonChart.tsx?raw"
 import csiChartSource from "@/components/charts/StabilityCsiChart.tsx?raw"
+import gainsChartSource from "@/components/charts/GainsChart.tsx?raw"
+import internalChartSource from "@/components/charts/InternalGroupsChart.tsx?raw"
+import liftChartSource from "@/components/charts/LiftChart.tsx?raw"
+import resultsTabSource from "@/components/ResultsTab.tsx?raw"
 import type { RunLineage } from "@/lib/results-types"
 
 import {
@@ -20,6 +24,7 @@ import {
   panelConfigHash,
   discriminantRows,
   featureDisplayLabel,
+  formatAmount,
   formatBool,
   formatClp,
   formatClpCompact,
@@ -508,8 +513,8 @@ describe("comparisonLabel", () => {
 describe("stabilityThresholdLabels", () => {
   it("publica los operadores semiabiertos que ejecutan los tres motores", () => {
     expect(stabilityThresholdLabels(0.1, 0.25)).toEqual({
-      review: "revisión ≥0.10",
-      redevelop: "redesarrollo ≥0.25",
+      review: "revisión 0.10 ≤ índice < 0.25",
+      redevelop: "redesarrollo índice ≥ 0.25",
     })
   })
 
@@ -1571,6 +1576,14 @@ describe("formatClp", () => {
   })
 })
 
+describe("formatAmount", () => {
+  it("formatea montos sin inventar símbolo ni jurisdicción", () => {
+    expect(formatAmount(3_873_413_550.49)).toBe("3,873,413,550")
+    expect(formatAmount(-1_250)).toBe("-1,250")
+    expect(formatAmount(null)).toBe(EMPTY)
+  })
+})
+
 describe("formatClpCompact", () => {
   it("formatea CLP compacto en millones con separador de miles", () => {
     expect(formatClpCompact(697376973.92)).toBe("$697 M")
@@ -1759,7 +1772,10 @@ describe("internalGroupBars", () => {
     expect(bars).toHaveLength(3)
     expect(bars.map((b) => b.label)).toEqual(["Banda 1", "Banda 2", "Banda 10"])
     expect(bars[0]).toMatchObject({
+      key: "consumer\u0000banda_01",
       group: "banda_01",
+      portfolio: "consumer",
+      chartLabel: "consumer · Banda 1",
       provision: 2191578.95,
       pd: 0.005229006159768768,
       lgd: 0.4528972012939849,
@@ -1792,6 +1808,29 @@ describe("internalGroupBars", () => {
     })
   })
 
+  it("preserva cartera y genera claves únicas cuando se repite el group_id", () => {
+    const base = internalSample.groups![0]
+    const multiPortfolio: InternalProvisioningResult = {
+      ...internalSample,
+      n_groups: 2,
+      groups: [
+        { ...base, portfolio: "consumo", group_id: "banda_01" },
+        { ...base, portfolio: "hipotecario", group_id: "banda_01" },
+      ],
+    }
+
+    const bars = internalGroupBars(multiPortfolio)
+
+    expect(bars.map((bar) => bar.key)).toEqual([
+      "consumo\u0000banda_01",
+      "hipotecario\u0000banda_01",
+    ])
+    expect(bars.map((bar) => bar.chartLabel)).toEqual([
+      "consumo · Banda 1",
+      "hipotecario · Banda 1",
+    ])
+  })
+
   it("[] cuando falta la card o el frame de grupos", () => {
     expect(internalGroupBars(null)).toEqual([])
     expect(
@@ -1801,6 +1840,61 @@ describe("internalGroupBars", () => {
 })
 
 describe("internalProvisioningSectionCopy", () => {
+  it("no subordina el método interno autónomo al orquestador del máximo", () => {
+    const comparisonStart = resultsTabSource.indexOf("{headline ? (")
+    const standaloneStart = resultsTabSource.indexOf(
+      "El motor interno también es un producto autónomo",
+    )
+    const standaloneEnd = resultsTabSource.indexOf("PROVISIONES IFRS 9", standaloneStart)
+    const detailStart = resultsTabSource.indexOf("function InternalGroupsDetail")
+    const detailEnd = resultsTabSource.indexOf("function Ifrs9MethodologyPanel", detailStart)
+    const comparisonBlock = resultsTabSource.slice(
+      comparisonStart,
+      standaloneStart,
+    )
+    const standaloneBlock = resultsTabSource.slice(standaloneStart, standaloneEnd)
+    const detailBlock = resultsTabSource.slice(detailStart, detailEnd)
+
+    expect(comparisonStart).toBeGreaterThanOrEqual(0)
+    expect(standaloneStart).toBeGreaterThan(comparisonStart)
+    expect(standaloneEnd).toBeGreaterThan(standaloneStart)
+    expect(comparisonBlock).not.toContain("{groupBars.length > 0 ? (")
+    expect(standaloneBlock).toContain("{groupBars.length > 0 ? (")
+    expect(standaloneBlock).toContain("description={internalCopy.description}")
+    expect(standaloneBlock).not.toContain("10 bandas")
+    expect(detailBlock).toContain("key={r.key}")
+    expect(detailBlock).toContain("{r.portfolio}")
+    expect(detailBlock).toContain("formatAmount(r.exposure)")
+    expect(detailBlock).toContain("formatAmount(r.provision)")
+    expect(detailBlock).not.toContain("(CLP)")
+  })
+
+  it("conecta tasa directa y monto sin moneda en el chart final", () => {
+    expect(internalChartSource).toContain(
+      'const rateKey = direct ? "expectedLossRate" : "pd"',
+    )
+    expect(internalChartSource).toContain("direct ? null : (")
+    expect(internalChartSource).toContain("formatAmount(d.provision)")
+    expect(internalChartSource).toContain("formatAmount(d.exposure)")
+    expect(internalChartSource).toContain("d.portfolio")
+    expect(internalChartSource).toContain("dataKey=\"chartLabel\"")
+    expect(internalChartSource).not.toContain("formatClp")
+    expect(internalChartSource).not.toContain("CLP")
+  })
+
+  it("rotula gains y lift como tramos efectivos, no como diez deciles", () => {
+    const performanceStart = resultsTabSource.indexOf("a.1 Discriminación acumulada")
+    const stabilityStart = resultsTabSource.indexOf("a.2 Estabilidad del score")
+    const performanceBlock = resultsTabSource.slice(performanceStart, stabilityStart)
+    for (const source of [performanceBlock, gainsChartSource, liftChartSource]) {
+      expect(source).not.toContain("Decil ")
+      expect(source).not.toContain("por decil")
+    }
+    expect(gainsChartSource).toContain("Tramo ${decile}")
+    expect(liftChartSource).toContain("Tramo {d.decile}")
+    expect(performanceBlock).toContain("tramos efectivos")
+  })
+
   it("deriva fórmula, fuente de PD y cantidad efectiva sin fijar diez bandas", () => {
     const copy = internalProvisioningSectionCopy({
       ...internalSample,

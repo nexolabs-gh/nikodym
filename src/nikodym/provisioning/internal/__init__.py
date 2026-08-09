@@ -3,8 +3,9 @@
 El cálculo es **jurisdiccionalmente neutro** y es el único componente de ``provisioning`` que lo es:
 segmenta a los deudores en grupos homogéneos y multiplica la exposición de cada grupo por una tasa
 de pérdida: descompuesta en PD · LGD o provista directamente. No conoce ninguna cartera
-normativa ni ninguna tabla de supervisor, y su estado de fábrica tampoco los nombra. La PD sale del
-scorecard calibrado que Nikodym ya construye.
+normativa ni ninguna tabla de supervisor, y su estado de fábrica tampoco los nombra. La PD puede
+salir del scorecard calibrado o del modelo declarado; en la forma directa no multiplica la
+provisión.
 
 Como **evidencia** de que ese motor encaja donde se lo exige —y no como su definición—: el Cap. B-1
 §3 del Compendio de la CMF de Chile obliga a todo banco a mantener metodologías propias junto al

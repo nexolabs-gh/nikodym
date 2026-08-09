@@ -38,14 +38,14 @@ function pct(v: number): string {
   return `${(v * 100).toFixed(1)}%`
 }
 
-/** Tooltip dedicado: decil (u origen) + ganancia por serie en %, incluida la diagonal. */
+/** Tooltip dedicado: tramo (u origen) + ganancia por serie en %, incluida la diagonal. */
 function GainsTooltip({ active, label, payload }: GainsTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
   const decile = typeof label === "number" ? label : Number(label)
   return (
     <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
       <p className="mb-1.5 font-medium text-foreground">
-        {decile === 0 ? "Origen" : `Decil ${decile}`}
+        {decile === 0 ? "Origen" : `Tramo ${decile}`}
       </p>
       <ul className="space-y-1">
         {payload.map((item, i) => (
@@ -71,8 +71,8 @@ function GainsTooltip({ active, label, payload }: GainsTooltipProps) {
 
 /**
  * Curva de ganancias (gains): ganancia acumulada `cum_bad_capture_rate` (Y, 0–100%) por
- * decil (X, 1 = 10% más riesgoso), una línea por partición —desarrollo DESTACADO, holdout/
- * oot tenues— sobre la diagonal punteada del modelo aleatorio (decil k → k/N). Cuanto más
+ * tramo efectivo de riesgo (X, 1 = tramo más riesgoso), una línea por partición —desarrollo
+ * DESTACADO, holdout/oot tenues— sobre la diagonal del modelo aleatorio (tramo k → k/N). Cuanto más
  * arriba de la diagonal, mejor discrimina. Solo grafica lo que trae `performance.deciles`
  * (más las referencias de lectura origen/diagonal); CERO cálculo de dominio.
  */
