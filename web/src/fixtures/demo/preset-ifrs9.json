@@ -280,6 +280,7 @@
    "output_dir": "reports",
    "basename": "ifrs9_ecl_report",
    "language": "es",
+   "currency": null,
    "formats": [
     "html",
     "pdf",
