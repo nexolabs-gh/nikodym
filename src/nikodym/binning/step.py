@@ -320,7 +320,7 @@ class BinningStep(AuditableMixin):
                     valor={"variable": variable, "n_bins": n_bins},
                     accion="conservar_variable",
                 )
-            if iv > 0.50:
+            if iv >= 0.50:
                 self.log_decision(
                     regla="iv_sospechoso",
                     umbral=0.50,

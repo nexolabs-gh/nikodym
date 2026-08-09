@@ -817,6 +817,43 @@ def test_helpers_de_auditoria_cubren_solver_monotonia_iv_bajo_y_unknown_cero() -
     assert step_module._effective_max_n_bins(cfg, cfg.variable_overrides[0]) == 3
 
 
+@pytest.mark.parametrize(
+    ("iv", "expected"),
+    [
+        (math.nextafter(0.50, 0.0), False),
+        (0.50, True),
+        (math.nextafter(0.50, 1.0), True),
+    ],
+)
+def test_audit_iv_sospechoso_comparte_frontera_inclusiva_con_la_banda(
+    iv: float,
+    expected: bool,
+) -> None:
+    cfg = BinningConfig(feature_columns=("score",), max_n_bins=4)
+    step = BinningStep.from_config(cfg)
+    sink = InMemoryAuditSink()
+    step._audit = sink
+
+    step._log_summary_diagnostics(
+        pd.DataFrame([{"name": "score", "selected": True, "iv": iv, "n_bins": 4}]),
+        step_module._import_pandas(),
+    )
+
+    events = [
+        event
+        for event in sink.events
+        if event.kind == "decision" and event.payload.get("regla") == "iv_sospechoso"
+    ]
+    assert bool(events) is expected
+    if expected:
+        assert events[0].payload == {
+            "regla": "iv_sospechoso",
+            "umbral": 0.50,
+            "valor": {"variable": "score", "iv": iv},
+            "accion": "diagnosticar_sin_eliminar",
+        }
+
+
 def test_helpers_de_summary_version_y_optional_string(monkeypatch: pytest.MonkeyPatch) -> None:
     pd_mod = step_module._import_pandas()
 

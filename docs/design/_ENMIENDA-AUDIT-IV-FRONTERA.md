@@ -1,6 +1,6 @@
 # Enmienda SDD — frontera del diagnóstico IV en audit-trail
 
-> **Estado: PROPUESTA; requiere aprobación explícita antes de cambiar el motor.**
+> **Estado: APROBADA por Cami (IV-A1) e IMPLEMENTADA el 2026-08-09.**
 >
 > **Base medida:** sesión de cierre de prosa del 2026-08-09.
 > **Autor / Fecha:** Codex / 2026-08-09.
@@ -55,4 +55,6 @@ evitar que un consumidor infiera equivalencia entre banda y evento.
 
 ## 4. Decisión requerida
 
-Cami debe aprobar **IV-A1** o **IV-A2**. No se programa esta rama antes de esa decisión.
+Cami aprobó **IV-A1** el 2026-08-09. El audit de binning emite `iv_sospechoso` al alcanzar o
+superar 0,50, con `accion="diagnosticar_sin_eliminar"`; la frontera coincide con `iv_band` y con
+selección. El control negativo repone temporalmente `>` y exige que falle el caso exacto 0,50.

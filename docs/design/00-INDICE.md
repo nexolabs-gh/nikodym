@@ -795,10 +795,10 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > `[stable_threshold, review_threshold)` y `≥ review_threshold`. La autorización de §7 cubre la
 > recaptura canónica de las tres familias de demo para propagar el copy.
 
-> **Frontera del diagnóstico IV — PROPUESTA, sin OK todavía (2026-08-09).**
+> **Frontera del diagnóstico IV — APROBADA E IMPLEMENTADA (2026-08-09).**
 > [`_ENMIENDA-AUDIT-IV-FRONTERA.md`](_ENMIENDA-AUDIT-IV-FRONTERA.md) mide que IV=0,50 ya es
-> `suspicious` y activa selección, pero el audit de binning sólo registra valores estrictamente
-> mayores. No cambia el motor mientras Cami no elija IV-A1 o IV-A2.
+> `suspicious` y activa selección; IV-A1 alinea el audit de binning a la misma frontera inclusiva,
+> sin filtrar ni cambiar resultados numéricos.
 
 ## Tandas de producción
 

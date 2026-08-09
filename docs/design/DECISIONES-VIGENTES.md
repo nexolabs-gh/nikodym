@@ -222,6 +222,7 @@ corpus histórico o de conocer un ID de memoria:
 | decisiones obligatorias/respondidas | D-OBL en [`_ENMIENDA-DECISIONES-OBLIGATORIAS.md`](_ENMIENDA-DECISIONES-OBLIGATORIAS.md) y D-RES en [`_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md`](_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md) |
 | evidencia normativa y segmentación | D-COT en [`_ENMIENDA-COTEJO-NORMATIVO.md`](_ENMIENDA-COTEJO-NORMATIVO.md), D-MAX en [`_ENMIENDA-REGLA-DEL-MAXIMO.md`](_ENMIENDA-REGLA-DEL-MAXIMO.md) y D-SEG en [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md) |
 | resumen PSI y fronteras de estabilidad | A1/B1 en [`_ENMIENDA-RESUMEN-PSI.md`](_ENMIENDA-RESUMEN-PSI.md): peor PSI score/PD con identidad y banda coherentes; `<stable`, `[stable, review)`, `≥review` |
+| frontera del diagnóstico IV | IV-A1 en [`_ENMIENDA-AUDIT-IV-FRONTERA.md`](_ENMIENDA-AUDIT-IV-FRONTERA.md): banda, selección y evento `iv_sospechoso` incluyen IV=0,50; el evento sólo diagnostica, no elimina |
 
 Regla CRP especialmente fácil de romper: `fail_on_falta_dato` significa en las siete capas “una
 marca declarada **gobernable** emitida por la corrida la detiene”. Las marcas estructurales se

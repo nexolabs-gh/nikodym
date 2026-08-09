@@ -70,7 +70,7 @@ config.binning ─► Study.run() ─► binning (SDD-06)
 - **WoE (Weight of Evidence).** Convención de F1 (ESPECIFICACIONES §5.2):  
   `WoE_b = ln(%Goods_b / %Bads_b)`  
   donde `%Goods_b = goods_b / goods_total` y `%Bads_b = bads_b / bads_total`. Dado `target=1` como evento/malo, esta convención coincide con la columna `WoE` que construye `optbinning.binning_table.build()` en 0.20.0 (`Non-event` = buenos, `Event` = malos). Un bin con más malos relativos tiene WoE más bajo.
-- **IV (Information Value).** `IV = Σ_b (%Goods_b - %Bads_b) · WoE_b`. Se reportan umbrales clásicos como etiquetas de diagnóstico: `<0.02` débil/no predictivo, `0.02–0.10` bajo, `0.10–0.30` medio, `0.30–0.50` fuerte, `>0.50` revisar posible leakage o proxy demasiado dominante. `binning` **no filtra** por esos umbrales por defecto; SDD-07 decide selección.
+- **IV (Information Value).** `IV = Σ_b (%Goods_b - %Bads_b) · WoE_b`. Se reportan umbrales clásicos como etiquetas de diagnóstico: `<0.02` débil/no predictivo, `0.02–0.10` bajo, `0.10–0.30` medio, `0.30–0.50` fuerte, `≥0.50` revisar posible leakage o proxy demasiado dominante. `binning` **no filtra** por esos umbrales por defecto; SDD-07 decide selección.
 - **Monotonicidad.** Para scorecards regulatorias se prefiere una relación monotónica entre la variable y el riesgo: aumenta interpretabilidad, reduce sobreajuste y facilita defensa ante validadores. OptBinning define `monotonic_trend` sobre la **event rate** (tasa de malos), no sobre WoE. Con `WoE = ln(%Goods/%Bads)`, una event rate ascendente implica WoE descendente.
 - **Missing.** Missing genuino (`NaN`) se conserva como bin `"Missing"` con WoE propio cuando existe en Desarrollo. En transform, se usa el WoE empírico del bin missing (`metric_missing="empirical"`), no imputación previa.
 - **Special values.** SDD-02 normaliza centinelas a `NaN` y conserva `special_mask`/`special_catalog`. SDD-06 reconstruye `special_codes` desde ese catálogo para que OptBinning los trate como bin `"Special"` separado de missing genuino cuando sea posible.
@@ -438,7 +438,7 @@ Toda excepción del módulo desciende de `NikodymError`; los mensajes son en esp
   - monotonía forzada u override por variable;
   - special values separados vs tratados como missing;
   - bins colapsados o nº de bins efectivo menor al solicitado;
-  - IV sospechoso (`>0.50`) o bajo (`<0.02`) como diagnóstico, sin eliminar;
+  - IV sospechoso (`≥0.50`) o bajo (`<0.02`) como diagnóstico, sin eliminar;
   - categorías no vistas en transform;
   - solver no óptimo / timeout si se permite.
 - **Model card / report.** `BinningCardSection` y las tablas por variable alimentan SDD-26: el auditor debe poder reconstruir qué cortes se aprendieron, con qué población, qué WoE/IV resultó y qué variables no pasaron.
