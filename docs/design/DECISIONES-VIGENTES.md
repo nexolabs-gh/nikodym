@@ -29,7 +29,7 @@
 | D-EXI-1…7 | Aprobada e implementada | [`_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md`](_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md) |
 | D-FTE-1…5 | Aprobada e implementada | [`_ENMIENDA-COTEJO-FUENTES.md`](_ENMIENDA-COTEJO-FUENTES.md) |
 | D-VIS-1…7 | Aprobada; D-VIS-1…5/7 implementadas; completitud D-VIS-6 abierta | [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md) |
-| D-RDY-ABA-1…6 | Aprobada; W0 autorizado; W1–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
+| D-RDY-ABA-1…6 | Aprobada; W0 en revisión independiente; W1–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 
 ## D-RDY — readiness integral
 
@@ -50,14 +50,18 @@ Reglas vigentes:
   antes de código; H8 excluye `PortfolioStress` de la readiness inicial;
 - H9 fija `S2-equipo` como envelope objetivo; un baseline rojo cuantifica la brecha y no rebaja el
   target en silencio;
-- H10 mantiene engine/batch síncronos y exige jobs UI al cruzar el umbral que mida W0; H11 exige
-  paridad semántica y constraints visuales propios de HTML/PDF/DOCX;
+- H10 mantiene engine/batch síncronos y exige jobs UI al cruzar un umbral fijado **después de W0**.
+  W0 no pudo medir UI S1/S2 y no fija una cifra por inferencia: el primer baseline alcanzable de
+  W1 debe fijarla antes de implementar esa frontera, sin reabrir H10=A. H11 exige paridad semántica
+  y constraints visuales propios de HTML/PDF/DOCX;
 - las oleadas se ejecutan en orden W0→W8. W0 sólo mide superficies/proxies actuales, registra
   `no_medible` y congela el baseline antes de cualquier optimización o capacidad W1;
 - PyPI y recaptura de demo conservan sus OK específicos; la aprobación de SDD-30 no los hereda.
 
 Fuente contractual y matriz de flujos:
 [`30-readiness-integral.md`](30-readiness-integral.md).
+Baseline W0 en revisión:
+[`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md).
 
 ## D-JUR — normativa local como evidencia
 

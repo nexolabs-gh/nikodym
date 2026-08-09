@@ -149,12 +149,19 @@ def _probe_contract_census() -> dict[str, Any]:
     from nikodym.ui.routes import run_pipeline
     from nikodym.ui.serializers import serialize_study
 
-    options = [
-        option
+    pairs = [
+        (point["path"], option["value"], option)
         for points in jobs._ABANICO_POR_SECCION.values()
         for point in points
         for option in point["options"]
     ]
+    identities = [(path, value) for path, value, _option in pairs]
+    if len(set(identities)) != len(identities):
+        duplicates = sorted(
+            identity for identity, count in Counter(identities).items() if count > 1
+        )
+        raise RuntimeError(f"el abanico contiene pares path/value duplicados: {duplicates}")
+    options = [option for _path, _value, option in pairs]
     counts = Counter(option["estado"] for option in options)
     serializer_parameters = inspect.signature(serialize_study).parameters
     run_source = inspect.getsource(run_pipeline)
@@ -162,6 +169,7 @@ def _probe_contract_census() -> dict[str, Any]:
         "kind": "census",
         "status": "measured",
         "option_pairs": len(options),
+        "option_pairs_unique": len(set(identities)),
         "option_states": dict(sorted(counts.items())),
         "public_apply_exported": hasattr(nikodym, "apply"),
         "ui_upload_max_mib": _ui_settings(Path(".nikodym_ui")).upload_max_mb,
@@ -266,7 +274,7 @@ def _run_preset(preset_id: str) -> dict[str, Any]:
             frame = datasets.load_frame(descriptor["dataset_id"], workdir=workdir)
             files = [path for path in workdir.rglob("*") if path.is_file()]
             suffix_counts = Counter(path.suffix or "<sin_sufijo>" for path in files)
-            return {
+            measurement = {
                 "kind": "current_surface_proxy",
                 "status": "proxy",
                 "preset_id": preset_id,
@@ -287,6 +295,26 @@ def _run_preset(preset_id: str) -> dict[str, Any]:
                 "lineage_uv_lock_hash": lineage.get("uv_lock_hash"),
                 "limitation": "preset real bajo S0; no sustituye una medición del perfil",
             }
+            if preset_id == "f4-ifrs9-retail":
+                survival = result_payload.get("survival") or {}
+                ifrs9 = result_payload.get("provisioning_ifrs9") or {}
+                metric_sections = ifrs9.get("metric_sections") or {}
+                term_summary = metric_sections.get("term_structure_summary") or {}
+                periods = int(survival["n_periods"])
+                scenarios = int(term_summary["n_scenarios"])
+                expanded_rows = int(term_summary["n_rows"])
+                expected_rows = int(frame.shape[0]) * periods * scenarios
+                if expanded_rows != expected_rows:
+                    raise RuntimeError(
+                        "la geometría temporal F4 no reconcilia: "
+                        f"{expanded_rows=} != {expected_rows=}"
+                    )
+                measurement["temporal_input_operations"] = int(frame.shape[0])
+                measurement["temporal_periods"] = periods
+                measurement["temporal_scenarios"] = scenarios
+                measurement["temporal_expanded_rows"] = expanded_rows
+                measurement["temporal_geometry_reconciles"] = True
+            return measurement
 
 
 def _schema_column(name: str, dtype: str) -> dict[str, Any]:
@@ -455,19 +483,55 @@ def _child(name: str, result_path: Path) -> int:
     return exit_code
 
 
-def _no_medible_cells(total_memory: int | None) -> list[dict[str, Any]]:
+def _hardware_reason(profile: str, total_memory: int | None) -> str:
     host = "desconocida" if total_memory is None else f"{total_memory / GIB:.1f} GiB"
+    target = PROFILES[profile]["target_ram_gib"]
+    if total_memory is None:
+        return (
+            f"RAM del host {host}; W0 no ejecuta el flujo completo sin acreditar el hardware "
+            f"de referencia de {target} GiB y no extrapola S0"
+        )
+    if total_memory < target * GIB:
+        return (
+            f"host de {host} no cumple RAM de referencia {target} GiB; "
+            "W0 no fuerza OOM ni extrapola S0"
+        )
+    return (
+        f"host de {host} cumple la RAM nominal, pero el arnés W0 no ejecutó el flujo completo "
+        f"{profile}; se conserva no_medible en vez de inferirlo desde el proxy tabular"
+    )
+
+
+def _profile_cells(
+    measurements: list[dict[str, Any]], total_memory: int | None
+) -> list[dict[str, Any]]:
+    score_s0 = next(item for item in measurements if item["probe"] == "score-train-s0")
+    score_s0_status = score_s0["status"]
+    score_s0_reason = (
+        None
+        if score_s0_status == "measured"
+        else f"probe score-train-s0 terminó con estado {score_s0_status!r}"
+    )
     cells: list[dict[str, Any]] = []
+    for channel in ("score_train", "ui"):
+        cell = {
+            "channel": channel,
+            "profile": "S0-smoke",
+            "status": score_s0_status,
+            "evidence_probe": "score-train-s0",
+        }
+        if score_s0_reason is not None:
+            cell["reason"] = score_s0_reason
+        if channel == "ui":
+            cell["limitation"] = "sin paginación ni lifecycle de job"
+        cells.append(cell)
     for profile in ("S1-local", "S2-equipo"):
         cells.append(
             {
                 "channel": "score_train",
                 "profile": profile,
                 "status": "no_medible",
-                "reason": (
-                    f"host de {host} no cumple RAM de referencia "
-                    f"{PROFILES[profile]['target_ram_gib']} GiB; W0 no fuerza OOM ni extrapola S0"
-                ),
+                "reason": _hardware_reason(profile, total_memory),
             }
         )
     for profile in PROFILES:
@@ -506,7 +570,11 @@ def _no_medible_cells(total_memory: int | None) -> list[dict[str, Any]]:
 
 
 def _run_parent(output: Path) -> int:
-    dirty = _git("status", "--porcelain", "--untracked-files=no")
+    if output.exists():
+        raise SystemExit(
+            f"la evidencia W0 es inmutable y no se sobrescribe: {output}. Use una ruta nueva."
+        )
+    dirty = _git("status", "--porcelain", "--untracked-files=all")
     if dirty:
         raise SystemExit(
             "W0 exige un commit limpio para congelar evidencia; hay cambios tracked:\n" + dirty
@@ -567,22 +635,11 @@ def _run_parent(output: Path) -> int:
             payload["stderr_sha256"] = _bytes_sha256(completed.stderr)
             measurements.append(payload)
 
-    profile_cells: list[dict[str, Any]] = [
-        {
-            "channel": "score_train",
-            "profile": "S0-smoke",
-            "status": "measured",
-            "evidence_probe": "score-train-s0",
-        },
-        {
-            "channel": "ui",
-            "profile": "S0-smoke",
-            "status": "measured",
-            "evidence_probe": "score-train-s0",
-            "limitation": "sin paginación ni lifecycle de job",
-        },
-        *_no_medible_cells(total_memory),
-    ]
+    profile_cells = _profile_cells(measurements, total_memory)
+    hardware_matches = {
+        profile: total_memory is not None and total_memory >= definition["target_ram_gib"] * GIB
+        for profile, definition in PROFILES.items()
+    }
     evidence = {
         "schema_version": SCHEMA_VERSION,
         "scope": "W0_only",
@@ -609,7 +666,8 @@ def _run_parent(output: Path) -> int:
             "isolated_process_per_probe": True,
             "pythonhashseed": 0,
             "timeouts_seconds": TIMEOUTS,
-            "s1_s2_full_flows_skipped_on_hardware_mismatch": True,
+            "full_flow_hardware_ram_matches": hardware_matches,
+            "s1_s2_full_flows_executed": False,
             "no_w1_capabilities_added": True,
         },
     }
@@ -619,13 +677,11 @@ def _run_parent(output: Path) -> int:
         "profile_cells_no_medible": sum(item["status"] == "no_medible" for item in profile_cells),
     }
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(evidence, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    with output.open("x", encoding="utf-8") as stream:
+        stream.write(json.dumps(evidence, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
     print(output)
     print(json.dumps(evidence["summary"], ensure_ascii=False, sort_keys=True))
-    return 1 if statuses.get("error", 0) else 0
+    return 1 if any(status not in {"measured", "proxy"} for status in statuses) else 0
 
 
 def main() -> int:
