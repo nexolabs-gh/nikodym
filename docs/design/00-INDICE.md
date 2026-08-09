@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Documento** | Índice de Documentos de Diseño (SDD) |
-| **Versión** | 1.2 (índice histórico consolidado) |
-| **Fecha** | 2026-07-18 |
+| **Versión** | 1.3 (índice histórico consolidado + diseño transversal en revisión) |
+| **Fecha** | 2026-08-09 |
 | **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.1 · [`docs/ROADMAP.md`](../ROADMAP.md) |
 
 > **Lectura actual:** este índice es histórico y no es autoridad de estado ni backlog. Varias
@@ -18,8 +18,9 @@
 > **Hito 0 — Contratos transversales (2026-06-24):** antes de codificar F0 se estabilizó la *extensibilidad* de los 4 contratos que cruzan todas las capas (orquestación DAG vía `requires`/`provides`; resultados/metrics/overlay con puerta de extensión estructurada; frontera datos transversal-vs-longitudinal; owner del ensamblado de corrida). Decisiones en [`_CONTRATOS-TRANSVERSALES.md`](_CONTRATOS-TRANSVERSALES.md) (CT-1…CT-4), propagadas a SDD-01/02/03 (cabecera "rev. Hito 0"). Estrategia de construcción confirmada: **mixto-troncal-más-incremental** (spike troncal acotado → código F0 → incremental por capa con diseño *just-in-time*).
 
 Este índice lista los **28 Documentos de Diseño (SDD)** que guiaron la construcción de Nikodym
-RiskLib. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) y cubre un módulo del árbol
-`src/nikodym/`; un cambio contractual nuevo requiere un SDD nuevo o una revisión explícita.
+RiskLib y el **SDD-30 transversal en revisión**. El número 29 permanece reservado por SDD-28 para
+el CLI y no se reutiliza. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md); un cambio
+contractual nuevo requiere un SDD nuevo o una revisión explícita.
 
 ## Cómo se produce (proceso)
 1. **Andamiaje** (hecho): esta plantilla + este índice + el roadmap.
@@ -62,9 +63,12 @@ RiskLib. Cada SDD sigue [`_PLANTILLA-SDD.md`](_PLANTILLA-SDD.md) y cubre un mód
 | **26** | `report` (HTML/PDF/Word, fuente editable, capa IA opcional) | Reporte | F1 | T2 | 01 | ✅ Implementado |
 | **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Implementado · estable F1 |
 | **28** | `provisioning/internal` + regla del máximo (dataset → preset → UI → informe) | Producto | F8 | T7 | 08, 10, 15, 17, 23, 26 | ✅ Implementado · experimental |
+| **29** | CLI | Producto | F8 | — | 28 | ⏸️ Número reservado por SDD-28; documento no redactado |
+| **30** | [`readiness integral`](30-readiness-integral.md) (contrato transversal) | Producto | F0–F8 | T8 propuesta | 01–28, contratos vigentes | 🟡 En revisión · no autoriza implementación |
 
-**28 SDD · 8 tandas (T0–T7; T0 = verificación, sin SDD nuevo).** La madurez pública y la garantía
-SemVer se declaran únicamente en `ROADMAP.md`.
+**28 SDD históricos · SDD-29 reservado · SDD-30 en revisión · 9 tandas identificadas
+(T0–T8; T0 = verificación, sin SDD nuevo).** La madurez pública y la garantía SemVer se declaran
+únicamente en `ROADMAP.md`; aprobar la dirección de producto no aprueba todavía SDD-30.
 
 > **SDD-28** (post-1.0) hace dos cosas. **(1)** Construye el motor que faltaba: el **método interno** (exposición por tasa de pérdida del grupo, descompuesta en `PD × LGD` o provista directamente), que el pipeline de scorecard ya alimenta cuando corresponde. **(2)** Le abre la ruta hasta el usuario —dataset, preset, pantalla, capítulo— porque *una feature sin preset, sin pantalla y sin capítulo no existe*, y este proyecto ya lo pagó dos veces.
 >
@@ -812,6 +816,7 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 | **T5 — Forward-looking (F5)** | 18, 19, 20, 21 | Lifetime PD, escenarios, stress. | T2 |
 | **T6 — Validación + UI (F6-F7)** | 22, 23 | Backtesting y producto no-code (UI = web premium React/Vite + FastAPI sobre la API pública). | T2–T5 |
 | **T7 — Provisiones end-to-end (F8)** | 28 | Método interno B-1 + máximo estándar/interno + ruta hasta UI/informe. | T2, T4, T6 |
+| **T8 — Readiness integral (propuesta)** | 30 | Contratos productivos, integración, escala, informe y distribución por flujos. | SDD-30 aprobado; hoy en revisión |
 
 > **Nota de dependencia cruzada:** IFRS 9 lifetime (SDD-16) usa la term-structure de `survival`/`markov` (T5). Se especifica en T4 con interfaz abstracta y se conecta cuando T5 esté lista (ver roadmap, dependencia F4↔F5).
 
