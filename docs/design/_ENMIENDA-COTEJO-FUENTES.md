@@ -82,7 +82,8 @@ son de Cami, que es quien hizo la extracción:
 - **(a)** recuerda contra qué documento fue y lo declara → `source_ids: ["<id>"]`;
 - **(b)** no consta → `source_ids: []` y el documento lo dice.
 
-⚠️ **Esta es la única pregunta abierta de la enmienda.** El resto es implementable sin ella.
+Esta era la única pregunta abierta de la propuesta. **Quedó resuelta por Cami:** no consta la
+fuente, por lo que `source_ids: []` y la ausencia se publica; no se infiere `pdf_semilla_b1`.
 
 ### D-FTE-4 — El gate deja de parsear prosa para el cruce, y `_COTEJOS_QUE_CITAN_FUENTE` se deriva
 

@@ -1,6 +1,12 @@
 # Enmienda — un error de validación no puede quedarse SIN SUPERFICIE
 
-> Estado: **APROBADA — Cami, 2026-08-08**, en su alcance completo, junto con migrar los 133 `raise`.
+> Estado canónico: **APROBADA; D-VIS-1…5/7 IMPLEMENTADAS; COMPLETITUD D-VIS-6 ABIERTA**. Las 98
+> anclas existentes fueron revisadas y son correctas, pero un censo nuevo probó que la migración no
+> fue exhaustiva y que el gate omite los `raise` sin `loc`. Detalle y evidencia en
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md), §D-VIS, y en el `HANDOFF` actual.
+>
+> La cifra de 133 que sigue en el cuerpo pertenece al alcance propuesto el 2026-08-08; no es el
+> censo vigente ni prueba cierre.
 > Nace de verificar en pantalla la deuda 4 del HANDOFF («el front no salta al `loc` todavía»).
 > Decisiones `D-VIS-1…D-VIS-7`.
 >

@@ -1,6 +1,8 @@
 # SDD — El abanico metodológico: elegir el método sabiendo qué cuesta
 
-> **Estado: BORRADOR, pendiente de aprobación de Cami.** Implementa D-JOB-4 y D-JOB-5 del
+> **Estado canónico: APROBADO E IMPLEMENTADO** (2026-08-04). Esta cabecera corrige el rótulo
+> histórico que quedó atrás; el cuerpo conserva la propuesta y sus mediciones. Implementa D-JOB-4
+> y D-JOB-5 del
 > [`_SDD-UI-POR-TRABAJOS.md`](_SDD-UI-POR-TRABAJOS.md), que quedaron declarados como contrato el
 > 2026-08-01 y sin diseño propio desde entonces.
 >

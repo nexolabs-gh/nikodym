@@ -7,8 +7,10 @@
 | **Fecha** | 2026-07-18 |
 | **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.1 · [`docs/ROADMAP.md`](../ROADMAP.md) |
 
-> **Lectura actual:** este índice confirma qué SDD están implementados, pero no es un backlog. Para
-> `estable`/`experimental`, gates pendientes y prioridad vigente manda
+> **Lectura actual:** este índice es histórico y no es autoridad de estado ni backlog. Varias
+> entradas preservan el rótulo que tenían al escribirse. Para saber qué quedó aprobado, qué
+> corrección posterior prevalece y qué sigue abierto manda
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md); para prioridad de producto, el `HANDOFF` y
 > [`ROADMAP.md`](../ROADMAP.md).
 
 > **Tanda 1 Rev (2026-06-24):** los 7 SDD de Fundación (01-05, 24, 25) se revisaron de forma adversarial e integraron sus correcciones (cabecera "rev. Tanda 1 Rev" en cada uno). Cambios de alcance: **+SDD-27 `eda`** (de 26 a **27 SDD**); **D2** revierte el `data_hash` a hash de contenido lógico (SDD-02). Detalle de hallazgos y decisiones en el cierre de la sesión.
@@ -500,8 +502,8 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > y —el grave— **el PDF del cotejo más fuerte del bundle ausente de `official_sources`**, la misma
 > clase que la Circular 2.257/2020, en dirección inversa. Los tres corregidos.
 >
-> **Una opción del abanico puede exigir OTRO campo, y se ofrece como si no (2026-08-08, BORRADOR —
-> pendiente de decisión de Cami).**
+> **Una opción del abanico puede exigir OTRO campo, y se ofrece como si no (2026-08-08, APROBADA E
+> IMPLEMENTADA).**
 > [`_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md`](_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md),
 > D-EXI-1…D-EXI-7. Nace de la deuda 2 del HANDOFF, y 🔴 **medirla la reformuló**: de sus seis
 > afirmaciones una es **FALSA** —«no está trasladada a ninguna superficie que el usuario lea»: sí lo
@@ -522,7 +524,7 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > medida: `_requisitos` **no** consulta `columnas_inactivas`, así que el requisito va en el **padre**,
 > nunca en la rama.
 >
-> **Y dice CONTRA QUÉ se cotejó (2026-08-08, BORRADOR — pendiente de decisión de Cami).**
+> **Y dice CONTRA QUÉ se cotejó (2026-08-08, APROBADA E IMPLEMENTADA).**
 > [`_ENMIENDA-COTEJO-FUENTES.md`](_ENMIENDA-COTEJO-FUENTES.md), D-FTE-1…D-FTE-5. Cierra la deuda 3 del
 > HANDOFF, tercera pieza de D-COT/D-VER: `verifications[]` declara qué, cómo, con qué alcance y quién,
 > pero la **fuente viaja en la prosa de `scope`** y el gate normativo tiene que parsearla del texto
@@ -533,8 +535,9 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > defecto, porque `CmfManifestMatrixEntry` **ya declara su fuente** con `source_ref`. Vacío significa
 > «no consta» (D-VER-2 literal) **y se publica**: si no, «no consta» y «nadie miró» vuelven a leerse
 > igual. 🔴 La fuente del cotejo antiguo **no se infiere** aunque `pdf_semilla_b1` sea plausible —
-> fabricar procedencia de auditoría es el defecto que la revisión del 2026-08-07 encontró en la traza—:
-> es la única pregunta abierta y es de Cami. Coste medido: cero en `config_hash`, cero en
+> fabricar procedencia de auditoría es el defecto que la revisión del 2026-08-07 encontró en la traza—.
+> La pregunta quedó resuelta por Cami: **no consta**, `source_ids: []`, y la ausencia se publica.
+> Coste medido: cero en `config_hash`, cero en
 > `yaml_sha256` (sella el YAML, no el manifiesto) y cero en la card.
 >
 > **Un error de validación no puede quedarse SIN SUPERFICIE (2026-08-08, APROBADA).**
@@ -547,7 +550,9 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > migrado desaparece de la pantalla entera, con el sidebar sin marcar nada. ⚠️ **La clase es
 > PREEXISTENTE y mayor**: los errores de Pydantic siempre trajeron `loc`, así que con tres secciones
 > rotas dos de los tres mensajes eran invisibles desde siempre; D-EXI-5 no la creó, **metió dentro** a
-> los de dominio, que estaban a salvo por accidente. ⇒ Es **prerequisito de migrar los 133 `raise`**:
+> los de dominio, que estaban a salvo por accidente. ⇒ En el alcance propuesto era **prerequisito de
+> migrar los 133 `raise`**; esa cifra quedó histórica. El censo posterior validó 98 anclas y reabrió
+> D-VIS-6 por omisiones y criterio inconsistente:
 > hacerlo antes empeora la interfaz en los **58 (43 %)** que caen en las **8 secciones de dominio sin
 > pestaña** (`forward`, `markov`, `tuning`, `stress`, `ml`, `validation`, `explain`, `eda` — 267 de las
 > 700 hojas del config). ✅ **No inventa mecanismo**: `sectionOfPath`, `sectionIsEditable` y

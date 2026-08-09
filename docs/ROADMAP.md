@@ -7,16 +7,22 @@
 | **Fecha** | 2026-07-31 |
 | **Base** | [`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) v1.10 · [`design/00-INDICE.md`](design/00-INDICE.md) |
 
-PyPI publica `1.10.0`; `main` se encuentra en mejora continua. La puerta de artefactos y la fuga del
+> **Autoridad actual:** este documento conserva el plan y los estados tal como quedaron el
+> 2026-07-31; no es la foto vigente ni una cola automática. Para estado y próximo paso manda el
+> `HANDOFF.md` interno; para decisiones cerradas,
+> [`design/DECISIONES-VIGENTES.md`](design/DECISIONES-VIGENTES.md). La corrección de autoridad no
+> cambia ningún nodo del roadmap.
+
+En la foto del 2026-07-31 PyPI publicaba `1.10.0`; `main` se encontraba en mejora continua. La puerta de artefactos y la fuga del
 target están cerradas; el contrato conjunto de defaults efectivos de UI y prerequisitos del report
-está aprobado, aún sin implementación. `1.11.0` es sólo un corte candidato: cualquier tag o
+estaba aprobado, aún sin implementación. `1.11.0` era sólo un corte candidato: cualquier tag o
 publicación requiere el OK específico de Cami.
 Las fases F0–F8 que siguen conservan el diseño y los DoD históricos; **no son una cola automática**.
-El estado y el plan de esta sección son la fuente vigente.
+El estado y el plan de esta sección eran la fuente vigente en esa fecha, no hoy.
 
-## Estado actual
+## Estado al 2026-07-31
 
-| Capacidad | Estado | Límite vigente |
+| Capacidad | Estado | Límite en esa fecha |
 |---|---|---|
 | F0/F1 · núcleo y scorecard de comportamiento | **Estable** | Garantía SemVer 1.x para el pipeline F1 |
 | F2 · ML/tuning/explain | Implementado, **experimental** | No sustituye la scorecard ni amplía SemVer F1 |
@@ -26,9 +32,9 @@ El estado y el plan de esta sección son la fuente vigente.
 | F7 · UI React/FastAPI e informe | **Publicada en 1.10.0; cierre B2 abierto** | B2.0–B2.3 y la documentación de B2.5 están entregados. Faltan el clean-room automatizado de B2.4, el release gateado y un recorrido por un tercero sin checkout |
 | Originación/reject inference | Futuro | Requiere caso de uso, priorización y SDD |
 
-## Plan operativo vigente (desde 2026-07-30)
+## Plan operativo fijado el 2026-07-30 (snapshot histórico)
 
-El orden actual es: **F0 comprobar con datos reales y escala → F1 cerrar la figura y los defectos de
+El orden fijado en esa fecha era: **F0 comprobar con datos reales y escala → F1 cerrar la figura y los defectos de
 correctitud → F2 optimizar sólo según el benchmark → F3 rediseñar la UI por trabajos → F4 completar
 los trabajos alcanzables → F5 abrir capacidades sólo con demanda que las justifique**. En paralelo
 se corrigen los P1 ya medidos: defaults efectivos de la UI, publicación de métricas y defectos de

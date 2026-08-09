@@ -1,6 +1,13 @@
 # Enmienda — la severidad del método interno se puede MODELAR, no sólo leer
 
-> Estado: **BORRADOR v2, pendiente de aprobación de Cami** (2026-08-06).
+> Estado canónico: **APROBADA E IMPLEMENTADA** (2026-08-07). El texto conserva la propuesta v2 y
+> sus costes históricos; para estado y correcciones posteriores manda
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md), §D-LGD.
+>
+> 🔴 Corrección posterior: el abanico **conservó `options`**. La prescripción histórica de migrarlo
+> a `answer_forms` quedó descartada al medir porque convertía una elección metodológica en respuesta
+> obligatoria; se corrigieron los oráculos de uniones.
+>
 > v2 incorpora la revisión adversarial: **cuatro roturas de gate que v1 no vio**, una afirmación
 > falsa sobre `src/`, un mecanismo inventado y una alarma de CI mal calibrada. Todas verificadas a
 > mano contra el código antes de aceptarlas.

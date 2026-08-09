@@ -1,7 +1,8 @@
 # Enmienda — una SUBSECCIÓN entera puede ser inerte, y hoy el preflight no puede saberlo
 
-> Estado: **BORRADOR — pendiente de decisión de Cami**. Escrita el 2026-08-07 tras una revisión
-> adversarial de `9bfccf6`. Decisiones `D-SUB-1…D-SUB-4`.
+> Estado canónico: **APROBADA E IMPLEMENTADA** (2026-08-07). El documento conserva la medición y
+> propuesta originales; para estado manda [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md),
+> §D-SUB. Escrita tras una revisión adversarial de `9bfccf6`. Decisiones `D-SUB-1…D-SUB-4`.
 >
 > Enmienda a **D-RAM-1** (`_ENMIENDA-COLUMNA-EN-RAMA-INACTIVA.md`).
 

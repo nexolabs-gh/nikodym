@@ -1,7 +1,8 @@
 # Enmienda — el manifiesto normativo registra sus COTEJOS, no sólo su extracción
 
-> **Estado: BORRADOR — pendiente de decisión de Cami.** Escrita antes de programar, según la regla
-> del repo. Alcance: el manifiesto del bundle CMF (`provisioning/cmf/data/manifest.json`) y su
+> **Estado canónico: APROBADA E IMPLEMENTADA** (2026-08-05). Fue escrita antes de programar, según
+> la regla del repo; el cuerpo conserva esa propuesta. Alcance: el manifiesto del bundle CMF
+> (`provisioning/cmf/data/manifest.json`) y su
 > modelo (`provisioning/cmf/matrices.py`). **No toca ningún cálculo, ninguna matriz ni ningún hash.**
 >
 > Origen: el gate `tests/unit/test_normativa_cmf_documento.py`, escrito en esta sesión, lo destapó

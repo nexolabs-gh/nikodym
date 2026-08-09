@@ -196,18 +196,23 @@ existe para cerrar—, porque el `loc` viene vacío.
 
 ## 3. Coste, medido
 
+> **Nota de cierre:** esta tabla conserva el presupuesto previo a implementar. D-EXI-6 terminó en
+> la superficie con `when`; no tocó el validador. Véase el estado canónico en
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md), §D-EXI.
+
 | qué | medido |
 |---|---|
-| los cuatro `config_hash` | **cero** para D-EXI-2/3/5 (catálogo, gates y `loc`). D-EXI-6 **hay que medirlo**: toca un validador |
+| los cuatro `config_hash` | **cero** para D-EXI-2/3/5; D-EXI-6 terminó también en cero al resolverse con `when`, sin tocar el validador |
 | archivos | `ui/jobs.py` (estado + 3 opciones), `web/src/lib/jobs.ts` (espejo cerrado) + su render, `ui/routes.py` (`_error_de_dominio`), `internal/config.py` (2 `raise` y el validador) |
 | gates | `test_jobs_abanico.py` (criterio y oráculo), `test_jobs_decisiones.py` (declarar que no aplica), fixture de trabajos y bundle |
 | API pública | **cero**: ningún nombre, firma ni default cambia |
 
-## 4. Las tres decisiones que hay que aprobar
+## 4. Las tres decisiones aprobadas
 
 1. **D-EXI-2 + D-EXI-3** (el cuarto estado y el oráculo por rama) — el núcleo de la enmienda.
 2. **D-EXI-5** (el ancla del error) — cierra una clase de 123 `raise`; se puede aprobar aparte.
-3. **D-EXI-6** (la subsección inerte) — es el único que cambia comportamiento; se puede diferir.
+3. **D-EXI-6** (la subsección inerte) — implementada filtrando el punto con `when`; no se relajó el
+   validador.
 
 ## 5. Menores medidos, que la enmienda declara y no necesariamente resuelve
 

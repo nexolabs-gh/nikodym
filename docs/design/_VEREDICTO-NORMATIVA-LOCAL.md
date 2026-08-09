@@ -4,6 +4,10 @@
 > estado de los nodos de roadmap que la decisión del 2026-08-05 dejó sin sustento, para que nadie
 > vuelva a planificar sobre uno muerto.
 >
+> Nota de cierre: **D-JUR-8 fue implementada y demostrada** después de este veredicto. El §4 queda
+> como formulación histórica del nodo; el estado final está en
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md), §D-JUR.
+>
 > Precedente de forma: [`_ENMIENDA-REQUISITOS-CMF.md`](_ENMIENDA-REQUISITOS-CMF.md), D-MAX-3 y
 > D-SEG-11 — **una decisión sin objeto se conserva escrita, nunca se borra**, porque su diagnóstico
 > costó medirlo y sigue siendo cierto el día que la condición vuelva.
