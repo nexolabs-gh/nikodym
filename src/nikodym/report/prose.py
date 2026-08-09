@@ -69,6 +69,14 @@ _STABILITY_BANDS: Final[dict[str, str]] = {
     "redevelop": "Requiere redesarrollo",
     "not_evaluable": "No evaluable",
 }
+_PSI_METRIC_LABELS: Final[dict[str, str]] = {
+    "score_psi": "score",
+    "pd_psi": "PD calibrada",
+}
+_PSI_METRIC_REFERENTS: Final[dict[str, str]] = {
+    "score_psi": "al score",
+    "pd_psi": "a la PD calibrada",
+}
 _VALIDATION_STATUS_BANDS: Final[dict[str, str]] = {
     "pass": "Pass técnico",
     "warn": "Requiere revisión",
@@ -241,12 +249,18 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
     stability = _card(bundle, "stability")
     if stability is not None:
         max_psi = _mapping(stability.get("max_psi_by_comparison"))
+        psi_metrics = _mapping(stability.get("psi_metric_by_comparison"))
         bands = _mapping(stability.get("bands_by_comparison"))
         for comparison in _sequence(stability.get("comparisons")):
             comparison_id = str(comparison)
+            metric_name = str(psi_metrics.get(comparison_id, ""))
+            metric_label = _PSI_METRIC_LABELS.get(metric_name)
+            label = "Peor PSI entre score y PD"
+            if metric_label is not None:
+                label += f" · {metric_label}"
             metrics.append(
                 ExecutiveMetric(
-                    label="PSI del score",
+                    label=label,
                     scope=_comparison_label(comparison_id),
                     value=_num(max_psi.get(comparison_id), decimals=4),
                     band=_STABILITY_BANDS.get(str(bands.get(comparison_id, "")), _NOT_AVAILABLE),
@@ -257,7 +271,8 @@ def executive_view(bundle: ReportInputBundle) -> ExecutiveView:
         if stable is not None and review is not None:
             notes.append(
                 f"Las bandas de PSI usan los umbrales configurados: estable por debajo de "
-                f"{_num(stable, decimals=2)} y redesarrollo por sobre {_num(review, decimals=2)}."
+                f"{_num(stable, decimals=2)}, revisión desde {_num(stable, decimals=2)} y "
+                f"redesarrollo desde {_num(review, decimals=2)}."
             )
 
     validation = _card(bundle, "validation") if "validation" in bundle.results else None
@@ -663,7 +678,8 @@ def _methodology_data(bundle: ReportInputBundle) -> tuple[str, ...]:
     frases: list[str] = []
     if max_missing is not None:
         frases.append(
-            f"se rechaza toda variable con más de {_pct(max_missing)} de valores faltantes"
+            f"se reporta para revisión toda variable con más de {_pct(max_missing)} de valores "
+            "faltantes, sin eliminarla automáticamente"
         )
     if specials:
         frases.append(
@@ -779,8 +795,8 @@ def _methodology_selection(bundle: ReportInputBundle) -> tuple[str, ...]:
             accion = _text(thresholds.get("max_iv_action")) or _text(params.get("max_iv_action"))
             verbo = "se excluyeron" if accion == "exclude" else "se marcaron para revisión"
             frase += (
-                f"; las de IV superior a {_num(max_iv, decimals=2)} {verbo}, porque un poder "
-                "predictivo tan alto suele indicar fuga de información más que señal legítima"
+                f"; las de IV igual o superior a {_num(max_iv, decimals=2)} {verbo}, porque un "
+                "poder predictivo tan alto suele indicar fuga de información más que señal legítima"
             )
         paragraphs.append(f"{frase}.")
 
@@ -817,8 +833,9 @@ def _methodology_selection(bundle: ReportInputBundle) -> tuple[str, ...]:
                 else "y las inestables se reportaron sin excluirse"
             )
             paragraphs.append(
-                f"La estabilidad temporal de cada variable candidata se evaluó con umbrales de "
-                f"{_num(stable, decimals=2)} (estable) y {_num(review, decimals=2)} (revisión), "
+                f"La estabilidad temporal de cada variable candidata se evaluó como estable por "
+                f"debajo de {_num(stable, decimals=2)}, en revisión desde "
+                f"{_num(stable, decimals=2)} y a rediseñar desde {_num(review, decimals=2)}, "
                 f"{consecuencia}."
             )
 
@@ -1398,11 +1415,25 @@ def _results_performance(bundle: ReportInputBundle) -> tuple[str, ...]:
 
     deciles = _int(card.get("n_deciles"))
     if deciles is not None:
-        paragraphs.append(
-            f"La tabla de desempeño reparte la población en {deciles} tramos de riesgo "
-            "ordenados por score, y permite verificar que la tasa de incumplimiento observada "
-            "sea monótona entre tramos."
+        ranking = "la PD calibrada" if source == "pd_calibrated" else "el puntaje del scorecard"
+        discrimination = _mapping(_mapping(card.get("metric_sections")).get("discrimination"))
+        effective = _mapping(discrimination.get("effective_deciles_by_partition"))
+        detalle_deciles = tuple(
+            f"{_partition_label(str(partition))}: {_miles(value)}"
+            for partition, value in sorted(effective.items(), key=lambda item: str(item[0]))
+            if _int(value) is not None
         )
+        frase = (
+            f"La tabla de desempeño usa hasta {deciles} tramos de riesgo configurados, ordenados "
+            f"por {ranking}"
+        )
+        if detalle_deciles:
+            frase += f". Los tramos efectivos por partición fueron {_enumerar(detalle_deciles)}"
+        frase += (
+            ", y permiten verificar la evolución de la tasa de incumplimiento observada entre "
+            "tramos"
+        )
+        paragraphs.append(f"{frase}.")
     return tuple(paragraphs)
 
 
@@ -1414,25 +1445,28 @@ def _results_stability(bundle: ReportInputBundle) -> tuple[str, ...]:
     paragraphs: list[str] = []
 
     max_psi = _mapping(card.get("max_psi_by_comparison"))
+    psi_metrics = _mapping(card.get("psi_metric_by_comparison"))
     bands = _mapping(card.get("bands_by_comparison"))
     psi_bins = _int(card.get("psi_bins"))
     for comparison in _sequence(card.get("comparisons")):
         comparison_id = str(comparison)
         value = _float(max_psi.get(comparison_id))
+        metric_name = str(psi_metrics.get(comparison_id, ""))
+        referent = _PSI_METRIC_REFERENTS.get(metric_name)
         band = str(bands.get(comparison_id, ""))
         if band == "not_evaluable" or value is None:
             paragraphs.append(
-                f"El PSI de {_comparison_label(comparison_id)} no es evaluable con los datos "
-                "disponibles."
+                f"El peor PSI entre score y PD de {_comparison_label(comparison_id)} no es "
+                "evaluable con los datos disponibles."
             )
             continue
         lectura = {
             "stable": (
-                "La distribución del score se mantiene, de modo que no hay evidencia de "
+                "La distribución de la magnitud ganadora se mantiene, de modo que no hay "
                 "desplazamiento poblacional."
             ),
             "review": (
-                "La distribución del score se desplazó lo suficiente para exigir una revisión "
+                "La magnitud ganadora se desplazó lo suficiente para exigir una revisión "
                 "antes de seguir usando el modelo."
             ),
             "redevelop": (
@@ -1440,9 +1474,10 @@ def _results_stability(bundle: ReportInputBundle) -> tuple[str, ...]:
                 "de redesarrollo."
             ),
         }.get(band, "La banda resultante no tiene una lectura definida.")
+        identity = f"; corresponde {referent}" if referent is not None else ""
         paragraphs.append(
-            f"El PSI del score en {_comparison_label(comparison_id)} es {_num(value)} "
-            f"(banda «{_STABILITY_BANDS.get(band, band)}»). {lectura}"
+            f"El peor PSI entre score y PD en {_comparison_label(comparison_id)} es "
+            f"{_num(value)} (banda «{_STABILITY_BANDS.get(band, band)}»){identity}. {lectura}"
         )
 
     worst_feature = _text(card.get("worst_csi_feature"))
@@ -1454,7 +1489,8 @@ def _results_stability(bundle: ReportInputBundle) -> tuple[str, ...]:
         )
     if psi_bins is not None:
         paragraphs.append(
-            f"El PSI se calculó sobre {psi_bins} tramos del score, definidos en Desarrollo."
+            f"Se configuraron hasta {psi_bins} tramos por magnitud para el PSI, definidos en "
+            "Desarrollo."
         )
     return tuple(paragraphs)
 
@@ -1815,21 +1851,34 @@ def _results_provisioning_cmf(bundle: ReportInputBundle) -> tuple[str, ...]:
 
 
 def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]:
-    """Subsección del método interno: PD por LGD por exposición, por grupo homogéneo."""
+    """Subsección del método interno, fiel a la forma de pérdida ejecutada por grupo."""
     card = _card(bundle, "provisioning_internal")
     if card is None:
         return ()
     provision = _float(card.get("total_internal_provision"))
     n_groups = _int(card.get("n_groups"))
+    method = str(card.get("method") or "")
     pd_source = str(card.get("pd_source") or "")
     grouping = str(card.get("grouping") or "")
+    metric_section = _mapping(_mapping(card.get("metric_sections")).get("provisioning_internal"))
+    method_description = _text(metric_section.get("metodo"))
     paragraphs: list[str] = []
     # ⚠️ Esta subsección describe el motor jurisdiccionalmente NEUTRO, así que no puede dar por
     # supuesta ninguna norma: decía «el método interno es el que la norma también exige», frase
     # cierta en Chile y falsa para quien corre este motor sin ninguna norma detrás. Misma clase que
     # el título «(Cap. B-1 §3)» que llevaba esta misma sección hasta el 2026-08-05.
-    detalle = "El método interno estima la pérdida esperada por grupo homogéneo, como probabilidad "
-    detalle += "de incumplimiento por pérdida dado el incumplimiento por exposición del grupo."
+    detalle = "El método interno estima la pérdida esperada por grupo homogéneo"
+    if method_description is not None:
+        detalle += f" como {method_description.rstrip('.')}"
+    elif method == "direct_loss_rate":
+        detalle += " como exposición del grupo · tasa de pérdida esperada directa del grupo"
+    else:
+        detalle += " como exposición del grupo · PD estimada · pérdida dado el incumplimiento"
+    detalle += "."
+    if method == "direct_loss_rate":
+        detalle += (
+            " La tasa se toma directamente del dato declarado y no se descompone en PD y LGD."
+        )
     if provision is not None:
         simbolo = _simbolo_monetario(bundle)
         detalle += f" Sobre esta cartera suma {_money(provision, symbol=simbolo)}."
@@ -1844,13 +1893,31 @@ def _results_provisioning_internal(bundle: ReportInputBundle) -> tuple[str, ...]
         "segment": "segmento",
         "provided": "grupo provisto",
     }
-    detalle_pd = f"La PD proviene de {fuente_pd}"
-    if n_groups is not None:
-        detalle_pd += (
-            f", agrupada en {n_groups} grupos por {agrupacion.get(grouping, grouping)}"
-            if grouping
-            else f", en {n_groups} grupos"
-        )
+    if method == "direct_loss_rate":
+        pd_label = {
+            "calibration": "La PD calibrada",
+            "model": "La PD del modelo",
+        }.get(pd_source, "La PD configurada")
+        if grouping == "score_band":
+            detalle_pd = (
+                f"{pd_label} sólo se usó para formar las bandas por cuantil dentro de cada "
+                "cartera; no entra en la tasa de pérdida ni en la provisión calculada"
+            )
+        else:
+            detalle_pd = (
+                f"{pd_label} se conserva para caracterizar los grupos, pero no entra en la tasa de "
+                "pérdida ni en la provisión calculada"
+            )
+        if n_groups is not None:
+            detalle_pd += f"; el resultado contiene {n_groups} grupos efectivos"
+    else:
+        detalle_pd = f"La PD proviene de {fuente_pd}"
+        if n_groups is not None:
+            detalle_pd += (
+                f", agrupada en {n_groups} grupos por {agrupacion.get(grouping, grouping)}"
+                if grouping
+                else f", en {n_groups} grupos"
+            )
     paragraphs.append(detalle_pd + ".")
     paragraphs.extend(_internal_lgd_paragraphs(card))
     # D-AMB-5: los avisos NO gobernables de la corrida se publican aquí, no en el anexo. Un aviso
@@ -2160,14 +2227,20 @@ def conclusions_body(bundle: ReportInputBundle) -> tuple[str, ...]:
     if stability is not None:
         bands = _mapping(stability.get("bands_by_comparison"))
         max_psi = _mapping(stability.get("max_psi_by_comparison"))
-        detalles = tuple(
-            f"{_comparison_label(str(comparison))} {_num(max_psi.get(comparison))} "
-            f"(«{_STABILITY_BANDS.get(str(band), str(band))}»)"
-            for comparison, band in sorted(bands.items(), key=lambda item: str(item[0]))
-            if _float(max_psi.get(comparison)) is not None
-        )
+        psi_metrics = _mapping(stability.get("psi_metric_by_comparison"))
+        detalles_list: list[str] = []
+        for comparison, band in sorted(bands.items(), key=lambda item: str(item[0])):
+            if _float(max_psi.get(comparison)) is None:
+                continue
+            metric_label = _PSI_METRIC_LABELS.get(str(psi_metrics.get(comparison)))
+            identity = f"; {metric_label}" if metric_label is not None else ""
+            detalles_list.append(
+                f"{_comparison_label(str(comparison))} {_num(max_psi.get(comparison))} "
+                f"(«{_STABILITY_BANDS.get(str(band), str(band))}»{identity})"
+            )
+        detalles = tuple(detalles_list)
         if detalles:
-            hallazgos.append(f"Estabilidad (PSI del score): {_enumerar(detalles)}.")
+            hallazgos.append(f"Estabilidad (peor PSI entre score y PD): {_enumerar(detalles)}.")
         criticas = tuple(
             _comparison_label(str(comparison))
             for comparison, band in sorted(bands.items(), key=lambda item: str(item[0]))

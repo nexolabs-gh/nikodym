@@ -1,8 +1,8 @@
-"""Método **interno** de provisiones: ``Exposición · PD · LGD`` por grupo homogéneo.
+"""Método **interno** de provisiones por tasa de pérdida del grupo homogéneo.
 
 El cálculo es **jurisdiccionalmente neutro** y es el único componente de ``provisioning`` que lo es:
-segmenta a los deudores en grupos homogéneos y multiplica la exposición de cada grupo por su
-probabilidad de incumplimiento y su pérdida dado el incumplimiento. No conoce ninguna cartera
+segmenta a los deudores en grupos homogéneos y multiplica la exposición de cada grupo por una tasa
+de pérdida: descompuesta en PD · LGD o provista directamente. No conoce ninguna cartera
 normativa ni ninguna tabla de supervisor, y su estado de fábrica tampoco los nombra. La PD sale del
 scorecard calibrado que Nikodym ya construye.
 

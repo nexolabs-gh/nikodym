@@ -105,7 +105,7 @@ Pipeline:
 2. **Binning** con **OptBinning** (Apache-2.0): WoE, **monotonía** (auto/valle/pico; no forzar U-shaped genuinas). *Ajuste solo en Desarrollo → transform al resto* (evita leakage).
 3. **Univariado** sobre bins fijados, por muestra y período: **PSI/CSI, IV, ROC/AUC, KS, Gini**.
    - `WoE = ln(%Goods/%Bads)`; `IV = Σ(%Goods−%Bads)·WoE` (umbrales 0.02/0.1/0.3/0.5).
-   - `PSI = Σ(%a−%e)·ln(%a/%e)` (<0.1 estable, 0.1–0.25 revisar, >0.25 redesarrollar).
+   - `PSI = Σ(%a−%e)·ln(%a/%e)` (`<0.1` estable, `0.1≤PSI<0.25` revisar, `≥0.25` redesarrollar).
 4. **Descarte manual por negocio**.
 5. **Correlación**: ranking por IV/ROC → eliminar correlacionadas (**Pearson/Spearman/Kendall**, |ρ|>0.7–0.8; VIF>5–10), conservando la de mayor poder.
 6. **Stepwise** (**Wald** o **LR**) con **statsmodels** (p-values): signos de β coherentes con el riesgo (regla dura), discriminación mínima (IV/ROC configurable), **IV-contribution ≤ 90%** (parametrizable).

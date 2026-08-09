@@ -284,7 +284,10 @@ def test_stability_augment_proyecta_frames() -> None:
 
     study = SimpleNamespace(artifacts=_ConEstabilidad())
     payload = {domain: None for domain in serializers._CARD_KEY_BY_DOMAIN}
-    payload["stability"] = {"score_direction": "higher_is_lower_risk"}  # card ya presente (dict)
+    payload["stability"] = {
+        "score_direction": "higher_is_lower_risk",
+        "psi_metric_by_comparison": {"dev_vs_oot": "score_psi"},
+    }
     serializers._augment_with_rich_artifacts(study, payload)  # type: ignore[arg-type]
 
     psi_records = payload["stability"]["psi_table"]
@@ -298,6 +301,7 @@ def test_stability_augment_proyecta_frames() -> None:
     assert {"metric", "comparison", "feature", "value", "band", "action"} <= set(metric_records[0])
     # aditivo: la clave de la card original persiste sin cambios.
     assert payload["stability"]["score_direction"] == "higher_is_lower_risk"
+    assert payload["stability"]["psi_metric_by_comparison"] == {"dev_vs_oot": "score_psi"}
 
 
 def test_stability_augment_frames_ausentes_a_none() -> None:

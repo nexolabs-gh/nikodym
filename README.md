@@ -32,7 +32,7 @@ dominios.
 | Dominio | Superficie | Garantía |
 |---|---|---|
 | **Scorecard (F1)** — binning/WoE monotónico (optbinning), selección (IV/VIF), regresión logística, scorecard escalado (PDO/offset), calibración, desempeño (AUC/KS/Gini) y estabilidad (PSI/CSI) | UI, preset e informe | **estable** (SemVer 1.x) |
-| **Provisiones** — **IFRS 9/ECL** y **método interno** (PD · LGD · exposición por grupo homogéneo, jurisdiccionalmente neutro); la orquestación compara dos fuentes y aplica la regla declarada. La norma local se monta encima: [caso de referencia](https://docs.nikodym.cl/norma-local/) | UI, preset e informe | experimental |
+| **Provisiones** — **IFRS 9/ECL** y **método interno** (exposición por la tasa de pérdida del grupo, descompuesta en PD · LGD o provista directamente; jurisdiccionalmente neutro); la orquestación compara dos fuentes y aplica la regla declarada. La norma local se monta encima: [caso de referencia](https://docs.nikodym.cl/norma-local/) | UI, preset e informe | experimental |
 | **Stress testing** — escenarios adversos, shocks macro en escala logit, sensibilidad y *reverse stress* por bisección | Python | experimental |
 | **Markov** — matrices de transición (cohorte/duración), Chapman-Kolmogorov, Aalen-Johansen, *term-structure* de PD | Python | experimental |
 | **Forward-looking** — ARIMA/auto-ARIMA, VAR/VECM, Ljung-Box y modelos satélite macro → PD/LGD | Python | experimental |

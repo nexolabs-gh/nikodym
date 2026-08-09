@@ -59,6 +59,7 @@ import {
   ifrs9TermStructure,
   lineageRows,
   internalGroupBars,
+  internalProvisioningSectionCopy,
   liftByDecile,
   monotonicityLabel,
   panelConfigHash,
@@ -225,6 +226,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
   const provisioningCopy = provisioningSectionCopy(prov)
   const comparisonBars = provisioningComparisonBars(prov)
   const groupBars = internalGroupBars(internal)
+  const internalCopy = internalProvisioningSectionCopy(internal)
   const categoryBars = cmfCategoryBars(cmf)
   const provExposure =
     cmf?.total_exposure_amount ?? internal?.total_exposure ?? null
@@ -313,7 +315,7 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
             <ProvisioningTotalsTable headline={headline} rule={prov?.rule} />
           </ResultsSection>
 
-          {/* Método interno: PD·LGD·Exposición por grupo homogéneo (10 bandas de score). */}
+          {/* Método interno: copy derivado de método, fuente de PD y agrupación efectivas. */}
           {groupBars.length > 0 ? (
             <ResultsSection
               // 🔴 Decía «por grupo homogéneo (B-1 §3)» sobre el motor jurisdiccionalmente
@@ -321,12 +323,13 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
               // llevaba en el formulario hasta el 2026-08-05 (D-JUR-8), y que además era falso —
               // este motor no calcula el B-1.
               title="Método interno por grupo homogéneo"
-              description="Provisión interna = Exposición · PD · LGD por grupo homogéneo. La PD calibrada del scorecard forma las 10 bandas de score, de menor a mayor riesgo. La provisión se concentra donde la PD es alta."
+              description={internalCopy.description}
             >
-              <InternalGroupsChart rows={groupBars} />
+              <InternalGroupsChart rows={groupBars} method={internal?.method ?? "pd_lgd"} />
               <InternalGroupsDetail
                 rows={groupBars}
                 totalInternal={internal?.total_internal_provision ?? null}
+                method={internal?.method ?? "pd_lgd"}
               />
             </ResultsSection>
           ) : null}
@@ -1197,10 +1200,13 @@ function ProvisioningTotalsTable({
 function InternalGroupsDetail({
   rows,
   totalInternal,
+  method,
 }: {
   rows: InternalGroupBar[]
   totalInternal: number | null
+  method: string
 }) {
+  const direct = method === "direct_loss_rate"
   return (
     <details className="group mt-2">
       <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-eyebrow">
@@ -1216,8 +1222,8 @@ function InternalGroupsDetail({
               <th className="py-2 pr-3 font-medium">Grupo</th>
               <NumHead>Operaciones</NumHead>
               <NumHead>Exposición (CLP)</NumHead>
-              <NumHead>PD</NumHead>
-              <NumHead>LGD</NumHead>
+              {direct ? <NumHead>Tasa de pérdida</NumHead> : <NumHead>PD</NumHead>}
+              {direct ? null : <NumHead>LGD</NumHead>}
               <NumHead>Provisión (CLP)</NumHead>
             </tr>
           </thead>
@@ -1227,8 +1233,10 @@ function InternalGroupsDetail({
                 <td className="py-2 pr-3 text-foreground">{r.label}</td>
                 <NumCell>{formatCount(r.n)}</NumCell>
                 <NumCell>{formatClp(r.exposure)}</NumCell>
-                <NumCell>{formatPercent(r.pd, 2)}</NumCell>
-                <NumCell>{formatPercent(r.lgd, 1)}</NumCell>
+                <NumCell>
+                  {formatPercent(direct ? r.expectedLossRate : r.pd, 2)}
+                </NumCell>
+                {direct ? null : <NumCell>{formatPercent(r.lgd, 1)}</NumCell>}
                 <NumCell>{formatClp(r.provision)}</NumCell>
               </tr>
             ))}
@@ -1237,7 +1245,7 @@ function InternalGroupsDetail({
             <tfoot>
               <tr className="border-t border-border text-foreground">
                 <td className="py-2 pr-3 font-medium">Total interno</td>
-                <NumCell>{EMPTY}</NumCell>
+                {direct ? null : <NumCell>{EMPTY}</NumCell>}
                 <NumCell>{EMPTY}</NumCell>
                 <NumCell>{EMPTY}</NumCell>
                 <NumCell>{EMPTY}</NumCell>

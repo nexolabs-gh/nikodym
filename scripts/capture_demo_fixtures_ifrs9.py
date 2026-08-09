@@ -55,6 +55,11 @@ from nikodym.ui.runtime import TOKEN_HEADER, build_runtime
 from nikodym.ui.server import create_app
 from nikodym.ui.settings import UiConfig
 
+try:  # ejecución directa: ``scripts`` es sys.path[0]
+    from verify_demo_prose_artifacts import verify_demo_family
+except ModuleNotFoundError:  # ``run_path`` desde tests: la raíz del repo está en sys.path
+    from scripts.verify_demo_prose_artifacts import verify_demo_family
+
 if TYPE_CHECKING:
     from starlette.testclient import TestClient
 
@@ -433,6 +438,7 @@ def verify_artifacts() -> None:
     for name in ("report-ifrs9.pdf", "report-ifrs9.docx", "report-quarto-ifrs9.zip"):
         size = (_FIXTURES_DIR / name).stat().st_size
         assert size > 1_000, f"{name} quedó sospechosamente chico ({size} bytes)"
+    verify_demo_family("ifrs9")
 
 
 def main() -> None:

@@ -152,8 +152,8 @@ vs. una ventana posterior). Convención de industria para leer la magnitud:
 | PSI | Interpretación |
 |---|---|
 | < 0,10 | estable |
-| 0,10 – 0,25 | desplazamiento moderado (vigilar) |
-| > 0,25 | desplazamiento significativo (revisar / recalibrar) |
+| 0,10 ≤ PSI < 0,25 | desplazamiento moderado (vigilar) |
+| ≥ 0,25 | desplazamiento significativo (revisar / recalibrar) |
 
 En la *corrida de ejemplo* el score es estable: **PSI 0,013** (desarrollo vs. holdout) y **0,007**
 (desarrollo vs. OOT), ambos muy por debajo de 0,10.

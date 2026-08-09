@@ -3599,7 +3599,7 @@
       "unavailable_reason": null
     },
     {
-      "description": "Provisión por el método interno del banco: grupos homogéneos, y la PD, la LGD y la exposición propias de la institución.",
+      "description": "Provisión por el método interno del banco sobre grupos homogéneos: exposición por PD · LGD, o por una tasa de pérdida esperada provista directamente.",
       "external_artifacts": [
         {
           "artifact": [

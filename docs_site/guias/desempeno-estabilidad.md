@@ -124,11 +124,15 @@ Nikodym los aplica para asignar una banda a cada comparación:
 | PSI / CSI | Banda | Interpretación | Acción |
 |---|---|---|---|
 | < 0,10 | `stable` | Sin cambio material | `none` |
-| 0,10 – 0,25 | `review` | Desvío moderado, investigar | `vigilar` |
-| > 0,25 | `redevelop` | Cambio significativo | `redesarrollar` |
+| 0,10 ≤ PSI/CSI < 0,25 | `review` | Desvío moderado, investigar | `vigilar` |
+| ≥ 0,25 | `redevelop` | Cambio significativo | `redesarrollar` |
 
 En la corrida de ejemplo estos son los campos reales del config de estabilidad:
 `stable_threshold=0.1`, `review_threshold=0.25`.
+
+La card resume cada comparación con el **peor PSI entre score y PD calibrada**. El valor, la
+identidad de la magnitud ganadora y su banda se publican juntos; la tabla detallada conserva ambas
+series por separado.
 
 ### La corrida de ejemplo
 

@@ -148,9 +148,24 @@ describe("la evidencia de la landing se re-deriva del fixture de la corrida real
     expect(porClave.PSI).toBe(
       redondeado(resultsF1.stability.max_psi_by_comparison.dev_vs_holdout, 3),
     )
+    const psiGanadores = resultsF1.stability.stability_metrics.filter(
+      (row) =>
+        row.comparison === "dev_vs_holdout" &&
+        (row.metric === "score_psi" || row.metric === "pd_psi") &&
+        row.value !== null,
+    )
+    const ganador = psiGanadores.reduce((actual, candidato) =>
+      candidato.value! > actual.value! ? candidato : actual,
+    )
+    expect(ganador.metric).toBe("pd_psi")
+    expect(resultsF1.stability.max_psi_by_comparison.dev_vs_holdout).toBe(ganador.value)
     // La nota importa tanto como el número: un AUC de desarrollo publicado como «holdout» sería
     // la cifra buena en el sitio equivocado, que en riesgo se lee como sobrepromesa.
-    expect(METRICAS.map((m) => m.nota)).toEqual(["holdout", "holdout", "dev vs holdout"])
+    expect(METRICAS.map((m) => m.nota)).toEqual([
+      "holdout",
+      "holdout",
+      "PD · dev vs holdout",
+    ])
   })
 
   it("los seis datos del pipeline salen de las cards de la misma corrida", () => {

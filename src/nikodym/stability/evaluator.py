@@ -44,8 +44,8 @@ from nikodym.stability.results import (
     StabilityMetricRecord,
     StabilityResult,
     TemporalStabilityRecord,
-    _bands_by_comparison,
-    _max_psi_by_comparison,
+    _psi_band,
+    _psi_summary_maps,
     _worst_csi,
 )
 
@@ -251,6 +251,9 @@ class StabilityEvaluator(AuditableMixin, BaseNikodymEstimator):
 
         metric_tuple = tuple(metric_records)
         worst_csi_feature, worst_csi_value = _worst_csi(metric_tuple)
+        max_psi_by_comparison, psi_metric_by_comparison, bands_by_comparison = _psi_summary_maps(
+            metric_tuple
+        )
         card = StabilityCardSection(
             score_direction=cfg.score_direction,
             csi_source=cfg.csi_source,
@@ -258,8 +261,9 @@ class StabilityEvaluator(AuditableMixin, BaseNikodymEstimator):
             psi_bins=cfg.psi_bins,
             stable_threshold=cfg.psi_stable_threshold,
             review_threshold=cfg.psi_review_threshold,
-            max_psi_by_comparison=_max_psi_by_comparison(metric_tuple),
-            bands_by_comparison=_bands_by_comparison(metric_tuple),
+            max_psi_by_comparison=max_psi_by_comparison,
+            psi_metric_by_comparison=psi_metric_by_comparison,
+            bands_by_comparison=bands_by_comparison,
             worst_csi_feature=worst_csi_feature,
             worst_csi_value=worst_csi_value,
             dependency_versions=_dependency_versions(),
@@ -971,11 +975,7 @@ def _metric_not_evaluable(
 
 def _band(value: float, stable_threshold: float, review_threshold: float) -> str:
     """Asigna la banda PSI/CSI según los umbrales configurados."""
-    if value < stable_threshold:
-        return "stable"
-    if value < review_threshold:
-        return "review"
-    return "redevelop"
+    return _psi_band(value, stable_threshold, review_threshold)
 
 
 def _records_to_frame(

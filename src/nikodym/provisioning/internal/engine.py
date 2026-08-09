@@ -96,8 +96,15 @@ _INSTITUTIONAL_DATUM = INSTITUTIONAL_MARKER
 _BANDAS_COLAPSADAS = "BANDAS-COLAPSADAS"
 _GRUPO_SIN_EXPOSICION = "GRUPO-SIN-EXPOSICION"
 _PD_LGD = "pd_lgd"
+_DIRECT_LOSS_RATE = "direct_loss_rate"
 _GROUP_HISTORICAL = "group_historical"
 _SCORE_BAND = "score_band"
+_METHOD_DESCRIPTIONS = {
+    _PD_LGD: ("provisión = exposición del grupo · PD estimada · pérdida dado el incumplimiento."),
+    _DIRECT_LOSS_RATE: (
+        "provisión = exposición del grupo · tasa de pérdida esperada directa del grupo."
+    ),
+}
 #: Nombre de la columna que devuelve ``LgdEngine.estimate`` (contrato de `provisioning/lgd.py`).
 _LGD_COLUMN = "lgd"
 #: Rótulo del origen de la severidad cuando la produce el modelo y no una columna del archivo.
@@ -900,10 +907,7 @@ def _card(
                 # chilena, y esta sección viaja al informe y a la model card: citando el Cap. B-1
                 # aquí, un usuario de otra jurisdicción recibía una circular chilena en su PDF. La
                 # referencia normativa la aporta la capa que declara el régimen.
-                "metodo": (
-                    "provisión = exposición del grupo · PD estimada · pérdida dado el "
-                    "incumplimiento."
-                ),
+                "metodo": _METHOD_DESCRIPTIONS[cfg.method],
                 "method": cfg.method,
                 "grouping": cfg.grouping,
                 "n_score_bands": cfg.n_score_bands if cfg.grouping == _SCORE_BAND else None,

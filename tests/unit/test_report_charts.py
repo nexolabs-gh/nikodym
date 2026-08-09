@@ -403,6 +403,15 @@ def test_stability_not_evaluable_se_omite() -> None:
     )
 
 
+def test_stability_chart_publica_operadores_reales_de_las_bandas() -> None:
+    svg = charts.render_stability_chart(_stability_frame(), title="Estabilidad")
+
+    assert "Revisión ≥ 0.10" in svg
+    assert "Redesarrollo ≥ 0.25" in svg
+    assert "Estable ≤" not in svg
+    assert "Revisar ≤" not in svg
+
+
 def test_coefficients_beta_no_finito_se_descarta_deterministico() -> None:
     # beta es float requerido finito en el contrato (nunca NaN en datos válidos); esto es
     # defense-in-depth: un beta no-finito no debe volver el orden dependiente de la permutación.

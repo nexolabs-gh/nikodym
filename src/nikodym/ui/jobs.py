@@ -220,8 +220,8 @@ _JOBS: tuple[dict[str, Any], ...] = (
         "id": "provision_interna",
         "label": "Provisión interna / LGD",
         "description": (
-            "Provisión por el método interno del banco: grupos homogéneos, y la PD, la LGD "
-            "y la exposición propias de la institución."
+            "Provisión por el método interno del banco sobre grupos homogéneos: exposición por "
+            "PD · LGD, o por una tasa de pérdida esperada provista directamente."
         ),
         "sections": ("data", "provisioning_internal", "report"),
         "missing_sections": (),

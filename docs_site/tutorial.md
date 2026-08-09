@@ -318,7 +318,7 @@ particiones; el CSI hace lo mismo por variable. En la corrida de ejemplo todo sa
 El peor CSI por variable fue `mora_max_12m` con 0.010, también en zona estable.
 
 !!! note "Umbrales de PSI/CSI"
-    Convención (la misma del preset): **< 0.1** estable · **0.1–0.25** revisar · **> 0.25** inestable
+    Convención (la misma del preset): **< 0.1** estable · **0.1 ≤ PSI/CSI < 0.25** revisar · **≥ 0.25** inestable
     (reentrenar / investigar). PSI bajo entre Dev y OOT dice que la población no se movió; combinado con
     la caída de AUC, aquí la degradación viene de la relación variable–target, no de un cambio de mezcla.
 

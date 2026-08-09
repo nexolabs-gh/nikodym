@@ -290,6 +290,14 @@ export interface PsiBarRow {
   band: StabilityBand
 }
 
+/** Rótulos de las dos fronteras semiabiertas ejecutadas por stability/selection/validation. */
+export function stabilityThresholdLabels(stable: number, review: number) {
+  return {
+    review: `revisión ≥${stable.toFixed(2)}`,
+    redevelop: `redesarrollo ≥${review.toFixed(2)}`,
+  } as const
+}
+
 /**
  * Filas de PSI por comparación para una métrica dada (`score_psi` o `pd_psi`), ordenadas
  * por el orden canónico de comparaciones. NO recalcula: `value`/`band` vienen del artefacto.
@@ -1078,7 +1086,55 @@ export function provisioningComparisonBars(
   ]
 }
 
-/** Barra por grupo homogéneo del método interno (provisión + PD/LGD/exposición del grupo). */
+/** Copy y metadatos de presentación derivados de la forma realmente ejecutada por el motor. */
+export interface InternalProvisioningSectionCopy {
+  description: string
+  rateLabel: "PD" | "Tasa de pérdida"
+}
+
+/**
+ * Describe el método interno desde su card efectiva. No fija el default de diez bandas: `n_groups`
+ * ya refleja los grupos realmente materializados, incluidas bandas colapsadas y varias carteras.
+ */
+export function internalProvisioningSectionCopy(
+  internal: InternalProvisioningResult | null | undefined,
+): InternalProvisioningSectionCopy {
+  if (!internal) {
+    return {
+      description: "Provisión interna por grupos homogéneos.",
+      rateLabel: "PD",
+    }
+  }
+
+  const direct = internal.method === "direct_loss_rate"
+  const formula = direct
+    ? "Provisión interna = Exposición · tasa de pérdida esperada directa del grupo; no se descompone en PD y LGD."
+    : "Provisión interna = Exposición · PD · LGD por grupo homogéneo."
+  const pdSource =
+    internal.pd_source === "calibration"
+      ? "la PD calibrada"
+      : internal.pd_source === "model"
+        ? "la PD del modelo"
+        : "la PD configurada"
+  const grouping =
+    internal.grouping === "score_band"
+      ? `${pdSource} forma bandas por cuantil dentro de cada cartera`
+      : internal.grouping === "segment"
+        ? "los grupos se leen de los segmentos configurados"
+        : internal.grouping === "provided"
+          ? "los grupos se leen de los grupos provistos"
+          : `los grupos siguen la agrupación «${internal.grouping}»`
+  const pdRole = direct
+    ? "; la PD caracteriza o forma los grupos, pero no multiplica la provisión"
+    : ""
+
+  return {
+    description: `${formula} El resultado muestra ${internal.n_groups} grupos efectivos: ${grouping}${pdRole}.`,
+    rateLabel: direct ? "Tasa de pérdida" : "PD",
+  }
+}
+
+/** Barra por grupo homogéneo del método interno, con tasas y exposición publicadas por el motor. */
 export interface InternalGroupBar {
   group: string
   label: string
@@ -1086,8 +1142,10 @@ export interface InternalGroupBar {
   provision: number
   /** PD del grupo (proporción [0,1]). */
   pd: number
-  /** LGD del grupo (proporción [0,1]). */
-  lgd: number
+  /** LGD del grupo; `null` cuando la tasa de pérdida se declara directamente. */
+  lgd: number | null
+  /** Tasa de pérdida esperada del grupo (proporción [0,1]). */
+  expectedLossRate: number
   /** Exposición del grupo, en CLP. */
   exposure: number
   /** Nº de operaciones del grupo. */
@@ -1095,8 +1153,8 @@ export interface InternalGroupBar {
 }
 
 /**
- * Filas por grupo homogéneo del método interno, en el orden en que las emite el motor (banda_01
- * → banda_10). NO recalcula: `provision`/`pd`/`lgd` vienen del artefacto. `[]` si falta el frame.
+ * Filas por grupo homogéneo del método interno, en el orden efectivo que emite el motor. NO
+ * recalcula: provisión y tasas vienen del artefacto. `[]` si falta el frame.
  */
 export function internalGroupBars(
   internal: InternalProvisioningResult | null | undefined,
@@ -1109,6 +1167,7 @@ export function internalGroupBars(
     provision: g.provision_amount,
     pd: g.pd_group,
     lgd: g.lgd_group,
+    expectedLossRate: g.expected_loss_rate,
     exposure: g.total_exposure,
     n: g.n_operations,
   }))

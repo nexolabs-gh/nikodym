@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import psiChartSource from "@/components/charts/PsiByComparisonChart.tsx?raw"
+import csiChartSource from "@/components/charts/StabilityCsiChart.tsx?raw"
 import type { RunLineage } from "@/lib/results-types"
 
 import {
@@ -37,6 +39,7 @@ import {
   ifrs9SummaryRows,
   ifrs9TermStructure,
   internalGroupBars,
+  internalProvisioningSectionCopy,
   liftByDecile,
   monotonicityLabel,
   normalizeBinLabel,
@@ -52,6 +55,7 @@ import {
   scoreHistogram,
   sicrTriggerLabel,
   sortByIv,
+  stabilityThresholdLabels,
   temporalScore,
   variableBinning,
 } from "./results-format"
@@ -498,6 +502,52 @@ describe("comparisonLabel", () => {
 
   it("cae al propio slug para comparaciones no previstas", () => {
     expect(comparisonLabel("dev_vs_2025q1")).toBe("dev_vs_2025q1")
+  })
+})
+
+describe("stabilityThresholdLabels", () => {
+  it("publica los operadores semiabiertos que ejecutan los tres motores", () => {
+    expect(stabilityThresholdLabels(0.1, 0.25)).toEqual({
+      review: "revisión ≥0.10",
+      redevelop: "redesarrollo ≥0.25",
+    })
+  })
+
+  it("es la fuente compartida de ambos gráficos y no deja rótulos inclusivos antiguos", () => {
+    for (const source of [psiChartSource, csiChartSource]) {
+      expect(source).toContain("stabilityThresholdLabels")
+      expect(source).not.toContain("≤")
+    }
+  })
+})
+
+describe("psiBars conserva cada magnitud sin mezclar el agregado", () => {
+  it("mantiene score estable y PD en revisión como observaciones separadas", () => {
+    const rows: StabilityMetricRow[] = [
+      {
+        metric: "score_psi",
+        comparison: "dev_vs_holdout",
+        feature: "score",
+        value: 0.05,
+        stable_threshold: 0.1,
+        review_threshold: 0.25,
+        band: "stable",
+        action: "none",
+      },
+      {
+        metric: "pd_psi",
+        comparison: "dev_vs_holdout",
+        feature: "pd_calibrated",
+        value: 0.12,
+        stable_threshold: 0.1,
+        review_threshold: 0.25,
+        band: "review",
+        action: "vigilar",
+      },
+    ]
+
+    expect(psiBars(rows, "score_psi")[0]).toMatchObject({ value: 0.05, band: "stable" })
+    expect(psiBars(rows, "pd_psi")[0]).toMatchObject({ value: 0.12, band: "review" })
   })
 })
 
@@ -1704,7 +1754,7 @@ describe("provisioningComparisonBars", () => {
 })
 
 describe("internalGroupBars", () => {
-  it("proyecta los grupos preservando el orden del motor (banda_01 → banda_10)", () => {
+  it("proyecta los grupos preservando el orden efectivo del motor", () => {
     const bars = internalGroupBars(provisioningResults.provisioning_internal)
     expect(bars).toHaveLength(3)
     expect(bars.map((b) => b.label)).toEqual(["Banda 1", "Banda 2", "Banda 10"])
@@ -1719,11 +1769,79 @@ describe("internalGroupBars", () => {
     expect(bars[2]?.provision).toBe(188793290.92)
   })
 
+  it("conserva la tasa directa y la ausencia real de LGD", () => {
+    const directo: InternalProvisioningResult = {
+      ...internalSample,
+      method: "direct_loss_rate",
+      grouping: "provided",
+      n_groups: 1,
+      groups: [
+        {
+          ...internalSample.groups![0],
+          group_id: "grupo_a",
+          lgd_group: null,
+          expected_loss_rate: 0.0325,
+        },
+      ],
+    }
+
+    expect(internalGroupBars(directo)[0]).toMatchObject({
+      group: "grupo_a",
+      lgd: null,
+      expectedLossRate: 0.0325,
+    })
+  })
+
   it("[] cuando falta la card o el frame de grupos", () => {
     expect(internalGroupBars(null)).toEqual([])
     expect(
       internalGroupBars({ ...internalSample, groups: undefined }),
     ).toEqual([])
+  })
+})
+
+describe("internalProvisioningSectionCopy", () => {
+  it("deriva fórmula, fuente de PD y cantidad efectiva sin fijar diez bandas", () => {
+    const copy = internalProvisioningSectionCopy({
+      ...internalSample,
+      pd_source: "model",
+      n_groups: 5,
+    })
+
+    expect(copy.description).toContain("Exposición · PD · LGD")
+    expect(copy.description).toContain("5 grupos efectivos")
+    expect(copy.description).toContain("PD del modelo")
+    expect(copy.description).toContain("bandas por cuantil dentro de cada cartera")
+    expect(copy.description).not.toContain("10 bandas")
+    expect(copy.rateLabel).toBe("PD")
+  })
+
+  it.each([
+    ["segment", "segmentos configurados"],
+    ["provided", "grupos provistos"],
+  ])("describe grouping=%s sin inventar bandas", (grouping, expected) => {
+    const copy = internalProvisioningSectionCopy({
+      ...internalSample,
+      grouping,
+      n_groups: 3,
+    })
+
+    expect(copy.description).toContain(expected)
+    expect(copy.description).not.toContain("bandas")
+  })
+
+  it("publica la tasa directa sin atribuir PD ni LGD a la provisión", () => {
+    const copy = internalProvisioningSectionCopy({
+      ...internalSample,
+      method: "direct_loss_rate",
+      grouping: "provided",
+      n_groups: 3,
+    })
+
+    expect(copy.description).toContain("Exposición · tasa de pérdida esperada directa")
+    expect(copy.description).toContain("no se descompone en PD y LGD")
+    expect(copy.description).not.toContain("Exposición · PD · LGD")
+    expect(copy.rateLabel).toBe("Tasa de pérdida")
   })
 })
 

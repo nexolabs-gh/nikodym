@@ -184,6 +184,31 @@ def test_auditoria_reporta_sentinel_y_missing_rate_superado() -> None:
     }
 
 
+def test_max_missing_rate_tiene_frontera_estricta_y_no_muta_el_frame() -> None:
+    """La igualdad no audita; apenas por encima reporta la columna sin rechazar datos."""
+    policy = SpecialValuePolicy(MissingConfig(max_missing_rate=0.5))
+    exact = pd.DataFrame({"x": [1.0, math.nan, 2.0, math.nan]})
+    above = pd.DataFrame({"x": [math.nan, math.nan, 2.0, math.nan]})
+    exact_original = exact.copy(deep=True)
+    above_original = above.copy(deep=True)
+    exact_audit = InMemoryAuditSink()
+    above_audit = InMemoryAuditSink()
+
+    exact_result = policy.apply(exact, audit=exact_audit)
+    above_result = policy.apply(above, audit=above_audit)
+
+    assert not exact_audit.events
+    assert len(above_audit.events) == 1
+    assert above_audit.events[0].payload == {
+        "regla": "max_missing_rate",
+        "umbral": 0.5,
+        "valor": {"columna": "x", "missing_rate": 0.75},
+        "accion": "reportar_columna",
+    }
+    assert_frame_equal(exact_result.frame, exact_original)
+    assert_frame_equal(above_result.frame, above_original)
+
+
 def test_dtypes_mixtos_comparan_sin_warning_y_detectan_int_float_object_string_category() -> None:
     """Las comparaciones incompatibles se saltan y las compatibles detectan centinelas."""
     df = pd.DataFrame(

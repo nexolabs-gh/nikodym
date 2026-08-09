@@ -434,8 +434,8 @@ Escenarios de *shock*, barridos de sensibilidad y *reverse stress* sobre las mé
 
 ## Provisiones
 
-Dos marcos de provisión —**IFRS 9/ECL** y **método interno** (PD · LGD · exposición por grupo
-homogéneo, jurisdiccionalmente neutro)— más una capa fina de orquestación que compara dos
+Dos marcos de provisión —**IFRS 9/ECL** y **método interno** (exposición por la tasa de pérdida del
+grupo, descompuesta en PD · LGD o provista directamente; jurisdiccionalmente neutro)— más una capa fina de orquestación que compara dos
 metodologías y aplica la regla declarada. El motor **CMF (Chile)** documentado más abajo es el
 **caso de referencia** de cómo se aterriza una norma local sobre esa base; su alcance y su fecha de
 verificación están en [Aterrizar una norma local](norma-local.md).

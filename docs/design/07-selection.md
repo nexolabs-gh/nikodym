@@ -60,9 +60,9 @@ data ─► eda (opcional, diagnóstico) ─► binning ─► selection ─► 
 ## 3. Conceptos y fundamentos
 
 - **Feature candidata.** Variable raw que `binning` logró transformar a una columna WoE (`raw_feature -> raw_feature__woe`). `selection` trabaja sobre columnas WoE, pero conserva el nombre raw para auditoría y reporte.
-- **IV (Information Value).** SDD-06 calcula `IV = Σ_b (%Goods_b - %Bads_b) · WoE_b`, con `WoE_b = ln(%Goods_b / %Bads_b)`. SDD-07 aplica el corte de selección sobre ese IV final de Desarrollo. Bandas de ESPEC/SDD-06: `<0.02` débil/no predictivo, `0.02-0.10` bajo, `0.10-0.30` medio, `0.30-0.50` fuerte, `>0.50` sospechoso por posible leakage/proxy dominante.
+- **IV (Information Value).** SDD-06 calcula `IV = Σ_b (%Goods_b - %Bads_b) · WoE_b`, con `WoE_b = ln(%Goods_b / %Bads_b)`. SDD-07 aplica el corte de selección sobre ese IV final de Desarrollo. Bandas de ESPEC/SDD-06: `<0.02` débil/no predictivo, `0.02-0.10` bajo, `0.10-0.30` medio, `0.30-0.50` fuerte, `≥0.50` sospechoso por posible leakage/proxy dominante.
 - **Métricas univariadas de discriminación.** Para cada feature WoE, se calcula `AUC` usando como score de riesgo `-WoE` (porque la convención del proyecto es `WoE = ln(%Goods/%Bads)`: mayor riesgo implica WoE menor), `Gini = 2·AUC - 1`, y `KS = max_t |TPR(t) - FPR(t)|`. Estas métricas se reportan y pueden activar filtros configurables, pero por defecto no reemplazan el corte IV.
-- **PSI / CSI.** La ESPEC define `PSI = Σ(%a - %e)·ln(%a/%e)` con bandas `<0.1` estable, `0.1-0.25` revisar, `>0.25` redesarrollar. En selección se usa como **Characteristic Stability Index** por variable/bin: compara la distribución de una característica en HO/OOT/período (`actual`) contra Desarrollo (`expected`). Default: `report_only` para no usar HO/OOT como criterio de inclusión.
+- **PSI / CSI.** La ESPEC define `PSI = Σ(%a - %e)·ln(%a/%e)` con bandas `<0.1` estable, `0.1≤PSI<0.25` revisar, `≥0.25` redesarrollar. En selección se usa como **Characteristic Stability Index** por variable/bin: compara la distribución de una característica en HO/OOT/período (`actual`) contra Desarrollo (`expected`). Default: `report_only` para no usar HO/OOT como criterio de inclusión.
 - **Correlación entre features WoE.** Se calcula sobre Desarrollo, con método `pearson`/`spearman`/`kendall`. Si `|ρ|` supera el umbral (ESPEC: 0.7-0.8), se conserva la variable de mayor prioridad predictiva (IV, luego AUC/KS, luego nombre para desempate determinista).
 - **VIF (Variance Inflation Factor).** Mide multicolinealidad de una feature respecto del resto: `VIF_j = 1 / (1 - R_j^2)`, donde `R_j^2` proviene de la regresión auxiliar de la feature `j` contra las demás. ESPEC fija el rango de alerta `VIF > 5-10`; el default propuesto es `5.0` por prudencia regulatoria.
 - **Clustering de variables.** Opción de agrupar variables por componentes conectados del grafo de correlación (`|ρ| > threshold`) y elegir un representante por grupo. En v1 queda desactivado por defecto porque el pruning greedy de correlación ya resuelve el caso común sin introducir otra dependencia.
@@ -271,8 +271,8 @@ class VifSelectionConfig(NikodymBaseConfig):
 class StabilitySelectionConfig(NikodymBaseConfig):
     enabled: bool = Field(True, title="Calcular PSI/CSI por característica")
     action: Literal["report_only", "exclude"] = Field("report_only", title="Acción ante inestabilidad")
-    stable_threshold: float = Field(0.10, ge=0.0, title="PSI/CSI estable hasta")
-    review_threshold: float = Field(0.25, ge=0.0, title="PSI/CSI revisar hasta")
+    stable_threshold: float = Field(0.10, ge=0.0, title="Umbral PSI/CSI de revisión")
+    review_threshold: float = Field(0.25, ge=0.0, title="Umbral PSI/CSI de redesarrollo")
     smoothing: float = Field(1e-6, gt=0.0, title="Suavizado de proporciones")
 
 class SelectionConfig(NikodymBaseConfig):
@@ -483,7 +483,7 @@ Marco transversal en SDD-24. Casos específicos:
 - **Anti-leakage.** Cambiar valores HO/OOT no cambia `selected_features`, `selection_table.reason` ni correlación/VIF; solo cambia `stability_table`.
 - **Overrides de negocio.** `force_exclude` elimina siempre; `force_include` permite IV bajo con evento auditado; conflicto include/exclude levanta `ConfigError`.
 - **VIF y warnings.** Caso colineal que dispara `RuntimeWarning` de statsmodels: el test debe pasar con `filterwarnings=error` porque la implementación captura localmente ese warning específico.
-- **PSI/CSI.** Distribuciones de bins con proporciones conocidas: verificar fórmula `Σ(%a-%e)·ln(%a/%e)` y bandas `<0.1`, `0.1-0.25`, `>0.25` contra golden values.
+- **PSI/CSI.** Distribuciones de bins con proporciones conocidas: verificar fórmula `Σ(%a-%e)·ln(%a/%e)` y bandas `<0.1`, `0.1≤PSI<0.25`, `≥0.25` contra golden values, incluidas las fronteras exactas.
 - **Propiedades.** Reordenar columnas/filas no cambia selección; empates se resuelven por nombre; `selected_woe_frame` conserva índice y columnas estructurales.
 - **Contrato `Step`.** `SelectionStep.requires` exige artefactos de `data` y `binning`; falta uno → `ArtifactNotFoundError`. `provides` se verifica tras ejecución.
 - **No mutación.** Snapshots de `data.frame`, `binning.woe_frame` y `binning.summary` antes/después permanecen iguales.
@@ -503,7 +503,7 @@ Fixtures: pipeline `data → binning` sintético ya usado por SDD-06, más un `S
 
 ## Decisiones para revisión de Cami
 
-- **D-SEL-1 — IV mínimo `0.02` y IV alto `>0.50` como flag, no exclusión.** El mínimo sí filtra; el IV alto queda para revisión por posible leakage/proxy dominante. Confirmar si `max_iv_action` debe ser `"exclude"` en entornos conservadores.
+- **D-SEL-1 — IV mínimo `0.02` y IV alto `≥0.50` como flag, no exclusión.** El mínimo sí filtra; el IV alto queda para revisión por posible leakage/proxy dominante. La frontera inclusiva coincide con la implementación estable (`iv >= max_iv`). Confirmar si `max_iv_action` debe ser `"exclude"` en entornos conservadores.
 - **D-SEL-2 — Frontera con SDD-08:** stepwise Wald/LR, p-values, signos de β e IV-contribution ≤ 90 % quedan fuera de SDD-07. `selection` reporta AUC/KS/Gini univariados y, por defecto, no filtra por ellos salvo que el usuario configure mínimos.
 - **D-SEL-3 — Correlación default `pearson`, umbral `0.75`.** Está dentro del rango ESPEC `0.7-0.8`. Confirmar si Cami prefiere `0.80` (menos agresivo) o `spearman` como default para WoE.
 - **D-SEL-4 — VIF default `5.0`.** Es el extremo conservador del rango ESPEC `5-10`. Confirmar si el default operativo debe ser `10.0` para evitar sobre-pruning antes del stepwise.

@@ -20,7 +20,7 @@ import copy
 import math
 from collections.abc import Mapping
 from numbers import Real
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, TypeAlias, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -113,8 +113,8 @@ class StabilityMetricRecord(BaseModel):
     @model_validator(mode="after")
     def _check_invariantes(self) -> Self:
         """Valida umbrales, mapa banda->acción y la regla métrica<=>evaluable."""
-        if self.stable_threshold > self.review_threshold:
-            raise ValueError("stable_threshold no puede superar review_threshold.")
+        if self.stable_threshold >= self.review_threshold:
+            raise ValueError("stable_threshold debe ser estrictamente menor que review_threshold.")
 
         expected_action = _BAND_TO_ACTION[self.band]
         if self.action != expected_action:
@@ -126,6 +126,9 @@ class StabilityMetricRecord(BaseModel):
             return self
         if self.value is None:
             raise ValueError("Las métricas evaluables deben publicar un value finito.")
+        expected_band = _psi_band(self.value, self.stable_threshold, self.review_threshold)
+        if self.band != expected_band:
+            raise ValueError("La banda debe derivarse del value y de los umbrales publicados.")
         return self
 
 
@@ -261,6 +264,7 @@ class StabilityCardSection(BaseModel):
             "dependency_versions",
             "max_psi_by_comparison",
             "metric_sections",
+            "psi_metric_by_comparison",
         }
     )
 
@@ -271,6 +275,9 @@ class StabilityCardSection(BaseModel):
     stable_threshold: float
     review_threshold: float
     max_psi_by_comparison: dict[str, float | None]
+    # Default vacío conserva construcciones manuales 1.x. El evaluator siempre publica el mapa
+    # completo; un card legacy se rotula genéricamente sin inventar la identidad ganadora.
+    psi_metric_by_comparison: dict[str, PsiMetricName | None] | None = None
     bands_by_comparison: dict[str, str]
     worst_csi_feature: str | None = None
     worst_csi_value: float | None = None
@@ -294,6 +301,16 @@ class StabilityCardSection(BaseModel):
     def _copia_max_psi(cls, value: Any) -> Any:
         """Copia los PSI máximos por comparación y neutraliza no-finitos."""
         return _normalize_optional_float_map(value)
+
+    @field_validator("psi_metric_by_comparison")
+    @classmethod
+    def _ordena_metricas_psi(
+        cls, values: dict[str, PsiMetricName | None] | None
+    ) -> dict[str, PsiMetricName | None] | None:
+        """Ordena la identidad de la magnitud que determina cada resumen PSI."""
+        if values is None:
+            return None
+        return {name: values[name] for name in sorted(values)}
 
     @field_validator("bands_by_comparison", "dependency_versions")
     @classmethod
@@ -328,8 +345,40 @@ class StabilityCardSection(BaseModel):
             raise ValueError(
                 "max_psi_by_comparison debe tener las mismas comparaciones que comparisons."
             )
-        if self.stable_threshold > self.review_threshold:
-            raise ValueError("stable_threshold no puede superar review_threshold.")
+        if (
+            self.psi_metric_by_comparison is not None
+            and set(self.psi_metric_by_comparison) != comparison_set
+        ):
+            raise ValueError(
+                "psi_metric_by_comparison debe tener las mismas comparaciones que comparisons."
+            )
+        if self.stable_threshold >= self.review_threshold:
+            raise ValueError("stable_threshold debe ser estrictamente menor que review_threshold.")
+        for comparison in self.comparisons:
+            value = self.max_psi_by_comparison[comparison]
+            metric = (
+                self.psi_metric_by_comparison.get(comparison)
+                if self.psi_metric_by_comparison is not None
+                else None
+            )
+            band = self.bands_by_comparison[comparison]
+            if value is None:
+                if (
+                    self.psi_metric_by_comparison is not None and metric is not None
+                ) or band != "not_evaluable":
+                    raise ValueError(
+                        "Un resumen PSI no evaluable debe publicar valor e identidad nulos y "
+                        "banda not_evaluable."
+                    )
+                continue
+            if self.psi_metric_by_comparison is not None and metric is None:
+                raise ValueError("Un resumen PSI evaluable debe identificar score_psi o pd_psi.")
+            expected_band = _psi_band(value, self.stable_threshold, self.review_threshold)
+            if band != expected_band:
+                raise ValueError(
+                    "bands_by_comparison debe derivarse del mismo valor publicado en "
+                    "max_psi_by_comparison."
+                )
         if (self.worst_csi_feature is None) != (self.worst_csi_value is None):
             raise ValueError("worst_csi_feature y worst_csi_value deben definirse juntos.")
         return self
@@ -338,6 +387,8 @@ class StabilityCardSection(BaseModel):
         """Entrega copias de dicts mutables aunque el DTO sea frozen."""
         value = super().__getattribute__(name)
         if name in super().__getattribute__("_COPY_ON_ACCESS_FIELDS"):
+            if value is None:
+                return None
             if name in {"max_psi_by_comparison", "metric_sections"}:
                 return copy.deepcopy(value)
             return dict(value)
@@ -390,10 +441,16 @@ class StabilityResult(BaseModel):
                 "card.comparisons debe coincidir con las comparaciones score_psi de metric_records."
             )
 
-        if _max_psi_by_comparison(self.metric_records) != self.card.max_psi_by_comparison:
+        max_psi, metrics, bands = _psi_summary_maps(self.metric_records)
+        if max_psi != self.card.max_psi_by_comparison:
             raise ValueError("max_psi_by_comparison debe coincidir con metric_records.")
-        if _bands_by_comparison(self.metric_records) != self.card.bands_by_comparison:
+        if bands != self.card.bands_by_comparison:
             raise ValueError("bands_by_comparison debe coincidir con metric_records.")
+        if (
+            self.card.psi_metric_by_comparison is not None
+            and metrics != self.card.psi_metric_by_comparison
+        ):
+            raise ValueError("psi_metric_by_comparison debe coincidir con metric_records.")
 
         worst_feature, worst_value = _worst_csi(self.metric_records)
         if worst_feature != self.card.worst_csi_feature or worst_value != self.card.worst_csi_value:
@@ -466,23 +523,72 @@ def _copy_dataframe(frame: Any) -> Any:
 def _max_psi_by_comparison(
     records: tuple[StabilityMetricRecord, ...],
 ) -> dict[str, float | None]:
-    result: dict[str, float | None] = {}
-    for record in records:
-        if record.metric not in ("score_psi", "pd_psi"):
-            continue
-        comparison = record.comparison
-        if comparison not in result:
-            result[comparison] = record.value
-        elif record.value is not None:
-            current = result[comparison]
-            result[comparison] = record.value if current is None else max(current, record.value)
-    return result
+    return _psi_summary_maps(records)[0]
 
 
 def _bands_by_comparison(
     records: tuple[StabilityMetricRecord, ...],
 ) -> dict[str, str]:
-    return {record.comparison: record.band for record in records if record.metric == "score_psi"}
+    return _psi_summary_maps(records)[2]
+
+
+def _psi_metric_by_comparison(
+    records: tuple[StabilityMetricRecord, ...],
+) -> dict[str, PsiMetricName | None]:
+    """Identifica la magnitud ganadora; score rompe empates de forma determinista."""
+    return _psi_summary_maps(records)[1]
+
+
+def _psi_summary_maps(
+    records: tuple[StabilityMetricRecord, ...],
+) -> tuple[
+    dict[str, float | None],
+    dict[str, PsiMetricName | None],
+    dict[str, str],
+]:
+    """Proyecta una única selección ganadora a los tres mapas públicos del resumen."""
+    summary = _psi_summary_by_comparison(records)
+    values = {comparison: value for comparison, (value, _metric, _band) in summary.items()}
+    metrics = {comparison: metric for comparison, (_value, metric, _band) in summary.items()}
+    bands = {comparison: band for comparison, (_value, _metric, band) in summary.items()}
+    return values, metrics, bands
+
+
+def _psi_summary_by_comparison(
+    records: tuple[StabilityMetricRecord, ...],
+) -> dict[str, tuple[float | None, PsiMetricName | None, str]]:
+    """Construye valor, identidad y banda como una única observación PSI coherente."""
+    comparisons: dict[str, tuple[StabilityMetricRecord, ...]] = {}
+    for record in records:
+        if record.metric not in ("score_psi", "pd_psi"):
+            continue
+        comparisons[record.comparison] = (*comparisons.get(record.comparison, ()), record)
+
+    result: dict[str, tuple[float | None, PsiMetricName | None, str]] = {}
+    for comparison, candidates in comparisons.items():
+        winner_value: float | None = None
+        winner_metric: PsiMetricName | None = None
+        winner_band = "not_evaluable"
+        for candidate in candidates:
+            value = candidate.value
+            if value is None:
+                continue
+            wins_tie = value == winner_value and candidate.metric == "score_psi"
+            if winner_value is None or value > winner_value or wins_tie:
+                winner_value = value
+                winner_metric = cast(PsiMetricName, candidate.metric)
+                winner_band = candidate.band
+        result[comparison] = (winner_value, winner_metric, winner_band)
+    return result
+
+
+def _psi_band(value: float, stable_threshold: float, review_threshold: float) -> str:
+    """Reproduce los intervalos semiabiertos aprobados para validar la card agregada."""
+    if value < stable_threshold:
+        return "stable"
+    if value < review_threshold:
+        return "review"
+    return "redevelop"
 
 
 def _worst_csi(

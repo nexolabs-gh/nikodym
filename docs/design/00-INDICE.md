@@ -788,6 +788,13 @@ SemVer se declaran únicamente en `ROADMAP.md`.
 > y el SDD pasó al stack React/Vite sobre FastAPI. La implementación histórica del backend/front no
 > equivale a la implementación de la distribución aprobada en B2.0.
 
+> **Resumen PSI coherente y fronteras semiabiertas (2026-08-09, APROBADA).**
+> [`_ENMIENDA-RESUMEN-PSI.md`](_ENMIENDA-RESUMEN-PSI.md), A1+B1, enmienda SDD-11, SDD-07 y
+> SDD-22: el valor agregado, la identidad score/PD y la banda provienen de una única observación
+> ganadora; los empates favorecen score; y las bandas son `< stable_threshold`,
+> `[stable_threshold, review_threshold)` y `≥ review_threshold`. D1 autoriza la recaptura canónica
+> de las tres familias de demo para propagar el copy.
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |

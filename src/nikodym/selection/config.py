@@ -202,8 +202,11 @@ class StabilitySelectionConfig(NikodymBaseConfig):
     stable_threshold: float = Field(
         default=0.10,
         ge=0.0,
-        title="PSI/CSI estable hasta",
-        description="Valor bajo el cual la característica se reporta como estable.",
+        title="Umbral PSI/CSI de revisión",
+        description=(
+            "Por debajo de este valor la característica se reporta como estable; al alcanzarlo "
+            "o superarlo inicia la banda de revisión."
+        ),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Estabilidad",
@@ -217,15 +220,17 @@ class StabilitySelectionConfig(NikodymBaseConfig):
     review_threshold: float = Field(
         default=0.25,
         ge=0.0,
-        title="PSI/CSI revisar hasta",
-        description="Valor bajo el cual la característica queda en banda de revisión.",
+        title="Umbral PSI/CSI de redesarrollo",
+        description=(
+            "Al alcanzar o superar este valor, la característica pasa a la banda de redesarrollo."
+        ),
         json_schema_extra={
             "ui_widget": "number_input",
             "ui_group": "Estabilidad",
             "ui_order": 4,
             "ui_help": (
-                "Entre el umbral 'estable' y este valor la variable queda en banda de "
-                "revisión; sobre este valor pasa a 'a rediseñar' y, si la acción es "
+                "Desde el umbral de revisión y por debajo de este valor la variable queda en "
+                "revisión; al alcanzarlo o superarlo pasa a 'rediseñar' y, si la acción es "
                 "'exclude', se descarta."
             ),
         },
@@ -362,14 +367,14 @@ class SelectionConfig(NikodymBaseConfig):
     max_iv_action: Literal["flag", "exclude"] = Field(
         default="flag",
         title="Acción ante IV alto",
-        description="Acción ante IV superior a max_iv: marcar para revisión o excluir.",
+        description="Acción ante IV igual o superior a max_iv: marcar para revisión o excluir.",
         json_schema_extra={
             "ui_widget": "selectbox",
             "ui_group": "IV",
             "ui_order": 3,
             "ui_help": (
                 "'flag' deja la variable pero la marca para revisión manual; 'exclude' la "
-                "descarta automáticamente al superar el IV sospechoso."
+                "descarta automáticamente al alcanzar o superar el IV sospechoso."
             ),
         },
     )

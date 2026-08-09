@@ -29,12 +29,14 @@ import {
 interface GroupTooltipProps {
   active?: boolean
   payload?: ReadonlyArray<{ payload?: InternalGroupBar }>
+  method: string
 }
 
-/** Tooltip dedicado: banda + provisión (CLP), PD, LGD, exposición y nº de operaciones. */
-function GroupTooltip({ active, payload }: GroupTooltipProps) {
+/** Tooltip dedicado: publica sólo los factores que la forma ejecutada usa en la provisión. */
+function GroupTooltip({ active, payload, method }: GroupTooltipProps) {
   const d = active && payload && payload.length > 0 ? payload[0]?.payload : null
   if (!d) return null
+  const direct = method === "direct_loss_rate"
   return (
     <div className="rounded-lg bg-secondary px-3 py-2 text-xs shadow-card ring-1 ring-foreground/10">
       <p className="mb-1 font-medium text-foreground">{d.label}</p>
@@ -46,17 +48,19 @@ function GroupTooltip({ active, payload }: GroupTooltipProps) {
           </span>
         </li>
         <li className="flex items-center gap-3 text-muted-foreground">
-          <span>PD</span>
+          <span>{direct ? "Tasa de pérdida" : "PD"}</span>
           <span className="ml-auto font-mono tabular-nums text-foreground">
-            {formatPercent(d.pd, 2)}
+            {formatPercent(direct ? d.expectedLossRate : d.pd, 2)}
           </span>
         </li>
-        <li className="flex items-center gap-3 text-muted-foreground">
-          <span>LGD</span>
-          <span className="ml-auto font-mono tabular-nums text-foreground">
-            {formatPercent(d.lgd, 1)}
-          </span>
-        </li>
+        {direct ? null : (
+          <li className="flex items-center gap-3 text-muted-foreground">
+            <span>LGD</span>
+            <span className="ml-auto font-mono tabular-nums text-foreground">
+              {formatPercent(d.lgd, 1)}
+            </span>
+          </li>
+        )}
         <li className="flex items-center gap-3 text-muted-foreground">
           <span>Exposición</span>
           <span className="ml-auto font-mono tabular-nums text-foreground">
@@ -77,12 +81,20 @@ function GroupTooltip({ active, payload }: GroupTooltipProps) {
 /**
  * Método interno por grupo homogéneo (SDD-28 §3.3): barras = provisión del grupo (eje izquierdo,
  * CLP), y encima la PD del grupo como línea sobre un eje Y secundario en % (ComposedChart), para
- * leer "la provisión se concentra donde la PD es alta". Las 10 bandas de score van en el orden del
- * motor (banda_01 → banda_10, riesgo creciente). Solo grafica `provisioning_internal.groups` ya
- * normalizado por `internalGroupBars`; CERO cálculo. Guard por presencia: sin grupos no renderiza.
+ * contrastar provisión con la tasa que la forma ejecutada publica: PD con `pd_lgd`, o tasa de pérdida
+ * esperada con `direct_loss_rate`. Sólo grafica grupos ya normalizados; sin grupos no renderiza.
  */
-export function InternalGroupsChart({ rows }: { rows: InternalGroupBar[] }) {
+export function InternalGroupsChart({
+  rows,
+  method,
+}: {
+  rows: InternalGroupBar[]
+  method: string
+}) {
   if (rows.length === 0) return null
+  const direct = method === "direct_loss_rate"
+  const rateKey = direct ? "expectedLossRate" : "pd"
+  const rateLabel = direct ? "Tasa de pérdida" : "PD"
 
   return (
     <div className="space-y-2">
@@ -122,7 +134,7 @@ export function InternalGroupsChart({ rows }: { rows: InternalGroupBar[] }) {
               tick={AXIS_TICK}
               tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
             />
-            <Tooltip cursor={CURSOR_FILL} content={<GroupTooltip />} />
+            <Tooltip cursor={CURSOR_FILL} content={<GroupTooltip method={method} />} />
             <Bar
               yAxisId="clp"
               dataKey="provision"
@@ -135,8 +147,8 @@ export function InternalGroupsChart({ rows }: { rows: InternalGroupBar[] }) {
             <Line
               yAxisId="pd"
               type="monotone"
-              dataKey="pd"
-              name="PD"
+              dataKey={rateKey}
+              name={rateLabel}
               stroke={BRAND.amber}
               strokeWidth={2}
               dot={{ r: 2.5, fill: BRAND.amber, strokeWidth: 0 }}
@@ -162,7 +174,7 @@ export function InternalGroupsChart({ rows }: { rows: InternalGroupBar[] }) {
             style={{ backgroundColor: BRAND.amber }}
             aria-hidden="true"
           />
-          PD del grupo (eje der.)
+          {rateLabel} del grupo (eje der.)
         </span>
       </div>
     </div>

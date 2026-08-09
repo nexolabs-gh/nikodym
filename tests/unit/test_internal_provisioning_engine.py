@@ -260,6 +260,9 @@ def test_direct_loss_rate_calculado_a_mano() -> None:
     assert result.detail.loc["op01", "loss_rate"] == Decimal("0.01")
     assert result.card.method == "direct_loss_rate"
     assert result.card.metric_sections["provisioning_internal"]["lgd_method"] is None
+    assert result.card.metric_sections["provisioning_internal"]["metodo"] == (
+        "provisión = exposición del grupo · tasa de pérdida esperada directa del grupo."
+    )
     assert sum(result.detail["provision_amount"]) == result.card.total_internal_provision
 
 

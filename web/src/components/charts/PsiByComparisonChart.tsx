@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts"
 
+import { stabilityThresholdLabels } from "@/lib/results-format"
 import type { PsiBarRow } from "@/lib/results-format"
 
 import {
@@ -83,6 +84,7 @@ export function PsiByComparisonChart({
     ...rows.map((r) => (r.value === null ? 0 : r.value)),
   )
   const domainTop = niceBound(Math.max(reviewThreshold, maxValue))
+  const thresholdLabels = stabilityThresholdLabels(stableThreshold, reviewThreshold)
 
   return (
     <div className="h-56 w-full">
@@ -111,7 +113,7 @@ export function PsiByComparisonChart({
             stroke="rgba(52,211,153,0.5)"
             strokeDasharray="4 3"
             label={{
-              value: `estable ≤${stableThreshold.toFixed(2)}`,
+              value: thresholdLabels.review,
               position: "insideTopLeft",
               fill: AXIS_TICK.fill,
               fontSize: 9,
@@ -122,7 +124,7 @@ export function PsiByComparisonChart({
             stroke="rgba(248,113,113,0.5)"
             strokeDasharray="4 3"
             label={{
-              value: `revisar ≤${reviewThreshold.toFixed(2)}`,
+              value: thresholdLabels.redevelop,
               position: "insideTopLeft",
               fill: AXIS_TICK.fill,
               fontSize: 9,

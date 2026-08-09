@@ -231,8 +231,8 @@ en el tiempo.
 
 - `action` (default `"report_only"`): solo informa; con `"exclude"` descarta las inestables.
 - `stable_threshold` (default `0.10`) y `review_threshold` (default `0.25`): bajo `stable_threshold`
-  la variable es estable; entre ambos umbrales queda "en revisión"; por sobre `review_threshold`
-  pasa a "rediseñar" y, si `action="exclude"`, se descarta.
+  la variable es estable; desde ese valor y por debajo de `review_threshold` queda "en revisión";
+  al alcanzar o superar `review_threshold` pasa a "rediseñar" y, si `action="exclude"`, se descarta.
 
 ### 6. Ranking y overrides de negocio
 

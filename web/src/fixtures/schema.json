@@ -5414,7 +5414,7 @@
             "minimum": 0.0,
             "title": "Tasa máxima de nulos por columna",
             "type": "number",
-            "ui_help": "Umbral de tasa de nulos por columna a partir del cual se reporta como decisión a revisar. No elimina la columna automáticamente; esa decisión la toma la selección de variables."
+            "ui_help": "Umbral de tasa de nulos por columna por sobre el cual se reporta como decisión a revisar. No elimina la columna automáticamente; esa decisión la toma la selección de variables."
           },
           "special_values": {
             "description": "Centinelas a normalizar a NaN conservando su etiqueta.",
@@ -9935,12 +9935,12 @@
           },
           "review_threshold": {
             "default": 0.25,
-            "description": "Valor bajo el cual la característica queda en banda de revisión.",
+            "description": "Al alcanzar o superar este valor, la característica pasa a la banda de redesarrollo.",
             "minimum": 0.0,
-            "title": "PSI/CSI revisar hasta",
+            "title": "Umbral PSI/CSI de redesarrollo",
             "type": "number",
             "ui_group": "Estabilidad",
-            "ui_help": "Entre el umbral 'estable' y este valor la variable queda en banda de revisión; sobre este valor pasa a 'a rediseñar' y, si la acción es 'exclude', se descarta.",
+            "ui_help": "Desde el umbral de revisión y por debajo de este valor la variable queda en revisión; al alcanzarlo o superarlo pasa a 'rediseñar' y, si la acción es 'exclude', se descarta.",
             "ui_order": 4,
             "ui_widget": "number_input"
           },
@@ -9957,9 +9957,9 @@
           },
           "stable_threshold": {
             "default": 0.1,
-            "description": "Valor bajo el cual la característica se reporta como estable.",
+            "description": "Por debajo de este valor la característica se reporta como estable; al alcanzarlo o superarlo inicia la banda de revisión.",
             "minimum": 0.0,
-            "title": "PSI/CSI estable hasta",
+            "title": "Umbral PSI/CSI de revisión",
             "type": "number",
             "ui_group": "Estabilidad",
             "ui_help": "Bajo este valor de PSI/CSI la variable se clasifica como estable entre Desarrollo y Holdout/OOT.",
@@ -11778,9 +11778,9 @@
           },
           "psi_review_threshold": {
             "default": 0.25,
-            "description": "Umbral sobre el cual el PSI gatilla revisión/redesarrollo.",
+            "description": "Al alcanzar o superar este valor, el PSI gatilla redesarrollo.",
             "minimum": 0.0,
-            "title": "PSI vigilar hasta",
+            "title": "Umbral PSI de redesarrollo",
             "type": "number",
             "ui_group": "Estabilidad",
             "ui_order": 3,
@@ -11788,9 +11788,9 @@
           },
           "psi_stable_threshold": {
             "default": 0.1,
-            "description": "Umbral bajo el cual el PSI se considera estable.",
+            "description": "Por debajo de este valor el PSI se considera estable; al alcanzarlo o superarlo inicia la banda de revisión.",
             "minimum": 0.0,
-            "title": "PSI estable hasta",
+            "title": "Umbral PSI de revisión",
             "type": "number",
             "ui_group": "Estabilidad",
             "ui_order": 2,
@@ -14323,7 +14323,7 @@
           }
         ],
         "default": null,
-        "description": "Calcula las provisiones por el método interno del banco: grupos homogéneos de deudores con Exposición · PD · LGD.",
+        "description": "Calcula las provisiones por el método interno del banco: exposición por la tasa de pérdida del grupo, descompuesta en PD · LGD o provista directamente.",
         "title": "Provisiones método interno"
       },
       "report": {
@@ -14811,7 +14811,7 @@
               },
               "max_iv_action": {
                 "default": "flag",
-                "description": "Acción ante IV superior a max_iv: marcar para revisión o excluir.",
+                "description": "Acción ante IV igual o superior a max_iv: marcar para revisión o excluir.",
                 "enum": [
                   "flag",
                   "exclude"
@@ -14819,7 +14819,7 @@
                 "title": "Acción ante IV alto",
                 "type": "string",
                 "ui_group": "IV",
-                "ui_help": "'flag' deja la variable pero la marca para revisión manual; 'exclude' la descarta automáticamente al superar el IV sospechoso.",
+                "ui_help": "'flag' deja la variable pero la marca para revisión manual; 'exclude' la descarta automáticamente al alcanzar o superar el IV sospechoso.",
                 "ui_order": 3,
                 "ui_widget": "selectbox"
               },
@@ -15048,9 +15048,9 @@
               },
               "psi_review_threshold": {
                 "default": 0.25,
-                "description": "Umbral sobre el cual el PSI gatilla revisión/redesarrollo.",
+                "description": "Al alcanzar o superar este valor, el PSI gatilla redesarrollo.",
                 "minimum": 0.0,
-                "title": "PSI vigilar hasta",
+                "title": "Umbral PSI de redesarrollo",
                 "type": "number",
                 "ui_group": "Métricas",
                 "ui_order": 4,
@@ -15058,9 +15058,9 @@
               },
               "psi_stable_threshold": {
                 "default": 0.1,
-                "description": "Umbral bajo el cual el PSI se considera estable.",
+                "description": "Por debajo de este valor el PSI se considera estable; al alcanzarlo o superarlo inicia la banda de revisión.",
                 "minimum": 0.0,
-                "title": "PSI estable hasta",
+                "title": "Umbral PSI de revisión",
                 "type": "number",
                 "ui_group": "Métricas",
                 "ui_order": 3,

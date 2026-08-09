@@ -31,7 +31,7 @@
 - Mide estabilidad poblacional del score entre muestras: Desarrollo contra Holdout y Desarrollo contra OOT.
 - Calcula CSI por característica final del scorecard, usando la distribución de contribuciones de puntos por atributo en v1, salvo que Cami ratifique un contrato adicional con bins WoE de `binning` (D-STAB-5).
 - Mide estabilidad temporal del score por período/cohorte: distribución, medias, cuantiles y PSI de cada cohorte contra Desarrollo.
-- Documenta y aplica defaults configurables de PSI: `<0.10` estable, `0.10-0.25` vigilar, `>0.25` redesarrollar.
+- Documenta y aplica defaults configurables de PSI: `<0.10` estable, `0.10≤PSI<0.25` vigilar, `≥0.25` redesarrollar.
 - Aporta el sub-config **`StabilityConfig`** (sección `stability` de `NikodymConfig`), computacional e independiente de `performance`.
 - Expone `StabilityCardSection` con `metric_sections` como puerta CT-2.
 - Registra con `log_decision` cada cruce de banda PSI/CSI o umbral temporal.
@@ -101,8 +101,14 @@ Ambos declaran `requires`/`provides` (CT-1) y reciben `rng: numpy.random.Generat
 
 Default de bandas configurable:
 - `<0.10`: estable;
-- `0.10-0.25`: vigilar;
-- `>0.25`: redesarrollar.
+- `0.10≤PSI<0.25`: vigilar;
+- `≥0.25`: redesarrollar.
+
+El resumen por comparación conserva el peor valor entre PSI del score y PSI de la PD calibrada.
+Valor, identidad (`score_psi`/`pd_psi`) y banda forman una única observación: la banda siempre se
+deriva de la magnitud ganadora. En empate exacto gana `score_psi` de forma determinista; si sólo una
+magnitud es evaluable, gana esa, y si ninguna lo es se publican valor e identidad nulos con banda
+`not_evaluable`.
 
 Estas bandas vienen de práctica estándar ya recogida en ESPECIFICACIONES §5.2, no de un umbral CMF numérico. SDD-11 las publica como criterio institucional default.
 
@@ -297,8 +303,8 @@ class StabilityConfig(NikodymBaseConfig):
         "higher_is_lower_risk", title="Dirección del score")
     psi_bins: int = Field(10, ge=2, le=50, title="Bins para PSI de score")
     csi_bins: int = Field(10, ge=2, le=50, title="Bins para CSI si no hay puntos discretos")
-    psi_stable_threshold: float = Field(0.10, ge=0.0, title="PSI estable hasta")
-    psi_review_threshold: float = Field(0.25, ge=0.0, title="PSI vigilar hasta")
+    psi_stable_threshold: float = Field(0.10, ge=0.0, title="Umbral PSI de revisión")
+    psi_review_threshold: float = Field(0.25, ge=0.0, title="Umbral PSI de redesarrollo")
     smoothing: float = Field(1e-6, gt=0.0, title="Suavizado de proporciones")
     comparisons: tuple[Literal["dev_vs_holdout", "dev_vs_oot"], ...] = Field(
         ("dev_vs_holdout", "dev_vs_oot"), title="Comparaciones de estabilidad")
@@ -420,6 +426,11 @@ class StabilityConfig(NikodymBaseConfig):
 | `band` | banda asignada |
 | `action` | `none`, `vigilar`, `redesarrollar` |
 
+**Resumen PSI de `StabilityCardSection`.** Por cada `comparison`,
+`max_psi_by_comparison`, `psi_metric_by_comparison` y `bands_by_comparison` proyectan respectivamente
+el valor, la identidad y la banda de la misma observación ganadora. El mapa de identidad es aditivo;
+`None` en la card completa conserva compatibilidad con cards 1.x creadas manualmente.
+
 **Validación pandera.** Los módulos definen schemas de entrada/salida con `import pandera.pandas as pa`, nunca `import pandera as pa`, para evitar warnings del top-level bajo `filterwarnings=["error"]`.
 
 **Invariantes.**
@@ -454,9 +465,12 @@ class StabilityConfig(NikodymBaseConfig):
 5. **PSI de PD calibrada.** Si `include_pd_stability=True`, repetir el cálculo sobre `pd_calibrated`.
 6. **CSI por característica.** Para cada feature final, localizar `<feature>__points` en `scorecard.score`; comparar distribución Desarrollo contra Holdout/OOT. Si `csi_source="woe_bins"`, exigir contrato de binning ratificado.
 7. **Estabilidad temporal.** Resolver `temporal_column` desde `data.frame` o fallar si es ambiguo; agregar score/PD por período/cohorte y calcular PSI temporal contra Desarrollo o período base.
-8. **Asignar bandas.** `stable`, `review`, `redevelop` según thresholds configurados.
+8. **Asignar bandas.** `stable` si `value < stable_threshold`, `review` si
+   `stable_threshold <= value < review_threshold` y `redevelop` si
+   `value >= review_threshold`.
 9. **Auditar umbrales.** Por cada métrica en `review` o `redevelop`, emitir `log_decision(regla="psi_score"|"csi_feature"|"score_temporal", umbral=..., valor=..., accion=...)`.
-10. **Construir DTOs/card.** Incluir máximos, comparaciones, features con peor CSI, bandas y `metric_sections`.
+10. **Construir DTOs/card.** Elegir una vez la observación PSI ganadora por comparación y proyectar
+    conjuntamente valor, identidad y banda; incluir además features con peor CSI y `metric_sections`.
 11. **Publicar artefactos.** Escribir `"psi_table"`, `"stability_metrics"`, `"result"` y `"card"`.
 
 **Alternativas descartadas.**
@@ -500,7 +514,7 @@ Toda excepción propia desciende de `NikodymError`; mensajes en español e inclu
   - CSI por feature que cruza banda;
   - estabilidad temporal que cruza banda;
   - uso de smoothing por proporciones cero cuando afecte una comparación.
-- **Card / report.** `PerformanceCardSection` y `StabilityCardSection` deben permitir reconstruir fuente de ranking, particiones, thresholds, bins, máximos, bandas, features afectadas y versiones de dependencias.
+- **Card / report.** `PerformanceCardSection` y `StabilityCardSection` deben permitir reconstruir fuente de ranking, particiones, thresholds, bins, máximos, identidad de la magnitud PSI ganadora, bandas, features afectadas y versiones de dependencias.
 - **Lineage.** SDD-11 no completa `data_hash` ni `config_hash`; su contribución son config computacional, versiones, resultados estructurados y decisiones auditadas.
 
 Convenciones obligatorias de implementación: `import pandera.pandas as pa`; prohibido `eval`/`df.eval`; `mypy --strict`; ruff con regla `D` y docstrings en español; identificadores/API en inglés técnico; tests con `filterwarnings=["error"]`.
@@ -538,7 +552,7 @@ Marco transversal en SDD-24. Casos específicos:
 - **Golden KS.** Caso con corte manual conocido; verificar `ks`, `cutoff`, `tpr_at_ks` y `fpr_at_ks`.
 - **Tabla deciles/gains.** Fixture con 20 filas y score ordenado; verificar deciles, malos/buenos, acumulados, lift y `ks_at_decile` con valores de oro.
 - **Orientación del score.** Con `higher_is_lower_risk`, `risk_score=-score`; con dirección inversa, `risk_score=score`. Verificar que AUC no queda invertido por error de signo.
-- **Golden PSI.** Distribuciones esperada/actual con proporciones conocidas; verificar fórmula, smoothing y bandas `<0.10`, `0.10-0.25`, `>0.25`.
+- **Golden PSI.** Distribuciones esperada/actual con proporciones conocidas; verificar fórmula, smoothing y bandas `<0.10`, `0.10≤PSI<0.25`, `≥0.25`, incluidas ambas fronteras exactas y la coherencia valor–identidad–banda del peor PSI score/PD.
 - **Golden CSI.** Dos características con columnas `<feature>__points`; verificar CSI por feature y feature de peor estabilidad.
 - **Estabilidad temporal.** Frame con períodos/cohortes conocidos; verificar agregados de score/PD y PSI temporal.
 - **No duplicar EDA.** Test de frontera conceptual: cambiar solo tasa de default cruda por período sin cambiar score/PD no altera PSI del score; SDD-27 cubre la tasa cruda.

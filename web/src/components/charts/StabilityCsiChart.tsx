@@ -11,7 +11,7 @@ import {
   YAxis,
 } from "recharts"
 
-import { featureDisplayLabel } from "@/lib/results-format"
+import { featureDisplayLabel, stabilityThresholdLabels } from "@/lib/results-format"
 import type { CsiBarRow } from "@/lib/results-format"
 
 import {
@@ -92,6 +92,7 @@ export function StabilityCsiChart({
     ...rows.map((r) => (r.value === null ? 0 : r.value)),
   )
   const domainTop = niceBound(Math.max(reviewThreshold, maxValue))
+  const thresholdLabels = stabilityThresholdLabels(stableThreshold, reviewThreshold)
 
   return (
     <div className="w-full" style={{ height }}>
@@ -124,7 +125,7 @@ export function StabilityCsiChart({
             stroke="rgba(52,211,153,0.5)"
             strokeDasharray="4 3"
             label={{
-              value: `estable ≤${stableThreshold.toFixed(2)}`,
+              value: thresholdLabels.review,
               position: "insideTopRight",
               fill: AXIS_TICK.fill,
               fontSize: 9,
@@ -135,7 +136,7 @@ export function StabilityCsiChart({
             stroke="rgba(248,113,113,0.5)"
             strokeDasharray="4 3"
             label={{
-              value: `revisar ≤${reviewThreshold.toFixed(2)}`,
+              value: thresholdLabels.redevelop,
               position: "insideTopRight",
               fill: AXIS_TICK.fill,
               fontSize: 9,

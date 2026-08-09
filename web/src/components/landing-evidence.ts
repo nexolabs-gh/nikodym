@@ -27,7 +27,7 @@ export const GAINS_HOLDOUT: readonly { decil: number; capturado: number }[] = [
 export const METRICAS = [
   { clave: "AUC", valor: "0,695", nota: "holdout" },
   { clave: "KS", valor: "0,312", nota: "holdout" },
-  { clave: "PSI", valor: "0,013", nota: "dev vs holdout" },
+  { clave: "PSI", valor: "0,013", nota: "PD · dev vs holdout" },
 ] as const
 
 /** Los 6 pasos del pipeline, con la evidencia real de la corrida en la última columna. */
@@ -266,7 +266,8 @@ export const DOMINIOS = [
       "EIR, staging por SICR con gatillos auditables por fila (ratio de PD, backstops de mora, " +
       "override cualitativo), presunciones rebatibles de mora que la exención de bajo riesgo no " +
       "puede anular, y PD configurable point-in-time (Vasicek) o through-the-cycle. Método " +
-      "interno: PD · LGD · exposición por grupo homogéneo, sin ningún supuesto de jurisdicción. " +
+      "interno: exposición por la tasa de pérdida del grupo, descompuesta en PD · LGD o provista " +
+      "directamente, sin ningún supuesto de jurisdicción. " +
       "Encima de esa base se aterriza la norma local, y hay un caso de referencia implementado " +
       "—Chile, CMF Cap. B-1/B-3: 10 matrices normativas en aritmética Decimal, con el archivo de " +
       "parámetros sellado por SHA-256 y extraído del texto oficial el 2026-06-23— que " +

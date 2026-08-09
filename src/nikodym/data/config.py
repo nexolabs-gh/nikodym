@@ -558,7 +558,7 @@ class MissingConfig(NikodymBaseConfig):
             "ninguna etapa las elimina automáticamente por este umbral."
         ),
         json_schema_extra={
-            "ui_help": "Umbral de tasa de nulos por columna a partir del cual se reporta como "
+            "ui_help": "Umbral de tasa de nulos por columna por sobre el cual se reporta como "
             "decisión a revisar. No elimina la columna automáticamente; esa decisión la toma la "
             "selección de variables.",
         },

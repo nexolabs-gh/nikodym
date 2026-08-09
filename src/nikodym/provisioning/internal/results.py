@@ -6,7 +6,8 @@ calcula provisiones y no importa ``pandas`` en runtime; los DataFrames son sólo
 validado por estructura, para preservar el import liviano del paquete.
 
 ``groups`` es el frame que la norma describe y el que un validador pide primero: **una fila por
-grupo homogéneo**, con su exposición, su PD, su LGD y la provisión resultante. Las colecciones
+grupo homogéneo**, con su exposición, tasas publicadas y provisión resultante. La LGD queda vacía
+cuando la tasa de pérdida se declara directamente. Las colecciones
 mutables y los DataFrames se copian defensivamente al validar y al acceder desde los DTOs.
 
 **Experimental (fuera de la garantía SemVer 1.x).**

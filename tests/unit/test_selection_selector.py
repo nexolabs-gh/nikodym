@@ -868,6 +868,41 @@ def test_filtros_hard_y_ramas_diagnosticas() -> None:
     assert flagged.selected_features_ == ("score",)
 
 
+@pytest.mark.parametrize(
+    ("action", "selected"),
+    [("flag", ("score",)), ("exclude", ())],
+)
+def test_max_iv_activa_en_igualdad_para_flag_y_exclude(
+    action: str, selected: tuple[str, ...]
+) -> None:
+    """El operador contractual es ``iv >= max_iv`` en ambas acciones."""
+    frame = pd.DataFrame(
+        {
+            "target": [0, 0, 1, 1],
+            "partition": ["desarrollo"] * 4,
+            "score__woe": [-0.4, -0.1, -0.2, -0.5],
+        }
+    )
+
+    selector = FeatureSelector(
+        min_iv=0.0,
+        max_iv=0.50,
+        max_iv_action=cast(Any, action),
+        vif_enabled=False,
+        stability_enabled=False,
+        fail_if_no_features=False,
+    ).fit(
+        frame,
+        target_col="target",
+        partition_col="partition",
+        binning_summary=_summary({"score": 0.50}),
+        woe_column_map={"score": "score__woe"},
+    )
+
+    assert selector.selection_table_.iloc[0]["reason"] == "high_iv"
+    assert selector.selected_features_ == selected
+
+
 def test_detail_de_seleccion_va_con_seis_significativos() -> None:
     """El ``detail`` se lee en el informe: seis significativos, no la mantisa cruda del float.
 
@@ -1261,7 +1296,20 @@ def test_helpers_de_auditoria_y_normalizacion() -> None:
         state.detail = "detalle"
         assert selector_module._audit_value(state) == value
 
+    assert selector_module._csi_band(0.10, stable_threshold=0.10, review_threshold=0.25) == "review"
     assert selector_module._csi_band(0.20, stable_threshold=0.10, review_threshold=0.25) == "review"
+    assert (
+        selector_module._csi_band(0.25, stable_threshold=0.10, review_threshold=0.25) == "redevelop"
+    )
+    states = {"x": selector_module.CandidateState(feature="x", woe_column="x__woe", iv=0.2)}
+    selector_module._apply_stability_action(
+        states,
+        pd.DataFrame({"feature": ["x"], "csi": [0.25]}),
+        action="exclude",
+        review_threshold=0.25,
+    )
+    assert states["x"].reason == "high_stability"
+    assert not states["x"].included
     assert (
         selector_module._psi(
             pd.Series(dtype="float64"),

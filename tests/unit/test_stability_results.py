@@ -40,8 +40,8 @@ def test_stability_metric_record_golden_estados_y_normalizacion() -> None:
         value=-0.0,
         stable_threshold=-0.0,
         review_threshold=0.25,
-        band="stable",
-        action="none",
+        band="review",
+        action="vigilar",
     )
 
     assert record.model_dump(mode="json") == {
@@ -51,8 +51,8 @@ def test_stability_metric_record_golden_estados_y_normalizacion() -> None:
         "value": 0.0,
         "stable_threshold": 0.0,
         "review_threshold": 0.25,
-        "band": "stable",
-        "action": "none",
+        "band": "review",
+        "action": "vigilar",
     }
     assert math.copysign(1.0, record.value) == 1.0
 
@@ -85,10 +85,31 @@ def test_stability_metric_record_golden_estados_y_normalizacion() -> None:
         _metric_record(stable_threshold=math.inf)
     with pytest.raises(ValidationError, match="acción de la banda"):
         _metric_record(band="review", action="none")
+    with pytest.raises(ValidationError, match="derivarse del value"):
+        _metric_record(value=0.12, band="stable", action="none")
+    with pytest.raises(ValidationError, match="estrictamente menor"):
+        _metric_record(stable_threshold=0.10, review_threshold=0.10)
     with pytest.raises(ValidationError, match="not_evaluable no debe publicar"):
         _metric_record(band="not_evaluable", action="none", value=0.30)
     with pytest.raises(ValidationError, match="evaluables deben publicar"):
         _metric_record(value=math.nan)
+
+
+def test_stability_metric_record_aplica_fronteras_semiabiertas_exactas() -> None:
+    """Los valores iguales a cada umbral entran en la banda superior, como el motor."""
+    stable_boundary = _metric_record(value=0.10, band="review", action="vigilar")
+    review_boundary = _metric_record(
+        value=0.25,
+        band="redevelop",
+        action="redesarrollar",
+    )
+
+    assert stable_boundary.band == "review"
+    assert review_boundary.band == "redevelop"
+    with pytest.raises(ValidationError, match="derivarse del value"):
+        _metric_record(value=0.10, band="stable", action="none")
+    with pytest.raises(ValidationError, match="derivarse del value"):
+        _metric_record(value=0.25, band="review", action="vigilar")
 
 
 def test_psi_record_golden_invariantes_y_float_finito() -> None:
@@ -242,10 +263,12 @@ def test_stability_card_section_golden_copias_metric_sections_y_no_finitos() -> 
         }
     }
     max_psi = {"dev_vs_oot": math.inf, "dev_vs_holdout": -0.0}
-    bands = {"dev_vs_oot": "review", "dev_vs_holdout": "stable"}
+    bands = {"dev_vs_oot": "not_evaluable", "dev_vs_holdout": "stable"}
+    psi_metrics = {"dev_vs_oot": None, "dev_vs_holdout": "score_psi"}
     versions = {"sklearn": "1.7.2", "pandas": "2.3.3", "numpy": "2.4.6"}
     card = _card(
         max_psi_by_comparison=max_psi,
+        psi_metric_by_comparison=psi_metrics,
         bands_by_comparison=bands,
         dependency_versions=versions,
         metric_sections=metric_sections,
@@ -260,7 +283,8 @@ def test_stability_card_section_golden_copias_metric_sections_y_no_finitos() -> 
         "stable_threshold": 0.10,
         "review_threshold": 0.25,
         "max_psi_by_comparison": {"dev_vs_holdout": 0.0, "dev_vs_oot": None},
-        "bands_by_comparison": {"dev_vs_holdout": "stable", "dev_vs_oot": "review"},
+        "psi_metric_by_comparison": {"dev_vs_holdout": "score_psi", "dev_vs_oot": None},
+        "bands_by_comparison": {"dev_vs_holdout": "stable", "dev_vs_oot": "not_evaluable"},
         "worst_csi_feature": "ingreso_mensual",
         "worst_csi_value": 0.0,
         "dependency_versions": {"numpy": "2.4.6", "pandas": "2.3.3", "sklearn": "1.7.2"},
@@ -279,15 +303,25 @@ def test_stability_card_section_golden_copias_metric_sections_y_no_finitos() -> 
 
     max_psi["dev_vs_holdout"] = 99.0
     bands["dev_vs_holdout"] = "mutado"
+    psi_metrics["dev_vs_holdout"] = "pd_psi"
     versions["pandas"] = "mutado"
     metric_sections["diagnostico"]["delta"] = 99.0
     card.max_psi_by_comparison["dev_vs_holdout"] = 88.0
     card.bands_by_comparison["dev_vs_holdout"] = "mutado"
+    assert card.psi_metric_by_comparison is not None
+    card.psi_metric_by_comparison["dev_vs_holdout"] = "pd_psi"
     card.dependency_versions["pandas"] = "mutado"
     card.metric_sections["diagnostico"]["delta"] = 88.0
 
     assert card.max_psi_by_comparison == {"dev_vs_holdout": 0.0, "dev_vs_oot": None}
-    assert card.bands_by_comparison == {"dev_vs_holdout": "stable", "dev_vs_oot": "review"}
+    assert card.psi_metric_by_comparison == {
+        "dev_vs_holdout": "score_psi",
+        "dev_vs_oot": None,
+    }
+    assert card.bands_by_comparison == {
+        "dev_vs_holdout": "stable",
+        "dev_vs_oot": "not_evaluable",
+    }
     assert card.dependency_versions == {
         "numpy": "2.4.6",
         "pandas": "2.3.3",
@@ -303,9 +337,12 @@ def test_stability_card_section_golden_copias_metric_sections_y_no_finitos() -> 
 
 def test_stability_card_section_valida_shape_y_defaults() -> None:
     assert _card(metric_sections=None).metric_sections == {}
+    assert _card(psi_metric_by_comparison=None).psi_metric_by_comparison is None
     assert _card(worst_csi_feature=None, worst_csi_value=None).worst_csi_feature is None
     assert _card(
-        max_psi_by_comparison={"dev_vs_holdout": True, "dev_vs_oot": 0.19}
+        max_psi_by_comparison={"dev_vs_holdout": True, "dev_vs_oot": 0.19},
+        psi_metric_by_comparison={"dev_vs_holdout": None, "dev_vs_oot": "score_psi"},
+        bands_by_comparison={"dev_vs_holdout": "not_evaluable", "dev_vs_oot": "review"},
     ).max_psi_by_comparison == {
         "dev_vs_holdout": None,
         "dev_vs_oot": 0.19,
@@ -325,8 +362,17 @@ def test_stability_card_section_valida_shape_y_defaults() -> None:
         _card(bands_by_comparison={"dev_vs_holdout": "stable"})
     with pytest.raises(ValidationError, match="max_psi_by_comparison"):
         _card(max_psi_by_comparison={"dev_vs_holdout": 0.08})
+    with pytest.raises(ValidationError, match="psi_metric_by_comparison"):
+        _card(psi_metric_by_comparison={"dev_vs_holdout": "score_psi"})
+    with pytest.raises(ValidationError, match="mismo valor"):
+        _card(
+            max_psi_by_comparison={"dev_vs_holdout": 0.12, "dev_vs_oot": 0.19},
+            bands_by_comparison={"dev_vs_holdout": "stable", "dev_vs_oot": "review"},
+        )
     with pytest.raises(ValidationError, match="review_threshold"):
         _card(stable_threshold=0.30)
+    with pytest.raises(ValidationError, match="estrictamente menor"):
+        _card(stable_threshold=0.25, review_threshold=0.25)
     with pytest.raises(ValidationError, match="números finitos"):
         _card(stable_threshold=math.nan)
     with pytest.raises(ValidationError, match="worst_csi"):
@@ -453,6 +499,26 @@ def test_helpers_resumen_cubren_maximos_y_peor_csi() -> None:
             metric="pd_psi", comparison="c", value=None, band="not_evaluable", action="none"
         ),
         _metric_record(
+            metric="score_psi", comparison="d", value=0.20, band="review", action="vigilar"
+        ),
+        _metric_record(
+            metric="pd_psi", comparison="d", value=0.20, band="review", action="vigilar"
+        ),
+        _metric_record(
+            metric="score_psi",
+            comparison="e",
+            value=None,
+            band="not_evaluable",
+            action="none",
+        ),
+        _metric_record(
+            metric="pd_psi",
+            comparison="e",
+            value=None,
+            band="not_evaluable",
+            action="none",
+        ),
+        _metric_record(
             metric="csi",
             comparison="a",
             feature="edad",
@@ -469,7 +535,12 @@ def test_helpers_resumen_cubren_maximos_y_peor_csi() -> None:
             action="redesarrollar",
         ),
         _metric_record(
-            metric="csi", comparison="a", feature="deuda", value=0.10, band="stable", action="none"
+            metric="csi",
+            comparison="a",
+            feature="deuda",
+            value=0.10,
+            band="review",
+            action="vigilar",
         ),
         _metric_record(
             metric="csi",
@@ -489,7 +560,29 @@ def test_helpers_resumen_cubren_maximos_y_peor_csi() -> None:
         ),
     )
 
-    assert _max_psi_by_comparison(records) == {"a": 0.12, "b": 0.30, "c": 0.07}
+    assert _max_psi_by_comparison(records) == {
+        "a": 0.12,
+        "b": 0.30,
+        "c": 0.07,
+        "d": 0.20,
+        "e": None,
+    }
+    assert stability_results._bands_by_comparison(records) == {
+        "a": "review",
+        "b": "redevelop",
+        "c": "stable",
+        "d": "review",
+        "e": "not_evaluable",
+    }
+    assert stability_results._psi_metric_by_comparison(records) == {
+        "a": "pd_psi",
+        "b": "pd_psi",
+        "c": "score_psi",
+        "d": "score_psi",
+        "e": None,
+    }
+    reversed_records = tuple(reversed(records))
+    assert stability_results._psi_metric_by_comparison(reversed_records)["d"] == "score_psi"
     assert _worst_csi(records) == ("ingreso", 0.35)
     assert _worst_csi(()) == (None, None)
 
@@ -605,6 +698,10 @@ def _card(**updates: Any) -> StabilityCardSection:
         "stable_threshold": 0.10,
         "review_threshold": 0.25,
         "max_psi_by_comparison": {"dev_vs_holdout": 0.083, "dev_vs_oot": 0.190},
+        "psi_metric_by_comparison": {
+            "dev_vs_holdout": "score_psi",
+            "dev_vs_oot": "score_psi",
+        },
         "bands_by_comparison": {"dev_vs_holdout": "stable", "dev_vs_oot": "review"},
         "worst_csi_feature": "ingreso_mensual",
         "worst_csi_value": 0.142,

@@ -209,7 +209,7 @@ def _augment_with_rich_artifacts(study: Study, payload: dict[str, Any]) -> None:
             study, "provisioning_cmf", "summary"
         )
     if isinstance(payload["provisioning_internal"], dict):
-        # Desglose del método interno por grupo homogéneo (10 bandas de score): PD·LGD·Exposición.
+        # Desglose efectivo por grupo: bandas, segmentos o grupos provistos; PD·LGD o tasa directa.
         payload["provisioning_internal"]["groups"] = _domain_records(
             study, "provisioning_internal", "groups"
         )

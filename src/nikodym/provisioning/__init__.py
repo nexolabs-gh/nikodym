@@ -2,7 +2,8 @@
 
 Son **motores separados**: :mod:`nikodym.provisioning.cmf` (método **estándar** del B-1,
 ``PE = PI·PDI·Exposición``), :mod:`nikodym.provisioning.internal` (método **interno** del B-1 §3,
-``Exposición · PD · LGD`` por grupo homogéneo, SDD-28) e :mod:`nikodym.provisioning.ifrs9` (ECL).
+    ``Exposición · tasa de pérdida`` por grupo homogéneo —PD · LGD o tasa directa—, SDD-28) e
+    :mod:`nikodym.provisioning.ifrs9` (ECL).
 Esta capa fina (SDD-17) compara **dos fuentes configurables** y aplica la regla declarada. La regla
 que exige la norma chilena —Cap. B-1, hoja 10-11 (Circular N° 2.346)— es ``max(estándar, interno)``
 **por entidad**, o el interno directamente si está evaluado y no objetado (``rule='use_internal'``);

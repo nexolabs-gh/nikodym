@@ -308,6 +308,9 @@ export type StabilityBand = "stable" | "review" | "redevelop" | "not_evaluable"
 /** Acción auditada mapeada 1:1 desde la banda (`StabilityAction` del backend). */
 export type StabilityAction = "none" | "vigilar" | "redesarrollar"
 
+/** Magnitud que determina el peor resumen PSI por comparación. */
+export type PsiSummaryMetric = "score_psi" | "pd_psi"
+
 /** Métrica de estabilidad (`StabilityMetricName`). Las tres primeras son PSI/CSI. */
 export type StabilityMetricName = "score_psi" | "pd_psi" | "csi" | "temporal_score"
 
@@ -360,8 +363,10 @@ export interface StabilityResponse {
   review_threshold: number
   /** PSI máximo por comparación (puede venir nulo por comparación no evaluable). */
   max_psi_by_comparison: Record<string, number | null>
+  /** Identidad del PSI que determina el máximo; ausente en cards legacy 1.x. */
+  psi_metric_by_comparison?: Record<string, PsiSummaryMetric | null> | null
   /** Banda peor-caso por comparación. */
-  bands_by_comparison: Record<string, string>
+  bands_by_comparison: Record<string, StabilityBand>
   worst_csi_feature: string | null
   worst_csi_value: number | null
   dependency_versions?: Record<string, string>
@@ -488,10 +493,10 @@ export interface CmfProvisioningResult {
 }
 
 /**
- * Fila por grupo homogéneo del método interno (`provisioning_internal.groups`, 10 bandas de
- * score con `grouping:"score_band"`). Es la tabla que un validador pide: PD·LGD·Exposición por
- * grupo. `pd_group`/`lgd_group`/`expected_loss_rate` son PROPORCIONES [0,1]; `provision_amount`
- * y `total_exposure` en CLP.
+ * Fila por grupo homogéneo del método interno (`provisioning_internal.groups`). Puede representar
+ * bandas efectivas de score, segmentos o grupos provistos. `pd_group`/`lgd_group`/
+ * `expected_loss_rate` son PROPORCIONES [0,1]; `lgd_group` es nulo con tasa directa;
+ * `provision_amount` y `total_exposure` son montos.
  */
 export interface InternalGroupRow {
   group_id: string
@@ -499,16 +504,16 @@ export interface InternalGroupRow {
   n_operations: number
   total_exposure: number
   pd_group: number
-  lgd_group: number
+  lgd_group: number | null
   expected_loss_rate: number
   provision_amount: number
   warning_codes: string[]
 }
 
 /**
- * Card del método interno (`provisioning_internal`): provisión = Exposición · PD · LGD por grupo
- * homogéneo (B-1 §3). `total_internal_provision` es la provisión interna total (CLP);
- * `total_exposure` las colocaciones (CLP). El desglose por grupo vive en `groups`.
+ * Card del método interno (`provisioning_internal`): pérdida descompuesta en PD/LGD o tasa directa,
+ * según `method`. `total_internal_provision` es la provisión total; `total_exposure`, la exposición.
+ * El desglose efectivo por grupo vive en `groups`.
  */
 export interface InternalProvisioningResult {
   as_of_date: string
@@ -521,7 +526,7 @@ export interface InternalProvisioningResult {
   total_internal_provision: number
   falta_dato?: unknown[]
   metric_sections?: Record<string, unknown>
-  /** Desglose por grupo homogéneo (10 bandas); ausente/`null` si el frame no se emitió. */
+  /** Desglose por grupo homogéneo efectivo; ausente/`null` si el frame no se emitió. */
   groups?: InternalGroupRow[]
 }
 

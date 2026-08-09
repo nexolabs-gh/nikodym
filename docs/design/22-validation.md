@@ -127,7 +127,7 @@ con `p_i` la PD predicha e `y_i ∈ {0,1}` el resultado. Rango `[0,1]`, menor es
 
 ### 3.3 Estabilidad (reúso de SDD-11)
 
-`PSI = Σ_b (actual_b − expected_b)·ln(actual_b/expected_b)` con bandas default `<0.10` estable / `0.10–0.25` vigilar / `>0.25` redesarrollar está **definido y publicado por SDD-11 §3** en `("stability","psi_table")`. SDD-22 lo **consume** como verdicto de estabilidad; no lo reimplementa. Fuente: ESPEC §5.2; SDD-11 §3.
+`PSI = Σ_b (actual_b − expected_b)·ln(actual_b/expected_b)` con bandas default `<0.10` estable / `0.10≤PSI<0.25` vigilar / `≥0.25` redesarrollar está **definido y publicado por SDD-11 §3** en `("stability","psi_table")`. SDD-22 lo **consume** como verdicto de estabilidad; no lo reimplementa. Fuente: ESPEC §5.2; SDD-11 §3.
 
 ### 3.4 Backtesting realizado-vs-estimado
 
@@ -349,8 +349,8 @@ class CalibrationValidationConfig(NikodymBaseConfig):
 
 class StabilityValidationConfig(NikodymBaseConfig):
     consume_stability: bool = Field(True, title="Consumir stability_metrics de SDD-11")
-    psi_stable_threshold: float = Field(0.10, ge=0.0, title="PSI estable hasta")
-    psi_review_threshold: float = Field(0.25, ge=0.0, title="PSI vigilar hasta")
+    psi_stable_threshold: float = Field(0.10, ge=0.0, title="Umbral PSI de revisión")
+    psi_review_threshold: float = Field(0.25, ge=0.0, title="Umbral PSI de redesarrollo")
 
 class BacktestingValidationConfig(NikodymBaseConfig):
     enabled: bool = Field(False, title="Ejecutar backtesting IFRS 9")

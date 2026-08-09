@@ -63,6 +63,11 @@ from nikodym.ui.runtime import TOKEN_HEADER, build_runtime
 from nikodym.ui.server import create_app
 from nikodym.ui.settings import UiConfig
 
+try:  # ejecución directa: ``scripts`` es sys.path[0]
+    from verify_demo_prose_artifacts import verify_demo_family
+except ModuleNotFoundError:  # ``run_path`` desde tests: la raíz del repo está en sys.path
+    from scripts.verify_demo_prose_artifacts import verify_demo_family
+
 if TYPE_CHECKING:
     from starlette.testclient import TestClient
 
@@ -379,6 +384,7 @@ def verify_artifacts() -> None:
             f"{nombre} aún declara las provisiones como fase posterior ({m.group(0)!r}): "
             "la corrida F3 con capítulo no debe negarlas (G5)."
         )
+    verify_demo_family("f3")
 
 
 def main() -> None:

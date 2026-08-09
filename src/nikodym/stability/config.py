@@ -131,15 +131,18 @@ class StabilityConfig(NikodymBaseConfig):
     psi_stable_threshold: float = Field(
         default=0.10,
         ge=0.0,
-        title="PSI estable hasta",
-        description="Umbral bajo el cual el PSI se considera estable.",
+        title="Umbral PSI de revisión",
+        description=(
+            "Por debajo de este valor el PSI se considera estable; al alcanzarlo o superarlo "
+            "inicia la banda de revisión."
+        ),
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Métricas", "ui_order": 3},
     )
     psi_review_threshold: float = Field(
         default=0.25,
         ge=0.0,
-        title="PSI vigilar hasta",
-        description="Umbral sobre el cual el PSI gatilla revisión/redesarrollo.",
+        title="Umbral PSI de redesarrollo",
+        description="Al alcanzar o superar este valor, el PSI gatilla redesarrollo.",
         json_schema_extra={"ui_widget": "number_input", "ui_group": "Métricas", "ui_order": 4},
     )
     smoothing: float = Field(

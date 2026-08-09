@@ -89,6 +89,10 @@ def test_integracion_psi_pd_csi_goldens_card_y_no_muta() -> None:
     assert card.bands_by_comparison == {"dev_vs_holdout": "redevelop", "dev_vs_oot": "stable"}
     assert card.max_psi_by_comparison["dev_vs_holdout"] == pytest.approx(0.41588831)
     assert card.max_psi_by_comparison["dev_vs_oot"] == pytest.approx(0.0)
+    assert card.psi_metric_by_comparison == {
+        "dev_vs_holdout": "score_psi",
+        "dev_vs_oot": "score_psi",
+    }
     assert card.worst_csi_feature == "f2__points"
     assert card.worst_csi_value == pytest.approx(0.87888983)
     assert {"numpy", "pandas", "pandera"} <= set(card.dependency_versions)
@@ -170,6 +174,36 @@ def test_smoothing_publica_proporcion_cero_suavizada() -> None:
     assert second_bin["expected_count"] == 5
     assert second_bin["actual_pct"] == pytest.approx(1e-6)
     assert second_bin["expected_pct"] == pytest.approx(0.5)
+
+
+def test_card_psi_elige_pd_si_es_peor_y_conserva_su_banda() -> None:
+    """E2E: el resumen no puede tomar el valor de PD y la banda del score."""
+    evaluator = StabilityEvaluator(
+        psi_bins=2,
+        comparisons=("dev_vs_holdout",),
+        include_pd_stability=True,
+        temporal_axis="none",
+    )
+
+    result = evaluator.evaluate(
+        _two_partition_frame(
+            [float(value) for value in range(1, 11)],
+            holdout_pd=[0.05] * 10,
+        ),
+        score_column="score",
+        pd_column="pd_calibrated",
+        partition_column="partition",
+        feature_point_columns=(),
+    )
+
+    metrics = _by_key(result.metric_records)
+    score = metrics[("score_psi", "dev_vs_holdout", "score")]
+    pd_metric = metrics[("pd_psi", "dev_vs_holdout", "pd_calibrated")]
+    assert score.value == pytest.approx(0.0)
+    assert pd_metric.value is not None and pd_metric.value > 0.25
+    assert result.card.max_psi_by_comparison["dev_vs_holdout"] == pd_metric.value
+    assert result.card.psi_metric_by_comparison == {"dev_vs_holdout": "pd_psi"}
+    assert result.card.bands_by_comparison == {"dev_vs_holdout": "redevelop"}
 
 
 def test_anti_leakage_recalibrar_no_mueve_psi_del_score() -> None:
@@ -430,6 +464,8 @@ def test_oot_ausente_marca_not_evaluable_sin_bloquear_holdout() -> None:
     assert metrics[("score_psi", "dev_vs_oot", "score")].value is None
     assert result.card.bands_by_comparison["dev_vs_oot"] == "not_evaluable"
     assert result.card.max_psi_by_comparison["dev_vs_oot"] is None
+    assert result.card.psi_metric_by_comparison is not None
+    assert result.card.psi_metric_by_comparison["dev_vs_oot"] is None
 
 
 def test_desarrollo_ausente_todo_not_evaluable() -> None:
@@ -464,6 +500,8 @@ def test_desarrollo_ausente_todo_not_evaluable() -> None:
     assert result.temporal_records == ()
     assert result.card.worst_csi_feature is None
     assert all(value is None for value in result.card.max_psi_by_comparison.values())
+    assert result.card.psi_metric_by_comparison is not None
+    assert all(metric is None for metric in result.card.psi_metric_by_comparison.values())
 
 
 def test_from_config_clone_y_validacion_runtime() -> None:
@@ -632,7 +670,9 @@ def test_reproducibilidad_shuffle_determinista() -> None:
 
 def test_helpers_defensivos(monkeypatch: pytest.MonkeyPatch) -> None:
     assert evaluator_module._band(0.05, 0.10, 0.25) == "stable"
+    assert evaluator_module._band(0.10, 0.10, 0.25) == "review"
     assert evaluator_module._band(0.15, 0.10, 0.25) == "review"
+    assert evaluator_module._band(0.25, 0.10, 0.25) == "redevelop"
     assert evaluator_module._band(0.30, 0.10, 0.25) == "redevelop"
     assert evaluator_module._discrete_label(0.0) == "pts=0.0"
     assert evaluator_module._normalize_float(-0.0) == 0.0

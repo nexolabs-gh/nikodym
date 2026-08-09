@@ -571,14 +571,14 @@ def render_stability_chart(
         linestyle="--",
         color=_STABLE_LINE_COLOR,
         linewidth=1.0,
-        label=f"Estable ≤ {stable_threshold:.2f}",
+        label=f"Revisión ≥ {stable_threshold:.2f}",
     )
     axes.axvline(
         review_threshold,
         linestyle="--",
         color=_REVIEW_LINE_COLOR,
         linewidth=1.0,
-        label=f"Revisar ≤ {review_threshold:.2f}",
+        label=f"Redesarrollo ≥ {review_threshold:.2f}",
     )
 
     axes.set_yticks(list(range(n_bars)))
