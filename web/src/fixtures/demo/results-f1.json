@@ -1,24 +1,24 @@
 {
  "status": "done",
- "run_id": "50316ddb75e54e039962b34b9cbb8501",
+ "run_id": "372129570bdd4f8bb8243ed1b50ccf1f",
  "error": null,
  "model_card": null,
  "lineage": {
-  "git_sha": "d2f2b87116f07917191b396533c2da855ba8ff6c",
+  "git_sha": "6f1936374b2e6e6fe33e3d4a9ed1c5aea2a0e9bc",
   "git_dirty": false,
   "data_hash": "74c5d9ddeca8ff71853623d20ace015d0788564549339d61bfb66f24dfadfcc8",
   "config_hash": "ec10eb43314cad2e369584c7dabe4bbf2456391e255a2b69218d405bba2a448e",
   "root_seed": 20240706,
   "uv_lock_hash": null,
   "library_versions": {
-   "nikodym": "1.10.0",
+   "nikodym": "1.11.0",
    "numpy": "2.4.6",
    "pandas": "2.3.3",
    "pydantic": "2.13.4",
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-08-03T00:05:02.231202Z",
+  "created_at": "2026-08-09T18:45:47.344618Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
@@ -8568,6 +8568,10 @@
   "max_psi_by_comparison": {
    "dev_vs_holdout": 0.013181930579331572,
    "dev_vs_oot": 0.006791904590247704
+  },
+  "psi_metric_by_comparison": {
+   "dev_vs_holdout": "pd_psi",
+   "dev_vs_oot": "score_psi"
   },
   "bands_by_comparison": {
    "dev_vs_holdout": "stable",

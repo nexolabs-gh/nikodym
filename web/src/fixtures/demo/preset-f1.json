@@ -411,6 +411,7 @@
    "output_dir": "reports",
    "basename": "scorecard_report",
    "language": "es",
+   "currency": null,
    "formats": [
     "html",
     "pdf",
