@@ -169,7 +169,7 @@ def _qmd_text(path: Path) -> str:
 
 def _normalize(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value).replace("\u00a0", " ")
-    return " ".join(normalized.split())
+    return " ".join(normalized.split()).casefold()
 
 
 def main() -> None:
