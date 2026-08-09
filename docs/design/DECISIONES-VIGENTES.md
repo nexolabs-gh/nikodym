@@ -29,6 +29,35 @@
 | D-EXI-1…7 | Aprobada e implementada | [`_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md`](_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md) |
 | D-FTE-1…5 | Aprobada e implementada | [`_ENMIENDA-COTEJO-FUENTES.md`](_ENMIENDA-COTEJO-FUENTES.md) |
 | D-VIS-1…7 | Aprobada; D-VIS-1…5/7 implementadas; completitud D-VIS-6 abierta | [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md) |
+| D-RDY-ABA-1…6 | Aprobada; W0 autorizado; W1–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
+
+## D-RDY — readiness integral
+
+Cami aprobó expresamente el 2026-08-09 SDD-30, D-RDY-ABA-1…6 y el siguiente bloque indivisible de
+decisiones: **H1=A, H2=A, H3=A, H4=A, H5=A, H6=A, H7=A, H8=A, H9=B, H10=A y H11=A**.
+
+Reglas vigentes:
+
+- la readiness se demuestra por flujo y la puerta global es acumulativa; un módulo aislado o un
+  `main` verde no bastan;
+- D-RDY-ABA-1…6 enmiendan D-ABA-4/5/6: `sin_efecto` deja de ser seleccionable, `disponible` y las
+  opciones condicionadas exigen rama real más `effect_oracle`, `no_implementada` permanece visible
+  y deshabilitada, y los aliases F1 compatibles salen del selector con deprecación durante 1.x;
+- H1/H2 fijan bundle abierto y seguro y tratamiento fail-closed sin WoE inventado; H3 redondea la
+  ECL final por operación; H4 conserva perfil EAD provisto más identidad de movimientos; H5 exige
+  fuentes LGD finales mutuamente excluyentes; H6 rechaza pesos de escenario cero;
+- H7 incluye roll-rate/vintage sólo como diagnósticos de PD temporal y exige addendum metodológico
+  antes de código; H8 excluye `PortfolioStress` de la readiness inicial;
+- H9 fija `S2-equipo` como envelope objetivo; un baseline rojo cuantifica la brecha y no rebaja el
+  target en silencio;
+- H10 mantiene engine/batch síncronos y exige jobs UI al cruzar el umbral que mida W0; H11 exige
+  paridad semántica y constraints visuales propios de HTML/PDF/DOCX;
+- las oleadas se ejecutan en orden W0→W8. W0 sólo mide superficies/proxies actuales, registra
+  `no_medible` y congela el baseline antes de cualquier optimización o capacidad W1;
+- PyPI y recaptura de demo conservan sus OK específicos; la aprobación de SDD-30 no los hereda.
+
+Fuente contractual y matriz de flujos:
+[`30-readiness-integral.md`](30-readiness-integral.md).
 
 ## D-JUR — normativa local como evidencia
 

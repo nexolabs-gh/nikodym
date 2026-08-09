@@ -1,9 +1,9 @@
 # SDD-30 — Readiness integral de producto
 
-> **Estado: EN REVISIÓN.** La dirección del programa fue autorizada por Cami el 2026-08-09, pero
-> este contrato **todavía no está aprobado**. No autoriza implementar código de producto, publicar
-> PyPI ni recapturar la demo. La implementación sólo puede comenzar después de un OK explícito de
-> Cami sobre este SDD y sobre las decisiones humanas de §12.
+> **Estado: APROBADO.** Cami aprobó expresamente el 2026-08-09 este SDD,
+> **D-RDY-ABA-1…6** y las decisiones H1=A, H2=A, H3=A, H4=A, H5=A, H6=A, H7=A, H8=A, H9=B,
+> H10=A y H11=A. La aprobación habilita las oleadas en el orden de §7.5; no autoriza por sí sola
+> publicar PyPI ni recapturar la demo, que conservan sus OK específicos.
 >
 > **Identificación.** El índice conserva numeración estable y SDD-28 reservó el número 29 para el
 > CLI. Por eso el siguiente identificador disponible es **SDD-30**; el 29 no se reutiliza.
@@ -13,8 +13,8 @@
 | **SDD** | 30 |
 | **Módulo** | Contrato transversal de `nikodym` — no crea un paquete `readiness` |
 | **Fase** | F0–F8, cierre transversal de producto |
-| **Tanda de producción** | T8 propuesta, por oleadas (§7.5) |
-| **Estado** | En revisión — requiere aprobación explícita de Cami |
+| **Tanda de producción** | T8 aprobada, por oleadas (§7.5) |
+| **Estado** | Aprobado por Cami el 2026-08-09 |
 | **Depende de** | SDD-01/02/06/08/09/10/11/16/18/19/20/21/23/25/26/28 y contratos vigentes en `DECISIONES-VIGENTES.md` |
 | **Lo consumen** | Todos los flujos públicos, CI/release, UI, landing, demo, docs e informes |
 | **Autor / Fecha** | Codex, con censos independientes y revisión adversarial / 2026-08-09 |
@@ -48,13 +48,13 @@ provisionar, estresar, auditar y comunicar resultados.
   inferencia, lineage de entorno, escala, semántica de tablas y promoción exacta de distribución;
 - clasifica cada brecha como defecto, integración pendiente, capacidad deliberadamente no
   soportada o decisión humana;
-- enmienda, si se aprueba, la semántica de opciones de D-ABA para que toda opción seleccionable
+- enmienda la semántica de opciones de D-ABA para que toda opción seleccionable
   ejecute una rama real con efecto verificable;
 - ordena la implementación en oleadas dependientes sin reabrir decisiones ya aprobadas.
 
 **Límites explícitos.** Este SDD:
 
-- no implementa ninguna capacidad y no autoriza programarla antes de su aprobación;
+- no implementa por sí mismo ninguna capacidad; la ejecución respeta el orden de oleadas de §7.5;
 - no define covariables WoE para LGD: la LGD modelada consume el frame crudo, conforme a D-LGD;
 - no modifica CMF ni sus tests, y no mezcla el motor CMF con IFRS 9;
 - no resuelve D-VIS-6 ni el hallazgo metodológico de gains;
@@ -736,9 +736,9 @@ distribución, clean-room y artefactos renderizados. Los controles negativos no 
 
 ## 12. Decisiones abiertas, enmienda D-ABA y riesgos
 
-### 12.1 Enmienda propuesta a D-ABA
+### 12.1 Enmienda aprobada a D-ABA
 
-Si Cami aprueba este SDD, **D-RDY-ABA-1…6 enmiendan D-ABA-4/5/6**:
+Desde la aprobación expresa de Cami del 2026-08-09, **D-RDY-ABA-1…6 enmiendan D-ABA-4/5/6**:
 
 1. **D-RDY-ABA-1 — `sin_efecto` deja de ser seleccionable.** El estado desaparece del contrato de
    opciones. Una opción se implementa, se deshabilita como `no_implementada` o sale del selector.
@@ -759,7 +759,7 @@ Si Cami aprueba este SDD, **D-RDY-ABA-1…6 enmiendan D-ABA-4/5/6**:
 
 Disposición contractual de los siete hallazgos medidos:
 
-| Hallazgo | Disposición propuesta |
+| Hallazgo | Disposición aprobada |
 |---|---|
 | `provisioning_ifrs9.ecl.rounding=currency_2dp` | Implementar efecto real según H3 y gate de reconciliación. |
 | `provisioning_ifrs9.ecl.rounding=integer_currency` | Implementar efecto real según H3 y gate de reconciliación. |
@@ -773,9 +773,10 @@ Disposición contractual de los siete hallazgos medidos:
 seleccionable y conserva un error/deprecación explícitos hasta que una enmienda futura implemente su
 rama. El estado actual “Literal aceptado y luego vetado” no es válido.
 
-### 12.2 Decisiones humanas necesarias
+### 12.2 Decisiones humanas aprobadas
 
-Cada decisión es mutuamente excluyente. La recomendación forma una propuesta ejecutiva única.
+El acta de aprobación fija la alternativa elegida en cada decisión. Se conservan las alternativas
+descartadas para trazabilidad del contrato.
 
 #### H1 — Formato persistible de artefactos
 
@@ -934,12 +935,12 @@ exacta. Los nitpicks de familias, README, CR-03 y doble verificación H3 se inte
 **Veredicto final de tercera ronda: APROBABLE, sin hallazgos materiales ni contradicciones nuevas.**
 La revisión fue independiente y no editó el checkout.
 
-### 12.5 Condición de aprobación
+### 12.5 Acta de aprobación
 
-La aprobación debe decir expresamente:
+Cami comunicó expresamente el 2026-08-09:
 
-1. “Apruebo SDD-30 y D-RDY-ABA-1…6”; y
-2. aceptar o sustituir H1–H11.
+> Apruebo SDD-30, D-RDY-ABA-1…6 y las decisiones H1=A, H2=A, H3=A, H4=A, H5=A, H6=A, H7=A,
+> H8=A, H9=B, H10=A y H11=A.
 
-Hasta entonces, el único estado válido es **diseño en revisión**. No se programa W0 ni ninguna
-capacidad de W1–W8, no se publica PyPI y no se recaptura la demo.
+La aprobación habilita **W0** y, sólo después de cerrar sus gates y dependencias, las oleadas
+siguientes. No autoriza saltar una dependencia, publicar PyPI ni recapturar la demo.
