@@ -3,8 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 import runpy
+import sys
 from pathlib import Path
+from types import ModuleType
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -26,7 +29,11 @@ def _evidence() -> dict[str, Any]:
 
 
 def _harness() -> dict[str, Any]:
-    return runpy.run_path(str(SCRIPT), run_name="readiness_w0_test")
+    # El arnés medido usa RUSAGE_SELF en macOS/Linux. Estos tests sólo cargan y ejercen sus helpers
+    # puros; Windows no tiene `resource`, por lo que se sustituye únicamente durante esa carga.
+    modules = {"resource": ModuleType("resource")} if sys.platform == "win32" else {}
+    with patch.dict(sys.modules, modules):
+        return runpy.run_path(str(SCRIPT), run_name="readiness_w0_test")
 
 
 def test_baseline_w0_congela_fuente_perfiles_y_estados() -> None:
@@ -129,6 +136,14 @@ def test_arnes_w0_no_sobredeclara_medicion_ni_hardware() -> None:
     assert "cumple la RAM nominal" in reason
     assert "no ejecutó el flujo completo" in reason
     assert "no cumple" not in reason
+
+
+def test_helpers_w0_cargan_en_windows_sin_contador_rusage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "platform", "win32")
+
+    assert "_profile_cells" in _harness()
 
 
 def test_arnes_w0_rechaza_sobrescritura_y_arbol_untracked(
