@@ -78,7 +78,9 @@ ROOT_SEED = 20_240_629
 # el texto de esos párrafos.
 # Recalculado al marcar las tablas de 10+ columnas con `table-block--wide` (hoja apaisada en el
 # PDF): el único cambio es esa clase en el `figure`.
-GOLDEN_STEP_HTML_SHA256 = "3d34e99a9066dc1a091758713e0a5d00b12089c199f912755e35b253da5d45d9"
+# Recalculado al normalizar whitespace final del HTML y reemplazar el título fijo de deciles por
+# el título factual de tramos efectivos.
+GOLDEN_STEP_HTML_SHA256 = "53cc041d2e183d11b0f7e5fdb047ac7529ca2cef0b1c2c80d92e820e36cf2342"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
