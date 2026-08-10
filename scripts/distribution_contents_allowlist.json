@@ -53,7 +53,9 @@
       "src/nikodym/ui/static/assets/*.js",
       "src/nikodym/ui/static/assets/*.css",
       "tests/*.py",
-      "tests/**/*.py"
+      "tests/**/*.py",
+      "tests/fixtures/option_effect_oracles.txt",
+      "tests/fixtures/option_surface_ledger.json"
     ],
     "required": [
       "src/nikodym/_build_manifest.json",

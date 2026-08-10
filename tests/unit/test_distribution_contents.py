@@ -580,6 +580,18 @@ def test_sdist_minimo_cumple_b21(tmp_path: Path) -> None:
     _validate(tmp_path, _sdist(tmp_path, files), files, "sdist")
 
 
+def test_sdist_admite_solo_los_registros_de_oraculos(tmp_path: Path) -> None:
+    files = _minimal_sdist() | {
+        "tests/fixtures/option_effect_oracles.txt": b"path\tvalue\tdispatch\teffect\n",
+        "tests/fixtures/option_surface_ledger.json": b"{}\n",
+    }
+    _validate(tmp_path, _sdist(tmp_path, files), files, "sdist")
+
+    rogue = files | {"tests/fixtures/otro_registry.txt": b"no autorizado\n"}
+    with pytest.raises(DistributionContentError, match="Ruta fuera de allowlist"):
+        _validate(tmp_path, _sdist(tmp_path, rogue), rogue, "sdist")
+
+
 def test_sdist_rechaza_symlink_y_fifo(tmp_path: Path) -> None:
     for kind in [tarfile.SYMTYPE, tarfile.FIFOTYPE]:
         path = tmp_path / f"candidate-{kind!r}.tar.gz"

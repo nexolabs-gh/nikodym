@@ -70,7 +70,7 @@ def _reescribir_manifest(
         if canonical
         else json.dumps(manifest, ensure_ascii=False, indent=2)
     )
-    manifest_path.write_text(text + "\n", encoding="utf-8")
+    manifest_path.write_bytes((text + "\n").encode("utf-8"))
 
 
 def test_fit_save_load_apply_equivale_y_no_refitea(tmp_path: Path) -> None:
@@ -78,6 +78,9 @@ def test_fit_save_load_apply_equivale_y_no_refitea(tmp_path: Path) -> None:
     study, frame = _study_y_frame(tmp_path)
     bundle = FittedScorecardBundle.from_study(study)  # type: ignore[arg-type]
     path = bundle.save(tmp_path / "bundle")
+    manifest_bytes = (path / "manifest.json").read_bytes()
+    assert manifest_bytes.endswith(b"\n")
+    assert b"\r\n" not in manifest_bytes
     loaded = FittedScorecardBundle.load(path)
 
     targetless = frame.drop(columns=["bad_flag", "cohort"])
@@ -644,10 +647,19 @@ def test_bundle_con_optbinning_real_en_subproceso_limpio(tmp_path: Path) -> None
     """El artefacto final funciona con OptBinning real, no sólo con el doble unitario."""
     script = tmp_path / "bundle_real.py"
     script.write_text(_REAL_BUNDLE_SCRIPT, encoding="utf-8")
+    subprocess_env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("COV_CORE_") and key != "COVERAGE_PROCESS_START"
+    }
     completed = subprocess.run(
         [sys.executable, str(script), str(tmp_path)],
         cwd=tmp_path,
-        env={**os.environ, "PYTHONHASHSEED": "0", "MPLCONFIGDIR": str(tmp_path / "mpl")},
+        env={
+            **subprocess_env,
+            "PYTHONHASHSEED": "0",
+            "MPLCONFIGDIR": str(tmp_path / "mpl"),
+        },
         capture_output=True,
         text=True,
         check=False,

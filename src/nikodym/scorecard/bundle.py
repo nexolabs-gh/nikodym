@@ -315,7 +315,7 @@ class FittedScorecardBundle:
             self._rules.to_parquet(rules_path, index=False, engine="pyarrow")
             manifest = self.manifest
             manifest["files"] = {"bins.parquet": _hash_file(rules_path)}
-            (tmp / "manifest.json").write_text(_canonical_json(manifest) + "\n", encoding="utf-8")
+            _write_canonical_json_file(tmp / "manifest.json", manifest)
             os.replace(tmp, destination)
         except Exception:
             shutil.rmtree(tmp, ignore_errors=True)
@@ -670,9 +670,7 @@ class FittedScorecardBundle:
                 "chunks": chunks,
                 "apply_lineage": apply_lineage,
             }
-            (tmp / "manifest.json").write_text(
-                _canonical_json(batch_manifest) + "\n", encoding="utf-8"
-            )
+            _write_canonical_json_file(tmp / "manifest.json", batch_manifest)
             os.replace(tmp, destination)
         except Exception:
             connection.close()
@@ -2061,6 +2059,11 @@ def _canonical_json(value: Any) -> str:
         )
     except (TypeError, ValueError) as exc:
         raise ScorecardBundleError(f"Valor no serializable de forma canónica: {exc}.") from exc
+
+
+def _write_canonical_json_file(path: Path, value: Any) -> None:
+    """Escribe JSON canónico con LF físico, independiente de la plataforma."""
+    path.write_bytes((_canonical_json(value) + "\n").encode("utf-8"))
 
 
 def _is_sha256(value: Any) -> bool:

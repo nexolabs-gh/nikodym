@@ -12,3 +12,12 @@
 *.toml text eol=lf
 *.cfg text eol=lf
 *.lock text eol=lf
+
+# Entradas y artefactos frontend firmados byte a byte: el build de paquete debe quedar limpio
+# también en Windows con core.autocrlf=true.
+/web/index.html text eol=lf
+/web/public/*.svg text eol=lf
+/src/nikodym/ui/static/index.html text eol=lf
+/src/nikodym/ui/static/*.svg text eol=lf
+/src/nikodym/ui/static/assets/*.css text eol=lf
+/src/nikodym/ui/static/assets/*.js text eol=lf
