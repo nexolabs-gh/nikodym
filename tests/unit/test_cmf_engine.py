@@ -240,6 +240,27 @@ def test_engine_mapea_pd_breaks_sin_requerir_categoria_en_frame() -> None:
     assert result.records[0].provision_amount == _expected(1_000_000, "45.00", "97.5")
 
 
+def test_engine_provided_cmf_category_consume_categoria_sin_pd_frame() -> None:
+    """La rama provista lee la categoría institucional y no deriva nada desde una PD."""
+    cfg = CmfProvisioningConfig(pd_mapping=CmfPdMappingConfig(method="provided_cmf_category"))
+    frame = pd.DataFrame(
+        [
+            {
+                "cmf_portfolio": "commercial_individual",
+                "cmf_category": "A1",
+                "exposure_amount": 1_000_000,
+            }
+        ],
+        index=["loan"],
+    )
+    result = CmfProvisioningEngine.from_config(cfg).calculate(
+        frame,
+        as_of_date="2026-01-31",
+    )
+    assert result.records[0].cmf_category == "A1"
+    assert result.records[0].pd_source_value is None
+
+
 def test_engine_calcula_leasing_estudiantil_y_pvg_derivado() -> None:
     """Cubre carteras grupales y PVG derivado sin contingentes ni garantías."""
     frame = pd.DataFrame(

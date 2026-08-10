@@ -272,7 +272,7 @@ def test_step_con_formats_docx_escribe_el_word_real(tmp_path: Path) -> None:
     """
     import docx
 
-    cfg = ReportConfig(output_dir=str(tmp_path), formats=("html", "docx"))
+    cfg = ReportConfig(output_dir=str(tmp_path), formats=("docx",))
     study = _study_with_cards(cfg)
 
     result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(20_240_629))
@@ -345,7 +345,7 @@ def test_step_sin_python_docx_emite_el_reporte_igual(
 ) -> None:
     """Pedir ``docx`` sin el extra no rompe la corrida: sale el HTML y ``docx_path`` es None."""
     _bloquear_python_docx(monkeypatch)
-    cfg = ReportConfig(output_dir=str(tmp_path), formats=("html", "docx"))
+    cfg = ReportConfig(output_dir=str(tmp_path), formats=("docx",))
     study = _study_with_cards(cfg)
 
     with pytest.warns(RuntimeWarning, match="falta python-docx"):

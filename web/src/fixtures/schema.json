@@ -36,6 +36,11 @@
     "tuning": null,
     "validation": null
   },
+  "disabled_methodology_values": {
+    "binning.solver": [
+      "cp"
+    ]
+  },
   "effective_defaults": {
     "$defs": {
       "ReproConfig": {
@@ -4102,9 +4107,7 @@
         },
         "formats": {
           "has_default": true,
-          "value": [
-            "html"
-          ]
+          "value": []
         },
         "html": {
           "deterministic_ids": {
@@ -7182,10 +7185,9 @@
           },
           "projection_mode": {
             "default": "homogeneous",
-            "description": "Modo de proyección: homogéneo, matrices por período o Aalen-Johansen.",
+            "description": "Modo de proyección: homogéneo o Aalen-Johansen.",
             "enum": [
               "homogeneous",
-              "period_matrices",
               "aalen_johansen"
             ],
             "title": "Modo de proyección",
@@ -13200,16 +13202,13 @@
                 "ui_widget": "number_input"
               },
               "engine": {
+                "const": "logit",
                 "default": "logit",
-                "description": "Logit por defecto; GLM Binomial queda reservado para pesos/familia GLM.",
-                "enum": [
-                  "logit",
-                  "glm_binomial"
-                ],
+                "description": "Regresión logística estándar con statsmodels Logit.",
                 "title": "Motor statsmodels",
                 "type": "string",
                 "ui_group": "Ajuste",
-                "ui_help": "Motor estadístico del ajuste: 'logit' es la regresión logística estándar (statsmodels Logit); 'glm_binomial' usa GLM con familia binomial y es necesario solo si vas a ponderar observaciones (sample_weight), algo que 'logit' no soporta.",
+                "ui_help": "Motor estadístico del ajuste: 'logit' es la regresión logística estándar (statsmodels Logit).",
                 "ui_order": 1,
                 "ui_widget": "selectbox"
               },
@@ -14388,13 +14387,10 @@
                 "ui_widget": "section"
               },
               "formats": {
-                "default": [
-                  "html"
-                ],
-                "description": "Qué se genera. Documentos del informe: «html» (siempre disponible), «pdf» (exige el motor de PDF instalado en el sistema) y las fuentes editables «md» (Quarto) y «docx» (Word). Y dos exports de datos, «csv» y «xlsx», que entregan COMPLETAS las tablas por observación que no caben en el documento: **quedan como archivos en el directorio de salida**, no entre los botones de descarga. Por defecto sale solo «html».",
+                "default": [],
+                "description": "El HTML se genera siempre. Aquí se agregan «pdf» (exige el motor de PDF instalado en el sistema) y las fuentes editables «md» (Quarto) y «docx» (Word). Y dos exports de datos, «csv» y «xlsx», que entregan COMPLETAS las tablas por observación que no caben en el documento: **quedan como archivos en el directorio de salida**, no entre los botones de descarga.",
                 "items": {
                   "enum": [
-                    "html",
                     "csv",
                     "xlsx",
                     "pdf",
@@ -14904,7 +14900,6 @@
                     "iv",
                     "auc",
                     "ks",
-                    "gini",
                     "name"
                   ],
                   "type": "string"
@@ -14995,7 +14990,7 @@
               },
               "csi_source": {
                 "default": "score_points",
-                "description": "Fuente de las distribuciones del CSI. 'woe_bins' está reservada y aún no implementada: si se elige, la corrida se detiene con error.",
+                "description": "Fuente de las distribuciones del CSI: puntos o bins WoE congelados.",
                 "enum": [
                   "score_points",
                   "woe_bins"

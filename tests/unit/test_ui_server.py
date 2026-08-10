@@ -134,6 +134,7 @@ def test_endpoint_schema(client: TestClient) -> None:
         "defaults",
         "section_order",
         "effective_defaults",
+        "disabled_methodology_values",
     }
     assert cuerpo["section_order"] == list(NikodymConfig.model_fields)
     assert cuerpo["effective_defaults"]["version"] == EFFECTIVE_DEFAULTS_VERSION
@@ -141,6 +142,7 @@ def test_endpoint_schema(client: TestClient) -> None:
         "has_default": True,
         "value": "show",
     }
+    assert cuerpo["disabled_methodology_values"] == {"binning.solver": ["cp"]}
 
 
 def test_endpoint_validate_valido(client: TestClient) -> None:

@@ -659,6 +659,7 @@ function ConfigSectionForm(props: {
   producedColumns?: string[]
   datasetColumnValues?: Record<string, string[]>
   effectiveDefaults?: EffectiveDefaults
+  disabledEnumValues?: Record<string, string[]>
 }) {
   const {
     sectionKey,
@@ -672,6 +673,7 @@ function ConfigSectionForm(props: {
     producedColumns,
     datasetColumnValues,
     effectiveDefaults,
+    disabledEnumValues,
   } = props
   // El mapa de defaults de ESTA sección. Baja con el formulario campo a campo; los dos sitios que
   // `sections` no alcanza —filas de lista y variantes— lo resuelven por `$defs` (FieldRenderer).
@@ -699,6 +701,7 @@ function ConfigSectionForm(props: {
       titledByParent={titledByParent}
       defaultsBase={sectionDefaults}
       effectiveDefaults={effectiveDefaults}
+      disabledEnumValues={disabledEnumValues}
     />
   )
 
@@ -1251,6 +1254,7 @@ export function ConfigTab({
                 producedColumns={producedColumns}
                 datasetColumnValues={datasetColumnValues}
                 effectiveDefaults={catalogo}
+                disabledEnumValues={payload.disabled_methodology_values}
               />
             ) : (
               <p className="rounded-xl border border-dashed border-border bg-card/50 p-5 text-sm text-muted-foreground">

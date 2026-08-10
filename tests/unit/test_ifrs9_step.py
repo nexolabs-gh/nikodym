@@ -292,6 +292,29 @@ def test_survival_y_markov_mismo_ecl() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("source", "pd_marginal"),
+    [("survival", 0.03), ("markov", 0.07), ("forward", 0.11)],
+)
+def test_step_consume_la_term_structure_del_dominio_elegido(
+    source: str, pd_marginal: float
+) -> None:
+    """Oracle 3-way: sólo el artefacto del dominio elegido determina la ECL."""
+    cfg = _cfg(term_structure_source=source)
+    study = Study(NikodymConfig(provisioning_ifrs9=cfg))
+    study.artifacts.set("data", "frame", _frame())
+    term_structure = _ts()
+    term_structure.loc[0, "pd_marginal"] = pd_marginal
+    term_structure.loc[0, "pd_cumulative"] = pd_marginal
+    term_structure.loc[0, "survival"] = 1.0 - pd_marginal
+    study.artifacts.set(source, "term_structure", term_structure)
+
+    result = _execute(study, cfg)
+    expected = 1_000.0 * 0.5 * pd_marginal / 1.1
+    assert result.detail.iloc[0]["ecl_reported"] == pytest.approx(expected, abs=1e-12)
+    assert IfrsProvisioningStep.from_config(cfg).requires[-1] == (source, "term_structure")
+
+
 # ─────────────────────────── CT-1: artefactos requeridos ───────────────────────────
 
 

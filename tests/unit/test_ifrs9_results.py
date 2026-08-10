@@ -87,6 +87,8 @@ def test_ifrs_ecl_record_golden_frozen_extra_y_copias() -> None:
         "ecl_12m",
         "ecl_lifetime",
         "ecl_reported",
+        "ecl_reported_unrounded",
+        "rounding_difference",
         "scenario_weights",
         "pd_basis",
         "warnings",

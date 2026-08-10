@@ -2,7 +2,12 @@
 
 from nikodym.core.exceptions import NikodymError
 
-__all__ = ["ScorecardError", "ScorecardFitError", "ScorecardTransformError"]
+__all__ = [
+    "ScorecardBundleError",
+    "ScorecardError",
+    "ScorecardFitError",
+    "ScorecardTransformError",
+]
 
 
 class ScorecardError(NikodymError):
@@ -15,3 +20,7 @@ class ScorecardFitError(ScorecardError):
 
 class ScorecardTransformError(ScorecardError):
     """Error al transformar variables WoE a puntos y score total."""
+
+
+class ScorecardBundleError(ScorecardError):
+    """Error al construir, verificar o aplicar un bundle público seguro."""

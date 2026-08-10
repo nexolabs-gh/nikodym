@@ -129,6 +129,8 @@ export interface FieldRendererProps {
   defaultsBase?: DefaultsMap
   /** Catálogo completo, sólo para resolver `$defs` en listas y variantes. */
   effectiveDefaults?: EffectiveDefaults
+  /** Valores deshabilitados por path, derivados exclusivamente del catálogo del backend. */
+  disabledEnumValues?: Record<string, string[]>
 }
 
 /** Error de validación del backend para un campo (SDD §3.3): el front SOLO lo pinta. */
@@ -302,6 +304,14 @@ function currentValue(props: FieldRendererProps): unknown {
   return resolved(props).displayed
 }
 
+function disabledEnumValue(
+  path: Path,
+  value: unknown,
+  disabled: Record<string, string[]> | undefined,
+): boolean {
+  return disabled?.[path.join(".")]?.includes(String(value)) ?? false
+}
+
 function SelectField(props: FieldRendererProps) {
   const { schema, path, defs, onChange } = props
   const target = resolveRef(unwrapNullable(schema).schema, defs)
@@ -320,7 +330,11 @@ function SelectField(props: FieldRendererProps) {
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (
-          <SelectItem key={String(option)} value={String(option)}>
+          <SelectItem
+            key={String(option)}
+            value={String(option)}
+            disabled={disabledEnumValue(path, option, props.disabledEnumValues)}
+          >
             {String(option)}
           </SelectItem>
         ))}
@@ -611,6 +625,7 @@ function GroupField(props: FieldRendererProps) {
         datasetColumnValues={datasetColumnValues}
         defaultsBase={childDefaults(props)}
         effectiveDefaults={props.effectiveDefaults}
+        disabledEnumValues={props.disabledEnumValues}
       />
     </fieldset>
   )
@@ -643,6 +658,7 @@ function GroupFieldList(props: {
   datasetColumnValues?: Record<string, string[]>
   defaultsBase?: DefaultsMap
   effectiveDefaults?: EffectiveDefaults
+  disabledEnumValues?: Record<string, string[]>
 }) {
   const {
     fields,
@@ -659,6 +675,7 @@ function GroupFieldList(props: {
     datasetColumnValues,
     defaultsBase,
     effectiveDefaults,
+    disabledEnumValues,
   } = props
   if (fields.length === 0) {
     return <p className="text-xs text-muted-foreground">Sin campos.</p>
@@ -690,6 +707,7 @@ function GroupFieldList(props: {
           siblingValues={groupValue}
           defaultsBase={defaultsBase}
           effectiveDefaults={effectiveDefaults}
+          disabledEnumValues={disabledEnumValues}
         />
       ))}
     </>
@@ -792,6 +810,7 @@ function DiscriminatedField(props: FieldRendererProps) {
             datasetColumnValues={datasetColumnValues}
             defaultsBase={branchDefaults}
             effectiveDefaults={props.effectiveDefaults}
+            disabledEnumValues={props.disabledEnumValues}
           />
         </fieldset>
       ) : null}
@@ -923,6 +942,7 @@ function NullableField(props: FieldRendererProps & { baseSchema: JsonSchema }) {
             // a sí mismo sin pasar por `GroupFieldList`, que es por donde baja el mapa.
             defaultsBase={props.defaultsBase}
             effectiveDefaults={props.effectiveDefaults}
+            disabledEnumValues={props.disabledEnumValues}
           />
         </div>
       ) : null}
@@ -1241,6 +1261,7 @@ function ListField(props: FieldRendererProps) {
                   datasetColumnValues={datasetColumnValues}
                   defaultsBase={rowDefaults}
                   effectiveDefaults={props.effectiveDefaults}
+                  disabledEnumValues={props.disabledEnumValues}
                 />
               </li>
             )

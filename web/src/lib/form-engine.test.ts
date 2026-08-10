@@ -1679,3 +1679,39 @@ describe("guardrail estático: el campo de columna no pierde el `id` ni borra lo
     expect(/onChange\(path, ""\)/.test(queBorra)).toBe(true)
   })
 })
+
+describe("guardrail estático: el selector genérico respeta opciones no implementadas", () => {
+  const codigo = fieldRendererSource
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n")
+    .filter((l) => !l.trimStart().startsWith("//"))
+    .join("\n")
+  const select = codigo.slice(
+    codigo.indexOf("function SelectField"),
+    codigo.indexOf("function MultiselectField"),
+  )
+
+  it("consume el mapa del backend también en la puerta schema→SelectField", () => {
+    expect(select).toContain(
+      "disabled={disabledEnumValue(path, option, props.disabledEnumValues)}",
+    )
+    expect(
+      (fixtureSchema as unknown as SchemaPayload).disabled_methodology_values,
+    ).toEqual({ "binning.solver": ["cp"] })
+  })
+
+  it("no duplica literales del dominio en TypeScript", () => {
+    expect(codigo).not.toContain('"cp"')
+    expect(codigo).not.toContain('"period_matrices"')
+  })
+
+  it("el gate caza una opción que vuelve a estar habilitada", () => {
+    const roto = select.replace(
+      "disabled={disabledEnumValue(path, option, props.disabledEnumValues)}",
+      "disabled={false}",
+    )
+    expect(roto).not.toContain(
+      "disabled={disabledEnumValue(path, option, props.disabledEnumValues)}",
+    )
+  })
+})

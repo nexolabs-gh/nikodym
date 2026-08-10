@@ -62,7 +62,7 @@ def _report_defaults() -> dict[str, Any]:
         # D-MON-2: `None` significa «no declarada», nunca «CLP». Sin moneda declarada el informe no
         # afirma ninguna; el motor no inventa un dato que sólo la institución conoce.
         "currency": None,
-        "formats": ["html"],
+        "formats": [],
         "document": {
             "model_name": "",
             "entity": "",
@@ -127,7 +127,7 @@ def test_round_trip_yaml_reportconfig() -> None:
     cfg = ReportConfig(
         output_dir="docs/reportes",
         basename="informe_scorecard",
-        formats=("html", "pdf"),
+        formats=("pdf",),
         document=DocumentStructureConfig(
             model_name="Scorecard consumo",
             entity="Banco Ejemplo",
@@ -211,7 +211,7 @@ def test_nikodymconfig_report_core_only_rechaza_json_no_canonico(
     [
         ReportConfig(output_dir="reportes_cliente"),
         ReportConfig(basename="scorecard_validacion"),
-        ReportConfig(formats=("html", "pdf")),
+        ReportConfig(formats=("pdf",)),
         ReportConfig(document=DocumentStructureConfig(entity="Banco Ejemplo")),
         ReportConfig(html=HtmlRenderConfig(template_id="scorecard_detallado_v1")),
         ReportConfig(html=HtmlRenderConfig(theme="plain")),
@@ -244,7 +244,7 @@ def test_dump_load_nikodymconfig_con_report_idempotente() -> None:
     cfg = NikodymConfig(
         report=ReportConfig(
             output_dir="docs/reportes",
-            formats=("html", "pdf"),
+            formats=("pdf",),
             document=DocumentStructureConfig(model_name="Scorecard consumo"),
             sections=SectionPolicyConfig(missing_policy="skip"),
         )
@@ -296,7 +296,15 @@ def test_literales_invalidos_rechazados_por_pydantic(
 
 def test_formats_acepta_pdf() -> None:
     """``"pdf"`` es un formato válido opt-in en ``formats`` (extra pdf/WeasyPrint en runtime)."""
-    assert ReportConfig(formats=("html", "pdf")).formats == ("html", "pdf")
+    assert ReportConfig(formats=("pdf",)).formats == ("pdf",)
+
+
+def test_html_legacy_avisa_y_normaliza_a_base_always_on() -> None:
+    """El alias 1.x se acepta, avisa y no cambia la identidad canónica del config."""
+    with pytest.warns(DeprecationWarning, match="html"):
+        cfg = ReportConfig(formats=("html", "pdf"))
+    assert cfg.formats == ("pdf",)
+    assert cfg == ReportConfig(formats=("pdf",))
 
 
 def test_el_enum_no_ofrece_formatos_sin_motor() -> None:
@@ -315,10 +323,10 @@ def test_el_enum_no_ofrece_formatos_sin_motor() -> None:
 def test_formato_sin_motor_es_rechazado(formato: str) -> None:
     """``json`` sigue sin motor detrás, y ahora se rechaza ya en el enum (no llega al validador)."""
     with pytest.raises(ValidationError):
-        ReportConfig(formats=("html", formato))  # type: ignore[arg-type]
+        ReportConfig(formats=(formato,))  # type: ignore[arg-type]
 
     with pytest.raises(ValidationError):
-        NikodymConfig(report={"formats": ["html", formato]})
+        NikodymConfig(report={"formats": [formato]})
 
 
 def test_validador_es_la_red_si_alguien_amplia_el_literal_sin_cablear_el_motor() -> None:
@@ -329,13 +337,13 @@ def test_validador_es_la_red_si_alguien_amplia_el_literal_sin_cablear_el_motor()
     al enum sin cablear la generación: el step no puede ser más permisivo que el motor.
     """
     with pytest.raises(ValueError, match="no implementado"):
-        ReportConfig._rechaza_formatos_no_implementados(("html", "json"))  # type: ignore[arg-type]
+        ReportConfig._rechaza_formatos_no_implementados(("json",))  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("formato", ["md", "docx", "csv", "xlsx"])
 def test_formatos_de_la_base_editable_y_de_datos_son_validos(formato: str) -> None:
     """``md``/``docx`` (fuente editable) y ``csv``/``xlsx`` (datos) ya tienen motor: se aceptan."""
-    assert ReportConfig(formats=("html", formato)).formats == ("html", formato)  # type: ignore[arg-type]
+    assert ReportConfig(formats=(formato,)).formats == (formato,)  # type: ignore[arg-type]
 
 
 def test_formatos_implementados_declarados_explicitamente() -> None:

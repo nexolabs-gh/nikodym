@@ -12,6 +12,8 @@ lo que entra al ``config_hash`` global cuando está activa.
 
 from __future__ import annotations
 
+import warnings
+from collections.abc import Mapping
 from typing import Any, Literal, Self
 
 from pydantic import Field, model_validator
@@ -274,22 +276,39 @@ class ModelConfig(NikodymBaseConfig):
             "ui_help": "Identificador interno del tipo de sección; no requiere edición.",
         },
     )
-    engine: ModelEngine = Field(
+    engine: Literal["logit"] = Field(
         default="logit",
         title="Motor statsmodels",
-        description="Logit por defecto; GLM Binomial queda reservado para pesos/familia GLM.",
+        description="Regresión logística estándar con statsmodels Logit.",
         json_schema_extra={
             "ui_widget": "selectbox",
             "ui_group": "Ajuste",
             "ui_order": 1,
             "ui_help": (
                 "Motor estadístico del ajuste: 'logit' es la regresión logística estándar "
-                "(statsmodels Logit); 'glm_binomial' usa GLM con familia binomial y es necesario "
-                "solo si vas a ponderar observaciones (sample_weight), algo que 'logit' no "
-                "soporta."
+                "(statsmodels Logit)."
             ),
         },
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normaliza_engine_legacy(cls, value: Any) -> Any:
+        """Acepta ``glm_binomial`` en 1.x, pero congela la rama canónica ``logit``."""
+        if not isinstance(value, Mapping):
+            return value
+        raw = dict(value)
+        if raw.get("engine") != "glm_binomial":
+            return value
+        warnings.warn(
+            "model.engine='glm_binomial' es un alias deprecado de 'logit'; "
+            "se retirará en Nikodym 2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raw["engine"] = "logit"
+        return raw
+
     fit_intercept: bool = Field(
         default=True,
         title="Incluir intercepto",

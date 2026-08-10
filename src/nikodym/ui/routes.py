@@ -64,7 +64,8 @@ def schema_payload() -> dict[str, Any]:
     Returns
     -------
     dict
-        ``{json_schema, defaults, section_order, effective_defaults}``: el JSON-Schema **completo**
+        ``{json_schema, defaults, section_order, effective_defaults,
+        disabled_methodology_values}``: el JSON-Schema **completo**
         de ``NikodymConfig`` (secciones de dominio instaladas con sus ``properties``, vía
         :func:`~nikodym.core.config.schema.build_full_json_schema`), los defaults resueltos del
         config vacío, el orden de declaración de las secciones para el form y el catálogo de
@@ -87,6 +88,16 @@ def schema_payload() -> dict[str, Any]:
         "defaults": NikodymConfig.model_validate({}).model_dump(mode="json", by_alias=True),
         "section_order": list(NikodymConfig.model_fields),
         "effective_defaults": build_effective_defaults(),
+        "disabled_methodology_values": {
+            str(choice["path"]): [
+                str(option["value"])
+                for option in choice["options"]
+                if option["estado"] == jobs._NO_IMPLEMENTADA
+            ]
+            for choices in jobs._ABANICO_POR_SECCION.values()
+            for choice in choices
+            if any(option["estado"] == jobs._NO_IMPLEMENTADA for option in choice["options"])
+        },
     }
 
 
@@ -1110,16 +1121,13 @@ def build_router() -> APIRouter:
         en un `SpooledTemporaryFile` y publica su tamaño, así que preguntarlo no materializa nada.
         Si el servidor no lo publicara, `upload_dataset` conserva la comprobación de siempre.
 
-        ⚠️ **Y lo que este tope NO cubre, dicho aquí en vez de dejarlo suponer:** FastAPI termina de
-        **recibir y parsear** el cuerpo multipart antes de llamar a este handler, así que el archivo
-        rechazado ya viajó por la red y ya se escribió al temporal en disco. Lo que se evita es la
-        copia final a memoria, no la transferencia — y la «lectura por chunks» que SDD-23 §11
-        prometía tampoco la habría evitado, porque el parseo es previo en las dos formas. Cerrarlo
-        de verdad exige un middleware que cuente bytes sobre el stream ASGI, que es superficie nueva
-        en la capa de seguridad y se decide aparte. El modelo de amenaza lo hace tolerable: la ruta
-        exige `Host`, `Origin` y token, o sea alguien que ya está dentro de la sesión local. Se
-        declara con su razón por la misma regla que D-PRE-4 y D-PUE-8: una guarda que no dice su
-        alcance se lee como cobertura total.
+        El límite global instalado por ``install_body_limit`` envuelve el ``receive`` ASGI antes
+        del parser: con ``Content-Length`` sobredimensionado rechaza sin consumir el stream y, en
+        transferencia chunked, nunca entrega al parser el chunk que hace cruzar N. Este segundo
+        check conserva defensa en profundidad sobre el tamaño publicado por Starlette y evita una
+        copia final innecesaria. Sin longitud declarada no es físicamente posible saber que el
+        stream excederá N antes de consumir sus primeros N bytes; el contrato promete consumo
+        acotado, no cero spool para esa variante.
         """
         settings = request.app.state.settings
         workdir = Path(settings.workdir)

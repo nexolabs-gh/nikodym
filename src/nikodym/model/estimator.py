@@ -438,7 +438,9 @@ def _validate_runtime_config(estimator: LogisticPDModel) -> None:
 def _config_from_estimator(estimator: LogisticPDModel) -> ModelConfig:
     """Reconstruye el config anidado desde los hiperparámetros del estimador."""
     return ModelConfig(
-        engine=estimator.engine,
+        # La API F1 normaliza el alias histórico a Logit; el estimador low-level conserva su ruta
+        # GLM explícita y valida aquí sólo los hiperparámetros que ambas ramas comparten.
+        engine="logit",
         fit_intercept=estimator.fit_intercept,
         optimizer=estimator.optimizer,
         fit_maxiter=estimator.fit_maxiter,

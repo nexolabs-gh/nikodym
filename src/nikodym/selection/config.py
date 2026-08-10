@@ -13,7 +13,9 @@ activa.
 
 from __future__ import annotations
 
-from typing import Literal, Self
+import warnings
+from collections.abc import Mapping
+from typing import Any, Literal, Self
 
 from pydantic import Field, model_validator
 
@@ -442,7 +444,7 @@ class SelectionConfig(NikodymBaseConfig):
         },
     )
 
-    priority_order: tuple[SelectionPriority, ...] = Field(
+    priority_order: tuple[Literal["iv", "auc", "ks", "name"], ...] = Field(
         default=("iv", "auc", "ks", "name"),
         title="Orden de prioridad para desempates",
         description="Ranking determinista para conservar variables ante correlación o VIF.",
@@ -457,6 +459,28 @@ class SelectionConfig(NikodymBaseConfig):
             ),
         },
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normaliza_gini_legacy(cls, value: Any) -> Any:
+        """Normaliza Gini→AUC y deduplica, preservando compatibilidad YAML/API 1.x."""
+        if not isinstance(value, Mapping) or "priority_order" not in value:
+            return value
+        raw = dict(value)
+        priorities = raw["priority_order"]
+        if not isinstance(priorities, list | tuple) or "gini" not in priorities:
+            return value
+        warnings.warn(
+            "selection.priority_order='gini' es un alias deprecado de 'auc'; "
+            "se retirará en Nikodym 2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raw["priority_order"] = tuple(
+            dict.fromkeys("auc" if item == "gini" else item for item in priorities)
+        )
+        return raw
+
     correlation: CorrelationSelectionConfig = Field(
         default_factory=CorrelationSelectionConfig,
         title="Correlación",

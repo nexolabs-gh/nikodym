@@ -24,6 +24,7 @@ from nikodym.scorecard.config import (
     ScoreDirection,
 )
 from nikodym.scorecard.exceptions import (
+    ScorecardBundleError,
     ScorecardError,
     ScorecardFitError,
     ScorecardTransformError,
@@ -33,22 +34,34 @@ from nikodym.scorecard.exceptions import (
 _schema._SCORECARD_CONFIG_CLS = ScorecardConfig
 
 _LAZY_EXPORTS: Final[dict[str, tuple[str, str]]] = {
+    "BatchApplicationResult": ("nikodym.scorecard.bundle", "BatchApplicationResult"),
+    "FittedScorecardBundle": ("nikodym.scorecard.bundle", "FittedScorecardBundle"),
     "PointsScaler": ("nikodym.scorecard.scaler", "PointsScaler"),
+    "ScorecardApplicationResult": (
+        "nikodym.scorecard.bundle",
+        "ScorecardApplicationResult",
+    ),
     "Scorecard": ("nikodym.scorecard.transformer", "Scorecard"),
     "ScorecardBinPoint": ("nikodym.scorecard.results", "ScorecardBinPoint"),
     "ScorecardCardSection": ("nikodym.scorecard.results", "ScorecardCardSection"),
     "ScorecardResult": ("nikodym.scorecard.results", "ScorecardResult"),
     "ScorecardStep": ("nikodym.scorecard.step", "ScorecardStep"),
+    "apply": ("nikodym.scorecard.bundle", "apply"),
+    "fit_scorecard_bundle": ("nikodym.scorecard.bundle", "fit_scorecard_bundle"),
 }
 
 __all__ = [
+    "BatchApplicationResult",
+    "FittedScorecardBundle",
     "InterceptAllocation",
     "PointOverrideConfig",
     "PointsScaler",
     "RoundingMethod",
     "ScoreDirection",
     "Scorecard",
+    "ScorecardApplicationResult",
     "ScorecardBinPoint",
+    "ScorecardBundleError",
     "ScorecardCardSection",
     "ScorecardConfig",
     "ScorecardError",
@@ -56,6 +69,8 @@ __all__ = [
     "ScorecardResult",
     "ScorecardStep",
     "ScorecardTransformError",
+    "apply",
+    "fit_scorecard_bundle",
 ]
 
 # Import perezoso a nivel paquete para ejecutar @register("standard", domain="scorecard") al

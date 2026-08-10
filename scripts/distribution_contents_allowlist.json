@@ -3,6 +3,7 @@
   "wheel": {
     "allowed": [
       "nikodym/*.py",
+      "nikodym/_build_manifest.json",
       "nikodym/**/*.py",
       "nikodym/py.typed",
       "nikodym/report/templates/*.j2",
@@ -22,6 +23,7 @@
       "*.dist-info/licenses/LICENSE"
     ],
     "required": [
+      "nikodym/_build_manifest.json",
       "nikodym/ui/static/index.html",
       "nikodym/ui/static/THIRD_PARTY_NOTICES.frontend.txt",
       "nikodym/ui/__main__.py",
@@ -37,6 +39,7 @@
       "README.md",
       "pyproject.toml",
       "src/nikodym/*.py",
+      "src/nikodym/_build_manifest.json",
       "src/nikodym/**/*.py",
       "src/nikodym/py.typed",
       "src/nikodym/report/templates/*.j2",
@@ -53,6 +56,7 @@
       "tests/**/*.py"
     ],
     "required": [
+      "src/nikodym/_build_manifest.json",
       "PKG-INFO",
       "pyproject.toml",
       "LICENSE",

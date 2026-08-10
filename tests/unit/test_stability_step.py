@@ -359,6 +359,35 @@ def test_validadores_y_fallback_config_cubren_ramas_defensivas() -> None:
     ]
     assert no_points == ()
 
+    bins = pd.DataFrame(
+        {
+            "f1__bin": ["a"] * len(score.index),
+            "f2__bin": ["b"] * len(score.index),
+            "descartada__bin": ["z"] * len(score.index),
+        },
+        index=score.index,
+    )
+    assembled_bins, bin_columns = step_module._assemble_stability_frame(
+        score=score,
+        calibrated_pd_frame=calibrated,
+        data_frame=None,
+        csi_frame=bins,
+        config=_config(csi_source="woe_bins", temporal_axis="none"),
+        pd=pd_mod,
+    )
+    assert bin_columns == ("f1__bin", "f2__bin")
+    assert "descartada__bin" not in assembled_bins
+
+    with pytest.raises(StabilityDataError, match="features finales"):
+        step_module._assemble_stability_frame(
+            score=score,
+            calibrated_pd_frame=calibrated,
+            data_frame=None,
+            csi_frame=bins.drop(columns="f2__bin"),
+            config=_config(csi_source="woe_bins", temporal_axis="none"),
+            pd=pd_mod,
+        )
+
     duplicated_score = pd.concat([score, score["score"]], axis=1)
     with pytest.raises(StabilityDataError, match="columnas duplicadas"):
         step_module._assemble_stability_frame(

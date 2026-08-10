@@ -13,6 +13,8 @@ activa.
 
 from __future__ import annotations
 
+import warnings
+from collections.abc import Mapping
 from itertools import pairwise
 from math import isfinite
 from typing import Any, Final, Literal, Self
@@ -261,12 +263,29 @@ class MarkovDynamicsConfig(NikodymBaseConfig):
     El estimador Aalen-Johansen se aplica solo cuando `projection_mode` vale `aalen_johansen`.
     """
 
-    projection_mode: ProjectionMode = Field(
+    projection_mode: Literal["homogeneous", "aalen_johansen"] = Field(
         default="homogeneous",
         title="Modo de proyección",
-        description="Modo de proyección: homogéneo, matrices por período o Aalen-Johansen.",
+        description="Modo de proyección: homogéneo o Aalen-Johansen.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Dinámica", "ui_order": 1},
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _rechaza_period_matrices_oculto(cls, value: Any) -> Any:
+        """Conserva diagnóstico 1.x sin publicar la rama no soportada en el schema."""
+        if not isinstance(value, Mapping) or value.get("projection_mode") != "period_matrices":
+            return value
+        warnings.warn(
+            "projection_mode='period_matrices' no es una opción soportada y permanece reservada.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise MarkovConfigError(
+            _PERIOD_MATRICES_UNSUPPORTED,
+            loc=(*_LOC_SECCION, "dynamics", "projection_mode"),
+        )
+
     time_unit: str = Field(
         default="period",
         title="Unidad temporal declarada",
@@ -437,11 +456,6 @@ class MarkovConfig(NikodymBaseConfig):
         # validador, porque quien usa esto como librería —por YAML o por código— nunca ve el
         # catálogo. El texto es el MISMO literal del motor: dos redacciones del mismo límite le
         # harían creer al usuario que son dos cosas distintas.
-        if self.dynamics.projection_mode == "period_matrices":
-            raise MarkovConfigError(
-                _PERIOD_MATRICES_UNSUPPORTED,
-                loc=(*_LOC_SECCION, "dynamics", "projection_mode"),  # D-EXI-5
-            )
         return self
 
 

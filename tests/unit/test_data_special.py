@@ -266,5 +266,6 @@ def test_sentinel_ausente_no_agrega_columna_al_catalogo() -> None:
     masked = policy.apply(df)
 
     assert masked.special_catalog == {}
+    assert masked.declared_special_catalog == {"saldo": [-99999.0]}
     assert not masked.special_mask.to_numpy().any()
     assert_frame_equal(masked.frame, df)

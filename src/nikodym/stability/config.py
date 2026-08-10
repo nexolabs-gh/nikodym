@@ -199,10 +199,7 @@ class StabilityConfig(NikodymBaseConfig):
     csi_source: CsiSource = Field(
         default="score_points",
         title="Fuente de CSI",
-        description=(
-            "Fuente de las distribuciones del CSI. 'woe_bins' está reservada y aún no "
-            "implementada: si se elige, la corrida se detiene con error."
-        ),
+        description="Fuente de las distribuciones del CSI: puntos o bins WoE congelados.",
         json_schema_extra={"ui_widget": "selectbox", "ui_group": "Métricas", "ui_order": 7},
     )
 
@@ -243,15 +240,6 @@ class StabilityConfig(NikodymBaseConfig):
             raise ConfigError(
                 "psi_stable_threshold debe ser estrictamente menor que psi_review_threshold."
             )
-        if self.csi_source == "woe_bins":
-            raise ConfigError(
-                "csi_source='woe_bins' aún no está soportado: falta ratificar el contrato de "
-                "binning con los artefactos WoE requeridos por SDD-11 D-STAB-5.",
-                # D-EXI-5: el valor inválido es el de ESTE campo, así que el formulario puede
-                # llevar al usuario justo al selector donde lo eligió.
-                loc=(*_LOC_SECCION, "csi_source"),
-            )
-
         return self
 
     def requisitos_incumplidos(self, columnas: frozenset[str] | None) -> tuple[Requisito, ...]:

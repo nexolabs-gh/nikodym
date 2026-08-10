@@ -79,7 +79,7 @@ def test_modelconfig_defaults_golden() -> None:
 def test_round_trip_yaml_modelconfig() -> None:
     """Serializar y recargar ``ModelConfig`` por YAML preserva igualdad exacta."""
     cfg = ModelConfig(
-        engine="glm_binomial",
+        engine="logit",
         optimizer="bfgs",
         fit_maxiter=150,
         tol=1e-7,
@@ -126,17 +126,26 @@ def test_nikodymconfig_model_instancia() -> None:
 
 def test_nikodymconfig_model_dict_coacciona() -> None:
     """Un dict en ``model`` se coacciona a ``ModelConfig`` por el hook cargado."""
-    cfg = NikodymConfig(
-        model={
-            "engine": "glm_binomial",
-            "stepwise": {"entry_p_value": 0.04},
-            "iv_contribution": {"threshold": 0.8},
-        }
-    )
+    with pytest.warns(DeprecationWarning, match="glm_binomial"):
+        cfg = NikodymConfig(
+            model={
+                "engine": "glm_binomial",
+                "stepwise": {"entry_p_value": 0.04},
+                "iv_contribution": {"threshold": 0.8},
+            }
+        )
     assert isinstance(cfg.model, ModelConfig)
-    assert cfg.model.engine == "glm_binomial"
+    assert cfg.model.engine == "logit"
     assert cfg.model.stepwise.entry_p_value == 0.04
     assert cfg.model.iv_contribution.threshold == 0.8
+
+
+def test_glm_legacy_conserva_hash_de_la_rama_logit() -> None:
+    with pytest.warns(DeprecationWarning, match="glm_binomial"):
+        legacy = ModelConfig(engine="glm_binomial")
+    canonical = ModelConfig(engine="logit")
+    assert legacy == canonical
+    assert config_hash(NikodymConfig(model=legacy)) == config_hash(NikodymConfig(model=canonical))
 
 
 def test_nikodymconfig_model_none_explicito() -> None:
@@ -167,7 +176,7 @@ def test_nikodymconfig_model_core_only_rechaza_json_no_canonico(
 @pytest.mark.parametrize(
     "model",
     [
-        ModelConfig(engine="glm_binomial"),
+        ModelConfig(optimizer="lbfgs"),
         ModelConfig(stepwise=StepwiseConfig(entry_p_value=0.04)),
         ModelConfig(sign_policy=SignPolicyConfig(action="flag")),
         ModelConfig(iv_contribution=IvContributionConfig(threshold=0.85)),
@@ -255,7 +264,7 @@ def test_import_model_liviano_y_registra_hook_en_proceso_fresco() -> None:
         "from nikodym.model.config import ModelConfig;"
         "bloqueados=[m for m in ('statsmodels','sklearn','scipy','pandas') if m in sys.modules];"
         "assert not bloqueados, bloqueados;"
-        "cfg=NikodymConfig(model={'engine': 'glm_binomial'});"
+        "cfg=NikodymConfig(model={'engine': 'logit'});"
         "assert isinstance(cfg.model, ModelConfig)"
     )
     subprocess.run([sys.executable, "-c", code], check=True)

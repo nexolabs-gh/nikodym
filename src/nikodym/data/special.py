@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from typing import TypeAlias, cast
 
 import pandas as pd
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from nikodym.core.audit import AuditEvent, AuditSink
 from nikodym.core.exceptions import DataValidationError
@@ -33,6 +33,9 @@ class MaskedFrame(BaseModel):
     frame: pd.DataFrame
     special_mask: pd.DataFrame
     special_catalog: dict[str, list[Sentinel]]
+    # Separado del catálogo observado para no romper su semántica estable: W1 congela también los
+    # centinelas declarados compatibles que no aparecieron en Desarrollo.
+    declared_special_catalog: dict[str, list[Sentinel]] = Field(default_factory=dict)
 
 
 class SpecialValuePolicy:
@@ -71,11 +74,14 @@ class SpecialValuePolicy:
         frame = df.copy(deep=True)
         special_mask = pd.DataFrame(False, index=df.index, columns=df.columns, dtype=bool)
         special_catalog: dict[str, list[Sentinel]] = {}
+        declared_special_catalog: dict[str, list[Sentinel]] = {}
         reported: set[tuple[str, Sentinel]] = set()
 
         for spec in self.config.special_values:
             for column in _resolve_columns(spec, df):
                 for sentinel in spec.sentinels:
+                    if not _is_missing_scalar(sentinel) and _is_comparable(df[column], sentinel):
+                        _append_catalog(declared_special_catalog, column, sentinel)
                     mask = _sentinel_mask(df[column], sentinel)
                     count = int(mask.sum())
                     if count == 0:
@@ -100,6 +106,7 @@ class SpecialValuePolicy:
             frame=frame,
             special_mask=special_mask,
             special_catalog=special_catalog,
+            declared_special_catalog=declared_special_catalog,
         )
 
 
@@ -165,7 +172,9 @@ def _append_catalog(
     special_catalog: dict[str, list[Sentinel]], column: str, sentinel: Sentinel
 ) -> None:
     """Agrega un centinela al catálogo de la columna conservando orden y unicidad."""
-    special_catalog.setdefault(column, []).append(sentinel)
+    values = special_catalog.setdefault(column, [])
+    if sentinel not in values:
+        values.append(sentinel)
 
 
 def _report_missing_rates(

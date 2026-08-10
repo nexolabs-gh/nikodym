@@ -50,6 +50,7 @@ BINNING_ARTIFACTS: Final[tuple[str, ...]] = (
     "tables",
     "summary",
     "woe_frame",
+    "bin_frame",
     "result",
     "binning_card",
 )
@@ -138,6 +139,7 @@ class BinningStep(AuditableMixin):
         binner = _build_binner(self.config, feature_columns)
         binner.fit(x_train, y_train, special=special)
         woe_only = binner.transform(x_transform)
+        bin_frame = binner.transform_bins(x_transform)
         woe_frame = _assemble_woe_frame(
             source=frame,
             eligible_mask=eligible_mask,
@@ -165,7 +167,16 @@ class BinningStep(AuditableMixin):
             feature_columns=feature_columns,
             pd=pd,
         )
-        self._publish_artifacts(study, binner, tables, summary, woe_frame, result, binning_card)
+        self._publish_artifacts(
+            study,
+            binner,
+            tables,
+            summary,
+            woe_frame,
+            bin_frame,
+            result,
+            binning_card,
+        )
         return result
 
     def _log_target_rule_decisions(self, resolution: _FeatureColumnResolution) -> None:
@@ -194,8 +205,9 @@ class BinningStep(AuditableMixin):
         feature_columns: tuple[str, ...],
     ) -> None:
         """Registra el tratamiento de special values declarado para variables candidatas."""
+        catalog = special.declared_special_catalog or special.special_catalog
         for column in feature_columns:
-            codes = special.special_catalog.get(column, [])
+            codes = catalog.get(column, [])
             if not codes:
                 continue
             mask = special.special_mask[column] if column in special.special_mask.columns else None
@@ -355,14 +367,16 @@ class BinningStep(AuditableMixin):
         tables: dict[str, DataFrame],
         summary: DataFrame,
         woe_frame: DataFrame,
+        bin_frame: DataFrame,
         result: BinningResult,
         binning_card: BinningCardSection,
     ) -> None:
-        """Publica los seis artefactos estables del dominio ``binning``."""
+        """Publica artefactos estables y las etiquetas congeladas requeridas por CSI."""
         study.artifacts.set("binning", "process", process)
         study.artifacts.set("binning", "tables", tables)
         study.artifacts.set("binning", "summary", summary)
         study.artifacts.set("binning", "woe_frame", woe_frame)
+        study.artifacts.set("binning", "bin_frame", bin_frame.copy(deep=True))
         study.artifacts.set("binning", "result", result)
         study.artifacts.set("binning", "binning_card", binning_card)
 

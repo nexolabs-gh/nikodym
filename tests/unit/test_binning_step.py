@@ -32,6 +32,8 @@ from nikodym.data.config import (
 from nikodym.data.partition import PARTITION_COL, TTD_COL, PartitionResult
 from nikodym.data.special import MaskedFrame
 from nikodym.data.target import LabeledFrame, TargetSummary
+from nikodym.stability.config import StabilityConfig
+from nikodym.stability.step import StabilityStep
 
 
 @pytest.fixture(autouse=True)
@@ -906,3 +908,62 @@ def test_la_columna_que_marca_la_muestra_no_se_ofrece_como_variable() -> None:
     )
     assert "muestra" not in resolution.columns
     assert resolution.columns == ("ingreso",)
+
+
+def test_woe_bins_consume_bins_congelados_del_binning_sin_refit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """El selector usa el artefacto real del binner y sólo el universo final del scorecard."""
+    binning_study = _study_with_data(
+        config=BinningConfig(
+            feature_columns=("score", "segment"),
+            categorical_columns=("segment",),
+            solver="mip",
+            max_n_prebins=4,
+            max_n_bins=4,
+            min_bin_size=0.1,
+            time_limit=5,
+            monotonic_trend=None,
+        )
+    )
+    BinningStep.from_config(binning_study.config.binning).execute(
+        binning_study, np.random.default_rng(30)
+    )
+    bin_frame = binning_study.artifacts.get("binning", "bin_frame")
+    index = bin_frame.index
+    score = pd.DataFrame(
+        {
+            "score": np.arange(len(index), dtype="float64"),
+            "score__points": np.where(np.arange(len(index)) % 2, 10.0, 0.0),
+        },
+        index=index,
+    )
+    calibrated = pd.DataFrame(
+        {
+            "partition": ["desarrollo"] * 8 + ["holdout"] * 2 + ["oot"] * 2,
+            "pd_calibrated": np.linspace(0.05, 0.30, len(index)),
+        },
+        index=index,
+    )
+    stability_config = StabilityConfig(
+        psi_bins=2,
+        csi_bins=2,
+        temporal_axis="none",
+        temporal_column="period",
+        include_pd_stability=False,
+        csi_source="woe_bins",
+    )
+    study = Study(NikodymConfig(stability=stability_config))
+    study.artifacts.set("scorecard", "score", score)
+    study.artifacts.set("calibration", "calibrated_pd_frame", calibrated)
+    study.artifacts.set("binning", "bin_frame", bin_frame)
+    monkeypatch.setattr(
+        BinningStep,
+        "execute",
+        lambda *_args, **_kwargs: pytest.fail("stability intentó refitear binning"),
+    )
+
+    result = StabilityStep.from_config(stability_config).execute(study, np.random.default_rng(31))
+
+    assert result.card.metric_sections["stability"]["csi_features"] == ["score__bin"]
+    assert "segment__bin" not in result.stability_metrics["feature"].tolist()

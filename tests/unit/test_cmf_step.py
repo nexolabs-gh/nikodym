@@ -271,6 +271,40 @@ def test_pd_breaks_valida_pd_frame_y_no_muta_inputs() -> None:
     assert_frame_equal(study.artifacts.get("model", "raw_pd_frame"), original_pd)
 
 
+@pytest.mark.parametrize(
+    ("domain", "key", "column", "pd_value", "expected_category"),
+    [
+        ("model", "raw_pd_frame", "pd_raw", 0.05, "A1"),
+        ("calibration", "calibrated_pd_frame", "pd_calibrated", 0.20, "B4"),
+    ],
+)
+def test_pd_breaks_despacha_y_consume_el_dominio_pd_elegido(
+    domain: str,
+    key: str,
+    column: str,
+    pd_value: float,
+    expected_category: str,
+) -> None:
+    mapping = CmfPdMappingConfig(
+        method="pd_breaks",
+        pd_breaks=(0.10,),
+        categories=("A1", "B4"),
+        pd_source_domain=domain,  # type: ignore[arg-type]
+        pd_source_key=key,
+        pd_column=column,
+    )
+    cfg = _config(pd_mapping=mapping)
+    frame = _pd_breaks_frame()
+    study = _study_with_frame(config=cfg, frame=frame)
+    study.artifacts.set(domain, key, pd.DataFrame({column: [pd_value]}, index=frame.index))
+    study.artifacts.set("data", "labels", SimpleNamespace(frame_index=tuple(frame.index)))
+    study.artifacts.set("data", "splits", SimpleNamespace(partitions=("desarrollo",)))
+
+    result = _execute(study, config=cfg)
+    assert result.records[0].cmf_category == expected_category
+    assert result.records[0].pd_source_value == Decimal(str(pd_value))
+
+
 def test_pd_breaks_pd_frame_invalido_o_sin_columna_falla_con_cmfconfigerror() -> None:
     """El preflight de PD usa errores de configuración antes de calcular."""
     cfg = _pd_breaks_config()

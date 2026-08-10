@@ -31,6 +31,11 @@ _SEMANTICS_MODULE = {
     "sdist": "src/nikodym/ui/_static_index.py",
 }
 
+_BUILD_MANIFEST = {
+    "wheel": "nikodym/_build_manifest.json",
+    "sdist": "src/nikodym/_build_manifest.json",
+}
+
 
 class DistributionContentError(ValueError):
     """El artefacto viola el contrato de distribución."""
@@ -458,6 +463,30 @@ def _validate_semantics_anchor(content: ArchiveContent) -> None:
         )
 
 
+def _validate_build_manifest(content: ArchiveContent) -> None:
+    """Ancla el lock de build del candidate contra los bytes fuente y ``uv.lock``."""
+    name = _BUILD_MANIFEST[content.kind]
+    candidate = content.files.get(name)
+    if candidate is None:
+        raise DistributionContentError(f"Manifiesto de build ausente del candidate: {name}")
+    source_path = _ROOT / "src/nikodym/_build_manifest.json"
+    source = source_path.read_bytes()
+    if candidate != source:
+        raise DistributionContentError(
+            f"Manifiesto de build divergente: {name} no coincide con la fuente."
+        )
+    try:
+        manifest = json.loads(source)
+    except json.JSONDecodeError as error:  # pragma: no cover - gate fuente dedicado
+        raise DistributionContentError("Manifiesto de build fuente inválido") from error
+    observed = hashlib.sha256((_ROOT / "uv.lock").read_bytes()).hexdigest()
+    if manifest.get("uv_lock_sha256") != observed:
+        raise DistributionContentError(
+            "Manifiesto de build no coincide con uv.lock: "
+            f"declarado={manifest.get('uv_lock_sha256')!r}, observado={observed}."
+        )
+
+
 def validate_content(content: ArchiveContent, policy: DistributionPolicy) -> None:
     """Aplica allowlist, requeridos, anclaje de semántica y referencias locales del index."""
     section = policy.wheel if content.kind == "wheel" else policy.sdist
@@ -477,6 +506,7 @@ def validate_content(content: ArchiveContent, policy: DistributionPolicy) -> Non
     _validate_console_script(content)
 
     _validate_semantics_anchor(content)
+    _validate_build_manifest(content)
 
     static_prefix = "nikodym/ui/static" if content.kind == "wheel" else "src/nikodym/ui/static"
     index_name = f"{static_prefix}/index.html"

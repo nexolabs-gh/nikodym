@@ -602,6 +602,19 @@ def test_float_isclose_reconciliacion() -> None:
     assert binding_ifrs9 == "ifrs9"
 
 
+def test_decimal_quantize_preserva_dominio_decimal_exacto() -> None:
+    cfg = ProvisioningConfig(numeric_reconciliation="decimal_quantize", tie_tolerance=0.0)
+    reported, binding = orch._apply_rule(
+        Decimal("100.0000000000000000001"),
+        100.0,
+        cfg=cfg,
+        name_a="cmf",
+        name_b="ifrs9",
+    )
+    assert reported == Decimal("100.0000000000000000001")
+    assert binding == "tie"
+
+
 def test_apply_rounding_politicas() -> None:
     """El redondeo contable explícito respeta none/currency_2dp/integer_currency (ROUND_HALF_UP)."""
     assert orch._apply_rounding(Decimal("100.005"), "none") == Decimal("100.005")

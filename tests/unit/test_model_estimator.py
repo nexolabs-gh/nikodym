@@ -184,24 +184,28 @@ def test_imports_perezosos_traducen_dependencias(monkeypatch: pytest.MonkeyPatch
 
 
 def test_from_config_clone_safe_set_params_y_not_fitted() -> None:
-    cfg = ModelConfig(
-        engine="glm_binomial",
-        stepwise=StepwiseConfig(direction="forward", entry_p_value=0.02, min_features=1),
-        sign_policy=SignPolicyConfig(action="flag", fail_on_forced_inverted=False),
-        iv_contribution=IvContributionConfig(threshold=1.0, action="flag"),
-        force_include=("saldo",),
-        fail_if_no_features=False,
-    )
+    with pytest.warns(DeprecationWarning, match="alias deprecado"):
+        cfg = ModelConfig(
+            engine="glm_binomial",  # type: ignore[arg-type]
+            stepwise=StepwiseConfig(direction="forward", entry_p_value=0.02, min_features=1),
+            sign_policy=SignPolicyConfig(action="flag", fail_on_forced_inverted=False),
+            iv_contribution=IvContributionConfig(threshold=1.0, action="flag"),
+            force_include=("saldo",),
+            fail_if_no_features=False,
+        )
 
     model = LogisticPDModel.from_config(cfg)
     model_from_dict = LogisticPDModel.from_config(cfg.model_dump())
     cloned = clone(model)
 
-    assert cloned.get_params()["engine"] == "glm_binomial"
+    assert cloned.get_params()["engine"] == "logit"
     assert cloned.get_params()["entry_p_value"] == 0.02
     assert cloned.get_params()["force_include"] == ("saldo",)
     assert model_from_dict.get_params()["sign_policy"] == "flag"
     assert cloned.set_params(entry_p_value=0.03).get_params()["entry_p_value"] == 0.03
+
+    # La capacidad GLM ponderada sigue disponible sólo en el estimador low-level.
+    assert clone(LogisticPDModel(engine="glm_binomial")).get_params()["engine"] == "glm_binomial"
 
     with pytest.raises(NotFittedError, match="no está fiteado"):
         model.predict_pd(pd.DataFrame({"saldo__woe": [0.1]}))
@@ -339,14 +343,22 @@ def test_stepwise_determinista_independiente_del_orden_de_columnas() -> None:
     frame, y = _stepwise_frame_target()
     iv = {"informativa": 0.2, "ruido": 0.01, "redundante": 0.18}
 
-    first = LogisticPDModel(iv_contribution_policy="flag").fit(
+    first = LogisticPDModel(
+        stepwise_direction="bidirectional",
+        stepwise_criterion="wald_pvalue",
+        iv_contribution_policy="flag",
+    ).fit(
         frame.loc[:, ["informativa__woe", "ruido__woe", "redundante__woe"]],
         y,
         feature_names=("informativa", "ruido", "redundante"),
         woe_columns=("informativa__woe", "ruido__woe", "redundante__woe"),
         iv_by_feature=iv,
     )
-    second = LogisticPDModel(iv_contribution_policy="flag").fit(
+    second = LogisticPDModel(
+        stepwise_direction="bidirectional",
+        stepwise_criterion="wald_pvalue",
+        iv_contribution_policy="flag",
+    ).fit(
         frame.loc[:, ["ruido__woe", "redundante__woe", "informativa__woe"]],
         y,
         feature_names=("ruido", "redundante", "informativa"),
@@ -394,6 +406,42 @@ def test_signo_invertido_exclude_remueve_y_forzado_falla() -> None:
             woe_columns=("protectora__woe", "invertida__woe"),
             iv_by_feature=iv,
         )
+
+
+def test_sign_policy_flag_exclude_fail_discriminan_la_misma_inversion() -> None:
+    frame, y = _sign_frame_target()
+    iv = {"protectora": 0.1, "invertida": 0.1}
+    common = {
+        "feature_names": ("protectora", "invertida"),
+        "woe_columns": ("protectora__woe", "invertida__woe"),
+        "iv_by_feature": iv,
+    }
+
+    flagged = LogisticPDModel(
+        stepwise_direction="none",
+        sign_policy="flag",
+        iv_contribution_policy="flag",
+    ).fit(frame, y, **common)
+    excluded = LogisticPDModel(
+        stepwise_direction="none",
+        sign_policy="exclude",
+        iv_contribution_policy="flag",
+    ).fit(frame, y, **common)
+
+    assert flagged.final_features_ == ("invertida", "protectora")
+    assert any(
+        decision.feature == "invertida"
+        and decision.criterion == "sign"
+        and decision.action == "flag"
+        for decision in flagged.stepwise_trace_
+    )
+    assert excluded.final_features_ == ("protectora",)
+    with pytest.raises(ModelFitError, match=r"sign_policy=fail|Signo invertido"):
+        LogisticPDModel(
+            stepwise_direction="none",
+            sign_policy="fail",
+            iv_contribution_policy="flag",
+        ).fit(frame, y, **common)
 
 
 def test_iv_contribution_consume_iv_externo_y_acciones_exclude_fail() -> None:

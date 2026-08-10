@@ -14,17 +14,29 @@ __version__ = "1.11.0"
 
 __all__ = [
     "DatasetCheck",
+    "FittedScorecardBundle",
     "PipelineCheck",
     "__version__",
+    "apply",
     "assemble_run",
     "check_dataset",
     "check_pipeline",
+    "fit_scorecard_bundle",
     "run",
 ]
 
 _LAZY = frozenset(
-    {"run", "check_pipeline", "check_dataset", "assemble_run", "PipelineCheck", "DatasetCheck"}
+    {
+        "run",
+        "check_pipeline",
+        "check_dataset",
+        "assemble_run",
+        "PipelineCheck",
+        "DatasetCheck",
+    }
 )
+
+_SCORECARD_LAZY = frozenset({"apply", "fit_scorecard_bundle", "FittedScorecardBundle"})
 
 if TYPE_CHECKING:  # pragma: no cover - solo para el type-checker, no en runtime
     from nikodym.api import (
@@ -35,6 +47,7 @@ if TYPE_CHECKING:  # pragma: no cover - solo para el type-checker, no en runtime
         check_pipeline,
         run,
     )
+    from nikodym.scorecard.bundle import FittedScorecardBundle, apply, fit_scorecard_bundle
 
 
 def __getattr__(name: str) -> Any:
@@ -47,9 +60,13 @@ def __getattr__(name: str) -> Any:
         from nikodym import api
 
         return getattr(api, name)
+    if name in _SCORECARD_LAZY:
+        from nikodym.scorecard import bundle
+
+        return getattr(bundle, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:
     """Expone los símbolos perezosos en ``dir(nikodym)`` además de los del módulo."""
-    return sorted({*globals(), *_LAZY})
+    return sorted({*globals(), *_LAZY, *_SCORECARD_LAZY})

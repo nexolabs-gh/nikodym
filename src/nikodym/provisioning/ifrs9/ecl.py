@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import importlib
 import math
+from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING, Any, Self, TypeAlias, cast
 
 from nikodym.core.exceptions import MissingDependencyError
@@ -115,6 +116,8 @@ _DETAIL_COLUMNS: tuple[str, ...] = (
     "ecl_12m",
     "ecl_lifetime",
     "ecl_reported",
+    "ecl_reported_unrounded",
+    "rounding_difference",
 )
 # Tolerancia absoluta para exigir que los pesos de escenario sumen 1 (SDD-16 §5/§6).
 _WEIGHT_SUM_TOL: float = 1e-9
@@ -299,15 +302,38 @@ class EclEngine:
             direct = _direct_lifetime(cols, weight_arr, pandas, numpy)
             direct_arr = numpy.array([direct[row_id] for row_id in row_keys], dtype=numpy.float64)
             ecl_lifetime = numpy.where(stage_arr == 3, direct_arr, ecl_lifetime)
-        reported = numpy.where(stage_arr == 1, ecl_12m, ecl_lifetime)
+        reported_unrounded = numpy.where(stage_arr == 1, ecl_12m, ecl_lifetime)
+        reported = numpy.array(
+            [_round_ecl(value, self._config.rounding) for value in reported_unrounded],
+            dtype=numpy.float64,
+        )
+        # El horizonte que corresponde al stage debe reconciliar exactamente con lo reportado.
+        # El horizonte alternativo y toda la term-structure permanecen económicos, sin redondear.
+        ecl_12m = numpy.where(stage_arr == 1, reported, ecl_12m)
+        ecl_lifetime = numpy.where(stage_arr == 1, ecl_lifetime, reported)
+        rounding_difference = reported - reported_unrounded
         detail = {
             "row_id": unique_row_ids,
             "stage": stage_arr,
             "ecl_12m": numpy.where(ecl_12m == 0.0, 0.0, ecl_12m),
             "ecl_lifetime": numpy.where(ecl_lifetime == 0.0, 0.0, ecl_lifetime),
             "ecl_reported": numpy.where(reported == 0.0, 0.0, reported),
+            "ecl_reported_unrounded": numpy.where(
+                reported_unrounded == 0.0, 0.0, reported_unrounded
+            ),
+            "rounding_difference": numpy.where(
+                rounding_difference == 0.0, 0.0, rounding_difference
+            ),
         }
         return cast("DataFrame", pandas.DataFrame(detail, columns=list(_DETAIL_COLUMNS)))
+
+
+def _round_ecl(value: float, policy: str) -> float:
+    """Cuantiza una sola vez el ECL final por operación con ``ROUND_HALF_UP``."""
+    if policy == "none":
+        return float(value)
+    quantum = Decimal("0.01") if policy == "currency_2dp" else Decimal("1")
+    return float(Decimal(str(float(value))).quantize(quantum, rounding=ROUND_HALF_UP))
 
 
 def _validate_horizons(horizon_12m: int, max_lifetime: int | None) -> None:

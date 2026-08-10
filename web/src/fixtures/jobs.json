@@ -113,11 +113,11 @@
               "value": "score_points"
             },
             {
-              "estado": "no_implementada",
+              "estado": "disponible",
               "exige": [],
               "help": "Compararía el reparto sobre los tramos originales en vez de sobre los puntos de la tarjeta.",
               "label": "Los tramos con que se discretizó cada variable",
-              "motivo": "El motor todavía no la calcula: el nombre está reservado para cuando se implemente, y elegirla hoy detiene la corrida antes de empezar.",
+              "motivo": null,
               "value": "woe_bins"
             }
           ],
@@ -653,14 +653,6 @@
               "label": "La regresión logística clásica",
               "motivo": null,
               "value": "logit"
-            },
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Resuelve la misma regresión por mínimos cuadrados reponderados en vez de por máxima verosimilitud directa, y publica su propia rutina interna en la ficha del modelo.",
-              "label": "El modelo lineal generalizado, familia binomial",
-              "motivo": "Llega al mismo resultado: medido sobre la misma muestra, los coeficientes y las probabilidades coinciden hasta el decimotercer decimal. Su única ventaja real —ponderar cada operación— no se puede aprovechar desde aquí, porque el proceso nunca entrega esos pesos. Y elegirla anula el método numérico que escojas a continuación.",
-              "value": "glm_binomial"
             }
           ],
           "path": "model.engine",
@@ -867,14 +859,6 @@
               "label": "El KS de la variable por sí sola",
               "motivo": null,
               "value": "ks"
-            },
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Es el AUC reescalado, así que ordena las variables exactamente igual que el AUC y no aporta un criterio nuevo.",
-              "label": "El Gini de la variable por sí sola",
-              "motivo": "El Gini se obtiene del AUC con una cuenta que no altera el orden, así que marcarlo junto al AUC no resuelve ningún empate nuevo, y marcarlo en su lugar deja exactamente el mismo resultado.",
-              "value": "gini"
             },
             {
               "estado": "disponible",
@@ -1150,14 +1134,6 @@
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
           "multiple": true,
           "options": [
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
             {
               "estado": "disponible",
               "exige": [],
@@ -1770,14 +1746,6 @@
           "multiple": true,
           "options": [
             {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
-            {
               "estado": "disponible",
               "exige": [],
               "help": "El mismo informe paginado, listo para el comité. Se instala aparte y además necesita librerías del sistema: si faltan, el informe sale en los demás formatos y queda un aviso.",
@@ -2358,14 +2326,6 @@
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
           "multiple": true,
           "options": [
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
             {
               "estado": "disponible",
               "exige": [],
@@ -3187,19 +3147,19 @@
               "value": "none"
             },
             {
-              "estado": "sin_efecto",
+              "estado": "disponible",
               "exige": [],
               "help": "Redondearía la pérdida al centavo antes de publicarla, para cuadrar con el asiento contable.",
               "label": "A dos decimales de la moneda",
-              "motivo": "El cálculo de pérdida esperada todavía no aplica el redondeo: elegirlo no cambia ni una cifra del informe. Se ofrece porque el redondeo sí funciona en las provisiones normativas y en el método interno, y esconderlo aquí haría creer que el motor no lo contempla.",
+              "motivo": null,
               "value": "currency_2dp"
             },
             {
-              "estado": "sin_efecto",
+              "estado": "disponible",
               "exige": [],
               "help": "Redondearía la pérdida a la unidad de moneda entera antes de publicarla, para carteras que reportan sin decimales.",
               "label": "A la unidad de moneda entera",
-              "motivo": "El cálculo de pérdida esperada todavía no aplica el redondeo: elegirlo no cambia ni una cifra del informe. Se ofrece porque el redondeo sí funciona en las provisiones normativas y en el método interno, y esconderlo aquí haría creer que el motor no lo contempla.",
+              "motivo": null,
               "value": "integer_currency"
             }
           ],
@@ -3244,14 +3204,6 @@
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
           "multiple": true,
           "options": [
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
             {
               "estado": "disponible",
               "exige": [],
@@ -3893,14 +3845,6 @@
           "multiple": true,
           "options": [
             {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
-            {
               "estado": "disponible",
               "exige": [],
               "help": "El mismo informe paginado, listo para el comité. Se instala aparte y además necesita librerías del sistema: si faltan, el informe sale en los demás formatos y queda un aviso.",
@@ -4341,11 +4285,11 @@
               "value": "score_points"
             },
             {
-              "estado": "no_implementada",
+              "estado": "disponible",
               "exige": [],
               "help": "Compararía el reparto sobre los tramos originales en vez de sobre los puntos de la tarjeta.",
               "label": "Los tramos con que se discretizó cada variable",
-              "motivo": "El motor todavía no la calcula: el nombre está reservado para cuando se implemente, y elegirla hoy detiene la corrida antes de empezar.",
+              "motivo": null,
               "value": "woe_bins"
             }
           ],
@@ -5055,14 +4999,6 @@
               "label": "La regresión logística clásica",
               "motivo": null,
               "value": "logit"
-            },
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Resuelve la misma regresión por mínimos cuadrados reponderados en vez de por máxima verosimilitud directa, y publica su propia rutina interna en la ficha del modelo.",
-              "label": "El modelo lineal generalizado, familia binomial",
-              "motivo": "Llega al mismo resultado: medido sobre la misma muestra, los coeficientes y las probabilidades coinciden hasta el decimotercer decimal. Su única ventaja real —ponderar cada operación— no se puede aprovechar desde aquí, porque el proceso nunca entrega esos pesos. Y elegirla anula el método numérico que escojas a continuación.",
-              "value": "glm_binomial"
             }
           ],
           "path": "model.engine",
@@ -5269,14 +5205,6 @@
               "label": "El KS de la variable por sí sola",
               "motivo": null,
               "value": "ks"
-            },
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Es el AUC reescalado, así que ordena las variables exactamente igual que el AUC y no aporta un criterio nuevo.",
-              "label": "El Gini de la variable por sí sola",
-              "motivo": "El Gini se obtiene del AUC con una cuenta que no altera el orden, así que marcarlo junto al AUC no resuelve ningún empate nuevo, y marcarlo en su lugar deja exactamente el mismo resultado.",
-              "value": "gini"
             },
             {
               "estado": "disponible",
@@ -5552,14 +5480,6 @@
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
           "multiple": true,
           "options": [
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
             {
               "estado": "disponible",
               "exige": [],
@@ -6306,14 +6226,6 @@
           "multiple": true,
           "options": [
             {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
-            {
               "estado": "disponible",
               "exige": [],
               "help": "El mismo informe paginado, listo para el comité. Se instala aparte y además necesita librerías del sistema: si faltan, el informe sale en los demás formatos y queda un aviso.",
@@ -7029,11 +6941,11 @@
               "value": "score_points"
             },
             {
-              "estado": "no_implementada",
+              "estado": "disponible",
               "exige": [],
               "help": "Compararía el reparto sobre los tramos originales en vez de sobre los puntos de la tarjeta.",
               "label": "Los tramos con que se discretizó cada variable",
-              "motivo": "El motor todavía no la calcula: el nombre está reservado para cuando se implemente, y elegirla hoy detiene la corrida antes de empezar.",
+              "motivo": null,
               "value": "woe_bins"
             }
           ],
@@ -7219,14 +7131,6 @@
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
           "multiple": true,
           "options": [
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
             {
               "estado": "disponible",
               "exige": [],
@@ -7851,14 +7755,6 @@
           "multiple": true,
           "options": [
             {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
-            {
               "estado": "disponible",
               "exige": [],
               "help": "El mismo informe paginado, listo para el comité. Se instala aparte y además necesita librerías del sistema: si faltan, el informe sale en los demás formatos y queda un aviso.",
@@ -8265,14 +8161,6 @@
           "help": "Puedes pedir varios a la vez. Unos son el documento del informe y otros son las tablas por operación completas, que salen como archivos aparte.",
           "multiple": true,
           "options": [
-            {
-              "estado": "sin_efecto",
-              "exige": [],
-              "help": "Un solo archivo que se abre en cualquier navegador y se puede enviar por correo. Sale en toda corrida, lo marques o no.",
-              "label": "Informe para pantalla",
-              "motivo": "El informe para pantalla se escribe siempre que la corrida tenga carpeta de salida: marcarlo o no marcarlo produce exactamente los mismos archivos.",
-              "value": "html"
-            },
             {
               "estado": "disponible",
               "exige": [],

@@ -477,7 +477,7 @@ def _config_from_estimator(estimator: FeatureSelector) -> SelectionConfig:
         min_auc=estimator.min_auc,
         min_ks=estimator.min_ks,
         min_gini=estimator.min_gini,
-        priority_order=estimator.priority_order,
+        priority_order=cast("Any", estimator.priority_order),
         correlation=CorrelationSelectionConfig(
             enabled=estimator.correlation_enabled,
             method=estimator.correlation_method,

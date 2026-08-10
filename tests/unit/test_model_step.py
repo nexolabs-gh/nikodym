@@ -32,6 +32,7 @@ def _model_config(
     force_include: tuple[str, ...] = (),
     force_exclude: tuple[str, ...] = (),
     fail_if_no_features: bool = True,
+    optimizer: str = "newton",
 ) -> ModelConfig:
     """Config estable para pruebas directas del step."""
     return ModelConfig(
@@ -41,6 +42,7 @@ def _model_config(
         force_include=force_include,
         force_exclude=force_exclude,
         fail_if_no_features=fail_if_no_features,
+        optimizer=optimizer,  # type: ignore[arg-type]
     )
 
 
@@ -305,7 +307,9 @@ def test_config_desde_study_overrides_y_dependency_versions(
     """El step coacciona config opaco y versiona paquetes ausentes como ``no_instalado``."""
     fallback = _model_config()
     study = SimpleNamespace(config=SimpleNamespace(model={"engine": "glm_binomial"}))
-    assert step_module._model_config_from_study(study, fallback=fallback).engine == "glm_binomial"
+    with pytest.warns(DeprecationWarning, match="glm_binomial"):
+        resolved = step_module._model_config_from_study(study, fallback=fallback)
+    assert resolved.engine == "logit"
     study_without_model = Study(NikodymConfig())
     assert step_module._model_config_from_study(study_without_model, fallback=fallback) is fallback
 
@@ -445,6 +449,13 @@ def test_missing_dependency_en_import_perezoso_del_estimator(
 
     with pytest.raises(MissingDependencyError, match=r"instale nikodym\[scoring\]"):
         step_module._build_estimator(_model_config())
+
+
+@pytest.mark.parametrize("optimizer", ["newton", "bfgs", "lbfgs"])
+def test_build_estimator_despacha_cada_optimizador_del_catalogo(optimizer: str) -> None:
+    """El selector público cruza el boundary del Step sin colapsar dos ramas en una."""
+    estimator = step_module._build_estimator(_model_config(optimizer=optimizer))
+    assert estimator.optimizer == optimizer
 
 
 def test_import_model_step_liviano_no_carga_estimator_ni_scoring() -> None:

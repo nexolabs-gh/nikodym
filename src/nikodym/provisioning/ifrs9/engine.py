@@ -172,6 +172,8 @@ _DETAIL_COLUMNS: tuple[str, ...] = (
     "ecl_12m",
     "ecl_lifetime",
     "ecl_reported",
+    "ecl_reported_unrounded",
+    "rounding_difference",
     "scenario_weights",
     "pd_basis",
     "warning_codes",
@@ -453,12 +455,21 @@ class IfrsProvisioningEngine:
     ) -> IfrsProvisionResult:
         """Construye ``staging``/``detail``/``summary``, los registros y la card (SDD-16 §4/§6)."""
         ecl_by_rid = {
-            str(rid): (float(e12), float(elife), float(erep), int(stage))
-            for rid, e12, elife, erep, stage in zip(
+            str(rid): (
+                float(e12),
+                float(elife),
+                float(erep),
+                float(eunrounded),
+                float(delta),
+                int(stage),
+            )
+            for rid, e12, elife, erep, eunrounded, delta, stage in zip(
                 ecl_detail["row_id"].tolist(),
                 ecl_detail["ecl_12m"].tolist(),
                 ecl_detail["ecl_lifetime"].tolist(),
                 ecl_detail["ecl_reported"].tolist(),
+                ecl_detail["ecl_reported_unrounded"].tolist(),
+                ecl_detail["rounding_difference"].tolist(),
                 ecl_detail["stage"].tolist(),
                 strict=True,
             )
@@ -468,7 +479,14 @@ class IfrsProvisioningEngine:
         stage_records: list[IfrsStageRecord] = []
         ecl_records: list[IfrsEclRecord] = []
         for index, rid in enumerate(context.row_ids):
-            ecl_12m, ecl_lifetime, ecl_reported, stage = ecl_by_rid[rid]
+            (
+                ecl_12m,
+                ecl_lifetime,
+                ecl_reported,
+                ecl_reported_unrounded,
+                rounding_difference,
+                stage,
+            ) = ecl_by_rid[rid]
             portfolio = context.portfolios[index]
             dpd = int(context.days_past_due[index])
             pd_life = float(context.pd_life[index])
@@ -505,6 +523,8 @@ class IfrsProvisioningEngine:
                     "ecl_12m": ecl_12m,
                     "ecl_lifetime": ecl_lifetime,
                     "ecl_reported": ecl_reported,
+                    "ecl_reported_unrounded": ecl_reported_unrounded,
+                    "rounding_difference": rounding_difference,
                     "scenario_weights": dict(context.weights),
                     "pd_basis": context.pd_basis,
                     "warning_codes": warnings,
@@ -532,6 +552,8 @@ class IfrsProvisioningEngine:
                     ecl_12m=ecl_12m,
                     ecl_lifetime=ecl_lifetime,
                     ecl_reported=ecl_reported,
+                    ecl_reported_unrounded=ecl_reported_unrounded,
+                    rounding_difference=rounding_difference,
                     scenario_weights=dict(context.weights),
                     pd_basis=cast("Any", context.pd_basis),
                     warnings=warnings,
@@ -597,6 +619,10 @@ class IfrsProvisioningEngine:
             "term_structure_summary": {
                 "n_rows": len(ecl_term_structure.index),
                 "n_scenarios": len(weights),
+            },
+            "rounding": {
+                "policy": self._config.ecl.rounding,
+                "total_difference": sum(float(row["rounding_difference"]) for row in detail_rows),
             },
         }
         return IfrsProvisionCard(

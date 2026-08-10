@@ -48,6 +48,7 @@ def test_schema_payload_shape() -> None:
         "defaults",
         "section_order",
         "effective_defaults",
+        "disabled_methodology_values",
     }
     assert payload["section_order"] == list(NikodymConfig.model_fields)
     assert payload["section_order"][0] == "schema_version"
@@ -63,6 +64,7 @@ def test_schema_payload_shape() -> None:
         "has_default": True,
         "value": True,
     }
+    assert payload["disabled_methodology_values"] == {"binning.solver": ["cp"]}
 
 
 def test_schema_payload_expande_dominios_f1() -> None:

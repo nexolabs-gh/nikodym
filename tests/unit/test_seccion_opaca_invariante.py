@@ -44,6 +44,7 @@ from nikodym.ui.routes import config_to_yaml
 #: `config_to_yaml` tiene su propio test más abajo por esa razón, no por olvido.
 POLITICA: dict[str, str] = {
     "config_hash": "comprobado",
+    "fit_scorecard_bundle": "comprobado",
     "check_dataset": "comprobado",
     "check_pipeline": "comprobado",
     "columnas_producidas_por_seccion": "comprobado",

@@ -746,13 +746,16 @@ class Study:
             and stored_data_hash is None
         ):
             caveats.append("data_hash ausente: la corrida no ejecutó el paso de datos")
+        from nikodym.core.build import build_uv_lock_hash, runtime_environment_hash
+
         return LineageBundle(
             git_sha=git_sha,
             git_dirty=git_dirty,
             data_hash=stored_data_hash,
             config_hash=config_hash(self.config),
             root_seed=self.config.repro.seed,
-            uv_lock_hash=None,  # F0: la localización robusta del uv.lock se difiere
+            uv_lock_hash=build_uv_lock_hash(),
+            runtime_environment_hash=runtime_environment_hash(),
             library_versions=_versiones_librerias(),
             determinism_caveats=caveats,
             created_at=datetime.now(UTC),

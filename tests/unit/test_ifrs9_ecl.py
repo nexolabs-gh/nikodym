@@ -103,7 +103,15 @@ def test_ecl_marginal_golden_un_escenario() -> None:
         ts["discount_factor"].to_numpy(), [1.0 / 1.1, 1.0 / 1.21], rtol=1e-12
     )
     # Golden lifetime SDD-16 §11.
-    assert list(detail.columns) == ["row_id", "stage", "ecl_12m", "ecl_lifetime", "ecl_reported"]
+    assert list(detail.columns) == [
+        "row_id",
+        "stage",
+        "ecl_12m",
+        "ecl_lifetime",
+        "ecl_reported",
+        "ecl_reported_unrounded",
+        "rounding_difference",
+    ]
     np.testing.assert_allclose(detail["ecl_lifetime"].to_numpy(), [_ECL_GOLDEN], rtol=1e-12)
     # Stage 2 → reportado = lifetime; 12m corta en H_12m=1 → solo el primer período.
     np.testing.assert_allclose(detail["ecl_reported"].to_numpy(), [_ECL_GOLDEN], rtol=1e-12)
@@ -140,6 +148,45 @@ def test_ecl_multiescenario_golden_ponderacion() -> None:
     # 0.5·50 + 0.3·80 + 0.2·120 = 73.0.
     np.testing.assert_allclose(detail["ecl_reported"].to_numpy(), [73.0], rtol=1e-12)
     np.testing.assert_allclose(detail["ecl_lifetime"].to_numpy(), [73.0], rtol=1e-12)
+
+
+def test_rounding_h3_se_aplica_al_total_final_por_operacion() -> None:
+    # Cada operación suma 0.505 después de ponderar escenarios: base=(.164+.164),
+    # adverso=(.341+.341), w=(.5,.5). Redondear marginales daría 0.50; redondear el
+    # total de cartera daría 1.01/1, mientras H3 da 0.51+0.51 y 1+1.
+    row_ids = ["op1"] * 4 + ["op2"] * 4
+    components = _components(
+        row_id=row_ids,
+        scenario=["base", "base", "adverso", "adverso"] * 2,
+        period=[1, 2, 1, 2] * 2,
+        time_value=[1.0, 2.0, 1.0, 2.0] * 2,
+        pd_marginal=[1.0] * 8,
+        lgd=[1.0] * 8,
+        ead=[0.164, 0.164, 0.341, 0.341] * 2,
+    )
+    params = {
+        "eir": pd.Series([0.0, 0.0], index=["op1", "op2"]),
+        "stages": pd.Series([2, 2], index=["op1", "op2"]),
+        "weights": {"base": 0.5, "adverso": 0.5},
+        "horizon_12m": 1,
+    }
+
+    term, none = EclEngine.from_config(IfrsEclConfig(rounding="none")).compute(components, **params)
+    _, cents = EclEngine.from_config(IfrsEclConfig(rounding="currency_2dp")).compute(
+        components, **params
+    )
+    _, integers = EclEngine.from_config(IfrsEclConfig(rounding="integer_currency")).compute(
+        components, **params
+    )
+
+    np.testing.assert_allclose(none["ecl_reported"], [0.505, 0.505], atol=1e-12)
+    np.testing.assert_allclose(cents["ecl_reported"], [0.51, 0.51], atol=1e-12)
+    np.testing.assert_allclose(cents["rounding_difference"], [0.005, 0.005], atol=1e-12)
+    np.testing.assert_allclose(integers["ecl_reported"], [1.0, 1.0], atol=1e-12)
+    np.testing.assert_allclose(integers["rounding_difference"], [0.495, 0.495], atol=1e-12)
+    # La evidencia económica permanece sin redondear y reconcilia con 1.01.
+    assert float(term["ecl_marginal"].sum()) == pytest.approx(2.02)
+    assert float(cents["ecl_reported_unrounded"].sum()) == pytest.approx(1.01)
 
 
 # ─────────────────────────── truncado por stage (12m vs lifetime) ───────────────────────────

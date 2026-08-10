@@ -810,13 +810,6 @@ _DISPONIBLE = "disponible"
 #: convierte una elección legítima en un error críptico, que era el estado de antes.
 _NO_IMPLEMENTADA = "no_implementada"
 
-#: El motor la acepta y **no cambia el resultado**. Es elegible, con su advertencia.
-#:
-#: ⚠️ Se declara con su medición citada, nunca por sospecha (D-ABA-6): decirle al usuario «esto no
-#: va a cambiar tu resultado» es una afirmación fuerte sobre el motor, y sin la disciplina de la
-#: cita el estado se convierte en un vertedero de dudas. La cita vive en ``prueba``.
-_SIN_EFECTO = "sin_efecto"
-
 #: El motor la tiene, pero **elegirla sola no basta**: exige que declares otro campo del config, y
 #: hasta que lo declares el config no se construye (D-EXI-2).
 #:
@@ -832,7 +825,7 @@ _SIN_EFECTO = "sin_efecto"
 #: declarada, el mismo dato sirve para el rótulo, para el salto al control y para el gate.
 _EXIGE_OTRO_CAMPO = "exige_otro_campo"
 
-_ESTADOS_DE_OPCION = frozenset({_DISPONIBLE, _NO_IMPLEMENTADA, _SIN_EFECTO, _EXIGE_OTRO_CAMPO})
+_ESTADOS_DE_OPCION = frozenset({_DISPONIBLE, _NO_IMPLEMENTADA, _EXIGE_OTRO_CAMPO})
 
 
 #: El abanico metodológico, por SECCIÓN y no por trabajo (D-ABA-1/2/3).
@@ -992,11 +985,8 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "Compararía el reparto sobre los tramos originales en vez de sobre los "
                         "puntos de la tarjeta."
                     ),
-                    "estado": _NO_IMPLEMENTADA,
-                    "motivo": (
-                        "El motor todavía no la calcula: el nombre está reservado para cuando se "
-                        "implemente, y elegirla hoy detiene la corrida antes de empezar."
-                    ),
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
                     "prueba": None,
                 },
             ),
@@ -2484,14 +2474,9 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "Redondearía la pérdida al centavo antes de publicarla, para cuadrar con "
                         "el asiento contable."
                     ),
-                    "estado": _SIN_EFECTO,
-                    "motivo": (
-                        "El cálculo de pérdida esperada todavía no aplica el redondeo: elegirlo "
-                        "no cambia ni una cifra del informe. Se ofrece porque el redondeo sí "
-                        "funciona en las provisiones normativas y en el método interno, y "
-                        "esconderlo aquí haría creer que el motor no lo contempla."
-                    ),
-                    "prueba": "provisioning/ifrs9/ecl.py:222",
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
                 },
                 {
                     "value": "integer_currency",
@@ -2500,14 +2485,9 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                         "Redondearía la pérdida a la unidad de moneda entera antes de publicarla, "
                         "para carteras que reportan sin decimales."
                     ),
-                    "estado": _SIN_EFECTO,
-                    "motivo": (
-                        "El cálculo de pérdida esperada todavía no aplica el redondeo: elegirlo "
-                        "no cambia ni una cifra del informe. Se ofrece porque el redondeo sí "
-                        "funciona en las provisiones normativas y en el método interno, y "
-                        "esconderlo aquí haría creer que el motor no lo contempla."
-                    ),
-                    "prueba": "provisioning/ifrs9/ecl.py:222",
+                    "estado": _DISPONIBLE,
+                    "motivo": None,
+                    "prueba": None,
                 },
             ),
         },
@@ -2910,24 +2890,6 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "motivo": None,
                     "prueba": None,
                 },
-                {
-                    "value": "glm_binomial",
-                    "label": "El modelo lineal generalizado, familia binomial",
-                    "help": (
-                        "Resuelve la misma regresión por mínimos cuadrados reponderados en vez de "
-                        "por máxima verosimilitud directa, y publica su propia rutina interna en "
-                        "la ficha del modelo."
-                    ),
-                    "estado": _SIN_EFECTO,
-                    "motivo": (
-                        "Llega al mismo resultado: medido sobre la misma muestra, los coeficientes "
-                        "y las probabilidades coinciden hasta el decimotercer decimal. Su única "
-                        "ventaja real —ponderar cada operación— no se puede aprovechar desde aquí, "
-                        "porque el proceso nunca entrega esos pesos. Y elegirla anula el método "
-                        "numérico que escojas a continuación."
-                    ),
-                    "prueba": "model/step.py:158",
-                },
             ),
         },
         {
@@ -3228,21 +3190,6 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
                     "estado": _DISPONIBLE,
                     "motivo": None,
                     "prueba": None,
-                },
-                {
-                    "value": "gini",
-                    "label": "El Gini de la variable por sí sola",
-                    "help": (
-                        "Es el AUC reescalado, así que ordena las variables exactamente igual que "
-                        "el AUC y no aporta un criterio nuevo."
-                    ),
-                    "estado": _SIN_EFECTO,
-                    "motivo": (
-                        "El Gini se obtiene del AUC con una cuenta que no altera el orden, así que "
-                        "marcarlo junto al AUC no resuelve ningún empate nuevo, y marcarlo en su "
-                        "lugar deja exactamente el mismo resultado."
-                    ),
-                    "prueba": "src/nikodym/selection/selector.py:850",
                 },
                 {
                     "value": "name",
@@ -3635,24 +3582,6 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
             ),
             "multiple": True,
             "options": (
-                {
-                    "value": "html",
-                    "label": "Informe para pantalla",
-                    "help": (
-                        "Un solo archivo que se abre en cualquier navegador y se puede enviar por "
-                        "correo. Sale en toda corrida, lo marques o no."
-                    ),
-                    "estado": _SIN_EFECTO,
-                    "motivo": (
-                        "El informe para pantalla se escribe siempre que la corrida tenga carpeta "
-                        "de salida: marcarlo o no marcarlo produce exactamente los mismos archivos."
-                    ),
-                    "prueba": (
-                        "src/nikodym/report/step.py:415-428 — el informe para pantalla se escribe "
-                        "sin consultar la lista de formatos; medido pidiendo sólo la fuente "
-                        "editable: el archivo sale igual."
-                    ),
-                },
                 {
                     "value": "pdf",
                     "label": "Documento para imprimir y firmar",
@@ -4175,6 +4104,24 @@ _ABANICO_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
 }
 
 
+# D-RDY-ABA-2/3: cada par path/value declara un ID estable. El registry de tests resuelve el
+# grupo del path a suites ejecutables con fixtures que discriminan todos sus valores; ambos lados
+# se cotejan exactamente, sin fallback.
+def _annotate_option_oracles() -> None:
+    """Vincula cada par soportado a su gate focal ejecutable, sin publicarlo por REST."""
+    for choices in _ABANICO_POR_SECCION.values():
+        for choice in choices:
+            path = str(choice["path"])
+            for option in choice["options"]:
+                supported = option["estado"] in {_DISPONIBLE, _EXIGE_OTRO_CAMPO}
+                pair = f"{path}={option['value']}"
+                option["dispatcher_oracle"] = f"option-dispatch:{pair}" if supported else None
+                option["effect_oracle"] = f"option-effect:{pair}" if supported else None
+
+
+_annotate_option_oracles()
+
+
 def _exige_claves(
     entrada: dict[str, Any],
     esperadas: frozenset[str],
@@ -4216,7 +4163,18 @@ _CLAVES_DE_ELECCION = frozenset({"path", "question", "help", "multiple", "option
 #: `external_artifacts`, que es el precedente vivo: `{"path": ..., "equals": ...}` evaluado por el
 #: front con `valueAtPath`. Reutilizarlo evita inventar un segundo lenguaje de condiciones.
 _CLAVES_OPCIONALES_DE_ELECCION = frozenset({"when"})
-_CLAVES_DE_OPCION = frozenset({"value", "label", "help", "estado", "motivo", "prueba"})
+_CLAVES_DE_OPCION = frozenset(
+    {
+        "value",
+        "label",
+        "help",
+        "estado",
+        "motivo",
+        "prueba",
+        "dispatcher_oracle",
+        "effect_oracle",
+    }
+)
 #: Sólo la declaran las opciones en estado ``exige_otro_campo`` (D-EXI-2), y un gate exige la
 #: bicondicional en los dos sentidos.
 _CLAVES_OPCIONALES_DE_OPCION = frozenset({"exige"})
@@ -4225,10 +4183,10 @@ _CLAVES_OPCIONALES_DE_OPCION = frozenset({"exige"})
 def _opcion_json(opcion: dict[str, Any]) -> dict[str, Any]:
     """Copia JSON-able de una opción del abanico (D-ABA-4), campo a campo.
 
-    ⚠️ ``prueba`` **no se publica**: es la cita ``archivo:línea`` que sostiene un ``sin_efecto``, o
-    sea evidencia interna para quien mantiene el catálogo, no algo que el usuario deba leer. Lo que
-    él lee es ``motivo``, en su idioma. Es el mismo criterio con que el `path` viaja pero nunca se
-    enseña (D-ABA-11), y con que los códigos de aviso declarado no van al copy público.
+    ⚠️ ``prueba`` y los dos ``*_oracle`` **no se publican**: son evidencia interna para quien
+    mantiene el catálogo, no algo que el usuario deba leer. Lo que él lee es ``motivo``, en su
+    idioma. Es el mismo criterio con que el `path` viaja pero nunca se enseña (D-ABA-11), y con que
+    los códigos de aviso declarado no van al copy público.
 
     ⚠️ ``exige`` SÍ se publica, y la asimetría con ``prueba`` es el punto: no es evidencia para el
     mantenedor sino la **ruta del control que el usuario tiene que llenar**, o sea exactamente lo

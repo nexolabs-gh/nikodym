@@ -429,7 +429,7 @@ _STANDARD_CONFIG: dict[str, Any] = {
     # ejecución (``routes._wire_report_output_dir``); aquí queda el default relativo.
     #
     # Se piden los CUATRO entregables (HTML + PDF + base editable .qmd + Word), no solo HTML: la UI
-    # no expone una sección "Reporte" donde activarlos, así que con ``formats=["html"]`` los botones
+    # no expone una sección "Reporte" donde activarlos, así que sin los opt-in los botones
     # de descarga del front respondían 404 SIEMPRE en uso real, y el reporte editable era una
     # función inalcanzable. El preset existe para que todo funcione sin tocar nada.
     #
@@ -448,7 +448,7 @@ _STANDARD_CONFIG: dict[str, Any] = {
         # afirma ninguna moneda (D-MON-2). F1 no publica montos —no corre provisiones—, así que no
         # tiene ninguna que declarar; F3, que sí los publica y es chileno, la declara en su delta.
         "currency": None,
-        "formats": ["html", "pdf", "md", "docx"],
+        "formats": ["pdf", "md", "docx"],
         "html": {
             "template_id": "scorecard_basic_v1",
             "theme": "nikodym",

@@ -345,8 +345,8 @@ def test_las_tablas_por_observacion_salen_del_documento_y_se_referencian() -> No
     )
     bundle = _bundle(tables={**_tables(), "scorecard.score": score})
 
-    sin_export = _renderer(ReportConfig(formats=("html",))).render(bundle)
-    con_export = _renderer(ReportConfig(formats=("html", "csv"))).render(bundle)
+    sin_export = _renderer(ReportConfig(formats=())).render(bundle)
+    con_export = _renderer(ReportConfig(formats=("csv",))).render(bundle)
 
     # La tabla por observación no se renderiza en ninguna sección, ni en el anexo.
     assert 'data-table-key="scorecard.score"' not in sin_export

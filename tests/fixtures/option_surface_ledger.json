@@ -1,0 +1,3364 @@
+{
+  "aliases": [
+    {
+      "authority": "SDD-30 D-RDY-ABA-5",
+      "canonical": "logit",
+      "classification": "compat_alias_hidden",
+      "path": "model.engine",
+      "reason": "Alias SemVer 1.x normalizado a la rama canónica y excluido del selector.",
+      "value": "glm_binomial"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-5",
+      "canonical": "auc",
+      "classification": "compat_alias_hidden",
+      "path": "selection.priority_order",
+      "reason": "Alias SemVer 1.x normalizado a la rama canónica y excluido del selector.",
+      "value": "gini"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-5",
+      "canonical": "html_always_on",
+      "classification": "compat_alias_hidden",
+      "path": "report.formats",
+      "reason": "Alias SemVer 1.x de una base always-on, fuera del selector de formatos.",
+      "value": "html"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "canonical": "unsupported_reserved",
+      "classification": "unsupported_hidden",
+      "path": "markov.dynamics.projection_mode",
+      "reason": "Valor reservado rechazado hasta una enmienda que implemente su rama.",
+      "value": "period_matrices"
+    }
+  ],
+  "entries": [
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "binning.feature_columns",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "*"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.max_pvalue_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "all"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.max_pvalue_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "consecutive"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "binning.metric_missing",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "empirical"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "binning.metric_special",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "empirical"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.mip_solver",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "bop"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.mip_solver",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "cbc"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "ascending"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auto"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auto_asc_desc"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auto_heuristic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "concave"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "convex"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "descending"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "peak"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "peak_heuristic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "valley"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "valley_heuristic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "not_implemented_visible_disabled",
+      "path": "binning.solver",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "cp"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.solver",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "mip"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.special_handling",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "as_missing"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.special_handling",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "separate"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "binning.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.dtype",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auto"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.dtype",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "categorical"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.dtype",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "numerical"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "ascending"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auto"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auto_asc_desc"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auto_heuristic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "concave"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "convex"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "descending"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "peak"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "peak_heuristic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "valley"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "binning.variable_overrides.monotonic_trend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "valley_heuristic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.anchor_kind",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "point_in_time"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.anchor_kind",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "through_the_cycle"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.anchor_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "business_input"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.anchor_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "development_observed"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.anchor_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "external_regulatory"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.anchor_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "historical_default_rate"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "calibration.fit_partition",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "desarrollo"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "intercept_offset"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "isotonic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "calibration.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "platt_scaling"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "calibration.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "data.load.backend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "pandas"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "data.load.backend",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "polars"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "data.load.file_format",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auto"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "data.load.file_format",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "csv"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "data.load.file_format",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "excel"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "data.load.file_format",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "parquet"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.missing.special_values.columns",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "*"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / SDD-23",
+      "classification": "configuration_grammar_selectable",
+      "path": "data.partition.strategy.type",
+      "reason": "Variante de la gramática del config visible en el formulario, no metodología D-JOB.",
+      "value": "cohort"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / SDD-23",
+      "classification": "configuration_grammar_selectable",
+      "path": "data.partition.strategy.type",
+      "reason": "Variante de la gramática del config visible en el formulario, no metodología D-JOB.",
+      "value": "columna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / SDD-23",
+      "classification": "configuration_grammar_selectable",
+      "path": "data.partition.strategy.type",
+      "reason": "Variante de la gramática del config visible en el formulario, no metodología D-JOB.",
+      "value": "random"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / SDD-23",
+      "classification": "configuration_grammar_selectable",
+      "path": "data.partition.strategy.type",
+      "reason": "Variante de la gramática del config visible en el formulario, no metodología D-JOB.",
+      "value": "temporal"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.columns.dtype",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "bool"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.columns.dtype",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "category"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.columns.dtype",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "datetime"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.columns.dtype",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "float"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.columns.dtype",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "int"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.columns.dtype",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "str"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.strict",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "False"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.strict",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "True"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.schema.strict",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "filter"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "!="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "=="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "in"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "isna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notin"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "!="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "=="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "in"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "isna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notin"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.bad_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "!="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "=="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "in"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "isna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notin"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "!="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "=="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "in"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "isna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notin"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.exclusion_rules.rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "!="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "=="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "in"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "isna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notin"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "!="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "=="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "in"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "isna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notin"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.good_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "!="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "=="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "in"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "isna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notin"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.all_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "!="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "<="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "=="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": ">="
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "in"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "isna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notin"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "data.target.indeterminate_rule.any_of.op",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "notna"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "data.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.analysis_partition",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "desarrollo"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.analysis_partition",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "holdout"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.analysis_partition",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "oot"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.analysis_partition",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "todas"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.default_rate.axis",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "cohort"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.default_rate.axis",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "period"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.default_rate.period_freq",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "M"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.default_rate.period_freq",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "Q"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.default_rate.period_freq",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "Y"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.stability.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "cv"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.stability.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "max_relative_drift"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "eda.stability.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "trend_slope"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "eda.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.contribution_space",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "log_odds"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.contribution_space",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "probability"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.explainer.feature_perturbation",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "interventional"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.explainer.feature_perturbation",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "tree_path_dependent"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.explainer.ml_explainer",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "auto"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.explainer.ml_explainer",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "kernel"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.explainer.ml_explainer",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "linear"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.explainer.ml_explainer",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "tree"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.explainer.nsamples",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "auto"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.local_scope.strategy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "all"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.local_scope.strategy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.local_scope.strategy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "partition"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.local_scope.strategy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "sample"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.reason_codes.adverse_direction",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "increases_pd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.scorecard.baseline",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "neutral_zero"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.scorecard.baseline",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "population_mean"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.targets",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "both"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.targets",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ml"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "explain.targets",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "scorecard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "explain.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_grammar_outside_job_form",
+      "path": "forward.input.macro_source.type",
+      "reason": "Variante de gramática fuera del formulario por trabajos vigente.",
+      "value": "artifact"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_grammar_outside_job_form",
+      "path": "forward.input.macro_source.type",
+      "reason": "Variante de gramática fuera del formulario por trabajos vigente.",
+      "value": "dataframe"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_grammar_outside_job_form",
+      "path": "forward.input.macro_source.type",
+      "reason": "Variante de gramática fuera del formulario por trabajos vigente.",
+      "value": "path"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.input.pd_basis_assumption",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pit"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.input.pd_basis_assumption",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ttc"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.input.term_structure_sources",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "markov"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.input.term_structure_sources",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "survival"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.macro.kind",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "arima"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.macro.kind",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "arimax"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.macro.kind",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "auto_arima"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.macro.kind",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "sarima"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.macro.kind",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "var"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.macro.kind",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "vecm"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.satellite.mode",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "fit"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.satellite.mode",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "fixed_coefficients"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.satellite.target_components",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "lgd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.satellite.target_components",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.ttc_reversion.method",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "linear_logit"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.ttc_reversion.method",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.ttc_reversion.ttc_anchor",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "historical_mean"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "forward.ttc_reversion.ttc_anchor",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "input_term_structure"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "forward.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "markov.dynamics.embedding_policy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "diagnose"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "markov.dynamics.embedding_policy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "forbid"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "markov.dynamics.embedding_policy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "regularize"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "markov.dynamics.projection_mode",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "aalen_johansen"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "markov.dynamics.projection_mode",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "homogeneous"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "markov.estimation.method",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "cohort"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "markov.estimation.method",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "duration"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "markov.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.backend",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "catboost"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.backend",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "lightgbm"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.backend",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "random_forest"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.backend",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "svm"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.backend",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "xgboost"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.comparison.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "auc"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.comparison.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "gini"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.comparison.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ks"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.comparison.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "psi"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.feature_source",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "binning_woe"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.feature_source",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "data_raw"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.feature_source",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "selection_woe"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.hyperparameters.gamma",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "auto"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.hyperparameters.gamma",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "scale"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.hyperparameters.kernel",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "linear"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.hyperparameters.kernel",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "rbf"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.hyperparameters.max_features",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "log2"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.hyperparameters.max_features",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "sqrt"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.monotonic.mode",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "explicit"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.monotonic.mode",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "from_binning"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.monotonic.mode",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "off"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.monotonic.on_unsupported",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "error"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.monotonic.on_unsupported",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "warn"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.train.class_weight",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "balanced"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "ml.train.class_weight",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "ml.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.engine",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "logit"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.iv_contribution.action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "exclude"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.iv_contribution.action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "fail"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.iv_contribution.action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "flag"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.optimizer",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "bfgs"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.optimizer",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "lbfgs"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.optimizer",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "newton"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.sign_policy.action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "exclude"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.sign_policy.action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "fail"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.sign_policy.action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "flag"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "model.sign_policy.expected_beta_sign",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "negative"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.stepwise.criterion",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "both"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.stepwise.criterion",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "lr_test"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.stepwise.criterion",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "wald_pvalue"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.stepwise.direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "backward"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.stepwise.direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "bidirectional"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.stepwise.direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "forward"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "model.stepwise.direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "model.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "performance.evaluation_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "pd_calibrated"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "performance.evaluation_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "score"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "performance.partitions",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "desarrollo"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "performance.partitions",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "holdout"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "performance.partitions",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "oot"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "performance.score_direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "higher_is_higher_risk"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "performance.score_direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "higher_is_lower_risk"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "performance.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.comparison_level",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "operation"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.comparison_level",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "portfolio"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.comparison_level",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "segment"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.comparison_level",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "total"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.coverage_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "fail"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.coverage_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "treat_missing_as_zero"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.coverage_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "use_available"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.numeric_reconciliation",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "decimal_quantize"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.numeric_reconciliation",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "float_isclose"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "currency_2dp"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "integer_currency"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.rule",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "max"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.rule",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "use_internal"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.source_a",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provisioning_cmf"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.source_a",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provisioning_ifrs9"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.source_a",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provisioning_internal"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.source_b",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provisioning_cmf"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.source_b",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provisioning_ifrs9"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning.source_b",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provisioning_internal"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "provisioning.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.exposure.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "currency_2dp"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.exposure.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "integer_currency"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.exposure.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.guarantees.financial_guarantee_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "fail"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.guarantees.financial_guarantee_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "ignore_if_missing"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.guarantees.financial_guarantee_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "use_recoverable_amount"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.pd_mapping.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "pd_breaks"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.pd_mapping.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provided_cmf_category"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.pd_mapping.pd_source_domain",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "calibration"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_cmf.pd_mapping.pd_source_domain",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "model"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "provisioning_cmf.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.ead.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "ccf"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.ead.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provided"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.ecl.discount_convention",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "annual_eir_year_fraction"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.ecl.discount_convention",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "period_eir"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.ecl.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "currency_2dp"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.ecl.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "integer_currency"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.ecl.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "beta_regression"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "fractional_response"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provided"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "workout"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.lgd.workout_discount",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "contractual"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.lgd.workout_discount",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "eir"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.pd.base_pd_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "calibration"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.pd.base_pd_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "term_structure"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.pd.pit_mode",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "apply_vasicek"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.pd.pit_mode",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "consume_pit"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.pd.pit_mode",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "ttc_only"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.pd.term_structure_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "forward"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.pd.term_structure_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "markov"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.pd.term_structure_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "survival"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.scenarios.source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "config"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.scenarios.source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "forward"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_ifrs9.scenarios.source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "single"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "provisioning_ifrs9.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.grouping",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provided"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.grouping",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "score_band"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.grouping",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "segment"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable_conditioned",
+      "path": "provisioning_internal.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "beta_regression"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable_conditioned",
+      "path": "provisioning_internal.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "fractional_response"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "group_historical"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "provided"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable_conditioned",
+      "path": "provisioning_internal.lgd.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "workout"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "direct_loss_rate"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "pd_lgd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.pd_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "calibration"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.pd_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "model"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "currency_2dp"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "integer_currency"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "provisioning_internal.rounding",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "provisioning_internal.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.ai.provider",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "anthropic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.ai.provider",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "report.ai.send_raw_data",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "False"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.document.placeholders",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "hide"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.document.placeholders",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "show"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.formats",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "csv"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.formats",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "docx"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.formats",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "md"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.formats",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "pdf"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.formats",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "xlsx"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.html.theme",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "nikodym"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.html.theme",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "plain"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "report.language",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "es"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.sections.missing_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "error"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.sections.missing_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "skip"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "report.sections.missing_policy",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "warn"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "report.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "scorecard.intercept_allocation",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "uniform"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "scorecard.rounding_method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "ceil_integer"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "scorecard.rounding_method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "floor_integer"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "scorecard.rounding_method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "nearest_integer"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "scorecard.rounding_method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "scorecard.score_direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "higher_is_higher_risk"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "scorecard.score_direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "higher_is_lower_risk"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "scorecard.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.correlation.clustering_method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "connected_components"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.correlation.clustering_method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.correlation.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "kendall"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.correlation.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "pearson"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.correlation.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "spearman"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "selection.feature_columns",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "*"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.max_iv_action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "exclude"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.max_iv_action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "flag"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.priority_order",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "auc"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.priority_order",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "iv"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.priority_order",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "ks"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.priority_order",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "name"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.stability.action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "exclude"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "selection.stability.action",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "report_only"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "selection.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.comparisons",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "dev_vs_holdout"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.comparisons",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "dev_vs_oot"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.csi_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "score_points"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.csi_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "woe_bins"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.score_direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "higher_is_higher_risk"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.score_direction",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "higher_is_lower_risk"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.temporal_axis",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "cohort"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.temporal_axis",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.temporal_axis",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "period"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.temporal_freq",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "M"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.temporal_freq",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "Q"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "stability.temporal_freq",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "Y"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "stability.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.output.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ecl"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.output.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "lgd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.output.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "loss"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.output.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pd_cumulative"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.output.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pd_marginal"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.output.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "provision"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.output.metrics",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ratio"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.operation",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "additive"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.operation",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "relative"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.direction",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "at_least"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.direction",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "at_most"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ecl"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "lgd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "loss"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pd_cumulative"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pd_marginal"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "provision"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.reverse.target.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ratio"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.kind",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "custom"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.kind",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "severe"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.shocks.operation",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "additive"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.shocks.operation",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "relative"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.shocks.periods",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "all"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.shocks.source",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "default_a_confirmar"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.shocks.source",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "institutional"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.shocks.source",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "official"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.scenarios.shocks.source",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "user"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ecl"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "lgd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "loss"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pd_cumulative"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pd_marginal"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "provision"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ratio"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.operation",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "additive"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "stress.sensitivities.operation",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "relative"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "stress.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.cox_aft.aft_family",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "loglogistic"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.cox_aft.aft_family",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "lognormal"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.cox_aft.aft_family",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "weibull"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.discrete_hazard.link",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "cloglog"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.discrete_hazard.link",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "logit"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.discrete_hazard.pd_role",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "covariate"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.discrete_hazard.pd_role",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.discrete_hazard.pd_role",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "offset"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.discrete_hazard.pd_role",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "segment"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.input.pd_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "calibration"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.input.pd_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "model_raw"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.input.pd_source",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.kaplan_meier.confidence_transform",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "loglog"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.kaplan_meier.confidence_transform",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "plain"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "aft"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "cox_ph"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "discrete_hazard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-1…4",
+      "classification": "methodology_selectable",
+      "path": "survival.method",
+      "reason": "Par metodológico declarado en el catálogo D-JOB y sujeto a su gate de efecto.",
+      "value": "kaplan_meier"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "survival.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.objective.direction",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "maximize"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.objective.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "auc"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.objective.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "gini"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.objective.metric",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ks"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.optimizer.pruner",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "median"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.optimizer.pruner",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "none"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.optimizer.sampler",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "random"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.optimizer.sampler",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "tpe"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "tuning.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.validation.strategy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "cv"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "tuning.validation.strategy",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "holdout"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.backtesting.parameters",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "ead"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.backtesting.parameters",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "lgd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.backtesting.parameters",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "pd"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.backtesting.pd_test",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "binomial"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.backtesting.pd_test",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "jeffreys"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.calibration.hl_grouping",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "deciles"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.calibration.hl_grouping",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "fixed_bands"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.calibration.pd_test",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "binomial"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.calibration.pd_test",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "jeffreys"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.discrimination.partitions",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "desarrollo"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.discrimination.partitions",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "holdout"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.discrimination.partitions",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "oot"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.families",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "backtesting"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.families",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "calibration"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.families",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "discrimination"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "outside_job_form",
+      "path": "validation.families",
+      "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",
+      "value": "stability"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6",
+      "classification": "internal_discriminator",
+      "path": "validation.type",
+      "reason": "Discriminador estructural fijo; no representa una elección de producto.",
+      "value": "standard"
+    }
+  ],
+  "schema_version": 2
+}

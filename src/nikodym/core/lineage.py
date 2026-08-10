@@ -44,6 +44,8 @@ class LineageBundle(BaseModel):
     config_hash: str
     root_seed: int
     uv_lock_hash: str | None
+    # Default None conserva la lectura de evidencia histórica; toda corrida nueva lo puebla.
+    runtime_environment_hash: str | None = None
     library_versions: dict[str, str]
     determinism_caveats: list[str]
     created_at: datetime

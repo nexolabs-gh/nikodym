@@ -316,6 +316,32 @@ def test_una_opcion_disponible_no_lleva_motivo_ni_prueba() -> None:
             assert opcion["prueba"] is None, f"{path}/{opcion['value']}"
 
 
+def test_cada_opcion_soportada_declara_dispatcher_y_effect_oracle_ejecutables() -> None:
+    """D-RDY-ABA-2/3: disponible/condicionada enlaza dos oráculos internos, nunca REST."""
+    for path, opcion in _opciones():
+        supported = opcion["estado"] in {jobs._DISPONIBLE, jobs._EXIGE_OTRO_CAMPO}
+        dispatcher = opcion["dispatcher_oracle"]
+        effect = opcion["effect_oracle"]
+        if not supported:
+            assert dispatcher is None and effect is None, f"{path}/{opcion['value']}"
+            continue
+        pair = f"{path}={opcion['value']}"
+        assert dispatcher == f"option-dispatch:{pair}", (
+            f"{path}/{opcion['value']}: dispatcher sin registry"
+        )
+        assert effect == f"option-effect:{pair}", (
+            f"{path}/{opcion['value']}: effect_oracle sin registry"
+        )
+
+
+def test_los_oraculos_internos_no_viajan_por_rest() -> None:
+    """La metadata de gates no amplía el contrato ni el copy de la UI."""
+    for choice in jobs.abanico_de(jobs._ABANICO_POR_SECCION):
+        for option in choice["options"]:
+            assert "dispatcher_oracle" not in option
+            assert "effect_oracle" not in option
+
+
 def test_una_opcion_no_implementada_explica_por_que() -> None:
     for path, opcion in _opciones():
         if opcion["estado"] == jobs._NO_IMPLEMENTADA:
@@ -346,18 +372,9 @@ def test_una_opcion_no_implementada_tambien_esta_cerrada_en_el_motor() -> None:
         assert capturado.value, f"{path}={opcion['value']!r} se construye sin error"
 
 
-def test_una_opcion_sin_efecto_cita_la_medicion_que_lo_prueba() -> None:
-    """D-ABA-6: decir «esto no cambia tu resultado» es una afirmación fuerte sobre el motor.
-
-    Sin la disciplina de la cita, el estado se convierte en un vertedero de dudas.
-    """
-    cita = re.compile(r"[\w/]+\.py:\d+")
-    for path, opcion in _opciones():
-        if opcion["estado"] == jobs._SIN_EFECTO:
-            assert opcion["prueba"] and cita.search(opcion["prueba"]), (
-                f"{path}/{opcion['value']}: se declara sin efecto sin citar dónde se midió"
-            )
-            assert opcion["motivo"] and len(opcion["motivo"]) > 40, f"{path}/{opcion['value']}"
+def test_sin_efecto_desaparece_del_contrato_seleccionable() -> None:
+    """D-RDY-ABA-1: ninguna opción puede volver al estado retirado ``sin_efecto``."""
+    assert all(opcion["estado"] != "sin_efecto" for _, opcion in _opciones())
 
 
 # ------------------------------------------------------------------------------------------
@@ -635,7 +652,7 @@ def test_cada_punto_se_lee_como_una_pregunta_con_su_ayuda() -> None:
         )
         assert eleccion["question"].endswith("?"), f"{path}: la pregunta no pregunta"
         assert len(eleccion["help"]) > 40, f"{path}: la ayuda no ayuda"
-        assert len(eleccion["options"]) > 1, f"{path}: un abanico de una sola opción no es abanico"
+        assert eleccion["options"], f"{path}: el catálogo no puede quedar sin opción canónica"
         for opcion in eleccion["options"]:
             assert opcion["label"], f"{path}/{opcion['value']}: sin etiqueta"
             assert len(opcion["help"]) > 40, f"{path}/{opcion['value']}: la ayuda no ayuda"

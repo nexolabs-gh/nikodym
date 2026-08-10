@@ -230,6 +230,7 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
             process_columns,
             special_handling=self.special_handling,
         )
+        _attach_special_codes_to_fit_params(fit_params, special_codes)
         process = binning_process_cls(
             variable_names=process_columns,
             max_n_prebins=self.max_n_prebins,
@@ -238,7 +239,12 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
             max_n_bins=self.max_n_bins,
             min_bin_size=_none_if_zero(self.min_bin_size),
             categorical_variables=categorical_variables or None,
-            special_codes=special_codes or None,
+            # ``BinningProcess.special_codes`` es global. Un ``dict`` se interpreta como
+            # una secuencia de sus llaves y termina enviando nombres de variables como
+            # centinelas a todos los bins. Nikodym mantiene catálogos por variable, por lo
+            # que éstos se inyectan en ``binning_fit_params`` y el parámetro global queda
+            # deliberadamente vacío.
+            special_codes=None,
             split_digits=self.split_digits,
             binning_fit_params=fit_params,
             n_jobs=self.n_jobs,
@@ -360,6 +366,56 @@ class WoEBinner(TransformerMixin, BaseEstimator, NikodymTransformer):  # type: i
         if not structural:
             return woe
         return cast(DataFrame, pd.concat([frame.loc[:, structural].copy(deep=True), woe], axis=1))
+
+    def transform_bins(self, X: DataFrame) -> DataFrame:  # noqa: N803
+        """Publica la etiqueta congelada de cada bin sin recalcular cortes ni WoE."""
+        self._check_fitted()
+        pd = _import_pandas()
+        frame = _as_dataframe(X, pd, context="transform")
+        _validate_unique_columns(frame, error_cls=BinningTransformError)
+        missing = [column for column in self.process_columns_ if column not in frame.columns]
+        if missing:
+            raise BinningTransformError(
+                f"El transform de bins requiere columnas usadas en fit; faltan={missing!r}."
+            )
+        working = frame.loc[:, list(self.process_columns_)].copy(deep=True)
+        state = SpecialState(
+            codes=self.special_codes_,
+            mask=self._special_mask_,
+            fill_values=self._special_fill_values_,
+        )
+        working = _apply_special_state(working, state, self.special_handling, pd)
+        _validate_no_undeclared_infinite(
+            working,
+            state.codes,
+            error_cls=BinningTransformError,
+            context="transform_bins",
+        )
+        try:
+            with _suppress_known_optbinning_warnings():
+                transformed = self.process_.transform(
+                    working,
+                    metric="bins",
+                    metric_special=0,
+                    metric_missing=0,
+                    check_input=True,
+                )
+        except Exception as exc:
+            raise BinningTransformError(
+                f"No se pudieron recuperar los bins congelados: {exc}"
+            ) from exc
+        bins = cast(DataFrame, transformed.loc[:, list(self.feature_columns_)].copy(deep=True))
+        bins.rename(
+            columns={feature: f"{feature}__bin" for feature in self.feature_columns_},
+            inplace=True,
+        )
+        for column in bins.columns:
+            bins[column] = bins[column].astype("string")
+            if bool(bins[column].isna().any()):
+                raise BinningTransformError(
+                    f"La transformación de bins produjo nulos: columna='{column}'."
+                )
+        return bins
 
     def fit_transform(
         self,
@@ -550,10 +606,9 @@ def _prepare_special_state(
     if special is None or special_handling not in {"separate", "as_missing"}:
         return SpecialState(codes={}, mask=None, fill_values={})
 
+    catalog = special.declared_special_catalog or special.special_catalog
     codes: dict[str, list[object]] = {
-        column: list(special.special_catalog.get(column, []))
-        for column in columns
-        if special.special_catalog.get(column)
+        column: list(catalog.get(column, [])) for column in columns if catalog.get(column)
     }
     if not codes:
         return SpecialState(codes={}, mask=None, fill_values={})
@@ -616,6 +671,17 @@ def _special_codes_for_process(
     return {
         column: list(special_codes[column]) for column in process_columns if column in special_codes
     }
+
+
+def _attach_special_codes_to_fit_params(
+    fit_params: dict[str, dict[str, object]],
+    special_codes: dict[str, list[object]],
+) -> None:
+    """Entrega cada catálogo al ``OptimalBinning`` de su propia variable."""
+    for column, values in special_codes.items():
+        if column not in fit_params:
+            continue
+        fit_params[column]["special_codes"] = list(values)
 
 
 def _validate_no_undeclared_infinite(

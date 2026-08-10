@@ -132,4 +132,25 @@ describe("el fixture del schema (contrato con el backend)", () => {
     // La mitad que se perdía al empotrar: sin rama nula el formulario no puede apagar la sección.
     expect(entry?.nullable).toBe(true)
   })
+
+  it("no reexporta aliases de compatibilidad ni Markov reservado", () => {
+    const root = FIXTURE_SCHEMA.json_schema
+    const properties = root.properties ?? {}
+    const section = (key: string) =>
+      (properties[key]?.anyOf?.[0]?.properties ?? {}) as Record<
+        string,
+        { const?: unknown; enum?: unknown[]; items?: { enum?: unknown[] } }
+      >
+    const values = (key: string, field: string) => {
+      const node = section(key)[field]
+      return node?.items?.enum ?? node?.enum ?? (node?.const === undefined ? [] : [node.const])
+    }
+
+    expect(values("model", "engine")).toEqual(["logit"])
+    expect(values("selection", "priority_order")).not.toContain("gini")
+    expect(values("report", "formats")).not.toContain("html")
+
+    const markov = root.$defs?.["markov__MarkovDynamicsConfig"]?.properties ?? {}
+    expect(markov.projection_mode?.enum).not.toContain("period_matrices")
+  })
 })

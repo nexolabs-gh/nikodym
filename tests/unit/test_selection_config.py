@@ -90,6 +90,16 @@ def test_selectionconfig_defaults_golden() -> None:
     assert SelectionConfig().model_dump(mode="json") == _selection_defaults()
 
 
+def test_gini_legacy_normaliza_deduplica_y_conserva_hash_canonico() -> None:
+    with pytest.warns(DeprecationWarning, match="gini"):
+        legacy = SelectionConfig(priority_order=("iv", "gini", "auc", "name"))
+    canonical = SelectionConfig(priority_order=("iv", "auc", "name"))
+    assert legacy == canonical
+    assert config_hash(NikodymConfig(selection=legacy)) == config_hash(
+        NikodymConfig(selection=canonical)
+    )
+
+
 def test_round_trip_yaml_selectionconfig() -> None:
     """Serializar y recargar ``SelectionConfig`` por YAML preserva igualdad exacta."""
     cfg = SelectionConfig(

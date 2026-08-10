@@ -13,14 +13,17 @@ por lo que no entra al ``config_hash`` global.
 
 from __future__ import annotations
 
-from typing import Final, Literal
+import warnings
+from collections.abc import Mapping
+from typing import Any, Final, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from nikodym.core.config import NikodymBaseConfig
 
 AiProvider = Literal["anthropic", "none"]
 BasicReportFormat = Literal["html", "csv", "xlsx", "pdf", "md", "docx"]
+SelectableReportFormat = Literal["csv", "xlsx", "pdf", "md", "docx"]
 MissingPolicy = Literal["error", "warn", "skip"]
 PlaceholderPolicy = Literal["show", "hide"]
 ReportLanguage = Literal["es"]
@@ -397,22 +400,42 @@ class ReportConfig(NikodymBaseConfig):
             "ui_order": 5,
         },
     )
-    formats: tuple[BasicReportFormat, ...] = Field(
-        default=("html",),
+    formats: tuple[SelectableReportFormat, ...] = Field(
+        default=(),
         title="Formatos del informe",
         description=(
             # ⚠️ Los literales van tal cual los pinta el multiselect. Y `csv`/`xlsx` se declaran
             # como lo que son —archivos en el directorio de salida, sin botón de descarga en la
             # interfaz—, porque exponer este campo en el formulario convirtió esa diferencia en algo
             # que el usuario puede provocar con un click (auditoría previa a 1.10.0).
-            "Qué se genera. Documentos del informe: «html» (siempre disponible), «pdf» (exige el "
-            "motor de PDF instalado en el sistema) y las fuentes editables «md» (Quarto) y «docx» "
+            "El HTML se genera siempre. Aquí se agregan «pdf» (exige el motor de PDF instalado "
+            "en el sistema) y las fuentes editables «md» (Quarto) y «docx» "
             "(Word). Y dos exports de datos, «csv» y «xlsx», que entregan COMPLETAS las tablas por "
             "observación que no caben en el documento: **quedan como archivos en el directorio de "
-            "salida**, no entre los botones de descarga. Por defecto sale solo «html»."
+            "salida**, no entre los botones de descarga."
         ),
         json_schema_extra={"ui_widget": "multiselect", "ui_group": "General", "ui_order": 5},
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normaliza_html_legacy(cls, value: Any) -> Any:
+        """HTML es base always-on; el literal 1.x se acepta, avisa y se elimina."""
+        if not isinstance(value, Mapping) or "formats" not in value:
+            return value
+        raw = dict(value)
+        formats = raw["formats"]
+        if not isinstance(formats, list | tuple) or "html" not in formats:
+            return value
+        warnings.warn(
+            "report.formats='html' es un alias deprecado del HTML base always-on; "
+            "se retirará en Nikodym 2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raw["formats"] = tuple(dict.fromkeys(item for item in formats if item != "html"))
+        return raw
+
     document: DocumentStructureConfig = Field(
         default_factory=DocumentStructureConfig,
         title="Portada y bloques por completar",
@@ -463,8 +486,8 @@ class ReportConfig(NikodymBaseConfig):
     @classmethod
     def _rechaza_formatos_no_implementados(
         cls,
-        value: tuple[BasicReportFormat, ...],
-    ) -> tuple[BasicReportFormat, ...]:
+        value: tuple[SelectableReportFormat, ...],
+    ) -> tuple[SelectableReportFormat, ...]:
         """Falla ruidosamente ante un formato declarado pero sin ruta de generación real.
 
         Un formato aceptado por el schema y sin motor detrás produce un reporte silenciosamente

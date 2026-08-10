@@ -72,7 +72,10 @@ class StabilityStep(AuditableMixin):
     #: La ficha de la tarjeta lleva la orientación con que el puntaje fue construido (D-DIR-2). Va
     #: en ``optional_requires`` por la misma razón que en ``performance``: exigirla rompería el
     #: trabajo que trae el puntaje ya construido y sin ficha.
-    optional_requires: tuple[ArtifactKey, ...] = (("scorecard", "card"),)
+    optional_requires: tuple[ArtifactKey, ...] = (
+        ("scorecard", "card"),
+        ("binning", "bin_frame"),
+    )
     provides: tuple[ArtifactKey, ...] = tuple(("stability", key) for key in STABILITY_ARTIFACTS)
 
     def __init__(self, config: StabilityConfig) -> None:
@@ -105,6 +108,7 @@ class StabilityStep(AuditableMixin):
         ).copy(deep=True)
 
         cfg = _stability_config_from_study(study, fallback=self.config)
+        csi_frame = _csi_frame(study, config=cfg, pd=pd)
         _require_direccion_coherente(study, cfg.score_direction)
         data_frame = _data_frame_for_temporal_if_needed(
             study,
@@ -115,6 +119,7 @@ class StabilityStep(AuditableMixin):
         frame, feature_point_columns = _assemble_stability_frame(
             score=score,
             calibrated_pd_frame=calibrated_pd_frame,
+            csi_frame=csi_frame,
             data_frame=data_frame,
             config=cfg,
             pd=pd,
@@ -220,6 +225,20 @@ def _data_frame_for_temporal_if_needed(
     return _as_dataframe(study.artifacts.get("data", "frame"), pd, "data.frame").copy(deep=True)
 
 
+def _csi_frame(study: Study, *, config: StabilityConfig, pd: Any) -> DataFrame | None:
+    """Obtiene etiquetas de bins sólo cuando son la fuente CSI elegida."""
+    if config.csi_source == "score_points":
+        return None
+    if not study.artifacts.has("binning", "bin_frame"):
+        raise StabilityDataError(
+            "stability.csi_source='woe_bins' requiere el artefacto binning.bin_frame "
+            "producido por los bins congelados del fit."
+        )
+    return _as_dataframe(study.artifacts.get("binning", "bin_frame"), pd, "binning.bin_frame").copy(
+        deep=True
+    )
+
+
 def _assemble_stability_frame(
     *,
     score: DataFrame,
@@ -227,6 +246,7 @@ def _assemble_stability_frame(
     data_frame: DataFrame | None,
     config: StabilityConfig,
     pd: Any,
+    csi_frame: DataFrame | None = None,
 ) -> tuple[DataFrame, tuple[str, ...]]:
     """Alinea score, PD calibrada y columna temporal por índice para el evaluator."""
     _validate_unique_columns(score, artifact="scorecard.score")
@@ -236,11 +256,23 @@ def _assemble_stability_frame(
     if data_frame is not None:
         _validate_unique_columns(data_frame, artifact="data.frame")
         _validate_unique_index(data_frame, artifact="data.frame")
+    if csi_frame is not None:
+        _validate_unique_columns(csi_frame, artifact="binning.bin_frame")
+        _validate_unique_index(csi_frame, artifact="binning.bin_frame")
 
-    feature_point_columns = _feature_point_columns(score)
+    score_point_columns = _feature_point_columns(score)
+    feature_point_columns = (
+        score_point_columns
+        if csi_frame is None
+        else _feature_bin_columns_for_score(score_point_columns, csi_frame)
+    )
     _validate_required_columns(
         score,
-        (config.score_column, *feature_point_columns),
+        (
+            (config.score_column, *feature_point_columns)
+            if csi_frame is None
+            else (config.score_column,)
+        ),
         artifact="scorecard.score",
     )
     _validate_required_columns(
@@ -249,14 +281,19 @@ def _assemble_stability_frame(
         artifact="calibration.calibrated_pd_frame",
     )
     _validate_aligned_indexes(score, calibrated_pd_frame)
+    if csi_frame is not None:
+        _validate_aligned_indexes(csi_frame, calibrated_pd_frame, left_name="binning.bin_frame")
 
     base = calibrated_pd_frame.loc[:, [config.partition_column, config.pd_column]].copy(deep=True)
     parts: list[DataFrame] = [
         base,
         score.loc[base.index, [config.score_column]].copy(deep=True),
     ]
-    if feature_point_columns:
+    if feature_point_columns and csi_frame is None:
         parts.append(score.loc[base.index, list(feature_point_columns)].copy(deep=True))
+    elif feature_point_columns:
+        assert csi_frame is not None
+        parts.append(csi_frame.loc[base.index, list(feature_point_columns)].copy(deep=True))
 
     temporal_columns = _temporal_columns_to_copy(
         score=score,
@@ -284,13 +321,18 @@ def _assemble_stability_frame(
     return cast(DataFrame, pd.concat(parts, axis=1).copy(deep=True)), feature_point_columns
 
 
-def _validate_aligned_indexes(score: DataFrame, calibrated_pd_frame: DataFrame) -> None:
+def _validate_aligned_indexes(
+    score: DataFrame,
+    calibrated_pd_frame: DataFrame,
+    *,
+    left_name: str = "scorecard.score",
+) -> None:
     """Exige que score y PD calibrada cubran exactamente las mismas etiquetas."""
     missing_in_score = calibrated_pd_frame.index.difference(score.index)
     extra_score = score.index.difference(calibrated_pd_frame.index)
     if len(missing_in_score) or len(extra_score):
         raise StabilityDataError(
-            "scorecard.score y calibration.calibrated_pd_frame no tienen el mismo índice: "
+            f"{left_name} y calibration.calibrated_pd_frame no tienen el mismo índice: "
             f"faltan_en_score={missing_in_score.astype(str).tolist()}, "
             f"sobran_en_score={extra_score.astype(str).tolist()}."
         )
@@ -301,6 +343,31 @@ def _feature_point_columns(score: DataFrame) -> tuple[str, ...]:
     return tuple(
         sorted(str(column) for column in score.columns if str(column).endswith(_POINTS_SUFFIX))
     )
+
+
+def _feature_bin_columns_for_score(
+    score_point_columns: tuple[str, ...], frame: DataFrame
+) -> tuple[str, ...]:
+    """Mapea sólo las features finales del scorecard a sus bins congelados.
+
+    ``binning.bin_frame`` conserva todas las variables candidatas, incluidas las que selección o
+    modelo descartaron. CSI por bins cambia la fuente de tramos, no el universo de variables del
+    scorecard: por eso el orden y la pertenencia nacen de ``scorecard.score`` y nunca del frame de
+    binning completo.
+    """
+    if not score_point_columns:
+        raise StabilityDataError(
+            "stability.csi_source='woe_bins' requiere columnas finales '<feature>__points' "
+            "en scorecard.score."
+        )
+    columns = tuple(f"{column.removesuffix(_POINTS_SUFFIX)}__bin" for column in score_point_columns)
+    missing = [column for column in columns if column not in frame.columns]
+    if missing:
+        raise StabilityDataError(
+            "binning.bin_frame no contiene los bins congelados de todas las features finales: "
+            f"faltan={missing!r}."
+        )
+    return columns
 
 
 def _temporal_columns_to_copy(

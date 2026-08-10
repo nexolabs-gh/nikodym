@@ -159,6 +159,8 @@ def test_golden_secuencia_stage1() -> None:
         "ecl_12m",
         "ecl_lifetime",
         "ecl_reported",
+        "ecl_reported_unrounded",
+        "rounding_difference",
         "scenario_weights",
         "pd_basis",
         "warning_codes",
@@ -222,6 +224,32 @@ def test_records_por_operacion() -> None:
     ecl_record = result.ecl_records[0]
     np.testing.assert_allclose(ecl_record.ecl_reported, _ECL_12M, rtol=1e-12)
     assert ecl_record.pd_basis == "ttc"
+
+
+@pytest.mark.parametrize(
+    ("policy", "expected"),
+    [
+        ("none", _ECL_12M),
+        ("currency_2dp", 32.73),
+        ("integer_currency", 33.0),
+    ],
+)
+def test_rounding_reconcilia_detail_summary_card_y_auditoria(policy: str, expected: float) -> None:
+    cfg = _cfg().model_copy(
+        update={"ecl": IfrsEclConfig(rounding=policy)}  # type: ignore[arg-type]
+    )
+    result = _run(cfg, _frame(), _ts())
+
+    row = result.detail.iloc[0]
+    assert row["ecl_reported"] == pytest.approx(expected)
+    assert row["ecl_reported_unrounded"] == pytest.approx(_ECL_12M)
+    assert row["rounding_difference"] == pytest.approx(expected - _ECL_12M)
+    assert float(result.summary["total_ecl_reported"].sum()) == pytest.approx(expected)
+    assert result.card.total_ecl_reported == pytest.approx(expected)
+    assert result.card.metric_sections["rounding"] == {
+        "policy": policy,
+        "total_difference": pytest.approx(expected - _ECL_12M),
+    }
 
 
 def test_engine_from_config_devuelve_engine() -> None:

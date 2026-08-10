@@ -61,6 +61,8 @@ _DETAIL_COLUMNS: tuple[str, ...] = (
     "ecl_12m",
     "ecl_lifetime",
     "ecl_reported",
+    "ecl_reported_unrounded",
+    "rounding_difference",
     "scenario_weights",
     "pd_basis",
     "warning_codes",
@@ -169,9 +171,23 @@ class IfrsEclRecord(BaseModel):
     ecl_12m: float
     ecl_lifetime: float
     ecl_reported: float
+    ecl_reported_unrounded: float
+    rounding_difference: float
     scenario_weights: dict[str, float]
     pd_basis: Literal["pit", "ttc", "mixed"]
     warnings: tuple[str, ...] = ()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compatibilidad_sin_rounding_audit(cls, value: Any) -> Any:
+        """Migra constructores experimentales previos: reportado era siempre el económico."""
+        if not isinstance(value, Mapping):
+            return value
+        migrated = dict(value)
+        if "ecl_reported" in migrated:
+            migrated.setdefault("ecl_reported_unrounded", migrated["ecl_reported"])
+            migrated.setdefault("rounding_difference", 0.0)
+        return migrated
 
     @field_validator(
         "ead",
@@ -180,6 +196,8 @@ class IfrsEclRecord(BaseModel):
         "ecl_12m",
         "ecl_lifetime",
         "ecl_reported",
+        "ecl_reported_unrounded",
+        "rounding_difference",
         mode="before",
     )
     @classmethod
@@ -199,13 +217,27 @@ class IfrsEclRecord(BaseModel):
         if self.ead < 0.0:
             raise ValueError("ead debe ser mayor o igual a 0.")
         _check_unit_interval(self.lgd, field_name="lgd")
-        for field_name in ("ecl_12m", "ecl_lifetime", "ecl_reported"):
+        for field_name in (
+            "ecl_12m",
+            "ecl_lifetime",
+            "ecl_reported",
+            "ecl_reported_unrounded",
+        ):
             if getattr(self, field_name) < 0.0:
                 raise ValueError(f"{field_name} debe ser mayor o igual a 0.")
         expected = self.ecl_12m if self.stage == 1 else self.ecl_lifetime
         if not math.isclose(self.ecl_reported, expected, rel_tol=_FLOAT_RTOL, abs_tol=_FLOAT_ATOL):
             raise ValueError(
                 "ecl_reported debe ser ecl_12m en Stage 1 y ecl_lifetime en Stage 2/3."
+            )
+        if not math.isclose(
+            self.rounding_difference,
+            self.ecl_reported - self.ecl_reported_unrounded,
+            rel_tol=_FLOAT_RTOL,
+            abs_tol=_FLOAT_ATOL,
+        ):
+            raise ValueError(
+                "rounding_difference debe ser ecl_reported menos ecl_reported_unrounded."
             )
         return self
 
@@ -397,6 +429,19 @@ class IfrsProvisionResult(BaseModel):
     @classmethod
     def _copia_detail(cls, value: Any) -> Any:
         """Copia y valida la tabla ``detail`` con sus columnas canónicas SDD-16 §6."""
+        legacy_columns = tuple(
+            column
+            for column in _DETAIL_COLUMNS
+            if column not in {"ecl_reported_unrounded", "rounding_difference"}
+        )
+        if (
+            _is_dataframe_like(value)
+            and tuple(str(column) for column in value.columns) == legacy_columns
+        ):
+            value = _copy_dataframe(value)
+            position = list(value.columns).index("ecl_reported") + 1
+            value.insert(position, "ecl_reported_unrounded", value["ecl_reported"])
+            value.insert(position + 1, "rounding_difference", 0.0)
         return _copy_and_validate_dataframe(
             value,
             expected_columns=_DETAIL_COLUMNS,

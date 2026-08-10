@@ -216,7 +216,7 @@ def test_report_step_formats_pdf_escribe_pdf_real(tmp_path: Path) -> None:
     """
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html", "pdf"),
+        formats=("pdf",),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
     study = _study_with_report_artifacts(config=cfg)

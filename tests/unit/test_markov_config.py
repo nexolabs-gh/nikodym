@@ -238,8 +238,11 @@ def test_el_config_rechaza_la_opcion_que_el_motor_no_implementa() -> None:
     corrida moría a mitad con la estimación ya pagada. Quien usa esto como librería —por YAML o por
     código— no ve ningún catálogo que se lo advierta antes.
     """
-    with pytest.raises(MarkovConfigError, match=r"period_matrices.*no soportado"):
-        _markov_config_minimo(dynamics=MarkovDynamicsConfig(projection_mode="period_matrices"))
+    with (
+        pytest.warns(DeprecationWarning, match="period_matrices"),
+        pytest.raises(MarkovConfigError, match=r"period_matrices.*no soportado"),
+    ):
+        MarkovDynamicsConfig(projection_mode="period_matrices")
 
 
 def test_config_hash_cambia_al_variar_embedding_policy() -> None:

@@ -242,6 +242,41 @@ def test_construccion_directa_fuente_no_dev_con_target_pd_usa_ese_valor() -> Non
     assert calibrator.parameters_.anchor_source == "external_regulatory"
 
 
+@pytest.mark.parametrize(
+    "anchor_source",
+    ["business_input", "historical_default_rate", "external_regulatory"],
+)
+def test_fuentes_de_ancla_explicitas_conservan_provenance(
+    anchor_source: str,
+) -> None:
+    """Las tres fuentes comparten cifra explícita, pero no pueden colapsar su procedencia."""
+    frame = _raw_frame([-1.0, 0.0, 1.0], target=[0, 1, 0])
+    calibrator = PDCalibrator(
+        anchor_source=anchor_source,  # type: ignore[arg-type]
+        target_pd=0.03,
+        min_fit_rows=1,
+    ).fit(frame)
+    assert calibrator.target_pd_ == pytest.approx(0.03)
+    assert calibrator.parameters_.anchor_source == anchor_source
+    assert calibrator.card_.anchor_source == anchor_source
+
+
+@pytest.mark.parametrize("anchor_kind", ["through_the_cycle", "point_in_time"])
+def test_anchor_kind_se_publica_en_frame_parametros_y_card(anchor_kind: str) -> None:
+    frame = _raw_frame([-1.0, 0.0, 1.0], target=[0, 1, 0])
+    calibrator = PDCalibrator(
+        anchor_kind=anchor_kind,  # type: ignore[arg-type]
+        anchor_source="business_input",
+        target_pd=0.03,
+        min_fit_rows=1,
+    ).fit(frame)
+    transformed = calibrator.transform(frame)
+
+    assert transformed["anchor_kind"].unique().tolist() == [anchor_kind]
+    assert calibrator.parameters_.anchor_kind == anchor_kind
+    assert calibrator.card_.anchor_kind == anchor_kind
+
+
 def test_business_input_permite_target_no_binario_y_observed_rate_none() -> None:
     """Con ancla externa, target no binario no bloquea pero se publica tasa observada ``None``."""
     frame = _raw_frame([-1.0, 0.0, 1.0], target=[0.2, 0.4, 0.6])

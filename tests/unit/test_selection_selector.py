@@ -270,6 +270,7 @@ def test_correlacion_perfecta_retiene_mayor_iv_y_no_muta_inputs() -> None:
 
     selector = FeatureSelector(
         min_iv=0.0,
+        clustering_method="none",
         vif_enabled=False,
         stability_enabled=False,
     ).fit(
@@ -289,6 +290,65 @@ def test_correlacion_perfecta_retiene_mayor_iv_y_no_muta_inputs() -> None:
     assert_frame_equal(frame, original_frame)
     assert_frame_equal(summary, original_summary)
     assert woe_map == original_map
+
+
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [
+        ("pearson", 0.021749983007832412),
+        ("spearman", 0.6),
+        ("kendall", 0.4),
+    ],
+)
+def test_metodos_de_correlacion_tienen_efecto_discriminante_manual(
+    method: str, expected: float
+) -> None:
+    """Oracle independiente: las tres fórmulas divergen sobre el mismo orden asimétrico."""
+    frame = pd.DataFrame(
+        {
+            "a__woe": [1.0, 2.0, 3.0, 4.0, 100.0],
+            "b__woe": [1.0, 2.0, 5.0, 4.0, 3.0],
+        }
+    )
+    states = {
+        "a": selector_module.CandidateState(feature="a", woe_column="a__woe", iv=0.2),
+        "b": selector_module.CandidateState(feature="b", woe_column="b__woe", iv=0.1),
+    }
+    matrix = selector_module._correlation_matrix(
+        frame,
+        states,
+        ("a", "b"),
+        method=cast(Any, method),
+        pd=pd,
+    )
+    assert float(matrix.loc["a__woe", "b__woe"]) == pytest.approx(expected, abs=1e-12)
+
+
+@pytest.mark.parametrize(
+    ("priority", "winner"),
+    [("iv", "d"), ("auc", "c"), ("ks", "b"), ("name", "a")],
+)
+def test_priority_order_tiene_ganador_manual_distinto(priority: str, winner: str) -> None:
+    states = {
+        "a": selector_module.CandidateState(
+            feature="a", woe_column="a__woe", iv=0.1, auc=0.51, ks=0.1
+        ),
+        "b": selector_module.CandidateState(
+            feature="b", woe_column="b__woe", iv=0.2, auc=0.52, ks=0.9
+        ),
+        "c": selector_module.CandidateState(
+            feature="c", woe_column="c__woe", iv=0.3, auc=0.95, ks=0.2
+        ),
+        "d": selector_module.CandidateState(
+            feature="d", woe_column="d__woe", iv=0.8, auc=0.53, ks=0.3
+        ),
+    }
+    ranked = selector_module._rank_features(
+        tuple(states),
+        states,
+        (priority,),  # type: ignore[arg-type]
+    )
+    assert ranked[0] == winner
 
 
 def test_vif_infinito_captura_runtimewarning_y_excluye_redundante() -> None:
@@ -734,6 +794,7 @@ def test_psi_csi_formula_bandas_golden_y_accion_exclude() -> None:
         min_iv=0.0,
         correlation_enabled=False,
         vif_enabled=False,
+        stability_action="report_only",
         stability_smoothing=1e-12,
     ).fit(
         _stability_frame(),

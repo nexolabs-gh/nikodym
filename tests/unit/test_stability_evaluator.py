@@ -310,6 +310,51 @@ def test_csi_discreto_agrega_bin_other_para_puntos_fuera_de_dev() -> None:
     assert table[table["bin_label"] == "pts=0.0"].iloc[0]["expected_count"] == 1
 
 
+def test_csi_woe_bins_discrimina_colision_de_puntos_con_oraculo_manual() -> None:
+    """Dos bins con igual punto prueban que woe_bins no vuelve a usar score_points."""
+    frame = pd.DataFrame(
+        {
+            "partition": ["desarrollo"] * 10 + ["holdout"] * 10,
+            "score": [600.0] * 20,
+            "pd_calibrated": [0.1] * 20,
+            "x__points": [100.0] * 20,
+            "x__bin": ["A"] * 5 + ["B"] * 5 + ["A"] * 9 + ["B"],
+        },
+        index=[f"row-{position:02d}" for position in range(20)],
+    )
+    points = StabilityEvaluator(
+        csi_source="score_points",
+        comparisons=("dev_vs_holdout",),
+        temporal_axis="none",
+        include_pd_stability=False,
+    ).evaluate(
+        frame,
+        score_column="score",
+        pd_column="pd_calibrated",
+        partition_column="partition",
+        feature_point_columns=("x__points",),
+    )
+    bins = StabilityEvaluator(
+        csi_source="woe_bins",
+        comparisons=("dev_vs_holdout",),
+        temporal_axis="none",
+        include_pd_stability=False,
+    ).evaluate(
+        frame,
+        score_column="score",
+        pd_column="pd_calibrated",
+        partition_column="partition",
+        feature_point_columns=("x__bin",),
+    )
+
+    point_value = _by_key(points.metric_records)[("csi", "dev_vs_holdout", "x__points")].value
+    bin_value = _by_key(bins.metric_records)[("csi", "dev_vs_holdout", "x__bin")].value
+    manual = (0.9 - 0.5) * math.log(0.9 / 0.5) + (0.1 - 0.5) * math.log(0.1 / 0.5)
+    assert point_value == pytest.approx(0.0)
+    assert bin_value == pytest.approx(manual)
+    assert bins.card.csi_source == "woe_bins"
+
+
 def test_estabilidad_temporal_goldens_y_resumen() -> None:
     audit = InMemoryAuditSink()
     evaluator = StabilityEvaluator(
@@ -368,7 +413,19 @@ def test_temporal_infiere_columna_unica() -> None:
     assert [record.period for record in result.temporal_records] == ["P1", "P2"]
 
 
-def test_temporal_datetime_bucketiza_por_frecuencia() -> None:
+@pytest.mark.parametrize(
+    ("frequency", "expected_periods", "expected_counts"),
+    [
+        ("M", ["2024-01", "2024-02"], [4, 4]),
+        ("Q", ["2024Q1"], [8]),
+        ("Y", ["2024"], [8]),
+    ],
+)
+def test_temporal_datetime_bucketiza_por_frecuencia(
+    frequency: str,
+    expected_periods: list[str],
+    expected_counts: list[int],
+) -> None:
     frame = pd.DataFrame(
         {
             "partition": ["desarrollo"] * 8,
@@ -382,7 +439,7 @@ def test_temporal_datetime_bucketiza_por_frecuencia() -> None:
         psi_bins=2,
         temporal_axis="period",
         temporal_column="period",
-        temporal_freq="M",
+        temporal_freq=frequency,  # type: ignore[arg-type]
         include_pd_stability=False,
     )
 
@@ -394,8 +451,28 @@ def test_temporal_datetime_bucketiza_por_frecuencia() -> None:
         feature_point_columns=(),
     )
 
-    assert [record.period for record in result.temporal_records] == ["2024-01", "2024-02"]
-    assert [record.n_total for record in result.temporal_records] == [4, 4]
+    assert [record.period for record in result.temporal_records] == expected_periods
+    assert [record.n_total for record in result.temporal_records] == expected_counts
+
+
+def test_temporal_axis_cohort_despacha_su_columna() -> None:
+    frame = _temporal_frame().rename(columns={"period": "cohort"})
+    evaluator = StabilityEvaluator(
+        psi_bins=2,
+        temporal_axis="cohort",
+        temporal_column="cohort",
+        include_pd_stability=False,
+    )
+
+    result = evaluator.evaluate(
+        frame,
+        score_column="score",
+        pd_column="pd_calibrated",
+        partition_column="partition",
+        feature_point_columns=(),
+    )
+
+    assert [record.period for record in result.temporal_records] == ["P1", "P2"]
 
 
 def test_temporal_axis_none_omite_el_bloque() -> None:

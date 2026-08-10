@@ -99,6 +99,40 @@ def test_redondeo_nearest_integer_respeta_cota_y_audita() -> None:
     assert any(event.payload["regla"] == "scorecard_rounding" for event in audit.events)
 
 
+@pytest.mark.parametrize(
+    ("method", "expected"),
+    [
+        ("none", [SCORE_C1_EXACT, SCORE_C2_EXACT]),
+        ("nearest_integer", [475, 519]),
+        ("floor_integer", [475, 519]),
+        ("ceil_integer", [477, 521]),
+    ],
+)
+def test_fit_transform_discrimina_las_cuatro_politicas_de_redondeo(
+    method: str, expected: list[float]
+) -> None:
+    scaler = _fit_scaler(PointsScaler(rounding_method=method))  # type: ignore[arg-type]
+    assert scaler.transform(_woe_frame())["score"].tolist() == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("direction", ["higher_is_lower_risk", "higher_is_higher_risk"])
+def test_fit_transform_discrimina_ambas_direcciones_con_golden_manual(direction: str) -> None:
+    factor = 20.0 / math.log(2.0)
+    offset_share = (600.0 - factor * math.log(50.0)) / 2.0
+    intercept_share = -0.4 / 2.0
+    sign = -1.0 if direction == "higher_is_lower_risk" else 1.0
+    expected = []
+    for saldo_woe, mora_woe in [(-0.7, -0.2), (0.3, 0.4)]:
+        saldo = offset_share + sign * factor * ((-0.8 * saldo_woe) + intercept_share)
+        mora = offset_share + sign * factor * ((-1.2 * mora_woe) + intercept_share)
+        expected.append(saldo + mora)
+
+    scaler = _fit_scaler(
+        PointsScaler(score_direction=direction, rounding_method="none")  # type: ignore[arg-type]
+    )
+    assert scaler.transform(_woe_frame())["score"].tolist() == pytest.approx(expected, abs=1e-12)
+
+
 def test_bin_no_visto_calcula_formula_y_audita() -> None:
     audit = InMemoryAuditSink()
     scaler = _fit_scaler(PointsScaler(rounding_method="none"), audit=audit)

@@ -264,6 +264,28 @@ def test_una_rama_modelada_produce_una_provision_completa(rama: Any) -> None:
     assert resultado.detail["lgd"].nunique() > 1
 
 
+def test_oraculo_de_efecto_discrimina_las_tres_ramas_modeladas() -> None:
+    """D-RDY-ABA-2/3: mismo frame, tres dispatchers y tres vectores LGD distintos."""
+    frame = _cartera(n=120, seed=31)
+    branches = {
+        "fractional_response": InternalLgdFractionalResponse(covariate_cols=("ltv", "plazo")),
+        "beta_regression": InternalLgdBetaRegression(covariate_cols=("ltv", "plazo")),
+        "workout": InternalLgdWorkout(recovery_col="monto_recuperado"),
+    }
+    outputs = {name: _corre(_cfg(branch), frame) for name, branch in branches.items()}
+
+    assert set(outputs) == set(branches)
+    for left, right in (
+        ("fractional_response", "beta_regression"),
+        ("fractional_response", "workout"),
+        ("beta_regression", "workout"),
+    ):
+        left_lgd = outputs[left].detail["lgd"].to_numpy(dtype=float)
+        right_lgd = outputs[right].detail["lgd"].to_numpy(dtype=float)
+        assert not np.allclose(left_lgd, right_lgd)
+        assert _provision(outputs[left]) != _provision(outputs[right])
+
+
 def test_la_severidad_modelada_no_exige_la_columna_de_lgd_en_el_archivo() -> None:
     """El objetivo lo valida el motor de LGD: exigir además ``lgd_col`` sería cobrarla dos veces.
 

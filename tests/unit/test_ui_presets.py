@@ -88,7 +88,7 @@ def test_preset_pide_los_cuatro_entregables_sin_alterar_hash() -> None:
     config = standard_preset()["config"]
     report = config["report"]
     assert isinstance(report, dict)
-    assert report["formats"] == ["html", "pdf", "md", "docx"]
+    assert report["formats"] == ["pdf", "md", "docx"]
     assert report["pdf"]["enabled"] is True
     # Sin extra instalado NO se aborta la corrida: el HTML, que es el entregable base, sale igual.
     assert report["pdf"]["fail_if_unavailable"] is False
@@ -333,9 +333,9 @@ def test_correccion_anti_fuga_no_mueve_bytes_hashes_ni_candidatas_de_presets() -
     # porque `report` está en `INFRA_SECTIONS` y el informe es presentación, no cálculo. Medido en
     # los tres presets antes y después.
     expected_payload_digests = {
-        STANDARD_PRESET_ID: "c628f4fffa976ef401768635cf74ad7d9eef9edd95fe49ce87ef165739d4674e",
-        PROVISIONES_PRESET_ID: "73399ca31610ad88a89b670f988850dc9da1e299669002b4026fedc3ae9ac103",
-        F4_IFRS9_PRESET_ID: "b1aeb73cb6a7a856a77c85ff994fdfac5f0fe5aec4b4db25a26da0c21d29dafc",
+        STANDARD_PRESET_ID: "c9ae053e755bb79bad31b2c2db8aea8e30d3a55acf614861a240e5461d36ebd4",
+        PROVISIONES_PRESET_ID: "09c190f1243743dbf8fc3505232e8fe7d2cbdf1b9c695787026d98bad250f557",
+        F4_IFRS9_PRESET_ID: "1b3c78060ee33c765efbdfc574f74fff9b91a32efcc6b05d181100b31d9e26a9",
     }
     for preset_id, expected_hash in expected_hashes.items():
         preset = get_preset(preset_id)
@@ -384,7 +384,7 @@ def test_ifrs9_preset_activa_el_report_con_secciones_reducidas() -> None:
     config = get_preset(F4_IFRS9_PRESET_ID)["config"]
     report = config["report"]
     assert isinstance(report, dict)
-    assert report["formats"] == ["html", "pdf", "md", "docx"]
+    assert report["formats"] == ["pdf", "md", "docx"]
     assert report["basename"] == "ifrs9_ecl_report"
     assert report["sections"]["required_sections"] == []
     # Todo el pipeline scorecard queda apagado: el F4 es standalone (sin ``model.raw_pd_frame``).

@@ -191,10 +191,9 @@ def test_umbrales_invalidos_levantan_configerror(
         StabilityConfig(**kwargs)
 
 
-def test_csi_source_woe_bins_queda_bloqueado_con_configerror() -> None:
-    """``csi_source='woe_bins'`` falla hasta ratificar el contrato de binning."""
-    with pytest.raises(ConfigError, match="woe_bins"):
-        StabilityConfig(csi_source="woe_bins")
+def test_csi_source_woe_bins_es_una_rama_configurable() -> None:
+    """W1 habilita bins congelados como fuente real de CSI."""
+    assert StabilityConfig(csi_source="woe_bins").csi_source == "woe_bins"
 
 
 def test_stability_strings_numericos_convertibles_pasan_por_pydantic() -> None:

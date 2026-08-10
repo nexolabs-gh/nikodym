@@ -346,7 +346,7 @@ def _projected_matrices(
 
 def _reject_unsupported_projection(cfg: MarkovConfig) -> None:
     """Falla ruidosamente para modos declarados que B19.x todavía no implementa."""
-    if cfg.dynamics.projection_mode == "period_matrices":
+    if cast("str", cfg.dynamics.projection_mode) == "period_matrices":
         raise MarkovTransformError(_PERIOD_MATRICES_UNSUPPORTED)
 
 

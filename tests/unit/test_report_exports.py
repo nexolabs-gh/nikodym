@@ -63,7 +63,7 @@ def test_solo_las_tablas_por_observacion_son_adjuntos() -> None:
 
 def test_sin_csv_ni_xlsx_no_hay_adjuntos_ni_archivos(tmp_path: Path) -> None:
     """Sin formato de datos pedido no se escribe nada: el documento lo declara, no lo inventa."""
-    config = ReportConfig(formats=("html",))
+    config = ReportConfig(formats=())
 
     assert data_export_refs(_tables(), config=config) == ()
     assert write_data_exports(_tables(), config=config, output_dir=str(tmp_path)) == {}
@@ -77,7 +77,7 @@ def test_csv_completo_sin_truncar_y_con_el_identificador(tmp_path: Path) -> None
     incompleta) ni como informe. Aquí se exige lo contrario: 350 filas dentro, 350 filas fuera.
     """
     config = ReportConfig(
-        formats=("html", "csv"),
+        formats=("csv",),
         sections=SectionPolicyConfig(max_table_rows=10),  # el documento trunca; el dato NO
     )
 
@@ -156,7 +156,7 @@ def test_xlsx_un_libro_con_una_hoja_por_tabla(tmp_path: Path) -> None:
     """El ``.xlsx`` es UN libro con una hoja por tabla por observación, completa y con su índice."""
     import openpyxl
 
-    config = ReportConfig(formats=("html", "xlsx"), sections=SectionPolicyConfig(max_table_rows=10))
+    config = ReportConfig(formats=("xlsx",), sections=SectionPolicyConfig(max_table_rows=10))
     tables = {**_tables(), "model.raw_pd_frame": _score_frame(rows=12)}
 
     exports = write_data_exports(tables, config=config, output_dir=str(tmp_path))

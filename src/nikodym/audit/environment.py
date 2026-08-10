@@ -56,13 +56,19 @@ def capture_environment(
     paquetes = tuple(dict.fromkeys(packages or DEFAULT_TRACKED_PACKAGES))
     version = version_provider or metadata.version
     captured_now = (now or (lambda: datetime.now(UTC)))()
-    lock_path = Path("uv.lock") if uv_lock_path is None else Path(uv_lock_path)
+    lock_hash: str | None
+    if uv_lock_path is None:
+        from nikodym.core.build import build_uv_lock_hash
+
+        lock_hash = build_uv_lock_hash()
+    else:
+        lock_hash = _uv_lock_hash(Path(uv_lock_path))
 
     return EnvironmentSnapshot(
         python_version=(python_version_provider or _platform.python_version)(),
         platform=(platform_provider or _platform.platform)(),
         library_versions=_library_versions(paquetes, version),
-        uv_lock_hash=_uv_lock_hash(lock_path),
+        uv_lock_hash=lock_hash,
         captured_at=_as_utc(captured_now),
     )
 

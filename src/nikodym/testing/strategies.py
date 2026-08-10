@@ -289,7 +289,7 @@ def _selection_config_strategy(st: Any) -> Any:
         VifSelectionConfig,
     )
 
-    prioridades = ("iv", "auc", "ks", "gini", "name")
+    prioridades = ("iv", "auc", "ks", "name")
     return st.builds(
         SelectionConfig,
         feature_columns=st.one_of(st.just("*"), st.just(("ingreso", "saldo"))),
@@ -346,7 +346,7 @@ def _model_config_strategy(st: Any) -> Any:
 
     return st.builds(
         ModelConfig,
-        engine=st.sampled_from(["logit", "glm_binomial"]),
+        engine=st.just("logit"),
         fit_intercept=st.booleans(),
         optimizer=st.sampled_from(["newton", "bfgs", "lbfgs"]),
         fit_maxiter=st.integers(min_value=1, max_value=500),

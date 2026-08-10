@@ -52,6 +52,167 @@ def _binner(**kwargs: Any) -> WoEBinner:
     return WoEBinner(**params)
 
 
+@pytest.mark.parametrize("mip_solver", ["bop", "cbc"])
+def test_fit_params_despacha_mip_solver_sin_colapsar_ramas(mip_solver: str) -> None:
+    params = transformer_module._build_binning_fit_params(
+        _binner(feature_columns=("score",), mip_solver=mip_solver),  # type: ignore[arg-type]
+        ["score"],
+        [],
+    )
+    assert params["score"]["mip_solver"] == mip_solver
+
+
+@pytest.mark.parametrize("policy", ["consecutive", "all"])
+def test_fit_params_despacha_max_pvalue_policy(policy: str) -> None:
+    params = transformer_module._build_binning_fit_params(
+        _binner(feature_columns=("score",), max_pvalue_policy=policy),  # type: ignore[arg-type]
+        ["score"],
+        [],
+    )
+    assert params["score"]["max_pvalue_policy"] == policy
+
+
+@pytest.mark.parametrize(
+    "trend",
+    [
+        "auto",
+        "auto_heuristic",
+        "auto_asc_desc",
+        "ascending",
+        "descending",
+        "concave",
+        "convex",
+        "peak",
+        "peak_heuristic",
+        "valley",
+        "valley_heuristic",
+    ],
+)
+def test_fit_params_despacha_todas_las_tendencias(trend: str) -> None:
+    params = transformer_module._build_binning_fit_params(
+        _binner(feature_columns=("score",), monotonic_trend=trend),  # type: ignore[arg-type]
+        ["score"],
+        [],
+    )
+    assert params["score"]["monotonic_trend"] == trend
+
+
+@pytest.mark.parametrize(
+    "trend",
+    [
+        "auto",
+        "auto_heuristic",
+        "auto_asc_desc",
+        "ascending",
+        "descending",
+        "concave",
+        "convex",
+        "peak",
+        "peak_heuristic",
+        "valley",
+        "valley_heuristic",
+    ],
+)
+def test_override_despacha_todas_las_tendencias_sin_eco_del_global(trend: str) -> None:
+    params = transformer_module._build_binning_fit_params(
+        _binner(
+            feature_columns=("score",),
+            monotonic_trend=None,
+            variable_overrides=(
+                VariableBinningConfig(name="score", monotonic_trend=trend),  # type: ignore[arg-type]
+            ),
+        ),
+        ["score"],
+        [],
+    )
+    assert params["score"]["monotonic_trend"] == trend
+
+
+@pytest.mark.parametrize(
+    ("override_dtype", "categorical_columns", "expected"),
+    [
+        ("numerical", ["score"], "numerical"),
+        ("categorical", [], "categorical"),
+        ("auto", ["score"], "categorical"),
+    ],
+)
+def test_override_dtype_despacha_las_tres_politicas(
+    override_dtype: str, categorical_columns: list[str], expected: str
+) -> None:
+    params = transformer_module._build_binning_fit_params(
+        _binner(
+            feature_columns=("score",),
+            variable_overrides=(
+                VariableBinningConfig(name="score", dtype=override_dtype),  # type: ignore[arg-type]
+            ),
+        ),
+        ["score"],
+        categorical_columns,
+    )
+    assert params["score"]["dtype"] == expected
+
+
+@pytest.mark.parametrize(
+    ("case", "value"),
+    [
+        *(("max_pvalue_policy", value) for value in ("consecutive", "all")),
+        *(("mip_solver", value) for value in ("bop", "cbc")),
+        *(
+            ("monotonic_trend", value)
+            for value in (
+                "auto",
+                "auto_heuristic",
+                "auto_asc_desc",
+                "ascending",
+                "descending",
+                "concave",
+                "convex",
+                "peak",
+                "peak_heuristic",
+                "valley",
+                "valley_heuristic",
+            )
+        ),
+        *(
+            ("override_monotonic_trend", value)
+            for value in (
+                "auto",
+                "auto_heuristic",
+                "auto_asc_desc",
+                "ascending",
+                "descending",
+                "concave",
+                "convex",
+                "peak",
+                "peak_heuristic",
+                "valley",
+                "valley_heuristic",
+            )
+        ),
+        *(("override_dtype", value) for value in ("numerical", "categorical", "auto")),
+    ],
+)
+def test_opciones_de_fit_llegan_al_proceso_y_quedan_en_el_artefacto(case: str, value: str) -> None:
+    X, y = _golden_frame()
+    kwargs: dict[str, Any] = {"feature_columns": ("score",)}
+    expected_key = case
+    expected_value = value
+    if case == "override_monotonic_trend":
+        kwargs["monotonic_trend"] = None
+        kwargs["variable_overrides"] = (VariableBinningConfig(name="score", monotonic_trend=value),)
+        expected_key = "monotonic_trend"
+    elif case == "override_dtype":
+        kwargs["variable_overrides"] = (VariableBinningConfig(name="score", dtype=value),)
+        expected_key = "dtype"
+        expected_value = "numerical" if value == "auto" else value
+    else:
+        kwargs[case] = value
+
+    fitted = _binner(**kwargs).fit(X, y)
+    assert fitted.process_.binning_fit_params["score"][expected_key] == expected_value
+    assert fitted.summary_.set_index("name").loc["score", "status"] == "OPTIMAL"
+
+
 @pytest.fixture(autouse=True)
 def _fake_optbinning_process(
     monkeypatch: pytest.MonkeyPatch,
@@ -94,14 +255,14 @@ class _FakeBinningProcess:
         variable_names: list[str],
         *,
         categorical_variables: list[str] | None = None,
-        special_codes: dict[str, list[object]] | None = None,
+        special_codes: list[object] | None = None,
         binning_fit_params: dict[str, dict[str, object]] | None = None,
         **kwargs: object,
     ) -> None:
         del kwargs
         self.variable_names = variable_names
         self.categorical_variables = set(categorical_variables or [])
-        self.special_codes = special_codes or {}
+        self.special_codes = list(special_codes or [])
         self.binning_fit_params = binning_fit_params or {}
         self._binned_variables: dict[str, _FakeBinnedVariable] = {}
         self._summary: pd.DataFrame | None = None
@@ -126,7 +287,7 @@ class _FakeBinningProcess:
                 X[name],
                 y,
                 dtype=dtype,
-                special_codes=self.special_codes.get(name, []),
+                special_codes=self._special_codes_for(name),
             )
             self._binned_variables[name] = _FakeBinnedVariable(
                 dtype=dtype,
@@ -172,7 +333,7 @@ class _FakeBinningProcess:
         del metric, check_input
         transformed: dict[str, list[float]] = {}
         for name in self.variable_names:
-            special_values = set(self.special_codes.get(name, []))
+            special_values = set(self._special_codes_for(name))
             values: list[float] = []
             for value in X[name].tolist():
                 values.append(
@@ -186,6 +347,12 @@ class _FakeBinningProcess:
                 )
             transformed[name] = values
         return pd.DataFrame(transformed, index=X.index)
+
+    def _special_codes_for(self, name: str) -> list[object]:
+        variable_codes = self.binning_fit_params.get(name, {}).get("special_codes")
+        if variable_codes is None:
+            return list(self.special_codes)
+        return list(variable_codes)  # type: ignore[arg-type]
 
 
 def _fake_table_for_series(
@@ -459,6 +626,67 @@ def test_woebinner_ejerce_optbinning_real_en_subprocess() -> None:
     assert completed.stdout.strip() == "ok"
 
 
+def test_special_codes_por_variable_ejercitan_optbinning_real_en_subprocess() -> None:
+    """Regresión: ``BinningProcess`` no recibe el dict como catálogo global."""
+    script = textwrap.dedent(
+        """
+        import numpy as np
+        import pandas as pd
+
+        from nikodym.binning.transformer import WoEBinner
+        from nikodym.data.special import MaskedFrame
+
+        index = pd.Index([f"op-{i}" for i in range(12)], name="loan_id")
+        raw = pd.DataFrame(
+            {
+                "score_a": [0, 0, 1, 1, 2, 2, 3, 3, np.nan, np.nan, -999.0, -999.0],
+                "score_b": [0, 0, 1, 1, 2, 2, 3, 3, np.nan, np.nan, -777.0, -777.0],
+            },
+            index=index,
+        )
+        target = pd.Series([0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1], index=index)
+        mask = pd.DataFrame(False, index=index, columns=raw.columns)
+        mask.loc[index[-2:], :] = True
+        normalized = raw.copy(deep=True)
+        normalized.loc[index[-2:], :] = np.nan
+        special = MaskedFrame(
+            frame=normalized,
+            special_mask=mask,
+            special_catalog={"score_a": [-999.0], "score_b": [-777.0]},
+        )
+        binner = WoEBinner(
+            feature_columns=("score_a", "score_b"),
+            solver="mip",
+            max_n_prebins=4,
+            max_n_bins=4,
+            min_bin_size=0.1,
+            time_limit=5,
+            monotonic_trend=None,
+            keep_structural_columns=False,
+        ).fit(normalized, target, special=special)
+
+        assert binner.process_.special_codes is None
+        assert binner.process_.binning_fit_params["score_a"]["special_codes"] == [-999.0]
+        assert binner.process_.binning_fit_params["score_b"]["special_codes"] == [-777.0]
+        for column in ("score_a", "score_b"):
+            special_count = binner.tables_[column].loc[
+                binner.tables_[column]["Bin"].eq("Special"), "Count"
+            ]
+            assert special_count.tolist() == [2]
+        print("ok")
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    assert completed.stdout.strip() == "ok"
+
+
 def test_woebinner_default_binnea_numericas_continuas_reales_en_subprocess() -> None:
     """Regresión B0 (P0): con OptBinning REAL y config DEFAULT, las numéricas continuas
     mezcladas con una categórica se binnean de verdad (dtype numerical, IV>0, bins monótonos).
@@ -716,6 +944,40 @@ def test_special_separate_y_as_missing_tienen_conteos_distintos() -> None:
     assert missing_as_missing["Count"].tolist() == [4]
     assert separate.special_codes_ == {"score": [-999.0]}
     assert_frame_equal(normalized, special.frame)
+
+
+def test_special_codes_se_entregan_por_variable_sin_catalogo_global() -> None:
+    """Dos catálogos distintos no se convierten en llaves globales de OptBinning."""
+    index = _index(12)
+    raw = pd.DataFrame(
+        {
+            "score_a": [0, 0, 1, 1, 2, 2, 3, 3, np.nan, np.nan, -999.0, -999.0],
+            "score_b": [0, 0, 1, 1, 2, 2, 3, 3, np.nan, np.nan, -777.0, -777.0],
+        },
+        index=index,
+    )
+    y = pd.Series([0, 0, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1], index=index)
+    mask = pd.DataFrame(False, index=index, columns=raw.columns)
+    mask.loc[index[-2:], :] = True
+    normalized = raw.copy(deep=True)
+    normalized.loc[index[-2:], :] = np.nan
+    special = MaskedFrame(
+        frame=normalized,
+        special_mask=mask,
+        special_catalog={"score_a": [-999.0], "score_b": [-777.0]},
+    )
+
+    fitted = _binner(feature_columns=("score_a", "score_b")).fit(normalized, y, special=special)
+
+    assert fitted.process_.special_codes == []
+    assert fitted.process_.binning_fit_params["score_a"]["special_codes"] == [-999.0]
+    assert fitted.process_.binning_fit_params["score_b"]["special_codes"] == [-777.0]
+    assert fitted.tables_["score_a"].loc[
+        fitted.tables_["score_a"]["Bin"].eq("Special"), "Count"
+    ].tolist() == [2]
+    assert fitted.tables_["score_b"].loc[
+        fitted.tables_["score_b"]["Bin"].eq("Special"), "Count"
+    ].tolist() == [2]
 
 
 def test_categoricas_agrupan_raros_y_unknown_transforma_neutral() -> None:

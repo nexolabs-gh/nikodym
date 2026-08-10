@@ -420,9 +420,16 @@ class StabilityEvaluator(AuditableMixin, BaseNikodymEstimator):
         """Calcula el CSI por característica con puntos discretos o bins fijados en Desarrollo."""
         for feature in feature_point_columns:
             dev_points = _partition_array(
-                prepared, cfg=cfg, partition=_DEVELOPMENT_PARTITION, column=feature, np=np
+                prepared,
+                cfg=cfg,
+                partition=_DEVELOPMENT_PARTITION,
+                column=feature,
+                np=np,
+                numeric=cfg.csi_source != "woe_bins",
             )
-            discrete = dev_present and int(np.unique(dev_points).size) <= cfg.csi_bins
+            discrete = dev_present and (
+                cfg.csi_source == "woe_bins" or int(np.unique(dev_points).size) <= cfg.csi_bins
+            )
             feature_edges = (
                 _quantile_interior_edges(dev_points, cfg.csi_bins, np)
                 if dev_present and not discrete
@@ -431,7 +438,12 @@ class StabilityEvaluator(AuditableMixin, BaseNikodymEstimator):
             for comparison in cfg.comparisons:
                 _, actual_partition = _COMPARISON_PARTITIONS[comparison]
                 actual = _partition_array(
-                    prepared, cfg=cfg, partition=actual_partition, column=feature, np=np
+                    prepared,
+                    cfg=cfg,
+                    partition=actual_partition,
+                    column=feature,
+                    np=np,
+                    numeric=cfg.csi_source != "woe_bins",
                 )
                 if not dev_present or actual.size == 0:
                     metric_records.append(_metric_not_evaluable("csi", comparison, feature, cfg))
@@ -737,8 +749,11 @@ def _prepare_frame(
     prepared[cfg.score_column] = _float_series(score, prepared.index, pd)
     prepared[cfg.pd_column] = _float_series(calibrated_pd, prepared.index, pd)
     for column in feature_point_columns:
-        points = _numeric_array(prepared[column], column=column, np=np)
-        prepared[column] = _float_series(points, prepared.index, pd)
+        if cfg.csi_source == "woe_bins":
+            prepared[column] = prepared[column].astype("string")
+        else:
+            points = _numeric_array(prepared[column], column=column, np=np)
+            prepared[column] = _float_series(points, prepared.index, pd)
     if temporal_name is not None:
         prepared[_INTERNAL_PERIOD_COLUMN] = _period_labels(
             prepared[temporal_name], cfg.temporal_freq, pd
@@ -786,11 +801,13 @@ def _partition_array(
     partition: str,
     column: str,
     np: Any,
+    numeric: bool = True,
 ) -> Any:
-    """Extrae el array float64 de una columna para las filas de una partición."""
+    """Extrae valores de una partición; PSI numérico y CSI por bins conservan su tipo."""
     del np
     mask = frame[cfg.partition_column].eq(partition)
-    return frame.loc[mask, column].to_numpy(dtype="float64", copy=True)
+    dtype = "float64" if numeric else object
+    return frame.loc[mask, column].to_numpy(dtype=dtype, copy=True)
 
 
 def _quantile_interior_edges(values: Any, n_bins: int, np: Any) -> Any:
@@ -848,6 +865,8 @@ def _bin_counts_discrete(
 
 def _discrete_label(value: Any) -> str:
     """Etiqueta canónica y estable de un punto discreto."""
+    if isinstance(value, str):
+        return f"bin={value}"
     return f"pts={float(value)!r}"
 
 

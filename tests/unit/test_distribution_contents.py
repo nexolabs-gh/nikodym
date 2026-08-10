@@ -39,6 +39,9 @@ _DIST_INFO = f"nikodym-{_VERSION}.dist-info"
 _SEMANTICS_BYTES = _POLICY.parents[1].joinpath("src/nikodym/ui/_static_index.py").read_bytes()
 _SEMANTICS_IN_WHEEL = "nikodym/ui/_static_index.py"
 _SEMANTICS_IN_SDIST = "src/nikodym/ui/_static_index.py"
+_BUILD_MANIFEST_BYTES = _POLICY.parents[1].joinpath("src/nikodym/_build_manifest.json").read_bytes()
+_BUILD_MANIFEST_IN_WHEEL = "nikodym/_build_manifest.json"
+_BUILD_MANIFEST_IN_SDIST = "src/nikodym/_build_manifest.json"
 
 # Launcher B2.2: el wheel debe traer el módulo y DECLARAR el console script. Un `entry_points.txt`
 # presente pero vacío satisface la lista de obligatorios y deja al usuario sin el comando.
@@ -126,6 +129,7 @@ def _minimal_static(prefix: str) -> dict[str, bytes]:
 
 def _minimal_wheel() -> dict[str, bytes]:
     return _minimal_static("nikodym/ui/static") | {
+        _BUILD_MANIFEST_IN_WHEEL: _BUILD_MANIFEST_BYTES,
         _SEMANTICS_IN_WHEEL: _SEMANTICS_BYTES,
         _LAUNCHER_IN_WHEEL: b'"""launcher"""\n',
         f"{_DIST_INFO}/entry_points.txt": _ENTRY_POINTS,
@@ -138,6 +142,7 @@ def _minimal_wheel() -> dict[str, bytes]:
 
 def _minimal_sdist() -> dict[str, bytes]:
     return _minimal_static("src/nikodym/ui/static") | {
+        _BUILD_MANIFEST_IN_SDIST: _BUILD_MANIFEST_BYTES,
         _SEMANTICS_IN_SDIST: _SEMANTICS_BYTES,
         _LAUNCHER_IN_SDIST: b'"""launcher"""\n',
         "PKG-INFO": _metadata(),

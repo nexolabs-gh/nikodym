@@ -54,6 +54,20 @@ No se modificó código de producto, schema, fixtures, demo, D-VIS-6, gains ni p
 El hardware observado no es el hardware contractual de S1/S2. Sus cifras sólo describen este
 baseline local y no son copy público ni compromiso de rendimiento.
 
+## Errata factual descubierta en W1
+
+La inspección del commit medido `8c610e3` durante W1 comprobó que la razón sobre el límite de
+cuerpo quedó redactada de forma incorrecta tanto en este resumen como en las entradas
+`ui/S1`/`ui/S2` del JSON inmutable. `install_body_limit` ya envolvía el `receive` ASGI antes del
+parser: con `Content-Length > 100 MiB` rechaza sin invocar al consumidor y, sin longitud declarada,
+entrega como máximo N bytes aguas abajo y corta cuando llega el chunk que cruza N. Físicamente no
+puede conocer de antemano el tamaño de un stream chunked.
+
+No se reescribe la evidencia W0 ni cambia su veredicto: esta errata corrige también la tabla y el
+párrafo históricos de «Matriz perfil × canal» más abajo, mientras UI S1/S2 seguía `no_medible` por
+resultados completos, falta de paginación/lifecycle y hardware. W1 añade el gate productivo
+N−1/N/N+1 sobre la implementación ya existente.
+
 ## Mediciones y proxies actuales
 
 | Probe | Naturaleza | Dimensión | Wall | Peak RSS | Resultado |

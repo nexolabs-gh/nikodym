@@ -27,6 +27,8 @@ export interface SchemaPayload {
    * secciones en `null`, no lo que el motor usaría campo a campo.
    */
   effective_defaults?: EffectiveDefaults
+  /** Valores no implementados derivados del catálogo backend; el form nunca duplica el dominio. */
+  disabled_methodology_values?: Record<string, string[]>
 }
 
 /** Snapshot local bundleado (schema compuesto con secciones F1 expandidas). */

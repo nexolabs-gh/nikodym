@@ -80,7 +80,7 @@ ROOT_SEED = 20_240_629
 # PDF): el único cambio es esa clase en el `figure`.
 # Recalculado al normalizar whitespace final del HTML y reemplazar el título fijo de deciles por
 # el título factual de tramos efectivos.
-GOLDEN_STEP_HTML_SHA256 = "53cc041d2e183d11b0f7e5fdb047ac7529ca2cef0b1c2c80d92e820e36cf2342"
+GOLDEN_STEP_HTML_SHA256 = "5ecd8ea7c82725cfc8f8100ea4ac14908c1ab31d53e92a66cb99be498302eaf9"
 
 _HAS_MATPLOTLIB = importlib.util.find_spec("matplotlib") is not None
 
@@ -516,13 +516,13 @@ def test_html_path_apunta_al_archivo_real_con_output_dir_relativo_y_absoluto(
     trae el directorio en ese estado. Con ``output_dir`` absoluto salía bien, y por eso la interfaz
     —que pasa una ruta absoluta— nunca lo vio. Los otros tres formatos no comparten el camino.
 
-    ``formats`` se queda en ``("html", "md")``: ``md`` no necesita ningún extra, mientras que
+    ``formats`` se queda en ``("md",)``: el HTML base no es un opt-in y ``md`` no necesita extra,
     ``docx`` sí (``python-docx``) y en los jobs mínimos del CI degrada a ``None`` con gracia.
     Aseverar su ruta convertiría un test de ``html_path`` en un test de instalación.
     """
     monkeypatch.chdir(tmp_path)
     output_dir = "reports" if output_dir_relativo else str(tmp_path / "salida")
-    cfg = ReportConfig(output_dir=output_dir, formats=("html", "md"))
+    cfg = ReportConfig(output_dir=output_dir, formats=("md",))
     study = _study_with_report_artifacts(config=cfg)
 
     result = ReportStep.from_config(cfg).execute(study, np.random.default_rng(ROOT_SEED))
@@ -561,7 +561,7 @@ def test_execute_pdf_en_formats_degrada_sin_weasyprint(
     _block_weasyprint(monkeypatch)
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html", "pdf"),
+        formats=("pdf",),
         pdf=PdfRenderConfig(enabled=False, fail_if_unavailable=False),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
@@ -583,7 +583,7 @@ def test_execute_pdf_en_formats_fail_if_unavailable_relanza(
     _block_weasyprint(monkeypatch)
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html", "pdf"),
+        formats=("pdf",),
         pdf=PdfRenderConfig(fail_if_unavailable=True),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
@@ -600,7 +600,7 @@ def test_execute_refleja_pdf_path_y_audita_export(
     """Cuando ``_maybe_write_pdf`` devuelve una ruta, el step la refleja y audita el export PDF."""
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html", "pdf"),
+        formats=("pdf",),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
     study = _study_with_report_artifacts(config=cfg)
@@ -624,7 +624,7 @@ def test_execute_md_en_formats_escribe_la_base_editable_y_la_audita(tmp_path: Pa
     """
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html", "md"),
+        formats=("md",),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
     study = _study_with_report_artifacts(config=cfg)
@@ -654,7 +654,7 @@ def test_execute_csv_en_formats_puebla_data_exports_con_las_tablas_completas(
     """
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html", "csv"),
+        formats=("csv",),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
     study = _study_with_report_artifacts(config=cfg)
@@ -713,7 +713,7 @@ def test_execute_xlsx_sin_el_extra_degrada_y_el_informe_sale_igual(
     _sin_extra_excel(monkeypatch)
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html", "xlsx"),
+        formats=("xlsx",),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
     study = _study_with_report_artifacts(config=cfg)
@@ -739,7 +739,7 @@ def test_execute_xlsx_sin_el_extra_y_fail_if_unavailable_detiene(
     _sin_extra_excel(monkeypatch)
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html", "xlsx"),
+        formats=("xlsx",),
         xlsx=XlsxExportConfig(fail_if_unavailable=True),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
@@ -754,7 +754,7 @@ def test_sin_formato_de_datos_no_hay_exports(tmp_path: Path) -> None:
     """Sin ``csv``/``xlsx`` no se escribe ningún adjunto: ``data_exports`` queda vacío."""
     cfg = ReportConfig(
         output_dir=str(tmp_path),
-        formats=("html",),
+        formats=(),
         sections=SectionPolicyConfig(max_table_rows=10),
     )
     study = _study_with_report_artifacts(config=cfg)
