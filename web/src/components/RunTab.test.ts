@@ -294,7 +294,7 @@ describe("los callers enrutan el cambio de preset por applyPreset (guardrail de 
   it("RunTab.handlePreset delega en applyPreset con setJob (inline perdería corte y trabajo)", () => {
     const body =
       runTabSource.match(
-        /async function handlePreset\(presetId: string\) \{([\s\S]*?)\n  \}\n/,
+        /async function handlePreset\(presetId: string\) \{([\s\S]*?)\r?\n  \}\r?\n/,
       )?.[1] ?? ""
     expect(body).not.toBe("")
     expect(body).toMatch(/await applyPreset\(/)
@@ -314,7 +314,7 @@ describe("los callers enrutan el cambio de preset por applyPreset (guardrail de 
     expect(appSource).toMatch(/await applyPreset\(/)
     // Le pasa el catálogo y el setter: sin ellos el ejemplo del landing no elegiría su trabajo.
     const body =
-      appSource.match(/const enterDemo = async \(([\s\S]*?)\n  \}\n/)?.[1] ?? ""
+      appSource.match(/const enterDemo = async \(([\s\S]*?)\r?\n  \}\r?\n/)?.[1] ?? ""
     expect(body).not.toBe("")
     expect(body).toMatch(/loadJobs,/)
     expect(body).toMatch(/setJob,/)

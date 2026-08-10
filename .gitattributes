@@ -17,6 +17,8 @@
 # también en Windows con core.autocrlf=true.
 /web/index.html text eol=lf
 /web/public/*.svg text eol=lf
+/web/src/fixtures/demo/NIKODYM_DEMO_FIXTURE_ONLY text eol=lf
+/web/src/fixtures/demo/*.html text eol=lf
 /src/nikodym/ui/static/index.html text eol=lf
 /src/nikodym/ui/static/*.svg text eol=lf
 /src/nikodym/ui/static/assets/*.css text eol=lf

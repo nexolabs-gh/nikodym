@@ -62,7 +62,11 @@ export function normalizeModuleId(id) {
       const url = new URL(normalized)
       url.search = ""
       url.hash = ""
-      normalized = fileURLToPath(url)
+      const posixPathOnWindows =
+        process.platform === "win32"
+        && url.hostname === ""
+        && !/^\/[A-Za-z]:\//.test(url.pathname)
+      normalized = posixPathOnWindows ? url.pathname : fileURLToPath(url)
     }
   } catch {
     throw new Error(`Id de módulo no normalizable: ${id}`)

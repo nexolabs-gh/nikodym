@@ -187,7 +187,11 @@ test("packageEvidence conserva LICENSE, NOTICE, COPYRIGHT y referencias declarad
       ]),
       /ruta relativa insegura/,
     )
-    symlinkSync("LICENSE", path.join(packageRoot, "LEGAL-LINK"))
+    if (process.platform === "win32") {
+      symlinkSync(packageRoot, path.join(packageRoot, "LEGAL-LINK"), "junction")
+    } else {
+      symlinkSync("LICENSE", path.join(packageRoot, "LEGAL-LINK"))
+    }
     assert.throws(
       () => buildNotices([
         { ...evidence, license_files: [{ ...licenseEntry, relative_path: "LEGAL-LINK" }] },

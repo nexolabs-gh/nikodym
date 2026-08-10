@@ -165,7 +165,7 @@ describe("guardrail: el handler de «Cargar YAML» enruta por applyYamlConfig", 
     // exactamente el estado en que estuvo el repo desde que se aprobó el SDD.
     const body =
       configTabSource.match(
-        /const handleUploadYaml = async \(([\s\S]*?)\n  \}\n/,
+        /const handleUploadYaml = async \(([\s\S]*?)\r?\n  \}\r?\n/,
       )?.[1] ?? ""
     expect(body).not.toBe("")
     expect(body).toMatch(/await applyYamlConfig\(/)
