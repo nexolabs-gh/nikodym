@@ -295,7 +295,7 @@ def _installed_metadata_hash(distribution: Any) -> str:
     return digest.hexdigest()
 
 
-def _cleanroom_identity(wheel: Path, *, source_sha: str) -> dict[str, Any]:
+def _cleanroom_identity(wheel: Path, sdist: Path, *, source_sha: str) -> dict[str, Any]:
     from importlib import metadata
 
     import nikodym
@@ -325,6 +325,11 @@ def _cleanroom_identity(wheel: Path, *, source_sha: str) -> dict[str, Any]:
     if "site-packages" not in module.parts:
         raise RuntimeError(f"Nikodym no se resolvió desde site-packages: {module}")
     distribution = metadata.distribution("nikodym")
+    expected_sdist_name = f"nikodym-{distribution.version}.tar.gz"
+    if sdist.name != expected_sdist_name:
+        raise RuntimeError(
+            f"sdist no corresponde a la versión instalada: {sdist.name} != {expected_sdist_name}"
+        )
     wheel_tree_hash = _wheel_tree_hash(wheel)
     installed_tree_hash = _installed_tree_hash(distribution)
     if wheel_tree_hash != installed_tree_hash:
@@ -337,6 +342,9 @@ def _cleanroom_identity(wheel: Path, *, source_sha: str) -> dict[str, Any]:
         "wheel_name": wheel.name,
         "wheel_bytes": wheel.stat().st_size,
         "wheel_sha256": _sha256(wheel),
+        "sdist_name": sdist.name,
+        "sdist_bytes": sdist.stat().st_size,
+        "sdist_sha256": _sha256(sdist),
         "nikodym_version": distribution.version,
         "nikodym_file": str(module),
         "wheel_tree_hash": wheel_tree_hash,
@@ -991,7 +999,13 @@ def _report_evidence(report_dir: Path) -> dict[str, Any]:
     }
 
 
-def _run(profile_name: str, wheel: Path, workdir: Path, source_sha: str) -> dict[str, Any]:
+def _run(
+    profile_name: str,
+    wheel: Path,
+    sdist: Path,
+    workdir: Path,
+    source_sha: str,
+) -> dict[str, Any]:
     import pandas as pd
 
     from nikodym.scorecard.bundle import fit_scorecard_bundle
@@ -1006,7 +1020,7 @@ def _run(profile_name: str, wheel: Path, workdir: Path, source_sha: str) -> dict
         raise RuntimeError(
             f"disco insuficiente: requiere {profile['disk_free_gib']} GiB libres antes de medir"
         )
-    identity = _cleanroom_identity(wheel, source_sha=source_sha)
+    identity = _cleanroom_identity(wheel, sdist, source_sha=source_sha)
     generated = _training_frame(profile)
     training_source = workdir / "training.csv"
     generated.to_csv(training_source, index=True)
@@ -1101,7 +1115,13 @@ def _run(profile_name: str, wheel: Path, workdir: Path, source_sha: str) -> dict
     }
 
 
-def _run_s3(wheel: Path, workdir: Path, source_sha: str, bundle_path: Path) -> dict[str, Any]:
+def _run_s3(
+    wheel: Path,
+    sdist: Path,
+    workdir: Path,
+    source_sha: str,
+    bundle_path: Path,
+) -> dict[str, Any]:
     """Prueba los cuatro techos H9=B por superficies públicas y sin crear solver/output."""
     from unittest.mock import patch
 
@@ -1113,7 +1133,7 @@ def _run_s3(wheel: Path, workdir: Path, source_sha: str, bundle_path: Path) -> d
     from nikodym.scorecard.bundle import FittedScorecardBundle, fit_scorecard_bundle
     from nikodym.scorecard.exceptions import ScorecardBundleError
 
-    identity = _cleanroom_identity(wheel, source_sha=source_sha)
+    identity = _cleanroom_identity(wheel, sdist, source_sha=source_sha)
 
     class AcceptedPreflightError(Exception):
         pass
@@ -1265,6 +1285,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--profile", choices=(*PROFILES, "S3-limite"), required=True)
     parser.add_argument("--wheel", type=Path, required=True)
+    parser.add_argument("--sdist", type=Path, required=True)
     parser.add_argument("--workdir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-sha", required=True)
@@ -1274,6 +1295,8 @@ def main() -> int:
         raise SystemExit(f"la evidencia W1 no se sobrescribe: {args.output}")
     if not args.wheel.is_file():
         raise SystemExit(f"wheel ausente: {args.wheel}")
+    if not args.sdist.is_file():
+        raise SystemExit(f"sdist ausente: {args.sdist}")
     workdir = _validate_external_workdir(args.workdir)
     workdir.mkdir(parents=True, exist_ok=False)
     started_wall = time.perf_counter()
@@ -1284,6 +1307,7 @@ def main() -> int:
                 raise RuntimeError("S3-limite exige --s3-bundle producido por S0")
             payload = _run_s3(
                 args.wheel.resolve(),
+                args.sdist.resolve(),
                 workdir,
                 args.source_sha,
                 args.s3_bundle.resolve(),
@@ -1292,6 +1316,7 @@ def main() -> int:
             payload = _run(
                 args.profile,
                 args.wheel.resolve(),
+                args.sdist.resolve(),
                 workdir,
                 args.source_sha,
             )
