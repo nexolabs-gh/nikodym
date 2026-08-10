@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 import zipfile
 from pathlib import Path, PurePosixPath
 from types import ModuleType
@@ -62,6 +63,12 @@ def test_hash_metadata_compara_wheel_e_instalacion_y_detecta_drift(tmp_path: Pat
 def test_driver_no_importa_nikodym_al_cargar() -> None:
     module = _driver()
     assert "nikodym" not in module.__dict__
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="API nativa específica de Windows")
+def test_peak_rss_windows_usa_handle_sin_truncar() -> None:
+    driver = _driver()
+    assert driver._peak_rss_bytes() > 0
 
 
 def test_evidencia_de_informe_exige_html_y_qmd_reales(tmp_path: Path) -> None:
