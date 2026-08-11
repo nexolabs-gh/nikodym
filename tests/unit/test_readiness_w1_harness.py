@@ -14,6 +14,11 @@ from types import ModuleType
 
 import pytest
 
+_DARWIN_RESOURCE_PROBE_UNSUPPORTED = pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="S3 es fail-closed en Darwin: RLIMIT_AS no demuestra un límite duro",
+)
+
 
 def _driver() -> ModuleType:
     path = Path(__file__).resolve().parents[2] / "scripts" / "measure_readiness_w1.py"
@@ -153,6 +158,7 @@ def _run_probe(
     )
 
 
+@_DARWIN_RESOURCE_PROBE_UNSUPPORTED
 def test_supervisor_s3_ejecucion_normal_atestigua_limites_y_capturas(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -180,6 +186,7 @@ def test_supervisor_s3_ejecucion_normal_atestigua_limites_y_capturas(
     assert len(evidence["stderr"]["sha256"]) == 64
 
 
+@_DARWIN_RESOURCE_PROBE_UNSUPPORTED
 def test_supervisor_s3_wall_timeout_mata_antes_del_sentinel(tmp_path: Path) -> None:
     driver = _driver()
     evidence = _run_probe(
@@ -223,6 +230,7 @@ def test_supervisor_s3_limite_memoria_es_duro_y_clasificado(tmp_path: Path) -> N
         assert accounting["peak_job_memory_commit_bytes"] >= int(memory_bytes * 0.70)
 
 
+@_DARWIN_RESOURCE_PROBE_UNSUPPORTED
 def test_supervisor_s3_limite_cpu_es_duro_y_clasificado(tmp_path: Path) -> None:
     driver = _driver()
     evidence = _run_probe(
@@ -242,6 +250,7 @@ def test_supervisor_s3_limite_cpu_es_duro_y_clasificado(tmp_path: Path) -> None:
         assert evidence["accounting_before_cleanup"]["total_user_time_100ns"] >= 8_000_000
 
 
+@_DARWIN_RESOURCE_PROBE_UNSUPPORTED
 def test_supervisor_s3_cierra_descendiente_antes_del_sentinel_tardio(tmp_path: Path) -> None:
     driver = _driver()
     evidence = _run_probe(
@@ -320,6 +329,7 @@ def test_job_object_kill_on_close_mata_arbol_antes_del_sentinel(tmp_path: Path) 
             parent.wait(timeout=5.0)
 
 
+@_DARWIN_RESOURCE_PROBE_UNSUPPORTED
 def test_supervisor_s3_no_entrega_start_sin_limites_exactos(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
