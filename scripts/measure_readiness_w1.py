@@ -1111,6 +1111,7 @@ def _config(profile: dict[str, int], *, report_dir: Path) -> Any:
     }
     raw["binning"]["feature_columns"] = features
     raw["binning"]["categorical_columns"] = ["x_000"]
+    raw["binning"]["variable_overrides"] = [{"name": "x_000", "cat_cutoff": 0.0}]
     raw["binning"]["max_n_prebins"] = 20
     raw["binning"]["max_n_bins"] = 6
     raw["binning"]["n_jobs"] = min(os.cpu_count() or 1, profile["variables"])

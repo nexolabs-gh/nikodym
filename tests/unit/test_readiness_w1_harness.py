@@ -7,6 +7,7 @@ import copy
 import importlib.util
 import subprocess
 import sys
+import textwrap
 import time
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -127,6 +128,130 @@ def test_generador_garantiza_soporte_dev_para_cada_categoria_ordinaria() -> None
     assert set(range(99)).issubset(set(desarrollo["x_000"]))
     assert set(desarrollo.loc[desarrollo["x_000"].eq(-88888), "bad_flag"]) == {0, 1}
     assert set(frame["sample_split"]) == {"DEV", "HOLDOUT", "OOT"}
+
+
+def test_perfil_s2_conserva_contrato_h9_b_literal() -> None:
+    driver = _driver()
+
+    assert driver.PROFILES["S2-equipo"] == {
+        "train_rows": 1_000_000,
+        "batch_rows": 5_000_000,
+        "variables": 100,
+        "cardinality": 100_000,
+        "logical_cpus": 16,
+        "ram_gib": 32,
+        "peak_gib": 24,
+        "train_seconds": 2_700,
+        "batch_seconds": 1_200,
+        "batch_chunk_size": 10_000,
+        "disk_free_gib": 60,
+    }
+
+
+def test_config_desactiva_cutoff_solo_para_x000_y_conserva_global(
+    tmp_path: Path,
+) -> None:
+    from nikodym.binning.transformer import WoEBinner, _build_binning_fit_params
+
+    driver = _driver()
+    config = driver._config(driver.PROFILES["S0-smoke"], report_dir=tmp_path)
+    overrides = config.binning.variable_overrides
+
+    assert config.binning.cat_cutoff == 0.01
+    assert config.binning.categorical_columns == ("x_000",)
+    assert len(overrides) == 1
+    assert overrides[0].name == "x_000"
+    assert overrides[0].cat_cutoff == 0.0
+
+    binner = WoEBinner.from_config(config.binning)
+    params = _build_binning_fit_params(
+        binner,
+        ["x_000", "x_001"],
+        ["x_000"],
+    )
+    assert params["x_000"]["dtype"] == "categorical"
+    assert "cat_cutoff" not in params["x_000"]
+    assert params["x_001"]["dtype"] == "numerical"
+    assert params["x_001"]["cat_cutoff"] == 0.01
+
+
+def test_override_x000_cruza_cutoff_real_y_conserva_special(
+    tmp_path: Path,
+) -> None:
+    driver_path = Path(__file__).resolve().parents[2] / "scripts" / "measure_readiness_w1.py"
+    script = textwrap.dedent(
+        """
+        import copy
+        import importlib.util
+        from pathlib import Path
+        import sys
+
+        import numpy as np
+        import pandas as pd
+
+        from nikodym.binning.exceptions import BinningFitError
+        from nikodym.binning.transformer import WoEBinner
+        from nikodym.data.special import MaskedFrame
+
+        driver_path = Path(sys.argv[1])
+        spec = importlib.util.spec_from_file_location("nikodym_readiness_w1_fixture", driver_path)
+        assert spec is not None and spec.loader is not None
+        driver = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(driver)
+        config = driver._config(driver.PROFILES["S0-smoke"], report_dir=Path(sys.argv[2]))
+
+        ordinary_categories = 101
+        ordinary_values = np.repeat(np.arange(ordinary_categories, dtype="int32"), 2)
+        ordinary_target = np.tile(np.array([0, 1], dtype="int8"), ordinary_categories)
+        values = np.concatenate(
+            [ordinary_values, np.array([-88888, -88888], dtype="int32")]
+        )
+        target = np.concatenate([ordinary_target, np.array([0, 1], dtype="int8")])
+        index = pd.RangeIndex(len(values), name="row_id")
+        raw = pd.DataFrame({"x_000": values}, index=index)
+        y = pd.Series(target, index=index, name="bad_flag")
+        special_mask = pd.DataFrame({"x_000": raw["x_000"].eq(-88888)}, index=index)
+        normalized = raw.astype({"x_000": "float64"})
+        normalized.loc[special_mask["x_000"], "x_000"] = np.nan
+        special = MaskedFrame(
+            frame=normalized.copy(deep=True),
+            special_mask=special_mask,
+            special_catalog={"x_000": [-88888]},
+        )
+
+        base = WoEBinner.from_config(config.binning).set_params(
+            feature_columns=("x_000",),
+            n_jobs=1,
+        )
+        without_override = copy.deepcopy(base).set_params(variable_overrides=())
+        try:
+            without_override.fit(normalized, y, special=special)
+        except BinningFitError as exc:
+            assert "All categories moved to others' bin" in str(exc)
+        else:
+            raise AssertionError("el cutoff global no reprodujo la causa raíz")
+
+        fitted = base.fit(normalized, y, special=special)
+        table = fitted.tables_["x_000"]
+        others_count = int(
+            table.loc[table["Bin"].astype(str).eq("Others"), "Count"].sum()
+        )
+        assert fitted.process_.get_binned_variable("x_000").dtype == "categorical"
+        assert fitted.special_codes_ == {"x_000": [-88888]}
+        assert others_count == 0
+        print("ok")
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(driver_path), str(tmp_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    assert completed.stdout.strip() == "ok"
 
 
 def _supervisor_limits(driver: ModuleType, **overrides: int | float) -> dict[str, int | float]:
