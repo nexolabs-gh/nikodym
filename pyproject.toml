@@ -1,6 +1,6 @@
 # ─────────────────────────── build backend ───────────────────────────
 [build-system]
-requires = ["hatchling>=1.27"]              # ≥1.27: emite core-metadata 2.4 (License-Expression) y
+requires = ["hatchling==1.27.0"]            # 1.27.0: emite core-metadata 2.4 (License-Expression) y
                                             # soporta license-files como globs (PEP 639 final). SDD-25 §5/C15.
 build-backend = "hatchling.build"
 
