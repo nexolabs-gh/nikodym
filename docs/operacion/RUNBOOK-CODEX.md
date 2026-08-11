@@ -228,6 +228,20 @@ function Remove-NikodymTempDirectory {
     }
 }
 Remove-NikodymTempDirectory -LiteralPath $nikodymCleanRoom
+
+function Remove-NikodymTempFile {
+    param([Parameter(Mandatory=$true)][string]$LiteralPath)
+    $nikodymDeleteTarget = [IO.Path]::GetFullPath($LiteralPath)
+    $nikodymDeleteParent = [IO.Directory]::GetParent($nikodymDeleteTarget).FullName
+    $nikodymExpectedParent = [IO.Path]::GetFullPath($nikodymTempRoot)
+    if ($nikodymDeleteParent -ne $nikodymExpectedParent) {
+        throw "borrado fuera del temp contractual: $nikodymDeleteTarget"
+    }
+    Remove-Item -LiteralPath $nikodymDeleteTarget -Force
+    if (Test-Path -LiteralPath $nikodymDeleteTarget) {
+        throw "el temporal persiste: $nikodymDeleteTarget"
+    }
+}
 ```
 
 Para revisar procesos, censar comando y PID; no matar por nombre global porque puede afectar trabajo
@@ -567,10 +581,54 @@ $nikodymWheel = $nikodymWheels[0]
 $nikodymSdist = $nikodymSdists[0]
 $nikodymFrontendProvenance = Join-Path `
     $nikodymCandidateRoot 'frontend-evidence\frontend-provenance.json'
-& $nikodymPython scripts\check_distribution_contents.py `
-    --frontend-provenance $nikodymFrontendProvenance `
-    $nikodymWheel.FullName $nikodymSdist.FullName
-if ($LASTEXITCODE -ne 0) { throw 'contenido del candidato falló' }
+```
+
+`core.autocrlf=true` materializa `LICENSE` con CRLF en este worktree, mientras wheel y sdist
+conservan los bytes LF del índice. El checker compara esos bytes deliberadamente. No cambiar la
+configuración global ni auditar el candidate contra su propio código: exportar una vista fuente
+mínima del SHA exacto, con `core.autocrlf=false` sólo para ese proceso. Limitar el archive evita los
+symlinks históricos que `tar.exe` no puede crear en esta torre:
+
+```powershell
+$nikodymSourceNonce = [guid]::NewGuid().ToString('N')
+$nikodymSourceView = Join-Path $nikodymTempRoot (
+    'source-lf-' + $nikodymCandidateSha.Substring(0,12) + '-' + $nikodymSourceNonce
+)
+$nikodymSourceArchive = Join-Path $nikodymTempRoot (
+    'source-lf-' + $nikodymCandidateSha.Substring(0,12) + '-' +
+    $nikodymSourceNonce + '.tar'
+)
+foreach ($nikodymSourceTarget in @($nikodymSourceView,$nikodymSourceArchive)) {
+    if (Test-Path -LiteralPath $nikodymSourceTarget) {
+        throw "la vista fuente ya existe: $nikodymSourceTarget"
+    }
+}
+New-Item -ItemType Directory -Path $nikodymSourceView | Out-Null
+$nikodymTar = (Get-Command tar.exe -CommandType Application -ErrorAction Stop).Source
+git -c core.autocrlf=false archive --format=tar `
+    --output=$nikodymSourceArchive $nikodymCandidateSha -- `
+    LICENSE uv.lock `
+    scripts/check_distribution_contents.py `
+    scripts/distribution_contents_allowlist.json src
+if ($LASTEXITCODE -ne 0) { throw 'git archive LF del candidato falló' }
+& $nikodymTar -xf $nikodymSourceArchive -C $nikodymSourceView
+if ($LASTEXITCODE -ne 0) { throw 'extracción de vista fuente LF falló' }
+
+$nikodymPreviousPythonPath = [Environment]::GetEnvironmentVariable('PYTHONPATH','Process')
+$env:PYTHONPATH = Join-Path $nikodymSourceView 'src'
+try {
+    & $nikodymPython `
+        (Join-Path $nikodymSourceView 'scripts\check_distribution_contents.py') `
+        --frontend-provenance $nikodymFrontendProvenance `
+        $nikodymWheel.FullName $nikodymSdist.FullName
+    if ($LASTEXITCODE -ne 0) { throw 'contenido del candidato falló' }
+} finally {
+    if ($null -eq $nikodymPreviousPythonPath) {
+        Remove-Item Env:\PYTHONPATH -ErrorAction SilentlyContinue
+    } else {
+        $env:PYTHONPATH = $nikodymPreviousPythonPath
+    }
+}
 ```
 
 Instalar **ese wheel** en una venv corta fuera de OneDrive, vaciar `PYTHONPATH`, cambiar el cwd
@@ -709,12 +767,14 @@ if ((Get-FileHash -Algorithm SHA256 -LiteralPath $nikodymManifest).Hash -ne
 }
 ```
 
-Sólo después de importar y hashear esa evidencia, eliminar los dos temporales mediante la función
-validada de §2.5:
+Sólo después de importar y hashear esa evidencia, eliminar los temporales mediante las funciones
+validadas de §2.5:
 
 ```powershell
 Remove-NikodymTempDirectory -LiteralPath $nikodymVerifyRoot
 Remove-NikodymTempDirectory -LiteralPath $nikodymCandidateDir
+Remove-NikodymTempDirectory -LiteralPath $nikodymSourceView
+Remove-NikodymTempFile -LiteralPath $nikodymSourceArchive
 ```
 
 S3 verde no convierte W1 en PASS si S2 sigue pendiente o el hardware H9=B no está demostrado.
