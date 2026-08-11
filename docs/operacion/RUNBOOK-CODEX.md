@@ -646,7 +646,10 @@ $nikodymVerifyVenv = Join-Path $nikodymVerifyRoot 'venv'
 if ($LASTEXITCODE -ne 0) { throw 'creación de venv candidata falló' }
 $nikodymVerifyPython = Join-Path $nikodymVerifyVenv 'Scripts\python.exe'
 $nikodymWheelSpec = $nikodymWheel.FullName + '[scoring,ui,docx]'
-& $nikodymUv pip install --python $nikodymVerifyPython $nikodymWheelSpec httpx2
+# La cache local puede exponer archivos Cloud Files incompatibles con hardlinks (os error 396).
+# `copy` evita esa dependencia del filesystem sin cambiar resolución ni bytes instalados.
+& $nikodymUv pip install --link-mode copy `
+    --python $nikodymVerifyPython $nikodymWheelSpec httpx2
 if ($LASTEXITCODE -ne 0) { throw 'instalación del wheel candidato falló' }
 
 $nikodymDriver = Join-Path $nikodymRepo 'scripts\measure_readiness_w1.py'
@@ -655,7 +658,9 @@ $nikodymS3Work = Join-Path $nikodymVerifyRoot 's3-v2-work'
 $nikodymS0Output = Join-Path $nikodymVerifyRoot 'readiness-s0-candidate.json'
 $nikodymS3Output = Join-Path $nikodymVerifyRoot 'readiness-s3-v2-candidate.json'
 $nikodymPreviousPythonPath = [Environment]::GetEnvironmentVariable('PYTHONPATH','Process')
+$nikodymPreviousHashSeed = [Environment]::GetEnvironmentVariable('PYTHONHASHSEED','Process')
 $env:PYTHONPATH = ''
+$env:PYTHONHASHSEED = '0'
 Push-Location -LiteralPath $nikodymVerifyRoot
 try {
     & $nikodymVerifyPython $nikodymDriver --profile S0-smoke `
@@ -675,6 +680,11 @@ try {
         Remove-Item Env:\PYTHONPATH -ErrorAction SilentlyContinue
     } else {
         $env:PYTHONPATH = $nikodymPreviousPythonPath
+    }
+    if ($null -eq $nikodymPreviousHashSeed) {
+        Remove-Item Env:\PYTHONHASHSEED -ErrorAction SilentlyContinue
+    } else {
+        $env:PYTHONHASHSEED = $nikodymPreviousHashSeed
     }
 }
 ```
