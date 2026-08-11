@@ -97,6 +97,7 @@ _S3_MEMORY_MARKER: Final = "NIKODYM_S3_MEMORY_LIMIT"
 _S3_CPU_EXIT_CODE: Final = 87
 _S3_CPU_MARKER: Final = "NIKODYM_S3_CPU_LIMIT"
 _S3_TAIL_BYTES: Final = 4_096
+_COVERAGE_AUTOSTART_ENV_PREFIXES: Final = ("COV_CORE_", "COVERAGE_")
 
 
 def _sha256(path: Path) -> str:
@@ -115,6 +116,28 @@ def _canonical_json(value: Any) -> bytes:
         separators=(",", ":"),
         allow_nan=False,
     ).encode("utf-8")
+
+
+def _is_coverage_autostart_environment_key(key: str) -> bool:
+    upper = key.upper()
+    return upper.startswith(_COVERAGE_AUTOSTART_ENV_PREFIXES)
+
+
+def _isolated_supervisor_environment() -> dict[str, str]:
+    """Aísla el probe de auto-instrumentación que altera cuotas y procesos.
+
+    pytest-cov/coverage arrancan coverage en subprocessos mediante variables de entorno. Un
+    worker que el propio supervisor mata por cuota puede dejar una base SQLite sin información
+    de ramas y romper después la combinación del proceso que ejecuta los tests. La medición S3
+    tampoco debe cargar ese overhead ajeno antes de aplicar sus límites.
+    """
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not _is_coverage_autostart_environment_key(key)
+    }
+    environment["PYTHONPATH"] = ""
+    return environment
 
 
 def _write_json_exclusive(path: Path, value: Any) -> None:
@@ -698,6 +721,51 @@ def _posix_group_alive(pgid: int) -> bool:
     except PermissionError:
         return True
     return True
+
+
+def _posix_group_member_pids(pgid: int) -> list[int] | None:
+    """Enumera el grupo para separar al worker esperado de sus descendientes."""
+    if os.name != "posix":
+        return None
+    proc = Path("/proc")
+    if proc.is_dir():
+        members: list[int] = []
+        for entry in proc.iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                stat = (entry / "stat").read_text(encoding="utf-8")
+                fields_after_command = stat[stat.rfind(")") + 2 :].split()
+                process_group = int(fields_after_command[2])
+            except (IndexError, OSError, UnicodeError, ValueError):
+                continue
+            if process_group == pgid:
+                members.append(int(entry.name))
+        return sorted(members)
+    try:
+        completed = subprocess.run(
+            ["ps", "-axo", "pid=,pgid="],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if completed.returncode != 0:
+        return None
+    members = []
+    for line in completed.stdout.splitlines():
+        fields = line.split()
+        if len(fields) != 2:
+            continue
+        try:
+            pid, process_group = (int(field) for field in fields)
+        except ValueError:
+            continue
+        if process_group == pgid:
+            members.append(pid)
+    return sorted(members)
 
 
 def _wait_posix_group_empty(pgid: int, timeout_seconds: float) -> bool:
@@ -2009,6 +2077,9 @@ def _run_supervised_child(request_path: Path) -> int:
                 "nonce": nonce,
                 "worker_pid": pid,
                 "driver_sha256": driver_hash,
+                "coverage_autostart_environment_keys": sorted(
+                    key for key in os.environ if _is_coverage_autostart_environment_key(key)
+                ),
                 "heavy_work_started": False,
             },
         )
@@ -2204,8 +2275,7 @@ def _supervise_child(
     }
     _write_json_exclusive(request_path, request)
     driver_hash_start = _sha256(Path(__file__))
-    environment = dict(os.environ)
-    environment["PYTHONPATH"] = ""
+    environment = _isolated_supervisor_environment()
     command = [
         sys.executable,
         str(Path(__file__).resolve()),
@@ -2271,6 +2341,7 @@ def _supervise_child(
                     boot.get("protocol_version") != S3_PROTOCOL_VERSION
                     or boot.get("nonce") != nonce
                     or boot.get("driver_sha256") != driver_hash_start
+                    or boot.get("coverage_autostart_environment_keys") != []
                     or boot.get("heavy_work_started") is not False
                     or not isinstance(boot.get("worker_pid"), int)
                 ):
@@ -2421,8 +2492,21 @@ def _supervise_child(
                 posix_os: Any = os
                 posix_signal: Any = signal
                 pgid = process.pid
-                descendants_before_cleanup = _posix_group_alive(pgid)
-                if returncode is None or descendants_before_cleanup:
+                group_alive_before_cleanup = _posix_group_alive(pgid)
+                group_members = _posix_group_member_pids(pgid)
+                if group_members is not None:
+                    expected_processes_before_cleanup = int(
+                        returncode is None and process.pid in group_members
+                    )
+                    untracked_processes_before_cleanup = max(
+                        len(group_members) - expected_processes_before_cleanup, 0
+                    )
+                    descendants_before_cleanup = untracked_processes_before_cleanup > 0
+                else:
+                    descendants_before_cleanup = bool(
+                        group_alive_before_cleanup and returncode is not None
+                    )
+                if returncode is None or group_alive_before_cleanup:
                     cleanup_action = "killpg_sigkill"
                     with contextlib.suppress(ProcessLookupError):
                         posix_os.killpg(pgid, posix_signal.SIGKILL)
@@ -2564,6 +2648,8 @@ def _supervise_child(
             "limits_verified_before_start": bool(
                 ready is not None
                 and started is not None
+                and boot is not None
+                and boot.get("coverage_autostart_environment_keys") == []
                 and ready.get("start_token_absent_when_limits_applied") is True
                 and started.get("limits_applied_before_start") is True
                 and ready.get("limits_applied_monotonic_ns", 0)

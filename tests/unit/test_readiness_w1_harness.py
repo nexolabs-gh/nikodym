@@ -153,14 +153,19 @@ def _run_probe(
     )
 
 
-def test_supervisor_s3_ejecucion_normal_atestigua_limites_y_capturas(tmp_path: Path) -> None:
+def test_supervisor_s3_ejecucion_normal_atestigua_limites_y_capturas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     driver = _driver()
+    monkeypatch.setenv("COV_CORE_SOURCE", "nikodym")
+    monkeypatch.setenv("COVERAGE_PROCESS_START", "configurada-por-el-runner")
     evidence = _run_probe(driver, tmp_path, "probe-normal")
 
     assert evidence["outcome"] == "normal"
     assert evidence["returncode"]["signed"] == 0
     assert evidence["worker_returncode"]["signed"] == 0
     assert evidence["launcher_returncode"]["signed"] == 0
+    assert evidence["handshake"]["boot"]["coverage_autostart_environment_keys"] == []
     assert evidence["handshake"]["limits_verified_before_start"] is True
     assert evidence["effective_limits"] == driver._expected_effective_limits(
         evidence["backend"], evidence["requested_limits"]
@@ -189,8 +194,7 @@ def test_supervisor_s3_wall_timeout_mata_antes_del_sentinel(tmp_path: Path) -> N
     assert evidence["workload_wall_seconds"] <= 0.5
     assert evidence["returncode"]["signed"] != 0
     assert evidence["tree_cleanup"]["descendants_detected_before_cleanup"] is False
-    if sys.platform == "win32":
-        assert evidence["tree_cleanup"]["untracked_processes_before_cleanup"] == 0
+    assert evidence["tree_cleanup"]["untracked_processes_before_cleanup"] == 0
     assert evidence["tree_cleanup"]["late_sentinel_absent"] is True
     assert evidence["tree_cleanup"]["complete"] is True
 
@@ -249,8 +253,7 @@ def test_supervisor_s3_cierra_descendiente_antes_del_sentinel_tardio(tmp_path: P
 
     assert evidence["outcome"] == "normal"
     assert evidence["tree_cleanup"]["descendants_detected_before_cleanup"] is True
-    if sys.platform == "win32":
-        assert evidence["tree_cleanup"]["untracked_processes_before_cleanup"] > 0
+    assert evidence["tree_cleanup"]["untracked_processes_before_cleanup"] > 0
     assert evidence["tree_cleanup"]["action"] in {"terminate_job_object", "killpg_sigkill"}
     assert evidence["tree_cleanup"]["descendant_alive_after_cleanup"] is False
     assert evidence["tree_cleanup"]["late_sentinel_absent"] is True
@@ -285,6 +288,7 @@ def test_job_object_kill_on_close_mata_arbol_antes_del_sentinel(tmp_path: Path) 
         assert job.effective_limits()["limit_flags"] & 0x00002000
         parent = subprocess.Popen(
             [sys._base_executable, "-c", parent_code],
+            env=driver._isolated_supervisor_environment(),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
