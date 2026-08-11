@@ -9,21 +9,27 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import ctypes
 import hashlib
 import json
+import math
 import os
 import platform
+import secrets
 import shutil
+import signal
 import subprocess
 import sys
 import time
 import traceback
 import zipfile
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
-SCHEMA_VERSION: Final = "nikodym.readiness.w1.v1"
+SCHEMA_VERSION_V1: Final = "nikodym.readiness.w1.v1"
+S3_SCHEMA_VERSION: Final = "nikodym.readiness.w1.v2"
+S3_PROTOCOL_VERSION: Final = "nikodym.readiness.w1.supervisor.v1"
 ROOT: Final = Path(__file__).resolve().parents[1]
 MIB: Final = 1024**2
 GIB: Final = 1024**3
@@ -68,6 +74,29 @@ PROFILES: Final[dict[str, dict[str, int]]] = {
         "disk_free_gib": 60,
     },
 }
+# Memoria toma el peak contractual H9=B. CPU/wall confinan este probe de preflight —no redefinen
+# los budgets de train/batch—: 5 min de CPU y 10 min wall dejan holgura frente al baseline ~10 s.
+S3_LIMITS: Final[dict[str, int | float]] = {
+    "memory_bytes": 24 * GIB,
+    "cpu_seconds": 300,
+    "wall_seconds": 600.0,
+    "handshake_seconds": 30.0,
+}
+S3_EXPECTED_CLASSIFICATION: Final[dict[str, dict[str, str]]] = {
+    "train_rows": {"999999": "accepted", "1000000": "accepted", "1000001": "rejected"},
+    "train_variables": {"99": "accepted", "100": "accepted", "101": "rejected"},
+    "train_cardinality": {
+        "99999": "accepted",
+        "100000": "accepted",
+        "100001": "rejected",
+    },
+    "batch_rows": {"4999999": "accepted", "5000000": "accepted", "5000001": "rejected"},
+}
+_S3_MEMORY_EXIT_CODE: Final = 86
+_S3_MEMORY_MARKER: Final = "NIKODYM_S3_MEMORY_LIMIT"
+_S3_CPU_EXIT_CODE: Final = 87
+_S3_CPU_MARKER: Final = "NIKODYM_S3_CPU_LIMIT"
+_S3_TAIL_BYTES: Final = 4_096
 
 
 def _sha256(path: Path) -> str:
@@ -86,6 +115,44 @@ def _canonical_json(value: Any) -> bytes:
         separators=(",", ":"),
         allow_nan=False,
     ).encode("utf-8")
+
+
+def _write_json_exclusive(path: Path, value: Any) -> None:
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(_canonical_json(value) + b"\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary, path)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            temporary.unlink()
+
+
+def _read_json_object(path: Path) -> dict[str, Any]:
+    raw: Any = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise RuntimeError(f"JSON de protocolo no es un objeto: {path}")
+    return cast(dict[str, Any], raw)
+
+
+def _stream_evidence(path: Path) -> dict[str, Any]:
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        if size > _S3_TAIL_BYTES:
+            handle.seek(-_S3_TAIL_BYTES, os.SEEK_END)
+        tail = handle.read()
+    return {
+        "bytes": size,
+        "sha256": _sha256(path),
+        "tail_utf8": tail.decode("utf-8", errors="replace"),
+        "tail_truncated": size > _S3_TAIL_BYTES,
+    }
+
+
+def _classification_is_exact(value: Any) -> bool:
+    return bool(value == S3_EXPECTED_CLASSIFICATION)
 
 
 def _total_memory_bytes() -> int | None:
@@ -154,6 +221,519 @@ def _peak_rss_bytes() -> int:
 
     raw = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
     return raw if sys.platform == "darwin" else raw * 1024
+
+
+class _JobBasicLimitInformation(ctypes.Structure):
+    _fields_ = [
+        ("PerProcessUserTimeLimit", ctypes.c_longlong),
+        ("PerJobUserTimeLimit", ctypes.c_longlong),
+        ("LimitFlags", ctypes.c_uint32),
+        ("MinimumWorkingSetSize", ctypes.c_size_t),
+        ("MaximumWorkingSetSize", ctypes.c_size_t),
+        ("ActiveProcessLimit", ctypes.c_uint32),
+        ("Affinity", ctypes.c_size_t),
+        ("PriorityClass", ctypes.c_uint32),
+        ("SchedulingClass", ctypes.c_uint32),
+    ]
+
+
+class _IoCounters(ctypes.Structure):
+    _fields_ = [
+        ("ReadOperationCount", ctypes.c_ulonglong),
+        ("WriteOperationCount", ctypes.c_ulonglong),
+        ("OtherOperationCount", ctypes.c_ulonglong),
+        ("ReadTransferCount", ctypes.c_ulonglong),
+        ("WriteTransferCount", ctypes.c_ulonglong),
+        ("OtherTransferCount", ctypes.c_ulonglong),
+    ]
+
+
+class _JobExtendedLimitInformation(ctypes.Structure):
+    _fields_ = [
+        ("BasicLimitInformation", _JobBasicLimitInformation),
+        ("IoInfo", _IoCounters),
+        ("ProcessMemoryLimit", ctypes.c_size_t),
+        ("JobMemoryLimit", ctypes.c_size_t),
+        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+        ("PeakJobMemoryUsed", ctypes.c_size_t),
+    ]
+
+
+class _JobBasicAccountingInformation(ctypes.Structure):
+    _fields_ = [
+        ("TotalUserTime", ctypes.c_longlong),
+        ("TotalKernelTime", ctypes.c_longlong),
+        ("ThisPeriodTotalUserTime", ctypes.c_longlong),
+        ("ThisPeriodTotalKernelTime", ctypes.c_longlong),
+        ("TotalPageFaultCount", ctypes.c_uint32),
+        ("TotalProcesses", ctypes.c_uint32),
+        ("ActiveProcesses", ctypes.c_uint32),
+        ("TotalTerminatedProcesses", ctypes.c_uint32),
+    ]
+
+
+class _JobEndOfTimeInformation(ctypes.Structure):
+    _fields_ = [("EndOfJobTimeAction", ctypes.c_uint32)]
+
+
+class _WindowsJob:
+    _JOB_OBJECT_LIMIT_JOB_TIME: Final = 0x00000004
+    _JOB_OBJECT_LIMIT_JOB_MEMORY: Final = 0x00000200
+    _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: Final = 0x00002000
+    _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION: Final = 9
+    _JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION: Final = 1
+    _JOB_OBJECT_END_OF_JOB_TIME_INFORMATION: Final = 6
+    _JOB_OBJECT_TERMINATE_AT_END_OF_JOB: Final = 0
+    _PROCESS_TERMINATE: Final = 0x0001
+    _PROCESS_SET_QUOTA: Final = 0x0100
+    _PROCESS_QUERY_LIMITED_INFORMATION: Final = 0x1000
+    _WAIT_OBJECT_0: Final = 0
+
+    def __init__(self, *, memory_bytes: int, cpu_seconds: int) -> None:
+        if sys.platform != "win32":
+            raise RuntimeError("Windows Job Object solicitado fuera de Windows")
+        self._kernel32: Any = ctypes.WinDLL("kernel32", use_last_error=True)
+        self._configure_signatures()
+        raw_handle = self._kernel32.CreateJobObjectW(None, None)
+        if not raw_handle:
+            self._raise_last_error("CreateJobObjectW")
+        self.handle = int(raw_handle)
+        self._closed = False
+        try:
+            limits = _JobExtendedLimitInformation()
+            limits.BasicLimitInformation.LimitFlags = (
+                self._JOB_OBJECT_LIMIT_JOB_TIME
+                | self._JOB_OBJECT_LIMIT_JOB_MEMORY
+                | self._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            )
+            limits.BasicLimitInformation.PerJobUserTimeLimit = cpu_seconds * 10_000_000
+            limits.JobMemoryLimit = memory_bytes
+            if not self._kernel32.SetInformationJobObject(
+                ctypes.c_void_p(self.handle),
+                self._JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+                ctypes.byref(limits),
+                ctypes.sizeof(limits),
+            ):
+                self._raise_last_error("SetInformationJobObject(limits)")
+            action = _JobEndOfTimeInformation(self._JOB_OBJECT_TERMINATE_AT_END_OF_JOB)
+            if not self._kernel32.SetInformationJobObject(
+                ctypes.c_void_p(self.handle),
+                self._JOB_OBJECT_END_OF_JOB_TIME_INFORMATION,
+                ctypes.byref(action),
+                ctypes.sizeof(action),
+            ):
+                self._raise_last_error("SetInformationJobObject(end_of_time)")
+        except Exception:
+            self.close()
+            raise
+
+    def _configure_signatures(self) -> None:
+        self._kernel32.CreateJobObjectW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p]
+        self._kernel32.CreateJobObjectW.restype = ctypes.c_void_p
+        self._kernel32.SetInformationJobObject.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+        ]
+        self._kernel32.SetInformationJobObject.restype = ctypes.c_bool
+        self._kernel32.QueryInformationJobObject.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            ctypes.c_uint32,
+            ctypes.c_void_p,
+        ]
+        self._kernel32.QueryInformationJobObject.restype = ctypes.c_bool
+        self._kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_bool, ctypes.c_uint32]
+        self._kernel32.OpenProcess.restype = ctypes.c_void_p
+        self._kernel32.AssignProcessToJobObject.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        self._kernel32.AssignProcessToJobObject.restype = ctypes.c_bool
+        self._kernel32.IsProcessInJob.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_bool),
+        ]
+        self._kernel32.IsProcessInJob.restype = ctypes.c_bool
+        self._kernel32.TerminateJobObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        self._kernel32.TerminateJobObject.restype = ctypes.c_bool
+        self._kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        self._kernel32.WaitForSingleObject.restype = ctypes.c_uint32
+        self._kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        self._kernel32.CloseHandle.restype = ctypes.c_bool
+
+    @staticmethod
+    def _raise_last_error(context: str) -> None:
+        code = ctypes.get_last_error()
+        raise OSError(code, f"{context} falló")
+
+    def _query(self, information_class: int, value: ctypes.Structure) -> None:
+        if not self._kernel32.QueryInformationJobObject(
+            ctypes.c_void_p(self.handle),
+            information_class,
+            ctypes.byref(value),
+            ctypes.sizeof(value),
+            None,
+        ):
+            self._raise_last_error(f"QueryInformationJobObject({information_class})")
+
+    def assign(self, pid: int) -> None:
+        access = (
+            self._PROCESS_TERMINATE
+            | self._PROCESS_SET_QUOTA
+            | self._PROCESS_QUERY_LIMITED_INFORMATION
+        )
+        raw_process = self._kernel32.OpenProcess(access, False, pid)
+        if not raw_process:
+            self._raise_last_error("OpenProcess")
+        process_handle = int(raw_process)
+        try:
+            if not self._kernel32.AssignProcessToJobObject(
+                ctypes.c_void_p(self.handle), ctypes.c_void_p(process_handle)
+            ):
+                self._raise_last_error("AssignProcessToJobObject")
+            in_job = ctypes.c_bool(False)
+            if not self._kernel32.IsProcessInJob(
+                ctypes.c_void_p(process_handle),
+                ctypes.c_void_p(self.handle),
+                ctypes.byref(in_job),
+            ):
+                self._raise_last_error("IsProcessInJob")
+            if not in_job.value:
+                raise RuntimeError("el worker no quedó dentro del Job Object")
+        finally:
+            self._kernel32.CloseHandle(ctypes.c_void_p(process_handle))
+
+    def contains(self, pid: int) -> bool:
+        access = self._PROCESS_QUERY_LIMITED_INFORMATION
+        raw_process = self._kernel32.OpenProcess(access, False, pid)
+        if not raw_process:
+            self._raise_last_error("OpenProcess(contains)")
+        process_handle = int(raw_process)
+        try:
+            in_job = ctypes.c_bool(False)
+            if not self._kernel32.IsProcessInJob(
+                ctypes.c_void_p(process_handle),
+                ctypes.c_void_p(self.handle),
+                ctypes.byref(in_job),
+            ):
+                self._raise_last_error("IsProcessInJob(contains)")
+            return bool(in_job.value)
+        finally:
+            self._kernel32.CloseHandle(ctypes.c_void_p(process_handle))
+
+    def effective_limits(self) -> dict[str, Any]:
+        limits = _JobExtendedLimitInformation()
+        self._query(self._JOB_OBJECT_EXTENDED_LIMIT_INFORMATION, limits)
+        return {
+            "limit_flags": int(limits.BasicLimitInformation.LimitFlags),
+            "job_memory_commit_limit_bytes": int(limits.JobMemoryLimit),
+            "job_user_time_limit_100ns": int(limits.BasicLimitInformation.PerJobUserTimeLimit),
+            "kill_on_job_close": bool(
+                limits.BasicLimitInformation.LimitFlags & self._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            ),
+            "end_of_job_time_action": "terminate",
+        }
+
+    def accounting(self) -> dict[str, Any]:
+        basic = _JobBasicAccountingInformation()
+        limits = _JobExtendedLimitInformation()
+        self._query(self._JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION, basic)
+        self._query(self._JOB_OBJECT_EXTENDED_LIMIT_INFORMATION, limits)
+        return {
+            "source": "windows_job_object",
+            "total_user_time_100ns": int(basic.TotalUserTime),
+            "total_kernel_time_100ns": int(basic.TotalKernelTime),
+            "total_user_seconds": round(int(basic.TotalUserTime) / 10_000_000, 6),
+            "total_kernel_seconds": round(int(basic.TotalKernelTime) / 10_000_000, 6),
+            "total_page_fault_count": int(basic.TotalPageFaultCount),
+            "total_processes": int(basic.TotalProcesses),
+            "active_processes": int(basic.ActiveProcesses),
+            "total_terminated_processes": int(basic.TotalTerminatedProcesses),
+            "peak_process_memory_commit_bytes": int(limits.PeakProcessMemoryUsed),
+            "peak_job_memory_commit_bytes": int(limits.PeakJobMemoryUsed),
+        }
+
+    def active_processes(self) -> int:
+        basic = _JobBasicAccountingInformation()
+        self._query(self._JOB_OBJECT_BASIC_ACCOUNTING_INFORMATION, basic)
+        return int(basic.ActiveProcesses)
+
+    def wait_empty(self, timeout_seconds: float) -> bool:
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            if self.active_processes() == 0:
+                return True
+            time.sleep(0.01)
+        return self.active_processes() == 0
+
+    def is_signaled(self) -> bool:
+        result = self._kernel32.WaitForSingleObject(ctypes.c_void_p(self.handle), 0)
+        return int(result) == self._WAIT_OBJECT_0
+
+    def terminate(self, exit_code: int) -> None:
+        if not self._kernel32.TerminateJobObject(
+            ctypes.c_void_p(self.handle), ctypes.c_uint32(exit_code)
+        ):
+            self._raise_last_error("TerminateJobObject")
+
+    def close(self) -> None:
+        if getattr(self, "_closed", True):
+            return
+        self._closed = True
+        self._kernel32.CloseHandle(ctypes.c_void_p(self.handle))
+
+
+class _WindowsProcessHandle:
+    _SYNCHRONIZE: Final = 0x00100000
+    _PROCESS_QUERY_LIMITED_INFORMATION: Final = 0x1000
+    _WAIT_OBJECT_0: Final = 0
+    _WAIT_TIMEOUT: Final = 258
+
+    def __init__(self, pid: int) -> None:
+        self._kernel32: Any = ctypes.WinDLL("kernel32", use_last_error=True)
+        self._kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_bool, ctypes.c_uint32]
+        self._kernel32.OpenProcess.restype = ctypes.c_void_p
+        self._kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        self._kernel32.WaitForSingleObject.restype = ctypes.c_uint32
+        self._kernel32.GetExitCodeProcess.argtypes = [
+            ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_uint32),
+        ]
+        self._kernel32.GetExitCodeProcess.restype = ctypes.c_bool
+        self._kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        self._kernel32.CloseHandle.restype = ctypes.c_bool
+        raw_handle = self._kernel32.OpenProcess(
+            self._SYNCHRONIZE | self._PROCESS_QUERY_LIMITED_INFORMATION,
+            False,
+            pid,
+        )
+        if not raw_handle:
+            code = ctypes.get_last_error()
+            raise OSError(code, "OpenProcess(worker) falló")
+        self.handle = int(raw_handle)
+        self._closed = False
+
+    def wait(self, timeout_seconds: float) -> tuple[int | None, bool]:
+        milliseconds = max(0, min(math.ceil(timeout_seconds * 1_000), 0xFFFFFFFE))
+        observed = int(
+            self._kernel32.WaitForSingleObject(
+                ctypes.c_void_p(self.handle), ctypes.c_uint32(milliseconds)
+            )
+        )
+        if observed == self._WAIT_TIMEOUT:
+            return None, True
+        if observed != self._WAIT_OBJECT_0:
+            raise OSError(observed, "WaitForSingleObject(worker) devolvió estado inesperado")
+        exit_code = ctypes.c_uint32()
+        if not self._kernel32.GetExitCodeProcess(
+            ctypes.c_void_p(self.handle), ctypes.byref(exit_code)
+        ):
+            code = ctypes.get_last_error()
+            raise OSError(code, "GetExitCodeProcess falló")
+        return int(exit_code.value), False
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._kernel32.CloseHandle(ctypes.c_void_p(self.handle))
+
+
+def _expected_effective_limits(backend: str, requested: dict[str, int | float]) -> dict[str, Any]:
+    memory_bytes = int(requested["memory_bytes"])
+    cpu_seconds = int(requested["cpu_seconds"])
+    if backend == "windows_job_object":
+        return {
+            "limit_flags": (
+                _WindowsJob._JOB_OBJECT_LIMIT_JOB_TIME
+                | _WindowsJob._JOB_OBJECT_LIMIT_JOB_MEMORY
+                | _WindowsJob._JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+            ),
+            "job_memory_commit_limit_bytes": memory_bytes,
+            "job_user_time_limit_100ns": cpu_seconds * 10_000_000,
+            "kill_on_job_close": True,
+            "end_of_job_time_action": "terminate",
+        }
+    if backend == "posix_rlimit_process_group":
+        return {
+            "rlimit_as_soft_bytes": memory_bytes,
+            "rlimit_as_hard_bytes": memory_bytes,
+            "rlimit_cpu_soft_seconds": cpu_seconds,
+            "rlimit_cpu_hard_seconds": cpu_seconds + 1,
+            "session_leader": True,
+            "process_group_is_pid": True,
+        }
+    raise RuntimeError(f"backend de supervisor desconocido: {backend}")
+
+
+def _limit_semantics(backend: str) -> dict[str, str]:
+    if backend == "windows_job_object":
+        return {
+            "memory": "job_wide_committed_memory",
+            "cpu": "job_wide_user_time_periodically_enforced_may_overshoot",
+            "wall": "supervisor_monotonic_deadline",
+            "tree": "job_object_kill_on_close",
+            "peak_rss": "working_set_separate_from_committed_memory",
+        }
+    return {
+        "memory": "per_process_virtual_address_space_inherited_by_descendants",
+        "cpu": "per_process_cpu_time_inherited_by_descendants",
+        "wall": "supervisor_monotonic_deadline",
+        "tree": "new_session_process_group_killpg",
+        "peak_rss": "resident_set_separate_from_virtual_address_space",
+    }
+
+
+def _apply_posix_limits(requested: dict[str, int | float]) -> dict[str, Any]:
+    if os.name != "posix":
+        raise RuntimeError("RLIMIT solicitado fuera de POSIX")
+    resource_module: Any = __import__("resource")
+    posix_os: Any = os
+
+    memory_bytes = int(requested["memory_bytes"])
+    cpu_seconds = int(requested["cpu_seconds"])
+    resource_module.setrlimit(resource_module.RLIMIT_AS, (memory_bytes, memory_bytes))
+    resource_module.setrlimit(resource_module.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 1))
+    as_soft, as_hard = resource_module.getrlimit(resource_module.RLIMIT_AS)
+    cpu_soft, cpu_hard = resource_module.getrlimit(resource_module.RLIMIT_CPU)
+    pid = os.getpid()
+    return {
+        "rlimit_as_soft_bytes": int(as_soft),
+        "rlimit_as_hard_bytes": int(as_hard),
+        "rlimit_cpu_soft_seconds": int(cpu_soft),
+        "rlimit_cpu_hard_seconds": int(cpu_hard),
+        "session_leader": bool(posix_os.getsid(0) == pid),
+        "process_group_is_pid": bool(posix_os.getpgrp() == pid),
+    }
+
+
+def _returncode_evidence(returncode: int | None) -> dict[str, Any]:
+    if returncode is None:
+        return {
+            "raw": None,
+            "signed": None,
+            "uint32": None,
+            "hex_uint32": None,
+            "signal": None,
+        }
+    unsigned = returncode & 0xFFFFFFFF
+    signed = (
+        unsigned - 0x1_0000_0000
+        if sys.platform == "win32" and unsigned >= 0x8000_0000
+        else returncode
+    )
+    return {
+        "raw": returncode,
+        "signed": signed,
+        "uint32": unsigned,
+        "hex_uint32": f"0x{unsigned:08X}",
+        "signal": -returncode if os.name == "posix" and returncode < 0 else None,
+    }
+
+
+def _wait_for_json(
+    path: Path,
+    *,
+    process: subprocess.Popen[bytes],
+    timeout_seconds: float,
+    allow_launcher_exit: bool = False,
+) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if path.is_file():
+            return _read_json_object(path)
+        if not allow_launcher_exit and process.poll() is not None:
+            raise RuntimeError(
+                f"el worker terminó antes del handshake: returncode={process.returncode}"
+            )
+        time.sleep(0.01)
+    raise TimeoutError(f"timeout esperando handshake: {path.name}")
+
+
+def _posix_rusage_evidence(usage: Any) -> dict[str, Any]:
+    max_rss = int(usage.ru_maxrss)
+    peak_rss = max_rss if sys.platform == "darwin" else max_rss * 1024
+    return {
+        "source": "wait4_rusage_worker",
+        "user_seconds": round(float(usage.ru_utime), 6),
+        "system_seconds": round(float(usage.ru_stime), 6),
+        "peak_rss_bytes": peak_rss,
+        "minor_page_faults": int(usage.ru_minflt),
+        "major_page_faults": int(usage.ru_majflt),
+        "voluntary_context_switches": int(usage.ru_nvcsw),
+        "involuntary_context_switches": int(usage.ru_nivcsw),
+    }
+
+
+def _wait_worker(
+    process: subprocess.Popen[bytes], *, timeout_seconds: float
+) -> tuple[int | None, dict[str, Any] | None, bool]:
+    if os.name != "posix":
+        try:
+            return process.wait(timeout=timeout_seconds), None, False
+        except subprocess.TimeoutExpired:
+            return None, None, True
+
+    if process.returncode is not None:
+        return process.returncode, None, False
+    posix_os: Any = os
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        waited_pid, status, usage = posix_os.wait4(process.pid, posix_os.WNOHANG)
+        if waited_pid == process.pid:
+            returncode = os.waitstatus_to_exitcode(status)
+            process.returncode = returncode
+            return returncode, _posix_rusage_evidence(usage), False
+        time.sleep(0.01)
+    return None, None, True
+
+
+def _posix_group_alive(pgid: int) -> bool:
+    posix_os: Any = os
+    try:
+        posix_os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _wait_posix_group_empty(pgid: int, timeout_seconds: float) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if not _posix_group_alive(pgid):
+            return True
+        time.sleep(0.01)
+    return not _posix_group_alive(pgid)
+
+
+def _pid_alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        kernel32: Any = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_bool, ctypes.c_uint32]
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        kernel32.WaitForSingleObject.restype = ctypes.c_uint32
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        kernel32.CloseHandle.restype = ctypes.c_bool
+        synchronize = 0x00100000
+        raw_handle = kernel32.OpenProcess(synchronize, False, pid)
+        if not raw_handle:
+            return False
+        handle = int(raw_handle)
+        try:
+            return int(kernel32.WaitForSingleObject(ctypes.c_void_p(handle), 0)) == 258
+        finally:
+            kernel32.CloseHandle(ctypes.c_void_p(handle))
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def _command_text(command: list[str]) -> str | None:
@@ -975,7 +1555,7 @@ def _spawn_consumer(
             "el consumidor clean-room falló: "
             f"returncode={completed.returncode}; stderr={completed.stderr[-2_000:]}"
         )
-    payload = json.loads(output.read_text(encoding="utf-8"))
+    payload = _read_json_object(output)
     payload["process"] = process_evidence
     return payload
 
@@ -1073,7 +1653,7 @@ def _run(
     if eligible and not all(budgets.values()):
         status = "fail"
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": SCHEMA_VERSION_V1,
         "source_sha": source_sha,
         "driver_sha256": _sha256(Path(__file__)),
         "profile": profile_name,
@@ -1115,14 +1695,14 @@ def _run(
     }
 
 
-def _run_s3(
+def _run_s3_workload(
     wheel: Path,
     sdist: Path,
     workdir: Path,
     source_sha: str,
     bundle_path: Path,
 ) -> dict[str, Any]:
-    """Prueba los cuatro techos H9=B por superficies públicas y sin crear solver/output."""
+    """Hijo S3: prueba los cuatro techos H9=B sin declarar por sí mismo PASS."""
     from unittest.mock import patch
 
     import numpy as np
@@ -1142,13 +1722,24 @@ def _run_s3(
         del args, kwargs
         raise AcceptedPreflightError
 
-    def observed_fit(frame: Any, config: Any) -> str:
+    def observed_fit(frame: Any, config: Any, *, rejection_fragment: str | None) -> str:
         try:
             with patch("nikodym.api.run", stop_before_engine):
                 fit_scorecard_bundle(config, frame)
         except AcceptedPreflightError:
+            if rejection_fragment is not None:
+                raise RuntimeError(
+                    f"N+1 fue aceptado; se esperaba rechazo con {rejection_fragment!r}"
+                ) from None
             return "accepted"
-        except ScorecardBundleError:
+        except ScorecardBundleError as exc:
+            if rejection_fragment is None:
+                raise RuntimeError(f"N-1/N fue rechazado por {exc}") from exc
+            if rejection_fragment not in str(exc):
+                raise RuntimeError(
+                    "N+1 fue rechazado por una causa ajena al envelope: "
+                    f"esperado={rejection_fragment!r}; observado={str(exc)!r}"
+                ) from exc
             return "rejected"
         raise RuntimeError("el fit cruzó el preflight y llegó a ejecutar el motor")
 
@@ -1160,7 +1751,9 @@ def _run_s3(
             index=pd.RangeIndex(rows, name="row_id"),
         )
         row_cases[str(rows)] = observed_fit(
-            frame, _config(profile, report_dir=workdir / f"report-rows-{rows}")
+            frame,
+            _config(profile, report_dir=workdir / f"report-rows-{rows}"),
+            rejection_fragment="filas=1,000,001" if rows > 1_000_000 else None,
         )
 
     variable_cases: dict[str, str] = {}
@@ -1183,7 +1776,11 @@ def _run_s3(
         config = config.model_copy(
             update={"binning": config.binning.model_copy(update={"feature_columns": "*"})}
         )
-        variable_cases[str(variables)] = observed_fit(frame, config)
+        variable_cases[str(variables)] = observed_fit(
+            frame,
+            config,
+            rejection_fragment="variables=101" if variables > 100 else None,
+        )
 
     cardinality_cases: dict[str, str] = {}
     for cardinality in (99_999, 100_000, 100_001):
@@ -1201,7 +1798,11 @@ def _run_s3(
             index=pd.RangeIndex(cardinality, name="row_id"),
         )
         cardinality_cases[str(cardinality)] = observed_fit(
-            frame, _config(profile, report_dir=workdir / f"report-cardinality-{cardinality}")
+            frame,
+            _config(profile, report_dir=workdir / f"report-cardinality-{cardinality}"),
+            rejection_fragment=(
+                "cardinalidad de 'x_000'=100,001" if cardinality > 100_000 else None
+            ),
         )
 
     loaded = FittedScorecardBundle.load(bundle_path)
@@ -1220,7 +1821,9 @@ def _run_s3(
                     }
                 )
                 if writer is None:
-                    writer = pq.ParquetWriter(source, table.schema, compression="zstd")
+                    writer = pq.ParquetWriter(  # type: ignore[no-untyped-call]
+                        source, table.schema, compression="zstd"
+                    )
                 writer.write_table(table, row_group_size=100_000)
         finally:
             if writer is not None:
@@ -1234,8 +1837,16 @@ def _run_s3(
                     id_column="row_id",
                 )
         except AcceptedPreflightError:
+            if rows > 5_000_000:
+                raise RuntimeError("batch N+1 fue aceptado") from None
             batch_cases[str(rows)] = "accepted"
-        except ScorecardBundleError:
+        except ScorecardBundleError as exc:
+            if rows <= 5_000_000:
+                raise RuntimeError(f"batch N-1/N fue rechazado por {exc}") from exc
+            if "filas>5,000,000" not in str(exc):
+                raise RuntimeError(
+                    f"batch N+1 fue rechazado por una causa ajena: {str(exc)!r}"
+                ) from exc
             batch_cases[str(rows)] = "rejected"
         else:
             raise RuntimeError("el batch cruzó el preflight y llegó a materializar salida")
@@ -1245,33 +1856,852 @@ def _run_s3(
         "train_cardinality": cardinality_cases,
         "batch_rows": batch_cases,
     }
-    expected = {
-        "train_rows": {"999999": "accepted", "1000000": "accepted", "1000001": "rejected"},
-        "train_variables": {"99": "accepted", "100": "accepted", "101": "rejected"},
-        "train_cardinality": {
-            "99999": "accepted",
-            "100000": "accepted",
-            "100001": "rejected",
-        },
-        "batch_rows": {"4999999": "accepted", "5000000": "accepted", "5000001": "rejected"},
-    }
-    if cases != expected:
+    if not _classification_is_exact(cases):
         raise RuntimeError(f"los límites S3 no respetan N-1/N/N+1: {cases!r}")
     return {
-        "schema_version": SCHEMA_VERSION,
-        "source_sha": source_sha,
-        "driver_sha256": _sha256(Path(__file__)),
-        "profile": "S3-limite",
-        "profile_status": "pass",
         "cleanroom": identity,
         "bundle_hash": loaded.bundle_hash,
         "limits": cases,
         "hardware": _hardware(workdir),
+        "resources": {"peak_rss_bytes": _peak_rss_bytes()},
     }
+
+
+class _LimitsNotAppliedError(RuntimeError):
+    pass
+
+
+class _SupervisorProtocolError(RuntimeError):
+    pass
+
+
+def _wait_for_child_json(path: Path, *, timeout_seconds: float) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if path.is_file():
+            return _read_json_object(path)
+        time.sleep(0.01)
+    raise TimeoutError(f"timeout del hijo esperando {path.name}")
+
+
+def _run_supervisor_probe(mode: str, request: dict[str, Any]) -> dict[str, Any]:
+    if mode == "probe-normal":
+        return {"probe": mode, "completed": True, "peak_rss_bytes": _peak_rss_bytes()}
+    if mode == "probe-wall":
+        sentinel = Path(str(request["probe_sentinel_path"]))
+        time.sleep(float(request["probe_delay_seconds"]))
+        sentinel.write_text("wall escapó\n", encoding="utf-8")
+        return {"probe": mode, "unexpected_completion": True}
+    if mode == "probe-memory":
+        requested = cast(dict[str, int | float], request["limits"])
+        if sys.platform == "win32":
+            memory_bytes = int(requested["memory_bytes"])
+            ready_path = Path(str(request["probe_sentinel_path"])).with_name(
+                "memory-descendant-ready.txt"
+            )
+            descendant_target = max(8 * MIB, int(memory_bytes * 0.45))
+            parent_target = max(8 * MIB, int(memory_bytes * 0.55))
+            code = "\n".join(
+                [
+                    "import os, pathlib, sys, time",
+                    f"target = {descendant_target}",
+                    "allocations = []",
+                    "allocated = 0",
+                    "try:",
+                    "    while allocated < target:",
+                    "        size = min(4 * 1024 * 1024, target - allocated)",
+                    "        allocations.append(bytearray(size))",
+                    "        allocated += size",
+                    "except MemoryError:",
+                    "    print('NIKODYM_S3_MEMORY_CHILD_EARLY', file=sys.stderr, flush=True)",
+                    "    os._exit(90)",
+                    f"pathlib.Path({str(ready_path)!r}).write_text('ready\\n', encoding='utf-8')",
+                    "time.sleep(30.0)",
+                ]
+            )
+            descendant = subprocess.Popen(
+                [sys.executable, "-c", code],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=None,
+                close_fds=True,
+            )
+            ready_deadline = time.monotonic() + 5.0
+            while time.monotonic() < ready_deadline and not ready_path.is_file():
+                if descendant.poll() is not None:
+                    raise RuntimeError("el descendiente de memoria terminó antes de quedar listo")
+                time.sleep(0.01)
+            if not ready_path.is_file():
+                raise TimeoutError("el descendiente de memoria no quedó listo")
+            allocation_cap = parent_target
+        else:
+            allocation_cap = min(int(requested["memory_bytes"]) * 2, 512 * MIB)
+        allocations: list[bytearray] = []
+        allocated = 0
+        try:
+            while allocated < allocation_cap:
+                allocations.append(bytearray(4 * MIB))
+                allocated += 4 * MIB
+        except MemoryError:
+            print(_S3_MEMORY_MARKER, file=sys.stderr, flush=True)
+            os._exit(_S3_MEMORY_EXIT_CODE)
+        print("NIKODYM_S3_MEMORY_LIMIT_BYPASSED", file=sys.stderr, flush=True)
+        os._exit(_S3_MEMORY_EXIT_CODE + 2)
+    if mode == "probe-cpu":
+        if os.name == "posix":
+            posix_signal: Any = signal
+
+            def cpu_limit_handler(signum: int, frame: Any) -> None:
+                del signum, frame
+                print(_S3_CPU_MARKER, file=sys.stderr, flush=True)
+                os._exit(_S3_CPU_EXIT_CODE)
+
+            signal.signal(posix_signal.SIGXCPU, cpu_limit_handler)
+        accumulator = 0
+        while True:
+            accumulator = (accumulator * 33 + 17) & 0xFFFFFFFF
+    if mode == "probe-descendant":
+        sentinel = Path(str(request["probe_sentinel_path"]))
+        delay = float(request["probe_delay_seconds"])
+        code = (
+            "import pathlib,time;"
+            f"time.sleep({delay!r});"
+            f"pathlib.Path({str(sentinel)!r}).write_text('orphan\\n',encoding='utf-8')"
+        )
+        descendant = subprocess.Popen(
+            [sys.executable, "-c", code],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+        )
+        return {
+            "probe": mode,
+            "descendant_pid": descendant.pid,
+            "sentinel_path": str(sentinel),
+            "sentinel_delay_seconds": delay,
+            "peak_rss_bytes": _peak_rss_bytes(),
+        }
+    raise RuntimeError(f"probe de supervisor desconocido: {mode}")
+
+
+def _run_supervised_child(request_path: Path) -> int:
+    request = _read_json_object(request_path)
+    protocol = str(request.get("protocol_version"))
+    nonce = str(request.get("nonce"))
+    backend = str(request.get("backend"))
+    limits = cast(dict[str, int | float], request["limits"])
+    boot_path = Path(str(request["boot_path"]))
+    ready_path = Path(str(request["ready_path"]))
+    started_path = Path(str(request["started_path"]))
+    start_path = Path(str(request["start_path"]))
+    result_path = Path(str(request["result_path"]))
+    handshake_seconds = float(limits["handshake_seconds"])
+    driver_hash = _sha256(Path(__file__))
+    pid = os.getpid()
+    try:
+        if protocol != S3_PROTOCOL_VERSION:
+            raise _SupervisorProtocolError(f"protocolo inesperado: {protocol}")
+        _write_json_exclusive(
+            boot_path,
+            {
+                "protocol_version": S3_PROTOCOL_VERSION,
+                "nonce": nonce,
+                "worker_pid": pid,
+                "driver_sha256": driver_hash,
+                "heavy_work_started": False,
+            },
+        )
+        if backend == "posix_rlimit_process_group":
+            effective_limits = _apply_posix_limits(limits)
+        elif backend == "windows_job_object":
+            authorization = _wait_for_child_json(
+                Path(str(request["authorization_path"])),
+                timeout_seconds=handshake_seconds,
+            )
+            if authorization.get("nonce") != nonce or authorization.get("worker_pid") != pid:
+                raise _SupervisorProtocolError("autorización Windows no reconcilia")
+            raw_effective = authorization.get("effective_limits")
+            if not isinstance(raw_effective, dict):
+                raise _SupervisorProtocolError("autorización Windows sin límites efectivos")
+            effective_limits = cast(dict[str, Any], raw_effective)
+        else:
+            raise _SupervisorProtocolError(f"backend desconocido: {backend}")
+
+        start_token_absent_when_limits_applied = not start_path.exists()
+        limits_applied_ns = time.monotonic_ns()
+        _write_json_exclusive(
+            ready_path,
+            {
+                "protocol_version": S3_PROTOCOL_VERSION,
+                "nonce": nonce,
+                "backend": backend,
+                "worker_pid": pid,
+                "driver_sha256": driver_hash,
+                "effective_limits": effective_limits,
+                "limits_applied_monotonic_ns": limits_applied_ns,
+                "start_token_absent_when_limits_applied": (start_token_absent_when_limits_applied),
+                "heavy_work_started": False,
+            },
+        )
+        start = _wait_for_child_json(start_path, timeout_seconds=handshake_seconds)
+        if start.get("nonce") != nonce or start.get("worker_pid") != pid:
+            raise _SupervisorProtocolError("token START no reconcilia")
+        start_observed_ns = time.monotonic_ns()
+        _write_json_exclusive(
+            started_path,
+            {
+                "protocol_version": S3_PROTOCOL_VERSION,
+                "nonce": nonce,
+                "worker_pid": pid,
+                "start_token_observed_monotonic_ns": start_observed_ns,
+                "limits_applied_before_start": bool(
+                    start_token_absent_when_limits_applied
+                    and limits_applied_ns <= start_observed_ns
+                ),
+            },
+        )
+
+        mode = str(request["mode"])
+        if mode == "s3":
+            workload = cast(dict[str, Any], request["workload"])
+            payload = _run_s3_workload(
+                Path(str(workload["wheel"])),
+                Path(str(workload["sdist"])),
+                Path(str(workload["workdir"])),
+                str(workload["source_sha"]),
+                Path(str(workload["bundle_path"])),
+            )
+        else:
+            payload = _run_supervisor_probe(mode, request)
+        result = {
+            "protocol_version": S3_PROTOCOL_VERSION,
+            "nonce": nonce,
+            "worker_pid": pid,
+            "driver_sha256": driver_hash,
+            "status": "ok",
+            "payload": payload,
+            "start_token_observed_monotonic_ns": start_observed_ns,
+        }
+        _write_json_exclusive(result_path, result)
+        print(json.dumps({"status": "ok", "worker_pid": pid}, sort_keys=True))
+        return 0
+    except MemoryError:
+        print(_S3_MEMORY_MARKER, file=sys.stderr, flush=True)
+        os._exit(_S3_MEMORY_EXIT_CODE)
+    except Exception as exc:
+        error_payload = {
+            "protocol_version": S3_PROTOCOL_VERSION,
+            "nonce": nonce,
+            "worker_pid": pid,
+            "driver_sha256": driver_hash,
+            "status": "error",
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        if not result_path.exists():
+            _write_json_exclusive(result_path, error_payload)
+        print(f"{type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        return 1
+
+
+def _classify_supervisor_outcome(
+    *,
+    mode: str,
+    returncode: int | None,
+    timed_out: bool,
+    protocol_outcome: str | None,
+    stderr_tail: str,
+    backend: str,
+    accounting: dict[str, Any] | None,
+    requested_limits: dict[str, int | float],
+    child_result: dict[str, Any] | None,
+    windows_job_signaled: bool,
+) -> str:
+    if protocol_outcome is not None:
+        return protocol_outcome
+    if timed_out:
+        return "wall_timeout"
+    if returncode == _S3_MEMORY_EXIT_CODE and _S3_MEMORY_MARKER in stderr_tail:
+        if backend != "windows_job_object":
+            return "memory_limit"
+        if accounting is not None:
+            peak_commit = int(accounting["peak_job_memory_commit_bytes"])
+            memory_limit = int(requested_limits["memory_bytes"])
+            total_processes = int(accounting["total_processes"])
+            minimum_processes = 3 if mode == "probe-memory" else 1
+            if peak_commit >= int(memory_limit * 0.70) and total_processes >= minimum_processes:
+                return "memory_limit"
+    if backend == "posix_rlimit_process_group" and returncode is not None:
+        posix_signal: Any = signal
+        cpu_signals = {int(posix_signal.SIGXCPU), int(posix_signal.SIGKILL)}
+        if returncode == _S3_CPU_EXIT_CODE and _S3_CPU_MARKER in stderr_tail:
+            return "cpu_limit"
+        if returncode < 0 and -returncode in cpu_signals and accounting is not None:
+            consumed = float(accounting["user_seconds"]) + float(accounting["system_seconds"])
+            if consumed >= max(int(requested_limits["cpu_seconds"]) - 0.25, 0.0):
+                return "cpu_limit"
+    if backend == "windows_job_object" and returncode is not None and accounting is not None:
+        quota_status = (returncode & 0xFFFFFFFF) == 0xC0000044
+        consumed_100ns = int(accounting["total_user_time_100ns"])
+        limit_100ns = int(requested_limits["cpu_seconds"]) * 10_000_000
+        if windows_job_signaled and quota_status and consumed_100ns >= int(limit_100ns * 0.8):
+            return "cpu_limit"
+    if returncode == 0 and child_result is not None and child_result.get("status") == "ok":
+        return "normal"
+    if child_result is not None and child_result.get("status") == "error":
+        return "child_error"
+    if returncode not in (None, 0):
+        return "termination_unclassified"
+    return "protocol_error"
+
+
+def _supervise_child(
+    *,
+    mode: str,
+    workdir: Path,
+    limits: dict[str, int | float],
+    workload: dict[str, Any] | None = None,
+    probe_delay_seconds: float = 1.0,
+) -> dict[str, Any]:
+    _validate_external_workdir(workdir)
+    if int(limits["memory_bytes"]) <= 0 or int(limits["cpu_seconds"]) <= 0:
+        raise ValueError("los límites de memoria/CPU deben ser positivos")
+    if float(limits["wall_seconds"]) <= 0 or float(limits["handshake_seconds"]) <= 0:
+        raise ValueError("los límites de wall/handshake deben ser positivos")
+
+    backend = "windows_job_object" if sys.platform == "win32" else "posix_rlimit_process_group"
+    expected_effective = _expected_effective_limits(backend, limits)
+    nonce = secrets.token_hex(32)
+    control = workdir / "supervisor-control"
+    control.mkdir(parents=False, exist_ok=False)
+    request_path = control / "request.json"
+    boot_path = control / "boot.json"
+    authorization_path = control / "limits-authorized.json"
+    ready_path = control / "ready.json"
+    start_path = control / "start.json"
+    started_path = control / "started.json"
+    result_path = control / "result.json"
+    stdout_path = control / "stdout.bin"
+    stderr_path = control / "stderr.bin"
+    sentinel_path = control / "late-sentinel.txt"
+    request = {
+        "protocol_version": S3_PROTOCOL_VERSION,
+        "nonce": nonce,
+        "backend": backend,
+        "mode": mode,
+        "limits": limits,
+        "boot_path": str(boot_path),
+        "authorization_path": str(authorization_path),
+        "ready_path": str(ready_path),
+        "start_path": str(start_path),
+        "started_path": str(started_path),
+        "result_path": str(result_path),
+        "probe_sentinel_path": str(sentinel_path),
+        "probe_delay_seconds": probe_delay_seconds,
+        "workload": workload,
+    }
+    _write_json_exclusive(request_path, request)
+    driver_hash_start = _sha256(Path(__file__))
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = ""
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--internal-s3-child",
+        str(request_path),
+    ]
+    creationflags = 0
+    start_new_session = backend == "posix_rlimit_process_group"
+    job: _WindowsJob | None = None
+    if backend == "windows_job_object":
+        job = _WindowsJob(
+            memory_bytes=int(limits["memory_bytes"]),
+            cpu_seconds=int(limits["cpu_seconds"]),
+        )
+
+    process: subprocess.Popen[bytes] | None = None
+    worker_handle: _WindowsProcessHandle | None = None
+    boot: dict[str, Any] | None = None
+    worker_pid: int | None = None
+    ready: dict[str, Any] | None = None
+    started: dict[str, Any] | None = None
+    effective_limits: dict[str, Any] | None = None
+    protocol_outcome: str | None = None
+    protocol_error: str | None = None
+    returncode: int | None = None
+    launcher_returncode: int | None = None
+    timed_out = False
+    accounting_before: dict[str, Any] | None = None
+    accounting_after: dict[str, Any] | None = None
+    windows_job_signaled = False
+    posix_rusage: dict[str, Any] | None = None
+    descendants_before_cleanup = False
+    expected_processes_before_cleanup: int | None = None
+    untracked_processes_before_cleanup: int | None = None
+    cleanup_action = "none"
+    supervisor_started_at = time.monotonic()
+    workload_started_at: float | None = None
+    workload_deadline_at: float | None = None
+    workload_finished_at: float | None = None
+    try:
+        with stdout_path.open("xb") as stdout_handle, stderr_path.open("xb") as stderr_handle:
+            process = subprocess.Popen(
+                command,
+                cwd=workdir,
+                env=environment,
+                stdin=subprocess.DEVNULL,
+                stdout=stdout_handle,
+                stderr=stderr_handle,
+                close_fds=True,
+                creationflags=creationflags,
+                start_new_session=start_new_session,
+            )
+            try:
+                if job is not None:
+                    job.assign(process.pid)
+                boot = _wait_for_json(
+                    boot_path,
+                    process=process,
+                    timeout_seconds=float(limits["handshake_seconds"]),
+                    allow_launcher_exit=job is not None,
+                )
+                if (
+                    boot.get("protocol_version") != S3_PROTOCOL_VERSION
+                    or boot.get("nonce") != nonce
+                    or boot.get("driver_sha256") != driver_hash_start
+                    or boot.get("heavy_work_started") is not False
+                    or not isinstance(boot.get("worker_pid"), int)
+                ):
+                    raise _SupervisorProtocolError("BOOT del worker no reconcilia")
+                worker_pid = int(boot["worker_pid"])
+                if job is None and worker_pid != process.pid:
+                    raise _SupervisorProtocolError("PID POSIX difiere del líder de sesión")
+                if job is not None:
+                    if not job.contains(worker_pid):
+                        job.assign(worker_pid)
+                    effective_limits = job.effective_limits()
+                    if effective_limits != expected_effective:
+                        raise _LimitsNotAppliedError(
+                            "los límites consultados del Job no coinciden con lo solicitado"
+                        )
+                    _write_json_exclusive(
+                        authorization_path,
+                        {
+                            "protocol_version": S3_PROTOCOL_VERSION,
+                            "nonce": nonce,
+                            "worker_pid": worker_pid,
+                            "effective_limits": effective_limits,
+                        },
+                    )
+                    worker_handle = _WindowsProcessHandle(worker_pid)
+                ready = _wait_for_json(
+                    ready_path,
+                    process=process,
+                    timeout_seconds=float(limits["handshake_seconds"]),
+                    allow_launcher_exit=job is not None,
+                )
+                raw_ready_limits = ready.get("effective_limits")
+                if not isinstance(raw_ready_limits, dict):
+                    raise _LimitsNotAppliedError("READY no contiene límites efectivos")
+                effective_limits = cast(dict[str, Any], raw_ready_limits)
+                if (
+                    ready.get("protocol_version") != S3_PROTOCOL_VERSION
+                    or ready.get("nonce") != nonce
+                    or ready.get("backend") != backend
+                    or ready.get("worker_pid") != worker_pid
+                    or ready.get("driver_sha256") != driver_hash_start
+                    or ready.get("heavy_work_started") is not False
+                    or ready.get("start_token_absent_when_limits_applied") is not True
+                    or effective_limits != expected_effective
+                ):
+                    raise _LimitsNotAppliedError("READY no atestigua los límites exactos")
+                limits_verified_ns = time.monotonic_ns()
+                workload_started_at = time.monotonic()
+                workload_deadline_at = workload_started_at + float(limits["wall_seconds"])
+                _write_json_exclusive(
+                    start_path,
+                    {
+                        "protocol_version": S3_PROTOCOL_VERSION,
+                        "nonce": nonce,
+                        "worker_pid": worker_pid,
+                        "limits_verified_monotonic_ns": limits_verified_ns,
+                    },
+                )
+                started_wait_seconds = min(
+                    float(limits["handshake_seconds"]),
+                    max(workload_deadline_at - time.monotonic(), 0.0),
+                )
+                if started_wait_seconds <= 0:
+                    raise TimeoutError("wall timeout antes de observar STARTED")
+                started = _wait_for_json(
+                    started_path,
+                    process=process,
+                    timeout_seconds=started_wait_seconds,
+                    allow_launcher_exit=job is not None,
+                )
+                if (
+                    started.get("nonce") != nonce
+                    or started.get("worker_pid") != worker_pid
+                    or started.get("limits_applied_before_start") is not True
+                    or int(ready["limits_applied_monotonic_ns"])
+                    > int(started["start_token_observed_monotonic_ns"])
+                ):
+                    raise _SupervisorProtocolError("orden READY→START inválido")
+            except TimeoutError as exc:
+                protocol_error = str(exc)
+                if workload_deadline_at is not None and time.monotonic() >= workload_deadline_at:
+                    timed_out = True
+                else:
+                    protocol_outcome = "handshake_timeout"
+            except _LimitsNotAppliedError as exc:
+                protocol_outcome = "limits_not_applied"
+                protocol_error = str(exc)
+            except Exception as exc:
+                protocol_outcome = "protocol_error"
+                protocol_error = f"{type(exc).__name__}: {exc}"
+
+            if protocol_outcome is None and not timed_out:
+                if workload_deadline_at is None:
+                    raise RuntimeError("deadline wall ausente después de START")
+                remaining_wall = max(workload_deadline_at - time.monotonic(), 0.0)
+                if remaining_wall <= 0:
+                    timed_out = True
+                elif worker_handle is not None:
+                    returncode, timed_out = worker_handle.wait(remaining_wall)
+                else:
+                    returncode, posix_rusage, timed_out = _wait_worker(
+                        process,
+                        timeout_seconds=remaining_wall,
+                    )
+            if workload_started_at is not None:
+                workload_finished_at = time.monotonic()
+
+            if job is not None and process is not None and returncode is not None:
+                try:
+                    launcher_returncode = process.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    launcher_returncode = None
+            elif job is None:
+                launcher_returncode = returncode
+
+            if job is not None:
+                accounting_before = job.accounting()
+                windows_job_signaled = job.is_signaled()
+                active_before_cleanup = job.active_processes()
+                expected_processes_before_cleanup = 0
+                if worker_pid is not None and returncode is None and _pid_alive(worker_pid):
+                    expected_processes_before_cleanup += 1
+                if (
+                    process.pid != worker_pid
+                    and launcher_returncode is None
+                    and _pid_alive(process.pid)
+                ):
+                    expected_processes_before_cleanup += 1
+                untracked_processes_before_cleanup = max(
+                    active_before_cleanup - expected_processes_before_cleanup, 0
+                )
+                descendants_before_cleanup = untracked_processes_before_cleanup > 0
+                if returncode is None or job.active_processes() > 0:
+                    cleanup_action = "terminate_job_object"
+                    job.terminate(0xE0000001)
+                    if returncode is None and worker_handle is not None:
+                        returncode, cleanup_timed_out = worker_handle.wait(5.0)
+                        if cleanup_timed_out:
+                            protocol_outcome = protocol_outcome or "cleanup_failed"
+                    if not job.wait_empty(5.0):
+                        protocol_outcome = protocol_outcome or "cleanup_failed"
+                try:
+                    launcher_returncode = process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    protocol_outcome = protocol_outcome or "cleanup_failed"
+                accounting_after = job.accounting()
+            elif process is not None:
+                posix_os: Any = os
+                posix_signal: Any = signal
+                pgid = process.pid
+                descendants_before_cleanup = _posix_group_alive(pgid)
+                if returncode is None or descendants_before_cleanup:
+                    cleanup_action = "killpg_sigkill"
+                    with contextlib.suppress(ProcessLookupError):
+                        posix_os.killpg(pgid, posix_signal.SIGKILL)
+                    if returncode is None:
+                        returncode, posix_rusage_after, _ = _wait_worker(
+                            process, timeout_seconds=5.0
+                        )
+                        launcher_returncode = returncode
+                        if posix_rusage is None:
+                            posix_rusage = posix_rusage_after
+                    if not _wait_posix_group_empty(pgid, 5.0):
+                        protocol_outcome = protocol_outcome or "cleanup_failed"
+                accounting_before = posix_rusage
+                accounting_after = posix_rusage
+    finally:
+        if process is not None and returncode is None:
+            if job is not None:
+                with contextlib.suppress(OSError):
+                    job.terminate(0xE0000002)
+            else:
+                posix_os = cast(Any, os)
+                posix_signal = cast(Any, signal)
+                with contextlib.suppress(ProcessLookupError):
+                    posix_os.killpg(process.pid, posix_signal.SIGKILL)
+                returncode, posix_rusage_final, cleanup_timed_out = _wait_worker(
+                    process, timeout_seconds=5.0
+                )
+                launcher_returncode = returncode
+                if posix_rusage is None:
+                    posix_rusage = posix_rusage_final
+                if cleanup_timed_out or not _wait_posix_group_empty(process.pid, 5.0):
+                    protocol_outcome = protocol_outcome or "cleanup_failed"
+        if job is not None:
+            job.close()
+        if worker_handle is not None:
+            worker_handle.close()
+
+    child_result: dict[str, Any] | None = None
+    if result_path.is_file():
+        try:
+            child_result = _read_json_object(result_path)
+        except (OSError, UnicodeError, json.JSONDecodeError, RuntimeError) as exc:
+            protocol_outcome = protocol_outcome or "protocol_error"
+            protocol_error = protocol_error or f"RESULT ilegible: {type(exc).__name__}: {exc}"
+    child_result_reconciled = bool(
+        child_result is not None
+        and child_result.get("protocol_version") == S3_PROTOCOL_VERSION
+        and child_result.get("nonce") == nonce
+        and child_result.get("worker_pid") == worker_pid
+        and child_result.get("driver_sha256") == driver_hash_start
+        and child_result.get("status") in {"ok", "error"}
+    )
+    if child_result is not None and not child_result_reconciled:
+        protocol_outcome = protocol_outcome or "protocol_error"
+        protocol_error = protocol_error or "RESULT no reconcilia protocolo/nonce/PID/hash"
+    stdout = _stream_evidence(stdout_path)
+    stderr = _stream_evidence(stderr_path)
+    outcome = _classify_supervisor_outcome(
+        mode=mode,
+        returncode=returncode,
+        timed_out=timed_out,
+        protocol_outcome=protocol_outcome,
+        stderr_tail=str(stderr["tail_utf8"]),
+        backend=backend,
+        accounting=accounting_before,
+        requested_limits=limits,
+        child_result=child_result,
+        windows_job_signaled=windows_job_signaled,
+    )
+    descendant_pid: int | None = None
+    sentinel_delay = 0.0
+    if child_result is not None and child_result.get("status") == "ok":
+        raw_payload = child_result.get("payload")
+        if isinstance(raw_payload, dict) and isinstance(raw_payload.get("descendant_pid"), int):
+            descendant_pid = int(raw_payload["descendant_pid"])
+            sentinel_delay = float(raw_payload.get("sentinel_delay_seconds", 0.0))
+    if descendant_pid is not None and sentinel_delay > 0:
+        time.sleep(sentinel_delay + 0.25)
+    descendant_alive_after = descendant_pid is not None and _pid_alive(descendant_pid)
+    if job is not None:
+        tree_alive_after_cleanup = bool(
+            accounting_after is not None and accounting_after["active_processes"] > 0
+        )
+    elif process is not None:
+        tree_alive_after_cleanup = _posix_group_alive(process.pid)
+    else:
+        tree_alive_after_cleanup = False
+    tree_cleanup_complete = (
+        not tree_alive_after_cleanup and not descendant_alive_after and not sentinel_path.exists()
+    )
+    driver_hash_end = _sha256(Path(__file__))
+    result_evidence = (
+        {
+            "present": True,
+            "bytes": result_path.stat().st_size,
+            "sha256": _sha256(result_path),
+            "status": child_result.get("status") if child_result is not None else None,
+            "reconciled": child_result_reconciled,
+        }
+        if child_result is not None
+        else {
+            "present": False,
+            "bytes": 0,
+            "sha256": None,
+            "status": None,
+            "reconciled": False,
+        }
+    )
+    peak_rss: int | None = None
+    if child_result is not None and child_result.get("status") == "ok":
+        raw_payload = child_result.get("payload")
+        if isinstance(raw_payload, dict):
+            raw_resources = raw_payload.get("resources")
+            if isinstance(raw_resources, dict) and isinstance(
+                raw_resources.get("peak_rss_bytes"), int
+            ):
+                peak_rss = int(raw_resources["peak_rss_bytes"])
+            elif isinstance(raw_payload.get("peak_rss_bytes"), int):
+                peak_rss = int(raw_payload["peak_rss_bytes"])
+    if peak_rss is None and posix_rusage is not None:
+        peak_rss = int(posix_rusage["peak_rss_bytes"])
+    return {
+        "protocol_version": S3_PROTOCOL_VERSION,
+        "backend": backend,
+        "qualification_supported": sys.platform != "darwin",
+        "semantics": _limit_semantics(backend),
+        "supervisor_pid": os.getpid(),
+        "launcher_pid": process.pid if process is not None else None,
+        "worker_pid": worker_pid,
+        "process_group_id": (
+            process.pid if process is not None and backend == "posix_rlimit_process_group" else None
+        ),
+        "requested_limits": limits,
+        "effective_limits": effective_limits,
+        "handshake": {
+            "boot": boot,
+            "ready": ready,
+            "started": started,
+            "limits_verified_before_start": bool(
+                ready is not None
+                and started is not None
+                and ready.get("start_token_absent_when_limits_applied") is True
+                and started.get("limits_applied_before_start") is True
+                and ready.get("limits_applied_monotonic_ns", 0)
+                <= started.get("start_token_observed_monotonic_ns", 0)
+            ),
+            "error": protocol_error,
+        },
+        "outcome": outcome,
+        "returncode": _returncode_evidence(returncode),
+        "worker_returncode": _returncode_evidence(returncode),
+        "launcher_returncode": _returncode_evidence(launcher_returncode),
+        "supervisor_wall_seconds": round(time.monotonic() - supervisor_started_at, 6),
+        "workload_wall_seconds": (
+            round(workload_finished_at - workload_started_at, 6)
+            if workload_started_at is not None and workload_finished_at is not None
+            else None
+        ),
+        "accounting_before_cleanup": accounting_before,
+        "accounting_after_cleanup": accounting_after,
+        "windows_job_signaled": windows_job_signaled,
+        "peak_rss_bytes": peak_rss,
+        "stdout": stdout,
+        "stderr": stderr,
+        "child_result": result_evidence,
+        "tree_cleanup": {
+            "descendants_detected_before_cleanup": descendants_before_cleanup,
+            "expected_supervised_processes_before_cleanup": (expected_processes_before_cleanup),
+            "untracked_processes_before_cleanup": untracked_processes_before_cleanup,
+            "action": cleanup_action,
+            "descendant_pid": descendant_pid,
+            "tree_alive_after_cleanup": tree_alive_after_cleanup,
+            "descendant_alive_after_cleanup": descendant_alive_after,
+            "late_sentinel_absent": not sentinel_path.exists(),
+            "complete": tree_cleanup_complete,
+        },
+        "driver_sha256": {
+            "parent_start": driver_hash_start,
+            "child_ready": ready.get("driver_sha256") if ready is not None else None,
+            "parent_end": driver_hash_end,
+            "all_equal": bool(
+                ready is not None
+                and driver_hash_start == ready.get("driver_sha256") == driver_hash_end
+            ),
+        },
+        "_child_payload": child_result,
+    }
+
+
+def _s3_pass_conditions(
+    supervision: dict[str, Any], workload: dict[str, Any] | None
+) -> dict[str, bool]:
+    accounting_present = isinstance(
+        supervision.get("accounting_before_cleanup"), dict
+    ) and isinstance(supervision.get("accounting_after_cleanup"), dict)
+    peak_rss = supervision.get("peak_rss_bytes")
+    backend = str(supervision.get("backend"))
+    requested = supervision.get("requested_limits")
+    effective = supervision.get("effective_limits")
+    effective_limits_exact = bool(
+        isinstance(requested, dict)
+        and backend in {"windows_job_object", "posix_rlimit_process_group"}
+        and effective == _expected_effective_limits(backend, requested)
+    )
+    return {
+        "normal_termination": supervision["outcome"] == "normal",
+        "returncode_zero": supervision["returncode"]["signed"] == 0,
+        "launcher_returncode_zero": supervision["launcher_returncode"]["signed"] == 0,
+        "backend_eligible": supervision.get("qualification_supported") is True,
+        "effective_limits_exact": effective_limits_exact,
+        "limits_verified_before_start": supervision["handshake"]["limits_verified_before_start"]
+        is True,
+        "driver_hashes_equal": supervision["driver_sha256"]["all_equal"] is True,
+        "child_result_reconciled": supervision["child_result"]["reconciled"] is True,
+        "accounting_present": accounting_present,
+        "peak_rss_present": isinstance(peak_rss, int) and peak_rss > 0,
+        "tree_cleanup_complete": supervision["tree_cleanup"]["complete"] is True,
+        "classification_exact": bool(
+            workload is not None and _classification_is_exact(workload.get("limits"))
+        ),
+    }
+
+
+def _supervise_s3(
+    wheel: Path,
+    sdist: Path,
+    workdir: Path,
+    source_sha: str,
+    bundle_path: Path,
+) -> dict[str, Any]:
+    if sys.platform == "darwin":
+        raise RuntimeError(
+            "S3 no inicia en Darwin: RLIMIT_AS queda sólo para diagnóstico y no demuestra "
+            "un límite de memoria duro"
+        )
+    supervision = _supervise_child(
+        mode="s3",
+        workdir=workdir,
+        limits=dict(S3_LIMITS),
+        workload={
+            "wheel": str(wheel),
+            "sdist": str(sdist),
+            "workdir": str(workdir),
+            "source_sha": source_sha,
+            "bundle_path": str(bundle_path),
+        },
+    )
+    child_result = supervision.pop("_child_payload")
+    workload: dict[str, Any] | None = None
+    if isinstance(child_result, dict) and child_result.get("status") == "ok":
+        raw_workload = child_result.get("payload")
+        if isinstance(raw_workload, dict):
+            workload = cast(dict[str, Any], raw_workload)
+    pass_conditions = _s3_pass_conditions(supervision, workload)
+    profile_status = "pass" if all(pass_conditions.values()) else "fail"
+    payload: dict[str, Any] = {
+        "schema_version": S3_SCHEMA_VERSION,
+        "source_sha": source_sha,
+        "driver_sha256": _sha256(Path(__file__)),
+        "profile": "S3-limite",
+        "profile_status": profile_status,
+        "pass_conditions": pass_conditions,
+        "supervisor": supervision,
+    }
+    if workload is not None:
+        payload.update(workload)
+    elif isinstance(child_result, dict):
+        payload["child_error"] = {
+            "status": child_result.get("status"),
+            "error_type": child_result.get("error_type"),
+            "error": child_result.get("error"),
+        }
+    return payload
 
 
 def main() -> int:
     """Ejecuta un perfil y escribe evidencia canónica inmutable."""
+    if len(sys.argv) == 3 and sys.argv[1] == "--internal-s3-child":
+        return _run_supervised_child(Path(sys.argv[2]).resolve())
     if len(sys.argv) == 4 and sys.argv[1] == "--internal-consumer":
         request = Path(sys.argv[2]).resolve()
         output = Path(sys.argv[3]).resolve()
@@ -1305,7 +2735,7 @@ def main() -> int:
         if args.profile == "S3-limite":
             if args.s3_bundle is None:
                 raise RuntimeError("S3-limite exige --s3-bundle producido por S0")
-            payload = _run_s3(
+            payload = _supervise_s3(
                 args.wheel.resolve(),
                 args.sdist.resolve(),
                 workdir,
@@ -1323,8 +2753,11 @@ def main() -> int:
         exit_code = 0 if payload["profile_status"] != "fail" else 1
     except Exception as exc:
         payload = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": (
+                S3_SCHEMA_VERSION if args.profile == "S3-limite" else SCHEMA_VERSION_V1
+            ),
             "source_sha": args.source_sha,
+            "driver_sha256": _sha256(Path(__file__)),
             "profile": args.profile,
             "profile_status": "error",
             "error_type": type(exc).__name__,
@@ -1333,6 +2766,8 @@ def main() -> int:
         }
         exit_code = 1
     payload["process"] = {
+        "role": "supervisor" if args.profile == "S3-limite" else "driver",
+        "pid": os.getpid(),
         "wall_seconds": round(time.perf_counter() - started_wall, 6),
         "cpu_seconds": round(time.process_time() - started_cpu, 6),
         "peak_rss_bytes": _peak_rss_bytes(),
