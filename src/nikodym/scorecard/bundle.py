@@ -107,6 +107,24 @@ class BatchApplicationResult:
     output_hash: str
 
 
+@dataclass(frozen=True, slots=True)
+class _PreparedFeatureRules:
+    """Vista inmutable de reglas congeladas reutilizable entre chunks."""
+
+    rules: pd.DataFrame
+    special_rules: Mapping[tuple[str, Any], pd.Series[Any]]
+    declared_specials: frozenset[tuple[str, Any]]
+    categorical: Mapping[tuple[str, Any], pd.Series[Any]]
+    numeric: pd.DataFrame
+    numeric_lowers: np.ndarray[Any, Any]
+    numeric_uppers: np.ndarray[Any, Any]
+    numeric_woe: np.ndarray[Any, Any]
+    numeric_raw_points: np.ndarray[Any, Any]
+    numeric_points: np.ndarray[Any, Any]
+    numeric_bin_ids: np.ndarray[Any, Any]
+    missing_rule: pd.Series[Any] | None
+
+
 class FittedScorecardBundle:
     """Estado fiteado puro de F1, persistible sin ejecución arbitraria."""
 
@@ -128,6 +146,13 @@ class FittedScorecardBundle:
             )
         self._manifest = normalized
         self._rules = normalized_rules
+        self._prepared_rules = {
+            feature: _prepare_feature_rules(
+                normalized_rules.loc[normalized_rules["feature"].eq(feature)].copy(deep=False),
+                special_values=tuple(normalized["special_catalog"].get(feature, ())),
+            )
+            for feature in normalized["model"]["features"]
+        }
 
     @property
     def bundle_hash(self) -> str:
@@ -349,12 +374,13 @@ class FittedScorecardBundle:
         special_handling = str(self._manifest["treatment_policy"]["special_handling"])
 
         for position, feature in enumerate(features):
-            rules = self._rules.loc[self._rules["feature"].eq(feature)].copy(deep=False)
+            prepared = self._prepared_rules[feature]
             treatment = _apply_feature(
                 raw[feature],
-                rules,
+                prepared.rules,
                 special_values=tuple(special_catalog.get(feature, ())),
                 special_handling=special_handling,
+                prepared=prepared,
             )
             woe_matrix[:, position] = treatment["woe"]
             raw_points_matrix[:, position] = treatment["raw_points"]
@@ -1137,6 +1163,7 @@ def _apply_feature(
     *,
     special_values: tuple[Mapping[str, Any], ...],
     special_handling: str,
+    prepared: _PreparedFeatureRules | None = None,
 ) -> dict[str, np.ndarray[Any, Any]]:
     """Resuelve valores únicos preservando estado, regla y puntos antes del rounding."""
     row_count = len(series.index)
@@ -1150,19 +1177,13 @@ def _apply_feature(
     unique_reasons = np.full(unique_count, None, dtype="object")
     unique_warnings = np.full(unique_count, None, dtype="object")
 
-    special_rules: dict[tuple[str, Any], pd.Series[Any]] = {}
-    for _, row in rules.loc[rules["kind"].eq("special")].iterrows():
-        for value in json.loads(row["values_json"]):
-            special_rules[_encoded_key(value)] = row
-    declared_specials = {_encoded_key(value) for value in special_values}
-    categorical: dict[tuple[str, Any], pd.Series[Any]] = {}
-    for _, row in rules.loc[rules["kind"].eq("categorical")].iterrows():
-        for value in json.loads(row["values_json"]):
-            categorical[_encoded_key(value)] = row
-    numeric = rules.loc[rules["kind"].eq("numeric")].sort_values("lower")
-    numeric_uppers = numeric["upper"].to_numpy(dtype="float64", copy=True)
-    missing_rows = rules.loc[rules["kind"].eq("missing")]
-    missing_rule = None if missing_rows.empty else missing_rows.iloc[0]
+    prepared = prepared or _prepare_feature_rules(rules, special_values=special_values)
+    special_rules = prepared.special_rules
+    declared_specials = prepared.declared_specials
+    categorical = prepared.categorical
+    numeric = prepared.numeric
+    numeric_uppers = prepared.numeric_uppers
+    missing_rule = prepared.missing_rule
 
     def assign_rule(mask: np.ndarray[Any, Any], row: pd.Series[Any]) -> None:
         unique_woe[mask] = float(row["woe"])
@@ -1211,26 +1232,18 @@ def _apply_feature(
             in_range = bin_positions < len(numeric.index)
             selected_positions = observed_positions[in_range]
             selected_bins = bin_positions[in_range]
-            lower = numeric["lower"].to_numpy(dtype="float64", copy=False)[selected_bins]
-            upper = numeric["upper"].to_numpy(dtype="float64", copy=False)[selected_bins]
+            lower = prepared.numeric_lowers[selected_bins]
+            upper = prepared.numeric_uppers[selected_bins]
             contained = (lower <= unique_numbers[selected_positions]) & (
                 unique_numbers[selected_positions] < upper
             )
             accepted = selected_positions[contained]
             accepted_bins = selected_bins[contained]
             unique_states[accepted] = "observed"
-            unique_woe[accepted] = numeric["woe"].to_numpy(dtype="float64", copy=False)[
-                accepted_bins
-            ]
-            unique_raw_points[accepted] = numeric["raw_points"].to_numpy(
-                dtype="float64", copy=False
-            )[accepted_bins]
-            unique_points[accepted] = numeric["points"].to_numpy(dtype="float64", copy=False)[
-                accepted_bins
-            ]
-            unique_bins[accepted] = numeric["bin_id"].to_numpy(dtype="object", copy=False)[
-                accepted_bins
-            ]
+            unique_woe[accepted] = prepared.numeric_woe[accepted_bins]
+            unique_raw_points[accepted] = prepared.numeric_raw_points[accepted_bins]
+            unique_points[accepted] = prepared.numeric_points[accepted_bins]
+            unique_bins[accepted] = prepared.numeric_bin_ids[accepted_bins]
             rejected = observed & (unique_states == None)  # noqa: E711
             unique_states[rejected] = "outlier"
             unique_reasons[rejected] = "outlier_sin_politica_congelada"
@@ -1318,6 +1331,38 @@ def _apply_feature(
         "reason": reasons,
         "warning": warnings,
     }
+
+
+def _prepare_feature_rules(
+    rules: pd.DataFrame,
+    *,
+    special_values: tuple[Mapping[str, Any], ...],
+) -> _PreparedFeatureRules:
+    """Compila sólo invariantes del bundle; no conserva estado de una aplicación."""
+    special_rules: dict[tuple[str, Any], pd.Series[Any]] = {}
+    for _, row in rules.loc[rules["kind"].eq("special")].iterrows():
+        for value in json.loads(row["values_json"]):
+            special_rules[_encoded_key(value)] = row
+    categorical: dict[tuple[str, Any], pd.Series[Any]] = {}
+    for _, row in rules.loc[rules["kind"].eq("categorical")].iterrows():
+        for value in json.loads(row["values_json"]):
+            categorical[_encoded_key(value)] = row
+    numeric = rules.loc[rules["kind"].eq("numeric")].sort_values("lower")
+    missing_rows = rules.loc[rules["kind"].eq("missing")]
+    return _PreparedFeatureRules(
+        rules=rules,
+        special_rules=special_rules,
+        declared_specials=frozenset(_encoded_key(value) for value in special_values),
+        categorical=categorical,
+        numeric=numeric,
+        numeric_lowers=numeric["lower"].to_numpy(dtype="float64", copy=True),
+        numeric_uppers=numeric["upper"].to_numpy(dtype="float64", copy=True),
+        numeric_woe=numeric["woe"].to_numpy(dtype="float64", copy=True),
+        numeric_raw_points=numeric["raw_points"].to_numpy(dtype="float64", copy=True),
+        numeric_points=numeric["points"].to_numpy(dtype="float64", copy=True),
+        numeric_bin_ids=numeric["bin_id"].to_numpy(dtype="object", copy=True),
+        missing_rule=None if missing_rows.empty else missing_rows.iloc[0],
+    )
 
 
 def _match_rule(

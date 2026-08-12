@@ -11,6 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import pytest
 from _ui_f1 import full_f1_config, write_behavior_parquet
@@ -478,19 +479,66 @@ def test_batch_digest_y_salida_no_dependen_del_tamano_de_chunk(tmp_path: Path) -
     ]
     assert len({result.input_hash for result in results}) == 1
     assert len({result.output_hash for result in results}) == 1
-    outputs = []
+    outputs: list[dict[str, pd.DataFrame]] = []
+    lineages = []
     for result in results:
         manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+        lineages.append(manifest["apply_lineage"])
         outputs.append(
-            pd.concat(
-                [
-                    pd.read_parquet(result.output_dir / chunk["files"]["application"]["path"])
-                    for chunk in manifest["chunks"]
-                ]
-            )
+            {
+                view: pd.concat(
+                    [
+                        pd.read_parquet(result.output_dir / chunk["files"][view]["path"])
+                        for chunk in manifest["chunks"]
+                    ],
+                    ignore_index=view == "trace",
+                )
+                for view in ("application", "woe", "trace")
+            }
         )
+    assert lineages[1:] == [lineages[0], lineages[0]]
     for observed in outputs[1:]:
-        pd.testing.assert_frame_equal(observed, outputs[0])
+        for view in ("application", "woe", "trace"):
+            pd.testing.assert_frame_equal(observed[view], outputs[0][view])
+
+
+def test_reglas_preparadas_equivalen_exactamente_y_no_aliasan(tmp_path: Path) -> None:
+    """El cache del bundle conserva arrays exactos y cada apply recibe buffers nuevos."""
+    study, frame = _study_y_frame(tmp_path)
+    bundle = FittedScorecardBundle.from_study(study)  # type: ignore[arg-type]
+    targetless = frame.drop(columns=["bad_flag", "cohort"])
+    manifest = bundle.manifest
+    special_catalog = manifest["special_catalog"]
+    special_handling = manifest["treatment_policy"]["special_handling"]
+
+    for feature in manifest["model"]["features"]:
+        rules = bundle._rules.loc[bundle._rules["feature"].eq(feature)].copy(deep=False)
+        special_values = tuple(special_catalog.get(feature, ()))
+        expected = bundle_module._apply_feature(
+            targetless[feature],
+            rules,
+            special_values=special_values,
+            special_handling=special_handling,
+        )
+        prepared = bundle._prepared_rules[feature]
+        observed = bundle_module._apply_feature(
+            targetless[feature],
+            prepared.rules,
+            special_values=special_values,
+            special_handling=special_handling,
+            prepared=prepared,
+        )
+        for field in expected:
+            np.testing.assert_array_equal(observed[field], expected[field], strict=True)
+            assert not np.shares_memory(observed[field], expected[field])
+        cached_to_output = {
+            "numeric_woe": "woe",
+            "numeric_raw_points": "raw_points",
+            "numeric_points": "points",
+            "numeric_bin_ids": "bin_id",
+        }
+        for cached, output in cached_to_output.items():
+            assert not np.shares_memory(observed[output], getattr(prepared, cached))
 
 
 def test_batch_csv_preserva_ids_textuales_y_hash_en_cada_frontera(tmp_path: Path) -> None:
