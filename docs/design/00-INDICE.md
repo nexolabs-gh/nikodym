@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Documento** | Índice de Documentos de Diseño (SDD) |
-| **Versión** | 1.4 (índice histórico consolidado + readiness transversal aprobada) |
-| **Fecha** | 2026-08-09 |
+| **Versión** | 1.5 (descubrimiento de la propuesta H9 representativa) |
+| **Fecha** | 2026-08-12 |
 | **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.1 · [`docs/ROADMAP.md`](../ROADMAP.md) |
 
 > **Lectura actual:** este índice es histórico y no es autoridad de estado ni backlog. Varias
@@ -68,6 +68,12 @@ contractual nuevo requiere un SDD nuevo o una revisión explícita.
 
 Evidencia operativa de la oleada cerrada:
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md).
+
+Propuesta contractual todavía **no vigente**:
+[`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md). Diseña
+el retiro de H9=B/`S2-equipo` y la recalibración por flujo para un entorno objetivo de 4 CPU/8 GB
+nominales. H9=B conserva su estado canónico hasta el OK final de Cami, pero la autorización
+operativa S2 ya está cancelada; la propuesta no autoriza implementación ni START.
 
 **28 SDD históricos · SDD-29 reservado · SDD-30 aprobado · 9 tandas identificadas
 (T0–T8; T0 = verificación, sin SDD nuevo).** La madurez pública y la garantía SemVer se declaran
