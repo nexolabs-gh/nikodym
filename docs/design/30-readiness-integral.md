@@ -7,7 +7,13 @@
 >
 > **W0 CERRADA/PASS.** El baseline congelado y su censo `no_medible` viven en
 > [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md). La segunda revisión independiente fue
-> `APROBABLE`; W1 no está iniciada.
+> `APROBABLE`; W1 no está cerrada y su estado vigente se declara a continuación.
+>
+> **H9 ENMENDADA el 2026-08-12.** Cami aprobó **D-RDY-H9R-1…8**: H9=B/`S2-equipo` deja de ser
+> puerta futura y se fija 4 CPU lógicas/8 GB nominales como entorno objetivo declarado, todavía sin
+> cap, geometría, budget, disco ni perfil final. W1 permanece **NO PASS / bloqueada por
+> recalibración de H9**. No existe START S2 ni START de calibración autorizado. Fuente:
+> [`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md).
 >
 > **Identificación.** El índice conserva numeración estable y SDD-28 reservó el número 29 para el
 > CLI. Por eso el siguiente identificador disponible es **SDD-30**; el 29 no se reutiliza.
@@ -18,7 +24,7 @@
 | **Módulo** | Contrato transversal de `nikodym` — no crea un paquete `readiness` |
 | **Fase** | F0–F8, cierre transversal de producto |
 | **Tanda de producción** | T8 aprobada, por oleadas (§7.5) |
-| **Estado** | Aprobado por Cami el 2026-08-09 |
+| **Estado** | Aprobado por Cami el 2026-08-09; H9 enmendada por D-RDY-H9R-1…8 el 2026-08-12 |
 | **Depende de** | SDD-01/02/06/08/09/10/11/16/18/19/20/21/23/25/26/28 y contratos vigentes en `DECISIONES-VIGENTES.md` |
 | **Lo consumen** | Todos los flujos públicos, CI/release, UI, landing, demo, docs e informes |
 | **Autor / Fecha** | Codex, con censos independientes y revisión adversarial / 2026-08-09 |
@@ -414,10 +420,11 @@ Invariantes:
 - cada input aporta `data_hash`, fuente, versión, fecha de corte y filas rechazadas;
 - cualquier broadcast cuenta→segmento o escenario→cartera es explícito y reconciliable.
 
-### 5.5 Perfiles de escala
+### 5.5 Perfiles históricos y recalibración H9R
 
-Antes de optimizar se mide el siguiente grid fijo. S1/S2 son candidatos de compromiso para H9, no
-copy público mientras sus gates sigan rojos:
+El siguiente grid fue el contrato de escala aprobado el 2026-08-09 y gobierna la lectura histórica
+de W0/S0/S1/S2. Desde D-RDY-H9R-1…8, `S1-local` y `S2-equipo` **no son candidatos ni puertas del
+trabajo futuro**; sus nombres, artefactos y conclusiones se conservan sin reescritura:
 
 | Perfil | Filas/operaciones | Variables | Cardinalidad máx. | Horizonte | Escenarios | Hardware/RAM objetivo | Tiempo objetivo |
 |---|---:|---:|---:|---:|---:|---|---|
@@ -433,10 +440,19 @@ UI S1 acepta hasta 50 MiB; UI S2, hasta 100 MiB. En ambas el acuse/job id y una 
 tardan ≤2 s en el hardware de referencia; el cálculo total hereda el budget de su flujo. Esos
 tiempos se miden con caché fría y caliente por separado.
 
-Cada medición registra wall time, CPU time, peak RSS, bytes de entrada/salida, páginas/chunks,
-hardware, SO, Python, dependencias y hashes. Entrenamiento, inferencia batch y UI tienen resultados
-separados. Tras elegir H9 nace `S3-limite`: N−1/N/N+1 sobre cada dimensión del envelope aprobado,
-con proceso aislado y límite de recursos para que un baseline rojo no agote el host.
+El reemplazo H9R fija sólo la dirección: como máximo 4 CPU lógicas efectivamente utilizables por el
+árbol completo y una máquina de 8 GB nominales, con calibración inicial en Windows. Caps job-wide,
+geometrías, budgets, disco y perfiles se derivan por flujo cuando W1–W5 los vuelven alcanzables; no
+se extrapolan desde W0 ni desde una corrida S2. La propuesta no vigente que preespecifica hipótesis,
+fronteras y oráculos antes de implementar o ejecutar vive en
+[`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md).
+
+Cada medición futura registra wall time, CPU time, memoria comprometida job-wide y working set por
+separado, bytes de entrada/salida/temporales, páginas/chunks, hardware, SO, Python, dependencias y
+hashes. Entrenamiento, apply/batch, UI y cada flujo longitudinal tienen resultados separados. Sólo
+después de medición, revisión independiente y OK de Cami nace el `S3-limite` sustituto: N−1/N/N+1
+sobre cada dimensión del envelope aprobado, con proceso aislado y límites externos para que un rojo
+no agote el host.
 
 ## 6. Contratos de datos y matriz flujo × estado × DoD × evidencia
 
@@ -455,8 +471,8 @@ excluido; `P` sólo existe después de una publicación autorizada.
 | `G-INFERENCE-TREATMENT · T` | `-99999` puede colapsar con missing y un special no observado no se congela. | Identidad preservada; tratamiento soportado o fail-closed/mapping conforme a H2. | `-99999` sólo en apply; mutación de orden pone rojo. |
 | `G-OPTION-EFFECT · T` | 207 pares: 197 disponibles, 5 `sin_efecto`, 2 `no_implementada`, 3 condicionados. | Cero seleccionables sin `effect_oracle`; catálogo↔schema↔dispatcher bidireccional. | Censo exacto y fixture discriminante por opción. |
 | `G-LINEAGE · T` | Campo/helper `uv_lock_hash` existe, pero `Study` fija `None`; fixtures quedan null. | Hash de build y runtime no nulos; data/config/artifact hashes completos. | Repetición estable; lock alterado cambia hash; ausencia falla explícitamente. |
-| `G-SCALE · T` | Sin benchmark de filas/variables/cardinalidad/RAM/tiempo. | Baseline S0–S2, envelope H9 y `S3-limite`; no OOM silencioso. | Evidencia de recursos por fase/hardware. |
-| `F-SCORE-BATCH · M` | Sin superficie productiva ni perfil de escala. | Apply streaming/chunked, orden estable y envelope propio. | S1/S2 elegido, peak RSS y equivalencia con ejecución no chunked. |
+| `G-SCALE · T` | W0 y S0/S1/S2 son evidencia histórica parcial; H9R está en recalibración y no tiene perfil final. | Baseline por flujo, envelope H9R aprobado y `S3-limite` propio; no OOM ni timeout silencioso. | Evidencia de recursos por fase/hardware, cap job-wide y N−1/N/N+1. |
+| `F-SCORE-BATCH · M` | Sin superficie productiva ni perfil de escala H9R. | Apply streaming/chunked, orden estable y envelope propio. | Perfil H9R medido, memoria job-wide y equivalencia con ejecución no chunked. |
 | `F-UI · M` | Síncrona; 100 MiB se valida después del parse/spool; resultados sin paginación. | Rechazo temprano N+1, paginación estable; lifecycle según H10. | N−1/N/N+1, cursor negativo y budget de respuesta. |
 | `F-LGD-BASE · M` | Provided/recovery/workout implementadas y legítimas. | Se preservan, con salida/procedencia por operación. | Golden recovery/workout y EIR propia de workout. |
 | `F-LGD-OOS · M` | Beta/fractional hacen fit y predict in-sample. | Fit/persist/load/apply OOS, frame crudo, cero WoE de default. | Spy anti-refit, target OOS irrelevante y equivalencia tras reload. |
@@ -514,8 +530,9 @@ W0 no cambió ninguno de los estados de readiness de la matriz. Congeló:
 
 La evidencia cruda y su SHA-256 están en
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md). Un proxy no promueve un flujo a
-`experimental`/`gateado` ni satisface H9=B. W1 sigue siendo la primera oleada capaz de cambiar esas
-superficies y no forma parte de este cierre.
+`experimental`/`gateado` ni satisface el reemplazo H9R. La posterior enmienda no reescribe W0: W1
+sigue siendo la primera oleada capaz de cambiar esas superficies y permanece NO PASS hasta aprobar
+y medir su calibración por flujo.
 
 H10=A no fija una cifra dentro de W0. La UI S1/S2 quedó `no_medible`, de modo que el umbral entre
 sync y job sigue **no fijado** y se medirá después de W0, cuando W1 haga alcanzable el primer
@@ -609,8 +626,8 @@ permite cross-links secundarios sin duplicar su familia primaria.
 
 | Oleada | Alcance | Depende de | Gate de salida |
 |---|---|---|---|
-| **W0 — contrato y baseline** | **CERRADA/PASS.** SDD/H1–H11 aprobados; superficies/proxies actuales medidos con guardas; `no_medible` explícito. | Este SDD aprobado y envelope H9=B elegido. | Baseline inmutable, control negativo rojo→verde y segunda revisión independiente `APROBABLE`. |
-| **W1 — fundamento productivo** | Bundle scoring/apply, tratamientos, `-99999`, D-ABA, `uv_lock_hash`, batch/UI básica. | W0. | Cartera nueva targetless, fila a fila, clean-room y cero opciones no-op seleccionables. |
+| **W0 — contrato y baseline** | **CERRADA/PASS.** SDD/H1–H11 aprobados; superficies/proxies actuales medidos con guardas; `no_medible` explícito. | Contrato histórico H9=B vigente durante su ejecución. | Baseline inmutable, control negativo rojo→verde y segunda revisión independiente `APROBABLE`; D-RDY-H9R-7 prohíbe reescribirlo. |
+| **W1 — fundamento productivo** | **NO PASS / bloqueada por recalibración de H9.** Bundle scoring/apply, tratamientos, `-99999`, D-ABA, `uv_lock_hash`, batch/UI básica. | W0 y propuesta de calibración H9R aprobada antes de implementar/medir. | Cartera nueva targetless, fila a fila, clean-room, cero opciones no-op seleccionables y perfiles H9R de scoring/UI medidos y aprobados. |
 | **W2 — LGD/EAD/pérdida** | LGD OOS persistible; provided/recovery/workout; EAD(t) según H4; reconciliación. | W1 para contratos de artefacto/lineage. | PD×LGD×EAD por operación/período y controles cruzados EIR/EAD. |
 | **W3 — PD temporal** | Markov segmentado, projection real, survival común y H7. | W1. | Term structures intercambiables y ambos flujos PD temporal gateados. |
 | **W4 — IFRS 9 + forward** | Basis, escenarios, macro, LGD forward, EAD(t), caso ≥3 escenarios. | W2 y W3. | Forward real→IFRS 9 real reconciliado. |
@@ -623,9 +640,11 @@ No se adelanta una oleada si su dependencia sigue sin contrato. W0 mide antes de
 queda autorizada por aprobar este SDD.
 
 W1–W5 aplican el mismo ciclo dentro de cada flujo que hoy es `no_alcanzable` o `no_medible`:
-**funcional mínimo → baseline sin optimizar → optimización → S1/S2 elegido → `S3-limite`**. Una
-oleada no sale verde por haber creado la superficie; debe alcanzar el envelope H9 o dejar el flujo
-rojo con evidencia. G-SCALE se evalúa de nuevo, acumulativamente, al cerrar W7.
+**funcional mínimo → baseline sin optimizar → propuesta medida de cap/geometría/budget/disco → OK
+humano → optimización sólo si el rojo la justifica → `S3-limite`**. Una oleada no sale verde por
+haber creado la superficie; debe alcanzar su envelope H9R aprobado o dejar el flujo rojo con
+evidencia. Las tres vistas `application`/`woe`/`trace` son exclusivas de scoring. G-SCALE se evalúa
+de nuevo, acumulativamente, al cerrar W7.
 
 ## 8. Casos borde y manejo de errores
 
@@ -719,7 +738,7 @@ exactamente y observar verde. Los oráculos no pueden llamar a la misma función
 | D-ABA | Cada seleccionable tiene fixture discriminante y `effect_oracle`. | Hacer que dos opciones despachen a la misma rama; censo/gate pone rojo. |
 | Catálogo bidireccional | Schema, catálogo, validator y dispatcher coinciden en ambos sentidos. | Añadir un literal (`period_matrices`) sin estado o retirar uno sin limpiar catálogo. |
 | Lineage | `uv_lock_hash` y runtime hash presentes y correctos. | Alterar un byte del lock; `None`, lock falso o mismatch bloquean readiness. |
-| Escala | S0–S2 registran tiempo/RSS; `S3-limite` prueba el envelope elegido. | Añadir copia full-frame o retardo; RAM/tiempo excedido pone rojo. |
+| Escala | Cada flujo registra tiempo, memoria job-wide, working set y disco; `S3-limite` prueba su envelope H9R aprobado. | Añadir copia full-frame o retardo; cap/deadline/disco excedido pone rojo y no publica manifiesto. |
 | UI límite | N−1/N aceptados, N+1 rechazado antes de parse/spool. | Body chunked sin `Content-Length` supera N y debe cortarse temprano. |
 | Paginación | Page size/cursor/orden estables. | Backend devuelve más de `page_size`, repite cursor o materializa score completo. |
 | LGD OOS | Bundle modelado aplica sobre OOT/nuevo frame. | Reordenar/quitar covariable; alterar target OOS; intentar WoE de default. |
@@ -891,7 +910,10 @@ siendo los métodos de PD temporal.
 **Recomendación: A.** B/C requieren elecciones de metodología y datos institucionales todavía no
 aprobadas.
 
-#### H9 — Compromiso de escala
+#### H9 — Compromiso de escala histórico, sustituido
+
+Esta elección rigió W0 y la evidencia S0/S1/S2. D-RDY-H9R-1…8 la sustituyeron el 2026-08-12 para
+todo trabajo futuro; se conserva aquí sólo para interpretar los artefactos históricos:
 
 - A. **`S1-local`:** 8 vCPU/16 GiB, 100.000×50, cardinalidad 10.000, 60 períodos/3 escenarios,
   UI 50 MiB; peak ≤12 GiB y tiempos de §5.5.
@@ -901,8 +923,34 @@ aprobadas.
 - C. **Sólo corrección `S0`:** sin compromiso público de escala; cualquier volumen mayor queda
   best-effort y no permite declarar readiness integral.
 
-**Recomendación: B.** W0 mide el baseline del target antes de cualquier optimización; un rojo no
-rebaja el target en silencio, sino que cuantifica la brecha. `S3-limite` prueba después N−1/N/N+1.
+**Elección histórica: B.** W0 midió el baseline del target antes de cualquier optimización. La
+recalibración no convierte sus rojos en verde ni autoriza repetir S2.
+
+#### H9R — Entorno objetivo y calibración por flujo
+
+Cami aprobó D-RDY-H9R-1…8 el 2026-08-12. Desde entonces:
+
+1. H9=B/`S2-equipo` deja de gobernar; S0/S1/S2 y toda su evidencia se preservan, y la autorización
+   S2 `0/1` queda cancelada sin consumirse ni poder revivir.
+2. El entorno objetivo declarado es de hasta 4 CPU lógicas y una máquina de 8 GB nominales; Windows
+   es la plataforma inicial, y un host mayor sólo sirve si demuestra confinamiento efectivo antes
+   de START.
+3. Caps job-wide, fixtures, geometrías, budgets, disco y perfiles finales se derivan de calibración,
+   no de intuición ni de las cifras históricas S1/S2.
+4. El envelope se aplica por flujo cuando W1–W5 lo vuelven alcanzable; las vistas
+   `application`/`woe`/`trace` pertenecen sólo a scoring.
+5. Cada START es `candidato × flujo × intento`, con árbol fresco, artefactos congelados, autorización
+   propia, preflight verde y límites atestiguados antes del primer byte de trabajo.
+6. Permanecen identidad, orden, completitud bidireccional, hashes, lineage, censo de árbol y
+   publicación atómica; un cap, timeout, error, cancelación o huérfano no deja manifiesto publicable.
+7. W0 permanece CERRADA/PASS como evidencia histórica; W1 queda NO PASS / bloqueada por
+   recalibración hasta aprobar propuesta, medición y perfil exacto.
+8. El objetivo 4 CPU/8 GB no se publica como capacidad entregada antes de un PASS gateado; PyPI,
+   demo, infraestructura, metodología y API conservan sus autorizaciones separadas.
+
+La fuente contractual completa es
+[`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md). La propuesta
+pre-START posterior es una hipótesis no vigente y no autoriza implementación ni ejecución.
 
 #### H10 — Ejecución larga en UI
 
@@ -930,7 +978,8 @@ rebaja el target en silencio, sino que cuantifica la brecha. `S3-limite` prueba 
   selector durante SemVer 1.x; ninguna ruptura silenciosa.
 - **Artefactos enormes por traza fila×variable.** Mitigación: salida columnar particionada/streaming,
   hashes y paginación; no se sacrifica verificabilidad.
-- **Prometer escala antes de medir.** Mitigación: W0 y H9 son gates previos a optimización/copy.
+- **Prometer escala antes de medir.** Mitigación: H9R separa target, calibración, gate y copy; cada
+  perfil exige medición, revisión independiente y OK humano.
 - **Doble conteo macro o financiero.** Mitigación: basis/provenance/overlay order obligatorios y
   controles negativos de EAD/EIR y PIT/forward.
 - **Confundir stress económico con PortfolioStress.** Mitigación: owners, inputs y estados separados;
@@ -975,3 +1024,12 @@ Cami comunicó expresamente el 2026-08-09:
 
 La aprobación habilita **W0** y, sólo después de cerrar sus gates y dependencias, las oleadas
 siguientes. No autoriza saltar una dependencia, publicar PyPI ni recapturar la demo.
+
+Cami comunicó expresamente el 2026-08-12:
+
+> Apruebo D-RDY-H9R-1…8 conforme al texto de la enmienda
+> `_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`.
+
+Ese OK sustituye H9=B para el trabajo futuro y autoriza únicamente integrar los contratos y
+redactar la propuesta pre-START. No autoriza programar, ejecutar START/S0/S1/S2, cambiar
+hardware/cloud, metodología o API, publicar PyPI ni recapturar la demo.

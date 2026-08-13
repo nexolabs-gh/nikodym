@@ -29,12 +29,14 @@
 | D-EXI-1…7 | Aprobada e implementada | [`_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md`](_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md) |
 | D-FTE-1…5 | Aprobada e implementada | [`_ENMIENDA-COTEJO-FUENTES.md`](_ENMIENDA-COTEJO-FUENTES.md) |
 | D-VIS-1…7 | Aprobada; D-VIS-1…5/7 implementadas; completitud D-VIS-6 abierta | [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md) |
-| D-RDY-ABA-1…6 | Aprobada; W0 cerrada/PASS; W1–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
+| D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 
 ## D-RDY — readiness integral
 
 Cami aprobó expresamente el 2026-08-09 SDD-30, D-RDY-ABA-1…6 y el siguiente bloque indivisible de
 decisiones: **H1=A, H2=A, H3=A, H4=A, H5=A, H6=A, H7=A, H8=A, H9=B, H10=A y H11=A**.
+El 2026-08-12 aprobó **D-RDY-H9R-1…8**, que sustituyen H9=B para todo trabajo futuro sin reescribir
+W0 ni la evidencia S0/S1/S2. H1–H8, H10 y H11 permanecen sin cambios.
 
 Reglas vigentes:
 
@@ -48,20 +50,33 @@ Reglas vigentes:
   fuentes LGD finales mutuamente excluyentes; H6 rechaza pesos de escenario cero;
 - H7 incluye roll-rate/vintage sólo como diagnósticos de PD temporal y exige addendum metodológico
   antes de código; H8 excluye `PortfolioStress` de la readiness inicial;
-- H9 fija `S2-equipo` como envelope objetivo; un baseline rojo cuantifica la brecha y no rebaja el
-  target en silencio;
+- H9=B/`S2-equipo` queda sólo como contrato histórico de W0 y evidencia preservada. D-RDY-H9R fija
+  como dirección hasta 4 CPU lógicas y una máquina de 8 GB nominales, con calibración inicial en
+  Windows y confinamiento efectivo del árbol. No fija todavía cap, geometría, budget, disco ni
+  perfil final;
+- la calibración H9R se decide por flujo cuando W1–W5 lo vuelven alcanzable. Cada START futuro es
+  `candidato × flujo × intento`, usa árbol fresco y autorización propia, y conserva hashes, lineage,
+  completitud y publicación atómica. La autorización S2 `0/1` está cancelada, no consumida y no
+  puede revivir;
 - H10 mantiene engine/batch síncronos y exige jobs UI al cruzar un umbral fijado **después de W0**.
   W0 no pudo medir UI S1/S2 y no fija una cifra por inferencia: el primer baseline alcanzable de
   W1 debe fijarla antes de implementar esa frontera, sin reabrir H10=A. H11 exige paridad semántica
   y constraints visuales propios de HTML/PDF/DOCX;
-- las oleadas se ejecutan en orden W0→W8. W0 sólo mide superficies/proxies actuales, registra
-  `no_medible` y congela el baseline antes de cualquier optimización o capacidad W1;
+- las oleadas se ejecutan en orden W0→W8. W0 conserva su cierre/PASS histórico; W1 está NO PASS y
+  bloqueada por recalibración de H9 hasta que la propuesta, las mediciones y el perfil exacto reciban
+  sus revisiones y OK separados;
+- 4 CPU/8 GB sólo es entorno objetivo declarado en diseño. No aparece como capacidad en copy público
+  antes de un PASS gateado;
 - PyPI y recaptura de demo conservan sus OK específicos; la aprobación de SDD-30 no los hereda.
 
 Fuente contractual y matriz de flujos:
 [`30-readiness-integral.md`](30-readiness-integral.md).
 Baseline W0 cerrado, con segunda revisión independiente `APROBABLE`:
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md).
+Enmienda H9R aprobada:
+[`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md).
+Propuesta pre-START todavía no vigente y sin autorización de implementación/ejecución:
+[`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md).
 
 ## D-JUR — normativa local como evidencia
 

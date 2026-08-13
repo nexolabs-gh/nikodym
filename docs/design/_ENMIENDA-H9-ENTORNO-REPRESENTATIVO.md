@@ -1,19 +1,19 @@
-# Enmienda propuesta — entorno objetivo representativo para recalibrar H9
+# Enmienda aprobada — entorno objetivo representativo para recalibrar H9
 
-> **Estado: BORRADOR PARA APROBACIÓN; NO VIGENTE.** Cami autorizó el 2026-08-12 diseñar esta
-> enmienda y retiró la autorización operativa pendiente de `S2-equipo`; no autorizó implementar ni
-> ejecutar una calibración. Hasta que apruebe el texto final,
-> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md) sigue describiendo H9=B como el contrato
-> histórico aprobado, pero **no queda ningún START S2 autorizado**.
+> **Estado: APROBADA el 2026-08-12.** Cami aprobó expresamente **D-RDY-H9R-1…8** conforme al
+> texto exacto de §6. H9=B/`S2-equipo` queda retirado como puerta futura; su evidencia histórica se
+> preserva y su autorización `0/1` permanece cancelada, sin consumirse ni poder revivir. Esta
+> aprobación autoriza actualizar los contratos canónicos y redactar la propuesta pre-START; no
+> autoriza implementar el arnés ni ejecutar una calibración.
 >
-> Esta propuesta enmienda únicamente la dirección de H9 y las consecuencias operativas de escala de
+> Esta enmienda modifica únicamente la dirección de H9 y las consecuencias operativas de escala de
 > [`SDD-30`](30-readiness-integral.md). No cambia H1–H8, H10, H11, fórmulas, metodología de riesgo,
-> API pública, candidato de distribución ni hardware/cloud. Decisiones propuestas:
+> API pública, candidato de distribución ni hardware/cloud. Decisiones aprobadas:
 > **D-RDY-H9R-1…8**.
 
 ## TL;DR y recomendación ejecutiva
 
-Retirar H9=B/`S2-equipo` como puerta futura de readiness y dirigir su reemplazo a un entorno objetivo
+Se retira H9=B/`S2-equipo` como puerta futura de readiness y se dirige su reemplazo a un entorno objetivo
 de **hasta 4 CPU lógicas y una máquina de 8 GB nominales**, declarado por Cami como representativo
 del usuario que Nikodym debe servir. La torre disponible puede usarse para calibrar sólo si el árbol
 queda efectivamente confinado y el supervisor demuestra el límite antes de cada START.
@@ -54,11 +54,11 @@ Los nombres abreviados `…` comparten el prefijo completo de la primera fila S2
 privados conservan las rutas y hashes íntegros. Nada de esta tabla demuestra un cap, una geometría
 o un budget productivo en 4 CPU/8 GB.
 
-## 3. Decisiones propuestas
+## 3. Decisiones aprobadas
 
 ### D-RDY-H9R-1 — S2 deja de gobernar el trabajo futuro
 
-Al aprobarse esta enmienda:
+Desde la aprobación de esta enmienda:
 
 - H9=B/`S2-equipo` se retira como puerta futura de readiness;
 - S0, S1 y S2 se conservan con sus nombres, artefactos y conclusiones históricas;
@@ -91,7 +91,7 @@ a macOS/Linux exigirá semánticas equivalentes explícitas; no se inferirá por
 
 ### D-RDY-H9R-3 — El cap y los perfiles salen de calibración, no de intuición
 
-Una propuesta de calibración posterior deberá preespecificar, antes de cualquier START:
+La propuesta pre-START posterior debe preespecificar, antes de cualquier START:
 
 1. la escalera de caps job-wide que representa la memoria utilizable por Nikodym en una máquina de
    8 GB nominales, con unidades y reserva del sistema explícitas;
@@ -177,7 +177,7 @@ tooltips, backend, panel e informes sólo publican mediciones verificadas y sus 
 La calibración o un PASS no autorizan PyPI, recaptura de demo, hardware/cloud ni cambios de
 metodología, contrato de riesgo o API.
 
-## 4. Gates mínimos de la futura propuesta de calibración
+## 4. Gates mínimos de la propuesta pre-START
 
 | Gate | PASS futuro | Control negativo requerido |
 |---|---|---|
@@ -190,19 +190,20 @@ metodología, contrato de riesgo o API.
 | Disco | fórmula medida falla antes de trabajo pesado | declarar espacio insuficiente y observar cero START |
 | Copy | sin promesa pública anterior al PASS | inyectar el target en una superficie pública y detectarlo |
 
-Esta tabla especifica oráculos, no caps, geometrías ni budgets finales. La siguiente propuesta podrá
+Esta tabla especifica oráculos, no caps, geometrías ni budgets finales. La propuesta pre-START podrá
 preespecificar únicamente las escaleras de caps/geometrías, deadlines de seguridad y regla de
 selección de la calibración. Los valores que gobernarán readiness sólo podrán aparecer después de
 medir, con trazabilidad, revisión independiente y decisión humana exacta.
 
-## 5. Secuencia autorizable después del OK
+## 5. Secuencia autorizada y siguiente puerta humana
 
-La aprobación final de este texto autorizará **actualizar la dirección contractual y redactar la
-propuesta de calibración**, no programar ni ejecutar:
+La aprobación de este texto autorizó **actualizar la dirección contractual y redactar la propuesta
+pre-START**, no programar ni ejecutar:
 
 1. integrar D-RDY-H9R-1…8 en SDD-30 y `DECISIONES-VIGENTES.md`;
 2. redactar caps candidatos, fixtures por flujo, fronteras, schema, protocolo de medición de disco
-   —incluido un piso de seguridad no contractual— y oráculos;
+   —incluido un piso de seguridad no contractual— y oráculos en
+   [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md);
 3. revisión independiente read-only y OK de Cami sobre esa propuesta exacta;
 4. recién entonces implementar el arnés de calibración;
 5. obtener otra autorización explícita para cada unidad START definida;
@@ -213,7 +214,13 @@ propuesta de calibración**, no programar ni ejecutar:
 No se compra ni provisiona hardware/cloud, no se modifica un workflow, no se publica PyPI y no se
 recaptura la demo como consecuencia de esta enmienda.
 
-## 6. Texto exacto de aprobación solicitado
+Los pasos 1–2 no consumen ni crean una autorización START. Los pasos 3–8 siguen pendientes en ese
+orden; en particular, la propuesta pre-START no se implementa hasta su revisión independiente y el
+OK específico de Cami.
+
+## 6. Acta de aprobación
+
+Cami comunicó expresamente el 2026-08-12:
 
 > Apruebo D-RDY-H9R-1…8 como decisión de dirección: retiro H9=B/`S2-equipo` como puerta futura de
 > readiness y fijo 4 CPU lógicas/8 GB nominales como entorno objetivo declarado. La autorización S2

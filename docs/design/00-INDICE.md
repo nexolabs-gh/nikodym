@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Documento** | Índice de Documentos de Diseño (SDD) |
-| **Versión** | 1.5 (descubrimiento de la propuesta H9 representativa) |
+| **Versión** | 1.6 (H9R aprobada y propuesta pre-START de calibración) |
 | **Fecha** | 2026-08-12 |
 | **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.1 · [`docs/ROADMAP.md`](../ROADMAP.md) |
 
@@ -64,16 +64,20 @@ contractual nuevo requiere un SDD nuevo o una revisión explícita.
 | **27** | `eda` (tasa de default por período, estabilidad temporal) | Scoring | F1 | T2 | 02 | ✅ Implementado · estable F1 |
 | **28** | `provisioning/internal` + regla del máximo (dataset → preset → UI → informe) | Producto | F8 | T7 | 08, 10, 15, 17, 23, 26 | ✅ Implementado · experimental |
 | **29** | CLI | Producto | F8 | — | 28 | ⏸️ Número reservado por SDD-28; documento no redactado |
-| **30** | [`readiness integral`](30-readiness-integral.md) (contrato transversal) | Producto | F0–F8 | T8 | 01–28, contratos vigentes | ✅ Aprobado · W0 cerrada/PASS · W1 no iniciada |
+| **30** | [`readiness integral`](30-readiness-integral.md) (contrato transversal) | Producto | F0–F8 | T8 | 01–28, contratos vigentes | ✅ Aprobado · H9R aprobada · W0 cerrada/PASS · W1 NO PASS/bloqueada por recalibración |
 
 Evidencia operativa de la oleada cerrada:
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md).
 
-Propuesta contractual todavía **no vigente**:
-[`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md). Diseña
-el retiro de H9=B/`S2-equipo` y la recalibración por flujo para un entorno objetivo de 4 CPU/8 GB
-nominales. H9=B conserva su estado canónico hasta el OK final de Cami, pero la autorización
-operativa S2 ya está cancelada; la propuesta no autoriza implementación ni START.
+Enmienda contractual **aprobada**:
+[`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md). Retira
+H9=B/`S2-equipo` como puerta futura y fija sólo la dirección 4 CPU/8 GB nominales; S0/S1/S2 quedan
+como evidencia histórica y no existe START autorizado.
+
+Propuesta de calibración todavía **pre-START / no vigente**:
+[`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md). Define
+hipótesis de caps/geometrías, deadlines externos, repeticiones, fronteras, instrumentación, schema y
+controles negativos; no autoriza implementación, medición ni perfiles finales.
 
 **28 SDD históricos · SDD-29 reservado · SDD-30 aprobado · 9 tandas identificadas
 (T0–T8; T0 = verificación, sin SDD nuevo).** La madurez pública y la garantía SemVer se declaran
@@ -825,7 +829,7 @@ operativa S2 ya está cancelada; la propuesta no autoriza implementación ni STA
 | **T5 — Forward-looking (F5)** | 18, 19, 20, 21 | Lifetime PD, escenarios, stress. | T2 |
 | **T6 — Validación + UI (F6-F7)** | 22, 23 | Backtesting y producto no-code (UI = web premium React/Vite + FastAPI sobre la API pública). | T2–T5 |
 | **T7 — Provisiones end-to-end (F8)** | 28 | Método interno B-1 + máximo estándar/interno + ruta hasta UI/informe. | T2, T4, T6 |
-| **T8 — Readiness integral** | 30 | Contratos productivos, integración, escala, informe y distribución por flujos. | SDD-30 aprobado; W0 cerrada/PASS; W1 no iniciada |
+| **T8 — Readiness integral** | 30 | Contratos productivos, integración, escala, informe y distribución por flujos. | SDD-30/H9R aprobados; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración |
 
 > **Nota de dependencia cruzada:** IFRS 9 lifetime (SDD-16) usa la term-structure de `survival`/`markov` (T5). Se especifica en T4 con interfaz abstracta y se conecta cuando T5 esté lista (ver roadmap, dependencia F4↔F5).
 
