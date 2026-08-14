@@ -121,6 +121,8 @@ from scripts.readiness_h9r.windows_job import (
     system_memory_status,
 )
 
+TEST_ONEDRIVE_ROOT = Path(os.environ.get("ONEDRIVE") or ROOT)
+
 
 def _digest(label: str) -> str:
     return sha256_bytes(label.encode("utf-8"))
@@ -430,7 +432,19 @@ def _preflight_material(tmp_path: Path, *, cap_id: str = "C4") -> dict[str, Any]
     schedule_path = control_artifacts / "schedule.json"
     _write_json(schedule_path, schedule)
     schedule_sha256 = canonical_json_sha256(schedule)
-    tooling = tooling_identity(DOCUMENT_PATHS)
+    # El runtime calificable y su snapshot de dependencias son exclusivos de Windows. Estos dos
+    # consumidores portables del factory sólo necesitan ligar autoridad y documentos; los tests
+    # de preflight Windows conservan la identidad viva completa.
+    tooling = (
+        tooling_identity(DOCUMENT_PATHS)
+        if sys.platform == "win32"
+        else {
+            "manifest_sha256": _digest("portable-test-tooling"),
+            "document_sha256": {
+                name: sha256_file(path) for name, path in sorted(DOCUMENT_PATHS.items())
+            },
+        }
+    )
     authorization_id = _digest("test-authorization-id")
     authorization_consumption_path = control_artifacts / "authorization-consumption.json"
     authorization_consumption_path_sha256 = authorization_consumption_path_digest(
@@ -518,7 +532,7 @@ def _run_test_preflight(material: dict[str, Any], *, reserve: bool = False) -> A
             workdir=material["workdir"],
             evidence_path=material["evidence"],
             checkout_root=ROOT,
-            onedrive_root=Path(os.environ["ONEDRIVE"]),
+            onedrive_root=TEST_ONEDRIVE_ROOT,
             reserve_workdir=reserve,
         )
 
@@ -586,7 +600,7 @@ def test_autoridad_invalida_falla_antes_de_probe_runtime(tmp_path: Path) -> None
             workdir=material["workdir"],
             evidence_path=material["evidence"],
             checkout_root=ROOT,
-            onedrive_root=Path(os.environ["ONEDRIVE"]),
+            onedrive_root=TEST_ONEDRIVE_ROOT,
             reserve_workdir=False,
         )
     probe.assert_not_called()

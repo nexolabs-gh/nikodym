@@ -96,7 +96,7 @@ def test_censo_publico_cubre_superficies_y_excluye_diseno_interno() -> None:
         assert any(path.startswith("web/dist/") for path in relative)
     assert any(path.startswith("src/nikodym/ui/") for path in relative)
     assert any(path.startswith("src/nikodym/report/") for path in relative)
-    assert any(path.startswith("reports/") for path in relative)
+    assert "reports" in copy_gate_module.PUBLIC_COPY_TREES
     assert not any(path.startswith("docs/design/") for path in relative)
     assert not any(path.startswith("docs/operacion/") for path in relative)
     assert assert_no_h9r_capacity_copy(ROOT) == len(relative)

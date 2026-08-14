@@ -24,10 +24,11 @@ def test_close_handle_y_job_no_ocultan_fallo_de_cleanup() -> None:
     api.kernel32 = MagicMock()
     api.kernel32.CloseHandle.return_value = False
     with (
-        patch.object(ctypes, "get_last_error", return_value=5),
-        pytest.raises(OSError, match="CloseHandle"),
+        patch.object(ctypes, "get_last_error", return_value=5, create=True),
+        pytest.raises(OSError, match="CloseHandle") as captured,
     ):
         api.close_handle(41)
+    assert captured.value.errno == 5
 
     job = object.__new__(WindowsJob)
     job.api = MagicMock()

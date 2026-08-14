@@ -209,7 +209,9 @@ def test_primer_input_broker_rechaza_symlink_sin_abrir_exterior(tmp_path: Path) 
     link = tmp_path / "first.csv"
     try:
         link.symlink_to(outside)
-    except OSError:
+    except OSError as exc:
+        if sys.platform != "win32":
+            pytest.skip(f"host POSIX sin symlink de control: {exc}")
         outside_root = tmp_path / "outside-root"
         outside_root.mkdir()
         outside = outside_root / "first.csv"
@@ -265,7 +267,9 @@ def test_ui_sidecar_exclusivo_no_sigue_symlink_dangling(tmp_path: Path) -> None:
     sidecar = tmp_path / "ui-first-byte.jsonl"
     try:
         os.symlink(outside, sidecar)
-    except OSError:
+    except OSError as exc:
+        if sys.platform != "win32":
+            pytest.skip(f"host POSIX sin symlink de control: {exc}")
         outside_root = tmp_path / "outside"
         outside_root.mkdir()
         junction = tmp_path / "telemetry-junction"
@@ -303,21 +307,30 @@ def test_append_y_precreate_sidecar_no_escriben_hardlink_ni_junction(
     outside_root = tmp_path / "outside-root"
     outside_root.mkdir()
     junction = tmp_path / "junction"
-    created = subprocess.run(
-        ["cmd.exe", "/d", "/c", "mklink", "/J", str(junction), str(outside_root)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if created.returncode != 0:  # pragma: no cover - política Windows excepcional.
-        pytest.skip(f"host sin junction: {created.stderr}")
+    if sys.platform == "win32":
+        created = subprocess.run(
+            ["cmd.exe", "/d", "/c", "mklink", "/J", str(junction), str(outside_root)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if created.returncode != 0:  # pragma: no cover - política Windows excepcional.
+            pytest.skip(f"host sin junction: {created.stderr}")
+    else:
+        try:
+            junction.symlink_to(outside_root, target_is_directory=True)
+        except (NotImplementedError, OSError) as exc:  # pragma: no cover - host POSIX excepcional.
+            pytest.skip(f"host POSIX sin symlink de directorio: {exc}")
     outside_target = outside_root / "escaped.jsonl"
     try:
         with pytest.raises(ContractError, match="directorio/ancestro no es plano"):
             append_jsonl_event(junction / "escaped.jsonl", {"event": "forbidden"})
         assert not outside_target.exists()
     finally:
-        junction.rmdir()
+        if junction.is_symlink():
+            junction.unlink()
+        else:
+            junction.rmdir()
 
 
 def _native_process_payload(*, execution_sha: str, pid: int, creation: int) -> dict[str, Any]:
