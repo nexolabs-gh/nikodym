@@ -264,6 +264,7 @@ ignore_missing_imports = true               # libs sin stubs; relajar SOLO el im
 minversion = "8.0"
 addopts = "--strict-markers --strict-config -ra"
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
   "slow: test lento, excluible en el loop rápido",
   "requires_xgboost: requiere el extra [xgboost]",
