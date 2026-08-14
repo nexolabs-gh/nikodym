@@ -10,6 +10,11 @@
 > [`SDD-30`](30-readiness-integral.md). No cambia H1–H8, H10, H11, fórmulas, metodología de riesgo,
 > API pública, candidato de distribución ni hardware/cloud. Decisiones aprobadas:
 > **D-RDY-H9R-1…8**.
+>
+> **Nota posterior del 2026-08-13.** Sin alterar el alcance histórico de este OK, Cami aprobó
+> [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md) sólo como
+> protocolo para implementar, probar y revisar el arnés. START/S0/S1/S2, fixtures definitivos,
+> mediciones y valores finales siguen sin autorización.
 
 ## TL;DR y recomendación ejecutiva
 
@@ -197,15 +202,17 @@ medir, con trazabilidad, revisión independiente y decisión humana exacta.
 
 ## 5. Secuencia autorizada y siguiente puerta humana
 
-La aprobación de este texto autorizó **actualizar la dirección contractual y redactar la propuesta
-pre-START**, no programar ni ejecutar:
+La aprobación original de este texto el 2026-08-12 autorizó **actualizar la dirección contractual y
+redactar la propuesta pre-START**; en ese momento no autorizó programar ni ejecutar. El OK posterior
+del 2026-08-13 se registra en los rótulos de esta secuencia:
 
 1. integrar D-RDY-H9R-1…8 en SDD-30 y `DECISIONES-VIGENTES.md`;
 2. redactar caps candidatos, fixtures por flujo, fronteras, schema, protocolo de medición de disco
    —incluido un piso de seguridad no contractual— y oráculos en
    [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md);
-3. revisión independiente read-only y OK de Cami sobre esa propuesta exacta;
-4. recién entonces implementar el arnés de calibración;
+3. **cumplido el 2026-08-13:** revisión independiente read-only y OK de Cami sobre esa propuesta
+   exacta;
+4. **autorizado el 2026-08-13:** implementar, probar y revisar el arnés de calibración, sin START;
 5. obtener otra autorización explícita para cada unidad START definida;
 6. medir sin reinterpretar los deadlines de seguridad como budgets;
 7. proponer caps, geometrías, budgets y disco finales por flujo a partir de esas mediciones;
@@ -214,9 +221,10 @@ pre-START**, no programar ni ejecutar:
 No se compra ni provisiona hardware/cloud, no se modifica un workflow, no se publica PyPI y no se
 recaptura la demo como consecuencia de esta enmienda.
 
-Los pasos 1–2 no consumen ni crean una autorización START. Los pasos 3–8 siguen pendientes en ese
-orden; en particular, la propuesta pre-START no se implementa hasta su revisión independiente y el
-OK específico de Cami.
+Al aprobarse esta acta el 2026-08-12, los pasos 1–2 no consumían ni creaban una autorización START y
+los pasos 3–8 seguían pendientes. La nota posterior del 2026-08-13 y los rótulos de la lista registran
+el avance posterior sin reescribir aquella decisión: pasos 3–4 cumplido/autorizado sólo para el
+arnés; pasos 5–8 continúan pendientes y no existe START autorizado.
 
 ## 6. Acta de aprobación
 

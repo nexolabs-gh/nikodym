@@ -29,7 +29,7 @@
 | D-EXI-1…7 | Aprobada e implementada | [`_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md`](_ENMIENDA-OPCION-QUE-EXIGE-OTRO-CAMPO.md) |
 | D-FTE-1…5 | Aprobada e implementada | [`_ENMIENDA-COTEJO-FUENTES.md`](_ENMIENDA-COTEJO-FUENTES.md) |
 | D-VIS-1…7 | Aprobada; D-VIS-1…5/7 implementadas; completitud D-VIS-6 abierta | [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md) |
-| D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
+| D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 
 ## D-RDY — readiness integral
 
@@ -37,6 +37,10 @@ Cami aprobó expresamente el 2026-08-09 SDD-30, D-RDY-ABA-1…6 y el siguiente b
 decisiones: **H1=A, H2=A, H3=A, H4=A, H5=A, H6=A, H7=A, H8=A, H9=B, H10=A y H11=A**.
 El 2026-08-12 aprobó **D-RDY-H9R-1…8**, que sustituyen H9=B para todo trabajo futuro sin reescribir
 W0 ni la evidencia S0/S1/S2. H1–H8, H10 y H11 permanecen sin cambios.
+El 2026-08-13 aprobó el texto entonces vigente del protocolo pre-START H9R únicamente para
+implementar, probar y revisar su arnés. Ese OK no autoriza START, S0, S1, S2, fixtures definitivos
+ni valores finales. El mapeo estático de §10.1 se añadió después como anotación de implementación
+no normativa; sus `adapter_id` y serialización JSON no se atribuyen al OK byte-exacto.
 
 Reglas vigentes:
 
@@ -63,8 +67,8 @@ Reglas vigentes:
   W1 debe fijarla antes de implementar esa frontera, sin reabrir H10=A. H11 exige paridad semántica
   y constraints visuales propios de HTML/PDF/DOCX;
 - las oleadas se ejecutan en orden W0→W8. W0 conserva su cierre/PASS histórico; W1 está NO PASS y
-  bloqueada por recalibración de H9 hasta que la propuesta, las mediciones y el perfil exacto reciban
-  sus revisiones y OK separados;
+  bloqueada por recalibración de H9 hasta que el arnés quede implementado y revisado y, después,
+  cada medición y perfil exacto reciban sus autorizaciones, revisiones y OK separados;
 - 4 CPU/8 GB sólo es entorno objetivo declarado en diseño. No aparece como capacidad en copy público
   antes de un PASS gateado;
 - PyPI y recaptura de demo conservan sus OK específicos; la aprobación de SDD-30 no los hereda.
@@ -75,7 +79,8 @@ Baseline W0 cerrado, con segunda revisión independiente `APROBABLE`:
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md).
 Enmienda H9R aprobada:
 [`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md).
-Propuesta pre-START todavía no vigente y sin autorización de implementación/ejecución:
+Protocolo pre-START aprobado el 2026-08-13 para implementar, probar y revisar únicamente el arnés;
+sin autorización de START/S0/S1/S2, medición ni valores finales:
 [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md).
 
 ## D-JUR — normativa local como evidencia

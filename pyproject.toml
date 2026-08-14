@@ -168,10 +168,13 @@ test = [
                            # tests de endpoints FastAPI de la UI; NO va al wheel. Starlette deprecó
                            # httpx en favor de httpx2; sin él, filterwarnings=error tumba la colección.
   "pypdf>=5",              # DEV-ONLY: extracción de texto del PDF en tests (extra pdf); NO va al wheel
+  "cryptography>=45",      # DEV-ONLY: trust anchor Ed25519 del arnés H9R; nunca entra al wheel
+  "jsonschema>=4.23",      # DEV-ONLY: valida los schemas H9R Draft 2020-12 publicados; no entra al wheel
 ]
 lint = [
   "ruff>=0.5",
   "mypy>=1.10",
+  "cryptography>=45",      # DEV-ONLY: mypy sigue imports Ed25519 del arnés; no entra al wheel
   "types-PyYAML>=6.0",     # stubs de PyYAML para mypy --strict (DEV-ONLY, nunca en el wheel)
   "pandas-stubs>=2.0",
 ]
@@ -197,7 +200,16 @@ exclude = ["*.parquet", "*.csv"]           # defensa en profundidad: ningún dat
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/tests", "/CHANGELOG.md", "/LICENSE", "/README.md"]
-exclude = ["/.github", "/docs", "/.venv", "*.parquet", "*.csv"]   # nunca datos en el sdist
+# El arnés H9R es tooling de checkout deliberadamente fuera de `scripts/` del sdist. Sus tests
+# también son repo/CI-only: distribuirlos sin su runtime haría que la suite del sdist no colecte.
+exclude = [
+  "/.github",
+  "/docs",
+  "/.venv",
+  "/tests/unit/test_readiness_h9r_*.py",
+  "*.parquet",
+  "*.csv",
+]   # nunca datos ni tooling H9R interno en el sdist
 
 # ─────────────────────────── uv (lock/resolución) ───────────────────────────
 [tool.uv]
@@ -239,7 +251,7 @@ module = [
   "optbinning.*", "lifelines.*", "pmdarima.*", "shap.*", "catboost.*",
   "xgboost.*", "lightgbm.*", "statsmodels.*", "scipy.*",
   "mlflow.*", "pandera.*",
-  "pyarrow.*", "polars.*", "joblib.*", "weasyprint.*",
+  "pyarrow.*", "polars.*", "joblib.*", "weasyprint.*", "pypdf", "pypdf.*",
   # python-docx SÍ trae `py.typed`: cuando el extra `docx` está instalado, mypy usa sus tipos reales.
   # Está aquí sólo para que el job Quality del CI (que instala `--group lint --extra ui`, sin `docx`)
   # no falle por el import perezoso de `nikodym.report.docx`. Mismo caso que `weasyprint`.

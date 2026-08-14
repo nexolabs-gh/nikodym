@@ -1,10 +1,13 @@
 # Propuesta pre-START — calibración H9R por flujo y oleada
 
-> **Estado: PROPUESTA PARA APROBACIÓN; NO VIGENTE.** Cami aprobó D-RDY-H9R-1…8 el
-> 2026-08-12, pero **no ha aprobado este protocolo**, su implementación ni ninguna unidad START.
-> No se ejecutó ningún **nuevo** S0, S1, S2 ni intento de calibración en esta sesión/propuesta. La
-> evidencia histórica S0/S1/S2 se preserva; la autorización S2 `0/1` está cancelada y no puede
-> revivir.
+> **Estado: APROBADA el 2026-08-13 COMO PROTOCOLO PRE-START PARA IMPLEMENTAR Y REVISAR EL
+> ARNÉS; SIN START.** Cami aprobó D-RDY-H9R-1…8 el 2026-08-12 y el texto entonces vigente de
+> este protocolo el 2026-08-13. El segundo OK autoriza únicamente implementar, probar y revisar el
+> arnés; **no** autoriza ninguna unidad START, S0, S1 o S2. La evidencia histórica S0/S1/S2 se
+> preserva; la
+> autorización S2 `0/1` está cancelada y no puede revivir.
+> El mapeo legible por máquina de §10.1 se incorporó después como anotación de implementación no
+> normativa: sus `adapter_id` y su serialización JSON no formaron parte del OK byte-exacto.
 >
 > Este documento sólo preespecifica hipótesis y oráculos. Los caps, geometrías, budgets, disco y
 > perfiles candidatos no son contrato ni copy público. Ningún valor se vuelve gate hasta ser medido,
@@ -50,8 +53,9 @@ Son únicamente hipótesis de este documento:
 - pisos externos de memoria/disco para proteger el host;
 - schema de evidencia v1 y catálogo cerrado de resultados.
 
-Quedan fuera: optimización, código, workflows, hardware/cloud, metodología de riesgo, API, H10,
-PyPI, demo y cualquier perfil final. W6–W8 consumen después los perfiles aprobados; no se calibran
+Quedan fuera: optimización y código de producto, workflows, hardware/cloud, metodología de riesgo,
+API, H10, PyPI, demo y cualquier perfil final. Sólo el código interno del arnés y sus pruebas queda
+autorizado por el OK del 2026-08-13. W6–W8 consumen después los perfiles aprobados; no se calibran
 por adelantado aquí. `PortfolioStress` sigue excluido por H8=A y roll-rate/vintage no entra hasta
 que exista el addendum metodológico exigido por H7=A.
 
@@ -191,8 +195,9 @@ Antes de pedir un START, cada fixture debe publicar:
 - identidades esperadas, conteos y hash del golden pequeño que valida la semántica;
 - evidencia de que no contiene datos de cliente ni es un fixture de demo recapturado.
 
-Los hashes no existen todavía y no se rellenan con placeholders. Generar los fixtures, implementar
-el arnés o regenerar demo queda fuera de esta propuesta hasta un OK posterior.
+Los hashes no existen todavía y no se rellenan con placeholders. El OK del 2026-08-13 autoriza
+implementar y probar el arnés con fixtures efímeros de control; no autoriza generar los fixtures
+definitivos de calibración ni recapturar o regenerar la demo.
 
 ## 6. Deadlines externos y guardas de seguridad
 
@@ -390,6 +395,19 @@ No existe `unknown` aprobable. Un caso nuevo exige revisar schema y gate antes d
 `success` entra al cálculo estadístico; los demás se conservan y cuentan como intentos, nunca se
 sobrescriben. Ante cualquier no-success, `outputs.final_manifest_present` debe ser `false`.
 
+### 10.1 Mapeo estático de implementación posterior (no normativo)
+
+Este bloque se añadió después del OK del 2026-08-13 para reconciliar el texto aprobado con la
+implementación. No forma parte byte-exacta de aquel OK: las identidades `adapter_id` y el layout
+JSON son un mapeo operativo, no una decisión nueva ni una autorización START. Las hipótesis de
+oleada, frontera, deadline, geometrías y outputs continúan gobernadas por los apartados aprobados
+anteriores. El gate parsea por AST el archivo fuente del catálogo y este bloque JSON; no importa ni
+ejecuta el módulo runtime `contracts.py`.
+
+```json h9r-flow-catalog-v1
+[{"adapter_id":"nikodym.h9r.score_train.train.v1","deadline_seconds":7200.0,"flow_id":"F-SCORE-TRAIN","flow_step":"train","geometries":{"G+":{"max_cardinality":50000,"rows":500000,"variables":100},"G-":{"max_cardinality":10000,"rows":100000,"variables":50},"G0":{"max_cardinality":25000,"rows":250000,"variables":75}},"outputs":["bundle","rules","hashes","lineage"],"wave":"W1"},{"adapter_id":"nikodym.h9r.score_apply.apply.v1","deadline_seconds":7200.0,"flow_id":"F-SCORE-APPLY","flow_step":"apply","geometries":{"G+":{"rows":500000},"G-":{"rows":100000},"G0":{"rows":250000}},"outputs":["application","woe","trace","summary"],"wave":"W1"},{"adapter_id":"nikodym.h9r.score_batch.batch.v1","deadline_seconds":7200.0,"flow_id":"F-SCORE-BATCH","flow_step":"batch","geometries":{"G+":{"rows":1000000},"G-":{"rows":250000},"G0":{"rows":500000}},"outputs":["application","woe","trace","summary"],"wave":"W1"},{"adapter_id":"nikodym.h9r.ui.run.v1","deadline_seconds":1800.0,"flow_id":"F-UI","flow_step":"run","geometries":{"G+":{"payload_bytes":67108864},"G-":{"payload_bytes":16777216},"G0":{"payload_bytes":33554432}},"outputs":["receipt","execution","first_verifiable_page","flow_artifacts"],"wave":"W1"},{"adapter_id":"nikodym.h9r.lgd_base.run.v1","deadline_seconds":3600.0,"flow_id":"F-LGD-BASE","flow_step":"run","geometries":{"G+":{"operations":1000000},"G-":{"operations":250000},"G0":{"operations":500000}},"outputs":["lgd_by_operation","provenance"],"wave":"W2"},{"adapter_id":"nikodym.h9r.lgd_oos.fit.v1","deadline_seconds":7200.0,"flow_id":"F-LGD-OOS","flow_step":"fit","geometries":{"G+":{"operations":500000},"G-":{"operations":100000},"G0":{"operations":250000}},"outputs":["modeled_bundle","raw_covariates","hashes","lineage"],"wave":"W2"},{"adapter_id":"nikodym.h9r.lgd_oos.apply.v1","deadline_seconds":7200.0,"flow_id":"F-LGD-OOS","flow_step":"apply","geometries":{"G+":{"operations":1000000},"G-":{"operations":250000},"G0":{"operations":500000}},"outputs":["lgd_oos_by_operation","provenance","hashes"],"wave":"W2"},{"adapter_id":"nikodym.h9r.ead_base.run.v1","deadline_seconds":3600.0,"flow_id":"F-EAD-BASE","flow_step":"run","geometries":{"G+":{"operations":1000000},"G-":{"operations":250000},"G0":{"operations":500000}},"outputs":["ead_by_operation","reconciliation"],"wave":"W2"},{"adapter_id":"nikodym.h9r.ead_t.run.v1","deadline_seconds":3600.0,"flow_id":"F-EAD-T","flow_step":"run","geometries":{"G+":{"expanded_rows":6000000,"operations":100000,"periods":60},"G-":{"expanded_rows":1500000,"operations":25000,"periods":60},"G0":{"expanded_rows":3000000,"operations":50000,"periods":60}},"outputs":["operation_period_detail","movements","reconciliation"],"wave":"W2"},{"adapter_id":"nikodym.h9r.cmf_reference.run.v1","deadline_seconds":3600.0,"flow_id":"F-CMF-REFERENCE","flow_step":"run","geometries":{"G+":{"operations":500000},"G-":{"operations":100000},"G0":{"operations":250000}},"outputs":["frozen_reference_outputs","report"],"wave":"W2"},{"adapter_id":"nikodym.h9r.pd_survival.run.v1","deadline_seconds":7200.0,"flow_id":"F-PD-SURVIVAL","flow_step":"run","geometries":{"G+":{"observations":1000000},"G-":{"observations":250000},"G0":{"observations":500000}},"outputs":["bundle","term_structure","basis","unit","lineage"],"wave":"W3"},{"adapter_id":"nikodym.h9r.pd_markov.run.v1","deadline_seconds":7200.0,"flow_id":"F-PD-MARKOV","flow_step":"run","geometries":{"G+":{"transitions":1000000},"G-":{"transitions":250000},"G0":{"transitions":500000}},"outputs":["segmented_matrices","curves","reconciliation"],"wave":"W3"},{"adapter_id":"nikodym.h9r.ifrs9.run.v1","deadline_seconds":10800.0,"flow_id":"F-IFRS9","flow_step":"run","geometries":{"G+":{"expanded_rows":18000000,"operations":100000,"periods":60,"scenarios":3},"G-":{"expanded_rows":4500000,"operations":25000,"periods":60,"scenarios":3},"G0":{"expanded_rows":9000000,"operations":50000,"periods":60,"scenarios":3}},"outputs":["staging","detail","summary","scenarios"],"wave":"W4"},{"adapter_id":"nikodym.h9r.forward_ifrs9.run.v1","deadline_seconds":10800.0,"flow_id":"F-FORWARD-IFRS9","flow_step":"run","geometries":{"G+":{"expanded_rows":9000000,"operations":50000,"periods":60,"scenarios":3},"G-":{"expanded_rows":1800000,"operations":10000,"periods":60,"scenarios":3},"G0":{"expanded_rows":4500000,"operations":25000,"periods":60,"scenarios":3}},"outputs":["macro","basis","staging","detail","reconciliation"],"wave":"W4"},{"adapter_id":"nikodym.h9r.stress_econ.run.v1","deadline_seconds":10800.0,"flow_id":"F-STRESS-ECON","flow_step":"run","geometries":{"G+":{"operations":25000,"periods":60,"scenarios":3},"G-":{"operations":5000,"periods":60,"scenarios":3},"G0":{"operations":10000,"periods":60,"scenarios":3}},"outputs":["baseline","three_functional_shocks","reconciliation"],"wave":"W5"}]
+```
+
 El agregado por celda usa `nikodym.readiness.h9r.calibration.aggregate.v1`, enumera exactamente los
 attempt IDs esperados y recibidos, conserva todos los valores y calcula la regla de §7. Un intento
 faltante o extra pone rojo la completitud.
@@ -441,18 +459,27 @@ en el árbol ni se restaura desde el índice Git.
 
 ## 13. Puertas humanas restantes
 
-1. Revisión independiente read-only de este texto.
-2. OK específico de Cami sobre esta propuesta exacta.
-3. Implementación del arnés y sus tests/controles; todavía sin START.
-4. Revisión independiente del arnés y evidencia de controles negativos.
-5. Autorización propia para cada unidad START enumerada.
-6. Medición y propuesta separada de caps/geometrías/budgets/disco finales por flujo.
-7. Revisión independiente y OK exacto antes de convertirlos en gate o copy.
+1. **Cumplida:** revisión independiente read-only de este texto.
+2. **Cumplida el 2026-08-13:** OK específico de Cami sobre el texto entonces vigente.
+3. **Autorizada:** implementación del arnés y sus tests/controles; todavía sin START.
+4. **Autorizada:** revisión independiente del arnés y evidencia de controles negativos.
+5. **Pendiente:** autorización propia para cada unidad START enumerada.
+6. **Pendiente:** medición y propuesta separada de caps/geometrías/budgets/disco finales por flujo.
+7. **Pendiente:** revisión independiente y OK exacto antes de convertirlos en gate o copy.
 
-Texto propuesto para la puerta 2:
+Texto comunicado y aprobado para la puerta 2:
 
 > Apruebo `_PROPUESTA-CALIBRACION-H9R-PRE-START.md` como protocolo para implementar y revisar el
 > arnés de calibración. Apruebo sus caps, geometrías, deadlines, repeticiones, reglas estadísticas,
 > fronteras, schema y controles sólo como hipótesis de medición. No apruebo ningún valor final ni
 > autorizo START, S0, S1 o S2; cada unidad `candidato × flujo × intento` deberá volver a mi
 > autorización explícita. Tampoco autorizo hardware/cloud, metodología, API, PyPI ni demo.
+
+### Acta de aprobación del protocolo
+
+Cami comunicó expresamente el 2026-08-13 el texto anterior y añadió el alcance operativo de esta
+sesión: integrar la aprobación en los contratos canónicos, implementar y probar únicamente el
+arnés, someterlo a revisión independiente read-only y detenerse antes de cualquier START. No aprobó
+ningún valor final, fixture definitivo, perfil, cap, geometría, budget o disco como contrato; tampoco
+autorizó S0, S1, S2, hardware/cloud, metodología, API, workflows, PyPI, demo ni fixtures de
+demostración.

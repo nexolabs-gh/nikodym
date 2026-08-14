@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Documento** | Índice de Documentos de Diseño (SDD) |
-| **Versión** | 1.6 (H9R aprobada y propuesta pre-START de calibración) |
-| **Fecha** | 2026-08-12 |
+| **Versión** | 1.7 (protocolo pre-START H9R aprobado sólo para el arnés) |
+| **Fecha** | 2026-08-13 |
 | **Base** | [`docs/ESPECIFICACIONES.md`](../ESPECIFICACIONES.md) v1.1 · [`docs/ROADMAP.md`](../ROADMAP.md) |
 
 > **Lectura actual:** este índice es histórico y no es autoridad de estado ni backlog. Varias
@@ -74,10 +74,11 @@ Enmienda contractual **aprobada**:
 H9=B/`S2-equipo` como puerta futura y fija sólo la dirección 4 CPU/8 GB nominales; S0/S1/S2 quedan
 como evidencia histórica y no existe START autorizado.
 
-Propuesta de calibración todavía **pre-START / no vigente**:
+Protocolo de calibración **pre-START aprobado el 2026-08-13 sólo para implementar, probar y revisar
+el arnés; sin START, medición ni valores finales**:
 [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md). Define
 hipótesis de caps/geometrías, deadlines externos, repeticiones, fronteras, instrumentación, schema y
-controles negativos; no autoriza implementación, medición ni perfiles finales.
+controles negativos; no autoriza START/S0/S1/S2, fixtures definitivos, medición ni perfiles finales.
 
 **28 SDD históricos · SDD-29 reservado · SDD-30 aprobado · 9 tandas identificadas
 (T0–T8; T0 = verificación, sin SDD nuevo).** La madurez pública y la garantía SemVer se declaran

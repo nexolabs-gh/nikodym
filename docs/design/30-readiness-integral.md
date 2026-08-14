@@ -15,6 +15,11 @@
 > recalibración de H9**. No existe START S2 ni START de calibración autorizado. Fuente:
 > [`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md).
 >
+> **PROTOCOLO PRE-START APROBADO el 2026-08-13.** Cami autorizó implementar, probar y revisar
+> únicamente el arnés descrito en
+> [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md). No autorizó
+> START, S0, S1, S2, fixtures definitivos, medición ni valores finales; W1 continúa NO PASS.
+>
 > **Identificación.** El índice conserva numeración estable y SDD-28 reservó el número 29 para el
 > CLI. Por eso el siguiente identificador disponible es **SDD-30**; el 29 no se reutiliza.
 
@@ -443,8 +448,9 @@ tiempos se miden con caché fría y caliente por separado.
 El reemplazo H9R fija sólo la dirección: como máximo 4 CPU lógicas efectivamente utilizables por el
 árbol completo y una máquina de 8 GB nominales, con calibración inicial en Windows. Caps job-wide,
 geometrías, budgets, disco y perfiles se derivan por flujo cuando W1–W5 los vuelven alcanzables; no
-se extrapolan desde W0 ni desde una corrida S2. La propuesta no vigente que preespecifica hipótesis,
-fronteras y oráculos antes de implementar o ejecutar vive en
+se extrapolan desde W0 ni desde una corrida S2. El protocolo pre-START aprobado únicamente para
+implementar, probar y revisar el arnés —sin ejecutar workloads— preespecifica hipótesis, fronteras y
+oráculos en
 [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md).
 
 Cada medición futura registra wall time, CPU time, memoria comprometida job-wide y working set por
@@ -531,8 +537,8 @@ W0 no cambió ninguno de los estados de readiness de la matriz. Congeló:
 La evidencia cruda y su SHA-256 están en
 [`_BASELINE-READINESS-W0.md`](_BASELINE-READINESS-W0.md). Un proxy no promueve un flujo a
 `experimental`/`gateado` ni satisface el reemplazo H9R. La posterior enmienda no reescribe W0: W1
-sigue siendo la primera oleada capaz de cambiar esas superficies y permanece NO PASS hasta aprobar
-y medir su calibración por flujo.
+sigue siendo la primera oleada capaz de cambiar esas superficies y permanece NO PASS mientras no
+se autorice y mida por separado cada unidad y no se revise y apruebe el perfil exacto por flujo.
 
 H10=A no fija una cifra dentro de W0. La UI S1/S2 quedó `no_medible`, de modo que el umbral entre
 sync y job sigue **no fijado** y se medirá después de W0, cuando W1 haga alcanzable el primer
@@ -944,13 +950,15 @@ Cami aprobó D-RDY-H9R-1…8 el 2026-08-12. Desde entonces:
 6. Permanecen identidad, orden, completitud bidireccional, hashes, lineage, censo de árbol y
    publicación atómica; un cap, timeout, error, cancelación o huérfano no deja manifiesto publicable.
 7. W0 permanece CERRADA/PASS como evidencia histórica; W1 queda NO PASS / bloqueada por
-   recalibración hasta aprobar propuesta, medición y perfil exacto.
+   recalibración hasta implementar y revisar el arnés y autorizar, medir, revisar y aprobar por
+   separado cada unidad y perfil exacto.
 8. El objetivo 4 CPU/8 GB no se publica como capacidad entregada antes de un PASS gateado; PyPI,
    demo, infraestructura, metodología y API conservan sus autorizaciones separadas.
 
 La fuente contractual completa es
-[`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md). La propuesta
-pre-START posterior es una hipótesis no vigente y no autoriza implementación ni ejecución.
+[`_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md`](_ENMIENDA-H9-ENTORNO-REPRESENTATIVO.md). El protocolo
+pre-START posterior fue aprobado el 2026-08-13 sólo para implementar, probar y revisar el arnés;
+sus valores siguen siendo hipótesis y no autoriza START, S0, S1, S2 ni medición.
 
 #### H10 — Ejecución larga en UI
 
@@ -1033,3 +1041,14 @@ Cami comunicó expresamente el 2026-08-12:
 Ese OK sustituye H9=B para el trabajo futuro y autoriza únicamente integrar los contratos y
 redactar la propuesta pre-START. No autoriza programar, ejecutar START/S0/S1/S2, cambiar
 hardware/cloud, metodología o API, publicar PyPI ni recapturar la demo.
+
+Cami comunicó expresamente el 2026-08-13:
+
+> Apruebo `_PROPUESTA-CALIBRACION-H9R-PRE-START.md` como protocolo para implementar y revisar el
+> arnés de calibración. Apruebo sus caps, geometrías, deadlines, repeticiones, reglas estadísticas,
+> fronteras, schema y controles sólo como hipótesis de medición. No apruebo ningún valor final ni
+> autorizo START, S0, S1 o S2; cada unidad `candidato × flujo × intento` deberá volver a mi
+> autorización explícita. Tampoco autorizo hardware/cloud, metodología, API, PyPI ni demo.
+
+Ese OK autoriza sólo el arnés, sus tests, controles negativos y revisión independiente read-only.
+No promueve W1, no fija un perfil H9R y no autoriza generar fixtures definitivos ni medir workloads.

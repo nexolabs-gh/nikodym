@@ -373,6 +373,173 @@ explícitos. Si cambia un fixture de demo con autorización, regenerar también 
 `& $nikodymNode scripts\generate_frontend_demo_fixture_signatures.mjs`, comprobar
 `$LASTEXITCODE` y dejar que CI valide el artefacto.
 
+### 5.1 Arnés de calibración H9R antes de START
+
+La aprobación de
+[`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](../design/_PROPUESTA-CALIBRACION-H9R-PRE-START.md)
+autoriza implementar y probar el **arnés**, no ejecutar workloads ni convertir sus caps, geometrías,
+deadlines o repeticiones en valores finales. Los únicos subcomandos del driver que se pueden usar
+sin una autorización humana nueva y exacta son `catalog`, `schemas` y `harness-test`: los dos
+primeros son declarativos y el tercero ejecuta únicamente los trece controles sintéticos cerrados.
+Los tres materializan cero unidades START y no alcanzan ningún consumidor candidato.
+
+```powershell
+$nikodymH9rDriver = Join-Path $nikodymRepo 'scripts\measure_readiness_h9r.py'
+$nikodymH9rCatalogCache = Join-Path $nikodymTempRoot (
+    'h9r-catalog-cache-' + [guid]::NewGuid().ToString('N')
+)
+New-Item -ItemType Directory -Path $nikodymH9rCatalogCache | Out-Null
+try {
+    $nikodymH9rCatalogRaw = @(
+        & $nikodymPython -I -B -S -X "pycache_prefix=$nikodymH9rCatalogCache" `
+            $nikodymH9rDriver catalog
+    )
+    if ($LASTEXITCODE -ne 0) { throw 'catálogo H9R falló' }
+    $nikodymH9rCatalog = ($nikodymH9rCatalogRaw -join [Environment]::NewLine) |
+        ConvertFrom-Json
+    if ($nikodymH9rCatalog.materialized_start_units -ne 0) {
+        throw 'el catálogo H9R materializó unidades START'
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $nikodymH9rCatalogCache) {
+        Remove-NikodymTempDirectory -LiteralPath $nikodymH9rCatalogCache
+    }
+}
+
+$nikodymH9rSchemaDir = Join-Path $nikodymTempRoot (
+    'h9r-schemas-' + [guid]::NewGuid().ToString('N')
+)
+$nikodymH9rSchemaCache = Join-Path $nikodymTempRoot (
+    'h9r-schema-cache-' + [guid]::NewGuid().ToString('N')
+)
+if (Test-Path -LiteralPath $nikodymH9rSchemaDir) {
+    throw "el destino de schemas H9R ya existe: $nikodymH9rSchemaDir"
+}
+New-Item -ItemType Directory -Path $nikodymH9rSchemaCache | Out-Null
+try {
+    & $nikodymPython -I -B -S -X "pycache_prefix=$nikodymH9rSchemaCache" `
+        $nikodymH9rDriver schemas --directory $nikodymH9rSchemaDir
+    if ($LASTEXITCODE -ne 0) { throw 'schemas H9R falló' }
+    $nikodymH9rSchemaFiles = @(Get-ChildItem -LiteralPath $nikodymH9rSchemaDir -File)
+    $nikodymH9rExpectedSchemas = @(
+        'aggregate.schema.json',
+        'attempt.schema.json',
+        'internal-authorization-gate.schema.json',
+        'internal-authorization-precommit.schema.json',
+        'internal-authorization-release.schema.json',
+        'post-start-failure.schema.json',
+        'pre-start-failure.schema.json',
+        'preflight-rejection.schema.json'
+    )
+    $nikodymH9rObservedSchemas = @(
+        $nikodymH9rSchemaFiles | Select-Object -ExpandProperty Name | Sort-Object
+    )
+    if (@($nikodymH9rObservedSchemas).Count -ne $nikodymH9rExpectedSchemas.Count -or
+        (Compare-Object $nikodymH9rExpectedSchemas $nikodymH9rObservedSchemas)) {
+        throw 'el artefacto de schemas H9R no contiene el censo cerrado de ocho archivos'
+    }
+    foreach ($nikodymH9rSchemaFile in $nikodymH9rSchemaFiles) {
+        $null = Get-Content -Raw -Encoding UTF8 -LiteralPath $nikodymH9rSchemaFile.FullName |
+            ConvertFrom-Json
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $nikodymH9rSchemaDir) {
+        Remove-NikodymTempDirectory -LiteralPath $nikodymH9rSchemaDir
+    }
+    if (Test-Path -LiteralPath $nikodymH9rSchemaCache) {
+        Remove-NikodymTempDirectory -LiteralPath $nikodymH9rSchemaCache
+    }
+}
+
+$nikodymH9rArtifact = Join-Path $nikodymTempRoot (
+    'h9r-harness-test-' + [guid]::NewGuid().ToString('N') + '.json'
+)
+$nikodymH9rHarnessCache = Join-Path $nikodymTempRoot (
+    'h9r-harness-cache-' + [guid]::NewGuid().ToString('N')
+)
+New-Item -ItemType Directory -Path $nikodymH9rHarnessCache | Out-Null
+try {
+    & $nikodymPython -I -B -S -X "pycache_prefix=$nikodymH9rHarnessCache" `
+        $nikodymH9rDriver harness-test --output $nikodymH9rArtifact
+    if ($LASTEXITCODE -ne 0) { throw 'harness-test H9R falló' }
+    $nikodymH9rHarness = Get-Content -Raw -Encoding UTF8 -LiteralPath $nikodymH9rArtifact |
+        ConvertFrom-Json
+    if ($nikodymH9rHarness.start_tokens_emitted -ne 0 -or
+        $nikodymH9rHarness.materialized_start_units -ne 0 -or
+        @($nikodymH9rHarness.controls.PSObject.Properties).Count -ne 13) {
+        throw 'harness-test H9R no acredita 13 controles y cero START/unidades'
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $nikodymH9rArtifact) {
+        Remove-NikodymTempFile -LiteralPath $nikodymH9rArtifact
+    }
+    if (Test-Path -LiteralPath $nikodymH9rHarnessCache) {
+        Remove-NikodymTempDirectory -LiteralPath $nikodymH9rHarnessCache
+    }
+}
+
+$nikodymH9rTests = @(
+    Get-ChildItem -LiteralPath (Join-Path $nikodymRepo 'tests\unit') `
+        -Filter 'test_readiness_h9r_*.py' -File |
+        Select-Object -ExpandProperty FullName
+)
+& $nikodymPython -B -m pytest -p no:cacheprovider @nikodymH9rTests
+if ($LASTEXITCODE -ne 0) { throw 'tests focales H9R fallaron' }
+& $nikodymPython -B -m mypy --strict --no-incremental `
+    scripts\measure_readiness_h9r.py scripts\readiness_h9r
+if ($LASTEXITCODE -ne 0) { throw 'mypy estricto H9R falló' }
+& $nikodymPython -B -m ruff check --no-cache `
+    scripts\measure_readiness_h9r.py scripts\readiness_h9r `
+    @nikodymH9rTests
+if ($LASTEXITCODE -ne 0) { throw 'ruff focal H9R falló' }
+& $nikodymPython -B -m ruff format --check --no-cache `
+    scripts\measure_readiness_h9r.py scripts\readiness_h9r `
+    @nikodymH9rTests
+if ($LASTEXITCODE -ne 0) { throw 'ruff format focal H9R falló' }
+```
+
+`preflight` sólo puede recibir manifiestos, config, schedule y texto de autoridad exactos de una
+unidad; un preflight verde sigue sin autorizar START. No copiar ni adaptar aquí una invocación de
+`attempt`: ese subcomando crea el handshake y puede emitir START. Antes de invocarlo, Cami debe
+autorizar explícitamente la unidad completa
+`candidato × flow_id/flow_step × fixture/config × geometría × cap × intento`, y la autoridad firmada
+debe reconciliar byte a byte. Sin ese OK, no ejecutar `attempt`, `_worker`, `_adapter`,
+`_candidate`, `_ui_client`, START, S0, S1 ni S2,
+incluidos ensayos manuales, smoke tests o controles negativos que alcancen al consumidor. Los
+controles del arnés se ejercen con dobles sintéticos o Jobs vacíos que no procesan fixtures de
+calibración.
+
+El gate de copy y catálogo es bidireccional: censa README, metadata, docs públicas, landing/web,
+tooltips derivados de Pydantic, cards/backend, paneles y prosa de informes; excluye deliberadamente
+los documentos de diseño internos donde los valores siguen rotulados como hipótesis. Debe quedar
+verde antes de staging:
+
+```powershell
+@'
+import sys
+from pathlib import Path
+
+if sys.flags.isolated != 1 or sys.dont_write_bytecode != 1:
+    raise SystemExit("gate de copy exige -I -B")
+root = Path.cwd()
+sys.path.insert(0, str(root))
+
+from scripts.readiness_h9r.copy_gate import (
+    assert_documented_h9r_catalog,
+    assert_no_h9r_capacity_copy,
+)
+
+print({
+    "public_copy_files": assert_no_h9r_capacity_copy(root),
+    "catalog": assert_documented_h9r_catalog(root),
+})
+'@ | & $nikodymPython -I -B -
+if ($LASTEXITCODE -ne 0) { throw 'copy o catálogo H9R no reconcilia' }
+```
+
 ## 6. Control negativo sin perder trabajo
 
 Cada cierre necesita al menos un control que demuestre que el oráculo se pone rojo al inyectar el
@@ -631,11 +798,20 @@ try {
 }
 ```
 
-Instalar **ese wheel** en una venv corta fuera de OneDrive, vaciar `PYTHONPATH`, cambiar el cwd
-fuera del checkout y ejecutar primero S0; su bundle alimenta S3 v2. Las salidas son nombres nuevos:
-nunca sobrescribir JSON v1.
+### 9.1 Receta histórica S0/S3 — desactivada
 
-```powershell
+> **NO EJECUTAR ESTE BLOQUE SIN UN OK HUMANO NUEVO Y ESPECÍFICO.** La receta se conserva sólo
+> como procedencia de la evidencia histórica; no es un paso operativo vigente. D-RDY-H9R retiró
+> H9=B y canceló la autorización S2 anterior. Una verificación futura necesita su protocolo y su
+> autorización exacta antes de instalar el candidato, crear workdirs o invocar cualquier perfil.
+> Los fences siguientes son `text` deliberadamente para que el runbook no los presente como
+> comandos ejecutables.
+
+Históricamente se instalaba **ese wheel** en una venv corta fuera de OneDrive, se vaciaba
+`PYTHONPATH`, se cambiaba el cwd fuera del checkout y se ejecutaba primero S0; su bundle alimentaba
+S3 v2. Las salidas usaban nombres nuevos y nunca sobrescribían JSON v1.
+
+```text
 $nikodymVerifyRoot = Join-Path $nikodymTempRoot (
     'verify-' + $nikodymCandidateSha.Substring(0,12) + '-' +
     [guid]::NewGuid().ToString('N')
@@ -692,7 +868,7 @@ try {
 Reconciliar schema, estado, hashes, backend, terminación, condiciones y la matriz exacta
 N−1/N/N+1:
 
-```powershell
+```text
 $nikodymS0 = Get-Content -Raw -Encoding UTF8 -LiteralPath $nikodymS0Output | ConvertFrom-Json
 $nikodymS3 = Get-Content -Raw -Encoding UTF8 -LiteralPath $nikodymS3Output | ConvertFrom-Json
 if ($nikodymS0.schema_version -ne 'nikodym.readiness.w1.v1') { throw 'schema S0 inesperado' }
@@ -739,7 +915,7 @@ foreach ($nikodymFamily in $nikodymExpectedLimits.Keys) {
 Importar ambos JSON y el manifiesto del candidato a nombres privados nuevos **antes** de borrar los
 temporales. La copia debe conservar exactamente los bytes medidos:
 
-```powershell
+```text
 $nikodymEvidenceStamp = Get-Date -Format 'yyyy-MM-dd-HHmmss'
 $nikodymEvidenceSuffix = $nikodymCandidateSha.Substring(0,12)
 $nikodymEvidenceNonce = [guid]::NewGuid().ToString('N').Substring(0,8)
@@ -780,14 +956,16 @@ if ((Get-FileHash -Algorithm SHA256 -LiteralPath $nikodymManifest).Hash -ne
 Sólo después de importar y hashear esa evidencia, eliminar los temporales mediante las funciones
 validadas de §2.5:
 
-```powershell
+```text
 Remove-NikodymTempDirectory -LiteralPath $nikodymVerifyRoot
 Remove-NikodymTempDirectory -LiteralPath $nikodymCandidateDir
 Remove-NikodymTempDirectory -LiteralPath $nikodymSourceView
 Remove-NikodymTempFile -LiteralPath $nikodymSourceArchive
 ```
 
-S3 verde no convierte W1 en PASS si S2 sigue pendiente o el hardware H9=B no está demostrado.
+La evidencia histórica S0/S3 no convierte W1 en PASS. H9=B ya no es la puerta vigente: H9R exige
+un arnés revisado y, después, una autorización nueva por cada unidad exacta antes de cualquier
+START; los perfiles finales siguen requiriendo medición, revisión y OK separados.
 
 ## 10. Liberación y cierre
 
