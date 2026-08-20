@@ -30,6 +30,33 @@ AUTHORIZATION_CONSUMPTION_SCHEMA_VERSION: Final = (
     "nikodym.readiness.h9r.authorization-consumption.v1"
 )
 HARNESS_TEST_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.harness-test.v1"
+CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION: Final = (
+    "nikodym.readiness.h9r.candidate-output-isolation.v1"
+)
+# El SID y el mecanismo viven aquí, no en el módulo Windows, porque la cadena durable de
+# atestación los verifica sin poder importar ese módulo: `windows_sandbox` depende de este.
+CANDIDATE_LOW_INTEGRITY_SID: Final = "S-1-16-4096"
+CANDIDATE_MEDIUM_INTEGRITY_SID: Final = "S-1-16-8192"
+CANDIDATE_SANDBOX_MECHANISM: Final = "windows_mandatory_integrity_low_v1"
+# Matriz de accesos que el token candidato debe tener denegada dentro del contenedor de
+# OUTPUT_ROOT. Vive junto al SID y el mecanismo para que runtime, schema, cadena durable y
+# self-test exijan literalmente la misma tupla y no puedan divergir por copia. No basta con los
+# tres verbos de directorio: crear y sobrescribir un archivo ejercen `FILE_ADD_FILE` y
+# `FILE_WRITE_DATA`, que son justamente los accesos con los que se falsificaría un manifiesto ya
+# publicado en lugar de reemplazarlo.
+CANDIDATE_DENIED_OPERATIONS: Final = (
+    "create_directory",
+    "create_file",
+    "delete_file",
+    "replace_file",
+    "overwrite_file",
+)
+# El layout del workdir es cerrado, así que el número de raíces también lo es: tres escribibles
+# (staging, runtime del candidato y su `pycache_prefix`) y seis protegidas (workdir, scratch,
+# python-cache, telemetry, telemetry/control y el árbol candidato instalado). Fijar el censo
+# impide que una evidencia con cobertura parcial acredite el aislamiento.
+CANDIDATE_WRITABLE_ROOT_COUNT: Final = 3
+CANDIDATE_PROTECTED_ROOT_COUNT: Final = 6
 PROTOCOL_VERSION: Final = "nikodym.readiness.h9r.supervisor.v1"
 CONFIG_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.config.v1"
 SCHEDULE_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.schedule.v1"
@@ -5726,6 +5753,105 @@ def _validate_candidate_job_accounting(
     return dict(accounting)
 
 
+def _is_within_declared_root(path: str, root: str) -> bool:
+    """Decide si ``path`` cae dentro de ``root`` comparando rutas, sin tocar el filesystem.
+
+    La cadena durable puede reconciliarse en otro host, así que no puede resolver ni estatear la
+    ruta: normaliza separadores y compara **por frontera de directorio**, de modo que un hermano
+    con prefijo meramente textual —``outputs-2`` frente a ``outputs``— no cuente como descendiente.
+    """
+    normalized_path = path.replace("/", "\\").rstrip("\\").casefold()
+    normalized_root = root.replace("/", "\\").rstrip("\\").casefold()
+    if not normalized_root:
+        return False
+    return normalized_path == normalized_root or normalized_path.startswith(normalized_root + "\\")
+
+
+def _validate_candidate_output_isolation(raw: Any) -> dict[str, Any]:
+    """Verifica en la cadena durable que el intento acreditó el aislamiento OS del candidato.
+
+    Esta capa no puede consultar el sistema operativo —lo hace el adapter, que sí importa el
+    módulo Windows—, pero sí exige que la evidencia declarada sea estructuralmente completa y
+    exacta. Sin esto, el `attempt.json` aceptaría un intento cuyo candidato nunca estuvo confinado.
+    """
+    isolation = _require_object(raw, context="candidate-result.output_isolation")
+    _require_exact_keys(
+        isolation,
+        (
+            "schema_version",
+            "mechanism",
+            "candidate_token_integrity_sid",
+            "candidate_effective_integrity_sid",
+            "writable_roots",
+            "protected_roots",
+            "output_root",
+            "output_root_present",
+            "container_objects_inspected",
+            "denial_probe",
+            "observed_monotonic_ns",
+        ),
+        context="candidate-result.output_isolation",
+    )
+    writable = _require_object(
+        isolation["writable_roots"], context="candidate-result.output_isolation.writable_roots"
+    )
+    protected = _require_object(
+        isolation["protected_roots"], context="candidate-result.output_isolation.protected_roots"
+    )
+    probe = _require_object(
+        isolation["denial_probe"], context="candidate-result.output_isolation.denial_probe"
+    )
+    _require_exact_keys(
+        probe,
+        ("performed", "probe_integrity_sid", "denied_operations", "returncode"),
+        context="candidate-result.output_isolation.denial_probe",
+    )
+    operations = probe["denied_operations"]
+    output_root = isolation["output_root"]
+    if (
+        isolation["schema_version"] != CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION
+        or isolation["mechanism"] != CANDIDATE_SANDBOX_MECHANISM
+        or isolation["candidate_token_integrity_sid"] != CANDIDATE_LOW_INTEGRITY_SID
+        or isolation["candidate_effective_integrity_sid"] != CANDIDATE_LOW_INTEGRITY_SID
+        or isolation["output_root_present"] is not False
+        or not isinstance(output_root, str)
+        or not output_root
+        # El censo es cerrado en cardinalidad, no sólo "no vacío": omitir una raíz declarada
+        # dejaría acreditado el aislamiento con cobertura parcial.
+        or len(writable) != CANDIDATE_WRITABLE_ROOT_COUNT
+        or len(protected) != CANDIDATE_PROTECTED_ROOT_COUNT
+        or set(writable) & set(protected)
+        or any(value != CANDIDATE_LOW_INTEGRITY_SID for value in writable.values())
+        or any(value is not None for value in protected.values())
+        or probe["performed"] is not True
+        or probe["probe_integrity_sid"] != CANDIDATE_LOW_INTEGRITY_SID
+        or probe["returncode"] != 0
+        or not isinstance(operations, list)
+        or operations != list(CANDIDATE_DENIED_OPERATIONS)
+    ):
+        raise ContractError("candidate-result.output_isolation no acredita el aislamiento OS")
+    # OUTPUT_ROOT dentro de una raíz escribible haría vacua toda la garantía: la evidencia sería
+    # estructuralmente perfecta y el candidato podría crearlo igual. La cadena durable no puede
+    # consultar el sistema operativo, pero esta relación sí es verificable sobre las rutas.
+    if any(_is_within_declared_root(output_root, root) for root in writable):
+        raise ContractError(
+            "candidate-result.output_isolation deja OUTPUT_ROOT bajo raíz escribible"
+        )
+    # El contenedor incluye al menos las raíces declaradas, así que un censo que dijera haber
+    # examinado menos objetos que ellas no recorrió el subárbol: sería un verde sin recorrido.
+    inspected = isolation["container_objects_inspected"]
+    if (
+        isinstance(inspected, bool)
+        or not isinstance(inspected, int)
+        or inspected < CANDIDATE_WRITABLE_ROOT_COUNT
+    ):
+        raise ContractError("candidate-result.output_isolation no acredita el censo del subárbol")
+    observed_ns = isolation["observed_monotonic_ns"]
+    if isinstance(observed_ns, bool) or not isinstance(observed_ns, int) or observed_ns <= 0:
+        raise ContractError("candidate-result.output_isolation no tiene reloj monotónico válido")
+    return dict(isolation)
+
+
 def _validate_candidate_execution_core(
     *,
     candidate_request_raw: Mapping[str, Any],
@@ -5791,6 +5917,7 @@ def _validate_candidate_execution_core(
             "candidate_request_sha256",
             "candidate_execution_request",
             "candidate_process",
+            "output_isolation",
             "service_ready",
             "native_pools_observation",
             "total_processes",
@@ -5802,6 +5929,7 @@ def _validate_candidate_execution_core(
         ),
         context="candidate-result",
     )
+    _validate_candidate_output_isolation(candidate_result["output_isolation"])
     process = _validate_candidate_process_identity(
         candidate_start["candidate_process"], context="candidate-start.candidate_process"
     )

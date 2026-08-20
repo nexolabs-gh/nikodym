@@ -25,7 +25,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import Any, BinaryIO, Final, cast
+from typing import Any, BinaryIO, Final, Protocol, cast
 
 from .artifacts import (
     OUTPUT_FORMAT_COUNTERS,
@@ -43,6 +43,9 @@ from .consumer import (
 )
 from .contracts import (
     ADAPTER_IDS,
+    CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION,
+    CANDIDATE_PROTECTED_ROOT_COUNT,
+    CANDIDATE_WRITABLE_ROOT_COUNT,
     CAPS,
     PROTOCOL_VERSION,
     ContractError,
@@ -64,6 +67,19 @@ from .windows_job import (
     resume_suspended_process,
     tcp_listener_owner_pid,
 )
+from .windows_sandbox import (
+    DENIED_OPERATIONS,
+    LOW_INTEGRITY_SID,
+    SANDBOX_MECHANISM,
+    SandboxProcess,
+    apply_low_integrity_label,
+    census_output_isolation,
+    launch_suspended_low_integrity,
+    low_integrity_primary_token,
+    mandatory_label,
+    probe_output_root_denial,
+    process_integrity_level,
+)
 
 ADAPTER_DESCRIPTOR_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.adapter-implementation.v1"
 ADAPTER_REQUEST_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.adapter-request.v1"
@@ -79,7 +95,7 @@ CANDIDATE_START_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.candidate-start.v
 CANDIDATE_EXECUTION_REQUEST_SCHEMA_VERSION: Final = (
     "nikodym.readiness.h9r.candidate-execution-request.v1"
 )
-CANDIDATE_RESULT_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.candidate-result.v1"
+CANDIDATE_RESULT_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.candidate-result.v2"
 CANDIDATE_SERVICE_READY_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.candidate-service-ready.v1"
 HTTP_EXCHANGE_SCHEMA_VERSION: Final = "nikodym.readiness.h9r.candidate-http-exchange.v1"
 NATIVE_POOLS_PROCESS_OBSERVATION_SCHEMA_VERSION: Final = (
@@ -1718,9 +1734,23 @@ def validate_native_pools_observation(
     return {**value, "processes": processes}
 
 
+class _WaitableProcess(Protocol):
+    """Superficie mínima que el censo necesita del proceso raíz del candidato.
+
+    El arnés lanza el candidato con su propio token restringido, pero las pruebas del censo usan
+    ``subprocess.Popen`` real. El protocolo estructural cubre ambos sin relajar el tipado.
+    """
+
+    pid: int
+
+    def wait(self, timeout: float | None = ...) -> int:
+        """Espera la terminación del proceso dentro del plazo indicado."""
+        ...
+
+
 def _capture_candidate_process_census(
     child_job: WindowsJob,
-    process: subprocess.Popen[bytes],
+    process: _WaitableProcess,
     *,
     root_process: Mapping[str, Any],
     workload_deadline: float,
@@ -1841,6 +1871,43 @@ def _resume_suspended_before_deadline(
     return resume_suspended_process(pid, api)
 
 
+def _candidate_output_isolation_plan(
+    paths: Mapping[str, Path], *, candidate_root: Path, workdir: Path
+) -> dict[str, Any]:
+    """Deriva del layout cerrado qué raíces escribe el candidato y cuáles le quedan vedadas.
+
+    Dos son las que su bootstrap escribe hoy: staging y el runtime del candidato
+    —``brokered-inputs``, ``service-ready``, ``native-pools`` y ``TEMP``—. La tercera, su
+    ``pycache_prefix``, queda escribible aunque el comando lleve ``-B``: si el script candidato
+    reactivara la escritura de bytecode, debe fallar por su propio contrato y no por un permiso
+    que el arnés le negó de más. Es un directorio propio, hermano de las cachés del arnés.
+
+    Todo lo demás del workdir, incluido el padre de ``OUTPUT_ROOT``, el snapshot de fuentes desde
+    el que corre el driver y ``telemetry``, conserva integridad media: por eso el token candidato
+    no puede crear, borrar ni reemplazar nada allí.
+    """
+    staging = paths["staging"]
+    derived_workdir = staging.parent.parent
+    if derived_workdir != workdir.resolve():
+        raise ContractError("el staging del candidato no deriva del workdir del intento")
+    scratch = derived_workdir / "scratch"
+    telemetry = derived_workdir / "telemetry"
+    writable = [staging, scratch / "candidate-runtime", paths["pycache"]]
+    protected = [
+        derived_workdir,
+        scratch,
+        scratch / "python-cache",
+        telemetry,
+        telemetry / "control",
+        candidate_root,
+    ]
+    return {
+        "output_root": derived_workdir / "outputs",
+        "writable_roots": writable,
+        "protected_roots": protected,
+    }
+
+
 def run_candidate_request(
     request_path: Path,
     expected_sha256: str,
@@ -1920,13 +1987,29 @@ def run_candidate_request(
         "logical_bytes": execution_request_path.stat().st_size,
         "sha256": execution_sha,
     }
+    isolation_plan = _candidate_output_isolation_plan(
+        paths, candidate_root=cast(Path, runtime["candidate_root"]), workdir=workdir
+    )
+    for writable_root in cast(list[Path], isolation_plan["writable_roots"]):
+        apply_low_integrity_label(writable_root)
+    output_isolation_census = census_output_isolation(
+        output_root=cast(Path, isolation_plan["output_root"]),
+        writable_roots=cast(list[Path], isolation_plan["writable_roots"]),
+        protected_roots=cast(list[Path], isolation_plan["protected_roots"]),
+        # El doble sintético usa el Python del controller, nunca el runtime candidato: mide la
+        # política del volumen, no el comportamiento del candidato.
+        denial_probe=probe_output_root_denial(
+            cast(Path, isolation_plan["output_root"]),
+            python_executable=Path(sys.executable),
+        ),
+    )
     stdout_handle = paths["stdout"].open("xb")
     stderr_handle = paths["stderr"].open("xb")
     child_job = WindowsJob(
         memory_bytes=cast(int, runtime["job_memory_commit_limit_bytes"]),
         affinity_mask=cast(int, runtime["affinity_mask"]),
     )
-    process: subprocess.Popen[bytes] | None = None
+    process: SandboxProcess | None = None
     try:
         _remaining_before_deadline(workload_deadline, context="antes de crear el child suspendido")
         command = [
@@ -1939,22 +2022,32 @@ def run_candidate_request(
             "-c",
             _CANDIDATE_BOOTSTRAP,
         ]
-        process = subprocess.Popen(
-            command,
-            stdin=subprocess.DEVNULL,
-            stdout=stdout_handle,
-            stderr=stderr_handle,
-            cwd=paths["staging"],
-            env=_candidate_child_environment(
-                execution_request_path,
-                execution_sha,
-                temp_root=candidate_temp_root,
-                logical_cpu_count=cast(int, runtime["affinity_mask"]).bit_count(),
-            ),
-            close_fds=True,
-            creationflags=0x00000004,
-        )
+        with low_integrity_primary_token() as candidate_token:
+            process = launch_suspended_low_integrity(
+                command,
+                token=candidate_token,
+                cwd=paths["staging"],
+                environment=_candidate_child_environment(
+                    execution_request_path,
+                    execution_sha,
+                    temp_root=candidate_temp_root,
+                    logical_cpu_count=cast(int, runtime["affinity_mask"]).bit_count(),
+                ),
+                stdout_fd=stdout_handle.fileno(),
+                stderr_fd=stderr_handle.fileno(),
+            )
         child_job.assign(process.pid)
+        effective_integrity = process_integrity_level(process.pid)
+        if effective_integrity != LOW_INTEGRITY_SID:
+            raise ContractError(
+                "limits_not_applied: el candidato no quedó en integridad Low efectiva "
+                f"({effective_integrity})"
+            )
+        output_isolation = {
+            "schema_version": CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION,
+            **output_isolation_census,
+            "candidate_effective_integrity_sid": effective_integrity,
+        }
         process_identity = process_metrics(process.pid, child_job.api)
         initial_accounting = child_job.accounting()
         if initial_accounting["memory_usage_information_supported"] is not True or not isinstance(
@@ -2085,6 +2178,7 @@ def run_candidate_request(
             "candidate_request_sha256": expected_request_sha,
             "candidate_execution_request": execution_identity,
             "candidate_process": candidate_process,
+            "output_isolation": output_isolation,
             "service_ready": service_ready_identity,
             "native_pools_observation": native_pools_observation,
             "total_processes": total_processes,
@@ -2101,10 +2195,12 @@ def run_candidate_request(
             os.fsync(handle.fileno())
         return returncode
     finally:
-        if process is not None and process.poll() is None:
-            child_job.terminate(0xE0000004)
-            with contextlib.suppress(subprocess.TimeoutExpired):
-                process.wait(timeout=10)
+        if process is not None:
+            if process.poll() is None:
+                child_job.terminate(0xE0000004)
+                with contextlib.suppress(subprocess.TimeoutExpired):
+                    process.wait(timeout=10)
+            process.close()
         child_job.close()
         for log_handle in (stdout_handle, stderr_handle):
             if not log_handle.closed:
@@ -3944,6 +4040,113 @@ def _validate_candidate_process_census(
     return {**census, "processes": processes}
 
 
+def _validate_output_isolation(raw: Any, *, output_root: Path, staging: Path) -> dict[str, Any]:
+    """Reabre el censo de aislamiento y vuelve a medirlo contra el sistema operativo.
+
+    No basta con que el candidato haya declarado la garantía: el adapter relee cada etiqueta
+    después de la quiescencia, de modo que un candidato que hubiera conseguido reetiquetar una
+    raíz protegida —o perder la suya— cae aquí y no llega al publisher.
+    """
+    isolation = _require_mapping(raw, context="candidate-result.output_isolation")
+    _require_exact(
+        isolation,
+        (
+            "schema_version",
+            "mechanism",
+            "candidate_token_integrity_sid",
+            "candidate_effective_integrity_sid",
+            "writable_roots",
+            "protected_roots",
+            "output_root",
+            "output_root_present",
+            "container_objects_inspected",
+            "denial_probe",
+            "observed_monotonic_ns",
+        ),
+        context="candidate-result.output_isolation",
+    )
+    observed_ns = isolation["observed_monotonic_ns"]
+    inspected = isolation["container_objects_inspected"]
+    if (
+        isolation["schema_version"] != CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION
+        or isolation["mechanism"] != SANDBOX_MECHANISM
+        or isolation["candidate_token_integrity_sid"] != LOW_INTEGRITY_SID
+        or isolation["candidate_effective_integrity_sid"] != LOW_INTEGRITY_SID
+        or isolation["output_root_present"] is not False
+        or isolation["output_root"] != str(output_root)
+        or isinstance(inspected, bool)
+        or not isinstance(inspected, int)
+        or inspected <= 0
+        or isinstance(observed_ns, bool)
+        or not isinstance(observed_ns, int)
+        or observed_ns <= 0
+    ):
+        raise ContractError("candidate-result.output_isolation no acredita el mecanismo OS")
+    probe = _require_mapping(
+        isolation["denial_probe"], context="candidate-result.output_isolation.denial_probe"
+    )
+    _require_exact(
+        probe,
+        ("performed", "probe_integrity_sid", "denied_operations", "returncode"),
+        context="candidate-result.output_isolation.denial_probe",
+    )
+    if (
+        probe["performed"] is not True
+        or probe["probe_integrity_sid"] != LOW_INTEGRITY_SID
+        or probe["denied_operations"] != list(DENIED_OPERATIONS)
+        or probe["returncode"] != 0
+    ):
+        raise ContractError("output_isolation no acredita la denegación medida del sistema")
+    writable = _require_mapping(
+        isolation["writable_roots"], context="candidate-result.output_isolation.writable_roots"
+    )
+    protected = _require_mapping(
+        isolation["protected_roots"], context="candidate-result.output_isolation.protected_roots"
+    )
+    if not writable or not protected or set(writable) & set(protected):
+        raise ContractError("output_isolation declara raíces vacías o superpuestas")
+    # Exigir sólo que `staging` y el padre de OUTPUT_ROOT aparezcan dejaría pasar una evidencia
+    # que omitiera `candidate-runtime`, el `pycache_prefix` o `telemetry/control`: las raíces
+    # restantes conservarían su etiqueta y el aislamiento quedaría acreditado con cobertura
+    # parcial. El layout es cerrado, así que aquí se exige igualdad exacta contra él, no
+    # pertenencia mínima. Las claves del censo son rutas resueltas: se comparan como tales.
+    workdir = output_root.parent
+    scratch = workdir / "scratch"
+    telemetry = workdir / "telemetry"
+    expected_writable = {
+        str(staging.resolve()),
+        str((scratch / "candidate-runtime").resolve()),
+        str((scratch / "python-cache" / "candidate-child").resolve()),
+    }
+    expected_protected = {
+        str(workdir.resolve()),
+        str(scratch.resolve()),
+        str((scratch / "python-cache").resolve()),
+        str(telemetry.resolve()),
+        str((telemetry / "control").resolve()),
+    }
+    if set(writable) != expected_writable:
+        raise ContractError("output_isolation no declara exactamente las raíces escribibles")
+    # La sexta protegida es el árbol candidato instalado, que no deriva del workdir: se exige que
+    # sea exactamente una y que no caiga dentro de ninguna raíz escribible.
+    extra_protected = set(protected) - expected_protected
+    if not expected_protected <= set(protected) or len(extra_protected) != 1:
+        raise ContractError("output_isolation no declara exactamente las raíces protegidas")
+    candidate_root = Path(next(iter(extra_protected)))
+    if any(
+        candidate_root == Path(name) or candidate_root.is_relative_to(Path(name))
+        for name in writable
+    ):
+        raise ContractError("output_isolation deja el árbol candidato bajo una raíz escribible")
+    for name, value in writable.items():
+        if value != LOW_INTEGRITY_SID or mandatory_label(Path(name)) != LOW_INTEGRITY_SID:
+            raise ContractError(f"raíz escribible perdió la etiqueta Low efectiva: {name}")
+    for name, value in protected.items():
+        if value is not None or mandatory_label(Path(name)) is not None:
+            raise ContractError(f"raíz protegida quedó con etiqueta obligatoria: {name}")
+    return dict(isolation)
+
+
 def _validate_candidate_execution(
     path: Path, *, attempt_id: str, candidate_request_sha256: str
 ) -> dict[str, Any]:
@@ -3956,6 +4159,7 @@ def _validate_candidate_execution(
             "candidate_request_sha256",
             "candidate_execution_request",
             "candidate_process",
+            "output_isolation",
             "service_ready",
             "native_pools_observation",
             "total_processes",
@@ -4005,6 +4209,11 @@ def _validate_candidate_execution(
             or process[name] <= 0
         ):
             raise ContractError(f"candidate-result.process.{name} inválido")
+    _validate_output_isolation(
+        result["output_isolation"],
+        output_root=path.parents[2] / "outputs",
+        staging=path.parents[2] / "scratch" / "consumer-staging",
+    )
     job_accounting = _require_mapping(
         result["candidate_job_accounting"], context="candidate-result.job_accounting"
     )
@@ -4773,6 +4982,38 @@ def _adapter_protocol_schemas_v2() -> dict[str, dict[str, Any]]:
             "io": io,
         }
     )
+    output_isolation = closed(
+        {
+            "schema_version": {"const": CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION},
+            "mechanism": {"const": SANDBOX_MECHANISM},
+            "candidate_token_integrity_sid": {"const": LOW_INTEGRITY_SID},
+            "candidate_effective_integrity_sid": {"const": LOW_INTEGRITY_SID},
+            "writable_roots": {
+                "type": "object",
+                "minProperties": CANDIDATE_WRITABLE_ROOT_COUNT,
+                "maxProperties": CANDIDATE_WRITABLE_ROOT_COUNT,
+                "additionalProperties": {"const": LOW_INTEGRITY_SID},
+            },
+            "protected_roots": {
+                "type": "object",
+                "minProperties": CANDIDATE_PROTECTED_ROOT_COUNT,
+                "maxProperties": CANDIDATE_PROTECTED_ROOT_COUNT,
+                "additionalProperties": {"type": "null"},
+            },
+            "output_root": text,
+            "output_root_present": {"const": False},
+            "container_objects_inspected": positive,
+            "denial_probe": closed(
+                {
+                    "performed": {"const": True},
+                    "probe_integrity_sid": {"const": LOW_INTEGRITY_SID},
+                    "denied_operations": {"const": list(DENIED_OPERATIONS)},
+                    "returncode": {"const": 0},
+                }
+            ),
+            "observed_monotonic_ns": positive,
+        }
+    )
     candidate_result = closed(
         {
             "schema_version": {"const": CANDIDATE_RESULT_SCHEMA_VERSION},
@@ -4780,6 +5021,7 @@ def _adapter_protocol_schemas_v2() -> dict[str, dict[str, Any]]:
             "candidate_request_sha256": sha,
             "candidate_execution_request": identity,
             "candidate_process": process_identity,
+            "output_isolation": output_isolation,
             "service_ready": nullable(identity),
             "native_pools_observation": nullable(identity),
             "total_processes": positive,

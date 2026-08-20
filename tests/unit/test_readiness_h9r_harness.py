@@ -120,6 +120,7 @@ from scripts.readiness_h9r.windows_job import (
     resume_suspended_process,
     system_memory_status,
 )
+from scripts.readiness_h9r.windows_sandbox import LOW_INTEGRITY_SID
 
 TEST_ONEDRIVE_ROOT = Path(os.environ.get("ONEDRIVE") or ROOT)
 
@@ -860,6 +861,7 @@ def test_blocker_material_impide_swap_restore_antes_de_probe_popen(tmp_path: Pat
             memory_bytes=CAPS["C4"],
             affinity_mask=15,
             env={},
+            capture_root=tmp_path,
         )
     assert attack_executed is False
     assert candidate.read_bytes() == original_payload
@@ -879,10 +881,7 @@ def test_flags_antiguos_no_alcanzan_start_ni_popen_sin_fronteras_nuevas(
         patch("scripts.readiness_h9r.supervisor.subprocess.Popen") as popen,
         pytest.raises(
             ContractError,
-            match=(
-                r"candidate_execution_material_lease_unimplemented.*"
-                r"candidate_output_os_isolation_unimplemented"
-            ),
+            match=r"candidate_execution_material_lease_unimplemented",
         ),
     ):
         run_authorized_attempt(
@@ -1527,12 +1526,12 @@ def test_probe_runtime_liga_wheel_lock_record_e_import_aislado(tmp_path: Path) -
             )
 
 
-def test_probe_autorizado_nace_suspendido_se_asigna_y_reanuda_en_orden() -> None:
+def test_probe_autorizado_nace_suspendido_se_asigna_y_reanuda_en_orden(tmp_path: Path) -> None:
     events: list[str] = []
     process = MagicMock()
     process.pid = 321
-    process.returncode = 0
-    process.communicate.side_effect = lambda **_kwargs: events.append("communicate") or ("{}", "")
+    process.wait.side_effect = lambda **_kwargs: events.append("wait") or 0
+    process.close.side_effect = lambda: events.append("close")
     job = MagicMock()
     job.api = object()
     job.__enter__.return_value = job
@@ -1540,36 +1539,49 @@ def test_probe_autorizado_nace_suspendido_se_asigna_y_reanuda_en_orden() -> None
     job.assign.side_effect = lambda _pid: events.append("assign")
     job.wait_empty.side_effect = lambda _timeout: events.append("empty") or True
 
-    def fake_popen(*_args: Any, **kwargs: Any) -> Any:
-        assert kwargs["creationflags"] == 0x00000004
+    def fake_launch(*_args: Any, **kwargs: Any) -> Any:
+        # El probe escribe por handles ya abiertos por el arnés, nunca por rutas propias.
+        assert kwargs["stdout_fd"] >= 0 and kwargs["stderr_fd"] >= 0
+        (tmp_path / "probe.stdout.bin").write_bytes(b"{}")
         events.append("launch_suspended")
         return process
 
     with (
         patch("scripts.readiness_h9r.supervisor.require_calibration_start_implementation_ready"),
         patch("scripts.readiness_h9r.supervisor.WindowsJob", return_value=job),
-        patch("scripts.readiness_h9r.supervisor.subprocess.Popen", side_effect=fake_popen),
+        patch("scripts.readiness_h9r.supervisor.low_integrity_primary_token") as token,
+        patch(
+            "scripts.readiness_h9r.supervisor.launch_suspended_low_integrity",
+            side_effect=fake_launch,
+        ),
+        patch(
+            "scripts.readiness_h9r.supervisor.process_integrity_level",
+            return_value=LOW_INTEGRITY_SID,
+        ),
         patch(
             "scripts.readiness_h9r.supervisor.resume_suspended_process",
             side_effect=lambda _pid, _api: events.append("resume") or [1],
         ),
     ):
+        token.return_value.__enter__.return_value = 1234
         completed = _run_candidate_probe_in_job(
             ["candidate-python", "-I", "-B", "-c", "pass"],
             timeout=1.0,
             memory_bytes=CAPS["C4"],
             affinity_mask=15,
             env={},
+            capture_root=tmp_path,
         )
     assert completed.returncode == 0
-    assert events == ["launch_suspended", "assign", "resume", "communicate", "empty"]
+    assert completed.stdout == "{}"
+    assert events == ["launch_suspended", "assign", "resume", "wait", "close", "empty"]
 
 
 def test_deadline_vencido_no_crea_probe_ni_reanuda_worker_o_cliente() -> None:
     with (
         patch("scripts.readiness_h9r.supervisor.require_calibration_start_implementation_ready"),
-        patch("scripts.readiness_h9r.supervisor.subprocess.Popen") as popen,
-        pytest.raises(ContractError, match="antes de Popen"),
+        patch("scripts.readiness_h9r.supervisor.launch_suspended_low_integrity") as popen,
+        pytest.raises(ContractError, match="antes de crear el proceso"),
     ):
         _probe_candidate_runtime(
             python_executable=Path(sys.executable),
@@ -2340,10 +2352,19 @@ def test_artefacto_harness_test_declara_cero_start_y_controles(tmp_path: Path) -
         "sidecar_tampered_missing",
         "disk_allocation_temporaries",
         "statistics_missing_max_discard",
+        "candidate_output_os_isolation",
         "copy",
     ]
     assert artifact["control_matrix_order"] == expected_controls
     assert list(artifact["controls"]) == expected_controls
+    isolation = artifact["controls"]["candidate_output_os_isolation"]["evidence"]
+    assert isolation["mechanism"] == "windows_mandatory_integrity_low_v1"
+    assert isolation["low_integrity_child_denied_output_root"] is True
+    # Sin el control de vacuidad la denegación anterior no probaría nada: la misma operación
+    # tiene que seguir siendo posible para un proceso de integridad media.
+    assert isolation["medium_integrity_child_created_equivalent"] is True
+    assert isolation["denial_probe_performed"] is True
+    assert isolation["output_root_present"] is False
     for control in artifact["controls"].values():
         assert control["green_before"] is True
         assert control["red_observed"] is True

@@ -13,6 +13,11 @@ from scripts.readiness_h9r.contracts import (
     ATTEMPT_SIDECAR_FILENAMES,
     AUTHORIZATION_CONSUMPTION_SCHEMA_VERSION,
     AUTHORIZATION_SCHEMA_VERSION,
+    CANDIDATE_DENIED_OPERATIONS,
+    CANDIDATE_LOW_INTEGRITY_SID,
+    CANDIDATE_MEDIUM_INTEGRITY_SID,
+    CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION,
+    CANDIDATE_SANDBOX_MECHANISM,
     CAPS,
     POST_START_FAILURE_SCHEMA_VERSION,
     PRE_START_FAILURE_SCHEMA_VERSION,
@@ -145,6 +150,145 @@ def test_control_candidate_rechaza_hardlink_y_reabre_tras_restaurar(
     )
 
 
+def _output_isolation() -> dict[str, Any]:
+    """Evidencia de aislamiento OS tal como la emite el controller del candidato."""
+    return {
+        "schema_version": CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION,
+        "mechanism": CANDIDATE_SANDBOX_MECHANISM,
+        "candidate_token_integrity_sid": CANDIDATE_LOW_INTEGRITY_SID,
+        "candidate_effective_integrity_sid": CANDIDATE_LOW_INTEGRITY_SID,
+        "writable_roots": {
+            "C:/work/scratch/consumer-staging": CANDIDATE_LOW_INTEGRITY_SID,
+            "C:/work/scratch/candidate-runtime": CANDIDATE_LOW_INTEGRITY_SID,
+            "C:/work/scratch/python-cache/candidate-child": CANDIDATE_LOW_INTEGRITY_SID,
+        },
+        "protected_roots": {
+            "C:/work": None,
+            "C:/work/scratch": None,
+            "C:/work/scratch/python-cache": None,
+            "C:/work/telemetry": None,
+            "C:/work/telemetry/control": None,
+            "C:/candidato/instalado": None,
+        },
+        "output_root": "C:/work/outputs",
+        "output_root_present": False,
+        "container_objects_inspected": 12,
+        "denial_probe": {
+            "performed": True,
+            "probe_integrity_sid": CANDIDATE_LOW_INTEGRITY_SID,
+            "denied_operations": list(CANDIDATE_DENIED_OPERATIONS),
+            "returncode": 0,
+        },
+        "observed_monotonic_ns": 1_234_567,
+    }
+
+
+@pytest.mark.parametrize(
+    ("mutation", "match"),
+    [
+        ({"candidate_effective_integrity_sid": CANDIDATE_MEDIUM_INTEGRITY_SID}, "aislamiento OS"),
+        ({"mechanism": "inventado"}, "aislamiento OS"),
+        ({"output_root_present": True}, "aislamiento OS"),
+        ({"observed_monotonic_ns": 0}, "reloj monotónico"),
+        ({"container_objects_inspected": 0}, "censo del subárbol"),
+        ({"container_objects_inspected": True}, "censo del subárbol"),
+    ],
+)
+def test_cadena_durable_rechaza_aislamiento_os_degradado(
+    mutation: dict[str, Any], match: str
+) -> None:
+    """La evidencia de aislamiento se verifica en la cadena durable, no sólo en el adapter."""
+    isolation = {**_output_isolation(), **mutation}
+    with pytest.raises(ContractError, match=match):
+        contracts_module._validate_candidate_output_isolation(isolation)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        {"performed": False},
+        {"returncode": 1},
+        {"probe_integrity_sid": CANDIDATE_MEDIUM_INTEGRITY_SID},
+        {"denied_operations": ["create_directory"]},
+        # La matriz previa a la revisión medía sólo los tres verbos de directorio: dejar de
+        # ejercer `create_file`/`overwrite_file` debe ser rojo, no una variante aceptable.
+        {"denied_operations": ["create_directory", "delete_file", "replace_file"]},
+        {"denied_operations": list(reversed(CANDIDATE_DENIED_OPERATIONS))},
+    ],
+)
+def test_cadena_durable_rechaza_probe_de_denegacion_degradado(
+    mutation: dict[str, Any],
+) -> None:
+    isolation = _output_isolation()
+    isolation["denial_probe"] = {**isolation["denial_probe"], **mutation}
+    with pytest.raises(ContractError, match="aislamiento OS"):
+        contracts_module._validate_candidate_output_isolation(isolation)
+
+
+def test_cadena_durable_rechaza_raiz_protegida_etiquetada() -> None:
+    """Degradar una etiqueta sin alterar la cardinalidad sigue siendo rojo."""
+    isolation = _output_isolation()
+    isolation["protected_roots"] = {
+        **isolation["protected_roots"],
+        "C:/work/telemetry/control": CANDIDATE_LOW_INTEGRITY_SID,
+    }
+    with pytest.raises(ContractError, match="aislamiento OS"):
+        contracts_module._validate_candidate_output_isolation(isolation)
+
+
+def test_cadena_durable_rechaza_raiz_escribible_sin_etiqueta() -> None:
+    isolation = _output_isolation()
+    isolation["writable_roots"] = {
+        **isolation["writable_roots"],
+        "C:/work/scratch/candidate-runtime": None,
+    }
+    with pytest.raises(ContractError, match="aislamiento OS"):
+        contracts_module._validate_candidate_output_isolation(isolation)
+
+
+@pytest.mark.parametrize(
+    ("grupo", "omitida"),
+    [
+        ("writable_roots", "C:/work/scratch/candidate-runtime"),
+        ("writable_roots", "C:/work/scratch/python-cache/candidate-child"),
+        ("protected_roots", "C:/work/telemetry/control"),
+        ("protected_roots", "C:/candidato/instalado"),
+    ],
+)
+def test_cadena_durable_rechaza_censo_con_raices_omitidas(grupo: str, omitida: str) -> None:
+    """Cobertura parcial: se pierde una raíz y las restantes conservan su etiqueta correcta.
+
+    Sin cardinalidad cerrada, esta evidencia acreditaría el aislamiento habiendo dejado sin
+    confinar justo la raíz omitida.
+    """
+    isolation = _output_isolation()
+    roots = dict(isolation[grupo])
+    del roots[omitida]
+    isolation[grupo] = roots
+    with pytest.raises(ContractError, match="aislamiento OS"):
+        contracts_module._validate_candidate_output_isolation(isolation)
+
+
+def test_cadena_durable_rechaza_output_root_bajo_raiz_escribible() -> None:
+    """La evidencia puede ser estructuralmente perfecta y aun así vacua."""
+    isolation = _output_isolation()
+    isolation["output_root"] = "C:/work/scratch/consumer-staging/outputs"
+    with pytest.raises(ContractError, match="bajo raíz escribible"):
+        contracts_module._validate_candidate_output_isolation(isolation)
+
+
+def test_cadena_durable_acepta_hermano_con_prefijo_textual() -> None:
+    """La frontera es de directorio: `consumer-staging-2` no cuelga de `consumer-staging`."""
+    isolation = _output_isolation()
+    isolation["output_root"] = "C:/work/scratch/consumer-staging-2"
+    assert contracts_module._validate_candidate_output_isolation(isolation) == isolation
+
+
+def test_cadena_durable_acepta_aislamiento_completo() -> None:
+    isolation = _output_isolation()
+    assert contracts_module._validate_candidate_output_isolation(isolation) == isolation
+
+
 def _unit() -> dict[str, object]:
     return {
         "candidate_manifest_sha256": _digest("candidate"),
@@ -271,6 +415,7 @@ def _candidate_chain_fixture() -> dict[str, Any]:
         "candidate_request_sha256": candidate_request_sha,
         "candidate_execution_request": copy.deepcopy(execution_identity),
         "candidate_process": copy.deepcopy(process),
+        "output_isolation": _output_isolation(),
         "service_ready": None,
         "native_pools_observation": {
             "path": "C:/work/telemetry/control/native-pools-observation.json",

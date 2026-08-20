@@ -928,10 +928,7 @@ def test_roles_internos_no_omiten_nuevos_blockers_aunque_parcheen_flags_antiguos
         patch("scripts.readiness_h9r.adapters._read_canonical_control") as reader,
         pytest.raises(
             ContractError,
-            match=(
-                r"candidate_execution_material_lease_unimplemented.*"
-                r"candidate_output_os_isolation_unimplemented"
-            ),
+            match=r"candidate_execution_material_lease_unimplemented",
         ),
     ):
         entrypoint(

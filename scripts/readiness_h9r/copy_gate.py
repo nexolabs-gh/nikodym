@@ -137,7 +137,12 @@ _ACCESSIBLE_ATTRIBUTE_NAMES = frozenset(
     }
 )
 _NON_VISIBLE_HTML_CONTAINERS = frozenset({"script", "style"})
-_CATALOG_CONTRACTS_SHA256 = "5bac29c3e77b92276319c7094bdf674ed2b53fe5f4b9a1920f0d0b3df9f7a745"
+# Ancla de revisión: sólo se actualiza cuando `contracts.py` cambia de forma deliberada y esa
+# revisión queda registrada. 2026-08-20: la cadena durable pasó a validar `output_isolation` del
+# candidato, y tras la revisión adversarial de Codex se le añadieron la matriz cerrada
+# `CANDIDATE_DENIED_OPERATIONS`, la cardinalidad exacta de raíces y el rechazo de un OUTPUT_ROOT
+# declarado bajo raíz escribible. El digest se refija sobre el archivo revisado en ese cierre.
+_CATALOG_CONTRACTS_SHA256 = "1525b9ca295260fd91b2f0c5a5dd05086bc770b45688543c9790c70a88e47559"
 _APPROVED_DOCUMENT_SECTION_SHA256 = {
     4: "74419bba83db8dedbf2325dc3d57c419afbcebc6f31312868eb4e426581018e9",
     6: "662a49bef5c75672218c9de196b01c3b6eb04b85e0a7602e1439910504cdb4e5",

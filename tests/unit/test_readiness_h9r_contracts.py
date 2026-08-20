@@ -191,7 +191,6 @@ def test_catalogo_cierra_caps_geometrias_flujos_steps_y_resultados() -> None:
         "durable_calibration_authority_fingerprint_unpinned",
         "qualifying_boundary_adapters_unavailable",
         "candidate_execution_material_lease_unimplemented",
-        "candidate_output_os_isolation_unimplemented",
         "multiprocess_native_pool_observer_unimplemented",
     ]
     assert payload["calibration_start_disabled_reason"] == "; ".join(
@@ -200,12 +199,13 @@ def test_catalogo_cierra_caps_geometrias_flujos_steps_y_resultados() -> None:
     assert calibration_start_implementation_blockers() == (
         "qualifying_boundary_adapters_unavailable",
         "candidate_execution_material_lease_unimplemented",
-        "candidate_output_os_isolation_unimplemented",
         "multiprocess_native_pool_observer_unimplemented",
     )
     assert QUALIFYING_BOUNDARY_ADAPTERS_AVAILABLE is False
     assert CANDIDATE_EXECUTION_MATERIAL_LEASE_AVAILABLE is False
-    assert CANDIDATE_OUTPUT_OS_ISOLATION_AVAILABLE is False
+    # Implementado y acreditado con su censo OS y sus controles negativos; la puerta global sigue
+    # cerrada por los otros tres blockers.
+    assert CANDIDATE_OUTPUT_OS_ISOLATION_AVAILABLE is True
     assert TRUSTED_HARNESS_RUNTIME_SNAPSHOT_AVAILABLE is True
     assert MULTIPROCESS_NATIVE_POOL_OBSERVER_AVAILABLE is False
     assert len(FLOW_SPECS) == 15

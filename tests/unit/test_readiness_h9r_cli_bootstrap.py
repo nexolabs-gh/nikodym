@@ -67,33 +67,52 @@ def _isolated_command(cache: Path, *arguments: str) -> list[str]:
     ]
 
 
+def _run_isolated(
+    cache: Path,
+    *arguments: str,
+    check: bool = False,
+    timeout: float = 60.0,
+) -> tuple[int, str, str]:
+    """Ejecuta el driver aislado y decodifica sus flujos como UTF-8 exacto.
+
+    El comando contractual usa ``-I``, así que el hijo ignora ``PYTHONUTF8`` y
+    ``PYTHONIOENCODING``. Decodificar con la codificación del proceso que lanza pytest ataría el
+    resultado al entorno del runner —el arranque del runbook exporta UTF-8, CI no— y volvería el
+    gate irreproducible. El driver fija UTF-8 en sus flujos; esta prueba lo exige byte a byte.
+    """
+    completed = subprocess.run(
+        _isolated_command(cache, *arguments),
+        cwd=ROOT,
+        check=check,
+        capture_output=True,
+        timeout=timeout,
+    )
+    return (
+        completed.returncode,
+        completed.stdout.decode("utf-8"),
+        completed.stderr.decode("utf-8"),
+    )
+
+
 def test_cli_catalog_y_schemas_salen_de_snapshot_aislado(tmp_path: Path) -> None:
     catalog_cache = tmp_path / "catalog-cache"
-    catalog = subprocess.run(
-        _isolated_command(catalog_cache, "catalog"),
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    payload = json.loads(catalog.stdout)
-    assert catalog.stderr == ""
+    _, catalog_stdout, catalog_stderr = _run_isolated(catalog_cache, "catalog", check=True)
+    payload = json.loads(catalog_stdout)
+    assert catalog_stderr == ""
     assert payload["materialized_start_units"] == 0
     assert payload["calibration_start_enabled"] is False
     assert not list(catalog_cache.rglob("__pycache__"))
 
     schema_cache = tmp_path / "schema-cache"
     schema_output = tmp_path / "schemas"
-    schemas = subprocess.run(
-        _isolated_command(schema_cache, "schemas", "--directory", str(schema_output)),
-        cwd=ROOT,
+    _, _, schemas_stderr = _run_isolated(
+        schema_cache,
+        "schemas",
+        "--directory",
+        str(schema_output),
         check=True,
-        capture_output=True,
-        text=True,
-        timeout=60,
     )
-    assert schemas.stderr == ""
+    assert schemas_stderr == ""
     assert {path.name for path in schema_output.iterdir()} == {
         "aggregate.schema.json",
         "attempt.schema.json",
@@ -263,32 +282,30 @@ def test_cli_rechaza_aislamiento_incompleto(tmp_path: Path) -> None:
         cache = tmp_path / f"missing-{missing_flag[1:]}"
         command = _isolated_command(cache, "catalog")
         command.remove(missing_flag)
-        result = subprocess.run(
+        completed = subprocess.run(
             command,
             cwd=ROOT,
             check=False,
             capture_output=True,
-            text=True,
             timeout=60,
         )
-        assert result.returncode != 0
-        assert "exige -I -B -S" in result.stderr
+        assert completed.returncode != 0
+        assert "exige -I -B -S" in completed.stderr.decode("utf-8")
 
 
 def test_cli_rechaza_cache_preexistente(tmp_path: Path) -> None:
     cache = tmp_path / "dirty-cache"
     command = _isolated_command(cache, "catalog")
     (cache / "stale.pyc").write_bytes(b"not-bytecode")
-    result = subprocess.run(
+    completed = subprocess.run(
         command,
         cwd=ROOT,
         check=False,
         capture_output=True,
-        text=True,
         timeout=60,
     )
-    assert result.returncode != 0
-    assert "directorio fresco vacío" in result.stderr
+    assert completed.returncode != 0
+    assert "directorio fresco vacío" in completed.stderr.decode("utf-8")
 
 
 def test_cli_schemas_rechaza_parent_junction_sin_escribir_fuera(tmp_path: Path) -> None:
@@ -317,15 +334,18 @@ def test_cli_harness_test_publica_runtime_y_cero_start(tmp_path: Path) -> None:
         pytest.skip("harness-test exige el runtime firmado Windows/CPython 3.12")
     cache = tmp_path / "harness-cache"
     output = tmp_path / "harness-test.json"
-    harness_test = subprocess.run(
-        _isolated_command(cache, "harness-test", "--output", str(output)),
-        cwd=ROOT,
+    # El fusible sólo evita que un cuelgue bloquee la suite: no es un budget del arnés. La matriz
+    # sintética midió entre 119 s y 129 s en esta torre, de modo que 120 s dejaba la prueba
+    # dependiente de la carga del host.
+    _, _, harness_test_stderr = _run_isolated(
+        cache,
+        "harness-test",
+        "--output",
+        str(output),
         check=True,
-        capture_output=True,
-        text=True,
-        timeout=120,
+        timeout=600.0,
     )
-    assert harness_test.stderr == ""
+    assert harness_test_stderr == ""
     artifact = json.loads(output.read_text(encoding="utf-8"))
     assert artifact["start_tokens_emitted"] == 0
     assert artifact["materialized_start_units"] == 0

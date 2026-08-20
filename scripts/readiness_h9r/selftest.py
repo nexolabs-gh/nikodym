@@ -77,6 +77,18 @@ from .windows_job import (
     resume_suspended_process,
     system_memory_status,
 )
+from .windows_sandbox import (
+    LOW_INTEGRITY_SID,
+    apply_low_integrity_label,
+    census_output_isolation,
+    clear_mandatory_label,
+    launch_suspended_low_integrity,
+    low_integrity_primary_token,
+    mandatory_label,
+    probe_output_root_denial,
+    process_integrity_level,
+    terminated_on_exit,
+)
 
 CONTROL_IDS = (
     "authority_preflight",
@@ -91,6 +103,7 @@ CONTROL_IDS = (
     "sidecar_tampered_missing",
     "disk_allocation_temporaries",
     "statistics_missing_max_discard",
+    "candidate_output_os_isolation",
     "copy",
 )
 
@@ -1450,6 +1463,219 @@ def _control_statistics(root: Path) -> dict[str, Any]:
     )
 
 
+def _isolation_child(script: Path, target: Path, *, body: str) -> None:
+    script.write_text(
+        f"import os, sys\ntarget = r'{target}'\n{body}\n",
+        encoding="utf-8",
+    )
+
+
+def _run_isolation_child(script: Path, *, capture_root: Path, sandboxed: bool, name: str) -> int:
+    """Ejecuta un doble sintético del arnés, con o sin el token de integridad Low."""
+    stdout_path = capture_root / f"{name}.stdout.bin"
+    stderr_path = capture_root / f"{name}.stderr.bin"
+    command = [sys.executable, "-I", "-B", "-S", str(script)]
+    with stdout_path.open("xb") as out, stderr_path.open("xb") as err:
+        if not sandboxed:
+            completed = subprocess.run(
+                command,
+                cwd=capture_root,
+                stdin=subprocess.DEVNULL,
+                stdout=out,
+                stderr=err,
+                check=False,
+                timeout=120,
+            )
+            return int(completed.returncode)
+        with low_integrity_primary_token() as token:
+            process = launch_suspended_low_integrity(
+                command,
+                token=token,
+                cwd=capture_root,
+                environment={"SYSTEMROOT": os.environ["SYSTEMROOT"], "PYTHONHASHSEED": "0"},
+                stdout_fd=out.fileno(),
+                stderr_fd=err.fileno(),
+            )
+            with terminated_on_exit(process):
+                if process_integrity_level(process.pid) != LOW_INTEGRITY_SID:
+                    raise RuntimeError("el doble sintético no quedó en integridad Low")
+                resume_suspended_process(process.pid)
+                return process.wait(timeout=120)
+
+
+def _control_output_isolation(root: Path) -> dict[str, Any]:
+    """Prueba que la garantía OS sobre OUTPUT_ROOT es real y que su censo se pone rojo.
+
+    Usa dobles sintéticos del propio arnés: ningún candidato, fixture ni unidad. El rojo se
+    inyecta con raíces efímeras —una escribible sin etiqueta y una protegida con etiqueta— para
+    no tocar las etiquetas reales, cuyo censo debe volver idéntico byte a byte.
+    """
+    control_root = root / "output-isolation"
+    workdir = control_root / "workdir"
+    scratch = workdir / "scratch"
+    staging = scratch / "consumer-staging"
+    telemetry = workdir / "telemetry"
+    vacuity = control_root / "vacuidad"
+    for path in (control_root, workdir, scratch, staging, telemetry, vacuity):
+        path.mkdir()
+    # `vacuidad` vive fuera del workdir a propósito: el censo del subárbol exige integridad media
+    # en todo lo que cuelgue del contenedor de OUTPUT_ROOT.
+    outputs = workdir / "outputs"
+    writable = [staging]
+    protected = [workdir, scratch, telemetry]
+
+    def label_census() -> str:
+        return str(
+            canonical_json_sha256(
+                {str(item): mandatory_label(item) for item in (*writable, *protected)}
+            )
+        )
+
+    def censo(*, writable_roots: Sequence[Path], protected_roots: Sequence[Path]) -> dict[str, Any]:
+        return census_output_isolation(
+            output_root=outputs,
+            writable_roots=writable_roots,
+            protected_roots=protected_roots,
+            denial_probe=probe_output_root_denial(outputs, python_executable=Path(sys.executable)),
+        )
+
+    apply_low_integrity_label(staging)
+    before_sha256 = label_census()
+    green_before = censo(writable_roots=writable, protected_roots=protected)
+
+    denied_script = staging / "denegado.py"
+    _isolation_child(
+        denied_script,
+        outputs,
+        body=(
+            "try:\n    os.mkdir(target)\nexcept PermissionError:\n    sys.exit(0)\nsys.exit(1)\n"
+        ),
+    )
+    denied_code = _run_isolation_child(
+        denied_script, capture_root=staging, sandboxed=True, name="denegado"
+    )
+    if denied_code != 0 or outputs.exists():
+        raise RuntimeError("el doble con integridad Low alcanzó OUTPUT_ROOT")
+
+    vacuity_target = vacuity / "outputs"
+    vacuity_script = staging / "vacuidad.py"
+    _isolation_child(
+        vacuity_script,
+        vacuity_target,
+        body="os.mkdir(target)\nsys.exit(0)\n",
+    )
+    vacuity_code = _run_isolation_child(
+        vacuity_script, capture_root=staging, sandboxed=False, name="vacuidad"
+    )
+    if vacuity_code != 0 or not vacuity_target.is_dir():
+        raise RuntimeError("el control de vacuidad no demostró que la operación sí es posible")
+    vacuity_target.rmdir()
+
+    # El primer defecto muta la raíz real y se restaura de verdad: retirar la etiqueta de
+    # `staging` es exactamente lo que dejaría al candidato sin confinamiento.
+    clear_mandatory_label(staging)
+    try:
+        causes = [
+            _observe_red(
+                lambda: censo(writable_roots=writable, protected_roots=protected),
+                contains="sin etiqueta Low efectiva",
+            )
+        ]
+    finally:
+        apply_low_integrity_label(staging)
+    if label_census() != before_sha256:
+        raise RuntimeError("la etiqueta de staging no volvió al censo exacto anterior")
+
+    # El segundo defecto etiqueta una raíz declarada protegida; el tercero etiqueta un directorio
+    # que nadie declaró, que sólo puede detectar el censo del subárbol. Ambos se retiran.
+    apply_low_integrity_label(telemetry)
+    try:
+        causes.append(
+            _observe_red(
+                lambda: censo(writable_roots=writable, protected_roots=protected),
+                contains="raíz protegida con etiqueta",
+            )
+        )
+    finally:
+        clear_mandatory_label(telemetry)
+
+    intruder = workdir / "intruso-no-declarado"
+    intruder.mkdir()
+    apply_low_integrity_label(intruder)
+    try:
+        causes.append(
+            _observe_red(
+                lambda: censo(writable_roots=writable, protected_roots=protected),
+                contains="etiqueta obligatoria inesperada",
+            )
+        )
+    finally:
+        clear_mandatory_label(intruder)
+        intruder.rmdir()
+
+    # Cuarto defecto: un **archivo** etiquetado bajo un padre de integridad media. Se inyecta por
+    # el vector real —crearlo dentro de una raíz Low, donde la etiqueta se hereda, y moverlo a una
+    # protegida, donde el rename conserva el descriptor de seguridad—, no aplicando la etiqueta a
+    # mano. Un censo que sólo recorriera directorios lo dejaría pasar, y ese archivo seguiría
+    # siendo escribible por el candidato pese al padre protegido.
+    inherited = staging / "heredado.bin"
+    inherited.write_bytes(b"contenido heredado")
+    intruder_file = workdir / "intruso-archivo.bin"
+    os.replace(inherited, intruder_file)
+    if mandatory_label(intruder_file) != LOW_INTEGRITY_SID:
+        raise RuntimeError("el archivo movido no conservó la etiqueta Low heredada")
+    try:
+        causes.append(
+            _observe_red(
+                lambda: censo(writable_roots=writable, protected_roots=protected),
+                contains="etiqueta obligatoria inesperada",
+            )
+        )
+    finally:
+        intruder_file.unlink()
+
+    causes.append(
+        _observe_red(
+            lambda: census_output_isolation(
+                output_root=outputs,
+                writable_roots=writable,
+                protected_roots=protected,
+                denial_probe={"performed": False, "returncode": 0},
+            ),
+            contains="probe de denegación efectivamente ejecutado",
+        )
+    )
+    after_sha256 = label_census()
+    green_after = censo(writable_roots=writable, protected_roots=protected)
+    if green_before["writable_roots"] != green_after["writable_roots"] or (
+        green_before["protected_roots"] != green_after["protected_roots"]
+    ):
+        raise RuntimeError("el censo de aislamiento no volvió al mismo verde")
+    return _control_result(
+        red_causes=causes,
+        before_sha256=before_sha256,
+        after_sha256=after_sha256,
+        restoration_scope=(
+            "etiquetas obligatorias de las raíces reales",
+            "archivo heredado movido a la raíz protegida",
+        ),
+        evidence={
+            "mechanism": green_after["mechanism"],
+            "candidate_token_integrity_sid": LOW_INTEGRITY_SID,
+            "writable_roots_labeled": len(green_after["writable_roots"]),
+            "protected_roots_unlabeled": len(green_after["protected_roots"]),
+            "container_objects_inspected": green_after["container_objects_inspected"],
+            "denied_operations": len(green_after["denial_probe"]["denied_operations"]),
+            "low_integrity_child_denied_output_root": denied_code == 0,
+            "medium_integrity_child_created_equivalent": vacuity_code == 0,
+            "denial_probe_performed": bool(green_after["denial_probe"]["performed"]),
+            "output_root_present": outputs.exists(),
+            "start_tokens_emitted": 0,
+            "candidate_workloads_executed": 0,
+        },
+    )
+
+
 def _control_copy(root: Path) -> dict[str, Any]:
     control_root = root / "copy"
     control_root.mkdir()
@@ -1577,6 +1803,7 @@ def run_harness_self_test(
             "sidecar_tampered_missing": _control_sidecar(temporary_path),
             "disk_allocation_temporaries": _control_disk(temporary_path),
             "statistics_missing_max_discard": _control_statistics(temporary_path),
+            "candidate_output_os_isolation": _control_output_isolation(temporary_path),
             "copy": _control_copy(temporary_path),
         }
         if tuple(controls) != CONTROL_IDS or any(

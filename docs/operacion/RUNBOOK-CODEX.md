@@ -380,7 +380,8 @@ La aprobación de
 autoriza implementar y probar el **arnés**, no ejecutar workloads ni convertir sus caps, geometrías,
 deadlines o repeticiones en valores finales. Los únicos subcomandos del driver que se pueden usar
 sin una autorización humana nueva y exacta son `catalog`, `schemas` y `harness-test`: los dos
-primeros son declarativos y el tercero ejecuta únicamente los trece controles sintéticos cerrados.
+primeros son declarativos y el tercero ejecuta únicamente los catorce controles sintéticos
+cerrados.
 Los tres materializan cero unidades START y no alcanzan ningún consumidor candidato.
 
 ```powershell
@@ -468,8 +469,8 @@ try {
         ConvertFrom-Json
     if ($nikodymH9rHarness.start_tokens_emitted -ne 0 -or
         $nikodymH9rHarness.materialized_start_units -ne 0 -or
-        @($nikodymH9rHarness.controls.PSObject.Properties).Count -ne 13) {
-        throw 'harness-test H9R no acredita 13 controles y cero START/unidades'
+        @($nikodymH9rHarness.controls.PSObject.Properties).Count -ne 14) {
+        throw 'harness-test H9R no acredita 14 controles y cero START/unidades'
     }
 }
 finally {
@@ -500,6 +501,18 @@ if ($LASTEXITCODE -ne 0) { throw 'ruff focal H9R falló' }
     @nikodymH9rTests
 if ($LASTEXITCODE -ne 0) { throw 'ruff format focal H9R falló' }
 ```
+
+El glob `test_readiness_h9r_*.py` cubre también el aislamiento OS del candidato. Ese archivo aplica
+etiquetas de integridad obligatoria sobre directorios temporales propios de `tmp_path` y lanza hijos
+con un token de integridad Low; no toca el checkout, no exige administrador y no deja etiquetas
+fuera del directorio temporal de la prueba. Si el host negara `SetNamedSecurityInfoW`, el gate se
+pone rojo en vez de continuar: una etiqueta que no queda efectiva nunca se da por buena.
+
+Dos controles de ese archivo dependen del host y se saltan solos en vez de fingir verde: el de
+symlink exige un privilegio que esta torre no concede (`WinError 1314`) y el de hardlink exige que
+el volumen los soporte. El criterio de reparse points **sí** queda ejercido aquí, porque su control
+usa una junction, que `_winapi.CreateJunction` crea sin privilegios. Un salto de symlink no
+significa que la frontera esté sin probar; significa que se probó por la otra cara.
 
 `preflight` sólo puede recibir manifiestos, config, schedule y texto de autoridad exactos de una
 unidad; un preflight verde sigue sin autorizar START. No copiar ni adaptar aquí una invocación de

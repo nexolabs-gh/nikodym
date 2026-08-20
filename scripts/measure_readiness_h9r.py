@@ -2130,9 +2130,28 @@ def _verify_safe_harness_dependencies(*, activate: bool) -> dict[str, Any]:
     return result
 
 
+def _force_utf8_streams() -> None:
+    """Fija UTF-8 en los flujos del CLI antes de emitir cualquier diagnóstico.
+
+    El comando contractual usa ``-I``: el intérprete ignora ``PYTHONUTF8`` y ``PYTHONIOENCODING``
+    del proceso padre y escribiría estos mensajes en la codificación ANSI del host. Los
+    consumidores del arnés —pruebas focales, runbook y logs de CI— exigen los mismos bytes en
+    cualquier host, así que la codificación se fija aquí y no se hereda del entorno.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            # `errors` se conserva a propósito: pasar sólo `encoding` haría que CPython imponga
+            # `strict`, y un carácter no codificable en un diagnóstico pasaría de escaparse a
+            # tumbar el proceso con un error sin clasificar.
+            stream.reconfigure(encoding="utf-8", errors=stream.errors)
+
+
 def _require_product_bootstrap_isolation() -> None:
     """Falla antes de importar tooling local si un comando ejecutable podría leer pyc ajeno."""
-    if __name__ != "__main__" or len(sys.argv) < 2:
+    if __name__ != "__main__":
+        return
+    _force_utf8_streams()
+    if len(sys.argv) < 2:
         return
     command = sys.argv[1]
     if command not in {

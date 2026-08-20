@@ -452,10 +452,47 @@ alcanzable. Un scoring verde no compensa LGD/temporal rojo y W1 no anticipa W2�
 | disco | falsificar allocation size o excluir temporales del censo | reconciliación de footprint roja |
 | estadística | omitir un intento o descartar el máximo | agregado de cardinalidad/regla rojo |
 | copy | insertar “4 CPU/8 GB” como capacidad en superficie pública | gate de copy rojo antes de PASS |
+| aislamiento OS del candidato | quitar la etiqueta de una raíz escribible; ponérsela a una protegida; dejar un **archivo** etiquetado bajo un padre protegido; interponer una junction en el contenedor | censo bidireccional rojo en los cuatro casos, con la denegación real del SO comprobada contra un doble sintético |
 
 Cada control sigue verde → defecto mínimo → rojo por la causa prevista → restauración byte-exacta →
 verde. Los controles de completitud se prueban en ambos sentidos. Ningún defecto temporal permanece
 en el árbol ni se restaura desde el índice Git.
+
+## 12.1 Fronteras de implementación y su estado medido
+
+El arnés no abre su puerta central mientras falte cualquiera de estas fronteras. Ninguna de ellas
+autoriza START: cerrarlas sólo deja de bloquear por *implementación*, y la autorización humana por
+unidad sigue siendo obligatoria.
+
+| Frontera | Estado | Evidencia |
+|---|---|---|
+| `qualifying_boundary_adapters_unavailable` | abierta | broker consumer-open y proxy UI existen como prototipo; no califican sin lease continuo |
+| `candidate_execution_material_lease_unimplemented` | abierta | falta lease no-follow del ejecutable, árbol candidato e inputs hasta la quiescencia |
+| `candidate_output_os_isolation_unimplemented` | **cerrada el 2026-08-20** | token de integridad Low para candidato y probe, etiqueta obligatoria Low sólo en las tres raíces escribibles y censo bidireccional remedido tras la quiescencia |
+
+La revisión adversarial independiente de ese cierre exigió tres correcciones antes de aceptarlo, y
+las tres están incorporadas:
+
+- el censo del contenedor recorre **archivos y directorios**, no sólo directorios: la integridad
+  obligatoria protege cada objeto y no se hereda del padre ya creado, así que un archivo etiquetado
+  bajo un padre protegido seguiría siendo escribible por el candidato. Reparse points y hardlinks
+  son condiciones rojas; la detección usa el bit `FILE_ATTRIBUTE_REPARSE_POINT` porque una junction
+  —creable sin privilegios— declara `is_symlink() == False` y sí es un directorio para el
+  recorrido;
+- el probe de denegación ejerce cinco verbos y no tres: añade crear un archivo y sobrescribir uno
+  existente, que son los accesos con los que se falsificaría un manifiesto publicado en vez de
+  reemplazarlo;
+- el censo tiene **cardinalidad cerrada** —tres raíces escribibles y seis protegidas— y la
+  revalidación exige igualdad exacta contra el layout derivado, no mera pertenencia: sin eso, una
+  evidencia que omitiera una raíz acreditaba el aislamiento con cobertura parcial.
+| `multiprocess_native_pool_observer_unimplemented` | abierta | sólo el proceso raíz se auto-reporta; falta atestar cada PID/creation-time del Job |
+
+El mecanismo aprobado para la tercera es `windows_mandatory_integrity_low_v1`. Se eligió tras medir
+y descartar dos alternativas en la misma torre: un token `WRITE_RESTRICTED` con SID `RESTRICTED`
+deja al hijo en `STATUS_DLL_INIT_FAILED` incluso concediendo el logon SID o reescribiendo el DACL de
+`WinSta0\Default`, y crear una window station propia devuelve `ACCESS_DENIED` sin privilegios de
+administrador. La integridad obligatoria no exige administrador, no toca ningún objeto compartido
+del sistema y se hereda a todo descendiente del candidato.
 
 ## 13. Puertas humanas restantes
 

@@ -138,6 +138,12 @@ from .windows_job import (
     resume_suspended_process,
     system_memory_status,
 )
+from .windows_sandbox import (
+    LOW_INTEGRITY_SID,
+    launch_suspended_low_integrity,
+    low_integrity_primary_token,
+    process_integrity_level,
+)
 
 CANDIDATE_SCHEMA_VERSION = "nikodym.readiness.h9r.candidate.v1"
 CANDIDATE_ENVIRONMENT_SCHEMA_VERSION = "nikodym.readiness.h9r.candidate-environment.v1"
@@ -151,15 +157,16 @@ QUALIFYING_BOUNDARY_ADAPTERS_AVAILABLE = False
 TRUSTED_HARNESS_RUNTIME_SNAPSHOT_AVAILABLE = True
 MULTIPROCESS_NATIVE_POOL_OBSERVER_AVAILABLE = False
 CANDIDATE_EXECUTION_MATERIAL_LEASE_AVAILABLE = False
-CANDIDATE_OUTPUT_OS_ISOLATION_AVAILABLE = False
+# Implementado el 2026-08-20: el candidato se crea con token primario de integridad Low y sólo sus
+# tres raíces escribibles llevan etiqueta obligatoria Low. El censo se mide contra el sistema
+# operativo antes de crear el proceso y se vuelve a medir tras la quiescencia.
+CANDIDATE_OUTPUT_OS_ISOLATION_AVAILABLE = True
 CALIBRATION_START_DISABLED_REASON = (
     "qualifying_boundary_adapters_unavailable: faltan adapters firmados que entreguen inputs "
     "mediante un broker consumer-open y, para F-UI, un servicio real con página verificable; "
     "candidate_execution_material_lease_unimplemented: falta un snapshot sellado o leases "
     "no-follow continuos del ejecutable, árbol candidato e inputs desde su validación hasta la "
     "quiescencia; "
-    "candidate_output_os_isolation_unimplemented: falta impedir en el sistema operativo que el "
-    "token candidato cree, borre o reemplace OUTPUT_ROOT y su manifiesto; "
     "multiprocess_native_pool_observer_unimplemented: falta atestar pools por PID/creation-time "
     "para cada proceso del Job consumidor"
 )
@@ -1112,53 +1119,73 @@ def _run_candidate_probe_in_job(
     memory_bytes: int,
     affinity_mask: int,
     env: Mapping[str, str],
+    capture_root: Path,
     deadline_monotonic: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Ejecuta el probe autorizado suspendido y confinado, sin emitir START."""
-    # El probe ejecuta bytes del candidato. La autoridad humana no puede levantar por sí sola
-    # las fronteras de aislamiento todavía ausentes, ni siquiera para este Popen pre-START.
+    """Ejecuta el probe autorizado suspendido, confinado y con integridad Low, sin emitir START.
+
+    El probe también ejecuta bytes del candidato, así que hereda el mismo aislamiento OS que el
+    consumidor: token de integridad Low y captura por handles ya abiertos por el arnés. Sin esto,
+    la garantía sobre ``OUTPUT_ROOT`` tendría un agujero pre-START.
+    """
+    # La autoridad humana no puede levantar por sí sola las fronteras todavía ausentes, ni
+    # siquiera para este lanzamiento pre-START.
     require_calibration_start_implementation_ready()
     if timeout <= 0:
         raise ContractError("deadline del probe candidato agotado")
     if deadline_monotonic is not None and deadline_monotonic <= time.monotonic():
-        raise ContractError("deadline del probe candidato agotado antes de Popen")
-    with WindowsJob(memory_bytes=memory_bytes, affinity_mask=affinity_mask) as probe_job:
-        process = subprocess.Popen(
-            list(command),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="strict",
-            env=dict(env),
-            close_fds=True,
-            creationflags=0x00000004,
-        )
+        raise ContractError("deadline del probe candidato agotado antes de crear el proceso")
+    stdout_path = capture_root / "probe.stdout.bin"
+    stderr_path = capture_root / "probe.stderr.bin"
+    with (
+        WindowsJob(memory_bytes=memory_bytes, affinity_mask=affinity_mask) as probe_job,
+        stdout_path.open("xb") as stdout_handle,
+        stderr_path.open("xb") as stderr_handle,
+    ):
+        with low_integrity_primary_token() as probe_token:
+            process = launch_suspended_low_integrity(
+                list(command),
+                token=probe_token,
+                cwd=capture_root,
+                environment=dict(env),
+                stdout_fd=stdout_handle.fileno(),
+                stderr_fd=stderr_handle.fileno(),
+            )
         try:
             probe_job.assign(process.pid)
+            effective_integrity = process_integrity_level(process.pid)
+            if effective_integrity != LOW_INTEGRITY_SID:
+                raise ContractError(
+                    "limits_not_applied: el probe candidato no quedó en integridad Low efectiva "
+                    f"({effective_integrity})"
+                )
             if deadline_monotonic is not None:
                 remaining = deadline_monotonic - time.monotonic()
                 if remaining <= 0:
                     raise ContractError("deadline del probe candidato agotado antes de resume")
                 timeout = min(timeout, remaining)
             resume_suspended_process(process.pid, probe_job.api)
-            stdout, stderr = process.communicate(timeout=timeout)
+            returncode = process.wait(timeout=timeout)
         except BaseException:
             with contextlib.suppress(Exception):
                 probe_job.terminate(_SUPERVISOR_ABORT_EXIT_CODE)
             with contextlib.suppress(Exception):
-                process.communicate(timeout=10)
+                process.wait(timeout=10)
             raise
+        finally:
+            process.close()
         if not probe_job.wait_empty(10.0):
             probe_job.terminate(_SUPERVISOR_ABORT_EXIT_CODE)
             raise ContractError("probe candidato dejó procesos huérfanos")
-        return subprocess.CompletedProcess(
-            args=list(command),
-            returncode=int(process.returncode),
-            stdout=stdout,
-            stderr=stderr,
-        )
+    return subprocess.CompletedProcess(
+        args=list(command),
+        returncode=returncode,
+        # stdout debe ser JSON canónico exacto y se decodifica estricto. stderr es diagnóstico del
+        # candidato: su codificación depende del host, así que no puede tumbar al supervisor con
+        # una excepción sin clasificar.
+        stdout=stdout_path.read_bytes().decode("utf-8"),
+        stderr=stderr_path.read_bytes().decode("utf-8", errors="replace"),
+    )
 
 
 def _probe_candidate_runtime(
@@ -1178,7 +1205,7 @@ def _probe_candidate_runtime(
     if deadline_monotonic is not None:
         remaining = deadline_monotonic - time.monotonic()
         if remaining <= 0:
-            raise ContractError("deadline del probe candidato agotado antes de Popen")
+            raise ContractError("deadline del probe candidato agotado antes de crear el proceso")
         timeout = min(timeout, remaining)
     with tempfile.TemporaryDirectory(prefix="nikodym-h9r-probe-pycache-") as cache:
         completed = _run_candidate_probe_in_job(
@@ -1201,6 +1228,7 @@ def _probe_candidate_runtime(
                 for key in ("SYSTEMDRIVE", "SYSTEMROOT", "WINDIR")
                 if key in os.environ
             },
+            capture_root=Path(cache),
             deadline_monotonic=deadline_monotonic,
         )
     if completed.returncode != 0:
