@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import _winapi
 import os
 import subprocess
 import sys
@@ -704,6 +703,10 @@ def test_censo_rechaza_junction_dentro_del_contenedor(tmp_path: Path) -> None:
     externo = tmp_path / "externo"
     externo.mkdir()
     enlace = paths["workdir"] / "redirigido"
+    # Import local a propósito: `_winapi` sólo existe en Windows y a nivel de módulo rompería
+    # la colección de pytest en Linux/macOS, donde este archivo igual debe importarse.
+    import _winapi
+
     try:
         _winapi.CreateJunction(str(externo), str(enlace))
     except OSError as exc:  # pragma: no cover - torre sin soporte de junctions
