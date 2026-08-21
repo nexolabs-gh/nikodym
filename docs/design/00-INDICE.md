@@ -80,6 +80,20 @@ el arnés; sin START, medición ni valores finales**:
 hipótesis de caps/geometrías, deadlines externos, repeticiones, fronteras, instrumentación, schema y
 controles negativos; no autoriza START/S0/S1/S2, fixtures definitivos, medición ni perfiles finales.
 
+Enmienda **propuesta, no aprobada y no implementada**:
+[`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md), D-LEA-0 y
+D-LEA-1…D-LEA-19. Propone cerrar la frontera `candidate_execution_material_lease_unimplemented` de
+§12.1 del protocolo pre-START con tres piezas —lease `windows_share_mode_lease_v1` contra
+sustitución, clausura y gate síncrono de imágenes e imports contra inyección, y publicación
+provisional-release-promoción contra falso éxito—, con la semántica del sistema operativo medida en
+la torre writer. Quinta redacción: las tres primeras pasaron por **tres** revisiones adversariales
+independientes que devolvieron NO SHIP, y sus dieciséis hallazgos están verificados contra el árbol
+vivo. **No pide el OK todavía**: recomienda medir dos incógnitas acotadas de `DEBUG_PROCESS` y
+volver con una cuarta revisión. §0 mide que un proceso Medium del mismo usuario **sí** puede inyectar
+memoria en el candidato con el diseño vigente y que esa vía **se cierra sin administrador** con una
+DACL restrictiva más un ACE de `OWNER RIGHTS` —la DACL sola no basta, porque el dueño la reescribe—.
+No autoriza START ni mueve la puerta global.
+
 **28 SDD históricos · SDD-29 reservado · SDD-30 aprobado · 9 tandas identificadas
 (T0–T8; T0 = verificación, sin SDD nuevo).** La madurez pública y la garantía SemVer se declaran
 únicamente en `ROADMAP.md`; la aprobación de SDD-30 no autoriza por sí sola PyPI ni recaptura.

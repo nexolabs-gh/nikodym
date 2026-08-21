@@ -494,6 +494,22 @@ deja al hijo en `STATUS_DLL_INIT_FAILED` incluso concediendo el logon SID o rees
 administrador. La integridad obligatoria no exige administrador, no toca ningún objeto compartido
 del sistema y se hereda a todo descendiente del candidato.
 
+Para `candidate_execution_material_lease_unimplemented` existe desde el 2026-08-21 un mecanismo
+**propuesto y todavía no aprobado**, con la semántica del sistema operativo medida en la torre
+writer: [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md), D-LEA-0 y
+D-LEA-1…D-LEA-19. La frontera sigue **abierta** y su cierre exige el OK de Cami, porque el arnés
+pasaría a retener handles —y, en una variante, a modificar descriptores de seguridad— sobre rutas
+propiedad del operador y fuera del workdir, el manifiesto candidato ganaría declaraciones
+obligatorias nuevas y la publicación de evidencia pasaría de un paso a tres.
+
+Tres revisiones adversariales independientes rechazaron las tres primeras redacciones con dieciséis
+hallazgos, todos verificados contra el árbol vivo. Dos conclusiones cambian esta línea de catálogo:
+congelar **no** se consigue sólo con un lease, porque un plantado transitorio deja el censo final
+limpio y detectar no equivale a prevenir; y la promesa de que «nadie» sustituya el material topa con
+que un proceso Medium del mismo usuario puede inyectar código en la memoria del candidato sin tocar
+archivos. Está medido que esa vía se cierra sin privilegios de administrador con una DACL restrictiva
+más un ACE de `OWNER RIGHTS`.
+
 ## 13. Puertas humanas restantes
 
 1. **Cumplida:** revisión independiente read-only de este texto.
