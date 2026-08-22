@@ -30,6 +30,7 @@
 | D-FTE-1…5 | Aprobada e implementada | [`_ENMIENDA-COTEJO-FUENTES.md`](_ENMIENDA-COTEJO-FUENTES.md) |
 | D-VIS-1…7 | Aprobada; D-VIS-1…5/7 implementadas; completitud D-VIS-6 abierta | [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md) |
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
+| D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 
 ## D-RDY — readiness integral
 
@@ -82,6 +83,37 @@ Enmienda H9R aprobada:
 Protocolo pre-START aprobado el 2026-08-13 para implementar, probar y revisar únicamente el arnés;
 sin autorización de START/S0/S1/S2, medición ni valores finales:
 [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md).
+
+## D-LEA — congelación del material de ejecución candidato
+
+Cami aprobó el 2026-08-22 el escenario **0-a** de §10.2 de la enmienda, con variante **A** (§7.1),
+clausura del intérprete **incluida** (§7.2), **asumir el coste** (§7.7) y **§7.5 = sí**; §7.3 fija en
+sí por §4.1. La enmienda tuvo cinco revisiones adversariales independientes.
+
+Reglas vigentes:
+
+- La frontera promete **consistencia del material en disco** —nadie puede sustituir, borrar,
+  renombrar ni reemplazar los bytes, ni añadir material ejecutable que la evidencia no atestigüe— y
+  los procesos Medium del mismo usuario quedan **dentro del TCB** (0-a). La inyección en memoria
+  (0-b) **no** se promete: se difiere al blocker propio
+  `candidate_process_memory_isolation_unimplemented`.
+- Tres piezas: lease anti-sustitución (D-LEA-1…9), anti-inyección por los dos canales —imágenes por
+  depuración (D-LEA-12) y canal Python vía audit hook (D-LEA-12b)— con clausura del intérprete
+  declarada (D-LEA-13), y máquina de publicación provisional→release→promoción (D-LEA-16…18) con
+  paquete durable content-addressed (D-LEA-17c).
+- **D-LEA-20 no se aprobó.** El endurecimiento posterior de descendientes tiene una carrera de
+  handles (F1) y el supervisor es una puerta trasera sin endurecer (F2); cerrar 0-b exige un broker
+  de creación y endurecer el supervisor, materia del blocker diferido, no de esta frontera.
+- **D-LEA-19:** aprobar **no** habilita START. Al **integrar** el mecanismo se retira
+  `candidate_execution_material_lease_unimplemented` y se abre
+  `candidate_process_memory_isolation_unimplemented`; la puerta global no baja de blockers. El flip
+  ocurre con el código implementado y sus controles negativos verdes, **no** al firmar.
+- La implementación es **por capas** (Anexo A de la enmienda); hasta A.4 el catálogo sigue
+  declarando el blocker de lease, que es lo honesto.
+
+Estado: **Aprobada; implementación por capas en curso.** No autoriza START, fingerprint, fixtures ni
+valores finales. Fuente, decisiones y controles negativos preespecificados:
+[`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md).
 
 ## D-JUR — normativa local como evidencia
 

@@ -1,6 +1,7 @@
 # Enmienda propuesta — congelación continua del material de ejecución candidato
 
-> **Estado: PROPUESTA. No aprobada. No implementada.** Octava redacción. Cinco revisiones
+> **Estado: APROBADA (0-a) el 2026-08-22 por Cami. Implementación por capas en curso — ver
+> Anexo A.** Octava redacción. Cinco revisiones
 > adversariales independientes, **cinco NO SHIP**. Las redacciones 1–3 acumularon dieciséis
 > hallazgos; la sexta midió cuatro casillas abiertas y la cuarta revisión devolvió seis hallazgos
 > más; la séptima los incorporó y la **quinta revisión** —la segunda que cubrió §0— devolvió
@@ -60,6 +61,38 @@
 > **D-LEA-17c**. Enmienda a
 > [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md) §12 y §12.1;
 > no modifica D-RDY-ABA ni D-RDY-H9R.
+
+## Registro de aprobación — 2026-08-22
+
+Cami firmó el **texto de §10.2 en el escenario recomendado 0-a**. Configuración exacta aceptada
+(las ramas quedaron en la recomendación de cada apartado; ninguna se desvió):
+
+| Apartado | Elección firmada |
+|---|---|
+| §7.0 — modelo de amenaza (D-LEA-0) | **0-a** (mismo usuario Medium dentro del TCB; consistencia del material **en disco**) |
+| §7.6 — camino | **aprobar ahora** |
+| §7.1 — frontera del mecanismo | **A** (lease puro en sitio; se **mantiene** D-LEA-9) |
+| §7.2 — clausura del intérprete | **incluir ahora** (se aprueba D-LEA-13) |
+| §7.7 — precio del intento | **asumir el coste** (+136,4 %) |
+| §7.5 — runtime del arnés | **sí** (se abre `trusted_harness_interpreter_closure_undeclared` como blocker propio) |
+| §7.3 — evidencias de campaña | **sí**, fijada por §4.1 |
+
+**Decisiones D-LEA aprobadas:** D-LEA-0 (fijada en 0-a), D-LEA-1…D-LEA-8, **D-LEA-9** (por variante
+A), D-LEA-10, D-LEA-11, D-LEA-12, **D-LEA-12b**, **D-LEA-13** (por «incluir ahora»), D-LEA-14…D-LEA-19,
+D-LEA-21, D-LEA-22, con **D-LEA-17b** y **D-LEA-17c**. **D-LEA-20 NO se aprueba**: la inyección en
+memoria (0-b) se **difiere** al blocker propio `candidate_process_memory_isolation_unimplemented`.
+
+**Qué NO autoriza esta firma** (repetido del texto de §10.2): START, S0, S1, S2, workloads,
+entrypoints calificables, fingerprint humana, fixtures definitivos, valores finales, hardware/cloud,
+metodología, API, PyPI, tags, releases ni recaptura de demo.
+
+**Efecto sobre la puerta global (D-LEA-19), diferido a la integración.** Aprobar registra la
+**decisión**, no un estado de código. El retiro de `candidate_execution_material_lease_unimplemented`
+y la apertura de `candidate_process_memory_isolation_unimplemented` ocurren **cuando el mecanismo esté
+implementado y con sus controles negativos verdes**, no al firmar: hasta entonces el catálogo sigue
+declarando el blocker de lease, que es lo honesto. La reescritura de la línea de §12.1 de
+[`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md) también acompaña
+a la integración (capa 4 del Anexo A), no a la firma.
 
 ## TL;DR y recomendación ejecutiva
 
@@ -1287,3 +1320,131 @@ OK**, sino un blocker diferido.
 > No apruebo todavía `_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`. Elijo **reordenar** en §7.6: la
 > frontera queda abierta y medida, y el esfuerzo pasa a
 > `multiprocess_native_pool_observer_unimplemented`. Ninguna decisión D-LEA queda aprobada.
+
+> **Nota histórica.** §10.3 quedó **sin ejercer**: Cami firmó §10.2 (0-a) el 2026-08-22. Se conserva
+> el texto por procedencia, no como opción vigente.
+
+## Anexo A — plan de implementación por capas (0-a)
+
+> Añadido tras la firma del 2026-08-22. Es el **puente entre el diseño aprobado y el código**: no
+> reabre ninguna D-LEA. Traduce las decisiones al árbol vivo (OID `d6d69e29…`), fija el **orden de
+> capas** y ata cada capa a su control negativo de §8.1. Los números de línea citados son del árbol
+> a la firma y se **re-miden al abrir la sesión de cada capa** antes de tocar nada.
+
+### A.0 Invariantes que rigen toda la implementación
+
+- **Un solo writer.** Codex es revisor read-only; su revisión adversarial se solicita al cerrar cada
+  capa, nunca `/codex:rescue` mientras Claude sea writer.
+- **Nada de START.** Ninguna capa ejecuta START, S0, S1, S2, workloads ni entrypoints calificables;
+  no fija fingerprint; no materializa fixtures, unidades ni valores finales. Todo se ejerce con
+  dobles sintéticos, Jobs vacíos y árboles de prueba bajo `tmp_path`, como el arnés vigente.
+- **La puerta global no se mueve hasta A.4.** `CANDIDATE_EXECUTION_MATERIAL_LEASE_AVAILABLE`
+  ([supervisor.py:159](../../scripts/readiness_h9r/supervisor.py)) permanece `False` mientras las
+  piezas 1–3 no estén implementadas y con sus controles negativos verdes. El catálogo sigue
+  declarando `candidate_execution_material_lease_unimplemented`: es honesto, no una regresión.
+- **Portabilidad.** Todo módulo nuevo con símbolos sólo-Windows se importa de forma perezosa/gateada
+  para que `test_readiness_h9r_portabilidad.py` siga verde en Linux/macOS. El arnés debe seguir
+  importable donde no hay WinAPI.
+- **Control negativo real por capa**, con el protocolo del runbook §6: verde → defecto mínimo → rojo
+  **por la causa prevista** → restauración **byte-exacta verificada por SHA** desde copia en
+  `%TEMP%\nkr` → verde. **Nunca `git checkout --`.**
+- **Serialización de suites.** No se edita ningún archivo mientras corre una suite H9R, ni se lanzan
+  spikes que creen procesos en paralelo a ella.
+- **Gates focales por capa** (runbook §5.1): `pytest` de `test_readiness_h9r_*.py`, `mypy --strict`
+  sobre `scripts/measure_readiness_h9r.py scripts/readiness_h9r`, `ruff check`/`format --check`
+  focales, y el gate de copy/catálogo bidireccional. Gates integrales y CI 16/16 al cerrar A.4.
+
+### A.1 Capa 1 — Pieza 1, lease anti-sustitución
+
+Cubre **D-LEA-1…D-LEA-9** (variante A: se mantiene D-LEA-9) más **D-LEA-14** (ADS) y **D-LEA-15**
+(matriz de volumen). Es la pieza mejor medida (§2) y **aditiva**: se construye el primitivo y sus
+tests antes de cablearlo, sin perturbar el flujo vivo.
+
+- **Módulo nuevo** `scripts/readiness_h9r/material_lease.py` (`windows_share_mode_lease_v1`): handle
+  por archivo `GENERIC_READ | FILE_SHARE_READ | OPEN_EXISTING | FILE_FLAG_OPEN_REPARSE_POINT`; por
+  directorio, además `FILE_FLAG_BACKUP_SEMANTICS`. Adquisición **parent-first** (D-LEA-4), **falla
+  cerrado** (D-LEA-3), hash **por el handle retenido** (D-LEA-7), lease **antes** del primer hash
+  (D-LEA-8), cotejo por **volumen + file ID** reutilizando el patrón de `_same_file_version`
+  ([adapters.py:335](../../scripts/readiness_h9r/adapters.py), [artifacts.py:218](../../scripts/readiness_h9r/artifacts.py)).
+- **Inventario canónico por entrada (D-LEA-5, D-LEA-6):** extender el manifiesto y
+  `canonical_tree_identity` ([artifacts.py:1149](../../scripts/readiness_h9r/artifacts.py)) para que
+  conserve la lista de entradas ligada al digest agregado ya existente, con **enumeraciones
+  independientes** para adquirir y cotejar.
+- **Cableado (A.1c):** `run_preflight` ([supervisor.py:3070](../../scripts/readiness_h9r/supervisor.py))
+  adquiere el lease **antes** del primer hash; `_revalidate_preflight`
+  ([supervisor.py:3633](../../scripts/readiness_h9r/supervisor.py)) lo mantiene vivo hasta la
+  quiescencia. Reutilizar la rama de auto-herencia de
+  [`runtime_snapshot.py`](../../scripts/readiness_h9r/runtime_snapshot.py) sólo si hiciera falta DACL;
+  la variante A **no** toca descriptores ajenos (D-LEA-9).
+- **Controles negativos (§8.1):** lease efectivo · cobertura del conjunto · cobertura inversa ·
+  independencia de enumeraciones · hash por handle · orden · fail-closed · ADS · volumen · no-follow.
+- **Nota de portabilidad:** `material_lease.py` sólo-Windows; el import queda gateado. Añadir a
+  `test_readiness_h9r_portabilidad.py` la comprobación de que su cuerpo de módulo no rompe en Linux.
+
+### A.2 Capa 2 — Pieza 2, anti-inyección
+
+Cubre **D-LEA-10, D-LEA-11, D-LEA-12, D-LEA-12b, D-LEA-13, D-LEA-21, D-LEA-22**. Es la capa más
+delicada (retiene handles del kernel, crea el candidato bajo depurador). Se subdivide:
+
+- **A.2a — sello del `pycache_prefix` (D-LEA-10).** Extender `_validate_pycache_isolation`
+  ([adapters.py:3191](../../scripts/readiness_h9r/adapters.py)): sello contra
+  `FILE_ADD_FILE|FILE_ADD_SUBDIRECTORY|FILE_DELETE_CHILD` durante todo el intento y atestación de
+  vacuidad **al cierre**, no sólo antes. Controles §8.1: `pycache_prefix` y alta en el prefijo.
+- **A.2b — clausura de búsqueda de DLL (D-LEA-11).** Clausura explícita en el bootstrap del
+  candidato (sólo system dir + directorios leaseados). Control §8.1: carga nativa que elude CPython
+  (rojo por D-LEA-12, no por D-LEA-11).
+- **A.2c — audit hook PEP 578 (D-LEA-12b) + fallar sobre el registro (D-LEA-22).** Hook instalado
+  por el bootstrap antes de correr código del candidato; rechaza `open/import/exec/compile` sobre
+  entradas no inventariadas de raíces declaradas; **registra cada violación** y el intento falla
+  cerrado sobre el registro (medido: `importlib.metadata.version()` se traga la excepción, §3.9).
+  Controles §8.1: `.py`/ZIP/`.dist-info` plantados, y **lectura nativa que elude ambas piezas**
+  (verde por diseño — fija el límite declarado).
+- **A.2d — gate de imágenes por depuración (D-LEA-12) + drenaje (D-LEA-21).** Crear el árbol con
+  `DEBUG_PROCESS` desde [windows_sandbox.py:730](../../scripts/readiness_h9r/windows_sandbox.py),
+  indexar handles **por PID**, hashear desde el `hFile` del evento, **terminar** el proceso que
+  carga una imagen no inventariada antes de `ContinueDebugEvent`; el bucle vive en el hilo creador y
+  **drena el puerto** hasta `EXIT_PROCESS` (D-LEA-21). Controles §8.1: plantado transitorio de DLL,
+  callback TLS, carga nativa, drenaje del puerto, contaminación entre intentos.
+- **A.2e — clausura del intérprete declarada (D-LEA-13).** Añadir al manifiesto candidato
+  ([contracts.py](../../scripts/readiness_h9r/contracts.py)) los cinco términos de §4.2, incluida la
+  frontera explícita del TCB de Windows, y sumarla al conjunto congelado.
+
+### A.3 Capa 3 — Pieza 3, anti-falso-éxito
+
+Cubre **D-LEA-16, D-LEA-17, D-LEA-17b, D-LEA-17c, D-LEA-18**. Máquina de estados
+**provisional → release → promoción** en la publicación de evidencia; ningún paso posterior al
+release relee material vivo.
+
+- **Sitios:** `_attempt_summary` y `validate_campaign_progress`
+  ([aggregate.py:498](../../scripts/readiness_h9r/aggregate.py),
+  [aggregate.py:299](../../scripts/readiness_h9r/aggregate.py)) hoy revalidan con
+  `verify_artifacts=True` contra artefactos vivos; pasan a validar la **atestación e inventario
+  congelados** (D-LEA-17b). La promoción produce un **paquete durable content-addressed** anclado
+  **fuera** del workdir mutable (D-LEA-17c).
+- **Controles negativos (§8.1):** liberación · promoción · relectura post-release · sustitución
+  durable autoconsistente.
+
+### A.4 Capa 4 — integración y cierre de la frontera
+
+Sólo cuando A.1–A.3 estén verdes con sus controles:
+
+- **Flip de capacidad (D-LEA-19):** `CANDIDATE_EXECUTION_MATERIAL_LEASE_AVAILABLE = True` y añadir la
+  constante y el blocker `candidate_process_memory_isolation_unimplemented` (0-b diferido) más
+  `candidate_interpreter_closure_undeclared`/`trusted_harness_interpreter_closure_undeclared` (§7.5)
+  en [supervisor.py:156-172](../../scripts/readiness_h9r/supervisor.py) y su
+  `CALIBRATION_START_DISABLED_REASON`. La puerta **no baja de blockers**: uno se sustituye por otro.
+- **Copy/catálogo:** actualizar el gate bidireccional
+  ([copy_gate.py](../../scripts/readiness_h9r/copy_gate.py)) para el nuevo censo de blockers.
+- **§12.1** de [`_PROPUESTA-CALIBRACION-H9R-PRE-START.md`](_PROPUESTA-CALIBRACION-H9R-PRE-START.md):
+  reescribir la línea para prometer **consistencia en disco**, no «nadie» (D-LEA-0/0-a).
+- **`DECISIONES-VIGENTES.md`:** cerrar la fila D-LEA de «implementación en curso» a «implementada»,
+  con sus gates.
+- **Cierre integral:** gates completos, control negativo del catálogo, commit público, CI 16/16 job
+  a job, deploy, y actualización del `HANDOFF` privado.
+
+### A.5 Orden y por qué
+
+A.1 primero por ser aditiva y mejor medida; A.2 después porque es donde vive el riesgo (handles del
+kernel, depurador); A.3 puede avanzar en paralelo conceptual pero se integra tras A.2; A.4 al final
+para que la puerta global refleje un mecanismo **real**, nunca una promesa. Cada capa merece su
+propia sesión con contexto fresco: es código de seguridad de proceso, no un refactor mecánico.
