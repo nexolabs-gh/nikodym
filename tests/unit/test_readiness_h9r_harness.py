@@ -240,7 +240,7 @@ def _preflight_material(tmp_path: Path, *, cap_id: str = "C4") -> dict[str, Any]
     runtime_python = runtime_root / "python.exe"
     shutil.copyfile(python_executable, runtime_python)
     source_sha = "a" * 40
-    tree_identity = canonical_tree_identity(installed_root)
+    tree_identity = canonical_tree_identity(installed_root, include_entries=True)
     environment_path = runtime_root / "environment.json"
     environment = {
         "schema_version": CANDIDATE_ENVIRONMENT_SCHEMA_VERSION,
@@ -618,6 +618,68 @@ def test_validador_publico_candidato_es_pasivo(tmp_path: Path) -> None:
         )
     probe.assert_not_called()
     assert normalized["manifest_sha256"] == canonical_json_sha256(manifest)
+
+
+def test_manifiesto_normalizado_no_arrastra_entries_a_la_evidencia(tmp_path: Path) -> None:
+    """El inventario queda validado en el archivo; el normalizado conserva la forma estable."""
+    material = _preflight_material(tmp_path)
+    manifest = json.loads(material["candidate_path"].read_bytes())
+    assert "entries" in manifest["runtime"]["installed_tree"]
+    normalized = validate_candidate_manifest(
+        manifest,
+        expected_sha256=canonical_json_sha256(manifest),
+        manifest_root=material["candidate_path"].parent,
+    )
+    assert set(normalized["runtime"]["installed_tree"]) == {
+        "relative_path",
+        "files",
+        "logical_bytes",
+        "sha256",
+        "path",
+    }
+
+
+def _validar_manifiesto_alterado(material: dict[str, Any], manifest: dict[str, Any]) -> None:
+    validate_candidate_manifest(
+        manifest,
+        expected_sha256=canonical_json_sha256(manifest),
+        manifest_root=material["candidate_path"].parent,
+    )
+
+
+def test_manifiesto_sin_inventario_por_entrada_se_rechaza(tmp_path: Path) -> None:
+    """D-LEA-5: el manifiesto gana el inventario; sin él, el censo cerrado se pone rojo."""
+    material = _preflight_material(tmp_path)
+    manifest = json.loads(material["candidate_path"].read_bytes())
+    del manifest["runtime"]["installed_tree"]["entries"]
+    with pytest.raises(ContractError, match="installed_tree no tiene campos exactos"):
+        _validar_manifiesto_alterado(material, manifest)
+
+
+def test_inventario_del_manifiesto_debe_ligar_con_el_digest_agregado(tmp_path: Path) -> None:
+    material = _preflight_material(tmp_path)
+    manifest = json.loads(material["candidate_path"].read_bytes())
+    manifest["runtime"]["installed_tree"]["entries"][0]["sha256"] = "1" * 64
+    with pytest.raises(ContractError, match="no liga con el digest agregado"):
+        _validar_manifiesto_alterado(material, manifest)
+
+
+def test_inventario_del_manifiesto_fuera_de_orden_se_rechaza(tmp_path: Path) -> None:
+    material = _preflight_material(tmp_path)
+    manifest = json.loads(material["candidate_path"].read_bytes())
+    entries = manifest["runtime"]["installed_tree"]["entries"]
+    assert len(entries) >= 2, "el control exige al menos dos entradas"
+    entries[0], entries[1] = entries[1], entries[0]
+    with pytest.raises(ContractError, match="duplicado o fuera de orden"):
+        _validar_manifiesto_alterado(material, manifest)
+
+
+def test_inventario_del_manifiesto_debe_reconciliar_files_y_bytes(tmp_path: Path) -> None:
+    material = _preflight_material(tmp_path)
+    manifest = json.loads(material["candidate_path"].read_bytes())
+    manifest["runtime"]["installed_tree"]["entries"][0]["bytes"] += 1
+    with pytest.raises(ContractError, match="no reconcilia files/logical_bytes"):
+        _validar_manifiesto_alterado(material, manifest)
 
 
 @pytest.mark.parametrize("revision", ("A" * 40, "0" * 40, "f" * 64))

@@ -1488,6 +1488,46 @@ def _validate_source_revision(value: Any, *, context: str) -> str:
     return value
 
 
+def _validate_installed_tree_entries(
+    entries: Any,
+    *,
+    declared_files: Any,
+    declared_logical_bytes: Any,
+    declared_sha256: str,
+) -> list[dict[str, Any]]:
+    """Valida el inventario canónico por entrada y su ligadura al digest agregado (D-LEA-5)."""
+    for label, value in (("files", declared_files), ("logical_bytes", declared_logical_bytes)):
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ContractError(f"runtime.installed_tree.{label} inválido")
+    if not isinstance(entries, list) or not entries:
+        raise ContractError("runtime.installed_tree.entries debe ser una lista no vacía")
+    normalized: list[dict[str, Any]] = []
+    for index, raw in enumerate(entries):
+        entry = _require_mapping(raw, context=f"runtime.installed_tree.entries[{index}]")
+        if set(entry) != {"relative_path", "bytes", "sha256"}:
+            raise ContractError(f"runtime.installed_tree.entries[{index}] no tiene campos exactos")
+        relative_path = entry["relative_path"]
+        if not isinstance(relative_path, str) or not relative_path:
+            raise ContractError(f"runtime.installed_tree.entries[{index}].relative_path inválido")
+        byte_count = entry["bytes"]
+        if isinstance(byte_count, bool) or not isinstance(byte_count, int) or byte_count < 0:
+            raise ContractError(f"runtime.installed_tree.entries[{index}].bytes inválido")
+        digest = validate_sha256(
+            entry["sha256"], context=f"runtime.installed_tree.entries[{index}].sha256"
+        )
+        normalized.append({"relative_path": relative_path, "bytes": byte_count, "sha256": digest})
+    relative_paths = [str(entry["relative_path"]) for entry in normalized]
+    if relative_paths != sorted(set(relative_paths)):
+        raise ContractError("runtime.installed_tree.entries está duplicado o fuera de orden")
+    if len(normalized) != declared_files or (
+        sum(int(entry["bytes"]) for entry in normalized) != declared_logical_bytes
+    ):
+        raise ContractError("runtime.installed_tree.entries no reconcilia files/logical_bytes")
+    if canonical_json_sha256(normalized) != declared_sha256:
+        raise ContractError("runtime.installed_tree.entries no liga con el digest agregado")
+    return normalized
+
+
 def validate_candidate_manifest_passive(
     manifest: Mapping[str, Any],
     *,
@@ -1521,15 +1561,21 @@ def validate_candidate_manifest_passive(
         deadline_monotonic=deadline_monotonic,
     )
     installed_tree = _require_mapping(runtime["installed_tree"], context="runtime.installed_tree")
-    if set(installed_tree) != {"relative_path", "files", "logical_bytes", "sha256"}:
+    if set(installed_tree) != {"relative_path", "files", "logical_bytes", "sha256", "entries"}:
         raise ContractError("candidate.runtime.installed_tree no tiene campos exactos")
+    validate_sha256(installed_tree["sha256"], context="runtime.installed_tree.sha256")
+    _validate_installed_tree_entries(
+        installed_tree["entries"],
+        declared_files=installed_tree["files"],
+        declared_logical_bytes=installed_tree["logical_bytes"],
+        declared_sha256=str(installed_tree["sha256"]),
+    )
     tree_root = _resolve_relative(
         manifest_root, installed_tree["relative_path"], context="runtime.installed_tree"
     )
     _reject_reparse_tree(tree_root, context="runtime.installed_tree")
     actual_tree = canonical_tree_identity(tree_root, deadline_monotonic=deadline_monotonic)
     declared_tree = {key: installed_tree[key] for key in ("files", "logical_bytes", "sha256")}
-    validate_sha256(declared_tree["sha256"], context="runtime.installed_tree.sha256")
     if declared_tree != actual_tree:
         raise ContractError("identidad del árbol instalado no reconcilia")
     environment_value = read_json_object(Path(str(environment["path"])))
@@ -1593,8 +1639,13 @@ def validate_candidate_manifest_passive(
         "runtime": {
             "python_executable": python_executable,
             "environment": environment,
+            # El inventario por entrada queda validado y ligado al digest; el normalizado
+            # conserva la forma estable que consume la cadena de evidencia (D-LEA-5).
             "installed_tree": {
-                **dict(installed_tree),
+                "relative_path": installed_tree["relative_path"],
+                "files": installed_tree["files"],
+                "logical_bytes": installed_tree["logical_bytes"],
+                "sha256": installed_tree["sha256"],
                 "path": str(tree_root),
             },
             "provenance": declared_provenance,

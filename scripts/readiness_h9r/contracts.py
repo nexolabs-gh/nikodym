@@ -38,6 +38,10 @@ CANDIDATE_OUTPUT_ISOLATION_SCHEMA_VERSION: Final = (
 CANDIDATE_LOW_INTEGRITY_SID: Final = "S-1-16-4096"
 CANDIDATE_MEDIUM_INTEGRITY_SID: Final = "S-1-16-8192"
 CANDIDATE_SANDBOX_MECHANISM: Final = "windows_mandatory_integrity_low_v1"
+# Pieza 1 de la congelación del material candidato (D-LEA-2, enmienda 0-a aprobada el
+# 2026-08-22): el identificador vive aquí por la misma razón que el del sandbox, y
+# `material_lease` lo reexporta en lugar de duplicar el literal.
+CANDIDATE_MATERIAL_LEASE_MECHANISM: Final = "windows_share_mode_lease_v1"
 # Matriz de accesos que el token candidato debe tener denegada dentro del contenedor de
 # OUTPUT_ROOT. Vive junto al SID y el mecanismo para que runtime, schema, cadena durable y
 # self-test exijan literalmente la misma tupla y no puedan divergir por copia. No basta con los

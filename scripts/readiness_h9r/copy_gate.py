@@ -142,7 +142,10 @@ _NON_VISIBLE_HTML_CONTAINERS = frozenset({"script", "style"})
 # candidato, y tras la revisión adversarial de Codex se le añadieron la matriz cerrada
 # `CANDIDATE_DENIED_OPERATIONS`, la cardinalidad exacta de raíces y el rechazo de un OUTPUT_ROOT
 # declarado bajo raíz escribible. El digest se refija sobre el archivo revisado en ese cierre.
-_CATALOG_CONTRACTS_SHA256 = "1525b9ca295260fd91b2f0c5a5dd05086bc770b45688543c9790c70a88e47559"
+# 2026-08-24: capa A.1 de la enmienda de lease aprobada (0-a) — se añadió únicamente la constante
+# `CANDIDATE_MATERIAL_LEASE_MECHANISM` (D-LEA-2); el digest se refija sobre el archivo revisado
+# en el cierre de esa capa, con su revisión adversarial solicitada a Codex.
+_CATALOG_CONTRACTS_SHA256 = "fe214960e698d61aebfffdcf18aba9eba0bc38c73741b56eb973124e30c034c8"
 _APPROVED_DOCUMENT_SECTION_SHA256 = {
     4: "74419bba83db8dedbf2325dc3d57c419afbcebc6f31312868eb4e426581018e9",
     6: "662a49bef5c75672218c9de196b01c3b6eb04b85e0a7602e1439910504cdb4e5",

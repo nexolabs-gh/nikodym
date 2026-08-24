@@ -7,7 +7,10 @@ es precisamente el arranque en Linux/macOS.
 from __future__ import annotations
 
 import ast
+import sys
 from pathlib import Path
+
+import pytest
 
 # Módulos de la stdlib que sólo existen en Windows. Un import de éstos en el cuerpo de módulo
 # rompe la **colección** de pytest en Linux/macOS aunque cada prueba lleve su `skipif`: el marcador
@@ -70,5 +73,21 @@ def test_el_censo_de_portabilidad_cubre_el_arnes_completo() -> None:
     nombres = {path.name for path in _h9r_python_files()}
     assert "windows_sandbox.py" in nombres
     assert "windows_job.py" in nombres
+    assert "material_lease.py" in nombres
     assert "measure_readiness_h9r.py" in nombres
     assert "test_readiness_h9r_output_isolation.py" in nombres
+    assert "test_readiness_h9r_material_lease.py" in nombres
+
+
+def test_material_lease_importa_en_cualquier_so_y_falla_cerrado_fuera_de_windows() -> None:
+    """El cuerpo del módulo debe importar en Linux/macOS aunque sólo califique en Windows."""
+    from scripts.readiness_h9r import material_lease
+
+    assert material_lease.CANDIDATE_MATERIAL_LEASE_MECHANISM == "windows_share_mode_lease_v1"
+    if sys.platform != "win32":
+        with pytest.raises(material_lease.MaterialLeaseError, match="exige Windows"):
+            material_lease.acquire_material_lease(
+                Path("."),
+                expected_entries=[{"relative_path": "x", "bytes": 0, "sha256": "1" * 64}],
+                expected_tree_sha256="2" * 64,
+            )

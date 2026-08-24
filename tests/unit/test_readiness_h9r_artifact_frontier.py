@@ -780,6 +780,33 @@ def test_identidad_de_arbol_repite_censo_y_rechaza_archivo_tardio(
         artifacts_module.canonical_tree_identity(root)
 
 
+def test_identidad_de_arbol_conserva_entries_ligado_al_digest(tmp_path: Path) -> None:
+    """Con ``include_entries`` el inventario por entrada queda ligado al digest (D-LEA-5)."""
+    root = tmp_path / "tree"
+    (root / "pkg").mkdir(parents=True)
+    (root / "b.py").write_bytes(b"bytes-b")
+    (root / "pkg" / "a.py").write_bytes(b"bytes-a")
+    identity = artifacts_module.canonical_tree_identity(root, include_entries=True)
+    assert set(identity) == {"files", "logical_bytes", "sha256", "entries"}
+    entries = identity["entries"]
+    assert [set(entry) for entry in entries] == [{"relative_path", "bytes", "sha256"}] * 2
+    rutas = [entry["relative_path"] for entry in entries]
+    assert rutas == sorted(rutas) == ["b.py", "pkg/a.py"]
+    assert sum(entry["bytes"] for entry in entries) == identity["logical_bytes"]
+    assert len(entries) == identity["files"]
+    assert canonical_json_sha256(entries) == identity["sha256"]
+    assert artifacts_module.canonical_tree_identity(root)["sha256"] == identity["sha256"]
+
+
+def test_identidad_de_arbol_por_defecto_no_expone_entries(tmp_path: Path) -> None:
+    """El retorno por defecto no cambia: los consumidores existentes no ven ``entries``."""
+    root = tmp_path / "tree"
+    root.mkdir()
+    (root / "a.py").write_bytes(b"a")
+    identity = artifacts_module.canonical_tree_identity(root)
+    assert set(identity) == {"files", "logical_bytes", "sha256"}
+
+
 @pytest.mark.parametrize("operation", ["tree", "inventory"])
 def test_identidad_e_inventario_ligan_versiones_del_ultimo_censo(
     tmp_path: Path,

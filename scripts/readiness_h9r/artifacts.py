@@ -1147,9 +1147,17 @@ def final_inventory(root: Path, *, exclude: Sequence[Path] = ()) -> list[dict[st
 
 
 def canonical_tree_identity(
-    root: Path, *, deadline_monotonic: float | None = None
+    root: Path,
+    *,
+    deadline_monotonic: float | None = None,
+    include_entries: bool = False,
 ) -> dict[str, Any]:
-    """Firma un árbol por rutas relativas, bytes y SHA, sin incluir su ubicación volátil."""
+    """Firma un árbol por rutas relativas, bytes y SHA, sin incluir su ubicación volátil.
+
+    Con ``include_entries`` conserva además el inventario canónico por entrada (D-LEA-5):
+    la lista exacta cuyo ``canonical_json_sha256`` es el digest agregado ``sha256``. El
+    retorno por defecto no cambia para no mover a los consumidores existentes.
+    """
     root = _absolute_without_following(root)
     entries: list[dict[str, Any]] = []
     versions: dict[Path, os.stat_result] = {}
@@ -1190,11 +1198,14 @@ def canonical_tree_identity(
     )
     from .contracts import canonical_json_sha256
 
-    return {
+    tree_identity: dict[str, Any] = {
         "files": len(entries),
         "logical_bytes": logical_bytes,
         "sha256": canonical_json_sha256(entries),
     }
+    if include_entries:
+        tree_identity["entries"] = entries
+    return tree_identity
 
 
 def _resolve_output_format(relative_path: str, explicit: str | None) -> str:
