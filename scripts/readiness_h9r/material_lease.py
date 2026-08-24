@@ -98,11 +98,32 @@ class LeaseReleaseError(MaterialLeaseError):
 
 @dataclass(frozen=True)
 class _HandleIdentity:
+    """Identidad por handle en las dos convenciones que publica CPython según su versión.
+
+    Medido: 3.12+ deriva ``st_dev``/``st_ino`` de ``FILE_ID_INFO`` —serial de 64 bits y los
+    64 bits bajos del ``FileId`` de 128—, mientras 3.11 los deriva de
+    ``BY_HANDLE_FILE_INFORMATION`` —serial de 32 bits e índice de 64—. El lease no elige por
+    versión: conserva ambas y acepta la que reconcilie con el ``stat`` observado.
+    """
+
     attributes: int
     number_of_links: int
     volume_serial: int
     file_index: int
     logical_bytes: int
+    classic_volume_serial: int
+    classic_file_index: int
+
+    def resolve_against(self, metadata: os.stat_result) -> tuple[int, int] | None:
+        """Devuelve ``(serial, index)`` en la convención de este ``stat``, o ``None``."""
+        observed = (int(metadata.st_dev), int(metadata.st_ino))
+        for candidate in (
+            (self.volume_serial, self.file_index),
+            (self.classic_volume_serial, self.classic_file_index),
+        ):
+            if candidate == observed:
+                return candidate
+        return None
 
 
 @dataclass(frozen=True)
@@ -339,18 +360,18 @@ def _pin_ancestors(root: Path, *, handles: list[int]) -> list[_LeasedEntry]:
             raise LeaseAcquisitionError(f"reparse point capturado en un ancestro: {current}")
         if not identity.attributes & _FILE_ATTRIBUTE_DIRECTORY:
             raise LeaseAcquisitionError(f"un ancestro del ancla dejó de ser directorio: {current}")
-        if identity.file_index != int(before.st_ino) or identity.volume_serial != int(
-            before.st_dev
-        ):
+        resolved = identity.resolve_against(before)
+        if resolved is None:
             raise LeaseAcquisitionError(f"un ancestro del ancla cambió al fijarlo: {current}")
+        serial, index = resolved
         pinned.append(
             _LeasedEntry(
                 relative_path=str(current),
                 kind="ancestor",
                 path=current,
                 handle=handle,
-                volume_serial=identity.volume_serial,
-                file_index=identity.file_index,
+                volume_serial=serial,
+                file_index=index,
                 logical_bytes=0,
             )
         )
@@ -378,9 +399,8 @@ def _census_handle_identity(handle: int, path: Path) -> _HandleIdentity:
     file_id = int.from_bytes(bytes(file_id_info.file_id), "little")
     classic_index = (int(identity.file_index_high) << 32) | int(identity.file_index_low)
     volume_serial = int(file_id_info.volume_serial_number)
-    if file_id != classic_index or (volume_serial & 0xFFFFFFFF) != int(
-        identity.volume_serial_number
-    ):
+    classic_serial = int(identity.volume_serial_number)
+    if file_id != classic_index or (volume_serial & 0xFFFFFFFF) != classic_serial:
         raise LeaseAcquisitionError(f"identidad por handle no reconcilia entre APIs: {path}")
     return _HandleIdentity(
         attributes=int(identity.attributes),
@@ -388,6 +408,8 @@ def _census_handle_identity(handle: int, path: Path) -> _HandleIdentity:
         volume_serial=volume_serial,
         file_index=file_id,
         logical_bytes=(int(identity.file_size_high) << 32) | int(identity.file_size_low),
+        classic_volume_serial=classic_serial,
+        classic_file_index=classic_index,
     )
 
 
@@ -580,25 +602,20 @@ def _acquire_single(
         raise LeaseAcquisitionError(f"el tipo del material cambió al adquirir el lease: {path}")
     if identity.attributes & _UNQUALIFIED_ATTRIBUTES:
         raise LeaseVolumeError(f"material respaldado por nube u offline no calificado: {path}")
-    if not directory:
-        if identity.number_of_links != 1:
-            raise LeaseAcquisitionError(f"hardlink capturado por el lease: {path}")
-        if (
-            identity.file_index != int(before.st_ino)
-            or identity.volume_serial != int(before.st_dev)
-            or identity.logical_bytes != int(before.st_size)
-        ):
-            raise LeaseAcquisitionError(f"el material cambió al adquirir el lease: {path}")
-    elif identity.file_index != int(before.st_ino) or identity.volume_serial != int(before.st_dev):
+    if not directory and identity.number_of_links != 1:
+        raise LeaseAcquisitionError(f"hardlink capturado por el lease: {path}")
+    resolved = identity.resolve_against(before)
+    if resolved is None or (not directory and identity.logical_bytes != int(before.st_size)):
         raise LeaseAcquisitionError(f"el material cambió al adquirir el lease: {path}")
+    serial, index = resolved
     _require_default_streams(_census_streams_by_handle(handle, path), path, directory=directory)
     return _LeasedEntry(
         relative_path=relative_path,
         kind="directory" if directory else "file",
         path=path,
         handle=handle,
-        volume_serial=identity.volume_serial,
-        file_index=identity.file_index,
+        volume_serial=serial,
+        file_index=index,
         logical_bytes=0 if directory else identity.logical_bytes,
     )
 
