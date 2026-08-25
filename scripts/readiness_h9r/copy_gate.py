@@ -145,7 +145,14 @@ _NON_VISIBLE_HTML_CONTAINERS = frozenset({"script", "style"})
 # 2026-08-24: capa A.1 de la enmienda de lease aprobada (0-a) — se añadió únicamente la constante
 # `CANDIDATE_MATERIAL_LEASE_MECHANISM` (D-LEA-2); el digest se refija sobre el archivo revisado
 # en el cierre de esa capa, con su revisión adversarial solicitada a Codex.
-_CATALOG_CONTRACTS_SHA256 = "fe214960e698d61aebfffdcf18aba9eba0bc38c73741b56eb973124e30c034c8"
+# 2026-08-24 (capa A.1c): la evidencia de intento gana la sección cerrada `material_lease`
+# (D-LEA-18) — `ATTEMPT_TOP_LEVEL_OBJECTS`, `_validate_material_lease_census` y su schema —
+# con el inventario canónico por entrada recomputable contra el digest del árbol (D-LEA-5),
+# el orden lease→hash→liberación (D-LEA-8), gemelos monotónicos que ligan adquisición y
+# liberación a START y a la quiescencia acreditada, y liberación exigida sólo en `success`
+# (la retención sin quiescencia acreditada se declara). El digest se refija sobre el
+# archivo revisado en el cierre de esa capa, tras la revisión adversarial de Codex.
+_CATALOG_CONTRACTS_SHA256 = "8f72c7b2e130c74872524592851be1e614fcf29406aa3355bbd43d47bbe6eaf6"
 _APPROVED_DOCUMENT_SECTION_SHA256 = {
     4: "74419bba83db8dedbf2325dc3d57c419afbcebc6f31312868eb4e426581018e9",
     6: "662a49bef5c75672218c9de196b01c3b6eb04b85e0a7602e1439910504cdb4e5",

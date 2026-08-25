@@ -414,6 +414,7 @@ ATTEMPT_TOP_LEVEL_OBJECTS: Final = (
     "authority",
     "authorization_consumption",
     "candidate",
+    "material_lease",
     "tooling",
     "fixture",
     "environment",
@@ -6439,6 +6440,196 @@ def _validate_preflight_guards(
     return dict(guards)
 
 
+def _validate_material_lease_census(
+    value: Any,
+    *,
+    candidate: Mapping[str, Any],
+    classification: str,
+    identity: Mapping[str, Any],
+) -> None:
+    """Valida el censo publicado del lease de material y su ligadura al candidato (D-LEA-18).
+
+    El censo es registro durable de la congelación: exige el mecanismo contractual, la
+    matriz cerrada de volumen (D-LEA-15), el orden lease→hash→liberación (D-LEA-8) sobre
+    los hitos publicados y la ligadura entrada a entrada con el inventario canónico: el
+    digest agregado del árbol declarado debe recomputarse desde los propios archivos del
+    censo (D-LEA-5). Los gemelos monotónicos comparten reloj con la identidad del intento:
+    un ``success`` exige adquisición no posterior a START y liberación verificada no
+    anterior a la quiescencia acreditada; un intento fallido puede conservar el lease
+    retenido cuando la quiescencia no quedó acreditada.
+    """
+    census = _require_object(value, context="material_lease")
+    _require_exact_keys(
+        census,
+        (
+            "mechanism",
+            "root",
+            "volume",
+            "files",
+            "directories",
+            "pinned_ancestors",
+            "acquisition_started_perf_ns",
+            "acquisition_completed_perf_ns",
+            "acquisition_started_monotonic_ns",
+            "first_hash_started_perf_ns",
+            "hash_completed_perf_ns",
+            "released",
+            "release_completed_perf_ns",
+            "release_completed_monotonic_ns",
+            "entries",
+        ),
+        context="material_lease",
+    )
+    if census["mechanism"] != CANDIDATE_MATERIAL_LEASE_MECHANISM:
+        raise ContractError("material_lease.mechanism fuera del contrato")
+    _require_text(census["root"], context="material_lease.root")
+    runtime = _require_object(candidate["runtime"], context="material_lease.candidate.runtime")
+    installed_tree = _require_object(
+        runtime["installed_tree"], context="material_lease.installed_tree"
+    )
+    if census["root"] != installed_tree["path"]:
+        raise ContractError("material_lease.root no es el árbol instalado del candidato")
+    volume = _require_object(census["volume"], context="material_lease.volume")
+    _require_exact_keys(
+        volume,
+        ("filesystem", "volume_serial", "volume_root", "drive_type"),
+        context="material_lease.volume",
+    )
+    if volume["filesystem"] != "NTFS" or volume["drive_type"] != 3:
+        raise ContractError("material_lease.volume fuera de la matriz cerrada")
+    _require_non_negative_int(
+        volume["volume_serial"], context="material_lease.volume.volume_serial"
+    )
+    _require_text(volume["volume_root"], context="material_lease.volume.volume_root")
+    files = _require_non_negative_int(census["files"], context="material_lease.files")
+    directories = _require_non_negative_int(
+        census["directories"], context="material_lease.directories"
+    )
+    if files < 1 or directories < 1:
+        raise ContractError("material_lease debe censar al menos un archivo y su raíz")
+    if files != installed_tree["files"]:
+        raise ContractError("material_lease.files no reconcilia con el árbol declarado")
+    _require_non_negative_int(census["pinned_ancestors"], context="material_lease.pinned_ancestors")
+    milestones = [
+        _require_non_negative_int(census[name], context=f"material_lease.{name}")
+        for name in (
+            "acquisition_started_perf_ns",
+            "acquisition_completed_perf_ns",
+            "first_hash_started_perf_ns",
+            "hash_completed_perf_ns",
+        )
+    ]
+    if milestones != sorted(milestones):
+        raise ContractError("material_lease: hitos lease→hash→liberación fuera de orden")
+    acquisition_monotonic_ns = _require_non_negative_int(
+        census["acquisition_started_monotonic_ns"],
+        context="material_lease.acquisition_started_monotonic_ns",
+    )
+    released = census["released"]
+    release_ns = census["release_completed_perf_ns"]
+    release_monotonic_ns = census["release_completed_monotonic_ns"]
+    if released is True:
+        if (
+            _require_non_negative_int(
+                release_ns, context="material_lease.release_completed_perf_ns"
+            )
+            < milestones[-1]
+        ):
+            raise ContractError("material_lease: hitos lease→hash→liberación fuera de orden")
+        _require_non_negative_int(
+            release_monotonic_ns, context="material_lease.release_completed_monotonic_ns"
+        )
+    elif released is False:
+        if classification == "success":
+            raise ContractError("material_lease publicado sin liberación verificada")
+        if release_ns is not None or release_monotonic_ns is not None:
+            raise ContractError("material_lease retenido con hito de liberación declarado")
+    else:
+        raise ContractError("material_lease.released debe ser booleano")
+    if classification == "success":
+        start_monotonic = identity.get("start_monotonic_ns")
+        if isinstance(start_monotonic, int) and acquisition_monotonic_ns > start_monotonic:
+            raise ContractError("material_lease: adquisición posterior a START")
+        tree_empty_monotonic = identity.get("tree_empty_monotonic_ns")
+        if not isinstance(tree_empty_monotonic, int) or isinstance(tree_empty_monotonic, bool):
+            raise ContractError(
+                "material_lease: un success exige quiescencia acreditada en la identidad"
+            )
+        if not isinstance(release_monotonic_ns, int) or release_monotonic_ns < (
+            tree_empty_monotonic
+        ):
+            raise ContractError("material_lease: liberación anterior a la quiescencia acreditada")
+    entries = census["entries"]
+    if not isinstance(entries, list) or len(entries) != files + directories:
+        raise ContractError("material_lease.entries no reconcilia con el censo declarado")
+    observed_files = 0
+    observed_directories = 0
+    observed_bytes = 0
+    relative_paths: set[str] = set()
+    file_inventory: list[dict[str, Any]] = []
+    root_serial: int | None = None
+    for index, raw_entry in enumerate(entries):
+        entry = _require_object(raw_entry, context=f"material_lease.entries[{index}]")
+        _require_exact_keys(
+            entry,
+            ("relative_path", "kind", "volume_serial", "file_index", "logical_bytes", "sha256"),
+            context=f"material_lease.entries[{index}]",
+        )
+        relative = _require_text(
+            entry["relative_path"], context=f"material_lease.entries[{index}].relative_path"
+        )
+        if relative in relative_paths:
+            raise ContractError(f"material_lease.entries[{index}] duplica {relative!r}")
+        relative_paths.add(relative)
+        serial = _require_non_negative_int(
+            entry["volume_serial"], context=f"material_lease.entries[{index}].volume_serial"
+        )
+        if root_serial is None:
+            root_serial = serial
+        elif serial != root_serial:
+            raise ContractError("material_lease censa material multivolumen")
+        _require_non_negative_int(
+            entry["file_index"], context=f"material_lease.entries[{index}].file_index"
+        )
+        logical_bytes = _require_non_negative_int(
+            entry["logical_bytes"], context=f"material_lease.entries[{index}].logical_bytes"
+        )
+        kind = entry["kind"]
+        if kind == "file":
+            observed_files += 1
+            observed_bytes += logical_bytes
+            file_inventory.append(
+                {
+                    "relative_path": relative,
+                    "bytes": logical_bytes,
+                    "sha256": validate_sha256(
+                        entry["sha256"], context=f"material_lease.entries[{index}].sha256"
+                    ),
+                }
+            )
+        elif kind == "directory":
+            observed_directories += 1
+            if logical_bytes != 0:
+                raise ContractError(
+                    f"material_lease.entries[{index}]: directorio con bytes lógicos"
+                )
+            if entry["sha256"] is not None:
+                raise ContractError(
+                    f"material_lease.entries[{index}]: directorio con sha256 declarado"
+                )
+        else:
+            raise ContractError(f"material_lease.entries[{index}].kind fuera del contrato")
+    if observed_files != files or observed_directories != directories:
+        raise ContractError("material_lease.entries no reconcilia archivos/directorios")
+    if root_serial is None or (root_serial & 0xFFFFFFFF) != volume["volume_serial"]:
+        raise ContractError("material_lease: serial de volumen no reconcilia con el censo")
+    if observed_bytes != installed_tree["logical_bytes"]:
+        raise ContractError("material_lease: bytes lógicos no reconcilian con el árbol")
+    file_inventory.sort(key=lambda item: str(item["relative_path"]))
+    if canonical_json_sha256(file_inventory) != installed_tree["sha256"]:
+        raise ContractError("material_lease: el inventario del censo no liga con el digest")
+
+
 def validate_attempt_evidence(
     value: Mapping[str, Any],
     *,
@@ -6645,6 +6836,12 @@ def validate_attempt_evidence(
         or provenance["lock_sha256"] != candidate["lock"]["sha256"]
     ):
         raise ContractError("candidate.runtime.provenance no liga wheel/lock/árbol")
+    _validate_material_lease_census(
+        objects["material_lease"],
+        candidate=candidate,
+        classification=str(classification),
+        identity=identity,
+    )
     tooling = objects["tooling"]
     _require_exact_keys(
         tooling,
@@ -10182,6 +10379,47 @@ def attempt_json_schema() -> dict[str, Any]:
         }
     )
     empty_object = _schema_object({}, required=(), max_properties=0)
+    material_lease_entry = _schema_object(
+        {
+            "relative_path": path,
+            "kind": {"enum": ["file", "directory"]},
+            "volume_serial": non_negative,
+            "file_index": non_negative,
+            "logical_bytes": non_negative,
+            "sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        }
+    )
+    material_lease = _schema_object(
+        {
+            "mechanism": {"const": CANDIDATE_MATERIAL_LEASE_MECHANISM},
+            "root": path,
+            "volume": _schema_object(
+                {
+                    "filesystem": {"const": "NTFS"},
+                    "volume_serial": non_negative,
+                    "volume_root": path,
+                    "drive_type": {"const": 3},
+                }
+            ),
+            "files": {"type": "integer", "minimum": 1},
+            "directories": {"type": "integer", "minimum": 1},
+            "pinned_ancestors": non_negative,
+            "acquisition_started_perf_ns": non_negative,
+            "acquisition_completed_perf_ns": non_negative,
+            "acquisition_started_monotonic_ns": non_negative,
+            "first_hash_started_perf_ns": non_negative,
+            "hash_completed_perf_ns": non_negative,
+            "released": {"type": "boolean"},
+            "release_completed_perf_ns": {"type": ["integer", "null"], "minimum": 0},
+            "release_completed_monotonic_ns": {"type": ["integer", "null"], "minimum": 0},
+            "entries": {
+                "type": "array",
+                "minItems": 2,
+                "uniqueItems": True,
+                "items": material_lease_entry,
+            },
+        }
+    )
     properties = {
         "schema_version": {"const": ATTEMPT_SCHEMA_VERSION},
         "identity": _schema_object(
@@ -10199,6 +10437,7 @@ def attempt_json_schema() -> dict[str, Any]:
         "authority": authority,
         "authorization_consumption": authorization_consumption,
         "candidate": candidate,
+        "material_lease": material_lease,
         "tooling": tooling,
         "fixture": fixture,
         "environment": environment,

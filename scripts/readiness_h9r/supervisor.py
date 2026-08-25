@@ -114,6 +114,13 @@ from .contracts import (
 from .contracts import (
     validate_internal_authorization_gate as validate_internal_authorization_gate_contract,
 )
+from .material_lease import (
+    LeaseOrderError,
+    LeaseReleaseError,
+    MaterialLease,
+    MaterialLeaseError,
+    acquire_material_lease,
+)
 from .runtime_snapshot import (
     RuntimeSnapshotError,
     materialize_harness_source_snapshot,
@@ -1534,8 +1541,14 @@ def validate_candidate_manifest_passive(
     expected_sha256: str,
     manifest_root: Path,
     deadline_monotonic: float | None = None,
+    material_lease: MaterialLease | None = None,
 ) -> dict[str, Any]:
-    """Reconcilia manifiesto y artefactos sin ejecutar código del candidato."""
+    """Reconcilia manifiesto y artefactos sin ejecutar código del candidato.
+
+    Con ``material_lease`` la identidad del árbol instalado se calcula por los handles
+    retenidos del lease vivo (D-LEA-7), nunca reabriendo rutas; sin lease conserva la
+    lectura por ruta para los consumidores pasivos de evidencia durable.
+    """
     required = {"schema_version", "source_sha", "wheel", "sdist", "lock", "runtime"}
     if set(manifest) != required:
         raise ContractError("campos del manifiesto candidato no son exactos")
@@ -1574,7 +1587,28 @@ def validate_candidate_manifest_passive(
         manifest_root, installed_tree["relative_path"], context="runtime.installed_tree"
     )
     _reject_reparse_tree(tree_root, context="runtime.installed_tree")
-    actual_tree = canonical_tree_identity(tree_root, deadline_monotonic=deadline_monotonic)
+    if material_lease is None:
+        actual_tree = canonical_tree_identity(tree_root, deadline_monotonic=deadline_monotonic)
+    else:
+        if material_lease.released:
+            raise ContractError("el lease del material fue liberado antes de validar el árbol")
+        if material_lease.root != Path(os.path.abspath(tree_root)):
+            raise ContractError("el lease vivo no cubre el árbol instalado declarado")
+        leased_digests = material_lease.hash_and_verify(deadline_monotonic=deadline_monotonic)
+        actual_tree = {
+            "files": len(leased_digests),
+            "logical_bytes": sum(int(entry["logical_bytes"]) for entry in leased_digests.values()),
+            "sha256": canonical_json_sha256(
+                [
+                    {
+                        "relative_path": relative,
+                        "bytes": int(entry["logical_bytes"]),
+                        "sha256": str(entry["sha256"]),
+                    }
+                    for relative, entry in sorted(leased_digests.items())
+                ]
+            ),
+        }
     declared_tree = {key: installed_tree[key] for key in ("files", "logical_bytes", "sha256")}
     if declared_tree != actual_tree:
         raise ContractError("identidad del árbol instalado no reconcilia")
@@ -1681,6 +1715,7 @@ def _validate_candidate_manifest_after_authority(
     memory_bytes: int,
     affinity_mask: int,
     deadline_monotonic: float | None = None,
+    material_lease: MaterialLease | None = None,
 ) -> dict[str, Any]:
     """Valida pasivamente y luego prueba el runtime aislado tras autoridad válida."""
     normalized = validate_candidate_manifest_passive(
@@ -1688,6 +1723,7 @@ def _validate_candidate_manifest_after_authority(
         expected_sha256=expected_sha256,
         manifest_root=manifest_root,
         deadline_monotonic=deadline_monotonic,
+        material_lease=material_lease,
     )
     runtime = cast(dict[str, Any], normalized["runtime"])
     installed_tree = cast(dict[str, Any], runtime["installed_tree"])
@@ -3118,6 +3154,95 @@ def _cpu_model() -> str:
     return raw.strip()
 
 
+def _acquire_preflight_material_lease(
+    candidate_manifest: Mapping[str, Any],
+    *,
+    manifest_root: Path,
+    resolved_workdir: Path,
+    deadline_monotonic: float,
+) -> MaterialLease:
+    """Congela el árbol candidato antes de su primer hash del preflight (D-LEA-8).
+
+    El inventario canónico y su digest agregado salen del manifiesto ya capturado por
+    descriptor; el primitivo los valida y falla cerrado (D-LEA-3/5/6). La estabilidad del
+    ancla es contrato de este llamador: la ruta pasa por ``_require_plain_directory`` y se
+    exige disjunta del workdir para que el pin de ancestros no colisione con la reserva.
+    """
+    runtime = _require_mapping(candidate_manifest.get("runtime"), context="lease.runtime")
+    installed_tree = _require_mapping(
+        runtime.get("installed_tree"), context="lease.runtime.installed_tree"
+    )
+    entries = installed_tree.get("entries")
+    if not isinstance(entries, list) or not all(isinstance(item, dict) for item in entries):
+        raise ContractError(
+            "preflight_rejected: el manifiesto no declara el inventario canónico del árbol"
+        )
+    declared_sha256 = validate_sha256(
+        installed_tree.get("sha256"), context="lease.installed_tree.sha256"
+    )
+    tree_root = _resolve_relative(
+        manifest_root,
+        installed_tree.get("relative_path"),
+        context="lease.runtime.installed_tree",
+    )
+    _require_plain_directory(tree_root, context="lease.installed_tree.root")
+    if _path_is_within(tree_root, resolved_workdir) or _path_is_within(resolved_workdir, tree_root):
+        raise ContractError(
+            "preflight_rejected: el árbol candidato y el workdir no pueden anidarse"
+        )
+    try:
+        return acquire_material_lease(
+            tree_root,
+            expected_entries=cast(Sequence[Mapping[str, Any]], entries),
+            expected_tree_sha256=declared_sha256,
+            deadline_monotonic=deadline_monotonic,
+        )
+    except MaterialLeaseError:
+        raise
+    except OSError as exc:
+        raise ContractError(
+            f"preflight_rejected: la adquisición del lease de material falló: {exc}"
+        ) from exc
+
+
+def _require_material_lease_order(material_lease: MaterialLease) -> None:
+    """Exige que el primer hash del conjunto haya ocurrido bajo el lease (D-LEA-8)."""
+    attestation = material_lease.attestation()
+    first_hash_ns = attestation["first_hash_started_perf_ns"]
+    acquisition_completed_ns = attestation["acquisition_completed_perf_ns"]
+    if (
+        not isinstance(first_hash_ns, int)
+        or not isinstance(acquisition_completed_ns, int)
+        or first_hash_ns < acquisition_completed_ns
+    ):
+        raise LeaseOrderError(
+            "preflight_rejected: el primer hash del conjunto no ocurrió bajo el lease"
+        )
+
+
+def _release_material_lease_after_failure(material_lease: MaterialLease) -> None:
+    """Libera el lease en un camino de fallo sin enmascarar la causa original.
+
+    Un ``CloseHandle`` fallido deja la liberación reintentable por diseño; aquí se
+    reintenta de forma acotada. Si el cierre sigue fallando, los handles pendientes
+    quedan retenidos por el objeto y mueren con el proceso del supervisor, que es su
+    dueño único; la clasificación terminal propia de un fallo de liberación es materia
+    de la pieza 3 (D-LEA-17, capa A.3). Nada de esto oculta la causa original en curso.
+    """
+    if material_lease.released:
+        return
+    for _ in range(2):
+        try:
+            material_lease.release()
+            return
+        except LeaseReleaseError:
+            continue
+        except MaterialLeaseError:
+            # Violación de streams u otro fallo terminal: los handles ya quedaron
+            # cerrados o censados; la causa original sigue siendo la que se publica.
+            return
+
+
 def run_preflight(
     *,
     unit: Mapping[str, Any],
@@ -3135,8 +3260,70 @@ def run_preflight(
     checkout_root: Path,
     onedrive_root: Path | None,
     reserve_workdir: bool,
+    material_lease_out: list[MaterialLease] | None = None,
 ) -> PreflightResult:
-    """Ejecuta todos los checks anteriores a READY, sin abrir inputs del consumidor."""
+    """Ejecuta todos los checks anteriores a READY, sin abrir inputs del consumidor.
+
+    El árbol candidato queda congelado bajo ``windows_share_mode_lease_v1`` antes de su
+    primer hash (D-LEA-8) y todo hash del árbol ocurre por los handles retenidos (D-LEA-7).
+    Con ``material_lease_out`` el lease vivo se transfiere al llamador, que debe retenerlo
+    hasta la quiescencia y liberarlo él mismo (D-LEA-1); sin sink, el lease se libera de
+    forma verificada antes de retornar. Todo fallo libera los handles sin declarar éxito.
+    """
+    material_lease_slot: list[MaterialLease] = []
+    try:
+        result = _run_preflight_inner(
+            unit=unit,
+            authority_path=authority_path,
+            trusted_authority_public_key_path=trusted_authority_public_key_path,
+            authorization_text_path=authorization_text_path,
+            candidate_manifest_path=candidate_manifest_path,
+            fixture_manifest_path=fixture_manifest_path,
+            config_path=config_path,
+            schedule_path=schedule_path,
+            prior_evidence_paths=prior_evidence_paths,
+            document_paths=document_paths,
+            workdir=workdir,
+            evidence_path=evidence_path,
+            checkout_root=checkout_root,
+            onedrive_root=onedrive_root,
+            reserve_workdir=reserve_workdir,
+            material_lease_slot=material_lease_slot,
+        )
+    except BaseException:
+        if material_lease_slot:
+            _release_material_lease_after_failure(material_lease_slot[0])
+        raise
+    if not material_lease_slot:
+        raise ContractError("preflight_rejected: el preflight terminó sin lease de material")
+    material_lease = material_lease_slot[0]
+    if material_lease_out is None:
+        material_lease.release()
+    else:
+        material_lease_out.append(material_lease)
+    return result
+
+
+def _run_preflight_inner(
+    *,
+    unit: Mapping[str, Any],
+    authority_path: Path,
+    trusted_authority_public_key_path: Path,
+    authorization_text_path: Path,
+    candidate_manifest_path: Path,
+    fixture_manifest_path: Path,
+    config_path: Path,
+    schedule_path: Path,
+    prior_evidence_paths: Sequence[Path],
+    document_paths: Mapping[str, Path],
+    workdir: Path,
+    evidence_path: Path,
+    checkout_root: Path,
+    onedrive_root: Path | None,
+    reserve_workdir: bool,
+    material_lease_slot: list[MaterialLease],
+) -> PreflightResult:
+    """Cuerpo del preflight; el dueño del lease es ``run_preflight``, nunca este cuerpo."""
     started_monotonic_ns = time.monotonic_ns()
     started = time.monotonic()
     preflight_deadline = started + PREFLIGHT_DEADLINE_SECONDS
@@ -3175,6 +3362,18 @@ def run_preflight(
     config_hash = canonical_json_sha256(config)
     if config_hash != normalized_unit["config_hash"]:
         raise ContractError("config_hash no reconcilia con JSON canónico")
+    if sys.platform != "win32":
+        raise ContractError("preflight H9R calificable exige Windows")
+    # D-LEA-8: el árbol candidato se congela aquí, antes de su primer hash; queda retenido
+    # por handles del kernel durante todo el preflight y, en el attempt, hasta la
+    # quiescencia. El dueño del lease es ``run_preflight``; este cuerpo sólo lo usa.
+    material_lease = _acquire_preflight_material_lease(
+        candidate_manifest,
+        manifest_root=launch_captures["candidate_manifest"].path.parent,
+        resolved_workdir=resolved_workdir,
+        deadline_monotonic=preflight_deadline,
+    )
+    material_lease_slot.append(material_lease)
     live_tooling = tooling_identity(document_paths, deadline_monotonic=preflight_deadline)
     live_document_hashes = cast(dict[str, str], live_tooling["document_sha256"])
     authority = cast(dict[str, Any], launch_captures["authority"].json_value)
@@ -3220,8 +3419,6 @@ def run_preflight(
             require_calibration_start_implementation_ready()
         except ContractError as exc:
             raise ContractError(f"preflight_rejected: {exc}") from exc
-    if sys.platform != "win32":
-        raise ContractError("preflight H9R calificable exige Windows")
     affinity = current_process_affinity()
     selected_mask = first_cpu_mask(affinity["process_mask"])
     cap_id = str(normalized_unit["cap_id"])
@@ -3244,7 +3441,9 @@ def run_preflight(
         expected_sha256=str(normalized_unit["candidate_manifest_sha256"]),
         manifest_root=launch_captures["candidate_manifest"].path.parent,
         deadline_monotonic=preflight_deadline,
+        material_lease=material_lease,
     )
+    _require_material_lease_order(material_lease)
     _require_distinct_harness_and_candidate_runtimes(
         candidate=passive_candidate, tooling=live_tooling
     )
@@ -3265,6 +3464,7 @@ def run_preflight(
             memory_bytes=CAPS[cap_id],
             affinity_mask=selected_mask,
             deadline_monotonic=preflight_deadline,
+            material_lease=material_lease,
         )
     else:
         candidate = passive_candidate
@@ -3686,8 +3886,19 @@ def _revalidate_preflight(
     *,
     trusted_authority_public_key_path: Path,
     active_candidate_probe: bool = True,
+    material_lease: MaterialLease | None = None,
 ) -> None:
-    """Rehashea autoridad, tooling, candidato, fixture y config inmediatamente antes de START."""
+    """Rehashea autoridad, tooling, candidato, fixture y config inmediatamente antes de START.
+
+    Con ``material_lease`` la revalidación conserva el mismo lease adquirido por el
+    preflight: exige que siga vivo (D-LEA-1), re-verifica el árbol por sus handles
+    retenidos (D-LEA-7) y conserva la disciplina del ancla sobre su ruta; nunca rehashea
+    el árbol como material suelto.
+    """
+    if material_lease is not None:
+        if material_lease.released:
+            raise ContractError("el lease del material fue liberado antes de la quiescencia")
+        _require_plain_directory(material_lease.root, context="revalidate.lease.root")
     normalized_unit = validate_attempt_unit(preflight.unit)
     if normalized_unit != preflight.unit or attempt_id(normalized_unit) != preflight.attempt_id:
         raise ContractError("unidad/attempt_id mutó después del preflight")
@@ -3785,6 +3996,7 @@ def _revalidate_preflight(
         candidate_source,
         expected_sha256=str(preflight.unit["candidate_manifest_sha256"]),
         manifest_root=launch_captures["candidate_manifest"].path.parent,
+        material_lease=material_lease,
     )
     _require_distinct_harness_and_candidate_runtimes(
         candidate=passive_candidate, tooling=live_tooling
@@ -3806,6 +4018,7 @@ def _revalidate_preflight(
             manifest_root=launch_captures["candidate_manifest"].path.parent,
             memory_bytes=int(preflight.requested_limits["job_memory_commit_limit_bytes"]),
             affinity_mask=int(preflight.requested_limits["affinity_mask"]),
+            material_lease=material_lease,
         )
     else:
         rebuilt_candidate = passive_candidate
@@ -3867,7 +4080,11 @@ def _revalidate_preflight(
         if path.stat().st_size != entry["bytes"] or sha256_file(path) != entry["sha256"]:
             raise ContractError(f"candidate.runtime.{section} cambió después del preflight")
     tree = cast(dict[str, Any], runtime["installed_tree"])
-    if canonical_tree_identity(Path(str(tree["path"]))) != {
+    if material_lease is not None:
+        if material_lease.root != Path(os.path.abspath(str(tree["path"]))):
+            raise ContractError("el lease vivo no cubre el árbol del preflight")
+        material_lease.verify_streams()
+    elif canonical_tree_identity(Path(str(tree["path"]))) != {
         key: tree[key] for key in ("files", "logical_bytes", "sha256")
     }:
         raise ContractError("árbol instalado cambió después del preflight")
@@ -5118,16 +5335,22 @@ def _run_authorized_attempt_inner(
     trusted_authority_public_key_path: Path,
     authorization_consumption_path: Path,
     emergency_state: dict[str, Any],
+    material_lease: MaterialLease | None,
 ) -> dict[str, Any]:
     """Ejecuta una unidad ya autorizada; esta función no fue invocada en el cierre pre-START.
 
     El worker raíz se limita antes de READY. El START se materializa únicamente después de
-    reconciliar la autoridad exacta ya validada por :func:`run_preflight`.
+    reconciliar la autoridad exacta ya validada por :func:`run_preflight`. El lease del
+    material acompaña a las tres revalidaciones y sólo se libera tras la quiescencia del
+    árbol candidato (D-LEA-1); su censo entra en la evidencia (D-LEA-18).
     """
     require_calibration_start_implementation_ready()
+    if material_lease is None or material_lease.released:
+        raise ContractError("el intento exige el lease de material vivo del preflight")
     _revalidate_preflight(
         preflight,
         trusted_authority_public_key_path=trusted_authority_public_key_path,
+        material_lease=material_lease,
     )
     preflight = copy.deepcopy(preflight)
     emergency_state["authority_snapshot"] = copy.deepcopy(preflight.authority)
@@ -5605,6 +5828,7 @@ def _run_authorized_attempt_inner(
         _revalidate_preflight(
             preflight,
             trusted_authority_public_key_path=trusted_authority_public_key_path,
+            material_lease=material_lease,
         )
         _verify_runtime_descriptors(runtime_descriptors)
         _validate_workdir_reservation(preflight, workdir, require_initial_census=False)
@@ -5797,11 +6021,26 @@ def _run_authorized_attempt_inner(
             _revalidate_preflight(
                 preflight,
                 trusted_authority_public_key_path=trusted_authority_public_key_path,
+                material_lease=material_lease,
             )
             _verify_runtime_descriptors(runtime_descriptors)
         except ContractError as exc:
             classification = "invariant_failure"
             classification_reasons.append(f"artefactos de lanzamiento cambiaron: {exc}")
+        # El lease vivió desde el preflight hasta la quiescencia (D-LEA-1); sólo se libera
+        # con el árbol acreditado vacío. Si la quiescencia no se demuestra, el lease queda
+        # retenido —el dueño final lo cierra al terminar— y la evidencia lo declara así;
+        # un cierre fallido o un stream plantado jamás se publica como éxito.
+        if tree_empty and client_tree_empty:
+            try:
+                material_lease.release()
+            except MaterialLeaseError as exc:
+                classification = "invariant_failure"
+                classification_reasons.append(f"la liberación del lease de material falló: {exc}")
+        else:
+            classification_reasons.append(
+                "el lease del material sigue retenido: el árbol no acreditó quiescencia"
+            )
         if classification is None:
             if memory_violation.get("job_memory_limit_violated") is True:
                 classification = "job_memory_limit"
@@ -6250,6 +6489,7 @@ def _run_authorized_attempt_inner(
         "authority": preflight.authority,
         "authorization_consumption": authorization_consumption,
         "candidate": preflight.candidate,
+        "material_lease": material_lease.attestation(),
         "tooling": attempt_tooling,
         "fixture": preflight.fixture,
         "environment": preflight.environment,
@@ -7036,6 +7276,7 @@ def run_authorized_attempt(
     driver_path: Path,
     trusted_authority_public_key_path: Path,
     authorization_consumption_path: Path,
+    material_lease: MaterialLease | None = None,
 ) -> dict[str, Any]:
     """Ejecuta el intento y publica evidencia terminal separada si falla tras START."""
     require_calibration_start_implementation_ready()
@@ -7049,6 +7290,7 @@ def run_authorized_attempt(
             trusted_authority_public_key_path=trusted_authority_public_key_path,
             authorization_consumption_path=authorization_consumption_path,
             emergency_state=emergency_state,
+            material_lease=material_lease,
         )
     except BaseException as exc:
         _attempt_emergency_cleanup_once(emergency_state)
@@ -7058,6 +7300,10 @@ def run_authorized_attempt(
             start_path=workdir.resolve() / "telemetry" / "control" / "start.json",
             emergency_state=emergency_state,
         )
+        # En la ruta de emergencia el lease NO se libera: un cleanup de emergencia no
+        # acredita quiescencia y los handles jamás se sueltan mientras el árbol candidato
+        # pueda seguir vivo (D-LEA-1). El lease retenido muere con el proceso supervisor,
+        # que es su dueño único; la clasificación propia del fallo de liberación es A.3.
         if os.path.lexists(evidence_path):
             raise
         if emergency_state.get("start_published") is not True:

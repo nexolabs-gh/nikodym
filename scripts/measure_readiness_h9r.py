@@ -2246,6 +2246,7 @@ from scripts.readiness_h9r.contracts import (  # noqa: E402
 from scripts.readiness_h9r.copy_gate import (  # noqa: E402
     assert_documented_h9r_runtime_catalog,
 )
+from scripts.readiness_h9r.material_lease import MaterialLease  # noqa: E402
 from scripts.readiness_h9r.selftest import run_harness_self_test  # noqa: E402
 from scripts.readiness_h9r.supervisor import (  # noqa: E402
     calibration_start_implementation_blockers,
@@ -2343,7 +2344,12 @@ def _internal_workdir_from_request(request_path: Path) -> Path:
     )
 
 
-def _preflight_from_args(args: argparse.Namespace, *, reserve: bool) -> Any:
+def _preflight_from_args(
+    args: argparse.Namespace,
+    *,
+    reserve: bool,
+    material_lease_out: list[MaterialLease] | None = None,
+) -> Any:
     unit = _read_json_object_safe(args.unit, context="unidad H9R")
     return run_preflight(
         unit=unit,
@@ -2361,6 +2367,7 @@ def _preflight_from_args(args: argparse.Namespace, *, reserve: bool) -> Any:
         checkout_root=ROOT,
         onedrive_root=_onedrive_root(),
         reserve_workdir=reserve,
+        material_lease_out=material_lease_out,
     )
 
 
@@ -2522,8 +2529,18 @@ def _dispatch_cli(argv: list[str] | None = None) -> int:
     if args.command == "preflight":
         workdir_existed = os.path.lexists(args.workdir)
         try:
-            result = _preflight_from_args(args, reserve=False)
-            atomic_write_json_exclusive(args.output, result.as_dict())
+            preflight_lease_sink: list[MaterialLease] = []
+            result = _preflight_from_args(
+                args, reserve=False, material_lease_out=preflight_lease_sink
+            )
+            # El lease vivió durante toda la validación (D-LEA-8); se libera de forma
+            # verificada y su censo entra en la evidencia del preflight (D-LEA-18).
+            preflight_lease = preflight_lease_sink[0]
+            preflight_lease.release()
+            atomic_write_json_exclusive(
+                args.output,
+                {**result.as_dict(), "material_lease": preflight_lease.attestation()},
+            )
             return 0
         except Exception as exc:
             write_preflight_rejection_evidence(
@@ -2545,8 +2562,9 @@ def _dispatch_cli(argv: list[str] | None = None) -> int:
             return 2
     if args.command == "attempt":
         workdir_existed = os.path.lexists(args.workdir)
+        attempt_lease_sink: list[MaterialLease] = []
         try:
-            result = _preflight_from_args(args, reserve=True)
+            result = _preflight_from_args(args, reserve=True, material_lease_out=attempt_lease_sink)
         except Exception as exc:
             write_preflight_rejection_evidence(
                 unit_path=args.unit,
@@ -2565,6 +2583,10 @@ def _dispatch_cli(argv: list[str] | None = None) -> int:
                 reason=exc,
             )
             return 2
+        # Propiedad del lease en el attempt: el éxito lo libera el supervisor tras la
+        # quiescencia; un fallo lo libera la ruta de emergencia después del cleanup; y una
+        # retención declarada (árbol sin quiescencia acreditada) se conserva a propósito
+        # hasta que este proceso termine — nunca se libera con el árbol posiblemente vivo.
         attempt_evidence = run_authorized_attempt(
             preflight=result,
             workdir=args.workdir,
@@ -2572,6 +2594,7 @@ def _dispatch_cli(argv: list[str] | None = None) -> int:
             driver_path=Path(os.path.abspath(__file__)),
             trusted_authority_public_key_path=args.trusted_authority_public_key,
             authorization_consumption_path=args.authorization_consumption_path,
+            material_lease=attempt_lease_sink[0],
         )
         return 0 if attempt_evidence.get("schema_version") == ATTEMPT_SCHEMA_VERSION else 3
     if args.command == "aggregate":

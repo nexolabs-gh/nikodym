@@ -777,6 +777,7 @@ class MaterialLease:
         volume: Mapping[str, Any],
         acquisition_started_ns: int,
         acquisition_completed_ns: int,
+        acquisition_started_monotonic_ns: int,
         ancestors: tuple[_LeasedEntry, ...] = (),
         first_hash_started_ns: int | None = None,
     ) -> None:
@@ -787,6 +788,11 @@ class MaterialLease:
         self._volume = dict(volume)
         self._acquisition_started_ns = acquisition_started_ns
         self._acquisition_completed_ns = acquisition_completed_ns
+        # Los hitos perf (QPC) separan lease→hash aun en árboles chicos; los monotónicos
+        # comparten reloj con READY/START/quiescencia del supervisor para que la evidencia
+        # pueda relacionar la liberación con esos momentos (D-LEA-18).
+        self._acquisition_started_monotonic_ns = acquisition_started_monotonic_ns
+        self._release_completed_monotonic_ns: int | None = None
         self._first_hash_started_ns = first_hash_started_ns
         self._hash_completed_ns: int | None = None
         self._release_completed_ns: int | None = None
@@ -879,11 +885,17 @@ class MaterialLease:
             )
         self._released = True
         self._release_completed_ns = time.perf_counter_ns()
+        self._release_completed_monotonic_ns = time.monotonic_ns()
         if self._stream_violation is not None:
             raise self._stream_violation
 
     def attestation(self) -> dict[str, Any]:
-        """Censo publicable del lease: mecanismo, volumen, orden y elementos (D-LEA-18)."""
+        """Censo publicable del lease: mecanismo, volumen, orden y elementos (D-LEA-18).
+
+        Cada archivo publica además el ``sha256`` del inventario canónico ya ligado al
+        digest agregado (D-LEA-5), de modo que un consumidor durable pueda recomputar el
+        digest del árbol desde el propio censo sin reabrir material vivo.
+        """
         return {
             "mechanism": CANDIDATE_MATERIAL_LEASE_MECHANISM,
             "root": str(self._root),
@@ -893,10 +905,12 @@ class MaterialLease:
             "pinned_ancestors": len(self._ancestors),
             "acquisition_started_perf_ns": self._acquisition_started_ns,
             "acquisition_completed_perf_ns": self._acquisition_completed_ns,
+            "acquisition_started_monotonic_ns": self._acquisition_started_monotonic_ns,
             "first_hash_started_perf_ns": self._first_hash_started_ns,
             "hash_completed_perf_ns": self._hash_completed_ns,
             "released": self._released,
             "release_completed_perf_ns": self._release_completed_ns,
+            "release_completed_monotonic_ns": self._release_completed_monotonic_ns,
             "entries": [
                 {
                     "relative_path": entry.relative_path,
@@ -904,6 +918,9 @@ class MaterialLease:
                     "volume_serial": entry.volume_serial,
                     "file_index": entry.file_index,
                     "logical_bytes": entry.logical_bytes,
+                    "sha256": (
+                        self._expected[entry.relative_path][1] if entry.kind == "file" else None
+                    ),
                 }
                 for entry in self._entries
             ],
@@ -935,7 +952,9 @@ def acquire_material_lease(
     absolute_root = _absolute_without_following(root)
     # time.monotonic_ns() tiene granularidad ~15,6 ms en esta torre (medido): dejaría vacua la
     # invariante lease→hash sobre árboles chicos. perf_counter_ns (QPC) sí separa los hitos.
+    # El gemelo monotónico comparte reloj con el supervisor para D-LEA-18.
     acquisition_started_ns = time.perf_counter_ns()
+    acquisition_started_monotonic_ns = time.monotonic_ns()
     _reject_reparse_ancestors(absolute_root, context="ancla del lease")
     handles: list[int] = []
     try:
@@ -1002,4 +1021,5 @@ def acquire_material_lease(
         volume=volume,
         acquisition_started_ns=acquisition_started_ns,
         acquisition_completed_ns=acquisition_completed_ns,
+        acquisition_started_monotonic_ns=acquisition_started_monotonic_ns,
     )

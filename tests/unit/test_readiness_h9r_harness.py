@@ -20,6 +20,7 @@ import pytest
 from scripts.measure_readiness_h9r import (
     DOCUMENT_PATHS,
     ROOT,
+    _dispatch_cli,
     _verify_safe_harness_dependencies,
 )
 from scripts.readiness_h9r import supervisor as supervisor_module
@@ -45,6 +46,7 @@ from scripts.readiness_h9r.consumer import (
     reconstruct_consumer_sidecars,
 )
 from scripts.readiness_h9r.contracts import (
+    ATTEMPT_TOP_LEVEL_OBJECTS,
     AUTHORIZATION_SCHEMA_VERSION,
     CAPS,
     CONFIG_SCHEMA_VERSION,
@@ -53,6 +55,7 @@ from scripts.readiness_h9r.contracts import (
     PROTOCOL_VERSION,
     SCHEDULE_SCHEMA_VERSION,
     ContractError,
+    _validate_material_lease_census,
     attempt_id,
     authority_signing_bytes,
     authorization_consumption_path_digest,
@@ -64,6 +67,10 @@ from scripts.readiness_h9r.contracts import (
     sha256_file,
     trusted_authority_key_identity,
     validate_preflight_rejection_evidence,
+)
+from scripts.readiness_h9r.material_lease import (
+    LeaseAcquisitionError,
+    MaterialLease,
 )
 from scripts.readiness_h9r.selftest import run_harness_self_test
 from scripts.readiness_h9r.supervisor import (
@@ -514,7 +521,12 @@ def _preflight_material(tmp_path: Path, *, cap_id: str = "C4") -> dict[str, Any]
     }
 
 
-def _run_test_preflight(material: dict[str, Any], *, reserve: bool = False) -> Any:
+def _run_test_preflight(
+    material: dict[str, Any],
+    *,
+    reserve: bool = False,
+    material_lease_out: list[MaterialLease] | None = None,
+) -> Any:
     with patch(
         "scripts.readiness_h9r.supervisor._probe_candidate_runtime",
         return_value=material["provenance"],
@@ -535,7 +547,15 @@ def _run_test_preflight(material: dict[str, Any], *, reserve: bool = False) -> A
             checkout_root=ROOT,
             onedrive_root=TEST_ONEDRIVE_ROOT,
             reserve_workdir=reserve,
+            material_lease_out=material_lease_out,
         )
+
+
+def _installed_tree_root(material: dict[str, Any]) -> Path:
+    manifest = read_json_object(material["candidate_path"])
+    runtime = cast(dict[str, Any], manifest["runtime"])
+    relative = str(cast(dict[str, Any], runtime["installed_tree"])["relative_path"])
+    return cast(Path, material["candidate_path"]).parent / Path(relative)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
@@ -884,6 +904,362 @@ def test_attempt_revalida_firma_externa_y_driver_antes_de_popen(tmp_path: Path) 
     arbitrary_driver.write_text("raise SystemExit('no ejecutar')\n", encoding="utf-8")
     with pytest.raises(ContractError, match="driver_path"):
         _validate_harness_driver(preflight, arbitrary_driver)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
+def test_preflight_congela_el_arbol_antes_de_todo_hash_y_hashea_por_handles(
+    tmp_path: Path,
+) -> None:
+    material = _preflight_material(tmp_path)
+    tree_calls: list[Path] = []
+    real_tree_identity = supervisor_module.canonical_tree_identity
+
+    def spy_tree_identity(root: Path, **kwargs: Any) -> dict[str, Any]:
+        tree_calls.append(Path(root))
+        return real_tree_identity(root, **kwargs)
+
+    sink: list[MaterialLease] = []
+    with patch(
+        "scripts.readiness_h9r.supervisor.canonical_tree_identity",
+        side_effect=spy_tree_identity,
+    ):
+        result = _run_test_preflight(material, material_lease_out=sink)
+    assert len(sink) == 1
+    lease = sink[0]
+    try:
+        installed_root = Path(
+            str(cast(dict[str, Any], result.candidate["runtime"])["installed_tree"]["path"])
+        )
+        assert lease.released is False
+        assert lease.root == installed_root
+        # D-LEA-7: el árbol jamás se rehashea por ruta mientras el lease gobierna el preflight.
+        assert all(call != installed_root for call in tree_calls)
+        attestation = lease.attestation()
+        assert attestation["mechanism"] == "windows_share_mode_lease_v1"
+        assert attestation["files"] == 4
+        assert attestation["first_hash_started_perf_ns"] is not None
+        assert (
+            attestation["acquisition_completed_perf_ns"]
+            <= attestation["first_hash_started_perf_ns"]
+        )
+    finally:
+        lease.release()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
+def test_preflight_retiene_el_lease_con_sink_y_lo_libera_verificado_sin_sink(
+    tmp_path: Path,
+) -> None:
+    material = _preflight_material(tmp_path)
+    leased_file = _installed_tree_root(material) / "nikodym-test-only.txt"
+    _run_test_preflight(material)
+    with leased_file.open("ab"):
+        pass  # sin sink, run_preflight liberó el lease antes de retornar
+    sink: list[MaterialLease] = []
+    _run_test_preflight(material, material_lease_out=sink)
+    lease = sink[0]
+    try:
+        with pytest.raises(PermissionError):
+            leased_file.open("ab").close()
+    finally:
+        lease.release()
+    assert lease.released is True
+    with leased_file.open("ab"):
+        pass
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
+def test_preflight_fail_closed_con_escritor_vivo_es_rechazo_tipado_sin_start(
+    tmp_path: Path,
+) -> None:
+    material = _preflight_material(tmp_path)
+    tree_root = _installed_tree_root(material)
+    victim = tree_root / "nikodym-test-only.txt"
+    sibling = tree_root / "h9r-adapter.py"
+    unit_path = tmp_path / "unit.json"
+    _write_json(unit_path, material["unit"])
+    prior_path = tmp_path / "prior.json"
+    _write_json(prior_path, [])
+    evidence = tmp_path / "preflight-rejected.json"
+    with victim.open("ab"):
+        with pytest.raises(LeaseAcquisitionError, match=r"winerror=32") as excinfo:
+            _run_test_preflight(material)
+        assert isinstance(excinfo.value, ContractError)
+        with sibling.open("ab"):
+            pass  # el rollback no dejó handles vivos sobre el resto del conjunto
+        rejection = write_preflight_rejection_evidence(
+            unit_path=unit_path,
+            authority_path=material["authority_path"],
+            authorization_text_path=material["authorization_text"],
+            trusted_authority_public_key_path=material["trusted_authority_public_key"],
+            candidate_manifest_path=material["candidate_path"],
+            fixture_manifest_path=material["fixture_path"],
+            config_path=material["config_path"],
+            schedule_path=material["schedule_path"],
+            prior_evidence_paths_path=prior_path,
+            document_paths=DOCUMENT_PATHS,
+            workdir=material["workdir"],
+            evidence_path=evidence,
+            workdir_existed_before=False,
+            reason=excinfo.value,
+        )
+    assert rejection["termination"]["classification"] == "preflight_rejected"
+    assert rejection["termination"]["start_count"] == 0
+    assert rejection["gates"] == {"no_start": True, "no_worker": True, "evidence_atomic": True}
+    assert any("winerror=32" in reason for reason in rejection["reasons"])
+    result = _run_test_preflight(material)
+    assert result.resource_guards["passed"] is True
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
+def test_revalidate_conserva_el_mismo_lease_y_rechaza_liberado_o_ajeno(tmp_path: Path) -> None:
+    material = _preflight_material(tmp_path)
+    sink: list[MaterialLease] = []
+    preflight = _run_test_preflight(material, material_lease_out=sink)
+    lease = sink[0]
+    try:
+        _revalidate_preflight(
+            preflight,
+            trusted_authority_public_key_path=material["trusted_authority_public_key"],
+            active_candidate_probe=False,
+            material_lease=lease,
+        )
+        foreign_base = tmp_path / "ajeno"
+        foreign_base.mkdir()
+        foreign_material = _preflight_material(foreign_base)
+        foreign_sink: list[MaterialLease] = []
+        _run_test_preflight(foreign_material, material_lease_out=foreign_sink)
+        foreign_lease = foreign_sink[0]
+        try:
+            with pytest.raises(ContractError, match="no cubre el árbol"):
+                _revalidate_preflight(
+                    preflight,
+                    trusted_authority_public_key_path=material["trusted_authority_public_key"],
+                    active_candidate_probe=False,
+                    material_lease=foreign_lease,
+                )
+        finally:
+            foreign_lease.release()
+    finally:
+        lease.release()
+    with pytest.raises(ContractError, match="liberado antes de la quiescencia"):
+        _revalidate_preflight(
+            preflight,
+            trusted_authority_public_key_path=material["trusted_authority_public_key"],
+            active_candidate_probe=False,
+            material_lease=lease,
+        )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
+def test_attempt_exige_lease_de_material_vivo_antes_de_popen(tmp_path: Path) -> None:
+    material = _preflight_material(tmp_path)
+    sink: list[MaterialLease] = []
+    _run_test_preflight(material, material_lease_out=sink)
+    released_lease = sink[0]
+    released_lease.release()
+    for stale_lease in (None, released_lease):
+        with (
+            patch.object(supervisor_module, "QUALIFYING_BOUNDARY_ADAPTERS_AVAILABLE", True),
+            patch.object(supervisor_module, "CANDIDATE_EXECUTION_MATERIAL_LEASE_AVAILABLE", True),
+            patch.object(supervisor_module, "CANDIDATE_OUTPUT_OS_ISOLATION_AVAILABLE", True),
+            patch.object(supervisor_module, "MULTIPROCESS_NATIVE_POOL_OBSERVER_AVAILABLE", True),
+            patch("scripts.readiness_h9r.supervisor.subprocess.Popen") as popen,
+            pytest.raises(ContractError, match="exige el lease de material vivo"),
+        ):
+            supervisor_module._run_authorized_attempt_inner(
+                preflight=cast(Any, object()),
+                workdir=tmp_path,
+                evidence_path=tmp_path / "attempt.json",
+                driver_path=ROOT / "scripts" / "measure_readiness_h9r.py",
+                trusted_authority_public_key_path=tmp_path / "trusted-key.pem",
+                authorization_consumption_path=tmp_path / "authorization-consumption.json",
+                emergency_state={},
+                material_lease=stale_lease,
+            )
+        popen.assert_not_called()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
+def test_censo_del_lease_reconcilia_bidireccional_con_el_candidato(tmp_path: Path) -> None:
+    material = _preflight_material(tmp_path)
+    sink: list[MaterialLease] = []
+    result = _run_test_preflight(material, material_lease_out=sink)
+    lease = sink[0]
+    lease.release()
+    census = lease.attestation()
+    candidate = cast(dict[str, Any], result.candidate)
+
+    def censo_valido(
+        payload: dict[str, Any],
+        *,
+        classification: str = "success",
+        identity: dict[str, Any] | None = None,
+    ) -> None:
+        # Identidad sintética coherente con el reloj monotónico del censo (D-LEA-18).
+        _validate_material_lease_census(
+            payload,
+            candidate=candidate,
+            classification=classification,
+            identity=identity
+            if identity is not None
+            else {
+                "start_monotonic_ns": int(census["acquisition_started_monotonic_ns"]) + 1,
+                "tree_empty_monotonic_ns": int(census["release_completed_monotonic_ns"]),
+            },
+        )
+
+    censo_valido(census)
+    with pytest.raises(ContractError, match="anterior a la quiescencia"):
+        censo_valido(
+            census,
+            identity={
+                "start_monotonic_ns": int(census["acquisition_started_monotonic_ns"]) + 1,
+                "tree_empty_monotonic_ns": int(census["release_completed_monotonic_ns"]) + 1,
+            },
+        )
+    with pytest.raises(ContractError, match="adquisición posterior a START"):
+        censo_valido(
+            census,
+            identity={
+                "start_monotonic_ns": int(census["acquisition_started_monotonic_ns"]) - 1,
+                "tree_empty_monotonic_ns": int(census["release_completed_monotonic_ns"]),
+            },
+        )
+    with pytest.raises(ContractError, match="exige quiescencia acreditada"):
+        censo_valido(
+            census,
+            identity={
+                "start_monotonic_ns": int(census["acquisition_started_monotonic_ns"]) + 1,
+                "tree_empty_monotonic_ns": None,
+            },
+        )
+    retenido = copy.deepcopy(census)
+    retenido["released"] = False
+    retenido["release_completed_perf_ns"] = None
+    retenido["release_completed_monotonic_ns"] = None
+    censo_valido(
+        retenido,
+        classification="orphan_detected",
+        identity={"start_monotonic_ns": None, "tree_empty_monotonic_ns": None},
+    )
+    with pytest.raises(ContractError, match="sin liberación verificada"):
+        censo_valido(retenido)
+    sin_liberar = copy.deepcopy(census)
+    sin_liberar["released"] = False
+    with pytest.raises(ContractError, match="retenido con hito de liberación"):
+        censo_valido(sin_liberar, classification="orphan_detected")
+    otra_raiz = copy.deepcopy(census)
+    otra_raiz["root"] = str(tmp_path)
+    with pytest.raises(ContractError, match="no es el árbol instalado"):
+        censo_valido(otra_raiz)
+    desordenado = copy.deepcopy(census)
+    desordenado["acquisition_completed_perf_ns"], desordenado["first_hash_started_perf_ns"] = (
+        desordenado["first_hash_started_perf_ns"],
+        desordenado["acquisition_completed_perf_ns"],
+    )
+    with pytest.raises(ContractError, match="fuera de orden"):
+        censo_valido(desordenado)
+    multivolumen = copy.deepcopy(census)
+    multivolumen["entries"][1]["volume_serial"] += 1
+    with pytest.raises(ContractError, match="multivolumen"):
+        censo_valido(multivolumen)
+    incompleto = copy.deepcopy(census)
+    incompleto["entries"].pop()
+    with pytest.raises(ContractError, match="entries no reconcilia"):
+        censo_valido(incompleto)
+    con_extra = copy.deepcopy(census)
+    con_extra["extra"] = True
+    with pytest.raises(ContractError, match="campos faltantes"):
+        censo_valido(con_extra)
+    bytes_inflados = copy.deepcopy(census)
+    file_entry = next(entry for entry in bytes_inflados["entries"] if entry["kind"] == "file")
+    file_entry["logical_bytes"] += 1
+    with pytest.raises(ContractError, match="bytes lógicos no reconcilian"):
+        censo_valido(bytes_inflados)
+    ruta_ajena = copy.deepcopy(census)
+    entrada_falsa = next(entry for entry in ruta_ajena["entries"] if entry["kind"] == "file")
+    entrada_falsa["relative_path"] = "impostor-del-mismo-tamano.bin"
+    with pytest.raises(ContractError, match="no liga con el digest"):
+        censo_valido(ruta_ajena)
+
+
+def test_evidencia_de_intento_exige_seccion_material_lease() -> None:
+    incomplete = {
+        "schema_version": supervisor_module.ATTEMPT_SCHEMA_VERSION,
+        **{name: {} for name in ATTEMPT_TOP_LEVEL_OBJECTS if name != "material_lease"},
+    }
+    with pytest.raises(ContractError, match=r"faltantes=\['material_lease'\]"):
+        supervisor_module.validate_attempt_evidence(incomplete)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
+def test_preflight_rechaza_workdir_anidado_con_el_arbol_del_lease(tmp_path: Path) -> None:
+    material = _preflight_material(tmp_path)
+    material["workdir"] = _installed_tree_root(material) / "workdir-anidado"
+    with pytest.raises(ContractError, match="no pueden anidarse"):
+        _run_test_preflight(material)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="preflight calificable exige Windows")
+def test_cli_preflight_publica_censo_del_lease_y_rechaza_fail_closed(tmp_path: Path) -> None:
+    material = _preflight_material(tmp_path)
+    unit_path = tmp_path / "unit.json"
+    _write_json(unit_path, material["unit"])
+    prior_path = tmp_path / "prior.json"
+    _write_json(prior_path, [])
+
+    def cli_arguments(output: Path) -> list[str]:
+        return [
+            "preflight",
+            "--unit",
+            str(unit_path),
+            "--authority",
+            str(material["authority_path"]),
+            "--trusted-authority-public-key",
+            str(material["trusted_authority_public_key"]),
+            "--authorization-text",
+            str(material["authorization_text"]),
+            "--candidate-manifest",
+            str(material["candidate_path"]),
+            "--fixture-manifest",
+            str(material["fixture_path"]),
+            "--config",
+            str(material["config_path"]),
+            "--schedule",
+            str(material["schedule_path"]),
+            "--prior-evidence-paths",
+            str(prior_path),
+            "--workdir",
+            str(material["workdir"]),
+            "--output",
+            str(output),
+        ]
+
+    assert _dispatch_cli(cli_arguments(material["evidence"])) == 0
+    payload = read_json_object(material["evidence"])
+    census = cast(dict[str, Any], payload["material_lease"])
+    assert census["released"] is True
+    assert census["mechanism"] == "windows_share_mode_lease_v1"
+    _validate_material_lease_census(
+        census,
+        candidate=cast(dict[str, Any], payload["candidate"]),
+        classification="success",
+        identity={
+            "start_monotonic_ns": None,
+            "tree_empty_monotonic_ns": int(census["release_completed_monotonic_ns"]),
+        },
+    )
+    leased_file = _installed_tree_root(material) / "nikodym-test-only.txt"
+    with leased_file.open("ab"):
+        pass  # tras publicar la evidencia no queda ningún handle vivo
+    rejection_output = tmp_path / "preflight-rejected.json"
+    with leased_file.open("ab"):
+        assert _dispatch_cli(cli_arguments(rejection_output)) == 2
+    rejection = read_json_object(rejection_output)
+    assert rejection["termination"]["classification"] == "preflight_rejected"
+    assert rejection["termination"]["start_count"] == 0
+    assert any("winerror=32" in reason for reason in rejection["reasons"])
 
 
 def test_blocker_material_impide_swap_restore_antes_de_probe_popen(tmp_path: Path) -> None:

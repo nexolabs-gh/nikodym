@@ -728,6 +728,21 @@ def test_atestacion_censa_mecanismo_volumen_y_entradas(tmp_path: Path) -> None:
         assert censo["directories"] == 2
         assert censo["released"] is False
         assert {entrada["kind"] for entrada in censo["entries"]} == {"directory", "file"}
+        # D-LEA-18/D-LEA-5: el censo publica el inventario canónico ya ligado al digest.
+        declarados = {item["relative_path"]: item["sha256"] for item in entries}
+        for entrada in censo["entries"]:
+            if entrada["kind"] == "file":
+                assert entrada["sha256"] == declarados[entrada["relative_path"]]
+            else:
+                assert entrada["sha256"] is None
+        assert isinstance(censo["acquisition_started_monotonic_ns"], int)
+        assert censo["release_completed_monotonic_ns"] is None
     finally:
         lease.release()
-    assert lease.attestation()["released"] is True
+    censo_final = lease.attestation()
+    assert censo_final["released"] is True
+    assert isinstance(censo_final["release_completed_monotonic_ns"], int)
+    assert (
+        censo_final["release_completed_monotonic_ns"]
+        >= censo_final["acquisition_started_monotonic_ns"]
+    )
