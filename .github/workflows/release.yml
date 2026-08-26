@@ -105,12 +105,19 @@ jobs:
             # job existe para hacer imposible, y no se apoya en un solo filtro.
             #
             # Campos del censo: 1=databaseId 2=headSha 3=headBranch 4=status 5=conclusion
-            censo="$(
-              gh run list -w ci.yml -c "$CANDIDATE_SHA" --limit 50 \
+            #
+            # ⚠️ La consulta se tolera fallida a propósito. Con `set -e`, un `censo="$(gh ...)"` que
+            # reviente mata el step, y este bucle sondea cada 30 s durante hasta 130 minutos: un
+            # solo hipo de la API abortaría la release entera a mitad de la espera. Un fallo
+            # persistente sigue muriendo, pero por el plazo de abajo y no por el primer error.
+            if ! bruto="$(gh run list -w ci.yml -c "$CANDIDATE_SHA" --limit 50 \
                 --json databaseId,headSha,headBranch,status,conclusion \
                 --jq '.[] | "\(.databaseId) \(.headSha) \(.headBranch) \(.status) \(.conclusion)"' \
-              | awk -v sha="$CANDIDATE_SHA" '$2 == sha { print }'
-            )"
+                2>&1)"; then
+              echo "consulta a la API de Actions falló, se reintenta: ${bruto}"
+              bruto=""
+            fi
+            censo="$(printf '%s\n' "$bruto" | awk -v sha="$CANDIDATE_SHA" '$2 == sha { print }')"
 
             propios="$(
               printf '%s\n' "$censo" | awk -v ref="$GITHUB_REF_NAME" '$3 == ref' | grep -c . || true
@@ -138,6 +145,10 @@ jobs:
           # deja pasar el caso real: el push de rama deja un run verde, el push del tag deja uno
           # rojo, y publicar «el que corresponde a mi ref» ignoraría un rojo vigente sobre el mismo
           # código. `cancelled` y `timed_out` caen aquí por no ser `success`, que es lo que se busca.
+          #
+          # Es fail-closed pero NO es un callejón sin salida: un run cancelado o rojo se desbloquea
+          # con `gh run rerun <id>`, que actualiza la conclusión de ese mismo run. No hay input de
+          # excepción a propósito —saltarse un CI rojo es justo lo que este job existe para impedir.
           malos="$(printf '%s\n' "$censo" | awk '$5 != "success"' | grep -c . || true)"
           if [ "$malos" -ne 0 ]; then
             echo "::error::hay runs de CI de $CANDIDATE_SHA que no terminaron en success"
@@ -158,25 +169,31 @@ jobs:
           # 🔴 El runbook §8 lo ordena para este mismo cotejo: «No resumir "CI verde" desde la
           # conclusión agregada: listar todos los jobs y confirmar que ninguno quedó rojo, cancelado
           # o saltado indebidamente». La conclusión del run no basta —un job con
-          # `continue-on-error` fallaría dejándola en `success`—, así que se enumeran.
+          # `continue-on-error` falla dejándola en `success`—, así que se enumeran.
           #
-          # ⚠️ Límite declarado: `skipped` se acepta, porque `ci.yml` salta `test-all` a propósito
-          # fuera de `main`/PR y en un push de tag ese salto es legítimo. Un gate no puede juzgar
-          # qué salto es «indebido», así que en vez de callarlo se IMPRIME como aviso para que
-          # quien revise la release lo vea. Lo que nunca pasa es un job rojo o cancelado.
-          jobs="$(gh run view "$run_id" --json jobs --jq '.jobs[] | "\(.conclusion)\t\(.name)"')"
-          printf '%s\n' "$jobs"
-          rotos="$(
-            printf '%s\n' "$jobs" \
-              | awk -F'\t' '$1 != "success" && $1 != "skipped"' | grep -c . || true
+          # 🔴 Y se enumeran sobre la UNIÓN de todos los runs del SHA, exigiendo que cada job haya
+          # terminado en `success` al menos una vez. Mirar sólo el run promovido dejaba pasar el
+          # caso que de verdad ocurre: en un push de tag, `ci.yml` salta `test-all`
+          # (`if: pull_request || refs/heads/main`), el job queda `skipped`, el run sigue siendo
+          # `success` y la suite de todos los extras NO corrió. Con la unión, ese hueco se tapa con
+          # el run del push a rama —donde `test-all` sí corrió— y, si se tagea un commit que nunca
+          # pasó por `main` ni por PR, la publicación se detiene en vez de fingir cobertura.
+          resumen=""
+          for rid in $(printf '%s\n' "$censo" | awk '{print $1}'); do
+            fila="$(gh run view "$rid" --json jobs --jq '.jobs[] | "\(.conclusion)\t\(.name)"')"
+            resumen="${resumen}${fila}"$'\n'
+          done
+          printf '%s' "$resumen" | sort -u
+          faltan="$(
+            printf '%s' "$resumen" | awk -F'\t' 'NF == 2 {
+              visto[$2] = 1; if ($1 == "success") ok[$2] = 1
+            } END { for (j in visto) if (!(j in ok)) print j }'
           )"
-          if [ "$rotos" -ne 0 ]; then
-            echo "::error::el run $run_id tiene jobs que no terminaron en success"
+          if [ -n "$faltan" ]; then
+            echo "::error::estos jobs de ci.yml nunca terminaron en success para $CANDIDATE_SHA:"
+            printf '%s\n' "$faltan" | sed 's/^/  /'
             exit 1
           fi
-          printf '%s\n' "$jobs" | awk -F'\t' '$1 == "skipped" {
-            printf "::warning::job saltado en el run promovido: %s\n", $2
-          }'
 
           # El `run_id` sale del step SÓLO cuando ya pasó todo lo anterior. Publicarlo antes dejaría
           # escapar un candidate a medio validar si alguien reordena o vuelve tolerante un paso.
@@ -245,6 +262,53 @@ jobs:
           uv run --no-sync python scripts/check_distribution_contents.py \
             --frontend-provenance candidate/frontend-evidence/frontend-provenance.json \
             "$WHEEL" "$SDIST"
+
+      # 🔴 Raíz de confianza INDEPENDIENTE del candidate, y por eso va aparte del paso de arriba.
+      # Aquel compara el bundle estático contra `frontend-provenance.json`, que viaja DENTRO del
+      # candidate: prueba coherencia interna, no procedencia. Quien pudiera reescribir el artefacto
+      # podría reescribir a la vez su evidencia y su `SHA256SUMS`, y los dos seguirían cuadrando.
+      #
+      # Esto ata los bytes que se van a publicar al árbol versionado en git de este mismo tag, que
+      # `ci.yml` obliga a estar limpio y a reproducirse byte a byte (`git diff --exit-code --
+      # src/nikodym/ui/static`). Se lee con `git show <sha>:<ruta>` y no del working tree para no
+      # depender de la conversión de fin de línea del checkout.
+      - name: Atar el bundle estático publicado al árbol versionado
+        shell: bash
+        env:
+          WHEEL: ${{ steps.unidad.outputs.wheel }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          uv run --isolated --no-project python - "$WHEEL" "$CANDIDATE_SHA" <<'PY'
+          from __future__ import annotations
+
+          import subprocess
+          import sys
+          import zipfile
+
+          wheel_path, sha = sys.argv[1], sys.argv[2]
+          prefijo = "nikodym/ui/static/"
+
+          with zipfile.ZipFile(wheel_path) as wheel:
+              estaticos = sorted(n for n in wheel.namelist() if n.startswith(prefijo))
+              if not estaticos:
+                  raise SystemExit("el wheel promovido no trae bundle estático")
+              for nombre in estaticos:
+                  versionado = "src/" + nombre
+                  git = subprocess.run(
+                      ["git", "show", f"{sha}:{versionado}"], capture_output=True
+                  )
+                  if git.returncode != 0:
+                      raise SystemExit(
+                          f"{nombre} viaja en el wheel pero no está versionado en {versionado}"
+                      )
+                  if wheel.read(nombre) != git.stdout:
+                      raise SystemExit(
+                          f"{nombre} difiere del árbol versionado en {versionado}"
+                      )
+
+          print(f"bundle estático atado al árbol versionado: {len(estaticos)} archivos")
+          PY
 
       # `SHA256SUMS` prueba que el candidate llegó íntegro; no prueba que sea el que corresponde a
       # este código. Este paso lo ata a la versión que el árbol declara, leyendo la METADATA real del

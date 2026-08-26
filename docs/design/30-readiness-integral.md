@@ -517,7 +517,7 @@ futuros de la cuarta columna:
 | LGD/EAD/IFRS | Fit/predict in-sample en `src/nikodym/provisioning/lgd.py:258-267,326-345`; EAD constante en `src/nikodym/provisioning/ifrs9/ead.py:122-193`; ECL y DF separados en `src/nikodym/provisioning/ifrs9/ecl.py:180-263`. |
 | Forward/temporal/stress | LGD forward ignorada probada en `tests/unit/test_ifrs9_engine.py:1077-1092`; pooling Markov en `src/nikodym/markov/transition.py:330-390`; protocolos incompatibles en `src/nikodym/stress/engine.py:393-408` y `src/nikodym/provisioning/ifrs9/engine.py:208-216`. |
 | Informe/producto | Proyección tabular sin metadata en `src/nikodym/report/renderer.py:732-761`; DOCX genérico en `src/nikodym/report/docx.py:308-316,392-407`; módulos pares en `web/src/components/landing-evidence.ts:229-329`. |
-| Distribución | Candidato CI en `.github/workflows/ci.yml:259-377,439-467`; smoke dependiente del checkout en `scripts/smoke_instalacion_pip.py:1-186`; rebuild de release en `.github/workflows/release.yml:40-41`. |
+| Distribución | Candidato CI en `.github/workflows/ci.yml:259-377,439-467`; smoke dependiente del checkout en `scripts/smoke_instalacion_pip.py:1-186`; rebuild de release en `.github/workflows/release.yml:40-41` —ancla **anterior a `3801233` (2026-08-26)**: ahí vivían `- name: Build sdist and wheel` / `run: uv build`, que el cableado de D-PKG-9 eliminó; en el árbol actual esas líneas son otra cosa. |
 
 ### 6.2 Baseline W0 cerrado
 

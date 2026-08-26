@@ -159,6 +159,30 @@ def test_release_exige_el_ci_verde_de_ese_mismo_sha(release: dict[str, Any]) -> 
     )
 
 
+def test_el_bundle_estatico_se_ata_al_arbol_versionado(release: dict[str, Any]) -> None:
+    """La procedencia que viaja DENTRO del candidate no es raíz de confianza.
+
+    🔴 Medido: mutando a la vez el wheel, el sdist y `frontend-provenance.json`, el gate de
+    contenidos queda **verde** —compara el bundle contra hashes que el propio artefacto aporta—.
+    Hace falta una atadura contra algo que el candidate no pueda reescribir: el árbol versionado
+    en git del tag, que `ci.yml` obliga a estar limpio y a reproducirse byte a byte.
+    """
+    pasos = release["jobs"]["promote"]["steps"]
+    atadura = [
+        p
+        for p in pasos
+        if "git" in str(p.get("run", "")) and "nikodym/ui/static" in str(p.get("run", ""))
+    ]
+    assert len(atadura) == 1, (
+        "no hay exactamente un paso que ate el bundle estático publicado al árbol versionado"
+    )
+    cuerpo = str(atadura[0]["run"])
+    assert "git" in cuerpo and "show" in cuerpo, (
+        "la atadura no lee el árbol versionado con `git show`"
+    )
+    assert "if" not in atadura[0], "la atadura del bundle estático no puede ser condicional"
+
+
 def test_la_version_promovida_se_ata_al_arbol_sin_depender_del_tag(release: dict[str, Any]) -> None:
     """Un `workflow_dispatch` desde una rama no puede publicar sin atadura de versión.
 
