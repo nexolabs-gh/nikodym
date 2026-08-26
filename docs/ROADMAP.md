@@ -29,7 +29,7 @@ El estado y el plan de esta sección eran la fuente vigente en esa fecha, no hoy
 | F3/F8 · CMF, método interno y orquestación | Implementado, **experimental** | Validación humana de matrices/haircuts pendiente |
 | F4 · IFRS 9/ECL | Implementado, **experimental** | Independiente del máximo B-1 chileno |
 | F5/F6 · forward, survival, Markov, stress y validación | Implementado, **experimental** | Survival tiene UI, preset e informe; forward, Markov y stress se usan por config Python |
-| F7 · UI React/FastAPI e informe | **Publicada en 1.10.0; cierre B2 abierto** | B2.0–B2.3 y la documentación de B2.5 están entregados. Faltan el clean-room automatizado de B2.4, el release gateado y un recorrido por un tercero sin checkout |
+| F7 · UI React/FastAPI e informe | **Publicada en 1.10.0; cierre B2 abierto** | B2.0–B2.3 y la documentación de B2.5 están entregados. Falta el clean-room automatizado de B2.4 y un recorrido por un tercero sin checkout; el release gateado entró el 2026-08-26 |
 | Originación/reject inference | Futuro | Requiere caso de uso, priorización y SDD |
 
 ## Plan operativo fijado el 2026-07-30 (snapshot histórico)
@@ -254,9 +254,9 @@ retroactivamente el producto `1.5.0` publicado.
    PyPI en un paso propio del CI. Eso destapó `nvidia-nccl-cu12` (`LicenseRef-NVIDIA-Proprietary`,
    ~303 MB) entrando por `xgboost` en Linux: el extra pasa a resolver **`xgboost-cpu`** bajo
    `sys_platform == 'linux'`, que es el mismo proyecto en Apache-2.0 y sin rutas GPU (98 MB → 5,7 MB
-   por wheel). El job `release` **sigue sin pasar por estos gates** y su cableado es B2.5; se declara
-   aquí explícitamente en vez de describirlo como vigente. (Verificable en
-   `.github/workflows/release.yml`: publica con rebuild, no el artefacto gateado por el job `build`.)
+   por wheel). El release **pasó a consumir estos gates el 2026-08-26** (B2.5, D-PKG-9): desde ese
+   día `release.yml` no reconstruye, sino que promueve el artefacto
+   `candidate-distributions-with-evidence` del job `build` de `ci.yml` y exige ese CI en verde.
 2. **B2.2 · launcher, runtime y seguridad.** `nikodym-ui = nikodym.ui.__main__:main`, `argparse`,
    bind fijo `127.0.0.1:8000`, `.nikodym_ui`, navegador abierto y
    `--no-open`/`--port`/`--workdir` —sin `--host`. Cada lanzamiento crea un token aleatorio de
@@ -298,9 +298,10 @@ retroactivamente el producto `1.5.0` publicado.
    **Documentación HECHA el 2026-07-28:** el README suma «La misma corrida, sin escribir código» y
    `docs_site` documenta `nikodym-ui` con sus tres opciones, el bind sólo-loopback y la paridad
    UI↔código; la fila del extra `ui` en la matriz estaba incompleta (decía «backend REST», omitía
-   el comando y el extra `docx`) y la versión de la serie estaba en `1.5.x`. **Falta la pata de
-   release:** el job `release` sigue sin pasar por los gates de B2.1 y publica con rebuild —lo
-   declara el nodo B2.1 arriba—, así que este nodo queda PARCIAL.
+   el comando y el extra `docx`) y la versión de la serie estaba en `1.5.x`. **La pata de release
+   entró el 2026-08-26:** `release.yml` promueve el artefacto que gatea B2.1 y exige su CI en
+   verde, sin rebuild (D-PKG-9), así que este nodo queda COMPLETO en su alcance B2.5. El clean-room
+   automatizado no era suyo: es B2.4 y sigue abierto.
 
 **Identidad del DoD.** Antes de correr: igualdad estructural del config +
 `config_hash(UI) == config_hash(código)`; la ubicación de datos se excluye del `config_hash`.
@@ -767,14 +768,15 @@ determinista de presentación (read-only, trazada y fuera de modelo/ModelCard/in
   loopback; los datos no salen de su máquina. La capacidad está publicada desde `1.9.0` y verificada
   nuevamente en `1.10.0`: B2.1 gatea los assets, B2.2 añade el launcher `nikodym-ui` con su runtime
   y seguridad, y B2.3 cierra el extra `[ui]`, que compone `scoring`, `survival`, `excel`, `docx` y
-  `report` para ejecutar los tres presets. El cierre amplio de B2 sigue pendiente del clean-room
-  automatizado, del release sin rebuild y de un recorrido por un tercero sin checkout.
+  `report` para ejecutar los tres presets. El release sin rebuild entró el 2026-08-26; el cierre
+  amplio de B2 sigue pendiente del clean-room automatizado y de un recorrido por un tercero sin
+  checkout.
 - **Hosteada (comercial):** `nikodym.cl/demo`, dataset **sintético** precargado, flujo guiado "arma tu modelito en pocos pasos" + CTA de lead comercial.
 **DoD.** Un modelo F1 completo construible 100 % desde la UI: igualdad estructural +
 `config_hash` antes de ejecutar y, sobre el mismo contenido, `data_hash` + resultados canónicos
-después; informe HTML y look&feel premium aprobados. El artefacto ya está publicado en PyPI; el
-cierre amplio de B2 exige además el clean-room automatizado, publicar sin rebuild el artefacto
-gateado y el recorrido de un tercero sin checkout.
+después; informe HTML y look&feel premium aprobados. El artefacto ya está publicado en PyPI y
+desde el 2026-08-26 la publicación promueve sin rebuild el artefacto gateado; el cierre amplio de
+B2 exige además el clean-room automatizado y el recorrido de un tercero sin checkout.
 **Dependencias.** Todo el core (motor V1 ✅ completo 2026-07-04).
 
 ## F+ — Originación & reject inference (insertable)
@@ -785,12 +787,12 @@ gateado y el recorrido de un tercero sin checkout.
 ---
 
 ## Estrategia de release (open-source)
-- `1.10.0` es la versión publicada en PyPI. `1.11.0` es un corte candidato para los arreglos
-  compatibles ya diagnosticados; no es un compromiso de fecha ni de alcance. El pipeline F1 conserva
-  la garantía SemVer 1.x.
-- El tag sólo se crea sobre un SHA cuyo CI completo ya terminó verde. `release.yml` todavía
-  reconstruye en vez de publicar el artefacto gateado; cerrar esa brecha es trabajo pendiente, no
-  una propiedad del release actual.
+- `1.11.0` es la versión publicada en PyPI: tag `v1.11.0`, run de `release.yml` `31055209153` del
+  2026-08-05 con el job `Publish to PyPI` en verde. Se publicó desde el rebuild sin gatear, que es
+  justo lo que D-PKG-9 vino a cerrar. El pipeline F1 conserva la garantía SemVer 1.x.
+- El tag sólo se crea sobre un SHA cuyo CI completo ya terminó verde, y desde el 2026-08-26
+  `release.yml` además lo **exige** por su cuenta: promueve el artefacto ya gateado por `ci.yml` en
+  vez de reconstruir, y se detiene si algún run de CI de ese SHA no terminó en `success`.
 - La librería se publica **completa y gratuita** bajo Apache-2.0. Ninguna capacidad se retiene del
   paquete público por motivos comerciales.
 - Releases incrementales con changelog, docs MkDocs, dataset/tutorial reproducible y smoke clean-room.

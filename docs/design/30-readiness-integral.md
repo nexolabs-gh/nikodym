@@ -494,7 +494,7 @@ excluido; `P` sólo existe después de una publicación autorizada.
 | `F-PORTFOLIO-STRESS · X(H8=A)/C(H8=B-C)` | No existe; no modela saldos/runoff/recuperaciones/capital. | Sólo se vuelve `M` tras H8 B/C y SDD metodológico propio aprobado. | No se publicita ni cuenta hoy. |
 | `F-REPORT · M` | Sin metadata semántica común; DOCX degrada layout. | Registro cerrado y paridad semántica/visual target-specific. | HTML/PDF/DOCX renderizados; overflow/cortes en rojo. |
 | `G-PUBLIC-NAV · T` | Landing/README presentan módulos pares. | Seis familias de navegación mapean los diez trabajos D-JOB. | Censo landing↔README↔demo↔docs↔jobs. |
-| `G-DIST-CANDIDATE · T` | CI parcial; smoke usa checkout; release reconstruye. | Clean-room enumerado y promoción exacta de wheel+sdist gateados. | Hashes, instalación externa, assets/red y artefactos finales. |
+| `G-DIST-CANDIDATE · T` | CI parcial; smoke usa checkout; release PROMUEVE por hashes desde el 2026-08-26. | Clean-room enumerado y promoción exacta de wheel+sdist gateados. | Hashes, instalación externa, assets/red y artefactos finales. |
 | `G-THIRD-PARTY-CANDIDATE · T` | No existe acta sin checkout sobre el candidato. | Tercero obtiene candidate-unit por SHA, sin repo, y repite los flujos `M`. | Acta independiente previa a cualquier OK PyPI. |
 | `P-PYPI-VERIFY · P` | PyPI 1.11.0; no hay release autorizada. | Tras OK/publicación, descargar los mismos hashes y repetir smoke externo. | Acta post-publicación; no condiciona diseño ni autoriza release. |
 

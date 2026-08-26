@@ -2,6 +2,32 @@ name: Release
 
 # Publica en PyPI vía Trusted Publishing (OIDC, sin tokens). Se dispara al pushear un tag `vX.Y.Z`.
 # El publisher está registrado en PyPI: repo nexolabs-gh/nikodym · workflow release.yml · environment pypi.
+#
+# 🔴 Release por PROMOCIÓN, no por rebuild. La decisión es D-PKG-9, aprobada en B2.0; el cableado
+# que la hace verdadera es del 2026-08-26 (SDD-25 §7.7, B2.5).
+# Hasta el 2026-08-26 este workflow hacía su propio `uv build` en un checkout limpio, corría
+# `twine check` y publicaba ESE artefacto. Consecuencia medida: **ninguno** de los gates de B2.1
+# —contenidos de distribución, procedencia del frontend, licencias runtime, notices— tocaba los
+# bytes que llegaban a PyPI, y **un `ci.yml` rojo no detenía la publicación**, porque los dos
+# workflows disparan en `v*` en paralelo y no hay ninguna relación de dependencia entre ellos.
+#
+# ⚠️ La lección de método es la misma de `deploy.yml`: **no faltaba un gate, faltaba conectarlo.**
+# `scripts/check_distribution_contents.py` existía y ya corría dos veces en `ci.yml`; lo que no
+# existía era el mecanismo que lleva ese veredicto al artefacto publicado. Por eso esto no añade un
+# checker nuevo: promueve el que CI ya firmó.
+#
+# El candidato publicable es el artefacto `candidate-distributions-with-evidence` del job `build`
+# de `ci.yml` —el mismo que el runbook §9 manda descargar y verificar a mano—, **no** una
+# reconstrucción. D-PKG-9 es explícita: «El job de publicación recibe los mismos wheel/sdist cuyos
+# SHA-256 pasaron inspección y clean-room. Se prohíbe reconstruir en release.» Reconstruir aquí, aun
+# desde el mismo SHA, publicaría bytes que nadie inspeccionó.
+#
+# ⚠️ Lo que este workflow NO establece, dicho para que nadie lo lea de más: D-PKG-9 pide «inspección
+# **y clean-room**», y el clean-room automatizado es el job `candidate-ui` de B2.4, que sigue sin
+# existir (SDD-25 §7.5). Lo que se promueve pasó inspección de contenidos, procedencia frontend y
+# licencias, más el smoke de instalación con pip resolviendo libre de `ci.yml` —pero ese smoke corre
+# DENTRO del checkout. Aquí queda cerrada la mitad de PROMOCIÓN de D-PKG-9; la de clean-room sigue
+# abierta en B2.4.
 
 "on":
   push:
@@ -13,9 +39,19 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build distribution
+  promote:
+    name: Promote CI-gated candidate
     runs-on: ubuntu-latest
+    # El CI completo de este SHA tiene que terminar antes de que haya nada que promover.
+    timeout-minutes: 150
+    permissions:
+      contents: read
+      actions: read # listar los runs de CI de este SHA y descargar su artefacto
+    outputs:
+      wheel_name: ${{ steps.promocion.outputs.wheel_name }}
+      wheel_sha256: ${{ steps.promocion.outputs.wheel_sha256 }}
+      sdist_name: ${{ steps.promocion.outputs.sdist_name }}
+      sdist_sha256: ${{ steps.promocion.outputs.sdist_sha256 }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,6 +61,9 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
 
       - name: Verify tag matches package version
         if: startsWith(github.ref, 'refs/tags/')
@@ -37,8 +76,244 @@ jobs:
             exit 1
           fi
 
-      - name: Build sdist and wheel
-        run: uv build
+      - name: Exigir el CI verde de ESTE SHA y localizar su run
+        id: ci
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # 🔴 La espera es CAUSAL, no un `sleep` calculado a ojo. `ci.yml` y `release.yml` arrancan
+          # con el mismo push del tag, así que el run de CI de este ref tarda en existir; lo que se
+          # espera es que APAREZCA el run cuyo `headBranch` es este mismo ref —en un push de tag,
+          # `headBranch` es el nombre del tag—, y sólo entonces se mira si terminó.
+          #
+          # Un asentamiento por tiempo fijo NO cierra esta carrera, y el modo de fallo es real: si
+          # el commit ya se había pusheado a una rama, existe un run verde del MISMO SHA. Con sólo
+          # esperar N segundos, un censo que llegue antes de que exista el run del tag ve ese run
+          # anterior, lo encuentra `completed`+`success`, promueve y publica —mientras el run del
+          # tag sigue corriendo y todavía puede terminar rojo—. Es exactamente la propiedad que este
+          # job existe para garantizar.
+          limite=$(( SECONDS + 130 * 60 ))
+          while :; do
+            # `gh` trae su propio jq incorporado (`--jq`), así que esto no depende de que el runner
+            # tenga instalado el binario `jq`. El filtro por `headSha` se repite en awk aunque `-c`
+            # ya lo aplique del lado del servidor: promover desde otro commit es el error que este
+            # job existe para hacer imposible, y no se apoya en un solo filtro.
+            #
+            # Campos del censo: 1=databaseId 2=headSha 3=headBranch 4=status 5=conclusion
+            censo="$(
+              gh run list -w ci.yml -c "$CANDIDATE_SHA" --limit 50 \
+                --json databaseId,headSha,headBranch,status,conclusion \
+                --jq '.[] | "\(.databaseId) \(.headSha) \(.headBranch) \(.status) \(.conclusion)"' \
+              | awk -v sha="$CANDIDATE_SHA" '$2 == sha { print }'
+            )"
+
+            propios="$(
+              printf '%s\n' "$censo" | awk -v ref="$GITHUB_REF_NAME" '$3 == ref' | grep -c . || true
+            )"
+            pendientes="$(printf '%s\n' "$censo" | awk '$4 != "completed"' | grep -c . || true)"
+
+            if [ "$propios" -eq 0 ]; then
+              echo "todavía no existe el run de ci.yml de '$GITHUB_REF_NAME' sobre $CANDIDATE_SHA"
+            elif [ "$pendientes" -eq 0 ]; then
+              break
+            else
+              echo "CI en curso: $pendientes run(s) sin completar sobre $CANDIDATE_SHA"
+            fi
+
+            if [ "$SECONDS" -ge "$limite" ]; then
+              echo "::error::el CI de $CANDIDATE_SHA no completó dentro del plazo"
+              exit 1
+            fi
+            sleep 30
+          done
+
+          printf '%s\n' "$censo"
+
+          # 🔴 Se exigen verdes TODOS los runs de CI de este SHA, no sólo el del tag. Mirar uno solo
+          # deja pasar el caso real: el push de rama deja un run verde, el push del tag deja uno
+          # rojo, y publicar «el que corresponde a mi ref» ignoraría un rojo vigente sobre el mismo
+          # código. `cancelled` y `timed_out` caen aquí por no ser `success`, que es lo que se busca.
+          malos="$(printf '%s\n' "$censo" | awk '$5 != "success"' | grep -c . || true)"
+          if [ "$malos" -ne 0 ]; then
+            echo "::error::hay runs de CI de $CANDIDATE_SHA que no terminaron en success"
+            exit 1
+          fi
+
+          # Se promueve desde el run de ESTE ref, no desde el más nuevo del SHA: es el que la
+          # publicación de este tag debe poder citar como su origen.
+          run_id="$(
+            printf '%s\n' "$censo" \
+              | awk -v ref="$GITHUB_REF_NAME" '$3 == ref { if ($1 > max) max = $1 } END { printf "%d", max }'
+          )"
+          if [ -z "$run_id" ] || [ "$run_id" = "0" ]; then
+            echo "::error::no se pudo determinar el run de CI del que promover"
+            exit 1
+          fi
+
+          # 🔴 El runbook §8 lo ordena para este mismo cotejo: «No resumir "CI verde" desde la
+          # conclusión agregada: listar todos los jobs y confirmar que ninguno quedó rojo, cancelado
+          # o saltado indebidamente». La conclusión del run no basta —un job con
+          # `continue-on-error` fallaría dejándola en `success`—, así que se enumeran.
+          #
+          # ⚠️ Límite declarado: `skipped` se acepta, porque `ci.yml` salta `test-all` a propósito
+          # fuera de `main`/PR y en un push de tag ese salto es legítimo. Un gate no puede juzgar
+          # qué salto es «indebido», así que en vez de callarlo se IMPRIME como aviso para que
+          # quien revise la release lo vea. Lo que nunca pasa es un job rojo o cancelado.
+          jobs="$(gh run view "$run_id" --json jobs --jq '.jobs[] | "\(.conclusion)\t\(.name)"')"
+          printf '%s\n' "$jobs"
+          rotos="$(
+            printf '%s\n' "$jobs" \
+              | awk -F'\t' '$1 != "success" && $1 != "skipped"' | grep -c . || true
+          )"
+          if [ "$rotos" -ne 0 ]; then
+            echo "::error::el run $run_id tiene jobs que no terminaron en success"
+            exit 1
+          fi
+          printf '%s\n' "$jobs" | awk -F'\t' '$1 == "skipped" {
+            printf "::warning::job saltado en el run promovido: %s\n", $2
+          }'
+
+          # El `run_id` sale del step SÓLO cuando ya pasó todo lo anterior. Publicarlo antes dejaría
+          # escapar un candidate a medio validar si alguien reordena o vuelve tolerante un paso.
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Descargar el candidate exacto que gateó ese run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CI_RUN_ID: ${{ steps.ci.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate
+          gh run download "$CI_RUN_ID" -n candidate-distributions-with-evidence -D candidate
+          find candidate -type f | sort
+
+      - name: Verificar SHA256SUMS del candidate en ambos sentidos
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f candidate/SHA256SUMS
+          cd candidate
+          # Cada archivo manifestado existe y coincide byte a byte...
+          sha256sum -c --strict SHA256SUMS
+          # ...y ningún archivo extra queda fuera del manifiesto. Un asset añadido después de que CI
+          # firmara la unidad pasa el `-c` de arriba sin que nadie lo mire; el censo inverso es el
+          # que lo caza.
+          #
+          # Se comparan RUTAS, no líneas enteras: el hash de cada archivo ya quedó probado arriba, y
+          # el formato de línea de `sha256sum` NO es estable entre plataformas —GNU en Linux escribe
+          # dos espacios (modo texto) y el mismo binario bajo MSYS escribe ` *` (modo binario)—, así
+          # que diffear las líneas ataría este gate al sistema donde se generó el manifiesto.
+          sed -E 's/^[0-9a-f]{64} [ *]//' SHA256SUMS | sort > /tmp/rutas-manifestadas
+          find . -type f ! -name SHA256SUMS | sort > /tmp/rutas-reales
+          diff -u /tmp/rutas-manifestadas /tmp/rutas-reales
+
+      - name: Exigir exactamente un wheel y un sdist promovidos
+        id: unidad
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(candidate/*.whl)
+          sdists=(candidate/*.tar.gz)
+          test "${#wheels[@]}" -eq 1
+          test "${#sdists[@]}" -eq 1
+          echo "wheel=${wheels[0]}" >> "$GITHUB_OUTPUT"
+          echo "sdist=${sdists[0]}" >> "$GITHUB_OUTPUT"
+
+      # El checker importa `nikodym.ui._static_index`, la semántica canónica del index (enmienda
+      # B2.2, E-B2.2-6). Sin este sync el paso siguiente corre con `--no-sync` sobre un entorno sin
+      # el proyecto y muere en el import, antes de validar un solo byte. Se sincroniza el ÁRBOL
+      # FUENTE del tag, nunca el candidate: auditar un wheel con su propio código es dejar que un
+      # artefacto mutado se apruebe a sí mismo. Es el mismo cableado que `ci.yml`.
+      - name: Sync source tree for the distribution checker
+        run: uv sync --locked --python 3.12 --no-default-groups
+
+      - name: Re-ejecutar el gate de contenidos sobre los bytes que se van a publicar
+        shell: bash
+        env:
+          WHEEL: ${{ steps.unidad.outputs.wheel }}
+          SDIST: ${{ steps.unidad.outputs.sdist }}
+        run: |
+          set -euo pipefail
+          uv run --no-sync python scripts/check_distribution_contents.py \
+            --frontend-provenance candidate/frontend-evidence/frontend-provenance.json \
+            "$WHEEL" "$SDIST"
+
+      # `SHA256SUMS` prueba que el candidate llegó íntegro; no prueba que sea el que corresponde a
+      # este código. Este paso lo ata a la versión que el árbol declara, leyendo la METADATA real del
+      # wheel en vez de su nombre de archivo.
+      #
+      # 🔴 Va SIN `if:` a propósito, y se compara contra `__version__`, no contra el tag. El paso de
+      # arriba ya exige tag == `__version__` cuando hay tag, así que en un release esto ata wheel ==
+      # tag por transitividad; y en un `workflow_dispatch` desde una rama —donde no hay tag y aquel
+      # paso se salta— sigue habiendo una atadura. Con `if:` de tag, un dispatch publicaba el
+      # candidate sin que nada comparase su versión con nada.
+      - name: Afirmar que el candidate promovido es el de este árbol
+        shell: bash
+        env:
+          WHEEL: ${{ steps.unidad.outputs.wheel }}
+        run: |
+          set -euo pipefail
+          PKG="$(grep -oE '__version__ = "[^"]+"' src/nikodym/__init__.py | cut -d'"' -f2)"
+          uv run --isolated --no-project python - "$WHEEL" "$PKG" <<'PY'
+          from __future__ import annotations
+
+          import email.parser
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          wheel_path = Path(sys.argv[1])
+          version_declarada = sys.argv[2]
+          with zipfile.ZipFile(wheel_path) as wheel:
+              metadata_name = next(
+                  name for name in wheel.namelist() if name.endswith(".dist-info/METADATA")
+              )
+              metadata = email.parser.Parser().parsestr(
+                  wheel.read(metadata_name).decode("utf-8")
+              )
+
+          wheel_version = metadata.get("Version")
+          if wheel_version != version_declarada:
+              raise SystemExit(
+                  "El candidate promovido no corresponde a este árbol: "
+                  f"wheel={wheel_version!r}, __version__={version_declarada!r}."
+              )
+          print(f"candidate promovido {wheel_path.name} == __version__ {version_declarada}")
+          PY
+
+      - name: Preparar dist/ con exactamente el wheel y el sdist promovidos
+        id: promocion
+        shell: bash
+        env:
+          WHEEL: ${{ steps.unidad.outputs.wheel }}
+          SDIST: ${{ steps.unidad.outputs.sdist }}
+        run: |
+          set -euo pipefail
+          # `dist/` alimenta a `gh-action-pypi-publish`, que sube TODO lo que encuentre: la evidencia
+          # del candidate (reportes, notices, SHA256SUMS) se queda fuera deliberadamente.
+          mkdir -p dist
+          cp "$WHEEL" "$SDIST" dist/
+          shopt -s nullglob
+          publicables=(dist/*)
+          test "${#publicables[@]}" -eq 2
+
+          # Los SHA-256 que D-PKG-9 exige que reciba el job de publicación viajan como outputs, no
+          # dentro de `dist/`: un archivo de sumas ahí sería un tercer archivo camino a PyPI.
+          {
+            echo "wheel_name=$(basename "$WHEEL")"
+            echo "wheel_sha256=$(sha256sum "$WHEEL" | cut -d' ' -f1)"
+            echo "sdist_name=$(basename "$SDIST")"
+            echo "sdist_sha256=$(sha256sum "$SDIST" | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+          sha256sum "$WHEEL" "$SDIST"
 
       - name: Check distribution metadata
         run: uvx twine check dist/*
@@ -48,10 +323,11 @@ jobs:
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
 
   publish:
     name: Publish to PyPI
-    needs: build
+    needs: promote
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -62,6 +338,30 @@ jobs:
         with:
           name: dist
           path: dist/
+
+      # D-PKG-9 al pie de la letra: el job de publicación recibe los mismos wheel/sdist cuyos
+      # SHA-256 pasaron inspección. El traspaso entre jobs es el último tramo sin vigilar, y se
+      # cierra comparando hashes, no confiando en el nombre del artefacto.
+      - name: Exigir que llegan exactamente los bytes que pasaron los gates
+        shell: bash
+        env:
+          WHEEL_NAME: ${{ needs.promote.outputs.wheel_name }}
+          WHEEL_SHA256: ${{ needs.promote.outputs.wheel_sha256 }}
+          SDIST_NAME: ${{ needs.promote.outputs.sdist_name }}
+          SDIST_SHA256: ${{ needs.promote.outputs.sdist_sha256 }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          publicables=(dist/*)
+          if [ "${#publicables[@]}" -ne 2 ]; then
+            echo "::error::dist/ debe contener exactamente el wheel y el sdist promovidos"
+            printf '%s\n' "${publicables[@]}"
+            exit 1
+          fi
+          printf '%s  dist/%s\n%s  dist/%s\n' \
+            "$WHEEL_SHA256" "$WHEEL_NAME" \
+            "$SDIST_SHA256" "$SDIST_NAME" \
+            | sha256sum -c --strict -
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

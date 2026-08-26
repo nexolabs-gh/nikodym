@@ -594,15 +594,21 @@ del YAML y se corrió sustituyendo sólo la ruta del venv, y falló a la primera
    checkout, instale **solo** `<candidate-wheel>[ui]`, lance `nikodym-ui --no-open` y ejecute el gate
    Playwright de §11, sin resolver el proyecto ni reutilizar su entorno.
 6. **Job `lock-check`**: `uv lock --check`.
-7. **Job `release`** (solo en tag `v*` y con OK específico de Cami) — ⚠️ **CONTRATO APROBADO, NO
-   IMPLEMENTADO (pendiente B2.5)**. El destino es publicar por Trusted Publishing **exactamente el
-   wheel y sdist cuyos hashes pasaron los gates**, sin `uv build` ni otro rebuild (D-PKG-9).
-   **Estado real hoy:** `release.yml` es un workflow independiente (`build` → `publish`) **sin
-   `needs` hacia `ci.yml`**: hace su propio `uv build` en un checkout limpio, corre `twine check` y
-   publica ese rebuild. Ningún gate de B2.1 —contenidos de distribución, procedencia del frontend,
-   licencias runtime, notices— toca el artefacto que llega a PyPI, y **un `ci.yml` rojo no bloquea
-   la publicación**. El riesgo queda acotado por el OK específico de Cami por release (no hay
-   publicación automática), pero no debe leerse este numeral como una garantía vigente.
+7. **`release.yml`** (solo en tag `v*` y con OK específico de Cami) — **PROMOCIÓN IMPLEMENTADA
+   el 2026-08-26** (B2.5). Publica por Trusted Publishing **exactamente el wheel y sdist cuyos
+   hashes pasaron los gates**, sin `uv build` ni otro rebuild (D-PKG-9). ⚠️ Cierra la mitad de
+   *promoción* de esa decisión; la de *clean-room* que la misma frase exige sigue siendo B2.4 y no
+   existe. Sigue siendo un workflow aparte
+   —Trusted Publishing está registrado contra el archivo `release.yml`—, pero ya no reconstruye: el
+   job `promote` espera a que **todos** los runs de `ci.yml` de ese `headSha` exacto terminen en
+   `success`, descarga el artefacto `candidate-distributions-with-evidence` de ese run, verifica su
+   `SHA256SUMS` en ambos sentidos, re-ejecuta `scripts/check_distribution_contents.py` sobre esos
+   bytes con la procedencia frontend del propio candidate, afirma que la versión del wheel es la del
+   tag y deja en `dist/` exactamente dos archivos. El job `publish` recomprueba los SHA-256 antes de
+   subir. **Estado anterior, para leer el histórico:** hasta ese día hacía su propio `uv build` en un
+   checkout limpio y publicaba ese rebuild; ningún gate de B2.1 —contenidos de distribución,
+   procedencia del frontend, licencias runtime, notices— tocaba el artefacto que llegaba a PyPI, y
+   un `ci.yml` rojo no bloqueaba la publicación.
 
 **Pre-commit.** `pyproject.toml` conserva la dependencia de desarrollo histórica, pero no existe una
 configuración versionada de hooks. B2 no crea ni certifica `.pre-commit-config.yaml`; el gate
@@ -797,9 +803,12 @@ Detalle transversal en **SDD-24**; lo específico del **empaquetado** (tests que
   PENDIENTE).** Compone
   `nikodym[scoring,excel,docx]` y añade FastAPI/Uvicorn/multipart, sin duplicar distribuciones ni
   cambiar constraints. Los recorridos F1/F3/F4 exigen HTML; PDF degrada explícitamente.
-- **D-PKG-9 — Release por promoción (APROBADA CONTRACTUALMENTE EN B2.0; IMPLEMENTACIÓN
-  PENDIENTE).** El job de publicación recibe los mismos
+- **D-PKG-9 — Release por promoción (APROBADA CONTRACTUALMENTE EN B2.0; PROMOCIÓN IMPLEMENTADA
+  EL 2026-08-26, CLEAN-ROOM PENDIENTE EN B2.4).** El job de publicación recibe los mismos
   wheel/sdist cuyos SHA-256 pasaron inspección y clean-room. Se prohíbe reconstruir en release.
+  Cableada en `.github/workflows/release.yml`, jobs `promote` → `publish`, con el veto estático de
+  §11 en `tests/unit/test_release_promocion.py`. La inspección y el veto están; el clean-room
+  automatizado que la decisión también nombra sigue sin implementar.
 - **D-PKG-10 — Procedencia Vite, no manifiesto de declaraciones (IMPLEMENTADA EN B2.1).** El plugin normal
   registrado en Vite observa módulos/assets y produce evidencia por output/hash; de ahí nacen los
   notices completos (basenames legales convencionales y atribuciones explícitas, con hashes).

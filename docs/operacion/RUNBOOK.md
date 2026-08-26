@@ -662,8 +662,10 @@ versionados no autoriza recapturar fixtures ni publicar PyPI.
 ## 9. Descargar y verificar el candidato exacto de CI
 
 El candidato publicable es el artefacto `candidate-distributions-with-evidence` del job Build de
-`ci.yml`; **no** una reconstrucción local, un Release ni `release.yml`. Para identificar bytes, la
-ancestría no basta: el `headSha` del run debe ser exactamente el `HEAD` que se va a verificar.
+`ci.yml`; **no** una reconstrucción local ni un Release. Desde el 2026-08-26 `release.yml` promueve
+ese mismo artefacto en vez de reconstruir, así que esta receta es la versión manual —y a mano— del
+camino que la publicación recorre sola. Para identificar bytes, la ancestría no basta: el `headSha`
+del run debe ser exactamente el `HEAD` que se va a verificar.
 
 ```powershell
 $nikodymCandidateSha = (git rev-parse HEAD).Trim()
