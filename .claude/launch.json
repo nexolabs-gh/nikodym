@@ -9,7 +9,7 @@
     },
     {
       "name": "ui-instalable",
-      "runtimeExecutable": ".venv/bin/python",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
       "runtimeArgs": ["-m", "nikodym.ui", "--port", "5210", "--no-open"],
       "port": 5210
     }

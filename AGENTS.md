@@ -1,6 +1,7 @@
 # AGENTS.md — contrato operativo de Nikodym RiskLib
 
-> Fuente común y durable para Codex y Claude Code. Este archivo contiene reglas, no crónica.
+> Fuente común y durable para todo agente que trabaje este checkout, cualquiera sea su rol. Este
+> archivo contiene reglas, no crónica.
 > El estado reemplazable vive en `HANDOFF.md` —symlink interno no versionado públicamente—; la historia anterior se conserva
 > íntegra en [`historial/`](historial/), fuera de las superficies documentales vigentes.
 
@@ -11,7 +12,7 @@ Antes de planificar o editar, leer en este orden:
 1. `AGENTS.md` — autoridad, límites y método.
 2. `HANDOFF.md` — estado medido, abiertos y siguiente decisión humana. Es un symlink interno al
    repo privado, no un archivo del repositorio público; si no existe, detenerse y avisar.
-3. [`docs/operacion/RUNBOOK-CODEX.md`](docs/operacion/RUNBOOK-CODEX.md) — comandos literales,
+3. [`docs/operacion/RUNBOOK.md`](docs/operacion/RUNBOOK.md) — comandos literales,
    gates y trampas del entorno.
 4. [`docs/design/DECISIONES-VIGENTES.md`](docs/design/DECISIONES-VIGENTES.md) — registro canónico
    de decisiones aprobadas y correcciones que prevalecen.
@@ -39,6 +40,24 @@ se tomó una decisión o recuperar una trampa concreta.
 
 Si dos fuentes discrepan, no elegir por intuición: reproducir, medir, dejar trazada la discrepancia
 y elevar a Cami sólo la decisión que siga siendo humana.
+
+## Reparto de roles
+
+Vigente desde el 2026-08-26. Es una regla durable, no un estado: si se invierte, se edita aquí.
+
+- **Claude Code es el writer único del checkout.** Mide, diseña, implementa, ejecuta gates y
+  controles negativos, commitea y pushea. Su configuración vive en `.claude/`.
+- **Codex es el revisor adversarial read-only.** Se le pide revisión al cerrar cada capa, sobre el
+  working tree. No escribe en este checkout mientras Claude sea el writer.
+- **`/codex:rescue` y el subagente `codex:codex-rescue` no se usan mientras Claude sea el writer.**
+  El plugin instalado empuja en dirección contraria —su subagente añade `--write` por defecto y su
+  comando sí es invocable por el modelo—, así que la barrera tiene que ser esta regla, no la
+  herramienta.
+- Fan-out de subagentes de **lectura** para medir, explorar o revisar es normal y no pide permiso;
+  lo que no se duplica es el writer.
+
+El literal de cómo se invoca la revisión —y qué parte la ejecuta una persona— vive en el runbook,
+que es reemplazable cuando cambie la versión del plugin.
 
 ## Proyecto y lenguaje
 
@@ -111,8 +130,11 @@ producto, no un extra.
 - Cada pregunta debe ser explícita: explicar qué se decide y por qué importa, ofrecer 2–3 opciones
   mutuamente excluyentes con su impacto y señalar una recomendación concreta.
 - Cada cierre entrega un **prompt completo y listo para copiar** en una sesión fresca, además del
-  modelo y nivel de razonamiento GPT-5.6 recomendado para esa sesión, su motivo y la condición que
-  justificaría escalarlo. No inventar un objetivo de producto que Cami no haya elegido.
+  **agente destinatario**, el modelo y el nivel de esfuerzo recomendados para esa sesión, su motivo
+  y la condición que justificaría escalarlo. Recomendar el modelo del agente que **ejecutará** —hoy
+  Claude Code—, no el del revisor. Ninguna versión concreta de modelo se fija en este archivo: si
+  hace falta un default por agente, vive en el runbook. No inventar un objetivo de producto que
+  Cami no haya elegido.
 
 ## Qué puede hacer sin preguntar
 

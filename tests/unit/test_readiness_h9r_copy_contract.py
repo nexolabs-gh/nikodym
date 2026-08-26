@@ -72,7 +72,7 @@ def test_runbook_aisla_gate_copy_de_pythonpath_y_sitecustomize(tmp_path: Path) -
     )
     assert completed.returncode == 0, completed.stderr
     assert not marker.exists()
-    runbook = (ROOT / "docs/operacion/RUNBOOK-CODEX.md").read_text(encoding="utf-8")
+    runbook = (ROOT / "docs/operacion/RUNBOOK.md").read_text(encoding="utf-8")
     assert "'@ | & $nikodymPython -I -B -" in runbook
     assert "if sys.flags.isolated != 1 or sys.dont_write_bytecode != 1:" in runbook
 

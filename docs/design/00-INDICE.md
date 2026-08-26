@@ -31,9 +31,16 @@ contractual nuevo requiere un SDD nuevo o una revisión explícita.
 
 > **Regla dura (proyecto delicado):** ningún dato externo se da por válido sin **doble verificación trazada** contra la fuente oficial. Será usado por instituciones financieras.
 
-## Estado global
+## Cobertura de diseño por SDD
 
-| SDD | Módulo | Dominio | Fase | Tanda | Depende de | Estado |
+> **Qué certifica el ✅ de esta tabla:** que existe un SDD aprobado y código que lo implementa.
+> **No** certifica que la capacidad esté *entregada* al usuario de `pip install`, que es el criterio
+> del proyecto («una capacidad que un usuario de `pip install` no puede alcanzar no está
+> entregada»). Varias filas ✅ corresponden a dominios sin preset, sin pantalla y sin capítulo de
+> informe. Para entrega y estado manda `HANDOFF.md`; para decisiones,
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md).
+
+| SDD | Módulo | Dominio | Fase | Tanda | Depende de | Cobertura de diseño |
 |---|---|---|---|---|---|---|
 | **01** | `core` | Fundación | F0 | T1 | — | ✅ Implementado |
 | **02** | `data` | Fundación | F0 | T1 | 01 | ✅ Implementado |
@@ -80,7 +87,14 @@ el arnés; sin START, medición ni valores finales**:
 hipótesis de caps/geometrías, deadlines externos, repeticiones, fronteras, instrumentación, schema y
 controles negativos; no autoriza START/S0/S1/S2, fixtures definitivos, medición ni perfiles finales.
 
-Enmienda **propuesta, no aprobada y no implementada**:
+> ⚠️ **Estado superado.** El párrafo que sigue describe la quinta redacción y se conserva como
+> crónica de por qué la enmienda llegó donde llegó. **La enmienda fue APROBADA en su escenario 0-a
+> el 2026-08-22** (D-LEA-0, D-LEA-1…D-LEA-19, D-LEA-21 y D-LEA-22, con D-LEA-12b/17b/17c;
+> **D-LEA-20 no se aprobó**), y su implementación por capas está en curso: A.1 y A.1c en el árbol,
+> A.1d/A.2/A.3/A.4 pendientes. Para el estado manda
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md), no este índice.
+
+Enmienda **propuesta, no aprobada y no implementada** *(redacción quinta, superada)*:
 [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md), D-LEA-0 y
 D-LEA-1…D-LEA-19. Propone cerrar la frontera `candidate_execution_material_lease_unimplemented` de
 §12.1 del protocolo pre-START con tres piezas —lease `windows_share_mode_lease_v1` contra

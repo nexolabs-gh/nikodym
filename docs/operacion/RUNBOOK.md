@@ -1,4 +1,4 @@
-# Runbook de Codex
+# Runbook operativo del checkout
 
 > Procedimiento operativo durable para este checkout. El estado y los conteos vigentes están en
 > `HANDOFF.md`, symlink interno no versionado en el repo público, no aquí.
@@ -561,7 +561,9 @@ defecto prometido. Protocolo:
 1. Ejecutar el gate en verde y guardar su censo.
 2. Comprobar `git diff` y copiar el archivo afectado a una ruta temporal única creada bajo
    `$nikodymTempRoot` con el protocolo §2.5.
-3. Inyectar el defecto mínimo con `apply_patch`; no mezclarlo con el arreglo real.
+3. Inyectar el defecto mínimo con una edición dirigida al archivo; no mezclarlo con el arreglo real.
+   (Decía `apply_patch`, que es la herramienta del CLI de Codex; el writer actual edita con sus
+   propias herramientas. Lo que importa es que el defecto sea mínimo y esté aislado.)
 4. Ejecutar el gate y observar el fallo correcto, no cualquier rojo.
 5. Restaurar el archivo desde la copia exacta y comparar `git diff` con el anterior.
 6. Reejecutar el gate en verde.
@@ -1061,3 +1063,65 @@ if ($LASTEXITCODE -ne 0) { throw 'status final público falló' }
 git -C privado status --short --branch
 if ($LASTEXITCODE -ne 0) { throw 'status final privado falló' }
 ```
+
+## 11. Mecánica del agente en este checkout
+
+El reparto de roles —Claude Code writer único, Codex revisor adversarial read-only— es regla durable
+y vive en [`AGENTS.md`](../../AGENTS.md). Aquí va sólo el literal, que es reemplazable.
+
+### 11.1 Revisión adversarial de cierre
+
+El plugin instalado es `codex@openai-codex`. Verificar versión antes de citar rutas:
+
+```powershell
+Get-ChildItem 'C:\Users\camil\.claude\plugins\cache\openai-codex\codex' -Directory |
+    Select-Object -ExpandProperty Name
+```
+
+Hay dos vías, y **no** son equivalentes:
+
+1. **Cami escribe el slash command.** `/codex:adversarial-review --scope working-tree`.
+   Es la vía normal. ⚠️ El comando declara `disable-model-invocation: true`, así que **el agente no
+   puede lanzarlo por sí mismo**: si el cierre lo necesita, hay que pedírselo a Cami y esperar.
+2. **El agente ejecuta el runtime directamente**, cuando Cami ya autorizó la revisión y no está
+   presente para escribirla:
+
+```powershell
+node "C:\Users\camil\.claude\plugins\cache\openai-codex\codex\<version>\scripts\codex-companion.mjs" `
+    adversarial-review --scope working-tree
+```
+
+`--scope` acepta `auto`, `working-tree` y `branch`. La versión va dentro de la ruta y cambia al
+actualizar el plugin: no fijarla de memoria.
+
+**Prohibido mientras Claude sea el writer:** `/codex:rescue` y el subagente `codex:codex-rescue`.
+Ese comando **sí** es invocable por el modelo y su subagente añade `--write` por defecto, de modo
+que un descuido crea un segundo writer sobre el mismo checkout.
+
+### 11.2 Skills de arranque y cierre
+
+`inicio-trabajo-claude` y `cierre-trabajo-claude` son skills genéricas de Cami, no del proyecto.
+Ceden ante el contrato del repositorio: el arranque obligatorio y el contrato de cierre de
+`AGENTS.md` se ejecutan **íntegros** además del flujo de la skill. En particular la skill habla de
+«reemplazar `HANDOFF.md`»: aquí eso significa **actualizar el contenido de `privado/HANDOFF.md`**,
+nunca sustituir el symlink (ver §2.4).
+
+### 11.3 Trampas de medición ya pagadas
+
+Conteos que un `grep` ingenuo devuelve mal en este árbol. Medidos, no supuestos.
+
+| Qué se quiere contar | El grep ingenuo dice | Lo real | Por qué |
+|---|---|---|---|
+| `TODO` pendientes en `src/nikodym` | 41 | **1** (`core/study.py:710`) | las constantes `METODO_*` de `core/dataset_check.py` contienen la subcadena `TODO` |
+| Deudas del motor `FALTA-DATO` | 56 | **10 códigos distintos** | 56 son *ocurrencias*; usar `grep -rhoE "FALTA-DATO-[A-Z0-9]+-[0-9]+" \| sort -u` |
+| Dominios cubiertos por la UI | varía | 15 secciones en 10 trabajos | las tuplas `sections` de `ui/jobs.py` son multilínea y el grep las parte: importar `_JOBS` con `.venv\Scripts\python.exe` y unir `sections` con `missing_sections` |
+
+Distinguir siempre `FALTA-DATO` (deuda del motor) de `DATO-INSTITUCIONAL` (dato que sólo la
+institución fija, y por tanto diseño correcto): contarlos juntos infla la deuda y desvía el trabajo.
+
+### 11.4 El falso rojo de la suite H9R
+
+Sin el bootstrap UTF-8 de §2.4, la suite marca **583/584** con un único rojo en
+`test_readiness_h9r_cli_bootstrap.py`, y el mensaje sale con mojibake (`fallÃ³`, `liberaciÃ³n`).
+**No es un defecto del arnés: es el shell.** Con el entorno contractual la suite va verde. Medido el
+2026-08-24. Repetir el bootstrap en cada proceso PowerShell nuevo.
