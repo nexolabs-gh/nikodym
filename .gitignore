@@ -91,6 +91,15 @@ coverage.xml
 # Sin ancla `/` a propósito: el MCP escribe en el cwd de quien lanza, no en la raíz del repo.
 .playwright-mcp/
 
+# Salidas del arnés clean-room (B2.4). La traza y el screenshot de un fallo pueden recoger la
+# pantalla entera de la corrida —incluidos nombres de columnas del dataset que se estuviera
+# usando—, así que no entran a un repo público ni por descuido. En CI viajan como artefacto del
+# job, que caduca solo.
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/.playwright/
+
 # === MLflow / artefactos de modelos ===
 mlruns/
 mlartifacts/

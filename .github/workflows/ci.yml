@@ -41,6 +41,12 @@ jobs:
       - name: Mypy
         run: uv run --no-sync mypy
 
+      # El motor y el artefacto pueden divergir: los fixtures de la demo salen de una corrida real
+      # y jamás se editan a mano, así que un informe publicado sigue mostrando durante meses lo que
+      # el motor ya dejó de producir. Este gate mira los bytes que la demo sirve hoy.
+      - name: Copy público de los informes distribuidos
+        run: uv run --no-sync python scripts/check_demo_report_copy.py
+
   test:
     name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
@@ -327,6 +333,15 @@ jobs:
           ./.venv-pip/bin/pip install --quiet "${wheels[0]}[scoring,ui,docx]" httpx2
           ./.venv-pip/bin/pip list | grep -Ei "^(nikodym|pandas|scikit-learn|numpy|optbinning) "
           ./.venv-pip/bin/python scripts/smoke_instalacion_pip.py
+          # Los CUATRO presets de fábrica, no sólo F1. `docs_site/getting-started.md` promete que
+          # el extra `[ui]` los corre «hasta el informe con esa única instalación», y hasta la
+          # 1.11.0 esa promesa no la ejercía ningún job sobre el artefacto distribuido: la única
+          # llamada al smoke iba sin argumento. El script ya aceptaba un preset explícito y nadie
+          # lo usaba.
+          for preset in f3-provisiones-consumo f4-ifrs9-retail f5-provision-interna-generica; do
+            echo "== smoke del preset ${preset} sobre el wheel instalado =="
+            ./.venv-pip/bin/python scripts/smoke_instalacion_pip.py "${preset}"
+          done
 
       # El console script sólo existe de verdad si el shim que genera pip ARRANCA. El gate de
       # distribución parsea el texto de `entry_points.txt` y el smoke de arriba llama a la app
@@ -465,6 +480,106 @@ jobs:
           name: candidate-distributions-with-evidence
           path: dist/candidate-unit/
           if-no-files-found: error
+
+  # B2.4 — el gate que faltaba, y el único que EJECUTA el frontend distribuido.
+  #
+  # Hasta la 1.11.0 el árbol de `nikodym/ui/static` se verificaba por SHA-256 contra su procedencia
+  # y no lo cargaba jamás un navegador: `frontend` corre vitest sin DOM, y el smoke de pip llama a
+  # la app in-process con `TestClient`. Un bundle íntegro pero roto pasaba los dieciséis jobs.
+  #
+  # Se instala el wheel candidato FUERA del checkout y el servidor arranca desde ahí: si el paquete
+  # dependiera de un archivo del repositorio, aquí se cae en vez de en la máquina del usuario.
+  candidate-ui:
+    name: Clean-room de la UI distribuida
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Activar Corepack
+        run: corepack enable
+
+      - name: Descargar el candidate que gatea el resto del CI
+        uses: actions/download-artifact@v4
+        with:
+          name: candidate-distributions-with-evidence
+          path: candidate-unit
+
+      - name: Instalar el wheel candidato fuera del checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          wheels=(candidate-unit/*.whl)
+          test "${#wheels[@]}" -eq 1
+          # El venv y el workdir viven en $RUNNER_TEMP: ni el intérprete ni el proceso del servidor
+          # pueden alcanzar el árbol fuente por casualidad.
+          python -m venv "${RUNNER_TEMP}/venv-ui"
+          "${RUNNER_TEMP}/venv-ui/bin/pip" install --quiet --upgrade pip
+          "${RUNNER_TEMP}/venv-ui/bin/pip" install --quiet "$(realpath "${wheels[0]}")[ui]"
+          "${RUNNER_TEMP}/venv-ui/bin/python" -c "import nikodym; print(nikodym.__version__)"
+
+      - name: Instalar el arnés Playwright
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Levantar la interfaz desde el wheel instalado
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/workdir-ui"
+          # `cd` fuera del checkout: el servidor no debe encontrar `src/` ni los fixtures del repo.
+          cd "${RUNNER_TEMP}/workdir-ui"
+          nohup "${RUNNER_TEMP}/venv-ui/bin/nikodym-ui" --no-open --port 8123 \
+            > "${RUNNER_TEMP}/nikodym-ui.log" 2>&1 &
+          echo $! > "${RUNNER_TEMP}/nikodym-ui.pid"
+          # El bind es fijo a loopback (D-UI-R0) y el `Host` se compara exacto: sondear por
+          # `localhost` devolvería 403 y parecería que el servidor no arrancó.
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null "http://127.0.0.1:8123/"; then
+              echo "interfaz arriba"; exit 0
+            fi
+            sleep 2
+          done
+          echo "la interfaz no respondió en 120 s" >&2
+          cat "${RUNNER_TEMP}/nikodym-ui.log" >&2
+          exit 1
+
+      - name: Recorrer la interfaz en un navegador real
+        working-directory: web
+        env:
+          NIKODYM_UI_URL: http://127.0.0.1:8123
+        run: pnpm test:e2e
+
+      - name: Log del servidor
+        if: always()
+        shell: bash
+        run: cat "${RUNNER_TEMP}/nikodym-ui.log" || true
+
+      - name: Detener la interfaz
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "${RUNNER_TEMP}/nikodym-ui.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/nikodym-ui.pid")" || true
+          fi
+
+      - name: Subir la traza de Playwright si falló
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-clean-room
+          path: |
+            web/test-results/
+            web/playwright-report/
+          if-no-files-found: ignore
 
   lock-check:
     name: Lock check

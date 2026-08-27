@@ -1,0 +1,134 @@
+name: Recapturar fixtures de la demo
+
+# Manual y sólo manual. Recapturar la demo exige un OK explícito de Cami por cada vez
+# (`AGENTS.md` §«Qué exige un OK nuevo»), así que este workflow NO se dispara por push, ni por tag,
+# ni por schedule: alguien tiene que lanzarlo a mano y decir por qué.
+#
+# Existe porque los tres capturadores descargan el PDF del informe, y WeasyPrint no puede cargar sus
+# librerías nativas (Pango/HarfBuzz/libffi) en el checkout writer de Windows: medido el 2026-08-27,
+# `import weasyprint` muere con «cannot load library 'libgobject-2.0-0'». En Linux sí funciona —el
+# job `test-pdf` de `ci.yml` lo demuestra—, de modo que la recaptura vive donde puede correr entera
+# en vez de correr a medias donde no.
+#
+# ⚠️ Este workflow NO commitea nada. Publica los fixtures como artefacto para que el writer los baje,
+# verifique su procedencia y decida. Un workflow que escriba fixtures en `main` por su cuenta
+# convertiría en automático justo lo que el contrato exige que sea deliberado.
+
+on:
+  workflow_dispatch:
+    inputs:
+      motivo:
+        description: "Por qué se recaptura (queda en el log del run)"
+        required: true
+        type: string
+      familias:
+        description: "Qué capturar"
+        required: true
+        default: todas
+        type: choice
+        options:
+          - todas
+          - f1
+          - f3
+          - f4
+
+permissions:
+  contents: read
+
+jobs:
+  recapturar:
+    name: Recapturar desde corridas reales
+    runs-on: ubuntu-latest
+    steps:
+      # El motivo viaja por `env` y NO interpolado dentro del `run`: una expresión `${{ }}` se
+      # sustituye como TEXTO antes de que el shell exista, así que un motivo con comillas o `;`
+      # ejecutaría lo que quisiera quien lanza el workflow.
+      - name: Motivo declarado
+        env:
+          MOTIVO: ${{ inputs.motivo }}
+        run: echo "Recaptura solicitada por - $MOTIVO"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      # Los capturadores exigen `git_dirty=false`: una corrida sobre cambios sin commitear no es
+      # reconstruible desde su `git_sha` y el fixture mentiría sobre su propia procedencia.
+      - name: Exigir árbol limpio
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "El árbol tiene cambios sin confirmar; la captura publicaría un lineage sucio." >&2
+            git status --porcelain >&2
+            exit 1
+          fi
+
+      # WeasyPrint necesita las nativas de Pango/HarfBuzz: es exactamente lo que falta en Windows y
+      # la razón de que este workflow exista.
+      - name: Librerías nativas de WeasyPrint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libffi-dev
+
+      - name: Instalar el árbol con todos los extras que la captura ejerce
+        run: uv sync --locked --extra ui --extra scoring --extra report --extra docx --extra pdf
+
+      # `importlib.metadata` sirve la versión CACHEADA de la instalación, no la del árbol. Sin este
+      # paso la demo se publica firmada con la versión anterior: ya pasó —informes de la demo que
+      # decían 1.8.0 con la librería en 1.10.0— y ninguna cifra de negocio lo delata.
+      - name: Reinstalar nikodym para que el lineage firme la versión del árbol
+        run: |
+          uv sync --reinstall-package nikodym --locked \
+            --extra ui --extra scoring --extra report --extra docx --extra pdf
+          uv run --no-sync python -c "import importlib.metadata as m, nikodym; \
+            assert m.version('nikodym') == nikodym.__version__, \
+            f\"metadata={m.version('nikodym')} != arbol={nikodym.__version__}\"; \
+            print('version coherente:', nikodym.__version__)"
+
+      - name: Capturar F1 (scorecard)
+        if: inputs.familias == 'todas' || inputs.familias == 'f1'
+        env:
+          PYTHONHASHSEED: "0"
+        run: uv run --no-sync python scripts/capture_demo_fixtures_f1.py
+
+      - name: Capturar F3 (provisiones CMF)
+        if: inputs.familias == 'todas' || inputs.familias == 'f3'
+        env:
+          PYTHONHASHSEED: "0"
+        run: uv run --no-sync python scripts/capture_demo_fixtures.py
+
+      - name: Capturar F4 (IFRS 9 / ECL)
+        if: inputs.familias == 'todas' || inputs.familias == 'f4'
+        env:
+          PYTHONHASHSEED: "0"
+        run: uv run --no-sync python scripts/capture_demo_fixtures_ifrs9.py
+
+      - name: Regenerar las firmas de los fixtures
+        run: |
+          corepack enable
+          node scripts/generate_frontend_demo_fixture_signatures.mjs
+
+      # El contrato de copy público, comprobado sobre el artefacto que la demo va a servir y no
+      # sobre el código que lo produjo: en el informe los códigos internos viven SÓLO en el volcado
+      # de auditoría del anexo.
+      - name: Verificar que ningún código interno salió a la prosa
+        run: uv run --no-sync python scripts/check_demo_report_copy.py
+
+      - name: Qué cambió
+        run: |
+          git status --porcelain -- web/src/fixtures/demo
+          git diff --stat -- web/src/fixtures/demo
+
+      - name: Publicar los fixtures recapturados
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-fixtures-recapturados
+          path: web/src/fixtures/demo/
+          if-no-files-found: error

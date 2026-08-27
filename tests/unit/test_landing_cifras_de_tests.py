@@ -25,8 +25,10 @@ dominios sin interfaz, que es un subconjunto que no depende de extras opcionales
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 _RAIZ = Path(__file__).resolve().parents[2]
@@ -61,13 +63,35 @@ def _recolectados(rutas: list[str]) -> int:
     En subproceso y no con `request.session`: este gate tiene que poder medir un SUBCONJUNTO, y la
     sesión en curso sólo conoce lo que se le pidió recolectar a ella.
     """
-    salida = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", *rutas],
-        capture_output=True,
-        text=True,
-        cwd=_RAIZ,
-        check=False,
-    )
+    # 🔴 `--basetemp` propio, y no es cosmético. Sin él, cada subproceso `pytest` crea su propio
+    # `pytest-of-<usuario>/pytest-N`, y la ROTACIÓN de pytest —que conserva los tres últimos y borra
+    # el resto— arrasa el directorio temporal de la SUITE EN CURSO, que es un `pytest-N` más y más
+    # antiguo. Medido el 2026-08-27 sobre la suite completa: fallaba de forma intermitente
+    # `test_readiness_h9r_cli_bootstrap::test_cli_harness_test_publica_runtime_y_cero_start`
+    # —que corre justo después por orden alfabético— con «ruta o ancestro ausente», porque su
+    # `tmp_path` había desaparecido bajo sus pies. Aislado ese archivo pasa 35/35, así que el rojo
+    # parecía del arnés H9R y era de aquí. Con un basetemp propio el subproceso no toca el
+    # directorio compartido.
+    raiz_tmp = Path(tempfile.mkdtemp(prefix="nikodym-collect-"))
+    try:
+        salida = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "--collect-only",
+                "-q",
+                "--basetemp",
+                str(raiz_tmp / "bt"),
+                *rutas,
+            ],
+            capture_output=True,
+            text=True,
+            cwd=_RAIZ,
+            check=False,
+        )
+    finally:
+        shutil.rmtree(raiz_tmp, ignore_errors=True)
     match = re.search(r"(\d+) tests? collected", salida.stdout)
     assert match, f"no se pudo leer la cuenta de pytest. stdout:\n{salida.stdout[-2000:]}"
     return int(match.group(1))
