@@ -846,6 +846,30 @@ No autoriza START ni mueve la puerta global.
 > `suspicious` y activa selección; IV-A1 alinea el audit de binning a la misma frontera inclusiva,
 > sin filtrar ni cambiar resultados numéricos.
 
+> **La gobernanza tiene que ser ALCANZABLE desde `pip install` (2026-08-27, 🟡 PROPUESTA —
+> PENDIENTE DE OK, NO IMPLEMENTADA).**
+> [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md), D-GOB-1…D-GOB-9.
+> Enmienda SDD-01 §6, SDD-03 §6/§7.1.d y CT-2. Nace del bloqueador 3 del censo de módulos
+> (2026-08-26), remedido entero sobre `ddb616f`: tras una corrida F1 real `study.results` sigue
+> siendo `{}` —**cero escritores** en `src/`—, así que todo model card publicado sale con
+> `metrics={}`, `metric_sections={}` y `decisions=0`. ⚠️ **Medir refutó tres premisas del censo**:
+> (1) no hay que elegir entre `results` y `artifacts` —`tracking/recorder.py:77` ya desenvuelve
+> `results["metrics"]` por su nombre exacto y aplana lo anidado, o sea que **los dos consumidores ya
+> están escritos** y sólo falta el productor—; (2) la forma por dominio tampoco está por inventar:
+> la puerta CT-2 `metric_sections` **ya está implementada en 9 de 13 `CardSection`**, con validador
+> y copia profunda, y `performance/evaluator.py:272` es un productor vivo; (3) 🔴 **volcar los
+> escalares de las cards sería incorrecto** — AUC/KS/Gini/PSI no son campos escalares de ninguna
+> card (viven en `max_metrics_by_partition` y en los frames), así que un agregador genérico
+> publicaría `pdo` y `n_deciles` como «las métricas del modelo» y omitiría el AUC. 🔴 **Y encontró
+> una contradicción viva entre los dos consumidores**, invisible sólo porque el canal está vacío:
+> con forma anidada `governance` levanta `GovernanceError` y `tracking` la acepta; sólo la forma
+> **plana `"<dominio>.<metrica>"`** satisface a ambos sin tocar ninguno (probado contra los dos).
+> ⚠️ El hueco de disco es más ancho de lo que decía el censo: no faltan cuatro archivos, **falta el
+> directorio de corrida** — `nikodym.run()` no escribe nada (medido con `cwd` vacío). Y `purpose` es
+> `Field(default=...)` **obligatorio**: un preset no puede encender `governance` sin inventar un
+> `DATO-INSTITUCIONAL`, que es justo lo que `AGENTS.md` prohíbe. Recaptura de la demo **no** incluida:
+> exige su propio OK (D-GOB-9).
+
 ## Tandas de producción
 
 | Tanda | SDDs | Foco | Pre-requisito |
