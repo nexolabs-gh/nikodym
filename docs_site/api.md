@@ -2,14 +2,19 @@
 
 Superficie pública de Nikodym RiskLib, organizada por dominio. Cada símbolo se genera
 automáticamente desde sus *docstrings* con [mkdocstrings]; las firmas y campos son los del código
-publicado (`1.4.0`).
+publicado (`1.12.0`).
 
 !!! note "Estabilidad (SemVer 1.x)"
     El pipeline de validación de scorecard (F1) —el trío `run` → `Study` → `NikodymConfig` y los
-    dominios `data`, `eda`, `binning`, `selection`, `scorecard`, `calibration`, `performance`,
-    `stability` y el reporte HTML— es **API estable**: no rompe hasta un 2.0. Las superficies que
-    aún crecen (modelado ML, provisiones, forward-looking, resultados/métricas/orquestación) están
-    marcadas como **experimentales** en su *docstring*, fuera de la garantía SemVer 1.x.
+    dominios `data`, `eda`, `binning`, `selection`, `model`, `scorecard`, `calibration`,
+    `performance` y `stability`— es **API estable**: no rompe hasta un 2.0. También lo son el
+    informe (`report`) y el trail de auditoría (`audit`), porque ya son superficie de integración.
+    Las superficies que aún crecen (modelado ML, provisiones, survival, forward-looking, stress,
+    validación, gobernanza y tracking) están marcadas como **experimentales** en su *docstring*,
+    fuera de la garantía SemVer 1.x.
+
+    Esa lista no se escribe a mano en tres sitios: la fija `nikodym.testing.stability` y la
+    verifican los gates del repositorio contra el *docstring* de cada paquete y contra esta página.
 
 !!! note "Núcleo liviano e import perezoso"
     `import nikodym` no arrastra el stack ML. `nikodym.run` se re-exporta de forma perezosa (PEP

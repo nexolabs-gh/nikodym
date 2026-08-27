@@ -31,6 +31,7 @@
 | D-VIS-1…7 | Aprobada; D-VIS-1…5/7 implementadas; completitud D-VIS-6 abierta | [`_ENMIENDA-ERROR-SIN-SUPERFICIE.md`](_ENMIENDA-ERROR-SIN-SUPERFICIE.md) |
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
+| D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
 
 ## D-RDY — readiness integral
 
@@ -290,6 +291,38 @@ Abierto canónico de D-VIS-6:
 Gates actuales —insuficientes para completitud, útiles para validez—:
 [`test_ui_routes.py`](../../tests/unit/test_ui_routes.py) y
 [`validation.test.ts`](../../web/src/lib/validation.test.ts).
+
+## D-EST — la marca de estabilidad es derivable, no decorativa
+
+Aprobada por Cami el 2026-08-27, al abrir el corte de la `1.12.0`. Nace de un defecto medido: la
+garantía SemVer se contradecía **en las dos direcciones a la vez** y ningún gate lo notaba.
+
+**D-EST-1 · Una sola fuente decide qué está bajo garantía.**
+[`nikodym/testing/stability.py`](../../src/nikodym/testing/stability.py) enumera `STABLE_DOMAINS`,
+`EXPERIMENTAL_DOMAINS` y `UNMARKED_PACKAGES`. El *docstring* de cada paquete y la nota de
+[`docs_site/api.md`](../../docs_site/api.md) son **consumidores**, no fuentes: antes eran tres listas
+distintas y cada una respondía otra cosa.
+
+**D-EST-2 · `model` entra a la garantía.** Es la regresión logística PD del propio pipeline F1 y
+SDD-08 la declara F1 desde su cabecera, pero `model/__init__.py` se autodeclaraba *experimental*.
+Corregirlo no amplía ningún compromiso: **alinea el código con lo que `AGENTS.md` ya prometía**.
+
+**D-EST-3 · `audit` entra a la garantía, y esto sí es decisión de producto.** No pertenece a F1, así
+que su marca «Estable» era una autoconcesión sin respaldo. Cami decidió **promoverlo formalmente**
+en vez de degradarlo: el trail JSONL, el hashing y el replay ya son superficie de integración de
+terceros, y romperlos en un minor costaría más que sostenerlos. Lo que entra no puede romper hasta
+un 2.0.
+
+**D-EST-4 · Mover una entrada de la lista es un cambio contractual.** Entrar compromete hasta el
+2.0; salir restringe una garantía publicada. Requiere decisión registrada aquí, nunca la preferencia
+de quien edita. El gate
+[`test_marca_estabilidad.py`](../../tests/unit/test_marca_estabilidad.py) lo vigila en ambos
+sentidos, incluido el paquete nuevo que nadie clasificó.
+
+Abierto declarado: `core` aloja el trío `run` → `Study` → `NikodymConfig`, que `api.md` sí declara
+estable, pero no lleva marca de paquete. Dársela ampliaría el compromiso a **todo** `nikodym.core`,
+que es más de lo que hoy está decidido. Queda en `UNMARKED_PACKAGES` con su razón escrita, no
+resuelto por un agente.
 
 ## Mapa de otros contratos aprobados
 
