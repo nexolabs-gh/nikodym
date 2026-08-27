@@ -26,6 +26,7 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Final
 
+from nikodym.core.markers import strip_declared_codes
 from nikodym.methodology import build_ifrs9_methodology_card, methodology_paragraphs
 from nikodym.report.document import DOMAIN_TITLES, internal_grouping_label
 
@@ -1072,6 +1073,121 @@ def _results_data(bundle: ReportInputBundle) -> tuple[str, ...]:
     )
 
 
+# ─────────────────── avisos declarados: del código interno a la prosa ───────────────────
+#
+# El contrato de copy público tiene dos mitades y ninguna es opcional (`AGENTS.md` §copy público,
+# publicado en `docs_site/avisos-declarados.md`): «en el informe HTML/PDF/Word los códigos aparecen
+# sólo en el volcado de auditoría del anexo; la prosa del informe explica la limitación en palabras,
+# sin nombrar el código».
+#
+# Callar el aviso sería mentir por omisión sobre un producto regulatorio; imprimir el código no le
+# dice nada a quien firma el informe. De ahí que la traducción viva en UNA función y no en un `.get`
+# con default por capítulo: cada `.get(code, code)` suelto era una fuga esperando su código nuevo.
+
+_DECLARED_WARNING_PROSE: Final[dict[str, str]] = {
+    # SDD-16 §6: el panel EAD(t) por período está diferido a CT-3; la EAD se despliega constante.
+    # La CLAVE es el código —así entra el aviso—; el VALOR es lo que lee un banco, y por eso no lo
+    # repite: quien lee el informe necesita la limitación, no el identificador con el que el motor
+    # la transporta. Quien sí quiera el código lo tiene en `warning_codes` de cada fila.
+    "FALTA-DATO-IFRS-4": (
+        "la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, "
+        "porque el dataset no trae un perfil de exposición por período"
+    ),
+    # SDD-20 FALTA-DATO-FWD-6: la LGD condicionada de forward no se consume en v1.
+    "FALTA-DATO-IFRS-6": (
+        "la LGD condicionada por escenario que publica la capa forward-looking no se consumió: "
+        "la LGD del cálculo proviene del enfoque configurado en el motor IFRS 9"
+    ),
+    # D-HOR-0: la curva no declaró su unidad temporal y el descuento la interpretó como años. El
+    # texto dice qué se supuso y qué hacer al respecto, sin nombrar el código: quien lee el informe
+    # necesita saber que hay un supuesto sobre su curva, no el identificador interno.
+    "DATO-INSTITUCIONAL-IFRS-7": (
+        "la curva de probabilidad de incumplimiento no declara en qué unidad de tiempo están "
+        "expresados sus plazos, así que el descuento los interpretó como años; declare la unidad "
+        "de la curva si sus plazos están en meses, trimestres u otra periodicidad"
+    ),
+    # D-HOR-0: el horizonte de 12 meses no es conmensurable con el soporte de la curva. El texto
+    # nombra la consecuencia contable —que es lo que le importa a quien lee— y no el predicado.
+    "FALTA-DATO-IFRS-8": (
+        "el horizonte declarado para los 12 meses no es coherente con el largo de la curva de "
+        "probabilidad de incumplimiento, de modo que la pérdida esperada a 12 meses del Stage 1 "
+        "no cubre exactamente ese plazo: revise cuántos períodos de su curva equivalen a un año"
+    ),
+    # Los tres avisos de `validation` llegan **pelados**, sin mensaje que recortar (los arma
+    # `validation/evaluator.py` como constantes), así que su frase tiene que vivir aquí o no
+    # existe. Son la misma clase de brecha —convención implementada, no cotejada contra el render
+    # oficial— y por eso se enuncian igual: qué se calculó y qué queda por verificar.
+    "FALTA-DATO-VAL-1": (
+        "el contraste de medias del backtesting sigue la convención del BCE, cuya forma exacta "
+        "—simple o ponderada por exposición, y su orientación— todavía no se cotejó contra el "
+        "documento oficial"
+    ),
+    "FALTA-DATO-VAL-2": (
+        "los cortes del semáforo verde/ámbar/rojo del contraste por grado siguen la convención de "
+        "Basilea (1996), cuyos umbrales todavía no se cotejaron contra el documento oficial"
+    ),
+    "FALTA-DATO-VAL-3": (
+        "el p-valor de Jeffreys del contraste de calibración se calcula sobre la posterior "
+        "beta-binomial, cuya orientación exacta todavía no se cotejó contra el documento oficial"
+    ),
+}
+"""Frase pública de los avisos declarados que llegan a la prosa **sin mensaje propio**.
+
+Registro **único**: un código nuevo se añade aquí y queda redactado en todos los capítulos a la vez.
+Antes había un diccionario por capítulo y cada uno traía su propio ``.get(code, code)``, de modo que
+el código nuevo de una capa se publicaba crudo en el capítulo de otra.
+
+No duplica el catálogo de ``docs_site/avisos-declarados.md``: allí el lector busca un código que vio
+en su ``warning_codes``; aquí el informe redacta la limitación para quien nunca verá el código. Sólo
+entran los que ninguna otra vía puede redactar (ver :func:`_declared_warning_prose`).
+"""
+
+_DECLARED_WARNING_SIN_TEXTO: Final = (
+    "una limitación que el motor declaró y cuyo detalle consta en el anexo de parámetros"
+)
+"""Última red del contrato: un aviso sin frase se enuncia, pero **nunca** con su código.
+
+Se prefiere una frase pobre a las dos alternativas, que son peores: descartar el aviso esconde una
+limitación, y volcar el código publica jerga interna. El anexo de auditoría sigue teniendo el código
+íntegro, así que el lector técnico no pierde nada.
+"""
+
+
+def _declared_warning_prose(entry: str) -> str:
+    """Traduce **un** aviso declarado a prosa apta para el cuerpo del informe.
+
+    Resuelve en tres tramos, del más específico al más general:
+
+    1. :data:`_DECLARED_WARNING_PROSE`, para los avisos que llegan como código pelado;
+    2. el mensaje que el propio motor ya escribió en español —los avisos de ``provisioning`` y
+       ``DATO-INSTITUCIONAL-VAL-4`` viajan como ``CÓDIGO: explicación``—, recortando el código con
+       :func:`~nikodym.core.markers.strip_declared_codes`, que es la misma vía que D-ERR-4 usa para
+       el panel de la UI;
+    3. :data:`_DECLARED_WARNING_SIN_TEXTO`, que declara el aviso sin nombrarlo.
+
+    El punto final se recorta porque quien llama enumera y cierra la frase; sin esto un mensaje del
+    motor terminaba el párrafo en ``..``.
+    """
+    texto = str(entry).strip()
+    etiqueta = _DECLARED_WARNING_PROSE.get(texto)
+    if etiqueta is None:
+        etiqueta = strip_declared_codes(texto) or _DECLARED_WARNING_SIN_TEXTO
+    return etiqueta.rstrip().removesuffix(".")
+
+
+def _declared_warning_descriptions(entries: Sequence[str]) -> tuple[str, ...]:
+    """Traduce una lista de avisos declarados, sin repetir frase.
+
+    La deduplicación es por **frase**, no por código: ``validation`` puede declarar dos veces el
+    mismo aviso —el semáforo por grado y el backtesting comparten ``FALTA-DATO-VAL-3``— y el lector
+    no gana nada leyendo la misma limitación dos veces.
+    """
+    descripciones: dict[str, None] = {}
+    for entry in entries:
+        descripciones.setdefault(_declared_warning_prose(entry), None)
+    return tuple(descripciones)
+
+
 # ────────────────────────────── validación formal ──────────────────────────────
 
 
@@ -1100,9 +1216,11 @@ def validation_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
             f"cuales {_miles(n_failed)} quedaron fallidos. Las tablas se copian del resultado que "
             "publicó la validación, sin recalcular métricas ni decisiones."
         )
-    gaps = tuple(str(item) for item in _sequence(card.get("falta_dato")))
+    gaps = _declared_warning_descriptions(
+        tuple(str(item) for item in _sequence(card.get("falta_dato")))
+    )
     if gaps:
-        paragraphs.append(f"Brechas de dato declaradas por validation: {_enumerar(gaps)}.")
+        paragraphs.append(f"Brechas de dato declaradas por la validación: {_enumerar(gaps)}.")
     paragraphs.append(
         "Este estado es evidencia técnica; el veredicto de aprobación, aprobación con "
         "observaciones o rechazo corresponde al validador humano y queda POR COMPLETAR."
@@ -1519,9 +1637,9 @@ def _provision_warning_descriptions(warnings: tuple[str, ...]) -> tuple[str, ...
 
     Reconoce el código por su **sufijo de familia** (``-prov-1``, ``-prov-3``) y no por la marca que
     lo precede: así cubre las dos clases de aviso declarado y también un resultado guardado con la
-    marca anterior. Y lo que no reconoce cae al código crudo en vez de descartarse —igual que
-    ``_IFRS9_WARNING_LABELS``—, porque `renderer.py` ya retira ``warning_codes`` de las tablas: un
-    aviso que esta función descarte no aparece en ninguna otra parte del informe.
+    marca anterior. Lo que no reconoce se delega a :func:`_declared_warning_prose` en vez de
+    descartarse, porque `renderer.py` ya retira ``warning_codes`` de las tablas: un aviso que esta
+    función descarte no aparece en ninguna otra parte del cuerpo del informe.
     """
     descriptions: list[str] = []
     for warning in warnings:
@@ -1534,7 +1652,7 @@ def _provision_warning_descriptions(warnings: tuple[str, ...]) -> tuple[str, ...
         elif description is None and "-prov-1" in folded:
             description = "algunas celdas no tenían contraparte y quedaron fuera del comparativo"
         elif description is None:
-            description = warning
+            description = _declared_warning_prose(warning)
         if description not in descriptions:
             descriptions.append(description)
     return tuple(descriptions)
@@ -2014,36 +2132,6 @@ _IFRS9_TERM_SOURCE_LABELS: Final[dict[str, str]] = {
     "markov": "la curva lifetime PD derivada de las matrices de transición de la capa markov",
     "forward": "la term-structure condicionada a escenarios macro de la capa forward-looking",
 }
-_IFRS9_WARNING_LABELS: Final[dict[str, str]] = {
-    # SDD-16 §6: el panel EAD(t) por período está diferido a CT-3; la EAD se despliega constante.
-    # La CLAVE es el código —así entra el aviso—; el VALOR es lo que lee un banco, y por eso no lo
-    # repite: quien lee el informe necesita la limitación, no el identificador con el que el motor
-    # la transporta. Quien sí quiera el código lo tiene en `warning_codes` de cada fila.
-    "FALTA-DATO-IFRS-4": (
-        "la exposición (EAD) se proyectó constante a lo largo de la vida de cada operación, "
-        "porque el dataset no trae un perfil de exposición por período"
-    ),
-    # SDD-20 FALTA-DATO-FWD-6: la LGD condicionada de forward no se consume en v1.
-    "FALTA-DATO-IFRS-6": (
-        "la LGD condicionada por escenario que publica la capa forward-looking no se consumió: "
-        "la LGD del cálculo proviene del enfoque configurado en el motor IFRS 9"
-    ),
-    # D-HOR-0: la curva no declaró su unidad temporal y el descuento la interpretó como años. El
-    # texto dice qué se supuso y qué hacer al respecto, sin nombrar el código: quien lee el informe
-    # necesita saber que hay un supuesto sobre su curva, no el identificador interno.
-    "DATO-INSTITUCIONAL-IFRS-7": (
-        "la curva de probabilidad de incumplimiento no declara en qué unidad de tiempo están "
-        "expresados sus plazos, así que el descuento los interpretó como años; declare la unidad "
-        "de la curva si sus plazos están en meses, trimestres u otra periodicidad"
-    ),
-    # D-HOR-0: el horizonte de 12 meses no es conmensurable con el soporte de la curva. El texto
-    # nombra la consecuencia contable —que es lo que le importa a quien lee— y no el predicado.
-    "FALTA-DATO-IFRS-8": (
-        "el horizonte declarado para los 12 meses no es coherente con el largo de la curva de "
-        "probabilidad de incumplimiento, de modo que la pérdida esperada a 12 meses del Stage 1 "
-        "no cubre exactamente ese plazo: revise cuántos períodos de su curva equivalen a un año"
-    ),
-}
 
 
 def ifrs9_intro(bundle: ReportInputBundle) -> tuple[str, ...]:
@@ -2185,7 +2273,7 @@ def _results_provisioning_ifrs9(bundle: ReportInputBundle) -> tuple[str, ...]:
 
     warnings = tuple(str(code) for code in _sequence(card.get("falta_dato")))
     if warnings:
-        descritos = tuple(_IFRS9_WARNING_LABELS.get(code, code) for code in warnings)
+        descritos = _declared_warning_descriptions(warnings)
         paragraphs.append(
             "El motor reportó advertencias de datos que el lector debe conocer: "
             + _enumerar(descritos)
