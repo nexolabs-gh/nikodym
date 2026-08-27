@@ -8,17 +8,19 @@ Los estándares comunes —Basilea, IFRS 9— van en el motor. La **normativa lo
 jurisdicción se aterriza encima**, y hay un caso de referencia implementado que muestra cómo:
 [Aterrizar una norma local](norma-local.md).
 
-!!! note "Estado: 1.11.0 — release estable"
+!!! note "Estado: 1.12.0 — release estable"
     Disponible en PyPI: `pip install nikodym`. El pipeline de scorecard (F1) es **API estable
-    (SemVer 1.x)**; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
-    resultados/métricas/orquestación) siguen experimentales, fuera de la garantía SemVer 1.x.
+    (SemVer 1.x)**; las superficies que aún crecen (modelado ML, provisiones, survival,
+    forward-looking, stress, validación y gobernanza) siguen experimentales, fuera de la garantía
+    SemVer 1.x.
 
     **Los seis dominios calculan hoy** —son motores deterministas, con más de 500 tests sobre los
-    tres que no tienen interfaz—, pero **solo el scorecard, las provisiones y survival tienen UI,
-    preset y capítulo en el informe** (el scorecard bajo garantía SemVer 1.x; los otros dos, más
-    nuevos, aún experimentales). Stress, Markov y forward-looking se usan escribiendo el config
-    en Python: el comando `nikodym-ui` levanta la interfaz y no los corre. Lo que les falta es
-    superficie, no aritmética.
+    tres que no tienen interfaz—, pero **solo el scorecard y las provisiones tienen UI, preset y
+    capítulo propio en el informe** (el scorecard bajo garantía SemVer 1.x; las provisiones, más
+    nuevas, aún experimentales). Survival tiene preset y corre desde la interfaz, pero **no escribe
+    un capítulo propio**: su curva alimenta la prosa del capítulo IFRS 9. Stress, Markov y
+    forward-looking se usan escribiendo el config en Python: el comando `nikodym-ui` levanta la
+    interfaz y no los corre. Lo que les falta es superficie, no aritmética.
 
 !!! warning "Antes de usarlo en producción"
     **Los parámetros del caso de referencia no son oficiales, y el caso está congelado**: el motor

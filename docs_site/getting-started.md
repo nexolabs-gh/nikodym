@@ -168,13 +168,17 @@ pip install 'nikodym[ui]'
 nikodym-ui
 ```
 
-`nikodym-ui` sirve la interfaz en `http://127.0.0.1:8000` y abre el navegador. El flujo es el del
-sidebar: elegir datos → configurar → ejecutar → resultados → informe.
+`nikodym-ui` sirve la interfaz en `http://127.0.0.1:8000` y abre el navegador. Lo primero que
+pregunta es **a qué viniste**: eliges un trabajo —«Scorecard de comportamiento», «Provisiones
+IFRS 9 / ECL», «Validar un modelo existente»…— o directamente uno de los ejemplos ya configurados.
+A partir de ahí el recorrido son cinco pasos: datos → configuración (opcional) → ejecutar →
+resultados → informe. Si prefieres armarlo tú, el catálogo ofrece esa salida y te deja en el
+formulario completo, sección por sección.
 
 !!! note "`[ui]` trae lo que el formulario puede ejecutar"
     No es sólo el servidor: compone `scoring`, `survival`, `excel`, `docx` y `report`, así que los
-    tres presets —F1 scorecard, F3 provisiones CMF y F4 IFRS 9— corren hasta el informe con esa
-    única instalación. Son unos
+    cuatro presets de fábrica —F1 scorecard, F3 provisiones CMF, F4 IFRS 9 y F5 provisión interna
+    sobre cartera genérica— corren hasta el informe con esa única instalación. Son unos
     700 MB en disco. Un extra llamado `ui` que instalara la interfaz pero no el motor que ésta
     dispara prometería algo que no cumple. Quedan fuera el **PDF** (`nikodym[pdf]`), por la licencia
     de WeasyPrint, y el backend de lectura **`polars`** (`nikodym[polars]`), que sólo acelera la

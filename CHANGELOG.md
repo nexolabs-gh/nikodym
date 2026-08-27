@@ -5,6 +5,62 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [1.12.0] — 2026-08-27
+
+### Cambiado
+
+- **La garantía SemVer ahora significa algo, y cubre la regresión logística.** Desde 1.0 la promesa
+  es que el pipeline de scorecard (F1) no rompe hasta un 2.0, pero la etiqueta la escribía a mano
+  cada paquete, no la comprobaba ningún test y la referencia de la API publicaba una tercera lista.
+  Se contradecía en las dos direcciones a la vez: `nikodym.model` —la regresión logística PD, que
+  **es** el corazón de F1— se declaraba experimental, mientras que `nikodym.audit`, que no forma
+  parte de F1, se declaraba estable. Para quien instalaba con `pip`, la etiqueta no distinguía nada.
+
+  Ahora la lista vive en un solo sitio (`nikodym.testing.stability`) y los gates la atan al
+  *docstring* de cada paquete y a la página de referencia. `model` queda **dentro** de la garantía,
+  que es lo que la promesa ya decía; y `audit` queda dentro **por decisión explícita**: el trail
+  JSONL, el hashing y el replay ya son superficie de integración, y romperlos en un *minor* costaría
+  más que sostenerlos.
+
+### Añadido
+
+- **La interfaz que se distribuye se ejecuta ahora en un navegador real antes de publicarse.** El
+  árbol estático que viaja dentro del *wheel* se verificaba por SHA-256 contra su procedencia y no
+  lo cargaba nunca un navegador: los tests del frontend corren sin DOM y el *smoke* de instalación
+  llama a la aplicación en proceso. Un *bundle* íntegro byte a byte pero roto al ejecutarse —un
+  import muerto, un *asset* renombrado— pasaba todos los gates y llegaba a PyPI. El nuevo trabajo de
+  integración instala el paquete candidato **fuera** del repositorio, levanta `nikodym-ui` desde ahí
+  y recorre con un navegador el camino completo: elegir un ejemplo, ejecutar, ver los resultados con
+  su procedencia y abrir el informe.
+
+- **El *smoke* de instalación recorre los cuatro ejemplos de fábrica**, no sólo el de scorecard. La
+  documentación promete que el extra `[ui]` los corre todos hasta el informe con una sola
+  instalación, y hasta ahora esa promesa no la ejercía ningún gate sobre el paquete distribuido.
+
+- **La deriva entre `uv.lock` y el manifiesto de build es ahora un gate.** La comprobación existía
+  pero no la invocaba nadie, así que un desajuste se descubría en la corrida de quien usa la
+  librería, no en la nuestra.
+
+### Corregido
+
+- **El informe ya no imprime códigos internos en su prosa.** Tres párrafos —el de validación, el del
+  orquestador de provisiones y el de IFRS 9— volcaban identificadores como `FALTA-DATO-VAL-2` en
+  medio del texto que lee una persona. La regla publicada es que esos códigos aparecen **sólo** en
+  el volcado de auditoría del anexo, donde el código *es* el dato, y que la prosa explica la
+  limitación en palabras. Ahora cada aviso se redacta, y uno que el motor no sepa redactar se
+  declara igualmente, sin nombrarse: callar una limitación en un informe regulatorio sería el error
+  contrario, y peor.
+
+- **El `README` subdeclaraba la reproducibilidad.** Decía que el hash del `uv.lock` estaba pendiente
+  y que el campo «viaja vacío». Es falso desde hace varias versiones: el hash se calcula y se
+  escribe en el *lineage* de cada corrida.
+
+- **La referencia de la API decía publicar las firmas de `1.4.0`** en un paquete que iba por `1.11.0`.
+
+- **El sitio afirmaba que *survival* tiene capítulo propio en el informe.** No lo tiene, y el código
+  lo dice por escrito: su curva alimenta la prosa del capítulo de IFRS 9. También contaba tres
+  ejemplos de fábrica cuando hay cuatro.
+
 ## [1.11.0] — 2026-08-05
 
 ### Añadido

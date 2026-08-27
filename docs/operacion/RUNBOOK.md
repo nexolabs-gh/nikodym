@@ -344,13 +344,25 @@ Reglas de lectura del resultado:
 | Front o artefactos estáticos | Entrar a `web`; ejecutar `& $nikodymPnpm build:package` dos veces si hay riesgo de no determinismo; comparar `src/nikodym/ui/static` |
 | Motor regulatorio | tests canónicos/golden y cobertura de `nikodym.testing.regulatory.REGULATORY_COVERAGE_PATHS` al 100 % |
 | Informe | verificar el HTML y, si aplica, PDF/Word reales; no sólo snapshots de helpers |
+| Prosa del informe / avisos declarados | `& $nikodymPython -m pytest tests\unit\test_report_codigos_internos.py` y `& $nikodymPython scripts\check_demo_report_copy.py` (motor **y** artefacto publicado) |
+| Marca de estabilidad SemVer | `& $nikodymPython -m pytest tests\unit\test_marca_estabilidad.py`; mover una entrada de `nikodym.testing.stability` exige decisión registrada en `DECISIONES-VIGENTES.md` |
 | UI/navegación/copy visible | recorrido en navegador por `127.0.0.1`, incluido el estado adversarial |
+| Bundle estático que se distribuye | además del cotejo por SHA-256, el clean-room B2.4: `web` → `pnpm test:e2e` con `NIKODYM_UI_URL` apuntando a un `nikodym-ui` levantado desde el wheel |
 | Distribución/release | wheel/sdist, contenido, instalación limpia y auditoría adversarial de todo el rango de release |
 | Docs | `& $nikodymPython -m mkdocs build --strict` y lectura del sitio generado en la página afectada |
 | Driver de readiness | `& $nikodymPython -m mypy --strict scripts\measure_readiness_w1.py` y tests focales del arnés/supervisor |
 
 Regenerar schema/jobs no es recapturar la demo. Los scripts `capture_demo_fixtures*.py` sí lo son y
 requieren un OK nuevo de Cami. Los fixtures de demo salen de corridas reales: jamás editarlos a mano.
+
+⚠️ **La recaptura no corre en este checkout de Windows.** Los tres capturadores descargan el PDF del
+informe sin tolerancia, y WeasyPrint no puede cargar sus librerías nativas aquí: medido el
+2026-08-27, `import weasyprint` muere con `cannot load library 'libgobject-2.0-0'` incluso con el
+paquete instalado, porque falta el runtime de GTK/Pango a nivel de sistema. Por eso la recaptura
+vive en el workflow manual `recapture-demo.yml`, que corre en Linux —donde el job `test-pdf` ya
+demuestra que WeasyPrint funciona—, exige árbol limpio, reinstala `nikodym` para que el lineage
+firme la versión del árbol y **publica los fixtures como artefacto sin commitearlos**. El writer los
+baja, verifica su procedencia y decide: lo que el contrato exige que sea deliberado no se automatiza.
 
 Después de un cambio de schema o jobs:
 
@@ -1121,9 +1133,29 @@ Conteos que un `grep` ingenuo devuelve mal en este árbol. Medidos, no supuestos
 Distinguir siempre `FALTA-DATO` (deuda del motor) de `DATO-INSTITUCIONAL` (dato que sólo la
 institución fija, y por tanto diseño correcto): contarlos juntos infla la deuda y desvía el trabajo.
 
-### 11.4 El falso rojo de la suite H9R
+### 11.4 Los dos falsos rojos de `test_readiness_h9r_cli_bootstrap`
 
-Sin el bootstrap UTF-8 de §2.4, la suite marca **583/584** con un único rojo en
-`test_readiness_h9r_cli_bootstrap.py`, y el mensaje sale con mojibake (`fallÃ³`, `liberaciÃ³n`).
-**No es un defecto del arnés: es el shell.** Con el entorno contractual la suite va verde. Medido el
-2026-08-24. Repetir el bootstrap en cada proceso PowerShell nuevo.
+El mismo archivo se pone rojo por dos causas distintas y **ninguna es del arnés H9R**. Antes de
+tocar el arnés, descartar las dos.
+
+**a) El shell (mojibake).** Sin el bootstrap UTF-8 de §2.4 la suite marca **583/584** con un único
+rojo ahí, y el mensaje sale con mojibake (`fallÃ³`, `liberaciÃ³n`). Con el entorno contractual va
+verde. Medido el 2026-08-24. Repetir el bootstrap en cada proceso PowerShell nuevo.
+
+**b) La rotación del basetemp de pytest (`ruta o ancestro ausente`).** Síntoma distinto y sin
+mojibake: `test_cli_harness_test_publica_runtime_y_cero_start` falla con
+`pycache/bootstrap fresco: ruta o ancestro ausente`, y **el mismo archivo pasa 35/35 aislado**.
+
+La causa no está en H9R sino en `tests/unit/test_landing_cifras_de_tests.py`, que lanza
+`python -m pytest --collect-only` en un subproceso. Cada subproceso crea su propio
+`pytest-of-<usuario>/pytest-N`, y pytest conserva **sólo los tres últimos**: la rotación borra el
+directorio temporal de la suite en curso, que para entonces ya es el más viejo. El test de H9R corre
+justo después por orden alfabético (`landing` < `readiness`) y se encuentra su `tmp_path` borrado.
+
+Evidencia de que es eso y no otra cosa: `ls -1dt %TEMP%\pytest-of-<usuario>` muestra varios
+`pytest-N` consecutivos creados durante una sola corrida. **Corregido el 2026-08-27** dándole al
+subproceso su propio `--basetemp`. Si el síntoma vuelve, buscar otro subproceso `pytest` sin
+`--basetemp` antes de sospechar del arnés.
+
+⚠️ Corolario de método: **no lanzar `pytest` en paralelo a la suite completa** desde otra ventana.
+Reproduce el mismo falso rojo por el mismo mecanismo y hace perder la corrida entera (25 min).

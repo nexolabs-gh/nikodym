@@ -50,8 +50,8 @@ dominios.
   con guía, nunca inventados.
 - **Reproducibilidad total**: `(datos + config + semilla) → resultado idéntico`, con *lineage
   bundle* (git SHA, estado del working tree, hash del contenido de los datos, `config_hash`, semilla
-  raíz y versiones de las librerías) en cada corrida. El hash del `uv.lock` está **pendiente**: el
-  campo existe y hoy viaja vacío, y el propio *model card* declara la limitación en vez de callarla.
+  raíz, hash del `uv.lock` con el que se construyó el paquete y versiones de las librerías) en cada
+  corrida.
 
 ## Tus datos no salen de tu infraestructura
 
