@@ -10,6 +10,12 @@ name: Recapturar fixtures de la demo
 # job `test-pdf` de `ci.yml` lo demuestra—, de modo que la recaptura vive donde puede correr entera
 # en vez de correr a medias donde no.
 #
+# 🔴 Una familia por JOB, y no los tres capturadores en fila. Cada capturador ESCRIBE los fixtures,
+# así que el segundo correría sobre un árbol ya sucio y su propio guardián lo aborta:
+# «el lineage declara git_dirty=true […] la corrida NO es reconstruible desde su git_sha». Medido en
+# el run 33118277567, que falló exactamente ahí. Con un checkout limpio por familia, cada corrida
+# firma su procedencia de verdad.
+#
 # ⚠️ Este workflow NO commitea nada. Publica los fixtures como artefacto para que el writer los baje,
 # verifique su procedencia y decida. Un workflow que escriba fixtures en `main` por su cuenta
 # convertiría en automático justo lo que el contrato exige que sea deliberado.
@@ -21,24 +27,24 @@ on:
         description: "Por qué se recaptura (queda en el log del run)"
         required: true
         type: string
-      familias:
-        description: "Qué capturar"
-        required: true
-        default: todas
-        type: choice
-        options:
-          - todas
-          - f1
-          - f3
-          - f4
 
 permissions:
   contents: read
 
 jobs:
-  recapturar:
-    name: Recapturar desde corridas reales
+  capturar:
+    name: Capturar ${{ matrix.familia }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - familia: f1
+            script: scripts/capture_demo_fixtures_f1.py
+          - familia: f3
+            script: scripts/capture_demo_fixtures.py
+          - familia: f4
+            script: scripts/capture_demo_fixtures_ifrs9.py
     steps:
       # El motivo viaja por `env` y NO interpolado dentro del `run`: una expresión `${{ }}` se
       # sustituye como TEXTO antes de que el shell exista, así que un motivo con comillas o `;`
@@ -92,24 +98,71 @@ jobs:
             f\"metadata={m.version('nikodym')} != arbol={nikodym.__version__}\"; \
             print('version coherente:', nikodym.__version__)"
 
-      - name: Capturar F1 (scorecard)
-        if: inputs.familias == 'todas' || inputs.familias == 'f1'
+      - name: Capturar
         env:
           PYTHONHASHSEED: "0"
-        run: uv run --no-sync python scripts/capture_demo_fixtures_f1.py
+        run: uv run --no-sync python "${{ matrix.script }}"
 
-      - name: Capturar F3 (provisiones CMF)
-        if: inputs.familias == 'todas' || inputs.familias == 'f3'
-        env:
-          PYTHONHASHSEED: "0"
-        run: uv run --no-sync python scripts/capture_demo_fixtures.py
+      # Sólo los archivos que ESTA familia tocó. Subir el directorio entero haría que el artefacto
+      # de una familia pisara, al fusionar, los fixtures recapturados de otra con la copia sin
+      # tocar del repositorio.
+      - name: Aislar lo que cambió esta familia
+        run: |
+          set -euo pipefail
+          mkdir -p recapturado
+          cambiados="$(git status --porcelain -- web/src/fixtures/demo | awk '{print $2}')"
+          if [ -z "$cambiados" ]; then
+            echo "La captura de ${{ matrix.familia }} no cambió ningún fixture." >&2
+            exit 1
+          fi
+          echo "$cambiados" | while read -r f; do
+            echo "  cambió: $f"
+            cp "$f" "recapturado/$(basename "$f")"
+          done
 
-      - name: Capturar F4 (IFRS 9 / ECL)
-        if: inputs.familias == 'todas' || inputs.familias == 'f4'
-        env:
-          PYTHONHASHSEED: "0"
-        run: uv run --no-sync python scripts/capture_demo_fixtures_ifrs9.py
+      - name: Publicar los fixtures de esta familia
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-fixtures-${{ matrix.familia }}
+          path: recapturado/
+          if-no-files-found: error
 
+  reunir:
+    name: Reunir, firmar y verificar
+    needs: capturar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Traer lo capturado por las tres familias
+        uses: actions/download-artifact@v4
+        with:
+          pattern: demo-fixtures-*
+          path: recapturado
+          merge-multiple: true
+
+      - name: Aplicar sobre el árbol de fixtures
+        run: |
+          set -euo pipefail
+          cp recapturado/* web/src/fixtures/demo/
+          git status --porcelain -- web/src/fixtures/demo
+
+      # Las firmas cubren el conjunto entero, así que se regeneran una vez, aquí, y no por familia.
       - name: Regenerar las firmas de los fixtures
         run: |
           corepack enable
