@@ -421,7 +421,6 @@
    "language": "es",
    "currency": "CLP",
    "formats": [
-    "html",
     "pdf",
     "md",
     "docx"

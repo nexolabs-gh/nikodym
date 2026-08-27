@@ -413,7 +413,6 @@
    "language": "es",
    "currency": null,
    "formats": [
-    "html",
     "pdf",
     "md",
     "docx"

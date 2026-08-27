@@ -1,24 +1,25 @@
 {
  "status": "done",
- "run_id": "403207dd5a474806a1787eea819cce1f",
+ "run_id": "1d93a67c6e3b4611817063544dca42f5",
  "error": null,
  "model_card": null,
  "lineage": {
-  "git_sha": "2481b403be23bfd7d62369a0e93c05688b134b7a",
+  "git_sha": "a1689221d06d7dc68ceafd5dc5450ce99dc0cf84",
   "git_dirty": false,
   "data_hash": "d713808d0604110d6c450358453cea172934d93eb56ccdcb0e7aea7279a94e3e",
   "config_hash": "013e69dc4c96e03ee87e9f3f54bcf5e1f6e6fd56b5a1b1ffdd5bf021093360b6",
   "root_seed": 20240706,
-  "uv_lock_hash": null,
+  "uv_lock_hash": "32c611ad4b1e061c14e1262548bf30346610d7529a6e4fb7bc52c68ec3540d24",
+  "runtime_environment_hash": "754891916e246141e907675ec0e88c4dd1b669f849daa180167d000c35435d70",
   "library_versions": {
-   "nikodym": "1.11.0",
+   "nikodym": "1.12.0",
    "numpy": "2.4.6",
    "pandas": "2.3.3",
    "pydantic": "2.13.4",
    "PyYAML": "6.0.3"
   },
   "determinism_caveats": [],
-  "created_at": "2026-08-09T19:39:15.546195Z",
+  "created_at": "2026-08-27T21:42:27.234296Z",
   "schema_version": "1.0.0",
   "injected_artifacts": []
  },
@@ -67,8 +68,8 @@
     "n_obs": 26645,
     "df_model": 8,
     "df_resid": 26636,
-    "llf": -5492.155174270126,
-    "aic": 11002.310348540252,
+    "llf": -5492.155174270125,
+    "aic": 11002.31034854025,
     "deviance": 10984.31034854025,
     "converged": "True",
     "n_iterations": 6
@@ -85,8 +86,8 @@
    "term_structure_summary": {
     "n_rows": 30000,
     "n_periods": 5,
-    "max_pd_cumulative": 0.9950326472427845,
-    "min_survival": 0.004967352757215444
+    "max_pd_cumulative": 0.9950326472427825,
+    "min_survival": 0.0049673527572174515
    },
    "schoenfeld": {},
    "km_greenwood": {},
@@ -143,7 +144,7 @@
   "n_stage2": 477,
   "n_stage3": 288,
   "total_ead": 114325314.7,
-  "total_ecl_reported": 3423116.1185982637,
+  "total_ecl_reported": 3423116.118598096,
   "scenarios": [
    "base"
   ],
@@ -165,12 +166,16 @@
     "stage_3": 288
    },
    "ecl_by_scenario": {
-    "base": 6911516.428053379
+    "base": 6911516.428053351
    },
    "ecl_by_scenario_basis": "Diagnóstico auditable de la term-structure, no un desglose de total_ecl_reported: suma la ECL marginal descontada de cada escenario por separado, sin aplicar scenario_weights y sobre el horizonte completo de la curva, sin truncar Stage 1 a 12 meses. total_ecl_reported sí pondera por escenario y aplica ese corte por stage, de modo que ambas cifras no reconcilian entre sí: no deben sumarse ni compararse.",
    "term_structure_summary": {
     "n_rows": 30000,
     "n_scenarios": 1
+   },
+   "rounding": {
+    "policy": "none",
+    "total_difference": 0.0
    }
   },
   "staging_distribution": [
@@ -178,22 +183,22 @@
     "stage": 1,
     "n_rows": 5235,
     "total_ead": 99504214.92,
-    "total_ecl_reported": 1571504.0592189834,
-    "coverage_ratio": 0.015793341623593037
+    "total_ecl_reported": 1571504.0592188942,
+    "coverage_ratio": 0.015793341623592142
    },
    {
     "stage": 2,
     "n_rows": 477,
     "total_ead": 9064928.97,
-    "total_ecl_reported": 980622.6379084955,
-    "coverage_ratio": 0.10817764167307044
+    "total_ecl_reported": 980622.6379084646,
+    "coverage_ratio": 0.10817764167306702
    },
    {
     "stage": 3,
     "n_rows": 288,
     "total_ead": 5756170.8100000005,
-    "total_ecl_reported": 870989.4214707847,
-    "coverage_ratio": 0.15131403327323859
+    "total_ecl_reported": 870989.4214707366,
+    "coverage_ratio": 0.15131403327323023
    }
   ],
   "summary": [
@@ -203,8 +208,8 @@
     "scenario": "all",
     "n_rows": 775,
     "total_ead": 31178795.530000027,
-    "total_ecl_reported": 581332.2435802374,
-    "coverage_ratio": 0.018645115492703476,
+    "total_ecl_reported": 581332.2435802047,
+    "coverage_ratio": 0.018645115492702428,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -215,8 +220,8 @@
     "scenario": "all",
     "n_rows": 75,
     "total_ead": 3137275.520000001,
-    "total_ecl_reported": 390914.01004194905,
-    "coverage_ratio": 0.12460302180981189,
+    "total_ecl_reported": 390914.0100419369,
+    "coverage_ratio": 0.124603021809808,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -227,8 +232,8 @@
     "scenario": "all",
     "n_rows": 51,
     "total_ead": 2145243.75,
-    "total_ecl_reported": 375806.68263547187,
-    "coverage_ratio": 0.17518134367503546,
+    "total_ecl_reported": 375806.6826354511,
+    "coverage_ratio": 0.17518134367502577,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -239,8 +244,8 @@
     "scenario": "all",
     "n_rows": 2125,
     "total_ead": 18099269.130000006,
-    "total_ecl_reported": 393131.23119523097,
-    "coverage_ratio": 0.02172083460229926,
+    "total_ecl_reported": 393131.2311952089,
+    "coverage_ratio": 0.021720834602298043,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -251,8 +256,8 @@
     "scenario": "all",
     "n_rows": 177,
     "total_ead": 1561397.65,
-    "total_ecl_reported": 201559.52827267416,
-    "coverage_ratio": 0.1290891710210235,
+    "total_ecl_reported": 201559.5282726669,
+    "coverage_ratio": 0.12908917102101886,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -263,8 +268,8 @@
     "scenario": "all",
     "n_rows": 114,
     "total_ead": 990794.9300000002,
-    "total_ecl_reported": 178471.85443668967,
-    "coverage_ratio": 0.1801299633585021,
+    "total_ecl_reported": 178471.85443667855,
+    "coverage_ratio": 0.18012996335849085,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -275,8 +280,8 @@
     "scenario": "all",
     "n_rows": 809,
     "total_ead": 43611647.089999974,
-    "total_ecl_reported": 437771.2376343661,
-    "coverage_ratio": 0.010037943229499025,
+    "total_ecl_reported": 437771.2376343404,
+    "coverage_ratio": 0.010037943229498436,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -287,8 +292,8 @@
     "scenario": "all",
     "n_rows": 69,
     "total_ead": 3693801.389999999,
-    "total_ecl_reported": 303704.2262189629,
-    "coverage_ratio": 0.0822199664121527,
+    "total_ecl_reported": 303704.22621895507,
+    "coverage_ratio": 0.08221996641215058,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -299,8 +304,8 @@
     "scenario": "all",
     "n_rows": 38,
     "total_ead": 2244951.1,
-    "total_ecl_reported": 251942.92780430007,
-    "coverage_ratio": 0.11222646578105869,
+    "total_ecl_reported": 251942.92780428883,
+    "coverage_ratio": 0.11222646578105368,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -311,8 +316,8 @@
     "scenario": "all",
     "n_rows": 1526,
     "total_ead": 6614503.169999996,
-    "total_ecl_reported": 159269.3468091489,
-    "coverage_ratio": 0.02407880723854109,
+    "total_ecl_reported": 159269.34680914012,
+    "coverage_ratio": 0.02407880723853976,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -323,8 +328,8 @@
     "scenario": "all",
     "n_rows": 156,
     "total_ead": 672454.4100000001,
-    "total_ecl_reported": 84444.87337490938,
-    "coverage_ratio": 0.12557709804432596,
+    "total_ecl_reported": 84444.8733749058,
+    "coverage_ratio": 0.12557709804432063,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -335,8 +340,8 @@
     "scenario": "all",
     "n_rows": 85,
     "total_ead": 375181.03,
-    "total_ecl_reported": 64767.95659432306,
-    "coverage_ratio": 0.17263121377518223,
+    "total_ecl_reported": 64767.95659431814,
+    "coverage_ratio": 0.1726312137751691,
     "warning_codes": [
      "FALTA-DATO-IFRS-4"
     ]
@@ -347,9 +352,9 @@
     "period": 1,
     "time_value": 1.0,
     "time_value_years": 1.0,
-    "ecl_marginal": 2262676.42478337,
-    "ecl_cumulative": 2262676.42478337,
-    "pd_marginal_weighted": 0.06311502122800476,
+    "ecl_marginal": 2262676.4247831996,
+    "ecl_cumulative": 2262676.4247831996,
+    "pd_marginal_weighted": 0.06311502122800003,
     "discount_factor_mean": 0.7915717345168929,
     "n_rows": 6000
    },
@@ -357,9 +362,9 @@
     "period": 2,
     "time_value": 2.0,
     "time_value_years": 2.0,
-    "ecl_marginal": 1720279.9087077375,
-    "ecl_cumulative": 3982956.3334911074,
-    "pd_marginal_weighted": 0.05689603697309872,
+    "ecl_marginal": 1720279.9087077035,
+    "ecl_cumulative": 3982956.333490903,
+    "pd_marginal_weighted": 0.056896036973097606,
     "discount_factor_mean": 0.6321483890288415,
     "n_rows": 6000
    },
@@ -367,9 +372,9 @@
     "period": 3,
     "time_value": 3.0,
     "time_value_years": 3.0,
-    "ecl_marginal": 1219354.8518568694,
-    "ecl_cumulative": 5202311.185347977,
-    "pd_marginal_weighted": 0.0475663504464256,
+    "ecl_marginal": 1219354.8518570673,
+    "ecl_cumulative": 5202311.185347971,
+    "pd_marginal_weighted": 0.04756635044643333,
     "discount_factor_mean": 0.5093655940949352,
     "n_rows": 6000
    },
@@ -377,9 +382,9 @@
     "period": 4,
     "time_value": 4.0,
     "time_value_years": 4.0,
-    "ecl_marginal": 982123.23926424,
-    "ecl_cumulative": 6184434.424612217,
-    "pd_marginal_weighted": 0.04493447005671387,
+    "ecl_marginal": 982123.2392642206,
+    "ecl_cumulative": 6184434.4246121915,
+    "pd_marginal_weighted": 0.044934470056712986,
     "discount_factor_mean": 0.4141187505217717,
     "n_rows": 6000
    },
@@ -387,9 +392,9 @@
     "period": 5,
     "time_value": 5.0,
     "time_value_years": 5.0,
-    "ecl_marginal": 727082.0034411624,
-    "ecl_cumulative": 6911516.428053379,
-    "pd_marginal_weighted": 0.03880127638933928,
+    "ecl_marginal": 727082.0034411601,
+    "ecl_cumulative": 6911516.428053351,
+    "pd_marginal_weighted": 0.038801276389339154,
     "discount_factor_mean": 0.3396774934551281,
     "n_rows": 6000
    }
@@ -407,11 +412,11 @@
     "ead": 66822.35,
     "lgd": 0.4969,
     "eir": 0.161,
-    "pd_12m": 0.2789688754802042,
-    "pd_life": 0.7903789553746035,
-    "ecl_12m": 7978.371847656618,
-    "ecl_lifetime": 18826.69723987618,
-    "ecl_reported": 18826.69723987618,
+    "pd_12m": 0.2789688754801653,
+    "pd_life": 0.7903789553745714,
+    "ecl_12m": 7978.371847655505,
+    "ecl_lifetime": 18826.697239875175,
+    "ecl_reported": 18826.697239875175,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -425,11 +430,11 @@
     "ead": 80000.0,
     "lgd": 0.4319,
     "eir": 0.0774,
-    "pd_12m": 0.19628748185388473,
-    "pd_life": 0.6470667423135433,
-    "ecl_12m": 6294.899826448325,
-    "ecl_lifetime": 18601.63404100001,
-    "ecl_reported": 18601.63404100001,
+    "pd_12m": 0.19628748185385916,
+    "pd_life": 0.6470667423135159,
+    "ecl_12m": 6294.899826447506,
+    "ecl_lifetime": 18601.634040999135,
+    "ecl_reported": 18601.634040999135,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -443,11 +448,11 @@
     "ead": 46887.08,
     "lgd": 0.6025,
     "eir": 0.1742,
-    "pd_12m": 0.31807600495071475,
-    "pd_life": 0.8397293644134532,
-    "ecl_12m": 7652.424792921349,
-    "ecl_lifetime": 16844.152473480368,
-    "ecl_reported": 16844.152473480368,
+    "pd_12m": 0.3180760049506665,
+    "pd_life": 0.8397293644134182,
+    "ecl_12m": 7652.424792920188,
+    "ecl_lifetime": 16844.15247347939,
+    "ecl_reported": 16844.15247347939,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -461,11 +466,11 @@
     "ead": 39790.33,
     "lgd": 0.6099,
     "eir": 0.1291,
-    "pd_12m": 0.31641381249993294,
-    "pd_life": 0.8378382318220297,
-    "ecl_12m": 6800.787431331137,
-    "ecl_lifetime": 15632.13398150056,
-    "ecl_reported": 15632.13398150056,
+    "pd_12m": 0.31641381249989237,
+    "pd_life": 0.837838231822003,
+    "ecl_12m": 6800.7874313302655,
+    "ecl_lifetime": 15632.133981499896,
+    "ecl_reported": 15632.133981499896,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -479,11 +484,11 @@
     "ead": 76930.79,
     "lgd": 0.3241,
     "eir": 0.1511,
-    "pd_12m": 0.3145577292170069,
-    "pd_life": 0.8357058447080802,
-    "ecl_12m": 6813.441482811697,
-    "ecl_lifetime": 15387.10781966854,
-    "ecl_reported": 15387.10781966854,
+    "pd_12m": 0.31455772921697,
+    "pd_life": 0.8357058447080573,
+    "ecl_12m": 6813.4414828108975,
+    "ecl_lifetime": 15387.107819667948,
+    "ecl_reported": 15387.107819667948,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -497,11 +502,11 @@
     "ead": 80000.0,
     "lgd": 0.2446,
     "eir": 0.0949,
-    "pd_12m": 0.3866774258672863,
-    "pd_life": 0.9039335076223088,
-    "ecl_12m": 6910.680308129564,
-    "ecl_lifetime": 14712.156451985766,
-    "ecl_reported": 14712.156451985766,
+    "pd_12m": 0.3866774258672401,
+    "pd_life": 0.9039335076222881,
+    "ecl_12m": 6910.680308128737,
+    "ecl_lifetime": 14712.1564519853,
+    "ecl_reported": 14712.1564519853,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -515,11 +520,11 @@
     "ead": 69853.77,
     "lgd": 0.4139,
     "eir": 0.1831,
-    "pd_12m": 0.24048083390509914,
-    "pd_life": 0.7308850690880384,
-    "ecl_12m": 5876.845740152233,
-    "ecl_lifetime": 14373.890468027586,
-    "ecl_reported": 14373.890468027586,
+    "pd_12m": 0.2404808339050604,
+    "pd_life": 0.7308850690879972,
+    "ecl_12m": 5876.845740151286,
+    "ecl_lifetime": 14373.89046802656,
+    "ecl_reported": 14373.89046802656,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -533,11 +538,11 @@
     "ead": 78198.35,
     "lgd": 0.2351,
     "eir": 0.08,
-    "pd_12m": 0.38023768649145756,
-    "pd_life": 0.8989574980601094,
-    "ecl_12m": 6472.642521721966,
-    "ecl_lifetime": 14108.121778251234,
-    "ecl_reported": 14108.121778251234,
+    "pd_12m": 0.3802376864914164,
+    "pd_life": 0.8989574980600918,
+    "ecl_12m": 6472.642521721265,
+    "ecl_lifetime": 14108.121778250867,
+    "ecl_reported": 14108.121778250867,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -551,11 +556,11 @@
     "ead": 80000.0,
     "lgd": 0.1919,
     "eir": 0.0614,
-    "pd_12m": 0.6659526511768155,
-    "pd_life": 0.9950326472427845,
-    "ecl_12m": 9632.282929024374,
-    "ecl_lifetime": 14001.2697160767,
-    "ecl_reported": 14001.2697160767,
+    "pd_12m": 0.66595265117677,
+    "pd_life": 0.9950326472427826,
+    "ecl_12m": 9632.282929023719,
+    "ecl_lifetime": 14001.269716076613,
+    "ecl_reported": 14001.269716076613,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -569,11 +574,11 @@
     "ead": 70517.16,
     "lgd": 0.4034,
     "eir": 0.1271,
-    "pd_12m": 0.18944710972878143,
-    "pd_life": 0.6324510067681787,
-    "ecl_12m": 4781.412815736824,
-    "ecl_lifetime": 13434.063089444517,
-    "ecl_reported": 13434.063089444517,
+    "pd_12m": 0.18944710972875992,
+    "pd_life": 0.6324510067681585,
+    "ecl_12m": 4781.41281573628,
+    "ecl_lifetime": 13434.063089443996,
+    "ecl_reported": 13434.063089443996,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -585,11 +590,11 @@
     "ead": 80000.0,
     "lgd": 0.2936,
     "eir": 0.0939,
-    "pd_12m": 0.21509395515271354,
-    "pd_life": 0.6849163900284192,
-    "ecl_12m": 4618.453989054699,
-    "ecl_lifetime": 12955.008218964846,
-    "ecl_reported": 12955.008218964846,
+    "pd_12m": 0.21509395515267504,
+    "pd_life": 0.6849163900283709,
+    "ecl_12m": 4618.453989053872,
+    "ecl_lifetime": 12955.008218963827,
+    "ecl_reported": 12955.008218963827,
     "sicr_triggers": [
      "dpd_sicr_backstop",
      "dpd_default_backstop",
@@ -603,11 +608,11 @@
     "ead": 80000.0,
     "lgd": 0.2617,
     "eir": 0.0899,
-    "pd_12m": 0.24681116075902618,
-    "pd_life": 0.741482814735056,
-    "ecl_12m": 4741.020700661502,
-    "ecl_lifetime": 12683.85066517814,
-    "ecl_reported": 12683.85066517814,
+    "pd_12m": 0.24681116075900392,
+    "pd_life": 0.7414828147350436,
+    "ecl_12m": 4741.020700661074,
+    "ecl_lifetime": 12683.850665177873,
+    "ecl_reported": 12683.850665177873,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -619,11 +624,11 @@
     "ead": 70550.54,
     "lgd": 0.3166,
     "eir": 0.0701,
-    "pd_12m": 0.18857875633963564,
-    "pd_life": 0.6305622486933723,
-    "ecl_12m": 3936.2226493027974,
-    "ecl_lifetime": 11898.251089733869,
-    "ecl_reported": 11898.251089733869,
+    "pd_12m": 0.18857875633961538,
+    "pd_life": 0.6305622486933546,
+    "ecl_12m": 3936.222649302375,
+    "ecl_lifetime": 11898.251089733494,
+    "ecl_reported": 11898.251089733494,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -635,11 +640,11 @@
     "ead": 80000.0,
     "lgd": 0.2574,
     "eir": 0.0589,
-    "pd_12m": 0.20211240130130845,
-    "pd_life": 0.6591506036678652,
-    "ecl_12m": 3930.398118421516,
-    "ecl_lifetime": 11783.99590887882,
-    "ecl_reported": 11783.99590887882,
+    "pd_12m": 0.20211240130128819,
+    "pd_life": 0.6591506036678499,
+    "ecl_12m": 3930.3981184211225,
+    "ecl_lifetime": 11783.995908878513,
+    "ecl_reported": 11783.995908878513,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -651,11 +656,11 @@
     "ead": 36928.4,
     "lgd": 0.4858,
     "eir": 0.1463,
-    "pd_12m": 0.33860020125183854,
-    "pd_life": 0.8616853961843178,
-    "ecl_12m": 5299.158642426151,
-    "ecl_lifetime": 11596.366751221016,
-    "ecl_reported": 11596.366751221016,
+    "pd_12m": 0.33860020125181456,
+    "pd_life": 0.8616853961843117,
+    "ecl_12m": 5299.158642425777,
+    "ecl_lifetime": 11596.366751220856,
+    "ecl_reported": 11596.366751220856,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -667,11 +672,11 @@
     "ead": 69660.78,
     "lgd": 0.4791,
     "eir": 0.1369,
-    "pd_12m": 0.11460759034084944,
-    "pd_life": 0.4394909081670432,
-    "ecl_12m": 3364.3844639523095,
-    "ecl_lifetime": 10523.711065075528,
-    "ecl_reported": 10523.711065075528,
+    "pd_12m": 0.11460759034083841,
+    "pd_life": 0.4394909081670342,
+    "ecl_12m": 3364.3844639519857,
+    "ecl_lifetime": 10523.711065075253,
+    "ecl_reported": 10523.711065075253,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -683,11 +688,11 @@
     "ead": 63667.51,
     "lgd": 0.5294,
     "eir": 0.1878,
-    "pd_12m": 0.12609752181680056,
-    "pd_life": 0.4733523028430031,
-    "ecl_12m": 3578.2034714782185,
-    "ecl_lifetime": 10332.495566214951,
-    "ecl_reported": 10332.495566214951,
+    "pd_12m": 0.12609752181678513,
+    "pd_life": 0.47335230284298385,
+    "ecl_12m": 3578.2034714777797,
+    "ecl_lifetime": 10332.495566214438,
+    "ecl_reported": 10332.495566214438,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -699,11 +704,11 @@
     "ead": 79273.51,
     "lgd": 0.409,
     "eir": 0.1264,
-    "pd_12m": 0.11180003435786198,
-    "pd_life": 0.43096416608688515,
-    "ecl_12m": 3218.108564401936,
-    "ecl_lifetime": 10251.425652122403,
-    "ecl_reported": 10251.425652122403,
+    "pd_12m": 0.11180003435784937,
+    "pd_life": 0.4309641660868707,
+    "ecl_12m": 3218.1085644015725,
+    "ecl_lifetime": 10251.425652122003,
+    "ecl_reported": 10251.425652122003,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -715,11 +720,11 @@
     "ead": 66107.38,
     "lgd": 0.2675,
     "eir": 0.0931,
-    "pd_12m": 0.21686311642913855,
-    "pd_life": 0.6883062038045301,
-    "ecl_12m": 3508.3226870754916,
-    "ecl_lifetime": 9821.982128677766,
-    "ecl_reported": 9821.982128677766,
+    "pd_12m": 0.21686311642912212,
+    "pd_life": 0.6883062038045247,
+    "ecl_12m": 3508.322687075226,
+    "ecl_lifetime": 9821.98212867765,
+    "ecl_reported": 9821.98212867765,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -731,11 +736,11 @@
     "ead": 54555.98,
     "lgd": 0.3587,
     "eir": 0.0939,
-    "pd_12m": 0.1721380235859425,
-    "pd_life": 0.5933455426668665,
-    "ecl_12m": 3079.448377159084,
-    "ecl_lifetime": 9273.786037366895,
-    "ecl_reported": 9273.786037366895,
+    "pd_12m": 0.1721380235859253,
+    "pd_life": 0.5933455426668526,
+    "ecl_12m": 3079.4483771587766,
+    "ecl_lifetime": 9273.786037366639,
+    "ecl_reported": 9273.786037366639,
     "sicr_triggers": [
      "dpd_sicr_backstop"
     ]
@@ -747,11 +752,11 @@
     "ead": 80000.0,
     "lgd": 0.4588,
     "eir": 0.1683,
-    "pd_12m": 0.130057126507007,
-    "pd_life": 0.48464331224366736,
-    "ecl_12m": 4085.9511866071944,
-    "ecl_lifetime": 11998.376529024525,
-    "ecl_reported": 4085.9511866071944,
+    "pd_12m": 0.13005712650700038,
+    "pd_life": 0.48464331224367396,
+    "ecl_12m": 4085.9511866069865,
+    "ecl_lifetime": 11998.376529024627,
+    "ecl_reported": 4085.9511866069865,
     "sicr_triggers": []
    },
    {
@@ -761,11 +766,11 @@
     "ead": 80000.0,
     "lgd": 0.5174,
     "eir": 0.1535,
-    "pd_12m": 0.09165794131983894,
-    "pd_life": 0.36677897583833335,
-    "ecl_12m": 3289.038150941286,
-    "ecl_lifetime": 10443.292108079404,
-    "ecl_reported": 3289.038150941286,
+    "pd_12m": 0.09165794131983317,
+    "pd_life": 0.36677897583833613,
+    "ecl_12m": 3289.038150941079,
+    "ecl_lifetime": 10443.292108079431,
+    "ecl_reported": 3289.038150941079,
     "sicr_triggers": []
    },
    {
@@ -775,11 +780,11 @@
     "ead": 59297.72,
     "lgd": 0.4865,
     "eir": 0.1863,
-    "pd_12m": 0.13475014874783672,
-    "pd_life": 0.49777978262542555,
-    "ecl_12m": 3276.842460788405,
-    "ecl_lifetime": 9355.48436660458,
-    "ecl_reported": 3276.842460788405,
+    "pd_12m": 0.13475014874782684,
+    "pd_life": 0.4977797826254238,
+    "ecl_12m": 3276.8424607881643,
+    "ecl_lifetime": 9355.484366604484,
+    "ecl_reported": 3276.8424607881643,
     "sicr_triggers": []
    },
    {
@@ -789,11 +794,11 @@
     "ead": 47131.29,
     "lgd": 0.4619,
     "eir": 0.1714,
-    "pd_12m": 0.14624890733975812,
-    "pd_life": 0.5288620189711816,
-    "ecl_12m": 2717.9702533786312,
-    "ecl_lifetime": 7756.969526584913,
-    "ecl_reported": 2717.9702533786312,
+    "pd_12m": 0.14624890733975043,
+    "pd_life": 0.5288620189711876,
+    "ecl_12m": 2717.970253378488,
+    "ecl_lifetime": 7756.969526584959,
+    "ecl_reported": 2717.970253378488,
     "sicr_triggers": []
    },
    {
@@ -803,11 +808,11 @@
     "ead": 80000.0,
     "lgd": 0.48,
     "eir": 0.1541,
-    "pd_12m": 0.08024312846741381,
-    "pd_life": 0.32797623669969533,
-    "ecl_12m": 2669.9039365294957,
-    "ecl_lifetime": 8624.458694446823,
-    "ecl_reported": 2669.9039365294957,
+    "pd_12m": 0.08024312846740904,
+    "pd_life": 0.327976236699699,
+    "ecl_12m": 2669.9039365293365,
+    "ecl_lifetime": 8624.458694446877,
+    "ecl_reported": 2669.9039365293365,
     "sicr_triggers": []
    },
    {
@@ -817,11 +822,11 @@
     "ead": 78922.67,
     "lgd": 0.1711,
     "eir": 0.0926,
-    "pd_12m": 0.20623620181243163,
-    "pd_life": 0.6675078160102395,
-    "ecl_12m": 2548.915771074296,
-    "ecl_lifetime": 7266.631220441213,
-    "ecl_reported": 2548.915771074296,
+    "pd_12m": 0.20623620181242028,
+    "pd_life": 0.6675078160102428,
+    "ecl_12m": 2548.9157710741556,
+    "ecl_lifetime": 7266.631220441229,
+    "ecl_reported": 2548.9157710741556,
     "sicr_triggers": []
    },
    {
@@ -831,11 +836,11 @@
     "ead": 80000.0,
     "lgd": 0.4786,
     "eir": 0.1592,
-    "pd_12m": 0.0730739239974318,
-    "pd_life": 0.30267341331375924,
-    "ecl_12m": 2413.608007258169,
-    "ecl_lifetime": 7832.593939092291,
-    "ecl_reported": 2413.608007258169,
+    "pd_12m": 0.07307392399742627,
+    "pd_life": 0.3026734133137587,
+    "ecl_12m": 2413.608007257986,
+    "ecl_lifetime": 7832.593939092234,
+    "ecl_reported": 2413.608007257986,
     "sicr_triggers": []
    },
    {
@@ -845,11 +850,11 @@
     "ead": 80000.0,
     "lgd": 0.3845,
     "eir": 0.1438,
-    "pd_12m": 0.08937630430481826,
-    "pd_life": 0.3591664791328955,
-    "ecl_12m": 2403.580276635959,
-    "ecl_lifetime": 7756.768890347914,
-    "ecl_reported": 2403.580276635959,
+    "pd_12m": 0.08937630430481268,
+    "pd_life": 0.35916647913289845,
+    "ecl_12m": 2403.580276635809,
+    "ecl_lifetime": 7756.768890347941,
+    "ecl_reported": 2403.580276635809,
     "sicr_triggers": []
    },
    {
@@ -859,11 +864,11 @@
     "ead": 80000.0,
     "lgd": 0.3599,
     "eir": 0.0836,
-    "pd_12m": 0.08980509127999917,
-    "pd_life": 0.3606025142274398,
-    "ecl_12m": 2386.1832670115696,
-    "ecl_lifetime": 8370.407509461711,
-    "ecl_reported": 2386.1832670115696,
+    "pd_12m": 0.089805091279994,
+    "pd_life": 0.3606025142274442,
+    "ecl_12m": 2386.1832670114322,
+    "ecl_lifetime": 8370.407509461793,
+    "ecl_reported": 2386.1832670114322,
     "sicr_triggers": []
    },
    {
@@ -873,11 +878,11 @@
     "ead": 62062.85,
     "lgd": 0.4084,
     "eir": 0.1257,
-    "pd_12m": 0.1038934389299072,
-    "pd_life": 0.40640595514947264,
-    "ecl_12m": 2339.2837514553084,
-    "ecl_lifetime": 7554.830018718656,
-    "ecl_reported": 2339.2837514553084,
+    "pd_12m": 0.10389343892990116,
+    "pd_life": 0.40640595514947686,
+    "ecl_12m": 2339.2837514551725,
+    "ecl_lifetime": 7554.830018718703,
+    "ecl_reported": 2339.2837514551725,
     "sicr_triggers": []
    }
   ],
