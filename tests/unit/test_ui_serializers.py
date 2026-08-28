@@ -670,6 +670,7 @@ def test_serializa_las_cards_de_provisiones_del_preset_f3(tmp_path: Path) -> Non
     config = provisiones_preset()["config"]
     config["data"]["load"]["source"] = str(source)
     config["report"]["output_dir"] = str(tmp_path / "reports")
+    config["audit"]["trail_filename"] = str(tmp_path / "audit_trail.jsonl")
     study = nikodym.run(NikodymConfig.model_validate(config))
     assert study.run_context.status == "done"
 
@@ -777,6 +778,7 @@ def test_serializa_el_bloque_ifrs9_del_preset_f4(tmp_path: Path) -> None:
     source = datasets.materialize(IFRS9_DATASET_ID, workdir=tmp_path)
     config = ifrs9_preset()["config"]
     config["data"]["load"]["source"] = str(source)
+    config["audit"]["trail_filename"] = str(tmp_path / "audit_trail.jsonl")
     study = nikodym.run(NikodymConfig.model_validate(config))
     assert study.run_context.status == "done"
 

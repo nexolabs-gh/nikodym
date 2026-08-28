@@ -19,12 +19,15 @@ from __future__ import annotations
 
 import importlib
 import json
+import math
 import os
 import shutil
 import tempfile
 import time
 import uuid
 import warnings
+from collections.abc import Mapping
+from copy import deepcopy
 from datetime import UTC, datetime
 from importlib import metadata
 from pathlib import Path
@@ -245,15 +248,18 @@ class Study:
             self.seed_manager.apply_global()
         self._audit: AuditSink = NullAuditSink()
         self.artifacts = ArtifactStore(audit=self._audit)
-        # ⚠️ Canal de publicación de métricas hacia `governance` y `tracking`, y NINGÚN paso del
-        # motor lo llena hoy: tras una corrida F1 completa sigue siendo `{}` (medido). Sus dos
-        # consumidores lo leen igual —`ModelCardBuilder` toma de aquí `metrics`/`metric_sections`
-        # (`governance/model_card.py:189`) y `TrackingSink` lo vuelca entero a MLflow
-        # (`tracking/sink.py:47`)—, así que un model card publicado sale SIN métricas. No se ve
-        # en los presets porque los tres traen `governance: null` y `tracking: null`; quien los
-        # encienda sí lo nota. Los resultados reales viven en `self.artifacts`, por
-        # `(dominio, clave)`.
-        # Llenarlo es contrato (qué claves, qué DTOs) y por tanto trabajo de SDD, no un parche aquí.
+        # Canal de publicación de métricas hacia `governance` y `tracking` (SDD-01 §6; D-GOB-1…5).
+        # Lo llena `_publicar_metricas` tras cada paso, y es el ÚNICO punto de escritura: el
+        # productor es el dominio —`metrics()`/`metric_sections()`— y el prefijo `<dominio>.` lo
+        # pone `core`, así que ningún paso puede pisar el namespace de otro.
+        #
+        # Sus dos consumidores lo leen con formas que NO coinciden, y por eso D-GOB-2 fija la
+        # única que ambos aceptan —plana, `"<dominio>.<metrica>"`, `float` finito—: con forma
+        # anidada `ModelCardBuilder` levanta `GovernanceError` (`governance/model_card.py:189`)
+        # mientras `TrackingSink` la aplana sin quejarse (`tracking/sink.py:47`). Medido contra los
+        # dos sobre una corrida real; llenar el canal con la forma anidada rompería el model card
+        # en ejecución. Los resultados completos siguen viviendo en `self.artifacts`, por
+        # `(dominio, clave)`: esto es el resumen firmable, no un duplicado del store.
         self.results: dict[str, Any] = {}
         self.run_context = RunContext()
         self._injected_artifacts: set[ArtifactKey] = set()
@@ -710,7 +716,118 @@ class Study:
         # TODO(T2): un StepAdapter no es AuditableMixin; al materializar StepAdapter.execute debe
         # propagar self._audit al estimador envuelto (paso.estimator), o sus log_decision caerían al
         # NullAuditSink de clase y se perderían del trail (SDD-01 §7.3.c).
-        return paso.execute(self, rng)
+        resultado = paso.execute(self, rng)
+        self._publicar_metricas(paso)
+        return resultado
+
+    def _publicar_metricas(self, paso: Step) -> None:
+        """Publica el resumen métrico del paso bajo el namespace canónico (SDD-01 §6; D-GOB-1…3).
+
+        El productor es el dominio y el escritor es ``core``: el paso devuelve nombres SIN prefijo
+        y aquí se compone ``"<dominio>.<metrica>"``. Que el prefijo lo ponga el núcleo es lo que
+        impide que un paso pise el namespace de otro, y deja el gate en un solo lugar auditable.
+
+        Los dos métodos son **opcionales** y se consultan con ``getattr``, igual que
+        ``optional_requires`` y ``from_config_with_context`` (ver ``core/steps.py``): declararlos en
+        el ``Protocol`` obligaría a todo ``Step`` —incluidos los de terceros— a tenerlos. Un paso
+        que no los implemente no aporta nada y **no falla**, que es el estado por defecto de la
+        mayoría de los dominios.
+        """
+        self._publicar_metricas_planas(paso)
+        self._publicar_metric_sections(paso)
+
+    def _publicar_metricas_planas(self, paso: Step) -> None:
+        """Escribe ``results['metrics']`` en forma plana con ``float`` finito (D-GOB-2)."""
+        productor = getattr(paso, "metrics", None)
+        if not callable(productor):
+            return
+        crudas = productor(self)
+        if not isinstance(crudas, Mapping):
+            raise ConfigError(
+                f"El paso '{paso.name}' devolvió metrics() de tipo "
+                f"{type(crudas).__name__}; se esperaba un Mapping[str, float]."
+            )
+        destino: dict[str, Any] = self.results.setdefault("metrics", {})
+        for nombre, valor in crudas.items():
+            clave = self._componer_clave_metrica(paso, nombre)
+            numero = self._como_float_publicable(paso, nombre, valor)
+            if numero is None:
+                # D-GOB-2: una métrica no evaluable es una AUSENCIA honesta. Nunca se rellena con
+                # `0.0`, que sería inventar un valor; se omite y la omisión queda trazada.
+                self._emit(
+                    "decision",
+                    paso.name,
+                    {
+                        "regla": "metrica_no_evaluable",
+                        "umbral": "float finito",
+                        "valor": repr(valor),
+                        "accion": f"omitir '{clave}' del namespace de métricas",
+                    },
+                )
+                continue
+            if clave in destino:
+                # SDD-01 §7 hace imposible que dos pasos compartan `domain` (es la sección del
+                # config). Si ocurriera, colisión explícita en vez de sobrescritura silenciosa.
+                raise ConfigError(
+                    f"Colisión en el namespace de métricas: '{clave}' ya fue publicada. "
+                    "Dos pasos no pueden compartir dominio (SDD-01 §7)."
+                )
+            destino[clave] = numero
+
+    def _componer_clave_metrica(self, paso: Step, nombre: Any) -> str:
+        """Compone ``"<dominio>.<metrica>"`` y rechaza un nombre que traiga el prefijo puesto."""
+        if not isinstance(nombre, str) or not nombre:
+            raise ConfigError(
+                f"El paso '{paso.name}' devolvió una clave de métrica no textual: {nombre!r}."
+            )
+        if "." in nombre:
+            raise ConfigError(
+                f"El paso '{paso.name}' devolvió la métrica '{nombre}' con punto. El prefijo de "
+                "dominio lo pone el núcleo: el dominio devuelve sólo el nombre (D-GOB-2)."
+            )
+        return f"{paso.name}.{nombre}"
+
+    def _como_float_publicable(self, paso: Step, nombre: str, valor: Any) -> float | None:
+        """Devuelve el ``float`` finito publicable, o ``None`` si la métrica no es evaluable.
+
+        ``None``/``NaN``/``inf`` son ausencias y se omiten (D-GOB-2). Un valor de tipo equivocado
+        —``str``, ``bool``, un ``dict``— **no** es una ausencia sino un contrato roto por el
+        dominio, y por eso levanta en vez de silenciarse: es exactamente lo que ``governance``
+        rechazaría después, y aquí el error nombra al culpable.
+        """
+        if valor is None:
+            return None
+        if isinstance(valor, bool) or not isinstance(valor, int | float):
+            raise ConfigError(
+                f"El paso '{paso.name}' publicó la métrica '{nombre}' con valor {valor!r} de tipo "
+                f"{type(valor).__name__}; el namespace sólo admite float finito (D-GOB-2)."
+            )
+        numero = float(valor)
+        return numero if math.isfinite(numero) else None
+
+    def _publicar_metric_sections(self, paso: Step) -> None:
+        """Escribe ``results['metric_sections'][dominio]`` sin aplanar (CT-2; D-GOB-3)."""
+        productor = getattr(paso, "metric_sections", None)
+        if not callable(productor):
+            return
+        secciones = productor(self)
+        if not isinstance(secciones, Mapping):
+            raise ConfigError(
+                f"El paso '{paso.name}' devolvió metric_sections() de tipo "
+                f"{type(secciones).__name__}; se esperaba un Mapping[str, Any]."
+            )
+        if not secciones:
+            # Un dominio sin payload estructurado no recibe la clave: `{}` y «ausente» dicen lo
+            # mismo, y no publicarla evita un dict vacío en cada model card (D-GOB-5).
+            return
+        destino: dict[str, Any] = self.results.setdefault("metric_sections", {})
+        if paso.name in destino:
+            raise ConfigError(
+                f"Colisión en metric_sections: el dominio '{paso.name}' ya publicó su sección."
+            )
+        # Copia profunda: los DTO ya copian al leer, pero el canal no puede depender de que el
+        # productor sea un DTO —un paso de tercero puede devolver un dict vivo—.
+        destino[paso.name] = deepcopy(dict(secciones))
 
     def _emit(self, kind: AuditKind, step: str | None, payload: dict[str, Any]) -> None:
         """Construye y emite un :class:`AuditEvent` por el sink interno (siempre seguro)."""

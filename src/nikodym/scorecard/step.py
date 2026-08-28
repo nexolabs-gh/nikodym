@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, TypeAlias, cast
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 from nikodym.scorecard.config import ScorecardConfig
 from nikodym.scorecard.exceptions import ScorecardFitError
 from nikodym.scorecard.scaler import PointsScaler
@@ -218,6 +218,23 @@ class ScorecardStep(AuditableMixin):
                 accion="no_puntuar",
             )
         return frame.loc[mask].copy(deep=True)
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
+
+        Sólo el tamaño de la tarjeta. ``pdo``, ``target_score``, ``factor`` y ``offset`` son
+        PARÁMETROS de escalamiento elegidos por la institución, no resultados medidos: publicarlos
+        como «métricas del modelo» es justamente el error que D-GOB-4 evita.
+        """
+        card = card_publicada(study, "scorecard", "card")
+        return {
+            "n_variables": campo_de_card(card, "n_variables"),
+        }
+
+    def metric_sections(self, study: Study) -> dict[str, object]:
+        """Publica el payload estructurado CT-2 de la card, sin aplanar (D-GOB-3)."""
+        secciones = campo_de_card(card_publicada(study, "scorecard", "card"), "metric_sections")
+        return dict(secciones) if isinstance(secciones, Mapping) else {}
 
     def _publish_artifacts(self, study: Study, result: ScorecardResult) -> None:
         """Publica los cuatro artefactos estables del dominio ``scorecard``."""

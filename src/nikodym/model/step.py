@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 from nikodym.model.config import ModelConfig
 from nikodym.model.exceptions import ModelFitError
 
@@ -257,6 +257,23 @@ class ModelStep(AuditableMixin):
             valor={"partition_col": partition_col, "conteo": filtered_count},
             accion="no_puntuar",
         )
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
+
+        Sólo el tamaño del modelo final. Los estadísticos de ajuste viven en
+        ``ModelFitStatistics`` y son un DTO, no escalares del namespace: su lugar es
+        ``metric_sections`` cuando SDD-08 declare qué va dentro.
+        """
+        card = card_publicada(study, "model", "model_card")
+        return {
+            "n_final_features": campo_de_card(card, "n_final_features"),
+        }
+
+    def metric_sections(self, study: Study) -> dict[str, object]:
+        """Publica el payload estructurado CT-2 de la card, sin aplanar (D-GOB-3)."""
+        secciones = campo_de_card(card_publicada(study, "model", "model_card"), "metric_sections")
+        return dict(secciones) if isinstance(secciones, Mapping) else {}
 
     def _publish_artifacts(self, study: Study, result: ModelResult) -> None:
         """Publica los nueve artefactos estables del dominio ``model``."""

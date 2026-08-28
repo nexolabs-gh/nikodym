@@ -652,6 +652,7 @@ memory_data = config.data.model_copy(
 study = run(
     config.model_copy(update={"data": memory_data}),
     artifacts={("data", "input_frame"): frame},
+    run_dir=root / "corrida",
 )
 assert study.run_context.status == "done"
 bundle = FittedScorecardBundle.from_study(study)

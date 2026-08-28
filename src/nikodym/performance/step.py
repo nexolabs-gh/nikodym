@@ -17,12 +17,13 @@ del evaluador.
 from __future__ import annotations
 
 import importlib
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 from nikodym.performance.config import PerformanceConfig
 from nikodym.performance.evaluator import PerformanceEvaluator
 from nikodym.performance.exceptions import PerformanceDataError
@@ -118,6 +119,36 @@ class PerformanceStep(AuditableMixin):
         )
         self._publish_artifacts(study, result)
         return result
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
+
+        🔴 Aquí hay REDUCCIÓN, no proyección: AUC, Gini y KS **no son campos escalares** de
+        ``PerformanceCardSection`` —el único escalar declarado es ``n_deciles``—, sino que viven en
+        ``max_metrics_by_partition``, un ``dict`` por partición. Se publica una clave por partición
+        y métrica, ``auc_<partición>``, porque colapsar las particiones a un número exigiría elegir
+        cuál manda y esa elección es institucional, no del motor.
+
+        Una partición ``not_evaluable`` —cartera corta, sin ambas clases— trae ``None`` y el núcleo
+        la OMITE. Es el caso real de una cartera pequeña, y publicar ``0.0`` ahí diría «AUC de
+        0.0», que es peor que no decir nada.
+        """
+        card = card_publicada(study, "performance", "card")
+        por_particion = campo_de_card(card, "max_metrics_by_partition")
+        if not isinstance(por_particion, Mapping):
+            return {}
+        metricas: dict[str, float | None] = {}
+        for particion, valores in por_particion.items():
+            if not isinstance(valores, Mapping):
+                continue
+            for nombre in ("auc", "gini", "ks"):
+                metricas[f"{nombre}_{particion}"] = valores.get(nombre)
+        return metricas
+
+    def metric_sections(self, study: Study) -> dict[str, object]:
+        """Publica el payload estructurado CT-2 de la card, sin aplanar (D-GOB-3)."""
+        secciones = campo_de_card(card_publicada(study, "performance", "card"), "metric_sections")
+        return dict(secciones) if isinstance(secciones, Mapping) else {}
 
     def _publish_artifacts(self, study: Study, result: PerformanceResult) -> None:
         """Publica los cuatro artefactos estables del dominio ``performance``."""

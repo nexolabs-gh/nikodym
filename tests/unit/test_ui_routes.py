@@ -963,6 +963,7 @@ def test_run_pipeline_preset_provisiones_estandar_muerde(tmp_path: Path) -> None
     source = datasets_module.materialize(PROVISIONES_DATASET_ID, workdir=tmp_path)
     config = provisiones_preset()["config"]
     config["data"]["load"]["source"] = str(source)
+    config["audit"]["trail_filename"] = str(tmp_path / "audit_trail.jsonl")
     study = nikodym.run(NikodymConfig.model_validate(config))
 
     assert study.run_context.status == "done"

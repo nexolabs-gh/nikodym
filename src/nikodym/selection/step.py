@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, TypeAlias, cast
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 from nikodym.selection.config import SelectionConfig
 from nikodym.selection.exceptions import SelectionFitError, SelectionForcedVifConflictError
 
@@ -223,6 +223,23 @@ class SelectionStep(AuditableMixin):
                     else "evaluar_exclusion"
                 ),
             )
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
+
+        ``max_abs_correlation_after_selection`` es opcional en la card —sin pares que comparar no
+        hay máximo— y se publica ``None`` para que el núcleo lo OMITA en vez de rellenarlo con
+        ``0.0``, que leería como «cero correlación» cuando lo cierto es «no se pudo evaluar».
+        Sin ``metric_sections`` (D-GOB-5).
+        """
+        card = card_publicada(study, "selection", "selection_card")
+        return {
+            "n_candidates": campo_de_card(card, "n_candidates"),
+            "n_selected": campo_de_card(card, "n_selected"),
+            "max_abs_correlation_after_selection": campo_de_card(
+                card, "max_abs_correlation_after_selection"
+            ),
+        }
 
     def _publish_artifacts(
         self,

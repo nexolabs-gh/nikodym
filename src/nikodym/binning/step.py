@@ -24,7 +24,7 @@ from nikodym.binning.config import BinningConfig, VariableBinningConfig
 from nikodym.binning.exceptions import BinningFitError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 
 if TYPE_CHECKING:
     import numpy as np
@@ -359,6 +359,19 @@ class BinningStep(AuditableMixin):
                 valor={"variable": variable, "conteo": count},
                 accion="asignar_woe_neutral",
             )
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
+
+        Los dos conteos que describen qué pudo binnearse. El IV por variable NO entra: es un mapa
+        por variable, no un escalar del modelo, y aplanarlo publicaría una clave por columna en
+        cada model card. Sin ``metric_sections`` (D-GOB-5).
+        """
+        card = card_publicada(study, "binning", "binning_card")
+        return {
+            "n_variables_binned": campo_de_card(card, "n_variables_binned"),
+            "n_variables_skipped": campo_de_card(card, "n_variables_skipped"),
+        }
 
     def _publish_artifacts(
         self,

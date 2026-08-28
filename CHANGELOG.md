@@ -5,6 +5,77 @@ el proyecto sigue [SemVer](https://semver.org/lang/es/): desde 1.0, el pipeline 
 es API estable; las superficies que aún crecen (modelado ML, provisiones, forward-looking,
 contratos transversales) quedan marcadas como experimentales, fuera de la garantía SemVer 1.x.
 
+## [No publicado]
+
+### Añadido
+
+- **El model card ya sale con las métricas del modelo.** Hasta ahora una corrida completa terminaba
+  con el resumen de métricas **vacío**: el model card se generaba sin AUC, sin KS, sin PSI y sin
+  decisiones, que es justo el bloque que exige la guía de gobierno de modelos. Había dos
+  consumidores esperando ese resumen —el model card y el registro en MLflow— y ningún productor que
+  lo llenara. Ahora cada dominio publica una lista **corta y declarada** de métricas y el núcleo las
+  reúne bajo `<dominio>.<métrica>`.
+
+  La lista es de dominio y no un volcado automático, y la diferencia importa: AUC, Gini, KS y PSI no
+  son campos sueltos de ninguna ficha —viven por partición y por comparación—, así que copiar «todo
+  lo numérico» habría publicado el paso de puntaje y el número de deciles como «las métricas del
+  modelo», y habría dejado fuera el AUC.
+
+  **Una métrica que no se puede evaluar no aparece.** Una cartera demasiado corta para estimar un
+  AUC no publica un AUC de cero: publica nada, y la ausencia queda registrada en el audit-trail. Un
+  cero se lee como una medición pésima; la ausencia se lee como lo que es.
+
+- **`nikodym.run(config, run_dir=...)` deja la evidencia de la corrida en disco.** Con `run_dir` se
+  escriben ahí el audit-trail, el snapshot del entorno, el `model_card.json` y su versión en
+  Markdown, más la corrida serializada. Cada archivo aparece sólo si su sección está activa: con
+  auditoría pero sin gobernanza hay trail y entorno, y no hay model card.
+
+  **Sin `run_dir` no se escribe nada**, exactamente como antes. Una librería no debe empezar a
+  dejar archivos en el directorio de trabajo de quien la importa.
+
+- **Los cuatro ejemplos de fábrica traen la auditoría encendida.** Es lo que hace que el model card
+  llegue con sus decisiones registradas en vez de una lista vacía. La gobernanza sigue **apagada**
+  de fábrica a propósito: exige declarar el propósito del modelo, y ese dato sólo lo puede fijar la
+  institución. El motor no lo inventa.
+
+### Cambiado
+
+- ⚠️ **Correr un ejemplo de fábrica por código ahora pide decir dónde va la evidencia.** Como los
+  cuatro ejemplos traen la auditoría encendida, y el audit-trail ya no puede caer en el directorio
+  de trabajo, un script que hacía
+
+  ```python
+  study = nikodym.run(NikodymConfig.model_validate(get_preset(...)["config"]))
+  ```
+
+  ahora falla con un error que nombra el arreglo. La corrección es añadir el destino:
+
+  ```python
+  study = nikodym.run(NikodymConfig.model_validate(config), run_dir="mis-corridas/hoy")
+  ```
+
+  Un config propio con la auditoría apagada —o con una ruta absoluta para el trail— no cambia.
+  Desde la interfaz tampoco hay nada que hacer: ella misma archiva el trail junto a su corrida.
+
+### Corregido
+
+- **El audit-trail ya no se escribe en el directorio desde el que se lanza la corrida.** Se escribía
+  ahí pese a que su documentación decía «dentro del directorio del run», así que dos corridas
+  lanzadas desde el mismo sitio **concatenaban sus eventos en el mismo archivo**, que es justo lo
+  que el contrato de auditoría prohíbe: un trail por corrida. Ahora se resuelve contra el directorio
+  de la corrida. Una ruta absoluta se sigue respetando; una ruta relativa sin directorio de corrida
+  pasa a ser un error explícito en vez de ensuciar el directorio de trabajo en silencio.
+
+- **El análisis de supervivencia era inalcanzable con la auditoría encendida.** El estimador viaja
+  dentro de su resultado y arrastraba el destino del audit-trail —un archivo abierto— al copiarse,
+  de modo que la corrida moría con un error de tipo antes de publicar nada, y sin dejar un estudio
+  inspeccionable. No se notaba porque ningún ejemplo de fábrica traía la auditoría encendida.
+
+### Sabido
+
+- Los datos de la demo publicada siguen mostrando el model card vacío: se regeneran en un paso
+  aparte. La identidad de las corridas de la demo **no** cambia con esta versión.
+
 ## [1.12.0] — 2026-08-27
 
 ### Cambiado

@@ -32,6 +32,7 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
+| D-GOB-1…9 | Aprobada por Cami el 2026-08-28; D-GOB-1…8 implementadas y gateadas; D-GOB-9 (recaptura de la demo) **no ejecutada**, pide OK propio; abierto: la ruta de UI para `governance` | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) |
 
 ## D-RDY — readiness integral
 
@@ -323,6 +324,94 @@ Abierto declarado: `core` aloja el trío `run` → `Study` → `NikodymConfig`, 
 estable, pero no lleva marca de paquete. Dársela ampliaría el compromiso a **todo** `nikodym.core`,
 que es más de lo que hoy está decidido. Queda en `UNMARKED_PACKAGES` con su razón escrita, no
 resuelto por un agente.
+
+## D-GOB — la gobernanza tiene que ser ALCANZABLE desde `pip install`
+
+Aprobada por Cami el 2026-08-28. Nace del **bloqueador 3** del censo del 2026-08-26: la gobernanza
+—el titular del README— no existía en ninguna ruta entregada. Tras una corrida F1 real y completa
+`study.results` quedaba `{}`, y el model card salía con `metrics={}`, `metric_sections={}` y
+`decisions=0`.
+
+**D-GOB-1 · El productor es el paso; el escritor es `core`.** Un `Step` puede implementar
+`metrics(study)` y `metric_sections(study)`; `Study._publicar_metricas` los llama tras `execute` y
+es el **único** punto de escritura del canal. Los dos métodos se consultan con `getattr`, como
+`optional_requires`: un paso que no los implemente no aporta nada y no falla. La reducción es
+conocimiento de dominio y no puede vivir en `core` — AUC, Gini, KS y PSI **no son campos escalares
+de ninguna** `CardSection`, así que un agregador genérico publicaría `scorecard.pdo` y
+`performance.n_deciles` como «las métricas del modelo» y omitiría el AUC.
+
+**D-GOB-2 · `metrics` es plano: `"<dominio>.<metrica>"`, `float` finito.** El prefijo lo compone
+`core`; un dominio que lo devuelva ya puesto recibe `ConfigError`. Es la **única forma que los dos
+consumidores aceptan sin modificarlos**, y eso está medido en ambos sentidos: con forma anidada
+`ModelCardBuilder` levanta `GovernanceError` mientras `TrackingSink` la aplana sin quejarse. La
+contradicción llevaba latente todo 1.x porque el canal estaba vacío. Una métrica no evaluable **se
+omite**, con traza en el trail; nunca se rellena con `0.0`, `NaN` ni `None`.
+
+**D-GOB-3/5 · `metric_sections` es un nivel por dominio**, copiado en profundidad de la puerta CT-2
+que ya existía en 9 de 13 `CardSection`. Los dominios sin payload estructurado (`data`, `binning`,
+`selection`, `eda`) **no** reciben la clave: `{}` y «ausente» dicen lo mismo.
+
+**D-GOB-4 · Cada dominio declara su lista, y el gate la ata en los dos sentidos.**
+[`nikodym/testing/metrics.py`](../../src/nikodym/testing/metrics.py) es la fuente canónica, igual
+que `testing/stability.py` para la marca SemVer. `test_canal_metricas.py` exige que lo declarado
+exista **y** que ningún dominio orquestable quede sin clasificar — la lección de D-VIS-6 aplicada
+antes de que el hueco exista.
+
+**D-GOB-6/7 · El directorio de corrida existe sólo si el llamador lo pide.**
+`nikodym.run(config, run_dir=...)`. Con el default `None` nada toca el disco, que es el
+comportamiento histórico. Con un `run_dir` se escribe allí el layout de SDD-03 §6 —`audit_trail.jsonl`,
+`environment.json`, `model_card.json`, `model_card.md`— más `study/` (lo de `Study.save`, en un
+subdirectorio porque su swap atómico borraría el trail). Cada archivo depende de que su sección esté
+activa. `scenario_log.jsonl` **no** se escribe: no tiene productor, y un archivo vacío sería teatro.
+El trail deja de resolverse contra el `cwd`; una ruta relativa sin `run_dir` es error explícito, una
+absoluta se respeta. Cierra la violación de SDD-03 §8 («una instancia por run») que hacía que dos
+corridas desde el mismo `cwd` concatenaran sus trails.
+
+**D-GOB-8 · `audit` se enciende en los cuatro presets; `governance` no.** `audit` no tiene ningún
+campo obligatorio y es lo que da `decisions` al model card. `GovernanceConfig.purpose` es
+`Field(default=...)` —obligatorio— porque SR 11-7 exige declarar el propósito, y el propósito es
+`DATO-INSTITUCIONAL`: un preset que lo rellenara publicaría un propósito falso en cada card.
+`tracking` sigue apagado: exige un servidor MLflow.
+
+> 🔴 **Corrección medida a la enmienda.** §D-GOB-8 anunciaba que encender `audit` movería el
+> `config_hash` de los cuatro presets, y que por eso la recaptura de la demo era consecuencia
+> necesaria. **Es falso**: `audit` está en `INFRA_SECTIONS`, así que no entra a la identidad de la
+> corrida. Los cuatro hashes son idénticos con `audit` encendido y apagado, y los tres fixtures de
+> la demo siguen firmando el hash correcto. Lo vigila
+> `test_presets_gobernanza.py::test_encender_audit_no_mueve_el_config_hash_de_ningun_preset`.
+> Consecuencia: **D-GOB-9 deja de ser obligatoria por identidad**; sigue pendiente por contenido
+> (`model_card: null`), y conserva su OK propio.
+
+**D-GOB-9 · La demo se recaptura aparte, con su propio OK.** No ejecutada. Los tres fixtures siguen
+con `"model_card": null`, y eso se declara en vez de darse por resuelto.
+
+### Defecto preexistente que D-GOB-8 destapó
+
+Encender `audit` dejó inalcanzable el dominio `survival`: `SurvivalResult.estimator` es un
+`AuditableMixin` con el sink inyectado, y su `model_copy(deep=True)` moría con
+`TypeError: cannot pickle 'TextIOWrapper' instances`. Al no ser un `NikodymError`, `nikodym.run` ni
+lo capturaba: la corrida entera reventaba. **Medido sobre `5d6aa68`, sin nada de D-GOB en el árbol**;
+no se veía porque ningún preset traía `audit` encendido. Corregido en `AuditableMixin.__deepcopy__`,
+que deja caer `_audit` al `NullAuditSink` de clase — la regla que el propio *docstring* ya declaraba
+para `clone()` de scikit-learn.
+
+### Abiertos declarados de D-GOB
+
+1. 🔴 **La ruta de UI para `governance` no existe todavía.** D-GOB-8 dice que «la UI lo ofrece como
+   trabajo con `purpose` requerido», y eso **no** está entregado: `governance` aparece en cero de los
+   10 trabajos, y en el schema de la interfaz es un *stub* opaco (`{"default": null, "title",
+   "description"}`, sin `properties`) porque `build_full_json_schema` **nunca expande las secciones
+   INFRA**. Hacerlo alcanzable exige expandir una sección INFRA en la UI, dar `ui_widget`/`ui_group`
+   a los campos de `GovernanceConfig` —`purpose` no tiene ninguno—, cablearla a un trabajo y
+   regenerar los fixtures. Eso crea **copy público nuevo** (los tooltips derivados de Pydantic lo
+   son por `AGENTS.md`) y cambia el tratamiento de INFRA en la interfaz: es más de lo que la
+   enmienda midió, y por eso se eleva en vez de improvisarse.
+   **La gobernanza sí es alcanzable desde `pip install` por código** —`nikodym.run(config,
+   run_dir=...)` con una `GovernanceConfig` escribe el `model_card.json` completo, y hay gate sobre
+   el archivo en disco—; lo que falta es el formulario.
+2. `AuditConfig.capture_environment` deja de estar inerte: D-GOB-6 obliga a escribir
+   `environment.json`, y escribirlo con el campo en `False` habría sido ignorar el config. Es uno
+   menos de los cinco campos inertes que §7 de la enmienda dejaba fuera; los otros cuatro siguen.
 
 ## Mapa de otros contratos aprobados
 

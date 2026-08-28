@@ -509,8 +509,9 @@ def _pipeline_payload(
 
     ``inert_artifacts`` se proyecta porque si no **no tiene por dónde salir a la red** (D-PUE-7): la
     §6.1 de la enmienda de la puerta decidió que el aviso de clave inerte llegue a las dos
-    superficies —el trail y el veredicto—, precisamente porque el trail no existe con `audit: null`,
-    que es lo que traen los presets. Se calculaba y se tiraba.
+    superficies —el trail y el veredicto—, precisamente porque el trail no existe con `audit: null`.
+    Los presets lo traen encendido desde D-GOB-8, pero el aviso no puede depender de eso: un config
+    con la auditoría apagada sigue siendo alcanzable. Se calculaba y se tiraba.
     """
     check = nikodym.check_pipeline(model, artifacts=claves_externas or None)
     message = (
@@ -900,12 +901,16 @@ def run_pipeline(
     NikodymConfig.model_validate(config)  # (a) precondición: config válido (ValidationError → 422)
     source = datasets.materialize(dataset_id, workdir=workdir)  # (b) UiDatasetError → 404
     wired = _wire_report_output_dir(_wire_dataset_source(config, source), workdir=workdir)
+    trail = runs.reservar_trail(workdir)  # (b-ter) D-GOB-7: el trail nunca cae en el cwd
+    wired = _wire_audit_trail(wired, trail=trail)
     resolved = NikodymConfig.model_validate(wired)
     externos = _materializar_externos(  # (b-bis)
         external_artifacts, dataset_id, workdir=workdir, config=config
     )
     study = nikodym.run(resolved, artifacts=externos or None)  # (c) síncrono; D-UI-2
-    run_id = runs.save(study, workdir=workdir, governance=resolved.governance)  # (d)
+    run_id = runs.save(  # (d)
+        study, workdir=workdir, governance=resolved.governance, trail=trail
+    )
     return {"run_id": run_id, "status": study.run_context.status}
 
 
@@ -934,6 +939,29 @@ def _wire_report_output_dir(config: dict[str, Any], *, workdir: Path) -> dict[st
     report = edited.get("report")
     if isinstance(report, dict):
         report["output_dir"] = str((workdir / "reports").resolve())
+    return edited
+
+
+def _wire_audit_trail(config: dict[str, Any], *, trail: Path) -> dict[str, Any]:
+    """Cablea ``audit.trail_filename`` a una ruta absoluta bajo el ``workdir`` (D-GOB-7).
+
+    Análogo a :func:`_wire_report_output_dir`, y por la misma razón: desde D-GOB-7 un
+    ``trail_filename`` **relativo** sin ``run_dir`` es un error explícito en vez de escribir en el
+    ``cwd`` del servidor, y D-GOB-8 enciende ``audit`` en los cuatro presets. Sin este cableado toda
+    corrida de preset por la interfaz fallaría — medido antes de escribirlo, con tres tests de
+    ``test_ui_routes`` en rojo.
+
+    ``audit`` es infraestructura (:data:`~nikodym.core.config.hashing.INFRA_SECTIONS`), así que
+    fijar la ruta **no altera el ``config_hash``**: dos corridas del mismo preset conservan la misma
+    identidad aunque su trail viva en archivos distintos. Verificado, no supuesto — es la misma
+    garantía que hace legítimo el cableado de ``report.output_dir``.
+
+    Guarda idempotente: un config sin ``audit``, o con ``audit`` no-dict, se devuelve intacto.
+    """
+    edited = copy.deepcopy(config)
+    audit = edited.get("audit")
+    if isinstance(audit, dict):
+        audit["trail_filename"] = str(trail)
     return edited
 
 

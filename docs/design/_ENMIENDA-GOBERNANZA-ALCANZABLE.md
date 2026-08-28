@@ -1,10 +1,14 @@
 # Enmienda — la gobernanza tiene que ser ALCANZABLE desde `pip install`
 
-> Estado canónico: **PROPUESTA. PENDIENTE DE OK DE CAMI. NO IMPLEMENTADA.**
-> Ninguna decisión `D-GOB-*` de este documento autoriza tocar código. Mientras no exista el OK,
-> `study.results` sigue vacío por construcción y el comentario de
-> [`core/study.py:248-256`](../../src/nikodym/core/study.py) sigue siendo la descripción correcta
-> del árbol.
+> Estado canónico: **APROBADA por Cami el 2026-08-28. D-GOB-1…8 IMPLEMENTADAS y gateadas.
+> D-GOB-9 (recaptura de la demo) NO ejecutada: conserva su OK propio.**
+> El estado y la interpretación finales los manda
+> [`DECISIONES-VIGENTES.md`](DECISIONES-VIGENTES.md) §D-GOB, que además recoge **una corrección
+> medida a §D-GOB-8** (abajo) y los abiertos que quedaron. Este documento conserva el razonamiento
+> y las mediciones de la propuesta, incluido lo que después resultó inexacto.
+>
+> ⚠️ El texto que sigue es el de la propuesta, sin reescribir. Donde diga «sigue vacío», «hoy no
+> existe» o «se propone», léase en presente del 2026-08-27.
 >
 > Nace del **bloqueador 3** del censo de módulos del 2026-08-26: *«la gobernanza —el titular del
 > README— no existe en ninguna ruta entregada»*. El censo midió sobre
@@ -337,9 +341,23 @@ Por eso la propuesta separa las dos secciones:
 - **`tracking`: sigue en `None`.** Exige un servidor MLflow; encenderlo de fábrica rompería la
   corrida por defecto de quien no lo tiene.
 
-⚠️ **Esta decisión mueve el `config_hash` de los cuatro presets** (`audit` deja de ser `None`), y con
-él los fixtures que lo firman. Es la única parte de la enmienda que lo hace, y es el motivo de que
-D-GOB-9 exista por separado.
+~~⚠️ **Esta decisión mueve el `config_hash` de los cuatro presets** (`audit` deja de ser `None`), y
+con él los fixtures que lo firman. Es la única parte de la enmienda que lo hace, y es el motivo de
+que D-GOB-9 exista por separado.~~
+
+🔴 **FALSO, medido al implementar (2026-08-28).** `audit` está en
+[`INFRA_SECTIONS`](../../src/nikodym/core/config/hashing.py) junto con `governance`, `tracking`,
+`report` y `name`: **no entra al `config_hash`**. Los cuatro presets producen un hash idéntico con
+`audit` encendido y apagado, y los tres fixtures de la demo siguen firmando el hash correcto. Lo
+fija `test_presets_gobernanza.py::test_encender_audit_no_mueve_el_config_hash_de_ningun_preset`.
+
+Consecuencia: **D-GOB-9 deja de ser obligatoria por identidad.** Sigue pendiente por *contenido*
+—los fixtures traen `"model_card": null` y ahora el motor sabe producirlo— y conserva su OK propio.
+
+Lo que esta decisión sí destapó fue otra cosa, que la enmienda no vio: con `audit` encendido el
+dominio `survival` era **inalcanzable** (`TypeError: cannot pickle 'TextIOWrapper' instances` al
+copiar en profundidad un estimador con el sink inyectado). Defecto preexistente, reproducido sobre
+`5d6aa68` sin nada de D-GOB. Ver `DECISIONES-VIGENTES.md` §D-GOB.
 
 ### D-GOB-9 — La demo se recaptura en un paso aparte, con su propio OK
 

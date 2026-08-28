@@ -560,6 +560,7 @@ def test_aceptacion_una_corrida_completa_con_la_rama_modelada(
         return nikodym.run(
             NikodymConfig.model_validate(config),
             artifacts={("calibration", "calibrated_pd_frame"): pd_frame},
+            run_dir=trabajo / f"corrida-{salida}",
         )
 
     observada = _corrida({"method": "provided", "lgd_col": "lgd"}, "observada")

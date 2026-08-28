@@ -332,10 +332,18 @@ def test_correccion_anti_fuga_no_mueve_bytes_hashes_ni_candidatas_de_presets() -
     # existe para exhibir: los BYTES del preset cambian —trae un campo más— y su IDENTIDAD no,
     # porque `report` está en `INFRA_SECTIONS` y el informe es presentación, no cálculo. Medido en
     # los tres presets antes y después.
+    # Actualizados el 2026-08-28 por D-GOB-8: `audit` deja de ser `None` y pasa a
+    # `{"enabled": True}` en los cuatro presets, que es lo que hace que el model card lleve sus
+    # decisiones en vez de una lista vacía.
+    # 🔴 Los `expected_hashes` de arriba TAMPOCO se movieron esta vez, y por la misma razón que en
+    # D-MON-1/2: `audit` está en `INFRA_SECTIONS`. Importa decirlo porque la enmienda D-GOB anunció
+    # lo contrario —que encender `audit` movería el `config_hash` de los cuatro y obligaría a
+    # recapturar la demo—; medirlo lo refutó, y que este test siga verde en su mitad de identidad
+    # es la evidencia. Ver `DECISIONES-VIGENTES.md` §D-GOB.
     expected_payload_digests = {
-        STANDARD_PRESET_ID: "c9ae053e755bb79bad31b2c2db8aea8e30d3a55acf614861a240e5461d36ebd4",
-        PROVISIONES_PRESET_ID: "09c190f1243743dbf8fc3505232e8fe7d2cbdf1b9c695787026d98bad250f557",
-        F4_IFRS9_PRESET_ID: "1b3c78060ee33c765efbdfc574f74fff9b91a32efcc6b05d181100b31d9e26a9",
+        STANDARD_PRESET_ID: "32f922f246e413b8fd85bfcb27b856ca7087175de722d7ab0375a0b7751cd65a",
+        PROVISIONES_PRESET_ID: "90e0c78f8abb20cfaf25fc5f7c20d62dd645ebf57312e9262c6313b87527a831",
+        F4_IFRS9_PRESET_ID: "202483e594fc029827fe04c17db2b1b5e469263553ef0ba943974fb69e21b6f3",
     }
     for preset_id, expected_hash in expected_hashes.items():
         preset = get_preset(preset_id)

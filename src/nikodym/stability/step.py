@@ -22,12 +22,13 @@ evaluador.
 from __future__ import annotations
 
 import importlib
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast
 
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 from nikodym.stability.config import TEMPORAL_CANDIDATE_NAMES, StabilityConfig
 from nikodym.stability.evaluator import StabilityEvaluator
 from nikodym.stability.exceptions import StabilityDataError
@@ -135,6 +136,36 @@ class StabilityStep(AuditableMixin):
         )
         self._publish_artifacts(study, result)
         return result
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
+
+        ``worst_psi`` es una REDUCCIÓN de ``max_psi_by_comparison`` (un ``dict`` por comparación):
+        el peor caso es lo que gobierna la conclusión de estabilidad, y es la única forma de
+        publicar un escalar sin elegir por la institución qué comparación importa. Sin ninguna
+        comparación evaluable no hay peor caso, y la clave se omite en vez de valer ``0.0`` —que
+        leería como «estabilidad perfecta», la lectura exactamente opuesta a la verdadera—.
+        """
+        card = card_publicada(study, "stability", "card")
+        por_comparacion = campo_de_card(card, "max_psi_by_comparison")
+        evaluables = (
+            [
+                valor
+                for valor in por_comparacion.values()
+                if isinstance(valor, int | float) and not isinstance(valor, bool)
+            ]
+            if isinstance(por_comparacion, Mapping)
+            else []
+        )
+        return {
+            "worst_psi": max(evaluables) if evaluables else None,
+            "worst_csi_value": campo_de_card(card, "worst_csi_value"),
+        }
+
+    def metric_sections(self, study: Study) -> dict[str, object]:
+        """Publica el payload estructurado CT-2 de la card, sin aplanar (D-GOB-3)."""
+        secciones = campo_de_card(card_publicada(study, "stability", "card"), "metric_sections")
+        return dict(secciones) if isinstance(secciones, Mapping) else {}
 
     def _publish_artifacts(self, study: Study, result: StabilityResult) -> None:
         """Publica los cuatro artefactos estables del dominio ``stability``."""

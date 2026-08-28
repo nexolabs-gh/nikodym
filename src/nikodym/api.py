@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,9 +14,9 @@ from nikodym.audit import AuditConfig, JsonlAuditSink
 from nikodym.core.audit import AuditSink, FanOutSink, NullAuditSink
 from nikodym.core.config import NikodymConfig
 from nikodym.core.dataset_check import DatasetCheck, check_dataset
-from nikodym.core.exceptions import NikodymError
+from nikodym.core.exceptions import ConfigError, NikodymError
 from nikodym.core.steps import ArtifactKey
-from nikodym.core.study import Study
+from nikodym.core.study import Study, _missing_backup_path, _replace_path
 from nikodym.governance import (
     GovernanceConfig,
     InventoryEntry,
@@ -170,6 +171,7 @@ def run(
     config: NikodymConfig,
     *,
     artifacts: Mapping[ArtifactKey, Any] | None = None,
+    run_dir: str | Path | None = None,
 ) -> Study:
     """Ejecuta una corrida completa de extremo a extremo y devuelve el ``Study``.
 
@@ -192,8 +194,25 @@ def run(
         study.artifacts.get("model", "coefficients")     # los betas del modelo
         study.artifacts.keys()                           # todo lo que dejó la corrida
 
-    ⚠️ **No en** ``study.results``, que este docstring mandaba usar y **siempre está vacío**: es un
-    canal de publicación que ningún paso llena hoy (ver :class:`~nikodym.core.study.Study`).
+    ``study.results`` es el **resumen** firmable de la corrida, no un duplicado del store: trae
+    ``metrics`` —plano, ``"<dominio>.<metrica>"``, ``float`` finito— y ``metric_sections`` por
+    dominio (D-GOB-1…3). Es lo que leen el model card y MLflow. Una métrica que el dominio no pudo
+    evaluar **no aparece**; ausencia y cero no son lo mismo.
+
+    **Dónde queda la evidencia en disco:** en ``run_dir``, y sólo si se pide (D-GOB-6). Con el
+    default ``None`` la corrida **no escribe nada**, que es el comportamiento histórico: una
+    librería que empieza a dejar archivos en el ``cwd`` de quien la importa es una regresión, no una
+    mejora. Con un ``run_dir`` se escribe allí el layout de SDD-03 §6::
+
+        <run_dir>/audit_trail.jsonl   # si `audit` está activo (su nombre lo fija AuditConfig)
+        <run_dir>/environment.json    # si `audit` está activo y captura entorno
+        <run_dir>/model_card.json     # si `governance` está activa
+        <run_dir>/model_card.md       # idem
+        <run_dir>/study/              # lo que produce `Study.save`: config, lineage y artefactos
+
+    Cada archivo aparece **sólo si su sección está activa**: ``audit`` sin ``governance`` deja trail
+    y entorno, y no card. ``scenario_log.jsonl`` del layout de SDD-03 §6 **no** se escribe: hoy no
+    tiene ningún productor, y crear un archivo vacío para cumplir el layout sería teatro.
 
     **Entrar por la mitad.** ``artifacts=`` permite traer resultados ya calculados. Las claves son
     las parejas ``(dominio, clave)`` declaradas en ``Step.requires``/``Step.provides``; hay que
@@ -205,10 +224,13 @@ def run(
     **Dónde queda el diagnóstico.** En ``study.run_context.error``
     (:class:`~nikodym.core.lineage.RunError`): tipo de la excepción, mensaje del motor y paso que
     falló, sin que haya que configurar nada. El audit-trail lo repite en el evento ``run_end``, pero
-    **sólo si el config declara un sink** — el preset F1 trae ``audit: null``, así que no dependa de
-    él; y el lineage no guarda el error nunca (enmienda RUN-ERROR).
+    **sólo si el config declara un sink**: los presets lo declaran desde D-GOB-8, pero un config
+    escrito a mano puede traer ``audit: null``, así que no dependa de él; y el lineage no guarda el
+    error nunca (enmienda RUN-ERROR).
     """
-    sink, inventory = assemble_run(config)
+    destino = _preparar_run_dir(run_dir)
+    sink, inventory = assemble_run(config, run_dir=destino)
+    fallo_de_dominio = False
     try:
         governance_cfg = _governance_config(config.governance)
         study = Study(config)
@@ -219,17 +241,116 @@ def run(
         except NikodymError:
             # Fallo esperado de dominio: el Study queda con status="failed" + lineage conservado
             # (SDD-01 §7.3). No se propaga: se devuelve para inspección (D-UI-2).
-            return study
+            fallo_de_dominio = True
     finally:
         # El sink pertenece a ``run`` desde que ``assemble_run`` lo entrega. Se cierra ante éxito,
         # error de dominio y cualquier excepción inesperada, incluidos fallos al inyectar o al
         # construir el Study. Además se cierra ANTES de leer el trail para la ModelCard.
         _close_audit_sink(sink)
 
+    # La evidencia se escribe en los DOS caminos y en UN solo punto: el model card de una corrida
+    # fallida es explícitamente válido (SDD-03 §7.1.a) y es justo el que hay que conservar.
+    #
+    # ⚠️ Fuera del `finally` a propósito. Escribirlo allí, con el `return` del camino de fallo
+    # pendiente, dejaba que un error de disco REEMPLAZARA al `Study` que D-UI-2 promete devolver:
+    # un escritor de evidencia no puede convertir «corrida fallida, inspeccionable» en una
+    # excepción opaca. Aquí un fallo al escribir se propaga como lo que es, en los dos caminos.
+    if destino is not None:
+        _escribir_layout_del_run(study, config, destino)
+    if fallo_de_dominio:
+        return study
+
     if governance_cfg is not None and governance_cfg.publish_to_inventory:
         entry = _build_inventory_entry(study, governance_cfg, config)
         inventory.register(entry)
     return study
+
+
+def _resolver_trail(audit_cfg: AuditConfig, run_dir: Path | None) -> Path:
+    """Resuelve la ruta del audit-trail contra el directorio del run, nunca contra el ``cwd``.
+
+    🔴 Antes esto era ``Path(audit_cfg.trail_filename)`` a secas, es decir **relativo al ``cwd``**,
+    mientras ``audit/config.py`` describe el campo como «el nombre del JSONL dentro del directorio
+    del run». Dos corridas lanzadas desde el mismo ``cwd`` concatenaban sus trails en el mismo
+    archivo *append-only*, que es exactamente lo que SDD-03 §8 prohíbe («una instancia por run»).
+    Medido antes de D-GOB-7.
+
+    Una ruta **absoluta** se sigue respetando tal cual: quien la escribe ya eligió dónde. Una ruta
+    **relativa sin ``run_dir``** pasa a ser un error explícito en vez de escribir en el ``cwd`` en
+    silencio — que es la clase de efecto lateral que una librería no debe tener.
+    """
+    trail = Path(audit_cfg.trail_filename)
+    if trail.is_absolute():
+        return trail
+    if run_dir is not None:
+        return run_dir / trail
+    raise ConfigError(
+        f"audit.enabled=True con trail_filename relativo ('{audit_cfg.trail_filename}') y sin "
+        "run_dir: no hay dónde escribir el audit-trail sin dejar archivos en el directorio de "
+        "trabajo. Pase run_dir= a nikodym.run(), o dé a trail_filename una ruta absoluta."
+    )
+
+
+def _preparar_run_dir(run_dir: str | Path | None) -> Path | None:
+    """Crea el directorio de la corrida; aparta el previo si existe y no está vacío (D-GOB-6).
+
+    La política de sobrescritura es la misma de ``Study.save``: el contenido anterior se **aparta**
+    a un respaldo lateral, no se mezcla. Mezclar dos corridas en un directorio produce un trail
+    concatenado y un model card que no corresponde a los artefactos de al lado, que es peor que
+    perder el previo.
+
+    Por eso reutiliza ``_missing_backup_path``/``_replace_path`` de ``core.study`` en vez de
+    reimplementarlos: la enmienda pide LA MISMA política, y dos copias de ella divergirían en el
+    primer arreglo que tocara una sola.
+    """
+    if run_dir is None:
+        return None
+    destino = Path(run_dir)
+    if destino.exists() and any(destino.iterdir()):
+        _replace_path(destino, _missing_backup_path(destino))
+    destino.mkdir(parents=True, exist_ok=True)
+    return destino
+
+
+def _escribir_layout_del_run(study: Study, config: NikodymConfig, destino: Path) -> None:
+    """Escribe el layout de SDD-03 §6 en el directorio del run (D-GOB-6).
+
+    Cada archivo depende de que su sección esté activa. Nada se fabrica para completar el layout:
+    ``scenario_log.jsonl`` queda fuera porque no tiene productor, y decirlo es más honesto que
+    dejar un archivo vacío que aparenta un control que no corre.
+    """
+    audit_cfg = _audit_config(config.audit)
+    governance_cfg = _governance_config(config.governance)
+
+    if audit_cfg is not None and audit_cfg.enabled and audit_cfg.capture_environment:
+        from nikodym.audit.environment import capture_environment
+
+        entorno = capture_environment(packages=audit_cfg.tracked_packages)
+        (destino / "environment.json").write_text(
+            json.dumps(entorno.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    if governance_cfg is not None:
+        trail = (
+            _resolver_trail(audit_cfg, destino)
+            if audit_cfg is not None and audit_cfg.enabled
+            else None
+        )
+        try:
+            card = ModelCardBuilder(governance_cfg).build(study, trail_path=trail)
+        except NikodymError:
+            # Corrida demasiado parcial para una card válida: ausente, no fabricada. Es el mismo
+            # criterio que la UI (SDD-23 §6/§8); un card inventado sería peor que ninguno.
+            card = None
+        if card is not None:
+            (destino / "model_card.json").write_text(card.to_json(), encoding="utf-8")
+            (destino / "model_card.md").write_text(card.to_markdown(), encoding="utf-8")
+
+    if study.run_context.run_id is not None:
+        # `Study.save` sustituye su directorio de forma atómica, así que va a un SUBdirectorio: si
+        # escribiera en `destino` borraría el trail que la propia corrida acaba de dejar ahí.
+        study.save(destino / "study")
 
 
 def _artifact_values_for_check(
@@ -302,12 +423,17 @@ def _inventory_tags(governance_cfg: GovernanceConfig) -> dict[str, str]:
     return {key: value for key, value in candidatos.items() if value is not None}
 
 
-def assemble_run(config: NikodymConfig) -> tuple[AuditSink, ModelInventory]:
+def assemble_run(
+    config: NikodymConfig, *, run_dir: Path | None = None
+) -> tuple[AuditSink, ModelInventory]:
     """Construye el ``AuditSink`` compuesto y el inventario real/no-op de una corrida.
 
     ``core`` recibe ambos objetos ya resueltos: no importa ``audit``, ``governance``, ``tracking``
     ni MLflow. Si ``governance.publish_to_inventory=True`` y falta el extra ``tracking``, esta capa
     falla ruidoso con ``MissingDependencyError`` porque la publicación fue una petición explícita.
+
+    ``run_dir`` es el directorio de la corrida (D-GOB-6): contra él se resuelve el nombre relativo
+    del audit-trail. Sin él, un ``trail_filename`` relativo es un **error explícito** (D-GOB-7).
     """
     audit_cfg = _audit_config(config.audit)
     governance_cfg = _governance_config(config.governance)
@@ -316,7 +442,8 @@ def assemble_run(config: NikodymConfig) -> tuple[AuditSink, ModelInventory]:
     sinks: list[AuditSink] = []
     try:
         if audit_cfg is not None and audit_cfg.enabled:
-            sinks.append(JsonlAuditSink(Path(audit_cfg.trail_filename), config=audit_cfg))
+            trail = _resolver_trail(audit_cfg, run_dir)
+            sinks.append(JsonlAuditSink(trail, config=audit_cfg))
         if tracking_cfg is not None and tracking_cfg.enabled:
             sinks.append(TrackingSink(TrackingRecorder(tracking_cfg)))
 

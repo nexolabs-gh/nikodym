@@ -488,8 +488,19 @@ _STANDARD_CONFIG: dict[str, Any] = {
             "max_table_rows": 200,
         },
     },
-    "audit": None,
+    # D-GOB-8. `audit` SE ENCIENDE: no tiene ningún campo obligatorio, y es lo que hace que el
+    # model card lleve `decisions` en vez de una lista vacía con warning. El trail se escribe
+    # dentro del directorio del run (D-GOB-7), nunca en el `cwd` de quien corre.
+    "audit": {"enabled": True},
+    # `governance` NO se enciende de fábrica, y no es una omisión: `GovernanceConfig.purpose` es
+    # `Field(default=...)` —obligatorio, sin default— porque SR 11-7 exige una declaración de
+    # propósito. El propósito de un modelo es DATO-INSTITUCIONAL puro: sólo la institución puede
+    # fijarlo, y `AGENTS.md` prohíbe que el motor invente cualquiera de las dos marcas. Un preset
+    # que lo rellenara publicaría un propósito falso en cada model card. La UI lo ofrece como
+    # trabajo con `purpose` requerido, que es la vía correcta: alcanzable sin ser inventado.
     "governance": None,
+    # `tracking` sigue apagado: exige un servidor MLflow, y encenderlo de fábrica rompería la
+    # corrida por defecto de quien no lo tiene.
     "tracking": None,
 }
 

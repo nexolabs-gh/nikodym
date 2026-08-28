@@ -31,6 +31,8 @@ from nikodym.ui.exceptions import UiSerializationError
 from nikodym.ui.reliability import reliability_curve
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import pandas as pd
 
     from nikodym.core.study import Study
@@ -127,7 +129,12 @@ def _failure_message(study: Study) -> str:
     return saneado
 
 
-def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dict[str, Any]:
+def serialize_study(
+    study: Study,
+    *,
+    governance: GovernanceConfig | None,
+    trail_path: Path | None = None,
+) -> dict[str, Any]:
     """Compone el JSON read-only de resultados de una corrida (SDD-23 §6).
 
     Parameters
@@ -136,6 +143,10 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
         Corrida finalizada (``run_context.status`` en ``"done"``/``"failed"``) o parcial.
     governance : GovernanceConfig or None
         Config de gobernanza para construir el ``ModelCard`` consolidado; ``None`` ⇒ card ausente.
+    trail_path : Path or None
+        Audit-trail ya archivado de esta corrida. Con él el model card trae sus ``decisions``;
+        sin él sale parcial, que es lo que ocurría en toda corrida de la interfaz antes de
+        D-GOB-7/8 —el trail no llegaba hasta aquí y la lista salía siempre vacía—.
 
     Returns
     -------
@@ -153,7 +164,7 @@ def serialize_study(study: Study, *, governance: GovernanceConfig | None) -> dic
         "status": status,
         "run_id": study.run_context.run_id,
         "error": _failure_message(study) if status == "failed" else None,
-        "model_card": _serialize_model_card(study, governance),
+        "model_card": _serialize_model_card(study, governance, trail_path),
         "lineage": _serialize_lineage(study),
     }
     for domain, key in _CARD_KEY_BY_DOMAIN.items():
@@ -606,7 +617,9 @@ def _serialize_lineage(study: Study) -> dict[str, Any] | None:
     return lineage.model_dump(mode="json")
 
 
-def _serialize_model_card(study: Study, governance: object) -> dict[str, Any] | None:
+def _serialize_model_card(
+    study: Study, governance: object, trail_path: Path | None = None
+) -> dict[str, Any] | None:
     """Construye y serializa el ``ModelCard`` consolidado, o ``None`` si no hay card (§6/§8)."""
     resolved = _resolve_governance(governance)
     if resolved is None:
@@ -616,7 +629,7 @@ def _serialize_model_card(study: Study, governance: object) -> dict[str, Any] | 
             # El ``ModelCardBuilder`` avisa "trail no disponible" al construir sin trail; la UI ya
             # refleja esa condición en las limitaciones del card, no la re-emite como warning.
             warnings.filterwarnings("ignore", message="trail no disponible", category=UserWarning)
-            card = ModelCardBuilder(resolved).build(study)
+            card = ModelCardBuilder(resolved).build(study, trail_path=trail_path)
     except NikodymError:
         # Corrida demasiado parcial para una card válida: ausente, no fabricada (SDD-23 §6/§8).
         return None

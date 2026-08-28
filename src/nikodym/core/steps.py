@@ -34,6 +34,8 @@ __all__ = [
     "ContextoDeResolucion",
     "Step",
     "StepAdapter",
+    "campo_de_card",
+    "card_publicada",
 ]
 
 ArtifactKey = tuple[str, str]  # (domain, key) — la misma clave namespaced del ArtifactStore (§6)
@@ -48,6 +50,34 @@ ArtifactKey = tuple[str, str]  # (domain, key) — la misma clave namespaced del
 #: claves **no interpreta**, y la sección decide qué significan. Mismo criterio que
 #: ``METODO_CONVENCION_SCORE`` en ``core/dataset_check.py``.
 METODO_CONTRATO_VARIABLES: Final = "contrato_de_variables_declarado"
+
+
+def card_publicada(study: Study, domain: str, key: str) -> Any:
+    """Devuelve la card que el paso publicó, o ``None`` si no está en el *store*.
+
+    La usan los ``metrics()``/``metric_sections()`` de dominio (D-GOB-1). Ausencia no es error: un
+    paso cuya card no llegó al *store* simplemente no aporta métricas, que es lo que el contrato
+    promete —«un paso que no las implemente no aporta nada y no falla»—.
+    """
+    return study.artifacts.get(domain, key) if study.artifacts.has(domain, key) else None
+
+
+def campo_de_card(card: Any, nombre: str) -> Any:
+    """Lee ``nombre`` de una card que puede llegar como DTO **o como ``Mapping``**.
+
+    🔴 Las dos formas son alcanzables de verdad y la diferencia rompió ocho tests: una card entra
+    como ``dict`` cuando la sección de su dominio viaja opaca, cuando la inyecta la puerta pública
+    ``nikodym.run(..., artifacts=...)`` o cuando la publica un paso de tercero. Un ``getattr`` a
+    secas moría con ``AttributeError`` y tumbaba la corrida entera **por leer una métrica**, que es
+    exactamente lo que el canal no debe hacer: es un resumen, no un prerequisito.
+
+    Un campo ausente vale ``None``, y el núcleo omite la métrica (D-GOB-2).
+    """
+    if card is None:
+        return None
+    if isinstance(card, Mapping):
+        return card.get(nombre)
+    return getattr(card, nombre, None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,7 +140,7 @@ class Step(Protocol):
     # topológico (orden derivado del grafo, fan-in/fan-out de forward/stress F5) se difiere a F5 sin
     # tocar esta firma.
     #
-    # DOS ATRIBUTOS OPCIONALES que el motor consulta con `getattr` y que por eso NO entran al
+    # CUATRO MIEMBROS OPCIONALES que el motor consulta con `getattr` y que por eso NO entran al
     # Protocol (declararlos aquí obligaría a todo Step a tenerlos):
     #
     #   optional_requires: tuple[ArtifactKey, ...]
@@ -129,6 +159,33 @@ class Step(Protocol):
     #       `contexto.dominios_activos`, con el mismo criterio de D-FX-1—, pero viaja dentro del
     #       DTO para que ampliar el contexto no obligue a tocar a cada implementador. Un dominio de
     #       tercero con la firma vieja recibe un `ConfigError` que nombra la esperada.
+    #
+    #   metrics(study) -> Mapping[str, float]
+    #       El resumen métrico del dominio para `study.results["metrics"]` (SDD-01 §6; D-GOB-1/2).
+    #       Devuelve nombres SIN prefijo: el `"<dominio>."` lo compone `Study._publicar_metricas`,
+    #       que es el ÚNICO escritor del canal. Así ningún paso puede pisar el namespace de otro.
+    #
+    #       🔴 La lista de claves es CONOCIMIENTO DE DOMINIO, no una proyección mecánica de la
+    #       card: AUC, Gini, KS y PSI no son campos escalares de ninguna `CardSection` —viven en
+    #       `max_metrics_by_partition` y en los frames—, así que un agregador genérico en `core`
+    #       publicaría `scorecard.pdo` y `performance.n_deciles` como «las métricas del modelo» y
+    #       OMITIRÍA el AUC. Medido antes de D-GOB-1; por eso reduce el dominio y no el núcleo.
+    #
+    #       Una métrica no evaluable se devuelve `None` (o simplemente no se devuelve) y el núcleo
+    #       la OMITE del namespace dejando traza. Nunca se rellena con `0.0`: la ausencia es un
+    #       resultado legítimo —`not_evaluable` ya es un estado de primera clase en
+    #       `performance.discriminant_metrics`— y publicarla como cero sería inventar.
+    #
+    #   metric_sections(study) -> Mapping[str, Any]
+    #       El payload estructurado por dominio de la puerta CT-2, tal cual lo publica la card
+    #       (D-GOB-3). Un nivel por dominio, sin aplanar y sin fusionar entre dominios; el núcleo
+    #       lo copia en profundidad bajo `study.results["metric_sections"][domain]`. Un dominio sin
+    #       payload no recibe la clave: `{}` y «ausente» dicen lo mismo (D-GOB-5).
+    #
+    #       Los dos reciben el `Study` porque su entrada es la card YA PUBLICADA en
+    #       `study.artifacts` (el núcleo los llama justo después de `execute`). Leer de ahí —y no
+    #       de un atributo que el paso se guarde— mantiene los pasos sin estado mutable entre
+    #       corridas y hace del store la única fuente de lo que el dominio calculó.
 
 
 class StepAdapter:

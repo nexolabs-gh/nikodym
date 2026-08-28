@@ -27,14 +27,18 @@ def test_assemble_run_sin_infra_devuelve_noops() -> None:
 
 
 def test_assemble_run_compone_audit_y_tracking_en_fanout(tmp_path, monkeypatch) -> None:
-    """Audit JSONL y tracking comparten el hook único mediante ``FanOutSink``."""
-    monkeypatch.chdir(tmp_path)
+    """Audit JSONL y tracking comparten el hook único mediante ``FanOutSink``.
+
+    El ``run_dir`` es obligatorio para un ``trail_filename`` relativo desde D-GOB-7: antes esta
+    ruta se resolvía contra el ``cwd`` —de ahí el ``chdir`` que este test hacía— y dos corridas
+    lanzadas desde el mismo directorio concatenaban sus trails (SDD-03 §8).
+    """
     cfg = NikodymConfig(
         audit=AuditConfig(trail_filename="audit.jsonl"),
         tracking=TrackingConfig(tracking_uri="file:///tmp/mlruns"),
     )
 
-    sink, inventory = assemble_run(cfg)
+    sink, inventory = assemble_run(cfg, run_dir=tmp_path)
 
     assert isinstance(sink, FanOutSink)
     assert [type(item) for item in sink.sinks] == [JsonlAuditSink, TrackingSink]
@@ -153,7 +157,7 @@ def test_assemble_run_coacciona_blobs_core_only(tmp_path, monkeypatch: pytest.Mo
         tracking={"registry_uri": "sqlite:///registry.db"},
     )
 
-    sink, inventory = assemble_run(cfg)
+    sink, inventory = assemble_run(cfg, run_dir=tmp_path)
 
     assert isinstance(sink, FanOutSink)
     assert isinstance(inventory, MLflowInventory)

@@ -36,6 +36,7 @@ import io
 import json
 import re
 import shutil
+import uuid
 import zipfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -49,12 +50,14 @@ if TYPE_CHECKING:
 
 __all__ = [
     "asegurar_workdir",
+    "load_audit_trail",
     "load_report",
     "load_report_docx",
     "load_report_md",
     "load_report_md_bundle",
     "load_report_pdf",
     "load_results",
+    "reservar_trail",
     "save",
 ]
 
@@ -70,6 +73,7 @@ _GITIGNORE_DEL_WORKDIR = """\
 
 _RUN_ID_RE = re.compile(r"\A[0-9a-f]{32}\Z")  # forma canónica de ``uuid4().hex``
 _RESULTS_FILENAME = "results.json"
+_TRAIL_FILENAME = "audit_trail.jsonl"
 _REPORT_FILENAME = "report.html"
 _REPORT_PDF_FILENAME = "report.pdf"
 _REPORT_MD_FILENAME = "report.qmd"
@@ -97,7 +101,34 @@ def asegurar_workdir(workdir: Path) -> Path:
     return workdir
 
 
-def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) -> str:
+def reservar_trail(workdir: Path) -> Path:
+    """Reserva una ruta ABSOLUTA para el audit-trail antes de conocer el ``run_id`` (D-GOB-7).
+
+    El ``run_id`` lo genera ``Study.run()``, así que no existe cuando hay que decirle al motor
+    dónde escribir el trail. Se reserva un nombre único bajo ``workdir/runs`` y :func:`save` lo
+    traslada a ``runs/<run_id>/audit_trail.jsonl`` en cuanto el ``run_id`` existe. Un trail
+    huérfano —corrida que ni siquiera llegó a tener ``run_id``— se limpia allí mismo.
+    """
+    destino = asegurar_workdir(workdir) / "runs"
+    destino.mkdir(parents=True, exist_ok=True)
+    return (destino / f".trail-{uuid.uuid4().hex}.jsonl").resolve()
+
+
+def load_audit_trail(run_id: str, *, workdir: Path) -> str | None:
+    """Devuelve el JSONL del audit-trail de una corrida, o ``None`` si no existe."""
+    trail = _run_dir(workdir, run_id) / _TRAIL_FILENAME
+    if not trail.is_file():
+        return None
+    return trail.read_text(encoding="utf-8")
+
+
+def save(
+    study: Study,
+    *,
+    workdir: Path,
+    governance: GovernanceConfig | None,
+    trail: Path | None = None,
+) -> str:
     """Guarda una corrida bajo ``workdir/runs/<run_id>/`` y devuelve el ``run_id`` (SDD-23 §7).
 
     Escribe ``results.json`` (payload de :func:`serialize_study`) y, si la corrida los produjo, el
@@ -108,13 +139,16 @@ def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) ->
     """
     run_id = study.run_context.run_id
     if run_id is None:
+        if trail is not None:
+            trail.unlink(missing_ok=True)  # trail huérfano: sin run_id no tiene dónde archivarse
         raise UiError(
             "no se puede persistir un Study sin run_id: ejecute run() antes de guardarlo."
         )
     asegurar_workdir(workdir)  # el veto de git se escribe también en el uso programático
     run_dir = _run_dir(workdir, run_id)
     run_dir.mkdir(parents=True, exist_ok=True)
-    payload = serialize_study(study, governance=governance)
+    trail_final = _archivar_trail(trail, run_dir)
+    payload = serialize_study(study, governance=governance, trail_path=trail_final)
     (run_dir / _RESULTS_FILENAME).write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
     )
@@ -129,6 +163,20 @@ def save(study: Study, *, workdir: Path, governance: GovernanceConfig | None) ->
     if docx is not None:
         (run_dir / _REPORT_DOCX_FILENAME).write_bytes(docx)
     return run_id
+
+
+def _archivar_trail(trail: Path | None, run_dir: Path) -> Path | None:
+    """Traslada el trail reservado a ``<run_dir>/audit_trail.jsonl``; devuelve su ruta final.
+
+    Es el paso que convierte el nombre provisional de :func:`reservar_trail` en la ubicación que
+    SDD-03 §6 fija para el layout de la corrida. Un trail ausente —``audit`` apagado— no es un
+    error: devuelve ``None`` y el model card sale sin decisiones, como antes.
+    """
+    if trail is None or not trail.is_file():
+        return None
+    destino = run_dir / _TRAIL_FILENAME
+    shutil.move(str(trail), destino)
+    return destino
 
 
 def load_results(run_id: str, *, workdir: Path) -> dict[str, Any]:

@@ -71,7 +71,12 @@ config = dict(preset["config"])
 origen = materialize(preset["dataset_id"], workdir=Path("nikodym-runs"))
 config["data"] = {**config["data"], "load": {**config["data"]["load"], "source": str(origen)}}
 
-study = nikodym.run(NikodymConfig.model_validate(config))
+# `run_dir` es donde queda la evidencia de la corrida: el audit-trail, el entorno y —si
+# declaras la sección `governance`— el model card. Sin él la corrida no escribe nada.
+study = nikodym.run(
+    NikodymConfig.model_validate(config),
+    run_dir=Path("nikodym-runs") / "provision-interna",
+)
 
 card = study.artifacts.get("provisioning_internal", "card")
 print(card.total_internal_provision, card.n_groups)

@@ -18,7 +18,7 @@ import pandas as pd
 from nikodym.core.exceptions import ConfigError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 from nikodym.data.card import DataCardSection
 from nikodym.data.config import DataConfig
 from nikodym.data.hashing import data_hash
@@ -144,6 +144,20 @@ class DataStep(AuditableMixin):
             exclusions_by_reason=summary.exclusions_by_reason,
             data_hash=digest,
         )
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
+
+        Proyección directa de la card: los tres son escalares que ``DataCardSection`` ya declara,
+        así que aquí no hay reducción que decidir. Sin ``metric_sections``: ``data`` no tiene hoy
+        payload estructurado CT-2, y fabricar uno para llenar el hueco sería inventar (D-GOB-5).
+        """
+        card = card_publicada(study, "data", "data_card")
+        return {
+            "n_rows": campo_de_card(card, "n_rows"),
+            "n_features": campo_de_card(card, "n_features"),
+            "bad_rate": campo_de_card(card, "bad_rate"),
+        }
 
     def _publish_artifacts(
         self,

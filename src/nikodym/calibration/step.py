@@ -31,7 +31,7 @@ from nikodym.calibration.exceptions import CalibrationFitError
 from nikodym.core.exceptions import MissingDependencyError
 from nikodym.core.mixins import AuditableMixin
 from nikodym.core.registry import register
-from nikodym.core.steps import ArtifactKey
+from nikodym.core.steps import ArtifactKey, campo_de_card, card_publicada
 
 if TYPE_CHECKING:
     import numpy as np
@@ -260,6 +260,24 @@ class CalibrationStep(AuditableMixin):
             accion="registrar_ranking",
         )
         del calibrator
+
+    def metrics(self, study: Study) -> dict[str, float | None]:
+        """Publica el resumen métrico del dominio al namespace canónico (D-GOB-4).
+
+        El ancla objetivo y las dos tasas que permiten juzgar si la calibración la alcanzó. Sin
+        las tres juntas, ``calibrated_mean_pd_dev`` no dice nada por sí sola.
+        """
+        card = card_publicada(study, "calibration", "card")
+        return {
+            "target_pd": campo_de_card(card, "target_pd"),
+            "calibrated_mean_pd_dev": campo_de_card(card, "calibrated_mean_pd_dev"),
+            "observed_default_rate_dev": campo_de_card(card, "observed_default_rate_dev"),
+        }
+
+    def metric_sections(self, study: Study) -> dict[str, object]:
+        """Publica el payload estructurado CT-2 de la card, sin aplanar (D-GOB-3)."""
+        secciones = campo_de_card(card_publicada(study, "calibration", "card"), "metric_sections")
+        return dict(secciones) if isinstance(secciones, Mapping) else {}
 
     def _publish_artifacts(self, study: Study, result: CalibrationResult) -> None:
         """Publica los cuatro artefactos estables del dominio ``calibration``."""

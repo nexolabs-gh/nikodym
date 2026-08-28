@@ -11,6 +11,7 @@ vector *pickle* por defecto.
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Self
@@ -34,6 +35,35 @@ class AuditableMixin:
     """
 
     _audit: AuditSink = NullAuditSink()
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Any:
+        """Copia el objeto **sin** su ``_audit``, que vuelve al ``NullAuditSink`` de clase.
+
+        🔴 Cierra un defecto medido: el *sink* es infraestructura viva —``JsonlAuditSink`` sostiene
+        un descriptor de archivo abierto—, no estado del estimador, y un ``deepcopy`` lo arrastraba.
+        Con ``audit`` encendido, ``SurvivalResult.estimator`` es un ``AuditableMixin`` con el sink
+        inyectado, así que el ``result.model_copy(deep=True)`` de ``survival/step.py`` reventaba con
+        ``TypeError: cannot pickle 'TextIOWrapper' instances`` **antes** de publicar sus artefactos.
+        Y como es un ``TypeError`` y no un ``NikodymError``, ``nikodym.run`` ni siquiera lo
+        capturaba: la corrida moría entera en vez de devolver un ``Study`` con ``status="failed"``.
+
+        No se veía porque ningún preset traía ``audit`` encendido; corre con él y el dominio
+        ``survival`` es inalcanzable. Medido sobre ``5d6aa68``, sin nada de D-GOB en el árbol.
+
+        Esto no inventa una regla: es la que el docstring de arriba ya declaraba para
+        ``clone()``/``check_estimator`` de scikit-learn —«la instancia cae de nuevo al
+        ``NullAuditSink`` de clase sin romper»—, que hasta ahora sólo valía por el camino de
+        scikit-learn. El orquestador reinyecta el sink por instancia antes de cada corrida, así que
+        una copia sin sink es exactamente lo que corresponde: un artefacto persistido no debe
+        sostener un archivo abierto del proceso que lo creó.
+        """
+        copia = self.__class__.__new__(self.__class__)
+        memo[id(self)] = copia
+        for nombre, valor in self.__dict__.items():
+            if nombre == "_audit":
+                continue  # se deja caer al NullAuditSink de clase, que nunca es None
+            object.__setattr__(copia, nombre, deepcopy(valor, memo))
+        return copia
 
     def log_decision(
         self,

@@ -57,10 +57,11 @@ class RunError(BaseModel):
     """Rastro estructurado del fallo que terminó una corrida (enmienda RUN-ERROR, D-ERR-2).
 
     Existe porque ``status="failed"`` a secas no le sirve a nadie: el diagnóstico del motor se
-    emitía **sólo** al audit-trail, de modo que quien corría con el preset recomendado —que trae
-    ``audit: null`` y por tanto un ``NullAuditSink``— se quedaba con la palabra ``failed`` y con el
-    lineage, que son hashes. Este modelo lleva ese diagnóstico al propio ``RunContext``, que el
-    usuario ya tiene en la mano.
+    emitía **sólo** al audit-trail, de modo que quien corriera sin auditoría —con ``audit: null`` y
+    por tanto un ``NullAuditSink``— se quedaba con la palabra ``failed`` y con el lineage, que son
+    hashes. Este modelo lleva ese diagnóstico al propio ``RunContext``, que el usuario ya tiene en
+    la mano, y por eso sigue haciendo falta aunque desde D-GOB-8 los presets traigan el trail
+    encendido: la garantía no puede depender de una sección que el llamador puede apagar.
 
     ``message`` guarda ``str(exc)`` **íntegro**, incluido el código de marca cuando el mensaje del
     motor lo trae al frente (``DATO-INSTITUCIONAL-FWD-1: …``): esta es superficie de código, donde
