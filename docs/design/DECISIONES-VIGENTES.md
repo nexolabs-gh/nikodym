@@ -409,6 +409,20 @@ para `clone()` de scikit-learn.
    **La gobernanza sí es alcanzable desde `pip install` por código** —`nikodym.run(config,
    run_dir=...)` con una `GovernanceConfig` escribe el `model_card.json` completo, y hay gate sobre
    el archivo en disco—; lo que falta es el formulario.
+
+   🔴 **Y hay una segunda mitad, medida sobre la interfaz EN EJECUCIÓN: aunque se encienda
+   `governance` por config, el model card no se pinta en ninguna parte.** Verificado el 2026-08-28
+   levantando `nikodym-ui` sobre una corrida real del preset F1 con gobernanza declarada (cartera de
+   6.000 filas): `GET /api/results/<run_id>` devuelve el card **completo** —24 métricas, 41
+   decisiones y las secciones CT-2 de `performance` y `stability`—, y el bundle servido (1,65 MB)
+   contiene **cero** ocurrencias de `model_card`, `modelCard`, `metric_sections`, «Model card» o
+   «Ficha del modelo». `ResultsTab.tsx` enumera las claves que pinta —`binning`, `calibration`,
+   `lineage`, `model`, `performance`, `provisioning*`, `scorecard`, `stability`— y `model_card` no
+   está entre ellas.
+
+   Es decir: el dato llega hasta la API de la interfaz y **muere ahí**. Cerrar el bloqueador 3 por
+   el lado de la interfaz son por tanto **dos** trabajos, no uno: la ruta para encender la sección y
+   la superficie que muestre lo que produce. Ninguno estaba en la enmienda.
 2. `AuditConfig.capture_environment` deja de estar inerte: D-GOB-6 obliga a escribir
    `environment.json`, y escribirlo con el campo en `False` habría sido ignorar el config. Es uno
    menos de los cinco campos inertes que §7 de la enmienda dejaba fuera; los otros cuatro siguen.
