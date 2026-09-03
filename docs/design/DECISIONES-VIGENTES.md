@@ -32,7 +32,7 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
-| D-GOB-1…9 | Aprobada por Cami el 2026-08-28; D-GOB-1…8 implementadas y gateadas; ruptura D-GOB-7/8 **aceptada** por Cami el 2026-09-02; D-GOB-9 (recaptura de la demo) **no ejecutada**, pide OK propio; abiertos: el formulario de UI para `governance` y la superficie que pinte el card | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) |
+| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas, no implementadas** (por capas: 10/11 → 12/13/14 → 15/16, tras revisión independiente de la enmienda); D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
 
 ## D-RDY — readiness integral
 
@@ -393,8 +393,31 @@ la próxima release. Alternativas evaluadas y descartadas: ablandar D-GOB-7 a av
 garantía más débil que la aprobada— y revertir `audit` en los presets —reabre el bloqueador 3 por
 su lado por defecto—.
 
-**D-GOB-9 · La demo se recaptura aparte, con su propio OK.** No ejecutada. Los tres fixtures siguen
-con `"model_card": null`, y eso se declara en vez de darse por resuelto.
+**D-GOB-9 · La demo se recaptura aparte, con su propio OK.** **OK de Cami el 2026-09-03, con
+condición**: la recaptura muestra la ficha del modelo, así que los capturadores encienden
+`governance` y declaran un `purpose` para la institución ficticia de la demo. Ese `purpose` es
+`DATO-INSTITUCIONAL` y copy público: lo propone el agente y lo aprueba Cami en la sesión de release
+de 1.13.0, antes de lanzar `recapture-demo.yml`. Se ejecuta sobre el commit de la release, para que
+los fixtures firmen la versión publicada, igual que `ddb616f` con 1.12.0. **No ejecutada aún**: los
+tres fixtures siguen con `"model_card": null`.
+
+**D-GOB-10…16 · La gobernanza tiene que ser VISIBLE en la interfaz.** Aprobadas por Cami el
+2026-09-03 tal como las redacta
+[`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md); **no implementadas**.
+En una línea cada una: **D-GOB-10** `governance` se expande por un `_INFRA_CONFIG_CLASSES` propio
+en `core/study.py`, nunca por `_DOMAIN_CONFIG_CLASSES`, porque `_DEFAULT_DOMAIN_ORDER` deriva el
+pipeline de esa lista y `governance` no tiene `Step`; `_DEFAULT_DOMAIN_ORDER` y el `config_hash` no
+se mueven. **D-GOB-11** la sección entra a `CONFIG_SECTIONS` (14 → 15) y a los **10 trabajos**, como
+`report`, apagada de fábrica en los cuatro presets. **D-GOB-12** `purpose` va al bloque «Tus
+decisiones» como decisión obligatoria (D-OBL/D-EXI). **D-GOB-13** las 13 descripciones pasan a ser
+copy público con el texto exacto de la tabla §3 de la enmienda. **D-GOB-14** `scenario_log_filename`
+no se expone (D-SUB). **D-GOB-15** «Ficha del modelo» en Resultados tras «Artefactos de la corrida»,
+con guard por presencia. **D-GOB-16** `model_card` deja de ser `Record<string, unknown>` y pasa a un
+tipo `ModelCard` explícito. Las respuestas de Cami a las cuatro preguntas del §8: sí, sí, **diferir**
+el capítulo del informe, los 10 trabajos. Orden de implementación: 10/11 → 12/13/14 → 15/16, cada
+capa con medición previa, gates y control negativo (§6 de la enmienda). **Antes de la primera capa,
+revisión independiente de la enmienda** (AGENTS.md): si devuelve hallazgos, se corrige el documento
+y se vuelve a elevar sólo lo que cambie.
 
 ### Defecto preexistente que D-GOB-8 destapó
 
@@ -467,13 +490,22 @@ para `clone()` de scikit-learn.
    el lado de la interfaz son por tanto **dos** trabajos, no uno: el formulario que haga descubrible
    la sección y la superficie que muestre lo que produce. Ninguno estaba en la enmienda.
 
-   ➡️ **Propuesta de cierre, pendiente del OK de Cami**:
+   ➡️ **Cierre aprobado por Cami el 2026-09-03**:
    [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md), D-GOB-10…D-GOB-16.
    Cubre los dos trabajos, el copy público de los 13 campos y el mapa INFRA propio que exige el
-   hecho de que `governance` no tenga `Step`. **No está programada.**
+   hecho de que `governance` no tenga `Step`. **Aprobada, no programada**: se implementa por capas
+   (10/11 → 12/13/14 → 15/16) tras la revisión independiente del documento. Este abierto se cierra
+   cuando la capa 15/16 pase su gate del bundle («Ficha del modelo» de cero a ≥ 1) y el recorrido
+   en navegador.
 2. `AuditConfig.capture_environment` deja de estar inerte: D-GOB-6 obliga a escribir
    `environment.json`, y escribirlo con el campo en `False` habría sido ignorar el config. Es uno
    menos de los cinco campos inertes que §7 de la enmienda dejaba fuera; los otros cuatro siguen.
+3. **El informe no lleva la ficha del modelo — DIFERIDO por Cami el 2026-09-03** (§8.3 de la
+   enmienda). Medido sobre la corrida `4b04cbde…`: la única ocurrencia de `model_card` en el informe
+   es la `CardSection` `model.model_card` del anexo C.4 —el card del modelo PD, otra cosa— y el
+   `purpose` del usuario no aparece, pese a que existe un capítulo «Limitaciones y supuestos».
+   Entrar exige una enmienda propia contra SDD-26 (contrato de capítulos): no se cuela en
+   D-GOB-10…16.
 
 ## Mapa de otros contratos aprobados
 
@@ -490,7 +522,7 @@ corpus histórico o de conocer un ID de memoria:
 | requisitos y resolución de parámetros | CRP-1…7 en [`_CONTRATO-RESOLUCION-PARAMETROS.md`](_CONTRATO-RESOLUCION-PARAMETROS.md), D-CRP6 en [`_ENMIENDA-CRP6-FLAG.md`](_ENMIENDA-CRP6-FLAG.md) y D-REQ en [`_ENMIENDA-REQUISITOS-DECLARADOS.md`](_ENMIENDA-REQUISITOS-DECLARADOS.md) |
 | decisiones obligatorias/respondidas | D-OBL en [`_ENMIENDA-DECISIONES-OBLIGATORIAS.md`](_ENMIENDA-DECISIONES-OBLIGATORIAS.md) y D-RES en [`_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md`](_ENMIENDA-RESPONDIDA-SEGUN-EL-MOTOR.md) |
 | evidencia normativa y segmentación | D-COT en [`_ENMIENDA-COTEJO-NORMATIVO.md`](_ENMIENDA-COTEJO-NORMATIVO.md), D-MAX en [`_ENMIENDA-REGLA-DEL-MAXIMO.md`](_ENMIENDA-REGLA-DEL-MAXIMO.md) y D-SEG en [`_ENMIENDA-SEGMENTACION.md`](_ENMIENDA-SEGMENTACION.md) |
-| resumen PSI y fronteras de estabilidad | A1/B1 en [`_ENMIENDA-RESUMEN-PSI.md`](_ENMIENDA-RESUMEN-PSI.md): peor PSI score/PD con identidad y banda coherentes; `<stable`, `[stable, review)`, `≥review` |
+| resumen PSI y fronteras de estabilidad | A1/B1 en [`_ENMIENDA-RESUMEN-PSI.md`](_ENMIENDA-RESUMEN-PSI.md): peor PSI score/PD con identidad y banda coherentes; `<stable`, `[stable, review)`, `≥review`. **Copy del resumen, decidido por Cami el 2026-09-03**: el rótulo «Peor PSI entre score y PD» se mantiene; los nombres de las tres bandas pasan a copy público en español (las palabras exactas se proponen y aprueban al implementar; hasta entonces `stable`/`review`/`redevelop` siguen en el motor). Cierra la única elección de producto que AGENTS.md citaba como abierta; queda pendiente de implementación |
 | frontera del diagnóstico IV | IV-A1 en [`_ENMIENDA-AUDIT-IV-FRONTERA.md`](_ENMIENDA-AUDIT-IV-FRONTERA.md): banda, selección y evento `iv_sospechoso` incluyen IV=0,50; el evento sólo diagnostica, no elimina |
 
 Regla CRP especialmente fácil de romper: `fail_on_falta_dato` significa en las siete capas “una

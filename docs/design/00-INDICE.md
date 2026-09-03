@@ -871,8 +871,8 @@ No autoriza START ni mueve la puerta global.
 > `DATO-INSTITUCIONAL`, que es justo lo que `AGENTS.md` prohíbe. Recaptura de la demo **no** incluida:
 > exige su propio OK (D-GOB-9).
 
-> **La gobernanza tiene que ser VISIBLE en la interfaz (2026-09-02, 🟡 PROPUESTA — PENDIENTE DE
-> OK, NO IMPLEMENTADA).**
+> **La gobernanza tiene que ser VISIBLE en la interfaz (2026-09-02; ✅ APROBADA por Cami el
+> 2026-09-03, NO IMPLEMENTADA — se programa por capas tras la revisión independiente).**
 > [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md),
 > D-GOB-10…D-GOB-16. Cierra el **abierto 1 de D-GOB** —el último resto del bloqueador 3—, medido
 > sobre la interfaz **en ejecución**. ⚠️ **Medir corrigió dos afirmaciones del registro**: (1)

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Familia** | D-GOB (continúa: D-GOB-10 … D-GOB-16) |
-| **Estado** | **PROPUESTA — pendiente de aprobación de Cami.** Nada de esto está programado |
+| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **No implementada**: se programa por capas —D-GOB-10/11, luego 12/13/14, luego 15/16— tras la revisión independiente de este documento |
 | **Depende de** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) (D-GOB-1…9), SDD-23 (interfaz), D-SUB, D-OBL, D-VIS, D-FX-8 |
 | **Lo consumen** | `ui/jobs.py`, `ui/presets.py`, `core/config/schema.py`, `web/src/lib/schema.ts`, `web/src/components/ResultsTab.tsx` |
 | **Autor / Fecha** | Claude Code · 2026-09-02 |
@@ -278,3 +278,25 @@ reconstruir el bundle (runbook §5).
 4. **¿La sección va en los 10 trabajos o sólo en los que emiten informe?** Hoy coinciden (los 10
    llevan `report`). Recomendación: **los 10**, por la misma razón que `report`: gobernar un modelo
    no depende de qué motor se corrió.
+
+### Respuestas de Cami (2026-09-03)
+
+Las cuatro se aprobaron **tal como se recomendaron**, sin cambios:
+
+1. **Sí**: D-GOB-10…16 quedan aprobadas.
+2. **Sí**: el copy público de los 13 campos es el de la tabla de D-GOB-13, palabra por palabra.
+3. **Diferido**: el capítulo de model card en el informe **no entra**. Queda registrado como abierto
+   propio de D-GOB en `DECISIONES-VIGENTES.md`; entrar exige su propia enmienda contra SDD-26.
+4. **Los 10 trabajos**, como `report`.
+
+En la misma decisión Cami dio el OK a **D-GOB-9** con condición: la demo se recaptura **mostrando la
+ficha del modelo**, lo que exige encender `governance` en los capturadores y declarar un `purpose`
+para la institución ficticia de la demo. Ese texto es copy público: se propone y aprueba en la sesión
+de release de 1.13.0, antes de lanzar `recapture-demo.yml`, y la recaptura corre sobre el commit de
+la release para que los fixtures firmen la versión publicada.
+
+Orden de implementación acordado: D-GOB-10/11 (schema y catálogo) → D-GOB-12/13/14 (formulario y
+copy) → D-GOB-15/16 (pantalla y tipo) → documentación → release 1.13.0 con recaptura. Cada capa con
+medición previa, gates y control negativo (§6). **Pendiente antes de programar la primera capa: la
+revisión independiente de este documento** (AGENTS.md: enmienda → revisión → aprobación → código);
+si devuelve hallazgos, se corrige la enmienda y se vuelve a elevar sólo lo que cambie.
