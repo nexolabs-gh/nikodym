@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Familia** | D-GOB (continúa: D-GOB-10 … D-GOB-16) |
-| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **No implementada**: se programa por capas —D-GOB-10/11, luego 12/13/14, luego 15/16— tras la revisión independiente de este documento |
+| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **Revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): este documento se corrigió en §0.3–§0.6, §3, §6, §7 y §8.1, y **tres puntos quedan pendientes de re-elevación** (§8.1). **No implementada**: ninguna capa arranca hasta ese OK; el orden pasa a D-GOB-10 → D-GOB-11/12/13/14 juntas → D-GOB-15/16 |
 | **Depende de** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) (D-GOB-1…9), SDD-23 (interfaz), D-SUB, D-OBL, D-VIS, D-FX-8 |
 | **Lo consumen** | `ui/jobs.py`, `ui/presets.py`, `core/config/schema.py`, `web/src/lib/schema.ts`, `web/src/components/ResultsTab.tsx` |
 | **Autor / Fecha** | Claude Code · 2026-09-02 |
@@ -32,6 +32,44 @@ correcciones ya están aplicadas en `DECISIONES-VIGENTES.md` §D-GOB.
 El encuadre correcto, entonces, no es «entregar la gobernanza a la UI» sino **«hacerla descubrible y
 mostrar lo que produce»**. Es menos mecanismo del que la enmienda anterior temía y más copy público
 del que había contado.
+
+**Y la revisión independiente del 2026-09-03 —más la medición que la acompañó— lo cambió una
+tercera vez.** Cuatro correcciones más, ya aplicadas en §3, §6 y §7; lo que exige un OK nuevo va
+en §8.1. La revisión (Codex, rango `5d6aa68..a9a1668`, `needs-attention`) está archivada íntegra
+en el repo privado.
+
+3. 🔴 **El censo de consumidores de D-GOB-10 era incompleto y su loader estaba subespecificado.**
+   La versión anterior mandaba que `build_full_json_schema()` empotrara «ambos mapas» y dejaba
+   `cargar_configs_de_dominio()` intacto, pero `/api/validate` y el preflight sólo llaman a ese
+   loader (D-HASH-5). Reproducido en proceso fresco: un `governance` con
+   `review_period_months: 999` **se acepta** antes de que alguien importe `nikodym.governance` y
+   **se rechaza** después; y el `build_full_json_schema()` de hoy tampoco lo importa. Es la
+   dependencia del orden de imports que D-HASH-5 cerró para los dominios, recreada para la sección
+   que esta enmienda pone en pantalla. §3 D-GOB-10 fija ahora dos loaders y el censo **por
+   semántica**, no por nombre.
+4. 🔴 **D-GOB-11 no se puede entregar sola: cinco gates la atan a D-GOB-12/13/14.** Medido sobre
+   `a9a1668`: `test_jobs_catalogo.py` es bidireccional —toda sección de un trabajo debe estar en
+   `CONFIG_SECTIONS` y viceversa—; `test_copy_del_formulario.py` recorre las secciones del
+   formulario y pone rojo el «True»/«False» de `publish_to_inventory` y
+   `require_overlay_justification` (D-GOB-13); `test_jobs_decisiones.py` exige una pregunta para
+   todo campo obligatorio de una sección del formulario, o sea `purpose` (D-GOB-12);
+   `test_jobs_ejecutables.py` siembra el esqueleto de cada trabajo con **todas** sus secciones
+   encendidas, y `purpose` sin default lo deja inválido; y los goldens de
+   `test_effective_defaults.py`, `jobs.test.ts` y `RunTab.test.ts` cuentan 14 secciones y 9/4
+   pestañas por trabajo. La capa «10/11» del plan no existe como unidad verde: la capa es
+   **D-GOB-10** sola, y después **D-GOB-11/12/13/14 juntas**.
+5. 🔴 **«Apagada de fábrica» sólo estaba definida para los presets.** `jobSkeleton`
+   (`web/src/lib/jobs.ts`) y su réplica Python siembran **encendida** toda sección que el trabajo
+   declara, con la proyección canónica de sus defaults. Con `governance` en los 10 trabajos, entrar
+   por cualquiera la sembraría encendida y con `purpose` pendiente: la corrida no arrancaría hasta
+   declararlo, en los diez. Eso contradice el «gesto explícito del usuario» de D-GOB-11 y no lo
+   decidió nadie. Va a §8.1 como decisión de Cami.
+6. 🔴 **D-GOB-12 prometía lo que el motor no cumple.** `GovernanceConfig.purpose` es un `str`
+   obligatorio sin más: `""`, `"   "` y `"\t\n"` construyen (reproducido). Y la tarjeta de
+   decisiones marca contestada una decisión escalar sin formas de respuesta por **presencia**
+   (`decisionStatuses`: `hasAtPath` y cero huecos), así que `purpose: ""` saldría «contestada» y
+   la ficha se firmaría sin propósito. Honrar D-GOB-12 exige una validación nueva en
+   `GovernanceConfig`, que §7 excluía expresamente: va a §8.1.
 
 ---
 
@@ -133,22 +171,40 @@ _INFRA_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
 }
 ```
 
-`cargar_configs_de_dominio()` conserva su significado y su nombre; `build_full_json_schema()` empota
-las secciones de **ambos** mapas. `_DEFAULT_DOMAIN_ORDER` **no se toca**: `governance` no es un paso
-y no debe aparecer en ningún pipeline.
+`cargar_configs_de_dominio()` conserva su significado y su nombre —**dominios orquestables**, los
+que fijan pasos y entran al `config_hash`— y gana dos funciones hermanas en
+`core/config/schema.py` (corrección §0.3):
+
+- `cargar_configs_de_infra()`: el mismo loader, sobre `_INFRA_CONFIG_CLASSES`.
+- `cargar_configs_expandibles()`: la unión ordenada de ambos, **las secciones que el schema
+  expande**, que es lo que el formulario puede ofrecer.
+
+`build_full_json_schema()` empota las secciones de la unión. `_DEFAULT_DOMAIN_ORDER` **no se
+toca**: `governance` no es un paso y no debe aparecer en ningún pipeline.
 
 **Por qué así y no reutilizando el mapa de dominios:** §2.2. Un mapa que se llama «clases de config
 de dominio» y que además fija el orden de ejecución no puede alojar una sección sin `Step` sin
 mentir sobre las dos cosas. `audit` y `tracking` quedan **fuera** de este mapa: esta enmienda no los
 pone en pantalla (§7).
 
-**Lo que arrastra, medido** —hay que actualizarlo, no descubrirlo tarde—:
-`scripts/gen_schema_fixture.py`, `ui/option_surface.py`, `core/config/effective_defaults.py`,
-`core/config/hashing.py:94` (la guarda que decide si hay que cargar configs) y
-`tests/unit/test_ui_schema_fixture.py:148` (`set(vivo["sections"]) - set(_DOMAIN_CONFIG_CLASSES)`).
+**Lo que arrastra, medido y clasificado por lo que cada consumidor PREGUNTA** (§0.3) —hay que
+actualizarlo, no descubrirlo tarde—:
+
+| Consumidor | Qué pregunta | Loader que le corresponde | Capa |
+|---|---|---|---|
+| `core/config/schema.py::build_full_json_schema` | ¿qué secciones expando? | unión | D-GOB-10 |
+| `scripts/gen_schema_fixture.py` (guarda de opacidad) | ¿qué debe salir expandido? | unión | D-GOB-10 |
+| `tests/unit/test_ui_schema_fixture.py` (`_dominios_disponibles` y la resta de la línea 148) | ¿qué nodos comparo con el fixture? | unión | D-GOB-10 |
+| `core/config/effective_defaults.py` | ¿qué secciones tienen mapa de hijos? (D-FX-10: schema y catálogo dicen lo mismo) | unión | D-GOB-10 |
+| `ui/routes.py::validate_config` y `::preflight_dataset` (D-HASH-5) | ¿`valid` significa lo mismo siempre? | unión | D-GOB-10 |
+| `core/config/hashing.py:94` | ¿hay un dominio opaco que coaccionar antes de hashear? | dominios, **sin cambio**: `governance` está en `INFRA_SECTIONS` y no entra al digest | — |
+| `core/dataset_check.py` (`_secciones_activas`, `_motivos_de_secciones_opacas`) | ¿qué corre? ¿qué columna no pude mirar? | dominios, **sin cambio**: `governance` no corre ni declara roles de columna | — |
+| `core/study.py::_coerce_domain_config` | ¿qué paso resuelvo? | dominios, **sin cambio** | — |
+| `ui/option_surface.py`, `tests/unit/test_jobs_decisiones.py`, `test_copy_del_formulario.py`, `test_effective_defaults.py` (espejos de las 14 secciones), `test_extra_ui_cubre_el_formulario.py`, `test_invariantes_previas.py` | ¿qué ofrece el **formulario**? | unión, **cuando la sección entre al formulario** | D-GOB-11 |
 
 **El `config_hash` no se mueve**: `governance` sigue en `INFRA_SECTIONS`, igual que `report`. Se
-gatea explícitamente, como se hizo con `audit` en D-GOB-8.
+gatea explícitamente, como se hizo con `audit` en D-GOB-8. Y **la validez tampoco depende del
+orden de imports**: se gatea en proceso fresco (§6.9).
 
 ### D-GOB-11 — la sección entra al front como una más, en los 10 trabajos, APAGADA de fábrica
 
@@ -157,12 +213,30 @@ gatea explícitamente, como se hizo con `audit` en D-GOB-8.
 decidió que el motor no inventa un propósito, y esta enmienda no lo reabre. Encenderla es un gesto
 explícito del usuario, con el mismo interruptor de sección que el resto.
 
+**Lo que la medición añade (§0.4, §0.5).** Esta decisión **no es separable** de D-GOB-12/13/14:
+cinco gates vigentes las atan y ninguno se ablanda, así que se implementan juntas, después de
+D-GOB-10. Y «apagada de fábrica» tiene que decir también qué hace el **esqueleto de un trabajo**,
+no sólo los presets: hoy `jobSkeleton` siembra encendida toda sección del trabajo. La opción que se
+recomienda en §8.1 es que el catálogo declare `governance` como **sección latente** —en el sidebar
+de los 10 trabajos, sembrada en `null`— y que una decisión obligatoria de una sección apagada **no
+cuente como pendiente**; encenderla desde su interruptor es lo que activa la pregunta por `purpose`.
+
 ### D-GOB-12 — `purpose` es una decisión obligatoria del usuario, no un campo más
 
 `purpose` es `DATO-INSTITUCIONAL`: sólo la institución puede fijarlo. Va al bloque **«Tus
 decisiones»** de Configuración —donde ya viven «¿qué define a un cliente malo?» y «¿cómo separas la
 muestra?»—, con `ui_widget: textarea`. Con la sección encendida y `purpose` vacío, la corrida **no
 arranca** y la interfaz dice qué falta y dónde, por la maquinaria de D-OBL/D-EXI que ya existe.
+
+**Corrección de la revisión (§0.6).** Para que «`purpose` vacío no arranca» sea verdad hacen falta
+tres cosas que hoy no existen, una por capa: (a) `GovernanceConfig.purpose` rechaza el texto en
+blanco —se normaliza con `strip()` y exige al menos un carácter—, que es un cambio de validación en
+una superficie **experimental** (`nikodym.governance`, fuera de la garantía SemVer 1.x) y por eso va
+a §8.1; (b) `/api/validate` lo rechaza con el mismo criterio, por D-HASH-5 y el loader de §3
+D-GOB-10; (c) la tarjeta de decisiones trata una decisión **escalar sin formas de respuesta** como
+pendiente cuando su valor está en blanco —hoy `huecosPendientes` sólo mira `slots`, y una decisión
+sin formas no tiene ninguno—. Con `ui_widget: textarea` el control ya existe; lo que falta es el
+criterio.
 
 ### D-GOB-13 — los 13 campos reciben copy público escrito para una persona
 
@@ -252,6 +326,16 @@ respuesta real—. Un tipo laxo con consumidor es una invitación a `any`.
    contener «Ficha del modelo», que es el gate que hoy falla.
 8. **Copy público**: ningún código interno (`nikodym.`, `SR 11-7`, `FALTA-DATO`) en los tooltips
    renderizados.
+9. **La validez de `governance` no depende del orden de imports** (D-HASH-5 sobre la sección
+   nueva): en un proceso fresco, `/api/validate` rechaza `review_period_months: 999` **antes** y
+   **después** de pedir `/api/schema`, con el mismo veredicto — control negativo: dejar sólo el
+   loader de dominios en `validate_config` pone rojo.
+10. **`purpose` en blanco se rechaza en las tres capas**: `GovernanceConfig` levanta con `""`,
+    `"   "` y `"\t\n"`; `/api/validate` devuelve `valid=false` con el `loc` del campo; y la
+    tarjeta de decisiones lo muestra pendiente, no contestado. Depende del OK de §8.1.
+11. **Un trabajo con `governance` latente sigue siendo ejecutable** (`test_jobs_ejecutables`), y
+    con la sección encendida y `purpose` pendiente la tarjeta lo dice y la corrida no arranca.
+    Depende del OK de §8.1.
 
 Todo cierre incluye además regenerar `gen_schema_fixture` y `gen_jobs_fixture`, revisar su diff y
 reconstruir el bundle (runbook §5).
@@ -263,7 +347,9 @@ reconstruir el bundle (runbook §5).
 - **No añade el capítulo de model card al informe.** Está medido que falta (§1.2) y sigue anotado
   como deuda adyacente; entra en §8 como decisión de Cami, no se cuela aquí.
 - **No recaptura la demo** (D-GOB-9 conserva su OK propio).
-- **No cambia `GovernanceConfig`** en campos, tipos ni validaciones.
+- **No cambia `GovernanceConfig`** en campos ni tipos. La **única** validación nueva es la de
+  `purpose` en blanco (§3 D-GOB-12), y sólo si Cami la aprueba en §8.1; sin ese OK, D-GOB-12 no
+  se puede cumplir tal como está escrita, y esta enmienda lo dice en vez de prometerlo.
 - **No reabre D-GOB-1…9**, ni la ruptura ya aceptada el 2026-09-02.
 - **No toca el arnés H9R, la puerta H9R ni `30-readiness-integral.md` §6.1.**
 
@@ -300,3 +386,30 @@ copy) → D-GOB-15/16 (pantalla y tipo) → documentación → release 1.13.0 co
 medición previa, gates y control negativo (§6). **Pendiente antes de programar la primera capa: la
 revisión independiente de este documento** (AGENTS.md: enmienda → revisión → aprobación → código);
 si devuelve hallazgos, se corrige la enmienda y se vuelve a elevar sólo lo que cambie.
+
+### 8.1 Lo que la revisión independiente deja pendiente (2026-09-03)
+
+La revisión adversarial de Codex sobre `5d6aa68..a9a1668` devolvió `needs-attention` con seis
+hallazgos, todos verificados contra el árbol. Tres son de este documento y del registro, y están
+corregidos aquí (§0.3–§0.6). Los otros tres son de la **implementación de D-GOB-1…8** y son
+defectos contra decisiones ya aprobadas, no cambios de contrato: `_preparar_run_dir` aparta el run
+anterior **antes** de saber si el reemplazo se construye, sin restaurar si falla (D-GOB-6 prometía
+la política de `Study.save`, que sí restaura); la entrada del inventario reconstruye el card con el
+trail **relativo al `cwd`**, así que sale sin decisiones mientras `model_card.json` las tiene; y el
+gate de D-GOB-4 no exige `gini_*`, `ks_*`, `worst_psi` ni `worst_csi_value`. Los tres se corrigen
+en código, con su control negativo, **antes** de la primera capa, y quedan como abiertos 4–6 de
+D-GOB en el registro. Lo que sí pide un OK, porque cambia lo aprobado:
+
+1. **¿Se añade a `GovernanceConfig.purpose` la validación «texto no vacío tras `strip()`»?** Sin
+   ella D-GOB-12 es falsa (§0.6). Es un cambio de validación en una superficie experimental: un
+   config con `purpose: ""` que hoy construye dejará de hacerlo. Recomendación: **sí**.
+2. **¿Se acepta el nuevo orden de capas: D-GOB-10 sola, luego D-GOB-11/12/13/14 juntas, luego
+   D-GOB-15/16?** El orden aprobado (10/11 → 12/13/14) no tiene una capa «11» verde (§0.4).
+   Recomendación: **sí**.
+3. **¿Cómo entra `governance` al esqueleto de un trabajo?** (a) **Latente**: en el sidebar de los
+   10 trabajos, sembrada en `null`; la pregunta por `purpose` aparece al encenderla, y una decisión
+   de una sección apagada no cuenta como pendiente. Exige un campo nuevo del catálogo y un cambio
+   de criterio en la tarjeta. (b) **Encendida**: `purpose` es una decisión pendiente en los diez
+   trabajos y ninguna corrida por trabajo arranca sin propósito. Recomendación: **(a)**, porque es
+   lo que D-GOB-11 ya dice —«gesto explícito del usuario»— y porque (b) convierte la gobernanza en
+   peaje de trabajos que hoy no la piden.

@@ -32,7 +32,7 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
-| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas, no implementadas** (por capas: 10/11 → 12/13/14 → 15/16, tras revisión independiente de la enmienda); D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
+| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas, no implementadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y **tres puntos pendientes de re-elevación** (§8.1 de la enmienda: validación de `purpose` no vacío, capas 10 → 11/12/13/14 → 15/16, `governance` latente en el esqueleto de los trabajos); ninguna capa arranca hasta ese OK; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
 
 ## D-RDY — readiness integral
 
@@ -419,6 +419,18 @@ capa con medición previa, gates y control negativo (§6 de la enmienda). **Ante
 revisión independiente de la enmienda** (AGENTS.md): si devuelve hallazgos, se corrige el documento
 y se vuelve a elevar sólo lo que cambie.
 
+> 🔴 **Revisión independiente ejecutada el 2026-09-03** (Codex, rango `5d6aa68..a9a1668`,
+> `needs-attention`, seis hallazgos verificados contra el árbol; evidencia íntegra en el repo
+> privado). Los tres sobre el documento están corregidos en la enmienda (§0.3–§0.6, §3, §6, §7) y
+> dejan **tres decisiones nuevas en su §8.1**: la validación de `purpose` no vacío —sin ella
+> D-GOB-12 es falsa—, el orden de capas **10 → 11/12/13/14 → 15/16** —cinco gates vigentes hacen
+> que D-GOB-11 no sea entregable sin 12/13/14— y `governance` **latente** en el esqueleto de los
+> trabajos —hoy `jobSkeleton` siembra encendida toda sección del trabajo—. **Ninguna capa arranca
+> hasta ese OK.** Los tres hallazgos sobre la implementación de D-GOB-1…8 son los abiertos 4–6 de
+> abajo y se corrigen en código antes de la primera capa. Además el registro contenía una
+> instrucción **sustituida** por D-GOB-10 —«sumar `governance` a `_DOMAIN_CONFIG_CLASSES`»— que
+> se corrige en el abierto 1.
+
 ### Defecto preexistente que D-GOB-8 destapó
 
 Encender `audit` dejó inalcanzable el dominio `survival`: `SurvivalResult.estimator` es un
@@ -456,17 +468,18 @@ para `clone()` de scikit-learn.
    > CT-2 de `performance` y `stability`, y el `purpose` que escribió el usuario. La capacidad es
    > por tanto **alcanzable pero indescubrible**, no inalcanzable.
 
-   Entregar el formulario exige: sumar `governance` a `_DOMAIN_CONFIG_CLASSES` y a
-   `CONFIG_SECTIONS`, dar `ui_widget`/`ui_group` a **8 de sus 13 campos** —los otros 5 ya los tienen,
-   en el grupo «Inventario»—, cablearla a uno o más trabajos y regenerar los fixtures. Eso crea
-   **copy público nuevo** (los tooltips derivados de Pydantic lo son por `AGENTS.md`), y las 8
-   descripciones que faltan están escritas para desarrollador —«clave del MLflow Registry»,
+   Entregar el formulario exige: expandir `governance` en el schema —**por `_INFRA_CONFIG_CLASSES` y
+   el loader combinado, nunca por `_DOMAIN_CONFIG_CLASSES`**, que fija el pipeline (D-GOB-10; la
+   redacción anterior de esta frase decía lo contrario y la revisión del 2026-09-03 la corrigió)—,
+   sumarla a `CONFIG_SECTIONS`, dar `ui_widget`/`ui_group` a **8 de sus 13 campos** —los otros 5 ya
+   los tienen, en el grupo «Inventario»—, cablearla a uno o más trabajos y regenerar los fixtures.
+   Eso crea **copy público nuevo** (los tooltips derivados de Pydantic lo son por `AGENTS.md`), y
+   las 8 descripciones que faltan están escritas para desarrollador —«clave del MLflow Registry»,
    «SR 11-7», «True requiere el extra tracking», «JSONL append-only», «anti earnings-management»—,
    así que hay que reescribirlas. Además `scenario_log_filename` nombra un archivo que D-GOB-6
-   decidió **no escribir**: exponerlo sería una subsección inerte (D-SUB).
-   **La gobernanza sí es alcanzable desde `pip install` por código** —`nikodym.run(config,
-   run_dir=...)` con una `GovernanceConfig` escribe el `model_card.json` completo, y hay gate sobre
-   el archivo en disco—.
+   decidió **no escribir**: exponerlo sería una subsección inerte (D-SUB). **La gobernanza sí es
+   alcanzable desde `pip install` por código** —`nikodym.run(config, run_dir=...)` con una
+   `GovernanceConfig` escribe el `model_card.json` completo, y hay gate sobre el archivo en disco—.
 
    🔴 **Y hay una segunda mitad, medida sobre la interfaz EN EJECUCIÓN: aunque se encienda
    `governance` por config, el model card no se pinta en ninguna parte.** Verificado el 2026-08-28
@@ -506,6 +519,30 @@ para `clone()` de scikit-learn.
    `purpose` del usuario no aparece, pese a que existe un capítulo «Limitaciones y supuestos».
    Entrar exige una enmienda propia contra SDD-26 (contrato de capítulos): no se cuela en
    D-GOB-10…16.
+4. 🔴 **`_preparar_run_dir` aparta el run anterior antes de saber si el reemplazo se construye**
+   (`api.py`, D-GOB-6). Mueve un destino no vacío a un respaldo lateral y crea el nuevo **antes** de
+   `assemble_run` y de la corrida; un error temprano —pedir inventario sin el extra `tracking`, por
+   ejemplo— deja la ruta canónica vacía y el run previo sólo en el respaldo, sin restaurar.
+   `Study.save` sí restaura el previo si falla el swap (`core/study.py:930`), y el docstring de
+   `_preparar_run_dir` afirma compartir esa política. Hallazgo de la revisión del 2026-09-03,
+   verificado por lectura. Arreglo: construir el layout en un directorio hermano temporal y
+   sustituir el destino sólo con el artefacto completo, restaurando ante cualquier excepción; gate
+   con un centinela previo y fallos inyectados en `assemble_run`, en la corrida y en la escritura.
+5. 🔴 **La entrada del inventario y `model_card.json` no son el mismo card.**
+   `_escribir_layout_del_run` resuelve el trail contra `run_dir` (D-GOB-7) y
+   `_build_inventory_entry` reconstruye otro card con `audit_cfg.trail_filename` **crudo**, relativo
+   al `cwd`: con el default `audit_trail.jsonl` el inventario recibe `decisions=[]` y la limitación
+   «trail ausente» mientras el archivo en disco lleva las decisiones reales. El único test
+   (`test_api_run.py::test_run_publica_inventario_solo_en_exito`) usa una ruta absoluta y no compara
+   decisiones. Verificado por lectura. Arreglo: un solo `ModelCard` con el trail ya resuelto,
+   reutilizado para disco e inventario; gate con `run_dir`, trail relativo y
+   `publish_to_inventory=True` comparando ambos cards íntegros.
+6. **El gate bidireccional de D-GOB-4 no cubre cinco métricas declaradas**
+   (`test_canal_metricas.py::test_toda_metrica_declarada_existe_en_el_codigo`): enumera seis
+   dominios escalares, para `performance` sólo exige algún `auc_*` —ni `gini_*` ni `ks_*`— y no
+   incluye `stability` (`worst_psi`, `worst_csi_value`). Quitar esos productores dejaría el gate
+   verde. Verificado por lectura. Arreglo: fixtures con `performance` y `stability` evaluables,
+   resolver cada plantilla con `is_declared_metric` y un control negativo por familia.
 
 ## Mapa de otros contratos aprobados
 

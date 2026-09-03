@@ -872,7 +872,9 @@ No autoriza START ni mueve la puerta global.
 > exige su propio OK (D-GOB-9).
 
 > **La gobernanza tiene que ser VISIBLE en la interfaz (2026-09-02; ✅ APROBADA por Cami el
-> 2026-09-03, NO IMPLEMENTADA — se programa por capas tras la revisión independiente).**
+> 2026-09-03; revisión independiente ejecutada el 2026-09-03 con sus hallazgos ya corregidos y
+> tres puntos pendientes de re-elevación en su §8.1; NO IMPLEMENTADA — ninguna capa arranca hasta
+> ese OK).**
 > [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md),
 > D-GOB-10…D-GOB-16. Cierra el **abierto 1 de D-GOB** —el último resto del bloqueador 3—, medido
 > sobre la interfaz **en ejecución**. ⚠️ **Medir corrigió dos afirmaciones del registro**: (1)
