@@ -97,12 +97,15 @@ test.describe("interfaz servida por el wheel instalado", () => {
   test("recorrido completo: ejemplo → ejecutar → resultados → informe", async ({ page }) => {
     await page.goto("/")
 
-    // Elegir el ejemplo listo salta al paso «Ejecutar» con su config y su dataset cargados. Es el
-    // último botón con ese nombre: el primero es la ficha del TRABAJO, que pide traer datos.
-    await page
-      .getByRole("button", { name: /^Scorecard de comportamiento/ })
-      .last()
-      .click()
+    // Elegir el ejemplo listo salta al paso «Ejecutar» con su config y su dataset cargados. Son DOS
+    // botones con ese nombre: la ficha del TRABAJO, que pide traer datos y viene en el bundle, y el
+    // ejemplo, que `PresetSelector` pinta sólo cuando `listPresets()` responde. Un `.last()` evaluado
+    // antes de esa respuesta cae en la ficha y el recorrido aterriza en «Cargar datos» en vez de en
+    // «Ejecutar»: medido en el run 33780259348 del CI (2026-09-03), cuya traza muestra UN solo botón
+    // en el instante del clic. Esperar a que existan los dos cierra la carrera por construcción.
+    const scorecard = page.getByRole("button", { name: /^Scorecard de comportamiento/ })
+    await expect(scorecard).toHaveCount(2)
+    await scorecard.last().click()
 
     // ⚠️ Un servidor recién arrancado no tiene corridas, pero el arnés NO puede depender de eso:
     // contra una instancia que ya corrió algo, esperar el texto «Corrida completada» lo satisface
