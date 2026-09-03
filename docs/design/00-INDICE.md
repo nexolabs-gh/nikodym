@@ -846,8 +846,9 @@ No autoriza START ni mueve la puerta global.
 > `suspicious` y activa selección; IV-A1 alinea el audit de binning a la misma frontera inclusiva,
 > sin filtrar ni cambiar resultados numéricos.
 
-> **La gobernanza tiene que ser ALCANZABLE desde `pip install` (2026-08-27, 🟡 PROPUESTA —
-> PENDIENTE DE OK, NO IMPLEMENTADA).**
+> **La gobernanza tiene que ser ALCANZABLE desde `pip install` (2026-08-27; APROBADA por Cami el
+> 2026-08-28; D-GOB-1…8 IMPLEMENTADAS Y GATEADAS; D-GOB-9 —recaptura de la demo— NO EJECUTADA,
+> pide OK propio).**
 > [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md), D-GOB-1…D-GOB-9.
 > Enmienda SDD-01 §6, SDD-03 §6/§7.1.d y CT-2. Nace del bloqueador 3 del censo de módulos
 > (2026-08-26), remedido entero sobre `ddb616f`: tras una corrida F1 real `study.results` sigue
@@ -869,6 +870,25 @@ No autoriza START ni mueve la puerta global.
 > `Field(default=...)` **obligatorio**: un preset no puede encender `governance` sin inventar un
 > `DATO-INSTITUCIONAL`, que es justo lo que `AGENTS.md` prohíbe. Recaptura de la demo **no** incluida:
 > exige su propio OK (D-GOB-9).
+
+> **La gobernanza tiene que ser VISIBLE en la interfaz (2026-09-02, 🟡 PROPUESTA — PENDIENTE DE
+> OK, NO IMPLEMENTADA).**
+> [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md),
+> D-GOB-10…D-GOB-16. Cierra el **abierto 1 de D-GOB** —el último resto del bloqueador 3—, medido
+> sobre la interfaz **en ejecución**. ⚠️ **Medir corrigió dos afirmaciones del registro**: (1)
+> «`build_full_json_schema` nunca expande las secciones INFRA» es **falso** —expande
+> `_DOMAIN_CONFIG_CLASSES`, y **`report` está ahí siendo INFRA**, con formulario en los 10
+> trabajos—, así que entregarlo **no** cambia el tratamiento de INFRA ni mueve el `config_hash`;
+> (2) «no hay ruta de UI para encender `governance`» es **demasiado fuerte** —importar un YAML la
+> enciende hoy: corrida real `4b04cbde…` por el navegador, con card de **24 métricas y 41
+> decisiones** en `GET /api/results`—. La capacidad es **alcanzable pero indescubrible**, y aun
+> encendida **no se pinta en ninguna superficie**: ni la pantalla de Resultados, ni el bundle, ni el
+> informe —cuya única ocurrencia de `model_card` es la `CardSection` `model.model_card` del anexo
+> C.4, otra cosa—. 🔴 **Y el atajo obvio está medido y descartado**: `governance` no puede entrar a
+> `_DOMAIN_CONFIG_CLASSES` como `report` porque `_DEFAULT_DOMAIN_ORDER` **deriva el pipeline** de esa
+> lista y `governance` no tiene `Step`; de ahí un mapa INFRA propio (D-GOB-10). Las 13 descripciones
+> de `GovernanceConfig` pasan a ser **copy público** y se reescriben (D-GOB-13);
+> `scenario_log_filename` **no se expone** por inerte (D-GOB-14, D-SUB).
 
 ## Tandas de producción
 

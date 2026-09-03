@@ -32,7 +32,7 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
-| D-GOB-1…9 | Aprobada por Cami el 2026-08-28; D-GOB-1…8 implementadas y gateadas; D-GOB-9 (recaptura de la demo) **no ejecutada**, pide OK propio; abierto: la ruta de UI para `governance` | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) |
+| D-GOB-1…9 | Aprobada por Cami el 2026-08-28; D-GOB-1…8 implementadas y gateadas; ruptura D-GOB-7/8 **aceptada** por Cami el 2026-09-02; D-GOB-9 (recaptura de la demo) **no ejecutada**, pide OK propio; abiertos: el formulario de UI para `governance` y la superficie que pinte el card | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) |
 
 ## D-RDY — readiness integral
 
@@ -382,6 +382,17 @@ campo obligatorio y es lo que da `decisions` al model card. `GovernanceConfig.pu
 > Consecuencia: **D-GOB-9 deja de ser obligatoria por identidad**; sigue pendiente por contenido
 > (`model_card: null`), y conserva su OK propio.
 
+**D-GOB-7/8 · La ruptura de superficie estable queda ACEPTADA.** Ratificado por Cami el
+2026-09-02. Las dos decisiones juntas hacen que
+`nikodym.run(NikodymConfig.model_validate(get_preset(...)["config"]))` —sin `run_dir`— levante
+`ConfigError` en los **cuatro** presets, remedido sobre `3cad020`. Se acepta porque el
+comportamiento previo violaba SDD-03 §8 («una instancia por run») escribiendo el trail en el `cwd`
+de quien importa la librería, el error nombra el arreglo exacto y la ruptura ya está declarada en
+`## [No publicado]` del CHANGELOG con su antes/después. Se anuncia como cambio de comportamiento en
+la próxima release. Alternativas evaluadas y descartadas: ablandar D-GOB-7 a aviso —entrega una
+garantía más débil que la aprobada— y revertir `audit` en los presets —reabre el bloqueador 3 por
+su lado por defecto—.
+
 **D-GOB-9 · La demo se recaptura aparte, con su propio OK.** No ejecutada. Los tres fixtures siguen
 con `"model_card": null`, y eso se declara en vez de darse por resuelto.
 
@@ -397,18 +408,42 @@ para `clone()` de scikit-learn.
 
 ### Abiertos declarados de D-GOB
 
-1. 🔴 **La ruta de UI para `governance` no existe todavía.** D-GOB-8 dice que «la UI lo ofrece como
-   trabajo con `purpose` requerido», y eso **no** está entregado: `governance` aparece en cero de los
-   10 trabajos, y en el schema de la interfaz es un *stub* opaco (`{"default": null, "title",
-   "description"}`, sin `properties`) porque `build_full_json_schema` **nunca expande las secciones
-   INFRA**. Hacerlo alcanzable exige expandir una sección INFRA en la UI, dar `ui_widget`/`ui_group`
-   a los campos de `GovernanceConfig` —`purpose` no tiene ninguno—, cablearla a un trabajo y
-   regenerar los fixtures. Eso crea **copy público nuevo** (los tooltips derivados de Pydantic lo
-   son por `AGENTS.md`) y cambia el tratamiento de INFRA en la interfaz: es más de lo que la
-   enmienda midió, y por eso se eleva en vez de improvisarse.
+1. 🔴 **La ruta de UI para `governance` es un YAML, no un formulario.** D-GOB-8 dice que «la UI
+   lo ofrece como trabajo con `purpose` requerido», y ese **formulario** no está entregado:
+   `governance` aparece en cero de los 10 trabajos y en el schema de la interfaz es un *stub* opaco
+   (`{"default": null, "title", "description"}`, sin `properties`).
+
+   > 🔴 **Corrección medida el 2026-09-02.** La redacción anterior atribuía el *stub* a que
+   > `build_full_json_schema` «nunca expande las secciones INFRA», y decía que entregarlo «cambia el
+   > tratamiento de INFRA en la interfaz». **Las dos afirmaciones son falsas.** Lo que la función
+   > expande es exactamente `_DOMAIN_CONFIG_CLASSES` (22 entradas), y **`report` está ahí siendo
+   > INFRA**: se expande en el schema, es una de las 14 `CONFIG_SECTIONS` del front y se ve como
+   > «Informe» en el sidebar de los trabajos. Existe por tanto un precedente **entregado** de
+   > sección INFRA con formulario. `governance`, `audit` y `tracking` faltan de ambas listas, que es
+   > otra cosa: entregar el formulario no cambia el tratamiento de INFRA ni mueve el `config_hash`
+   > —`governance` sigue excluida por `INFRA_SECTIONS`, igual que `report`—.
+
+   > 🔴 **Y hay una ruta que SÍ existe hoy**, medida de punta a punta sobre la interfaz viva el
+   > 2026-09-02: importar un YAML con bloque `governance:` por «Cargar un YAML existente».
+   > `POST /api/config/from-yaml` lo conserva —y `to-yaml` lo devuelve—, el front guarda el config
+   > entero (nada lo poda) y `POST /api/run` lo envía. Corrida real del preset F1 con `governance`
+   > sobre `consumo_comportamiento` (6.000 filas), `run_id 4b04cbdeed9a45d5b701aabbb8760eff`: la
+   > interfaz rotula «El config activo viene de "f1-con-gobernanza.yaml"» y
+   > `GET /api/results/<run_id>` devuelve el card con **24 métricas, 41 decisiones**, las secciones
+   > CT-2 de `performance` y `stability`, y el `purpose` que escribió el usuario. La capacidad es
+   > por tanto **alcanzable pero indescubrible**, no inalcanzable.
+
+   Entregar el formulario exige: sumar `governance` a `_DOMAIN_CONFIG_CLASSES` y a
+   `CONFIG_SECTIONS`, dar `ui_widget`/`ui_group` a **8 de sus 13 campos** —los otros 5 ya los tienen,
+   en el grupo «Inventario»—, cablearla a uno o más trabajos y regenerar los fixtures. Eso crea
+   **copy público nuevo** (los tooltips derivados de Pydantic lo son por `AGENTS.md`), y las 8
+   descripciones que faltan están escritas para desarrollador —«clave del MLflow Registry»,
+   «SR 11-7», «True requiere el extra tracking», «JSONL append-only», «anti earnings-management»—,
+   así que hay que reescribirlas. Además `scenario_log_filename` nombra un archivo que D-GOB-6
+   decidió **no escribir**: exponerlo sería una subsección inerte (D-SUB).
    **La gobernanza sí es alcanzable desde `pip install` por código** —`nikodym.run(config,
    run_dir=...)` con una `GovernanceConfig` escribe el `model_card.json` completo, y hay gate sobre
-   el archivo en disco—; lo que falta es el formulario.
+   el archivo en disco—.
 
    🔴 **Y hay una segunda mitad, medida sobre la interfaz EN EJECUCIÓN: aunque se encienda
    `governance` por config, el model card no se pinta en ninguna parte.** Verificado el 2026-08-28
@@ -420,9 +455,22 @@ para `clone()` de scikit-learn.
    `lineage`, `model`, `performance`, `provisioning*`, `scorecard`, `stability`— y `model_card` no
    está entre ellas.
 
+   **Reconfirmado el 2026-09-02 sobre la pantalla renderizada**, no sólo sobre el bundle: en la
+   corrida `4b04cbde…` —con el card completo en su API— la pestaña «Resultados» no contiene
+   ninguna de trece expresiones buscadas («Model card», «Ficha del modelo», «Gobernanza»,
+   «Propósito», «Supuestos», «Limitaciones», `model_card`, `purpose`, `next_review`…) y su HTML
+   renderizado no menciona `model_card` ni una vez. **El informe tampoco lo lleva**: su única
+   ocurrencia de `model_card` es la `CardSection` `model.model_card` del anexo C.4 —el card del
+   modelo PD, otra cosa— y el `purpose` declarado por el usuario no aparece en el documento.
+
    Es decir: el dato llega hasta la API de la interfaz y **muere ahí**. Cerrar el bloqueador 3 por
-   el lado de la interfaz son por tanto **dos** trabajos, no uno: la ruta para encender la sección y
-   la superficie que muestre lo que produce. Ninguno estaba en la enmienda.
+   el lado de la interfaz son por tanto **dos** trabajos, no uno: el formulario que haga descubrible
+   la sección y la superficie que muestre lo que produce. Ninguno estaba en la enmienda.
+
+   ➡️ **Propuesta de cierre, pendiente del OK de Cami**:
+   [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md), D-GOB-10…D-GOB-16.
+   Cubre los dos trabajos, el copy público de los 13 campos y el mapa INFRA propio que exige el
+   hecho de que `governance` no tenga `Step`. **No está programada.**
 2. `AuditConfig.capture_environment` deja de estar inerte: D-GOB-6 obliga a escribir
    `environment.json`, y escribirlo con el campo en `False` habría sido ignorar el config. Es uno
    menos de los cinco campos inertes que §7 de la enmienda dejaba fuera; los otros cuatro siguen.
