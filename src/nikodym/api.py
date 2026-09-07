@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import tempfile
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,7 +21,9 @@ from nikodym.core.steps import ArtifactKey
 from nikodym.core.study import Study, _missing_backup_path, _replace_path
 from nikodym.governance import (
     GovernanceConfig,
+    GovernanceError,
     InventoryEntry,
+    ModelCard,
     ModelCardBuilder,
     ModelInventory,
     NullInventory,
@@ -214,6 +218,12 @@ def run(
     y entorno, y no card. ``scenario_log.jsonl`` del layout de SDD-03 §6 **no** se escribe: hoy no
     tiene ningún productor, y crear un archivo vacío para cumplir el layout sería teatro.
 
+    **Si ``run_dir`` ya contiene una corrida, no se mezcla con la nueva.** El layout se construye
+    en un hermano temporal y sustituye al destino sólo cuando está completo; la corrida previa se
+    aparta a un respaldo lateral (``.<nombre>.old.*``) que se conserva. Si algo falla antes de ese
+    punto —al ensamblar, durante la corrida o al escribir la evidencia—, la corrida previa queda
+    exactamente donde estaba.
+
     **Entrar por la mitad.** ``artifacts=`` permite traer resultados ya calculados. Las claves son
     las parejas ``(dominio, clave)`` declaradas en ``Step.requires``/``Step.provides``; hay que
     apagar en el config la sección que produciría cualquiera de las claves inyectadas. El tipo lo
@@ -228,41 +238,75 @@ def run(
     escrito a mano puede traer ``audit: null``, así que no dependa de él; y el lineage no guarda el
     error nunca (enmienda RUN-ERROR).
     """
-    destino = _preparar_run_dir(run_dir)
-    sink, inventory = assemble_run(config, run_dir=destino)
-    fallo_de_dominio = False
+    # La corrida entera se construye en un hermano temporal del `run_dir` y el destino sólo se
+    # sustituye con el artefacto completo (abierto 4 de D-GOB): ante cualquier excepción, de aquí
+    # hasta la consolidación, el temporal se descarta y la corrida previa queda donde estaba.
+    staging = _preparar_run_dir(run_dir)
+    destino = staging.workdir if staging is not None else None
     try:
-        governance_cfg = _governance_config(config.governance)
-        study = Study(config)
-        study.set_audit_sink(sink)
-        _inject_artifacts(study, artifacts or {})
+        sink, inventory = assemble_run(config, run_dir=destino)
+        fallo_de_dominio = False
         try:
-            study.run()
-        except NikodymError:
-            # Fallo esperado de dominio: el Study queda con status="failed" + lineage conservado
-            # (SDD-01 §7.3). No se propaga: se devuelve para inspección (D-UI-2).
-            fallo_de_dominio = True
-    finally:
-        # El sink pertenece a ``run`` desde que ``assemble_run`` lo entrega. Se cierra ante éxito,
-        # error de dominio y cualquier excepción inesperada, incluidos fallos al inyectar o al
-        # construir el Study. Además se cierra ANTES de leer el trail para la ModelCard.
-        _close_audit_sink(sink)
+            governance_cfg = _governance_config(config.governance)
+            study = Study(config)
+            study.set_audit_sink(sink)
+            _inject_artifacts(study, artifacts or {})
+            try:
+                study.run()
+            except NikodymError:
+                # Fallo esperado de dominio: el Study queda con status="failed" + lineage
+                # conservado (SDD-01 §7.3). No se propaga: se devuelve para inspección (D-UI-2).
+                fallo_de_dominio = True
+        finally:
+            # El sink pertenece a ``run`` desde que ``assemble_run`` lo entrega. Se cierra ante
+            # éxito, error de dominio y cualquier excepción inesperada, incluidos fallos al
+            # inyectar o al construir el Study. Además se cierra ANTES de leer el trail para la
+            # ModelCard.
+            _close_audit_sink(sink)
 
-    # La evidencia se escribe en los DOS caminos y en UN solo punto: el model card de una corrida
-    # fallida es explícitamente válido (SDD-03 §7.1.a) y es justo el que hay que conservar.
-    #
-    # ⚠️ Fuera del `finally` a propósito. Escribirlo allí, con el `return` del camino de fallo
-    # pendiente, dejaba que un error de disco REEMPLAZARA al `Study` que D-UI-2 promete devolver:
-    # un escritor de evidencia no puede convertir «corrida fallida, inspeccionable» en una
-    # excepción opaca. Aquí un fallo al escribir se propaga como lo que es, en los dos caminos.
-    if destino is not None:
-        _escribir_layout_del_run(study, config, destino)
+        # UN solo model card por corrida, compartido por el disco y el inventario (abierto 5 de
+        # D-GOB). Se construye sólo si alguien lo va a consumir: el layout en disco —también en
+        # fallo: el card de una corrida fallida es explícitamente válido (SDD-03 §7.1.a)— o la
+        # publicación, que sólo ocurre en éxito.
+        card: ModelCard | None = None
+        if governance_cfg is not None and (
+            destino is not None or (governance_cfg.publish_to_inventory and not fallo_de_dominio)
+        ):
+            card = _model_card_de_la_corrida(
+                study,
+                governance_cfg,
+                _audit_config(config.audit),
+                destino,
+                fallida=fallo_de_dominio,
+            )
+
+        # La evidencia se escribe en los DOS caminos y en UN solo punto.
+        #
+        # ⚠️ Fuera del `finally` a propósito. Escribirlo allí, con el `return` del camino de fallo
+        # pendiente, dejaba que un error de disco REEMPLAZARA al `Study` que D-UI-2 promete
+        # devolver: un escritor de evidencia no puede convertir «corrida fallida, inspeccionable»
+        # en una excepción opaca. Aquí un fallo al escribir se propaga como lo que es, en los dos
+        # caminos — y deja la corrida previa intacta, porque todavía no se consolidó nada.
+        if destino is not None:
+            _escribir_layout_del_run(study, config, destino, card)
+    except BaseException:
+        if staging is not None:
+            _abandonar_run_dir(staging)
+        raise
+    if staging is not None:
+        _consolidar_run_dir(staging)
     if fallo_de_dominio:
         return study
 
     if governance_cfg is not None and governance_cfg.publish_to_inventory:
-        entry = _build_inventory_entry(study, governance_cfg, config)
-        inventory.register(entry)
+        if card is None:
+            # Inalcanzable por construcción —en éxito el card se construye o su error se propaga—,
+            # pero una publicación pedida explícitamente nunca se degrada en silencio.
+            raise GovernanceError(
+                "governance.publish_to_inventory=True exige un model card y la corrida no produjo "
+                "ninguno."
+            )
+        inventory.register(_build_inventory_entry(card, governance_cfg))
     return study
 
 
@@ -291,36 +335,123 @@ def _resolver_trail(audit_cfg: AuditConfig, run_dir: Path | None) -> Path:
     )
 
 
-def _preparar_run_dir(run_dir: str | Path | None) -> Path | None:
-    """Crea el directorio de la corrida; aparta el previo si existe y no está vacío (D-GOB-6).
+@dataclass(frozen=True, slots=True)
+class _RunDirStaging:
+    """Dónde se construye una corrida (``workdir``) y qué directorio recibirá el resultado."""
 
-    La política de sobrescritura es la misma de ``Study.save``: el contenido anterior se **aparta**
-    a un respaldo lateral, no se mezcla. Mezclar dos corridas en un directorio produce un trail
-    concatenado y un model card que no corresponde a los artefactos de al lado, que es peor que
-    perder el previo.
+    destino: Path
+    workdir: Path
 
-    Por eso reutiliza ``_missing_backup_path``/``_replace_path`` de ``core.study`` en vez de
-    reimplementarlos: la enmienda pide LA MISMA política, y dos copias de ella divergirían en el
-    primer arreglo que tocara una sola.
+
+def _preparar_run_dir(run_dir: str | Path | None) -> _RunDirStaging | None:
+    """Reserva el hermano temporal donde se construye el layout de la corrida (D-GOB-6).
+
+    🔴 Antes creaba el destino directamente y, si ya tenía una corrida, la apartaba a un respaldo
+    lateral **antes** de saber si la nueva se construía: un error temprano —pedir inventario sin
+    el extra ``tracking``, por ejemplo— dejaba la ruta canónica vacía y la corrida previa sólo en
+    el respaldo, sin restaurar (abierto 4 de D-GOB). Era la política contraria a la de
+    ``Study.save``, que el propio docstring decía compartir.
+
+    Ahora la corrida entera —trail, entorno, card y ``study/``— se escribe en un hermano temporal
+    ``.<nombre>.*.tmp`` del destino, y el destino sólo se sustituye cuando el artefacto está
+    completo (:func:`_consolidar_run_dir`); ante cualquier excepción el temporal se descarta y el
+    destino queda intacto (:func:`_abandonar_run_dir`). Es el mecanismo de ``Study.save`` con sus
+    mismas primitivas (``_missing_backup_path``/``_replace_path`` de ``core.study``), para que las
+    dos políticas no diverjan en el primer arreglo que toque una sola.
     """
     if run_dir is None:
         return None
     destino = Path(run_dir)
-    if destino.exists() and any(destino.iterdir()):
-        _replace_path(destino, _missing_backup_path(destino))
-    destino.mkdir(parents=True, exist_ok=True)
-    return destino
+    if destino.exists() and not destino.is_dir():
+        raise ConfigError(f"run_dir '{destino}' existe y no es un directorio.")
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    workdir = Path(tempfile.mkdtemp(prefix=f".{destino.name}.", suffix=".tmp", dir=destino.parent))
+    return _RunDirStaging(destino=destino, workdir=workdir)
 
 
-def _escribir_layout_del_run(study: Study, config: NikodymConfig, destino: Path) -> None:
+def _consolidar_run_dir(staging: _RunDirStaging) -> None:
+    """Sustituye el destino por el artefacto completo; restaura el previo si el *swap* falla.
+
+    Una corrida previa no se mezcla ni se borra: se aparta a un respaldo lateral ``.<nombre>.old.*``
+    que **se conserva**. Es la única divergencia deliberada respecto de ``Study.save``, que descarta
+    el estudio previo tras el *swap*: el directorio de corrida lleva el audit-trail, evidencia que
+    SDD-03 §8 trata como *append-only*, y una librería no borra evidencia en silencio. Mezclarlas
+    sería peor: un trail concatenado junto a un model card que no corresponde a los artefactos de
+    al lado. En el doble fallo (falla el *swap* y también la restauración) la corrida previa queda
+    en el respaldo, igual que en ``Study.save``: se prioriza no perder datos.
+    """
+    destino, workdir = staging.destino, staging.workdir
+    respaldo: Path | None = None
+    try:
+        if destino.exists():
+            if any(destino.iterdir()):
+                respaldo = _missing_backup_path(destino)
+                _replace_path(destino, respaldo)
+            else:
+                # Un directorio vacío no es una corrida que apartar; ``os.replace`` no pisa
+                # directorios en Windows, así que se retira para que el swap sea el mismo en todas
+                # las plataformas.
+                destino.rmdir()
+        try:
+            _replace_path(workdir, destino)
+        except BaseException:
+            if respaldo is not None:
+                _replace_path(respaldo, destino)  # restaurar la corrida previa intacta
+            raise
+    except BaseException:
+        shutil.rmtree(workdir, ignore_errors=True)
+        raise
+
+
+def _abandonar_run_dir(staging: _RunDirStaging) -> None:
+    """Descarta el hermano temporal de una corrida que no llegó a completarse."""
+    shutil.rmtree(staging.workdir, ignore_errors=True)
+
+
+def _model_card_de_la_corrida(
+    study: Study,
+    governance_cfg: GovernanceConfig,
+    audit_cfg: AuditConfig | None,
+    run_dir: Path | None,
+    *,
+    fallida: bool,
+) -> ModelCard | None:
+    """Construye UNA sola vez el model card, con el trail resuelto contra ``run_dir`` (D-GOB-7).
+
+    🔴 Había dos: ``_escribir_layout_del_run`` construía el suyo con el trail resuelto contra el
+    directorio de la corrida y ``_build_inventory_entry`` otro con ``trail_filename`` **crudo**,
+    relativo al ``cwd``. Con el default ``audit_trail.jsonl`` el inventario recibía
+    ``decisions=[]`` y la limitación «audit-trail no disponible» mientras ``model_card.json`` en
+    disco llevaba las decisiones reales (abierto 5 de D-GOB). Ahora el card se construye aquí y lo
+    comparten disco e inventario: son, por construcción, el mismo objeto.
+
+    Devuelve ``None`` cuando una corrida **fallida** quedó demasiado parcial para un card válido:
+    ausente, no fabricado, el mismo criterio que la UI (SDD-23 §6/§8). Sobre una corrida en éxito
+    el ``NikodymError`` se propaga: un card que no se puede construir tras un ``done`` es un
+    contrato roto, no una corrida parcial.
+    """
+    trail = (
+        _resolver_trail(audit_cfg, run_dir) if audit_cfg is not None and audit_cfg.enabled else None
+    )
+    try:
+        return ModelCardBuilder(governance_cfg).build(study, trail_path=trail)
+    except NikodymError:
+        if not fallida:
+            raise
+        return None
+
+
+def _escribir_layout_del_run(
+    study: Study, config: NikodymConfig, destino: Path, card: ModelCard | None
+) -> None:
     """Escribe el layout de SDD-03 §6 en el directorio del run (D-GOB-6).
 
     Cada archivo depende de que su sección esté activa. Nada se fabrica para completar el layout:
     ``scenario_log.jsonl`` queda fuera porque no tiene productor, y decirlo es más honesto que
-    dejar un archivo vacío que aparenta un control que no corre.
+    dejar un archivo vacío que aparenta un control que no corre. El ``card`` llega ya construido
+    —es el mismo que recibe el inventario— o ``None`` si la corrida no lo produjo.
     """
     audit_cfg = _audit_config(config.audit)
-    governance_cfg = _governance_config(config.governance)
 
     if audit_cfg is not None and audit_cfg.enabled and audit_cfg.capture_environment:
         from nikodym.audit.environment import capture_environment
@@ -331,21 +462,9 @@ def _escribir_layout_del_run(study: Study, config: NikodymConfig, destino: Path)
             encoding="utf-8",
         )
 
-    if governance_cfg is not None:
-        trail = (
-            _resolver_trail(audit_cfg, destino)
-            if audit_cfg is not None and audit_cfg.enabled
-            else None
-        )
-        try:
-            card = ModelCardBuilder(governance_cfg).build(study, trail_path=trail)
-        except NikodymError:
-            # Corrida demasiado parcial para una card válida: ausente, no fabricada. Es el mismo
-            # criterio que la UI (SDD-23 §6/§8); un card inventado sería peor que ninguno.
-            card = None
-        if card is not None:
-            (destino / "model_card.json").write_text(card.to_json(), encoding="utf-8")
-            (destino / "model_card.md").write_text(card.to_markdown(), encoding="utf-8")
+    if card is not None:
+        (destino / "model_card.json").write_text(card.to_json(), encoding="utf-8")
+        (destino / "model_card.md").write_text(card.to_markdown(), encoding="utf-8")
 
     if study.run_context.run_id is not None:
         # `Study.save` sustituye su directorio de forma atómica, así que va a un SUBdirectorio: si
@@ -387,17 +506,13 @@ def _close_audit_sink(sink: AuditSink) -> None:
         _close_audit_sink(child)
 
 
-def _build_inventory_entry(
-    study: Study, governance_cfg: GovernanceConfig, config: NikodymConfig
-) -> InventoryEntry:
+def _build_inventory_entry(card: ModelCard, governance_cfg: GovernanceConfig) -> InventoryEntry:
     """Deriva la ``InventoryEntry`` desde la ``ModelCard`` de un ``Study`` en éxito.
 
-    La ancla de idempotencia ``(model_name, config_hash)`` la aplica la implementación de
-    ``ModelInventory`` (SDD-04); aquí solo se compone la entrada completa que registrar.
+    El ``card`` es el mismo objeto que quedó en ``model_card.json`` (abierto 5 de D-GOB): aquí no
+    se reconstruye nada. La ancla de idempotencia ``(model_name, config_hash)`` la aplica la
+    implementación de ``ModelInventory`` (SDD-04); aquí solo se compone la entrada que registrar.
     """
-    audit_cfg = _audit_config(config.audit)
-    trail_path = audit_cfg.trail_filename if audit_cfg is not None and audit_cfg.enabled else None
-    card = ModelCardBuilder(governance_cfg).build(study, trail_path=trail_path)
     return InventoryEntry(
         model_name=governance_cfg.model_name,
         config_hash=card.config_hash,

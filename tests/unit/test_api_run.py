@@ -301,6 +301,48 @@ def test_run_publica_inventario_solo_en_exito(
     }
 
 
+def test_el_inventario_recibe_el_mismo_card_que_queda_en_disco(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Con ``run_dir`` y trail RELATIVO, el inventario y ``model_card.json`` llevan UN solo card.
+
+    🔴 Abierto 5 de D-GOB (revisión independiente del 2026-09-03): ``_escribir_layout_del_run``
+    resolvía el trail contra el ``run_dir`` (D-GOB-7) y ``_build_inventory_entry`` reconstruía
+    OTRO card con ``trail_filename`` crudo, relativo al ``cwd``. Con el default
+    ``audit_trail.jsonl`` el inventario recibía ``decisions=[]`` y la limitación «audit-trail no
+    disponible» mientras el archivo en disco llevaba las decisiones reales. El único test de la
+    publicación usaba una ruta absoluta y no comparaba decisiones: no podía verlo.
+
+    Aquí se recorre el ``assemble_run`` REAL —sólo se sustituye el extra ``tracking`` y el
+    inventario MLflow por un espía— y se comparan los dos cards íntegros, byte a byte.
+    """
+    parquet = tmp_path / "cartera.parquet"
+    _write_parquet(parquet)
+    destino = tmp_path / "corrida"
+    spy = _SpyInventory()
+    monkeypatch.setattr(api_module, "require_extra", lambda extra, *modules: (object(),))
+    monkeypatch.setattr(api_module, "MLflowInventory", lambda tracking_cfg: spy)
+    governance = GovernanceConfig(
+        model_name="scoring-f1",
+        purpose="Scorecard de comportamiento F1",
+        publish_to_inventory=True,
+    )
+    # `trail_filename` queda en su default RELATIVO: es el caso que dejaba el inventario sin
+    # decisiones. Ninguna advertencia «trail no disponible» puede salir (filterwarnings=error).
+    config = _full_f1_config(str(parquet), audit=AuditConfig(enabled=True), governance=governance)
+
+    study = api_module.run(config, run_dir=destino)
+
+    assert study.run_context.status == "done"
+    assert len(spy.entries) == 1
+    publicado = spy.entries[0].model_card
+    en_disco = (destino / "model_card.json").read_text(encoding="utf-8")
+    assert publicado.to_json() == en_disco, "disco e inventario tienen que llevar el MISMO card"
+    assert publicado.decisions, "el card publicado tiene que traer las decisiones del trail"
+    assert "audit-trail no disponible: decisiones no incluidas" not in publicado.limitations
+    assert spy.entries[0].run_id == study.run_context.run_id
+
+
 def test_run_no_publica_en_fallo(monkeypatch: pytest.MonkeyPatch) -> None:
     """Con ``publish_to_inventory`` pero corrida fallida NO se registra nada."""
     governance = GovernanceConfig(purpose="F1", publish_to_inventory=True)

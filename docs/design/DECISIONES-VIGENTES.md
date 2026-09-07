@@ -32,7 +32,7 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
-| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas, no implementadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y **tres puntos pendientes de re-elevación** (§8.1 de la enmienda: validación de `purpose` no vacío, capas 10 → 11/12/13/14 → 15/16, `governance` latente en el esqueleto de los trabajos); ninguna capa arranca hasta ese OK; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
+| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas, no implementadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y **tres puntos pendientes de re-elevación** (§8.1 de la enmienda: validación de `purpose` no vacío, capas 10 → 11/12/13/14 → 15/16, `governance` latente en el esqueleto de los trabajos); ninguna capa arranca hasta ese OK; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
 
 ## D-RDY — readiness integral
 
@@ -519,30 +519,44 @@ para `clone()` de scikit-learn.
    `purpose` del usuario no aparece, pese a que existe un capítulo «Limitaciones y supuestos».
    Entrar exige una enmienda propia contra SDD-26 (contrato de capítulos): no se cuela en
    D-GOB-10…16.
-4. 🔴 **`_preparar_run_dir` aparta el run anterior antes de saber si el reemplazo se construye**
-   (`api.py`, D-GOB-6). Mueve un destino no vacío a un respaldo lateral y crea el nuevo **antes** de
-   `assemble_run` y de la corrida; un error temprano —pedir inventario sin el extra `tracking`, por
-   ejemplo— deja la ruta canónica vacía y el run previo sólo en el respaldo, sin restaurar.
-   `Study.save` sí restaura el previo si falla el swap (`core/study.py:930`), y el docstring de
-   `_preparar_run_dir` afirma compartir esa política. Hallazgo de la revisión del 2026-09-03,
-   verificado por lectura. Arreglo: construir el layout en un directorio hermano temporal y
-   sustituir el destino sólo con el artefacto completo, restaurando ante cualquier excepción; gate
-   con un centinela previo y fallos inyectados en `assemble_run`, en la corrida y en la escritura.
-5. 🔴 **La entrada del inventario y `model_card.json` no son el mismo card.**
-   `_escribir_layout_del_run` resuelve el trail contra `run_dir` (D-GOB-7) y
-   `_build_inventory_entry` reconstruye otro card con `audit_cfg.trail_filename` **crudo**, relativo
-   al `cwd`: con el default `audit_trail.jsonl` el inventario recibe `decisions=[]` y la limitación
-   «trail ausente» mientras el archivo en disco lleva las decisiones reales. El único test
-   (`test_api_run.py::test_run_publica_inventario_solo_en_exito`) usa una ruta absoluta y no compara
-   decisiones. Verificado por lectura. Arreglo: un solo `ModelCard` con el trail ya resuelto,
-   reutilizado para disco e inventario; gate con `run_dir`, trail relativo y
-   `publish_to_inventory=True` comparando ambos cards íntegros.
-6. **El gate bidireccional de D-GOB-4 no cubre cinco métricas declaradas**
-   (`test_canal_metricas.py::test_toda_metrica_declarada_existe_en_el_codigo`): enumera seis
-   dominios escalares, para `performance` sólo exige algún `auc_*` —ni `gini_*` ni `ks_*`— y no
-   incluye `stability` (`worst_psi`, `worst_csi_value`). Quitar esos productores dejaría el gate
-   verde. Verificado por lectura. Arreglo: fixtures con `performance` y `stability` evaluables,
-   resolver cada plantilla con `is_declared_metric` y un control negativo por familia.
+4. ✅ **`_preparar_run_dir` apartaba el run anterior antes de saber si el reemplazo se construía**
+   (`api.py`, D-GOB-6). Movía un destino no vacío a un respaldo lateral y creaba el nuevo **antes**
+   de `assemble_run` y de la corrida; un error temprano —pedir inventario sin el extra `tracking`,
+   por ejemplo— dejaba la ruta canónica vacía y el run previo sólo en el respaldo, sin restaurar.
+   `Study.save` sí restaura el previo si falla el swap, y el docstring de `_preparar_run_dir`
+   afirmaba compartir esa política. Hallazgo de la revisión del 2026-09-03, verificado por lectura.
+   **Corregido el 2026-09-07 (S2a)**: la corrida entera se construye en un hermano temporal
+   `.<nombre>.*.tmp` y el destino se sustituye sólo con el artefacto completo
+   (`_consolidar_run_dir`); ante cualquier excepción el temporal se descarta y el destino queda
+   byte a byte como estaba. La corrida previa **se conserva** en el respaldo lateral
+   `.<nombre>.old.*` —única divergencia deliberada respecto de `Study.save`, que descarta el previo:
+   el `run_dir` lleva el audit-trail, evidencia append-only de SDD-03 §8, y una librería no la
+   borra en silencio—. Gates en `test_run_dir.py`: centinela previo y fallo inyectado en
+   `assemble_run`, en la corrida (con la comprobación, desde dentro, de que el destino sigue
+   intacto mientras corre), en la escritura de la evidencia y en el propio swap.
+5. ✅ **La entrada del inventario y `model_card.json` no eran el mismo card.**
+   `_escribir_layout_del_run` resolvía el trail contra `run_dir` (D-GOB-7) y
+   `_build_inventory_entry` reconstruía otro card con `audit_cfg.trail_filename` **crudo**, relativo
+   al `cwd`: con el default `audit_trail.jsonl` el inventario recibía `decisions=[]` y la
+   limitación «trail ausente» mientras el archivo en disco llevaba las decisiones reales. El único
+   test (`test_api_run.py::test_run_publica_inventario_solo_en_exito`) usaba una ruta absoluta y
+   no comparaba decisiones. Verificado por lectura. **Corregido el 2026-09-07 (S2a)**: un solo
+   `ModelCard` por corrida (`_model_card_de_la_corrida`), con el trail resuelto contra el
+   directorio de la corrida, compartido por disco e inventario. Gate:
+   `test_api_run.py::test_el_inventario_recibe_el_mismo_card_que_queda_en_disco`, con `run_dir`,
+   trail relativo y `publish_to_inventory=True` sobre el `assemble_run` real, comparando los dos
+   cards byte a byte.
+6. ✅ **El gate bidireccional de D-GOB-4 no cubría cinco métricas declaradas**
+   (`test_canal_metricas.py::test_toda_metrica_declarada_existe_en_el_codigo`): enumeraba seis
+   dominios escalares, para `performance` sólo exigía algún `auc_*` —ni `gini_*` ni `ks_*`— y no
+   incluía `stability` (`worst_psi`, `worst_csi_value`). Quitar esos productores dejaba el gate
+   verde. Verificado por lectura. **Corregido el 2026-09-07 (S2a)**: el oráculo es
+   `nikodym.testing.metrics.missing_declared_metrics`, que recorre toda la declaración y resuelve
+   cada plantilla con el mismo criterio que `is_declared_metric`; el fixture ejerce los ocho
+   dominios declarados (`performance` con `min_rows_per_partition=4`, `stability` con dos bins y
+   sin eje temporal, medido sobre el frame de 30 filas). Controles negativos automatizados: el
+   oráculo nombra exactamente cada una de las 18 entradas declaradas al retirarla, y quitar el
+   productor de cada una de las cinco familias del hallazgo pone rojo al gate nombrándola.
 
 ## Mapa de otros contratos aprobados
 

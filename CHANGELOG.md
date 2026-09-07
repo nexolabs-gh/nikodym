@@ -33,6 +33,11 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   **Sin `run_dir` no se escribe nada**, exactamente como antes. Una librería no debe empezar a
   dejar archivos en el directorio de trabajo de quien la importa.
 
+  Si el directorio ya tiene una corrida, la nueva no se mezcla con ella: se aparta a un respaldo
+  al lado y sólo cuando la corrida nueva está completa ocupa su lugar. Si algo falla antes —al
+  preparar la corrida, durante ella o al escribir la evidencia—, la corrida previa queda
+  exactamente donde estaba.
+
 - **Los cuatro ejemplos de fábrica traen la auditoría encendida.** Es lo que hace que el model card
   llegue con sus decisiones registradas en vez de una lista vacía. La gobernanza sigue **apagada**
   de fábrica a propósito: exige declarar el propósito del modelo, y ese dato sólo lo puede fijar la

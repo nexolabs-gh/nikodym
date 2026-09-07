@@ -22,6 +22,7 @@ misma deliberación que cualquier superficie firmada, no la preferencia de quien
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Final
 
 __all__ = [
@@ -30,7 +31,9 @@ __all__ = [
     "PARTITION_PLACEHOLDER",
     "declared_metric_names",
     "is_declared_metric",
+    "missing_declared_metrics",
     "orchestrable_domains",
+    "resolves_declared_metric",
 ]
 
 #: Marca, dentro de un nombre declarado, el tramo que se resuelve en tiempo de corrida con la
@@ -104,22 +107,56 @@ def declared_metric_names(domain: str) -> tuple[str, ...]:
     return DECLARED_METRICS.get(domain, ())
 
 
-def is_declared_metric(domain: str, name: str) -> bool:
-    """Indica si ``name`` (sin prefijo) está en la lista declarada de ``domain``.
+def resolves_declared_metric(declared: str, name: str) -> bool:
+    """Indica si el nombre publicado ``name`` (sin prefijo) resuelve la entrada ``declared``.
 
-    Resuelve :data:`PARTITION_PLACEHOLDER` contra cualquier identidad de partición no vacía, que es
-    lo que permite declarar ``auc_<particion>`` una vez en vez de enumerar particiones que sólo el
-    config de cada institución conoce.
+    Una entrada literal se resuelve por igualdad. Una plantilla con :data:`PARTITION_PLACEHOLDER`
+    se resuelve contra cualquier identidad de partición **no vacía**, que es lo que permite
+    declarar ``auc_<particion>`` una vez en vez de enumerar particiones que sólo el config de cada
+    institución conoce. Es el único punto donde se define «resolver»: lo comparten
+    :func:`is_declared_metric` (¿lo publicado está declarado?) y :func:`missing_declared_metrics`
+    (¿lo declarado se publicó?), para que los dos sentidos del gate midan lo mismo.
     """
-    for declarada in declared_metric_names(domain):
-        if PARTITION_PLACEHOLDER not in declarada:
-            if declarada == name:
-                return True
-            continue
-        prefijo, _, sufijo = declarada.partition(PARTITION_PLACEHOLDER)
-        if not name.startswith(prefijo) or not name.endswith(sufijo):
-            continue
-        resto = name[len(prefijo) : len(name) - len(sufijo) if sufijo else None]
-        if resto:
-            return True
-    return False
+    if PARTITION_PLACEHOLDER not in declared:
+        return declared == name
+    prefijo, _, sufijo = declared.partition(PARTITION_PLACEHOLDER)
+    if not name.startswith(prefijo) or not name.endswith(sufijo):
+        return False
+    resto = name[len(prefijo) : len(name) - len(sufijo) if sufijo else None]
+    return bool(resto)
+
+
+def is_declared_metric(domain: str, name: str) -> bool:
+    """Indica si ``name`` (sin prefijo) está en la lista declarada de ``domain``."""
+    return any(
+        resolves_declared_metric(declarada, name) for declarada in declared_metric_names(domain)
+    )
+
+
+def missing_declared_metrics(published: Iterable[str]) -> tuple[str, ...]:
+    """Enumera las entradas declaradas que ninguna clave publicada resuelve.
+
+    ``published`` son las claves planas del canal, ``"<dominio>.<metrica>"``; el resultado va en
+    la misma forma, con la entrada declarada tal cual (``"performance.gini_<particion>"``), en el
+    orden del registro. Es el sentido A del gate de D-GOB-4 —quitar del código una métrica que el
+    registro declara → rojo— hecho función, para que el gate y sus controles negativos por familia
+    midan exactamente lo mismo.
+
+    Una plantilla se da por resuelta si **alguna** clave publicada la resuelve: qué particiones
+    existen lo fija el config de cada institución, y una partición ``not_evaluable`` se omite por
+    diseño (D-GOB-2), así que exigir «todas» sería inventar la lista. 🔴 Hasta el 2026-09-07 el
+    gate enumeraba seis dominios a mano, para ``performance`` sólo pedía «algún ``auc_*``» y no
+    incluía ``stability``: quitar los productores de ``gini_*``, ``ks_*``, ``worst_psi`` o
+    ``worst_csi_value`` lo dejaba verde (abierto 6 de D-GOB).
+    """
+    nombres_por_dominio: dict[str, set[str]] = {}
+    for clave in published:
+        dominio, _, nombre = clave.partition(".")
+        nombres_por_dominio.setdefault(dominio, set()).add(nombre)
+    ausentes: list[str] = []
+    for dominio, declaradas in DECLARED_METRICS.items():
+        publicadas = nombres_por_dominio.get(dominio, set())
+        for declarada in declaradas:
+            if not any(resolves_declared_metric(declarada, nombre) for nombre in publicadas):
+                ausentes.append(f"{dominio}.{declarada}")
+    return tuple(ausentes)

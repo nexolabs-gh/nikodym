@@ -18,9 +18,10 @@ import pytest
 from _ui_f1 import full_f1_config, write_behavior_parquet
 
 import nikodym
+import nikodym.api as api_module
 from nikodym.audit.config import AuditConfig
 from nikodym.core.config import NikodymConfig
-from nikodym.core.exceptions import ConfigError
+from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.core.study import Study
 from nikodym.governance.config import GovernanceConfig
 
@@ -219,6 +220,150 @@ def test_un_run_dir_no_vacio_se_aparta_en_vez_de_mezclarse(fuente_f1: str, tmp_p
     assert ids == {segunda.run_context.run_id}, (
         "el trail de la segunda corrida no puede traer eventos de la primera"
     )
+
+    # La primera no se borra: queda apartada en un respaldo lateral, con su card intacto. Es la
+    # divergencia deliberada respecto de `Study.save` (el run_dir lleva evidencia de auditoría).
+    hermanos = _hermanos(destino)
+    assert len(hermanos) == 1 and hermanos[0].name.startswith(".reutilizado.old."), hermanos
+    apartado = json.loads((hermanos[0] / "model_card.json").read_text(encoding="utf-8"))
+    assert apartado["run_id"] == primera.run_context.run_id
+
+
+# ─────────── sustitución atómica: el destino sólo cambia con el artefacto completo ───────────
+#
+# Abierto 4 de D-GOB (revisión independiente del 2026-09-03): `_preparar_run_dir` apartaba la
+# corrida previa ANTES de saber si la nueva se construía, así que un fallo temprano dejaba la ruta
+# canónica vacía y la corrida previa sólo en el respaldo, sin restaurar. Cada gate de este bloque
+# planta un centinela, inyecta un fallo en un punto distinto del camino —ensamblado, corrida,
+# escritura de la evidencia y el propio swap— y exige que el destino quede byte a byte como estaba
+# y sin restos (ni temporal ni respaldo) al lado.
+
+
+def _corrida_previa_con_centinela(fuente: str, destino: Path) -> dict[str, bytes]:
+    """Deja una corrida completa en ``destino`` más un centinela ajeno, y devuelve su huella."""
+    config = _config_gobernada(fuente, governance=_gobernanza(), audit=AuditConfig(enabled=True))
+    study = nikodym.run(config, run_dir=destino)
+    assert study.run_context.status == "done"
+    (destino / "CENTINELA.txt").write_bytes(b"lo que habia antes")
+    return _huella(destino)
+
+
+def _huella(raiz: Path) -> dict[str, bytes]:
+    """Ruta relativa → bytes de cada archivo bajo ``raiz``, para comparar directorios íntegros."""
+    return {
+        str(ruta.relative_to(raiz)): ruta.read_bytes()
+        for ruta in sorted(raiz.rglob("*"))
+        if ruta.is_file()
+    }
+
+
+def _hermanos(destino: Path) -> list[Path]:
+    """Directorios junto a ``destino``: es donde viven el temporal y el respaldo lateral."""
+    return sorted(ruta for ruta in destino.parent.iterdir() if ruta != destino and ruta.is_dir())
+
+
+def _config_que_publica(fuente: str) -> NikodymConfig:
+    """Pide inventario: sin el extra ``tracking`` el ensamblado falla ANTES de correr nada."""
+    return _config_gobernada(
+        fuente,
+        governance=_gobernanza().model_copy(update={"publish_to_inventory": True}),
+        audit=AuditConfig(enabled=True),
+    )
+
+
+def test_un_fallo_al_ensamblar_deja_la_corrida_previa_donde_estaba(
+    fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """El caso exacto del hallazgo: pedir inventario sin el extra ``tracking``.
+
+    Es el fallo más temprano posible —``assemble_run`` levanta antes de construir el ``Study``— y
+    el que dejaba la ruta canónica vacía.
+    """
+    destino = tmp_path / "corrida"
+    huella = _corrida_previa_con_centinela(fuente_f1, destino)
+    hermanos = _hermanos(destino)
+
+    def sin_extra(extra: str, *modules: str) -> tuple[object, ...]:
+        raise MissingDependencyError(f"falta el extra {extra}")
+
+    monkeypatch.setattr(api_module, "require_extra", sin_extra)
+    with pytest.raises(MissingDependencyError, match="tracking"):
+        nikodym.run(_config_que_publica(fuente_f1), run_dir=destino)
+
+    assert _huella(destino) == huella, "la corrida previa tiene que quedar byte a byte como estaba"
+    assert _hermanos(destino) == hermanos, "ni temporal ni respaldo pueden quedar al lado"
+
+
+def test_un_fallo_inesperado_en_la_corrida_deja_la_corrida_previa_donde_estaba(
+    fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Una excepción que no es de dominio se propaga (D-UI-2) y no toca el destino.
+
+    Además comprueba, DESDE DENTRO de la corrida, que el destino sigue intacto mientras la corrida
+    está en marcha: la sustitución ocurre sólo con el artefacto completo, no al empezar.
+    """
+    destino = tmp_path / "corrida"
+    huella = _corrida_previa_con_centinela(fuente_f1, destino)
+    hermanos = _hermanos(destino)
+    config = _config_gobernada(fuente_f1, governance=_gobernanza(), audit=AuditConfig(enabled=True))
+
+    def revienta_a_mitad(self: Study) -> Study:
+        assert _huella(destino) == huella, "el destino no puede cambiar mientras la corrida corre"
+        raise RuntimeError("fallo inesperado a mitad de corrida")
+
+    monkeypatch.setattr(Study, "run", revienta_a_mitad)
+    with pytest.raises(RuntimeError, match="a mitad de corrida"):
+        nikodym.run(config, run_dir=destino)
+
+    assert _huella(destino) == huella
+    assert _hermanos(destino) == hermanos
+
+
+def test_un_fallo_al_escribir_la_evidencia_deja_la_corrida_previa_donde_estaba(
+    fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """La corrida termina bien y falla el disco al escribir el layout: el previo sigue intacto."""
+    destino = tmp_path / "corrida"
+    huella = _corrida_previa_con_centinela(fuente_f1, destino)
+    hermanos = _hermanos(destino)
+    config = _config_gobernada(fuente_f1, governance=_gobernanza(), audit=AuditConfig(enabled=True))
+
+    def disco_lleno(self: Study, path: str | Path) -> Path:
+        raise OSError("disco lleno al escribir study/")
+
+    monkeypatch.setattr(Study, "save", disco_lleno)
+    with pytest.raises(OSError, match="disco lleno"):
+        nikodym.run(config, run_dir=destino)
+
+    assert _huella(destino) == huella
+    assert _hermanos(destino) == hermanos
+
+
+def test_un_fallo_al_sustituir_restaura_la_corrida_previa(
+    fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Si el *swap* final falla, la corrida previa vuelve a su sitio (política de ``Study.save``).
+
+    Se hace fallar sólo el movimiento «temporal → destino»; el movimiento de restauración
+    «respaldo → destino» tiene que seguir funcionando para que el previo vuelva.
+    """
+    destino = tmp_path / "corrida"
+    huella = _corrida_previa_con_centinela(fuente_f1, destino)
+    hermanos = _hermanos(destino)
+    config = _config_gobernada(fuente_f1, governance=_gobernanza(), audit=AuditConfig(enabled=True))
+    mover = api_module._replace_path
+
+    def falla_el_swap_final(src: Path, dst: Path) -> None:
+        if src.name.endswith(".tmp"):  # temporal → destino
+            raise PermissionError("bloqueado al sustituir el destino")
+        mover(src, dst)
+
+    monkeypatch.setattr(api_module, "_replace_path", falla_el_swap_final)
+    with pytest.raises(PermissionError, match="al sustituir"):
+        nikodym.run(config, run_dir=destino)
+
+    assert _huella(destino) == huella, "el previo tiene que volver del respaldo lateral"
+    assert _hermanos(destino) == hermanos
 
 
 def test_una_corrida_fallida_deja_su_evidencia(tmp_path: Path) -> None:

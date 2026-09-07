@@ -398,7 +398,8 @@ la política de `Study.save`, que sí restaura); la entrada del inventario recon
 trail **relativo al `cwd`**, así que sale sin decisiones mientras `model_card.json` las tiene; y el
 gate de D-GOB-4 no exige `gini_*`, `ks_*`, `worst_psi` ni `worst_csi_value`. Los tres se corrigen
 en código, con su control negativo, **antes** de la primera capa, y quedan como abiertos 4–6 de
-D-GOB en el registro. Lo que sí pide un OK, porque cambia lo aprobado:
+D-GOB en el registro. **Corregidos el 2026-09-07 (S2a)**, con sus gates y controles negativos; el
+registro los cierra con el detalle. Lo que sí pide un OK, porque cambia lo aprobado:
 
 1. **¿Se añade a `GovernanceConfig.purpose` la validación «texto no vacío tras `strip()`»?** Sin
    ella D-GOB-12 es falsa (§0.6). Es un cambio de validación en una superficie experimental: un

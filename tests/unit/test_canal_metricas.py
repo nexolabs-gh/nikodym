@@ -22,11 +22,17 @@ from nikodym.core.study import Study
 from nikodym.governance.config import GovernanceConfig
 from nikodym.governance.exceptions import GovernanceError
 from nikodym.governance.model_card import ModelCardBuilder
+from nikodym.performance.config import PerformanceConfig
+from nikodym.performance.step import PerformanceStep
+from nikodym.stability.config import StabilityConfig
+from nikodym.stability.step import StabilityStep
 from nikodym.testing.metrics import (
     DECLARED_METRICS,
     DOMAINS_WITHOUT_METRICS,
     is_declared_metric,
+    missing_declared_metrics,
     orchestrable_domains,
+    resolves_declared_metric,
 )
 from nikodym.tracking.recorder import _metric_items
 
@@ -56,6 +62,24 @@ def _corrida_f1(fuente: str, *, min_rows_por_particion: int | None = None) -> St
                 )
             }
         )
+    return nikodym.run(config)
+
+
+def _corrida_f1_con_estabilidad(fuente: str) -> Study:
+    """Corre F1 con TODOS los dominios que declaran métricas, y todos evaluables.
+
+    Medido el 2026-09-07 sobre el frame de 30 filas: ``performance`` necesita
+    ``min_rows_per_partition=4`` para que sus tres particiones sean evaluables (con el default de
+    30 las tres salen ``not_evaluable`` y no aportan clave), y ``stability`` publica ``worst_psi``
+    y ``worst_csi_value`` con dos bins por comparación y sin eje temporal —el default ``period``
+    exigiría una columna de período que el frame no declara—.
+    """
+    config = full_f1_config(fuente).model_copy(
+        update={
+            "performance": PerformanceConfig(min_rows_per_partition=4),
+            "stability": StabilityConfig(psi_bins=2, csi_bins=2, temporal_axis="none"),
+        }
+    )
     return nikodym.run(config)
 
 
@@ -199,21 +223,103 @@ def test_el_nucleo_rechaza_una_clave_con_punto_del_dominio(
 def test_toda_metrica_declarada_existe_en_el_codigo(fuente_f1: str) -> None:
     """Sentido A: quitar del código una métrica que el registro declara → rojo.
 
-    Recorre la declaración y exige que la corrida la produzca. Es el sentido que detecta que
-    alguien dejó de publicar algo que el registro sigue prometiendo.
+    Recorre TODA la declaración —los seis dominios de escalares, las tres plantillas por partición
+    de ``performance`` y las dos reducciones de ``stability``— y exige que la corrida la produzca.
+    Es el sentido que detecta que alguien dejó de publicar algo que el registro sigue prometiendo.
+
+    🔴 Hasta el 2026-09-07 enumeraba seis dominios a mano, para ``performance`` sólo pedía «algún
+    ``auc_*``» y no incluía ``stability``: quitar los productores de ``gini_*``, ``ks_*``,
+    ``worst_psi`` o ``worst_csi_value`` lo dejaba verde (abierto 6 de D-GOB, hallazgo de la revisión
+    independiente del 2026-09-03). Ahora el oráculo es :func:`missing_declared_metrics`, resuelto
+    plantilla a plantilla, y sus controles negativos por familia están justo debajo.
     """
-    study = _corrida_f1(fuente_f1, min_rows_por_particion=4)
+    study = _corrida_f1_con_estabilidad(fuente_f1)
+    assert study.run_context.status == "done"
     publicadas = set(study.results["metrics"])
 
-    faltantes: list[str] = []
-    for dominio in ("data", "binning", "selection", "model", "scorecard", "calibration"):
-        for nombre in DECLARED_METRICS[dominio]:
-            if f"{dominio}.{nombre}" not in publicadas:
-                faltantes.append(f"{dominio}.{nombre}")
-    assert not faltantes, f"declaradas en el registro pero ausentes de la corrida: {faltantes}"
+    # El fixture tiene que ejercer TODOS los dominios declarados: un dominio que no corre no
+    # puede probar que publica.
+    dominios_activos = {clave.split(".", 1)[0] for clave in publicadas}
+    sin_ejercer = sorted(set(DECLARED_METRICS) - dominios_activos)
+    assert not sin_ejercer, f"dominios declarados que el fixture no ejerce: {sin_ejercer}"
 
-    # `performance` se declara por plantilla: se exige que se resuelva al menos una vez.
-    assert any(clave.startswith("performance.auc_") for clave in publicadas)
+    ausentes = missing_declared_metrics(publicadas)
+    assert ausentes == (), (
+        f"declaradas en el registro pero ausentes de la corrida: {list(ausentes)}"
+    )
+
+
+_ENTRADAS_DECLARADAS = [
+    (dominio, declarada)
+    for dominio, declaradas in DECLARED_METRICS.items()
+    for declarada in declaradas
+]
+
+
+@pytest.mark.parametrize(
+    ("dominio", "declarada"),
+    _ENTRADAS_DECLARADAS,
+    ids=[f"{dominio}.{declarada}" for dominio, declarada in _ENTRADAS_DECLARADAS],
+)
+def test_el_oraculo_nombra_exactamente_la_entrada_que_falta(
+    dominio: str, declarada: str, fuente_f1: str
+) -> None:
+    """Control negativo del sentido A sobre el oráculo, entrada por entrada.
+
+    Se corre el pipeline una vez y se retira del canal publicado cada familia declarada, una a la
+    vez: el oráculo tiene que nombrar **exactamente** esa entrada, ni una más ni una menos. Es lo
+    que garantiza que ``missing_declared_metrics`` no se ponga verde con holgura —que es como el
+    gate anterior dejó pasar cinco métricas— y que un rojo diga qué productor se calló.
+    """
+    publicadas = set(_corrida_f1_con_estabilidad(fuente_f1).results["metrics"])
+    sin_la_familia = {
+        clave
+        for clave in publicadas
+        if not (
+            clave.startswith(f"{dominio}.")
+            and resolves_declared_metric(declarada, clave.partition(".")[2])
+        )
+    }
+    assert sin_la_familia < publicadas, "la familia tiene que estar publicada para poder retirarla"
+
+    assert missing_declared_metrics(sin_la_familia) == (f"{dominio}.{declarada}",)
+
+
+@pytest.mark.parametrize(
+    ("paso", "dominio", "declarada"),
+    [
+        (PerformanceStep, "performance", "auc_<particion>"),
+        (PerformanceStep, "performance", "gini_<particion>"),
+        (PerformanceStep, "performance", "ks_<particion>"),
+        (StabilityStep, "stability", "worst_psi"),
+        (StabilityStep, "stability", "worst_csi_value"),
+    ],
+    ids=["auc", "gini", "ks", "worst_psi", "worst_csi_value"],
+)
+def test_quitar_el_productor_de_una_familia_pone_rojo_a_esa_familia(
+    paso: type[Any], dominio: str, declarada: str, fuente_f1: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Control negativo del sentido A sobre el PRODUCTOR, para las cinco familias del abierto 6.
+
+    Aquí el defecto se inyecta donde ocurriría de verdad —el ``metrics()`` del paso deja de
+    devolver una familia— y se recorre la puerta pública entera. Las cinco son exactamente las que
+    el gate anterior no vigilaba; la lección es que un gate que «exige algún ``auc_*``» no exige
+    ``gini_*`` ni ``ks_*``, y que un dominio que no corre en el fixture no puede ser vigilado.
+    """
+    original = paso.metrics
+
+    def metrics_sin_la_familia(self: Any, study: Study) -> dict[str, float | None]:
+        return {
+            nombre: valor
+            for nombre, valor in original(self, study).items()
+            if not resolves_declared_metric(declarada, nombre)
+        }
+
+    monkeypatch.setattr(paso, "metrics", metrics_sin_la_familia)
+    study = _corrida_f1_con_estabilidad(fuente_f1)
+
+    assert study.run_context.status == "done"
+    assert missing_declared_metrics(study.results["metrics"]) == (f"{dominio}.{declarada}",)
 
 
 def test_todo_dominio_orquestable_esta_clasificado() -> None:
