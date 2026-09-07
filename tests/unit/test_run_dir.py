@@ -24,6 +24,7 @@ from nikodym.core.config import NikodymConfig
 from nikodym.core.exceptions import ConfigError, MissingDependencyError
 from nikodym.core.study import Study
 from nikodym.governance.config import GovernanceConfig
+from nikodym.performance.step import PerformanceStep
 
 
 @pytest.fixture(autouse=True)
@@ -316,13 +317,19 @@ def test_un_fallo_inesperado_en_la_corrida_deja_la_corrida_previa_donde_estaba(
         nikodym.run(config, run_dir=destino)
 
     assert _huella(destino) == huella
+    # Aquí no llegó a haber evidencia (el fallo es anterior a `run_start`): no queda rastro. Cuando
+    # sí la hay, se conserva al lado — S2a-bis, más abajo.
     assert _hermanos(destino) == hermanos
 
 
 def test_un_fallo_al_escribir_la_evidencia_deja_la_corrida_previa_donde_estaba(
     fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """La corrida termina bien y falla el disco al escribir el layout: el previo sigue intacto."""
+    """La corrida termina bien y falla el disco al escribir el layout: el previo sigue intacto.
+
+    Lo que sí alcanzó a escribirse —trail y card— se conserva al lado (S2a-bis): la corrida
+    terminó y su evidencia no se borra porque el disco fallara después.
+    """
     destino = tmp_path / "corrida"
     huella = _corrida_previa_con_centinela(fuente_f1, destino)
     hermanos = _hermanos(destino)
@@ -336,16 +343,20 @@ def test_un_fallo_al_escribir_la_evidencia_deja_la_corrida_previa_donde_estaba(
         nikodym.run(config, run_dir=destino)
 
     assert _huella(destino) == huella
-    assert _hermanos(destino) == hermanos
+    nuevos = _nuevos_hermanos(destino, hermanos)
+    assert len(nuevos) == 1 and nuevos[0].name.startswith(".corrida.failed."), nuevos
+    assert (nuevos[0] / "audit_trail.jsonl").is_file()
+    assert (nuevos[0] / "model_card.json").is_file()
+    assert not (nuevos[0] / "study").exists(), "lo que no se escribió no se fabrica"
 
 
-def test_un_fallo_al_sustituir_restaura_la_corrida_previa(
+def test_un_fallo_al_sustituir_restaura_la_corrida_previa_y_conserva_la_nueva(
     fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Si el *swap* final falla, la corrida previa vuelve a su sitio (política de ``Study.save``).
+    """Si el *swap* final falla, la previa vuelve a su sitio y la nueva, completa, queda al lado.
 
-    Se hace fallar sólo el movimiento «temporal → destino»; el movimiento de restauración
-    «respaldo → destino» tiene que seguir funcionando para que el previo vuelva.
+    Se hace fallar sólo el movimiento «temporal → destino»; el de restauración «respaldo → destino»
+    y el que conserva la corrida nueva «temporal → ``.failed.*``» tienen que seguir funcionando.
     """
     destino = tmp_path / "corrida"
     huella = _corrida_previa_con_centinela(fuente_f1, destino)
@@ -354,16 +365,22 @@ def test_un_fallo_al_sustituir_restaura_la_corrida_previa(
     mover = api_module._replace_path
 
     def falla_el_swap_final(src: Path, dst: Path) -> None:
-        if src.name.endswith(".tmp"):  # temporal → destino
+        if src.name.endswith(".tmp") and dst == destino:  # temporal → destino
             raise PermissionError("bloqueado al sustituir el destino")
         mover(src, dst)
 
     monkeypatch.setattr(api_module, "_replace_path", falla_el_swap_final)
-    with pytest.raises(PermissionError, match="al sustituir"):
+    with pytest.raises(PermissionError, match="al sustituir") as excinfo:
         nikodym.run(config, run_dir=destino)
 
     assert _huella(destino) == huella, "el previo tiene que volver del respaldo lateral"
-    assert _hermanos(destino) == hermanos
+    nuevos = _nuevos_hermanos(destino, hermanos)
+    assert len(nuevos) == 1 and nuevos[0].name.startswith(".corrida.failed."), (
+        "la corrida completa que no pudo ocupar su sitio se conserva, no se borra"
+    )
+    conservada = json.loads((nuevos[0] / "model_card.json").read_text(encoding="utf-8"))
+    assert conservada["run_id"] != json.loads(huella["model_card.json"])["run_id"]
+    assert any(str(nuevos[0]) in nota for nota in getattr(excinfo.value, "__notes__", []))
 
 
 def test_una_corrida_fallida_deja_su_evidencia(tmp_path: Path) -> None:
@@ -408,3 +425,125 @@ def test_study_run_directo_sigue_sin_escribir_nada(
 
     assert study.run_context.status == "done"
     assert list(cwd.iterdir()) == []
+
+
+# ─────────── S2a-bis: hallazgos de la revisión adversarial de S2a (2026-09-07) ───────────
+#
+# Los dos son de la sustitución atómica recién construida. (1) `run` pasaba el temporal como
+# `run_dir` y `_resolver_trail` respetaba tal cual una ruta absoluta: un `trail_filename` absoluto
+# que apuntara DENTRO del run_dir abría en append el trail de la corrida previa mientras la nueva se
+# construía al lado. (2) El `except BaseException` descartaba el temporal con `rmtree`, y con él el
+# trail que ya llevaba `run_start`, las decisiones y el `run_end` con el diagnóstico: ante un fallo
+# que no es de dominio `run` no devuelve el `Study` (D-UI-2), así que ese trail era la ÚNICA
+# evidencia que sobrevivía. Antes de S2a quedaba en el propio run_dir.
+
+
+def _revienta_en_performance(self: PerformanceStep, study: Study, rng: object) -> object:
+    """Fallo que NO es de dominio, a mitad del pipeline: ya hubo decisiones y hay paso en curso."""
+    del self, study, rng
+    raise RuntimeError("se cayó el cómputo de performance")
+
+
+def _trail_absoluto_dentro(fuente: str, destino: Path) -> NikodymConfig:
+    """La ruta absoluta apunta al MISMO archivo que la previa dejó con el default relativo."""
+    return _config_gobernada(
+        fuente,
+        governance=_gobernanza(),
+        audit=AuditConfig(enabled=True, trail_filename=str(destino / "audit_trail.jsonl")),
+    )
+
+
+def _ids_de_corrida(trail: Path) -> set[str]:
+    """Los ``run_id`` que un trail declara en sus ``run_start``/``run_end``."""
+    return {
+        evento["payload"]["run_id"]
+        for evento in _eventos(trail)
+        if evento["kind"] in {"run_start", "run_end"}
+    }
+
+
+def _nuevos_hermanos(destino: Path, previos: list[Path]) -> list[Path]:
+    """Directorios que aparecieron junto a ``destino`` desde que se midió ``previos``."""
+    return [ruta for ruta in _hermanos(destino) if ruta not in previos]
+
+
+def test_un_trail_absoluto_dentro_del_run_dir_va_a_la_corrida_nueva_y_no_a_la_previa(
+    fuente_f1: str, tmp_path: Path
+) -> None:
+    """Hallazgo 1: la ruta absoluta se honra en el destino FINAL, no en la corrida que ya estaba.
+
+    La previa dejó su trail con el default relativo; la nueva pide, en absoluto, esa misma ruta.
+    """
+    destino = tmp_path / "corrida"
+    huella = _corrida_previa_con_centinela(fuente_f1, destino)
+    trail = destino / "audit_trail.jsonl"
+
+    segunda = nikodym.run(_trail_absoluto_dentro(fuente_f1, destino), run_dir=destino)
+
+    assert segunda.run_context.status == "done"
+    # El trail está donde la ruta absoluta dijo, y sólo con esta corrida.
+    assert trail.is_file(), "la corrida nueva tiene que publicar SU trail en la ruta pedida"
+    assert _ids_de_corrida(trail) == {segunda.run_context.run_id}
+    # La previa, apartada, sigue byte a byte como estaba: ni un evento ajeno en su trail.
+    hermanos = _hermanos(destino)
+    assert len(hermanos) == 1 and hermanos[0].name.startswith(".corrida.old."), hermanos
+    assert _huella(hermanos[0]) == huella, "el trail de la corrida previa no puede recibir eventos"
+    # …y el card de la nueva lee SU trail: tantas decisiones como ese trail declara, no las de dos.
+    card = json.loads((destino / "model_card.json").read_text(encoding="utf-8"))
+    decisiones = [evento for evento in _eventos(trail) if evento["kind"] == "decision"]
+    assert card["run_id"] == segunda.run_context.run_id
+    assert decisiones and len(card["decisions"]) == len(decisiones)
+
+
+def test_un_fallo_inesperado_con_trail_absoluto_dentro_del_run_dir_no_toca_la_corrida_previa(
+    fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hallazgo 1, camino de fallo: los eventos de la corrida fallida no caen en el trail previo."""
+    destino = tmp_path / "corrida"
+    huella = _corrida_previa_con_centinela(fuente_f1, destino)
+    hermanos = _hermanos(destino)
+    monkeypatch.setattr(PerformanceStep, "execute", _revienta_en_performance)
+
+    with pytest.raises(RuntimeError, match="se cayó el cómputo"):
+        nikodym.run(_trail_absoluto_dentro(fuente_f1, destino), run_dir=destino)
+
+    assert _huella(destino) == huella, "ni un evento de la corrida fallida puede caer en la previa"
+    nuevos = _nuevos_hermanos(destino, hermanos)
+    assert len(nuevos) == 1 and nuevos[0].name.startswith(".corrida.failed."), nuevos
+    ids_fallida = _ids_de_corrida(nuevos[0] / "audit_trail.jsonl")
+    assert ids_fallida and ids_fallida.isdisjoint(_ids_de_corrida(destino / "audit_trail.jsonl"))
+
+
+def test_un_fallo_inesperado_conserva_la_evidencia_de_la_corrida_fallida_al_lado(
+    fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hallazgo 2: el trail de una corrida que muere fuera del dominio no se borra.
+
+    ``run`` propaga la excepción sin devolver el ``Study`` (D-UI-2): el trail —``run_start``, las
+    decisiones y el ``run_end`` con el diagnóstico (D-ERR-10)— es lo único que queda, y queda al
+    lado del destino, que no se toca; la ruta viaja como nota de la excepción.
+    """
+    destino = tmp_path / "corrida"
+    huella = _corrida_previa_con_centinela(fuente_f1, destino)
+    hermanos = _hermanos(destino)
+    config = _config_gobernada(fuente_f1, governance=_gobernanza(), audit=AuditConfig(enabled=True))
+    monkeypatch.setattr(PerformanceStep, "execute", _revienta_en_performance)
+
+    with pytest.raises(RuntimeError, match="se cayó el cómputo") as excinfo:
+        nikodym.run(config, run_dir=destino)
+
+    assert _huella(destino) == huella
+    nuevos = _nuevos_hermanos(destino, hermanos)
+    assert len(nuevos) == 1 and nuevos[0].name.startswith(".corrida.failed."), (
+        "la evidencia de la corrida fallida tiene que conservarse al lado, no borrarse"
+    )
+    eventos = _eventos(nuevos[0] / "audit_trail.jsonl")
+    kinds = [evento["kind"] for evento in eventos]
+    assert "run_start" in kinds and "decision" in kinds
+    fin = [evento for evento in eventos if evento["kind"] == "run_end"]
+    assert len(fin) == 1 and fin[0]["payload"]["status"] == "failed"
+    assert fin[0]["payload"]["error_type"] == "RuntimeError"
+    assert "se cayó el cómputo de performance" in fin[0]["payload"]["error"]
+    assert fin[0]["payload"]["step"] == "performance"
+    # …y el llamador sabe dónde quedó: la ruta viaja como nota de la excepción.
+    assert any(str(nuevos[0]) in nota for nota in getattr(excinfo.value, "__notes__", []))

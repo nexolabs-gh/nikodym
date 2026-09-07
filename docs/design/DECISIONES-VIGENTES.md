@@ -534,6 +534,23 @@ para `clone()` de scikit-learn.
    borra en silencio—. Gates en `test_run_dir.py`: centinela previo y fallo inyectado en
    `assemble_run`, en la corrida (con la comprobación, desde dentro, de que el destino sigue
    intacto mientras corre), en la escritura de la evidencia y en el propio swap.
+
+   > 🔴 **Revisión adversarial de S2a (Codex, `8f650b8..21505b0`, 2026-09-07,
+   > `needs-attention`) y corrección S2a-bis el mismo día.** Dos hallazgos sobre la sustitución
+   > atómica recién construida, verificados y reproducidos con gates que nacieron rojos. (a) `run`
+   > pasaba el temporal como `run_dir` y `_resolver_trail` respetaba tal cual una ruta absoluta:
+   > un `trail_filename` absoluto **dentro** del `run_dir` abría en *append* el trail de la corrida
+   > previa mientras la nueva se construía al lado —un fallo contaminaba la evidencia anterior; un
+   > éxito publicaba una corrida sin trail con un card que leía las decisiones de las dos—. Ahora
+   > `_resolver_trail(audit_cfg, run_dir, workdir)` resuelve contra el destino definitivo y
+   > traslada al temporal todo lo que caiga dentro de él. (b) El `except BaseException` descartaba
+   > el temporal con `rmtree`, y con él el trail que ya llevaba `run_start`, las decisiones y el
+   > `run_end` con el diagnóstico (D-ERR-10): ante una excepción que no es de dominio `run` no
+   > devuelve el `Study` (D-UI-2), así que borraba la única evidencia que sobrevivía —que antes de
+   > S2a quedaba en el propio `run_dir`—. Ahora `_apartar_run_dir_fallido` conserva el temporal
+   > como hermano `.<nombre>.failed.*` si tiene evidencia —también la corrida completa cuyo *swap*
+   > falló— y anota la ruta en la excepción; sin evidencia no queda rastro. Cinco gates en
+   > `test_run_dir.py` (tres nuevos, dos reescritos) y controles negativos en ambos sentidos.
 5. ✅ **La entrada del inventario y `model_card.json` no eran el mismo card.**
    `_escribir_layout_del_run` resolvía el trail contra `run_dir` (D-GOB-7) y
    `_build_inventory_entry` reconstruía otro card con `audit_cfg.trail_filename` **crudo**, relativo

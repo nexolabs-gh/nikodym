@@ -36,7 +36,10 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   Si el directorio ya tiene una corrida, la nueva no se mezcla con ella: se aparta a un respaldo
   al lado y sólo cuando la corrida nueva está completa ocupa su lugar. Si algo falla antes —al
   preparar la corrida, durante ella o al escribir la evidencia—, la corrida previa queda
-  exactamente donde estaba.
+  exactamente donde estaba, y lo que la corrida fallida alcanzó a dejar —su audit-trail con el
+  diagnóstico del fallo, en particular— se conserva en un directorio hermano en vez de borrarse;
+  la excepción dice dónde quedó. Un audit-trail con ruta absoluta dentro del directorio de la
+  corrida se escribe en la corrida nueva, nunca en la que ya estaba.
 
 - **Los cuatro ejemplos de fábrica traen la auditoría encendida.** Es lo que hace que el model card
   llegue con sus decisiones registradas en vez de una lista vacía. La gobernanza sigue **apagada**

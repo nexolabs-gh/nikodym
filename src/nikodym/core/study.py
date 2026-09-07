@@ -195,9 +195,14 @@ def _replace_path(src: Path, dst: Path) -> None:
             time.sleep(_REPLACE_RETRY_BACKOFF_SECONDS)
 
 
-def _missing_backup_path(destino: Path) -> Path:
-    """Reserva y libera una ruta única inexistente para respaldos laterales."""
-    respaldo = Path(tempfile.mkdtemp(prefix=f".{destino.name}.old.", dir=destino.parent))
+def _missing_backup_path(destino: Path, *, etiqueta: str = "old") -> Path:
+    """Reserva y libera una ruta única inexistente para hermanos laterales de ``destino``.
+
+    ``etiqueta`` nombra al hermano: ``.<nombre>.old.*`` es el respaldo de lo que había;
+    ``.<nombre>.failed.*`` es lo que ``nikodym.run`` conserva de una corrida que no llegó a
+    consolidarse (``api._apartar_run_dir_fallido``).
+    """
+    respaldo = Path(tempfile.mkdtemp(prefix=f".{destino.name}.{etiqueta}.", dir=destino.parent))
     respaldo.rmdir()
     return respaldo
 

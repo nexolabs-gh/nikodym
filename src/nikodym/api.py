@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import tempfile
 from collections.abc import Iterable, Mapping
@@ -222,7 +223,11 @@ def run(
     en un hermano temporal y sustituye al destino sólo cuando está completo; la corrida previa se
     aparta a un respaldo lateral (``.<nombre>.old.*``) que se conserva. Si algo falla antes de ese
     punto —al ensamblar, durante la corrida o al escribir la evidencia—, la corrida previa queda
-    exactamente donde estaba.
+    exactamente donde estaba, y lo que la corrida fallida alcanzó a dejar —su audit-trail con el
+    diagnóstico del fallo, sobre todo— **se conserva al lado**, en ``.<nombre>.failed.*``, con la
+    ruta anotada en la excepción; si no llegó a haber evidencia, no queda rastro. Un
+    ``trail_filename`` absoluto que apunte dentro de ``run_dir`` se escribe también en el temporal
+    y ocupa su lugar con la consolidación: nunca toca la corrida previa.
 
     **Entrar por la mitad.** ``artifacts=`` permite traer resultados ya calculados. Las claves son
     las parejas ``(dominio, clave)`` declaradas en ``Step.requires``/``Step.provides``; hay que
@@ -240,11 +245,13 @@ def run(
     """
     # La corrida entera se construye en un hermano temporal del `run_dir` y el destino sólo se
     # sustituye con el artefacto completo (abierto 4 de D-GOB): ante cualquier excepción, de aquí
-    # hasta la consolidación, el temporal se descarta y la corrida previa queda donde estaba.
+    # hasta la consolidación, la corrida previa queda donde estaba y el temporal se aparta con la
+    # evidencia que alcanzó a tener, o se descarta si no tiene ninguna (S2a-bis).
     staging = _preparar_run_dir(run_dir)
-    destino = staging.workdir if staging is not None else None
+    destino = staging.destino if staging is not None else None
+    workdir = staging.workdir if staging is not None else None
     try:
-        sink, inventory = assemble_run(config, run_dir=destino)
+        sink, inventory = assemble_run(config, run_dir=destino, workdir=workdir)
         fallo_de_dominio = False
         try:
             governance_cfg = _governance_config(config.governance)
@@ -270,13 +277,14 @@ def run(
         # publicación, que sólo ocurre en éxito.
         card: ModelCard | None = None
         if governance_cfg is not None and (
-            destino is not None or (governance_cfg.publish_to_inventory and not fallo_de_dominio)
+            workdir is not None or (governance_cfg.publish_to_inventory and not fallo_de_dominio)
         ):
             card = _model_card_de_la_corrida(
                 study,
                 governance_cfg,
                 _audit_config(config.audit),
                 destino,
+                workdir,
                 fallida=fallo_de_dominio,
             )
 
@@ -287,11 +295,11 @@ def run(
         # devolver: un escritor de evidencia no puede convertir «corrida fallida, inspeccionable»
         # en una excepción opaca. Aquí un fallo al escribir se propaga como lo que es, en los dos
         # caminos — y deja la corrida previa intacta, porque todavía no se consolidó nada.
-        if destino is not None:
-            _escribir_layout_del_run(study, config, destino, card)
-    except BaseException:
+        if workdir is not None:
+            _escribir_layout_del_run(study, config, workdir, card)
+    except BaseException as exc:
         if staging is not None:
-            _abandonar_run_dir(staging)
+            _apartar_run_dir_fallido(staging, exc)
         raise
     if staging is not None:
         _consolidar_run_dir(staging)
@@ -310,7 +318,9 @@ def run(
     return study
 
 
-def _resolver_trail(audit_cfg: AuditConfig, run_dir: Path | None) -> Path:
+def _resolver_trail(
+    audit_cfg: AuditConfig, run_dir: Path | None, workdir: Path | None = None
+) -> Path:
     """Resuelve la ruta del audit-trail contra el directorio del run, nunca contra el ``cwd``.
 
     🔴 Antes esto era ``Path(audit_cfg.trail_filename)`` a secas, es decir **relativo al ``cwd``**,
@@ -322,17 +332,48 @@ def _resolver_trail(audit_cfg: AuditConfig, run_dir: Path | None) -> Path:
     Una ruta **absoluta** se sigue respetando tal cual: quien la escribe ya eligió dónde. Una ruta
     **relativa sin ``run_dir``** pasa a ser un error explícito en vez de escribir en el ``cwd`` en
     silencio — que es la clase de efecto lateral que una librería no debe tener.
+
+    ``workdir`` es el hermano temporal donde :func:`run` construye la corrida mientras ``run_dir``
+    todavía no se consolidó: todo trail que caiga **dentro** de ``run_dir`` —el relativo, y también
+    un absoluto que apunte ahí— se escribe en ``workdir`` y ocupa su lugar definitivo con la
+    consolidación. 🔴 Antes ``run`` pasaba el temporal como ``run_dir`` y una ruta absoluta dentro
+    del destino se respetaba tal cual: el sink abría en *append* el trail de la corrida previa
+    mientras la nueva se construía al lado, así que un fallo contaminaba la evidencia anterior y
+    un éxito publicaba una corrida sin trail, con un card que leía las decisiones de las dos
+    (revisión adversarial del 2026-09-07, S2a-bis).
     """
     trail = Path(audit_cfg.trail_filename)
-    if trail.is_absolute():
+    if not trail.is_absolute():
+        if run_dir is None:
+            raise ConfigError(
+                f"audit.enabled=True con trail_filename relativo ('{audit_cfg.trail_filename}') "
+                "y sin run_dir: no hay dónde escribir el audit-trail sin dejar archivos en el "
+                "directorio de trabajo. Pase run_dir= a nikodym.run(), o dé a trail_filename una "
+                "ruta absoluta."
+            )
+        trail = run_dir / trail
+    if workdir is None:
         return trail
-    if run_dir is not None:
-        return run_dir / trail
-    raise ConfigError(
-        f"audit.enabled=True con trail_filename relativo ('{audit_cfg.trail_filename}') y sin "
-        "run_dir: no hay dónde escribir el audit-trail sin dejar archivos en el directorio de "
-        "trabajo. Pase run_dir= a nikodym.run(), o dé a trail_filename una ruta absoluta."
-    )
+    if run_dir is None:
+        raise ValueError("workdir exige run_dir: no hay destino contra el que trasladar el trail.")
+    relativa = _relativa_a(trail, run_dir)
+    return workdir / relativa if relativa is not None else trail
+
+
+def _relativa_a(ruta: Path, raiz: Path) -> Path | None:
+    """Parte de ``ruta`` bajo ``raiz``, o ``None`` si no cae dentro. No toca el disco.
+
+    Compara rutas absolutas normalizadas —``os.path.normcase`` iguala mayúsculas y separadores en
+    Windows— y devuelve la parte relativa con la grafía original de ``ruta``.
+    """
+    partes_ruta = Path(os.path.abspath(ruta)).parts
+    partes_raiz = Path(os.path.abspath(raiz)).parts
+    if len(partes_ruta) <= len(partes_raiz):
+        return None
+    prefijo = partes_ruta[: len(partes_raiz)]
+    if [os.path.normcase(p) for p in prefijo] != [os.path.normcase(p) for p in partes_raiz]:
+        return None
+    return Path(*partes_ruta[len(partes_raiz) :])
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,8 +395,9 @@ def _preparar_run_dir(run_dir: str | Path | None) -> _RunDirStaging | None:
 
     Ahora la corrida entera —trail, entorno, card y ``study/``— se escribe en un hermano temporal
     ``.<nombre>.*.tmp`` del destino, y el destino sólo se sustituye cuando el artefacto está
-    completo (:func:`_consolidar_run_dir`); ante cualquier excepción el temporal se descarta y el
-    destino queda intacto (:func:`_abandonar_run_dir`). Es el mecanismo de ``Study.save`` con sus
+    completo (:func:`_consolidar_run_dir`); ante cualquier excepción el destino queda intacto y el
+    temporal se conserva al lado si tiene evidencia, o se descarta si no la tiene
+    (:func:`_apartar_run_dir_fallido`). Es el mecanismo de ``Study.save`` con sus
     mismas primitivas (``_missing_backup_path``/``_replace_path`` de ``core.study``), para que las
     dos políticas no diverjan en el primer arreglo que toque una sola.
     """
@@ -378,7 +420,9 @@ def _consolidar_run_dir(staging: _RunDirStaging) -> None:
     SDD-03 §8 trata como *append-only*, y una librería no borra evidencia en silencio. Mezclarlas
     sería peor: un trail concatenado junto a un model card que no corresponde a los artefactos de
     al lado. En el doble fallo (falla el *swap* y también la restauración) la corrida previa queda
-    en el respaldo, igual que en ``Study.save``: se prioriza no perder datos.
+    en el respaldo, igual que en ``Study.save``: se prioriza no perder datos. Y la corrida nueva,
+    completa, que no pudo ocupar su sitio se conserva al lado (:func:`_apartar_run_dir_fallido`):
+    tampoco ella se borra.
     """
     destino, workdir = staging.destino, staging.workdir
     respaldo: Path | None = None
@@ -396,16 +440,54 @@ def _consolidar_run_dir(staging: _RunDirStaging) -> None:
             _replace_path(workdir, destino)
         except BaseException:
             if respaldo is not None:
-                _replace_path(respaldo, destino)  # restaurar la corrida previa intacta
+                try:
+                    _replace_path(respaldo, destino)  # restaurar la corrida previa intacta
+                except BaseException as fallo_de_restauracion:
+                    fallo_de_restauracion.add_note(
+                        f"La corrida previa quedó en el respaldo lateral '{respaldo}'."
+                    )
+                    raise
             raise
-    except BaseException:
-        shutil.rmtree(workdir, ignore_errors=True)
+    except BaseException as exc:
+        _apartar_run_dir_fallido(staging, exc)
         raise
 
 
-def _abandonar_run_dir(staging: _RunDirStaging) -> None:
-    """Descarta el hermano temporal de una corrida que no llegó a completarse."""
-    shutil.rmtree(staging.workdir, ignore_errors=True)
+def _apartar_run_dir_fallido(staging: _RunDirStaging, exc: BaseException) -> None:
+    """Cierra el temporal de una corrida que no llegó a consolidarse, sin borrar evidencia.
+
+    🔴 Antes se descartaba con ``rmtree`` en cualquier fallo (S2a). Pero si la corrida ya había
+    arrancado, el temporal lleva el audit-trail con ``run_start``, las decisiones y el ``run_end``
+    que registra el diagnóstico del fallo (D-ERR-10): ante una excepción que no es de dominio
+    —un ``RuntimeError`` de un paso, un ``KeyboardInterrupt``, un disco lleno al escribir la
+    evidencia— :func:`run` la propaga sin devolver el ``Study`` (D-UI-2), así que ese trail era la
+    ÚNICA evidencia que sobrevivía, y se borraba. Antes de S2a quedaba en el propio ``run_dir``.
+    Hallazgo de la revisión adversarial del 2026-09-07 (S2a-bis).
+
+    Política: si el temporal no tiene evidencia —ningún archivo con contenido: el fallo ocurrió
+    antes de emitir nada—, se descarta y no queda rastro. Si la tiene, se conserva como hermano
+    ``.<nombre>.failed.*`` del destino —que no se toca— y la ruta se anota en la excepción
+    (``BaseException.add_note``), que es lo único que el llamador recibe. Si ni siquiera se puede
+    renombrar, el temporal se queda donde está y se anota esa ruta: nunca se borra.
+    """
+    workdir, destino = staging.workdir, staging.destino
+    if not _hay_evidencia(workdir):
+        shutil.rmtree(workdir, ignore_errors=True)
+        return
+    conservada = _missing_backup_path(destino, etiqueta="failed")
+    try:
+        _replace_path(workdir, conservada)
+    except OSError:
+        conservada = workdir
+    exc.add_note(
+        f"La evidencia de la corrida fallida se conservó en '{conservada}' y no reemplazó a "
+        f"'{destino}'."
+    )
+
+
+def _hay_evidencia(raiz: Path) -> bool:
+    """Comprueba si bajo ``raiz`` hay al menos un archivo con contenido."""
+    return any(ruta.is_file() and ruta.stat().st_size > 0 for ruta in raiz.rglob("*"))
 
 
 def _model_card_de_la_corrida(
@@ -413,10 +495,14 @@ def _model_card_de_la_corrida(
     governance_cfg: GovernanceConfig,
     audit_cfg: AuditConfig | None,
     run_dir: Path | None,
+    workdir: Path | None,
     *,
     fallida: bool,
 ) -> ModelCard | None:
     """Construye UNA sola vez el model card, con el trail resuelto contra ``run_dir`` (D-GOB-7).
+
+    El trail se lee de donde la corrida lo está escribiendo: ``workdir`` mientras la corrida se
+    construye (:func:`_resolver_trail`), que es antes de consolidar.
 
     🔴 Había dos: ``_escribir_layout_del_run`` construía el suyo con el trail resuelto contra el
     directorio de la corrida y ``_build_inventory_entry`` otro con ``trail_filename`` **crudo**,
@@ -431,7 +517,9 @@ def _model_card_de_la_corrida(
     contrato roto, no una corrida parcial.
     """
     trail = (
-        _resolver_trail(audit_cfg, run_dir) if audit_cfg is not None and audit_cfg.enabled else None
+        _resolver_trail(audit_cfg, run_dir, workdir)
+        if audit_cfg is not None and audit_cfg.enabled
+        else None
     )
     try:
         return ModelCardBuilder(governance_cfg).build(study, trail_path=trail)
@@ -442,14 +530,16 @@ def _model_card_de_la_corrida(
 
 
 def _escribir_layout_del_run(
-    study: Study, config: NikodymConfig, destino: Path, card: ModelCard | None
+    study: Study, config: NikodymConfig, directorio: Path, card: ModelCard | None
 ) -> None:
-    """Escribe el layout de SDD-03 §6 en el directorio del run (D-GOB-6).
+    """Escribe el layout de SDD-03 §6 en ``directorio`` (D-GOB-6).
 
-    Cada archivo depende de que su sección esté activa. Nada se fabrica para completar el layout:
-    ``scenario_log.jsonl`` queda fuera porque no tiene productor, y decirlo es más honesto que
-    dejar un archivo vacío que aparenta un control que no corre. El ``card`` llega ya construido
-    —es el mismo que recibe el inventario— o ``None`` si la corrida no lo produjo.
+    ``directorio`` es donde la corrida se está construyendo —el hermano temporal, durante
+    :func:`run`—, no el destino definitivo. Cada archivo depende de que su sección esté activa.
+    Nada se fabrica para completar el layout: ``scenario_log.jsonl`` queda fuera porque no tiene
+    productor, y decirlo es más honesto que dejar un archivo vacío que aparenta un control que no
+    corre. El ``card`` llega ya construido —es el mismo que recibe el inventario— o ``None`` si la
+    corrida no lo produjo.
     """
     audit_cfg = _audit_config(config.audit)
 
@@ -457,19 +547,19 @@ def _escribir_layout_del_run(
         from nikodym.audit.environment import capture_environment
 
         entorno = capture_environment(packages=audit_cfg.tracked_packages)
-        (destino / "environment.json").write_text(
+        (directorio / "environment.json").write_text(
             json.dumps(entorno.model_dump(mode="json"), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 
     if card is not None:
-        (destino / "model_card.json").write_text(card.to_json(), encoding="utf-8")
-        (destino / "model_card.md").write_text(card.to_markdown(), encoding="utf-8")
+        (directorio / "model_card.json").write_text(card.to_json(), encoding="utf-8")
+        (directorio / "model_card.md").write_text(card.to_markdown(), encoding="utf-8")
 
     if study.run_context.run_id is not None:
         # `Study.save` sustituye su directorio de forma atómica, así que va a un SUBdirectorio: si
-        # escribiera en `destino` borraría el trail que la propia corrida acaba de dejar ahí.
-        study.save(destino / "study")
+        # escribiera en `directorio` borraría el trail que la propia corrida acaba de dejar ahí.
+        study.save(directorio / "study")
 
 
 def _artifact_values_for_check(
@@ -539,7 +629,7 @@ def _inventory_tags(governance_cfg: GovernanceConfig) -> dict[str, str]:
 
 
 def assemble_run(
-    config: NikodymConfig, *, run_dir: Path | None = None
+    config: NikodymConfig, *, run_dir: Path | None = None, workdir: Path | None = None
 ) -> tuple[AuditSink, ModelInventory]:
     """Construye el ``AuditSink`` compuesto y el inventario real/no-op de una corrida.
 
@@ -549,6 +639,8 @@ def assemble_run(
 
     ``run_dir`` es el directorio de la corrida (D-GOB-6): contra él se resuelve el nombre relativo
     del audit-trail. Sin él, un ``trail_filename`` relativo es un **error explícito** (D-GOB-7).
+    ``workdir`` es el hermano temporal donde :func:`run` construye la corrida antes de
+    consolidarla: todo trail que caiga dentro de ``run_dir`` se abre allí (:func:`_resolver_trail`).
     """
     audit_cfg = _audit_config(config.audit)
     governance_cfg = _governance_config(config.governance)
@@ -557,7 +649,7 @@ def assemble_run(
     sinks: list[AuditSink] = []
     try:
         if audit_cfg is not None and audit_cfg.enabled:
-            trail = _resolver_trail(audit_cfg, run_dir)
+            trail = _resolver_trail(audit_cfg, run_dir, workdir)
             sinks.append(JsonlAuditSink(trail, config=audit_cfg))
         if tracking_cfg is not None and tracking_cfg.enabled:
             sinks.append(TrackingSink(TrackingRecorder(tracking_cfg)))

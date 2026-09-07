@@ -225,9 +225,9 @@ def _patch_assemble(
     """Reemplaza ``assemble_run`` para inyectar un sink y un inventario espía (sin extra mlflow)."""
 
     def fake_assemble(
-        config: NikodymConfig, *, run_dir: Path | None = None
+        config: NikodymConfig, *, run_dir: Path | None = None, workdir: Path | None = None
     ) -> tuple[AuditSink, ModelInventory]:
-        del config, run_dir
+        del config, run_dir, workdir
         return sink, inventory
 
     monkeypatch.setattr(api_module, "assemble_run", fake_assemble)
