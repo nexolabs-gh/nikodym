@@ -82,7 +82,8 @@ describe("sectionsOfJob (el trabajo decide qué secciones existen · D-JOB-1)", 
 
   it("un trabajo de provisión interna NO puede pintar binning ni el modelo", () => {
     const claves = sectionsOfJob(porId("provision_interna")).map((s) => s.key)
-    expect(claves).toEqual(["data", "provisioning_internal", "report"])
+    // `governance` cierra la lista en los diez trabajos (D-GOB-11), apagada: ver `jobSkeleton`.
+    expect(claves).toEqual(["data", "provisioning_internal", "report", "governance"])
   })
 
   it("conserva el orden CANÓNICO del pipeline, no el del catálogo", () => {
@@ -128,7 +129,41 @@ describe("jobSkeleton (elegir un trabajo siembra SU esqueleto · D-JOB-16)", () 
     // Sembrar con `{}` produciría una sección incompleta que el motor rechaza, y un config
     // inválido nada más entrar sería peor que uno apagado.
     const skeleton = jobSkeleton(vacio, porId("scorecard_pd"), undefined)
-    expect(skeleton).toEqual(vacio)
+    // …salvo la latente, que se apaga igual: es un `null` explícito, no una proyección.
+    expect(skeleton).toEqual({ ...vacio, governance: null })
+  })
+
+  it("🔴 una sección LATENTE se ofrece y se siembra en `null`, en los diez trabajos (D-GOB-11)", () => {
+    // El catálogo declara `governance` latente (§8.1-3): sin este paso, entrar por cualquier
+    // trabajo la sembraba encendida y con `purpose` pendiente, en los diez.
+    const conGovernance = {
+      version: 1,
+      sections: {
+        binning: { max_n_bins: { has_default: true, value: 8 } },
+        data: { schema: { strict: { has_default: true, value: false } } },
+        report: { output_dir: { has_default: true, value: "reports" } },
+        governance: { model_name: { has_default: true, value: "nikodym-model" } },
+      },
+      $defs: {},
+    } as never
+    for (const job of JOBS) {
+      expect(job.sections, job.id).toContain("governance")
+      expect(job.latent_sections, job.id).toEqual(["governance"])
+      const skeleton = jobSkeleton(vacio, job, conGovernance)
+      expect(skeleton.governance, job.id).toBeNull()
+    }
+  })
+
+  it("la latente se apaga también si el config traía la sección encendida (D-JOB-9)", () => {
+    // Dos usuarios que entran al mismo trabajo producen el mismo config: el `null` es explícito.
+    const traida = { ...vacio, governance: { purpose: "de otra sesión" } }
+    expect(jobSkeleton(traida, porId("scorecard_pd"), CATALOGO).governance).toBeNull()
+  })
+
+  it("una latente que el trabajo no ofrece no se toca", () => {
+    const raro: Job = { ...porId("scorecard_pd"), latent_sections: ["survival"] }
+    const skeleton = jobSkeleton({ ...vacio, survival: { method: "km" } }, raro, CATALOGO)
+    expect(skeleton.survival).toEqual({ method: "km" })
   })
 })
 
@@ -197,7 +232,8 @@ describe("jobForConfig (un YAML selecciona su trabajo · D-JOB-17)", () => {
     // config que el usuario ya tiene. Este test existe para que ese "arreglo" no se cuele.
     const job = jobForConfig(JOBS, { data: {}, report: {} })
     expect(job?.id).toBe("stress_testing")
-    expect(sectionsOfJob(job).map((s) => s.key)).toEqual(["data", "report"])
+    // `governance` va en los diez, también en el no disponible: se ve, apagada (D-GOB-11).
+    expect(sectionsOfJob(job).map((s) => s.key)).toEqual(["data", "report", "governance"])
   })
 })
 
@@ -332,9 +368,12 @@ describe("guardrail: el sidebar no puede volver a mapear el catálogo entero", (
 describe("decisiones obligatorias del trabajo (D-OBL-6)", () => {
   it("el catálogo bundleado las trae, y son las medidas", () => {
     // Si el fixture se quedara viejo, la tarjeta desaparecería sin que ningún test lo notara.
+    // La tercera es el propósito de la ficha (D-GOB-12): en los diez, porque los diez ofrecen la
+    // sección; DUERME mientras `governance` esté apagada (ver el bloque de D-GOB-11 al final).
     expect(porId("scorecard_pd").required_decisions.map((d) => d.path)).toEqual([
       "data.target.bad_rule",
       "data.partition.strategy",
+      "governance.purpose",
     ])
     // Los dos trabajos con survival preguntan cuatro cosas, no dos.
     expect(porId("pd_lifetime").required_decisions.map((d) => d.path)).toEqual([
@@ -342,6 +381,7 @@ describe("decisiones obligatorias del trabajo (D-OBL-6)", () => {
       "data.partition.strategy",
       "survival.input.duration_col",
       "survival.input.event_col",
+      "governance.purpose",
     ])
   })
 
@@ -362,20 +402,30 @@ describe("decisiones obligatorias del trabajo (D-OBL-6)", () => {
     expect(decisionStatuses(job, null, SIN_VEREDICTO)).toEqual([])
     expect(decisionStatuses(null, {}, SIN_VEREDICTO)).toEqual([])
 
-    // Config vacío: las dos pendientes.
-    expect(decisionStatuses(job, {}, SIN_VEREDICTO).map((d) => d.answered)).toEqual([false, false])
+    // Config vacío: las tres sin contestar. Las de `data` y la de `governance` DUERMEN —sus
+    // secciones no existen en este config—, y eso no es «contestada» (D-GOB-11).
+    expect(decisionStatuses(job, {}, SIN_VEREDICTO).map((d) => d.answered)).toEqual([
+      false,
+      false,
+      false,
+    ])
 
     // Una respondida con un valor FALSY explícito sigue siendo una respuesta del usuario: es el
     // mismo criterio de D-FX-7, y usar truthiness aquí volvería a confundir «vacío» con «ausente».
     const conFalsy = {
       data: { target: { bad_rule: null }, partition: { strategy: "" } },
     }
-    expect(decisionStatuses(job, conFalsy, SIN_VEREDICTO).map((d) => d.answered)).toEqual([true, true])
+    // La tercera es `governance.purpose`, dormida: su sección no está en el config.
+    expect(decisionStatuses(job, conFalsy, SIN_VEREDICTO).map((d) => d.answered)).toEqual([
+      true,
+      true,
+      false,
+    ])
 
     // Y una rama a medias no cuenta como respondida.
     expect(
       decisionStatuses(job, { data: { target: {} } }, SIN_VEREDICTO).map((d) => d.answered),
-    ).toEqual([false, false])
+    ).toEqual([false, false, false])
   })
 
   it("un trabajo sin decisiones no fabrica ninguna", () => {
@@ -807,7 +857,10 @@ describe("«Respondida» lo dice el motor, no sólo la forma del hueco (D-RES-1/
         partition: { strategy: { type: "random", dev_fraction: 0.7 } },
       },
     }
-    for (const estado of decisionStatuses(scorecard, bueno, { kind: "valid", hash: "h", pipeline: null })) {
+    const estados = decisionStatuses(scorecard, bueno, { kind: "valid", hash: "h", pipeline: null })
+    // `governance` no está en este config: su decisión duerme y no es un caso de este control.
+    expect(estados.filter((e) => e.dormant).map((e) => e.path)).toEqual(["governance.purpose"])
+    for (const estado of estados.filter((e) => !e.dormant)) {
       expect([estado.answered, estado.inProgress, estado.rejected], estado.path).toEqual([
         true,
         false,
@@ -1064,5 +1117,98 @@ describe("la jurisdicción sale del listado principal, sin perder ningún trabaj
     // listado principal. Lo que se exige es que haya DOS renders y que sean los de cada mitad.
     const receptores = [...bloque.matchAll(/([A-Za-z_$\]][\w$\]]*)\s*\.map\(/g)].map((m) => m[1])
     expect(receptores.sort()).toEqual(["estandar", "porJurisdiccion"])
+  })
+})
+
+describe("una decisión de una sección APAGADA duerme: no está pendiente (D-GOB-11 · §8.1-3)", () => {
+  const scorecard = porId("scorecard_pd")
+  const purpose = () =>
+    decisionStatuses(scorecard, config, SIN_VEREDICTO).find((d) => d.path === "governance.purpose")!
+  let config: Record<string, unknown> = {}
+
+  it("con `governance: null` la pregunta por el propósito duerme y no cuenta como pendiente", () => {
+    config = { data: {}, governance: null }
+    const estado = purpose()
+    expect(estado.dormant).toBe(true)
+    expect([estado.answered, estado.inProgress, estado.rejected]).toEqual([false, false, false])
+  })
+
+  it("🔴 encender la sección es lo que activa la pregunta: pasa a «sin responder»", () => {
+    config = { data: {}, governance: {} }
+    const estado = purpose()
+    expect(estado.dormant).toBe(false)
+    expect([estado.answered, estado.inProgress, estado.rejected]).toEqual([false, false, false])
+  })
+
+  it("y contestada con un propósito real, queda respondida", () => {
+    config = { data: {}, governance: { purpose: "Decidir la originación de consumo" } }
+    expect(purpose().answered).toBe(true)
+  })
+
+  it("vale para cualquier sección apagada, no sólo para la latente", () => {
+    // `survival` apagada a mano en «PD lifetime»: sus dos columnas tampoco se le reclaman a nadie.
+    const estados = decisionStatuses(porId("pd_lifetime"), { data: {}, survival: null }, SIN_VEREDICTO)
+    const survival = estados.filter((d) => d.path.startsWith("survival."))
+    expect(survival).toHaveLength(2)
+    expect(survival.every((d) => d.dormant && !d.answered)).toBe(true)
+    // Y las de `data`, con su sección encendida, siguen despiertas.
+    expect(estados.filter((d) => d.path.startsWith("data.")).every((d) => !d.dormant)).toBe(true)
+  })
+
+  it("`ConfigTab` excluye las dormidas de los dos contadores y no ofrece «Ir al campo»", () => {
+    // Vitest corre sin DOM: se vigila el fuente, como los otros guardrails de este archivo.
+    expect(configTabSource).toMatch(/!d\.answered && !d\.dormant/)
+    expect(configTabSource).toMatch(/decision\.dormant \? null : \(/)
+    expect(configTabSource).toMatch(/Se pregunta cuando actives la sección/)
+  })
+})
+
+describe("una decisión escalar sin formas está pendiente mientras el dato esté en blanco (D-GOB-12)", () => {
+  const scorecard = porId("scorecard_pd")
+  const purposeCon = (valor: unknown) =>
+    decisionStatuses(scorecard, { governance: { purpose: valor } }, SIN_VEREDICTO).find(
+      (d) => d.path === "governance.purpose",
+    )!
+
+  it("🔴 `purpose: \"\"` NO es un propósito: hasta ahora la presencia de la clave bastaba", () => {
+    for (const enBlanco of ["", "   ", "\t\n"]) {
+      const estado = purposeCon(enBlanco)
+      expect([estado.answered, estado.inProgress, estado.dormant], JSON.stringify(enBlanco)).toEqual([
+        false,
+        false,
+        false,
+      ])
+    }
+  })
+
+  it("con un carácter que no sea espacio, queda respondida", () => {
+    expect(purposeCon("x").answered).toBe(true)
+    expect(purposeCon("  Originación de consumo  ").answered).toBe(true)
+  })
+
+  it("y el criterio no toca a las decisiones CON formas: un `bad_rule` nulo sigue siendo respuesta", () => {
+    // D-FX-7: ahí manda la presencia y son los huecos de la forma los que dicen si falta algo.
+    const estados = decisionStatuses(
+      scorecard,
+      { data: { target: { bad_rule: null }, partition: { strategy: "" } } },
+      SIN_VEREDICTO,
+    )
+    expect(estados[0].answered).toBe(true)
+    expect(estados[1].answered).toBe(true)
+  })
+
+  it("el motor rechaza el blanco con el `loc` del campo y la tarjeta lo muestra como rechazada sólo si algo lo pasó", () => {
+    // Un `purpose` con texto que el motor rechazara por otro motivo caería en `rejected` como
+    // cualquier decisión: el veredicto del motor sigue siendo la otra mitad del criterio.
+    const rechazo: ValidationState = {
+      kind: "invalid",
+      count: 1,
+      lookup: new Map([["governance.purpose", "El propósito no puede quedar en blanco"]]),
+    }
+    const estado = decisionStatuses(scorecard, { governance: { purpose: "x" } }, rechazo).find(
+      (d) => d.path === "governance.purpose",
+    )!
+    expect(estado.rejected).toBe(true)
+    expect(estado.rejectionReasons).toEqual(["El propósito no puede quedar en blanco"])
   })
 })

@@ -403,7 +403,10 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
         },
       },
     }
-    for (const estado of decisionStatuses(validar, conPropuesta as Record<string, unknown>, SIN_VEREDICTO)) {
+    const estados = decisionStatuses(validar, conPropuesta as Record<string, unknown>, SIN_VEREDICTO)
+    // `governance.purpose` no es de este caso: su sección no está en el config y duerme (D-GOB-11).
+    expect(estados.filter((e) => e.dormant).map((e) => e.path)).toEqual(["governance.purpose"])
+    for (const estado of estados.filter((e) => !e.dormant)) {
       expect(
         [estado.answered, estado.inProgress],
         `${estado.path} quedó contestada sin gesto institucional`,
@@ -426,6 +429,7 @@ describe("pre-relleno cruzado desde un insumo externo (D-COL-8)", () => {
       },
     }
     for (const estado of decisionStatuses(validar, completo, SIN_VEREDICTO)) {
+      if (estado.dormant) continue // `governance` sigue apagada en este config
       expect([estado.answered, estado.inProgress]).toEqual([true, false])
     }
   })

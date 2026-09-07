@@ -13,6 +13,7 @@ import {
   ListFilter,
   Play,
   Scale,
+  ShieldCheck,
   Sigma,
   SlidersHorizontal,
   Table2,
@@ -80,6 +81,8 @@ const SECTION_ICONS: Record<string, LucideIcon> = {
   // informe. Esta sección lo CONFIGURA —incluida la portada que firma la institución—, y dos
   // entradas del sidebar con el mismo icono se leen como la misma pantalla.
   report: FileSignature,
+  // La ficha del modelo es la evidencia de gobierno de la corrida (D-GOB-11).
+  governance: ShieldCheck,
 }
 
 /** Secciones del flujo de nivel-app (SDD-23 §4.3), sin "Configuración" (que ahora se anida). */

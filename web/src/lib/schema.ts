@@ -169,6 +169,16 @@ export const CONFIG_SECTIONS: ConfigSectionDef[] = [
     description:
       "El entregable: portada, idioma, formatos de salida y qué capítulos exige el documento.",
   },
+  {
+    // Después del informe porque no es un paso del pipeline: describe la corrida, no la calcula
+    // (D-GOB-10: se expande por el mapa INFRA propio y no entra al `config_hash`). Está en los 10
+    // trabajos como `report` (D-GOB-11) y llega APAGADA —`latent_sections` del catálogo—: el
+    // motor no inventa un propósito, y encenderla es el gesto explícito que activa la pregunta.
+    key: "governance",
+    label: "Gobernanza",
+    description:
+      "La ficha del modelo: propósito, supuestos y limitaciones, inventario y periodicidad de revisión.",
+  },
 ]
 
 /** ¿El schema de una sección es renderable (tiene campos), no opaco? */

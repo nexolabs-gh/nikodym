@@ -130,6 +130,16 @@ export interface Job {
   sections: string[]
   /** Secciones que necesitaría y que el formulario NO ofrece hoy; por eso no está disponible. */
   missing_sections: string[]
+  /**
+   * Las de `sections` que el trabajo ofrece APAGADAS (D-GOB-11 · §8.1-3 de la enmienda).
+   *
+   * Se ven en el sidebar como cualquier otra, pero `jobSkeleton` las siembra en `null` en vez de
+   * con su proyección canónica: `governance` exige un propósito que el motor no puede inventar, y
+   * sembrarla encendida dejaría los diez trabajos con una decisión pendiente que hoy no piden.
+   * Encenderla desde su interruptor es lo que activa la pregunta. Lo declara el catálogo del
+   * backend, desde donde el gate de ejecutabilidad —que es Python— aplica la misma regla.
+   */
+  latent_sections: string[]
   /** Insumo que hay que traer de fuera, en lenguaje de negocio; `null` si ninguno. */
   external_input: string | null
   /**
@@ -324,9 +334,37 @@ export function jobSkeleton(
     if (canonica === undefined) continue
     skeleton[section] = canonicalProjection(canonica)
   }
+  apagarSeccionesLatentes(skeleton, job)
   aplicarOverridesDelTrabajo(skeleton, job)
   recortarCapitulosDelInforme(skeleton, job)
   return skeleton
+}
+
+/**
+ * Deja en `null` las secciones que el trabajo ofrece APAGADAS (D-GOB-11 · §8.1-3).
+ *
+ * 🔴 Sin esto, «apagada de fábrica» sólo era verdad para los presets: la proyección canónica de
+ * arriba siembra encendida toda sección del trabajo, y con `governance` en los diez, entrar por
+ * cualquiera la dejaba encendida y con `purpose` pendiente —ninguna corrida por trabajo arrancaba
+ * sin declarar un propósito—. Cami decidió «latente» el 2026-09-07: se ve, se siembra apagada, y
+ * encenderla es el gesto explícito que activa la pregunta.
+ *
+ * Se escribe el `null` y no se omite la clave, a propósito: dos usuarios que llegan al mismo
+ * trabajo tienen que producir el mismo config (D-JOB-9), también si uno traía esa sección
+ * encendida de un config anterior. Es el mismo trato que da `ConfigTab` al interruptor de sección.
+ *
+ * Va DESPUÉS de la proyección —pisa lo que ésta sembró— y ANTES de los overrides, que un gate del
+ * backend impide apuntar a una sección latente. La réplica de Python (`test_jobs_ejecutables.py`)
+ * reproduce los cuatro pasos en este orden, y un gate estático lo vigila.
+ */
+function apagarSeccionesLatentes(
+  skeleton: Record<string, unknown>,
+  job: Job,
+): void {
+  for (const section of job.latent_sections ?? []) {
+    if (!job.sections.includes(section)) continue
+    skeleton[section] = null
+  }
 }
 
 /**
@@ -445,6 +483,20 @@ export interface DecisionStatus extends RequiredDecision {
    * dejaría los demás sin ninguna superficie donde leerse.
    */
   rejectionReasons: string[]
+  /**
+   * Su sección está APAGADA en el config: no se pregunta y no cuenta como pendiente (D-GOB-11).
+   *
+   * 🔴 Existe porque `governance` es latente en los diez trabajos y su `purpose` es una decisión
+   * obligatoria (D-GOB-12): sin este estado, la tarjeta diría «sin responder» sobre una sección que
+   * el usuario no encendió, en los diez trabajos, y el contador de «quedan otras decisiones»
+   * arrastraría una que no aplica. Es la decisión de Cami del 2026-09-07 (§8.1-3 de la enmienda):
+   * una decisión de una sección apagada no está pendiente; encender la sección es lo que la activa.
+   *
+   * Excluyente con los otros tres: una sección apagada no tiene valor que evaluar. Se decide por el
+   * config y no por el catálogo —`config[sección]` es `null`—, así que vale igual para `survival`
+   * apagada a mano en «PD lifetime»: sus dos columnas tampoco se le reclaman a nadie.
+   */
+  dormant: boolean
 }
 
 /** Baja por un path con puntos y dice si la clave EXISTE, sin mirar su valor. */
@@ -470,9 +522,16 @@ function valueAtPath(root: unknown, path: string): unknown {
   return node
 }
 
-/** Un hueco sin rellenar: cadena vacía, nulo o colección vacía. */
+/**
+ * Un hueco sin rellenar: texto en blanco, nulo o colección vacía.
+ *
+ * Un texto de solo espacios cuenta como vacío: es el mismo criterio con que el motor normaliza
+ * `governance.purpose` (`strip()` y al menos un carácter, D-GOB-12), y un nombre de columna de
+ * puros espacios tampoco es una respuesta.
+ */
 function estaVacio(valor: unknown): boolean {
-  if (valor === "" || valor === null || valor === undefined) return true
+  if (valor === null || valor === undefined) return true
+  if (typeof valor === "string") return valor.trim() === ""
   if (Array.isArray(valor)) return valor.length === 0
   if (typeof valor === "object") return Object.keys(valor as object).length === 0
   return false
@@ -608,10 +667,28 @@ export function decisionStatuses(
 ): DecisionStatus[] {
   if (job === null || config === null) return []
   return job.required_decisions.map((decision) => {
-    const presente = hasAtPath(config, decision.path)
-    const pendientes = presente
-      ? huecosPendientes(decision, valueAtPath(config, decision.path))
-      : []
+    // Sección apagada (`null` o ausente): la decisión duerme y no se evalúa nada más (D-GOB-11).
+    const seccion = valueAtPath(config, decision.path.split(".")[0])
+    if (seccion === null || seccion === undefined) {
+      return {
+        ...decision,
+        answered: false,
+        inProgress: false,
+        rejected: false,
+        rejectionReasons: [],
+        dormant: true,
+      }
+    }
+    const valor = valueAtPath(config, decision.path)
+    // Una decisión que se contesta con UN dato —sin formas— está contestada cuando ese dato existe
+    // y no está en blanco (D-GOB-12): `purpose: ""` no es un propósito, y hasta el 2026-09-07 la
+    // presencia de la clave bastaba, así que la ficha se habría firmado sin propósito. Con formas,
+    // la presencia sigue mandando: un `bad_rule` que el usuario dejó explícitamente vacío es una
+    // respuesta suya, y son los huecos de su forma los que dicen si le falta algo.
+    const presente =
+      hasAtPath(config, decision.path) &&
+      (decision.answer_forms.length > 0 || !estaVacio(valor))
+    const pendientes = presente ? huecosPendientes(decision, valor) : []
     const faltanHuecos = pendientes.length > 0
     // El hueco gana al veredicto (D-RES-7): «te falta un dato» es más específico y más accionable
     // que «el motor lo rechaza», que casi siempre es su consecuencia. Sólo se pregunta por el motivo
@@ -624,6 +701,7 @@ export function decisionStatuses(
       inProgress: presente && faltanHuecos,
       rejected: presente && !faltanHuecos && motivos.length > 0,
       rejectionReasons: motivos,
+      dormant: false,
     }
   })
 }

@@ -212,11 +212,15 @@ describe("applyPreset (el ejemplo selecciona su trabajo · D-JOB-17)", () => {
  * `nikodym.ui.presets` que las secciones activas de los tres coinciden con las de aquí.
  *
  * ⚠️ **La demo estática cambia con esto, y es la decisión tomada** (por encima del «`job === null` a
- * propósito» de D-JOB-19): el escaparate deja de enseñar 14 secciones para el ejemplo de scorecard y
+ * propósito» de D-JOB-19): el escaparate deja de enseñar 15 secciones para el ejemplo de scorecard y
  * para el de IFRS 9. Lo que desaparece son exactamente las secciones que ese ejemplo trae APAGADAS
  * —pestañas vacías—, y el último test de este bloque lo asevera. El de provisiones no calza con
  * ningún trabajo (mezcla scorecard, CMF, método interno y la comparación, y no hay trabajo que cubra
- * los cuatro) y **sigue enseñando las 14**, por el criterio ya escrito en `jobForConfig`.
+ * los cuatro) y **sigue enseñando las 15**, por el criterio ya escrito en `jobForConfig`.
+ *
+ * 9 → 10 y 4 → 5 el 2026-09-07 con D-GOB-11: «Gobernanza» entra al sidebar de los diez trabajos,
+ * apagada (latente). No es una sección que el ejemplo traiga encendida —los cuatro presets la
+ * traen en `null`— y aun así se ve: es el gesto explícito del usuario el que la enciende.
  */
 describe("efecto medido sobre los tres ejemplos publicados (y sobre la demo estática)", () => {
   const CASOS: {
@@ -229,7 +233,7 @@ describe("efecto medido sobre los tres ejemplos publicados (y sobre la demo est�
       nombre: "F1 · scorecard",
       preset: presetF1Fixture as unknown as PresetResponse,
       job: "scorecard_pd",
-      secciones: 9,
+      secciones: 10,
     },
     {
       nombre: "F3 · provisiones (CMF + método interno)",
@@ -241,7 +245,7 @@ describe("efecto medido sobre los tres ejemplos publicados (y sobre la demo est�
       nombre: "F4 · IFRS 9",
       preset: presetF4Fixture as unknown as PresetResponse,
       job: "provisiones_ifrs9",
-      secciones: 4,
+      secciones: 5,
     },
   ]
 
@@ -268,7 +272,7 @@ describe("efecto medido sobre los tres ejemplos publicados (y sobre la demo est�
 
   it("ningún ejemplo deja el sidebar VACÍO (el único desenlace intolerable)", () => {
     // Un sidebar sin secciones sería un workspace sin formulario y sin salida. `sectionsOfJob`
-    // devuelve las 14 cuando no hay trabajo, así que el piso lo pone el trabajo más pequeño.
+    // devuelve las 15 cuando no hay trabajo, así que el piso lo pone el trabajo más pequeño.
     for (const caso of CASOS) {
       expect(caso.secciones).toBeGreaterThan(0)
     }

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react"
 import {
   CircleAlert,
   CircleCheck,
+  CircleDashed,
   CloudOff,
   Download,
   FilePlus2,
@@ -222,11 +223,14 @@ function RequiredDecisions({
   // tienen todas sus decisiones en `data`, que además es la primera sección del sidebar, así que en
   // la práctica se ven al entrar — que es lo que D-OBL-8 pide.
   const aqui = decisions.filter((d) => d.path.split(".")[0] === section)
+  // Una decisión DORMIDA —su sección está apagada— no cuenta como pendiente en ningún contador
+  // (D-GOB-11): ni aquí ni en el «quedan otras» de abajo. Encender la sección es lo que la activa.
   const fuera = decisions.filter(
-    (d) => d.path.split(".")[0] !== section && !d.answered,
+    (d) => d.path.split(".")[0] !== section && !d.answered && !d.dormant,
   ).length
   if (aqui.length === 0) return null
-  const pendientes = aqui.filter((d) => !d.answered).length
+  const pendientes = aqui.filter((d) => !d.answered && !d.dormant).length
+  const dormidas = aqui.filter((d) => d.dormant).length
   return (
     <section
       aria-labelledby="decisiones-obligatorias"
@@ -241,12 +245,19 @@ function RequiredDecisions({
       <p className="mt-1 text-xs text-muted-foreground">
         {pendientes > 0
           ? "Depende de tu cartera y de tu política, así que no traemos un valor por defecto."
-          : "Ya están todas respondidas; puedes cambiarlas cuando quieras."}
+          : dormidas === aqui.length
+            ? "Esta sección está desactivada: lo que decides aquí se pregunta al activarla."
+            : "Ya están todas respondidas; puedes cambiarlas cuando quieras."}
       </p>
       <ul className="mt-3 space-y-2.5">
         {aqui.map((decision) => (
           <li key={decision.path} className="flex items-start gap-2.5">
-            {decision.answered ? (
+            {decision.dormant ? (
+              <CircleDashed
+                className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+                aria-label="Se pregunta al activar la sección"
+              />
+            ) : decision.answered ? (
               <CircleCheck
                 className="mt-0.5 size-3.5 shrink-0 text-brand-cyan"
                 aria-label="Respondida"
@@ -272,6 +283,7 @@ function RequiredDecisions({
               {!decision.answered &&
               !decision.inProgress &&
               !decision.rejected &&
+              !decision.dormant &&
               decision.answer_forms.length > 0 ? (
                 <ul className="mt-2 space-y-1.5">
                   {decision.answer_forms.map((forma) => {
@@ -321,6 +333,13 @@ function RequiredDecisions({
                   Elegiste cómo contestarla; abajo te faltan los datos de tu cartera.
                 </p>
               ) : null}
+              {/* Dormida: no falta nada ni sobra nada, la sección está apagada. Se dice, en vez de
+                  pintar «sin responder» sobre algo que el usuario no encendió (D-GOB-11). */}
+              {decision.dormant ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Se pregunta cuando actives la sección con su interruptor.
+                </p>
+              ) : null}
               {/* Rechazada: no falta ningún dato, así que mandar «abajo» sería falso. Y el motivo
                   puede no estar marcado en ningún campo —el `loc` del motor lleva el tag del
                   discriminador, que ningún control tiene—, de modo que éste es el único sitio donde
@@ -334,14 +353,17 @@ function RequiredDecisions({
                   ))
                 : null}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="shrink-0 text-xs"
-              onClick={() => onFocus(decision.path)}
-            >
-              {decision.answered ? "Revisar" : decision.rejected ? "Corregir" : "Ir al campo"}
-            </Button>
+            {/* Con la sección apagada el control no está montado: no hay campo al que ir. */}
+            {decision.dormant ? null : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 text-xs"
+                onClick={() => onFocus(decision.path)}
+              >
+                {decision.answered ? "Revisar" : decision.rejected ? "Corregir" : "Ir al campo"}
+              </Button>
+            )}
           </li>
         ))}
       </ul>
