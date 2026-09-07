@@ -32,7 +32,7 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
-| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**, D-GOB-11…16 pendientes en ese orden; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
+| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; D-GOB-15/16 pendientes; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
 
 ## D-RDY — readiness integral
 
@@ -404,7 +404,8 @@ tres fixtures siguen con `"model_card": null`.
 **D-GOB-10…16 · La gobernanza tiene que ser VISIBLE en la interfaz.** Aprobadas por Cami el
 2026-09-03 tal como las redacta
 [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md); **D-GOB-10
-implementada el 2026-09-07 (S2b)**, D-GOB-11…16 no implementadas. En una línea cada una:
+implementada el 2026-09-07 (S2b)**, **D-GOB-11/12/13/14 implementadas el 2026-09-07 (S3)**,
+D-GOB-15/16 no implementadas. En una línea cada una:
 **D-GOB-10** `governance` se expande por un `_INFRA_CONFIG_CLASSES` propio
 en `core/study.py`, nunca por `_DOMAIN_CONFIG_CLASSES`, porque `_DEFAULT_DOMAIN_ORDER` deriva el
 pipeline de esa lista y `governance` no tiene `Step`; `_DEFAULT_DOMAIN_ORDER` y el `config_hash` no
@@ -457,6 +458,46 @@ consumidor que ningún censo nombró porque barre el **fixture**: el gate de por
 `_SECCIONES_CON_JURISDICCION` con su razón escrita —el campo enumera los motores
 (`scoring`/`cmf`/`ifrs9`) y el copy aprobado de D-GOB-13 también nombra CMF: evidencia del
 inventario, no titular—, y el control positivo del gate la sigue exigiendo como ofensora.
+
+**D-GOB-11/12/13/14 · Implementadas el 2026-09-07 (S3), juntas, con las respuestas 1 y 3 de
+§8.1.** `governance` es la **15.ª** entrada de `CONFIG_SECTIONS` —«Gobernanza», después de
+«Informe»— y cierra las `sections` de los **diez** trabajos. «Apagada de fábrica» quedó definida
+también para el esqueleto: el catálogo declara la latencia **por sección** (`_SECCIONES_LATENTES`
+en `ui/jobs.py`, con su razón) y la publica por trabajo como `latent_sections`; `jobSkeleton` gana
+un cuarto paso, `apagarSeccionesLatentes`, que siembra la sección en `null` explícito —también si
+el config traía la sección encendida, por D-JOB-9—, y su réplica Python y el ancla estática de
+`test_jobs_ejecutables.py` pasan de tres pasos a cuatro. `purpose` es la única decisión de la
+sección (`_DECISIONES_POR_SECCION["governance"]`, sin formas: se escribe, no se elige; pregunta y
+ayuda son frases del copy aprobado), y la tarjeta gana un cuarto estado excluyente, **`dormant`**:
+una decisión cuya sección está apagada en el config no se pregunta, no cuenta en ningún contador
+y no ofrece «Ir al campo»; se decide por el config y no por el catálogo, así que vale igual para
+`survival` apagada a mano. La validación de `purpose` en blanco vive en las tres capas: un
+`field_validator` en `GovernanceConfig` (normaliza con `strip()`, mensaje en español),
+`/api/validate` con `loc = ["governance", "purpose"]` y sin el prefijo inglés de Pydantic, y la
+tarjeta, donde una decisión escalar sin formas está pendiente mientras su dato esté en blanco
+—criterio nuevo: hasta entonces la presencia de la clave bastaba, y `purpose: ""` habría salido
+«contestada»—; `estaVacio` pasa a tratar un texto de solo espacios como vacío, para todos los
+huecos. Las 12 descripciones visibles son el texto de la tabla §3 palabra por palabra —el énfasis
+Markdown de «**no**» en `limitations` no viaja al tooltip—, los 8 campos sin widget lo ganan en tres
+grupos («Inventario», «Ficha del modelo», «Ajustes manuales»), `purpose` es `textarea`, y
+`scenario_log_filename` lleva `ui_widget: hidden`: sigue en el config por código y no aparece en el
+censo del formulario. Medido con baseline por `git archive` de `58ebc36`: golden del formulario
+**513 → 527** (0 desapariciones, 14 apariciones: 12 campos + `assumptions[]` y `limitations[]`),
+paridad **396 → 410** por los mismos 14, catálogo **1076 → 1076** y `$defs` 104 → 104, como
+predijo S2b; `config_hash` de los cuatro presets intacto. Consumidores que preguntan «¿qué ofrece el
+formulario?» pasan al loader de la unión (`test_jobs_decisiones`, `test_jobs_formas_de_respuesta`,
+`test_jobs_abanico`, `test_invariantes_previas`, `test_column_roles`, los espejos de
+`test_effective_defaults` y `ui/option_surface.py`), y lo que eso destapó se declaró con razón:
+`governance.{motor, fase, estado_validacion}` son tags descriptivos y no abanico (D-ABA-3; entran
+a `_DETAIL_POLICIES` y el ledger crece 475 → 491 pares), `governance` es exenta de invariantes
+previas («no corre ni declara columnas») y declara extra `None` en el gate de `[ui]`. **Una
+precisión de gate, no una relajación**: el tope de 160 caracteres del placeholder no aplica a un
+`textarea` porque `TextareaField` no pasa `placeholder` a su control —medido, y anclado al fuente
+del front para que vuelva a aplicar si eso cambia—; sin esa precisión el copy aprobado de `purpose`
+(162 caracteres) habría obligado a reescribirlo. Gates en `test_gobernanza_en_pantalla.py` (§6.4,
+§6.5, §6.6, §6.8, §6.10 en motor e interfaz, §6.11 en `/api/run`), `test_jobs_ejecutables.py`
+(latentes) y `web/src/lib/jobs.test.ts` (tarjeta: dormidas y escalar en blanco), con controles
+negativos en los tres sentidos que pedía la sesión. El abierto 1 de abajo se cierra con D-GOB-15/16.
 
 ### Defecto preexistente que D-GOB-8 destapó
 

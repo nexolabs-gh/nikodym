@@ -50,10 +50,25 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   `GET /api/schema` la entregaba como un bloque opaco —sin sus campos ni sus rangos— aunque el motor
   la validaba completa. Ahora viaja expandida, como el informe, sin convertirse en un paso del
   pipeline: la gobernanza describe la corrida, no la calcula, y la identidad de la corrida
-  (`config_hash`) no se mueve. El formulario que la haga descubrible en pantalla llega en una
-  versión posterior.
+  (`config_hash`) no se mueve.
+
+- **La gobernanza se ve en la interfaz: «Gobernanza» es una sección del formulario en los diez
+  trabajos.** Hasta ahora sólo se podía encender importando un YAML que la trajera. Llega
+  **apagada** —el motor sigue sin inventar un propósito— y encenderla con su interruptor activa la
+  pregunta «¿Para qué se va a usar este modelo y sobre qué cartera decide?» en el bloque «Esto lo
+  decides tú», junto a las decisiones sobre la cartera. Mientras la sección esté apagada esa
+  pregunta no cuenta como pendiente; con la sección encendida y el propósito en blanco, la corrida
+  no arranca y la tarjeta dice qué falta. Las descripciones de sus campos están escritas para quien
+  mira la pantalla, no para quien lee el código. El nombre del diario de escenarios no se ofrece:
+  ese archivo hoy no se escribe, y ofrecer su nombre sería un control sin efecto.
 
 ### Cambiado
+
+- **Un propósito en blanco ya no construye la gobernanza.** `governance.purpose` se guarda sin
+  espacios alrededor y exige al menos un carácter: un texto vacío, de solo espacios o de solo saltos
+  de línea se rechaza señalando el campo. Es la validación que hace verdadera la promesa de que la
+  ficha del modelo no se emite sin propósito. La superficie es experimental —fuera de la garantía
+  SemVer 1.x— y un config que traía el propósito vacío tiene que declararlo.
 
 - ⚠️ **Correr un ejemplo de fábrica por código ahora pide decir dónde va la evidencia.** Como los
   cuatro ejemplos traen la auditoría encendida, y el audit-trail ya no puede caer en el directorio

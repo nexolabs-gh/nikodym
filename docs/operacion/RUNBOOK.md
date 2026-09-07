@@ -1150,7 +1150,7 @@ Conteos que un `grep` ingenuo devuelve mal en este árbol. Medidos, no supuestos
 |---|---|---|---|
 | `TODO` pendientes en `src/nikodym` | 41 | **1** (`core/study.py:710`) | las constantes `METODO_*` de `core/dataset_check.py` contienen la subcadena `TODO` |
 | Deudas del motor `FALTA-DATO` | 56 | **10 códigos distintos** | 56 son *ocurrencias*; usar `grep -rhoE "FALTA-DATO-[A-Z0-9]+-[0-9]+" \| sort -u` |
-| Dominios cubiertos por la UI | varía | 15 secciones en 10 trabajos | las tuplas `sections` de `ui/jobs.py` son multilínea y el grep las parte: importar `_JOBS` con `.venv\Scripts\python.exe` y unir `sections` con `missing_sections` |
+| Dominios cubiertos por la UI | varía | 16 secciones en 10 trabajos (15 del formulario + `stress`, declarada faltante) | las tuplas `sections` de `ui/jobs.py` son multilínea y el grep las parte: importar `_JOBS` con `.venv\Scripts\python.exe` y unir `sections` con `missing_sections` |
 
 Distinguir siempre `FALTA-DATO` (deuda del motor) de `DATO-INSTITUCIONAL` (dato que sólo la
 institución fija, y por tanto diseño correcto): contarlos juntos infla la deuda y desvía el trabajo.

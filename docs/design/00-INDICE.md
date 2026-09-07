@@ -874,7 +874,7 @@ No autoriza START ni mueve la puerta global.
 > **La gobernanza tiene que ser VISIBLE en la interfaz (2026-09-02; ✅ APROBADA por Cami el
 > 2026-09-03; revisión independiente ejecutada el 2026-09-03 con sus hallazgos ya corregidos; los
 > tres puntos de su §8.1 respondidos el 2026-09-07; D-GOB-10 IMPLEMENTADA el 2026-09-07 —S2b—,
-> D-GOB-11…16 pendientes en el orden 11/12/13/14 → 15/16).**
+> D-GOB-11/12/13/14 IMPLEMENTADAS el 2026-09-07 —S3—, D-GOB-15/16 pendientes).**
 > [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md),
 > D-GOB-10…D-GOB-16. Cierra el **abierto 1 de D-GOB** —el último resto del bloqueador 3—, medido
 > sobre la interfaz **en ejecución**. ⚠️ **Medir corrigió dos afirmaciones del registro**: (1)

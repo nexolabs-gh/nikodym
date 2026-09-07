@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Familia** | D-GOB (continúa: D-GOB-10 … D-GOB-16) |
-| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **Revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): este documento se corrigió en §0.3–§0.6, §3, §6, §7 y §8.1. **Los tres puntos de §8.1 los respondió Cami el 2026-09-07** (sí, sí, latente). **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; siguen D-GOB-11/12/13/14 juntas y después D-GOB-15/16 |
+| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **Revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): este documento se corrigió en §0.3–§0.6, §3, §6, §7 y §8.1. **Los tres puntos de §8.1 los respondió Cami el 2026-09-07** (sí, sí, latente). **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; sigue D-GOB-15/16 |
 | **Depende de** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) (D-GOB-1…9), SDD-23 (interfaz), D-SUB, D-OBL, D-VIS, D-FX-8 |
 | **Lo consumen** | `ui/jobs.py`, `ui/presets.py`, `core/config/schema.py`, `web/src/lib/schema.ts`, `web/src/components/ResultsTab.tsx` |
 | **Autor / Fecha** | Claude Code · 2026-09-02 |
@@ -297,6 +297,35 @@ vacío sería teatro. Exponer en el formulario el nombre de un archivo que nunca
 precisamente lo que D-SUB prohíbe. El campo se queda en el config para quien lo use por código, y
 **fuera** de la superficie de la UI hasta que exista su productor.
 
+> 🔴 **Implementación medida el 2026-09-07 (S3), D-GOB-11/12/13/14 juntas.** Lo que el texto de
+> arriba deja abierto y la implementación fijó:
+>
+> - **El campo nuevo del catálogo (§8.1-3) se llama `latent_sections`.** La latencia se declara
+>   por sección en `ui/jobs.py` (`_SECCIONES_LATENTES`, con su razón) y `list_jobs` la publica por
+>   trabajo; `jobSkeleton` gana el paso `apagarSeccionesLatentes`, que escribe `null` explícito
+>   —no omite la clave— para que dos entradas al mismo trabajo produzcan el mismo config (D-JOB-9).
+>   Un gate impide que un override apunte a una sección latente.
+> - **El cambio de criterio de la tarjeta es un cuarto estado, `dormant`**, excluyente con los
+>   otros tres y decidido por el config (`config[sección]` en `null`), no por el catálogo: vale
+>   igual para `survival` apagada a mano en «PD lifetime». Una decisión dormida no cuenta en
+>   «Esto lo decides tú» ni en «quedan otras decisiones», y no ofrece «Ir al campo» porque el
+>   control no está montado.
+> - **La decisión escalar sin formas (§0.6-c)** está pendiente mientras su dato esté en blanco; y
+>   `estaVacio` trata un texto de solo espacios como vacío para todos los huecos, el mismo criterio
+>   que el `strip()` del motor.
+> - **D-GOB-13, dos detalles de presentación:** el énfasis Markdown de «**no**» en `limitations`
+>   no viaja al tooltip (las palabras son las mismas), y el tope de 160 caracteres del placeholder
+>   —`test_copy_del_formulario`— **no aplica a un `textarea`** porque `TextareaField` no pasa
+>   `placeholder` a su control: es una precisión del gate al front real, anclada a su fuente, y no
+>   una relajación; sin ella el copy aprobado de `purpose` (162 caracteres) habría tenido que
+>   reescribirse. Grupos del formulario: «Inventario», «Ficha del modelo», «Ajustes manuales».
+> - **Consecuencias que la tabla §3 no enumeraba**, todas declaradas con razón: los tres `Literal`
+>   de `governance` son tags descriptivos y no abanico (D-ABA-3), `governance` es exenta de
+>   invariantes previas y declara extra `None` en el gate de `[ui]`; el ledger de opciones crece
+>   475 → 491 pares. Goldens con baseline por `git archive`: formulario 513 → 527 y paridad
+>   396 → 410 (los 12 campos visibles más `assumptions[]` y `limitations[]`; `scenario_log_filename`
+>   ausente), catálogo 1076 y `$defs` 104 intactos, como predijo S2b.
+
 ### D-GOB-15 — el panel de Resultados pinta «Ficha del modelo», con guard por presencia
 
 Sección nueva en `ResultsTab.tsx`, **inmediatamente después de «Artefactos de la corrida»**: es la
@@ -466,3 +495,9 @@ loaders `cargar_configs_de_infra()` y `cargar_configs_expandibles()`, la unión 
 catálogo de defaults, en la guarda del fixture y en `/api/validate`/preflight, con los gates
 §6.1–6.3 y §6.9 en `tests/unit/test_gobernanza_expandible.py` y sus controles negativos. Lo que
 la implementación corrigió del censo de §3 está anotado allí mismo.
+
+Con las respuestas 1 y 3, **D-GOB-11/12/13/14 se implementaron juntas el 2026-09-07 (S3)**: los
+gates §6.4–6.6, §6.8, §6.10 (motor e interfaz) y §6.11 (`/api/run`) viven en
+`tests/unit/test_gobernanza_en_pantalla.py`; la mitad del esqueleto latente en
+`test_jobs_ejecutables.py`; y la tarjeta —dormidas y escalar en blanco— en
+`web/src/lib/jobs.test.ts`. La nota bajo D-GOB-14 en §3 registra lo que la implementación fijó.
