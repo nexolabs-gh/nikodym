@@ -27,7 +27,7 @@ from typing import Any, Literal, Union, get_args, get_origin
 import pytest
 from pydantic import BaseModel
 
-from nikodym.core.config.schema import cargar_configs_de_dominio
+from nikodym.core.config.schema import cargar_configs_expandibles
 from nikodym.ui import jobs
 
 # --------------------------------------------------------------------------------------------
@@ -87,7 +87,7 @@ def _submodelos(anotacion: Any) -> list[type[BaseModel]]:
 def _campos_del_path(path: str) -> list[Any]:
     """Los ``FieldInfo`` que el motor declara en ese path: uno por rama cuando hay unión."""
     seccion, *resto = path.split(".")
-    clases: list[type[BaseModel]] = [cargar_configs_de_dominio()[seccion]]
+    clases: list[type[BaseModel]] = [cargar_configs_expandibles()[seccion]]
     for nombre in resto[:-1]:
         siguientes: list[type[BaseModel]] = []
         for cls in clases:
@@ -119,8 +119,13 @@ def _puntos_del_motor() -> dict[str, list[str]]:
 
     Recorre los submodelos anidados igual que el preflight, y **no** conoce el catálogo del abanico:
     es el oráculo independiente de la segunda cara de la bidireccionalidad.
+
+    Lee las secciones **expandibles** (D-GOB-10) y no sólo los dominios: desde D-GOB-11 los diez
+    trabajos ofrecen ``governance``, y con el loader de dominios sus tres campos con más de una
+    opción —``motor``, ``fase``, ``estado_validacion``— quedaban fuera de este oráculo en silencio.
+    Medido al cambiarlo: los tres aparecen y se eximen abajo con su razón.
     """
-    clases = cargar_configs_de_dominio()
+    clases = cargar_configs_expandibles()
     encontrados: dict[str, list[str]] = {}
 
     def recorre(grupo: list[type[BaseModel]], prefijo: str, profundidad: int = 0) -> None:
@@ -182,6 +187,16 @@ _EXENTOS: dict[str, str] = {
         )
         for regla in ("bad_rule", "good_rule", "indeterminate_rule", "exclusion_rules.rule")
         for lista in ("all_of", "any_of")
+    },
+    # D-GOB-11/13: los tres son tags descriptivos del inventario de modelos. El copy aprobado lo
+    # dice de la sección entera —«Es descriptivo: no cambia ningún cálculo»— y el `config_hash` no
+    # los ve (`governance` es INFRA): elegir uno no elige método, así que no son abanico (D-ABA-3).
+    **{
+        f"governance.{campo}": (
+            "es un tag descriptivo del inventario de modelos (D-GOB-13): documenta la ficha, no "
+            "elige cómo se calcula nada, y `governance` no entra al `config_hash`"
+        )
+        for campo in ("motor", "fase", "estado_validacion")
     },
 }
 
@@ -356,7 +371,7 @@ def test_una_opcion_no_implementada_tambien_esta_cerrada_en_el_motor() -> None:
     Nikodym es una librería antes que una aplicación, y quien la usa por YAML o por Python no ve
     este catálogo. La opción tiene que ser imposible de construir, no sólo estar en gris.
     """
-    clases = cargar_configs_de_dominio()
+    clases = cargar_configs_expandibles()
     for path, opcion in _opciones():
         if opcion["estado"] != jobs._NO_IMPLEMENTADA:
             continue
@@ -521,7 +536,7 @@ def _ramas_que_no_construyen() -> list[tuple[str, str]]:
 
     De ahí el criterio: unión **discriminada** + campo **no requerido** + rama que no construye.
     """
-    clases = cargar_configs_de_dominio()
+    clases = cargar_configs_expandibles()
     culpables: list[tuple[str, str]] = []
     for seccion, cls in sorted(clases.items()):
         pila: list[tuple[str, type[BaseModel]]] = [(seccion, cls)]
@@ -582,7 +597,7 @@ def test_toda_rama_inelegible_esta_declarada_en_el_abanico() -> None:
         for path, opcion in _opciones()
         if opcion["estado"] == jobs._EXIGE_OTRO_CAMPO
     }
-    clases = cargar_configs_de_dominio()
+    clases = cargar_configs_expandibles()
     sin_declarar: list[str] = []
     for campo, rama in _ramas_que_no_construyen():
         seccion, *resto = campo.split(".")

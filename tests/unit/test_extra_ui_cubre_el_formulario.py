@@ -57,6 +57,12 @@ EXTRA_POR_SECCION = {
     # transitiva copyleft que el cierre redistribuible no acepta—. Degrada con gracia (aviso +
     # `pdf_path=None`) y ya venía en los `formats` del preset antes de esta sección.
     "report": "report",
+    # La ficha del modelo la escribe el núcleo (`nikodym.governance` no es un extra, D-GOB-10).
+    # El interruptor `publish_to_inventory` sí pide `[tracking]` —un servidor MLflow—, y `[ui]` no
+    # lo trae a propósito: es opt-in, viene apagado, y encenderlo sin el extra falla con el error
+    # ruidoso de `assemble_run` que la UI muestra como cualquier error de corrida (enmienda
+    # GOBERNANZA-EN-PANTALLA §5). Mismo trato que el PDF: la excepción se declara, no se esconde.
+    "governance": None,
 }
 
 

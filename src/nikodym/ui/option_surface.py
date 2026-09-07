@@ -153,6 +153,12 @@ _DETAIL_POLICIES: dict[str, tuple[str, ...]] = {
         "notin",
         "notna",
     ),
+    # D-GOB-11/13: tags descriptivos del inventario. Se eligen en el formulario y no cambian ningún
+    # cálculo (copy aprobado: «Es descriptivo: no cambia ningún cálculo»), así que son detalle de
+    # configuración, no un punto del abanico metodológico (D-ABA-3).
+    "governance.estado_validacion": ("desarrollo", "en_validacion", "retirado", "validado"),
+    "governance.fase": ("F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "originacion"),
+    "governance.motor": ("cmf", "ifrs9", "scoring"),
     "model.sign_policy.expected_beta_sign": ("negative",),
     "report.ai.send_raw_data": ("False",),
     "report.language": ("es",),
@@ -295,8 +301,13 @@ def _submodels(annotation: Any) -> tuple[type[BaseModel], ...]:
 
 
 def measured_literal_pairs() -> tuple[tuple[str, str], ...]:
-    """Lee todos los ``Literal`` alcanzables desde las configs, sin usar el catálogo UI."""
-    from nikodym.core.config.schema import cargar_configs_de_dominio
+    """Lee todos los ``Literal`` alcanzables desde las configs, sin usar el catálogo UI.
+
+    Recorre las secciones **expandibles** (D-GOB-10): el censo es de lo que el formulario puede
+    ofrecer, y ``governance`` —INFRA sin ``Step``— entró al formulario con D-GOB-11. Con el loader
+    de dominios sus tres ``Literal`` quedaban fuera del ledger en silencio.
+    """
+    from nikodym.core.config.schema import cargar_configs_expandibles
 
     found: set[tuple[str, str]] = set()
 
@@ -318,7 +329,7 @@ def measured_literal_pairs() -> tuple[tuple[str, str], ...]:
             if children:
                 walk(children, f"{path}.", depth + 1)
 
-    for section, config_cls in sorted(cargar_configs_de_dominio().items()):
+    for section, config_cls in sorted(cargar_configs_expandibles().items()):
         walk((config_cls,), f"{section}.")
     return tuple(sorted(found))
 

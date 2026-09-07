@@ -8,6 +8,9 @@
       "jurisdiction_code": null,
       "jurisdiction_label": null,
       "label": "Scorecard de comportamiento (PD)",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -1452,6 +1455,12 @@
           "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
@@ -1463,7 +1472,8 @@
         "calibration",
         "performance",
         "stability",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -1476,6 +1486,9 @@
       "jurisdiction_code": null,
       "jurisdiction_label": null,
       "label": "PD lifetime (curvas de supervivencia)",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -2080,12 +2093,19 @@
           "help": "Distingue a quien incumplió de quien seguía sano cuando terminó la observación. Sin ella las dos situaciones se confunden y las curvas salen sesgadas.",
           "path": "survival.input.event_col",
           "question": "¿Qué columna dice si el evento llegó a ocurrir?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
         "data",
         "survival",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -2139,6 +2159,9 @@
       "jurisdiction_code": "CL",
       "jurisdiction_label": "Chile",
       "label": "Provisiones CMF",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -2644,12 +2667,19 @@
           "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
         "data",
         "provisioning_cmf",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -2662,6 +2692,9 @@
       "jurisdiction_code": null,
       "jurisdiction_label": null,
       "label": "Provisiones IFRS 9 / ECL",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -3539,13 +3572,20 @@
           "help": "Distingue a quien incumplió de quien seguía sano cuando terminó la observación. Sin ella las dos situaciones se confunden y las curvas salen sesgadas.",
           "path": "survival.input.event_col",
           "question": "¿Qué columna dice si el evento llegó a ocurrir?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
         "data",
         "survival",
         "provisioning_ifrs9",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -3599,6 +3639,9 @@
       "jurisdiction_code": null,
       "jurisdiction_label": null,
       "label": "Provisión interna / LGD",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -4162,12 +4205,19 @@
           "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
         "data",
         "provisioning_internal",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -4180,6 +4230,9 @@
       "jurisdiction_code": null,
       "jurisdiction_label": null,
       "label": "PD + LGD en una corrida",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -5798,6 +5851,12 @@
           "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
@@ -5810,7 +5869,8 @@
         "performance",
         "stability",
         "provisioning_internal",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -5864,6 +5924,9 @@
       "jurisdiction_code": "CL",
       "jurisdiction_label": "Chile",
       "label": "Comparar provisiones (CMF vs. interna)",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -6766,6 +6829,12 @@
           "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
@@ -6773,7 +6842,8 @@
         "provisioning_cmf",
         "provisioning_internal",
         "provisioning",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -6836,6 +6906,9 @@
       "jurisdiction_code": null,
       "jurisdiction_label": null,
       "label": "Validar un modelo existente",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -7449,13 +7522,20 @@
           "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
         "data",
         "performance",
         "stability",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -7509,6 +7589,9 @@
       "jurisdiction_code": null,
       "jurisdiction_label": null,
       "label": "Severidad modelada o calculada",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -8072,12 +8155,19 @@
           "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
         "data",
         "provisioning_internal",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "available",
       "unavailable_reason": null
@@ -8090,6 +8180,9 @@
       "jurisdiction_code": null,
       "jurisdiction_label": null,
       "label": "Stress testing",
+      "latent_sections": [
+        "governance"
+      ],
       "methodology_choices": [
         {
           "help": "Cambia la velocidad de lectura, nunca el resultado: el contenido que llega al cálculo es el mismo y las cifras del informe no se mueven.",
@@ -8481,11 +8574,18 @@
           "help": "Al azar, por fecha, por cohortes, o leyendo una separación que tu archivo ya trae marcada en una columna. Si tus datos tienen eje de tiempo, separar por fecha mide mejor lo que pasará en producción, porque valida contra un período que el modelo no vio.",
           "path": "data.partition.strategy",
           "question": "¿Cómo separas la muestra para validar?"
+        },
+        {
+          "answer_forms": [],
+          "help": "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
+          "path": "governance.purpose",
+          "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?"
         }
       ],
       "sections": [
         "data",
-        "report"
+        "report",
+        "governance"
       ],
       "status": "unavailable",
       "unavailable_reason": "El motor de escenarios corre desde Python, pero todavía no tiene pantalla ni se ha probado de punta a punta desde la interfaz."

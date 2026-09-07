@@ -26,10 +26,13 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from nikodym.core.config.schema import cargar_configs_de_dominio
+from nikodym.core.config.schema import (
+    cargar_configs_de_dominio,
+    cargar_configs_expandibles,
+)
 from nikodym.ui.jobs import decisiones_de, list_jobs
 
-#: Las 14 secciones que el formulario ofrece. Espejo del catálogo del front; el gate de deriva de
+#: Las 15 secciones que el formulario ofrece. Espejo del catálogo del front; el gate de deriva de
 #: esa lista vive en `test_column_roles.py`, y aquí sólo acota el barrido a lo navegable.
 SECCIONES_DEL_FORMULARIO = (
     "data",
@@ -46,6 +49,7 @@ SECCIONES_DEL_FORMULARIO = (
     "provisioning_ifrs9",
     "provisioning",
     "report",
+    "governance",
 )
 
 
@@ -72,8 +76,13 @@ def _hojas_obligatorias(cls: type[BaseModel], prefijo: tuple[str, ...]) -> list[
 
 
 def _obligatorias_del_formulario() -> dict[str, list[str]]:
-    """``{sección: [paths obligatorios]}`` para las secciones que el formulario ofrece."""
-    disponibles = cargar_configs_de_dominio()
+    """``{sección: [paths obligatorios]}`` para las secciones que el formulario ofrece.
+
+    Se pregunta a las secciones **expandibles** (D-GOB-10), no sólo a los dominios: ``governance``
+    está en el formulario desde D-GOB-11 y su ``purpose`` es la decisión de D-GOB-12. Con el loader
+    de dominios el gate la saltaba en silencio y la pregunta podía desaparecer sin ponerse rojo.
+    """
+    disponibles = cargar_configs_expandibles()
     salida: dict[str, list[str]] = {}
     for seccion in SECCIONES_DEL_FORMULARIO:
         cls = disponibles.get(seccion)
@@ -145,8 +154,13 @@ def test_un_trabajo_hereda_exactamente_las_decisiones_de_sus_secciones() -> None
         assert {d["path"] for d in job["required_decisions"]} == esperadas, job["id"]
 
 
-def test_los_dos_trabajos_con_survival_preguntan_cuatro_cosas() -> None:
-    """Ancla nominal: escrita a mano, no derivada, para que el gate no sea una tautología."""
+def test_los_dos_trabajos_con_survival_preguntan_cinco_cosas() -> None:
+    """Ancla nominal: escrita a mano, no derivada, para que el gate no sea una tautología.
+
+    La quinta es el propósito de la ficha del modelo (D-GOB-12), que heredan los diez trabajos
+    porque los diez ofrecen ``governance`` (D-GOB-11). Que sea la última no es casual: el orden es
+    el de ``_DECISIONES_POR_SECCION`` y la sección va al final del formulario, como ``report``.
+    """
     por_id = {job["id"]: job for job in list_jobs()}
     if "survival" not in cargar_configs_de_dominio():
         pytest.skip("el extra de survival no está instalado")
@@ -157,10 +171,12 @@ def test_los_dos_trabajos_con_survival_preguntan_cuatro_cosas() -> None:
             "data.partition.strategy",
             "survival.input.duration_col",
             "survival.input.event_col",
+            "governance.purpose",
         ], job_id
     assert [d["path"] for d in por_id["scorecard_pd"]["required_decisions"]] == [
         "data.target.bad_rule",
         "data.partition.strategy",
+        "governance.purpose",
     ]
 
 

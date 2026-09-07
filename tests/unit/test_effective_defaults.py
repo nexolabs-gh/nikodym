@@ -67,7 +67,18 @@ from nikodym.ui.routes import schema_payload
 #: de regla—. El total sube más que las rutas porque una misma ruta aparece una vez por rama, con
 #: nodos
 #: distintos. Un golden que sólo sube puede tragarse una pérdida: aquí se comprobó que no la hay.
-HOJAS_DEL_FORMULARIO = 513
+#:
+#: 513 → 527 el 2026-09-07 con D-GOB-11: ``governance`` entra a ``CONFIG_SECTIONS`` (14 → 15) y por
+#: tanto a este barrido. Baseline por ``git archive HEAD`` de ``58ebc36`` a un directorio aparte,
+#: importando ``nikodym`` desde allí (verificado por ``__file__``): **0 desapariciones y 14
+#: apariciones**, todas bajo ``governance.``: los 12 campos visibles —``model_name``, ``cartera``,
+#: ``motor``, ``fase``, ``estado_validacion``, ``author``, ``purpose``, ``assumptions``,
+#: ``limitations``, ``review_period_months``, ``publish_to_inventory``,
+#: ``require_overlay_justification``— más ``assumptions[]`` y ``limitations[]``, las filas de sus
+#: dos listas. ``scenario_log_filename`` **no** aparece: es ``hidden`` (D-GOB-14), y es el único de
+#: los 13 que falta. Descriptores y ``$defs`` no se mueven (1076 y 104): el catálogo ya publicaba
+#: la sección desde D-GOB-10.
+HOJAS_DEL_FORMULARIO = 527
 
 #: Hojas que el barrido de PARIDAD contra el catálogo de defaults efectivos resuelve.
 #:
@@ -81,7 +92,12 @@ HOJAS_DEL_FORMULARIO = 513
 #: ⚠️ Que sean dos no relaja nada: cada uno ancla su propio barrido, y la diferencia (117) es
 #: exactamente lo que aportan las ramas no primeras. Fundirlos otra vez volvería a atar dos medidas
 #: que no miden lo mismo.
-HOJAS_CON_DEFAULT_EFECTIVO = 396
+#:
+#: 396 → 410 el 2026-09-07 con D-GOB-11, por los mismos 14 nodos de ``governance`` que suman al
+#: golden de arriba: en esta sección no hay uniones discriminadas, así que las dos cifras suben lo
+#: mismo. ``purpose`` cuenta como resuelto porque el catálogo lo publica como descriptor sin default
+#: (``has_default: false``), que es la forma en que una decisión obligatoria viaja (D-OBL-2).
+HOJAS_CON_DEFAULT_EFECTIVO = 410
 
 #: Descriptores de hoja que el barrido de paridad compara, en las DOS coordenadas (`$defs` y
 #: `sections`). Segundo golden, por la misma razón que el de 394: un barrido que recorra menos
@@ -168,9 +184,10 @@ HOJAS_CON_DEFAULT_EFECTIVO = 396
 DESCRIPTORES_TOTALES = 1076
 
 
-#: Las 14 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de
+#: Las 15 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de
 #: ``test_copy_del_formulario.py``; el gate de deriva de ese catálogo vive en
-#: ``test_column_roles.py``.
+#: ``test_column_roles.py``. ``governance`` entró con D-GOB-11: es INFRA sin ``Step`` y vive en el
+#: mapa expandible, no en el de dominios, así que los barridos de abajo preguntan por la unión.
 SECCIONES_ESPERADAS = (
     "data",
     "binning",
@@ -186,11 +203,12 @@ SECCIONES_ESPERADAS = (
     "provisioning_ifrs9",
     "provisioning",
     "report",
+    "governance",
 )
 
 
 def _formulario_completo() -> bool:
-    """¿Están las 14 secciones del formulario expandidas en esta instalación?
+    """¿Están las 15 secciones del formulario expandidas en esta instalación?
 
     Los dos goldens de cifra —394 hojas y los descriptores— sólo son comparables con **todos** los
     extras: el job matriz del CI instala sólo ``scoring``, y ahí ``survival`` (lifelines) y las de
@@ -198,7 +216,7 @@ def _formulario_completo() -> bool:
     no por defecto. Con el extra ausente el gate sigue midiendo cobertura TOTAL de lo que sí hay:
     lo único que se relaja es la cifra, y se dice por qué en vez de callarlo.
     """
-    return set(SECCIONES_ESPERADAS) <= set(cargar_configs_de_dominio())
+    return set(SECCIONES_ESPERADAS) <= set(cargar_configs_expandibles())
 
 
 #: Las seis de la muestra adversarial del censo (§6 de la enmienda), con su valor coaccionado real.
@@ -758,7 +776,7 @@ def _hojas_del_formulario() -> list[tuple[str, list[str]]]:
     return hojas
 
 
-#: Un ancla concreta por cada una de las 14 secciones. Escritas a mano: derivarlas del propio
+#: Un ancla concreta por cada una de las 15 secciones. Escritas a mano: derivarlas del propio
 #: recorrido convertiría el gate en una tautología, que es el defecto que ya se pagó una vez.
 ANCLAS_POR_SECCION: dict[str, str] = {
     "data": "data.schema.columns[].name",
@@ -775,18 +793,19 @@ ANCLAS_POR_SECCION: dict[str, str] = {
     "provisioning_ifrs9": "provisioning_ifrs9.staging.dpd_default_backstop",
     "provisioning": "provisioning.comparison_level",
     "report": "report.document.model_name",
+    "governance": "governance.purpose",
 }
 
 
 def test_el_catalogo_recorre_las_hojas_del_formulario() -> None:
-    """Golden de cobertura: 394 nodos visibles y un ancla nombrada por cada una de las 14 secciones.
+    """Golden de cobertura: los nodos visibles y un ancla nombrada por cada una de las 15 secciones.
 
     Cambiar la cifra es legítimo cuando el formulario crece o encoge; hacerlo sin actualizar este
     golden y sus anclas, no. La razón está pagada: un gate que recorre cero campos da verde.
     """
     hojas = _hojas_del_formulario()
     rutas = {ruta for ruta, _ in hojas}
-    disponibles = set(cargar_configs_de_dominio())
+    disponibles = set(cargar_configs_expandibles())
     for seccion, ancla in ANCLAS_POR_SECCION.items():
         if seccion in disponibles:
             assert ancla in rutas, f"falta el ancla {ancla}"
@@ -830,7 +849,7 @@ def test_toda_hoja_visible_resuelve_como_lo_hace_el_formulario() -> None:
     schema = schema_payload()["json_schema"]
     defs_schema = schema.get("$defs", {})
     defs_catalogo = catalogo["$defs"]
-    disponibles = set(cargar_configs_de_dominio())
+    disponibles = set(cargar_configs_expandibles())
 
     sin_resolver: list[str] = []
     resueltos = 0

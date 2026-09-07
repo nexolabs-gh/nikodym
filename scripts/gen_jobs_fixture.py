@@ -29,9 +29,13 @@ def main() -> None:
     payload = jobs_payload()
     if not payload["jobs"]:
         raise SystemExit("❌ el catálogo vino vacío: el fixture dejaría la landing sin entrada")
+    # `newline="\n"`: en Windows `write_text` escribiría CRLF y `.gitattributes` exige LF para los
+    # JSON; el índice lo normaliza, pero el working copy quedaba `w/crlf` (mismo arreglo que en
+    # `gen_schema_fixture.py`).
     _FIXTURE.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     print(f"✅ {_FIXTURE.name} regenerado ({_FIXTURE.stat().st_size / 1024:.1f} kB)")
     print(f"   trabajos: {len(payload['jobs'])}")

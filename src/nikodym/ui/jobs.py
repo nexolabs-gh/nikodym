@@ -42,6 +42,8 @@ _UNAVAILABLE = "unavailable"
 #   description   · qué entrega, en una línea, sin jerga interna
 #   sections      · claves de sección del FORMULARIO que este trabajo muestra, en orden de pipeline
 #   missing_sections · secciones que el trabajo necesitaría y que el formulario NO ofrece hoy
+#   latent_sections  · (derivado, no se escribe en el literal) las de `sections` que el trabajo
+#                      ofrece APAGADAS: el esqueleto las siembra en `null` (D-GOB-11 · §8.1-3)
 #   external_input   · insumo que hay que traer de fuera, en lenguaje de negocio (`None` si ninguno)
 #   external_artifacts · el mismo insumo, en forma MÁQUINA-LEGIBLE (D-PUE-2); ver más abajo
 #   overrides     · valores que este trabajo siembra POR ENCIMA del default del motor (D-EJE-2)
@@ -108,6 +110,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "performance",
             "stability",
             "report",
+            "governance",
         ),
         "missing_sections": (),
         "external_input": None,
@@ -125,7 +128,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "Cuándo ocurre el incumplimiento, no sólo con qué probabilidad: curvas de "
             "supervivencia sobre datos censurados y su estructura temporal de PD."
         ),
-        "sections": ("data", "survival", "report"),
+        "sections": ("data", "survival", "report", "governance"),
         "missing_sections": (),
         "external_input": "La PD del modelo, si quieres anclar las curvas a ella.",
         # Vacío a propósito, y no es un olvido: con la fuente de PD que este trabajo siembra
@@ -152,7 +155,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "Provisión por el método estándar del Capítulo B-1: matrices normativas por "
             "cartera, mapeo de PD, exposición y garantías."
         ),
-        "sections": ("data", "provisioning_cmf", "report"),
+        "sections": ("data", "provisioning_cmf", "report", "governance"),
         "missing_sections": (),
         "external_input": "La PD calibrada de tu modelo, por operación.",
         # 🔴 Sin esta puerta el trabajo NACE INEJECUTABLE: el método interno exige la PD calibrada
@@ -203,7 +206,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
         ),
         # Compuesto: la ECL lifetime consume la term-structure que produce survival, así que ese
         # paso es parte del trabajo y no un dominio ajeno que se cuela en el sidebar.
-        "sections": ("data", "survival", "provisioning_ifrs9", "report"),
+        "sections": ("data", "survival", "provisioning_ifrs9", "report", "governance"),
         "missing_sections": (),
         "external_input": None,
         "external_artifacts": (),
@@ -223,7 +226,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "Provisión por el método interno del banco sobre grupos homogéneos: exposición por "
             "PD · LGD, o por una tasa de pérdida esperada provista directamente."
         ),
-        "sections": ("data", "provisioning_internal", "report"),
+        "sections": ("data", "provisioning_internal", "report", "governance"),
         "missing_sections": (),
         "external_input": "La PD calibrada de tu modelo.",
         "external_artifacts": (
@@ -278,6 +281,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "stability",
             "provisioning_internal",
             "report",
+            "governance",
         ),
         "missing_sections": (),
         "external_input": None,
@@ -301,6 +305,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "provisioning_internal",
             "provisioning",
             "report",
+            "governance",
         ),
         "missing_sections": (),
         "external_input": "La PD calibrada de tu modelo, por operación.",
@@ -350,7 +355,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "Tu scorecard y tu PD, medidos y documentados por nuestro informe: "
             "discriminación, calibración y estabilidad, sin volver a modelar."
         ),
-        "sections": ("data", "performance", "stability", "report"),
+        "sections": ("data", "performance", "stability", "report", "governance"),
         "missing_sections": (),
         "external_input": "Tu scorecard y la PD que produce.",
         # Las dos claves salen de UNA sola tabla del usuario si él quiere (D-PUE-4), y ésa es la
@@ -428,7 +433,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "Modelar la severidad con las variables de tu archivo, o calcularla descontando lo "
             "que ya recuperaste, en vez de traerla dada o promediarla por grupo."
         ),
-        "sections": ("data", "provisioning_internal", "report"),
+        "sections": ("data", "provisioning_internal", "report", "governance"),
         "missing_sections": (),
         "external_input": "La PD de tu modelo, calibrada o sin calibrar.",
         # 🔴 Las DOS puertas, como sus hermanos `provision_interna` y `comparar_provisiones`. Con el
@@ -483,7 +488,7 @@ _JOBS: tuple[dict[str, Any], ...] = (
             "Escenarios adversos y shocks macro propagados sobre la cartera, con reverse "
             "stress para encontrar la severidad que cruza tu umbral."
         ),
-        "sections": ("data", "report"),
+        "sections": ("data", "report", "governance"),
         # `stress` NO está en el formulario, y es exactamente el motivo por el que este trabajo no
         # se puede iniciar. Declararlo aquí —y no en `sections`— deja el gate total sin que el
         # catálogo tenga que callarse la razón.
@@ -504,6 +509,27 @@ _JOBS: tuple[dict[str, Any], ...] = (
 )
 
 #: Ids del catálogo, en su orden de presentación.
+#: Secciones del formulario que un trabajo ofrece pero NO enciende al entrar (D-GOB-11, §8.1-3 de
+#: la enmienda GOBERNANZA-EN-PANTALLA; OK de Cami del 2026-09-07: «latente»).
+#:
+#: Se declara POR SECCIÓN y no trabajo a trabajo, por la misma razón que `_DECISIONES_POR_SECCION`:
+#: la latencia es una propiedad de la sección —el motor no puede inventar un propósito—, no de
+#: quién la ofrece, y repetirla en diez literales dejaría que se desincronizaran. `list_jobs`
+#: publica por trabajo la intersección con sus `sections` como `latent_sections`, y el gate exige
+#: que toda sección latente esté en el formulario y que ningún override apunte a una.
+#:
+#: 🔴 Lo que cambia con esto es el ESQUELETO del trabajo (`jobSkeleton` y su réplica Python), no
+#: el sidebar: la sección se ve en los diez trabajos, apagada, y encenderla es un gesto explícito
+#: del usuario —su interruptor de sección— que es lo que activa la pregunta por `purpose`. Sin esta
+#: lista, entrar por cualquier trabajo sembraría `governance` encendida y con `purpose` pendiente:
+#: ninguna corrida por trabajo arrancaría sin declarar un propósito, en los diez.
+_SECCIONES_LATENTES: dict[str, str] = {
+    "governance": (
+        "`purpose` es DATO-INSTITUCIONAL sin default (D-GOB-8): sembrada encendida dejaría los "
+        "diez trabajos con una decisión pendiente que hoy no piden"
+    ),
+}
+
 JOB_IDS: tuple[str, ...] = tuple(job["id"] for job in _JOBS)
 
 
@@ -780,6 +806,20 @@ _DECISIONES_POR_SECCION: dict[str, tuple[dict[str, Any], ...]] = {
             "help": (
                 "Distingue a quien incumplió de quien seguía sano cuando terminó la observación. "
                 "Sin ella las dos situaciones se confunden y las curvas salen sesgadas."
+            ),
+            "answer_forms": (),
+        },
+    ),
+    # D-GOB-12: el propósito es DATO-INSTITUCIONAL (D-GOB-8) y el único campo obligatorio de la
+    # sección. Se contesta con un texto y no hay qué elegir, así que no lleva formas. La pregunta y
+    # la ayuda son frases del copy aprobado de D-GOB-13 para el propio campo, no copy nuevo.
+    "governance": (
+        {
+            "path": "governance.purpose",
+            "question": "¿Para qué se va a usar este modelo y sobre qué cartera decide?",
+            "help": (
+                "Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha "
+                "del modelo no se emite."
             ),
             "answer_forms": (),
         },
@@ -4395,6 +4435,9 @@ def list_jobs() -> list[dict[str, Any]]:
             **job,
             "sections": list(job["sections"]),
             "missing_sections": list(job["missing_sections"]),
+            # Derivado de `_SECCIONES_LATENTES` (D-GOB-11): el front lo consume para sembrar el
+            # esqueleto, y el gate de ejecutabilidad —que es Python— desde esta misma fuente.
+            "latent_sections": [s for s in job["sections"] if s in _SECCIONES_LATENTES],
             "external_artifacts": [_insumo_json(e) for e in job["external_artifacts"]],
             # Lista de parejas y no un objeto: el orden de aplicación es parte del dato —dos
             # overrides sobre rutas anidadas del mismo bloque tienen que aplicarse como se

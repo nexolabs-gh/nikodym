@@ -1464,6 +1464,118 @@
     },
     {
       "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.estado_validacion",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "desarrollo"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.estado_validacion",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "en_validacion"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.estado_validacion",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "retirado"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.estado_validacion",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "validado"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "F0"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "F1"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "F2"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "F3"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "F4"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "F5"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "F6"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "F7"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.fase",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "originacion"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.motor",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "cmf"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.motor",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "ifrs9"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
+      "classification": "configuration_detail_selectable",
+      "path": "governance.motor",
+      "reason": "Config de detalle alcanzable por el formulario genérico; no es metodología D-JOB.",
+      "value": "scoring"
+    },
+    {
+      "authority": "SDD-30 D-RDY-ABA-6 / D-JOB-15",
       "classification": "outside_job_form",
       "path": "markov.dynamics.embedding_policy",
       "reason": "Capacidad fuera del formulario por trabajos vigente; permanece alcanzable por API.",

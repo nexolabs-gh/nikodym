@@ -21,6 +21,7 @@ import copy
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 pytest.importorskip("fastapi", reason="el catálogo de trabajos vive en la capa ui")
 
@@ -97,8 +98,8 @@ def _esqueleto(job: dict[str, Any], catalogo: dict[str, Any]) -> dict[str, Any]:
 
     ⚠️ **Es una réplica de `jobSkeleton` (`web/src/lib/jobs.ts`), y eso es una deuda declarada.** No
     hay forma de compararlas ejecutándolas —una es TypeScript y la otra Python—, así que lo que las
-    ata es el orden de los tres pasos y un gate estático que vigila que el front no gane un cuarto
-    sin que nadie lo mire (`test_la_siembra_del_front_sigue_teniendo_estos_tres_pasos`).
+    ata es el orden de los cuatro pasos y un gate estático que vigila que el front no gane un quinto
+    sin que nadie lo mire (`test_la_siembra_del_front_sigue_teniendo_estos_cuatro_pasos`).
     """
     esqueleto: dict[str, Any] = {}
     for seccion in job["sections"]:
@@ -107,6 +108,13 @@ def _esqueleto(job: dict[str, Any], catalogo: dict[str, Any]) -> dict[str, Any]:
         if hijos is None:
             continue
         esqueleto[seccion] = _proyeccion_canonica(hijos)
+
+    # Réplica de `apagarSeccionesLatentes` (D-GOB-11, §8.1-3 de la enmienda): una sección latente
+    # se ofrece en el sidebar y se siembra en `null`. Se escribe el `null` explícito y no se omite
+    # la clave, para que dos usuarios que entran por trabajos distintos produzcan el mismo config
+    # (D-JOB-9) aunque uno traiga esa sección encendida de antes.
+    for seccion in job["latent_sections"]:
+        esqueleto[seccion] = None
 
     for ruta, valor in job["overrides"]:
         tramos = ruta.split(".")
@@ -305,13 +313,16 @@ def test_un_override_construye_el_config(
 # --------------------------------------------------------------------------------------------
 
 
-def test_la_siembra_del_front_sigue_teniendo_estos_tres_pasos() -> None:
+def test_la_siembra_del_front_sigue_teniendo_estos_cuatro_pasos() -> None:
     """⚠️ El ancla de la deuda declarada en `_esqueleto`.
 
     `jobSkeleton` vive en TypeScript y su réplica aquí en Python; no hay forma de ejecutarlas y
-    compararlas. Lo que sí se puede es exigir que el front siga haciendo **exactamente** los tres
-    pasos que esta réplica reproduce, en ese orden. Si gana un cuarto, este gate se pone rojo y
+    compararlas. Lo que sí se puede es exigir que el front siga haciendo **exactamente** los cuatro
+    pasos que esta réplica reproduce, en ese orden. Si gana un quinto, este gate se pone rojo y
     obliga a mirarlo — que es todo lo que un ancla puede prometer, y más que callarse.
+
+    Eran tres hasta el 2026-09-07: el cuarto —apagar las secciones latentes— entró con D-GOB-11 y
+    este gate se puso rojo ese día, como estaba escrito que haría.
     """
     from pathlib import Path
 
@@ -322,6 +333,7 @@ def test_la_siembra_del_front_sigue_teniendo_estos_tres_pasos() -> None:
 
     pasos = (
         "canonicalProjection",
+        "apagarSeccionesLatentes",
         "aplicarOverridesDelTrabajo",
         "recortarCapitulosDelInforme",
     )
@@ -331,6 +343,77 @@ def test_la_siembra_del_front_sigue_teniendo_estos_tres_pasos() -> None:
             "describir lo que la pantalla hace"
         )
 
-    assert cuerpo_funcion.index("aplicarOverridesDelTrabajo") < cuerpo_funcion.index(
-        "recortarCapitulosDelInforme"
-    ), "los overrides se aplican ANTES del recorte de capítulos; el orden es parte del contrato"
+    posiciones = [cuerpo_funcion.index(paso) for paso in pasos]
+    assert posiciones == sorted(posiciones), (
+        "el orden es parte del contrato: proyección canónica, latentes en `null`, overrides y "
+        "recorte de capítulos"
+    )
+
+
+# --------------------------------------------------------------------------------------------
+# 4. Las secciones latentes (D-GOB-11 · §8.1-3): ofrecidas, apagadas, y el trabajo sigue corriendo
+# --------------------------------------------------------------------------------------------
+
+
+def test_governance_es_latente_en_los_diez_y_el_esqueleto_la_siembra_apagada(
+    trabajos: list[dict[str, Any]], catalogo: dict[str, Any]
+) -> None:
+    """§6.11 de la enmienda, primera mitad: un trabajo con `governance` latente sigue ejecutable.
+
+    La otra mitad —«con la sección encendida y `purpose` pendiente la tarjeta lo dice y la corrida
+    no arranca»— vive en `jobs.test.ts` (la tarjeta) y en `test_gobernanza_en_pantalla.py` (el
+    motor y `/api/validate`). Aquí: los diez la ofrecen, los diez la declaran latente, y el
+    esqueleto de cada uno la deja en `null`, que es lo que `test_un_trabajo_disponible_produce_un_
+    config_ejecutable` recibe y acepta.
+    """
+    for job in trabajos:
+        assert "governance" in job["sections"], f"«{job['label']}» no ofrece Gobernanza"
+        assert job["latent_sections"] == ["governance"], (
+            f"«{job['label']}»: latentes {job['latent_sections']}, y sólo `governance` lo es hoy"
+        )
+        assert set(job["latent_sections"]) <= set(job["sections"]), (
+            f"«{job['label']}» declara latente una sección que no ofrece"
+        )
+        esqueleto = _esqueleto(job, catalogo)
+        assert "governance" in esqueleto and esqueleto["governance"] is None, (
+            f"«{job['label']}»: el esqueleto siembra governance como "
+            f"{esqueleto.get('governance')!r}"
+        )
+
+
+def test_ningun_override_apunta_a_una_seccion_latente(trabajos: list[dict[str, Any]]) -> None:
+    """Un override sobre una sección sembrada en `null` se perdería en silencio."""
+    for job in trabajos:
+        latentes = set(job["latent_sections"])
+        for ruta, _valor in job["overrides"]:
+            assert ruta.split(".", 1)[0] not in latentes, (
+                f"«{job['label']}» siembra «{ruta}» en una sección latente: el `null` lo pisa"
+            )
+
+
+def test_sembrar_governance_encendida_dejaria_los_diez_trabajos_sin_arrancar(
+    trabajos: list[dict[str, Any]], catalogo: dict[str, Any]
+) -> None:
+    """La razón medida de que sea latente (§0.5 de la enmienda), como oráculo positivo.
+
+    Con la proyección canónica —que omite `purpose` porque no tiene default— la sección no
+    construye: es exactamente el config que un esqueleto NO latente sembraría, y lo que dejaría
+    a los diez trabajos con una decisión pendiente que hoy no piden. El control negativo de este
+    archivo es ese mismo hecho: quitar el paso de latentes de `_esqueleto` pone rojo el gate de
+    ejecutabilidad de los nueve disponibles.
+    """
+    for job in trabajos:
+        if job["status"] != "available":
+            continue
+        encendida = copy.deepcopy(_esqueleto(job, catalogo))
+        encendida["governance"] = _proyeccion_canonica(
+            _hijos_de(catalogo["sections"]["governance"])
+        )
+        assert "purpose" not in encendida["governance"], "la proyección no inventa el propósito"
+        crudo = _con_decisiones_contestadas(encendida)
+        with pytest.raises(ValidationError) as capturado:
+            NikodymConfig.model_validate(crudo)
+        assert any(
+            tuple(error["loc"])[:2] == ("governance", "purpose")
+            for error in capturado.value.errors()
+        ), capturado.value

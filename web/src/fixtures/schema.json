@@ -12975,12 +12975,15 @@
             "description": "Documenta el modelo para su gobierno: model card, inventario y diario de overlays.\n\nCambiar el propósito, los metadatos de inventario o la política de publicación no altera los\nresultados de la corrida ni su ``config_hash``; el cambio queda registrado en el model card\ny en el audit-trail.",
             "properties": {
               "assumptions": {
-                "description": "Supuestos de desarrollo que se copian al model card.",
+                "description": "Los supuestos con los que se construyó el modelo. Se copian tal cual a la ficha, para que quien la lea sepa bajo qué condiciones vale.",
                 "items": {
                   "type": "string"
                 },
                 "title": "Supuestos declarados",
-                "type": "array"
+                "type": "array",
+                "ui_group": "Ficha del modelo",
+                "ui_order": 2,
+                "ui_widget": "text_list"
               },
               "author": {
                 "anyOf": [
@@ -12992,7 +12995,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Email o identidad del responsable; tag nikodym.autor.",
+                "description": "Quién responde por este modelo: correo o identificación de la persona o el equipo.",
                 "title": "Autor / responsable",
                 "ui_group": "Inventario",
                 "ui_order": 5,
@@ -13008,7 +13011,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Segmento de cartera del modelo, en la taxonomía que use la institución; se publica como tag nikodym.cartera. Es descriptivo del inventario: no altera ningún cálculo.",
+                "description": "El segmento de cartera de este modelo, con el nombre que uses en tu institución. Es descriptivo: no cambia ningún cálculo.",
                 "title": "Cartera",
                 "ui_group": "Inventario",
                 "ui_order": 1,
@@ -13016,7 +13019,7 @@
               },
               "estado_validacion": {
                 "default": "desarrollo",
-                "description": "Ciclo de vida de effective challenge; tag nikodym.estado_validacion. Es ortogonal a los aliases de despliegue.",
+                "description": "En qué punto va la revisión independiente del modelo. Es aparte de si está o no en producción.",
                 "enum": [
                   "desarrollo",
                   "en_validacion",
@@ -13050,25 +13053,31 @@
                   }
                 ],
                 "default": null,
-                "description": "Fase de construcción del modelo; tag nikodym.fase.",
+                "description": "En qué punto de su construcción está el modelo. Queda escrito en la ficha para que se lea en contexto.",
                 "title": "Fase de construcción",
                 "ui_group": "Inventario",
                 "ui_order": 3,
                 "ui_widget": "selectbox"
               },
               "limitations": {
-                "description": "Limitaciones de uso que se copian al model card.",
+                "description": "Dónde no deberías usar este modelo. Se copian tal cual a la ficha, y son lo primero que mira una validación independiente.",
                 "items": {
                   "type": "string"
                 },
                 "title": "Limitaciones declaradas",
-                "type": "array"
+                "type": "array",
+                "ui_group": "Ficha del modelo",
+                "ui_order": 3,
+                "ui_widget": "text_list"
               },
               "model_name": {
                 "default": "nikodym-model",
-                "description": "Identidad en el inventario (clave del MLflow Registry).",
+                "description": "Nombre con el que este modelo queda registrado en tu inventario. Si lo publicas a MLflow, es la clave con la que lo encontrarás ahí.",
                 "title": "Nombre lógico del modelo",
-                "type": "string"
+                "type": "string",
+                "ui_group": "Inventario",
+                "ui_order": 0,
+                "ui_widget": "text_input"
               },
               "motor": {
                 "anyOf": [
@@ -13085,7 +13094,7 @@
                   }
                 ],
                 "default": null,
-                "description": "Separación de motores CMF/IFRS9/scoring; tag nikodym.motor.",
+                "description": "Qué motor documenta esta ficha: scoring, provisiones CMF o IFRS 9. Sirve para no mezclar modelos distintos en el mismo inventario.",
                 "title": "Motor",
                 "ui_group": "Inventario",
                 "ui_order": 2,
@@ -13093,34 +13102,49 @@
               },
               "publish_to_inventory": {
                 "default": false,
-                "description": "True requiere el extra tracking; False genera solo evidencia local.",
+                "description": "Si además de dejar la evidencia en tu carpeta quieres publicar el modelo a un inventario MLflow. Pide instalar el extra «tracking»; si lo dejas en no, todo queda local.",
                 "title": "Publicar al inventario",
-                "type": "boolean"
+                "type": "boolean",
+                "ui_group": "Inventario",
+                "ui_order": 6,
+                "ui_widget": "checkbox"
               },
               "purpose": {
-                "description": "Declaración de propósito (SR 11-7); obligatoria para el model card.",
+                "description": "Para qué se va a usar este modelo y sobre qué cartera decide. Lo escribe tu institución: el motor no puede inventarlo, y sin esto la ficha del modelo no se emite.",
                 "title": "Propósito del modelo",
-                "type": "string"
+                "type": "string",
+                "ui_group": "Ficha del modelo",
+                "ui_order": 1,
+                "ui_widget": "textarea"
               },
               "require_overlay_justification": {
                 "default": true,
-                "description": "True: un overlay sin justificación es error anti earnings-management.",
+                "description": "Exige escribir el motivo cada vez que alguien ajusta a mano un resultado del modelo. Un ajuste sin motivo detiene la corrida: es la defensa contra maquillar cifras.",
                 "title": "Exigir justificación de overlays",
-                "type": "boolean"
+                "type": "boolean",
+                "ui_group": "Ajustes manuales",
+                "ui_order": 1,
+                "ui_widget": "checkbox"
               },
               "review_period_months": {
                 "default": 12,
-                "description": "next_review_date = fecha de emisión + este periodo (SR 11-7).",
+                "description": "Cada cuántos meses toca revisar el modelo. La ficha calcula con esto la fecha de la próxima revisión, contada desde su emisión.",
                 "maximum": 60,
                 "minimum": 1,
                 "title": "Periodicidad de revisión (meses)",
-                "type": "integer"
+                "type": "integer",
+                "ui_group": "Ficha del modelo",
+                "ui_order": 4,
+                "ui_widget": "number_input"
               },
               "scenario_log_filename": {
                 "default": "scenario_log.jsonl",
                 "description": "Nombre del JSONL append-only dentro del directorio del run.",
                 "title": "Diario de escenarios/overlays",
-                "type": "string"
+                "type": "string",
+                "ui_group": "General",
+                "ui_order": 0,
+                "ui_widget": "hidden"
               }
             },
             "required": [

@@ -34,7 +34,10 @@ from pydantic import BaseModel, Field
 
 from nikodym.binning.config import BinningConfig
 from nikodym.calibration.config import CalibrationConfig
-from nikodym.core.config.schema import cargar_configs_de_dominio
+from nikodym.core.config.schema import (
+    cargar_configs_de_dominio,
+    cargar_configs_expandibles,
+)
 from nikodym.core.dataset_check import (
     CLAVE_ROL,
     ROL_ENTRADA,
@@ -297,7 +300,9 @@ def test_todo_multiselect_de_texto_libre_declara_su_rol() -> None:
     es justo lo que le faltaba a la versión que medía una tupla escrita a mano.
     """
     navegables = _secciones_navegables()
-    registro = cargar_configs_de_dominio()
+    # Las expandibles y no sólo los dominios (D-GOB-10): `governance` está en `CONFIG_SECTIONS`
+    # desde D-GOB-11 y con el mapa de dominios este gate la saltaba en silencio.
+    registro = cargar_configs_expandibles()
     en_el_formulario = [modelo for clave, modelo in registro.items() if clave in navegables]
     assert en_el_formulario, (
         "Ninguna sección del registro calza con `CONFIG_SECTIONS`: el gate quedaría vacío."

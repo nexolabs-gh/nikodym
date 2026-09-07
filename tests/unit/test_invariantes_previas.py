@@ -15,7 +15,7 @@ import pytest
 from pydantic import BaseModel
 
 from nikodym.core.config import NikodymConfig
-from nikodym.core.config.schema import cargar_configs_de_dominio
+from nikodym.core.config.schema import cargar_configs_expandibles
 from nikodym.core.dataset_check import METODO_REQUISITOS, check_dataset
 from nikodym.data.config import TemporalSplitConfig
 from nikodym.performance.config import PerformanceConfig
@@ -157,7 +157,7 @@ def test_check_dataset_publica_el_requisito_con_su_ruta_absoluta() -> None:
 
     Sin la ruta absoluta el formulario no puede saltar al campo, que es lo que hace útil al aviso.
     """
-    cargar_configs_de_dominio()
+    cargar_configs_expandibles()
     config = NikodymConfig.model_validate(
         {"name": "t", "stability": StabilityConfig(temporal_axis="period").model_dump()}
     )
@@ -171,7 +171,7 @@ def test_check_dataset_publica_el_requisito_con_su_ruta_absoluta() -> None:
 
 def test_un_requisito_incumplido_no_es_una_columna_que_falte() -> None:
     """Los dos tipos conviven en el mismo canal sin confundirse (D-INV-2)."""
-    cargar_configs_de_dominio()
+    cargar_configs_expandibles()
     config = NikodymConfig.model_validate(
         {"name": "t", "stability": StabilityConfig(temporal_axis="period").model_dump()}
     )
@@ -217,6 +217,11 @@ EXENTAS: dict[str, str] = {
     # `provisioning_internal` SALIÓ de esta tabla en 1.11.0: desde D-AMB-2 declara su propia
     # invariante —dos columnas candidatas a cartera y ninguna elegida—, que es justo lo que su
     # exención decía que no tenía. El gate lo cazó el día del cambio.
+    # --- gobernanza: entró al alcance con D-GOB-11 (los diez trabajos la ofrecen) ---
+    "governance": (
+        "no corre ni declara columnas: describe la corrida (D-GOB-10, INFRA sin `Step`) y lo que "
+        "se exige a sí misma —rangos y `purpose` no vacío— lo levanta su propio modelo"
+    ),
 }
 
 
@@ -290,7 +295,7 @@ def test_cada_seccion_declara_su_politica_de_invariantes() -> None:
     El gate mide contra el registro real de secciones —no contra una lista escrita al lado—, así
     que una sección nueva entra aquí sola y obliga a decidir.
     """
-    secciones = cargar_configs_de_dominio()
+    secciones = cargar_configs_expandibles()
     en_catalogo = _secciones_del_catalogo()
     sin_politica = [
         nombre
@@ -313,7 +318,7 @@ def test_ninguna_exencion_sobra() -> None:
     debe salir. El tercer caso es el candado de D-ABA-9: una sección fuera del alcance ya está
     exenta por derivación, y escribirla además sería mantener a mano lo que el catálogo decide.
     """
-    secciones = cargar_configs_de_dominio()
+    secciones = cargar_configs_expandibles()
     en_catalogo = _secciones_del_catalogo()
     sobrantes = [
         nombre
@@ -360,7 +365,7 @@ def test_el_alcance_derivado_no_es_vacuo() -> None:
     for ancla in ("data", "binning", "survival", "provisioning_cmf"):
         assert ancla in en_catalogo, f"«{ancla}» debería estar en el alcance del preflight"
     # Y algo tiene que quedar FUERA: si el alcance fuera todo, la derivación no distinguiría nada.
-    secciones = set(cargar_configs_de_dominio())
+    secciones = set(cargar_configs_expandibles())
     assert secciones - en_catalogo, "ninguna sección queda fuera del alcance: la derivación no mide"
 
 
@@ -476,7 +481,7 @@ def test_el_preset_de_fabrica_que_usa_survival_no_gana_ningun_aviso() -> None:
     """
     from nikodym.ui.presets import get_preset
 
-    cargar_configs_de_dominio()
+    cargar_configs_expandibles()
     config = NikodymConfig.model_validate(get_preset("f4-ifrs9-retail")["config"])
     assert config.survival is not None
     assert _rutas(config.survival) == []

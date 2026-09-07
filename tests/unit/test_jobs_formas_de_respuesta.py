@@ -31,7 +31,7 @@ from pydantic import BaseModel
 
 from nikodym.core.config import NikodymConfig, config_hash
 from nikodym.core.config.effective_defaults import build_effective_defaults
-from nikodym.core.config.schema import cargar_configs_de_dominio
+from nikodym.core.config.schema import cargar_configs_expandibles
 from nikodym.ui import jobs
 from nikodym.ui.jobs import decisiones_de, list_jobs
 from nikodym.ui.presets import standard_preset
@@ -95,9 +95,14 @@ def _decisiones() -> dict[str, dict[str, Any]]:
 
 
 def _modelo_del_path(path: str) -> tuple[type[BaseModel], str]:
-    """Devuelve ``(clase que declara la hoja, nombre del campo)`` para un path del config."""
+    """Devuelve ``(clase que declara la hoja, nombre del campo)`` para un path del config.
+
+    Indexa las secciones **expandibles** (D-GOB-10): ``governance.purpose`` es una decisión desde
+    D-GOB-12 y su clase no vive en el mapa de dominios; con aquél, este helper moría en
+    ``KeyError``.
+    """
     seccion, *resto = path.split(".")
-    cls = cargar_configs_de_dominio()[seccion]
+    cls = cargar_configs_expandibles()[seccion]
     for nombre in resto[:-1]:
         anotacion = cls.model_fields[nombre].annotation
         assert isinstance(anotacion, type) and issubclass(anotacion, BaseModel), path
@@ -185,7 +190,8 @@ def _paths_de_slots(forma: dict[str, Any]) -> set[str]:
 def test_el_barrido_no_es_vacuo() -> None:
     """Un gate que recorre cero formas daría verde diciendo nada. Ya pasó en este repo."""
     decisiones = _decisiones()
-    assert len(decisiones) == 4, sorted(decisiones)
+    # Cinco desde D-GOB-12: las dos de `data`, las dos de `survival` y el propósito de la ficha.
+    assert len(decisiones) == 5, sorted(decisiones)
     con_formas = {p: d["answer_forms"] for p, d in decisiones.items() if d["answer_forms"]}
     assert sorted(con_formas) == ["data.partition.strategy", "data.target.bad_rule"]
     assert len(con_formas["data.partition.strategy"]) == 4
@@ -305,7 +311,12 @@ def test_las_formas_cubren_exactamente_las_ramas_que_el_motor_declara() -> None:
 def test_una_decision_sin_ramas_ni_alternativas_no_inventa_formas() -> None:
     """Preguntar «¿qué columna?» con una sola forma sería una pantalla de más para lo mismo."""
     decisiones = _decisiones()
-    for path in ("survival.input.duration_col", "survival.input.event_col"):
+    for path in (
+        "survival.input.duration_col",
+        "survival.input.event_col",
+        # D-GOB-12: el propósito se escribe, no se elige; una forma única sería una pantalla de más.
+        "governance.purpose",
+    ):
         assert decisiones[path]["answer_forms"] == [], path
 
 

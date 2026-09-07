@@ -48,6 +48,7 @@ SECCIONES_DEL_FORMULARIO = (
     "provisioning_ifrs9",
     "provisioning",
     "report",
+    "governance",
 )
 
 #: Literales de Python que no significan nada para quien mira una pantalla en español. `None` es
@@ -263,10 +264,20 @@ _TOPE_PLACEHOLDER = 160
 #: sólo viaja al tooltip y el tope no le aplica.
 _TIPOS_CON_PLACEHOLDER = frozenset({"number", "integer", "string"})
 
+#: Widgets de texto que NO pintan placeholder. `TextareaField` (`FieldRenderer.tsx`) no pasa
+#: `placeholder` a su `<textarea>`, así que la `description` de un campo `textarea` sólo se lee en
+#: el tooltip ⓘ y el tope no le aplica. Medido el 2026-09-07 al poner `governance.purpose` en
+#: pantalla (D-GOB-12/13): su copy aprobado tiene 162 caracteres y el control no lo pinta dentro.
+#: El gate de abajo ancla esa premisa al fuente del front: si el textarea gana placeholder, vuelve.
+_WIDGETS_SIN_PLACEHOLDER = frozenset({"textarea", "text_area"})
+
 
 def _recibe_placeholder(nodo: dict[str, Any]) -> bool:
     return (
-        nodo.get("type") in _TIPOS_CON_PLACEHOLDER and not nodo.get("enum") and "const" not in nodo
+        nodo.get("type") in _TIPOS_CON_PLACEHOLDER
+        and not nodo.get("enum")
+        and "const" not in nodo
+        and nodo.get("ui_widget") not in _WIDGETS_SIN_PLACEHOLDER
     )
 
 
@@ -307,6 +318,12 @@ def test_el_gate_del_placeholder_no_es_vacuo() -> None:
     # el barrido no veía, y ahí vivía uno de los 16 que se acortaron al cerrar esta deuda.
     assert "provisioning_internal.lgd.recovery_col" in con_placeholder
 
+    # Un textarea tampoco entra: su control no pinta placeholder (ver `_WIDGETS_SIN_PLACEHOLDER`).
+    assert "governance.purpose" not in con_placeholder
+    assert any(nodo.get("ui_widget") == "textarea" for _, nodo in campos), (
+        "el formulario tiene un textarea: si no se ve, el filtro no se está probando"
+    )
+
     # Control positivo del criterio: un selector NO entra, aunque su description sea larga.
     selectores = [
         ruta
@@ -318,3 +335,28 @@ def test_el_gate_del_placeholder_no_es_vacuo() -> None:
         "un campo con `enum` se pinta como selector y no muestra placeholder: no puede estar en "
         "los dos conjuntos"
     )
+
+
+def test_el_textarea_del_front_sigue_sin_pintar_placeholder() -> None:
+    """Ancla de `_WIDGETS_SIN_PLACEHOLDER` al fuente que la sostiene.
+
+    La exención del textarea no es una preferencia: es que `TextareaField` no pasa `placeholder`
+    a su control, así que la `description` sólo se lee en el tooltip. Si algún día lo pasa, este
+    gate se pone rojo y el tope vuelve a aplicar —y `governance.purpose` (162 caracteres, copy
+    aprobado que no se reescribe aquí) tendría que bajar su detalle a `ui_help`—.
+    """
+    from pathlib import Path
+
+    fuente = (
+        Path(__file__).resolve().parents[2] / "web" / "src" / "components" / "FieldRenderer.tsx"
+    )
+    cuerpo = fuente.read_text(encoding="utf-8")
+    inicio = cuerpo.index("function TextareaField(")
+    textarea = cuerpo[inicio : cuerpo.index("\n}", inicio)]
+    assert "<textarea" in textarea, "TextareaField ya no pinta un <textarea>: revisar la premisa"
+    assert "placeholder" not in textarea, (
+        "`TextareaField` pasa `placeholder`: la description de un textarea vuelve a leerse dentro "
+        "del control y el tope de `_TOPE_PLACEHOLDER` tiene que aplicarle"
+    )
+    # Y el control positivo de la premisa contraria: los inputs de texto y número SÍ lo pasan.
+    assert cuerpo.count("placeholder={fieldPlaceholder(") >= 2

@@ -15,9 +15,12 @@ _TARGET = (
 def main() -> None:
     """Escribe la fotografía canónica del censo medido."""
     payload = classified_option_surface()
+    # `newline="\n"`: `.gitattributes` exige LF para los JSON y en Windows `write_text` escribiría
+    # CRLF (mismo arreglo que en `gen_schema_fixture.py`).
     _TARGET.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     print(f"{_TARGET}: {len(payload['entries'])} pares + {len(payload['aliases'])} aliases")
 
