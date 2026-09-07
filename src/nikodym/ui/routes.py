@@ -29,7 +29,7 @@ from pydantic import ValidationError
 import nikodym
 from nikodym.core.config import NikodymConfig, config_hash, dump_config, loads_config
 from nikodym.core.config.effective_defaults import build_effective_defaults
-from nikodym.core.config.schema import build_full_json_schema, cargar_configs_de_dominio
+from nikodym.core.config.schema import build_full_json_schema, cargar_configs_expandibles
 from nikodym.core.dataset_check import columnas_producidas_por_seccion
 from nikodym.core.exceptions import ConfigError, MissingDependencyError, NikodymError
 from nikodym.ui import datasets, jobs, presets, runs
@@ -144,7 +144,14 @@ def validate_config(config: Any, external_artifacts: Any = None) -> dict[str, An
     # HTTP directo que pegue aquí primero recibía `valid=true` sobre un config con rangos violados.
     # No cambia el SIGNIFICADO de `valid` (D-PIPE-1 sigue en pie): lo hace significar lo mismo
     # siempre. Cuesta ~0,3 s una única vez por proceso, y sólo si nadie pidió el schema antes.
-    cargar_configs_de_dominio()
+    #
+    # Se cargan las secciones EXPANDIBLES y no sólo los dominios (D-GOB-10): `governance` tiene
+    # rangos propios —`review_period_months` entre 1 y 60— y el loader de dominios no importa su
+    # capa, así que en el motor la sección se acepta opaca hasta que alguien la importe (medido en
+    # proceso fresco: gate del motor en `test_gobernanza_expandible.py`). Por esta ruta el hueco no
+    # se manifestaba —`nikodym.ui.serializers` importa `nikodym.governance` al cargarse—; la llamada
+    # deja el contrato explícito en vez de heredarlo de esa cadena de imports.
+    cargar_configs_expandibles()
     try:
         claves_externas = _claves_externas(external_artifacts)
     except UiArtifactError as exc:
@@ -463,7 +470,7 @@ def preflight_dataset(
         puerta que sólo existe en la red. ``compatible`` sigue significando exactamente lo mismo
         que antes —config contra dataset— por la misma razón.
     """
-    cargar_configs_de_dominio()  # misma razón que en `validate_config`: D-HASH-5
+    cargar_configs_expandibles()  # misma razón que en `validate_config`: D-HASH-5 y D-GOB-10
     model = NikodymConfig.model_validate(config)
     source = datasets.materialize(dataset_id, workdir=workdir)  # UiDatasetError → 404
 

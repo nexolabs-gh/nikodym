@@ -109,6 +109,17 @@ _DOMAIN_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
     "provisioning": ("nikodym.provisioning.config", "ProvisioningConfig"),
     "validation": ("nikodym.validation.config", "ValidationConfig"),
 }
+# Secciones de INFRAESTRUCTURA que el schema de la interfaz expande sin que sean pasos (D-GOB-10).
+# Va aparte de ``_DOMAIN_CONFIG_CLASSES`` a propósito: ``_default_step_names`` deriva el pipeline
+# de ``_DEFAULT_DOMAIN_ORDER``, cuyo conjunto de claves es exactamente el de ese mapa, así que una
+# sección SIN ``Step`` —``governance`` no calcula nada, describe— no puede vivir ahí sin que
+# ``nikodym.run`` intente resolver contra el ``REGISTRY`` un paso que no existe, ni sin que el mapa
+# mienta sobre lo que enumera (enmienda GOBERNANZA-EN-PANTALLA §2.2). Lo consumen los loaders de
+# :mod:`nikodym.core.config.schema`; el ``config_hash`` no lo mira, porque ``governance`` sigue en
+# ``INFRA_SECTIONS``. ``audit`` y ``tracking`` quedan fuera: ninguna decisión los pone en pantalla.
+_INFRA_CONFIG_CLASSES: Final[dict[str, tuple[str, str]]] = {
+    "governance": ("nikodym.governance.config", "GovernanceConfig"),
+}
 _DEFAULT_DOMAIN_ORDER: Final[tuple[str, ...]] = (
     "data",
     "markov",

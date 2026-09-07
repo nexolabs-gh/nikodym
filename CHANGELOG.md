@@ -46,6 +46,13 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   de fábrica a propósito: exige declarar el propósito del modelo, y ese dato sólo lo puede fijar la
   institución. El motor no lo inventa.
 
+- **El schema que sirve la interfaz describe la sección de gobernanza campo a campo.** Hasta ahora
+  `GET /api/schema` la entregaba como un bloque opaco —sin sus campos ni sus rangos— aunque el motor
+  la validaba completa. Ahora viaja expandida, como el informe, sin convertirse en un paso del
+  pipeline: la gobernanza describe la corrida, no la calcula, y la identidad de la corrida
+  (`config_hash`) no se mueve. El formulario que la haga descubrible en pantalla llega en una
+  versión posterior.
+
 ### Cambiado
 
 - ⚠️ **Correr un ejemplo de fábrica por código ahora pide decir dónde va la evidencia.** Como los

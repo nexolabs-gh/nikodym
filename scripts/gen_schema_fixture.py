@@ -24,7 +24,7 @@ import json
 from pathlib import Path
 
 from nikodym.core.config.schema import rama_objeto
-from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
+from nikodym.core.study import _DOMAIN_CONFIG_CLASSES, _INFRA_CONFIG_CLASSES
 from nikodym.ui.routes import schema_payload
 
 _FIXTURE = Path(__file__).resolve().parent.parent / "web" / "src" / "fixtures" / "schema.json"
@@ -33,29 +33,32 @@ _FIXTURE = Path(__file__).resolve().parent.parent / "web" / "src" / "fixtures" /
 def main() -> None:
     """Escribe el fixture con el schema, los defaults y el orden de secciones actuales."""
     payload = schema_payload()
-    # Solo se vigilan los dominios COMPUTACIONALES: son los que la UI edita y los únicos que
-    # `build_full_json_schema` expande. Si uno sale opaco, es que su extra no está instalado y el
-    # fixture saldría degradado. (Las secciones INFRA —audit, governance, tracking— y los escalares
-    # —name, schema_version— nunca se expanden: no son un problema.)
+    # Se vigilan las secciones que `build_full_json_schema` EXPANDE: los dominios computacionales y
+    # la infraestructura con formulario (`governance`, D-GOB-10). Si una sale opaca, es que su extra
+    # no está instalado y el fixture saldría degradado. (`audit`, `tracking` y los escalares —name,
+    # schema_version— no se expanden: no son un problema.)
     #
     # La opacidad se pregunta con `rama_objeto` y NO con `.get("properties")`: una sección expandida
     # es apagable, y por eso viaja como `anyOf: [<objeto>, {"type": "null"}]`. Preguntar por
-    # `properties` en la raíz declararía opacos los 29 dominios y abortaría con el fixture correcto.
+    # `properties` en la raíz declararía opacas las 29 secciones y abortaría con el fixture bueno.
     propiedades = payload["json_schema"]["properties"]
     opacas = [
-        dominio
-        for dominio in _DOMAIN_CONFIG_CLASSES
-        if dominio in propiedades
-        and not (rama_objeto(propiedades[dominio]) or {}).get("properties")
+        seccion
+        for seccion in (*_DOMAIN_CONFIG_CLASSES, *_INFRA_CONFIG_CLASSES)
+        if seccion in propiedades
+        and not (rama_objeto(propiedades[seccion]) or {}).get("properties")
     ]
     if opacas:
-        print(f"⚠️  Dominios OPACOS (falta su extra): {opacas}")
+        print(f"⚠️  Secciones OPACAS (falta su extra): {opacas}")
         print("   Corre `uv sync --all-extras` y repite, o el fixture saldrá degradado.")
         raise SystemExit(1)
 
+    # `newline="\n"`: sin él, Windows escribe CRLF y el working copy queda distinto del blob que
+    # `.gitattributes` (`*.json text eol=lf`) normaliza al commit. Medido al regenerar en S2b.
     _FIXTURE.write_text(
         json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     tamano = _FIXTURE.stat().st_size
     print(f"✅ {_FIXTURE.relative_to(Path.cwd())} regenerado ({tamano / 1024:.0f} kB)")

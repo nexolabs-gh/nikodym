@@ -9,7 +9,7 @@ cosa. Inferir ``{}``/``false``/``0``/«la primera opción» desde el schema dupl
 Pydantic en React y es justo lo que produjo esas divergencias.
 
 La respuesta es una **sola fuente**: este catálogo, derivado de las clases Pydantic registradas
-(``cargar_configs_de_dominio()`` + ``model_fields``), ejecutando el mismo ``default`` /
+(``cargar_configs_expandibles()`` + ``model_fields``), ejecutando el mismo ``default`` /
 ``default_factory`` que ejecutaría el motor y serializando por alias y en modo JSON. JSON Schema
 sigue siendo la verdad de **forma y validación** —tipo, nulabilidad, restricciones, enum, widget,
 discriminador—; el catálogo decide **qué valor efectivo pinta una ausencia**, y nada más.
@@ -66,7 +66,7 @@ from pydantic.fields import FieldInfo
 from nikodym.core.config.schema import (
     NikodymConfig,
     build_full_json_schema,
-    cargar_configs_de_dominio,
+    cargar_configs_expandibles,
 )
 
 __all__ = [
@@ -307,23 +307,26 @@ def build_effective_defaults() -> dict[str, Any]:
     """
     schema = build_full_json_schema()
     defs_schema: dict[str, Any] = schema.get("$defs", {})
-    dominios = cargar_configs_de_dominio()
+    # Las mismas secciones que el schema acaba de expandir —dominios orquestables más la
+    # infraestructura con formulario (D-GOB-10)—: las dos superficies tienen que decir lo mismo.
+    expandibles = cargar_configs_expandibles()
 
     secciones: dict[str, Any] = {}
     volcado_raiz = _volcado_canonico(NikodymConfig)
     for nombre, campo in NikodymConfig.model_fields.items():
         clave = _clave_publica(nombre, campo)
-        # Una sección de dominio es un campo ``Any`` en el núcleo liviano: su clase real la conoce
-        # el registro de dominios, no la anotación. Un extra ausente no aparece en ``dominios`` y
-        # por tanto tampoco aquí: sección opaca, sin defaults fabricados (D-FX-10).
-        cls = dominios.get(nombre) or _submodelo_directo(campo.annotation)
+        # Una sección de dominio o de infraestructura es un campo ``Any`` en el núcleo liviano: su
+        # clase real la conoce el registro, no la anotación. Un extra ausente no aparece en
+        # ``expandibles`` y por tanto tampoco aquí: sección opaca, sin defaults fabricados
+        # (D-FX-10).
+        cls = expandibles.get(nombre) or _submodelo_directo(campo.annotation)
         if cls is None:
             secciones[clave] = _descriptor(campo, volcado_raiz, clave)
         else:
             secciones[clave] = _mapa_de_modelo(cls, (cls.__name__,))
 
     catalogo_defs: dict[str, Any] = {}
-    for prefijo, raices in _raices_por_prefijo(dominios).items():
+    for prefijo, raices in _raices_por_prefijo(expandibles).items():
         alcanzables: dict[str, type[BaseModel]] = {}
         for cls in raices:
             _modelos_alcanzables(cls, alcanzables)
@@ -340,7 +343,7 @@ def build_effective_defaults() -> dict[str, Any]:
 
 
 def _raices_por_prefijo(
-    dominios: dict[str, type[BaseModel]],
+    secciones: dict[str, type[BaseModel]],
 ) -> dict[str, list[type[BaseModel]]]:
     """``{prefijo de ``$defs``: clases desde las que se alcanzan sus modelos}``.
 
@@ -352,6 +355,6 @@ def _raices_por_prefijo(
     raices: dict[str, list[type[BaseModel]]] = {"": []}
     for campo in NikodymConfig.model_fields.values():
         raices[""].extend(modelos_de_anotacion(campo.annotation))
-    for seccion, cls in dominios.items():
+    for seccion, cls in secciones.items():
         raices[f"{seccion}__"] = [cls]
     return raices

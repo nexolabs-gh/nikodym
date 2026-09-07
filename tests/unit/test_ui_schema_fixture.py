@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from nikodym.core.exceptions import MissingDependencyError
-from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
+from nikodym.core.study import _DOMAIN_CONFIG_CLASSES, _INFRA_CONFIG_CLASSES
 from nikodym.ui.routes import schema_payload
 
 #: El artefacto commiteado que consume el front (y que el bundle instalable embebe).
@@ -37,14 +37,17 @@ def _fixture() -> dict[str, Any]:
     return json.loads(_FIXTURE.read_text(encoding="utf-8"))  # type: ignore[no-any-return]
 
 
-def _dominios_disponibles() -> list[str]:
-    """Dominios cuyo extra ESTÁ instalado aquí, con el criterio de ``build_full_json_schema``.
+def _secciones_disponibles() -> list[str]:
+    """Secciones expandibles cuyo extra ESTÁ instalado aquí, con el criterio del compositor.
 
-    Se pregunta por el import y no por la forma del nodo JSON a propósito: así el gate no depende
-    de cómo se represente una sección expandida, y sobrevive a un cambio de esa representación.
+    Los dos mapas que ``build_full_json_schema`` expande: dominios orquestables e infraestructura
+    con formulario (``governance``, D-GOB-10). Se pregunta por el import y no por la forma del nodo
+    JSON a propósito: así el gate no depende de cómo se represente una sección expandida, y
+    sobrevive a un cambio de esa representación.
     """
     disponibles = []
-    for dominio, (modulo, clase) in _DOMAIN_CONFIG_CLASSES.items():
+    mapas = (*_DOMAIN_CONFIG_CLASSES.items(), *_INFRA_CONFIG_CLASSES.items())
+    for dominio, (modulo, clase) in mapas:
         try:
             getattr(importlib.import_module(modulo), clase)
         except (ImportError, MissingDependencyError, AttributeError):
@@ -87,7 +90,7 @@ def test_el_fixture_existe() -> None:
 
 def test_hay_dominios_que_comparar() -> None:
     """Ídem: un entorno que no importara ningún dominio volvería vacuo todo lo de abajo."""
-    assert len(_dominios_disponibles()) >= 1
+    assert len(_secciones_disponibles()) >= 1
 
 
 def test_el_fixture_esta_en_formato_canonico() -> None:
@@ -114,7 +117,7 @@ def test_defaults_y_section_order_identicos() -> None:
 
 def test_cada_dominio_expandido_coincide_con_el_fixture() -> None:
     """El corazón del gate: tocar un config y no regenerar el fixture pone esto en rojo."""
-    distintos = _diferencias(schema_payload(), _fixture(), _dominios_disponibles())
+    distintos = _diferencias(schema_payload(), _fixture(), _secciones_disponibles())
     assert not distintos, (
         f"el fixture del schema está viejo en {len(distintos)} nodo(s): {distintos[:8]}. "
         "Corre `./.venv/bin/python scripts/gen_schema_fixture.py` y commitea el resultado "
@@ -141,12 +144,14 @@ def test_el_catalogo_de_defaults_efectivos_coincide_con_el_fixture() -> None:
     )
     assert vivo["version"] == fixture["version"]
 
-    dominios = _dominios_disponibles()
+    dominios = _secciones_disponibles()
     distintos = [d for d in dominios if vivo["sections"].get(d) != fixture["sections"].get(d)]
-    # Los campos raíz que no son secciones de dominio (`name`, `run`, `repro`…) no dependen de los
-    # extras: se comparan siempre.
-    no_dominios = sorted(set(vivo["sections"]) - set(_DOMAIN_CONFIG_CLASSES))
-    distintos += [n for n in no_dominios if vivo["sections"][n] != fixture["sections"].get(n)]
+    # Los campos raíz que no son secciones expandibles (`name`, `run`, `repro`, `audit`…) no
+    # dependen de los extras: se comparan siempre.
+    no_expandibles = sorted(
+        set(vivo["sections"]) - set(_DOMAIN_CONFIG_CLASSES) - set(_INFRA_CONFIG_CLASSES)
+    )
+    distintos += [n for n in no_expandibles if vivo["sections"][n] != fixture["sections"].get(n)]
     # Y los `$defs` del dominio, con el prefijo que usa el schema compuesto.
     prefijos = tuple(f"{d}__" for d in dominios)
     distintos += [
@@ -165,7 +170,7 @@ def test_la_comparacion_del_catalogo_no_es_tautologica() -> None:
     """Que el comparador del catálogo DETECTE una diferencia real (misma lección que abajo)."""
     fixture = _fixture()
     dopado = copy.deepcopy(fixture)
-    dominio = _dominios_disponibles()[0]
+    dominio = _secciones_disponibles()[0]
     hoja = next(iter(dopado["effective_defaults"]["sections"][dominio]))
     dopado["effective_defaults"]["sections"][dominio][hoja] = {"has_default": "mentira"}
     assert (
@@ -184,7 +189,7 @@ def test_la_comparacion_no_es_tautologica() -> None:
     Se dopa el fixture contra SÍ MISMO y no contra el payload vivo, para que este test no herede
     el estado del de arriba: un fixture viejo debe dar UN rojo con su causa, no dos.
     """
-    dominios = _dominios_disponibles()
+    dominios = _secciones_disponibles()
     fixture = _fixture()
     dopado = copy.deepcopy(fixture)
     dopado["json_schema"]["properties"][dominios[0]] = {"description": "texto que nadie escribió"}

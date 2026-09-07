@@ -225,11 +225,17 @@ def test_la_pagina_del_caso_de_referencia_existe_y_esta_en_el_nav() -> None:
 
 _FIXTURE_SCHEMA = _RAIZ / "web" / "src" / "fixtures" / "schema.json"
 
-# Las dos únicas secciones donde nombrar la norma ES el contenido, no un residuo:
+# Las tres únicas secciones donde nombrar la norma ES el contenido, no un residuo:
 #   · `provisioning_cmf` implementa el modelo estándar chileno — callarlo sería la mentira opuesta.
 #   · `provisioning` orquesta la comparación, y la regla del máximo que aplica por defecto es
 #     literalmente la del Cap. B-1; describirla sin nombrarla la haría incomprensible.
-_SECCIONES_CON_JURISDICCION = frozenset({"provisioning", "provisioning_cmf"})
+#   · `governance` documenta QUÉ motor describe la ficha del modelo: su campo `motor` enumera
+#     `scoring`, `cmf` e `ifrs9`, y el copy de la opción que selecciona el caso de referencia tiene
+#     que nombrarlo —el texto aprobado por Cami en D-GOB-13 («scoring, provisiones CMF o IFRS 9»)
+#     también lo hace—. Es evidencia del inventario, no titular (D-JUR): la sección llega apagada
+#     de fábrica y no está en ningún trabajo hasta D-GOB-11. Entró aquí el 2026-09-07, cuando
+#     D-GOB-10 la expandió en el schema y este barrido la vio por primera vez.
+_SECCIONES_CON_JURISDICCION = frozenset({"provisioning", "provisioning_cmf", "governance"})
 
 
 def _frases_del_schema() -> dict[str, list[str]]:

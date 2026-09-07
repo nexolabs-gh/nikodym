@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Familia** | D-GOB (continúa: D-GOB-10 … D-GOB-16) |
-| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **Revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): este documento se corrigió en §0.3–§0.6, §3, §6, §7 y §8.1, y **tres puntos quedan pendientes de re-elevación** (§8.1). **No implementada**: ninguna capa arranca hasta ese OK; el orden pasa a D-GOB-10 → D-GOB-11/12/13/14 juntas → D-GOB-15/16 |
+| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **Revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): este documento se corrigió en §0.3–§0.6, §3, §6, §7 y §8.1. **Los tres puntos de §8.1 los respondió Cami el 2026-09-07** (sí, sí, latente). **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; siguen D-GOB-11/12/13/14 juntas y después D-GOB-15/16 |
 | **Depende de** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) (D-GOB-1…9), SDD-23 (interfaz), D-SUB, D-OBL, D-VIS, D-FX-8 |
 | **Lo consumen** | `ui/jobs.py`, `ui/presets.py`, `core/config/schema.py`, `web/src/lib/schema.ts`, `web/src/components/ResultsTab.tsx` |
 | **Autor / Fecha** | Claude Code · 2026-09-02 |
@@ -47,6 +47,15 @@ en el repo privado.
    dependencia del orden de imports que D-HASH-5 cerró para los dominios, recreada para la sección
    que esta enmienda pone en pantalla. §3 D-GOB-10 fija ahora dos loaders y el censo **por
    semántica**, no por nombre.
+
+   > 🔴 **Precisión medida el 2026-09-07 (S2b), con control negativo.** El hueco existe **en el
+   > motor**: en proceso fresco `NikodymConfig` acepta el 999 sin loader y **también tras
+   > `cargar_configs_de_dominio()`**, que no importa la capa; sólo la unión lo cierra. Por la ruta
+   > `/api/validate` **no se manifestaba**: `nikodym.ui.serializers` importa `nikodym.governance`
+   > al cargarse, así que dejar sólo el loader de dominios en `validate_config` no enrojece ningún
+   > gate honesto. El gate §6.9 se reformuló: el oráculo que discrimina vive en el motor; el de la
+   > interfaz queda como contrato («mismo veredicto antes y después del schema»), y la llamada a
+   > la unión en las rutas es blindaje del contrato, no la corrección de un defecto observable.
 4. 🔴 **D-GOB-11 no se puede entregar sola: cinco gates la atan a D-GOB-12/13/14.** Medido sobre
    `a9a1668`: `test_jobs_catalogo.py` es bidireccional —toda sección de un trabajo debe estar en
    `CONFIG_SECTIONS` y viceversa—; `test_copy_del_formulario.py` recorre las secciones del
@@ -200,11 +209,29 @@ actualizarlo, no descubrirlo tarde—:
 | `core/config/hashing.py:94` | ¿hay un dominio opaco que coaccionar antes de hashear? | dominios, **sin cambio**: `governance` está en `INFRA_SECTIONS` y no entra al digest | — |
 | `core/dataset_check.py` (`_secciones_activas`, `_motivos_de_secciones_opacas`) | ¿qué corre? ¿qué columna no pude mirar? | dominios, **sin cambio**: `governance` no corre ni declara roles de columna | — |
 | `core/study.py::_coerce_domain_config` | ¿qué paso resuelvo? | dominios, **sin cambio** | — |
-| `ui/option_surface.py`, `tests/unit/test_jobs_decisiones.py`, `test_copy_del_formulario.py`, `test_effective_defaults.py` (espejos de las 14 secciones), `test_extra_ui_cubre_el_formulario.py`, `test_invariantes_previas.py` | ¿qué ofrece el **formulario**? | unión, **cuando la sección entre al formulario** | D-GOB-11 |
+| `tests/unit/test_effective_defaults.py`: `_pares_modelo_mapa` y el gate D-FX-10 (`test_un_extra_ausente_deja_su_dominio_sin_defaults_fabricados`) | ¿qué publica el **catálogo** de defaults? (espejo del generador, no del formulario) | unión | D-GOB-10 |
+| `ui/option_surface.py`, `tests/unit/test_jobs_decisiones.py`, `test_copy_del_formulario.py`, `test_effective_defaults.py` (sólo sus espejos del formulario: `SECCIONES_ESPERADAS`, `ANCLAS_POR_SECCION`), `test_extra_ui_cubre_el_formulario.py`, `test_invariantes_previas.py` | ¿qué ofrece el **formulario**? | unión, **cuando la sección entre al formulario** | D-GOB-11 |
 
 **El `config_hash` no se mueve**: `governance` sigue en `INFRA_SECTIONS`, igual que `report`. Se
 gatea explícitamente, como se hizo con `audit` en D-GOB-8. Y **la validez tampoco depende del
 orden de imports**: se gatea en proceso fresco (§6.9).
+
+> 🔴 **Corrección medida el 2026-09-07, al implementar (S2b).** El censo por semántica tenía dos
+> consumidores de `test_effective_defaults.py` bajo D-GOB-11 que preguntan por el **catálogo** y no
+> por el formulario: `_pares_modelo_mapa` y el gate D-FX-10. Con el loader de dominios, el gate de
+> paridad habría dejado sin comparar las 13 hojas de `governance` **en silencio** y el de D-FX-10
+> la habría saltado. Fila añadida arriba. El resto de consumidores del árbol que importan los mapas
+> o el loader —`testing/metrics.py`, `scorecard/bundle.py`, el arnés H9R y una treintena de
+> tests— preguntan «¿qué corre?» o «que la sección esté tipada antes de `check_dataset`», y no
+> cambian; la clasificación completa, línea a línea, vive en el `HANDOFF` de S2b. Medido al cerrar
+> la capa: `_DEFAULT_DOMAIN_ORDER` intacta, `config_hash` de los cuatro presets intacto, golden del
+> formulario intacto (394 hojas), golden del catálogo **1064 → 1076** (−1 descriptor de sección,
+> +13 hojas, 0 valores alterados) y `$defs` 104 → 104, porque `GovernanceConfig` no tiene
+> submodelos. Un consumidor más, que ningún censo nombró porque barre el **fixture** y no los
+> mapas: el gate de portada de D-JUR (`test_portada_sin_jurisdiccion`) vio «CMF» en
+> `governance.motor` y la sección entra a su lista de exentas con razón —el campo enumera los
+> motores y el copy aprobado de D-GOB-13 también nombra CMF—; la suite completa lo destapó
+> (1 failed / 6367 passed) y es lo único que enrojeció.
 
 ### D-GOB-11 — la sección entra al front como una más, en los 10 trabajos, APAGADA de fábrica
 
@@ -328,8 +355,12 @@ respuesta real—. Un tipo laxo con consumidor es una invitación a `any`.
    renderizados.
 9. **La validez de `governance` no depende del orden de imports** (D-HASH-5 sobre la sección
    nueva): en un proceso fresco, `/api/validate` rechaza `review_period_months: 999` **antes** y
-   **después** de pedir `/api/schema`, con el mismo veredicto — control negativo: dejar sólo el
-   loader de dominios en `validate_config` pone rojo.
+   **después** de pedir `/api/schema`, con el mismo veredicto. **Reformulado el 2026-09-07
+   (§0.3)**: el oráculo que discrimina el loader es el del motor —`NikodymConfig` acepta el 999
+   sin loader y tras el loader de dominios, y lo rechaza tras la unión— y su control negativo es
+   dejar la unión en sólo dominios, que pone rojo. Dejar sólo el loader de dominios en
+   `validate_config` **no** enrojece: `nikodym.ui.serializers` ya importa la capa; ese test queda
+   como contrato de la interfaz.
 10. **`purpose` en blanco se rechaza en las tres capas**: `GovernanceConfig` levanta con `""`,
     `"   "` y `"\t\n"`; `/api/validate` devuelve `valid=false` con el `loc` del campo; y la
     tarjeta de decisiones lo muestra pendiente, no contestado. Depende del OK de §8.1.
@@ -418,3 +449,20 @@ cambia lo aprobado:
    trabajos y ninguna corrida por trabajo arranca sin propósito. Recomendación: **(a)**, porque es
    lo que D-GOB-11 ya dice —«gesto explícito del usuario»— y porque (b) convierte la gobernanza en
    peaje de trabajos que hoy no la piden.
+
+### Respuestas de Cami (2026-09-07)
+
+Las tres, **tal como se recomendaron**:
+
+1. **Sí**: `GovernanceConfig.purpose` rechaza el texto en blanco tras `strip()`. Se implementa en la
+   capa D-GOB-11/12/13/14, con el gate §6.10 en sus tres superficies.
+2. **Sí**: el orden es D-GOB-10 → D-GOB-11/12/13/14 → D-GOB-15/16.
+3. **(a) Latente**: `governance` en el sidebar de los 10 trabajos, sembrada en `null`; la pregunta
+   por `purpose` aparece al encenderla, y una decisión de una sección apagada no cuenta como
+   pendiente (gate §6.11).
+
+Con la respuesta 2, **D-GOB-10 se implementó el mismo día (S2b)**: `_INFRA_CONFIG_CLASSES`, los
+loaders `cargar_configs_de_infra()` y `cargar_configs_expandibles()`, la unión en el schema, en el
+catálogo de defaults, en la guarda del fixture y en `/api/validate`/preflight, con los gates
+§6.1–6.3 y §6.9 en `tests/unit/test_gobernanza_expandible.py` y sus controles negativos. Lo que
+la implementación corrigió del censo de §3 está anotado allí mismo.

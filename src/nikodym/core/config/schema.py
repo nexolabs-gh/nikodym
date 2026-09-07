@@ -29,6 +29,7 @@ from __future__ import annotations
 import copy
 import importlib
 import json
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -67,6 +68,8 @@ __all__ = [
     "RunConfig",
     "build_full_json_schema",
     "cargar_configs_de_dominio",
+    "cargar_configs_de_infra",
+    "cargar_configs_expandibles",
 ]
 
 # Hook poblado por `nikodym.data` al importarse: la clase real del sub-config de la sección `data`.
@@ -1281,14 +1284,17 @@ def _empotrar_seccion(
 
 
 def build_full_json_schema() -> dict[str, Any]:
-    """JSON-Schema de :class:`NikodymConfig` con las secciones de dominio DISPONIBLES expandidas.
+    """JSON-Schema de :class:`NikodymConfig` con las secciones EXPANDIBLES disponibles expandidas.
 
     El schema raíz declara las secciones de dominio como campos ``Any`` (diseño de núcleo liviano),
-    así que ``model_json_schema()`` las emite **opacas**. Esta función materializa los dominios
-    instalados —importándolos con el mapa canónico
-    :data:`nikodym.core.study._DOMAIN_CONFIG_CLASSES`, lo que además puebla los hooks
-    ``_*_CONFIG_CLS``— y **compone** el schema completo empotrando el ``model_json_schema()`` de
-    cada sub-config. Un dominio cuyo extra no esté instalado queda **opaco** (se omite sin romper).
+    así que ``model_json_schema()`` las emite **opacas**. Esta función materializa las secciones que
+    :func:`cargar_configs_expandibles` devuelve —los dominios orquestables de
+    :data:`nikodym.core.study._DOMAIN_CONFIG_CLASSES` más la infraestructura con formulario de
+    :data:`nikodym.core.study._INFRA_CONFIG_CLASSES` (D-GOB-10), importándolas, lo que además
+    puebla los hooks ``_*_CONFIG_CLS``— y **compone** el schema completo empotrando el
+    ``model_json_schema()`` de cada sub-config. Una sección cuyo extra no esté instalado queda
+    **opaca** (se omite sin romper); ``audit`` y ``tracking`` quedan opacas porque ninguna decisión
+    las pone en pantalla.
 
     No muta :class:`NikodymConfig` ni su schema cacheado (trabaja sobre copias). El import dinámico
     de dominios ocurre **solo al llamar** esta función (contexto backend/schema); ``import
@@ -1299,12 +1305,34 @@ def build_full_json_schema() -> dict[str, Any]:
     defs: dict[str, Any] = schema.setdefault("$defs", {})
     props: dict[str, Any] = schema.get("properties", {})
 
-    # Todas las claves de ``_DOMAIN_CONFIG_CLASSES`` son campos de ``NikodymConfig`` (mismo core),
-    # así que están en ``props``; ``_empotrar_seccion`` usa ``props.get`` defensivamente igual.
-    for nombre, config_cls in cargar_configs_de_dominio().items():
+    # Todas las claves de los dos mapas (``_DOMAIN_CONFIG_CLASSES`` e ``_INFRA_CONFIG_CLASSES``)
+    # son campos de ``NikodymConfig`` (mismo core), así que están en ``props``;
+    # ``_empotrar_seccion`` usa ``props.get`` defensivamente igual.
+    for nombre, config_cls in cargar_configs_expandibles().items():
         _empotrar_seccion(props, defs, nombre, copy.deepcopy(config_cls.model_json_schema()))
 
     return schema
+
+
+def _cargar_configs(mapa: Mapping[str, tuple[str, str]]) -> dict[str, type[BaseModel]]:
+    """Importa cada ``(módulo, clase)`` del mapa y devuelve ``{sección: clase}`` de lo importable.
+
+    Un solo loader para los dos mapas de :mod:`nikodym.core.study`: la degradación por extra
+    ausente (D-HASH-3) y el efecto colateral de poblar los hooks ``_*_CONFIG_CLS`` tienen que ser
+    los mismos para un dominio y para una sección de infraestructura, o el schema, el catálogo de
+    defaults y ``/api/validate`` dejarían de decir lo mismo. Importa por ``importlib.import_module``
+    de este módulo, que es lo que los gates de degradación interceptan.
+    """
+    from nikodym.core.exceptions import MissingDependencyError
+
+    disponibles: dict[str, type[BaseModel]] = {}
+    for nombre, (modulo, clase) in mapa.items():
+        try:
+            disponibles[nombre] = getattr(importlib.import_module(modulo), clase)
+        except (ImportError, MissingDependencyError, AttributeError):
+            # Extra ausente → la sección queda opaca (degrada sin romper).
+            continue
+    return disponibles
 
 
 def cargar_configs_de_dominio() -> dict[str, type[BaseModel]]:
@@ -1323,6 +1351,11 @@ def cargar_configs_de_dominio() -> dict[str, type[BaseModel]]:
     su identidad no ancla ninguna corrida. La garantía es «el hash no depende del **orden** de los
     imports dentro de una instalación dada», no igualdad entre instalaciones con distintos extras.
 
+    Conserva su significado tras D-GOB-10: **dominios orquestables**, los que fijan pasos y entran
+    al ``config_hash``. Quien pregunta «¿qué corre?» —el pipeline, la coacción antes de hashear, el
+    preflight de columnas— sigue aquí; quien pregunta «¿qué secciones expando?» usa
+    :func:`cargar_configs_expandibles`.
+
     Returns
     -------
     dict[str, type[BaseModel]]
@@ -1331,14 +1364,47 @@ def cargar_configs_de_dominio() -> dict[str, type[BaseModel]]:
     """
     # Import perezoso: reusa el mapa canónico de dominios sin ciclo de import (``study`` importa
     # ``schema`` en top-level) y sin arrastrar dominios al importar ``core.config``.
-    from nikodym.core.exceptions import MissingDependencyError
     from nikodym.core.study import _DOMAIN_CONFIG_CLASSES
 
-    disponibles: dict[str, type[BaseModel]] = {}
-    for nombre, (modulo, clase) in _DOMAIN_CONFIG_CLASSES.items():
-        try:
-            disponibles[nombre] = getattr(importlib.import_module(modulo), clase)
-        except (ImportError, MissingDependencyError, AttributeError):
-            # Extra del dominio ausente → la sección queda opaca (degrada sin romper).
-            continue
-    return disponibles
+    return _cargar_configs(_DOMAIN_CONFIG_CLASSES)
+
+
+def cargar_configs_de_infra() -> dict[str, type[BaseModel]]:
+    """Importa las secciones de infraestructura con formulario y devuelve ``{sección: clase}``.
+
+    El mismo loader que :func:`cargar_configs_de_dominio`, sobre
+    :data:`nikodym.core.study._INFRA_CONFIG_CLASSES` (D-GOB-10). Hoy es sólo ``governance``: una
+    sección que describe la corrida y no la calcula, así que **no** es un paso —no entra a
+    ``_DEFAULT_DOMAIN_ORDER``— y **no** entra al ``config_hash`` (``INFRA_SECTIONS``). Lo que sí
+    comparte con los dominios es el efecto colateral: importar ``nikodym.governance`` puebla
+    ``_GOVERNANCE_CONFIG_CLS``, y con él la validez de la sección deja de depender de qué haya
+    importado el proceso antes (D-HASH-5 sobre la sección nueva; medido en proceso fresco:
+    ``review_period_months: 999`` se aceptaba antes de que alguien importara la capa y se
+    rechazaba después).
+
+    Returns
+    -------
+    dict[str, type[BaseModel]]
+        Clases de config de la infraestructura importable, por nombre de sección, en el orden del
+        mapa ``_INFRA_CONFIG_CLASSES``.
+    """
+    from nikodym.core.study import _INFRA_CONFIG_CLASSES
+
+    return _cargar_configs(_INFRA_CONFIG_CLASSES)
+
+
+def cargar_configs_expandibles() -> dict[str, type[BaseModel]]:
+    """Las secciones que el schema EXPANDE: dominios orquestables más infraestructura en pantalla.
+
+    Es la unión ordenada de los dos loaders —dominios primero, en el orden de su mapa; infra
+    después— y lo que consume todo el que pregunta «¿qué secciones tienen ``properties``?»:
+    :func:`build_full_json_schema`, el catálogo de defaults efectivos (D-FX-10: schema y catálogo
+    dicen lo mismo), la guarda de opacidad del fixture del front y ``/api/validate`` (D-HASH-5).
+    Quien pregunta «¿qué corre?» sigue usando :func:`cargar_configs_de_dominio`.
+
+    Returns
+    -------
+    dict[str, type[BaseModel]]
+        ``{sección: clase de config}`` de todo lo expandible e importable en esta instalación.
+    """
+    return {**cargar_configs_de_dominio(), **cargar_configs_de_infra()}

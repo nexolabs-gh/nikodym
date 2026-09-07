@@ -32,7 +32,7 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
-| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas, no implementadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y **tres puntos pendientes de re-elevación** (§8.1 de la enmienda: validación de `purpose` no vacío, capas 10 → 11/12/13/14 → 15/16, `governance` latente en el esqueleto de los trabajos); ninguna capa arranca hasta ese OK; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
+| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**, D-GOB-11…16 pendientes en ese orden; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
 
 ## D-RDY — readiness integral
 
@@ -403,8 +403,9 @@ tres fixtures siguen con `"model_card": null`.
 
 **D-GOB-10…16 · La gobernanza tiene que ser VISIBLE en la interfaz.** Aprobadas por Cami el
 2026-09-03 tal como las redacta
-[`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md); **no implementadas**.
-En una línea cada una: **D-GOB-10** `governance` se expande por un `_INFRA_CONFIG_CLASSES` propio
+[`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md); **D-GOB-10
+implementada el 2026-09-07 (S2b)**, D-GOB-11…16 no implementadas. En una línea cada una:
+**D-GOB-10** `governance` se expande por un `_INFRA_CONFIG_CLASSES` propio
 en `core/study.py`, nunca por `_DOMAIN_CONFIG_CLASSES`, porque `_DEFAULT_DOMAIN_ORDER` deriva el
 pipeline de esa lista y `governance` no tiene `Step`; `_DEFAULT_DOMAIN_ORDER` y el `config_hash` no
 se mueven. **D-GOB-11** la sección entra a `CONFIG_SECTIONS` (14 → 15) y a los **10 trabajos**, como
@@ -414,10 +415,10 @@ copy público con el texto exacto de la tabla §3 de la enmienda. **D-GOB-14** `
 no se expone (D-SUB). **D-GOB-15** «Ficha del modelo» en Resultados tras «Artefactos de la corrida»,
 con guard por presencia. **D-GOB-16** `model_card` deja de ser `Record<string, unknown>` y pasa a un
 tipo `ModelCard` explícito. Las respuestas de Cami a las cuatro preguntas del §8: sí, sí, **diferir**
-el capítulo del informe, los 10 trabajos. Orden de implementación: 10/11 → 12/13/14 → 15/16, cada
-capa con medición previa, gates y control negativo (§6 de la enmienda). **Antes de la primera capa,
-revisión independiente de la enmienda** (AGENTS.md): si devuelve hallazgos, se corrige el documento
-y se vuelve a elevar sólo lo que cambie.
+el capítulo del informe, los 10 trabajos. Orden de implementación —corregido el 2026-09-07 por la
+respuesta 2 de §8.1—: **10 → 11/12/13/14 → 15/16**, cada capa con medición previa, gates y control
+negativo (§6 de la enmienda). **Antes de la primera capa, revisión independiente de la enmienda**
+(AGENTS.md): si devuelve hallazgos, se corrige el documento y se vuelve a elevar sólo lo que cambie.
 
 > 🔴 **Revisión independiente ejecutada el 2026-09-03** (Codex, rango `5d6aa68..a9a1668`,
 > `needs-attention`, seis hallazgos verificados contra el árbol; evidencia íntegra en el repo
@@ -425,11 +426,37 @@ y se vuelve a elevar sólo lo que cambie.
 > dejan **tres decisiones nuevas en su §8.1**: la validación de `purpose` no vacío —sin ella
 > D-GOB-12 es falsa—, el orden de capas **10 → 11/12/13/14 → 15/16** —cinco gates vigentes hacen
 > que D-GOB-11 no sea entregable sin 12/13/14— y `governance` **latente** en el esqueleto de los
-> trabajos —hoy `jobSkeleton` siembra encendida toda sección del trabajo—. **Ninguna capa arranca
-> hasta ese OK.** Los tres hallazgos sobre la implementación de D-GOB-1…8 son los abiertos 4–6 de
-> abajo y se corrigen en código antes de la primera capa. Además el registro contenía una
-> instrucción **sustituida** por D-GOB-10 —«sumar `governance` a `_DOMAIN_CONFIG_CLASSES`»— que
-> se corrige en el abierto 1.
+> trabajos —hoy `jobSkeleton` siembra encendida toda sección del trabajo—. **OK de Cami a los tres
+> el 2026-09-07: sí, sí, latente.** Los tres hallazgos sobre la implementación de D-GOB-1…8 son los
+> abiertos 4–6 de abajo, corregidos en código antes de la primera capa. Además el registro contenía
+> una instrucción **sustituida** por D-GOB-10 —«sumar `governance` a `_DOMAIN_CONFIG_CLASSES`»—
+> que se corrige en el abierto 1.
+
+**D-GOB-10 · Implementada el 2026-09-07 (S2b).** `core/study.py` gana `_INFRA_CONFIG_CLASSES`
+(sólo `governance`, con el porqué escrito al lado); `core/config/schema.py` gana
+`cargar_configs_de_infra()` y `cargar_configs_expandibles()` —la unión ordenada, dominios primero,
+sobre un solo helper de import para que la degradación por extra ausente sea la misma— y
+`build_full_json_schema()` expande la unión. La consumen el catálogo de defaults efectivos
+(D-FX-10), la guarda de opacidad de `gen_schema_fixture`, el gate del fixture y
+`/api/validate`/`preflight`. `cargar_configs_de_dominio()` conserva su significado: quien pregunta
+«¿qué corre?» —pipeline, coacción antes de hashear, preflight de columnas, `orchestrable_domains`—
+no cambió. Medido: `_DEFAULT_DOMAIN_ORDER` intacta, `config_hash` de los cuatro presets intacto,
+golden del formulario intacto (394 hojas), golden del catálogo 1064 → 1076 (−1 descriptor de
+sección, +13 hojas, 0 valores alterados) y `$defs` 104 → 104. **D-HASH-5 sobre la sección nueva,
+precisado al implementar**: el hueco existe en el motor —en proceso fresco `NikodymConfig` acepta
+`review_period_months: 999` sin loader y también tras `cargar_configs_de_dominio()`, que no importa
+`nikodym.governance`; sólo la unión lo cierra— y ahí se gatea con `python -I`; por `/api/validate`
+no era observable porque `ui/serializers.py` importa la capa al cargarse, medido con el control
+negativo «sólo el loader de dominios en `validate_config`», que **no enrojeció**: la llamada a la
+unión en las rutas es blindaje del contrato, no la corrección de un defecto visible. Gates en
+`test_gobernanza_expandible.py`, con controles negativos en los tres sentidos de §6 (mapa INFRA,
+orden de ejecución, unión del loader). Corrección al censo de la enmienda: dos espejos del catálogo
+en `test_effective_defaults.py` estaban bajo D-GOB-11 y son de D-GOB-10 (anotado en su §3). Y un
+consumidor que ningún censo nombró porque barre el **fixture**: el gate de portada de D-JUR
+(`test_portada_sin_jurisdiccion`) vio «CMF» en `governance.motor` al expandirse la sección; entra a
+`_SECCIONES_CON_JURISDICCION` con su razón escrita —el campo enumera los motores
+(`scoring`/`cmf`/`ifrs9`) y el copy aprobado de D-GOB-13 también nombra CMF: evidencia del
+inventario, no titular—, y el control positivo del gate la sigue exigiendo como ofensora.
 
 ### Defecto preexistente que D-GOB-8 destapó
 

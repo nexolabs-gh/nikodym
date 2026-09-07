@@ -33,7 +33,11 @@ from nikodym.core.config.effective_defaults import (
     build_effective_defaults,
     modelos_de_anotacion,
 )
-from nikodym.core.config.schema import build_full_json_schema, cargar_configs_de_dominio
+from nikodym.core.config.schema import (
+    build_full_json_schema,
+    cargar_configs_de_dominio,
+    cargar_configs_expandibles,
+)
 from nikodym.core.exceptions import NikodymError
 from nikodym.ml.config import MLConfig
 from nikodym.ui.routes import schema_payload
@@ -150,7 +154,18 @@ HOJAS_CON_DEFAULT_EFECTIVO = 396
 #: ⚠️ Ninguna de las tres suma en ``sections``: ``provisioning_internal.lgd`` ya es descriptor sin
 #: hijos desde D-LGD-1, así que las hojas de una rama viven **sólo** en ``$defs``. Por eso el neto
 #: (+21) coincide con la suma por rama (6+6+9) sin duplicar.
-DESCRIPTORES_TOTALES = 1064
+#:
+#: 1064 → 1076 el 2026-09-07 con D-GOB-10: el schema expande ``governance`` por el mapa INFRA propio
+#: y el catálogo publica sus 13 campos. Medido con la baseline tomada por ``git archive HEAD`` a un
+#: directorio aparte: **1 desaparición** —``sections.governance``, que deja de ser el descriptor de
+#: una sección apagada (``{has_default: true, value: null}``) para ser un mapa de hijos, como toda
+#: sección expandida—, **13 apariciones** —``sections.governance.{model_name, cartera, motor, fase,
+#: estado_validacion, author, purpose, assumptions, limitations, review_period_months,
+#: publish_to_inventory, scenario_log_filename, require_overlay_justification}``— y **0 valores
+#: alterados** en los 1063 restantes. Nada en ``$defs``: ``GovernanceConfig`` no tiene submodelos,
+#: así que el schema compuesto no gana claves ``governance__*`` (104 antes y después). El golden del
+#: formulario (394 hojas) no se mueve: la sección no entra a ``CONFIG_SECTIONS`` hasta D-GOB-11.
+DESCRIPTORES_TOTALES = 1076
 
 
 #: Las 14 secciones que el formulario ofrece. Espejo de ``SECCIONES_DEL_FORMULARIO`` de
@@ -490,8 +505,9 @@ def _pares_modelo_mapa(
 ) -> list[tuple[str, type[BaseModel], dict[str, Any]]]:
     """``(etiqueta, clase, mapa del catálogo)`` de **todo** modelo publicado.
 
-    Cubre las dos coordenadas, y la segunda no es un extra: las 22 clases raíz de sección
-    (``DataConfig``, ``BinningConfig``, ``ReportConfig``…) **no están en `$defs`** —el schema
+    Cubre las dos coordenadas, y la segunda no es un extra: las 23 clases raíz de sección
+    (``DataConfig``, ``BinningConfig``, ``ReportConfig``… y ``GovernanceConfig``, la única de
+    infraestructura que el schema expande, D-GOB-10) **no están en `$defs`** —el schema
     compuesto las empotra *inline*—, así que un barrido que sólo recorriera `$defs` dejaba fuera
     224 descriptores, el 32 % del catálogo. No es teoría: ahí vivía la divergencia real de
     ``ml.hyperparameters``, y el gate daba verde con ella dentro.
@@ -501,7 +517,10 @@ def _pares_modelo_mapa(
     corrupto consigo mismo y no ejecuta el gate que dice anclar.
     """
     catalogo = catalogo if catalogo is not None else build_effective_defaults()
-    dominios = cargar_configs_de_dominio()
+    # Espejo del generador, no del formulario: se recorre lo que el catálogo PUBLICA, que es la
+    # unión de dominios e infraestructura expandible. Con sólo los dominios, las hojas de
+    # `governance` quedaban sin comparar en silencio (medido al implementar D-GOB-10).
+    dominios = cargar_configs_expandibles()
     pares: list[tuple[str, type[BaseModel], dict[str, Any]]] = []
 
     def alcanzables(cls: type[BaseModel], acc: dict[str, type[BaseModel]]) -> None:
@@ -999,13 +1018,14 @@ def test_el_payload_publica_el_mismo_catalogo() -> None:
 
 
 def test_un_extra_ausente_deja_su_dominio_sin_defaults_fabricados() -> None:
-    """D-FX-10: el catálogo declara exactamente los dominios disponibles, ni uno más.
+    """D-FX-10: el catálogo declara exactamente las secciones expandibles disponibles, ni una más.
 
     Un dominio cuyo extra no esté instalado queda opaco en ``json_schema`` **y** ausente del
     catálogo: las dos superficies dicen lo mismo. Fabricarle defaults sería prometer un formulario
-    para una capacidad que esta instalación no puede ejecutar.
+    para una capacidad que esta instalación no puede ejecutar. El conjunto es el de la unión
+    (D-GOB-10): con sólo los dominios, `governance` quedaría fuera del gate en silencio.
     """
-    disponibles = set(cargar_configs_de_dominio())
+    disponibles = set(cargar_configs_expandibles())
     catalogo = build_effective_defaults()
     secciones_de_dominio = {
         nombre for nombre in catalogo["sections"] if nombre in set(NikodymConfig.model_fields)

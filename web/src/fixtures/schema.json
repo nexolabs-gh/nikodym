@@ -3113,8 +3113,57 @@
         }
       },
       "governance": {
-        "has_default": true,
-        "value": null
+        "assumptions": {
+          "has_default": true,
+          "value": []
+        },
+        "author": {
+          "has_default": true,
+          "value": null
+        },
+        "cartera": {
+          "has_default": true,
+          "value": null
+        },
+        "estado_validacion": {
+          "has_default": true,
+          "value": "desarrollo"
+        },
+        "fase": {
+          "has_default": true,
+          "value": null
+        },
+        "limitations": {
+          "has_default": true,
+          "value": []
+        },
+        "model_name": {
+          "has_default": true,
+          "value": "nikodym-model"
+        },
+        "motor": {
+          "has_default": true,
+          "value": null
+        },
+        "publish_to_inventory": {
+          "has_default": true,
+          "value": false
+        },
+        "purpose": {
+          "has_default": false
+        },
+        "require_overlay_justification": {
+          "has_default": true,
+          "value": true
+        },
+        "review_period_months": {
+          "has_default": true,
+          "value": 12
+        },
+        "scenario_log_filename": {
+          "has_default": true,
+          "value": "scenario_log.jsonl"
+        }
       },
       "markov": {
         "dynamics": {
@@ -12920,6 +12969,170 @@
         "title": "Forward-looking"
       },
       "governance": {
+        "anyOf": [
+          {
+            "additionalProperties": false,
+            "description": "Documenta el modelo para su gobierno: model card, inventario y diario de overlays.\n\nCambiar el propósito, los metadatos de inventario o la política de publicación no altera los\nresultados de la corrida ni su ``config_hash``; el cambio queda registrado en el model card\ny en el audit-trail.",
+            "properties": {
+              "assumptions": {
+                "description": "Supuestos de desarrollo que se copian al model card.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Supuestos declarados",
+                "type": "array"
+              },
+              "author": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Email o identidad del responsable; tag nikodym.autor.",
+                "title": "Autor / responsable",
+                "ui_group": "Inventario",
+                "ui_order": 5,
+                "ui_widget": "text_input"
+              },
+              "cartera": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Segmento de cartera del modelo, en la taxonomía que use la institución; se publica como tag nikodym.cartera. Es descriptivo del inventario: no altera ningún cálculo.",
+                "title": "Cartera",
+                "ui_group": "Inventario",
+                "ui_order": 1,
+                "ui_widget": "text_input"
+              },
+              "estado_validacion": {
+                "default": "desarrollo",
+                "description": "Ciclo de vida de effective challenge; tag nikodym.estado_validacion. Es ortogonal a los aliases de despliegue.",
+                "enum": [
+                  "desarrollo",
+                  "en_validacion",
+                  "validado",
+                  "retirado"
+                ],
+                "title": "Estado de validación",
+                "type": "string",
+                "ui_group": "Inventario",
+                "ui_order": 4,
+                "ui_widget": "selectbox"
+              },
+              "fase": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "F0",
+                      "F1",
+                      "F2",
+                      "F3",
+                      "F4",
+                      "F5",
+                      "F6",
+                      "F7",
+                      "originacion"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Fase de construcción del modelo; tag nikodym.fase.",
+                "title": "Fase de construcción",
+                "ui_group": "Inventario",
+                "ui_order": 3,
+                "ui_widget": "selectbox"
+              },
+              "limitations": {
+                "description": "Limitaciones de uso que se copian al model card.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Limitaciones declaradas",
+                "type": "array"
+              },
+              "model_name": {
+                "default": "nikodym-model",
+                "description": "Identidad en el inventario (clave del MLflow Registry).",
+                "title": "Nombre lógico del modelo",
+                "type": "string"
+              },
+              "motor": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "scoring",
+                      "cmf",
+                      "ifrs9"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Separación de motores CMF/IFRS9/scoring; tag nikodym.motor.",
+                "title": "Motor",
+                "ui_group": "Inventario",
+                "ui_order": 2,
+                "ui_widget": "selectbox"
+              },
+              "publish_to_inventory": {
+                "default": false,
+                "description": "True requiere el extra tracking; False genera solo evidencia local.",
+                "title": "Publicar al inventario",
+                "type": "boolean"
+              },
+              "purpose": {
+                "description": "Declaración de propósito (SR 11-7); obligatoria para el model card.",
+                "title": "Propósito del modelo",
+                "type": "string"
+              },
+              "require_overlay_justification": {
+                "default": true,
+                "description": "True: un overlay sin justificación es error anti earnings-management.",
+                "title": "Exigir justificación de overlays",
+                "type": "boolean"
+              },
+              "review_period_months": {
+                "default": 12,
+                "description": "next_review_date = fecha de emisión + este periodo (SR 11-7).",
+                "maximum": 60,
+                "minimum": 1,
+                "title": "Periodicidad de revisión (meses)",
+                "type": "integer"
+              },
+              "scenario_log_filename": {
+                "default": "scenario_log.jsonl",
+                "description": "Nombre del JSONL append-only dentro del directorio del run.",
+                "title": "Diario de escenarios/overlays",
+                "type": "string"
+              }
+            },
+            "required": [
+              "purpose"
+            ],
+            "title": "GovernanceConfig",
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
         "default": null,
         "description": "Documenta el modelo para su gobierno: model card, inventario y diario de overlays.",
         "title": "Gobernanza"
