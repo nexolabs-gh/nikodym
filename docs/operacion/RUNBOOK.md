@@ -1108,6 +1108,28 @@ node "C:\Users\camil\.claude\plugins\cache\openai-codex\codex\<version>\scripts\
 `--scope` acepta `auto`, `working-tree` y `branch`. La versión va dentro de la ruta y cambia al
 actualizar el plugin: no fijarla de memoria.
 
+⚠️ **El companion resuelve `codex` por el PATH del proceso que lo lanza** —`spawn("codex", …)`
+con shell en Windows, sin variable para elegir binario— y el broker compartido hereda ese
+entorno. El `codex` del directorio de Node contractual es el shim de npm (0.148.0 el 2026-09-07)
+y no soporta el modelo fijado en `~/.codex/config.toml` (`gpt-6-astra`): el runtime devuelve
+`400 … requires a newer version of Codex`. La app de Codex instala su propio CLI en
+`%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>\codex.exe` (0.153.0 ese día), que sí lo soporta.
+Anteponerlo al PATH **del proceso** antes de lanzar y comprobar con `cmd /c where codex` que el
+`.exe` va primero —es lo que `cmd.exe` ejecuta—; no editar `config.toml` ni instalar nada:
+
+```powershell
+$env:PATH = 'C:\Users\camil\AppData\Local\OpenAI\Codex\bin\9ba750cce02d5e5c;' + $env:PATH
+& cmd /c "where codex"
+& codex --version
+node "<companion>" adversarial-review --background --scope branch --base <sha>
+node "<companion>" status --all --json
+node "<companion>" result <job-id>
+```
+
+El hash del directorio cambia con cada versión de la app: listar `bin\` y medir `--version`
+antes de citarlo. Lanzar desde PowerShell sin `2>&1` (§2). Un job que quedó «running» con PID
+muerto en `status --all` es cosmético: no bloquea revisiones nuevas.
+
 **Prohibido mientras Claude sea el writer:** `/codex:rescue` y el subagente `codex:codex-rescue`.
 Ese comando **sí** es invocable por el modelo y su subagente añade `--write` por defecto, de modo
 que un descuido crea un segundo writer sobre el mismo checkout.
