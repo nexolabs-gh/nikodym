@@ -467,17 +467,23 @@ def _apartar_run_dir_fallido(staging: _RunDirStaging, exc: BaseException) -> Non
     Política: si el temporal no tiene evidencia —ningún archivo con contenido: el fallo ocurrió
     antes de emitir nada—, se descarta y no queda rastro. Si la tiene, se conserva como hermano
     ``.<nombre>.failed.*`` del destino —que no se toca— y la ruta se anota en la excepción
-    (``BaseException.add_note``), que es lo único que el llamador recibe. Si ni siquiera se puede
-    renombrar, el temporal se queda donde está y se anota esa ruta: nunca se borra.
+    (``BaseException.add_note``), que es lo único que el llamador recibe. Si el propio rescate
+    falla —inspeccionar el temporal, reservar el hermano o renombrarlo—, el temporal se queda
+    donde está y se anota esa ruta: nunca se borra, y nunca se sustituye la excepción original.
     """
     workdir, destino = staging.workdir, staging.destino
-    if not _hay_evidencia(workdir):
-        shutil.rmtree(workdir, ignore_errors=True)
-        return
-    conservada = _missing_backup_path(destino, etiqueta="failed")
+    conservada = workdir
     try:
+        if not _hay_evidencia(workdir):
+            shutil.rmtree(workdir, ignore_errors=True)
+            return
+        conservada = _missing_backup_path(destino, etiqueta="failed")
         _replace_path(workdir, conservada)
     except OSError:
+        # El rescate mismo puede fallar: reservar el hermano es un `mkdtemp`, que con el disco
+        # lleno o sin permisos levanta justo cuando más importa. Fuera del `try` su `OSError`
+        # sustituía a la excepción que explica el fallo y la nota nunca se añadía (ronda 2 de la
+        # revisión adversarial del 2026-09-07). El temporal se queda donde está y se anota ESA ruta.
         conservada = workdir
     exc.add_note(
         f"La evidencia de la corrida fallida se conservó en '{conservada}' y no reemplazó a "

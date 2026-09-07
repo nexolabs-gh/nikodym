@@ -11,6 +11,7 @@ snapshot de helper no demuestra eso.
 
 from __future__ import annotations
 
+import errno
 import json
 from pathlib import Path
 
@@ -546,4 +547,38 @@ def test_un_fallo_inesperado_conserva_la_evidencia_de_la_corrida_fallida_al_lado
     assert "se cayó el cómputo de performance" in fin[0]["payload"]["error"]
     assert fin[0]["payload"]["step"] == "performance"
     # …y el llamador sabe dónde quedó: la ruta viaja como nota de la excepción.
+    assert any(str(nuevos[0]) in nota for nota in getattr(excinfo.value, "__notes__", []))
+
+
+def test_si_el_rescate_de_la_evidencia_falla_sobreviven_la_excepcion_original_y_el_temporal(
+    fuente_f1: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ronda 2 (revisión del 2026-09-07 sobre `21505b0..a593be7`): el rescate no manda.
+
+    Reservar el hermano ``.failed.*`` es un ``mkdtemp`` y puede fallar con el disco lleno o sin
+    permisos, justo cuando más importa. Ni eso puede sustituir a la excepción que explica el fallo
+    ni callarse dónde quedó la evidencia: el llamador recibe el ``RuntimeError`` de la corrida, la
+    nota nombra el temporal ``.tmp`` que se quedó donde estaba, y el trail sigue ahí con su
+    diagnóstico.
+    """
+    destino = tmp_path / "corrida"
+    huella = _corrida_previa_con_centinela(fuente_f1, destino)
+    hermanos = _hermanos(destino)
+    config = _config_gobernada(fuente_f1, governance=_gobernanza(), audit=AuditConfig(enabled=True))
+    monkeypatch.setattr(PerformanceStep, "execute", _revienta_en_performance)
+
+    def sin_espacio(destino: Path, *, etiqueta: str = "old") -> Path:
+        raise OSError(errno.ENOSPC, "No space left on device", str(destino))
+
+    monkeypatch.setattr(api_module, "_missing_backup_path", sin_espacio)
+
+    with pytest.raises(RuntimeError, match="se cayó el cómputo") as excinfo:
+        nikodym.run(config, run_dir=destino)
+
+    assert _huella(destino) == huella
+    nuevos = _nuevos_hermanos(destino, hermanos)
+    assert len(nuevos) == 1 and nuevos[0].name.endswith(".tmp"), nuevos
+    eventos = _eventos(nuevos[0] / "audit_trail.jsonl")
+    fin = [evento for evento in eventos if evento["kind"] == "run_end"]
+    assert len(fin) == 1 and fin[0]["payload"]["status"] == "failed"
     assert any(str(nuevos[0]) in nota for nota in getattr(excinfo.value, "__notes__", []))

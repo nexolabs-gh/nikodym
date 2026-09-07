@@ -551,6 +551,11 @@ para `clone()` de scikit-learn.
    > como hermano `.<nombre>.failed.*` si tiene evidencia —también la corrida completa cuyo *swap*
    > falló— y anota la ruta en la excepción; sin evidencia no queda rastro. Cinco gates en
    > `test_run_dir.py` (tres nuevos, dos reescritos) y controles negativos en ambos sentidos.
+   > **Segunda revisión** (`21505b0..a593be7`, `needs-attention`, un hallazgo medium): la reserva
+   > del hermano `.failed.*` —un `mkdtemp`— quedaba fuera del `try`, así que con el disco lleno su
+   > `OSError` sustituía a la excepción original y la nota no se añadía. Corregido en la misma
+   > capa: el rescate entero va bajo el `try`, y si falla el temporal `.tmp` se queda donde está
+   > con su ruta anotada. Gate con `ENOSPC` inyectado y su control negativo.
 5. ✅ **La entrada del inventario y `model_card.json` no eran el mismo card.**
    `_escribir_layout_del_run` resolvía el trail contra `run_dir` (D-GOB-7) y
    `_build_inventory_entry` reconstruía otro card con `audit_cfg.trail_filename` **crudo**, relativo
