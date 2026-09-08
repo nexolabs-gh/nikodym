@@ -89,16 +89,43 @@ import type {
   ReliabilityView,
   VariableBinning,
 } from "@/lib/results-format"
-import type { Coefficient } from "@/lib/results-types"
+import { isoDate, modelCardDecisionRows, modelCardDomains } from "@/lib/model-card"
+import type { Coefficient, ModelCard, ResultsResponse } from "@/lib/results-types"
 import type {
   Ifrs9MethodologyCard,
   MethodologyFact,
 } from "@/lib/results-types"
+import type { ValidationState } from "@/lib/validation"
 import { useAppState } from "@/state/appStore"
+import type { LastRun } from "@/state/appStore"
 
 interface ResultsTabProps {
   /** Navega a otra sección del shell (misma convención que RunTab: la navegación vive en App). */
   onNavigate: (section: string) => void
+}
+
+/**
+ * Lo que el panel lee del store. `ResultsTab` lo toma de `useAppState()`; un test lo pasa a mano
+ * y renderiza el panel real sin provider ni DOM (`react-dom/server`), que es como se prueba que
+ * la ficha del modelo se pinta con card y no deja ningún bloque sin ella (D-GOB-15, §6.7).
+ */
+export interface ResultsPanelProps extends ResultsTabProps {
+  results: ResultsResponse | null
+  lastRun: LastRun | null
+  validation: ValidationState
+}
+
+/** Pestaña Resultados conectada al store; toda la presentación vive en `ResultsPanel`. */
+export function ResultsTab({ onNavigate }: ResultsTabProps) {
+  const { results, lastRun, validation } = useAppState()
+  return (
+    <ResultsPanel
+      results={results}
+      lastRun={lastRun}
+      validation={validation}
+      onNavigate={onNavigate}
+    />
+  )
 }
 
 /**
@@ -110,9 +137,12 @@ interface ResultsTabProps {
  * detalle por variable; la confiabilidad de calibración es un batch posterior. Robusta a
  * corridas `failed`/parciales: muestra el `error` y solo las secciones presentes.
  */
-export function ResultsTab({ onNavigate }: ResultsTabProps) {
-  const { results, lastRun, validation } = useAppState()
-
+export function ResultsPanel({
+  results,
+  lastRun,
+  validation,
+  onNavigate,
+}: ResultsPanelProps) {
   // Variable seleccionada en el visor de WoE por bin (estado local, no store global). Se
   // declara antes de cualquier return condicional (reglas de hooks); su default real (mayor
   // IV) se resuelve más abajo contra los datos, cuando ya existen.
@@ -294,6 +324,13 @@ export function ResultsTab({ onNavigate }: ResultsTabProps) {
           ) : null}
         </CardContent>
       </Card>
+
+      {/* FICHA DEL MODELO (D-GOB-15): la identidad de gobierno de la corrida va junto al lineage,
+          no perdida al final. Guard por presencia y nunca `!`: `model_card` es `null` en toda
+          corrida sin `governance` —los tres fixtures de la demo entre ellos— y cuando la corrida
+          quedó demasiado parcial para una ficha válida; entonces no hay bloque, ni vacío ni
+          fabricado, porque un bloque vacío aparentaría un control que no corrió. */}
+      {results.model_card ? <ModelCardSection card={results.model_card} /> : null}
 
       {/* COMPARACIÓN DE PROVISIONES (SDD-28): sólo cuando corrió el orquestador del máximo. */}
       {headline ? (
@@ -833,6 +870,164 @@ function DefItem({
       >
         {value}
       </dd>
+    </div>
+  )
+}
+
+/**
+ * «Ficha del modelo» (D-GOB-15): lo que la institución declaró al encender la gobernanza y lo que
+ * la corrida registró. Presenta la proyección de `lib/model-card.ts`; lo que no pinta está
+ * declarado ahí con su razón (`MODEL_CARD_NO_PINTADO`). Sólo se monta con card: el guard vive en
+ * el llamador, y este componente no sabe decir «sin ficha».
+ */
+function ModelCardSection({ card }: { card: ModelCard }) {
+  const domains = modelCardDomains(card)
+  const decisions = modelCardDecisionRows(card)
+  return (
+    <ResultsSection
+      title="Ficha del modelo"
+      description="Lo que tu institución declaró al encender la gobernanza y lo que la corrida registró: propósito, supuestos y límites de uso, las fechas de emisión y de próxima revisión, las métricas por dominio y las decisiones que el motor dejó en el registro de auditoría."
+    >
+      <div className="space-y-1">
+        <p className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+          Propósito
+        </p>
+        <p className="text-sm text-foreground">{card.purpose}</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ModelCardList
+          title="Supuestos"
+          items={card.assumptions}
+          empty="Sin supuestos declarados."
+        />
+        <ModelCardList
+          title="Limitaciones"
+          items={card.limitations}
+          empty="Sin limitaciones declaradas."
+        />
+      </div>
+
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+        <DefItem label="Emitida" value={isoDate(card.review_date)} />
+        <DefItem label="Próxima revisión" value={isoDate(card.next_review_date)} />
+        <DefItem
+          label="Decisiones registradas"
+          value={formatCount(card.decisions.length)}
+        />
+      </dl>
+
+      {/* Métricas planas por dominio (chips) y, debajo de cada dominio, su evidencia
+          estructurada (CT-2) en filas etiqueta → valor. Nombres tal como los declara el dominio. */}
+      {domains.length > 0 ? (
+        <Subchart title="Métricas por dominio">
+          <div className="space-y-3">
+            {domains.map((d) => (
+              <div key={d.domain} className="space-y-1.5">
+                <p className="text-xs font-medium text-foreground">{d.label}</p>
+                {d.metrics.length > 0 ? (
+                  <dl className="flex flex-wrap gap-1.5">
+                    {d.metrics.map((m) => (
+                      <div
+                        key={m.name}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-foreground/[0.03] px-2.5 py-0.5 text-xs"
+                      >
+                        <dt className="font-mono text-muted-foreground">{m.name}</dt>
+                        <dd className="font-mono tabular-nums text-foreground">{m.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                {d.evidence.length > 0 ? (
+                  <dl className="grid gap-1 font-mono text-xs text-muted-foreground">
+                    {d.evidence.map((e) => (
+                      <LineageRow key={e.label} label={e.label} value={e.value} />
+                    ))}
+                  </dl>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </Subchart>
+      ) : null}
+
+      {/* El conteo va arriba como cifra; el detalle —una fila por evento del trail— se despliega. */}
+      {decisions.length > 0 ? (
+        <details className="group mt-2">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-eyebrow">
+            <span className="text-muted-foreground transition-transform group-open:rotate-90">
+              ›
+            </span>
+            Ver el detalle de las decisiones
+          </summary>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-[0.68rem] uppercase tracking-wide text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Cuándo</th>
+                  <th className="py-2 pr-3 font-medium">Regla</th>
+                  <th className="py-2 pr-3 font-medium">Acción</th>
+                  <th className="py-2 pr-3 font-medium">Umbral</th>
+                  <th className="py-2 pr-3 font-medium">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {decisions.map((d, i) => (
+                  <tr key={`${i}-${d.ts}`} className="border-b border-border align-top">
+                    <td className="whitespace-nowrap py-2 pr-3 font-mono text-xs text-muted-foreground">
+                      {d.ts}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs text-foreground">
+                      {d.step ? (
+                        <span className="text-muted-foreground">{d.step} · </span>
+                      ) : null}
+                      {d.regla}
+                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs text-foreground">{d.accion}</td>
+                    <td className="break-all py-2 pr-3 font-mono text-xs text-muted-foreground">
+                      {d.umbral}
+                    </td>
+                    <td className="break-all py-2 pr-3 font-mono text-xs text-muted-foreground">
+                      {d.valor}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
+    </ResultsSection>
+  )
+}
+
+/** Lista corta de la ficha (supuestos, limitaciones): una ausencia se dice, no se deja en blanco. */
+function ModelCardList({
+  title,
+  items,
+  empty,
+}: {
+  title: string
+  items: string[]
+  empty: string
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[0.68rem] uppercase tracking-wide text-muted-foreground">{title}</p>
+      {items.length > 0 ? (
+        <ul className="grid gap-1 text-sm text-foreground">
+          {items.map((item, i) => (
+            <li key={`${i}-${item}`} className="flex gap-1.5">
+              <span className="text-muted-foreground" aria-hidden="true">
+                –
+              </span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      )}
     </div>
   )
 }

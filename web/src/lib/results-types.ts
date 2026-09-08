@@ -699,14 +699,82 @@ export interface Ifrs9ProvisioningResult {
   methodology?: Ifrs9MethodologyCard | null
 }
 
-// --- top-level --------------------------------------------------------------
+// --- model card (gobernanza) ------------------------------------------------
 
 /**
- * `GET /api/results/{run_id}` — ModelCard + DTOs por dominio. En una corrida
- * `failed` las secciones de dominio pueden faltar (payload parcial) y `error`
- * trae el mensaje; por eso las secciones son opcionales. `model_card` viene null
- * en el preset estándar (forma aún no explotada por la UI → laxa).
+ * Una decisión registrada en el audit-trail y materializada en la ficha (`DecisionRecord`).
+ * `umbral` y `valor` son lo que el paso escribió —un número, un texto, una lista o un objeto—,
+ * así que se tipan `unknown` y la pantalla los describe tal cual, sin interpretarlos.
  */
+export interface ModelCardDecision {
+  step: string | null
+  regla: string
+  umbral: unknown
+  valor: unknown
+  accion: string
+  ts: string
+}
+
+/** Snapshot del entorno que acompañó a la corrida (`EnvironmentSnapshot`). */
+export interface ModelCardEnvironment {
+  python_version: string
+  platform: string
+  library_versions: Record<string, string>
+  uv_lock_hash: string | null
+  captured_at: string
+}
+
+/** Resumen auditable del dataset de entrada (`DataCardSection`); `null` si la corrida no lo dejó. */
+export interface ModelCardDataDescription {
+  source: string
+  n_rows: number
+  n_features: number
+  target_col: string
+  bad_rate: number
+  class_counts: Record<string, number>
+  partition_sizes: Record<string, number>
+  partition_bad_rates: Record<string, number>
+  performance_window_months: number | null
+  exclusions_by_reason: Record<string, number>
+  data_hash: string
+}
+
+/**
+ * Ficha del modelo (`ModelCard`, D-GOB-16): las 19 claves que `ui/serializers.py` emite para una
+ * corrida con `governance`, medidas sobre la respuesta real de `GET /api/results/<run_id>` y en el
+ * mismo orden que el modelo Pydantic. Es `null` en toda corrida sin gobernanza —los tres fixtures
+ * de la demo entre ellos— y cuando la corrida quedó demasiado parcial para una ficha válida: el
+ * serializador la omite, no la fabrica.
+ *
+ * `metrics` es plano, `"<dominio>.<métrica>"` → número finito (D-GOB-2); `metric_sections` es un
+ * nivel por dominio con el payload estructurado que ese dominio ya publica (D-GOB-3/5). Las fechas
+ * son ISO-8601 en UTC. Un gate Python (`test_gobernanza_en_pantalla.py`) exige que estas claves y
+ * las del modelo Pydantic sean las mismas, en los dos sentidos y en este orden.
+ */
+export interface ModelCard {
+  run_id: string
+  config_hash: string
+  data_hash: string | null
+  git_sha: string | null
+  git_dirty: boolean
+  root_seed: number
+  schema_version: string
+  created_at: string
+  purpose: string
+  assumptions: string[]
+  limitations: string[]
+  data_description: ModelCardDataDescription | null
+  metrics: Record<string, number>
+  metric_sections: Record<string, Record<string, unknown>>
+  decisions: ModelCardDecision[]
+  determinism_caveats: string[]
+  review_date: string
+  next_review_date: string
+  environment: ModelCardEnvironment
+}
+
+// --- top-level --------------------------------------------------------------
+
 /**
  * Procedencia congelada de una corrida (D-LIN-1). Es el mismo bundle que el Anexo del informe
  * publica; el panel lo enseña porque quien corre por la interfaz ve el panel **antes** que el
@@ -731,11 +799,18 @@ export interface RunLineage {
   injected_artifacts: string[]
 }
 
+/**
+ * `GET /api/results/{run_id}` — ficha del modelo + DTOs por dominio. En una corrida
+ * `failed` las secciones de dominio pueden faltar (payload parcial) y `error`
+ * trae el mensaje; por eso las secciones son opcionales. `model_card` es `null` sin
+ * `governance` —los tres fixtures de la demo entre ellos— y, con ella, la ficha tipada
+ * (`ModelCard`, D-GOB-16) que el panel pinta con guard por presencia (D-GOB-15).
+ */
 export interface ResultsResponse {
   status: ResultsStatus
   run_id: string
   error: string | null
-  model_card: Record<string, unknown> | null
+  model_card: ModelCard | null
   /** Procedencia de ESTA corrida. Ausente en payloads viejos; `null` si no llegó a congelarse. */
   lineage?: RunLineage | null
   binning?: BinningResult
