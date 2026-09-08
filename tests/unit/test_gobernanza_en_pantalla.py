@@ -15,6 +15,17 @@ preespecifica en su §6 para la capa 11/12/13/14, con las tres respuestas de Cam
   su precondición es la misma validación; la mitad del esqueleto vive en
   ``test_jobs_ejecutables.py``.
 
+Y la capa D-GOB-15/16 (S4, 2026-09-08), en la sección final de este archivo:
+
+- D-GOB-16 · el tipo ``ModelCard`` del front espeja **en los dos sentidos y en orden** los campos
+  del modelo Pydantic (y sus tres anidados), y es exactamente lo que ``serialize_study`` emite HOY
+  sobre una corrida F1 real con audit y gobernanza; la pantalla —render real del panel con y sin
+  card— vive en ``web/src/components/ResultsTab.test.ts``;
+- §6.7 · el **bundle servido** pinta la ficha: cada rótulo de la sección aporta al menos una
+  ocurrencia propia por encima de las que ya viajaban en los fixtures empaquetados, y el bundle
+  nombra ``model_card`` (hasta S4, cero veces); los tres fixtures de la demo siguen con
+  ``model_card: null`` y el guard los cubre sin recaptura.
+
 Controles negativos ejecutados al implementar (protocolo del runbook §6): exponer
 ``scenario_log_filename`` pone rojo §6.6; quitar el validador de ``purpose`` pone rojo el motor,
 ``/api/validate`` y la tarjeta; sembrar ``governance`` encendida en el esqueleto pone rojo el gate
@@ -23,19 +34,28 @@ de ejecutabilidad de los nueve trabajos disponibles.
 
 from __future__ import annotations
 
+import json
+import math
 import re
 from pathlib import Path
 from typing import Any
 
 import pytest
-from pydantic import ValidationError
+from _ui_f1 import full_f1_config, write_behavior_parquet
+from pydantic import BaseModel, ValidationError
 
+import nikodym
+from nikodym.audit import AuditConfig, EnvironmentSnapshot
 from nikodym.core.config import NikodymConfig
 from nikodym.core.config.schema import build_full_json_schema, rama_objeto
+from nikodym.data.card import DataCardSection
 from nikodym.governance.config import GovernanceConfig
+from nikodym.governance.model_card import DecisionRecord, ModelCard
 from nikodym.ui import routes
+from nikodym.ui._static_index import resolve_local_resources
 from nikodym.ui.jobs import _SECCIONES_LATENTES, list_jobs
 from nikodym.ui.presets import get_preset, list_presets
+from nikodym.ui.serializers import serialize_study
 
 _RAIZ = Path(__file__).resolve().parents[2]
 _SCHEMA_TS = _RAIZ / "web" / "src" / "lib" / "schema.ts"
@@ -316,3 +336,156 @@ def test_la_decision_de_purpose_reusa_frases_del_copy_aprobado() -> None:
     aprobado = COPY_APROBADO["purpose"]
     assert decision["question"].strip("¿?") in aprobado
     assert decision["help"] in aprobado
+
+
+# ─────────────────── §6.7 / D-GOB-15/16: la ficha se pinta y su tipo es el real ───────────────────
+
+_RESULTS_TYPES_TS = _RAIZ / "web" / "src" / "lib" / "results-types.ts"
+_STATIC = _RAIZ / "src" / "nikodym" / "ui" / "static"
+_FIXTURES_DEL_BUNDLE = (
+    _RAIZ / "web" / "src" / "fixtures" / "schema.json",
+    _RAIZ / "web" / "src" / "fixtures" / "jobs.json",
+)
+_FIXTURES_DE_LA_DEMO = tuple(
+    sorted((_RAIZ / "web" / "src" / "fixtures" / "demo").glob("results*.json"))
+)
+
+#: Cada interfaz del front y el modelo Pydantic que espeja. Las claves se comparan como LISTAS: el
+#: mismo conjunto, en el mismo orden que declara el modelo (que es el orden en que se emiten).
+_ESPEJOS_DEL_TIPO: dict[str, type[BaseModel]] = {
+    "ModelCard": ModelCard,
+    "ModelCardDecision": DecisionRecord,
+    "ModelCardEnvironment": EnvironmentSnapshot,
+    "ModelCardDataDescription": DataCardSection,
+}
+
+#: Los rótulos que la sección «Ficha del modelo» escribe en Resultados. ⚠️ «Ficha del modelo» a
+#: secas ya viajaba en el bundle desde S3 —cuatro veces, como nombre de grupo del formulario
+#: (`ui_group` de `GovernanceConfig`, que llega a `schema.json` y éste se empaqueta)—, así que el
+#: «de cero a ≥ 1» de §6.7 se mide descontando lo que aportan los fixtures empaquetados.
+_ROTULOS_DE_LA_FICHA = (
+    "Ficha del modelo",
+    "Próxima revisión",
+    "Decisiones registradas",
+    "Métricas por dominio",
+)
+
+
+def _claves_de_la_interfaz_ts(nombre: str) -> list[str]:
+    """Las claves de ``export interface <nombre> { ... }`` en ``results-types.ts``, en su orden."""
+    texto = _RESULTS_TYPES_TS.read_text(encoding="utf-8")
+    cuerpo = re.search(rf"^export interface {re.escape(nombre)} \{{\n(.*?)^\}}", texto, re.S | re.M)
+    assert cuerpo is not None, f"results-types.ts no declara `export interface {nombre}`"
+    return re.findall(r"^  ([a-z_0-9]+)\??:", cuerpo.group(1), re.M)
+
+
+def _bundle_servido() -> str:
+    """El único ``.js`` que ``index.html`` referencia, resuelto como lo hace el launcher."""
+    index_html = (_STATIC / "index.html").read_text(encoding="utf-8")
+    scripts = [
+        local for _, local in resolve_local_resources(index_html, "") if local.endswith(".js")
+    ]
+    assert len(scripts) == 1, scripts
+    return (_STATIC / scripts[0]).read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def card_serializado(fake_binning_process: object, tmp_path: Path) -> dict[str, Any]:
+    """La ficha tal como ``/api/results`` la emite HOY sobre una corrida F1 real.
+
+    Mismo mecanismo que ``test_ui_serializers.py`` (30 filas, binning falso), con ``audit``
+    encendida sobre un trail absoluto —para que la ficha traiga decisiones y el espejo de
+    ``ModelCardDecision`` no sea vacuo— y gobernanza con propósito.
+    """
+    del fake_binning_process
+    parquet = tmp_path / "cartera.parquet"
+    write_behavior_parquet(parquet)
+    trail = tmp_path / "trail.jsonl"
+    config = full_f1_config(
+        str(parquet), audit=AuditConfig(enabled=True, trail_filename=str(trail))
+    )
+    study = nikodym.run(config)
+    assert study.run_context.status == "done"
+    payload = serialize_study(
+        study, governance=GovernanceConfig(purpose="Ficha en pantalla (S4)"), trail_path=trail
+    )
+    card = payload["model_card"]
+    assert isinstance(card, dict)
+    return card
+
+
+@pytest.mark.parametrize(("interfaz", "modelo"), sorted(_ESPEJOS_DEL_TIPO.items()))
+def test_el_tipo_del_front_espeja_las_claves_del_modelo_pydantic(
+    interfaz: str, modelo: type[BaseModel]
+) -> None:
+    """D-GOB-16: renombrar, añadir o quitar un campo en cualquiera de los dos lados pone rojo."""
+    assert _claves_de_la_interfaz_ts(interfaz) == list(modelo.model_fields)
+
+
+def test_el_tipo_del_front_declara_diecinueve_claves() -> None:
+    """Ancla contra la medición de la enmienda (§3 D-GOB-16: «19 claves, medidas sobre la
+    respuesta real»)."""
+    assert len(_claves_de_la_interfaz_ts("ModelCard")) == 19
+
+
+def test_el_serializador_emite_hoy_exactamente_las_claves_del_tipo(
+    card_serializado: dict[str, Any],
+) -> None:
+    """D-GOB-16: el tipo se deriva de lo que el serializador emite HOY, medido, no de memoria."""
+    assert list(card_serializado) == _claves_de_la_interfaz_ts("ModelCard")
+    assert list(card_serializado["environment"]) == _claves_de_la_interfaz_ts(
+        "ModelCardEnvironment"
+    )
+    descripcion = card_serializado["data_description"]
+    assert descripcion is not None, "la corrida F1 deja data_card: la descripción no puede faltar"
+    assert list(descripcion) == _claves_de_la_interfaz_ts("ModelCardDataDescription")
+    assert card_serializado["decisions"], "sin decisiones el espejo de la decisión sería vacuo"
+    for decision in card_serializado["decisions"]:
+        assert list(decision) == _claves_de_la_interfaz_ts("ModelCardDecision")
+
+
+def test_los_valores_emitidos_tienen_los_tipos_que_el_front_declara(
+    card_serializado: dict[str, Any],
+) -> None:
+    """Las formas que el tipo promete: fechas ISO, métricas planas con prefijo de dominio y
+    secciones por dominio."""
+    card = card_serializado
+    assert isinstance(card["purpose"], str) and card["purpose"]
+    for fecha in ("created_at", "review_date", "next_review_date"):
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\S+", card[fecha]), (fecha, card[fecha])
+    assert isinstance(card["git_dirty"], bool)
+    assert isinstance(card["root_seed"], int)
+    for lista in ("assumptions", "limitations", "determinism_caveats"):
+        assert all(isinstance(x, str) for x in card[lista]), lista
+    assert card["metrics"], "una corrida F1 completa publica métricas (D-GOB-1)"
+    for clave, valor in card["metrics"].items():
+        assert "." in clave, f"métrica sin prefijo de dominio: {clave!r} (D-GOB-2)"
+        assert isinstance(valor, float) and math.isfinite(valor), (clave, valor)
+    assert all(isinstance(seccion, dict) for seccion in card["metric_sections"].values())
+    for decision in card["decisions"]:
+        assert decision["step"] is None or isinstance(decision["step"], str)
+        assert isinstance(decision["regla"], str) and isinstance(decision["accion"], str)
+
+
+def test_sin_gobernanza_no_hay_ficha_y_la_demo_sigue_sin_ella() -> None:
+    """§5: los tres fixtures traen ``model_card: null``; el guard los cubre y no se recapturan."""
+    assert len(_FIXTURES_DE_LA_DEMO) == 3, [p.name for p in _FIXTURES_DE_LA_DEMO]
+    for fixture in _FIXTURES_DE_LA_DEMO:
+        payload = json.loads(fixture.read_text(encoding="utf-8"))
+        assert "model_card" in payload, fixture.name
+        assert payload["model_card"] is None, fixture.name
+
+
+def test_el_bundle_servido_pinta_la_ficha_del_modelo() -> None:
+    """§6.7: el bundle pasa «de cero a ≥ 1», descontando lo que ya aportaban los fixtures."""
+    bundle = _bundle_servido()
+    fixtures = "".join(p.read_text(encoding="utf-8") for p in _FIXTURES_DEL_BUNDLE)
+    for rotulo in _ROTULOS_DE_LA_FICHA:
+        en_fixtures = fixtures.count(rotulo)
+        en_bundle = bundle.count(rotulo)
+        assert en_bundle >= en_fixtures + 1, (
+            f"{rotulo!r}: el bundle lo trae {en_bundle} veces y los fixtures empaquetados "
+            f"{en_fixtures}; la sección de Resultados no aporta ninguna propia"
+        )
+    # El panel lee la clave del payload; hasta S4 el bundle no la nombraba ni una vez (§1.2).
+    assert bundle.count("model_card") >= 1
