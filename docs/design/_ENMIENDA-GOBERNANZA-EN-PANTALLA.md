@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Familia** | D-GOB (continúa: D-GOB-10 … D-GOB-16) |
-| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **Revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): este documento se corrigió en §0.3–§0.6, §3, §6, §7 y §8.1. **Los tres puntos de §8.1 los respondió Cami el 2026-09-07** (sí, sí, latente). **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; sigue D-GOB-15/16 |
+| **Estado** | **APROBADA por Cami el 2026-09-03** (las cuatro respuestas de §8, sin cambios). **Revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): este documento se corrigió en §0.3–§0.6, §3, §6, §7 y §8.1. **Los tres puntos de §8.1 los respondió Cami el 2026-09-07** (sí, sí, latente). **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; **D-GOB-15/16 implementadas y gateadas el 2026-09-08 (S4)**: enmienda COMPLETA, abierto 1 de D-GOB cerrado |
 | **Depende de** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) (D-GOB-1…9), SDD-23 (interfaz), D-SUB, D-OBL, D-VIS, D-FX-8 |
 | **Lo consumen** | `ui/jobs.py`, `ui/presets.py`, `core/config/schema.py`, `web/src/lib/schema.ts`, `web/src/components/ResultsTab.tsx` |
 | **Autor / Fecha** | Claude Code · 2026-09-02 |
@@ -343,6 +343,36 @@ ausente ni se pinta un bloque vacío que aparente un control que no corrió.
 `results-types.ts`, derivada de lo que el serializador emite hoy —19 claves, medidas sobre la
 respuesta real—. Un tipo laxo con consumidor es una invitación a `any`.
 
+> 🔴 **Implementación medida el 2026-09-08 (S4), D-GOB-15/16 juntas.** Lo que el texto de arriba
+> deja abierto y la implementación fijó:
+>
+> - **La premisa «cero “Ficha del modelo” en el bundle» (§1.2, §6.7) dejó de ser cierta con S3**:
+>   el rótulo es el `ui_group` de cuatro campos de `GovernanceConfig` y viaja en `schema.json`, que
+>   se empaqueta (4 ocurrencias medidas antes de S4). El gate del bundle mide lo que aportan los
+>   fixtures empaquetados y exige al menos una ocurrencia propia de cada rótulo de la sección:
+>   «Ficha del modelo» 4 → 5; «Próxima revisión», «Decisiones registradas» y «Métricas por
+>   dominio» 0 → 1; `model_card` 0 → 2.
+> - **«Fecha de emisión» es `review_date`**: la que el builder fija al construir la ficha y desde
+>   la que cuenta `review_period_months` (así lo dice el copy aprobado de ese campo). `created_at`
+>   es la marca de la corrida y ya se lee como «ejecutada» en la procedencia. Las dos fechas se
+>   pintan como fecha calendario (AAAA-MM-DD), con la marca completa en el `title`.
+> - **«Resumen de métricas por dominio»** = las métricas planas (D-GOB-2) agrupadas por su prefijo,
+>   rotuladas con la sección del formulario, más la evidencia CT-2 del dominio (D-GOB-3/5)
+>   aplanada a filas `subsección · clave → valor`. Nada se recalcula ni se interpreta; lo vacío se
+>   marca ausente, no se omite.
+> - **Lo que la ficha no pinta se declara con razón** (`MODEL_CARD_NO_PINTADO`, mismo gate en dos
+>   sentidos que la procedencia): identidad y hashes, `created_at`, entorno, `data_description` y
+>   `determinism_caveats` —que el motor ya copia dentro de las limitaciones—.
+> - **El tipo tiene tres anidados** (`ModelCardDecision`, `ModelCardEnvironment`,
+>   `ModelCardDataDescription`), en el orden de sus modelos Pydantic, y `metric_sections` se tipa
+>   `Record<string, Record<string, unknown>>` porque `_publicar_metric_sections` exige un
+>   `Mapping` por dominio. Las 19 claves se remidieron sobre una corrida real por el formulario de
+>   S3 (`b9633af1…`, 41 decisiones), anidados incluidos.
+> - **Vitest sobre el componente sin DOM ni dependencias nuevas**: `ResultsTab` se parte en un
+>   wrapper del store más `ResultsPanel` por props, y el test renderiza el panel real con
+>   `react-dom/server` (con card, con `null`, con los tres fixtures de la demo enteros y con una
+>   corrida fallida). Los tres fixtures siguen con `model_card: null` y sin recaptura.
+
 ---
 
 ## 4. Contratos de datos (I/O)
@@ -501,3 +531,12 @@ gates §6.4–6.6, §6.8, §6.10 (motor e interfaz) y §6.11 (`/api/run`) viven 
 `tests/unit/test_gobernanza_en_pantalla.py`; la mitad del esqueleto latente en
 `test_jobs_ejecutables.py`; y la tarjeta —dormidas y escalar en blanco— en
 `web/src/lib/jobs.test.ts`. La nota bajo D-GOB-14 en §3 registra lo que la implementación fijó.
+
+**D-GOB-15/16 se implementaron juntas el 2026-09-08 (S4)**: el gate §6.7 vive en
+`web/src/components/ResultsTab.test.ts` (render real del panel con y sin card),
+`web/src/lib/model-card.test.ts` (la proyección) y la sección final de
+`tests/unit/test_gobernanza_en_pantalla.py` (espejo del tipo en los dos sentidos, claves que el
+serializador emite hoy, bundle servido y fixtures de la demo), más el recorrido en navegador con
+una corrida real con gobernanza y otra sin ella. La nota bajo D-GOB-16 en §3 registra lo que la
+implementación fijó. Con esto la enmienda queda **completa**; siguen D-GOB-9 con su OK propio y el
+capítulo del informe diferido (§8).

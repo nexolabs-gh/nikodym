@@ -32,7 +32,7 @@
 | D-RDY-ABA-1…6 · D-RDY-H9R-1…8 | Aprobadas; protocolo pre-START H9R aprobado sólo para arnés; W0 cerrada/PASS; W1 NO PASS/bloqueada por recalibración H9; W2–W8 no iniciadas | [`30-readiness-integral.md`](30-readiness-integral.md) |
 | D-LEA-0…22 (+12b/17b/17c) | Aprobada (0-a) el 2026-08-22; implementación por capas en curso; D-LEA-20 no aprobada (0-b diferido) | [`_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md`](_ENMIENDA-LEASE-MATERIAL-CANDIDATO.md) |
 | D-EST-1…4 | Aprobada por Cami el 2026-08-27; implementada y gateada | esta entrada (§D-EST) |
-| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; D-GOB-15/16 pendientes; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
+| D-GOB-1…16 | Aprobada por Cami el 2026-08-28 (1…9) y el 2026-09-03 (10…16); D-GOB-1…8 implementadas y gateadas, con los tres defectos de implementación de la revisión (abiertos 4–6) **corregidos el 2026-09-07**; ruptura D-GOB-7/8 **aceptada** el 2026-09-02; D-GOB-10…16 **aprobadas**; **revisión independiente ejecutada el 2026-09-03** (Codex, `needs-attention`): enmienda corregida y sus tres puntos de §8.1 **respondidos por Cami el 2026-09-07** (validación de `purpose` no vacío: **sí**; capas 10 → 11/12/13/14 → 15/16: **sí**; `governance` **latente** en el esqueleto de los trabajos); **D-GOB-10 implementada y gateada el 2026-09-07 (S2b)**; **D-GOB-11/12/13/14 implementadas y gateadas el 2026-09-07 (S3)**; **D-GOB-15/16 implementadas y gateadas el 2026-09-08 (S4)**, con el abierto 1 **cerrado**; D-GOB-9 con **OK condicionado**: la demo se recaptura mostrando la ficha, con un `purpose` que Cami aprueba en la release 1.13.0; abierto: el capítulo de model card en el informe, **diferido** | [`_ENMIENDA-GOBERNANZA-ALCANZABLE.md`](_ENMIENDA-GOBERNANZA-ALCANZABLE.md) · [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md) |
 
 ## D-RDY — readiness integral
 
@@ -405,7 +405,7 @@ tres fixtures siguen con `"model_card": null`.
 2026-09-03 tal como las redacta
 [`_ENMIENDA-GOBERNANZA-EN-PANTALLA.md`](_ENMIENDA-GOBERNANZA-EN-PANTALLA.md); **D-GOB-10
 implementada el 2026-09-07 (S2b)**, **D-GOB-11/12/13/14 implementadas el 2026-09-07 (S3)**,
-D-GOB-15/16 no implementadas. En una línea cada una:
+**D-GOB-15/16 implementadas el 2026-09-08 (S4)**. En una línea cada una:
 **D-GOB-10** `governance` se expande por un `_INFRA_CONFIG_CLASSES` propio
 en `core/study.py`, nunca por `_DOMAIN_CONFIG_CLASSES`, porque `_DEFAULT_DOMAIN_ORDER` deriva el
 pipeline de esa lista y `governance` no tiene `Step`; `_DEFAULT_DOMAIN_ORDER` y el `config_hash` no
@@ -499,6 +499,42 @@ del front para que vuelva a aplicar si eso cambia—; sin esa precisión el copy
 (latentes) y `web/src/lib/jobs.test.ts` (tarjeta: dormidas y escalar en blanco), con controles
 negativos en los tres sentidos que pedía la sesión. El abierto 1 de abajo se cierra con D-GOB-15/16.
 
+**D-GOB-15/16 · Implementadas el 2026-09-08 (S4), juntas.** «Ficha del modelo» es una sección de
+`ResultsTab.tsx` inmediatamente después de «Artefactos de la corrida» —el primer `h2` del panel—,
+montada sólo por `results.model_card ? … : null` y nunca con `!`: sin card no hay bloque, ni vacío
+ni fabricado, y los tres fixtures de la demo (`model_card: null`) siguen válidos sin recaptura.
+Pinta el propósito, los supuestos y las limitaciones; las fechas de **emisión** —`review_date`, la
+que el builder fija al construir la ficha y desde la que cuenta `review_period_months`— y de próxima
+revisión, como fecha calendario; las métricas planas agrupadas por dominio con el rótulo de su
+sección del formulario y, bajo cada dominio, su evidencia estructurada CT-2 aplanada a filas
+`subsección · clave → valor`; y el conteo de decisiones con un detalle desplegable, una fila por
+evento del trail. Lo que la ficha **no** pinta está declarado con su razón en
+`MODEL_CARD_NO_PINTADO` (`web/src/lib/model-card.ts`), con el mismo gate en dos sentidos que
+`LINEAGE_NO_PINTADO`: identidad, hashes, código, semilla, `created_at`, entorno y `data_description`
+ya se leen en la procedencia o llegan como métricas del dominio de datos, y `determinism_caveats` ya
+viajan dentro de las limitaciones que el motor compone. `model_card` pasa de `Record<string,
+unknown> | null` a `ModelCard | null`, con `ModelCardDecision`, `ModelCardEnvironment` y
+`ModelCardDataDescription`: las 19 claves **remedidas el 2026-09-08** sobre `GET
+/api/results/<run_id>` de una corrida real con gobernanza declarada por el formulario de S3
+(`b9633af1…`: 24 métricas, 41 decisiones, secciones CT-2 de `performance` y `stability`), en el
+orden del modelo Pydantic; un gate Python compara las cuatro interfaces con `model_fields` en los
+dos sentidos y otro exige que lo que `serialize_study` emite hoy sea exactamente esa lista, anidados
+incluidos. **Dos cosas que la enmienda no fijaba y la implementación fijó**: (1) la premisa «el
+bundle tiene cero “Ficha del modelo”» era cierta el 2026-09-02 y **S3 la movió**: el rótulo es el
+`ui_group` de cuatro campos de `GovernanceConfig` y viaja en `schema.json`, que se empaqueta (4
+ocurrencias antes de S4); el gate del bundle mide lo que aportan los fixtures empaquetados y exige
+al menos una ocurrencia propia de cada rótulo de la sección («Ficha del modelo» 4 → 5; «Próxima
+revisión», «Decisiones registradas» y «Métricas por dominio» 0 → 1; `model_card` 0 → 2). (2) Para
+renderizar el panel real en vitest sin DOM ni dependencias nuevas, `ResultsTab` se parte en un
+wrapper que lee el store y un `ResultsPanel` por props, que el test renderiza con `react-dom/server`
+a HTML estático con card, con `null`, con los tres fixtures de la demo enteros y con una corrida
+fallida; un guardrail sobre el fuente exige que la única lectura del store sea el wrapper. Gates en
+`web/src/components/ResultsTab.test.ts`, `web/src/lib/model-card.test.ts` y la sección final de
+`test_gobernanza_en_pantalla.py`; controles negativos en los tres sentidos que pedía la sesión
+(quitar el guard, pintar un bloque con card `null`, renombrar una clave del tipo). Recorrido en la
+UI viva: corrida sin gobernanza (`e1a6f7d4…`, `model_card: null`, cero rótulos de la ficha) y con
+ella por el interruptor y el `textarea` de S3. **El abierto 1 de abajo queda cerrado.**
+
 ### Defecto preexistente que D-GOB-8 destapó
 
 Encender `audit` dejó inalcanzable el dominio `survival`: `SurvivalResult.estimator` es un
@@ -511,7 +547,8 @@ para `clone()` de scikit-learn.
 
 ### Abiertos declarados de D-GOB
 
-1. 🔴 **La ruta de UI para `governance` es un YAML, no un formulario.** D-GOB-8 dice que «la UI
+1. ✅ **La ruta de UI para `governance` es un YAML, no un formulario.** *(CERRADO el
+   2026-09-08, S4: el cierre está al final de este punto.)* D-GOB-8 dice que «la UI
    lo ofrece como trabajo con `purpose` requerido», y ese **formulario** no está entregado:
    `governance` aparece en cero de los 10 trabajos y en el schema de la interfaz es un *stub* opaco
    (`{"default": null, "title", "description"}`, sin `properties`).
@@ -578,6 +615,13 @@ para `clone()` de scikit-learn.
    (10/11 → 12/13/14 → 15/16) tras la revisión independiente del documento. Este abierto se cierra
    cuando la capa 15/16 pase su gate del bundle («Ficha del modelo» de cero a ≥ 1) y el recorrido
    en navegador.
+
+   ➡️ **CERRADO el 2026-09-08 (S4)**: la capa D-GOB-15/16 pasó su gate del bundle —«Ficha del
+   modelo» de 4 (los `ui_group` de S3 empaquetados en `schema.json`) a 5, y los rótulos propios de
+   la sección de 0 a ≥ 1— y el recorrido en navegador con una corrida real con gobernanza por el
+   formulario (`b9633af1…`, la ficha como primer `h2` tras la procedencia) y otra sin ella
+   (`e1a6f7d4…`, sin bloque). Quedan aparte D-GOB-9 (recaptura de la demo con la ficha, OK propio) y
+   el abierto 3 (la ficha en el informe), diferido.
 2. `AuditConfig.capture_environment` deja de estar inerte: D-GOB-6 obliga a escribir
    `environment.json`, y escribirlo con el campo en `False` habría sido ignorar el config. Es uno
    menos de los cinco campos inertes que §7 de la enmienda dejaba fuera; los otros cuatro siguen.

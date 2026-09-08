@@ -328,7 +328,10 @@ Reglas de lectura del resultado:
   tests. Un `0` sin censo no es un gate.
 - Ruff son dos gates distintos: `check` no sustituye `format --check`.
 - Vitest corre sin DOM salvo configuración explícita; no demuestra layout, foco, viewport ni
-  navegación. Un contrato visual requiere UI viva y navegador.
+  navegación. Un contrato visual requiere UI viva y navegador. Un componente sí se puede
+  renderizar a HTML estático con `react-dom/server` desde un `.test.ts` —`ResultsTab.test.ts` lo
+  hace sobre un panel por props, sin store ni deps nuevas— para probar presencia/ausencia de
+  bloques y copy; el layout sigue exigiendo navegador.
 - `pnpm typecheck` puede quedar verde y `pnpm build:package` fallar. El build es el gate del artefacto
   empacado, no un duplicado opcional.
 - `mkdocs build --strict` deja `site/`; liberarlo al cierre.

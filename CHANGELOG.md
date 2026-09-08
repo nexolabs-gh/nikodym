@@ -9,6 +9,13 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
 
 ### Añadido
 
+- **La pestaña Resultados pinta la ficha del modelo.** Cuando la corrida lleva gobernanza, justo
+  después de los artefactos de la corrida aparece «Ficha del modelo»: el propósito, los supuestos y
+  las limitaciones que declaró la institución, la fecha de emisión y la de próxima revisión, las
+  métricas por dominio con su evidencia estructurada, y el conteo de decisiones registradas con su
+  detalle. Hasta ahora la ficha llegaba completa a la API de la interfaz y no se veía en ninguna
+  pantalla. Sin gobernanza no cambia nada: no hay bloque vacío ni ficha fabricada.
+
 - **El model card ya sale con las métricas del modelo.** Hasta ahora una corrida completa terminaba
   con el resumen de métricas **vacío**: el model card se generaba sin AUC, sin KS, sin PSI y sin
   decisiones, que es justo el bloque que exige la guía de gobierno de modelos. Había dos
