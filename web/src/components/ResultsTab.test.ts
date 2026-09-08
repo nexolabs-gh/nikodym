@@ -183,6 +183,50 @@ describe("copy público de la ficha", () => {
   })
 })
 
+describe("avisos declarados en la ficha (revisión adversarial de S4)", () => {
+  // La decisión REAL con la que el motor interno de provisiones deja escrita una imputación: con
+  // `fail_on_falta_dato=false` un dato ausente se imputa a cero y `internal_falta_dato` lleva el
+  // código de la institución en `valor`. Publicarlo mudo era el hallazgo de la revisión.
+  const imputacion: ModelCard["decisions"][number] = {
+    step: null,
+    regla: "internal_falta_dato",
+    umbral: false,
+    valor: { falta_dato: ["DATO-INSTITUCIONAL"], warning_codes: ["DATO-INSTITUCIONAL"] },
+    accion: "trazar_faltantes_y_avisos",
+    ts: "2026-09-08T03:27:35.000000Z",
+  }
+  const NOTA = "Las filas marcadas con «aviso declarado»"
+
+  it("una decisión con aviso declarado se marca y la sección explica qué significa", () => {
+    const html = render(minima({ ...MODEL_CARD_F1, decisions: [imputacion] }))
+    expect(ocurrencias(html, "aviso declarado")).toBeGreaterThanOrEqual(2) // la marca y la nota
+    expect(html).toContain(NOTA)
+    // El código no se recorta: es la evidencia, y el lector lo necesita para auditarla.
+    expect(html).toContain("falta_dato: DATO-INSTITUCIONAL")
+  })
+
+  it("también cuando el aviso viene en la evidencia CT-2 del dominio", () => {
+    const html = render(
+      minima({
+        ...MODEL_CARD_F1,
+        metric_sections: {
+          provisioning_internal: {
+            provisioning_internal: { warning_codes: ["DATO-INSTITUCIONAL"], n_groups: 3 },
+          },
+        },
+      }),
+    )
+    expect(html).toContain(NOTA)
+    expect(html).toContain("provisioning_internal · warning_codes")
+  })
+
+  it("sin avisos no hay marca ni nota: no se explica una salvedad que no ocurrió", () => {
+    const html = render(minima(MODEL_CARD_F1))
+    expect(ocurrencias(html, "aviso declarado")).toBe(0)
+    expect(html).not.toContain(NOTA)
+  })
+})
+
 describe("guardrails del cableado (fuente)", () => {
   it("el guard es por presencia y nunca `!`", () => {
     expect(resultsTabSource).toContain(

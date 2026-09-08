@@ -16,8 +16,24 @@ import {
   isoDate,
   modelCardDecisionRows,
   modelCardDomains,
+  modelCardTieneAvisosDeclarados,
 } from "@/lib/model-card"
-import type { ModelCard } from "@/lib/results-types"
+import type { ModelCard, ModelCardDecision } from "@/lib/results-types"
+
+/**
+ * La decisión REAL con la que el motor interno de provisiones deja escrita una imputación: con
+ * `fail_on_falta_dato=false`, un dato numérico ausente se imputa a cero y `internal_falta_dato`
+ * lleva el código de la institución en `valor` (`step.py`, `engine.py::_required_decimal`). Lo
+ * señaló la revisión adversarial de S4: la ficha no puede publicarlo mudo.
+ */
+const IMPUTACION: ModelCardDecision = {
+  step: null,
+  regla: "internal_falta_dato",
+  umbral: false,
+  valor: { falta_dato: ["DATO-INSTITUCIONAL"], warning_codes: ["DATO-INSTITUCIONAL"] },
+  accion: "trazar_faltantes_y_avisos",
+  ts: "2026-09-08T03:27:35.000000Z",
+}
 
 describe("todo campo de la ficha está PINTADO o declarado como no pintado, con su razón", () => {
   // Mismo gate que la procedencia (D-LIN-1): el payload publica la ficha entera y la pantalla
@@ -113,6 +129,13 @@ describe("describeValue: describe sin interpretar", () => {
     )
     expect(describeValue([{ feature: "a", woe: 0 }])).toBe('{"feature":"a","woe":0}')
   })
+
+  it("una lista de escalares dentro de un objeto se lee con comas, no como JSON", () => {
+    // Es la forma de `internal_falta_dato.valor`: los códigos tienen que leerse tal cual.
+    expect(describeValue({ falta_dato: ["A", "B"], n: 1 })).toBe("falta_dato: A, B · n: 1")
+    // …pero una lista de objetos dentro de un objeto sigue en JSON: no hay forma plana honesta.
+    expect(describeValue({ filas: [{ a: 1 }] })).toBe('filas: [{"a":1}]')
+  })
 })
 
 describe("flattenEvidence: el payload CT-2 de un dominio a filas etiqueta → valor", () => {
@@ -121,17 +144,42 @@ describe("flattenEvidence: el payload CT-2 de un dominio a filas etiqueta → va
       {
         label: "discrimination · effective_deciles_by_partition",
         value: "desarrollo: 10 · holdout: 10 · oot: 10",
+        avisoDeclarado: false,
       },
-      { label: "discrimination · not_evaluable_reasons_by_partition", value: "—" },
-      { label: "discrimination · threshold_flags_by_partition", value: "—" },
+      {
+        label: "discrimination · not_evaluable_reasons_by_partition",
+        value: "—",
+        avisoDeclarado: false,
+      },
+      {
+        label: "discrimination · threshold_flags_by_partition",
+        value: "—",
+        avisoDeclarado: false,
+      },
     ])
   })
 
   it("una subsección escalar o vacía da una sola fila", () => {
     expect(flattenEvidence({ eje: "period", vacia: {}, lista: [1, 2] })).toEqual([
-      { label: "eje", value: "period" },
-      { label: "vacia", value: "—" },
-      { label: "lista", value: "1, 2" },
+      { label: "eje", value: "period", avisoDeclarado: false },
+      { label: "vacia", value: "—", avisoDeclarado: false },
+      { label: "lista", value: "1, 2", avisoDeclarado: false },
+    ])
+  })
+
+  it("la evidencia CT-2 que trae warning_codes queda marcada como aviso declarado", () => {
+    // El motor interno de provisiones publica sus `warning_codes` en su sección CT-2.
+    expect(
+      flattenEvidence({
+        provisioning_internal: { warning_codes: ["DATO-INSTITUCIONAL"], n_groups: 3 },
+      }),
+    ).toEqual([
+      {
+        label: "provisioning_internal · warning_codes",
+        value: "DATO-INSTITUCIONAL",
+        avisoDeclarado: true,
+      },
+      { label: "provisioning_internal · n_groups", value: "3", avisoDeclarado: false },
     ])
   })
 })
@@ -175,15 +223,16 @@ describe("modelCardDomains: las métricas agrupadas por dominio, en el orden de 
   it("la evidencia estructurada (CT-2) cuelga de su dominio y los demás quedan sin ella", () => {
     const stability = dominios.find((d) => d.domain === "stability")
     expect(stability?.evidence).toEqual([
-      { label: "stability · temporal_axis", value: "period" },
-      { label: "stability · include_pd_stability", value: "Sí" },
+      { label: "stability · temporal_axis", value: "period", avisoDeclarado: false },
+      { label: "stability · include_pd_stability", value: "Sí", avisoDeclarado: false },
       {
         label: "stability · csi_features",
         value:
           "antiguedad_meses__points, deuda_ingreso__points, ingreso_mensual__points, " +
           "mora_max_12m__points, utilizacion_linea__points",
+        avisoDeclarado: false,
       },
-      { label: "stability · n_periods", value: "6" },
+      { label: "stability · n_periods", value: "6", avisoDeclarado: false },
     ])
     expect(dominios.find((d) => d.domain === "data")?.evidence).toEqual([])
   })
@@ -205,7 +254,7 @@ describe("modelCardDomains: las métricas agrupadas por dominio, en el orden de 
         domain: "survival",
         label: "Survival — PD lifetime",
         metrics: [],
-        evidence: [{ label: "curva · n_periodos", value: "12" }],
+        evidence: [{ label: "curva · n_periodos", value: "12", avisoDeclarado: false }],
       },
     ])
   })
@@ -244,6 +293,7 @@ describe("modelCardDecisionRows: una fila por evento del trail, sin agrupar", ()
       accion: "aplicar_estrategia",
       umbral: "cohort",
       valor: "cohort",
+      avisoDeclarado: false,
     })
     expect(por("bins_colapsados")?.umbral).toBe("6")
     expect(por("bins_colapsados")?.valor).toBe("n_bins: 5 · variable: utilizacion_linea")
@@ -265,5 +315,64 @@ describe("modelCardDecisionRows: una fila por evento del trail, sin agrupar", ()
       decisions: [{ ...MODEL_CARD_F1.decisions[0], step: "selection" }],
     }
     expect(modelCardDecisionRows(card)[0].step).toBe("selection")
+  })
+})
+
+describe("avisos declarados en lo que la ficha pinta (revisión adversarial de S4)", () => {
+  it("la decisión que registra la imputación queda marcada, con su código intacto; las demás no", () => {
+    const filas = modelCardDecisionRows({
+      ...MODEL_CARD_F1,
+      decisions: [...MODEL_CARD_F1.decisions, IMPUTACION],
+    })
+    expect(filas.at(-1)).toMatchObject({
+      regla: "internal_falta_dato",
+      umbral: "No",
+      valor: "falta_dato: DATO-INSTITUCIONAL · warning_codes: DATO-INSTITUCIONAL",
+      avisoDeclarado: true,
+    })
+    expect(filas.slice(0, -1).every((f) => !f.avisoDeclarado)).toBe(true)
+  })
+
+  it("la marca reconoce las dos familias, también con sufijo, y en el umbral", () => {
+    const filas = modelCardDecisionRows({
+      ...MODEL_CARD_F1,
+      decisions: [
+        { ...IMPUTACION, umbral: "FALTA-DATO-PROV-9", valor: "x" },
+        { ...IMPUTACION, umbral: "x", valor: ["DATO-INSTITUCIONAL-IFRS-7"] },
+        { ...IMPUTACION, umbral: "x", valor: "sin marca" },
+      ],
+    })
+    expect(filas.map((f) => f.avisoDeclarado)).toEqual([true, true, false])
+  })
+
+  it("la ficha F1 real no lleva ninguno: la sección no explica una salvedad que no ocurrió", () => {
+    expect(
+      modelCardTieneAvisosDeclarados(
+        modelCardDomains(MODEL_CARD_F1),
+        modelCardDecisionRows(MODEL_CARD_F1),
+      ),
+    ).toBe(false)
+  })
+
+  it("basta un aviso en una decisión o en la evidencia CT-2 para que la sección lo explique", () => {
+    const conDecision: ModelCard = { ...MODEL_CARD_F1, decisions: [IMPUTACION] }
+    expect(
+      modelCardTieneAvisosDeclarados(
+        modelCardDomains(conDecision),
+        modelCardDecisionRows(conDecision),
+      ),
+    ).toBe(true)
+    const conEvidencia: ModelCard = {
+      ...MODEL_CARD_F1,
+      metric_sections: {
+        provisioning_internal: { provisioning_internal: { warning_codes: ["FALTA-DATO-PROV-9"] } },
+      },
+    }
+    expect(
+      modelCardTieneAvisosDeclarados(
+        modelCardDomains(conEvidencia),
+        modelCardDecisionRows(conEvidencia),
+      ),
+    ).toBe(true)
   })
 })

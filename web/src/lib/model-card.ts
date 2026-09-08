@@ -9,6 +9,7 @@
  * recalcula, nada se interpreta, y lo que la ficha no trae no se fabrica.
  */
 
+import { esAvisoDeclarado } from "@/lib/markers"
 import { EMPTY, formatBool, formatCount, formatMetric } from "@/lib/results-format"
 import type { ModelCard } from "@/lib/results-types"
 import { CONFIG_SECTIONS } from "@/lib/schema"
@@ -63,10 +64,20 @@ export interface ModelCardMetricRow {
   value: string
 }
 
-/** Un hecho del payload estructurado del dominio (CT-2), aplanado a una línea legible. */
+/**
+ * Un hecho del payload estructurado del dominio (CT-2), aplanado a una línea legible.
+ *
+ * `avisoDeclarado` marca la fila cuyo valor lleva un código de aviso declarado (`FALTA-DATO-*` o
+ * `DATO-INSTITUCIONAL-*`, reconocidos por `esAvisoDeclarado`, nunca por el literal): el motor
+ * interno de provisiones, por ejemplo, publica sus `warning_codes` en la sección CT-2. El código se
+ * conserva tal cual —aquí es el dato, como en el volcado de auditoría del anexo del informe— y la
+ * marca es lo que permite a la pantalla explicarlo en el idioma del lector en vez de publicarlo
+ * mudo. Lo señaló la revisión adversarial de S4.
+ */
 export interface ModelCardEvidenceRow {
   label: string
   value: string
+  avisoDeclarado: boolean
 }
 
 /** Resumen de un dominio en la ficha: sus métricas planas y su evidencia estructurada. */
@@ -108,11 +119,16 @@ function formatNumber(value: number): string {
   return formatMetric(value, 4)
 }
 
+const esEscalar = (v: unknown): boolean =>
+  v === null || ["string", "number", "boolean"].includes(typeof v)
+
 /**
  * Describe un valor arbitrario del payload en una línea, sin interpretarlo: los escalares tal cual,
- * las listas separadas por coma, los objetos como `clave: valor` separados por «·», y lo anidado
- * más hondo en JSON. Lo vacío (`null`, `[]`, `{}`) se marca ausente, no se omite: un mapa vacío de
- * razones no evaluables es un hecho («ninguna»), no ruido.
+ * las listas de escalares separadas por coma (a cualquier profundidad: `falta_dato: A, B` se lee
+ * mejor que su JSON), los objetos como `clave: valor` separados por «·», y lo anidado más hondo
+ * —objetos dentro de objetos, listas de objetos dentro de objetos— en JSON. Lo vacío (`null`, `[]`,
+ * `{}`) se marca ausente, no se omite: un mapa vacío de razones no evaluables es un hecho
+ * («ninguna»), no ruido.
  */
 export function describeValue(value: unknown, depth = 0): string {
   if (value === null || value === undefined) return EMPTY
@@ -121,7 +137,7 @@ export function describeValue(value: unknown, depth = 0): string {
   if (typeof value === "string") return value === "" ? EMPTY : value
   if (Array.isArray(value)) {
     if (value.length === 0) return EMPTY
-    return depth === 0
+    return depth === 0 || value.every(esEscalar)
       ? value.map((item) => describeValue(item, depth + 1)).join(", ")
       : JSON.stringify(value)
   }
@@ -147,14 +163,19 @@ export function flattenEvidence(section: Record<string, unknown>): ModelCardEvid
       const entries = Object.entries(payload as Record<string, unknown>)
       if (entries.length > 0) {
         for (const [key, value] of entries) {
-          rows.push({ label: `${subsection} · ${key}`, value: describeValue(value) })
+          rows.push(evidenceRow(`${subsection} · ${key}`, value))
         }
         continue
       }
     }
-    rows.push({ label: subsection, value: describeValue(payload) })
+    rows.push(evidenceRow(subsection, payload))
   }
   return rows
+}
+
+function evidenceRow(label: string, value: unknown): ModelCardEvidenceRow {
+  const descrito = describeValue(value)
+  return { label, value: descrito, avisoDeclarado: esAvisoDeclarado(descrito) }
 }
 
 /**
@@ -193,6 +214,13 @@ export interface ModelCardDecisionRow {
   accion: string
   umbral: string
   valor: string
+  /**
+   * El umbral o el valor llevan un código de aviso declarado: p. ej. `internal_falta_dato` con
+   * `fail_on_falta_dato=false` registra que un dato ausente se imputó a cero y deja el código de
+   * la institución en `valor`. La fila se marca para que la sección lo explique; el código no se
+   * recorta (es la evidencia).
+   */
+  avisoDeclarado: boolean
 }
 
 /**
@@ -201,12 +229,32 @@ export interface ModelCardDecisionRow {
  * lo que el paso escribió —número, texto, lista u objeto—; se describen, no se interpretan.
  */
 export function modelCardDecisionRows(card: ModelCard): ModelCardDecisionRow[] {
-  return card.decisions.map((d) => ({
-    ts: d.ts,
-    step: d.step,
-    regla: d.regla,
-    accion: d.accion,
-    umbral: describeValue(d.umbral),
-    valor: describeValue(d.valor),
-  }))
+  return card.decisions.map((d) => {
+    const umbral = describeValue(d.umbral)
+    const valor = describeValue(d.valor)
+    return {
+      ts: d.ts,
+      step: d.step,
+      regla: d.regla,
+      accion: d.accion,
+      umbral,
+      valor,
+      avisoDeclarado: esAvisoDeclarado(umbral) || esAvisoDeclarado(valor),
+    }
+  })
+}
+
+/**
+ * Si algo de lo que la ficha pinta —evidencia CT-2 o decisiones— lleva un aviso declarado. Es lo
+ * que decide si la sección escribe la explicación: sin avisos no hay nota, para no explicar una
+ * salvedad que no ocurrió.
+ */
+export function modelCardTieneAvisosDeclarados(
+  domains: ModelCardDomainSummary[],
+  decisions: ModelCardDecisionRow[],
+): boolean {
+  return (
+    domains.some((d) => d.evidence.some((e) => e.avisoDeclarado)) ||
+    decisions.some((d) => d.avisoDeclarado)
+  )
 }

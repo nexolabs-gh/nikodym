@@ -89,7 +89,13 @@ import type {
   ReliabilityView,
   VariableBinning,
 } from "@/lib/results-format"
-import { isoDate, modelCardDecisionRows, modelCardDomains } from "@/lib/model-card"
+import {
+  type ModelCardEvidenceRow as EvidenceRowData,
+  isoDate,
+  modelCardDecisionRows,
+  modelCardDomains,
+  modelCardTieneAvisosDeclarados,
+} from "@/lib/model-card"
 import type { Coefficient, ModelCard, ResultsResponse } from "@/lib/results-types"
 import type {
   Ifrs9MethodologyCard,
@@ -883,6 +889,7 @@ function DefItem({
 function ModelCardSection({ card }: { card: ModelCard }) {
   const domains = modelCardDomains(card)
   const decisions = modelCardDecisionRows(card)
+  const hayAvisos = modelCardTieneAvisosDeclarados(domains, decisions)
   return (
     <ResultsSection
       title="Ficha del modelo"
@@ -941,7 +948,7 @@ function ModelCardSection({ card }: { card: ModelCard }) {
                 {d.evidence.length > 0 ? (
                   <dl className="grid gap-1 font-mono text-xs text-muted-foreground">
                     {d.evidence.map((e) => (
-                      <LineageRow key={e.label} label={e.label} value={e.value} />
+                      <ModelCardEvidenceRow key={e.label} row={e} />
                     ))}
                   </dl>
                 ) : null}
@@ -949,6 +956,20 @@ function ModelCardSection({ card }: { card: ModelCard }) {
             ))}
           </div>
         </Subchart>
+      ) : null}
+
+      {/* Un aviso declarado es un código que el motor deja escrito en la evidencia (un dato que la
+          institución no aportó y se imputó, o una brecha declarada del motor). El código se conserva
+          tal cual —aquí es el dato, como en el volcado de auditoría del informe— y esta nota lo
+          explica en el idioma del lector; sin avisos no hay nota. Hallazgo de la revisión de S4. */}
+      {hayAvisos ? (
+        <p className="rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
+          Las filas marcadas con «aviso declarado» registran una salvedad que el motor dejó escrita
+          en vez de callar: un dato que debía aportar tu institución y faltó —el cálculo siguió con
+          un valor imputado—, o una brecha declarada del propio motor. El código que acompaña a cada
+          aviso se conserva tal cual para que puedas auditarlo; su significado está en la referencia
+          «Avisos declarados» de la documentación.
+        </p>
       ) : null}
 
       {/* El conteo va arriba como cifra; el detalle —una fila por evento del trail— se despliega. */}
@@ -982,6 +1003,7 @@ function ModelCardSection({ card }: { card: ModelCard }) {
                         <span className="text-muted-foreground">{d.step} · </span>
                       ) : null}
                       {d.regla}
+                      {d.avisoDeclarado ? <AvisoDeclaradoChip /> : null}
                     </td>
                     <td className="py-2 pr-3 font-mono text-xs text-foreground">{d.accion}</td>
                     <td className="break-all py-2 pr-3 font-mono text-xs text-muted-foreground">
@@ -1029,6 +1051,28 @@ function ModelCardList({
         <p className="text-sm text-muted-foreground">{empty}</p>
       )}
     </div>
+  )
+}
+
+/** Fila de evidencia CT-2 de la ficha: como `LineageRow`, más la marca de aviso declarado. */
+function ModelCardEvidenceRow({ row }: { row: EvidenceRowData }) {
+  return (
+    <div className="flex justify-between gap-3">
+      <dt className="shrink-0 text-muted-foreground">{row.label}</dt>
+      <dd className="min-w-0 truncate text-right" title={row.value}>
+        {row.value}
+        {row.avisoDeclarado ? <AvisoDeclaradoChip /> : null}
+      </dd>
+    </div>
+  )
+}
+
+/** Marca visible de una fila con aviso declarado; la nota de la sección explica qué significa. */
+function AvisoDeclaradoChip() {
+  return (
+    <span className="ml-1.5 inline-flex items-center rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-px text-[0.62rem] uppercase tracking-wide text-amber-200/90">
+      aviso declarado
+    </span>
   )
 }
 
