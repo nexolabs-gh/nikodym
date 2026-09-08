@@ -544,7 +544,13 @@ fila se marca «aviso declarado» —reconocido por `esAvisoDeclarado`, nunca po
 sección explica en prosa qué significa; el código se conserva tal cual como dato de auditoría, con
 el mismo criterio que el volcado del anexo del informe, y sin avisos no hay nota. Gate: render con
 la decisión real de imputación y con `warning_codes` en la evidencia, nacido rojo; control
-negativo: dejar la marca siempre en falso pone rojo el helper y el render.
+negativo: dejar la marca siempre en falso pone rojo el helper y el render. **La segunda
+revisión (sobre la corrección) devolvió otro medium, también sostenido**: la nota generalizaba
+«el cálculo siguió con un valor imputado» a todo aviso, y `provisioning_falta_dato` con
+`DATO-INSTITUCIONAL-PROV-3` (`require_both=False`, comparación incompleta) no imputa nada.
+Corregido: la nota describe el aviso como salvedad —algo que le corresponde a la institución o
+una brecha del motor— y remite el significado exacto de cada código a la referencia «Avisos
+declarados»; test de render con `PROV-3` que exige no atribuir imputación, nacido rojo.
 
 ### Defecto preexistente que D-GOB-8 destapó
 
