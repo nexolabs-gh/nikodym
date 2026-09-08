@@ -225,6 +225,25 @@ describe("avisos declarados en la ficha (revisión adversarial de S4)", () => {
     expect(ocurrencias(html, "aviso declarado")).toBe(0)
     expect(html).not.toContain(NOTA)
   })
+
+  it("la nota no atribuye una imputación que no ocurrió: un aviso puede ser sólo una salvedad", () => {
+    // Segunda revisión adversarial de S4: con `require_both=False` y una sola fuente de
+    // provisiones el orquestador declara «comparación incompleta» (`DATO-INSTITUCIONAL-PROV-3`)
+    // y NO imputa nada; la nota general no puede afirmar «el cálculo siguió con un valor
+    // imputado» para todo aviso. Lo que cada código significa lo dice la referencia, no la nota.
+    const comparacionIncompleta: ModelCard["decisions"][number] = {
+      step: null,
+      regla: "provisioning_falta_dato",
+      umbral: "require_both=False",
+      valor: { falta_dato: ["DATO-INSTITUCIONAL-PROV-3"] },
+      accion: "trazar_faltantes",
+      ts: "2026-09-08T03:27:36.000000Z",
+    }
+    const html = render(minima({ ...MODEL_CARD_F1, decisions: [comparacionIncompleta] }))
+    expect(html).toContain(NOTA)
+    expect(html).toContain("DATO-INSTITUCIONAL-PROV-3")
+    expect(html.toLowerCase()).not.toMatch(/imputa/)
+  })
 })
 
 describe("guardrails del cableado (fuente)", () => {

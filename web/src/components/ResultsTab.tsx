@@ -958,17 +958,22 @@ function ModelCardSection({ card }: { card: ModelCard }) {
         </Subchart>
       ) : null}
 
-      {/* Un aviso declarado es un código que el motor deja escrito en la evidencia (un dato que la
-          institución no aportó y se imputó, o una brecha declarada del motor). El código se conserva
-          tal cual —aquí es el dato, como en el volcado de auditoría del informe— y esta nota lo
-          explica en el idioma del lector; sin avisos no hay nota. Hallazgo de la revisión de S4. */}
+      {/* Un aviso declarado es un código que el motor deja escrito en la evidencia: algo que le
+          corresponde a la institución (un dato que no aportó, una política que eligió) o una brecha
+          declarada del propio motor. El código se conserva tal cual —aquí es el dato, como en el
+          volcado de auditoría del informe— y esta nota lo explica en el idioma del lector; sin
+          avisos no hay nota. ⚠️ La nota es GENERAL y no afirma qué hizo el motor con cada aviso:
+          un mismo prefijo cubre una imputación a cero (`internal_falta_dato`) y una comparación
+          incompleta que no imputa nada (`provisioning_falta_dato`, `require_both=False`); lo que
+          cada código significa lo dice la referencia. Dos hallazgos de la revisión de S4. */}
       {hayAvisos ? (
         <p className="rounded-lg border border-amber-400/25 bg-amber-400/5 px-3 py-2 text-xs text-amber-200/90">
           Las filas marcadas con «aviso declarado» registran una salvedad que el motor dejó escrita
-          en vez de callar: un dato que debía aportar tu institución y faltó —el cálculo siguió con
-          un valor imputado—, o una brecha declarada del propio motor. El código que acompaña a cada
-          aviso se conserva tal cual para que puedas auditarlo; su significado está en la referencia
-          «Avisos declarados» de la documentación.
+          en vez de callar: algo que le corresponde a tu institución —un dato que no aportó, una
+          política que eligió— o una brecha declarada del propio motor. El código que acompaña a
+          cada aviso se conserva tal cual para que puedas auditarlo, y lo que significa exactamente
+          —qué hizo el motor en ese caso— está en la referencia «Avisos declarados» de la
+          documentación.
         </p>
       ) : null}
 
