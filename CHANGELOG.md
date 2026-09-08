@@ -14,7 +14,10 @@ contratos transversales) quedan marcadas como experimentales, fuera de la garant
   las limitaciones que declaró la institución, la fecha de emisión y la de próxima revisión, las
   métricas por dominio con su evidencia estructurada, y el conteo de decisiones registradas con su
   detalle. Hasta ahora la ficha llegaba completa a la API de la interfaz y no se veía en ninguna
-  pantalla. Sin gobernanza no cambia nada: no hay bloque vacío ni ficha fabricada.
+  pantalla. Sin gobernanza no cambia nada: no hay bloque vacío ni ficha fabricada. Si una decisión
+  o la evidencia de un dominio lleva un aviso declarado —un dato que faltó y se imputó, o una
+  brecha declarada del motor—, la ficha marca la fila y explica qué significa, sin recortar el
+  código que la respalda.
 
 - **El model card ya sale con las métricas del modelo.** Hasta ahora una corrida completa terminaba
   con el resumen de métricas **vacío**: el model card se generaba sin AUC, sin KS, sin PSI y sin

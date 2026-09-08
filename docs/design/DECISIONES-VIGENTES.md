@@ -535,6 +535,17 @@ fallida; un guardrail sobre el fuente exige que la única lectura del store sea 
 UI viva: corrida sin gobernanza (`e1a6f7d4…`, `model_card: null`, cero rótulos de la ficha) y con
 ella por el interruptor y el `textarea` de S3. **El abierto 1 de abajo queda cerrado.**
 
+**Revisión adversarial de S4 (Codex, `needs-attention`, un hallazgo medium, corregido el mismo
+día).** La tabla de decisiones y la evidencia CT-2 pueden llevar códigos de aviso declarado
+—`internal_falta_dato` con `fail_on_falta_dato=False` deja el código de la institución en `valor`
+al imputar a cero un dato ausente, y la sección CT-2 de `provisioning_internal` publica sus
+`warning_codes`—, y la ficha los publicaba mudos. Corrección en el front, sin tocar el motor: la
+fila se marca «aviso declarado» —reconocido por `esAvisoDeclarado`, nunca por el literal— y la
+sección explica en prosa qué significa; el código se conserva tal cual como dato de auditoría, con
+el mismo criterio que el volcado del anexo del informe, y sin avisos no hay nota. Gate: render con
+la decisión real de imputación y con `warning_codes` en la evidencia, nacido rojo; control
+negativo: dejar la marca siempre en falso pone rojo el helper y el render.
+
 ### Defecto preexistente que D-GOB-8 destapó
 
 Encender `audit` dejó inalcanzable el dominio `survival`: `SurvivalResult.estimator` es un
