@@ -179,6 +179,14 @@
     preflight de la interfaz avisa sin bloquear (`RunTab.tsx:189-193`). Sólo la columna de grado
     detiene incondicionalmente (§0-17). El copy de §3.7 distingue los dos casos y el gate de la
     capa 2 los contrasta con los dos valores del flag.
+23. **«En blanco, todas» era falso para el multiselect** (decimoquinta revisión adversarial,
+    2026-09-09, verificada): el motor infiere «todas» sólo con `columns=None`
+    (`eda/step.py::_resolve_univariate_columns`) y una tupla vacía se respeta —`profiles={}` sin
+    error—, mientras que vaciar un multiselect en el formulario escribe `[]`
+    (`FieldRenderer.tsx::setList`). Quien desmarcara todo perdería los perfiles y las figuras
+    creyendo que se describen todas. D-SC-1 fija el control: una casilla «Todas las columnas» que
+    escribe `null`, distinta de la lista vacía; el copy de §3.6 lo dice y la capa 3 gatea el
+    recorrido seleccionar → vaciar → «Todas».
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -247,6 +255,11 @@ de HTML por SHA-256 (`test_report_step.py:83`) que **no** se mueve mientras `gov
 **D-SC-1 · `eda` entra al formulario como la 16.ª sección, «Análisis exploratorio», entre «Esquema
 y target» y «Optimal Binning»**, que es su posición en `_DEFAULT_DOMAIN_ORDER`. Sus 17 descripciones
 pasan a copy público; la tabla §3.6 es lo que Cami aprueba. `type` sigue `hidden`.
+`univariate.columns` (`tuple[str, ...] | None`, donde **sólo `None` significa «todas»**) se
+pinta con una casilla «Todas las columnas» que escribe `null` y, desmarcada, el multiselect que
+escribe la lista; el motor no cambia (§0-23). Es el primer campo del formulario con esa
+semántica; si el widget anulable no existe aún, la capa 3 lo crea como `ui_widget`
+`multiselect_o_todas` y lo documenta en `FieldRenderer`.
 
 **D-SC-2 · Regla nueva en el motor (SDD-27 §8): con `axis="cohort"` la estabilidad temporal es
 `no_evaluable`, no un error.** El analizador registra la decisión `regla="estabilidad_temporal",
@@ -480,7 +493,7 @@ ficha» y dice qué incluye y qué remite.
 | `univariate.n_quantile_bins` | «Troceo descriptivo del perfil; no es el binning que alimenta el modelo.» | En cuántos tramos se parte cada variable numérica para ver su tasa de incumplimiento. Es sólo para describir; no es el binning que entra al modelo. |
 | `univariate.rare_level_threshold` | «Niveles con frecuencia menor se agrupan en '_otros_' solo para la tabla descriptiva.» | Los valores de una variable categórica con menos frecuencia que esto se agrupan bajo «otros», sólo para la tabla. |
 | `univariate.compute_descriptive_iv` | «Diagnóstico rápido etiquetado 'pre-binning'; no es el IV final del binning.» | Calcula un poder predictivo orientativo por variable sobre estos tramos. No es el IV que decide el modelo: ése lo calcula el binning. |
-| `univariate.columns` | «Vacío = todas las columnas no estructurales (excluye target, estado, partición, fecha y cohorte). Define el alcance del perfil, no qué variables entran al modelo.» | Qué columnas describir frente al incumplimiento. En blanco, todas las de tu archivo salvo las estructurales (target, estado, partición, fecha y cohorte). Define qué se describe, no qué entra al modelo. |
+| `univariate.columns` | «Vacío = todas las columnas no estructurales (excluye target, estado, partición, fecha y cohorte). Define el alcance del perfil, no qué variables entran al modelo.» | Qué columnas describir frente al incumplimiento. Con «Todas las columnas» se describen todas las de tu archivo salvo las estructurales (target, estado, partición, fecha y cohorte); si eliges columnas, sólo ésas, y una selección vacía no describe ninguna. Define qué se describe, no qué entra al modelo. *(Control con la casilla «Todas las columnas», que escribe «sin lista»; desmarcada, la lista de columnas. D-SC-1, §0-23.)* |
 | `quality.near_constant_threshold` | «Si un valor concentra >= este % de filas no nulas, se marca near_constant.» | Si un solo valor concentra al menos esta proporción de las filas con dato, la columna se marca como casi constante. Sólo se reporta. |
 | `quality.high_cardinality_threshold` | «Categóricas con más niveles se marcan high_cardinality (solo reporte).» | Una variable categórica con más valores distintos que esto se marca como de alta cardinalidad. Sólo se reporta. |
 | `sampling.enabled` | «Calcula los perfiles y figuras sobre una muestra. La tasa de default por período se calcula siempre sobre el total, nunca sobre la muestra.» | Calcula los perfiles por variable y sus figuras sobre una muestra, para archivos grandes. La tasa de incumplimiento por período se calcula siempre sobre el total. |
@@ -672,7 +685,11 @@ figuras y sin figura de un punto; abanico de `axis` con sus dos requisitos decla
 (`test_jobs_abanico`); **preflight en los dos sentidos** (`test_column_roles`, §0-15): con
 `axis="period"`, `date_col="fecha"` y un `cohort_col="cohorte_anterior"` residual ausente del
 archivo, `check_dataset` no reclama la cohorte y sí reclama `fecha` si falta; el caso simétrico
-con `axis="cohort"`; y con `date_col=None` no reclama nada del eje; copy gate de los 17; guía nueva `docs_site/guias/analisis-exploratorio.md`;
+con `axis="cohort"`; y con `date_col=None` no reclama nada del eje; **el control de
+`univariate.columns`** (§0-23): en vitest, marcar «Todas las columnas» escribe `null`, desmarcar
+y elegir dos escribe `["a","b"]`, vaciar la lista escribe `[]` y volver a marcar escribe `null`;
+en Python, el motor con `None` perfila todas y con `()` ninguna (`profiles={}`), y el copy del
+campo lo dice; copy gate de los 17; guía nueva `docs_site/guias/analisis-exploratorio.md`;
 ejemplo por código ejecutado por gate (marcadores). **CN**: revertir cada una de las dos reglas
 del motor → su test nacido rojo vuelve a rojo y la corrida real del esqueleto falla con el
 `EdaError` que hoy se mide; quitar el requisito declarado de una opción de `axis` → rojo el gate
