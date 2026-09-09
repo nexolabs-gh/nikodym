@@ -911,8 +911,9 @@ No autoriza START ni mueve la puerta global.
 > la oferta marcada (`offered`) para que un YAML propio de referencia resuelva su trabajo y pida
 > su PD sin opt-in; y dos frases de la redacción anterior que contradecían eso, reconciliadas.
 
-> **El scorecard completo en la interfaz (2026-09-09; PROPUESTA, pendiente de revisión adversarial
-> y del OK de Cami; nace de la decisión 4 de Cami del 2026-09-09).**
+> **El scorecard completo en la interfaz (2026-09-09; APROBADA por Cami el 2026-09-09 en bloque,
+> salvo las 49 descripciones de copy de su §8-7, que se revisan capa por capa contra la pantalla;
+> pendiente de implementar, una capa por sesión; nace de la decisión 4 de Cami del 2026-09-09).**
 > [`_ENMIENDA-SCORECARD-COMPLETO.md`](_ENMIENDA-SCORECARD-COMPLETO.md), D-SC-1…D-SC-16. EDA con
 > trabajo, sección, panel y guía; `validation` en el formulario (32 descripciones como copy
 > público, 7 ocultas por D-SUB) y en Resultados; panel de `selection`; una fuente para las cuatro
@@ -942,8 +943,9 @@ No autoriza START ni mueve la puerta global.
 > `config_hash` de F1/F5 se mueve sólo en la capa de release, junto con la recaptura única. Doce
 > decisiones para Cami en §8.
 
-> **Paridad 1:1 Python ↔ interfaz, secuenciada (2026-09-09; PROPUESTA, pendiente de revisión
-> adversarial y del OK de Cami; nace de la decisión 2 de Cami del 2026-09-09).**
+> **Paridad 1:1 Python ↔ interfaz, secuenciada (2026-09-09; APROBADA por Cami el 2026-09-09 en
+> bloque; fija el objetivo, no autoriza a programar ningún bloque —cada uno exige su propia
+> enmienda medida—; nace de la decisión 2 de Cami del 2026-09-09).**
 > [`_ENMIENDA-PARIDAD-1-1.md`](_ENMIENDA-PARIDAD-1-1.md), D-PAR-1…D-PAR-9. Objetivo de roadmap
 > —toda sección orquestable del motor es alcanzable desde la interfaz— con criterio de entregado
 > de **seis superficies** (formulario con copy público, trabajo ejecutable, serializer y panel,

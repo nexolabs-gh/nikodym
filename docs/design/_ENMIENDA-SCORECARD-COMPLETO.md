@@ -1,7 +1,12 @@
 # Enmienda SDD — el scorecard completo en la interfaz: EDA, validación formal, selección, bandas del PSI y la ficha del modelo en el informe
 
-> **Estado: PROPUESTA, pendiente de revisión adversarial y del OK de Cami.** Diseño sin código
-> (S6). Nace de la decisión 4 de Cami del 2026-09-09: «scorecard completo» = EDA con trabajo,
+> **Estado: APROBADA por Cami el 2026-09-09**, en bloque y con las recomendaciones de su §8,
+> **salvo la pregunta 7** —las 49 descripciones de copy público—, que Cami revisa **capa por capa**
+> contra la pantalla que las muestra: las tablas §3.6 y §3.7 son el borrador de trabajo, no copy
+> cerrado. **Revisión adversarial ejecutada** en S6 (dieciséis pasadas de Codex sobre el rango
+> acumulado, 18 hallazgos propios sostenidos y corregidos, approve final). Se implementa **una capa
+> por sesión**, empezando por la capa 1. Diseño sin código (S6). Nace de la decisión 4 de Cami del
+> 2026-09-09: «scorecard completo» = EDA con trabajo,
 > panel y guía; `validation` en el formulario y en Resultados; panel de `selection` y copy de las
 > bandas del PSI; y la ficha del modelo en el informe (abierto 3 de D-GOB, ya no diferido).
 >
@@ -735,6 +740,21 @@ entre el flip y la recaptura es la razón de que las dos cosas vayan en la misma
 - No toca el copy aprobado de D-GOB-13 ni el de la ficha en Resultados: los reutiliza.
 
 ## 8. Lo que Cami decide
+
+> **RESPONDIDO por Cami el 2026-09-09: aprobado en bloque, con la recomendación de cada punto.**
+> Es decir: **1** sí (D-SC-1…16 y el orden 1 → 2 → 3 → 4 → 5, la 5 pegada a la release);
+> **2** «Estable · Revisar · Redesarrollar · No evaluable»; **3** «Pasa · Revisar · Falla» bajo
+> «Estado técnico»; **4** se mide en la capa 2 y entra sólo si el esqueleto resulta ejecutable;
+> **5** sí, tarea aparte después del scorecard completo; **6** sí, en la capa 3; **8** sí, en la
+> capa 3 (minor con nota); **9** no en esta enmienda; **10** inferencia; **11** oculto, con tarea
+> aparte; **12** no aquí.
+>
+> ⚠️ **La 7 es la excepción deliberada.** No es una decisión entre opciones: son 49 descripciones
+> que se leen en los tooltips del formulario, y revisarlas en bloque, sin la pantalla al lado, no
+> es revisarlas. Las tablas §3.6 (17, EDA) y §3.7 (32, `validation`) quedan como **borrador de
+> trabajo aprobado para implementar**; Cami las revisa **en la capa que las pinta** —la 3 y la 2
+> respectivamente— contra la UI viva, y conserva la palabra final sobre cada texto. Un cambio de
+> texto ahí no reabre el diseño: es copy.
 
 1. **¿Se aprueban D-SC-1…D-SC-16 y el orden de capas 1 → 2 → 3 → 4 → 5?** Recomendación: sí,
    con la capa 5 pegada a la release por el gate del fixture de la demo.

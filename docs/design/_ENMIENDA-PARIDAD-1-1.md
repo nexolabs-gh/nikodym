@@ -1,6 +1,12 @@
 # Enmienda SDD — paridad 1:1 Python ↔ interfaz, secuenciada (objetivo de roadmap)
 
-> **Estado: PROPUESTA, pendiente de revisión adversarial y del OK de Cami.** Diseño sin código
+> **Estado: APROBADA por Cami el 2026-09-09**, en bloque y con las recomendaciones de su §8:
+> el objetivo, el criterio de seis superficies y el orden A → B → C; `[ui]` compone también `ml`,
+> `tuning` y `explain` dejando los backends GBDT como extras que el abanico declara (opción a);
+> el bloque B entra como **trabajo nuevo** «Scorecard con modelo retador»; el bloque C **se
+> compromete como objetivo con condiciones de entrada y sin fecha**; y el gate de D-PAR-6 entra con
+> el bloque A. **Revisión adversarial ejecutada** en S6 (0 hallazgos). Sigue sin ser el SDD de
+> ningún bloque: cada uno exige su propia enmienda medida antes de programar. Diseño sin código
 > (S6). Nace de la decisión 2 de Cami del 2026-09-09: «paridad 1:1 Python ↔ interfaz,
 > secuenciada: primero lo que completa el scorecard, luego ML/tuning/explain, al final forward,
 > Markov y stress». Fija el **objetivo**, el **criterio de entregado**, el **orden** y las
@@ -236,6 +242,10 @@ enlace a este documento; `docs/design/00-INDICE.md` lo indexa (`test_indice_dise
 - No reabre D-JOB-13 (`stress` `unavailable`) ni D-JOB-18 (`validation`, que cierra el bloque A).
 
 ## 8. Lo que Cami decide
+
+> **RESPONDIDO por Cami el 2026-09-09: aprobado en bloque, con la recomendación de cada punto**
+> —1 sí; 2 opción **(a)**; 3 **trabajo nuevo**; 4 **se compromete sin fecha**; 5 sí—. Aprobar el
+> objetivo NO autoriza a programar ningún bloque: D-PAR-3 exige la enmienda medida de cada uno.
 
 1. **¿Se aprueban el objetivo (D-PAR-1), el criterio de seis superficies (D-PAR-2) y el orden
    A → B → C (D-PAR-3)?** Recomendación: sí.
