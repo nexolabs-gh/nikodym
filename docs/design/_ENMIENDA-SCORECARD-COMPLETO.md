@@ -155,6 +155,14 @@
     `backtesting` y `enabled=False` (`config.py:447-469` con el flag encendido levanta con `loc`;
     apagado, el evaluador registra la marca y sigue, `evaluator.py:418-425`). El gate de la
     capa 2 se reescribe con esas tres rutas y el caso borde de §5 se corrige.
+20. **Los grados no evaluables no están en las tablas tidy** (duodécima revisión adversarial,
+    2026-09-09, verificada): `_grade_records` deja fuera de la tabla `calibration` y de
+    `n_tests`/`n_failed` los grados con `n < min_rows_per_group` —por invariante regulatorio: un
+    grado sin potencia no produce semáforo (`evaluator.py:346-355`)— y sólo los publica en
+    `metric_sections.validation.not_evaluable_grades` (`evaluator.py:163-209, 882-901`;
+    `test_validate_grado_bajo_minimo_no_contamina_verdicto`). Un panel que pintara sólo la tabla
+    y el estado mostraría «Pasa · 0 de 1 tests fallidos» con un grado entero sin evaluar. D-SC-9
+    prescribe la superficie de cobertura.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -354,7 +362,14 @@ y las cuatro tablas tidy tal como las publica el motor (`discrimination`, `calib
 `stability`, `backtesting`), que son agregadas por partición/test/grado/segmento. El panel:
 cabecera «Estado técnico» con el estado y «N de M tests fallidos», la frase de la prosa —es
 evidencia técnica; el veredicto es del validador—, una sección por familia corrida (tabla), los
-avisos declarados con la marca, y nada de códigos. Un solo vocabulario para el estado en informe
+avisos declarados con la marca, y nada de códigos. **Cobertura por grado** (§0-20): cuando corre
+el test por grado, la sección de calibración abre con «Grados evaluados: X de Y» y, si hay
+grados sin potencia, una tabla «Grados no evaluados» leída de
+`metric_sections.validation.not_evaluable_grades` (grado, operaciones, incumplimientos
+observados, PD estimada, tasa observada y el mínimo técnico que los dejó fuera), con la nota «un
+grado con menos operaciones que el mínimo no recibe semáforo ni cuenta en los tests»; el estado
+del motor **no** se recalcula ni se reinterpreta: se muestra tal cual, junto a la cobertura.
+Un solo vocabulario para el estado en informe
 y pantalla (§8-3): recomendación **«Pasa» · «Revisar» · «Falla»** bajo el rótulo «Estado
 técnico», sustituyendo «Pass técnico / Requiere revisión / Falla técnica» de `prose.py:81-84`.
 Tipos `ValidationResult`, `ValidationCard`, `ValidationDiscriminationRow`, `ValidationCalibrationRow`,
@@ -581,7 +596,11 @@ override), `test_copy_del_formulario` (26 visibles, 160 caracteres, sin literale
 códigos), `test_jobs_abanico` (sus `Literal` declarados o exentos con razón), `gen_schema_fixture`
 + `gen_jobs_fixture` + bundle, `test_extra_ui_cubre_el_formulario` (`validation` → extra `scoring`,
 ya dentro de `[ui]`), gate espejo de tipos, `ResultsTab.test.ts` con una corrida real con
-`validation` (estado `fail` real) y con `null`, **una corrida real con
+`validation` (estado `fail` real) y con `null`, **render con cobertura parcial** (un grado
+evaluado y uno bajo mínimo: la tabla «Grados no evaluados» aparece con sus cinco columnas y el
+estado del motor no cambia) **y con todos los grados bajo mínimo** (cero evaluados, tabla
+completa, ningún semáforo), ambos con el `not_evaluable_grades` que publica
+`test_validate_grado_bajo_minimo_no_contamina_verdicto`, **una corrida real con
 `discrimination.consume_performance=False`** que exija filas con `source="recomputed"` (la única
 rama de recálculo cableada, §0-9) y el gate D-SUB sobre `consume_stability` oculto, **preflight
 en los dos sentidos** (`test_column_roles`): con el preset F1 y con el esqueleto del trabajo
