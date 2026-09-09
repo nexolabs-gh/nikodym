@@ -102,6 +102,19 @@
     con `axis="period"` en el config; y `_evaluable_rates` excluye los períodos de baja confianza
     (`eda/stability.py:150-160`), así que «un solo período» no es la única causa de `NaN`. D-SC-2 y
     D-SC-5 ganan los campos que faltan y los tres casos se gatean con sus rótulos.
+12. **La inactividad por sub-modelo no cubre una familia deseleccionada** (cuarta revisión
+    adversarial, 2026-09-09, verificada): con `families=("discrimination",)` los sub-configs
+    `calibration` y `backtesting` no se consumen (`_requires_for` y el evaluador miran
+    `families`), pero el preflight los recorre igual, y sus flags pueden quedar encendidos. El
+    preflight **sí** poda un campo y su subárbol cuando el **padre** lo declara inactivo
+    (`dataset_check.py:576-583`, D-SUB-1), así que `ValidationConfig.columnas_inactivas()` **sí
+    hace falta** y devuelve los sub-configs de las familias ausentes. La redacción anterior de
+    D-SC-7 decía lo contrario; corregida.
+13. **La tasa media cero es una tercera causa de no evaluabilidad** (misma revisión, verificada):
+    `_coefficient_of_variation` y `_max_relative_drift` devuelven `NaN` con media cero
+    (`eda/stability.py:183-196`); dos períodos suficientes sin ningún incumplimiento llegan ahí
+    con `trend_slope` evaluable (cero). El enum de D-SC-2 gana `tasa_media_cero`, condicionado al
+    indicador elegido.
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -180,10 +193,13 @@ declara los dos ejes como soportados y §8 ya declara el caso no evaluable; el `
 config válido hoy cambia de resultado; un config que hoy revienta pasa a producir tasa por cohorte,
 perfiles y calidad con la señal temporal declarada no evaluable. La tasa por cohorte **sí** es
 útil: es la vista de añada que ESPECIFICACIONES §5.2 pide. `StabilityResult` gana el campo
-aditivo `not_evaluable_reason: Literal["eje_cohorte", "pocos_periodos_evaluables"] | None = None`
-(§0-11): «pocos períodos evaluables» cubre tanto el período único como varios períodos de los
-que menos de dos superan `min_obs_per_period`; la decisión `no_evaluable` del trail lleva la
-misma causa en `valor`.
+aditivo `not_evaluable_reason: Literal["eje_cohorte", "pocos_periodos_evaluables",
+"tasa_media_cero"] | None = None` (§0-11, §0-13): «pocos períodos evaluables» cubre tanto el
+período único como varios períodos de los que menos de dos superan `min_obs_per_period`; «tasa
+media cero» aplica cuando el indicador elegido es `cv` o `max_relative_drift` y las tasas
+evaluables promedian cero (con `trend_slope` el indicador es evaluable y vale cero, y no hay
+causa). La regla es: hay causa **si y sólo si** el indicador configurado no es finito; la decisión
+`no_evaluable` del trail lleva la misma causa en `valor`.
 
 **D-SC-3 · El eje de la tasa de incumplimiento se INFIERE de lo que el usuario ya declaró; la
 elección explícita declara lo que exige (D-EXI).** ⚠️ Reescrita tras la segunda revisión
@@ -223,7 +239,8 @@ población sobre la que todo lo demás se lee): tasa global y por período o coh
 `axis="period"`, barras si `axis="cohort"`, decidido por el eje efectivo y no por el config— con
 la nota «eje tomado de la partición por cohorte» cuando `axis_inferred`; la señal de estabilidad
 con su indicador, umbral y valor, o su causa cuando no se evalúa («No evaluable: eje de cohorte»
-/ «No evaluable: menos de dos períodos con observaciones suficientes»); y la tabla de calidad con
+/ «No evaluable: menos de dos períodos con observaciones suficientes» / «No evaluable: sin
+incumplimientos en los períodos evaluables»); y la tabla de calidad con
 sus tres marcas en español («casi constante», «casi única», «alta cardinalidad»); los perfiles
 univariados como desplegable por variable. Guard por presencia: sin card no hay bloque. Tipos
 `EdaResult`, `EdaPeriodRow`, `EdaQualityRow`, `EdaProfileRow` en `results-types.ts`, espejo con
@@ -264,9 +281,11 @@ cuatro de backtesting exigen `backtesting.enabled`), **y su inactividad se decla
 (§0-10): `CalibrationValidationConfig.columnas_inactivas()` devuelve `{"grade_col"}` cuando
 `binomial_by_grade` está apagado; `BacktestingValidationConfig.columnas_inactivas()` devuelve las
 cuatro cuando `enabled` está apagado y, encendido, la columna realizada de cada parámetro que no
-esté en `parameters`; `ValidationConfig.columnas_inactivas()` no hace falta porque una familia
-ausente de `families` deja su sub-config sin consumir y D-RAM-3 exige nombres del propio modelo:
-la familia se apaga por el flag del sub-modelo, que es lo que el evaluador mira. Los códigos
+esté en `parameters`; y **`ValidationConfig.columnas_inactivas()` devuelve el nombre de cada
+sub-config cuya familia no esté en `families`** (`calibration`, `backtesting`), porque el preflight
+poda el campo y su subárbol cuando el padre lo declara (D-SUB-1, §0-12) y una familia
+deseleccionada puede dejar sus flags encendidos sin que nadie los consuma. Las guardas de los
+hijos se conservan: cubren la familia activa con la prueba apagada. Los códigos
 `FALTA-DATO-VAL-*`, `DATO-INSTITUCIONAL-VAL-4`, «ECB», «BCBS», «chi2», «G−2 gl», «NaN» salen del
 copy.
 
@@ -439,9 +458,10 @@ Grupos: «General», «Discriminación», «Calibración», «Semáforo», «Est
   `data.partition.strategy.cohort_col` cuando no hay fecha, con decisión auditable
   `eje_eda_inferido`; `StabilityResult.not_evaluable_reason` y `EdaCardSection.{axis,
   axis_inferred, stability_not_evaluable_reason}`, todos aditivos con default.
-- **Motor** (`validation`, D-SC-7): `columnas_inactivas()` en `CalibrationValidationConfig` y
-  `BacktestingValidationConfig` (D-RAM-1/3), aditivo: sin `column_role` no cambia nada; con él,
-  el preflight calla exactamente las columnas de las ramas apagadas.
+- **Motor** (`validation`, D-SC-7): `columnas_inactivas()` en `ValidationConfig` (familias
+  ausentes → su sub-config entero), `CalibrationValidationConfig` y
+  `BacktestingValidationConfig` (D-RAM-1/3, D-SUB-1), aditivo: sin `column_role` no cambia nada;
+  con él, el preflight calla exactamente las columnas de las ramas y familias apagadas.
 - **Catálogo**: `sections` de `scorecard_pd` y `pd_y_lgd` ganan `eda` (2.ª) y `validation` (tras
   `stability`); `overrides` de ambos ganan `("validation.calibration.binomial_by_grade", False)`;
   `_DECISIONES_POR_SECCION` **no cambia** (ninguna de las dos secciones tiene un campo sin
@@ -515,7 +535,9 @@ en los dos sentidos** (`test_column_roles`): con el preset F1 y con el esqueleto
 —ramas apagadas— `check_dataset` no reclama `grade` ni `realised_*` (control positivo: el
 preflight sigue viendo las columnas de `data`); con `binomial_by_grade=True` y sin `grade` en el
 archivo, lo reclama con su nombre de negocio; con backtesting encendido y `parameters=("pd",)`,
-reclama sólo `realised_default`, guía nueva
+reclama sólo `realised_default`; con `families=("discrimination",)` y `binomial_by_grade=True` o
+`backtesting.enabled=True` dejados encendidos, **no** reclama nada de esas familias, y volver a
+seleccionarlas vuelve a reclamar sus columnas (§0-12), guía nueva
 `docs_site/guias/validacion-formal.md`, «Empezar». **Gate nuevo, de ejecución real**: el esqueleto
 del trabajo «Scorecard de comportamiento (PD)» —con sus decisiones contestadas por la precarga—
 corre por `/api/run` sobre `consumo_comportamiento` hasta `done` y el payload trae `validation`
@@ -544,11 +566,14 @@ del motor → su test nacido rojo vuelve a rojo y la corrida real del esqueleto 
 del abanico; perfilar la columna del target en el preset → el gate del preset (capa 5) lo acusa.
 **Los tres casos de la card, gateados con sus rótulos** (§0-11): cohorte inferida (`axis="cohort"`,
 `axis_inferred=True`, causa `eje_cohorte`, barras y nota en el panel), período único (`axis=
-"period"`, causa `pocos_periodos_evaluables`, sin figura de línea) y varios períodos con menos de
+"period"`, causa `pocos_periodos_evaluables`, sin figura de línea), varios períodos con menos de
 dos que superen `min_obs_per_period` (misma causa; la tabla por período muestra las filas de
-baja confianza marcadas). **CN**: pintar la línea decidiendo por el `axis` del config y no por el
-efectivo → rojo el render con cohorte inferida; devolver `not_evaluable_reason=None` con `NaN` →
-rojo el test del analizador.
+baja confianza marcadas) y **dos períodos suficientes sin incumplimientos** (§0-13: con `cv` o
+`max_relative_drift` causa `tasa_media_cero`; con `trend_slope` evaluable y valor cero, sin
+causa). **CN**: pintar la línea decidiendo por el `axis` del config y no por el efectivo → rojo el
+render con cohorte inferida; devolver `not_evaluable_reason=None` con el indicador en `NaN`, o una
+causa con el indicador finito → rojo el test del analizador (la regla «causa ⇔ indicador no
+finito» se prueba en los dos sentidos).
 
 **Capa 4 — «Ficha del modelo» en el informe.** D-SC-13…D-SC-16. Gates: golden HTML intacto con
 `governance=None` (control positivo); capítulo presente con `governance` real de una corrida por
