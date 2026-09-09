@@ -59,6 +59,22 @@
   D-JUR-9.4 prometía era falsa. Corregido: **el cable lleva el catálogo completo con la oferta
   marcada** (`offered`), y el front ofrece con la marca y resuelve con todo.
 
+### 0.1 Lo que la implementación (S7) midió distinto de este texto
+
+Tres diferencias, medidas al implementar el 2026-09-09. Ninguna cambia una decisión; se dejan
+escritas para que el texto no siga afirmando lo que el árbol desmiente.
+
+| Este documento decía | Lo medido | Qué se hizo |
+|---|---|---|
+| «los **ocho** fixtures F3 (~1,2 MB)» (§8-2) | son **siete** archivos y **1.034.091 bytes** (0,99 MiB); la propia enumeración del §8-2 lista siete | se borraron exactamente los siete enumerados |
+| la matriz de `recapture-demo.yml` pasa a `f1 / ifrs9 / **f5**` (§1.2) | no existe `capture_demo_fixtures_f5.py` ni fixture F5, y §7 deja la captura de F5 a la recaptura de la release con su propio OK (D-GOB-9) | la matriz queda en `f1 / ifrs9`; **`f5` entra con la release**, junto a su capturador. Declarar hoy una fila que apunta a un script inexistente habría dejado el workflow roto por construcción |
+| «`norma-local.md` gana “Cómo verlo”» (§1.2), sin fijar formato | `pymdownx.tabbed` **no** está en `mkdocs.yml`: unas pestañas `=== "…"` se habrían publicado como texto literal | la sección va con la sintaxis que el sitio ya soporta, verificada sobre el HTML renderizado |
+
+Y una salvedad que la revisión adversarial de S7 añadió y este documento no preveía: el sitio se
+despliega en cada push con CI verde y **va por delante de PyPI**, así que el comando nuevo se
+documenta con la nota «Si instalaste desde PyPI» que el repo ya usa —medido: `v1.12.0` no acepta
+`--casos-de-referencia` y sí ofrece los dos trabajos CMF sin ella—.
+
 ## 1. El estado, medido sobre `40cb5a3`
 
 Censo hecho con Python sobre el árbol (no con `grep` de rótulos con tilde), en los dos sentidos:
