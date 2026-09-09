@@ -163,6 +163,13 @@
     `test_validate_grado_bajo_minimo_no_contamina_verdicto`). Un panel que pintara sólo la tabla
     y el estado mostraría «Pasa · 0 de 1 tests fallidos» con un grado entero sin evaluar. D-SC-9
     prescribe la superficie de cobertura.
+21. **`min_rows_per_group` no protege cada grupo de Hosmer-Lemeshow** (decimotercera revisión
+    adversarial, 2026-09-09, verificada): `_hosmer_lemeshow_record` compara el mínimo contra la
+    **partición entera** (`evaluator.py:329`) y llama a `hosmer_lemeshow` sin pasarle el mínimo
+    (`:340`); sólo el test por grado lo aplica grado a grado (`:346-355`). Una partición de 100
+    operaciones con 10 grupos y mínimo 30 recibe veredicto con grupos de 10. El copy de §3.7
+    decía «un grupo o un grado…»; acotado al comportamiento real, con gate. Cambiar la
+    metodología sería otra decisión (§8-12).
 
 ## 1. El estado, medido sobre `40cb5a3`
 
@@ -498,7 +505,7 @@ sitio).
 | `calibration.target_column` | **oculto (D-SUB)** | «Columna con el resultado binario (0/1) para la calibración.» | — (columna del artefacto interno) |
 | `calibration.pd_column` | **oculto (D-SUB)** | «Columna con la PD calibrada que alimenta Hosmer-Lemeshow, Brier y el test por grado.» | — |
 | `calibration.partition_column` | **oculto (D-SUB)** | «Columna que identifica Desarrollo, Holdout y OOT.» | — |
-| `calibration.min_rows_per_group` | visible | «Grupos HL/grados bajo este mínimo se auditan como not_evaluable, no NaN.» | Un grupo o un grado con menos operaciones que esto no se evalúa: queda marcado como no evaluable en vez de dar un número engañoso. |
+| `calibration.min_rows_per_group` | visible | «Grupos HL/grados bajo este mínimo se auditan como not_evaluable, no NaN.» | Mínimo de operaciones para evaluar: una partición entera con menos que esto no recibe la prueba de Hosmer-Lemeshow, y un grado de rating con menos que esto no recibe el test por grado. Quedan marcados como no evaluados en vez de dar un número engañoso. No se aplica a cada grupo de PD dentro de la prueba de Hosmer-Lemeshow. |
 | `stability.consume_stability` | **oculto (D-SUB)** | «Con True se toma el PSI ya calculado en la etapa de estabilidad; con False se calcula aquí con ese mismo motor, nunca con otra fórmula.» | — (apagado aborta la corrida: el paso no pasa el frame que el recálculo exige, §0-9) |
 | `stability.psi_stable_threshold` | visible | «Por debajo de este valor el PSI se considera estable; al alcanzarlo o superarlo inicia la banda de revisión.» | Por debajo de este PSI la población se considera estable; desde este valor entra en la banda de revisión. |
 | `stability.psi_review_threshold` | visible | «Al alcanzar o superar este valor, el PSI gatilla redesarrollo.» | Desde este PSI la banda es la de redesarrollo. Tiene que ser mayor que el umbral de revisión. |
@@ -621,7 +628,10 @@ tooltip se ata a ese trío); **`backtesting.enabled=True` en un trabajo sin IFRS
 aviso sino una dependencia del DAG (`_requires_for`, `step.py:319-322`): `check_pipeline` lo
 declara inejecutable y el gate lo fija así; el fallback del evaluador sin artefactos se prueba
 invocando `ValidationEvaluator.validate` directamente; **`one_sided`** (§0-18): con
-`parameters=("pd","lgd")` y el flag apagado, la fila de LGD sale bilateral y la de PD unilateral,
+`parameters=("pd","lgd")` y el flag apagado, la fila de LGD sale bilateral y la de PD unilateral;
+**`min_rows_per_group`** (§0-21): una partición de 100 operaciones con `hl_n_groups=10` y mínimo
+30 **sí** recibe veredicto de Hosmer-Lemeshow (el copy no puede prometer lo contrario) y una de
+20 no (`not_evaluable`), mientras que un grado de 20 queda en «Grados no evaluados»,
 guía nueva
 `docs_site/guias/validacion-formal.md`, «Empezar». **Gate nuevo, de ejecución real**: el esqueleto
 del trabajo «Scorecard de comportamiento (PD)» —con sus decisiones contestadas por la precarga—
@@ -735,3 +745,7 @@ entre el flip y la recaptura es la razón de que las dos cosas vayan en la misma
     corrida) en la capa 2, o se deja oculto? Recomendación: **oculto en esta enmienda** y una
     tarea aparte para el cableado con su gate de `source="recomputed"`; no bloquea nada porque
     ningún preset ni esqueleto lo apaga.
+12. **¿Se cambia la metodología para que el mínimo de observaciones proteja cada grupo de
+    Hosmer-Lemeshow** (§0-21), y no sólo la partición? Es un cambio de cálculo de un dominio
+    experimental (SDD-22 §6/§8 hablan de «grupos HL/grados bajo mínimo») y exige su propia
+    enmienda con goldens. Recomendación: **no aquí**; el copy dice lo que el motor hace.
